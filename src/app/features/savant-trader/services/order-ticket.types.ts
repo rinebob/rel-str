@@ -59,6 +59,10 @@ export interface OrderTicketSignalContext {
   timeframe: string;
   direction: string;
   decisionId: string;
+  /** Closing price of the bar that fired the signal — the price at signal
+   *  generation. Captured at staging from the signal's `closePrice`; absent
+   *  on tickets staged before this field existed or when the run omitted it. */
+  signalPrice?: number;
 }
 
 /** Error details when submission fails. */
@@ -122,6 +126,11 @@ export interface BaseOrderTicket {
   timeInForce: 'gfd' | 'gtc';
   marketHours: 'regular_hours' | 'extended_hours' | 'all_day_hours';
   signalContext?: OrderTicketSignalContext;
+  /** Optional allocation-bucket doc id — set by the ticket's bucket
+   *  picker; seeds the resulting position's attribution at fill
+   *  (portfolio allocation, task #592). Never required: unset → the
+   *  position lands in Unassigned. */
+  bucketId?: string;
   createdAt: string;
   updatedAt: string;
   /** RH-derived timestamp when the broker order reached a terminal state.

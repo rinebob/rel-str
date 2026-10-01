@@ -281,6 +281,51 @@ export class OrderQueueComponent {
     return this.prices()[sym.toUpperCase()] ?? null;
   }
 
+  /** Reference price for the row's % change, with a label describing what
+   *  the anchor is. Precedence: price at signal generation (signal tickets)
+   *  → broker fill/avg cost (position rows) → the ticket's own order price
+   *  (resting stops show distance-to-trigger). Null for options or tickets
+   *  carrying no price reference (e.g. staged before signalPrice existed). */
+  anchorFor(ticket: OrderTicket): { price: number; label: string } | null {
+    if (ticket.instrumentType === InstrumentType.OPTION) return null;
+    const signalPrice = ticket.signalContext?.signalPrice;
+    if (signalPrice != null && signalPrice > 0) {
+      return { price: signalPrice, label: 'At signal' };
+    }
+    // fillPrice is only an average cost on FILLED rows — the RH merge also
+    // writes the order's limit price there for submitted/resting tickets.
+    if (ticket.status === OrderTicketStatus.FILLED) {
+      const fill = this.num(ticket.result?.fillPrice);
+      if (fill != null && fill > 0) {
+        return { price: fill, label: ticket.side === 'sell' ? 'Fill' : 'Avg cost' };
+      }
+    }
+    const stop = this.num(ticket.stopPrice);
+    if (stop != null && stop > 0) return { price: stop, label: 'Stop' };
+    const limit = this.num(ticket.limitPrice);
+    if (limit != null && limit > 0) return { price: limit, label: 'Limit' };
+    return null;
+  }
+
+  /** Signed % change from the anchor to the current price; null when either
+   *  side is missing. Raw price move — the sign conveys direction only;
+   *  whether that move is good depends on intent (a short entry wants down,
+   *  a protective stop wants up), which the row doesn't adjudicate. */
+  pctFor(ticket: OrderTicket): number | null {
+    const anchor = this.anchorFor(ticket)?.price;
+    const price = this.priceFor(ticket);
+    if (anchor == null || price == null || price <= 0) return null;
+    return Math.round(((price - anchor) / anchor) * 1000) / 10;
+  }
+
+  /** Color class for the % chip: green when price rose since the anchor,
+   *  red when it fell. Direction, not judgement. */
+  pctClassFor(ticket: OrderTicket): 'pct-pos' | 'pct-neg' | '' {
+    const pct = this.pctFor(ticket);
+    if (pct == null) return '';
+    return pct >= 0 ? 'pct-pos' : 'pct-neg';
+  }
+
   /** Date display: signal bar date if signal-sourced, otherwise createdAt date; null when neither exists. */
   dateFor(ticket: OrderTicket): string | null {
     const signalDate = ticket.signalContext?.barDate;

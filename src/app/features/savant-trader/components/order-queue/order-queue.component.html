@@ -75,23 +75,24 @@
             <div class="item-main">
               <div class="item-line-1">
                 <span class="item-symbol" [matTooltip]="symbolFor(ticket)">{{ symbolFor(ticket) }}</span>
-                @if (ticket.side === 'buy' && hasProtection(ticket)) {
-                  <span class="protected-badge">PROTECTED</span>
-                }
-                @if (ticket.status === TicketStatus.CANCELLED) {
-                  <button
-                    type="button"
-                    class="requeue-btn"
-                    (click)="requeueTicket.emit(ticket.id); $event.stopPropagation()">
-                    <mat-icon>replay</mat-icon>Requeue
-                  </button>
-                }
                 <!-- Everything after the symbol is a fixed-width column;
                      the symbol flexes, so the columns anchor at the same
                      right-side offsets on every row. -->
+                <span class="item-anchor">
+                  @if (anchorFor(ticket); as anchor) {
+                    <span [matTooltip]="anchor.label">{{ anchor.price | currency:'USD':'symbol':(anchor.price >= 1000 ? '1.0-0' : '1.2-2') }}</span>
+                  }
+                </span>
                 <span class="item-price">
                   @if (priceFor(ticket); as price) {
-                    {{ price | currency:'USD':'symbol':'1.2-2' }}
+                    {{ price | currency:'USD':'symbol':(price >= 1000 ? '1.0-0' : '1.2-2') }}
+                  }
+                </span>
+                <span class="item-pct"
+                  [class.pct-pos]="pctClassFor(ticket) === 'pct-pos'"
+                  [class.pct-neg]="pctClassFor(ticket) === 'pct-neg'">
+                  @if (pctFor(ticket); as pct) {
+                    {{ pct > 0 ? '+' : '' }}{{ pct | number:'1.1-1' }}%
                   }
                 </span>
                 <span class="item-side" [class.side-buy]="ticket.side === 'buy'" [class.side-sell]="ticket.side === 'sell'">
@@ -116,6 +117,23 @@
                   }
                 </span>
               </div>
+              <!-- Badges/actions live on line 2 — keeping them on line 1
+                   would overflow the fixed-width column budget. -->
+              @if ((ticket.side === 'buy' && hasProtection(ticket)) || ticket.status === TicketStatus.CANCELLED) {
+                <div class="item-line-2">
+                  @if (ticket.side === 'buy' && hasProtection(ticket)) {
+                    <span class="protected-badge">PROTECTED</span>
+                  }
+                  @if (ticket.status === TicketStatus.CANCELLED) {
+                    <button
+                      type="button"
+                      class="requeue-btn"
+                      (click)="requeueTicket.emit(ticket.id); $event.stopPropagation()">
+                      <mat-icon>replay</mat-icon>Requeue
+                    </button>
+                  }
+                </div>
+              }
             </div>
           </div>
 

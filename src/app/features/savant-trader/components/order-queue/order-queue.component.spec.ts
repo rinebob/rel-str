@@ -574,7 +574,192 @@ describe('OrderQueueComponent', () => {
       expect(fixture.nativeElement.querySelector('.source-badge')).toBeNull();
     });
 
-    it('omits the date span when the ticket has no signalContext or createdAt date', () => {
+      it('shows signal price, current price, and % change since signal for signal-sourced rows', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        signalContext: {
+          signalType: 'DAILY_BREAKOUT', barDate: '2026-08-25', timeframe: 'daily',
+          direction: 'LONG', decisionId: 'd1', signalPrice: 100,
+        },
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('prices', { AAPL: 110 });
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const anchor = fixture.nativeElement.querySelector('.item-anchor');
+      expect(anchor?.textContent).toContain('$100.00');
+      const pct = fixture.nativeElement.querySelector('.item-pct');
+      expect(pct?.textContent).toContain('+10.0%');
+      expect(pct?.classList).toContain('pct-pos');
+      expect(component.anchorFor(ticket)?.label).toBe('At signal');
+    });
+
+    it('anchors open-position rows on RH average cost basis', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.FILLED, 'AAPL', 'buy', {
+        result: { state: 'filled', fillPrice: '50', filledQuantity: '100' },
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('prices', { AAPL: 55 });
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const anchor = fixture.nativeElement.querySelector('.item-anchor');
+      expect(anchor?.textContent).toContain('$50.00');
+      expect(fixture.nativeElement.querySelector('.item-pct')?.textContent).toContain('+10.0%');
+      expect(component.anchorFor(ticket)?.label).toBe('Avg cost');
+    });
+
+    it('does not anchor non-filled rows on result.fillPrice — RH merge writes the limit price there', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.SUBMITTED, 'AAPL', 'buy', {
+        limitPrice: '108',
+        result: { orderId: 'rh-1', state: 'queued', fillPrice: '105' },
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('prices', { AAPL: 110 });
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const anchor = component.anchorFor(ticket);
+      expect(anchor?.price).toBe(108);
+      expect(anchor?.label).toBe('Limit');
+      expect(fixture.nativeElement.querySelector('.item-anchor')?.textContent).toContain('$108.00');
+    });
+
+    it('a FILLED row with no fill data falls through to stop/limit or nothing', () => {
+      const bare = makeTicket('1', OrderTicketStatus.FILLED, 'AAPL', 'buy');
+      expect(component.anchorFor(bare)).toBeNull();
+
+      const withStop = makeTicket('2', OrderTicketStatus.FILLED, 'NVDA', 'sell', {
+        stopPrice: '95',
+      });
+      expect(component.anchorFor(withStop)).toEqual({ price: 95, label: 'Stop' });
+    });
+
+    it('labels a sell-side fill anchor "Fill", not "Avg cost"', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.FILLED, 'AAPL', 'sell', {
+        result: { state: 'filled', fillPrice: '50', filledQuantity: '100' },
+      });
+      expect(component.anchorFor(ticket)?.label).toBe('Fill');
+    });
+
+    it('ignores a non-positive signalPrice and falls through to the next anchor', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        signalContext: {
+          signalType: 'DAILY_BREAKOUT', barDate: '2026-08-25', timeframe: 'daily',
+          direction: 'LONG', decisionId: 'd1', signalPrice: 0,
+        },
+        limitPrice: '99',
+      });
+      expect(component.anchorFor(ticket)).toEqual({ price: 99, label: 'Limit' });
+    });
+
+    it('anchors resting stop rows on their stop price', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.RESTING, 'AAPL', 'sell', {
+        stopPrice: '95',
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('prices', { AAPL: 100 });
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.item-anchor')?.textContent).toContain('$95.00');
+      const pct = fixture.nativeElement.querySelector('.item-pct');
+      expect(pct?.textContent).toContain('+5.3%');
+      expect(component.anchorFor(ticket)?.label).toBe('Stop');
+    });
+
+    it('prefers the signal anchor over a later fill price — % stays relative to signal generation', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.FILLED, 'AAPL', 'buy', {
+        signalContext: {
+          signalType: 'DAILY_BREAKOUT', barDate: '2026-08-25', timeframe: 'daily',
+          direction: 'LONG', decisionId: 'd1', signalPrice: 100,
+        },
+        result: { state: 'filled', fillPrice: '105', filledQuantity: '10' },
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('prices', { AAPL: 110 });
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.item-anchor')?.textContent).toContain('$100.00');
+      expect(fixture.nativeElement.querySelector('.item-pct')?.textContent).toContain('+10.0%');
+    });
+
+    it('shows no anchor or pct when the ticket has no price reference — current price only', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL');
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('prices', { AAPL: 110 });
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.item-price')?.textContent).toContain('$110.00');
+      expect(fixture.nativeElement.querySelector('.item-anchor')?.textContent.trim()).toBe('');
+      expect(fixture.nativeElement.querySelector('.item-pct')?.textContent.trim()).toBe('');
+    });
+
+    it('shows the anchor without pct when the live price has not loaded', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        signalContext: {
+          signalType: 'DAILY_BREAKOUT', barDate: '2026-08-25', timeframe: 'daily',
+          direction: 'LONG', decisionId: 'd1', signalPrice: 100,
+        },
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('prices', {});
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.item-anchor')?.textContent).toContain('$100.00');
+      expect(fixture.nativeElement.querySelector('.item-pct')?.textContent.trim()).toBe('');
+    });
+
+    it('colors the % by direction — a price drop is negative for buys and sells alike', () => {
+      const buy = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        signalContext: {
+          signalType: 'DAILY_BREAKOUT', barDate: '2026-08-25', timeframe: 'daily',
+          direction: 'LONG', decisionId: 'd1', signalPrice: 100,
+        },
+      });
+      fixture.componentRef.setInput('tickets', [buy]);
+      fixture.componentRef.setInput('prices', { AAPL: 95 });
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const pct = fixture.nativeElement.querySelector('.item-pct');
+      expect(pct?.textContent).toContain('-5.0%');
+      expect(pct?.classList).toContain('pct-neg');
+
+      const sell = makeTicket('2', OrderTicketStatus.STAGED, 'NVDA', 'sell', {
+        signalContext: {
+          signalType: 'DAILY_BREAKOUT', barDate: '2026-08-25', timeframe: 'daily',
+          direction: 'SHORT', decisionId: 'd2', signalPrice: 100,
+        },
+      });
+      fixture.componentRef.setInput('tickets', [sell]);
+      fixture.componentRef.setInput('prices', { NVDA: 95 });
+      fixture.detectChanges();
+
+      const sellPct = fixture.nativeElement.querySelector('.item-pct');
+      expect(sellPct?.textContent).toContain('-5.0%');
+      expect(sellPct?.classList).toContain('pct-neg');
+    });
+
+    it('renders no anchor/pct for option tickets', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        instrumentType: InstrumentType.OPTION,
+        quantity: '1',
+        legs: [{ type: 'buy', symbol: 'AAPL 260918C150', quantity: '1' }],
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('prices', {});
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.item-anchor')?.textContent.trim()).toBe('');
+      expect(fixture.nativeElement.querySelector('.item-pct')?.textContent.trim()).toBe('');
+    });
+
+  it('omits the date span when the ticket has no signalContext or createdAt date', () => {
       const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
         signalContext: undefined,
         createdAt: '',

@@ -93,7 +93,12 @@ export function buildSignalOrderTickets(
         timeframe: signal.timeframe,
         direction: signal.direction,
         decisionId,
+        // Price at signal generation — the anchor for the queue row's
+        // % change since signal. Omitted (not undefined) when absent.
+        ...(signal.closePrice != null ? { signalPrice: signal.closePrice } : {}),
       },
+      // No bucketId — the user picks a bucket on the ticket (or leaves it
+      // Unassigned); the signal type lives in signalContext above.
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     });

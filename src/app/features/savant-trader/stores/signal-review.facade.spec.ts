@@ -65,6 +65,36 @@ describe('buildSignalOrderTickets', () => {
     expect(tickets.every((ticket) => ticket.refId === '550e8400-e29b-41d4-a716-446655440000')).toBe(true);
     expect(tickets.every((ticket) => ticket.dollarAmount === '100')).toBe(true);
   });
+
+  it('captures the signal closePrice into signalContext.signalPrice (anchor for % change since signal)', () => {
+    const tickets = buildSignalOrderTickets(
+      'AAPL',
+      [{ ...makeSignal(SignalDirection.LONG), closePrice: 187.5 }],
+      {
+        runId: 'run-1',
+        accountNumber: 'agentic-account',
+        defaultDollarAmount: 100,
+        now: new Date('2026-08-26T12:00:00Z'),
+        buildId: (_s, side) => `AAPL-${side}`,
+        buildRefId: () => '550e8400-e29b-41d4-a716-446655440000',
+      },
+    );
+
+    expect(tickets[0].signalContext?.signalPrice).toBe(187.5);
+  });
+
+  it('omits signalPrice when the signal has no closePrice', () => {
+    const tickets = buildSignalOrderTickets('AAPL', [makeSignal(SignalDirection.LONG)], {
+      runId: 'run-1',
+      accountNumber: 'agentic-account',
+      defaultDollarAmount: 100,
+      now: new Date('2026-08-26T12:00:00Z'),
+      buildId: (_s, side) => `AAPL-${side}`,
+      buildRefId: () => '550e8400-e29b-41d4-a716-446655440000',
+    });
+
+    expect('signalPrice' in (tickets[0].signalContext ?? {})).toBe(false);
+  });
 });
 
 describe('SignalReviewFacade', () => {
