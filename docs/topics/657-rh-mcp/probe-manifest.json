@@ -37,7 +37,11 @@
       "group": "equity-orders",
       "gate": "mutation",
       "redactFields": ["account_number"],
-      "note": "E1 — 1-share market GFD buy, expected fill."
+      "settle": {
+        "tool": "get_equity_orders",
+        "args": { "account_number": "$ENV:RH_ACCOUNT_NUMBER", "symbol": "OOMA" }
+      },
+      "note": "E1 — 1-share market GFD buy, expected fill. Settle poll uses defaults: new/queued/confirmed pending, 2s interval, 60s timeout."
     }
   ]
 }

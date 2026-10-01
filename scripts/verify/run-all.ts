@@ -138,6 +138,13 @@ const scripts = [
     needsAccount: false,
     needsAdc: false,
   },
+  {
+    name: 'rh-mcp probe runner (offline)',
+    file: 'verify/rh-mcp-runner-683.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: false,
+  },
 ];
 
 function hasGhAuth(): boolean {

@@ -157,3 +157,13 @@ Canonical field order for threaded docs:
 ```
 
 Full spec: `.devin/skills/proj/REFERENCE.md` → "Doc header template".
+
+### Scope discipline
+
+Size the solution to the actual use case. Do not harden against threat
+models the code doesn't face (hostile callers, adversarial inputs,
+double-entry accounting) unless the code genuinely calls for it. For
+diagnostics/tooling code especially: correct, readable, and tested beats
+defense-in-depth. When a review loop finds only edge-case findings on
+surfaces outside the original scope, stop and flag the scope question to
+the user rather than continuing to armor.

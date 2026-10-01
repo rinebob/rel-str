@@ -1,0 +1,18 @@
+{
+  "id": "mut-eq-market-buy-01",
+  "tool": "place_equity_order",
+  "group": "equity-orders",
+  "gate": "mutation",
+  "note": "E1 — 1-share market GFD buy, expected fill. Settle poll uses defaults: new/queued/confirmed pending, 2s interval, 60s timeout.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbol": "OOMA",
+    "side": "buy",
+    "type": "market",
+    "quantity": "1",
+    "time_in_force": "gfd"
+  },
+  "capturedAt": "2026-10-01T18:04:31.873Z",
+  "outcome": "skipped",
+  "reason": "declined"
+}

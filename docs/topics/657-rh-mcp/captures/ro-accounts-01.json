@@ -1,0 +1,66 @@
+{
+  "id": "ro-accounts-01",
+  "tool": "get_accounts",
+  "group": "account",
+  "gate": "read",
+  "note": "Zero-param call; confirms envelope + agentic_allowed flag.",
+  "args": {},
+  "capturedAt": "2026-10-01T18:03:38.617Z",
+  "outcome": "success",
+  "latencyMs": 1376,
+  "success": true,
+  "response": {
+    "data": {
+      "accounts": [
+        {
+          "account_number": "••••1655",
+          "rhs_account_number": "••••1655",
+          "type": "margin",
+          "unsettled_funds": "0.0000",
+          "brokerage_account_type": "individual",
+          "is_default": true,
+          "agentic_allowed": false,
+          "option_level": "option_level_3",
+          "management_type": "self_directed",
+          "affiliate": "rhf",
+          "state": "active",
+          "deactivated": false,
+          "permanently_deactivated": false
+        },
+        {
+          "account_number": "••••5100",
+          "rhs_account_number": "••••5100",
+          "type": "cash",
+          "unsettled_funds": "0.0000",
+          "brokerage_account_type": "individual",
+          "nickname": "acct-02",
+          "is_default": false,
+          "agentic_allowed": false,
+          "option_level": "",
+          "management_type": "self_directed",
+          "affiliate": "rhf",
+          "state": "active",
+          "deactivated": false,
+          "permanently_deactivated": false
+        },
+        {
+          "account_number": "••••6245",
+          "rhs_account_number": "••••6245",
+          "type": "cash",
+          "unsettled_funds": "0.0000",
+          "brokerage_account_type": "individual",
+          "nickname": "Agentic",
+          "is_default": false,
+          "agentic_allowed": true,
+          "option_level": "",
+          "management_type": "self_directed",
+          "affiliate": "rhf",
+          "state": "active",
+          "deactivated": false,
+          "permanently_deactivated": false
+        }
+      ]
+    },
+    "guide": "Sort the list deterministically when presenting: the default account first, agentic accounts (agentic_allowed=true) second, then other individual accounts, then retirement (IRA) accounts. Present account_number, rhc_account_number (label it \"Crypto Account\"), brokerage_account_type (label it \"Account Type\" — a linked crypto account always shares it, so never add a separate crypto account type column), type (label it \"Brokerage Trading Type\"), nickname (if set), and is_default — in that column order. In the Crypto Account column show \"N/A\" for accounts with an empty rhc_account_number; omit the column entirely only when no account has one. When referring to the account in user-facing prose (e.g. \"your <X> account\"), use nickname when set; fall back to brokerage_account_type otherwise. When displaying account_number or rhc_account_number to the user, mask all but the last 4 digits (e.g. '••••1234'); pass the full value to other tools unchanged — including get_option_level_upgrade_info and any fallback upgrade URL; masking breaks the link. Flag agentic_allowed when the user is choosing an account for a trade. There is exactly one agentic_allowed=true account — use it directly rather than asking which account to trade. agentic_allowed is caller-relative — true means accessible to this agent, false means this agent cannot act on it (the account may still be agentic-enabled for a different agent). Never state agentic_allowed's field name or raw boolean value to the user. Do not use nickname to determine agentic-account eligibility. Skip false accounts for trade operations; if the user asks why, say the account is not accessible to this agent, not that it needs to be enabled. When user_option_level is present (multi-member trust accounts), it is this user's own options level on that account and is the level to reason about for options actions there; if it is below option_level the user is view-only for options on that account. When user_option_level is absent on a trust account (brokerage_account_type='trust_revocable'), the user holds no options level of their own there — do not offer options actions on that account, even though option_level is set. When option_level is empty or 'option_level_0' and the user wants options, call get_option_level_upgrade_info with the account_number; if that tool is unavailable, direct the user to https://applink.robinhood.com/upgrade_options?account_number=<that account's account_number> (embed the full unmasked account_number in the URL). management_type='managed' is layered on brokerage_account_type — surface alongside, not as a replacement. For tools that ask for an account identifier on a crypto-backed flow (get_crypto_positions, future crypto write tools), pass rhs_account_number; for everything else (equities, options, etc.) pass account_number. Do not add an unsettled_funds column to the account table — surface it only via the following rule. Whenever you report an account's funds, value, or buying power and that account has type='cash' with unsettled_funds greater than 0, and the user wants to access unsettled funds or other features available in a limited margin account — if the get_limited_margin_upgrade_info tool is available — call it with the account_number and share the appropriate upgrade link. If that tool is not available, say nothing about limited margin (there is no fallback). "
+  }
+}

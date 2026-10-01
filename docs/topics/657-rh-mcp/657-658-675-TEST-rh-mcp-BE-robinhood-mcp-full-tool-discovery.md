@@ -25,8 +25,8 @@ Most of this Thread's "test surface" is the probe harness (pure/verifiable) plus
 
 ## Integration Tests
 
-- **Runner → `executeObservationTool`:** mock the executor; assert sequential order, capture write shape, `redactFields` passthrough, gate prompt on `mutation` entries, skip/abort bookkeeping.
-- **Pacing behavior:** post-fill settle poll waits for order to leave `new`/`queued`/`confirmed` before the next probe (timeout → operator prompt); `read` auto-pause on `success:false` and 429/Retry-After backoff; between-group checkpoint pause; `abort` prints the recovery checklist.
+- **Runner → `executeObservationTool`:** ✅ shipped (22 cases, `rh-agent-mcp-probe-runner.test.ts`) — mock the caller; sequential order, capture write shape, `redactFields` passthrough, gate prompt on `mutation` entries, skip/abort bookkeeping, `--only`/`--group`/`--from`/`--dry-run` filters.
+- **Pacing behavior:** ✅ shipped — settle poll waits for order to leave `new`/`queued`/`confirmed` before the next probe (timeout → operator prompt); `read` auto-pause on `success:false` and 429/Retry-After backoff; between-group checkpoint pause (`--auto` skips); `abort` prints the recovery checklist.
 - **Drift checker:** ✅ shipped — fixture live `tools/list` vs fixture bundled catalog → added/removed/renamed/schema-changed output (17 cases); live capture `00-drift.json` produced 2026-09-30.
 - **Doc assembler:** fixture manifest + fixture captures → emitted sections contain the tool name, a params table from the fixture schema, a response field-tree derived from the capture, and a coverage-matrix row.
 

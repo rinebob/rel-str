@@ -32,6 +32,7 @@ deliberately, on-demand.
 | #647 — SHARED workflow template | [workflows-template-647.md](workflows-template-647.md) | conventions doc structure + optional workflow-doc conformance | `workflows-template-647.ts` (no credentials) |
 | #681 — BE RH-MCP probe manifest | [rh-mcp-manifest-681.md](rh-mcp-manifest-681.md) | manifest file → loader → catalog validate → gate checks → dry-run plan | `functions/scripts/verify/rh-mcp-manifest-681.ts` (no credentials; runs from `functions/`) |
 | #682 — BE catalog drift check | [rh-mcp-drift-682.md](rh-mcp-drift-682.md) | diff logic offline; live run via `run-drift-check.ts` → captures/00-drift.json | `functions/scripts/verify/rh-mcp-drift-682.ts` (offline) + live `run-drift-check.ts` (needs RH MCP) |
+| #683 — BE probe manifest runner | [rh-mcp-runner-683.md](rh-mcp-runner-683.md) | runner core offline (mocked caller/prompt) over the real manifest; live run via `run-probe-manifest.ts` | `functions/scripts/verify/rh-mcp-runner-683.ts` (offline) + live `run-probe-manifest.ts` (needs RH MCP; mutations prompt) |
 
 ## Run All
 

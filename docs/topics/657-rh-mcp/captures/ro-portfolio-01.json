@@ -1,0 +1,16 @@
+{
+  "id": "ro-portfolio-01",
+  "tool": "get_portfolio",
+  "group": "account",
+  "gate": "read",
+  "note": "Portfolio snapshot for the agentic account.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER"
+  },
+  "capturedAt": "2026-10-01T18:04:10.416Z",
+  "outcome": "skipped",
+  "reason": "missing-env",
+  "missingEnv": [
+    "RH_ACCOUNT_NUMBER"
+  ]
+}
