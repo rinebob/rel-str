@@ -39,6 +39,9 @@
 - [Robinhood MCP] 657-681_DOCS-RH-MCP: Discovery PRD/IMPL/TEST + seed manifest + code review (PASS, 4 rounds) + UAT (Complete) + verify script (9/9) for #681
 - [Paper Trading Infra] 553-667_BE-IMPL-PAPER-TRADING: Live-quote close — closePaperTrade callable (per-leg live marks → net order price, unavailable on miss, governing run finalized)
 - [Paper Trading Infra] 553-667_DOCS-PAPER-TRADING: Prod verify (7/7 real quote round-trip) + code review (PASS, 2 rounds) + UAT (Complete) for #667
+- [GitHub read-only issue UI] 619-697-715_SHARED-IMPL-DEV-TOOLS: stageOrdinal helper — single source for stage-ordinal derivation (tree chips + left-pane dots)
+- [GitHub read-only issue UI] 619-697-715_FE-IMPL-DEV-TOOLS: Topic Viewer visual polish — 430px left pane, chip-free rows w/ stage dot, Topic: prefix strip, title ellipsis, stage-colored chips, depth guides, centered caret (touch-target bleed fix), context header, styled banners/empty states
+- [GitHub read-only issue UI] 619-697-715_DOCS-DEV-TOOLS: Misc-fixes inventory (#713) + code review (PASS, 2 rounds) + UAT (Complete) for #715
 - [GitHub read-only issue UI] 619-621-641_BE-IMPL-DEV-TOOLS: Deploy getLifecycleTree + GITHUB_READ_TOKEN secret + av-proxy-api whitelist (BE + FE mirror)
 - [GitHub read-only issue UI] 619-621-641_DOCS-DEV-TOOLS: Code review (PASS) + UAT (Complete) for #641
 - [GitHub read-only issue UI] 619-621-644_FE-IMPL-DEV-TOOLS: Topic Viewer route + nav — /tools/topic-viewer lazy route (auth-gated), nav entry, dev-lifecycle→topic-viewer rename
