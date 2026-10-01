@@ -13,6 +13,7 @@ import { PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { OrderTicketService } from '../../services/order-ticket.service';
 import { PaperTradingService } from '../../services/paper-trading.service';
+import { AllocationStore } from '../../../portfolio-dashboard/allocation.store';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import {
   OrderTicket,
@@ -75,6 +76,9 @@ describe('OrderComponent', () => {
         { provide: RobinhoodMcpObservationService, useValue: { reauthenticate: jasmine.createSpy('reauthenticate') } },
         { provide: OrderTicketService, useValue: {} },
         { provide: PaperTradingService, useValue: { paperSignalOrder$: jest.fn() } },
+        // OrderTicketComponent injects AllocationStore for the bucket
+        // picker — stub it so the real store's Firestore deps stay out.
+        { provide: AllocationStore, useValue: { byAccount: signal({}), ensureAccount: jest.fn(), bucketDetail: jest.fn(() => null) } },
         { provide: MatDialog, useValue: { open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(false) }) } },
         { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
       ],
@@ -452,6 +456,21 @@ describe('OrderComponent', () => {
         error: undefined,
       }));
       expect(component.selectedTicketId()).toBe('1');
+    });
+
+    it('mints a fresh refId on requeue — the cancelled order burned the old one at RH', async () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.CANCELLED);
+      ticket.refId = 'ref-burned';
+      ticket.terminalAt = new Date().toISOString();
+      storeMock.tickets.set({ '1': ticket });
+      fixture.detectChanges();
+
+      await component.onRequeueTicket('1');
+
+      const patch = storeMock.updateTicket.calls.mostRecent().args[1] as Partial<OrderTicket>;
+      expect(patch.refId).toBeTruthy();
+      expect(patch.refId).not.toBe('ref-burned');
+      expect(patch.refId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
     it('does not requeue a non-cancelled ticket', async () => {

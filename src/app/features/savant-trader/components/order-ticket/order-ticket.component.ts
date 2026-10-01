@@ -33,7 +33,11 @@ import { OrderExecutionService } from '../../services/order-execution.service';
 import { PaperTradingService } from '../../services/paper-trading.service';
 import { TradeSide } from '@common';
 import { OrderConfirmDialogComponent } from '../order-confirm-dialog/order-confirm-dialog.component';
-import { evaluateOrderGuardrails, GuardrailContext } from '../../utils/order-guardrails.util';
+import {
+  bucketTargetWarnings,
+  evaluateOrderGuardrails,
+  GuardrailContext,
+} from '../../utils/order-guardrails.util';
 import {
   buildFractionalCloseTicket,
   buildStopLossTicket,
@@ -56,6 +60,8 @@ import {
   DEFAULT_STOP_PERCENT,
 } from '../../utils/position-sizing.util';
 import { StopLossFormComponent } from '../../../../shared/components/stop-loss-form/stop-loss-form.component';
+import { AllocationStore } from '../../../portfolio-dashboard/allocation.store';
+import { BucketStatus } from '@portfolio-allocation/contracts';
 
 @Component({
   selector: 'app-order-ticket',
@@ -74,6 +80,7 @@ export class OrderTicketComponent {
   private readonly stagingStore = inject(OrderTicketStore);
   private readonly orderExecution = inject(OrderExecutionService);
   private readonly paperTrading = inject(PaperTradingService);
+  private readonly allocStore = inject(AllocationStore);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -117,6 +124,28 @@ export class OrderTicketComponent {
 
   /** Tracks which ticket the stop loss was last initialized for. */
   private lastStopLossTicketId: string | null = null;
+
+  /** Editable bucket pick — optional (#592). Empty = the position lands
+   *  in Unassigned; never a submit gate. */
+  readonly selectedBucketId = signal<string>('');
+
+  /** The account this ticket trades in — scopes the bucket options + stats.
+   *  Prefers the ticket's own accountNumber: it's what `submitEquityOrder`
+   *  sends to RH and what `seedFromTicket$` resolves against — the picker
+   *  must scope to the same account or a config change between staging and
+   *  submit would show buckets the fill can never land in. */
+  private readonly ticketAccount = computed(() =>
+    this.ticket()?.accountNumber ?? this.tradingConfig()?.accountNumber ?? '');
+
+  /** ACTIVE buckets on the ticket's account — the picker's options. */
+  readonly bucketOptions = computed(() =>
+    (this.allocStore.byAccount()[this.ticketAccount()]?.buckets ?? [])
+      .filter((b) => b.status === BucketStatus.ACTIVE));
+
+  /** The picked bucket object, when it still resolves in this account —
+   *  null when unset or the bucket was deleted/retired since staging. */
+  readonly selectedBucket = computed(() =>
+    this.bucketOptions().find((b) => b.id === this.selectedBucketId()) ?? null);
 
   /** Expose enum for template. */
   readonly OrderTicketStatus = OrderTicketStatus;
@@ -402,6 +431,7 @@ export class OrderTicketComponent {
       const i = this.ticket();
       untracked(() => {
         if (!i) return;
+        this.selectedBucketId.set(i.bucketId ?? '');
         this.orderType.set(i.orderType === 'stop_loss' ? 'stop_market' : i.orderType);
         this.timeInForce.set(i.timeInForce);
         this.marketHours.set(i.marketHours);
@@ -461,6 +491,13 @@ export class OrderTicketComponent {
       });
     });
 
+    // Load the ticket account's buckets/stats for the picker — never
+    // selects the account (the allocation page may show another).
+    effect(() => {
+      const acct = this.ticketAccount();
+      if (acct) untracked(() => this.allocStore.ensureAccount(acct));
+    });
+
     // Recompute the entry stop price from percent when the user edits an entry ticket.
     // A selected stop-loss ticket owns its persisted stop price and initializes below.
     effect(() => {
@@ -496,6 +533,7 @@ export class OrderTicketComponent {
       orderType: this.orderType(),
       timeInForce: this.timeInForce(),
       marketHours: this.marketHours(),
+      bucketId: this.selectedBucketId() || undefined,
     };
     if (i.instrumentType === InstrumentType.EQUITY || i.instrumentType === InstrumentType.ETF) {
       const q = this.wholeQuantity();
@@ -855,11 +893,29 @@ export class OrderTicketComponent {
   // Guardrails
   // ========================================
 
-  /** Compute guardrail warnings for the current order. */
+  /** Compute guardrail warnings for the current order — position-level
+   *  limits plus the optional bucket's over-target warning (warn, never
+   *  block). */
   private computeWarnings() {
     const context = this.guardrailContext();
     const side = this.ticket()?.side ?? 'buy';
-    return context ? evaluateOrderGuardrails(context, this.actualCost(), this.computedUnits(), side) : [];
+    const warnings = context
+      ? evaluateOrderGuardrails(context, this.actualCost(), this.computedUnits(), side)
+      : [];
+    const bucket = this.selectedBucket();
+    const acct = this.ticketAccount();
+    const stats = bucket && acct ? this.allocStore.bucketDetail(acct, bucket.id)?.stats : null;
+    warnings.push(...bucketTargetWarnings(
+      bucket && stats
+        ? { bucketName: bucket.name, exposure: stats.exposure, targetDollars: stats.targetDollars }
+        : null,
+      this.actualCost(), side,
+    ));
+    return warnings;
+  }
+
+  onBucketChange(event: Event): void {
+    this.selectedBucketId.set((event.target as HTMLSelectElement).value);
   }
 
   // ========================================

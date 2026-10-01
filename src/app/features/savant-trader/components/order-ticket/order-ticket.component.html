@@ -234,6 +234,26 @@
               <button type="button" class="pill" [class.active]="marketHours() === 'all_day_hours'" [disabled]="isFractionalCloseTicket()" (click)="marketHours.set('all_day_hours')">All Day</button>
             </div>
           </div>
+
+          <!-- 8. Signal context (read-only — picking a bucket never erases it) -->
+          @if (ticket()?.signalContext; as sig) {
+            <div class="form-row" data-testid="signal-context-row">
+              <span class="field-label">Signal</span>
+              <span class="stat-value">{{ sig.signalType }} · {{ sig.timeframe }} · {{ sig.direction }}</span>
+            </div>
+          }
+
+          <!-- 9. Bucket (optional — seeds position attribution at fill) -->
+          <div class="form-row">
+            <span class="field-label" matTooltip="Optional — seeds the position's allocation bucket on fill">Bucket</span>
+            <select class="cf-input bucket-select" data-testid="bucket-select"
+              (change)="onBucketChange($event)">
+              <option value="" [selected]="!selectedBucketId()">Unassigned</option>
+              @for (b of bucketOptions(); track b.id) {
+                <option [value]="b.id" [selected]="b.id === selectedBucketId()">{{ b.name }}</option>
+              }
+            </select>
+          </div>
         </div>
       } @else if (entryConfirmation()) {
         <div class="confirmation-section">

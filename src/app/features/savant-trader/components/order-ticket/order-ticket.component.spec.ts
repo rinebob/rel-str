@@ -3,12 +3,18 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { signal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { OrderTicketComponent } from './order-ticket.component';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { OrderExecutionService } from '../../services/order-execution.service';
+import { PaperTradingService } from '../../services/paper-trading.service';
 import { InstrumentType, OrderTicket, OrderTicketStatus, OrderSource, TradingConfig } from '../../services/order-ticket.types';
+import type { PaperSignalOrderResponse } from '@paper-trading/contracts';
+import { AllocationStore } from '../../../portfolio-dashboard/allocation.store';
+import { BucketStatus } from '@portfolio-allocation/contracts';
+import type { AllocationBucket } from '@portfolio-allocation/contracts';
+import type { AccountAllocation, BucketDetail } from '../../../portfolio-dashboard/allocation.types';
 
 function makeTicket(id: string, symbol = 'AAPL', overrides: Partial<OrderTicket> = {}): OrderTicket {
   return {
@@ -49,6 +55,27 @@ describe('OrderTicketComponent', () => {
   };
   let dialog: { open: jasmine.Spy };
   let orderExecution: any;
+  let paperTrading: { paperSignalOrder$: jest.Mock };
+  let allocStore!: {
+    byAccount: ReturnType<typeof signal<Record<string, AccountAllocation>>>;
+    ensureAccount: jest.Mock;
+    bucketDetail: jest.Mock;
+  };
+
+  function bucketFixture(name: string, status = BucketStatus.ACTIVE): AllocationBucket {
+    return {
+      id: `agentic-account_${name.toLowerCase().replace(/\s+/g, '-')}`,
+      userId: 'u', accountNumber: 'agentic-account', name, targetPct: 25,
+      status, createdAt: 'x', updatedAt: 'x',
+    };
+  }
+
+  function allocWith(buckets: AllocationBucket[]): AccountAllocation {
+    return {
+      snapshot: null, positions: [], fills: [], buckets,
+      attributions: [], asOf: null, loading: false, error: null,
+    };
+  }
 
   beforeEach(async () => {
     store = {
@@ -68,6 +95,18 @@ describe('OrderTicketComponent', () => {
         Promise.resolve({ success: true }),
       ),
     };
+    paperTrading = {
+      paperSignalOrder$: jest.fn().mockReturnValue(of<PaperSignalOrderResponse>({
+        cohortId: 'cohort-9',
+        equityTradeId: 'eq-1',
+        expressionTradeIds: ['exp-1', 'exp-2'],
+      })),
+    };
+    allocStore = {
+      byAccount: signal<Record<string, AccountAllocation>>({}),
+      ensureAccount: jest.fn(async () => undefined),
+      bucketDetail: jest.fn(() => null),
+    };
 
     await TestBed.configureTestingModule({
       imports: [OrderTicketComponent],
@@ -75,6 +114,8 @@ describe('OrderTicketComponent', () => {
         provideNoopAnimations(),
         { provide: OrderTicketStore, useValue: store },
         { provide: OrderExecutionService, useValue: orderExecution },
+        { provide: PaperTradingService, useValue: paperTrading },
+        { provide: AllocationStore, useValue: allocStore },
         { provide: MatDialog, useValue: dialog },
         { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
       ],
@@ -170,6 +211,112 @@ describe('OrderTicketComponent', () => {
     expect(store.submitTicket).toHaveBeenCalledWith('1');
   });
 
+  // -- bucket selector (#592) — optional, never a submit gate --
+
+  it('bucket picker lists the account\'s ACTIVE buckets; Unassigned is the default', () => {
+    allocStore.byAccount.set({
+      'agentic-account': allocWith([bucketFixture('Wheel'), bucketFixture('Old', BucketStatus.RETIRED)]),
+    });
+    fixture.componentRef.setInput('ticket', makeTicket('1'));
+    fixture.componentRef.setInput('price', 50);
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('[data-testid="bucket-select"]') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    const labels = Array.from(select.options).map((o) => o.textContent.trim());
+    expect(labels).toEqual(['Unassigned', 'Wheel']); // retired excluded
+    expect(select.value).toBe('');
+    // Optional — a submit with no bucket still works.
+    expect(allocStore.ensureAccount).toHaveBeenCalledWith('agentic-account');
+  });
+
+  it('selecting a bucket persists bucketId on saveEdits', () => {
+    const wheel = bucketFixture('Wheel');
+    allocStore.byAccount.set({ 'agentic-account': allocWith([wheel]) });
+    fixture.componentRef.setInput('ticket', makeTicket('1'));
+    fixture.componentRef.setInput('price', 50);
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('[data-testid="bucket-select"]') as HTMLSelectElement;
+    select.value = wheel.id;
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(component.selectedBucketId()).toBe(wheel.id);
+    component.saveEdits();
+    expect(store.updateTicket).toHaveBeenCalledWith('1', jasmine.objectContaining({ bucketId: wheel.id }));
+  });
+
+  it('a ticket carrying bucketId preselects it; a stale bucketId shows Unassigned', () => {
+    const wheel = bucketFixture('Wheel');
+    allocStore.byAccount.set({ 'agentic-account': allocWith([wheel]) });
+    fixture.componentRef.setInput('ticket', makeTicket('1', 'AAPL', { bucketId: wheel.id }));
+    fixture.componentRef.setInput('price', 50);
+    fixture.detectChanges();
+    expect(component.selectedBucketId()).toBe(wheel.id);
+    const select = fixture.nativeElement.querySelector('[data-testid="bucket-select"]') as HTMLSelectElement;
+    expect(select.value).toBe(wheel.id);
+    expect(component.selectedBucket()?.name).toBe('Wheel');
+
+    // Bucket deleted/retired between stage and open → the id resolves to
+    // nothing; select shows Unassigned, fill seed no-ops (service-side
+    // txn re-verifies ACTIVE).
+    fixture.componentRef.setInput('ticket', makeTicket('2', 'MSFT', { bucketId: 'agentic-account_gone' }));
+    fixture.detectChanges();
+    expect(component.selectedBucket()).toBeNull();
+    expect(select.value).toBe('');
+  });
+
+  it('signal context row stays visible after a bucket is picked', () => {
+    const wheel = bucketFixture('Wheel');
+    allocStore.byAccount.set({ 'agentic-account': allocWith([wheel]) });
+    fixture.componentRef.setInput('ticket', makeTicket('1', 'AAPL', {
+      signalContext: { signalType: 'ST_ENTRY', barDate: '2026-09-29', timeframe: 'daily', direction: 'LONG', decisionId: 'd1' },
+    }));
+    fixture.componentRef.setInput('price', 50);
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('[data-testid="signal-context-row"]');
+    expect(row).toBeTruthy();
+    expect(row.textContent).toContain('ST_ENTRY');
+
+    const select = fixture.nativeElement.querySelector('[data-testid="bucket-select"]') as HTMLSelectElement;
+    select.value = wheel.id;
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(component.selectedBucketId()).toBe(wheel.id);
+    expect(fixture.nativeElement.querySelector('[data-testid="signal-context-row"]').textContent).toContain('ST_ENTRY');
+  });
+
+  it('over-target submit warns naming bucket/exposure/projected — still submittable', async () => {
+    const wheel = bucketFixture('Wheel');
+    allocStore.byAccount.set({ 'agentic-account': allocWith([wheel]) });
+    allocStore.bucketDetail.mockReturnValue({
+      bucket: wheel,
+      stats: {
+        bucketId: wheel.id,
+        exposure: 900, netValue: 900, targetDollars: 100, drift: 800,
+        realizedPnl: 0, unrealizedPnl: 0, openCount: 1, closedCount: 0,
+        asOf: '2026-09-28T12:00:00Z', equityCurve: [],
+      },
+      positions: [], fills: [],
+    } satisfies BucketDetail);
+    fixture.componentRef.setInput('ticket', makeTicket('1', 'AAPL', { bucketId: wheel.id }));
+    fixture.componentRef.setInput('price', 50); // 2 shares × $50 = $100 → 900+100 > 100
+    fixture.detectChanges();
+
+    await component.onSubmit();
+
+    const warnings = (dialog.open.calls.mostRecent().args[1] as { data: { warnings: { message: string; severity: string }[] } }).data.warnings;
+    const bucketWarn = warnings.find((w) => w.message.includes('Wheel'));
+    expect(bucketWarn).toBeDefined();
+    expect(bucketWarn?.severity).toBe('warning');
+    expect(bucketWarn?.message).toContain('900');
+    expect(bucketWarn?.message).toContain('1,000');
+    expect(store.submitTicket).toHaveBeenCalledWith('1'); // warn, not block
+  });
+
   it('confirms and submits a stop loss directly to RH after the entry fills', async () => {
     const entry = makeTicket('1', 'AAPL', { status: OrderTicketStatus.FILLED, result: { fillPrice: '100', filledQuantity: '2' } });
     fixture.componentRef.setInput('ticket', entry);
@@ -185,5 +332,203 @@ describe('OrderTicketComponent', () => {
       stopPrice: '92.00',
       timeInForce: 'gtc',
     }));
+  });
+});
+
+// =============================================================================
+// Accept as paper — staged signal tickets → paperSignalOrder → PAPER status
+// =============================================================================
+
+describe('OrderTicketComponent — accept as paper', () => {
+  let fixture: ComponentFixture<OrderTicketComponent>;
+  let component: OrderTicketComponent;
+  let store: {
+    tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
+    submitTicket: jasmine.Spy;
+    updateTicket: jasmine.Spy;
+    stageTicket: jasmine.Spy;
+  };
+  let dialog: { open: jasmine.Spy };
+  let snackBar: { open: jest.Mock };
+  let paperTrading: { paperSignalOrder$: jest.Mock };
+
+  const signalTicket = (overrides: Partial<OrderTicket> = {}): OrderTicket =>
+    makeTicket('1', 'AAPL', {
+      signalContext: {
+        signalType: 'ST_ENTRY',
+        barDate: '2026-08-24',
+        timeframe: 'daily',
+        direction: 'LONG',
+        decisionId: 'run-1-AAPL-daily-ST_ENTRY',
+      },
+      ...overrides,
+    });
+
+  beforeEach(async () => {
+    store = {
+      tickets: signal<Record<string, OrderTicket>>({}),
+      submitTicket: jasmine.createSpy('submitTicket'),
+      updateTicket: jasmine.createSpy('updateTicket'),
+      stageTicket: jasmine.createSpy('stageTicket'),
+    };
+    dialog = {
+      open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(true) }),
+    };
+    snackBar = { open: jest.fn() };
+    paperTrading = {
+      paperSignalOrder$: jest.fn().mockReturnValue(of<PaperSignalOrderResponse>({
+        cohortId: 'cohort-9',
+        equityTradeId: 'eq-1',
+        expressionTradeIds: ['exp-1', 'exp-2'],
+      })),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [OrderTicketComponent],
+      providers: [
+        provideNoopAnimations(),
+        { provide: OrderTicketStore, useValue: store },
+        { provide: OrderExecutionService, useValue: { submitEquityOrder: jest.fn(), cancelEquityOrder: jest.fn() } },
+        { provide: PaperTradingService, useValue: paperTrading },
+        { provide: AllocationStore, useValue: { byAccount: signal({}), ensureAccount: jest.fn(), bucketDetail: jest.fn(() => null) } },
+        { provide: MatDialog, useValue: dialog },
+        { provide: MatSnackBar, useValue: snackBar },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(OrderTicketComponent);
+    component = fixture.componentInstance;
+    fixture.componentRef.setInput('tradingConfig', config);
+  });
+
+  function mount(ticket: OrderTicket): void {
+    fixture.componentRef.setInput('ticket', ticket);
+    fixture.componentRef.setInput('price', 50);
+    fixture.detectChanges();
+  }
+
+  it('shows the paper action only on staged signal tickets', () => {
+    mount(signalTicket());
+    expect(fixture.nativeElement.querySelector('[data-testid="accept-as-paper-btn"]')).toBeTruthy();
+
+    fixture.componentRef.setInput('ticket', signalTicket({ status: OrderTicketStatus.PAPER }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="accept-as-paper-btn"]')).toBeFalsy();
+
+    fixture.componentRef.setInput(
+      'ticket',
+      signalTicket({ source: OrderSource.MANUAL }),
+    );
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="accept-as-paper-btn"]')).toBeFalsy();
+
+    fixture.componentRef.setInput(
+      'ticket',
+      signalTicket({ status: OrderTicketStatus.SUBMITTED }),
+    );
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="accept-as-paper-btn"]')).toBeFalsy();
+  });
+
+  it('opens the confirm dialog in paper mode', async () => {
+    mount(signalTicket());
+    await component.onAcceptAsPaper();
+    const data = dialog.open.calls.mostRecent().args[1].data;
+    expect(data.paper).toBe(true);
+    expect(data.ticket.symbol).toBe('AAPL');
+  });
+
+  it('the confirm dialog reflects edited quantity (merged preview)', async () => {
+    mount(signalTicket());
+    component.quantity.set('7');
+    await component.onAcceptAsPaper();
+    const data = dialog.open.calls.mostRecent().args[1].data;
+    expect(data.ticket.quantity).toBe('7');
+    expect(paperTrading.paperSignalOrder$).toHaveBeenCalledWith(
+      jasmine.objectContaining({ quantity: 7 }),
+    );
+  });
+
+  it('re-entry while accepting is a no-op', async () => {
+    mount(signalTicket());
+    component.acceptingPaper.set(true);
+    await component.onAcceptAsPaper();
+    expect(paperTrading.paperSignalOrder$).not.toHaveBeenCalled();
+    expect(dialog.open).not.toHaveBeenCalled();
+  });
+
+  it('calls paperSignalOrder with signal identity + ticket refId, then goes PAPER', async () => {
+    mount(signalTicket());
+    await component.onAcceptAsPaper();
+    expect(paperTrading.paperSignalOrder$).toHaveBeenCalledWith({
+      signalId: 'run-1-AAPL-daily-ST_ENTRY',
+      symbol: 'AAPL',
+      direction: 'long',
+      quantity: 2,
+      refId: 'ref-1',
+    });
+    expect(store.updateTicket).toHaveBeenCalledWith('1', jasmine.objectContaining({
+      status: OrderTicketStatus.PAPER,
+    }));
+    expect(snackBar.open).toHaveBeenCalledWith(
+      expect.stringContaining('cohort-9'),
+      'Dismiss',
+      expect.anything(),
+    );
+    expect(component.acceptingPaper()).toBe(false);
+  });
+
+  it('maps a SHORT signal to TradeSide.SHORT', async () => {
+    mount(signalTicket({
+      side: 'sell',
+      signalContext: {
+        signalType: 'ST_ENTRY', barDate: '2026-08-24', timeframe: 'daily',
+        direction: 'SHORT', decisionId: 'run-1-AAPL-daily-ST_ENTRY',
+      },
+    }));
+    await component.onAcceptAsPaper();
+    expect(paperTrading.paperSignalOrder$).toHaveBeenCalledWith(
+      jasmine.objectContaining({ direction: 'short' }),
+    );
+  });
+
+  it('leaves the ticket staged and surfaces the error when the callable fails', async () => {
+    paperTrading.paperSignalOrder$.mockReturnValueOnce(
+      throwError(() => new Error('unauthenticated')),
+    );
+    mount(signalTicket());
+    await component.onAcceptAsPaper();
+    // saveEdits runs, but the ticket never transitions to PAPER.
+    expect(store.updateTicket).not.toHaveBeenCalledWith(
+      '1',
+      jasmine.objectContaining({ status: OrderTicketStatus.PAPER }),
+    );
+    expect(snackBar.open).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to accept as paper'),
+      'Dismiss',
+      expect.anything(),
+    );
+    expect(component.acceptingPaper()).toBe(false);
+  });
+
+  it('does nothing when the dialog is cancelled', async () => {
+    dialog.open.and.returnValue({ afterClosed: () => of(false) });
+    mount(signalTicket());
+    await component.onAcceptAsPaper();
+    expect(paperTrading.paperSignalOrder$).not.toHaveBeenCalled();
+    // saveEdits persists pending edits (same as onSubmit), but the ticket
+    // never transitions to PAPER.
+    expect(store.updateTicket).not.toHaveBeenCalledWith(
+      '1',
+      jasmine.objectContaining({ status: OrderTicketStatus.PAPER }),
+    );
+    // Flag released — a retry remains possible.
+    expect(component.acceptingPaper()).toBe(false);
+  });
+
+  it('refuses when the ticket has no signal context', async () => {
+    mount(signalTicket({ signalContext: undefined }));
+    await component.onAcceptAsPaper();
+    expect(paperTrading.paperSignalOrder$).not.toHaveBeenCalled();
   });
 });
