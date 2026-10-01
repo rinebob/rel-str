@@ -22,14 +22,19 @@
 - [Portfolio] 576-592_FE-IMPL-PORTFOLIO: Order-ticket bucket picker + read-only Signal row — optional, never gates submit; per-option [selected] binding; confirm-dialog warning-item styling hardened
 - [Portfolio] 576-592_FE-CHORE-PORTFOLIO: drop unused DecimalPipe on allocation page
 - [Portfolio] 576-592_DOCS-PORTFOLIO: PRD/IMPL amended to direct bucketId (no auto-stamp, no name resolution); attribution-lifecycle diagram; code review (PASS) + UAT (Complete, 8 scenarios) for #592
+- [Trading Workflows] 625-702_FE-DOCS-WORKFLOWS: Code review (PASS, 1 round) + UAT (Complete, 11 scenarios) for #702
 
 ### Changed
 - [Trading Workflows] 625-699_FE-IMPL-WORKFLOWS: Canonical route tree — AppRoutes renamed to domain-prefixed paths (portfolio, signals/runs|review|charts, trading/live|paper, options/*, analysis/swings, tools/account, dev/flex-chart); '/'→/portfolio landing + /signals & /options parent redirects; post-login lands on /portfolio; literal nav sweep + route-table spec (66 assertions)
 - [Trading Workflows] 625-699_DOCS-WORKFLOWS: Journey navigation PRD + impl/test plans + code review (PASS) + UAT (Complete) for #699
+- [Trading Workflows] 625-702_FE-IMPL-WORKFLOWS: Savant Trader header — slim 48px dark bar (brand renamed, refresh-time component + store deleted, dead select-stock-dialog service removed); global fullscreen toggle + floating reveal chevron in core shell; 16 hardcoded calc(100vh - 64px|4rem) sites swept to var(--header-height, 48px)
 
 ### Removed
 - [Signal Pipeline Maintenance] 433-705_FE-IMPL-SIGNAL-REVIEW: Order queue cleanup — Paper status group + PAPER badge and SIG/POS/MAN source chips removed; selection clamps to next row after accept-as-paper
 - [Signal Pipeline Maintenance] 433-705_DOCS-SIGNAL-REVIEW: Inventory promotion + code review (PASS) + UAT (Complete) for #705
+
+### Fixed
+- [Trading Workflows] 625-702_FE-BUG-WORKFLOWS: Signal Order + signal-action-report left UiStateService.fullscreen stuck true after navigation, hiding the shell header globally — both pages now reset on OnDestroy
 
 
 ## [2026-09-28]
