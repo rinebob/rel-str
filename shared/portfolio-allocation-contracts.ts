@@ -41,13 +41,11 @@ export enum BucketStatus {
  *  - rename: fails if any OTHER bucket's `bucketSlug(name)` equals the new
  *    name's slug.
  *
- * `name` is the ticket-resolution key: an order ticket's strategy name
- * matches the ACTIVE bucket in the same account whose name slug equals
- * `bucketSlug(strategyName)` — 0 or >1 matches land in Unassigned. A
- * strategyName that can't slugify (`bucketSlug` throws on empty result)
- * is a 0-match → Unassigned, never an error. Rename/create to an
- * un-slugifiable name IS a validation failure (throws — the UI surfaces
- * it), since a bucket must have a usable name.
+ * The order ticket's bucket picker stores the bucket doc `id` on the
+ * ticket (`bucketId`) — attribution seeding at fill resolves by id, not
+ * by name. Rename/create to an un-slugifiable name IS a validation
+ * failure (throws — the UI surfaces it), since a bucket must have a
+ * usable name.
  * RETIRED buckets never match and never receive new attributions
  * (`toBucketId` may not reference one); existing attributions pointing at
  * a retired bucket stay valid — its history is preserved.
