@@ -286,15 +286,10 @@ describe('PositionAttributionService', () => {
     expect(deleted).toHaveLength(3);
   });
 
-  it('seedFromTicket$ resolves exactly-one ACTIVE name-slug match and seeds with linkKey', async () => {
-    // Buckets read path: getDocs routes by collection path; seed needs a
-    // buckets query — override getDocs for this test.
-    const firestore = jest.requireMock('@angular/fire/firestore');
-    firestore.getDocs.mockImplementationOnce(() =>
-      Promise.resolve({ docs: [{ id: bucket().id, data: () => bucket() }] }));
+  it('seedFromTicket$ writes the attribution for the ticket\'s bucketId, with linkKey', async () => {
     txnSeeds({ [`${ACCT}_csp-wheel`]: bucket() });
 
-    const res = await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', 'CSP Wheel', 'ord-7'));
+    const res = await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', `${ACCT}_csp-wheel`, 'ord-7'));
     expect(res?.bucketId).toBe(`${ACCT}_csp-wheel`);
     const [, written] = mockTxn.set.mock.calls[0];
     expect(written).toMatchObject({ bucketId: `${ACCT}_csp-wheel`, linkKey: 'ord-7' });
@@ -323,34 +318,34 @@ describe('PositionAttributionService', () => {
   });
 
   it('seedFromTicket$ returns null when the attribution doc already exists', async () => {
-    const firestore = jest.requireMock('@angular/fire/firestore');
-    firestore.getDocs.mockImplementationOnce(() =>
-      Promise.resolve({ docs: [{ id: bucket().id, data: () => bucket() }] }));
-    // Both the attribution doc AND the bucket read resolve existing.
     txnSeeds({
       [`${ACCT}_AAPL`]: attribution(),
       [`${ACCT}_csp-wheel`]: bucket(),
     });
-    const res = await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', 'CSP Wheel', 'ord-7'));
+    const res = await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', `${ACCT}_csp-wheel`, 'ord-7'));
     expect(res).toBeNull();
     expect(mockTxn.set).not.toHaveBeenCalled();
   });
 
-  it('seedFromTicket$ is a no-op on slug ambiguity (same slug, two buckets)', async () => {
-    const firestore = jest.requireMock('@angular/fire/firestore');
-    const b1 = bucket();
-    const b2 = bucket({ id: `${ACCT}_csp-wheel-2`, name: 'csp:wheel' }); // aliases to same slug
-    firestore.getDocs.mockImplementationOnce(() =>
-      Promise.resolve({ docs: [{ id: b1.id, data: () => b1 }, { id: b2.id, data: () => b2 }] }));
-    const res = await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', 'CSP-Wheel'));
-    expect(res).toBeNull();
+  it('seedFromTicket$ is a no-op when the bucket is missing, retired, or on another account', async () => {
+    // Missing bucket doc.
+    txnSeeds({});
+    expect(await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', `${ACCT}_csp-wheel`))).toBeNull();
+
+    // Retired.
+    txnSeeds({ [`${ACCT}_csp-wheel`]: bucket({ status: BucketStatus.RETIRED }) });
+    expect(await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', `${ACCT}_csp-wheel`))).toBeNull();
+
+    // Bucket doc exists but belongs to a different account — a stale or
+    // hand-built bucketId must never leak cross-account attribution.
+    txnSeeds({ [`${ACCT}_csp-wheel`]: bucket({ accountNumber: 'OTHER-ACCT' }) });
+    expect(await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', `${ACCT}_csp-wheel`))).toBeNull();
+
     expect(mockTxn.set).not.toHaveBeenCalled();
   });
 
-  it('seedFromTicket$ is a no-op on 0 matches and un-slugifiable names', async () => {
-    const firestore = jest.requireMock('@angular/fire/firestore');
-    firestore.getDocs.mockImplementationOnce(() => Promise.resolve({ docs: [] }));
-    expect(await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', 'No Such'))).toBeNull();
+  it('seedFromTicket$ is a no-op when the ticket has no bucketId', async () => {
     expect(await firstValueFrom(service.seedFromTicket$(ACCT, 'AAPL', undefined))).toBeNull();
+    expect(mockTxn.set).not.toHaveBeenCalled();
   });
 });

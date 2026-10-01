@@ -25,7 +25,7 @@ import {
   where,
   DocumentData,
 } from '@angular/fire/firestore';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
 import { requireUserId } from '../savant-trader/services/firestore-helpers';
@@ -39,7 +39,6 @@ import {
   PORTFOLIO_ATTRIBUTIONS_COLLECTION,
   PORTFOLIO_BUCKETS_COLLECTION,
   buildAttributionId,
-  bucketSlug,
 } from '@portfolio-allocation/ids';
 
 @Injectable({ providedIn: 'root' })
@@ -328,41 +327,23 @@ export class PositionAttributionService {
   }
 
   /**
-   * Seed attribution from an order ticket's strategyName — resolves the
-   * ACTIVE bucket in this account whose name slug equals the strategy
-   * name's slug. 0 or >1 matches → no-op (position stays Unassigned).
-   * `linkKey` = the order id → seeds the multi-leg group so later
-   * post-hoc moves stay atomic.
+   * Seed attribution from an order ticket's selected bucket — the ticket
+   * stores the bucket doc id directly; no name resolution. Missing/
+   * deleted/retired/other-account bucket → no-op (position stays
+   * Unassigned). `linkKey` = the order id → seeds the multi-leg group so
+   * later post-hoc moves stay atomic.
    */
   seedFromTicket$(
     accountNumber: string,
     instrumentId: string,
-    strategyName: string | undefined,
+    bucketId: string | undefined,
     linkKey?: string,
   ): Observable<PositionAttribution | null> {
+    if (!bucketId) return of(null);
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) =>
         runInInjectionContext(this.injector, async () => {
-          let slug: string;
-          try {
-            slug = bucketSlug(strategyName ?? '');
-          } catch {
-            return null; // un-slugifiable name → 0-match → Unassigned
-          }
-
-          const buckets = await this.readBuckets(userId, accountNumber);
-          const matches = buckets.filter((b) => {
-            if (b.status !== BucketStatus.ACTIVE) return false;
-            try {
-              return bucketSlug(b.name) === slug;
-            } catch {
-              return false; // corrupt stored name → treat as non-match
-            }
-          });
-          if (matches.length !== 1) return null; // 0 or ambiguous → Unassigned
-
-          const bucketId = matches[0].id;
           const id = buildAttributionId(accountNumber, instrumentId);
           const now = new Date().toISOString();
           const ref = doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id);
@@ -382,12 +363,13 @@ export class PositionAttributionService {
             wrote = false; // txn callbacks can re-run — reset per attempt
             const snap = await txn.get(ref);
             if (snap.exists()) return; // already attributed — don't rewrite
-            // Re-verify the bucket is still ACTIVE inside the txn — the
-            // slug match was computed from a pre-txn read.
+            // Verify the bucket is still ACTIVE and belongs to this account
+            // inside the txn — the ticket's bucketId is a pre-txn value.
             const bucketSnap = await txn.get(
               doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, bucketId));
             const bucket = bucketSnap.data() as AllocationBucket | undefined;
-            if (!bucketSnap.exists() || bucket?.status !== BucketStatus.ACTIVE) return;
+            if (!bucketSnap.exists() || bucket?.status !== BucketStatus.ACTIVE
+              || bucket.accountNumber !== accountNumber) return;
             wrote = true;
             txn.set(ref, attr as unknown as DocumentData);
           });
