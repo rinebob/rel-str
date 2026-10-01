@@ -10,7 +10,7 @@
  * arrive in #589/#590/#591 and replace these placeholders.
  */
 import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
@@ -21,7 +21,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
 
 @Component({
   selector: 'app-allocation-page',
-  imports: [MatTabsModule, MatTooltipModule, DatePipe, DecimalPipe,
+  imports: [MatTabsModule, MatTooltipModule, DatePipe,
     AllocationBucketsTableComponent, AllocationPositionsTableComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
