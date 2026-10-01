@@ -99,6 +99,11 @@ describe('OrderComponent', () => {
     expect(uiStateMock.setFullscreen).toHaveBeenCalledWith(true);
   });
 
+  it('resets fullscreen on destroy', () => {
+    fixture.destroy();
+    expect(uiStateMock.setFullscreen).toHaveBeenCalledWith(false);
+  });
+
   it('computes allTickets from store', () => {
     const ticket = makeTicket('1', 'AAPL');
     storeMock.tickets.set({ '1': ticket });

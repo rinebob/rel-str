@@ -16,6 +16,7 @@ import {
   untracked,
   ChangeDetectionStrategy,
   OnInit,
+  OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -50,7 +51,7 @@ import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, r
   templateUrl: './order.component.html',
   styleUrl: './order.component.scss',
 })
-export class OrderComponent implements OnInit {
+export class OrderComponent implements OnInit, OnDestroy {
   readonly stagingStore = inject(OrderTicketStore);
   readonly uiState = inject(UiStateService);
   protected readonly appRoutes = AppRoutes;
@@ -233,6 +234,10 @@ export class OrderComponent implements OnInit {
     this.uiState.setFullscreen(true);
     this.stagingStore.loadTickets();
     this.loadConfig();
+  }
+
+  ngOnDestroy(): void {
+    this.uiState.setFullscreen(false);
   }
 
   constructor() {

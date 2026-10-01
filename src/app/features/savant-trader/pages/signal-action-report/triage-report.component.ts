@@ -10,6 +10,7 @@ import {
   Component,
   inject,
   OnInit,
+  OnDestroy,
   ChangeDetectionStrategy,
   computed,
   signal,
@@ -61,7 +62,7 @@ const DURABLE_DECISION_STATUSES: DurableDecisionType[] = [
   templateUrl: './triage-report.component.html',
   styleUrl: './triage-report.component.scss',
 })
-export class TriageReportComponent implements OnInit {
+export class TriageReportComponent implements OnInit, OnDestroy {
   readonly occurrenceService = inject(OccurrenceDecisionService);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
@@ -104,6 +105,10 @@ export class TriageReportComponent implements OnInit {
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
     this.loadDecisions();
+  }
+
+  ngOnDestroy(): void {
+    this.uiState.setFullscreen(false);
   }
 
   /** Load decisions for the current date range from Firestore. */
