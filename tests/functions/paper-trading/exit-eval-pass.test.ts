@@ -128,6 +128,26 @@ describe('runExitEvalPass', () => {
     );
   });
 
+  it('governing trailing-8 on a SIGNAL trade fires — source is not a gate (#676)', async () => {
+    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    // SHORT entry 2.0; the mark pass writes 2.5 on DATE. trailing-8 peak
+    // tracking starts at entry: 2.5 is +25% adverse → fires.
+    const trade = makeTrade({
+      source: PaperTradeSource.SIGNAL,
+      strategyInstanceId: undefined,
+      governingVariant: 'trailing-8',
+      marks: { [DATE]: { mark: 2.5 } },
+      variantRuns: [run('trailing-8', true)],
+      variantKeys: ['trailing-8'],
+    });
+    await runExitEvalPass(DATE, makeDeps([trade], spy));
+
+    assert.equal(spy.exits.length, 1, 'signal trade governing run must close at the mark');
+    assert.equal(spy.exits[0].fill.price, 2.5);
+    const governing = spy.runUpdates.find((u) => u.run.governing);
+    assert.equal(governing!.run.state, 'EXITED');
+  });
+
   it('shadow breach → exitEvent recorded, no closing fill', async () => {
     const spy: SpyDeps = { exits: [], runUpdates: [] };
     const trade = makeTrade({

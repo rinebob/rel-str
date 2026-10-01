@@ -25,6 +25,7 @@ const scripts = [
   'paper-trading-read-apis-565.ts',
   'paper-trading-cancel-666.ts',
   'paper-trading-close-667.ts',
+  'paper-trading-signal-marks-676.ts',
   'paper-trading-trade-exits-669.ts',
 ];
 

@@ -8,7 +8,7 @@
  */
 
 import type { Firestore, Transaction } from 'firebase-admin/firestore';
-import { buildAccountId } from '@paper-trading/ids';
+import { buildAccountId, buildRawQuoteId } from '@paper-trading/ids';
 import {
   isPaperAccount,
   isPaperCohort,
@@ -17,6 +17,7 @@ import {
   isPaperTrade,
   isRawQuoteDoc,
   PaperTradingKind,
+  PaperTradeStatus,
   type ListPaperTradesRequest,
   type PaperAccount,
   type PaperCohort,
@@ -31,6 +32,8 @@ import {
 } from '@paper-trading/contracts';
 import { paperDocRef, paperItemsRef } from './collections';
 import type { LedgerDeps, LedgerTxn } from './ledger';
+import { rawQuoteToDoc } from './engine/trade-adapter';
+import type { RawQuote } from './engine/types';
 
 // ── Generic get/set per kind ────────────────────────────────────────────────
 
@@ -226,6 +229,65 @@ export async function updateVariantRun(
     // keep the denormalized key list in sync (needed for array-contains queries)
     const variantKeys = [...new Set(variantRuns.map((r) => r.variantKey))];
     txn.update(ref, { variantRuns, variantKeys, updatedAt: now });
+  });
+}
+
+/**
+ * Mark a signal-source trade (task #676): `marks[date].mark`, per-leg
+ * `lastMark`, `unrealizedPnl`, `lastMarkedAt`, and the raw-quote audit doc in
+ * one txn. Unlike `markPosition` in the position-repository this takes the
+ * order-level mark directly — share legs (multiplier 1) and option legs
+ * (multiplier 100) both work. `unrealizedPnl` undefined → keep the stored
+ * value (a trade with no entry fill keeps whatever it had rather than
+ * silently zeroing).
+ *
+ * Guards mirrored from the ledger close path: the txn re-checks
+ * `status === OPEN` (a trade closed between enumeration and write gets no
+ * mark stamped onto a CLOSED doc — returns false instead) and the order-level
+ * net mark is stamped onto `lastMark` only for single-leg trades (same guard
+ * as `applyExitFill`; a net order price is not a per-leg mark on spreads).
+ */
+export async function markSignalTrade(
+  db: Firestore,
+  tradeId: string,
+  update: { mark: number; unrealizedPnl?: number; asOf: string },
+  rawQuote: RawQuote,
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const rqDoc = rawQuoteToDoc(
+    tradeId,
+    rawQuote,
+    buildRawQuoteId(tradeId, new Date(`${rawQuote.date}T00:00:00Z`)),
+    now,
+  );
+  const { id: _rq, ...rqData } = rqDoc;
+
+  return db.runTransaction(async (txn) => {
+    const ref = paperDocRef(db, PaperTradingKind.TRADE, tradeId);
+    const snap = await txn.get(ref);
+    if (!snap.exists) {
+      throw new Error(`paper trade ${tradeId} not found`);
+    }
+    const trade = { id: snap.id, ...(snap.data() as object) } as PaperTrade;
+    if (trade.status !== PaperTradeStatus.OPEN) {
+      return false;
+    }
+    const marks = { ...(trade.marks ?? {}) };
+    marks[rawQuote.date] = { ...marks[rawQuote.date], mark: update.mark };
+    txn.update(ref, {
+      legs:
+        trade.legs.length === 1
+          ? [{ ...trade.legs[0], lastMark: update.mark }]
+          : trade.legs,
+      marks,
+      unrealizedPnl: update.unrealizedPnl ?? trade.unrealizedPnl,
+      lastMarkedAt: update.asOf,
+      updatedAt: now,
+    });
+    txn.set(paperDocRef(db, PaperTradingKind.RAW_QUOTE, rqDoc.id), rqData, {
+      merge: true,
+    });
+    return true;
   });
 }
 

@@ -22,6 +22,11 @@ import {
 import { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from '../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import { createRobinhoodMcpSessionManagerFromEnv } from '../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
+import {
+  runSignalMarkPass,
+  defaultSignalMarkDeps,
+} from '../passes/signal-mark-pass';
+import { db as paperDb } from '../../firebase-admin-init';
 import { createLogger } from './logging';
 
 const log = createLogger('OptionsStrategyPasses');
@@ -88,12 +93,34 @@ export const optionsMarkPass = onSchedule(
       return;
     }
 
-    const provider = new RobinhoodMcpOptionQuoteProvider({
-      callTool: manager.callTool.bind(manager),
-    });
+    const callTool = manager.callTool.bind(manager);
+    const provider = new RobinhoodMcpOptionQuoteProvider({ callTool });
 
     try {
-      await runMarkPassForAllInstances(provider);
+      // Isolated stages: an instance-marking failure must not cost signal
+      // trades their marks, and vice versa.
+      try {
+        await runMarkPassForAllInstances(provider);
+      } catch (err) {
+        log.error(`Instance mark pass failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      // Signal-source trades have no instance — mark them on the same
+      // cadence so governing trailing stops have fresh marks to eval
+      // (#676). Same quote plumbing as the close callable.
+      try {
+        const sigSummary = await runSignalMarkPass(
+          defaultSignalMarkDeps(paperDb, {
+            getOptionQuotes: (ids, side) => provider.getQuotes(ids, side),
+            callTool,
+          }),
+        );
+        log.info(
+          `Signal mark pass: marked=${sigSummary.marked} skipped=${sigSummary.skipped} ` +
+            `errors=${sigSummary.errors.length}`,
+        );
+      } catch (err) {
+        log.error(`Signal mark pass failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
     } finally {
       await manager.close();
     }
@@ -139,15 +166,31 @@ export const optionsMarkPassManual = onCall(
       );
     }
 
-    const provider = new RobinhoodMcpOptionQuoteProvider({
-      callTool: manager.callTool.bind(manager),
-    });
+    const callTool = manager.callTool.bind(manager);
+    const provider = new RobinhoodMcpOptionQuoteProvider({ callTool });
 
+    let instances: unknown;
+    let signals: unknown;
     try {
-      return await runMarkPassForAllInstances(provider);
+      try {
+        instances = await runMarkPassForAllInstances(provider);
+      } catch (err) {
+        instances = { error: err instanceof Error ? err.message : String(err) };
+      }
+      try {
+        signals = await runSignalMarkPass(
+          defaultSignalMarkDeps(paperDb, {
+            getOptionQuotes: (ids, side) => provider.getQuotes(ids, side),
+            callTool,
+          }),
+        );
+      } catch (err) {
+        signals = { error: err instanceof Error ? err.message : String(err) };
+      }
     } finally {
       await manager.close();
     }
+    return { instances, signals };
   },
 );
 

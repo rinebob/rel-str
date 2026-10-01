@@ -519,13 +519,29 @@ export interface ClosePaperTradeDeps {
   now(): Date;
 }
 
-/** Net order-level exit price: signed so the ledger's cashDelta equals the
- *  position's liquidation value (long legs sell for +value, short legs cost
- *  −value at buyback). Returns undefined when any leg quote is missing. */
-export async function netExitPrice(
+/** Per-leg mark that fed a `netExitBreakdown` result — persisted in the
+ *  raw-quote audit row so an eval-triggered exit can be traced back to real
+ *  quotes rather than a synthesized scalar. */
+export interface NetExitLegQuote {
+  contractID?: string;
+  symbol?: string;
+  mark: number;
+}
+
+export interface NetExitBreakdown {
+  /** Signed order-level exit price (the value `netExitPrice` returns). */
+  orderMark: number;
+  legs: NetExitLegQuote[];
+}
+
+/** Net order-level exit price plus the per-leg quotes that produced it.
+ *  Signed so the ledger's cashDelta equals the position's liquidation value
+ *  (long legs sell for +value, short legs cost −value at buyback). Returns
+ *  undefined when any leg quote is missing. */
+export async function netExitBreakdown(
   trade: PaperTrade,
   deps: Pick<ClosePaperTradeDeps, 'getOptionQuotes' | 'callTool'>,
-): Promise<number | undefined> {
+): Promise<NetExitBreakdown | undefined> {
   const optionLegs = trade.legs.filter((l) => l.kind === 'option');
   const optionMarks = new Map<string, number>();
   if (optionLegs.length) {
@@ -566,17 +582,34 @@ export async function netExitPrice(
 
   // Liquidation value: long legs +mark, short legs −mark.
   let value = 0;
+  const legs: NetExitLegQuote[] = [];
   for (const leg of trade.legs) {
     const mark =
       leg.kind === 'share' ? equityMark : optionMarks.get(leg.contractID);
     if (mark === undefined) return undefined;
+    legs.push(
+      leg.kind === 'share'
+        ? { symbol: trade.symbol, mark }
+        : { contractID: leg.contractID, mark },
+    );
     value += (leg.side === TradeSide.SHORT ? -1 : 1) * mark * leg.quantity * leg.multiplier;
   }
   // Sign for the ledger formula: -signedCashDelta(fill, entrySide) must equal
   // the liquidation value → price carries the entry-side sign.
   const signed =
     trade.order.side === TradeSide.SHORT ? -value : value;
-  return signed / (trade.order.quantity * orderMultiplier(trade.legs));
+  return {
+    orderMark: signed / (trade.order.quantity * orderMultiplier(trade.legs)),
+    legs,
+  };
+}
+
+/** Scalar form of `netExitBreakdown` for callers that only need the price. */
+export async function netExitPrice(
+  trade: PaperTrade,
+  deps: Pick<ClosePaperTradeDeps, 'getOptionQuotes' | 'callTool'>,
+): Promise<number | undefined> {
+  return (await netExitBreakdown(trade, deps))?.orderMark;
 }
 
 export async function handleClosePaperTrade(
