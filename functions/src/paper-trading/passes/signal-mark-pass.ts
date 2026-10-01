@@ -15,10 +15,10 @@
  * `unrealizedPnl` in one txn. Mark dates normalize to the PT calendar
  * date so a post-UTC-midnight mark can't land under tomorrow's key.
  *
- * Known lifecycle gap: a signal OPTION trade that reaches expiration has
- * no settlement seam (settlement iterates strategy instances only) — such
- * trades surface as per-trade `errors[]` entries here so a zombie is
- * visible rather than silently skipped forever.
+ * An expired signal OPTION trade is settled nightly by
+ * `runSignalSettlementPass` — an expired leg surfacing here means that
+ * settlement failed (or hasn't run yet), so it records a per-trade
+ * `errors[]` entry rather than a silent skip.
  */
 
 import type { Firestore } from 'firebase-admin/firestore';
@@ -102,16 +102,16 @@ export async function runSignalMarkPass(
         skip(trade.id, 'no legs');
         continue;
       }
-      // Signal trades have no settlement seam — an expired option leg can
-      // never quote again, so record it as an error (visible) rather than
-      // a silent skip forever.
+      // Expired option legs are settled nightly by runSignalSettlementPass —
+      // one reaching the mark pass means settlement failed (or hasn't run
+      // yet), so record it as an error (visible) rather than a silent skip.
       const expired = trade.legs.find(
         (l) => l.kind === 'option' && l.expiration < markDate,
       );
       if (expired) {
         const err =
           `option leg expired ${expired.kind === 'option' ? expired.expiration : ''} ` +
-          `— no settlement path for signal trades`;
+          `— awaiting nightly settlement (or it failed)`;
         summary.errors.push({ tradeId: trade.id, error: err });
         logger.warn(`${trade.id}: ${err}`);
         continue;

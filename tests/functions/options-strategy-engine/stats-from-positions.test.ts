@@ -63,7 +63,9 @@ describe('computeStatsFromPositions', () => {
       id: 'inst-1-2026-01-02',
       status: PositionStatus.EXPIRED_WORTHLESS,
       premiumCollected: 75,
-      unrealizedPnl: 0,
+      // Convention (trade-adapter): a closed/expired Position carries its
+      // realized P&L in unrealizedPnl — +premium for shorts.
+      unrealizedPnl: 75,
       currentValue: 0,
     });
     const stats = computeStatsFromPositions([pos], 'inst-1', '2026-01-10');
@@ -99,8 +101,8 @@ describe('computeStatsFromPositions', () => {
   it('aggregates a mix of OPEN, EXPIRED_WORTHLESS, and ASSIGNED positions', () => {
     const positions = [
       makePosition({ id: 'p1', status: PositionStatus.OPEN, premiumCollected: 50, unrealizedPnl: 20 }),
-      makePosition({ id: 'p2', status: PositionStatus.EXPIRED_WORTHLESS, premiumCollected: 75, unrealizedPnl: 0, currentValue: 0 }),
-      makePosition({ id: 'p3', status: PositionStatus.EXPIRED_WORTHLESS, premiumCollected: 60, unrealizedPnl: 0, currentValue: 0 }),
+      makePosition({ id: 'p2', status: PositionStatus.EXPIRED_WORTHLESS, premiumCollected: 75, unrealizedPnl: 75, currentValue: 0 }),
+      makePosition({ id: 'p3', status: PositionStatus.EXPIRED_WORTHLESS, premiumCollected: 60, unrealizedPnl: 60, currentValue: 0 }),
       makePosition({ id: 'p4', status: PositionStatus.ASSIGNED_HOLDING_SHARES, premiumCollected: 40, unrealizedPnl: -200, currentValue: 9800 }),
     ];
     const stats = computeStatsFromPositions(positions, 'inst-1', '2026-01-10');
@@ -110,7 +112,22 @@ describe('computeStatsFromPositions', () => {
     assert.equal(stats.expiredWorthlessCount, 2);
     assert.equal(stats.assignedCount, 1);
     assert.equal(stats.totalPremiumCollected, 225); // 50 + 75 + 60 + 40
-    assert.equal(stats.totalRealizedPnl, 135); // 75 + 60 (premium from expired)
-    assert.equal(stats.totalUnrealizedPnl, -180); // 20 + 0 + 0 + (-200)
+    assert.equal(stats.totalRealizedPnl, 135); // 75 + 60 (realized from expired)
+    assert.equal(stats.totalUnrealizedPnl, -180); // 20 + (-200); expired don't count
+  });
+
+  it('books a LONG-side expired worthless position at its full loss', () => {
+    // trade-adapter maps EXPIRED → trade.realizedPnl into unrealizedPnl —
+    // for a long option that is −cost (premiumCollected stays 0).
+    const pos = makePosition({
+      id: 'lp-1',
+      status: PositionStatus.EXPIRED_WORTHLESS,
+      premiumCollected: 0,
+      unrealizedPnl: -120,
+      currentValue: 0,
+    });
+    const stats = computeStatsFromPositions([pos], 'inst-1', '2026-01-10');
+    assert.equal(stats.expiredWorthlessCount, 1);
+    assert.equal(stats.totalRealizedPnl, -120);
   });
 });

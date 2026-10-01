@@ -285,8 +285,11 @@ export async function markPositionSettled(
     const instUserId = instSnap?.exists
       ? (instSnap.data() as { userId?: string }).userId
       : undefined;
-    const acctRef = instUserId
-      ? paperDocRef(db, PaperTradingKind.ACCOUNT, buildAccountId(instUserId))
+    // Signal-source trades carry no strategyInstanceId — resolve the account
+    // from the trade's own userId before giving up on bookkeeping (#720).
+    const ownerId = instUserId ?? trade.userId;
+    const acctRef = ownerId
+      ? paperDocRef(db, PaperTradingKind.ACCOUNT, buildAccountId(ownerId))
       : null;
     const acctSnap = acctRef ? await txn.get(acctRef) : null;
 
@@ -398,7 +401,7 @@ export async function markPositionSettled(
       });
     } else {
       // Missing instance doc, userId, or account — surface all of them.
-      logger.warn(`settlement skipped account bookkeeping (position ${positionId}, instance ${trade.strategyInstanceId ?? 'none'}, user ${instUserId ?? 'none'})`);
+      logger.warn(`settlement skipped account bookkeeping (position ${positionId}, instance ${trade.strategyInstanceId ?? 'none'}, user ${ownerId ?? 'none'})`);
     }
   });
 }

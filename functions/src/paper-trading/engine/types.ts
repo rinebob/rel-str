@@ -76,6 +76,10 @@ export interface Position {
   currentValue: number;
   currentValueAsOf: string;
   unrealizedPnl: number;
+  /** Realized P&L from the trade doc — emitted by tradeToPosition so
+   *  closed/expired rows show real realized instead of inferring from
+   *  premiumCollected. */
+  realizedPnl?: number;
   assignment?: PositionAssignment;
   shares?: PositionShares;
   createdAt?: Timestamp;

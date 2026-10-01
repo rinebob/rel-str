@@ -32,6 +32,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #666 | `paper-trading-cancel-666.ts` | PENDING→CANCELLED txn seam + cancel guards | [paper-trading-cancel-666.md](../../../scripts/verify/paper-trading-cancel-666.md) |
 | #667 | `paper-trading-close-667.ts` | OPEN→CLOSED at live RH quote (needs RH MCP OAuth) | [paper-trading-close-667.md](../../../scripts/verify/paper-trading-close-667.md) |
 | #676 | `paper-trading-signal-marks-676.ts` | nightly marks on signal-source trades → governing stops evaluable | [paper-trading-signal-marks-676.md](../../../scripts/verify/paper-trading-signal-marks-676.md) |
+| #720 | `paper-trading-signal-settlement-720.ts` | expired signal option legs settle — worthless / intrinsic | [paper-trading-signal-settlement-720.md](../../../scripts/verify/paper-trading-signal-settlement-720.md) |
 | #669 | `paper-trading-trade-exits-669.ts` | composed exit seam — prod seeding audit + governingVariant resolution + seed guards + cancel/close guards | [paper-trading-trade-exits-669.md](../../../scripts/verify/paper-trading-trade-exits-669.md) |
 
 ## Order across tasks
@@ -47,4 +48,5 @@ npx tsx scripts/verify/{script-name}.ts
 9. **#666** — `paper-trading-cancel-666.ts` (cancel seam)
 10. **#667** — `paper-trading-close-667.ts` (live-quote close)
 11. **#676** — `paper-trading-signal-marks-676.ts` (signal-trade marks)
-12. **#669** — `paper-trading-trade-exits-669.ts` (composed exit seam + prod audit)
+12. **#720** — `paper-trading-signal-settlement-720.ts` (signal-trade settlement)
+13. **#669** — `paper-trading-trade-exits-669.ts` (composed exit seam + prod audit)

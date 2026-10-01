@@ -190,6 +190,22 @@ export function signedCashDelta(fill: PaperFill, side: TradeSide, legs: PaperTra
 }
 
 /**
+ * Order-level price for a known liquidation value — the inverse of the
+ * `-signedCashDelta(fill, entrySide) = liquidation value` convention used by
+ * `applyExitFill`. Sign the value by entry side (SHORT orders carry negative
+ * liquidation value), then divide by order size. Shared by `netExitBreakdown`
+ * (live quotes) and `runSignalSettlementPass` (intrinsic at expiry).
+ */
+export function orderPriceForLiquidationValue(
+  liquidationValue: number,
+  order: PaperTrade['order'],
+  legs: PaperTradeLeg[],
+): number {
+  const signed = order.side === TradeSide.SHORT ? -liquidationValue : liquidationValue;
+  return signed / (order.quantity * orderMultiplier(legs));
+}
+
+/**
  * Realized P&L for a whole-order exit: `(exit − entry) × qty × multiplier`,
  * signed by the entry side (SHORT gains when the exit is cheaper).
  * Shared by `applyExitFill` and shadow-variant exit-event bookkeeping.

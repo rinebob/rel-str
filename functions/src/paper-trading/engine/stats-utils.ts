@@ -41,7 +41,8 @@ export function computeMaxDrawdown(points: EquityCurvePoint[]): number {
  * Compute a StrategyStats object from a list of positions.
  *
  * - OPEN and ASSIGNED_HOLDING_SHARES count as "open" positions with unrealized P&L.
- * - EXPIRED_WORTHLESS counts as "closed" with realized P&L = premium collected.
+ * - EXPIRED_WORTHLESS counts as "closed"; realized P&L = the value the
+ *   adapter maps into unrealizedPnl (+premium for shorts, −cost for longs).
  * - maxDrawdown is left at 0 here; it is computed from the equity-curve series
  *   by the caller (stats-repository) which has access to historical points.
  *
@@ -74,8 +75,11 @@ export function computeStatsFromPositions(
     } else if (pos.status === PositionStatus.EXPIRED_WORTHLESS) {
       closedPositionCount++;
       expiredWorthlessCount++;
-      // Realized P&L for expired worthless = premium retained.
-      totalRealizedPnl += pos.premiumCollected;
+      // Realized P&L rides in `unrealizedPnl` via the trade adapter
+      // (EXPIRED → trade.realizedPnl: premium retained for shorts,
+      // −premium for longs). premiumCollected alone would misstate
+      // long-side expirations as 0.
+      totalRealizedPnl += pos.unrealizedPnl;
     } else {
       // CLOSED or future statuses — count as closed, realized P&L = unrealized at close.
       closedPositionCount++;

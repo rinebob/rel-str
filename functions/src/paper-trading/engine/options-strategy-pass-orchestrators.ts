@@ -22,6 +22,12 @@ import {
   runPaperStatsPass,
   type PaperStatsPassResult,
 } from '../passes/paper-stats-pass';
+import {
+  defaultSignalSettlementDeps,
+  runSignalSettlementPass,
+  type SignalSettlementPassSummary,
+} from '../passes/signal-settlement-pass';
+import { db as paperDb } from '../../firebase-admin-init';
 import type { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import { getUnderlyingClose, getUnderlyingCloseForDate } from './options-strategy-market-data';
 import { createLogger } from './logging';
@@ -253,6 +259,8 @@ export async function runSettlementForAllInstances(
     (date) => runExitEvalPass(date, defaultEvalDeps()),
   paperStatsPass: (date: string) => Promise<PaperStatsPassResult> =
     (date) => runPaperStatsPass(date, createPaperStatsPassDeps()),
+  signalSettlementPass: (date: string) => Promise<SignalSettlementPassSummary> =
+    (date) => runSignalSettlementPass(date, defaultSignalSettlementDeps(paperDb)),
 ): Promise<Record<string, SettlementPassSummary | { error: string }>> {
   // Nightly chain: marks → exit-variant eval → settlement → stats. The eval
   // pass is global (governing closes create fills/cash; shadow runs record
@@ -268,6 +276,21 @@ export async function runSettlementForAllInstances(
   } catch (err) {
     log.error(
       `Exit eval pass failed for ${marketDate}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  // Signal-source trades have no instance — settle expired option legs
+  // globally (#720) so they can't zombie past expiration. Own try/catch:
+  // a failure here must not skip the per-instance settlement loop.
+  try {
+    const sigSummary = await signalSettlementPass(marketDate);
+    log.info(
+      `Signal settlement pass for ${marketDate}: settled=${sigSummary.settled} ` +
+        `skipped=${sigSummary.skipped} errors=${sigSummary.errors.length}`,
+    );
+  } catch (err) {
+    log.error(
+      `Signal settlement pass failed for ${marketDate}: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 

@@ -194,7 +194,10 @@ export function positionToTrade(
     : paperLegs;
 
   // Legacy realized semantics: expired worthless keeps the premium; CLOSED
-  // carries its result in unrealizedPnl; assignment also realizes the premium.
+  // carries its result in unrealizedPnl; assignment also realizes the
+  // premium. Scoped to SHORT engine docs — legacy positions are SHORT-only,
+  // so `premiumCollected` is exactly the realized value. (A migrated LONG
+  // expired worthless would read 0 here; none can exist.)
   const realizedPnl =
     position.status === PositionStatus.EXPIRED_WORTHLESS
       ? position.premiumCollected
@@ -271,14 +274,16 @@ export function tradeToPosition(trade: PaperTrade): Position {
     openDate: entryFill?.date ?? trade.createdAt.slice(0, 10),
     currentValue,
     currentValueAsOf: trade.lastMarkedAt ?? trade.updatedAt,
-    // Engine convention (stats-utils.ts): a CLOSED Position's realized P&L
-    // rides in `unrealizedPnl`. Ledger exits write `realizedPnl` and zero
-    // `unrealizedPnl`, so closed trades map realized here; open trades map
-    // the mark-driven unrealized value.
+    // Engine convention (stats-utils.ts): a terminal Position's realized
+    // P&L rides in `unrealizedPnl`. Ledger exits write `realizedPnl` and
+    // zero `unrealizedPnl`, so CLOSED and EXPIRED trades map realized
+    // here; open trades map the mark-driven unrealized value.
     unrealizedPnl:
-      trade.status === PaperTradeStatus.CLOSED
+      trade.status === PaperTradeStatus.CLOSED ||
+      trade.status === PaperTradeStatus.EXPIRED
         ? trade.realizedPnl
         : trade.unrealizedPnl,
+    realizedPnl: trade.realizedPnl,
     ...(trade.assignment ? { assignment: trade.assignment } : {}),
     ...(trade.shares ? { shares: trade.shares } : {}),
   };

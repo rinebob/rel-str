@@ -111,6 +111,13 @@ const scripts = [
     needsAdc: true,
   },
   {
+    name: 'paper-trading signal settlement',
+    file: 'verify/paper-trading-signal-settlement-720.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
+  {
     name: 'paper-trading trade-exits composed',
     file: 'verify/paper-trading-trade-exits-669.ts',
     cwd: 'functions',

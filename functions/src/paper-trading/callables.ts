@@ -50,7 +50,7 @@ import {
   cancelPendingTrade,
   computeExitPnl,
   createPendingTrade,
-  orderMultiplier,
+  orderPriceForLiquidationValue,
 } from './ledger';
 import type {
   ApplyFillResult,
@@ -594,12 +594,8 @@ export async function netExitBreakdown(
     );
     value += (leg.side === TradeSide.SHORT ? -1 : 1) * mark * leg.quantity * leg.multiplier;
   }
-  // Sign for the ledger formula: -signedCashDelta(fill, entrySide) must equal
-  // the liquidation value → price carries the entry-side sign.
-  const signed =
-    trade.order.side === TradeSide.SHORT ? -value : value;
   return {
-    orderMark: signed / (trade.order.quantity * orderMultiplier(trade.legs)),
+    orderMark: orderPriceForLiquidationValue(value, trade.order, trade.legs),
     legs,
   };
 }
