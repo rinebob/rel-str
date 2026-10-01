@@ -56,6 +56,11 @@ export function decodeLabels(labels: string[]): {
   return { stageLabel, tags: labels.filter(l => stage(l) < 0) };
 }
 
+/** Stage ordinal for display ('5_IMPLEMENT' → '5'); '' for non-stage labels. */
+export function stageOrdinal(stageLabel: string | undefined): string {
+  return /^(\d+)_/.exec(stageLabel ?? '')?.[1] ?? '';
+}
+
 /** Infer the lifecycle node type from title + depth in the tree. */
 export function nodeTypeFor(
   title: string,
