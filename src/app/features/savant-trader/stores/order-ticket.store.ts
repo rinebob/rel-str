@@ -38,6 +38,7 @@ import {
 } from '../services/order-ticket.types';
 import { ExecutionResult } from '../services/order-execution.service';
 import { rhStateToTerminalStatus } from '../utils/broker-order.util';
+import { PositionAttributionService } from '../../portfolio-dashboard/position-attribution.service';
 
 export interface OrderTicketState {
   /** Signal Entry Records keyed by id. */
@@ -78,6 +79,7 @@ export const OrderTicketStore = signalStore(
     state,
     ticketService = inject(OrderTicketService),
     orderExecution = inject(OrderExecutionService),
+    attrService = inject(PositionAttributionService),
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
   ) => ({
@@ -291,6 +293,29 @@ export const OrderTicketStore = signalStore(
             console.error('[OrderTicketStore] reconcileTerminalStatuses failed:', err);
           },
         });
+
+      // Fill-time seeding (#592): a ticket that just reached FILLED with a
+      // bucketId seeds the position's attribution — linkKey = orderId so
+      // a multi-leg order's legs stay grouped. Buys only — a sell fill
+      // exits a position; seeding one would attribute an instrument you're
+      // leaving (sells keep the existing doc, which no-ops anyway, but an
+      // unattributed instrument would wrongly acquire a bucket on exit).
+      // Equity/ETF only: the position key is the symbol; option orders
+      // aren't submittable yet anyway.
+      for (const ticket of Object.values(patchedTickets)) {
+        const orderId = ticket.result?.orderId;
+        const instrumentId = 'symbol' in ticket ? ticket.symbol : '';
+        if (ticket.status !== OrderTicketStatus.FILLED || ticket.side !== 'buy'
+          || !ticket.bucketId || !orderId || !instrumentId) continue;
+        attrService
+          .seedFromTicket$(ticket.accountNumber, instrumentId, ticket.bucketId, orderId)
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe({
+            error: (err: unknown) => {
+              console.error('[OrderTicketStore] attribution seed failed:', err);
+            },
+          });
+      }
     },
   })),
 );

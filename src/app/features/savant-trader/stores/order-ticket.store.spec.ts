@@ -6,6 +6,7 @@ import { of, throwError } from 'rxjs';
 import { OrderTicketStore } from './order-ticket.store';
 import { OrderTicketService } from '../services/order-ticket.service';
 import { OrderExecutionService } from '../services/order-execution.service';
+import { PositionAttributionService } from '../../portfolio-dashboard/position-attribution.service';
 import {
   OrderTicket,
   OrderTicketStatus,
@@ -19,6 +20,7 @@ describe('OrderTicketStore', () => {
   let ticketService: any;
   let orderExecution: any;
   let snackBar: any;
+  let attrService: { seedFromTicket$: jest.Mock };
 
   function mockEquityTicket(overrides: Partial<EquityOrderTicket> = {}): EquityOrderTicket {
     return {
@@ -47,9 +49,11 @@ describe('OrderTicketStore', () => {
       deleteTicket: jasmine.createSpy('deleteTicket'),
       loadAllTickets: jasmine.createSpy('loadAllTickets').and.returnValue(of([])),
       loadTicket: jasmine.createSpy('loadTicket'),
+      batchUpdateTerminalStatus: jasmine.createSpy('batchUpdateTerminalStatus').and.returnValue(of(undefined)),
     };
 
     snackBar = { open: jasmine.createSpy('open') };
+    attrService = { seedFromTicket$: jest.fn(() => of(null)) };
     orderExecution = {
       submitEquityOrder: jasmine.createSpy('submitEquityOrder').and.returnValue(
         Promise.resolve({ success: true, result: { orderId: 'o1', state: 'confirmed' } }),
@@ -65,6 +69,7 @@ describe('OrderTicketStore', () => {
         { provide: OrderTicketService, useValue: ticketService },
         { provide: OrderExecutionService, useValue: orderExecution },
         { provide: MatSnackBar, useValue: snackBar },
+        { provide: PositionAttributionService, useValue: attrService },
         OrderTicketStore,
       ],
     });
@@ -270,6 +275,71 @@ describe('OrderTicketStore', () => {
 
       expect(store.loading()).toBe(false);
       expect(store.error()).toBe('Load failed');
+    });
+  });
+
+  describe('reconcileTerminalStatuses — fill-time attribution seeding (#592)', () => {
+    function rhFilledOrder(orderId: string): Record<string, import('../services/order-ticket.types').BrokerOrderSnapshot> {
+      return {
+        [orderId]: {
+          id: orderId, symbol: 'AAPL', side: 'buy', type: 'market',
+          state: 'filled', lastTransactionAt: '2026-09-01T15:00:00Z',
+        },
+      };
+    }
+
+    it('a filled ticket with bucketId seeds the position attribution', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.batchUpdateTerminalStatus.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({
+        id: 't1', status: OrderTicketStatus.SUBMITTED, bucketId: 'acct_wheel',
+        result: { orderId: 'o1' },
+      }));
+
+      store.reconcileTerminalStatuses(rhFilledOrder('o1'));
+
+      expect(store.tickets()['t1'].status).toBe(OrderTicketStatus.FILLED);
+      expect(attrService.seedFromTicket$).toHaveBeenCalledWith('123456789', 'AAPL', 'acct_wheel', 'o1');
+    });
+
+    it('a filled ticket WITHOUT bucketId does not seed', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.batchUpdateTerminalStatus.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({
+        id: 't1', status: OrderTicketStatus.SUBMITTED,
+        result: { orderId: 'o1' },
+      }));
+
+      store.reconcileTerminalStatuses(rhFilledOrder('o1'));
+
+      expect(store.tickets()['t1'].status).toBe(OrderTicketStatus.FILLED);
+      expect(attrService.seedFromTicket$).not.toHaveBeenCalled();
+    });
+
+    it('a filled SELL ticket does not seed — sells exit positions', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.batchUpdateTerminalStatus.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({
+        id: 't1', status: OrderTicketStatus.SUBMITTED, side: 'sell',
+        bucketId: 'acct_wheel', result: { orderId: 'o1' },
+      }));
+
+      store.reconcileTerminalStatuses(rhFilledOrder('o1'));
+
+      expect(store.tickets()['t1'].status).toBe(OrderTicketStatus.FILLED);
+      expect(attrService.seedFromTicket$).not.toHaveBeenCalled();
+    });
+
+    it('does not re-seed a ticket already FILLED', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({
+        id: 't1', status: OrderTicketStatus.FILLED, bucketId: 'acct_wheel',
+        result: { orderId: 'o1' },
+      }));
+
+      store.reconcileTerminalStatuses(rhFilledOrder('o1'));
+
+      expect(attrService.seedFromTicket$).not.toHaveBeenCalled();
     });
   });
 
