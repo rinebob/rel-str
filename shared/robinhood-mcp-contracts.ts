@@ -41,6 +41,12 @@ export interface ToolExecutionSuccess {
   parsed?: unknown;
   redacted: unknown;
   tool: string;
+  /**
+   * MCP envelope-level `isError` surfaced by the executor — the envelope flag
+   * is dropped when the error text parses as JSON, so `parsed` alone cannot
+   * detect it. Present only on transport-success results.
+   */
+  toolError?: string;
 }
 
 export interface ToolExecutionFailure {
