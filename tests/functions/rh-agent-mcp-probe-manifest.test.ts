@@ -60,6 +60,23 @@ const knownTools: RobinhoodToolDefinition[] = [
     category: "Orders",
   },
   {
+    name: "get_equity_orders",
+    description: "List equity orders",
+    inputSchema: {
+      type: "object",
+      required: ["account_number"],
+      properties: {
+        account_number: { type: "string" },
+        symbol: { type: "string" },
+        state: { type: "string" },
+        order_id: { type: "string" },
+      },
+      additionalProperties: false,
+    },
+    mutation: false,
+    category: "Orders",
+  },
+  {
     // Not in the static MUTATION_TOOLS name set — mutation only via flag.
     name: "flagged_only_mutation",
     description: "Mutation known only via definition.mutation",
@@ -380,6 +397,87 @@ describe("probe manifest loader/validator", () => {
     assert.equal(result.ok, false);
     assert.ok(result.errors.length >= 2);
     assert.equal(result.entries.length, 0);
+  });
+
+  it("validates the optional settle spec", () => {
+    const ok = validateProbeManifest(
+      manifest([
+        entry({
+          tool: "place_equity_order",
+          gate: "mutation",
+          args: { account_number: "$ENV:A", symbol: "OOMA", side: "buy", type: "market" },
+          settle: { tool: "get_equity_orders", intervalMs: 500, timeoutMs: 5000 },
+        }),
+      ]),
+      { knownTools },
+    );
+    assert.equal(ok.ok, true, JSON.stringify(ok.errors));
+    assert.equal(ok.entries[0].settle?.tool, "get_equity_orders");
+    assert.equal(ok.entries[0].settle?.intervalMs, 500);
+  });
+
+  it("rejects settle specs with unknown/mutation tools or bad fields", () => {
+    for (const settle of [
+      { tool: "no_such_tool" },
+      { tool: "place_equity_order" }, // mutation tool can't settle-poll
+      { tool: "get_accounts" }, // not an orders-list tool — can never settle
+      { tool: "get_equity_orders", pendingStates: [] },
+      { tool: "get_equity_orders", intervalMs: -5 },
+      "not-an-object",
+    ]) {
+      const result = validateProbeManifest(
+        manifest([
+          entry({
+            tool: "place_equity_order",
+            gate: "mutation",
+            args: { account_number: "$ENV:A", symbol: "OOMA", side: "buy", type: "market" },
+            settle,
+          }),
+        ]),
+        { knownTools },
+      );
+      assert.equal(result.ok, false, JSON.stringify(settle));
+      assert.ok(result.errors.some((e) => e.message.includes("settle")), JSON.stringify(settle));
+    }
+  });
+
+  it("settle.args placeholders join requiredEnv and bad keys are rejected", () => {
+    const ok = validateProbeManifest(
+      manifest([
+        entry({
+          tool: "place_equity_order",
+          gate: "mutation",
+          args: { account_number: "$ENV:A", symbol: "OOMA", side: "buy", type: "market" },
+          settle: { tool: "get_equity_orders", args: { account_number: "$ENV:SETTLE_VAR" } },
+        }),
+      ]),
+      { knownTools },
+    );
+    assert.equal(ok.ok, true, JSON.stringify(ok.errors));
+    assert.ok(ok.entries[0].requiredEnv.includes("SETTLE_VAR"));
+
+    const bad = validateProbeManifest(
+      manifest([
+        entry({
+          tool: "place_equity_order",
+          gate: "mutation",
+          args: { account_number: "$ENV:A", symbol: "OOMA", side: "buy", type: "market" },
+          settle: { tool: "get_equity_orders", args: { account_number: "$ENV:A", typo_key: "x" } },
+        }),
+      ]),
+      { knownTools },
+    );
+    assert.equal(bad.ok, false);
+    assert.ok(bad.errors.some((e) => e.message.includes("typo_key")));
+  });
+
+  it("warns when settle is attached to a read-gated probe", () => {
+    const result = validateProbeManifest(
+      manifest([entry({ settle: { tool: "get_equity_orders" } })]),
+      { knownTools },
+    );
+    assert.equal(result.ok, true);
+    assert.ok(result.warnings.some((w) => w.message.includes("settle")));
   });
 
   it("formatProbePlan lists probes in order with gate + tool", () => {

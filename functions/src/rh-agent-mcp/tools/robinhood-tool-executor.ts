@@ -17,6 +17,7 @@ import { redactResponse, type RedactionOptions } from './robinhood-response-reda
 import { validateToolArgs } from './schema-validation';
 import {
   ToolExecutionErrorCategory,
+  type RobinhoodToolDefinition,
   type ToolExecutionError,
   type ToolExecutionResult,
 } from '@robinhood-mcp/contracts';
@@ -25,13 +26,19 @@ import { isPlainObject } from '@robinhood-mcp/utils';
 export interface ExecuteObservationToolOptions {
   transportFactory?: RobinhoodMcpTransportFactory;
   repository?: ConnectLocalRobinhoodMcpSessionOptions['repository'];
+  /**
+   * Authoritative schema source — pass the LIVE tools/list definition when
+   * the bundled catalog may have drifted (ajv removeAdditional would strip a
+   * live-only param before the call). Falls back to the bundled catalog.
+   */
+  definition?: RobinhoodToolDefinition;
 }
 
 /** Timeout for individual MCP tool calls (45 seconds — longer than the frontend 30s). */
-const MCP_CALL_TIMEOUT_MS = 45_000;
+export const MCP_CALL_TIMEOUT_MS = 45_000;
 
 /** Reject a promise if it does not settle within timeoutMs. */
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(message)), timeoutMs);
@@ -58,7 +65,7 @@ function hasTextContent(value: unknown): value is McpToolResultShape {
   return Array.isArray(content) && content.length > 0 && typeof content[0].text === 'string';
 }
 
-function parseToolResult(raw: unknown): unknown | undefined {
+export function parseToolResult(raw: unknown): unknown | undefined {
   if (!hasTextContent(raw)) {
     return undefined;
   }
@@ -67,6 +74,22 @@ function parseToolResult(raw: unknown): unknown | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Surface an MCP envelope-level `isError` flag — the envelope is discarded
+ * once `parsed` holds the inner body, so `parsed` alone can never see it.
+ */
+export function toolEnvelopeError(raw: unknown): string | undefined {
+  if (!isPlainObject(raw) || raw.isError !== true) {
+    return undefined;
+  }
+  // No truncation — a cut could split a resolved env secret mid-value and
+  // leave a partial match downstream scrubbing can't mask.
+  if (hasTextContent(raw)) {
+    return (raw.content as McpToolContentItem[])[0].text!;
+  }
+  return 'Tool returned an error result';
 }
 
 export async function executeObservationTool(
@@ -83,7 +106,21 @@ export async function executeObservationTool(
     };
   }
 
-  const definition = await getObservationToolDefinition(toolName);
+  // A supplied definition is per-tool — a mismatched one (e.g. plumbed
+  // through a shared options bag) would mis-validate every tool.
+  if (
+    options.definition != null &&
+    (typeof options.definition.name !== 'string' ||
+      stripServerPrefix(options.definition.name) !== stripServerPrefix(toolName))
+  ) {
+    return {
+      success: false,
+      error: `definition for "${String(options.definition.name)}" does not match tool "${toolName}".`,
+      category: ToolExecutionErrorCategory.VALIDATION,
+    };
+  }
+  const definition =
+    options.definition ?? (await getObservationToolDefinition(toolName));
   if (!definition) {
     return {
       success: false,
@@ -121,11 +158,13 @@ export async function executeObservationTool(
       `MCP callTool timed out after ${MCP_CALL_TIMEOUT_MS / 1000}s for tool "${toolName}"`,
     );
     const parsed = parseToolResult(mcpResult);
+    const toolError = toolEnvelopeError(mcpResult);
     return {
       success: true,
       parsed,
       redacted: redactResponse(parsed ?? mcpResult, redactionOptions),
       tool: toolName,
+      ...(toolError !== undefined ? { toolError } : {}),
     };
   } catch (error) {
     return {
@@ -138,7 +177,7 @@ export async function executeObservationTool(
   }
 }
 
-function categorizeExecutionError(error: unknown): ToolExecutionErrorCategory {
+export function categorizeExecutionError(error: unknown): ToolExecutionErrorCategory {
   if (error instanceof RobinhoodMcpConnectionError || error instanceof McpSessionNotConnectedError) {
     return ToolExecutionErrorCategory.AUTH;
   }

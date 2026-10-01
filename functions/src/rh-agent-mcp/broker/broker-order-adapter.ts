@@ -96,7 +96,7 @@ async function executeAdapterTool(
     );
   }
 
-  const errorMessage = getToolLevelErrorMessage(result.parsed);
+  const errorMessage = result.toolError ?? getToolLevelErrorMessage(result.parsed);
   if (errorMessage) {
     throw new BrokerAdapterError(`${toolName} tool error: ${errorMessage}`);
   }
@@ -118,7 +118,7 @@ async function executeAdapterTool(
  */
 export async function listOrders(
   accountNumber: string,
-  options?: { cursor?: string; brokerOrderId?: string; state?: string; symbol?: string; agent?: string } & BrokerOrderAdapterOptions,
+  options?: { cursor?: string; brokerOrderId?: string; state?: string; symbol?: string; agent?: string; since?: string } & BrokerOrderAdapterOptions,
 ): Promise<BrokerOrderPage> {
   const args: Record<string, unknown> = { account_number: accountNumber };
 

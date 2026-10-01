@@ -14,7 +14,10 @@
 import { readFile } from 'node:fs/promises';
 import { isPlainObject } from '@robinhood-mcp/utils';
 import {
+  getToolCategory,
+  isFinancialMutationTool,
   isMutationTool,
+  isSimulationTool,
   listObservationTools,
   stripServerPrefix,
 } from '../tools/robinhood-tools';
@@ -26,6 +29,70 @@ import type { RobinhoodToolDefinition } from '@robinhood-mcp/contracts';
 // ---------------------------------------------------------------------------
 
 export type ProbeGate = 'read' | 'mutation';
+
+/**
+ * Transitional (non-terminal) RH order states — the settle poll keeps
+ * waiting while any order reports one of these. Runner UNIONs a caller's
+ * `pendingStates` with this set: callers can widen, never narrow (a narrowed
+ * or typo'd list would false-settle while an order is still open).
+ */
+export const DEFAULT_SETTLE_PENDING: readonly string[] = [
+  'new',
+  'queued',
+  'confirmed',
+  'unconfirmed',
+  'partially_filled',
+  'pending_cancelled',
+];
+
+/** Terminal RH order states — union with DEFAULT_SETTLE_PENDING is the known
+ *  order-state vocabulary used for settle "order evidence" checks. */
+export const TERMINAL_ORDER_STATES: readonly string[] = [
+  'filled',
+  'cancelled',
+  'rejected',
+  'failed',
+  'voided',
+  // Real RH state: partial-fill then cancel race — documented in
+  // docs/topics/176-savant-trader/research-...-order-states.md
+  'partially_filled_rest_cancelled',
+  // The live tools/list uses the single-L spelling on some order tools.
+  'canceled',
+];
+
+/**
+ * Settle-poll tools must list orders — a quotes/position tool returning a
+ * `results`/`data.results` container would count as "order evidence" and
+ * false-settle while the placed order is still transitional.
+ */
+export const ORDER_LIST_TOOL = /^get_\w*orders?$/;
+
+/**
+ * Post-mutation settle polling (#683). After a `place_*` probe the runner
+ * calls `tool` (an orders-list read, e.g. `get_equity_orders`) with the
+ * probe's resolved args until no order reports a `state`/`status` inside
+ * `pendingStates` — RH permits only one open order per position, so the next
+ * probe must wait for the previous one to leave the transitional states.
+ */
+export interface ProbeSettleSpec {
+  /** Orders-list tool to poll (must be a known read-only tool). */
+  tool: string;
+  /**
+   * Args merged over the probe's resolved args for the settle call. Use this
+   * when mutation args would silently change the settle tool's filter (e.g. a
+   * `state` or `order_id` key colliding with the poll's schema).
+   */
+  args?: Record<string, unknown>;
+  /**
+   * Additional transitional states — UNIONED with `DEFAULT_SETTLE_PENDING`
+   * at run time (a caller can widen the pending set, never narrow it).
+   */
+  pendingStates?: string[];
+  /** Poll spacing; default 2000ms. */
+  intervalMs?: number;
+  /** Give up after this; timeout prompts the operator. Default 60000ms. */
+  timeoutMs?: number;
+}
 
 export interface ProbeManifestEntry {
   /** Unique probe id — doubles as the capture filename stem. */
@@ -42,6 +109,8 @@ export interface ProbeManifestEntry {
   redactFields?: string[];
   /** Curator note carried into the discovery doc. */
   note?: string;
+  /** Post-mutation settle polling spec (mutation probes only). */
+  settle?: ProbeSettleSpec;
   /** Env vars referenced via `$ENV:` placeholders in args (loader-computed). */
   requiredEnv: string[];
 }
@@ -80,7 +149,7 @@ export interface LoadProbeManifestOptions {
 // Env placeholders
 // ---------------------------------------------------------------------------
 
-const ENV_PLACEHOLDER = /^\$ENV:([A-Z0-9_]+)$/;
+export const ENV_PLACEHOLDER = /^\$ENV:([A-Z0-9_]+)$/;
 /** Capture-file-safe probe ids: `captures/{id}.json` is derived verbatim. */
 const SAFE_PROBE_ID = /^[A-Za-z0-9_-]+$/;
 
@@ -88,6 +157,7 @@ function collectEnvPlaceholders(
   value: unknown,
   into: Set<string>,
   malformed: Set<string>,
+  seen: WeakSet<object> = new WeakSet(),
 ): void {
   if (typeof value === 'string') {
     const match = ENV_PLACEHOLDER.exec(value);
@@ -100,12 +170,18 @@ function collectEnvPlaceholders(
     }
     return;
   }
+  // Cyclic pre-parsed objects can arrive via the `data:` seam — skip
+  // revisited nodes instead of overflowing the validator.
   if (Array.isArray(value)) {
-    for (const item of value) collectEnvPlaceholders(item, into, malformed);
+    if (seen.has(value)) return;
+    seen.add(value);
+    for (const item of value) collectEnvPlaceholders(item, into, malformed, seen);
     return;
   }
   if (isPlainObject(value)) {
-    for (const v of Object.values(value)) collectEnvPlaceholders(v, into, malformed);
+    if (seen.has(value)) return;
+    seen.add(value);
+    for (const v of Object.values(value)) collectEnvPlaceholders(v, into, malformed, seen);
   }
 }
 
@@ -129,10 +205,33 @@ function unknownArgKeys(
   const patterns = isPlainObject(schema.patternProperties)
     ? Object.keys(schema.patternProperties).map((p) => new RegExp(p))
     : [];
-  return Object.keys(args).filter(
-    (key) =>
-      !Object.hasOwn(properties, key) && !patterns.some((p) => p.test(key)),
-  );
+  return Object.keys(args).flatMap((key) => {
+    if (!Object.hasOwn(properties, key) && !patterns.some((p) => p.test(key))) {
+      return [key];
+    }
+    // Recurse into object properties and arrays of objects — a typo'd nested
+    // key would silently drop at run time just like a top-level one.
+    const propSchema = properties[key];
+    const value = args[key];
+    if (isPlainObject(propSchema) && isPlainObject(value)) {
+      return unknownArgKeys(propSchema, value).map((k) => `${key}.${k}`);
+    }
+    if (
+      isPlainObject(propSchema) &&
+      Array.isArray(value) &&
+      isPlainObject(propSchema.items)
+    ) {
+      return value.flatMap((item, idx) =>
+        isPlainObject(item)
+          ? unknownArgKeys(
+              propSchema.items as Record<string, unknown>,
+              item,
+            ).map((k) => `${key}[${idx}].${k}`)
+          : [],
+      );
+    }
+    return [];
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -146,8 +245,18 @@ function toToolMap(
 ): Map<string, RobinhoodToolDefinition> {
   const map = new Map<string, RobinhoodToolDefinition>();
   // Live tools/list results may carry the `mcp__robinhood-trading__` prefix —
-  // normalize keys so manifest entries always use short names.
-  for (const t of provided) map.set(stripServerPrefix(t.name), t);
+  // normalize keys so manifest entries always use short names. Injectable
+  // callers may hand malformed entries (missing name/inputSchema) — skip or
+  // normalize rather than throwing inside validation.
+  for (const t of provided) {
+    if (!isPlainObject(t) || typeof t.name !== 'string') continue;
+    map.set(stripServerPrefix(t.name), {
+      ...t,
+      inputSchema: isPlainObject(t.inputSchema)
+        ? t.inputSchema
+        : ({} as Record<string, unknown>),
+    });
+  }
   return map;
 }
 
@@ -240,6 +349,118 @@ export function validateProbeManifest(
       entryFail('note must be a string', id);
     }
 
+    let settle: ProbeSettleSpec | undefined;
+    if (raw.settle !== undefined) {
+      if (!isPlainObject(raw.settle) || typeof raw.settle.tool !== 'string') {
+        entryFail('settle must be an object with a string tool', id);
+      } else {
+        const s = raw.settle;
+        const settleDef = tools.get(s.tool as string);
+        if (!settleDef) {
+          entryFail(`settle.tool "${String(s.tool)}" is not a known tool`, id);
+        } else if (settleDef.mutation === true || isMutationTool(s.tool as string)) {
+          entryFail(`settle.tool "${String(s.tool)}" is a mutation — settle polling must be a read`, id);
+        } else if (!ORDER_LIST_TOOL.test(s.tool as string)) {
+          // A non-orders read can return a `results` container that counts
+          // as order evidence at run time — false-settle on every poll.
+          entryFail(
+            `settle.tool "${String(s.tool)}" is not an orders-list tool (get_*_orders) — its response can never confirm settlement`,
+            id,
+          );
+        }
+        if (gate === 'read') {
+          warn(`settle on read-gated probe "${id}" is ignored (post-mutation only)`, id);
+        }
+        if (s.args !== undefined && !isPlainObject(s.args)) {
+          entryFail('settle.args must be a plain object', id);
+        } else if (isPlainObject(s.args) && settleDef) {
+          // Same strictness as probe args: typo'd keys would silently change
+          // the settle poll's filter, and placeholders get collected into
+          // requiredEnv so a missing settle-only var can't false-settle.
+          const sArgs = s.args as Record<string, unknown>;
+          const unknownKeys = unknownArgKeys(settleDef.inputSchema, sArgs);
+          if (unknownKeys.length > 0) {
+            entryFail(
+              `settle.args contain keys not in "${String(s.tool)}" inputSchema: ${unknownKeys.join(', ')}`,
+              id,
+            );
+          }
+          // settle.args is a MERGE layer over probe args at run time —
+          // validate required/type constraints against the merged set the
+          // poll will actually send, not the partial override alone.
+          const mergedArgs = isPlainObject(raw.args)
+            ? { ...(raw.args as Record<string, unknown>), ...sArgs }
+            : sArgs;
+          const sValidation = validateToolArgs(settleDef.inputSchema, mergedArgs);
+          if (!sValidation.valid) {
+            entryFail(
+              `settle args fail inputSchema for "${String(s.tool)}" (merged with probe args): ${sValidation.error}`,
+              id,
+            );
+          }
+          const malformedEnv = new Set<string>();
+          collectEnvPlaceholders(sArgs, new Set<string>(), malformedEnv);
+          for (const bad of malformedEnv) {
+            entryFail(`malformed $ENV placeholder "${bad}" in settle.args — use "$ENV:NAME" (uppercase, whole value)`, id);
+          }
+        }
+        if (
+          s.pendingStates !== undefined &&
+          (!Array.isArray(s.pendingStates) ||
+            s.pendingStates.length === 0 ||
+            s.pendingStates.some((x) => typeof x !== 'string'))
+        ) {
+          entryFail('settle.pendingStates must be a non-empty string array', id);
+        } else if (Array.isArray(s.pendingStates)) {
+          // The runner unions these with the defaults — entries outside the
+          // transitional vocabulary are typos or terminal states (noise).
+          const known = new Set<string>(DEFAULT_SETTLE_PENDING);
+          for (const st of s.pendingStates) {
+            if (!known.has(st)) {
+              warn(
+                `settle.pendingStates "${st}" is not a known transitional order state — the default pending set still applies (union)`,
+                id,
+              );
+            }
+          }
+        }
+        for (const key of ['intervalMs', 'timeoutMs'] as const) {
+          const v = s[key];
+          // Infinity is reachable via the data: seam — it must not become an
+          // infinite poll (timeoutMs) or a hot loop (intervalMs clamps to ~1ms).
+          if (v !== undefined && (typeof v !== 'number' || !Number.isFinite(v) || v <= 0)) {
+            entryFail(`settle.${key} must be a positive finite number`, id);
+          }
+        }
+        // A probe arg that is also a settle-tool param silently scopes the
+        // poll unless settle.args overrides it — warn so the author must
+        // acknowledge the collision.
+        if (gate === 'mutation' && settleDef && isPlainObject(raw.args)) {
+          const settleProps =
+            (settleDef.inputSchema as { properties?: Record<string, unknown> })
+              .properties ?? {};
+          const overrides = isPlainObject(s.args)
+            ? (s.args as Record<string, unknown>)
+            : {};
+          for (const k of Object.keys(raw.args)) {
+            if (Object.hasOwn(settleProps, k) && !Object.hasOwn(overrides, k)) {
+              warn(
+                `probe arg "${k}" is also a "${String(s.tool)}" param — it scopes the settle poll for "${id}"; add a settle.args override if unintended`,
+                id,
+              );
+            }
+          }
+        }
+        settle = {
+          tool: s.tool as string,
+          ...(s.args !== undefined ? { args: s.args as Record<string, unknown> } : {}),
+          ...(s.pendingStates !== undefined ? { pendingStates: s.pendingStates as string[] } : {}),
+          ...(s.intervalMs !== undefined ? { intervalMs: s.intervalMs as number } : {}),
+          ...(s.timeoutMs !== undefined ? { timeoutMs: s.timeoutMs as number } : {}),
+        };
+      }
+    }
+
     // Load-time arg check against the tool's inputSchema — a typo'd param
     // fails here instead of mid-session. $ENV placeholders stay strings so
     // they type-check without resolving credentials.
@@ -266,6 +487,9 @@ export function validateProbeManifest(
 
     const requiredEnv = new Set<string>();
     collectEnvPlaceholders(raw.args, requiredEnv, new Set<string>());
+    if (settle?.args) {
+      collectEnvPlaceholders(settle.args, requiredEnv, new Set<string>());
+    }
 
     entries.push({
       id,
@@ -275,6 +499,7 @@ export function validateProbeManifest(
       gate: gate as ProbeGate,
       ...(raw.redactFields !== undefined ? { redactFields: raw.redactFields as string[] } : {}),
       ...(raw.note !== undefined ? { note: raw.note as string } : {}),
+      ...(settle !== undefined ? { settle } : {}),
       requiredEnv: [...requiredEnv],
     });
   }
@@ -331,4 +556,26 @@ export function formatProbePlan(entries: ProbeManifestEntry[]): string {
   return entries
     .map((e) => `[${e.gate}] ${e.id} - ${e.tool} (${e.group})`)
     .join('\n');
+}
+
+/**
+ * Attach mutation/simulation/financialMutation/category flags to raw
+ * name+description+inputSchema entries (live tools/list or catalog rows).
+ * Shared by the runner CLI and the offline verify script.
+ */
+export function toToolDefinitions(
+  tools: Iterable<{ name: string; description?: string; inputSchema: Record<string, unknown> }>,
+): RobinhoodToolDefinition[] {
+  return [...tools].map((t) => {
+    const name = stripServerPrefix(t.name);
+    return {
+      name,
+      description: t.description ?? '',
+      inputSchema: t.inputSchema,
+      mutation: isMutationTool(name),
+      simulation: isSimulationTool(name),
+      financialMutation: isFinancialMutationTool(name),
+      category: getToolCategory(name),
+    };
+  });
 }

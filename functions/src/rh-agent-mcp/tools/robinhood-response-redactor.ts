@@ -98,6 +98,15 @@ function isSensitiveField(
 ): boolean {
   const normalized = key.toLowerCase();
 
+  // Explicit caller requests beat the safe-identifier allowlist — a manifest
+  // redactFields entry or extraFields option is an intentional ask.
+  if (options.extraFields?.some((field) => field.toLowerCase() === normalized)) {
+    return true;
+  }
+  if (options.extraPatterns?.some((pattern) => pattern.test(key))) {
+    return true;
+  }
+
   // Explicitly safe identifiers are never redacted, even if a future pattern
   // would otherwise match them.
   if (SAFE_IDENTIFIER_FIELDS.has(normalized)) {
@@ -107,11 +116,7 @@ function isSensitiveField(
   if (DEFAULT_SENSITIVE_FIELDS.has(normalized)) {
     return true;
   }
-  if (options.extraFields?.some((field) => field.toLowerCase() === normalized)) {
-    return true;
-  }
-  const patterns = [...DEFAULT_SENSITIVE_PATTERNS, ...(options.extraPatterns ?? [])];
-  return patterns.some((pattern) => pattern.test(key));
+  return DEFAULT_SENSITIVE_PATTERNS.some((pattern) => pattern.test(key));
 }
 
 
@@ -161,7 +166,14 @@ function redactValue(
   const redacted: Record<string, unknown> = {};
   for (const [childKey, child] of Object.entries(record)) {
     const childSensitive = forceSensitive || isSensitiveField(childKey, options);
-    redacted[childKey] = redactValue(childKey, child, options, childSensitive);
+    // defineProperty: a "__proto__" key in a JSON.parse'd response must
+    // become an own property — plain assignment would silently drop it.
+    Object.defineProperty(redacted, childKey, {
+      value: redactValue(childKey, child, options, childSensitive),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
   }
   return redacted;
 }
