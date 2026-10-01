@@ -69,7 +69,7 @@ describe('TopicViewerStore', () => {
     expect(sections.map(s => s.name)).toEqual(['A. Group', 'Ungrouped']);
     expect(sections[1].topics.map(t => t.number)).toEqual([2]); // #3 closed → hidden
 
-    store.toggleShowClosed();
+    store.setShowClosed(true);
     sections = store.topicSections();
     expect(sections[1].topics.map(t => t.number)).toEqual([2, 3]);
     expect(sections[1].topics[1].closed).toBe(true);
@@ -80,7 +80,7 @@ describe('TopicViewerStore', () => {
     const store = storeWith({ getLifecycleTree$: jest.fn(() => of(empty)) });
     await store.refresh();
     expect(store.topicSections()).toEqual([]);
-    store.toggleShowClosed();
+    store.setShowClosed(true);
     expect(store.topicSections()[0].name).toBe('A');
   });
 
@@ -118,7 +118,7 @@ describe('TopicViewerStore', () => {
     store.expandAll();
     // 20's only child is closed → not expandable under showClosed=false
     expect(store.treeRows().map(r => r.node.number)).toEqual([2, 20]);
-    store.toggleShowClosed();
+    store.setShowClosed(true);
     store.expandAll();
     expect(store.treeRows().map(r => r.node.number)).toEqual([2, 20, 30]);
   });

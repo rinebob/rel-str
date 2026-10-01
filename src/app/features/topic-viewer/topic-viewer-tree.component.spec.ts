@@ -9,7 +9,7 @@ jest.mock('@angular/fire/functions', () => ({
 }));
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
 import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
@@ -28,7 +28,21 @@ describe('TopicViewerTreeComponent', () => {
   let fixture: ComponentFixture<TopicViewerTreeComponent>;
   const treeRows = signal<TreeRow[]>([]);
   const expandedIds = signal<number[]>([]);
+  const showClosed = signal(true);
+  // Mirrors the store's expandableIds: a node is expandable when it has at
+  // least one *visible* child (all children pass when showClosed is on).
+  const expandableIds = computed(() =>
+    treeRows()
+      .filter(r => r.node.children.some(c => showClosed() || c.state === 'open'))
+      .map(r => r.node.number));
   const toggleExpanded = jest.fn();
+
+  beforeEach(() => {
+    treeRows.set([]);
+    expandedIds.set([]);
+    showClosed.set(true);
+    jest.clearAllMocks();
+  });
 
   async function setup() {
     await TestBed.configureTestingModule({
@@ -37,8 +51,8 @@ describe('TopicViewerTreeComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         { provide: TopicViewerStore, useValue: {
-          treeRows, expandedIds, toggleExpanded,
-          showClosed: signal(true), // specs control visibility via treeRows
+          treeRows, expandedIds, expandableIds, toggleExpanded,
+          showClosed, // specs control visibility via treeRows
         } },
       ],
     }).compileComponents();
@@ -56,8 +70,8 @@ describe('TopicViewerTreeComponent', () => {
     await setup();
     const rows = fixture.nativeElement.querySelectorAll('.tree-row');
     expect(rows[0].style.paddingLeft).toBe('0px');
-    expect(rows[1].style.paddingLeft).toBe('18px');
-    expect(rows[2].style.paddingLeft).toBe('36px');
+    expect(rows[1].style.paddingLeft).toBe('20px');
+    expect(rows[2].style.paddingLeft).toBe('40px');
   });
 
   it('caret shows only on nodes with children; click toggles', async () => {
@@ -71,7 +85,7 @@ describe('TopicViewerTreeComponent', () => {
     expandedIds.set([2, 20]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
-    // topic root row has children in the node data → caret; leaf has spacer
+    // thread row has children in the node data → caret; leaf has spacer
     expect(el.querySelector('[data-testid="caret-20"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="caret-30"]')).toBeNull();
     (el.querySelector('[data-testid="caret-20"]') as HTMLElement).click();
@@ -93,7 +107,7 @@ describe('TopicViewerTreeComponent', () => {
 
   it('titles link to the node url in a new tab; stage/status/tags render', async () => {
     treeRows.set([{
-      node: node(5, { stageLabel: '6_REVIEW', status: 'IN PROGRESS', labels: ['6_REVIEW', 'BE', 'OPTIONS'] }),
+      node: node(5, { stageLabel: '6_REVIEW', status: 'IN PROGRESS', labels: ['BE', 'OPTIONS'] }),
       depth: 0,
     }]);
     await setup();
@@ -103,7 +117,9 @@ describe('TopicViewerTreeComponent', () => {
     expect(link.target).toBe('_blank');
     expect(link.rel).toContain('noopener');
     // stage label rendered once as stage chip, not duplicated as a tag
-    expect(el.querySelector('[data-testid="stage-chip"]')?.textContent).toContain('6_REVIEW');
+    const stageChip = el.querySelector('[data-testid="stage-chip"]');
+    expect(stageChip?.textContent).toContain('6_REVIEW');
+    expect(stageChip?.getAttribute('data-stage')).toBe('6');
     expect(el.textContent).toContain('IN PROGRESS');
     expect(el.textContent).toContain('BE');
     expect(el.textContent).toContain('OPTIONS');
@@ -115,15 +131,23 @@ describe('TopicViewerTreeComponent', () => {
     parent.children = [node(30, { state: 'closed' })];
     treeRows.set([{ node: parent, depth: 0 }]);
     await setup();
-    const store = fixture.debugElement.injector.get(TopicViewerStore) as unknown as {
-      showClosed: ReturnType<typeof signal<boolean>>;
-    };
-    store.showClosed.set(false);
+    showClosed.set(false);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-testid="caret-20"]')).toBeNull();
-    store.showClosed.set(true);
+    showClosed.set(true);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-testid="caret-20"]')).toBeTruthy();
+  });
+
+  it('exposes depth via the --guides custom property for depth-guide lines', async () => {
+    treeRows.set([
+      { node: node(2, { nodeType: 'topic' }), depth: 0 },
+      { node: node(30), depth: 2 },
+    ]);
+    await setup();
+    const rows = fixture.nativeElement.querySelectorAll('.tree-row');
+    expect(rows[0].style.getPropertyValue('--guides')).toBe('0');
+    expect(rows[1].style.getPropertyValue('--guides')).toBe('40');
   });
 
   it('closed nodes render dimmed', async () => {

@@ -246,10 +246,6 @@ export const TopicViewerStore = signalStore(
         patchState(store, { expandedIds: [] });
       },
 
-      toggleShowClosed(): void {
-        patchState(store, { showClosed: !store.showClosed() });
-      },
-
       /** Direct setter — the checkbox binds $event.checked so state can't
        *  desync if showClosed is ever set elsewhere. */
       setShowClosed(v: boolean): void {

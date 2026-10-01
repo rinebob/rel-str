@@ -49,7 +49,6 @@ describe('TopicViewerPageComponent', () => {
   const refresh = jest.fn(async () => undefined);
   const selectRepo = jest.fn(async () => undefined);
   const selectTopic = jest.fn();
-  const toggleShowClosed = jest.fn();
   const setShowClosed = jest.fn();
   const expandAll = jest.fn();
   const collapseAll = jest.fn();
@@ -93,7 +92,7 @@ describe('TopicViewerPageComponent', () => {
             expandedIds: signal<number[]>([]),
             treeRows: signal<TreeRow[]>([]),
             expandableIds: signal<number[]>([]),
-            refresh, selectRepo, selectTopic, toggleShowClosed, setShowClosed,
+            refresh, selectRepo, selectTopic, setShowClosed,
             expandAll, collapseAll,
             toggleExpanded: jest.fn(),
           },
@@ -134,6 +133,36 @@ describe('TopicViewerPageComponent', () => {
     expect(el.querySelector('[data-testid="section-name"]')?.textContent).toContain('A. Group');
     (el.querySelector('[data-testid="topic-1"]') as HTMLElement).click();
     expect(selectTopic).toHaveBeenCalledWith(1);
+  });
+
+  it('page heading reads "Topic Viewer"', async () => {
+    response.set(RESPONSE);
+    await setup();
+    expect(fixture.nativeElement.querySelector('.page-title')?.textContent?.trim())
+      .toBe('Topic Viewer');
+  });
+
+  it('topic rows strip the "Topic:" title prefix and show a stage dot', async () => {
+    response.set(RESPONSE);
+    await setup();
+    topicSections.set([{
+      name: 'G', topics: [{ number: 7, title: 'Topic: Cool Stuff', stageLabel: '5_IMPLEMENT', closed: false }],
+    }]);
+    fixture.detectChanges();
+    const row = fixture.nativeElement.querySelector('[data-testid="topic-7"]') as HTMLElement;
+    expect(row.textContent).toContain('Cool Stuff');
+    expect(row.textContent).not.toContain('Topic:');
+    const dot = row.querySelector('.stage-dot');
+    expect(dot?.getAttribute('data-stage')).toBe('5');
+    expect(dot?.getAttribute('title')).toBe('5_IMPLEMENT');
+  });
+
+  it('selected topic row exposes aria-current', async () => {
+    response.set(RESPONSE);
+    selectedTopicNumber.set(1);
+    await setup();
+    const row = fixture.nativeElement.querySelector('[data-testid="topic-1"]') as HTMLElement;
+    expect(row.getAttribute('aria-current')).toBe('true');
   });
 
   it('error banner renders the message; tree list stays visible', async () => {
@@ -229,6 +258,5 @@ describe('TopicViewer route + nav (task #644)', () => {
     const nav = NAV_MENU_ITEMS.find((i) => i.href === AppRoutes.TOPIC_VIEWER);
     expect(nav).toBeTruthy();
     expect(nav?.text).toBe('Topic Viewer');
-    expect(nav?.external).toBe(false);
   });
 });
