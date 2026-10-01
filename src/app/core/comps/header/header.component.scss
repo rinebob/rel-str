@@ -3,7 +3,8 @@
 
 :host {
     @include global.flexboxLayout(row, flex-start, center);
-    background-color: rgb(230, 230, 230);
+    background-color: #222;
+    color: #fff;
     height: var(--app-header-height);
     
     //////////////// CONTAINERS
@@ -23,8 +24,8 @@
                 align-items: center;
                 padding: 6px 10px;
                 border-radius: 14px;
-                background: color-mix(in oklab, var(--theme-on-surface, #222) 8%, transparent);
-                color: var(--theme-on-surface, #222);
+                background: rgba(255, 255, 255, 0.12);
+                color: #fff;
                 font-size: 0.875rem;
                 line-height: 1;
                 margin-right: 10px;
@@ -33,29 +34,13 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-
-            // add a bit of space before the logout button if both are present
-            button[mat-raised-button] + button[mat-raised-button],
-            .user-label + button[mat-raised-button] {
-                margin-left: 8px;
-            }
-        }
-    }
-
-    ///////////////// ELEMENTS
-
-    .nav-button {
-        @include global.rsButtonOne();
-
-        &:not(:last-of-type) {
-            margin-right: 20px;
         }
     }
 
     //////////////// TEXT
 
     .header-text {
-        font: 500 24px/36px Arial;
-        margin: 0 20px;
+        font: 500 18px/24px Arial;
+        margin: 0 16px;
     }
 }

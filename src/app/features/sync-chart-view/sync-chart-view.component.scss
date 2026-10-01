@@ -6,7 +6,7 @@
     min-height: 100vh;
     padding: 1rem;
     // Subtract header and padding from viewport height
-    height: calc(100vh - 64px - 2rem); // 64px header + 2rem padding
+    height: calc(100vh - var(--header-height, 48px) - 2rem);
     overflow: hidden; // Prevent all scrolling on the container
     box-sizing: border-box; // Include padding in height calculation
     width: 100%;

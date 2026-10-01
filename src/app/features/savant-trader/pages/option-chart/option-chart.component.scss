@@ -1,5 +1,5 @@
 .option-chart-page {
-  height: calc(100vh - 64px);
+  height: calc(100vh - var(--header-height, 48px));
   overflow: hidden;
 
   &.fullscreen {

@@ -167,7 +167,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
   styles: [`
     :host {
       display: block;
-      height: calc(100vh - 64px);
+      height: calc(100vh - var(--header-height, 48px));
       overflow: auto;
     }
     /* App header hidden in fullscreen — claim the full viewport. */

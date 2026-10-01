@@ -5,7 +5,7 @@
 // Material 3 system variables are not emitted by the prebuilt indigo-pink theme,
 // but the app uses them extensively. Define them here so components can rely on them.
 :root {
-  --app-header-height: 64px;
+  --app-header-height: 48px;
   --mat-sys-primary: #3f51b5;
   --mat-sys-on-primary: #ffffff;
   --mat-sys-primary-container: #e8eaf6;

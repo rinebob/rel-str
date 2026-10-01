@@ -3,7 +3,7 @@
 .rs-chart-view {
   @include mixins.flexboxLayout(column, flex-start, stretch);
   gap: mixins.rem(10);
-  height: calc(100vh - 64px);
+  height: calc(100vh - var(--header-height, 48px));
 }
 
 .rs-chart-view__main {

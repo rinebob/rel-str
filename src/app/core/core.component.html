@@ -13,6 +13,10 @@
 
         @if (!ui.fullscreen()) {
           <rs-header (openSidenav)="handleOpenSidenav()" />
+        } @else {
+          <button mat-icon-button class="header-reveal" (click)="ui.toggleFullscreen()" aria-label="Show header" matTooltip="Show header">
+            <mat-icon>fullscreen_exit</mat-icon>
+          </button>
         }
 
         <router-outlet></router-outlet>

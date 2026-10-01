@@ -3,7 +3,7 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
+  height: calc(100vh - var(--header-height, 48px));
   overflow: hidden;
   background: var(--mat-sys-background);
   color: var(--mat-sys-on-surface);

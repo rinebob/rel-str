@@ -347,7 +347,7 @@ import { take } from 'rxjs';
       .pct-change-page {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 64px);
+        height: calc(100vh - var(--header-height, 48px));
         min-height: 400px;
         overflow: hidden;
       }
