@@ -1,222 +1,71 @@
 /** @topic #108 — Options Position Strategy Engine */
-import { NavItem } from "./interfaces";
+import { NavItem, NavSection } from "./interfaces";
 
-export const NAV_MENU_ITEMS: NavItem[] = [
-    // {
-    //     name: 'documentation',
-    //     text: 'documentation',
-    //     href: 'documentation',
-    //     mobileOnly: false,
-    //     external: true,
-    //     target: '_self',
-    // },
-    // {
-    //     name: 'contact',
-    //     text: 'contact',
-    //     href: 'contact',
-    //     mobileOnly: false,
-    //     external: true,
-    //     target: '_self',
-    // },
+/** Workflow-ordered sidenav sections — the Journey Navigation data
+ *  model (#660/#700). Groups match the PRD Sidenav Groups table; the
+ *  empty-label section is the unlabeled tail. Auth items are NOT data —
+ *  the shell renders them by auth state (T3). Hidden/dev surfaces are
+ *  reachable by URL but absent here. */
+export const NAV_SECTIONS: NavSection[] = [
     {
-        name: 'symbols',
-        text: 'symbols',
-        href: '',
-        mobileOnly: false,
-        external: true,
-        target: '_self',
-    },
-    
-    {
-        name: 'signup',
-        text: 'signup',
-        href: 'signup',
-        mobileOnly: false,
-        external: true,
-        target: '_self',
+        label: 'Portfolio',
+        items: [
+            { name: 'portfolio-dashboard', text: 'Portfolio Dashboard', href: 'portfolio' },
+            { name: 'portfolio-allocation', text: 'Portfolio Allocation', href: 'portfolio/allocation' },
+        ],
     },
     {
-        name: 'login',
-        text: 'login',
-        href: 'login',
-        mobileOnly: false,
-        external: true,
-        target: '_self',
+        label: 'Signals',
+        items: [
+            { name: 'run-dashboard', text: 'Runs', href: 'signals/runs' },
+            { name: 'signal-review', text: 'Signal Review', href: 'signals/review' },
+            { name: 'chart-review', text: 'Chart Review', href: 'signals/charts' },
+        ],
     },
     {
-        name: 'dashboard',
-        text: 'dashboard',
-        href: 'dashboard',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
+        label: 'Trading',
+        items: [
+            { name: 'signal-order', text: 'Live', href: 'trading/live' },
+            { name: 'paper-trading', text: 'Paper', href: 'trading/paper' },
+        ],
     },
     {
-        name: 'dashboard-v2',
-        text: 'dashboard-v2',
-        href: 'dashboard-v2',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
+        label: 'Options',
+        items: [
+            { name: 'option-chain', text: 'Chain', href: 'options/chain' },
+            { name: 'option-chain-pct-change', text: '% Change', href: 'options/pct-change' },
+            { name: 'option-chart', text: 'Chart', href: 'options/chart' },
+            { name: 'spread-chart', text: 'Spread Chart', href: 'options/spread-chart' },
+            { name: 'options-strategy-dashboard', text: 'Strategy Dashboard', href: 'options/strategy-dashboard' },
+            { name: 'strategy-builder', text: 'Build', href: 'options/strategy/build' },
+            { name: 'strategy-backtest', text: 'Backtest', href: 'options/strategy/backtest' },
+        ],
     },
     {
-        name: 'dashboard-v3',
-        text: 'dashboard-v3',
-        href: 'dashboard-v3',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },  
-    {
-        name: 'decision-board',
-        text: 'decision board',
-        href: 'decision-board',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
+        label: 'Analysis',
+        items: [
+            { name: 'swing-analysis', text: 'Swing Analysis', href: 'analysis/swings' },
+        ],
     },
     {
-        name: 'positions',
-        text: 'positions',
-        href: 'positions-view',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
+        label: 'Tools',
+        items: [
+            { name: 'rh-account-inquiry', text: 'Account Inquiry', href: 'tools/account' },
+            { name: 'topic-viewer', text: 'Topic Viewer', href: 'tools/topic-viewer' },
+        ],
     },
     {
-        name: 'portfolio-dashboard',
-        text: 'Portfolio Dashboard',
-        href: 'portfolio',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
+        label: '',
+        items: [
+            { name: 'dashboard-v3', text: 'Dashboard V3', href: 'dashboard-v3' },
+        ],
     },
-    {
-        name: 'portfolio-allocation',
-        text: 'Portfolio Allocation',
-        href: 'portfolio/allocation',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'trade-journal',
-        text: 'trade journal',
-        href: 'trade-journal',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'heatmap',
-        text: 'heatmap',
-        href: 'heatmap-view',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'heatmap-chart',
-        text: 'heatmap chart',
-        href: 'heatmap-chart/SPY/AAPL',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'rs-chart',
-        text: 'rs-chart',
-        href: 'rs-chart',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'sync-chart',
-        text: 'sync-chart',
-        href: 'sync-chart',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'rs-table',
-        text: 'rs-table',
-        href: 'rs-table',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'run-dashboard',
-        text: 'Run Dashboard',
-        href: 'signals/runs',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'history',
-        text: 'history',
-        href: 'history',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'option-chain-pct-change',
-        text: 'Option Chain % Change',
-        href: 'options/pct-change',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'option-chain',
-        text: 'Option Chain',
-        href: 'options/chain',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'topic-viewer',
-        text: 'Topic Viewer',
-        href: 'tools/topic-viewer',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
-        name: 'logout',
-        text: 'logout',
-        href: '',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    // {
-    //     name: 'chart',
-    //     text: '',
-    //     href: '/',
-    //     mobileOnly: false,
-    //     target: '_self',
-    // },
-    // {
-    //     name: '',
-    //     text: '',
-    //     target: '',
-    //     mobileOnly: false,
-    //     children: [
-    //         {
-    //             name: '',
-    //             text: '',
-    //             href: '',
-    //             target: '_self',
-    //         },
-    //
-    // ]
-]
+];
+
+/** Flat view of NAV_SECTIONS — kept for consumers that still iterate a
+ *  flat list (sidenav until T3; several specs). Single source of truth
+ *  is NAV_SECTIONS; do not extend this list directly. */
+export const NAV_MENU_ITEMS: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
 
 export const NUM_HEATMAP_MIDPOINTS = 11;
 

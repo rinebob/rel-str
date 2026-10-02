@@ -2,7 +2,6 @@
 export enum AppRoutes {
 	LOGIN = 'login',
 	LOGOUT = 'logout',
-	BLOG = 'blog',
 	DASHBOARD = 'dashboard',
 	DASHBOARD_V2 = 'dashboard-v2',
 	DASHBOARD_V3 = 'dashboard-v3',
@@ -13,28 +12,11 @@ export enum AppRoutes {
     SYNC_CHART = 'sync-chart',
     RS_CHART = 'rs-chart',
 	HISTORY = 'history',
-    CHAT = 'chat',
-	CHART_TWO = 'chart-two',
 	RS_TABLE = 'rs-table',
 	POSITIONS_VIEW = 'positions-view',
 	TRADE_JOURNAL = 'trade-journal',
 	HEATMAP_VIEW = 'heatmap-view',
 	HEATMAP_CHART = 'heatmap-chart/:baseline/:symbol',
-	// ROBERT = 'robert',
-	// KANBAN = 'kanban',
-	// AUDIO = 'audio',
-	// MESSAGES = 'messages',
-	// BOARD = 'board',
-	// CHARTS = 'charts',
-	// TRADER = 'trader',
-	// ANG_EXP = 'ang-exp',
-	// CUBIC_BEZIER = 'cubic-bezier',
-	// BIODATA = 'biodata',
-	// DESIGN_SYSTEM = 'design-system',
-	// KANBAN_BOARD = 'kanban/board',
-	// KANBAN_LOGIN = 'kanban/login',
-	// KANBAN_LOGOUT = 'kanban/logout',
-	// ACME = 'acme',
 	DECISION_BOARD = 'decision-board',
 	/** Run Dashboard — funnel root: pick a run (#660). */
 	RUN_DASHBOARD = 'signals/runs',
@@ -78,14 +60,19 @@ export interface ButtonMetadata {
 	authLevel?: AuthLevel;
 }
 
+/** One nav entry — `name` is the unique @for track key, `text` the label,
+ *  `href` the canonical route path (relative to the root core route). */
 export interface NavItem {
     name: string;
     text: string;
     href: string;
-    external: boolean;
-    children?: NavItem[];
-    target?: string;
-    mobileOnly?: boolean;
+}
+
+/** Labeled group of nav items — the workflow-ordered sidenav unit (#660).
+ *  An empty `label` renders as the unlabeled tail group. */
+export interface NavSection {
+    label: string;
+    items: NavItem[];
 }
 
 export interface Equity {
