@@ -271,7 +271,10 @@ export function tradeToPosition(trade: PaperTrade): Position {
       (isShort && primary
         ? primary.strike * SHARES_PER_CONTRACT
         : (entryFill?.price ?? 0) * SHARES_PER_CONTRACT),
-    openDate: entryFill?.date ?? trade.createdAt.slice(0, 10),
+    // `||` not `??` — a fill with `date: ''` (migrated docs) must fall
+    // through to createdAt; '' would propagate a falsy openDate that
+    // silently disables settlement's stale-close floor (#724).
+    openDate: entryFill?.date || trade.createdAt.slice(0, 10),
     currentValue,
     currentValueAsOf: trade.lastMarkedAt ?? trade.updatedAt,
     // Engine convention (stats-utils.ts): a terminal Position's realized

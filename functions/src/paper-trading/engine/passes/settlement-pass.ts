@@ -1,9 +1,15 @@
 /**
  *
- * Settlement pass — settles OPEN positions whose primary leg expires on the
- * run date. Queries Robinhood for the actual outcome (assignment, expiration,
- * or cash settlement) rather than computing it locally from the underlying
- * close.
+ * Settlement pass — settles OPEN positions whose primary leg expired ON OR
+ * BEFORE the run date (`expiration <= date`, so a missed or date-mismatched
+ * night retries instead of leaving the trade OPEN forever — #724). Queries
+ * Robinhood for the actual outcome (assignment, expiration, or cash
+ * settlement) rather than computing it locally from the underlying close.
+ *
+ * The underlying close is read for the leg's EXPIRATION date, walking back
+ * to the most recent trading day when the expiration has no bar (weekend /
+ * holiday expirations), never before the leg's open date — a persistent
+ * miss stays a per-position error.
  *
  * The pass is triggered from `checkSyncRunCompletion` in
  * `symbol-data-sync.ts` after all nightly closing bars are guaranteed to be
@@ -27,6 +33,11 @@ import type {
   LegOutcomeUpdate,
 } from '../types';
 import { LegOutcome, PositionStatus, SHARES_PER_CONTRACT } from '../types';
+import {
+  getUnderlyingCloseOnOrBefore,
+  SETTLE_CLOSE_LOOKBACK_DAYS,
+} from '../options-strategy-market-data';
+import type { UnderlyingCloseReader } from '../options-strategy-market-data';
 import { createLogger } from '../logging';
 
 const logger = createLogger('SettlementPass');
@@ -50,10 +61,9 @@ export interface SettlementPassResult {
   errors: { positionId: string; error: string }[];
 }
 
-export type UnderlyingCloseReader = (
-  symbol: string,
-  date: string,
-) => Promise<number | null>;
+// Canonical definition lives in options-strategy-market-data.ts; re-export
+// keeps the options-strategy-engine shim surfacing it unchanged.
+export type { UnderlyingCloseReader };
 
 /**
  * Queries Robinhood for the actual outcome of an expired option position.
@@ -116,8 +126,9 @@ export async function runSettlementPass(
     try {
       const legs = await getLegsForPosition(pos.id);
       const leg = findPrimaryLeg(legs);
-      if (!leg || leg.expiration !== date) {
-        // Not expiring on the run date — leave for a future pass.
+      if (!leg || leg.expiration > date) {
+        // Not yet expired — leave for a future pass. A leg that expired on
+        // a skipped/mismatched night (expiration < date) settles now (#724).
         continue;
       }
 
@@ -130,12 +141,36 @@ export async function runSettlementPass(
       if (!getClose) {
         throw new Error('Settlement pass: getUnderlyingClose is required');
       }
-      const underlyingClose = await getClose(config.symbol, date);
-      if (underlyingClose === null) {
+      // Price at the expiration-day close, walking back to the last trading
+      // day when the expiration has no bar (weekend/holiday), never before
+      // the leg opened — a pre-open close is a stale basis.
+      // `||` not `??` — adapter emits openDate '' for migrated docs, and
+      // '' would silently disable the floor (falsy, not nullish). A doc
+      // with no usable open date anywhere is corrupt — error loudly rather
+      // than settle on an unbounded lookback.
+      const minDate = leg.openDate || pos.openDate;
+      if (!minDate) {
         throw new Error(
-          `No underlying closing bar for ${config.symbol}/${date} — symbol-data sync may have failed`,
+          `position ${pos.id} has no leg/position open date — cannot bound ` +
+            `the settlement close walk-back`,
         );
       }
+      const close = await getUnderlyingCloseOnOrBefore(
+        config.symbol,
+        leg.expiration,
+        { reader: getClose, minDate },
+      );
+      if (!close) {
+        throw new Error(
+          `No underlying closing bar for ${config.symbol} within ` +
+            `${SETTLE_CLOSE_LOOKBACK_DAYS}d of ${leg.expiration} — ` +
+            `symbol-data sync may have failed`,
+        );
+      }
+      const underlyingClose = close.price;
+      // Dates carry the observed close's trading day — honest when the
+      // expiration itself fell on a non-trading day.
+      const closeDate = close.date;
 
       // Query RH for the actual outcome instead of computing it locally.
       let assigned = false;
@@ -147,6 +182,22 @@ export async function runSettlementPass(
           sharesQuantity = outcome.sharesQuantity;
         }
       } else {
+        // No checker in prod wiring — worthless is honest for OTM legs only.
+        // An ITM leg recorded EXPIRED_WORTHLESS would bank +premium while RH
+        // likely assigned: a silently wrong terminal state, and `<=` (#724)
+        // widened its blast radius from one night to any stale trade. Error
+        // loudly instead; the position stays eligible for the next pass.
+        const itm =
+          leg.type === OptionType.PUT
+            ? underlyingClose < leg.strike
+            : underlyingClose > leg.strike;
+        if (itm) {
+          throw new Error(
+            `Leg ITM at expiration (close ${underlyingClose} vs strike ` +
+              `${leg.strike}) but no brokerage outcome checker is wired — ` +
+              `refusing to record EXPIRED_WORTHLESS`,
+          );
+        }
         logger.warn(
           `No brokerage outcome checker provided for ${pos.id} — skipping RH query`,
         );
@@ -154,7 +205,7 @@ export async function runSettlementPass(
 
       const settledAt = new Date().toISOString();
       const dailyUpdate: DailyUpdate = {
-        date,
+        date: closeDate,
         underlyingClose,
       };
 
@@ -169,7 +220,7 @@ export async function runSettlementPass(
             currentValueAsOf: settledAt,
             unrealizedPnl,
           },
-          [{ legId: leg.id, outcome: LegOutcome.EXPIRED_WORTHLESS, closeDate: date }],
+          [{ legId: leg.id, outcome: LegOutcome.EXPIRED_WORTHLESS, closeDate }],
           dailyUpdate,
         );
 
@@ -197,11 +248,11 @@ export async function runSettlementPass(
             assignment: {
               strikePrice: leg.strike,
               underlyingCloseAtExpiration: underlyingClose,
-              assignedAt: date,
+              assignedAt: closeDate,
             },
             shares: { quantity: sharesQuantity, costBasis: leg.strike },
           },
-          [{ legId: leg.id, outcome: LegOutcome.ASSIGNED, closeDate: date }],
+          [{ legId: leg.id, outcome: LegOutcome.ASSIGNED, closeDate }],
           dailyUpdate,
         );
 

@@ -18,6 +18,7 @@ import {
   markHeldSharesPosition,
 } from '../position-repository';
 import type { Position, DailyUpdate } from '../types';
+import type { UnderlyingCloseReader } from '../options-strategy-market-data';
 import { SHARES_PER_CONTRACT } from '../types';
 import { createLogger } from '../logging';
 
@@ -43,7 +44,7 @@ export interface HeldSharesMarkPassResult {
 
 export interface HeldSharesMarkPassDependencies {
   listHeldSharesPositions?: (instanceId: string) => Promise<Position[]>;
-  getUnderlyingClose: (symbol: string, date: string) => Promise<number | null>;
+  getUnderlyingClose: UnderlyingCloseReader;
   markHeldSharesPosition?: (
     positionId: string,
     update: Partial<Position>,

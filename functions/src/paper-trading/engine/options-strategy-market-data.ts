@@ -39,8 +39,8 @@ export async function getUnderlyingClose(symbol: string): Promise<number | null>
  * Read the underlying closing price for a specific market date from the
  * year-sharded daily bars: symbol-data/{symbol}/daily/{YYYY} (bars[].c where
  * bars[].d === date). Returns null when no bar exists for the date (holiday,
- * data delay) so callers can defer settlement rather than resolve with stale
- * data.
+ * data delay) — settlement callers should use `getUnderlyingCloseOnOrBefore`,
+ * which walks back to the latest trading day instead of erroring.
  */
 export async function getUnderlyingCloseForDate(
   symbol: string,
@@ -57,4 +57,53 @@ export async function getUnderlyingCloseForDate(
   const data = doc.data() as { bars?: OhlcBar[] };
   const bar = (data.bars ?? []).find((b) => b.d === date);
   return bar ? bar.c : null;
+}
+
+/** Reader shape shared by every underlying-close caller. */
+export type UnderlyingCloseReader = (
+  symbol: string,
+  date: string,
+) => Promise<number | null>;
+
+/** Default walk-back for `getUnderlyingCloseOnOrBefore` (calendar days) —
+ *  covers a Friday expiration inside a holiday weekend. */
+export const SETTLE_CLOSE_LOOKBACK_DAYS = 7;
+
+export interface LatestCloseOptions {
+  /** Close reader — defaults to the SDS daily-bar lookup. */
+  reader?: UnderlyingCloseReader;
+  /** How far back to walk (calendar days). Default 7 — covers a Friday
+   *  expiration inside a holiday weekend. */
+  lookbackDays?: number;
+  /** Never accept a close before this date (e.g. the position's open date) —
+   *  a pre-entry close is a stale basis for settlement. */
+  minDate?: string;
+}
+
+/**
+ * Latest underlying close ON OR BEFORE `settleDate`, walking back
+ * `lookbackDays` calendar days. Weekend/holiday expirations have no bar on
+ * the date itself; without the walk-back those trades error forever
+ * (#720 signal path, #724 engine path). Non-positive or non-finite closes
+ * are treated as missing — a corrupt 0 would misprice settlement. Returns
+ * the observed bar's date so callers can date marks/fills honestly.
+ */
+export async function getUnderlyingCloseOnOrBefore(
+  symbol: string,
+  settleDate: string,
+  opts: LatestCloseOptions = {},
+): Promise<{ date: string; price: number } | null> {
+  const reader = opts.reader ?? getUnderlyingCloseForDate;
+  const lookback = opts.lookbackDays ?? SETTLE_CLOSE_LOOKBACK_DAYS;
+  for (let back = 0; back <= lookback; back++) {
+    const d = new Date(`${settleDate}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - back);
+    const date = d.toISOString().slice(0, 10);
+    if (opts.minDate && date < opts.minDate) break;
+    const price = await reader(symbol, date);
+    if (price !== null && Number.isFinite(price) && price > 0) {
+      return { date, price };
+    }
+  }
+  return null;
 }

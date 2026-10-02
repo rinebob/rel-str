@@ -25,7 +25,7 @@
  * silently half-settled) — no signal producer emits those today; the
  * intrinsic math prices every leg at the settle close, which is only
  * honest for same-expiration legs.
- * The underlying close walks back up to `SETTLE_LOOKBACK_DAYS` from the
+ * The underlying close walks back up to `SETTLE_CLOSE_LOOKBACK_DAYS` from the
  * expiration — weekend/holiday expirations have no bar on the date
  * itself. Still-missing bars (untracked symbol, SDS outage) stay an
  * error: the trade remains eligible next night (`expiration <=`, not
@@ -57,15 +57,18 @@ import type {
   SettlementData,
 } from '../engine/types';
 import { LegOutcome, PositionStatus } from '../engine/types';
-import { getUnderlyingCloseForDate } from '../engine/options-strategy-market-data';
+import {
+  getUnderlyingCloseForDate,
+  getUnderlyingCloseOnOrBefore,
+  SETTLE_CLOSE_LOOKBACK_DAYS,
+} from '../engine/options-strategy-market-data';
+import type { UnderlyingCloseReader } from '../engine/options-strategy-market-data';
 import { calendarDaysBetween } from '../../common/pt-date-utils';
 import { createLogger } from '../engine/logging';
 
 const logger = createLogger('SignalSettlementPass');
 
-/** Lookback window for the settle-date underlying close — covers a Friday
- *  expiration's SDS bar being the last trading day of a holiday weekend. */
-const SETTLE_LOOKBACK_DAYS = 7;
+
 
 export interface SignalSettlementPassSummary {
   marketDate: string;
@@ -78,7 +81,7 @@ export interface SignalSettlementPassSummary {
 export interface SignalSettlementPassDeps {
   listOpenSignalTrades(): Promise<PaperTrade[]>;
   /** Underlying close for a specific trading date (SDS daily bars). */
-  getUnderlyingClose(symbol: string, date: string): Promise<number | null>;
+  getUnderlyingClose: UnderlyingCloseReader;
   /** `markPositionSettled` — the worthless-expiry ledger seam. */
   settleExpired(
     tradeId: string,
@@ -161,16 +164,21 @@ export async function runSignalSettlementPass(
       // close from before the trade existed is a stale basis. Only a
       // persistent miss — untracked symbol or SDS outage — stays a nightly
       // error.
-      const close = await settleClose(
+      const close = await getUnderlyingCloseOnOrBefore(
         trade.symbol,
         settleDate,
-        deps,
-        entryFill?.date,
+        {
+          reader: deps.getUnderlyingClose,
+          // Floor: entry bar date, falling back to the doc's UTC create
+          // date — no floor at all would let a pre-entry close settle the
+          // trade (same class as the engine pass's ''-openDate hole).
+          minDate: entryFill?.date || trade.createdAt.slice(0, 10),
+        },
       );
       if (!close) {
         throw new Error(
           `no underlying close for ${trade.symbol} within ` +
-            `${SETTLE_LOOKBACK_DAYS}d of ${settleDate} — symbol-data sync ` +
+            `${SETTLE_CLOSE_LOOKBACK_DAYS}d of ${settleDate} — symbol-data sync ` +
             'may have failed; trade stays eligible next pass',
         );
       }
@@ -288,31 +296,6 @@ export async function runSignalSettlementPass(
       `skipped=${summary.skipped} errors=${summary.errors.length}`,
   );
   return summary;
-}
-
-/**
- * Underlying close for the settle date, walking back up to
- * `SETTLE_LOOKBACK_DAYS` calendar days when the expiration has no bar
- * (weekend/holiday expirations). Returns null only when nothing exists
- * in the window — a persistent miss stays a nightly error.
- */
-async function settleClose(
-  symbol: string,
-  settleDate: string,
-  deps: SignalSettlementPassDeps,
-  minDate?: string,
-): Promise<{ date: string; price: number } | null> {
-  for (let back = 0; back <= SETTLE_LOOKBACK_DAYS; back++) {
-    const d = new Date(`${settleDate}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - back);
-    const date = d.toISOString().slice(0, 10);
-    if (minDate && date < minDate) break; // a pre-entry close is a stale basis
-    const price = await deps.getUnderlyingClose(symbol, date);
-    if (price !== null && Number.isFinite(price) && price > 0) {
-      return { date, price };
-    }
-  }
-  return null;
 }
 
 /**

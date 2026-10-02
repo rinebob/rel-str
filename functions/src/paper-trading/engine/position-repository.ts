@@ -274,7 +274,9 @@ export async function markPositionSettled(
       throw new Error(`position ${positionId} not found`);
     }
     const trade = snap.data() as PaperTrade;
-    if (trade.status !== PaperTradeStatus.OPEN && trade.status !== PaperTradeStatus.ASSIGNED) {
+    // OPEN only — every caller enumerates OPEN populations, and settlement
+    // is not idempotent: a second call would re-book premium/strike cash.
+    if (trade.status !== PaperTradeStatus.OPEN) {
       throw new Error(`position ${positionId} is not open (status ${trade.status}) — settlement is not idempotent-safe on terminal trades`);
     }
 

@@ -1,8 +1,11 @@
 /**
  *
  * Unit tests for the settlement pass: settles OPEN positions whose primary leg
- * expires on the run date. Outcome (assigned vs worthless) is determined by
- * querying the brokerage, not by computing it from the underlying close.
+ * expires on or before the run date (missed nights retry). The underlying
+ * close is read for the leg's expiration, walking back to the last trading
+ * day when the expiration itself has no bar. Outcome (assigned vs worthless)
+ * is determined by querying the brokerage, not by computing it from the
+ * underlying close.
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -87,7 +90,7 @@ function makeSettlementDeps(overrides: {
   listOpenPositions?: (instanceId: string) => Promise<Position[]>;
   getLegs?: (positionId: string) => Promise<PositionLeg[]>;
   getUnderlyingClose?: (symbol: string, date: string) => Promise<number | null>;
-  checkBrokerageOutcome?: (config: StrategyInstanceConfig, leg: PositionLeg, position: Position) => Promise<{ assigned: boolean; sharesQuantity?: number }>;
+  checkBrokerageOutcome?: ((config: StrategyInstanceConfig, leg: PositionLeg, position: Position) => Promise<{ assigned: boolean; sharesQuantity?: number }>) | null;
   markPositionSettled?: (
     positionId: string,
     settlement: SettlementData,
@@ -103,8 +106,12 @@ function makeSettlementDeps(overrides: {
     getLegs: overrides.getLegs ?? (async () => [makeLeg()]),
     getUnderlyingClose:
       overrides.getUnderlyingClose ?? (async () => 98),
+    // `null` explicitly omits the checker (the prod shape — orchestrator
+    // never injects it); `undefined` falls back to the default stub.
     checkBrokerageOutcome:
-      overrides.checkBrokerageOutcome ?? (async () => ({ assigned: false })),
+      overrides.checkBrokerageOutcome === null
+        ? undefined
+        : (overrides.checkBrokerageOutcome ?? (async () => ({ assigned: false }))),
     markPositionSettled:
       overrides.markPositionSettled ??
       (async (
@@ -223,7 +230,7 @@ describe('runSettlementPass', () => {
   it('errors for unsupported leg types', async () => {
     const deps = makeSettlementDeps({
       listOpenPositions: async () => [makePosition()],
-      getLegs: async () => [makeLeg({ type: OptionType.CALL as any, expiration: '2025-08-17' })],
+      getLegs: async () => [makeLeg({ type: OptionType.CALL, expiration: '2025-08-17' })],
       getUnderlyingClose: async () => 100,
       checkBrokerageOutcome: async () => ({ assigned: false }),
     });
@@ -247,5 +254,105 @@ describe('runSettlementPass', () => {
 
     assert.equal(result.settled.length, 0);
     assert.equal(result.errors.length, 0);
+  });
+
+  it('settles a position whose expiration already passed (missed night)', async () => {
+    // #724: strict === made a skipped/mismatched run date leave the trade
+    // OPEN forever. Expired on 8-17, running on 8-19 must still settle —
+    // priced at the EXPIRATION-day close, not the run date.
+    const deps = makeSettlementDeps({
+      getUnderlyingClose: async (_s, d) => (d === '2025-08-17' ? 100 : null),
+    });
+
+    const result = await runSettlementPass('inst-1', '2025-08-19', makeConfig(), deps);
+
+    assert.equal(result.settled.length, 1);
+    assert.equal(result.errors.length, 0);
+    const call = deps.settleCalls[0];
+    assert.deepEqual(call.legOutcomes, [
+      { legId: 'PUT-100.00-2025-08-17', outcome: 'EXPIRED_WORTHLESS', closeDate: '2025-08-17' },
+    ]);
+    assert.deepEqual(call.dailyUpdate, { date: '2025-08-17', underlyingClose: 100 });
+  });
+
+  it('settles a weekend expiration at the prior trading-day close', async () => {
+    // 2025-08-17 is a Sunday — no bar; the walk-back must reach Friday
+    // 8-15's close and date the settlement to it.
+    const deps = makeSettlementDeps({
+      getLegs: async () => [makeLeg({ expiration: '2025-08-17' })],
+      getUnderlyingClose: async (_s, d) => (d === '2025-08-15' ? 98 : null),
+    });
+
+    const result = await runSettlementPass('inst-1', '2025-08-18', makeConfig(), deps);
+
+    assert.equal(result.settled.length, 1);
+    assert.equal(result.errors.length, 0);
+    const call = deps.settleCalls[0];
+    assert.deepEqual(call.dailyUpdate, { date: '2025-08-15', underlyingClose: 98 });
+    assert.equal(call.legOutcomes[0].closeDate, '2025-08-15');
+    assert.equal(call.settlement.assignment, undefined);
+  });
+
+  it('never settles on a close predating the position open', async () => {
+    // Position opened 8-15; the only bar in the walk-back window is 8-14 —
+    // a pre-entry close is a stale basis, so the position stays an error.
+    const deps = makeSettlementDeps({
+      getUnderlyingClose: async (_s, d) => (d === '2025-08-14' ? 98 : null),
+    });
+
+    const result = await runSettlementPass('inst-1', '2025-08-17', makeConfig(), deps);
+
+    assert.equal(result.settled.length, 0);
+    assert.equal(result.errors.length, 1);
+    assert.ok(result.errors[0].error.includes('No underlying closing bar'));
+  });
+
+  it('settles an OTM leg worthless when no brokerage checker is wired', async () => {
+    // Prod shape: the orchestrator never injects checkBrokerageOutcome.
+    // OTM (close 102 > strike 100) → worthless is honest regardless.
+    const deps = makeSettlementDeps({
+      getLegs: async () => [makeLeg({ expiration: '2025-08-17', strike: 100 })],
+      getUnderlyingClose: async () => 102,
+      checkBrokerageOutcome: null,
+    });
+
+    const result = await runSettlementPass('inst-1', '2025-08-17', makeConfig(), deps);
+
+    assert.equal(result.settled.length, 1);
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.settled[0].outcome, 'EXPIRED_WORTHLESS');
+  });
+
+  it('errors rather than record worthless when an ITM leg has no checker', async () => {
+    // Close 98 < strike 100 → ITM put. Assuming worthless would bank the
+    // premium while RH likely assigned — a silently wrong terminal state.
+    const deps = makeSettlementDeps({
+      getLegs: async () => [makeLeg({ expiration: '2025-08-17', strike: 100 })],
+      getUnderlyingClose: async () => 98,
+      checkBrokerageOutcome: null,
+    });
+
+    const result = await runSettlementPass('inst-1', '2025-08-17', makeConfig(), deps);
+
+    assert.equal(result.settled.length, 0);
+    assert.equal(result.errors.length, 1);
+    assert.ok(result.errors[0].error.includes('no brokerage outcome checker'));
+    assert.equal(deps.settleCalls.length, 0);
+  });
+
+  it('still floors the walk-back at position open when the leg lacks openDate', async () => {
+    // Adapter emits openDate '' for migrated docs — falsy, not nullish, so
+    // `??` would leave the floor disabled and a pre-open bar could settle
+    // the trade. `||` must fall back to pos.openDate.
+    const deps = makeSettlementDeps({
+      getLegs: async () => [makeLeg({ openDate: '' })],
+      getUnderlyingClose: async (_s, d) => (d === '2025-08-14' ? 98 : null),
+    });
+
+    const result = await runSettlementPass('inst-1', '2025-08-17', makeConfig(), deps);
+
+    assert.equal(result.settled.length, 0);
+    assert.equal(result.errors.length, 1);
+    assert.ok(result.errors[0].error.includes('No underlying closing bar'));
   });
 });

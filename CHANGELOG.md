@@ -4,6 +4,8 @@
 ## [2026-10-01]
 
 ### Added
+- [Paper Trading Infra] 553-724_BE-IMPL-PAPER-TRADING: Engine settlement parity — expired legs now settle on `expiration <= runDate` (missed nights retry instead of zombifying); shared `getUnderlyingCloseOnOrBefore` walks back to the last trading-day close (weekend/holiday expirations), floored at the position open date; ITM legs refuse worthless settlement when no brokerage checker is wired; `markPositionSettled` tightened to OPEN-only; orphaned `settlement-pass.test.ts` registered
+- [Paper Trading Infra] 553-724_DOCS-PAPER-TRADING: Code review (PASS, 2 rounds) + UAT (Complete — automated evidence; manual pass deferred to the strategy-builder UI) for #724
 - [Robinhood MCP] 657-683_SHARED-IMPL-RH-MCP: toolError on ToolExecutionSuccess — envelope-level isError surfaced separately (parsed can't see it when error text is JSON); executor + adapter propagate; listOrders options declare `since`
 - [Robinhood MCP] 657-683_BE-IMPL-RH-MCP: Manifest-driven probe runner — sequential execution, read pacing/backoff/retry-prompts, per-call mutation gate (no bypass, re-gate on retry), post-mutation settle poll, redacted+env-scrubbed atomic captures, `--only/--group/--from/--dry-run` CLI; loader gains settle-args schema validation, orders-tool settle convention, pending-state vocabulary; 118-spec suite + 6-check offline verify
 - [Robinhood MCP] 657-683_DOCS-RH-MCP: Probe-runner code review (PASS, 21 rounds) + UAT (Complete — live read probe, gate decline, flag matrix) + manifest settle args + captures + verify wiring
