@@ -1,14 +1,14 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Trade Exits
-**Issue:** #711
-**Task:** #668
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** UAT
-**Status:** Complete
-**Created:** 2026-09-30
-**Last Updated:** 2026-09-30
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Trade Exits  
+**Issue:** #711  
+**Task:** #668  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** UAT  
+**Status:** Complete  
+**Created:** 2026-09-30  
+**Last Updated:** 2026-09-30  
 
 # UAT — #668 Terminal-family guard + governingVariant seeding
 

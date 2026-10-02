@@ -1,14 +1,14 @@
 # Code Review — #666 BE Pending cancel
 
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Task:** #666
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** CODE-REVIEW
-**Status:** Complete
-**Created:** 2026-09-28
-**Last Updated:** 2026-09-28
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Task:** #666  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** CODE-REVIEW  
+**Status:** Complete  
+**Created:** 2026-09-28  
+**Last Updated:** 2026-09-28  
 
 ## Diff scope
 

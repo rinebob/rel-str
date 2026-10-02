@@ -1,15 +1,15 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Core Infra
-**Thread Slug:** core-infra
-**Issue:** #558
-**Task:** #564
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** CODE-REVIEW
-**Status:** Final
-**Created:** 2026-09-26
-**Last Updated:** 2026-09-26
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Core Infra  
+**Thread Slug:** core-infra  
+**Issue:** #558  
+**Task:** #564  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** CODE-REVIEW  
+**Status:** Final  
+**Created:** 2026-09-26  
+**Last Updated:** 2026-09-26  
 
 # Code Review — #564 Signal→paper path: paperSignalOrder callable + expression-fill pass
 

@@ -1,14 +1,14 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Trade Exits
-**Blueprint:** #663 (BE)
-**Task:** #669
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** CODE-REVIEW
-**Status:** Draft
-**Created:** 2026-09-30
-**Last Updated:** 2026-09-30
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Trade Exits  
+**Blueprint:** #663 (BE)  
+**Task:** #669  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** CODE-REVIEW  
+**Status:** Draft  
+**Created:** 2026-09-30  
+**Last Updated:** 2026-09-30  
 
 # Code Review — #669 BE trade-exits prod verify script + guide + run-all
 

@@ -14,7 +14,7 @@ It is deliberately its own account — a separate ledger, separate trades,
 separate stats — so paper activity never touches or confuses your real
 Robinhood positions.
 
-**Design note (2026-09-27):** paper trading depends on Robinhood for
+**Design note (2026-09-27):** paper trading depends on Robinhood for  
 *market data only* — fills and marks price off live RH quotes/chains so
 the simulation is honest. The independence boundary is the ledger, not
 the data source. The same `RH_CREDENTIAL_BUNDLE` secret that powers live

@@ -1,15 +1,15 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Core Infra
-**Thread Slug:** core-infra
-**Issue:** #558
-**Task:** #565
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** CODE-REVIEW
-**Status:** Final
-**Created:** 2026-09-26
-**Last Updated:** 2026-09-26
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Core Infra  
+**Thread Slug:** core-infra  
+**Issue:** #558  
+**Task:** #565  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** CODE-REVIEW  
+**Status:** Final  
+**Created:** 2026-09-26  
+**Last Updated:** 2026-09-26  
 
 # Code Review — #565 Read APIs + generalized statistics scopes
 

@@ -1,14 +1,14 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Trade Exits
-**Blueprint:** #663 (BE)
-**Task:** #676
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** CODE-REVIEW
-**Status:** PASS (2 rounds — round 2 converged, no new findings)
-**Created:** 2026-09-30
-**Last Updated:** 2026-09-30
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Trade Exits  
+**Blueprint:** #663 (BE)  
+**Task:** #676  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** CODE-REVIEW  
+**Status:** PASS (2 rounds — round 2 converged, no new findings)  
+**Created:** 2026-09-30  
+**Last Updated:** 2026-09-30  
 
 # Code Review — #676 BE mark coverage for signal-source trades
 
@@ -46,7 +46,7 @@
 | F6 | Synthetic `rawResponse` discarded real quotes | `netExitBreakdown` returns per-leg quotes → raw-quote doc carries them; `netExitPrice` kept as scalar wrapper |
 | — | `unrealizedPnl: 0` on missing entry fill | `?? trade.unrealizedPnl` fallback; cast dropped |
 
-**Deferred:** signal-option expiry has no settlement path → follow-up
+**Deferred:** signal-option expiry has no settlement path → follow-up  
 issue **#720** filed; the pass classifies expired legs as errors so
 zombies are visible. Batched quote fetch (F8) deferred — ~15 trades.
 

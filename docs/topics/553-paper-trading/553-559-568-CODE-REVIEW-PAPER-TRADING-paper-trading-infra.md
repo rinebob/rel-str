@@ -1,21 +1,21 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Core Infra
-**Thread Slug:** core-infra
-**Issue:** #559
-**Task:** #568
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** CODE-REVIEW
-**Status:** Final
-**Created:** 2026-09-27
-**Last Updated:** 2026-09-27
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Core Infra  
+**Thread Slug:** core-infra  
+**Issue:** #559  
+**Task:** #568  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** CODE-REVIEW  
+**Status:** Final  
+**Created:** 2026-09-27  
+**Last Updated:** 2026-09-27  
 
 # Code Review — #568 Strategy-builder governing-variant config
 
 **Verdict: PASS** (3 axes × 4 rounds — ran until no new findings)
 
-**Round 3 (fresh pass on round-2 fixes):**
+**Round 3 (fresh pass on round-2 fixes):**  
 - **[MED] silent validation failure** — group-level `variantParam` error
   had no UI surface; save disabled with zero feedback → error div with
   per-error text + DOM/disabled-save spec.
@@ -26,7 +26,7 @@
   grows).
 - **[LOW] spec blind spots** → added stale-param `none` round-trip test.
 
-**Round 4:** `.validation-error` needed `flex-basis: 100%` inside
+**Round 4:** `.validation-error` needed `flex-basis: 100%` inside  
 `.form-row` (else it squeezed inline). Fixed. Residual accepted:
 `param <= 0` reports `'required'` (message covers it); edit-mode param
 clearing retains stored values (pre-existing `updateDoc` semantics).

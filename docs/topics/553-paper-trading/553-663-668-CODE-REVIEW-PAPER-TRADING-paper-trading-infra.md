@@ -1,15 +1,15 @@
 # Code Review — #668 BE terminal-family guard + governingVariant seeding
 
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Issue:** #663
-**Task:** #668
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** CODE-REVIEW
-**Status:** Complete
-**Created:** 2026-09-30
-**Last Updated:** 2026-09-30
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Issue:** #663  
+**Task:** #668  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** CODE-REVIEW  
+**Status:** Complete  
+**Created:** 2026-09-30  
+**Last Updated:** 2026-09-30  
 
 ## Diff scope
 

@@ -1,14 +1,14 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Trade Exits
-**Issue:** #716
-**Task:** #669
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** UAT
-**Status:** Complete — executed in-session 2026-09-30
-**Created:** 2026-09-30
-**Last Updated:** 2026-09-30
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Trade Exits  
+**Issue:** #716  
+**Task:** #669  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** UAT  
+**Status:** Complete — executed in-session 2026-09-30  
+**Created:** 2026-09-30  
+**Last Updated:** 2026-09-30  
 
 # UAT — #669 BE trade-exits prod verify script + guide + run-all
 
@@ -69,7 +69,7 @@ copies concurrently.
 | 7 functions run-all | PASS | 11/11 scripts PASS, 669 last |
 | 8 root run-all | PASS | `paper-trading trade-exits composed` executes + 26/26. Sweep summary 16P/2F/2S — the 2 failures are pre-existing and unrelated (`swing-605` + `portfolio-586` can't resolve `firebase-admin` from repo root — legacy entries, not #669); the 2 skips are account-arg scripts. |
 
-**Residual note:** #669 does not own the root runner's legacy entries; their
+**Residual note:** #669 does not own the root runner's legacy entries; their  
 root-resolution failure predates this task. Tracked implicitly — a future
 hardening pass could either give those scripts a `cwd`/require fix or move
 them under `functions/`.

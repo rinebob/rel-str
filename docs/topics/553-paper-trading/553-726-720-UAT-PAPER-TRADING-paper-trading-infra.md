@@ -1,15 +1,15 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Trade Exits
-**Blueprint:** #663 (BE)
-**Task:** #720
-**QA Issue:** #726
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** UAT
-**Status:** Complete
-**Created:** 2026-09-30
-**Last Updated:** 2026-09-30
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Trade Exits  
+**Blueprint:** #663 (BE)  
+**Task:** #720  
+**QA Issue:** #726  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** UAT  
+**Status:** Complete  
+**Created:** 2026-09-30  
+**Last Updated:** 2026-09-30  
 
 # UAT — #720 BE signal-source option settlement at expiration
 

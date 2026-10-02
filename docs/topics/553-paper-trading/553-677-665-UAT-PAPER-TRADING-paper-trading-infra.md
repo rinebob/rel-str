@@ -1,15 +1,15 @@
 # UAT — #665 SHARED Trade Exits contracts
 
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Issue:** #677
-**Task:** #665
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** UAT
-**Status:** Complete
-**Created:** 2026-09-28
-**Last Updated:** 2026-09-28
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Issue:** #677  
+**Task:** #665  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** UAT  
+**Status:** Complete  
+**Created:** 2026-09-28  
+**Last Updated:** 2026-09-28  
 
 ## Scope
 
@@ -29,39 +29,39 @@ signal-order test re-baseline).
 
 ### S1 — Contract surface (verify script)
 
-**Run:** `npx tsx scripts/verify/paper-trading-contracts-665.ts`
-**Expect:** 8 checks print `OK`, exits 0: `CANCELLED` member, five prior
+**Run:** `npx tsx scripts/verify/paper-trading-contracts-665.ts`  
+**Expect:** 8 checks print `OK`, exits 0: `CANCELLED` member, five prior  
 statuses intact, `trailing-8` defaults, empty shadow keys, only
 `trailing-stop` terminal, close/cancel shapes.
-**Result:** PASS — output captured below.
+**Result:** PASS — output captured below.  
 
 ### S2 — Shared contract specs (jest)
 
-**Run:** `npx jest shared/paper-trading-contracts.spec.ts --coverage=false`
-**Expect:** 10 tests pass incl. `describe('trade exits contracts (#652)')`.
-**Result:** PASS — 10/10.
+**Run:** `npx jest shared/paper-trading-contracts.spec.ts --coverage=false`  
+**Expect:** 10 tests pass incl. `describe('trade exits contracts (#652)')`.  
+**Result:** PASS — 10/10.  
 
 ### S3 — Stats-fold exclusion + adapter mapping + eval resolver (node:test)
 
-**Run:** `npx tsx --test "tests/functions/paper-trading/*.test.ts"`
-**Expect:** all suites green incl. "excludes CANCELLED trades from every
+**Run:** `npx tsx --test "tests/functions/paper-trading/*.test.ts"`  
+**Expect:** all suites green incl. "excludes CANCELLED trades from every  
 scope", `CANCELLED→CLOSED` adapter assertion, `resolveAccountOwner` trio,
 re-baselined signal-order `variantKeys === ['trailing-8']`.
-**Result:** PASS — 106/106.
+**Result:** PASS — 106/106.  
 
 ### S4 — Build sanity (enum exhaustiveness)
 
-**Run:** `cd functions && npm run build`
-**Expect:** bundle builds clean (esbuild); `npx tsc --noEmit` shows no new
+**Run:** `cd functions && npm run build`  
+**Expect:** bundle builds clean (esbuild); `npx tsc --noEmit` shows no new  
 paper-trading errors (pre-existing `rh-agent-mcp` error only).
-**Result:** PASS.
+**Result:** PASS.  
 
 ### S5 — Regression sweep
 
-**Run:** `npx jest --coverage=false`
-**Expect:** full suite green — `SIGNAL_GOVERNING_VARIANT='trailing-8'` flows
+**Run:** `npx jest --coverage=false`  
+**Expect:** full suite green — `SIGNAL_GOVERNING_VARIANT='trailing-8'` flows  
 into `paperSignalOrder` seeding; no consumer still expects `none`+shadows.
-**Result:** PASS — 2139/2139.
+**Result:** PASS — 2139/2139.  
 
 ## Traceability
 

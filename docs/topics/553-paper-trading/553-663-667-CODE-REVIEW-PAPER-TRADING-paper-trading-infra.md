@@ -1,14 +1,14 @@
 # Code Review — #667 BE Live-quote close
 
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Task:** #667
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** CODE-REVIEW
-**Status:** Complete
-**Created:** 2026-09-29
-**Last Updated:** 2026-09-29
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Task:** #667  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** CODE-REVIEW  
+**Status:** Complete  
+**Created:** 2026-09-29  
+**Last Updated:** 2026-09-29  
 
 ## Diff scope
 

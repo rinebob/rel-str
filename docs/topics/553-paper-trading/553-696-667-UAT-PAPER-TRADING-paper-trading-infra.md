@@ -1,15 +1,15 @@
 # UAT — #667 BE Live-quote close
 
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Issue:** #696
-**Task:** #667
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** UAT
-**Status:** Draft
-**Created:** 2026-09-29
-**Last Updated:** 2026-09-29
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Issue:** #696  
+**Task:** #667  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** UAT  
+**Status:** Draft  
+**Created:** 2026-09-29  
+**Last Updated:** 2026-09-29  
 
 ## Scope
 
@@ -28,28 +28,28 @@ ledger write.
 
 ### S1 — Unit suite
 
-**Run:** `npx tsx --test "tests/functions/paper-trading/*.test.ts"`
-**Expect:** all pass incl. `handleClosePaperTrade` — equity close w/ run
+**Run:** `npx tsx --test "tests/functions/paper-trading/*.test.ts"`  
+**Expect:** all pass incl. `handleClosePaperTrade` — equity close w/ run  
 finalize + exitEvent (price/pnl/daysHeld), option close (signed short-entry
 price), multi-leg netting to one unit price, unavailable on
 missing/NaN/throwing quote (both equity and option paths), full guard
 ladder, ledger-race remap, run-finalize tolerance.
-**Result:** PASS — 131/131.
+**Result:** PASS — 131/131.  
 
 ### S2 — Prod round trip
 
-**Run:** `cd functions && npx tsx scripts/verify/paper-trading-close-667.ts`
-**Expect:** 7 `OK` — scratch OPEN trade created, wrong-user →
+**Run:** `cd functions && npx tsx scripts/verify/paper-trading-close-667.ts`  
+**Expect:** 7 `OK` — scratch OPEN trade created, wrong-user →  
 permission-denied, live-quote close (price printed), CLOSED read-back, exit
 fill price matches, governing run EXITED + exitEvent, re-close →
 failed-precondition; docs cleaned up.
-**Result:** PASS — 7/7 on prod (QQQM @ 303.84 live quote).
+**Result:** PASS — 7/7 on prod (QQQM @ 303.84 live quote).  
 
 ### S3 — Build + export
 
-**Run:** `cd functions && npm run build`
-**Expect:** clean; `closePaperTrade` exported.
-**Result:** PASS.
+**Run:** `cd functions && npm run build`  
+**Expect:** clean; `closePaperTrade` exported.  
+**Result:** PASS.  
 
 ## Traceability
 

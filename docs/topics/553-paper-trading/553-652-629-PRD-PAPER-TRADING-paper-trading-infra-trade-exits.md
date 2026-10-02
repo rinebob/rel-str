@@ -1,11 +1,11 @@
 # PRD — Paper Trading: Trade Exits
 
-**Status:** Approved
-**Created:** 2026-09-28
-**Last Updated:** 2026-09-28
-**Topic:** #553 Paper Trading Infra
-**Thread:** #652 Trade Exits
-**Idea:** #629
+**Status:** Approved  
+**Created:** 2026-09-28  
+**Last Updated:** 2026-09-28  
+**Topic:** #553 Paper Trading Infra  
+**Thread:** #652 Trade Exits  
+**Idea:** #629  
 
 > **Amended (same day):** model simplified to a single governing trailing
 > stop per trade — the real-world constraint. No shadow runs, `none` not
@@ -65,7 +65,7 @@ From the dashboard, close any `OPEN` trade — equity, option, or spread
 price); realized P&L books, cash credits, and the governing run records a
 manual exit.
 
-**AC:**
+**AC:**  
 - Close action on trade rows (table + cohort drill-down) → confirm →
   `CLOSED`, realized P&L written, account credited, governing run `EXITED`
   with its exit event.
@@ -77,7 +77,7 @@ manual exit.
 Before the noon-PT fill pass resolves a contract, a `PENDING` trade can be
 cancelled.
 
-**AC:**
+**AC:**  
 - Cancel action → status `CANCELLED`; no cash moves; excluded from stats.
 
 ### US3 — Strategy launches honor their governing variant
@@ -86,7 +86,7 @@ An instance configured with e.g. `trailing-15` seeds that run as governing
 on each launched trade; when it triggers, the eval pass auto-closes the
 trade at the mark.
 
-**AC:**
+**AC:**  
 - Launched trades carry the instance's governing key (not hardcoded 'none').
 - Eval pass closes the trade on a governing terminal trigger.
 
@@ -95,7 +95,7 @@ trade at the mark.
 The strategy-builder's governing-variant select offers `trailing-{pct}`
 (param-configurable, default 8) — the only terminal family in scope.
 
-**AC:**
+**AC:**  
 - Builder emits `trailing-{pct}` keys only; `initial-stop`, `time-*`,
   `limit-sd*`, and `none` are not selectable for new instances.
 

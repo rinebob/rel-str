@@ -1,15 +1,15 @@
 # UAT — #666 BE Pending cancel
 
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Issue:** #692
-**Task:** #666
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** UAT
-**Status:** Draft
-**Created:** 2026-09-28
-**Last Updated:** 2026-09-28
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Issue:** #692  
+**Task:** #666  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** UAT  
+**Status:** Draft  
+**Created:** 2026-09-28  
+**Last Updated:** 2026-09-28  
 
 ## Scope
 
@@ -27,33 +27,33 @@ classification in the expression-fill pass.
 
 ### S1 — Unit suite (handler + ledger + race)
 
-**Run:** `npx tsx --test "tests/functions/paper-trading/*.test.ts"`
-**Expect:** all pass — `cancelPendingTrade` trio (cancel/no-cash/runs-EXITED,
+**Run:** `npx tsx --test "tests/functions/paper-trading/*.test.ts"`  
+**Expect:** all pass — `cancelPendingTrade` trio (cancel/no-cash/runs-EXITED,  
 non-PENDING reject, missing reject), `handleCancelPaperTrade` ladder
 (auth → invalid-argument → not-found → permission-denied incl. fail-closed
 on userId-less docs → failed-precondition ×5 statuses → ledger race map),
 fill-pass `not pending` → `skipped`.
-**Result:** PASS — 118/118.
+**Result:** PASS — 118/118.  
 
 ### S2 — Prod verify
 
-**Run:** `cd functions && npx tsx scripts/verify/paper-trading-cancel-666.ts`
-**Expect:** 9 `OK` — create PENDING, wrong-user → permission-denied, happy
+**Run:** `cd functions && npx tsx scripts/verify/paper-trading-cancel-666.ts`  
+**Expect:** 9 `OK` — create PENDING, wrong-user → permission-denied, happy  
 cancel, CANCELLED read-back, runs EXITED, account unchanged, re-cancel →
 failed-precondition, missing → not-found; docs cleaned up.
-**Result:** PASS — 9/9 on prod (`verify-666-*` docs removed).
+**Result:** PASS — 9/9 on prod (`verify-666-*` docs removed).  
 
 ### S3 — Build
 
-**Run:** `cd functions && npm run build`
-**Expect:** esbuild clean; `cancelPaperTrade` in `lib/index.js` exports.
-**Result:** PASS.
+**Run:** `cd functions && npm run build`  
+**Expect:** esbuild clean; `cancelPaperTrade` in `lib/index.js` exports.  
+**Result:** PASS.  
 
 ### S4 — Full regression
 
-**Run:** `npx jest --coverage=false`
-**Expect:** suite green — shared contracts unchanged, FE untouched.
-**Result:** PASS — 2139/2139 (ran during review round).
+**Run:** `npx jest --coverage=false`  
+**Expect:** suite green — shared contracts unchanged, FE untouched.  
+**Result:** PASS — 2139/2139 (ran during review round).  
 
 ## Traceability
 

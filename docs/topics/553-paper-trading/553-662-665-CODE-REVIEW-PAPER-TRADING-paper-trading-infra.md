@@ -1,12 +1,12 @@
 # Code Review — #665 SHARED Trade Exits contracts
 
-**Status:** Complete — PASS (3 rounds; round 3 = no new findings)
-**Topic:** Paper Trading Infra (#553)
-**Blueprint:** #662 (SHARED)
-**Task:** #665
-**Domain:** PAPER-TRADING
-**Created:** 2026-09-28
-**Last Updated:** 2026-09-28
+**Status:** Complete — PASS (3 rounds; round 3 = no new findings)  
+**Topic:** Paper Trading Infra (#553)  
+**Blueprint:** #662 (SHARED)  
+**Task:** #665  
+**Domain:** PAPER-TRADING  
+**Created:** 2026-09-28  
+**Last Updated:** 2026-09-28  
 
 ## Changes reviewed
 

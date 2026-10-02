@@ -1,14 +1,14 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Trade Exits
-**Blueprint:** #663 (BE)
-**Task:** #720
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** CODE-REVIEW
-**Status:** PASS — converged in 2 rounds
-**Created:** 2026-09-30
-**Last Updated:** 2026-09-30
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Trade Exits  
+**Blueprint:** #663 (BE)  
+**Task:** #720  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** CODE-REVIEW  
+**Status:** PASS — converged in 2 rounds  
+**Created:** 2026-09-30  
+**Last Updated:** 2026-09-30  
 
 # Code Review — #720 BE signal-trade settlement at expiration
 

@@ -1,15 +1,15 @@
-**Topic:** Paper Trading Infra
-**Topic Slug:** paper-trading-infra
-**Thread:** Trade Exits
-**Blueprint:** #663 (BE)
-**Task:** #676
-**QA Issue:** #722
-**Topic Parent:** #553
-**Domain:** PAPER-TRADING
-**Type:** UAT
-**Status:** PASS
-**Created:** 2026-09-30
-**Last Updated:** 2026-09-30
+**Topic:** Paper Trading Infra  
+**Topic Slug:** paper-trading-infra  
+**Thread:** Trade Exits  
+**Blueprint:** #663 (BE)  
+**Task:** #676  
+**QA Issue:** #722  
+**Topic Parent:** #553  
+**Domain:** PAPER-TRADING  
+**Type:** UAT  
+**Status:** PASS  
+**Created:** 2026-09-30  
+**Last Updated:** 2026-09-30  
 
 # UAT — #676 BE signal-trade mark coverage
 
