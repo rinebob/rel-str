@@ -11,6 +11,9 @@
 - [Robinhood MCP] 657-683_DOCS-RH-MCP: Probe-runner code review (PASS, 21 rounds) + UAT (Complete — live read probe, gate decline, flag matrix) + manifest settle args + captures + verify wiring
 - [Signal Pipeline Maintenance] 433-438_FE-IMPL-SIGNAL-REVIEW: Batch A — #717 requeue/modify regenerates burned refId (no more RH 409) + terminal rows get Requeue/dismiss; #719 removing a ticket clears all its occurrence decisions (signalContext.decisionIds; canonicalizes legacy ids) so the Accept toggle un-checks; #723 shared ticketCostBasisPrice — limit price vs live quote, live recalc, sell rows labelled Proceeds; #707 header cash nets resting limit-buy notional; #709 staged-only checkboxes + Select all/Clear + sequential Send-N-to-paper with in-flight SUBMITTING guard, per-ticket errors, summary counts
 - [Signal Pipeline Maintenance] 433-438_DOCS-SIGNAL-REVIEW: Batch A code review (PASS, converged) + UAT (Complete — scenario 1 FAIL→fixed for multi-decision bug, 2–22 user-approved) + inventory promotions
+- [Navigation and Workflows] 625-700_FE-IMPL-WORKFLOWS: NavSection + NAV_SECTIONS in PRD group order — NAV_MENU_ITEMS now derived flat; NavItem slimmed to name/text/href; dead AppRoutes members, topnav mixins, and .global-topnav-menu-css removed; nav-sections spec
+- [Navigation and Workflows] 625-700_FE-DOCS-WORKFLOWS: Code review (PASS) + UAT (Complete, 10 scenarios) for #700
+- [Navigation and Workflows] 625-625_DOCS-WORKFLOWS: Topic rename sweep — "Trading Workflows"→"Navigation and Workflows" across doc headers + PRD titles; commits previously-untracked #648/#655 docs
 
 ### Changed
 - [Navigation and Workflows] Topic #625 renamed from "Trading Workflows" (2026-10-01) — issue title, all `**Topic:**` doc headers, PRD title subtitles, and CONTEXT.md reference updated; `WORKFLOWS` domain label, `625-workflows/` dir, and `trading-workflows` slugs unchanged. Prior changelog entries retain the `[Trading Workflows]` tag as shipped
