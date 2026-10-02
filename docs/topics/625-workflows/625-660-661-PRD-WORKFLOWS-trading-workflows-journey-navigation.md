@@ -1,4 +1,4 @@
-**Topic:** Trading Workflows  
+**Topic:** Navigation and Workflows  
 **Topic Slug:** trading-workflows  
 **Thread:** Journey Navigation  
 **Thread Slug:** journey-navigation  
@@ -11,7 +11,7 @@
 **Created:** 2026-09-29  
 **Last Updated:** 2026-09-29  
 
-# PRD: Journey Navigation — Trading Workflows
+# PRD: Journey Navigation — Navigation and Workflows
 
 ## Problem Statement
 
@@ -21,7 +21,7 @@ The app's navigation reflects its Relative-Strength-heatmap origins, not the pro
 
 Reorganize navigation and routes around the trader's task flow. **No new surfaces; existing pages unchanged.**
 
-1. **Grouped sidenav** — flat labeled groups ordered by the daily journey: Positions → Signals → Trading → Options → Analysis → Tools → (auth tail). Removing ~13 legacy nav links; adding ~12 orphaned live routes. Sidenav stays an overlay drawer (`mat-drawer mode="over"`), unchanged behavior.
+1. **Grouped sidenav** — flat labeled groups ordered by the daily journey: Portfolio → Signals → Trading → Options → Analysis → Tools → (auth tail). Removing ~13 legacy nav links; adding ~12 orphaned live routes. Sidenav stays an overlay drawer (`mat-drawer mode="over"`), unchanged behavior.
 2. **New route tree** — domain-prefixed canonical paths (`/portfolio`, `/signals/*`, `/trading/*`, `/options/*`, `/analysis/*`, `/tools/*`). **No redirect aliases** — legacy surfaces are being deleted soon and there is no nav history to support; the literal `navigate(['/…'])` sweep is therefore mandatory (a stale literal falls through the `**` wildcard to `/`).
 3. **Auth-aware nav** — login/logout gets its own flow; nav items gate on auth status.
 4. **Header refactor** — rebrand to **Savant Trader** with updated styling; strip the legacy affordances (refresh-time, symbols button); add a unified global show/hide control so header visibility stops depending on which page remembered to add a button.

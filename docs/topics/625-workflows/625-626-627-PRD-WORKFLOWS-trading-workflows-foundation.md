@@ -1,4 +1,4 @@
-**Topic:** Trading Workflows  
+**Topic:** Navigation and Workflows  
 **Topic Slug:** trading-workflows  
 **Thread:** Workflow Foundation  
 **Thread Slug:** foundation  
@@ -11,7 +11,7 @@
 **Created:** 2026-09-28  
 **Last Updated:** 2026-09-28  
 
-# PRD: Workflow Foundation — Trading Workflows
+# PRD: Workflow Foundation — Navigation and Workflows
 
 ## Problem Statement
 

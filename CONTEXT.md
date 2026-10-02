@@ -291,7 +291,7 @@ _Avoid_: current day, today's date (a calendar date is not necessarily a trading
 
 ## Trading Workflow
 
-A documented, ordered procedure for one trading use case (signal review, order placement, portfolio management, …) — a checklist-style doc with defined entry criteria, steps, and exit criteria, designed to keep the trader on task during daily operations. Lives as a markdown doc; a future in-app checklist UI may consume the same source. Tracked under `Topic: Trading Workflows` (#625).
+A documented, ordered procedure for one trading use case (signal review, order placement, portfolio management, …) — a checklist-style doc with defined entry criteria, steps, and exit criteria, designed to keep the trader on task during daily operations. Lives as a markdown doc; a future in-app checklist UI may consume the same source. Tracked under `Topic: Navigation and Workflows` (#625) — renamed from `Topic: Trading Workflows` on 2026-10-01.
 
 _Avoid_: runbook (that is the ops doc type), process, SOP, task list
 

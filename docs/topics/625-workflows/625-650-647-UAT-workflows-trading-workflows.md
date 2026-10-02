@@ -1,4 +1,4 @@
-**Topic:** Trading Workflows  
+**Topic:** Navigation and Workflows  
 **Topic Slug:** trading-workflows  
 **Thread:** Workflow Foundation  
 **Thread Slug:** foundation  
