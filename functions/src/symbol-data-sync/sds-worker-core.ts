@@ -62,19 +62,31 @@ export async function processSymbolInterval(
     const rootRef = deps.db.collection(SYMBOL_DATA_COLLECTION).doc(symbol);
 
     if (interval === 'DAILY') {
-      await writeDailyShards(rootRef, bars);
+      const { lastDailyBarDate } = await writeDailyShards(rootRef, bars);
       // Write currentPrice from latest daily bar
       const latest = bars[bars.length - 1];
       await rootRef.set(
-        { currentPrice: { price: latest.c, date: latest.d, time: '16:00' } },
+        {
+          currentPrice: { price: latest.c, date: latest.d, time: '16:00' },
+          lastDailyBarDate,
+          lastBarSyncedAt: FieldValue.serverTimestamp(),
+        },
         { merge: true },
       );
     } else if (interval === 'WEEKLY') {
       const weeklyRef = rootRef.collection(SYMBOL_BARS_WEEKLY_SUBCOL).doc(SYMBOL_BARS_FLAT_DOC_ID);
-      await writeMergedFlatDoc(weeklyRef, bars, 'weekly');
+      const { lastBarDate } = await writeMergedFlatDoc(weeklyRef, bars, 'weekly');
+      await rootRef.set(
+        { lastWeeklyBarDate: lastBarDate, lastBarSyncedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
     } else if (interval === 'MONTHLY') {
       const monthlyRef = rootRef.collection(SYMBOL_BARS_MONTHLY_SUBCOL).doc(SYMBOL_BARS_FLAT_DOC_ID);
-      await writeMergedFlatDoc(monthlyRef, bars, 'monthly');
+      const { lastBarDate } = await writeMergedFlatDoc(monthlyRef, bars, 'monthly');
+      await rootRef.set(
+        { lastMonthlyBarDate: lastBarDate, lastBarSyncedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
     }
 
     logger.info('sds_worker_done', { symbol, interval, barCount: bars.length, runId: payload.runId });
@@ -85,7 +97,10 @@ export async function processSymbolInterval(
   }
 }
 
-async function writeDailyShards(rootRef: FirebaseFirestore.DocumentReference, bars: OhlcBar[]): Promise<void> {
+async function writeDailyShards(
+  rootRef: FirebaseFirestore.DocumentReference,
+  bars: OhlcBar[],
+): Promise<{ lastDailyBarDate: string }> {
   const byYear = new Map<number, OhlcBar[]>();
   for (const bar of bars) {
     const year = Number(bar.d.slice(0, 4));
@@ -93,6 +108,7 @@ async function writeDailyShards(rootRef: FirebaseFirestore.DocumentReference, ba
     byYear.get(year)!.push(bar);
   }
 
+  let lastDailyBarDate = '';
   for (const [year, newBars] of byYear) {
     const shardRef = rootRef.collection(SYMBOL_BARS_DAILY_SUBCOL).doc(String(year));
     const existing = await shardRef.get();
@@ -104,14 +120,19 @@ async function writeDailyShards(rootRef: FirebaseFirestore.DocumentReference, ba
       bars: merged,
       updatedAt: FieldValue.serverTimestamp(),
     });
+    if (merged.length > 0 && merged[merged.length - 1].d > lastDailyBarDate) {
+      lastDailyBarDate = merged[merged.length - 1].d;
+    }
   }
+
+  return { lastDailyBarDate };
 }
 
 async function writeMergedFlatDoc(
   docRef: FirebaseFirestore.DocumentReference,
   bars: OhlcBar[],
   interval: string,
-): Promise<void> {
+): Promise<{ lastBarDate: string }> {
   const existing = await docRef.get();
   const existingBars: OhlcBar[] = existing.exists ? ((existing.data() as SymbolBarsDoc)?.bars ?? []) : [];
   const merged = mergeBars(existingBars, bars);
@@ -120,4 +141,6 @@ async function writeMergedFlatDoc(
     bars: merged,
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
+  const lastBarDate = merged.length > 0 ? merged[merged.length - 1].d : '';
+  return { lastBarDate };
 }

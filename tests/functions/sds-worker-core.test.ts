@@ -107,10 +107,18 @@ describe('processSymbolInterval — POST DAILY', () => {
     assert.equal(shard.bars.length, 5);
 
     // currentPrice should be written from latest bar close
-    const root = db.docs.get('symbol-data/AAPL') as { currentPrice?: { price: number; date: string } } | undefined;
+    const root = db.docs.get('symbol-data/AAPL') as {
+      currentPrice?: { price: number; date: string };
+      lastDailyBarDate?: string;
+      lastBarSyncedAt?: unknown;
+    } | undefined;
     assert.ok(root?.currentPrice);
     assert.equal(root.currentPrice.price, 114);
     assert.equal(root.currentPrice.date, '2026-01-24');
+
+    // SDS worker must update root metadata so the frontend indicator cache invalidates
+    assert.equal(root.lastDailyBarDate, '2026-01-24');
+    assert.ok(root.lastBarSyncedAt);
   });
 
   it('does NOT write weekly or monthly docs', async () => {
@@ -150,8 +158,14 @@ describe('processSymbolInterval — POST WEEKLY', () => {
     assert.equal(weekly.bars.length, 5);
 
     // No currentPrice
-    const root = db.docs.get('symbol-data/AAPL');
+    const root = db.docs.get('symbol-data/AAPL') as {
+      currentPrice?: { price: number; date: string };
+      lastWeeklyBarDate?: string;
+      lastBarSyncedAt?: unknown;
+    } | undefined;
     assert.ok(!root?.currentPrice);
+    assert.equal(root?.lastWeeklyBarDate, '2026-01-24');
+    assert.ok(root?.lastBarSyncedAt);
 
     // No daily shard
     assert.ok(!db.docs.has('symbol-data/AAPL/daily/2026'));
@@ -179,9 +193,14 @@ describe('processSymbolInterval — POST MONTHLY', () => {
     assert.equal(monthly.interval, 'monthly');
     assert.equal(monthly.bars.length, 5);
 
-    // No currentPrice
-    const root = db.docs.get('symbol-data/AAPL');
+    const root = db.docs.get('symbol-data/AAPL') as {
+      currentPrice?: { price: number; date: string };
+      lastMonthlyBarDate?: string;
+      lastBarSyncedAt?: unknown;
+    } | undefined;
     assert.ok(!root?.currentPrice);
+    assert.equal(root?.lastMonthlyBarDate, '2026-01-24');
+    assert.ok(root?.lastBarSyncedAt);
   });
 });
 

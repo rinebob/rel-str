@@ -121,9 +121,9 @@ export async function syncSymbolToSymbolData(symbol: string, forceFullFetch: boo
       callPartnerTimeSeries({ symbol, interval: 'MONTHLY', adjusted: true, ...fetchParams.monthly }).catch(() => null),
     ]);
 
-    const incomingDaily   = ((rawDaily   as any)?.bars ?? []).map(normalizeBar).filter(Boolean) as OhlcBar[];
-    const incomingWeekly  = ((rawWeekly  as any)?.bars ?? []).map(normalizeBar).filter(Boolean) as OhlcBar[];
-    const incomingMonthly = ((rawMonthly as any)?.bars ?? []).map(normalizeBar).filter(Boolean) as OhlcBar[];
+    const incomingDaily   = (((rawDaily   as any)?.bars ?? []).map(normalizeBar).filter(Boolean) as OhlcBar[]).sort((a, b) => a.d.localeCompare(b.d));
+    const incomingWeekly  = (((rawWeekly  as any)?.bars ?? []).map(normalizeBar).filter(Boolean) as OhlcBar[]).sort((a, b) => a.d.localeCompare(b.d));
+    const incomingMonthly = (((rawMonthly as any)?.bars ?? []).map(normalizeBar).filter(Boolean) as OhlcBar[]).sort((a, b) => a.d.localeCompare(b.d));
 
     if (incomingDaily.length === 0) {
       logger.warn('symbol_data_sync_no_daily_bars', { symbol });
