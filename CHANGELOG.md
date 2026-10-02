@@ -9,6 +9,11 @@
 - [Robinhood MCP] 657-683_SHARED-IMPL-RH-MCP: toolError on ToolExecutionSuccess — envelope-level isError surfaced separately (parsed can't see it when error text is JSON); executor + adapter propagate; listOrders options declare `since`
 - [Robinhood MCP] 657-683_BE-IMPL-RH-MCP: Manifest-driven probe runner — sequential execution, read pacing/backoff/retry-prompts, per-call mutation gate (no bypass, re-gate on retry), post-mutation settle poll, redacted+env-scrubbed atomic captures, `--only/--group/--from/--dry-run` CLI; loader gains settle-args schema validation, orders-tool settle convention, pending-state vocabulary; 118-spec suite + 6-check offline verify
 - [Robinhood MCP] 657-683_DOCS-RH-MCP: Probe-runner code review (PASS, 21 rounds) + UAT (Complete — live read probe, gate decline, flag matrix) + manifest settle args + captures + verify wiring
+- [Signal Pipeline Maintenance] 433-438_FE-IMPL-SIGNAL-REVIEW: Batch A — #717 requeue/modify regenerates burned refId (no more RH 409) + terminal rows get Requeue/dismiss; #719 removing a ticket clears all its occurrence decisions (signalContext.decisionIds; canonicalizes legacy ids) so the Accept toggle un-checks; #723 shared ticketCostBasisPrice — limit price vs live quote, live recalc, sell rows labelled Proceeds; #707 header cash nets resting limit-buy notional; #709 staged-only checkboxes + Select all/Clear + sequential Send-N-to-paper with in-flight SUBMITTING guard, per-ticket errors, summary counts
+- [Signal Pipeline Maintenance] 433-438_DOCS-SIGNAL-REVIEW: Batch A code review (PASS, converged) + UAT (Complete — scenario 1 FAIL→fixed for multi-decision bug, 2–22 user-approved) + inventory promotions
+
+### Changed
+- [Navigation and Workflows] Topic #625 renamed from "Trading Workflows" (2026-10-01) — issue title, all `**Topic:**` doc headers, PRD title subtitles, and CONTEXT.md reference updated; `WORKFLOWS` domain label, `625-workflows/` dir, and `trading-workflows` slugs unchanged. Prior changelog entries retain the `[Trading Workflows]` tag as shipped
 
 ## [2026-09-30]
 

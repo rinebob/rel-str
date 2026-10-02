@@ -20,8 +20,7 @@ Scope reminder: run-dashboard, signal-review, chart-review, signal-order, signal
 ## Open Items
 
 <!-- Add items here, one line each: short description + where it lives (page/component). -->
-- Limit-order trade cost must recalculate live when the user edits limit price or quantity in the ticket detail pane (order-ticket.component on signal-order)
-- Staged orders: show signal price + live price + %Δ like other groups — works for tickets staged post-#706, but pre-existing staged tickets lack stored `signalPrice` and fall back to limit anchor. Options: backfill `signalPrice` from the signal doc via `signalContext`, or accept the gap (re-staged tickets get it naturally). Non-signal (manual) staged tickets have no signal price — define expected display for those
+- (empty — all current items promoted)
 
 ## Promoted
 
@@ -38,7 +37,10 @@ Scope reminder: run-dashboard, signal-review, chart-review, signal-order, signal
 | 9 | One-click bulk send of checked staged orders to paper trading (checkboxes scoped to the Staged group + single convert button) | #709 | 4_BACKLOG |
 | 10 | Manual order entry — ESCALATED to own Thread (placement under discussion: lives on signal-order, possible light entry point on signal-review) | — | pending thread |
 | 11 | BUG: requeue of a cancelled ticket reuses the burned RH `ref_id` → 409 "Reference ID must be unique". Regenerate `refId` on requeue (`onRequeueTicket`, order.component.ts) | #717 | 4_BACKLOG |
-| 12 | BUG: Accept toggle on signal-review stuck ON after queue-ticket removal — can't de-accept/re-stage (PAYS/INTC case, 2026-09-30). Decision store ↔ staging store desync: removing a signal-sourced ticket orphans the accepted decision | #719 | 4_BACKLOG |
+| 12 | BUG: Accept toggle on signal-review stuck ON after queue-ticket removal — can't de-accept/re-stage (PAYS/INTC case, 2026-09-30). Decision store ↔ staging store desync: removing a signal-sourced ticket orphans the accepted decision. Confirmed direction: ticket removal auto-clears the accepted decision | #719 | 4_BACKLOG |
+| 13 | Limit-order trade cost must recalculate live when the user edits limit price or quantity in the ticket detail pane (order-ticket.component on signal-order) | #723 | 4_BACKLOG |
+
+**Dropped:** staged-group signal-price backfill for pre-#706 tickets — user declined (2026-09-30); new accepts carry `signalPrice` naturally, legacy tickets use the limit-price fallback by design.
 
 ## Parking Lot (maybe-out-of-scope)
 
