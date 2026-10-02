@@ -3,10 +3,12 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { of } from 'rxjs';
+import { of, throwError, from } from 'rxjs';
+import { TradeSide } from '@common';
 
 import { OrderComponent } from './order.component';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
+import { OccurrenceDecisionStore } from '../../stores/occurrence-decision.store';
 import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { PortfolioService } from '../../services/portfolio.service';
@@ -20,6 +22,7 @@ import {
   OrderTicketStatus,
   OrderSource,
   InstrumentType,
+  EquityOrderTicket,
 } from '../../services/order-ticket.types';
 import { BrokerOrderSnapshot } from '../../services/order-ticket.types';
 
@@ -42,11 +45,21 @@ function makeTicket(id: string, symbol: string, status: OrderTicketStatus = Orde
   } as OrderTicket;
 }
 
+/** Shared signalContext factory — the shape buildSignalOrderTickets writes. */
+const ctx = (decisionId: string) => ({
+  signalType: 'D_ZONE_V1_UPTICK',
+  barDate: '2026-08-25',
+  timeframe: 'weekly',
+  direction: 'long',
+  decisionId,
+});
+
 describe('OrderComponent', () => {
   let fixture: ComponentFixture<OrderComponent>;
   let component: OrderComponent;
   let storeMock: any;
   let uiStateMock: any;
+  let occurrenceMock: any;
 
   beforeEach(async () => {
     storeMock = {
@@ -54,8 +67,16 @@ describe('OrderComponent', () => {
       loading: signal(false),
       error: signal(null),
       loadTickets: jasmine.createSpy('loadTickets'),
-      removeTicket: jasmine.createSpy('removeTicket'),
+      // Mimics the real store's synchronous optimistic delete — the
+      // protection check in onRemoveTickets reads tickets() after removal.
+      removeTicket: jasmine.createSpy('removeTicket').and.callFake((id: string) => {
+        const next = { ...storeMock.tickets() };
+        delete next[id];
+        storeMock.tickets.set(next);
+      }),
       updateTicket: jasmine.createSpy('updateTicket'),
+      updateTicketAndWait: jasmine.createSpy('updateTicketAndWait').and.returnValue(Promise.resolve(true)),
+      setTicketStatusLocal: jasmine.createSpy('setTicketStatusLocal'),
       reconcileTerminalStatuses: jasmine.createSpy('reconcileTerminalStatuses'),
     };
 
@@ -63,11 +84,16 @@ describe('OrderComponent', () => {
       setFullscreen: jasmine.createSpy('setFullscreen'),
     };
 
+    occurrenceMock = {
+      clearDecisionById: jasmine.createSpy('clearDecisionById'),
+    };
+
     await TestBed.configureTestingModule({
       imports: [OrderComponent],
       providers: [
         provideNoopAnimations(),
         { provide: OrderTicketStore, useValue: storeMock },
+        { provide: OccurrenceDecisionStore, useValue: occurrenceMock },
         { provide: UiStateService, useValue: uiStateMock },
         provideRouter([]),
         { provide: TradingConfigService, useValue: { loadConfig: jasmine.createSpy('loadConfig').and.returnValue(of(null)) } },
@@ -155,7 +181,14 @@ describe('OrderComponent', () => {
     expect(component.selectedTicket()).toBeNull();
   });
 
-  it('calls removeTicket for each id in batch remove', () => {
+  it('calls removeTicket for each removable id in batch remove', () => {
+    // Only existing STAGED/terminal tickets are removed — the guard reads
+    // the store, so nonexistent ids are skipped too.
+    storeMock.tickets.set({
+      '1': makeTicket('1', 'AAPL'),
+      '2': makeTicket('2', 'NVDA'),
+      '3': makeTicket('3', 'MSFT'),
+    });
     component.onRemoveTickets(['1', '2', '3']);
 
     expect(storeMock.removeTicket).toHaveBeenCalledTimes(3);
@@ -195,6 +228,25 @@ describe('OrderComponent', () => {
     expect(scoreboard).toContain('$24,800.22');
     expect(scoreboard).toContain('2');
     expect(scoreboard).toContain('1.64');
+  });
+
+  it('nets resting limit-buy notional out of available cash (#707)', () => {
+    component.accountSnapshot.set({
+      accountValue: 24964.03, exposure: 163.81, cash: 24800.22,
+      positionCount: 2, units: 1.64, positions: [],
+    });
+    component.rhOrders.set({
+      resting: { id: 'r1', symbol: 'AAPL', side: 'buy', type: 'limit', state: 'confirmed', price: '50.00', quantity: '10' },
+      cancelled: { id: 'c1', symbol: 'MSFT', side: 'buy', type: 'limit', state: 'cancelled', price: '99.00', quantity: '10' },
+      sell: { id: 's1', symbol: 'QQQ', side: 'sell', type: 'limit', state: 'confirmed', price: '60.00', quantity: '5' },
+    });
+    fixture.detectChanges();
+
+    expect(component.restingLimitBuyNotional()).toBe(500);
+    expect(component.availableCash()).toBe(24300.22);
+    const scoreboard = fixture.nativeElement.querySelector('.scoreboard').textContent;
+    expect(scoreboard).toContain('$24,300.22');
+    expect(scoreboard).toContain('$500');
   });
 
   it('navigates back to signal-review on goBack', () => {
@@ -338,16 +390,17 @@ describe('OrderComponent', () => {
   });
 
   describe('onRemoveTickets', () => {
-    it('removes every passed id — PAPER tickets are unreachable (never displayed)', () => {
+    it('skips non-removable statuses — PAPER and in-flight tickets are not deletable', () => {
       const staged = makeTicket('1', 'AAPL', OrderTicketStatus.STAGED);
       const paper = makeTicket('2', 'NVDA', OrderTicketStatus.PAPER);
-      storeMock.tickets.set({ '1': staged, '2': paper });
+      const submitting = makeTicket('3', 'MSFT', OrderTicketStatus.SUBMITTING);
+      storeMock.tickets.set({ '1': staged, '2': paper, '3': submitting });
       fixture.detectChanges();
 
-      component.onRemoveTickets(['1', '2']);
+      component.onRemoveTickets(['1', '2', '3']);
 
+      expect(storeMock.removeTicket).toHaveBeenCalledTimes(1);
       expect(storeMock.removeTicket).toHaveBeenCalledWith('1');
-      expect(storeMock.removeTicket).toHaveBeenCalledWith('2');
     });
   });
 
@@ -455,7 +508,7 @@ describe('OrderComponent', () => {
 
       await component.onRequeueTicket('1');
 
-      expect(storeMock.updateTicket).toHaveBeenCalledWith('1', jasmine.objectContaining({
+      expect(storeMock.updateTicketAndWait).toHaveBeenCalledWith('1', jasmine.objectContaining({
         status: OrderTicketStatus.STAGED,
         result: undefined,
         error: undefined,
@@ -472,20 +525,367 @@ describe('OrderComponent', () => {
 
       await component.onRequeueTicket('1');
 
-      const patch = storeMock.updateTicket.calls.mostRecent().args[1] as Partial<OrderTicket>;
+      const patch = storeMock.updateTicketAndWait.calls.mostRecent().args[1] as Partial<OrderTicket>;
       expect(patch.refId).toBeTruthy();
       expect(patch.refId).not.toBe('ref-burned');
-      expect(patch.refId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      expect(patch.refId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
-    it('does not requeue a non-cancelled ticket', async () => {
+    it('requeues a FAILED ticket — a rejected order already burned its refId at RH', async () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.FAILED);
+      ticket.refId = 'ref-burned';
+      ticket.result = { orderId: 'rh-ord-1', state: 'rejected' };
+      ticket.error = { message: 'rejected', retryable: false };
+      storeMock.tickets.set({ '1': ticket });
+      fixture.detectChanges();
+
+      await component.onRequeueTicket('1');
+
+      const patch = storeMock.updateTicketAndWait.calls.mostRecent().args[1] as Partial<OrderTicket>;
+      expect(patch.status).toBe(OrderTicketStatus.STAGED);
+      expect(patch.refId).not.toBe('ref-burned');
+      expect(patch.result).toBeUndefined();
+      expect(patch.error).toBeUndefined();
+    });
+
+    it('does not requeue a non-terminal ticket', async () => {
       const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
       storeMock.tickets.set({ '1': ticket });
       fixture.detectChanges();
 
       await component.onRequeueTicket('1');
 
+      expect(storeMock.updateTicketAndWait).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('ticket removal clears the accepted decision (#719)', () => {
+    it('clears the decision when its queue ticket is removed', () => {
+      const ticket = makeTicket('1', 'AAPL');
+      ticket.signalContext = ctx('run1-AAPL-weekly-up');
+      storeMock.tickets.set({ '1': ticket });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1']);
+
+      expect(storeMock.removeTicket).toHaveBeenCalledWith('1');
+      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('run1-AAPL-weekly-up');
+    });
+
+    it('keeps the decision while another live ticket references it', () => {
+      const t1 = makeTicket('1', 'AAPL');
+      t1.signalContext = ctx('dec-shared');
+      const t2 = makeTicket('2', 'AAPL');
+      t2.signalContext = ctx('dec-shared');
+      storeMock.tickets.set({ '1': t1, '2': t2 });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1']);
+
+      expect(occurrenceMock.clearDecisionById).not.toHaveBeenCalled();
+    });
+
+    it('clears each distinct decision on a multi-ticket removal', () => {
+      const t1 = makeTicket('1', 'AAPL');
+      t1.signalContext = ctx('dec-a');
+      const t2 = makeTicket('2', 'MSFT');
+      t2.signalContext = ctx('dec-b');
+      storeMock.tickets.set({ '1': t1, '2': t2 });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1', '2']);
+
+      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-a');
+      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-b');
+    });
+
+    it('skips removal of a mid-flight ticket — the queue can render terminal from a merged RH state', () => {
+      // A ticket whose store status is SUBMITTING may still display as
+      // terminal (merged from a stale RH order) and show a dismiss button.
+      // The guard reads the store ticket, not the merged row.
+      const t = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTING);
+      t.signalContext = ctx('dec-a');
+      storeMock.tickets.set({ '1': t });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1']);
+
+      expect(storeMock.removeTicket).not.toHaveBeenCalled();
+      expect(occurrenceMock.clearDecisionById).not.toHaveBeenCalled();
+      expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalled();
+    });
+
+    it('does not touch decisions for tickets without signalContext', () => {
+      const ticket = makeTicket('1', 'AAPL');
+      ticket.signalContext = undefined;
+      storeMock.tickets.set({ '1': ticket });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1']);
+
+      expect(occurrenceMock.clearDecisionById).not.toHaveBeenCalled();
+    });
+
+    it('normalizes a legacy hyphen-format decisionId to the canonical doc id', () => {
+      // Tickets staged before the producer used buildStOccurrenceDecisionId
+      // carry `${runId}-${symbol}-${tf}-${type}`; the doc id is
+      // `${runId}_${SYMBOL}_${tf}_${type}`. Removing such a ticket must
+      // still delete the real decision doc (round-2 review critical).
+      const ticket = makeTicket('1', 'AAPL');
+      ticket.signalContext = ctx('run-2026-09-01-AAPL-weekly-D_ZONE_V1_UPTICK');
+      storeMock.tickets.set({ '1': ticket });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1']);
+
+      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith(
+        'run-2026-09-01_AAPL_weekly_D_ZONE_V1_UPTICK',
+      );
+    });
+
+    it('clears every decisionId owned by a ticket — one accept writes N decisions but stages one deduped ticket', () => {
+      // Regression for the QA failure: two same-side signals → two decision
+      // docs but a single ticket. Clearing only `decisionId` left siblings
+      // live and the Accept toggle stayed on.
+      const ticket = makeTicket('1', 'AAPL');
+      ticket.signalContext = { ...ctx('run1_AAPL_D_SIG1'), decisionIds: ['dec-1', 'dec-2'] };
+      storeMock.tickets.set({ '1': ticket });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1']);
+
+      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-1');
+      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-2');
+    });
+
+    it('a live ticket\'s decisionIds also protect shared decisions', () => {
+      const t1 = makeTicket('1', 'AAPL');
+      t1.signalContext = { ...ctx('dec-a'), decisionIds: ['dec-a', 'dec-shared'] };
+      const t2 = makeTicket('2', 'AAPL');
+      t2.signalContext = { ...ctx('dec-b'), decisionIds: ['dec-b', 'dec-shared'] };
+      storeMock.tickets.set({ '1': t1, '2': t2 });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1']);
+
+      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-a');
+      expect(occurrenceMock.clearDecisionById).not.toHaveBeenCalledWith('dec-shared');
+    });
+
+    it('calls clearDecisionById once when two removed tickets share a decision', () => {
+      const t1 = makeTicket('1', 'AAPL');
+      t1.signalContext = ctx('dec-shared');
+      const t2 = makeTicket('2', 'AAPL');
+      t2.signalContext = ctx('dec-shared');
+      storeMock.tickets.set({ '1': t1, '2': t2 });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1', '2']);
+
+      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledTimes(1);
+      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-shared');
+    });
+  });
+
+  describe('bulk send to paper (#709)', () => {
+    let paperMock: { paperSignalOrder$: jest.Mock };
+    let priceMock: { prices: any };
+    let snack: any;
+
+    beforeEach(() => {
+      paperMock = TestBed.inject(PaperTradingService) as any;
+      priceMock = TestBed.inject(EquityPriceService) as any;
+      snack = TestBed.inject(MatSnackBar);
+      paperMock.paperSignalOrder$.mockReset();
+      paperMock.paperSignalOrder$.mockReturnValue(
+        of({ cohortId: 'c1', expressionTradeIds: ['e1'] }),
+      );
+      priceMock.prices.set({});
+    });
+
+    it('converts each checked staged signal ticket to PAPER', async () => {
+      const t1 = makeTicket('1', 'AAPL');
+      t1.signalContext = ctx('dec-a');
+      const t2 = makeTicket('2', 'NVDA');
+      t2.signalContext = ctx('dec-b');
+      storeMock.tickets.set({ '1': t1, '2': t2 });
+      fixture.detectChanges();
+
+      await component.onSendTicketsToPaper(['1', '2']);
+
+      expect(paperMock.paperSignalOrder$).toHaveBeenCalledTimes(2);
+      expect(paperMock.paperSignalOrder$).toHaveBeenCalledWith(
+        expect.objectContaining({ signalId: 'dec-a', symbol: 'AAPL', refId: 'ref-1', quantity: 100, direction: TradeSide.LONG }),
+      );
+      expect(storeMock.updateTicket).toHaveBeenCalledWith('1', expect.objectContaining({ status: OrderTicketStatus.PAPER }));
+      expect(storeMock.updateTicket).toHaveBeenCalledWith('2', expect.objectContaining({ status: OrderTicketStatus.PAPER }));
+    });
+
+    it('sends sell-side tickets as SHORT', async () => {
+      const t = makeTicket('1', 'AAPL');
+      t.side = 'sell';
+      t.signalContext = ctx('dec-s');
+      storeMock.tickets.set({ '1': t });
+      fixture.detectChanges();
+
+      await component.onSendTicketsToPaper(['1']);
+
+      expect(paperMock.paperSignalOrder$).toHaveBeenCalledWith(
+        expect.objectContaining({ direction: TradeSide.SHORT }),
+      );
+    });
+
+    it('skips ineligible tickets — option, non-signal, or not staged', async () => {
+      const opt = {
+        ...makeTicket('1', 'SPY'),
+        instrumentType: InstrumentType.OPTION,
+        signalContext: ctx('d1'),
+        legs: [],
+      } as OrderTicket;
+      const filled = makeTicket('2', 'NVDA', OrderTicketStatus.FILLED);
+      filled.signalContext = ctx('d2');
+      const manual = { ...makeTicket('3', 'MSFT'), source: OrderSource.MANUAL } as OrderTicket;
+      manual.signalContext = undefined;
+      storeMock.tickets.set({ '1': opt, '2': filled, '3': manual });
+      fixture.detectChanges();
+
+      await component.onSendTicketsToPaper(['1', '2', '3']);
+
+      expect(paperMock.paperSignalOrder$).not.toHaveBeenCalled();
       expect(storeMock.updateTicket).not.toHaveBeenCalled();
+      expect(snack.open).toHaveBeenCalledWith(
+        expect.stringContaining('skipped'),
+        'Dismiss',
+        expect.anything(),
+      );
+    });
+
+    it('leaves a failed ticket staged and reports the failure count', async () => {
+      const t1 = makeTicket('1', 'AAPL');
+      t1.signalContext = ctx('dec-a');
+      const t2 = makeTicket('2', 'NVDA');
+      t2.signalContext = ctx('dec-b');
+      storeMock.tickets.set({ '1': t1, '2': t2 });
+      fixture.detectChanges();
+
+      paperMock.paperSignalOrder$
+        .mockReturnValueOnce(of({ cohortId: 'c', expressionTradeIds: [] }))
+        .mockImplementationOnce(() => throwError(() => new Error('boom')));
+
+      await component.onSendTicketsToPaper(['1', '2']);
+
+      // Success → PAPER; failure → stays STAGED but carries a visible error.
+      expect(storeMock.updateTicket).toHaveBeenCalledTimes(2);
+      expect(storeMock.updateTicket).toHaveBeenCalledWith('1', expect.objectContaining({ status: OrderTicketStatus.PAPER }));
+      expect(storeMock.updateTicket).toHaveBeenCalledWith('2', expect.objectContaining({ error: expect.objectContaining({ retryable: true }) }));
+      expect(snack.open).toHaveBeenCalledWith(
+        expect.stringContaining('1 failed'),
+        'Dismiss',
+        expect.anything(),
+      );
+    });
+
+    it('derives quantity from dollarAmount at the live price for unedited tickets', async () => {
+      // Signal-staged tickets carry dollarAmount only — quantity exists
+      // only if the ticket was opened in the detail pane (auto-calc).
+      // Without derivation the callable would 400 'no usable quantity'.
+      const t = makeTicket('1', 'AAPL') as EquityOrderTicket;
+      t.signalContext = ctx('dec-a');
+      t.quantity = undefined;
+      t.dollarAmount = '500';
+      storeMock.tickets.set({ '1': t });
+      priceMock.prices.set({ AAPL: 50 });
+      fixture.detectChanges();
+
+      await component.onSendTicketsToPaper(['1']);
+
+      expect(paperMock.paperSignalOrder$).toHaveBeenCalledWith(
+        expect.objectContaining({ quantity: 10 }), // $500 / $50
+      );
+    });
+
+    it('marks the ticket SUBMITTING locally during the callable await (C1 — not removable/submittable mid-flight)', async () => {
+      const t = makeTicket('1', 'AAPL');
+      t.signalContext = ctx('dec-a');
+      storeMock.tickets.set({ '1': t });
+      fixture.detectChanges();
+
+      await component.onSendTicketsToPaper(['1']);
+
+      // Transient status patched before the callable, PAPER after success.
+      expect(storeMock.setTicketStatusLocal).toHaveBeenCalledWith(
+        '1',
+        OrderTicketStatus.SUBMITTING,
+      );
+      expect(storeMock.updateTicket).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({ status: OrderTicketStatus.PAPER }),
+      );
+    });
+
+    it('reverts the transient status to STAGED on callable failure', async () => {
+      const t = makeTicket('1', 'AAPL');
+      t.signalContext = ctx('dec-a');
+      storeMock.tickets.set({ '1': t });
+      fixture.detectChanges();
+      paperMock.paperSignalOrder$.mockReturnValueOnce(
+        throwError(() => new Error('boom')),
+      );
+
+      await component.onSendTicketsToPaper(['1']);
+
+      expect(storeMock.setTicketStatusLocal).toHaveBeenCalledWith(
+        '1',
+        OrderTicketStatus.SUBMITTING,
+      );
+      expect(storeMock.updateTicket).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({
+          status: OrderTicketStatus.STAGED,
+          error: expect.objectContaining({ retryable: true }),
+        }),
+      );
+    });
+
+    it('ignores a second batch invocation while one is in flight', async () => {
+      const t = makeTicket('1', 'AAPL');
+      t.signalContext = ctx('dec-a');
+      storeMock.tickets.set({ '1': t });
+      fixture.detectChanges();
+
+      // Hold the callable open while the second invocation fires.
+      let release!: (v: unknown) => void;
+      paperMock.paperSignalOrder$.mockReturnValueOnce(
+        from(new Promise((res) => (release = res))),
+      );
+      const first = component.onSendTicketsToPaper(['1']);
+      await component.onSendTicketsToPaper(['1']);
+      release({ cohortId: 'c', expressionTradeIds: [] });
+      await first;
+
+      expect(paperMock.paperSignalOrder$).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails the ticket with a visible error when quantity is uncomputable (no price)', async () => {
+      const t = makeTicket('1', 'AAPL') as EquityOrderTicket;
+      t.signalContext = ctx('dec-a');
+      t.quantity = undefined;
+      t.dollarAmount = '500';
+      storeMock.tickets.set({ '1': t });
+      fixture.detectChanges();
+
+      await component.onSendTicketsToPaper(['1']);
+
+      expect(paperMock.paperSignalOrder$).not.toHaveBeenCalled();
+      expect(storeMock.updateTicket).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({ error: expect.objectContaining({ retryable: true }) }),
+      );
+      expect(snack.open).toHaveBeenCalledWith(
+        expect.stringContaining('1 failed'),
+        'Dismiss',
+        expect.anything(),
+      );
     });
   });
 });

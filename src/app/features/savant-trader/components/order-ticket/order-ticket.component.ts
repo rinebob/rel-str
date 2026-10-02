@@ -31,7 +31,6 @@ import { firstValueFrom } from 'rxjs';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { OrderExecutionService } from '../../services/order-execution.service';
 import { PaperTradingService } from '../../services/paper-trading.service';
-import { TradeSide } from '@common';
 import { OrderConfirmDialogComponent } from '../order-confirm-dialog/order-confirm-dialog.component';
 import {
   bucketTargetWarnings,
@@ -43,6 +42,7 @@ import {
   buildStopLossTicket,
 } from '../../utils/stop-loss-ticket.util';
 import { findActiveStopLoss, rhStateToDisplayStatus } from '../../utils/broker-order.util';
+import { isPaperEligibleTicket, toPaperSignalOrderRequest } from '../../utils/paper-ticket.util';
 import {
   OrderTicket,
   OrderTicketStatus,
@@ -57,6 +57,7 @@ import {
   computeUnits,
   stopPriceFromPercent,
   stopPercentFromPrice,
+  ticketCostBasisPrice,
   DEFAULT_STOP_PERCENT,
 } from '../../utils/position-sizing.util';
 import { StopLossFormComponent } from '../../../../shared/components/stop-loss-form/stop-loss-form.component';
@@ -110,6 +111,11 @@ export class OrderTicketComponent {
    *  parent page can refresh RH orders and positions. */
   readonly refreshRequested = output<void>();
 
+  /** Emitted when the user clicks Requeue on a FAILED ticket — the page
+   *  owns the requeue (fresh refId + STAGED) since it also handles the
+   *  queue-row Requeue action (#717). */
+  readonly requeueRequested = output<string>();
+
   /** Local editable copy of the ticket fields. */
   readonly orderType = signal<'market' | 'limit' | 'stop_market' | 'stop_limit'>('market');
   readonly quantity = signal<string>('');
@@ -156,6 +162,19 @@ export class OrderTicketComponent {
   /** Current price for the symbol (from input). */
   readonly currentPrice = computed(() => this.price());
 
+  /** Price the cost math uses. Limit/stop-limit orders cost at the
+   *  editable limit price — the committed worst case — so the displayed
+   *  cost must track the user's edits, not the live quote (#723). Falls
+   *  back to the live quote when the limit field is empty/invalid and for
+   *  market orders. Shared basis with queue rows + paper sizing via
+   *  `ticketCostBasisPrice`. */
+  readonly costBasisPrice = computed<number | null>(() =>
+    ticketCostBasisPrice(
+      { orderType: this.orderType(), limitPrice: this.limitPrice() },
+      this.currentPrice(),
+    ),
+  );
+
   /** Whole-share quantity (non-negative integer) for calculations. */
   private wholeQuantity(): number {
     return Math.max(0, parseInt(this.quantity(), 10) || 0);
@@ -164,7 +183,7 @@ export class OrderTicketComponent {
   /** Computed units for the current quantity and price. */
   readonly computedUnits = computed(() => {
     const qty = this.wholeQuantity();
-    const price = this.currentPrice();
+    const price = this.costBasisPrice();
     const dda = this.defaultDollarAmount();
     if (qty <= 0 || price === null || price <= 0 || dda <= 0) return 0;
     return computeUnits(qty, price, dda);
@@ -173,7 +192,7 @@ export class OrderTicketComponent {
   /** Computed actual cost for the current quantity and price. */
   readonly actualCost = computed(() => {
     const qty = this.wholeQuantity();
-    const price = this.currentPrice();
+    const price = this.costBasisPrice();
     if (qty <= 0 || price === null || price <= 0) return 0;
     return Math.round(qty * price * 100) / 100;
   });
@@ -221,10 +240,12 @@ export class OrderTicketComponent {
     return this.stagingStore.tickets()[parentId] ?? null;
   });
 
-  /** Whether the ticket is in an editable state. */
+  /** Whether the ticket is in an editable state. FAILED is deliberately
+   *  NOT editable — a broker-rejected order already burned its refId at
+   *  RH, so submitting it directly 409s. It routes through Requeue, which
+   *  mints a fresh refId and returns the ticket to STAGED (#717). */
   readonly isEditable = computed(() => {
-    const s = this.ticket()?.status;
-    return s === OrderTicketStatus.STAGED || s === OrderTicketStatus.FAILED;
+    return this.ticket()?.status === OrderTicketStatus.STAGED;
   });
 
   /** Whether the ticket is currently being submitted. */
@@ -235,14 +256,9 @@ export class OrderTicketComponent {
 
   /** Whether the staged ticket can be accepted as paper — signal-pipeline
    *  equity/ETF tickets only (option tickets and non-signal sources have
-   *  no signal context to anchor the paper cohort to). */
-  readonly canAcceptAsPaper = computed(() => {
-    const i = this.ticket();
-    return !!i && i.status === OrderTicketStatus.STAGED &&
-      i.source === OrderSource.SIGNAL_PIPELINE &&
-      i.instrumentType !== InstrumentType.OPTION &&
-      !!i.signalContext?.decisionId;
-  });
+   *  no signal context to anchor the paper cohort to). The predicate is
+   *  shared with the batch send-to-paper path (#709). */
+  readonly canAcceptAsPaper = computed(() => isPaperEligibleTicket(this.ticket()));
 
   /** Whether the ticket is submitted and awaiting fill (or submitting). */
   readonly isSubmitted = computed(() => {
@@ -549,7 +565,7 @@ export class OrderTicketComponent {
   /** Open confirmation dialog, then submit if confirmed. */
   async onSubmit(): Promise<void> {
     const i = this.ticket();
-    if (!i) return;
+    if (!i || !this.isEditable()) return;
 
     // Check account and quantity before saving edits
     if (!this.hasAccount()) {
@@ -604,13 +620,10 @@ export class OrderTicketComponent {
    *  the callable does all broker reads server-side. */
   async onAcceptAsPaper(): Promise<void> {
     const i = this.ticket();
-    if (!i || !this.canAcceptAsPaper() || this.acceptingPaper()) return;
-    const signalId = i.signalContext?.decisionId;
-    if (!signalId) {
-      this.snackBar.open('Ticket has no signal context — cannot accept as paper', 'Dismiss', { duration: 5000 });
-      return;
-    }
-    if (i.instrumentType === InstrumentType.OPTION) return;
+    if (!i || this.acceptingPaper()) return;
+    // canAcceptAsPaper gates the button; the predicate re-check also
+    // narrows the union for the request builder (typed `symbol`).
+    if (!isPaperEligibleTicket(i)) return;
 
     // Persist pending edits first so the stored ticket, the dialog, and the
     // request all agree (same ordering as onSubmit).
@@ -631,20 +644,13 @@ export class OrderTicketComponent {
       );
       if (!confirmed) return;
 
+      // Transient SUBMITTING takes the ticket out of the staged pool
+      // while the callable runs — otherwise it can be batch-removed or
+      // submitted to RH mid-flight (same guard as the batch path, #709).
+      this.stagingStore.setTicketStatusLocal(i.id, OrderTicketStatus.SUBMITTING);
       const quantity = this.wholeQuantity() > 0 ? this.wholeQuantity() : undefined;
-      // Direction comes from the ticket side — it can never disagree with the
-      // backend's side/direction cross-check (signalContext.direction is an
-      // untyped string and could be missing/garbage on legacy docs).
-      const direction = i.side === 'sell' ? TradeSide.SHORT : TradeSide.LONG;
-
       const res = await firstValueFrom(
-        this.paperTrading.paperSignalOrder$({
-          signalId,
-          symbol: i.symbol,
-          direction,
-          quantity,
-          refId: i.refId,
-        }),
+        this.paperTrading.paperSignalOrder$(toPaperSignalOrderRequest(i, quantity)),
       );
       this.stagingStore.updateTicket(i.id, {
         status: OrderTicketStatus.PAPER,
@@ -658,6 +664,13 @@ export class OrderTicketComponent {
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      // Revert the transient SUBMITTING — the callable failed, the ticket
+      // is still staged, and the error is recorded for the row.
+      this.stagingStore.updateTicket(i.id, {
+        status: OrderTicketStatus.STAGED,
+        error: { message: `Paper accept failed: ${msg}`, retryable: true },
+        updatedAt: new Date().toISOString(),
+      });
       this.snackBar.open(`Failed to accept as paper: ${msg}`, 'Dismiss', { duration: 5000 });
     } finally {
       this.acceptingPaper.set(false);
@@ -682,12 +695,13 @@ export class OrderTicketComponent {
     }
   }
 
-  /** Retry a failed ticket — re-submits with the same refId (idempotent at RH). */
-  onRetry(): void {
+  /** Requeue a FAILED ticket — emits to the page, which mints a fresh
+   *  refId and returns the ticket to STAGED (#717). A failed RH order's
+   *  refId is burned, so it must never be resubmitted directly. */
+  onRequeue(): void {
     const i = this.ticket();
-    if (!i || i.status !== OrderTicketStatus.FAILED || !this.isRetryable()) return;
-    this.saveEdits();
-    this.stagingStore.submitTicket(i.id);
+    if (i?.status !== OrderTicketStatus.FAILED) return;
+    this.requeueRequested.emit(i.id);
   }
 
   /** Cancel a submitted or submitting ticket — calls RH directly. */
@@ -723,8 +737,17 @@ export class OrderTicketComponent {
     this.snackBar.open('Cancelling order for modification…', '', { duration: 3000 });
     const result = await this.orderExecution.cancelEquityOrder(i.accountNumber, orderId);
     if (result.success) {
-      // Revert to STAGED so the user can edit and resubmit
-      this.stagingStore.updateTicket(i.id, { status: OrderTicketStatus.STAGED, result: undefined, error: undefined });
+      // Revert to STAGED so the user can edit and resubmit. The cancel
+      // made the order terminal at RH, which burns the refId — resubmitting
+      // it would 409. Mint a fresh one, same as requeue (#717). Await the
+      // persist: paperSignalOrder looks the ticket up by refId server-side.
+      await this.stagingStore.updateTicketAndWait(i.id, {
+        status: OrderTicketStatus.STAGED,
+        refId: crypto.randomUUID(),
+        result: undefined,
+        error: undefined,
+        terminalAt: undefined,
+      });
       this.refreshRequested.emit();
     } else {
       const msg = result.error?.message ?? 'Cancel failed';

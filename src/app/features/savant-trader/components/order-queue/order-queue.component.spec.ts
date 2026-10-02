@@ -18,6 +18,16 @@ type TicketOverrides = Partial<Omit<EquityOrderTicket, 'instrumentType'>> & {
   legs?: OptionLeg[];
 };
 
+function signalCtx(decisionId = `dec-${Math.random().toString(36).slice(2)}`) {
+  return {
+    signalType: 'ST_ENTRY',
+    barDate: '2026-08-24',
+    timeframe: 'daily',
+    direction: 'LONG' as const,
+    decisionId,
+  };
+}
+
 function makeTicket(
   id: string,
   status: OrderTicketStatus,
@@ -301,7 +311,7 @@ describe('OrderQueueComponent', () => {
       expect(removedIds).toEqual(['1', '2']);
     });
 
-    it('selects all tickets', () => {
+    it('selects all staged tickets only (#709 — checkboxes are staged-group scoped)', () => {
       const tickets = [
         makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
         makeTicket('2', OrderTicketStatus.FILLED, 'NVDA'),
@@ -314,7 +324,7 @@ describe('OrderQueueComponent', () => {
       fixture.detectChanges();
 
       expect(component.isChecked('1')).toBe(true);
-      expect(component.isChecked('2')).toBe(true);
+      expect(component.isChecked('2')).toBe(false);
       expect(component.hasChecked()).toBe(true);
     });
 
@@ -345,6 +355,180 @@ describe('OrderQueueComponent', () => {
       fixture.detectChanges();
 
       expect(fixture.nativeElement.querySelector('.batch-link.remove')).toBeTruthy();
+    });
+  });
+
+  describe('bulk send to paper (#709)', () => {
+    it('renders a checkbox only on staged rows', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.FILLED, 'NVDA'),
+        makeTicket('3', OrderTicketStatus.CANCELLED, 'MSFT'),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const rows = fixture.nativeElement.querySelectorAll('.queue-item');
+      expect(rows.length).toBe(3);
+      expect(rows[0].querySelector('mat-checkbox')).toBeTruthy();
+      expect(rows[1].querySelector('mat-checkbox')).toBeFalsy();
+      expect(rows[2].querySelector('mat-checkbox')).toBeFalsy();
+    });
+
+    it('emits sendTicketsToPaper with the checked staged ids and clears them', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { signalContext: signalCtx() }),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA', 'buy', { signalContext: signalCtx() }),
+        makeTicket('3', OrderTicketStatus.FILLED, 'MSFT'),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      let emitted: string[] | null = null;
+      component.sendTicketsToPaper.subscribe((ids) => (emitted = ids));
+
+      component.toggleCheck('1', true);
+      component.toggleCheck('2', true);
+      fixture.detectChanges();
+
+      component.sendCheckedToPaper();
+      fixture.detectChanges();
+
+      expect(emitted).toEqual(['1', '2']);
+      expect(component.hasChecked()).toBe(false);
+    });
+
+    it('shows the send-to-paper button with the checked count only when staged rows are checked', () => {
+      const tickets = [makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { signalContext: signalCtx() })];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.batch-link.paper')).toBeFalsy();
+
+      component.toggleCheck('1', true);
+      fixture.detectChanges();
+
+      const btn = fixture.nativeElement.querySelector('.batch-link.paper');
+      expect(btn).toBeTruthy();
+      expect(btn.textContent).toContain('1');
+    });
+
+    it('drops a checked id whose ticket leaves STAGED before the send', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { signalContext: signalCtx() }),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA', 'buy', { signalContext: signalCtx() }),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      let emitted: string[] | null = null;
+      component.sendTicketsToPaper.subscribe((ids) => (emitted = ids));
+
+      component.toggleCheck('1', true);
+      component.toggleCheck('2', true);
+      fixture.detectChanges();
+
+      // Ticket '2' transitions to SUBMITTING before the click
+      fixture.componentRef.setInput('tickets', [
+        tickets[0],
+        { ...tickets[1], status: OrderTicketStatus.SUBMITTING },
+      ]);
+      fixture.detectChanges();
+
+      component.sendCheckedToPaper();
+
+      expect(emitted).toEqual(['1']);
+    });
+
+    it('unchecks a ticket that leaves STAGED — no silent resurrection if it returns', () => {
+      const t1 = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { signalContext: signalCtx() });
+      fixture.componentRef.setInput('tickets', [t1]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      component.toggleCheck('1', true);
+      fixture.detectChanges();
+      expect(component.isChecked('1')).toBe(true);
+
+      // Ticket goes SUBMITTING (paper-send in flight) → unchecks
+      fixture.componentRef.setInput('tickets', [
+        { ...t1, status: OrderTicketStatus.SUBMITTING },
+      ]);
+      fixture.detectChanges();
+      expect(component.isChecked('1')).toBe(false);
+
+      // Ticket returns to STAGED — does NOT silently re-check
+      fixture.componentRef.setInput('tickets', [t1]);
+      fixture.detectChanges();
+      expect(component.isChecked('1')).toBe(false);
+      expect(component.hasChecked()).toBe(false);
+    });
+
+    it('send button counts only paper-eligible checked tickets', () => {
+      const eligible = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { signalContext: signalCtx() });
+      const manual = makeTicket('2', OrderTicketStatus.STAGED, 'NVDA');
+      (manual as EquityOrderTicket).source = OrderSource.MANUAL;
+      fixture.componentRef.setInput('tickets', [eligible, manual]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      component.toggleCheck('1', true);
+      component.toggleCheck('2', true);
+      fixture.detectChanges();
+
+      const btn = fixture.nativeElement.querySelector('.batch-link.paper');
+      expect(btn).toBeTruthy();
+      expect(btn.textContent).toContain('1'); // only the signal ticket
+    });
+
+    it('disables the send button while a batch send is in flight', () => {
+      const t = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { signalContext: signalCtx() });
+      fixture.componentRef.setInput('tickets', [t]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('sendingToPaper', true);
+      fixture.detectChanges();
+
+      component.toggleCheck('1', true);
+      fixture.detectChanges();
+
+      const btn = fixture.nativeElement.querySelector('.batch-link.paper') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+      expect(btn.textContent).toContain('Sending');
+    });
+
+    it('renders Requeue + dismiss on FAILED and CANCELLED rows (no checkbox)', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.FAILED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.CANCELLED, 'NVDA'),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const rows = fixture.nativeElement.querySelectorAll('.queue-item');
+      expect(rows[0].querySelector('.requeue-btn')).toBeTruthy();
+      expect(rows[0].querySelector('.dismiss-btn')).toBeTruthy();
+      expect(rows[0].querySelector('mat-checkbox')).toBeFalsy();
+      expect(rows[1].querySelector('.requeue-btn')).toBeTruthy();
+      expect(rows[1].querySelector('.dismiss-btn')).toBeTruthy();
+    });
+
+    it('dismiss on a terminal row emits removeTickets for just that row', () => {
+      const tickets = [makeTicket('1', OrderTicketStatus.FAILED, 'AAPL')];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      let emitted: string[] | null = null;
+      component.removeTickets.subscribe((ids) => (emitted = ids));
+
+      fixture.nativeElement.querySelector('.dismiss-btn').click();
+
+      expect(emitted).toEqual(['1']);
     });
   });
 

@@ -66,6 +66,33 @@ describe('buildSignalOrderTickets', () => {
     expect(tickets.every((ticket) => ticket.dollarAmount === '100')).toBe(true);
   });
 
+  it('stamps every same-side decision id on the ticket — one accept writes N decisions but stages 1 ticket per side (#719)', () => {
+    const signals = [
+      makeSignal(SignalDirection.LONG), // daily
+      { ...makeSignal(SignalDirection.LONG), timeframe: SignalTimeframe.WEEKLY },
+      makeSignal(SignalDirection.SHORT),
+    ] as StSignalItem[];
+
+    const tickets = buildSignalOrderTickets('AAPL', signals, {
+      runId: 'run-1',
+      accountNumber: 'agentic-account',
+      defaultDollarAmount: 100,
+      now: new Date('2026-08-26T12:00:00Z'),
+      buildId: (_symbol, side) => `AAPL-${side}`,
+      buildRefId: () => 'uuid',
+    });
+
+    const buy = tickets.find((t) => t.side === 'buy')!;
+    const sell = tickets.find((t) => t.side === 'sell')!;
+    expect(buy.signalContext?.decisionIds).toEqual([
+      'run-1_AAPL_D_DAILY_BREAKOUT',
+      'run-1_AAPL_W_DAILY_BREAKOUT',
+    ]);
+    expect(sell.signalContext?.decisionIds).toEqual(['run-1_AAPL_D_DAILY_BREAKOUT']);
+    // Primary decisionId remains the first same-side signal's id.
+    expect(buy.signalContext?.decisionId).toBe('run-1_AAPL_D_DAILY_BREAKOUT');
+  });
+
   it('captures the signal closePrice into signalContext.signalPrice (anchor for % change since signal)', () => {
     const tickets = buildSignalOrderTickets(
       'AAPL',
@@ -264,7 +291,9 @@ describe('SignalReviewFacade', () => {
       await flush();
 
       const ticket = stagingStoreMock.stageTicket.mock.calls.at(-1)[0];
-      expect(ticket.signalContext.decisionId.startsWith('run-prior-')).toBe(true);
+      // Canonical decision-doc id format: runId_SYMBOL_tf_type (underscores) —
+      // the queue's removal path deletes decisions by this exact id (#719).
+      expect(ticket.signalContext.decisionId).toMatch(/^run-prior_AAPL_/);
       expect(occurrenceStoreMock.acceptSignals).toHaveBeenCalledWith(
         expect.anything(),
         'run-prior',

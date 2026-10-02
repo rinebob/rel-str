@@ -7,6 +7,7 @@ import {
   findActiveStopLoss,
   rhStateToTerminalStatus,
   rhStateToDisplayStatus,
+  restingLimitBuyNotional,
 } from './broker-order.util';
 
 describe('broker-order.util', () => {
@@ -216,6 +217,75 @@ describe('broker-order.util', () => {
 
     it('maps partially_filled to RESTING for non-market orders', () => {
       expect(rhStateToDisplayStatus('partially_filled', false)).toBe(OrderTicketStatus.RESTING);
+    });
+  });
+
+  describe('restingLimitBuyNotional (#707)', () => {
+    const snap = (overrides: Partial<BrokerOrderSnapshot>): BrokerOrderSnapshot => ({
+      id: 'o1',
+      symbol: 'AAPL',
+      side: 'buy',
+      type: 'limit',
+      state: 'confirmed',
+      quantity: '10',
+      price: '50.00',
+      ...overrides,
+    });
+
+    it('sums price × remaining quantity across resting limit buys', () => {
+      const orders = {
+        a: snap({ id: 'a', price: '50.00', quantity: '10' }),          // 500
+        b: snap({ id: 'b', price: '20.00', quantity: '5' }),           // 100
+      };
+      expect(restingLimitBuyNotional(orders)).toBe(600);
+    });
+
+    it('nets out the filled portion of a partially filled buy', () => {
+      const orders = {
+        a: snap({ state: 'partially_filled', price: '50.00', quantity: '10', cumulativeQuantity: '4' }),
+      };
+      expect(restingLimitBuyNotional(orders)).toBe(300); // 6 remaining × 50
+    });
+
+    it('ignores sells, market buys, and terminal states', () => {
+      const orders = {
+        sell: snap({ side: 'sell' }),
+        market: snap({ type: 'market', price: null }),
+        filled: snap({ state: 'filled' }),
+        cancelled: snap({ state: 'cancelled' }),
+      };
+      expect(restingLimitBuyNotional(orders)).toBe(0);
+    });
+
+    it('counts stop-limit buys — RH keeps trigger=stop after triggering, so both shapes hold cash', () => {
+      // A triggered stop-limit is a working limit order holding cash; RH
+      // retains trigger='stop' post-trigger so triggered and untriggered
+      // are indistinguishable. Counting both over-reserves — the safe
+      // direction for a purchasing-power guardrail.
+      const orders = {
+        a: snap({ type: 'stop_limit', price: '50.00', stopPrice: '49.00', trigger: 'stop' }),
+      };
+      expect(restingLimitBuyNotional(orders)).toBe(500);
+    });
+
+    it('counts RH-shaped stop buys reported as type=limit + trigger=stop', () => {
+      const orders = {
+        a: snap({ type: 'limit', price: '50.00', stopPrice: '49.00', trigger: 'stop' }),
+      };
+      expect(restingLimitBuyNotional(orders)).toBe(500);
+    });
+
+    it('returns 0 for an empty order map', () => {
+      expect(restingLimitBuyNotional({})).toBe(0);
+    });
+
+    it('skips orders with missing/zero price or quantity', () => {
+      const orders = {
+        noPrice: snap({ price: null }),
+        zeroQty: snap({ quantity: '0' }),
+        bad: snap({ price: 'abc' }),
+      };
+      expect(restingLimitBuyNotional(orders)).toBe(0);
     });
   });
 });

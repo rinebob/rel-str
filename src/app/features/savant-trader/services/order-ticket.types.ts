@@ -58,7 +58,15 @@ export interface OrderTicketSignalContext {
   barDate: string;
   timeframe: string;
   direction: string;
+  /** Canonical doc id of the primary occurrence decision this ticket was
+   *  staged from. */
   decisionId: string;
+  /** Every occurrence-decision doc id written by the accept that staged
+   *  this ticket — one decision is persisted per signal, but tickets are
+   *  deduped by symbol+side, so a single ticket can own several decisions.
+   *  Removal clears them all (#719). Absent on tickets staged before this
+   *  field existed; `decisionId` remains the fallback. */
+  decisionIds?: string[];
   /** Closing price of the bar that fired the signal — the price at signal
    *  generation. Captured at staging from the signal's `closePrice`; absent
    *  on tickets staged before this field existed or when the run omitted it. */
@@ -116,7 +124,7 @@ export interface TaxLotSelection {
 
 export interface BaseOrderTicket {
   id: string;                    // UUID
-  refId: string;                 // Robinhood idempotency key — generated at staging, reused on retry
+  refId: string;                 // Robinhood idempotency key — generated at staging, reused on retry; regenerated on requeue of a terminal (cancelled) order — RH burns the old ref_id (#717)
   source: OrderSource;
   sourceRef?: OrderTicketSourceRef;
   status: OrderTicketStatus;

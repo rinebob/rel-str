@@ -56,6 +56,14 @@
     font-family: monospace;
   }
 
+  /* Held-by-resting-buys annotation next to Cash (#707). */
+  .sb-sub {
+    color: var(--mat-sys-on-surface-variant);
+    font-family: monospace;
+    font-size: 11px;
+    cursor: help;
+  }
+
   .sb-sep {
     color: var(--mat-sys-outline-variant);
     opacity: 0.6;

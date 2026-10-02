@@ -52,6 +52,7 @@ describe('OrderTicketComponent', () => {
     submitTicket: jasmine.Spy;
     updateTicket: jasmine.Spy;
     stageTicket: jasmine.Spy;
+    setTicketStatusLocal: jasmine.Spy;
   };
   let dialog: { open: jasmine.Spy };
   let orderExecution: any;
@@ -83,6 +84,7 @@ describe('OrderTicketComponent', () => {
       submitTicket: jasmine.createSpy('submitTicket'),
       updateTicket: jasmine.createSpy('updateTicket'),
       stageTicket: jasmine.createSpy('stageTicket'),
+      setTicketStatusLocal: jasmine.createSpy('setTicketStatusLocal'),
     };
     dialog = {
       open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(true) }),
@@ -141,6 +143,72 @@ describe('OrderTicketComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Qty');
     expect(fixture.nativeElement.textContent).not.toContain('$ Amt');
     expect(fixture.nativeElement.querySelector('.pill-group')).toBeTruthy();
+  });
+
+  describe('trade cost recalculation (#723)', () => {
+    const limitTicket = (limitPrice = '48.00') =>
+      makeTicket('1', 'AAPL', { orderType: 'limit', limitPrice, quantity: '10' });
+
+    it('costs a limit order at qty × limit price, not the live quote', () => {
+      fixture.componentRef.setInput('ticket', limitTicket('48.00'));
+      fixture.componentRef.setInput('price', 50);
+      fixture.detectChanges();
+
+      expect(component.actualCost()).toBe(480);
+    });
+
+    it('recalculates when the limit price is edited', () => {
+      fixture.componentRef.setInput('ticket', limitTicket('48.00'));
+      fixture.componentRef.setInput('price', 50);
+      fixture.detectChanges();
+
+      component.limitPrice.set('45.00');
+      fixture.detectChanges();
+
+      expect(component.actualCost()).toBe(450);
+    });
+
+    it('recalculates when quantity is edited', () => {
+      fixture.componentRef.setInput('ticket', limitTicket('48.00'));
+      fixture.componentRef.setInput('price', 50);
+      fixture.detectChanges();
+
+      component.quantity.set('20');
+      fixture.detectChanges();
+
+      expect(component.actualCost()).toBe(960);
+    });
+
+    it('falls back to the live quote when the limit field is empty/invalid', () => {
+      fixture.componentRef.setInput('ticket', limitTicket('48.00'));
+      fixture.componentRef.setInput('price', 50);
+      fixture.detectChanges();
+
+      component.limitPrice.set('');
+      fixture.detectChanges();
+      expect(component.actualCost()).toBe(500); // 10 × live 50
+
+      component.limitPrice.set('abc');
+      fixture.detectChanges();
+      expect(component.actualCost()).toBe(500);
+    });
+
+    it('still uses the live quote for market orders', () => {
+      fixture.componentRef.setInput('ticket', makeTicket('1', 'AAPL', { orderType: 'market', quantity: '10' }));
+      fixture.componentRef.setInput('price', 50);
+      fixture.detectChanges();
+
+      expect(component.actualCost()).toBe(500);
+    });
+
+    it('shows the cost from limit price even with no live quote', () => {
+      fixture.componentRef.setInput('ticket', limitTicket('48.00'));
+      fixture.componentRef.setInput('price', null);
+      fixture.detectChanges();
+
+      expect(component.actualCost()).toBe(480);
+      expect(fixture.nativeElement.textContent).toContain('$480.00');
+    });
   });
 
   it('derives an 8% stop price from the fill price after entry fills', () => {
@@ -346,10 +414,13 @@ describe('OrderTicketComponent — accept as paper', () => {
     tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
     submitTicket: jasmine.Spy;
     updateTicket: jasmine.Spy;
+    updateTicketAndWait: jasmine.Spy;
     stageTicket: jasmine.Spy;
+    setTicketStatusLocal: jasmine.Spy;
   };
   let dialog: { open: jasmine.Spy };
   let snackBar: { open: jest.Mock };
+  let orderExec: { submitEquityOrder: jest.Mock; cancelEquityOrder: jest.Mock };
   let paperTrading: { paperSignalOrder$: jest.Mock };
 
   const signalTicket = (overrides: Partial<OrderTicket> = {}): OrderTicket =>
@@ -369,12 +440,18 @@ describe('OrderTicketComponent — accept as paper', () => {
       tickets: signal<Record<string, OrderTicket>>({}),
       submitTicket: jasmine.createSpy('submitTicket'),
       updateTicket: jasmine.createSpy('updateTicket'),
+      updateTicketAndWait: jasmine.createSpy('updateTicketAndWait').and.returnValue(Promise.resolve(true)),
       stageTicket: jasmine.createSpy('stageTicket'),
+      setTicketStatusLocal: jasmine.createSpy('setTicketStatusLocal'),
     };
     dialog = {
       open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(true) }),
     };
     snackBar = { open: jest.fn() };
+    orderExec = {
+      submitEquityOrder: jest.fn(),
+      cancelEquityOrder: jest.fn().mockResolvedValue({ success: true }),
+    };
     paperTrading = {
       paperSignalOrder$: jest.fn().mockReturnValue(of<PaperSignalOrderResponse>({
         cohortId: 'cohort-9',
@@ -388,7 +465,7 @@ describe('OrderTicketComponent — accept as paper', () => {
       providers: [
         provideNoopAnimations(),
         { provide: OrderTicketStore, useValue: store },
-        { provide: OrderExecutionService, useValue: { submitEquityOrder: jest.fn(), cancelEquityOrder: jest.fn() } },
+        { provide: OrderExecutionService, useValue: orderExec },
         { provide: PaperTradingService, useValue: paperTrading },
         { provide: AllocationStore, useValue: { byAccount: signal({}), ensureAccount: jest.fn(), bucketDetail: jest.fn(() => null) } },
         { provide: MatDialog, useValue: dialog },
@@ -461,7 +538,8 @@ describe('OrderTicketComponent — accept as paper', () => {
     mount(signalTicket());
     await component.onAcceptAsPaper();
     expect(paperTrading.paperSignalOrder$).toHaveBeenCalledWith({
-      signalId: 'run-1-AAPL-daily-ST_ENTRY',
+      // Legacy hyphen decisionId is canonicalized to the real doc id.
+      signalId: 'run-1_AAPL_daily_ST_ENTRY',
       symbol: 'AAPL',
       direction: 'long',
       quantity: 2,
@@ -470,6 +548,12 @@ describe('OrderTicketComponent — accept as paper', () => {
     expect(store.updateTicket).toHaveBeenCalledWith('1', jasmine.objectContaining({
       status: OrderTicketStatus.PAPER,
     }));
+    // Transient SUBMITTING takes the ticket out of the staged pool while
+    // the callable runs (C1: prevents remove/RH-submit mid-flight).
+    expect(store.setTicketStatusLocal).toHaveBeenCalledWith(
+      '1',
+      OrderTicketStatus.SUBMITTING,
+    );
     expect(snackBar.open).toHaveBeenCalledWith(
       expect.stringContaining('cohort-9'),
       'Dismiss',
@@ -498,10 +582,18 @@ describe('OrderTicketComponent — accept as paper', () => {
     );
     mount(signalTicket());
     await component.onAcceptAsPaper();
-    // saveEdits runs, but the ticket never transitions to PAPER.
+    // saveEdits runs, but the ticket never transitions to PAPER — the
+    // transient SUBMITTING is reverted to STAGED with a visible error.
     expect(store.updateTicket).not.toHaveBeenCalledWith(
       '1',
       jasmine.objectContaining({ status: OrderTicketStatus.PAPER }),
+    );
+    expect(store.updateTicket).toHaveBeenCalledWith(
+      '1',
+      jasmine.objectContaining({
+        status: OrderTicketStatus.STAGED,
+        error: jasmine.objectContaining({ retryable: true }),
+      }),
     );
     expect(snackBar.open).toHaveBeenCalledWith(
       expect.stringContaining('Failed to accept as paper'),
@@ -530,5 +622,55 @@ describe('OrderTicketComponent — accept as paper', () => {
     mount(signalTicket({ signalContext: undefined }));
     await component.onAcceptAsPaper();
     expect(paperTrading.paperSignalOrder$).not.toHaveBeenCalled();
+  });
+
+  it('a FAILED ticket is not editable — Requeue is the only path back (#717)', () => {
+    // A failed RH order burned its refId; submitting it directly 409s.
+    mount(signalTicket({ status: OrderTicketStatus.FAILED }));
+
+    expect(component.isEditable()).toBe(false);
+    const labels = [...fixture.nativeElement.querySelectorAll('button')].map(
+      (b) => b.textContent as string,
+    );
+    expect(labels.some((t) => t.includes('Submit Order'))).toBe(false);
+    expect(labels.some((t) => t.includes('Requeue'))).toBe(true);
+  });
+
+  it('emits requeueRequested when Requeue is clicked on a FAILED ticket', async () => {
+    mount(signalTicket({ status: OrderTicketStatus.FAILED }));
+    let emitted: string | null = null;
+    component.requeueRequested.subscribe((id) => (emitted = id));
+
+    component.onRequeue();
+    await fixture.whenStable();
+
+    expect(emitted).toBe('1');
+    expect(store.submitTicket).not.toHaveBeenCalled();
+  });
+
+  it('onSubmit refuses a FAILED ticket even if invoked directly', async () => {
+    mount(signalTicket({ status: OrderTicketStatus.FAILED }));
+    await component.onSubmit();
+    expect(dialog.open).not.toHaveBeenCalled();
+    expect(store.submitTicket).not.toHaveBeenCalled();
+  });
+
+  it('onModify cancels at RH then reverts to STAGED with a FRESH refId (#717)', async () => {
+    // The cancel makes the order terminal at RH — the old refId is burned,
+    // so the reverted ticket must not resubmit it.
+    mount(signalTicket({
+      status: OrderTicketStatus.SUBMITTED,
+      refId: 'ref-burned',
+      result: { orderId: 'rh-9', state: 'confirmed' },
+    }));
+
+    await component.onModify();
+
+    expect(orderExec.cancelEquityOrder).toHaveBeenCalledWith('agentic-account', 'rh-9');
+    const patch = store.updateTicketAndWait.calls.mostRecent().args[1];
+    expect(patch.status).toBe(OrderTicketStatus.STAGED);
+    expect(patch.refId).toBeTruthy();
+    expect(patch.refId).not.toBe('ref-burned');
+    expect(patch.result).toBeUndefined();
   });
 });

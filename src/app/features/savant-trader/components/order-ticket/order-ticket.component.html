@@ -79,7 +79,11 @@
             <mat-icon>error_outline</mat-icon>
             <div class="error-details">
               <p class="error-message">{{ ticketError()?.message }}</p>
-              <p class="error-hint">This stop-loss can be retried after correcting the issue.</p>
+              @if (ticket()?.status === OrderTicketStatus.FAILED) {
+                <p class="error-hint">Requeue moves the stop-loss back to staged so it can be resubmitted.</p>
+              } @else {
+                <p class="error-hint">This stop-loss can be retried after correcting the issue.</p>
+              }
             </div>
           </div>
         }
@@ -91,10 +95,10 @@
               Submit Stop Loss
             </button>
           }
-          @if (ticket()?.status === OrderTicketStatus.FAILED && isRetryable()) {
-            <button mat-stroked-button color="primary" (click)="onRetry()">
-              <mat-icon>refresh</mat-icon>
-              Retry Stop Loss
+          @if (ticket()?.status === OrderTicketStatus.FAILED) {
+            <button mat-stroked-button color="primary" (click)="onRequeue()">
+              <mat-icon>replay</mat-icon>
+              Requeue to Staged
             </button>
           }
           @if (ticket()?.status === OrderTicketStatus.FAILED && ticket()?.result?.orderId) {
@@ -151,7 +155,9 @@
           <mat-icon>error_outline</mat-icon>
           <div class="error-details">
             <p class="error-message">{{ ticketError()?.message }}</p>
-            @if (isRetryable()) {
+            @if (ticket()?.status === OrderTicketStatus.FAILED) {
+              <p class="error-hint">Requeue moves the order back to staged so it can be edited and resubmitted.</p>
+            } @else if (isRetryable()) {
               <p class="error-hint">This error is retryable. You can retry the order.</p>
             } @else {
               <p class="error-hint">This error is not retryable. Edit the order and try again.</p>
@@ -186,10 +192,10 @@
 
           <!-- 3. Cost / Units -->
           <div class="form-row">
-            <span class="field-label">Cost</span>
-            <span class="stat-value">{{ currentPrice() ? (actualCost() | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
+            <span class="field-label">{{ ticket()?.side === 'sell' ? 'Proceeds' : 'Cost' }}</span>
+            <span class="stat-value">{{ actualCost() > 0 ? (actualCost() | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
             <span class="field-label" style="margin-left: 16px;">Units</span>
-            <span class="stat-value">{{ currentPrice() ? computedUnits() : '—' }}</span>
+            <span class="stat-value">{{ computedUnits() > 0 ? computedUnits() : '—' }}</span>
           </div>
 
           <!-- 4. Limit price -->
@@ -379,10 +385,12 @@
           </button>
         }
 
-        @if (ticket()?.status === OrderTicketStatus.FAILED && isRetryable()) {
-          <button mat-stroked-button color="primary" (click)="onRetry()">
-            <mat-icon>refresh</mat-icon>
-            Retry
+        @if (ticket()?.status === OrderTicketStatus.FAILED) {
+          <!-- A failed RH order burned its refId — Requeue mints a fresh
+               one and returns the ticket to staged (#717). -->
+          <button mat-stroked-button color="primary" (click)="onRequeue()">
+            <mat-icon>replay</mat-icon>
+            Requeue to Staged
           </button>
         }
 

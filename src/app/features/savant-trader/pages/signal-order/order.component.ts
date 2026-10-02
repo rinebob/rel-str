@@ -39,10 +39,14 @@ import { AccountSnapshot, BrokerPosition, PortfolioService } from '../../service
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { OrderExecutionService } from '../../services/order-execution.service';
 import { OrderTicketService } from '../../services/order-ticket.service';
+import { PaperTradingService } from '../../services/paper-trading.service';
+import { OccurrenceDecisionStore } from '../../stores/occurrence-decision.store';
 import { OrderTicket, OrderTicketStatus, OrderSource, TradingConfig, InstrumentType } from '../../services/order-ticket.types';
 import { BrokerOrderSnapshot } from '../../services/order-ticket.types';
 import { formatError } from '../../utils/format-error.util';
-import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, rhStateToDisplayStatus } from '../../utils/broker-order.util';
+import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, rhStateToDisplayStatus, restingLimitBuyNotional } from '../../utils/broker-order.util';
+import { canonicalOccurrenceDecisionId } from '../../services/firestore-helpers';
+import { isPaperEligibleTicket, toPaperSignalOrderRequest, paperQuantityFor } from '../../utils/paper-ticket.util';
 
 @Component({
   selector: 'app-signal-order',
@@ -62,6 +66,8 @@ export class OrderComponent implements OnInit, OnDestroy {
   private readonly ticketService = inject(OrderTicketService);
   private readonly mcpService = inject(RobinhoodMcpObservationService);
   private readonly orderExecution = inject(OrderExecutionService);
+  private readonly paperTrading = inject(PaperTradingService);
+  private readonly occurrenceStore = inject(OccurrenceDecisionStore);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -208,8 +214,13 @@ export class OrderComponent implements OnInit, OnDestroy {
   /** Current open units from the canonical account snapshot. */
   readonly currentUnits = computed(() => this.accountSnapshot()?.units ?? 0);
 
-  /** Available brokerage cash. */
-  readonly availableCash = computed(() => this.accountSnapshot()?.cash ?? 0);
+  /** Cash committed by resting limit BUY orders at RH — `price × remaining
+   *  qty` over non-terminal limit/stop_limit buys (#707). RH's cash figure
+   *  doesn't reserve this, so purchasing power nets it out. */
+  readonly restingLimitBuyNotional = computed(() => restingLimitBuyNotional(this.rhOrders()));
+
+  /** Available brokerage cash — RH cash minus resting limit-buy notional. */
+  readonly availableCash = computed(() => (this.accountSnapshot()?.cash ?? 0) - this.restingLimitBuyNotional());
 
   /** Allocation percentage used. */
   readonly allocationPercent = computed(() => {
@@ -338,15 +349,165 @@ export class OrderComponent implements OnInit, OnDestroy {
   }
 
   /** Handle batch remove from the queue. PAPER tickets never reach this
-   *  handler — they are filtered from display in `allTickets`. */
+   *  handler — they are filtered from display in `allTickets`.
+   *
+   *  Signal-sourced tickets carry `signalContext.decisionId` — removing the
+   *  ticket clears that accepted decision so the Accept toggle on
+   *  signal-review un-checks instead of staying stuck on an orphan (#719).
+   *  A decision survives removal only while another live ticket still
+   *  references it. */
   onRemoveTickets(ids: string[]): void {
-    for (const id of ids) {
-      this.stagingStore.removeTicket(id);
+    // Only STAGED and terminal tickets may be removed. The queue renders
+    // off MERGED status (an RH order can pull a mid-submit ticket's display
+    // status to a terminal state), so gate on the store ticket — never
+    // delete a ticket while a broker call is in flight for it.
+    const REMOVABLE = new Set<OrderTicketStatus>([
+      OrderTicketStatus.STAGED,
+      OrderTicketStatus.CANCELLED,
+      OrderTicketStatus.FAILED,
+    ]);
+    const removed = ids
+      .map((id) => this.stagingStore.tickets()[id])
+      .filter((t): t is OrderTicket => !!t && REMOVABLE.has(t.status));
+    const skipped = ids.length - removed.length;
+    for (const ticket of removed) {
+      this.stagingStore.removeTicket(ticket.id);
+    }
+    if (skipped > 0) {
+      this.snackBar.open(
+        `${skipped} ticket${skipped === 1 ? '' : 's'} skipped — only staged or finished orders can be removed`,
+        'Dismiss',
+        { duration: 4000 },
+      );
+    }
+    // A ticket can own several decision ids — accept persists one decision
+    // per signal but tickets dedup by symbol+side (#719). Older tickets
+    // carry only `decisionId`.
+    const docIdsFor = (t: OrderTicket): string[] => {
+      const ctx = t.signalContext;
+      const raw = ctx?.decisionIds?.length ? ctx.decisionIds : ctx?.decisionId ? [ctx.decisionId] : [];
+      const symbol = 'symbol' in t ? t.symbol : undefined;
+      return raw.map((id) =>
+        symbol
+          ? canonicalOccurrenceDecisionId(id, {
+              symbol,
+              timeframe: ctx!.timeframe,
+              signalType: ctx!.signalType,
+            })
+          : id,
+      );
+    };
+    // Live tickets' decision ids are normalized to canonical doc ids too —
+    // a surviving legacy-format ticket still protects its decision.
+    const liveDecisionIds = new Set(
+      Object.values(this.stagingStore.tickets()).flatMap(docIdsFor),
+    );
+    const cleared = new Set<string>();
+    for (const ticket of removed) {
+      for (const docId of docIdsFor(ticket)) {
+        if (!liveDecisionIds.has(docId) && !cleared.has(docId)) {
+          cleared.add(docId);
+          this.occurrenceStore.clearDecisionById(docId);
+        }
+      }
     }
     const selected = this.selectedTicketId();
     if (selected && ids.includes(selected) && !this.stagingStore.tickets()[selected]) {
       this.selectedTicketId.set(null);
     }
+  }
+
+  /** True while a bulk send-to-paper batch is in flight (#709). The
+   *  per-ticket path guards re-entry with a modal + `acceptingPaper`; the
+   *  batch path has no dialog, so this flag blocks a second run while one
+   *  is active. */
+  readonly sendingToPaper = signal(false);
+
+  /** Batch-convert checked staged tickets to paper trading (#709). Only
+   *  signal-pipeline equity/ETF tickets are eligible — the paper ledger
+   *  anchors to signal context (same rule as the per-ticket accept;
+   *  `isPaperEligibleTicket` is the shared predicate).
+   *
+   *  Quantity: tickets staged by the signal pipeline carry `dollarAmount`
+   *  only — `quantity` materializes when the ticket is opened in the
+   *  detail pane. Here it derives on the queue's sizing basis
+   *  (`paperQuantityFor` — limit price for limit tickets, live quote
+   *  otherwise); uncomputable → failure.
+   *
+   *  Runs sequentially so per-ticket failures are attributable; each
+   *  success transitions to PAPER, failures stay STAGED with a ticket
+   *  error, and a summary snackbar reports sent/skipped/failed. */
+  async onSendTicketsToPaper(ids: string[]): Promise<void> {
+    if (this.sendingToPaper()) return;
+    this.sendingToPaper.set(true);
+    try {
+      const eligible = ids
+        .map((id) => this.stagingStore.tickets()[id])
+        .filter(isPaperEligibleTicket);
+      const skipped = ids.length - eligible.length;
+
+      let sent = 0;
+      const failed: string[] = [];
+      for (const t of eligible) {
+        // Re-read before each call — a ticket could be submitted/removed
+        // while the batch is in flight; only send if it's still staged.
+        const current = this.stagingStore.tickets()[t.id];
+        if (!isPaperEligibleTicket(current)) {
+          failed.push(`${t.symbol} (no longer staged)`);
+          continue;
+        }
+        const qty = paperQuantityFor(
+          current,
+          this.prices()[current.symbol.toUpperCase()],
+          this.defaultDollarAmount(),
+        );
+        if (qty === undefined) {
+          failed.push(`${t.symbol} (no quantity)`);
+          this.markPaperFailure(t.id, 'no usable quantity — set a quantity or dollar amount first');
+          continue;
+        }
+        // Transient SUBMITTING takes the ticket out of the staged pool
+        // for the await — otherwise it can be batch-removed or submitted
+        // to RH while the callable runs, leaving an orphaned paper cohort
+        // or a real order overwritten by 'paper' (#709).
+        this.stagingStore.setTicketStatusLocal(t.id, OrderTicketStatus.SUBMITTING);
+        try {
+          await firstValueFrom(
+            this.paperTrading.paperSignalOrder$(toPaperSignalOrderRequest(current, qty)),
+          );
+          this.stagingStore.updateTicket(t.id, {
+            status: OrderTicketStatus.PAPER,
+            error: undefined,
+            updatedAt: new Date().toISOString(),
+          });
+          sent++;
+        } catch (err) {
+          const message = formatError(err);
+          console.error(`[SignalOrder] paper send failed for ${t.symbol}:`, err);
+          this.markPaperFailure(t.id, message);
+          failed.push(t.symbol);
+        }
+      }
+
+      const parts = [`${sent} sent to paper`];
+      if (skipped > 0) parts.push(`${skipped} skipped (not paper-eligible)`);
+      if (failed.length > 0) parts.push(`${failed.length} failed: ${failed.join(', ')}`);
+      this.snackBar.open(parts.join(' — '), 'Dismiss', { duration: 6000 });
+    } finally {
+      this.sendingToPaper.set(false);
+    }
+  }
+
+  /** Record a batch paper-send failure on the ticket so the row keeps a
+   *  visible error after the summary snackbar dismisses — and revert the
+   *  transient in-flight SUBMITTING back to STAGED (the local patch is
+   *  never persisted, so the stored doc was staged all along). */
+  private markPaperFailure(id: string, message: string): void {
+    this.stagingStore.updateTicket(id, {
+      status: OrderTicketStatus.STAGED,
+      error: { message, retryable: true },
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   /** Refresh RH orders and positions after a ticket action. */
@@ -358,21 +519,35 @@ export class OrderComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Move a cancelled signal ticket back to STAGED so the user can edit
-   *  and re-submit it. Clears the stale broker result so the ticket form
-   *  becomes editable again. Provenance (signal context, refId) is preserved. */
+  /** Move a terminal signal ticket (cancelled, or failed/rejected at the
+   *  broker) back to STAGED so the user can edit and re-submit it. Clears
+   *  the stale broker result so the ticket form becomes editable again.
+   *  Provenance (signal context) is preserved — but refId is regenerated:
+   *  RH burns a ref_id once the order reaches a terminal state, so
+   *  resubmitting with the old one returns 409 "Reference ID must be
+   *  unique" (#717). FAILED tickets only exist when the order reached RH
+   *  (local submit failures revert to STAGED), so their refId is always
+   *  burned. Idempotency is still protected — the NEW refId is reused if
+   *  the resubmit itself is retried.
+   *
+   *  Awaits the persist: paperSignalOrder and the submit path look the
+   *  ticket up by refId, so the new refId must be in Firestore before the
+   *  user can act on the requeued ticket. */
   async onRequeueTicket(id: string): Promise<void> {
     const ticket = this.stagingStore.tickets()[id];
     if (!ticket) return;
-    if (ticket.status !== OrderTicketStatus.CANCELLED) return;
+    if (ticket.status !== OrderTicketStatus.CANCELLED && ticket.status !== OrderTicketStatus.FAILED) return;
 
-    this.stagingStore.updateTicket(id, {
+    const ok = await this.stagingStore.updateTicketAndWait(id, {
       status: OrderTicketStatus.STAGED,
+      refId: crypto.randomUUID(),
       result: undefined,
       error: undefined,
       terminalAt: undefined,
-      updatedAt: new Date().toISOString(),
     });
+    // The write failed — the ticket reverted to its terminal state and the
+    // store already surfaced the error; don't claim it was requeued.
+    if (!ok) return;
 
     this.selectedTicketId.set(id);
     const symbol = 'symbol' in ticket ? ticket.symbol : 'Order';

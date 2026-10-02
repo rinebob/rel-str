@@ -55,3 +55,23 @@ export function buildStOccurrenceDecisionId(
 ): string {
   return `${runId}_${symbol.toUpperCase()}_${timeframe}_${signalType}`;
 }
+
+/** Normalize a ticket's `signalContext.decisionId` to the canonical
+ *  occurrence-decision doc id. Tickets staged before the producer used
+ *  `buildStOccurrenceDecisionId` carry the legacy format
+ *  `${runId}-${symbol}-${timeframe}-${signalType}` (hyphens, raw-case
+ *  symbol); the suffix is reconstructed from the ticket's own fields and
+ *  stripped to recover runId — reliable even though runId itself may
+ *  contain hyphens. Returns the input untouched when it doesn't match
+ *  the legacy shape (already canonical, or an unknown format). */
+export function canonicalOccurrenceDecisionId(
+  decisionId: string,
+  ctx: { symbol: string; timeframe: string; signalType: string },
+): string {
+  const suffix = `-${ctx.symbol}-${ctx.timeframe}-${ctx.signalType}`;
+  if (decisionId.endsWith(suffix)) {
+    const runId = decisionId.slice(0, decisionId.length - suffix.length);
+    return buildStOccurrenceDecisionId(runId, ctx.symbol, ctx.timeframe, ctx.signalType);
+  }
+  return decisionId;
+}

@@ -6,14 +6,22 @@
  * Per ADR-008, each record is written once at staging, updated once to
  * record the RH order ID after submission, then never touched again.
  * RH is authoritative for all order lifecycle state. The UI reads RH
- * directly for order state, positions, fills, and stops.
+ * directly for order state, positions, fills, and stops. Later work added
+ * exceptions: requeue regenerates a terminal ticket back to STAGED (#717),
+ * reconcileTerminalStatuses batch-writes terminal states (#592), and the
+ * paper-send path flips tickets to PAPER (#709).
  *
  * Methods:
- *   loadTickets  — hydrate all records from Firestore
- *   stageTicket  — create a new record (optimistic + persisted)
- *   submitTicket — submit to RH, record rhOrderId, done
- *   updateTicket — edit staged terms before submission
- *   removeTicket — discard a staged record
+ *   loadTickets          — hydrate all records from Firestore (preserves
+ *                          transient local SUBMITTING over persisted STAGED)
+ *   stageTicket          — create a new record (optimistic + persisted)
+ *   submitTicket         — submit to RH, record rhOrderId, done
+ *   updateTicket         — edit staged terms before submission
+ *   updateTicketAndWait  — pessimistic variant: patch lands only after the
+ *                          write succeeds; resolves boolean
+ *   setTicketStatusLocal — transient local-only status (never persisted)
+ *   removeTicket         — discard a staged record
+ *   reconcileTerminalStatuses — batch-write terminal states from RH orders
  */
 import { computed, inject, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -25,7 +33,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { from } from 'rxjs';
+import { firstValueFrom, from } from 'rxjs';
 
 import { OrderTicketService } from '../services/order-ticket.service';
 import { OrderExecutionService } from '../services/order-execution.service';
@@ -54,6 +62,23 @@ const initialState: OrderTicketState = {
   loading: false,
   error: null,
 };
+
+/** Merge a partial into an existing ticket. Fields set to `undefined`
+ *  are removed (matching the service's `deleteField()` behavior). */
+function mergeTicketPartial(
+  existing: OrderTicket,
+  partial: Partial<Omit<OrderTicket, 'instrumentType'>>,
+): OrderTicket {
+  const updated = { ...existing, updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>;
+  for (const [key, value] of Object.entries(partial)) {
+    if (value === undefined) {
+      delete updated[key];
+    } else {
+      updated[key] = value;
+    }
+  }
+  return updated as unknown as OrderTicket;
+}
 
 export const OrderTicketStore = signalStore(
   { providedIn: 'root' },
@@ -93,6 +118,16 @@ export const OrderTicketStore = signalStore(
           next: (tickets) => {
             const map: Record<string, OrderTicket> = {};
             for (const i of tickets) { map[i.id] = i; }
+            // Preserve a transient local SUBMITTING over a persisted STAGED
+            // doc — the status is never written (in-flight submit/paper-send
+            // marker), so a rehydrate mid-flight must not return the ticket
+            // to the removable/submittable staged pool. If the stored doc
+            // moved on (FAILED, gone), the server value wins.
+            for (const [id, local] of Object.entries(state.tickets())) {
+              if (local.status === OrderTicketStatus.SUBMITTING && map[id]?.status === OrderTicketStatus.STAGED) {
+                map[id] = { ...map[id], status: OrderTicketStatus.SUBMITTING, updatedAt: local.updatedAt };
+              }
+            }
             patchState(state, { tickets: map, loading: false });
           },
           error: (err: unknown) => {
@@ -127,26 +162,70 @@ export const OrderTicketStore = signalStore(
       const prev = state.tickets();
       const existing = prev[id];
       if (!existing) return;
-      // Object spread does not overwrite with `undefined`, so explicitly
-      // delete any key the caller set to `undefined` before merging.
-      const updated = { ...existing, updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>;
-      for (const [key, value] of Object.entries(partial)) {
-        if (value === undefined) {
-          delete updated[key];
-        } else {
-          updated[key] = value;
-        }
-      }
-      patchState(state, { tickets: { ...prev, [id]: updated as unknown as OrderTicket } });
+      patchState(state, { tickets: { ...prev, [id]: mergeTicketPartial(existing, partial) } });
       ticketService.updateTicket(id, partial)
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           error: (err: unknown) => {
-            patchState(state, { tickets: prev, error: err instanceof Error ? err.message : String(err) });
+            // Restore only this entry — a wholesale revert would clobber
+            // concurrent local changes to siblings (e.g. a transient
+            // SUBMITTING marking an in-flight paper send) and would
+            // resurrect the ticket if it was deleted meanwhile.
+            const cur = state.tickets();
+            patchState(state, {
+              tickets: cur[id] ? { ...cur, [id]: prev[id] } : cur,
+              error: err instanceof Error ? err.message : String(err),
+            });
             snackBar.open('Failed to update signal entry', 'Dismiss', { duration: 4000 });
             console.error('[OrderTicketStore] updateTicket failed:', err);
           },
         });
+    },
+
+    /** Same patch as {@link updateTicket} but pessimistic — the local
+     *  ticket changes only after the Firestore write lands, and the method
+     *  resolves true/false. Callers that hand the ticket to a backend
+     *  callable keyed on the updated field must wait for the write first —
+     *  paperSignalOrder looks the ticket up by `refId`, so a requeue's new
+     *  refId has to be persisted before the callable runs (#717). Keeping
+     *  the pre-write state local also keeps the ticket out of the staged
+     *  pool during the write (a terminal ticket stays non-checkable). */
+    async updateTicketAndWait(
+      id: string,
+      partial: Partial<Omit<OrderTicket, 'instrumentType'>>,
+    ): Promise<boolean> {
+      if (!state.tickets()[id]) return false;
+      try {
+        await firstValueFrom(ticketService.updateTicket(id, partial));
+        const cur = state.tickets();
+        const existing = cur[id];
+        if (!existing) return false; // deleted while the write was in flight
+        patchState(state, { tickets: { ...cur, [id]: mergeTicketPartial(existing, partial) } });
+        return true;
+      } catch (err) {
+        patchState(state, { error: err instanceof Error ? err.message : String(err) });
+        snackBar.open('Failed to update signal entry', 'Dismiss', { duration: 4000 });
+        console.error('[OrderTicketStore] updateTicketAndWait failed:', err);
+        return false;
+      }
+    },
+
+    /** Transient local-only status — never persisted. Takes a ticket out
+     *  of the editable/removable STAGED pool while an async callable is
+     *  in flight (#709: without this, a ticket being converted to paper
+     *  stays STAGED during the await and can be batch-removed or
+     *  RH-submitted mid-flight). The caller reverts or finalizes the
+     *  status via updateTicket once the call resolves. */
+    setTicketStatusLocal(id: string, status: OrderTicketStatus): void {
+      const prev = state.tickets();
+      const existing = prev[id];
+      if (!existing || existing.status === status) return;
+      patchState(state, {
+        tickets: {
+          ...prev,
+          [id]: { ...existing, status, updatedAt: new Date().toISOString() } as OrderTicket,
+        },
+      });
     },
 
     /**
@@ -251,7 +330,13 @@ export const OrderTicketStore = signalStore(
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           error: (err: unknown) => {
-            patchState(state, { tickets: prev, error: err instanceof Error ? err.message : String(err) });
+            // Re-add only this entry — a wholesale revert would wipe
+            // tickets staged or removed meanwhile.
+            const cur = state.tickets();
+            if (!cur[id]) {
+              patchState(state, { tickets: { ...cur, [id]: prev[id] } });
+            }
+            patchState(state, { error: err instanceof Error ? err.message : String(err) });
             snackBar.open('Failed to remove signal entry', 'Dismiss', { duration: 4000 });
             console.error('[OrderTicketStore] removeTicket failed:', err);
           },

@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { OccurrenceDecisionService } from '../services/occurrence-decision.service';
@@ -139,6 +139,40 @@ describe('OccurrenceDecisionStore', () => {
 
   // isCurrentInLatestRun must reflect whether the target run is actually the
   // latest completed run — prior-run decisions (#439) are not "current".
+  describe('clearDecisionById', () => {
+    it('removes the decision and persists the delete', () => {
+      occurrenceService.persistDecisionsBatch.and.returnValue(of(undefined));
+      store.acceptSignals([mockSignal()], RUN_ID, MARKET_DATE);
+      const id = Object.keys(store.occurrenceDecisions())[0];
+      expect(store.statusForSymbol('AAPL')).toBe(ReviewDecision.ACCEPT);
+
+      store.clearDecisionById(id);
+
+      expect(store.occurrenceDecisions()[id]).toBeUndefined();
+      expect(store.statusForSymbol('AAPL')).toBe(ReviewDecision.PENDING);
+      expect(occurrenceService.deleteDecisionIds).toHaveBeenCalledWith([id]);
+    });
+
+    it('still deletes when the decision is not loaded locally', () => {
+      // The order page can remove a ticket before decisions are loaded;
+      // the Firestore doc-id delete is idempotent and must still fire.
+      store.clearDecisionById('not-loaded-decision');
+      expect(occurrenceService.deleteDecisionIds).toHaveBeenCalledWith(['not-loaded-decision']);
+    });
+
+    it('reverts and toasts when the delete fails', () => {
+      occurrenceService.persistDecisionsBatch.and.returnValue(of(undefined));
+      store.acceptSignals([mockSignal()], RUN_ID, MARKET_DATE);
+      const id = Object.keys(store.occurrenceDecisions())[0];
+      occurrenceService.deleteDecisionIds.and.returnValue(throwError(() => new Error('boom')));
+
+      store.clearDecisionById(id);
+
+      expect(store.occurrenceDecisions()[id]).toBeTruthy();
+      expect(snackBar.open).toHaveBeenCalled();
+    });
+  });
+
   describe('persistSignalDecisions — isCurrentInLatestRun', () => {
     it('flags decisions as current when the target run is the latest completed run', () => {
       stStoreMock.latestCompletedRun.set({ id: RUN_ID });

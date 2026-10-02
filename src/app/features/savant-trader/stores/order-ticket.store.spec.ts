@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
+import { tap } from 'rxjs/operators';
 
 import { OrderTicketStore } from './order-ticket.store';
 import { OrderTicketService } from '../services/order-ticket.service';
@@ -251,6 +252,77 @@ describe('OrderTicketStore', () => {
       store.updateTicket('nonexistent', { quantity: '20' });
       expect(ticketService.updateTicket).not.toHaveBeenCalled();
     });
+
+    it('error rollback restores only the failed entry — a sibling\u2019s local SUBMITTING survives', () => {
+      // A wholesale map revert would clobber the transient SUBMITTING on
+      // another ticket (in-flight paper send), reopening the remove/submit
+      // race it exists to prevent.
+      const pending = new Subject<void>();
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ id: 't1' }));
+      store.stageTicket(mockEquityTicket({ id: 't2', status: OrderTicketStatus.STAGED }));
+      ticketService.updateTicket.and.returnValue(pending);
+
+      store.updateTicket('t1', { quantity: '20' } as Partial<EquityOrderTicket>);
+      store.setTicketStatusLocal('t2', OrderTicketStatus.SUBMITTING);
+      pending.error(new Error('write failed'));
+
+      expect(store.tickets()['t1'].quantity).toBe('10'); // rolled back
+      expect(store.tickets()['t2'].status).toBe(OrderTicketStatus.SUBMITTING); // not clobbered
+    });
+  });
+
+  describe('setTicketStatusLocal (#709 transient in-flight status)', () => {
+    it('patches the local status WITHOUT calling the service — transient only', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ status: OrderTicketStatus.STAGED }));
+      ticketService.updateTicket.calls.reset();
+
+      store.setTicketStatusLocal('ticket-1', OrderTicketStatus.SUBMITTING);
+
+      expect(store.tickets()['ticket-1'].status).toBe(OrderTicketStatus.SUBMITTING);
+      expect(ticketService.updateTicket).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op for a missing ticket or a no-change status', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ status: OrderTicketStatus.STAGED }));
+
+      store.setTicketStatusLocal('nonexistent', OrderTicketStatus.SUBMITTING);
+      store.setTicketStatusLocal('ticket-1', OrderTicketStatus.STAGED);
+
+      expect(store.tickets()['nonexistent']).toBeUndefined();
+      expect(store.tickets()['ticket-1'].status).toBe(OrderTicketStatus.STAGED);
+      expect(ticketService.updateTicket).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateTicketAndWait (#717 refId ordering)', () => {
+    it('resolves only after the service write lands', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ quantity: '10' }));
+      let writeLanded = false;
+      ticketService.updateTicket.and.returnValue(
+        of(undefined).pipe(tap(() => (writeLanded = true))),
+      );
+
+      await store.updateTicketAndWait('ticket-1', { refId: 'fresh-ref' });
+
+      expect(writeLanded).toBe(true);
+      expect(store.tickets()['ticket-1'].refId).toBe('fresh-ref');
+    });
+
+    it('rolls back and resolves false (no throw) on service error', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(throwError(() => new Error('write failed')));
+      store.stageTicket(mockEquityTicket({ quantity: '10' }));
+
+      const ok = await store.updateTicketAndWait('ticket-1', { quantity: '20' } as Partial<EquityOrderTicket>);
+
+      expect(ok).toBe(false);
+      expect(store.tickets()['ticket-1'].quantity).toBe('10');
+      expect(snackBar.open).toHaveBeenCalled();
+    });
   });
 
   describe('loadTickets', () => {
@@ -266,6 +338,35 @@ describe('OrderTicketStore', () => {
       expect(store.tickets()['i1']).toBeDefined();
       expect(store.tickets()['i2']).toBeDefined();
       expect(store.loading()).toBe(false);
+    });
+
+    it('preserves a transient local SUBMITTING over a persisted STAGED doc', () => {
+      // The in-flight paper-send/submit marker is never persisted — a
+      // rehydrate mid-flight must not drop the ticket back into the
+      // removable/submittable staged pool.
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ id: 'i1', status: OrderTicketStatus.STAGED }));
+      store.setTicketStatusLocal('i1', OrderTicketStatus.SUBMITTING);
+
+      ticketService.loadAllTickets.and.returnValue(of([
+        mockEquityTicket({ id: 'i1', status: OrderTicketStatus.STAGED }),
+      ]));
+      store.loadTickets();
+
+      expect(store.tickets()['i1'].status).toBe(OrderTicketStatus.SUBMITTING);
+    });
+
+    it('lets the server win when the stored doc moved past STAGED', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ id: 'i1', status: OrderTicketStatus.STAGED }));
+      store.setTicketStatusLocal('i1', OrderTicketStatus.SUBMITTING);
+
+      ticketService.loadAllTickets.and.returnValue(of([
+        mockEquityTicket({ id: 'i1', status: OrderTicketStatus.FAILED }),
+      ]));
+      store.loadTickets();
+
+      expect(store.tickets()['i1'].status).toBe(OrderTicketStatus.FAILED);
     });
 
     it('sets error on load failure', () => {

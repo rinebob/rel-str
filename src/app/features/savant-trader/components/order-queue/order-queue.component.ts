@@ -14,6 +14,7 @@ import {
   output,
   signal,
   computed,
+  effect,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -27,7 +28,8 @@ import {
   OrderTicketStatus,
   InstrumentType,
 } from '../../services/order-ticket.types';
-import { computePositionSize } from '../../utils/position-sizing.util';
+import { computePositionSize, ticketCostBasisPrice } from '../../utils/position-sizing.util';
+import { isPaperEligibleTicket } from '../../utils/paper-ticket.util';
 
 interface StatusGroup {
   label: string;
@@ -75,14 +77,67 @@ export class OrderQueueComponent {
   /** Emitted when the user clicks "Requeue" on a cancelled ticket. */
   requeueTicket = output<string>();
 
+  /** Emitted when the user clicks "Send N to paper" — checked staged ids
+   *  (#709). Batch conversion to paper trading; eligibility (signal
+   *  context, instrument type) is enforced by the page handler. */
+  sendTicketsToPaper = output<string[]>();
+
+  /** True while a batch paper send is in flight — disables the button so
+   *  a second batch can't start silently. */
+  sendingToPaper = input(false);
+
   /** Track selected checkbox state per ticket id. */
   private checkedIds = signal<Set<string>>(new Set());
 
   /** Track which group labels are collapsed. */
   private collapsedGroups = signal<Set<string>>(new Set());
 
-  /** Whether any checkboxes are checked (controls remove button visibility). */
-  hasChecked = computed(() => this.checkedIds().size > 0);
+  constructor() {
+    // A checked id must not outlive its row's staged membership: a ticket
+    // that leaves STAGED and later returns (cancel → requeue) would
+    // otherwise silently regain its checkmark and ride the next batch
+    // action without the user re-selecting it (#709).
+    effect(() => {
+      const staged = new Set(this.stagedVisible().map((t) => t.id));
+      this.checkedIds.update((ids) => {
+        if ([...ids].every((id) => staged.has(id))) return ids;
+        return new Set([...ids].filter((id) => staged.has(id)));
+      });
+    });
+  }
+
+  /** Currently-visible staged tickets — the only rows with checkboxes
+   *  and the only batch-action targets (#709). */
+  private stagedVisible = computed(() =>
+    this.visibleTickets().filter((t) => t.status === OrderTicketStatus.STAGED),
+  );
+
+  /** Checked ids restricted to currently-visible STAGED tickets (#709).
+   *  Checkboxes only exist on staged rows, but a checked id can linger
+   *  after its ticket leaves STAGED (submitted elsewhere, paper-ed) —
+   *  those are excluded so the batch actions only ever touch truly-staged
+   *  tickets (a checked ticket that goes SUBMITTING can never be
+   *  removed mid-flight). */
+  stagedChecked = computed(() => {
+    const staged = new Set(this.stagedVisible().map((t) => t.id));
+    return Array.from(this.checkedIds()).filter((id) => staged.has(id));
+  });
+
+  /** Count of checked staged tickets that are actually paper-eligible —
+   *  the send button's N. Staged manual/option tickets can be checked
+   *  (for batch remove) but can't go to paper, so counting them would
+   *  overstate what the button sends. */
+  paperSendCount = computed(() =>
+    this.stagedChecked()
+      .map((id) => this.stagedVisible().find((t) => t.id === id))
+      .filter((t): t is OrderTicket => !!t)
+      .filter(isPaperEligibleTicket).length,
+  );
+
+  /** Whether any staged tickets are checked — controls the batch-bar
+   *  actions. Raw checkedIds is deliberately not consulted: every batch
+   *  action is staged-scoped. */
+  hasChecked = computed(() => this.stagedChecked().length > 0);
 
   /** Toggle a group's expand/collapse state. */
   toggleGroup(label: string): void {
@@ -103,6 +158,15 @@ export class OrderQueueComponent {
   hasProtection(ticket: OrderTicket): boolean {
     const sym = this.symbolFor(ticket);
     return this.protectedSymbols().has(sym);
+  }
+
+  /** Terminal rows (cancelled / broker-failed) — they have no checkbox,
+   *  so they get per-row Requeue and dismiss affordances instead (#717,
+   *  #709). FAILED only ever comes from RH terminal reconciliation, so
+   *  its refId is always burned and Requeue is the right path back. */
+  isTerminalRow(ticket: OrderTicket): boolean {
+    return ticket.status === OrderTicketStatus.CANCELLED ||
+      ticket.status === OrderTicketStatus.FAILED;
   }
 
   /** Tickets this page displays. PAPER tickets never render — once an order
@@ -188,8 +252,8 @@ export class OrderQueueComponent {
     const zero = (): StagedAggregate => ({ shares: 0, units: 0, dollars: 0 });
     const buy = zero();
     const sell = zero();
-    for (const t of this.visibleTickets()) {
-      if (t.status !== OrderTicketStatus.STAGED || t.instrumentType === InstrumentType.OPTION) continue;
+    for (const t of this.stagedVisible()) {
+      if (t.instrumentType === InstrumentType.OPTION) continue;
       if (this.num(t.quantity) == null && this.num(t.dollarAmount) == null) continue;
       const bucket = t.side === 'sell' ? sell : buy;
       bucket.shares += this.sharesFor(t) ?? 0;
@@ -226,26 +290,27 @@ export class OrderQueueComponent {
 
   /** Share count — the ticket's quantity verbatim (fractional shares are
    *  real: fractional_close tickets, DRIP positions), else the whole-share
-   *  sizing (computePositionSize) of its dollarAmount target at the
-   *  current price. Null for options or when uncomputable. */
+   *  sizing (computePositionSize) of its dollarAmount target at the cost
+   *  basis (limit price for limit tickets, live quote otherwise — #723).
+   *  Null for options or when uncomputable. */
   sharesFor(ticket: OrderTicket): number | null {
     if (ticket.instrumentType === InstrumentType.OPTION) return null;
     const q = this.num(ticket.quantity);
     if (q != null) return q;
-    const price = this.priceFor(ticket);
+    const price = ticketCostBasisPrice(ticket, this.priceFor(ticket));
     const target = this.num(ticket.dollarAmount) ?? this.defaultDollarAmount();
     if (price == null || price <= 0) return null;
     return computePositionSize(price, target).shares;
   }
 
   /** Order dollar amount — quantity × price when both exist (what the
-   *  share order would cost now), else whole-share cost of the
-   *  dollarAmount target, else the stored dollarAmount itself. Null for
-   *  options or when nothing is computable. */
+   *  share order would cost at its committed basis), else whole-share
+   *  cost of the dollarAmount target, else the stored dollarAmount
+   *  itself. Null for options or when nothing is computable. */
   dollarsFor(ticket: OrderTicket): number | null {
     if (ticket.instrumentType === InstrumentType.OPTION) return null;
     const q = this.num(ticket.quantity);
-    const price = this.priceFor(ticket);
+    const price = ticketCostBasisPrice(ticket, this.priceFor(ticket));
     if (q != null && price != null && price > 0) {
       return Math.round(q * price * 100) / 100;
     }
@@ -355,9 +420,10 @@ export class OrderQueueComponent {
     return this.checkedIds().has(id);
   }
 
-  /** Select all tickets. */
+  /** Select all staged tickets — checkboxes are scoped to the Staged
+   *  group (#709: batch actions target staged orders only). */
   selectAll(): void {
-    this.checkedIds.set(new Set(this.visibleTickets().map((i) => i.id)));
+    this.checkedIds.set(new Set(this.stagedVisible().map((i) => i.id)));
   }
 
   /** Clear all checkboxes. */
@@ -365,15 +431,22 @@ export class OrderQueueComponent {
     this.checkedIds.set(new Set());
   }
 
-  /** Emit remove event for checked tickets. Only currently-visible ids are
-   *  emitted — a checked id can linger after its ticket drops out of view
-   *  (e.g. accepted-as-paper), and removing a hidden paper ticket would
-   *  orphan the paper ledger's provenance doc. */
+  /** Emit remove event for checked STAGED tickets (#709 — checkboxes are
+   *  staged-group scoped, so removal is too). Stale ids that left STAGED
+   *  or the view are silently dropped. */
   removeChecked(): void {
-    const visible = new Set(this.visibleTickets().map((t) => t.id));
-    const ids = Array.from(this.checkedIds()).filter((id) => visible.has(id));
+    const ids = this.stagedChecked();
     this.checkedIds.set(new Set());
     if (ids.length === 0) return;
     this.removeTickets.emit(ids);
+  }
+
+  /** Emit the checked staged ids for batch paper conversion and clear
+   *  their checkboxes — the queue no longer owns the outcome. */
+  sendCheckedToPaper(): void {
+    const ids = this.stagedChecked();
+    if (ids.length === 0) return;
+    this.checkedIds.set(new Set());
+    this.sendTicketsToPaper.emit(ids);
   }
 }

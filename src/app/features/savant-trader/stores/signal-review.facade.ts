@@ -24,6 +24,7 @@ import { OrderTicketStore } from './order-ticket.store';
 import { SignalService } from '../services/signal.service';
 import { TradingConfigService } from '../services/trading-config.service';
 import type { StSignalItem } from '../services/types';
+import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import { AppRoutes } from '../../../core/common/interfaces';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
@@ -72,7 +73,17 @@ export function buildSignalOrderTickets(
     if (seen.has(dedupKey)) continue;
     seen.add(dedupKey);
     const id = buildId(symbol, side, now);
-    const decisionId = `${runId}-${symbol}-${signal.timeframe}-${signal.signalType}`;
+    // Must be the canonical occurrence-decision doc id — the queue's
+    // ticket-removal path deletes the decision by this id (#719), and the
+    // legacy `${runId}-${symbol}-…` format matched nothing (#717 review).
+    const decisionId = buildStOccurrenceDecisionId(runId, symbol, signal.timeframe, signal.signalType);
+    // Accept writes one decision doc per signal; tickets dedup by
+    // symbol+side, so this ticket owns every same-side decision — removal
+    // must clear them all, or a surviving sibling keeps the Accept toggle
+    // checked (#719 QA).
+    const decisionIds = signals
+      .filter((s) => (s.direction === SignalDirection.SHORT ? 'sell' : 'buy') === side)
+      .map((s) => buildStOccurrenceDecisionId(runId, symbol, s.timeframe, s.signalType));
     tickets.push({
       id,
       refId: buildRefId(),
@@ -93,6 +104,7 @@ export function buildSignalOrderTickets(
         timeframe: signal.timeframe,
         direction: signal.direction,
         decisionId,
+        decisionIds,
         // Price at signal generation — the anchor for the queue row's
         // % change since signal. Omitted (not undefined) when absent.
         ...(signal.closePrice != null ? { signalPrice: signal.closePrice } : {}),

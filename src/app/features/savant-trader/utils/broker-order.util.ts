@@ -146,3 +146,38 @@ export function findActiveStopLoss(
   }
   return null;
 }
+
+/**
+ * Total cash committed by resting limit BUY orders — `price × remaining
+ * quantity` summed over non-terminal buy-side `limit` orders (#707). RH's
+ * `cash` figure doesn't reserve this, so purchasing power must net it out
+ * or the guardrails overstate what's spendable.
+ *
+ * Limit-type orders count: market buys aren't resting, and stop-market
+ * buys fill near-instantly once triggered. Stop-limit buys (`type:
+ * 'limit'` or `'stop_limit'` with `trigger: 'stop'`) are included —
+ * RH keeps `trigger: 'stop'` after the stop fires, so a triggered
+ * stop-limit working as a live limit is indistinguishable from an
+ * untriggered one in the payload. A triggered buy holds cash; an
+ * untriggered one doesn't, so including both over-reserves — the safe
+ * direction for a purchasing-power guardrail.
+ * Partially filled orders reserve only the unfilled remainder
+ * (`quantity − cumulativeQuantity`).
+ */
+export function restingLimitBuyNotional(orders: Record<string, BrokerOrderSnapshot>): number {
+  let total = 0;
+  for (const o of Object.values(orders)) {
+    if (o.side.toLowerCase() !== 'buy') continue;
+    if (TERMINAL_STATES.has(o.state.toLowerCase())) continue;
+    const type = o.type.toLowerCase();
+    if (type !== 'limit' && type !== 'stop_limit') continue;
+    const price = parseFloat(o.price ?? '');
+    const qty = parseFloat(o.quantity ?? '');
+    const filled = parseFloat(o.cumulativeQuantity ?? '0');
+    const remaining = qty - (Number.isFinite(filled) ? filled : 0);
+    if (!Number.isFinite(price) || price <= 0) continue;
+    if (!Number.isFinite(remaining) || remaining <= 0) continue;
+    total += price * remaining;
+  }
+  return Math.round(total * 100) / 100;
+}

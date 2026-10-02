@@ -243,6 +243,39 @@ export const OccurrenceDecisionStore = signalStore(
     },
 
     /**
+     * Delete a single durable decision by id. Used when the queue ticket a
+     * decision produced is removed — the Accept toggle on signal-review
+     * un-checks instead of staying stuck on an orphaned decision (#719).
+     * Run-agnostic: the caller hands us the exact doc id from
+     * `signalContext.decisionId`, so prior-run decisions clear too.
+     */
+    clearDecisionById(id: string): void {
+      const previousDecisions = state.occurrenceDecisions();
+      // The order page may run before any run's decisions are loaded —
+      // delete unconditionally (doc-id deletes are idempotent) and patch
+      // local state only when the decision happens to be loaded.
+      if (previousDecisions[id]) {
+        const next = { ...previousDecisions };
+        delete next[id];
+        patchState(state, { occurrenceDecisions: next });
+      }
+
+      occurrenceService.deleteDecisionIds([id]).subscribe({
+        error: (err: unknown) => {
+          console.error('[OccurrenceDecisionStore] Failed to clear decision:', err);
+          const message = err instanceof Error ? err.message : String(err ?? 'Reset failed');
+          // Restore only the cleared entry — a wholesale revert would
+          // resurrect decisions a concurrent clearDecisionById removed.
+          const restored = previousDecisions[id]
+            ? { ...state.occurrenceDecisions(), [id]: previousDecisions[id] }
+            : state.occurrenceDecisions();
+          patchState(state, { occurrenceDecisions: restored, decisionsError: message });
+          snackBar.open('Failed to reset decisions — reverted', 'Dismiss', { duration: 4000 });
+        },
+      });
+    },
+
+    /**
      * Delete ALL occurrence decisions for a symbol across all runs (manual
      * "clear history" action). Removes from local state and Firestore.
      */

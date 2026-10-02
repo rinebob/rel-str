@@ -69,3 +69,19 @@ export function stopPercentFromPrice(
 
 /** Default stop loss percent. */
 export const DEFAULT_STOP_PERCENT = 8;
+
+/** The price an order's cost is committed at — the editable limit price
+ *  for limit/stop-limit tickets (the worst case), else the live quote
+ *  (#723). Shared by the queue-row sizing, the ticket detail cost
+ *  display, and the paper-send quantity derivation so all three stay on
+ *  the same basis. */
+export function ticketCostBasisPrice(
+  ticket: { orderType: string; limitPrice?: string },
+  livePrice: number | null | undefined,
+): number | null {
+  if (ticket.orderType === 'limit' || ticket.orderType === 'stop_limit') {
+    const lp = parseFloat(ticket.limitPrice ?? '');
+    if (Number.isFinite(lp) && lp > 0) return lp;
+  }
+  return livePrice ?? null;
+}

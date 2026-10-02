@@ -9,10 +9,18 @@
   <!-- Batch actions bar -->
   @if (totalCount() > 0) {
     <div class="batch-bar">
-      <button type="button" class="batch-link" (click)="selectAll()">Select all</button>
+      <button type="button" class="batch-link" (click)="selectAll()">Select all staged</button>
       <button type="button" class="batch-link" (click)="clearSelection()" [disabled]="!hasChecked()">Clear</button>
       <div class="batch-spacer"></div>
       @if (hasChecked()) {
+        @if (paperSendCount() > 0) {
+          <button type="button" class="batch-link paper" (click)="sendCheckedToPaper()"
+            [disabled]="sendingToPaper()"
+            matTooltip="Convert checked staged orders to paper trading">
+            <mat-icon>science</mat-icon>
+            {{ sendingToPaper() ? 'Sending…' : 'Send ' + paperSendCount() + ' to paper' }}
+          </button>
+        }
         <button type="button" class="batch-link remove" (click)="removeChecked()">
           <mat-icon>delete_outline</mat-icon>
           Remove selected
@@ -63,12 +71,19 @@
             class="queue-item"
             [class.selected]="selectedId() === ticket.id"
             (click)="onRowClick(ticket, $event)">
-            <mat-checkbox
-              class="item-check"
-              [checked]="isChecked(ticket.id)"
-              (change)="toggleCheck(ticket.id, $event.checked)"
-              (click)="$event.stopPropagation()">
-            </mat-checkbox>
+            <!-- Checkboxes are scoped to the Staged group (#709) — batch
+                 actions target staged orders. Non-staged rows keep a
+                 same-width spacer so the columns stay aligned. -->
+            @if (ticket.status === TicketStatus.STAGED) {
+              <mat-checkbox
+                class="item-check"
+                [checked]="isChecked(ticket.id)"
+                (change)="toggleCheck(ticket.id, $event.checked)"
+                (click)="$event.stopPropagation()">
+              </mat-checkbox>
+            } @else {
+              <span class="item-check-spacer"></span>
+            }
             @if (dateFor(ticket); as date) {
               <span class="item-date">{{ date }}</span>
             }
@@ -119,17 +134,27 @@
               </div>
               <!-- Badges/actions live on line 2 — keeping them on line 1
                    would overflow the fixed-width column budget. -->
-              @if ((ticket.side === 'buy' && hasProtection(ticket)) || ticket.status === TicketStatus.CANCELLED) {
+              @if ((ticket.side === 'buy' && hasProtection(ticket)) || isTerminalRow(ticket)) {
                 <div class="item-line-2">
                   @if (ticket.side === 'buy' && hasProtection(ticket)) {
                     <span class="protected-badge">PROTECTED</span>
                   }
-                  @if (ticket.status === TicketStatus.CANCELLED) {
+                  @if (ticket.status === TicketStatus.CANCELLED || ticket.status === TicketStatus.FAILED) {
+                    <!-- Terminal orders have a burned refId — Requeue
+                         regenerates it (#717); dismiss removes the row
+                         (terminal rows have no checkbox). -->
                     <button
                       type="button"
                       class="requeue-btn"
                       (click)="requeueTicket.emit(ticket.id); $event.stopPropagation()">
                       <mat-icon>replay</mat-icon>Requeue
+                    </button>
+                    <button
+                      type="button"
+                      class="dismiss-btn"
+                      matTooltip="Remove from queue"
+                      (click)="removeTickets.emit([ticket.id]); $event.stopPropagation()">
+                      <mat-icon>close</mat-icon>
                     </button>
                   }
                 </div>
