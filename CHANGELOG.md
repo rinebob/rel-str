@@ -14,6 +14,8 @@
 - [Navigation and Workflows] 625-700_FE-IMPL-WORKFLOWS: NavSection + NAV_SECTIONS in PRD group order — NAV_MENU_ITEMS now derived flat; NavItem slimmed to name/text/href; dead AppRoutes members, topnav mixins, and .global-topnav-menu-css removed; nav-sections spec
 - [Navigation and Workflows] 625-700_FE-DOCS-WORKFLOWS: Code review (PASS) + UAT (Complete, 10 scenarios) for #700
 - [Navigation and Workflows] 625-625_DOCS-WORKFLOWS: Topic rename sweep — "Trading Workflows"→"Navigation and Workflows" across doc headers + PRD titles; commits previously-untracked #648/#655 docs
+- [Navigation and Workflows] 625-701_FE-IMPL-WORKFLOWS: Sidenav grouped rendering + auth gating — NAV_SECTIONS render as labeled groups gated on AuthStore.isAuthenticated; signed-out menu shows Log in/Sign up only; nav items now real buttons; SIGNED_OUT_SECTIONS + unguarded-href invariant + CoreComponent navigate-wiring specs (#740 rides along)
+- [Navigation and Workflows] 625-701_FE-DOCS-WORKFLOWS: Code review (PASS, 2 rounds converged) + UAT (Complete, 10 scenarios user-executed) for #701
 
 ### Changed
 - [Navigation and Workflows] Topic #625 renamed from "Trading Workflows" (2026-10-01) — issue title, all `**Topic:**` doc headers, PRD title subtitles, and CONTEXT.md reference updated; `WORKFLOWS` domain label, `625-workflows/` dir, and `trading-workflows` slugs unchanged. Prior changelog entries retain the `[Trading Workflows]` tag as shipped
