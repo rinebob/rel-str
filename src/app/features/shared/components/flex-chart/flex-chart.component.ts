@@ -43,7 +43,9 @@ import type {
   FlexChartDataset,
   FlexChartConfig,
 } from './flex-chart.types';
-import { StIndicator } from './flex-chart.types';
+import { StIndicator, MAIN_PANE_PERCENT_DEFAULT } from './flex-chart.types';
+import type { ChartAppearance, ChartPalette } from './chart-theme';
+import { resolveChartPalette } from './chart-theme';
 import { ChartViewportStore } from './store/chart-viewport.store';
 import { ChartYAxisViewportController } from './services/chart-y-axis-viewport-controller.service';
 import { ChartLifecycleFacade } from './services/chart-lifecycle-facade.service';
@@ -122,13 +124,26 @@ export class FlexChartComponent implements OnDestroy {
   chartData = input.required<FlexChartDataset | null>();
   config = input<FlexChartConfig>({ indicators: [] });
 
-  /** Effective config merges the default `logScale: true` with the parent-supplied
-   *  config. A parent can still opt out by passing `logScale: false`.
+  /** Effective config merges the defaults (`logScale: true`,
+   *  `appearance: 'dark'`, `mainPanePercent: 60`) with the parent-supplied
+   *  config. A parent can still opt out by passing `logScale: false`,
+   *  `appearance: 'light'`, or a different pane split.
    */
   readonly effectiveConfig = computed<FlexChartConfig>(() => ({
     ...this.config(),
     logScale: this.config().logScale ?? true,
+    appearance: this.config().appearance ?? 'dark',
+    mainPanePercent: this.config().mainPanePercent ?? MAIN_PANE_PERCENT_DEFAULT,
   }));
+
+  /** Selected appearance — always resolved (never undefined). */
+  readonly appearance = computed<ChartAppearance>(
+    () => this.effectiveConfig().appearance ?? 'dark',
+  );
+
+  /** Active theme palette — drives Syncfusion chrome colors and the
+   *  `--fc-*` CSS custom properties on the wrapper. */
+  readonly palette = computed<ChartPalette>(() => resolveChartPalette(this.appearance()));
 
   height = input<string>('400px');
   syncCrosshairDate = input<Date | null>(null);
@@ -143,6 +158,12 @@ export class FlexChartComponent implements OnDestroy {
 
   // Disable all series animations
   noAnimation = { enable: false };
+
+  // Rect-type series (candles, column histograms) sharing a pane must overlap
+  // at the bar center. Syncfusion's default side-by-side placement splits each
+  // category slot into per-series slices, so 5 candle series draw as 5 narrow
+  // vertical strips per day instead of a single candle + band overlays.
+  readonly seriesPlacement = { enableSideBySidePlacement: false };
 
   // Log-mode gutter labels — owned by ChartAxisLabelService (exact-position
   // divs matching the stripLine gridlines).
@@ -172,10 +193,15 @@ export class FlexChartComponent implements OnDestroy {
   primaryXAxis = computed(() => {
     // Re-evaluate when the dataset changes so Syncfusion rebuilds the category axis
     // for a new symbol/interval. The axis config itself is constant.
-    this.chartData()?.bars.length;
+    const barCount = this.chartData()?.bars.length ?? 0;
 
+    const palette = this.palette();
     return {
       valueType: 'Category',
+      minimum: 0,
+      maximum: barCount > 0 ? barCount - 1 : undefined,
+      labelStyle: { color: palette.axisText },
+      lineStyle: { color: palette.axisLine },
       majorGridLines: { width: 0 },
       edgeLabelPlacement: 'Shift',
     };
@@ -192,7 +218,11 @@ export class FlexChartComponent implements OnDestroy {
   // primaryYAxis declarative config. The actual min/max are applied imperatively
   // by the lifecycle facade so the component does not mutate the chart.
   primaryYAxis = computed(() =>
-    this.yAxisController.buildAxisConfig(!!this.effectiveConfig().logScale, this.lowerPanes().length),
+    this.yAxisController.buildAxisConfig(
+      !!this.effectiveConfig().logScale,
+      this.lowerPanes().length,
+      this.palette(),
+    ),
   );
 
   /** Unique key that changes whenever chartData identity changes — used to key the
@@ -304,16 +334,17 @@ export class FlexChartComponent implements OnDestroy {
       let crosshairDate: Date | null = null;
       let crosshairPrice: number | null = null;
 
-      // Map mouse X to the nearest bar index using the facade-captured axis snapshot
+      // Map mouse X to the nearest bar index using the facade-captured axis snapshot.
+      // Clamp to the actual bar range so a Syncfusion-visible-range that was stretched
+      // by out-of-range series points cannot return an off-by-N date.
       const xAxis = state.xAxis;
       const pixelX = event.x - xAxis.rect.x;
       if (pixelX >= 0 && pixelX <= xAxis.rect.width) {
         const { min, delta } = xAxis.visibleRange;
-        const idx = Math.round(min + (pixelX / xAxis.rect.width) * delta);
-        if (idx >= 0 && idx < data.bars.length) {
-          crosshairIdx = idx;
-          crosshairDate = new Date(data.bars[idx].x);
-        }
+        const rawIdx = Math.round(min + (pixelX / xAxis.rect.width) * delta);
+        const idx = Math.max(0, Math.min(data.bars.length - 1, rawIdx));
+        crosshairIdx = idx;
+        crosshairDate = new Date(data.bars[idx].x);
       }
 
       // Compute price from primary Y-axis under the mouse pointer, or fall back to the
