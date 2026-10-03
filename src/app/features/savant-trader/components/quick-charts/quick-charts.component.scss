@@ -90,4 +90,51 @@
   pointer-events: none;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// Label variant that hosts interactive controls — the container must stay at
+// full opacity or it caps how bright a hovered button can get. The label text
+// keeps the same dimmed look via its own opacity.
+.qc-tf-label--controls {
+  opacity: 1;
+
+  .qc-tf-name {
+    opacity: 0.5;
+  }
+}
+
+// ─── Daily +/-50 bar buttons ──────────────────────────────────────────────────
+
+.qc-bar-btns {
+  pointer-events: auto;
+  display: inline-flex;
+  gap: 2px;
+
+  button {
+    font: inherit;
+    letter-spacing: inherit;
+    padding: 0 4px;
+    line-height: 14px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 3px;
+    background: var(--mat-sys-surface);
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.5;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      opacity: 1;
+      background: var(--mat-sys-on-surface);
+      color: var(--mat-sys-surface);
+      border-color: var(--mat-sys-on-surface);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+  }
 }

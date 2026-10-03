@@ -28,7 +28,28 @@
   @if (symbol() && !chartStore.loading() && !chartStore.error()) {
     <div class="qc-stack">
       <div class="qc-chart-cell" [style.flexBasis]="cellHeight() + 'px'">
-        <div class="qc-tf-label">Daily</div>
+        <div class="qc-tf-label qc-tf-label--controls">
+          <span class="qc-tf-name">Daily</span>
+          <span
+            class="qc-bar-btns"
+            role="group"
+            aria-label="Daily visible bars"
+            (mouseenter)="sharedCrosshairDate.set(null); sharedCrosshairPrice.set(null)"
+          >
+            <button
+              type="button"
+              [disabled]="!canRemoveDailyBars()"
+              title="Show 50 fewer bars"
+              (click)="adjustDailyBars(-50)"
+            >−50</button>
+            <button
+              type="button"
+              [disabled]="!canAddDailyBars()"
+              title="Show 50 more bars"
+              (click)="adjustDailyBars(50)"
+            >+50</button>
+          </span>
+        </div>
         <app-flex-chart
           [chartData]="chartStore.dailyData()"
           [config]="dailyConfig()"

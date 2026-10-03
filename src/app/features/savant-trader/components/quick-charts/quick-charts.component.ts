@@ -2,7 +2,8 @@
  * Quick Charts Component
  *
  * Compact stacked D/W/M chart panel for the Grouped Review page.
- * Per-interval visibleBars windows (D 30 / W 30 / M 100), no zoom controls.
+ * Per-interval visibleBars windows (D 30 / W 30 / M 100). The daily chart
+ * has +/-50 bar buttons to widen or narrow its window.
  * Data is loaded on demand when a symbol is selected.
  */
 import {
@@ -47,6 +48,14 @@ const QUICK_VISIBLE_BARS: Record<ChartIntervalKey, number> = {
 
 const DEFAULT_CELL_HEIGHT_PX = 560;
 
+/** Daily window step and floor for the +/- bar buttons. */
+const DAILY_BAR_STEP = 50;
+const MIN_DAILY_VISIBLE_BARS = 30;
+
+/** Wait for the symbol to settle before loading charts — rapid prev/next
+ *  navigation shouldn't fire a data load per intermediate symbol. */
+const CHART_LOAD_DEBOUNCE_MS = 250;
+
 @Component({
   selector: 'app-quick-charts',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -87,6 +96,20 @@ export class QuickChartsComponent {
   readonly sharedCrosshairDate = signal<Date | null>(null);
   readonly sharedCrosshairPrice = signal<number | null>(null);
 
+  /** Daily visible-bar window, adjustable via the +/-50 buttons. */
+  readonly dailyVisibleBars = signal(QUICK_VISIBLE_BARS[ChartIntervalKey.DAILY]);
+
+  readonly canRemoveDailyBars = computed(() => this.dailyVisibleBars() > MIN_DAILY_VISIBLE_BARS);
+  readonly canAddDailyBars = computed(
+    () => this.dailyVisibleBars() < (this.chartStore.dailyData()?.bars.length ?? 0),
+  );
+
+  adjustDailyBars(delta: number): void {
+    const bars = this.chartStore.dailyData()?.bars.length ?? 0;
+    const ceiling = Math.max(bars, MIN_DAILY_VISIBLE_BARS);
+    this.dailyVisibleBars.update((v) => Math.max(MIN_DAILY_VISIBLE_BARS, Math.min(v + delta, ceiling)));
+  }
+
   // ── Raw interval data from the callable response ─────────────────────────
   private readonly dailyIntervalData = computed(() => this.indicatorResponse()?.intervals?.daily);
   private readonly weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
@@ -104,7 +127,10 @@ export class QuickChartsComponent {
       showCrosshair: true,
       showZoomToolbar: false,
       enableScrollbar: false,
-      visibleBars: QUICK_VISIBLE_BARS[interval],
+      visibleBars:
+        interval === ChartIntervalKey.DAILY
+          ? this.dailyVisibleBars()
+          : QUICK_VISIBLE_BARS[interval],
       interval,
       logScale: this.logScale(),
     };
@@ -157,13 +183,14 @@ export class QuickChartsComponent {
   });
 
   constructor() {
-    effect(() => {
+    effect((onCleanup) => {
       const sym = this.symbol();
       if (!sym) {
         this.chartStore.clearCharts();
         return;
       }
-      this.chartStore.loadCharts(sym);
+      const timer = setTimeout(() => this.chartStore.loadCharts(sym), CHART_LOAD_DEBOUNCE_MS);
+      onCleanup(() => clearTimeout(timer));
     });
   }
 }

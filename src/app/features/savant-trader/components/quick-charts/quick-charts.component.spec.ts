@@ -57,6 +57,8 @@ describe('QuickChartsComponent', () => {
       })
       .compileComponents();
 
+    mockChartStore.dailyData.set({ bars: [bar] });
+
     fixture = TestBed.createComponent(QuickChartsComponent);
     component = fixture.componentRef.instance;
     fixture.componentRef.setInput('symbol', 'AAPL');
@@ -99,5 +101,30 @@ describe('QuickChartsComponent', () => {
 
     const cells = fixture.debugElement.queryAll(By.css('.qc-chart-cell'));
     expect((cells[0].nativeElement as HTMLElement).style.flexBasis).toBe('700px');
+  });
+
+  // ── #736: daily +/-50 bar buttons ────────────────────────────────────────
+
+  it('widens only the daily window by 50 bars per +50 click', () => {
+    mockChartStore.dailyData.set({ bars: Array(500).fill(bar) });
+    fixture.detectChanges();
+
+    component.adjustDailyBars(50);
+    fixture.detectChanges();
+
+    expect(chartConfigs().map((c) => c.visibleBars)).toEqual([80, 30, 100]);
+  });
+
+  it('floors the daily window at 30 and the dataset length on the high end', () => {
+    mockChartStore.dailyData.set({ bars: Array(100).fill(bar) });
+    fixture.detectChanges();
+
+    component.adjustDailyBars(-50);
+    expect(component.dailyVisibleBars()).toBe(30);
+
+    component.adjustDailyBars(50);
+    component.adjustDailyBars(50);
+    component.adjustDailyBars(50);
+    expect(component.dailyVisibleBars()).toBe(100);
   });
 });
