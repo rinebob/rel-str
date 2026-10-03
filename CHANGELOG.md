@@ -16,6 +16,18 @@
 - [Navigation and Workflows] 625-625_DOCS-WORKFLOWS: Topic rename sweep — "Trading Workflows"→"Navigation and Workflows" across doc headers + PRD titles; commits previously-untracked #648/#655 docs
 - [Navigation and Workflows] 625-701_FE-IMPL-WORKFLOWS: Sidenav grouped rendering + auth gating — NAV_SECTIONS render as labeled groups gated on AuthStore.isAuthenticated; signed-out menu shows Log in/Sign up only; nav items now real buttons; SIGNED_OUT_SECTIONS + unguarded-href invariant + CoreComponent navigate-wiring specs (#740 rides along)
 - [Navigation and Workflows] 625-701_FE-DOCS-WORKFLOWS: Code review (PASS, 2 rounds converged) + UAT (Complete, 10 scenarios user-executed) for #701
+- [Flex Chart Visual Polish] 213-731_DOCS-FLEX-CHART: Add PRD for flex-chart visual polish (checkpoint)
+- [Flex Chart Visual Polish] 213-731_DOCS-FLEX-CHART: Add implementation and test plans (checkpoint)
+- [Flex Chart Visual Polish] 213-731_SHARED-IMPL-FLEX-CHART: Add chart theme palette and appearance support (checkpoint)
+- [Flex Chart Visual Polish] 213-731_SHARED-IMPL-FLEX-CHART: Extend FlexChartConfig for appearance, visibleBars, mainPanePercent (checkpoint)
+- [Flex Chart Visual Polish] 213-731_SHARED-IMPL-FLEX-CHART: Wire theme palette into flex-chart component (checkpoint)
+- [Flex Chart Visual Polish] 213-731_SHARED-IMPL-FLEX-CHART: Implement configurable main/lower pane split (checkpoint)
+- [Flex Chart Visual Polish] 213-731_SHARED-BUG-FLEX-CHART: Anchor Category axis and prevent phantom bars (checkpoint)
+- [Flex Chart Visual Polish] 213-731_SHARED-IMPL-FLEX-CHART: Add right margin and visibleBars handling (checkpoint)
+- [Flex Chart Visual Polish] 213-731_SHARED-IMPL-FLEX-CHART: Apply palette slots to indicator defaults (checkpoint)
+- [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Adopt flex-chart config changes across consumers (checkpoint)
+- [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Enable signal dots and trend riders by default in sandbox (checkpoint)
+- [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Add indicator-converter unit tests (checkpoint)
 
 ### Changed
 - [Navigation and Workflows] Topic #625 renamed from "Trading Workflows" (2026-10-01) — issue title, all `**Topic:**` doc headers, PRD title subtitles, and CONTEXT.md reference updated; `WORKFLOWS` domain label, `625-workflows/` dir, and `trading-workflows` slugs unchanged. Prior changelog entries retain the `[Trading Workflows]` tag as shipped
