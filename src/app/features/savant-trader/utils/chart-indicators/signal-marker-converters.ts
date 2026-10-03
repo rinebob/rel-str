@@ -61,6 +61,7 @@ export function convertTrendStrengthDotMarkers(
     x: toDatePt(m.d),
     y: m.y,
     color: m.direction === 'long' ? SIGNAL_DOT_LONG_COLOR : SIGNAL_DOT_SHORT_COLOR,
+    index: m.index,
   }));
 }
 
@@ -80,6 +81,7 @@ export function convertZoneDotMarkers(
     x: toDatePt(m.d),
     y: m.y,
     color: m.direction === 'long' ? longColor : shortColor,
+    index: m.index,
   }));
 }
 

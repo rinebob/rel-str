@@ -129,7 +129,7 @@ export class ChartAxisLabelService {
       args.text = `O: $${open.toFixed(2)}  H: $${high.toFixed(2)}  L: $${low.toFixed(2)}  C: $${close.toFixed(2)}`;
       const idx = args.data?.pointIndex;
       const bar = idx !== undefined ? this.chartData()?.bars[idx] : undefined;
-      if (bar) args.headerText = bar.x.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      if (bar) args.headerText = bar.x.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     } else {
       const y = Number(args.data?.pointY ?? point.y);
       if (Number.isNaN(y)) return;

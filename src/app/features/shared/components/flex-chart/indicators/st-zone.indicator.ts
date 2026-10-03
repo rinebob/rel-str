@@ -52,7 +52,7 @@ export const ST_ZONE_INDICATOR: IndicatorOption = {
   id: 'st-zone',
   label: 'ST Zone',
   type: StIndicator.ZONE,
-  defaultPane: 'lower-1',
+  defaultPane: 'lower-2',
   axisScale: 'fixed',
   params: [
     { key: 'ctfFastLength', label: 'CTF Fast Length', default: 5, min: 2, max: 50 },

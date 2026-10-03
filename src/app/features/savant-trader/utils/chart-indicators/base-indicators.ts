@@ -13,7 +13,7 @@ import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } fr
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
 
 /** Single scatter/dot point used for signal dots, uptick dots, and HTF window markers. */
-export type ChartScatterPoint = { x: Date; y: number; color?: string };
+export type ChartScatterPoint = { x: Date; y: number; color?: string; index?: number };
 
 // ---------------------------------------------------------------------------
 // Base configuration
@@ -32,15 +32,13 @@ const BASE_CONFIGS = new Map<string, IndicatorConfig>(
     const m: [string, IndicatorConfig][] = [];
     for (const opt of ST_INDICATOR_OPTIONS) {
       const cfg = buildDefaultConfig(opt);
-      if (opt.id === StIndicator.TREND_STRENGTH) {
-        cfg.pane = 'lower-1';
-      }
+      // Pane slots come from each indicator's defaultPane (canonical layout:
+      // lower-1 trend strength + dots, lower-2 zone V1, lower-3 zone V2 +
+      // HTF windows, lower-4 band width). Only display names are overridden here.
       if (opt.id === StIndicator.ZONE) {
-        cfg.pane = 'lower-2';
         cfg.options = { ...cfg.options, name: 'ST-ZONE V1' };
       }
       if (opt.id === StIndicator.ZONE_V2) {
-        cfg.pane = 'lower-3';
         cfg.options = { ...cfg.options, name: 'ST-ZONE V2' };
       }
       m.push([opt.id, cfg]);

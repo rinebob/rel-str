@@ -60,7 +60,7 @@ export const ST_TREND_STRENGTH_INDICATOR: IndicatorOption = {
   id: 'st-trend-strength',
   label: 'ST Trend Strength',
   type: StIndicator.TREND_STRENGTH,
-  defaultPane: 'lower-2',
+  defaultPane: 'lower-1',
   axisScale: 'fixed',
   params: [
     { key: 'period', label: 'Period', default: 14, min: 5, max: 50 },
