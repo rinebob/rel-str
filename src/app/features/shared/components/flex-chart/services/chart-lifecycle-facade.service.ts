@@ -1,4 +1,5 @@
 import { Injectable, Signal, effect, inject, signal, untracked } from '@angular/core';
+import { buildLogTickStripLines, resolveChartPalette } from '../chart-theme';
 import type { ComputedIndicatorSeries, FlexChartConfig, FlexChartDataset, PriceBar } from '../flex-chart.types';
 import { ChartViewportStore } from '../store/chart-viewport.store';
 import { ChartYAxisViewportController } from './chart-y-axis-viewport-controller.service';
@@ -16,6 +17,9 @@ import type { ChartAxisState, SfChartInstance } from './chart-instance.types';
  */
 @Injectable()
 export class ChartLifecycleFacade {
+  /** Empty categories past the last bar, matching the component's right margin. */
+  private static readonly RIGHT_MARGIN_BARS = 5;
+
   private readonly viewport = inject(ChartViewportStore);
   private readonly yAxisController = inject(ChartYAxisViewportController);
 
@@ -55,8 +59,6 @@ export class ChartLifecycleFacade {
   private readonly lastLogScale = signal<boolean | null>(null);
   /** Writable backing signal for `chartState`; updated after every dataBind/viewport change. */
   private readonly chartStateSignal = signal<ChartAxisState | null>(null);
-  static readonly RIGHT_MARGIN_BARS = 5;
-
   /** Read-only snapshot of the current chart axis state (rects, ranges, value types) */
   readonly chartState: Signal<ChartAxisState | null> = this.chartStateSignal.asReadonly();
 
@@ -82,7 +84,7 @@ export class ChartLifecycleFacade {
       const config = this.config();
       if (!chart || !data || data.bars.length === 0) return;
 
-      const key = `${config.initialZoomDays ?? 0}-${config.interval ?? ''}-${data.bars.length}`;
+      const key = `${config.visibleBars ?? 0}-${config.interval ?? ''}-${data.bars.length}`;
       // Re-apply when the dataset object, the chart instance, or the zoom key
       // changed. A new chart instance alone (chartKey recreation on symbol
       // change) must re-apply — the previous run may have applied zoom to the
@@ -171,17 +173,11 @@ export class ChartLifecycleFacade {
           const ticks = nicePriceTicks(priceLo, priceHi);
           // Single tick source — the gutter label divs read the same list.
           this.viewport.setLogTicks(ticks);
-          chart.primaryYAxis.stripLines = ticks.map((price) => ({
-            start: toLogAxis(price),
-            size: 1,
-            sizeType: 'Pixel' as const,
-            color: 'rgba(158,158,158,0.35)',
-            visible: true,
-            opacity: 1,
-            zIndex: 'Over' as const,
-            horizontalAlignment: 'End' as const,
-            verticalAlignment: 'Middle' as const,
-          }));
+          const palette = resolveChartPalette(untracked(this.config).appearance);
+          chart.primaryYAxis.stripLines = buildLogTickStripLines(
+            ticks.map((price) => toLogAxis(price)),
+            palette,
+          );
         } else {
           this.viewport.setLogTicks([]);
           if (chart.primaryYAxis.stripLines?.length) {
@@ -210,7 +206,10 @@ export class ChartLifecycleFacade {
     chart.refresh();
   }
 
-  /** Apply initial X-axis zoom and Y-axis range for the current dataset. */
+  /** Apply initial X-axis zoom and Y-axis range for the current dataset.
+   *  The right margin adds empty categories past the last bar so the chart
+   *  doesn't draw the latest candle flush against the right edge.
+   */
   applyInitialZoom(): void {
     const chart = this.chartSignal();
     const data = this.chartData();
@@ -219,8 +218,8 @@ export class ChartLifecycleFacade {
 
     const margin = ChartLifecycleFacade.RIGHT_MARGIN_BARS;
     const totalCategories = data.bars.length + margin;
-    const initialDays = config.initialZoomDays ?? 60;
-    const visibleCount = Math.max(1, Math.min(initialDays, data.bars.length));
+    const initialVisibleBars = config.visibleBars ?? 60;
+    const visibleCount = Math.max(1, Math.min(initialVisibleBars, data.bars.length));
     const visibleRange = visibleCount + margin;
     const zoomFactor = visibleRange / totalCategories;
     const zoomPosition = (data.bars.length - visibleCount) / totalCategories;
