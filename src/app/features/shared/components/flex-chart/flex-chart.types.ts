@@ -5,6 +5,7 @@
  */
 
 import type { BarsInterval } from '../../../../core/models/partner.types';
+import type { ChartAppearance } from './chart-theme';
 import type { BandSeriesData } from './indicators/st-trend-bands.indicator';
 
 /** Price bar data point */
@@ -171,8 +172,10 @@ export interface FlexChartConfig {
   /** Enable/disable scrollbar */
   enableScrollbar?: boolean;
 
-  /** Initial zoom days */
-  initialZoomDays?: number;
+  /** Bars visible in the initial X-axis window (despite the name's history,
+   *  this is a bar count — 30 on a weekly chart = 30 weeks). Clamped to the
+   *  loaded bar count at the point of use. */
+  visibleBars?: number;
 
   /** Data interval hint for axis label formatting */
   interval?: ChartIntervalKey;
@@ -183,7 +186,23 @@ export interface FlexChartConfig {
   /** Enable Syncfusion series tooltips (off by default — most surfaces rely
    *  on the crosshair overlay instead) */
   showTooltips?: boolean;
+
+  /** Chart appearance — selects the chrome/series palette. Defaults to
+   *  'dark' (TradingView-style dark surface); 'light' preserves the
+   *  pre-theme look. */
+  appearance?: ChartAppearance;
+
+  /** Main price pane's vertical share (percent). Defaults to 60; active
+   *  lower panes split the remainder evenly. Clamped to
+   *  [MAIN_PANE_PERCENT_MIN, MAIN_PANE_PERCENT_MAX] at the point of use. */
+  mainPanePercent?: number;
 }
+
+/** Clamp bounds for `FlexChartConfig.mainPanePercent` — keeps every active
+ *  row non-degenerate (main pane dominant, lower panes still visible). */
+export const MAIN_PANE_PERCENT_MIN = 20;
+export const MAIN_PANE_PERCENT_MAX = 95;
+export const MAIN_PANE_PERCENT_DEFAULT = 60;
 
 /** Computed indicator series - supports both Date (DateTime) and index (Category) x values */
 export interface ComputedIndicatorSeries {
