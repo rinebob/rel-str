@@ -54,7 +54,7 @@ function trendBandsToChartData(
     dateToIndex.set(dateStr, i);
   }
 
-  const bandMap = new Map<number, { bandIndex: number; bullColor: string; bearColor: string; data: { index: number; open: number; high: number; low: number; close: number }[] }>();
+  const bandMap = new Map<number, BandSeriesData>();
 
   for (const p of points) {
     const index = dateToIndex.get(p.d);
@@ -70,7 +70,7 @@ function trendBandsToChartData(
           data: [],
         });
       }
-      bandMap.get(idx)!.data.push({ index, open: b.open, high: b.high, low: b.low, close: b.close });
+      bandMap.get(idx)!.data.push({ index, date: toDate(p.d), open: b.open, high: b.high, low: b.low, close: b.close });
     }
   }
 
@@ -106,7 +106,31 @@ export function injectCallableIndicatorData(
   indicators: IndicatorConfig[],
   intervalData: IntervalData | undefined,
   bars: PriceBar[],
+  label?: string,
 ): IndicatorConfig[] {
+  if (intervalData && bars.length > 0) {
+    const lastBarDate = bars[bars.length - 1].date;
+    // Only warn for continuous series. Dot markers and HTF windows are sparse
+    // by design (a signal/dot exists only on the dates where the condition fires).
+    const families: [string, { d: string }[] | undefined][] = [
+      ['zoneV1', intervalData.indicators?.zoneV1],
+      ['zoneV2', intervalData.indicators?.zoneV2],
+      ['trendBands', intervalData.indicators?.trendBands],
+    ];
+    const mismatched = families
+      .filter((f): f is [string, { d: string }[]] => !!f[1]?.length && f[1][f[1].length - 1].d !== lastBarDate)
+      .map(([name, pts]) => {
+        const lastD = pts[pts.length - 1].d;
+        const behind = bars.filter((b) => b.date > lastD).length;
+        const ahead = bars.filter((b) => b.date < lastD).length;
+        return behind > 0
+          ? `${name} ends ${lastD} (${behind} bars behind ${lastBarDate})`
+          : `${name} ends ${lastD} (ahead of last bar ${lastBarDate} by ${ahead} bars)`;
+      });
+    if (mismatched.length > 0) {
+      console.warn(`[flex-chart] ${label ?? 'callable'} data does not reach the last bar — ${mismatched.join('; ')}`);
+    }
+  }
   const converted = convertIntervalIndicators(intervalData, bars);
 
   return indicators.map(cfg => {
