@@ -4,6 +4,7 @@ import { signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CoreComponent } from './core.component';
 import { HeaderComponent } from './comps/header/header.component';
+import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.component';
 import { AuthStore } from './auth/auth.store';
 import { UiStateService } from './services/ui-state.service';
 
@@ -81,5 +82,16 @@ describe('CoreComponent', () => {
 
     header.openSidenav.emit();
     expect(spy).toHaveBeenCalled();
+  });
+
+  it('sidenav navigate output routes to item.href and closes the drawer (#740)', () => {
+    const menu = fixture.debugElement.query(By.directive(SidenavMenuComponent)).componentInstance as SidenavMenuComponent;
+    const router = TestBed.inject(Router);
+    const closeSpy = jest.spyOn(component.sidenav, 'close');
+
+    menu.navigate.emit({ name: 'x', text: 'X', href: 'trading/live' });
+
+    expect(router.navigate).toHaveBeenCalledWith(['trading/live']);
+    expect(closeSpy).toHaveBeenCalled();
   });
 });

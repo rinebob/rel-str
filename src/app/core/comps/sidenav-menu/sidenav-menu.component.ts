@@ -1,43 +1,36 @@
-import { Component, OnInit, ChangeDetectionStrategy, output, inject } from '@angular/core';
-import { Router, RouterModule } from '@angular/router';
+import { Component, ChangeDetectionStrategy, computed, output, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 
-import { NAV_MENU_ITEMS } from '../../common/constants';
+import { NAV_SECTIONS, SIGNED_OUT_SECTIONS } from '../../common/constants';
 import { NavItem } from '../../common/interfaces';
+import { AuthStore } from '../../auth/auth.store';
 
 @Component({
     selector: 'rs-sidenav-menu',
-    imports: [MatIconModule, RouterModule],
+    imports: [MatIconModule],
     templateUrl: './sidenav-menu.component.html',
     styleUrl: './sidenav-menu.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SidenavMenuComponent implements OnInit {
-    
+export class SidenavMenuComponent {
+
     closeSidenav = output<void>();
     navigate = output<NavItem>();
 
-    router = inject(Router);
+    private readonly auth = inject(AuthStore);
+    private readonly isAuthenticated = this.auth.isAuthenticated;
 
-    readonly NAV_MENU_ITEMS = NAV_MENU_ITEMS;
-    
-    constructor() { }
-
-    ngOnInit() {
-    }
+    /** Sections rendered for the current auth state — the full journey
+     *  nav signed in, auth actions only signed out (#701). */
+    readonly sections = computed(() =>
+        this.isAuthenticated() ? NAV_SECTIONS : SIGNED_OUT_SECTIONS,
+    );
 
     handleCloseSidenav() {
-        // console.log('sM hCS handle close sidenav called')
         this.closeSidenav.emit();
     }
 
     handleNavigation(navItem: NavItem) {
-        // console.log('sM hN handle navigation called.  navItem: ', navItem);
         this.navigate.emit(navItem);
-    }
-
-    handleTestNavigation(target: string) {
-        this.router.navigate([target]);
-        this.closeSidenav.emit();
     }
 }

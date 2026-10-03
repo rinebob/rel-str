@@ -67,6 +67,20 @@ export const NAV_SECTIONS: NavSection[] = [
  *  is NAV_SECTIONS; do not extend this list directly. */
 export const NAV_MENU_ITEMS: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
 
+/** Signed-out sidenav content — auth actions only. Every href MUST resolve
+ *  to an unguarded route (no canActivate); nav-sections.spec pins that
+ *  invariant. Kept out of NAV_SECTIONS/NAV_MENU_ITEMS: auth items are shell
+ *  state, not feature nav (#701/#740). */
+export const SIGNED_OUT_SECTIONS: NavSection[] = [
+    {
+        label: '',
+        items: [
+            { name: 'login', text: 'Log in', href: 'login' },
+            { name: 'signup', text: 'Sign up', href: 'signup' },
+        ],
+    },
+];
+
 export const NUM_HEATMAP_MIDPOINTS = 11;
 
 // =============================

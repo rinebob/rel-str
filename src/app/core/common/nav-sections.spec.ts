@@ -6,13 +6,20 @@
  * canonical route, and the retired legacy items are absent. NAV_MENU_ITEMS
  * survives as a derived flat export until T3/T4 move the consumers.
  */
-import { NAV_MENU_ITEMS, NAV_SECTIONS } from './constants';
+import { NAV_MENU_ITEMS, NAV_SECTIONS, SIGNED_OUT_SECTIONS } from './constants';
 import CORE_ROUTES from '../core-routes';
 
 const registeredPaths = (): Set<string> =>
   new Set(
     (CORE_ROUTES[0]?.children ?? [])
       .filter((r) => r.redirectTo === undefined) // redirects are not page targets
+      .map((r) => r.path ?? ''),
+  );
+
+const unguardedPaths = (): Set<string> =>
+  new Set(
+    (CORE_ROUTES[0]?.children ?? [])
+      .filter((r) => r.redirectTo === undefined && !r.canActivate?.length)
       .map((r) => r.path ?? ''),
   );
 
@@ -110,6 +117,26 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
         ['login', 'signup', 'logout'].includes(i.href),
     );
     expect(hits).toHaveLength(0);
+  });
+
+  it('SIGNED_OUT_SECTIONS is exactly the auth actions (login, signup)', () => {
+    expect(SIGNED_OUT_SECTIONS).toHaveLength(1);
+    expect(SIGNED_OUT_SECTIONS[0].label).toBe('');
+    expect(SIGNED_OUT_SECTIONS[0].items.map((i) => i.name)).toEqual(['login', 'signup']);
+  });
+
+  it('every signed-out item href resolves to an UNGUARDED route (#740)', () => {
+    const open = unguardedPaths();
+    for (const item of SIGNED_OUT_SECTIONS.flatMap((s) => s.items)) {
+      expect(open.has(item.href)).toBe(true);
+    }
+  });
+
+  it('SIGNED_OUT_SECTIONS stays out of the flat nav menu', () => {
+    const flatHrefs = new Set(NAV_MENU_ITEMS.map((i) => i.href));
+    for (const item of SIGNED_OUT_SECTIONS.flatMap((s) => s.items)) {
+      expect(flatHrefs.has(item.href)).toBe(false);
+    }
   });
 
   it('NAV_MENU_ITEMS exposes the same item objects flattened in order', () => {

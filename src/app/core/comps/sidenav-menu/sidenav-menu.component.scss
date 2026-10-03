@@ -9,10 +9,6 @@
         margin-top: 30px;
         width: 100%;
 
-        .logo {
-            margin-left: 10px;
-        }
-
         .menu-button {
             border: none;
             margin-right: 30px;
@@ -27,33 +23,44 @@
         .main-menu-container {
             @include global.flexboxLayout(column, flex-start, flex-start);
             width: 100%;
-            
-            .nav-menu-item-container {
-                @include global.flexboxLayout(column, flex-start, flex-start);
+
+            .nav-section-label {
+                border-top: 1px solid var(--mat-sys-outline-variant, #555);
+                color: var(--mat-sys-on-surface, #ddd);
+                font: 700 12px/18px Roboto, Arial, sans-serif;
+                letter-spacing: 0.12em;
+                margin-top: 16px;
+                padding: 12px 0 6px;
+                text-transform: uppercase;
+                width: 100%;
+
+                &:first-of-type {
+                    border-top: none;
+                    margin-top: 0;
+                    padding-top: 4px;
+                }
+            }
+
+            .nav-menu-item {
+                appearance: none;
+                background: transparent;
+                border: none;
+                color: inherit;
                 cursor: pointer;
+                font: 400 14px/20px Roboto, Arial, sans-serif;
                 padding: 10px 0;
+                text-align: left;
+                text-transform: uppercase;
                 width: 100%;
 
                 &:hover {
                     background-color: lightgrey;
                 }
-            }
-        }
 
-        .nav-menu-item {
-            color: var(--mobile-nav-menu-item-color);
-            font: 400 14px/20px var(--indra-main-font);
-            text-decoration: none;
-            text-transform: uppercase;
-        }
-
-        .menu-text {
-            color: var(--menu-item-color);
-            font: 500 16px/24px var(--indra-main-font);
-
-            .link-text {
-                color: var(--dropdown-menu-item-color);
-                text-decoration: none;
+                &:focus-visible {
+                    outline: 2px solid var(--mat-sys-primary, #3f51b5);
+                    outline-offset: -2px;
+                }
             }
         }
     }

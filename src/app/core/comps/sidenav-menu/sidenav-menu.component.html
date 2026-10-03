@@ -1,10 +1,10 @@
 
 <div class="logo-container">
 
-    <button mat-icon-button class="menu-button" (click)="handleCloseSidenav()">
-        
+    <button type="button" mat-icon-button class="menu-button" (click)="handleCloseSidenav()" aria-label="Close navigation menu">
+
         <mat-icon>close</mat-icon>
-    
+
     </button>
 
 </div>
@@ -13,18 +13,25 @@
 
     <div class="main-menu-container">
 
-        @for(item of NAV_MENU_ITEMS; track item.name) {
+        @for (section of sections(); track $index) {
 
-            <div class="nav-menu-item-container"
-                        (click)="handleNavigation(item)"
-            >
+            @if (section.label) {
 
-                <div class="nav-menu-item">
+                <div class="nav-section-label">{{ section.label }}</div>
+
+            }
+
+            @for (item of section.items; track item.name) {
+
+                <button type="button" class="nav-menu-item"
+                               (click)="handleNavigation(item)"
+                >
+
                     {{item.text}}
-                   
-                </div>
 
-            </div>
+                </button>
+
+            }
 
         }
 
