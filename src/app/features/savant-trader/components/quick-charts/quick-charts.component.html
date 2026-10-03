@@ -27,7 +27,7 @@
   <!-- Charts: Monthly → Weekly → Daily -->
   @if (symbol() && !chartStore.loading() && !chartStore.error()) {
     <div class="qc-stack">
-      <div class="qc-chart-cell">
+      <div class="qc-chart-cell" [style.flexBasis]="cellHeight() + 'px'">
         <div class="qc-tf-label">Daily</div>
         <app-flex-chart
           [chartData]="chartStore.dailyData()"
@@ -40,7 +40,7 @@
         </app-flex-chart>
       </div>
 
-      <div class="qc-chart-cell">
+      <div class="qc-chart-cell" [style.flexBasis]="cellHeight() + 'px'">
         <div class="qc-tf-label">Weekly</div>
         <app-flex-chart
           [chartData]="chartStore.weeklyData()"
@@ -53,7 +53,7 @@
         </app-flex-chart>
       </div>
 
-      <div class="qc-chart-cell">
+      <div class="qc-chart-cell" [style.flexBasis]="cellHeight() + 'px'">
         <div class="qc-tf-label">Monthly</div>
         <app-flex-chart
           [chartData]="chartStore.monthlyData()"

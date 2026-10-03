@@ -101,11 +101,18 @@ export class ChartService {
     const monthly: OhlcBar[] = (monthlySnap.data() as OhlcBarsDoc | undefined)?.bars ?? [];
     const rootData = rootSnap.exists() ? (rootSnap.data() as SymbolDataRootDoc) : {};
 
+    const lastDailyDate = allDaily[allDaily.length - 1]?.d ?? '';
+    if (rootData.lastDailyBarDate && lastDailyDate && rootData.lastDailyBarDate !== lastDailyDate) {
+      console.warn(
+        `[chart-service] ${symbol} symbol-data mismatch: root lastDailyBarDate=${rootData.lastDailyBarDate}, but daily shards end ${lastDailyDate}`
+      );
+    }
+
     return {
       daily: allDaily,
       weekly,
       monthly,
-      version: rootData.lastDailyBarDate ?? allDaily[allDaily.length - 1]?.d ?? '',
+      version: rootData.lastDailyBarDate ?? lastDailyDate,
     };
   }
 

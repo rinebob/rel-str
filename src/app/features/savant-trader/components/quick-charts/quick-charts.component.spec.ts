@@ -79,4 +79,25 @@ describe('QuickChartsComponent', () => {
 
     expect(chartConfigs().map((c) => c.logScale)).toEqual([false, false, false]);
   });
+
+  // ── #736: visibleBars windows + cellHeight ─────────────────────────────
+
+  it('sets per-interval visibleBars — daily 30, weekly 30, monthly 100', () => {
+    // Template order is Daily, Weekly, Monthly.
+    expect(chartConfigs().map((c) => c.visibleBars)).toEqual([30, 30, 100]);
+  });
+
+  it('sizes chart cells to the 560px default cellHeight', () => {
+    const cells = fixture.debugElement.queryAll(By.css('.qc-chart-cell'));
+    expect(cells.map((el) => (el.nativeElement as HTMLElement).style.flexBasis))
+      .toEqual(['560px', '560px', '560px']);
+  });
+
+  it('honors a cellHeight override', () => {
+    fixture.componentRef.setInput('cellHeight', 700);
+    fixture.detectChanges();
+
+    const cells = fixture.debugElement.queryAll(By.css('.qc-chart-cell'));
+    expect((cells[0].nativeElement as HTMLElement).style.flexBasis).toBe('700px');
+  });
 });

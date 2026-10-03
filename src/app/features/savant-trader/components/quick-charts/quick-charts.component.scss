@@ -61,7 +61,9 @@
 .qc-chart-cell {
   display: flex;
   flex-direction: column;
-  flex: 0 0 420px;
+  // flex-basis comes from the cellHeight input ([style.flexBasis] in the
+  // template); grow/shrink stay pinned here.
+  flex: 0 0 auto;
   overflow: hidden;
   background: var(--mat-sys-surface);
   position: relative;

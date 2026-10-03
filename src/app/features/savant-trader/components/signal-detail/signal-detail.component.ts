@@ -67,7 +67,7 @@ const WEEKS_PER_MONTH = 4.33;        /** Average calendar weeks per month (52/12
 const RECENT_DAILY_BARS = 365;       /** 'recent' daily view: ~365 calendar days of bars (not trading days). */
 const RECENT_WEEKLY_BARS = 104;      /** 'recent' weekly view: ~2 years of weekly bars. */
 const RECENT_MONTHLY_BARS = 60;      /** 'recent' monthly view: 5 years of monthly bars. */
-const ALL_BARS_MAX = 99999;          /** Sentinel passed to initialZoomDays to show all available bars. */
+const ALL_BARS_MAX = 99999;          /** Sentinel passed to visibleBars to show all available bars. */
 
 @Component({
   selector: 'app-signal-detail',
@@ -158,7 +158,7 @@ export class SignalDetailComponent {
       .filter((cfg): cfg is IndicatorConfig => cfg !== undefined);
     const all = [...base, ...extras];
     if (!response || !bars || bars.length === 0) return all;
-    return injectCallableIndicatorData(all, response.intervals[key], bars);
+    return injectCallableIndicatorData(all, response.intervals[key], bars, `signal-detail:${key}`);
   }
 
   /** Pure function: assembles a `FlexChartConfig` for one chart in triple mode.
@@ -177,7 +177,7 @@ export class SignalDetailComponent {
       showCrosshair: true,
       showZoomToolbar,
       enableScrollbar: true,
-      initialZoomDays: rangeBars,
+      visibleBars: rangeBars,
       interval: SignalDetailComponent.intervalKey(interval),
       logScale,
     };
@@ -248,7 +248,7 @@ export class SignalDetailComponent {
   /** The interval currently rendered in single-chart mode. */
   selectedInterval = signal<BarsInterval>(BarsInterval.DAILY);
 
-  /** Selected time-range preset controlling `initialZoomDays` on all charts. */
+  /** Selected time-range preset controlling `visibleBars` on all charts. */
   selectedRange = signal<'recent' | '6m' | '1y' | '5y' | 'all'>('recent');
 
   /** The chart interval whose indicator menu badge is highlighted as 'active'.
@@ -315,7 +315,7 @@ export class SignalDetailComponent {
       showCrosshair: true,
       showZoomToolbar: this.showZoomToolbar(),
       enableScrollbar: true,
-      initialZoomDays: this.rangeBars(),
+      visibleBars: this.rangeBars(),
       interval: key,
       logScale: this.logScale(),
     };

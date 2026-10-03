@@ -1,8 +1,8 @@
 /**
  * Quick Charts Component
  *
- * Compact stacked M/W/D chart panel for the Grouped Review page.
- * Each chart shows 100 bars, no zoom controls.
+ * Compact stacked D/W/M chart panel for the Grouped Review page.
+ * Per-interval visibleBars windows (D 30 / W 30 / M 100), no zoom controls.
  * Data is loaded on demand when a symbol is selected.
  */
 import {
@@ -37,7 +37,15 @@ import {
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
 } from '../../utils/chart-indicators';
 
-const QUICK_BARS = 100;
+/** Per-interval initial windows — daily/weekly stay dense (30 bars ≈ 6 weeks /
+ *  ~7 months); monthly keeps the long-context 100-bar view. */
+const QUICK_VISIBLE_BARS: Record<ChartIntervalKey, number> = {
+  [ChartIntervalKey.DAILY]: 30,
+  [ChartIntervalKey.WEEKLY]: 30,
+  [ChartIntervalKey.MONTHLY]: 100,
+};
+
+const DEFAULT_CELL_HEIGHT_PX = 560;
 
 @Component({
   selector: 'app-quick-charts',
@@ -72,6 +80,9 @@ export class QuickChartsComponent {
    */
   readonly logScale = input<boolean>(true);
 
+  /** Height (px) of each chart cell in the stack. */
+  readonly cellHeight = input<number>(DEFAULT_CELL_HEIGHT_PX);
+
   /** Shared crosshair date and price — whichever chart is hovered broadcasts here; all charts receive it. */
   readonly sharedCrosshairDate = signal<Date | null>(null);
   readonly sharedCrosshairPrice = signal<number | null>(null);
@@ -93,7 +104,7 @@ export class QuickChartsComponent {
       showCrosshair: true,
       showZoomToolbar: false,
       enableScrollbar: false,
-      initialZoomDays: QUICK_BARS,
+      visibleBars: QUICK_VISIBLE_BARS[interval],
       interval,
       logScale: this.logScale(),
     };
@@ -104,6 +115,7 @@ export class QuickChartsComponent {
       buildBaseIndicators(ChartIntervalKey.MONTHLY),
       this.monthlyIntervalData(),
       this.chartStore.monthlyData()?.bars ?? [],
+      'monthly',
     );
     return this.buildQuickChartConfig(ChartIntervalKey.MONTHLY, indicators);
   });
@@ -114,6 +126,7 @@ export class QuickChartsComponent {
         buildBaseIndicators(ChartIntervalKey.WEEKLY),
         this.weeklyIntervalData(),
         this.chartStore.weeklyData()?.bars ?? [],
+        'weekly',
       ),
       {
         htfWindow: { option: ST_ZONE_WINDOW_MONTHLY_INDICATOR, data: this.extras.windowDataMonthlyOnWeekly() },
@@ -131,6 +144,7 @@ export class QuickChartsComponent {
         buildBaseIndicators(ChartIntervalKey.DAILY),
         this.dailyIntervalData(),
         this.chartStore.dailyData()?.bars ?? [],
+        'daily',
       ),
       {
         htfWindow: { option: ST_ZONE_WINDOW_WEEKLY_INDICATOR, data: this.extras.windowDataWeeklyOnDaily() },

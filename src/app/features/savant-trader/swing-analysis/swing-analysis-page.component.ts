@@ -41,8 +41,8 @@ import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators
 /** Default symbol loaded when the page opens. */
 const DEFAULT_SYMBOL = 'QQQ';
 
-/** Sentinel for initialZoomDays — show all available bars on load
- *  (zoomFactor clamps at 1 when days exceed bar count). */
+/** Sentinel for visibleBars — show all available bars on load
+ *  (zoomFactor clamps at 1 when the count exceeds bar count). */
 const ALL_BARS_MAX = 99999;
 
 /**
@@ -293,7 +293,7 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     showCrosshair: true,
     showZoomToolbar: true,
     interval: ChartIntervalKey.DAILY,
-    initialZoomDays: ALL_BARS_MAX,
+    visibleBars: ALL_BARS_MAX,
     logScale: this.logScale(),
   }));
 
