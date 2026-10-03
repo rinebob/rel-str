@@ -8,6 +8,7 @@
  */
 
 import { Injectable } from '@angular/core';
+import type { ChartPalette } from '../chart-theme';
 import type { PriceBar } from '../flex-chart.types';
 import { ChartYAxisViewport } from '../store/chart-viewport.store';
 import {
@@ -24,7 +25,9 @@ export interface PrimaryYAxisConfig {
   valueType: 'Double';
   opposedPosition: boolean;
   rowIndex: number;
-  majorGridLines: { width: number };
+  labelStyle: { color: string };
+  lineStyle: { color: string };
+  majorGridLines: { width: number; color?: string };
   crosshairTooltip: { enable: boolean };
   minimum?: number;
   maximum?: number;
@@ -63,13 +66,15 @@ export class ChartYAxisViewportController {
    * The actual min/max are applied imperatively by the lifecycle facade from the
    * current `ChartYAxisViewport`.
    */
-  buildAxisConfig(logScale: boolean, rowIndex: number): PrimaryYAxisConfig {
+  buildAxisConfig(logScale: boolean, rowIndex: number, palette: ChartPalette): PrimaryYAxisConfig {
     const base: PrimaryYAxisConfig = {
       labelFormat: '{value}',
       valueType: 'Double',
       opposedPosition: true,
       rowIndex,
-      majorGridLines: { width: 1 },
+      labelStyle: { color: palette.axisText },
+      lineStyle: { color: palette.axisLine },
+      majorGridLines: { width: 1, color: palette.gridLine },
       crosshairTooltip: { enable: false },
     };
 

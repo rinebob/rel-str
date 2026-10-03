@@ -26,7 +26,8 @@ export function computeIndicators(
     // Otherwise calculate from bars
     const calculator = indicatorCalculators[config.type];
     if (!calculator) {
-      console.warn(`[FlexChart] No calculator for indicator type: ${config.type}`);
+      // Externally-supplied indicators (e.g. signal dots, uptick dots) intentionally
+      // have no calculator; they render their precomputed config.data when present.
       return { id: config.id, config, data: [] };
     }
 
