@@ -1,6 +1,11 @@
 # Changelog
 
 
+## [2026-10-03]
+
+### Added
+- [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Add ±50 visible-bar controls to the quick-charts daily chart — −50/+50 buttons in the Daily label row, floor 30 / ceiling = loaded bars; includes 250ms symbol-change load debounce (checkpoint)
+
 ## [2026-10-01]
 
 ### Added
