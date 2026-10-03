@@ -30,7 +30,14 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { UiStateService } from '../../../../core/services/ui-state.service';
 
-import { ChartStore } from '../../stores/chart.store';
+import {
+  ChartStore,
+  DEFAULT_CHART_INDICATORS,
+  DEFAULT_CHART_INTERVALS,
+  DEFAULT_CHART_STRATEGIES,
+} from '../../stores/chart.store';
+import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
+import { addChartExtras, createExtrasSignals } from '../../utils/chart-indicators';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import type {
   FlexChartConfig,
@@ -94,6 +101,7 @@ const INTERVAL_TO_BARS: Record<ChartIntervalKey, BarsInterval> = {
 export class FlexChartSandboxComponent implements OnInit, OnDestroy {
   readonly ChartIntervalKey = ChartIntervalKey;
   readonly chartStore = inject(ChartStore);
+  private readonly indicatorStore = inject(IndicatorSeriesStore);
   private readonly ui = inject(UiStateService);
 
   readonly symbol = signal(DEFAULT_SYMBOL);
@@ -155,18 +163,57 @@ export class FlexChartSandboxComponent implements OnInit, OnDestroy {
     return { ...data, bars: data.bars.slice(-maxBars) };
   });
 
-  readonly config = computed<FlexChartConfig>(() => ({
-    indicators: ST_INDICATOR_OPTIONS
-      .filter((o) => this.enabledIndicators().has(o.id))
-      .map(buildDefaultConfig),
-    showCrosshair: true,
-    showZoomToolbar: true,
-    enableScrollbar: true,
-    showTooltips: true,
-    visibleBars: SHOW_ALL_BARS,
-    interval: this.interval(),
-    logScale: this.logScale(),
-  }));
+  /** Cached indicator series response for the loaded symbol (real mode only) —
+   *  same lookup quick-charts and signal-detail use. */
+  private readonly indicatorResponse = computed(() => {
+    const symbol = this.symbol();
+    const version = this.chartStore.symbolDataVersion();
+    if (this.dataMode() === 'synthetic' || !symbol || !version) return undefined;
+    return this.indicatorStore.responseFor()(
+      symbol,
+      version,
+      DEFAULT_CHART_INTERVALS,
+      DEFAULT_CHART_INDICATORS,
+      DEFAULT_CHART_STRATEGIES,
+    );
+  });
+
+  private readonly dailyIntervalData = computed(() => this.indicatorResponse()?.intervals?.daily);
+  private readonly weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
+
+  /** Backend signal dots / Trend Rider dots, converted by the shared helper. */
+  private readonly extras = createExtrasSignals(this.dailyIntervalData, this.weeklyIntervalData);
+
+  readonly config = computed<FlexChartConfig>(() => {
+    const enabled = this.enabledIndicators();
+    const interval = this.interval();
+    const base = ST_INDICATOR_OPTIONS.filter((o) => enabled.has(o.id)).map(buildDefaultConfig);
+    const has = (id: string) => enabled.has(id);
+    const indicators =
+      interval === ChartIntervalKey.DAILY
+        ? addChartExtras(base, {
+            signalDots: has(ST_SIGNAL_DOTS_INDICATOR.id) ? this.extras.dailySignalDots() : undefined,
+            uptickDotsV1: has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.extras.dailyUptickDotsV1() : undefined,
+            uptickDotsV2: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.extras.dailyUptickDotsV2() : undefined,
+          })
+        : interval === ChartIntervalKey.WEEKLY
+          ? addChartExtras(base, {
+              signalDots: has(ST_SIGNAL_DOTS_INDICATOR.id) ? this.extras.weeklySignalDots() : undefined,
+              uptickDotsV1: has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.extras.weeklyUptickDotsV1() : undefined,
+              uptickDotsV2: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.extras.weeklyUptickDotsV2() : undefined,
+            })
+          : base;
+    return {
+      indicators,
+      showCrosshair: true,
+      showZoomToolbar: true,
+      enableScrollbar: true,
+      showTooltips: true,
+      visibleBars: SHOW_ALL_BARS,
+      interval,
+      logScale: this.logScale(),
+    };
+  });
 
   // ── Debug readout ──────────────────────────────────────────────────────
 

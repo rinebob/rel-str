@@ -202,6 +202,39 @@ describe('FlexChartSandboxComponent', () => {
     expect(chart.config?.logScale).toBe(true);
   });
 
+  it('feeds backend dotMarkers into the signal-dot and Trend Rider indicators', async () => {
+    const dot = (d: string, index: number) => ({
+      d, index, direction: 'long' as const, y: 1, version: 'TS' as const, signalType: 'X',
+    });
+    const response = {
+      symbol: 'QQQ',
+      marketDate: '2026-01-10',
+      computedAt: '',
+      intervals: {
+        daily: {
+          indicators: {},
+          signals: {},
+          dotMarkers: {
+            trendStrength: [dot('2026-01-03', 2)],
+            zoneV1: [dot('2026-01-04', 3)],
+            zoneV2: [dot('2026-01-05', 4)],
+          },
+        },
+      },
+    };
+    const original = mockIndicatorStore.responseFor;
+    mockIndicatorStore.responseFor = () => () => response as never;
+    try {
+      const { chart } = await setup();
+      const byId = (id: string) => chart.config?.indicators.find((i) => i.id === `${id}-default`);
+      expect((byId('st-signal-dots')?.data as unknown[])?.length).toBe(1);
+      expect((byId('st-zone-v1-uptick-dots')?.data as unknown[])?.length).toBe(1);
+      expect((byId('st-zone-v2-uptick-dots')?.data as unknown[])?.length).toBe(1);
+    } finally {
+      mockIndicatorStore.responseFor = original;
+    }
+  });
+
   it('debug readout shows viewport, axis range, and visible data hi/lo', async () => {
     const { fixture, chart } = await setup();
     chart.debugStateChange.emit({
