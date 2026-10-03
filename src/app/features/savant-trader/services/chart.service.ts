@@ -71,7 +71,10 @@ export class ChartService {
         }
         return { ...this.buildDatasets(symbol, result.daily, result.weekly, result.monthly), version: result.version };
       }),
-      catchError(() => of({ ...this.emptyDatasets(symbol), version: '' }))
+      catchError((err: unknown) => {
+        console.error(`[chart-service] ${symbol} bar load failed; returning empty datasets`, err);
+        return of({ ...this.emptyDatasets(symbol), version: '' });
+      })
     );
   }
 
