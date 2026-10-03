@@ -225,6 +225,7 @@ export function computeAllBands(bars: PriceBar[]): BandSeriesData[] {
     bearColor: colors[bandIdx][1],
     data: bars.map((b, i) => ({
       index: i,
+      date: b.x,
       open: band.o[i],
       high: band.h[i],
       low: band.l[i],
@@ -233,9 +234,18 @@ export function computeAllBands(bars: PriceBar[]): BandSeriesData[] {
   }));
 }
 
+export interface BandDataPoint {
+  index: number;
+  date?: Date;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+}
+
 export interface BandSeriesData {
   bandIndex: number;
   bullColor: string;
   bearColor: string;
-  data: { index: number; open: number; high: number; low: number; close: number }[];
+  data: BandDataPoint[];
 }

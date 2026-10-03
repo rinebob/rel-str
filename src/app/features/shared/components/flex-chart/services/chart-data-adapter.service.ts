@@ -5,9 +5,15 @@ import type {
   ComputedIndicatorSeries,
   IndicatorPane,
 } from '../flex-chart.types';
-import { StIndicator } from '../flex-chart.types';
+import {
+  StIndicator,
+  MAIN_PANE_PERCENT_DEFAULT,
+  MAIN_PANE_PERCENT_MAX,
+  MAIN_PANE_PERCENT_MIN,
+} from '../flex-chart.types';
+import { resolveChartPalette } from '../chart-theme';
 import { computeIndicators, groupIndicatorsByPane } from '../flex-chart-calculations';
-import { computeAllBands, type BandSeriesData } from '../indicators/st-trend-bands.indicator';
+import { computeAllBands, type BandSeriesData, type BandDataPoint } from '../indicators/st-trend-bands.indicator';
 import { computeStdDevLinesSeries, type StdDevLineSeriesData } from '../indicators/st-std-dev-lines.indicator';
 import { computeZigZagSeries, type ZigZagChartSeries } from '../indicators/st-zigzag.indicator';
 import { toLogAxis } from '../strategies/log-transform';
@@ -42,6 +48,8 @@ export interface ChartAxisView {
   maximum: number | undefined;
   /** Label format string; empty string hides labels on inactive (empty) panes. */
   labelFormat: string;
+  /** Axis label text color — from the active chart palette. */
+  labelStyle: { color: string };
   /** Grid line style — hidden (width 0) on inactive panes. */
   majorGridLines: { width: number; color: string };
   /** Axis border line style — hidden (width 0) on inactive panes. */
@@ -50,6 +58,10 @@ export interface ChartAxisView {
   crosshairTooltip: { enable: boolean };
   /** No range padding — indicators define their own meaningful Y extents. */
   rangePadding: 'None';
+  /** Vertical insets (px) inside the pane's row so dots/lines don't rest on
+   *  the pane divider borders. */
+  plotOffsetTop: number;
+  plotOffsetBottom: number;
   stripLines: {
     start: number;
     size: number;
@@ -119,6 +131,17 @@ export class ChartDataAdapter {
     this.config = config;
   }
 
+  /** Active theme palette — resolved from `config.appearance` (default dark). */
+  private readonly palette = computed(() => resolveChartPalette(this.config().appearance));
+
+  /** Remap an emitted color through the active palette. Indicator calculators
+   *  and external builders emit the light-vocabulary hexes — known values get
+   *  appearance-specific variants; custom colors pass through unchanged. */
+  private themeColor(color: string | undefined): string | undefined {
+    if (!color) return color;
+    return this.palette().colorRemap[color.toLowerCase()] ?? color;
+  }
+
   /** Bars mapped to Category-axis index values with display labels. */
   categoryBars = computed(() => {
     const data = this.chartData();
@@ -130,7 +153,6 @@ export class ChartDataAdapter {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
-        timeZone: 'UTC',
       });
       return { index, ...this.mapOhlc(bar), date: bar.x, label };
     });
@@ -162,13 +184,36 @@ export class ChartDataAdapter {
       // 'overlay' renders on the main price pane — every numeric value field
       // on a main-pane series is a price and transforms to axis units.
       const isPrimaryPane = series.config.pane === 'main' || series.config.pane === 'overlay';
+      const options = series.config.options;
+      const themedConfig = options.color || options.color2
+        ? {
+            ...series.config,
+            options: {
+              ...options,
+              color: this.themeColor(options.color),
+              color2: this.themeColor(options.color2),
+            },
+          }
+        : series.config;
       return {
         ...series,
+        config: themedConfig,
         data: series.data
           .map((point) => {
-            if (!point.x) return { ...point, index: -1 };
-            const index = dateToIndex.get(point.x.getTime());
-            const p = { ...point, index: index ?? -1 };
+            const themed = {
+              ...point,
+              color: this.themeColor(point.color),
+              y2Color: this.themeColor(point.y2Color),
+            };
+            if (!point.x) return { ...themed, index: -1 };
+            const rawIndex = dateToIndex.get(point.x.getTime());
+            const mappedIndex = rawIndex == null || rawIndex >= data.bars.length ? -1 : rawIndex;
+            if (rawIndex != null && rawIndex >= data.bars.length) {
+              console.warn(
+                `[flex-chart] ${series.config.type} point ${point.x.toISOString()} mapped to index ${rawIndex} but only ${data.bars.length} bars exist; dropping.`,
+              );
+            }
+            const p = { ...themed, index: mappedIndex };
             return isPrimaryPane
               ? this.mapFields(p, ['y', 'y2', 'y3', 'bandHigh', 'bandLow'])
               : p;
@@ -197,9 +242,13 @@ export class ChartDataAdapter {
    *  when available; falls back to inline computation from bars otherwise.
    */
   trendBandSeries = computed<BandSeriesData[]>(() => {
+    const data = this.chartData();
     const mainSeries = this.mainPaneSeries();
     const trendBands = mainSeries.find((s) => s.config.type === StIndicator.TREND_BANDS);
-    if (!trendBands) return [];
+    if (!data || data.bars.length === 0 || !trendBands) return [];
+
+    const dateToIndex = this.dateToIndex();
+    const barCount = data.bars.length;
 
     const bands = trendBands.config.bandData && trendBands.config.bandData.length > 0
       ? trendBands.config.bandData
@@ -207,7 +256,54 @@ export class ChartDataAdapter {
 
     return bands.map((band) => ({
       ...band,
-      data: band.data.map((p) => this.mapOhlc(p)),
+      bullColor: this.themeColor(band.bullColor) ?? band.bullColor,
+      bearColor: this.themeColor(band.bearColor) ?? band.bearColor,
+      data: (() => {
+        const mapped = band.data
+          .map((p) => {
+            // Rebase by date when the band data was computed against a different bar set
+            // (e.g. full history vs. a clipped two-year view). Fall back to the stored
+            // index only when no date is available; then clamp to the current category range.
+            let index = p.index;
+            if (p.date) {
+              const rebased = dateToIndex.get(p.date.getTime());
+              if (rebased !== undefined) index = rebased;
+            }
+            if (index < 0 || index >= barCount) {
+              if (index >= barCount) {
+                console.warn(
+                  `[flex-chart] ST Trend Band point ${p.date?.toISOString() ?? `#${p.index}`} mapped to index ${index} but only ${barCount} bars exist; dropping.`,
+                );
+              }
+              return null;
+            }
+            const numericP = p as unknown as { index: number; date?: Date; open: number; high: number; low: number; close: number };
+            return this.mapOhlc({ ...numericP, index }) as BandDataPoint;
+          })
+          .filter((p): p is BandDataPoint => p != null)
+          // Syncfusion builds the Category axis category order from the first rendered
+          // candle series' data array order. Sorting guarantees ascending indices and
+          // prevents a reversed/wrapped axis when the callable response returns points
+          // newest-first.
+          .sort((a, b) => a.index - b.index);
+
+        // Syncfusion's Category X-axis derives its category list from the first
+        // candle series. If that series starts after index 0, the missing leading
+        // categories are appended at the end, wrapping early price candles to the
+        // right edge. Pad every band series to the full bar range with empty points
+        // so the axis always sees categories 0..barCount-1 in order.
+        const dense: BandDataPoint[] = new Array(barCount).fill(null).map((_, i) => ({
+          index: i,
+          open: null,
+          high: null,
+          low: null,
+          close: null,
+        }));
+        for (const p of mapped) {
+          dense[p.index] = p;
+        }
+        return dense;
+      })(),
     }));
   });
 
@@ -229,10 +325,12 @@ export class ChartDataAdapter {
     return {
       lines: series.lines.map((line) => ({
         ...line,
+        color: this.themeColor(line.color) ?? line.color,
         data: line.data.map((p) => this.mapY(p)),
       })),
       fills: series.fills.map((fill) => ({
         ...fill,
+        color: this.themeColor(fill.color) ?? fill.color,
         data: fill.data.map((p) => this.mapFields(p, ['high', 'low'])),
       })),
     };
@@ -264,18 +362,23 @@ export class ChartDataAdapter {
         ...zz,
         lines: zz.lines.map((line) => ({
           ...line,
+          color: this.themeColor(line.color) ?? line.color,
           data: line.data.map((p) => this.mapY(p)),
         })),
         projectedLine: zz.projectedLine
           ? {
               ...zz.projectedLine,
+              color: this.themeColor(zz.projectedLine.color) ?? zz.projectedLine.color,
               data: zz.projectedLine.data.map((p) => this.mapY(p)),
             }
           : undefined,
         triggers: zz.triggers
           ? {
               ...zz.triggers,
-              data: zz.triggers.data.map((p) => this.mapY(p)),
+              data: zz.triggers.data.map((p) => ({
+                ...this.mapY(p),
+                color: this.themeColor(p.color) ?? p.color,
+              })),
             }
           : undefined,
       };
@@ -310,23 +413,27 @@ export class ChartDataAdapter {
    *  whenever the indicator config changes.
    */
   chartAxes = computed<ChartAxisView[]>(() => {
+    const palette = this.palette();
     return this.lowerPanes().map((pane, index) => {
       const stripLines = pane.series
         .flatMap((s) => s.config.options.referenceLines || [])
-        .map((ref) => ({
-          start: ref.value,
-          size: 1,
-          sizeType: 'Pixel' as const,
-          color: ref.color,
-          dashArray: ref.dashArray || '',
-          visible: true,
-          opacity: 1,
-          zIndex: 'Over' as const,
-          text: '',
-          textStyle: { color: ref.color, size: '10px' },
-          horizontalAlignment: 'End' as const,
-          verticalAlignment: 'Middle' as const,
-        }));
+        .map((ref) => {
+          const color = this.themeColor(ref.color) ?? ref.color;
+          return {
+            start: ref.value,
+            size: 1,
+            sizeType: 'Pixel' as const,
+            color,
+            dashArray: ref.dashArray || '',
+            visible: true,
+            opacity: 1,
+            zIndex: 'Over' as const,
+            text: '',
+            textStyle: { color, size: '10px' },
+            horizontalAlignment: 'End' as const,
+            verticalAlignment: 'Middle' as const,
+          };
+        });
 
       return {
         name: pane.axisName,
@@ -336,10 +443,13 @@ export class ChartDataAdapter {
         minimum: pane.useFixedScale ? 0 : pane.axisMin,
         maximum: pane.useFixedScale ? 100 : pane.axisMax,
         labelFormat: pane.series.length > 0 ? '{value}' : '',
-        majorGridLines: { width: pane.series.length > 0 ? 0.5 : 0, color: 'rgba(158,158,158,0.3)' },
-        lineStyle: { width: pane.series.length > 0 ? 1 : 0, color: '#9e9e9e' },
+        labelStyle: { color: palette.axisText },
+        majorGridLines: { width: pane.series.length > 0 ? 0.5 : 0, color: palette.gridLine },
+        lineStyle: { width: pane.series.length > 0 ? 1 : 0, color: palette.axisLine },
         crosshairTooltip: { enable: false },
         rangePadding: 'None' as const,
+        plotOffsetTop: 8,
+        plotOffsetBottom: 8,
         stripLines,
       };
     });
@@ -347,13 +457,21 @@ export class ChartDataAdapter {
 
   /** Row heights for all panes — collapses inactive lower panes to 0% so they
    *  don't consume space. Depends on `lowerPanes()` so it updates with indicator config.
+   *  The main pane takes `mainPanePercent` (clamped); the remainder splits evenly
+   *  across active lower panes with the Math.floor residue landing back on main.
    */
   chartRows = computed(() => {
     const panes = this.lowerPanes();
     const activePaneCount = panes.filter((p) => p.series.length > 0).length;
-    const lowerPct = activePaneCount > 0 ? Math.floor(55 / activePaneCount) : 0;
-    const rows = panes.map((pane) => ({ height: pane.series.length > 0 ? `${lowerPct}%` : '0%' }));
-    rows.push({ height: `${100 - lowerPct * activePaneCount}%` });
+    const requested = this.config().mainPanePercent ?? MAIN_PANE_PERCENT_DEFAULT;
+    const mainPct = Math.min(MAIN_PANE_PERCENT_MAX, Math.max(MAIN_PANE_PERCENT_MIN, requested));
+    const lowerPct = activePaneCount > 0 ? Math.floor((100 - mainPct) / activePaneCount) : 0;
+    const border = { color: this.palette().paneDivider, width: 1 };
+    const rows = panes.map((pane) => ({
+      height: pane.series.length > 0 ? `${lowerPct}%` : '0%',
+      border,
+    }));
+    rows.push({ height: `${100 - lowerPct * activePaneCount}%`, border });
     return rows;
   });
 }
