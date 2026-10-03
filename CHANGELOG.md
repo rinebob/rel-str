@@ -28,6 +28,9 @@
 - [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Adopt flex-chart config changes across consumers (checkpoint)
 - [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Enable signal dots and trend riders by default in sandbox (checkpoint)
 - [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Add indicator-converter unit tests (checkpoint)
+- [Flex Chart Visual Polish] 213-731_SHARED-BUG-FLEX-CHART: Keep price as the Category-axis anchor when Trend Bands is off (checkpoint)
+- [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Wire backend signal dots and Trend Rider dots into the flex-chart sandbox (checkpoint)
+- [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Log swallowed bar-load errors in ChartService (checkpoint)
 
 ### Changed
 - [Navigation and Workflows] Topic #625 renamed from "Trading Workflows" (2026-10-01) — issue title, all `**Topic:**` doc headers, PRD title subtitles, and CONTEXT.md reference updated; `WORKFLOWS` domain label, `625-workflows/` dir, and `trading-workflows` slugs unchanged. Prior changelog entries retain the `[Trading Workflows]` tag as shipped
