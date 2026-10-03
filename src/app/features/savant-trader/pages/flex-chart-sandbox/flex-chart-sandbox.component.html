@@ -93,7 +93,9 @@
     <span data-testid="dbg-viewport">viewport: {{ debugViewportText() }}</span>
     <span data-testid="dbg-axis">axis: {{ debugAxisText() }}</span>
     <span data-testid="dbg-visible">visible hi/lo: {{ debugVisibleText() }}</span>
+    <span data-testid="dbg-xrange">x-range: {{ debugXRangeText() }}</span>
     <span data-testid="dbg-ticks">log ticks: {{ debugTicksText() }}</span>
+    <span data-testid="dbg-theme">theme: {{ debugThemeText() }}</span>
   </div>
 
   @if (dataMode() === 'real' && chartStore.loading()) {
@@ -102,7 +104,7 @@
   @if (dataMode() === 'real' && chartStore.error(); as err) {
     <p class="error">{{ err }}</p>
   }
-  @if (chartData(); as data) {
+  @if (clippedData(); as data) {
     <app-flex-chart
       [chartData]="data"
       [config]="config()"

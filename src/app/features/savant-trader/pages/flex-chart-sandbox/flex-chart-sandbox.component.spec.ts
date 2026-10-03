@@ -306,17 +306,27 @@ describe('FlexChartSandboxComponent', () => {
 
   it('indicator checkboxes add default-config ST indicators to the chart config', async () => {
     const { fixture, chart } = await setup();
-    expect(chart.config?.indicators).toEqual([]);
+    // Sandbox now defaults to the core ST suite plus signal dots and trend riders.
+    const defaultIds = [
+      'st-trend-bands-default',
+      'st-trend-strength-default',
+      'st-zone-default',
+      'st-zone-v2-default',
+      'st-signal-dots-default',
+      'st-zone-v1-uptick-dots-default',
+      'st-zone-v2-uptick-dots-default',
+    ];
+    expect(chart.config?.indicators.map((i) => i.id)).toEqual(defaultIds);
 
     const box = fixture.nativeElement.querySelector('[data-testid="ind-st-zigzag"]') as HTMLInputElement;
     box.click();
     fixture.detectChanges();
-    expect(chart.config?.indicators).toHaveLength(1);
-    expect(chart.config?.indicators[0].type).toBe(StIndicator.ST_ZIGZAG);
+    expect(chart.config?.indicators).toHaveLength(8);
+    expect(chart.config?.indicators[chart.config!.indicators.length - 1].type).toBe(StIndicator.ST_ZIGZAG);
 
     box.click();
     fixture.detectChanges();
-    expect(chart.config?.indicators).toEqual([]);
+    expect(chart.config?.indicators.map((i) => i.id)).toEqual(defaultIds);
   });
 });
 

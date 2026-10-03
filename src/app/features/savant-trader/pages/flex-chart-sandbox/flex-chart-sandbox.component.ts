@@ -19,6 +19,7 @@ import {
   HostListener,
   inject,
   signal,
+  viewChild,
   ChangeDetectionStrategy,
   OnDestroy,
   OnInit,
@@ -35,13 +36,18 @@ import type {
   FlexChartConfig,
   FlexChartDataset,
 } from '../../../shared/components/flex-chart/flex-chart.types';
-import { ChartIntervalKey } from '../../../shared/components/flex-chart/flex-chart.types';
+import { ChartIntervalKey, StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import {
   ST_INDICATOR_OPTIONS,
   buildDefaultConfig,
 } from '../../../shared/components/flex-chart/indicators/indicator-registry';
+import { ST_SIGNAL_DOTS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
+import {
+  ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
+  ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
+} from '../../../shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
 import {
   generateSyntheticBars,
   SYNTHETIC_PRESETS,
@@ -51,6 +57,23 @@ import {
 const DEFAULT_SYMBOL = 'QQQ';
 /** Sentinel — clamped to the loaded bar count, so "all of history". */
 const SHOW_ALL_BARS = 1_000_000;
+
+/** Roughly two years of bars per interval (trading days for daily). */
+const TWO_YEAR_BARS: Record<ChartIntervalKey, number> = {
+  [ChartIntervalKey.DAILY]: 504,
+  [ChartIntervalKey.WEEKLY]: 104,
+  [ChartIntervalKey.MONTHLY]: 24,
+};
+
+const DEFAULT_ENABLED_INDICATORS = new Set<string>([
+  StIndicator.TREND_BANDS,
+  StIndicator.TREND_STRENGTH,
+  StIndicator.ZONE,
+  StIndicator.ZONE_V2,
+  ST_SIGNAL_DOTS_INDICATOR.id,
+  ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id,
+  ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id,
+]);
 
 type DataMode = 'real' | 'synthetic';
 
@@ -79,14 +102,26 @@ export class FlexChartSandboxComponent implements OnInit, OnDestroy {
   readonly dataMode = signal<DataMode>('real');
   readonly preset = signal<SyntheticPreset>('wide-ratio');
   readonly presets = SYNTHETIC_PRESETS;
-  /** ST indicator option ids currently enabled — the overlay-alignment
-   *  verification target for log mode (trend bands / std-dev lines /
-   *  zigzag on the price pane; lower-pane ST series stay raw). */
-  readonly enabledIndicators = signal<ReadonlySet<string>>(new Set());
+  /** ST indicator option ids currently enabled — default to the core ST
+   *  suite (trend bands + trend strength + zones V1/V2). */
+  readonly enabledIndicators = signal<ReadonlySet<string>>(DEFAULT_ENABLED_INDICATORS);
   readonly indicatorOptions = ST_INDICATOR_OPTIONS;
   readonly debugState = signal<ChartDebugSnapshot>({ viewport: null, axis: null, logTicks: [] });
 
   @ViewChild('indicatorPicker') private indicatorPicker?: ElementRef<HTMLDetailsElement>;
+  private readonly flexChart = viewChild(FlexChartComponent);
+
+  /** Live palette/band colors as the adapter actually emits them — debug aid
+   *  for verifying theme remapping reaches the rendered series. */
+  readonly debugThemeText = computed(() => {
+    const fc = this.flexChart();
+    if (!fc) return '—';
+    const bands = fc.trendBandSeries();
+    const bandTxt = bands.length
+      ? bands.map((b) => `b${b.bandIndex}:${b.bullColor}/${b.bearColor}`).join(' ')
+      : 'none';
+    return `${fc.appearance()} | ${bandTxt}`;
+  });
 
   /** Memoized by the computed — bars regenerate only when the preset changes,
    *  so an unrelated signal flip doesn't produce a fresh array identity. */
@@ -111,6 +146,15 @@ export class FlexChartSandboxComponent implements OnInit, OnDestroy {
     }
   });
 
+  /** Clamp the sandbox chart to the last two years of bars per interval. */
+  readonly clippedData = computed<FlexChartDataset | null>(() => {
+    const data = this.chartData();
+    if (!data) return null;
+    const maxBars = TWO_YEAR_BARS[this.interval()];
+    if (data.bars.length <= maxBars) return data;
+    return { ...data, bars: data.bars.slice(-maxBars) };
+  });
+
   readonly config = computed<FlexChartConfig>(() => ({
     indicators: ST_INDICATOR_OPTIONS
       .filter((o) => this.enabledIndicators().has(o.id))
@@ -119,7 +163,7 @@ export class FlexChartSandboxComponent implements OnInit, OnDestroy {
     showZoomToolbar: true,
     enableScrollbar: true,
     showTooltips: true,
-    initialZoomDays: SHOW_ALL_BARS,
+    visibleBars: SHOW_ALL_BARS,
     interval: this.interval(),
     logScale: this.logScale(),
   }));
@@ -161,6 +205,16 @@ export class FlexChartSandboxComponent implements OnInit, OnDestroy {
       if (bar.low < visibleLow) visibleLow = bar.low;
     }
     return `${visibleLow.toFixed(2)} – ${visibleHigh.toFixed(2)}`;
+  });
+
+  /** Temporary diagnostic — shows whether the X-axis range matches the data. */
+  readonly debugXRangeText = computed(() => {
+    const axis = this.debugState().axis;
+    const bars = this.clippedData()?.bars ?? [];
+    if (!axis || bars.length === 0) return '—';
+    const { min, max } = axis.xAxis.visibleRange;
+    const lastIdx = bars.length - 1;
+    return `bars=${bars.length} lastIdx=${lastIdx} visibleMin=${min.toFixed(2)} visibleMax=${max.toFixed(2)}`;
   });
 
   readonly debugSourceText = computed(() =>
