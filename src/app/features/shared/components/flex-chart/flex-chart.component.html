@@ -51,7 +51,11 @@
              order from the full 0..barCount-1 price indices. Putting bands
              before price made the axis start at the first band index (8),
              which wrapped the first 8 price candles to the right edge.
-             zOrder=1 paints price on top of the bands. -->
+             Price keeps the default zOrder (0): Syncfusion sorts the series
+             collection by zOrder before building categories, so any series
+             with a lower zOrder than price sorts ahead of it, and a higher
+             one would let price sort behind partial-range overlays. Only the
+             bands (zOrder=-1, padded to full range) sort ahead of price. -->
         <e-series
           [dataSource]="categoryBars()"
           type="Candle"
@@ -64,7 +68,6 @@
           [bullFillColor]="palette().candleDown"
           [enableSolidCandles]="true"
           [columnWidth]="1.0"
-          [zOrder]="1"
           [enableTooltip]="true"
           [animation]="noAnimation">
         </e-series>
