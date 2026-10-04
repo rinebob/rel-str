@@ -40,6 +40,8 @@ export enum AppRoutes {
 	OPTION_CHAIN = 'options/chain',
 	SWING_ANALYSIS = 'analysis/swings',
 	FLEX_CHART_SANDBOX = 'dev/flex-chart',
+	/** Gallery View dev surface — promoted to trading/gallery by #762 (#743). */
+	DEV_GALLERY = 'dev/gallery',
 	/** PROTOTYPE — throwaway Today-surface variants route. Remove after decision. */
 	PROTOTYPE_TODAY = 'prototype-today',
 	/** Topic Viewer: read-only GitHub issue-lifecycle tree (#619). */

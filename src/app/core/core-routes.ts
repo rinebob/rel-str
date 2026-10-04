@@ -195,6 +195,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.FlexChartSandboxComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.DEV_GALLERY,
+                loadComponent: () => import('../features/savant-trader/pages/gallery-view/gallery-view.component')
+                .then(mod => mod.GalleryViewComponent),
+                canActivate: [authGuard],
+            },
             // PROTOTYPE — throwaway Today-surface variants. Remove after decision.
             {path: AppRoutes.PROTOTYPE_TODAY,
                 loadComponent: () => import('../features/prototype-today/prototype-today.component')
