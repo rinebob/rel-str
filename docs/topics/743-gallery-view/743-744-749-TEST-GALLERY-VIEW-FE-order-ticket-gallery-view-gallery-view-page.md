@@ -7,9 +7,9 @@
 **Topic Parent:** #743  
 **Domain:** GALLERY-VIEW  
 **Type:** TEST  
-**Status:** Draft  
+**Status:** Approved  
 **Created:** 2026-10-03  
-**Last Updated:** 2026-10-03  
+**Last Updated:** 2026-10-04  
 
 # Test Plan — FE: Gallery View Page
 

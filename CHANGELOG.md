@@ -14,6 +14,14 @@
 - [On-demand Screenshot Capture] 746-765_DOCS-SCREENSHOT: Topic docs — PRD, BE-SH + FE IMPL/TEST, code review (PASS, 2 rounds), UAT (Complete)
 
 ### Added
+- [Gallery Order Ticket View] 743-754_FE-IMPL-GALLERY-VIEW: Shared helpers — signalsBySymbolForRun/hasPendingRunHistory run-history accessors, marketCapTierRank export (Object.hasOwn), fillSignalClosePrices
+- [Gallery Order Ticket View] 743-754_FE-IMPL-GALLERY-VIEW: SymbolHistoryStore — fills missing signal closePrice from the firing bar's close (backend never wrote `close`; fixes signal-review's signalPrice anchor too)
+- [Gallery Order Ticket View] 743-754_FE-IMPL-GALLERY-VIEW: GalleryUiStore — page-local timeframe/direction/list/sort state
+- [Gallery Order Ticket View] 743-754_FE-IMPL-GALLERY-VIEW: Card aggregation utils — one card per symbol+side, D/W merge, opposite directions two cards; canonical list filter; sector/market-cap/list sorts
+- [Gallery Order Ticket View] 743-754_FE-IMPL-GALLERY-VIEW: GalleryFacade — latest-completed-run resolution + eager loads; init gating covers history fan-out (no empty flash)
+- [Gallery Order Ticket View] 743-754_FE-IMPL-GALLERY-VIEW: Gallery page — header filters/sort, responsive card grid, loading/error/empty/filtered-empty states
+- [Gallery Order Ticket View] 743-754_FE-IMPL-GALLERY-VIEW: Lazy dev/gallery route under authGuard (promotion to trading/gallery is #762)
+- [Gallery Order Ticket View] 743-754_DOCS-GALLERY-VIEW: Topic docs — PRD, IMPL, TEST, ADR-009, code review (PASS, 2 rounds), UAT (Complete); AGENTS.md hierarchy-display convention
 - [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Add ±50 visible-bar controls to the quick-charts daily chart — −50/+50 buttons in the Daily label row, floor 30 / ceiling = loaded bars; includes 250ms symbol-change load debounce (checkpoint)
 
 ## [2026-10-01]
