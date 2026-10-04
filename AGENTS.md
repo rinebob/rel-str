@@ -130,6 +130,12 @@ Always include the **next `/proj` slash command** in task summaries so the user
 doesn't have to hunt for it. Examples: `/proj review 261 336`, `/proj ship 261 336`,
 `/proj implement 261 337`.
 
+### Hierarchy display convention
+
+When the user asks for a Topic/issue layout or "final state", render an
+**indented ASCII tree diagram** (`├──`/`└──`, issue number + title + stage +
+blocking edges) — the user's preferred at-a-glance view.
+
 ### Doc header convention (non-negotiable)
 
 Every proj-workflow document header (PRD/IMPL/TEST/CODE-REVIEW/UAT/etc.) is
