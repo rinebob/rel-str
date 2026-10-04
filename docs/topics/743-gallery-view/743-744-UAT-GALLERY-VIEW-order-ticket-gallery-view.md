@@ -4,10 +4,10 @@
 **Topic Slug:** order-ticket-gallery-view  
 **Thread:** Gallery View Page  
 **Thread Slug:** gallery-view-page  
-**Issue:** #772 (rotates per task — latest QA issue listed)  
+**Issue:** #785 (rotates per task — latest QA issue listed)  
 **Thread Parent:** #744  
 **Topic Parent:** #743  
-**Task:** #754  
+**Task:** #783  
 **Domain:** GALLERY-VIEW  
 **Type:** UAT  
 **Status:** Complete  
@@ -201,3 +201,136 @@ Manual UI/UX inspection at the running app (`/dev/gallery`):
 | Date | Task | Executor | Result | Notes |
 |---|---|---|---|---|
 | 2026-10-04 | #754 | user + agent | PASS | S11 skipped (devtools-only); defect found+fixed: missing closePrice — filled from firing-bar close |
+| 2026-10-04 | #783 | user + agent | PASS | G1–G8 + refinement all PASS; post-review tweaks verified: entry defaults Daily/Long/PRIMARY/Sector, collapsed panels, header counts |
+
+---
+
+## Scope — Task #783: grouped expando layout
+
+The flat card grid is replaced by signal-review-style expansion panels, full
+page width (no quick-charts pane). A header "Group" select offers the same
+`GroupDimension` set as signal-review — sector | industry | market cap.
+Page-entry defaults (per user, post-review): **Daily + Long + PRIMARY list +
+Sector grouping**. Each group is one expansion panel (label +
+"N signals" + D/W + long/short counts) whose body is the card grid. Cards are unchanged from #754.
+Within-group order is marketCap descending (same as signal-review rows);
+there is no sort dropdown — grouping absorbs ordering. Timeframe /
+direction / list remain filters applied before grouping; list is NOT a
+group dimension. `expandedGroups` state + expand/collapse-all live in
+GalleryUiStore; groups default to **collapsed** (per user, post-review —
+matches signal-review). Each panel header shows the label, "N signals",
+and D/W + long/short counts (signal-review-style chips).
+
+## Test scenarios — #783
+
+### G1 — Group dimension select
+
+- **Confirms:** sector / industry / market cap grouping, sector default.
+- **Steps:** Cold-enter `/dev/gallery`. Note the initial grouping. Switch
+  Group → Industry, then Market Cap, back to Sector.
+- **Expected:** initial groups are sector values; each switch regroups
+  immediately with no reload; group order is alphabetical, market-cap groups
+  order by tier (MEGA → micro) with uppercase labels; '(Unknown)' is always
+  the last group.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+### G1b — Page-entry defaults
+
+- **Confirms:** entry defaults are Daily + Long + PRIMARY + Sector.
+- **Steps:** Cold-enter `/dev/gallery`. Read the filter pill, list select,
+  and group select values.
+- **Expected:** timeframe=Daily, direction=Buy(long), list=Primary,
+  group=Sector — the page opens on the primary workflow slice, not
+  All/All/All.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+### G2 — Group panels + card grid
+
+- **Confirms:** each group renders as an expansion panel with label + counts;
+  body is the card grid unchanged from #754.
+- **Steps:** Expand several groups; count cards in one group.
+- **Expected:** panel header shows the group label, "N signals" (matching
+  the rendered count), and chips: D x / W y (per-card — a merged D+W card
+  counts in both), ↑ long / ↓ short; cards inside are identical to the
+  #754 card shells (S4 content still correct).
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+### G3 — Within-group order
+
+- **Confirms:** cards inside a group order by marketCap desc.
+- **Steps:** In a multi-card group, compare card order against known market
+  caps (e.g. mega-cap symbols should precede small-caps).
+- **Expected:** largest market cap first; symbols missing marketCap sink to
+  the group's end.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+### G4 — Filters apply before grouping
+
+- **Confirms:** timeframe/direction/list filters trim cards before grouping;
+  empty groups disappear.
+- **Steps:** Apply direction=Sell, then a list filter, then timeframe=Weekly.
+- **Expected:** only groups containing matching cards remain — no empty
+  panels; counts update; restoring filters brings the groups back.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+### G5 — Expansion state + expand/collapse-all
+
+- **Confirms:** groups start collapsed; per-group state persists; the header
+  toggle flips all rendered groups; the icon reflects state.
+- **Steps:** On entry, note all panels are closed. Expand one group; switch
+  dimension and switch back; click the expand-all toggle (unfold icon)
+  twice.
+- **Expected:** the expanded group stays expanded across a dimension
+  round-trip; the toggle expands every group then collapses every group;
+  icon shows unfold_less when all expanded, unfold_more otherwise.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+### G6 — No sort dropdown
+
+- **Confirms:** the Sort selector is gone (grouping absorbed ordering).
+- **Expected:** header shows pills + Group select + List select + expand-all
+  button only — no Sort control.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+### G7 — States preserved
+
+- **Confirms:** loading / no-signals / all-filtered-out states still render
+  under the grouped layout.
+- **Steps:** Cold-enter (watch loading); filter to a zero-member combination.
+- **Expected:** same states as S9/S10 — no "No signals" flash; the
+  filtered-empty message appears instead of an empty panel stack; the
+  expand-all toggle does not sit in a misleading "collapse all" state when
+  no groups render.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+### G8 — #754 regression sweep
+
+- **Confirms:** the #754 scope is intact beneath the grouping.
+- **Steps:** Re-run S3 (aggregation), S4 (card content incl. prices), S5–S7
+  (filters) quickly under the grouped layout.
+- **Expected:** all still pass — grouping is layout-only.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+## Refinement pass — #783
+
+- Group headers legible; label + N-signals + D/W + long/short chips read
+  consistently with signal-review panel conventions; panels animate
+  smoothly.
+- Full-width layout: no orphaned quick-charts pane, no horizontal scroll;
+  grids reflow within each expanded panel.
+- Dark/light mode: panels + headers legible in both themes.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-04)
+
+## Traceability — #783
+
+| Task acceptance criterion | Scenario |
+|---|---|
+| Group selector sector/industry/marketCap, sector default, regroups live | G1 |
+| Page-entry defaults: Daily + Long + PRIMARY + Sector | G1b |
+| Expansion panel per group: label + counts; (Unknown) last; tier order + uppercase labels | G1, G2 |
+| Panel body = card grid; within-group marketCap desc | G2, G3 |
+| expandedGroups, collapsed default + expand/collapse-all | G5 |
+| Filters before grouping; empty groups hidden | G4 |
+| No sort dropdown | G6 |
+| Loading/error/empty/filtered-empty states | G7 |
+| Cards/data path unchanged from #754 | G8 |

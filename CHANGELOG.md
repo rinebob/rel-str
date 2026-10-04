@@ -25,6 +25,10 @@
 - [Gallery Order Ticket View] 743-754_FE-IMPL-GALLERY-VIEW: Gallery page — header filters/sort, responsive card grid, loading/error/empty/filtered-empty states
 - [Gallery Order Ticket View] 743-754_FE-IMPL-GALLERY-VIEW: Lazy dev/gallery route under authGuard (promotion to trading/gallery is #762)
 - [Gallery Order Ticket View] 743-754_DOCS-GALLERY-VIEW: Topic docs — PRD, IMPL, TEST, ADR-009, code review (PASS, 2 rounds), UAT (Complete); AGENTS.md hierarchy-display convention
+- [Gallery Order Ticket View] 743-783_FE-IMPL-GALLERY-VIEW: Grouping model — GalleryUiStore groupDimension + expandedGroups (collapsed default) replace sort/groupBy, entry defaults Daily+Long+PRIMARY+Sector; groupGalleryCards util (sector/industry/market-cap, (Unknown) last, within-group marketCap desc); sort API removed
+- [Gallery Order Ticket View] 743-783_FE-IMPL-GALLERY-VIEW: GalleryGroup component — expando panel with "N signals" + D/W + long/short count chips (signal-review conventions)
+- [Gallery Order Ticket View] 743-783_FE-IMPL-GALLERY-VIEW: Page wiring — "Group" select replaces Sort, expand/collapse-all icon button, flat grid → grouped panel stack
+- [Gallery Order Ticket View] 743-783_DOCS-GALLERY-VIEW: #783 code review (PASS, 1 round + post-review tweaks) + UAT scenarios G1–G8 (Complete) + IMPL Phase 1b updated to shipped design
 - [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Add ±50 visible-bar controls to the quick-charts daily chart — −50/+50 buttons in the Daily label row, floor 30 / ceiling = loaded bars; includes 250ms symbol-change load debounce (checkpoint)
 
 ## [2026-10-01]

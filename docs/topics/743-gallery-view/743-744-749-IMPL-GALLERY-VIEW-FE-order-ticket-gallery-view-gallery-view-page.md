@@ -157,7 +157,7 @@ Route: develop at `dev/gallery` first (parallel to `dev/screenshot`); the canoni
 ## 10. Phases (preview for task split)
 
 - **Phase 1 — Shell + data:** route, page, facade/UI store, signal aggregation, grid, filters/sorts, empty states.
-- **Phase 1b — Grouped layout (#783, added post-#754):** signal-review-style expando groups, full-width; groupBy selector = interval | side | list; expanded panel body is the card grid; expandedGroups state + collapse-all in GalleryUiStore.
+- **Phase 1b — Grouped layout (#783, added post-#754):** signal-review-style expando groups, full-width; "Group" selector = sector | industry | market cap (same `GroupDimension` set as signal-review); page-entry defaults Daily + Long + PRIMARY + Sector; group headers show label + "N signals" + D/W + long/short counts; panels default collapsed; expanded panel body is the card grid; expandedGroups state + expand/collapse-all in GalleryUiStore; within-group order = marketCap desc; no sort dropdown.
 - **Phase 2 — Card + chart:** gallery card, chart cell (@defer), occurrence chips, ordering/sink model (sunk becomes a bottom group / sunk-within-group).
 - **Phase 3 — Actions:** reject, watch (Monitor), multi-select + bulk bar.
 - **Phase 4 — Order flow:** quantity-based staging builder, ticket dialog, submit/cancel sequencing, preview popup, status styling, run-dashboard button.
