@@ -5,13 +5,11 @@
   overflow: hidden;
 }
 
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 12px;
-  padding: 16px;
+.gallery-groups {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  align-content: start;
+  padding-top: 16px;
 }
 
 .gallery-empty {

@@ -2,33 +2,43 @@
  * Gallery Header
  *
  * Top bar of the gallery view page: title, viewed-run context, card count,
- * timeframe/direction filter pills, list filter, and sort selector.
+ * timeframe/direction filter pills, list filter, and the group-dimension
+ * selector (#783 — same dimensions as signal-review).
  * Bulk-selection actions land here in #758.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { SymbolListFilter, SignalTimeframe, SignalDirection } from '../../common/constants';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { SymbolListFilter, SignalTimeframe, SignalDirection, GroupDimension } from '../../common/constants';
 import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
 import {
   RhSelectMenuComponent,
   RhSelectOption,
   RhSelectOptionGroup,
 } from '../rh-select-menu/rh-select-menu.component';
-import { GallerySortKey } from '../../utils/gallery-cards.util';
 
 const SENTINEL: RhSelectOption<SymbolListFilter>[] = [
   { value: 'ALL', label: 'All' },
 ];
 
+/** Same grouping dimensions as signal-review (#783). */
+const DIMENSION_OPTIONS: RhSelectOption<GroupDimension>[] = [
+  { value: GroupDimension.SECTOR,          label: 'Sector' },
+  { value: GroupDimension.INDUSTRY,        label: 'Industry' },
+  { value: GroupDimension.MARKET_CAP_TIER, label: 'Market Cap' },
+];
+
 @Component({
   selector: 'app-gallery-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatTooltipModule, SignalFilterPillsComponent, RhSelectMenuComponent],
+  imports: [MatTooltipModule, MatIconModule, MatButtonModule, SignalFilterPillsComponent, RhSelectMenuComponent],
   templateUrl: './gallery-header.component.html',
   styleUrl: './gallery-header.component.scss',
 })
 export class GalleryHeaderComponent {
   readonly sentinelOptions = SENTINEL;
+  readonly dimensionOptions = DIMENSION_OPTIONS;
 
   /** Market date of the run the gallery is showing. */
   marketDate = input<string | null>(null);
@@ -41,11 +51,14 @@ export class GalleryHeaderComponent {
   direction = input<SignalDirection>(SignalDirection.ALL);
   listFilter = input<SymbolListFilter>('ALL');
   listGroups = input<RhSelectOptionGroup<SymbolListFilter>[]>([]);
-  sort = input.required<GallerySortKey>();
-  sortOptions = input.required<RhSelectOption<GallerySortKey>[]>();
+  /** Grouping dimension for the expando layout (#783) — same as signal-review. */
+  groupDimension = input.required<GroupDimension>();
+  /** True when every rendered group is expanded — drives the toggle icon. */
+  allGroupsExpanded = input(true);
 
   timeframeChange = output<SignalTimeframe>();
   directionChange = output<SignalDirection>();
   listFilterChange = output<SymbolListFilter>();
-  sortChange = output<GallerySortKey>();
+  dimensionChange = output<GroupDimension>();
+  expandAllToggle = output<void>();
 }

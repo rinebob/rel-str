@@ -7,12 +7,13 @@
     [direction]="facade.direction()"
     [listFilter]="facade.listFilter()"
     [listGroups]="facade.filterOptionGroups()"
-    [sort]="facade.sort()"
-    [sortOptions]="facade.sortOptions"
+    [groupDimension]="facade.groupDimension()"
+    [allGroupsExpanded]="facade.allGroupsExpanded()"
     (timeframeChange)="facade.setTimeframe($event)"
     (directionChange)="facade.setDirection($event)"
     (listFilterChange)="facade.setListFilter($event)"
-    (sortChange)="facade.setSort($event)">
+    (dimensionChange)="facade.setGroupDimension($event)"
+    (expandAllToggle)="facade.toggleAllGroups()">
   </app-gallery-header>
 
   @if (facade.pageInitializing()) {
@@ -24,9 +25,14 @@
   } @else if (facade.allFilteredOut()) {
     <div class="gallery-empty">No signals match the current filters.</div>
   } @else {
-    <div class="gallery-grid">
-      @for (card of facade.visibleCards(); track card.key) {
-        <app-gallery-card [card]="card" />
+    <div class="gallery-groups">
+      @let expandedMap = facade.expandedGroups();
+      @for (group of facade.groups(); track group.key) {
+        <app-gallery-group
+          [group]="group"
+          [expanded]="expandedMap[group.key] ?? false"
+          (expandedChange)="facade.setGroupExpanded(group.key, $event)">
+        </app-gallery-group>
       }
     </div>
   }

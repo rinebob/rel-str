@@ -17,6 +17,13 @@
   <div class="header-spacer"></div>
 
   <app-rh-select-menu
+    label="Group"
+    [options]="dimensionOptions"
+    [value]="groupDimension()"
+    (valueChange)="dimensionChange.emit($event)">
+  </app-rh-select-menu>
+
+  <app-rh-select-menu
     label="List"
     [options]="sentinelOptions"
     [optionGroups]="listGroups()"
@@ -24,10 +31,9 @@
     (valueChange)="listFilterChange.emit($event)">
   </app-rh-select-menu>
 
-  <app-rh-select-menu
-    label="Sort"
-    [options]="sortOptions()"
-    [value]="sort()"
-    (valueChange)="sortChange.emit($event)">
-  </app-rh-select-menu>
+  <button mat-icon-button
+    [matTooltip]="allGroupsExpanded() ? 'Collapse all groups' : 'Expand all groups'"
+    (click)="expandAllToggle.emit()">
+    <mat-icon>{{ allGroupsExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+  </button>
 </div>
