@@ -34,6 +34,18 @@
 - [Gallery Order Ticket View] 743-783_DOCS-GALLERY-VIEW: #783 code review (PASS, 1 round + post-review tweaks) + UAT scenarios G1–G8 (Complete) + IMPL Phase 1b updated to shipped design
 - [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Add ±50 visible-bar controls to the quick-charts daily chart — −50/+50 buttons in the Daily label row, floor 30 / ceiling = loaded bars; includes 250ms symbol-change load debounce (checkpoint)
 
+### Added
+- [On-demand Screenshot Capture] 746-766_SHARED-IMPL-SCREENSHOT: Canonical shared/ chart theme + scale math (CHART_PALETTES, log/linear ticks) + @flex-chart/* aliases in both tsconfigs and jest
+- [On-demand Screenshot Capture] 746-766_BE-IMPL-SCREENSHOT: Server-side SVG renderer — ChartRenderModel → deterministic SVG (panes, per-kind series, windows layers, header metadata, data-* crop attributes); 39 specs + verify script (9 checks)
+- [On-demand Screenshot Capture] 746-766_DOCS-SCREENSHOT: #766 code review (PASS, 2 rounds) + UAT (Complete)
+- [On-demand Screenshot Capture] 746-767_SHARED-IMPL-SCREENSHOT: shared/flex-chart-indicator-visuals.ts — canonical ST indicator visual vocabulary (zone/uptick/signal-dot/TS/std-dev/band/HTF-window constants); capture default dimensions moved to contracts
+- [On-demand Screenshot Capture] 746-767_BE-IMPL-SCREENSHOT: Chart data assembler — getCachedBars → computeSymbolIndicatorSeries → render model with FE parity (z-order, pane gating, std-dev lines/fills via real computation, HTF window shading); 24 specs incl. positional FE std-dev parity + real-data verify (20 checks)
+- [On-demand Screenshot Capture] 746-767_DOCS-SCREENSHOT: #767 code review (PASS, 2 rounds) + UAT (Complete)
+
+### Changed
+- [On-demand Screenshot Capture] 746-766_FE-IMPL-SCREENSHOT: flex-chart chart-theme/log-transform/price-format converted to shared/ re-export shims (drift impossible by construction)
+- [On-demand Screenshot Capture] 746-767_FE-IMPL-SCREENSHOT: 10 FE indicator/converter files migrated to the shared visual vocabulary — FE changes propagate to server captures by construction
+
 ## [2026-10-01]
 
 ### Added

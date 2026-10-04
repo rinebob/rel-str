@@ -24,18 +24,37 @@ Backend + shared contracts: a callable Cloud Function that renders the quick-cha
 shared/
   screenshot-capture-contracts.ts   — spec + response types, ChartInterval (canonical), CaptureEvent, PositionType
   screenshot-capture-utils.ts       — buildScreenshotStoragePath (path convention), buildCaptureChartResult
+  flex-chart-theme.ts               — canonical chart palette + stripLine builder (FE + functions share it)
+  flex-chart-scale-math.ts          — canonical log transform, nice ticks, price formatting (FE + functions)
+  flex-chart-indicator-visuals.ts   — canonical indicator visual vocabulary: zone/uptick/signal/trend-strength/std-dev/HTF-window colors, axes, reflines (FE + functions)
 
 functions/src/screenshot-capture/
   capture-chart.ts                  — captureChartSnapshot callable (orchestration only)
-  chart-data-assembler.ts           — bars + indicator series → render model
+  chart-data-loader.ts              — Firestore bars + computeSymbolIndicatorSeries → models per interval
+  chart-data-assembler.ts           — slice window + pane assembly → render model (pure)
+  chart-series-mappers.ts           — per-family series mappers (bands/std-dev/zones/TS/dots/windows, pure)
+  render-model.ts                   — render-model types (assembler ↔ renderer seam)
   svg-renderer.ts                   — render model → SVG string (primitives)
   svg-primitives.ts                 — candle / line / scatter / column / rangeFill / text emitters
   svg-layout.ts                     — pane layout, axis scales, bar-grid metadata
-  chart-theme.ts                    — palette mirror of FE chart-theme.ts (dark)
+  chart-theme.ts                    — dark palette re-export + capture-only additions (event marker, color remap)
   rasterizer.ts                     — SVG → PNG via @resvg/resvg-js + bundled font
   storage-writer.ts                 — bucket writes, path convention
   assets/                           — bundled .ttf for rasterizer text
 ```
+
+Review remediation (#766): the FE `chart-theme.ts`, `log-transform.ts`, and
+`price-format.ts` were hoisted to `shared/` rather than duplicated — the FE
+files re-export the shared modules (same pattern as `ChartInterval` in
+`indicator-computation.ts`/`indicator.types.ts`).
+
+Review remediation (#767): the indicator visual vocabulary (zone ±4 colors,
+uptick/signal dot colors, trend-strength colors/axis/reflines, std-dev
+palette/dash/opacity/period, HTF window colors) was likewise hoisted to
+`shared/flex-chart-indicator-visuals.ts` — previously literal copies in the
+FE indicator files and the assembler. `st-zone.indicator.ts` keeps its own
+±3 table (pre-existing FE inconsistency, distinct from the callable-path ±4
+table — flagged for a separate FE decision, not unified here).
 
 `index.ts` exports the callable. Callable file stays thin — parse spec → assemble → render → rasterize → store → return.
 
@@ -84,7 +103,7 @@ Reuse in-process (no self-callable):
 
 - `getCachedBarsFromSymbolData(symbol, marketDate)` → daily/weekly/monthly bars
 - `computeSymbolIndicatorSeries(symbol, daily, weekly, monthly)` → `SymbolIndicatorSeriesResponse`
-- `functions/src/indicators/std-dev-lines.ts` → ST Std Dev Lines computed from the same bars (user requirement — **not** part of quick-charts' default indicator list; verify server math/config matches the FE `st-std-dev-lines.indicator.ts` output — flag as a verification step, parity assumed not proven)
+- `functions/src/indicators/std-dev-lines.ts` → ST Std Dev Lines computed from the same bars (user requirement — **not** part of quick-charts' default indicator list; FE-parity is asserted by a spec that diffs the assembler's emitted series against the actual FE `computeStdDevLinesSeries` output on shared fixture bars)
 - FE extras equivalents: HTF zone windows + signal/uptick dot markers already arrive inside the indicator-series response (`dotMarkers`, `htfWindows`) — map them, don't recompute
 - Zigzag: not rendered (excluded by spec even though flex-chart supports it)
 
