@@ -1,0 +1,193 @@
+// _pd-visual-language.scss — shared visual blocks for portfolio-dashboard
+// (Thread #751 / task #776).
+//
+// Feature-internal only — @use from component SCSS inside
+// `features/portfolio-dashboard/`; do not import from other features. The
+// mixin set here is the duplication inventory the future app-wide
+// theme/design-system Topic will generalize.
+//
+// Conventions copied from the reference surfaces:
+//   - run-dashboard  (pages/run-dashboard/dashboard.component.scss)
+//   - signal-review  (pages/signal-review/signal-review.component.scss)
+//   - signal-table   (components/signal-table/signal-table.component.scss)
+
+// P&L / direction accents — literal colors match signal-table's badge
+// convention. Defined once here so the future theme pass has a single place
+// to retoken them.
+$up: #4caf50;
+$down: #f44336;
+
+/// Full-height page shell — the root container of a migrated page.
+@mixin page-shell() {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+/// Centered content column — same 1100px cap as run-dashboard.
+@mixin content-column() {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/// Compact page header bar — run-dashboard `.dashboard-header`.
+/// Emits nested rules for `.bar-icon`, `.bar-title`, and `.bar-actions`
+/// children, plus a generic compact-button override inside `.bar-actions`.
+@mixin header-bar() {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--mat-sys-surface-container-high);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  flex-shrink: 0;
+  gap: 8px;
+
+  .bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bar-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--mat-sys-primary);
+  }
+
+  .bar-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--mat-sys-on-surface);
+  }
+
+  .bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    button[mat-stroked-button],
+    a[mat-stroked-button] {
+      height: 32px;
+      font-size: 12px;
+    }
+  }
+}
+
+/// Dense table — signal-table spec. Apply to the table element's class:
+/// `.my-table { @include vl.dense-table; }`
+/// Emits nested thead/tbody rules; numeric columns opt in via `.num`
+/// (right-aligned + tabular-nums) matching the migrated components.
+@mixin dense-table() {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--mat-sys-surface-container);
+
+    th {
+      padding: 6px 10px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--mat-sys-on-surface-variant);
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+      &.num {
+        text-align: right;
+      }
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+      &:hover {
+        background: var(--mat-sys-surface-container-low);
+      }
+    }
+
+    td {
+      padding: 5px 10px;
+      color: var(--mat-sys-on-surface);
+
+      &.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+
+    .empty-row {
+      text-align: center;
+      padding: 32px;
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+}
+
+/// Centered state block — loading / empty / error presentation from
+/// signal-review's `.empty-state`.
+@mixin state-block() {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  gap: 8px;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+    opacity: 0.4;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .hint {
+    font-size: 12px;
+    opacity: 0.6;
+  }
+}
+
+/// Tokenized error banner — replaces the hard-coded `#fef0f0` red banner.
+@mixin error-banner() {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--mat-sys-error-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  color: var(--mat-sys-on-error-container);
+
+  mat-icon {
+    flex-shrink: 0;
+  }
+
+  .error-text {
+    flex: 1;
+    font-size: 13px;
+  }
+}
