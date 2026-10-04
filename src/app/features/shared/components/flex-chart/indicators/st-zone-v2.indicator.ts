@@ -49,6 +49,13 @@
 
 import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
+import {
+  ST_ZONE_COLORS,
+  ST_ZONE_FALLBACK_COLOR,
+  ST_ZONE_V2_AXIS_MIN,
+  ST_ZONE_V2_AXIS_MAX,
+  ST_ZONE_NEUTRAL_REFLINE,
+} from '@flex-chart/indicator-visuals';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -65,10 +72,10 @@ export const ST_ZONE_V2_INDICATOR: IndicatorOption = {
     { key: 'ctfSlowLength', label: 'CTF Slow Length', default: 10, min: 2, max: 100 },
   ],
   defaultOptions: {
-    axisMin: -7,
-    axisMax: 7,
+    axisMin: ST_ZONE_V2_AXIS_MIN,
+    axisMax: ST_ZONE_V2_AXIS_MAX,
     referenceLines: [
-      { value: 0, color: '#9e9e9e', dashArray: '4,3', label: 'Neutral' },
+      { ...ST_ZONE_NEUTRAL_REFLINE, label: 'Neutral' },
     ],
   },
 };
@@ -224,18 +231,6 @@ export const calculateStZoneV2: IndicatorCalculator = (bars, params) => {
   const b3 = computeBandMid(bars, 5, HTF_MULTIPLIER);   // HTF fast
   const b4 = computeBandMid(bars, 10, HTF_MULTIPLIER);  // HTF slow (NEW in V2)
 
-  const ZONE_COLORS: Record<number, string> = {
-    4:  '#0d47a1',  // deep blue — strongest bull
-    3:  '#2196f3',  // blue
-    2:  '#4caf50',  // green
-    1:  '#81c784',  // light green
-    0:  '#9e9e9e',  // grey (shouldn't normally appear)
-    [-1]: '#e57373', // light red
-    [-2]: '#f44336', // red
-    [-3]: '#e91e63', // magenta
-    [-4]: '#b71c1c', // deep red — strongest bear
-  };
-
   const result = bars.map((bar, i) => {
     const b1m = b1.m[i];
     const b2m = b2.m[i];
@@ -254,7 +249,7 @@ export const calculateStZoneV2: IndicatorCalculator = (bars, params) => {
       { m: b4m, up: b4.up[i] },
     ]);
 
-    return { x: bar.x, y: zone, color: ZONE_COLORS[zone] || '#9e9e9e' };
+    return { x: bar.x, y: zone, color: ST_ZONE_COLORS[zone] || ST_ZONE_FALLBACK_COLOR };
   }).filter((p): p is { x: Date; y: number; color: string } => p !== null);
 
   return result;

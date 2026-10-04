@@ -51,6 +51,12 @@
 
 import type { IndicatorOption, IndicatorCalculator } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
+import {
+  ST_TREND_STRENGTH_COLORS,
+  ST_TREND_STRENGTH_AXIS_MIN,
+  ST_TREND_STRENGTH_AXIS_MAX,
+  ST_TREND_STRENGTH_REFLINES,
+} from '@flex-chart/indicator-visuals';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -67,15 +73,11 @@ export const ST_TREND_STRENGTH_INDICATOR: IndicatorOption = {
     { key: 'showHtf', label: 'Show HTF (1/0)', default: 1, min: 0, max: 1 },
   ],
   defaultOptions: {
-    axisMin: -50,
-    axisMax: 50,
-    color: '#2196f3',
-    color2: '#0d47a1',
-    referenceLines: [
-      { value: 0,   color: '#9e9e9e', dashArray: '4,3', label: 'Zero' },
-      { value: 10,  color: 'rgba(158,158,158,0.5)', dashArray: '4,3', label: 'Upper' },
-      { value: -10, color: 'rgba(158,158,158,0.5)', dashArray: '4,3', label: 'Lower' },
-    ],
+    axisMin: ST_TREND_STRENGTH_AXIS_MIN,
+    axisMax: ST_TREND_STRENGTH_AXIS_MAX,
+    color: ST_TREND_STRENGTH_COLORS.primaryUp,
+    color2: ST_TREND_STRENGTH_COLORS.htfUp,
+    referenceLines: ST_TREND_STRENGTH_REFLINES,
   },
 };
 
@@ -181,10 +183,10 @@ export const calculateStTrendStrength: IndicatorCalculator = (bars, params) => {
     return {
       x: b.x,
       y: diHist[i],
-      color: diHist[i] > 0 ? '#2196f3' : '#ffeb3b',
+      color: diHist[i] > 0 ? ST_TREND_STRENGTH_COLORS.primaryUp : ST_TREND_STRENGTH_COLORS.primaryDown,
       ...(includeHtf ? {
         y2: htfDiHist[i],
-        y2Color: htfDiHist[i] > 0 ? '#0d47a1' : '#8a6d00',
+        y2Color: htfDiHist[i] > 0 ? ST_TREND_STRENGTH_COLORS.htfUp : ST_TREND_STRENGTH_COLORS.htfDown,
       } : {}),
     };
   }).filter(p => !Number.isNaN(p.y));

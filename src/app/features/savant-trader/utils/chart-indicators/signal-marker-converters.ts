@@ -11,9 +11,10 @@ import type { IntervalData } from '../../common/indicator.types';
 import { toDatePt } from '../../utils/utils';
 import type { ChartScatterPoint } from './base-indicators';
 import { UptickDotColors } from './base-indicators';
+import { ST_SIGNAL_DOT_COLORS } from '@flex-chart/indicator-visuals';
 
-const SIGNAL_DOT_LONG_COLOR = '#4caf50';
-const SIGNAL_DOT_SHORT_COLOR = '#f44336';
+const SIGNAL_DOT_LONG_COLOR = ST_SIGNAL_DOT_COLORS.long;
+const SIGNAL_DOT_SHORT_COLOR = ST_SIGNAL_DOT_COLORS.short;
 
 /**
  * Convert StSignalItem[] from signal-history into chart dot points.

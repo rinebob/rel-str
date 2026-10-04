@@ -24,6 +24,15 @@
 
 import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
+import {
+  ST_STD_DEV_PERIOD,
+  ST_STD_DEV_CENTER_COLOR,
+  ST_STD_DEV_REGULAR_COLORS,
+  ST_STD_DEV_FIB_COLORS,
+  ST_STD_DEV_FILL_OPACITY,
+  ST_STD_DEV_REGULAR_DASH,
+  ST_STD_DEV_FIB_DASH,
+} from '@flex-chart/indicator-visuals';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -92,12 +101,11 @@ export interface StdDevLineSeriesData {
 const DEFAULT_STD_DEV_LEVELS = [0.5, 1.0, 1.5, 2.0, 2.5];
 const DEFAULT_FIB_DEV_LEVELS = [0.618, 1.618, 2.618];
 
-// Colors for regular bands (by level index)
-const REGULAR_COLORS = ['#e0e0e0', '#bdbdbd', '#9e9e9e', '#757575', '#424242'];
-// Colors for Fibonacci bands
-const FIB_COLORS = ['#81c784', '#66bb6a', '#4caf50'];
-// Center line color
-const CENTER_COLOR = '#1976d2';
+// Band colors live in the shared indicator-visuals module (canonical for
+// FE + the screenshot assembler).
+const REGULAR_COLORS = ST_STD_DEV_REGULAR_COLORS;
+const FIB_COLORS = ST_STD_DEV_FIB_COLORS;
+const CENTER_COLOR = ST_STD_DEV_CENTER_COLOR;
 
 /**
  * SMA series — rolling simple moving average.
@@ -277,7 +285,7 @@ function computeCenterLine(
  * For full multi-line rendering, use `computeStdDevLinesSeries` instead.
  */
 export const calculateStdDevLines: IndicatorCalculator = (bars, params) => {
-  const period = Number(params['period'] ?? 50);
+  const period = Number(params['period'] ?? ST_STD_DEV_PERIOD);
   const maType = String(params['maType'] ?? 'sma');
 
   const core = computeCenterLine(bars, period, maType);
@@ -303,7 +311,7 @@ export function computeStdDevLinesSeries(
   const len = bars.length;
   if (len === 0) return { lines: [], fills: [] };
 
-  const period = Number(params['period'] ?? 50);
+  const period = Number(params['period'] ?? ST_STD_DEV_PERIOD);
   const maType = String(params['maType'] ?? 'sma');
   const displayMode = String(params['displayMode'] ?? 'combined');
 
@@ -327,11 +335,11 @@ export function computeStdDevLinesSeries(
     regularBands.forEach((band, idx) => {
       const color = REGULAR_COLORS[idx % REGULAR_COLORS.length];
       lines.push(buildLineSeries(
-        `regular-upper-${band.level}`, `+${band.level}σ`, color, 1, '4,2',
+        `regular-upper-${band.level}`, `+${band.level}σ`, color, 1, ST_STD_DEV_REGULAR_DASH,
         band.upper,
       ));
       lines.push(buildLineSeries(
-        `regular-lower-${band.level}`, `-${band.level}σ`, color, 1, '4,2',
+        `regular-lower-${band.level}`, `-${band.level}σ`, color, 1, ST_STD_DEV_REGULAR_DASH,
         band.lower,
       ));
     });
@@ -342,11 +350,11 @@ export function computeStdDevLinesSeries(
     fibBands.forEach((band, idx) => {
       const color = FIB_COLORS[idx % FIB_COLORS.length];
       lines.push(buildLineSeries(
-        `fib-upper-${band.level}`, `+${band.level}σ fib`, color, 1, '2,2',
+        `fib-upper-${band.level}`, `+${band.level}σ fib`, color, 1, ST_STD_DEV_FIB_DASH,
         band.upper,
       ));
       lines.push(buildLineSeries(
-        `fib-lower-${band.level}`, `-${band.level}σ fib`, color, 1, '2,2',
+        `fib-lower-${band.level}`, `-${band.level}σ fib`, color, 1, ST_STD_DEV_FIB_DASH,
         band.lower,
       ));
     });
@@ -373,12 +381,12 @@ export function computeStdDevLinesSeries(
       // high = max of the two, low = min of the two (per bar)
       fills.push(buildFillZone(
         `Fill +${regBand.level}σ / +${fibBand.level}σ fib`,
-        regColor, 0.08, regBand.upper, fibBand.upper,
+        regColor, ST_STD_DEV_FILL_OPACITY, regBand.upper, fibBand.upper,
       ));
       // Lower fill: between regular lower and fib lower
       fills.push(buildFillZone(
         `Fill -${regBand.level}σ / -${fibBand.level}σ fib`,
-        regColor, 0.08, regBand.lower, fibBand.lower,
+        regColor, ST_STD_DEV_FILL_OPACITY, regBand.lower, fibBand.lower,
       ));
     });
   }

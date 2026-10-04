@@ -41,6 +41,7 @@
  * - Colors: gradient from red (-3) through neutral (0) to green (+3)
  */
 
+import { ST_ZONE_NEUTRAL_REFLINE } from '@flex-chart/indicator-visuals';
 import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
 
@@ -60,7 +61,7 @@ export const ST_ZONE_INDICATOR: IndicatorOption = {
   ],
   defaultOptions: {
     referenceLines: [
-      { value: 0, color: '#9e9e9e', dashArray: '4,3', label: 'Neutral' },
+      { ...ST_ZONE_NEUTRAL_REFLINE, label: 'Neutral' },
     ],
   },
 };

@@ -11,6 +11,7 @@ import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../../features/s
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
+import { ST_UPTICK_DOT_COLORS } from '@flex-chart/indicator-visuals';
 
 /** Single scatter/dot point used for signal dots, uptick dots, and HTF window markers. */
 export type ChartScatterPoint = { x: Date; y: number; color?: string; index?: number };
@@ -51,12 +52,7 @@ const BASE_CONFIGS = new Map<string, IndicatorConfig>(
 // Colors
 // ---------------------------------------------------------------------------
 
-export const UptickDotColors = {
-  v1Long:  '#4caf50',
-  v1Short: '#f44336',
-  v2Long:  '#8bc34a',
-  v2Short: '#ff9800',
-} as const;
+export const UptickDotColors = ST_UPTICK_DOT_COLORS;
 
 // ---------------------------------------------------------------------------
 // Public builder API

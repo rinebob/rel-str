@@ -7,8 +7,8 @@
  * bullish or bearish. Plotted on the lower timeframe chart in the same
  * pane as Zone V2.
  *
- * - Long window open (HTF zone > 0): green dot at +6
- * - Short window open (HTF zone < 0): red dot at -6
+ * - Long window open (HTF zone > 0): green dot at -6
+ * - Short window open (HTF zone < 0): red dot at +6
  * - Neutral (HTF zone == 0): both +6 and -6 dots plotted
  *
  * Always has a value on every bar.
@@ -27,6 +27,7 @@
  * - Axis: -7 to +7
  */
 
+import { ST_HTF_WINDOW } from '@flex-chart/indicator-visuals';
 import type { IndicatorOption, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
 
@@ -62,8 +63,8 @@ export const ST_ZONE_WINDOW_WEEKLY_INDICATOR: IndicatorOption = {
 // 2. WINDOW DATA COMPUTATION (called externally, not via calculator pipeline)
 // =============================================================================
 
-const LONG_COLOR = '#4caf50';
-const SHORT_COLOR = '#f44336';
+const LONG_COLOR = ST_HTF_WINDOW.longColor;
+const SHORT_COLOR = ST_HTF_WINDOW.shortColor;
 
 export interface WindowDataPoint {
   x: Date;
@@ -109,13 +110,13 @@ export function computeZoneWindowData(
     if (htfZone === null) continue;
 
     if (htfZone > 0) {
-      result.push({ x: bar.x, y: -6, color: LONG_COLOR });
+      result.push({ x: bar.x, y: -ST_HTF_WINDOW.y, color: LONG_COLOR });
     } else if (htfZone < 0) {
-      result.push({ x: bar.x, y: 6, color: SHORT_COLOR });
+      result.push({ x: bar.x, y: ST_HTF_WINDOW.y, color: SHORT_COLOR });
     } else {
       // Neutral: plot both
-      result.push({ x: bar.x, y: -6, color: LONG_COLOR });
-      result.push({ x: bar.x, y: 6, color: SHORT_COLOR });
+      result.push({ x: bar.x, y: -ST_HTF_WINDOW.y, color: LONG_COLOR });
+      result.push({ x: bar.x, y: ST_HTF_WINDOW.y, color: SHORT_COLOR });
     }
   }
 

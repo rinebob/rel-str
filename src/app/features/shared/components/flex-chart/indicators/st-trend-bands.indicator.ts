@@ -50,6 +50,7 @@
  * - Series: 4 bands rendered as filled rectangles (H/L) with directional coloring
  */
 
+import { ST_TREND_BAND_COLORS } from '@flex-chart/indicator-visuals';
 import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
 
@@ -212,17 +213,11 @@ export function computeAllBands(bars: PriceBar[]): BandSeriesData[] {
   const band4 = computeBand(bars, 10, 10, HTF_MULTIPLIER);
 
   const bands = [band1, band2, band3, band4];
-  const colors: [string, string][] = [
-    ['#ffeb3b', '#2196f3'],  // band 1: yellow up, blue down
-    ['#ffeb3b', '#2196f3'],  // band 2: yellow up, blue down
-    ['#ff9800', '#1565c0'],  // band 3: orange up, dark blue down
-    ['#ff9800', '#1565c0'],  // band 4: orange up, dark blue down
-  ];
 
   return bands.map((band, bandIdx) => ({
     bandIndex: bandIdx + 1,
-    bullColor: colors[bandIdx][0],
-    bearColor: colors[bandIdx][1],
+    bullColor: ST_TREND_BAND_COLORS[bandIdx][0],
+    bearColor: ST_TREND_BAND_COLORS[bandIdx][1],
     data: bars.map((b, i) => ({
       index: i,
       date: b.x,

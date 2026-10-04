@@ -16,6 +16,7 @@
  *   4. computeSignalDots() maps signals → scatter points at histValue ± offset
  */
 
+import { ST_SIGNAL_DOT_COLORS, ST_SIGNAL_DOT_OFFSET } from '@flex-chart/indicator-visuals';
 import type { IndicatorOption, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
 import type { SignalMarker } from '../signals/signal.types';
@@ -40,9 +41,9 @@ export const ST_SIGNAL_DOTS_INDICATOR: IndicatorOption = {
 // 2. DOT COMPUTATION (called externally, not via calculator pipeline)
 // =============================================================================
 
-const LONG_COLOR = '#4caf50';
-const SHORT_COLOR = '#f44336';
-const DOT_OFFSET = 3;
+const LONG_COLOR = ST_SIGNAL_DOT_COLORS.long;
+const SHORT_COLOR = ST_SIGNAL_DOT_COLORS.short;
+const DOT_OFFSET = ST_SIGNAL_DOT_OFFSET;
 
 export interface SignalDotPoint {
   x: Date;

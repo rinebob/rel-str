@@ -8,6 +8,7 @@ import type { IndicatorConfig, PriceBar } from '../../../../features/shared/comp
 import { StIndicator } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import type { BandSeriesData } from '../../../../features/shared/components/flex-chart/indicators/st-trend-bands.indicator';
 import type { IntervalData, TrendBandsPoint, ZoneV1Point, ZoneV2Point } from '../../common/indicator.types';
+import { ST_ZONE_COLORS, ST_ZONE_FALLBACK_COLOR } from '@flex-chart/indicator-visuals';
 import { toDatePt } from '../../utils/utils';
 import type { ChartScatterPoint } from './base-indicators';
 
@@ -16,18 +17,7 @@ function toDate(d: string): Date {
 }
 
 function zoneColor(zone: number): string {
-  const ZONE_COLORS: Record<number, string> = {
-    4: '#0d47a1',
-    3: '#2196f3',
-    2: '#4caf50',
-    1: '#81c784',
-    0: '#9e9e9e',
-    [-1]: '#e57373',
-    [-2]: '#f44336',
-    [-3]: '#e91e63',
-    [-4]: '#b71c1c',
-  };
-  return ZONE_COLORS[zone] || '#9e9e9e';
+  return ST_ZONE_COLORS[zone] || ST_ZONE_FALLBACK_COLOR;
 }
 
 function zoneToChartData(
