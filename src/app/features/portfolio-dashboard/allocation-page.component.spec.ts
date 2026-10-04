@@ -8,6 +8,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 import { MatDialog } from '@angular/material/dialog';
@@ -124,6 +125,7 @@ describe('AllocationPageComponent', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
+        provideRouter([]),
         { provide: AllocationStore, useValue: store },
         { provide: MatDialog, useValue: { open: jest.fn(() => ({ afterClosed: () => of(undefined) })) } },
       ],
@@ -137,6 +139,13 @@ describe('AllocationPageComponent', () => {
   it('loads accounts on init', async () => {
     await setup();
     expect(store.loadAccounts).toHaveBeenCalled();
+  });
+
+  it('links back to the portfolio dashboard (#777)', async () => {
+    await setup();
+    const link = fixture.nativeElement.querySelector('[data-testid="back-to-portfolio"]');
+    expect(link).toBeTruthy();
+    expect(link.getAttribute('href')).toContain('portfolio');
   });
 
   it('renders one account tab per account — non-agentic flagged', async () => {

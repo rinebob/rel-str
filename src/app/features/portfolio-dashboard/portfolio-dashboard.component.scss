@@ -1,127 +1,112 @@
+@use 'styles/pd-visual-language' as vl;
+
 :host {
   display: block;
   height: 100%;
 }
 
 .pd-root {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  gap: 16px;
+  @include vl.page-shell;
 }
 
 .pd-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  @include vl.header-bar;
 }
 
-.pd-title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 500;
-}
-
-.pd-refresh {
-  flex-shrink: 0;
+.pd-content {
+  @include vl.content-column;
 }
 
 .pd-global-loading {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 8px 0;
-  color: rgba(0, 0, 0, 0.6);
+  padding: 48px;
+  color: var(--mat-sys-on-surface-variant);
 }
 
 .pd-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 16px;
-  color: rgba(0, 0, 0, 0.5);
-  text-align: center;
-}
-
-.pd-empty-icon {
-  font-size: 48px;
-  width: 48px;
-  height: 48px;
-  margin-bottom: 8px;
+  @include vl.state-block;
 }
 
 .pd-error-banner {
+  @include vl.error-banner;
+  margin-top: 12px;
+}
+
+/* Scoreboard — signal-order header convention: sb-label / monospace
+   sb-value / pipe separators. Dollar values are masked until the user
+   opts in via the visibility toggle. */
+.pd-scoreboard {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #fef0f0;
-  border: 1px solid #f5c6cb;
-  border-radius: 8px;
-  color: #721c24;
-}
-
-.pd-error-icon {
-  flex-shrink: 0;
-}
-
-.pd-error-text {
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
   flex: 1;
-  font-size: 0.9rem;
-}
+  min-width: 0;
+  overflow: hidden;
+  justify-content: center;
 
-.pd-summary-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: 8px;
-}
+  .sb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
 
-.pd-summary-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 120px;
-}
+  .sb-label {
+    color: var(--mat-sys-on-surface-variant);
+    font-weight: 500;
+  }
 
-.pd-summary-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: rgba(0, 0, 0, 0.5);
-}
+  .sb-value {
+    font-weight: 600;
+    font-family: monospace;
+    color: var(--mat-sys-on-surface);
+  }
 
-.pd-summary-value {
-  font-size: 1.1rem;
-  font-weight: 500;
+  .sb-sep {
+    color: var(--mat-sys-outline-variant);
+  }
 }
 
 .pd-negative {
-  color: #d32f2f;
+  color: vl.$down;
+}
+
+/* Account pill row — replaces the account mat-tab-group. */
+.pd-account-switcher {
+  margin-top: 8px;
+  flex-shrink: 0;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+
+  .mat-button-toggle {
+    font-size: 12px;
+
+    .mat-button-toggle-label-content {
+      padding: 0 12px;
+      line-height: 30px;
+    }
+  }
 }
 
 .pd-tabs {
   flex: 1;
   min-height: 0;
+  margin-top: 8px;
 }
 
+/* Each section pane scrolls internally so the tab bar (and future sticky
+   table headers) stay put. */
 .pd-tab-content {
-  padding: 16px 0;
+  height: 100%;
+  overflow-y: auto;
+  padding: 8px 0 16px;
 }
 
 .pd-tab-placeholder {
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--mat-sys-on-surface-variant);
   font-style: italic;
-}
-
-.pd-history-section {
-  margin-top: 16px;
-}
-
-.pd-toggle-history {
-  margin-bottom: 8px;
 }

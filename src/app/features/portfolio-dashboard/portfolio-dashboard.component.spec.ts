@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
 import { signal, computed } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
@@ -135,6 +136,8 @@ describe('PortfolioDashboardComponent', () => {
   let dialog: { open: jasmine.Spy };
 
   beforeEach(async () => {
+    // showAmounts persists via localStorage — reset so each test starts masked.
+    localStorage.clear();
     store = makeStoreMock();
     dialog = {
       open: jasmine.createSpy('open').and.returnValue({
@@ -145,6 +148,7 @@ describe('PortfolioDashboardComponent', () => {
       imports: [PortfolioDashboardComponent],
       providers: [
         provideNoopAnimations(),
+        provideRouter([]),
         { provide: PortfolioDashboardStore, useValue: store },
         { provide: MatDialog, useValue: dialog },
       ],
@@ -161,6 +165,73 @@ describe('PortfolioDashboardComponent', () => {
   it('should create', () => {
     fixture.detectChanges();
     expect(component).toBeTruthy();
+  });
+
+  it('renders the header bar with icon, title, and actions (#777)', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const header = fixture.nativeElement.querySelector('header.pd-header');
+    expect(header).toBeTruthy();
+    expect(header.querySelector('.bar-icon')).toBeTruthy();
+    expect(header.querySelector('.bar-title')?.textContent).toContain('Portfolio');
+    expect(header.querySelector('.bar-actions .pd-refresh')).toBeTruthy();
+  });
+
+  it('wraps page content in the centered content column (#777)', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const column = fixture.nativeElement.querySelector('.pd-content');
+    expect(column).toBeTruthy();
+    expect(column.querySelector('.pd-account-switcher')).toBeTruthy();
+    expect(column.querySelector('mat-tab-group')).toBeTruthy();
+  });
+
+  it('puts the aggregate scoreboard in the header bar (#777)', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const header = fixture.nativeElement.querySelector('header.pd-header');
+    const scoreboard = header.querySelector('.pd-scoreboard');
+    expect(scoreboard).toBeTruthy();
+    expect(scoreboard.textContent).toContain('Value');
+    expect(scoreboard.textContent).toContain('Unrealized PnL');
+  });
+
+  it('shows an Allocations link in the header actions (#777)', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const link = fixture.nativeElement.querySelector('a.pd-alloc-link');
+    expect(link).toBeTruthy();
+    expect(link.getAttribute('href')).toContain('portfolio/allocation');
+  });
+
+  it('masks dollar amounts until the user opts in (#777)', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    store._setSummary({
+      totalValue: 100000,
+      totalExposure: 80000,
+      totalCash: 20000,
+      totalBuyingPower: 40000,
+      totalPnL: 500,
+    });
+    fixture.detectChanges();
+
+    // Default: masked
+    let text = fixture.nativeElement.querySelector('.pd-scoreboard').textContent;
+    expect(text).toContain('•••');
+    expect(text).not.toContain('$100,000.00');
+
+    // Opt in via the eye toggle
+    fixture.nativeElement.querySelector('.pd-privacy').click();
+    fixture.detectChanges();
+
+    text = fixture.nativeElement.querySelector('.pd-scoreboard').textContent;
+    expect(text).toContain('$100,000.00');
+    expect(text).not.toContain('•••');
+    expect(localStorage.getItem('pd-show-amounts')).toBe('1');
   });
 
   it('calls store.refresh() on init', async () => {
@@ -192,7 +263,7 @@ describe('PortfolioDashboardComponent', () => {
     expect(banner.textContent).toContain('Retry');
   });
 
-  it('renders summary bar when accounts exist', () => {
+  it('renders the scoreboard with all five totals when amounts are revealed', () => {
     store._setAccounts([makeAccountState('Account A', '111222333')]);
     store._setSummary({
       totalValue: 100000,
@@ -201,10 +272,11 @@ describe('PortfolioDashboardComponent', () => {
       totalBuyingPower: 40000,
       totalPnL: 500,
     });
+    component.showAmounts.set(true);
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent;
-    expect(text).toContain('Total Value');
+    expect(text).toContain('Value');
     expect(text).toContain('$100,000.00');
     expect(text).toContain('Exposure');
     expect(text).toContain('$80,000.00');
@@ -216,7 +288,7 @@ describe('PortfolioDashboardComponent', () => {
     expect(text).toContain('$500.00');
   });
 
-  it('renders account tabs with name and number', () => {
+  it('renders account pills with name and number', () => {
     store._setAccounts([
       makeAccountState('Account A', '111222333'),
       makeAccountState('Account B', '444555666'),
@@ -266,8 +338,9 @@ describe('PortfolioDashboardComponent', () => {
     expect(text).toContain('Loading');
   });
 
-  it('formats null currency as dash', () => {
+  it('formats null currency as dash when amounts are revealed', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
+    component.showAmounts.set(true);
     store._setSummary({
       totalValue: null,
       totalExposure: null,
@@ -312,8 +385,9 @@ describe('PortfolioDashboardComponent', () => {
 
   // --- Task #287 wiring tests ---
 
-  it('renders account summary component in tab content', () => {
+  it('renders account summary component in the Account tab', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
+    component.selectedSection.set(4);
     fixture.detectChanges();
 
     const summary = fixture.nativeElement.querySelector('app-account-summary');
@@ -328,57 +402,39 @@ describe('PortfolioDashboardComponent', () => {
     expect(table).toBeTruthy();
   });
 
-  it('renders option positions table in tab content', () => {
+  it('renders option positions table in the Options tab', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
+    component.selectedSection.set(1);
     fixture.detectChanges();
 
     const table = fixture.nativeElement.querySelector('app-option-positions-table');
     expect(table).toBeTruthy();
   });
 
-  it('renders open orders table in tab content', () => {
+  it('renders open orders table in the Orders tab', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
+    component.selectedSection.set(2);
     fixture.detectChanges();
 
     const table = fixture.nativeElement.querySelector('app-open-orders-table');
     expect(table).toBeTruthy();
   });
 
-  it('renders order history toggle button', () => {
+  it('renders order history table in the History tab (#777)', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
-    fixture.detectChanges();
-
-    const toggle = fixture.nativeElement.querySelector('.pd-toggle-history');
-    expect(toggle).toBeTruthy();
-    expect(toggle.textContent).toContain('Show History');
-  });
-
-  it('renders order history table when showOrderHistory is true', () => {
-    store._setAccounts([makeAccountState('Account A', '111')]);
-    store._setShowOrderHistory(true);
+    component.selectedSection.set(3);
     fixture.detectChanges();
 
     const table = fixture.nativeElement.querySelector('app-order-history-table');
     expect(table).toBeTruthy();
   });
 
-  it('does not render order history table when showOrderHistory is false', () => {
+  it('does not render order history outside the History tab (#777)', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
-    store._setShowOrderHistory(false);
-    fixture.detectChanges();
+    fixture.detectChanges(); // Equities tab active
 
     const table = fixture.nativeElement.querySelector('app-order-history-table');
     expect(table).toBeNull();
-  });
-
-  it('calls store.toggleOrderHistory() when history toggle clicked', () => {
-    store._setAccounts([makeAccountState('Account A', '111')]);
-    fixture.detectChanges();
-
-    const toggle = fixture.nativeElement.querySelector('.pd-toggle-history');
-    toggle.click();
-
-    expect(store.toggleOrderHistory).toHaveBeenCalledTimes(1);
   });
 
   it('calls store.toggleClosedPositions() when equity table emits toggleClosed', () => {
@@ -393,6 +449,7 @@ describe('PortfolioDashboardComponent', () => {
 
   it('calls store.retrySection(\'portfolio\') when account summary emits retry', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
+    component.selectedSection.set(4);
     fixture.detectChanges();
 
     const summary = fixture.debugElement.query((el) => el.name === 'app-account-summary');
@@ -403,6 +460,7 @@ describe('PortfolioDashboardComponent', () => {
 
   it('calls store.retrySection() with orders when open orders table emits retry', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
+    component.selectedSection.set(2);
     fixture.detectChanges();
 
     const orders = fixture.debugElement.query((el) => el.name === 'app-open-orders-table');
@@ -457,25 +515,12 @@ describe('PortfolioDashboardComponent', () => {
   it('passes protectedSymbols to open orders table', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
     store._setProtectedSymbols(new Set(['AAPL']));
+    component.selectedSection.set(2);
     fixture.detectChanges();
 
     // The open orders table should be rendered
     const table = fixture.nativeElement.querySelector('app-open-orders-table');
     expect(table).toBeTruthy();
-  });
-
-  it('shows history toggle text reflecting showOrderHistory state', () => {
-    store._setAccounts([makeAccountState('Account A', '111')]);
-    store._setShowOrderHistory(false);
-    fixture.detectChanges();
-
-    const toggle = fixture.nativeElement.querySelector('.pd-toggle-history');
-    expect(toggle.textContent).toContain('Show History');
-
-    store._setShowOrderHistory(true);
-    fixture.detectChanges();
-
-    expect(toggle.textContent).toContain('Hide History');
   });
 
   it('opens ClosePositionDialogComponent with position data when closePosition emitted', () => {

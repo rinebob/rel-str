@@ -11,6 +11,7 @@
  */
 import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
@@ -21,7 +22,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
 
 @Component({
   selector: 'app-allocation-page',
-  imports: [MatTabsModule, MatTooltipModule, DatePipe,
+  imports: [RouterLink, MatTabsModule, MatTooltipModule, DatePipe,
     AllocationBucketsTableComponent, AllocationPositionsTableComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -31,6 +32,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
       }
 
       <div class="page-toolbar">
+        <a class="toolbar-btn back-link" routerLink="/portfolio" data-testid="back-to-portfolio">← Portfolio</a>
         <button data-testid="refresh-btn" type="button" class="toolbar-btn"
           [disabled]="store.selectedAllocation().loading"
           (click)="onRefresh()"
@@ -109,7 +111,8 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
   `,
   styles: [`
     .allocation-page { padding: 12px 16px; }
-    .page-toolbar { display: flex; justify-content: flex-end; }
+    .page-toolbar { display: flex; justify-content: space-between; }
+    .back-link { text-decoration: none; color: inherit; }
     .loading { padding: 24px 8px; color: #777; font-size: 0.9rem; }
     .toolbar-btn {
       font-size: 0.8rem; padding: 4px 12px; border: 1px solid #ccc;
