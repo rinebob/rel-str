@@ -5,6 +5,7 @@
  */
 import { MarketCapTier, StSignalItem, StSymbolProfile, ST_SCHEDULE_CRON, StSymbolSource } from '../services/types';
 import type { SymbolRow, SymbolGroup } from '../stores/group.store';
+import type { OhlcBar } from '../../../core/models/market-data.types';
 import { GroupDimension, NO_MEMBERSHIP, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection, type SymbolListFilter } from '../common/constants';
 import type { Company } from '../../shared/types/rs.interfaces';
 
@@ -143,13 +144,20 @@ export function todayDate(): string {
 export const UNKNOWN_GROUP = '(Unknown)';
 
 /** Market cap tier sort order (largest first). */
-const MARKET_CAP_TIER_ORDER: Record<string, number> = {
+export const MARKET_CAP_TIER_ORDER: Record<MarketCapTier, number> = {
   mega: 0,
   large: 1,
   mid: 2,
   small: 3,
   micro: 4,
 };
+
+/** Sort rank for a market-cap tier key; unknown/missing values sort last. */
+export function marketCapTierRank(tier: string | undefined): number {
+  return tier !== undefined && Object.hasOwn(MARKET_CAP_TIER_ORDER, tier)
+    ? MARKET_CAP_TIER_ORDER[tier as MarketCapTier]
+    : 99;
+}
 
 /** Build the group key for a symbol profile under the chosen dimension. */
 export function getGroupKey(profile: StSymbolProfile, dimension: GroupDimension): string {
@@ -549,6 +557,65 @@ export function getCacheKey(symbol: string, runId: string | null): string {
   return runId ? `${symbol}::${runId}` : symbol;
 }
 
+/**
+ * Run-scoped signals keyed by symbol, read from the shared history cache.
+ * Bare-symbol keys (full-history cache) are excluded — the only supported
+ * way to read the cache by run.
+ */
+export function signalsBySymbolForRun(
+  cache: Record<string, StSignalItem[]>,
+  runId: string,
+): Record<string, StSignalItem[]> {
+  const suffix = `::${runId}`;
+  const map: Record<string, StSignalItem[]> = {};
+  for (const [key, signals] of Object.entries(cache)) {
+    if (key.endsWith(suffix) && signals.length) {
+      map[key.slice(0, -suffix.length)] = signals;
+    }
+  }
+  return map;
+}
+
+/** True while any run-scoped history fetch is still in flight. */
+export function hasPendingRunHistory(
+  loading: Record<string, boolean>,
+  runId: string,
+): boolean {
+  const suffix = `::${runId}`;
+  return Object.entries(loading).some(([key, v]) => v && key.endsWith(suffix));
+}
+
+/**
+ * Fill missing `closePrice` on signal items from the firing bar's close.
+ * Backend signal entries do not store `close`, so the read path derives it
+ * from `symbol-data` bars: weekly signals look up weekly bars, all others
+ * daily bars, matched exactly on `barDate`. Already-populated prices are
+ * preserved; unmatched signals are left undefined. Returns the same array
+ * reference when nothing needs filling.
+ */
+export function fillSignalClosePrices(
+  signals: StSignalItem[],
+  dailyBars: OhlcBar[],
+  weeklyBars: OhlcBar[],
+): StSignalItem[] {
+  if (!signals.some((s) => s.closePrice === undefined)) return signals;
+  const closeByDate = (bars: OhlcBar[]): Map<string, number> => {
+    const map = new Map<string, number>();
+    for (const b of bars) map.set(b.d, b.c);
+    return map;
+  };
+  const dailyClose = closeByDate(dailyBars);
+  const weeklyClose = closeByDate(weeklyBars);
+  return signals.map((s) => {
+    if (s.closePrice !== undefined) return s;
+    const close =
+      s.timeframe === SignalTimeframe.WEEKLY
+        ? weeklyClose.get(s.barDate)
+        : dailyClose.get(s.barDate);
+    return close === undefined ? s : { ...s, closePrice: close };
+  });
+}
+
 /** True if a profile's stored direction matches the filter direction. */
 function profileDirectionMatches(
   direction: string | null | undefined,
@@ -697,7 +764,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] 
     if (a === UNKNOWN_GROUP) return 1;
     if (b === UNKNOWN_GROUP) return -1;
     if (dimension === GroupDimension.MARKET_CAP_TIER) {
-      return (MARKET_CAP_TIER_ORDER[a] ?? 99) - (MARKET_CAP_TIER_ORDER[b] ?? 99);
+      return marketCapTierRank(a) - marketCapTierRank(b);
     }
     return a.localeCompare(b);
   });

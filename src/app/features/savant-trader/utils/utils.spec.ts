@@ -13,7 +13,9 @@ import {
   formatTradingViewWatchlist,
   isUntriaged,
   shouldShowInListFilter,
+  fillSignalClosePrices,
 } from './utils';
+import type { OhlcBar } from '../../../core/models/market-data.types';
 import { StSymbolSource } from '../services/types';
 
 const mockSignal = (
@@ -334,5 +336,42 @@ describe('shouldShowInListFilter', () => {
     expect(shouldShowInListFilter('NVDA', lists, NO_MEMBERSHIP, exclusiveKeys)).toBe(true);
     expect(shouldShowInListFilter('AAPL', lists, NO_MEMBERSHIP, exclusiveKeys)).toBe(false);
     expect(shouldShowInListFilter('TSLA', lists, NO_MEMBERSHIP, exclusiveKeys)).toBe(false);
+  });
+});
+
+describe('fillSignalClosePrices', () => {
+  const bar = (d: string, c: number): OhlcBar => ({ d, o: c - 1, h: c + 1, l: c - 2, c });
+
+  it('fills a daily signal closePrice from the firing bar', () => {
+    const signals = [mockSignal({ barDate: '2026-10-02' })];
+    const result = fillSignalClosePrices(signals, [bar('2026-10-02', 213.44)], []);
+    expect(result[0].closePrice).toBe(213.44);
+  });
+
+  it('fills a weekly signal closePrice from the weekly bar, not a daily bar on the same date', () => {
+    const signals = [mockSignal({ timeframe: SignalTimeframe.WEEKLY, barDate: '2026-09-29' })];
+    const result = fillSignalClosePrices(
+      signals,
+      [bar('2026-09-29', 999)],
+      [bar('2026-09-29', 187.5)],
+    );
+    expect(result[0].closePrice).toBe(187.5);
+  });
+
+  it('preserves an already-populated closePrice', () => {
+    const signals = [mockSignal({ closePrice: 100 })];
+    const result = fillSignalClosePrices(signals, [bar('2026-07-10', 200)], []);
+    expect(result[0].closePrice).toBe(100);
+  });
+
+  it('leaves closePrice undefined when no bar matches the barDate', () => {
+    const signals = [mockSignal({ barDate: '2026-10-02' })];
+    const result = fillSignalClosePrices(signals, [bar('2026-10-01', 50)], []);
+    expect(result[0].closePrice).toBeUndefined();
+  });
+
+  it('returns the same array reference when nothing needs filling', () => {
+    const signals = [mockSignal({ closePrice: 1 })];
+    expect(fillSignalClosePrices(signals, [bar('2026-07-10', 5)], [])).toBe(signals);
   });
 });
