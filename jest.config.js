@@ -37,5 +37,7 @@ module.exports = {
     '^@portfolio-allocation/utils$': '<rootDir>/shared/portfolio-allocation-utils.ts',
     '^@lifecycle/contracts$': '<rootDir>/shared/lifecycle-contracts.ts',
     '^@lifecycle/tree$': '<rootDir>/shared/lifecycle-tree.ts',
+    '^@screenshot-capture/contracts$': '<rootDir>/shared/screenshot-capture-contracts.ts',
+    '^@screenshot-capture/utils$': '<rootDir>/shared/screenshot-capture-utils.ts',
   },
 };

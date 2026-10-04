@@ -22,7 +22,9 @@
       "@paper-trading/contracts": ["../shared/paper-trading-contracts.ts"],
       "@paper-trading/ids": ["../shared/paper-trading-ids.ts"],
       "@lifecycle/contracts": ["../shared/lifecycle-contracts.ts"],
-      "@lifecycle/tree": ["../shared/lifecycle-tree.ts"]
+      "@lifecycle/tree": ["../shared/lifecycle-tree.ts"],
+      "@screenshot-capture/contracts": ["../shared/screenshot-capture-contracts.ts"],
+      "@screenshot-capture/utils": ["../shared/screenshot-capture-utils.ts"]
     },
     "esModuleInterop": true,
     "isolatedModules": true,

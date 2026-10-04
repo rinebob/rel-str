@@ -32,7 +32,9 @@
       "@portfolio-allocation/utils": ["./shared/portfolio-allocation-utils.ts"],
       "@shared/pct-change-config-contracts": ["./shared/pct-change-config-contracts.ts"],
       "@lifecycle/contracts": ["./shared/lifecycle-contracts.ts"],
-      "@lifecycle/tree": ["./shared/lifecycle-tree.ts"]
+      "@lifecycle/tree": ["./shared/lifecycle-tree.ts"],
+      "@screenshot-capture/contracts": ["./shared/screenshot-capture-contracts.ts"],
+      "@screenshot-capture/utils": ["./shared/screenshot-capture-utils.ts"]
     },
     "importHelpers": true,
     "target": "ES2022",
