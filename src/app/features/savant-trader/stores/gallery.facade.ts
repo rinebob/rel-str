@@ -6,7 +6,7 @@
  * SymbolHistoryStore the per-symbol occurrences, SymbolListStore the list
  * catalog, OccurrenceDecisionStore the durable decisions, OrderTicketStore
  * the staged/live tickets — and derives symbol+side card view-models via the
- * pure gallery-cards utils. Page-local filter/sort state lives in
+ * pure gallery-cards utils. Page-local filter/group state lives in
  * GalleryUiStore.
  *
  * Later tasks layer ordering/sink status (#755), chart cells (#756), actions
@@ -26,16 +26,15 @@ import { TradingConfigService } from '../services/trading-config.service';
 import { TradingConfig } from '../services/order-ticket.types';
 import { StSignalItem, StRun } from '../services/types';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { SignalDirection, SignalTimeframe, SymbolListFilter } from '../common/constants';
+import { GroupDimension, SignalDirection, SignalTimeframe, SymbolListFilter } from '../common/constants';
 import {
   buildGalleryCards,
   filterGalleryCards,
-  sortGalleryCards,
+  groupGalleryCards,
   GalleryCard,
   GalleryFilter,
+  GalleryGroup,
   GalleryListContext,
-  GallerySortKey,
-  GALLERY_SORT_OPTIONS,
 } from '../utils/gallery-cards.util';
 
 @Injectable({ providedIn: 'root' })
@@ -79,17 +78,32 @@ export class GalleryFacade {
     listFilter: this.uiStore.listFilter(),
   }));
 
-  /** Filtered + sorted cards rendered by the grid. */
+  /** Filtered cards feeding the grouped grid. */
   readonly visibleCards = computed((): GalleryCard[] =>
-    sortGalleryCards(
-      filterGalleryCards(this.cards(), this.activeFilter(), this.listContext()),
-      this.uiStore.sort(),
-      this.listContext(),
-    ),
+    filterGalleryCards(this.cards(), this.activeFilter(), this.listContext()),
   );
 
   /** Cards exist for the run but every one is filtered out. */
   readonly allFilteredOut = computed(() => this.cards().length > 0 && this.visibleCards().length === 0);
+
+  /**
+   * Visible cards bucketed by the active grouping dimension (#783) —
+   * sector/industry/market-cap, mirroring signal-review. Filters apply
+   * first (visibleCards), then grouping; within-group order is
+   * marketCap desc.
+   */
+  readonly groups = computed((): GalleryGroup[] =>
+    groupGalleryCards(this.visibleCards(), this.uiStore.groupDimension()),
+  );
+
+  /** True when every visible group is expanded (drives the expand-all icon). */
+  readonly allGroupsExpanded = computed(() =>
+    this.groups().length > 0 &&
+    this.groups().every((g) => this.uiStore.expandedGroups()[g.key] ?? false),
+  );
+
+  /** Expansion overrides — read by the template as `map[key] ?? true`. */
+  readonly expandedGroups = computed(() => this.uiStore.expandedGroups());
 
   /** Error from the signal-symbols load, surfaced as an empty-state message. */
   readonly loadError = computed(() => this.groupStore.symbolsError());
@@ -119,8 +133,7 @@ export class GalleryFacade {
   readonly timeframe = computed(() => this.uiStore.timeframe());
   readonly direction = computed(() => this.uiStore.direction());
   readonly listFilter = computed(() => this.uiStore.listFilter());
-  readonly sort = computed(() => this.uiStore.sort());
-  readonly sortOptions = GALLERY_SORT_OPTIONS;
+  readonly groupDimension = computed(() => this.uiStore.groupDimension());
   readonly filterOptionGroups = computed(() => this.symbolListStore.filterOptionGroups());
   readonly cardCount = computed(() => this.visibleCards().length);
 
@@ -165,7 +178,7 @@ export class GalleryFacade {
     });
   }
 
-  // -- Filter/sort events ----------------------------------------------------
+  // -- Filter/group events ---------------------------------------------------
 
   setTimeframe(timeframe: SignalTimeframe): void {
     this.uiStore.setTimeframe(timeframe);
@@ -179,7 +192,24 @@ export class GalleryFacade {
     this.uiStore.setListFilter(listFilter);
   }
 
-  setSort(sort: GallerySortKey): void {
-    this.uiStore.setSort(sort);
+  setGroupDimension(dimension: GroupDimension): void {
+    this.uiStore.setGroupDimension(dimension);
+  }
+
+  /** Expansion state for a group — absent key defaults to collapsed. */
+  isGroupExpanded(key: string): boolean {
+    return this.uiStore.expandedGroups()[key] ?? false;
+  }
+
+  setGroupExpanded(key: string, expanded: boolean): void {
+    this.uiStore.setGroupExpanded(key, expanded);
+  }
+
+  /** Expand-all / collapse-all over the currently rendered groups. */
+  toggleAllGroups(): void {
+    this.uiStore.setAllGroupsExpanded(
+      this.groups().map((g) => g.key),
+      !this.allGroupsExpanded(),
+    );
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Gallery cards — pure aggregation/filter/sort functions (#743/#754).
+ * Gallery cards — pure aggregation/filter/group functions (#743/#754/#783).
  *
  * Signal occurrences (one per run + symbol + timeframe + direction detection)
  * aggregate into one GalleryCard per symbol+side. D and W occurrences of the
@@ -14,17 +14,17 @@ import {
   SignalDirection,
   SignalTimeframe,
   SymbolListFilter,
+  GroupDimension,
 } from '../common/constants';
-import { marketCapTierRank, shouldShowInListFilter } from './utils';
+import {
+  getGroupKey,
+  getGroupLabel,
+  marketCapTierRank,
+  shouldShowInListFilter,
+  UNKNOWN_GROUP,
+} from './utils';
 
 export type GallerySide = 'buy' | 'sell';
-export type GallerySortKey = 'sector' | 'marketCap' | 'list';
-
-export const GALLERY_SORT_OPTIONS: { value: GallerySortKey; label: string }[] = [
-  { value: 'sector', label: 'Sector' },
-  { value: 'marketCap', label: 'Market cap' },
-  { value: 'list', label: 'List' },
-];
 
 export interface GalleryCard {
   /** `${symbol}:${side}` — stable key for tracking and, later, decisions/tickets. */
@@ -46,8 +46,16 @@ export interface GalleryFilter {
 
 export interface GalleryListContext {
   symbolLists: Record<string, string[]>;
-  /** Exclusive (triage-bucket) list keys in display order — drives the 'list' sort. */
+  /** Exclusive (triage-bucket) list keys — drives the untriaged/NO_MEMBERSHIP derivation. */
   exclusiveListKeys: string[];
+}
+
+/** One expando section of the grouped gallery (#783). */
+export interface GalleryGroup {
+  /** `${dimension}:${groupKey}` — stable key for expansion state and tracking. */
+  key: string;
+  label: string;
+  cards: GalleryCard[];
 }
 
 export function buildGalleryCards(
@@ -98,39 +106,37 @@ export function filterGalleryCards(
     .filter((c) => c.occurrences.length > 0);
 }
 
-export function sortGalleryCards(
+/**
+ * Group cards for the expando layout (#783) — mirrors signal-review's
+ * buildSymbolGroups: bucket by the profile's dimension value (sector /
+ * industry / marketCapTier), '(Unknown)' sinks last, market-cap groups
+ * order by tier rank, and cards within a group order by marketCap desc.
+ * Group keys are dimension-prefixed so expansion state can't collide across
+ * dimensions ('Technology' sector vs 'Technology' industry).
+ */
+export function groupGalleryCards(
   cards: GalleryCard[],
-  sort: GallerySortKey,
-  lists: GalleryListContext,
-): GalleryCard[] {
-  // Precompute each symbol's exclusive-bucket rank once for the 'list' sort.
-  const listRank = new Map<string, number>();
-  if (sort === 'list') {
-    for (const c of cards) {
-      listRank.set(
-        c.symbol,
-        lists.exclusiveListKeys.findIndex((k) =>
-          (lists.symbolLists[k] ?? []).includes(c.symbol.toUpperCase()),
-        ),
-      );
-    }
+  dimension: GroupDimension,
+): GalleryGroup[] {
+  const byKey = new Map<string, GalleryCard[]>();
+  for (const c of cards) {
+    const key = getGroupKey(c.profile, dimension);
+    const bucket = byKey.get(key);
+    if (bucket) bucket.push(c); else byKey.set(key, [c]);
   }
 
-  const key = (c: GalleryCard): [number, string] => {
-    if (sort === 'sector') {
-      const missing = c.profile.sector === undefined ? 1 : 0;
-      return [missing, `${c.profile.sector ?? ''}|${c.profile.industry ?? ''}|${c.symbol}`];
+  const sortedKeys = [...byKey.keys()].sort((a, b) => {
+    if (a === UNKNOWN_GROUP) return 1;
+    if (b === UNKNOWN_GROUP) return -1;
+    if (dimension === GroupDimension.MARKET_CAP_TIER) {
+      return marketCapTierRank(a) - marketCapTierRank(b);
     }
-    if (sort === 'marketCap') {
-      const tier = c.profile.marketCapTier;
-      return [tier === undefined ? 1 : 0, `${tier === undefined ? '' : marketCapTierRank(tier)}|${c.symbol}`];
-    }
-    const idx = listRank.get(c.symbol) ?? -1;
-    return [idx < 0 ? 1 : 0, `${idx < 0 ? '' : idx}|${c.symbol}`];
-  };
-  return [...cards].sort((a, b) => {
-    const [pa, sa] = key(a);
-    const [pb, sb] = key(b);
-    return pa - pb || sa.localeCompare(sb);
+    return a.localeCompare(b);
   });
+
+  return sortedKeys.map((key) => ({
+    key: `${dimension}:${key}`,
+    label: getGroupLabel(key, dimension),
+    cards: [...byKey.get(key)!].sort((a, b) => (b.profile.marketCap ?? 0) - (a.profile.marketCap ?? 0)),
+  }));
 }

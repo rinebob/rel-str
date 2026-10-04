@@ -1,8 +1,9 @@
 /**
  * Gallery UI Store
  *
- * Page-local UI state for the gallery view page (#743/#754): timeframe /
- * direction / list filters and the active sort. Domain data (run, signals,
+ * Page-local UI state for the gallery view page (#743/#754/#783): timeframe /
+ * direction / list filters, the group dimension, and group expansion.
+ * Domain data (run, signals,
  * lists, tickets) stays in the existing domain stores — see GalleryFacade.
  * The list filter is gallery-local (unlike signal-review, which shares
  * SymbolListStore.activeListFilter) so it defaults to 'ALL' without
@@ -15,21 +16,24 @@ import {
   patchState,
 } from '@ngrx/signals';
 
-import { SignalDirection, SignalTimeframe, SymbolListFilter } from '../common/constants';
-import { GallerySortKey } from '../utils/gallery-cards.util';
+import { GroupDimension, SignalDirection, SignalTimeframe, SymbolListFilter } from '../common/constants';
 
 export interface GalleryUiState {
   timeframe: SignalTimeframe;
   direction: SignalDirection;
   listFilter: SymbolListFilter;
-  sort: GallerySortKey;
+  /** Grouping dimension for the expando layout (#783) — mirrors signal-review. */
+  groupDimension: GroupDimension;
+  /** Per-group expansion state; absent key = collapsed (default closed). */
+  expandedGroups: Partial<Record<string, boolean>>;
 }
 
 const initialState: GalleryUiState = {
-  timeframe: SignalTimeframe.ALL,
-  direction: SignalDirection.ALL,
-  listFilter: 'ALL',
-  sort: 'sector',
+  timeframe: SignalTimeframe.DAILY,
+  direction: SignalDirection.LONG,
+  listFilter: 'PRIMARY',
+  groupDimension: GroupDimension.SECTOR,
+  expandedGroups: {},
 };
 
 export const GalleryUiStore = signalStore(
@@ -46,8 +50,16 @@ export const GalleryUiStore = signalStore(
     setListFilter(listFilter: SymbolListFilter): void {
       patchState(state, { listFilter });
     },
-    setSort(sort: GallerySortKey): void {
-      patchState(state, { sort });
+    setGroupDimension(dimension: GroupDimension): void {
+      patchState(state, { groupDimension: dimension });
+    },
+    setGroupExpanded(key: string, expanded: boolean): void {
+      patchState(state, { expandedGroups: { ...state.expandedGroups(), [key]: expanded } });
+    },
+    setAllGroupsExpanded(keys: string[], expanded: boolean): void {
+      const next = { ...state.expandedGroups() };
+      for (const key of keys) next[key] = expanded;
+      patchState(state, { expandedGroups: next });
     },
     /** Re-apply page-entry defaults (called on every gallery enter). */
     resetForPage(): void {

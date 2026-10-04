@@ -2,18 +2,18 @@
  * Gallery cards util — unit tests (#754).
  *
  * Covers the pure seams: occurrence → symbol+side card aggregation,
- * timeframe/direction/list filtering, and the three gallery sorts.
+ * timeframe/direction/list filtering, and dimension grouping (#783).
  */
 import {
   buildGalleryCards,
   filterGalleryCards,
-  sortGalleryCards,
-  GalleryCard,
+  groupGalleryCards,
   GalleryFilter,
   GalleryListContext,
 } from './gallery-cards.util';
 import { StSignalItem, StSymbolProfile } from '../services/types';
 import {
+  GroupDimension,
   NO_MEMBERSHIP,
   SignalDirection,
   SignalStatus,
@@ -160,47 +160,79 @@ describe('filterGalleryCards', () => {
   });
 });
 
-describe('sortGalleryCards', () => {
-  const cards = (syms: { s: string; p?: Partial<StSymbolProfile> }[]): GalleryCard[] =>
+describe('groupGalleryCards (#783) — mirrors signal-review buildSymbolGroups', () => {
+  const cards = (syms: { s: string; p?: Partial<StSymbolProfile> }[]) =>
     buildGalleryCards(
       syms.map(({ s, p }) => profile(s, p)),
       Object.fromEntries(syms.map(({ s }) => [s, [signal(s, SignalTimeframe.DAILY, SignalDirection.LONG)]])),
     );
 
-  it('sector sort orders by sector → industry → symbol, missing values last', () => {
-    const out = sortGalleryCards(
+  it('sector: one group per sector value, alphabetical, unknown last', () => {
+    const groups = groupGalleryCards(
       cards([
-        { s: 'ZZZ', p: { sector: 'Tech', industry: 'Software' } },
-        { s: 'AAA', p: { sector: 'Energy', industry: 'Oil' } },
-        { s: 'BBB', p: { sector: 'Energy', industry: 'Gas' } },
+        { s: 'ZZZ', p: { sector: 'Tech' } },
+        { s: 'AAA', p: { sector: 'Energy' } },
+        { s: 'BBB', p: { sector: 'Energy' } },
         { s: 'NOSEC' },
       ]),
-      'sector',
-      noLists,
+      GroupDimension.SECTOR,
     );
-    expect(out.map((c) => c.symbol)).toEqual(['BBB', 'AAA', 'ZZZ', 'NOSEC']);
+    expect(groups.map((g) => g.label)).toEqual(['Energy', 'Tech', '(Unknown)']);
+    expect(groups[0].cards.map((c) => c.symbol).sort()).toEqual(['AAA', 'BBB']);
+    expect(groups.map((g) => g.key)).toEqual(['sector:Energy', 'sector:Tech', 'sector:(Unknown)']);
   });
 
-  it('marketCap sort orders mega → micro → symbol, missing last', () => {
-    const out = sortGalleryCards(
+  it('industry: groups by industry value', () => {
+    const groups = groupGalleryCards(
+      cards([
+        { s: 'AAA', p: { industry: 'Software' } },
+        { s: 'BBB', p: { industry: 'Oil' } },
+      ]),
+      GroupDimension.INDUSTRY,
+    );
+    expect(groups.map((g) => g.label)).toEqual(['Oil', 'Software']);
+  });
+
+  it('marketCapTier: orders groups by tier rank and uppercases labels', () => {
+    const groups = groupGalleryCards(
       cards([
         { s: 'SML', p: { marketCapTier: 'small' } },
         { s: 'MEG', p: { marketCapTier: 'mega' } },
-        { s: 'MID', p: { marketCapTier: 'mid' } },
         { s: 'NOCAP' },
       ]),
-      'marketCap',
-      noLists,
+      GroupDimension.MARKET_CAP_TIER,
     );
-    expect(out.map((c) => c.symbol)).toEqual(['MEG', 'MID', 'SML', 'NOCAP']);
+    expect(groups.map((g) => g.label)).toEqual(['MEGA', 'SMALL', '(Unknown)']);
   });
 
-  it('list sort orders by exclusive-list bucket order → symbol', () => {
-    const lists: GalleryListContext = {
-      symbolLists: { PRIMARY: ['B2'], SECONDARY: ['A1', 'C1'] },
-      exclusiveListKeys: ['PRIMARY', 'SECONDARY'],
-    };
-    const out = sortGalleryCards(cards([{ s: 'C1' }, { s: 'B2' }, { s: 'A1' }, { s: 'NONE' }]), 'list', lists);
-    expect(out.map((c) => c.symbol)).toEqual(['B2', 'A1', 'C1', 'NONE']);
+  it('orders cards within a group by marketCap desc — same as signal-review rows', () => {
+    const groups = groupGalleryCards(
+      cards([
+        { s: 'SMALL1', p: { sector: 'Tech', marketCap: 1 } },
+        { s: 'BIG1', p: { sector: 'Tech', marketCap: 100 } },
+        { s: 'NOCAP', p: { sector: 'Tech' } },
+      ]),
+      GroupDimension.SECTOR,
+    );
+    expect(groups[0].cards.map((c) => c.symbol)).toEqual(['BIG1', 'SMALL1', 'NOCAP']);
+  });
+
+  it('returns no groups for empty input', () => {
+    expect(groupGalleryCards([], GroupDimension.SECTOR)).toEqual([]);
+  });
+
+  it('keeps both direction cards of a symbol in the same group', () => {
+    const twoDir = buildGalleryCards(
+      [profile('TSLA', { sector: 'Auto' })],
+      {
+        TSLA: [
+          signal('TSLA', SignalTimeframe.DAILY, SignalDirection.LONG),
+          signal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT),
+        ],
+      },
+    );
+    const groups = groupGalleryCards(twoDir, GroupDimension.SECTOR);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].cards).toHaveLength(2);
   });
 });

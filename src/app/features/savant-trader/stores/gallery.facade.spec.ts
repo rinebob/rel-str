@@ -19,7 +19,7 @@ import { SymbolListStore } from './symbol-list.store';
 import { OrderTicketStore } from './order-ticket.store';
 import { StStore } from './st.store';
 import { TradingConfigService } from '../services/trading-config.service';
-import { SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
+import { GroupDimension, SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
 import { StSignalItem, StSymbolProfile } from '../services/types';
 
 const RUN_ID = 'run-1';
@@ -154,17 +154,26 @@ describe('GalleryFacade', () => {
       expect(configServiceMock.loadConfig).toHaveBeenCalled();
     });
 
-    it('resets filter/sort state to page defaults', () => {
-      uiStore.setTimeframe(SignalTimeframe.WEEKLY);
+    it('resets filter/group state to page defaults', () => {
+      uiStore.setTimeframe(SignalTimeframe.ALL);
+      uiStore.setDirection(SignalDirection.ALL);
+      uiStore.setListFilter('ALL');
+      uiStore.setGroupDimension(GroupDimension.MARKET_CAP_TIER);
       facade.enterGallery();
-      expect(uiStore.timeframe()).toBe(SignalTimeframe.ALL);
-      expect(uiStore.listFilter()).toBe('ALL');
-      expect(uiStore.sort()).toBe('sector');
+      expect(uiStore.timeframe()).toBe(SignalTimeframe.DAILY);
+      expect(uiStore.direction()).toBe(SignalDirection.LONG);
+      expect(uiStore.listFilter()).toBe('PRIMARY');
+      expect(uiStore.groupDimension()).toBe(GroupDimension.SECTOR);
     });
   });
 
   describe('cards', () => {
     beforeEach(() => {
+      // Neutralize the page-entry defaults (DAILY/LONG/PRIMARY) — these tests
+      // exercise aggregation/filter mechanics, not the defaults.
+      uiStore.setTimeframe(SignalTimeframe.ALL);
+      uiStore.setDirection(SignalDirection.ALL);
+      uiStore.setListFilter('ALL');
       groupStoreMock.activeRunId.set(RUN_ID);
       groupStoreMock.signalSymbols.set([makeProfile('AAPL'), makeProfile('TSLA')]);
       historyStoreMock.signalHistoryCache.set({
@@ -207,6 +216,71 @@ describe('GalleryFacade', () => {
       uiStore.setListFilter('EMPTY_LIST');
       expect(facade.visibleCards()).toHaveLength(0);
       expect(facade.allFilteredOut()).toBe(true);
+    });
+  });
+
+  describe('groups (#783) — signal-review dimensions', () => {
+    beforeEach(() => {
+      uiStore.setTimeframe(SignalTimeframe.ALL);
+      uiStore.setDirection(SignalDirection.ALL);
+      uiStore.setListFilter('ALL');
+      groupStoreMock.activeRunId.set(RUN_ID);
+      groupStoreMock.signalSymbols.set([
+        makeProfile('AAPL', { sector: 'Tech', marketCap: 100 }),
+        makeProfile('TSLA', { sector: 'Tech', marketCap: 50 }),
+      ]);
+      historyStoreMock.signalHistoryCache.set({
+        [`AAPL::${RUN_ID}`]: [
+          makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG),
+          makeSignal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG),
+        ],
+        [`TSLA::${RUN_ID}`]: [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)],
+      });
+    });
+
+    it('groups visible cards by sector alphabetically', () => {
+      facade.setGroupDimension(GroupDimension.SECTOR);
+      const groups = facade.groups();
+      expect(groups.map((g) => g.key)).toEqual(['sector:Tech']);
+      expect(groups[0].cards.map((c) => c.key).sort()).toEqual(['AAPL:buy', 'TSLA:sell']);
+    });
+
+    it('regroups when the dimension changes', () => {
+      expect(uiStore.groupDimension()).toBe(GroupDimension.SECTOR);
+      expect(facade.groups().map((g) => g.label)).toEqual(['Tech']);
+      // No industry on the profiles → all land in (Unknown).
+      facade.setGroupDimension(GroupDimension.INDUSTRY);
+      expect(facade.groups().map((g) => g.label)).toEqual(['(Unknown)']);
+    });
+
+    it('groups reflect the active filter', () => {
+      uiStore.setDirection(SignalDirection.SHORT);
+      const groups = facade.groups();
+      expect(groups).toHaveLength(1);
+      expect(groups[0].cards.map((c) => c.key)).toEqual(['TSLA:sell']);
+    });
+
+    it('groups default to collapsed; setGroupExpanded expands one', () => {
+      expect(facade.isGroupExpanded('sector:Tech')).toBe(false);
+      facade.setGroupExpanded('sector:Tech', true);
+      expect(facade.isGroupExpanded('sector:Tech')).toBe(true);
+    });
+
+    it('expansion state is isolated across dimensions via prefixed keys', () => {
+      // 'sector:Tech' and 'industry:Tech' are different buckets — expanding
+      // one must not touch the other (the reason group keys are prefixed).
+      facade.setGroupExpanded('sector:Tech', true);
+      expect(facade.isGroupExpanded('sector:Tech')).toBe(true);
+      expect(facade.isGroupExpanded('industry:Tech')).toBe(false);
+    });
+
+    it('toggleAllGroups expands all then collapses all', () => {
+      expect(facade.allGroupsExpanded()).toBe(false);
+      facade.toggleAllGroups();
+      expect(facade.allGroupsExpanded()).toBe(true);
+      expect(facade.isGroupExpanded('sector:Tech')).toBe(true);
+      facade.toggleAllGroups();
+      expect(facade.allGroupsExpanded()).toBe(false);
     });
   });
 
