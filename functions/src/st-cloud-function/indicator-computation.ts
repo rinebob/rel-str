@@ -113,11 +113,9 @@ export interface SignalIntervalData {
   };
 }
 
-export enum ChartInterval {
-  DAILY = 'daily',
-  WEEKLY = 'weekly',
-  MONTHLY = 'monthly',
-}
+// Canonical definition lives in shared/screenshot-capture-contracts.ts
+// (#765) — re-exported here so existing import sites keep working.
+export { ChartInterval } from '@screenshot-capture/contracts';
 
 export enum IndicatorFamily {
   ZONE_V1 = 'zoneV1',
