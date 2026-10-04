@@ -1,0 +1,31 @@
+<mat-expansion-panel
+  class="gallery-group"
+  [expanded]="expanded()"
+  (opened)="expandedChange.emit(true)"
+  (closed)="expandedChange.emit(false)">
+  <mat-expansion-panel-header class="group-header">
+    <mat-panel-title class="group-title">
+      <span class="group-label">{{ group().label }}</span>
+      <span class="group-summary">
+        {{ group().cards.length }} signals
+        @if (dailyCount() > 0) {
+          <span class="grp-tf">D {{ dailyCount() }}</span>
+        }
+        @if (weeklyCount() > 0) {
+          <span class="grp-tf">W {{ weeklyCount() }}</span>
+        }
+        @if (longCount() > 0) {
+          <span class="grp-dir long">↑ {{ longCount() }}</span>
+        }
+        @if (shortCount() > 0) {
+          <span class="grp-dir short">↓ {{ shortCount() }}</span>
+        }
+      </span>
+    </mat-panel-title>
+  </mat-expansion-panel-header>
+  <div class="gallery-grid">
+    @for (card of group().cards; track card.key) {
+      <app-gallery-card [card]="card" />
+    }
+  </div>
+</mat-expansion-panel>

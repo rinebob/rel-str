@@ -1,0 +1,44 @@
+.gallery-group {
+  margin: 0 16px 12px;
+}
+
+.group-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.group-label {
+  font-weight: 600;
+}
+
+.group-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  font-weight: 400;
+}
+
+.grp-tf {
+  font-weight: 600;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.grp-dir {
+  font-weight: 700;
+  &.long  { color: #2e7d32; }
+  &.short { color: var(--mat-sys-error); }
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  padding-top: 12px;
+  align-content: start;
+}
