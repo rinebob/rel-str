@@ -6,6 +6,9 @@
 ### Added
 - [Portfolio Allocation] 576-776_FE-IMPL-PORTFOLIO: Shared visual-language SCSS partial — feature-internal _pd-visual-language.scss with page-shell/content-column/header-bar/dense-table/state-block/error-banner mixins + $up/$down accents, all mat-sys tokens (dark-theme safe)
 - [Portfolio Allocation] 576-776_DOCS-PORTFOLIO: Visual-consistency Thread docs — PRD (Approved), IMPL:FE, TEST:FE, code review (PASS), UAT (Complete)
+- [Portfolio Allocation] 576-777_FE-IMPL-PORTFOLIO: Dashboard shell — header bar (icon + title + scoreboard + actions) and 1100px centered content column on _pd-visual-language mixins; account tabs → mat-button-toggle pill row; single section tab row (Equities/Options/Orders/History/Account) with per-pane scrolling
+- [Portfolio Allocation] 576-777_FE-IMPL-PORTFOLIO: Header scoreboard with signal-order font treatment; dollar totals masked by default until opt-in eye toggle (localStorage-persisted); Allocations link in header + ← Portfolio back link on allocation page
+- [Portfolio Allocation] 576-777_DOCS-PORTFOLIO: #777 code review (PASS) + UAT (Complete, round-2 redesign approved)
 
 - [On-demand Screenshot Capture] 746-765_SHARED-IMPL-SCREENSHOT: Screenshot capture contract types — canonical ChartInterval, CaptureInterval D/W subset, CaptureEvent, PositionType (stock), CaptureChartSpec/Artifact/Result, capture defaults (D+W, 30 bars, 'all' sentinel)
 - [On-demand Screenshot Capture] 746-765_SHARED-IMPL-SCREENSHOT: Screenshot capture path + result builders — buildScreenshotStoragePath (st-trade-screenshots/, HHmmss never-overwrite, 6-char refId, empty-symbol throw) + buildCaptureChartResult (svg/paths derived from artifacts)
