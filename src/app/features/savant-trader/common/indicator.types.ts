@@ -5,13 +5,14 @@
  * functions/src/st-cloud-function/indicator-computation.ts
  * to avoid the shared-library build issues we have hit in other projects.
  * Keep them in sync with the backend.
+ *
+ * ChartInterval is the exception: it was unified into
+ * shared/screenshot-capture-contracts.ts (#765) and is re-exported here.
  */
 
-export enum ChartInterval {
-  DAILY = 'daily',
-  WEEKLY = 'weekly',
-  MONTHLY = 'monthly',
-}
+import { ChartInterval } from '@screenshot-capture/contracts';
+
+export { ChartInterval };
 
 export enum IndicatorFamily {
   ZONE_V1 = 'zoneV1',
