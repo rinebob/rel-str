@@ -34,7 +34,10 @@
       "@lifecycle/contracts": ["./shared/lifecycle-contracts.ts"],
       "@lifecycle/tree": ["./shared/lifecycle-tree.ts"],
       "@screenshot-capture/contracts": ["./shared/screenshot-capture-contracts.ts"],
-      "@screenshot-capture/utils": ["./shared/screenshot-capture-utils.ts"]
+      "@screenshot-capture/utils": ["./shared/screenshot-capture-utils.ts"],
+      "@flex-chart/theme": ["./shared/flex-chart-theme.ts"],
+      "@flex-chart/scale-math": ["./shared/flex-chart-scale-math.ts"],
+      "@flex-chart/indicator-visuals": ["./shared/flex-chart-indicator-visuals.ts"]
     },
     "importHelpers": true,
     "target": "ES2022",

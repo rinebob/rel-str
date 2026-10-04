@@ -39,5 +39,8 @@ module.exports = {
     '^@lifecycle/tree$': '<rootDir>/shared/lifecycle-tree.ts',
     '^@screenshot-capture/contracts$': '<rootDir>/shared/screenshot-capture-contracts.ts',
     '^@screenshot-capture/utils$': '<rootDir>/shared/screenshot-capture-utils.ts',
+    '^@flex-chart/theme$': '<rootDir>/shared/flex-chart-theme.ts',
+    '^@flex-chart/scale-math$': '<rootDir>/shared/flex-chart-scale-math.ts',
+    '^@flex-chart/indicator-visuals$': '<rootDir>/shared/flex-chart-indicator-visuals.ts',
   },
 };
