@@ -1,7 +1,17 @@
 # Changelog
 
 
-## [2026-10-03]
+## [2026-10-04]
+
+### Added
+- [On-demand Screenshot Capture] 746-765_SHARED-IMPL-SCREENSHOT: Screenshot capture contract types — canonical ChartInterval, CaptureInterval D/W subset, CaptureEvent, PositionType (stock), CaptureChartSpec/Artifact/Result, capture defaults (D+W, 30 bars, 'all' sentinel)
+- [On-demand Screenshot Capture] 746-765_SHARED-IMPL-SCREENSHOT: Screenshot capture path + result builders — buildScreenshotStoragePath (st-trade-screenshots/, HHmmss never-overwrite, 6-char refId, empty-symbol throw) + buildCaptureChartResult (svg/paths derived from artifacts)
+- [On-demand Screenshot Capture] 746-765_CONFIG-IMPL-SCREENSHOT: @screenshot-capture/{contracts,utils} aliases in root + functions tsconfigs and jest moduleNameMapper
+
+### Changed
+- [On-demand Screenshot Capture] 746-765_BE-REFACTOR-SCREENSHOT: indicator-computation.ts re-exports canonical ChartInterval (enum unified in shared/, identical wire values)
+- [On-demand Screenshot Capture] 746-765_FE-REFACTOR-SCREENSHOT: indicator.types.ts re-exports canonical ChartInterval (fixes FE/BE enum duplication)
+- [On-demand Screenshot Capture] 746-765_DOCS-SCREENSHOT: Topic docs — PRD, BE-SH + FE IMPL/TEST, code review (PASS, 2 rounds), UAT (Complete)
 
 ### Added
 - [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Add ±50 visible-bar controls to the quick-charts daily chart — −50/+50 buttons in the Daily label row, floor 30 / ceiling = loaded bars; includes 250ms symbol-change load debounce (checkpoint)
