@@ -200,12 +200,6 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.GalleryViewComponent),
                 canActivate: [authGuard],
             },
-            // PROTOTYPE — throwaway Today-surface variants. Remove after decision.
-            {path: AppRoutes.PROTOTYPE_TODAY,
-                loadComponent: () => import('../features/prototype-today/prototype-today.component')
-                .then(mod => mod.PrototypeTodayComponent),
-                canActivate: [authGuard],
-            },
             {path: AppRoutes.TOPIC_VIEWER,
                 loadComponent: () => import('../features/topic-viewer/topic-viewer-page.component')
                 .then(mod => mod.TopicViewerPageComponent),

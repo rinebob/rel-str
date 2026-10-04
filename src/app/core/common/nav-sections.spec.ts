@@ -101,7 +101,6 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
     'history',
     'signal-history',
     'signal-action-report',
-    'prototype-today',
     'dev/flex-chart',
     'documentation',
     'contact',
