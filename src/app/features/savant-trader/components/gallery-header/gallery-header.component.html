@@ -1,0 +1,33 @@
+<div class="gallery-header">
+  <h1 class="gallery-title">Signal Gallery</h1>
+  @if (marketDate()) {
+    <span class="run-date" matTooltip="Market date of the viewed run">{{ marketDate() }}</span>
+  }
+  <span class="card-count" matTooltip="Visible cards / total cards for this run">
+    {{ cardCount() }}<span class="card-count-total"> / {{ totalCardCount() }}</span>
+  </span>
+
+  <app-signal-filter-pills
+    [timeframe]="timeframe()"
+    [direction]="direction()"
+    (timeframeChange)="timeframeChange.emit($event)"
+    (directionChange)="directionChange.emit($event)">
+  </app-signal-filter-pills>
+
+  <div class="header-spacer"></div>
+
+  <app-rh-select-menu
+    label="List"
+    [options]="sentinelOptions"
+    [optionGroups]="listGroups()"
+    [value]="listFilter()"
+    (valueChange)="listFilterChange.emit($event)">
+  </app-rh-select-menu>
+
+  <app-rh-select-menu
+    label="Sort"
+    [options]="sortOptions()"
+    [value]="sort()"
+    (valueChange)="sortChange.emit($event)">
+  </app-rh-select-menu>
+</div>

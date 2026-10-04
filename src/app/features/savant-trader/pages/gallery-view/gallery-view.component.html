@@ -1,0 +1,33 @@
+<div class="gallery-page">
+  <app-gallery-header
+    [marketDate]="facade.viewedRun()?.marketDate ?? null"
+    [cardCount]="facade.cardCount()"
+    [totalCardCount]="facade.cards().length"
+    [timeframe]="facade.timeframe()"
+    [direction]="facade.direction()"
+    [listFilter]="facade.listFilter()"
+    [listGroups]="facade.filterOptionGroups()"
+    [sort]="facade.sort()"
+    [sortOptions]="facade.sortOptions"
+    (timeframeChange)="facade.setTimeframe($event)"
+    (directionChange)="facade.setDirection($event)"
+    (listFilterChange)="facade.setListFilter($event)"
+    (sortChange)="facade.setSort($event)">
+  </app-gallery-header>
+
+  @if (facade.pageInitializing()) {
+    <div class="gallery-empty">Loading signals…</div>
+  } @else if (facade.loadError()) {
+    <div class="gallery-empty">Failed to load signals — {{ facade.loadError() }}</div>
+  } @else if (facade.cards().length === 0) {
+    <div class="gallery-empty">No signals for this run.</div>
+  } @else if (facade.allFilteredOut()) {
+    <div class="gallery-empty">No signals match the current filters.</div>
+  } @else {
+    <div class="gallery-grid">
+      @for (card of facade.visibleCards(); track card.key) {
+        <app-gallery-card [card]="card" />
+      }
+    </div>
+  }
+</div>

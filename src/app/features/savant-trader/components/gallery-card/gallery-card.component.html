@@ -1,0 +1,26 @@
+<div class="gallery-card" [class.buy]="card().side === 'buy'" [class.sell]="card().side === 'sell'">
+  <div class="card-header">
+    <span class="symbol">{{ card().symbol }}</span>
+    @if (card().profile.name) {
+      <span class="name" [title]="card().profile.name">{{ card().profile.name }}</span>
+    }
+    <span class="side-badge" [class.buy]="card().side === 'buy'" [class.sell]="card().side === 'sell'">
+      {{ card().side === 'buy' ? 'BUY' : 'SELL' }}
+    </span>
+  </div>
+
+  <ul class="occurrences">
+    @for (occ of card().occurrences; track occ.id + occ.timeframe + occ.signalType) {
+      <li class="occurrence">
+        <span class="tf-chip" [class.weekly]="occ.timeframe === SignalTimeframe.WEEKLY">
+          {{ occ.timeframe }}
+        </span>
+        <span class="signal-type">{{ occ.signalType }}</span>
+        <span class="bar-date">{{ occ.barDate }}</span>
+        @if (occ.closePrice !== undefined) {
+          <span class="close-price">{{ occ.closePrice | number: '1.2-2' }}</span>
+        }
+      </li>
+    }
+  </ul>
+</div>
