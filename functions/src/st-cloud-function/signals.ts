@@ -5,6 +5,11 @@
  * used to store signals in Firestore.
  */
 
+// Explicit type imports — the FirebaseFirestore global namespace is ambient
+// under functions/tsconfig but not under the jest spec tsconfig, so modules
+// that transitively reach this file must not rely on it.
+import type { FieldValue, Timestamp } from 'firebase-admin/firestore';
+
 /**
  * Signal direction — whether the signal is a long or short entry.
  */
@@ -55,8 +60,8 @@ export interface StSignalEntry {
 export interface StSignalHistoryDoc {
   symbol: string;
   date: string;                  // YYYY-MM-DD — doc ID; for weekly signals: the week-open (Monday bar date)
-  updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-  canonicalizedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  updatedAt: Timestamp | FieldValue;
+  canonicalizedAt: Timestamp | FieldValue;
   signals: Record<string, StSignalEntry & { sourceRunId: string }>;
 }
 
@@ -70,6 +75,6 @@ export interface StRunIdDoc {
   runId: string;                 // doc ID — the agent run that produced these signals
   marketDate: string;            // YYYY-MM-DD — calendar date of the run
   startedAt: string;             // ISO timestamp — distinguishes 8AM vs 10AM vs 12PM PDR runs
-  updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  updatedAt: Timestamp | FieldValue;
   signals: Record<string, StSignalEntry>;
 }

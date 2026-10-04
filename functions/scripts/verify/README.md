@@ -35,6 +35,8 @@ npx tsx scripts/verify/{script-name}.ts
 | #720 | `paper-trading-signal-settlement-720.ts` | expired signal option legs settle — worthless / intrinsic | [paper-trading-signal-settlement-720.md](../../../scripts/verify/paper-trading-signal-settlement-720.md) |
 | #724 | `paper-trading-engine-settlement-724.ts` | engine settlement retries missed nights + weekend-expiry walk-back | [paper-trading-engine-settlement-724.md](../../../scripts/verify/paper-trading-engine-settlement-724.md) |
 | #669 | `paper-trading-trade-exits-669.ts` | composed exit seam — prod seeding audit + governingVariant resolution + seed guards + cancel/close guards | [paper-trading-trade-exits-669.md](../../../scripts/verify/paper-trading-trade-exits-669.md) |
+| #766 | `screenshot-capture-766-render.ts` | render model → SVG (fixture render + structural checks + browser artifact) | [screenshot-capture-766.md](screenshot-capture-766.md) |
+| #767 | `screenshot-capture-767-assemble.ts` | symbol-data bars → indicator series → render model → SVG (real-data end-to-end) | [screenshot-capture-767.md](screenshot-capture-767.md) |
 
 ## Order across tasks
 
@@ -52,3 +54,5 @@ npx tsx scripts/verify/{script-name}.ts
 12. **#720** — `paper-trading-signal-settlement-720.ts` (signal-trade settlement)
 13. **#724** — `paper-trading-engine-settlement-724.ts` (engine missed-night + weekend-expiry parity)
 14. **#669** — `paper-trading-trade-exits-669.ts` (composed exit seam + prod audit)
+15. **#766** — `screenshot-capture-766-render.ts` (render model → SVG)
+16. **#767** — `screenshot-capture-767-assemble.ts` (data assembly → model → SVG)

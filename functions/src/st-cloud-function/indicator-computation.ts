@@ -13,6 +13,7 @@ import { detectAllStTrendRiderSignals, detectAllZoneZeroCrossSignals } from './s
 import { StSignalDirection } from './signals';
 import type { OHLCV } from '../indicators/st-trend-bands';
 import type { OhlcBar } from '../common/market-data-types';
+import { ST_HTF_WINDOW, ST_SIGNAL_DOT_OFFSET, ST_TREND_BAND_COLORS } from '@flex-chart/indicator-visuals';
 
 // =============================================================================
 // TYPES
@@ -172,18 +173,11 @@ export interface IntervalData {
 // HELPERS
 // =============================================================================
 
-const TREND_BAND_COLORS: Array<[string, string]> = [
-  ['#ffeb3b', '#2196f3'], // band 1: yellow up, blue down
-  ['#ffeb3b', '#2196f3'], // band 2: yellow up, blue down
-  ['#ff9800', '#1565c0'], // band 3: orange up, dark blue down
-  ['#ff9800', '#1565c0'], // band 4: orange up, dark blue down
-];
-
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function barsToOhlcv(bars: OhlcBar[]): OHLCV[] {
+export function barsToOhlcv(bars: OhlcBar[]): OHLCV[] {
   return bars.map(b => ({
     open: b.o,
     high: b.h,
@@ -206,7 +200,7 @@ function buildBandPoint(
   band: { o: number[]; h: number[]; l: number[]; c: number[]; m: number[]; up: boolean[] },
   i: number,
 ): BandPoint {
-  const [bullColor, bearColor] = TREND_BAND_COLORS[bandIndex - 1] ?? ['#999999', '#999999'];
+  const [bullColor, bearColor] = ST_TREND_BAND_COLORS[bandIndex - 1] ?? ['#999999', '#999999'];
   return {
     bandIndex,
     bullColor,
@@ -405,8 +399,6 @@ function generateZoneDotMarkers(
   return markers;
 }
 
-const TS_DOT_OFFSET = 3;
-
 function generateTrendStrengthDotMarkers(
   signals: IndicatorSignalMarker[],
   data: IndicatorIntervalData,
@@ -421,7 +413,7 @@ function generateTrendStrengthDotMarkers(
       d: signal.d,
       index: idx,
       direction: signal.direction,
-      y: point.diHist + (signal.direction === 'long' ? TS_DOT_OFFSET : -TS_DOT_OFFSET),
+      y: point.diHist + (signal.direction === 'long' ? ST_SIGNAL_DOT_OFFSET : -ST_SIGNAL_DOT_OFFSET),
       version: 'TS',
       signalType: signal.signalType,
     });
@@ -429,9 +421,11 @@ function generateTrendStrengthDotMarkers(
   return markers;
 }
 
-const HTF_WINDOW_LONG_COLOR = '#4caf50';
-const HTF_WINDOW_SHORT_COLOR = '#f44336';
-const HTF_WINDOW_Y = 6;
+// Canonical visual vocabulary lives in shared/flex-chart-indicator-visuals.ts
+// (the assembler consumes the same constants — parity is structural).
+const HTF_WINDOW_LONG_COLOR = ST_HTF_WINDOW.longColor;
+const HTF_WINDOW_SHORT_COLOR = ST_HTF_WINDOW.shortColor;
+const HTF_WINDOW_Y = ST_HTF_WINDOW.y;
 
 function generateHtfWindowData(
   htfData: IndicatorIntervalData,
