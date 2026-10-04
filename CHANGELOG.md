@@ -4,6 +4,9 @@
 ## [2026-10-04]
 
 ### Added
+- [Portfolio Allocation] 576-776_FE-IMPL-PORTFOLIO: Shared visual-language SCSS partial — feature-internal _pd-visual-language.scss with page-shell/content-column/header-bar/dense-table/state-block/error-banner mixins + $up/$down accents, all mat-sys tokens (dark-theme safe)
+- [Portfolio Allocation] 576-776_DOCS-PORTFOLIO: Visual-consistency Thread docs — PRD (Approved), IMPL:FE, TEST:FE, code review (PASS), UAT (Complete)
+
 - [On-demand Screenshot Capture] 746-765_SHARED-IMPL-SCREENSHOT: Screenshot capture contract types — canonical ChartInterval, CaptureInterval D/W subset, CaptureEvent, PositionType (stock), CaptureChartSpec/Artifact/Result, capture defaults (D+W, 30 bars, 'all' sentinel)
 - [On-demand Screenshot Capture] 746-765_SHARED-IMPL-SCREENSHOT: Screenshot capture path + result builders — buildScreenshotStoragePath (st-trade-screenshots/, HHmmss never-overwrite, 6-char refId, empty-symbol throw) + buildCaptureChartResult (svg/paths derived from artifacts)
 - [On-demand Screenshot Capture] 746-765_CONFIG-IMPL-SCREENSHOT: @screenshot-capture/{contracts,utils} aliases in root + functions tsconfigs and jest moduleNameMapper
