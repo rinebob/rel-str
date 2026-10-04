@@ -28,6 +28,8 @@ export interface StState {
   runs: StRun[];
   isLoading: boolean;
   runsStreaming: boolean;
+  /** True once the runs stream has emitted (or failed) at least once. */
+  runsReceived: boolean;
 }
 
 // Initial state
@@ -36,6 +38,7 @@ const initialState: StState = {
   runs: [],
   isLoading: false,
   runsStreaming: false,
+  runsReceived: false,
 };
 
 export const StStore = signalStore(
@@ -92,9 +95,9 @@ export const StStore = signalStore(
           }),
           takeUntilDestroyed(destroyRef),
         ).subscribe({
-          next: (runs) => patchState(state, { runs }),
-          error: () => patchState(state, { runsStreaming: false }),
-          complete: () => patchState(state, { runsStreaming: false }),
+          next: (runs) => patchState(state, { runs, runsReceived: true }),
+          error: () => patchState(state, { runsStreaming: false, runsReceived: true }),
+          complete: () => patchState(state, { runsStreaming: false, runsReceived: true }),
         });
       }
     },
