@@ -72,6 +72,10 @@ export const DEFAULT_CAPTURE_INTERVALS: readonly CaptureInterval[] = [
 /** Default bar window — matches the quick-charts 30-bar visible windows. */
 export const DEFAULT_CAPTURE_VISIBLE_BARS = 30;
 
+/** Default rendered image dimensions — the quick-charts card size preset. */
+export const DEFAULT_CAPTURE_WIDTH = 800;
+export const DEFAULT_CAPTURE_HEIGHT = 560;
+
 /**
  * Caller-supplied capture request. Everything the image needs is here —
  * the function is stateless w.r.t. callers; `refId` is an opaque caller key
