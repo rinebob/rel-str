@@ -19,9 +19,44 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Observable, forkJoin, of } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 
 import { type StSignalItem } from '../services/types';
 import { SignalService } from '../services/signal.service';
+import { SignalTimeframe } from '../common/constants';
+import { LocalBarReadService, type OhlcBar } from '../../../core/services/local-bar-read.service';
+import { fillSignalClosePrices, getCacheKey } from '../utils/utils';
+
+/**
+ * Derive missing closePrice values from symbol-data bars so cached run signals
+ * are priced even though backend signal entries do not store `close`. Skips
+ * all bar reads when every signal is already priced.
+ */
+function enrichClosePrices(
+  barRead: LocalBarReadService,
+  symbol: string,
+  signals: StSignalItem[],
+): Observable<StSignalItem[]> {
+  const needsPrice = (s: StSignalItem): boolean => s.closePrice === undefined;
+  const dailyDates = signals
+    .filter((s) => s.timeframe !== SignalTimeframe.WEEKLY && needsPrice(s))
+    .map((s) => s.barDate);
+  const needWeekly = signals.some(
+    (s) => s.timeframe === SignalTimeframe.WEEKLY && needsPrice(s),
+  );
+  if (dailyDates.length === 0 && !needWeekly) return of(signals);
+
+  const daily$ = dailyDates.length
+    ? barRead.getDailyBarsForRange$(symbol, dailyDates.reduce((a, b) => (a < b ? a : b)), dailyDates.reduce((a, b) => (a > b ? a : b)))
+    : of([] as OhlcBar[]);
+  const weekly$ = needWeekly ? barRead.getWeeklyBars$(symbol) : of([] as OhlcBar[]);
+
+  return forkJoin({ daily: daily$, weekly: weekly$ }).pipe(
+    map(({ daily, weekly }) => fillSignalClosePrices(signals, daily, weekly)),
+    catchError(() => of(signals)),
+  );
+}
 
 export interface SymbolHistoryState {
   /** Per-symbol signal history cache: symbol â†’ signals[] */
@@ -39,14 +74,14 @@ export const SymbolHistoryStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 
-  withMethods((state, signalService = inject(SignalService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
+  withMethods((state, signalService = inject(SignalService), barRead = inject(LocalBarReadService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
     /**
      * Load signals for a symbol from a specific run (run-ids/{runId}).
      * Used by signal review â€” shows only signals from the active run.
      * Cache key: `${symbol}::${runId}` to avoid conflicts with all-history cache.
      */
     loadSignalHistoryForRun(symbol: string, runId: string): void {
-      const cacheKey = `${symbol}::${runId}`;
+      const cacheKey = getCacheKey(symbol, runId);
       if (state.signalHistoryCache()[cacheKey] !== undefined) return;
       if (state.signalHistoryLoading()[cacheKey]) return;
 
@@ -55,7 +90,10 @@ export const SymbolHistoryStore = signalStore(
       });
 
       runInInjectionContext(injector, () => signalService.getSymbolSignalsForRun(symbol, runId))
-        .pipe(takeUntilDestroyed(destroyRef))
+        .pipe(
+          switchMap((signals) => enrichClosePrices(barRead, symbol, signals)),
+          takeUntilDestroyed(destroyRef),
+        )
         .subscribe({
           next: (signals) => {
             patchState(state, {
