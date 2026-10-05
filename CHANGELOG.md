@@ -35,6 +35,7 @@
 - [Gallery Order Ticket View] 743-783_FE-IMPL-GALLERY-VIEW: Page wiring — "Group" select replaces Sort, expand/collapse-all icon button, flat grid → grouped panel stack
 - [Gallery Order Ticket View] 743-783_DOCS-GALLERY-VIEW: #783 code review (PASS, 1 round + post-review tweaks) + UAT scenarios G1–G8 (Complete) + IMPL Phase 1b updated to shipped design
 - [Flex Chart Visual Polish] 213-731_FE-IMPL-SAVANT-TRADER: Add ±50 visible-bar controls to the quick-charts daily chart — −50/+50 buttons in the Daily label row, floor 30 / ceiling = loaded bars; includes 250ms symbol-change load debounce (checkpoint)
+- [Flex Chart Visual Polish] 213-731_SHARED-REFACTOR-FLEX-CHART: Remove theme/scale-math re-export shims — deleted flex-chart/chart-theme.ts, strategies/log-transform.ts, strategies/price-format.ts; all consumers import @flex-chart/theme and @flex-chart/scale-math directly; specs moved to shared/ beside their modules (checkpoint)
 
 ### Added
 - [On-demand Screenshot Capture] 746-766_SHARED-IMPL-SCREENSHOT: Canonical shared/ chart theme + scale math (CHART_PALETTES, log/linear ticks) + @flex-chart/* aliases in both tsconfigs and jest
