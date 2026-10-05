@@ -1,0 +1,397 @@
+{
+  "id": "ro-poli-01",
+  "tool": "get_politician_trades",
+  "group": "research",
+  "gate": "read",
+  "note": "Name lookup.",
+  "args": {
+    "politician_name": "Pelosi"
+  },
+  "capturedAt": "2026-10-05T17:54:21.394Z",
+  "outcome": "success",
+  "latencyMs": 4598,
+  "success": true,
+  "response": {
+    "data": {
+      "trades": [
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "BE",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1000001",
+            "max": "5000000"
+          },
+          "transaction_date": "2026-07-23",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "BE",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1000001",
+            "max": "5000000"
+          },
+          "transaction_date": "2026-07-23",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "BE",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "500001",
+            "max": "1000000"
+          },
+          "transaction_date": "2026-07-27",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "INTC",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "500001",
+            "max": "1000000"
+          },
+          "transaction_date": "2026-07-23",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "INTC",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "250001",
+            "max": "500000"
+          },
+          "transaction_date": "2026-07-23",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "INTC",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1000001",
+            "max": "5000000"
+          },
+          "transaction_date": "2026-05-28",
+          "disclosure_date": "2026-06-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "BE",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "500001",
+            "max": "1000000"
+          },
+          "transaction_date": "2026-07-27",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "UBER",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "500001",
+            "max": "1000000"
+          },
+          "transaction_date": "2026-05-28",
+          "disclosure_date": "2026-06-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "INTC",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "250001",
+            "max": "500000"
+          },
+          "transaction_date": "2026-07-24",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "BE",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1000001",
+            "max": "5000000"
+          },
+          "transaction_date": "2026-07-24",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "INTC",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "500001",
+            "max": "1000000"
+          },
+          "transaction_date": "2026-07-24",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "BE",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1000001",
+            "max": "5000000"
+          },
+          "transaction_date": "2026-07-24",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "BE",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "500001",
+            "max": "1000000"
+          },
+          "transaction_date": "2026-07-28",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "BE",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "500001",
+            "max": "1000000"
+          },
+          "transaction_date": "2026-07-28",
+          "disclosure_date": "2026-08-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "INTC",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1000001",
+            "max": "5000000"
+          },
+          "transaction_date": "2026-05-29",
+          "disclosure_date": "2026-06-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "UBER",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "500001",
+            "max": "1000000"
+          },
+          "transaction_date": "2026-05-29",
+          "disclosure_date": "2026-06-24",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "GOOGL",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1000001",
+            "max": "5000000"
+          },
+          "transaction_date": "2025-12-30",
+          "disclosure_date": "2026-01-23",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "AAPL",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "250001",
+            "max": "500000"
+          },
+          "transaction_date": "2025-12-30",
+          "disclosure_date": "2026-01-23",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "TEM",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "50001",
+            "max": "100000"
+          },
+          "transaction_date": "2026-01-16",
+          "disclosure_date": "2026-01-23",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "250001",
+            "max": "500000"
+          },
+          "transaction_date": "2026-01-16",
+          "disclosure_date": "2026-01-23",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "AAPL",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "250001",
+            "max": "500000"
+          },
+          "transaction_date": "2025-12-30",
+          "disclosure_date": "2026-01-23",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "DIS",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1000001",
+            "max": "5000000"
+          },
+          "transaction_date": "2025-12-30",
+          "disclosure_date": "2026-01-23",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "GOOGL",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1000001",
+            "max": "5000000"
+          },
+          "transaction_date": "2025-12-30",
+          "disclosure_date": "2026-01-23",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "NVDA",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "100001",
+            "max": "250000"
+          },
+          "transaction_date": "2025-12-30",
+          "disclosure_date": "2026-01-23",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Nancy Pelosi",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "OPTION",
+          "symbol": "AMZN",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "100001",
+            "max": "250000"
+          },
+          "transaction_date": "2025-12-30",
+          "disclosure_date": "2026-01-23",
+          "source": "Tip Ranks"
+        }
+      ],
+      "has_more": true
+    },
+    "guide": "Each entry is one disclosed transaction. Always display the source (Tip Ranks) as attribution. transaction_date is when the trade occurred; disclosure_date is when it was made public - this lag can be up to 45 days, so treat entries as historical information, not a real-time signal, and do not imply the information is more recent than it is. Amounts are disclosed ranges - never present them as exact figures. Do not present politician trades as a recommendation or endorsement."
+  }
+}

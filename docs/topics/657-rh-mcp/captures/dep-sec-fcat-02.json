@@ -1,0 +1,635 @@
+{
+  "id": "dep-sec-fcat-02",
+  "tool": "get_sec_filing_facts_catalog",
+  "group": "sec-filings",
+  "gate": "read",
+  "note": "concept_contains substring filter.",
+  "args": {
+    "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+    "concept_contains": "Debt"
+  },
+  "capturedAt": "2026-10-05T17:59:06.442Z",
+  "outcome": "success",
+  "latencyMs": 1056,
+  "success": true,
+  "response": {
+    "data": {
+      "concepts": [
+        {
+          "concept": "AvailableForSaleDebtSecuritiesAccumulatedGrossUnrealizedGainBeforeTax",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "FairValueByFairValueHierarchyLevelAxis",
+            "FinancialInstrumentAxis"
+          ]
+        },
+        {
+          "concept": "AvailableForSaleDebtSecuritiesAccumulatedGrossUnrealizedLossBeforeTax",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "FairValueByFairValueHierarchyLevelAxis",
+            "FinancialInstrumentAxis"
+          ]
+        },
+        {
+          "concept": "AvailableForSaleDebtSecuritiesAmortizedCostBasis",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "FairValueByFairValueHierarchyLevelAxis",
+            "FinancialInstrumentAxis"
+          ]
+        },
+        {
+          "concept": "AvailableForSaleSecuritiesDebtSecurities",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "FairValueByFairValueHierarchyLevelAxis",
+            "FinancialInstrumentAxis"
+          ]
+        },
+        {
+          "concept": "DebtDisclosureTextBlock",
+          "is_text_block": true,
+          "periods": [
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "DebtInstrumentCarryingAmount",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "DebtInstrumentAxis",
+            "LongtermDebtTypeAxis"
+          ]
+        },
+        {
+          "concept": "DebtInstrumentInterestRateEffectivePercentage",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "DebtInstrumentAxis",
+            "LongtermDebtTypeAxis",
+            "RangeAxis"
+          ]
+        },
+        {
+          "concept": "DebtInstrumentInterestRateStatedPercentage",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "DebtInstrumentAxis",
+            "LongtermDebtTypeAxis",
+            "RangeAxis"
+          ]
+        },
+        {
+          "concept": "DebtInstrumentMaturityYearRangeEnd",
+          "is_text_block": true,
+          "periods": [
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "DebtInstrumentAxis",
+            "LongtermDebtTypeAxis"
+          ]
+        },
+        {
+          "concept": "DebtInstrumentMaturityYearRangeStart",
+          "is_text_block": true,
+          "periods": [
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "DebtInstrumentAxis",
+            "LongtermDebtTypeAxis"
+          ]
+        },
+        {
+          "concept": "DebtInstrumentTerm",
+          "is_text_block": true,
+          "periods": [
+            {
+              "period": "2023-10-01/2024-09-28",
+              "start_date": "2023-10-01",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "ShortTermDebtTypeAxis"
+          ]
+        },
+        {
+          "concept": "DebtInstrumentUnamortizedDiscountPremiumAndDebtIssuanceCostsNet",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "DebtSecuritiesAvailableForSaleMaturityAllocatedAndSingleMaturityDateRollingAfterFiveThroughTenYearsPercentage",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "FinancialInstrumentAxis"
+          ]
+        },
+        {
+          "concept": "DebtSecuritiesAvailableForSaleMaturityAllocatedAndSingleMaturityDateRollingAfterOneThroughFiveYearsPercentage",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "FinancialInstrumentAxis"
+          ]
+        },
+        {
+          "concept": "DebtSecuritiesAvailableForSaleMaturityAllocatedAndSingleMaturityDateRollingAfterTenYearsPercentage",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "FinancialInstrumentAxis"
+          ]
+        },
+        {
+          "concept": "DebtSecuritiesAvailableForSaleRestricted",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            }
+          ],
+          "axis_names": [
+            "LossContingenciesByNatureOfContingencyAxis"
+          ]
+        },
+        {
+          "concept": "HedgeAccountingAdjustmentsRelatedToLongTermDebt",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "LongTermDebt",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "LongTermDebtCurrent",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "LongTermDebtFairValue",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "FairValueByFairValueHierarchyLevelAxis"
+          ]
+        },
+        {
+          "concept": "LongTermDebtMaturitiesRepaymentsOfPrincipalAfterYearFive",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearFive",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearFour",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearThree",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearTwo",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "LongTermDebtNoncurrent",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "PaymentsToAcquireAvailableForSaleSecuritiesDebt",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2022-09-25/2023-09-30",
+              "start_date": "2022-09-25",
+              "end_date": "2023-09-30"
+            },
+            {
+              "period": "2023-10-01/2024-09-28",
+              "start_date": "2023-10-01",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "ProceedsFromIssuanceOfLongTermDebt",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2022-09-25/2023-09-30",
+              "start_date": "2022-09-25",
+              "end_date": "2023-09-30"
+            },
+            {
+              "period": "2023-10-01/2024-09-28",
+              "start_date": "2023-10-01",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "ProceedsFromRepaymentsOfShortTermDebtMaturingInMoreThanThreeMonths",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2022-09-25/2023-09-30",
+              "start_date": "2022-09-25",
+              "end_date": "2023-09-30"
+            },
+            {
+              "period": "2023-10-01/2024-09-28",
+              "start_date": "2023-10-01",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "ProceedsFromRepaymentsOfShortTermDebtMaturingInThreeMonthsOrLess",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2022-09-25/2023-09-30",
+              "start_date": "2022-09-25",
+              "end_date": "2023-09-30"
+            },
+            {
+              "period": "2023-10-01/2024-09-28",
+              "start_date": "2023-10-01",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "ProceedsFromSaleOfAvailableForSaleSecuritiesDebt",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2022-09-25/2023-09-30",
+              "start_date": "2022-09-25",
+              "end_date": "2023-09-30"
+            },
+            {
+              "period": "2023-10-01/2024-09-28",
+              "start_date": "2023-10-01",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "ProceedsFromShortTermDebtMaturingInMoreThanThreeMonths",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2022-09-25/2023-09-30",
+              "start_date": "2022-09-25",
+              "end_date": "2023-09-30"
+            },
+            {
+              "period": "2023-10-01/2024-09-28",
+              "start_date": "2023-10-01",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "RepaymentsOfLongTermDebt",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2022-09-25/2023-09-30",
+              "start_date": "2022-09-25",
+              "end_date": "2023-09-30"
+            },
+            {
+              "period": "2023-10-01/2024-09-28",
+              "start_date": "2023-10-01",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "RepaymentsOfShortTermDebtMaturingInMoreThanThreeMonths",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2022-09-25/2023-09-30",
+              "start_date": "2022-09-25",
+              "end_date": "2023-09-30"
+            },
+            {
+              "period": "2023-10-01/2024-09-28",
+              "start_date": "2023-10-01",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "ScheduleOfDebtInstrumentsTextBlock",
+          "is_text_block": true,
+          "periods": [
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "ScheduleOfMaturitiesOfLongTermDebtTableTextBlock",
+          "is_text_block": true,
+          "periods": [
+            {
+              "period": "2024-09-29/2025-09-27",
+              "start_date": "2024-09-29",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": []
+        },
+        {
+          "concept": "ShortTermDebtWeightedAverageInterestRate",
+          "is_text_block": false,
+          "periods": [
+            {
+              "period": "2024-09-28",
+              "end_date": "2024-09-28"
+            },
+            {
+              "period": "2025-09-27",
+              "end_date": "2025-09-27"
+            }
+          ],
+          "axis_names": [
+            "ShortTermDebtTypeAxis"
+          ]
+        }
+      ],
+      "count": 38
+    },
+    "guide": "If a filtered call (concept_contains or axis_name_in) returns nothing relevant, retry once without filters before giving up. If the unfiltered catalog still has nothing relevant, say clearly that it isn't available in this filing rather than guessing further. When a question spans multiple filings, call this tool once per filing_id — GAAP tagging can differ year to year, so one filing's catalog shouldn't be assumed to apply to another. Page size is set upstream and not fixed — always pass next_offset back exactly as returned rather than guessing an increment, and stop once a response has no next_offset."
+  }
+}

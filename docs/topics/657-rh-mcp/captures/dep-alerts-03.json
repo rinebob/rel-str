@@ -1,0 +1,28 @@
+{
+  "id": "dep-alerts-03",
+  "tool": "get_alerts",
+  "group": "alerts",
+  "gate": "read",
+  "note": "asset_class WITHOUT symbol - schema says \"cannot be used without symbol\"; expect validation error.",
+  "args": {
+    "asset_class": "equity"
+  },
+  "capturedAt": "2026-10-05T18:56:30.525Z",
+  "outcome": "error",
+  "latencyMs": 1006,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "asset_class can only be used together with symbol"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "asset_class can only be used together with symbol"
+}

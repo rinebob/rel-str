@@ -1,0 +1,147 @@
+{
+  "id": "dep-opt-hist-01",
+  "tool": "get_option_historicals",
+  "group": "options",
+  "gate": "read",
+  "note": "NFLX option daily bars ~3 weeks.",
+  "args": {
+    "instrument_ids": [
+      "4fdf8791-1063-4326-b23f-095fa3b5b785"
+    ],
+    "start_time": "2026-09-15T00:00:00Z",
+    "interval": "day"
+  },
+  "capturedAt": "2026-10-05T17:58:51.671Z",
+  "outcome": "success",
+  "latencyMs": 868,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "instrument_id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+          "occ_symbol": "NFLX  261120C00002500",
+          "symbol": "NFLX",
+          "interval": "day",
+          "bounds": "regular",
+          "bars": [
+            {
+              "begins_at": "2026-09-15T00:00:00Z",
+              "open_price": "64.550000",
+              "high_price": "64.550000",
+              "low_price": "64.550000",
+              "close_price": "64.550000",
+              "session": "reg",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-16T00:00:00Z",
+              "open_price": "0.010000",
+              "high_price": "0.010000",
+              "low_price": "0.010000",
+              "close_price": "0.010000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-17T00:00:00Z",
+              "open_price": "74.430000",
+              "high_price": "74.700000",
+              "low_price": "73.100000",
+              "close_price": "73.100000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-18T00:00:00Z",
+              "open_price": "69.050000",
+              "high_price": "69.780000",
+              "low_price": "67.830000",
+              "close_price": "69.350000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-21T00:00:00Z",
+              "open_price": "69.500000",
+              "high_price": "71.330000",
+              "low_price": "69.050000",
+              "close_price": "70.950000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-22T00:00:00Z",
+              "open_price": "71.230000",
+              "high_price": "71.300000",
+              "low_price": "69.200000",
+              "close_price": "69.650000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-23T00:00:00Z",
+              "open_price": "69.630000",
+              "high_price": "69.750000",
+              "low_price": "68.750000",
+              "close_price": "68.900000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-24T00:00:00Z",
+              "open_price": "69.130000",
+              "high_price": "69.430000",
+              "low_price": "68.530000",
+              "close_price": "69.280000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-25T00:00:00Z",
+              "open_price": "69.180000",
+              "high_price": "69.200000",
+              "low_price": "68.700000",
+              "close_price": "68.750000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-28T00:00:00Z",
+              "open_price": "68.930000",
+              "high_price": "69.080000",
+              "low_price": "66.580000",
+              "close_price": "66.700000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-29T00:00:00Z",
+              "open_price": "68.000000",
+              "high_price": "68.630000",
+              "low_price": "67.850000",
+              "close_price": "67.930000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-30T00:00:00Z",
+              "open_price": "67.730000",
+              "high_price": "67.730000",
+              "low_price": "67.130000",
+              "close_price": "67.300000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-10-01T00:00:00Z",
+              "open_price": "66.930000",
+              "high_price": "67.050000",
+              "low_price": "65.200000",
+              "close_price": "65.380000",
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-10-02T00:00:00Z",
+              "open_price": "65.150000",
+              "high_price": "65.250000",
+              "low_price": "64.450000",
+              "close_price": "64.550000",
+              "session": "reg"
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Bars are left-edge labeled in UTC; convert to the user's timezone for presentation. Treat interpolated=true bars as gap-fill — they carry no new information and should usually be hidden in charts and ignored for analytics. Option bars carry no volume. close_price on the most recent bar is NOT the official settled close — use get_option_quotes for the current mark and the official prior-session close. For a multi-bar move, compute the return from the first bar's open_price to the last bar's close_price. Each entry in results is keyed by instrument_id; requested ids that did not resolve are listed in not_found. When the request omitted interval, the 'interval' field on each result reports what the server auto-selected."
+  }
+}

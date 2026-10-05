@@ -1,0 +1,21 @@
+{
+  "id": "ro-poli-03",
+  "tool": "get_politician_trades",
+  "group": "research",
+  "gate": "read",
+  "note": "Both filters together.",
+  "args": {
+    "politician_name": "Pelosi",
+    "equity_symbol": "NVDA"
+  },
+  "capturedAt": "2026-10-05T17:54:27.388Z",
+  "outcome": "success",
+  "latencyMs": 2209,
+  "success": true,
+  "response": {
+    "data": {
+      "trades": []
+    },
+    "guide": "Each entry is one disclosed transaction. Always display the source (Tip Ranks) as attribution. transaction_date is when the trade occurred; disclosure_date is when it was made public - this lag can be up to 45 days, so treat entries as historical information, not a real-time signal, and do not imply the information is more recent than it is. Amounts are disclosed ranges - never present them as exact figures. Do not present politician trades as a recommendation or endorsement."
+  }
+}

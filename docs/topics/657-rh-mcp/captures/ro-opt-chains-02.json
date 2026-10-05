@@ -1,0 +1,120 @@
+{
+  "id": "ro-opt-chains-02",
+  "tool": "get_option_chains",
+  "group": "options",
+  "gate": "read",
+  "note": "Index chain - extended_hours_state field for curb-market-hours discovery.",
+  "args": {
+    "underlying_symbol": "SPX"
+  },
+  "capturedAt": "2026-10-05T17:52:00.212Z",
+  "outcome": "success",
+  "latencyMs": 1076,
+  "success": true,
+  "response": {
+    "data": {
+      "chains": [
+        {
+          "id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "symbol": "SPXW",
+          "can_open_position": true,
+          "cash_component": null,
+          "expiration_dates": [
+            "2026-10-05",
+            "2026-10-06",
+            "2026-10-07",
+            "2026-10-08",
+            "2026-10-09",
+            "2026-10-12",
+            "2026-10-13",
+            "2026-10-14",
+            "2026-10-15",
+            "2026-10-16",
+            "2026-10-19",
+            "2026-10-20",
+            "2026-10-21",
+            "2026-10-22",
+            "2026-10-23",
+            "2026-10-26",
+            "2026-10-27",
+            "2026-10-28",
+            "2026-10-29",
+            "2026-10-30",
+            "2026-11-02",
+            "2026-11-03",
+            "2026-11-04",
+            "2026-11-05",
+            "2026-11-06",
+            "2026-11-09",
+            "2026-11-10",
+            "2026-11-11",
+            "2026-11-13",
+            "2026-11-20",
+            "2026-11-27",
+            "2026-11-30",
+            "2026-12-18",
+            "2026-12-31",
+            "2027-01-15",
+            "2027-01-29",
+            "2027-02-19",
+            "2027-02-26",
+            "2027-03-31",
+            "2027-06-30",
+            "2027-09-30"
+          ],
+          "trade_value_multiplier": "100.0000",
+          "underlying_instruments": [],
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          },
+          "late_close_state": "disabled",
+          "extended_hours_state": "enabled",
+          "settle_on_open": false,
+          "sellout_time_to_expiration": 0
+        },
+        {
+          "id": "a9f69c4e-9393-4554-9849-271f0297e70b",
+          "symbol": "SPX",
+          "can_open_position": true,
+          "cash_component": null,
+          "expiration_dates": [
+            "2026-10-16",
+            "2026-11-20",
+            "2026-12-18",
+            "2027-01-15",
+            "2027-02-19",
+            "2027-03-19",
+            "2027-04-16",
+            "2027-05-21",
+            "2027-06-17",
+            "2027-07-16",
+            "2027-08-20",
+            "2027-09-17",
+            "2027-10-15",
+            "2027-12-17",
+            "2028-01-21",
+            "2028-06-16",
+            "2028-12-15",
+            "2029-12-21",
+            "2030-12-20",
+            "2031-12-19"
+          ],
+          "trade_value_multiplier": "100.0000",
+          "underlying_instruments": [],
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          },
+          "late_close_state": "disabled",
+          "extended_hours_state": "enabled",
+          "settle_on_open": true,
+          "sellout_time_to_expiration": 0
+        }
+      ]
+    },
+    "guide": "Pass id to get_option_instruments as chain_id to list contracts. CURB market_hours on place_option_order require extended_hours_state='enabled' AND an index chain (underlying_instruments empty). When the user mentions AM/PM/morning/evening expiration, check settle_on_open per chain — same underlying can have multiple chains, so do not assume they split cleanly by settlement. Present id, symbol, expiration_dates (annotate AM when settle_on_open is true), and trade_value_multiplier."
+  }
+}

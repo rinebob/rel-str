@@ -1,0 +1,127 @@
+{
+  "id": "ro-crypto-pairs-02",
+  "tool": "get_currency_pairs",
+  "group": "crypto",
+  "gate": "read",
+  "note": "limit=5 - should yield next_cursor for wave-2 follow.",
+  "args": {
+    "limit": 5
+  },
+  "capturedAt": "2026-10-05T17:53:27.616Z",
+  "outcome": "success",
+  "latencyMs": 1039,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "id": "e92889b3-39ca-41bd-a802-9030ab7e9d26",
+          "symbol": "BILL-USD",
+          "display_symbol": "BILL-USD",
+          "name": "Billions Network to US Dollar",
+          "asset_currency": {
+            "id": "46580f46-93cf-4be3-9782-b10cce69a009",
+            "code": "BILL",
+            "name": "Billions Network",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "1",
+          "max_order_size": "9900000",
+          "min_order_quantity_increment": "0.1",
+          "min_order_price_increment": "0.000001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": true,
+          "halted_regions": [
+            "NY"
+          ]
+        },
+        {
+          "id": "662f1749-733f-44a3-951c-29c8628ee3bc",
+          "symbol": "CASHCAT-USD",
+          "display_symbol": "CASHCAT-USD",
+          "name": "Cash Cat to US Dollar",
+          "asset_currency": {
+            "id": "afb6e455-2c01-463b-9aec-30594cfb22d8",
+            "code": "CASHCAT",
+            "name": "Cash Cat",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "1",
+          "max_order_size": "700000",
+          "min_order_quantity_increment": "0.1",
+          "min_order_price_increment": "0.000001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": true,
+          "halted_regions": [
+            "NY"
+          ]
+        },
+        {
+          "id": "a8aa877b-ccee-44a5-95ab-1a3160578963",
+          "symbol": "RE-USD",
+          "display_symbol": "RE-USD",
+          "name": "RE to US Dollar",
+          "asset_currency": {
+            "id": "f0630f2e-3c8b-477c-a9eb-246f37acd90d",
+            "code": "RE",
+            "name": "RE",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "0.1",
+          "max_order_size": "500000",
+          "min_order_quantity_increment": "0.01",
+          "min_order_price_increment": "0.00001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": true,
+          "halted_regions": [
+            "NY"
+          ]
+        }
+      ],
+      "next": "cD0yMDI2LTA2LTA4KzE4JTNBNTIlM0EwNy44Mjc4ODElMkIwMCUzQTAw"
+    },
+    "guide": "Render pairs as a markdown table with columns: Symbol | Name | Pair ID | Min Order | Max Order | Min Increment | Min Price Increment | Min Notional | Mkt Only | Restrictions | Halted. Formatting: Symbol → symbol; Name → asset_currency.name (e.g. 'Aave', not the full pair name); Pair ID → id truncated to the segment before the first '-'; Min Order → min_order_size; Max Order → max_order_size with comma separators; Min Increment → min_order_quantity_increment; Min Price Increment → '$' + min_order_price_increment; Min Notional → '$' + min_order_quote_amount, or '—' when null; Mkt Only → 'Yes'/'No' from market_orders_only; Restrictions → halted_regions joined by ', ' ('ALL' = a global halt), or 'None' when empty; Halted → 'True' when halted else '—'. When Halted is True the pair has a live halt in the listed regions — it may be one-sided (e.g. sell-only) and should not be assumed freely orderable. Only Robinhood-supported pairs are listed; catalog-only coins Robinhood does not offer are already excluded."
+  }
+}

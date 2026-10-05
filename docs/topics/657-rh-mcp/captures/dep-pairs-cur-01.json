@@ -1,0 +1,157 @@
+{
+  "id": "dep-pairs-cur-01",
+  "tool": "get_currency_pairs",
+  "group": "crypto",
+  "gate": "read",
+  "note": "PAGINATION FOLLOW: cursor harvested from ro-crypto-pairs-02 data.next.",
+  "args": {
+    "limit": 5,
+    "cursor": "cD0yMDI2LTA2LTA4KzE4JTNBNTIlM0EwNy44Mjc4ODElMkIwMCUzQTAw"
+  },
+  "capturedAt": "2026-10-05T17:59:07.648Z",
+  "outcome": "success",
+  "latencyMs": 902,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "id": "53c562b1-60ea-486e-adb7-5f50e7e8ddaf",
+          "symbol": "FLR-USD",
+          "display_symbol": "FLR-USD",
+          "name": "Flare  to US Dollar",
+          "asset_currency": {
+            "id": "6147a5d4-dc7e-4c85-8173-1612cb71de04",
+            "code": "FLR",
+            "name": "Flare",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "20",
+          "max_order_size": "30000000",
+          "min_order_quantity_increment": "1",
+          "min_order_price_increment": "0.0000001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": false
+        },
+        {
+          "id": "c2491a19-91e0-4ec6-bb2a-98a631fb7188",
+          "symbol": "CHIP-USD",
+          "display_symbol": "CHIP-USD",
+          "name": "USD.AI to US Dollar",
+          "asset_currency": {
+            "id": "ada8d357-356e-4df4-8b7a-235be9a9897e",
+            "code": "CHIP",
+            "name": "USD.AI",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "1",
+          "max_order_size": "4500000",
+          "min_order_quantity_increment": "0.1",
+          "min_order_price_increment": "0.000001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": true,
+          "halted_regions": [
+            "NY"
+          ]
+        },
+        {
+          "id": "abd78d5c-f3a1-4632-a26f-b31044f2fd7c",
+          "symbol": "CC-USD",
+          "display_symbol": "CC-USD",
+          "name": "Canton to USD",
+          "asset_currency": {
+            "id": "4df123eb-8591-4640-9bd0-214b8f34266a",
+            "code": "CC",
+            "name": "Canton",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "1",
+          "max_order_size": "1500000",
+          "min_order_quantity_increment": "0.001",
+          "min_order_price_increment": "0.00001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": false
+        },
+        {
+          "id": "55ad7d67-d56b-44fd-98bc-02123cd0f015",
+          "symbol": "SENT-USD",
+          "display_symbol": "SENT-USD",
+          "name": "Sentient to US Dollar",
+          "asset_currency": {
+            "id": "3cec4209-c596-4dec-9c4c-75840c4a64f8",
+            "code": "SENT",
+            "name": "Sentient",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "10",
+          "max_order_size": "16000000",
+          "min_order_quantity_increment": "1",
+          "min_order_price_increment": "0.000001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": true,
+          "halted_regions": [
+            "NY"
+          ]
+        }
+      ],
+      "next": "cD0yMDI2LTAyLTAzKzIxJTNBNTklM0E0NS4xNTIzNTclMkIwMCUzQTAw"
+    },
+    "guide": "Render pairs as a markdown table with columns: Symbol | Name | Pair ID | Min Order | Max Order | Min Increment | Min Price Increment | Min Notional | Mkt Only | Restrictions | Halted. Formatting: Symbol → symbol; Name → asset_currency.name (e.g. 'Aave', not the full pair name); Pair ID → id truncated to the segment before the first '-'; Min Order → min_order_size; Max Order → max_order_size with comma separators; Min Increment → min_order_quantity_increment; Min Price Increment → '$' + min_order_price_increment; Min Notional → '$' + min_order_quote_amount, or '—' when null; Mkt Only → 'Yes'/'No' from market_orders_only; Restrictions → halted_regions joined by ', ' ('ALL' = a global halt), or 'None' when empty; Halted → 'True' when halted else '—'. When Halted is True the pair has a live halt in the listed regions — it may be one-sided (e.g. sell-only) and should not be assumed freely orderable. Only Robinhood-supported pairs are listed; catalog-only coins Robinhood does not offer are already excluded."
+  }
+}

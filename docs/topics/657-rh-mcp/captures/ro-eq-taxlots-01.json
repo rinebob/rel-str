@@ -1,0 +1,22 @@
+{
+  "id": "ro-eq-taxlots-01",
+  "tool": "get_equity_tax_lots",
+  "group": "equity-orders",
+  "gate": "read",
+  "note": "Tax lots per instrument; empty expected if OOMA not held.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbol": "OOMA"
+  },
+  "capturedAt": "2026-10-05T17:50:26.937Z",
+  "outcome": "success",
+  "latencyMs": 1136,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "tax_lots": []
+    },
+    "guide": "Lots are newest-acquired first by default. quantity is per-lot, not the whole position — sum quantity across lots for total shares, and quantity_available for total still-sellable shares. For which-lots-can-I-sell questions, only offer lots with is_selectable=true; a false value means the lot is still syncing (e.g. acquired today) and can't be picked for a specified-lot sell yet. Compare open_date to today to explain when a short-term lot crosses into long-term (term). When cost_per_share or tax_cost_basis is absent the basis is still pending — say so rather than treating it as zero. No live price here — for current value or unrealized gain/loss, call get_equity_quotes and combine with cost_per_share. Treat all figures as informational, not tax or performance advice. Page only when the user needs more than the first page."
+  }
+}

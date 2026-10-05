@@ -1,0 +1,38 @@
+{
+  "id": "ro-ind-16",
+  "tool": "get_equity_technical_indicators",
+  "group": "equity-indicators",
+  "gate": "read",
+  "note": "type=vwap - one of 18 indicator types (each has distinct output fields).",
+  "args": {
+    "symbol": "OOMA",
+    "type": "vwap",
+    "interval": "day",
+    "start_time": "2026-05-01T00:00:00Z",
+    "output": "latest"
+  },
+  "capturedAt": "2026-10-05T17:51:54.069Z",
+  "outcome": "success",
+  "latencyMs": 1329,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "interval": "day",
+      "bounds": "regular",
+      "indicators": [
+        {
+          "type": "vwap",
+          "params": {},
+          "series": [
+            {
+              "begins_at": "2026-10-02T00:00:00Z",
+              "value": 20.41969688384655
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Convert begins_at (UTC) to the user's timezone for display. Skip a null output field rather than presenting it as zero. When an indicator emits multiple output fields per bar (e.g. bollinger_bands, macd), interpret them together, not in isolation."
+  }
+}

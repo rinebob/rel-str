@@ -1,0 +1,1823 @@
+{
+  "id": "dep-opt-instr-09",
+  "tool": "get_option_instruments",
+  "group": "options",
+  "gate": "read",
+  "note": "state=inactive (last unprobed enum on this tool).",
+  "args": {
+    "chain_symbol": "NFLX",
+    "state": "inactive"
+  },
+  "capturedAt": "2026-10-05T18:56:27.943Z",
+  "outcome": "success",
+  "latencyMs": 1049,
+  "success": true,
+  "response": {
+    "data": {
+      "instruments": [
+        {
+          "id": "0eb9d501-0318-4f7a-8d1b-4311334c006c",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-06-17",
+          "sellout_datetime": "2027-06-17T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "2264cb76-da5c-4983-91f7-8eeb0eef2a46",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-01-15",
+          "sellout_datetime": "2027-01-15T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "2318d616-41c9-4a7b-94cb-0536b22798d4",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-08-21",
+          "sellout_datetime": "2026-08-21T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "24a6e326-3096-42f3-882b-ee194f3177c0",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-12-18",
+          "sellout_datetime": "2026-12-18T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "25eb601a-e1d0-41b6-9739-afe7249b40f1",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-08-21",
+          "sellout_datetime": "2026-08-21T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "2e155a39-41be-4a44-a5f0-c5d5caa8c0b4",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-09-18",
+          "sellout_datetime": "2026-09-18T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "3aff4643-5b54-47c8-8eb5-92d446fd3f5f",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-01-16",
+          "sellout_datetime": "2026-01-16T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "50126403-8df4-49ff-87fd-fe6050650f61",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-04-17",
+          "sellout_datetime": "2026-04-17T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "568262a7-1712-409d-bff8-97f0e7829643",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-05-15",
+          "sellout_datetime": "2026-05-15T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "75a3669e-d812-45ff-8190-55c1ff46600e",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-12-18",
+          "sellout_datetime": "2026-12-18T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "854e64e1-1b3f-41f1-b4eb-7440723165f7",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-01-16",
+          "sellout_datetime": "2026-01-16T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "8af61368-46dc-486f-85e2-4936cb05ffe4",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-06-18",
+          "sellout_datetime": "2026-06-18T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "8c7c9067-602c-4a5a-9242-947486f1c18b",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-04-17",
+          "sellout_datetime": "2026-04-17T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "92c9e575-c7cb-4b12-a3f0-466e55915ca5",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-06-17",
+          "sellout_datetime": "2027-06-17T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "94cf4943-6760-4740-b120-a1d167e871fa",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2028-01-21",
+          "sellout_datetime": "2028-01-21T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9e6a5128-28f4-4d7d-bd3b-1b093a7ec156",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-12-17",
+          "sellout_datetime": "2027-12-17T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a852e9c7-e8ca-4408-9a21-7ccf8bbe69b8",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-02-20",
+          "sellout_datetime": "2026-02-20T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b71e6cc8-ac9d-4e6a-992a-ffb0d6b3d19f",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-09-18",
+          "sellout_datetime": "2026-09-18T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "badb42bf-f392-4b5b-bf5d-969199889128",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-06-18",
+          "sellout_datetime": "2026-06-18T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "bca4a9eb-f7cd-4134-a5dc-0035f82cc47f",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-03-20",
+          "sellout_datetime": "2026-03-20T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "cb91e350-b7bf-4294-8245-e81cada8a7d5",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-05-15",
+          "sellout_datetime": "2026-05-15T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d51227b2-27ed-409c-bd64-5a4a18054bad",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-02-20",
+          "sellout_datetime": "2026-02-20T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d938ec5c-1c94-4e7d-ba09-d8dde46c514c",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-03-20",
+          "sellout_datetime": "2026-03-20T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "df615c57-3ef8-4596-84ed-e9ceca84db10",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-01-15",
+          "sellout_datetime": "2027-01-15T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "e533dbd2-c5d2-42ff-8793-a1b2439645e9",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-12-17",
+          "sellout_datetime": "2027-12-17T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ec33eb4a-1117-49e9-869b-7e8e3dcf5917",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2028-01-21",
+          "sellout_datetime": "2028-01-21T20:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "0c81dc12-9d4c-43c1-9ea4-c1072846c343",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-06-18",
+          "sellout_datetime": "2026-06-18T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "0fdcf280-8b82-4fe1-839d-d22a747cadba",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-02-20",
+          "sellout_datetime": "2026-02-20T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "142e0733-e251-4113-80a9-776c618ab1ed",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-04-17",
+          "sellout_datetime": "2026-04-17T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "15c9d2fa-d2c4-4267-ac0a-5f12bf265b17",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-06-17",
+          "sellout_datetime": "2027-06-17T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "213b18dd-d0e6-458b-b8a7-9f031ee03f43",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-09-18",
+          "sellout_datetime": "2026-09-18T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "349d9acb-7417-47fd-aef5-23f7ab8c0708",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-04-17",
+          "sellout_datetime": "2026-04-17T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4876dc20-cbba-4e47-a6ad-8ddd16ccc9bf",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2025-12-19",
+          "sellout_datetime": "2025-12-19T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4e7fbd1f-00b6-4d7a-b562-011eb48e0b6f",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-06-18",
+          "sellout_datetime": "2026-06-18T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "554b579e-c4bb-48e5-a8f1-9e861e7d626a",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-03-20",
+          "sellout_datetime": "2026-03-20T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "57d5def8-b363-4183-968a-e90f2672ac3c",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-12-18",
+          "sellout_datetime": "2026-12-18T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "6275f020-7178-4e3f-b070-e3e6c8c82e23",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-05-15",
+          "sellout_datetime": "2026-05-15T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "78547c45-1b02-483a-948a-2704c217bf3c",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2025-12-19",
+          "sellout_datetime": "2025-12-19T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "82e12bf1-8003-4623-be74-8b41722946f7",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-05-15",
+          "sellout_datetime": "2026-05-15T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "8c3575d2-67f4-44f2-9881-8a3429797753",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-09-18",
+          "sellout_datetime": "2026-09-18T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "8d5a5558-cd11-4f36-8ba7-8aceddf4d97c",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-01-16",
+          "sellout_datetime": "2026-01-16T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9f28c37b-8136-4f69-9543-d2aea425664a",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-01-16",
+          "sellout_datetime": "2026-01-16T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a1897dab-ef6b-487e-ab40-cf7d89f55550",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-02-20",
+          "sellout_datetime": "2026-02-20T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a86d4622-2f91-4058-9fbc-fc717b623c33",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-06-17",
+          "sellout_datetime": "2027-06-17T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "aa10581b-78e8-45c8-aef5-a832a87e67cb",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-12-17",
+          "sellout_datetime": "2027-12-17T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "abc463c1-a126-408a-add6-db566d268652",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-03-20",
+          "sellout_datetime": "2026-03-20T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b0093fba-70ca-4aa4-82bb-57317005b4a6",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2028-01-21",
+          "sellout_datetime": "2028-01-21T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b0ee29fa-000c-498e-917b-27b24c5c7e80",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-08-21",
+          "sellout_datetime": "2026-08-21T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b43fa4e7-1c80-474d-9745-9c007c48a8b1",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-12-17",
+          "sellout_datetime": "2027-12-17T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "beb81b53-ce0d-44c0-aec8-49ff17767831",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-12-18",
+          "sellout_datetime": "2026-12-18T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c2475e84-f493-4151-832d-b1de898b3238",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-01-15",
+          "sellout_datetime": "2027-01-15T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d4d1c907-5306-4458-88b4-92189615b7e9",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-01-15",
+          "sellout_datetime": "2027-01-15T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d60380ed-689b-4840-89ef-0ce87f4711f1",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2028-01-21",
+          "sellout_datetime": "2028-01-21T20:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f34dbe74-7ff2-4a10-9512-c0fbc6ddd6fd",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-08-21",
+          "sellout_datetime": "2026-08-21T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "08387ec3-2981-4b5f-a35c-ccc4a05eb6ce",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-05-15",
+          "sellout_datetime": "2026-05-15T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "0b22a6e1-c427-4c37-b3d7-19a7966e2059",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2028-01-21",
+          "sellout_datetime": "2028-01-21T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "118dff03-8f37-4959-8323-52d0f62c97a9",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-01-16",
+          "sellout_datetime": "2026-01-16T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "2091696c-fe12-4f72-8a8c-7b14227e0364",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-01-15",
+          "sellout_datetime": "2027-01-15T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "282fd72f-9505-416c-b26d-3e4736709f9f",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-12-17",
+          "sellout_datetime": "2027-12-17T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "34516b88-4059-4e80-a0b0-2a5fe4ac7724",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-08-21",
+          "sellout_datetime": "2026-08-21T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "49506fed-d667-478b-96f8-1fe07f03eaf5",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-04-17",
+          "sellout_datetime": "2026-04-17T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "58a1d2df-733b-47f2-98d1-c7e86e634ea5",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-12-18",
+          "sellout_datetime": "2026-12-18T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "5f9992f8-daba-4814-8445-5b513c7f7dcd",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-02-20",
+          "sellout_datetime": "2026-02-20T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "74a676ff-19e8-4971-906d-8fb9d213b00d",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2028-01-21",
+          "sellout_datetime": "2028-01-21T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "81c971ad-3f41-4b43-bf45-c61f81819bb7",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-03-20",
+          "sellout_datetime": "2026-03-20T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9938211e-07e1-4a50-9f07-eb524afc91ff",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-01-15",
+          "sellout_datetime": "2027-01-15T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9d316688-a791-4d7e-be0c-d0babb27ed8e",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-03-20",
+          "sellout_datetime": "2026-03-20T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9d811aae-38f8-41c9-ba56-dd83288290e2",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-01-16",
+          "sellout_datetime": "2026-01-16T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a37fd78c-8aad-49bc-b1c3-2e48dd8c28be",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-08-21",
+          "sellout_datetime": "2026-08-21T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "acbc1d92-b974-479e-a32a-d1cb70a8f6d7",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-06-17",
+          "sellout_datetime": "2027-06-17T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ba1a2f39-ac92-4b1d-9b0d-79073014a3b3",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-12-17",
+          "sellout_datetime": "2027-12-17T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "bc6a1cf3-cf2c-4ef8-9367-b8602c12390c",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-06-18",
+          "sellout_datetime": "2026-06-18T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c29a8f81-bc59-4d40-97e7-af116215a9f8",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-06-18",
+          "sellout_datetime": "2026-06-18T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ccf45eef-afea-42be-a9fd-da10087670b8",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-06-17",
+          "sellout_datetime": "2027-06-17T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d72da85a-9c38-4f66-acaf-9db12827c9d3",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-02-20",
+          "sellout_datetime": "2026-02-20T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "e90c64af-ac7c-4ebf-974a-458d2d06e615",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-09-18",
+          "sellout_datetime": "2026-09-18T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "e97e8089-5cd4-4e09-b174-c908fa7808e6",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-05-15",
+          "sellout_datetime": "2026-05-15T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f3f0b637-2cba-410c-a812-4f8ba0471efa",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-09-18",
+          "sellout_datetime": "2026-09-18T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "fa7b74f6-d1ff-4f17-b558-bbef8222b55f",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-04-17",
+          "sellout_datetime": "2026-04-17T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "fceb2f61-7bca-40b6-a672-c4844bd21faa",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-12-18",
+          "sellout_datetime": "2026-12-18T20:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "03a95b9e-9e32-4c70-9f7c-fd871508803e",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-01-15",
+          "sellout_datetime": "2027-01-15T20:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "1ce598ae-a1e4-429a-8fce-aba87b1d2a8d",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-01-16",
+          "sellout_datetime": "2026-01-16T20:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "20bf87ee-d1d6-4548-9943-539db101d957",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-06-18",
+          "sellout_datetime": "2026-06-18T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "20c4dbf8-47f2-4cd7-90ee-9a832f1006d6",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-08-21",
+          "sellout_datetime": "2026-08-21T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "3ebf87c3-6d64-40e5-9970-282fbc4800e5",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2027-06-17",
+          "sellout_datetime": "2027-06-17T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4318b84d-c8d0-4335-951f-4e1930f80bb0",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-04-17",
+          "sellout_datetime": "2026-04-17T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4cca6e87-286b-4dbe-95b0-2094b948c622",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-05-15",
+          "sellout_datetime": "2026-05-15T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "51982259-2b3c-4dfa-9ed1-7c3c9d4e1fbe",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-12-18",
+          "sellout_datetime": "2026-12-18T20:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "51be93a1-5a35-4e72-8631-7ab742594444",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-04-17",
+          "sellout_datetime": "2026-04-17T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "53414c16-8fc4-4bc5-9d10-105d2da29785",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-09-18",
+          "sellout_datetime": "2026-09-18T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "6c39669a-01de-4830-bff4-68e3372ba7fd",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-03-20",
+          "sellout_datetime": "2026-03-20T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "855b3024-3d92-4095-95a5-6135f2fda814",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-01-16",
+          "sellout_datetime": "2026-01-16T20:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "8906c5e8-f093-4bac-b709-6dc4da016e76",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-02-20",
+          "sellout_datetime": "2026-02-20T20:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "926f4f08-f91f-4c22-8dab-1d0bbdbcaf40",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-02-20",
+          "sellout_datetime": "2026-02-20T20:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "99a86271-4fa1-490a-a416-c908ace6a855",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2028-01-21",
+          "sellout_datetime": "2028-01-21T20:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a5a8724a-7c0f-44e8-be4d-c3a98ddb189b",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2025-12-19",
+          "sellout_datetime": "2025-12-19T20:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a649c259-9067-41a9-ae86-eb55b5c8c564",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-09-18",
+          "sellout_datetime": "2026-09-18T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "put",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c0c51fbb-0571-4104-a771-7f52b06a943f",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-08-21",
+          "sellout_datetime": "2026-08-21T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c764d06d-8b69-4b86-addb-95c1286fd547",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-03-20",
+          "sellout_datetime": "2026-03-20T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ca62f037-fd97-4de6-896d-6fa09d478325",
+          "chain_id": "663d1670-d99f-40f2-835e-7fe1ad77f8eb",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-05-15",
+          "sellout_datetime": "2026-05-15T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "inactive",
+          "tradability": "untradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        }
+      ],
+      "next": "bz0yMCZwPTE1LjAwMDA="
+    },
+    "guide": "Present chain_symbol, expiration_date, type, strike_price; flag state when not 'active' or tradability when not 'tradable'. Pass id to an order's leg.option_id. Quote sellout_datetime when the user asks \"when will Robinhood force-close this position?\" — it is the authoritative per-contract timestamp covering equity/index, AM/PM settle, and T-1 logic. underlying_type ('equity' or 'index') is informational; mention only when it affects strategy. When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
+  }
+}

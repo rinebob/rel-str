@@ -1,0 +1,18 @@
+{
+  "id": "ro-scans-01",
+  "tool": "get_scans",
+  "group": "scanners",
+  "gate": "read",
+  "note": "Saved scans - source of scan_id for run_scan.",
+  "args": {},
+  "capturedAt": "2026-10-05T17:53:42.807Z",
+  "outcome": "success",
+  "latencyMs": 813,
+  "success": true,
+  "response": {
+    "data": {
+      "scans": []
+    },
+    "guide": "How to interpret the response:\n- scans is an array, newest first. Empty when the user has no saved scans — offer to create one with create_scan if they ask.\n- filter_summary on each scan describes the active filters. Use filter_type (e.g. \"RSI\"), predicate, values and optional interval/length to tell the user what the scan does. To re-send a filter to update_scan_filters or create_scan, copy filter_type_enum — not filter_type, which is a user-editable column label and will be rejected.\n- A filter whose filter_type_enum is FILTER_TYPE_CUSTOM is defined by its expression. update_scan_filters cannot carry it over; to change a scan that has one, use create_scan with that scan's scan_id and the full intended filter set, passing the filter's expression in the expression field (the scan gets a new configuration version; earlier versions are preserved).\n- cortex_managed: true means the scan was created or modified by Cortex inside Legend. Tell the user it's read-only via MCP if they ask to modify it. Suggest creating a fresh scan via create_scan as the alternative.\n- columns lists every configured column, hidden ones included; column_count counts only the visible ones. When the user asks to re-sort a scan, take update_scan_config's sorting_column verbatim from a columns[].display_name — never guess it.\n- Columns are writable: to add, remove or reorder a scan's extra columns (the ones beyond its filters' own and the standard defaults), call update_scan_config with the complete intended columns list — it keeps the scan's filters, expression filters included, without re-sending them. Each entry here carries the display_name and expression to copy from.\n- sorting describes the scan's current sort (e.g. \"Volume desc\"). Mention it when summarizing how results would be ordered.\n- Use scan_id (not title) when calling run_scan, update_scan_filters, or update_scan_config.\n\nWhen presenting scans to the user:\n- Render as a numbered list with the title prominent and a short summary of filters.\n- Mark Cortex-managed scans clearly so the user knows they're read-only here.\n- If the user wants to see results, ask which scan and call run_scan with that scan_id."
+  }
+}

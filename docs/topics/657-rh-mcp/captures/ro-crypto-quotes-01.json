@@ -1,0 +1,48 @@
+{
+  "id": "ro-crypto-quotes-01",
+  "tool": "get_crypto_quotes",
+  "group": "crypto",
+  "gate": "read",
+  "note": "Multi-pair quotes.",
+  "args": {
+    "symbols": [
+      "BTC-USD",
+      "ETH-USD"
+    ]
+  },
+  "capturedAt": "2026-10-05T17:53:21.267Z",
+  "outcome": "success",
+  "latencyMs": 806,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "symbol": "BTCUSD",
+          "id": "3d961844-d360-45fc-989b-f6fca761d511",
+          "bid_price": "84533.55455809",
+          "bid_time": "2026-10-05T13:53:20.912-04:00",
+          "ask_price": "86136.1650163",
+          "ask_time": "2026-10-05T13:53:19.697-04:00",
+          "mark_price": "85334.859787195",
+          "open_price": "86068.5",
+          "routing": "Market Maker Routing",
+          "updated_at": "2026-10-05T13:53:20.938-04:00"
+        },
+        {
+          "symbol": "ETHUSD",
+          "id": "76637d50-c702-4ed1-bcb5-5b0732a81f48",
+          "bid_price": "2676.72686854",
+          "bid_time": "2026-10-05T13:53:20.914-04:00",
+          "ask_price": "2727.96",
+          "ask_time": "2026-10-05T13:53:20.951-04:00",
+          "mark_price": "2702.34343427",
+          "open_price": "2715.19",
+          "routing": "Market Maker Routing",
+          "updated_at": "2026-10-05T13:53:20.951-04:00"
+        }
+      ]
+    },
+    "guide": "Current price: prefer mark_price when both sides of the book are populated; if mark_price is zero, fall back to the most recent of bid_time / ask_time and quote the side that updated last. Drop bid or ask when zero — the book is unavailable on that side. Use updated_at to judge freshness; if it is more than a few seconds stale, phrase as \"as of <time>\" rather than \"current\". open_price is the previous close — in continuous crypto the midnight boundary price is the prior day's close. That boundary is midnight in the request timezone (the 'timezone' parameter), or US Eastern when none is supplied; response timestamps carry that same timezone's offset, so quote \"as of\" times in it directly. For change vs the previous close, compute (mark_price - open_price) / open_price. The response symbol comes back unhyphenated (e.g. 'BTCUSD'); the canonical form from get_currency_pairs is hyphenated ('BTC-USD') — strip the hyphen to cross-reference. bid/ask/mark reflect the execution routing reported in routing, resolved per pair: pairs eligible for the account's routing use it (the supplied account's routing when rhs_account_number was given, otherwise the caller's user-level routing; market maker routing when the caller has no crypto account), and pairs that only trade on market maker routing use that regardless of the account, so routing can differ between results in one response. Results follow the requested symbol order. This is informational; place_order routing is selected per account at order time."
+  }
+}

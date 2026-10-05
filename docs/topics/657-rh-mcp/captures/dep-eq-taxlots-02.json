@@ -1,0 +1,35 @@
+{
+  "id": "dep-eq-taxlots-02",
+  "tool": "get_equity_tax_lots",
+  "group": "equity-orders",
+  "gate": "read",
+  "note": "MSFT is held (ro-eq-pos-01: 1 share) - source of open_lot_id for review_equity_order.tax_lots.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbol": "MSFT"
+  },
+  "capturedAt": "2026-10-05T18:01:39.324Z",
+  "outcome": "success",
+  "latencyMs": 981,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "MSFT",
+      "tax_lots": [
+        {
+          "open_lot_id": "0683ff57-0183-5698-ac18-700e4d012491",
+          "open_tran_type": "buy",
+          "order_id": "1500000058458912",
+          "quantity": "1.000000",
+          "quantity_available": "1.000000",
+          "is_selectable": true,
+          "cost_per_share": "505.000000",
+          "tax_cost_basis": "505.000000",
+          "open_date": "2026-09-28",
+          "term": "st"
+        }
+      ]
+    },
+    "guide": "Lots are newest-acquired first by default. quantity is per-lot, not the whole position — sum quantity across lots for total shares, and quantity_available for total still-sellable shares. For which-lots-can-I-sell questions, only offer lots with is_selectable=true; a false value means the lot is still syncing (e.g. acquired today) and can't be picked for a specified-lot sell yet. Compare open_date to today to explain when a short-term lot crosses into long-term (term). When cost_per_share or tax_cost_basis is absent the basis is still pending — say so rather than treating it as zero. No live price here — for current value or unrealized gain/loss, call get_equity_quotes and combine with cost_per_share. Treat all figures as informational, not tax or performance advice. Page only when the user needs more than the first page."
+  }
+}

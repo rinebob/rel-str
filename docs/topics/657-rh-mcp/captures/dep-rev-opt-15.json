@@ -1,0 +1,54 @@
+{
+  "id": "dep-rev-opt-15",
+  "tool": "review_option_order",
+  "group": "sims",
+  "gate": "read",
+  "note": "4-leg order (mixed expiries Oct-16 puts + Nov-20 calls) - max legs bound.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "36040fe6-53c8-4719-ae6a-ec51564c3557",
+        "side": "sell",
+        "position_effect": "open"
+      },
+      {
+        "option_id": "0ddbc62d-3ef3-4d81-b28c-a534e1718882",
+        "side": "buy",
+        "position_effect": "open"
+      },
+      {
+        "option_id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+        "side": "buy",
+        "position_effect": "open"
+      },
+      {
+        "option_id": "2610ed58-aca3-4077-97b0-eb57041082a7",
+        "side": "sell",
+        "position_effect": "open"
+      }
+    ],
+    "type": "limit",
+    "price": "1.00",
+    "direction": "credit",
+    "quantity": "1"
+  },
+  "capturedAt": "2026-10-05T18:56:25.138Z",
+  "outcome": "error",
+  "latencyMs": 932,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "direction \"credit\" does not match these legs: at current prices this strategy is a net debit of about 2.53 per unit. Re-check the legs and the direction, or confirm the intended net price with the user"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "direction \"credit\" does not match these legs: at current prices this strategy is a net debit of about 2.53 per unit. Re-check the legs and the direction, or confirm the intended net price with the user"
+}

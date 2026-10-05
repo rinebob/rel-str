@@ -1,0 +1,73 @@
+{
+  "id": "dep-prev-scan-07",
+  "tool": "preview_scan",
+  "group": "sims",
+  "gate": "read",
+  "note": "plot on a filter that supports it (Close, from supported_plots). dep-prev-scan-06 proved plot is NOT validated pre-flight: RSI + plot produced a malformed DXFeed expression.",
+  "args": {
+    "filters": [
+      {
+        "filter_type": "FILTER_TYPE_PERCENT_CHANGE_FROM_CLOSE",
+        "predicate": "PREDICATE_GREATER_THAN",
+        "values": [
+          "2"
+        ],
+        "plot": "Close"
+      }
+    ]
+  },
+  "capturedAt": "2026-10-05T18:57:32.101Z",
+  "outcome": "success",
+  "latencyMs": 856,
+  "success": true,
+  "response": {
+    "data": {
+      "result": {
+        "total_items": 2,
+        "results": [
+          {
+            "ticker": "MI",
+            "instrument_id": "2660584b-be74-4023-bf8e-beec6a244266",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "7.081655480984339",
+              "Last": "7.225",
+              "Name": "NFT Limited",
+              "Net change": "6.3309999999999995",
+              "Symbol": "MI",
+              "Volume": "1.48813916530999e+08"
+            }
+          },
+          {
+            "ticker": "SAIQ",
+            "instrument_id": "2443d412-057f-4168-90a9-5286f3af7d89",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "2.081081081081081",
+              "Last": "5.7",
+              "Name": "WISeSAT.Space Holdings",
+              "Net change": "3.85",
+              "Symbol": "SAIQ",
+              "Volume": "5.8011490648573e+07"
+            }
+          }
+        ],
+        "sorted_by": "Last desc",
+        "filters_applied": [
+          {
+            "filter_type": "% Change",
+            "filter_type_enum": "FILTER_TYPE_PERCENT_CHANGE_FROM_CLOSE",
+            "predicate": ">",
+            "values": [
+              "2"
+            ],
+            "interval": "1d",
+            "plot": "Close",
+            "expression": "changeFromCloseAllDayRatio(candlePeriod=\"1d\")"
+          }
+        ]
+      }
+    },
+    "guide": "How to interpret the response:\n- result.total_items and result.results are exactly what a scan saved with these filters would return right now. Results are live; a later run will differ.\n- Nothing was persisted: there is no scan_id, the preview does not appear in get_scans, and there is nothing to clean up.\n- result.filters_applied echoes the filters as parsed: enum filters carry their filter_type_enum; expression filters echo FILTER_TYPE_CUSTOM with the expression.\n- Columns you passed appear as keys in each result row's columns map — under the canonical standard name when an expression matched a standard column's form. An empty cell means the datapoint is undefined for that instrument; the row still matched the filters.\n\nWhen presenting:\n- Render results as a table and state total_items.\n- Make clear this was a preview — nothing was saved. If the user is happy with the results, offer create_scan with the same filters, expressions included: create_scan is the tool that saves them (update_scan_filters does not accept expressions).\n\nError handling:\n- \"expression cannot be combined with filter_type\" / \"FILTER_TYPE_CUSTOM requires an expression\" / \"interval/length/plot are not used with an expression\" → fix the filter shape and retry; these are local checks, no market-data query was spent.\n- A market-data validation error (quotes the rejected expression and the reason, e.g. an unknown function or an out-of-range argument) → fix the expression and preview again. Do not attempt a save until a preview succeeds.\n- \"column X already exists from a filter\" → one of the scan's filters already produces a column with that display name, and an expression was passed for it as well. Re-send that column with NO expression to customize it (visibility, position), or give it a different display_name. Do not drop the filter.\n- \"no standard column is named X\" → the display name is not a standard column and no expression was given. Pick one of the valid names the error lists, or supply an expression from get_scanner_datapoints.\n- Each preview costs the same rate-limit budget as run_scan — fix everything you can between attempts rather than iterating one field at a time."
+  }
+}

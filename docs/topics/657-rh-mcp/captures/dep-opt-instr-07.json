@@ -1,0 +1,57 @@
+{
+  "id": "dep-opt-instr-07",
+  "tool": "get_option_instruments",
+  "group": "options",
+  "gate": "read",
+  "note": "ids CSV lookup path.",
+  "args": {
+    "ids": "4fdf8791-1063-4326-b23f-095fa3b5b785,36040fe6-53c8-4719-ae6a-ec51564c3557"
+  },
+  "capturedAt": "2026-10-05T17:58:56.084Z",
+  "outcome": "success",
+  "latencyMs": 909,
+  "success": true,
+  "response": {
+    "data": {
+      "instruments": [
+        {
+          "id": "36040fe6-53c8-4719-ae6a-ec51564c3557",
+          "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-10-16",
+          "sellout_datetime": "2026-10-16T19:30:00+00:00",
+          "strike_price": "2.5000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+          "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "2026-11-20",
+          "sellout_datetime": "2026-11-20T20:30:00+00:00",
+          "strike_price": "2.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        }
+      ]
+    },
+    "guide": "Present chain_symbol, expiration_date, type, strike_price; flag state when not 'active' or tradability when not 'tradable'. Pass id to an order's leg.option_id. Quote sellout_datetime when the user asks \"when will Robinhood force-close this position?\" — it is the authoritative per-contract timestamp covering equity/index, AM/PM settle, and T-1 logic. underlying_type ('equity' or 'index') is informational; mention only when it affects strategy. When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
+  }
+}

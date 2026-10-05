@@ -1,0 +1,45 @@
+{
+  "id": "ro-rev-eq-02",
+  "tool": "review_equity_order",
+  "group": "sims",
+  "gate": "read",
+  "note": "market + dollar_amount (notional path).",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbol": "OOMA",
+    "side": "buy",
+    "type": "market",
+    "dollar_amount": "25.00"
+  },
+  "capturedAt": "2026-10-05T17:54:42.099Z",
+  "outcome": "success",
+  "latencyMs": 1564,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "side": "buy",
+      "type": "market",
+      "dollar_amount": "25.00",
+      "order_checks": {},
+      "quote_data": {
+        "symbol": "OOMA",
+        "last_trade_price": "20.880000",
+        "venue_last_trade_time": "2026-10-05T17:51:00.327719647Z",
+        "last_non_reg_trade_price": null,
+        "venue_last_non_reg_trade_time": null,
+        "adjusted_previous_close": "20.800000",
+        "previous_close": "20.800000",
+        "previous_close_date": "2026-10-02",
+        "bid_price": "20.730000",
+        "venue_bid_time": "2026-10-05T17:54:30.287664725Z",
+        "ask_price": "20.860000",
+        "venue_ask_time": "2026-10-05T17:54:30.287664725Z",
+        "has_traded": true,
+        "state": "active"
+      },
+      "market_data_disclosure": "Bid $20.78 × 100 V · Ask $20.86 × 200 Z · Last $20.88 × 160 Z. Updated 1:54 PM ET."
+    },
+    "guide": "This tool does NOT place the order — it returns a preview for the user to review. Reaching this tool means the user opted into the review step, so you MUST present the preview to the user (symbol, side, type, quantity or dollar_amount, limit/stop prices, estimated execution) and get explicit confirmation before calling place_equity_order. This holds even when order_checks is empty ({}) — empty means no broker alerts, NOT that confirmation can be skipped; the user asked to review, so let them review. Surface any non-empty alert in order_checks verbatim alongside the preview. In addition, you MUST always show the quotes to the user for compliance reasons: whenever market_data_disclosure is present, display it to the user exactly as provided — verbatim and unmodified — as the required compliance quote disclosure. Market orders: estimate execution from quote_data.last_trade_price (ask for buys, bid for sells when spreads are wide). Limit orders: compare limit_price to quote_data bid/ask so the user knows the distance from market."
+  }
+}

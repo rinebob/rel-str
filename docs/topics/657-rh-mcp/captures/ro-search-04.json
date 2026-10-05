@@ -1,0 +1,40 @@
+{
+  "id": "ro-search-04",
+  "tool": "search",
+  "group": "research",
+  "gate": "read",
+  "note": "limit=3.",
+  "args": {
+    "query": "tech",
+    "limit": 3
+  },
+  "capturedAt": "2026-10-05T17:54:38.030Z",
+  "outcome": "success",
+  "latencyMs": 2243,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "instrument_id": "9a2e898d-1546-425d-a9e8-db3ed1169f25",
+          "symbol": "TECH",
+          "name": "Bio-Techne Corp Common Stock",
+          "simple_name": "Bio-Techne"
+        },
+        {
+          "instrument_id": "0a8a072c-e52c-4e41-a2ee-8adbd72217d3",
+          "symbol": "MU",
+          "name": "Micron Technology, Inc. Common Stock",
+          "simple_name": "Micron Technology"
+        },
+        {
+          "instrument_id": "ef5d2600-32d1-41f5-bfbe-abacac264d2a",
+          "symbol": "SPCX",
+          "name": "Space Exploration Technologies Corp. Class A Common Stock",
+          "simple_name": "SpaceX"
+        }
+      ]
+    },
+    "guide": "Exactly one of results[] (instruments), currency_pairs[] (crypto), or market_indexes[] (indexes) is populated, matching the requested asset_type. Instrument entries carry symbol + instrument_id — pass symbol to symbol-based tools (get_equity_quotes, get_equity_tradability, place_equity_order) and instrument_id to id-based tools. Currency-pair entries carry hyphenated symbol (e.g. BTC-USD) + id — the symbol routes to crypto quote/order tools, the id routes to watchlist tools as currency_pair_ids. Market-index entries carry symbol + id — pass id to index quote tools for live values; the symbol cross-references index snapshot tools. Multiple results means the query was ambiguous (e.g. \"apple\" could match AAPL or APLE; \"bitcoin\" could match BTC-USD or BCH-USD); ask the user to disambiguate before placing trades. An empty result list means no Robinhood-tradable match — do not invent a symbol."
+  }
+}

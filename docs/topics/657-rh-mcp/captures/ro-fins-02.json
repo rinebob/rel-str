@@ -1,0 +1,49 @@
+{
+  "id": "ro-fins-02",
+  "tool": "get_financials",
+  "group": "research",
+  "gate": "read",
+  "note": "annual + limit=2.",
+  "args": {
+    "symbols": [
+      "AAPL"
+    ],
+    "period": "annual",
+    "limit": 2
+  },
+  "capturedAt": "2026-10-05T17:54:16.492Z",
+  "outcome": "success",
+  "latencyMs": 2116,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "symbol": "AAPL",
+          "period": "annual",
+          "financials": [
+            {
+              "fiscal_year": 2025,
+              "fiscal_quarter": null,
+              "period_end_date": "2025-09-27",
+              "revenue": "416161000000.000000",
+              "gross_profit": "195201000000.000000",
+              "net_income": "112010000000.000000",
+              "net_margin": "26.920000"
+            },
+            {
+              "fiscal_year": 2024,
+              "fiscal_quarter": null,
+              "period_end_date": "2024-09-28",
+              "revenue": "391035000000.000000",
+              "gross_profit": "180683000000.000000",
+              "net_income": "93736000000.000000",
+              "net_margin": "23.970000"
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "results is positional — aligned one-to-one with the requested symbols, in order. A null entry means that symbol could not be resolved (invalid, delisted, or non-equity) or has no reported financials available; surface it as \"no data for X\" rather than dropping it silently. Within an entry, financials is most-recent-first. Tell quarterly from annual rows by fiscal_quarter (null for annual). Present null metric values as \"not available\", not zero. net_margin is already a percentage — do not multiply by 100."
+  }
+}

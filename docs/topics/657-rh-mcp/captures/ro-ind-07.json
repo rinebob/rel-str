@@ -1,0 +1,41 @@
+{
+  "id": "ro-ind-07",
+  "tool": "get_equity_technical_indicators",
+  "group": "equity-indicators",
+  "gate": "read",
+  "note": "type=williams_r - one of 18 indicator types (each has distinct output fields).",
+  "args": {
+    "symbol": "OOMA",
+    "type": "williams_r",
+    "interval": "day",
+    "start_time": "2026-05-01T00:00:00Z",
+    "period": 14,
+    "output": "latest"
+  },
+  "capturedAt": "2026-10-05T17:51:40.575Z",
+  "outcome": "success",
+  "latencyMs": 886,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "interval": "day",
+      "bounds": "regular",
+      "indicators": [
+        {
+          "type": "williams_r",
+          "params": {
+            "period": 14
+          },
+          "series": [
+            {
+              "begins_at": "2026-10-02T00:00:00Z",
+              "value": -83.05647840531557
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Convert begins_at (UTC) to the user's timezone for display. Skip a null output field rather than presenting it as zero. When an indicator emits multiple output fields per bar (e.g. bollinger_bands, macd), interpret them together, not in isolation."
+  }
+}

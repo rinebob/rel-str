@@ -1,0 +1,33 @@
+{
+  "id": "dep-prev-crypto-06",
+  "tool": "preview_crypto_order",
+  "group": "sims",
+  "gate": "read",
+  "note": "time_in_force=gfm (last unprobed enum). Fails at crypto-account gate; param still exercised.",
+  "args": {
+    "rhs_account_number": "$ENV:RH_RHS_ACCOUNT_NUMBER",
+    "symbol": "BTC-USD",
+    "side": "buy",
+    "type": "market",
+    "quantity": "0.001",
+    "time_in_force": "gfm"
+  },
+  "capturedAt": "2026-10-05T18:59:02.991Z",
+  "outcome": "error",
+  "latencyMs": 827,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "no crypto account linked to brokerage account ••••6245\n\nThis account has no crypto account. To trade crypto, the user must first sign the crypto user agreement and open a crypto account here: https://applink.robinhood.com/crypto_signup_short. Once they have signed, they can retry."
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "no crypto account linked to brokerage account ••••6245\n\nThis account has no crypto account. To trade crypto, the user must first sign the crypto user agreement and open a crypto account here: https://applink.robinhood.com/crypto_signup_short. Once they have signed, they can retry."
+}

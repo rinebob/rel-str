@@ -1,0 +1,1823 @@
+{
+  "id": "dep-opt-instr-10",
+  "tool": "get_option_instruments",
+  "group": "options",
+  "gate": "read",
+  "note": "SPXW index-option instruments - source of index option_id for curb-hours review (chain extended_hours_state=enabled).",
+  "args": {
+    "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+    "expiration_dates": "2026-10-06"
+  },
+  "capturedAt": "2026-10-05T18:56:26.584Z",
+  "outcome": "success",
+  "latencyMs": 1142,
+  "success": true,
+  "response": {
+    "data": {
+      "instruments": [
+        {
+          "id": "09adb8a2-d3a4-46ce-bae7-c1b1bc9be4be",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "3200.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b82cb2f4-993d-439c-adac-70cc6616ceae",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "3200.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "31b0213d-763c-4dd3-9c9c-bc2f53cc4739",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "3400.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "6a288f42-f918-44ee-a05d-7e2baedc1f02",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "3400.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "cb0bf6a4-e51f-4508-81a9-f8e3d6143717",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "3600.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f629ee74-28f6-4461-8e15-abfb2e10e1d2",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "3600.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "01e214d0-d6be-4b9b-814e-c31372047ca6",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "3800.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "13c986df-b2aa-4e80-a348-0975e7734371",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "3800.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "6f9ad11a-6ca3-4383-8db2-1e5097f60e78",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4000.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9cb009ab-2bde-454b-85e0-c6ce7442376c",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4000.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "3e584921-51cd-4f45-9d70-dc4c97359a8f",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4200.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9259ee0e-1195-4213-ba1e-fc330a881b2c",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4200.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "733f0994-0023-4864-b4fa-f1f148ea983c",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4400.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "7d079b64-2753-4c65-9d8d-c53db484ec51",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4400.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "25e6aea7-d5b8-4f8c-96ef-14d83dee2223",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4600.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "edb52d40-9f59-49eb-a7ff-554e35eb0b4d",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4600.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a83d7c7c-bb27-4761-8cc2-ef2f63425e1a",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4800.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "bfbd4920-182c-467a-a5c8-38e3acca8488",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "4800.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "560bc85c-4eab-475f-b36f-fb560d1e8d58",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5000.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "5871afbe-101a-4287-aee0-d481fee7d5c0",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5000.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4782f6c5-537f-4ea1-9988-5196b5d0e903",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5200.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "94149a2b-04e3-4f65-864c-c93fd03390c9",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5200.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "000be072-20b1-4c02-b192-20e0e8f39348",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5400.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "2ade632e-4905-4a75-a4dd-6581452cc439",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5400.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c3d30a44-6425-4b7c-9e80-82a2a9aad24d",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5600.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "e2a5e4c0-c092-4a03-975e-fa4aaee94993",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5600.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "3c3902c1-7d63-49c4-aac1-487c71184723",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5800.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "96db51ab-fa69-4773-84ae-4154638915fa",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "5800.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b022c780-94c8-4f43-9c2d-b65c37dfcbbc",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6000.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f087db12-4277-4ed4-a818-a493ac97ca7a",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6000.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "27e50b00-e7f1-421a-bb31-fad83907896a",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6100.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a101b50b-4f3b-43fd-aeab-f97b9b52596e",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6100.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "25a4489a-14a7-404b-968f-2360dbd8e72e",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6200.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "82c727c5-c0e8-469d-99a8-65fe1d705993",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6200.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "eec14f76-a305-4ef7-abcf-e07e2a5b591a",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6300.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "fec6a939-e5f1-437d-95bc-55430ae2db78",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6300.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "3504948c-f6a2-47a1-8138-5103d78efcf3",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6400.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a26e13cb-8339-4f75-9f1c-1655b045510b",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6400.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "692f65d1-4ebe-458b-80ad-98e0061231f1",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6500.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ae2971c0-2ed5-4fc4-a861-27e2c6533ecd",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6500.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "6a60e460-201f-4b8a-bb9f-5d74b6844ec2",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6525.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "fa023751-7d7a-4b24-8917-339458a99a9f",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6525.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "3014da0b-e64e-4ea6-a61b-de8432a49d9c",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6550.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d9507b7b-0f42-4e19-809e-53610dc3e2d3",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6550.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "16f7e45a-7629-4413-96ba-ab5fafd70e89",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6575.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "31c042ce-b532-43c5-a8de-427ebbff25e0",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6575.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "377b0442-0c16-4c92-969e-a167c9648c32",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6600.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "42b775df-310e-416f-8b40-3f6dc4766691",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6600.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "cec3888f-44f5-447b-a048-26eb577e67f7",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6625.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f0e8a1eb-07e8-4a6a-b6e8-7ca706b66d69",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6625.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "3ac4d5f9-1f1f-4d15-89ca-8197f3f027f8",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6650.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d73fa9b2-b5dc-4d2c-bbe1-f29a8f0a370a",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6650.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "945f4be3-de23-4b3b-a9a4-2c366edb7e16",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6675.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d3464ada-d42d-4673-b624-256c1d086234",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6675.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "601cda6e-b0da-43a4-8e7d-7fc9433c823a",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6700.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b513e9d5-7473-4062-a8a4-717d618409c8",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6700.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "0ee0bd3a-ac32-48a0-b008-ea7b11eb644d",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6725.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "dd087645-78a8-4d98-8689-97f758948d0b",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6725.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "01fa9cfb-061f-4bc6-96b8-1b2fcc9d8fff",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6750.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "60ec2c02-045c-4e2b-8ad7-3f7d9f131da3",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6750.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4c561f05-6ed0-43fc-8c36-396c1e373a9c",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6775.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b182ee3c-7f87-4c86-b7a2-7a36d3d273ab",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6775.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "dfb1ab0c-02ac-45ab-8445-9f9cb036c109",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6800.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f952777d-b541-40f7-823c-29f76cb2d317",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6800.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "8f339cb5-0b49-4bea-8e4f-d86c419e9b9b",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6825.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ff5e6a84-5874-4915-b984-6089e1232561",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6825.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "0d68aba9-a1c8-43a7-b848-a59488e07adb",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6850.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a8fb37c2-f73b-4c78-9af7-33c0035a9b34",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6850.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "60731b67-4a7e-475f-ab67-9f2469beb8fb",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6875.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ccb7b80c-acb3-4630-a23a-03dff4c8d6b6",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6875.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "2dc43814-a882-4db8-b749-c8a8616358a1",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6900.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d2fa01a5-d033-4e8d-8f22-11bfd1302662",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6900.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "1502023b-e8ba-4062-a3d8-8ea9e869e25d",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6925.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "2e18dfde-e617-4a55-94df-8256b6565636",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6925.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "1dbb5c40-9c60-443c-afe1-fe86c4452a3b",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6950.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9843c8d8-2467-4ada-9683-b663d6e0a951",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6950.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "100475e0-68c0-4601-a18e-55d01adb595f",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6975.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c4d9fce7-b74d-4f5a-a04f-bf62b6625728",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "6975.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4cb0398d-da5a-4598-9298-52c293568a05",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7000.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c527fd70-67b3-4443-8ead-c294e604460c",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7000.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4a5c38a2-e7d0-4fde-a4cf-9754846b8e41",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7025.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "6af325e9-262b-404c-949e-77954c57cbdc",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7025.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "253faef6-81a8-48f1-baa7-c3e762faabf6",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7050.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "7ec9c49c-d26b-453b-a007-2fec1f06cfec",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7050.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "60691274-0788-4608-8fd3-9b77c6acf9ec",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7060.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c319c93e-3e3b-4b6e-9b91-3fafc850a7dd",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7060.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "204121b2-b14c-4642-ab48-996f42845bdd",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7070.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "a3bc0b8b-169f-4dde-a304-1273d4b786c2",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7070.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "796cdc46-6569-44a9-9bbb-59f4c6a8e30a",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7075.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9c3e8e36-4f5c-4fd1-bbad-297eeea77ec7",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7075.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "199d9e98-c247-4112-b562-6cac9266fbd7",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7080.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b9f0c3ce-1994-4994-b6ff-345c06e43302",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7080.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "5e2abc81-c35f-4349-952d-df215d833eb9",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7090.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9b79a3a2-bba8-4f6b-a703-716e0c9e4882",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7090.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "20235b5e-95aa-4373-8f37-9c16cf8d8984",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7100.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "7534f043-e7a6-4c6a-9911-99c3f3578c8d",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7100.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "030a5be2-1114-409f-a08c-629cc9de601b",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7110.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "5666e565-76b0-4521-bb14-85db2eab8435",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7110.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "8403ff3f-95fb-441b-b411-81049954fbb6",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7120.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9d045900-6bb6-4958-b236-a24d9b4febf8",
+          "chain_id": "7a7fa2b1-b65e-4c75-a0b3-7f62749bee0a",
+          "chain_symbol": "SPXW",
+          "underlying_type": "index",
+          "expiration_date": "2026-10-06",
+          "sellout_datetime": "2026-10-06T16:00:00-04:00",
+          "strike_price": "7120.0000",
+          "type": "put",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.10",
+            "below_tick": "0.05",
+            "cutoff_price": "3.00"
+          }
+        }
+      ],
+      "next": "cD03MTIwLjAwMDA="
+    },
+    "guide": "Present chain_symbol, expiration_date, type, strike_price; flag state when not 'active' or tradability when not 'tradable'. Pass id to an order's leg.option_id. Quote sellout_datetime when the user asks \"when will Robinhood force-close this position?\" — it is the authoritative per-contract timestamp covering equity/index, AM/PM settle, and T-1 logic. underlying_type ('equity' or 'index') is informational; mention only when it affects strategy. When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
+  }
+}

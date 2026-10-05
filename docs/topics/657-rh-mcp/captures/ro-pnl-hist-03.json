@@ -1,0 +1,41 @@
+{
+  "id": "ro-pnl-hist-03",
+  "tool": "get_pnl_trade_history",
+  "group": "pnl",
+  "gate": "read",
+  "note": "span=month - one of five preset windows.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "span": "month"
+  },
+  "capturedAt": "2026-10-05T17:49:44.749Z",
+  "outcome": "success",
+  "latencyMs": 1582,
+  "success": true,
+  "response": {
+    "data": {
+      "account_number": "••••6245",
+      "span": "month",
+      "trades": [
+        {
+          "timestamp": "2026-09-14T13:30:03Z",
+          "symbol": "DRAM",
+          "side": "sell",
+          "quantity": "2",
+          "price": "54.56",
+          "realized_gain": "-14.24"
+        },
+        {
+          "timestamp": "2026-09-08T13:30:00Z",
+          "symbol": "KMEM",
+          "side": "sell",
+          "quantity": "0.107278",
+          "price": "20.60068233934264248028486735",
+          "realized_gain": "0.11"
+        }
+      ],
+      "next_cursor": ""
+    },
+    "guide": "trades are returned most-recent-first. Each entry is a closed/realizing trade with the realized gain/loss on it. price is the execution (close) price. The window is a preset span (not an arbitrary date range); default is the last week. Paginate with cursor: pass next_cursor from the previous response for the next page; an empty next_cursor means there are no more trades. An empty trades list means there were no realized trades in the window — a valid result, not an error. To filter more than one symbol, call once per symbol. Treat figures as informational, not a tax document or tax/performance advice."
+  }
+}

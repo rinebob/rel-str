@@ -1,0 +1,22 @@
+{
+  "id": "ro-alertlog-04",
+  "tool": "get_alert_log",
+  "group": "alerts",
+  "gate": "read",
+  "note": "since bound + limit=5 (min-page for cursor discovery).",
+  "args": {
+    "since": "2026-09-01T00:00:00Z",
+    "limit": 5
+  },
+  "capturedAt": "2026-10-05T17:53:41.684Z",
+  "outcome": "success",
+  "latencyMs": 830,
+  "success": true,
+  "response": {
+    "data": {
+      "events": [],
+      "total_unread_count": 0
+    },
+    "guide": "Fired alerts are returned most-recent-first. triggered_at and the trigger values describe the moment the condition was met, not the current market — phrase them as \"as of <triggered_at>\" and call get_equity_quotes for equities or get_crypto_quotes for crypto for the price now (get_crypto_quotes takes a pair symbol: construct it as the symbol + \"-USD\" for USD-quoted pairs, BTC -> BTC-USD, only when the symbol has no hyphen already since it can arrive pre-formed as a pair, or look up a non-USD-quoted pair via get_currency_pairs). An empty log means nothing has fired, which is a valid result rather than an error. read=false marks events not yet handled; after relaying them to the user, call mark_alerts_read with those alert_log_ids (never alert_id) so the same event is not reported twice. This log is the only way to learn an alert fired — alert events are not pushed to the agent, so never tell the user you will watch the market or notify them; they still receive their usual Robinhood notifications."
+  }
+}

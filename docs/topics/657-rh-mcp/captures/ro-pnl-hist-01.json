@@ -1,0 +1,23 @@
+{
+  "id": "ro-pnl-hist-01",
+  "tool": "get_pnl_trade_history",
+  "group": "pnl",
+  "gate": "read",
+  "note": "Base - default span (week), no symbol filter.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER"
+  },
+  "capturedAt": "2026-10-05T17:49:38.693Z",
+  "outcome": "success",
+  "latencyMs": 1359,
+  "success": true,
+  "response": {
+    "data": {
+      "account_number": "••••6245",
+      "span": "week",
+      "trades": [],
+      "next_cursor": ""
+    },
+    "guide": "trades are returned most-recent-first. Each entry is a closed/realizing trade with the realized gain/loss on it. price is the execution (close) price. The window is a preset span (not an arbitrary date range); default is the last week. Paginate with cursor: pass next_cursor from the previous response for the next page; an empty next_cursor means there are no more trades. An empty trades list means there were no realized trades in the window — a valid result, not an error. To filter more than one symbol, call once per symbol. Treat figures as informational, not a tax document or tax/performance advice."
+  }
+}

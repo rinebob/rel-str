@@ -1,0 +1,696 @@
+{
+  "id": "ro-scan-dp-02",
+  "tool": "get_scanner_datapoints",
+  "group": "scanners",
+  "gate": "read",
+  "note": "category=price_volume - one of the nine documented slices (each a distinct payload).",
+  "args": {
+    "category": "price_volume"
+  },
+  "capturedAt": "2026-10-05T17:53:47.587Z",
+  "outcome": "success",
+  "latencyMs": 964,
+  "success": true,
+  "response": {
+    "data": {
+      "datapoints": [
+        {
+          "name": "changeFromCloseAllDay",
+          "kind": "function",
+          "signature": "changeFromCloseAllDay(candlePeriod: CandlePeriod): number",
+          "description": "The difference between the latest available price and close price of the latest fully finished candle with given the period in the all day (overnight) session.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromCloseAllDayRatio",
+          "kind": "function",
+          "signature": "changeFromCloseAllDayRatio(candlePeriod: CandlePeriod): number",
+          "description": "The difference ratio between the latest available price and close price of the latest fully finished candle with given the candle-period in the all day (overnight) session. \n```\nDifference Ratio = (Latest Price - Value) / Value\n```\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromHigh",
+          "kind": "function",
+          "signature": "changeFromHigh(candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "The difference between the latest available price and high price of the latest fully finished candle with given the period.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromHighRatio",
+          "kind": "function",
+          "signature": "changeFromHighRatio(candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "The difference ratio between the latest available price and high price of the latest fully finished candle with given the period. \n```\nDifference Ratio = (Latest Price - Value) / Value\n```\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromLow",
+          "kind": "function",
+          "signature": "changeFromLow(candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "The difference between the latest available price and low price of the latest fully finished candle with given the period.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromLowRatio",
+          "kind": "function",
+          "signature": "changeFromLowRatio(candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "The difference ratio between the latest available price and low price of the latest fully finished candle with given the period. \n```\nDifference Ratio = (Latest Price - Value) / Value\n```\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromOpen",
+          "kind": "function",
+          "signature": "changeFromOpen(candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "The difference between the latest available price and open price of the latest fully finished candle with given the period.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromOpenRatio",
+          "kind": "function",
+          "signature": "changeFromOpenRatio(candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "The difference ratio between the latest available price and open price of the latest fully finished candle with given the period. \n```\nDifference Ratio = (Latest Price - Value) / Value\n```\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromPostMarket",
+          "kind": "field",
+          "signature": "changeFromPostMarket: number",
+          "description": "Difference between the latest price and the closing price of the post-market session.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromPostMarketRatio",
+          "kind": "field",
+          "signature": "changeFromPostMarketRatio: number",
+          "description": "Difference ratio between the latest price and the closing price of the post-market session.\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromPrevDay",
+          "kind": "function",
+          "signature": "changeFromPrevDay(session: Session = \"all\"): number",
+          "description": "The difference between the latest available price and close price of the previous trading day.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromPrevDayRatio",
+          "kind": "function",
+          "signature": "changeFromPrevDayRatio(session: Session = \"all\"): number",
+          "description": "The difference ratio between the latest available price and close price of the previous trading day. \n```\nDifference Ratio = (Latest Price - Value) / Value\n```\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeIn5Day",
+          "kind": "function",
+          "signature": "changeIn5Day(session: Session = \"all\"): number",
+          "description": "The difference between the latest available price and close price of the 5 trading days ago.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeIn5DayRatio",
+          "kind": "function",
+          "signature": "changeIn5DayRatio(session: Session = \"all\"): number",
+          "description": "The difference ratio between the latest available price and close price of the 5 trading days ago. \n```\nDifference Ratio = (Latest Price - Value) / Value\n```\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "close",
+          "kind": "function",
+          "signature": "close(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical close price. Returns first available close price staring with candleCount candles back.",
+          "value_type": "number"
+        },
+        {
+          "name": "close",
+          "kind": "function",
+          "signature": "close(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical close price. Returns first available close price timePeriod back.",
+          "value_type": "number"
+        },
+        {
+          "name": "closeAvg",
+          "kind": "function",
+          "signature": "closeAvg(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Average historical close price.",
+          "value_type": "number",
+          "examples": [
+            "tradeAllDay.price > closeAvg(candleCount=50, candlePeriod=\"1d\", session=\"all\")"
+          ]
+        },
+        {
+          "name": "closeAvg",
+          "kind": "function",
+          "signature": "closeAvg(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Average historical close price.",
+          "value_type": "number",
+          "examples": [
+            "tradeAllDay.price > closeAvg(candleCount=50, candlePeriod=\"1d\", session=\"all\")"
+          ]
+        },
+        {
+          "name": "closeEma",
+          "kind": "function",
+          "signature": "closeEma(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Exponential moving average of the historical close price.",
+          "value_type": "number"
+        },
+        {
+          "name": "closeEma",
+          "kind": "function",
+          "signature": "closeEma(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Exponential moving average of the historical close price.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayHighPrice",
+          "kind": "function",
+          "signature": "dayHighPrice(session: Session = \"all\"): number",
+          "description": "Day high price in the latest given session.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayLowPrice",
+          "kind": "function",
+          "signature": "dayLowPrice(session: Session = \"all\"): number",
+          "description": "Day low price in the latest given session.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayOpenPrice",
+          "kind": "function",
+          "signature": "dayOpenPrice(session: Session = \"all\"): number",
+          "description": "Day open price in the latest given session.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayPriceRange",
+          "kind": "function",
+          "signature": "dayPriceRange(session: Session): number",
+          "description": "Price range for the last day in the latest given session.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayPriceRange",
+          "kind": "field",
+          "signature": "dayPriceRange: number",
+          "description": "Difference between the high and the low price of the trading day.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayPriceRangeRatio",
+          "kind": "function",
+          "signature": "dayPriceRangeRatio(session: Session): number",
+          "description": "Price-range ratio for the last day in the latest given session.\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayPriceRangeRatio",
+          "kind": "field",
+          "signature": "dayPriceRangeRatio: number",
+          "description": "Ratio between the price range and the low price of the trading day.\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayTurnover",
+          "kind": "function",
+          "signature": "dayTurnover(session: Session): number",
+          "description": "Turnover for the last day in the latest given session.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayTurnover",
+          "kind": "field",
+          "signature": "dayTurnover: number",
+          "description": "Turnover of the instrument for the last day. The value resets to 0 when a new trading day starts.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayVolume",
+          "kind": "function",
+          "signature": "dayVolume(session: Session): number",
+          "description": "Trading volume for the last day in the latest given session.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayVwap",
+          "kind": "function",
+          "signature": "dayVwap(session: Session): number",
+          "description": "Average price of the instrument for the last day weighted by volume. The value resets to 0 when a new trading day starts.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayVwap",
+          "kind": "field",
+          "signature": "dayVwap: number",
+          "description": "Average price of the instrument for the last day weighted by volume. The value resets to 0 when a new trading day starts.",
+          "value_type": "number"
+        },
+        {
+          "name": "distanceFromVwap",
+          "kind": "function",
+          "signature": "distanceFromVwap(candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "The difference between the latest available price and VWAP calculated for the latest fully finished candle with given candle-period.",
+          "value_type": "number"
+        },
+        {
+          "name": "distanceFromVwapRatio",
+          "kind": "function",
+          "signature": "distanceFromVwapRatio(candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "The difference ratio between the latest available price and VWAP calculated for the latest fully finished candle with the given candle-period. \n```\nDifference Ratio = (Latest Price - Value) / Value\n```\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "high",
+          "kind": "function",
+          "signature": "high(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical high price.",
+          "value_type": "number",
+          "examples": [
+            "high(timePeriod=\"1y\", candlePeriod=\"1d\")"
+          ]
+        },
+        {
+          "name": "high",
+          "kind": "function",
+          "signature": "high(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical high price.",
+          "value_type": "number",
+          "examples": [
+            "high(timePeriod=\"1y\", candlePeriod=\"1d\")"
+          ]
+        },
+        {
+          "name": "low",
+          "kind": "function",
+          "signature": "low(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical low price.",
+          "value_type": "number"
+        },
+        {
+          "name": "low",
+          "kind": "function",
+          "signature": "low(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical low price.",
+          "value_type": "number"
+        },
+        {
+          "name": "markPrice",
+          "kind": "function",
+          "signature": "markPrice(session: Session = \"all\"): number",
+          "description": "\n1. If the last traded price (Last) is not available, it uses the previous day's\n  closing price as the Mark Price.\n2. If neither the buying price (Bid) nor the selling price (Ask) is available or\n  both are zero or Bid is greater than Ask, it uses the Last price as the Mark Price.\n3. If the Last price is higher than the Bid price, it sets the Mark Price as the Bid price.\n4. If the Last price is equal to or greater than the Ask price, it sets the Mark Price as the Ask price.\n5. If the Last price falls between the Bid and Ask prices, it uses the Last price as the Mark Price.\n",
+          "value_type": "number"
+        },
+        {
+          "name": "open",
+          "kind": "function",
+          "signature": "open(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical open price.",
+          "value_type": "number"
+        },
+        {
+          "name": "open",
+          "kind": "function",
+          "signature": "open(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical open price.",
+          "value_type": "number"
+        },
+        {
+          "name": "openInterest",
+          "kind": "field",
+          "signature": "openInterest: number",
+          "description": "Total number of outstanding derivative contracts that have not been settled ",
+          "value_type": "number"
+        },
+        {
+          "name": "pivot",
+          "kind": "function",
+          "signature": "pivot(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical pivot.",
+          "value_type": "number"
+        },
+        {
+          "name": "pivot",
+          "kind": "function",
+          "signature": "pivot(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical pivot.",
+          "value_type": "number"
+        },
+        {
+          "name": "price",
+          "kind": "function",
+          "signature": "price(session: Session): number",
+          "description": "The price of the latest deal with the instrument in the latest given session.",
+          "value_type": "number"
+        },
+        {
+          "name": "price",
+          "kind": "field",
+          "signature": "price: number",
+          "description": "The close price from the last daily candle.",
+          "value_type": "number"
+        },
+        {
+          "name": "priceRange",
+          "kind": "function",
+          "signature": "priceRange(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical price-range.",
+          "value_type": "number"
+        },
+        {
+          "name": "priceRange",
+          "kind": "function",
+          "signature": "priceRange(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical price-range.",
+          "value_type": "number"
+        },
+        {
+          "name": "resistance1",
+          "kind": "function",
+          "signature": "resistance1(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical resistance (1).",
+          "value_type": "number"
+        },
+        {
+          "name": "resistance1",
+          "kind": "function",
+          "signature": "resistance1(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical resistance (1).",
+          "value_type": "number"
+        },
+        {
+          "name": "resistance2",
+          "kind": "function",
+          "signature": "resistance2(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical resistance (2).",
+          "value_type": "number"
+        },
+        {
+          "name": "resistance2",
+          "kind": "function",
+          "signature": "resistance2(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical resistance (2).",
+          "value_type": "number"
+        },
+        {
+          "name": "support1",
+          "kind": "function",
+          "signature": "support1(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical support (1).",
+          "value_type": "number"
+        },
+        {
+          "name": "support1",
+          "kind": "function",
+          "signature": "support1(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical support (1).",
+          "value_type": "number"
+        },
+        {
+          "name": "support2",
+          "kind": "function",
+          "signature": "support2(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical support (2).",
+          "value_type": "number"
+        },
+        {
+          "name": "support2",
+          "kind": "function",
+          "signature": "support2(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical support (2).",
+          "value_type": "number"
+        },
+        {
+          "name": "tradeAllDay.price",
+          "kind": "field",
+          "signature": "tradeAllDay.price: number",
+          "description": "Price of the last trade in the all day (overnight) session.",
+          "value_type": "number"
+        },
+        {
+          "name": "tradeAllDay.time",
+          "kind": "field",
+          "signature": "tradeAllDay.time: number",
+          "description": "Time of the last trade in the all day (overnight) session.",
+          "value_type": "number"
+        },
+        {
+          "name": "turnover",
+          "kind": "function",
+          "signature": "turnover(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical turnover.",
+          "value_type": "number"
+        },
+        {
+          "name": "turnover",
+          "kind": "function",
+          "signature": "turnover(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical turnover.",
+          "value_type": "number"
+        },
+        {
+          "name": "turnoverAvg",
+          "kind": "function",
+          "signature": "turnoverAvg(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Average historical turnover.",
+          "value_type": "number"
+        },
+        {
+          "name": "turnoverAvg",
+          "kind": "function",
+          "signature": "turnoverAvg(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Average historical turnover.",
+          "value_type": "number"
+        },
+        {
+          "name": "vwap",
+          "kind": "function",
+          "signature": "vwap(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical volume-weighted average price.",
+          "value_type": "number"
+        },
+        {
+          "name": "vwap",
+          "kind": "function",
+          "signature": "vwap(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical volume-weighted average price.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayVolume",
+          "kind": "field",
+          "signature": "dayVolume: number",
+          "description": "Trading volume of the instrument for the last day. The value resets to 0 when a new trading day starts.",
+          "value_type": "number"
+        },
+        {
+          "name": "volume",
+          "kind": "function",
+          "signature": "volume(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical trading volume.",
+          "value_type": "number"
+        },
+        {
+          "name": "volume",
+          "kind": "function",
+          "signature": "volume(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Historical trading volume.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumeAvg",
+          "kind": "function",
+          "signature": "volumeAvg(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Average historical trading volume.",
+          "value_type": "number",
+          "examples": [
+            "dayVolume / volumeAvg(candleCount=30, candlePeriod=\"1d\", session=\"all\")"
+          ]
+        },
+        {
+          "name": "volumeAvg",
+          "kind": "function",
+          "signature": "volumeAvg(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Average historical trading volume.",
+          "value_type": "number",
+          "examples": [
+            "dayVolume / volumeAvg(candleCount=30, candlePeriod=\"1d\", session=\"all\")"
+          ]
+        },
+        {
+          "name": "volumeAvg10Day",
+          "kind": "function",
+          "signature": "volumeAvg10Day(session: Session): number",
+          "description": "Average trading volume of the last 10 finished trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumeAvg10Day",
+          "kind": "field",
+          "signature": "volumeAvg10Day: number",
+          "description": "Average trading volume of the last 10 finished trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumeAvg10Minutes",
+          "kind": "function",
+          "signature": "volumeAvg10Minutes(session: Session): number",
+          "description": "Average trading volume of the last 10 minutes.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumeAvg10Minutes",
+          "kind": "field",
+          "signature": "volumeAvg10Minutes: number",
+          "description": "Average trading volume of the last 10 minutes.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumeEma",
+          "kind": "function",
+          "signature": "volumeEma(candleCount: number = 1, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Exponential Moving Average (EMA) of the volume.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumeEma",
+          "kind": "function",
+          "signature": "volumeEma(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Exponential Moving Average (EMA) of the volume.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumePostMarket",
+          "kind": "field",
+          "signature": "volumePostMarket: number",
+          "description": "Volume of the post-market session.",
+          "value_type": "number"
+        }
+      ],
+      "categories": [
+        {
+          "name": "Aggregated Options",
+          "description": "Options activity rolled up onto the underlying, so an equity scan can screen on it: volume (optionsCallVolume, optionsPutVolume, optionsTotalDayVolume) and open interest (optionsCall/Put/TotalOpenInterest) with their averages (…Avg, …Avg10Day), premium traded (optionsDayPremium), and contract conventions (optionsExpirationStyles, optionsSettlementStyles). Ratios like put/call are built by dividing two of these.",
+          "datapoint_count": 46,
+          "aliases": [
+            "aggregated options",
+            "option",
+            "options"
+          ]
+        },
+        {
+          "name": "Descriptive",
+          "description": "Instrument identity and calendar helpers rather than market data: symbol, type, description, country, currency, officialPlaceOfListing, tradingStatus, halt times, plus date arithmetic (nowYMD, days, daysFromNow) used to turn the fundamental.*Ymd date fields into day counts.",
+          "datapoint_count": 12,
+          "aliases": [
+            "descriptive"
+          ]
+        },
+        {
+          "name": "Fundamental",
+          "description": "Company financials, valuation ratios and calendar facts, all prefixed fundamental.*: size and valuation (marketCap, peRatio, forwardPeRatio, enterpriseValue, priceBookRatio), earnings and growth (eps, dilutedEps, annualEpsGrowth, revenue), balance sheet and cash flow (cash, currentDebt, bookValuePerShare, cashFlowFreePerShare), dividends (dps, cashDividend, forwardDividendYield), risk (beta), classification (sector, industry, morningstarSectorLabel) and dates (earningsYmd, exYmd).",
+          "datapoint_count": 65,
+          "aliases": [
+            "fundamental",
+            "fundamentals"
+          ]
+        },
+        {
+          "name": "Price",
+          "description": "Traded price and its movement: current and session prices (tradeAllDay.price, dayOpenPrice, dayHighPrice, dayLowPrice, close, vwap), moving averages of price (closeAvg, closeEma), and change measures both absolute and as ratios (changeFromCloseAllDay, changeFromOpen, changeFromHigh/Low, changeFromPrevDay, changeIn5Day, gap*). Use the *Ratio variants for percentage screens.",
+          "datapoint_count": 64,
+          "aliases": [
+            "price",
+            "price volume"
+          ]
+        },
+        {
+          "name": "Quote",
+          "description": "Current bid and ask, all prefixed quote.*: askPrice, bidPrice, askSize, bidSize, spread, and their timestamps. Use these for liquidity and spread screens.",
+          "datapoint_count": 8,
+          "aliases": [
+            "quote"
+          ]
+        },
+        {
+          "name": "Technical Indicator",
+          "description": "Chart studies computed from candles: momentum and oscillators (rsi, commodityChannelIndex, relativeVolatilityIndex, stochastic), trend (adx, macd, aroonUp/Down, alligator*, linearRegression*), ranges and bands (atr, bollingerBandUp/Down), pivots and distances (distanceFrom200DaySma, distanceFromPivot*), plus cross() for crossovers. Most take candleCount or timePeriod together with candlePeriod, so the same indicator can be evaluated over any horizon.",
+          "datapoint_count": 77,
+          "aliases": [
+            "indicator",
+            "indicators",
+            "technical",
+            "technical indicator"
+          ]
+        },
+        {
+          "name": "Volatility",
+          "description": "How much the instrument moves, and options-implied expectations of it: implied volatility at the money across tenors (iv, atmIv30Day ... atmIv720Day, frontIV, backIV), where current IV sits in its own historical range (atmIv*PosInRange, useful for IV rank style screens), and realized measures (priceStandardDeviation, relativeVolatilityIndex).",
+          "datapoint_count": 65,
+          "aliases": [
+            "vol",
+            "volatility"
+          ]
+        },
+        {
+          "name": "Volume",
+          "description": "Shares traded and its averages: dayVolume, volume, volumeAvg, volumeAvg10Day, volumeAvg10Minutes, volumeEma, volumePostMarket. Relative-volume screens are built by dividing dayVolume by a volumeAvg call rather than by a dedicated datapoint.",
+          "datapoint_count": 12,
+          "aliases": [
+            "price volume",
+            "volume"
+          ]
+        }
+      ],
+      "argument_types": [
+        {
+          "name": "CandlePeriod",
+          "argument_names": [
+            "candlePeriod"
+          ],
+          "values": [
+            "1m",
+            "2m",
+            "3m",
+            "4m",
+            "5m",
+            "10m",
+            "15m",
+            "30m",
+            "1h",
+            "2h",
+            "4h",
+            "1d",
+            "1w",
+            "1mo",
+            "1y"
+          ],
+          "note": "Candle granularity: the size of each candle, not how far back to look. rsi(candleCount=14, candlePeriod=\"1mo\") is RSI over 14 months, not 14 days."
+        },
+        {
+          "name": "Session",
+          "argument_names": [
+            "session"
+          ],
+          "values": [
+            "all",
+            "regular"
+          ],
+          "note": "Which trading session is included: \"all\" covers extended and overnight trading, \"regular\" is regular hours only. Must be lowercase."
+        },
+        {
+          "name": "TimePeriod",
+          "argument_names": [
+            "timePeriod"
+          ],
+          "values": [
+            "1d",
+            "1w",
+            "1mo",
+            "1y"
+          ],
+          "note": "Lookback duration: how far back to look. Accepts a strictly smaller set than candlePeriod - intraday values are invalid. Use either candleCount or timePeriod alongside candlePeriod, not both."
+        }
+      ]
+    },
+    "guide": "Build an expression by copying a signature and filling its arguments: rsi(candleCount: number, candlePeriod: CandlePeriod, session: Session = \"all\") becomes rsi(candleCount=14, candlePeriod=\"1d\", session=\"all\"). Arguments are passed by name, string values are quoted, and an argument shown with a default may be omitted.\n\nAn argument type in UpperCamelCase has a fixed value set in argument_types — using a value outside it fails upstream, so check there rather than inferring. Read the note on CandlePeriod and TimePeriod before choosing: candlePeriod is the size of each candle, timePeriod is how far back to look, and confusing them silently changes what the screen measures.\n\nSome screens are composed rather than looked up: comparing two datapoints puts the whole comparison in the expression with predicate \"=\" and values [\"True\"] — \"put volume exceeds call volume\" is optionsPutDayVolume > optionsCallDayVolume, \"price above its average\" is tradeAllDay.price > closeAvg(...). Prefer that boolean form over dividing (optionsPutDayVolume / optionsCallDayVolume > 1): a division silently drops every instrument whose denominator is zero, which here are the most put-skewed names — the ones the screen exists to find. Composition is also the fallback when an enum filter covers the screen but not your variant — e.g. relative volume has an enum filter (FILTER_TYPE_RELATIVE_VOLUME), so only compose dayVolume / volumeAvg(...) for a lookback missing from its supported_lengths.\n\nScoping the universe to specific instruments uses the symbol field with a LIST predicate rather than a comparison, and the expression is the bare word symbol:\n- named tickers — predicate ANY_OF, values the tickers (\"only AAPL and MSFT\" is expression symbol, predicate ANY_OF, values [\"AAPL\", \"MSFT\"]).\n- members of an index — predicate IN_LIST, values index CODES, not tickers (\"S&P 500 stocks\" is expression symbol, predicate IN_LIST, values [\"SP500\"]). Several codes union: [\"SP500\", \"NDX\"] means in either index.\nThe two predicates are not interchangeable, and mixing them up fails in opposite ways: IN_LIST with a ticker is rejected upstream (\"list name 'AAPL' does not exist\"), while ANY_OF with an index code returns zero rows and no error at all. Valid index codes: SP100, SP400, SP500, SP500_SecIndicies, SP500_SecIndustrIndicies, SP600, DJI, NDX, NDXT25, Russell1000, Russell2000, Russell3000, RussellMidcap, RussellMicrocap, HGX, HXC, OSX, RUF, SOX, UTY, XAU, S5C. There is no code for the Nasdaq Composite: \"COMP\" resolves upstream but collides with the Compound (COMP) crypto symbol, so avoid it. A user's own watchlist or positions cannot be used as a scope.\n\nThe same expressions work as result COLUMNS (the columns parameter of preview_scan, create_scan and update_scan_config): a column displays the expression's value without screening on it. A boolean-comparison filter reads best with its operands as columns (e.g. the put-exceeds-call screen showing both volumes); the division that is wrong as a filter is fine as a column, where a zero denominator only blanks a cell instead of dropping the row.\n\nAlways validate an expression with preview_scan before saving it to a scan."
+  }
+}

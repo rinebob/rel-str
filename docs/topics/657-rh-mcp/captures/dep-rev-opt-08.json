@@ -1,0 +1,40 @@
+{
+  "id": "dep-rev-opt-08",
+  "tool": "review_option_order",
+  "group": "sims",
+  "gate": "read",
+  "note": "market_hours=regular_market_hours explicit.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+        "side": "buy",
+        "position_effect": "open"
+      }
+    ],
+    "type": "limit",
+    "price": "0.50",
+    "direction": "debit",
+    "market_hours": "regular_market_hours",
+    "quantity": "1"
+  },
+  "capturedAt": "2026-10-05T17:59:25.165Z",
+  "outcome": "error",
+  "latencyMs": 873,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "invalid market_hours \"regular_market_hours\" (expected regular_hours, regular_curb_hours, or regular_curb_overnight_hours)"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "invalid market_hours \"regular_market_hours\" (expected regular_hours, regular_curb_hours, or regular_curb_overnight_hours)"
+}

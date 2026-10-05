@@ -1,0 +1,3252 @@
+{
+  "id": "dep-prev-scan-02",
+  "tool": "preview_scan",
+  "group": "sims",
+  "gate": "read",
+  "note": "filters + columns objects both exercised.",
+  "args": {
+    "filters": [
+      {
+        "filter_type": "FILTER_TYPE_FORWARD_PE",
+        "predicate": "PREDICATE_LESS_THAN",
+        "values": [
+          "20"
+        ]
+      }
+    ],
+    "columns": [
+      {
+        "display_name": "Market cap"
+      },
+      {
+        "display_name": "RSI"
+      }
+    ]
+  },
+  "capturedAt": "2026-10-05T17:59:13.370Z",
+  "outcome": "success",
+  "latencyMs": 1247,
+  "success": true,
+  "response": {
+    "data": {
+      "result": {
+        "total_items": 399,
+        "results": [
+          {
+            "ticker": "NVR",
+            "instrument_id": "55394fd1-3702-4371-8a89-c424ab3d0a40",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.006352344486432047",
+              "Forward P/E": "14.6628",
+              "Last": "5955.775",
+              "Market cap": "1.6485969849e+10",
+              "Name": "NVR",
+              "Net change": "-38.07500000000073",
+              "RSI": "37.373368492427645",
+              "Symbol": "NVR",
+              "Volume": "26578.289207"
+            }
+          },
+          {
+            "ticker": "AZO",
+            "instrument_id": "7b63cafd-9b29-4b52-a567-ebc6282f977a",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.001036879976218014",
+              "Forward P/E": "16.2338",
+              "Last": "2789.135",
+              "Market cap": "4.6511589409e+10",
+              "Name": "AutoZone",
+              "Net change": "-2.894999999999982",
+              "RSI": "38.88586609949879",
+              "Symbol": "AZO",
+              "Volume": "92946.422888"
+            }
+          },
+          {
+            "ticker": "FCNCA",
+            "instrument_id": "4b2d283a-d201-4a18-aa35-fb443e1e1bea",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.012397152585533325",
+              "Forward P/E": "10.6952",
+              "Last": "2099.165",
+              "Market cap": "2.3341709168e+10",
+              "Name": "First Citizens Bank",
+              "Net change": "25.704999999999927",
+              "RSI": "42.288173348984635",
+              "Symbol": "FCNCA",
+              "Volume": "25011.481751"
+            }
+          },
+          {
+            "ticker": "MKL",
+            "instrument_id": "754fa8e2-ad86-4562-9c9a-4620068f8878",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0028983755281547416",
+              "Forward P/E": "15.6006",
+              "Last": "1742.215",
+              "Market cap": "2.2148908418e+10",
+              "Name": "Markel",
+              "Net change": "5.0349999999998545",
+              "RSI": "38.25869207551548",
+              "Symbol": "MKL",
+              "Volume": "69206.575502"
+            }
+          },
+          {
+            "ticker": "SNDK",
+            "instrument_id": "badc834a-d185-42b1-8a6a-3f7ba5571fe9",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0031279251623556586",
+              "Forward P/E": "6.7295",
+              "Last": "1714.61",
+              "Market cap": "2.22552488949e+11",
+              "Name": "Sandisk Corporation",
+              "Net change": "-5.380000000000109",
+              "RSI": "52.71955407496068",
+              "Symbol": "SNDK",
+              "Volume": "4.207126060355e+06"
+            }
+          },
+          {
+            "ticker": "URI",
+            "instrument_id": "df1ae3bc-40b1-4b9a-81b3-82bf3fffe6cb",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.008029305113594376",
+              "Forward P/E": "17.9856",
+              "Last": "1089.72",
+              "Market cap": "6.2631504556e+10",
+              "Name": "United Rentals",
+              "Net change": "8.680000000000064",
+              "RSI": "59.57317241988668",
+              "Symbol": "URI",
+              "Volume": "157492.732405"
+            }
+          },
+          {
+            "ticker": "BLK",
+            "instrument_id": "3a76a2e1-2c0f-4c22-b882-b02370533400",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.006200277455338124",
+              "Forward P/E": "16.0772",
+              "Last": "1066.2",
+              "Market cap": "1.60636590205e+11",
+              "Name": "Blackrock, Inc.",
+              "Net change": "6.569999999999936",
+              "RSI": "42.81381664506742",
+              "Symbol": "BLK",
+              "Volume": "209069.858937"
+            }
+          },
+          {
+            "ticker": "MU",
+            "instrument_id": "0a8a072c-e52c-4e41-a2ee-8adbd72217d3",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.01243848207723592",
+              "Forward P/E": "5.9737",
+              "Last": "1061.52",
+              "Market cap": "1.046439224059e+12",
+              "Name": "Micron Technology",
+              "Net change": "-13.370000000000118",
+              "RSI": "59.26400204521679",
+              "Symbol": "MU",
+              "Volume": "1.1261150955782e+07"
+            }
+          },
+          {
+            "ticker": "MCK",
+            "instrument_id": "ab56f82e-b48e-486f-b251-992e7323df82",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.015316753114332636",
+              "Forward P/E": "19.8807",
+              "Last": "916.1",
+              "Market cap": "1.03449463186e+11",
+              "Name": "McKesson",
+              "Net change": "13.82000000000005",
+              "RSI": "56.892258708742226",
+              "Symbol": "MCK",
+              "Volume": "209891.04929"
+            }
+          },
+          {
+            "ticker": "GS",
+            "instrument_id": "801a9500-8a61-4e1c-ae76-0beb4a135fb1",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.00435428115582338",
+              "Forward P/E": "12.6422",
+              "Last": "898.63",
+              "Market cap": "2.73112957275e+11",
+              "Name": "Goldman Sachs",
+              "Net change": "-3.92999999999995",
+              "RSI": "31.986365131736903",
+              "Symbol": "GS",
+              "Volume": "1.001376887917e+06"
+            }
+          },
+          {
+            "ticker": "EME",
+            "instrument_id": "73a99344-d894-4a9a-89a9-b1f418214169",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.003051067237894226",
+              "Forward P/E": "19.4932",
+              "Last": "789.01",
+              "Market cap": "3.2617507393e+10",
+              "Name": "Emcor",
+              "Net change": "2.3999999999999773",
+              "RSI": "57.97195439920038",
+              "Symbol": "EME",
+              "Volume": "114212.61706"
+            }
+          },
+          {
+            "ticker": "META",
+            "instrument_id": "ebab2398-028d-4939-9f1d-13bf38f81c50",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.020245028018899033",
+              "Forward P/E": "19.9601",
+              "Last": "742.82",
+              "Market cap": "1.715261416353e+12",
+              "Name": "Meta Platforms",
+              "Net change": "14.740000000000009",
+              "RSI": "61.46764753057268",
+              "Symbol": "META",
+              "Volume": "8.502923221821e+06"
+            }
+          },
+          {
+            "ticker": "REGN",
+            "instrument_id": "bf85745c-d392-4602-8fbd-ccca86c43566",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.00801142546245933",
+              "Forward P/E": "14.0252",
+              "Last": "729.31",
+              "Market cap": "7.9749963254e+10",
+              "Name": "Regeneron",
+              "Net change": "-5.8900000000001",
+              "RSI": "34.88342669764796",
+              "Symbol": "REGN",
+              "Volume": "325521.663325"
+            }
+          },
+          {
+            "ticker": "FICO",
+            "instrument_id": "2188067e-f891-4541-9e3e-79912595eebf",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.026344045368619975",
+              "Forward P/E": "18.1159",
+              "Last": "678.67",
+              "Market cap": "2.1410815457e+10",
+              "Name": "Fair Isaac",
+              "Net change": "17.41999999999996",
+              "RSI": "25.99625646342247",
+              "Symbol": "FICO",
+              "Volume": "685963.139303"
+            }
+          },
+          {
+            "ticker": "ULTA",
+            "instrument_id": "719265a7-fa4d-40c7-bc71-495245e069db",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.009306774080818012",
+              "Forward P/E": "19.084",
+              "Last": "548.75",
+              "Market cap": "2.2683693514e+10",
+              "Name": "Ulta Beauty",
+              "Net change": "5.059999999999945",
+              "RSI": "51.219653207185765",
+              "Symbol": "ULTA",
+              "Volume": "97738.978555"
+            }
+          },
+          {
+            "ticker": "UTHR",
+            "instrument_id": "0b264d9f-e743-49d6-a30a-f988a3879902",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.006027321395606399",
+              "Forward P/E": "16.4745",
+              "Last": "544.965",
+              "Market cap": "2.1399452959e+10",
+              "Name": "United Therapeutics",
+              "Net change": "3.2649999999999864",
+              "RSI": "60.026482013428016",
+              "Symbol": "UTHR",
+              "Volume": "354064.873648"
+            }
+          },
+          {
+            "ticker": "CACC",
+            "instrument_id": "3fbea68d-2aa0-48bf-84d9-a37d4f454af4",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.014881516587677768",
+              "Forward P/E": "11.1359",
+              "Last": "535.35",
+              "Market cap": "6.242050365e+09",
+              "Name": "Credit Acceptance",
+              "Net change": "7.850000000000023",
+              "RSI": "32.56647847452342",
+              "Symbol": "CACC",
+              "Volume": "34763.434604"
+            }
+          },
+          {
+            "ticker": "CMI",
+            "instrument_id": "2859bed7-51fe-48e7-8e27-db2512e11a8b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.008082222895214985",
+              "Forward P/E": "15.4799",
+              "Last": "532.59",
+              "Market cap": "7.2618016892e+10",
+              "Name": "Cummins",
+              "Net change": "4.269999999999982",
+              "RSI": "39.86040862165963",
+              "Symbol": "CMI",
+              "Volume": "319362.561458"
+            }
+          },
+          {
+            "ticker": "STRL",
+            "instrument_id": "7c703958-6e3e-4079-9787-d6ecc8b25bf3",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.004892954894829616",
+              "Forward P/E": "18.3486",
+              "Last": "530.81",
+              "Market cap": "1.4764159983e+10",
+              "Name": "Sterling Infrastructure",
+              "Net change": "-2.6100000000000136",
+              "RSI": "55.895569115378564",
+              "Symbol": "STRL",
+              "Volume": "236617.350176"
+            }
+          },
+          {
+            "ticker": "MUSA",
+            "instrument_id": "bf265904-a6b8-498e-a875-a3c3233e83a4",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.004718263368412781",
+              "Forward P/E": "17.3611",
+              "Last": "512.59",
+              "Market cap": "9.434080704e+09",
+              "Name": "Murphy USA",
+              "Net change": "-2.42999999999995",
+              "RSI": "46.16909521337404",
+              "Symbol": "MUSA",
+              "Volume": "62445.104286"
+            }
+          },
+          {
+            "ticker": "CHE",
+            "instrument_id": "beb03ec6-014f-434c-95ea-efcc64bcd441",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.002364532019704411",
+              "Forward P/E": "18.5874",
+              "Last": "508.7",
+              "Market cap": "6.664503813e+09",
+              "Name": "Chemed",
+              "Net change": "1.1999999999999886",
+              "RSI": "46.63738687934954",
+              "Symbol": "CHE",
+              "Volume": "46379.686858"
+            }
+          },
+          {
+            "ticker": "LMT",
+            "instrument_id": "fbfbfb83-373a-4601-8094-6179a2a1942c",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.00043509230129992586",
+              "Forward P/E": "16.129",
+              "Last": "505.6299",
+              "Market cap": "1.23992332049e+11",
+              "Name": "Lockheed",
+              "Net change": "0.21989999999999554",
+              "RSI": "30.845262438928543",
+              "Symbol": "LMT",
+              "Volume": "428557.824304"
+            }
+          },
+          {
+            "ticker": "AMP",
+            "instrument_id": "fe443b29-21e9-4825-8af7-4444cf1384e6",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.005510174981157409",
+              "Forward P/E": "10.4932",
+              "Last": "493.615",
+              "Market cap": "4.7775904828e+10",
+              "Name": "Ameriprise",
+              "Net change": "2.704999999999984",
+              "RSI": "30.391617669087793",
+              "Symbol": "AMP",
+              "Volume": "224282.067033"
+            }
+          },
+          {
+            "ticker": "TSM",
+            "instrument_id": "ca4821f9-06c3-4c22-bbb8-efe569f23d2b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.02832289859977163",
+              "Forward P/E": "19.802",
+              "Last": "486.1705",
+              "Market cap": "1.940642848231e+12",
+              "Name": "Taiwan Semiconductor Manufacturing",
+              "Net change": "13.390500000000031",
+              "RSI": "71.28228379740607",
+              "Symbol": "TSM",
+              "Volume": "7.332233008489e+06"
+            }
+          },
+          {
+            "ticker": "HUBB",
+            "instrument_id": "0f811f55-5eee-4a26-83d2-e4f2818bb736",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.01764384253028273",
+              "Forward P/E": "19.5313",
+              "Last": "483.91",
+              "Market cap": "2.3197196948e+10",
+              "Name": "Hubbell",
+              "Net change": "8.390000000000043",
+              "RSI": "57.87047252907878",
+              "Symbol": "HUBB",
+              "Volume": "136435.31613"
+            }
+          },
+          {
+            "ticker": "VMI",
+            "instrument_id": "88998d05-299c-4e9a-af16-1c7228d40801",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.008459706730166711",
+              "Forward P/E": "18.4502",
+              "Last": "482.79",
+              "Market cap": "9.17656425e+09",
+              "Name": "Valmont",
+              "Net change": "4.050000000000011",
+              "RSI": "53.31743466710318",
+              "Symbol": "VMI",
+              "Volume": "48007.901068"
+            }
+          },
+          {
+            "ticker": "NOC",
+            "instrument_id": "57b88101-046d-4553-99a1-7cc92a49d916",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.001485355648535522",
+              "Forward P/E": "17.5747",
+              "Last": "477.29",
+              "Market cap": "7.540421294e+10",
+              "Name": "Northrop Grumman",
+              "Net change": "-0.7099999999999795",
+              "RSI": "24.858599143276734",
+              "Symbol": "NOC",
+              "Volume": "587253.738618"
+            }
+          },
+          {
+            "ticker": "MPC",
+            "instrument_id": "b76a1f83-0926-4160-8f80-d2c574400d2f",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.03435701939241823",
+              "Forward P/E": "12.6103",
+              "Last": "436.84",
+              "Market cap": "1.162389859e+11",
+              "Name": "Marathon Petroleum",
+              "Net change": "14.509999999999991",
+              "RSI": "68.95301570931",
+              "Symbol": "MPC",
+              "Volume": "1.056650424113e+06"
+            }
+          },
+          {
+            "ticker": "HCA",
+            "instrument_id": "1cea1d69-c7ea-41e5-9e8a-75d4995f8b48",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.016475661487262486",
+              "Forward P/E": "13.6054",
+              "Last": "433.72",
+              "Market cap": "9.3188740645e+10",
+              "Name": "HCA Healthcare",
+              "Net change": "7.03000000000003",
+              "RSI": "52.35782981105001",
+              "Symbol": "HCA",
+              "Volume": "417619.356286"
+            }
+          },
+          {
+            "ticker": "VLO",
+            "instrument_id": "2868168f-8ece-49a8-b0e5-4231f0c8716f",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.03620477479694802",
+              "Forward P/E": "15.1515",
+              "Last": "421.01",
+              "Market cap": "1.16115386472e+11",
+              "Name": "Valero",
+              "Net change": "14.70999999999998",
+              "RSI": "65.54269750793276",
+              "Symbol": "VLO",
+              "Volume": "1.367660119506e+06"
+            }
+          },
+          {
+            "ticker": "RS",
+            "instrument_id": "1071427b-b39e-480d-a828-a5d0106dc0e1",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.035360095925657545",
+              "Forward P/E": "16.8634",
+              "Last": "414.465",
+              "Market cap": "2.0130811036e+10",
+              "Name": "Reliance, Inc.",
+              "Net change": "14.154999999999973",
+              "RSI": "56.05806449320696",
+              "Symbol": "RS",
+              "Volume": "116187.670267"
+            }
+          },
+          {
+            "ticker": "AMGN",
+            "instrument_id": "1b007e76-1549-4166-980a-8d9a90931d93",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.000446605795950791",
+              "Forward P/E": "15.4083",
+              "Last": "403.22",
+              "Market cap": "2.03466855081e+11",
+              "Name": "Amgen",
+              "Net change": "0.18000000000000682",
+              "RSI": "47.70759315736744",
+              "Symbol": "AMGN",
+              "Volume": "1.147460207579e+06"
+            }
+          },
+          {
+            "ticker": "CPAY",
+            "instrument_id": "100b0ab3-5160-4a82-a0d6-584fe9f07590",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.020045615813481927",
+              "Forward P/E": "13.0719",
+              "Last": "402.51",
+              "Market cap": "2.6412886889e+10",
+              "Name": "Corpay",
+              "Net change": "7.909999999999968",
+              "RSI": "45.55747793963041",
+              "Symbol": "CPAY",
+              "Volume": "177944.157633"
+            }
+          },
+          {
+            "ticker": "ELV",
+            "instrument_id": "b916cf49-f09f-4f63-9082-9fcef03cddc2",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.013689413347825015",
+              "Forward P/E": "14.1643",
+              "Last": "391.72",
+              "Market cap": "8.9471594282e+10",
+              "Name": "Elevance Health",
+              "Net change": "5.2900000000000205",
+              "RSI": "39.26617669068099",
+              "Symbol": "ELV",
+              "Volume": "246572.080694"
+            }
+          },
+          {
+            "ticker": "SPGI",
+            "instrument_id": "e425f3ca-8aa2-47c5-ab92-5e7ec59d1e83",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.005268335620162128",
+              "Forward P/E": "19.8807",
+              "Last": "388.305",
+              "Market cap": "1.19912848e+11",
+              "Name": "S&P Global",
+              "Net change": "2.035000000000025",
+              "RSI": "31.89076393766298",
+              "Symbol": "SPGI",
+              "Volume": "848924.382124"
+            }
+          },
+          {
+            "ticker": "CLS",
+            "instrument_id": "314e9e85-141b-42c9-8269-f93f85f96950",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.006002788392027235",
+              "Forward P/E": "16.3934",
+              "Last": "384.995",
+              "Market cap": "4.0970314109e+10",
+              "Name": "Celestica",
+              "Net change": "-2.3249999999999886",
+              "RSI": "65.47734514596786",
+              "Symbol": "CLS",
+              "Volume": "726830.790546"
+            }
+          },
+          {
+            "ticker": "WCC",
+            "instrument_id": "32aa4a38-7666-41b1-a9b1-9e40d3aad129",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.005841825373955312",
+              "Forward P/E": "16.6667",
+              "Last": "383.96",
+              "Market cap": "1.6341100603e+10",
+              "Name": "Wesco",
+              "Net change": "2.2299999999999613",
+              "RSI": "64.24734044618658",
+              "Symbol": "WCC",
+              "Volume": "155657.191653"
+            }
+          },
+          {
+            "ticker": "AMG",
+            "instrument_id": "122bee28-6427-49e7-98ae-8b46bebfb968",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.018253775947015514",
+              "Forward P/E": "8.2305",
+              "Last": "378.21",
+              "Market cap": "8.865302231e+09",
+              "Name": "Affiliated Managers",
+              "Net change": "6.779999999999973",
+              "RSI": "56.33552169552919",
+              "Symbol": "AMG",
+              "Volume": "55419.081235"
+            }
+          },
+          {
+            "ticker": "ZBRA",
+            "instrument_id": "aa6a9edf-dd50-4d6a-bd22-d08edf06e8dc",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.00010642260416117826",
+              "Forward P/E": "15.5763",
+              "Last": "375.82",
+              "Market cap": "1.615659039e+10",
+              "Name": "Zebra Technologies",
+              "Net change": "-0.040000000000020464",
+              "RSI": "63.759864177310796",
+              "Symbol": "ZBRA",
+              "Volume": "176803.65718"
+            }
+          },
+          {
+            "ticker": "UNH",
+            "instrument_id": "1abfbfc7-6c65-4ded-8a97-1e7f82220b64",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0002912073137941449",
+              "Forward P/E": "16.7224",
+              "Last": "372.0083",
+              "Market cap": "3.36831442285e+11",
+              "Name": "UnitedHealth",
+              "Net change": "0.10830000000004247",
+              "RSI": "40.71956280245437",
+              "Symbol": "UNH",
+              "Volume": "1.926239309963e+06"
+            }
+          },
+          {
+            "ticker": "DAVE",
+            "instrument_id": "aae73e6b-14e3-4596-9dd1-a76886f0d578",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.07305883371324695",
+              "Forward P/E": "17.452",
+              "Last": "371.89",
+              "Market cap": "4.666347125e+09",
+              "Name": "Dave",
+              "Net change": "25.319999999999993",
+              "RSI": "49.82773098364119",
+              "Symbol": "DAVE",
+              "Volume": "153729.307191"
+            }
+          },
+          {
+            "ticker": "SNA",
+            "instrument_id": "af057e9a-6c47-40b4-b7a2-097fa22ca3c0",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.004174573055028519",
+              "Forward P/E": "17.3913",
+              "Last": "370.44",
+              "Market cap": "1.9293182709e+10",
+              "Name": "Snap-On",
+              "Net change": "1.5400000000000205",
+              "RSI": "37.78134458074319",
+              "Symbol": "SNA",
+              "Volume": "85748.598766"
+            }
+          },
+          {
+            "ticker": "RL",
+            "instrument_id": "6466cc5f-e62b-4af9-9f01-487446d4424c",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.008256047554833916",
+              "Forward P/E": "17.9856",
+              "Last": "366.37",
+              "Market cap": "2.0160246387e+10",
+              "Name": "Ralph Lauren",
+              "Net change": "3",
+              "RSI": "58.341199197230466",
+              "Symbol": "RL",
+              "Volume": "133334.603546"
+            }
+          },
+          {
+            "ticker": "LII",
+            "instrument_id": "3fdaef19-41a6-4e9b-8c70-bd7c1e48b261",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.019997193376368228",
+              "Forward P/E": "13.7363",
+              "Last": "363.425",
+              "Market cap": "1.2477786102e+10",
+              "Name": "Lennox",
+              "Net change": "7.125",
+              "RSI": "34.71221860456636",
+              "Symbol": "LII",
+              "Volume": "189446.993549"
+            }
+          },
+          {
+            "ticker": "AVGO",
+            "instrument_id": "698f04e6-1710-4f34-b7af-4a88fe5e47b3",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.022441853916765297",
+              "Forward P/E": "18.0832",
+              "Last": "363.11",
+              "Market cap": "1.620695075466e+12",
+              "Name": "Broadcom",
+              "Net change": "7.970000000000027",
+              "RSI": "47.6566655684629",
+              "Symbol": "AVGO",
+              "Volume": "1.105361193051e+07"
+            }
+          },
+          {
+            "ticker": "TRV",
+            "instrument_id": "982363e9-64bb-4685-848a-601929664e5c",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0022129418946667785",
+              "Forward P/E": "13.1234",
+              "Last": "361.1775",
+              "Market cap": "7.9033247336e+10",
+              "Name": "Travelers",
+              "Net change": "0.7975000000000136",
+              "RSI": "42.57869313967008",
+              "Symbol": "TRV",
+              "Volume": "234528.072767"
+            }
+          },
+          {
+            "ticker": "ROP",
+            "instrument_id": "57ccdcb7-999d-495e-b8da-59bade25f60c",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.012841499209753927",
+              "Forward P/E": "15.456",
+              "Last": "358.87",
+              "Market cap": "3.7168926466e+10",
+              "Name": "Roper Technologies, Inc.",
+              "Net change": "4.550000000000011",
+              "RSI": "34.675207925352396",
+              "Symbol": "ROP",
+              "Volume": "229713.606504"
+            }
+          },
+          {
+            "ticker": "TLN",
+            "instrument_id": "9b80bb3e-80d1-41c6-987a-e5592bfe3029",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.04568694079870322",
+              "Forward P/E": "9.5147",
+              "Last": "335.425",
+              "Market cap": "1.3780140888e+10",
+              "Name": "Talen Energy",
+              "Net change": "14.65500000000003",
+              "RSI": "56.427658269386086",
+              "Symbol": "TLN",
+              "Volume": "507953.872646"
+            }
+          },
+          {
+            "ticker": "KNSL",
+            "instrument_id": "5f0c0b52-6397-4ca9-b8bf-6772a4342be3",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.01416353269440725",
+              "Forward P/E": "16.0772",
+              "Last": "334.39",
+              "Market cap": "8.217316818e+09",
+              "Name": "Kinsale Capital Group",
+              "Net change": "4.669999999999959",
+              "RSI": "35.57464558217124",
+              "Symbol": "KNSL",
+              "Volume": "68138.199905"
+            }
+          },
+          {
+            "ticker": "CSL",
+            "instrument_id": "f7b45921-7cfa-4b3f-a618-42ffca47d05d",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.015272970182789914",
+              "Forward P/E": "13.2275",
+              "Last": "334.37",
+              "Market cap": "1.2610825792e+10",
+              "Name": "Carlisle",
+              "Net change": "5.03000000000003",
+              "RSI": "47.62193259333537",
+              "Symbol": "CSL",
+              "Volume": "166780.06957"
+            }
+          },
+          {
+            "ticker": "JPM",
+            "instrument_id": "43c1172a-9130-420a-ac9b-b01a6ff5dd54",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0023373849208737345",
+              "Forward P/E": "13.947",
+              "Last": "333.1569",
+              "Market cap": "9.27494327159e+11",
+              "Name": "JPMorgan Chase",
+              "Net change": "0.7769000000000119",
+              "RSI": "34.48956084922918",
+              "Symbol": "JPM",
+              "Volume": "2.298924691078e+06"
+            }
+          },
+          {
+            "ticker": "LPLA",
+            "instrument_id": "3f7fe94b-c38d-4fa8-ada9-a2f18599aa62",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.049962078119074715",
+              "Forward P/E": "11.976",
+              "Last": "332.25",
+              "Market cap": "2.6233781336e+10",
+              "Name": "LPL Financial",
+              "Net change": "15.810000000000002",
+              "RSI": "40.935899644388044",
+              "Symbol": "LPLA",
+              "Volume": "629203.984347"
+            }
+          },
+          {
+            "ticker": "CB",
+            "instrument_id": "1b682f67-8701-4ee9-9fe4-0d2a71ce666f",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.004004351899422735",
+              "Forward P/E": "11.8203",
+              "Last": "332.215",
+              "Market cap": "1.31762225844e+11",
+              "Name": "Chubb",
+              "Net change": "1.3249999999999886",
+              "RSI": "40.46705178868096",
+              "Symbol": "CB",
+              "Volume": "1.446169868015e+06"
+            }
+          },
+          {
+            "ticker": "GD",
+            "instrument_id": "7de86af7-5071-456a-a7c5-efb45789c7a8",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.006058953618710049",
+              "Forward P/E": "19.3424",
+              "Last": "332.09",
+              "Market cap": "9.74005902e+10",
+              "Name": "General Dynamics",
+              "Net change": "2",
+              "RSI": "20.952871537038305",
+              "Symbol": "GD",
+              "Volume": "479105.041819"
+            }
+          },
+          {
+            "ticker": "COR",
+            "instrument_id": "2db426d6-099b-4406-a76f-547e00f4e35b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.016566898560103557",
+              "Forward P/E": "16",
+              "Last": "314.17",
+              "Market cap": "6.0778452052e+10",
+              "Name": "Cencora, Inc.",
+              "Net change": "5.1200000000000045",
+              "RSI": "45.50530630905219",
+              "Symbol": "COR",
+              "Volume": "354341.487453"
+            }
+          },
+          {
+            "ticker": "LH",
+            "instrument_id": "2dd68649-8f39-4b06-989b-4f66f3d4f18f",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.002885020584135584",
+              "Forward P/E": "16.8067",
+              "Last": "307.6",
+              "Market cap": "2.6317761e+10",
+              "Name": "LabCorp",
+              "Net change": "-0.8899999999999864",
+              "RSI": "42.73829790927856",
+              "Symbol": "LH",
+              "Volume": "268399.320616"
+            }
+          },
+          {
+            "ticker": "AYI",
+            "instrument_id": "d24542ef-2919-4035-aac6-28320375a831",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.009651509262857943",
+              "Forward P/E": "13.6799",
+              "Last": "305.78",
+              "Market cap": "8.889660037e+09",
+              "Name": "Acuity",
+              "Net change": "-2.980000000000018",
+              "RSI": "45.35094907256303",
+              "Symbol": "AYI",
+              "Volume": "157539.50761"
+            }
+          },
+          {
+            "ticker": "JBL",
+            "instrument_id": "861a6dca-667e-4842-b917-0772034531f5",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0014125685752767873",
+              "Forward P/E": "18.622",
+              "Last": "303.98",
+              "Market cap": "3.1146914334e+10",
+              "Name": "Jabil Inc.",
+              "Net change": "-0.4300000000000068",
+              "RSI": "47.39535910875173",
+              "Symbol": "JBL",
+              "Volume": "414029.647432"
+            }
+          },
+          {
+            "ticker": "JLL",
+            "instrument_id": "965627f1-ac8a-431c-bd76-3e371d242a62",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.010886216225025178",
+              "Forward P/E": "10.5152",
+              "Last": "303.47",
+              "Market cap": "1.5650900406e+10",
+              "Name": "JLL",
+              "Net change": "-3.339999999999975",
+              "RSI": "26.298728151903774",
+              "Symbol": "JLL",
+              "Volume": "271376.062411"
+            }
+          },
+          {
+            "ticker": "LAD",
+            "instrument_id": "cc4ddce7-8878-4eb2-bd2f-4498808250df",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.014263898365662627",
+              "Forward P/E": "8.3542",
+              "Last": "303.38",
+              "Market cap": "7.45733244e+09",
+              "Name": "Lithia Motors",
+              "Net change": "-4.389999999999986",
+              "RSI": "37.52853427105792",
+              "Symbol": "LAD",
+              "Volume": "121132.114191"
+            }
+          },
+          {
+            "ticker": "AXP",
+            "instrument_id": "af3c1d59-612e-400e-b0c2-7e47ebc126bd",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0012550366602815653",
+              "Forward P/E": "15.5763",
+              "Last": "303.16",
+              "Market cap": "2.10987051124e+11",
+              "Name": "American Express",
+              "Net change": "0.3800000000000523",
+              "RSI": "32.79543002074551",
+              "Symbol": "AXP",
+              "Volume": "1.182033050976e+06"
+            }
+          },
+          {
+            "ticker": "AEIS",
+            "instrument_id": "5c2a6c00-3a90-4ef2-93eb-c67013e4d9ec",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.022216379650322044",
+              "Forward P/E": "17.7936",
+              "Last": "297.52",
+              "Market cap": "1.0108331056e+10",
+              "Name": "Advanced Energy",
+              "Net change": "-6.759999999999991",
+              "RSI": "61.87548258673275",
+              "Symbol": "AEIS",
+              "Volume": "176278.200081"
+            }
+          },
+          {
+            "ticker": "DPZ",
+            "instrument_id": "e82d6674-520d-46e2-bd74-03f9d9aaef65",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.001999227189489869",
+              "Forward P/E": "14.3885",
+              "Last": "297.02",
+              "Market cap": "9.967526755e+09",
+              "Name": "Domino's Pizza",
+              "Net change": "-0.5950000000000273",
+              "RSI": "39.205939214558626",
+              "Symbol": "DPZ",
+              "Volume": "291902.613819"
+            }
+          },
+          {
+            "ticker": "FDX",
+            "instrument_id": "e988f084-7653-4e65-8768-b3b7d24d6290",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.004856040776966415",
+              "Forward P/E": "14.7275",
+              "Last": "291.77",
+              "Market cap": "7.1408203648e+10",
+              "Name": "FedEx",
+              "Net change": "1.4099999999999682",
+              "RSI": "39.0597465842452",
+              "Symbol": "FDX",
+              "Volume": "778451.554353"
+            }
+          },
+          {
+            "ticker": "WTW",
+            "instrument_id": "e19afb3f-1e01-491f-9adb-baf245c4c0f1",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.005994248293544985",
+              "Forward P/E": "14.0647",
+              "Last": "286.88",
+              "Market cap": "2.9072631158e+10",
+              "Name": "Willis Towers Watson",
+              "Net change": "-1.7300000000000182",
+              "RSI": "29.751003538886053",
+              "Symbol": "WTW",
+              "Volume": "226521.200551"
+            }
+          },
+          {
+            "ticker": "SIMO",
+            "instrument_id": "243600bb-ba07-42ca-847f-111b57ac274b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.012944028520499187",
+              "Forward P/E": "17.0648",
+              "Last": "284.1308",
+              "Market cap": "8.176514835e+09",
+              "Name": "Silicon Motion",
+              "Net change": "3.630800000000022",
+              "RSI": "56.0676771147754",
+              "Symbol": "SIMO",
+              "Volume": "409771.694922"
+            }
+          },
+          {
+            "ticker": "APP",
+            "instrument_id": "1761828d-8983-47a7-80a3-b65a08089807",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.05873909477294756",
+              "Forward P/E": "16",
+              "Last": "283.975",
+              "Market cap": "1.09283474137e+11",
+              "Name": "AppLovin",
+              "Net change": "15.754999999999995",
+              "RSI": "28.398739240401227",
+              "Symbol": "APP",
+              "Volume": "4.441165471621e+06"
+            }
+          },
+          {
+            "ticker": "SYK",
+            "instrument_id": "204d1471-ab78-477b-bbcd-d9f7c70ddf6a",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.030352539665250748",
+              "Forward P/E": "17.0358",
+              "Last": "283.79",
+              "Market cap": "1.09226260578e+11",
+              "Name": "Stryker",
+              "Net change": "8.360000000000014",
+              "RSI": "37.8780483288083",
+              "Symbol": "SYK",
+              "Volume": "1.416798301316e+06"
+            }
+          },
+          {
+            "ticker": "SNX",
+            "instrument_id": "ad3c6497-632d-466f-8af7-cc1afaea6949",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.01699177353881531",
+              "Forward P/E": "12.3153",
+              "Last": "283.1",
+              "Market cap": "2.0829254896e+10",
+              "Name": "TD SYNNEX",
+              "Net change": "4.730000000000018",
+              "RSI": "59.086169716013586",
+              "Symbol": "SNX",
+              "Volume": "390066.509974"
+            }
+          },
+          {
+            "ticker": "INTU",
+            "instrument_id": "7d271a39-74f8-416f-9b74-c238ffd8c7c7",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.003966842180162264",
+              "Forward P/E": "13.7741",
+              "Last": "282.195",
+              "Market cap": "8.501578868e+10",
+              "Name": "Intuit",
+              "Net change": "1.115000000000009",
+              "RSI": "37.113239222602566",
+              "Symbol": "INTU",
+              "Volume": "1.564456619647e+06"
+            }
+          },
+          {
+            "ticker": "APD",
+            "instrument_id": "59df6603-5b31-4ae2-a126-4a3e5c9f30be",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.011060633353748694",
+              "Forward P/E": "19.9203",
+              "Last": "280.6401",
+              "Market cap": "6.3928561952e+10",
+              "Name": "Air Products & Chemicals",
+              "Net change": "3.070100000000025",
+              "RSI": "36.991699392181474",
+              "Symbol": "APD",
+              "Volume": "306475.266691"
+            }
+          },
+          {
+            "ticker": "UNP",
+            "instrument_id": "29537485-b266-4e20-b045-f07f24df0666",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.001509271237602268",
+              "Forward P/E": "19.802",
+              "Last": "277.86",
+              "Market cap": "1.66887688898e+11",
+              "Name": "Union Pacific",
+              "Net change": "-0.4199999999999591",
+              "RSI": "44.328349918153656",
+              "Symbol": "UNP",
+              "Volume": "765001.203257"
+            }
+          },
+          {
+            "ticker": "LNG",
+            "instrument_id": "c3580145-6646-441c-b3b5-3c22c6d6d052",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.021522504167438426",
+              "Forward P/E": "13.21",
+              "Last": "275.76",
+              "Market cap": "5.5299520804e+10",
+              "Name": "Cheniere Energy Inc",
+              "Net change": "5.810000000000002",
+              "RSI": "46.507530444023715",
+              "Symbol": "LNG",
+              "Volume": "858132.068928"
+            }
+          },
+          {
+            "ticker": "BURL",
+            "instrument_id": "67214dc8-c1e1-4cd7-8528-a6052d3256c5",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0021064865257499244",
+              "Forward P/E": "19.305",
+              "Last": "274.76",
+              "Market cap": "1.4492093638e+10",
+              "Name": "Burlington Coat Factory",
+              "Net change": "-0.5799999999999841",
+              "RSI": "54.09839755495253",
+              "Symbol": "BURL",
+              "Volume": "445584.271435"
+            }
+          },
+          {
+            "ticker": "RCL",
+            "instrument_id": "ed001b6a-7176-484f-a125-1e9523e378d0",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.015050406855332259",
+              "Forward P/E": "12.3305",
+              "Last": "273.5599",
+              "Market cap": "6.7911433169e+10",
+              "Name": "Royal Caribbean Group",
+              "Net change": "-4.180099999999982",
+              "RSI": "60.835756550132814",
+              "Symbol": "RCL",
+              "Volume": "1.617143396375e+06"
+            }
+          },
+          {
+            "ticker": "KAI",
+            "instrument_id": "a907b388-0539-48a8-88da-b4c8b79bc7fa",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.012963582933452419",
+              "Forward P/E": "19.5695",
+              "Last": "272.315",
+              "Market cap": "3.18846159e+09",
+              "Name": "Kadant",
+              "Net change": "3.4850000000000136",
+              "RSI": "39.511840553742516",
+              "Symbol": "KAI",
+              "Volume": "43115.784619"
+            }
+          },
+          {
+            "ticker": "CI",
+            "instrument_id": "862f979f-017f-498e-9bfb-4ca05d51b518",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.003363397774738662",
+              "Forward P/E": "8.3963",
+              "Last": "271.4399",
+              "Market cap": "7.4106244298e+10",
+              "Name": "Cigna",
+              "Net change": "0.9099000000000501",
+              "RSI": "44.122709704620995",
+              "Symbol": "CI",
+              "Volume": "625489.27455"
+            }
+          },
+          {
+            "ticker": "PSX",
+            "instrument_id": "124133a3-cf48-45f4-a014-934529fdfd7b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.02452944289061913",
+              "Forward P/E": "14.1044",
+              "Last": "271.07",
+              "Market cap": "1.05592905001e+11",
+              "Name": "Phillips 66",
+              "Net change": "6.490000000000009",
+              "RSI": "62.929842603800196",
+              "Symbol": "PSX",
+              "Volume": "933375.032306"
+            }
+          },
+          {
+            "ticker": "CEG",
+            "instrument_id": "3d6d83c4-f48e-4242-95c2-2790a36a3123",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.04858441104508909",
+              "Forward P/E": "18.8324",
+              "Last": "270",
+              "Market cap": "9.1953394071e+10",
+              "Name": "Constellation Energy",
+              "Net change": "12.509999999999991",
+              "RSI": "42.08267387821673",
+              "Symbol": "CEG",
+              "Volume": "1.740542418003e+06"
+            }
+          },
+          {
+            "ticker": "AON",
+            "instrument_id": "277d774c-8931-4000-9811-4f41b48612ac",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0014102802004082222",
+              "Forward P/E": "14.0449",
+              "Last": "269.83",
+              "Market cap": "6.3758541697e+10",
+              "Name": "Aon",
+              "Net change": "0.37999999999999545",
+              "RSI": "24.76868210673655",
+              "Symbol": "AON",
+              "Volume": "664928.850127"
+            }
+          },
+          {
+            "ticker": "FDS",
+            "instrument_id": "d493b30d-0d2a-4946-a262-c4f8635f832c",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.008590225563909868",
+              "Forward P/E": "13.947",
+              "Last": "268.285",
+              "Market cap": "9.83067174e+09",
+              "Name": "Factset",
+              "Net change": "2.285000000000025",
+              "RSI": "43.33156744531885",
+              "Symbol": "FDS",
+              "Volume": "180996.524779"
+            }
+          },
+          {
+            "ticker": "HII",
+            "instrument_id": "2298a1c6-68e2-468c-a97a-240f6d34ec5e",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.005362329634318901",
+              "Forward P/E": "12.9032",
+              "Last": "267.1",
+              "Market cap": "1.0958024657e+10",
+              "Name": "Huntington Ingalls",
+              "Net change": "-1.4399999999999977",
+              "RSI": "40.95369592786328",
+              "Symbol": "HII",
+              "Volume": "205856.044501"
+            }
+          },
+          {
+            "ticker": "EVR",
+            "instrument_id": "77cb2a36-58e3-49ac-aa21-30157fa756ba",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.014827269948028108",
+              "Forward P/E": "12.3001",
+              "Last": "265.56",
+              "Market cap": "1.0069400013e+10",
+              "Name": "Evercore",
+              "Net change": "3.8799999999999955",
+              "RSI": "36.91922362537036",
+              "Symbol": "EVR",
+              "Volume": "235045.946758"
+            }
+          },
+          {
+            "ticker": "ABBV",
+            "instrument_id": "279e98b9-2e23-4cf2-90ed-c085ea472105",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0021878091469446337",
+              "Forward P/E": "16.2338",
+              "Last": "263.395",
+              "Market cap": "4.63885958485e+11",
+              "Name": "AbbVie",
+              "Net change": "0.5749999999999886",
+              "RSI": "53.73531854492259",
+              "Symbol": "ABBV",
+              "Volume": "1.713030290286e+06"
+            }
+          },
+          {
+            "ticker": "THC",
+            "instrument_id": "dd0c55f2-44b0-475e-8ae4-c504916dfd37",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.017728713943237103",
+              "Forward P/E": "12.7226",
+              "Last": "263.205",
+              "Market cap": "2.140033982e+10",
+              "Name": "Tenet Healthcare",
+              "Net change": "4.5849999999999795",
+              "RSI": "49.803117986332545",
+              "Symbol": "THC",
+              "Volume": "177920.103723"
+            }
+          },
+          {
+            "ticker": "IQV",
+            "instrument_id": "337dadde-95ac-4bc7-8e0a-78452e3f3e38",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.018512063824019324",
+              "Forward P/E": "18.4843",
+              "Last": "262.99",
+              "Market cap": "4.4247772e+10",
+              "Name": "IQVIA Holdings",
+              "Net change": "4.78000000000003",
+              "RSI": "45.290228990341575",
+              "Symbol": "IQV",
+              "Volume": "576115.722908"
+            }
+          },
+          {
+            "ticker": "EXPE",
+            "instrument_id": "01422ebf-263c-4366-8104-816e2eafdd2b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.009584905660377436",
+              "Forward P/E": "12.5156",
+              "Last": "262.46",
+              "Market cap": "3.444195086e+10",
+              "Name": "Expedia",
+              "Net change": "-2.5400000000000205",
+              "RSI": "37.78780329555915",
+              "Symbol": "EXPE",
+              "Volume": "551992.562041"
+            }
+          },
+          {
+            "ticker": "NUE",
+            "instrument_id": "aa0acacd-2bc8-4601-9d95-24a6c66e2e50",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.05299721286243192",
+              "Forward P/E": "12.0773",
+              "Last": "253.13",
+              "Market cap": "5.9141951219e+10",
+              "Name": "Nucor",
+              "Net change": "12.740000000000009",
+              "RSI": "42.0664470664093",
+              "Symbol": "NUE",
+              "Volume": "585782.495226"
+            }
+          },
+          {
+            "ticker": "STLD",
+            "instrument_id": "eb91a2da-96bd-4301-9260-924057143ab9",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.05340747446010598",
+              "Forward P/E": "10.1937",
+              "Last": "244.38",
+              "Market cap": "3.4145050404e+10",
+              "Name": "Steel Dynamics",
+              "Net change": "12.389999999999986",
+              "RSI": "47.33193443761571",
+              "Symbol": "STLD",
+              "Volume": "398001.51111"
+            }
+          },
+          {
+            "ticker": "GPI",
+            "instrument_id": "dca2f30d-126d-453b-9eb1-be59089ed915",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.02817803394172267",
+              "Forward P/E": "5.8582",
+              "Last": "242.8",
+              "Market cap": "3.126245839e+09",
+              "Name": "Group 1 Automotive",
+              "Net change": "-7.039999999999992",
+              "RSI": "43.68007571194825",
+              "Symbol": "GPI",
+              "Volume": "128423.719491"
+            }
+          },
+          {
+            "ticker": "NXPI",
+            "instrument_id": "9f2d1150-77bc-43e2-aa60-c2114dbcfc9d",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0059919560042682755",
+              "Forward P/E": "11.976",
+              "Last": "242.2",
+              "Market cap": "5.5218910822e+10",
+              "Name": "NXP Semiconductors",
+              "Net change": "-1.460000000000008",
+              "RSI": "59.77070604955392",
+              "Symbol": "NXPI",
+              "Volume": "722781.571609"
+            }
+          },
+          {
+            "ticker": "LHX",
+            "instrument_id": "7fa50b5d-7ef0-4ae3-b96a-e1fff4fb83a5",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.009868977176669519",
+              "Forward P/E": "18.7266",
+              "Last": "238.935",
+              "Market cap": "4.6691452815e+10",
+              "Name": "L3Harris",
+              "Net change": "2.335000000000008",
+              "RSI": "25.690484470225726",
+              "Symbol": "LHX",
+              "Volume": "509650.3066"
+            }
+          },
+          {
+            "ticker": "JAZZ",
+            "instrument_id": "29779dad-d467-4487-8700-e2bcee5db258",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.006449696609666102",
+              "Forward P/E": "11.0254",
+              "Last": "237.19",
+              "Market cap": "1.5817085831e+10",
+              "Name": "Jazz Pharmaceuticals",
+              "Net change": "1.5200000000000102",
+              "RSI": "42.847755700438206",
+              "Symbol": "JAZZ",
+              "Volume": "265943.767973"
+            }
+          },
+          {
+            "ticker": "ADBE",
+            "instrument_id": "809adc21-ef75-4c3d-9c0e-5f9a167f235b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.00870882241575158",
+              "Forward P/E": "9.0827",
+              "Last": "235.62",
+              "Market cap": "9.957375e+10",
+              "Name": "Adobe",
+              "Net change": "-2.069999999999993",
+              "RSI": "41.01981205866297",
+              "Symbol": "ADBE",
+              "Volume": "1.917793240196e+06"
+            }
+          },
+          {
+            "ticker": "RGLD",
+            "instrument_id": "f98a7251-ab88-4056-9950-3782b2e29d86",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0006818956699626024",
+              "Forward P/E": "17.4825",
+              "Last": "234.8",
+              "Market cap": "2.0801536172e+10",
+              "Name": "Royal Gold",
+              "Net change": "0.160000000000025",
+              "RSI": "39.65736507729919",
+              "Symbol": "RGLD",
+              "Volume": "237223.980874"
+            }
+          },
+          {
+            "ticker": "CAH",
+            "instrument_id": "b1833d41-9038-4563-8916-6aa0b6286926",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.01946999561979848",
+              "Forward P/E": "18.4843",
+              "Last": "232.745",
+              "Market cap": "5.4083159789e+10",
+              "Name": "Cardinal Health",
+              "Net change": "4.444999999999993",
+              "RSI": "48.8630375565853",
+              "Symbol": "CAH",
+              "Volume": "589122.496871"
+            }
+          },
+          {
+            "ticker": "MCD",
+            "instrument_id": "41eac3c6-f7f7-4c4a-b696-ab9d1b913981",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0022631420069861895",
+              "Forward P/E": "17.7936",
+              "Last": "232.4148",
+              "Market cap": "1.75891378945e+11",
+              "Name": "McDonald's",
+              "Net change": "0.5248000000000275",
+              "RSI": "23.785389830383465",
+              "Symbol": "MCD",
+              "Volume": "3.217887443344e+06"
+            }
+          },
+          {
+            "ticker": "CRM",
+            "instrument_id": "cf1d849d-06f7-4374-9e84-13129713d0c7",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.022604286505603165",
+              "Forward P/E": "15.015",
+              "Last": "229.385",
+              "Market cap": "2.0619442e+11",
+              "Name": "Salesforce",
+              "Net change": "-5.305000000000007",
+              "RSI": "51.362716918458524",
+              "Symbol": "CRM",
+              "Volume": "2.998205579845e+06"
+            }
+          },
+          {
+            "ticker": "SANM",
+            "instrument_id": "03c33aae-7100-44ea-93ea-52699a722960",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0012879846315054834",
+              "Forward P/E": "13.4048",
+              "Last": "229.335",
+              "Market cap": "1.0483642833e+10",
+              "Name": "Sanmina",
+              "Net change": "0.2950000000000159",
+              "RSI": "62.314600837877904",
+              "Symbol": "SANM",
+              "Volume": "217112.362956"
+            }
+          },
+          {
+            "ticker": "PKG",
+            "instrument_id": "91c1141f-26f4-42dc-9a6d-427dae58e9d4",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.001378314518246249",
+              "Forward P/E": "18.1488",
+              "Last": "228.855",
+              "Market cap": "2.0621801303e+10",
+              "Name": "Packaging Corporation of America",
+              "Net change": "0.3149999999999977",
+              "RSI": "38.73774968769171",
+              "Symbol": "PKG",
+              "Volume": "149771.535173"
+            }
+          },
+          {
+            "ticker": "AJG",
+            "instrument_id": "444ca1ba-7da5-4d32-aa73-317da8dddc5b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.00019901817699344342",
+              "Forward P/E": "16.4474",
+              "Last": "226.155",
+              "Market cap": "6.249080898e+10",
+              "Name": "Arthur J. Gallagher",
+              "Net change": "0.044999999999987494",
+              "RSI": "35.4366413953517",
+              "Symbol": "AJG",
+              "Volume": "467499.789798"
+            }
+          },
+          {
+            "ticker": "FERG",
+            "instrument_id": "4d51ecae-3b89-45cb-a703-e34f9ecefe30",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.006291138673711553",
+              "Forward P/E": "16.9205",
+              "Last": "224.735",
+              "Market cap": "4.1466589888e+10",
+              "Name": "Ferguson Enterprises",
+              "Net change": "1.4050000000000011",
+              "RSI": "48.40662835423934",
+              "Symbol": "FERG",
+              "Volume": "648524.165328"
+            }
+          },
+          {
+            "ticker": "ALL",
+            "instrument_id": "7d3e4e93-5860-498c-9f7b-9fe44c6fe2c8",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.001966568338249744",
+              "Forward P/E": "9.1827",
+              "Last": "224.18",
+              "Market cap": "6.4440848557e+10",
+              "Name": "Allstate",
+              "Net change": "0.4399999999999977",
+              "RSI": "28.084402437179975",
+              "Symbol": "ALL",
+              "Volume": "758206.673065"
+            }
+          },
+          {
+            "ticker": "MTZ",
+            "instrument_id": "891b0b15-720d-428d-a5f1-372f1b6fbd1b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.034270365396193235",
+              "Forward P/E": "18.7266",
+              "Last": "223.33",
+              "Market cap": "1.8118402367e+10",
+              "Name": "Mastec",
+              "Net change": "7.400000000000006",
+              "RSI": "40.56880066792169",
+              "Symbol": "MTZ",
+              "Volume": "448057.041907"
+            }
+          },
+          {
+            "ticker": "RMD",
+            "instrument_id": "907bdbe3-5244-4448-8357-32296972d426",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.018114121248115508",
+              "Forward P/E": "19.0114",
+              "Last": "222.855",
+              "Market cap": "3.2925588844e+10",
+              "Name": "ResMed",
+              "Net change": "3.9650000000000034",
+              "RSI": "41.169678528491296",
+              "Symbol": "RMD",
+              "Volume": "344750.647117"
+            }
+          },
+          {
+            "ticker": "THG",
+            "instrument_id": "769e898f-70b3-42f0-a4f0-9a1f07e87561",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.011028574032721084",
+              "Forward P/E": "11.8765",
+              "Last": "221.85",
+              "Market cap": "8.069934418e+09",
+              "Name": "Hanover Insurance",
+              "Net change": "2.4199999999999875",
+              "RSI": "45.37317464111514",
+              "Symbol": "THG",
+              "Volume": "123018.186743"
+            }
+          },
+          {
+            "ticker": "PAYC",
+            "instrument_id": "d2813da8-ef67-4900-aa0b-1ddd21679e3c",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.003846327888139709",
+              "Forward P/E": "17.1527",
+              "Last": "221.84",
+              "Market cap": "1.0257849768e+10",
+              "Name": "Paycom",
+              "Net change": "0.8499999999999943",
+              "RSI": "50.85692987900484",
+              "Symbol": "PAYC",
+              "Volume": "167661.449977"
+            }
+          },
+          {
+            "ticker": "PNC",
+            "instrument_id": "6466b05a-a6ab-4da0-bfa7-9507a062fbf9",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0021716509071166346",
+              "Forward P/E": "11.0375",
+              "Last": "221.51",
+              "Market cap": "9.2351469473e+10",
+              "Name": "PNC Financial",
+              "Net change": "0.47999999999998977",
+              "RSI": "27.697959075841936",
+              "Symbol": "PNC",
+              "Volume": "775709.260291"
+            }
+          },
+          {
+            "ticker": "IBM",
+            "instrument_id": "ae2e4ada-197d-42a4-825c-aff01cc3a8dd",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.007927596119295664",
+              "Forward P/E": "17.8571",
+              "Last": "220.875",
+              "Market cap": "2.23747496281e+11",
+              "Name": "IBM",
+              "Net change": "-1.7649999999999864",
+              "RSI": "41.456959662002845",
+              "Symbol": "IBM",
+              "Volume": "1.725467405129e+06"
+            }
+          },
+          {
+            "ticker": "BIIB",
+            "instrument_id": "72d04b2c-2c0f-4ff3-87ff-860851b1f5d5",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0028538293614698822",
+              "Forward P/E": "13.245",
+              "Last": "220.5075",
+              "Market cap": "3.1916341107e+10",
+              "Name": "Biogen",
+              "Net change": "0.6274999999999977",
+              "RSI": "49.41255460443254",
+              "Symbol": "BIIB",
+              "Volume": "362121.559631"
+            }
+          },
+          {
+            "ticker": "TEL",
+            "instrument_id": "c95afe40-ee37-4497-ae65-0892d2fc8422",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0004991831548376005",
+              "Forward P/E": "15.674",
+              "Last": "220.25",
+              "Market cap": "5.8539574701e+10",
+              "Name": "TE Connectivity",
+              "Net change": "-0.11000000000001364",
+              "RSI": "61.702286444869635",
+              "Symbol": "TEL",
+              "Volume": "396019.303428"
+            }
+          },
+          {
+            "ticker": "MTB",
+            "instrument_id": "d387ac65-e9b5-4da5-b825-807ececa75b7",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.004837090444464736",
+              "Forward P/E": "10.7527",
+              "Last": "220.2",
+              "Market cap": "3.2639519374e+10",
+              "Name": "M&T Bank",
+              "Net change": "1.0600000000000023",
+              "RSI": "31.619541613993874",
+              "Symbol": "MTB",
+              "Volume": "411695.967762"
+            }
+          },
+          {
+            "ticker": "ALNY",
+            "instrument_id": "9bb14a9f-5386-4bc7-83a9-80246a43f296",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.00013653741125068785",
+              "Forward P/E": "18.7266",
+              "Last": "219.69",
+              "Market cap": "3.2028550484e+10",
+              "Name": "Alnylam Pharmaceuticals",
+              "Net change": "-0.030000000000001137",
+              "RSI": "34.344842904484395",
+              "Symbol": "ALNY",
+              "Volume": "609862.858388"
+            }
+          },
+          {
+            "ticker": "ADSK",
+            "instrument_id": "be026807-95fe-403e-adda-3c4785ddd7ff",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.03577830188679249",
+              "Forward P/E": "17.6678",
+              "Last": "219.585",
+              "Market cap": "4.604479e+10",
+              "Name": "Autodesk",
+              "Net change": "7.585000000000008",
+              "RSI": "42.16612503133275",
+              "Symbol": "ADSK",
+              "Volume": "2.033429678303e+06"
+            }
+          },
+          {
+            "ticker": "HUBS",
+            "instrument_id": "872a4a6f-9e98-49a4-87fc-f851e0b00e8d",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.012725492938050574",
+              "Forward P/E": "14.3062",
+              "Last": "217.26",
+              "Market cap": "1.1791361888e+10",
+              "Name": "HubSpot",
+              "Net change": "2.7299999999999898",
+              "RSI": "45.775466035225904",
+              "Symbol": "HUBS",
+              "Volume": "507507.097678"
+            }
+          },
+          {
+            "ticker": "GNRC",
+            "instrument_id": "c2cb6539-c25f-41e9-88d8-bd7bbcaf1604",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0026983394833948707",
+              "Forward P/E": "14.9701",
+              "Last": "216.215",
+              "Market cap": "1.0332603874e+10",
+              "Name": "Generac Holdings",
+              "Net change": "-0.585000000000008",
+              "RSI": "60.748996791114386",
+              "Symbol": "GNRC",
+              "Volume": "449851.558314"
+            }
+          },
+          {
+            "ticker": "AGM",
+            "instrument_id": "da1f07fd-0b24-4b6b-8aad-c783e186470b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.005874575166441612",
+              "Forward P/E": "9.5238",
+              "Last": "216.0518",
+              "Market cap": "2.290494169e+09",
+              "Name": "Federal Agricultural Mortgage",
+              "Net change": "1.2617999999999938",
+              "RSI": "44.99523839911495",
+              "Symbol": "AGM",
+              "Volume": "45593.074995"
+            }
+          },
+          {
+            "ticker": "FCFS",
+            "instrument_id": "8d3f8c77-c611-4aa3-b500-d3f5da89ebf1",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.006156113329530269",
+              "Forward P/E": "17.2117",
+              "Last": "211.655",
+              "Market cap": "9.52878446e+09",
+              "Name": "FirstCash",
+              "Net change": "1.2949999999999875",
+              "RSI": "41.89858149218712",
+              "Symbol": "FCFS",
+              "Volume": "84374.168062"
+            }
+          },
+          {
+            "ticker": "STE",
+            "instrument_id": "7358290b-4068-4b5b-b13b-07ee073b0bb6",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.012899203989642264",
+              "Forward P/E": "19.2678",
+              "Last": "211.23",
+              "Market cap": "2.0465273089e+10",
+              "Name": "STERIS plc",
+              "Net change": "2.6899999999999977",
+              "RSI": "35.74525018787881",
+              "Symbol": "STE",
+              "Volume": "259149.597331"
+            }
+          },
+          {
+            "ticker": "PGR",
+            "instrument_id": "95ececd5-586b-4f82-9559-abbd8b132e64",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0018068565451000687",
+              "Forward P/E": "13.3156",
+              "Last": "210.69",
+              "Market cap": "1.26092889e+11",
+              "Name": "Progressive",
+              "Net change": "0.37999999999999545",
+              "RSI": "46.883080888645615",
+              "Symbol": "PGR",
+              "Volume": "1.271999778627e+06"
+            }
+          },
+          {
+            "ticker": "CVX",
+            "instrument_id": "7a6a30e2-cf4d-40dd-8baa-0cea48de85e4",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0014998306642798505",
+              "Forward P/E": "15.7978",
+              "Last": "207",
+              "Market cap": "4.14957556581e+11",
+              "Name": "Chevron",
+              "Net change": "0.3100000000000023",
+              "RSI": "51.667973287719576",
+              "Symbol": "CVX",
+              "Volume": "3.301599002728e+06"
+            }
+          },
+          {
+            "ticker": "PAG",
+            "instrument_id": "cf162685-0210-4753-9da1-9fb4181b1d91",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.015585943243640675",
+              "Forward P/E": "14.9925",
+              "Last": "200.85",
+              "Market cap": "1.4061704252e+10",
+              "Name": "Penske Automotive Group",
+              "Net change": "-3.180000000000007",
+              "RSI": "36.08586701914785",
+              "Symbol": "PAG",
+              "Volume": "188868.294463"
+            }
+          },
+          {
+            "ticker": "DRI",
+            "instrument_id": "6c393e16-7428-4389-bf4c-5485e61fc8e7",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.006639045574801639",
+              "Forward P/E": "18.4502",
+              "Last": "199",
+              "Market cap": "2.3625768588e+10",
+              "Name": "Darden Restaurants",
+              "Net change": "-1.3300000000000125",
+              "RSI": "42.39756054491015",
+              "Symbol": "DRI",
+              "Volume": "422142.904793"
+            }
+          },
+          {
+            "ticker": "OSIS",
+            "instrument_id": "4d67ed8b-2e77-402c-ac24-e28178e11ce3",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.007571907714198644",
+              "Forward P/E": "17.8891",
+              "Last": "198.27",
+              "Market cap": "3.216132624e+09",
+              "Name": "OSI Systems",
+              "Net change": "1.490000000000009",
+              "RSI": "41.09073959431248",
+              "Symbol": "OSIS",
+              "Volume": "61603.979351"
+            }
+          },
+          {
+            "ticker": "COF",
+            "instrument_id": "3fce952c-ccb7-4eb2-ab33-2563bce658bb",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.00893590797041911",
+              "Forward P/E": "8.6059",
+              "Last": "196.46",
+              "Market cap": "1.24653983826e+11",
+              "Name": "Capital One",
+              "Net change": "1.740000000000009",
+              "RSI": "34.97256118851888",
+              "Symbol": "COF",
+              "Volume": "1.065447360135e+06"
+            }
+          },
+          {
+            "ticker": "EAT",
+            "instrument_id": "58ae2fcb-038d-4bf9-a3e0-6db227d83c6c",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.028787128712871275",
+              "Forward P/E": "17.2414",
+              "Last": "196.185",
+              "Market cap": "8.796128756e+09",
+              "Name": "Brinker",
+              "Net change": "-5.814999999999998",
+              "RSI": "43.9542568682945",
+              "Symbol": "EAT",
+              "Volume": "658700.118455"
+            }
+          },
+          {
+            "ticker": "ENS",
+            "instrument_id": "630a634d-de5c-4a29-9fe9-da2fff4a1393",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0007131940906776096",
+              "Forward P/E": "13.587",
+              "Last": "196.16",
+              "Market cap": "6.198530048e+09",
+              "Name": "Enersys",
+              "Net change": "-0.14000000000001478",
+              "RSI": "67.45895539175628",
+              "Symbol": "ENS",
+              "Volume": "180840.384075"
+            }
+          },
+          {
+            "ticker": "RY",
+            "instrument_id": "2a78aaf4-0702-4a2a-8375-0a3703aa24b6",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.00040885163796193855",
+              "Forward P/E": "15.7729",
+              "Last": "195.75",
+              "Market cap": "2.81418319852e+11",
+              "Name": "Royal Bank of Canada",
+              "Net change": "0.0800000000000125",
+              "RSI": "33.37368128418167",
+              "Symbol": "RY",
+              "Volume": "316537.636494"
+            }
+          },
+          {
+            "ticker": "SKHY",
+            "instrument_id": "6ae5f891-c187-48d2-a85e-12edacc09f82",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.00172910367447344",
+              "Forward P/E": "4.931",
+              "Last": "194.7926",
+              "Market cap": "9.14368861735e+11",
+              "Name": "SK hynix Inc. ADR",
+              "Net change": "-0.33740000000000236",
+              "RSI": "59.951974497917696",
+              "Symbol": "SKHY",
+              "Volume": "7.285360065343e+06"
+            }
+          },
+          {
+            "ticker": "ACN",
+            "instrument_id": "ac6ddf2b-ef9e-4221-a1fe-fde5ceaa8f99",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.023001508295626028",
+              "Forward P/E": "12.8205",
+              "Last": "194.325",
+              "Market cap": "1.1604870155e+11",
+              "Name": "Accenture",
+              "Net change": "-4.575000000000017",
+              "RSI": "59.0620992914716",
+              "Symbol": "ACN",
+              "Volume": "3.486380285913e+06"
+            }
+          },
+          {
+            "ticker": "PTC",
+            "instrument_id": "fb8f003b-fcc3-4082-8abb-2a3db6b21ad6",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.33756856210511704",
+              "Forward P/E": "15.2439",
+              "Last": "192.65",
+              "Market cap": "1.4231681192e+10",
+              "Name": "PTC",
+              "Net change": "48.620000000000005",
+              "RSI": "55.16845260735125",
+              "Symbol": "PTC",
+              "Volume": "2.1737223290285e+07"
+            }
+          },
+          {
+            "ticker": "IBP",
+            "instrument_id": "8f07fdd3-6331-4211-a577-4562b9394fba",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.003056476683937824",
+              "Forward P/E": "17.5131",
+              "Last": "192.4101",
+              "Market cap": "5.303077395e+09",
+              "Name": "Installed Building Products",
+              "Net change": "-0.5899000000000001",
+              "RSI": "34.81645818975919",
+              "Symbol": "IBP",
+              "Volume": "135825.098317"
+            }
+          },
+          {
+            "ticker": "DOV",
+            "instrument_id": "5d071ead-be87-4914-96fe-aa64d299810e",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.013403447730507617",
+              "Forward P/E": "16.835",
+              "Last": "192.2325",
+              "Market cap": "2.5368367181e+10",
+              "Name": "Dover",
+              "Net change": "2.5424999999999898",
+              "RSI": "45.15247166158274",
+              "Symbol": "DOV",
+              "Volume": "260854.142441"
+            }
+          },
+          {
+            "ticker": "MS",
+            "instrument_id": "75f435f0-0d44-44a4-bd14-ac2eba5badea",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0013661920025221529",
+              "Forward P/E": "15.1286",
+              "Last": "190.57",
+              "Market cap": "3.17914028826e+11",
+              "Name": "Morgan Stanley",
+              "Net change": "0.2599999999999909",
+              "RSI": "29.933489953680635",
+              "Symbol": "MS",
+              "Volume": "2.100913723965e+06"
+            }
+          },
+          {
+            "ticker": "WDAY",
+            "instrument_id": "260c451b-fe7b-430e-bed2-22479ea86cd0",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.007521220586655237",
+              "Forward P/E": "17.2712",
+              "Last": "187.54",
+              "Market cap": "4.525016e+10",
+              "Name": "Workday",
+              "Net change": "1.4000000000000057",
+              "RSI": "47.05985824599198",
+              "Symbol": "WDAY",
+              "Volume": "1.096475986358e+06"
+            }
+          },
+          {
+            "ticker": "HCI",
+            "instrument_id": "e18d898b-dba7-41d5-b5b4-642859dc189a",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.009877883310719095",
+              "Forward P/E": "9.5147",
+              "Last": "186.07",
+              "Market cap": "2.339253328e+09",
+              "Name": "HCI",
+              "Net change": "1.8199999999999932",
+              "RSI": "54.385388839997475",
+              "Symbol": "HCI",
+              "Volume": "41816.32449"
+            }
+          },
+          {
+            "ticker": "FANG",
+            "instrument_id": "00815789-becf-4d44-8733-032d602a33d8",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.006090628552866656",
+              "Forward P/E": "10.5152",
+              "Last": "185.835",
+              "Market cap": "5.4475050335e+10",
+              "Name": "Diamondback Energy",
+              "Net change": "1.125",
+              "RSI": "38.32352500807346",
+              "Symbol": "FANG",
+              "Volume": "1.490883582393e+06"
+            }
+          },
+          {
+            "ticker": "IT",
+            "instrument_id": "c090bf3f-4dac-4107-aeef-f39e97ff5ea2",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.000324675324675337",
+              "Forward P/E": "12.1803",
+              "Last": "184.74",
+              "Market cap": "1.2097449332e+10",
+              "Name": "Gartner",
+              "Net change": "-0.060000000000002274",
+              "RSI": "50.288060047848084",
+              "Symbol": "IT",
+              "Volume": "192209.353423"
+            }
+          },
+          {
+            "ticker": "TM",
+            "instrument_id": "c917908f-0c35-4fc9-92a3-892bf8bc0f12",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.015758443991404403",
+              "Forward P/E": "11.0132",
+              "Last": "184.35",
+              "Market cap": "2.29944439341e+11",
+              "Name": "Toyota",
+              "Net change": "2.859999999999985",
+              "RSI": "35.20162269517519",
+              "Symbol": "TM",
+              "Volume": "163844.940903"
+            }
+          },
+          {
+            "ticker": "AEM",
+            "instrument_id": "53735d21-66cb-40ff-9e65-15670d8d3833",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0011432304425935433",
+              "Forward P/E": "16.8067",
+              "Last": "183.48",
+              "Market cap": "9.940344905e+10",
+              "Name": "Agnico Eagle Mines",
+              "Net change": "-0.21000000000000796",
+              "RSI": "41.93303327101528",
+              "Symbol": "AEM",
+              "Volume": "621251.503279"
+            }
+          },
+          {
+            "ticker": "QCOM",
+            "instrument_id": "5ea5e761-1747-4911-beec-5a24af338329",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.016416941634662178",
+              "Forward P/E": "18.315",
+              "Last": "181.835",
+              "Market cap": "1.97420300417e+11",
+              "Name": "Qualcomm",
+              "Net change": "-3.0349999999999966",
+              "RSI": "52.418284114550616",
+              "Symbol": "QCOM",
+              "Volume": "5.842556289947e+06"
+            }
+          },
+          {
+            "ticker": "LOW",
+            "instrument_id": "a03a6b8f-6a84-4219-bb21-a215ffbcb73e",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.005033185840708103",
+              "Forward P/E": "15.6006",
+              "Last": "179.89",
+              "Market cap": "1.08900585087e+11",
+              "Name": "Lowe's",
+              "Net change": "-0.910000000000025",
+              "RSI": "25.477667686432184",
+              "Symbol": "LOW",
+              "Volume": "1.163944519301e+06"
+            }
+          },
+          {
+            "ticker": "DVA",
+            "instrument_id": "a78fff8d-78a0-4d61-be67-3def3cf04abc",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.005260507023336492",
+              "Forward P/E": "10.5263",
+              "Last": "179.63",
+              "Market cap": "1.2368268e+10",
+              "Name": "DaVita",
+              "Net change": "0.9399999999999977",
+              "RSI": "44.85422322204171",
+              "Symbol": "DVA",
+              "Volume": "155863.081562"
+            }
+          },
+          {
+            "ticker": "BDX",
+            "instrument_id": "5357bb0b-105e-4218-bc67-e9c9ca4a1eda",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.015780542986425294",
+              "Forward P/E": "13.6799",
+              "Last": "179.59",
+              "Market cap": "4.953353958e+10",
+              "Name": "Becton Dickinson",
+              "Net change": "2.789999999999992",
+              "RSI": "42.35546736205321",
+              "Symbol": "BDX",
+              "Volume": "592282.935734"
+            }
+          },
+          {
+            "ticker": "ENVA",
+            "instrument_id": "44714815-bebf-4ad6-8a54-680b2b67cba7",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.032968939788304806",
+              "Forward P/E": "7.7821",
+              "Last": "178.59",
+              "Market cap": "4.286005583e+09",
+              "Name": "Enova International",
+              "Net change": "5.700000000000017",
+              "RSI": "32.25028734333",
+              "Symbol": "ENVA",
+              "Volume": "115367.315023"
+            }
+          },
+          {
+            "ticker": "SPXC",
+            "instrument_id": "36e34040-56cd-41e4-99c9-7d72f0885447",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.027095730544803267",
+              "Forward P/E": "18.1818",
+              "Last": "177.78",
+              "Market cap": "8.949341464e+09",
+              "Name": "SPX Technologies",
+              "Net change": "4.689999999999998",
+              "RSI": "34.70175478559321",
+              "Symbol": "SPXC",
+              "Volume": "306734.302295"
+            }
+          },
+          {
+            "ticker": "UHS",
+            "instrument_id": "24379325-6c9c-45c1-8861-651cf592603f",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0069997723651262795",
+              "Forward P/E": "7.3314",
+              "Last": "176.95",
+              "Market cap": "1.0679885881e+10",
+              "Name": "Universal Health Services",
+              "Net change": "1.2299999999999898",
+              "RSI": "51.5791075946441",
+              "Symbol": "UHS",
+              "Volume": "144237.431597"
+            }
+          },
+          {
+            "ticker": "STT",
+            "instrument_id": "c82b1511-cfdc-49e2-94fe-6eb255dd2752",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0017049329393042903",
+              "Forward P/E": "12.0919",
+              "Last": "176.26",
+              "Market cap": "5.0242952818e+10",
+              "Name": "State Street",
+              "Net change": "0.29999999999998295",
+              "RSI": "35.36378167624332",
+              "Symbol": "STT",
+              "Volume": "511340.595217"
+            }
+          },
+          {
+            "ticker": "WEX",
+            "instrument_id": "5ea7992b-e531-495d-a16c-7db8a7ec637d",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.03780307510348913",
+              "Forward P/E": "9.3809",
+              "Last": "175.4925",
+              "Market cap": "6.71987124e+09",
+              "Name": "WEX",
+              "Net change": "6.3925000000000125",
+              "RSI": "31.907781469252484",
+              "Symbol": "WEX",
+              "Volume": "202696.371651"
+            }
+          },
+          {
+            "ticker": "FSLR",
+            "instrument_id": "d97168dc-d0f3-464f-bcb9-59a0e1c2526b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0021762785636561216",
+              "Forward P/E": "8.3056",
+              "Last": "174.99",
+              "Market cap": "2.0534252393e+10",
+              "Name": "First Solar",
+              "Net change": "0.37999999999999545",
+              "RSI": "36.336690261775395",
+              "Symbol": "FSLR",
+              "Volume": "681243.679303"
+            }
+          },
+          {
+            "ticker": "ABG",
+            "instrument_id": "c612eb3b-6986-4717-829b-904c4886afd8",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.021150784625881276",
+              "Forward P/E": "6.6313",
+              "Last": "172.16",
+              "Market cap": "3.504393717e+09",
+              "Name": "Asbury Automotive",
+              "Net change": "-3.719999999999999",
+              "RSI": "32.9769037140279",
+              "Symbol": "ABG",
+              "Volume": "146371.355355"
+            }
+          },
+          {
+            "ticker": "CRAI",
+            "instrument_id": "4260cb1a-ae06-4e88-831b-fc6c4b4c9b68",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0036389247564268374",
+              "Forward P/E": "17.2117",
+              "Last": "171",
+              "Market cap": "1.031727478e+09",
+              "Name": "CRA International",
+              "Net change": "0.6200000000000045",
+              "RSI": "54.49774684208855",
+              "Symbol": "CRAI",
+              "Volume": "42683.557065"
+            }
+          },
+          {
+            "ticker": "NTRS",
+            "instrument_id": "00f2360d-2307-49ef-83b2-d50515007b66",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.003267211201866991",
+              "Forward P/E": "13.986",
+              "Last": "170.84",
+              "Market cap": "3.2309968319e+10",
+              "Name": "Northern Trust",
+              "Net change": "-0.5600000000000023",
+              "RSI": "36.25830129625242",
+              "Symbol": "NTRS",
+              "Volume": "257707.391239"
+            }
+          },
+          {
+            "ticker": "EXP",
+            "instrument_id": "884d1ca0-0820-4437-9faf-c220bb734f7f",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0032679738562091634",
+              "Forward P/E": "13.7741",
+              "Last": "170.8",
+              "Market cap": "5.504380318e+09",
+              "Name": "Eagle Materials",
+              "Net change": "-0.5600000000000023",
+              "RSI": "30.78354596630095",
+              "Symbol": "EXP",
+              "Volume": "167401.037594"
+            }
+          },
+          {
+            "ticker": "MRSH",
+            "instrument_id": "b9127775-ad8b-4918-a8be-722983abe4a1",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.002499117958367702",
+              "Forward P/E": "15.528",
+              "Last": "170.485",
+              "Market cap": "8.4351863731e+10",
+              "Name": "Marsh",
+              "Net change": "0.42500000000001137",
+              "RSI": "36.058043210350846",
+              "Symbol": "MRSH",
+              "Volume": "1.238233737413e+06"
+            }
+          },
+          {
+            "ticker": "AVY",
+            "instrument_id": "9705405f-e33a-480f-996c-65926d2a82eb",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0005592511920880606",
+              "Forward P/E": "15.3139",
+              "Last": "169.965",
+              "Market cap": "1.3056781103e+10",
+              "Name": "Avery Dennison",
+              "Net change": "0.09499999999999886",
+              "RSI": "45.714532443195054",
+              "Symbol": "AVY",
+              "Volume": "266283.504725"
+            }
+          },
+          {
+            "ticker": "SAM",
+            "instrument_id": "7070aab5-6edb-4ca2-a1bb-85477b095081",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.003761194029850719",
+              "Forward P/E": "16.6945",
+              "Last": "166.87",
+              "Market cap": "1.75215869e+09",
+              "Name": "Boston Beer",
+              "Net change": "-0.6299999999999955",
+              "RSI": "44.72829056271093",
+              "Symbol": "SAM",
+              "Volume": "54109.179178"
+            }
+          },
+          {
+            "ticker": "FTAI",
+            "instrument_id": "90d60d7f-b399-46ed-a993-065b1e9f58a0",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0014368676285697725",
+              "Forward P/E": "13.7363",
+              "Last": "166.79",
+              "Market cap": "1.9496887084e+10",
+              "Name": "FTAI Aviation",
+              "Net change": "-0.2400000000000091",
+              "RSI": "35.13035778619506",
+              "Symbol": "FTAI",
+              "Volume": "316699.665981"
+            }
+          },
+          {
+            "ticker": "GL",
+            "instrument_id": "b1b38123-e70e-476f-952e-e12dfd08ab45",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.000633751810719569",
+              "Forward P/E": "10.4493",
+              "Last": "165.575",
+              "Market cap": "1.3293417342e+10",
+              "Name": "Globe Life",
+              "Net change": "-0.10500000000001819",
+              "RSI": "32.56999764352324",
+              "Symbol": "GL",
+              "Volume": "108218.446279"
+            }
+          },
+          {
+            "ticker": "BMO",
+            "instrument_id": "1d02b35a-bef9-4300-b743-7526bc95c753",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0010863005431501413",
+              "Forward P/E": "14.5138",
+              "Last": "165.52",
+              "Market cap": "1.20618574101e+11",
+              "Name": "Bank of Montreal",
+              "Net change": "-0.1799999999999784",
+              "RSI": "34.09845818698375",
+              "Symbol": "BMO",
+              "Volume": "226455.414929"
+            }
+          },
+          {
+            "ticker": "AWI",
+            "instrument_id": "03477e9a-4161-43eb-9a81-1f01bc83fcc9",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.010360470819028921",
+              "Forward P/E": "16.4745",
+              "Last": "164.81",
+              "Market cap": "6.674145481e+09",
+              "Name": "Armstrong World Industries",
+              "Net change": "1.6899999999999977",
+              "RSI": "44.38177691847554",
+              "Symbol": "AWI",
+              "Volume": "76961.981147"
+            }
+          },
+          {
+            "ticker": "XOM",
+            "instrument_id": "a7677c6d-455c-49ec-90c4-3679abd21fb9",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.00378025730138409",
+              "Forward P/E": "14.9701",
+              "Last": "164.63",
+              "Market cap": "6.71557461307e+11",
+              "Name": "ExxonMobil Holdings Corporation",
+              "Net change": "0.6200000000000045",
+              "RSI": "54.975671721586345",
+              "Symbol": "XOM",
+              "Volume": "5.229610604669e+06"
+            }
+          },
+          {
+            "ticker": "ICLR",
+            "instrument_id": "52bebf40-0d54-4ffd-ac81-103244df653e",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.014933662449861076",
+              "Forward P/E": "15.6495",
+              "Last": "164.47",
+              "Market cap": "1.342637545e+10",
+              "Name": "ICON plc",
+              "Net change": "2.4199999999999875",
+              "RSI": "43.962647543677534",
+              "Symbol": "ICLR",
+              "Volume": "378090.133155"
+            }
+          },
+          {
+            "ticker": "MKTX",
+            "instrument_id": "74bd318c-2621-4d01-bd3f-3cb1191d55bd",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-6.092360180328321e-05",
+              "Forward P/E": "18.5185",
+              "Last": "164.13",
+              "Market cap": "5.748758744e+09",
+              "Name": "MarketAxess",
+              "Net change": "-0.009999999999990905",
+              "RSI": "78.19189110561024",
+              "Symbol": "MKTX",
+              "Volume": "374257.34367"
+            }
+          },
+          {
+            "ticker": "ALG",
+            "instrument_id": "1fa572f3-72f1-4492-b345-c17ffa3d5a43",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.018911868828023204",
+              "Forward P/E": "14.1243",
+              "Last": "164.055",
+              "Market cap": "2.049833925e+09",
+              "Name": "Alamo Group",
+              "Net change": "3.045000000000016",
+              "RSI": "45.79844910993791",
+              "Symbol": "ALG",
+              "Volume": "72527.601448"
+            }
+          },
+          {
+            "ticker": "TMUS",
+            "instrument_id": "44a11079-4699-4442-84f8-f8cdf2c1a3c8",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0021999511121974166",
+              "Forward P/E": "12.4844",
+              "Last": "163.28",
+              "Market cap": "1.89069098507e+11",
+              "Name": "T-Mobile",
+              "Net change": "-0.3599999999999852",
+              "RSI": "37.60046977217506",
+              "Symbol": "TMUS",
+              "Volume": "1.845247545667e+06"
+            }
+          },
+          {
+            "ticker": "CINF",
+            "instrument_id": "77048887-4ab6-45d7-a262-3b1cae8e3c6d",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.007980858289595667",
+              "Forward P/E": "18.5529",
+              "Last": "163.2425",
+              "Market cap": "2.6209445744e+10",
+              "Name": "Cincinnati Financial",
+              "Net change": "1.2925000000000182",
+              "RSI": "35.41580473675488",
+              "Symbol": "CINF",
+              "Volume": "157931.585833"
+            }
+          },
+          {
+            "ticker": "MMM",
+            "instrument_id": "d3aa8b83-b8a3-4a86-acb2-0c22061cd7e8",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.0055284452405955295",
+              "Forward P/E": "17.0358",
+              "Last": "162.785",
+              "Market cap": "8.3882251125e+10",
+              "Name": "3M",
+              "Net change": "0.8950000000000102",
+              "RSI": "37.016402413951596",
+              "Symbol": "MMM",
+              "Volume": "894708.3211"
+            }
+          },
+          {
+            "ticker": "MSTR",
+            "instrument_id": "8249abab-d19e-449d-bd80-1c18e24f491c",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.016186488344478493",
+              "Forward P/E": "5.1177",
+              "Last": "162.6",
+              "Market cap": "5.0128999858e+10",
+              "Name": "Strategy Inc.",
+              "Net change": "2.5900000000000034",
+              "RSI": "62.618128388571044",
+              "Symbol": "MSTR",
+              "Volume": "1.1895069040458e+07"
+            }
+          },
+          {
+            "ticker": "ICUI",
+            "instrument_id": "5a964ac3-2b6f-41b0-877a-9e68b1ee61e1",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.019701342702974117",
+              "Forward P/E": "16.3934",
+              "Last": "162.52",
+              "Market cap": "3.891595253e+09",
+              "Name": "ICU Medical",
+              "Net change": "3.140000000000015",
+              "RSI": "43.70179195562704",
+              "Symbol": "ICUI",
+              "Volume": "53793.871104"
+            }
+          },
+          {
+            "ticker": "RRX",
+            "instrument_id": "42ede94c-82fe-47fc-a3c4-2c8f183c5fcb",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.015543879402014044",
+              "Forward P/E": "11.1235",
+              "Last": "162.355",
+              "Market cap": "9.935506556e+09",
+              "Name": "Regal Rexnord",
+              "Net change": "2.484999999999985",
+              "RSI": "50.83839368887415",
+              "Symbol": "RRX",
+              "Volume": "281843.880187"
+            }
+          },
+          {
+            "ticker": "KWR",
+            "instrument_id": "8e774cd3-3601-44fb-97cb-1c8d4653d6d6",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.008010327879051968",
+              "Forward P/E": "16.3666",
+              "Last": "162.0175",
+              "Market cap": "2.64981403e+09",
+              "Name": "Quaker Houghton",
+              "Net change": "1.2875000000000227",
+              "RSI": "53.076128080591445",
+              "Symbol": "KWR",
+              "Volume": "60198.550096"
+            }
+          },
+          {
+            "ticker": "HSY",
+            "instrument_id": "4b3b3d1f-77ce-4097-925f-d8ad00a872c3",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.008677195829952024",
+              "Forward P/E": "18.018",
+              "Last": "161.58",
+              "Market cap": "3.4316092958e+10",
+              "Name": "Hershey",
+              "Net change": "1.3900000000000148",
+              "RSI": "29.704509419361983",
+              "Symbol": "HSY",
+              "Volume": "687267.773053"
+            }
+          },
+          {
+            "ticker": "AN",
+            "instrument_id": "5e1c01af-1160-416b-a306-bc6e1346adfc",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.005909146866921137",
+              "Forward P/E": "7.9491",
+              "Last": "161.5",
+              "Market cap": "6.459089668e+09",
+              "Name": "Autonation",
+              "Net change": "-0.960000000000008",
+              "RSI": "32.08658336248007",
+              "Symbol": "AN",
+              "Volume": "251943.44872"
+            }
+          },
+          {
+            "ticker": "POOL",
+            "instrument_id": "e28f7100-1f11-4730-887a-efbc081f083e",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.004274563251146065",
+              "Forward P/E": "14.0449",
+              "Last": "160.73",
+              "Market cap": "6.096523716e+09",
+              "Name": "Pool Corp",
+              "Net change": "-0.6899999999999977",
+              "RSI": "29.916622092563486",
+              "Symbol": "POOL",
+              "Volume": "333981.671066"
+            }
+          },
+          {
+            "ticker": "RJF",
+            "instrument_id": "4e0f1eb9-3223-49bf-b7e0-803889ea3fef",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.012167372479615593",
+              "Forward P/E": "11.7096",
+              "Last": "160.135",
+              "Market cap": "3.1656966779e+10",
+              "Name": "Raymond James",
+              "Net change": "1.924999999999983",
+              "RSI": "34.46459972137802",
+              "Symbol": "RJF",
+              "Volume": "262312.044102"
+            }
+          },
+          {
+            "ticker": "SBAC",
+            "instrument_id": "aae986c8-703b-4c61-a7da-d8e15726a2c1",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.00905419900309169",
+              "Forward P/E": "18.797",
+              "Last": "159.925",
+              "Market cap": "1.9097981562e+10",
+              "Name": "SBA Communications",
+              "Net change": "1.4350000000000023",
+              "RSI": "22.957000816337185",
+              "Symbol": "SBAC",
+              "Volume": "323978.870957"
+            }
+          },
+          {
+            "ticker": "BPOP",
+            "instrument_id": "f91c4a3b-ccd8-4ead-a10a-1873b2d34af0",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.008062476286834487",
+              "Forward P/E": "9.7276",
+              "Last": "159.415",
+              "Market cap": "1.0265149735e+10",
+              "Name": "Popular",
+              "Net change": "1.2750000000000057",
+              "RSI": "37.605397820372694",
+              "Symbol": "BPOP",
+              "Volume": "227941.337611"
+            }
+          },
+          {
+            "ticker": "NSIT",
+            "instrument_id": "2cc0866e-4a87-4d6a-b239-8df576dcf2b5",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.010239014066973797",
+              "Forward P/E": "12.5786",
+              "Last": "159.015",
+              "Market cap": "4.848136531e+09",
+              "Name": "Insight Enterprises",
+              "Net change": "-1.6450000000000102",
+              "RSI": "57.77992567963107",
+              "Symbol": "NSIT",
+              "Volume": "129895.200112"
+            }
+          },
+          {
+            "ticker": "HURN",
+            "instrument_id": "5f786f4d-a3c9-4fda-b755-232accf0a58b",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.020536540240518115",
+              "Forward P/E": "14.9254",
+              "Last": "158.82",
+              "Market cap": "2.45062839e+09",
+              "Name": "Huron",
+              "Net change": "-3.3300000000000125",
+              "RSI": "57.90204345599332",
+              "Symbol": "HURN",
+              "Volume": "89404.027174"
+            }
+          },
+          {
+            "ticker": "GPOR",
+            "instrument_id": "7f4873e2-c045-4db5-bc24-9eb69406af67",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.02480569948186518",
+              "Forward P/E": "6.8776",
+              "Last": "158.23",
+              "Market cap": "2.869207258e+09",
+              "Name": "Gulfport Energy",
+              "Net change": "3.829999999999984",
+              "RSI": "37.419918047078795",
+              "Symbol": "GPOR",
+              "Volume": "119415.220055"
+            }
+          },
+          {
+            "ticker": "NXST",
+            "instrument_id": "e480c0d8-7afc-45da-a10c-56f2eb4aaf2a",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.017050572641873672",
+              "Forward P/E": "8.6957",
+              "Last": "158.07",
+              "Market cap": "5.042394624e+09",
+              "Name": "Nexstar Media Group",
+              "Net change": "2.6500000000000057",
+              "RSI": "31.89669562984554",
+              "Symbol": "NXST",
+              "Volume": "135906.140362"
+            }
+          },
+          {
+            "ticker": "ATO",
+            "instrument_id": "76edc256-cce0-4399-89f5-346708fb5f78",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.004962779156327551",
+              "Forward P/E": "18.1159",
+              "Last": "157.95",
+              "Market cap": "2.7369386043e+10",
+              "Name": "Atmos Energy",
+              "Net change": "0.7800000000000011",
+              "RSI": "31.825519796563498",
+              "Symbol": "ATO",
+              "Volume": "265523.133555"
+            }
+          },
+          {
+            "ticker": "BKNG",
+            "instrument_id": "5b779adf-6feb-4c3a-953b-1c7cb8aee6ed",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.007923531631241475",
+              "Forward P/E": "13.8696",
+              "Last": "157.76",
+              "Market cap": "1.287866177e+11",
+              "Name": "Booking Holdings",
+              "Net change": "-1.2600000000000193",
+              "RSI": "30.238298484850887",
+              "Symbol": "BKNG",
+              "Volume": "4.219435858813e+06"
+            }
+          },
+          {
+            "ticker": "BR",
+            "instrument_id": "a1e0c461-d2a2-4ba6-8c13-7f24c6019762",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.003441024660676684",
+              "Forward P/E": "16.8919",
+              "Last": "157.47",
+              "Market cap": "1.9051902227e+10",
+              "Name": "Broadridge",
+              "Net change": "0.539999999999992",
+              "RSI": "33.07045954042724",
+              "Symbol": "BR",
+              "Volume": "268165.586313"
+            }
+          },
+          {
+            "ticker": "AZN",
+            "instrument_id": "6d695b89-271f-473d-afdc-3ceec930a2c6",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0028043339706819484",
+              "Forward P/E": "14.1844",
+              "Last": "156.46",
+              "Market cap": "2.5355610895e+11",
+              "Name": "AstraZeneca",
+              "Net change": "-0.4399999999999977",
+              "RSI": "37.93937594395726",
+              "Symbol": "AZN",
+              "Volume": "1.096882386608e+06"
+            }
+          },
+          {
+            "ticker": "HONA",
+            "instrument_id": "93ab2183-430f-41d3-afec-c79a834cfc5c",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.005302981310224363",
+              "Forward P/E": "18.3824",
+              "Last": "155.45",
+              "Market cap": "5.203729839e+10",
+              "Name": "Honeywell Aerospace",
+              "Net change": "0.8199999999999932",
+              "RSI": "42.15134167948754",
+              "Symbol": "HONA",
+              "Volume": "985590.092414"
+            }
+          },
+          {
+            "ticker": "CFR",
+            "instrument_id": "9f41a086-2728-4891-83f2-a81cc3a38a2a",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0014512383900928427",
+              "Forward P/E": "14.0056",
+              "Last": "154.815",
+              "Market cap": "9.90900228e+09",
+              "Name": "Cullen Frost",
+              "Net change": "-0.22499999999999432",
+              "RSI": "39.8825309809794",
+              "Symbol": "CFR",
+              "Volume": "146911.175901"
+            }
+          },
+          {
+            "ticker": "LOPE",
+            "instrument_id": "c5d01894-3a6d-48a8-9a14-abbfc239d43f",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0073977790615572464",
+              "Forward P/E": "13.5501",
+              "Last": "154.6375",
+              "Market cap": "4.010105942e+09",
+              "Name": "Grand Canyon Education",
+              "Net change": "-1.1525000000000034",
+              "RSI": "60.96799389238312",
+              "Symbol": "LOPE",
+              "Volume": "97189.935792"
+            }
+          },
+          {
+            "ticker": "ALLE",
+            "instrument_id": "27bd8213-e141-4566-bfe9-f9d383867fd6",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.0010699695220804128",
+              "Forward P/E": "15.7978",
+              "Last": "154.045",
+              "Market cap": "1.2994471268e+10",
+              "Name": "Allegion",
+              "Net change": "-0.16500000000002046",
+              "RSI": "48.45662232049743",
+              "Symbol": "ALLE",
+              "Volume": "250194.386156"
+            }
+          },
+          {
+            "ticker": "WCN",
+            "instrument_id": "1c792a6e-eb88-4bf0-aff6-c1fc8bb54fbf",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-6.501105187876027e-05",
+              "Forward P/E": "18.2149",
+              "Last": "153.81",
+              "Market cap": "3.9370586686e+10",
+              "Name": "Waste Connections",
+              "Net change": "-0.009999999999990905",
+              "RSI": "36.77210175218517",
+              "Symbol": "WCN",
+              "Volume": "796000.629591"
+            }
+          },
+          {
+            "ticker": "TGT",
+            "instrument_id": "1be547f6-699e-4515-a0b3-f4c084aa0082",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "-0.016602564102564124",
+              "Forward P/E": "15.2207",
+              "Last": "153.41",
+              "Market cap": "7.0270619124e+10",
+              "Name": "Target",
+              "Net change": "-2.5900000000000034",
+              "RSI": "47.56715497727838",
+              "Symbol": "TGT",
+              "Volume": "2.404678460118e+06"
+            }
+          },
+          {
+            "ticker": "ICE",
+            "instrument_id": "e49a2e82-cc7b-4f72-8300-698dab7a2a14",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.006360306360306254",
+              "Forward P/E": "17.8253",
+              "Last": "151.105",
+              "Market cap": "8.6510890446e+10",
+              "Name": "Intercontinental Exchange",
+              "Net change": "0.9549999999999841",
+              "RSI": "38.625378363338605",
+              "Symbol": "ICE",
+              "Volume": "1.122482788423e+06"
+            }
+          },
+          {
+            "ticker": "AGM.A",
+            "instrument_id": "da027f66-aa15-440a-baa2-095d9853a391",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "",
+              "Forward P/E": "6.5833",
+              "Last": "149.01",
+              "Market cap": "2.290494169e+09",
+              "Name": "Federal Agricultural Mortgage Corporation Class A Voting",
+              "Net change": "",
+              "RSI": "19.547927688721387",
+              "Symbol": "AGM.A",
+              "Volume": "0"
+            }
+          },
+          {
+            "ticker": "WTFC",
+            "instrument_id": "9a39205c-1ea7-4028-bc54-8a218acc377d",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.013480899186319019",
+              "Forward P/E": "10.6724",
+              "Last": "146.975",
+              "Market cap": "1.0003178927e+10",
+              "Name": "Wintrust Financial",
+              "Net change": "1.954999999999984",
+              "RSI": "40.40806106011818",
+              "Symbol": "WTFC",
+              "Volume": "182664.95141"
+            }
+          },
+          {
+            "ticker": "PCTY",
+            "instrument_id": "6b50d91b-a7bc-4a86-8612-1304e9e59eb1",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.013982141621097876",
+              "Forward P/E": "15.8228",
+              "Last": "146.49",
+              "Market cap": "7.819535206e+09",
+              "Name": "Paylocity",
+              "Net change": "2.0200000000000102",
+              "RSI": "48.49564858428904",
+              "Symbol": "PCTY",
+              "Volume": "179785.22841"
+            }
+          },
+          {
+            "ticker": "DUOL",
+            "instrument_id": "d75fd426-8ec9-4589-9454-318e0e0bf87f",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.015179871075067564",
+              "Forward P/E": "19.2308",
+              "Last": "146.46",
+              "Market cap": "6.932321477e+09",
+              "Name": "Duolingo",
+              "Net change": "2.1899999999999977",
+              "RSI": "49.767835191823885",
+              "Symbol": "DUOL",
+              "Volume": "361410.332854"
+            }
+          },
+          {
+            "ticker": "NBIX",
+            "instrument_id": "cbff674f-8340-4c81-b5ad-852eb4c883ca",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.020184383293756016",
+              "Forward P/E": "14.881",
+              "Last": "146.07",
+              "Market cap": "1.5196552559e+10",
+              "Name": "Neurocrine",
+              "Net change": "2.8899999999999864",
+              "RSI": "41.19400265226307",
+              "Symbol": "NBIX",
+              "Volume": "601278.81404"
+            }
+          },
+          {
+            "ticker": "VST",
+            "instrument_id": "2a536f87-a47f-4590-b507-f5bca03215ac",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.037923153835166416",
+              "Forward P/E": "13.5135",
+              "Last": "145.33",
+              "Market cap": "4.7119825026e+10",
+              "Name": "Vistra",
+              "Net change": "5.310000000000002",
+              "RSI": "46.82790557311421",
+              "Symbol": "VST",
+              "Volume": "8.12454375117e+06"
+            }
+          },
+          {
+            "ticker": "AER",
+            "instrument_id": "f4a71fa9-2b88-42d4-8d6e-559eac9685ed",
+            "instrument_type": "EQUITY",
+            "columns": {
+              "% Change": "0.004711098794513003",
+              "Forward P/E": "7.8989",
+              "Last": "145.02",
+              "Market cap": "2.2353145883e+10",
+              "Name": "AerCap",
+              "Net change": "0.6800000000000068",
+              "RSI": "48.67059912083174",
+              "Symbol": "AER",
+              "Volume": "474184.386427"
+            }
+          }
+        ],
+        "sorted_by": "Last desc",
+        "filters_applied": [
+          {
+            "filter_type": "Forward P/E",
+            "filter_type_enum": "FILTER_TYPE_FORWARD_PE",
+            "predicate": "<",
+            "values": [
+              "20"
+            ],
+            "expression": "fundamental.forwardPeRatio"
+          }
+        ]
+      }
+    },
+    "guide": "How to interpret the response:\n- result.total_items and result.results are exactly what a scan saved with these filters would return right now. Results are live; a later run will differ.\n- Nothing was persisted: there is no scan_id, the preview does not appear in get_scans, and there is nothing to clean up.\n- result.filters_applied echoes the filters as parsed: enum filters carry their filter_type_enum; expression filters echo FILTER_TYPE_CUSTOM with the expression.\n- Columns you passed appear as keys in each result row's columns map — under the canonical standard name when an expression matched a standard column's form. An empty cell means the datapoint is undefined for that instrument; the row still matched the filters.\n\nWhen presenting:\n- Render results as a table and state total_items.\n- Make clear this was a preview — nothing was saved. If the user is happy with the results, offer create_scan with the same filters, expressions included: create_scan is the tool that saves them (update_scan_filters does not accept expressions).\n\nError handling:\n- \"expression cannot be combined with filter_type\" / \"FILTER_TYPE_CUSTOM requires an expression\" / \"interval/length/plot are not used with an expression\" → fix the filter shape and retry; these are local checks, no market-data query was spent.\n- A market-data validation error (quotes the rejected expression and the reason, e.g. an unknown function or an out-of-range argument) → fix the expression and preview again. Do not attempt a save until a preview succeeds.\n- \"column X already exists from a filter\" → one of the scan's filters already produces a column with that display name, and an expression was passed for it as well. Re-send that column with NO expression to customize it (visibility, position), or give it a different display_name. Do not drop the filter.\n- \"no standard column is named X\" → the display name is not a standard column and no expression was given. Pick one of the valid names the error lists, or supply an expression from get_scanner_datapoints.\n- Each preview costs the same rate-limit budget as run_scan — fix everything you can between attempts rather than iterating one field at a time."
+  }
+}

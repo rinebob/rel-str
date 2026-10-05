@@ -1,0 +1,45 @@
+{
+  "id": "ro-eq-orders-05",
+  "tool": "get_equity_orders",
+  "group": "equity-orders",
+  "gate": "read",
+  "note": "state=rejected. Other states (new,queued,confirmed,unconfirmed,partially_filled,voided) excluded - same filter path, identical empty-ledger envelope.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "state": "rejected"
+  },
+  "capturedAt": "2026-10-05T17:50:14.246Z",
+  "outcome": "success",
+  "latencyMs": 1056,
+  "success": true,
+  "response": {
+    "data": {
+      "orders": [
+        {
+          "id": "6a9e5426-78dd-4b3b-a409-423de92dc38b",
+          "ref_id": "sample-limit-buy-1788761124743",
+          "instrument_id": "e98ed5bf-b66c-4826-ad98-dad28b88b384",
+          "symbol": "DRAM",
+          "side": "buy",
+          "type": "limit",
+          "state": "rejected",
+          "quantity": "1.000000",
+          "cumulative_quantity": "0.000000",
+          "price": "1.000000",
+          "stop_price": null,
+          "average_price": null,
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-07T06:05:26.959833Z",
+          "last_transaction_at": "2026-09-07T06:05:27.096165Z",
+          "executions": []
+        }
+      ]
+    },
+    "guide": "For dollar-based orders (dollar_based_amount populated, quantity sometimes null) describe in dollars until cumulative_quantity is meaningful. Mention placed_agent when it is not 'user'. Recover the user-facing order type from type+trigger or from price/stop_price. Present symbol, side, type, state, quantity (or dollar_based_amount), cumulative_quantity when partially filled, price for limit orders, average_price once filled, last_transaction_at (or created_at), and id when cancellation may follow; suppress other fields unless asked. When next is non-empty more pages exist — it is an opaque cursor, not a URL, so call this tool again with cursor set to that value verbatim and the same filters; keep paging until next is empty whenever the user asks for their full history."
+  }
+}

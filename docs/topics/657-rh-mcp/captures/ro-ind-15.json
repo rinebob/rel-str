@@ -1,0 +1,43 @@
+{
+  "id": "ro-ind-15",
+  "tool": "get_equity_technical_indicators",
+  "group": "equity-indicators",
+  "gate": "read",
+  "note": "type=supertrend - one of 18 indicator types (each has distinct output fields).",
+  "args": {
+    "symbol": "OOMA",
+    "type": "supertrend",
+    "interval": "day",
+    "start_time": "2026-05-01T00:00:00Z",
+    "multiplier": 3,
+    "output": "latest"
+  },
+  "capturedAt": "2026-10-05T17:51:52.433Z",
+  "outcome": "success",
+  "latencyMs": 2161,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "interval": "day",
+      "bounds": "regular",
+      "indicators": [
+        {
+          "type": "supertrend",
+          "params": {
+            "multiplier": 3,
+            "period": 10
+          },
+          "series": [
+            {
+              "begins_at": "2026-10-02T00:00:00Z",
+              "direction": 1,
+              "value": 20.17224738173525
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Convert begins_at (UTC) to the user's timezone for display. Skip a null output field rather than presenting it as zero. When an indicator emits multiple output fields per bar (e.g. bollinger_bands, macd), interpret them together, not in isolation."
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "ro-opt-pos-05",
+  "tool": "get_option_positions",
+  "group": "option-orders",
+  "gate": "read",
+  "note": "option_type=call.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "option_type": "call"
+  },
+  "capturedAt": "2026-10-05T17:52:34.589Z",
+  "outcome": "success",
+  "latencyMs": 999,
+  "success": true,
+  "response": {
+    "data": {
+      "positions": []
+    },
+    "guide": "Surface chain_symbol, type, quantity, average_price, and expiration_date. Look up strike/option_type (call/put) via get_option_instruments with option_id when needed. Warn the user about any non-zero pending_* quantities. When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
+  }
+}

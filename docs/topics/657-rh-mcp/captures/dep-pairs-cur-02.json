@@ -1,0 +1,193 @@
+{
+  "id": "dep-pairs-cur-02",
+  "tool": "get_currency_pairs",
+  "group": "crypto",
+  "gate": "read",
+  "note": "PAGINATION FOLLOW p3 - cursor from dep-pairs-cur-01 data.next.",
+  "args": {
+    "limit": 5,
+    "cursor": "cD0yMDI2LTAyLTAzKzIxJTNBNTklM0E0NS4xNTIzNTclMkIwMCUzQTAw"
+  },
+  "capturedAt": "2026-10-05T18:56:31.705Z",
+  "outcome": "success",
+  "latencyMs": 877,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "id": "ff336d85-c52e-41af-982f-b71e57ad0a88",
+          "symbol": "USDG-USD",
+          "display_symbol": "USDG-USD",
+          "name": "Global Dollar to US Dollar",
+          "asset_currency": {
+            "id": "60962b88-85fc-4445-b4ae-04f07d28fe0f",
+            "code": "USDG",
+            "name": "USD Global Dollar",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "0.01",
+          "max_order_size": "1000000",
+          "min_order_quantity_increment": "0.01",
+          "min_order_price_increment": "0.01",
+          "market_orders_only": true,
+          "type": "cryptocurrency",
+          "halted": true,
+          "halted_regions": [
+            "NY",
+            "TX"
+          ]
+        },
+        {
+          "id": "2fa8ba72-5e1b-4246-ade9-7c1a09865d4b",
+          "symbol": "MEGA-USD",
+          "display_symbol": "MEGA-USD",
+          "name": "MegaETH to US Dollar",
+          "asset_currency": {
+            "id": "b4260917-b799-4a54-9186-93fcd0e97d11",
+            "code": "MEGA",
+            "name": "MegaETH",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "1",
+          "max_order_size": "3000000",
+          "min_order_quantity_increment": "0.1",
+          "min_order_price_increment": "0.00001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": true,
+          "halted_regions": [
+            "NY"
+          ]
+        },
+        {
+          "id": "cce259f6-f571-4838-a41c-dea89bbc2faf",
+          "symbol": "SKR-USD",
+          "display_symbol": "SKR-USD",
+          "name": "Seeker to US Dollar",
+          "asset_currency": {
+            "id": "52195d74-6fbe-4ad4-a53b-041f8ade98aa",
+            "code": "SKR",
+            "name": "Seeker",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "10",
+          "max_order_size": "15000000",
+          "min_order_quantity_increment": "0.1",
+          "min_order_price_increment": "0.000001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": false
+        },
+        {
+          "id": "43f6f3b2-d84d-4042-8129-6ca2fb392735",
+          "symbol": "LIT-USD",
+          "display_symbol": "LIT-USD",
+          "name": "Lighter to US Dollar",
+          "asset_currency": {
+            "id": "7c29f00a-bf22-49e8-bf3b-976598706216",
+            "code": "LIT",
+            "name": "Lighter",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "0.01",
+          "max_order_size": "100000",
+          "min_order_quantity_increment": "0.001",
+          "min_order_price_increment": "0.0001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": true,
+          "halted_regions": [
+            "NY"
+          ]
+        },
+        {
+          "id": "3a8918d5-427d-4c6e-b7cf-5892dd13e979",
+          "symbol": "SYRUP-USD",
+          "display_symbol": "SYRUP-USD",
+          "name": "Syrup Token to US Dollar",
+          "asset_currency": {
+            "id": "d0dcd081-3de8-4f7d-a071-5ce18b7ac19e",
+            "code": "SYRUP",
+            "name": "Maple Finance",
+            "type": "cryptocurrency"
+          },
+          "quote_currency": {
+            "id": "1072fc76-1862-41ab-82c2-485837590762",
+            "code": "USD",
+            "name": "US Dollar",
+            "type": "fiat"
+          },
+          "tradability": "tradable",
+          "tradability_by_account_type": {
+            "individual": "tradable",
+            "ira_roth": "untradable",
+            "ira_traditional": "untradable"
+          },
+          "display_only": false,
+          "min_order_size": "0.1",
+          "max_order_size": "900000",
+          "min_order_quantity_increment": "0.01",
+          "min_order_price_increment": "0.00001",
+          "market_orders_only": false,
+          "type": "cryptocurrency",
+          "halted": false
+        }
+      ],
+      "next": "cD0yMDI1LTEyLTA4KzE5JTNBMTglM0ExOS44ODUxOTElMkIwMCUzQTAw"
+    },
+    "guide": "Render pairs as a markdown table with columns: Symbol | Name | Pair ID | Min Order | Max Order | Min Increment | Min Price Increment | Min Notional | Mkt Only | Restrictions | Halted. Formatting: Symbol → symbol; Name → asset_currency.name (e.g. 'Aave', not the full pair name); Pair ID → id truncated to the segment before the first '-'; Min Order → min_order_size; Max Order → max_order_size with comma separators; Min Increment → min_order_quantity_increment; Min Price Increment → '$' + min_order_price_increment; Min Notional → '$' + min_order_quote_amount, or '—' when null; Mkt Only → 'Yes'/'No' from market_orders_only; Restrictions → halted_regions joined by ', ' ('ALL' = a global halt), or 'None' when empty; Halted → 'True' when halted else '—'. When Halted is True the pair has a live halt in the listed regions — it may be one-sided (e.g. sell-only) and should not be assumed freely orderable. Only Robinhood-supported pairs are listed; catalog-only coins Robinhood does not offer are already excluded."
+  }
+}

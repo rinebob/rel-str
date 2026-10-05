@@ -1,0 +1,37 @@
+{
+  "id": "ro-indexes-02",
+  "tool": "get_indexes",
+  "group": "research",
+  "gate": "read",
+  "note": "Symbol-filtered lookup.",
+  "args": {
+    "symbols": "SPX,NDX"
+  },
+  "capturedAt": "2026-10-05T17:54:30.709Z",
+  "outcome": "success",
+  "latencyMs": 1333,
+  "success": true,
+  "response": {
+    "data": {
+      "indexes": [
+        {
+          "id": "50c298f7-27a8-44a1-b049-ec153cf2892f",
+          "symbol": "NDX",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "432fbbb8-b82c-454a-852d-eb85382c7066",
+          "symbol": "SPX",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        }
+      ]
+    },
+    "guide": "Each indexes[] entry identifies one index by id and symbol. current_value is a snapshot — for live values, pass id to get_index_quotes. Entries under restricted have no values available through this channel — relay their message to the user verbatim; do not retry or estimate a value."
+  }
+}

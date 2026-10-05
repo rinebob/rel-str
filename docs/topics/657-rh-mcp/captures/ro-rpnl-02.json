@@ -1,0 +1,34 @@
+{
+  "id": "ro-rpnl-02",
+  "tool": "get_realized_pnl",
+  "group": "pnl",
+  "gate": "read",
+  "note": "span=day - six preset windows.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "span": "day"
+  },
+  "capturedAt": "2026-10-05T17:49:53.873Z",
+  "outcome": "success",
+  "latencyMs": 946,
+  "success": true,
+  "response": {
+    "data": {
+      "account_number": "••••6245",
+      "window": "day",
+      "display_currency": "USD",
+      "data_points": [
+        {
+          "start_time": "2026-10-05T04:00:00Z",
+          "end_time": "2026-10-05T17:49:52Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        }
+      ],
+      "total_returns": "0",
+      "total_rate_of_return": "0"
+    },
+    "guide": "This is realized profit & loss only — gains/losses from positions closed within the window; it excludes unrealized profit and loss on open positions. data_points are buckets in ascending time order. A window with no closing trades returns empty data_points with zero totals — that is a valid result (\"no realized trades in this window\"), not an error. When a bucket's realized_gain and rate_of_realized_gain are null (a transfer-only bucket whose lots had no cost basis, e.g. transfers), present them as \"n/a\" — do not render them as $0 / 0%. These are aggregate numbers; for individual trade records use the separate realized profit and loss (trade history) tool. Treat figures as informational, not a tax document or tax/performance advice."
+  }
+}

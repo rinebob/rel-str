@@ -1,0 +1,323 @@
+{
+  "id": "ro-sec-idx-01",
+  "tool": "get_sec_filing_index",
+  "group": "sec-filings",
+  "gate": "read",
+  "note": "All form types - source of filing_id + next_cursor.",
+  "args": {
+    "symbol": "AAPL"
+  },
+  "capturedAt": "2026-10-05T17:53:59.408Z",
+  "outcome": "success",
+  "latencyMs": 1070,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "AAPL",
+      "filings": [
+        {
+          "filing_id": "ff11165c-afda-4baf-abbd-1e792ccc8503",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-10-01"
+        },
+        {
+          "filing_id": "43624988-644f-4328-ac0f-e9f3a9abea2f",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-29"
+        },
+        {
+          "filing_id": "6ba7246f-bc73-4b77-b5e2-c15726e4df11",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-29"
+        },
+        {
+          "filing_id": "8c107bdf-812a-4a2e-b755-617a8830a9f9",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-29"
+        },
+        {
+          "filing_id": "93124b2f-d34e-4dd5-9861-501904c011b2",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-29"
+        },
+        {
+          "filing_id": "d531d340-967a-472d-8696-3db331d92cbc",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-29"
+        },
+        {
+          "filing_id": "f6524269-0ee2-4861-b2b0-c732610a53f1",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-29"
+        },
+        {
+          "filing_id": "358e1111-9515-46db-90e1-7e8597bf24a4",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-24"
+        },
+        {
+          "filing_id": "a0fd4a65-2958-48ca-82ff-cbb36ac6ae2e",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-17"
+        },
+        {
+          "filing_id": "d55005e4-59c2-4131-a7cc-51fb140f5728",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-10"
+        },
+        {
+          "filing_id": "86f8cb5f-72f1-491c-8002-c9fe8e0f9359",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-09-01"
+        },
+        {
+          "filing_id": "f057879a-5183-4062-b161-89efdada9e8e",
+          "form_type": "8-K/A",
+          "description": "Current report (Amendment)",
+          "date_filed": "2026-09-01"
+        },
+        {
+          "filing_id": "a5af408f-fa3f-4820-9345-f8e55e60866f",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-08-27"
+        },
+        {
+          "filing_id": "79a30bc2-77f1-4656-a901-b89c674ebfcd",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-08-20"
+        },
+        {
+          "filing_id": "3d3ca922-9f33-4404-9010-be6b977165ec",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-08-13"
+        },
+        {
+          "filing_id": "f631bf0e-51be-4018-9def-47ef21f66a1e",
+          "form_type": "10-Q",
+          "description": "Quarterly report pursuant to section 13 or 15(d)",
+          "date_filed": "2026-07-31"
+        },
+        {
+          "filing_id": "31e999d2-44b6-46fc-b272-86e632012d99",
+          "form_type": "8-K",
+          "description": "Current report",
+          "date_filed": "2026-07-30"
+        },
+        {
+          "filing_id": "5f84171f-2a70-4535-9a25-e7d2539ebbf7",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-06-17"
+        },
+        {
+          "filing_id": "eedaabf7-c44b-4835-977e-0e898605ed3c",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-06-17"
+        },
+        {
+          "filing_id": "c58da29f-c12f-4784-9981-d8acb0ff63e3",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-05-29"
+        },
+        {
+          "filing_id": "e7b4983f-b7d8-4066-8b48-afa02144c97a",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-05-12"
+        },
+        {
+          "filing_id": "4b66e4cf-e15c-4488-b43a-ed7802681757",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-05-08"
+        },
+        {
+          "filing_id": "e28b88cf-f8ff-4237-86f8-c0f11fa59a50",
+          "form_type": "10-Q",
+          "description": "Quarterly report pursuant to section 13 or 15(d)",
+          "date_filed": "2026-05-01"
+        },
+        {
+          "filing_id": "9559c34a-bf4b-4e31-aa3c-eaef9b25d3e3",
+          "form_type": "8-K",
+          "description": "Current report",
+          "date_filed": "2026-04-30"
+        },
+        {
+          "filing_id": "41f1dc49-5171-4e2e-9f49-e5b4cd4f1009",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-04-27"
+        },
+        {
+          "filing_id": "aa9cec96-aed6-40fe-b311-ab765962232e",
+          "form_type": "8-K",
+          "description": "Current report",
+          "date_filed": "2026-04-20"
+        },
+        {
+          "filing_id": "0104b30f-1934-4b24-8373-6e20fcfa1f79",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-04-17"
+        },
+        {
+          "filing_id": "f17f1547-6a67-4586-8304-1e233fc66ebd",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-04-17"
+        },
+        {
+          "filing_id": "091ecd28-6ec4-4124-a9c4-c1a1701e0bf5",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-04-03"
+        },
+        {
+          "filing_id": "10f488b6-9d1e-4d07-9431-87089391048a",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-04-03"
+        },
+        {
+          "filing_id": "46d58734-048d-458c-ba92-eb7da34adb08",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-04-03"
+        },
+        {
+          "filing_id": "7aeca62e-109a-4f17-a973-ee6f76934de9",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-03-17"
+        },
+        {
+          "filing_id": "3c874d18-c598-4bf0-a7a0-0c756069a1fd",
+          "form_type": "3",
+          "description": "Insider Transaction",
+          "date_filed": "2026-03-06"
+        },
+        {
+          "filing_id": "13e4bec6-d7ad-4132-a4c2-b175c0618d0b",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-26"
+        },
+        {
+          "filing_id": "342c6a46-fd17-4dd6-b0b8-cac85b9a876c",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-26"
+        },
+        {
+          "filing_id": "41d61c3c-dccd-4d0e-92e8-9dd1b538c861",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-26"
+        },
+        {
+          "filing_id": "6e5221b4-aa09-4081-997e-9c9c6304ddc6",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-26"
+        },
+        {
+          "filing_id": "7ef6d162-634f-4b31-b661-ce738862ef83",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-26"
+        },
+        {
+          "filing_id": "94e81eba-636a-4db0-ba3a-edb442fc6ca7",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-26"
+        },
+        {
+          "filing_id": "a4083d9d-1da1-49f1-b77f-c82b7e7dccae",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-26"
+        },
+        {
+          "filing_id": "116bda67-7c34-45a2-bde0-8af692975c7b",
+          "form_type": "8-K",
+          "description": "Current report",
+          "date_filed": "2026-02-24"
+        },
+        {
+          "filing_id": "1cfe3dfb-bd0f-46bc-aab1-fe4f32f32901",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-03"
+        },
+        {
+          "filing_id": "267bcc2e-6a3a-4f34-9835-dadcd6b56597",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-03"
+        },
+        {
+          "filing_id": "464b1f66-62e8-4753-9ed9-02892381277a",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-03"
+        },
+        {
+          "filing_id": "77d48510-03dd-4538-a2af-fc9218759e58",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-03"
+        },
+        {
+          "filing_id": "a846128d-3377-42ca-8d10-680ee89aeade",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-03"
+        },
+        {
+          "filing_id": "d95d338e-8be5-4fa3-92eb-e15ccb7f1859",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-03"
+        },
+        {
+          "filing_id": "f2ab3aee-91ec-49bd-b061-142a8d6824c7",
+          "form_type": "4",
+          "description": "Insider Transaction",
+          "date_filed": "2026-02-03"
+        },
+        {
+          "filing_id": "65ee3aaf-5cb3-4fd6-baac-675e12e4ed86",
+          "form_type": "10-Q",
+          "description": "Quarterly report pursuant to section 13 or 15(d)",
+          "date_filed": "2026-01-30"
+        },
+        {
+          "filing_id": "4b4b3491-ffff-40ba-862b-d40930fc1417",
+          "form_type": "8-K",
+          "description": "Current report",
+          "date_filed": "2026-01-29"
+        }
+      ],
+      "next": "cD0yMDI2LTAxLTI5"
+    },
+    "guide": "If next is non-empty, more filings are available — call this tool again with the cursor value from next to fetch the next page. Results are most-recent-first. When the question doesn't need more than the most recent filing's own embedded history (most questions), use the first result rather than filtering further. When the question needs data spanning further back than one filing embeds — a multi-year trend beyond ~3 years, a specific past quarter, confirming a disclosed subsequent event's follow-through in the next filing — widen since/until and select up to 3 of the returned filings covering the needed span, then pass all of their filing_ids to get_sec_filing_facts. If a query with specific filters (form_type, since/until) returns no filings, retry once with the filters loosened (drop form_type, or widen/drop the date range) before giving up; if it's still empty, say clearly that no matching filing was found rather than guessing from an unrelated one."
+  }
+}

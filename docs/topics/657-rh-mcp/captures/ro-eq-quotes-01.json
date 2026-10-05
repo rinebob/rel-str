@@ -1,0 +1,100 @@
+{
+  "id": "ro-eq-quotes-01",
+  "tool": "get_equity_quotes",
+  "group": "equity-data",
+  "gate": "read",
+  "note": "Multi-symbol quotes.",
+  "args": {
+    "symbols": [
+      "OOMA",
+      "NFLX",
+      "AAPL"
+    ]
+  },
+  "capturedAt": "2026-10-05T17:50:28.128Z",
+  "outcome": "success",
+  "latencyMs": 887,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "quote": {
+            "symbol": "OOMA",
+            "last_trade_price": "20.910000",
+            "venue_last_trade_time": "2026-10-05T17:47:18.867472832Z",
+            "last_non_reg_trade_price": null,
+            "venue_last_non_reg_trade_time": null,
+            "adjusted_previous_close": "20.800000",
+            "previous_close": "20.800000",
+            "previous_close_date": "2026-10-02",
+            "bid_price": "20.870000",
+            "venue_bid_time": "2026-10-05T17:49:25.267613139Z",
+            "ask_price": "20.930000",
+            "venue_ask_time": "2026-10-05T17:49:25.267613139Z",
+            "has_traded": true,
+            "state": "active"
+          },
+          "close": {
+            "symbol": "OOMA",
+            "date": "2026-10-02",
+            "price": "20.8",
+            "interpolated": false,
+            "source": "sip-list-exchange-close"
+          }
+        },
+        {
+          "quote": {
+            "symbol": "NFLX",
+            "last_trade_price": "66.830000",
+            "venue_last_trade_time": "2026-10-05T17:50:25.64260326Z",
+            "last_non_reg_trade_price": null,
+            "venue_last_non_reg_trade_time": null,
+            "adjusted_previous_close": "67.060000",
+            "previous_close": "67.060000",
+            "previous_close_date": "2026-10-02",
+            "bid_price": "66.840000",
+            "venue_bid_time": "2026-10-05T17:50:25.676048997Z",
+            "ask_price": "66.850000",
+            "venue_ask_time": "2026-10-05T17:50:25.676048997Z",
+            "has_traded": true,
+            "state": "active"
+          },
+          "close": {
+            "symbol": "NFLX",
+            "date": "2026-10-02",
+            "price": "67.06",
+            "interpolated": false,
+            "source": "sip-list-exchange-close"
+          }
+        },
+        {
+          "quote": {
+            "symbol": "AAPL",
+            "last_trade_price": "333.200000",
+            "venue_last_trade_time": "2026-10-05T17:50:25.715187348Z",
+            "last_non_reg_trade_price": null,
+            "venue_last_non_reg_trade_time": null,
+            "adjusted_previous_close": "333.690000",
+            "previous_close": "333.690000",
+            "previous_close_date": "2026-10-02",
+            "bid_price": "333.170000",
+            "venue_bid_time": "2026-10-05T17:50:26.609009873Z",
+            "ask_price": "333.210000",
+            "venue_ask_time": "2026-10-05T17:50:26.609009873Z",
+            "has_traded": true,
+            "state": "active"
+          },
+          "close": {
+            "symbol": "AAPL",
+            "date": "2026-10-02",
+            "price": "333.69",
+            "interpolated": false,
+            "source": "sip-list-exchange-close"
+          }
+        }
+      ]
+    },
+    "guide": "Each entry in results pairs the live quote with the official prior-session close for the same symbol. Current price: pick whichever of quote.last_trade_price / quote.last_non_reg_trade_price has the more recent timestamp, then verify that timestamp is recent before calling it \"current\" — otherwise phrase as \"as of <time>\". Daily change uses quote.adjusted_previous_close. \"Yesterday's close\" uses results[].close.price (official settled close); when a result is missing close — either closes_error is set tool-wide, or this symbol had no close in an otherwise-successful batch — fall back to quote.previous_close and tell the user the official close lookup is unavailable. Drop bid/ask when zero. Surface has_traded=false or any non-'active' state before quoting a price."
+  }
+}

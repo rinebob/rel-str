@@ -1,0 +1,216 @@
+{
+  "id": "ro-poli-02",
+  "tool": "get_politician_trades",
+  "group": "research",
+  "gate": "read",
+  "note": "Symbol lookup.",
+  "args": {
+    "equity_symbol": "NVDA"
+  },
+  "capturedAt": "2026-10-05T17:54:24.765Z",
+  "outcome": "success",
+  "latencyMs": 3050,
+  "success": true,
+  "response": {
+    "data": {
+      "trades": [
+        {
+          "politician_name": "Sen. Cory A. Booker",
+          "party": "DEMOCRAT",
+          "position": "Senator",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "15001",
+            "max": "50000"
+          },
+          "transaction_date": "2026-08-11",
+          "disclosure_date": "2026-09-09",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Gilbert Ray Cisneros, Jr.",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-08-18",
+          "disclosure_date": "2026-09-11",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Daniel Meuser",
+          "party": "REPUBLICAN",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-04-23",
+          "disclosure_date": "2026-05-21",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Daniel Meuser",
+          "party": "REPUBLICAN",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-05-26",
+          "disclosure_date": "2026-07-03",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Daniel Meuser",
+          "party": "REPUBLICAN",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-02-24",
+          "disclosure_date": "2026-04-06",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Daniel Meuser",
+          "party": "REPUBLICAN",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-03-24",
+          "disclosure_date": "2026-04-21",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Dan Newhouse",
+          "party": "REPUBLICAN",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-07-09",
+          "disclosure_date": "2026-07-20",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. John McGuire",
+          "party": "REPUBLICAN",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-08-17",
+          "disclosure_date": "2026-09-03",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Cleo Fields",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-06-25",
+          "disclosure_date": "2026-07-17",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Gilbert Ray Cisneros, Jr.",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-07-16",
+          "disclosure_date": "2026-09-07",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Gilbert Ray Cisneros, Jr.",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "BUY",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-03-12",
+          "disclosure_date": "2026-04-08",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Gilbert Ray Cisneros, Jr.",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-03-24",
+          "disclosure_date": "2026-04-08",
+          "source": "Tip Ranks"
+        },
+        {
+          "politician_name": "Rep. Gilbert Ray Cisneros, Jr.",
+          "party": "DEMOCRAT",
+          "position": "Representative",
+          "asset_type": "EQUITY",
+          "symbol": "NVDA",
+          "transaction_type": "SELL",
+          "amount_range": {
+            "min": "1001",
+            "max": "15000"
+          },
+          "transaction_date": "2026-04-13",
+          "disclosure_date": "2026-05-11",
+          "source": "Tip Ranks"
+        }
+      ]
+    },
+    "guide": "Each entry is one disclosed transaction. Always display the source (Tip Ranks) as attribution. transaction_date is when the trade occurred; disclosure_date is when it was made public - this lag can be up to 45 days, so treat entries as historical information, not a real-time signal, and do not imply the information is more recent than it is. Amounts are disclosed ranges - never present them as exact figures. Do not present politician trades as a recommendation or endorsement."
+  }
+}

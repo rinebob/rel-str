@@ -1,0 +1,21 @@
+{
+  "id": "ro-opt-orders-08",
+  "tool": "get_option_orders",
+  "group": "option-orders",
+  "gate": "read",
+  "note": "state=cancelled. Others (queued,confirmed,partially_filled,failed,pending_cancelled) excluded - same filter path.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "state": "cancelled"
+  },
+  "capturedAt": "2026-10-05T17:52:22.853Z",
+  "outcome": "success",
+  "latencyMs": 838,
+  "success": true,
+  "response": {
+    "data": {
+      "orders": []
+    },
+    "guide": "Describe orders by chain_symbol, opening_strategy or closing_strategy, state, quantity (with processed_quantity when partially filled), and premium; show id when cancellation may follow. Source chain_symbol from the response directly — never infer. Mention placed_agent when not 'user'. Recover the user-facing order type from type+trigger (limit+immediate=limit, market+immediate=market, limit+stop=stop_limit, market+stop=stop_market) and surface price for limit/stop_limit, stop_price for stop_limit/stop_market. is_replaceable=true marks orders eligible for replace_option_order (cancel-and-replace on the same contract). When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
+  }
+}

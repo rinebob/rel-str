@@ -1,0 +1,40 @@
+{
+  "id": "dep-idx-quotes-01",
+  "tool": "get_index_quotes",
+  "group": "indexes",
+  "gate": "read",
+  "note": "instrument_ids harvested from get_indexes (SPX + NDX).",
+  "args": {
+    "instrument_ids": [
+      "432fbbb8-b82c-454a-852d-eb85382c7066",
+      "50c298f7-27a8-44a1-b049-ec153cf2892f"
+    ]
+  },
+  "capturedAt": "2026-10-05T17:58:45.854Z",
+  "outcome": "success",
+  "latencyMs": 882,
+  "success": true,
+  "response": {
+    "data": {
+      "quotes": [
+        {
+          "instrument_id": "432fbbb8-b82c-454a-852d-eb85382c7066",
+          "symbol": "SPX",
+          "value": "7775.56",
+          "state": "",
+          "venue_timestamp": "2026-10-05T13:58:44.0545-04:00",
+          "updated_at": "2026-10-05T13:58:44.074948614-04:00"
+        },
+        {
+          "instrument_id": "50c298f7-27a8-44a1-b049-ec153cf2892f",
+          "symbol": "NDX",
+          "value": "31045.1836",
+          "state": "",
+          "venue_timestamp": "2026-10-05T13:58:45.1358-04:00",
+          "updated_at": "2026-10-05T13:58:45.155673359-04:00"
+        }
+      ]
+    },
+    "guide": "Match quotes[] entries to your requested instrument_ids by instrument_id (NOT symbol — multiple instruments could theoretically share a symbol). value is the current index level as a decimal string; quote precision is preserved. Surface symbol and value first; only mention state when it is non-empty and not 'active'. venue_timestamp reflects when the exchange published the level; updated_at reflects when marketdata last refreshed the record. Requested ids under restricted have no value available — relay their message to the user verbatim; do not retry or estimate a value."
+  }
+}

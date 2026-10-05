@@ -1,0 +1,66 @@
+{
+  "id": "ro-fins-01",
+  "tool": "get_financials",
+  "group": "research",
+  "gate": "read",
+  "note": "quarterly (default).",
+  "args": {
+    "symbols": [
+      "AAPL"
+    ],
+    "period": "quarterly"
+  },
+  "capturedAt": "2026-10-05T17:54:14.070Z",
+  "outcome": "success",
+  "latencyMs": 959,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "symbol": "AAPL",
+          "period": "quarterly",
+          "financials": [
+            {
+              "fiscal_year": 2026,
+              "fiscal_quarter": 3,
+              "period_end_date": "2026-06-27",
+              "revenue": "109417000000.000000",
+              "gross_profit": "54770000000.000000",
+              "net_income": "29789000000.000000",
+              "net_margin": "27.230000"
+            },
+            {
+              "fiscal_year": 2026,
+              "fiscal_quarter": 2,
+              "period_end_date": "2026-03-28",
+              "revenue": "111184000000.000000",
+              "gross_profit": "54781000000.000000",
+              "net_income": "29578000000.000000",
+              "net_margin": "26.600000"
+            },
+            {
+              "fiscal_year": 2026,
+              "fiscal_quarter": 1,
+              "period_end_date": "2025-12-27",
+              "revenue": "143756000000.000000",
+              "gross_profit": "69231000000.000000",
+              "net_income": "42097000000.000000",
+              "net_margin": "29.280000"
+            },
+            {
+              "fiscal_year": 2025,
+              "fiscal_quarter": 4,
+              "period_end_date": "2025-09-27",
+              "revenue": "102466000000.000000",
+              "gross_profit": "48341000000.000000",
+              "net_income": "27466000000.000000",
+              "net_margin": "26.800000"
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "results is positional — aligned one-to-one with the requested symbols, in order. A null entry means that symbol could not be resolved (invalid, delisted, or non-equity) or has no reported financials available; surface it as \"no data for X\" rather than dropping it silently. Within an entry, financials is most-recent-first. Tell quarterly from annual rows by fiscal_quarter (null for annual). Present null metric values as \"not available\", not zero. net_margin is already a percentage — do not multiply by 100."
+  }
+}

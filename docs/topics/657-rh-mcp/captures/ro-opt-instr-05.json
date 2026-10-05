@@ -1,0 +1,29 @@
+{
+  "id": "ro-opt-instr-05",
+  "tool": "get_option_instruments",
+  "group": "options",
+  "gate": "read",
+  "note": "tradability=untradable.",
+  "args": {
+    "chain_symbol": "NFLX",
+    "tradability": "untradable"
+  },
+  "capturedAt": "2026-10-05T17:52:11.018Z",
+  "outcome": "error",
+  "latencyMs": 770,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "tradability=untradable is not allowed"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "tradability=untradable is not allowed"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "dep-watchlist-items-01",
+  "tool": "get_watchlist_items",
+  "group": "watchlists",
+  "gate": "read",
+  "note": "list_id harvested from get_watchlists (list \"ETFs\", item_count=2).",
+  "args": {
+    "list_id": "b503eb36-9575-47d4-9625-20462e04eaa9"
+  },
+  "capturedAt": "2026-10-05T17:58:44.669Z",
+  "outcome": "success",
+  "latencyMs": 1146,
+  "success": true,
+  "response": {
+    "data": {
+      "items": [
+        {
+          "object_id": "eb779bf4-0829-423c-8ef4-dfc130863513",
+          "object_type": "instrument",
+          "symbol": "SOXL"
+        },
+        {
+          "object_id": "91f7ea28-e413-4ca4-b9fa-91f5822f8b8d",
+          "object_type": "instrument",
+          "symbol": "TQQQ"
+        }
+      ],
+      "has_futures_contracts": false
+    },
+    "guide": "For instruments (object_type=instrument) the symbol is the ticker — pass to get_quotes for prices. For crypto (currency_pair), symbol is the pair (BTC-USD). The has_futures_contracts flag at the top tells you whether any futures items are present — futures behavior is different (the object_id is the active contract, not the product). When presenting to the user, lead with symbol + object_type; omit object_id unless asked."
+  }
+}

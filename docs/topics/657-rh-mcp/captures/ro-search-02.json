@@ -1,0 +1,72 @@
+{
+  "id": "ro-search-02",
+  "tool": "search",
+  "group": "research",
+  "gate": "read",
+  "note": "asset_type=currency_pair.",
+  "args": {
+    "query": "bitcoin",
+    "asset_type": "currency_pair"
+  },
+  "capturedAt": "2026-10-05T17:54:33.316Z",
+  "outcome": "success",
+  "latencyMs": 1006,
+  "success": true,
+  "response": {
+    "data": {
+      "currency_pairs": [
+        {
+          "id": "3d961844-d360-45fc-989b-f6fca761d511",
+          "symbol": "BTC-USD",
+          "name": "Bitcoin"
+        },
+        {
+          "id": "2f2b77c4-e426-4271-ae49-18d5cb296d3a",
+          "symbol": "BCH-USD",
+          "name": "Bitcoin Cash"
+        },
+        {
+          "id": "5257b7e3-b31e-4f7c-b3fc-3cbe16e1bd93",
+          "symbol": "WBTC-USD",
+          "name": "Wrapped Bitcoin"
+        },
+        {
+          "id": "086a8f9f-6c39-43fa-ac9f-57952f4a1ba6",
+          "symbol": "BSV-USD",
+          "name": "Bitcoin SV"
+        },
+        {
+          "id": "a31d3fe3-38e6-4adf-ab4b-e303349f5ee4",
+          "symbol": "BTG-USD",
+          "name": "Bitcoin Gold"
+        },
+        {
+          "id": "c22c2279-0d79-4b2c-a5d2-b4e27be45afa",
+          "symbol": "LBTC-USD",
+          "name": "Lombard Staked Bitcoin"
+        },
+        {
+          "id": "4cdfed61-e868-4f37-8f03-4998e68cfb41",
+          "symbol": "BTCLE-USD",
+          "name": "Bitcoin Limited Edition"
+        },
+        {
+          "id": "77ffb7f9-cbd0-4ecc-8de0-f70a32d4ac4d",
+          "symbol": "BTCUSD-USD",
+          "name": "Bitcoin USD (BTCFi)"
+        },
+        {
+          "id": "af9cbca6-ac0f-4e0a-882e-8da96fb4f583",
+          "symbol": "PTB-USD",
+          "name": "Portal to Bitcoin"
+        },
+        {
+          "id": "6c3fc84a-a039-49d4-888a-e9f0039fe5cb",
+          "symbol": "BITTY-USD",
+          "name": "The Bitcoin Mascot"
+        }
+      ]
+    },
+    "guide": "Exactly one of results[] (instruments), currency_pairs[] (crypto), or market_indexes[] (indexes) is populated, matching the requested asset_type. Instrument entries carry symbol + instrument_id — pass symbol to symbol-based tools (get_equity_quotes, get_equity_tradability, place_equity_order) and instrument_id to id-based tools. Currency-pair entries carry hyphenated symbol (e.g. BTC-USD) + id — the symbol routes to crypto quote/order tools, the id routes to watchlist tools as currency_pair_ids. Market-index entries carry symbol + id — pass id to index quote tools for live values; the symbol cross-references index snapshot tools. Multiple results means the query was ambiguous (e.g. \"apple\" could match AAPL or APLE; \"bitcoin\" could match BTC-USD or BCH-USD); ask the user to disambiguate before placing trades. An empty result list means no Robinhood-tradable match — do not invent a symbol."
+  }
+}

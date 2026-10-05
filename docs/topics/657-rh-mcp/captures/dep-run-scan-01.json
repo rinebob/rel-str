@@ -1,0 +1,28 @@
+{
+  "id": "dep-run-scan-01",
+  "tool": "run_scan",
+  "group": "scanners",
+  "gate": "read",
+  "note": "scan_id exercised with synthetic id - account has no saved scans (create_scan is a mutation); expect not-found error.",
+  "args": {
+    "scan_id": "00000000-0000-0000-0000-000000000000"
+  },
+  "capturedAt": "2026-10-05T18:03:27.689Z",
+  "outcome": "error",
+  "latencyMs": 1063,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "unable to run scan: rpc error: code = NotFound desc = [NotFound]: Scan not found because\n> no rows in result set"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "unable to run scan: rpc error: code = NotFound desc = [NotFound]: Scan not found because\n> no rows in result set"
+}

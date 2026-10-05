@@ -1,0 +1,63 @@
+{
+  "id": "ro-eq-fund-01",
+  "tool": "get_equity_fundamentals",
+  "group": "equity-data",
+  "gate": "read",
+  "note": "bounds=regular (default session).",
+  "args": {
+    "symbols": [
+      "OOMA"
+    ],
+    "bounds": "regular"
+  },
+  "capturedAt": "2026-10-05T17:50:38.156Z",
+  "outcome": "success",
+  "latencyMs": 2356,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "symbol": "OOMA",
+          "open": "20.200000",
+          "high": "21.040000",
+          "low": "20.160100",
+          "volume": "149736.000000",
+          "overnight_volume": "0.000000",
+          "bounds": "regular",
+          "market_date": "2026-10-05",
+          "average_volume_2_weeks": "477805.753965",
+          "average_volume": "477805.753965",
+          "average_volume_30_days": "514158.003103",
+          "high_52_weeks": "26.190000",
+          "high_52_weeks_date": "2026-08-27",
+          "low_52_weeks": "9.792500",
+          "low_52_weeks_date": "2025-11-21",
+          "float": "24237988.800000",
+          "market_cap": "577116000.000000",
+          "pb_ratio": "5.813890",
+          "pe_ratio": "53.663571",
+          "shares_outstanding": "27600000.000000",
+          "dividend_yield": null,
+          "dividend_per_share": null,
+          "distribution_frequency": null,
+          "payable_date": null,
+          "ex_dividend_date": null,
+          "record_date": null,
+          "thirty_day_sec_yield": null,
+          "description": "Ooma, Inc. engages in the provision of platforms for cloud-based communications solutions, smart security and other connected services. The firm helps to create smart workplaces and homes by providing communications, monitoring, security, automation, productivity, and networking infrastructure applications. Its products and services include Ooma business and Ooma residential. Ooma business offers small business phone services and enterprise communications. Ooma residential deals with phone services and smart security, and the Talkatone mobile app. The company was founded by Andrew Frame, Dennis Peng and Michael Cerda on November 19, 2003 and is headquartered in Sunnyvale, CA.",
+          "ceo": "Eric B. Stang",
+          "headquarters_city": "Sunnyvale",
+          "headquarters_state": "California",
+          "sector": "Communications",
+          "industry": "Major Telecommunications",
+          "num_employees": 1420,
+          "year_founded": 2003,
+          "financial_status_indicator": "CA0",
+          "financial_status_description": ""
+        }
+      ]
+    },
+    "guide": "Symbols that did not resolve (delisted, invalid, non-equity) appear in not_found instead of results; surface them to the user as \"no data for X\" rather than ignoring them. Present nulls as \"not applicable\" rather than zero. Pair financial_status_indicator with financial_status_description — never surface the indicator code alone."
+  }
+}

@@ -7,10 +7,32 @@
   "args": {
     "account_number": "$ENV:RH_ACCOUNT_NUMBER"
   },
-  "capturedAt": "2026-10-01T18:04:10.416Z",
-  "outcome": "skipped",
-  "reason": "missing-env",
-  "missingEnv": [
-    "RH_ACCOUNT_NUMBER"
-  ]
+  "capturedAt": "2026-10-05T17:49:25.761Z",
+  "outcome": "success",
+  "latencyMs": 5595,
+  "success": true,
+  "response": {
+    "data": {
+      "total_value": "25059.33599458",
+      "equity_value": "1807.89599458",
+      "options_value": "0",
+      "futures_value": "0",
+      "event_contracts_value": "0",
+      "crypto_value": "0",
+      "cash": "23251.44",
+      "pending_deposits": "0",
+      "mutual_funds_value": "0",
+      "fixed_income_value": "0",
+      "currency": "USD",
+      "buying_power": {
+        "buying_power": "19786.1500",
+        "unleveraged_buying_power": "19786.1500",
+        "display_currency": "USD"
+      },
+      "crypto_buying_power": {
+        "buying_power": "19786.1500"
+      }
+    },
+    "guide": "Show total_value as \"account value\" or \"portfolio value\". The breakdown fields show how value is distributed across asset types. Zero-value fields mean the user has no holdings in that asset class — omit them from display unless the user explicitly asks. For \"how much cash do I have?\" use the cash field. buying_power is the real-time authoritative spendable figure from the broker; quote buying_power.buying_power as the primary affordability answer with buying_power.display_currency. For \"how much can I spend on crypto?\" quote crypto_buying_power.buying_power instead — crypto is cash-only (not marginable), so the top-level buying_power may overstate it; crypto_buying_power is omitted when unavailable. crypto_value reflects the user's crypto holdings value. On a cash account, recently sold proceeds that have not yet settled are not spendable and are not included in buying_power; that unsettled amount is reported as unsettled_funds by get_accounts (not here), so if you do not already have the account's unsettled_funds, call get_accounts to check it. Whenever you report buying power or account value for a type='cash' account whose unsettled_funds is greater than 0, and the user wants to access unsettled funds or other features available in a limited margin account — if the get_limited_margin_upgrade_info tool is available — call it with the account_number and share the appropriate upgrade link. If that tool is not available, say nothing about limited margin (there is no fallback)."
+  }
 }

@@ -5,9 +5,9 @@
   "gate": "read",
   "note": "Zero-param call; confirms envelope + agentic_allowed flag.",
   "args": {},
-  "capturedAt": "2026-10-01T18:03:38.617Z",
+  "capturedAt": "2026-10-05T17:49:19.796Z",
   "outcome": "success",
-  "latencyMs": 1376,
+  "latencyMs": 4776,
   "success": true,
   "response": {
     "data": {

@@ -1,0 +1,371 @@
+{
+  "id": "ro-earn-cal-02",
+  "tool": "get_earnings_calendar",
+  "group": "research",
+  "gate": "read",
+  "note": "filter=high_market_cap.",
+  "args": {
+    "filter": "high_market_cap"
+  },
+  "capturedAt": "2026-10-05T17:54:08.954Z",
+  "outcome": "success",
+  "latencyMs": 973,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "symbol": "TLK",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.660000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "TLK",
+          "year": 2025,
+          "quarter": 4,
+          "eps": {
+            "estimate": "0.530000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "STZ",
+          "year": 2027,
+          "quarter": 2,
+          "eps": {
+            "estimate": "3.570000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "KEP",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.660000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "TIC",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "0.180000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PAYP",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.190000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "WSE",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HUBG",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.450000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "TLK",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.680000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HUBG",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.440000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PENG",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": "0.740000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "NEOG",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.050000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "LW",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.590000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "WS",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "1.160000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "RPM",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "1.950000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "APLD",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.290000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "LEVI",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "0.360000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "NG",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "-0.080000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "PEP",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "2.300000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "ODC",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "SVNDY",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "NRIX",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "3.980000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AEHR",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.080000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-09",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "DAL",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "2.020000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-09",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "KALV",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "-0.300000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-10",
+            "timing": "am",
+            "verified": false
+          }
+        }
+      ]
+    },
+    "guide": "Each entry is one company's report event within the window, sorted ascending by report date. The window spans days from start_date (positive = forward, negative = look-back). Distinguish \"upcoming\" from \"already reported\" by eps.actual: null means not yet reported. When report.verified is false, present the date as tentative rather than confirmed. An empty results array means no reports fall in the window (with filter=high_market_cap, no high-market-cap names do) — not an error. This tool does NOT return an \"expected move\" — pair with options data for implied-volatility-based moves."
+  }
+}

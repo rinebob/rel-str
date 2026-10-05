@@ -1,0 +1,19 @@
+{
+  "id": "ro-optwl-01",
+  "tool": "get_option_watchlist",
+  "group": "watchlists",
+  "gate": "read",
+  "note": "Zero-param option watchlist.",
+  "args": {},
+  "capturedAt": "2026-10-05T17:52:40.660Z",
+  "outcome": "success",
+  "latencyMs": 1361,
+  "success": true,
+  "response": {
+    "data": {
+      "items": [],
+      "list_id": "f4b9ad9a-e78c-40a6-b8e3-c1e2370a183f"
+    },
+    "guide": "Surface name to the user — it is the human-readable position title (e.g. \"Long Call AAPL Jan 2026 $200\"). option_ids[0] is the contract id to pass to get_option_quotes, review_option_order, place_option_order, or remove_option_from_watchlist. If the user mentions a multi-leg strategy (vertical, iron condor, etc.) they have in their watchlist and you don't see it here, tell them this tool only shows single-leg items and to check the app. \"no options watchlist found\" in the error means options trading is not enabled for this account."
+  }
+}

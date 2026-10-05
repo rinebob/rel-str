@@ -1,0 +1,238 @@
+{
+  "id": "ro-rpnl-08",
+  "tool": "get_realized_pnl",
+  "group": "pnl",
+  "gate": "read",
+  "note": "Custom date window (start_date+end_date, mutually exclusive with span).",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "start_date": "2026-09-01",
+    "end_date": "2026-09-30"
+  },
+  "capturedAt": "2026-10-05T17:50:04.449Z",
+  "outcome": "success",
+  "latencyMs": 1345,
+  "success": true,
+  "response": {
+    "data": {
+      "account_number": "••••6245",
+      "window": "2026-09-01..2026-09-30",
+      "display_currency": "USD",
+      "data_points": [
+        {
+          "start_time": "2026-09-01T04:00:00Z",
+          "end_time": "2026-09-02T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-02T04:00:00Z",
+          "end_time": "2026-09-03T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-03T04:00:00Z",
+          "end_time": "2026-09-04T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-04T04:00:00Z",
+          "end_time": "2026-09-05T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-05T04:00:00Z",
+          "end_time": "2026-09-06T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-06T04:00:00Z",
+          "end_time": "2026-09-07T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-07T04:00:00Z",
+          "end_time": "2026-09-08T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-08T04:00:00Z",
+          "end_time": "2026-09-09T03:59:59Z",
+          "realized_gain": "0.11",
+          "rate_of_realized_gain": "0.0523809523809524",
+          "number_of_trades": 1
+        },
+        {
+          "start_time": "2026-09-09T04:00:00Z",
+          "end_time": "2026-09-10T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-10T04:00:00Z",
+          "end_time": "2026-09-11T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-11T04:00:00Z",
+          "end_time": "2026-09-12T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-12T04:00:00Z",
+          "end_time": "2026-09-13T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-13T04:00:00Z",
+          "end_time": "2026-09-14T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-14T04:00:00Z",
+          "end_time": "2026-09-15T03:59:59Z",
+          "realized_gain": "-14.24",
+          "rate_of_realized_gain": "-0.1154345006485084",
+          "number_of_trades": 1
+        },
+        {
+          "start_time": "2026-09-15T04:00:00Z",
+          "end_time": "2026-09-16T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-16T04:00:00Z",
+          "end_time": "2026-09-17T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-17T04:00:00Z",
+          "end_time": "2026-09-18T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-18T04:00:00Z",
+          "end_time": "2026-09-19T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-19T04:00:00Z",
+          "end_time": "2026-09-20T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-20T04:00:00Z",
+          "end_time": "2026-09-21T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-21T04:00:00Z",
+          "end_time": "2026-09-22T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-22T04:00:00Z",
+          "end_time": "2026-09-23T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-23T04:00:00Z",
+          "end_time": "2026-09-24T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-24T04:00:00Z",
+          "end_time": "2026-09-25T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-25T04:00:00Z",
+          "end_time": "2026-09-26T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-26T04:00:00Z",
+          "end_time": "2026-09-27T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-27T04:00:00Z",
+          "end_time": "2026-09-28T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-28T04:00:00Z",
+          "end_time": "2026-09-29T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-29T04:00:00Z",
+          "end_time": "2026-09-30T03:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-30T04:00:00Z",
+          "end_time": "2026-10-01T03:59:58Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        }
+      ],
+      "total_returns": "-14.13",
+      "total_rate_of_return": "-0.1126255380200861"
+    },
+    "guide": "This is realized profit & loss only — gains/losses from positions closed within the window; it excludes unrealized profit and loss on open positions. data_points are buckets in ascending time order. A window with no closing trades returns empty data_points with zero totals — that is a valid result (\"no realized trades in this window\"), not an error. When a bucket's realized_gain and rate_of_realized_gain are null (a transfer-only bucket whose lots had no cost basis, e.g. transfers), present them as \"n/a\" — do not render them as $0 / 0%. These are aggregate numbers; for individual trade records use the separate realized profit and loss (trade history) tool. Treat figures as informational, not a tax document or tax/performance advice."
+  }
+}

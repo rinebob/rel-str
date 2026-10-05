@@ -1,0 +1,27 @@
+{
+  "id": "dep-sec-filing-02",
+  "tool": "get_sec_filing",
+  "group": "sec-filings",
+  "gate": "read",
+  "note": "section param - TOC section id harvested from dep-sec-filing-01.",
+  "args": {
+    "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+    "section": "consolidated-statements-of-operations"
+  },
+  "capturedAt": "2026-10-05T17:59:57.804Z",
+  "outcome": "success",
+  "latencyMs": 1034,
+  "success": true,
+  "response": {
+    "data": {
+      "section": {
+        "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+        "form_type": "10-K",
+        "section_id": "consolidated-statements-of-operations",
+        "section_title": "CONSOLIDATED STATEMENTS OF OPERATIONS",
+        "content": "## CONSOLIDATED STATEMENTS OF OPERATIONS\n(In millions, except number of shares, which are reflected in thousands, and per-share amounts)\n\n|Years ended | September 27, 2025 | September 28, 2024 | September 30, 2023 |\n|------------|-------------------|---------------------|---------------------|\n|Net sales:   |                   |                     |                     |\n|   Products | $307,003          | $294,866            | $298,085            |\n|   Services | 109,158           | 96,169              | 85,200              |\n|Total net sales | 416,161       | 391,035             | 383,285             |\n|Cost of sales:  |                |                     |                     |\n|   Products | 194,116           | 185,233             | 189,282             |\n|   Services | 26,844            | 25,119              | 24,855              |\n|Total cost of sales | 220,960   | 210,352             | 214,137             |\n|Gross margin | 195,201          | 180,683             | 169,148             |\n|Operating expenses: |            |                     |                     |\n|Research and development | 34,550 | 31,370            | 29,915              |\n|Selling, general and administrative | 27,601 | 26,097  | 24,932              |\n|Total operating expenses | 62,151 | 57,467            | 54,847              |\n|Operating income | 133,050      | 123,216             | 114,301             |\n|Other income/(expense), net | (321) | 269             | (565)               |\n|Income before provision for income taxes | 132,729 | 123,485 | 113,736      |\n|Provision for income taxes | 20,719 | 29,749          | 16,741              |\n|Net income | $112,010          | $93,736             | $96,995             |\n|Earnings per share:  |           |                     |                     |\n|Basic      | $7.49             | $6.11               | $6.16               |\n|Diluted    | $7.46             | $6.08               | $6.13               |\n|Shares used in computing earnings per share: |  |     |                     |\n|Basic      | 14,948,500        | 15,343,783          | 15,744,231          |\n|Diluted    | 15,004,697        | 15,408,095          | 15,812,547          |\n\nSee accompanying Notes to Consolidated Financial Statements.\n\nApple Inc. | 2025 Form 10-K | 29\n\n---"
+      }
+    },
+    "guide": "When section is omitted, table_of_contents is populated and section is absent — pick a section id and call get_sec_filing again with that id. When section is provided, section is populated and table_of_contents is absent. Section content can be several thousand tokens for narrative sections (e.g. MD&A); prefer fetching one section at a time. If the filing has not yet been processed or the section id did not match, an error will be returned."
+  }
+}

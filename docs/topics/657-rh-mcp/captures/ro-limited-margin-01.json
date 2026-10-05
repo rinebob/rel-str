@@ -1,0 +1,25 @@
+{
+  "id": "ro-limited-margin-01",
+  "tool": "get_limited_margin_upgrade_info",
+  "group": "account",
+  "gate": "read",
+  "note": "Margin-upgrade eligibility for the agentic cash account.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER"
+  },
+  "capturedAt": "2026-10-05T17:49:31.699Z",
+  "outcome": "success",
+  "latencyMs": 5617,
+  "success": true,
+  "response": {
+    "data": {
+      "account_number": "••••6245",
+      "eligible": true,
+      "current_account_type": "cash",
+      "web_upgrade_url": "https://robinhood.com/contact?account_number=••••6245&account_type=individual&flow_id=brokerage.switch-to-margin-account&source=MCP&target_margin_type=limited",
+      "mobile_upgrade_url": "https://applink.robinhood.com/self_serve?account_number=••••6245&account_type=individual&flow_id=brokerage.switch-to-margin-account&source=MCP&target_margin_type=limited",
+      "upgrade_fallback": "Open the Robinhood app and go to Settings → Investing → Account type, then choose to switch the account to margin."
+    },
+    "guide": "When eligible=true, tell the user in one line what limited margin gives them: it lets the account trade with unsettled funds — proceeds from a closing order can go straight into a new order before that sale settles — with no borrowing or leverage. Then give the upgrade link that matches the user's device, introduced with a line like \"To upgrade your <nickname> account (••••<last4>), open this link:\" — send mobile_upgrade_url when the user is on a phone (a universal link that opens the flow in the Robinhood app) and web_upgrade_url when they are on desktop/web (opens in a browser). If the device is unknown, offer both, clearly labeled \"on your phone\" vs \"on desktop/web\". Name the account by its nickname and last four digits (from get_accounts) in the prose, but send the chosen URL exactly as returned with the account number unmasked (masking the number in the link breaks it). If the user reports that neither link works, give them the manual path from upgrade_fallback. The user completes the upgrade themselves in that flow (identity verification and agreement acceptance); this tool never changes the account, so once they confirm they finished, re-fetch get_accounts because the account type from any earlier call is now stale."
+  }
+}

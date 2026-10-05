@@ -1,0 +1,121 @@
+{
+  "id": "dep-rev-opt-14",
+  "tool": "review_option_order",
+  "group": "sims",
+  "gate": "read",
+  "note": "ratio_quantity exercised - 1x2 call ratio spread (buy 1x $2.5c, sell 2x $5c).",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+        "side": "buy",
+        "position_effect": "open",
+        "ratio_quantity": 1
+      },
+      {
+        "option_id": "2610ed58-aca3-4077-97b0-eb57041082a7",
+        "side": "sell",
+        "position_effect": "open",
+        "ratio_quantity": 2
+      }
+    ],
+    "type": "limit",
+    "price": "0.50",
+    "direction": "credit",
+    "quantity": "1"
+  },
+  "capturedAt": "2026-10-05T18:56:22.697Z",
+  "outcome": "success",
+  "latencyMs": 896,
+  "success": true,
+  "response": {
+    "data": {
+      "account_number": "••••6245",
+      "type": "limit",
+      "direction": "credit",
+      "quantity": "1",
+      "price": "0.50",
+      "legs": [
+        {
+          "option_id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+          "side": "buy",
+          "position_effect": "open",
+          "ratio_quantity": 1
+        },
+        {
+          "option_id": "2610ed58-aca3-4077-97b0-eb57041082a7",
+          "side": "sell",
+          "position_effect": "open",
+          "ratio_quantity": 2
+        }
+      ],
+      "order_checks": {
+        "alertType": "OPTION_WIDE_BID_ASK_SPREAD",
+        "details": {
+          "spread": {
+            "amount": "11.7500",
+            "currency": "USD"
+          }
+        }
+      },
+      "option_quotes": [
+        {
+          "instrument_id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+          "ask_price": "66.800000",
+          "ask_size": 128,
+          "bid_price": "62.850000",
+          "bid_size": 179,
+          "break_even_price": "67.330000",
+          "adjusted_mark_price": "64.830000",
+          "mark_price": "64.825000",
+          "high_fill_rate_buy_price": "65.881000",
+          "low_fill_rate_buy_price": "63.943000",
+          "high_fill_rate_sell_price": "63.768000",
+          "low_fill_rate_sell_price": "65.706000",
+          "previous_close_price": "64.550000",
+          "previous_close_date": "2026-10-02",
+          "implied_volatility": null,
+          "delta": null,
+          "gamma": null,
+          "rho": null,
+          "theta": null,
+          "vega": null,
+          "open_interest": 100,
+          "volume": 0,
+          "chance_of_profit_long": null,
+          "chance_of_profit_short": null,
+          "updated_at": "2026-10-05T18:56:11.522270635Z"
+        },
+        {
+          "instrument_id": "2610ed58-aca3-4077-97b0-eb57041082a7",
+          "ask_price": "64.250000",
+          "ask_size": 121,
+          "bid_price": "60.350000",
+          "bid_size": 82,
+          "break_even_price": "67.300000",
+          "adjusted_mark_price": "62.300000",
+          "mark_price": "62.300000",
+          "high_fill_rate_buy_price": "63.297000",
+          "low_fill_rate_buy_price": "61.376000",
+          "high_fill_rate_sell_price": "61.302000",
+          "low_fill_rate_sell_price": "63.223000",
+          "previous_close_price": "62.100000",
+          "previous_close_date": "2026-10-02",
+          "implied_volatility": null,
+          "delta": null,
+          "gamma": null,
+          "rho": null,
+          "theta": null,
+          "vega": null,
+          "open_interest": 3,
+          "volume": 0,
+          "chance_of_profit_long": null,
+          "chance_of_profit_short": null,
+          "updated_at": "2026-10-05T18:53:52.498277803Z"
+        }
+      ]
+    },
+    "guide": "This tool does NOT place the order — it returns a preview for the user to review. Reaching this tool means the user opted into the review step, so you MUST present the preview to the user (legs, type, quantity, price/stop_price, alerts, fees, collateral, quote) and get explicit confirmation before calling place_option_order (for a new order) or replace_option_order (when modifying an existing order). This holds even when order_checks is empty ({}) — empty means no broker alerts, NOT that confirmation can be skipped; the user asked to review, so let them review. Non-empty order_checks: present alertType + details verbatim and ask the user to confirm before proceeding. On user ack, call place_option_order (or replace_option_order) with the same parameters. With several legs, present each leg (pair it with its option_quotes entry by instrument_id) and then the net direction and price for the order as a whole. Use option_quotes (mark_price, bid/ask, greeks) to help judge cost. When fees is present, lead with total_fee; mention gold_fee_savings when non-zero. When collateral is present, show cash amount/direction; warn on cash.infinite=true (unlimited-risk position) or non-empty equities (share-based collateral). Echo the order type: for market/stop_market remind the user the fill price is unbounded; for stop_limit/stop_market note the order only triggers when the underlying reaches stop_price."
+  }
+}

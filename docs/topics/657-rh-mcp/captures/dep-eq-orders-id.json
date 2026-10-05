@@ -1,0 +1,45 @@
+{
+  "id": "dep-eq-orders-id",
+  "tool": "get_equity_orders",
+  "group": "equity-orders",
+  "gate": "read",
+  "note": "order_id lookup - newest order id harvested from get_equity_orders (62 orders exist).",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "order_id": "6ac29283-0c52-4a4d-8210-3669061ff34a"
+  },
+  "capturedAt": "2026-10-05T17:59:01.204Z",
+  "outcome": "success",
+  "latencyMs": 938,
+  "success": true,
+  "response": {
+    "data": {
+      "orders": [
+        {
+          "id": "6ac29283-0c52-4a4d-8210-3669061ff34a",
+          "ref_id": "2dc0f798-3188-44de-a968-1bd590a26174",
+          "instrument_id": "9f93477d-e0ef-4294-a336-e12ae781e77c",
+          "symbol": "DINO",
+          "side": "sell",
+          "type": "market",
+          "state": "confirmed",
+          "quantity": "1.000000",
+          "cumulative_quantity": "0.000000",
+          "price": null,
+          "stop_price": "104.290000",
+          "average_price": null,
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "stop",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-04T17:53:07.419018Z",
+          "last_transaction_at": "2026-10-05T12:24:04.616Z",
+          "executions": []
+        }
+      ]
+    },
+    "guide": "For dollar-based orders (dollar_based_amount populated, quantity sometimes null) describe in dollars until cumulative_quantity is meaningful. Mention placed_agent when it is not 'user'. Recover the user-facing order type from type+trigger or from price/stop_price. Present symbol, side, type, state, quantity (or dollar_based_amount), cumulative_quantity when partially filled, price for limit orders, average_price once filled, last_transaction_at (or created_at), and id when cancellation may follow; suppress other fields unless asked. When next is non-empty more pages exist — it is an opaque cursor, not a URL, so call this tool again with cursor set to that value verbatim and the same filters; keep paging until next is empty whenever the user asks for their full history."
+  }
+}

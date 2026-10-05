@@ -1,0 +1,20 @@
+{
+  "id": "ro-crypto-pos-01",
+  "tool": "get_crypto_positions",
+  "group": "crypto",
+  "gate": "read",
+  "note": "Crypto positions.",
+  "args": {
+    "rhs_account_number": "$ENV:RH_RHS_ACCOUNT_NUMBER"
+  },
+  "capturedAt": "2026-10-05T17:53:20.158Z",
+  "outcome": "success",
+  "latencyMs": 799,
+  "success": true,
+  "response": {
+    "data": {
+      "results": []
+    },
+    "guide": "Sellable quantity: use `quantity_transferable`, not `quantity` — `quantity_transferable` is the amount available to sell right now (already nets out open sell orders, pending withdrawals, holds, quarantine, and instant-funds restrictions); `quantity` only subtracts pending withdrawals. The two are equal in the common case but diverge when there are open sells or unsettled instant buys. Asset name comes from currency.code; for current price, call get_crypto_quotes with the pair symbol (construct as `currency.code + \"-USD\"` for USD-quoted pairs, or look up via get_currency_pairs) — note that get_crypto_quotes takes the symbol, NOT currency_pair_id. Per-unit average buy price for an entry is direct_cost_basis / direct_quantity; when direct_cost_basis is 0, say the basis is unknown rather than reporting a $0 average. direct_quantity is in asset units, so it is safe to sum across entries. The total can differ from the holding's quantity in either direction; report the difference without asserting a cause (possible reasons include transfers or rewards with no captured cost basis, a pending withdrawal, a recent sell still settling, or lot records still being reconciled). When the total is less than quantity, the average buy price covers only that subset of the units. The intraday_* fields isolate today's still-held portion when the user asks about today specifically; they can lag a very recent fill. Suppress cost_bases when not asked. No market price here — for current value or P&L, multiply the get_crypto_quotes result by quantity."
+  }
+}

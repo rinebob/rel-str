@@ -1,0 +1,98 @@
+{
+  "id": "dep-opt-quotes-01",
+  "tool": "get_option_quotes",
+  "group": "options",
+  "gate": "read",
+  "note": "instrument_ids harvested from get_option_instruments (NFLX Nov-20 $2.5 call + Oct-16 $2.5 put).",
+  "args": {
+    "instrument_ids": [
+      "4fdf8791-1063-4326-b23f-095fa3b5b785",
+      "36040fe6-53c8-4719-ae6a-ec51564c3557"
+    ]
+  },
+  "capturedAt": "2026-10-05T17:58:50.500Z",
+  "outcome": "success",
+  "latencyMs": 847,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "quote": {
+            "instrument_id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+            "ask_price": "66.400000",
+            "ask_size": 136,
+            "bid_price": "62.350000",
+            "bid_size": 180,
+            "break_even_price": "66.880000",
+            "adjusted_mark_price": "64.380000",
+            "mark_price": "64.375000",
+            "high_fill_rate_buy_price": "65.456000",
+            "low_fill_rate_buy_price": "63.468000",
+            "high_fill_rate_sell_price": "63.293000",
+            "low_fill_rate_sell_price": "65.281000",
+            "previous_close_price": "64.550000",
+            "previous_close_date": "2026-10-02",
+            "implied_volatility": null,
+            "delta": null,
+            "gamma": null,
+            "rho": null,
+            "theta": null,
+            "vega": null,
+            "open_interest": 100,
+            "volume": 0,
+            "chance_of_profit_long": null,
+            "chance_of_profit_short": null,
+            "updated_at": "2026-10-05T17:58:40.429773681Z"
+          },
+          "close": {
+            "instrument_id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+            "symbol": "NFLX",
+            "date": "2026-10-02",
+            "price": "64.55",
+            "interpolated": false,
+            "source": "ddb-market-snapshot"
+          }
+        },
+        {
+          "quote": {
+            "instrument_id": "36040fe6-53c8-4719-ae6a-ec51564c3557",
+            "ask_price": "0.010000",
+            "ask_size": 1170,
+            "bid_price": "0.000000",
+            "bid_size": 0,
+            "break_even_price": "2.490000",
+            "adjusted_mark_price": "0.010000",
+            "mark_price": "0.005000",
+            "high_fill_rate_buy_price": "",
+            "low_fill_rate_buy_price": "",
+            "high_fill_rate_sell_price": "",
+            "low_fill_rate_sell_price": "",
+            "previous_close_price": "0.010000",
+            "previous_close_date": "2026-10-02",
+            "implied_volatility": "6.740913",
+            "delta": "-0.000354",
+            "gamma": "0.000019",
+            "rho": "-0.000010",
+            "theta": "-0.004567",
+            "vega": "0.000150",
+            "open_interest": 1,
+            "volume": 0,
+            "chance_of_profit_long": "0.013368",
+            "chance_of_profit_short": "0.986632",
+            "updated_at": "2026-10-05T17:58:26.350497212Z"
+          },
+          "close": {
+            "instrument_id": "36040fe6-53c8-4719-ae6a-ec51564c3557",
+            "symbol": "NFLX",
+            "date": "2026-10-02",
+            "price": "0.01",
+            "interpolated": false,
+            "source": "ddb-market-snapshot"
+          }
+        }
+      ]
+    },
+    "guide": "Each entry in results pairs the live quote with the official prior-session close for the same option contract. Current price: use quote.mark_price (adjusted_mark_price when comparing against historical cost basis); verify quote.updated_at is recent before calling it 'current' — otherwise phrase as 'as of <updated_at>'. 1D P&L per contract: (quote.mark_price - close.price) × multiplier × position_quantity (multiplier is typically 100; use trade_value_multiplier from get_option_positions for adjusted contracts). Prefer results[].close.price (official settled close) over quote.previous_close_price; when a result is missing close — either closes_error is set tool-wide, or this contract had no close in an otherwise-successful batch — fall back to quote.previous_close_price and tell the user the official close lookup is unavailable. When close.interpolated is true, surface close.date — the price is not from the requested day. Drop bid/ask when zero."
+  }
+}

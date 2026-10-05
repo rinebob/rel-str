@@ -1,0 +1,61 @@
+{
+  "id": "ro-sec-idx-02",
+  "tool": "get_sec_filing_index",
+  "group": "sec-filings",
+  "gate": "read",
+  "note": "form_type filter.",
+  "args": {
+    "symbol": "AAPL",
+    "form_type": [
+      "10-K"
+    ]
+  },
+  "capturedAt": "2026-10-05T17:54:00.807Z",
+  "outcome": "success",
+  "latencyMs": 1095,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "AAPL",
+      "filings": [
+        {
+          "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+          "form_type": "10-K",
+          "description": "Annual report pursuant to section 13 and 15(d)",
+          "date_filed": "2025-10-31"
+        },
+        {
+          "filing_id": "71575601-2342-4a06-b4d6-da4fbb332738",
+          "form_type": "10-K",
+          "description": "Annual report pursuant to section 13 and 15(d)",
+          "date_filed": "2024-11-01"
+        },
+        {
+          "filing_id": "67b5f36f-226d-4376-901f-4d428b789805",
+          "form_type": "10-K",
+          "description": "Annual report pursuant to section 13 and 15(d)",
+          "date_filed": "2023-11-03"
+        },
+        {
+          "filing_id": "27c07064-a0ab-4224-92ea-2637d8e23c9c",
+          "form_type": "10-K",
+          "description": "Annual report pursuant to section 13 and 15(d)",
+          "date_filed": "2022-10-28"
+        },
+        {
+          "filing_id": "e3e6ed68-2313-4bb2-ad40-2aab01edc7d2",
+          "form_type": "10-K",
+          "description": "Annual report pursuant to section 13 and 15(d)",
+          "date_filed": "2021-10-29"
+        },
+        {
+          "filing_id": "b2932d19-a269-4ba1-8fb9-cab6b1544279",
+          "form_type": "10-K",
+          "description": "Annual report pursuant to section 13 and 15(d)",
+          "date_filed": "2020-10-30"
+        }
+      ]
+    },
+    "guide": "If next is non-empty, more filings are available — call this tool again with the cursor value from next to fetch the next page. Results are most-recent-first. When the question doesn't need more than the most recent filing's own embedded history (most questions), use the first result rather than filtering further. When the question needs data spanning further back than one filing embeds — a multi-year trend beyond ~3 years, a specific past quarter, confirming a disclosed subsequent event's follow-through in the next filing — widen since/until and select up to 3 of the returned filings covering the needed span, then pass all of their filing_ids to get_sec_filing_facts. If a query with specific filters (form_type, since/until) returns no filings, retry once with the filters loosened (drop form_type, or widen/drop the date range) before giving up; if it's still empty, say clearly that no matching filing was found rather than guessing from an unrelated one."
+  }
+}

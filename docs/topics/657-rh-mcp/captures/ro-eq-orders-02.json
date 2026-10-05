@@ -1,0 +1,21 @@
+{
+  "id": "ro-eq-orders-02",
+  "tool": "get_equity_orders",
+  "group": "equity-orders",
+  "gate": "read",
+  "note": "symbol filter (triggers symbol->instrument lookup).",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbol": "OOMA"
+  },
+  "capturedAt": "2026-10-05T17:50:10.032Z",
+  "outcome": "success",
+  "latencyMs": 978,
+  "success": true,
+  "response": {
+    "data": {
+      "orders": []
+    },
+    "guide": "For dollar-based orders (dollar_based_amount populated, quantity sometimes null) describe in dollars until cumulative_quantity is meaningful. Mention placed_agent when it is not 'user'. Recover the user-facing order type from type+trigger or from price/stop_price. Present symbol, side, type, state, quantity (or dollar_based_amount), cumulative_quantity when partially filled, price for limit orders, average_price once filled, last_transaction_at (or created_at), and id when cancellation may follow; suppress other fields unless asked. When next is non-empty more pages exist — it is an opaque cursor, not a URL, so call this tool again with cursor set to that value verbatim and the same filters; keep paging until next is empty whenever the user asks for their full history."
+  }
+}

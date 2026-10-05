@@ -1,0 +1,62 @@
+{
+  "id": "ro-opt-chains-01",
+  "tool": "get_option_chains",
+  "group": "options",
+  "gate": "read",
+  "note": "NFLX chain - source of chain_id for wave-2 probes.",
+  "args": {
+    "underlying_symbol": "NFLX"
+  },
+  "capturedAt": "2026-10-05T17:51:58.833Z",
+  "outcome": "success",
+  "latencyMs": 908,
+  "success": true,
+  "response": {
+    "data": {
+      "chains": [
+        {
+          "id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+          "symbol": "NFLX",
+          "can_open_position": true,
+          "cash_component": null,
+          "expiration_dates": [
+            "2026-10-09",
+            "2026-10-16",
+            "2026-10-23",
+            "2026-10-30",
+            "2026-11-06",
+            "2026-11-13",
+            "2026-11-20",
+            "2026-12-18",
+            "2027-01-15",
+            "2027-03-19",
+            "2027-06-17",
+            "2027-09-17",
+            "2027-12-17",
+            "2028-01-21",
+            "2028-06-16",
+            "2028-12-15",
+            "2029-01-19"
+          ],
+          "trade_value_multiplier": "100.0000",
+          "underlying_instruments": [
+            {
+              "instrument": "http://edge-internal.brokeback-shard-router.region.rh/instruments/81733743-965a-4d93-b87a-6973cb9efd34/",
+              "symbol": ""
+            }
+          ],
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          },
+          "late_close_state": "disabled",
+          "extended_hours_state": "enabled",
+          "settle_on_open": false,
+          "sellout_time_to_expiration": 1800
+        }
+      ]
+    },
+    "guide": "Pass id to get_option_instruments as chain_id to list contracts. CURB market_hours on place_option_order require extended_hours_state='enabled' AND an index chain (underlying_instruments empty). When the user mentions AM/PM/morning/evening expiration, check settle_on_open per chain — same underlying can have multiple chains, so do not assume they split cleanly by settlement. Present id, symbol, expiration_dates (annotate AM when settle_on_open is true), and trade_value_multiplier."
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "dep-prev-scan-03",
+  "tool": "preview_scan",
+  "group": "sims",
+  "gate": "read",
+  "note": "filter interval/length/plot/display_title exercised on a parameterized RSI filter.",
+  "args": {
+    "filters": [
+      {
+        "filter_type": "FILTER_TYPE_RSI",
+        "predicate": "PREDICATE_LESS_THAN",
+        "values": [
+          "30"
+        ],
+        "interval": "1d",
+        "length": 14,
+        "plot": true,
+        "display_title": "Oversold RSI"
+      }
+    ]
+  },
+  "capturedAt": "2026-10-05T18:56:18.576Z",
+  "outcome": "error",
+  "latencyMs": 1138,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "filter[0]: display_title is only used with an expression filter — an enum filter's label comes from its filter type"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "filter[0]: display_title is only used with an expression filter — an enum filter's label comes from its filter type"
+}

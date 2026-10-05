@@ -1,0 +1,45 @@
+{
+  "id": "ro-ind-12",
+  "tool": "get_equity_technical_indicators",
+  "group": "equity-indicators",
+  "gate": "read",
+  "note": "type=bollinger_bands - one of 18 indicator types (each has distinct output fields).",
+  "args": {
+    "symbol": "OOMA",
+    "type": "bollinger_bands",
+    "interval": "day",
+    "start_time": "2026-05-01T00:00:00Z",
+    "period": 20,
+    "num_std": 2.5,
+    "output": "latest"
+  },
+  "capturedAt": "2026-10-05T17:51:46.646Z",
+  "outcome": "success",
+  "latencyMs": 954,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "interval": "day",
+      "bounds": "regular",
+      "indicators": [
+        {
+          "type": "bollinger_bands",
+          "params": {
+            "num_std": 2.5,
+            "period": 20
+          },
+          "series": [
+            {
+              "begins_at": "2026-10-02T00:00:00Z",
+              "lower": 19.672371080262234,
+              "middle": 21.707620988134718,
+              "upper": 23.7428708960072
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Convert begins_at (UTC) to the user's timezone for display. Skip a null output field rather than presenting it as zero. When an indicator emits multiple output fields per bar (e.g. bollinger_bands, macd), interpret them together, not in isolation."
+  }
+}

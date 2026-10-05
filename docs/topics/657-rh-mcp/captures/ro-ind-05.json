@@ -1,0 +1,41 @@
+{
+  "id": "ro-ind-05",
+  "tool": "get_equity_technical_indicators",
+  "group": "equity-indicators",
+  "gate": "read",
+  "note": "type=roc - one of 18 indicator types (each has distinct output fields).",
+  "args": {
+    "symbol": "OOMA",
+    "type": "roc",
+    "interval": "day",
+    "start_time": "2026-05-01T00:00:00Z",
+    "period": 12,
+    "output": "latest"
+  },
+  "capturedAt": "2026-10-05T17:51:38.107Z",
+  "outcome": "success",
+  "latencyMs": 2262,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "interval": "day",
+      "bounds": "regular",
+      "indicators": [
+        {
+          "type": "roc",
+          "params": {
+            "period": 12
+          },
+          "series": [
+            {
+              "begins_at": "2026-10-02T00:00:00Z",
+              "value": -7.883082373782102
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Convert begins_at (UTC) to the user's timezone for display. Skip a null output field rather than presenting it as zero. When an indicator emits multiple output fields per bar (e.g. bollinger_bands, macd), interpret them together, not in isolation."
+  }
+}

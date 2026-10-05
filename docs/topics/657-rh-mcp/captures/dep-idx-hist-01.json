@@ -1,0 +1,281 @@
+{
+  "id": "dep-idx-hist-01",
+  "tool": "get_index_historicals",
+  "group": "indexes",
+  "gate": "read",
+  "note": "SPX daily bars, ~1 month.",
+  "args": {
+    "instrument_ids": [
+      "432fbbb8-b82c-454a-852d-eb85382c7066"
+    ],
+    "start_time": "2026-09-01T00:00:00Z",
+    "interval": "day"
+  },
+  "capturedAt": "2026-10-05T17:58:46.986Z",
+  "outcome": "success",
+  "latencyMs": 828,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "instrument_id": "432fbbb8-b82c-454a-852d-eb85382c7066",
+          "symbol": "SPX",
+          "interval": "day",
+          "bars": [
+            {
+              "begins_at": "2026-09-01T00:00:00Z",
+              "open_value": "7635.47",
+              "high_value": "7663.63",
+              "low_value": "7611.2",
+              "close_value": "7631.47"
+            },
+            {
+              "begins_at": "2026-09-02T00:00:00Z",
+              "open_value": "7634.58",
+              "high_value": "7681.19",
+              "low_value": "7633.62",
+              "close_value": "7666.6"
+            },
+            {
+              "begins_at": "2026-09-03T00:00:00Z",
+              "open_value": "7686.71",
+              "high_value": "7756.76",
+              "low_value": "7686.71",
+              "close_value": "7747.71"
+            },
+            {
+              "begins_at": "2026-09-04T00:00:00Z",
+              "open_value": "7750.19",
+              "high_value": "7750.19",
+              "low_value": "7706.12",
+              "close_value": "7718.6"
+            },
+            {
+              "begins_at": "2026-09-05T00:00:00Z",
+              "open_value": "7750.19",
+              "high_value": "7750.19",
+              "low_value": "7706.12",
+              "close_value": "7718.6",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-06T00:00:00Z",
+              "open_value": "7750.19",
+              "high_value": "7750.19",
+              "low_value": "7706.12",
+              "close_value": "7718.6",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-07T00:00:00Z",
+              "open_value": "7750.19",
+              "high_value": "7750.19",
+              "low_value": "7706.12",
+              "close_value": "7718.6",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-08T00:00:00Z",
+              "open_value": "7717.81",
+              "high_value": "7717.81",
+              "low_value": "7666.99",
+              "close_value": "7673.52"
+            },
+            {
+              "begins_at": "2026-09-09T00:00:00Z",
+              "open_value": "7660.68",
+              "high_value": "7660.68",
+              "low_value": "7624.16",
+              "close_value": "7636.36"
+            },
+            {
+              "begins_at": "2026-09-10T00:00:00Z",
+              "open_value": "7594.74",
+              "high_value": "7612.86",
+              "low_value": "7580.06",
+              "close_value": "7591.7"
+            },
+            {
+              "begins_at": "2026-09-11T00:00:00Z",
+              "open_value": "7636.75",
+              "high_value": "7677.02",
+              "low_value": "7636.75",
+              "close_value": "7656.98"
+            },
+            {
+              "begins_at": "2026-09-12T00:00:00Z",
+              "open_value": "7636.75",
+              "high_value": "7677.02",
+              "low_value": "7636.75",
+              "close_value": "7656.98",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-13T00:00:00Z",
+              "open_value": "7636.75",
+              "high_value": "7677.02",
+              "low_value": "7636.75",
+              "close_value": "7656.98",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-14T00:00:00Z",
+              "open_value": "7611.44",
+              "high_value": "7647.99",
+              "low_value": "7592.28",
+              "close_value": "7619.98"
+            },
+            {
+              "begins_at": "2026-09-15T00:00:00Z",
+              "open_value": "7612.3",
+              "high_value": "7617.26",
+              "low_value": "7572.69",
+              "close_value": "7585.73"
+            },
+            {
+              "begins_at": "2026-09-16T00:00:00Z",
+              "open_value": "7601.25",
+              "high_value": "7626.79",
+              "low_value": "7507.77",
+              "close_value": "7551.81"
+            },
+            {
+              "begins_at": "2026-09-17T00:00:00Z",
+              "open_value": "7631.44",
+              "high_value": "7646.86",
+              "low_value": "7611.81",
+              "close_value": "7637.76"
+            },
+            {
+              "begins_at": "2026-09-18T00:00:00Z",
+              "open_value": "7657.17",
+              "high_value": "7657.17",
+              "low_value": "7610.52",
+              "close_value": "7650.5"
+            },
+            {
+              "begins_at": "2026-09-19T00:00:00Z",
+              "open_value": "7657.17",
+              "high_value": "7657.17",
+              "low_value": "7610.52",
+              "close_value": "7650.5",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-20T00:00:00Z",
+              "open_value": "7657.17",
+              "high_value": "7657.17",
+              "low_value": "7610.52",
+              "close_value": "7650.5",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-21T00:00:00Z",
+              "open_value": "7692.83",
+              "high_value": "7779.22",
+              "low_value": "7691.19",
+              "close_value": "7764.7"
+            },
+            {
+              "begins_at": "2026-09-22T00:00:00Z",
+              "open_value": "7770.81",
+              "high_value": "7782.19",
+              "low_value": "7756.26",
+              "close_value": "7764.64"
+            },
+            {
+              "begins_at": "2026-09-23T00:00:00Z",
+              "open_value": "7761.94",
+              "high_value": "7761.94",
+              "low_value": "7694.89",
+              "close_value": "7706.03"
+            },
+            {
+              "begins_at": "2026-09-24T00:00:00Z",
+              "open_value": "7666.99",
+              "high_value": "7719.01",
+              "low_value": "7662.57",
+              "close_value": "7704.13"
+            },
+            {
+              "begins_at": "2026-09-25T00:00:00Z",
+              "open_value": "7709.86",
+              "high_value": "7752.07",
+              "low_value": "7693.08",
+              "close_value": "7743.41"
+            },
+            {
+              "begins_at": "2026-09-26T00:00:00Z",
+              "open_value": "7709.86",
+              "high_value": "7752.07",
+              "low_value": "7693.08",
+              "close_value": "7743.41",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-27T00:00:00Z",
+              "open_value": "7709.86",
+              "high_value": "7752.07",
+              "low_value": "7693.08",
+              "close_value": "7743.41",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-09-28T00:00:00Z",
+              "open_value": "7721.7",
+              "high_value": "7724.15",
+              "low_value": "7666.6",
+              "close_value": "7683.69"
+            },
+            {
+              "begins_at": "2026-09-29T00:00:00Z",
+              "open_value": "7699.6",
+              "high_value": "7699.6",
+              "low_value": "7653.55",
+              "close_value": "7670.84"
+            },
+            {
+              "begins_at": "2026-09-30T00:00:00Z",
+              "open_value": "7688.99",
+              "high_value": "7722.88",
+              "low_value": "7651.54",
+              "close_value": "7651.54"
+            },
+            {
+              "begins_at": "2026-10-01T00:00:00Z",
+              "open_value": "7666.47",
+              "high_value": "7684.75",
+              "low_value": "7616.78",
+              "close_value": "7666.45"
+            },
+            {
+              "begins_at": "2026-10-02T00:00:00Z",
+              "open_value": "7726.24",
+              "high_value": "7754.67",
+              "low_value": "7700.51",
+              "close_value": "7722.72"
+            },
+            {
+              "begins_at": "2026-10-03T00:00:00Z",
+              "open_value": "7726.24",
+              "high_value": "7754.67",
+              "low_value": "7700.51",
+              "close_value": "7722.72",
+              "interpolated": true
+            },
+            {
+              "begins_at": "2026-10-04T00:00:00Z",
+              "open_value": "7726.24",
+              "high_value": "7754.67",
+              "low_value": "7700.51",
+              "close_value": "7722.72",
+              "interpolated": true
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Bars are left-edge labeled in UTC; convert to the user's timezone for presentation. Treat interpolated=true bars as gap-fill — they carry no new information and should usually be hidden in charts and ignored for analytics. Bars carry index values, not trade prices — there is no volume. For the current level use get_index_quotes; for a multi-bar move, compute the change from the first bar's open_value to the last bar's close_value. Match results to your request by instrument_id; requested ids that did not resolve are listed in not_found, and ids under restricted are unavailable for licensing reasons — tell the user that rather than retrying."
+  }
+}

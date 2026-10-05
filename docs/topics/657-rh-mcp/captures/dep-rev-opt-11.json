@@ -1,0 +1,38 @@
+{
+  "id": "dep-rev-opt-11",
+  "tool": "review_option_order",
+  "group": "sims",
+  "gate": "read",
+  "note": "stop_price on a single-leg buy stop - exercises stop order semantics.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "4fdf8791-1063-4326-b23f-095fa3b5b785",
+        "side": "buy",
+        "position_effect": "open"
+      }
+    ],
+    "type": "stop",
+    "stop_price": "5.00",
+    "quantity": "1"
+  },
+  "capturedAt": "2026-10-05T18:01:46.310Z",
+  "outcome": "error",
+  "latencyMs": 903,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "invalid type \"stop\" (expected market, limit, stop_market, or stop_limit)"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "invalid type \"stop\" (expected market, limit, stop_market, or stop_limit)"
+}

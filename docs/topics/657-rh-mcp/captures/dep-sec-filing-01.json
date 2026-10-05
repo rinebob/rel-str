@@ -1,0 +1,265 @@
+{
+  "id": "dep-sec-filing-01",
+  "tool": "get_sec_filing",
+  "group": "sec-filings",
+  "gate": "read",
+  "note": "AAPL 10-K filed 2025-10-31 - source of section ids for wave-3.",
+  "args": {
+    "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d"
+  },
+  "capturedAt": "2026-10-05T17:59:02.445Z",
+  "outcome": "success",
+  "latencyMs": 933,
+  "success": true,
+  "response": {
+    "data": {
+      "table_of_contents": {
+        "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+        "form_type": "10-K",
+        "sections": [
+          {
+            "id": "apple-inc",
+            "title": "Apple Inc.",
+            "level": 1
+          },
+          {
+            "id": "form-10-k",
+            "title": "Form 10-K",
+            "level": 2
+          },
+          {
+            "id": "apple-inc-2",
+            "title": "Apple Inc.",
+            "level": 1
+          },
+          {
+            "id": "consolidated-statements-of-operations",
+            "title": "CONSOLIDATED STATEMENTS OF OPERATIONS",
+            "level": 2
+          },
+          {
+            "id": "apple-inc-3",
+            "title": "Apple Inc.",
+            "level": 1
+          },
+          {
+            "id": "consolidated-statements-of-comprehensive-income",
+            "title": "CONSOLIDATED STATEMENTS OF COMPREHENSIVE INCOME",
+            "level": 2
+          },
+          {
+            "id": "apple-inc-4",
+            "title": "Apple Inc.",
+            "level": 1
+          },
+          {
+            "id": "consolidated-balance-sheets",
+            "title": "CONSOLIDATED BALANCE SHEETS",
+            "level": 2
+          },
+          {
+            "id": "apple-inc-5",
+            "title": "Apple Inc.",
+            "level": 1
+          },
+          {
+            "id": "consolidated-statements-of-shareholders-equity",
+            "title": "CONSOLIDATED STATEMENTS OF SHAREHOLDERS' EQUITY",
+            "level": 2
+          },
+          {
+            "id": "apple-inc-6",
+            "title": "Apple Inc.",
+            "level": 1
+          },
+          {
+            "id": "consolidated-statements-of-cash-flows",
+            "title": "CONSOLIDATED STATEMENTS OF CASH FLOWS",
+            "level": 2
+          },
+          {
+            "id": "apple-inc-7",
+            "title": "Apple Inc.",
+            "level": 1
+          },
+          {
+            "id": "notes-to-consolidated-financial-statements",
+            "title": "Notes to Consolidated Financial Statements",
+            "level": 2
+          },
+          {
+            "id": "note-1-â-summary-of-significant-accounting-policies",
+            "title": "Note 1 â Summary of Significant Accounting Policies",
+            "level": 3
+          },
+          {
+            "id": "note-4-â-financial-instruments",
+            "title": "Note 4 â Financial Instruments",
+            "level": 1
+          },
+          {
+            "id": "cash-cash-equivalents-and-marketable-securities",
+            "title": "Cash, Cash Equivalents and Marketable Securities",
+            "level": 2
+          },
+          {
+            "id": "2025",
+            "title": "2025",
+            "level": 3
+          },
+          {
+            "id": "2024",
+            "title": "2024",
+            "level": 3
+          },
+          {
+            "id": "derivative-instruments-and-hedging",
+            "title": "Derivative Instruments and Hedging",
+            "level": 2
+          },
+          {
+            "id": "foreign-exchange-rate-risk",
+            "title": "Foreign Exchange Rate Risk",
+            "level": 3
+          },
+          {
+            "id": "interest-rate-risk",
+            "title": "Interest Rate Risk",
+            "level": 3
+          },
+          {
+            "id": "accounts-receivable",
+            "title": "Accounts Receivable",
+            "level": 2
+          },
+          {
+            "id": "trade-receivables",
+            "title": "Trade Receivables",
+            "level": 3
+          },
+          {
+            "id": "vendor-non-trade-receivables",
+            "title": "Vendor Non-Trade Receivables",
+            "level": 3
+          },
+          {
+            "id": "note-5-â-property-plant-and-equipment",
+            "title": "Note 5 â Property, Plant and Equipment",
+            "level": 1
+          },
+          {
+            "id": "note-6-â-consolidated-financial-statement-details",
+            "title": "Note 6 â Consolidated Financial Statement Details",
+            "level": 1
+          },
+          {
+            "id": "other-non-current-assets",
+            "title": "Other Non-Current Assets",
+            "level": 3
+          },
+          {
+            "id": "other-current-liabilities",
+            "title": "Other Current Liabilities",
+            "level": 3
+          },
+          {
+            "id": "note-7-â-income-taxes",
+            "title": "Note 7 â Income Taxes",
+            "level": 1
+          },
+          {
+            "id": "european-commission-state-aid-decision",
+            "title": "European Commission State Aid Decision",
+            "level": 2
+          },
+          {
+            "id": "provision-for-income-taxes-and-effective-tax-rate",
+            "title": "Provision for Income Taxes and Effective Tax Rate",
+            "level": 2
+          },
+          {
+            "id": "term-debt",
+            "title": "Term Debt",
+            "level": 1
+          },
+          {
+            "id": "shareholders-equity",
+            "title": "Shareholders' Equity",
+            "level": 1
+          },
+          {
+            "id": "share-repurchase-program",
+            "title": "Share Repurchase Program",
+            "level": 2
+          },
+          {
+            "id": "shares-of-common-stock",
+            "title": "Shares of Common Stock",
+            "level": 2
+          },
+          {
+            "id": "share-based-compensation",
+            "title": "Share-Based Compensation",
+            "level": 1
+          },
+          {
+            "id": "2022-employee-stock-plan",
+            "title": "2022 Employee Stock Plan",
+            "level": 2
+          },
+          {
+            "id": "restricted-stock-units",
+            "title": "Restricted Stock Units",
+            "level": 2
+          },
+          {
+            "id": "share-based-compensation-2",
+            "title": "Share-Based Compensation",
+            "level": 2
+          },
+          {
+            "id": "commitments-contingencies-and-supply-concentrations",
+            "title": "Commitments, Contingencies and Supply Concentrations",
+            "level": 1
+          },
+          {
+            "id": "unconditional-purchase-obligations",
+            "title": "Unconditional Purchase Obligations",
+            "level": 2
+          },
+          {
+            "id": "contingencies",
+            "title": "Contingencies",
+            "level": 2
+          },
+          {
+            "id": "concentrations-in-the-available-sources-of-supply-of-materials-and-product",
+            "title": "Concentrations in the Available Sources of Supply of Materials and Product",
+            "level": 2
+          },
+          {
+            "id": "segment-information-and-geographic-data",
+            "title": "Segment Information and Geographic Data",
+            "level": 1
+          },
+          {
+            "id": "2025-2",
+            "title": "2025",
+            "level": 3
+          },
+          {
+            "id": "2024-2",
+            "title": "2024",
+            "level": 3
+          },
+          {
+            "id": "2023",
+            "title": "2023",
+            "level": 3
+          }
+        ]
+      }
+    },
+    "guide": "When section is omitted, table_of_contents is populated and section is absent — pick a section id and call get_sec_filing again with that id. When section is provided, section is populated and table_of_contents is absent. Section content can be several thousand tokens for narrative sections (e.g. MD&A); prefer fetching one section at a time. If the filing has not yet been processed or the section id did not match, an error will be returned."
+  }
+}

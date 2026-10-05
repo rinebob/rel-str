@@ -1,0 +1,22 @@
+{
+  "id": "ro-alerts-03",
+  "tool": "get_alerts",
+  "group": "alerts",
+  "gate": "read",
+  "note": "symbol+asset_class=crypto.",
+  "args": {
+    "symbol": "BTC",
+    "asset_class": "crypto"
+  },
+  "capturedAt": "2026-10-05T17:53:35.788Z",
+  "outcome": "success",
+  "latencyMs": 2512,
+  "success": true,
+  "response": {
+    "data": {
+      "alerts": [],
+      "alert_limit_reached": false
+    },
+    "guide": "Alerts are returned grouped by symbol (alphabetically), newest-created first within each symbol. An empty alerts list means the user has no alerts set — a valid result, not an error. Pass alert_id to update_alert or delete_alert; never construct one. Equity alerts carry a bare symbol (AAPL) and crypto alerts the base currency code (BTC, never BTC-USD) — route to get_equity_quotes for equities or get_crypto_quotes for crypto when the user asks how close an alert is to firing, since no live price is included here; get_crypto_quotes takes a pair symbol, so construct it as the symbol + \"-USD\" for USD-quoted pairs (BTC -> BTC-USD) — append \"-USD\" only when the symbol has no hyphen already, since it can arrive pre-formed as a pair — or look up a non-USD-quoted pair via get_currency_pairs. Surface enabled=false before telling the user an alert is watching the market."
+  }
+}

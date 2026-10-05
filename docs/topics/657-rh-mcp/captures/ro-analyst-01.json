@@ -1,0 +1,60 @@
+{
+  "id": "ro-analyst-01",
+  "tool": "get_equity_analyst_ratings",
+  "group": "research",
+  "gate": "read",
+  "note": "Multi-symbol ratings (max 75).",
+  "args": {
+    "symbols": [
+      "NFLX",
+      "OOMA",
+      "AAPL"
+    ]
+  },
+  "capturedAt": "2026-10-05T17:54:12.806Z",
+  "outcome": "success",
+  "latencyMs": 991,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "symbol": "NFLX",
+          "ratings": {
+            "num_buy_ratings": 36,
+            "num_hold_ratings": 17,
+            "num_sell_ratings": 1,
+            "high_price_target": "135.0000",
+            "low_price_target": "57.0000",
+            "mean_price_target": "92.5337",
+            "updated_at": "2026-10-03T01:49:42Z"
+          }
+        },
+        {
+          "symbol": "OOMA",
+          "ratings": {
+            "num_buy_ratings": 6,
+            "num_hold_ratings": 1,
+            "num_sell_ratings": 0,
+            "high_price_target": "30.0000",
+            "low_price_target": "25.0000",
+            "mean_price_target": "26.8000"
+          }
+        },
+        {
+          "symbol": "AAPL",
+          "ratings": {
+            "num_buy_ratings": 27,
+            "num_hold_ratings": 13,
+            "num_sell_ratings": 5,
+            "high_price_target": "405.0000",
+            "low_price_target": "245.0000",
+            "mean_price_target": "335.7519",
+            "updated_at": "2026-10-03T01:50:24Z"
+          }
+        }
+      ]
+    },
+    "guide": "results is positional — aligned one-to-one with the requested symbols, in order. A null ratings means that symbol has no analyst coverage — either it could not be resolved to a tradable instrument, or it has too few contributing analysts to report — surface it as \"no analyst coverage for X\" rather than as an error. Price targets can be absent even when the ratings counts are present (they are gated independently); present that as \"price targets not available\" rather than implying zero coverage."
+  }
+}

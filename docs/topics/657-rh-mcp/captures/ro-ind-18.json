@@ -1,0 +1,45 @@
+{
+  "id": "ro-ind-18",
+  "tool": "get_equity_technical_indicators",
+  "group": "equity-indicators",
+  "gate": "read",
+  "note": "type=pivot_points - one of 18 indicator types (each has distinct output fields).",
+  "args": {
+    "symbol": "OOMA",
+    "type": "pivot_points",
+    "interval": "day",
+    "start_time": "2026-05-01T00:00:00Z",
+    "method": "classic",
+    "output": "latest"
+  },
+  "capturedAt": "2026-10-05T17:51:56.433Z",
+  "outcome": "success",
+  "latencyMs": 966,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "interval": "day",
+      "bounds": "regular",
+      "indicators": [
+        {
+          "type": "pivot_points",
+          "params": {},
+          "series": [
+            {
+              "begins_at": "2026-10-02T00:00:00Z",
+              "pivot": 20.709999999999997,
+              "r1": 21.129999999999995,
+              "r2": 21.499999999999996,
+              "r3": 21.919999999999995,
+              "s1": 20.339999999999996,
+              "s2": 19.919999999999998,
+              "s3": 19.549999999999997
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Convert begins_at (UTC) to the user's timezone for display. Skip a null output field rather than presenting it as zero. When an indicator emits multiple output fields per bar (e.g. bollinger_bands, macd), interpret them together, not in isolation."
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "id": "ro-search-01",
+  "tool": "search",
+  "group": "research",
+  "gate": "read",
+  "note": "Default asset_type (instrument).",
+  "args": {
+    "query": "apple"
+  },
+  "capturedAt": "2026-10-05T17:54:32.005Z",
+  "outcome": "success",
+  "latencyMs": 993,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "instrument_id": "450dfc6d-5510-4d40-abfb-f633b7d9be3e",
+          "symbol": "AAPL",
+          "name": "Apple Inc. Common Stock",
+          "simple_name": "Apple"
+        },
+        {
+          "instrument_id": "125154ba-9c84-471b-be42-a108ee91dfce",
+          "symbol": "APLE",
+          "name": "Apple Hospitality REIT, Inc.",
+          "simple_name": "Apple Hospitality REIT"
+        },
+        {
+          "instrument_id": "523bc703-1a7e-4d22-8819-0ba451312e0c",
+          "symbol": "AAPD",
+          "name": "Direxion Shares ETF Trust Direxion Daily AAPL Bear 1X ETF",
+          "simple_name": "Direxion Daily AAPL Bear 1X ETF"
+        },
+        {
+          "instrument_id": "8aff7383-021a-42d5-a3fc-68b9f52646ec",
+          "symbol": "AAPX",
+          "name": "T-Rex 2X Long Apple Daily Target ETF"
+        },
+        {
+          "instrument_id": "427c87f9-80a2-492f-8c0b-0b5e7d31863a",
+          "symbol": "AAPU",
+          "name": "Direxion Shares ETF Trust Direxion Daily AAPL Bull 2X ETF",
+          "simple_name": "Direxion Daily AAPL Bull 2X ETF"
+        },
+        {
+          "instrument_id": "5efcbceb-c7a3-4e45-bc72-1ad71f4b6d95",
+          "symbol": "AAPY",
+          "name": "Kurv Yield Premium Strategy Apple (AAPL) ETF"
+        },
+        {
+          "instrument_id": "650b5486-eb46-495f-bb09-7f81b1b52324",
+          "symbol": "DIN",
+          "name": "Dine Brands Global, Inc.",
+          "simple_name": "Dine Brands"
+        },
+        {
+          "instrument_id": "6c9ef19c-d0aa-41aa-8931-16e443a344a5",
+          "symbol": "DMC",
+          "name": "Del Monte Corporation",
+          "simple_name": "Del Monte"
+        },
+        {
+          "instrument_id": "dded2a6b-1a48-4d82-8f2d-4486e7e64c3e",
+          "symbol": "TR",
+          "name": "Tootsie Roll Industries, Inc.",
+          "simple_name": "Tootsie Roll"
+        },
+        {
+          "instrument_id": "afd6767b-890a-4ca1-9c88-88d272b06408",
+          "symbol": "YEXT",
+          "name": "Yext, Inc.",
+          "simple_name": "Yext"
+        }
+      ]
+    },
+    "guide": "Exactly one of results[] (instruments), currency_pairs[] (crypto), or market_indexes[] (indexes) is populated, matching the requested asset_type. Instrument entries carry symbol + instrument_id — pass symbol to symbol-based tools (get_equity_quotes, get_equity_tradability, place_equity_order) and instrument_id to id-based tools. Currency-pair entries carry hyphenated symbol (e.g. BTC-USD) + id — the symbol routes to crypto quote/order tools, the id routes to watchlist tools as currency_pair_ids. Market-index entries carry symbol + id — pass id to index quote tools for live values; the symbol cross-references index snapshot tools. Multiple results means the query was ambiguous (e.g. \"apple\" could match AAPL or APLE; \"bitcoin\" could match BTC-USD or BCH-USD); ask the user to disambiguate before placing trades. An empty result list means no Robinhood-tradable match — do not invent a symbol."
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "id": "ro-eq-hist-04",
+  "tool": "get_equity_historicals",
+  "group": "equity-data",
+  "gate": "read",
+  "note": "interval=week. Remaining intervals (15s..4hour, month..50year) excluded - same decimation path.",
+  "args": {
+    "symbols": [
+      "OOMA"
+    ],
+    "start_time": "2026-09-01T00:00:00Z",
+    "interval": "week"
+  },
+  "capturedAt": "2026-10-05T17:51:04.500Z",
+  "outcome": "success",
+  "latencyMs": 1945,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "symbol": "OOMA",
+          "interval": "week",
+          "bounds": "regular",
+          "bars": [
+            {
+              "begins_at": "2026-08-31T00:00:00Z",
+              "open_price": "22.390000",
+              "close_price": "23.200000",
+              "high_price": "23.810000",
+              "low_price": "21.520000",
+              "volume": 2531161,
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-07T00:00:00Z",
+              "open_price": "23.210000",
+              "close_price": "22.770000",
+              "high_price": "23.410000",
+              "low_price": "22.110000",
+              "volume": 1783869,
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-14T00:00:00Z",
+              "open_price": "23.200000",
+              "close_price": "22.730000",
+              "high_price": "23.490000",
+              "low_price": "21.960000",
+              "volume": 3181182,
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-21T00:00:00Z",
+              "open_price": "22.450000",
+              "close_price": "21.770000",
+              "high_price": "23.300000",
+              "low_price": "21.400000",
+              "volume": 2422550,
+              "session": "reg"
+            },
+            {
+              "begins_at": "2026-09-28T00:00:00Z",
+              "open_price": "21.630000",
+              "close_price": "20.800000",
+              "high_price": "22.042100",
+              "low_price": "20.290000",
+              "volume": 2355507,
+              "session": "reg"
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Bars are left-edge labeled in UTC; convert to the user's timezone for presentation. Treat interpolated=true bars as gap-fill — they carry no new info and should usually be hidden in charts and ignored for analytics. close_price on the most recent bar is NOT the official settled close — use get_equity_quotes for that. For a multi-bar move, compute return from the first bar's open_price to the last bar's close_price; do not aggregate intermediate interpolated bars. When bounds='regular' the bar series covers only regular trading hours — gaps between trading sessions are not zero-filled, they are simply absent. When the request omitted interval, the 'interval' field on each result reports what the server auto-selected."
+  }
+}

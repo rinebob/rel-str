@@ -1,0 +1,29 @@
+{
+  "id": "ro-crypto-orders-07",
+  "tool": "get_crypto_orders",
+  "group": "crypto",
+  "gate": "read",
+  "note": "state=filled. Others (queued,confirmed,partially_filled,failed) excluded - same filter path.",
+  "args": {
+    "rhs_account_number": "$ENV:RH_RHS_ACCOUNT_NUMBER",
+    "state": "filled"
+  },
+  "capturedAt": "2026-10-05T17:53:01.313Z",
+  "outcome": "error",
+  "latencyMs": 1794,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "no crypto account linked to brokerage account ••••6245\n\nThis account has no crypto account. To trade crypto, the user must first sign the crypto user agreement and open a crypto account here: https://applink.robinhood.com/crypto_signup_short. Once they have signed, they can retry."
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "no crypto account linked to brokerage account ••••6245\n\nThis account has no crypto account. To trade crypto, the user must first sign the crypto user agreement and open a crypto account here: https://applink.robinhood.com/crypto_signup_short. Once they have signed, they can retry."
+}

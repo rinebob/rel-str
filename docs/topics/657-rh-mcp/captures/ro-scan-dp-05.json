@@ -1,0 +1,601 @@
+{
+  "id": "ro-scan-dp-05",
+  "tool": "get_scanner_datapoints",
+  "group": "scanners",
+  "gate": "read",
+  "note": "category=volatility - one of the nine documented slices (each a distinct payload).",
+  "args": {
+    "category": "volatility"
+  },
+  "capturedAt": "2026-10-05T17:53:52.731Z",
+  "outcome": "success",
+  "latencyMs": 917,
+  "success": true,
+  "response": {
+    "data": {
+      "datapoints": [
+        {
+          "name": "atmIv",
+          "kind": "function",
+          "signature": "atmIv(daysToExp: number): number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of specified value.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv120Day",
+          "kind": "field",
+          "signature": "atmIv120Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 120 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv120DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv120DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv180Day",
+          "kind": "field",
+          "signature": "atmIv180Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 180 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv180DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv180DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv270Day",
+          "kind": "field",
+          "signature": "atmIv270Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 270 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv270DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv270DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv30Day",
+          "kind": "field",
+          "signature": "atmIv30Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 30 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv30DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv30DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv360Day",
+          "kind": "field",
+          "signature": "atmIv360Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 360 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv360DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv360DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv60Day",
+          "kind": "field",
+          "signature": "atmIv60Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 60 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv60DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv60DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv720Day",
+          "kind": "field",
+          "signature": "atmIv720Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 720 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv720DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv720DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv90Day",
+          "kind": "field",
+          "signature": "atmIv90Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 90 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv90DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv90DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "backIV",
+          "kind": "field",
+          "signature": "backIV: number",
+          "description": "Back Volatility – the IV of the expiration after the one for Front Volatility.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "frontIV",
+          "kind": "field",
+          "signature": "frontIV: number",
+          "description": "Front Volatility – the IV of the closes expiration option series with this underlying.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "iv",
+          "kind": "function",
+          "signature": "iv(daysToExp: number): number",
+          "description": "The indicator returns VIX (value is calculated by VIX white-paper and based on implied volatilities of options) of an option series with specified maturity.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.",
+          "value_type": "number"
+        },
+        {
+          "name": "iv52weeksHigh",
+          "kind": "field",
+          "signature": "iv52weeksHigh: number",
+          "description": "The highest implied volatility (IV) observed for an underlying over the past 52 weeks",
+          "value_type": "number"
+        },
+        {
+          "name": "iv52weeksLow",
+          "kind": "field",
+          "signature": "iv52weeksLow: number",
+          "description": "The lowest implied volatility (IV) observed for an underlying over the past 52 weeks",
+          "value_type": "number"
+        },
+        {
+          "name": "ivRank",
+          "kind": "field",
+          "signature": "ivRank: number",
+          "description": "Current IV position within its 52-week high–low range (0–100%).\n(iv − iv52WeeksLow) / (iv52WeeksHigh − iv52WeeksLow)",
+          "value_type": "number"
+        },
+        {
+          "name": "priceStandardDeviation",
+          "kind": "function",
+          "signature": "priceStandardDeviation(candleCount: number, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Standard Deviation of the price.",
+          "value_type": "number"
+        },
+        {
+          "name": "priceStandardDeviation",
+          "kind": "function",
+          "signature": "priceStandardDeviation(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Standard Deviation of the price.",
+          "value_type": "number"
+        },
+        {
+          "name": "relativeVolatilityIndex",
+          "kind": "function",
+          "signature": "relativeVolatilityIndex(candleCount: number = 20, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Measurement of of the direction and magnitude of volatility. The RVI oscillates in the range from 0 to 100 and it is similar in its calculation to the RSI (Relative Strength Index) with difference that it uses Standard Deviation instead of Close price in the RSI's formula.",
+          "value_type": "number"
+        },
+        {
+          "name": "relativeVolatilityIndex",
+          "kind": "function",
+          "signature": "relativeVolatilityIndex(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Measurement of of the direction and magnitude of volatility. The RVI oscillates in the range from 0 to 100 and it is similar in its calculation to the RSI (Relative Strength Index) with difference that it uses Standard Deviation instead of Close price in the RSI's formula.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol",
+          "kind": "function",
+          "signature": "statVol(candleCount: number, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on the given number of candles.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol",
+          "kind": "function",
+          "signature": "statVol(timePeriod: TimePeriod, candlePeriod: CandlePeriod, session: Session = \"all\"): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on the given time period.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol10Day",
+          "kind": "function",
+          "signature": "statVol10Day(session: Session): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 10 trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol10Day",
+          "kind": "field",
+          "signature": "statVol10Day: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 10 trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol10DayPosInRange",
+          "kind": "function",
+          "signature": "statVol10DayPosInRange(session: Session): number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol10DayPosInRange",
+          "kind": "field",
+          "signature": "statVol10DayPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1Month",
+          "kind": "function",
+          "signature": "statVol1Month(session: Session): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 1 calendar month.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1Month",
+          "kind": "field",
+          "signature": "statVol1Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 1 calendar month.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1MonthPosInRange",
+          "kind": "function",
+          "signature": "statVol1MonthPosInRange(session: Session): number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol1MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1Year",
+          "kind": "function",
+          "signature": "statVol1Year(session: Session): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 1 year.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1Year",
+          "kind": "field",
+          "signature": "statVol1Year: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 1 year.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1YearPosInRange",
+          "kind": "function",
+          "signature": "statVol1YearPosInRange(session: Session): number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1YearPosInRange",
+          "kind": "field",
+          "signature": "statVol1YearPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2Month",
+          "kind": "function",
+          "signature": "statVol2Month(session: Session): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 2 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2Month",
+          "kind": "field",
+          "signature": "statVol2Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 2 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2MonthPosInRange",
+          "kind": "function",
+          "signature": "statVol2MonthPosInRange(session: Session): number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol2MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2Year",
+          "kind": "function",
+          "signature": "statVol2Year(session: Session): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 2 years.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2Year",
+          "kind": "field",
+          "signature": "statVol2Year: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 2 year.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2YearPosInRange",
+          "kind": "function",
+          "signature": "statVol2YearPosInRange(session: Session): number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2YearPosInRange",
+          "kind": "field",
+          "signature": "statVol2YearPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol3Month",
+          "kind": "function",
+          "signature": "statVol3Month(session: Session): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 3 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol3Month",
+          "kind": "field",
+          "signature": "statVol3Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 3 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol3MonthPosInRange",
+          "kind": "function",
+          "signature": "statVol3MonthPosInRange(session: Session): number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol3MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol3MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol4Month",
+          "kind": "function",
+          "signature": "statVol4Month(session: Session): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 4 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol4Month",
+          "kind": "field",
+          "signature": "statVol4Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 4 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol4MonthPosInRange",
+          "kind": "function",
+          "signature": "statVol4MonthPosInRange(session: Session): number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol4MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol4MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol6Month",
+          "kind": "function",
+          "signature": "statVol6Month(session: Session): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 6 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol6Month",
+          "kind": "field",
+          "signature": "statVol6Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 6 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol6MonthPosInRange",
+          "kind": "function",
+          "signature": "statVol6MonthPosInRange(session: Session): number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol6MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol6MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol9Month",
+          "kind": "function",
+          "signature": "statVol9Month(session: Session): number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 9 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol9Month",
+          "kind": "field",
+          "signature": "statVol9Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 9 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol9MonthPosInRange",
+          "kind": "function",
+          "signature": "statVol9MonthPosInRange(session: Session): number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol9MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol9MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        }
+      ],
+      "categories": [
+        {
+          "name": "Aggregated Options",
+          "description": "Options activity rolled up onto the underlying, so an equity scan can screen on it: volume (optionsCallVolume, optionsPutVolume, optionsTotalDayVolume) and open interest (optionsCall/Put/TotalOpenInterest) with their averages (…Avg, …Avg10Day), premium traded (optionsDayPremium), and contract conventions (optionsExpirationStyles, optionsSettlementStyles). Ratios like put/call are built by dividing two of these.",
+          "datapoint_count": 46,
+          "aliases": [
+            "aggregated options",
+            "option",
+            "options"
+          ]
+        },
+        {
+          "name": "Descriptive",
+          "description": "Instrument identity and calendar helpers rather than market data: symbol, type, description, country, currency, officialPlaceOfListing, tradingStatus, halt times, plus date arithmetic (nowYMD, days, daysFromNow) used to turn the fundamental.*Ymd date fields into day counts.",
+          "datapoint_count": 12,
+          "aliases": [
+            "descriptive"
+          ]
+        },
+        {
+          "name": "Fundamental",
+          "description": "Company financials, valuation ratios and calendar facts, all prefixed fundamental.*: size and valuation (marketCap, peRatio, forwardPeRatio, enterpriseValue, priceBookRatio), earnings and growth (eps, dilutedEps, annualEpsGrowth, revenue), balance sheet and cash flow (cash, currentDebt, bookValuePerShare, cashFlowFreePerShare), dividends (dps, cashDividend, forwardDividendYield), risk (beta), classification (sector, industry, morningstarSectorLabel) and dates (earningsYmd, exYmd).",
+          "datapoint_count": 65,
+          "aliases": [
+            "fundamental",
+            "fundamentals"
+          ]
+        },
+        {
+          "name": "Price",
+          "description": "Traded price and its movement: current and session prices (tradeAllDay.price, dayOpenPrice, dayHighPrice, dayLowPrice, close, vwap), moving averages of price (closeAvg, closeEma), and change measures both absolute and as ratios (changeFromCloseAllDay, changeFromOpen, changeFromHigh/Low, changeFromPrevDay, changeIn5Day, gap*). Use the *Ratio variants for percentage screens.",
+          "datapoint_count": 64,
+          "aliases": [
+            "price",
+            "price volume"
+          ]
+        },
+        {
+          "name": "Quote",
+          "description": "Current bid and ask, all prefixed quote.*: askPrice, bidPrice, askSize, bidSize, spread, and their timestamps. Use these for liquidity and spread screens.",
+          "datapoint_count": 8,
+          "aliases": [
+            "quote"
+          ]
+        },
+        {
+          "name": "Technical Indicator",
+          "description": "Chart studies computed from candles: momentum and oscillators (rsi, commodityChannelIndex, relativeVolatilityIndex, stochastic), trend (adx, macd, aroonUp/Down, alligator*, linearRegression*), ranges and bands (atr, bollingerBandUp/Down), pivots and distances (distanceFrom200DaySma, distanceFromPivot*), plus cross() for crossovers. Most take candleCount or timePeriod together with candlePeriod, so the same indicator can be evaluated over any horizon.",
+          "datapoint_count": 77,
+          "aliases": [
+            "indicator",
+            "indicators",
+            "technical",
+            "technical indicator"
+          ]
+        },
+        {
+          "name": "Volatility",
+          "description": "How much the instrument moves, and options-implied expectations of it: implied volatility at the money across tenors (iv, atmIv30Day ... atmIv720Day, frontIV, backIV), where current IV sits in its own historical range (atmIv*PosInRange, useful for IV rank style screens), and realized measures (priceStandardDeviation, relativeVolatilityIndex).",
+          "datapoint_count": 65,
+          "aliases": [
+            "vol",
+            "volatility"
+          ]
+        },
+        {
+          "name": "Volume",
+          "description": "Shares traded and its averages: dayVolume, volume, volumeAvg, volumeAvg10Day, volumeAvg10Minutes, volumeEma, volumePostMarket. Relative-volume screens are built by dividing dayVolume by a volumeAvg call rather than by a dedicated datapoint.",
+          "datapoint_count": 12,
+          "aliases": [
+            "price volume",
+            "volume"
+          ]
+        }
+      ],
+      "argument_types": [
+        {
+          "name": "CandlePeriod",
+          "argument_names": [
+            "candlePeriod"
+          ],
+          "values": [
+            "1m",
+            "2m",
+            "3m",
+            "4m",
+            "5m",
+            "10m",
+            "15m",
+            "30m",
+            "1h",
+            "2h",
+            "4h",
+            "1d",
+            "1w",
+            "1mo",
+            "1y"
+          ],
+          "note": "Candle granularity: the size of each candle, not how far back to look. rsi(candleCount=14, candlePeriod=\"1mo\") is RSI over 14 months, not 14 days."
+        },
+        {
+          "name": "Session",
+          "argument_names": [
+            "session"
+          ],
+          "values": [
+            "all",
+            "regular"
+          ],
+          "note": "Which trading session is included: \"all\" covers extended and overnight trading, \"regular\" is regular hours only. Must be lowercase."
+        },
+        {
+          "name": "TimePeriod",
+          "argument_names": [
+            "timePeriod"
+          ],
+          "values": [
+            "1d",
+            "1w",
+            "1mo",
+            "1y"
+          ],
+          "note": "Lookback duration: how far back to look. Accepts a strictly smaller set than candlePeriod - intraday values are invalid. Use either candleCount or timePeriod alongside candlePeriod, not both."
+        }
+      ]
+    },
+    "guide": "Build an expression by copying a signature and filling its arguments: rsi(candleCount: number, candlePeriod: CandlePeriod, session: Session = \"all\") becomes rsi(candleCount=14, candlePeriod=\"1d\", session=\"all\"). Arguments are passed by name, string values are quoted, and an argument shown with a default may be omitted.\n\nAn argument type in UpperCamelCase has a fixed value set in argument_types — using a value outside it fails upstream, so check there rather than inferring. Read the note on CandlePeriod and TimePeriod before choosing: candlePeriod is the size of each candle, timePeriod is how far back to look, and confusing them silently changes what the screen measures.\n\nSome screens are composed rather than looked up: comparing two datapoints puts the whole comparison in the expression with predicate \"=\" and values [\"True\"] — \"put volume exceeds call volume\" is optionsPutDayVolume > optionsCallDayVolume, \"price above its average\" is tradeAllDay.price > closeAvg(...). Prefer that boolean form over dividing (optionsPutDayVolume / optionsCallDayVolume > 1): a division silently drops every instrument whose denominator is zero, which here are the most put-skewed names — the ones the screen exists to find. Composition is also the fallback when an enum filter covers the screen but not your variant — e.g. relative volume has an enum filter (FILTER_TYPE_RELATIVE_VOLUME), so only compose dayVolume / volumeAvg(...) for a lookback missing from its supported_lengths.\n\nScoping the universe to specific instruments uses the symbol field with a LIST predicate rather than a comparison, and the expression is the bare word symbol:\n- named tickers — predicate ANY_OF, values the tickers (\"only AAPL and MSFT\" is expression symbol, predicate ANY_OF, values [\"AAPL\", \"MSFT\"]).\n- members of an index — predicate IN_LIST, values index CODES, not tickers (\"S&P 500 stocks\" is expression symbol, predicate IN_LIST, values [\"SP500\"]). Several codes union: [\"SP500\", \"NDX\"] means in either index.\nThe two predicates are not interchangeable, and mixing them up fails in opposite ways: IN_LIST with a ticker is rejected upstream (\"list name 'AAPL' does not exist\"), while ANY_OF with an index code returns zero rows and no error at all. Valid index codes: SP100, SP400, SP500, SP500_SecIndicies, SP500_SecIndustrIndicies, SP600, DJI, NDX, NDXT25, Russell1000, Russell2000, Russell3000, RussellMidcap, RussellMicrocap, HGX, HXC, OSX, RUF, SOX, UTY, XAU, S5C. There is no code for the Nasdaq Composite: \"COMP\" resolves upstream but collides with the Compound (COMP) crypto symbol, so avoid it. A user's own watchlist or positions cannot be used as a scope.\n\nThe same expressions work as result COLUMNS (the columns parameter of preview_scan, create_scan and update_scan_config): a column displays the expression's value without screening on it. A boolean-comparison filter reads best with its operands as columns (e.g. the put-exceeds-call screen showing both volumes); the division that is wrong as a filter is fine as a column, where a zero denominator only blanks a cell instead of dropping the row.\n\nAlways validate an expression with preview_scan before saving it to a scan."
+  }
+}

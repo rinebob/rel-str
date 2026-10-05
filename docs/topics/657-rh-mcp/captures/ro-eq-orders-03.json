@@ -1,0 +1,606 @@
+{
+  "id": "ro-eq-orders-03",
+  "tool": "get_equity_orders",
+  "group": "equity-orders",
+  "gate": "read",
+  "note": "state=filled. Other states (new,queued,confirmed,unconfirmed,partially_filled,voided) excluded - same filter path, identical empty-ledger envelope.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "state": "filled"
+  },
+  "capturedAt": "2026-10-05T17:50:11.452Z",
+  "outcome": "success",
+  "latencyMs": 1117,
+  "success": true,
+  "response": {
+    "data": {
+      "orders": [
+        {
+          "id": "6abe8a91-a8af-4843-90c5-c6eeb64ed027",
+          "ref_id": "0854c1ca-d29f-4d1f-86ef-76c75870bef4",
+          "instrument_id": "9f93477d-e0ef-4294-a336-e12ae781e77c",
+          "symbol": "DINO",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "1.000000",
+          "cumulative_quantity": "1.000000",
+          "price": "111.660000",
+          "stop_price": null,
+          "average_price": "111.590000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-01T16:30:09.813854Z",
+          "last_transaction_at": "2026-10-01T16:30:10Z",
+          "executions": [
+            {
+              "id": "6abe8a92-f8d4-49ff-a4d7-d9b9ec328ed7",
+              "price": "111.590000",
+              "quantity": "1.000000",
+              "timestamp": "2026-10-01T16:30:10Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6abc9634-f3fc-4d97-8279-b0a613418dfa",
+          "ref_id": "6a6e4cba-4c03-40d1-884a-502768503c64",
+          "instrument_id": "4133748a-563a-429e-a480-497f4c19ec24",
+          "symbol": "BVS",
+          "side": "buy",
+          "type": "limit",
+          "state": "filled",
+          "quantity": "7.000000",
+          "cumulative_quantity": "7.000000",
+          "price": "13.480000",
+          "stop_price": null,
+          "average_price": "13.480000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-30T04:55:16.939545Z",
+          "last_transaction_at": "2026-10-01T13:59:56.709Z",
+          "executions": [
+            {
+              "id": "6abe6737-ca6c-49c1-a835-ce957042c9f5",
+              "price": "13.480000",
+              "quantity": "1.000000",
+              "timestamp": "2026-10-01T13:59:19.171Z",
+              "fees": "0.000000"
+            },
+            {
+              "id": "6abe6753-848c-4bb7-97f5-65344614454d",
+              "price": "13.480000",
+              "quantity": "2.000000",
+              "timestamp": "2026-10-01T13:59:47.149Z",
+              "fees": "0.000000"
+            },
+            {
+              "id": "6abe675c-d882-4599-a380-578bb0fba5bb",
+              "price": "13.480000",
+              "quantity": "4.000000",
+              "timestamp": "2026-10-01T13:59:56.709Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6ab9f920-470f-4367-8dbd-b6121b82c09d",
+          "ref_id": "eccebc1d-47a7-4681-ad52-ae9846935257",
+          "instrument_id": "27afe0a7-b3c0-4db9-bc1b-dfe24b13c37f",
+          "symbol": "NMM",
+          "side": "buy",
+          "type": "limit",
+          "state": "filled",
+          "quantity": "1.000000",
+          "cumulative_quantity": "1.000000",
+          "price": "91.390000",
+          "stop_price": null,
+          "average_price": "91.390000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-28T05:20:32.362145Z",
+          "last_transaction_at": "2026-09-28T13:30:10.257Z",
+          "executions": [
+            {
+              "id": "6aba6be2-ac33-4d8d-8ef6-e854a8a2562c",
+              "price": "91.390000",
+              "quantity": "1.000000",
+              "timestamp": "2026-09-28T13:30:10.257Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6ab9f4ec-ab15-4166-9adf-8e41d6be679d",
+          "ref_id": "8f84ade2-b548-4f58-bb1e-418db61ee6d9",
+          "instrument_id": "623365ed-3a20-4d53-ba62-cec06f18cb18",
+          "symbol": "ADI",
+          "side": "buy",
+          "type": "limit",
+          "state": "filled",
+          "quantity": "1.000000",
+          "cumulative_quantity": "1.000000",
+          "price": "393.330000",
+          "stop_price": null,
+          "average_price": "393.330000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-28T05:02:36.371993Z",
+          "last_transaction_at": "2026-09-28T13:30:07.157Z",
+          "executions": [
+            {
+              "id": "6aba6bdf-d20b-4b88-bef7-205d6a237caa",
+              "price": "393.330000",
+              "quantity": "1.000000",
+              "timestamp": "2026-09-28T13:30:07.157Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6ab9f470-3bf6-4fb6-986b-6771ffe2e177",
+          "ref_id": "326cde17-dbb1-450a-9713-ffa12c2f7eec",
+          "instrument_id": "50810c35-d215-4866-9758-0ada4ac79ffa",
+          "symbol": "MSFT",
+          "side": "buy",
+          "type": "limit",
+          "state": "filled",
+          "quantity": "1.000000",
+          "cumulative_quantity": "1.000000",
+          "price": "516.100000",
+          "stop_price": null,
+          "average_price": "505.000000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-28T05:00:32.913899Z",
+          "last_transaction_at": "2026-09-28T13:30:01.893Z",
+          "executions": [
+            {
+              "id": "6aba6bd9-86f9-4bae-83c1-c8efdb894c00",
+              "price": "505.000000",
+              "quantity": "1.000000",
+              "timestamp": "2026-09-28T13:30:01.893Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6aa05963-2fab-4e2c-ae60-6654c0f721fb",
+          "ref_id": "886f34d5-4aed-43b1-9276-c12aa2d53441",
+          "instrument_id": "e98ed5bf-b66c-4826-ad98-dad28b88b384",
+          "symbol": "DRAM",
+          "side": "sell",
+          "type": "market",
+          "state": "filled",
+          "quantity": "2.000000",
+          "cumulative_quantity": "2.000000",
+          "price": null,
+          "stop_price": "56.750000",
+          "average_price": "54.560000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "stop",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-08T18:52:19.273732Z",
+          "last_transaction_at": "2026-09-14T13:30:03.084Z",
+          "executions": [
+            {
+              "id": "6aa7f6dd-c6a3-48f5-8e22-6347ede552a3",
+              "price": "54.560000",
+              "quantity": "2.000000",
+              "timestamp": "2026-09-14T13:30:03.084Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a9eef7a-783a-464a-a41e-e8f092c7b657",
+          "ref_id": "905753e7-c7c5-443a-87ee-589c134d9d9d",
+          "instrument_id": "c0ccc1d7-277b-4666-beb4-f895a155f654",
+          "symbol": "SMTC",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "1.000000",
+          "cumulative_quantity": "1.000000",
+          "price": "147.880000",
+          "stop_price": null,
+          "average_price": "152.040000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-07T17:08:10.179217Z",
+          "last_transaction_at": "2026-09-08T13:30:01.559Z",
+          "executions": [
+            {
+              "id": "6aa00dd9-615d-4e1e-8567-615a63fea1d0",
+              "price": "152.040000",
+              "quantity": "1.000000",
+              "timestamp": "2026-09-08T13:30:01.559Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a9e5429-41f4-41d3-8afd-68f1d79935d9",
+          "ref_id": "sample-market-2shares-1788761124743",
+          "instrument_id": "e98ed5bf-b66c-4826-ad98-dad28b88b384",
+          "symbol": "DRAM",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "2.000000",
+          "cumulative_quantity": "2.000000",
+          "price": "59.530000",
+          "stop_price": null,
+          "average_price": "61.680000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-07T06:05:29.255586Z",
+          "last_transaction_at": "2026-09-08T13:30:00.158Z",
+          "executions": [
+            {
+              "id": "6aa00dd8-f0c4-4ffb-9f62-d330ed7d86cc",
+              "price": "61.680000",
+              "quantity": "2.000000",
+              "timestamp": "2026-09-08T13:30:00.158Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a9c4835-9ea0-4ff7-83b7-1a70851a67b0",
+          "ref_id": "f60a255d-8f1a-406a-bd5d-a7488c637612",
+          "instrument_id": "85210018-1426-4160-9225-167674b1eb51",
+          "symbol": "KMEM",
+          "side": "sell",
+          "type": "market",
+          "state": "filled",
+          "quantity": "0.107278",
+          "cumulative_quantity": "0.107278",
+          "price": null,
+          "stop_price": null,
+          "average_price": "20.580000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-05T16:49:58.018218Z",
+          "last_transaction_at": "2026-09-08T13:30:00.135Z",
+          "executions": [
+            {
+              "id": "6aa00dd9-eee3-446f-9978-d00670071267",
+              "price": "20.580000",
+              "quantity": "0.107278",
+              "timestamp": "2026-09-08T13:30:00.135Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a9aee9b-9973-4a4c-ad20-33b6127d1838",
+          "ref_id": "aee8a2b7-4904-4fe4-8946-ff9c5a44c65b",
+          "instrument_id": "f6bafe63-eb6f-4923-a3eb-d7f6b02dc5eb",
+          "symbol": "SCHB",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "3.000000",
+          "cumulative_quantity": "3.000000",
+          "price": "29.760000",
+          "stop_price": null,
+          "average_price": "29.759900",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-04T16:15:23.229156Z",
+          "last_transaction_at": "2026-09-04T16:15:23.359Z",
+          "executions": [
+            {
+              "id": "6a9aee9b-6f65-4cd8-92f8-fdd4d1be3993",
+              "price": "29.759900",
+              "quantity": "3.000000",
+              "timestamp": "2026-09-04T16:15:23.359Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a9ae936-10af-494d-bd7d-a75bf1879f61",
+          "ref_id": "cfe34c6a-5934-46b2-aa00-f76313ba7ed0",
+          "instrument_id": "85210018-1426-4160-9225-167674b1eb51",
+          "symbol": "KMEM",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "5.107278",
+          "cumulative_quantity": "5.107278",
+          "price": "19.530000",
+          "stop_price": null,
+          "average_price": "19.579900",
+          "fees": "0.000000",
+          "dollar_based_amount": {
+            "amount": "100.000000",
+            "currency_code": "USD"
+          },
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-09-04T15:52:22.585091Z",
+          "last_transaction_at": "2026-09-04T15:52:22.756Z",
+          "executions": [
+            {
+              "id": "6a9ae936-f285-4bcc-9a6d-456af00f158b",
+              "price": "19.579900",
+              "quantity": "5.107278",
+              "timestamp": "2026-09-04T15:52:22.756Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a8f0ee2-646b-4854-953e-96b3b134eea2",
+          "ref_id": "test-sell-aapl-cleanup-001",
+          "instrument_id": "450dfc6d-5510-4d40-abfb-f633b7d9be3e",
+          "symbol": "AAPL",
+          "side": "sell",
+          "type": "market",
+          "state": "filled",
+          "quantity": "2.000000",
+          "cumulative_quantity": "2.000000",
+          "price": null,
+          "stop_price": null,
+          "average_price": "312.711600",
+          "fees": "0.020000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-08-26T16:05:54.857925Z",
+          "last_transaction_at": "2026-08-26T16:05:54.963Z",
+          "executions": [
+            {
+              "id": "6a8f0ee2-7bc0-4ef7-becb-cba22249e53b",
+              "price": "312.711600",
+              "quantity": "2.000000",
+              "timestamp": "2026-08-26T16:05:54.963Z",
+              "fees": "0.020000"
+            }
+          ]
+        },
+        {
+          "id": "6a8f0eb6-b24f-40e9-ab79-29536d82dbee",
+          "ref_id": "test-buy-aapl-whole-002",
+          "instrument_id": "450dfc6d-5510-4d40-abfb-f633b7d9be3e",
+          "symbol": "AAPL",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "1.000000",
+          "cumulative_quantity": "1.000000",
+          "price": "312.590000",
+          "stop_price": null,
+          "average_price": "312.590000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-08-26T16:05:10.715265Z",
+          "last_transaction_at": "2026-08-26T16:05:10.863Z",
+          "executions": [
+            {
+              "id": "6a8f0eb6-6b55-4b52-b22c-0bb610dde184",
+              "price": "312.590000",
+              "quantity": "1.000000",
+              "timestamp": "2026-08-26T16:05:10.863Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a8f0e57-d684-48a9-81b1-cfe82c885dd0",
+          "ref_id": "test-buy-aapl-whole-001",
+          "instrument_id": "450dfc6d-5510-4d40-abfb-f633b7d9be3e",
+          "symbol": "AAPL",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "1.000000",
+          "cumulative_quantity": "1.000000",
+          "price": "312.640000",
+          "stop_price": null,
+          "average_price": "312.639900",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-08-26T16:03:35.42442Z",
+          "last_transaction_at": "2026-08-26T16:03:35.564Z",
+          "executions": [
+            {
+              "id": "6a8f0e57-c17a-424d-8227-54b53f2bec3d",
+              "price": "312.639900",
+              "quantity": "1.000000",
+              "timestamp": "2026-08-26T16:03:35.564Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a8f0e43-f3d0-4bbe-acf7-a70bd9826504",
+          "ref_id": "test-sell-fractional-002",
+          "instrument_id": "450dfc6d-5510-4d40-abfb-f633b7d9be3e",
+          "symbol": "AAPL",
+          "side": "sell",
+          "type": "market",
+          "state": "filled",
+          "quantity": "0.319979",
+          "cumulative_quantity": "0.319979",
+          "price": null,
+          "stop_price": null,
+          "average_price": "312.665000",
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-08-26T16:03:15.490929Z",
+          "last_transaction_at": "2026-08-26T16:03:15.566Z",
+          "executions": [
+            {
+              "id": "6a8f0e43-e03c-4979-874f-5c1700052441",
+              "price": "312.665000",
+              "quantity": "0.319979",
+              "timestamp": "2026-08-26T16:03:15.566Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a8f0de7-94a8-4f38-a557-b64e94cf0c35",
+          "ref_id": "test-buy-aapl-002",
+          "instrument_id": "450dfc6d-5510-4d40-abfb-f633b7d9be3e",
+          "symbol": "AAPL",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "0.319979",
+          "cumulative_quantity": "0.319979",
+          "price": "312.500000",
+          "stop_price": null,
+          "average_price": "312.519900",
+          "fees": "0.000000",
+          "dollar_based_amount": {
+            "amount": "100.000000",
+            "currency_code": "USD"
+          },
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-08-26T16:01:43.066752Z",
+          "last_transaction_at": "2026-08-26T16:01:43.223Z",
+          "executions": [
+            {
+              "id": "6a8f0de7-8e07-4ddb-a0b3-1ddd63a131d8",
+              "price": "312.519900",
+              "quantity": "0.319979",
+              "timestamp": "2026-08-26T16:01:43.223Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a595886-c434-4791-8d30-9b5af506bc6d",
+          "ref_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+          "instrument_id": "a3ccf10c-4edb-4c1e-b2c6-6683a6a39081",
+          "symbol": "BTSG",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "1.484780",
+          "cumulative_quantity": "1.484780",
+          "price": "69.500000",
+          "stop_price": null,
+          "average_price": "67.350000",
+          "fees": "0.000000",
+          "dollar_based_amount": {
+            "amount": "100.000000",
+            "currency_code": "USD"
+          },
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-07-16T22:17:42.131889Z",
+          "last_transaction_at": "2026-07-17T13:30:01.592Z",
+          "executions": [
+            {
+              "id": "6a5a2e5b-b693-449e-8919-0bb8e1493193",
+              "price": "67.350000",
+              "quantity": "1.484780",
+              "timestamp": "2026-07-17T13:30:01.592Z",
+              "fees": "0.000000"
+            }
+          ]
+        },
+        {
+          "id": "6a32f313-f1e8-46c5-bc30-57a0bef74035",
+          "ref_id": "a3f7c821-4e09-4b2d-9f1a-6d8e3c501b74",
+          "instrument_id": "badc834a-d185-42b1-8a6a-3f7ba5571fe9",
+          "symbol": "SNDK",
+          "side": "buy",
+          "type": "market",
+          "state": "filled",
+          "quantity": "0.049734",
+          "cumulative_quantity": "0.049734",
+          "price": "2010.310000",
+          "stop_price": null,
+          "average_price": "2010.689200",
+          "fees": "0.000000",
+          "dollar_based_amount": {
+            "amount": "100.000000",
+            "currency_code": "USD"
+          },
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "trigger": "immediate",
+          "placed_agent": "agentic",
+          "created_at": "2026-06-17T19:18:43.856548Z",
+          "last_transaction_at": "2026-06-17T19:18:43.981Z",
+          "executions": [
+            {
+              "id": "6a32f313-c59b-4f03-968c-859faaaa9fa2",
+              "price": "2010.689200",
+              "quantity": "0.049734",
+              "timestamp": "2026-06-17T19:18:43.981Z",
+              "fees": "0.000000"
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "For dollar-based orders (dollar_based_amount populated, quantity sometimes null) describe in dollars until cumulative_quantity is meaningful. Mention placed_agent when it is not 'user'. Recover the user-facing order type from type+trigger or from price/stop_price. Present symbol, side, type, state, quantity (or dollar_based_amount), cumulative_quantity when partially filled, price for limit orders, average_price once filled, last_transaction_at (or created_at), and id when cancellation may follow; suppress other fields unless asked. When next is non-empty more pages exist — it is an opaque cursor, not a URL, so call this tool again with cursor set to that value verbatim and the same filters; keep paging until next is empty whenever the user asks for their full history."
+  }
+}

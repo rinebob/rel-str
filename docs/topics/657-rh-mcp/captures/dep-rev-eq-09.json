@@ -1,0 +1,65 @@
+{
+  "id": "dep-rev-eq-09",
+  "tool": "review_equity_order",
+  "group": "sims",
+  "gate": "read",
+  "note": "tax_lots specified-lot sell - open_lot_id harvested from dep-eq-taxlots-02 (MSFT, qty_available=1).",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbol": "MSFT",
+    "side": "sell",
+    "type": "limit",
+    "quantity": "1",
+    "tax_lots": [
+      {
+        "open_lot_id": "0683ff57-0183-5698-ac18-700e4d012491",
+        "quantity": "1"
+      }
+    ],
+    "limit_price": "520.00"
+  },
+  "capturedAt": "2026-10-05T18:02:29.530Z",
+  "outcome": "success",
+  "latencyMs": 1137,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "MSFT",
+      "side": "sell",
+      "type": "limit",
+      "quantity": "1",
+      "limit_price": "520.00",
+      "order_checks": {
+        "alertType": "EQUITY_MAX_SELL_SHARES_EXCEEDED",
+        "equityMaxSellSharesExceededAlertDetails": {
+          "instrumentId": "50810c35-d215-4866-9758-0ada4ac79ffa",
+          "instrumentSymbol": "MSFT",
+          "sharesCanSell": "0E-8",
+          "sharesOptionsCollateral": "0",
+          "sharesOwned": "1",
+          "sharesPendingFromOptionsEvents": "0",
+          "sharesPendingSell": "1",
+          "sharesRewards": "0"
+        }
+      },
+      "quote_data": {
+        "symbol": "MSFT",
+        "last_trade_price": "524.915000",
+        "venue_last_trade_time": "2026-10-05T18:02:27.796023758Z",
+        "last_non_reg_trade_price": null,
+        "venue_last_non_reg_trade_time": null,
+        "adjusted_previous_close": "517.530000",
+        "previous_close": "517.530000",
+        "previous_close_date": "2026-10-02",
+        "bid_price": "524.890000",
+        "venue_bid_time": "2026-10-05T18:02:28.54900332Z",
+        "ask_price": "524.930000",
+        "venue_ask_time": "2026-10-05T18:02:28.54900332Z",
+        "has_traded": true,
+        "state": "active"
+      },
+      "market_data_disclosure": "Bid $524.89 × 40 N · Ask $524.93 × 80 Q · Last $524.915 × 80 D. Updated 2:02 PM ET."
+    },
+    "guide": "This tool does NOT place the order — it returns a preview for the user to review. Reaching this tool means the user opted into the review step, so you MUST present the preview to the user (symbol, side, type, quantity or dollar_amount, limit/stop prices, estimated execution) and get explicit confirmation before calling place_equity_order. This holds even when order_checks is empty ({}) — empty means no broker alerts, NOT that confirmation can be skipped; the user asked to review, so let them review. Surface any non-empty alert in order_checks verbatim alongside the preview. In addition, you MUST always show the quotes to the user for compliance reasons: whenever market_data_disclosure is present, display it to the user exactly as provided — verbatim and unmodified — as the required compliance quote disclosure. Market orders: estimate execution from quote_data.last_trade_price (ask for buys, bid for sells when spreads are wide). Limit orders: compare limit_price to quote_data bid/ask so the user knows the distance from market."
+  }
+}

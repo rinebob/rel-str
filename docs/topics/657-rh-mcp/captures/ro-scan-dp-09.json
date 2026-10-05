@@ -1,0 +1,1216 @@
+{
+  "id": "ro-scan-dp-09",
+  "tool": "get_scanner_datapoints",
+  "group": "scanners",
+  "gate": "read",
+  "note": "category=field - one of the nine documented slices (each a distinct payload).",
+  "args": {
+    "category": "field"
+  },
+  "capturedAt": "2026-10-05T17:53:58.032Z",
+  "outcome": "success",
+  "latencyMs": 1037,
+  "success": true,
+  "response": {
+    "data": {
+      "datapoints": [
+        {
+          "name": "optionsCallDayVolume",
+          "kind": "field",
+          "signature": "optionsCallDayVolume: number",
+          "description": "Trading volume of all call-options of this underlying.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsCallOpenInterest",
+          "kind": "field",
+          "signature": "optionsCallOpenInterest: number",
+          "description": "Open interest of all call-options of this underlying.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsCallOpenInterestAvg10Day",
+          "kind": "field",
+          "signature": "optionsCallOpenInterestAvg10Day: number",
+          "description": "Average open interest of all call-options of this underlying for 10 trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsCallVolumeAvg10Day",
+          "kind": "field",
+          "signature": "optionsCallVolumeAvg10Day: number",
+          "description": "Average trading volume of all call-options of this underlying for 10 trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsExpirationStyles",
+          "kind": "field",
+          "signature": "optionsExpirationStyles: string",
+          "description": "A comma-separated list of all expiration styles currently available for the underlying  (e.g. \"Regular\" or \"Regular, Daily, Weeklys, Quarterlys\", etc.)",
+          "value_type": "string"
+        },
+        {
+          "name": "optionsPutDayVolume",
+          "kind": "field",
+          "signature": "optionsPutDayVolume: number",
+          "description": "Trading volume of all put-options of this underlying.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsPutOpenInterest",
+          "kind": "field",
+          "signature": "optionsPutOpenInterest: number",
+          "description": "Open interest of all put-options of this underlying.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsPutOpenInterestAvg10Day",
+          "kind": "field",
+          "signature": "optionsPutOpenInterestAvg10Day: number",
+          "description": "Average open interest of all put-options of this underlying for 10 trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsPutVolumeAvg10Day",
+          "kind": "field",
+          "signature": "optionsPutVolumeAvg10Day: number",
+          "description": "Average trading volume of all put-options of this underlying for 10 trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsSettlementStyles",
+          "kind": "field",
+          "signature": "optionsSettlementStyles: string",
+          "description": "A comma-separated list of all option settlement styles available for the underlying (e.g. \"Open\" or \"Close\")",
+          "value_type": "string"
+        },
+        {
+          "name": "optionsTotalDayVolume",
+          "kind": "field",
+          "signature": "optionsTotalDayVolume: number",
+          "description": "Trading volume of all options of this underlying.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsTotalOpenInterest",
+          "kind": "field",
+          "signature": "optionsTotalOpenInterest: number",
+          "description": "Open interest of all options of this underlying.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsTotalOpenInterestAvg10Day",
+          "kind": "field",
+          "signature": "optionsTotalOpenInterestAvg10Day: number",
+          "description": "Average open interest of all options of this underlying for 10 trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "optionsTotalVolumeAvg10Day",
+          "kind": "field",
+          "signature": "optionsTotalVolumeAvg10Day: number",
+          "description": "Average trading volume of all options of this underlying for 10 trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "country",
+          "kind": "field",
+          "signature": "country: string",
+          "description": "Country of origin (incorporation) of corresponding company or parent entity encoded as two-letter country code from ISO 3166-1 standard.",
+          "value_type": "string",
+          "examples": [
+            "\"US\"",
+            "\"JP\""
+          ]
+        },
+        {
+          "name": "currency",
+          "kind": "field",
+          "signature": "currency: string",
+          "description": "Currency of quotation, pricing and trading encoded as three-letter currency code from ISO 4217 standard.",
+          "value_type": "string",
+          "examples": [
+            "\"USD\"",
+            "\"RUB\""
+          ]
+        },
+        {
+          "name": "description",
+          "kind": "field",
+          "signature": "description: string",
+          "description": "Textual description of the instrument.",
+          "value_type": "string",
+          "examples": [
+            "\"AT&T Inc.\"",
+            "\"Bank of America Corporation Common Stock\""
+          ]
+        },
+        {
+          "name": "haltEndTime",
+          "kind": "field",
+          "signature": "haltEndTime: number",
+          "description": "Timestamp when halt is finished and stock symbol became available.",
+          "value_type": "number"
+        },
+        {
+          "name": "haltStartTime",
+          "kind": "field",
+          "signature": "haltStartTime: number",
+          "description": "Timestamp when this stock symbol became unavailable (halted or sales of other restrictions).",
+          "value_type": "number"
+        },
+        {
+          "name": "nowYMD",
+          "kind": "field",
+          "signature": "nowYMD: number",
+          "description": "The current date in YYYYMMDD format for the America/New_York timezone.",
+          "value_type": "number"
+        },
+        {
+          "name": "officialPlaceOfListing",
+          "kind": "field",
+          "signature": "officialPlaceOfListing: string",
+          "description": "The organization that have listed this instrument encoded as Market Identifier Code (MIC) from ISO 10383 standard or custom dxFeed values.",
+          "value_type": "string",
+          "examples": [
+            "\"XNAS\"",
+            "\"RTSX\""
+          ]
+        },
+        {
+          "name": "symbol",
+          "kind": "field",
+          "signature": "symbol: string",
+          "description": "Symbol of the instrument in [dxFeed Symbology](https://kb.dxfeed.com/en/data-model/symbology-guide.html).",
+          "value_type": "string",
+          "examples": [
+            "\"AAPL\"",
+            "\".MSFT210416P220\""
+          ]
+        },
+        {
+          "name": "tradingStatus",
+          "kind": "field",
+          "signature": "tradingStatus: string",
+          "description": "The current status of the stock symbol: whether it is being traded/halted or is subject of short sales restrictions.",
+          "value_type": "string"
+        },
+        {
+          "name": "type",
+          "kind": "field",
+          "signature": "type: string",
+          "description": "The type of the instrument.",
+          "value_type": "string"
+        },
+        {
+          "name": "fundamental.annualEpsGrowth",
+          "kind": "field",
+          "signature": "fundamental.annualEpsGrowth: number",
+          "description": "The growth of the EPS in the current year as opposed to the previous year.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.assetsTurnover",
+          "kind": "field",
+          "signature": "fundamental.assetsTurnover: number",
+          "description": "Asset turnover is a financial ratio that measures the efficiency of a company's use of its assets in generating sales revenue. The ratio is calculated as ration of total sales or revenue to average assets.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.baseCurrencyCoinMarketCap",
+          "kind": "field",
+          "signature": "fundamental.baseCurrencyCoinMarketCap: number",
+          "description": "Market capitalization of the cryptocurrency",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.beta",
+          "kind": "field",
+          "signature": "fundamental.beta: number",
+          "description": "The coefficient is a measure of systematic risk of an individual stock in comparison to the unsystematic risk of the entire market.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.bookValuePerShare",
+          "kind": "field",
+          "signature": "fundamental.bookValuePerShare: number",
+          "description": "Book value per share is the ratio of equity available to common shareholders divided by the number of outstanding shares.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.cash",
+          "kind": "field",
+          "signature": "fundamental.cash: number",
+          "description": "The amount of Cash in the latest available Balance Sheet of the company.\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.cashDebtRatio",
+          "kind": "field",
+          "signature": "fundamental.cashDebtRatio: number",
+          "description": "The ratio which shows the coverage of company debt by the available cash.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.cashDividend",
+          "kind": "field",
+          "signature": "fundamental.cashDividend: number",
+          "description": "The future dividend amount declared. If it’s not available, then the last dividend paid.\nDatapoint currency – `fundamental.corporateActionCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.cashFlowFreePerShare",
+          "kind": "field",
+          "signature": "fundamental.cashFlowFreePerShare: number",
+          "description": "Free Cash Flow Per Share is a measure of a company's financial flexibility that is determined by dividing free cash flow by the total number of shares outstanding.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.commonStockEquity",
+          "kind": "field",
+          "signature": "fundamental.commonStockEquity: number",
+          "description": "Common stock (all issues) at par value, as reported within the Stockholder’s Equity section of the balance sheet; i.e. it is one component of Common Stockholder’s Equity.\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.corporateActionCurrency",
+          "kind": "field",
+          "signature": "fundamental.corporateActionCurrency: string",
+          "description": "The currency is used to corporate action financial values",
+          "value_type": "string"
+        },
+        {
+          "name": "fundamental.currentAssets",
+          "kind": "field",
+          "signature": "fundamental.currentAssets: number",
+          "description": "The value of Current Assets in the latest available Balance Sheet of the company.\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.currentDebt",
+          "kind": "field",
+          "signature": "fundamental.currentDebt: number",
+          "description": "The value of Current Debt in the latest available Balance Sheet of the company.\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.dilutedEps",
+          "kind": "field",
+          "signature": "fundamental.dilutedEps: number",
+          "description": "An indicator of a company’s profitability if all convertible securities were exercised.\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.dps",
+          "kind": "field",
+          "signature": "fundamental.dps: number",
+          "description": "The amount of dividend that a stockholder will receive for each share of stock held. It can be calculated by taking the total amount of dividends paid and dividing it by the total shares outstanding. Dividend per share = total dividend payment/total number of outstanding shares",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.earningsAnnouncementTimeOfDay",
+          "kind": "field",
+          "signature": "fundamental.earningsAnnouncementTimeOfDay: string",
+          "description": "The time of the day when the earnings should be announced.\n\nExpected values: `PRE_MARKET`, `POST_MARKET`.",
+          "value_type": "string"
+        },
+        {
+          "name": "fundamental.earningsTime",
+          "kind": "field",
+          "signature": "fundamental.earningsTime: number",
+          "description": "The date when the earnings should be announced.\n\nThe same as `fundamental.earningsYmd: number`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.earningsYmd",
+          "kind": "field",
+          "signature": "fundamental.earningsYmd: number",
+          "description": "The date when the earnings should be announced encoded as a number in `yyyyMMdd` format.\n\nE.g. date `2021-01-21` has value `20210121`.\n\nThe same as `fundamental.earningsTime: number`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.enterpriseValue",
+          "kind": "field",
+          "signature": "fundamental.enterpriseValue: number",
+          "description": "The indicator shows the estimated enterprise value.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.enterpriseValueMarketCapRatio",
+          "kind": "field",
+          "signature": "fundamental.enterpriseValueMarketCapRatio: number",
+          "description": "Ratio between company's enterprise value and market capitalization",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.eps",
+          "kind": "field",
+          "signature": "fundamental.eps: number",
+          "description": "An indicator of a company’s profitability.\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.exYmd",
+          "kind": "field",
+          "signature": "fundamental.exYmd: number",
+          "description": "An ex-dividend date. The cutoff period that determines whether a shareholder will receive a dividend payment for stock they own.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.forwardDividendYield",
+          "kind": "field",
+          "signature": "fundamental.forwardDividendYield: number",
+          "description": "The expected dividend-only return of a stock investment.\n\nScale: ratio, not percent. 0.03 means a 3% yield; a filter of 3 means 300% and matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.forwardPeRatio",
+          "kind": "field",
+          "signature": "fundamental.forwardPeRatio: number",
+          "description": "The indicator shows the estimated for the future periods ratio between company’s share price to its earnings per share.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.frequency",
+          "kind": "field",
+          "signature": "fundamental.frequency: number",
+          "description": "The frequency of dividend payment. How often a dividend is paid by an individual stock or fund.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.grossMargin",
+          "kind": "field",
+          "signature": "fundamental.grossMargin: number",
+          "description": "The indicator shows the ratio of gross profit to revenue.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.initialPublicOfferingYmd",
+          "kind": "field",
+          "signature": "fundamental.initialPublicOfferingYmd: number",
+          "description": "The date of the first initial public offering of the instrument encoded as a number in `yyyyMMdd` format.\n\nE.g. date `2012-01-21` has value `20120121`.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.insiderOwned",
+          "kind": "field",
+          "signature": "fundamental.insiderOwned: number",
+          "description": "Number of shares held by insiders.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.insiderPercentOwned",
+          "kind": "field",
+          "signature": "fundamental.insiderPercentOwned: number",
+          "description": "Percent of shares held by insiders.\n\nScale: ratio DESPITE the name saying percent. 0.18 means 18% owned; a filter of 18 means 1800% and silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.institutionOwned",
+          "kind": "field",
+          "signature": "fundamental.institutionOwned: number",
+          "description": "Number of shares held by institutional investors.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.institutionPercentOwned",
+          "kind": "field",
+          "signature": "fundamental.institutionPercentOwned: number",
+          "description": "Percent of shares held by institutional investors.\n\nScale: ratio DESPITE the name saying percent. 0.18 means 18% owned; a filter of 18 means 1800% and silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.inventoryTurnover",
+          "kind": "field",
+          "signature": "fundamental.inventoryTurnover: number",
+          "description": "Inventory turnover is a financial ratio showing how many times a company has sold and replaced inventory during a given period. Inventory turnover = Cost of Goods Sold / Average Value of Inventory",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.longTermDebtTotalCapitalRatio",
+          "kind": "field",
+          "signature": "fundamental.longTermDebtTotalCapitalRatio: number",
+          "description": "The long-term debt to capitalization ratio shows the financial leverage of a firm. It is calculated by dividing long-term debt by total available capital (long-term debt, preferred stock, and common stock).",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.marketCap",
+          "kind": "field",
+          "signature": "fundamental.marketCap: number",
+          "description": "Market capitalization of the company",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.morningstarIndustryCode",
+          "kind": "field",
+          "signature": "fundamental.morningstarIndustryCode: string",
+          "description": "Industry code of the company in Morningstar classification.",
+          "value_type": "string"
+        },
+        {
+          "name": "fundamental.morningstarIndustryGroupCode",
+          "kind": "field",
+          "signature": "fundamental.morningstarIndustryGroupCode: string",
+          "description": "Industry group code of the company in Morningstar classification.",
+          "value_type": "string"
+        },
+        {
+          "name": "fundamental.morningstarSectorCode",
+          "kind": "field",
+          "signature": "fundamental.morningstarSectorCode: string",
+          "description": "Sector code of the company in Morningstar classification.",
+          "value_type": "string"
+        },
+        {
+          "name": "fundamental.morningstarSectorLabel",
+          "kind": "field",
+          "signature": "fundamental.morningstarSectorLabel: string",
+          "description": "Sector label of the company in Morningstar classification.",
+          "value_type": "string"
+        },
+        {
+          "name": "fundamental.netIncome",
+          "kind": "field",
+          "signature": "fundamental.netIncome: number",
+          "description": "Net income for the last 12 months reported in PL statement is provided.\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.netProfitMargin",
+          "kind": "field",
+          "signature": "fundamental.netProfitMargin: number",
+          "description": "The indicator shows the ratio of net income to revenue.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.normalizedPERatio",
+          "kind": "field",
+          "signature": "fundamental.normalizedPERatio: number",
+          "description": "The indicator shows the relationship between company’s share price to its normalized earnings per share.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.operatingMargin",
+          "kind": "field",
+          "signature": "fundamental.operatingMargin: number",
+          "description": "The indicator shows the ratio of operating income to revenue.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.operationsCashFlowPerShare",
+          "kind": "field",
+          "signature": "fundamental.operationsCashFlowPerShare: number",
+          "description": "Operating Cash Flow Per Share refers to the amount of cash a company generates from the revenues it brings in, excluding costs associated with long-term capital investment.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.payDateYmd",
+          "kind": "field",
+          "signature": "fundamental.payDateYmd: number",
+          "description": "A dividend payment date, also known as the pay or payable date, is the day on which a declared stock dividend is scheduled to be paid to eligible investors.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.payoutRatio",
+          "kind": "field",
+          "signature": "fundamental.payoutRatio: number",
+          "description": "The ratio of the total amount of dividends paid out to the stock owners relative to the net income of the company.\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.pbRatio",
+          "kind": "field",
+          "signature": "fundamental.pbRatio: number",
+          "description": "The indicator shows the ratio between the price of the stock and the book value of the latest period per share. Only positive ratios are provided.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.pcfRatio",
+          "kind": "field",
+          "signature": "fundamental.pcfRatio: number",
+          "description": "The indicator shows the ratio between the price of the stock and the last 12 months operating cash flow per share. Only positive ratios are provided.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.peRatio",
+          "kind": "field",
+          "signature": "fundamental.peRatio: number",
+          "description": "The indicator shows the relationship between company’s share price to its earnings per share.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.pegRatio",
+          "kind": "field",
+          "signature": "fundamental.pegRatio: number",
+          "description": "The indicator shows the company’s P/E ratio divided by the growth rate of its earning.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.pfcfRatio",
+          "kind": "field",
+          "signature": "fundamental.pfcfRatio: number",
+          "description": "The PFCF ratio is a ratio calculated by dividing a company's current market capitalization (i.e., the total value of all its outstanding shares of stock) by its free cash flow.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.psRatio",
+          "kind": "field",
+          "signature": "fundamental.psRatio: number",
+          "description": "The indicator shows the ratio between the price of the stock and the last 12 months revenues per share. Only positive ratios are provided.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.quarterlyEarningsGrowth",
+          "kind": "field",
+          "signature": "fundamental.quarterlyEarningsGrowth: number",
+          "description": "The growth of net income in the latest available quarter as opposed to the same quarter previous year.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.quarterlyEpsGrowth",
+          "kind": "field",
+          "signature": "fundamental.quarterlyEpsGrowth: number",
+          "description": "The growth of the EPS in the last available quarter as opposed to the same quarter previous year.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.quarterlyRevenueGrowth",
+          "kind": "field",
+          "signature": "fundamental.quarterlyRevenueGrowth: number",
+          "description": "The growth of the revenue in the last available reporting quarter as opposed to the same quarter in the previous year.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.quickRatio",
+          "kind": "field",
+          "signature": "fundamental.quickRatio: number",
+          "description": "The quick ratio measures a company’s ability to quickly convert liquid assets into cash to pay for its short-term financial obligations, and is calculated as quick assets divided by current liabilities",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.reportCurrency",
+          "kind": "field",
+          "signature": "fundamental.reportCurrency: string",
+          "description": "The main currency for balance statement, income statement and earning report.",
+          "value_type": "string"
+        },
+        {
+          "name": "fundamental.returnOnAssets",
+          "kind": "field",
+          "signature": "fundamental.returnOnAssets: number",
+          "description": "The indicator shows the company profitability relative to its total assets: ratio between 12 month operating income and total company assets.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.returnOnEquity",
+          "kind": "field",
+          "signature": "fundamental.returnOnEquity: number",
+          "description": "The indicator shows the company profitability relative to its equity: ratio between 12 month operating income and equity.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.salesPerShare",
+          "kind": "field",
+          "signature": "fundamental.salesPerShare: number",
+          "description": "Sales per share is a financial ratio that measures the total revenue earned per share over a specific time period.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.sharesFloat",
+          "kind": "field",
+          "signature": "fundamental.sharesFloat: number",
+          "description": "The number of shares available for public trading: total shares outstanding excluding closely held shares. Values are absolute share counts (e.g. 35113061 shares), NOT a percentage. To screen on float as a fraction of shares outstanding, divide by fundamental.sharesOutstanding in an expression.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.sharesOutstanding",
+          "kind": "field",
+          "signature": "fundamental.sharesOutstanding: number",
+          "description": "The indicator shows the number of company shares owned by stockholders, company officials, and investors in the public domain, but does not include shares repurchased by a company.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.totalAssetsEquityRatio",
+          "kind": "field",
+          "signature": "fundamental.totalAssetsEquityRatio: number",
+          "description": "The ratio of total assets divided by stockholders' equity.",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.totalDps",
+          "kind": "field",
+          "signature": "fundamental.totalDps: number",
+          "description": "Total Dividend Per Share is cash dividends and special cash dividends paid per share over a certain period of time.\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.totalRevenue",
+          "kind": "field",
+          "signature": "fundamental.totalRevenue: number",
+          "description": "Revenue for the last 12 months reported in PL statement is provided.\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "fundamental.totalStockEquity",
+          "kind": "field",
+          "signature": "fundamental.totalStockEquity: number",
+          "description": "Stockholders' equity, is the remaining amount of assets available to shareholders after all liabilities have been paid\nDatapoint currency – `fundamental.reportCurrency`",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromPostMarket",
+          "kind": "field",
+          "signature": "changeFromPostMarket: number",
+          "description": "Difference between the latest price and the closing price of the post-market session.",
+          "value_type": "number"
+        },
+        {
+          "name": "changeFromPostMarketRatio",
+          "kind": "field",
+          "signature": "changeFromPostMarketRatio: number",
+          "description": "Difference ratio between the latest price and the closing price of the post-market session.\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayPriceRange",
+          "kind": "field",
+          "signature": "dayPriceRange: number",
+          "description": "Difference between the high and the low price of the trading day.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayPriceRangeRatio",
+          "kind": "field",
+          "signature": "dayPriceRangeRatio: number",
+          "description": "Ratio between the price range and the low price of the trading day.\n\nScale: ratio, not percent. 0.05 means 5%; compare against ratio thresholds (0.03 for 3%), never whole-percent numbers, or the filter silently matches nothing.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayTurnover",
+          "kind": "field",
+          "signature": "dayTurnover: number",
+          "description": "Turnover of the instrument for the last day. The value resets to 0 when a new trading day starts.",
+          "value_type": "number"
+        },
+        {
+          "name": "dayVwap",
+          "kind": "field",
+          "signature": "dayVwap: number",
+          "description": "Average price of the instrument for the last day weighted by volume. The value resets to 0 when a new trading day starts.",
+          "value_type": "number"
+        },
+        {
+          "name": "openInterest",
+          "kind": "field",
+          "signature": "openInterest: number",
+          "description": "Total number of outstanding derivative contracts that have not been settled ",
+          "value_type": "number"
+        },
+        {
+          "name": "price",
+          "kind": "field",
+          "signature": "price: number",
+          "description": "The close price from the last daily candle.",
+          "value_type": "number"
+        },
+        {
+          "name": "tradeAllDay.price",
+          "kind": "field",
+          "signature": "tradeAllDay.price: number",
+          "description": "Price of the last trade in the all day (overnight) session.",
+          "value_type": "number"
+        },
+        {
+          "name": "tradeAllDay.time",
+          "kind": "field",
+          "signature": "tradeAllDay.time: number",
+          "description": "Time of the last trade in the all day (overnight) session.",
+          "value_type": "number"
+        },
+        {
+          "name": "quote.askPrice",
+          "kind": "field",
+          "signature": "quote.askPrice: number",
+          "description": "Ask-price of last Quote.",
+          "value_type": "number"
+        },
+        {
+          "name": "quote.askSize",
+          "kind": "field",
+          "signature": "quote.askSize: number",
+          "description": "Ask-size of last Quote.",
+          "value_type": "number"
+        },
+        {
+          "name": "quote.askTime",
+          "kind": "field",
+          "signature": "quote.askTime: number",
+          "description": "Ask-time of last Quote.",
+          "value_type": "number"
+        },
+        {
+          "name": "quote.bidPrice",
+          "kind": "field",
+          "signature": "quote.bidPrice: number",
+          "description": "Bid-price of last Quote.",
+          "value_type": "number"
+        },
+        {
+          "name": "quote.bidSize",
+          "kind": "field",
+          "signature": "quote.bidSize: number",
+          "description": "Bid-size of last Quote.",
+          "value_type": "number"
+        },
+        {
+          "name": "quote.bidTime",
+          "kind": "field",
+          "signature": "quote.bidTime: number",
+          "description": "Bid-time of last Quote.",
+          "value_type": "number"
+        },
+        {
+          "name": "quote.spread",
+          "kind": "field",
+          "signature": "quote.spread: number",
+          "description": "Spread of last Quote.",
+          "value_type": "number"
+        },
+        {
+          "name": "quote.time",
+          "kind": "field",
+          "signature": "quote.time: number",
+          "description": "Time of last Quote.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv120Day",
+          "kind": "field",
+          "signature": "atmIv120Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 120 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv120DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv120DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv180Day",
+          "kind": "field",
+          "signature": "atmIv180Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 180 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv180DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv180DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv270Day",
+          "kind": "field",
+          "signature": "atmIv270Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 270 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv270DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv270DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv30Day",
+          "kind": "field",
+          "signature": "atmIv30Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 30 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv30DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv30DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv360Day",
+          "kind": "field",
+          "signature": "atmIv360Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 360 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv360DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv360DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv60Day",
+          "kind": "field",
+          "signature": "atmIv60Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 60 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv60DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv60DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv720Day",
+          "kind": "field",
+          "signature": "atmIv720Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 720 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv720DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv720DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv90Day",
+          "kind": "field",
+          "signature": "atmIv90Day: number",
+          "description": "At-the-money implied volatility (ATM IV) of an option series with maturity of 90 days.\n\nIf requested maturity is listed, the value for this available maturity will be used. If requested maturity is not listed, the value for the nearest available maturity will be used. If there are 2 option series with the same distance, then the value of smaller maturity is selected. Distance between maturities is measured as absolute value of the difference between maturity of the available series and the specified maturity.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "atmIv90DayPosInRange",
+          "kind": "field",
+          "signature": "atmIv90DayPosInRange: number",
+          "description": "\n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n\nScale: position within the range as a fraction from 0 to 1. 0.9 means the 90% point; never 0 to 100.",
+          "value_type": "number"
+        },
+        {
+          "name": "backIV",
+          "kind": "field",
+          "signature": "backIV: number",
+          "description": "Back Volatility – the IV of the expiration after the one for Front Volatility.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "frontIV",
+          "kind": "field",
+          "signature": "frontIV: number",
+          "description": "Front Volatility – the IV of the closes expiration option series with this underlying.\n\nScale: decimal annualized volatility. 0.65 means 65% IV; a filter of 80 means 8000% and silently matches nothing, use 0.8.",
+          "value_type": "number"
+        },
+        {
+          "name": "iv52weeksHigh",
+          "kind": "field",
+          "signature": "iv52weeksHigh: number",
+          "description": "The highest implied volatility (IV) observed for an underlying over the past 52 weeks",
+          "value_type": "number"
+        },
+        {
+          "name": "iv52weeksLow",
+          "kind": "field",
+          "signature": "iv52weeksLow: number",
+          "description": "The lowest implied volatility (IV) observed for an underlying over the past 52 weeks",
+          "value_type": "number"
+        },
+        {
+          "name": "ivRank",
+          "kind": "field",
+          "signature": "ivRank: number",
+          "description": "Current IV position within its 52-week high–low range (0–100%).\n(iv − iv52WeeksLow) / (iv52WeeksHigh − iv52WeeksLow)",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol10Day",
+          "kind": "field",
+          "signature": "statVol10Day: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 10 trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol10DayPosInRange",
+          "kind": "field",
+          "signature": "statVol10DayPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1Month",
+          "kind": "field",
+          "signature": "statVol1Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 1 calendar month.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol1MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1Year",
+          "kind": "field",
+          "signature": "statVol1Year: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 1 year.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol1YearPosInRange",
+          "kind": "field",
+          "signature": "statVol1YearPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2Month",
+          "kind": "field",
+          "signature": "statVol2Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 2 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol2MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2Year",
+          "kind": "field",
+          "signature": "statVol2Year: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 2 year.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol2YearPosInRange",
+          "kind": "field",
+          "signature": "statVol2YearPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol3Month",
+          "kind": "field",
+          "signature": "statVol3Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 3 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol3MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol3MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol4Month",
+          "kind": "field",
+          "signature": "statVol4Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 4 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol4MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol4MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol6Month",
+          "kind": "field",
+          "signature": "statVol6Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 6 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol6MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol6MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol9Month",
+          "kind": "field",
+          "signature": "statVol9Month: number",
+          "description": "Annualized historical standard deviation of logarithmic returns calculated based on 9 calendar months.",
+          "value_type": "number"
+        },
+        {
+          "name": "statVol9MonthPosInRange",
+          "kind": "field",
+          "signature": "statVol9MonthPosInRange: number",
+          "description": "Position of the current statistical volatility value in the range of values calculated for every day in the time period. \n```\nPosition in Range = (Current – Min) / (Max – Min)\n```\n",
+          "value_type": "number"
+        },
+        {
+          "name": "dayVolume",
+          "kind": "field",
+          "signature": "dayVolume: number",
+          "description": "Trading volume of the instrument for the last day. The value resets to 0 when a new trading day starts.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumeAvg10Day",
+          "kind": "field",
+          "signature": "volumeAvg10Day: number",
+          "description": "Average trading volume of the last 10 finished trading days.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumeAvg10Minutes",
+          "kind": "field",
+          "signature": "volumeAvg10Minutes: number",
+          "description": "Average trading volume of the last 10 minutes.",
+          "value_type": "number"
+        },
+        {
+          "name": "volumePostMarket",
+          "kind": "field",
+          "signature": "volumePostMarket: number",
+          "description": "Volume of the post-market session.",
+          "value_type": "number"
+        }
+      ],
+      "categories": [
+        {
+          "name": "Aggregated Options",
+          "description": "Options activity rolled up onto the underlying, so an equity scan can screen on it: volume (optionsCallVolume, optionsPutVolume, optionsTotalDayVolume) and open interest (optionsCall/Put/TotalOpenInterest) with their averages (…Avg, …Avg10Day), premium traded (optionsDayPremium), and contract conventions (optionsExpirationStyles, optionsSettlementStyles). Ratios like put/call are built by dividing two of these.",
+          "datapoint_count": 46,
+          "aliases": [
+            "aggregated options",
+            "option",
+            "options"
+          ]
+        },
+        {
+          "name": "Descriptive",
+          "description": "Instrument identity and calendar helpers rather than market data: symbol, type, description, country, currency, officialPlaceOfListing, tradingStatus, halt times, plus date arithmetic (nowYMD, days, daysFromNow) used to turn the fundamental.*Ymd date fields into day counts.",
+          "datapoint_count": 12,
+          "aliases": [
+            "descriptive"
+          ]
+        },
+        {
+          "name": "Fundamental",
+          "description": "Company financials, valuation ratios and calendar facts, all prefixed fundamental.*: size and valuation (marketCap, peRatio, forwardPeRatio, enterpriseValue, priceBookRatio), earnings and growth (eps, dilutedEps, annualEpsGrowth, revenue), balance sheet and cash flow (cash, currentDebt, bookValuePerShare, cashFlowFreePerShare), dividends (dps, cashDividend, forwardDividendYield), risk (beta), classification (sector, industry, morningstarSectorLabel) and dates (earningsYmd, exYmd).",
+          "datapoint_count": 65,
+          "aliases": [
+            "fundamental",
+            "fundamentals"
+          ]
+        },
+        {
+          "name": "Price",
+          "description": "Traded price and its movement: current and session prices (tradeAllDay.price, dayOpenPrice, dayHighPrice, dayLowPrice, close, vwap), moving averages of price (closeAvg, closeEma), and change measures both absolute and as ratios (changeFromCloseAllDay, changeFromOpen, changeFromHigh/Low, changeFromPrevDay, changeIn5Day, gap*). Use the *Ratio variants for percentage screens.",
+          "datapoint_count": 64,
+          "aliases": [
+            "price",
+            "price volume"
+          ]
+        },
+        {
+          "name": "Quote",
+          "description": "Current bid and ask, all prefixed quote.*: askPrice, bidPrice, askSize, bidSize, spread, and their timestamps. Use these for liquidity and spread screens.",
+          "datapoint_count": 8,
+          "aliases": [
+            "quote"
+          ]
+        },
+        {
+          "name": "Technical Indicator",
+          "description": "Chart studies computed from candles: momentum and oscillators (rsi, commodityChannelIndex, relativeVolatilityIndex, stochastic), trend (adx, macd, aroonUp/Down, alligator*, linearRegression*), ranges and bands (atr, bollingerBandUp/Down), pivots and distances (distanceFrom200DaySma, distanceFromPivot*), plus cross() for crossovers. Most take candleCount or timePeriod together with candlePeriod, so the same indicator can be evaluated over any horizon.",
+          "datapoint_count": 77,
+          "aliases": [
+            "indicator",
+            "indicators",
+            "technical",
+            "technical indicator"
+          ]
+        },
+        {
+          "name": "Volatility",
+          "description": "How much the instrument moves, and options-implied expectations of it: implied volatility at the money across tenors (iv, atmIv30Day ... atmIv720Day, frontIV, backIV), where current IV sits in its own historical range (atmIv*PosInRange, useful for IV rank style screens), and realized measures (priceStandardDeviation, relativeVolatilityIndex).",
+          "datapoint_count": 65,
+          "aliases": [
+            "vol",
+            "volatility"
+          ]
+        },
+        {
+          "name": "Volume",
+          "description": "Shares traded and its averages: dayVolume, volume, volumeAvg, volumeAvg10Day, volumeAvg10Minutes, volumeEma, volumePostMarket. Relative-volume screens are built by dividing dayVolume by a volumeAvg call rather than by a dedicated datapoint.",
+          "datapoint_count": 12,
+          "aliases": [
+            "price volume",
+            "volume"
+          ]
+        }
+      ],
+      "argument_types": [
+        {
+          "name": "CandlePeriod",
+          "argument_names": [
+            "candlePeriod"
+          ],
+          "values": [
+            "1m",
+            "2m",
+            "3m",
+            "4m",
+            "5m",
+            "10m",
+            "15m",
+            "30m",
+            "1h",
+            "2h",
+            "4h",
+            "1d",
+            "1w",
+            "1mo",
+            "1y"
+          ],
+          "note": "Candle granularity: the size of each candle, not how far back to look. rsi(candleCount=14, candlePeriod=\"1mo\") is RSI over 14 months, not 14 days."
+        },
+        {
+          "name": "Session",
+          "argument_names": [
+            "session"
+          ],
+          "values": [
+            "all",
+            "regular"
+          ],
+          "note": "Which trading session is included: \"all\" covers extended and overnight trading, \"regular\" is regular hours only. Must be lowercase."
+        },
+        {
+          "name": "TimePeriod",
+          "argument_names": [
+            "timePeriod"
+          ],
+          "values": [
+            "1d",
+            "1w",
+            "1mo",
+            "1y"
+          ],
+          "note": "Lookback duration: how far back to look. Accepts a strictly smaller set than candlePeriod - intraday values are invalid. Use either candleCount or timePeriod alongside candlePeriod, not both."
+        }
+      ]
+    },
+    "guide": "Build an expression by copying a signature and filling its arguments: rsi(candleCount: number, candlePeriod: CandlePeriod, session: Session = \"all\") becomes rsi(candleCount=14, candlePeriod=\"1d\", session=\"all\"). Arguments are passed by name, string values are quoted, and an argument shown with a default may be omitted.\n\nAn argument type in UpperCamelCase has a fixed value set in argument_types — using a value outside it fails upstream, so check there rather than inferring. Read the note on CandlePeriod and TimePeriod before choosing: candlePeriod is the size of each candle, timePeriod is how far back to look, and confusing them silently changes what the screen measures.\n\nSome screens are composed rather than looked up: comparing two datapoints puts the whole comparison in the expression with predicate \"=\" and values [\"True\"] — \"put volume exceeds call volume\" is optionsPutDayVolume > optionsCallDayVolume, \"price above its average\" is tradeAllDay.price > closeAvg(...). Prefer that boolean form over dividing (optionsPutDayVolume / optionsCallDayVolume > 1): a division silently drops every instrument whose denominator is zero, which here are the most put-skewed names — the ones the screen exists to find. Composition is also the fallback when an enum filter covers the screen but not your variant — e.g. relative volume has an enum filter (FILTER_TYPE_RELATIVE_VOLUME), so only compose dayVolume / volumeAvg(...) for a lookback missing from its supported_lengths.\n\nScoping the universe to specific instruments uses the symbol field with a LIST predicate rather than a comparison, and the expression is the bare word symbol:\n- named tickers — predicate ANY_OF, values the tickers (\"only AAPL and MSFT\" is expression symbol, predicate ANY_OF, values [\"AAPL\", \"MSFT\"]).\n- members of an index — predicate IN_LIST, values index CODES, not tickers (\"S&P 500 stocks\" is expression symbol, predicate IN_LIST, values [\"SP500\"]). Several codes union: [\"SP500\", \"NDX\"] means in either index.\nThe two predicates are not interchangeable, and mixing them up fails in opposite ways: IN_LIST with a ticker is rejected upstream (\"list name 'AAPL' does not exist\"), while ANY_OF with an index code returns zero rows and no error at all. Valid index codes: SP100, SP400, SP500, SP500_SecIndicies, SP500_SecIndustrIndicies, SP600, DJI, NDX, NDXT25, Russell1000, Russell2000, Russell3000, RussellMidcap, RussellMicrocap, HGX, HXC, OSX, RUF, SOX, UTY, XAU, S5C. There is no code for the Nasdaq Composite: \"COMP\" resolves upstream but collides with the Compound (COMP) crypto symbol, so avoid it. A user's own watchlist or positions cannot be used as a scope.\n\nThe same expressions work as result COLUMNS (the columns parameter of preview_scan, create_scan and update_scan_config): a column displays the expression's value without screening on it. A boolean-comparison filter reads best with its operands as columns (e.g. the put-exceeds-call screen showing both volumes); the division that is wrong as a filter is fine as a column, where a zero denominator only blanks a cell instead of dropping the row.\n\nAlways validate an expression with preview_scan before saving it to a scan."
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "id": "dep-sec-facts-01",
+  "tool": "get_sec_filing_facts",
+  "group": "sec-filings",
+  "gate": "read",
+  "note": "Batch facts for 3 common GAAP concepts on the 10-K.",
+  "args": {
+    "filing_ids": [
+      "f40e0579-5345-46f4-ab33-8362ac3ea95d"
+    ],
+    "concepts": [
+      "Assets",
+      "NetIncomeLoss",
+      "Revenues"
+    ]
+  },
+  "capturedAt": "2026-10-05T17:59:03.758Z",
+  "outcome": "success",
+  "latencyMs": 1011,
+  "success": true,
+  "response": {
+    "data": {
+      "facts": [
+        {
+          "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+          "concept": "NetIncomeLoss",
+          "entity": "0000320193",
+          "period": "2024-09-29/2025-09-27",
+          "axises": [],
+          "decimals": -6,
+          "value": "112010000000.00",
+          "char_value": "",
+          "unit": "iso4217:USD",
+          "start_date": "2024-09-29",
+          "end_date": "2025-09-27"
+        },
+        {
+          "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+          "concept": "NetIncomeLoss",
+          "entity": "0000320193",
+          "period": "2023-10-01/2024-09-28",
+          "axises": [],
+          "decimals": -6,
+          "value": "93736000000.00",
+          "char_value": "",
+          "unit": "iso4217:USD",
+          "start_date": "2023-10-01",
+          "end_date": "2024-09-28"
+        },
+        {
+          "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+          "concept": "NetIncomeLoss",
+          "entity": "0000320193",
+          "period": "2022-09-25/2023-09-30",
+          "axises": [],
+          "decimals": -6,
+          "value": "96995000000.00",
+          "char_value": "",
+          "unit": "iso4217:USD",
+          "start_date": "2022-09-25",
+          "end_date": "2023-09-30"
+        },
+        {
+          "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+          "concept": "Assets",
+          "entity": "0000320193",
+          "period": "2025-09-27",
+          "axises": [],
+          "decimals": -6,
+          "value": "359241000000.00",
+          "char_value": "",
+          "unit": "iso4217:USD",
+          "end_date": "2025-09-27"
+        },
+        {
+          "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+          "concept": "Assets",
+          "entity": "0000320193",
+          "period": "2024-09-28",
+          "axises": [],
+          "decimals": -6,
+          "value": "364980000000.00",
+          "char_value": "",
+          "unit": "iso4217:USD",
+          "end_date": "2024-09-28"
+        },
+        {
+          "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+          "concept": "NetIncomeLoss",
+          "entity": "0000320193",
+          "period": "2024-09-29/2025-09-27",
+          "axises": [
+            "StatementEquityComponentsAxis: RetainedEarningsMember"
+          ],
+          "decimals": -6,
+          "value": "112010000000.00",
+          "char_value": "",
+          "unit": "iso4217:USD",
+          "start_date": "2024-09-29",
+          "end_date": "2025-09-27"
+        },
+        {
+          "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+          "concept": "NetIncomeLoss",
+          "entity": "0000320193",
+          "period": "2023-10-01/2024-09-28",
+          "axises": [
+            "StatementEquityComponentsAxis: RetainedEarningsMember"
+          ],
+          "decimals": -6,
+          "value": "93736000000.00",
+          "char_value": "",
+          "unit": "iso4217:USD",
+          "start_date": "2023-10-01",
+          "end_date": "2024-09-28"
+        },
+        {
+          "filing_id": "f40e0579-5345-46f4-ab33-8362ac3ea95d",
+          "concept": "NetIncomeLoss",
+          "entity": "0000320193",
+          "period": "2022-09-25/2023-09-30",
+          "axises": [
+            "StatementEquityComponentsAxis: RetainedEarningsMember"
+          ],
+          "decimals": -6,
+          "value": "96995000000.00",
+          "char_value": "",
+          "unit": "iso4217:USD",
+          "start_date": "2022-09-25",
+          "end_date": "2023-09-30"
+        }
+      ]
+    },
+    "guide": "Fetch known synonym/near-duplicate concept pairs together and cross-check for divergence — they can legitimately disagree (e.g. NetIncomeLoss with ProfitLoss, Revenues with RevenueFromContractWithCustomerExcludingAssessedTax). Not every similarly-named pair is the same failure mode: some are inconsistent tagging of the same thing (reconcile to one number, or flag the divergence if it's large); others are deliberately different scopes (e.g. DebtCurrent/LongTermDebt exclude finance leases, while LongTermDebtAndFinanceLeasesCurrent/LongTermDebtAndFinanceLeasesNoncurrent include them and will consistently run a few percent higher) — present those separately with what each includes rather than collapsing them into one number. A requested concept with no matching rows in the response simply does not exist for that filing — diff the concepts you requested against the concepts actually present before answering, and call get_sec_filing_facts_catalog if a load-bearing concept came back missing rather than answering off a partial set. Report a concept as not available rather than force-fitting a value that doesn't semantically match the question."
+  }
+}

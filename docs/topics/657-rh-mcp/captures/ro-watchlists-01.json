@@ -1,0 +1,74 @@
+{
+  "id": "ro-watchlists-01",
+  "tool": "get_watchlists",
+  "group": "watchlists",
+  "gate": "read",
+  "note": "User watchlists - source of list_id.",
+  "args": {},
+  "capturedAt": "2026-10-05T17:54:04.662Z",
+  "outcome": "success",
+  "latencyMs": 2246,
+  "success": true,
+  "response": {
+    "data": {
+      "watchlists": [
+        {
+          "id": "b503eb36-9575-47d4-9625-20462e04eaa9",
+          "display_name": "ETFs",
+          "icon_emoji": "💡",
+          "owner_type": "custom",
+          "item_count": 2,
+          "allowed_object_types": [
+            "currency_pair",
+            "futures",
+            "futures_product",
+            "index",
+            "instrument",
+            "tokenized_stock"
+          ]
+        },
+        {
+          "id": "b3cf011e-1312-45db-85e2-4735b4c5ec59",
+          "display_name": "My First List",
+          "icon_emoji": "⚡️",
+          "owner_type": "custom",
+          "item_count": 13,
+          "allowed_object_types": [
+            "currency_pair",
+            "futures",
+            "futures_product",
+            "index",
+            "instrument",
+            "tokenized_stock"
+          ]
+        },
+        {
+          "id": "6411b572-9709-40e6-bbf7-52dac3be8983",
+          "display_name": "Cryptos to Watch",
+          "icon_emoji": "👾",
+          "owner_type": "custom",
+          "item_count": 1,
+          "allowed_object_types": [
+            "currency_pair",
+            "futures",
+            "futures_product",
+            "index",
+            "instrument",
+            "tokenized_stock"
+          ]
+        },
+        {
+          "id": "f4b9ad9a-e78c-40a6-b8e3-c1e2370a183f",
+          "display_name": "Options Watchlist",
+          "icon_emoji": "💡",
+          "owner_type": "custom",
+          "item_count": 0,
+          "allowed_object_types": [
+            "option_strategy"
+          ]
+        }
+      ]
+    },
+    "guide": "Distinguish lists by owner_type: 'custom' lists are writable (add_to_watchlist, remove_from_watchlist, update_watchlist); 'robinhood' lists are read-only and managed via follow_watchlist / unfollow_watchlist. When the user picks a list to act on, prefer matching by display_name and confirm before destructive actions."
+  }
+}

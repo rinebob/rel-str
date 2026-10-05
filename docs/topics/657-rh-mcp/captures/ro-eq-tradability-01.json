@@ -1,0 +1,80 @@
+{
+  "id": "ro-eq-tradability-01",
+  "tool": "get_equity_tradability",
+  "group": "account",
+  "gate": "read",
+  "note": "Per-symbol tradability flags (max 10/call honored).",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbols": [
+      "OOMA",
+      "AAPL",
+      "NFLX"
+    ]
+  },
+  "capturedAt": "2026-10-05T17:49:37.029Z",
+  "outcome": "success",
+  "latencyMs": 2202,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "symbol": "OOMA",
+          "name": "Ooma, Inc. Common Stock",
+          "simple_name": "Ooma",
+          "state": "active",
+          "country": "US",
+          "tradeable": true,
+          "fractional_tradability": "tradable",
+          "extended_hours_fractional_tradability": false,
+          "all_day_tradability": "untradable",
+          "short_selling_tradability": "tradable",
+          "account_type_tradabilities": [
+            {
+              "account_type": "individual",
+              "account_type_tradability": "tradable"
+            }
+          ]
+        },
+        {
+          "symbol": "AAPL",
+          "name": "Apple Inc. Common Stock",
+          "simple_name": "Apple",
+          "state": "active",
+          "country": "US",
+          "tradeable": true,
+          "fractional_tradability": "tradable",
+          "extended_hours_fractional_tradability": false,
+          "all_day_tradability": "tradable",
+          "short_selling_tradability": "tradable",
+          "account_type_tradabilities": [
+            {
+              "account_type": "individual",
+              "account_type_tradability": "tradable"
+            }
+          ]
+        },
+        {
+          "symbol": "NFLX",
+          "name": "Netflix, Inc. Common Stock",
+          "simple_name": "Netflix",
+          "state": "active",
+          "country": "US",
+          "tradeable": true,
+          "fractional_tradability": "tradable",
+          "extended_hours_fractional_tradability": true,
+          "all_day_tradability": "tradable",
+          "short_selling_tradability": "tradable",
+          "account_type_tradabilities": [
+            {
+              "account_type": "individual",
+              "account_type_tradability": "tradable"
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Use the account_type_tradabilities entry matching the user's account_type. If account_type_tradabilities is empty, report that account-type tradability could not be determined and rely on tradeable + state alone. Any of tradeable=false, state='inactive', or 'untradable' overrides everything below — surface first. Session mapping: regular_hours needs the matched account_type_tradability='tradable'; extended_hours / all_day_hours need all_day_tradability='tradable'; 24/7 needs twenty_four_seven_tradability='tradable' (a separate field, omitted when 24/7 does not apply). Mention internal_halt_* only when internal_halt_sessions overlaps the session the user wants. Fractional and dollar-based orders place only in regular_hours regardless of the flags. See trading://market-hours for session clock times."
+  }
+}

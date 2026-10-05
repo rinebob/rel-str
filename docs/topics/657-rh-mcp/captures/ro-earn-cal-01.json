@@ -1,0 +1,2259 @@
+{
+  "id": "ro-earn-cal-01",
+  "tool": "get_earnings_calendar",
+  "group": "research",
+  "gate": "read",
+  "note": "Default 7-day window from today.",
+  "args": {},
+  "capturedAt": "2026-10-05T17:54:07.678Z",
+  "outcome": "success",
+  "latencyMs": 1081,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "symbol": "CBAT",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "-0.060000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-05",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "CGTL",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-05",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SGMOQ",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "-0.060000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-05",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "LCFY",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "ALAR",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.080000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GAUZ",
+          "year": 2025,
+          "quarter": 4,
+          "eps": {
+            "estimate": "0.150000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "NCPL",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "TLK",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.660000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "TLK",
+          "year": 2025,
+          "quarter": 4,
+          "eps": {
+            "estimate": "0.530000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SAR",
+          "year": 2027,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.490000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "GAUZ",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "MSS",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": "-0.590000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "THH",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "MPU",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "NCPL",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "STZ",
+          "year": 2027,
+          "quarter": 2,
+          "eps": {
+            "estimate": "3.570000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "ITP",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "APOG",
+          "year": 2027,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.630000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "KEP",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.660000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "TIC",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "0.180000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "DAVA",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": "0.080000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "RJET",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PAYP",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.190000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "CURR",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.110000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "CBAT",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "-0.050000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "ELME",
+          "year": 2025,
+          "quarter": 4,
+          "eps": {
+            "estimate": "0.230000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "BGIN",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "WSE",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "DTSS",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GCDT",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "BRTX",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "-2.920000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HUBG",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.450000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AREC",
+          "year": 2025,
+          "quarter": 4,
+          "eps": {
+            "estimate": "-0.120000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HTT",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SMXT",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "FCHL",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "TLK",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.680000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AGCC",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "ELPW",
+          "year": 2025,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "MPU",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "MSS",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.510000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AGCC",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "VIVO",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SQFT",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SLMT",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HXHX",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GRAN",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "FRSX",
+          "year": 2025,
+          "quarter": 3,
+          "eps": {
+            "estimate": "-1.900000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "ELAB",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SLMT",
+          "year": 2025,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "VIVO",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GAUZ",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.150000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "MBAI",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "LNAI",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "BRAI",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AGRZ",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "VSA",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PFAI",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GAUZ",
+          "year": 2025,
+          "quarter": 3,
+          "eps": {
+            "estimate": "-0.280000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HXHX",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "FCHL",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "THH",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AREC",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "-0.120000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "NAKA",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "-0.490000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "IPST",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "1.000000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "YMAT",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AXIL",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "AREC",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.110000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "ARTW",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PLTS",
+          "year": 2025,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GCDT",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PBM",
+          "year": 2025,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SMJF",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "WYHG",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "BRAI",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "IMC",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HTT",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "CURR",
+          "year": 2025,
+          "quarter": 4,
+          "eps": {
+            "estimate": "-0.110000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "CURR",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "CELU",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "BRLS",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GORO",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GDEV",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.800000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HUBG",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.440000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AACG",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AACG",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HTLM",
+          "year": 2025,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "DTSS",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "BTLN",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": "-0.010000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "WYHG",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SJ",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "STAK",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "THH",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "KNRX",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "KNRX",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "MBAI",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GMTL",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "GMTL",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PLTS",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PLTS",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AGRZ",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "BGIN",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "LCFY",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "LCFY",
+          "year": 2025,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AAME",
+          "year": 2025,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AAME",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AAME",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "CMND",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "ENLV",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.300000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "ITP",
+          "year": 2025,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "ITP",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PFAI",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "VSA",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HUIZ",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SEGG",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SEGG",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "YMAT",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "FRGT",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "FRGT",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "FRSX",
+          "year": 2025,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-1.950000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AIV",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PENG",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": "0.740000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "NEOG",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.050000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "LW",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.590000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "WS",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "1.160000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "RPM",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "1.950000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "VLGEA",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-06",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "RELL",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.090000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "LFS",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "HKD",
+          "year": 2023,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "NPT",
+          "year": 2025,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "APLD",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.290000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "LEVI",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "0.360000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "NXTT",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "NXTT",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "ADVB",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "RGP",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.180000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "ADVB",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-07",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "TLRY",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.010000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "HELE",
+          "year": 2027,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.470000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "BYRN",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "-0.180000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "NG",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "-0.080000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "ANGO",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.110000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "PKE",
+          "year": 2027,
+          "quarter": 2,
+          "eps": {
+            "estimate": "0.160000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "PEP",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "2.300000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "ODC",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "pm",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "EONR",
+          "year": 2026,
+          "quarter": 1,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "SVNDY",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "TLRY",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.020000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "IPW",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "IPW",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "IPW",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "NRIX",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "3.980000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-08",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HIFS",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-09",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "AEHR",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "0.080000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-09",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "TORO",
+          "year": 2026,
+          "quarter": 2,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-09",
+            "timing": "am",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "DAL",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "2.020000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-09",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "LNAI",
+          "year": 2026,
+          "quarter": 4,
+          "eps": {
+            "estimate": null,
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-09",
+            "timing": "pm",
+            "verified": false
+          }
+        },
+        {
+          "symbol": "HOVR",
+          "year": 2027,
+          "quarter": 1,
+          "eps": {
+            "estimate": "-0.080000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-09",
+            "timing": "am",
+            "verified": true
+          }
+        },
+        {
+          "symbol": "KALV",
+          "year": 2026,
+          "quarter": 3,
+          "eps": {
+            "estimate": "-0.300000",
+            "actual": null
+          },
+          "report": {
+            "date": "2026-10-10",
+            "timing": "am",
+            "verified": false
+          }
+        }
+      ]
+    },
+    "guide": "Each entry is one company's report event within the window, sorted ascending by report date. The window spans days from start_date (positive = forward, negative = look-back). Distinguish \"upcoming\" from \"already reported\" by eps.actual: null means not yet reported. When report.verified is false, present the date as tentative rather than confirmed. An empty results array means no reports fall in the window (with filter=high_market_cap, no high-market-cap names do) — not an error. This tool does NOT return an \"expected move\" — pair with options data for implied-volatility-based moves."
+  }
+}

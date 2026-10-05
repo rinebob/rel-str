@@ -1,0 +1,171 @@
+{
+  "id": "ro-indexes-01",
+  "tool": "get_indexes",
+  "group": "research",
+  "gate": "read",
+  "note": "All indexes - source of instrument_ids.",
+  "args": {},
+  "capturedAt": "2026-10-05T17:54:29.072Z",
+  "outcome": "success",
+  "latencyMs": 1378,
+  "success": true,
+  "response": {
+    "data": {
+      "indexes": [
+        {
+          "id": "a29e60d9-857e-4e8f-a0e5-238b5cddbddc",
+          "symbol": "BNBUSD_RTI",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "432fbbb8-b82c-454a-852d-eb85382c7066",
+          "symbol": "SPX",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "08706a20-d7cb-486f-85ce-67ed501f2ee5",
+          "symbol": "MBTX",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "cc1fd266-bac0-4403-8b65-3575b0a358b1",
+          "symbol": "I00001US",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "3b912aa2-88f9-4682-8ae3-e39520bdf4db",
+          "symbol": "VIX",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "de5bff20-1b7b-4466-bd39-896c8fc40c44",
+          "symbol": "ETHUSD_RTI",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "54cf2743-0ecf-435e-8bb8-584f0b9e3b56",
+          "symbol": "DJX",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "b7961413-8f6b-47b2-a940-8739186ad538",
+          "symbol": "XRPUSD_RTI",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "b8ae3ed3-7f82-4c77-adb4-f25f2cab6a4e",
+          "symbol": "XSP",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "5384eca0-487e-4a82-b49b-d949e19d5667",
+          "symbol": "MGTN",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "5eb45096-c25b-4a5d-9e56-748665e8c89b",
+          "symbol": "HYPEUSD_RTI",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "4cbaeca6-4cd8-414a-b7f5-6504c028379f",
+          "symbol": "SOLUSD_RTI",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "849c473d-7c04-4803-965f-3981a3874a6f",
+          "symbol": "DOGEUSD_RTI",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "0f3aa93c-09df-4967-a3d1-4f797c8df901",
+          "symbol": "NEARUSD_RTI",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "69a02994-616b-424e-a058-6cc66c7b33a6",
+          "symbol": "ZECUSD_RTI",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "2ccbb776-ea0c-4395-8276-9961e3115991",
+          "symbol": "XND",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "1b489c2d-6bb0-433d-bad1-d832b6931b33",
+          "symbol": "BRTI",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "c1307296-e6ef-43c4-8f40-a0e545a1cf2f",
+          "symbol": "CBTX",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        },
+        {
+          "id": "50c298f7-27a8-44a1-b049-ec153cf2892f",
+          "symbol": "NDX",
+          "name": "",
+          "current_value": "",
+          "trade_halted": false,
+          "updated_at": ""
+        }
+      ]
+    },
+    "guide": "Each indexes[] entry identifies one index by id and symbol. current_value is a snapshot — for live values, pass id to get_index_quotes. Entries under restricted have no values available through this channel — relay their message to the user verbatim; do not retry or estimate a value."
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "ro-option-level-01",
+  "tool": "get_option_level_upgrade_info",
+  "group": "account",
+  "gate": "read",
+  "note": "Option-level upgrade URL/info; agentic acct reports empty option_level.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER"
+  },
+  "capturedAt": "2026-10-05T17:49:34.523Z",
+  "outcome": "success",
+  "latencyMs": 2511,
+  "success": true,
+  "response": {
+    "data": {
+      "upgrade_url": "https://applink.robinhood.com/upgrade_options?account_number=••••6245",
+      "account_number": "••••6245"
+    },
+    "guide": "Send the upgrade_url to the user as a tappable link. The user must click the link, complete the full options application flow, and get approved. Once the user confirms they have been successfully approved: call get_accounts immediately with a fresh request. Do not use any option_level value from a previous get_accounts call — that data is stale until re-fetched. The option_level field on the new get_accounts response will confirm the new access level. If you do not yet have the account_number, call get_accounts first."
+  }
+}

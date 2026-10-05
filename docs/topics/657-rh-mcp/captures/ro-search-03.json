@@ -1,0 +1,34 @@
+{
+  "id": "ro-search-03",
+  "tool": "search",
+  "group": "research",
+  "gate": "read",
+  "note": "asset_type=market_index.",
+  "args": {
+    "query": "SPX",
+    "asset_type": "market_index"
+  },
+  "capturedAt": "2026-10-05T17:54:35.476Z",
+  "outcome": "success",
+  "latencyMs": 1856,
+  "success": true,
+  "response": {
+    "data": {
+      "market_indexes": [
+        {
+          "id": "432fbbb8-b82c-454a-852d-eb85382c7066",
+          "symbol": "SPX",
+          "name": "S&P 500 Index",
+          "description": "The S&P 500 Index (SPX) tracks 500 of the biggest companies in the US stock market. It’s often used to gauge the overall health of the stock market."
+        },
+        {
+          "id": "3b912aa2-88f9-4682-8ae3-e39520bdf4db",
+          "symbol": "VIX",
+          "name": "Cboe Volatility Index",
+          "description": "The Cboe Volatility Index (VIX) tracks the 30-day implied volatility of the S&P 500 based on SPX options. A higher VIX usually indicates an increased uncertainty or fear in the market."
+        }
+      ]
+    },
+    "guide": "Exactly one of results[] (instruments), currency_pairs[] (crypto), or market_indexes[] (indexes) is populated, matching the requested asset_type. Instrument entries carry symbol + instrument_id — pass symbol to symbol-based tools (get_equity_quotes, get_equity_tradability, place_equity_order) and instrument_id to id-based tools. Currency-pair entries carry hyphenated symbol (e.g. BTC-USD) + id — the symbol routes to crypto quote/order tools, the id routes to watchlist tools as currency_pair_ids. Market-index entries carry symbol + id — pass id to index quote tools for live values; the symbol cross-references index snapshot tools. Multiple results means the query was ambiguous (e.g. \"apple\" could match AAPL or APLE; \"bitcoin\" could match BTC-USD or BCH-USD); ask the user to disambiguate before placing trades. An empty result list means no Robinhood-tradable match — do not invent a symbol."
+  }
+}

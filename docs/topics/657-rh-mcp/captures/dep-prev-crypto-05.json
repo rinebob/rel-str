@@ -1,0 +1,38 @@
+{
+  "id": "dep-prev-crypto-05",
+  "tool": "preview_crypto_order",
+  "group": "sims",
+  "gate": "read",
+  "note": "tax_lots objects exercised (synthetic lot id - will fail at crypto-account gate like prior crypto probes).",
+  "args": {
+    "rhs_account_number": "$ENV:RH_RHS_ACCOUNT_NUMBER",
+    "symbol": "BTC-USD",
+    "side": "sell",
+    "type": "market",
+    "quantity": "0.001",
+    "tax_lots": [
+      {
+        "open_lot_id": "00000000-0000-0000-0000-000000000000",
+        "quantity": "0.001"
+      }
+    ]
+  },
+  "capturedAt": "2026-10-05T18:01:49.304Z",
+  "outcome": "error",
+  "latencyMs": 850,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "tax_lots: specified-lot selling is not available for this account; tell the user and offer the default disposal instead"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "tax_lots: specified-lot selling is not available for this account; tell the user and offer the default disposal instead"
+}

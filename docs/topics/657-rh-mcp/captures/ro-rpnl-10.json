@@ -1,0 +1,671 @@
+{
+  "id": "ro-rpnl-10",
+  "tool": "get_realized_pnl",
+  "group": "pnl",
+  "gate": "read",
+  "note": "Explicit timezone for bucket day-boundaries.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "timezone": "America/Los_Angeles"
+  },
+  "capturedAt": "2026-10-05T17:50:07.363Z",
+  "outcome": "success",
+  "latencyMs": 948,
+  "success": true,
+  "response": {
+    "data": {
+      "account_number": "••••6245",
+      "window": "3month",
+      "display_currency": "USD",
+      "data_points": [
+        {
+          "start_time": "2026-07-06T07:00:00Z",
+          "end_time": "2026-07-07T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-07T07:00:00Z",
+          "end_time": "2026-07-08T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-08T07:00:00Z",
+          "end_time": "2026-07-09T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-09T07:00:00Z",
+          "end_time": "2026-07-10T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-10T07:00:00Z",
+          "end_time": "2026-07-11T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-11T07:00:00Z",
+          "end_time": "2026-07-12T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-12T07:00:00Z",
+          "end_time": "2026-07-13T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-13T07:00:00Z",
+          "end_time": "2026-07-14T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-14T07:00:00Z",
+          "end_time": "2026-07-15T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-15T07:00:00Z",
+          "end_time": "2026-07-16T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-16T07:00:00Z",
+          "end_time": "2026-07-17T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-17T07:00:00Z",
+          "end_time": "2026-07-18T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-18T07:00:00Z",
+          "end_time": "2026-07-19T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-19T07:00:00Z",
+          "end_time": "2026-07-20T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-20T07:00:00Z",
+          "end_time": "2026-07-21T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-21T07:00:00Z",
+          "end_time": "2026-07-22T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-22T07:00:00Z",
+          "end_time": "2026-07-23T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-23T07:00:00Z",
+          "end_time": "2026-07-24T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-24T07:00:00Z",
+          "end_time": "2026-07-25T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-25T07:00:00Z",
+          "end_time": "2026-07-26T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-26T07:00:00Z",
+          "end_time": "2026-07-27T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-27T07:00:00Z",
+          "end_time": "2026-07-28T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-28T07:00:00Z",
+          "end_time": "2026-07-29T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-29T07:00:00Z",
+          "end_time": "2026-07-30T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-30T07:00:00Z",
+          "end_time": "2026-07-31T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-07-31T07:00:00Z",
+          "end_time": "2026-08-01T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-01T07:00:00Z",
+          "end_time": "2026-08-02T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-02T07:00:00Z",
+          "end_time": "2026-08-03T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-03T07:00:00Z",
+          "end_time": "2026-08-04T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-04T07:00:00Z",
+          "end_time": "2026-08-05T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-05T07:00:00Z",
+          "end_time": "2026-08-06T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-06T07:00:00Z",
+          "end_time": "2026-08-07T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-07T07:00:00Z",
+          "end_time": "2026-08-08T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-08T07:00:00Z",
+          "end_time": "2026-08-09T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-09T07:00:00Z",
+          "end_time": "2026-08-10T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-10T07:00:00Z",
+          "end_time": "2026-08-11T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-11T07:00:00Z",
+          "end_time": "2026-08-12T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-12T07:00:00Z",
+          "end_time": "2026-08-13T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-13T07:00:00Z",
+          "end_time": "2026-08-14T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-14T07:00:00Z",
+          "end_time": "2026-08-15T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-15T07:00:00Z",
+          "end_time": "2026-08-16T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-16T07:00:00Z",
+          "end_time": "2026-08-17T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-17T07:00:00Z",
+          "end_time": "2026-08-18T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-18T07:00:00Z",
+          "end_time": "2026-08-19T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-19T07:00:00Z",
+          "end_time": "2026-08-20T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-20T07:00:00Z",
+          "end_time": "2026-08-21T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-21T07:00:00Z",
+          "end_time": "2026-08-22T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-22T07:00:00Z",
+          "end_time": "2026-08-23T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-23T07:00:00Z",
+          "end_time": "2026-08-24T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-24T07:00:00Z",
+          "end_time": "2026-08-25T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-25T07:00:00Z",
+          "end_time": "2026-08-26T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-26T07:00:00Z",
+          "end_time": "2026-08-27T06:59:59Z",
+          "realized_gain": "0.24",
+          "rate_of_realized_gain": "0.0003309294982281",
+          "number_of_trades": 2
+        },
+        {
+          "start_time": "2026-08-27T07:00:00Z",
+          "end_time": "2026-08-28T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-28T07:00:00Z",
+          "end_time": "2026-08-29T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-29T07:00:00Z",
+          "end_time": "2026-08-30T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-30T07:00:00Z",
+          "end_time": "2026-08-31T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-08-31T07:00:00Z",
+          "end_time": "2026-09-01T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-01T07:00:00Z",
+          "end_time": "2026-09-02T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-02T07:00:00Z",
+          "end_time": "2026-09-03T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-03T07:00:00Z",
+          "end_time": "2026-09-04T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-04T07:00:00Z",
+          "end_time": "2026-09-05T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-05T07:00:00Z",
+          "end_time": "2026-09-06T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-06T07:00:00Z",
+          "end_time": "2026-09-07T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-07T07:00:00Z",
+          "end_time": "2026-09-08T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-08T07:00:00Z",
+          "end_time": "2026-09-09T06:59:59Z",
+          "realized_gain": "0.11",
+          "rate_of_realized_gain": "0.0523809523809524",
+          "number_of_trades": 1
+        },
+        {
+          "start_time": "2026-09-09T07:00:00Z",
+          "end_time": "2026-09-10T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-10T07:00:00Z",
+          "end_time": "2026-09-11T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-11T07:00:00Z",
+          "end_time": "2026-09-12T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-12T07:00:00Z",
+          "end_time": "2026-09-13T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-13T07:00:00Z",
+          "end_time": "2026-09-14T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-14T07:00:00Z",
+          "end_time": "2026-09-15T06:59:59Z",
+          "realized_gain": "-14.24",
+          "rate_of_realized_gain": "-0.1154345006485084",
+          "number_of_trades": 1
+        },
+        {
+          "start_time": "2026-09-15T07:00:00Z",
+          "end_time": "2026-09-16T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-16T07:00:00Z",
+          "end_time": "2026-09-17T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-17T07:00:00Z",
+          "end_time": "2026-09-18T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-18T07:00:00Z",
+          "end_time": "2026-09-19T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-19T07:00:00Z",
+          "end_time": "2026-09-20T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-20T07:00:00Z",
+          "end_time": "2026-09-21T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-21T07:00:00Z",
+          "end_time": "2026-09-22T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-22T07:00:00Z",
+          "end_time": "2026-09-23T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-23T07:00:00Z",
+          "end_time": "2026-09-24T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-24T07:00:00Z",
+          "end_time": "2026-09-25T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-25T07:00:00Z",
+          "end_time": "2026-09-26T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-26T07:00:00Z",
+          "end_time": "2026-09-27T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-27T07:00:00Z",
+          "end_time": "2026-09-28T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-28T07:00:00Z",
+          "end_time": "2026-09-29T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-29T07:00:00Z",
+          "end_time": "2026-09-30T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-09-30T07:00:00Z",
+          "end_time": "2026-10-01T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-10-01T07:00:00Z",
+          "end_time": "2026-10-02T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-10-02T07:00:00Z",
+          "end_time": "2026-10-03T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-10-03T07:00:00Z",
+          "end_time": "2026-10-04T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-10-04T07:00:00Z",
+          "end_time": "2026-10-05T06:59:59Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        },
+        {
+          "start_time": "2026-10-05T07:00:00Z",
+          "end_time": "2026-10-05T17:50:06Z",
+          "realized_gain": null,
+          "rate_of_realized_gain": null,
+          "number_of_trades": 0
+        }
+      ],
+      "total_returns": "-13.89",
+      "total_rate_of_return": "-0.016327922039756"
+    },
+    "guide": "This is realized profit & loss only — gains/losses from positions closed within the window; it excludes unrealized profit and loss on open positions. data_points are buckets in ascending time order. A window with no closing trades returns empty data_points with zero totals — that is a valid result (\"no realized trades in this window\"), not an error. When a bucket's realized_gain and rate_of_realized_gain are null (a transfer-only bucket whose lots had no cost basis, e.g. transfers), present them as \"n/a\" — do not render them as $0 / 0%. These are aggregate numbers; for individual trade records use the separate realized profit and loss (trade history) tool. Treat figures as informational, not a tax document or tax/performance advice."
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "dep-idx-hist-02",
+  "tool": "get_index_historicals",
+  "group": "indexes",
+  "gate": "read",
+  "note": "SPX minute bars, 2-day window.",
+  "args": {
+    "instrument_ids": [
+      "432fbbb8-b82c-454a-852d-eb85382c7066"
+    ],
+    "start_time": "2026-10-02T00:00:00Z",
+    "end_time": "2026-10-03T23:59:59Z",
+    "interval": "minute"
+  },
+  "capturedAt": "2026-10-05T17:58:49.348Z",
+  "outcome": "error",
+  "latencyMs": 879,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 400: {\"status\":\"FAILURE\",\"error\":{\"code\":3,\"message\":\"invalid argument: granularity too small for provided interval\",\"details\":[{\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\",\"reason\":\"granularity too"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 400: {\"status\":\"FAILURE\",\"error\":{\"code\":3,\"message\":\"invalid argument: granularity too small for provided interval\",\"details\":[{\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\",\"reason\":\"granularity too"
+}
