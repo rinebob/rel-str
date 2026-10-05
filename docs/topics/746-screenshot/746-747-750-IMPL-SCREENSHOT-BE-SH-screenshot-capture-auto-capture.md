@@ -40,7 +40,8 @@ functions/src/screenshot-capture/
   chart-theme.ts                    — dark palette re-export + capture-only additions (event marker, color remap)
   rasterizer.ts                     — SVG → PNG via @resvg/resvg-js + bundled font
   storage-writer.ts                 — bucket writes, path convention
-  assets/                           — bundled .ttf for rasterizer text
+
+functions/assets/fonts/             — bundled Roboto TTFs for rasterizer text (400/500/700)
 ```
 
 Review remediation (#766): the FE `chart-theme.ts`, `log-transform.ts`, and
@@ -124,7 +125,7 @@ SVG primitives, flex-chart visual language, dark palette from `chart-theme.ts`:
 `@resvg/resvg-js` → PNG at spec dimensions. Two deploy concerns:
 
 1. **esbuild external:** add `--external:@resvg/resvg-js` to the functions build — napi binary must not be bundled
-2. **Font:** resvg needs a font for text — bundle one .ttf under `assets/` and `loadFont` at init; keep header/axis text to one family/size ramp
+2. **Font:** resvg needs a font for text — bundle .ttf files under `functions/assets/fonts/` and load via `font.fontFiles` (resvg-js 2.6.2 API) with `loadSystemFonts: false`; keep header/axis text to one family/size ramp
 
 ## Storage
 
@@ -146,7 +147,7 @@ st-trade-screenshots/{SYMBOL}/{yyyy-MM-dd}-{HHmmss}-{event}-{positionType}[-{ref
 
 ## Build/deploy touchpoints
 
-- `functions/package.json` deps: `@resvg/resvg-js` (pinned ≥7-day-old release)
+- `functions/package.json` deps: `@resvg/resvg-js` (≥7-day-old release — caret range per repo convention; package-lock pins the exact version)
 - `functions/package.json` build script: add `--external:@resvg/resvg-js`
 - `functions/src/index.ts`: export `captureChartSnapshot`
 

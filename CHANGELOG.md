@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [2026-10-05]
+
+### Added
+- [On-demand Screenshot Capture] 746-769_BE-IMPL-SCREENSHOT: PNG rasterization in captureChartSnapshot — @resvg/resvg-js@2.6.2 via font.fontFiles + loadSystemFonts:false over bundled Roboto 400/500/700 (Apache-2.0, LICENSE vendored); .png sibling per .svg at the same path stem, image/png contentType, artifacts[].pngPath + interleaved paths; --external:@resvg/resvg-js build flag; 6 rasterizer + 48 callable specs; live verify 17/17
+- [On-demand Screenshot Capture] 746-769_DOCS-SCREENSHOT: #769 code review (PASS, 1 remediation round) + UAT (Complete — incl. manual PNG visual check)
+
+
 ## [2026-10-04]
 
 ### Added
