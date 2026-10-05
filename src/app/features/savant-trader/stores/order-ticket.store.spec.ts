@@ -1,12 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { of, throwError, Subject } from 'rxjs';
+import { NEVER, of, throwError, Subject, from } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
 import { OrderTicketStore } from './order-ticket.store';
 import { OrderTicketService } from '../services/order-ticket.service';
 import { OrderExecutionService } from '../services/order-execution.service';
+import { PaperTradingService } from '../services/paper-trading.service';
 import { PositionAttributionService } from '../../portfolio-dashboard/position-attribution.service';
 import {
   OrderTicket,
@@ -22,6 +23,7 @@ describe('OrderTicketStore', () => {
   let orderExecution: any;
   let snackBar: any;
   let attrService: { seedFromTicket$: jest.Mock };
+  let paperTrading: { paperSignalOrder$: jest.Mock };
 
   function mockEquityTicket(overrides: Partial<EquityOrderTicket> = {}): EquityOrderTicket {
     return {
@@ -55,6 +57,11 @@ describe('OrderTicketStore', () => {
 
     snackBar = { open: jasmine.createSpy('open') };
     attrService = { seedFromTicket$: jest.fn(() => of(null)) };
+    paperTrading = {
+      paperSignalOrder$: jest.fn().mockReturnValue(
+        of({ cohortId: 'c1', equityTradeId: 'eq-1', expressionTradeIds: ['e1'] }),
+      ),
+    };
     orderExecution = {
       submitEquityOrder: jasmine.createSpy('submitEquityOrder').and.returnValue(
         Promise.resolve({ success: true, result: { orderId: 'o1', state: 'confirmed' } }),
@@ -69,6 +76,7 @@ describe('OrderTicketStore', () => {
         provideZonelessChangeDetection(),
         { provide: OrderTicketService, useValue: ticketService },
         { provide: OrderExecutionService, useValue: orderExecution },
+        { provide: PaperTradingService, useValue: paperTrading },
         { provide: MatSnackBar, useValue: snackBar },
         { provide: PositionAttributionService, useValue: attrService },
         OrderTicketStore,
@@ -356,6 +364,19 @@ describe('OrderTicketStore', () => {
       expect(store.tickets()['i1'].status).toBe(OrderTicketStatus.SUBMITTING);
     });
 
+    it('preserves a local PAPER over a stale persisted STAGED doc — the optimistic mark precedes the write (#755 review r3)', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ id: 'i1', status: OrderTicketStatus.STAGED }));
+      store.setTicketStatusLocal('i1', OrderTicketStatus.PAPER);
+
+      ticketService.loadAllTickets.and.returnValue(of([
+        mockEquityTicket({ id: 'i1', status: OrderTicketStatus.STAGED }),
+      ]));
+      store.loadTickets();
+
+      expect(store.tickets()['i1'].status).toBe(OrderTicketStatus.PAPER);
+    });
+
     it('lets the server win when the stored doc moved past STAGED', () => {
       ticketService.createTicket.and.returnValue(of(undefined));
       store.stageTicket(mockEquityTicket({ id: 'i1', status: OrderTicketStatus.STAGED }));
@@ -457,6 +478,171 @@ describe('OrderTicketStore', () => {
       const bySymbol = store.ticketsBySymbol();
       expect(bySymbol['AAPL'].length).toBe(2);
       expect(bySymbol['MSFT'].length).toBe(1);
+    });
+  });
+
+  describe('stageTicketAndWait (#755)', () => {
+    it('lands the ticket only after the Firestore write resolves', async () => {
+      let release!: () => void;
+      ticketService.createTicket.and.returnValue(
+        from(new Promise<void>((r) => (release = r))),
+      );
+      const ticket = mockEquityTicket();
+
+      const pending = store.stageTicketAndWait(ticket);
+      // Mid-write: nothing optimistic — the local map stays empty until
+      // the persist lands (paperSignalOrder looks the doc up by refId).
+      expect(store.tickets()['ticket-1']).toBeUndefined();
+
+      release();
+      expect(await pending).toBe(true);
+      expect(store.tickets()['ticket-1']).toEqual(ticket);
+      expect(ticketService.createTicket).toHaveBeenCalledWith(ticket);
+    });
+
+    it('resolves false, leaves the map empty, and reports on write error', async () => {
+      ticketService.createTicket.and.returnValue(
+        throwError(() => new Error('Firestore down')),
+      );
+
+      expect(await store.stageTicketAndWait(mockEquityTicket())).toBe(false);
+      expect(store.tickets()['ticket-1']).toBeUndefined();
+      expect(snackBar.open).toHaveBeenCalled();
+    });
+  });
+
+  describe('sendTicketToPaper (#755 shared transaction)', () => {
+    const signalTicket = (overrides: Partial<EquityOrderTicket> = {}): EquityOrderTicket =>
+      mockEquityTicket({
+        signalContext: {
+          signalType: 'ST_ENTRY',
+          barDate: '2026-08-24',
+          timeframe: 'daily',
+          direction: 'LONG',
+          // Legacy hyphenated id — canonicalized to the doc id.
+          decisionId: 'run-1-AAPL-daily-ST_ENTRY',
+        },
+        ...overrides,
+      });
+
+    it('marks SUBMITTING during the callable then lands PAPER on success', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(of(undefined));
+      store.stageTicket(signalTicket());
+      const statuses: OrderTicketStatus[] = [];
+      paperTrading.paperSignalOrder$.mockImplementation(() => {
+        statuses.push(store.tickets()['ticket-1'].status);
+        return of({ cohortId: 'c1', equityTradeId: 'eq-1', expressionTradeIds: [] });
+      });
+
+      const res = await store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 7);
+
+      // Transient SUBMITTING guarded the callable window (C1, #709).
+      expect(statuses).toEqual([OrderTicketStatus.SUBMITTING]);
+      expect(res.cohortId).toBe('c1');
+      expect(ticketService.updateTicket).toHaveBeenCalledWith(
+        'ticket-1',
+        jasmine.objectContaining({ status: OrderTicketStatus.PAPER }),
+      );
+      expect(store.tickets()['ticket-1'].status).toBe(OrderTicketStatus.PAPER);
+    });
+
+    it('builds the request from the ticket — canonical signalId, side-derived direction, refId', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(of(undefined));
+      store.stageTicket(signalTicket());
+
+      await store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 7);
+
+      expect(paperTrading.paperSignalOrder$).toHaveBeenCalledWith({
+        signalId: 'run-1_AAPL_daily_ST_ENTRY',
+        symbol: 'AAPL',
+        direction: 'long',
+        quantity: 7,
+        refId: 'ref-abc-123',
+      });
+    });
+
+    it('maps a sell-side ticket to SHORT', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(of(undefined));
+      store.stageTicket(signalTicket({ side: 'sell' }));
+
+      await store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 3);
+
+      expect(paperTrading.paperSignalOrder$).toHaveBeenCalledWith(
+        jasmine.objectContaining({ direction: 'short' }),
+      );
+    });
+
+    it('reverts to STAGED with the error attached and rethrows on callable failure', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(of(undefined));
+      store.stageTicket(signalTicket());
+      paperTrading.paperSignalOrder$.mockReturnValueOnce(
+        throwError(() => new Error('boom')),
+      );
+
+      await expect(
+        store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 7, 'Paper accept failed: '),
+      ).rejects.toThrow('boom');
+
+      // Revert is a persisted update — STAGED + retryable error with the
+      // caller's prefix, not a local-only patch.
+      expect(ticketService.updateTicket).toHaveBeenCalledWith(
+        'ticket-1',
+        jasmine.objectContaining({
+          status: OrderTicketStatus.STAGED,
+          error: jasmine.objectContaining({ retryable: true }),
+        }),
+      );
+    });
+
+    it('rejects a stale snapshot — the store copy must still be paper-eligible (#755 review)', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(of(undefined));
+      store.stageTicket(signalTicket());
+      const snapshot = store.tickets()['ticket-1'] as EquityOrderTicket;
+      // The ticket advances (e.g. submitted elsewhere) while the caller
+      // holds the old STAGED snapshot.
+      store.setTicketStatusLocal('ticket-1', OrderTicketStatus.SUBMITTED);
+
+      await expect(store.sendTicketToPaper(snapshot, 7)).rejects.toThrow('no longer paper-eligible');
+      expect(paperTrading.paperSignalOrder$).not.toHaveBeenCalled();
+      expect(store.tickets()['ticket-1'].status).toBe(OrderTicketStatus.SUBMITTED);
+    });
+
+    it('guards a concurrent send — a ticket already SUBMITTING is not paper-eligible', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(of(undefined));
+      store.stageTicket(signalTicket());
+      // Hold the first send open so the ticket sits on SUBMITTING.
+      paperTrading.paperSignalOrder$.mockReturnValue(NEVER);
+      const first = store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 7);
+      expect(store.tickets()['ticket-1'].status).toBe(OrderTicketStatus.SUBMITTING);
+
+      await expect(
+        store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 7),
+      ).rejects.toThrow('no longer paper-eligible');
+      expect(paperTrading.paperSignalOrder$).toHaveBeenCalledTimes(1);
+      void first;
+    });
+
+    it('a failed PAPER write leaves the ticket STAGED — never stuck on the transient SUBMITTING (#755 review)', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      // The status write to Firestore fails.
+      ticketService.updateTicket.and.returnValue(throwError(() => new Error('write down')));
+      store.stageTicket(signalTicket());
+      paperTrading.paperSignalOrder$.mockReturnValue(
+        of({ cohortId: 'c1', equityTradeId: 'eq-1', expressionTradeIds: [] }),
+      );
+
+      await store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 7);
+
+      // updateTicket's rollback restores the pre-update local state — the
+      // transient was reverted first, so the ticket lands back on STAGED
+      // (matching the server doc) instead of an unpersisted SUBMITTING.
+      expect(store.tickets()['ticket-1'].status).toBe(OrderTicketStatus.STAGED);
     });
   });
 });

@@ -43,8 +43,13 @@ import {
   OrderSource,
   InstrumentType,
   EquityOrderTicket,
+  EtfOrderTicket,
 } from '../services/order-ticket.types';
 import { ExecutionResult } from '../services/order-execution.service';
+import { PaperTradingService } from '../services/paper-trading.service';
+import { isPaperEligibleTicket, toPaperSignalOrderRequest } from '../utils/paper-ticket.util';
+import { formatError } from '../utils/format-error.util';
+import type { PaperSignalOrderResponse } from '@paper-trading/contracts';
 import { rhStateToTerminalStatus } from '../utils/broker-order.util';
 import { PositionAttributionService } from '../../portfolio-dashboard/position-attribution.service';
 
@@ -121,11 +126,18 @@ export const OrderTicketStore = signalStore(
             // Preserve a transient local SUBMITTING over a persisted STAGED
             // doc — the status is never written (in-flight submit/paper-send
             // marker), so a rehydrate mid-flight must not return the ticket
-            // to the removable/submittable staged pool. If the stored doc
-            // moved on (FAILED, gone), the server value wins.
+            // to the removable/submittable staged pool. Same for a local
+            // PAPER: sendTicketToPaper marks it optimistically before the
+            // persisted write lands, so a stale STAGED snapshot must not
+            // clobber it back into the pool. If the stored doc moved on
+            // (FAILED, gone), the server value wins.
             for (const [id, local] of Object.entries(state.tickets())) {
-              if (local.status === OrderTicketStatus.SUBMITTING && map[id]?.status === OrderTicketStatus.STAGED) {
-                map[id] = { ...map[id], status: OrderTicketStatus.SUBMITTING, updatedAt: local.updatedAt };
+              if (
+                (local.status === OrderTicketStatus.SUBMITTING ||
+                  local.status === OrderTicketStatus.PAPER) &&
+                map[id]?.status === OrderTicketStatus.STAGED
+              ) {
+                map[id] = { ...map[id], status: local.status, updatedAt: local.updatedAt };
               }
             }
             patchState(state, { tickets: map, loading: false });
@@ -331,9 +343,10 @@ export const OrderTicketStore = signalStore(
         .subscribe({
           error: (err: unknown) => {
             // Re-add only this entry — a wholesale revert would wipe
-            // tickets staged or removed meanwhile.
+            // tickets staged or removed meanwhile. Skip when the removed
+            // id never existed locally (prev[id] would be undefined).
             const cur = state.tickets();
-            if (!cur[id]) {
+            if (!cur[id] && prev[id]) {
               patchState(state, { tickets: { ...cur, [id]: prev[id] } });
             }
             patchState(state, { error: err instanceof Error ? err.message : String(err) });
@@ -400,6 +413,91 @@ export const OrderTicketStore = signalStore(
               console.error('[OrderTicketStore] attribution seed failed:', err);
             },
           });
+      }
+    },
+  })),
+
+  /** Second methods block — sees the first block's methods on the store
+   *  (`setTicketStatusLocal`, `updateTicket`). */
+  withMethods((
+    store,
+    ticketService = inject(OrderTicketService),
+    paperTrading = inject(PaperTradingService),
+    snackBar = inject(MatSnackBar),
+  ) => ({
+
+    /** Pessimistic variant of {@link stageTicket} — the local ticket lands
+     *  only after the Firestore write resolves. Callers that immediately
+     *  hand the ticket to a backend callable must wait for the write:
+     *  paperSignalOrder looks the doc up by `refId` and throws not-found
+     *  when it hasn't landed (#755 review — the queue's requeue path made
+     *  the same guarantee via updateTicketAndWait, #717). */
+    async stageTicketAndWait(ticket: OrderTicket): Promise<boolean> {
+      try {
+        await firstValueFrom(ticketService.createTicket(ticket));
+        patchState(store, { tickets: { ...store.tickets(), [ticket.id]: ticket } });
+        return true;
+      } catch (err) {
+        patchState(store, { error: err instanceof Error ? err.message : String(err) });
+        snackBar.open('Failed to stage signal entry', 'Dismiss', { duration: 4000 });
+        console.error('[OrderTicketStore] stageTicketAndWait failed:', err);
+        return false;
+      }
+    },
+
+    /**
+     * Shared paper-send transaction (#755 review — one copy replaces the
+     * three drifting implementations in the order queue, the ticket
+     * component, and the gallery facade):
+     *
+     * Transient SUBMITTING takes the ticket out of the staged pool for the
+     * await (#709), then the paperSignalOrder callable runs. Success →
+     * PAPER + cleared error; failure → STAGED with the error attached and
+     * the error rethrown so the caller can show its own snackbar.
+     * `failurePrefix` preserves each surface's stored error wording.
+     *
+     * The passed ticket is only a pointer — the store's copy is the source
+     * of truth. Callers can hold a stale snapshot (e.g. one captured
+     * before a confirm-dialog await while another surface submitted the
+     * ticket), so eligibility is re-validated here before the transient
+     * status and the request are built (#755 review — a stale STAGED
+     * snapshot would otherwise be SUBMITTING-ified and papered over a
+     * live broker order).
+     */
+    async sendTicketToPaper(
+      ticket: EquityOrderTicket | EtfOrderTicket,
+      quantity: number | undefined,
+      failurePrefix = '',
+    ): Promise<PaperSignalOrderResponse> {
+      const current = store.tickets()[ticket.id];
+      if (!isPaperEligibleTicket(current)) {
+        throw new Error(`${ticket.id}: ticket is no longer paper-eligible`);
+      }
+      store.setTicketStatusLocal(current.id, OrderTicketStatus.SUBMITTING);
+      try {
+        const res = await firstValueFrom(
+          paperTrading.paperSignalOrder$(toPaperSignalOrderRequest(current, quantity)),
+        );
+        // Revert the transient marker BEFORE the persisted update — a
+        // failed write then rolls back to STAGED (matching the server doc)
+        // rather than restoring the never-persisted SUBMITTING snapshot,
+        // which would wedge the ticket for the session (#755 review).
+        store.setTicketStatusLocal(current.id, OrderTicketStatus.STAGED);
+        store.updateTicket(current.id, {
+          status: OrderTicketStatus.PAPER,
+          error: undefined,
+          updatedAt: new Date().toISOString(),
+        });
+        return res;
+      } catch (err) {
+        console.error(`[OrderTicketStore] paper send failed for ${current.symbol}:`, err);
+        store.setTicketStatusLocal(current.id, OrderTicketStatus.STAGED);
+        store.updateTicket(current.id, {
+          status: OrderTicketStatus.STAGED,
+          error: { message: `${failurePrefix}${formatError(err)}`, retryable: true },
+          updatedAt: new Date().toISOString(),
+        });
+        throw err;
       }
     },
   })),
