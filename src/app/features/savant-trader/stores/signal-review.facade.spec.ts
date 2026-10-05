@@ -5,7 +5,8 @@ import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
 
-import { SignalReviewFacade, buildSignalOrderTickets } from './signal-review.facade';
+import { SignalReviewFacade } from './signal-review.facade';
+import { buildSignalOrderTickets } from '../utils/signal-order-staging.util';
 import { GroupStore } from './group.store';
 import { TriageStore } from './triage.store';
 import { OccurrenceDecisionStore } from './occurrence-decision.store';

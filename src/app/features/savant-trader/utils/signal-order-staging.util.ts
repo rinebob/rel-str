@@ -13,6 +13,11 @@ import {
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import { SignalDirection } from '../common/constants';
 
+/** Fallback sizing target when the trading config doesn't set one —
+ *  shared by the signal-review and gallery staging paths so the number
+ *  can't drift between surfaces. */
+export const DEFAULT_DOLLAR_AMOUNT = 100;
+
 /** Inputs needed to build signal-staged tickets. */
 export interface SignalOrderStagingContext {
   runId: string;
@@ -21,6 +26,10 @@ export interface SignalOrderStagingContext {
   now: Date;
   buildId: (symbol: string, side: string, now: Date) => string;
   buildRefId: () => string;
+  /** Qty-based sizing — when set, the ticket carries `quantity` instead of
+   *  `dollarAmount` (gallery card staging, #759). Unset → dollar-amount
+   *  market ticket (signal-review auto-accept). */
+  quantity?: string;
 }
 
 export function buildSignalOrderTickets(
@@ -28,7 +37,7 @@ export function buildSignalOrderTickets(
   signals: StSignalItem[],
   context: SignalOrderStagingContext,
 ): EquityOrderTicket[] {
-  const { runId, accountNumber, defaultDollarAmount, now, buildId, buildRefId } = context;
+  const { runId, accountNumber, defaultDollarAmount, now, buildId, buildRefId, quantity } = context;
   const seen = new Set<string>();
   const tickets: EquityOrderTicket[] = [];
   for (const signal of signals) {
@@ -61,7 +70,7 @@ export function buildSignalOrderTickets(
       marketHours: 'regular_hours',
       instrumentType: InstrumentType.EQUITY,
       symbol,
-      dollarAmount: String(defaultDollarAmount),
+      ...(quantity ? { quantity } : { dollarAmount: String(defaultDollarAmount) }),
       signalContext: {
         signalType: signal.signalType,
         barDate: signal.barDate,

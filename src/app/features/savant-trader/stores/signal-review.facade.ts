@@ -27,6 +27,7 @@ import type { StSignalItem } from '../services/types';
 import {
   buildSignalOrderTickets,
   buildTicketId,
+  DEFAULT_DOLLAR_AMOUNT,
 } from '../utils/signal-order-staging.util';
 import { AppRoutes } from '../../../core/common/interfaces';
 import { UiStateService } from '../../../core/services/ui-state.service';
@@ -45,11 +46,6 @@ import {
 import type { StRun } from '../services/types';
 import { formatTradingViewWatchlist } from '../utils/utils';
 import { OrderTicketStatus } from '../services/order-ticket.types';
-
-export {
-  buildSignalOrderTickets,
-  type SignalOrderStagingContext,
-} from '../utils/signal-order-staging.util';
 
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
@@ -471,7 +467,7 @@ export class SignalReviewFacade {
     try {
       const config = await firstValueFrom(this.tradingConfigService.loadConfig());
       accountNumber = config?.accountNumber ?? '';
-      defaultDollarAmount = config?.defaultDollarAmount ?? 100;
+      defaultDollarAmount = config?.defaultDollarAmount ?? DEFAULT_DOLLAR_AMOUNT;
       if (!accountNumber) {
         this.snackBar.open('Failed to auto-stage order — configure the agentic account first', 'Dismiss', { duration: 4000 });
         return;
