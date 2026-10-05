@@ -69,7 +69,10 @@ async function main() {
   try {
     await check('runner executes the manifest end-to-end with fakes', async () => {
       const calls: string[] = [];
-      const answers = ['', 'y']; // checkpoint, then mutation confirm
+      // Prompt routing by message shape: group checkpoints continue, mutation
+      // gate prompts ('y' run / 'n' skip / 'abort') approve — positional answers
+      // broke when the manifest grew past 3 entries.
+      const answers = (msg: string) => (/'y' run/.test(msg) ? 'y' : '');
       const caller = async (tool: string): Promise<ProbeCallResult> => {
         calls.push(tool);
         if (tool === 'get_equity_orders') {
@@ -95,19 +98,28 @@ async function main() {
       const result = await runProbePlan({
         entries: manifest.entries,
         caller,
-        prompt: async () => answers.shift() ?? 'n',
+        prompt: async (msg: string) => answers(msg),
         captureDir: CAPTURE_TMP,
-        env: { RH_ACCOUNT_NUMBER: '12345678' },
+        env: {
+          RH_ACCOUNT_NUMBER: '12345678',
+          RH_RHS_ACCOUNT_NUMBER: '87654321',
+          RH_MARGIN_ACCOUNT_NUMBER: '11223344',
+        },
         sleep: async () => {},
         auto: false,
       });
       assert(!result.aborted, 'run should not abort');
       assert(result.captures.length === manifest.entries.length, 'one capture per probe');
-      // 3 probe calls + 1 settle poll (mut-eq-market-buy-01 -> get_equity_orders).
+      // Every probe calls once; mut-eq-market-buy-01 also fires a settle poll.
       assert(calls.length === manifest.entries.length + 1, 'every probe called once + settle poll');
+      // get_equity_orders is itself probed — expect probe calls + exactly one
+      // settle poll on top.
+      const eqOrderProbes = manifest.entries.filter(
+        (e) => e.tool === 'get_equity_orders',
+      ).length;
       assert(
-        calls.filter((t) => t === 'get_equity_orders').length === 1,
-        'settle poll ran get_equity_orders',
+        calls.filter((t) => t === 'get_equity_orders').length === eqOrderProbes + 1,
+        'settle poll ran get_equity_orders once beyond its own probes',
       );
       const mutCap = JSON.parse(
         readFileSync(join(CAPTURE_TMP, 'mut-eq-market-buy-01.json'), 'utf-8'),
@@ -123,7 +135,10 @@ async function main() {
         assert(typeof cap.latencyMs === 'number', `${e.id} latencyMs`);
         assert(cap.response !== undefined, `${e.id} response present`);
         // Manifest args persist with $ENV placeholders — never resolved values.
-        assert(!JSON.stringify(cap).includes('12345678'), `${e.id} leaked env value`);
+        const body = JSON.stringify(cap);
+        for (const secret of ['12345678', '87654321', '11223344']) {
+          assert(!body.includes(secret), `${e.id} leaked env value ${secret}`);
+        }
       }
     });
 
