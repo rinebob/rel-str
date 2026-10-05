@@ -24,19 +24,21 @@ Platform direction per ADR-009: the shell (grid, sort/filter rail, selection mod
 ### Seam model (mirrors `SignalReviewFacade` + `SignalReviewUiStore`)
 
 - **`GalleryFacade`** (`@Injectable root`) — page-level orchestrator and test seam. Composes the existing domain stores; owns page enter/leave (eager data load), card view-model computeds, and all mutations (reject, watch, stage/submit/cancel sequencing, bulk ops).
-- **`GalleryUiStore`** (`signalStore`) — ephemeral UI state: timeframe/direction/list filters, sort key, selection set, sunk order (action-time ordering). Nothing durable lives here.
+- **`GalleryUiStore`** (`signalStore`) — ephemeral UI state: timeframe/direction/list filters, group dimension + expandedGroups (#783), selection set. Nothing durable lives here. (Post-#783 there is no sort key — grouping owns ordering.)
 - **Domain stores reused as-is:** `SymbolListStore` (lists, Monitor toggle, activeListFilter, profiles), `OccurrenceDecisionStore` (durable ACCEPT/REJECT reads/writes), `OrderTicketStore` (ticket lookup/status, stageTicket, removeTicket, updateTicket, submitTicket), `StStore`/`SignalService` (latest completed run + its signals), `IndicatorSeriesStore` (chart data cache), `ChartStore` (chart config inputs), `TradingConfigService` (sizing defaults), `SymbolHistoryStore` if needed for occurrence detail.
 
 ### Card view-model
 
-Derived computed in the facade: `GalleryCard` — `{ key: symbol+side, symbol, side, profile (name/sector/industry/marketCapTier), occurrences: StSignalItem[], signalPrice, status: 'pending'|'submitting'|'resting'|'settled'|'failed'|'watched'|'sunk', ticket?: OrderTicket, orderPreview: OrderPreview }`.
+Derived computed in the facade: `GalleryCard` — `{ key: symbol+side, symbol, side, profile (name/sector/industry/marketCapTier), occurrences: StSignalItem[], status: 'pending'|'submitting'|'resting'|'settled'|'failed'|'watched', ticket?: OrderTicket, actionedAt, orderPreview: OrderPreview }` (orderPreview lands with #759-#761). 'sunk' is not a status — it's the grouping derived from watched/settled/failed.
 
-Card status derivation:
-- `watched` — symbol ∈ Monitor (post-action)
-- `resting` — ticket SUBMITTED/QUEUED/RESTING, no fill
-- `settled` — stop confirmed, or entry filled (whole-share stop placed), or terminal PAPER
+Card status derivation (#755, shipped):
+- `watched` — symbol ∈ Monitor (wins over ticket state)
 - `failed` — ticket FAILED/CANCELLED
-- `pending`/`submitting` — no ticket or SUBMITTING
+- `settled` — ticket FILLED/PAPER (stop-confirmed nuance deferred to the positions Thread)
+- `resting` — ticket SUBMITTED/QUEUED/RESTING — stays in place, not sunk
+- `submitting` — ticket SUBMITTING; `pending` — no ticket or STAGED
+- Ticket↔card match: same symbol+side, signalContext decisionId (canonicalized) prefixed by the viewed runId; latest updatedAt wins
+- REJECTed occurrences trim within the card (canonical decision id per occurrence); fully-rejected cards drop
 
 `OrderPreview` — `{ side, quantity (whole shares via computeUnits), orderType, timeInForce, limitPrice?, suggestedStop (stopPriceFromPercent on signal closePrice), estNotional }` — same utils/config as `trading/live`.
 
@@ -46,7 +48,7 @@ Card status derivation:
 GalleryViewComponent (page, /trading/gallery)
 ├── GalleryHeaderComponent
 │     ├── filter pills (timeframe, direction) + list selector   ← reuse SignalFilterPillsComponent / RhSelectMenuComponent
-│     ├── sort selector (sector→industry→symbol | market cap→symbol | list)
+│     ├── "Group" selector (sector | industry | market cap) + expand/collapse-all   ← #783 replaces the planned sort selector
 │     ├── run-date/status strip                                  ← reuse RunMetricsStripComponent (light)
 │     └── bulk action bar (visible when selection nonempty): Reject N / Watch N / Clear
 ├── GalleryGridComponent — responsive grid, 3–4 cols (CSS grid, minmax ~380–480px)
@@ -77,25 +79,49 @@ Selection model: click toggles (with checkbox affordance), ctrl+click toggles, s
 3. Cards computed from signals → grouped `symbol+side` → filtered (timeframe/direction/list) → minus rejected → ordered (sort + sunk-at-end by action time).
 4. Indicator-series data per card prefetches as cards enter view via `prefetch on idle`/`on viewport`; full eager prefetch of all visible symbols' chart data on idle after first paint (data volume is small — see ADR-009).
 
-### Act flow (per card)
+### Act flow (per card) — revised #755: labeled toolbar replaces ACR row
 
-1. Ticket button → `stageTicket` (quantity-based whole-share ticket built by the gallery's staging builder — `buildSignalOrderTickets` variant emitting `quantity` not `dollarAmount`; **no decision writes**) → open `OrderTicketDialogComponent` bound to the staged ticket id.
-2. Dialog **submit** → write ACCEPT `StOccurrenceDecision`s for contributing occurrences + attach `decisionIds` → `submitTicket`. Decisions only materialize on actual order placement.
-3. Dialog **cancel/close without submit** → `removeTicket` (deletes the staged ticket; no decisions exist to clean).
-4. Card reacts to ticket status via `OrderTicketStore` — submitting styling → resting (limit) stays in place / filled → stop-loss section in ticket → settled → sink to end.
-5. Paper path unchanged (`isPaperEligibleTicket` → paper send; PAPER counts as settled).
+The card toolbar is **Trade / Reject / Paper** (labeled buttons, plus a
+disabled Chart stub until #756). The ACR icon row + list toggles ported
+from signal-review were removed during #755 QA — the gallery supersedes
+that triage model; "accept" as a decision type is not written from the
+gallery at all — the ticket IS the record.
+
+1. **Trade** → `tradeCard` stages a whole-share quantity ticket (sized on
+   the signal close, live-quote fallback; `quantity` not `dollarAmount`;
+   **no decision writes**) via shared `buildSignalOrderTickets` → page
+   opens `GalleryTicketDialogComponent` (MatDialog) hosting the existing
+   `OrderTicketComponent` bound to the staged ticket id. An
+   already-staged card ticket reopens instead of duplicating.
+2. Dialog **submit/paper** → `OrderTicketComponent`'s own submit path
+   (`OrderExecutionService` / `paperSignalOrder`) — no gallery-side
+   decision writes. Dialog auto-closes when the ticket leaves STAGED.
+3. Dialog **cancel/close while still STAGED** → `discardStagedTicket`
+   removes the ticket *only if this click created it* — a reopened
+   pre-existing ticket survives.
+4. **Paper** → `paperCard` stages if needed, then the order queue's
+   `paperSignalOrder` path (`paperQuantityFor` sizing, SUBMITTING guard,
+   PAPER on success → card settles + sinks; STAGED + error on failure).
+5. Card reacts to ticket status via `OrderTicketStore` — resting stays
+   in place, filled/paper → settled → sinks, failed → sinks.
 
 ### Reject flow
 
-Per card and bulk: write durable `REJECT` decisions for each contributing occurrence (`OccurrenceDecisionStore`), card drops from gallery.
+Toggle per card: durable `REJECT` decisions for each contributing
+occurrence + staged-ticket removal → card sinks as `rejected`. Clicking
+**Restore** on the sunk card resets its decisions → returns to pending in
+its dimension group.
 
 ### Watch flow
 
-Per card and bulk: `SymbolListStore.toggleMonitor(symbol)` → card marked watched → sinks to end.
+Monitor membership still derives `watched` → sinks — but the card no
+longer carries a list-toggle row; toggling Monitor happens on
+signal-review / the lists pages. Multi-select + bulk bar (#758) remains
+the planned bulk path.
 
 ### Ordering
 
-`orderedCards` = unactioned cards in active sort; then sunk cards (acted/watched/failed) by action timestamp desc. Sort keys: `sector→industry→symbol`, `marketCapTier→symbol`, `list→symbol` (list sort groups by the card's exclusive-list membership then key order).
+Post-#783 there is no user-facing sort: within-group order is fixed marketCap desc. Sunk cards (watched/settled/failed) leave the dimension groups entirely and collect in a pinned bottom "Sunk" expando ordered by action time desc (`actionedAt` = ticket terminalAt/updatedAt; untimestamped e.g. externally-watched cards go last). Resting stays in place — an in-flight order is still actionable context.
 
 ## 5. Module/file layout (feature-local)
 
@@ -129,12 +155,13 @@ Route: develop at `dev/gallery` first (parallel to `dev/screenshot`); the canoni
 
 - **FE only** — no BE/SHARED area.
 - **Facade + UI store seam** — no new domain stores; durable state stays in existing stores.
-- **Stage-on-open (ticket only); decisions on submit; removeTicket on cancel.** Accept = order placed.
+- **Stage-on-open (ticket only); no gallery-side decision writes; discard-on-cancel.** Revised during #755 QA — ACCEPT decisions are not written from the gallery at all ("accept isn't a thing anymore" — the staged/submitted ticket is the record); durable REJECT remains the only decision the page writes.
 - **Whole-share only** — `quantity`-based tickets; no `dollarAmount`/fractional path offered.
 - **Eager data, deferred render** — `@defer (on viewport; prefetch on idle)`; documented render-all fallback.
 - **Multi-select** — reject + watch bulk actions; per-card ticket button unchanged.
 - **Watch = Monitor**; reject/watch/ordered cards sink, failed sink with error styling.
 - **Card-type-agnostic shell** (grid/selection/sink); signal card is the only card type this Thread (ADR-009).
+- **Deferred — review/bookmark button repurpose:** the signal-review "review" flag button is slated to be repurposed in a future thread (user note, recorded during #755 QA); the gallery card does not carry it today.
 
 ## 8. Edge cases
 

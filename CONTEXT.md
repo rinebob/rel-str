@@ -67,7 +67,7 @@ _Avoid_: Review status, review decision
 
 ## Monitor
 
-A non-exclusive symbol list (MONITOR; legacy Firestore doc name PAST_SIGNALS, migrated on load) for tracking symbols the user wants to keep an eye on. Can coexist with any exclusive list assignment.
+A non-exclusive symbol list (MONITOR; legacy Firestore doc name PAST_SIGNALS, migrated on load) for tracking symbols the user wants to keep an eye on. Can coexist with any exclusive list assignment. Also the target of the Order Ticket Gallery's "watch" card action — watching a card adds its symbol to Monitor, making the symbol queryable on later sessions.
 _Avoid_: Watch, watchlist
 
 ## Symbol List (Exclusive)
@@ -283,6 +283,10 @@ The single-session option chain browser (Topic: Current option pricing) that ren
 
 _Avoid_: percent change grid (that is the analysis tool), option chain table
 
+## Gallery Card
+
+The actionable unit of the Order Ticket Gallery view (`dev/gallery`, promoted to `trading/gallery` by a later task): one card per symbol+side aggregating that symbol's contributing Signal Occurrences from the viewed run. Carries signal details, a chart area, and the labeled action toolbar. **Trade** stages a whole-share quantity ticket (no decision writes) and opens it in the Order Ticket dialog for submission; **Reject** writes durable REJECT occurrence decisions, removes this run's staged tickets, and sinks the card — Restore on the sunk card resets it; **Paper** stages and sends through the paper-trading callable. Cards carry a derived lifecycle status (watched > rejected > failed > settled > resting > submitting > pending); watched/settled/failed/rejected cards leave their dimension group and collect in the pinned Sunk group. Gallery orders are whole-share only — fractional orders are not permitted.
+
 ## Session Resolution
 
 The rule that maps "today" to an actual trading-session date for the Option Chain Grid. Before 1:00 PM PT (market close — the app standardizes on Pacific Time) resolves to the prior trading session; after 1 PM PT it tries today's date and falls back to prior sessions when no snapshot exists. Resolution walks back over weekends/holidays to the most recent session with a snapshot (cap: 7 calendar days).
@@ -308,3 +312,19 @@ The shared doc format every Trading Workflow doc follows — defined by the foun
 The per-session-type overview doc that sequences Trading Workflows into a day's plan — the single artifact opened at session start. Lists daily workflows in order plus a triggered section for event-driven workflows (with their triggers). Build order of workflow docs is independent of their position in the run-sheet sequence.
 
 _Avoid_: daily routine, session plan, checklist index
+
+## Flex Chart
+
+The shared chart component (`app-flex-chart`) that renders a candlestick price pane plus lower indicator panes. Every chart surface in the app is a flex-chart instance: quick charts, the signal-detail chart on chart-review, the swing-analysis page, and the flex-chart sandbox. Display behavior is driven by `FlexChartConfig` (pane split via `mainPanePercent`, theme via `appearance`, visible window via `initialZoomDays`).
+
+## Quick Charts
+
+The stacked Monthly/Weekly/Daily chart panel on the signal-review page (`app-quick-charts` inside `app-quick-charts-panel`). Shows a fixed window of bars per chart with no zoom toolbar, scrollbar, or mouse-wheel zoom — the visible window is not user-adjustable. Each chart occupies one `.qc-chart-cell` of configurable pixel height.
+
+## Main Pane / Lower Pane
+
+The two row kinds inside a `app-flex-chart` instance. The **main pane** renders price (candles + overlay indicators); **lower panes** render bounded/numeric indicators (trend strength, zones) in fixed slots `lower-1`…`lower-3`. `ChartDataAdapter.chartRows` divides vertical space between them via a configurable main-pane percentage (`FlexChartConfig.mainPanePercent`); active lower panes split the remainder evenly.
+
+## Visible Window
+
+The trailing slice of loaded bars a flex-chart displays, set by `FlexChartConfig.initialZoomDays` (bar count, despite the name). Distinct from the fetched dataset — the store always loads full history; the visible window is display-only. The Y-axis auto-fits to whatever bars fall inside the visible window.

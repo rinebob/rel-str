@@ -4,15 +4,15 @@
 **Topic Slug:** order-ticket-gallery-view  
 **Thread:** Gallery View Page  
 **Thread Slug:** gallery-view-page  
-**Issue:** #785 (rotates per task — latest QA issue listed)  
+**Issue:** #790 (rotates per task — latest QA issue listed)  
 **Thread Parent:** #744  
 **Topic Parent:** #743  
-**Task:** #783  
+**Task:** #755  
 **Domain:** GALLERY-VIEW  
 **Type:** UAT  
 **Status:** Complete  
 **Created:** 2026-10-04  
-**Last Updated:** 2026-10-04  
+**Last Updated:** 2026-10-05  
 
 This is the Thread-level UAT for the Gallery Order Ticket View feature. It is
 cumulative: each task appends or updates a scenario section as it reaches QA,
@@ -202,6 +202,7 @@ Manual UI/UX inspection at the running app (`/dev/gallery`):
 |---|---|---|---|---|
 | 2026-10-04 | #754 | user + agent | PASS | S11 skipped (devtools-only); defect found+fixed: missing closePrice — filled from firing-bar close |
 | 2026-10-04 | #783 | user + agent | PASS | G1–G8 + refinement all PASS; post-review tweaks verified: entry defaults Daily/Long/PRIMARY/Sector, collapsed panels, header counts |
+| 2026-10-05 | #755 | user + agent | **PASS** | A1–A11 + refinement user-verified; viewport-height fix landed during pass (.gallery-page → 100vh − header var) |
 
 ---
 
@@ -334,3 +335,188 @@ and D/W + long/short counts (signal-review-style chips).
 | No sort dropdown | G6 |
 | Loading/error/empty/filtered-empty states | G7 |
 | Cards/data path unchanged from #754 | G8 |
+
+---
+
+## Scope — Task #755: card status model + labeled decision toolbar
+
+Every gallery card gains the decision surface (scope expanded mid-task at
+user request — the gallery is the primary review/order surface). The
+surface was revised during QA: the ACR icon row + list toggles ported
+from signal-review were replaced by the labeled one-step toolbar
+(Trade / Reject / Paper / Chart stub), and #759's ticket dialog was
+pulled forward into this task:
+
+- **Labeled toolbar** at the bottom of every card — Trade (primary),
+  Reject (Restore when the card is sunk-rejected), Paper, and a disabled
+  Chart stub (real popup chart lands in #756).
+- **Trade** — stages a whole-share quantity ticket sized on the signal's
+  close price (live-quote fallback; no dollarAmount, no decision writes)
+  and opens it in a MatDialog hosting OrderTicketComponent. Reopens an
+  already-staged card ticket; cancelling the dialog discards a ticket the
+  click created, but a reopened pre-existing ticket survives.
+- **Reject** — toggle: durable REJECTs + staged-ticket removal → card
+  sinks; Restore on the sunk card resets it to pending.
+- **Paper** — stages the card ticket if needed, then runs the order
+  queue's paperSignalOrder path: quantity sizing, SUBMITTING guard,
+  PAPER on success (card settles + sinks), STAGED + error on failure.
+- **Card status** derives from ticket/Monitor/decision state:
+  watched > rejected > failed > settled > resting > submitting > pending.
+  Status chip renders for every non-pending state; ticket-status line
+  (`market 2 @ mkt · Staged`, `limit 10 @ 210.50 · Resting`) under the header.
+- **Sunk partition**: watched/settled/failed/rejected cards leave their
+  dimension group and collect in a pinned "Sunk" expando at the bottom,
+  ordered by action time desc (untimestamped last). Resting stays in place.
+- **Reject semantics**: rejected occurrences trim within a card; a
+  fully-rejected card keeps its occurrences and sinks as `rejected` — the
+  decision stays reachable for Restore on this page.
+- **Gating**: the three decision buttons disable when the viewed run
+  isn't a completed run.
+
+## Test scenarios — #755
+
+### A1 — Labeled toolbar present on every card
+
+- **Confirms:** each card renders the decision controls.
+- **Steps:** Cold-enter `/dev/gallery`, expand a group.
+- **Expected:** every card has a bottom toolbar: **Trade** (filled
+  primary), **Reject**, **Paper**, and a greyed **Chart** stub, separated
+  from occurrences by a divider. Labels are text, not icons.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+### A2 — Trade stages a quantity ticket and opens the dialog
+
+- **Confirms:** Trade stages a whole-share ticket sized on the signal
+  close and opens OrderTicketComponent in a MatDialog.
+- **Steps:** Pick a pending card with a close price. Click **Trade**.
+- **Expected:** a dialog opens titled `{SYMBOL} {SIDE} Order Ticket`
+  hosting the full order-ticket editor; the card shows a ticket line
+  `market N @ mkt · Staged` (N = whole shares of the default dollar
+  amount at the close). No ACCEPT decision is written. Cross-check: the
+  ticket appears on the order queue as STAGED with a quantity (not a
+  dollar amount).
+- **Cleanup:** close the dialog (see A4 for discard semantics).
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+### A3 — Trade reopens an already-staged ticket
+
+- **Confirms:** no duplicate tickets — an existing staged card ticket
+  reopens.
+- **Steps:** With a card's ticket still staged (dialog closed without
+  cancelling it first — e.g. after a page reload), click **Trade** again.
+- **Expected:** the dialog reopens on the SAME ticket — only one staged
+  ticket for that symbol+side exists on the order queue.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+### A4 — Dialog cancel discards a created ticket
+
+- **Confirms:** closing the dialog while still STAGED removes a ticket
+  the click created; a reopened ticket survives.
+- **Steps:** Click **Trade** on a fresh pending card, then close the
+  dialog (X / Close / backdrop) without submitting.
+- **Expected:** the card's ticket line disappears and the staged ticket
+  leaves the order queue — card back to plain pending. (A reopened
+  ticket — A3 — must NOT be removed on close.)
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+### A5 — Reject sinks the card; Restore recovers it in one click
+
+- **Confirms:** reject writes durable REJECTs + removes staged tickets →
+  card sinks; the sunk card's Restore resets it to pending.
+- **Steps:** Click **Reject** on a pending card. Then expand the "Sunk"
+  panel at the bottom, find the card, and click **Restore**.
+- **Expected:** the card leaves its dimension group immediately and lands
+  in Sunk — dimmed, red REJECTED chip, occurrences still listed, Reject
+  button relabeled **Restore**. After Restore: the card returns to its
+  dimension group as plain pending. (Optional: signal-review shows the
+  same symbol rejected after the first half.)
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+### A6 — Partial reject trims occurrences only
+
+- **Confirms:** rejecting one occurrence's decision trims it while the
+  card survives on the rest.
+- **Steps:** Pick a card with 2+ same-side occurrences. Reject, then
+  Restore — all occurrences return. (A true partial reject is exercisable
+  via Firestore manipulation — optional.)
+- **Expected:** post-Restore the card shows every original occurrence; a
+  partial reject trims only the rejected occurrence.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+### A7 — Paper sends the card's ticket to paper trade
+
+- **Confirms:** Paper stages (if needed) and runs paperSignalOrder →
+  PAPER → card settles + sinks.
+- **Steps:** Click **Paper** on a pending card.
+- **Expected:** a ticket stages and sends to the paper ledger — snackbar
+  confirms "sent to paper trade", the card sinks to Sunk with a SETTLED
+  chip, and the ticket shows PAPER on the order queue / paper trading
+  page. If the callable fails: ticket restores STAGED with an error +
+  failure snackbar, card stays in place.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+### A8 — Side-scoping: opposite-side cards act independently
+
+- **Confirms:** a symbol with both directions has independent cards.
+- **Steps:** Find a symbol with both BUY and SELL cards (if one exists in
+  this run — if not, mark SKIP). Trade the BUY card; reject the SELL card.
+- **Expected:** only the BUY card's ticket stages; only the SELL card
+  sinks.
+- **Result:** ☑ PASS ☐ FAIL ☐ SKIP — user-verified in app at /dev/gallery (2026-10-05)
+
+### A9 — Sunk ordering by action time
+
+- **Confirms:** sunk cards order by action timestamp descending.
+- **Steps:** With 2+ cards in Sunk (e.g. a watched + a rejected), compare
+  order; re-reject one to bump its timestamp.
+- **Expected:** most-recently-actioned card first; untimestamped last.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+### A10 — Actionability gating
+
+- **Confirms:** the decision buttons disable when the viewed run isn't
+  actionable.
+- **Steps:** View a non-completed/non-actionable run context (if none
+  reachable, mark SKIP).
+- **Expected:** Trade / Reject / Paper render disabled; the Chart stub
+  stays disabled regardless.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+### A11 — Signal-review regression
+
+- **Confirms:** the shared staging-util extraction
+  (`utils/signal-order-staging.util.ts`, quantity option added) didn't
+  change signal-review.
+- **Steps:** On `/signals/review`, accept + reject + flag a symbol.
+- **Expected:** identical behavior — accept still stages a dollar ticket
+  visible in the order queue; decisions persist.
+- **Result:** ☑ PASS ☐ FAIL — user-verified in app at /dev/gallery (2026-10-05)
+
+## Refinement pass — #755
+
+- Toolbar: labels legible, equal-width buttons don't overflow the
+  narrowest grid column; Trade's primary fill reads as the main action;
+  Restore's red outline reads as reversible.
+- Dialog: OrderTicketComponent usable at 560px; X/Close/backdrop all
+  close; auto-close when the ticket submits or papers.
+- Status chips: REJECTED red, WATCHED purple, FAILED red border; sunk
+  cards dimmed at 0.55 opacity — still readable.
+- Ticket line: quantity tickets render `market N @ mkt · Staged` (no
+  blank `@ mkt` artifacts); limit tickets render qty @ price.
+- Dark/light themes both legible.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-05); surfaced a viewport-height defect: `.gallery-page` sized `height: 100%` against an unconstrained drawer host — fixed to `calc(100vh - var(--header-height, 0px))` matching sibling pages
+
+## Traceability — #755
+
+| Task acceptance criterion | Scenario |
+|---|---|
+| Card renders symbol/name/direction + occurrence chips + status chip + ticket line | A1, A2, A7 |
+| Status derivation maps ticket/Monitor/decision state (watched > rejected > failed > settled > resting > submitting > pending) | A5, A7, A9 |
+| REJECTed occurrences trim; fully-rejected sinks as `rejected`, reachable via Restore | A5, A6 |
+| Sunk partition + ordering (action time desc, untimestamped last) | A5, A9 |
+| Labeled toolbar on every card (Trade / Reject / Paper / Chart stub) | A1 |
+| Trade stages a quantity ticket + opens OrderTicketComponent dialog; reopen-dedupe + cancel-discard | A2, A3, A4 |
+| Paper sends through paperSignalOrder → PAPER → settles + sinks; failure restores STAGED + error | A7 |
+| Reject toggle: sinks with REJECTs + ticket removal; Restore resets to pending | A5 |
+| Decision buttons disabled on non-actionable runs | A10 |
+| Signal-review regression after shared staging-util extraction | A11 |

@@ -30,7 +30,7 @@
 - `GalleryFacade` + `OrderTicketStore`: stage-on-open creates quantity-based STAGED ticket with correct `signalContext`/`decisionId` provenance and **no** decision writes; submit path writes ACCEPT decisions + decisionIds then submits; cancel calls `removeTicket`; an existing staged ticket for the same symbol+side+run is reopened, not duplicated.
 - `GalleryFacade` + `TradingConfigService`/sizing utils: `orderPreview` derives whole-share quantity (`computeUnits`), suggested stop (`stopPriceFromPercent`), order type/TIF from config — matching `trading/live` derivation.
 - `GalleryCardComponent` + `IndicatorSeriesStore`/`FlexChartComponent`: chart cell renders the daily config with signal-dot extras; mount deferred to viewport.
-- Ticket status → card state mapping: SUBMITTING/QUEUED/RESTING → resting-in-place; FILLED + stop confirmed → settled → sinks; FAILED/CANCELLED → sunk with error styling; PAPER → settled.
+- Ticket status → card state mapping: SUBMITTING → submitting; SUBMITTED/QUEUED/RESTING → resting-in-place; FILLED/PAPER → settled → sinks; FAILED/CANCELLED → sunk with error styling; MONITOR membership → watched → sinks (wins over ticket state).
 
 ## Unit Tests
 
