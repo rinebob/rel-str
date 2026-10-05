@@ -54,6 +54,13 @@ function sanitizeSegment(value: string): string {
   return value.replace(PATH_SAFE_PATTERN, '').toLowerCase().slice(0, SCREENSHOT_REF_ID_MAX_LENGTH);
 }
 
+/** Symbol → path segment (uppercased alphanumerics/dots). `''` means the
+ *  symbol carries no path-safe characters — spec validation must reject it
+ *  upstream (`invalid-argument`), not fail here at write time. */
+export function symbolPathSegment(symbol: string): string {
+  return symbol.replace(PATH_SAFE_PATTERN, '').toUpperCase();
+}
+
 /**
  * `st-trade-screenshots/{SYMBOL}/{date}-{time}-{event}-{positionType}[-{ref6}]-{interval}.{ext}`
  * e.g. `st-trade-screenshots/GOOG/2026-10-03-143022-order-filled-stock-ord123-daily.png`.
@@ -61,7 +68,7 @@ function sanitizeSegment(value: string): string {
  * caller-supplied lookup key when present.
  */
 export function buildScreenshotStoragePath(spec: ScreenshotPathSpec): string {
-  const symbol = spec.symbol.replace(PATH_SAFE_PATTERN, '').toUpperCase();
+  const symbol = symbolPathSegment(spec.symbol);
   if (!symbol) {
     throw new Error('symbol contains no path-safe characters — spec validation must reject this upstream');
   }

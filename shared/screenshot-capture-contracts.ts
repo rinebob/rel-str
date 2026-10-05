@@ -76,6 +76,10 @@ export const DEFAULT_CAPTURE_VISIBLE_BARS = 30;
 export const DEFAULT_CAPTURE_WIDTH = 800;
 export const DEFAULT_CAPTURE_HEIGHT = 560;
 
+/** Upper bound on rendered image dimensions — the callable rejects larger
+ *  requests (`invalid-argument`) so a caller can't force a giant render. */
+export const MAX_CAPTURE_DIMENSION = 4096;
+
 /**
  * Caller-supplied capture request. Everything the image needs is here —
  * the function is stateless w.r.t. callers; `refId` is an opaque caller key
