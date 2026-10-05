@@ -49,6 +49,11 @@
 - [On-demand Screenshot Capture] 746-766_FE-IMPL-SCREENSHOT: flex-chart chart-theme/log-transform/price-format converted to shared/ re-export shims (drift impossible by construction)
 - [On-demand Screenshot Capture] 746-767_FE-IMPL-SCREENSHOT: 10 FE indicator/converter files migrated to the shared visual vocabulary — FE changes propagate to server captures by construction
 
+### Added
+- [On-demand Screenshot Capture] 746-768_SHARED-IMPL-SCREENSHOT: symbolPathSegment + MAX_CAPTURE_DIMENSION (4096) shared contract additions
+- [On-demand Screenshot Capture] 746-768_BE-IMPL-SCREENSHOT: captureChartSnapshot onCall — auth-gated spec validation → assemble → render → SVG writes to st-trade-screenshots/ in the default bucket; InsufficientBarsError → failed-precondition; 47 specs + real-GCS verify (14 checks)
+- [On-demand Screenshot Capture] 746-768_DOCS-SCREENSHOT: #768 code review (PASS, 2 rounds) + UAT (Complete)
+
 ## [2026-10-01]
 
 ### Added

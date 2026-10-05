@@ -23,7 +23,7 @@ Backend + shared contracts: a callable Cloud Function that renders the quick-cha
 ```
 shared/
   screenshot-capture-contracts.ts   — spec + response types, ChartInterval (canonical), CaptureEvent, PositionType
-  screenshot-capture-utils.ts       — buildScreenshotStoragePath (path convention), buildCaptureChartResult
+  screenshot-capture-utils.ts       — buildScreenshotStoragePath (path convention), buildCaptureChartResult, symbolPathSegment
   flex-chart-theme.ts               — canonical chart palette + stripLine builder (FE + functions share it)
   flex-chart-scale-math.ts          — canonical log transform, nice ticks, price formatting (FE + functions)
   flex-chart-indicator-visuals.ts   — canonical indicator visual vocabulary: zone/uptick/signal/trend-strength/std-dev/HTF-window colors, axes, reflines (FE + functions)
