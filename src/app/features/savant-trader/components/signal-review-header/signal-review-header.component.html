@@ -28,6 +28,12 @@
     (directionChange)="directionFilterChange.emit($event)">
   </app-signal-filter-pills>
 
+  <span class="pill-btn signals-total"
+    matTooltip="Signals matching the current timeframe / direction / list filters">
+    <mat-icon>notifications</mat-icon>
+    Signals <span class="pill-count">{{ filteredSignalCount() }}</span>
+  </span>
+
   <app-status-summary-chips [counts]="statusCounts()"></app-status-summary-chips>
 
   <div class="header-spacer"></div>

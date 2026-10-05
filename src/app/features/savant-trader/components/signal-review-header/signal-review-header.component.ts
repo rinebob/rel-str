@@ -53,6 +53,8 @@ export class SignalReviewHeaderComponent {
   statusCounts = input.required<StatusCounts>();
   reviewCount = input(0);
   acceptedCount = input(0);
+  /** Total signals represented by the visible rows — display-only pill. */
+  filteredSignalCount = input(0);
   groupDimension = input<GroupDimension>(GroupDimension.SECTOR);
   activeListFilter = input<SymbolListFilter>('ALL');
   /** Grouped catalog options — Triage then My lists, from the store. */

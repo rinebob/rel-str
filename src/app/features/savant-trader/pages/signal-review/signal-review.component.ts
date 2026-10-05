@@ -60,6 +60,15 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     const idx = current ? flat.indexOf(current) : -1;
     const next = flat[Math.max(0, Math.min(flat.length - 1, idx + delta))];
     if (!next || next === current) return;
+    // The target's group may be collapsed — its row isn't in the DOM, and
+    // scrolling a lazily-mounted panel mid-animation can leave it blank.
+    // Expand first; the scroll target stays pending until the row mounts.
+    const group = this.facade.groups().find((g) =>
+      g.rows.some((r) => r.profile.symbol === next)
+    );
+    if (group && !this.facade.expandedGroups()[group.key]) {
+      this.facade.groupExpandChanged(group, true);
+    }
     this.facade.setQuickChartSymbol(next);
     this.facade.scrollToSymbol(next);
   }

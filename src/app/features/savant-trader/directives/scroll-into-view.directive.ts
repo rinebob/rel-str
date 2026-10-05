@@ -24,7 +24,7 @@ export class ScrollIntoViewDirective {
       const target = this.scrollTarget.target();
       const symbol = this.appScrollIntoView();
       if (target && target === symbol) {
-        this.el.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        this.el.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         this.scrollTarget.clear();
       }
     });

@@ -9,6 +9,7 @@
     [statusCounts]="facade.statusCounts()"
     [reviewCount]="facade.reviewCount()"
     [acceptedCount]="facade.acceptedCount()"
+    [filteredSignalCount]="facade.filteredSignalCount()"
     [groupDimension]="facade.groupDimension()"
     [activeListFilter]="facade.activeListFilter()"
     [listGroups]="facade.filterOptionGroups()"
@@ -46,21 +47,17 @@
     </app-run-metrics-strip>
   </div>
 
-  @if (facade.symbolsLoading()) {
+  @if (facade.pageInitializing()) {
     <div class="loading-overlay">
       <mat-spinner diameter="32"></mat-spinner>
     </div>
-  }
-
-  @if (facade.symbolsError()) {
+  } @else if (facade.symbolsError()) {
     <div class="error-state">
       <mat-icon>error_outline</mat-icon>
       <p>{{ facade.symbolsError() }}</p>
       <button mat-button (click)="facade.refreshSymbols()">Retry</button>
     </div>
-  }
-
-  @if (!facade.symbolsLoading() && !facade.symbolsError()) {
+  } @else {
     <div class="gr-body">
       <div class="groups-panel has-charts">
         @if (facade.groups().length === 0) {

@@ -107,6 +107,18 @@
   }
 
   &.small { font-size: 8px; padding: 2px 4px; border-radius: 8px; }
+
+  &.signals-total {
+    cursor: default;
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+    border-color: var(--mat-sys-primary);
+
+    .pill-count {
+      background: var(--mat-sys-primary);
+      color: var(--mat-sys-on-primary);
+    }
+  }
 }
 
 .pill-count {

@@ -24,7 +24,10 @@ import { OrderTicketStore } from './order-ticket.store';
 import { SignalService } from '../services/signal.service';
 import { TradingConfigService } from '../services/trading-config.service';
 import type { StSignalItem } from '../services/types';
-import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
+import {
+  buildSignalOrderTickets,
+  buildTicketId,
+} from '../utils/signal-order-staging.util';
 import { AppRoutes } from '../../../core/common/interfaces';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
@@ -41,82 +44,12 @@ import {
 } from '../common/constants';
 import type { StRun } from '../services/types';
 import { formatTradingViewWatchlist } from '../utils/utils';
-import {
-  OrderTicket,
-  OrderTicketStatus,
-  OrderSource,
-  InstrumentType,
-  EquityOrderTicket,
-} from '../services/order-ticket.types';
+import { OrderTicketStatus } from '../services/order-ticket.types';
 
-/** Context needed to turn a set of signals for one symbol into order tickets. */
-export interface SignalOrderStagingContext {
-  runId: string;
-  accountNumber: string;
-  defaultDollarAmount: number;
-  now: Date;
-  buildId: (symbol: string, side: string, now: Date) => string;
-  buildRefId: () => string;
-}
-
-export function buildSignalOrderTickets(
-  symbol: string,
-  signals: StSignalItem[],
-  context: SignalOrderStagingContext,
-): EquityOrderTicket[] {
-  const { runId, accountNumber, defaultDollarAmount, now, buildId, buildRefId } = context;
-  const seen = new Set<string>();
-  const tickets: EquityOrderTicket[] = [];
-  for (const signal of signals) {
-    const side = signal.direction === SignalDirection.SHORT ? 'sell' : 'buy';
-    const dedupKey = `${symbol}-${side}`;
-    if (seen.has(dedupKey)) continue;
-    seen.add(dedupKey);
-    const id = buildId(symbol, side, now);
-    // Must be the canonical occurrence-decision doc id — the queue's
-    // ticket-removal path deletes the decision by this id (#719), and the
-    // legacy `${runId}-${symbol}-…` format matched nothing (#717 review).
-    const decisionId = buildStOccurrenceDecisionId(runId, symbol, signal.timeframe, signal.signalType);
-    // Accept writes one decision doc per signal; tickets dedup by
-    // symbol+side, so this ticket owns every same-side decision — removal
-    // must clear them all, or a surviving sibling keeps the Accept toggle
-    // checked (#719 QA).
-    const decisionIds = signals
-      .filter((s) => (s.direction === SignalDirection.SHORT ? 'sell' : 'buy') === side)
-      .map((s) => buildStOccurrenceDecisionId(runId, symbol, s.timeframe, s.signalType));
-    tickets.push({
-      id,
-      refId: buildRefId(),
-      source: OrderSource.SIGNAL_PIPELINE,
-      sourceRef: { type: 'occurrence_decision', id: decisionId },
-      status: OrderTicketStatus.STAGED,
-      accountNumber,
-      side,
-      orderType: 'market',
-      timeInForce: 'gfd',
-      marketHours: 'regular_hours',
-      instrumentType: InstrumentType.EQUITY,
-      symbol,
-      dollarAmount: String(defaultDollarAmount),
-      signalContext: {
-        signalType: signal.signalType,
-        barDate: signal.barDate,
-        timeframe: signal.timeframe,
-        direction: signal.direction,
-        decisionId,
-        decisionIds,
-        // Price at signal generation — the anchor for the queue row's
-        // % change since signal. Omitted (not undefined) when absent.
-        ...(signal.closePrice != null ? { signalPrice: signal.closePrice } : {}),
-      },
-      // No bucketId — the user picks a bucket on the ticket (or leaves it
-      // Unassigned); the signal type lives in signalContext above.
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    });
-  }
-  return tickets;
-}
+export {
+  buildSignalOrderTickets,
+  type SignalOrderStagingContext,
+} from '../utils/signal-order-staging.util';
 
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
@@ -204,6 +137,30 @@ export class SignalReviewFacade {
   /** Fullscreen state for the header. */
   readonly fullscreen = computed(() => this.uiState.fullscreen());
 
+  /**
+   * Total signals represented by the currently visible rows. Loaded rows
+   * contribute their real (filtered) signal count; rows whose history hasn't
+   * loaded yet count 1 — visibility already implies at least one match.
+   */
+  readonly filteredSignalCount = computed(() => {
+    let n = 0;
+    for (const g of this.groupStore.groups()) {
+      for (const r of g.rows) n += r.signals?.length ?? 1;
+    }
+    return n;
+  });
+
+  /**
+   * True while the page is still acquiring its initial data — no active run
+   * yet (auto-select pending), symbols loading, or the first list-catalog
+   * emission pending. Gates the body so the empty state can't flash early.
+   */
+  readonly pageInitializing = computed(() =>
+    (!this.groupStore.activeRunId() && !this.agentStore.runsReceived()) ||
+    this.groupStore.symbolsLoading() ||
+    this.symbolListStore.symbolListsLoading()
+  );
+
   toggleFullscreen(): void {
     this.uiState.toggleFullscreen();
   }
@@ -276,6 +233,9 @@ export class SignalReviewFacade {
   /** Enter the signal-review page: fullscreen, active run, load symbols and decisions. */
   enterPage(): void {
     this.uiState.setFullscreen(true);
+    // Page-entry defaults — re-applied on every visit.
+    this.uiStore.setTimeframeFilter(SignalTimeframe.DAILY);
+    this.uiStore.setDirectionFilter(SignalDirection.LONG);
     const runId = this.groupStore.activeRunId();
     if (runId) {
       // Only load if not already loading (setActiveRun may have already triggered this).
@@ -528,7 +488,7 @@ export class SignalReviewFacade {
       accountNumber,
       defaultDollarAmount,
       now,
-      buildId: (ticketSymbol, side, createdAt) => this.buildTicketId(ticketSymbol, side, createdAt),
+      buildId: (ticketSymbol, side, createdAt) => buildTicketId(ticketSymbol, side, createdAt),
       buildRefId: () => crypto.randomUUID(),
     });
     for (const ticket of tickets) {
@@ -546,32 +506,6 @@ export class SignalReviewFacade {
         this.stagingStore.removeTicket(ticket.id);
       }
     }
-  }
-
-  /**
-   * Build a human-readable ticket id: {SYMBOL}-{SIDE}-{YYMMDD}-{DOW}-{HHMM}PT
-   * e.g., AAPL-BUY-260825-MON-1430PT
-   */
-  private buildTicketId(symbol: string, side: string, now: Date): string {
-    const pt = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Los_Angeles',
-      year: '2-digit',
-      month: '2-digit',
-      day: '2-digit',
-      weekday: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-    const parts = pt.formatToParts(now);
-    const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
-    const yy = get('year');
-    const mm = get('month');
-    const dd = get('day');
-    const dow = get('weekday').toUpperCase();
-    const hh = get('hour') === '24' ? '00' : get('hour');
-    const min = get('minute');
-    return `${symbol.toUpperCase()}-${side.toUpperCase()}-${yy}${mm}${dd}-${dow}-${hh}${min}PT`;
   }
 
   goToTriageReport(): void {

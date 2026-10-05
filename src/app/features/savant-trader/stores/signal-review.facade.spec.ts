@@ -134,6 +134,9 @@ describe('SignalReviewFacade', () => {
   let signalServiceMock: any;
   let snackBarMock: any;
   let groupStoreMock: any;
+  let uiStoreMock: any;
+  let agentStoreMock: any;
+  let symbolListStoreMock: any;
 
   beforeEach(async () => {
     stagingStoreMock = {
@@ -161,10 +164,29 @@ describe('SignalReviewFacade', () => {
       acceptSignals: jest.fn(),
       rejectSignals: jest.fn(),
       resetSymbol: jest.fn(),
+      loading: signal(false),
+      loadRecentDecisions: jest.fn(),
     };
 
     triageStoreMock = {
       setScreeningStatus: jest.fn(),
+    };
+
+    uiStoreMock = {
+      signalFilter: signal({ timeframe: SignalTimeframe.ALL, direction: SignalDirection.ALL }),
+      expandedGroups: signal<Record<string, boolean>>({}),
+      setTimeframeFilter: jest.fn(),
+      setDirectionFilter: jest.fn(),
+    };
+
+    agentStoreMock = {
+      latestCompletedRun: signal(null),
+      runsReceived: signal(false),
+      loadData: jest.fn(),
+    };
+
+    symbolListStoreMock = {
+      symbolListsLoading: signal(false),
     };
 
     signalServiceMock = {
@@ -175,9 +197,11 @@ describe('SignalReviewFacade', () => {
 
     groupStoreMock = {
       isActionableRun: signal(true),
-      activeRunId: signal('run-daily'),
+      activeRunId: signal<string | null>('run-daily'),
       activeRunMarketDate: signal('2026-08-25'),
       latestCompletedRun: signal(null),
+      symbolsLoading: signal(false),
+      groups: signal<any[]>([]),
       setActiveRun: jest.fn(),
       setFullscreen: jest.fn(),
       loadSymbolsWithSignals: jest.fn(),
@@ -190,10 +214,10 @@ describe('SignalReviewFacade', () => {
         { provide: GroupStore, useValue: groupStoreMock },
         { provide: TriageStore, useValue: triageStoreMock },
         { provide: OccurrenceDecisionStore, useValue: occurrenceStoreMock },
-        { provide: SymbolListStore, useValue: {} },
+        { provide: SymbolListStore, useValue: symbolListStoreMock },
         { provide: SymbolHistoryStore, useValue: { signalHistoryCache: signal({}) } },
-        { provide: StStore, useValue: { latestCompletedRun: signal(null) } },
-        { provide: SignalReviewUiStore, useValue: {} },
+        { provide: StStore, useValue: agentStoreMock },
+        { provide: SignalReviewUiStore, useValue: uiStoreMock },
         { provide: OrderTicketStore, useValue: stagingStoreMock },
         { provide: SignalService, useValue: signalServiceMock },
         { provide: TradingConfigService, useValue: configServiceMock },
@@ -376,6 +400,71 @@ describe('SignalReviewFacade', () => {
     it('navigates to /trading/live', async () => {
       await facade.goToSignalOrder();
       expect(routerMock.navigate).toHaveBeenCalledWith(['/trading/live']);
+    });
+  });
+
+  describe('enterPage', () => {
+    it('enters fullscreen and applies the daily/long default filter', () => {
+      facade.enterPage();
+      expect(uiStoreMock.setTimeframeFilter).toHaveBeenCalledWith(SignalTimeframe.DAILY);
+      expect(uiStoreMock.setDirectionFilter).toHaveBeenCalledWith(SignalDirection.LONG);
+    });
+
+    it('loads symbols and decisions when a run is already active', () => {
+      facade.enterPage();
+      expect(groupStoreMock.loadSymbolsWithSignals).toHaveBeenCalled();
+      expect(occurrenceStoreMock.loadRecentDecisions).toHaveBeenCalled();
+    });
+
+    it('starts the runs stream instead when no run is active', () => {
+      groupStoreMock.activeRunId.set(null);
+      facade.enterPage();
+      expect(agentStoreMock.loadData).toHaveBeenCalled();
+      expect(groupStoreMock.loadSymbolsWithSignals).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('pageInitializing', () => {
+    it('is true while no run is active and the runs stream has not emitted', () => {
+      groupStoreMock.activeRunId.set(null);
+      agentStoreMock.runsReceived.set(false);
+      expect(facade.pageInitializing()).toBe(true);
+    });
+
+    it('is true while symbols are loading', () => {
+      agentStoreMock.runsReceived.set(true);
+      groupStoreMock.symbolsLoading.set(true);
+      expect(facade.pageInitializing()).toBe(true);
+    });
+
+    it('is true while the first list-catalog emission is pending', () => {
+      agentStoreMock.runsReceived.set(true);
+      symbolListStoreMock.symbolListsLoading.set(true);
+      expect(facade.pageInitializing()).toBe(true);
+    });
+
+    it('is false once run, symbols, and lists have settled', () => {
+      agentStoreMock.runsReceived.set(true);
+      expect(facade.pageInitializing()).toBe(false);
+    });
+  });
+
+  describe('filteredSignalCount', () => {
+    it('sums filtered signal counts, counting not-yet-loaded rows as 1', () => {
+      groupStoreMock.groups.set([
+        {
+          key: 'tech', label: 'Technology', longCount: 2, shortCount: 0,
+          rows: [
+            { profile: { symbol: 'AAA' }, signals: [makeSignal(), makeSignal()] },
+            { profile: { symbol: 'BBB' } }, // history not loaded — counts as 1
+          ],
+        },
+      ]);
+      expect(facade.filteredSignalCount()).toBe(3);
+    });
+
+    it('returns 0 when no groups are visible', () => {
+      expect(facade.filteredSignalCount()).toBe(0);
     });
   });
 });

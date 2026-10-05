@@ -13,6 +13,7 @@
  */
 import { inject, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription } from 'rxjs';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { type ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
 import { ChartService } from '../services/chart.service';
@@ -79,20 +80,27 @@ export const ChartStore = signalStore(
     chartService = inject(ChartService),
     indicatorStore = inject(IndicatorSeriesStore),
     destroyRef = inject(DestroyRef),
-  ) => ({
+  ) => {
+    // Only one bars request may be in flight — rapid symbol switches must
+    // cancel the previous request, not stack subscriptions/datasets.
+    let barsSub: Subscription | null = null;
+
+    return {
     /**
      * Load D/W/M chart data for a symbol and trigger indicator series loading.
-     * Clears existing data when the symbol changes.
+     * Cancels any in-flight request so a stale response can't overwrite newer
+     * state or pile up datasets.
      */
     loadCharts(symbol: string): void {
       if (!symbol) return;
+      barsSub?.unsubscribe();
       patchState(state, {
         selectedSymbol: symbol,
         loading: true,
         error: null,
       });
 
-      chartService
+      barsSub = chartService
         .loadBars$(symbol)
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
@@ -130,8 +138,10 @@ export const ChartStore = signalStore(
         });
     },
 
-    /** Clear chart data and selected symbol. */
+    /** Clear chart data and selected symbol. Cancels any in-flight request. */
     clearCharts(): void {
+      barsSub?.unsubscribe();
+      barsSub = null;
       patchState(state, {
         selectedSymbol: null,
         loading: false,
@@ -142,5 +152,6 @@ export const ChartStore = signalStore(
         symbolDataVersion: '',
       });
     },
-  })),
+    };
+  }),
 );
