@@ -1,8 +1,9 @@
 /**
  * captureChartSnapshot — callable entry to the screenshot-capture pipeline
- * (task #768). Thin orchestration only: parse/validate the spec → assemble
- * one render model per interval → render SVG → write artifacts to the
- * default bucket → return the contract result.
+ * (task #768; PNG rasterization added in #769). Thin orchestration only:
+ * parse/validate the spec → assemble one render model per interval →
+ * render SVG → rasterize PNG → write both artifacts to the default bucket
+ * → return the contract result.
  *
  * The exported `handleCaptureChartSnapshot` takes injected seams (paper-
  * trading callable pattern) so the whole contract — including error-code
@@ -44,9 +45,11 @@ import {
 } from './chart-data-loader';
 import type { ChartRenderModel } from './render-model';
 import { renderChartSvg } from './svg-renderer';
+import { rasterizeSvgToPng } from './rasterizer';
 import { createArtifactWriter, type ArtifactWriter } from './storage-writer';
 
 const SVG_CONTENT_TYPE = 'image/svg+xml';
+const PNG_CONTENT_TYPE = 'image/png';
 
 // ── Spec validation ─────────────────────────────────────────────────────────
 
@@ -136,6 +139,7 @@ export function parseCaptureChartSpec(data: unknown): CaptureChartSpec {
 export interface CaptureChartSnapshotDeps {
   assembleChartModels: (spec: CaptureChartSpec, now: Date) => Promise<AssembledChart[]>;
   renderChartSvg: (model: ChartRenderModel) => string;
+  rasterizeSvgToPng: (svg: string) => Buffer;
   writeArtifact: ArtifactWriter;
   now: () => Date;
 }
@@ -176,18 +180,23 @@ export async function handleCaptureChartSnapshot(
     const artifacts: CaptureArtifact[] = await Promise.all(
       charts.map(async (chart) => {
         const svg = deps.renderChartSvg(chart.model);
-        const svgPath = buildScreenshotStoragePath({
+        const png = deps.rasterizeSvgToPng(svg);
+        const pathSpec = {
           symbol,
           event,
           positionType,
           interval: chart.interval,
-          ext: 'svg',
           date,
           time,
           refId,
-        });
-        await deps.writeArtifact(svgPath, svg, SVG_CONTENT_TYPE);
-        return { interval: chart.interval, svg, svgPath };
+        };
+        const svgPath = buildScreenshotStoragePath({ ...pathSpec, ext: 'svg' });
+        const pngPath = buildScreenshotStoragePath({ ...pathSpec, ext: 'png' });
+        await Promise.all([
+          deps.writeArtifact(svgPath, svg, SVG_CONTENT_TYPE),
+          deps.writeArtifact(pngPath, png, PNG_CONTENT_TYPE),
+        ]);
+        return { interval: chart.interval, svg, svgPath, pngPath };
       }),
     );
 
@@ -215,6 +224,7 @@ export const captureChartSnapshot = onCall<unknown, Promise<CaptureChartResult>>
     handleCaptureChartSnapshot(request, {
       assembleChartModels,
       renderChartSvg,
+      rasterizeSvgToPng,
       writeArtifact: createArtifactWriter(getStorage().bucket()),
       now: () => new Date(),
     }),

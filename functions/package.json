@@ -4,7 +4,7 @@
     "lint": "eslint --ext .js,.ts src",
     "clean": "node -e \"require('node:fs').rmSync('lib', { recursive: true, force: true })\"",
     "prebuild": "npm run clean",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=lib/index.js --external:firebase-admin --external:firebase-functions --external:google-auth-library --external:busboy --external:node-fetch",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=lib/index.js --external:firebase-admin --external:firebase-functions --external:google-auth-library --external:busboy --external:node-fetch --external:@resvg/resvg-js",
     "build:watch": "npm run build -- --watch",
     "typecheck": "tsc --noEmit",
     "test:rh-agent-mcp-boundary": "tsx --test ../tests/functions/rh-agent-mcp-boundary.test.ts",
@@ -41,6 +41,7 @@
   "main": "lib/index.js",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
+    "@resvg/resvg-js": "^2.6.2",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "busboy": "^1.6.0",

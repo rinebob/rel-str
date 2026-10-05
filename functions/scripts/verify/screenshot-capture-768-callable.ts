@@ -23,6 +23,7 @@ import '../../src/firebase-admin-init'; // side-effect: default app init
 import { handleCaptureChartSnapshot } from '../../src/screenshot-capture/capture-chart';
 import { assembleChartModels } from '../../src/screenshot-capture/chart-data-loader';
 import { renderChartSvg } from '../../src/screenshot-capture/svg-renderer';
+import { rasterizeSvgToPng } from '../../src/screenshot-capture/rasterizer';
 import { createArtifactWriter } from '../../src/screenshot-capture/storage-writer';
 import { CaptureEvent, ChartInterval, PositionType } from '@screenshot-capture/contracts';
 import { SCREENSHOT_STORAGE_PREFIX } from '@screenshot-capture/utils';
@@ -57,6 +58,7 @@ async function main(): Promise<void> {
   const deps = {
     assembleChartModels,
     renderChartSvg,
+    rasterizeSvgToPng,
     writeArtifact: createArtifactWriter(bucket),
     now: () => NOW,
   };
@@ -76,11 +78,13 @@ async function main(): Promise<void> {
   check('returns inline svg', result.svg.startsWith('<svg'));
   check('artifacts per default intervals [daily, weekly]',
     result.artifacts.map((a) => a.interval).join(',') === `${ChartInterval.DAILY},${ChartInterval.WEEKLY}`);
-  check('paths flatten the artifacts', result.paths.length === 2 &&
-    result.paths.every((p, i) => p === result.artifacts[i].svgPath));
+  // Post-#769 each artifact contributes [svgPath, pngPath] to `paths`.
+  check('paths flatten the artifacts', result.paths.length === 4 &&
+    result.artifacts.every((a, i) =>
+      result.paths[i * 2] === a.svgPath && result.paths[i * 2 + 1] === a.pngPath));
 
   const pathRe = new RegExp(
-    `^${SCREENSHOT_STORAGE_PREFIX}/${SYMBOL}/\\d{4}-\\d{2}-\\d{2}-\\d{6}-manual-stock-verify-(daily|weekly)\\.svg$`,
+    `^${SCREENSHOT_STORAGE_PREFIX}/${SYMBOL}/\\d{4}-\\d{2}-\\d{2}-\\d{6}-manual-stock-verify-(daily|weekly)\\.(svg|png)$`,
   );
   check('paths match the storage convention', result.paths.every((p) => pathRe.test(p)));
 

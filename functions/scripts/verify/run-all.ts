@@ -32,6 +32,7 @@ const scripts = [
   'screenshot-capture-766-render.ts',
   'screenshot-capture-767-assemble.ts',
   'screenshot-capture-768-callable.ts',
+  'screenshot-capture-769-rasterize.ts',
 ];
 
 let passed = 0;

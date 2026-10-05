@@ -37,6 +37,7 @@ import type { ChartRenderModel } from '../../../functions/src/screenshot-capture
 const NOW = new Date('2026-10-05T14:30:22.000Z');
 const SYMBOL = 'GOOG';
 const AUTH = { uid: 'test-uid' };
+const PNG_STUB = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
 const VALID_SPEC: CaptureChartSpec = {
   symbol: SYMBOL,
@@ -66,6 +67,7 @@ function makeDeps(overrides: Partial<CaptureChartSnapshotDeps> = {}) {
   const deps: CaptureChartSnapshotDeps = {
     assembleChartModels: jest.fn(async () => assembled()),
     renderChartSvg: jest.fn((m) => `<svg data-interval="${m.interval}"/>`),
+    rasterizeSvgToPng: jest.fn(() => PNG_STUB),
     writeArtifact: jest.fn(async (path: string, body: string | Buffer, contentType: string) => {
       writes.push({ path, body, contentType });
     }),
@@ -270,7 +272,7 @@ describe('assertSufficientBars', () => {
 });
 
 describe('handleCaptureChartSnapshot', () => {
-  it('returns {svg, paths, artifacts} and writes one SVG per interval at the conventional path', async () => {
+  it('returns {svg, paths, artifacts} and writes SVG+PNG per interval at the conventional path', async () => {
     const { deps, writes } = makeDeps();
     const result: CaptureChartResult = await handleCaptureChartSnapshot(
       req({ ...VALID_SPEC, refId: 'ord123' }),
@@ -282,19 +284,26 @@ describe('handleCaptureChartSnapshot', () => {
       NOW,
     );
     expect(deps.renderChartSvg).toHaveBeenCalledTimes(2);
-    expect(writes).toHaveLength(2);
+    expect(deps.rasterizeSvgToPng).toHaveBeenCalledTimes(2);
+    expect(writes).toHaveLength(4);
 
-    const dailyPath = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-daily.svg`;
-    const weeklyPath = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-weekly.svg`;
-    expect(writes.map((w) => w.path)).toEqual([dailyPath, weeklyPath]);
-    expect(writes.every((w) => w.contentType === 'image/svg+xml')).toBe(true);
+    const dailySvg = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-daily.svg`;
+    const dailyPng = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-daily.png`;
+    const weeklySvg = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-weekly.svg`;
+    const weeklyPng = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-weekly.png`;
+    expect(writes.map((w) => w.path)).toEqual([dailySvg, dailyPng, weeklySvg, weeklyPng]);
+    expect(writes.filter((w) => w.path.endsWith('.svg'))
+      .every((w) => w.contentType === 'image/svg+xml')).toBe(true);
+    expect(writes.filter((w) => w.path.endsWith('.png'))
+      .every((w) => w.contentType === 'image/png' && Buffer.isBuffer(w.body))).toBe(true);
 
-    expect(result.paths).toEqual([dailyPath, weeklyPath]);
+    expect(result.paths).toEqual([dailySvg, dailyPng, weeklySvg, weeklyPng]);
     expect(result.svg).toBe('<svg data-interval="daily"/>');
     expect(result.artifacts.map((a) => a.interval)).toEqual([
       ChartInterval.DAILY,
       ChartInterval.WEEKLY,
     ]);
+    expect(result.artifacts.map((a) => a.pngPath)).toEqual([dailyPng, weeklyPng]);
     // Canonical result shape — equivalent to buildCaptureChartResult output.
     expect(result).toEqual(buildCaptureChartResult(result.artifacts));
   });
@@ -303,9 +312,9 @@ describe('handleCaptureChartSnapshot', () => {
     const { deps, writes } = makeDeps();
     await handleCaptureChartSnapshot(req(VALID_SPEC), deps);
     await handleCaptureChartSnapshot(req(VALID_SPEC), deps);
-    expect(writes).toHaveLength(4);
-    expect(writes[0].path).toBe(writes[2].path);
-    expect(writes[1].path).toBe(writes[3].path);
+    expect(writes).toHaveLength(8);
+    expect(writes[0].path).toBe(writes[4].path);
+    expect(writes[1].path).toBe(writes[5].path);
   });
 
   it('omits the refId segment when not supplied', async () => {
@@ -354,6 +363,7 @@ describe('handleCaptureChartSnapshot', () => {
   it.each([
     ['assembly', { assembleChartModels: jest.fn(async () => { throw new Error('firestore down'); }) }],
     ['render', { renderChartSvg: jest.fn(() => { throw new Error('boom'); }) }],
+    ['rasterize', { rasterizeSvgToPng: jest.fn(() => { throw new Error('resvg exploded'); }) }],
     ['storage write', { writeArtifact: jest.fn(async () => { throw new Error('bucket denied'); }) }],
   ])('maps %s failure to internal', async (_label, patch) => {
     const { deps } = makeDeps(patch as Partial<CaptureChartSnapshotDeps>);
