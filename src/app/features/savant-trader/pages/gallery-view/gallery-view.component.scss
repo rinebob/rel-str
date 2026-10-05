@@ -1,7 +1,10 @@
 .gallery-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  // --header-height is set on mat-drawer-content: 0px in fullscreen mode.
+  // The drawer content doesn't constrain the routed component's height —
+  // size off the viewport like sibling pages (chart-review, flex-chart).
+  height: calc(100vh - var(--header-height, 0px));
   overflow: hidden;
 }
 

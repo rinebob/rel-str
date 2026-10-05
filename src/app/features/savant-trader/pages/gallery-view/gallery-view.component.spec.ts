@@ -5,9 +5,12 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
 
 import { GalleryViewComponent } from './gallery-view.component';
 import { GalleryFacade } from '../../stores/gallery.facade';
+import { GalleryCardActionsService } from '../../stores/gallery-card-actions.service';
 import { GalleryCard, GalleryGroup } from '../../utils/gallery-cards.util';
 import { GroupDimension, SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 import { StSymbolProfile } from '../../services/types';
@@ -33,6 +36,9 @@ function card(symbol: string, side: 'buy' | 'sell'): GalleryCard {
       indicators: {},
       closePrice: 123.45,
     }],
+    status: 'pending',
+    allRejected: false,
+    actionedAt: '',
   };
 }
 
@@ -62,6 +68,18 @@ describe('GalleryViewComponent', () => {
     allGroupsExpanded: ReturnType<typeof signal<boolean>>;
     filterOptionGroups: ReturnType<typeof signal<never[]>>;
   };
+  let actionsMock: {
+    isActionableRun: ReturnType<typeof signal<boolean>>;
+    busyCardKeys: ReturnType<typeof signal<ReadonlySet<string>>>;
+    config: ReturnType<typeof signal<null>>;
+    warmConfig: jest.Mock;
+    rejectCard: jest.Mock;
+    paperCard: jest.Mock;
+    tradeCard: jest.Mock;
+    discardStagedTicket: jest.Mock;
+  };
+
+  let dialogMock: { open: jest.Mock };
 
   const text = (): string => (fixture.nativeElement as HTMLElement).textContent ?? '';
   const cardEls = (): HTMLElement[] =>
@@ -92,12 +110,25 @@ describe('GalleryViewComponent', () => {
       allGroupsExpanded: signal(true),
       filterOptionGroups: signal<never[]>([]),
     };
+    actionsMock = {
+      isActionableRun: signal(true),
+      busyCardKeys: signal<ReadonlySet<string>>(new Set()),
+      config: signal(null),
+      warmConfig: jest.fn(),
+      rejectCard: jest.fn(),
+      paperCard: jest.fn(),
+      tradeCard: jest.fn(),
+      discardStagedTicket: jest.fn(),
+    };
+    dialogMock = { open: jest.fn().mockReturnValue({ afterClosed: () => of(null) }) };
 
     await TestBed.configureTestingModule({
       imports: [GalleryViewComponent],
       providers: [
         provideNoopAnimations(),
         { provide: GalleryFacade, useValue: facadeMock },
+        { provide: GalleryCardActionsService, useValue: actionsMock },
+        { provide: MatDialog, useValue: dialogMock },
       ],
     }).compileComponents();
 
@@ -199,5 +230,48 @@ describe('GalleryViewComponent', () => {
     expect(facadeMock.setListFilter).toHaveBeenCalledWith('PRIMARY');
     expect(facadeMock.setGroupDimension).toHaveBeenCalledWith(GroupDimension.MARKET_CAP_TIER);
     expect(facadeMock.toggleAllGroups).toHaveBeenCalled();
+  });
+
+  it('dispatches card actions to the facade (#755/#759)', async () => {
+    const c = card('AAPL', 'buy');
+    const stagedTicket = { id: 't-1' };
+    actionsMock.tradeCard.mockResolvedValue({ ticket: stagedTicket, created: true });
+    facadeMock.cards.set([c]);
+    facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards: [c] }]);
+    fixture.detectChanges();
+
+    const group = fixture.debugElement.query((el) => el.name === 'app-gallery-group')
+      .componentInstance as { cardAction: { emit: (v: { type: string; card: GalleryCard }) => void } };
+    group.cardAction.emit({ type: 'reject', card: c });
+    group.cardAction.emit({ type: 'paper', card: c });
+    group.cardAction.emit({ type: 'trade', card: c });
+    await fixture.whenStable();
+
+    expect(actionsMock.rejectCard).toHaveBeenCalledWith(c);
+    expect(actionsMock.paperCard).toHaveBeenCalledWith(c);
+    expect(actionsMock.tradeCard).toHaveBeenCalledWith(c);
+    expect(dialogMock.open).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        data: expect.objectContaining({ ticketId: 't-1' }),
+      }),
+    );
+    // Dialog cancelled (closed while still STAGED) → the created ticket is discarded.
+    expect(actionsMock.discardStagedTicket).toHaveBeenCalledWith('t-1');
+  });
+
+  it('does not discard a reopened ticket on dialog close (#759)', async () => {
+    const c = card('AAPL', 'buy');
+    actionsMock.tradeCard.mockResolvedValue({ ticket: { id: 't-9' }, created: false });
+    facadeMock.cards.set([c]);
+    facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards: [c] }]);
+    fixture.detectChanges();
+
+    const group = fixture.debugElement.query((el) => el.name === 'app-gallery-group')
+      .componentInstance as { cardAction: { emit: (v: { type: string; card: GalleryCard }) => void } };
+    group.cardAction.emit({ type: 'trade', card: c });
+    await fixture.whenStable();
+
+    expect(actionsMock.discardStagedTicket).not.toHaveBeenCalled();
   });
 });

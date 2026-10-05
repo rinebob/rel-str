@@ -31,7 +31,10 @@
         <app-gallery-group
           [group]="group"
           [expanded]="expandedMap[group.key] ?? false"
-          (expandedChange)="facade.setGroupExpanded(group.key, $event)">
+          [actionsDisabled]="!actions.isActionableRun()"
+          [busyKeys]="actions.busyCardKeys()"
+          (expandedChange)="facade.setGroupExpanded(group.key, $event)"
+          (cardAction)="onCardAction($event)">
         </app-gallery-group>
       }
     </div>

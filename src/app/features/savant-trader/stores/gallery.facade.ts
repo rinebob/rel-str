@@ -9,10 +9,10 @@
  * pure gallery-cards utils. Page-local filter/group state lives in
  * GalleryUiStore.
  *
- * Later tasks layer ordering/sink status (#755), chart cells (#756), actions
- * (#757-#758), and ticket staging (#759-#761) on top of this seam.
+ * Card decision mutations live in GalleryCardActionsService — this facade
+ * stays the read-only view-model seam.
  */
-import { computed, effect, inject, Injectable, signal } from '@angular/core';
+import { computed, effect, inject, Injectable } from '@angular/core';
 
 import { StStore } from './st.store';
 import { GroupStore } from './group.store';
@@ -22,15 +22,17 @@ import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { SymbolListStore } from './symbol-list.store';
 import { OrderTicketStore } from './order-ticket.store';
 import { GalleryUiStore } from './gallery-ui.store';
-import { TradingConfigService } from '../services/trading-config.service';
-import { TradingConfig } from '../services/order-ticket.types';
 import { StSignalItem, StRun } from '../services/types';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { GroupDimension, SignalDirection, SignalTimeframe, SymbolListFilter } from '../common/constants';
+import { SYSTEM_LIST_KEYS } from '../common/symbol-list-defs';
 import {
   buildGalleryCards,
+  enrichGalleryCards,
   filterGalleryCards,
   groupGalleryCards,
+  isSunkCard,
+  sunkGalleryGroup,
+  GalleryActionContext,
   GalleryCard,
   GalleryFilter,
   GalleryGroup,
@@ -45,12 +47,7 @@ export class GalleryFacade {
   private readonly occurrenceStore = inject(OccurrenceDecisionStore);
   private readonly symbolListStore = inject(SymbolListStore);
   private readonly ticketStore = inject(OrderTicketStore);
-  private readonly configService = inject(TradingConfigService);
-  private readonly snackBar = inject(MatSnackBar);
   private readonly uiStore = inject(GalleryUiStore);
-
-  /** Trading config loaded on enter — needed later for ticket staging (#759). */
-  readonly config = signal<TradingConfig | null>(null);
 
   /** Active-run context for the header. */
   readonly viewedRun = computed((): StRun | null => this.groupStore.viewedRun());
@@ -78,9 +75,20 @@ export class GalleryFacade {
     listFilter: this.uiStore.listFilter(),
   }));
 
-  /** Filtered cards feeding the grouped grid. */
+  /** Decision/ticket/monitor context for reject-trim + status derivation (#755). */
+  private readonly actionContext = computed((): GalleryActionContext => ({
+    runId: this.groupStore.activeRunId() ?? '',
+    decisions: this.occurrenceStore.occurrenceDecisions(),
+    ticketsBySymbol: this.ticketStore.ticketsBySymbol(),
+    monitorSymbols: new Set(this.symbolListStore.symbolLists()[SYSTEM_LIST_KEYS.MONITOR] ?? []),
+  }));
+
+  /** Filtered, status-enriched cards feeding the grouped grid. */
   readonly visibleCards = computed((): GalleryCard[] =>
-    filterGalleryCards(this.cards(), this.activeFilter(), this.listContext()),
+    enrichGalleryCards(
+      filterGalleryCards(this.cards(), this.activeFilter(), this.listContext(), this.actionContext()),
+      this.actionContext(),
+    ),
   );
 
   /** Cards exist for the run but every one is filtered out. */
@@ -90,11 +98,20 @@ export class GalleryFacade {
    * Visible cards bucketed by the active grouping dimension (#783) —
    * sector/industry/market-cap, mirroring signal-review. Filters apply
    * first (visibleCards), then grouping; within-group order is
-   * marketCap desc.
+   * marketCap desc. Sunk cards (#755 — watched/settled/failed) leave the
+   * dimension groups entirely and collect in a pinned "Sunk" panel at the
+   * bottom, ordered by action time desc.
    */
-  readonly groups = computed((): GalleryGroup[] =>
-    groupGalleryCards(this.visibleCards(), this.uiStore.groupDimension()),
-  );
+  readonly groups = computed((): GalleryGroup[] => {
+    const cards = this.visibleCards();
+    const groups = groupGalleryCards(
+      cards.filter((c) => !isSunkCard(c)),
+      this.uiStore.groupDimension(),
+    );
+    const sunk = cards.filter(isSunkCard);
+    if (sunk.length) groups.push(sunkGalleryGroup(sunk));
+    return groups;
+  });
 
   /** True when every visible group is expanded (drives the expand-all icon). */
   readonly allGroupsExpanded = computed(() =>
@@ -102,7 +119,7 @@ export class GalleryFacade {
     this.groups().every((g) => this.uiStore.expandedGroups()[g.key] ?? false),
   );
 
-  /** Expansion overrides — read by the template as `map[key] ?? true`. */
+  /** Expansion overrides — read by the template as `map[key] ?? false`. */
   readonly expandedGroups = computed(() => this.uiStore.expandedGroups());
 
   /** Error from the signal-symbols load, surfaced as an empty-state message. */
@@ -169,13 +186,6 @@ export class GalleryFacade {
       this.agentStore.loadData();
     }
     this.ticketStore.loadTickets();
-    this.configService.loadConfig().subscribe({
-      next: (config) => this.config.set(config),
-      error: (err: unknown) => {
-        console.error('[GalleryFacade] Failed to load trading config:', err);
-        this.snackBar.open('Failed to load trading config', 'Dismiss', { duration: 5000 });
-      },
-    });
   }
 
   // -- Filter/group events ---------------------------------------------------
@@ -196,11 +206,6 @@ export class GalleryFacade {
     this.uiStore.setGroupDimension(dimension);
   }
 
-  /** Expansion state for a group — absent key defaults to collapsed. */
-  isGroupExpanded(key: string): boolean {
-    return this.uiStore.expandedGroups()[key] ?? false;
-  }
-
   setGroupExpanded(key: string, expanded: boolean): void {
     this.uiStore.setGroupExpanded(key, expanded);
   }
@@ -212,4 +217,5 @@ export class GalleryFacade {
       !this.allGroupsExpanded(),
     );
   }
+
 }
