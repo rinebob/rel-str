@@ -2,7 +2,7 @@ import {
   CHART_PALETTES,
   buildLogTickStripLines,
   resolveChartPalette,
-} from './chart-theme';
+} from './flex-chart-theme';
 
 // =============================================================================
 // resolveChartPalette

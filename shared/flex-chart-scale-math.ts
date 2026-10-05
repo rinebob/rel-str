@@ -1,9 +1,8 @@
 /**
  * Flex-chart axis scale math — shared by the FE flex-chart component and the
- * server-side screenshot renderer (Topic #746). Canonical home moved to
- * shared/ in task #766; the originals in
- * `src/app/features/shared/components/flex-chart/strategies/` re-export this
- * file so existing imports keep working.
+ * server-side screenshot renderer (Topic #746). Canonical home since task
+ * #766; all consumers import this file directly via `@flex-chart/scale-math`
+ * (FE tsconfig/jest alias) or the functions-side alias.
  *
  * Contents (verbatim ports):
  *  - log-space transform helpers from `strategies/log-transform.ts` — the

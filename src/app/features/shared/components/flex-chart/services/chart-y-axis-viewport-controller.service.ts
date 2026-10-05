@@ -8,7 +8,7 @@
  */
 
 import { Injectable } from '@angular/core';
-import type { ChartPalette } from '../chart-theme';
+import type { ChartPalette } from '@flex-chart/theme';
 import type { PriceBar } from '../flex-chart.types';
 import { ChartYAxisViewport } from '../store/chart-viewport.store';
 import {

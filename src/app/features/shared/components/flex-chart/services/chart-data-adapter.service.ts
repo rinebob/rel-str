@@ -11,12 +11,12 @@ import {
   MAIN_PANE_PERCENT_MAX,
   MAIN_PANE_PERCENT_MIN,
 } from '../flex-chart.types';
-import { resolveChartPalette } from '../chart-theme';
+import { resolveChartPalette } from '@flex-chart/theme';
 import { computeIndicators, groupIndicatorsByPane } from '../flex-chart-calculations';
 import { computeAllBands, type BandSeriesData, type BandDataPoint } from '../indicators/st-trend-bands.indicator';
 import { computeStdDevLinesSeries, type StdDevLineSeriesData } from '../indicators/st-std-dev-lines.indicator';
 import { computeZigZagSeries, type ZigZagChartSeries } from '../indicators/st-zigzag.indicator';
-import { toLogAxis } from '../strategies/log-transform';
+import { toLogAxis } from '@flex-chart/scale-math';
 
 export interface LowerPaneView {
   /** The pane slot ID (e.g. 'lower-1'). */

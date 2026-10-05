@@ -1,9 +1,9 @@
 import { ChartDataAdapter } from './chart-data-adapter.service';
-import { CHART_PALETTES } from '../chart-theme';
+import { CHART_PALETTES } from '@flex-chart/theme';
 import { StIndicator } from '../flex-chart.types';
 import type { FlexChartConfig, FlexChartDataset, IndicatorConfig, IndicatorPane } from '../flex-chart.types';
 import { signal } from '@angular/core';
-import { toLogAxis } from '../strategies/log-transform';
+import { toLogAxis } from '@flex-chart/scale-math';
 import type { BandSeriesData } from '../indicators/st-trend-bands.indicator';
 import {
   ST_TREND_BANDS_INDICATOR,

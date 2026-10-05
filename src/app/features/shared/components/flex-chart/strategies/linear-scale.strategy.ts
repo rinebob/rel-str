@@ -7,7 +7,7 @@
 import type { PriceBar } from '../flex-chart.types';
 import type { AxisRect, AxisStyleConfig, ScaleStrategy, VisibleRange } from './scale-strategy.types';
 import type { ChartYAxisViewport } from '../store/chart-viewport.store';
-import { formatPrice } from './price-format';
+import { formatPrice } from '@flex-chart/scale-math';
 
 export class LinearScaleStrategy implements ScaleStrategy {
   readonly axisConfig: AxisStyleConfig = {};

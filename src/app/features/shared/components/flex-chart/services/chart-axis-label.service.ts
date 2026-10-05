@@ -21,7 +21,7 @@ import { ChartViewportStore } from '../store/chart-viewport.store';
 import { ChartYAxisViewportController } from './chart-y-axis-viewport-controller.service';
 import { ChartLifecycleFacade } from './chart-lifecycle-facade.service';
 import type { SfAxisLabelRenderArgs } from './chart-instance.types';
-import { toLogAxis } from '../strategies/log-transform';
+import { toLogAxis } from '@flex-chart/scale-math';
 
 export interface LogAxisLabel {
   /** Round price this label/gridline represents — stable identity. */

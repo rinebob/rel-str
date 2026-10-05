@@ -1,9 +1,9 @@
 import { Injectable, Signal, effect, inject, signal, untracked } from '@angular/core';
-import { buildLogTickStripLines, resolveChartPalette } from '../chart-theme';
+import { buildLogTickStripLines, resolveChartPalette } from '@flex-chart/theme';
 import type { ComputedIndicatorSeries, FlexChartConfig, FlexChartDataset, PriceBar } from '../flex-chart.types';
 import { ChartViewportStore } from '../store/chart-viewport.store';
 import { ChartYAxisViewportController } from './chart-y-axis-viewport-controller.service';
-import { fromLogAxis, nicePriceTicks, toLogAxis } from '../strategies/log-transform';
+import { fromLogAxis, nicePriceTicks, toLogAxis } from '@flex-chart/scale-math';
 import type { ChartAxisState, SfChartInstance } from './chart-instance.types';
 
 /**

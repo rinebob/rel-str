@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { FlexChartComponent } from './flex-chart.component';
-import { CHART_PALETTES } from './chart-theme';
+import { CHART_PALETTES } from '@flex-chart/theme';
 
 describe('FlexChartComponent logScale default', () => {
   let fixture: ComponentFixture<FlexChartComponent>;

@@ -44,8 +44,8 @@ import type {
   FlexChartConfig,
 } from './flex-chart.types';
 import { StIndicator, MAIN_PANE_PERCENT_DEFAULT } from './flex-chart.types';
-import type { ChartAppearance, ChartPalette } from './chart-theme';
-import { resolveChartPalette } from './chart-theme';
+import type { ChartAppearance, ChartPalette } from '@flex-chart/theme';
+import { resolveChartPalette } from '@flex-chart/theme';
 import { ChartViewportStore } from './store/chart-viewport.store';
 import { ChartYAxisViewportController } from './services/chart-y-axis-viewport-controller.service';
 import { ChartLifecycleFacade } from './services/chart-lifecycle-facade.service';

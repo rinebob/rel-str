@@ -5,7 +5,7 @@
  */
 
 import type { BarsInterval } from '../../../../core/models/partner.types';
-import type { ChartAppearance } from './chart-theme';
+import type { ChartAppearance } from '@flex-chart/theme';
 import type { BandSeriesData } from './indicators/st-trend-bands.indicator';
 
 /** Price bar data point */

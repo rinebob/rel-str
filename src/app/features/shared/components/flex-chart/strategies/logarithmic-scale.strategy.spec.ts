@@ -8,7 +8,7 @@
  * bound to the series upstream, so extents/labels stay under our control.
  */
 import { LogarithmicScaleStrategy } from './logarithmic-scale.strategy';
-import { nicePriceTicks } from './log-transform';
+import { nicePriceTicks } from '@flex-chart/scale-math';
 import type { PriceBar } from '../flex-chart.types';
 
 function bar(low: number, high: number): PriceBar {

@@ -14,8 +14,7 @@
 import type { PriceBar } from '../flex-chart.types';
 import type { AxisRect, AxisStyleConfig, ScaleStrategy, VisibleRange } from './scale-strategy.types';
 import type { ChartYAxisViewport } from '../store/chart-viewport.store';
-import { toLogAxis, fromLogAxis } from './log-transform';
-import { formatPrice } from './price-format';
+import { toLogAxis, fromLogAxis, formatPrice } from '@flex-chart/scale-math';
 
 export class LogarithmicScaleStrategy implements ScaleStrategy {
   /**
