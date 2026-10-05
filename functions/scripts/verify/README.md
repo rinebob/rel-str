@@ -37,6 +37,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #669 | `paper-trading-trade-exits-669.ts` | composed exit seam — prod seeding audit + governingVariant resolution + seed guards + cancel/close guards | [paper-trading-trade-exits-669.md](../../../scripts/verify/paper-trading-trade-exits-669.md) |
 | #766 | `screenshot-capture-766-render.ts` | render model → SVG (fixture render + structural checks + browser artifact) | [screenshot-capture-766.md](screenshot-capture-766.md) |
 | #767 | `screenshot-capture-767-assemble.ts` | symbol-data bars → indicator series → render model → SVG (real-data end-to-end) | [screenshot-capture-767.md](screenshot-capture-767.md) |
+| #768 | `screenshot-capture-768-callable.ts` | callable handler → assemble → render → real bucket write + error contract | [screenshot-capture-768.md](screenshot-capture-768.md) |
 
 ## Order across tasks
 
@@ -56,3 +57,4 @@ npx tsx scripts/verify/{script-name}.ts
 14. **#669** — `paper-trading-trade-exits-669.ts` (composed exit seam + prod audit)
 15. **#766** — `screenshot-capture-766-render.ts` (render model → SVG)
 16. **#767** — `screenshot-capture-767-assemble.ts` (data assembly → model → SVG)
+17. **#768** — `screenshot-capture-768-callable.ts` (callable → bucket write + error contract)

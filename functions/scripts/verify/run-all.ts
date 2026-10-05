@@ -31,6 +31,7 @@ const scripts = [
   'paper-trading-trade-exits-669.ts',
   'screenshot-capture-766-render.ts',
   'screenshot-capture-767-assemble.ts',
+  'screenshot-capture-768-callable.ts',
 ];
 
 let passed = 0;

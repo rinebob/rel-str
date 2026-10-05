@@ -162,3 +162,6 @@ export {
   listStrategyPositions,
   getStrategyEquityCurve,
 } from './options-strategy-engine/options-strategy-callables';
+
+// Screenshot capture — on-demand chart snapshot callable (#746 / #768)
+export { captureChartSnapshot } from './screenshot-capture/capture-chart';
