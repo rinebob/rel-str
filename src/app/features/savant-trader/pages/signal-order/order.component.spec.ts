@@ -77,6 +77,9 @@ describe('OrderComponent', () => {
       updateTicket: jasmine.createSpy('updateTicket'),
       updateTicketAndWait: jasmine.createSpy('updateTicketAndWait').and.returnValue(Promise.resolve(true)),
       setTicketStatusLocal: jasmine.createSpy('setTicketStatusLocal'),
+      // Shared paper transaction (#755) — resolves the cohort response
+      // by default; individual tests reject to exercise the failure path.
+      sendTicketToPaper: jest.fn().mockResolvedValue({ cohortId: 'c1', expressionTradeIds: [] }),
       reconcileTerminalStatuses: jasmine.createSpy('reconcileTerminalStatuses'),
     };
 
@@ -688,22 +691,18 @@ describe('OrderComponent', () => {
   });
 
   describe('bulk send to paper (#709)', () => {
-    let paperMock: { paperSignalOrder$: jest.Mock };
     let priceMock: { prices: any };
     let snack: any;
 
     beforeEach(() => {
-      paperMock = TestBed.inject(PaperTradingService) as any;
       priceMock = TestBed.inject(EquityPriceService) as any;
       snack = TestBed.inject(MatSnackBar);
-      paperMock.paperSignalOrder$.mockReset();
-      paperMock.paperSignalOrder$.mockReturnValue(
-        of({ cohortId: 'c1', expressionTradeIds: ['e1'] }),
-      );
+      storeMock.sendTicketToPaper.mockReset();
+      storeMock.sendTicketToPaper.mockResolvedValue({ cohortId: 'c1', expressionTradeIds: ['e1'] });
       priceMock.prices.set({});
     });
 
-    it('converts each checked staged signal ticket to PAPER', async () => {
+    it('sends each checked staged signal ticket through the shared store transaction', async () => {
       const t1 = makeTicket('1', 'AAPL');
       t1.signalContext = ctx('dec-a');
       const t2 = makeTicket('2', 'NVDA');
@@ -713,15 +712,19 @@ describe('OrderComponent', () => {
 
       await component.onSendTicketsToPaper(['1', '2']);
 
-      expect(paperMock.paperSignalOrder$).toHaveBeenCalledTimes(2);
-      expect(paperMock.paperSignalOrder$).toHaveBeenCalledWith(
-        expect.objectContaining({ signalId: 'dec-a', symbol: 'AAPL', refId: 'ref-1', quantity: 100, direction: TradeSide.LONG }),
+      // Request shape, SUBMITTING transient, PAPER/STAGED transitions all
+      // live inside sendTicketToPaper (#755) — covered in the store spec.
+      expect(storeMock.sendTicketToPaper).toHaveBeenCalledTimes(2);
+      expect(storeMock.sendTicketToPaper).toHaveBeenCalledWith(t1, 100);
+      expect(storeMock.sendTicketToPaper).toHaveBeenCalledWith(t2, 100);
+      expect(snack.open).toHaveBeenCalledWith(
+        expect.stringContaining('2 sent to paper'),
+        'Dismiss',
+        expect.anything(),
       );
-      expect(storeMock.updateTicket).toHaveBeenCalledWith('1', expect.objectContaining({ status: OrderTicketStatus.PAPER }));
-      expect(storeMock.updateTicket).toHaveBeenCalledWith('2', expect.objectContaining({ status: OrderTicketStatus.PAPER }));
     });
 
-    it('sends sell-side tickets as SHORT', async () => {
+    it('passes sell-side tickets through — direction mapping lives in the store request builder', async () => {
       const t = makeTicket('1', 'AAPL');
       t.side = 'sell';
       t.signalContext = ctx('dec-s');
@@ -730,8 +733,9 @@ describe('OrderComponent', () => {
 
       await component.onSendTicketsToPaper(['1']);
 
-      expect(paperMock.paperSignalOrder$).toHaveBeenCalledWith(
-        expect.objectContaining({ direction: TradeSide.SHORT }),
+      expect(storeMock.sendTicketToPaper).toHaveBeenCalledWith(
+        expect.objectContaining({ side: 'sell' }),
+        expect.anything(),
       );
     });
 
@@ -751,7 +755,7 @@ describe('OrderComponent', () => {
 
       await component.onSendTicketsToPaper(['1', '2', '3']);
 
-      expect(paperMock.paperSignalOrder$).not.toHaveBeenCalled();
+      expect(storeMock.sendTicketToPaper).not.toHaveBeenCalled();
       expect(storeMock.updateTicket).not.toHaveBeenCalled();
       expect(snack.open).toHaveBeenCalledWith(
         expect.stringContaining('skipped'),
@@ -760,7 +764,7 @@ describe('OrderComponent', () => {
       );
     });
 
-    it('leaves a failed ticket staged and reports the failure count', async () => {
+    it('reports the failure count when a send rejects — the store owns the STAGED revert', async () => {
       const t1 = makeTicket('1', 'AAPL');
       t1.signalContext = ctx('dec-a');
       const t2 = makeTicket('2', 'NVDA');
@@ -768,16 +772,12 @@ describe('OrderComponent', () => {
       storeMock.tickets.set({ '1': t1, '2': t2 });
       fixture.detectChanges();
 
-      paperMock.paperSignalOrder$
-        .mockReturnValueOnce(of({ cohortId: 'c', expressionTradeIds: [] }))
-        .mockImplementationOnce(() => throwError(() => new Error('boom')));
+      storeMock.sendTicketToPaper
+        .mockResolvedValueOnce({ cohortId: 'c', expressionTradeIds: [] })
+        .mockRejectedValueOnce(new Error('boom'));
 
       await component.onSendTicketsToPaper(['1', '2']);
 
-      // Success → PAPER; failure → stays STAGED but carries a visible error.
-      expect(storeMock.updateTicket).toHaveBeenCalledTimes(2);
-      expect(storeMock.updateTicket).toHaveBeenCalledWith('1', expect.objectContaining({ status: OrderTicketStatus.PAPER }));
-      expect(storeMock.updateTicket).toHaveBeenCalledWith('2', expect.objectContaining({ error: expect.objectContaining({ retryable: true }) }));
       expect(snack.open).toHaveBeenCalledWith(
         expect.stringContaining('1 failed'),
         'Dismiss',
@@ -799,51 +799,37 @@ describe('OrderComponent', () => {
 
       await component.onSendTicketsToPaper(['1']);
 
-      expect(paperMock.paperSignalOrder$).toHaveBeenCalledWith(
-        expect.objectContaining({ quantity: 10 }), // $500 / $50
+      expect(storeMock.sendTicketToPaper).toHaveBeenCalledWith(
+        expect.objectContaining({ id: '1' }), 10, // $500 / $50
       );
     });
 
-    it('marks the ticket SUBMITTING locally during the callable await (C1 — not removable/submittable mid-flight)', async () => {
+    it('skips a ticket that left the staged pool mid-batch', async () => {
       const t = makeTicket('1', 'AAPL');
       t.signalContext = ctx('dec-a');
       storeMock.tickets.set({ '1': t });
       fixture.detectChanges();
 
-      await component.onSendTicketsToPaper(['1']);
+      // The batch re-reads each ticket before sending — flip ticket 2 out
+      // of STAGED while ticket 1's send is in flight.
+      const t2 = makeTicket('2', 'NVDA');
+      t2.signalContext = ctx('dec-b');
+      storeMock.tickets.set({ '1': t, '2': t2 });
+      storeMock.sendTicketToPaper.mockImplementation(async () => {
+        storeMock.tickets.set({
+          '1': t,
+          '2': { ...t2, status: OrderTicketStatus.SUBMITTED },
+        });
+        return { cohortId: 'c', expressionTradeIds: [] };
+      });
 
-      // Transient status patched before the callable, PAPER after success.
-      expect(storeMock.setTicketStatusLocal).toHaveBeenCalledWith(
-        '1',
-        OrderTicketStatus.SUBMITTING,
-      );
-      expect(storeMock.updateTicket).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({ status: OrderTicketStatus.PAPER }),
-      );
-    });
+      await component.onSendTicketsToPaper(['1', '2']);
 
-    it('reverts the transient status to STAGED on callable failure', async () => {
-      const t = makeTicket('1', 'AAPL');
-      t.signalContext = ctx('dec-a');
-      storeMock.tickets.set({ '1': t });
-      fixture.detectChanges();
-      paperMock.paperSignalOrder$.mockReturnValueOnce(
-        throwError(() => new Error('boom')),
-      );
-
-      await component.onSendTicketsToPaper(['1']);
-
-      expect(storeMock.setTicketStatusLocal).toHaveBeenCalledWith(
-        '1',
-        OrderTicketStatus.SUBMITTING,
-      );
-      expect(storeMock.updateTicket).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({
-          status: OrderTicketStatus.STAGED,
-          error: expect.objectContaining({ retryable: true }),
-        }),
+      expect(storeMock.sendTicketToPaper).toHaveBeenCalledTimes(1);
+      expect(snack.open).toHaveBeenCalledWith(
+        expect.stringContaining('no longer staged'),
+        'Dismiss',
+        expect.anything(),
       );
     });
 
@@ -853,17 +839,17 @@ describe('OrderComponent', () => {
       storeMock.tickets.set({ '1': t });
       fixture.detectChanges();
 
-      // Hold the callable open while the second invocation fires.
+      // Hold the send open while the second invocation fires.
       let release!: (v: unknown) => void;
-      paperMock.paperSignalOrder$.mockReturnValueOnce(
-        from(new Promise((res) => (release = res))),
+      storeMock.sendTicketToPaper.mockReturnValueOnce(
+        new Promise((res) => (release = res)),
       );
       const first = component.onSendTicketsToPaper(['1']);
       await component.onSendTicketsToPaper(['1']);
       release({ cohortId: 'c', expressionTradeIds: [] });
       await first;
 
-      expect(paperMock.paperSignalOrder$).toHaveBeenCalledTimes(1);
+      expect(storeMock.sendTicketToPaper).toHaveBeenCalledTimes(1);
     });
 
     it('fails the ticket with a visible error when quantity is uncomputable (no price)', async () => {
@@ -876,7 +862,7 @@ describe('OrderComponent', () => {
 
       await component.onSendTicketsToPaper(['1']);
 
-      expect(paperMock.paperSignalOrder$).not.toHaveBeenCalled();
+      expect(storeMock.sendTicketToPaper).not.toHaveBeenCalled();
       expect(storeMock.updateTicket).toHaveBeenCalledWith(
         '1',
         expect.objectContaining({ error: expect.objectContaining({ retryable: true }) }),

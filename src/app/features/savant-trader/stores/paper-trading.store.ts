@@ -14,7 +14,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, EMPTY, finalize, firstValueFrom, of, Subscription } from 'rxjs';
+import { catchError, EMPTY, finalize, of, Subscription } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { PaperTradingService } from '../services/paper-trading.service';
@@ -22,8 +22,6 @@ import type {
   ExitVariantConfig,
   ListPaperTradesRequest,
   PaperAccount,
-  PaperSignalOrderRequest,
-  PaperSignalOrderResponse,
   PaperStats,
   PaperTrade,
 } from '@paper-trading/contracts';
@@ -61,7 +59,6 @@ export interface PaperTradingState {
   isLoadingTrades: boolean;
   isLoadingStats: boolean;
   isLoadingAccount: boolean;
-  isSubmittingOrder: boolean;
   error: string | null;
 }
 
@@ -74,7 +71,6 @@ const initialState: PaperTradingState = {
   isLoadingTrades: false,
   isLoadingStats: false,
   isLoadingAccount: false,
-  isSubmittingOrder: false,
   error: null,
 };
 
@@ -268,32 +264,6 @@ export const PaperTradingStore = signalStore(
             .subscribe({
               next: (res) => patchState(state, { exitVariants: res.variants }),
             });
-        },
-
-        /** Accept a staged signal ticket as a paper cohort. Resolves to
-         *  the response on success so the caller can show cohort/expression
-         *  details; surfaces errors to the snackbar and resolves null. */
-        async acceptAsPaper(
-          request: PaperSignalOrderRequest,
-        ): Promise<PaperSignalOrderResponse | null> {
-          if (state.isSubmittingOrder()) return null;
-          patchState(state, { isSubmittingOrder: true, error: null });
-          try {
-            const res = await firstValueFrom(service.paperSignalOrder$(request));
-            snackBar.open(
-              `Paper cohort ${res.cohortId} — ${res.expressionTradeIds.length} expression trades`,
-              'Dismiss',
-              { duration: 5000 },
-            );
-            return res;
-          } catch (err) {
-            const msg = toMessage(err, 'Failed to accept signal as paper');
-            patchState(state, { error: msg });
-            snackBar.open(msg, 'Dismiss', { duration: 5000 });
-            return null;
-          } finally {
-            patchState(state, { isSubmittingOrder: false });
-          }
         },
 
         /** Update the server-side trade filter and refetch. Empty object

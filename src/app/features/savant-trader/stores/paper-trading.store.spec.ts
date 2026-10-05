@@ -82,13 +82,6 @@ const PENDING_TRADE = makeTrade({
   cohortId: 'cohort-9',
 });
 
-const SIGNAL_REQ = {
-  signalId: 'sig-9',
-  symbol: 'AAPL',
-  direction: TradeSide.SHORT,
-  refId: 'r-1',
-};
-
 const ACCOUNT: PaperAccount = {
   kind: PaperTradingKind.ACCOUNT,
   id: 'acct-u1',
@@ -129,7 +122,6 @@ describe('PaperTradingStore', () => {
     getPaperStats$: jest.Mock;
     getPaperAccount$: jest.Mock;
     listExitVariants$: jest.Mock;
-    paperSignalOrder$: jest.Mock;
   };
 
   beforeEach(() => {
@@ -138,9 +130,6 @@ describe('PaperTradingStore', () => {
       getPaperStats$: jest.fn().mockReturnValue(of({ stats: [] })),
       getPaperAccount$: jest.fn().mockReturnValue(of({ account: ACCOUNT })),
       listExitVariants$: jest.fn().mockReturnValue(of({ variants: [] })),
-      paperSignalOrder$: jest.fn().mockReturnValue(
-        of({ cohortId: 'cohort-9', equityTradeId: 'eq-1', expressionTradeIds: ['t-2', 't-4'] }),
-      ),
     };
 
     TestBed.configureTestingModule({
@@ -240,19 +229,6 @@ describe('PaperTradingStore', () => {
     expect(store.exitVariants().map((v) => v.key)).toEqual(['trailing-20']);
   });
 
-  // ── paper order ─────────────────────────────────────────────────────────
-
-  it('acceptAsPaper resolves the response and surfaces the cohort', async () => {
-    const snackBar = TestBed.inject(MatSnackBar);
-    const snackSpy = jest.spyOn(snackBar, 'open');
-    const res = await store.acceptAsPaper(SIGNAL_REQ);
-    expect(res?.cohortId).toBe('cohort-9');
-    expect(res?.expressionTradeIds).toEqual(['t-2', 't-4']);
-    expect(mockService.paperSignalOrder$).toHaveBeenCalledWith(SIGNAL_REQ);
-    expect(snackSpy).toHaveBeenCalledWith(expect.stringContaining('cohort-9'), 'Dismiss', expect.anything());
-    expect(store.isSubmittingOrder()).toBe(false);
-  });
-
   // ── errors ──────────────────────────────────────────────────────────────
 
   it('unauthenticated errors surface the auth message', async () => {
@@ -269,16 +245,12 @@ describe('PaperTradingStore', () => {
     expect(store.trades()).toEqual([]);
   });
 
-  it('generic errors use the fallback message; acceptAsPaper resolves null', async () => {
+  it('generic errors use the fallback message', async () => {
     mockService.getPaperStats$.mockReturnValue(throwError(() => new Error('boom')));
     store.loadStats();
     await new Promise<void>((r) => setTimeout(r, 0));
     expect(store.error()).toBe('Failed to load paper stats');
     expect(store.isLoadingStats()).toBe(false);
-
-    mockService.paperSignalOrder$.mockReturnValue(throwError(() => new Error('boom')));
-    const res = await store.acceptAsPaper(SIGNAL_REQ);
-    expect(res).toBeNull();
   });
 
   it('error clears on the next successful load', async () => {

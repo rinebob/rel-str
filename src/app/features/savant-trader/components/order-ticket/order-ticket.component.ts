@@ -30,7 +30,6 @@ import { firstValueFrom } from 'rxjs';
 
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { OrderExecutionService } from '../../services/order-execution.service';
-import { PaperTradingService } from '../../services/paper-trading.service';
 import { OrderConfirmDialogComponent } from '../order-confirm-dialog/order-confirm-dialog.component';
 import {
   bucketTargetWarnings,
@@ -42,7 +41,7 @@ import {
   buildStopLossTicket,
 } from '../../utils/stop-loss-ticket.util';
 import { findActiveStopLoss, rhStateToDisplayStatus } from '../../utils/broker-order.util';
-import { isPaperEligibleTicket, toPaperSignalOrderRequest } from '../../utils/paper-ticket.util';
+import { isPaperEligibleTicket } from '../../utils/paper-ticket.util';
 import {
   OrderTicket,
   OrderTicketStatus,
@@ -80,7 +79,6 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
 export class OrderTicketComponent {
   private readonly stagingStore = inject(OrderTicketStore);
   private readonly orderExecution = inject(OrderExecutionService);
-  private readonly paperTrading = inject(PaperTradingService);
   private readonly allocStore = inject(AllocationStore);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
@@ -541,10 +539,12 @@ export class OrderTicketComponent {
     });
   }
 
-  /** Update the ticket in the store with the edited fields. */
-  saveEdits(): void {
+  /** The edited-field partial for the current form state, or null when
+   *  the ticket isn't editable. Shared by the optimistic `saveEdits` and
+   *  the pessimistic pre-send save (`updateTicketAndWait`). */
+  private editedPartial(): Partial<EquityOrderTicket> | null {
     const i = this.ticket();
-    if (!i || !this.isEditable()) return;
+    if (!i || !this.isEditable()) return null;
     const partial: Partial<EquityOrderTicket> = {
       orderType: this.orderType(),
       timeInForce: this.timeInForce(),
@@ -559,6 +559,14 @@ export class OrderTicketComponent {
       if (this.showLimitPrice()) partial.limitPrice = this.limitPrice() || undefined;
       if (this.showStopPrice()) partial.stopPrice = this.stopPrice() || undefined;
     }
+    return partial;
+  }
+
+  /** Update the ticket in the store with the edited fields. */
+  saveEdits(): void {
+    const i = this.ticket();
+    const partial = this.editedPartial();
+    if (!i || !partial) return;
     this.stagingStore.updateTicket(i.id, partial);
   }
 
@@ -625,15 +633,22 @@ export class OrderTicketComponent {
     // narrows the union for the request builder (typed `symbol`).
     if (!isPaperEligibleTicket(i)) return;
 
-    // Persist pending edits first so the stored ticket, the dialog, and the
-    // request all agree (same ordering as onSubmit).
-    this.saveEdits();
-
-    // Held from dialog open through the callable so rapid re-entry can't
-    // open a second dialog or double-invoke paperSignalOrder.
+    // Held from entry through the callable so rapid re-entry can't issue
+    // a second edit-save, open a second dialog, or double-invoke the
+    // send — the save await sits INSIDE the guard (#755 review r3/r4).
     this.acceptingPaper.set(true);
 
     try {
+      // Persist pending edits BEFORE the callable, pessimistically — the
+      // backend resolves quantity from the stored ticket doc first, so an
+      // optimistic write still in flight (or silently rolled back) would
+      // fill the pre-edit quantity (#755 review r3). updateTicketAndWait
+      // resolves only after the Firestore write lands.
+      const partial = this.editedPartial();
+      if (partial && !(await this.stagingStore.updateTicketAndWait(i.id, partial))) {
+        this.snackBar.open('Failed to save ticket edits — paper send aborted', 'Dismiss', { duration: 4000 });
+        return;
+      }
       const confirmed = await firstValueFrom(
         this.dialog
           .open(OrderConfirmDialogComponent, {
@@ -644,33 +659,19 @@ export class OrderTicketComponent {
       );
       if (!confirmed) return;
 
-      // Transient SUBMITTING takes the ticket out of the staged pool
-      // while the callable runs — otherwise it can be batch-removed or
-      // submitted to RH mid-flight (same guard as the batch path, #709).
-      this.stagingStore.setTicketStatusLocal(i.id, OrderTicketStatus.SUBMITTING);
+      // Shared transaction (#755 review) — transient SUBMITTING guards
+      // the callable window, PAPER on success, STAGED + error on
+      // failure (same guard as the batch path, #709).
       const quantity = this.wholeQuantity() > 0 ? this.wholeQuantity() : undefined;
-      const res = await firstValueFrom(
-        this.paperTrading.paperSignalOrder$(toPaperSignalOrderRequest(i, quantity)),
-      );
-      this.stagingStore.updateTicket(i.id, {
-        status: OrderTicketStatus.PAPER,
-        error: undefined,
-        updatedAt: new Date().toISOString(),
-      });
+      const res = await this.stagingStore.sendTicketToPaper(i, quantity, 'Paper accept failed: ');
       this.snackBar.open(
         `Accepted as paper — cohort ${res.cohortId} (${res.expressionTradeIds.length} expression trades)`,
         'Dismiss',
         { duration: 5000 },
       );
     } catch (err) {
+      // The store already reverted STAGED and attached the error.
       const msg = err instanceof Error ? err.message : String(err);
-      // Revert the transient SUBMITTING — the callable failed, the ticket
-      // is still staged, and the error is recorded for the row.
-      this.stagingStore.updateTicket(i.id, {
-        status: OrderTicketStatus.STAGED,
-        error: { message: `Paper accept failed: ${msg}`, retryable: true },
-        updatedAt: new Date().toISOString(),
-      });
       this.snackBar.open(`Failed to accept as paper: ${msg}`, 'Dismiss', { duration: 5000 });
     } finally {
       this.acceptingPaper.set(false);

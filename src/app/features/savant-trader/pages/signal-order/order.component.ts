@@ -37,16 +37,13 @@ import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { AccountSnapshot, BrokerPosition, PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
-import { OrderExecutionService } from '../../services/order-execution.service';
-import { OrderTicketService } from '../../services/order-ticket.service';
-import { PaperTradingService } from '../../services/paper-trading.service';
 import { OccurrenceDecisionStore } from '../../stores/occurrence-decision.store';
 import { OrderTicket, OrderTicketStatus, OrderSource, TradingConfig, InstrumentType } from '../../services/order-ticket.types';
 import { BrokerOrderSnapshot } from '../../services/order-ticket.types';
 import { formatError } from '../../utils/format-error.util';
 import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, rhStateToDisplayStatus, restingLimitBuyNotional } from '../../utils/broker-order.util';
 import { canonicalOccurrenceDecisionId } from '../../services/firestore-helpers';
-import { isPaperEligibleTicket, toPaperSignalOrderRequest, paperQuantityFor } from '../../utils/paper-ticket.util';
+import { isPaperEligibleTicket, paperQuantityFor } from '../../utils/paper-ticket.util';
 
 @Component({
   selector: 'app-signal-order',
@@ -63,10 +60,7 @@ export class OrderComponent implements OnInit, OnDestroy {
   private readonly configService = inject(TradingConfigService);
   private readonly priceService = inject(EquityPriceService);
   private readonly portfolioService = inject(PortfolioService);
-  private readonly ticketService = inject(OrderTicketService);
   private readonly mcpService = inject(RobinhoodMcpObservationService);
-  private readonly orderExecution = inject(OrderExecutionService);
-  private readonly paperTrading = inject(PaperTradingService);
   private readonly occurrenceStore = inject(OccurrenceDecisionStore);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
@@ -466,25 +460,14 @@ export class OrderComponent implements OnInit, OnDestroy {
           this.markPaperFailure(t.id, 'no usable quantity — set a quantity or dollar amount first');
           continue;
         }
-        // Transient SUBMITTING takes the ticket out of the staged pool
-        // for the await — otherwise it can be batch-removed or submitted
-        // to RH while the callable runs, leaving an orphaned paper cohort
-        // or a real order overwritten by 'paper' (#709).
-        this.stagingStore.setTicketStatusLocal(t.id, OrderTicketStatus.SUBMITTING);
+        // Shared transaction (#755 review) — transient SUBMITTING takes
+        // the ticket out of the staged pool while the callable runs,
+        // PAPER on success, STAGED + error on failure (#709).
         try {
-          await firstValueFrom(
-            this.paperTrading.paperSignalOrder$(toPaperSignalOrderRequest(current, qty)),
-          );
-          this.stagingStore.updateTicket(t.id, {
-            status: OrderTicketStatus.PAPER,
-            error: undefined,
-            updatedAt: new Date().toISOString(),
-          });
+          await this.stagingStore.sendTicketToPaper(current, qty);
           sent++;
-        } catch (err) {
-          const message = formatError(err);
-          console.error(`[SignalOrder] paper send failed for ${t.symbol}:`, err);
-          this.markPaperFailure(t.id, message);
+        } catch {
+          // The store already reverted STAGED and attached the error.
           failed.push(t.symbol);
         }
       }
@@ -498,13 +481,12 @@ export class OrderComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Record a batch paper-send failure on the ticket so the row keeps a
-   *  visible error after the summary snackbar dismisses — and revert the
-   *  transient in-flight SUBMITTING back to STAGED (the local patch is
-   *  never persisted, so the stored doc was staged all along). */
+  /** Attach a batch paper-send failure to the ticket so the row keeps a
+   *  visible error after the summary snackbar dismisses. Called before
+   *  any send attempt (no-quantity path) — the ticket never left STAGED,
+   *  so only the error is written, not the status. */
   private markPaperFailure(id: string, message: string): void {
     this.stagingStore.updateTicket(id, {
-      status: OrderTicketStatus.STAGED,
       error: { message, retryable: true },
       updatedAt: new Date().toISOString(),
     });

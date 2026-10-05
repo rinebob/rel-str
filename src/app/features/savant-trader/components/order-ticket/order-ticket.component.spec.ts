@@ -3,7 +3,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { signal } from '@angular/core';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 
 import { OrderTicketComponent } from './order-ticket.component';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
@@ -53,6 +53,7 @@ describe('OrderTicketComponent', () => {
     updateTicket: jasmine.Spy;
     stageTicket: jasmine.Spy;
     setTicketStatusLocal: jasmine.Spy;
+    sendTicketToPaper: jasmine.Spy;
   };
   let dialog: { open: jasmine.Spy };
   let orderExecution: any;
@@ -85,6 +86,9 @@ describe('OrderTicketComponent', () => {
       updateTicket: jasmine.createSpy('updateTicket'),
       stageTicket: jasmine.createSpy('stageTicket'),
       setTicketStatusLocal: jasmine.createSpy('setTicketStatusLocal'),
+      sendTicketToPaper: jasmine.createSpy('sendTicketToPaper').and.returnValue(
+        Promise.resolve({ cohortId: 'cohort-9', expressionTradeIds: ['exp-1', 'exp-2'] }),
+      ),
     };
     dialog = {
       open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(true) }),
@@ -417,11 +421,11 @@ describe('OrderTicketComponent — accept as paper', () => {
     updateTicketAndWait: jasmine.Spy;
     stageTicket: jasmine.Spy;
     setTicketStatusLocal: jasmine.Spy;
+    sendTicketToPaper: jasmine.Spy;
   };
   let dialog: { open: jasmine.Spy };
   let snackBar: { open: jest.Mock };
   let orderExec: { submitEquityOrder: jest.Mock; cancelEquityOrder: jest.Mock };
-  let paperTrading: { paperSignalOrder$: jest.Mock };
 
   const signalTicket = (overrides: Partial<OrderTicket> = {}): OrderTicket =>
     makeTicket('1', 'AAPL', {
@@ -443,6 +447,9 @@ describe('OrderTicketComponent — accept as paper', () => {
       updateTicketAndWait: jasmine.createSpy('updateTicketAndWait').and.returnValue(Promise.resolve(true)),
       stageTicket: jasmine.createSpy('stageTicket'),
       setTicketStatusLocal: jasmine.createSpy('setTicketStatusLocal'),
+      sendTicketToPaper: jasmine.createSpy('sendTicketToPaper').and.returnValue(
+        Promise.resolve({ cohortId: 'cohort-9', expressionTradeIds: ['exp-1', 'exp-2'] }),
+      ),
     };
     dialog = {
       open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(true) }),
@@ -452,13 +459,6 @@ describe('OrderTicketComponent — accept as paper', () => {
       submitEquityOrder: jest.fn(),
       cancelEquityOrder: jest.fn().mockResolvedValue({ success: true }),
     };
-    paperTrading = {
-      paperSignalOrder$: jest.fn().mockReturnValue(of<PaperSignalOrderResponse>({
-        cohortId: 'cohort-9',
-        equityTradeId: 'eq-1',
-        expressionTradeIds: ['exp-1', 'exp-2'],
-      })),
-    };
 
     await TestBed.configureTestingModule({
       imports: [OrderTicketComponent],
@@ -466,7 +466,7 @@ describe('OrderTicketComponent — accept as paper', () => {
         provideNoopAnimations(),
         { provide: OrderTicketStore, useValue: store },
         { provide: OrderExecutionService, useValue: orderExec },
-        { provide: PaperTradingService, useValue: paperTrading },
+        { provide: PaperTradingService, useValue: {} },
         { provide: AllocationStore, useValue: { byAccount: signal({}), ensureAccount: jest.fn(), bucketDetail: jest.fn(() => null) } },
         { provide: MatDialog, useValue: dialog },
         { provide: MatSnackBar, useValue: snackBar },
@@ -521,38 +521,87 @@ describe('OrderTicketComponent — accept as paper', () => {
     await component.onAcceptAsPaper();
     const data = dialog.open.calls.mostRecent().args[1].data;
     expect(data.ticket.quantity).toBe('7');
-    expect(paperTrading.paperSignalOrder$).toHaveBeenCalledWith(
-      jasmine.objectContaining({ quantity: 7 }),
+    // The component hands the edited whole-share quantity to the shared
+    // store transaction — request shape/SUBMITTING/PAPER live there (#755).
+    expect(store.sendTicketToPaper).toHaveBeenCalledWith(
+      jasmine.objectContaining({ id: '1' }),
+      7,
+      'Paper accept failed: ',
     );
+  });
+
+  it('persists edits via updateTicketAndWait BEFORE the dialog/send — the backend reads the stored quantity (#755 review r3)', async () => {
+    mount(signalTicket());
+    component.quantity.set('7');
+
+    let saveResolved = false;
+    let sendRanWithSavePending = false;
+    store.updateTicketAndWait.and.callFake(async () => {
+      await new Promise<void>((r) => setTimeout(r, 0));
+      saveResolved = true;
+      return true;
+    });
+    store.sendTicketToPaper.and.callFake(async () => {
+      sendRanWithSavePending = !saveResolved;
+      return { cohortId: 'c', expressionTradeIds: [] };
+    });
+
+    await component.onAcceptAsPaper();
+
+    expect(store.updateTicketAndWait).toHaveBeenCalledWith('1', jasmine.objectContaining({ quantity: '7' }));
+    expect(store.sendTicketToPaper).toHaveBeenCalled();
+    expect(sendRanWithSavePending).toBe(false);
+  });
+
+  it('aborts the paper send when the edit save fails', async () => {
+    store.updateTicketAndWait.and.returnValue(Promise.resolve(false));
+    mount(signalTicket());
+    component.quantity.set('7');
+    await component.onAcceptAsPaper();
+
+    expect(dialog.open).not.toHaveBeenCalled();
+    expect(store.sendTicketToPaper).not.toHaveBeenCalled();
+    expect(component.acceptingPaper()).toBe(false);
+  });
+
+  it('a second click during the edit-save await is a no-op — the guard wraps the save (#755 review r4)', async () => {
+    mount(signalTicket());
+    let resolveSave!: (v: boolean) => void;
+    store.updateTicketAndWait.and.returnValue(
+      new Promise<boolean>((r) => { resolveSave = r; }),
+    );
+
+    const first = component.onAcceptAsPaper();
+    await new Promise<void>((r) => setTimeout(r, 0)); // first call parked on the save
+    expect(component.acceptingPaper()).toBe(true);
+
+    await component.onAcceptAsPaper(); // re-entry during the save window
+    expect(store.updateTicketAndWait).toHaveBeenCalledTimes(1);
+    expect(dialog.open).not.toHaveBeenCalled();
+
+    resolveSave(true);
+    await first;
+    expect(store.sendTicketToPaper).toHaveBeenCalledTimes(1);
+    expect(component.acceptingPaper()).toBe(false);
   });
 
   it('re-entry while accepting is a no-op', async () => {
     mount(signalTicket());
     component.acceptingPaper.set(true);
     await component.onAcceptAsPaper();
-    expect(paperTrading.paperSignalOrder$).not.toHaveBeenCalled();
+    expect(store.sendTicketToPaper).not.toHaveBeenCalled();
     expect(dialog.open).not.toHaveBeenCalled();
   });
 
-  it('calls paperSignalOrder with signal identity + ticket refId, then goes PAPER', async () => {
+  it('delegates to the shared sendTicketToPaper transaction, then reports the cohort', async () => {
     mount(signalTicket());
     await component.onAcceptAsPaper();
-    expect(paperTrading.paperSignalOrder$).toHaveBeenCalledWith({
-      // Legacy hyphen decisionId is canonicalized to the real doc id.
-      signalId: 'run-1_AAPL_daily_ST_ENTRY',
-      symbol: 'AAPL',
-      direction: 'long',
-      quantity: 2,
-      refId: 'ref-1',
-    });
-    expect(store.updateTicket).toHaveBeenCalledWith('1', jasmine.objectContaining({
-      status: OrderTicketStatus.PAPER,
-    }));
-    // Transient SUBMITTING takes the ticket out of the staged pool while
-    // the callable runs (C1: prevents remove/RH-submit mid-flight).
-    expect(store.setTicketStatusLocal).toHaveBeenCalledWith(
-      '1',
-      OrderTicketStatus.SUBMITTING,
+    // The store transaction owns request shape, SUBMITTING transient,
+    // PAPER on success, STAGED+error on failure — covered in the store spec.
+    expect(store.sendTicketToPaper).toHaveBeenCalledWith(
+      jasmine.objectContaining({ id: '1' }),
+      2,
+      'Paper accept failed: ',
     );
     expect(snackBar.open).toHaveBeenCalledWith(
       expect.stringContaining('cohort-9'),
@@ -562,7 +611,7 @@ describe('OrderTicketComponent — accept as paper', () => {
     expect(component.acceptingPaper()).toBe(false);
   });
 
-  it('maps a SHORT signal to TradeSide.SHORT', async () => {
+  it('passes sell-side tickets through — direction mapping lives in the store request builder', async () => {
     mount(signalTicket({
       side: 'sell',
       signalContext: {
@@ -571,30 +620,19 @@ describe('OrderTicketComponent — accept as paper', () => {
       },
     }));
     await component.onAcceptAsPaper();
-    expect(paperTrading.paperSignalOrder$).toHaveBeenCalledWith(
-      jasmine.objectContaining({ direction: 'short' }),
+    expect(store.sendTicketToPaper).toHaveBeenCalledWith(
+      jasmine.objectContaining({ side: 'sell' }),
+      jasmine.anything(),
+      'Paper accept failed: ',
     );
   });
 
-  it('leaves the ticket staged and surfaces the error when the callable fails', async () => {
-    paperTrading.paperSignalOrder$.mockReturnValueOnce(
-      throwError(() => new Error('unauthenticated')),
-    );
+  it('surfaces the error when the shared send fails — the ticket stays STAGED', async () => {
+    store.sendTicketToPaper.and.returnValue(Promise.reject(new Error('unauthenticated')));
     mount(signalTicket());
     await component.onAcceptAsPaper();
-    // saveEdits runs, but the ticket never transitions to PAPER — the
-    // transient SUBMITTING is reverted to STAGED with a visible error.
-    expect(store.updateTicket).not.toHaveBeenCalledWith(
-      '1',
-      jasmine.objectContaining({ status: OrderTicketStatus.PAPER }),
-    );
-    expect(store.updateTicket).toHaveBeenCalledWith(
-      '1',
-      jasmine.objectContaining({
-        status: OrderTicketStatus.STAGED,
-        error: jasmine.objectContaining({ retryable: true }),
-      }),
-    );
+    // The store already reverted STAGED + attached the error — the
+    // component only reports it.
     expect(snackBar.open).toHaveBeenCalledWith(
       expect.stringContaining('Failed to accept as paper'),
       'Dismiss',
@@ -607,9 +645,9 @@ describe('OrderTicketComponent — accept as paper', () => {
     dialog.open.and.returnValue({ afterClosed: () => of(false) });
     mount(signalTicket());
     await component.onAcceptAsPaper();
-    expect(paperTrading.paperSignalOrder$).not.toHaveBeenCalled();
-    // saveEdits persists pending edits (same as onSubmit), but the ticket
-    // never transitions to PAPER.
+    expect(store.sendTicketToPaper).not.toHaveBeenCalled();
+    // Edits were persisted pessimistically before the dialog, but the
+    // ticket never transitions to PAPER.
     expect(store.updateTicket).not.toHaveBeenCalledWith(
       '1',
       jasmine.objectContaining({ status: OrderTicketStatus.PAPER }),
@@ -621,7 +659,7 @@ describe('OrderTicketComponent — accept as paper', () => {
   it('refuses when the ticket has no signal context', async () => {
     mount(signalTicket({ signalContext: undefined }));
     await component.onAcceptAsPaper();
-    expect(paperTrading.paperSignalOrder$).not.toHaveBeenCalled();
+    expect(store.sendTicketToPaper).not.toHaveBeenCalled();
   });
 
   it('a FAILED ticket is not editable — Requeue is the only path back (#717)', () => {
