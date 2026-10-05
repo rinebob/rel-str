@@ -11,7 +11,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { MatExpansionModule } from '@angular/material/expansion';
 import { SignalTimeframe } from '../../common/constants';
 import { GalleryGroup } from '../../utils/gallery-cards.util';
-import { GalleryCardComponent } from '../gallery-card/gallery-card.component';
+import { GalleryCardAction, GalleryCardComponent } from '../gallery-card/gallery-card.component';
 
 @Component({
   selector: 'app-gallery-group',
@@ -25,6 +25,14 @@ export class GalleryGroupComponent {
   /** Expansion state — owned by GalleryUiStore so expand-all can drive it. */
   readonly expanded = input.required<boolean>();
   readonly expandedChange = output<boolean>();
+
+  /** Card decision-button state, forwarded to each card (#755). */
+  readonly actionsDisabled = input.required<boolean>();
+  /** Card keys with an action in flight — disables that card's buttons
+   *  while the stage/send resolves (#755). */
+  readonly busyKeys = input<ReadonlySet<string>>(new Set<string>());
+  /** Card decision actions re-emitted for the page to dispatch. */
+  readonly cardAction = output<GalleryCardAction>();
 
   /** Cards carrying at least one daily occurrence (D+W cards count in both). */
   readonly dailyCount = computed(() =>

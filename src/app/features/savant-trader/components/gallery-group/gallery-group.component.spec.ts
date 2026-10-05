@@ -32,6 +32,9 @@ function card(
       status: SignalStatus.INTERIM,
       indicators: {},
     }],
+    status: 'pending',
+    allRejected: false,
+    actionedAt: '',
   };
 }
 
@@ -49,6 +52,7 @@ describe('GalleryGroupComponent', () => {
     fixture = TestBed.createComponent(GalleryGroupComponent);
     fixture.componentRef.setInput('group', GROUP);
     fixture.componentRef.setInput('expanded', true);
+    fixture.componentRef.setInput('actionsDisabled', false);
     fixture.detectChanges();
   });
 
@@ -94,5 +98,15 @@ describe('GalleryGroupComponent', () => {
     fixture.detectChanges();
 
     expect(emitted).toEqual([false]);
+  });
+
+  it('forwards card actions to the page (#755)', () => {
+    const emitted: string[] = [];
+    fixture.componentInstance.cardAction.subscribe((a) => emitted.push(a.type));
+
+    (fixture.nativeElement.querySelector('.action-reject') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(emitted).toEqual(['reject']);
   });
 });

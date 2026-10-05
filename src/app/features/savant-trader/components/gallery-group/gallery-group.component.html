@@ -25,7 +25,11 @@
   </mat-expansion-panel-header>
   <div class="gallery-grid">
     @for (card of group().cards; track card.key) {
-      <app-gallery-card [card]="card" />
+      <app-gallery-card
+        [card]="card"
+        [actionsDisabled]="actionsDisabled()"
+        [actionBusy]="busyKeys().has(card.key)"
+        (action)="cardAction.emit($event)" />
     }
   </div>
 </mat-expansion-panel>

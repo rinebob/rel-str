@@ -1,4 +1,5 @@
-<div class="gallery-card" [class.buy]="card().side === 'buy'" [class.sell]="card().side === 'sell'">
+<div class="gallery-card" [class.buy]="card().side === 'buy'" [class.sell]="card().side === 'sell'"
+     [class.sunk]="sunk()" [class.status-failed]="card().status === 'failed'">
   <div class="card-header">
     <span class="symbol">{{ card().symbol }}</span>
     @if (card().profile.name) {
@@ -7,7 +8,16 @@
     <span class="side-badge" [class.buy]="card().side === 'buy'" [class.sell]="card().side === 'sell'">
       {{ card().side === 'buy' ? 'BUY' : 'SELL' }}
     </span>
+    @if (card().status !== 'pending') {
+      <span [class]="'status-chip status-' + card().status">
+        {{ statusLabel() }}
+      </span>
+    }
   </div>
+
+  @if (card().ticket) {
+    <div class="ticket-line">{{ ticketLine() }}</div>
+  }
 
   <ul class="occurrences">
     @for (occ of card().occurrences; track occ.id + occ.timeframe + occ.signalType) {
@@ -23,4 +33,29 @@
       </li>
     }
   </ul>
+
+  <div class="chart-placeholder">chart</div>
+
+  <div class="card-actions">
+    <button class="action-btn action-trade"
+            [disabled]="tradeDisabled()"
+            (click)="action.emit({ type: 'trade', card: card() })">
+      Trade
+    </button>
+    <button class="action-btn action-reject"
+            [class.active]="rejected()"
+            [disabled]="rejectDisabled()"
+            (click)="action.emit({ type: 'reject', card: card() })">
+      {{ rejected() ? 'Restore' : 'Reject' }}
+    </button>
+    <button class="action-btn action-paper"
+            [disabled]="paperDisabled()"
+            (click)="action.emit({ type: 'paper', card: card() })">
+      Paper
+    </button>
+    <button class="action-btn action-chart" disabled
+            title="Signal chart popup — coming soon">
+      Chart
+    </button>
+  </div>
 </div>
