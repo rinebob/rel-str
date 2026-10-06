@@ -136,6 +136,13 @@ When the user asks for a Topic/issue layout or "final state", render an
 **indented ASCII tree diagram** (`├──`/`└──`, issue number + title + stage +
 blocking edges) — the user's preferred at-a-glance view.
 
+### UAT / accumulating doc section order
+
+Thread-level docs that accumulate one section per task (e.g., the Topic UAT
+doc) insert the **newest task section at the TOP**, directly under the
+Results log / intro block — not appended at the bottom. Older sections get
+pushed down; never reorder or rewrite existing content.
+
 ### Doc header convention (non-negotiable)
 
 Every proj-workflow document header (PRD/IMPL/TEST/CODE-REVIEW/UAT/etc.) is

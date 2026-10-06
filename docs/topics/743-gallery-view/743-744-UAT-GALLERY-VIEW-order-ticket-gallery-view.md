@@ -4,15 +4,15 @@
 **Topic Slug:** order-ticket-gallery-view  
 **Thread:** Gallery View Page  
 **Thread Slug:** gallery-view-page  
-**Issue:** #790 (rotates per task — latest QA issue listed)  
+**Issue:** #817 (rotates per task — latest QA issue listed)  
 **Thread Parent:** #744  
 **Topic Parent:** #743  
-**Task:** #755  
+**Task:** #756  
 **Domain:** GALLERY-VIEW  
 **Type:** UAT  
 **Status:** Complete  
 **Created:** 2026-10-04  
-**Last Updated:** 2026-10-05  
+**Last Updated:** 2026-10-06  
 
 This is the Thread-level UAT for the Gallery Order Ticket View feature. It is
 cumulative: each task appends or updates a scenario section as it reaches QA,
@@ -203,6 +203,7 @@ Manual UI/UX inspection at the running app (`/dev/gallery`):
 | 2026-10-04 | #754 | user + agent | PASS | S11 skipped (devtools-only); defect found+fixed: missing closePrice — filled from firing-bar close |
 | 2026-10-04 | #783 | user + agent | PASS | G1–G8 + refinement all PASS; post-review tweaks verified: entry defaults Daily/Long/PRIMARY/Sector, collapsed panels, header counts |
 | 2026-10-05 | #755 | user + agent | **PASS** | A1–A11 + refinement user-verified; viewport-height fix landed during pass (.gallery-page → 100vh − header var) |
+| 2026-10-06 | #756 | user + agent | **PASS** | C1–C4, C6 + refinement user-verified; C5 removed (impossible — deterministic signals, no same-symbol buy+sell pairs); callable burst = 1/unique-symbol as designed; expando-mount latency noted for the card-chart grill |
 
 ---
 
@@ -520,3 +521,120 @@ pulled forward into this task:
 | Reject toggle: sinks with REJECTs + ticket removal; Restore resets to pending | A5 |
 | Decision buttons disabled on non-actionable runs | A10 |
 | Signal-review regression after shared staging-util extraction | A11 |
+
+## Scope — Task #756: deferred chart cell + idle prefetch
+
+Each gallery card embeds a live Syncfusion chart in place of the old
+"chart" placeholder. The chart cell mounts only when the card scrolls
+into the viewport (`@defer (on viewport)`); the page warms every visible
+card symbol's daily bars + symbol-data version + indicator series on
+idle (`GalleryCardChartStore` → `IndicatorSeriesStore`, shared cache key
+with quick-charts). The chart renders the quick-charts daily stack —
+candles, trend bands on the price pane, trend-strength / zone-V1 /
+zone-V2 lower panes, weekly HTF window, strategy signal + uptick dots —
+plus this card's own occurrences as dots on the price pane. Chrome is
+trimmed: no crosshair, toolbar, or scrollbar; ~40 visible bars; 440px
+fixed cell height.
+
+- `@defer (on viewport; prefetch on idle)` cell with a dashed
+  "chart" placeholder that keeps the 440px footprint pre-mount.
+- Live chart (not backend PNGs — those stay the submit-time artifact).
+- Error/unavailable state: "chart unavailable" box in the same cell,
+  grid unaffected.
+- Loading state: dimmed "chart" box while bars are in flight.
+- Indicators may land a beat after candles on cold symbols — the chart
+  fills in without a remount.
+
+## Test scenarios — #756
+
+### C1 — Deferred mount: placeholder → chart on scroll
+
+- **Confirms:** `@defer (on viewport)` — off-screen cards don't pay for
+  chart instances.
+- **Steps:** load `/dev/gallery` fresh; observe the first-screen cards
+  mount charts; scroll down slowly and watch cards below the fold
+  transition placeholder → chart as they enter view.
+- **Expected:** visible cards show charts; newly scrolled cards mount
+  when they enter the viewport; no full-page stall.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-06)
+
+### C2 — Chart content matches the quick-charts daily stack
+
+- **Confirms:** the card chart isn't a stripped placeholder — it's the
+  real daily configuration.
+- **Steps:** expand a group with confirmed signals; inspect a card.
+- **Expected:** candles; colored trend bands on the price pane; a lower
+  pane for trend strength (0–100 scale + dots); zone V1 and zone V2
+  panes; signal-firing-bar dots; the card's own occurrence dot(s) on the
+  price pane at the signal close.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-06); weekly-timeframe
+  dots landing between daily bars confirmed as a real artifact — ticketed
+  as #819 (D/W toggle)
+
+### C3 — Idle prefetch (jank-free scroll)
+
+- **Confirms:** bars + indicators for visible-card symbols warm on idle
+  ahead of mount.
+- **Steps:** open devtools Network; load the page and let it settle —
+  watch `symbol-data/...` doc reads and the `stGetSymbolIndicatorSeriesV2`
+  callable fire without scrolling (one round per unique symbol, not per
+  card).
+- **Expected:** prefetch requests on idle; scrolling to a warm symbol's
+  card mounts the chart with data already present (or a very brief
+  loading state).
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-06); observed one
+  stGetSymbolIndicatorSeriesV2 call per unique symbol as designed
+
+### C4 — Failure placeholder doesn't break the grid
+
+- **Confirms:** per-card fetch failure is contained.
+- **Steps:** hard to force live — alternatively trust unit coverage
+  (`gallery-card-chart.component.spec.ts`: empty bars + thrown error →
+  `.cc-error` placeholder). If a symbol with no bar data exists in the
+  run, its card shows "chart unavailable" while neighbors render fine.
+- **Expected:** unavailable state stays inside the cell; the card and
+  grid keep their layout.
+- **Result:** ☑ PASS ☐ FAIL — unit-covered + user-verified grid integrity (2026-10-06)
+
+### C5 — Same symbol, two cards (buy + sell)
+
+- **Not applicable** — removed during QA (2026-10-06). Signal evaluation
+  is deterministic per timeframe+symbol+direction, so a run can't
+  produce same-symbol buy+sell card pairs; intraday reversals don't
+  apply (daily+ timeframes only). The per-symbol cache-sharing path is
+  still exercised implicitly by every card that shares a symbol's
+  prefetch entry and by the store's dedupe spec.
+
+### C6 — Regression: #755 card behaviors unaffected
+
+- **Confirms:** the chart cell didn't disturb the decision surface.
+- **Steps:** Reject a card (sinks, REJECTED chip, Restore works); Trade
+  opens the dialog; Paper still submits. Sunk cards keep their charts
+  (or mount lazily on scroll into the Sunk group).
+- **Expected:** identical to the #755 pass (A1–A11).
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-06)
+
+## Refinement pass — #756
+
+- Cell height 440px: all four panes legible, not squat; card doesn't
+  dominate the row.
+- Placeholder and mounted chart share the same footprint — no card
+  reflow on mount.
+- Log scale on; ~40 visible bars; no crosshair/toolbar/scrollbar chrome.
+- Dark/light themes legible inside the cell.
+- Observation: charts on a freshly-expanded group take ~3-4s to mount —
+  data was already warm (prefetch covers collapsed groups); this is
+  Syncfusion multi-pane render cost per card, not fetch latency. Noted
+  for the card-chart grilling (stagger mounts / fewer panes / slimmer
+  config); tracked for follow-up, not a blocker.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-06)
+
+## Traceability — #756
+
+| Task acceptance criterion | Scenario |
+|---|---|
+| Chart cell wrapped in @defer (on viewport; prefetch on idle) with placeholder | C1, C3 |
+| Mounted chart renders quick-charts daily config incl. signal-firing-bar dot | C2 |
+| Indicator data prefetches eagerly; render-all fallback documented/flagged | C3, IMPL doc |
+| Per-card chart fetch failure shows error placeholder without breaking the grid | C4 |
+| User-directed deviations: full indicator stack, 40 bars, 440px cell | C2, refinement |

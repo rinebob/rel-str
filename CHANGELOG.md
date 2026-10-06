@@ -4,6 +4,10 @@
 ## [2026-10-06]
 
 ### Added
+- [Gallery Order Ticket View] 743-756_FE-IMPL-GALLERY-VIEW: Per-symbol GalleryCardChartStore (daily bars + symbol-data version cache, IndicatorSeriesStore warm with quick-charts filter keys) + LocalBarReadService.getSymbolDataVersion$
+- [Gallery Order Ticket View] 743-756_FE-IMPL-GALLERY-VIEW: GalleryCardChartComponent — full quick-charts daily stack (trend bands/strength, zone V1/V2, weekly HTF window, strategy dots) + card-occurrence price-pane dots; 40-bar log-scale cell, no chrome
+- [Gallery Order Ticket View] 743-756_FE-IMPL-GALLERY-VIEW: Card chart cell @defer (on viewport; prefetch on idle) + page idle prefetch of visible card symbols; flex-chart --fc-min-height override; jsdom IntersectionObserver stub
+- [Gallery Order Ticket View] 743-756_DOCS-GALLERY-VIEW: #756 code review (PASS, remediation round) + #817 UAT (Complete — C1-C4, C6 user-verified; C5 removed as impossible) + IMPL doc updated to shipped design + newest-first UAT section convention
 - [On-demand Screenshot Capture] 746-771_BE-IMPL-SCREENSHOT: MIN_CAPTURE_WIDTH/HEIGHT spec floor + clip-id regression test
 - [On-demand Screenshot Capture] 746-771_FE-IMPL-SCREENSHOT: Per-interval variant re-renders (fixes failed-precondition on unequal bar counts), placeholder-not-banner on thin data, takeUntilDestroyed + defer() hardening
 - [On-demand Screenshot Capture] 746-771_DOCS-SCREENSHOT: #771 code review (PASS, remediation round) + #822 UAT (Complete — 9/9 user-verified) + IMPL/TEST doc drift fixes
@@ -12,6 +16,9 @@
 - [On-demand Screenshot Capture] 746-770_DOCS-SCREENSHOT: #770 code review (PASS, remediation round) + #818 UAT (Complete — 7/7 user-verified)
 - [Robinhood MCP] 657-805_CONFIG-IMPL-RH-MCP: rh-agent-credentials explicit deny in firestore.rules (read/write: if false under root default-deny; deployed); KMS key + IAM + RH_CREDENTIAL_KEY_NAME/RH_OWNER_UID provisioning verified live (13/13)
 - [Robinhood MCP] 657-805_DOCS-RH-MCP: #805 code review (PASS) + #816 UAT (Complete, 6/6) + KMS rotation-vs-destroy semantics fix in the credentials primer
+
+### Changed
+- [Gallery Order Ticket View] 743-756_FE-REFACTOR-GALLERY-VIEW: ohlcToPriceBar hoisted to shared savant-trader utils; chart.service maps via it (dedupe for card-chart store)
 
 
 ## [2026-10-05]

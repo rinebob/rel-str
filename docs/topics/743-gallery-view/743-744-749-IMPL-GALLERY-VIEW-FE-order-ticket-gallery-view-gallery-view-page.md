@@ -9,7 +9,7 @@
 **Type:** IMPL  
 **Status:** Approved  
 **Created:** 2026-10-03  
-**Last Updated:** 2026-10-04  
+**Last Updated:** 2026-10-06  
 
 # Implementation Plan — FE: Gallery View Page
 
@@ -57,7 +57,9 @@ GalleryViewComponent (page, /trading/gallery)
 │                 ├── header: symbol, name, direction chip, selection checkbox
 │                 ├── occurrence chips (timeframe + signalType, barDate, closePrice)
 │                 ├── chart cell → @defer (on viewport; prefetch on idle) GalleryCardChartComponent
-│                 │                    └── FlexChartComponent (daily config from quick-charts)
+│                 │                    └── FlexChartComponent (quick-charts daily stack — trend bands,
+│                 │                        trend strength, zone V1/V2 panes, weekly HTF window, signal +
+│                 │                        uptick dots — plus the card's own occurrence dots on the price pane)
 │                 ├── footer: order-ticket button (hover → OrderPreviewPopup) + Reject + Watch
 │                 └── sunk/ordered styling variants + ticket-status line
 └── OrderTicketDialogComponent — MatDialog host wrapping OrderTicketComponent (ticket input)
@@ -82,7 +84,7 @@ Selection model: click toggles (with checkbox affordance), ctrl+click toggles, s
 ### Act flow (per card) — revised #755: labeled toolbar replaces ACR row
 
 The card toolbar is **Trade / Reject / Paper** (labeled buttons, plus a
-disabled Chart stub until #756). The ACR icon row + list toggles ported
+disabled Chart stub until #761). The ACR icon row + list toggles ported
 from signal-review were removed during #755 QA — the gallery supersedes
 that triage model; "accept" as a decision type is not written from the
 gallery at all — the ticket IS the record.
@@ -146,7 +148,7 @@ Route: develop at `dev/gallery` first (parallel to `dev/screenshot`); the canoni
 
 - `buildSignalOrderTickets` (facade util) — template for the quantity-based variant; keep dedup + `signalContext`/`decisionId` provenance identical.
 - `OrderTicketComponent` — hosted unchanged in a MatDialog wrapper (input: ticket).
-- `FlexChartComponent` + `chart-indicators` utils + `IndicatorSeriesStore` — daily-only chart cell reusing `DEFAULT_CHART_INDICATORS`/intervals extras incl. signal dots.
+- `FlexChartComponent` + `chart-indicators` utils — card chart cell (#756). Ships the quick-charts daily stack (`buildBaseIndicators` daily + `injectCallableIndicatorData` + `addChartExtras` HTF window/signal/uptick dots) plus the card's own occurrence dots on the price pane (`st-card-signal-dots`, distinct from the callable's lower-1 signal-dots id). `GalleryCardChartStore` caches per-symbol daily bars (`LocalBarReadService.getRecentDailyBars$`, 90-day lookback) + symbol-data version (`getSymbolDataVersion$`, falls back to last bar date) and warms `IndicatorSeriesStore.loadIfNeeded` with the DEFAULT_* filter set — same cache key as quick-charts, so pages share entries. Page prefetches visible symbols on idle; the chart mounts on `@defer (on viewport)`. Card-chart config remains provisional pending a dedicated design pass; the cell is a fixed 440px (lower panes need pixel height regardless of card width) and flex-chart's `--fc-min-height` var defeats the shared wrapper's 300px floor at cell scale.
 - `SignalFilterPillsComponent`, `RhSelectMenuComponent`, `RunMetricsStripComponent` — header.
 - `position-sizing.util` (`computeUnits`, `stopPriceFromPercent`, `DEFAULT_STOP_PERCENT`), `paper-ticket.util`, `broker-order.util` — preview + status derivation.
 - `SymbolListStore.toggleMonitor`, `OccurrenceDecisionStore` reject path, `OrderTicketStore` full API.
