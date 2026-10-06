@@ -134,6 +134,20 @@ export class RepositoryOAuthProvider implements OAuthClientProvider {
     return this.bundle;
   }
 
+  /** Re-read the repository, replacing the cached view — used after a CAS
+   *  conflict so a concurrent refresh's winning bundle wins the session. */
+  async reloadBundle(): Promise<RobinhoodCredentialBundle | null> {
+    try {
+      this.bundle = await this.repository.load();
+    } catch (error) {
+      // Don't leave `loaded: true` guarding the stale pre-conflict bundle.
+      this.bundle = null;
+      throw error;
+    }
+    this.loaded = true;
+    return this.bundle;
+  }
+
   currentRevision(): number | undefined {
     return this.bundle?.revision ?? this.storedRevision;
   }

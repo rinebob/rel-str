@@ -8,6 +8,7 @@ import {
   type ConnectedRobinhoodMcpSession,
   RobinhoodMcpConnectionError,
 } from '../auth/robinhood-mcp-connection';
+import type { OAuthRefreshFetch } from '../auth/stored-credential-refresh';
 import {
   getObservationToolDefinition,
   isObservationTool,
@@ -32,10 +33,17 @@ export interface ExecuteObservationToolOptions {
    * live-only param before the call). Falls back to the bundled catalog.
    */
   definition?: RobinhoodToolDefinition;
+  /** Test seam — forwarded to the stored-credential refresh's token POST. */
+  fetchFn?: OAuthRefreshFetch;
 }
 
 /** Timeout for individual MCP tool calls (45 seconds — longer than the frontend 30s). */
 export const MCP_CALL_TIMEOUT_MS = 45_000;
+
+/** Timeout for session establishment — credential load, token refresh, and
+ *  the transport handshake all live inside connect and must never hang a
+ *  request through to the host timeout. */
+export const MCP_CONNECT_TIMEOUT_MS = 30_000;
 
 /** Reject a promise if it does not settle within timeoutMs. */
 export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -147,11 +155,28 @@ export async function executeObservationTool(
   }
 
   let connection: ConnectedRobinhoodMcpSession | undefined;
+  let connectAbandoned = false;
+  const connectPromise = connectLocalRobinhoodMcpSession({
+    transportFactory: options.transportFactory,
+    repository: options.repository,
+    fetchFn: options.fetchFn,
+  });
+  // Promise.race can't cancel — if the timeout wins, the late-arriving
+  // connection must still be closed or it leaks a live MCP session/socket.
+  void connectPromise.then(
+    (conn) => {
+      if (connectAbandoned) {
+        void conn.close().catch(() => undefined);
+      }
+    },
+    () => undefined,
+  );
   try {
-    connection = await connectLocalRobinhoodMcpSession({
-      transportFactory: options.transportFactory,
-      repository: options.repository,
-    });
+    connection = await withTimeout(
+      connectPromise,
+      MCP_CONNECT_TIMEOUT_MS,
+      `MCP session connect timed out after ${MCP_CONNECT_TIMEOUT_MS / 1000}s for tool "${toolName}"`,
+    );
     const mcpResult = await withTimeout(
       connection.session.callTool(stripServerPrefix(toolName), validation.args),
       MCP_CALL_TIMEOUT_MS,
@@ -167,6 +192,7 @@ export async function executeObservationTool(
       ...(toolError !== undefined ? { toolError } : {}),
     };
   } catch (error) {
+    connectAbandoned = true;
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
