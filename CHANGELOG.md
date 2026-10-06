@@ -14,6 +14,13 @@
 - [Gallery Order Ticket View] 743-755_FE-IMPL-GALLERY-VIEW: Ticket paths — editedPartial shared helper; onAcceptAsPaper persists edits before confirm dialog + send (acceptingPaper spans the save window); order.component bulk paper delegates to store path; dead acceptAsPaper + dead injections removed
 - [Gallery Order Ticket View] 743-755_FE-IMPL-GALLERY-VIEW: signal-order-staging.util — DEFAULT_DOLLAR_AMOUNT const (replaces ?? 100s) + quantity-based whole-share ticket shape; signal-review facade consumes it
 - [Gallery Order Ticket View] 743-755_DOCS-GALLERY-VIEW: #755 code review (PASS, 4 rounds) + UAT A1–A11 + refinement (Complete) + IMPL/TEST/CONTEXT updates
+- [Robinhood MCP] 657-684_BE-IMPL-RH-MCP: Read-only sweep captures — 235 redacted response files under docs/topics/657-rh-mcp/captures/ (204 ok / 28 err / 1 declined mutation + drift + tools/list meta)
+- [Robinhood MCP] 657-684_BE-IMPL-RH-MCP: Sweep manifest grown to 233 gated probes across 54 tools + rh-mcp-runner-683.ts verify-script latent-bug fix (prompt-by-type, missing env vars) + rh-mcp-runner-683.md dead-link fix
+- [Robinhood MCP] 657-684_BE-DOCS-RH-MCP: TEST-doc sweep results, #684 code review (PASS, 1 remediation round), #797 UAT (QA PASS)
+- [Robinhood MCP] 657-804_BE-REFACTOR-RH-MCP: Canonical credential contract surface — CredentialCipher + typed error classes (conflict/busy/invalid-bundle/malformed-doc) in credential-repository.ts, shared parseBundle codec (ISO-8601 timestamp shape), env + portable repos migrated to canonical taxonomy/validation
+- [Robinhood MCP] 657-804_BE-IMPL-RH-MCP: KmsCipher (CredentialCipher over Cloud KMS, fail-closed on unset RH_CREDENTIAL_KEY_NAME) + KmsFirestoreCredentialRepository — ciphertext-only doc at rh-agent-credentials/bundle, transactional revision CAS via CredentialDocStore port (real txn body unit-tested offline), @google-cloud/kms@6.2.0, 13 unit tests
+- [Robinhood MCP] 657-804_BE-IMPL-RH-MCP: Live verify script rh-mcp-kms-repository-804.ts (scratch doc, refuses live path, exit 0/1/2) + run-all needsEnv gate + guide
+- [Robinhood MCP] 657-804_DOCS-RH-MCP: Thread #795 PRD + BE/FE IMPL/TEST docs, KMS primer DESIGN doc, #804 code review (PASS, 2 rounds) + UAT (Complete — live round-trip deferred to #805)
 
 
 ## [2026-10-04]
