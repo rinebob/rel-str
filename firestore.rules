@@ -290,6 +290,15 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
+    // RH Agent — production API collections (not legacy/migration)
+    //
+    // Encrypted RH credential bundle — KMS ciphertext written by the
+    // functions SA only. No client read/write path ever; the document is
+    // ciphertext but clients must not even enumerate it.
+    match /rh-agent-credentials/{doc} {
+      allow read, write: if false;
+    }
+
     // Options file index — SA-written contract metadata for browser UI
     // - options-file-index/{SYMBOL}/ts-expirations/{exp}
     // - options-file-index/{SYMBOL}/ts-strikes/{strike}
