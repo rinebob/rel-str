@@ -7,6 +7,8 @@
 - [On-demand Screenshot Capture] 746-770_BE-IMPL-SCREENSHOT: renderOnly contract flag (default true, skips rasterize + GCS writes), geometry-scoped SVG clip ids fixing cross-SVG pane bleed, shared capture geometry constants
 - [On-demand Screenshot Capture] 746-770_FE-IMPL-SCREENSHOT: /dev/screenshot playground — authGuarded lazy route, spec form → captureChartSnapshot → inline SVG artifacts + paths, Store-to-GCS gate, width variants + last-15 zoom via re-render, stale-response guard (incl. #771 in-place work)
 - [On-demand Screenshot Capture] 746-770_DOCS-SCREENSHOT: #770 code review (PASS, remediation round) + #818 UAT (Complete — 7/7 user-verified)
+- [Robinhood MCP] 657-805_CONFIG-IMPL-RH-MCP: rh-agent-credentials explicit deny in firestore.rules (read/write: if false under root default-deny; deployed); KMS key + IAM + RH_CREDENTIAL_KEY_NAME/RH_OWNER_UID provisioning verified live (13/13)
+- [Robinhood MCP] 657-805_DOCS-RH-MCP: #805 code review (PASS) + #816 UAT (Complete, 6/6) + KMS rotation-vs-destroy semantics fix in the credentials primer
 
 
 ## [2026-10-05]
