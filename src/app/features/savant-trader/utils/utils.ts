@@ -5,6 +5,7 @@
  */
 import { MarketCapTier, StSignalItem, StSymbolProfile, ST_SCHEDULE_CRON, StSymbolSource } from '../services/types';
 import type { SymbolRow, SymbolGroup } from '../stores/group.store';
+import type { PriceBar } from '../../shared/components/flex-chart/flex-chart.types';
 import type { OhlcBar } from '../../../core/models/market-data.types';
 import { GroupDimension, NO_MEMBERSHIP, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection, type SymbolListFilter } from '../common/constants';
 import type { Company } from '../../shared/types/rs.interfaces';
@@ -388,6 +389,19 @@ export function daysAgoPt(days: number): string {
  */
 export function toDatePt(dateStr: string): Date {
   return toDateTimePt(dateStr, 0, 0) ?? new Date(`${dateStr}T00:00:00`);
+}
+
+/** Convert an OhlcBar to a PriceBar for chart rendering. */
+export function ohlcToPriceBar(b: OhlcBar): PriceBar {
+  return {
+    date: b.d,
+    x: toDatePt(b.d),
+    open: b.o,
+    high: b.h,
+    low: b.l,
+    close: b.c,
+    volume: b.v,
+  };
 }
 
 /** Convert a PT calendar date + hour/minute into a Date object. Returns undefined if no offset matches. */

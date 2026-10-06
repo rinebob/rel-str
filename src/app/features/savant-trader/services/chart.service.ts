@@ -12,8 +12,8 @@ import { map, catchError } from 'rxjs/operators';
 
 import { BarsInterval } from '../../../core/models/partner.types';
 import type { OhlcBar, OhlcBarsDoc } from '../../../core/models/market-data.types';
-import type { ChartDataset, PriceBar } from '../../heatmap-chart/heatmap-chart.types';
-import { toDatePt } from '../utils/utils';
+import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
+import { ohlcToPriceBar } from '../utils/utils';
 
 // ============================================================================
 // Types
@@ -29,23 +29,6 @@ interface SymbolBarsResult {
 interface SymbolDataRootDoc {
   lastDailyBarDate?: string;
   lastBarSyncedAt?: unknown;
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-/** Convert an OhlcBar to a PriceBar for chart rendering. */
-function toPrice(b: OhlcBar): PriceBar {
-  return {
-    date: b.d,
-    x: toDatePt(b.d),
-    open: b.o,
-    high: b.h,
-    low: b.l,
-    close: b.c,
-    volume: b.v,
-  };
 }
 
 // ============================================================================
@@ -133,7 +116,7 @@ export class ChartService {
   }
 
   private toDataset(symbol: string, interval: BarsInterval, bars: OhlcBar[]): ChartDataset {
-    const priceBars = bars.map(toPrice);
+    const priceBars = bars.map(ohlcToPriceBar);
     return {
       baseline: 'SPY',
       symbol,
