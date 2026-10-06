@@ -9,7 +9,37 @@ export {
   RobinhoodMcpSession,
 } from './client/robinhood-mcp-session';
 export type { RobinhoodMcpTransportFactory } from './client/robinhood-mcp-session';
-export type { RobinhoodCredentialRepository } from './auth/credential-repository';
+export type {
+  CredentialCipher,
+  RobinhoodCredentialRepository,
+} from './auth/credential-repository';
+export {
+  CredentialRepositoryBusyError,
+  CredentialRevisionConflictError,
+  InvalidCredentialBundleError,
+  MalformedCredentialDocError,
+} from './auth/credential-repository';
+export { parseBundle } from './auth/credential-bundle-codec';
+export {
+  createKmsCipherFromEnv,
+  KmsCipher,
+  KmsOperationError,
+  KmsUnavailableError,
+} from './auth/kms-cipher';
+export type { KmsCryptoOperations } from './auth/kms-cipher';
+export {
+  FirestoreDocStore,
+  KmsFirestoreCredentialRepository,
+  RH_CREDENTIAL_DOC_PATH,
+  TransactionalCredentialDocumentBackend,
+} from './auth/kms-firestore-credential-repository';
+export type {
+  CredentialDocSnapshot,
+  CredentialDocStore,
+  CredentialDocTransaction,
+  CredentialDocumentBackend,
+  StoredCredentialDoc,
+} from './auth/kms-firestore-credential-repository';
 export type {
   AuthenticationState,
   OAuthClientInformationMixed,
