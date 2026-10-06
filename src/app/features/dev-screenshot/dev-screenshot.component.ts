@@ -1,6 +1,6 @@
 /**
  * /dev/screenshot — dev page for the captureChartSnapshot callable
- * (Topic #746, task #770).
+ * (Topic #746, tasks #770 + #771).
  *
  * Spec form (symbol, event, intervals, optional size/visibleBars/refId
  * overrides) → callable → each returned artifact rendered inline (trusted
@@ -10,11 +10,13 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  DestroyRef,
   OnDestroy,
   OnInit,
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { UiStateService } from '../../core/services/ui-state.service';
@@ -60,9 +62,8 @@ export class DevScreenshotComponent implements OnInit, OnDestroy {
   private readonly screenshots = inject(ScreenshotService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly ui = inject(UiStateService);
+  private readonly destroyRef = inject(DestroyRef);
 
-  readonly CaptureEvent = CaptureEvent;
-  readonly ChartInterval = ChartInterval;
   readonly events = Object.values(CaptureEvent);
 
   // ── Form state ───────────────────────────────────────────────────────
@@ -119,6 +120,7 @@ export class DevScreenshotComponent implements OnInit, OnDestroy {
     // a fresh render, never a storage write.
     this.screenshots
       .captureChartSnapshot$({ ...this.lastSpec, intervals: [interval], visibleBars: this.ZOOM_BARS, renderOnly: true })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
           if (seq !== this.captureSeq) return; // superseded capture — drop
@@ -138,33 +140,46 @@ export class DevScreenshotComponent implements OnInit, OnDestroy {
    *  visibleBars scaled to keep bar width). */
   readonly variantSvgs = signal<Readonly<Record<number, Record<string, string>>>>({});
 
-  /** Per-variant callable renders — each variant is a fresh capture at
-   *  widthPx × spec height with visibleBars chosen so slot width matches
-   *  the full render (same bar width, fewer bars off the right end). */
-  private loadVariants(spec: CaptureChartSpec, fullSvg: string, seq: number): void {
-    const barWidth = Number(fullSvg.match(/data-bar-width="([\d.]+)"/)?.[1]);
-    for (const v of this.variants) {
-      if (v.widthPx === undefined) continue;
-      const widthPx = v.widthPx;
-      const plotW = widthPx - CAPTURE_PLOT_LEFT - CAPTURE_AXIS_GUTTER_WIDTH;
-      const visibleBars =
-        barWidth > 0 ? Math.max(3, Math.round(plotW / barWidth)) : undefined;
-      const vSpec: CaptureChartSpec = {
-        ...spec, width: widthPx,
-        ...(visibleBars ? { visibleBars } : {}),
-        renderOnly: true, // playground renders never write to GCS
-      };
-      this.screenshots.captureChartSnapshot$(vSpec).subscribe({
-        next: (res) => {
-          if (seq !== this.captureSeq) return; // superseded capture — drop
-          const byInterval = Object.fromEntries(res.artifacts.map((a) => [a.interval, a.svg]));
-          this.variantSvgs.update((m) => ({ ...m, [widthPx]: byInterval }));
-        },
-        error: (err: unknown) => {
-          if (seq !== this.captureSeq) return;
-          this.error.set(describeError(err));
-        },
-      });
+  /** Per-variant callable renders — one call per artifact × width, each a
+   *  fresh capture at widthPx × spec height. visibleBars is calibrated per
+   *  interval from that artifact's own data-bar-width: a shared value
+   *  miscalibrates intervals with different bar counts, and 'all'
+   *  deterministically fails the thinner interval (failed-precondition). */
+  private loadVariants(spec: CaptureChartSpec, artifacts: CaptureChartResult['artifacts'], seq: number): void {
+    for (const a of artifacts) {
+      const barWidth = Number(a.svg.match(/data-bar-width="([\d.]+)"/)?.[1]);
+      if (!(barWidth > 0)) continue; // no scale metadata — slice placeholder stays
+      for (const v of this.variants) {
+        if (v.widthPx === undefined) continue;
+        const widthPx = v.widthPx;
+        const plotW = widthPx - CAPTURE_PLOT_LEFT - CAPTURE_AXIS_GUTTER_WIDTH;
+        const vSpec: CaptureChartSpec = {
+          ...spec,
+          intervals: [a.interval as CaptureInterval],
+          width: widthPx,
+          visibleBars: Math.max(3, Math.round(plotW / barWidth)),
+          renderOnly: true, // playground renders never write to GCS
+        };
+        this.screenshots.captureChartSnapshot$(vSpec)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({
+            next: (res) => {
+              if (seq !== this.captureSeq) return; // superseded capture — drop
+              const svg = res.artifacts.find((x) => x.interval === a.interval)?.svg;
+              if (!svg) return;
+              this.variantSvgs.update((m) => ({ ...m, [widthPx]: { ...m[widthPx], [a.interval]: svg } }));
+            },
+            error: (err: unknown) => {
+              if (seq !== this.captureSeq) return;
+              // Thin data (failed-precondition) is expected on narrow
+              // variants — keep the slice placeholder rather than
+              // overwrite the primary capture's error banner.
+              if ((err as { code?: string })?.code !== 'functions/failed-precondition') {
+                this.error.set(describeError(err));
+              }
+            },
+          });
+      }
     }
   }
 
@@ -256,16 +271,18 @@ export class DevScreenshotComponent implements OnInit, OnDestroy {
     this.zoomSvgs.set({});
     this.zoomPending.set(new Set());
     this.variantSvgs.set({});
-    this.screenshots.captureChartSnapshot$(spec).subscribe({
-      next: (res) => {
-        this.result.set(res);
-        this.submitting.set(false);
-        this.loadVariants(spec, res.svg, seq);
-      },
-      error: (err: unknown) => {
-        this.error.set(describeError(err));
-        this.submitting.set(false);
-      },
-    });
+    this.screenshots.captureChartSnapshot$(spec)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.result.set(res);
+          this.submitting.set(false);
+          this.loadVariants(spec, res.artifacts, seq);
+        },
+        error: (err: unknown) => {
+          this.error.set(describeError(err));
+          this.submitting.set(false);
+        },
+      });
   }
 }

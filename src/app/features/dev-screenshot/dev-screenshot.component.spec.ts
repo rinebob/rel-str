@@ -226,21 +226,43 @@ describe('DevScreenshotComponent', () => {
       });
     });
 
-    it('narrow variants re-render via the callable — same height, visibleBars scaled to keep bar width', async () => {
+    it('narrow variants re-render via the callable — one call per interval × width, visibleBars scaled per artifact', async () => {
       await mountResult();
-      // Primary + one callable call per non-full variant.
-      expect(serviceMock.captureChartSnapshot$).toHaveBeenCalledTimes(4);
+      // Primary + 3 widths × 2 intervals (per-interval calls — a thin
+      // interval can't fail the other's variants).
+      expect(serviceMock.captureChartSnapshot$).toHaveBeenCalledTimes(7);
       const calls = serviceMock.captureChartSnapshot$.mock.calls.map((c) => c[0] as CaptureChartSpec);
       // Fixture barWidth=6 → visibleBars = (widthPx-64)/6: 480→69, 320→43, 180→19.
-      expect(calls[1]).toMatchObject({ width: 480, visibleBars: 69, renderOnly: true });
-      expect(calls[2]).toMatchObject({ width: 320, visibleBars: 43, renderOnly: true });
-      expect(calls[3]).toMatchObject({ width: 180, visibleBars: 19, renderOnly: true });
+      expect(calls[1]).toMatchObject({ intervals: [ChartInterval.DAILY], width: 480, visibleBars: 69, renderOnly: true });
+      expect(calls[2]).toMatchObject({ intervals: [ChartInterval.DAILY], width: 320, visibleBars: 43, renderOnly: true });
+      expect(calls[3]).toMatchObject({ intervals: [ChartInterval.DAILY], width: 180, visibleBars: 19, renderOnly: true });
+      expect(calls[4]).toMatchObject({ intervals: [ChartInterval.WEEKLY], width: 480, visibleBars: 69, renderOnly: true });
+      expect(calls[5]).toMatchObject({ intervals: [ChartInterval.WEEKLY], width: 320, visibleBars: 43, renderOnly: true });
+      expect(calls[6]).toMatchObject({ intervals: [ChartInterval.WEEKLY], width: 180, visibleBars: 19, renderOnly: true });
       // Height is inherited from the spec (unset here → backend default).
       expect(calls[1].height).toBeUndefined();
       // Variant cards render the re-rendered svg (the RESULT fixture svg).
       const daily = fixture.nativeElement.querySelector('.artifact');
       const svgs = [...daily.querySelectorAll('.variant svg')] as SVGElement[];
       expect(svgs.at(-1)!.textContent).toContain('daily');
+    });
+
+    it('a failed-precondition variant keeps its slice placeholder without stomping the banner', async () => {
+      let n = 0;
+      serviceMock.captureChartSnapshot$.mockImplementation(() => {
+        n += 1;
+        if (n === 1) return of(RESULT); // primary
+        if (n === 5) return throwError(() => Object.assign(new Error('thin'), { code: 'functions/failed-precondition' })); // first weekly variant
+        return of(RESULT);
+      });
+      await mountResult();
+
+      // 7 calls ran; no error banner — placeholders stand in for failures.
+      expect(serviceMock.captureChartSnapshot$).toHaveBeenCalledTimes(7);
+      expect(fixture.nativeElement.querySelector('.capture-error')).toBeNull();
+      const weekly = fixture.nativeElement.querySelectorAll('.artifact')[1];
+      const svgs = [...weekly.querySelectorAll('.variant svg')] as SVGElement[];
+      expect(svgs.length).toBe(4);
     });
 
     const ZOOMED_SVG =
@@ -263,7 +285,7 @@ describe('DevScreenshotComponent', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(serviceMock.captureChartSnapshot$).toHaveBeenCalledTimes(5); // primary + 3 variants + zoom
+      expect(serviceMock.captureChartSnapshot$).toHaveBeenCalledTimes(8); // primary + 6 variants + zoom
       expect(lastSpec()).toMatchObject({ intervals: [ChartInterval.DAILY], visibleBars: 15, renderOnly: true });
       expect(daily.textContent).toContain('zoomed-daily');
     });
@@ -279,7 +301,7 @@ describe('DevScreenshotComponent', () => {
 
       expect(daily.textContent).toContain('daily');
       expect(daily.textContent).not.toContain('zoomed-daily');
-      expect(serviceMock.captureChartSnapshot$).toHaveBeenCalledTimes(5);
+      expect(serviceMock.captureChartSnapshot$).toHaveBeenCalledTimes(8);
     });
 
     it('drops in-flight variant responses from a superseded capture', async () => {
@@ -299,12 +321,12 @@ describe('DevScreenshotComponent', () => {
       primary1.complete();
       await fixture.whenStable();
 
-      // Primary + 3 variant renders in flight.
-      expect(laterCalls).toHaveLength(3);
+      // Primary + 6 variant renders in flight.
+      expect(laterCalls).toHaveLength(6);
 
       // Resubmit supersedes the first capture, then resolves.
       submit();
-      const primary2 = laterCalls[3];
+      const primary2 = laterCalls[6];
       primary2.next(RESULT);
       primary2.complete();
       await fixture.whenStable();
@@ -320,6 +342,42 @@ describe('DevScreenshotComponent', () => {
       fixture.detectChanges();
 
       expect(fixture.nativeElement.textContent).not.toContain('STALE');
+    });
+
+    it('drops an in-flight zoom response from a superseded capture', async () => {
+      await mountResult();
+      const zoomSubject = new Subject<CaptureChartResult>();
+      serviceMock.captureChartSnapshot$.mockReturnValue(zoomSubject);
+      const daily = fixture.nativeElement.querySelector('.artifact');
+
+      (daily.querySelector('.zoom-toggle') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      // Resubmit supersedes the capture mid-zoom; re-arm variants/zoom
+      // with deferred Subjects so nothing resolves synchronously.
+      const deferred: Subject<CaptureChartResult>[] = [];
+      serviceMock.captureChartSnapshot$.mockImplementation(() => {
+        const s = new Subject<CaptureChartResult>();
+        deferred.push(s);
+        return s;
+      });
+      submit();
+      deferred[0].next(RESULT);
+      deferred[0].complete();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // The stale zoom response resolves — must not paint.
+      zoomSubject.next({
+        svg: '<svg><text>STALE-ZOOM</text></svg>',
+        paths: [],
+        artifacts: [{ interval: ChartInterval.DAILY, svg: '<svg><text>STALE-ZOOM</text></svg>' }],
+      });
+      zoomSubject.complete();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain('STALE-ZOOM');
     });
 
     it('zoom state is per-artifact — weekly zoom leaves daily alone', async () => {
