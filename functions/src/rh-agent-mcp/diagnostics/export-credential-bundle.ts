@@ -13,6 +13,7 @@
  */
 import { writeFile } from 'node:fs/promises';
 import { createLocalCredentialRepository } from '../auth/local-credential-repository';
+import { describeBundle } from '../auth/credential-bundle-codec';
 
 async function main() {
   const outputPath = process.argv[2];
@@ -30,18 +31,7 @@ async function main() {
   }
 
   // Redact token values in the console output — only show structural fields.
-  console.log('exported_bundle_shape', {
-    schemaVersion: bundle.schemaVersion,
-    revision: bundle.revision,
-    hasAccessToken: Boolean(bundle.tokens.access_token),
-    hasRefreshToken: Boolean(bundle.tokens.refresh_token),
-    tokenType: bundle.tokens.token_type,
-    expiresIn: bundle.tokens.expires_in,
-    scope: bundle.tokens.scope,
-    hasClientInformation: Boolean(bundle.clientInformation),
-    hasDiscoveryState: Boolean(bundle.discoveryState),
-    lastTokenResponseAt: bundle.lastTokenResponseAt,
-  });
+  console.log('exported_bundle_shape', describeBundle(bundle));
 
   await writeFile(outputPath, JSON.stringify(bundle, null, 2), { encoding: 'utf8', mode: 0o600 });
   console.log(`Credential bundle written to ${outputPath}`);

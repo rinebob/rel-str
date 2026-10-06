@@ -19,6 +19,7 @@
  */
 import { connectLocalRobinhoodMcpSession } from '../auth/robinhood-mcp-connection';
 import { PortableFileCredentialRepository } from '../auth/portable-file-credential-repository';
+import { describeBundle } from '../auth/credential-bundle-codec';
 import { executeObservationTool } from '../tools/robinhood-tool-executor';
 
 async function main() {
@@ -35,13 +36,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('loaded_bundle', {
-    revision: bundle.revision,
-    hasAccessToken: Boolean(bundle.tokens.access_token),
-    hasRefreshToken: Boolean(bundle.tokens.refresh_token),
-    expiresIn: bundle.tokens.expires_in,
-    lastTokenResponseAt: bundle.lastTokenResponseAt,
-  });
+  console.log('loaded_bundle', describeBundle(bundle));
 
   // Connect using the portable repository — no DPAPI involved.
   console.log('connecting_to_robinhood_mcp...');

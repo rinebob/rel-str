@@ -170,6 +170,14 @@ const scripts: VerifyScript[] = [
     needsAdc: true,
     needsEnv: 'RH_CREDENTIAL_KEY_NAME',
   },
+  {
+    name: 'rh-mcp credential upload flow',
+    file: 'verify/rh-mcp-upload-806.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+    needsEnv: 'RH_CREDENTIAL_KEY_NAME',
+  },
 ];
 
 function hasGhAuth(): boolean {

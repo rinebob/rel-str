@@ -19,7 +19,7 @@ export {
   InvalidCredentialBundleError,
   MalformedCredentialDocError,
 } from './auth/credential-repository';
-export { parseBundle } from './auth/credential-bundle-codec';
+export { describeBundle, parseBundle } from './auth/credential-bundle-codec';
 export {
   createKmsCipherFromEnv,
   KmsCipher,

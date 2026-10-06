@@ -66,6 +66,26 @@ export function parseBundle(serialized: string): RobinhoodCredentialBundle {
   };
 }
 
+/**
+ * Structural projection of a bundle for logging/evidence — booleans and
+ * metadata only, never token material. The single canonical redacted shape
+ * for diagnostics and upload evidence.
+ */
+export function describeBundle(bundle: RobinhoodCredentialBundle) {
+  return {
+    schemaVersion: bundle.schemaVersion,
+    revision: bundle.revision,
+    tokenType: bundle.tokens.token_type,
+    expiresIn: bundle.tokens.expires_in,
+    scope: bundle.tokens.scope,
+    hasAccessToken: Boolean(bundle.tokens.access_token),
+    hasRefreshToken: Boolean(bundle.tokens.refresh_token),
+    hasClientInformation: Boolean(bundle.clientInformation),
+    hasDiscoveryState: Boolean(bundle.discoveryState),
+    lastTokenResponseAt: bundle.lastTokenResponseAt,
+  };
+}
+
 function parseClientInformation(value: unknown): OAuthClientInformationMixed | undefined {
   if (value === undefined) {
     return undefined;
