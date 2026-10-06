@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { CredentialRevisionConflictError } from "../../functions/src/rh-agent-mcp/auth/encrypted-file-credential-repository";
+import { CredentialRevisionConflictError } from "../../functions/src/rh-agent-mcp/auth/credential-repository";
 import { runLocalOAuthBootstrapWithDependencies } from "../../functions/src/rh-agent-mcp/auth/local-oauth-bootstrap";
 import type {
   RobinhoodCredentialBundle,

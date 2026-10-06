@@ -8,133 +8,18 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import type {
+  CredentialCipher,
+  RobinhoodCredentialRepository,
+} from './credential-repository';
 import {
-  OAuthClientInformationFullSchema,
-  OAuthClientInformationSchema,
-  OAuthMetadataSchema,
-  OAuthProtectedResourceMetadataSchema,
-  OAuthTokensSchema,
-  type OAuthClientInformationMixed,
-} from '@modelcontextprotocol/sdk/shared/auth.js';
-import type { OAuthDiscoveryState } from '@modelcontextprotocol/sdk/client/auth.js';
-import type { RobinhoodCredentialRepository } from './credential-repository';
+  CredentialRepositoryBusyError,
+  CredentialRevisionConflictError,
+} from './credential-repository';
+import { parseBundle } from './credential-bundle-codec';
 import type { RobinhoodCredentialBundle } from '../contracts/authentication';
 
 const STALE_LOCK_AGE_MS = 5 * 60 * 1_000;
-
-export interface CredentialCipher {
-  encrypt(plaintext: string): Promise<string>;
-  decrypt(ciphertext: string): Promise<string>;
-}
-
-export class CredentialRevisionConflictError extends Error {
-  override name = 'CredentialRevisionConflictError';
-}
-
-export class CredentialRepositoryBusyError extends Error {
-  override name = 'CredentialRepositoryBusyError';
-}
-
-export class InvalidCredentialBundleError extends Error {
-  override name = 'InvalidCredentialBundleError';
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseBundle(serialized: string): RobinhoodCredentialBundle {
-  let value: unknown;
-  try {
-    value = JSON.parse(serialized);
-  } catch {
-    throw new InvalidCredentialBundleError();
-  }
-
-  if (
-    !isRecord(value) ||
-    value.schemaVersion !== 1 ||
-    typeof value.revision !== 'number' ||
-    !Number.isInteger(value.revision) ||
-    value.revision < 1
-  ) {
-    throw new InvalidCredentialBundleError();
-  }
-
-  const lastTokenResponseAt = value.lastTokenResponseAt ?? value.lastSuccessfulRefreshAt;
-  if (
-    lastTokenResponseAt !== undefined &&
-    (typeof lastTokenResponseAt !== 'string' ||
-      !Number.isFinite(Date.parse(lastTokenResponseAt)))
-  ) {
-    throw new InvalidCredentialBundleError();
-  }
-
-  const tokens = OAuthTokensSchema.safeParse(value.tokens);
-  if (!tokens.success) {
-    throw new InvalidCredentialBundleError();
-  }
-
-  const clientInformation = parseClientInformation(value.clientInformation);
-  const discoveryState = parseDiscoveryState(value.discoveryState);
-  return {
-    schemaVersion: 1,
-    revision: value.revision,
-    tokens: tokens.data,
-    ...(clientInformation === undefined ? {} : { clientInformation }),
-    ...(discoveryState === undefined ? {} : { discoveryState }),
-    ...(lastTokenResponseAt === undefined
-      ? {}
-      : { lastTokenResponseAt }),
-  };
-}
-
-function parseClientInformation(value: unknown): OAuthClientInformationMixed | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  const full = OAuthClientInformationFullSchema.safeParse(value);
-  if (full.success) {
-    return full.data;
-  }
-  const publicClient = OAuthClientInformationSchema.safeParse(value);
-  if (publicClient.success) {
-    return publicClient.data;
-  }
-  throw new InvalidCredentialBundleError();
-}
-
-function parseDiscoveryState(value: unknown): OAuthDiscoveryState | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (!isRecord(value) || typeof value.authorizationServerUrl !== 'string') {
-    throw new InvalidCredentialBundleError();
-  }
-
-  const authorizationServerMetadata = value.authorizationServerMetadata === undefined
-    ? undefined
-    : OAuthMetadataSchema.safeParse(value.authorizationServerMetadata);
-  const resourceMetadata = value.resourceMetadata === undefined
-    ? undefined
-    : OAuthProtectedResourceMetadataSchema.safeParse(value.resourceMetadata);
-  if (
-    (authorizationServerMetadata !== undefined && !authorizationServerMetadata.success) ||
-    (resourceMetadata !== undefined && !resourceMetadata.success)
-  ) {
-    throw new InvalidCredentialBundleError();
-  }
-
-  return {
-    authorizationServerUrl: value.authorizationServerUrl,
-    ...(authorizationServerMetadata === undefined
-      ? {}
-      : { authorizationServerMetadata: authorizationServerMetadata.data }),
-    ...(resourceMetadata === undefined
-      ? {}
-      : { resourceMetadata: resourceMetadata.data }),
-  };
-}
 
 function isNodeError(error: unknown, code: string): boolean {
   return error instanceof Error && 'code' in error && error.code === code;

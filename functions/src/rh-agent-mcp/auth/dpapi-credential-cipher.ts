@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import type { CredentialCipher } from './encrypted-file-credential-repository';
+import type { CredentialCipher } from './credential-repository';
 
 const PROTECT_SCRIPT = [
   'Add-Type -AssemblyName System.Security',

@@ -20,6 +20,11 @@ import {
 } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { RobinhoodCredentialRepository } from './credential-repository';
+import {
+  CredentialRepositoryBusyError,
+  CredentialRevisionConflictError,
+} from './credential-repository';
+import { parseBundle } from './credential-bundle-codec';
 import type { RobinhoodCredentialBundle } from '../contracts/authentication';
 
 const STALE_LOCK_AGE_MS = 5 * 60 * 1_000;
@@ -38,7 +43,7 @@ export class PortableFileCredentialRepository implements RobinhoodCredentialRepo
   async load(): Promise<RobinhoodCredentialBundle | null> {
     try {
       const raw = await readFile(this.filePath, 'utf8');
-      return JSON.parse(raw) as RobinhoodCredentialBundle;
+      return parseBundle(raw);
     } catch (error) {
       if (isNodeError(error, 'ENOENT')) {
         return null;
@@ -56,7 +61,9 @@ export class PortableFileCredentialRepository implements RobinhoodCredentialRepo
     try {
       const current = await this.load();
       if ((current?.revision ?? null) !== expectedRevision) {
-        throw new Error(`Credential revision conflict: expected ${expectedRevision}, found ${current?.revision ?? null}`);
+        throw new CredentialRevisionConflictError(
+          `expected ${expectedRevision}, found ${current?.revision ?? null}`,
+        );
       }
       const stored: RobinhoodCredentialBundle = {
         ...credential,
@@ -97,7 +104,7 @@ export class PortableFileCredentialRepository implements RobinhoodCredentialRepo
 
     const lock = await stat(this.lockPath).catch(() => undefined);
     if (!lock || Date.now() - lock.mtimeMs <= STALE_LOCK_AGE_MS) {
-      throw new Error('Credential repository busy');
+      throw new CredentialRepositoryBusyError();
     }
 
     const staleLockPath = `${this.lockPath}.${randomUUID()}.stale`;
@@ -107,7 +114,7 @@ export class PortableFileCredentialRepository implements RobinhoodCredentialRepo
       await mkdir(this.lockPath);
     } catch {
       await rm(staleLockPath, { recursive: true, force: true }).catch(() => undefined);
-      throw new Error('Credential repository busy');
+      throw new CredentialRepositoryBusyError();
     }
   }
 

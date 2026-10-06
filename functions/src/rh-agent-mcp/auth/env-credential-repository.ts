@@ -7,6 +7,7 @@
 
 import type { RobinhoodCredentialBundle } from '../contracts/authentication';
 import type { RobinhoodCredentialRepository } from './credential-repository';
+import { CredentialRevisionConflictError } from './credential-repository';
 
 export class EnvCredentialRepository implements RobinhoodCredentialRepository {
   constructor(private bundle: RobinhoodCredentialBundle | null) {}
@@ -21,8 +22,8 @@ export class EnvCredentialRepository implements RobinhoodCredentialRepository {
   ): Promise<RobinhoodCredentialBundle> {
     const current = this.bundle;
     if ((current?.revision ?? null) !== expectedRevision) {
-      throw new Error(
-        `Credential revision conflict: expected ${expectedRevision}, found ${current?.revision ?? null}`,
+      throw new CredentialRevisionConflictError(
+        `expected ${expectedRevision}, found ${current?.revision ?? null}`,
       );
     }
     const next: RobinhoodCredentialBundle = {

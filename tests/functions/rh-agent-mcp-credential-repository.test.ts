@@ -3,36 +3,14 @@ import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import {
-  EncryptedFileCredentialRepository,
-  type CredentialCipher,
-} from "../../functions/src/rh-agent-mcp/auth/encrypted-file-credential-repository";
+import { EncryptedFileCredentialRepository } from "../../functions/src/rh-agent-mcp/auth/encrypted-file-credential-repository";
 import { DpapiCredentialCipher } from "../../functions/src/rh-agent-mcp/auth/dpapi-credential-cipher";
 import { RepositoryOAuthProvider } from "../../functions/src/rh-agent-mcp/auth/repository-oauth-provider";
-import type {
-  RobinhoodCredentialBundle,
-  RobinhoodCredentialRepository,
-} from "../../functions/src/rh-agent-mcp/index";
+import type { RobinhoodCredentialRepository } from "../../functions/src/rh-agent-mcp/index";
+import { base64TestCipher, syntheticBundle } from "./rh-agent-mcp-credential-fixtures";
 
-const cipher: CredentialCipher = {
-  encrypt: async (plaintext: string) => Buffer.from(plaintext, "utf8").toString("base64"),
-  decrypt: async (ciphertext: string) => Buffer.from(ciphertext, "base64").toString("utf8"),
-};
-
-function bundle(revision: number, accessToken: string): RobinhoodCredentialBundle {
-  return {
-    schemaVersion: 1,
-    revision,
-    tokens: {
-      access_token: accessToken,
-      refresh_token: "synthetic-refresh-token",
-      expires_in: 3600,
-      token_type: "Bearer",
-    },
-    clientInformation: { client_id: "synthetic-client-id" },
-    discoveryState: { authorizationServerUrl: "https://synthetic.invalid" },
-  };
-}
+const cipher = base64TestCipher;
+const bundle = syntheticBundle;
 
 describe("DpapiCredentialCipher", () => {
   it("round-trips encrypted content without retaining plaintext", async () => {
