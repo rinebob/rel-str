@@ -4,6 +4,9 @@
 ## [2026-10-06]
 
 ### Added
+- [On-demand Screenshot Capture] 746-771_BE-IMPL-SCREENSHOT: MIN_CAPTURE_WIDTH/HEIGHT spec floor + clip-id regression test
+- [On-demand Screenshot Capture] 746-771_FE-IMPL-SCREENSHOT: Per-interval variant re-renders (fixes failed-precondition on unequal bar counts), placeholder-not-banner on thin data, takeUntilDestroyed + defer() hardening
+- [On-demand Screenshot Capture] 746-771_DOCS-SCREENSHOT: #771 code review (PASS, remediation round) + #822 UAT (Complete — 9/9 user-verified) + IMPL/TEST doc drift fixes
 - [On-demand Screenshot Capture] 746-770_BE-IMPL-SCREENSHOT: renderOnly contract flag (default true, skips rasterize + GCS writes), geometry-scoped SVG clip ids fixing cross-SVG pane bleed, shared capture geometry constants
 - [On-demand Screenshot Capture] 746-770_FE-IMPL-SCREENSHOT: /dev/screenshot playground — authGuarded lazy route, spec form → captureChartSnapshot → inline SVG artifacts + paths, Store-to-GCS gate, width variants + last-15 zoom via re-render, stale-response guard (incl. #771 in-place work)
 - [On-demand Screenshot Capture] 746-770_DOCS-SCREENSHOT: #770 code review (PASS, remediation round) + #818 UAT (Complete — 7/7 user-verified)

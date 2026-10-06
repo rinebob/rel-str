@@ -28,16 +28,15 @@ A dev-only exploration page at `dev/screenshot` that invokes `captureChartSnapsh
 src/app/features/dev-screenshot/
   dev-screenshot.component.ts / .html / .scss   — page shell + spec form
   screenshot.service.ts                          — httpsCallable wrapper (types from shared/)
-  card-layouts/                                  — 3–5 layout variant components/configs
-  svg-zoom.directive.ts (or .util)               — viewBox bar-crop logic
+  svg-slice.util.ts / .spec.ts                    — right-anchored viewBox slices (variant placeholders + narrow variants of a zoomed render)
 ```
 
 ## Page behavior
 
 - **Spec form:** symbol input, event select (`manual` default), interval checkboxes (D/W default on), width/height/visibleBars overrides. Submit → `httpsCallable` → result.
 - **Result display:** the returned SVG injected inline (DomSanitizer/`[innerHTML]` or element injection — SVG string is trusted, we own the function), PNG shown via `<img>` from returned path/URL, storage paths listed.
-- **Layout playground:** the same captured SVG rendered into 3–5 card-layout variants side by side at different sizes — including the narrow ~1–2in-wide card target — to evaluate readability and which layout fits the future workflow.
-- **Quick zoom:** crop the displayed SVG to the last ~15 bars via `viewBox` manipulation using the root `data-plot-x`/`data-bar-width`/`data-bar-count` attributes — no re-capture, no second stored artifact. Toggle back to full view.
+- **Layout playground:** per-width callable re-renders (renderOnly) stacked vertically — narrower cards show fewer bars off the right end at the same bar scale (native bar width via per-interval data-bar-width calibration), incl. the narrow ~1–2in target.
+- **Quick zoom:** re-render via a second callable call with `intervals:[i]`, `visibleBars:15`, `renderOnly:true` — bars and y-axis rescale to the window (the viewBox-crop design was tried and rejected during #771; re-render is the shipped approach). Toggle back restores the full render.
 - **Errors:** structured callable errors shown inline (invalid-argument vs failed-precondition vs internal).
 
 ## Dependencies

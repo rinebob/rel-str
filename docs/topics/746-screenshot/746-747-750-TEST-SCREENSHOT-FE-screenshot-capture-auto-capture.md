@@ -17,7 +17,7 @@
 ## E2E User Journeys
 
 - Journey 1: user navigates to `dev/screenshot`, enters a symbol, submits → returned SVG displays inline, PNG + storage paths shown.
-- Journey 2: submitted capture appears inside each card-layout variant at different sizes; quick-zoom crops to the last ~15 bars and toggles back.
+- Journey 2: submitted capture appears inside each card-layout variant at different sizes; quick-zoom re-renders to the last ~15 bars and toggles back.
 
 ## Integration Tests
 
@@ -26,7 +26,7 @@
 
 ## Unit Tests
 
-- **Zoom util/directive (pure DOM-free logic where possible):** given `data-plot-x`, `data-bar-width`, `data-bar-count`, computes the viewBox that shows the last N bars; clamps N > barCount; restores full viewBox.
+- **Zoom (component-driven):** second callable call with `intervals:[i]` + `visibleBars:15` + `renderOnly:true`; per-artifact toggle restores the primary render; stale responses from superseded captures are dropped.
 - **Spec form:** default values (D+W on, event 'manual'), validation (empty symbol blocked).
 - **Result rendering:** SVG injected, paths list rendered, error state displays typed message.
 
