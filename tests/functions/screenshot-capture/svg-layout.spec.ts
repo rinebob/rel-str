@@ -117,6 +117,21 @@ describe('computeLayout — pane stack', () => {
     expect(l.panes[0].inner.y).toBe(l.panes[0].rect.y);
     expect(l.panes[1].inner.y).toBe(l.panes[1].rect.y + 8);
   });
+
+  it('clip ids encode the clip rect — different geometry yields different ids', () => {
+    // Regression: same-named clip ids across inline SVGs in one document
+    // resolve to the first match, so variant renders bled their main pane
+    // over the lower panes. Geometry-scoped ids prevent the collision.
+    const tall = computeLayout(model({}));
+    const short = computeLayout(model({ height: 280 }));
+    expect(tall.panes[0].clipId).not.toBe(short.panes[0].clipId);
+    expect(short.panes[0].clipId).toBe(
+      `clip-main-${Math.round(short.panes[0].inner.x)}-${Math.round(short.panes[0].inner.y)}-${Math.round(short.panes[0].inner.width)}-${Math.round(short.panes[0].inner.height)}`,
+    );
+    // Identical geometry produces identical ids — same-size inline SVGs
+    // resolve to equal rects, which is harmless.
+    expect(computeLayout(model({})).panes[0].clipId).toBe(tall.panes[0].clipId);
+  });
 });
 
 describe('computeLayout — y scales', () => {

@@ -80,6 +80,13 @@ export const DEFAULT_CAPTURE_HEIGHT = 560;
  *  requests (`invalid-argument`) so a caller can't force a giant render. */
 export const MAX_CAPTURE_DIMENSION = 4096;
 
+/** Lower bounds — below these the plot collapses (width minus
+ *  PLOT_LEFT + AXIS_GUTTER_WIDTH ≤ ~32px) or the pane stack degenerates
+ *  (header 26 + x-axis 18 leaves no pane height). The callable rejects
+ *  smaller requests rather than emitting well-formed nonsense. */
+export const MIN_CAPTURE_WIDTH = 96;
+export const MIN_CAPTURE_HEIGHT = 64;
+
 /** Pane-stack geometry shared with the dev page — it sizes variant
  *  `visibleBars` from the plot width (width − PLOT_LEFT − AXIS_GUTTER_WIDTH).
  *  Canonical home is here; `functions/.../svg-layout.ts` re-exports them. */

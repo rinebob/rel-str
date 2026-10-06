@@ -24,6 +24,8 @@ import {
   CaptureEvent,
   ChartInterval,
   MAX_CAPTURE_DIMENSION,
+  MIN_CAPTURE_HEIGHT,
+  MIN_CAPTURE_WIDTH,
   PositionType,
   VISIBLE_BARS_ALL,
   type CaptureArtifact,
@@ -110,8 +112,9 @@ export function parseCaptureChartSpec(data: unknown): CaptureChartSpec {
   const dimension = (name: 'width' | 'height'): number | undefined => {
     const v = d[name];
     if (v === undefined) return undefined;
-    if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0 || v > MAX_CAPTURE_DIMENSION) {
-      throw new HttpsError('invalid-argument', `${name} must be a positive number ≤ ${MAX_CAPTURE_DIMENSION}`);
+    const min = name === 'width' ? MIN_CAPTURE_WIDTH : MIN_CAPTURE_HEIGHT;
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < min || v > MAX_CAPTURE_DIMENSION) {
+      throw new HttpsError('invalid-argument', `${name} must be a number between ${min} and ${MAX_CAPTURE_DIMENSION}`);
     }
     return v;
   };

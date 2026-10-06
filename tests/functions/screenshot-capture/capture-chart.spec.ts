@@ -13,6 +13,8 @@ import {
   CaptureEvent,
   ChartInterval,
   MAX_CAPTURE_DIMENSION,
+  MIN_CAPTURE_HEIGHT,
+  MIN_CAPTURE_WIDTH,
   PositionType,
   type CaptureChartResult,
   type CaptureChartSpec,
@@ -190,6 +192,8 @@ describe('parseCaptureChartSpec', () => {
     ['zero width', { width: 0 }],
     ['negative height', { height: -100 }],
     ['non-number width', { width: 'wide' }],
+    ['width under floor', { width: MIN_CAPTURE_WIDTH - 1 }],
+    ['height under floor', { height: MIN_CAPTURE_HEIGHT - 1 }],
     ['width over cap', { width: MAX_CAPTURE_DIMENSION + 1 }],
     ['height over cap', { height: MAX_CAPTURE_DIMENSION + 1 }],
   ])('rejects dimension %s', (_label, patch) => {
@@ -224,7 +228,7 @@ describe('parseCaptureChartSpec', () => {
   });
 
   it('drops unknown fields', () => {
-    const spec = parseCaptureChartSpec({ ...VALID_SPEC, bogus: 'x' } as any);
+    const spec = parseCaptureChartSpec({ ...VALID_SPEC, bogus: 'x' });
     expect('bogus' in spec).toBe(false);
   });
 });
