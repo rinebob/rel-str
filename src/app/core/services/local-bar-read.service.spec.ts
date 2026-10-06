@@ -443,6 +443,69 @@ describe('LocalBarReadService', () => {
     });
   });
 
+  // ── getSymbolDataVersion$ ──────────────────────────────────────────────────
+
+  describe('getSymbolDataVersion$', () => {
+    const rootSnap = (lastDailyBarDate: string | undefined) => ({
+      exists: () => true,
+      data: () => ({ lastDailyBarDate }),
+    });
+
+    it('returns lastDailyBarDate from the symbol-data root doc', (done) => {
+      mockGetDoc.mockResolvedValue(rootSnap('2026-09-02'));
+
+      service.getSymbolDataVersion$('AAPL').subscribe(result => {
+        expect(result).toBe('2026-09-02');
+        expect(doc).toHaveBeenCalledWith(expect.anything(), 'symbol-data', 'AAPL');
+        done();
+      });
+    });
+
+    it('normalizes the symbol to uppercase in the doc path', (done) => {
+      mockGetDoc.mockResolvedValue(rootSnap('2026-09-02'));
+
+      service.getSymbolDataVersion$('aapl').subscribe(() => {
+        expect(doc).toHaveBeenCalledWith(expect.anything(), 'symbol-data', 'AAPL');
+        done();
+      });
+    });
+
+    it('returns empty string when the root doc does not exist', (done) => {
+      mockGetDoc.mockResolvedValue(mockEmptyDocSnap());
+
+      service.getSymbolDataVersion$('AAPL').subscribe(result => {
+        expect(result).toBe('');
+        done();
+      });
+    });
+
+    it('returns empty string when lastDailyBarDate is missing', (done) => {
+      mockGetDoc.mockResolvedValue(rootSnap(undefined));
+
+      service.getSymbolDataVersion$('AAPL').subscribe(result => {
+        expect(result).toBe('');
+        done();
+      });
+    });
+
+    it('returns empty string for empty symbol without a Firestore read', (done) => {
+      service.getSymbolDataVersion$('').subscribe(result => {
+        expect(result).toBe('');
+        expect(mockGetDoc).not.toHaveBeenCalled();
+        done();
+      });
+    });
+
+    it('returns empty string on Firestore error', (done) => {
+      mockGetDoc.mockRejectedValue(new Error('Firestore error'));
+
+      service.getSymbolDataVersion$('AAPL').subscribe(result => {
+        expect(result).toBe('');
+        done();
+      });
+    });
+  });
+
   // ── Error handling ─────────────────────────────────────────────────────────
 
   describe('error handling', () => {

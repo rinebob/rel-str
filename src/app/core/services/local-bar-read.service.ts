@@ -107,6 +107,28 @@ export class LocalBarReadService {
   }
 
   /**
+   * Read the symbol-data root doc's `lastDailyBarDate` — the version string
+   * IndicatorSeriesStore keys its callable cache on (ChartService derives it
+   * the same way). Returns '' when the doc or field is missing.
+   */
+  getSymbolDataVersion$(symbol: string): Observable<string> {
+    const sym = String(symbol || '').trim().toUpperCase();
+    if (!sym) return of('');
+
+    return defer(() => from(this.inCtx(async () => {
+      const ref = doc(this.firestore, Collection.SYMBOL_DATA, sym);
+      const snap = await this.zone.run(() => getDoc(ref));
+      if (!snap.exists()) return '';
+      return (snap.data() as { lastDailyBarDate?: string }).lastDailyBarDate ?? '';
+    }))).pipe(
+      catchError(err => {
+        console.error('[LocalBarReadService] getSymbolDataVersion$ error', { symbol: sym, err });
+        return of('');
+      }),
+    );
+  }
+
+  /**
    * Read recent daily bars, filtering to the last N calendar days.
    * Handles year boundaries by reading both the current and previous year shards
    * when the window spans Dec→Jan.
