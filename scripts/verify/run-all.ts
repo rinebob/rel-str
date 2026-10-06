@@ -15,7 +15,17 @@ import { existsSync } from 'node:fs';
 
 const accountNumber = process.argv[2] ?? process.env.ACCOUNT_NUMBER;
 
-const scripts = [
+interface VerifyScript {
+  name: string;
+  file: string;
+  cwd?: string;
+  needsAccount?: boolean;
+  needsAdc?: boolean;
+  needsGh?: boolean;
+  needsEnv?: string;
+}
+
+const scripts: VerifyScript[] = [
   { name: 'list orders', file: 'savant-trader-broker-orders-list.ts', needsAccount: true },
   { name: 'list positions', file: 'savant-trader-broker-positions-list.ts', needsAccount: true },
   { name: 'paper-trading contracts', file: 'paper-trading-contracts-560-ids.ts', needsAccount: false },
@@ -152,6 +162,14 @@ const scripts = [
     needsAccount: false,
     needsAdc: false,
   },
+  {
+    name: 'rh-mcp KMS credential repository',
+    file: 'verify/rh-mcp-kms-repository-804.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+    needsEnv: 'RH_CREDENTIAL_KEY_NAME',
+  },
 ];
 
 function hasGhAuth(): boolean {
@@ -187,6 +205,11 @@ for (const script of scripts) {
   }
   if (script.needsAdc && !hasAdc()) {
     console.log(`\n--- ${script.name} --- SKIPPED (needs Google Application Default Credentials)`);
+    skipped++;
+    continue;
+  }
+  if (script.needsEnv && !process.env[script.needsEnv]) {
+    console.log(`\n--- ${script.name} --- SKIPPED (needs ${script.needsEnv})`);
     skipped++;
     continue;
   }
