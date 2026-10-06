@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [2026-10-06]
+
+### Added
+- [On-demand Screenshot Capture] 746-770_BE-IMPL-SCREENSHOT: renderOnly contract flag (default true, skips rasterize + GCS writes), geometry-scoped SVG clip ids fixing cross-SVG pane bleed, shared capture geometry constants
+- [On-demand Screenshot Capture] 746-770_FE-IMPL-SCREENSHOT: /dev/screenshot playground — authGuarded lazy route, spec form → captureChartSnapshot → inline SVG artifacts + paths, Store-to-GCS gate, width variants + last-15 zoom via re-render, stale-response guard (incl. #771 in-place work)
+- [On-demand Screenshot Capture] 746-770_DOCS-SCREENSHOT: #770 code review (PASS, remediation round) + #818 UAT (Complete — 7/7 user-verified)
+
+
 ## [2026-10-05]
 
 ### Added
@@ -22,6 +30,9 @@
 - [Robinhood MCP] 657-804_BE-IMPL-RH-MCP: Live verify script rh-mcp-kms-repository-804.ts (scratch doc, refuses live path, exit 0/1/2) + run-all needsEnv gate + guide
 - [Robinhood MCP] 657-804_DOCS-RH-MCP: Thread #795 PRD + BE/FE IMPL/TEST docs, KMS primer DESIGN doc, #804 code review (PASS, 2 rounds) + UAT (Complete — live round-trip deferred to #805)
 
+
+- [Robinhood MCP] 657-688_BE-IMPL-RH-MCP: Discovery doc assembler — manifest × captures × live tools/list → canonical draft (lib + CLI, 12 unit tests wired into test:rh-agent-mcp-discovery; review remediations: ToolCatalogDrift import, full descriptions, unprobed-vs-missing messaging)
+- [Robinhood MCP] 657-688_BE-DOCS-RH-MCP: Canonical discovery draft rh-mcp-tool-discovery-canonical-657-658-689.md (76 tools / 9 domains / 233 capture links / drift) + #688 code review PASS + #815 UAT QA PASS
 
 ## [2026-10-04]
 
