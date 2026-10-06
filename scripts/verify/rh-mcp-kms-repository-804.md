@@ -7,7 +7,7 @@ Firestore doc write → CAS revision guard → load/decrypt round-trip → delet
 
 | Script | Covers | Credentials |
 |---|---|---|
-| `rh-mcp-kms-repository-804.ts` | `KmsCipher` against the real KMS key; `TransactionalCredentialDocumentBackend` transactional CAS; `KmsFirestoreCredentialRepository` ciphertext-only docs, `CredentialRevisionConflictError`, malformed-doc fail-closed, delete | ADC + `RH_CREDENTIAL_KEY_NAME` |
+| `rh-mcp-kms-repository-804.ts` | `KmsCipher` against the real KMS key; `TransactionalCredentialDocumentBackend` transactional CAS; `KmsFirestoreCredentialRepository` ciphertext-only docs, `CredentialRevisionConflictError`, `InvalidCredentialBundleError` on a bad decrypted payload, delete | ADC + `RH_CREDENTIAL_KEY_NAME` |
 
 ## Usage
 

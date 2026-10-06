@@ -152,8 +152,10 @@ run in a Cloud Function. So credential lifecycle ops stay on the owner's machine
    repo class) and writes the Firestore doc transactionally. Uses local admin
    SDK credentials (application default credentials) — no new HTTP endpoint.
 
-Revocation: delete the Firestore doc (or rotate the KMS key — a key destroy
-instantly bricks all stored ciphertext).
+Revocation: delete the Firestore doc. To revoke at the key layer, destroy the
+key version (`cryptoKeyVersions.destroy`) — that instantly bricks all stored
+ciphertext. Routine key *rotation* is safe: decrypt uses the version embedded
+in the ciphertext, so old ciphertext keeps working.
 
 ## Failure modes worth knowing
 
