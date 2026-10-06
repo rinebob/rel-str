@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { InMemoryTransport } from "../../functions/node_modules/@modelcontextprotocol/sdk/dist/esm/inMemory.js";
+import { McpServer } from "../../functions/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js";
 import { CredentialRevisionConflictError } from "../../functions/src/rh-agent-mcp/auth/credential-repository";
 import { runLocalOAuthBootstrapWithDependencies } from "../../functions/src/rh-agent-mcp/auth/local-oauth-bootstrap";
+import { connectLocalRobinhoodMcpSession } from "../../functions/src/rh-agent-mcp/auth/robinhood-mcp-connection";
 import type {
   RobinhoodCredentialBundle,
   RobinhoodCredentialRepository,
@@ -112,6 +115,61 @@ describe("local OAuth token refresh failures", () => {
     assert.equal(transportCreated, false);
     assert.equal(durable.tokens.access_token, "synthetic-winner-access");
     assert.equal(durable.tokens.refresh_token, "synthetic-winner-refresh");
+  });
+
+  it("connect-path refresh adopts the concurrent winner's credential on CAS conflict", async () => {
+    const original = storedCredential({
+      accessToken: "synthetic-expired-access",
+      refreshToken: "synthetic-old-refresh",
+      lastTokenResponseAt: "2026-07-18T17:00:00.000Z",
+    });
+    const winner: RobinhoodCredentialBundle = {
+      ...original,
+      revision: 8,
+      tokens: {
+        ...original.tokens,
+        access_token: "synthetic-winner-access",
+        refresh_token: "synthetic-winner-refresh",
+      },
+      lastTokenResponseAt: CURRENT_TIME.toISOString(),
+    };
+    let durable = original;
+    const repository: RobinhoodCredentialRepository = {
+      load: async () => durable,
+      store: async () => {
+        // The concurrent request already persisted the rotated bundle.
+        durable = winner;
+        throw new CredentialRevisionConflictError();
+      },
+      delete: async () => undefined,
+    };
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = new McpServer({ name: "synthetic-server", version: "1.0.0" });
+    server.registerTool("read_only_probe", {}, async () => ({ content: [] }));
+    await server.connect(serverTransport);
+    let bearerToken = "";
+
+    const session = await connectLocalRobinhoodMcpSession({
+      repository,
+      now: CURRENT_TIME,
+      fetchFn: async () => oauthResponse({
+        access_token: "synthetic-loser-access",
+        refresh_token: "synthetic-loser-refresh",
+        expires_in: 7_200,
+        token_type: "Bearer",
+      }),
+      transportFactory: (_serverUrl, accessToken) => {
+        bearerToken = accessToken;
+        return clientTransport;
+      },
+    });
+
+    try {
+      assert.equal(bearerToken, "synthetic-winner-access");
+      assert.equal(durable.tokens.refresh_token, "synthetic-winner-refresh");
+    } finally {
+      await session.close();
+    }
   });
 
   it("requires reauthorization when the refresh grant is rejected", async () => {

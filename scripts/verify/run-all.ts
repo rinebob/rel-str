@@ -178,6 +178,13 @@ const scripts: VerifyScript[] = [
     needsAdc: true,
     needsEnv: 'RH_CREDENTIAL_KEY_NAME',
   },
+  {
+    name: 'rh-mcp cloud API auth gate',
+    file: 'verify/rh-mcp-cloud-api-807.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: false,
+  },
 ];
 
 function hasGhAuth(): boolean {

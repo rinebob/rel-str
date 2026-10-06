@@ -14,6 +14,7 @@
     "test:rh-agent-mcp-credentials": "tsx --test ../tests/functions/rh-agent-mcp-credential-repository.test.ts",
     "test:rh-agent-mcp-kms-repository": "tsx --test ../tests/functions/rh-agent-mcp-kms-credential-repository.test.ts",
     "test:rh-agent-mcp-upload-credential": "tsx --test ../tests/functions/rh-agent-mcp-upload-credential.test.ts",
+    "test:rh-agent-mcp-cloud-api": "tsx --test ../tests/functions/rh-agent-mcp-cloud-api.test.ts",
     "test:rh-agent-mcp-refresh": "tsx --test ../tests/functions/rh-agent-mcp-token-refresh.test.ts ../tests/functions/rh-agent-mcp-token-refresh-failures.test.ts",
     "test:rh-agent-mcp-tools": "tsx --test ../tests/functions/rh-agent-mcp-tool-registry.test.ts ../tests/functions/rh-agent-mcp-redactor.test.ts ../tests/functions/rh-agent-mcp-tool-executor.test.ts",
     "test:broker-order-normalizer": "tsx --test ../tests/functions/broker-order-normalizer.test.ts ../tests/functions/broker-position-normalizer.test.ts ../tests/functions/broker-order-adapter-integration.test.ts ../tests/functions/broker-position-adapter-integration.test.ts",
