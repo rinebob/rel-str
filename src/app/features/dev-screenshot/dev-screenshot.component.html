@@ -1,0 +1,86 @@
+<div class="dev-screenshot">
+  <header class="page-header">
+    <h1>Screenshot Capture</h1>
+    <p class="subtitle">captureChartSnapshot — spec → SVG + PNG in st-trade-screenshots/</p>
+  </header>
+
+  <form class="spec-form" (submit)="submit($event)">
+    <label>
+      Symbol
+      <input id="symbol" type="text" [value]="symbol()" (input)="onInput(symbol, $event)" />
+    </label>
+
+    <label>
+      Event
+      <select id="event" (change)="onSelect(event, $event)">
+        @for (e of events; track e) {
+          <option [value]="e" [selected]="e === event()">{{ e }}</option>
+        }
+      </select>
+    </label>
+
+    <fieldset class="intervals">
+      <legend>Intervals</legend>
+      <label><input id="interval-daily" type="checkbox" [checked]="intervalDaily()" (change)="onCheck(intervalDaily, $event)" /> Daily</label>
+      <label><input id="interval-weekly" type="checkbox" [checked]="intervalWeekly()" (change)="onCheck(intervalWeekly, $event)" /> Weekly</label>
+    </fieldset>
+
+    <fieldset class="store">
+      <label><input id="store-artifacts" type="checkbox" [checked]="storeArtifacts()" (change)="onCheck(storeArtifacts, $event)" /> Store to GCS</label>
+    </fieldset>
+
+    <label>
+      Width (px)
+      <input id="width" type="number" min="1" placeholder="800" (input)="onInput(widthInput, $event)" />
+    </label>
+    <label>
+      Height (px)
+      <input id="height" type="number" min="1" placeholder="560" (input)="onInput(heightInput, $event)" />
+    </label>
+    <label>
+      Visible bars
+      <input id="visible-bars" type="text" placeholder="30 or 'all'" (input)="onInput(visibleBarsInput, $event)" />
+    </label>
+    <label>
+      Ref id
+      <input id="ref-id" type="text" placeholder="optional — embedded in path + header" (input)="onInput(refIdInput, $event)" />
+    </label>
+
+    <button id="capture-submit" type="submit" [disabled]="submitting()">
+      {{ submitting() ? 'Capturing…' : 'Capture' }}
+    </button>
+  </form>
+
+  @if (error()) {
+    <div class="capture-error">{{ error() }}</div>
+  }
+
+  @if (result(); as res) {
+    <section class="results">
+      @for (a of res.artifacts; track a.interval) {
+        <article class="artifact">
+          <div class="artifact-header">
+            <h2>{{ a.interval }}</h2>
+            <button class="zoom-toggle" type="button" [disabled]="zoomPending().has(a.interval)" (click)="toggleZoom(a.interval)">
+              {{ zoomSvgs()[a.interval] ? 'Full view' : zoomPending().has(a.interval) ? 'Zooming…' : 'Zoom last ' + ZOOM_BARS + ' bars' }}
+            </button>
+          </div>
+          <div class="variants">
+            @for (v of variants; track v.key) {
+              <div class="variant">
+                <span class="variant-label">{{ v.label }}</span>
+                <div class="svg-frame" [style.width.px]="v.widthPx" [innerHTML]="variantSvg(a.interval, a.svg, v.widthPx)"></div>
+              </div>
+            }
+          </div>
+          @if (a.svgPath || a.pngPath) {
+            <ul class="paths">
+              @if (a.svgPath) { <li>{{ a.svgPath }}</li> }
+              @if (a.pngPath) { <li>{{ a.pngPath }}</li> }
+            </ul>
+          }
+        </article>
+      }
+    </section>
+  }
+</div>

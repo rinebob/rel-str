@@ -129,6 +129,8 @@ export enum CallableName {
   LIST_EXIT_VARIANTS = 'listExitVariants',
   /** Dev lifecycle viewer: GitHub issue-hierarchy tree for supported repos */
   GET_LIFECYCLE_TREE = 'getLifecycleTree',
+  /** Screenshot capture: spec → SVG+PNG artifacts in the default bucket (#746) */
+  CAPTURE_CHART_SNAPSHOT = 'captureChartSnapshot',
 }
 
 /** Top-level Firestore collections used by the FE. */

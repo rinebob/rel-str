@@ -42,6 +42,8 @@ export enum AppRoutes {
 	FLEX_CHART_SANDBOX = 'dev/flex-chart',
 	/** Gallery View dev surface — promoted to trading/gallery by #762 (#743). */
 	DEV_GALLERY = 'dev/gallery',
+	/** Dev playground for captureChartSnapshot — spec form + artifact preview (#746/#770). */
+	SCREENSHOT_DEV = 'dev/screenshot',
 	/** Topic Viewer: read-only GitHub issue-lifecycle tree (#619). */
 	TOPIC_VIEWER = 'tools/topic-viewer',
 }

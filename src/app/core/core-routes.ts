@@ -200,6 +200,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.GalleryViewComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.SCREENSHOT_DEV,
+                loadComponent: () => import('../features/dev-screenshot/dev-screenshot.component')
+                .then(mod => mod.DevScreenshotComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.TOPIC_VIEWER,
                 loadComponent: () => import('../features/topic-viewer/topic-viewer-page.component')
                 .then(mod => mod.TopicViewerPageComponent),
