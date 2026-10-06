@@ -18,6 +18,10 @@
 - [Robinhood MCP] 657-805_DOCS-RH-MCP: #805 code review (PASS) + #816 UAT (Complete, 6/6) + KMS rotation-vs-destroy semantics fix in the credentials primer
 - [Robinhood MCP] 657-806_BE-IMPL-RH-MCP: upload-rh-credential CLI + upload-credential-bundle core (seed/--replace CAS, full-field round-trip check, structural-only evidence) + live verify script + describeBundle shared redaction; production rh-agent-credentials/bundle seeded at revision 1
 - [Robinhood MCP] 657-806_DOCS-RH-MCP: #806 code review (PASS, remediation round) + #825 UAT (Complete — 8/8 incl. live-doc seed guard + token hygiene) + verify guide
+- [Robinhood MCP] 657-807_BE-IMPL-RH-MCP: Shared /api/rh dispatch — route table extracted to api-shared/ (tools list, tool POST, reauth; pre-parsed req.body for onRequest, 413 without socket destroy, null-body 400); local observation API delegates with loopback guard + 90s timeout
+- [Robinhood MCP] 657-807_BE-IMPL-RH-MCP: rhApi onRequest (us-central1, 120s, 512MiB, concurrency 8) — Firebase verifyIdToken + RH_OWNER_UID gate (401/403 before dispatch), KMS/Firestore credential repository, structural rh_api_call/rh_api_auth_reject audit, REAUTHORIZATION_REQUIRED reauth route
+- [Robinhood MCP] 657-807_BE-IMPL-RH-MCP: Connect-path hardening — refresh CAS conflict adopts the concurrent winner's bundle (no stranded rotation), reloadBundle cache invariant, wrapped reload errors; 30s connect timeout closes late sessions; fetchFn test seam
+- [Robinhood MCP] 657-807_DOCS-RH-MCP: #807 code review (PASS, 2 rounds — CAS race + orphan-close remediated) + #833 UAT (Complete — 6/6 live scenarios incl. non-owner 403 + log hygiene) + verify guide; 13-test cloud suite + 48/48 surface green
 
 ### Changed
 - [Gallery Order Ticket View] 743-756_FE-REFACTOR-GALLERY-VIEW: ohlcToPriceBar hoisted to shared savant-trader utils; chart.service maps via it (dedupe for card-chart store)
