@@ -3816,6 +3816,194 @@
       "note": "bounds=24_7 (last unprobed enum on this tool).",
       "expected": "success",
       "env": []
+    },
+    {
+      "id": "err-quote-bad-symbol",
+      "tool": "get_equity_quotes",
+      "args": {
+        "symbols": [
+          "NOTREALXX"
+        ]
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: nonexistent ticker \u2014 error vs empty results?"
+    },
+    {
+      "id": "err-chain-bad-symbol",
+      "tool": "get_option_chains",
+      "args": {
+        "underlying_symbol": "NOTREALXX"
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: nonexistent underlying."
+    },
+    {
+      "id": "err-optq-bad-id",
+      "tool": "get_option_quotes",
+      "args": {
+        "instrument_ids": [
+          "bogus"
+        ]
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: malformed option instrument id."
+    },
+    {
+      "id": "err-watchlist-bad-id",
+      "tool": "get_watchlist_items",
+      "args": {
+        "list_id": "00000000-0000-0000-0000-000000000000"
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: well-formed nonexistent list UUID."
+    },
+    {
+      "id": "err-sec-bad-id",
+      "tool": "get_sec_filing",
+      "args": {
+        "filing_id": "bogus"
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: nonexistent filing id."
+    },
+    {
+      "id": "err-positions-bad-acct",
+      "tool": "get_equity_positions",
+      "args": {
+        "account_number": "0"
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: invalid account number \u2014 account-layer vs tool-layer error."
+    },
+    {
+      "id": "err-crypto-bad-pair",
+      "tool": "get_crypto_quotes",
+      "args": {
+        "symbols": [
+          "FAKE-USD"
+        ]
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: nonexistent currency pair."
+    },
+    {
+      "id": "err-hist-bad-interval",
+      "tool": "get_equity_historicals",
+      "args": {
+        "symbols": [
+          "OOMA"
+        ],
+        "start_time": "2026-09-01T00:00:00Z",
+        "interval": "fortnight"
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: invalid interval value (schema is plain string \u2014 reaches server)."
+    },
+    {
+      "id": "err-hist-bad-time",
+      "tool": "get_equity_historicals",
+      "args": {
+        "symbols": [
+          "OOMA"
+        ],
+        "start_time": "not-a-time"
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: malformed timestamp \u2014 server parse error?"
+    },
+    {
+      "id": "err-pnl-inverted",
+      "tool": "get_realized_pnl",
+      "args": {
+        "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+        "start_date": "2026-12-31",
+        "end_date": "2026-01-01"
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "redactFields": [
+        "account_number"
+      ],
+      "env": [
+        "RH_ACCOUNT_NUMBER"
+      ],
+      "note": "Deliberate error: end_date before start_date."
+    },
+    {
+      "id": "err-search-empty",
+      "tool": "search",
+      "args": {
+        "query": ""
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: empty query string."
+    },
+    {
+      "id": "err-search-bad-asset",
+      "tool": "search",
+      "args": {
+        "query": "OOMA",
+        "asset_type": "zork"
+      },
+      "group": "err-matrix",
+      "gate": "read",
+      "note": "Deliberate error: invalid asset_type (plain-string schema)."
+    },
+    {
+      "id": "err-cancel-bad-order",
+      "tool": "cancel_equity_order",
+      "args": {
+        "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+        "order_id": "00000000-0000-0000-0000-000000000000"
+      },
+      "group": "err-matrix",
+      "gate": "mutation",
+      "redactFields": [
+        "account_number"
+      ],
+      "env": [
+        "RH_ACCOUNT_NUMBER"
+      ],
+      "note": "Deliberate error: well-formed nonexistent order UUID \u2014 approve to capture API not-found."
+    },
+    {
+      "id": "err-cancel-malformed-order",
+      "tool": "cancel_equity_order",
+      "args": {
+        "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+        "order_id": "bogus"
+      },
+      "group": "err-matrix",
+      "gate": "mutation",
+      "redactFields": [
+        "account_number"
+      ],
+      "env": [
+        "RH_ACCOUNT_NUMBER"
+      ],
+      "note": "Deliberate error: malformed order_id \u2014 approve to capture validation/not-found path."
+    },
+    {
+      "id": "err-markalerts-bad-id",
+      "tool": "mark_alerts_read",
+      "args": {
+        "alert_log_ids": [
+          "bogus"
+        ]
+      },
+      "group": "err-matrix",
+      "gate": "mutation",
+      "note": "Deliberate error: nonexistent alert log ids \u2014 harmless; cannot match real alerts."
     }
   ]
 }

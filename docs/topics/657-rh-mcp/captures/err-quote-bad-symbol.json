@@ -1,0 +1,30 @@
+{
+  "id": "err-quote-bad-symbol",
+  "tool": "get_equity_quotes",
+  "group": "err-matrix",
+  "gate": "read",
+  "note": "Deliberate error: nonexistent ticker — error vs empty results?",
+  "args": {
+    "symbols": [
+      "NOTREALXX"
+    ]
+  },
+  "capturedAt": "2026-10-06T04:40:59.436Z",
+  "outcome": "error",
+  "latencyMs": 885,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 404: {\"missing_instruments\":[\"NOTREALXX\"]}"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 404: {\"missing_instruments\":[\"NOTREALXX\"]}"
+}

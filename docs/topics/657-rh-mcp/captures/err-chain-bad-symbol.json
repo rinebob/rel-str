@@ -1,0 +1,20 @@
+{
+  "id": "err-chain-bad-symbol",
+  "tool": "get_option_chains",
+  "group": "err-matrix",
+  "gate": "read",
+  "note": "Deliberate error: nonexistent underlying.",
+  "args": {
+    "underlying_symbol": "NOTREALXX"
+  },
+  "capturedAt": "2026-10-06T04:11:57.862Z",
+  "outcome": "success",
+  "latencyMs": 1272,
+  "success": true,
+  "response": {
+    "data": {
+      "chains": []
+    },
+    "guide": "Pass id to get_option_instruments as chain_id to list contracts. CURB market_hours on place_option_order require extended_hours_state='enabled' AND an index chain (underlying_instruments empty). When the user mentions AM/PM/morning/evening expiration, check settle_on_open per chain — same underlying can have multiple chains, so do not assume they split cleanly by settlement. Present id, symbol, expiration_dates (annotate AM when settle_on_open is true), and trade_value_multiplier."
+  }
+}

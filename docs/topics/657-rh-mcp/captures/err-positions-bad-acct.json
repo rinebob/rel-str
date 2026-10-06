@@ -1,0 +1,28 @@
+{
+  "id": "err-positions-bad-acct",
+  "tool": "get_equity_positions",
+  "group": "err-matrix",
+  "gate": "read",
+  "note": "Deliberate error: invalid account number — account-layer vs tool-layer error.",
+  "args": {
+    "account_number": "0"
+  },
+  "capturedAt": "2026-10-06T04:12:08.328Z",
+  "outcome": "error",
+  "latencyMs": 843,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 404: {\"detail\":\"Not found.\"}"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 404: {\"detail\":\"Not found.\"}"
+}

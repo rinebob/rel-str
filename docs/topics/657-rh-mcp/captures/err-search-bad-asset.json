@@ -1,0 +1,29 @@
+{
+  "id": "err-search-bad-asset",
+  "tool": "search",
+  "group": "err-matrix",
+  "gate": "read",
+  "note": "Deliberate error: invalid asset_type (plain-string schema).",
+  "args": {
+    "query": "OOMA",
+    "asset_type": "zork"
+  },
+  "capturedAt": "2026-10-06T04:12:22.012Z",
+  "outcome": "error",
+  "latencyMs": 969,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "unsupported asset_type \"zork\"; supported: \"instrument\", \"currency_pair\", \"market_index\""
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "unsupported asset_type \"zork\"; supported: \"instrument\", \"currency_pair\", \"market_index\""
+}

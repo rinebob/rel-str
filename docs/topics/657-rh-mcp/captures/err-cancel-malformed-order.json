@@ -1,0 +1,29 @@
+{
+  "id": "err-cancel-malformed-order",
+  "tool": "cancel_equity_order",
+  "group": "err-matrix",
+  "gate": "mutation",
+  "note": "Deliberate error: malformed order_id — approve to capture validation/not-found path.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "order_id": "bogus"
+  },
+  "capturedAt": "2026-10-06T05:11:50.700Z",
+  "outcome": "error",
+  "latencyMs": 2185,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 404: \n<!doctype html>\n<html lang=\"en\">\n<head>\n  <title>Not Found</title>\n</head>\n<body>\n  <h1>Not Found</h1><p>The requested resource was not found on this server.</p>\n</body>\n</html>\n"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 404: \n<!doctype html>\n<html lang=\"en\">\n<head>\n  <title>Not Found</title>\n</head>\n<body>\n  <h1>Not Found</h1><p>The requested resource was not found on this server.</p>\n</body>\n</html>\n"
+}

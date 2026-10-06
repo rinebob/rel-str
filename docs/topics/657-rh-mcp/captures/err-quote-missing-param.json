@@ -1,0 +1,18 @@
+{
+  "id": "err-quote-missing-param",
+  "tool": "get_equity_quotes",
+  "group": "err-matrix",
+  "gate": "read",
+  "note": "Deliberate error: required field omitted. Captured via run-tool-observation.ts (manifest runner can't express schema-invalid args — Ajv rejects them pre-flight). Executor-level VALIDATION reject; the MCP server never sees the call.",
+  "args": {},
+  "capturedAt": "2026-10-06T04:20:00.000Z",
+  "outcome": "error",
+  "latencyMs": 0,
+  "success": false,
+  "response": {
+    "category": "VALIDATION",
+    "error": "symbols: must have required property 'symbols'"
+  },
+  "category": "VALIDATION",
+  "error": "symbols: must have required property 'symbols'"
+}

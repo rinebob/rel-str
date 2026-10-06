@@ -1,0 +1,24 @@
+{
+  "id": "err-markalerts-bad-id",
+  "tool": "mark_alerts_read",
+  "group": "err-matrix",
+  "gate": "mutation",
+  "note": "Deliberate error: nonexistent alert log ids — harmless; cannot match real alerts.",
+  "args": {
+    "alert_log_ids": [
+      "bogus"
+    ]
+  },
+  "capturedAt": "2026-10-06T05:08:55.336Z",
+  "outcome": "success",
+  "latencyMs": 2241,
+  "success": true,
+  "response": {
+    "data": {
+      "marked": true,
+      "scope": "alert_log_ids",
+      "alert_log_id_count": 1
+    },
+    "guide": "This only clears the unread marker used to track which events have been handled — it does not delete events or change any alert setting, so do not describe it to the user as turning an alert off. The response confirms acceptance only — no count of cleared events is available; re-read get_alert_log's total_unread_count if a number is needed. Call this only after the fired alerts have actually been relayed to the user. Marking all with all_through clears every unread event across all symbols triggered at or before that instant, not only the ones just discussed."
+  }
+}

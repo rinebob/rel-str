@@ -1,0 +1,29 @@
+{
+  "id": "err-cancel-bad-order",
+  "tool": "cancel_equity_order",
+  "group": "err-matrix",
+  "gate": "mutation",
+  "note": "Deliberate error: well-formed nonexistent order UUID — approve to capture API not-found.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "order_id": "00000000-0000-0000-0000-000000000000"
+  },
+  "capturedAt": "2026-10-06T05:11:10.579Z",
+  "outcome": "error",
+  "latencyMs": 1252,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 404: {\"detail\":\"Not found.\"}"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 404: {\"detail\":\"Not found.\"}"
+}

@@ -9,7 +9,7 @@
 **Type:** TEST  
 **Status:** Complete  
 **Created:** 2026-09-28  
-**Last Updated:** 2026-10-05  
+**Last Updated:** 2026-10-06  
 
 > **2026-09-29 amendment.** Manifest loader (24 cases) + drift diff (17 cases) shipped. Live surface = 76 tools — the read sweep target expands accordingly; coverage matrix rows = live tool count.  
 > **2026-10-05 amendment — #684 read-only sweep executed.** 233 manifest probes → 233 captures in `docs/topics/657-rh-mcp/captures/` (plus 2 pre-existing #682 artifacts = 235 files). See "Sweep execution results" below.
@@ -106,3 +106,99 @@ Six waves executed live against the agentic account (`RH_ACCOUNT_NUMBER`, `•�
 
 - `run-tool-observation.ts` + `executeObservationTool` + `robinhood-response-redactor.ts` are already exercised in production paths — reused, not re-tested here.
 - `option-quote-discovery-function.ts` shows the capture/summarize pattern this generalizes.
+
+## Equity order matrix session (#685) — execution runbook
+
+41 `eq-matrix` probes authored (10 review sims, 3 harvest reads, 18 place,
+9 cancel, 1 short-probe). **Requires regular market hours** — market/stop
+orders are `regular_hours`-only and `dollar_amount` fractional is market +
+regular-hours only. Execution is strictly sequential; every mutation prompts
+y/n/abort.
+
+### Env vars (set in `.env.local` before each step)
+
+| Var | When set | Source |
+|---|---|---|
+| `RH_ACCOUNT_NUMBER` | already set | Agentic acct |
+| `OOMA_ASK`, `OOMA_BID` | run start | `mx-quote-start` capture |
+| `OOMA_STOP_BUY_HI` (~ask+2%) | run start | derived |
+| `OOMA_STOP_BUY_LO` (~bid−2%) | run start | derived |
+| `OOMA_STOPLIM_BUY` (> stop) | run start | derived |
+| `OOMA_SELL_TGT` (~+2%) | before exits | derived |
+| `OOMA_SELL_STOP` (~−2%), `OOMA_SELL_STOP2` (−1.5%), `OOMA_SELL_STOPLIM` (< stop), `OOMA_SELL_STOP_HI` (> market) | before exits | derived |
+| `OOMA_ORDER_ID` | before EVERY cancel | `id` field of the preceding place capture |
+| `OOMA_LOT_ID` | before `mx-sell-lots` | `mx-taxlots` capture |
+| `OOMA_ALL_QTY` | before `mx-sell-flat` | `mx-pos-preflat` capture (2 + $5 fractional ≈ 2.x) |
+| `RH_ZERO_SYM` | before `mx-sell-short` | any listed symbol absent from positions (post-flat OOMA also qualifies) |
+
+### Execution pattern
+
+Per probe (env-dependent args must be set first):
+
+```
+cd functions && npx tsx --env-file=../.env.local \
+  src/rh-agent-mcp/diagnostics/run-probe-manifest.ts \
+  --manifest ../docs/topics/657-rh-mcp/probe-manifest.json --only <probe-id>
+```
+
+Review sims may batch: `--from mx-rev-buy-mkt` through `mx-rev-sell-mkt`
+(gate=read, no prompts). Place probes needing the order to rest have no
+`settle` — the resting state IS the capture; harvest `id` → set
+`OOMA_ORDER_ID` → run the paired `mx-can-*`. Fill-expected and
+fire-or-reject probes carry `settle` polls.
+
+### Abort procedure
+
+If anything wedges: run `get_equity_orders` for OOMA, cancel every open
+order (`mx-can-*` pattern with `OOMA_ORDER_ID`), then sell-all market for
+the held qty. AC: account ends flat, zero resting orders.
+
+## Error-envelope session (#687, 2026-10-06)
+
+Group `err-matrix` — 15 manifest probes + 2 hand-captured executor-level
+calls (`err-quote-missing-param`, `err-quote-wrong-type` via
+`run-tool-observation.ts`; the manifest runner can't express
+schema-invalid args — Ajv rejects them at `validateToolArgs` pre-flight).
+17 captures, zero account-number leaks.
+
+### Outcomes
+
+| Shape | Count | Probes |
+|---|---|---|
+| JSON 404 `{"detail":"Not found."}` | 3 | `err-watchlist-bad-id`, `err-positions-bad-acct`, `err-cancel-bad-order` |
+| Structured 404 `{"missing_instruments":[...]}` | 1 | `err-quote-bad-symbol` |
+| **Raw HTML 404 page** | 2 | `err-sec-bad-id`, `err-cancel-malformed-order` |
+| Server validation string | 5 | `err-hist-bad-interval`, `err-hist-bad-time` (RFC3339), `err-pnl-inverted` (cross-field), `err-search-empty`, `err-search-bad-asset` |
+| Executor `VALIDATION` (never reaches server) | 2 | `err-quote-missing-param`, `err-quote-wrong-type` |
+| **Success instead of error** | 4 | `err-chain-bad-symbol`, `err-crypto-bad-pair`, `err-optq-bad-id`, `err-markalerts-bad-id` |
+
+### Envelope conformance / deviations
+
+- **Standard error envelope:** `content[0].text` message +
+  `_meta.rh_error_category: "invalid_request"` + `isError:true`. All
+  server errors observed conform — no distinct category codes seen; all
+  404s and validation strings share `invalid_request`.
+- **Deviation — HTML 404s:** malformed ids (`"bogus"` as `order_id` or
+  `filing_id`) return a raw `<html>…Not Found…</html>` page inside the
+  text payload — the malformed value misses the upstream URL route
+  entirely, while a well-formed-but-nonexistent UUID reaches the
+  endpoint and returns JSON `{"detail":"Not found."}`.
+- **Deviation — success-instead-of-error:** `get_option_chains` (bad
+  underlying), `get_crypto_quotes` (bad pair), `get_option_quotes`
+  (bogus instrument id), and `mark_alerts_read` (nonexistent log ids)
+  return `success` with empty/absent results rather than an error —
+  callers must treat empty as not-found on these tools.
+- **Client-side layer:** missing-required and wrong-type args die at
+  the local executor's Ajv validation (`VALIDATION` category) — the MCP
+  server never sees them. Server-side validation messages are
+  human-readable strings, no machine codes; the `asset_type`
+  error helpfully enumerates valid values (`interval` does not).
+- **Transient transport:** one transient `fetch failed` on `cancel_equity_order`
+  (no HTTP response) preceded the successful 404 capture; the retry
+  capture overwrote it, so only the JSON 404 is on disk.
+
+### Env note
+
+`--env-file=../.env.local` (per the #685 runbook) is the intended env
+mechanism; non-interactive runs auto-decline mutation gates — the 3
+bogus-id mutations were approved interactively.

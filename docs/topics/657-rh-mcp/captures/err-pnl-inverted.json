@@ -1,0 +1,30 @@
+{
+  "id": "err-pnl-inverted",
+  "tool": "get_realized_pnl",
+  "group": "err-matrix",
+  "gate": "read",
+  "note": "Deliberate error: end_date before start_date.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "start_date": "2026-12-31",
+    "end_date": "2026-01-01"
+  },
+  "capturedAt": "2026-10-06T04:13:48.989Z",
+  "outcome": "error",
+  "latencyMs": 845,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "start_date \"2026-12-31\" must be on or before end_date \"2026-01-01\""
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "start_date \"2026-12-31\" must be on or before end_date \"2026-01-01\""
+}
