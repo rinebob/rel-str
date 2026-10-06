@@ -16,6 +16,8 @@
 - [On-demand Screenshot Capture] 746-770_DOCS-SCREENSHOT: #770 code review (PASS, remediation round) + #818 UAT (Complete — 7/7 user-verified)
 - [Robinhood MCP] 657-805_CONFIG-IMPL-RH-MCP: rh-agent-credentials explicit deny in firestore.rules (read/write: if false under root default-deny; deployed); KMS key + IAM + RH_CREDENTIAL_KEY_NAME/RH_OWNER_UID provisioning verified live (13/13)
 - [Robinhood MCP] 657-805_DOCS-RH-MCP: #805 code review (PASS) + #816 UAT (Complete, 6/6) + KMS rotation-vs-destroy semantics fix in the credentials primer
+- [Robinhood MCP] 657-806_BE-IMPL-RH-MCP: upload-rh-credential CLI + upload-credential-bundle core (seed/--replace CAS, full-field round-trip check, structural-only evidence) + live verify script + describeBundle shared redaction; production rh-agent-credentials/bundle seeded at revision 1
+- [Robinhood MCP] 657-806_DOCS-RH-MCP: #806 code review (PASS, remediation round) + #825 UAT (Complete — 8/8 incl. live-doc seed guard + token hygiene) + verify guide
 
 ### Changed
 - [Gallery Order Ticket View] 743-756_FE-REFACTOR-GALLERY-VIEW: ohlcToPriceBar hoisted to shared savant-trader utils; chart.service maps via it (dedupe for card-chart store)
