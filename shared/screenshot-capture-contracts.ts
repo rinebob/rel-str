@@ -80,6 +80,12 @@ export const DEFAULT_CAPTURE_HEIGHT = 560;
  *  requests (`invalid-argument`) so a caller can't force a giant render. */
 export const MAX_CAPTURE_DIMENSION = 4096;
 
+/** Pane-stack geometry shared with the dev page — it sizes variant
+ *  `visibleBars` from the plot width (width − PLOT_LEFT − AXIS_GUTTER_WIDTH).
+ *  Canonical home is here; `functions/.../svg-layout.ts` re-exports them. */
+export const CAPTURE_PLOT_LEFT = 4;
+export const CAPTURE_AXIS_GUTTER_WIDTH = 60;
+
 /**
  * Caller-supplied capture request. Everything the image needs is here —
  * the function is stateless w.r.t. callers; `refId` is an opaque caller key
@@ -96,16 +102,21 @@ export interface CaptureChartSpec {
   width?: number;
   height?: number;
   visibleBars?: VisibleBars;
+  /** Render-and-return only — no GCS writes. DEFAULTS TO TRUE: storage
+   *  writes are opt-in (`renderOnly: false`) so playground/zoom calls from
+   *  the dev page don't litter the bucket. */
+  renderOnly?: boolean;
 }
 
 // ── Result ─────────────────────────────────────────────────────────────────
 
 /** One captured chart — SVG markup for immediate client use plus the storage
- *  paths for both artifacts (PNG is written once the rasterizer task lands). */
+ *  paths for both artifacts. Paths are absent on render-only requests —
+ *  nothing was written. */
 export interface CaptureArtifact {
   interval: CaptureInterval;
   svg: string;
-  svgPath: string;
+  svgPath?: string;
   pngPath?: string;
 }
 

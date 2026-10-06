@@ -87,7 +87,9 @@ export function buildScreenshotStoragePath(spec: ScreenshotPathSpec): string {
 export function buildCaptureChartResult(artifacts: CaptureArtifact[]): CaptureChartResult {
   return {
     svg: artifacts[0]?.svg ?? '',
-    paths: artifacts.flatMap((a) => (a.pngPath ? [a.svgPath, a.pngPath] : [a.svgPath])),
+    paths: artifacts.flatMap((a) =>
+      [a.svgPath, a.pngPath].filter((p): p is string => !!p),
+    ),
     artifacts,
   };
 }

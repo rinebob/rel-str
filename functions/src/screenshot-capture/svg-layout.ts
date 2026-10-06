@@ -25,14 +25,20 @@ import {
   formatPrice,
   toLogAxis,
 } from '@flex-chart/scale-math';
+import {
+  CAPTURE_AXIS_GUTTER_WIDTH,
+  CAPTURE_PLOT_LEFT,
+} from '@screenshot-capture/contracts';
 import type { ChartRenderModel, RenderPane } from './render-model';
 
 // ── Geometry constants ──────────────────────────────────────────────────────
 
 export const HEADER_HEIGHT = 26;
 export const X_AXIS_HEIGHT = 18;
-export const AXIS_GUTTER_WIDTH = 60;
-export const PLOT_LEFT = 4;
+// Canonical values live in the shared contracts (the dev page sizes variant
+// visibleBars from them); re-exported under the established local names.
+export const AXIS_GUTTER_WIDTH = CAPTURE_AXIS_GUTTER_WIDTH;
+export const PLOT_LEFT = CAPTURE_PLOT_LEFT;
 /** quick-charts default: `FlexChartConfig.mainPanePercent` = 60. */
 export const MAIN_PANE_PERCENT = 60;
 /** Vertical insets inside lower panes (FE plotOffsetTop/Bottom). The primary
@@ -243,7 +249,12 @@ export function computeLayout(model: ChartRenderModel): ChartLayout {
       pane,
       rect: { x: plotX, y: cursorY, width: plotWidth, height },
       inner,
-      clipId: `clip-${pane.id}`,
+      // The id encodes the clip rect so same-document SVGs of different
+      // geometry can't collide — url(#id) resolves to the FIRST match in
+      // document order, which otherwise lets a 560px render's clip leak
+      // onto a 280px variant and bleed main-pane series over lower panes.
+      // Identical geometry produces identical ids, which resolves harmlessly.
+      clipId: `clip-${pane.id}-${Math.round(inner.x)}-${Math.round(inner.y)}-${Math.round(inner.width)}-${Math.round(inner.height)}`,
       toY,
       ticks,
     });

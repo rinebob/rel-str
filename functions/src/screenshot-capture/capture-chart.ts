@@ -119,6 +119,9 @@ export function parseCaptureChartSpec(data: unknown): CaptureChartSpec {
   const height = dimension('height');
 
   if (d.refId !== undefined && typeof d.refId !== 'string') fail('refId must be a string');
+  if (d.renderOnly !== undefined && typeof d.renderOnly !== 'boolean') {
+    fail('renderOnly must be a boolean');
+  }
 
   return {
     symbol,
@@ -129,6 +132,7 @@ export function parseCaptureChartSpec(data: unknown): CaptureChartSpec {
     ...(width !== undefined ? { width } : {}),
     ...(height !== undefined ? { height } : {}),
     ...(visibleBars !== undefined ? { visibleBars } : {}),
+    ...(d.renderOnly !== undefined ? { renderOnly: d.renderOnly as boolean } : {}),
   };
 }
 
@@ -177,9 +181,13 @@ export async function handleCaptureChartSnapshot(
 
     // Destructured so the async map closes over consts, not the hoisted let.
     const { symbol, event, positionType, refId } = spec;
+    // renderOnly defaults to true — storage writes are opt-in so dev-page
+    // playground/zoom calls don't litter the bucket (#771).
+    const store = spec.renderOnly === false;
     const artifacts: CaptureArtifact[] = await Promise.all(
       charts.map(async (chart) => {
         const svg = deps.renderChartSvg(chart.model);
+        if (!store) return { interval: chart.interval, svg };
         const png = deps.rasterizeSvgToPng(svg);
         const pathSpec = {
           symbol,

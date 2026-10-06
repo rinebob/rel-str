@@ -64,6 +64,7 @@ async function main(): Promise<void> {
   };
   const spec = {
     symbol: SYMBOL,
+    renderOnly: false, // verify real bucket writes
     event: CaptureEvent.MANUAL,
     positionType: PositionType.STOCK,
     refId: 'verify',
@@ -89,6 +90,8 @@ async function main(): Promise<void> {
   check('paths match the storage convention', result.paths.every((p) => pathRe.test(p)));
 
   for (const artifact of result.artifacts) {
+    // renderOnly:false → paths are present; assert the invariant.
+    if (!artifact.svgPath) throw new Error(`${artifact.interval} missing svgPath`);
     const file = bucket.file(artifact.svgPath);
     const [exists] = await file.exists();
     check(`${artifact.interval} object exists`, exists);

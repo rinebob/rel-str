@@ -63,6 +63,7 @@ async function main(): Promise<void> {
   };
   const spec = {
     symbol: SYMBOL,
+    renderOnly: false, // verify real bucket writes
     event: CaptureEvent.MANUAL,
     positionType: PositionType.STOCK,
     refId: 'verify',
@@ -105,6 +106,7 @@ async function main(): Promise<void> {
     const [meta] = await file.getMetadata();
     check(`${artifact.interval} contentType image/png`, meta.contentType === 'image/png');
 
+    if (!artifact.svgPath) throw new Error(`${artifact.interval} missing svgPath`);
     const [svgExists] = await bucket.file(artifact.svgPath).exists();
     check(`${artifact.interval} svg sibling still exists`, svgExists);
   }

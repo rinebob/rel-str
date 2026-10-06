@@ -209,6 +209,20 @@ describe('parseCaptureChartSpec', () => {
     expect(spec.visibleBars).toBe('all');
   });
 
+  it.each([['non-boolean renderOnly', 'yes'], ['renderOnly as number', 1]])(
+    'rejects %s',
+    (_label, renderOnly) => {
+      expect(
+        thrownCode(() => parseCaptureChartSpec({ ...VALID_SPEC, renderOnly })),
+      ).toBe('invalid-argument');
+    },
+  );
+
+  it('accepts renderOnly booleans', () => {
+    expect(parseCaptureChartSpec({ ...VALID_SPEC, renderOnly: false }).renderOnly).toBe(false);
+    expect(parseCaptureChartSpec({ ...VALID_SPEC, renderOnly: true }).renderOnly).toBe(true);
+  });
+
   it('drops unknown fields', () => {
     const spec = parseCaptureChartSpec({ ...VALID_SPEC, bogus: 'x' } as any);
     expect('bogus' in spec).toBe(false);
@@ -275,7 +289,7 @@ describe('handleCaptureChartSnapshot', () => {
   it('returns {svg, paths, artifacts} and writes SVG+PNG per interval at the conventional path', async () => {
     const { deps, writes } = makeDeps();
     const result: CaptureChartResult = await handleCaptureChartSnapshot(
-      req({ ...VALID_SPEC, refId: 'ord123' }),
+      req({ ...VALID_SPEC, refId: 'ord123', renderOnly: false }),
       deps,
     );
 
@@ -310,8 +324,9 @@ describe('handleCaptureChartSnapshot', () => {
 
   it('writes to identical paths for the same spec at the same timestamp (overwrite-safe retry)', async () => {
     const { deps, writes } = makeDeps();
-    await handleCaptureChartSnapshot(req(VALID_SPEC), deps);
-    await handleCaptureChartSnapshot(req(VALID_SPEC), deps);
+    const storeSpec = { ...VALID_SPEC, renderOnly: false };
+    await handleCaptureChartSnapshot(req(storeSpec), deps);
+    await handleCaptureChartSnapshot(req(storeSpec), deps);
     expect(writes).toHaveLength(8);
     expect(writes[0].path).toBe(writes[4].path);
     expect(writes[1].path).toBe(writes[5].path);
@@ -319,10 +334,29 @@ describe('handleCaptureChartSnapshot', () => {
 
   it('omits the refId segment when not supplied', async () => {
     const { deps } = makeDeps();
-    const result = await handleCaptureChartSnapshot(req(VALID_SPEC), deps);
+    const result = await handleCaptureChartSnapshot(req({ ...VALID_SPEC, renderOnly: false }), deps);
     expect(result.artifacts[0].svgPath).toBe(
       `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-daily.svg`,
     );
+  });
+
+  it('defaults to render-only — renders SVGs but writes nothing (no paths)', async () => {
+    const { deps, writes } = makeDeps();
+    const result = await handleCaptureChartSnapshot(req(VALID_SPEC), deps);
+
+    expect(deps.renderChartSvg).toHaveBeenCalledTimes(2);
+    expect(deps.rasterizeSvgToPng).not.toHaveBeenCalled();
+    expect(deps.writeArtifact).not.toHaveBeenCalled();
+    expect(writes).toHaveLength(0);
+    expect(result.paths).toEqual([]);
+    expect(result.svg).toBe('<svg data-interval="daily"/>');
+    expect(result.artifacts[0].svgPath).toBeUndefined();
+  });
+
+  it('renderOnly: true explicitly skips storage', async () => {
+    const { deps, writes } = makeDeps();
+    await handleCaptureChartSnapshot(req({ ...VALID_SPEC, renderOnly: true }), deps);
+    expect(writes).toHaveLength(0);
   });
 
   it('rejects unauthenticated callers before touching the pipeline', async () => {
@@ -367,6 +401,9 @@ describe('handleCaptureChartSnapshot', () => {
     ['storage write', { writeArtifact: jest.fn(async () => { throw new Error('bucket denied'); }) }],
   ])('maps %s failure to internal', async (_label, patch) => {
     const { deps } = makeDeps(patch as Partial<CaptureChartSnapshotDeps>);
-    await expectHttpsCode(handleCaptureChartSnapshot(req(VALID_SPEC), deps), 'internal');
+    await expectHttpsCode(
+      handleCaptureChartSnapshot(req({ ...VALID_SPEC, renderOnly: false }), deps),
+      'internal',
+    );
   });
 });
