@@ -35,6 +35,7 @@ deliberately, on-demand.
 | #682 — BE catalog drift check | [rh-mcp-drift-682.md](rh-mcp-drift-682.md) | diff logic offline; live run via `run-drift-check.ts` → captures/00-drift.json | `functions/scripts/verify/rh-mcp-drift-682.ts` (offline) + live `run-drift-check.ts` (needs RH MCP) |
 | #683 — BE probe manifest runner | [rh-mcp-runner-683.md](rh-mcp-runner-683.md) | runner core offline (mocked caller/prompt) over the real manifest; live run via `run-probe-manifest.ts` | `functions/scripts/verify/rh-mcp-runner-683.ts` (offline) + live `run-probe-manifest.ts` (needs RH MCP; mutations prompt) |
 | #804 — BE KMS credential repository | [rh-mcp-kms-repository-804.md](rh-mcp-kms-repository-804.md) | KMS encrypt/decrypt → Firestore ciphertext doc → CAS revision guard → load round-trip → delete | `functions/scripts/verify/rh-mcp-kms-repository-804.ts` (needs ADC + `RH_CREDENTIAL_KEY_NAME`; runs from `functions/`) |
+| #806 — BE credential upload + seed | [rh-mcp-upload-806.md](rh-mcp-upload-806.md) | bundle file → parse → KMS+Firestore seed → reload round-trip → seed refusal → replace CAS → delete | `functions/scripts/verify/rh-mcp-upload-806.ts` (needs ADC + `RH_CREDENTIAL_KEY_NAME`; runs from `functions/`) — real seed via `functions/scripts/upload-rh-credential.ts` |
 
 ## Run All
 
