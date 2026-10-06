@@ -1,0 +1,13 @@
+<div class="card-chart">
+  @if (loading()) {
+    <div class="cc-state cc-loading"><span>chart</span></div>
+  } @else if (unavailable()) {
+    <div class="cc-state cc-error"><span>chart unavailable</span></div>
+  } @else {
+    <app-flex-chart
+      [chartData]="dataset()"
+      [config]="config()"
+      height="100%">
+    </app-flex-chart>
+  }
+</div>

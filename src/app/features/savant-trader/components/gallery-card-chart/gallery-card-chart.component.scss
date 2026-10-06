@@ -1,0 +1,38 @@
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+.card-chart {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  // The flex-chart wrapper floors at 300px — the card cell is a fixed 440px
+  // so the floor doesn't bind today, but keep the override so the cell can
+  // shrink below it without silently clipping the chart.
+  --fc-min-height: 0;
+}
+
+// Loading / unavailable states keep the cell's footprint so the grid
+// doesn't reflow when the deferred chart mounts.
+.cc-state {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.cc-loading {
+  background: color-mix(in srgb, var(--mat-sys-surface-variant) 40%, transparent);
+}
+
+.cc-error {
+  color: var(--mat-sys-error);
+}
