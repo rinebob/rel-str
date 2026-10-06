@@ -17,6 +17,21 @@ if (typeof globalThis.Response === 'undefined') {
   globalThis.Response = ResponsePolyfill as any;
 }
 
+// jsdom lacks IntersectionObserver — @defer (on viewport) triggers hit a
+// ReferenceError during trigger polling. No-op stub keeps the deferred
+// content in placeholder (specs drive blocks via getDeferBlocks()).
+if (typeof globalThis.IntersectionObserver === 'undefined') {
+  class IntersectionObserverStub {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+  }
+  (globalThis as any).IntersectionObserver = IntersectionObserverStub;
+}
+
 // Jasmine compatibility shim — jest-preset-angular 17.0.0 transformer doesn't
 // expose `jasmine` as a global, but 22 spec files across the repo use
 // `jasmine.createSpy()` and `jasmine.createSpyObj()`. Map the common jasmine

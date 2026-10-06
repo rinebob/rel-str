@@ -95,10 +95,18 @@
   }
 }
 
-// Placeholder for the #756 signal chart — flexes with card width so the
-// layout shows final proportions at any column size.
+// Chart cell (#756) — the @defer placeholder and the mounted chart keep the
+// same footprint so mounting doesn't reflow the card. Fixed height (not
+// aspect-ratio): the card chart carries the quick-charts lower panes
+// (trend strength / zone V1 / zone V2), which need a minimum pixel height
+// independent of card width.
+.chart-placeholder,
+app-gallery-card-chart {
+  height: 440px;
+  display: block;
+}
+
 .chart-placeholder {
-  aspect-ratio: 16 / 9;
   border: 1px dashed var(--mat-sys-outline);
   border-radius: 4px;
   display: flex;

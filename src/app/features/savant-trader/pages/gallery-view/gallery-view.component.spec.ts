@@ -3,7 +3,7 @@
  * and empty states, driven by a stubbed GalleryFacade.
  */
 import { signal } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockBehavior, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
@@ -11,6 +11,7 @@ import { of } from 'rxjs';
 import { GalleryViewComponent } from './gallery-view.component';
 import { GalleryFacade } from '../../stores/gallery.facade';
 import { GalleryCardActionsService } from '../../stores/gallery-card-actions.service';
+import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
 import { GalleryCard, GalleryGroup } from '../../utils/gallery-cards.util';
 import { GroupDimension, SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 import { StSymbolProfile } from '../../services/types';
@@ -80,6 +81,7 @@ describe('GalleryViewComponent', () => {
   };
 
   let dialogMock: { open: jest.Mock };
+  let chartStoreMock: { prefetch: jest.Mock };
 
   const text = (): string => (fixture.nativeElement as HTMLElement).textContent ?? '';
   const cardEls = (): HTMLElement[] =>
@@ -121,6 +123,7 @@ describe('GalleryViewComponent', () => {
       discardStagedTicket: jest.fn(),
     };
     dialogMock = { open: jest.fn().mockReturnValue({ afterClosed: () => of(null) }) };
+    chartStoreMock = { prefetch: jest.fn() };
 
     await TestBed.configureTestingModule({
       imports: [GalleryViewComponent],
@@ -128,8 +131,12 @@ describe('GalleryViewComponent', () => {
         provideNoopAnimations(),
         { provide: GalleryFacade, useValue: facadeMock },
         { provide: GalleryCardActionsService, useValue: actionsMock },
+        { provide: GalleryCardChartStore, useValue: chartStoreMock },
         { provide: MatDialog, useValue: dialogMock },
       ],
+      // Card chart cells are @defer (on viewport) — jsdom has no
+      // IntersectionObserver; keep them in placeholder for page specs.
+      deferBlockBehavior: DeferBlockBehavior.Manual,
     }).compileComponents();
 
     fixture = TestBed.createComponent(GalleryViewComponent);
@@ -273,5 +280,19 @@ describe('GalleryViewComponent', () => {
     await fixture.whenStable();
 
     expect(actionsMock.discardStagedTicket).not.toHaveBeenCalled();
+  });
+
+  it('prefetches card-chart bars for visible symbols on idle (#756)', async () => {
+    const cards = [card('AAPL', 'buy'), card('AAPL', 'sell'), card('TSLA', 'buy')];
+    facadeMock.cards.set(cards);
+    facadeMock.visibleCards.set(cards);
+    facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards }]);
+    fixture.detectChanges();
+    // The idle scheduler falls back to setTimeout(0) under jsdom.
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    expect(chartStoreMock.prefetch).toHaveBeenCalledTimes(1);
+    const symbols = [...chartStoreMock.prefetch.mock.calls[0][0]] as string[];
+    expect(symbols.sort()).toEqual(['AAPL', 'TSLA']);
   });
 });

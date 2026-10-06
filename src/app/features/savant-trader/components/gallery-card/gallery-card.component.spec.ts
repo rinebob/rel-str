@@ -1,10 +1,12 @@
 /**
  * GalleryCardComponent spec (#754) — renders the card shell's signal details.
  */
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockBehavior, DeferBlockState, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
 import { GalleryCardComponent } from './gallery-card.component';
+import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
+import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { GalleryCard } from '../../utils/gallery-cards.util';
 import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 import { EquityOrderTicket, InstrumentType, OrderSource, OrderTicketStatus } from '../../services/order-ticket.types';
@@ -77,7 +79,26 @@ describe('GalleryCardComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [GalleryCardComponent],
-      providers: [provideNoopAnimations()],
+      providers: [
+        provideNoopAnimations(),
+        // The chart cell is @defer (on viewport) — jsdom has no
+        // IntersectionObserver, so defer blocks stay manual and the chart
+        // store is stubbed for the one test that completes the block.
+        {
+          provide: GalleryCardChartStore,
+          useValue: {
+            ensureBars: jest.fn(),
+            barsFor: () => () => undefined,
+            versionFor: () => () => '',
+            errorFor: () => () => null,
+          },
+        },
+        {
+          provide: IndicatorSeriesStore,
+          useValue: { responseFor: () => () => undefined },
+        },
+      ],
+      deferBlockBehavior: DeferBlockBehavior.Manual,
     }).compileComponents();
 
     fixture = TestBed.createComponent(GalleryCardComponent);
@@ -187,6 +208,18 @@ describe('GalleryCardComponent', () => {
     expect(reject.disabled).toBe(false); // Restore stays reachable
     expect(el.querySelector<HTMLButtonElement>('.action-trade')!.disabled).toBe(true);
     expect(el.querySelector<HTMLButtonElement>('.action-paper')!.disabled).toBe(true);
+  });
+
+  it('defers the chart cell — placeholder until the block completes (#756)', async () => {
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.chart-placeholder')).toBeTruthy();
+    expect(el.querySelector('app-gallery-card-chart')).toBeNull();
+
+    const blocks = await fixture.getDeferBlocks();
+    expect(blocks.length).toBe(1);
+    await blocks[0].render(DeferBlockState.Complete);
+
+    expect(el.querySelector('app-gallery-card-chart')).toBeTruthy();
   });
 
   it('disables the decision buttons when the run is not actionable', () => {

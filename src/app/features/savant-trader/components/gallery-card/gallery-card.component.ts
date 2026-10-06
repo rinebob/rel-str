@@ -4,10 +4,11 @@
  * Card for the gallery view (#743/#754/#755): signal details, the derived
  * status chip and ticket-status line, and the decision toolbar — labeled
  * Trade / Reject / Paper actions for one-step decisions (#759), plus the
- * chart-popup stub (#756).
+ * @defer-mounted card chart cell (#756).
  */
 import { Component, ChangeDetectionStrategy, booleanAttribute, computed, input, output } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { GalleryCardChartComponent } from '../gallery-card-chart/gallery-card-chart.component';
 import { SignalTimeframe } from '../../common/constants';
 import { OrderTicketStatus } from '../../services/order-ticket.types';
 import { GalleryCard, GalleryCardStatus, canRejectCard, canTradeCard, isSunkCard } from '../../utils/gallery-cards.util';
@@ -40,7 +41,7 @@ export type GalleryCardAction =
 @Component({
   selector: 'app-gallery-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, GalleryCardChartComponent],
   templateUrl: './gallery-card.component.html',
   styleUrl: './gallery-card.component.scss',
 })

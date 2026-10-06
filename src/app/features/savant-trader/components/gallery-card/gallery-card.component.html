@@ -34,7 +34,11 @@
     }
   </ul>
 
-  <div class="chart-placeholder">chart</div>
+  @defer (on viewport; prefetch on idle) {
+    <app-gallery-card-chart [card]="card()" />
+  } @placeholder {
+    <div class="chart-placeholder">chart</div>
+  }
 
   <div class="card-actions">
     <button class="action-btn action-trade"
