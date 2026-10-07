@@ -1,5 +1,6 @@
 export const environment = {
     production: true,
+    rhApiBaseUrl: 'https://us-central1-rel-str.cloudfunctions.net/rhApi/api/rh',
     useEmulators: false,
     firebase: {
         "apiKey":"AIzaSyDiDoun2WG0xaTuXsI722-LjW9-6YBXZwc",

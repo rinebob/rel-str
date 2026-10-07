@@ -1,5 +1,6 @@
 export const environment = {
     production: false,
+    rhApiBaseUrl: '/api/rh',
     useEmulators: false,
     firebase: {
         "apiKey":"AIzaSyDiDoun2WG0xaTuXsI722-LjW9-6YBXZwc",
