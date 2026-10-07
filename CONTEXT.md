@@ -328,3 +328,20 @@ The two row kinds inside a `app-flex-chart` instance. The **main pane** renders 
 ## Visible Window
 
 The trailing slice of loaded bars a flex-chart displays, set by `FlexChartConfig.initialZoomDays` (bar count, despite the name). Distinct from the fetched dataset — the store always loads full history; the visible window is display-only. The Y-axis auto-fits to whatever bars fall inside the visible window.
+
+## Anchored VWAP
+
+A VWAP variant that accumulates `typical price x volume` forward from a specific anchor bar instead of resetting per session. In ST the anchor bar is an Anchor Pivot's bar; the line extends to the latest bar while active. Two retracement scales (small/large) run side by side, each with a pivot-high and a pivot-low line.
+
+## Anchor Pivot
+
+A confirmed ZigZag Pivot whose bar seeds an Anchored VWAP line. Only confirmed pivots anchor - a projected (unconfirmed) pivot never does. A same-side pivot that replaces the current anchor is itself an anchor, and the replaced one was the live anchor until then. When a later same-side anchor confirms, the existing line continues through that anchor's Confirmation Bar and terminates there, and the new line starts on that same bar, so each terminated segment spans exactly one confirmation-bar-to-next-confirmation-bar interval.
+
+## Confirmation Bar
+
+The bar on which a ZigZag pivot first becomes knowable: `pivot bar + rightDepth`. An Anchored VWAP line is drawn only from its anchor's Confirmation Bar forward and never back to the pivot bar, which would show lines that could not have existed in real time. The VWAP itself still accumulates from the pivot bar.
+_Avoid_: trigger bar (the existing ZigZag trigger dots mark where the deviation threshold was crossed, a different bar)
+
+## History Window
+
+The render filter for terminated Anchored VWAP segments. `historyStart` (optional date) selects an era - segments anchored on/after it render chronologically until `maxHistory` is reached. Unset, the most recent `maxHistory` segments render (oldest pruned first) so history runs to the latest bar. Detection itself is unaffected - the window only controls which segments draw.

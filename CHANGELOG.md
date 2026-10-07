@@ -12,6 +12,8 @@
 - [On-demand Screenshot Capture] 746-844_SH-IMPL-SCREENSHOT: CaptureChartSpec.groupId (campaign root → {symbol}/{groupId}/ path level) + PositionType strategy tags (vertical-debit-spread/calendar/option-single) + group-segment sanitizer
 - [On-demand Screenshot Capture] 746-844_BE-IMPL-SCREENSHOT: captureChartSnapshot parses groupId + enum-membership positionType + grouped-path verify script (12/12 vs real bucket)
 - [On-demand Screenshot Capture] 746-844_DOCS-SCREENSHOT: #826 PRD (approved) + IMPL/TEST plans + #844 CODE-REVIEW (PASS) + #858 UAT (Complete)
+- [Trading Indicator Library] 261-869_FE-IMPL-INDICATOR-LIB: computeZigZagAnchorEvents — every ZigZag anchor incl. later-replaced ones with its confirmation bar (pivot bar + rightDepth), via one pivot walk shared with computeZigZagPivots (output unchanged; 10,240-combination equivalence check vs previous implementation)
+- [Trading Indicator Library] 261-869_DOCS-INDICATOR-LIB: ST Anchored VWAP PRD (approved) + FE/SHARED IMPL/TEST plans + #869 CODE-REVIEW (PASS) + #882 UAT (Complete) + Anchored VWAP / Anchor Pivot / Confirmation Bar / History Window glossary terms
 
 ## [2026-10-06]
 
