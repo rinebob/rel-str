@@ -8,7 +8,7 @@
 **Task:** #810  
 **Domain:** RH-MCP  
 **Type:** UAT  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-07  
 **Last Updated:** 2026-10-07  
 
@@ -94,7 +94,11 @@ After the FE change ships via the GitHub-connected App Hosting pipeline
 (requires commit + push to `prod`): log in on savanttrader.com, open the
 portfolio page. Expected: real RH data loads; devtools shows calls to
 `cloudfunctions.net/rhApi/api/rh/**` with no CORS errors.
-**Result:** BLOCKED — pending user commit + push + App Hosting rollout.
+**Result:** PASS — user-verified on the deployed site (2026-10-07): after
+push + App Hosting rollout, savanttrader.com portfolio loads real RH data
+for all 3 accounts. The only RH data path in prod is
+`RobinhoodMcpObservationService → rhApi`, so this exercises the full
+chain (function URL → CORS → Bearer token → owner authz → tool calls).
 
 ### 8. Regression — preflight ordering
 
