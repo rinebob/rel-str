@@ -40,6 +40,25 @@ export interface Pivot {
   confirmed: boolean;
 }
 
+/** One anchor produced by the ZigZag walk — a new pivot or a same-side
+ *  replacement — with the bar on which it became knowable. Unlike
+ *  `ZigZagResult.pivots` (survivors only), replaced anchors are kept: each
+ *  was the live anchor until its replacement confirmed. */
+export interface AnchorEvent {
+  /** Bar index on which the pivot became knowable: `pivotBar + rightDepth`. */
+  confirmBar: number;
+  /** Bar index of the pivot itself (`Pivot.barIndex`). */
+  pivotBar: number;
+  /** Timestamp in milliseconds of the pivot bar. */
+  time: number;
+  /** Price at the pivot (high for pivot high, low for pivot low). */
+  price: number;
+  /** True = pivot high, false = pivot low. */
+  isHigh: boolean;
+  /** True when it overwrote the previous same-direction last pivot. */
+  replaced: boolean;
+}
+
 /** Result of computeZigZagPivots. */
 export interface ZigZagResult {
   /** All confirmed pivots, in chronological order. */

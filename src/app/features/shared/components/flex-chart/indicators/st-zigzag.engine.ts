@@ -11,7 +11,7 @@
  * Import from this module: `import { computeZigZagPivots } from './st-zigzag.engine'`
  */
 
-export { computeZigZagPivots } from './st-zigzag.pivots';
+export { computeZigZagPivots, computeZigZagAnchorEvents } from './st-zigzag.pivots';
 export { computeTriggerPoints, type TriggerPoint } from './st-zigzag.triggers';
 export { calcDev } from './st-zigzag.utils';
 export { deriveSwings } from './st-zigzag.swings';
@@ -20,6 +20,7 @@ export {
   DEFAULT_CONFIG,
   type ZigZagConfig,
   type Pivot,
+  type AnchorEvent,
   type ZigZagResult,
   type Swing,
   type SwingStats,

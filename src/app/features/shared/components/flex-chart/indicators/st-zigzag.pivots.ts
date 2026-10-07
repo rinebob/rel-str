@@ -23,7 +23,7 @@
  */
 
 import type { PriceBar } from '../flex-chart.types';
-import type { ZigZagConfig, Pivot, ZigZagResult } from './st-zigzag.types';
+import type { AnchorEvent, ZigZagConfig, Pivot, ZigZagResult } from './st-zigzag.types';
 import { DEFAULT_CONFIG } from './st-zigzag.types';
 import { isFiniteNum, calcDev } from './st-zigzag.utils';
 
@@ -77,44 +77,46 @@ function isPivotPoint(
  * Process a candidate pivot: either create a new pivot (reversal) or
  * extend the last pivot (same direction, more extreme).
  *
- * @returns true if a new pivot was added or the last pivot was updated
+ * @returns `'added'` for a new pivot, `'replaced'` when the last pivot was
+ *          overwritten by a more extreme same-direction one, `null` when
+ *          the candidate was rejected
  */
 function processPivot(
   candidate: Pivot,
   pivots: Pivot[],
   lastPivot: Pivot | null,
   devThreshold: number,
-): boolean {
+): 'added' | 'replaced' | null {
   if (!lastPivot) {
     pivots.push(candidate);
-    return true;
+    return 'added';
   }
 
   if (lastPivot.isHigh === candidate.isHigh) {
     // Same direction — check if candidate is more extreme
     if (candidate.isHigh && candidate.price > lastPivot.price) {
       pivots[pivots.length - 1] = candidate;
-      return true;
+      return 'replaced';
     }
     if (!candidate.isHigh && candidate.price < lastPivot.price) {
       pivots[pivots.length - 1] = candidate;
-      return true;
+      return 'replaced';
     }
-    return false;
+    return null;
   }
 
   // Opposite direction — check deviation threshold
   const dev = calcDev(lastPivot.price, candidate.price);
-  if (Number.isNaN(dev)) return false;
+  if (Number.isNaN(dev)) return null;
   if (
     (!lastPivot.isHigh && dev >= devThreshold) ||
     (lastPivot.isHigh && dev <= -devThreshold)
   ) {
     pivots.push(candidate);
-    return true;
+    return 'added';
   }
 
-  return false;
+  return null;
 }
 
 // =============================================================================
@@ -297,54 +299,101 @@ export function computeZigZagPivots(
 ): ZigZagResult {
   const leftDepth = Math.max(2, config.leftDepth);
   const rightDepth = Math.max(2, config.rightDepth);
-  const devThreshold = config.devThreshold;
 
   if (bars.length === 0) {
     return { pivots: [] };
   }
 
+  const { pivots, lastPivot } = walkPivots(bars, config);
+
+  // Projection: find the developing pivot after the last confirmed pivot
+  let projection: Pivot | undefined;
+  if (config.projectionPivots && lastPivot) {
+    projection = findProjectionPivot(bars, lastPivot, leftDepth, rightDepth, config.devThreshold);
+  }
+
+  return { pivots, projection };
+}
+
+/**
+ * Compute every anchor the ZigZag walk produces, in walk order — new pivots
+ * and same-side replacements alike — each with the bar on which it became
+ * knowable (`confirmBar = pivotBar + rightDepth`).
+ *
+ * Runs the same walk as `computeZigZagPivots`, so the two can never disagree.
+ * The surviving pivots are what is left after each `replaced` event removes
+ * its predecessor. Projected pivots never produce events.
+ *
+ * @param bars - OHLCV bars
+ * @param config - ZigZag configuration
+ * @returns Anchor events in walk order (non-decreasing `confirmBar`)
+ */
+export function computeZigZagAnchorEvents(
+  bars: PriceBar[],
+  config: ZigZagConfig = DEFAULT_CONFIG,
+): AnchorEvent[] {
+  const events: AnchorEvent[] = [];
+  walkPivots(bars, config, (event) => events.push(event));
+  return events;
+}
+
+// =============================================================================
+// SHARED WALK
+// =============================================================================
+
+/**
+ * The single pivot walk behind both public computations. Walks bars
+ * sequentially; a pivot at bar `i` can only be confirmed once `rightDepth`
+ * bars have passed (`i + rightDepth`). `onAnchor` is called for every
+ * candidate that registers — a new pivot or a same-side replacement.
+ */
+function walkPivots(
+  bars: PriceBar[],
+  config: ZigZagConfig,
+  onAnchor?: (event: AnchorEvent) => void,
+): { pivots: Pivot[]; lastPivot: Pivot | null } {
+  const leftDepth = Math.max(2, config.leftDepth);
+  const rightDepth = Math.max(2, config.rightDepth);
+
   const pivots: Pivot[] = [];
   let lastPivot: Pivot | null = null;
-  let foundHighOnThisBar = false;
 
-  // Walk through bars. A pivot at bar i can only be confirmed after
-  // rightDepth bars have passed (i + rightDepth).
+  const register = (candidate: Pivot): boolean => {
+    const outcome = processPivot(candidate, pivots, lastPivot, config.devThreshold);
+    if (!outcome) return false;
+    lastPivot = pivots[pivots.length - 1];
+    onAnchor?.({
+      confirmBar: candidate.barIndex + rightDepth,
+      pivotBar: candidate.barIndex,
+      time: candidate.time,
+      price: candidate.price,
+      isHigh: candidate.isHigh,
+      replaced: outcome === 'replaced',
+    });
+    return true;
+  };
+
   for (let i = 0; i < bars.length; i++) {
     if (i + rightDepth >= bars.length) break;
 
-    foundHighOnThisBar = false;
+    let foundHighOnThisBar = false;
 
     // Try high pivot
     if (isPivotPoint(bars, i, leftDepth, rightDepth, true)) {
-      const price = bars[i].high;
-      const time = bars[i].x.getTime();
-      const candidate: Pivot = { barIndex: i, time, price, isHigh: true, confirmed: true };
-
-      if (processPivot(candidate, pivots, lastPivot, devThreshold)) {
-        lastPivot = pivots[pivots.length - 1];
-        foundHighOnThisBar = true;
-      }
+      foundHighOnThisBar = register({
+        barIndex: i, time: bars[i].x.getTime(), price: bars[i].high, isHigh: true, confirmed: true,
+      });
     }
 
     // Try low pivot
     if (config.allowZigZagOnOneBar || !foundHighOnThisBar) {
       if (isPivotPoint(bars, i, leftDepth, rightDepth, false)) {
-        const price = bars[i].low;
-        const time = bars[i].x.getTime();
-        const candidate: Pivot = { barIndex: i, time, price, isHigh: false, confirmed: true };
-
-        if (processPivot(candidate, pivots, lastPivot, devThreshold)) {
-          lastPivot = pivots[pivots.length - 1];
-        }
+        register({
+          barIndex: i, time: bars[i].x.getTime(), price: bars[i].low, isHigh: false, confirmed: true,
+        });
       }
     }
   }
 
-  // Projection: find the developing pivot after the last confirmed pivot
-  let projection: Pivot | undefined;
-  if (config.projectionPivots && lastPivot) {
-    projection = findProjectionPivot(bars, lastPivot, leftDepth, rightDepth, devThreshold);
-  }
-
-  return { pivots, projection };
+  return { pivots, lastPivot };
 }
