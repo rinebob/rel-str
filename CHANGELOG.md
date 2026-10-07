@@ -18,6 +18,8 @@
 - [Trading Indicator Library] 261-869_DOCS-INDICATOR-LIB: ST Anchored VWAP PRD (approved) + FE/SHARED IMPL/TEST plans + #869 CODE-REVIEW (PASS) + #882 UAT (Complete) + Anchored VWAP / Anchor Pivot / Confirmation Bar / History Window glossary terms
 - [Trading Indicator Library] 261-876_BE-IMPL-INDICATOR-LIB: computeStTriggerBands engine (body-based length-3 Donchian bands + long/short pullback, pullback-state and breakout flags) with 21 unit tests, SPY/AAPL real-data verify script (18/18) and TradingView export parity script (490 AAPL daily bars, bands + 4 flags identical)
 - [Trading Indicator Library] 261-876_DOCS-INDICATOR-LIB: ST Trigger Bands PRD (approved, indicator-only) + BE/FE IMPL/TEST plans + #876 CODE-REVIEW (PASS) + #881 UAT (Complete)
+- [On-demand Screenshot Capture] 746-845_BE-IMPL-SCREENSHOT: captureLifecycleEvent intake — transactional pending→captured ledger on the carrier doc's capturedEvents map, await-capped (10s) executeCaptureChart, st-screenshots index at {groupId}-{refId}-{event}; failed markers retryable, nothing propagates to the order path
+- [On-demand Screenshot Capture] 746-845_DOCS-SCREENSHOT: #845 CODE-REVIEW (PASS — undefined-groupId index write fixed in-loop) + #883 UAT (Complete)
 
 ## [2026-10-06]
 
