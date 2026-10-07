@@ -85,6 +85,38 @@ describe('buildScreenshotStoragePath', () => {
     const later = buildScreenshotStoragePath({ ...base, time: '143022' });
     expect(earlier).not.toBe(later);
   });
+
+  it('groups under {SYMBOL}/{groupId}/ when a groupId is supplied', () => {
+    expect(buildScreenshotStoragePath({ ...base, groupId: 'cohort-260915-aapl-01' })).toBe(
+      'st-trade-screenshots/GOOG/cohort-260915-aapl-01/2026-10-03-143022-order-filled-stock-daily.png',
+    );
+  });
+
+  it('sanitizes groupId — keeps alphanumerics/dots/hyphens, strips the rest', () => {
+    expect(buildScreenshotStoragePath({ ...base, groupId: 'COHORT_ABC/1' })).toBe(
+      'st-trade-screenshots/GOOG/cohortabc1/2026-10-03-143022-order-filled-stock-daily.png',
+    );
+    expect(buildScreenshotStoragePath({ ...base, groupId: 'grp.V2-1' })).toBe(
+      'st-trade-screenshots/GOOG/grp.v2-1/2026-10-03-143022-order-filled-stock-daily.png',
+    );
+  });
+
+  it.each([['all-unsafe', '///'], ['dots only', '..'], ['hyphens+dots', '-.-'], ['empty', '']])(
+    'omits the group directory when groupId has no alphanumeric: %s',
+    (_label, groupId) => {
+      expect(buildScreenshotStoragePath({ ...base, groupId })).toBe(
+        'st-trade-screenshots/GOOG/2026-10-03-143022-order-filled-stock-daily.png',
+      );
+    },
+  );
+
+  it('groupId folder and refId segment coexist independently', () => {
+    expect(
+      buildScreenshotStoragePath({ ...base, groupId: 'cohort-1', refId: 'pos-9' }),
+    ).toBe(
+      'st-trade-screenshots/GOOG/cohort-1/2026-10-03-143022-order-filled-stock-pos9-daily.png',
+    );
+  });
 });
 
 describe('buildCaptureChartResult', () => {

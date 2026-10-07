@@ -29,6 +29,7 @@ const PATH_SAFE_PATTERN = /[^a-zA-Z0-9.]/g;
 export const SCREENSHOT_STORAGE_PREFIX = 'st-trade-screenshots';
 
 export const SCREENSHOT_REF_ID_MAX_LENGTH = 6;
+export const SCREENSHOT_GROUP_ID_MAX_LENGTH = 64;
 
 export type ScreenshotFileExt = 'svg' | 'png';
 
@@ -45,6 +46,12 @@ export interface ScreenshotPathSpec {
   /** Optional caller key (order id, position id, …). Sanitized to
    *  alphanumerics and truncated to {@link SCREENSHOT_REF_ID_MAX_LENGTH}. */
   refId?: string;
+  /** Optional campaign-grouping id (Position Group / cohort / strategy
+   *  position). Becomes a directory level `{symbol}/{groupId}/`; sanitized to
+   *  alphanumerics/dots/hyphens, lowercased, truncated to
+   *  {@link SCREENSHOT_GROUP_ID_MAX_LENGTH}. Omitted when it sanitizes to
+   *  nothing. */
+  groupId?: string;
 }
 
 /** refId → filename segment: alphanumerics/dots only, lowercased, max 6
@@ -61,11 +68,23 @@ export function symbolPathSegment(symbol: string): string {
   return symbol.replace(PATH_SAFE_PATTERN, '').toUpperCase();
 }
 
+/** groupId → directory segment: alphanumerics/dots/hyphens, lowercased —
+ *  position/cohort ids are hyphenated, so unlike {@link sanitizeSegment}
+ *  hyphens survive here. Must retain at least one alphanumeric — a bare
+ *  `'..'`/`'-'`/`'.'` groupId would emit a traversal-looking directory that
+ *  defeats prefix listing. Empty when nothing survives (no `//` in paths). */
+function sanitizeGroupSegment(value: string): string {
+  const seg = value.replace(/[^a-zA-Z0-9.-]/g, '').toLowerCase().slice(0, SCREENSHOT_GROUP_ID_MAX_LENGTH);
+  return /[a-z0-9]/.test(seg) ? seg : '';
+}
+
 /**
- * `st-trade-screenshots/{SYMBOL}/{date}-{time}-{event}-{positionType}[-{ref6}]-{interval}.{ext}`
- * e.g. `st-trade-screenshots/GOOG/2026-10-03-143022-order-filled-stock-ord123-daily.png`.
+ * `st-trade-screenshots/{SYMBOL}/[{groupId}/]{date}-{time}-{event}-{positionType}[-{ref6}]-{interval}.{ext}`
+ * e.g. `st-trade-screenshots/GOOG/2026-10-03-143022-order-filled-stock-ord123-daily.png`
+ * or `st-trade-screenshots/GOOG/cohort-1/2026-10-03-143022-order-filled-stock-ord123-daily.png`.
  * The time segment makes same-day collisions impossible; refId adds a
- * caller-supplied lookup key when present.
+ * caller-supplied lookup key when present; groupId groups a campaign's
+ * captures under one prefix for enumeration.
  */
 export function buildScreenshotStoragePath(spec: ScreenshotPathSpec): string {
   const symbol = symbolPathSegment(spec.symbol);
@@ -74,7 +93,9 @@ export function buildScreenshotStoragePath(spec: ScreenshotPathSpec): string {
   }
   const ref = spec.refId ? sanitizeSegment(spec.refId) : '';
   const refSegment = ref ? `-${ref}` : '';
-  return `${SCREENSHOT_STORAGE_PREFIX}/${symbol}/${spec.date}-${spec.time}-${spec.event}-${spec.positionType}${refSegment}-${spec.interval}.${spec.ext}`;
+  const group = spec.groupId ? sanitizeGroupSegment(spec.groupId) : '';
+  const groupSegment = group ? `${group}/` : '';
+  return `${SCREENSHOT_STORAGE_PREFIX}/${symbol}/${groupSegment}${spec.date}-${spec.time}-${spec.event}-${spec.positionType}${refSegment}-${spec.interval}.${spec.ext}`;
 }
 
 // ── Result assembly ────────────────────────────────────────────────────────

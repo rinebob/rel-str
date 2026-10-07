@@ -47,12 +47,15 @@ export enum CaptureEvent {
   MANUAL = 'manual',
 }
 
-/** Instrument class the chart depicts. `stock` is the only supported value in
- *  this thread; option-position types (verticals, calendars, …) are reserved
- *  for the basket-orders follow-on Thread — the field exists so that contract
- *  does not break when they arrive. */
+/** Instrument class the *position* represents — the chart itself is always
+ *  the underlying symbol; this tag rides in the storage path so option-leg
+ *  and spread captures are distinguishable from share captures without a
+ *  separate rendering surface. Values are path-safe (lowercase, hyphenated). */
 export enum PositionType {
   STOCK = 'stock',
+  VERTICAL_DEBIT_SPREAD = 'vertical-debit-spread',
+  CALENDAR = 'calendar',
+  OPTION_SINGLE = 'option-single',
 }
 
 // ── Spec ───────────────────────────────────────────────────────────────────
@@ -104,6 +107,11 @@ export interface CaptureChartSpec {
   event: CaptureEvent;
   positionType: PositionType;
   refId?: string;
+  /** Campaign-level grouping id (Position Group / cohort / strategy position)
+   *  — becomes a directory level under `{symbol}/` in the storage path so all
+   *  captures for one group list under a single prefix. Absent for ad-hoc
+   *  captures with no grouping context. */
+  groupId?: string;
   /** Rendered image dimensions in px — the dev page's card-layout playground
    *  passes narrow widths to explore squished variants. */
   width?: number;
