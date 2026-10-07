@@ -168,6 +168,55 @@ export interface CaptureChartSnapshotRequest {
   auth?: { uid: string } | null;
 }
 
+/**
+ * Capture pipeline minus auth + wire validation — for server-internal callers
+ * (the lifecycle intake in `lifecycle-capture.ts`) that hold an already-valid
+ * `CaptureChartSpec`. Throws raw errors; `handleCaptureChartSnapshot` owns the
+ * HttpsError mapping for the callable surface.
+ */
+export async function executeCaptureChart(
+  spec: CaptureChartSpec,
+  deps: CaptureChartSnapshotDeps,
+): Promise<CaptureChartResult> {
+  const now = deps.now();
+  const { date, time } = captureTimestamp(now);
+
+  const charts = await deps.assembleChartModels(spec, now);
+
+  const { symbol, event, positionType, refId, groupId } = spec;
+  // renderOnly defaults to true — storage writes are opt-in so dev-page
+  // playground/zoom calls don't litter the bucket (#771).
+  const store = spec.renderOnly === false;
+  const artifacts: CaptureArtifact[] = await Promise.all(
+    charts.map(async (chart) => {
+      const svg = deps.renderChartSvg(chart.model);
+      if (!store) return { interval: chart.interval, svg };
+      const png = deps.rasterizeSvgToPng(svg);
+      const pathSpec = {
+        symbol,
+        event,
+        positionType,
+        interval: chart.interval,
+        date,
+        time,
+        refId,
+        groupId,
+      };
+      const svgPath = buildScreenshotStoragePath({ ...pathSpec, ext: 'svg' });
+      const pngPath = buildScreenshotStoragePath({ ...pathSpec, ext: 'png' });
+      await Promise.all([
+        deps.writeArtifact(svgPath, svg, SVG_CONTENT_TYPE),
+        deps.writeArtifact(pngPath, png, PNG_CONTENT_TYPE),
+      ]);
+      return { interval: chart.interval, svg, svgPath, pngPath };
+    }),
+  );
+
+  const result = buildCaptureChartResult(artifacts);
+  logger.info('capture_chart_snapshot', { symbol, paths: result.paths });
+  return result;
+}
+
 export async function handleCaptureChartSnapshot(
   request: CaptureChartSnapshotRequest,
   deps: CaptureChartSnapshotDeps,
@@ -180,44 +229,7 @@ export async function handleCaptureChartSnapshot(
       throw new HttpsError('unauthenticated', 'Must be signed in to capture a chart snapshot');
     }
     spec = parseCaptureChartSpec(request.data);
-    const now = deps.now();
-    const { date, time } = captureTimestamp(now);
-
-    const charts = await deps.assembleChartModels(spec, now);
-
-    // Destructured so the async map closes over consts, not the hoisted let.
-    const { symbol, event, positionType, refId, groupId } = spec;
-    // renderOnly defaults to true — storage writes are opt-in so dev-page
-    // playground/zoom calls don't litter the bucket (#771).
-    const store = spec.renderOnly === false;
-    const artifacts: CaptureArtifact[] = await Promise.all(
-      charts.map(async (chart) => {
-        const svg = deps.renderChartSvg(chart.model);
-        if (!store) return { interval: chart.interval, svg };
-        const png = deps.rasterizeSvgToPng(svg);
-        const pathSpec = {
-          symbol,
-          event,
-          positionType,
-          interval: chart.interval,
-          date,
-          time,
-          refId,
-          groupId,
-        };
-        const svgPath = buildScreenshotStoragePath({ ...pathSpec, ext: 'svg' });
-        const pngPath = buildScreenshotStoragePath({ ...pathSpec, ext: 'png' });
-        await Promise.all([
-          deps.writeArtifact(svgPath, svg, SVG_CONTENT_TYPE),
-          deps.writeArtifact(pngPath, png, PNG_CONTENT_TYPE),
-        ]);
-        return { interval: chart.interval, svg, svgPath, pngPath };
-      }),
-    );
-
-    const result = buildCaptureChartResult(artifacts);
-    logger.info('capture_chart_snapshot', { symbol, paths: result.paths });
-    return result;
+    return await executeCaptureChart(spec, deps);
   } catch (err) {
     if (err instanceof HttpsError) throw err;
     if (err instanceof InsufficientBarsError) {

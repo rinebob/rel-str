@@ -51,6 +51,13 @@ export const ST_SIGNAL_HISTORY_SUBCOLLECTION = 'signal-history';
 /** Order intents collection (new). */
 export const ST_ORDER_INTENTS_COLLECTION = 'savant-trader/data/order-intents';
 
+/**
+ * Screenshot-capture index — one flat doc per lifecycle capture
+ * (`{groupId}-{refId}-{event}`), backend-written, FE read-only for the
+ * screenshot library. Flat root per the collection-prefix convention.
+ */
+export const ST_SCREENSHOTS_COLLECTION = 'st-screenshots';
+
 /** Trading config collection (new). */
 export const ST_TRADING_CONFIG_COLLECTION = 'savant-trader/data/trading-config';
 

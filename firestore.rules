@@ -307,6 +307,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Screenshot-capture index — backend-written manifest index for
+    // st-trade-screenshots artifacts; FE read-only for the library view.
+    match /st-screenshots/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // Spread runs — backend-written run docs, FE read-only
     match /spread-runs/{runId} {
       allow read: if request.auth != null;
