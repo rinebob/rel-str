@@ -6,6 +6,9 @@
 ### Added
 - [Navigation and Workflows] 625-852_FE-IMPL-WORKFLOWS: PAGE_INFO page-identity registry (title + icon, Record<AppRoutes> exhaustive) + resolvePageInfo longest-prefix/normalized lookup + Route.title wired on all 38 leaf routes — tab titles flow from the registry via TitleStrategy
 - [Navigation and Workflows] 625-852_DOCS-WORKFLOWS: #824 PRD + #837 IMPL/TEST + #852 review (PASS, 2 rounds) + #859 UAT (Complete — tab titles user-verified on dev server)
+- [Robinhood MCP] 657-810_BE-IMPL-RH-MCP: rhApi CORS layer — shared ST_ALLOWED_ORIGINS allowlist + cors middleware w/ maxAge 86400, preflights answer before the auth/KMS handler build
+- [Robinhood MCP] 657-810_FE-IMPL-RH-MCP: env-driven rhApiBaseUrl (prod calls the cloudfunctions.net URL — App Hosting has no rewrite support) + Firebase ID-token attach on listTools/executeTool/reauthenticate
+- [Robinhood MCP] 657-810_DOCS-RH-MCP: #810 review (PASS, 3 rounds) + #857 UAT (live CORS matrix verified; prod-portfolio scenario pending post-push smoke)
 
 ## [2026-10-06]
 
