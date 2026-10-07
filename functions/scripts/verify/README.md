@@ -39,6 +39,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #767 | `screenshot-capture-767-assemble.ts` | symbol-data bars → indicator series → render model → SVG (real-data end-to-end) | [screenshot-capture-767.md](screenshot-capture-767.md) |
 | #768 | `screenshot-capture-768-callable.ts` | callable handler → assemble → render → real bucket write + error contract | [screenshot-capture-768.md](screenshot-capture-768.md) |
 | #769 | `screenshot-capture-769-rasterize.ts` | PNG sibling per SVG — resvg rasterize → bucket PNG (signature/dims/contentType) | [screenshot-capture-769.md](screenshot-capture-769.md) |
+| #844 | `screenshot-capture-844-contracts.ts` | `groupId` → `{symbol}/{group}/` path level + strategy `positionType` tags → real bucket write | [screenshot-capture-844.md](screenshot-capture-844.md) |
 
 ## Order across tasks
 
@@ -60,3 +61,4 @@ npx tsx scripts/verify/{script-name}.ts
 16. **#767** — `screenshot-capture-767-assemble.ts` (data assembly → model → SVG)
 17. **#768** — `screenshot-capture-768-callable.ts` (callable → bucket write + error contract)
 18. **#769** — `screenshot-capture-769-rasterize.ts` (PNG rasterization → bucket sibling)
+19. **#844** — `screenshot-capture-844-contracts.ts` (grouped path + position types → bucket write)

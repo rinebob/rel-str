@@ -56,6 +56,7 @@ const PNG_CONTENT_TYPE = 'image/png';
 // ── Spec validation ─────────────────────────────────────────────────────────
 
 const CAPTURE_EVENTS = new Set<string>(Object.values(CaptureEvent));
+const POSITION_TYPES = new Set<string>(Object.values(PositionType));
 const CAPTURE_INTERVALS = new Set<string>([ChartInterval.DAILY, ChartInterval.WEEKLY]);
 
 const fail = (message: string): never => {
@@ -84,8 +85,8 @@ export function parseCaptureChartSpec(data: unknown): CaptureChartSpec {
   if (typeof event !== 'string' || !CAPTURE_EVENTS.has(event)) {
     fail(`event must be one of: ${[...CAPTURE_EVENTS].join(', ')}`);
   }
-  if (d.positionType !== PositionType.STOCK) {
-    fail(`positionType '${PositionType.STOCK}' is the only supported value`);
+  if (typeof d.positionType !== 'string' || !POSITION_TYPES.has(d.positionType)) {
+    fail(`positionType must be one of: ${[...POSITION_TYPES].join(', ')}`);
   }
 
   let intervals: CaptureInterval[] | undefined;
@@ -122,6 +123,7 @@ export function parseCaptureChartSpec(data: unknown): CaptureChartSpec {
   const height = dimension('height');
 
   if (d.refId !== undefined && typeof d.refId !== 'string') fail('refId must be a string');
+  if (d.groupId !== undefined && typeof d.groupId !== 'string') fail('groupId must be a string');
   if (d.renderOnly !== undefined && typeof d.renderOnly !== 'boolean') {
     fail('renderOnly must be a boolean');
   }
@@ -129,9 +131,10 @@ export function parseCaptureChartSpec(data: unknown): CaptureChartSpec {
   return {
     symbol,
     event: d.event as CaptureEvent,
-    positionType: PositionType.STOCK,
+    positionType: d.positionType as PositionType,
     ...(intervals ? { intervals } : {}),
     ...(d.refId !== undefined ? { refId: d.refId as string } : {}),
+    ...(d.groupId !== undefined ? { groupId: d.groupId as string } : {}),
     ...(width !== undefined ? { width } : {}),
     ...(height !== undefined ? { height } : {}),
     ...(visibleBars !== undefined ? { visibleBars } : {}),
@@ -183,7 +186,7 @@ export async function handleCaptureChartSnapshot(
     const charts = await deps.assembleChartModels(spec, now);
 
     // Destructured so the async map closes over consts, not the hoisted let.
-    const { symbol, event, positionType, refId } = spec;
+    const { symbol, event, positionType, refId, groupId } = spec;
     // renderOnly defaults to true — storage writes are opt-in so dev-page
     // playground/zoom calls don't litter the bucket (#771).
     const store = spec.renderOnly === false;
@@ -200,6 +203,7 @@ export async function handleCaptureChartSnapshot(
           date,
           time,
           refId,
+          groupId,
         };
         const svgPath = buildScreenshotStoragePath({ ...pathSpec, ext: 'svg' });
         const pngPath = buildScreenshotStoragePath({ ...pathSpec, ext: 'png' });

@@ -151,8 +151,19 @@ describe('parseCaptureChartSpec', () => {
   });
 
   it.each([
+    ['stock', PositionType.STOCK],
+    ['vertical-debit-spread', PositionType.VERTICAL_DEBIT_SPREAD],
+    ['calendar', PositionType.CALENDAR],
+    ['option-single', PositionType.OPTION_SINGLE],
+  ])('accepts positionType %s', (_label, positionType) => {
+    expect(
+      parseCaptureChartSpec({ ...VALID_SPEC, positionType }).positionType,
+    ).toBe(positionType);
+  });
+
+  it.each([
     ['missing', undefined],
-    ['option type reserved for later', 'vertical'],
+    ['unknown value', 'vertical'],
     ['non-string', 3],
   ])('rejects positionType %s', (_label, positionType) => {
     expect(
@@ -205,6 +216,17 @@ describe('parseCaptureChartSpec', () => {
   it('rejects non-string refId', () => {
     expect(
       thrownCode(() => parseCaptureChartSpec({ ...VALID_SPEC, refId: 123 })),
+    ).toBe('invalid-argument');
+  });
+
+  it('accepts groupId and echoes it on the spec', () => {
+    const spec = parseCaptureChartSpec({ ...VALID_SPEC, groupId: 'cohort-1' });
+    expect(spec.groupId).toBe('cohort-1');
+  });
+
+  it('rejects non-string groupId', () => {
+    expect(
+      thrownCode(() => parseCaptureChartSpec({ ...VALID_SPEC, groupId: 7 })),
     ).toBe('invalid-argument');
   });
 
@@ -334,6 +356,17 @@ describe('handleCaptureChartSnapshot', () => {
     expect(writes).toHaveLength(8);
     expect(writes[0].path).toBe(writes[4].path);
     expect(writes[1].path).toBe(writes[5].path);
+  });
+
+  it('nests artifacts under the groupId directory when supplied', async () => {
+    const { deps } = makeDeps();
+    const result = await handleCaptureChartSnapshot(
+      req({ ...VALID_SPEC, groupId: 'cohort-260915-goog-01', refId: 'pos-9', renderOnly: false }),
+      deps,
+    );
+    expect(result.artifacts[0].svgPath).toBe(
+      `${SCREENSHOT_STORAGE_PREFIX}/GOOG/cohort-260915-goog-01/2026-10-05-143022-order-placed-stock-pos9-daily.svg`,
+    );
   });
 
   it('omits the refId segment when not supplied', async () => {
