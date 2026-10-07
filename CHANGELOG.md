@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [2026-10-07]
+
+### Added
+- [Navigation and Workflows] 625-852_FE-IMPL-WORKFLOWS: PAGE_INFO page-identity registry (title + icon, Record<AppRoutes> exhaustive) + resolvePageInfo longest-prefix/normalized lookup + Route.title wired on all 38 leaf routes — tab titles flow from the registry via TitleStrategy
+- [Navigation and Workflows] 625-852_DOCS-WORKFLOWS: #824 PRD + #837 IMPL/TEST + #852 review (PASS, 2 rounds) + #859 UAT (Complete — tab titles user-verified on dev server)
+
 ## [2026-10-06]
 
 ### Added
@@ -425,7 +431,7 @@
 - [Option Chain Pct Change Grid] 326-423_DOCS-OPTIONS: Add Task #423 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-422_FE-IMPL-OPTIONS: Swing-compare state + date-list utilities (checkpoint)
 - [Option Chain Pct Change Grid] 326-422_DOCS-OPTIONS: Add Task #422 code review (PASS) (checkpoint)
-- [Option Chain Pct Change Grid] 326-421_FE-IMPL-OPTIONS: Review fixes � shared signal cache, stale-fetch cancellation, lifecycle guards (checkpoint)
+- [Option Chain Pct Change Grid] 326-421_FE-IMPL-OPTIONS: Review fixes — shared signal cache, stale-fetch cancellation, lifecycle guards (checkpoint)
 - [Option Chain Pct Change Grid] 326-421_DOCS-OPTIONS: Add Task #421 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-421_FE-IMPL-OPTIONS: Load saved swing sets + signal history into the store (checkpoint)
 - [Option Chain Pct Change Grid] 326-418_DOCS-OPTIONS: Add PRD, IMPL, and TEST docs for pivot-signal selector (checkpoint)
