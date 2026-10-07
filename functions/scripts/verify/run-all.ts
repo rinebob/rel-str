@@ -34,6 +34,7 @@ const scripts = [
   'screenshot-capture-768-callable.ts',
   'screenshot-capture-769-rasterize.ts',
   'screenshot-capture-844-contracts.ts',
+  'indicator-lib-876-engine.ts',
 ];
 
 let passed = 0;
