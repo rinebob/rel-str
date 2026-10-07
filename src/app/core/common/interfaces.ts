@@ -77,6 +77,14 @@ export interface NavSection {
     items: NavItem[];
 }
 
+/** Page identity for the global header (#823) — title text + Material
+ *  Icons ligature name (the font index.html loads; not Material Symbols).
+ *  Keyed by AppRoutes in PAGE_INFO. */
+export interface PageInfo {
+    title: string;
+    icon: string;
+}
+
 export interface Equity {
     symbol: string;
     company?: string;

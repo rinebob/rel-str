@@ -1,5 +1,5 @@
 /** @topic #108 — Options Position Strategy Engine */
-import { NavItem, NavSection } from "./interfaces";
+import { AppRoutes, NavItem, NavSection, PageInfo } from "./interfaces";
 
 /** Workflow-ordered sidenav sections — the Journey Navigation data
  *  model (#660/#700). Groups match the PRD Sidenav Groups table; the
@@ -80,6 +80,74 @@ export const SIGNED_OUT_SECTIONS: NavSection[] = [
         ],
     },
 ];
+
+/** Page identity registry — the single source for what the global header
+ *  shows per route (#823). `icon` is a Material Icons ligature name — the
+ *  font loaded by index.html (legacy set, not Material Symbols).
+ *  `Record<AppRoutes, …>` makes coverage exhaustive
+ *  at compile time: adding an AppRoutes member without a PAGE_INFO entry
+ *  fails the build; core-routes.spec additionally pins non-empty fields.
+ *  The header resolves the joined route path against these keys by
+ *  longest-prefix match, so nested children inherit ancestor identity.
+ *  Redirect-only members (CHART, LOGOUT) carry dormant entries — their
+ *  targets' identity wins on arrival. */
+export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
+    [AppRoutes.LOGIN]:                        { title: 'Log in',                     icon: 'login' },
+    [AppRoutes.LOGOUT]:                       { title: 'Log out',                    icon: 'logout' },
+    [AppRoutes.DASHBOARD]:                    { title: 'Dashboard',                  icon: 'dashboard' },
+    [AppRoutes.DASHBOARD_V2]:                 { title: 'Dashboard V2',               icon: 'dashboard' },
+    [AppRoutes.DASHBOARD_V3]:                 { title: 'Dashboard V3',               icon: 'dashboard' },
+    [AppRoutes.DOCUMENTATION]:                { title: 'Documentation',              icon: 'description' },
+    [AppRoutes.CONTACT]:                      { title: 'Contact',                    icon: 'mail' },
+    [AppRoutes.SIGNUP]:                       { title: 'Sign up',                    icon: 'person_add' },
+    [AppRoutes.CHART]:                        { title: 'Chart',                      icon: 'candlestick_chart' },
+    [AppRoutes.SYNC_CHART]:                   { title: 'Sync Chart',                 icon: 'candlestick_chart' },
+    [AppRoutes.RS_CHART]:                     { title: 'RS Chart',                   icon: 'candlestick_chart' },
+    [AppRoutes.HISTORY]:                      { title: 'History',                    icon: 'history' },
+    [AppRoutes.RS_TABLE]:                     { title: 'RS Table',                   icon: 'table' },
+    [AppRoutes.POSITIONS_VIEW]:               { title: 'Positions',                  icon: 'inventory_2' },
+    [AppRoutes.TRADE_JOURNAL]:                { title: 'Trade Journal',              icon: 'menu_book' },
+    [AppRoutes.HEATMAP_VIEW]:                 { title: 'Heatmap',                    icon: 'grid_view' },
+    [AppRoutes.HEATMAP_CHART]:                { title: 'Heatmap Chart',              icon: 'grid_on' },
+    [AppRoutes.DECISION_BOARD]:               { title: 'Decision Board',             icon: 'view_kanban' },
+    [AppRoutes.RUN_DASHBOARD]:                { title: 'Run Dashboard',              icon: 'view_list' },
+    [AppRoutes.CHART_REVIEW]:                 { title: 'Chart Review',               icon: 'image_search' },
+    [AppRoutes.SIGNAL_REVIEW]:                { title: 'Signal Review',              icon: 'rate_review' },
+    [AppRoutes.SIGNAL_ORDER]:                 { title: 'Signal Order',               icon: 'bolt' },
+    [AppRoutes.SIGNAL_ACTION_REPORT]:         { title: 'Triage Report',              icon: 'fact_check' },
+    [AppRoutes.RH_ACCOUNT_INQUIRY]:           { title: 'Account Inquiry',            icon: 'account_balance' },
+    [AppRoutes.STRATEGY_BACKTEST]:            { title: 'Strategy Backtest',          icon: 'science' },
+    [AppRoutes.SIGNAL_HISTORY]:               { title: 'Signal History',             icon: 'manage_history' },
+    [AppRoutes.OPTION_CHART]:                 { title: 'Option Chart',               icon: 'stacked_line_chart' },
+    [AppRoutes.SPREAD_CHART]:                 { title: 'Spread Chart',               icon: 'show_chart' },
+    [AppRoutes.OPTIONS_STRATEGY_DASHBOARD]:   { title: 'Options Strategy Dashboard', icon: 'analytics' },
+    [AppRoutes.PAPER_TRADING]:                { title: 'Paper Trading',              icon: 'receipt_long' },
+    [AppRoutes.STRATEGY_BUILDER]:             { title: 'Strategy Builder',           icon: 'build' },
+    [AppRoutes.PORTFOLIO_DASHBOARD]:          { title: 'Portfolio Dashboard',        icon: 'account_balance_wallet' },
+    [AppRoutes.PORTFOLIO_ALLOCATION]:         { title: 'Portfolio Allocation',       icon: 'pie_chart' },
+    [AppRoutes.OPTION_CHAIN_PCT_CHANGE]:      { title: 'Option Chain % Change',      icon: 'percent' },
+    [AppRoutes.OPTION_CHAIN]:                 { title: 'Option Chain',               icon: 'link' },
+    [AppRoutes.SWING_ANALYSIS]:               { title: 'Swing Analysis',             icon: 'query_stats' },
+    [AppRoutes.FLEX_CHART_SANDBOX]:           { title: 'Flex Chart Sandbox',         icon: 'lab_profile' },
+    [AppRoutes.DEV_GALLERY]:                  { title: 'Gallery (Dev)',              icon: 'photo_library' },
+    [AppRoutes.SCREENSHOT_DEV]:               { title: 'Screenshot (Dev)',           icon: 'screenshot_monitor' },
+    [AppRoutes.TOPIC_VIEWER]:                 { title: 'Topic Viewer',               icon: 'account_tree' },
+};
+
+/** Longest-prefix identity lookup (#823). `joinedPath` is the route's
+ *  `routeConfig.path` segments joined from root — NOT resolved URL
+ *  segments — so param templates ('heatmap-chart/:baseline/:symbol')
+ *  still key directly. A nested child with no own entry inherits its
+ *  ancestor's identity; an unkeyed path resolves undefined. */
+export function resolvePageInfo(joinedPath: string): PageInfo | undefined {
+    // Drop empty segments — the pathFromRoot join includes the root '' route
+    // ('/signals/review'), and empties can never be registry keys anyway.
+    let p = joinedPath.split('/').filter(Boolean).join('/');
+    while (!Object.hasOwn(PAGE_INFO, p) && p.includes('/')) {
+        p = p.slice(0, p.lastIndexOf('/'));
+    }
+    return Object.hasOwn(PAGE_INFO, p) ? PAGE_INFO[p as AppRoutes] : undefined;
+}
 
 export const NUM_HEATMAP_MIDPOINTS = 11;
 

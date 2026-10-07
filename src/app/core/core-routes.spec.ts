@@ -7,7 +7,7 @@
  */
 import CORE_ROUTES from './core-routes';
 import { AppRoutes } from './common/interfaces';
-import { NAV_MENU_ITEMS } from './common/constants';
+import { NAV_MENU_ITEMS, PAGE_INFO, resolvePageInfo } from './common/constants';
 import type { Route } from '@angular/router';
 
 const children = (): Route[] => CORE_ROUTES[0]?.children ?? [];
@@ -144,5 +144,50 @@ describe('core-routes — canonical journey paths (#699)', () => {
     for (const [key, value] of Object.entries(expected)) {
       expect(AppRoutes[key as keyof typeof AppRoutes]).toBe(value);
     }
+  });
+});
+
+describe('PAGE_INFO registry + route titles (#852)', () => {
+  // Leaf = renders a page; parents/redirects carry no identity.
+  const leaves = (): Route[] =>
+    children().filter((r) => r.loadComponent || r.component);
+
+  it('every AppRoutes member has a PAGE_INFO entry with title + icon', () => {
+    const missing = Object.values(AppRoutes).filter(
+      (r) => !PAGE_INFO[r]?.title || !PAGE_INFO[r]?.icon,
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it('every leaf route sets a non-empty title sourced from PAGE_INFO', () => {
+    const bad = leaves().filter(
+      (r) => typeof r.title !== 'string' || r.title.length === 0
+        || r.title !== PAGE_INFO[r.path as AppRoutes]?.title,
+    );
+    expect(bad.map((r) => r.path)).toEqual([]);
+  });
+
+  it('every registered leaf path is a direct PAGE_INFO key — prefix tolerance belongs to the resolver, not the route table', () => {
+    const unkeyed = leaves().filter((r) => !Object.hasOwn(PAGE_INFO, r.path as string));
+    expect(unkeyed.map((r) => r.path)).toEqual([]);
+  });
+
+  it('resolvePageInfo: exact match, nested-path ancestor inheritance, unkeyed → undefined', () => {
+    expect(resolvePageInfo('signals/review')).toBe(PAGE_INFO[AppRoutes.SIGNAL_REVIEW]);
+    // Param template keys directly — joined routeConfig.path, not resolved URL.
+    expect(resolvePageInfo('heatmap-chart/:baseline/:symbol'))
+      .toBe(PAGE_INFO[AppRoutes.HEATMAP_CHART]);
+    // A nested child with no own key inherits the ancestor's identity.
+    expect(resolvePageInfo('trading/live/detail')).toBe(PAGE_INFO[AppRoutes.SIGNAL_ORDER]);
+    expect(resolvePageInfo('options/chain/book')).toBe(PAGE_INFO[AppRoutes.OPTION_CHAIN]);
+    // Empty segments (e.g. the root '' route in a pathFromRoot join) normalize away.
+    expect(resolvePageInfo('/signals/review')).toBe(PAGE_INFO[AppRoutes.SIGNAL_REVIEW]);
+    expect(resolvePageInfo('/trading/live/detail')).toBe(PAGE_INFO[AppRoutes.SIGNAL_ORDER]);
+    // No ancestor key → undefined (wildcard/anonymous paths).
+    expect(resolvePageInfo('no/such/page')).toBeUndefined();
+    expect(resolvePageInfo('')).toBeUndefined();
+    // Prototype keys don't false-positive.
+    expect(resolvePageInfo('constructor')).toBeUndefined();
+    expect(resolvePageInfo('toString')).toBeUndefined();
   });
 });
