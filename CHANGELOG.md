@@ -14,6 +14,8 @@
 - [On-demand Screenshot Capture] 746-844_DOCS-SCREENSHOT: #826 PRD (approved) + IMPL/TEST plans + #844 CODE-REVIEW (PASS) + #858 UAT (Complete)
 - [Trading Indicator Library] 261-869_FE-IMPL-INDICATOR-LIB: computeZigZagAnchorEvents — every ZigZag anchor incl. later-replaced ones with its confirmation bar (pivot bar + rightDepth), via one pivot walk shared with computeZigZagPivots (output unchanged; 10,240-combination equivalence check vs previous implementation)
 - [Trading Indicator Library] 261-869_DOCS-INDICATOR-LIB: ST Anchored VWAP PRD (approved) + FE/SHARED IMPL/TEST plans + #869 CODE-REVIEW (PASS) + #882 UAT (Complete) + Anchored VWAP / Anchor Pivot / Confirmation Bar / History Window glossary terms
+- [Trading Indicator Library] 261-876_BE-IMPL-INDICATOR-LIB: computeStTriggerBands engine (body-based length-3 Donchian bands + long/short pullback, pullback-state and breakout flags) with 21 unit tests, SPY/AAPL real-data verify script (18/18) and TradingView export parity script (490 AAPL daily bars, bands + 4 flags identical)
+- [Trading Indicator Library] 261-876_DOCS-INDICATOR-LIB: ST Trigger Bands PRD (approved, indicator-only) + BE/FE IMPL/TEST plans + #876 CODE-REVIEW (PASS) + #881 UAT (Complete)
 
 ## [2026-10-06]
 
