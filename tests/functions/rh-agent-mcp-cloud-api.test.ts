@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { InMemoryTransport } from '../../functions/node_modules/@modelcontextprotocol/sdk/dist/esm/inMemory.js';
 import { McpServer } from '../../functions/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js';
 import {
+  applyRhApiCors,
   createRhApiHandler,
   type RhApiAuthRejectEntry,
 } from '../../functions/src/rh-agent-mcp/cloud-api/rh-api';
@@ -275,5 +276,80 @@ describe('rhApi cloud request handler', () => {
     } finally {
       expressish.close();
     }
+  });
+});
+
+describe('rhApi CORS layer', () => {
+  // Mounts the exact productionHandler composition: applyRhApiCors, then
+  // dispatch only when the middleware left the response open.
+  let corsServer: http.Server;
+  let base: string;
+  let innerCalls: number;
+
+  before(async () => {
+    innerCalls = 0;
+    corsServer = http.createServer((req, res) => {
+      applyRhApiCors(req, res);
+      if (!res.writableEnded) {
+        innerCalls += 1;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      }
+    });
+    await new Promise<void>((resolve) => {
+      corsServer.listen(0, '127.0.0.1', () => {
+        base = `http://127.0.0.1:${(corsServer.address() as AddressInfo).port}`;
+        resolve();
+      });
+    });
+  });
+
+  after(() => corsServer.close());
+
+  function raw(
+    path: string,
+    options: { method?: string; headers?: Record<string, string> } = {},
+  ): Promise<{ status: number; headers: http.IncomingHttpHeaders }> {
+    return new Promise((resolve, reject) => {
+      const req = http.request(`${base}${path}`, { method: options.method ?? 'GET', headers: options.headers }, (res) => {
+        res.resume();
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers }));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+  }
+
+  it('answers preflights inside the middleware — 204, ACAO, max-age, no dispatch', async () => {
+    const res = await raw('/api/rh/tools', {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'https://savanttrader.com',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'authorization,content-type',
+      },
+    });
+    assert.equal(res.status, 204);
+    assert.equal(res.headers['access-control-allow-origin'], 'https://savanttrader.com');
+    assert.equal(res.headers['access-control-max-age'], '86400');
+    assert.equal(innerCalls, 0); // preflight never reaches the handler
+  });
+
+  it('falls through to dispatch on real requests with ACAO set', async () => {
+    const res = await raw('/api/rh/tools', {
+      headers: { origin: 'https://savanttrader.com' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['access-control-allow-origin'], 'https://savanttrader.com');
+    assert.equal(innerCalls, 1);
+  });
+
+  it('omits ACAO for disallowed origins (request still executes)', async () => {
+    const res = await raw('/api/rh/tools', {
+      headers: { origin: 'https://evil.example.com' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['access-control-allow-origin'], undefined);
+    assert.equal(innerCalls, 2);
   });
 });

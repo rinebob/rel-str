@@ -14,7 +14,9 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { getAuth } from 'firebase-admin/auth';
 import { logger } from 'firebase-functions/v2';
+import cors from 'cors';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { ST_ALLOWED_ORIGINS } from '../../st-cloud-function/cors';
 import {
   dispatchRhApiRequest,
   sendJson,
@@ -113,13 +115,43 @@ function createProductionRepository(): RobinhoodCredentialRepository {
   );
 }
 
+/**
+ * Shared CORS allowlist (savanttrader.com + web.app + hosted.app + localhost
+ * debug) with a 24h preflight cache — the onRequest `cors` shorthand can't
+ * set maxAge, so without this every authed call would pay an OPTIONS
+ * roundtrip plus a function invocation. Runs inside the handler; the
+ * middleware answers preflights (204) itself, real requests fall through.
+ */
+const rhApiCors = cors({ origin: ST_ALLOWED_ORIGINS, maxAge: 86400 });
+
+/** cors() is typed for express req/res; onRequest hands us the same objects
+ *  (functions-framework is express under the hood) minus the type tag. */
+type CorsRequest = Parameters<typeof rhApiCors>[0];
+type CorsResponse = Parameters<typeof rhApiCors>[1];
+
+/** Applies the CORS layer synchronously. Preflights end inside the cors
+ *  middleware (204, next() never runs) — callers must check
+ *  `response.writableEnded` before dispatching to the real handler. */
+export function applyRhApiCors(
+  request: IncomingMessage,
+  response: ServerResponse,
+): void {
+  rhApiCors(request as CorsRequest, response as CorsResponse, (err?: unknown) => {
+    if (err) throw err;
+  });
+}
+
 let cachedHandler: RequestHandler | undefined;
 
-/** Lazy cold-start build — env vars + admin SDK resolve on first request. */
-function productionHandler(
+/** Lazy cold-start build — env vars + admin SDK resolve on first request.
+ *  CORS runs first: preflights answer (204) without touching auth/KMS/env. */
+async function productionHandler(
   request: IncomingMessage,
   response: ServerResponse,
 ): Promise<void> {
+  applyRhApiCors(request, response);
+  if (response.writableEnded) return;
+
   cachedHandler ??= createRhApiHandler({
     verifyIdToken: async (token) => {
       const decoded = await getAuth().verifyIdToken(token);
@@ -130,7 +162,7 @@ function productionHandler(
     onAudit: (entry) => logger.info('rh_api_call', entry),
     onAuditReject: (entry) => logger.warn('rh_api_auth_reject', entry),
   });
-  return cachedHandler(request, response);
+  await cachedHandler(request, response);
 }
 
 export const rhApi = onRequest(
