@@ -1,0 +1,49 @@
+{
+  "id": "mx-buy-gtc",
+  "tool": "place_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "E8 limit buy @ bid gtc — rests, then cancel",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "ref_id": "cb0bb157-aa53-56d3-b3da-26b19d652236",
+    "symbol": "OOMA",
+    "side": "buy",
+    "type": "limit",
+    "quantity": "1",
+    "limit_price": "$ENV:OOMA_BID",
+    "time_in_force": "gtc"
+  },
+  "capturedAt": "2026-10-07T19:56:56.563Z",
+  "outcome": "success",
+  "latencyMs": 1177,
+  "success": true,
+  "response": {
+    "data": {
+      "order": {
+        "id": "6ac6a408-0157-4569-aa77-3347c9ed368c",
+        "ref_id": "cb0bb157-aa53-56d3-b3da-26b19d652236",
+        "instrument_id": "b1144f1e-e2ff-45b2-a24c-42a3e514eef0",
+        "symbol": "OOMA",
+        "side": "buy",
+        "type": "limit",
+        "state": "unconfirmed",
+        "quantity": "1.000000",
+        "cumulative_quantity": "0.000000",
+        "price": "••••8.800000",
+        "stop_price": null,
+        "average_price": null,
+        "fees": "0.000000",
+        "dollar_based_amount": null,
+        "time_in_force": "gtc",
+        "market_hours": "regular_hours",
+        "trigger": "immediate",
+        "placed_agent": "agentic",
+        "created_at": "2026-10-07T19:56:56.248008Z",
+        "last_transaction_at": "2026-10-07T19:56:56.248008Z",
+        "executions": []
+      }
+    },
+    "guide": "The order has been submitted — not necessarily filled. Describe with state. Tell the user the order was placed and summarize symbol, side, type, quantity (or dollar_based_amount), and limit/stop prices; remind them it may not have filled yet and that they can check status or cancel via id. On error, the order was NOT placed — report the error verbatim."
+  }
+}

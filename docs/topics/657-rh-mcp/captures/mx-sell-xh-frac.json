@@ -1,0 +1,36 @@
+{
+  "id": "mx-sell-xh-frac",
+  "tool": "place_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "Deliberate reject — fractional qty in extended_hours. Re-captures the verbatim 'regular_hours-only' error lost when mx-sell-flat-xh attempt-1 was overwritten by its successful rerun. NOT expected to execute; if it ever fills, cancel via mx-can-cleanup pattern.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "ref_id": "$ENV:OOMA_REF_FRAC",
+    "symbol": "OOMA",
+    "side": "sell",
+    "type": "limit",
+    "quantity": "0.252705",
+    "limit_price": "$ENV:OOMA_BID",
+    "time_in_force": "gfd",
+    "market_hours": "extended_hours"
+  },
+  "capturedAt": "2026-10-07T22:53:48.767Z",
+  "outcome": "error",
+  "latencyMs": 3453,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "fractional and dollar-based orders are only allowed in regular_hours"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "fractional and dollar-based orders are only allowed in regular_hours"
+}

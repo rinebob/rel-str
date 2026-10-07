@@ -1,0 +1,34 @@
+{
+  "id": "mx-can-cleanup",
+  "tool": "cancel_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "Ad-hoc cleanup — cancels a matrix-created resting order that has no paired can-probe (e.g. mx-sell-stp-hi's queued sell-stop-above-market).",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "order_id": "$ENV:OOMA_ORDER_ID"
+  },
+  "capturedAt": "2026-10-07T20:36:31.569Z",
+  "outcome": "success",
+  "latencyMs": 882,
+  "success": true,
+  "response": {
+    "data": {
+      "accepted": true
+    },
+    "guide": "accepted=true means the broker accepted the cancel request, NOT that the order is already cancelled (cancellation is asynchronous). For the final state, call get_equity_orders: state 'pending_cancelled' = in flight; 'cancelled' or 'partially_filled_rest_cancelled' = succeeded; any filled state = a fill raced the cancel. Offer to check the final state. On error, the cancel was rejected outright — report verbatim."
+  },
+  "settle": {
+    "tool": "get_equity_orders",
+    "attempts": 1,
+    "pendingStates": [
+      "new",
+      "queued",
+      "confirmed",
+      "unconfirmed",
+      "partially_filled",
+      "pending_cancelled"
+    ],
+    "settled": true
+  }
+}

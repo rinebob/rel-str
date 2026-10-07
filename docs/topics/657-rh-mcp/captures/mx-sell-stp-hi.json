@@ -1,0 +1,68 @@
+{
+  "id": "mx-sell-stp-hi",
+  "tool": "place_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "X5 sell stop_market ABOVE market — fires or rejects (capture which)",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "ref_id": "5dc1cdf9-cf0a-5863-887e-fbf810909b13",
+    "symbol": "OOMA",
+    "side": "sell",
+    "type": "stop_market",
+    "quantity": "1",
+    "stop_price": "$ENV:OOMA_SELL_STOP_HI",
+    "time_in_force": "gfd"
+  },
+  "capturedAt": "2026-10-07T20:01:19.485Z",
+  "outcome": "success",
+  "latencyMs": 1198,
+  "success": true,
+  "response": {
+    "data": {
+      "order": {
+        "id": "6ac6a4d1-035d-4906-b19b-3ba4dea7640c",
+        "ref_id": "5dc1cdf9-cf0a-5863-887e-fbf810909b13",
+        "instrument_id": "b1144f1e-e2ff-45b2-a24c-42a3e514eef0",
+        "symbol": "OOMA",
+        "side": "sell",
+        "type": "market",
+        "state": "queued",
+        "quantity": "1.000000",
+        "cumulative_quantity": "0.000000",
+        "price": null,
+        "stop_price": "••••0.270000",
+        "average_price": null,
+        "fees": "0.000000",
+        "dollar_based_amount": null,
+        "time_in_force": "gfd",
+        "market_hours": "regular_hours",
+        "trigger": "stop",
+        "placed_agent": "agentic",
+        "created_at": "2026-10-07T20:00:17.826143Z",
+        "last_transaction_at": "2026-10-07T20:00:17.826143Z",
+        "executions": []
+      }
+    },
+    "guide": "The order has been submitted — not necessarily filled. Describe with state. Tell the user the order was placed and summarize symbol, side, type, quantity (or dollar_based_amount), and limit/stop prices; remind them it may not have filled yet and that they can check status or cancel via id. On error, the order was NOT placed — report the error verbatim."
+  },
+  "settle": {
+    "tool": "get_equity_orders",
+    "attempts": 14,
+    "pendingStates": [
+      "new",
+      "queued",
+      "confirmed",
+      "unconfirmed",
+      "partially_filled",
+      "pending_cancelled"
+    ],
+    "settled": false,
+    "pending": [
+      {
+        "id": "6ac6a4d1-035d-4906-b19b-3ba4dea7640c",
+        "state": "queued"
+      }
+    ]
+  }
+}

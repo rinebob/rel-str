@@ -1,0 +1,34 @@
+{
+  "id": "mx-can-stplim",
+  "tool": "cancel_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "cancel the resting E6 stop-limit — set OOMA_ORDER_ID from the preceding place capture before running",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "order_id": "$ENV:OOMA_ORDER_ID"
+  },
+  "capturedAt": "2026-10-07T19:56:12.205Z",
+  "outcome": "success",
+  "latencyMs": 881,
+  "success": true,
+  "response": {
+    "data": {
+      "accepted": true
+    },
+    "guide": "accepted=true means the broker accepted the cancel request, NOT that the order is already cancelled (cancellation is asynchronous). For the final state, call get_equity_orders: state 'pending_cancelled' = in flight; 'cancelled' or 'partially_filled_rest_cancelled' = succeeded; any filled state = a fill raced the cancel. Offer to check the final state. On error, the cancel was rejected outright — report verbatim."
+  },
+  "settle": {
+    "tool": "get_equity_orders",
+    "attempts": 1,
+    "pendingStates": [
+      "new",
+      "queued",
+      "confirmed",
+      "unconfirmed",
+      "partially_filled",
+      "pending_cancelled"
+    ],
+    "settled": true
+  }
+}

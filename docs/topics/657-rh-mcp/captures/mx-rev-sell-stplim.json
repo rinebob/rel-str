@@ -1,0 +1,50 @@
+{
+  "id": "mx-rev-sell-stplim",
+  "tool": "review_equity_order",
+  "group": "eq-matrix",
+  "gate": "read",
+  "note": "review: sell stop_limit",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbol": "OOMA",
+    "side": "sell",
+    "type": "stop_limit",
+    "quantity": "1",
+    "stop_price": "$ENV:OOMA_SELL_STOP",
+    "limit_price": "$ENV:OOMA_SELL_STOPLIM",
+    "time_in_force": "gfd"
+  },
+  "capturedAt": "2026-10-07T19:46:59.912Z",
+  "outcome": "success",
+  "latencyMs": 1013,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "side": "sell",
+      "type": "stop_limit",
+      "quantity": "1",
+      "limit_price": "••••9.33",
+      "stop_price": "••••9.43",
+      "order_checks": {},
+      "quote_data": {
+        "symbol": "OOMA",
+        "last_trade_price": "19.810000",
+        "venue_last_trade_time": "2026-10-07T19:46:54.1504364Z",
+        "last_non_reg_trade_price": null,
+        "venue_last_non_reg_trade_time": null,
+        "adjusted_previous_close": "19.860000",
+        "previous_close": "19.860000",
+        "previous_close_date": "2026-10-06",
+        "bid_price": "19.800000",
+        "venue_bid_time": "2026-10-07T19:46:58.861679576Z",
+        "ask_price": "19.870000",
+        "venue_ask_time": "2026-10-07T19:46:58.861679576Z",
+        "has_traded": true,
+        "state": "active"
+      },
+      "market_data_disclosure": "Bid $19.80 × 200 Z · Ask $19.88 × 200 N · Last $19.81 × 101 D. Updated 3:46 PM ET."
+    },
+    "guide": "This tool does NOT place the order — it returns a preview for the user to review. Reaching this tool means the user opted into the review step, so you MUST present the preview to the user (symbol, side, type, quantity or dollar_amount, limit/stop prices, estimated execution) and get explicit confirmation before calling place_equity_order. This holds even when order_checks is empty ({}) — empty means no broker alerts, NOT that confirmation can be skipped; the user asked to review, so let them review. Surface any non-empty alert in order_checks verbatim alongside the preview. In addition, you MUST always show the quotes to the user for compliance reasons: whenever market_data_disclosure is present, display it to the user exactly as provided — verbatim and unmodified — as the required compliance quote disclosure. Market orders: estimate execution from quote_data.last_trade_price (ask for buys, bid for sells when spreads are wide). Limit orders: compare limit_price to quote_data bid/ask so the user knows the distance from market."
+  }
+}

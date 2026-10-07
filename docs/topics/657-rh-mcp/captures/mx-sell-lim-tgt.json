@@ -1,0 +1,49 @@
+{
+  "id": "mx-sell-lim-tgt",
+  "tool": "place_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "X1 sell limit 1 @ +2% target — rests, then cancel",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "ref_id": "9fa6d30f-a32b-5be2-9bed-eb87c99b6899",
+    "symbol": "OOMA",
+    "side": "sell",
+    "type": "limit",
+    "quantity": "1",
+    "limit_price": "$ENV:OOMA_SELL_TGT",
+    "time_in_force": "gfd"
+  },
+  "capturedAt": "2026-10-07T19:57:43.295Z",
+  "outcome": "success",
+  "latencyMs": 1779,
+  "success": true,
+  "response": {
+    "data": {
+      "order": {
+        "id": "6ac6a437-b962-4538-9e25-4345c3cf6f82",
+        "ref_id": "9fa6d30f-a32b-5be2-9bed-eb87c99b6899",
+        "instrument_id": "b1144f1e-e2ff-45b2-a24c-42a3e514eef0",
+        "symbol": "OOMA",
+        "side": "sell",
+        "type": "limit",
+        "state": "unconfirmed",
+        "quantity": "1.000000",
+        "cumulative_quantity": "0.000000",
+        "price": "••••0.270000",
+        "stop_price": null,
+        "average_price": null,
+        "fees": "0.000000",
+        "dollar_based_amount": null,
+        "time_in_force": "gfd",
+        "market_hours": "regular_hours",
+        "trigger": "immediate",
+        "placed_agent": "agentic",
+        "created_at": "2026-10-07T19:57:43.073674Z",
+        "last_transaction_at": "2026-10-07T19:57:43.073674Z",
+        "executions": []
+      }
+    },
+    "guide": "The order has been submitted — not necessarily filled. Describe with state. Tell the user the order was placed and summarize symbol, side, type, quantity (or dollar_based_amount), and limit/stop prices; remind them it may not have filled yet and that they can check status or cancel via id. On error, the order was NOT placed — report the error verbatim."
+  }
+}

@@ -9,7 +9,7 @@
 **Type:** TEST  
 **Status:** Complete  
 **Created:** 2026-09-28  
-**Last Updated:** 2026-10-06  
+**Last Updated:** 2026-10-07  
 
 > **2026-09-29 amendment.** Manifest loader (24 cases) + drift diff (17 cases) shipped. Live surface = 76 tools — the read sweep target expands accordingly; coverage matrix rows = live tool count.  
 > **2026-10-05 amendment — #684 read-only sweep executed.** 233 manifest probes → 233 captures in `docs/topics/657-rh-mcp/captures/` (plus 2 pre-existing #682 artifacts = 235 files). See "Sweep execution results" below.
@@ -109,11 +109,12 @@ Six waves executed live against the agentic account (`RH_ACCOUNT_NUMBER`, `•�
 
 ## Equity order matrix session (#685) — execution runbook
 
-41 `eq-matrix` probes authored (10 review sims, 3 harvest reads, 18 place,
+42 `eq-matrix` probes authored (10 review sims, 4 harvest reads, 18 place,
 9 cancel, 1 short-probe). **Requires regular market hours** — market/stop
 orders are `regular_hours`-only and `dollar_amount` fractional is market +
-regular-hours only. Execution is strictly sequential; every mutation prompts
-y/n/abort.
+regular-hours only (verified live — see session results). Execution is
+strictly sequential; every mutation prompts y/n/abort, or approves via
+`RH_PROBE_AUTOYES=1` on headless hosts (see execution pattern below).
 
 ### Env vars (set in `.env.local` before each step)
 
@@ -133,6 +134,10 @@ y/n/abort.
 
 ### Execution pattern
 
+Headless hosts have no TTY — approve each mutation with
+`RH_PROBE_AUTOYES=1` on the invocation (mutation gate only; retries, settle
+timeouts and checkpoints still fail closed). Do not put it in `.env.local`.
+
 Per probe (env-dependent args must be set first):
 
 ```
@@ -147,11 +152,109 @@ Review sims may batch: `--from mx-rev-buy-mkt` through `mx-rev-sell-mkt`
 `OOMA_ORDER_ID` → run the paired `mx-can-*`. Fill-expected and
 fire-or-reject probes carry `settle` polls.
 
+**Schema drift caught 2026-10-06:** `get_equity_technical_indicators` went
+multi-symbol — `symbol` (string) → `symbols` (array, max 10) since the
+2026-09-30 catalog refresh. 19 sweep probes patched to the array form;
+bundled catalog re-pulled via `refresh-tool-catalog.ts` (4 tools changed —
+the indicators schema + doc-only edits on create_scan/update_scan_filters).
+
+### Session results (2026-10-07) — executed
+
+All 42 planned probes ran (+4 added during/after: `mx-can-cleanup` ×3,
+`mx-sell-flat-xh` ×2, `mx-pos-postflat`, `mx-sell-xh-frac` — 46 manifest
+entries total). Findings beyond the manifest's expectations:
+
+- **At-bid limit buy FILLED** (19.83→19.8299) — tight-book reality vs the
+  "rests" assumption; the cancel on that filled order returned
+  `403 "Order cannot be cancelled at this time."` — both kept as hand
+  captures (`mx-buy-lim-bid-filled`, `mx-can-bid-403-filled`). Rest→cancel
+  path re-run successfully at 18.85.
+- **`ref_id` uniqueness is server-enforced:** re-placing a probe with a
+  consumed ref_id → `409 "Reference ID must be unique."`
+  (`mx-buy-lim-bid-409-refid` hand capture). `mx-buy-lim-bid` and
+  `mx-sell-flat` ref_ids are now env-driven for re-arm.
+- **Stop-direction asymmetry:** buy stop-market BELOW market accepted at
+  place then **auto-cancelled server-side**; sell stop-market ABOVE market
+  accepted and **rested `queued`** (cancelled via mx-can-cleanup).
+- **`tax_lots` rejected at every layer:** the review sim surfaced
+  `order_checks.alertType:"EQUITY_TAX_LOT_STALE"` (advisory warning inside a
+  success envelope — same advisory-review pattern as option orders), and the
+  place returned `400 "Some of your selected lots are no longer
+  available."` — consistent with all 4 lots reporting `is_selectable:false`.
+  Lot-select selling unavailable on this surface; `mx-can-lots`
+  intentionally skipped (nothing live).
+- **Oversell + zero-position short:** both `400 "Not enough shares to
+  sell."` — identical envelope.
+- **Market orders queue post-close:** the flat-out market sell was placed
+  at 20:26:19Z — already 16:26 ET, *after* the close — and sat `queued` for
+  next session (cancelled ~20 min in). Whole-share market sells behave
+  identically (not a fractional issue). Flat-out completed via
+  `mx-sell-flat-xh` (limit@19.60, market_hours=extended_hours → filled
+  19.72, price improvement).
+- **Fractional/dollar orders are regular_hours-only** — verbatim reject
+  `fractional and dollar-based orders are only allowed in regular_hours`.
+  First observed on mx-sell-flat-xh attempt-1 (capture overwritten by its
+  rerun); re-captured verbatim via `mx-sell-xh-frac`.
+- **End state (evidenced by `mx-pos-postflat` + refreshed
+  `mx-orders-confirmed`):** OOMA 3.252705 → 0.252705 fractional remainder
+  (untradeable post-close); zero resting OOMA orders; all other
+  positions/standing book untouched. Residual: sell 0.252705 market during
+  regular hours to finish flat.
+
 ### Abort procedure
 
-If anything wedges: run `get_equity_orders` for OOMA, cancel every open
-order (`mx-can-*` pattern with `OOMA_ORDER_ID`), then sell-all market for
-the held qty. AC: account ends flat, zero resting orders.
+If anything wedges: run `get_equity_orders` filtered to OOMA AND
+`state: "confirmed"` — **`confirmed` is the resting/live state; `open` and
+`queued` return `[]` even with a full resting book** (verified 2026-10-06:
+`mx-orders-confirmed` capture — the account carries ~15 resting GTC limit
+buys + 8 resting stop-market sells on unrelated symbols; leave those
+untouched). Cancel every resting OOMA order (`mx-can-*` pattern with
+`OOMA_ORDER_ID`), then sell-all market for the held qty. AC: account ends
+with zero OOMA position and zero OOMA resting orders (pre-existing book
+stays).
+
+## Option order matrix session (#686) — execution runbook
+
+19 `opt-matrix` probes authored + dry-run validated (harvest reads, 8 review
+sims incl. 3 deliberate constraint rejects, 2 place + 2 cancel mutations).
+**Unblocked 2026-10-07:** the Agentic account now reports
+`type: limited_margin` + `option_level: option_level_3` (verified via
+get_accounts) — level 3 covers the multi-leg spread probes; limited margin
+clears the settle-free reuse path for the equity matrix too.
+
+### Env vars (set in `.env.local` before each step)
+
+| Var | When set | Source |
+|---|---|---|
+| `RH_ACCOUNT_NUMBER` | already set | Agentic acct |
+| `NFLX_CHAIN_ID` | run start | `opt-chains-nflx` capture |
+| `NFLX_EXP` | run start | nearest monthly Friday from the chain capture |
+| `NFLX_OPT_ID` | after harvest | ~ATM call from `opt-instr-harvest` |
+| `NFLX_OPT_ID2` | after harvest | next strike up, same expiration |
+| `NFLX_OPT_PRICE` | after `opt-optq` | ~mark price of the ATM leg (review sims) |
+| `NFLX_OPT_PRICE_LO` | before places | ~half the mark — rests, cannot fill |
+| `NFLX_OPT_REF` / `NFLX_OPT_REF2` | before places | fresh UUIDs (idempotency) |
+| `NFLX_OPT_ORDER_ID` / `_2` | before cancels | `id` from the place captures |
+
+### Notes
+
+- Review sims are gate=read — `review_option_order` never submits.
+  Captured 2026-10-07: review is **advisory, not a validation gate** —
+  market+gtc and sell-close-without-position both returned success with
+  empty `order_checks`; the naked-call credit surfaced
+  `order_checks.alertType=OPTION_NOT_ENOUGH_SHARES_FOR_COLLATERAL` as a
+  *warning inside a success envelope*. Only multi-leg+market produced a
+  true reject ("multi-leg orders must be limit orders — market and stop
+  types are single-leg only"). Hard enforcement of the other rules likely
+  lives in `place_option_order`.
+- `place_option_order` does NOT take `chain_symbol`/`underlying_type` —
+  those are `review_option_order`-only fee/collateral hints. The place
+  mutation keys everything off leg `option_id`s.
+- `get_option_instruments` uses `expiration_dates` (plural, comma-sep),
+  not `expiration_date`.
+- Abort: `opt-orders-confirmed` (`state:"confirmed"` — resting option
+  orders use the same state name as equities), cancel anything resting
+  under this session's ref ids.
 
 ## Error-envelope session (#687, 2026-10-06)
 

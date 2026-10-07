@@ -1,0 +1,47 @@
+{
+  "id": "mx-sell-short",
+  "tool": "place_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "S1 short probe — sell 1 zero-held symbol — capture short rejection",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "ref_id": "082ee6be-4565-590b-bae9-c261b66c19c1",
+    "symbol": "$ENV:RH_ZERO_SYM",
+    "side": "sell",
+    "type": "market",
+    "quantity": "1",
+    "time_in_force": "gfd"
+  },
+  "capturedAt": "2026-10-07T20:10:50.852Z",
+  "outcome": "error",
+  "latencyMs": 1213,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 400: {\"detail\":\"Not enough shares to sell.\"}"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 400: {\"detail\":\"Not enough shares to sell.\"}",
+  "settle": {
+    "tool": "get_equity_orders",
+    "attempts": 1,
+    "pendingStates": [
+      "new",
+      "queued",
+      "confirmed",
+      "unconfirmed",
+      "partially_filled",
+      "pending_cancelled"
+    ],
+    "settled": true
+  }
+}

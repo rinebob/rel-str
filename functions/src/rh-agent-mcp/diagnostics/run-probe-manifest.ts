@@ -6,8 +6,11 @@
  *   can be stale — e.g. missing place_option_order.direction).
  * - 'read' probes run unattended with ~300ms spacing; failures and 429s
  *   back off then ask retry/skip/abort; group boundaries checkpoint.
- * - 'mutation' probes hard-stop for a per-call y/n/abort — there is no
- *   bypass flag by design. 'abort' prints the order-recovery checklist.
+ * - 'mutation' probes hard-stop for a per-call y/n/abort — no CLI flag by
+ *   design. On a headless host (no TTY) the operator can opt in per
+ *   invocation with RH_PROBE_AUTOYES=1, which approves the mutation gate
+ *   only; every other prompt still fails closed. 'abort' prints the
+ *   order-recovery checklist.
  * - Captures write to captures/{id}.json: manifest args (env placeholders
  *   intact) + redacted response + latency + success/category.
  *
@@ -19,7 +22,8 @@
  *
  * Requires a stored local RH credential unless --dry-run (which validates
  * against the bundled catalog and never connects). Non-interactive stdin
- * fails closed: mutation prompts answer 'n' (skip).
+ * fails closed: mutation prompts answer 'n' (skip) unless the operator
+ * sets RH_PROBE_AUTOYES=1 on the invocation — see makePrompt.
  */
 import { createInterface } from 'node:readline/promises';
 import { dirname, join } from 'node:path';
@@ -118,8 +122,10 @@ const USAGE = `run-probe-manifest — execute the RH MCP discovery manifest
   --auto              skip group-checkpoint prompts (summaries still print)
   --help              this text
 
-Mutation probes always prompt y/n/abort per call — there is intentionally
-no flag to bypass the gate.`;
+Mutation probes always prompt y/n/abort per call. Headless runs (no TTY)
+fail closed unless the operator sets RH_PROBE_AUTOYES=1 on the invocation —
+that env var approves the mutation gate only; all other prompts still read
+'n'.`;
 
 /**
  * Mutation probe executor — confirmed (post-prompt) mutation calls go through
@@ -196,6 +202,22 @@ function makePrompt(): (message: string) => Promise<string> {
   const interactive = process.stdin.isTTY === true;
   return async (message: string) => {
     if (!interactive) {
+      // Operator opt-in for headless runs (no TTY on Windows): approve the
+      // mutation gate only when RH_PROBE_AUTOYES=1 is set on the invocation.
+      // Every other prompt (retry gates, settle timeouts, checkpoints) still
+      // reads 'n' — fail closed.
+      // NOTE: this pattern also matches the post-failure RETRY re-gate
+      // (probe-runner re-invokes gateMutation with the same message shape).
+      // Unreachable today — the failure prompt above this one still reads
+      // 'n' — but if a retry auto-answer is ever added, the re-gate would
+      // auto-approve too; revisit before doing that.
+      if (
+        process.env.RH_PROBE_AUTOYES === '1' &&
+        /^execute \S+ \(\S+\)\? 'y' run/.test(message)
+      ) {
+        console.log(`[non-interactive] ${message} -> 'y' (RH_PROBE_AUTOYES)`);
+        return 'y';
+      }
       // Fail closed when nobody can answer: mutation gates read 'n' as skip,
       // failure prompts read it as "record error + continue", and the settle
       // timeout aborts unless the answer is an explicit 'c'.

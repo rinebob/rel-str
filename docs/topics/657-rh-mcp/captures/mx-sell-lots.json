@@ -1,0 +1,41 @@
+{
+  "id": "mx-sell-lots",
+  "tool": "place_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "X6 sell limit w/ tax_lots (real open_lot_id) — rests, then cancel",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "ref_id": "c31c732b-543b-5e5c-9d5b-bf2ff4ecb49c",
+    "symbol": "OOMA",
+    "side": "sell",
+    "type": "limit",
+    "quantity": "1",
+    "limit_price": "$ENV:OOMA_SELL_TGT",
+    "tax_lots": [
+      {
+        "open_lot_id": "$ENV:OOMA_LOT_ID",
+        "quantity": "1"
+      }
+    ],
+    "time_in_force": "gfd"
+  },
+  "capturedAt": "2026-10-07T20:04:14.637Z",
+  "outcome": "error",
+  "latencyMs": 978,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 400: {\"detail\":\"Some of your selected lots are no longer available. Go back to select other lots and submit a new order.\"}"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 400: {\"detail\":\"Some of your selected lots are no longer available. Go back to select other lots and submit a new order.\"}"
+}

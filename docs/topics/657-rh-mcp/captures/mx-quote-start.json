@@ -1,0 +1,48 @@
+{
+  "id": "mx-quote-start",
+  "tool": "get_equity_quotes",
+  "group": "eq-matrix",
+  "gate": "read",
+  "note": "Session start — harvest live OOMA quote; operator derives OOMA_ASK/BID + stop targets",
+  "args": {
+    "symbols": [
+      "OOMA"
+    ]
+  },
+  "capturedAt": "2026-10-07T19:45:17.326Z",
+  "outcome": "success",
+  "latencyMs": 1561,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "quote": {
+            "symbol": "OOMA",
+            "last_trade_price": "19.855000",
+            "venue_last_trade_time": "2026-10-07T19:45:11.658566998Z",
+            "last_non_reg_trade_price": null,
+            "venue_last_non_reg_trade_time": null,
+            "adjusted_previous_close": "19.860000",
+            "previous_close": "19.860000",
+            "previous_close_date": "2026-10-06",
+            "bid_price": "19.830000",
+            "venue_bid_time": "2026-10-07T19:45:11.641171913Z",
+            "ask_price": "19.870000",
+            "venue_ask_time": "2026-10-07T19:45:11.641171913Z",
+            "has_traded": true,
+            "state": "active"
+          },
+          "close": {
+            "symbol": "OOMA",
+            "date": "2026-10-06",
+            "price": "19.86",
+            "interpolated": false,
+            "source": "sip-list-exchange-close"
+          }
+        }
+      ]
+    },
+    "guide": "Each entry in results pairs the live quote with the official prior-session close for the same symbol. Current price: pick whichever of quote.last_trade_price / quote.last_non_reg_trade_price has the more recent timestamp, then verify that timestamp is recent before calling it \"current\" — otherwise phrase as \"as of <time>\". Daily change uses quote.adjusted_previous_close. \"Yesterday's close\" uses results[].close.price (official settled close); when a result is missing close — either closes_error is set tool-wide, or this symbol had no close in an otherwise-successful batch — fall back to quote.previous_close and tell the user the official close lookup is unavailable. Drop bid/ask when zero. Surface has_traded=false or any non-'active' state before quoting a price."
+  }
+}

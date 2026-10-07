@@ -1,0 +1,49 @@
+{
+  "id": "mx-sell-stp",
+  "tool": "place_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "X2 sell stop_market @ -2% — rests, then cancel",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "ref_id": "da57b7d1-27e7-59a6-8c8f-441649bd60e6",
+    "symbol": "OOMA",
+    "side": "sell",
+    "type": "stop_market",
+    "quantity": "1",
+    "stop_price": "$ENV:OOMA_SELL_STOP",
+    "time_in_force": "gfd"
+  },
+  "capturedAt": "2026-10-07T19:58:13.493Z",
+  "outcome": "success",
+  "latencyMs": 1829,
+  "success": true,
+  "response": {
+    "data": {
+      "order": {
+        "id": "6ac6a455-99ac-4b8b-8f88-2f17f8dac8d3",
+        "ref_id": "da57b7d1-27e7-59a6-8c8f-441649bd60e6",
+        "instrument_id": "b1144f1e-e2ff-45b2-a24c-42a3e514eef0",
+        "symbol": "OOMA",
+        "side": "sell",
+        "type": "market",
+        "state": "unconfirmed",
+        "quantity": "1.000000",
+        "cumulative_quantity": "0.000000",
+        "price": null,
+        "stop_price": "••••9.430000",
+        "average_price": null,
+        "fees": "0.000000",
+        "dollar_based_amount": null,
+        "time_in_force": "gfd",
+        "market_hours": "regular_hours",
+        "trigger": "stop",
+        "placed_agent": "agentic",
+        "created_at": "2026-10-07T19:58:13.282622Z",
+        "last_transaction_at": "2026-10-07T19:58:13.282622Z",
+        "executions": []
+      }
+    },
+    "guide": "The order has been submitted — not necessarily filled. Describe with state. Tell the user the order was placed and summarize symbol, side, type, quantity (or dollar_based_amount), and limit/stop prices; remind them it may not have filled yet and that they can check status or cancel via id. On error, the order was NOT placed — report the error verbatim."
+  }
+}

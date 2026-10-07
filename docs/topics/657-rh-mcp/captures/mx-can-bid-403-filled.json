@@ -1,0 +1,42 @@
+{
+ "id": "mx-can-bid-403-filled",
+ "tool": "cancel_equity_order",
+ "group": "eq-matrix",
+ "gate": "mutation",
+ "note": "Hand capture: cancel on a FILLED order -> 403 \"Order cannot be cancelled at this time.\" (paired with mx-buy-lim-bid-filled).",
+ "args": {
+  "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+  "order_id": "$ENV:OOMA_ORDER_ID"
+ },
+ "capturedAt": "2026-10-07T19:51:12.210Z",
+ "outcome": "error",
+ "latencyMs": 1993,
+ "success": false,
+ "response": {
+  "_meta": {
+   "rh_error_category": "invalid_request"
+  },
+  "content": [
+   {
+    "type": "text",
+    "text": "API error 403: {\"detail\":\"Order cannot be cancelled at this time.\"}"
+   }
+  ],
+  "isError": true
+ },
+ "category": "MCP",
+ "error": "API error 403: {\"detail\":\"Order cannot be cancelled at this time.\"}",
+ "settle": {
+  "tool": "get_equity_orders",
+  "attempts": 1,
+  "pendingStates": [
+   "new",
+   "queued",
+   "confirmed",
+   "unconfirmed",
+   "partially_filled",
+   "pending_cancelled"
+  ],
+  "settled": true
+ }
+}

@@ -1,0 +1,67 @@
+{
+  "id": "mx-taxlots",
+  "tool": "get_equity_tax_lots",
+  "group": "eq-matrix",
+  "gate": "read",
+  "note": "Harvest OOMA_LOT_ID (open_lot_id) before mx-sell-lots",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbol": "OOMA"
+  },
+  "capturedAt": "2026-10-07T20:03:08.514Z",
+  "outcome": "success",
+  "latencyMs": 4465,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "OOMA",
+      "tax_lots": [
+        {
+          "open_lot_id": "9d938bdb-e2c8-517b-a1f2-2f901c1b7362",
+          "open_tran_type": "buy",
+          "order_id": "1500000061266834",
+          "quantity": "1.000000",
+          "quantity_available": "1.000000",
+          "is_selectable": false,
+          "tax_cost_basis": "19.850000",
+          "open_date": "2026-10-07",
+          "term": "st"
+        },
+        {
+          "open_lot_id": "8ffff5bd-2204-59d5-9b10-6a5ed37aa60d",
+          "open_tran_type": "buy",
+          "order_id": "1500000061266959",
+          "quantity": "1.000000",
+          "quantity_available": "1.000000",
+          "is_selectable": false,
+          "tax_cost_basis": "19.830000",
+          "open_date": "2026-10-07",
+          "term": "st"
+        },
+        {
+          "open_lot_id": "c3785a20-0267-5195-9539-e4ebd9124199",
+          "open_tran_type": "buy",
+          "order_id": "1500000061267120",
+          "quantity": "1.000000",
+          "quantity_available": "1.000000",
+          "is_selectable": false,
+          "tax_cost_basis": "19.830000",
+          "open_date": "2026-10-07",
+          "term": "st"
+        },
+        {
+          "open_lot_id": "61ec1dff-ce6e-5951-9ae1-2a439ddd7537",
+          "open_tran_type": "buy",
+          "order_id": "1500000061269077",
+          "quantity": "0.252705",
+          "quantity_available": "0.252705",
+          "is_selectable": false,
+          "tax_cost_basis": "5.000000",
+          "open_date": "2026-10-07",
+          "term": "st"
+        }
+      ]
+    },
+    "guide": "Lots are newest-acquired first by default. quantity is per-lot, not the whole position — sum quantity across lots for total shares, and quantity_available for total still-sellable shares. For which-lots-can-I-sell questions, only offer lots with is_selectable=true; a false value means the lot is still syncing (e.g. acquired today) and can't be picked for a specified-lot sell yet. Compare open_date to today to explain when a short-term lot crosses into long-term (term). When cost_per_share or tax_cost_basis is absent the basis is still pending — say so rather than treating it as zero. No live price here — for current value or unrealized gain/loss, call get_equity_quotes and combine with cost_per_share. Treat all figures as informational, not tax or performance advice. Page only when the user needs more than the first page."
+  }
+}

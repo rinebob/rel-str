@@ -1,0 +1,50 @@
+{
+  "id": "mx-sell-flat-xh",
+  "tool": "place_equity_order",
+  "group": "eq-matrix",
+  "gate": "mutation",
+  "note": "Post-close flat-out — market sells queue for next session after 16:00 ET; extended_hours executes limit only, so flat-out switches to limit@bid. Fractional remainder may reject or rest until regular hours.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "ref_id": "$ENV:OOMA_REF_XH",
+    "symbol": "OOMA",
+    "side": "sell",
+    "type": "limit",
+    "quantity": "$ENV:OOMA_ALL_QTY",
+    "limit_price": "$ENV:OOMA_BID",
+    "time_in_force": "gfd",
+    "market_hours": "extended_hours"
+  },
+  "capturedAt": "2026-10-07T20:36:58.696Z",
+  "outcome": "success",
+  "latencyMs": 1089,
+  "success": true,
+  "response": {
+    "data": {
+      "order": {
+        "id": "6ac6ad6a-7978-42ab-9707-a70b2671c6b5",
+        "ref_id": "••••0d6e",
+        "instrument_id": "b1144f1e-e2ff-45b2-a24c-42a••••e514eef0",
+        "symbol": "OOMA",
+        "side": "sell",
+        "type": "limit",
+        "state": "unconfirmed",
+        "quantity": "••••.000000",
+        "cumulative_quantity": "0.000000",
+        "price": "••••9.600000",
+        "stop_price": null,
+        "average_price": null,
+        "fees": "0.000000",
+        "dollar_based_amount": null,
+        "time_in_force": "gfd",
+        "market_hours": "extended_hours",
+        "trigger": "immediate",
+        "placed_agent": "agentic",
+        "created_at": "2026-10-07T20:••••6:58.4617••••2Z",
+        "last_transaction_at": "2026-10-07T20:••••6:58.4617••••2Z",
+        "executions": []
+      }
+    },
+    "guide": "The order has been submitted — not necessarily filled. Describe with state. Tell the user the order was placed and summarize symbol, side, type, quantity (or dollar_based_amount), and limit/stop prices; remind them it may not have filled yet and that they can check status or cancel via id. On error, the order was NOT placed — report the error verbatim."
+  }
+}
