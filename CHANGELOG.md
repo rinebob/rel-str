@@ -4,6 +4,8 @@
 ## [2026-10-07]
 
 ### Added
+- [Navigation and Workflows] 625-853_FE-IMPL-WORKFLOWS: rs-header page-identity zone — icon+title after brand via NavigationEnd + pathFromRoot + resolvePageInfo; wordmark collapses <720px
+- [Navigation and Workflows] 625-853_DOCS-WORKFLOWS: #853 review (PASS, 2 rounds) + #868 UAT (Complete — 8/8 incl. signed-out/narrow-viewport/icon-glyph checks)
 - [Navigation and Workflows] 625-852_FE-IMPL-WORKFLOWS: PAGE_INFO page-identity registry (title + icon, Record<AppRoutes> exhaustive) + resolvePageInfo longest-prefix/normalized lookup + Route.title wired on all 38 leaf routes — tab titles flow from the registry via TitleStrategy
 - [Navigation and Workflows] 625-852_DOCS-WORKFLOWS: #824 PRD + #837 IMPL/TEST + #852 review (PASS, 2 rounds) + #859 UAT (Complete — tab titles user-verified on dev server)
 - [Robinhood MCP] 657-810_BE-IMPL-RH-MCP: rhApi CORS layer — shared ST_ALLOWED_ORIGINS allowlist + cors middleware w/ maxAge 86400, preflights answer before the auth/KMS handler build
