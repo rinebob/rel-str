@@ -43,4 +43,37 @@
         font: 500 18px/24px Arial;
         margin: 0 16px;
     }
+
+    // Page identity (#853) — icon + title of the current route. The
+    // wordmark yields to the identity zone on narrow viewports; identity
+    // itself stays — it's the only "where am I" the header carries.
+    .page-identity {
+        @include global.flexboxLayout(row, flex-start, center);
+        gap: 8px;
+        min-width: 0;
+
+        .page-icon {
+            font-size: 22px;
+            width: 22px;
+            height: 22px;
+        }
+
+        // min-width:0 lets the flex item shrink below content width —
+        // without it the ellipsis never engages and long titles push the
+        // auth buttons off narrow screens.
+        .page-title {
+            font: 500 16px/24px Arial;
+            margin: 0;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    @media (max-width: 720px) {
+        .header-text {
+            display: none;
+        }
+    }
 }

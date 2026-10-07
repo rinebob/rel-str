@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { EMPTY } from 'rxjs';
 import { CoreComponent } from './core.component';
 import { HeaderComponent } from './comps/header/header.component';
 import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.component';
@@ -19,7 +20,16 @@ describe('CoreComponent', () => {
     await TestBed.configureTestingModule({
       imports: [CoreComponent],
       providers: [
-        { provide: Router, useValue: { navigate: jest.fn().mockResolvedValue(true) } },
+        // HeaderComponent's pageInfo reads events + routerState (#853) —
+        // empty pathFromRoot resolves no PAGE_INFO key → zone renders empty.
+        {
+          provide: Router,
+          useValue: {
+            navigate: jest.fn().mockResolvedValue(true),
+            events: EMPTY,
+            routerState: { snapshot: { root: { pathFromRoot: [] } } },
+          },
+        },
         {
           provide: AuthStore,
           useValue: { user: signal(null), isAuthenticated: signal(false), loading: signal(false), signOut: jest.fn() },

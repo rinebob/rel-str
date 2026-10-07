@@ -8,6 +8,13 @@
     
     <p class="header-text">Savant Trader</p>
 
+    @if (pageInfo(); as info) {
+        <div class="page-identity">
+            <mat-icon class="page-icon" aria-hidden="true">{{ info.icon }}</mat-icon>
+            <span class="page-title">{{ info.title }}</span>
+        </div>
+    }
+
     <div class="nav-buttons-container">
 
         <button mat-icon-button class="fullscreen-toggle" (click)="uiState.toggleFullscreen()" aria-label="Enter fullscreen">
