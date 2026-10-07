@@ -9,6 +9,9 @@
 - [Robinhood MCP] 657-810_BE-IMPL-RH-MCP: rhApi CORS layer — shared ST_ALLOWED_ORIGINS allowlist + cors middleware w/ maxAge 86400, preflights answer before the auth/KMS handler build
 - [Robinhood MCP] 657-810_FE-IMPL-RH-MCP: env-driven rhApiBaseUrl (prod calls the cloudfunctions.net URL — App Hosting has no rewrite support) + Firebase ID-token attach on listTools/executeTool/reauthenticate
 - [Robinhood MCP] 657-810_DOCS-RH-MCP: #810 review (PASS, 3 rounds) + #857 UAT (live CORS matrix verified; prod-portfolio scenario pending post-push smoke)
+- [On-demand Screenshot Capture] 746-844_SH-IMPL-SCREENSHOT: CaptureChartSpec.groupId (campaign root → {symbol}/{groupId}/ path level) + PositionType strategy tags (vertical-debit-spread/calendar/option-single) + group-segment sanitizer
+- [On-demand Screenshot Capture] 746-844_BE-IMPL-SCREENSHOT: captureChartSnapshot parses groupId + enum-membership positionType + grouped-path verify script (12/12 vs real bucket)
+- [On-demand Screenshot Capture] 746-844_DOCS-SCREENSHOT: #826 PRD (approved) + IMPL/TEST plans + #844 CODE-REVIEW (PASS) + #858 UAT (Complete)
 
 ## [2026-10-06]
 
