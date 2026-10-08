@@ -36,7 +36,8 @@ import {
 } from '../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import type { PendingFillInput } from '../ledger';
 import { applyPendingFill } from '../ledger';
-import { ledgerDeps, listTrades } from '../repository';
+import { listTrades } from '../repository';
+import { ledgerDepsWithCapture } from '../screenshot-lifecycle';
 import { createLogger } from '../engine/logging';
 
 const logger = createLogger('ExpressionFillPass');
@@ -298,7 +299,7 @@ export const expressionFillPassTimer = onSchedule(
         listPendingTrades: () =>
           listTrades(db, { status: PaperTradeStatus.PENDING }),
         callTool: (name, args) => m.callTool(name, args),
-        applyPendingFill: (input) => applyPendingFill(input, ledgerDeps(db)),
+        applyPendingFill: (input) => applyPendingFill(input, ledgerDepsWithCapture(db)),
         now: () => new Date(),
       });
       logger.info(

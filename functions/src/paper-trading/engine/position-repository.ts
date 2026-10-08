@@ -21,7 +21,12 @@ import { db } from '../../firebase-admin-init';
 import { calendarDaysBetween } from '../../common/pt-date-utils';
 import { paperDocRef, paperItemsRef } from '../collections';
 import { applyEntryFill, computeExitPnl, positionValue, signedCashDelta } from '../ledger';
-import { ledgerDeps } from '../repository';
+import { CaptureEvent } from '@screenshot-capture/contracts';
+import {
+  ledgerDepsWithCapture,
+  makeTradeLifecycleHook,
+  settlementCapturesPositionClosed,
+} from '../screenshot-lifecycle';
 import { createLogger } from './logging';
 import {
   governingVariantForInstance,
@@ -44,6 +49,10 @@ import type {
 import { PositionStatus, SHARES_PER_CONTRACT } from './types';
 
 const logger = createLogger('PositionRepository');
+
+/** Lifecycle screenshot hook (Topic #746 / task #847) — lazily wires the
+ *  intake deps on first fire; never throws, never blocks settlement. */
+const lifecycleHook = makeTradeLifecycleHook(db);
 
 // ── ID helpers ───────────────────────────────────────────────────────────────
 
@@ -188,7 +197,7 @@ export async function createPosition(
       },
       now,
     },
-    ledgerDeps(db),
+    ledgerDepsWithCapture(db),
   );
 
   await writeRawQuote(id, rawQuote);
@@ -266,6 +275,7 @@ export async function markPositionSettled(
   dailyUpdate?: DailyUpdate,
 ): Promise<void> {
   const now = new Date().toISOString();
+  let settledTrade: PaperTrade | undefined;
   await db.runTransaction(async (txn) => {
     // All reads before all writes: trade → instance → account.
     const ref = tradeRef(positionId);
@@ -274,6 +284,7 @@ export async function markPositionSettled(
       throw new Error(`position ${positionId} not found`);
     }
     const trade = snap.data() as PaperTrade;
+    settledTrade = trade;
     // OPEN only — every caller enumerates OPEN populations, and settlement
     // is not idempotent: a second call would re-book premium/strike cash.
     if (trade.status !== PaperTradeStatus.OPEN) {
@@ -406,6 +417,13 @@ export async function markPositionSettled(
       logger.warn(`settlement skipped account bookkeeping (position ${positionId}, instance ${trade.strategyInstanceId ?? 'none'}, user ${ownerId ?? 'none'})`);
     }
   });
+
+  // Lifecycle capture (Topic #746): terminal settlements fire
+  // `position-closed` — a committed close is the chart-worthy moment, and
+  // the leg shape on the pre-update snapshot is unchanged by settlement.
+  if (settledTrade && settlementCapturesPositionClosed(settlement.status)) {
+    await lifecycleHook(settledTrade, CaptureEvent.POSITION_CLOSED);
+  }
 }
 
 /** Atomically update a held-shares position's mark + daily-update. */

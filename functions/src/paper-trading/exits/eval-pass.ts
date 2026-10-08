@@ -42,10 +42,10 @@ import {
 } from '../ledger';
 import {
   getInstance,
-  ledgerDeps,
   listTrades,
   updateVariantRun,
 } from '../repository';
+import { ledgerDepsWithCapture } from '../screenshot-lifecycle';
 import { calendarDaysBetween } from '../../common/pt-date-utils';
 import { evaluateVariant, parseVariantKey, type VariantEvalCtx } from './registry';
 import { createLogger } from '../engine/logging';
@@ -292,7 +292,7 @@ export function defaultEvalDeps(db: Firestore = adminDb): ExitEvalDeps {
   return {
     listTrades: () => listCandidateTrades(db),
     applyExit: (input: ExitFillInput): Promise<ApplyFillResult> =>
-      applyExitFill(input, ledgerDeps(db)),
+      applyExitFill(input, ledgerDepsWithCapture(db)),
     updateRun: (tradeId, run) =>
       updateVariantRun(db, tradeId, run, new Date().toISOString()),
     resolveUserId: (trade) => resolveAccountOwner(db, trade),

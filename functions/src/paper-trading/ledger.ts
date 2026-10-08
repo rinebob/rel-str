@@ -32,6 +32,7 @@
  */
 
 import { TradeSide } from '@common';
+import { CaptureEvent } from '@screenshot-capture/contracts';
 import {
   PaperTradeSource,
   PaperTradeStatus,
@@ -47,6 +48,9 @@ import {
 } from '@paper-trading/contracts';
 import { buildAccountId } from '@paper-trading/ids';
 import { isTerminalVariantKey, parseVariantKey } from './exits/registry';
+import { createLogger } from './engine/logging';
+
+const logger = createLogger('Ledger');
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -164,6 +168,14 @@ export interface LedgerDeps {
    * production. All reads happen before any write.
    */
   transact<T>(work: (txn: LedgerTxn) => Promise<T>): Promise<T>;
+  /**
+   * Lifecycle screenshot hook (Topic #746 / task #847) — fired AFTER the
+   * fill transaction commits, with the post-write trade doc. Must resolve
+   * without throwing: the intake swallows failures into a retryable
+   * `failed` ledger entry. Wired by `ledgerDepsWithCapture`; absent in
+   * tests.
+   */
+  onTradeLifecycle?: (trade: PaperTrade, event: CaptureEvent) => Promise<unknown>;
 }
 
 export interface ApplyFillResult {
@@ -246,6 +258,31 @@ function baseAccount(userId: string, now: string): PaperAccount {
   };
 }
 
+// ── Lifecycle capture hook (Topic #746 / task #847) ─────────────────────────
+
+/**
+ * Fire the optional lifecycle-capture dep AFTER the fill transaction has
+ * committed — the capture runs its own transactions on the same doc, so it
+ * must not nest inside `deps.transact`. The write already committed by the
+ * time we get here, so a throwing dep must not propagate (a post-commit
+ * throw would falsely report the fill as failed and invite a retry that
+ * collides on the trade id).
+ */
+async function fireLifecycleHook(
+  deps: LedgerDeps,
+  trade: PaperTrade,
+  event: CaptureEvent,
+): Promise<void> {
+  try {
+    await deps.onTradeLifecycle?.(trade, event);
+  } catch (err) {
+    logger.error(
+      `onTradeLifecycle threw for trade ${trade.id} ${event}: ` +
+        (err instanceof Error ? err.message : String(err)),
+    );
+  }
+}
+
 // ── Entry ──────────────────────────────────────────────────────────────────
 
 export async function applyEntryFill(
@@ -260,7 +297,7 @@ export async function applyEntryFill(
       `fill quantity ${input.fill.quantity} != order quantity ${input.order.quantity}`,
     );
   }
-  return deps.transact(async (txn) => {
+  const result = await deps.transact(async (txn) => {
     if (await txn.getTrade(input.tradeId)) {
       throw new Error(`paper trade ${input.tradeId} already exists`);
     }
@@ -320,6 +357,11 @@ export async function applyEntryFill(
     });
     return { trade, account: updatedAccount, cashDelta };
   });
+  // Lifecycle capture (Topic #746): the committed entry fill IS
+  // `order-filled` — engine open-pass and signal orders both come through
+  // here. The hook is awaited (intake caps at 10s) and never throws.
+  await fireLifecycleHook(deps, result.trade, CaptureEvent.ORDER_FILLED);
+  return result;
 }
 
 /**
@@ -438,7 +480,7 @@ export async function applyPendingFill(
   if (input.fill.role !== 'entry') {
     throw new Error(`fill role must be 'entry', got '${input.fill.role}'`);
   }
-  return deps.transact(async (txn) => {
+  const result = await deps.transact(async (txn) => {
     const trade = await txn.getTrade(input.tradeId);
     if (!trade) {
       throw new Error(`paper trade ${input.tradeId} not found`);
@@ -491,6 +533,9 @@ export async function applyPendingFill(
     });
     return { trade: updatedTrade, account: updatedAccount, cashDelta };
   });
+  // PENDING→OPEN fill IS `order-filled` for staged signal cohorts.
+  await fireLifecycleHook(deps, result.trade, CaptureEvent.ORDER_FILLED);
+  return result;
 }
 
 /**
@@ -558,7 +603,7 @@ export async function applyExitFill(
   if (input.fill.role !== 'exit') {
     throw new Error(`fill role must be 'exit', got '${input.fill.role}'`);
   }
-  return deps.transact(async (txn) => {
+  const result = await deps.transact(async (txn) => {
     const trade = await txn.getTrade(input.tradeId);
     if (!trade) {
       throw new Error(`paper trade ${input.tradeId} not found`);
@@ -624,4 +669,8 @@ export async function applyExitFill(
     });
     return { trade: updatedTrade, account: updatedAccount, cashDelta };
   });
+  // Committed order-level exit → `position-closed` (single close seam —
+  // eval triggers, signal ITM settlement, and manual closes all land here).
+  await fireLifecycleHook(deps, result.trade, CaptureEvent.POSITION_CLOSED);
+  return result;
 }

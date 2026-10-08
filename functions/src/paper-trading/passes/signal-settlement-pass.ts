@@ -44,13 +44,13 @@ import {
 } from '../ledger';
 import type { ApplyFillResult, ExitFillInput } from '../ledger';
 import {
-  ledgerDeps,
   listTrades,
   updateVariantRun,
 } from '../repository';
 import {
   markPositionSettled,
 } from '../engine/position-repository';
+import { ledgerDepsWithCapture } from '../screenshot-lifecycle';
 import type {
   DailyUpdate,
   LegOutcomeUpdate,
@@ -316,7 +316,7 @@ export function defaultSignalSettlementDeps(
     getUnderlyingClose: getUnderlyingCloseForDate,
     settleExpired: (tradeId, settlement, legOutcomes, dailyUpdate) =>
       markPositionSettled(tradeId, settlement, legOutcomes, dailyUpdate),
-    applyExit: (input) => applyExitFill(input, ledgerDeps(firestoreDb)),
+    applyExit: (input) => applyExitFill(input, ledgerDepsWithCapture(firestoreDb)),
     updateRun: (tradeId, run) =>
       updateVariantRun(firestoreDb, tradeId, run, new Date().toISOString()),
     now: () => new Date(),

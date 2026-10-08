@@ -68,6 +68,7 @@ import {
   setCohort,
   updateVariantRun,
 } from './repository';
+import { ledgerDepsWithCapture } from './screenshot-lifecycle';
 import { RobinhoodMcpOptionQuoteProvider } from './engine/quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import { createRobinhoodMcpSessionManagerFromEnv } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
@@ -376,7 +377,7 @@ export function paperSignalOrderProdDeps(
     callTool,
     resolveTradeId: (base) => resolveTradeId(db, base, timeSuffix),
     resolveCohortId: (date, symbol) => resolveCohortId(db, date, symbol),
-    applyEntryFill: (input) => applyEntryFill(input, ledgerDeps(db)),
+    applyEntryFill: (input) => applyEntryFill(input, ledgerDepsWithCapture(db)),
     createPendingTrade: (input) => createPendingTrade(input, ledgerDeps(db)),
     setCohort: (cohort) => setCohort(db, cohort),
     now: () => new Date(),
@@ -719,7 +720,7 @@ export const closePaperTrade = onCall<ClosePaperTradeRequest, Promise<ClosePaper
         getTrade: (tradeId) => getTrade(db, tradeId),
         getOptionQuotes: (ids, side) => optionQuotes.getQuotes(ids, side),
         callTool,
-        applyExitFill: (input) => applyExitFill(input, ledgerDeps(db)),
+        applyExitFill: (input) => applyExitFill(input, ledgerDepsWithCapture(db)),
         updateRun: (tradeId, run) =>
           updateVariantRun(db, tradeId, run, new Date().toISOString()),
         now: () => new Date(),
