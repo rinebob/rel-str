@@ -18,7 +18,7 @@ import { OrderExecutionService, ExecutionResult } from '../../../savant-trader/s
 import { EquityPosition } from '../../../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { buildPositionStopLossTicket } from '../../../savant-trader/utils/stop-loss-ticket.util';
 import { EquityOrderTicket } from '../../../savant-trader/services/order-ticket.types';
-import { StopLossFormComponent } from '../../../../shared/components/stop-loss-form/stop-loss-form.component';
+import { StopLossFormComponent, StopLossSubmit } from '../../../../shared/components/stop-loss-form/stop-loss-form.component';
 
 export interface StopLossDialogData {
   position: EquityPosition;
@@ -64,7 +64,7 @@ export class StopLossDialogComponent {
   );
   readonly canRetry = computed(() => this.result()?.error?.retryable ?? true);
 
-  async onSubmit(event: { stopPrice: number }): Promise<void> {
+  async onSubmit(event: StopLossSubmit): Promise<void> {
     if (this.state() === 'submitting') return;
     this.lastStopPrice.set(event.stopPrice);
     this.lastTicket = buildPositionStopLossTicket(
@@ -72,6 +72,10 @@ export class StopLossDialogComponent {
       this.quantity(),
       event.stopPrice,
       this.accountNumber(),
+      // marketHours is pinned, not forwarded: RH rejects stop orders outside
+      // regular hours, so a bound extended/all-day prefill (update mode,
+      // IMPL §6) could otherwise ride through the payload to a 400.
+      { timeInForce: event.timeInForce, marketHours: 'regular_hours' },
     );
     await this.submitTicket();
   }

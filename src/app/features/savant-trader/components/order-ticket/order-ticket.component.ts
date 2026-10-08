@@ -50,6 +50,8 @@ import {
   TradingConfig,
   EquityOrderTicket,
   BrokerOrderSnapshot,
+  EquityTimeInForce,
+  EquityMarketHours,
 } from '../../services/order-ticket.types';
 import {
   computePositionSize,
@@ -119,8 +121,8 @@ export class OrderTicketComponent {
   readonly quantity = signal<string>('');
   readonly limitPrice = signal<string>('');
   readonly stopPrice = signal<string>('');
-  readonly timeInForce = signal<'gfd' | 'gtc'>('gfd');
-  readonly marketHours = signal<'regular_hours' | 'extended_hours' | 'all_day_hours'>('regular_hours');
+  readonly timeInForce = signal<EquityTimeInForce>('gfd');
+  readonly marketHours = signal<EquityMarketHours>('regular_hours');
 
   /** Stop loss fields — bidirectionally linked. */
   readonly stopLossPrice = signal<string>('');
@@ -293,16 +295,6 @@ export class OrderTicketComponent {
     if (i.side !== 'buy') return false;
     if (i.instrumentType !== InstrumentType.EQUITY && i.instrumentType !== InstrumentType.ETF) return false;
     return this.isEntryFilled() && !this.isFractionalEntry() && !this.stopLossExists();
-  });
-
-  /** Whether the stop loss can be placed — entry must be filled, qty must be positive, and stop loss price must be valid. */
-  readonly canPlaceStopLoss = computed(() => {
-    if (!this.isEntryFilled()) return false;
-    const i = this.ticket();
-    const rawQuantity = i?.result?.filledQuantity ?? i?.quantity ?? '0';
-    const quantity = Number(rawQuantity);
-    const slPrice = parseFloat(this.stopLossPrice());
-    return Number.isInteger(quantity) && quantity > 0 && !isNaN(slPrice) && slPrice > 0;
   });
 
   /** Quantity for the StopLossFormComponent — filled quantity or ticket quantity. */
@@ -812,16 +804,14 @@ export class OrderTicketComponent {
     }
   }
 
-  /** Confirm and submit a stop loss order directly to RH (no local doc). */
-  async onPlaceStopLoss(stopPrice?: number): Promise<void> {
+  /** Confirm and submit a stop loss order directly to RH (no local doc).
+   *  The StopLossFormComponent validates before emitting — `stopPrice` is
+   *  always a positive number here. */
+  async onPlaceStopLoss(stopPrice: number): Promise<void> {
     const i = this.ticket();
     if (!i) return;
 
-    // When stopPrice is provided from StopLossFormComponent, skip canPlaceStopLoss
-    // (the component already validates before emitting). Otherwise check locally.
-    if (stopPrice === undefined && !this.canPlaceStopLoss()) return;
-
-    const slPrice = stopPrice ?? parseFloat(this.stopLossPrice());
+    const slPrice = stopPrice;
     if (isNaN(slPrice) || slPrice <= 0) {
       this.snackBar.open('Invalid stop loss price', 'Dismiss', { duration: 4000 });
       return;
@@ -834,6 +824,13 @@ export class OrderTicketComponent {
       quantity,
       slPrice,
       this.tradingConfig()?.accountNumber ?? i.accountNumber,
+      // Stops are always GTC + regular_hours (#886): the ticket's TIF/Hours
+      // pills belong to the ENTRY order and are hidden once it fills, so
+      // binding them would silently pin the stop to the entry's values —
+      // a gfd entry would produce a Day stop (against the "stops are always
+      // GTC" product decision), and extended-hours entries get a 400
+      // ("Extended hours orders cannot have stop price").
+      { timeInForce: 'gtc', marketHours: 'regular_hours' },
     );
     const confirmed = await firstValueFrom(
       this.dialog

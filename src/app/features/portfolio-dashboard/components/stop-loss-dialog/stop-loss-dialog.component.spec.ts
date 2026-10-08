@@ -64,7 +64,7 @@ describe('StopLossDialogComponent', () => {
       result: { orderId: 'rh-sl-1', state: 'confirmed', brokerOrder: { stopPrice: '160.00' } },
     }));
 
-    await component.onSubmit({ stopPrice: 160 });
+    await component.onSubmit({ stopPrice: 160, timeInForce: 'gtc', marketHours: 'regular_hours' });
 
     expect(orderExecution.submitEquityOrder).toHaveBeenCalledTimes(1);
     const ticket = orderExecution.submitEquityOrder.calls.mostRecent().args[0];
@@ -77,13 +77,26 @@ describe('StopLossDialogComponent', () => {
     expect(ticket.timeInForce).toBe('gtc');
   });
 
+  it('carries the form-emitted TIF but pins hours to regular — RH rejects extended-hours stops (#886)', async () => {
+    orderExecution.submitEquityOrder.and.returnValue(Promise.resolve({
+      success: true,
+      result: { orderId: 'rh-sl-9', state: 'confirmed' },
+    }));
+
+    await component.onSubmit({ stopPrice: 160, timeInForce: 'gfd', marketHours: 'extended_hours' });
+
+    const ticket = orderExecution.submitEquityOrder.calls.mostRecent().args[0];
+    expect(ticket.timeInForce).toBe('gfd');
+    expect(ticket.marketHours).toBe('regular_hours');
+  });
+
   it('shows success state with order details after successful submit', async () => {
     orderExecution.submitEquityOrder.and.returnValue(Promise.resolve({
       success: true,
       result: { orderId: 'rh-sl-2', state: 'confirmed', brokerOrder: { stopPrice: '155.00' } },
     }));
 
-    await component.onSubmit({ stopPrice: 155 });
+    await component.onSubmit({ stopPrice: 155, timeInForce: 'gtc', marketHours: 'regular_hours' });
 
     expect(component.state()).toBe('success');
     expect(component.result()?.result?.orderId).toBe('rh-sl-2');
@@ -97,7 +110,7 @@ describe('StopLossDialogComponent', () => {
       error: { message: 'Market closed', retryable: false },
     }));
 
-    await component.onSubmit({ stopPrice: 160 });
+    await component.onSubmit({ stopPrice: 160, timeInForce: 'gtc', marketHours: 'regular_hours' });
 
     expect(component.state()).toBe('error');
     expect(component.error()).toBe('Market closed');
@@ -109,7 +122,7 @@ describe('StopLossDialogComponent', () => {
       error: { message: 'Network error', retryable: true },
     }));
 
-    await component.onSubmit({ stopPrice: 160 });
+    await component.onSubmit({ stopPrice: 160, timeInForce: 'gtc', marketHours: 'regular_hours' });
     expect(component.state()).toBe('error');
 
     const firstTicket = orderExecution.submitEquityOrder.calls.mostRecent().args[0];
@@ -134,7 +147,7 @@ describe('StopLossDialogComponent', () => {
       new Promise((r) => { resolveFirst = r; }),
     );
 
-    component.onSubmit({ stopPrice: 160 });
+    component.onSubmit({ stopPrice: 160, timeInForce: 'gtc', marketHours: 'regular_hours' });
     component.onRetry();
 
     expect(orderExecution.submitEquityOrder).toHaveBeenCalledTimes(1);
@@ -158,7 +171,7 @@ describe('StopLossDialogComponent', () => {
       error: { message: 'Market closed', retryable: false },
     }));
 
-    await component.onSubmit({ stopPrice: 160 });
+    await component.onSubmit({ stopPrice: 160, timeInForce: 'gtc', marketHours: 'regular_hours' });
 
     expect(component.canRetry()).toBe(false);
   });

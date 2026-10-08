@@ -5,7 +5,10 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
 
+import { By } from '@angular/platform-browser';
+
 import { OrderTicketComponent } from './order-ticket.component';
+import { StopLossFormComponent } from '../../../../shared/components/stop-loss-form/stop-loss-form.component';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { OrderExecutionService } from '../../services/order-execution.service';
 import { PaperTradingService } from '../../services/paper-trading.service';
@@ -395,15 +398,57 @@ describe('OrderTicketComponent', () => {
     fixture.componentRef.setInput('price', 100);
     fixture.detectChanges();
 
-    await component.onPlaceStopLoss();
+    await component.onPlaceStopLoss(92); // the form emits the derived price
 
     expect(dialog.open).toHaveBeenCalled();
     expect(orderExecution.submitEquityOrder).toHaveBeenCalledWith(jasmine.objectContaining({
       side: 'sell',
       quantity: '2',
       stopPrice: '92.00',
+      // #886: stops are always GTC + regular hours.
       timeInForce: 'gtc',
+      marketHours: 'regular_hours',
     }));
+  });
+
+  it('pins the stop to gtc/regular_hours — the entry ticket\'s pills must not leak into it (#886)', async () => {
+    const entry = makeTicket('1', 'AAPL', { status: OrderTicketStatus.FILLED, result: { fillPrice: '100', filledQuantity: '2' } });
+    fixture.componentRef.setInput('ticket', entry);
+    fixture.componentRef.setInput('price', 100);
+    fixture.detectChanges();
+
+    // After detectChanges — the ticket-init effect re-seeds the signals
+    // from the entry ticket on each input change. A gfd + extended-hours
+    // entry must still produce a GTC regular-hours stop.
+    component.timeInForce.set('gfd');
+    component.marketHours.set('all_day_hours');
+
+    await component.onPlaceStopLoss(92);
+
+    expect(orderExecution.submitEquityOrder).toHaveBeenCalledWith(jasmine.objectContaining({
+      timeInForce: 'gtc',
+      marketHours: 'regular_hours',
+    }));
+  });
+
+  it('hides the form\'s order-params pills and does NOT bind the entry\'s TIF/hours into it (#886)', async () => {
+    const entry = makeTicket('1', 'AAPL', { status: OrderTicketStatus.FILLED, result: { fillPrice: '100', filledQuantity: '2' } });
+    fixture.componentRef.setInput('ticket', entry);
+    fixture.componentRef.setInput('price', 100);
+    fixture.detectChanges();
+
+    const form = fixture.debugElement.query(By.directive(StopLossFormComponent))?.componentInstance as StopLossFormComponent | undefined;
+    expect(form).toBeTruthy();
+    expect(form!.showOrderParams()).toBe(false);
+
+    // Neither model is bound — the entry ticket's signals govern the entry
+    // order only (its pills are hidden once it fills anyway). The form
+    // keeps its own gtc/regular_hours defaults.
+    component.timeInForce.set('gfd');
+    component.marketHours.set('extended_hours');
+    fixture.detectChanges();
+    expect(form!.timeInForce()).toBe('gtc');
+    expect(form!.marketHours()).toBe('regular_hours');
   });
 });
 
