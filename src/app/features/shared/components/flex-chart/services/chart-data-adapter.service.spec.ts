@@ -9,6 +9,7 @@ import {
   ST_TREND_BANDS_INDICATOR,
   ST_TREND_STRENGTH_INDICATOR,
   ST_STD_DEV_LINES_INDICATOR,
+  ST_ANCHORED_VWAP_INDICATOR,
   ST_TRIGGER_BANDS_INDICATOR,
   buildDefaultConfig,
 } from '../indicators/indicator-registry';
@@ -580,5 +581,78 @@ describe('ChartDataAdapter.triggerBandSeries', () => {
     const adapter = setupAdapter(data, { indicators: [triggerConfig(pointsFor(data))] });
     const mine = adapter.mainPaneSeries().find((s) => s.config.type === StIndicator.ST_TRIGGER_BANDS);
     expect(mine?.data ?? []).toEqual([]);
+  });
+});
+
+// =============================================================================
+// ChartDataAdapter.anchoredVwapSeries — fixed 12 series (Topic #261 / Task #871)
+// =============================================================================
+
+describe('ChartDataAdapter.anchoredVwapSeries', () => {
+  const FIXED_KEYS = (['small', 'large'] as const).flatMap((scale) =>
+    (['high', 'low'] as const).flatMap((side) =>
+      ['history-a', 'history-b', 'active'].map((kind) => `${scale}-${side}-${kind}`),
+    ),
+  );
+
+  function makeAvwapConfig(params: Record<string, number | string | boolean> = {}, extra: Partial<FlexChartConfig> = {}): FlexChartConfig {
+    const base = buildDefaultConfig(ST_ANCHORED_VWAP_INDICATOR);
+    return { indicators: [{ ...base, params: { ...base.params, leftDepth: 3, rightDepth: 3, ...params } }], ...extra };
+  }
+
+  it('is empty with no AVWAP config, no data, or no bars', () => {
+    expect(setupAdapter(makeBars(60), { indicators: [] }).anchoredVwapSeries()).toEqual([]);
+    expect(setupAdapter(null, makeAvwapConfig()).anchoredVwapSeries()).toEqual([]);
+    expect(setupAdapter(makeBars(0), makeAvwapConfig()).anchoredVwapSeries()).toEqual([]);
+  });
+
+  it('works with no ZigZag indicator on the chart', () => {
+    const config = makeAvwapConfig();
+    expect(config.indicators.some((i) => i.type === StIndicator.ST_ZIGZAG)).toBe(false);
+    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries().length).toBe(12);
+  });
+
+  it('emits the same 12 keys whatever the data or params — the series count never changes', () => {
+    const shapes = [
+      setupAdapter(makeBars(120), makeAvwapConfig()),
+      setupAdapter(makeBars(40), makeAvwapConfig({ smallRetracementPct: 1, largeRetracementPct: 9, maxHistory: 3 })),
+      setupAdapter(makeBars(5), makeAvwapConfig()),
+    ];
+    for (const adapter of shapes) {
+      expect(adapter.anchoredVwapSeries().map((s) => s.key)).toEqual(FIXED_KEYS);
+    }
+  });
+
+  it('uses only the first AVWAP config, so a second instance cannot grow the series count', () => {
+    const one = makeAvwapConfig().indicators[0];
+    const config: FlexChartConfig = { indicators: [one, { ...one, id: 'avwap-2' }] };
+    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries()).toHaveLength(12);
+  });
+
+  it('puts prices in log space under logScale and preserves the null break points', () => {
+    const data = makeBars(120);
+    const linear = setupAdapter(data, makeAvwapConfig()).anchoredVwapSeries();
+    const log = setupAdapter(data, makeAvwapConfig({}, { logScale: true })).anchoredVwapSeries();
+    const nulls = linear.flatMap((s) => s.data).filter((p) => p.y === null).length;
+    expect(nulls).toBeGreaterThan(0);
+    expect(linear.flatMap((s) => s.data).some((p) => p.y !== null)).toBe(true);
+    for (let i = 0; i < linear.length; i++) {
+      expect(log[i].data.map((p) => p.index)).toEqual(linear[i].data.map((p) => p.index));
+      expect(log[i].data.map((p) => p.y)).toEqual(
+        linear[i].data.map((p) => (p.y === null ? null : toLogAxis(p.y))),
+      );
+    }
+  });
+
+  it('remaps vocabulary colors through the active palette and leaves custom colors alone', () => {
+    const params = { smallHighColor: '#4caf50' };
+    const dark = setupAdapter(makeBars(120), makeAvwapConfig(params)).anchoredVwapSeries();
+    const light = setupAdapter(makeBars(120), makeAvwapConfig(params, { appearance: 'light' })).anchoredVwapSeries();
+    const color = (s: typeof dark, key: string) => s.find((x) => x.key === key)!.color;
+    expect(color(dark, 'small-high-active')).toBe('#33d17a');
+    expect(color(light, 'small-high-active')).toBe('#4caf50');
+    // The default magenta/cyan are not in the remap vocabulary and pass through in both themes.
+    expect(color(dark, 'large-high-active')).toBe('#FF00E6');
+    expect(color(light, 'large-low-active')).toBe('#00E5FF');
   });
 });
