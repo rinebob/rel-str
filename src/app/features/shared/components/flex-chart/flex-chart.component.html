@@ -202,9 +202,26 @@
           </e-series>
         }
 
+        <!-- Anchored VWAP: fixed 12 series (4 slots x active + 2 alternating history).
+             y:null break points + Gap keep packed segments from joining. -->
+        @for (line of anchoredVwapSeries(); track line.key) {
+          <e-series
+            [dataSource]="line.data"
+            type="Line"
+            xName="index"
+            yName="y"
+            [name]="line.name"
+            [fill]="line.color"
+            [width]="line.width"
+            [emptyPointSettings]="{ mode: 'Gap' }"
+            [enableTooltip]="true"
+            [animation]="noAnimation">
+          </e-series>
+        }
+
         <!-- Main pane indicators (overlay on price) -->
         @for (indicator of mainPaneSeries(); track indicator.id) {
-          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.ST_STD_DEV_LINES && indicator.config.type !== StIndicator.ST_ZIGZAG && indicator.config.type !== StIndicator.ST_TRIGGER_BANDS && indicator.config.seriesType === 'line') {
+          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.ST_STD_DEV_LINES && indicator.config.type !== StIndicator.ST_ZIGZAG && indicator.config.type !== StIndicator.ST_ANCHORED_VWAP && indicator.config.type !== StIndicator.ST_TRIGGER_BANDS && indicator.config.seriesType === 'line') {
             <e-series
               [dataSource]="indicator.data"
               type="Line"
