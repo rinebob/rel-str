@@ -20,6 +20,8 @@
 - [Trading Indicator Library] 261-876_DOCS-INDICATOR-LIB: ST Trigger Bands PRD (approved, indicator-only) + BE/FE IMPL/TEST plans + #876 CODE-REVIEW (PASS) + #881 UAT (Complete)
 - [On-demand Screenshot Capture] 746-845_BE-IMPL-SCREENSHOT: captureLifecycleEvent intake — transactional pending→captured ledger on the carrier doc's capturedEvents map, await-capped (10s) executeCaptureChart, st-screenshots index at {groupId}-{refId}-{event}; failed markers retryable, nothing propagates to the order path
 - [On-demand Screenshot Capture] 746-845_DOCS-SCREENSHOT: #845 CODE-REVIEW (PASS — undefined-groupId index write fixed in-loop) + #883 UAT (Complete)
+- [On-demand Screenshot Capture] 746-846_BE-FE-IMPL-SCREENSHOT: shared lifecycle-tracking contracts (CapturedEventEntry, LifecycleCarrier, ScreenshotIndexEntry, OrderIntentTrackingFields) as the single FE+BE source; tracking.ts carriers + anchored doc paths + intent tracking I/O behind a narrow TrackingDb seam (undefined-key strip before merge-set); BaseOrderTicket extends OrderIntentTrackingFields; Collection.ST_SCREENSHOTS
+- [On-demand Screenshot Capture] 746-846_DOCS-SCREENSHOT: #846 CODE-REVIEW (PASS — explicit-undefined tracking write fixed in-loop) + #896 UAT (Complete)
 
 ## [2026-10-06]
 
