@@ -32,7 +32,7 @@ FE-only implementation plan for Update Stop Loss. No BE or SHARED work — `Orde
 - `preview` uses `timeInForce()` / `marketHours()` instead of the hardcoded literals.
 - `placeStopLoss` emits `{ stopPrice, timeInForce, marketHours }` — a breaking change to the payload type; both consumers are updated.
 
-`OrderTicketComponent` binds `[(timeInForce)]="timeInForce"` / `[(marketHours)]="marketHours"` into the form and sets `[showOrderParams]="false"` — the ticket's own pills remain the single visible control on that page, and the form's preview finally tells the truth (today it shows `gtc`/`regular_hours` regardless of the ticket's selections). `onPlaceStopLoss` continues using `$event.stopPrice`; its ticket construction already reads the ticket's own TIF/hours signals, so no change is needed there beyond the binding.
+`OrderTicketComponent` sets `[showOrderParams]="false"` and binds **neither** model — as built after UAT, the ticket's TIF/Hours pills govern only the ENTRY order (they're hidden once it fills anyway), so binding them would silently pin the stop to the entry's values: a `gfd` entry → a Day stop, and extended/all-day → a broker 400. `onPlaceStopLoss` uses `$event.stopPrice` and pins `{ timeInForce: 'gtc', marketHours: 'regular_hours' }`; the dialog pins `marketHours` at the same seam. The form's own models keep their `gtc`/`regular_hours` defaults, which is what its preview shows — honest again.
 
 ### 3. Ticket builders take TIF + market hours
 
@@ -148,7 +148,7 @@ Task 1 is the foundation for everything. Tasks 2 and 3 are parallel after 1. Tas
 
 - **Unprotected window:** inherent to cancel-first (PRD technical context). Surfaced in the UI via `unprotected` on place-phase failure; bounded auto-retry narrows it.
 - **`stop_price` on 'market'/'limit' types:** the updatable set deliberately includes RH's market/limit-typed stop orders; replacements are always `stop_loss`-typed tickets — a type upgrade, accepted per PRD.
-- **Extended-hours stops:** `extended_hours`/`all_day_hours` are offered matching the order ticket; RH acceptance on stop orders is unverified and surfaces through the normal failure path if rejected.
+- **Extended-hours stops:** VERIFIED during #886 UAT — RH rejects them: `400 {"non_field_errors":["Extended hours orders cannot have stop price."]}`. The form locks Hours to Regular (Extended/All Day pills disabled) and the order ticket's `marketHours` is deliberately *not* bound into the stop form — an extended-hours entry must not poison its stop. `marketHours` remains in the payload/prefill contract (always `'regular_hours'` for stops in practice) so update mode can round-trip the original order's value.
 - **Multi-stop batch convergence:** per product decision, all eligible stops update to the computed level — same-symbol levels may converge.
 
 ## Refs

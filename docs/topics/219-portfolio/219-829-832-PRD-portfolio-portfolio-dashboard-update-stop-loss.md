@@ -77,7 +77,7 @@ Finally, the shared stop-loss form gains the full order-ticket parameters it cur
     - *Acceptance:* Orders update sequentially, each through the same primitive (cancel → review → place with bounded auto-retry). An unrecoverable per-order failure aborts the remaining queue and reports which stops completed, which failed, and which never ran — a systemic failure must not keep cancelling healthy stops.
 
 16. As a trader, I want the stop form to expose every order parameter the main ticket does — time-in-force and market hours — so that Add/Update Stop tickets aren't silently pinned to hidden defaults.
-   - *Acceptance:* The form shows Day/GTC and Regular/Extended/All Day controls matching the order ticket's pills; the preview JSON and the emitted submit payload carry the selected `timeInForce` and `marketHours` (`symbol`, `side`, `orderType`, `quantity`, `stopPrice`, `stopLossPercent`, `timeInForce`, `marketHours`, `accountNumber` — the full ticket shape).
+   - *Acceptance:* The form shows Day/GTC and Regular/Extended/All Day controls matching the order ticket's pills; the preview JSON and the emitted submit payload carry the selected `timeInForce` and `marketHours` (`symbol`, `side`, `orderType`, `quantity`, `stopPrice`, `stopLossPercent`, `timeInForce`, `marketHours`, `accountNumber` — the full ticket shape). **Amended during #886:** RH rejects non-regular stop orders (`Extended hours orders cannot have stop price`), so Extended/All Day render disabled with a hint — the pills stay visible to communicate the constraint, and `marketHours` is still carried in the payload (`'regular_hours'` in practice).
 
 ## Implementation Decisions
 
