@@ -148,3 +148,71 @@ export interface CaptureChartResult {
   paths: string[];
   artifacts: CaptureArtifact[];
 }
+
+// ── Lifecycle tracking (Thread #826 — order lifecycle capture) ─────────────
+
+/**
+ * Flat root collection for the screenshot index — one doc per lifecycle
+ * capture, id `{groupId}-{refId}-{event}`. Backend-written by
+ * `captureLifecycleEvent`; FE reads it for the screenshot library.
+ */
+export const ST_SCREENSHOTS_COLLECTION = 'st-screenshots';
+
+/** Carrier-doc field holding the dedup ledger + manifest map — lives on
+ *  `st-order-intents` docs and engine/paper position docs. */
+export const CAPTURED_EVENTS_FIELD = 'capturedEvents';
+
+/** One `capturedEvents` map entry — the dedup slot for one lifecycle event. */
+export interface CapturedEventEntry {
+  status: 'pending' | 'captured' | 'failed';
+  /** ISO timestamp of the claim — the stale-claim clock reads this. */
+  claimedAt: string;
+  capturedAt?: string;
+  failedAt?: string;
+  paths?: string[];
+  error?: string;
+}
+
+/** Where a capture's dedup ledger lives. `intent` = an `st-order-intents`
+ *  doc; `engine-position` = an engine/paper-trade position doc. */
+export type LifecycleCarrierKind = 'intent' | 'engine-position';
+
+export interface LifecycleCarrier {
+  kind: LifecycleCarrierKind;
+  docPath: string;
+}
+
+/** One `st-screenshots` index doc — the flat query surface for the library. */
+export interface ScreenshotIndexEntry {
+  groupId?: string;
+  positionId: string;
+  refId: string;
+  event: CaptureEvent;
+  symbol: string;
+  positionType: PositionType;
+  carrier: LifecycleCarrier;
+  capturedAt: string;
+  paths: string[];
+}
+
+/** The role an order intent plays against a position — drives the lifecycle
+ *  events an intent carriers. */
+export type OrderIntentRole = 'open' | 'close';
+
+/**
+ * Tracking fields an `st-order-intents` doc carries for screenshot
+ * lifecycle capture. The FE writes `role`/`linkedPositionId` at ticket
+ * creation (#849); the backend writes `lastSeenState` (detector
+ * bookkeeping) and `capturedEvents` (dedup ledger + manifest) itself.
+ */
+export interface OrderIntentTrackingFields {
+  role?: OrderIntentRole;
+  /** Close tickets → the opening intent's refId / group root. */
+  linkedPositionId?: string;
+  /** Signal id — group linkage on signal-pipeline tickets. */
+  signalId?: string;
+  /** Last order state the external detector observed — re-observation
+   *  bookkeeping so a terminal re-read doesn't double-fire. */
+  lastSeenState?: string;
+  capturedEvents?: Record<string, CapturedEventEntry>;
+}

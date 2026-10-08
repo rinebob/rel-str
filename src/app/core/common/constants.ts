@@ -218,6 +218,8 @@ export enum Collection {
   ST_SYMBOL_META = 'savant-trader/data/symbol-meta',
   ST_RUNS = 'savant-trader/data/runs',
   ST_ORDER_INTENTS = 'savant-trader/data/order-intents',
+  /** Screenshot-capture index — backend-written, FE read-only (#846). */
+  ST_SCREENSHOTS = 'st-screenshots',
   ST_TRADING_CONFIG = 'savant-trader/data/trading-config',
   SPREAD_RUNS = 'spread-runs',
   SPREAD_LISTS = 'spread-lists',

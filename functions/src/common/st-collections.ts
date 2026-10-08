@@ -54,9 +54,10 @@ export const ST_ORDER_INTENTS_COLLECTION = 'savant-trader/data/order-intents';
 /**
  * Screenshot-capture index — one flat doc per lifecycle capture
  * (`{groupId}-{refId}-{event}`), backend-written, FE read-only for the
- * screenshot library. Flat root per the collection-prefix convention.
+ * screenshot library. Canonical home is `@screenshot-capture/contracts`
+ * (shared with the FE); re-exported here for the backend constants surface.
  */
-export const ST_SCREENSHOTS_COLLECTION = 'st-screenshots';
+export { ST_SCREENSHOTS_COLLECTION } from '@screenshot-capture/contracts';
 
 /** Trading config collection (new). */
 export const ST_TRADING_CONFIG_COLLECTION = 'savant-trader/data/trading-config';

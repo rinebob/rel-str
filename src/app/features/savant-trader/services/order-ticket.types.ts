@@ -8,6 +8,7 @@
  * Ref: PRD-savant-trader-order-placement-refactor.md §Order ticket data model
  * Ref: IMPL-savant-trader-order-placement-shared.md §4 (OrderTicket type model)
  */
+import type { OrderIntentTrackingFields } from '@screenshot-capture/contracts';
 
 // =============================
 // Enums
@@ -122,7 +123,11 @@ export interface TaxLotSelection {
 // Base + variant interfaces
 // =============================
 
-export interface BaseOrderTicket {
+export interface BaseOrderTicket extends OrderIntentTrackingFields {
+  // OrderIntentTrackingFields (Topic #746 / task #846): role,
+  // linkedPositionId, signalId, lastSeenState, capturedEvents — the FE
+  // writes role/linkedPositionId at creation; the backend owns the rest.
+
   id: string;                    // UUID
   refId: string;                 // Robinhood idempotency key — generated at staging, reused on retry; regenerated on requeue of a terminal (cancelled) order — RH burns the old ref_id (#717)
   source: OrderSource;

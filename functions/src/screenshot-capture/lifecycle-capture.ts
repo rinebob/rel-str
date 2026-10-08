@@ -30,21 +30,33 @@ import { getStorage } from 'firebase-admin/storage';
 import '../firebase-admin-init';
 
 import {
+  CAPTURED_EVENTS_FIELD,
   CaptureEvent,
   PositionType,
+  ST_SCREENSHOTS_COLLECTION,
+  type CapturedEventEntry,
   type CaptureChartResult,
   type CaptureChartSpec,
   type CaptureInterval,
+  type LifecycleCarrier,
+  type ScreenshotIndexEntry,
 } from '@screenshot-capture/contracts';
-import { ST_SCREENSHOTS_COLLECTION } from '../common/st-collections';
 import { assembleChartModels } from './chart-data-loader';
 import { executeCaptureChart, type CaptureChartSnapshotDeps } from './capture-chart';
 import { rasterizeSvgToPng } from './rasterizer';
 import { renderChartSvg } from './svg-renderer';
 import { createArtifactWriter } from './storage-writer';
 
-/** Carrier-doc field holding the dedup ledger + manifest map. */
-export const CAPTURED_EVENTS_FIELD = 'capturedEvents';
+// Shared tracking shapes live in `@screenshot-capture/contracts` (FE +
+// functions both consume them — #846). Re-exported here so the intake's
+// importers keep a single entry point.
+export {
+  CAPTURED_EVENTS_FIELD,
+  type CapturedEventEntry,
+  type LifecycleCarrier,
+  type LifecycleCarrierKind,
+  type ScreenshotIndexEntry,
+} from '@screenshot-capture/contracts';
 
 /** Await cap for the capture call — generous vs. the ~2s happy path but
  *  bounded so the order path never stalls (#844 verify ran ~1s/capture). */
@@ -56,14 +68,6 @@ export const LIFECYCLE_CAPTURE_TIMEOUT_MS = 10_000;
 export const LIFECYCLE_STALE_CLAIM_MS = 60_000;
 
 // ── Types ───────────────────────────────────────────────────────────────────
-
-/** Where the dedup ledger + manifest live. `intent` = an `st-order-intents`
- *  doc (detector-driven live captures); `engine-position` = an engine/
- *  paper-trade position doc (fill/settlement hooks). */
-export interface LifecycleCarrier {
-  kind: 'intent' | 'engine-position';
-  docPath: string;
-}
 
 export interface LifecycleCaptureInput {
   /** The lifecycle position/trade id — composes the default refId and the
@@ -85,30 +89,6 @@ export type LifecycleCaptureOutcome =
   | { status: 'captured'; paths: string[] }
   | { status: 'skipped-duplicate' }
   | { status: 'failed'; error: string };
-
-/** One `capturedEvents` map entry — the dedup ledger slot for one event. */
-export interface CapturedEventEntry {
-  status: 'pending' | 'captured' | 'failed';
-  /** ISO timestamp of the claim — the stale-claim clock reads this. */
-  claimedAt: string;
-  capturedAt?: string;
-  failedAt?: string;
-  paths?: string[];
-  error?: string;
-}
-
-/** One `st-screenshots` index doc — the flat query surface for the library. */
-export interface ScreenshotIndexEntry {
-  groupId?: string;
-  positionId: string;
-  refId: string;
-  event: CaptureEvent;
-  symbol: string;
-  positionType: PositionType;
-  carrier: LifecycleCarrier;
-  capturedAt: string;
-  paths: string[];
-}
 
 /** Transaction seam — the fake maps the ledger tests use; the real seam is
  *  `Firestore.runTransaction`. `readCarrierEvents` must resolve before
