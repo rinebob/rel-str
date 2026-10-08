@@ -31,6 +31,11 @@
 - [Portfolio Dashboard] 219-885_SHARED-IMPL-PORTFOLIO: BrokerOrder gains verbatim timeInForce/marketHours — normalizeOrder parses time_in_force/market_hours (absent → undefined) + specs
 - [Portfolio Dashboard] 219-885_FE-IMPL-PORTFOLIO: EquityTimeInForce/EquityMarketHours unions on BaseOrderTicket + StopOrderParams threaded through stop builders (gtc/regular_hours defaults) + buildStopLossUpdateTicket (stop_loss_update sourceRef) + toEquityTimeInForce/toEquityMarketHours narrowing helpers
 - [Portfolio Dashboard] 219-885_DOCS-PORTFOLIO: Update Stop Loss PRD (#832) + IMPL/TEST plans (#861) + #885 CODE-REVIEW (PASS) + #895 UAT (Complete) + Update Stop / Trailing Stop / Water Mark / Trail Distance glossary terms
+- [Gallery Order Ticket View] 743-820_FE-IMPL-GALLERY-VIEW: flat 'None' grouping — GroupDimension sentinel (getGroupKey throws on it), facade flatCards sorted market-cap desc, Sunk cards still pinned in the Sunk expando below the flat grid
+- [Gallery Order Ticket View] 743-838_FE-IMPL-GALLERY-VIEW: store seams — stale-response guard on loadSymbolsWithSignals (run-switch mid-fetch can't clobber the new run), failed symbol-history loads no longer cache [] (refresh retries), ui-store chartTimeframe + resync tick, card-chart cacheEpoch dropping stale writes
+- [Gallery Order Ticket View] 743-860_FE-IMPL-GALLERY-VIEW: GalleryChartMountQueueService — one chart mount per requestAnimationFrame, FIFO, dead grants skipped free, re-entrant/throwing grants can't strand the queue; card-chart mounts grant-gated on inWindow+bars+no-error (fixes the 16-card flat-page hang)
+- [Gallery Order Ticket View] 743-819_FE-IMPL-GALLERY-VIEW: card chart D/W toggle + per-card override + header resync, labeled Trade/Reject/Paper/Chart toolbar, meta rows incl. price+day-change before exchange, leaf computeds killing the cross-symbol re-render storm, flat-grid render, symbol overlay in the chart cell
+- [Gallery Order Ticket View] 743-819_DOCS-GALLERY-VIEW: CODE-REVIEW docs for #819/#820/#838/#860 (all PASS) + UAT sections F/H/M in the accumulating doc + #819 task UAT (QA #840/#841/#856/#865 all PASS)
 
 ## [2026-10-06]
 
