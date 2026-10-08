@@ -2,6 +2,18 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { FlexChartComponent } from './flex-chart.component';
 import { CHART_PALETTES } from '@flex-chart/theme';
+import { StIndicator } from './flex-chart.types';
+import {
+  ST_INDICATOR_OPTIONS,
+  ST_DEV_INDICATOR_OPTIONS,
+  DEV_INDICATOR_TYPES,
+  buildDefaultConfig,
+} from './indicators/indicator-registry';
+import { ST_TREND_BANDS_INDICATOR } from './indicators/st-trend-bands.indicator';
+import {
+  ST_TRIGGER_BANDS_INDICATOR,
+  ST_TRIGGER_BANDS_DOTS_INDICATOR,
+} from './indicators/st-trigger-bands.indicator';
 
 describe('FlexChartComponent logScale default', () => {
   let fixture: ComponentFixture<FlexChartComponent>;
@@ -285,5 +297,84 @@ describe('FlexChartComponent crosshair clamping', () => {
 
     expect(component.hoveredDate()).toBe('Jan 10, 2026');
     expect((component as any)['lastCrosshairIdx']).toBe(9);
+  });
+});
+
+// =============================================================================
+// Dev-mode gate — Topic #261 / Task #880
+//
+// `FlexChartConfig.dev` opts a chart into dev-typed indicator configs
+// (DEV_INDICATOR_TYPES). effectiveConfig is the single funnel into the
+// adapter/lifecycle/axis services, so stripping here covers every render path.
+// =============================================================================
+
+describe('FlexChartComponent dev-mode gate', () => {
+  let fixture: ComponentFixture<FlexChartComponent>;
+  let component: FlexChartComponent;
+  let originalResizeObserver: unknown;
+
+  beforeAll(() => {
+    originalResizeObserver = (globalThis as Record<string, unknown>).ResizeObserver;
+    (globalThis as Record<string, unknown>).ResizeObserver = class {
+      observe = jest.fn();
+      disconnect = jest.fn();
+      unobserve = jest.fn();
+    };
+  });
+
+  afterAll(() => {
+    (globalThis as Record<string, unknown>).ResizeObserver = originalResizeObserver;
+  });
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [FlexChartComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(FlexChartComponent);
+    component = fixture.componentRef.instance;
+    fixture.componentRef.setInput('chartData', null);
+  });
+
+  const devCfg = (type: StIndicator) =>
+    buildDefaultConfig(type === StIndicator.ST_TRIGGER_BANDS
+      ? ST_TRIGGER_BANDS_INDICATOR
+      : ST_TRIGGER_BANDS_DOTS_INDICATOR);
+  const prodCfg = () => buildDefaultConfig(ST_TREND_BANDS_INDICATOR);
+
+  it('strips dev-typed indicator configs when dev is unset', () => {
+    fixture.componentRef.setInput('config', {
+      indicators: [prodCfg(), devCfg(StIndicator.ST_TRIGGER_BANDS), devCfg(StIndicator.ST_TRIGGER_BANDS_DOTS)],
+    });
+    const types = component.effectiveConfig().indicators.map((i) => i.type);
+    expect(types).toEqual([StIndicator.TREND_BANDS]);
+  });
+
+  it('strips dev-typed indicator configs when dev is false', () => {
+    fixture.componentRef.setInput('config', {
+      dev: false,
+      indicators: [devCfg(StIndicator.ST_TRIGGER_BANDS)],
+    });
+    expect(component.effectiveConfig().indicators).toEqual([]);
+  });
+
+  it('keeps dev-typed indicator configs when dev is true', () => {
+    fixture.componentRef.setInput('config', {
+      dev: true,
+      indicators: [prodCfg(), devCfg(StIndicator.ST_TRIGGER_BANDS), devCfg(StIndicator.ST_TRIGGER_BANDS_DOTS)],
+    });
+    const types = component.effectiveConfig().indicators.map((i) => i.type);
+    expect(types).toEqual([
+      StIndicator.TREND_BANDS,
+      StIndicator.ST_TRIGGER_BANDS,
+      StIndicator.ST_TRIGGER_BANDS_DOTS,
+    ]);
+  });
+
+  it('keeps the strip set in sync with the dev options: bands offered, dots reserved', () => {
+    expect(ST_DEV_INDICATOR_OPTIONS.map((o) => o.id)).toEqual([ST_TRIGGER_BANDS_INDICATOR.id]);
+    expect(DEV_INDICATOR_TYPES.has(StIndicator.ST_TRIGGER_BANDS)).toBe(true);
+    expect(DEV_INDICATOR_TYPES.has(StIndicator.ST_TRIGGER_BANDS_DOTS)).toBe(true);
+    expect(ST_INDICATOR_OPTIONS.some((o) => DEV_INDICATOR_TYPES.has(o.type))).toBe(false);
   });
 });

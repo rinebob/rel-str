@@ -43,6 +43,13 @@ import {
 } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { ChartAxisState, ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
 import { BarsInterval } from '../../../../core/models/partner.types';
+import { ChartInterval, IndicatorFamily, StrategyFamily } from '../../common/indicator.types';
+import {
+  TRIGGER_BANDS_CHART_INTERVALS,
+  TRIGGER_BANDS_CHART_INDICATORS,
+  TRIGGER_BANDS_CHART_STRATEGIES,
+} from '../../stores/chart.store';
+import { ST_TRIGGER_BANDS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
 import { SYNTHETIC_BAR_COUNT } from './synthetic-data';
 import CORE_ROUTES from '../../../../core/core-routes';
 import { AppRoutes } from '../../../../core/common/interfaces';
@@ -360,6 +367,137 @@ describe('FlexChartSandboxComponent', () => {
     box.click();
     fixture.detectChanges();
     expect(chart.config?.indicators.map((i) => i.id)).toEqual(defaultIds);
+  });
+});
+
+// =============================================================================
+// Trigger Bands dev wiring — Topic #261 / Task #880
+//
+// The sandbox is the only surface that offers dev indicators: the picker gets
+// ST_DEV_INDICATOR_OPTIONS, the config carries dev: true, and enabling the
+// toggle issues the lean bands+dots callable request under its own cache key.
+// =============================================================================
+
+describe('Trigger Bands dev wiring (#880)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const TB_ID = ST_TRIGGER_BANDS_INDICATOR.id; // 'st-trigger-bands'
+  const tbPoint = (d: string) => ({
+    d, upper: 10, lower: 8,
+    longPullback: false, longPullbackState: false, longBreakout: false,
+    shortPullback: false, shortPullbackState: false, shortBreakout: false,
+  });
+  const tbDot = (d: string, index: number, signalType: string) => ({
+    d, index, direction: 'long' as const, y: 7, version: 'TB' as const, signalType,
+  });
+  const tbResponse = {
+    symbol: 'QQQ',
+    marketDate: '2026-01-10',
+    computedAt: '',
+    intervals: {
+      daily: {
+        indicators: { triggerBands: [tbPoint('2026-01-01'), tbPoint('2026-01-02')] },
+        signals: {},
+        dotMarkers: {
+          triggerBands: [tbDot('2026-01-01', 0, 'TRIGGER_BANDS_LONG_BREAKOUT')],
+        },
+      },
+    },
+  };
+
+  /** responseFor serves tbResponse only for the lean Trigger Bands filter set. */
+  function withLeanResponse(): typeof mockIndicatorStore.responseFor {
+    const original = mockIndicatorStore.responseFor;
+    mockIndicatorStore.responseFor = (() => (
+      _symbol: string,
+      _version: string,
+      _intervals: unknown[],
+      indicators: string[],
+    ) => (indicators.includes(IndicatorFamily.TRIGGER_BANDS) ? tbResponse : undefined)) as never;
+    return original;
+  }
+
+  function enableTriggerBands(fixture: ComponentFixture<FlexChartSandboxComponent>): void {
+    const box = fixture.nativeElement.querySelector(`[data-testid="ind-${TB_ID}"]`) as HTMLInputElement;
+    box.click();
+    fixture.detectChanges();
+  }
+
+  it('marks the chart config as dev so dev-typed indicators can render', async () => {
+    const { chart } = await setup();
+    expect(chart.config?.dev).toBe(true);
+  });
+
+  it('offers Trigger Bands in the picker and issues the lean request only when enabled', async () => {
+    const { fixture } = await setup();
+    mockIndicatorStore.loadIfNeeded.mockClear();
+
+    const box = fixture.nativeElement.querySelector(`[data-testid="ind-${TB_ID}"]`) as HTMLInputElement;
+    expect(box).toBeTruthy();
+    expect(mockIndicatorStore.loadIfNeeded).not.toHaveBeenCalledWith(
+      'QQQ', 'v1',
+      TRIGGER_BANDS_CHART_INTERVALS,
+      TRIGGER_BANDS_CHART_INDICATORS,
+      TRIGGER_BANDS_CHART_STRATEGIES,
+    );
+
+    box.click();
+    fixture.detectChanges();
+
+    expect(mockIndicatorStore.loadIfNeeded).toHaveBeenCalledWith(
+      'QQQ', 'v1',
+      [ChartInterval.DAILY, ChartInterval.WEEKLY],
+      [IndicatorFamily.TRIGGER_BANDS],
+      [StrategyFamily.TRIGGER_BANDS],
+    );
+  });
+
+  it('merges bands onto the indicator config; dots ride a separate dev toggle (off by default)', async () => {
+    const original = withLeanResponse();
+    try {
+      const { fixture, chart } = await setup();
+      enableTriggerBands(fixture);
+
+      const bands = chart.config?.indicators.find((i) => i.id === `${TB_ID}-default`);
+      expect(bands).toBeTruthy();
+      expect(bands?.triggerBandData).toHaveLength(2);
+
+      // Dots are gated behind the "TB dots" dev toggle — off by default.
+      expect(chart.config?.indicators.find((i) => i.id === 'st-trigger-bands-dots-default')).toBeUndefined();
+
+      fixture.nativeElement.querySelector('[data-testid="tb-dots-toggle"]').click();
+      fixture.detectChanges();
+
+      const dots = chart.config?.indicators.find((i) => i.id === 'st-trigger-bands-dots-default');
+      expect(dots).toBeTruthy();
+      expect(dots?.data).toHaveLength(1);
+    } finally {
+      mockIndicatorStore.responseFor = original;
+    }
+  });
+
+  it('draws nothing for an older backend that returns no triggerBands', async () => {
+    const { fixture, chart } = await setup();
+    enableTriggerBands(fixture);
+
+    const bands = chart.config?.indicators.find((i) => i.id === `${TB_ID}-default`);
+    expect(bands?.triggerBandData).toEqual([]);
+    expect(chart.config?.indicators.find((i) => i.id === 'st-trigger-bands-dots-default')).toBeUndefined();
+  });
+
+  it('disables the dev checkbox and issues no request in synthetic mode', async () => {
+    const { fixture } = await setup();
+    fixture.nativeElement.querySelector('[data-testid="mode-synthetic"]').click();
+    fixture.detectChanges();
+    mockIndicatorStore.loadIfNeeded.mockClear();
+
+    const box = fixture.nativeElement.querySelector(`[data-testid="ind-${TB_ID}"]`) as HTMLInputElement;
+    expect(box.disabled).toBe(true);
+
+    // Even a programmatic enable cannot fire the request — the effect guards on dataMode.
+    fixture.componentInstance.toggleIndicator(TB_ID, { target: { checked: true } } as unknown as Event);
+    fixture.detectChanges();
+    expect(mockIndicatorStore.loadIfNeeded).not.toHaveBeenCalled();
   });
 });
 

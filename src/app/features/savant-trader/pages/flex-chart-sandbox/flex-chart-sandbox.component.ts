@@ -22,6 +22,8 @@ import {
   viewChild,
   ChangeDetectionStrategy,
   OnDestroy,
+  untracked,
+
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -34,9 +36,17 @@ import {
   DEFAULT_CHART_INDICATORS,
   DEFAULT_CHART_INTERVALS,
   DEFAULT_CHART_STRATEGIES,
+  TRIGGER_BANDS_CHART_INTERVALS,
+  TRIGGER_BANDS_CHART_INDICATORS,
+  TRIGGER_BANDS_CHART_STRATEGIES,
 } from '../../stores/chart.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
-import { addChartExtras, createExtrasSignals } from '../../utils/chart-indicators';
+import {
+  addChartExtras,
+  createExtrasSignals,
+  injectTriggerBandsData,
+  convertTriggerBandsDotMarkers,
+} from '../../utils/chart-indicators';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import type {
   FlexChartConfig,
@@ -47,9 +57,11 @@ import type { ChartDebugSnapshot } from '../../../shared/components/flex-chart/s
 import { BarsInterval } from '../../../../core/models/partner.types';
 import {
   ST_INDICATOR_OPTIONS,
+  ST_DEV_INDICATOR_OPTIONS,
   buildDefaultConfig,
 } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
+import { ST_TRIGGER_BANDS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
 import {
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
@@ -112,7 +124,18 @@ export class FlexChartSandboxComponent implements OnDestroy {
   /** ST indicator option ids currently enabled — default to the core ST
    *  suite (trend bands + trend strength + zones V1/V2). */
   readonly enabledIndicators = signal<ReadonlySet<string>>(DEFAULT_ENABLED_INDICATORS);
-  readonly indicatorOptions = ST_INDICATOR_OPTIONS;
+  /** Picker list: the prod ST options plus the dev-only options — dev
+   *  indicators are offered here and nowhere else. */
+  readonly indicatorOptions = [...ST_INDICATOR_OPTIONS, ...ST_DEV_INDICATOR_OPTIONS];
+  /** Dev-option ids — their checkboxes are disabled in synthetic mode because
+   *  generated bars have no callable response to draw from. */
+  readonly devOptionIds = new Set(ST_DEV_INDICATOR_OPTIONS.map((o) => o.id));
+  /** Dev toggle: Trigger Bands pullback/breakout dots. Off by default — the
+   *  band state transitions are inspected without the marker noise; flip on
+   *  to check the dots themselves. Sandbox-only control, not part of the
+   *  indicator contract. */
+  readonly triggerBandsDots = signal(false);
+  readonly tbIndicatorId = ST_TRIGGER_BANDS_INDICATOR.id;
   readonly debugState = signal<ChartDebugSnapshot>({ viewport: null, axis: null, logTicks: [] });
 
   @ViewChild('indicatorPicker') private indicatorPicker?: ElementRef<HTMLDetailsElement>;
@@ -180,26 +203,66 @@ export class FlexChartSandboxComponent implements OnDestroy {
   private readonly dailyIntervalData = computed(() => this.indicatorResponse()?.intervals?.daily);
   private readonly weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
 
+  /** Opt-in Trigger Bands response — a separate, lean callable result cached
+   *  under its own IndicatorSeriesStore key. Undefined until the dev indicator
+   *  is enabled and the request lands (an older backend that ignores the
+   *  family returns data without `triggerBands`: nothing draws). */
+  private readonly triggerBandsResponse = computed(() => {
+    const symbol = this.symbol();
+    const version = this.chartStore.symbolDataVersion();
+    if (
+      this.dataMode() === 'synthetic' ||
+      !this.enabledIndicators().has(ST_TRIGGER_BANDS_INDICATOR.id) ||
+      !symbol || !version
+    ) return undefined;
+    return this.indicatorStore.responseFor()(
+      symbol,
+      version,
+      TRIGGER_BANDS_CHART_INTERVALS,
+      TRIGGER_BANDS_CHART_INDICATORS,
+      TRIGGER_BANDS_CHART_STRATEGIES,
+    );
+  });
+
+  private readonly tbDaily = computed(() => this.triggerBandsResponse()?.intervals?.daily);
+  private readonly tbWeekly = computed(() => this.triggerBandsResponse()?.intervals?.weekly);
+
   /** Backend signal dots / Trend Rider dots, converted by the shared helper. */
   private readonly extras = createExtrasSignals(this.dailyIntervalData, this.weeklyIntervalData);
 
   readonly config = computed<FlexChartConfig>(() => {
     const enabled = this.enabledIndicators();
     const interval = this.interval();
-    const base = ST_INDICATOR_OPTIONS.filter((o) => enabled.has(o.id)).map(buildDefaultConfig);
     const has = (id: string) => enabled.has(id);
+    // Dev indicator merge: bands ride on the config's triggerBandData; the
+    // pullback/breakout dots come from the same lean response. Monthly is not
+    // in the lean request, so the toggle draws nothing on M.
+    const tbData = has(ST_TRIGGER_BANDS_INDICATOR.id)
+      ? interval === ChartIntervalKey.DAILY
+        ? this.tbDaily()
+        : interval === ChartIntervalKey.WEEKLY
+          ? this.tbWeekly()
+          : undefined
+      : undefined;
+    const tbDots = tbData && this.triggerBandsDots() ? convertTriggerBandsDotMarkers(tbData) : undefined;
+    const base = injectTriggerBandsData(
+      this.indicatorOptions.filter((o) => enabled.has(o.id)).map(buildDefaultConfig),
+      tbData,
+    );
     const indicators =
       interval === ChartIntervalKey.DAILY
         ? addChartExtras(base, {
             signalDots: has(ST_SIGNAL_DOTS_INDICATOR.id) ? this.extras.dailySignalDots() : undefined,
             uptickDotsV1: has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.extras.dailyUptickDotsV1() : undefined,
             uptickDotsV2: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.extras.dailyUptickDotsV2() : undefined,
+            triggerBandsDots: tbDots,
           })
         : interval === ChartIntervalKey.WEEKLY
           ? addChartExtras(base, {
               signalDots: has(ST_SIGNAL_DOTS_INDICATOR.id) ? this.extras.weeklySignalDots() : undefined,
               uptickDotsV1: has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.extras.weeklyUptickDotsV1() : undefined,
               uptickDotsV2: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.extras.weeklyUptickDotsV2() : undefined,
+              triggerBandsDots: tbDots,
             })
           : base;
     return {
@@ -211,6 +274,8 @@ export class FlexChartSandboxComponent implements OnDestroy {
       visibleBars: SHOW_ALL_BARS,
       interval,
       logScale: this.logScale(),
+      // Dev-mode gate — the sandbox is where in-development indicators run.
+      dev: true,
     };
   });
 
@@ -280,6 +345,28 @@ export class FlexChartSandboxComponent implements OnDestroy {
       }
       this.chartStore.loadCharts(sym);
     });
+
+    // Opt-in request: only while the dev Trigger Bands indicator is enabled
+    // in real mode — the lean bands+dots filter set under its own cache key;
+    // the default response is never refetched or invalidated.
+    effect(() => {
+      const symbol = this.symbol();
+      const version = this.chartStore.symbolDataVersion();
+      if (
+        this.dataMode() === 'synthetic' ||
+        !this.enabledIndicators().has(ST_TRIGGER_BANDS_INDICATOR.id) ||
+        !symbol || !version
+      ) return;
+      untracked(() =>
+        this.indicatorStore.loadIfNeeded(
+          symbol,
+          version,
+          TRIGGER_BANDS_CHART_INTERVALS,
+          TRIGGER_BANDS_CHART_INDICATORS,
+          TRIGGER_BANDS_CHART_STRATEGIES,
+        ),
+      );
+    });
   }
 
   setDataMode(mode: DataMode): void {
@@ -302,6 +389,10 @@ export class FlexChartSandboxComponent implements OnDestroy {
 
   onLogToggle(event: Event): void {
     this.logScale.set((event.target as HTMLInputElement).checked);
+  }
+
+  onTriggerBandsDotsToggle(event: Event): void {
+    this.triggerBandsDots.set((event.target as HTMLInputElement).checked);
   }
 
   toggleIndicator(id: string, event: Event): void {

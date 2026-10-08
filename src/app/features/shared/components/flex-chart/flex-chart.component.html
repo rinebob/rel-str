@@ -182,9 +182,29 @@
           }
         }
 
+        <!-- Trigger Bands (one MultiColoredLine per band; each point's `color`
+             paints the segment it starts — the builder emits a hinge+level
+             pair per bar so the same-x pair renders as a step, and carries the
+             entered bar's state colour). -->
+        @for (line of triggerBandSeries(); track line.key) {
+          <e-series
+            [dataSource]="line.data"
+            type="MultiColoredLine"
+            xName="index"
+            yName="y"
+            pointColorMapping="color"
+            [name]="line.name"
+            [fill]="line.color"
+            [width]="line.width"
+            [emptyPointSettings]="{ mode: 'Gap' }"
+            [enableTooltip]="false"
+            [animation]="noAnimation">
+          </e-series>
+        }
+
         <!-- Main pane indicators (overlay on price) -->
         @for (indicator of mainPaneSeries(); track indicator.id) {
-          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.ST_STD_DEV_LINES && indicator.config.type !== StIndicator.ST_ZIGZAG && indicator.config.seriesType === 'line') {
+          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.ST_STD_DEV_LINES && indicator.config.type !== StIndicator.ST_ZIGZAG && indicator.config.type !== StIndicator.ST_TRIGGER_BANDS && indicator.config.seriesType === 'line') {
             <e-series
               [dataSource]="indicator.data"
               type="Line"

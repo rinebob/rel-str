@@ -9,6 +9,7 @@ import type { IndicatorConfig, IndicatorOption } from '../../../../features/shar
 import { ChartIntervalKey, StIndicator } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../../features/shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
+import { ST_TRIGGER_BANDS_DOTS_INDICATOR, ST_TRIGGER_BANDS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trigger-bands.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
 import { ST_UPTICK_DOT_COLORS } from '@flex-chart/indicator-visuals';
@@ -31,7 +32,10 @@ const INDICATORS_BY_INTERVAL: Record<ChartIntervalKey, StIndicator[]> = {
 const BASE_CONFIGS = new Map<string, IndicatorConfig>(
   (() => {
     const m: [string, IndicatorConfig][] = [];
-    for (const opt of ST_INDICATOR_OPTIONS) {
+    // Trigger Bands is opt-in and deliberately outside ST_INDICATOR_OPTIONS (the
+    // shared menu list); it is resolvable by id here but never part of
+    // INDICATORS_BY_INTERVAL, so no default chart picks it up.
+    for (const opt of [...ST_INDICATOR_OPTIONS, ST_TRIGGER_BANDS_INDICATOR]) {
       const cfg = buildDefaultConfig(opt);
       // Pane slots come from each indicator's defaultPane (canonical layout:
       // lower-1 trend strength + dots, lower-2 zone V1, lower-3 zone V2 +
@@ -111,12 +115,25 @@ export function addUptickDots(
   return [...indicators.filter(i => i.id !== cfg.id), cfg];
 }
 
+/** Add the Trigger Bands pullback/breakout dots, returning a new indicator list. Upserts by id. */
+export function addTriggerBandsDots(
+  indicators: IndicatorConfig[],
+  data: ChartScatterPoint[],
+): IndicatorConfig[] {
+  if (data.length === 0) return indicators;
+  const cfg = buildDefaultConfig(ST_TRIGGER_BANDS_DOTS_INDICATOR);
+  cfg.pane = 'overlay';
+  cfg.data = data;
+  return [...indicators.filter(i => i.id !== cfg.id), cfg];
+}
+
 /** Bundle of optional Savant Trader extras to attach to a base indicator list. */
 export interface ChartExtras {
   htfWindow?: { option: IndicatorOption; data: ChartScatterPoint[] };
   signalDots?: ChartScatterPoint[];
   uptickDotsV1?: ChartScatterPoint[];
   uptickDotsV2?: ChartScatterPoint[];
+  triggerBandsDots?: ChartScatterPoint[];
 }
 
 /** Conditionally add HTF windows, signal dots, and uptick dots, returning a new indicator list. */
@@ -136,6 +153,9 @@ export function addChartExtras(
   }
   if (extras.uptickDotsV2) {
     result = addUptickDots(result, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, extras.uptickDotsV2);
+  }
+  if (extras.triggerBandsDots) {
+    result = addTriggerBandsDots(result, extras.triggerBandsDots);
   }
   return result;
 }

@@ -27,6 +27,7 @@ import {
   ColumnSeriesService,
   RangeAreaSeriesService,
   ScatterSeriesService,
+  MultiColoredLineSeriesService,
   DateTimeService,
   CategoryService,
   ZoomService,
@@ -44,6 +45,7 @@ import type {
   FlexChartConfig,
 } from './flex-chart.types';
 import { StIndicator, MAIN_PANE_PERCENT_DEFAULT } from './flex-chart.types';
+import { DEV_INDICATOR_TYPES } from './indicators/indicator-registry';
 import type { ChartAppearance, ChartPalette } from '@flex-chart/theme';
 import { resolveChartPalette } from '@flex-chart/theme';
 import { ChartViewportStore } from './store/chart-viewport.store';
@@ -70,6 +72,7 @@ import { ChartSyncOverlayComponent } from './components/chart-sync-overlay.compo
     ColumnSeriesService,
     RangeAreaSeriesService,
     ScatterSeriesService,
+    MultiColoredLineSeriesService,
     DateTimeService,
     CategoryService,
     ZoomService,
@@ -129,12 +132,21 @@ export class FlexChartComponent implements OnDestroy {
    *  config. A parent can still opt out by passing `logScale: false`,
    *  `appearance: 'light'`, or a different pane split.
    */
-  readonly effectiveConfig = computed<FlexChartConfig>(() => ({
-    ...this.config(),
-    logScale: this.config().logScale ?? true,
-    appearance: this.config().appearance ?? 'dark',
-    mainPanePercent: this.config().mainPanePercent ?? MAIN_PANE_PERCENT_DEFAULT,
-  }));
+  readonly effectiveConfig = computed<FlexChartConfig>(() => {
+    const c = this.config();
+    return {
+      ...c,
+      // Dev-mode gate — this computed is the single funnel into the adapter,
+      // lifecycle facade and axis labels, so stripping dev-typed configs here
+      // covers every render path. Prod callers leave `dev` unset.
+      indicators: c.dev
+        ? c.indicators
+        : c.indicators.filter((i) => !DEV_INDICATOR_TYPES.has(i.type)),
+      logScale: c.logScale ?? true,
+      appearance: c.appearance ?? 'dark',
+      mainPanePercent: c.mainPanePercent ?? MAIN_PANE_PERCENT_DEFAULT,
+    };
+  });
 
   /** Selected appearance — always resolved (never undefined). */
   readonly appearance = computed<ChartAppearance>(
@@ -181,6 +193,7 @@ export class FlexChartComponent implements OnDestroy {
   trendBandSeries = this.dataAdapter.trendBandSeries;
   stdDevLineSeries = this.dataAdapter.stdDevLineSeries;
   zigZagSeries = this.dataAdapter.zigZagSeries;
+  triggerBandSeries = this.dataAdapter.triggerBandSeries;
   lowerPanes = this.dataAdapter.lowerPanes;
   chartAxes = this.dataAdapter.chartAxes;
   chartRows = this.dataAdapter.chartRows;

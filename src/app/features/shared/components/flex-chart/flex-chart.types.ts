@@ -7,6 +7,7 @@
 import type { BarsInterval } from '../../../../core/models/partner.types';
 import type { ChartAppearance } from '@flex-chart/theme';
 import type { BandSeriesData } from './indicators/st-trend-bands.indicator';
+import type { TriggerBandPoint } from './indicators/st-trigger-bands.indicator';
 
 /** Price bar data point */
 export interface PriceBar {
@@ -36,7 +37,8 @@ export enum StIndicator {
   ZONE_WINDOW      = 'st-zone-window',
   SIGNAL_DOTS      = 'st-signal-dots',
   ZONE_UPTICK_DOTS      = 'st-zone-uptick-dots',
-  TRIGGER_BAND     = 'st-trigger-band',
+  ST_TRIGGER_BANDS = 'st-trigger-bands',
+  ST_TRIGGER_BANDS_DOTS = 'st-trigger-bands-dots',
   TREND_BAND_WIDTH = 'st-trend-band-width',
   ST_STD_DEV_LINES = 'st-std-dev-lines',
   ST_ZIGZAG       = 'st-zigzag',
@@ -129,6 +131,9 @@ export interface IndicatorConfig {
 
   /** Pre-calculated band candle data for indicators rendered as multiple bands (e.g. ST-Trend-Bands) */
   bandData?: BandSeriesData[];
+
+  /** Callable Trigger Bands series for ST_TRIGGER_BANDS (the renderer colours it by state; no calculator exists) */
+  triggerBandData?: TriggerBandPoint[];
 }
 
 /** Pane configuration */
@@ -196,6 +201,13 @@ export interface FlexChartConfig {
    *  lower panes split the remainder evenly. Clamped to
    *  [MAIN_PANE_PERCENT_MIN, MAIN_PANE_PERCENT_MAX] at the point of use. */
   mainPanePercent?: number;
+
+  /** Dev-mode gate. When true, indicator configs whose type is in
+   *  DEV_INDICATOR_TYPES render normally; when false/absent those configs are
+   *  stripped in `effectiveConfig` before anything downstream sees them, so
+   *  prod surfaces can't draw unfinished indicators even if handed one.
+   *  Dev tools (the flex-chart sandbox) set this; prod callers leave it unset. */
+  dev?: boolean;
 }
 
 /** Clamp bounds for `FlexChartConfig.mainPanePercent` — keeps every active

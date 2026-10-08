@@ -7,7 +7,8 @@
 import type { IndicatorConfig, PriceBar } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import { StIndicator } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import type { BandSeriesData } from '../../../../features/shared/components/flex-chart/indicators/st-trend-bands.indicator';
-import type { IntervalData, TrendBandsPoint, ZoneV1Point, ZoneV2Point } from '../../common/indicator.types';
+import type { TriggerBandPoint, TriggerBandState } from '../../../../features/shared/components/flex-chart/indicators/st-trigger-bands.indicator';
+import type { IntervalData, TrendBandsPoint, TriggerBandsPoint, ZoneV1Point, ZoneV2Point } from '../../common/indicator.types';
 import { ST_ZONE_COLORS, ST_ZONE_FALLBACK_COLOR } from '@flex-chart/indicator-visuals';
 import { toDatePt } from '../../utils/utils';
 import type { ChartScatterPoint } from './base-indicators';
@@ -67,6 +68,38 @@ function trendBandsToChartData(
   return Array.from(bandMap.values()).sort((a, b) => a.bandIndex - b.bandIndex);
 }
 
+/** A bar's colour state for one band: this bar's pullback flag wins, then its breakout flag. */
+function bandState(pullback: boolean, breakout: boolean): TriggerBandState {
+  return pullback ? 'pullback' : breakout ? 'breakout' : 'neutral';
+}
+
+/** Warm-up points (null bands) are dropped; the renderer owns bar-index mapping. */
+function triggerBandsToChartData(points: TriggerBandsPoint[]): TriggerBandPoint[] {
+  return points
+    .filter((p) => p.upper !== null || p.lower !== null)
+    .map((p) => ({
+      date: toDate(p.d),
+      upper: p.upper,
+      lower: p.lower,
+      upperState: bandState(p.longPullback, p.longBreakout),
+      lowerState: bandState(p.shortPullback, p.shortBreakout),
+    }));
+}
+
+/** Attach Trigger Bands series from a separate (opt-in) callable response to the
+ *  Trigger Bands config only. The lean request carries no other families, so
+ *  running the full `injectCallableIndicatorData` over it would blank the zone
+ *  and band data already on the other configs. Absent data yields an empty series. */
+export function injectTriggerBandsData(
+  indicators: IndicatorConfig[],
+  intervalData: IntervalData | undefined,
+): IndicatorConfig[] {
+  const points = triggerBandsToChartData(intervalData?.indicators?.triggerBands ?? []);
+  return indicators.map((cfg) =>
+    cfg.type === StIndicator.ST_TRIGGER_BANDS ? { ...cfg, triggerBandData: points } : cfg,
+  );
+}
+
 /** Convert one interval of the callable response into chart-ready data. */
 export function convertIntervalIndicators(
   intervalData: IntervalData | undefined,
@@ -75,14 +108,17 @@ export function convertIntervalIndicators(
   zoneV1: ChartScatterPoint[];
   zoneV2: ChartScatterPoint[];
   trendBands: BandSeriesData[];
+  triggerBands: TriggerBandPoint[];
 } {
   const zoneV1 = intervalData?.indicators?.zoneV1 ?? [];
   const zoneV2 = intervalData?.indicators?.zoneV2 ?? [];
   const trendBands = intervalData?.indicators?.trendBands ?? [];
+  const triggerBands = intervalData?.indicators?.triggerBands ?? [];
   return {
     zoneV1: zoneToChartData(zoneV1),
     zoneV2: zoneToChartData(zoneV2),
     trendBands: trendBandsToChartData(trendBands, bars),
+    triggerBands: triggerBandsToChartData(triggerBands),
   };
 }
 
@@ -106,6 +142,7 @@ export function injectCallableIndicatorData(
       ['zoneV1', intervalData.indicators?.zoneV1],
       ['zoneV2', intervalData.indicators?.zoneV2],
       ['trendBands', intervalData.indicators?.trendBands],
+      ['triggerBands', intervalData.indicators?.triggerBands],
     ];
     const mismatched = families
       .filter((f): f is [string, { d: string }[]] => !!f[1]?.length && f[1][f[1].length - 1].d !== lastBarDate)
@@ -136,6 +173,8 @@ export function injectCallableIndicatorData(
         return cfg;
       case StIndicator.TREND_BANDS:
         return { ...cfg, bandData: converted.trendBands };
+      case StIndicator.ST_TRIGGER_BANDS:
+        return { ...cfg, triggerBandData: converted.triggerBands };
       default:
         return cfg;
     }

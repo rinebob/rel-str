@@ -44,6 +44,14 @@ export const DEFAULT_CHART_STRATEGIES = [
   StrategyFamily.TREND_STRENGTH,
 ];
 
+/** Opt-in Trigger Bands request: a separate, lean call (bands + dots only, daily
+ *  and weekly) cached under its own key, so enabling the indicator never touches
+ *  the default response above. `StrategyFamily.TRIGGER_BANDS` keeps the backend
+ *  from falling back to the default strategy set (it yields no strategy output). */
+export const TRIGGER_BANDS_CHART_INTERVALS = [ChartInterval.DAILY, ChartInterval.WEEKLY];
+export const TRIGGER_BANDS_CHART_INDICATORS = [IndicatorFamily.TRIGGER_BANDS];
+export const TRIGGER_BANDS_CHART_STRATEGIES = [StrategyFamily.TRIGGER_BANDS];
+
 export interface ChartState {
   /** Currently selected symbol for chart loading. */
   selectedSymbol: string | null;

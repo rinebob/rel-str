@@ -11,7 +11,7 @@ import type { IntervalData } from '../../common/indicator.types';
 import { toDatePt } from '../../utils/utils';
 import type { ChartScatterPoint } from './base-indicators';
 import { UptickDotColors } from './base-indicators';
-import { ST_SIGNAL_DOT_COLORS } from '@flex-chart/indicator-visuals';
+import { ST_SIGNAL_DOT_COLORS, ST_TRIGGER_BANDS_DOT_COLORS } from '@flex-chart/indicator-visuals';
 
 const SIGNAL_DOT_LONG_COLOR = ST_SIGNAL_DOT_COLORS.long;
 const SIGNAL_DOT_SHORT_COLOR = ST_SIGNAL_DOT_COLORS.short;
@@ -95,4 +95,22 @@ export function convertHtfWindowData(
     ? intervalData?.htfWindows?.weekly
     : intervalData?.htfWindows?.monthly;
   return (markers ?? []).map((m) => ({ x: toDatePt(m.d), y: m.y, color: m.color }));
+}
+
+/**
+ * Convert the Trigger Bands dot markers of one interval into overlay scatter
+ * points. Colour comes from the marker's signalType (side by hue, breakout vs
+ * pullback by strength); a marker with an unrecognised signalType is dropped
+ * rather than drawn in a guessed colour. Absent markers yield an empty list.
+ */
+export function convertTriggerBandsDotMarkers(
+  intervalData: IntervalData | undefined,
+): ChartScatterPoint[] {
+  const dots: ChartScatterPoint[] = [];
+  for (const m of intervalData?.dotMarkers?.triggerBands ?? []) {
+    const color = ST_TRIGGER_BANDS_DOT_COLORS[m.signalType];
+    if (!color) continue;
+    dots.push({ x: toDatePt(m.d), y: m.y, color, index: m.index });
+  }
+  return dots;
 }

@@ -14,6 +14,7 @@ export {
   addHtfZoneWindow,
   addSignalDots,
   addUptickDots,
+  addTriggerBandsDots,
   addChartExtras,
   UptickDotColors,
 } from './chart-indicators/base-indicators';
@@ -23,11 +24,13 @@ export {
   convertTrendStrengthDotMarkers,
   convertZoneDotMarkers,
   convertHtfWindowData,
+  convertTriggerBandsDotMarkers,
 } from './chart-indicators/signal-marker-converters';
 
 export {
   convertIntervalIndicators,
   injectCallableIndicatorData,
+  injectTriggerBandsData,
 } from './chart-indicators/indicator-converters';
 
 export { createExtrasSignals } from './chart-indicators/extras-signals';

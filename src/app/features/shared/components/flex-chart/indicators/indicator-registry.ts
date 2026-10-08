@@ -21,6 +21,8 @@ export { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines, computeStdDevLinesSer
 export type { StdDevLineSeriesData, StdDevLineSeries, StdDevFillZone } from './st-std-dev-lines.indicator';
 export { ST_ZIGZAG_INDICATOR, calculateZigZag, computeZigZagSeries } from './st-zigzag.indicator';
 export type { ZigZagChartSeries, ZigZagLineSeries } from './st-zigzag.indicator';
+export { ST_TRIGGER_BANDS_INDICATOR, ST_TRIGGER_BANDS_DOTS_INDICATOR, computeTriggerBandLines } from './st-trigger-bands.indicator';
+export type { TriggerBandLine, TriggerBandPoint, TriggerBandState } from './st-trigger-bands.indicator';
 
 import type { IndicatorOption, IndicatorCalculator, IndicatorConfig, SeriesType, IndicatorType } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
@@ -37,6 +39,7 @@ import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } fr
 import { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth } from './st-trend-band-width.indicator';
 import { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines } from './st-std-dev-lines.indicator';
 import { ST_ZIGZAG_INDICATOR, calculateZigZag } from './st-zigzag.indicator';
+import { ST_TRIGGER_BANDS_INDICATOR, ST_TRIGGER_BANDS_DOTS_INDICATOR } from './st-trigger-bands.indicator';
 
 /** ST-only indicators for the checkbox toggle menu */
 export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
@@ -49,6 +52,24 @@ export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
   ST_STD_DEV_LINES_INDICATOR,
   ST_ZIGZAG_INDICATOR,
+];
+
+/** Indicator types reserved for in-development features. Stripped from the
+ *  effective config unless `FlexChartConfig.dev` is true (see
+ *  flex-chart.component) — prod surfaces can't render these even if a caller
+ *  emits a config for them. Add dev indicator types here, never to
+ *  ST_INDICATOR_OPTIONS; promote to prod by moving the option into a prod menu
+ *  list and removing the type from this set. */
+export const DEV_INDICATOR_TYPES: ReadonlySet<IndicatorType> = new Set([
+  StIndicator.ST_TRIGGER_BANDS,
+  StIndicator.ST_TRIGGER_BANDS_DOTS,
+]);
+
+/** Dev-only menu options — the flex-chart sandbox adds these to its picker.
+ *  Prod menus keep using ST_INDICATOR_OPTIONS so unfinished indicators can
+ *  never be selected on live surfaces. */
+export const ST_DEV_INDICATOR_OPTIONS: IndicatorOption[] = [
+  ST_TRIGGER_BANDS_INDICATOR,
 ];
 
 /** Calculator map — keyed by IndicatorType, used by computeIndicators() */
@@ -77,6 +98,8 @@ const SERIES_TYPE_MAP: Partial<Record<IndicatorType, SeriesType>> = {
   [StIndicator.TREND_BAND_WIDTH]:   'column',
   [StIndicator.ST_STD_DEV_LINES]:      'line',
   [StIndicator.ST_ZIGZAG]:             'line',
+  [StIndicator.ST_TRIGGER_BANDS]:      'line',
+  [StIndicator.ST_TRIGGER_BANDS_DOTS]: 'scatter',
 };
 
 /** Build an IndicatorConfig from an IndicatorOption using its declared defaults */

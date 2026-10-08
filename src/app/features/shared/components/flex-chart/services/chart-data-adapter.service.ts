@@ -16,6 +16,7 @@ import { computeIndicators, groupIndicatorsByPane } from '../flex-chart-calculat
 import { computeAllBands, type BandSeriesData, type BandDataPoint } from '../indicators/st-trend-bands.indicator';
 import { computeStdDevLinesSeries, type StdDevLineSeriesData } from '../indicators/st-std-dev-lines.indicator';
 import { computeZigZagSeries, type ZigZagChartSeries } from '../indicators/st-zigzag.indicator';
+import { computeTriggerBandLines, type TriggerBandLine } from '../indicators/st-trigger-bands.indicator';
 import { toLogAxis } from '@flex-chart/scale-math';
 
 export interface LowerPaneView {
@@ -383,6 +384,33 @@ export class ChartDataAdapter {
           : undefined,
       };
     });
+  });
+
+  /** Trigger Bands step lines — state-coloured upper/lower band segments built from the
+   *  callable series carried on the indicator config (`triggerBandData`). Empty until the
+   *  data arrives; the indicator has no inline calculator by design.
+   */
+  triggerBandSeries = computed<TriggerBandLine[]>(() => {
+    const data = this.chartData();
+    const cfg = this.config();
+    if (!data || !cfg || data.bars.length === 0) return [];
+
+    const triggerConfig = cfg.indicators.find((i) => i.type === StIndicator.ST_TRIGGER_BANDS);
+    if (!triggerConfig?.triggerBandData?.length) return [];
+
+    return computeTriggerBandLines(
+      triggerConfig.triggerBandData,
+      this.dateToIndex(),
+      data.bars.length,
+    ).map((line) => ({
+      ...line,
+      color: this.themeColor(line.color) ?? line.color,
+      data: line.data.map((p) => ({
+        ...p,
+        y: p.y === null ? null : this.transformY(p.y),
+        color: this.themeColor(p.color) ?? p.color,
+      })),
+    }));
   });
 
   /** Fixed set of lower-pane slot IDs — always emitted so Syncfusion never sees a

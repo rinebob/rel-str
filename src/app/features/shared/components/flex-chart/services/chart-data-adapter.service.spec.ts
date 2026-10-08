@@ -9,8 +9,10 @@ import {
   ST_TREND_BANDS_INDICATOR,
   ST_TREND_STRENGTH_INDICATOR,
   ST_STD_DEV_LINES_INDICATOR,
+  ST_TRIGGER_BANDS_INDICATOR,
   buildDefaultConfig,
 } from '../indicators/indicator-registry';
+import type { TriggerBandPoint } from '../indicators/st-trigger-bands.indicator';
 
 // =============================================================================
 // Test helpers
@@ -502,5 +504,81 @@ describe('ChartDataAdapter — log transform of ST indicators', () => {
     expect(linear[0].data.length).toBeGreaterThan(0);
     // No transform — identical data regardless of scale.
     expect(log[0].data).toEqual(linear[0].data);
+  });
+});
+
+// =============================================================================
+// ChartDataAdapter.triggerBandSeries - two state-coloured band lines (#879, revised to MultiColoredLine after sandbox UAT)
+// =============================================================================
+
+describe('ChartDataAdapter.triggerBandSeries', () => {
+  function triggerConfig(points?: TriggerBandPoint[]): IndicatorConfig {
+    const cfg = buildDefaultConfig(ST_TRIGGER_BANDS_INDICATOR);
+    return points ? { ...cfg, triggerBandData: points } : cfg;
+  }
+
+  function pointsFor(data: FlexChartDataset): TriggerBandPoint[] {
+    // Bar 0 carries null band values, like the engine's 3-bar warm-up.
+    return data.bars.map((bar, i) => ({
+      date: bar.x,
+      upper: i === 0 ? null : bar.high + 1,
+      lower: i === 0 ? null : bar.low - 1,
+      upperState: i % 5 === 3 ? 'pullback' : i % 7 === 6 ? 'breakout' : 'neutral',
+      lowerState: i % 4 === 2 ? 'pullback' : 'neutral',
+    }));
+  }
+
+  it('is empty when no trigger-bands indicator is configured', () => {
+    const adapter = setupAdapter(makeBars(20), { indicators: [] });
+    expect(adapter.triggerBandSeries()).toEqual([]);
+  });
+
+  it('is empty when the indicator has no callable data yet', () => {
+    const adapter = setupAdapter(makeBars(20), { indicators: [triggerConfig()] });
+    expect(adapter.triggerBandSeries()).toEqual([]);
+  });
+
+  it('is empty when there is no dataset', () => {
+    const adapter = setupAdapter(null, { indicators: [triggerConfig([])] });
+    expect(adapter.triggerBandSeries()).toEqual([]);
+  });
+
+  it('maps callable points onto the bar index axis, step-expanded hinge + level rows', () => {
+    const data = makeBars(20);
+    const adapter = setupAdapter(data, { indicators: [triggerConfig(pointsFor(data))] });
+    const lines = adapter.triggerBandSeries();
+    expect(lines.map((l) => l.key)).toEqual(['trigger-upper', 'trigger-lower']);
+    const upper = lines.find((l) => l.band === 'upper')!;
+    // Level row at each valued bar carries that bar's band value; the bar-0
+    // warm-up row stays null.
+    expect(upper.data[0].y).toBeNull();
+    for (let i = 1; i < 20; i++) {
+      const level = upper.data.filter((p) => p.index === i && p.y === data.bars[i].high + 1);
+      expect(level).toHaveLength(1);
+    }
+  });
+
+  it('prices land in log space under logScale; gaps stay null', () => {
+    const data = makeBars(20);
+    const cfg = (log: boolean): FlexChartConfig => ({
+      indicators: [triggerConfig(pointsFor(data))],
+      logScale: log,
+    });
+    const linear = setupAdapter(data, cfg(false)).triggerBandSeries();
+    const log = setupAdapter(data, cfg(true)).triggerBandSeries();
+    expect(log).toHaveLength(linear.length);
+    for (let i = 0; i < linear.length; i++) {
+      expect(log[i].data.map((p) => p.y)).toEqual(
+        linear[i].data.map((p) => (p.y === null ? null : toLogAxis(p.y))),
+      );
+    }
+    expect(linear.some((l) => l.data.some((p) => p.y === null))).toBe(true);
+  });
+
+  it('does not appear as a computed main-pane series with data (no calculator, no generic line)', () => {
+    const data = makeBars(20);
+    const adapter = setupAdapter(data, { indicators: [triggerConfig(pointsFor(data))] });
+    const mine = adapter.mainPaneSeries().find((s) => s.config.type === StIndicator.ST_TRIGGER_BANDS);
+    expect(mine?.data ?? []).toEqual([]);
   });
 });
