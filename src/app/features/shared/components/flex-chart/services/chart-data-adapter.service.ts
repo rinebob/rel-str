@@ -16,6 +16,7 @@ import { computeIndicators, groupIndicatorsByPane } from '../flex-chart-calculat
 import { computeAllBands, type BandSeriesData, type BandDataPoint } from '../indicators/st-trend-bands.indicator';
 import { computeStdDevLinesSeries, type StdDevLineSeriesData } from '../indicators/st-std-dev-lines.indicator';
 import { computeZigZagSeries, type ZigZagChartSeries } from '../indicators/st-zigzag.indicator';
+import { computeAnchoredVwapSeries, type AnchoredVwapLineSeries } from '../indicators/st-anchored-vwap.indicator';
 import { computeTriggerBandLines, type TriggerBandLine } from '../indicators/st-trigger-bands.indicator';
 import { toLogAxis } from '@flex-chart/scale-math';
 
@@ -410,6 +411,27 @@ export class ChartDataAdapter {
         y: p.y === null ? null : this.transformY(p.y),
         color: this.themeColor(p.color) ?? p.color,
       })),
+    }));
+  });
+
+  /** Anchored VWAP series — the fixed 12 line series (4 slots x active + two
+   *  alternating history series) of the first ST_ANCHORED_VWAP indicator, so a
+   *  second instance cannot change the series count. Prices go through the
+   *  scale transform; `null` break points are kept so the chart draws gaps.
+   *  Empty array when no ST_ANCHORED_VWAP indicator is configured.
+   */
+  anchoredVwapSeries = computed<AnchoredVwapLineSeries[]>(() => {
+    const data = this.chartData();
+    const cfg = this.config();
+    if (!data || !cfg || data.bars.length === 0) return [];
+
+    const avwapConfig = cfg.indicators.find((i) => i.type === StIndicator.ST_ANCHORED_VWAP);
+    if (!avwapConfig) return [];
+
+    return computeAnchoredVwapSeries(data.bars, avwapConfig.params).map((line) => ({
+      ...line,
+      color: this.themeColor(line.color) ?? line.color,
+      data: line.data.map((p) => ({ ...p, y: p.y === null ? null : this.transformY(p.y) })),
     }));
   });
 
