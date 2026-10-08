@@ -103,6 +103,11 @@ A broker-held sell stop intended to reduce or close a long position if its stop 
 
 A cloud-evaluated exit policy. When the executable bid reaches its target, RH Agent cancels the protective stop, confirms cancellation, and submits a market exit for the remaining position.
 
+## Update Stop
+
+The operation of replacing one existing Protective Stop with a new stop order at a different price on the same position. Always targets a single broker order, never a symbol. Executed as cancel-then-place — the broker has no order-amend, and shares committed to a resting order cannot back a second order, so the replacement cannot be placed first. A Trailing Stop performs Update Stop repeatedly as the mark ratchets; the manual batch form (Update All Stops) applies a trail-% ratchet across an account's stops in one previewed pass.
+_Avoid_: amend order, modify stop, replace order (implies a single broker call — no such operation exists)
+
 ## Allocation Unit
 
 The configured base dollar exposure used to normalize position sizing and portfolio capacity. Capacity accounting may use fractional units so projected exposure is not rounded away.
@@ -328,6 +333,31 @@ The two row kinds inside a `app-flex-chart` instance. The **main pane** renders 
 ## Visible Window
 
 The trailing slice of loaded bars a flex-chart displays, set by `FlexChartConfig.initialZoomDays` (bar count, despite the name). Distinct from the fetched dataset — the store always loads full history; the visible window is display-only. The Y-axis auto-fits to whatever bars fall inside the visible window.
+
+## Trailing Stop
+
+The only stop primitive. A policy attached to a Position that keeps a broker-held Protective Stop's trigger at a configured Trail Distance below the position's Water Mark. A static stop is the degenerate case — a Trailing Stop whose Water Mark never advances. Protection is enforced broker-side by the resting order at all times; the Trailing Stop's own machinery only tightens the trigger. Replaces the standalone "initial/static stop" concept.
+_Avoid_: static stop, fixed stop, initial stop
+
+## Water Mark
+
+The most favorable price observed for a trailed Position since its Trailing Stop was armed. Seeds at the position's entry price and only moves in the favorable direction — for a long position, the highest price seen.
+
+## Trail Distance
+
+The percentage gap a Trailing Stop maintains between the Water Mark and the Trigger, configured per position.
+
+## Trigger
+
+The stop price a Trailing Stop's resting Protective Stop should carry: `waterMark × (1 − trailDistance)` for a long position. Compare "where the trigger is" (the resting order's actual stop price) against "where the trigger should be" (the derived value).
+
+## Ratchet
+
+The replacement of a resting Protective Stop with a new one at a raised Trigger after the Water Mark advances. Bounded by a minimum improvement threshold and a Ratchet Cooldown; the resting order continues to protect at its last trigger while a ratchet is deferred or fails.
+
+## Ratchet Cooldown
+
+The minimum elapsed time between consecutive Ratchets of one Trailing Stop, dampening order churn during fast favorable moves. Applies only to trigger raises — never to failure recovery or quantity corrections.
 
 ## Anchored VWAP
 
