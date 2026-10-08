@@ -9,6 +9,7 @@ import { computeStTrendBands } from '../indicators/st-trend-bands';
 import { computeStZone } from '../indicators/st-zone';
 import { computeStZoneV2 } from '../indicators/st-zone-v2';
 import { computeStTrendStrength } from '../indicators/st-trend-strength';
+import { computeStTriggerBands } from '../indicators/st-trigger-bands';
 import { detectAllStTrendRiderSignals, detectAllZoneZeroCrossSignals } from './strategies/signal-detection';
 import { StSignalDirection } from './signals';
 import type { OHLCV } from '../indicators/st-trend-bands';
@@ -32,7 +33,7 @@ export interface DotMarker {
   index: number;                // bar index in the interval's bars array
   direction: 'long' | 'short';
   y: number;                    // chart y-coordinate (price with ATR offset, or DI hist with offset)
-  version: 'V1' | 'V2' | 'TS';
+  version: 'V1' | 'V2' | 'TS' | 'TB';
   signalType: string;
 }
 
@@ -95,7 +96,14 @@ export interface TrendBandsPoint {
 
 export interface TriggerBandsPoint {
   d: string;
-  // Trigger band fields TBD in Phase 2
+  upper: number | null;
+  lower: number | null;
+  longPullback: boolean;
+  longPullbackState: boolean;
+  longBreakout: boolean;
+  shortPullback: boolean;
+  shortPullbackState: boolean;
+  shortBreakout: boolean;
 }
 
 export interface SignalIntervalData {
@@ -107,6 +115,7 @@ export interface SignalIntervalData {
     zoneV1?: DotMarker[];
     zoneV2?: DotMarker[];
     trendStrength?: DotMarker[];
+    triggerBands?: DotMarker[];
   };
   htfWindows?: {
     weekly?: HtfWindowPoint[];
@@ -162,6 +171,7 @@ export interface IntervalData {
     zoneV1?: DotMarker[];
     zoneV2?: DotMarker[];
     trendStrength?: DotMarker[];
+    triggerBands?: DotMarker[];
   };
   htfWindows?: {
     weekly?: HtfWindowPoint[];
@@ -421,6 +431,54 @@ function generateTrendStrengthDotMarkers(
   return markers;
 }
 
+/** Chart-ready Trigger Bands series for one interval (independent of the 30-bar gate the other families use). */
+function computeTriggerBandsSeries(bars: OhlcBar[]): TriggerBandsPoint[] {
+  const r = computeStTriggerBands(barsToOhlcv(bars));
+  return bars.map((b, i) => ({
+    d: b.d,
+    upper: r.upper[i] === null ? null : toNullable(r.upper[i] as number),
+    lower: r.lower[i] === null ? null : toNullable(r.lower[i] as number),
+    longPullback: r.longPullback[i],
+    longPullbackState: r.longPullbackState[i],
+    longBreakout: r.longBreakout[i],
+    shortPullback: r.shortPullback[i],
+    shortPullbackState: r.shortPullbackState[i],
+    shortBreakout: r.shortBreakout[i],
+  }));
+}
+
+// Closer to the bar than the zone dots (ATR_OFFSET_MULT) so a Trigger Bands dot and a
+// zone dot on the same bar do not overlap. A pullback and a breakout on the same side
+// never share a bar (a breakout needs a rising band), so one offset serves both.
+const TRIGGER_DOT_ATR_MULT = 1.5;
+
+/** Pullback dot on every pullback bar, breakout dot on every breakout bar; long below the bar, short above. */
+function generateTriggerBandsDotMarkers(points: TriggerBandsPoint[], bars: OhlcBar[]): DotMarker[] {
+  if (points.length === 0 || bars.length === 0) return [];
+  const atr = computeATR(bars);
+  const markers: DotMarker[] = [];
+  points.forEach((p, i) => {
+    const bar = bars[i];
+    if (!bar) return;
+    const offset = atr[i] * TRIGGER_DOT_ATR_MULT;
+    const push = (direction: 'long' | 'short', signalType: string): void => {
+      markers.push({
+        d: p.d,
+        index: i,
+        direction,
+        y: direction === 'long' ? bar.l - offset : bar.h + offset,
+        version: 'TB',
+        signalType,
+      });
+    };
+    if (p.longPullback) push('long', 'TRIGGER_BANDS_LONG_PULLBACK');
+    if (p.shortPullback) push('short', 'TRIGGER_BANDS_SHORT_PULLBACK');
+    if (p.longBreakout) push('long', 'TRIGGER_BANDS_LONG_BREAKOUT');
+    if (p.shortBreakout) push('short', 'TRIGGER_BANDS_SHORT_BREAKOUT');
+  });
+  return markers;
+}
+
 // Canonical visual vocabulary lives in shared/flex-chart-indicator-visuals.ts
 // (the assembler consumes the same constants — parity is structural).
 const HTF_WINDOW_LONG_COLOR = ST_HTF_WINDOW.longColor;
@@ -560,28 +618,27 @@ export function computeSymbolIndicatorSeries(
   const indicators = computeIndicatorSeries(dailyBars, weeklyBars, monthlyBars);
   const signals = generateSymbolSignals(indicators.daily, indicators.weekly, indicators.monthly, dailyBars, weeklyBars, monthlyBars);
 
+  const interval = (
+    data: IndicatorIntervalData,
+    sig: SignalIntervalData,
+    bars: OhlcBar[],
+  ): Pick<IntervalData, 'indicators' | 'signals' | 'dotMarkers'> => {
+    const triggerBands = computeTriggerBandsSeries(bars);
+    return {
+      indicators: { ...splitIndicatorInterval(data), triggerBands },
+      signals: sig,
+      dotMarkers: { ...sig.dotMarkers, triggerBands: generateTriggerBandsDotMarkers(triggerBands, bars) },
+    };
+  };
+
   return {
     symbol,
     marketDate: todayIso(),
     computedAt: new Date().toISOString(),
     intervals: {
-      daily: {
-        indicators: splitIndicatorInterval(indicators.daily),
-        signals: signals.daily,
-        dotMarkers: signals.daily.dotMarkers,
-        htfWindows: signals.daily.htfWindows,
-      },
-      weekly: {
-        indicators: splitIndicatorInterval(indicators.weekly),
-        signals: signals.weekly,
-        dotMarkers: signals.weekly.dotMarkers,
-        htfWindows: signals.weekly.htfWindows,
-      },
-      monthly: {
-        indicators: splitIndicatorInterval(indicators.monthly),
-        signals: signals.monthly,
-        dotMarkers: signals.monthly.dotMarkers,
-      },
+      daily: { ...interval(indicators.daily, signals.daily, dailyBars), htfWindows: signals.daily.htfWindows },
+      weekly: { ...interval(indicators.weekly, signals.weekly, weeklyBars), htfWindows: signals.weekly.htfWindows },
+      monthly: interval(indicators.monthly, signals.monthly, monthlyBars),
     },
   };
 }
