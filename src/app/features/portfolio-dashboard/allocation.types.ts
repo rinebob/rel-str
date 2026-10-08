@@ -58,6 +58,15 @@ export interface PositionRow {
   linkKey?: string;
 }
 
+/** Numerically-unassigned membership — no attribution OR a dangling one
+ *  (bucket deleted out-of-band; see `unresolved` above). The ONE copy of
+ *  the predicate both table components consume; it encodes the same fold
+ *  the store's unassignedStats / unassignedExposure apply, so no UI
+ *  filter can hide rows the header counts. */
+export function isUnassignedRow(row: PositionRow): boolean {
+  return row.bucketId === null || row.unresolved === true;
+}
+
 /** Account header — value / allocated / cash remainder completeness check. */
 export interface AccountHeader {
   accountValue: number | null;
@@ -92,4 +101,17 @@ export function fmtDollars(v: number | null | undefined): string {
   return v != null && Number.isFinite(v)
     ? v.toLocaleString('en-US', { maximumFractionDigits: 0 })
     : '—';
+}
+
+/** Whole numbers render bare; fractional shares cap at 2 decimals —
+ *  shared by the expanded-panel mini-table and the retained detail dialog. */
+export function fmtQty(v: number | null | undefined): string {
+  return v != null && Number.isFinite(v)
+    ? v.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    : '—';
+}
+
+/** Unrealized P&L over a position row — market value minus cost basis. */
+export function positionPnl(row: PositionRow): number {
+  return row.position.marketValue - row.position.costBasis;
 }

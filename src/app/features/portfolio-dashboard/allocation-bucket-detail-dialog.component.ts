@@ -21,7 +21,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AllocationStore } from './allocation.store';
-import { fmtDollars, type PositionRow } from './allocation.types';
+import { fmtDollars, fmtQty as fmtQtyShared, positionPnl, type PositionRow } from './allocation.types';
 
 export interface BucketDetailDialogData {
   /** Captured at open — an account switch elsewhere can't silently swap
@@ -76,7 +76,7 @@ export interface BucketDetailDialogData {
                 <span class="dim" data-testid="carousel-pager">{{ shownIdx() + 1 }} of {{ d.positions.length }}</span>
               </div>
               <div class="pos-stats">
-                <span>Qty <b>{{ pos.position.quantity }}</b></span>
+                <span>Qty <b>{{ fmtQty(pos.position.quantity) }}</b></span>
                 <span>Market value <b>{{ fmt(pos.position.marketValue) }}</b></span>
                 <span>Cost basis <b>{{ fmt(pos.position.costBasis) }}</b></span>
                 <span>Unrealized <b [class.neg]="pnlOf(pos) < 0">{{ fmt(pnlOf(pos)) }}</b></span>
@@ -220,9 +220,9 @@ export class AllocationBucketDetailDialogComponent {
     return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : filledAt;
   }
 
-  pnlOf(row: PositionRow): number {
-    return row.position.marketValue - row.position.costBasis;
-  }
+  readonly pnlOf = positionPnl;
 
   readonly fmt = fmtDollars;
+
+  readonly fmtQty = fmtQtyShared;
 }

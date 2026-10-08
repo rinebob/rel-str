@@ -20,7 +20,7 @@ import {
   AllocationAssignDialogComponent,
   type AssignDialogData,
 } from './allocation-assign-dialog.component';
-import { fmtDollars, type PositionRow } from './allocation.types';
+import { fmtDollars, isUnassignedRow, type PositionRow } from './allocation.types';
 import { BucketStatus } from '@portfolio-allocation/contracts';
 
 @Component({
@@ -62,6 +62,7 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
         <div class="bulk-error" data-testid="bulk-error" role="alert">{{ err }}</div>
       }
 
+      <div class="table-wrap">
       <table class="alloc-table">
         <thead>
           <tr>
@@ -71,7 +72,7 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
                 (change)="toggleAll($event.checked)" aria-label="Select all"
               />
             </th>
-            <th>Instrument</th><th>Market value</th><th>Bucket</th><th></th>
+            <th>Instrument</th><th class="num">Market value</th><th>Bucket</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -108,22 +109,41 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
           }
         </tbody>
       </table>
+      </div>
     </div>
   `,
   styles: [`
-    .pane-toolbar { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 4px; }
+    /* Row-scroll convention (#779 QA / pd table-wrap): the pane fills the
+       bounded tab body; the toolbar stays put while the table's own wrap
+       scrolls the rows under a sticky header. */
+    :host { display: block; height: 100%; }
+    .positions-pane { display: flex; flex-direction: column; height: 100%; }
+    .pane-toolbar { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 4px; flex-shrink: 0; }
+    .pane-toolbar .filter { --mat-button-toggle-height: 24px; font-size: 0.75rem; }
     .selection-bar { display: inline-flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #555; }
     .bulk-error {
-      padding: 6px 10px; margin: 4px 0; border-radius: 4px;
+      padding: 6px 10px; margin: 4px 0; border-radius: 4px; flex-shrink: 0;
       background: #fdecea; color: #b3261e; font-size: 0.8rem;
     }
+    .table-wrap { flex: 1; min-height: 0; overflow: auto; }
     .alloc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    .alloc-table th { text-align: left; font-weight: 500; color: #777; padding: 4px 8px; border-bottom: 1px solid #ddd; }
+    .alloc-table th {
+      position: sticky; top: 0; z-index: 1;
+      background: var(--mat-sys-surface);
+      text-align: left; font-weight: 500; color: #777; padding: 4px 8px; border-bottom: 1px solid #ddd;
+    }
+    .alloc-table th.num { text-align: right; }
     .alloc-table td { padding: 4px 8px; border-bottom: 1px solid #eee; }
     .alloc-table .num { text-align: right; font-variant-numeric: tabular-nums; }
     .alloc-table .chk { width: 40px; }
     .dim { color: #999; }
     .actions { text-align: right; }
+    /* Dense action buttons — the 24px outlined convention (≈⅔ of the 36px
+       default) used by the dashboard's row actions. */
+    .actions button[mat-stroked-button], .selection-bar button[mat-stroked-button] {
+      --mdc-outlined-button-container-height: 24px;
+      height: 24px; min-width: 0; padding: 0 6px; font-size: 0.7rem; line-height: 1; letter-spacing: 0;
+    }
     .link-icon { font-size: 14px; width: 14px; height: 14px; vertical-align: middle; color: #777; }
   `],
 })
@@ -134,22 +154,17 @@ export class AllocationPositionsTableComponent {
   readonly filter = signal<'all' | 'unassigned'>('all');
 
   /** Unassigned = no attribution, OR a dangling one (bucket deleted
-   *  out-of-band) — same predicate the header's unassignedExposure and
-   *  the Unassigned pseudo-row use, so the filter can't hide rows the
-   *  header counts. Dangling rows still render 'Unknown bucket' in the
-   *  All view to surface the data issue. */
-  protected isUnassigned(row: PositionRow): boolean {
-    return row.bucketId === null || row.unresolved === true;
-  }
-
+   *  out-of-band) — shared isUnassignedRow predicate, so the filter
+   *  can't hide rows the header/pseudo-row count. Dangling rows still
+   *  render 'Unknown bucket' in the All view to surface the data issue. */
   readonly unassignedCount = computed(() =>
-    this.store.positionsRows().filter((r) => this.isUnassigned(r)).length,
+    this.store.positionsRows().filter(isUnassignedRow).length,
   );
 
   readonly rows = computed(() => {
     const all = this.store.positionsRows();
     return this.filter() === 'unassigned'
-      ? all.filter((r) => this.isUnassigned(r))
+      ? all.filter(isUnassignedRow)
       : all;
   });
 
