@@ -80,7 +80,9 @@ Extend `DotMarker.version` with `'TB'` in both type files (additive).
 - Dot markers: `generateTriggerBandsDotMarkers(points, bars)` returns `DotMarker[]` with `version: 'TB'`:
   - breakout dots: `signalType` `TRIGGER_BANDS_LONG_BREAKOUT` / `TRIGGER_BANDS_SHORT_BREAKOUT`;
   - pullback dots: `TRIGGER_BANDS_LONG_PULLBACK` / `TRIGGER_BANDS_SHORT_PULLBACK`, on every bar where `longPullback` / `shortPullback` is true.
-  - `y` placement follows `generateZoneDotMarkers` (long below the bar low, short above the bar high, by the ATR-based offset). Breakout and pullback markers need distinct offsets so they do not overlap on the same bar; choose in the task and record it in the code comment. Stored under `dotMarkers.triggerBands`.
+  - `y` placement follows `generateZoneDotMarkers` (long below the bar low, short above the bar high, by the ATR-based offset). Implemented with a single 1.5x ATR offset (closer than the zone dots' 2.5x so the two do not overlap): a pullback and a breakout on the same side never share a bar, so they never need distinct offsets. Stored under `dotMarkers.triggerBands`. Implemented in #877.
+  - `filterResponse` and the default interval/indicator/strategy sets moved from `indicator-series.ts` to a pure `indicator-series-filter.ts` (no Firebase imports) so the filtering rules are unit testable; behavior for existing families is unchanged.
+  - Measured on AAPL (1,823 daily bars): opting in adds ~33% to the full response (2.7 MB to 3.6 MB across D/W/M), and 2,958 daily dots. The FE should request only the intervals it renders (the `intervals` filter already exists).
 - `SignalIntervalData` / `IntervalData` `dotMarkers` types gain `triggerBands?: DotMarker[]`. `signals.triggerBands` stays unpopulated.
 
 ### 4. Callable filtering: `indicator-series.ts`

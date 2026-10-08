@@ -20,10 +20,10 @@
 - [Trading Indicator Library] 261-870_DOCS-INDICATOR-LIB: #870 CODE-REVIEW (PASS) + #891 UAT (Complete) + PRD story 6 clarification (line content vs History Window)
 - [Trading Indicator Library] 261-876_BE-IMPL-INDICATOR-LIB: computeStTriggerBands engine (body-based length-3 Donchian bands + long/short pullback, pullback-state and breakout flags) with 21 unit tests, SPY/AAPL real-data verify script (18/18) and TradingView export parity script (490 AAPL daily bars, bands + 4 flags identical)
 - [Trading Indicator Library] 261-876_DOCS-INDICATOR-LIB: ST Trigger Bands PRD (approved, indicator-only) + BE/FE IMPL/TEST plans + #876 CODE-REVIEW (PASS) + #881 UAT (Complete)
+- [Trading Indicator Library] 261-877_BE-IMPL-INDICATOR-LIB: Trigger Bands in the indicator-series callable - TriggerBandsPoint (bands + six pullback/breakout flags), pullback and breakout dot markers (version TB), D/W/M series independent of the 30-bar gate, opt-in via IndicatorFamily.TRIGGER_BANDS (default response unchanged), filterResponse extracted to a pure module; 14 integration tests + real-data verify script (21/21)
+- [Trading Indicator Library] 261-877_DOCS-INDICATOR-LIB: #877 CODE-REVIEW (PASS) + #894 UAT (Complete) + BE plan updates
 - [On-demand Screenshot Capture] 746-845_BE-IMPL-SCREENSHOT: captureLifecycleEvent intake — transactional pending→captured ledger on the carrier doc's capturedEvents map, await-capped (10s) executeCaptureChart, st-screenshots index at {groupId}-{refId}-{event}; failed markers retryable, nothing propagates to the order path
 - [On-demand Screenshot Capture] 746-845_DOCS-SCREENSHOT: #845 CODE-REVIEW (PASS — undefined-groupId index write fixed in-loop) + #883 UAT (Complete)
-- [On-demand Screenshot Capture] 746-846_BE-FE-IMPL-SCREENSHOT: shared lifecycle-tracking contracts (CapturedEventEntry, LifecycleCarrier, ScreenshotIndexEntry, OrderIntentTrackingFields) as the single FE+BE source; tracking.ts carriers + anchored doc paths + intent tracking I/O behind a narrow TrackingDb seam (undefined-key strip before merge-set); BaseOrderTicket extends OrderIntentTrackingFields; Collection.ST_SCREENSHOTS
-- [On-demand Screenshot Capture] 746-846_DOCS-SCREENSHOT: #846 CODE-REVIEW (PASS — explicit-undefined tracking write fixed in-loop) + #896 UAT (Complete)
 
 ## [2026-10-06]
 
