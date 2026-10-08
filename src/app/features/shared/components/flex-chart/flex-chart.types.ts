@@ -42,6 +42,7 @@ export enum StIndicator {
   TREND_BAND_WIDTH = 'st-trend-band-width',
   ST_STD_DEV_LINES = 'st-std-dev-lines',
   ST_ZIGZAG       = 'st-zigzag',
+  ST_ANCHORED_VWAP = 'st-anchored-vwap',
 }
 
 /** Chart data interval enum — replaces 'daily' | 'weekly' | 'monthly' magic strings */
