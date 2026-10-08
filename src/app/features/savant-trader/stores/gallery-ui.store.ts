@@ -16,7 +16,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 
-import { GroupDimension, SignalDirection, SignalTimeframe, SymbolListFilter } from '../common/constants';
+import { CardChartTimeframe, DEFAULT_CARD_CHART_TIMEFRAME, GroupDimension, SignalDirection, SignalTimeframe, SymbolListFilter } from '../common/constants';
 
 export interface GalleryUiState {
   timeframe: SignalTimeframe;
@@ -24,6 +24,15 @@ export interface GalleryUiState {
   listFilter: SymbolListFilter;
   /** Grouping dimension for the expando layout (#783) — mirrors signal-review. */
   groupDimension: GroupDimension;
+  /** Chart interval for every card — DAILY|WEEKLY only, decoupled from the
+   *  `timeframe` signal filter so e.g. daily signals can be reviewed on
+   *  weekly charts. Per-card chips override locally until this changes. */
+  chartTimeframe: CardChartTimeframe;
+  /** Reset tick — bumps on every header Chart click, including a click on
+   *  the already-active pill. Two-state toggles need this: "D" clicked
+   *  while already daily still means "sync all cards to daily", so cards
+   *  watch the tick (not just the value) to drop per-card overrides. */
+  chartTimeframeSeq: number;
   /** Per-group expansion state; absent key = collapsed (default closed). */
   expandedGroups: Partial<Record<string, boolean>>;
 }
@@ -33,6 +42,8 @@ const initialState: GalleryUiState = {
   direction: SignalDirection.LONG,
   listFilter: 'PRIMARY',
   groupDimension: GroupDimension.SECTOR,
+  chartTimeframe: DEFAULT_CARD_CHART_TIMEFRAME,
+  chartTimeframeSeq: 0,
   expandedGroups: {},
 };
 
@@ -52,6 +63,12 @@ export const GalleryUiStore = signalStore(
     },
     setGroupDimension(dimension: GroupDimension): void {
       patchState(state, { groupDimension: dimension });
+    },
+    setChartTimeframe(timeframe: CardChartTimeframe): void {
+      patchState(state, {
+        chartTimeframe: timeframe,
+        chartTimeframeSeq: state.chartTimeframeSeq() + 1,
+      });
     },
     setGroupExpanded(key: string, expanded: boolean): void {
       patchState(state, { expandedGroups: { ...state.expandedGroups(), [key]: expanded } });

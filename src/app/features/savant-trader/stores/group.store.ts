@@ -176,6 +176,13 @@ export const GroupStore = signalStore(
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: ([weeklySymbols, dailySymbols]) => {
+            // Stale-response guard (#838 review M1): a superseded load — the
+            // active run changed while this fetch was in flight (refresh
+            // promote, cross-page setActiveRun) — must not clobber the new
+            // run's symbols, clear its loading flag, or fan out this run's
+            // symbol history under the new runId (that would poison the
+            // `sym::runId` cache with wrong-run docs).
+            if (state.activeRunId() !== runId) return;
             // Merge: build map keyed by symbol, W first then D overlay
             const map = new Map<string, StSymbolProfile>();
             for (const s of weeklySymbols) map.set(s.symbol, s);
@@ -185,14 +192,12 @@ export const GroupStore = signalStore(
             const symbols = [...map.values()];
             patchState(state, { signalSymbols: symbols, symbolsLoading: false });
             symbolListStore.loadSymbolLists();
-            const runId = state.activeRunId();
-            if (runId) {
-              for (const s of symbols) {
-                historyStore.loadSignalHistoryForRun(s.symbol, runId);
-              }
+            for (const s of symbols) {
+              historyStore.loadSignalHistoryForRun(s.symbol, runId);
             }
           },
           error: (err: unknown) => {
+            if (state.activeRunId() !== runId) return;
             const message = err instanceof Error ? err.message : 'Load failed';
             patchState(state, { symbolsLoading: false, symbolsError: message });
             snackBar.open('Failed to load symbols', 'Dismiss', { duration: 5000 });

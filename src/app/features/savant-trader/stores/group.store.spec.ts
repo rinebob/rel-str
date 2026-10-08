@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal, computed } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 
 import { GroupStore } from './group.store';
 import { StStore } from './st.store';
@@ -170,6 +170,98 @@ describe('GroupStore', () => {
       store.setActiveRun('run-partial', '2026-08-25');
 
       expect(store.isActionableRun()).toBe(true);
+    });
+  });
+
+  // ===========================================================================
+  // loadSymbolsWithSignals — forkJoin(W,D) merge, history fan-out, and the
+  // stale-response guard (#838 review M1): a superseded load must not patch
+  // the new run's state or fan out its history under the wrong runId.
+  // ===========================================================================
+
+  describe('loadSymbolsWithSignals', () => {
+    const sym = (symbol: string) => ({ symbol, enabled: true, createdAt: '2026-01-01' });
+    let signalService: { getSymbolsWithSignals: jest.Mock };
+    let historyStore: { loadSignalHistoryForRun: jest.Mock };
+    let snackBar: { open: jest.Mock };
+    // Each loadSymbolsWithSignals call issues W then D — capture the Subjects
+    // per invocation so tests control emission order across overlapping loads.
+    let pending: Subject<unknown[]>[];
+
+    beforeEach(() => {
+      signalService = TestBed.inject(SignalService) as unknown as typeof signalService;
+      historyStore = TestBed.inject(SymbolHistoryStore) as unknown as typeof historyStore;
+      snackBar = TestBed.inject(MatSnackBar) as unknown as typeof snackBar;
+      pending = [];
+      signalService.getSymbolsWithSignals.mockImplementation(() => {
+        const s = new Subject<unknown[]>();
+        pending.push(s);
+        return s;
+      });
+    });
+
+    it('merges W+D symbols, clears loading, and fans out history for the active run', () => {
+      store.setActiveRun('run-1', '2026-08-25');
+      expect(store.symbolsLoading()).toBe(true);
+
+      pending[0].next([sym('AAPL')]);
+      pending[0].complete();
+      expect(store.symbolsLoading()).toBe(true); // still waiting on daily
+
+      pending[1].next([sym('TSLA'), sym('AAPL')]);
+      pending[1].complete();
+
+      expect(store.symbolsLoading()).toBe(false);
+      expect(store.signalSymbols().map((s) => s.symbol).sort()).toEqual(['AAPL', 'TSLA']);
+      expect(historyStore.loadSignalHistoryForRun).toHaveBeenCalledWith('AAPL', 'run-1');
+      expect(historyStore.loadSignalHistoryForRun).toHaveBeenCalledWith('TSLA', 'run-1');
+    });
+
+    it('ignores a superseded response — a stale run cannot clobber the active run', () => {
+      store.setActiveRun('run-1', '2026-08-25'); // pending[0..1] = run-1 W,D
+      store.setActiveRun('run-2', '2026-08-26'); // pending[2..3] = run-2 W,D
+
+      // run-1's request resolves after run-2 is already loading.
+      pending[0].next([sym('STALE')]);
+      pending[0].complete();
+      pending[1].next([]);
+      pending[1].complete();
+
+      // Untouched: still loading run-2, no stale symbols, no history fan-out
+      // under the wrong runId.
+      expect(store.symbolsLoading()).toBe(true);
+      expect(store.signalSymbols()).toEqual([]);
+      expect(historyStore.loadSignalHistoryForRun).not.toHaveBeenCalled();
+
+      // The active run's own response still lands normally.
+      pending[2].next([]);
+      pending[2].complete();
+      pending[3].next([sym('FRESH')]);
+      pending[3].complete();
+      expect(store.signalSymbols().map((s) => s.symbol)).toEqual(['FRESH']);
+      expect(store.symbolsLoading()).toBe(false);
+      expect(historyStore.loadSignalHistoryForRun).toHaveBeenCalledWith('FRESH', 'run-2');
+    });
+
+    it('ignores a superseded load error — the active run keeps its loading flag', () => {
+      store.setActiveRun('run-1', '2026-08-25');
+      store.setActiveRun('run-2', '2026-08-26');
+
+      pending[0].error(new Error('stale boom'));
+
+      expect(store.symbolsLoading()).toBe(true);
+      expect(store.symbolsError()).toBeNull();
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a load error on the active run', () => {
+      store.setActiveRun('run-1', '2026-08-25');
+
+      pending[0].error(new Error('boom'));
+
+      expect(store.symbolsLoading()).toBe(false);
+      expect(store.symbolsError()).toBe('boom');
+      expect(snackBar.open).toHaveBeenCalled();
     });
   });
 });

@@ -18,6 +18,7 @@ describe('GalleryUiStore', () => {
     expect(store.direction()).toBe(SignalDirection.LONG);
     expect(store.listFilter()).toBe('PRIMARY');
     expect(store.groupDimension()).toBe(GroupDimension.SECTOR);
+    expect(store.chartTimeframe()).toBe(SignalTimeframe.DAILY);
     expect(store.expandedGroups()).toEqual({});
   });
 
@@ -48,6 +49,8 @@ describe('GalleryUiStore', () => {
   it('setGroupDimension switches the grouping dimension', () => {
     store.setGroupDimension(GroupDimension.MARKET_CAP_TIER);
     expect(store.groupDimension()).toBe(GroupDimension.MARKET_CAP_TIER);
+    store.setGroupDimension(GroupDimension.NONE); // flat mode (#820)
+    expect(store.groupDimension()).toBe(GroupDimension.NONE);
   });
 
   it('setGroupExpanded records per-group expansion', () => {
@@ -69,5 +72,29 @@ describe('GalleryUiStore', () => {
     store.resetForPage();
     expect(store.groupDimension()).toBe(GroupDimension.SECTOR);
     expect(store.expandedGroups()).toEqual({});
+  });
+
+  // #819 — chart interval state (decoupled from the signal filter)
+
+  it('setChartTimeframe switches the chart interval and bumps the reset tick', () => {
+    expect(store.chartTimeframe()).toBe(SignalTimeframe.DAILY);
+    const seq = store.chartTimeframeSeq();
+
+    store.setChartTimeframe(SignalTimeframe.WEEKLY);
+    expect(store.chartTimeframe()).toBe(SignalTimeframe.WEEKLY);
+    expect(store.chartTimeframeSeq()).toBe(seq + 1);
+  });
+
+  it('a same-value Chart click still bumps the tick — "D" while daily means "sync all cards"', () => {
+    const seq = store.chartTimeframeSeq();
+    store.setChartTimeframe(SignalTimeframe.DAILY);
+    expect(store.chartTimeframe()).toBe(SignalTimeframe.DAILY);
+    expect(store.chartTimeframeSeq()).toBe(seq + 1);
+  });
+
+  it('resetForPage restores the chart interval to daily', () => {
+    store.setChartTimeframe(SignalTimeframe.WEEKLY);
+    store.resetForPage();
+    expect(store.chartTimeframe()).toBe(SignalTimeframe.DAILY);
   });
 });

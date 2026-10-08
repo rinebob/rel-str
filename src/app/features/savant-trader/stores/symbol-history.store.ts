@@ -102,8 +102,11 @@ export const SymbolHistoryStore = signalStore(
             });
           },
           error: (err: unknown) => {
+            // Don't cache a failure as [] — a transient error would mark the
+            // symbol cardless for the whole session and refresh could never
+            // recover it (cache-hit early return above). Uncached = retryable
+            // on the next loadSymbolsWithSignals fan-out (#838 review).
             patchState(state, {
-              signalHistoryCache: { ...state.signalHistoryCache(), [cacheKey]: [] },
               signalHistoryLoading: { ...state.signalHistoryLoading(), [cacheKey]: false },
             });
             console.error(`[SymbolHistoryStore] Failed to load run signals for ${symbol}:`, err);
@@ -134,8 +137,9 @@ export const SymbolHistoryStore = signalStore(
             });
           },
           error: (err: unknown) => {
+            // Same as the run-scoped loader: don't cache a failure as [] —
+            // uncached stays retryable on the next select/load (#838 review).
             patchState(state, {
-              signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: [] },
               signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
             });
             console.error(`[SymbolHistoryStore] Failed to load signal history for ${symbol}:`, err);

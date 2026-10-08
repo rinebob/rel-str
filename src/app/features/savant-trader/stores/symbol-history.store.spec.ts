@@ -91,4 +91,25 @@ describe('SymbolHistoryStore — run-scoped close-price enrichment', () => {
 
     expect(store.signalHistoryCache()['AAPL::run-1']).toHaveLength(1);
   });
+
+  it('does not cache a failed load — the next call retries the fetch (#838 review)', async () => {
+    setup([]);
+    signalService.getSymbolSignalsForRun
+      .mockReturnValueOnce(throwError(() => new Error('boom')))
+      .mockReturnValueOnce(of([makeSignal()]));
+
+    store.loadSignalHistoryForRun('AAPL', 'run-1');
+    await flush();
+
+    // A failure must not poison the cache as [] — that would mark the
+    // symbol signal-less for the whole session and defeat refresh/retry.
+    expect(store.signalHistoryCache()['AAPL::run-1']).toBeUndefined();
+    expect(store.signalHistoryLoading()['AAPL::run-1']).toBe(false);
+
+    store.loadSignalHistoryForRun('AAPL', 'run-1');
+    await flush();
+
+    expect(signalService.getSymbolSignalsForRun).toHaveBeenCalledTimes(2);
+    expect(store.signalHistoryCache()['AAPL::run-1']).toHaveLength(1);
+  });
 });
