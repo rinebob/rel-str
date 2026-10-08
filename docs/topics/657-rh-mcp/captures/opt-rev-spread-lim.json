@@ -1,0 +1,111 @@
+{
+  "id": "opt-rev-spread-lim",
+  "tool": "review_option_order",
+  "group": "opt-matrix",
+  "gate": "read",
+  "note": "Review sim: 2-leg vertical debit spread — direction=debit, net-premium limit. The multi-leg baseline.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "$ENV:NFLX_OPT_ID",
+        "side": "buy",
+        "position_effect": "open"
+      },
+      {
+        "option_id": "$ENV:NFLX_OPT_ID2",
+        "side": "sell",
+        "position_effect": "open"
+      }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "limit",
+    "price": "$ENV:NFLX_OPT_PRICE",
+    "time_in_force": "gfd"
+  },
+  "capturedAt": "2026-10-07T19:15:46.321Z",
+  "outcome": "success",
+  "latencyMs": 1230,
+  "success": true,
+  "response": {
+    "data": {
+      "account_number": "••••6245",
+      "type": "limit",
+      "direction": "debit",
+      "quantity": "1",
+      "price": "••••",
+      "time_in_force": "gfd",
+      "legs": [
+        {
+          "option_id": "••••da44",
+          "side": "buy",
+          "position_effect": "open"
+        },
+        {
+          "option_id": "••••bf73",
+          "side": "sell",
+          "position_effect": "open"
+        }
+      ],
+      "order_checks": {},
+      "option_quotes": [
+        {
+          "instrument_id": "••••da44",
+          "ask_price": "1.180000",
+          "ask_size": 36,
+          "bid_price": "1.160000",
+          "bid_size": 65,
+          "break_even_price": "71.170000",
+          "adjusted_mark_price": "1.170000",
+          "mark_price": "1.170000",
+          "high_fill_rate_buy_price": "1.175000",
+          "low_fill_rate_buy_price": "1.166000",
+          "high_fill_rate_sell_price": "1.164000",
+          "low_fill_rate_sell_price": "1.173000",
+          "previous_close_price": "0.910000",
+          "previous_close_date": "2026-10-06",
+          "implied_volatility": "0.307187",
+          "delta": "0.466463",
+          "gamma": "0.118264",
+          "rho": "0.007739",
+          "theta": "-0.077445",
+          "vega": "0.043499",
+          "open_interest": 14517,
+          "volume": 11294,
+          "chance_of_profit_long": "0.317201",
+          "chance_of_profit_short": "0.682799",
+          "updated_at": "2026-10-07T19:15:45.463652628Z"
+        },
+        {
+          "instrument_id": "••••bf73",
+          "ask_price": "0.420000",
+          "ask_size": 259,
+          "bid_price": "0.400000",
+          "bid_size": 240,
+          "break_even_price": "72.910000",
+          "adjusted_mark_price": "0.410000",
+          "mark_price": "0.410000",
+          "high_fill_rate_buy_price": "0.416000",
+          "low_fill_rate_buy_price": "0.407000",
+          "high_fill_rate_sell_price": "0.403000",
+          "low_fill_rate_sell_price": "0.412000",
+          "previous_close_price": "0.320000",
+          "previous_close_date": "2026-10-06",
+          "implied_volatility": "0.314191",
+          "delta": "0.214398",
+          "gamma": "0.084851",
+          "rho": "0.003589",
+          "theta": "-0.057133",
+          "vega": "0.031920",
+          "open_interest": 7792,
+          "volume": 1137,
+          "chance_of_profit_long": "0.169844",
+          "chance_of_profit_short": "0.830156",
+          "updated_at": "2026-10-07T19:15:45.606192613Z"
+        }
+      ]
+    },
+    "guide": "This tool does NOT place the order — it returns a preview for the user to review. Reaching this tool means the user opted into the review step, so you MUST present the preview to the user (legs, type, quantity, price/stop_price, alerts, fees, collateral, quote) and get explicit confirmation before calling place_option_order (for a new order) or replace_option_order (when modifying an existing order). This holds even when order_checks is empty ({}) — empty means no broker alerts, NOT that confirmation can be skipped; the user asked to review, so let them review. Non-empty order_checks: present alertType + details verbatim and ask the user to confirm before proceeding. On user ack, call place_option_order (or replace_option_order) with the same parameters. With several legs, present each leg (pair it with its option_quotes entry by instrument_id) and then the net direction and price for the order as a whole. Use option_quotes (mark_price, bid/ask, greeks) to help judge cost. When fees is present, lead with total_fee; mention gold_fee_savings when non-zero. When collateral is present, show cash amount/direction; warn on cash.infinite=true (unlimited-risk position) or non-empty equities (share-based collateral). Echo the order type: for market/stop_market remind the user the fill price is unbounded; for stop_limit/stop_market note the order only triggers when the underlying reaches stop_price."
+  }
+}

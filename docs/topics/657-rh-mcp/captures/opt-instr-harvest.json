@@ -1,0 +1,1301 @@
+{
+  "id": "opt-instr-harvest",
+  "tool": "get_option_instruments",
+  "group": "opt-matrix",
+  "gate": "read",
+  "note": "Harvest leg instruments — set NFLX_CHAIN_ID + NFLX_EXP from opt-chains-nflx; pick ~ATM call (NFLX_OPT_ID) + one strike up (NFLX_OPT_ID2).",
+  "args": {
+    "chain_id": "$ENV:NFLX_CHAIN_ID",
+    "expiration_dates": "$ENV:NFLX_EXP",
+    "type": "call"
+  },
+  "capturedAt": "2026-10-07T19:10:02.301Z",
+  "outcome": "success",
+  "latencyMs": 2795,
+  "success": true,
+  "response": {
+    "data": {
+      "instruments": [
+        {
+          "id": "2b68402b-bf86-478c-9d89-c91d689a29d5",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "2.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d2903952-6b71-4401-a6ff-712cd1914dcd",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "5.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "da6b79a1-3eb6-4a5e-b12b-b02b2eb86e1d",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "7.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "65edab4f-b25b-4fae-9663-f8b770773345",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "10.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "5db43820-f2c4-4d39-bc0e-9495abbcad0b",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "12.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c4bfbbb0-9042-45c1-8245-a1ef7202b1cb",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "15.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "6d492679-9746-4893-a942-e0bbc92acd43",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "17.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "e53d3d69-b411-4f61-b571-20c974f5b0fc",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "20.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "260cc14c-c205-4892-940a-e5df6b22b9b6",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "22.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "dc4a225a-d37b-4c98-bb09-9a0135962118",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "25.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "cc7379f5-7cac-456a-9a76-4ead3a8c0095",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "30.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "32084c39-2d91-4d81-88fa-e05d6ea59dd8",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "35.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "9004dd7c-b596-4a07-920b-307ad4f0df0f",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "40.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "4a492bde-4487-450a-bae7-d6534e81bfa2",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "45.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "3b2215a7-e65c-4417-b642-9050eb2f9470",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "50.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b6032390-048a-45f5-8da7-fb45a2c77988",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "55.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "8f02e122-2751-4818-850c-7d65a451d568",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "58.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "15d12413-48cb-40a5-8f47-4ac591d2ebdd",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "59.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d7e0c2d8-e9e9-417e-9984-29c3c76d2070",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "60.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d1b0262d-db24-4c2c-a092-87733714d184",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "61.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "7db17de3-2abf-4387-bd0a-177d51ff1c70",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "62.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "600056be-39a8-49ad-a47a-545364aaac60",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "63.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "e396acd7-91f9-4d20-8221-29d9ed15e4ba",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "64.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "3fba0a65-18af-4d54-88d4-c2df949b6c8a",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "65.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f29c1d0f-36ca-4ac0-b180-03c455322bfb",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "66.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "bb03d4c9-dc3a-4c19-801e-3f30d98e7180",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "67.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "0bbd464b-f3dc-484a-9ed5-41d5fbbd6785",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "67.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "976fc8b6-d5dc-4de0-922c-90158c7bf29f",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "68.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "0a4d8606-47f4-4266-9fdb-5fca46d34922",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "69.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "14a8e49b-0f10-4d64-9cf9-bd1a68e9da44",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "70.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f820228b-e980-4600-8319-8d32acafa68e",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "71.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "c2b24f0c-5e3d-43f6-813c-29b31ad19ca2",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "72.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ec9659e3-ef93-474b-9ab6-eab22d4fbf73",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "72.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "5b863381-2649-492a-8e0f-65f0d0626043",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "73.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "95ef06b3-eb4d-484d-a49f-c1199450b9e4",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "74.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "96ff254e-a12c-41e6-b4b3-ed3f05b0969d",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "75.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "71b170e3-54be-4fc4-917b-dfb155b955ce",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "76.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ba7ffc6e-f027-4e94-9f11-1713af6e08ba",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "77.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "87a6a6ca-d376-45f9-8fd0-37b1bf49c4bb",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "77.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "359be1bc-82c9-4d87-8092-c4f2d890817f",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "78.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "fcaac0fd-6b88-40f3-b7b1-82755e63e3a7",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "79.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "5b824883-e84d-425e-8e09-4c1b571483b3",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "80.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "6c610746-4410-4d1a-86e2-66731c4d7b95",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "81.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "867573da-0cde-436c-8fa4-fd0ec62ff684",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "82.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "70f9e3fb-241f-4e5b-ba34-2fff588be590",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "82.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f487389f-3076-46b1-b08b-7bef3724add2",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "83.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "e23adc86-b754-4a3c-a46a-57fb81cf4f19",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "84.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "064b06a0-d80e-47e9-9e17-0e81acebb9f7",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "85.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "410a193a-6ffa-480b-bb24-bb8309c5f469",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "87.5000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d61d4fd6-ba7b-41c3-b002-d0602434bee8",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "90.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "174f1925-ade6-46ef-9ba0-f9ef463f4a80",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "95.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "7911a710-4aeb-49f8-a965-576b889fcb2d",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "100.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "7954aa03-1053-4a1e-a6b6-ec6d2acd6ace",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "105.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "455b32aa-4589-40b9-bd1f-85705cb106aa",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "110.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "6b629f16-6fcf-4a6b-8792-0f9372971327",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "115.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "b08eca5b-2c83-485f-bf53-766ab324b2e5",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "120.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "80fdc574-441b-4021-a304-8339647ecf6c",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "125.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "0f1dd825-d7f6-463b-9124-fe36a424bcd2",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "130.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "5520e9fa-66ea-436d-b56c-2b7b714b6607",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "135.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d401a340-54c9-4e90-9d74-a028d80480dd",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "140.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "d8bf4a0e-22e9-45f3-9bf4-4f04306e61dd",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "145.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ccc37c7a-b2eb-4ae1-a263-e9f723ce5379",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "150.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "fdc90f26-41ae-477b-b1c6-d31ec0c06968",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "155.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "2601e1d0-792e-43db-a914-46a81ab33100",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "160.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "ffa1b724-9929-41c4-b711-2cdfdbe31b8f",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "165.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "41ac82d8-010d-4f57-92b1-5a8f4e951312",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "170.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "867f8f38-d759-452a-b044-f211f900fe92",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "175.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "697c41bb-1c68-49b6-b8e7-5492e338ba7b",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "180.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "f072083b-0c2b-4fe0-ae20-a96da4599378",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "185.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "e4a20ffe-0968-4679-ad52-69397460a9da",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "190.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        },
+        {
+          "id": "dcabc710-a126-432f-88c6-65fef061deb3",
+          "chain_id": "••••4b48",
+          "chain_symbol": "NFLX",
+          "underlying_type": "equity",
+          "expiration_date": "••••0-16",
+          "sellout_datetime": "••••0-16T19:30:00+00:00",
+          "strike_price": "195.0000",
+          "type": "call",
+          "state": "active",
+          "tradability": "tradable",
+          "trade_value_multiplier": "100.0000",
+          "min_ticks": {
+            "above_tick": "0.05",
+            "below_tick": "0.01",
+            "cutoff_price": "3.00"
+          }
+        }
+      ]
+    },
+    "guide": "Present chain_symbol, expiration_date, type, strike_price; flag state when not 'active' or tradability when not 'tradable'. Pass id to an order's leg.option_id. Quote sellout_datetime when the user asks \"when will Robinhood force-close this position?\" — it is the authoritative per-contract timestamp covering equity/index, AM/PM settle, and T-1 logic. underlying_type ('equity' or 'index') is informational; mention only when it affects strategy. When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
+  }
+}

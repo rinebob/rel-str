@@ -2,7 +2,7 @@
  "meta": {
   "topic": 657,
   "thread": 658,
-  "purpose": "Single source of truth for the RH MCP discovery run: every probe becomes a capture under captures/{id}.json; the coverage matrix joins this manifest against captures. Never store account_number values — use $ENV:RH_ACCOUNT_NUMBER placeholders, resolved at run time.",
+  "purpose": "Single source of truth for the RH MCP discovery run: every probe becomes a capture under captures/{id}.json; the coverage matrix joins this manifest against captures. Never store account_number values \u2014 use $ENV:RH_ACCOUNT_NUMBER placeholders, resolved at run time.",
   "gates": "read = unattended batch; mutation = per-call y/n/abort prompt (no CLI flag; headless runs may opt in via RH_PROBE_AUTOYES=1, mutation gate only)"
  },
  "probes": [
@@ -53,7 +53,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "E1 — 1-share market GFD buy, expected fill. Settle poll uses defaults: new/queued/confirmed pending, 2s interval, 60s timeout.",
+   "note": "E1 \u2014 1-share market GFD buy, expected fill. Settle poll uses defaults: new/queued/confirmed pending, 2s interval, 60s timeout.",
    "env": [
     "RH_ACCOUNT_NUMBER"
    ]
@@ -761,7 +761,7 @@
    },
    "group": "equity-data",
    "gate": "read",
-   "note": "interval=minute on a 2-day window (30-day range exceeds the 5000-bar cap — error observed on first pass (capture overwritten by corrected rerun))."
+   "note": "interval=minute on a 2-day window (30-day range exceeds the 5000-bar cap \u2014 error observed on first pass (capture overwritten by corrected rerun))."
   },
   {
    "id": "ro-eq-hist-03",
@@ -3870,7 +3870,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "Session start — harvest live OOMA quote; operator derives OOMA_ASK/BID + stop targets"
+   "note": "Session start \u2014 harvest live OOMA quote; operator derives OOMA_ASK/BID + stop targets"
   },
   {
    "id": "mx-rev-buy-mkt",
@@ -4084,7 +4084,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "E1 market buy 1 gfd — expected fill",
+   "note": "E1 market buy 1 gfd \u2014 expected fill",
    "settle": {
     "tool": "get_equity_orders",
     "args": {
@@ -4111,7 +4111,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "E2 limit buy @ ask — expected fill",
+   "note": "E2 limit buy @ ask \u2014 expected fill",
    "settle": {
     "tool": "get_equity_orders",
     "args": {
@@ -4138,7 +4138,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "E3 limit buy @ bid — rests, then mx-can-bid — ref_id is env-driven so the probe can be re-armed after a consumed-UUID rerun."
+   "note": "E3 limit buy @ bid \u2014 rests, then mx-can-bid \u2014 ref_id is env-driven so the probe can be re-armed after a consumed-UUID rerun."
   },
   {
    "id": "mx-can-bid",
@@ -4159,7 +4159,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel the resting E3 bid-limit — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel the resting E3 bid-limit \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-buy-stp-hi",
@@ -4179,7 +4179,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "E4 stop_market buy, stop ABOVE market — rests, then cancel"
+   "note": "E4 stop_market buy, stop ABOVE market \u2014 rests, then cancel"
   },
   {
    "id": "mx-can-stp-hi",
@@ -4200,7 +4200,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel the resting E4 buy-stop — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel the resting E4 buy-stop \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-buy-stp-lo",
@@ -4220,7 +4220,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "E5 stop_market buy, stop BELOW market — fires or rejects (capture which)",
+   "note": "E5 stop_market buy, stop BELOW market \u2014 fires or rejects (capture which)",
    "settle": {
     "tool": "get_equity_orders",
     "args": {
@@ -4248,7 +4248,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "E6 stop_limit buy — rests, then cancel"
+   "note": "E6 stop_limit buy \u2014 rests, then cancel"
   },
   {
    "id": "mx-can-stplim",
@@ -4269,7 +4269,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel the resting E6 stop-limit — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel the resting E6 stop-limit \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-buy-dol5",
@@ -4288,7 +4288,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "E7 dollar_amount $5 market — fractional fill",
+   "note": "E7 dollar_amount $5 market \u2014 fractional fill",
    "settle": {
     "tool": "get_equity_orders",
     "args": {
@@ -4315,7 +4315,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "E8 limit buy @ bid gtc — rests, then cancel"
+   "note": "E8 limit buy @ bid gtc \u2014 rests, then cancel"
   },
   {
    "id": "mx-can-gtc",
@@ -4336,7 +4336,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel the resting E8 gtc limit — proves gtc cancel path — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel the resting E8 gtc limit \u2014 proves gtc cancel path \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-sell-lim-tgt",
@@ -4356,7 +4356,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "X1 sell limit 1 @ +2% target — rests, then cancel"
+   "note": "X1 sell limit 1 @ +2% target \u2014 rests, then cancel"
   },
   {
    "id": "mx-can-x1",
@@ -4377,7 +4377,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel the resting X1 sell limit — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel the resting X1 sell limit \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-sell-stp",
@@ -4397,7 +4397,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "X2 sell stop_market @ -2% — rests, then cancel"
+   "note": "X2 sell stop_market @ -2% \u2014 rests, then cancel"
   },
   {
    "id": "mx-can-x2",
@@ -4418,7 +4418,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel the resting X2 sell stop — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel the resting X2 sell stop \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-sell-stplim",
@@ -4439,7 +4439,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "X3 sell stop_limit — rests, then cancel"
+   "note": "X3 sell stop_limit \u2014 rests, then cancel"
   },
   {
    "id": "mx-can-x3",
@@ -4460,7 +4460,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel the resting X3 sell stop-limit — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel the resting X3 sell stop-limit \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-sell-trail-a",
@@ -4480,7 +4480,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "X4a trailing demo — sell stop @ -2%, then cancel+replace at -1.5%"
+   "note": "X4a trailing demo \u2014 sell stop @ -2%, then cancel+replace at -1.5%"
   },
   {
    "id": "mx-can-trail-a",
@@ -4501,7 +4501,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel trail leg A — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel trail leg A \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-sell-trail-b",
@@ -4521,7 +4521,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "X4b replace at -1.5% — the manual trailing-stop pattern"
+   "note": "X4b replace at -1.5% \u2014 the manual trailing-stop pattern"
   },
   {
    "id": "mx-can-trail-b",
@@ -4542,7 +4542,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel trail leg B — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel trail leg B \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-sell-stp-hi",
@@ -4562,7 +4562,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "X5 sell stop_market ABOVE market — fires or rejects (capture which)",
+   "note": "X5 sell stop_market ABOVE market \u2014 fires or rejects (capture which)",
    "settle": {
     "tool": "get_equity_orders",
     "args": {
@@ -4609,7 +4609,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "Executed 2026-10-07: tax_lots path reaches the API but rejects with 400 \"Some of your selected lots are no longer available.\" — all lots report is_selectable:false. Paired mx-can-lots intentionally skipped."
+   "note": "Executed 2026-10-07: tax_lots path reaches the API but rejects with 400 \"Some of your selected lots are no longer available.\" \u2014 all lots report is_selectable:false. Paired mx-can-lots intentionally skipped."
   },
   {
    "id": "mx-can-lots",
@@ -4630,7 +4630,7 @@
      "symbol": "OOMA"
     }
    },
-   "note": "cancel the resting X6 specified-lot sell — set OOMA_ORDER_ID from the preceding place capture before running"
+   "note": "cancel the resting X6 specified-lot sell \u2014 set OOMA_ORDER_ID from the preceding place capture before running"
   },
   {
    "id": "mx-sell-oversell",
@@ -4650,7 +4650,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "X7 oversell — qty 999 vs ~2.4 held — capture rejection"
+   "note": "X7 oversell \u2014 qty 999 vs ~2.4 held \u2014 capture rejection"
   },
   {
    "id": "mx-pos-preflat",
@@ -4682,7 +4682,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "X8 sell-all market — ends the session flat; set OOMA_ALL_QTY from get_equity_positions — ref_id env-driven for re-arm after consumed UUID.",
+   "note": "X8 sell-all market \u2014 ends the session flat; set OOMA_ALL_QTY from get_equity_positions \u2014 ref_id env-driven for re-arm after consumed UUID.",
    "settle": {
     "tool": "get_equity_orders",
     "args": {
@@ -4708,7 +4708,7 @@
    "redactFields": [
     "account_number"
    ],
-   "note": "S1 short probe — sell 1 zero-held symbol — capture short rejection",
+   "note": "S1 short probe \u2014 sell 1 zero-held symbol \u2014 capture short rejection",
    "settle": {
     "tool": "get_equity_orders",
     "args": {
@@ -4732,7 +4732,470 @@
    "env": [
     "RH_ACCOUNT_NUMBER"
    ],
-   "note": "Resting-order inventory — 'confirmed' is the resting/live state (open/queued return [] even with ~23 resting orders). Run first at session start and again in abort path."
+   "note": "Resting-order inventory \u2014 'confirmed' is the resting/live state (open/queued return [] even with ~23 resting orders). Run first at session start and again in abort path."
+  },
+  {
+   "id": "opt-level",
+   "tool": "get_option_level_upgrade_info",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Agentic acct option_level is empty \u2014 captures the upgrade path + expected reject context for everything below.",
+   "env": [
+    "RH_ACCOUNT_NUMBER"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-quote-start",
+   "tool": "get_equity_quotes",
+   "args": {
+    "symbols": [
+     "NFLX"
+    ]
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Underlying quote for NFLX \u2014 harvest context for strike selection (pick nearest monthly exp, ~ATM strike)."
+  },
+  {
+   "id": "opt-chains-nflx",
+   "tool": "get_option_chains",
+   "args": {
+    "underlying_symbol": "NFLX"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Chain inventory \u2014 harvest chain_id + expiration list; sets up instrument selection."
+  },
+  {
+   "id": "opt-positions",
+   "tool": "get_option_positions",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "nonzero": true
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Open option positions \u2014 expected empty on this acct; verifies the nonzero filter shape.",
+   "env": [
+    "RH_ACCOUNT_NUMBER"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-orders-confirmed",
+   "tool": "get_option_orders",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "state": "confirmed"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Resting option-order inventory \u2014 mirrors the equity confirmed-state finding; expected empty.",
+   "env": [
+    "RH_ACCOUNT_NUMBER"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-instr-harvest",
+   "tool": "get_option_instruments",
+   "args": {
+    "chain_id": "$ENV:NFLX_CHAIN_ID",
+    "expiration_dates": "$ENV:NFLX_EXP",
+    "type": "call"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Harvest leg instruments \u2014 set NFLX_CHAIN_ID + NFLX_EXP from opt-chains-nflx; pick ~ATM call (NFLX_OPT_ID) + one strike up (NFLX_OPT_ID2).",
+   "env": [
+    "NFLX_CHAIN_ID",
+    "NFLX_EXP"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-optq",
+   "tool": "get_option_quotes",
+   "args": {
+    "instrument_ids": [
+     "$ENV:NFLX_OPT_ID",
+     "$ENV:NFLX_OPT_ID2"
+    ]
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Leg quotes \u2014 harvest mark for a below-market limit price (NFLX_OPT_PRICE).",
+   "env": [
+    "NFLX_OPT_ID",
+    "NFLX_OPT_ID2"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-rev-single-lim",
+   "tool": "review_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "buy",
+      "position_effect": "open"
+     }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "limit",
+    "price": "$ENV:NFLX_OPT_PRICE",
+    "time_in_force": "gfd"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Review sim: single-leg buy-to-open limit debit \u2014 the baseline happy path. Captures fee/collateral fields.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID",
+    "NFLX_OPT_PRICE"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-rev-single-mkt",
+   "tool": "review_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "buy",
+      "position_effect": "open"
+     }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "market",
+    "time_in_force": "gfd"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Review sim: single-leg market \u2014 captures market-order envelope + any extended-hours constraint.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-rev-mkt-gtc",
+   "tool": "review_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "buy",
+      "position_effect": "open"
+     }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "market",
+    "time_in_force": "gtc"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Constraint probe: market + gtc \u2014 schema says market must be gfd; captures the reject text.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-rev-spread-lim",
+   "tool": "review_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "buy",
+      "position_effect": "open"
+     },
+     {
+      "option_id": "$ENV:NFLX_OPT_ID2",
+      "side": "sell",
+      "position_effect": "open"
+     }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "limit",
+    "price": "$ENV:NFLX_OPT_PRICE",
+    "time_in_force": "gfd"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Review sim: 2-leg vertical debit spread \u2014 direction=debit, net-premium limit. The multi-leg baseline.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID",
+    "NFLX_OPT_ID2",
+    "NFLX_OPT_PRICE"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-rev-spread-mkt",
+   "tool": "review_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "buy",
+      "position_effect": "open"
+     },
+     {
+      "option_id": "$ENV:NFLX_OPT_ID2",
+      "side": "sell",
+      "position_effect": "open"
+     }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "market",
+    "time_in_force": "gfd"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Constraint probe: multi-leg market \u2014 schema says limit-only with 2+ legs; captures reject text.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID",
+    "NFLX_OPT_ID2"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-rev-credit",
+   "tool": "review_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "sell",
+      "position_effect": "open"
+     }
+    ],
+    "quantity": "1",
+    "direction": "credit",
+    "type": "limit",
+    "price": "$ENV:NFLX_OPT_PRICE",
+    "time_in_force": "gfd"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Review sim: single-leg sell-to-open (credit) \u2014 collateral/margin requirement surface; expect reject on a level-less cash acct.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID",
+    "NFLX_OPT_PRICE"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-rev-stop",
+   "tool": "review_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "buy",
+      "position_effect": "open"
+     }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "stop_market",
+    "stop_price": "$ENV:NFLX_OPT_PRICE",
+    "time_in_force": "gfd"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Review sim: stop_market single leg \u2014 stop_price semantics on options.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID",
+    "NFLX_OPT_PRICE"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-rev-close-nopos",
+   "tool": "review_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "sell",
+      "position_effect": "close"
+     }
+    ],
+    "quantity": "1",
+    "direction": "credit",
+    "type": "limit",
+    "price": "$ENV:NFLX_OPT_PRICE",
+    "time_in_force": "gfd"
+   },
+   "group": "opt-matrix",
+   "gate": "read",
+   "note": "Constraint probe: position_effect=close with no open position \u2014 capture the reject.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID",
+    "NFLX_OPT_PRICE"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-place-lim",
+   "tool": "place_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "buy",
+      "position_effect": "open"
+     }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "limit",
+    "price": "$ENV:NFLX_OPT_PRICE_LO",
+    "time_in_force": "gfd",
+    "ref_id": "$ENV:NFLX_OPT_REF"
+   },
+   "group": "opt-matrix",
+   "gate": "mutation",
+   "note": "Place single-leg buy limit FAR below market (NFLX_OPT_PRICE_LO ~ half the mark) \u2014 rests, harvest id \u2192 opt-can-lim. Expect permission reject if option_level stays empty.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID",
+    "NFLX_OPT_PRICE_LO",
+    "NFLX_OPT_REF"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-can-lim",
+   "tool": "cancel_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "order_id": "$ENV:NFLX_OPT_ORDER_ID"
+   },
+   "group": "opt-matrix",
+   "gate": "mutation",
+   "note": "Cancel the resting opt-place-lim order \u2014 set NFLX_OPT_ORDER_ID from its capture.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ORDER_ID"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-place-spread",
+   "tool": "place_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+     {
+      "option_id": "$ENV:NFLX_OPT_ID",
+      "side": "buy",
+      "position_effect": "open"
+     },
+     {
+      "option_id": "$ENV:NFLX_OPT_ID2",
+      "side": "sell",
+      "position_effect": "open"
+     }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "limit",
+    "price": "$ENV:NFLX_OPT_PRICE_LO",
+    "time_in_force": "gfd",
+    "ref_id": "$ENV:NFLX_OPT_REF2"
+   },
+   "group": "opt-matrix",
+   "gate": "mutation",
+   "note": "Place 2-leg vertical spread limit far below mid \u2014 rests; harvest id \u2192 opt-can-spread.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ID",
+    "NFLX_OPT_ID2",
+    "NFLX_OPT_PRICE_LO",
+    "NFLX_OPT_REF2"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
+  },
+  {
+   "id": "opt-can-spread",
+   "tool": "cancel_option_order",
+   "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "order_id": "$ENV:NFLX_OPT_ORDER_ID2"
+   },
+   "group": "opt-matrix",
+   "gate": "mutation",
+   "note": "Cancel the resting spread order \u2014 set NFLX_OPT_ORDER_ID2 from opt-place-spread capture.",
+   "env": [
+    "RH_ACCOUNT_NUMBER",
+    "NFLX_OPT_ORDER_ID2"
+   ],
+   "redactFields": [
+    "account_number"
+   ]
   },
   {
    "id": "err-quote-bad-symbol",
@@ -4744,7 +5207,7 @@
    },
    "group": "err-matrix",
    "gate": "read",
-   "note": "Deliberate error: nonexistent ticker — error vs empty results?"
+   "note": "Deliberate error: nonexistent ticker \u2014 error vs empty results?"
   },
   {
    "id": "err-chain-bad-symbol",
@@ -4796,7 +5259,7 @@
    },
    "group": "err-matrix",
    "gate": "read",
-   "note": "Deliberate error: invalid account number — account-layer vs tool-layer error."
+   "note": "Deliberate error: invalid account number \u2014 account-layer vs tool-layer error."
   },
   {
    "id": "err-crypto-bad-pair",
@@ -4822,7 +5285,7 @@
    },
    "group": "err-matrix",
    "gate": "read",
-   "note": "Deliberate error: invalid interval value (schema is plain string — reaches server)."
+   "note": "Deliberate error: invalid interval value (schema is plain string \u2014 reaches server)."
   },
   {
    "id": "err-hist-bad-time",
@@ -4835,7 +5298,7 @@
    },
    "group": "err-matrix",
    "gate": "read",
-   "note": "Deliberate error: malformed timestamp — server parse error?"
+   "note": "Deliberate error: malformed timestamp \u2014 server parse error?"
   },
   {
    "id": "err-pnl-inverted",
@@ -4891,7 +5354,7 @@
    "env": [
     "RH_ACCOUNT_NUMBER"
    ],
-   "note": "Deliberate error: well-formed nonexistent order UUID — approve to capture API not-found."
+   "note": "Deliberate error: well-formed nonexistent order UUID \u2014 approve to capture API not-found."
   },
   {
    "id": "err-cancel-malformed-order",
@@ -4908,7 +5371,7 @@
    "env": [
     "RH_ACCOUNT_NUMBER"
    ],
-   "note": "Deliberate error: malformed order_id — approve to capture validation/not-found path."
+   "note": "Deliberate error: malformed order_id \u2014 approve to capture validation/not-found path."
   },
   {
    "id": "err-markalerts-bad-id",
@@ -4920,7 +5383,7 @@
    },
    "group": "err-matrix",
    "gate": "mutation",
-   "note": "Deliberate error: nonexistent alert log ids — harmless; cannot match real alerts."
+   "note": "Deliberate error: nonexistent alert log ids \u2014 harmless; cannot match real alerts."
   },
   {
    "id": "mx-can-cleanup",
@@ -4931,7 +5394,7 @@
    },
    "group": "eq-matrix",
    "gate": "mutation",
-   "note": "Ad-hoc cleanup — cancels a matrix-created resting order that has no paired can-probe (e.g. mx-sell-stp-hi's queued sell-stop-above-market).",
+   "note": "Ad-hoc cleanup \u2014 cancels a matrix-created resting order that has no paired can-probe (e.g. mx-sell-stp-hi's queued sell-stop-above-market).",
    "expected": "success",
    "settle": {
     "tool": "get_equity_orders",
@@ -4966,7 +5429,7 @@
    },
    "group": "eq-matrix",
    "gate": "mutation",
-   "note": "Post-close flat-out — market sells queue for next session after 16:00 ET; extended_hours executes limit only, so flat-out switches to limit@bid. Fractional remainder may reject or rest until regular hours.",
+   "note": "Post-close flat-out \u2014 market sells queue for next session after 16:00 ET; extended_hours executes limit only, so flat-out switches to limit@bid. Fractional remainder may reject or rest until regular hours.",
    "expected": "success",
    "env": [
     "RH_ACCOUNT_NUMBER",
@@ -4987,7 +5450,7 @@
    },
    "group": "eq-matrix",
    "gate": "read",
-   "note": "Post-session end-state evidence — OOMA residual after mx-sell-flat-xh fill. (unfiltered — schema has no symbol param; OOMA row read from the full list)",
+   "note": "Post-session end-state evidence \u2014 OOMA residual after mx-sell-flat-xh fill. (unfiltered \u2014 schema has no symbol param; OOMA row read from the full list)",
    "env": [
     "RH_ACCOUNT_NUMBER"
    ],
@@ -5011,7 +5474,7 @@
    },
    "group": "eq-matrix",
    "gate": "mutation",
-   "note": "Deliberate reject — fractional qty in extended_hours. Re-captures the verbatim 'regular_hours-only' error lost when mx-sell-flat-xh attempt-1 was overwritten by its successful rerun. NOT expected to execute; if it ever fills, cancel via mx-can-cleanup pattern.",
+   "note": "Deliberate reject \u2014 fractional qty in extended_hours. Re-captures the verbatim 'regular_hours-only' error lost when mx-sell-flat-xh attempt-1 was overwritten by its successful rerun. NOT expected to execute; if it ever fills, cancel via mx-can-cleanup pattern.",
    "expected": "error",
    "env": [
     "RH_ACCOUNT_NUMBER",

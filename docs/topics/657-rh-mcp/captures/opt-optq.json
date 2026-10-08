@@ -1,0 +1,98 @@
+{
+  "id": "opt-optq",
+  "tool": "get_option_quotes",
+  "group": "opt-matrix",
+  "gate": "read",
+  "note": "Leg quotes — harvest mark for a below-market limit price (NFLX_OPT_PRICE).",
+  "args": {
+    "instrument_ids": [
+      "$ENV:NFLX_OPT_ID",
+      "$ENV:NFLX_OPT_ID2"
+    ]
+  },
+  "capturedAt": "2026-10-07T19:11:52.320Z",
+  "outcome": "success",
+  "latencyMs": 1130,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "quote": {
+            "instrument_id": "••••da44",
+            "ask_price": "1.210000",
+            "ask_size": 50,
+            "bid_price": "1.200000",
+            "bid_size": 36,
+            "break_even_price": "71.210000",
+            "adjusted_mark_price": "1.210000",
+            "mark_price": "1.205000",
+            "high_fill_rate_buy_price": "1.208000",
+            "low_fill_rate_buy_price": "1.203000",
+            "high_fill_rate_sell_price": "1.201000",
+            "low_fill_rate_sell_price": "1.206000",
+            "previous_close_price": "0.910000",
+            "previous_close_date": "2026-10-06",
+            "implied_volatility": "0.311509",
+            "delta": "0.472455",
+            "gamma": "0.116665",
+            "rho": "0.007840",
+            "theta": "-0.078654",
+            "vega": "0.043584",
+            "open_interest": 14517,
+            "volume": 11113,
+            "chance_of_profit_long": "0.319957",
+            "chance_of_profit_short": "0.680043",
+            "updated_at": "2026-10-07T19:11:49.730827623Z"
+          },
+          "close": {
+            "instrument_id": "••••da44",
+            "symbol": "NFLX",
+            "date": "2026-10-06",
+            "price": "0.91",
+            "interpolated": false,
+            "source": "ddb-market-snapshot"
+          }
+        },
+        {
+          "quote": {
+            "instrument_id": "••••bf73",
+            "ask_price": "0.430000",
+            "ask_size": 174,
+            "bid_price": "0.420000",
+            "bid_size": 221,
+            "break_even_price": "72.930000",
+            "adjusted_mark_price": "0.430000",
+            "mark_price": "0.425000",
+            "high_fill_rate_buy_price": "0.428000",
+            "low_fill_rate_buy_price": "0.423000",
+            "high_fill_rate_sell_price": "0.421000",
+            "low_fill_rate_sell_price": "0.426000",
+            "previous_close_price": "0.320000",
+            "previous_close_date": "2026-10-06",
+            "implied_volatility": "0.317320",
+            "delta": "0.220687",
+            "gamma": "0.085358",
+            "rho": "0.003696",
+            "theta": "-0.058705",
+            "vega": "0.032483",
+            "open_interest": 7792,
+            "volume": 1134,
+            "chance_of_profit_long": "0.174057",
+            "chance_of_profit_short": "0.825943",
+            "updated_at": "2026-10-07T19:11:51.911653411Z"
+          },
+          "close": {
+            "instrument_id": "••••bf73",
+            "symbol": "NFLX",
+            "date": "2026-10-06",
+            "price": "0.32",
+            "interpolated": false,
+            "source": "ddb-market-snapshot"
+          }
+        }
+      ]
+    },
+    "guide": "Each entry in results pairs the live quote with the official prior-session close for the same option contract. Current price: use quote.mark_price (adjusted_mark_price when comparing against historical cost basis); verify quote.updated_at is recent before calling it 'current' — otherwise phrase as 'as of <updated_at>'. 1D P&L per contract: (quote.mark_price - close.price) × multiplier × position_quantity (multiplier is typically 100; use trade_value_multiplier from get_option_positions for adjusted contracts). Prefer results[].close.price (official settled close) over quote.previous_close_price; when a result is missing close — either closes_error is set tool-wide, or this contract had no close in an otherwise-successful batch — fall back to quote.previous_close_price and tell the user the official close lookup is unavailable. When close.interpolated is true, surface close.date — the price is not from the requested day. Drop bid/ask when zero."
+  }
+}

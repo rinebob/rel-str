@@ -1,0 +1,21 @@
+{
+  "id": "opt-positions",
+  "tool": "get_option_positions",
+  "group": "opt-matrix",
+  "gate": "read",
+  "note": "Open option positions — expected empty on this acct; verifies the nonzero filter shape.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "nonzero": true
+  },
+  "capturedAt": "2026-10-07T19:09:24.826Z",
+  "outcome": "success",
+  "latencyMs": 905,
+  "success": true,
+  "response": {
+    "data": {
+      "positions": []
+    },
+    "guide": "Surface chain_symbol, type, quantity, average_price, and expiration_date. Look up strike/option_type (call/put) via get_option_instruments with option_id when needed. Warn the user about any non-zero pending_* quantities. When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
+  }
+}

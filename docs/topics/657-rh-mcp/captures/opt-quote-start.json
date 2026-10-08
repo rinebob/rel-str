@@ -1,0 +1,48 @@
+{
+  "id": "opt-quote-start",
+  "tool": "get_equity_quotes",
+  "group": "opt-matrix",
+  "gate": "read",
+  "note": "Underlying quote for NFLX — harvest context for strike selection (pick nearest monthly exp, ~ATM strike).",
+  "args": {
+    "symbols": [
+      "NFLX"
+    ]
+  },
+  "capturedAt": "2026-10-07T19:09:08.130Z",
+  "outcome": "success",
+  "latencyMs": 937,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "quote": {
+            "symbol": "NFLX",
+            "last_trade_price": "69.600000",
+            "venue_last_trade_time": "2026-10-07T19:09:03.171326267Z",
+            "last_non_reg_trade_price": null,
+            "venue_last_non_reg_trade_time": null,
+            "adjusted_previous_close": "68.690000",
+            "previous_close": "68.690000",
+            "previous_close_date": "2026-10-06",
+            "bid_price": "69.590000",
+            "venue_bid_time": "2026-10-07T19:09:06.515930183Z",
+            "ask_price": "69.600000",
+            "venue_ask_time": "2026-10-07T19:09:06.515930183Z",
+            "has_traded": true,
+            "state": "active"
+          },
+          "close": {
+            "symbol": "NFLX",
+            "date": "2026-10-06",
+            "price": "68.69",
+            "interpolated": false,
+            "source": "sip-list-exchange-close"
+          }
+        }
+      ]
+    },
+    "guide": "Each entry in results pairs the live quote with the official prior-session close for the same symbol. Current price: pick whichever of quote.last_trade_price / quote.last_non_reg_trade_price has the more recent timestamp, then verify that timestamp is recent before calling it \"current\" — otherwise phrase as \"as of <time>\". Daily change uses quote.adjusted_previous_close. \"Yesterday's close\" uses results[].close.price (official settled close); when a result is missing close — either closes_error is set tool-wide, or this symbol had no close in an otherwise-successful batch — fall back to quote.previous_close and tell the user the official close lookup is unavailable. Drop bid/ask when zero. Surface has_traded=false or any non-'active' state before quoting a price."
+  }
+}
