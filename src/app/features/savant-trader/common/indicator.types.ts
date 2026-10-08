@@ -53,7 +53,7 @@ export interface DotMarker {
   index: number;
   direction: 'long' | 'short';
   y: number;
-  version: 'V1' | 'V2' | 'TS';
+  version: 'V1' | 'V2' | 'TS' | 'TB';
   signalType: string;
 }
 
@@ -81,6 +81,7 @@ export interface IntervalData {
     zoneV1?: DotMarker[];
     zoneV2?: DotMarker[];
     trendStrength?: DotMarker[];
+    triggerBands?: DotMarker[];
   };
   htfWindows?: {
     weekly?: HtfWindowPoint[];
@@ -126,7 +127,14 @@ export interface BandPoint {
 
 export interface TriggerBandsPoint {
   d: string;
-  // Trigger band fields TBD in Phase 2
+  upper: number | null;
+  lower: number | null;
+  longPullback: boolean;
+  longPullbackState: boolean;
+  longBreakout: boolean;
+  shortPullback: boolean;
+  shortPullbackState: boolean;
+  shortBreakout: boolean;
 }
 
 /** @deprecated Use the per-family point types instead. */
