@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [2026-10-08]
+
+### Added
+- [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: PageIdentityService — route-driven title+icon shared by rs-header and the shell; fullscreen reveal becomes an identity chip (icon + title + exit); .page-title promoted to h1
+- [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: Sidenav Dev submenu — NavItem.children + mat-menu popup; Tools ▸ Dev lists dev/flex-chart, dev/gallery, dev/screenshot without polluting the workflow nav
+- [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: Page title sweep (21 surfaces) + default-header fullscreen flip (auto setFullscreen(true) removed from 13 pages + signal-review facade; ngOnDestroy cleanup kept) + right-anchored action bars
+- [Navigation and Workflows] 625-854_DOCS-WORKFLOWS: #854 CODE-REVIEW (PASS, 2 rounds) + page inventory (38/38) + #898 UAT (Complete — nav-surface-scoped)
+
+
 ## [2026-10-07]
 
 ### Added
