@@ -8,7 +8,7 @@ import {
 
 const PORT = Number(process.env.RH_OBSERVATION_API_PORT ?? 3456);
 const HOST = process.env.RH_OBSERVATION_API_HOST ?? '127.0.0.1';
-const REQUEST_TIMEOUT_MS = 90_000; // worst case: 30s connect timeout + 45s tool call
+const REQUEST_TIMEOUT_MS = 90_000; // must exceed the 75s batch budget + connect/auth margin
 
 function isLocalhost(host: string): boolean {
   return host === '127.0.0.1' || host === 'localhost' || host === '::1';

@@ -46,6 +46,9 @@ export interface RhApiDeps {
   onAudit?: (entry: RhApiAuditEntry) => void;
   /** Auth rejections (401/403) — visible in logs without token material. */
   onAuditReject?: (entry: RhApiAuthRejectEntry) => void;
+  /** Test seams forwarded to the executor — prod leaves both unset. */
+  callTimeoutMs?: number;
+  batchBudgetMs?: number;
 }
 
 type RequestHandler = (
@@ -95,6 +98,8 @@ export function createRhApiHandler(deps: RhApiDeps): RequestHandler {
       executorOptions: {
         repository: deps.repository,
         transportFactory: deps.transportFactory,
+        callTimeoutMs: deps.callTimeoutMs,
+        batchBudgetMs: deps.batchBudgetMs,
       },
       reauthHandler: async (_request, res) =>
         sendJson(res, 200, {
