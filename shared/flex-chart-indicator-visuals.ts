@@ -103,6 +103,36 @@ export const ST_STD_DEV_FILL_OPACITY = 0.08;
 export const ST_STD_DEV_REGULAR_DASH = '4,2';
 export const ST_STD_DEV_FIB_DASH = '2,2';
 
+// -- Trigger Bands (main pane overlay) -------------------------------------
+
+/** State colours for the Trigger Bands step lines, ported from
+ *  rb-st-trigger-bands.pine: neutral band = white; the UPPER band carries the
+ *  long side's states, the LOWER the short side's. A pullback borrows the
+ *  opposite side's colour (the warning reads against the trend) and a
+ *  breakout keeps its own — long: pullback yellow, breakout blue; short:
+ *  pullback blue, breakout yellow. TradingView palette: blue #2962ff,
+ *  yellow #ffeb3b. NOTE: neutral white is for the dark theme; on the light
+ *  appearance it needs a remap before use there. */
+export const ST_TRIGGER_BANDS_COLORS = {
+  upper: { neutral: '#ffffff', pullback: '#ffeb3b', breakout: '#2962ff' },
+  lower: { neutral: '#ffffff', pullback: '#2962ff', breakout: '#ffeb3b' },
+} as const;
+
+/** Single stroke width for both band lines — a uniform Donchian channel;
+ *  the pullback/breakout state carries colour only, not weight. */
+export const ST_TRIGGER_BANDS_LINE_WIDTH = 2;
+
+/** Trigger Bands signal dots, keyed by the backend `signalType`. Same
+ *  cross-side vocabulary as the bands (Pine diagnostic plots): breakout =
+ *  the side's own colour, pullback = the opposite side's. Two hues only —
+ *  the dot's position (long below the bar, short above) carries the side. */
+export const ST_TRIGGER_BANDS_DOT_COLORS: Readonly<Record<string, string>> = {
+  TRIGGER_BANDS_LONG_BREAKOUT: '#2962ff',
+  TRIGGER_BANDS_SHORT_BREAKOUT: '#ffeb3b',
+  TRIGGER_BANDS_LONG_PULLBACK: '#ffeb3b',
+  TRIGGER_BANDS_SHORT_PULLBACK: '#2962ff',
+};
+
 // ── HTF zone window (lower-3 dots + capture main-pane shading) ─────────────
 
 /** `generateHtfWindowData` — long = one green dot at y -6, short = one red
