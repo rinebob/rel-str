@@ -7,6 +7,7 @@ import {
 import { Auth, getIdToken } from '@angular/fire/auth';
 
 import { environment } from '../../../environments/environment';
+import { HTTP_TIMEOUT_TOKEN } from '../common/http-timeout.token';
 import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
 
 jest.mock('@angular/fire/auth', () => ({
@@ -104,6 +105,96 @@ describe('RobinhoodMcpObservationService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ success: true, tools: [{ name: 'get_accounts' }] });
     await pending;
+  });
+
+  it('executeTools POSTs the calls array to /batch and returns ordered results', async () => {
+    mockGetIdToken.mockResolvedValue('id-token-batch');
+    setup({ currentUser: { uid: 'owner-uid' } });
+
+    const pending = service.executeTools([
+      { tool: 'get_portfolio', args: { account_number: '111' } },
+      { tool: 'get_equity_positions', args: { account_number: '111' } },
+      { tool: 'get_option_positions', args: { account_number: '111' } },
+    ]);
+    await flush();
+    const req = http.expectOne(`${environment.rhApiBaseUrl}/batch`);
+
+    expect(req.request.method).toBe('POST');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer id-token-batch');
+    // Covers the server's ~80s worst case (connect inside the 75s batch
+    // budget + session close) so slow-but-valid batches aren't aborted early.
+    expect(req.request.context.get(HTTP_TIMEOUT_TOKEN)).toBe(90_000);
+    expect(req.request.body).toEqual({
+      calls: [
+        { tool: 'get_portfolio', args: { account_number: '111' } },
+        { tool: 'get_equity_positions', args: { account_number: '111' } },
+        { tool: 'get_option_positions', args: { account_number: '111' } },
+      ],
+    });
+
+    const results = [
+      { success: true, parsed: { p: 1 }, redacted: {}, tool: 'get_portfolio' },
+      { success: false, error: 'boom', category: 'MCP' },
+      { success: true, parsed: { o: 3 }, redacted: {}, tool: 'get_option_positions' },
+    ];
+    req.flush({ success: true, results });
+    expect(await pending).toEqual(results);
+  });
+
+  it('executeTools sends no Authorization header when signed out', async () => {
+    setup({ currentUser: null });
+
+    const pending = service.executeTools([{ tool: 'get_accounts' }]);
+    await flush();
+    const req = http.expectOne(`${environment.rhApiBaseUrl}/batch`);
+    expect(req.request.headers.has('Authorization')).toBe(false);
+
+    req.flush({ success: true, results: [{ success: true, redacted: {}, tool: 'get_accounts' }] });
+    await pending;
+  });
+
+  it('executeTools surfaces the server error on a session-level failure envelope', async () => {
+    setup({ currentUser: null });
+
+    const pending = service.executeTools([{ tool: 'get_accounts' }]);
+    await flush();
+    http.expectOne(`${environment.rhApiBaseUrl}/batch`).flush({
+      success: false,
+      error: 'session failed',
+      category: 'AUTH',
+    });
+    await expect(pending).rejects.toThrow('session failed');
+  });
+
+  it('executeTools throws on an invalid batch envelope', async () => {
+    setup({ currentUser: null });
+
+    const pending = service.executeTools([{ tool: 'get_accounts' }]);
+    await flush();
+    http.expectOne(`${environment.rhApiBaseUrl}/batch`).flush({ success: false });
+    await expect(pending).rejects.toThrow('Invalid batch response');
+  });
+
+  it('executeTools returns immediately on an empty calls array', async () => {
+    setup({ currentUser: null });
+
+    await expect(service.executeTools([])).resolves.toEqual([]);
+    http.expectNone(`${environment.rhApiBaseUrl}/batch`);
+  });
+
+  it('executeTools throws when the result count does not match the call count', async () => {
+    setup({ currentUser: null });
+
+    const pending = service.executeTools([
+      { tool: 'get_accounts' },
+      { tool: 'get_accounts' },
+    ]);
+    await flush();
+    http.expectOne(`${environment.rhApiBaseUrl}/batch`).flush({
+      success: true,
+      results: [{ success: true, redacted: {}, tool: 'get_accounts' }],
+    });
+    await expect(pending).rejects.toThrow('Invalid batch response');
   });
 
   it('attaches the token to reauth calls', async () => {

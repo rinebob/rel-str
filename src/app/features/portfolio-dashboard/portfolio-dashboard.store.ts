@@ -71,10 +71,6 @@ function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-function emptySection<T>(): SectionData<T> {
-  return { data: null, loading: false, error: null };
-}
-
 function loadingSection<T>(prev: SectionData<T>): SectionData<T> {
   return { data: prev.data, loading: true, error: null };
 }
@@ -254,6 +250,54 @@ export const PortfolioDashboardStore = signalStore(
     const client = inject(RobinhoodMcpClient);
     let refreshing = false;
 
+    /**
+     * Re-resolves the account index at patch time — a refresh can rebuild the
+     * accounts array while an async fetch is in flight; matching on
+     * accountNumber keeps results on the right account (and no-ops when the
+     * account was removed).
+     */
+    function patchAccount(accountNumber: string, updater: (a: AccountState) => AccountState): void {
+      const accounts = store.accounts();
+      const index = accounts.findIndex((a) => a.accountNumber === accountNumber);
+      if (index === -1) return;
+      patchState(store, { accounts: updateAccount(accounts, index, updater) });
+    }
+
+    /** Equity + option orders for one account in a single /batch request;
+     *  a transport failure rejects both slots. */
+    async function runOrdersBatch(accountNumber: string): Promise<[
+      PromiseSettledResult<BrokerOrder[]>,
+      PromiseSettledResult<BrokerOrder[]>,
+    ]> {
+      try {
+        return await client.executeBatch([
+          client.equityOrdersSpec(accountNumber),
+          client.optionOrdersSpec(accountNumber),
+        ]);
+      } catch (err) {
+        const failed: PromiseSettledResult<never> = { status: 'rejected', reason: err };
+        return [failed, failed];
+      }
+    }
+
+    function applyOrdersResults(
+      accountNumber: string,
+      [equityR, optionR]: [
+        PromiseSettledResult<BrokerOrder[]>,
+        PromiseSettledResult<BrokerOrder[]>,
+      ],
+    ): void {
+      patchAccount(accountNumber, (a) => ({
+        ...a,
+        equityOrders: equityR.status === 'fulfilled'
+          ? dataSection(equityR.value)
+          : errorSection(a.equityOrders, errMessage(equityR.reason)),
+        optionOrders: optionR.status === 'fulfilled'
+          ? dataSection(optionR.value)
+          : errorSection(a.optionOrders, errMessage(optionR.reason)),
+      }));
+    }
+
     async function loadAccounts(): Promise<void> {
       const accounts = await client.getAccounts();
       // Sort the primary agentic account to the first tab.
@@ -279,27 +323,37 @@ export const PortfolioDashboardStore = signalStore(
         })),
       });
 
-      await Promise.all(accounts.map(async (acct, i) => {
-        const results = await Promise.allSettled([
-          client.getPortfolio(acct.accountNumber),
-          client.getEquityPositions(acct.accountNumber),
-          client.getOptionPositions(acct.accountNumber, false),
-        ]);
+      await Promise.all(accounts.map(async (acct) => {
+        // One /batch request per account — a failed item lands on its own
+        // section; a transport failure rejects every spec the same way.
+        let results: [
+          PromiseSettledResult<PortfolioSnapshot>,
+          PromiseSettledResult<EquityPosition[]>,
+          PromiseSettledResult<OptionPosition[]>,
+        ];
+        try {
+          results = await client.executeBatch([
+            client.portfolioSpec(acct.accountNumber),
+            client.equityPositionsSpec(acct.accountNumber),
+            client.optionPositionsSpec(acct.accountNumber, false),
+          ]);
+        } catch (err) {
+          const failed: PromiseSettledResult<never> = { status: 'rejected', reason: err };
+          results = [failed, failed, failed];
+        }
         const [portfolioR, equityR, optionR] = results;
-        patchState(store, {
-          accounts: updateAccount(store.accounts(), i, (a) => ({
-            ...a,
-            portfolio: portfolioR.status === 'fulfilled'
-              ? dataSection(portfolioR.value)
-              : errorSection(a.portfolio, errMessage(portfolioR.reason)),
-            equityPositions: equityR.status === 'fulfilled'
-              ? dataSection(equityR.value)
-              : errorSection(a.equityPositions, errMessage(equityR.reason)),
-            optionPositions: optionR.status === 'fulfilled'
-              ? dataSection(optionR.value)
-              : errorSection(a.optionPositions, errMessage(optionR.reason)),
-          })),
-        });
+        patchAccount(acct.accountNumber, (a) => ({
+          ...a,
+          portfolio: portfolioR.status === 'fulfilled'
+            ? dataSection(portfolioR.value)
+            : errorSection(a.portfolio, errMessage(portfolioR.reason)),
+          equityPositions: equityR.status === 'fulfilled'
+            ? dataSection(equityR.value)
+            : errorSection(a.equityPositions, errMessage(equityR.reason)),
+          optionPositions: optionR.status === 'fulfilled'
+            ? dataSection(optionR.value)
+            : errorSection(a.optionPositions, errMessage(optionR.reason)),
+        }));
       }));
     }
 
@@ -318,53 +372,32 @@ export const PortfolioDashboardStore = signalStore(
         })),
       });
 
-      // Fetch quotes once — copy Map per account so retrySection is independent.
-      let equityQuotes: Map<string, EquityQuote> | null = null;
-      let equityQuotesError: string | null = null;
-      let optionQuotes: Map<string, OptionQuote> | null = null;
-      let optionQuotesError: string | null = null;
-
-      try {
-        equityQuotes = await client.getEquityQuotes(equitySymbols);
-      } catch (err) {
-        equityQuotesError = errMessage(err);
-      }
-      try {
-        optionQuotes = await client.getOptionQuotes(optionInstrumentIds);
-      } catch (err) {
-        optionQuotesError = errMessage(err);
-      }
+      // Fetch quotes once — equity and option in parallel; copy the Map per
+      // account so retrySection is independent.
+      const [equityQ, optionQ] = await Promise.allSettled([
+        client.getEquityQuotes(equitySymbols),
+        client.getOptionQuotes(optionInstrumentIds),
+      ]);
+      const equityQuotes = equityQ.status === 'fulfilled' ? equityQ.value : null;
+      const equityQuotesError = equityQ.status === 'rejected' ? errMessage(equityQ.reason) : null;
+      const optionQuotes = optionQ.status === 'fulfilled' ? optionQ.value : null;
+      const optionQuotesError = optionQ.status === 'rejected' ? errMessage(optionQ.reason) : null;
 
       patchState(store, {
         accounts: store.accounts().map((a) => ({
           ...a,
           equityQuotes: equityQuotes
             ? dataSection(new Map(equityQuotes))
-            : errorSection(a.equityQuotes, equityQuotesError!),
+            : errorSection(a.equityQuotes, equityQuotesError ?? 'Quote fetch failed'),
           optionQuotes: optionQuotes
             ? dataSection(new Map(optionQuotes))
-            : errorSection(a.optionQuotes, optionQuotesError!),
+            : errorSection(a.optionQuotes, optionQuotesError ?? 'Quote fetch failed'),
         })),
       });
 
-      // Fetch orders per account with independent error handling.
-      await Promise.all(accounts.map(async (acct, i) => {
-        const results = await Promise.allSettled([
-          client.getEquityOrders(acct.accountNumber),
-          client.getOptionOrders(acct.accountNumber),
-        ]);
-        const [equityR, optionR] = results;
-        patchState(store, {
-          accounts: updateAccount(store.accounts(), i, (a) => ({
-            ...a,
-            equityOrders: equityR.status === 'fulfilled'
-              ? dataSection(equityR.value)
-              : errorSection(a.equityOrders, errMessage(equityR.reason)),
-            optionOrders: optionR.status === 'fulfilled'
-              ? dataSection(optionR.value)
-              : errorSection(a.optionOrders, errMessage(optionR.reason)),
-          })),
-        });
+      // Fetch orders per account — one /batch request each, per-item errors.
+      await Promise.all(accounts.map(async (acct) => {
+        applyOrdersResults(acct.accountNumber, await runOrdersBatch(acct.accountNumber));
       }));
     }
 
@@ -390,38 +423,19 @@ export const PortfolioDashboardStore = signalStore(
 
       // 'orders' is a combined retry for both equityOrders and optionOrders.
       if (section === 'orders') {
-        patchState(store, {
-          accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
-            ...a,
-            equityOrders: loadingSection(a.equityOrders),
-            optionOrders: loadingSection(a.optionOrders),
-          })),
-        });
-        const results = await Promise.allSettled([
-          client.getEquityOrders(acct.accountNumber),
-          client.getOptionOrders(acct.accountNumber),
-        ]);
-        const [equityR, optionR] = results;
-        patchState(store, {
-          accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
-            ...a,
-            equityOrders: equityR.status === 'fulfilled'
-              ? dataSection(equityR.value)
-              : errorSection(a.equityOrders, errMessage(equityR.reason)),
-            optionOrders: optionR.status === 'fulfilled'
-              ? dataSection(optionR.value)
-              : errorSection(a.optionOrders, errMessage(optionR.reason)),
-          })),
-        });
+        patchAccount(acct.accountNumber, (a) => ({
+          ...a,
+          equityOrders: loadingSection(a.equityOrders),
+          optionOrders: loadingSection(a.optionOrders),
+        }));
+        applyOrdersResults(acct.accountNumber, await runOrdersBatch(acct.accountNumber));
         return;
       }
 
-      patchState(store, {
-        accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
-          ...a,
-          [section]: loadingSection(a[section] as SectionData<unknown>),
-        })),
-      });
+      patchAccount(acct.accountNumber, (a) => ({
+        ...a,
+        [section]: loadingSection(a[section] as SectionData<unknown>),
+      }));
 
       try {
         let data: PortfolioSnapshot | EquityPosition[] | OptionPosition[] | Map<string, EquityQuote> | Map<string, OptionQuote> | BrokerOrder[] | PnlTrade[];
@@ -457,19 +471,15 @@ export const PortfolioDashboardStore = signalStore(
             throw new Error(`Unknown section: ${_exhaustive}`);
           }
         }
-        patchState(store, {
-          accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
-            ...a,
-            [section]: dataSection(data),
-          })),
-        });
+        patchAccount(acct.accountNumber, (a) => ({
+          ...a,
+          [section]: dataSection(data),
+        }));
       } catch (err) {
-        patchState(store, {
-          accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
-            ...a,
-            [section]: errorSection(a[section] as SectionData<unknown>, errMessage(err)),
-          })),
-        });
+        patchAccount(acct.accountNumber, (a) => ({
+          ...a,
+          [section]: errorSection(a[section] as SectionData<unknown>, errMessage(err)),
+        }));
       }
     }
 
@@ -477,30 +487,24 @@ export const PortfolioDashboardStore = signalStore(
       const acct = store.accounts()[accountIndex];
       if (!acct) return;
 
-      patchState(store, {
-        accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
-          ...a,
-          closedTrades: loadingSection(a.closedTrades),
-        })),
-      });
+      patchAccount(acct.accountNumber, (a) => ({
+        ...a,
+        closedTrades: loadingSection(a.closedTrades),
+      }));
 
       try {
         const history = await client.getPnlTradeHistory(acct.accountNumber, span);
         // Filter to sell-side equity trades (exclude empty-side options assignments).
         const equityTrades = history.trades.filter((t) => t.side === 'sell' && t.symbol);
-        patchState(store, {
-          accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
-            ...a,
-            closedTrades: dataSection(equityTrades),
-          })),
-        });
+        patchAccount(acct.accountNumber, (a) => ({
+          ...a,
+          closedTrades: dataSection(equityTrades),
+        }));
       } catch (err) {
-        patchState(store, {
-          accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
-            ...a,
-            closedTrades: errorSection(a.closedTrades, errMessage(err)),
-          })),
-        });
+        patchAccount(acct.accountNumber, (a) => ({
+          ...a,
+          closedTrades: errorSection(a.closedTrades, errMessage(err)),
+        }));
       }
     }
 

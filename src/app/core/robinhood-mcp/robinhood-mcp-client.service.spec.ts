@@ -19,10 +19,13 @@ import { ToolExecutionErrorCategory, type ToolExecutionResult } from '@robinhood
 
 describe('RobinhoodMcpClient', () => {
   let client: RobinhoodMcpClient;
-  let mcp: { executeTool: jasmine.Spy };
+  let mcp: { executeTool: jasmine.Spy; executeTools: jasmine.Spy };
 
   beforeEach(() => {
-    mcp = { executeTool: jasmine.createSpy('executeTool') };
+    mcp = {
+      executeTool: jasmine.createSpy('executeTool'),
+      executeTools: jasmine.createSpy('executeTools'),
+    };
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -41,6 +44,19 @@ describe('RobinhoodMcpClient', () => {
   /** Helper: make executeTool return a failure result. */
   function mockFailure(error: string, category: ToolExecutionErrorCategory = ToolExecutionErrorCategory.MCP): void {
     mockResolve({ success: false, error, category });
+  }
+
+  /** Helper: make every call in a batch return the same result — the `tool`
+   *  stamp echoes the requested call, matching the wire contract. */
+  function mockBatchResolve(result: ToolExecutionResult): void {
+    mcp.executeTools.and.callFake((calls: { tool: string }[]) =>
+      Promise.resolve(calls.map((c) => ({ ...result, tool: c.tool }))));
+  }
+
+  /** Helper: batch calls answer per-call via a dispatch fn. */
+  function mockBatchDispatch(fn: (call: { tool: string; args: Record<string, unknown> }) => ToolExecutionResult): void {
+    mcp.executeTools.and.callFake((calls: { tool: string; args: Record<string, unknown> }[]) =>
+      Promise.resolve(calls.map(fn)));
   }
 
   // ===========================================================================
@@ -656,7 +672,7 @@ describe('RobinhoodMcpClient', () => {
 
   describe('getEquityQuotes', () => {
     it('returns quotes keyed by symbol', async () => {
-      mockResolve({
+      mockBatchResolve({
         success: true,
         parsed: {
           data: {
@@ -682,7 +698,7 @@ describe('RobinhoodMcpClient', () => {
     });
 
     it('deduplicates symbols before fetching', async () => {
-      mockResolve({
+      mockBatchResolve({
         success: true,
         parsed: { data: { quotes: [] } },
         redacted: {},
@@ -691,28 +707,32 @@ describe('RobinhoodMcpClient', () => {
 
       await client.getEquityQuotes(['AAPL', 'AAPL', 'NVDA']);
 
-      expect(mcp.executeTool).toHaveBeenCalledTimes(1);
-      const callArgs = mcp.executeTool.calls.mostRecent().args;
-      const symbolsArg = (callArgs[1] as { args: { symbols: string[] } }).args.symbols;
-      expect(symbolsArg).toEqual(['AAPL', 'NVDA']);
+      expect(mcp.executeTools).toHaveBeenCalledTimes(1);
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as { args: { symbols: string[] } }[];
+      expect(calls.length).toBe(1);
+      expect(calls[0].args.symbols).toEqual(['AAPL', 'NVDA']);
     });
 
-    it('batches into chunks of 20 symbols', async () => {
+    it('sends all 20-symbol chunks as calls in one batch request', async () => {
       const symbols = Array.from({ length: 25 }, (_, i) => `SYM${i}`);
-      mcp.executeTool.and.callFake((tool: string, req: { args: { symbols: string[] } }) => {
-        const syms = req.args.symbols;
+      mockBatchDispatch((call) => {
+        const syms = call.args['symbols'] as string[];
         const quotes = syms.map((s) => ({ symbol: s, last_trade_price: '100.00', previous_close: '99.00' }));
-        return Promise.resolve({ success: true, parsed: { data: { quotes } }, redacted: {}, tool });
+        return { success: true, parsed: { data: { quotes } }, redacted: {}, tool: call.tool };
       });
 
       const quotes = await client.getEquityQuotes(symbols);
 
-      expect(mcp.executeTool).toHaveBeenCalledTimes(2);
+      expect(mcp.executeTools).toHaveBeenCalledTimes(1);
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as { args: { symbols: string[] } }[];
+      expect(calls.length).toBe(2);
+      expect(calls[0].args.symbols.length).toBe(20);
+      expect(calls[1].args.symbols.length).toBe(5);
       expect(quotes.size).toBe(25);
     });
 
     it('handles quotes from { results: [...] } shape', async () => {
-      mockResolve({
+      mockBatchResolve({
         success: true,
         parsed: {
           results: [
@@ -732,11 +752,11 @@ describe('RobinhoodMcpClient', () => {
       const quotes = await client.getEquityQuotes([]);
 
       expect(quotes.size).toBe(0);
-      expect(mcp.executeTool).not.toHaveBeenCalled();
+      expect(mcp.executeTools).not.toHaveBeenCalled();
     });
 
     it('parses nested quote objects ({ quote: { ... } })', async () => {
-      mockResolve({
+      mockBatchResolve({
         success: true,
         parsed: {
           data: {
@@ -758,11 +778,11 @@ describe('RobinhoodMcpClient', () => {
     });
 
     it('throws RobinhoodMcpError when a batch fails', async () => {
-      mcp.executeTool.and.callFake(() => Promise.resolve({
+      mockBatchResolve({
         success: false,
         error: 'Quote fetch failed',
         category: ToolExecutionErrorCategory.MCP,
-      }));
+      });
 
       try {
         await client.getEquityQuotes(['AAPL']);
@@ -775,7 +795,7 @@ describe('RobinhoodMcpClient', () => {
     });
 
     it('trims and filters empty symbols before fetching', async () => {
-      mockResolve({
+      mockBatchResolve({
         success: true,
         parsed: { data: { quotes: [] } },
         redacted: {},
@@ -784,10 +804,9 @@ describe('RobinhoodMcpClient', () => {
 
       await client.getEquityQuotes(['  AAPL  ', '', '  ', 'NVDA']);
 
-      expect(mcp.executeTool).toHaveBeenCalledTimes(1);
-      const callArgs = mcp.executeTool.calls.mostRecent().args;
-      const symbolsArg = (callArgs[1] as { args: { symbols: string[] } }).args.symbols;
-      expect(symbolsArg).toEqual(['AAPL', 'NVDA']);
+      expect(mcp.executeTools).toHaveBeenCalledTimes(1);
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as { args: { symbols: string[] } }[];
+      expect(calls[0].args.symbols).toEqual(['AAPL', 'NVDA']);
     });
   });
 
@@ -797,7 +816,7 @@ describe('RobinhoodMcpClient', () => {
 
   describe('getOptionQuotes', () => {
     it('returns quotes keyed by instrumentId', async () => {
-      mockResolve({
+      mockBatchResolve({
         success: true,
         parsed: {
           data: {
@@ -820,22 +839,24 @@ describe('RobinhoodMcpClient', () => {
       } satisfies OptionQuote);
     });
 
-    it('batches into chunks of 20 instrument IDs', async () => {
+    it('sends all 20-id chunks as calls in one batch request', async () => {
       const ids = Array.from({ length: 45 }, (_, i) => `opt-${i}`);
-      mcp.executeTool.and.callFake((tool: string, req: { args: { instrument_ids: string[] } }) => {
-        const batchIds = req.args.instrument_ids;
+      mockBatchDispatch((call) => {
+        const batchIds = call.args['instrument_ids'] as string[];
         const quotes = batchIds.map((id) => ({ instrument_id: id, last_trade_price: '1.00', previous_close: '1.00' }));
-        return Promise.resolve({ success: true, parsed: { data: { quotes } }, redacted: {}, tool });
+        return { success: true, parsed: { data: { quotes } }, redacted: {}, tool: call.tool };
       });
 
       const quotes = await client.getOptionQuotes(ids);
 
-      expect(mcp.executeTool).toHaveBeenCalledTimes(3);
+      expect(mcp.executeTools).toHaveBeenCalledTimes(1);
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as { args: { instrument_ids: string[] } }[];
+      expect(calls.length).toBe(3);
       expect(quotes.size).toBe(45);
     });
 
     it('deduplicates instrument IDs before fetching', async () => {
-      mockResolve({
+      mockBatchResolve({
         success: true,
         parsed: { data: { quotes: [] } },
         redacted: {},
@@ -844,25 +865,24 @@ describe('RobinhoodMcpClient', () => {
 
       await client.getOptionQuotes(['opt-1', 'opt-1', 'opt-2']);
 
-      expect(mcp.executeTool).toHaveBeenCalledTimes(1);
-      const callArgs = mcp.executeTool.calls.mostRecent().args;
-      const idsArg = (callArgs[1] as { args: { instrument_ids: string[] } }).args.instrument_ids;
-      expect(idsArg).toEqual(['opt-1', 'opt-2']);
+      expect(mcp.executeTools).toHaveBeenCalledTimes(1);
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as { args: { instrument_ids: string[] } }[];
+      expect(calls[0].args.instrument_ids).toEqual(['opt-1', 'opt-2']);
     });
 
     it('returns empty map for empty instrument IDs array', async () => {
       const quotes = await client.getOptionQuotes([]);
 
       expect(quotes.size).toBe(0);
-      expect(mcp.executeTool).not.toHaveBeenCalled();
+      expect(mcp.executeTools).not.toHaveBeenCalled();
     });
 
     it('throws RobinhoodMcpError when a batch fails', async () => {
-      mcp.executeTool.and.callFake(() => Promise.resolve({
+      mockBatchResolve({
         success: false,
         error: 'Option quote fetch failed',
         category: ToolExecutionErrorCategory.MCP,
-      }));
+      });
 
       try {
         await client.getOptionQuotes(['opt-uuid-1']);
@@ -1052,6 +1072,167 @@ describe('RobinhoodMcpClient', () => {
 
       expect(history.trades.length).toBe(1);
       expect(history.trades[0].side).toBe('');
+    });
+  });
+
+  // ===========================================================================
+  // executeBatch — one /batch request, per-item settled results
+  // ===========================================================================
+
+  describe('executeBatch', () => {
+    it('sends every spec as one executeTools call, in order', async () => {
+      mockBatchResolve({ success: true, parsed: { data: {} }, redacted: {}, tool: 'x' });
+
+      await client.executeBatch([
+        client.portfolioSpec('111'),
+        client.equityPositionsSpec('111'),
+        client.optionPositionsSpec('111', false),
+      ]);
+
+      expect(mcp.executeTools).toHaveBeenCalledTimes(1);
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as { tool: string; args: Record<string, unknown> }[];
+      expect(calls.map((c) => c.tool)).toEqual([
+        'get_portfolio',
+        'get_equity_positions',
+        'get_option_positions',
+      ]);
+      expect(calls[0].args).toEqual({ account_number: '111' });
+      expect(calls[2].args).toEqual({ account_number: '111' });
+    });
+
+    it('returns ordered settled results — success items parse through their spec', async () => {
+      mockBatchDispatch((call) => {
+        if (call.tool === 'get_portfolio') {
+          return {
+            success: true,
+            parsed: { data: { total_value: '100', cash: '5' } },
+            redacted: {},
+            tool: call.tool,
+          };
+        }
+        return {
+          success: true,
+          parsed: { results: [{ symbol: 'AAPL', quantity: '1', average_buy_price: '1' }] },
+          redacted: {},
+          tool: call.tool,
+        };
+      });
+
+      const [portfolioR, equityR] = await client.executeBatch([
+        client.portfolioSpec('111'),
+        client.equityPositionsSpec('111'),
+      ]);
+
+      expect(portfolioR.status).toBe('fulfilled');
+      if (portfolioR.status === 'fulfilled') {
+        expect(portfolioR.value.totalValue).toBe(100);
+      }
+      expect(equityR.status).toBe('fulfilled');
+      if (equityR.status === 'fulfilled') {
+        expect(equityR.value[0].symbol).toBe('AAPL');
+      }
+    });
+
+    it('a failed item rejects its own slot — siblings still parse', async () => {
+      mockBatchDispatch((call) =>
+        call.tool === 'get_portfolio'
+          ? { success: false, error: 'Portfolio down', category: ToolExecutionErrorCategory.MCP }
+          : {
+              success: true,
+              parsed: { results: [{ symbol: 'NVDA', quantity: '2', average_buy_price: '10' }] },
+              redacted: {},
+              tool: call.tool,
+            },
+      );
+
+      const [portfolioR, equityR] = await client.executeBatch([
+        client.portfolioSpec('111'),
+        client.equityPositionsSpec('111'),
+      ]);
+
+      expect(portfolioR.status).toBe('rejected');
+      if (portfolioR.status === 'rejected') {
+        expect(portfolioR.reason).toBeInstanceOf(RobinhoodMcpError);
+        expect((portfolioR.reason as RobinhoodMcpError).tool).toBe('get_portfolio');
+        expect((portfolioR.reason as RobinhoodMcpError).message).toBe('Portfolio down');
+      }
+      expect(equityR.status).toBe('fulfilled');
+      if (equityR.status === 'fulfilled') {
+        expect(equityR.value[0].symbol).toBe('NVDA');
+      }
+    });
+
+    it('propagates a transport-level executeTools failure as a rejection', async () => {
+      mcp.executeTools.and.callFake(() => Promise.reject(new Error('HTTP 401')));
+
+      await expect(
+        client.executeBatch([client.portfolioSpec('111')]),
+      ).rejects.toThrow('HTTP 401');
+    });
+
+    it('rejects a slot whose tool stamp does not match the spec', async () => {
+      mockBatchDispatch((call) => ({
+        success: true,
+        parsed: { data: { total_value: '1' } },
+        redacted: {},
+        // Simulates a reordered/misrouted result — wrong tool stamp.
+        tool: call.tool === 'get_portfolio' ? 'get_equity_positions' : call.tool,
+      }));
+
+      const [portfolioR, equityR] = await client.executeBatch([
+        client.portfolioSpec('111'),
+        client.equityPositionsSpec('111'),
+      ]);
+
+      expect(portfolioR.status).toBe('rejected');
+      if (portfolioR.status === 'rejected') {
+        expect((portfolioR.reason as Error).message).toContain("expected 'get_portfolio'");
+      }
+      expect(equityR.status).toBe('fulfilled');
+    });
+
+    it('rejects a slot carrying an MCP envelope-level toolError', async () => {
+      mockBatchDispatch((call) =>
+        call.tool === 'get_portfolio'
+          ? { success: true, parsed: { error: 'rate limited' }, redacted: {}, tool: call.tool, toolError: 'rate limited' }
+          : {
+              success: true,
+              parsed: { results: [{ symbol: 'NVDA', quantity: '2', average_buy_price: '10' }] },
+              redacted: {},
+              tool: call.tool,
+            },
+      );
+
+      const [portfolioR, equityR] = await client.executeBatch([
+        client.portfolioSpec('111'),
+        client.equityPositionsSpec('111'),
+      ]);
+
+      expect(portfolioR.status).toBe('rejected');
+      if (portfolioR.status === 'rejected') {
+        expect((portfolioR.reason as Error).message).toBe('rate limited');
+      }
+      expect(equityR.status).toBe('fulfilled');
+    });
+
+    it('rejects batches larger than the API call limit without a request', async () => {
+      const specs = Array.from({ length: 21 }, () => client.portfolioSpec('111'));
+
+      await expect(client.executeBatch(specs)).rejects.toThrow('at most 20 calls');
+      expect(mcp.executeTools).not.toHaveBeenCalled();
+    });
+
+    it('order specs carry account + state args', async () => {
+      mockBatchResolve({ success: true, parsed: { results: [] }, redacted: {}, tool: 'x' });
+
+      await client.executeBatch([
+        client.equityOrdersSpec('222', { state: 'filled' }),
+        client.optionOrdersSpec('222'),
+      ]);
+
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as { tool: string; args: Record<string, unknown> }[];
+      expect(calls[0]).toEqual({ tool: 'get_equity_orders', args: { account_number: '222', state: 'filled' } });
+      expect(calls[1]).toEqual({ tool: 'get_option_orders', args: { account_number: '222' } });
     });
   });
 });

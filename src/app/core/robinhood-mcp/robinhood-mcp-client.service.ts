@@ -37,8 +37,20 @@ import { ToolExecutionErrorCategory, type ToolExecutionResult } from '@robinhood
 /** Maximum symbols per quote batch call (above 20, closes are omitted). */
 const QUOTE_BATCH_SIZE = 20;
 
-/** Maximum concurrent quote batch requests. */
-const QUOTE_CONCURRENCY = 5;
+/** Maximum tool calls per /batch request — mirrors the API's own cap. */
+const BATCH_CALLS_LIMIT = 20;
+
+/**
+ * One tool call plus its typed parse — the unit `executeBatch` sends over
+ * the wire ({ tool, args }) and maps back through `parse` on that call's
+ * result slot. `parse` throws `RobinhoodMcpError` on a failure result, so
+ * it is shared verbatim between the single-call and batch paths.
+ */
+export interface ToolSpec<T> {
+  tool: string;
+  args?: Record<string, unknown>;
+  parse: (result: ToolExecutionResult) => T;
+}
 
 @Injectable({ providedIn: 'root' })
 export class RobinhoodMcpClient {
@@ -52,6 +64,9 @@ export class RobinhoodMcpClient {
     const result = await this.mcp.executeTool('get_accounts', {});
     if (!result.success) {
       throw new RobinhoodMcpError(result.error, 'get_accounts', result.category);
+    }
+    if (result.toolError) {
+      throw new RobinhoodMcpError(result.toolError, 'get_accounts', ToolExecutionErrorCategory.MCP);
     }
 
     const raw = this.extractAccountList(result.parsed);
@@ -68,24 +83,33 @@ export class RobinhoodMcpClient {
   // ---------------------------------------------------------------------------
 
   async getPortfolio(accountNumber: string): Promise<PortfolioSnapshot> {
-    const result = await this.mcp.executeTool('get_portfolio', { args: { account_number: accountNumber } });
-    if (!result.success) {
-      throw new RobinhoodMcpError(result.error, 'get_portfolio', result.category);
-    }
+    return this.run(this.portfolioSpec(accountNumber));
+  }
 
-    const data = this.extractNested(result.parsed, 'data');
-    // Buying power may be nested ({ buying_power: { buying_power: "..." } })
-    // or flat ({ buying_power: "..." }). Try nested first, fall back to flat.
-    const buyingPower =
-      this.toNumber(this.extractValue(data, 'buying_power', 'buying_power')) ??
-      this.toNumber(data['buying_power']);
-
+  portfolioSpec(accountNumber: string): ToolSpec<PortfolioSnapshot> {
     return {
-      totalValue: this.toNumber(data['total_value']),
-      equityValue: this.toNumber(data['equity_value']),
-      cash: this.toNumber(data['cash']),
-      buyingPower,
-      marginExposure: this.toNumber(data['margin_exposure']),
+      tool: 'get_portfolio',
+      args: { account_number: accountNumber },
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_portfolio', result.category);
+        }
+
+        const data = this.extractNested(result.parsed, 'data');
+        // Buying power may be nested ({ buying_power: { buying_power: "..." } })
+        // or flat ({ buying_power: "..." }). Try nested first, fall back to flat.
+        const buyingPower =
+          this.toNumber(this.extractValue(data, 'buying_power', 'buying_power')) ??
+          this.toNumber(data['buying_power']);
+
+        return {
+          totalValue: this.toNumber(data['total_value']),
+          equityValue: this.toNumber(data['equity_value']),
+          cash: this.toNumber(data['cash']),
+          buyingPower,
+          marginExposure: this.toNumber(data['margin_exposure']),
+        };
+      },
     };
   }
 
@@ -94,39 +118,57 @@ export class RobinhoodMcpClient {
   // ---------------------------------------------------------------------------
 
   async getEquityPositions(accountNumber: string): Promise<EquityPosition[]> {
-    const result = await this.mcp.executeTool('get_equity_positions', { args: { account_number: accountNumber } });
-    if (!result.success) {
-      throw new RobinhoodMcpError(result.error, 'get_equity_positions', result.category);
-    }
+    return this.run(this.equityPositionsSpec(accountNumber));
+  }
 
-    const raw = this.extractList(result.parsed, 'positions');
-    return raw.map((p) => ({
-      symbol: String(p['symbol'] ?? ''),
-      quantity: this.toNumber(p['quantity']),
-      averageBuyPrice: this.toNumber(p['average_buy_price']),
-      sharesHeldForSells: this.toNumber(p['shares_held_for_sells']),
-    }));
+  equityPositionsSpec(accountNumber: string): ToolSpec<EquityPosition[]> {
+    return {
+      tool: 'get_equity_positions',
+      args: { account_number: accountNumber },
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_equity_positions', result.category);
+        }
+
+        const raw = this.extractList(result.parsed, 'positions');
+        return raw.map((p) => ({
+          symbol: String(p['symbol'] ?? ''),
+          quantity: this.toNumber(p['quantity']),
+          averageBuyPrice: this.toNumber(p['average_buy_price']),
+          sharesHeldForSells: this.toNumber(p['shares_held_for_sells']),
+        }));
+      },
+    };
   }
 
   async getOptionPositions(accountNumber: string, nonzero?: boolean): Promise<OptionPosition[]> {
+    return this.run(this.optionPositionsSpec(accountNumber, nonzero));
+  }
+
+  optionPositionsSpec(accountNumber: string, nonzero?: boolean): ToolSpec<OptionPosition[]> {
     const args: Record<string, unknown> = { account_number: accountNumber };
     if (nonzero) args['nonzero'] = true;
 
-    const result = await this.mcp.executeTool('get_option_positions', { args });
-    if (!result.success) {
-      throw new RobinhoodMcpError(result.error, 'get_option_positions', result.category);
-    }
+    return {
+      tool: 'get_option_positions',
+      args,
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_option_positions', result.category);
+        }
 
-    const raw = this.extractList(result.parsed, 'results', 'option_positions');
-    return raw.map((p) => ({
-      instrumentId: String(p['instrument_id'] ?? ''),
-      chainSymbol: String(p['chain_symbol'] ?? ''),
-      optionType: String(p['type'] ?? p['option_type'] ?? ''),
-      strikePrice: this.toNumber(p['strike_price']),
-      expirationDate: String(p['expiration_date'] ?? ''),
-      quantity: this.toNumber(p['quantity']),
-      averageCost: this.toNumber(p['average_cost']),
-    }));
+        const raw = this.extractList(result.parsed, 'results', 'option_positions');
+        return raw.map((p) => ({
+          instrumentId: String(p['instrument_id'] ?? ''),
+          chainSymbol: String(p['chain_symbol'] ?? ''),
+          optionType: String(p['type'] ?? p['option_type'] ?? ''),
+          strikePrice: this.toNumber(p['strike_price']),
+          expirationDate: String(p['expiration_date'] ?? ''),
+          quantity: this.toNumber(p['quantity']),
+          averageCost: this.toNumber(p['average_cost']),
+        }));
+      },
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -179,29 +221,47 @@ export class RobinhoodMcpClient {
   // ---------------------------------------------------------------------------
 
   async getEquityOrders(accountNumber: string, opts?: { state?: OrderState }): Promise<BrokerOrder[]> {
+    return this.run(this.equityOrdersSpec(accountNumber, opts));
+  }
+
+  equityOrdersSpec(accountNumber: string, opts?: { state?: OrderState }): ToolSpec<BrokerOrder[]> {
     const args: Record<string, unknown> = { account_number: accountNumber };
     if (opts?.state) args['state'] = opts.state;
 
-    const result = await this.mcp.executeTool('get_equity_orders', { args });
-    if (!result.success) {
-      throw new RobinhoodMcpError(result.error, 'get_equity_orders', result.category);
-    }
+    return {
+      tool: 'get_equity_orders',
+      args,
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_equity_orders', result.category);
+        }
 
-    const raw = this.extractList(result.parsed, 'orders');
-    return this.normalizeOrders(raw, accountNumber, 'equity');
+        const raw = this.extractList(result.parsed, 'orders');
+        return this.normalizeOrders(raw, accountNumber, 'equity');
+      },
+    };
   }
 
   async getOptionOrders(accountNumber: string, opts?: { state?: OrderState }): Promise<BrokerOrder[]> {
+    return this.run(this.optionOrdersSpec(accountNumber, opts));
+  }
+
+  optionOrdersSpec(accountNumber: string, opts?: { state?: OrderState }): ToolSpec<BrokerOrder[]> {
     const args: Record<string, unknown> = { account_number: accountNumber };
     if (opts?.state) args['state'] = opts.state;
 
-    const result = await this.mcp.executeTool('get_option_orders', { args });
-    if (!result.success) {
-      throw new RobinhoodMcpError(result.error, 'get_option_orders', result.category);
-    }
+    return {
+      tool: 'get_option_orders',
+      args,
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_option_orders', result.category);
+        }
 
-    const raw = this.extractList(result.parsed, 'orders');
-    return this.normalizeOrders(raw, accountNumber, 'option');
+        const raw = this.extractList(result.parsed, 'orders');
+        return this.normalizeOrders(raw, accountNumber, 'option');
+      },
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -219,6 +279,9 @@ export class RobinhoodMcpClient {
     if (!result.success) {
       throw new RobinhoodMcpError(result.error, 'get_pnl_trade_history', result.category);
     }
+    if (result.toolError) {
+      throw new RobinhoodMcpError(result.toolError, 'get_pnl_trade_history', ToolExecutionErrorCategory.MCP);
+    }
 
     const data = this.extractNested(result.parsed, 'data');
     const rawTrades = Array.isArray(data['trades']) ? data['trades'] as Record<string, unknown>[] : [];
@@ -235,6 +298,70 @@ export class RobinhoodMcpClient {
       })),
       nextCursor: String(data['next_cursor'] ?? ''),
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Specs → single call / batch execution
+  // ---------------------------------------------------------------------------
+
+  /** Execute one spec as a standalone tool call (throws RobinhoodMcpError). */
+  private async run<T>(spec: ToolSpec<T>): Promise<T> {
+    const result = await this.mcp.executeTool(
+      spec.tool,
+      spec.args === undefined ? {} : { args: spec.args },
+    );
+    return this.parseSpecResult(spec, result);
+  }
+
+  /**
+   * Shared result gate for the single and batch paths: a transport-success
+   * result can still carry an MCP envelope-level error (`toolError`) — treat
+   * it as a failure instead of parsing the error body as an empty payload.
+   */
+  private parseSpecResult<T>(spec: ToolSpec<T>, result: ToolExecutionResult): T {
+    if (result.success && result.toolError) {
+      throw new RobinhoodMcpError(result.toolError, spec.tool, ToolExecutionErrorCategory.MCP);
+    }
+    return spec.parse(result);
+  }
+
+  /**
+   * Execute several specs in ONE `/batch` request (one MCP session
+   * server-side). Returns one PromiseSettledResult per spec, in order:
+   * a failed call rejects only its own slot — the same semantics the
+   * callers previously got from `Promise.allSettled` over parallel calls.
+   * Rejects only when the batch request itself fails (transport/envelope),
+   * in which case every spec should be treated as failed.
+   */
+  async executeBatch<T extends ToolSpec<unknown>[]>(
+    specs: [...T],
+  ): Promise<{ [K in keyof T]: T[K] extends ToolSpec<infer R> ? PromiseSettledResult<R> : never }> {
+    if (specs.length > BATCH_CALLS_LIMIT) {
+      throw new RobinhoodMcpError(
+        `Batch requests support at most ${BATCH_CALLS_LIMIT} calls (got ${specs.length})`,
+        'batch',
+        ToolExecutionErrorCategory.VALIDATION,
+      );
+    }
+    const results = await this.mcp.executeTools(
+      specs.map((s) => ({ tool: s.tool, args: s.args })),
+    );
+    return specs.map((spec, i) => {
+      try {
+        // Results correlate by index; the per-item `tool` stamp catches a
+        // reorder before the wrong spec's parser runs on it.
+        const resultTool = (results[i] as { tool?: string }).tool;
+        if (resultTool !== undefined && resultTool !== spec.tool) {
+          throw new RobinhoodMcpError(
+            `Batch result ${i} is for tool '${resultTool}', expected '${spec.tool}'`,
+            spec.tool,
+          );
+        }
+        return { status: 'fulfilled' as const, value: this.parseSpecResult(spec, results[i]) };
+      } catch (reason) {
+        return { status: 'rejected' as const, reason };
+      }
+    }) as { [K in keyof T]: T[K] extends ToolSpec<infer R> ? PromiseSettledResult<R> : never };
   }
 
   // ---------------------------------------------------------------------------
@@ -357,7 +484,8 @@ export class RobinhoodMcpClient {
 
   /**
    * Batch-fetch quotes: sanitize, deduplicate IDs, split into chunks of
-   * QUOTE_BATCH_SIZE, fetch with bounded concurrency, merge into one Map.
+   * QUOTE_BATCH_SIZE, fetch all chunks through the /batch endpoint (one
+   * HTTP request per BATCH_CALLS_LIMIT calls), merge into one Map.
    * Throws RobinhoodMcpError if any batch fails.
    */
   private async batchQuotes<T>(
@@ -379,19 +507,24 @@ export class RobinhoodMcpClient {
       batches.push(unique.slice(i, i + QUOTE_BATCH_SIZE));
     }
 
-    // Fetch with bounded concurrency to avoid overwhelming the backend.
+    // One /batch request per BATCH_CALLS_LIMIT chunks — the API runs the
+    // group on a single MCP session instead of one HTTP call per chunk.
     const responses: ToolExecutionResult[] = [];
-    for (let i = 0; i < batches.length; i += QUOTE_CONCURRENCY) {
-      const chunk = batches.slice(i, i + QUOTE_CONCURRENCY);
-      const chunkResults = await Promise.all(
-        chunk.map((batch) => this.mcp.executeTool(toolName, { args: { [argName]: batch } })),
+    for (let i = 0; i < batches.length; i += BATCH_CALLS_LIMIT) {
+      const group = batches.slice(i, i + BATCH_CALLS_LIMIT);
+      responses.push(
+        ...await this.mcp.executeTools(
+          group.map((batch) => ({ tool: toolName, args: { [argName]: batch } })),
+        ),
       );
-      responses.push(...chunkResults);
     }
 
     for (const response of responses) {
       if (!response.success) {
         throw new RobinhoodMcpError(response.error, toolName, response.category);
+      }
+      if (response.toolError) {
+        throw new RobinhoodMcpError(response.toolError, toolName, ToolExecutionErrorCategory.MCP);
       }
       const quoteList = this.extractList(response.parsed, 'quotes');
       for (const q of quoteList) {

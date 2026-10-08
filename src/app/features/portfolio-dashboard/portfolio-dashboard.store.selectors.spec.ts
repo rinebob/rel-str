@@ -3,7 +3,9 @@ import { TestBed } from '@angular/core/testing';
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
 import {
   MockClient,
+  batchAnswers,
   createMockClient,
+  fulfilled,
   makeAccount,
   makeEquityPosition,
   makeEquityQuote,
@@ -39,14 +41,16 @@ describe('PortfolioDashboardStore selectors', () => {
   }) {
     client.getAccounts.and.returnValue(resolve([makeAccount()]));
     await store.loadAccounts();
-    client.getPortfolio.and.returnValue(resolve(opts.portfolio ?? makePortfolio()));
-    client.getEquityPositions.and.returnValue(resolve(opts.equityPositions ?? []));
-    client.getOptionPositions.and.returnValue(resolve(opts.optionPositions ?? []));
+    batchAnswers(client, {
+      get_portfolio: fulfilled(opts.portfolio ?? makePortfolio()),
+      get_equity_positions: fulfilled(opts.equityPositions ?? []),
+      get_option_positions: fulfilled(opts.optionPositions ?? []),
+      get_equity_orders: fulfilled(opts.equityOrders ?? []),
+      get_option_orders: fulfilled(opts.optionOrders ?? []),
+    });
     await store.loadPhase1();
     client.getEquityQuotes.and.returnValue(resolve(opts.equityQuotes ?? new Map()));
     client.getOptionQuotes.and.returnValue(resolve(opts.optionQuotes ?? new Map()));
-    client.getEquityOrders.and.returnValue(resolve(opts.equityOrders ?? []));
-    client.getOptionOrders.and.returnValue(resolve(opts.optionOrders ?? []));
     await store.loadPhase2();
   }
 
@@ -59,18 +63,19 @@ describe('PortfolioDashboardStore selectors', () => {
         makeAccount({ accountNumber: '222' }),
       ]));
       await store.loadAccounts();
-      client.getPortfolio.and.callFake((acct: string) =>
-        acct === '111'
-          ? resolve(makePortfolio({ totalValue: 100000, equityValue: 80000, cash: 20000, buyingPower: 40000 }))
-          : resolve(makePortfolio({ totalValue: 50000, equityValue: 40000, cash: 10000, buyingPower: 20000 })),
-      );
-      client.getEquityPositions.and.returnValue(resolve([]));
-      client.getOptionPositions.and.returnValue(resolve([]));
+      batchAnswers(client, {
+        get_portfolio: (spec) =>
+          spec.args?.['account_number'] === '111'
+            ? fulfilled(makePortfolio({ totalValue: 100000, equityValue: 80000, cash: 20000, buyingPower: 40000 }))
+            : fulfilled(makePortfolio({ totalValue: 50000, equityValue: 40000, cash: 10000, buyingPower: 20000 })),
+        get_equity_positions: fulfilled([]),
+        get_option_positions: fulfilled([]),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
+      });
       await store.loadPhase1();
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      client.getEquityOrders.and.returnValue(resolve([]));
-      client.getOptionOrders.and.returnValue(resolve([]));
       await store.loadPhase2();
 
       const summary = store.aggregateSummary();
@@ -93,11 +98,13 @@ describe('PortfolioDashboardStore selectors', () => {
     it('returns cash/buyingPower independently when totalValue is null', async () => {
       client.getAccounts.and.returnValue(resolve([makeAccount()]));
       await store.loadAccounts();
-      client.getPortfolio.and.returnValue(resolve(makePortfolio({
-        totalValue: null, cash: 5000, buyingPower: 10000, equityValue: null,
-      })));
-      client.getEquityPositions.and.returnValue(resolve([]));
-      client.getOptionPositions.and.returnValue(resolve([]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio({
+          totalValue: null, cash: 5000, buyingPower: 10000, equityValue: null,
+        })),
+        get_equity_positions: fulfilled([]),
+        get_option_positions: fulfilled([]),
+      });
       await store.loadPhase1();
 
       const summary = store.aggregateSummary();

@@ -134,6 +134,13 @@ export function makePnlTradeHistory(overrides: Partial<PnlTradeHistory> = {}): P
 // Mock client
 // ---------------------------------------------------------------------------
 
+/** Minimal spec shape — parse is unused: executeBatch is stubbed, so the
+ *  real client's parse functions never run inside store specs. */
+export interface MockToolSpec {
+  tool: string;
+  args?: Record<string, unknown>;
+}
+
 export type MockClient = {
   getAccounts: jasmine.Spy;
   getPortfolio: jasmine.Spy;
@@ -144,6 +151,12 @@ export type MockClient = {
   getEquityOrders: jasmine.Spy;
   getOptionOrders: jasmine.Spy;
   getPnlTradeHistory: jasmine.Spy;
+  executeBatch: jasmine.Spy;
+  portfolioSpec: (accountNumber: string) => MockToolSpec;
+  equityPositionsSpec: (accountNumber: string) => MockToolSpec;
+  optionPositionsSpec: (accountNumber: string, nonzero?: boolean) => MockToolSpec;
+  equityOrdersSpec: (accountNumber: string) => MockToolSpec;
+  optionOrdersSpec: (accountNumber: string) => MockToolSpec;
 };
 
 export function createMockClient(): MockClient {
@@ -157,6 +170,12 @@ export function createMockClient(): MockClient {
     getEquityOrders: jasmine.createSpy('getEquityOrders'),
     getOptionOrders: jasmine.createSpy('getOptionOrders'),
     getPnlTradeHistory: jasmine.createSpy('getPnlTradeHistory'),
+    executeBatch: jasmine.createSpy('executeBatch'),
+    portfolioSpec: (accountNumber) => ({ tool: 'get_portfolio', args: { account_number: accountNumber } }),
+    equityPositionsSpec: (accountNumber) => ({ tool: 'get_equity_positions', args: { account_number: accountNumber } }),
+    optionPositionsSpec: (accountNumber, nonzero) => ({ tool: 'get_option_positions', args: { account_number: accountNumber, ...(nonzero ? { nonzero: true } : {}) } }),
+    equityOrdersSpec: (accountNumber) => ({ tool: 'get_equity_orders', args: { account_number: accountNumber } }),
+    optionOrdersSpec: (accountNumber) => ({ tool: 'get_option_orders', args: { account_number: accountNumber } }),
   };
 }
 
@@ -179,4 +198,27 @@ export function resolve<T>(value: T): Promise<T> {
 /** Reject a spy with an error (Promise.reject shorthand). */
 export function reject(error: string): Promise<never> {
   return Promise.reject(new Error(error));
+}
+
+/** PromiseSettledResult fixtures for stubbing executeBatch. */
+export function fulfilled<T>(value: T): PromiseSettledResult<T> {
+  return { status: 'fulfilled', value };
+}
+
+export function rejected(error: string): PromiseSettledResult<never> {
+  return { status: 'rejected', reason: new Error(error) };
+}
+
+/** Stub executeBatch to answer each spec from a tool→settled-result table.
+ *  A table entry may be a function of the spec for account-specific answers. */
+export function batchAnswers(
+  client: MockClient,
+  table: Record<string, PromiseSettledResult<unknown> | ((spec: MockToolSpec) => PromiseSettledResult<unknown>)>,
+): void {
+  client.executeBatch.and.callFake((specs: MockToolSpec[]) =>
+    Promise.resolve(specs.map((s) => {
+      const entry = table[s.tool];
+      if (typeof entry === 'function') return entry(s);
+      return entry ?? rejected(`unstubbed tool ${s.tool}`);
+    })));
 }

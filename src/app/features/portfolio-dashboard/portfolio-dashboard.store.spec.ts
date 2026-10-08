@@ -3,7 +3,10 @@ import { TestBed } from '@angular/core/testing';
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
 import {
   MockClient,
+  MockToolSpec,
+  batchAnswers,
   createMockClient,
+  fulfilled,
   makeAccount,
   makeEquityPosition,
   makeEquityQuote,
@@ -13,6 +16,7 @@ import {
   makePortfolio,
   makePnlTrade,
   makePnlTradeHistory,
+  rejected,
   resolve,
   reject,
   setupStore,
@@ -114,25 +118,35 @@ describe('PortfolioDashboardStore', () => {
   // ── loadPhase1 ─────────────────────────────────────────────────────────────
 
   describe('loadPhase1', () => {
-    it('fetches portfolio + equity positions + option positions for each account', async () => {
+    it('issues one batch call per account carrying portfolio + both position specs', async () => {
       client.getAccounts.and.returnValue(resolve([
         makeAccount({ accountNumber: '111' }),
         makeAccount({ accountNumber: '222' }),
       ]));
       await store.loadAccounts();
 
-      client.getPortfolio.and.returnValue(resolve(makePortfolio()));
-      client.getEquityPositions.and.returnValue(resolve([makeEquityPosition()]));
-      client.getOptionPositions.and.returnValue(resolve([makeOptionPosition()]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: fulfilled([makeEquityPosition()]),
+        get_option_positions: fulfilled([makeOptionPosition()]),
+      });
 
       await store.loadPhase1();
 
-      expect(client.getPortfolio).toHaveBeenCalledTimes(2);
-      expect(client.getPortfolio).toHaveBeenCalledWith('111');
-      expect(client.getPortfolio).toHaveBeenCalledWith('222');
-      expect(client.getEquityPositions).toHaveBeenCalledTimes(2);
-      expect(client.getOptionPositions).toHaveBeenCalledTimes(2);
-      expect(client.getOptionPositions).toHaveBeenCalledWith('222', false);
+      expect(client.executeBatch).toHaveBeenCalledTimes(2);
+      const batchArgs = client.executeBatch.calls.allArgs() as [MockToolSpec[]][];
+      const specsFor111 = batchArgs.map(([specs]) => specs).find(
+        (specs) => specs[0].args?.['account_number'] === '111',
+      )!;
+      expect(specsFor111.map((s) => s.tool)).toEqual([
+        'get_portfolio',
+        'get_equity_positions',
+        'get_option_positions',
+      ]);
+      const specsFor222 = batchArgs.map(([specs]) => specs).find(
+        (specs) => specs[0].args?.['account_number'] === '222',
+      )!;
+      expect(specsFor222.length).toBe(3);
 
       const acct0 = store.accounts()[0];
       expect(acct0.portfolio.data).toEqual(makePortfolio());
@@ -142,18 +156,21 @@ describe('PortfolioDashboardStore', () => {
       expect(acct0.equityPositions.loading).toBe(false);
     });
 
-    it('sets per-section error independently — one failure does not affect others', async () => {
+    it('sets per-section error independently — one failed item does not affect others', async () => {
       client.getAccounts.and.returnValue(resolve([
         makeAccount({ accountNumber: '111' }),
         makeAccount({ accountNumber: '222' }),
       ]));
       await store.loadAccounts();
 
-      client.getPortfolio.and.callFake((acct: string) =>
-        acct === '111' ? reject('Portfolio failed') : resolve(makePortfolio()),
-      );
-      client.getEquityPositions.and.returnValue(resolve([makeEquityPosition()]));
-      client.getOptionPositions.and.returnValue(resolve([makeOptionPosition()]));
+      batchAnswers(client, {
+        get_portfolio: (spec) =>
+          spec.args?.['account_number'] === '111'
+            ? rejected('Portfolio failed')
+            : fulfilled(makePortfolio()),
+        get_equity_positions: fulfilled([makeEquityPosition()]),
+        get_option_positions: fulfilled([makeOptionPosition()]),
+      });
 
       await store.loadPhase1();
 
@@ -169,12 +186,29 @@ describe('PortfolioDashboardStore', () => {
       expect(store.accounts()[1].portfolio.error).toBeNull();
     });
 
+    it('a batch-level failure errors every section in the group', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      await store.loadAccounts();
+
+      client.executeBatch.and.callFake(() => reject('HTTP 401'));
+
+      await store.loadPhase1();
+
+      const acct = store.accounts()[0];
+      expect(acct.portfolio.error).toBe('HTTP 401');
+      expect(acct.equityPositions.error).toBe('HTTP 401');
+      expect(acct.optionPositions.error).toBe('HTTP 401');
+      expect(acct.portfolio.loading).toBe(false);
+    });
+
     it('sets globalLoading false after completion', async () => {
       client.getAccounts.and.returnValue(resolve([makeAccount()]));
       await store.loadAccounts();
-      client.getPortfolio.and.returnValue(resolve(makePortfolio()));
-      client.getEquityPositions.and.returnValue(resolve([]));
-      client.getOptionPositions.and.returnValue(resolve([]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: fulfilled([]),
+        get_option_positions: fulfilled([]),
+      });
       await store.loadPhase1();
       expect(store.globalLoading()).toBe(false);
     });
@@ -189,16 +223,26 @@ describe('PortfolioDashboardStore', () => {
         makeAccount({ accountNumber: '222' }),
       ]));
       await store.loadAccounts();
-      client.getPortfolio.and.returnValue(resolve(makePortfolio()));
-      client.getEquityPositions.and.returnValue(resolve([
-        makeEquityPosition({ symbol: 'AAPL' }),
-        makeEquityPosition({ symbol: 'NVDA' }),
-      ]));
-      client.getOptionPositions.and.returnValue(resolve([
-        makeOptionPosition({ instrumentId: 'inst-1' }),
-      ]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: fulfilled([
+          makeEquityPosition({ symbol: 'AAPL' }),
+          makeEquityPosition({ symbol: 'NVDA' }),
+        ]),
+        get_option_positions: fulfilled([
+          makeOptionPosition({ instrumentId: 'inst-1' }),
+        ]),
+      });
       await store.loadPhase1();
+      client.executeBatch.calls.reset();
     });
+
+    function stubOrderBatch(): void {
+      batchAnswers(client, {
+        get_equity_orders: fulfilled([makeOrder({ state: 'filled' })]),
+        get_option_orders: fulfilled([]),
+      });
+    }
 
     it('collects unique symbols and fetches equity quotes once', async () => {
       client.getEquityQuotes.and.returnValue(resolve(new Map([
@@ -206,8 +250,7 @@ describe('PortfolioDashboardStore', () => {
         ['NVDA', makeEquityQuote({ symbol: 'NVDA', lastTradePrice: 200 })],
       ])));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      client.getEquityOrders.and.returnValue(resolve([]));
-      client.getOptionOrders.and.returnValue(resolve([]));
+      stubOrderBatch();
 
       await store.loadPhase2();
       expect(client.getEquityQuotes).toHaveBeenCalledTimes(1);
@@ -218,8 +261,7 @@ describe('PortfolioDashboardStore', () => {
       const eqQuotes = new Map([['AAPL', makeEquityQuote({ symbol: 'AAPL' })]]);
       client.getEquityQuotes.and.returnValue(resolve(eqQuotes));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      client.getEquityOrders.and.returnValue(resolve([]));
-      client.getOptionOrders.and.returnValue(resolve([]));
+      stubOrderBatch();
 
       await store.loadPhase2();
       const acct0Map = store.accounts()[0].equityQuotes.data!;
@@ -230,24 +272,27 @@ describe('PortfolioDashboardStore', () => {
       expect(acct0Map).not.toBe(acct1Map);
     });
 
-    it('fetches orders per account', async () => {
+    it('fetches orders per account in one batch call each', async () => {
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      client.getEquityOrders.and.returnValue(resolve([makeOrder({ state: 'filled' })]));
-      client.getOptionOrders.and.returnValue(resolve([]));
+      stubOrderBatch();
 
       await store.loadPhase2();
-      expect(client.getEquityOrders).toHaveBeenCalledTimes(2);
-      expect(client.getEquityOrders).toHaveBeenCalledWith('111');
-      expect(client.getEquityOrders).toHaveBeenCalledWith('222');
+      expect(client.executeBatch).toHaveBeenCalledTimes(2);
+      const batchArgs = client.executeBatch.calls.allArgs() as [MockToolSpec[]][];
+      expect(batchArgs[0][0].map((s) => s.tool)).toEqual(['get_equity_orders', 'get_option_orders']);
+      expect(batchArgs[0][0][0].args?.['account_number']).toBe('111');
+      expect(batchArgs[1][0][0].args?.['account_number']).toBe('222');
       expect(store.accounts()[0].equityOrders.data).toEqual([makeOrder({ state: 'filled' })]);
     });
 
     it('sets per-section error on order fetch failure independently', async () => {
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      client.getEquityOrders.and.returnValue(reject('Orders failed'));
-      client.getOptionOrders.and.returnValue(resolve([makeOptionOrder({ state: 'filled' })]));
+      batchAnswers(client, {
+        get_equity_orders: rejected('Orders failed'),
+        get_option_orders: fulfilled([makeOptionOrder({ state: 'filled' })]),
+      });
 
       await store.loadPhase2();
       expect(store.accounts()[0].equityOrders.error).toBe('Orders failed');
@@ -260,8 +305,7 @@ describe('PortfolioDashboardStore', () => {
     it('sets per-section error on quote fetch failure without leaving loading stuck', async () => {
       client.getEquityQuotes.and.returnValue(reject('Quotes failed'));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      client.getEquityOrders.and.returnValue(resolve([]));
-      client.getOptionOrders.and.returnValue(resolve([]));
+      stubOrderBatch();
 
       await store.loadPhase2();
       expect(store.accounts()[0].equityQuotes.error).toBe('Quotes failed');
@@ -277,35 +321,34 @@ describe('PortfolioDashboardStore', () => {
   // ── refresh ────────────────────────────────────────────────────────────────
 
   describe('refresh', () => {
-    it('re-runs the full load sequence', async () => {
-      client.getAccounts.and.returnValue(resolve([makeAccount()]));
-      client.getPortfolio.and.returnValue(resolve(makePortfolio()));
-      client.getEquityPositions.and.returnValue(resolve([makeEquityPosition()]));
-      client.getOptionPositions.and.returnValue(resolve([]));
+    function stubFullRefresh(): void {
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: fulfilled([makeEquityPosition()]),
+        get_option_positions: fulfilled([]),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
+      });
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      client.getEquityOrders.and.returnValue(resolve([]));
-      client.getOptionOrders.and.returnValue(resolve([]));
+    }
+
+    it('re-runs the full load sequence', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount()]));
+      stubFullRefresh();
 
       await store.refresh();
 
       expect(client.getAccounts).toHaveBeenCalledTimes(1);
-      expect(client.getPortfolio).toHaveBeenCalledTimes(1);
-      expect(client.getEquityPositions).toHaveBeenCalledTimes(1);
+      // phase1 batch + phase2 orders batch — one executeBatch call per phase
+      expect(client.executeBatch).toHaveBeenCalledTimes(2);
       expect(client.getEquityQuotes).toHaveBeenCalledTimes(1);
-      expect(client.getEquityOrders).toHaveBeenCalledTimes(1);
       expect(store.accounts().length).toBe(1);
     });
 
     it('skips concurrent refresh calls', async () => {
       client.getAccounts.and.returnValue(resolve([makeAccount()]));
-      client.getPortfolio.and.returnValue(resolve(makePortfolio()));
-      client.getEquityPositions.and.returnValue(resolve([]));
-      client.getOptionPositions.and.returnValue(resolve([]));
-      client.getEquityQuotes.and.returnValue(resolve(new Map()));
-      client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      client.getEquityOrders.and.returnValue(resolve([]));
-      client.getOptionOrders.and.returnValue(resolve([]));
+      stubFullRefresh();
 
       // Fire two refresh calls concurrently
       await Promise.all([store.refresh(), store.refresh()]);
@@ -331,13 +374,7 @@ describe('PortfolioDashboardStore', () => {
 
       // Second refresh succeeds
       client.getAccounts.and.returnValue(resolve([makeAccount()]));
-      client.getPortfolio.and.returnValue(resolve(makePortfolio()));
-      client.getEquityPositions.and.returnValue(resolve([]));
-      client.getOptionPositions.and.returnValue(resolve([]));
-      client.getEquityQuotes.and.returnValue(resolve(new Map()));
-      client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      client.getEquityOrders.and.returnValue(resolve([]));
-      client.getOptionOrders.and.returnValue(resolve([]));
+      stubFullRefresh();
 
       await store.refresh();
       expect(store.loadError()).toBeNull();
@@ -367,6 +404,20 @@ describe('PortfolioDashboardStore', () => {
       await store.retrySection(0, 'equityOrders');
       expect(client.getEquityOrders).toHaveBeenCalledTimes(1);
       expect(store.accounts()[0].equityOrders.data?.length).toBe(1);
+    });
+
+    it('re-fetches both order sections in one batch on the combined orders retry', async () => {
+      batchAnswers(client, {
+        get_equity_orders: fulfilled([makeOrder({ state: 'filled' })]),
+        get_option_orders: fulfilled([makeOptionOrder({ state: 'cancelled' })]),
+      });
+      await store.retrySection(0, 'orders');
+
+      expect(client.executeBatch).toHaveBeenCalledTimes(1);
+      const specs = (client.executeBatch.calls.mostRecent().args[0] as MockToolSpec[]);
+      expect(specs.map((s) => s.tool)).toEqual(['get_equity_orders', 'get_option_orders']);
+      expect(store.accounts()[0].equityOrders.data?.length).toBe(1);
+      expect(store.accounts()[0].optionOrders.data?.length).toBe(1);
     });
 
     it('sets error on failure', async () => {
