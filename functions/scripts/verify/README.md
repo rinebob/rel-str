@@ -42,6 +42,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #768 | `screenshot-capture-768-callable.ts` | callable handler → assemble → render → real bucket write + error contract | [screenshot-capture-768.md](screenshot-capture-768.md) |
 | #769 | `screenshot-capture-769-rasterize.ts` | PNG sibling per SVG — resvg rasterize → bucket PNG (signature/dims/contentType) | [screenshot-capture-769.md](screenshot-capture-769.md) |
 | #844 | `screenshot-capture-844-contracts.ts` | `groupId` → `{symbol}/{group}/` path level + strategy `positionType` tags → real bucket write | [screenshot-capture-844.md](screenshot-capture-844.md) |
+| #848 | `screenshot-capture-826-lifecycle.ts` | lifecycle intake end-to-end — seeded carrier → capture → `capturedEvents` manifest + `st-screenshots` index → dedup no-op | [screenshot-capture-826.md](screenshot-capture-826.md) |
 
 ## Order across tasks
 
@@ -64,5 +65,6 @@ npx tsx scripts/verify/{script-name}.ts
 17. **#768** — `screenshot-capture-768-callable.ts` (callable → bucket write + error contract)
 18. **#769** — `screenshot-capture-769-rasterize.ts` (PNG rasterization → bucket sibling)
 19. **#844** — `screenshot-capture-844-contracts.ts` (grouped path + position types → bucket write)
-20. **#876** — `indicator-lib-876-engine.ts` (trigger bands engine)
-21. **#877** — `indicator-lib-877-callable.ts` (trigger bands in the indicator series)
+20. **#848** — `screenshot-capture-826-lifecycle.ts` (lifecycle intake: carrier ledger + index + dedup, real Firestore + bucket)
+21. **#876** — `indicator-lib-876-engine.ts` (trigger bands engine)
+22. **#877** — `indicator-lib-877-callable.ts` (trigger bands in the indicator series)
