@@ -8,6 +8,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { NavItem } from './common/interfaces';
 import { HeaderComponent } from './comps/header/header.component';
 import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.component';
+import { PageIdentityService } from './services/page-identity.service';
 import { UiStateService } from './services/ui-state.service';
 
 @Component({
@@ -23,6 +24,10 @@ export class CoreComponent {
 
     private readonly router = inject(Router);
     readonly ui = inject(UiStateService);
+
+    /** Page identity for the fullscreen reveal chip (#854) — fullscreen
+     *  unmounts rs-header, so the chip carries the only in-app identity. */
+    readonly pageInfo = inject(PageIdentityService).pageInfo;
 
 	handleOpenSidenav() {
 		this.sidenav.open();

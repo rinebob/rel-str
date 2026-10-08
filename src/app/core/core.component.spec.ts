@@ -1,27 +1,34 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { signal } from '@angular/core';
+import { signal, WritableSignal } from '@angular/core';
 import { Router } from '@angular/router';
 import { EMPTY } from 'rxjs';
 import { CoreComponent } from './core.component';
 import { HeaderComponent } from './comps/header/header.component';
 import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.component';
 import { AuthStore } from './auth/auth.store';
+import { AppRoutes, PageInfo } from './common/interfaces';
+import { PAGE_INFO } from './common/constants';
+import { PageIdentityService } from './services/page-identity.service';
 import { UiStateService } from './services/ui-state.service';
 
 describe('CoreComponent', () => {
   let component: CoreComponent;
   let fixture: ComponentFixture<CoreComponent>;
   let ui: UiStateService;
+  let pageInfoStub: WritableSignal<PageInfo | undefined>;
 
   const el = () => fixture.nativeElement as HTMLElement;
 
   beforeEach(async () => {
+    pageInfoStub = signal<PageInfo | undefined>(undefined);
+
     await TestBed.configureTestingModule({
       imports: [CoreComponent],
       providers: [
-        // HeaderComponent's pageInfo reads events + routerState (#853) —
-        // empty pathFromRoot resolves no PAGE_INFO key → zone renders empty.
+        // PageIdentityService stub — HeaderComponent + the reveal chip read
+        // the resolved identity from it (#853/#854).
+        { provide: PageIdentityService, useValue: { pageInfo: pageInfoStub } },
         {
           provide: Router,
           useValue: {
@@ -62,6 +69,25 @@ describe('CoreComponent', () => {
     const reveal = el().querySelector<HTMLButtonElement>('.header-reveal');
     expect(reveal).not.toBeNull();
     expect(reveal!.querySelector('mat-icon')?.textContent?.trim()).toBe('fullscreen_exit');
+  });
+
+  it('reveal chip carries the resolved page identity while fullscreen (#854)', () => {
+    pageInfoStub.set(PAGE_INFO[AppRoutes.SIGNAL_ORDER]);
+    ui.setFullscreen(true);
+    fixture.detectChanges();
+
+    const reveal = el().querySelector<HTMLElement>('.header-reveal')!;
+    expect(reveal.querySelector('.reveal-title')?.textContent?.trim()).toBe('Signal Order');
+    expect(reveal.querySelector('.reveal-icon')?.textContent?.trim()).toBe(PAGE_INFO[AppRoutes.SIGNAL_ORDER].icon);
+  });
+
+  it('reveal chip shows only the exit icon when identity is unresolved', () => {
+    ui.setFullscreen(true);
+    fixture.detectChanges();
+
+    const reveal = el().querySelector<HTMLElement>('.header-reveal')!;
+    expect(reveal.querySelector('.reveal-title')).toBeNull();
+    expect(reveal.querySelector('mat-icon')?.textContent?.trim()).toBe('fullscreen_exit');
   });
 
   it('clicking the reveal chevron exits fullscreen and restores the header', () => {

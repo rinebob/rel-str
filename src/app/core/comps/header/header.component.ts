@@ -1,13 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router } from '@angular/router';
-import { filter } from 'rxjs';
+import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 
 import { AuthStore } from '../../auth/auth.store';
-import { AppRoutes, PageInfo } from '../../common/interfaces';
-import { resolvePageInfo } from '../../common/constants';
+import { AppRoutes } from '../../common/interfaces';
+import { PageIdentityService } from '../../services/page-identity.service';
 import { UiStateService } from '../../services/ui-state.service';
 
 @Component({
@@ -30,28 +28,9 @@ export class HeaderComponent {
     readonly isAuthenticated = this.auth.isAuthenticated;
     readonly loading = this.auth.loading;
 
-    /** Re-eval trigger — routerState is mutable, so pageInfo must rerun on
-     *  each NavigationEnd rather than on signal deps it can't see. */
-    private readonly navigationEnd = toSignal(
-        this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)),
-    );
-
-    /** Current page identity (#853) — the leaf route's routeConfig.path
-     *  segments joined from root, longest-prefix matched against PAGE_INFO
-     *  (resolvePageInfo normalizes the root '' segments). Undefined on
-     *  unkeyed/wildcard paths → the identity zone renders empty. */
-    readonly pageInfo = computed<PageInfo | undefined>(() => {
-        this.navigationEnd();
-        const root = this.router.routerState.snapshot.root;
-        // firstChild is the primary outlet's leaf — no named outlets exist
-        // in the app today; revisit if an aux outlet is ever added.
-        let leaf = root;
-        while (leaf.firstChild) leaf = leaf.firstChild;
-        const joined = leaf.pathFromRoot
-            .map((s) => s.routeConfig?.path ?? '')
-            .join('/');
-        return resolvePageInfo(joined);
-    });
+    /** Current page identity (#853) — resolved by PageIdentityService and
+     *  shared with CoreComponent's fullscreen reveal chip (#854). */
+    readonly pageInfo = inject(PageIdentityService).pageInfo;
 
     handleMenuOpen() {
         // console.log('nH hMO handle menu open called');

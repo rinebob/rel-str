@@ -14,7 +14,11 @@
         @if (!ui.fullscreen()) {
           <rs-header (openSidenav)="handleOpenSidenav()" />
         } @else {
-          <button mat-icon-button class="header-reveal" (click)="ui.toggleFullscreen()" aria-label="Show header" matTooltip="Show header">
+          <button class="header-reveal" (click)="ui.toggleFullscreen()" aria-label="Show header" matTooltip="Show header">
+            @if (pageInfo(); as info) {
+              <mat-icon class="reveal-icon" aria-hidden="true">{{ info.icon }}</mat-icon>
+              <span class="reveal-title">{{ info.title }}</span>
+            }
             <mat-icon>fullscreen_exit</mat-icon>
           </button>
         }
