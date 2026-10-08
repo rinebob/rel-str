@@ -25,6 +25,8 @@
 ## [2026-10-07]
 
 ### Added
+- [Robinhood MCP] 657-813_FE-IMPL-RH-MCP: executeTools batch client + portfolio fan-out — one /batch request per phase per account, ordered per-item results, toolError gates, flat 90s timeout
+- [Robinhood MCP] 657-813_DOCS-RH-MCP: #813 code review (PASS, 2 rounds) + #900 UAT (Complete)
 - [Robinhood MCP] 657-809_BE-IMPL-RH-MCP: POST /batch — shared-session sequential tool execution with ordered per-item results, 20-call cap, 75s budget, session-failure envelope
 - [Robinhood MCP] 657-809_DOCS-RH-MCP: #809 code review (PASS) + #893 UAT (Complete)
 - [Navigation and Workflows] 625-853_FE-IMPL-WORKFLOWS: rs-header page-identity zone — icon+title after brand via NavigationEnd + pathFromRoot + resolvePageInfo; wordmark collapses <720px
