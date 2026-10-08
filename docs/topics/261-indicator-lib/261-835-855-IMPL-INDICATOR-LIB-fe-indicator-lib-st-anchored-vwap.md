@@ -94,8 +94,8 @@ function computeAnchoredVwap(bars, config): AnchoredVwapSegment[]
 **Location:** same `indicators/` directory. Follows the ZigZag / StdDevLines pattern.
 
 - `ST_ANCHORED_VWAP_INDICATOR: IndicatorOption` — `id: 'st-anchored-vwap'`, `type: StIndicator.ST_ANCHORED_VWAP` (new enum member in `flex-chart.types.ts`), `defaultPane: 'overlay'`, `axisScale: 'price'`.
-- Params (all `number | string | boolean`, as `IndicatorParamDef` requires): `smallRetracementPct` 2.0, `largeRetracementPct` 5.0, `leftDepth` 5, `rightDepth` 5, `smallHighColor` `#FF8CFF`, `smallLowColor` `#8CF5FF`, `largeHighColor` `#FF00E6`, `largeLowColor` `#00E5FF`, `historyStart` `''` (ISO `YYYY-MM-DD` string; empty or invalid = unset), `maxHistory` 100.
-- `extractConfig(params)` clamps and parses params the way `st-zigzag.indicator.ts` does, including the `historyStart` string → ms conversion.
+- Params (all `number | string | boolean`, as `IndicatorParamDef` requires): `smallRetracementPct` 2.0, `largeRetracementPct` 5.0, `leftDepth` 5, `rightDepth` 5, `smallHighColor` `#FF8CFF`, `smallLowColor` `#8CF5FF`, `largeHighColor` `#FF00E6`, `largeLowColor` `#00E5FF`, `maxHistory` 100. There is **no `historyStart` param** (decision 2026-10-08: the ZigZag pivots decide the dates, so the window is always the most recent `maxHistory`; the engine's `historyStart` option stays but is not exposed).
+- `extractConfig(params)` clamps and parses params the way `st-zigzag.indicator.ts` does.
 - `computeAnchoredVwapSeries(bars, params, options?)` maps `AnchoredVwapSegment[]` to **fixed-slot series** (below).
 
 **Fixed slots (rendering shape).** A Syncfusion chart reinitialises when its series structure changes, so the series count must not depend on the data. There are always 12 series: 4 slots (scale × side), each with one **active** series and two **history** series that segments alternate between (`k` even → `history-a`, odd → `history-b`). Alternation is required because adjacent segments share the confirmation bar and one series holds only one `y` per bar. Within a history series, consecutive segments are separated by an explicit break point (`y: null`) with `emptyPointSettings: { mode: 'Gap' }` (pattern already used by the trend-band candle series in `flex-chart.component.html`).
@@ -106,26 +106,25 @@ interface AnchoredVwapLineSeries {
   name: string;       // `AVWAP-H {pct}%` / `AVWAP-L {pct}%`
   color: string;
   width: number;      // large thick, small thin
-  opacity: number;    // active 1, history faded
   data: { index: number; y: number | null }[];
 }
 ```
 
-- Visual encoding per the PRD: hue = side (magenta high / cyan low), saturation and width = scale; history uses the same hue and width at reduced opacity.
-- `calculateAnchoredVwap: IndicatorCalculator` — registered for the generic calculator map for consistency with ZigZag/StdDevLines, returning `[]`; rendering is entirely through the bespoke series, as the template already excludes ST_ZIGZAG / ST_STD_DEV_LINES from the generic line path. **T3 must verify `computeIndicators` and the legend tolerate an indicator whose calculator returns `[]`**; if not, return the large-scale active high line's points as the flat fallback.
+- Visual encoding per the PRD: hue = side (magenta high / cyan low), saturation and width = scale; history uses the same colour and width as the active line (no fading, per the 2026-10-08 decision).
+- **No `IndicatorCalculator`.** Rendering is entirely through the bespoke series. `computeIndicators` explicitly supports indicators without a calculator (it returns `data: []`) and the chart legend is hidden, so nothing is registered in `indicatorCalculators` (verified in T3; a calculator returning `[]` would be dead code).
 
 ### 4. Registry, adapter and template integration
 
 - `flex-chart.types.ts`: add `ST_ANCHORED_VWAP = 'st-anchored-vwap'` to `StIndicator`.
 - `indicator-registry.ts`: export and import the definition, append to `ST_INDICATOR_OPTIONS`, add to `indicatorCalculators` and `SERIES_TYPE_MAP` (`'line'`). This only adds an opt-in menu entry and a `BASE_CONFIGS` entry; `INDICATORS_BY_INTERVAL` in `base-indicators.ts` is **not** touched, so no existing chart auto-enables it. `BASE_CONFIGS` calls `buildDefaultConfig` for every registered option at module load, so the AVWAP defaults must be valid in isolation.
 - `chart-data-adapter.service.ts`: add `anchoredVwapSeries = computed<AnchoredVwapLineSeries[]>(...)`, shaped like `zigZagSeries` — find `ST_ANCHORED_VWAP` configs in `cfg.indicators`, call `computeAnchoredVwapSeries(data.bars, params)`, then map each series through `this.themeColor` and `this.mapY` (skip `null` points when mapping). Keep the adapter a thin map-and-theme layer; all logic stays in the pure module.
-- `flex-chart.component.ts` / `.html`: expose `anchoredVwapSeries = this.dataAdapter.anchoredVwapSeries` and add one `@for` of `Line` series (`xName="index"`, `yName="y"`, `[emptyPointSettings]="{ mode: 'Gap' }"`, `[opacity]`, `[animation]="noAnimation"`), and add `StIndicator.ST_ANCHORED_VWAP` to the generic-line exclusion list on the main-pane indicators loop (currently excludes TREND_BANDS, ST_STD_DEV_LINES, ST_ZIGZAG).
+- `flex-chart.component.ts` / `.html`: expose `anchoredVwapSeries = this.dataAdapter.anchoredVwapSeries` and add one `@for` of `Line` series (`xName="index"`, `yName="y"`, `[emptyPointSettings]="{ mode: 'Gap' }"`, `[animation]="noAnimation"`), and add `StIndicator.ST_ANCHORED_VWAP` to the generic-line exclusion list on the main-pane indicators loop (currently excludes TREND_BANDS, ST_STD_DEV_LINES, ST_ZIGZAG).
 
 ### 5. Sandbox param controls
 
 Today no ST indicator has a param-editing surface: the sandbox and the gallery build configs from `buildDefaultConfig` defaults only, and `IndicatorConfigDialogComponent` is number-only and referenced by nothing. Per the Plan decision, **controls are sandbox-only** (no new shared settings UI).
 
-- In `flex-chart-sandbox.component.ts/.html`, when `st-anchored-vwap` is enabled, show controls for `smallRetracementPct`, `largeRetracementPct`, `leftDepth`, `rightDepth`, the four colors, `maxHistory`, and a `mat-datepicker` for `historyStart` (datepickers already exist in the app, e.g. `option-chain`, `trade-journal`, `triage-report`). Overrides merge onto the default config before it reaches the chart.
+- In `flex-chart-sandbox.component.ts/.html`, when `st-anchored-vwap` is enabled, show controls for `smallRetracementPct`, `largeRetracementPct`, `leftDepth`, `rightDepth`, the four colors and `maxHistory` (no `historyStart` date picker — decision 2026-10-08: the ZigZag pivots decide the dates). Overrides merge onto the default config before it reaches the chart.
 - Controls are local to the sandbox and do not carry to other pages — this is the iteration loop, not general UI.
 
 ## Phases
@@ -140,7 +139,7 @@ Foundation. Nothing here touches the chart.
 ### Phase 2: Chart integration
 
 - **T3** — Indicator definition + registry + `StIndicator` member + adapter series + template render. Demoable in the sandbox via the menu toggle with default params. Blocked by T2.
-- **T4** — Sandbox param controls including the `historyStart` date picker. Blocked by T3.
+- **T4** — Sandbox param controls (the `historyStart` date picker was dropped 2026-10-08; remaining scope to be confirmed). Blocked by T3.
 
 ## Cross-Area Dependencies
 
@@ -155,5 +154,5 @@ Foundation. Nothing here touches the chart.
 - **`maxHistory` scope is ambiguous.** The PRD says "per scale"; the Pine prototype capped per line (side), which would exceed TradingView's polyline budget (4 lines × 48). This plan implements per scale, both sides combined, as the PRD reads. Confirm at T2 if the intent was per slot.
 - **Series reinit.** A data-dependent series count would reinitialise the chart. Mitigation: fixed 12 slots.
 - **Calculator contract.** The generic `IndicatorCalculator` path returns flat `{x, y}` points and cannot express four lines. Mitigation: bespoke adapter series (same as ZigZag); T3 verifies `computeIndicators`/legend tolerate an empty calculator result.
-- **Date entry.** `IndicatorParamDef` has no date type, so `historyStart` is an ISO string param; invalid text is treated as unset. The sandbox date picker writes the string.
+- **Date entry.** Dropped 2026-10-08: no `historyStart` param or date picker; the engine's `historyStart` option stays unexposed.
 - **Pivot-bar edge.** A pivot with zero volume since the anchor needs the seed rule (pivot bar typical price) so the first drawn value is defined.

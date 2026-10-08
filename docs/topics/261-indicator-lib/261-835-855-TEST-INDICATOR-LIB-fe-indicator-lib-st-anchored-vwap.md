@@ -16,10 +16,10 @@
 
 ## E2E User Journeys
 
-- Journey 1: User opens the flex-chart sandbox, enables **ST Anchored VWAP** from the indicator menu with default params → sees four lines (magenta high / cyan low, thick large / thin small) on the price pane, each starting where its pivot became knowable, plus faded history segments.
+- Journey 1: User opens the flex-chart sandbox, enables **ST Anchored VWAP** from the indicator menu with default params → sees four lines (magenta high / cyan low, thick large / thin small) on the price pane, each starting where its pivot became knowable, plus history segments in the same style.
 - Journey 2: User toggles AVWAP on a chart that has no ST ZigZag enabled → lines still render (AVWAP does not depend on the ZigZag indicator).
 - Journey 3: User changes the retracement percentages and depths in the sandbox controls → the lines and anchors recompute; the series count does not change.
-- Journey 4: User enters a `historyStart` date in the sandbox date picker → history renders from that era forward up to `maxHistory`; clearing it returns to the most-recent-`maxHistory` view.
+- Journey 4: (dropped 2026-10-08 — no `historyStart` date picker; the ZigZag pivots decide the dates and history is always the most recent `maxHistory`.)
 - Journey 5: User scrubs through a chart with a known pivot and checks that no line exists before that pivot's confirmation bar and that the old same-side line runs through the new pivot's confirmation bar.
 
 ## Integration Tests
@@ -73,16 +73,16 @@
 ### Indicator + series builder (`st-anchored-vwap.indicator.spec.ts`)
 
 - `extractConfig` clamps retracement %, depths and `maxHistory`; falls back to defaults on missing/garbage params.
-- `historyStart`: valid `YYYY-MM-DD` → ms; empty string and invalid text → unset.
+- No `historyStart` param (dropped 2026-10-08).
 - `computeAnchoredVwapSeries` always returns 12 series with the documented keys, regardless of data (including empty data).
 - Adjacent segments of a slot land in alternating history series; no history series contains two points at the same `index`.
 - Break points (`y: null`) separate segments within a history series.
-- Active series use full opacity; history series use reduced opacity; large scale wider than small; side → hue.
+- History series match the active series' colour and width (no fading); large scale wider than small; side → hue.
 - Series names follow `AVWAP-H {pct}%` / `AVWAP-L {pct}%`.
 
 ### Registry (`indicator-registry.spec.ts` or equivalent)
 
-- `ST_ANCHORED_VWAP` is in `ST_INDICATOR_OPTIONS`, `indicatorCalculators`, and `SERIES_TYPE_MAP`; `INDICATORS_BY_INTERVAL` defaults do **not** include it.
+- `ST_ANCHORED_VWAP` is in `ST_INDICATOR_OPTIONS` and `SERIES_TYPE_MAP` (no calculator; `computeIndicators` tolerates that); `INDICATORS_BY_INTERVAL` defaults do **not** include it.
 - `buildDefaultConfig(ST_ANCHORED_VWAP_INDICATOR)` returns valid defaults.
 
 ### Adapter (`chart-data-adapter.service.spec.ts`)
@@ -93,7 +93,7 @@
 
 ### Sandbox (`flex-chart-sandbox.component.spec.ts`)
 
-- Control values merge onto the default config; clearing the date picker unsets `historyStart`; the date picker writes an ISO string.
+- Control values merge onto the default config.
 
 ## Test Seams
 
