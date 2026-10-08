@@ -4,6 +4,8 @@
 ## [2026-10-08]
 
 ### Added
+- [Trading Indicator Library] 261-871_FE-IMPL-INDICATOR-LIB: ST Anchored VWAP in the flex-chart - indicator definition with 8 params, fixed 12-series builder (4 slots x active + 2 alternating history, null gap breaks), registry/menu opt-in, adapter computed with theme + log-scale mapping, dedicated template render loop; 42 new tests
+- [Trading Indicator Library] 261-871_DOCS-INDICATOR-LIB: #871 CODE-REVIEW (PASS, 2 rounds - Syncfusion null-Gap verified from source) + #902 UAT (Complete - A1-A9 automated, M1-M6 user-verified) + FE IMPL/TEST plan sync
 - [Portfolio Dashboard] 219-886_SHARED-IMPL-PORTFOLIO: StopLossFormComponent full param surface — timeInForce/marketHours model() inputs (gtc/regular_hours), StopLossSubmit payload, TIF + Hours pills (Extended/All Day disabled — RH rejects non-regular stops, live-verified), showOrderParams + initialStopPrice prefill inputs
 - [Portfolio Dashboard] 219-886_FE-IMPL-PORTFOLIO: Stop param plumbing at both consumers — dialog threads StopLossSubmit; regular_hours pinned at both submission seams; order ticket binds neither pill (no silent Day stops); dead onPlaceStopLoss fallback + canPlaceStopLoss removed
 - [Portfolio Dashboard] 219-886_DOCS-PORTFOLIO: #886 CODE-REVIEW (PASS) + #912 UAT (Complete — 5 live stops placed) + PRD US16/IMPL amendments for the confirmed regular-hours constraint
