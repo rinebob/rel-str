@@ -123,6 +123,13 @@ export interface BrokerOrder {
   stopPrice: number | null;
   averageFillPrice: number | null;
   createdAt: string | null;
+  /** RH `time_in_force` verbatim (e.g. 'gtc', 'gfd') — present only when the
+   *  raw order carried it. Untyped on purpose: RH may return values outside
+   *  the ticket's canonical EquityTimeInForce union. */
+  timeInForce?: string;
+  /** RH `market_hours` verbatim (e.g. 'regular_hours') — present only when
+   *  the raw order carried it. */
+  marketHours?: string;
   /** Present only when the raw order carried a `legs` array (option orders).
    *  Per-leg identity is required for per-instrument attribution — a spread
    *  is one order touching several instruments. */

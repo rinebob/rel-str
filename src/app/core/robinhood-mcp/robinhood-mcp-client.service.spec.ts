@@ -494,6 +494,46 @@ describe('RobinhoodMcpClient', () => {
       expect(orders[0].orderId).toBe('good-order');
       expect(orders[1].orderId).toBe('good-order-2');
     });
+
+    it('parses time_in_force and market_hours onto BrokerOrder', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          results: [
+            {
+              id: 'stop-1', side: 'sell', type: 'stop_market', state: 'confirmed',
+              symbol: 'CLMT', quantity: '2', stop_price: '51.95',
+              time_in_force: 'gtc', market_hours: 'regular_hours',
+            },
+          ],
+        },
+        redacted: {},
+        tool: 'get_equity_orders',
+      });
+
+      const orders = await client.getEquityOrders('123456789');
+
+      expect(orders[0].timeInForce).toBe('gtc');
+      expect(orders[0].marketHours).toBe('regular_hours');
+    });
+
+    it('leaves timeInForce/marketHours undefined when the raw order omits them', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          results: [
+            { id: 'o-1', side: 'buy', type: 'market', state: 'filled', symbol: 'AAPL', quantity: '10' },
+          ],
+        },
+        redacted: {},
+        tool: 'get_equity_orders',
+      });
+
+      const orders = await client.getEquityOrders('123456789');
+
+      expect(orders[0].timeInForce).toBeUndefined();
+      expect(orders[0].marketHours).toBeUndefined();
+    });
   });
 
   // ===========================================================================

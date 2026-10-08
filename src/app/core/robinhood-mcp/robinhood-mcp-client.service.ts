@@ -285,6 +285,8 @@ export class RobinhoodMcpClient {
       stopPrice: this.toNumber(raw['stop_price']),
       averageFillPrice: this.toNumber(raw['average_price']),
       createdAt: typeof raw['created_at'] === 'string' ? raw['created_at'] : null,
+      timeInForce: typeof raw['time_in_force'] === 'string' ? raw['time_in_force'] : undefined,
+      marketHours: typeof raw['market_hours'] === 'string' ? raw['market_hours'] : undefined,
       legs: this.parseLegs(raw['legs'], rawSide),
       executions: this.parseExecutions(raw['executions']),
     };
