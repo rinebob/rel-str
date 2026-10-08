@@ -1,12 +1,12 @@
 # UAT — Task #777: Dashboard page shell
 
-**Topic:** #576 Portfolio Allocation
-**Thread:** #751 Portfolio Visual Consistency
-**Blueprint:** #775 (FE)
-**Task:** #777 — FE: Dashboard page shell — header bar + 1100px column + tokenized states
-**QA Issue:** #786
-**Status:** Complete
-**Code Review:** PASS — 576-775-777-CODE-REVIEW-portfolio-portfolio-allocation.md
+**Topic:** #576 Portfolio Allocation  
+**Thread:** #751 Portfolio Visual Consistency  
+**Blueprint:** #775 (FE)  
+**Task:** #777 — FE: Dashboard page shell — header bar + 1100px column + tokenized states  
+**QA Issue:** #786  
+**Status:** Complete  
+**Code Review:** PASS — 576-775-777-CODE-REVIEW-portfolio-portfolio-allocation.md  
 
 ## Automated gate (executed)
 

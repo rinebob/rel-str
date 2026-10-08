@@ -1,12 +1,12 @@
 # Code Review — Task #777: Dashboard page shell
 
-**Topic:** #576 Portfolio Allocation
-**Thread:** #751 Portfolio Visual Consistency
-**Blueprint:** #775 (FE)
-**Task:** #777 — FE: Dashboard page shell — header bar + 1100px column + tokenized states
-**Reviewer:** Devin (inline — single-component diff, same rationale as #776)
-**Date:** 2026-10-04
-**Verdict:** PASS
+**Topic:** #576 Portfolio Allocation  
+**Thread:** #751 Portfolio Visual Consistency  
+**Blueprint:** #775 (FE)  
+**Task:** #777 — FE: Dashboard page shell — header bar + 1100px column + tokenized states  
+**Reviewer:** Devin (inline — single-component diff, same rationale as #776)  
+**Date:** 2026-10-04  
+**Verdict:** PASS  
 
 ## Scope reviewed
 

@@ -1,10 +1,10 @@
 # Code Review — #591 FE Bucket detail dialog
 
-**Status:** Complete — PASS (4 rounds; rounds 2–4 verified fixes, round 4 = no new findings)
-**Topic:** Portfolio Allocation (#576)
-**Blueprint:** #582 (FE)
-**Task:** #591
-**Date:** 2026-09-28
+**Status:** Complete — PASS (4 rounds; rounds 2–4 verified fixes, round 4 = no new findings)  
+**Topic:** Portfolio Allocation (#576)  
+**Blueprint:** #582 (FE)  
+**Task:** #591  
+**Date:** 2026-09-28  
 
 ## Scope
 

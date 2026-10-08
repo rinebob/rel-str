@@ -1,10 +1,10 @@
 # Code Review — #590 FE Positions tab + assign-bucket dialog
 
-**Status:** Complete — PASS (2 rounds)
-**Topic:** Portfolio Allocation (#576)
-**Blueprint:** #582 (FE)
-**Task:** #590
-**Date:** 2026-09-28
+**Status:** Complete — PASS (2 rounds)  
+**Topic:** Portfolio Allocation (#576)  
+**Blueprint:** #582 (FE)  
+**Task:** #590  
+**Date:** 2026-09-28  
 
 ## Scope
 

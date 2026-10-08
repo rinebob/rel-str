@@ -1,10 +1,10 @@
 # Code Review — #592 FE Order ticket: optional bucket selector, warn-not-block, fill-time seeding
 
-**Status:** Complete — PASS (1 round; all major findings fixed and re-verified)
-**Topic:** Portfolio Allocation (#576)
-**Blueprint:** #582 (FE)
-**Task:** #592
-**Date:** 2026-09-28
+**Status:** Complete — PASS (1 round; all major findings fixed and re-verified)  
+**Topic:** Portfolio Allocation (#576)  
+**Blueprint:** #582 (FE)  
+**Task:** #592  
+**Date:** 2026-09-28  
 
 ## Scope
 

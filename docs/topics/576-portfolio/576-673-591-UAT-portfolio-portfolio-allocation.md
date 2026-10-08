@@ -1,10 +1,10 @@
 # UAT — #591 FE Bucket detail dialog
 
-**Status:** Complete
-**Task:** #591
-**QA issue:** #673
-**Topic:** Portfolio Allocation (#576)
-**Date:** 2026-09-28
+**Status:** Complete  
+**Task:** #591  
+**QA issue:** #673  
+**Topic:** Portfolio Allocation (#576)  
+**Date:** 2026-09-28  
 
 ## Scope
 

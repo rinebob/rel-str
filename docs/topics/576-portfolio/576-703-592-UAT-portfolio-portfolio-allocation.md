@@ -1,11 +1,11 @@
 # UAT — #592 FE Order ticket: optional bucket selector, warn-not-block, fill-time seeding
 
-**Status:** Complete
-**Task:** #592
-**QA issue:** #703
-**Topic:** Portfolio Allocation (#576)
-**Date:** 2026-09-28
-**Last Updated:** 2026-09-30
+**Status:** Complete  
+**Task:** #592  
+**QA issue:** #703  
+**Topic:** Portfolio Allocation (#576)  
+**Date:** 2026-09-28  
+**Last Updated:** 2026-09-30  
 
 ## Scope
 
