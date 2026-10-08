@@ -114,7 +114,9 @@ describe('dotMarkers.triggerBands', () => {
   const dots = () => compute(GOLDEN).intervals.daily!.dotMarkers!.triggerBands!;
   const of = (signalType: string) => dots().filter((m) => m.signalType === signalType);
 
-  it('emits a dot per breakout and per pullback bar, tagged version TB', () => {
+  it('emits a dot per breakout bar and per ARMED pullback bar (state stays lit until breakout), tagged version TB', () => {
+    // Golden fixture: long pullback state t3-t5 (clears on the t6 breakout) →
+    // dots on all three bars; short state t3 and t6 (t4 breakout cleared it).
     assert.equal(dots().length, 1 + 1 + 3 + 2);
     assert.ok(dots().every((m) => m.version === 'TB'));
     assert.deepEqual(of('TRIGGER_BANDS_LONG_BREAKOUT').map((m) => m.index), [6]);

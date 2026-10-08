@@ -5,7 +5,7 @@
  * computeSymbolIndicatorSeries + filterResponse, and checks that:
  *   - indicators.triggerBands exists for D/W/M with one point per bar, aligned
  *     to the bar dates and equal to the engine output,
- *   - dotMarkers.triggerBands carries one dot per pullback/breakout flag,
+ *   - dotMarkers.triggerBands carries one dot per armed pullback bar and per breakout flag,
  *   - the response filter returns Trigger Bands only when requested and leaves
  *     the default response untouched,
  *   - the payload cost of opting in is reported.
@@ -75,10 +75,12 @@ async function main(): Promise<void> {
         p.longBreakout === eng.longBreakout[i] && p.shortPullback === eng.shortPullback[i] &&
         p.shortPullbackState === eng.shortPullbackState[i] && p.shortBreakout === eng.shortBreakout[i]),
     );
+    // Pullback dots fire on every armed-state bar (the warning stays lit
+    // until the breakout clears it); breakouts fire per bar.
     const expectedDots =
-      eng.longPullback.filter(Boolean).length + eng.shortPullback.filter(Boolean).length +
+      eng.longPullbackState.filter(Boolean).length + eng.shortPullbackState.filter(Boolean).length +
       eng.longBreakout.filter(Boolean).length + eng.shortBreakout.filter(Boolean).length;
-    check(`dot count equals flag count (${dots.length})`, dots.length === expectedDots);
+    check(`dot count equals armed-pullback + breakout count (${dots.length})`, dots.length === expectedDots);
     check(
       'long dots below the bar low, short dots above the bar high',
       dots.every((m) => (m.direction === 'long' ? m.y < bars[m.index].l : m.y > bars[m.index].h)),

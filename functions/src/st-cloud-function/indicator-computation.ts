@@ -452,7 +452,10 @@ function computeTriggerBandsSeries(bars: OhlcBar[]): TriggerBandsPoint[] {
 // never share a bar (a breakout needs a rising band), so one offset serves both.
 const TRIGGER_DOT_ATR_MULT = 1.5;
 
-/** Pullback dot on every pullback bar, breakout dot on every breakout bar; long below the bar, short above. */
+/** Pullback dot on every bar the pullback STATE is armed (the Pine plots
+ *  `longPullbackState`/`shortPullbackState` as circles — the warning stays
+ *  lit until the breakout fires and clears it), breakout dot on every
+ *  breakout bar; long below the bar, short above. */
 function generateTriggerBandsDotMarkers(points: TriggerBandsPoint[], bars: OhlcBar[]): DotMarker[] {
   if (points.length === 0 || bars.length === 0) return [];
   const atr = computeATR(bars);
@@ -471,8 +474,8 @@ function generateTriggerBandsDotMarkers(points: TriggerBandsPoint[], bars: OhlcB
         signalType,
       });
     };
-    if (p.longPullback) push('long', 'TRIGGER_BANDS_LONG_PULLBACK');
-    if (p.shortPullback) push('short', 'TRIGGER_BANDS_SHORT_PULLBACK');
+    if (p.longPullbackState) push('long', 'TRIGGER_BANDS_LONG_PULLBACK');
+    if (p.shortPullbackState) push('short', 'TRIGGER_BANDS_SHORT_PULLBACK');
     if (p.longBreakout) push('long', 'TRIGGER_BANDS_LONG_BREAKOUT');
     if (p.shortBreakout) push('short', 'TRIGGER_BANDS_SHORT_BREAKOUT');
   });
