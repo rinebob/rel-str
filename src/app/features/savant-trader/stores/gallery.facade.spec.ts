@@ -17,6 +17,7 @@ import { SymbolHistoryStore } from './symbol-history.store';
 import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { SymbolListStore } from './symbol-list.store';
 import { OrderTicketStore } from './order-ticket.store';
+import { GalleryCardChartStore } from './gallery-card-chart.store';
 import { StStore } from './st.store';
 import { GroupDimension, ReviewDecision, SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
 import { SymbolListDef } from '../common/symbol-list-defs';
@@ -84,6 +85,22 @@ function makeTicket(
   };
 }
 
+function makeReject(symbol: string, timeframe: SignalTimeframe, signalType = 'RS_RISE'): StOccurrenceDecision {
+  return {
+    id: buildStOccurrenceDecisionId(RUN_ID, symbol, timeframe, signalType),
+    runId: RUN_ID,
+    marketDate: MARKET_DATE,
+    symbol,
+    timeframe,
+    direction: SignalDirection.LONG,
+    signalType,
+    barDate: MARKET_DATE,
+    decisionType: ReviewDecision.REJECT,
+    decidedAt: '2026-08-26T00:00:00Z',
+    isCurrentInLatestRun: true,
+  };
+}
+
 describe('GalleryFacade', () => {
   let facade: GalleryFacade;
   let agentStoreMock: {
@@ -110,21 +127,16 @@ describe('GalleryFacade', () => {
     loading: ReturnType<typeof signal<boolean>>;
     occurrenceDecisions: ReturnType<typeof signal<Record<string, StOccurrenceDecision>>>;
     loadRecentDecisions: jest.Mock;
-    acceptSignals: jest.Mock;
-    rejectSignals: jest.Mock;
-    resetSignals: jest.Mock;
   };
   let symbolListStoreMock: {
     symbolLists: ReturnType<typeof signal<Record<string, string[]>>>;
     exclusiveListKeys: ReturnType<typeof computed<string[]>>;
     symbolListsLoading: ReturnType<typeof signal<boolean>>;
     filterOptionGroups: ReturnType<typeof signal<{ label: string; options: { value: string; label: string }[] }[]>>;
-    catalog: ReturnType<typeof signal<SymbolListDef[]>>;
-    toggleSymbolInList: jest.Mock;
   };
+  let cardChartStoreMock: { clearCache: jest.Mock };
   let ticketStoreMock: {
     ticketsBySymbol: ReturnType<typeof signal<Record<string, OrderTicket[]>>>;
-    tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
     loadTickets: jest.Mock;
   };
   let uiStore: InstanceType<typeof GalleryUiStore>;
@@ -159,23 +171,18 @@ describe('GalleryFacade', () => {
       loading: signal(false),
       occurrenceDecisions: signal<Record<string, StOccurrenceDecision>>({}),
       loadRecentDecisions: jest.fn(),
-      acceptSignals: jest.fn(),
-      rejectSignals: jest.fn(),
-      resetSignals: jest.fn(),
     };
     symbolListStoreMock = {
       symbolLists: signal<Record<string, string[]>>({}),
       exclusiveListKeys: computed(() => ['PRIMARY']),
       symbolListsLoading: signal(false),
       filterOptionGroups: signal<{ label: string; options: { value: string; label: string }[] }[]>([]),
-      catalog: signal<SymbolListDef[]>([]),
-      toggleSymbolInList: jest.fn(),
     };
     ticketStoreMock = {
       ticketsBySymbol: signal<Record<string, OrderTicket[]>>({}),
-      tickets: signal<Record<string, OrderTicket>>({}),
       loadTickets: jest.fn(),
     };
+    cardChartStoreMock = { clearCache: jest.fn() };
     await TestBed.configureTestingModule({
       providers: [
         GalleryFacade,
@@ -185,6 +192,7 @@ describe('GalleryFacade', () => {
         { provide: OccurrenceDecisionStore, useValue: occurrenceStoreMock },
         { provide: SymbolListStore, useValue: symbolListStoreMock },
         { provide: OrderTicketStore, useValue: ticketStoreMock },
+        { provide: GalleryCardChartStore, useValue: cardChartStoreMock },
       ],
     });
     facade = TestBed.inject(GalleryFacade);
@@ -214,6 +222,11 @@ describe('GalleryFacade', () => {
       expect(ticketStoreMock.loadTickets).toHaveBeenCalled();
     });
 
+    it('clears the chart bar cache on entry — a day boundary can pass while away (#819 r2)', () => {
+      facade.enterGallery();
+      expect(cardChartStoreMock.clearCache).toHaveBeenCalled();
+    });
+
     it('resets filter/group state to page defaults', () => {
       uiStore.setTimeframe(SignalTimeframe.ALL);
       uiStore.setDirection(SignalDirection.ALL);
@@ -224,6 +237,15 @@ describe('GalleryFacade', () => {
       expect(uiStore.direction()).toBe(SignalDirection.LONG);
       expect(uiStore.listFilter()).toBe('PRIMARY');
       expect(uiStore.groupDimension()).toBe(GroupDimension.SECTOR);
+    });
+
+    it('setChartTimeframe updates the page chart interval without touching the signal filter (#819)', () => {
+      facade.setChartTimeframe(SignalTimeframe.WEEKLY);
+      expect(facade.chartTimeframe()).toBe(SignalTimeframe.WEEKLY);
+      expect(uiStore.timeframe()).toBe(SignalTimeframe.DAILY); // unchanged — decoupled
+      // The seq tick lives on the ui store now (leaf charts inject it
+      // directly) — covered by gallery-ui.store.spec.
+      expect(uiStore.chartTimeframeSeq()).toBe(1);
     });
   });
 
@@ -261,6 +283,24 @@ describe('GalleryFacade', () => {
       symbolListStoreMock.symbolLists.set({ PRIMARY: ['AAPL'] });
       uiStore.setListFilter('PRIMARY');
       expect(facade.visibleCards().map((c) => c.symbol)).toEqual(['AAPL']);
+    });
+
+    it('visibleCards retains card object identity across an unrelated ticket patch', () => {
+      const before = facade.visibleCards();
+      const aaplBefore = before.find((c) => c.key === 'AAPL:buy')!;
+
+      // A ticket landing on TSLA rebuilds the pipeline — the unchanged
+      // AAPL card must keep its object identity so its mounted chart
+      // doesn't re-render (gallery perf — card identity churn made every
+      // action re-render every mounted chart).
+      ticketStoreMock.ticketsBySymbol.set({
+        TSLA: [makeTicket('TSLA', 'sell', OrderTicketStatus.RESTING)],
+      });
+
+      const after = facade.visibleCards();
+      expect(after.find((c) => c.key === 'AAPL:buy')).toBe(aaplBefore);
+      // The touched card does change identity — its status/ticket differ.
+      expect(after.find((c) => c.key === 'TSLA:sell')).not.toBe(before.find((c) => c.key === 'TSLA:sell'));
     });
 
     it('NO_MEMBERSHIP list filter works on cold entry without a tracked-symbols load (#754 review)', () => {
@@ -344,23 +384,68 @@ describe('GalleryFacade', () => {
     });
   });
 
-  describe('action status + sunk model (#755)', () => {
-    function makeReject(symbol: string, timeframe: SignalTimeframe, signalType = 'RS_RISE'): StOccurrenceDecision {
-      return {
-        id: buildStOccurrenceDecisionId(RUN_ID, symbol, timeframe, signalType),
-        runId: RUN_ID,
-        marketDate: MARKET_DATE,
-        symbol,
-        timeframe,
-        direction: SignalDirection.LONG,
-        signalType,
-        barDate: MARKET_DATE,
-        decisionType: ReviewDecision.REJECT,
-        decidedAt: '2026-08-26T00:00:00Z',
-        isCurrentInLatestRun: true,
-      };
-    }
+  describe('flat mode (#820) — GroupDimension.NONE', () => {
+    beforeEach(() => {
+      uiStore.setTimeframe(SignalTimeframe.ALL);
+      uiStore.setDirection(SignalDirection.ALL);
+      uiStore.setListFilter('ALL');
+      groupStoreMock.activeRunId.set(RUN_ID);
+      groupStoreMock.signalSymbols.set([
+        makeProfile('SMALL', { sector: 'Tech', marketCap: 10 }),
+        makeProfile('BIG', { sector: 'Tech', marketCap: 100 }),
+        makeProfile('MID', { sector: 'Energy', marketCap: 50 }),
+        makeProfile('NOCAP', { sector: 'Tech' }),
+      ]);
+      historyStoreMock.signalHistoryCache.set({
+        [`SMALL::${RUN_ID}`]: [makeSignal('SMALL', SignalTimeframe.DAILY, SignalDirection.LONG)],
+        [`BIG::${RUN_ID}`]: [makeSignal('BIG', SignalTimeframe.DAILY, SignalDirection.LONG)],
+        [`MID::${RUN_ID}`]: [makeSignal('MID', SignalTimeframe.DAILY, SignalDirection.SHORT)],
+        [`NOCAP::${RUN_ID}`]: [makeSignal('NOCAP', SignalTimeframe.DAILY, SignalDirection.LONG)],
+      });
+      facade.setGroupDimension(GroupDimension.NONE);
+    });
 
+    it('exposes ungrouped state and flat cards sorted market-cap desc', () => {
+      expect(facade.ungrouped()).toBe(true);
+      // Missing market cap sorts last (treated as 0).
+      expect(facade.flatCards().map((c) => c.symbol)).toEqual(
+        ['BIG', 'MID', 'SMALL', 'NOCAP'],
+      );
+    });
+
+    it('emits no dimension groups — Sunk stays the only panel', () => {
+      expect(facade.groups()).toEqual([]);
+      // A rejected card still collects in the pinned Sunk panel.
+      const decisions: Record<string, StOccurrenceDecision> = {};
+      decisions[buildStOccurrenceDecisionId(RUN_ID, 'MID', SignalTimeframe.DAILY, 'RS_RISE')] =
+        makeReject('MID', SignalTimeframe.DAILY);
+      occurrenceStoreMock.occurrenceDecisions.set(decisions);
+      const groups = facade.groups();
+      expect(groups).toHaveLength(1);
+      expect(groups[0].key).toBe(SUNK_GROUP_KEY);
+      expect(groups[0].cards.map((c) => c.symbol)).toEqual(['MID']);
+      expect(facade.flatCards().map((c) => c.symbol)).toEqual(['BIG', 'SMALL', 'NOCAP']);
+    });
+
+    it('flat cards respect the active filters', () => {
+      uiStore.setDirection(SignalDirection.SHORT);
+      expect(facade.flatCards().map((c) => c.symbol)).toEqual(['MID']);
+    });
+
+    it('grouped modes unaffected after switching back', () => {
+      facade.setGroupDimension(GroupDimension.SECTOR);
+      expect(facade.ungrouped()).toBe(false);
+      expect(facade.groups().map((g) => g.key)).toEqual(
+        ['sector:Energy', 'sector:Tech'],
+      );
+      // Within-group order is still market-cap desc.
+      expect(facade.groups()[1].cards.map((c) => c.symbol)).toEqual(
+        ['BIG', 'SMALL', 'NOCAP'],
+      );
+    });
+  });
+
+  describe('action status + sunk model (#755)', () => {
     beforeEach(() => {
       uiStore.setTimeframe(SignalTimeframe.ALL);
       uiStore.setDirection(SignalDirection.ALL);
@@ -443,6 +528,69 @@ describe('GalleryFacade', () => {
     });
   });
 
+  describe('refresh', () => {
+    it('switches to a newer completed run when one has landed', () => {
+      groupStoreMock.activeRunId.set('run-old');
+      agentStoreMock.latestCompletedRun.set({ id: RUN_ID, marketDate: MARKET_DATE });
+      facade.refresh();
+      expect(groupStoreMock.setActiveRun).toHaveBeenCalledWith(RUN_ID, MARKET_DATE);
+      expect(groupStoreMock.loadSymbolsWithSignals).not.toHaveBeenCalled();
+    });
+
+    it('reloads the current run when no newer run exists', () => {
+      groupStoreMock.activeRunId.set(RUN_ID);
+      agentStoreMock.latestCompletedRun.set({ id: RUN_ID, marketDate: MARKET_DATE });
+      facade.refresh();
+      expect(groupStoreMock.setActiveRun).not.toHaveBeenCalled();
+      expect(groupStoreMock.loadSymbolsWithSignals).toHaveBeenCalled();
+      expect(occurrenceStoreMock.loadRecentDecisions).toHaveBeenCalled();
+      expect(ticketStoreMock.loadTickets).toHaveBeenCalled();
+    });
+
+    it('does not reset page filters (unlike enterGallery)', () => {
+      groupStoreMock.activeRunId.set(RUN_ID);
+      agentStoreMock.latestCompletedRun.set({ id: RUN_ID, marketDate: MARKET_DATE });
+      uiStore.setTimeframe(SignalTimeframe.WEEKLY);
+      facade.refresh();
+      expect(uiStore.timeframe()).toBe(SignalTimeframe.WEEKLY);
+    });
+
+    it('starts the runs stream when no run is active at all', () => {
+      facade.refresh();
+      expect(agentStoreMock.loadData).toHaveBeenCalled();
+    });
+
+    it('skips the symbols reload while one is already in flight', () => {
+      groupStoreMock.activeRunId.set(RUN_ID);
+      agentStoreMock.latestCompletedRun.set({ id: RUN_ID, marketDate: MARKET_DATE });
+      groupStoreMock.symbolsLoading.set(true);
+      facade.refresh();
+      expect(groupStoreMock.loadSymbolsWithSignals).not.toHaveBeenCalled();
+      expect(facade.refreshing()).toBe(true);
+    });
+
+    it('reloads tickets on the promote path — setActiveRun does not cascade them (#838 review)', () => {
+      groupStoreMock.activeRunId.set('run-old');
+      agentStoreMock.latestCompletedRun.set({ id: RUN_ID, marketDate: MARKET_DATE });
+      facade.refresh();
+      expect(ticketStoreMock.loadTickets).toHaveBeenCalled();
+    });
+
+    it('evicts the card-chart bar cache on both refresh paths (#838 review M4)', () => {
+      // Same-run path.
+      groupStoreMock.activeRunId.set(RUN_ID);
+      agentStoreMock.latestCompletedRun.set({ id: RUN_ID, marketDate: MARKET_DATE });
+      facade.refresh();
+      expect(cardChartStoreMock.clearCache).toHaveBeenCalledTimes(1);
+
+      // Promote path — cached bars from the old run's symbols must not hide
+      // the new run's trading day.
+      agentStoreMock.latestCompletedRun.set({ id: 'run-new', marketDate: '2026-08-26' });
+      facade.refresh();
+      expect(cardChartStoreMock.clearCache).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('pageInitializing', () => {
     it('is true before the runs stream emits and no run is active', () => {
       expect(facade.pageInitializing()).toBe(true);
@@ -480,6 +628,20 @@ describe('GalleryFacade', () => {
         'AAPL::run-other': true,
         TSLA: true,
       });
+      expect(facade.pageInitializing()).toBe(false);
+    });
+
+    it('stays false during a same-run refresh once cards exist (#838 review M2)', () => {
+      // symbolsLoading flips true for the refresh reload — if it still
+      // drove pageInitializing the whole grid would tear down (scroll
+      // position, per-card overrides, mounted charts lost).
+      groupStoreMock.activeRunId.set(RUN_ID);
+      groupStoreMock.signalSymbols.set([makeProfile('AAPL')]);
+      historyStoreMock.signalHistoryCache.set({
+        [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)],
+      });
+      groupStoreMock.symbolsLoading.set(true);
+      expect(facade.cards().length).toBeGreaterThan(0);
       expect(facade.pageInitializing()).toBe(false);
     });
   });

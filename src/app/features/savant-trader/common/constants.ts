@@ -76,11 +76,15 @@ export type SymbolListFilter = 'ALL' | typeof NO_MEMBERSHIP | (string & {});
 /** Symbol type classification for the trading universe. */
 export type SymbolType = 'STOCK' | 'ETF' | 'FUTURE' | 'FOREX' | 'CRYPTO' | 'OTHER';
 
-/** Dimensions available for grouping the symbol list in the grouped review. */
+/** Dimensions available for grouping the symbol list in the grouped review.
+ *  NONE is a gallery-only flat-mode sentinel (#820), not a real dimension —
+ *  grouping code throws on it (see getGroupKey). */
 export enum GroupDimension {
   SECTOR = 'sector',
   INDUSTRY = 'industry',
   MARKET_CAP_TIER = 'marketCapTier',
+  /** Flat gallery — no expando grouping, cards sorted market-cap desc (#820). */
+  NONE = 'none',
 }
 
 /** Signal timeframe filter options. */
@@ -89,6 +93,15 @@ export enum SignalTimeframe {
   DAILY = 'D',
   WEEKLY = 'W',
 }
+
+/** Gallery card-chart interval — a strict subset of SignalTimeframe; ALL is
+ *  meaningless as a chart interval (#819: keeps the decoupled chart toggle
+ *  from silently rendering daily under no-active-pill). */
+export type CardChartTimeframe = SignalTimeframe.DAILY | SignalTimeframe.WEEKLY;
+
+/** Default card-chart interval — the header Chart toggle and ui-store both
+ *  start on daily (#819 r2: single source for the repeated DAILY literal). */
+export const DEFAULT_CARD_CHART_TIMEFRAME: CardChartTimeframe = SignalTimeframe.DAILY;
 
 /** Signal persistence status. */
 export enum SignalStatus {

@@ -166,6 +166,12 @@ export function getGroupKey(profile: StSymbolProfile, dimension: GroupDimension)
     case GroupDimension.SECTOR:        return profile.sector        || UNKNOWN_GROUP;
     case GroupDimension.INDUSTRY:      return profile.industry      || UNKNOWN_GROUP;
     case GroupDimension.MARKET_CAP_TIER: return profile.marketCapTier || UNKNOWN_GROUP;
+    // NONE (#820) is gallery flat-mode only — grouping must never run under
+    // it. Throw rather than sink everything into (Unknown): signal-review
+    // shares this enum and a stray NONE there would otherwise silently
+    // collapse all symbols into one group (820 thermo review M1).
+    case GroupDimension.NONE:
+      throw new Error('getGroupKey: GroupDimension.NONE is not groupable — flat mode only');
   }
 }
 
