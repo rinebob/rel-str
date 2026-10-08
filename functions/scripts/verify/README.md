@@ -25,6 +25,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #258 | `strat-lib-258-comparison.ts` | Script runner pipeline (Firestore → compute → JSON) | [strat-lib-258.md](strat-lib-258.md) |
 | #268 | `indicator-lib-268-engine.ts` | Std Dev Lines engine (golden values + Firestore → compute → validate) | [indicator-lib-268.md](indicator-lib-268.md) |
 | #876 | `indicator-lib-876-engine.ts` | ST Trigger Bands engine (Firestore bars -> compute -> reference parity + invariants) | [indicator-lib-876.md](indicator-lib-876.md) |
+| #877 | `indicator-lib-877-callable.ts` | Trigger Bands in the indicator series (Firestore bars -> computeSymbolIndicatorSeries -> filterResponse, payload cost) | [indicator-lib-877.md](indicator-lib-877.md) |
 | #561 | `paper-trading-ledger-561.ts` | fill → ledger → Firestore atomic write | [paper-trading-ledger-561.md](../../../scripts/verify/paper-trading-ledger-561.md) |
 | #562 | `paper-trading-engine-migration-562.ts` | legacy options-strategy-* → `paper-trading/{anchor}/items` migration + P&L parity | [paper-trading-engine-migration-562.md](../../../scripts/verify/paper-trading-engine-migration-562.md) |
 | #563 | `paper-trading-exit-eval-563.ts` | nightly variant eval → governing fill / mark-gap tolerance | [paper-trading-exit-eval-563.md](../../../scripts/verify/paper-trading-exit-eval-563.md) |
@@ -64,3 +65,4 @@ npx tsx scripts/verify/{script-name}.ts
 18. **#769** — `screenshot-capture-769-rasterize.ts` (PNG rasterization → bucket sibling)
 19. **#844** — `screenshot-capture-844-contracts.ts` (grouped path + position types → bucket write)
 20. **#876** — `indicator-lib-876-engine.ts` (trigger bands engine)
+21. **#877** — `indicator-lib-877-callable.ts` (trigger bands in the indicator series)
