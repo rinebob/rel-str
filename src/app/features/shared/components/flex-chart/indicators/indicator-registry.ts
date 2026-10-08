@@ -21,6 +21,8 @@ export { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines, computeStdDevLinesSer
 export type { StdDevLineSeriesData, StdDevLineSeries, StdDevFillZone } from './st-std-dev-lines.indicator';
 export { ST_ZIGZAG_INDICATOR, calculateZigZag, computeZigZagSeries } from './st-zigzag.indicator';
 export type { ZigZagChartSeries, ZigZagLineSeries } from './st-zigzag.indicator';
+export { ST_ANCHORED_VWAP_INDICATOR, computeAnchoredVwapSeries } from './st-anchored-vwap.indicator';
+export type { AnchoredVwapLineSeries } from './st-anchored-vwap.indicator';
 export { ST_TRIGGER_BANDS_INDICATOR, ST_TRIGGER_BANDS_DOTS_INDICATOR, computeTriggerBandLines } from './st-trigger-bands.indicator';
 export type { TriggerBandLine, TriggerBandPoint, TriggerBandState } from './st-trigger-bands.indicator';
 
@@ -39,6 +41,7 @@ import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } fr
 import { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth } from './st-trend-band-width.indicator';
 import { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines } from './st-std-dev-lines.indicator';
 import { ST_ZIGZAG_INDICATOR, calculateZigZag } from './st-zigzag.indicator';
+import { ST_ANCHORED_VWAP_INDICATOR } from './st-anchored-vwap.indicator';
 import { ST_TRIGGER_BANDS_INDICATOR, ST_TRIGGER_BANDS_DOTS_INDICATOR } from './st-trigger-bands.indicator';
 
 /** ST-only indicators for the checkbox toggle menu */
@@ -52,6 +55,7 @@ export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
   ST_STD_DEV_LINES_INDICATOR,
   ST_ZIGZAG_INDICATOR,
+  ST_ANCHORED_VWAP_INDICATOR,
 ];
 
 /** Indicator types reserved for in-development features. Stripped from the
@@ -98,6 +102,7 @@ const SERIES_TYPE_MAP: Partial<Record<IndicatorType, SeriesType>> = {
   [StIndicator.TREND_BAND_WIDTH]:   'column',
   [StIndicator.ST_STD_DEV_LINES]:      'line',
   [StIndicator.ST_ZIGZAG]:             'line',
+  [StIndicator.ST_ANCHORED_VWAP]:      'line',
   [StIndicator.ST_TRIGGER_BANDS]:      'line',
   [StIndicator.ST_TRIGGER_BANDS_DOTS]: 'scatter',
 };
