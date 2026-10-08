@@ -1,10 +1,20 @@
 import {
+  EquityMarketHours,
   EquityOrderTicket,
+  EquityTimeInForce,
   InstrumentType,
   OrderTicket,
+  OrderTicketSourceRef,
   OrderTicketStatus,
   OrderSource,
 } from '../services/order-ticket.types';
+
+/** Order params a stop ticket must carry through from the caller — omitted
+ *  fields fall back to the historical defaults (GTC / regular hours). */
+export interface StopOrderParams {
+  timeInForce?: EquityTimeInForce;
+  marketHours?: EquityMarketHours;
+}
 
 function formatTicketTimestamp(now: Date): string {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -60,6 +70,7 @@ export function buildStopLossTicket(
   quantity: string,
   stopPrice: number,
   accountNumber: string,
+  params: StopOrderParams = {},
   now = new Date(),
 ): EquityOrderTicket {
   return buildStopLossTicketBase(
@@ -68,6 +79,7 @@ export function buildStopLossTicket(
     quantity,
     stopPrice,
     accountNumber,
+    params,
     now,
   );
 }
@@ -83,6 +95,7 @@ export function buildPositionStopLossTicket(
   quantity: string,
   stopPrice: number,
   accountNumber: string,
+  params: StopOrderParams = {},
   now = new Date(),
 ): EquityOrderTicket {
   return buildStopLossTicketBase(
@@ -91,17 +104,49 @@ export function buildPositionStopLossTicket(
     quantity,
     stopPrice,
     accountNumber,
+    params,
+    now,
+  );
+}
+
+/**
+ * Build the replacement ticket for an Update Stop operation — the sourceRef
+ * records the cancelled order's id so provenance points at what was replaced,
+ * not the position symbol (that link is preserved on `symbol`).
+ *
+ * Invariant: update tickets are submit-and-discard — `updateEquityStopOrder`
+ * sends them straight to the broker; they are never staged into the
+ * order-ticket pipeline. `sourceRef.type === 'stop_loss'` predicates
+ * (order-ticket.component.ts) intentionally do not match 'stop_loss_update'.
+ */
+export function buildStopLossUpdateTicket(
+  symbol: string,
+  quantity: string,
+  stopPrice: number,
+  accountNumber: string,
+  replacedOrderId: string,
+  params: StopOrderParams = {},
+  now = new Date(),
+): EquityOrderTicket {
+  return buildStopLossTicketBase(
+    { type: 'stop_loss_update', id: replacedOrderId },
+    symbol,
+    quantity,
+    stopPrice,
+    accountNumber,
+    params,
     now,
   );
 }
 
 /** Shared base for stop-loss ticket builders. Only sourceRef differs between variants. */
 function buildStopLossTicketBase(
-  sourceRef: { type: string; id: string },
+  sourceRef: OrderTicketSourceRef,
   symbol: string,
   quantity: string,
   stopPrice: number,
   accountNumber: string,
+  params: StopOrderParams,
   now: Date,
 ): EquityOrderTicket {
   return {
@@ -113,8 +158,8 @@ function buildStopLossTicketBase(
     accountNumber,
     side: 'sell',
     orderType: 'stop_loss',
-    timeInForce: 'gtc',
-    marketHours: 'regular_hours',
+    timeInForce: params.timeInForce ?? 'gtc',
+    marketHours: params.marketHours ?? 'regular_hours',
     instrumentType: InstrumentType.EQUITY,
     symbol,
     quantity,

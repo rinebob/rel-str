@@ -47,6 +47,12 @@ export enum OrderSource {
 // Shared sub-types
 // =============================
 
+/** Time-in-force values supported by the RH equity order endpoint. */
+export type EquityTimeInForce = 'gfd' | 'gtc';
+
+/** Market session buckets supported by the RH equity order endpoint. */
+export type EquityMarketHours = 'regular_hours' | 'extended_hours' | 'all_day_hours';
+
 /** Link to the originating entity (e.g., an occurrence decision id). */
 export interface OrderTicketSourceRef {
   type: string;
@@ -136,8 +142,8 @@ export interface BaseOrderTicket extends OrderIntentTrackingFields {
   accountNumber: string;
   side: 'buy' | 'sell';
   orderType: 'market' | 'limit' | 'stop_market' | 'stop_limit' | 'stop_loss';
-  timeInForce: 'gfd' | 'gtc';
-  marketHours: 'regular_hours' | 'extended_hours' | 'all_day_hours';
+  timeInForce: EquityTimeInForce;
+  marketHours: EquityMarketHours;
   signalContext?: OrderTicketSignalContext;
   /** Optional allocation-bucket doc id — set by the ticket's bucket
    *  picker; seeds the resulting position's attribution at fill

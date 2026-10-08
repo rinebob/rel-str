@@ -6,7 +6,12 @@
  * component so they don't duplicate the same response-shape traversal and
  * stop-loss predicate logic.
  */
-import { BrokerOrderSnapshot, OrderTicketStatus } from '../services/order-ticket.types';
+import {
+  BrokerOrderSnapshot,
+  EquityMarketHours,
+  EquityTimeInForce,
+  OrderTicketStatus,
+} from '../services/order-ticket.types';
 
 /**
  * Extract the orders array from an MCP `get_equity_orders` response.
@@ -78,6 +83,28 @@ export function parseEquityOrdersResponse(parsed: unknown): Record<string, Broke
 
 /** Terminal states that indicate an order is no longer active. */
 const TERMINAL_STATES = new Set(['filled', 'cancelled', 'canceled', 'failed', 'rejected', 'voided']);
+
+/**
+ * Narrow a verbatim RH `time_in_force` string to the canonical ticket union.
+ * Returns undefined for absent or unrecognized values (e.g. 'fok', 'ioc') —
+ * the caller decides the default, so a surprising RH value can't silently
+ * become 'gtc'. The single narrowing point for BrokerOrder.timeInForce →
+ * EquityTimeInForce; do not hand-roll coercions elsewhere.
+ */
+export function toEquityTimeInForce(value?: string): EquityTimeInForce | undefined {
+  return value === 'gfd' || value === 'gtc' ? value : undefined;
+}
+
+/**
+ * Narrow a verbatim RH `market_hours` string to the canonical ticket union.
+ * Returns undefined for absent or unrecognized values — same rule as
+ * toEquityTimeInForce.
+ */
+export function toEquityMarketHours(value?: string): EquityMarketHours | undefined {
+  return value === 'regular_hours' || value === 'extended_hours' || value === 'all_day_hours'
+    ? value
+    : undefined;
+}
 
 /**
  * Map a Robinhood order state to a terminal `OrderTicketStatus`, or null if

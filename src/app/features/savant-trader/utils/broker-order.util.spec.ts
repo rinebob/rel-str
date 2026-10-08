@@ -8,6 +8,8 @@ import {
   rhStateToTerminalStatus,
   rhStateToDisplayStatus,
   restingLimitBuyNotional,
+  toEquityTimeInForce,
+  toEquityMarketHours,
 } from './broker-order.util';
 
 describe('broker-order.util', () => {
@@ -286,6 +288,35 @@ describe('broker-order.util', () => {
         bad: snap({ price: 'abc' }),
       };
       expect(restingLimitBuyNotional(orders)).toBe(0);
+    });
+  });
+
+  describe('toEquityTimeInForce', () => {
+    it('passes through the canonical values', () => {
+      expect(toEquityTimeInForce('gfd')).toBe('gfd');
+      expect(toEquityTimeInForce('gtc')).toBe('gtc');
+    });
+
+    it('returns undefined for values outside the union — no silent GTC upgrade', () => {
+      expect(toEquityTimeInForce('fok')).toBeUndefined();
+      expect(toEquityTimeInForce('ioc')).toBeUndefined();
+      expect(toEquityTimeInForce('GTC')).toBeUndefined();
+      expect(toEquityTimeInForce('')).toBeUndefined();
+      expect(toEquityTimeInForce(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('toEquityMarketHours', () => {
+    it('passes through the canonical values', () => {
+      expect(toEquityMarketHours('regular_hours')).toBe('regular_hours');
+      expect(toEquityMarketHours('extended_hours')).toBe('extended_hours');
+      expect(toEquityMarketHours('all_day_hours')).toBe('all_day_hours');
+    });
+
+    it('returns undefined for values outside the union', () => {
+      expect(toEquityMarketHours('overnight_hours')).toBeUndefined();
+      expect(toEquityMarketHours('')).toBeUndefined();
+      expect(toEquityMarketHours(undefined)).toBeUndefined();
     });
   });
 });
