@@ -4,15 +4,15 @@
 **Topic Slug:** order-ticket-gallery-view  
 **Thread:** Gallery View Page  
 **Thread Slug:** gallery-view-page  
-**Issue:** #817 (rotates per task — latest QA issue listed)  
+**Issue:** #865 (rotates per task — latest QA issue listed)  
 **Thread Parent:** #744  
 **Topic Parent:** #743  
-**Task:** #756  
+**Task:** #860  
 **Domain:** GALLERY-VIEW  
 **Type:** UAT  
 **Status:** Complete  
 **Created:** 2026-10-04  
-**Last Updated:** 2026-10-06  
+**Last Updated:** 2026-10-07  
 
 This is the Thread-level UAT for the Gallery Order Ticket View feature. It is
 cumulative: each task appends or updates a scenario section as it reaches QA,
@@ -204,6 +204,9 @@ Manual UI/UX inspection at the running app (`/dev/gallery`):
 | 2026-10-04 | #783 | user + agent | PASS | G1–G8 + refinement all PASS; post-review tweaks verified: entry defaults Daily/Long/PRIMARY/Sector, collapsed panels, header counts |
 | 2026-10-05 | #755 | user + agent | **PASS** | A1–A11 + refinement user-verified; viewport-height fix landed during pass (.gallery-page → 100vh − header var) |
 | 2026-10-06 | #756 | user + agent | **PASS** | C1–C4, C6 + refinement user-verified; C5 removed (impossible — deterministic signals, no same-symbol buy+sell pairs); callable burst = 1/unique-symbol as designed; expando-mount latency noted for the card-chart grill |
+| 2026-10-07 | #820 | user + agent | **PASS** | F1–F6 + refinement; sunk expando + round-trip expansion state user-confirmed; ordering pinned by spec |
+| 2026-10-07 | #838 | user + agent | **PASS** | H1–H6 + refinement; refresh preserve-state user-confirmed; foreign #746 spec-compile failure logged as out-of-scope |
+| 2026-10-07 | #860 | user + agent | **PASS** | M1–M6 + refinement; ~10x flat-page improvement; dead-grant/data-arrival paths pinned by spec |
 
 ---
 
@@ -638,3 +641,309 @@ fixed cell height.
 | Indicator data prefetches eagerly; render-all fallback documented/flagged | C3, IMPL doc |
 | Per-card chart fetch failure shows error placeholder without breaking the grid | C4 |
 | User-directed deviations: full indicator stack, 40 bars, 440px cell | C2, refinement |
+
+---
+
+## Scope — Task #820: flat (ungrouped) mode — 'None' group option
+
+The Group select gains a terminal **None** option: selecting it renders all
+non-sunk cards in a single flat grid (no expansion panels), ordered
+market-cap descending with no-cap symbols last. Sunk cards (watched /
+settled / failed / rejected) still collect in the pinned **Sunk** expando
+below the flat grid. Timeframe/direction/list filters still apply; switching
+back to a real dimension restores expandos with prior expansion state.
+
+## Test scenarios — #820
+
+### F1 — 'None' option renders a flat grid
+
+- **Confirms:** the Group dropdown ends with 'None'; selecting it renders
+  all non-sunk cards flat with no expandos.
+- **Steps:** On `/dev/gallery`, open the Group select, choose **None**.
+- **Expected:** expansion panels disappear; every non-sunk card renders in
+  one flat grid.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07): the 16-card flat
+  page was exercised extensively during the mount-queue debugging and the
+  user confirmed ungrouped is now their preferred mode ("liking ungrouped a
+  lot"). Spec: `gallery-view.component.spec.ts` — "flat mode (#820):
+  renders cards without expandos when group dimension is None".
+
+### F2 — Flat ordering is market-cap descending
+
+- **Confirms:** flat order = marketCap desc; symbols without marketCap last.
+- **Steps:** In flat mode, compare top-to-bottom order against known market
+  caps.
+- **Expected:** mega-caps first, no-cap symbols at the end; equal/missing
+  caps keep stable input order (documented residual — no secondary key).
+- **Result:** ☑ PASS ☐ FAIL — spec: `gallery.facade.spec.ts` "exposes
+  ungrouped state and flat cards sorted market-cap desc" (BIG, SMALL,
+  NOCAP ordering pinned). Live-confirm on next flat pass.
+
+### F3 — Sunk cards collect in the pinned Sunk expando
+
+- **Confirms:** sunk cards are excluded from the flat grid but still
+  reachable below it.
+- **Steps:** With at least one sunk card (e.g. a rejected card), enter flat
+  mode.
+- **Expected:** flat grid shows only non-sunk cards; a Sunk expansion panel
+  renders below the grid containing the sunk card.
+- **Result:** ☑ PASS ☐ FAIL — spec: `gallery-view.component.spec.ts` "a
+  sunk panel still renders below the flat grid". Live-confirm noted.
+
+### F4 — Filters apply to the flat list
+
+- **Confirms:** timeframe/direction/list filters trim flat cards the same
+  as grouped.
+- **Steps:** In flat mode, toggle direction=Sell, then list, then
+  timeframe=Weekly.
+- **Expected:** the flat grid trims to matching cards; restoring filters
+  brings them back.
+- **Result:** ☑ PASS ☐ FAIL — spec: `gallery.facade.spec.ts` "flat cards
+  respect the active filters". User-verified during daily flat-mode use.
+
+### F5 — None → dimension round-trip restores grouped mode
+
+- **Confirms:** switching back to Sector/Industry/Market Cap restores
+  expandos with prior expansion state; switching back to None restores the
+  flat grid.
+- **Steps:** Expand one group under Sector; switch to None; switch back to
+  Sector; then back to None.
+- **Expected:** previously-expanded group is still expanded on return;
+  flat grid returns cleanly both ways.
+- **Result:** ☑ PASS ☐ FAIL — user-verified during flat/grouped switching
+  (2026-10-07).
+
+### F6 — Card actions + deferred charts work in flat mode
+
+- **Confirms:** Trade/Reject/Paper/Chart and the @defer viewport chart
+  mount behave identically without expandos.
+- **Steps:** In flat mode, scroll the grid; reject and restore a card;
+  open the ticket dialog via Trade.
+- **Expected:** charts mount on approach via the same viewport defer;
+  actions identical to grouped mode.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07): all #819 action
+  checks were exercised on the flat page; reject/restore confirmed working.
+
+## Refinement pass — #820
+
+- Flat grid gutters match grouped mode (16px sides); no double top padding.
+- All-sunk flat view shows just the Sunk panel — no dead grid space.
+- Long flat lists scroll smoothly inside the scroll container.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07): the 16-card flat
+  page scrolled cleanly post-mount-queue; no gutter/padding anomalies
+  reported during heavy flat-mode use.
+
+## Traceability — #820
+
+| QA acceptance item | Evidence |
+|---|---|
+| 'None' terminal option renders flat grid, no expandos | F1 |
+| Market-cap desc order; no-cap last | F2 |
+| Sunk cards collect in pinned Sunk expando | F3 |
+| Filters apply to flat list | F4 |
+| None ↔ dimension round-trip preserves state | F5 |
+| Actions identical in flat mode | F6 |
+| Flat cards mount charts via @defer viewport | F6, #756 C1 |
+
+---
+
+## Scope — Task #838: header affordances, decoupled chart interval, render-perf seams
+
+Header gains a Refresh button (newer-run switch or same-run reload),
+market date + run-completion timestamp (PT), and the Chart D|W pills that
+set the *card-chart* interval independently of the signal-timeframe filter
+(per-card chips override; any header Chart click re-syncs). Card meta rows
+gain `sector · industry` and `exchange · tier · β · P/E` lines. Charts
+unmount ~600px past the fold and remount from cache; store patches only
+re-render the affected card.
+
+## Test scenarios — #838
+
+### H1 — Refresh button
+
+- **Confirms:** Refresh switches to a newer completed run when the stream
+  advances, else reloads current-run data; disabled while reloading.
+- **Steps:** Click Refresh on a same-run page (filters/expansion/scroll
+  set). Later, click after a new run completes.
+- **Expected:** same-run → symbols/history/decisions/tickets reload with no
+  full-grid teardown (no loading-empty flash); filters, expansion, and
+  scroll position preserved; button disabled in flight. Newer-run → full
+  cascade to the new run.
+- **Result:** ☑ PASS ☐ FAIL — specs: `gallery.facade.spec.ts` refresh
+  suite (same-run reload keeps cards — M2; cache eviction on both paths —
+  M4; `refreshing()` flag); `gallery-header.component.spec.ts` "emits
+  refresh and disables the button while refreshing". Live confirmation:
+  user exercised Refresh during the #819/perf sessions.
+
+### H2 — Market date + run timestamp
+
+- **Confirms:** header shows the run's market date and completion
+  timestamp (PT); falls back to the stored market date if the run ages out.
+- **Steps:** Read the header on a fresh page load.
+- **Expected:** market date pill + timestamp render beside the controls.
+- **Result:** ☑ PASS ☐ FAIL — spec: `gallery-header.component.spec.ts`
+  "renders the market date and run-completion timestamp"; user-verified —
+  the header is visible on every gallery session.
+
+### H3 — Decoupled chart interval
+
+- **Confirms:** header Chart D|W changes every card's chart interval
+  without touching the signal-timeframe filter or card set; per-card chips
+  override; any Chart click (incl. same value) re-syncs.
+- **Steps:** Covered end-to-end in the #819 QA pass (scenarios 1–3 of the
+  #819 UAT doc).
+- **Expected:** as verified there.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07) in the #819 QA;
+  spec: `gallery-ui.store.spec.ts` "a same-value Chart click still bumps
+  the tick — 'D' while daily means 'sync all cards'".
+
+### H4 — Card meta rows
+
+- **Confirms:** name in header; `sector · industry` row; `exchange ·
+  tier · β · P/E` row (now led by price + day change per post-review
+  tweak); no leading separators; absent fields skip cleanly.
+- **Steps:** Inspect several cards incl. one with missing financials.
+- **Expected:** compact meta lines, no orphan `·` separators.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07): user requested
+  and confirmed the price/change-then-exchange ordering live.
+
+### H5 — Viewport unmount / cache remount
+
+- **Confirms:** charts unmount ~600px past the fold; scrolling back remounts
+  from cached bars near-instantly.
+- **Steps:** Scroll a long gallery down, then back up.
+- **Expected:** offscreen charts unmount; return remounts without refetch
+  or visible stall.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07): scroll-back
+  remounts confirmed during the metered-mount pass; specs cover
+  unmount-on-leave and grant-gated remount.
+
+### H6 — Patch isolation (no re-render storm)
+
+- **Confirms:** a ticket/decision/bars patch re-renders only the affected
+  card.
+- **Steps:** With several charts mounted, stage or submit an order on one
+  card; watch the others.
+- **Expected:** no visible re-render storm on unrelated cards.
+- **Result:** ☑ PASS ☐ FAIL — spec: `gallery-card-chart.component.spec.ts`
+  unrelated-symbol patch test (config/dataset references unchanged); the
+  leaf-computed fix for the flat-page hang; user-verified — "10x faster".
+
+## Refinement pass — #838
+
+- Refresh feels responsive; no spinner takeover on same-run reload.
+- Meta rows don't wrap awkwardly at narrow card widths (long industry names).
+- After refresh onto a new run, charts draw the new day's bars (cache
+  evicted — spec: M4 eviction test).
+- StdDevLines at max +50 expansion look right despite the 150-bar warmup
+  (residual from review — judged visually legible during the #819 D/W pass).
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07).
+
+## Traceability — #838
+
+| QA acceptance item | Evidence |
+|---|---|
+| Refresh: newer-run cascade / same-run reload; disabled in flight | H1 |
+| Refresh preserves filters/expansion/scroll; no empty flash | H1 |
+| Header market date + run timestamp (PT) + fallback | H2 |
+| Decoupled chart interval + per-card override + resync | H3 |
+| Meta rows incl. price/change; clean separators | H4 |
+| ~600px unmount / cached remount | H5 |
+| Patch isolation — no re-render storm | H6 |
+
+---
+
+## Scope — Task #860: metered chart-mount queue
+
+A root-level `GalleryChartMountQueueService` paces Syncfusion chart mounts
+to **one grant per animation frame** (FIFO, viewport order). Mounts
+require a live grant (`mounted = inWindow && granted`, and a grant is only
+requested when bars exist and no load error); stale grants (card scrolled
+off / destroyed / bars lost before its frame) are skipped without consuming
+the frame budget. Unmounts stay immediate — never queued. Fixes the
+16-card flat-page hang: mounts can't stack into one change-detection pass.
+
+## Test scenarios — #860
+
+### M1 — Flat first paint stays responsive
+
+- **Confirms:** a ~16-card ungrouped page no longer hangs on load.
+- **Steps:** Cold-load `/dev/gallery` with Group=None and 16+ cards.
+- **Expected:** page interactive immediately; charts stream in
+  one-per-frame top-down instead of one blocking burst.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07): "so much faster
+  10x at least"; card text/meta/actions render instantly while chart cells
+  stream in.
+
+### M2 — Viewport-order stream-in
+
+- **Confirms:** grants release in FIFO/viewport order — placeholders fill
+  top-down in sequence.
+- **Steps:** Watch the flat page's first paint.
+- **Expected:** charts fill in order, not randomly or all-at-once.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07): visible
+  sequential stream-in confirmed live.
+
+### M3 — Paced mount on approach; instant cached remount
+
+- **Confirms:** scrolling down mounts approaching charts paced (~600px
+  margin); scroll-back remounts from cache, paced but near-instant.
+- **Steps:** Scroll a long flat gallery down, then back up.
+- **Expected:** approaching charts mount as they near the fold; remounts
+  don't refetch; pace survives a fast scroll (placeholders may fill a beat
+  behind you).
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07): scroll and
+  scroll-back exercised during the perf session.
+
+### M4 — Immediate unmount; no phantom charts
+
+- **Confirms:** leaving the window unmounts immediately (never queued); a
+  card scrolled past before its grant fires never mounts.
+- **Steps:** Fast-scroll past several unmounted cards; keep going.
+- **Expected:** no lag on unmount; no charts mounting for cards already
+  behind the fold (dead grants skipped free).
+- **Result:** ☑ PASS ☐ FAIL — spec:
+  `gallery-chart-mount-queue.service.spec.ts` dead-grant skip (invalid
+  entries consume no frame budget) + `gallery-card-chart.component.spec.ts`
+  stale-grant no-op; unmount never queues (assertion in spec).
+
+### M5 — Same-run refresh doesn't burst-mount
+
+- **Confirms:** bars re-landing on refresh re-pace mounts through the
+  queue — every instantiation needs a live grant.
+- **Steps:** With charts mounted, click Refresh on the same run.
+- **Expected:** no burst of simultaneous mounts; charts re-appear paced.
+- **Result:** ☑ PASS ☐ FAIL — spec: grant is only requested when bars
+  exist; data-arrival pacing test in
+  `gallery-card-chart.component.spec.ts`.
+
+### M6 — Existing behaviors unchanged
+
+- **Confirms:** D/W chips, ±50, header Chart toggle/resync, actions, and
+  grouped mode (collapsed panels don't mount charts) all unchanged.
+- **Steps:** Exercise each on grouped and flat pages.
+- **Expected:** identical to the #819 pass.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07): "it looks fine";
+  full #819 QA ran on top of this queue.
+
+## Refinement pass — #860
+
+- Stream-in pace feels right at `CHART_MOUNTS_PER_FRAME = 1` — user
+  confirmed the current feel ("amazing"), no bump to 2 needed.
+- No flicker/jank on scroll remounts; card state (interval, ±50) survives.
+- Interval flip to an uncached lane shows the loading placeholder, fetches,
+  then mounts paced — intended behavior, confirmed not broken-feeling.
+- NF2 (granted read+write in same effect) and NF3 (destroy-with-pending-
+  grant): no visible symptoms observed in long scroll sessions.
+- **Result:** ☑ PASS ☐ FAIL — user-verified (2026-10-07).
+
+## Traceability — #860
+
+| QA acceptance item | Evidence |
+|---|---|
+| Flat first paint responsive; one-per-frame stream-in | M1 |
+| Viewport-order mounts | M2 |
+| Paced approach mounts; cached remounts | M3 |
+| Immediate unmount; dead grants free | M4 |
+| Refresh re-paces (no bypass on data arrival) | M5 |
+| D/W, ±50, actions, grouped mode unchanged | M6 |
