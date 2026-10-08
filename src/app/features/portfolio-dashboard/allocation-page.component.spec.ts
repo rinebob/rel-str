@@ -1,9 +1,9 @@
 /**
  * AllocationPageComponent — the Allocation Manager page shell (task #588).
  *
- * ACs: route + nav reachable; every account renders a tab, non-agentic
- * flagged; header reconciles value/allocated/cash per selected account;
- * tab switch re-scopes subtabs.
+ * ACs: route + nav reachable; every account renders a switcher pill,
+ * non-agentic flagged; header reconciles value/allocated/cash per
+ * selected account; account switch re-scopes subtabs.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
@@ -12,6 +12,8 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 import { MatDialog } from '@angular/material/dialog';
+import { MatTabGroup } from '@angular/material/tabs';
+import { By } from '@angular/platform-browser';
 import { AllocationPageComponent } from './allocation-page.component';
 import { AllocationStore } from './allocation.store';
 import type { AccountInfo } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
@@ -91,6 +93,7 @@ function mockStore() {
   });
   return {
     accounts: signal<AccountInfo[]>([account(ACCT_A), account(ACCT_B, false)]),
+    accountsLoaded: signal(true),
     selectedAccountIndex: idx,
     loadError: signal<string | null>(null),
     selectedAccount: signal<AccountInfo | null>(account(ACCT_A)),
@@ -148,10 +151,57 @@ describe('AllocationPageComponent', () => {
     expect(link.getAttribute('href')).toContain('portfolio');
   });
 
-  it('renders one account tab per account — non-agentic flagged', async () => {
+  it('renders a header bar carrying the switcher and page actions (#779)', async () => {
     await setup();
-    expect(fixture.nativeElement.querySelector(`[data-testid="acct-tab-${ACCT_A}"]`)).toBeTruthy();
-    expect(fixture.nativeElement.querySelector(`[data-testid="acct-tab-${ACCT_B}"]`)).toBeTruthy();
+    const bar = fixture.nativeElement.querySelector('[data-testid="page-header"]');
+    expect(bar).toBeTruthy();
+    expect(bar.querySelector('[data-testid="account-switcher"]')).toBeTruthy();
+    expect(bar.querySelector('[data-testid="back-to-portfolio"]')).toBeTruthy();
+    expect(bar.querySelector('[data-testid="refresh-btn"]')).toBeTruthy();
+  });
+
+  it('keeps exactly one Buckets|Positions tab group with instant switching (#779)', async () => {
+    await setup();
+    const groups = fixture.debugElement.queryAll(By.directive(MatTabGroup));
+    expect(groups.length).toBe(1);
+    expect((groups[0].componentInstance as MatTabGroup).animationDuration).toBe('0ms');
+  });
+
+  it('carries the bounded shell chain that owns page scrolling (#779)', async () => {
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.alloc-root')).toBeTruthy();
+    const content = el.querySelector('.alloc-content');
+    expect(content).toBeTruthy();
+    const tabs = content!.querySelector('[data-testid="subtabs"]') as HTMLElement;
+    expect(tabs).toBeTruthy();
+    expect(tabs.classList.contains('alloc-tabs')).toBe(true);
+    // The bound is only real if the injected styles pierce into Material's
+    // tab DOM — an encapsulated descendant rule can't reach the wrapper
+    // (the dashboard's pre-#779 copy was dead code). Pin the critical link.
+    const styles = Array.from(document.head.querySelectorAll('style'))
+      .map((s) => s.textContent ?? '')
+      .join('\n');
+    expect(styles).toContain('.mat-mdc-tab-body-wrapper');
+  });
+
+  it('shows a true empty state once a successful load returns zero accounts (#779)', async () => {
+    await setup();
+    store.accounts.set([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="accounts-empty"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="accounts-loading"]')).toBeNull();
+    // ...and before the load resolves, it must read as loading.
+    store.accountsLoaded.set(false);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="accounts-loading"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="accounts-empty"]')).toBeNull();
+  });
+
+  it('renders one account pill per account — non-agentic flagged (#778)', async () => {
+    await setup();
+    expect(fixture.nativeElement.querySelector(`[data-testid="acct-toggle-${ACCT_A}"]`)).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(`[data-testid="acct-toggle-${ACCT_B}"]`)).toBeTruthy();
     const flag = fixture.nativeElement.querySelector(`[data-testid="non-agentic-flag-${ACCT_B}"]`);
     expect(flag).toBeTruthy();
     expect(flag.textContent).toMatch(/non-agentic|read.?only/i);
@@ -203,21 +253,21 @@ describe('AllocationPageComponent', () => {
     expect(rows[1].textContent).toContain('Unassigned');
   });
 
-  it('switching the account tab re-scopes all subtabs to the new account', async () => {
+  it('switching the account pill re-scopes all subtabs to the new account (#778)', async () => {
     await setup();
-    const tabLabel = fixture.nativeElement.querySelector(`[data-testid="acct-tab-${ACCT_B}"]`) as HTMLElement;
-    tabLabel.closest('[role="tab"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const toggle = fixture.nativeElement.querySelector(`[data-testid="acct-toggle-${ACCT_B}"]`) as HTMLElement;
+    toggle.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
     await flush();
     fixture.detectChanges();
     expect(store.selectAccount).toHaveBeenCalledWith(1);
-    // Re-scoped content inside the ACTIVE tab body (visited bodies stay
-    // mounted and mirror the selected account — query the active one).
-    const active = () => fixture.nativeElement.querySelector('.mat-mdc-tab-body-active');
-    expect(active().querySelector('[data-testid="account-header"]').textContent).toContain('5,000');
+    // The account header is a sibling of the subtab group now (one
+    // instance for the selected account, not a tab body per account).
+    expect(fixture.nativeElement.querySelector('[data-testid="account-header"]').textContent).toContain('5,000');
+    const active = () => fixture.nativeElement.querySelector('.mat-mdc-tab-body-active') as HTMLElement;
     const bRows = active().querySelectorAll('[data-testid^="bucket-row-"]');
     expect(bRows[0].textContent).toContain('Income');
-    (active().querySelector('[data-testid="subtab-positions"]') as HTMLElement)
+    (fixture.nativeElement.querySelector('[data-testid="subtab-positions"]') as HTMLElement)
       .closest('[role="tab"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
     const rows = active().querySelectorAll('[data-testid^="position-row-"]');

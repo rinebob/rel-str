@@ -48,6 +48,9 @@ import type {
 
 interface AllocationState {
   accounts: AccountInfo[];
+  /** listAccounts resolved at least once — lets the page distinguish
+   *  "still loading" from a genuinely empty account list (#779). */
+  accountsLoaded: boolean;
   selectedAccountIndex: number;
   byAccount: Record<string, AccountAllocation>;
   loadError: string | null;
@@ -63,6 +66,7 @@ function emptyAllocation(): AccountAllocation {
 
 const initialState: AllocationState = {
   accounts: [],
+  accountsLoaded: false,
   selectedAccountIndex: 0,
   byAccount: {},
   loadError: null,
@@ -313,7 +317,7 @@ export const AllocationStore = signalStore(
           const prevSelected = store.accounts()[store.selectedAccountIndex()]?.accountNumber;
           const idx = prevSelected ? accounts.findIndex((a) => a.accountNumber === prevSelected) : -1;
           const selectedAccountIndex = idx >= 0 ? idx : 0;
-          patchState(store, { accounts, selectedAccountIndex });
+          patchState(store, { accounts, selectedAccountIndex, accountsLoaded: true });
           const sel = accounts[selectedAccountIndex];
           if (sel) {
             attachStreams(sel.accountNumber);

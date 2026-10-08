@@ -1,0 +1,66 @@
+@use 'styles/pd-visual-language' as vl;
+
+:host {
+  @include vl.page-host;
+}
+
+.alloc-root {
+  @include vl.page-shell;
+}
+
+.alloc-header {
+  @include vl.header-bar;
+}
+
+/* Account pill switcher host in the header bar — group + label styling
+   lives in AccountSwitcherComponent (#778). */
+.alloc-account-switcher {
+  flex-shrink: 0;
+}
+
+.alloc-content {
+  @include vl.content-column;
+}
+
+.alloc-state {
+  @include vl.state-block;
+}
+
+.alloc-error {
+  @include vl.error-banner;
+  margin-top: 12px;
+}
+
+/* Account strip — data, not nav: compact surface-container strip on the
+   stat-strip convention (sb-label / sb-value / pipe separators). */
+.account-header {
+  @include vl.stat-strip;
+  flex-shrink: 0;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.account-header .as-of {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.diverged {
+  color: var(--mat-sys-error);
+  cursor: help;
+  margin-left: 2px;
+}
+
+.alloc-tabs {
+  @include vl.bounded-tab-group;
+  margin-top: 8px;
+}
+
+.alloc-tab-content {
+  @include vl.tab-scroll-pane;
+  padding: 8px 0 16px;
+}
