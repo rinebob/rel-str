@@ -24,6 +24,9 @@
 - [Trading Indicator Library] 261-877_DOCS-INDICATOR-LIB: #877 CODE-REVIEW (PASS) + #894 UAT (Complete) + BE plan updates
 - [On-demand Screenshot Capture] 746-845_BE-IMPL-SCREENSHOT: captureLifecycleEvent intake — transactional pending→captured ledger on the carrier doc's capturedEvents map, await-capped (10s) executeCaptureChart, st-screenshots index at {groupId}-{refId}-{event}; failed markers retryable, nothing propagates to the order path
 - [On-demand Screenshot Capture] 746-845_DOCS-SCREENSHOT: #845 CODE-REVIEW (PASS — undefined-groupId index write fixed in-loop) + #883 UAT (Complete)
+- [Portfolio Dashboard] 219-885_SHARED-IMPL-PORTFOLIO: BrokerOrder gains verbatim timeInForce/marketHours — normalizeOrder parses time_in_force/market_hours (absent → undefined) + specs
+- [Portfolio Dashboard] 219-885_FE-IMPL-PORTFOLIO: EquityTimeInForce/EquityMarketHours unions on BaseOrderTicket + StopOrderParams threaded through stop builders (gtc/regular_hours defaults) + buildStopLossUpdateTicket (stop_loss_update sourceRef) + toEquityTimeInForce/toEquityMarketHours narrowing helpers
+- [Portfolio Dashboard] 219-885_DOCS-PORTFOLIO: Update Stop Loss PRD (#832) + IMPL/TEST plans (#861) + #885 CODE-REVIEW (PASS) + #895 UAT (Complete) + Update Stop / Trailing Stop / Water Mark / Trail Distance glossary terms
 
 ## [2026-10-06]
 
