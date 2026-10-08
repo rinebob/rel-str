@@ -45,7 +45,7 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
       ['Chain', '% Change', 'Chart', 'Spread Chart', 'Strategy Dashboard', 'Build', 'Backtest'],
     ],
     ['Analysis', ['Swing Analysis']],
-    ['Tools', ['Account Inquiry', 'Topic Viewer']],
+    ['Tools', ['Account Inquiry', 'Topic Viewer', 'Dev']],
     ['', ['Dashboard V3']],
   ])('%s carries its PRD items in order', (label, texts) => {
     const section = NAV_SECTIONS.find((s) => s.label === label);
@@ -56,9 +56,13 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
     const paths = registeredPaths();
     for (const section of NAV_SECTIONS) {
       for (const item of section.items) {
-        expect(item.href.trim().length).toBeGreaterThan(0);
-        expect(item.text.trim().length).toBeGreaterThan(0);
-        expect(paths.has(item.href)).toBe(true);
+        // Submenu triggers carry no href — their children are the targets.
+        const leaves = item.children ?? [item];
+        for (const leaf of leaves) {
+          expect(leaf.href.trim().length).toBeGreaterThan(0);
+          expect(leaf.text.trim().length).toBeGreaterThan(0);
+          expect(paths.has(leaf.href)).toBe(true);
+        }
       }
     }
   });
@@ -82,8 +86,13 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
     'tools/account',
     'tools/topic-viewer',
     'dashboard-v3',
+    'dev/flex-chart',
+    'dev/gallery',
+    'dev/screenshot',
   ])('nav carries exactly one entry for %s', (href) => {
-    const hits = NAV_SECTIONS.flatMap((s) => s.items).filter((i) => i.href === href);
+    const hits = NAV_SECTIONS.flatMap((s) =>
+      s.items.flatMap((i) => i.children ?? [i]),
+    ).filter((i) => i.href === href);
     expect(hits).toHaveLength(1);
   });
 
@@ -101,12 +110,26 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
     'history',
     'signal-history',
     'signal-action-report',
-    'dev/flex-chart',
     'documentation',
     'contact',
   ])('retired/hidden item %s is absent from nav', (href) => {
-    const hits = NAV_SECTIONS.flatMap((s) => s.items).filter((i) => i.href === href);
+    const hits = NAV_SECTIONS.flatMap((s) =>
+      s.items.flatMap((i) => i.children ?? [i]),
+    ).filter((i) => i.href === href);
     expect(hits).toHaveLength(0);
+  });
+
+  it('the Dev submenu trigger sits last under Tools and holds exactly the dev/* routes', () => {
+    const tools = NAV_SECTIONS.find((s) => s.label === 'Tools');
+    const dev = tools?.items[tools.items.length - 1];
+    expect(dev?.text).toBe('Dev');
+    expect(dev?.children?.map((c) => c.href)).toEqual([
+      'dev/flex-chart',
+      'dev/gallery',
+      'dev/screenshot',
+    ]);
+    // The trigger itself is not a nav destination.
+    expect(dev?.href).toBe('');
   });
 
   it('auth items are not data — they are rendered/gated by the shell (T3)', () => {
@@ -139,7 +162,9 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
   });
 
   it('NAV_MENU_ITEMS exposes the same item objects flattened in order', () => {
-    const flat = NAV_SECTIONS.flatMap((s) => s.items);
+    const flat = NAV_SECTIONS.flatMap((s) =>
+      s.items.flatMap((i) => i.children ?? [i]),
+    );
     expect(NAV_MENU_ITEMS).toHaveLength(flat.length);
     for (const item of flat) {
       expect(NAV_MENU_ITEMS.indexOf(item)).toBeGreaterThan(-1); // identity, not copy

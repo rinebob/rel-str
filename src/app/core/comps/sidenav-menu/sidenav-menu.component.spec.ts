@@ -4,7 +4,7 @@ import { User } from '@angular/fire/auth';
 
 import { SidenavMenuComponent } from './sidenav-menu.component';
 import { AuthStore } from '../../auth/auth.store';
-import { NAV_SECTIONS, NAV_MENU_ITEMS } from '../../common/constants';
+import { NAV_SECTIONS } from '../../common/constants';
 import { NavItem } from '../../common/interfaces';
 
 describe('SidenavMenuComponent', () => {
@@ -53,10 +53,56 @@ describe('SidenavMenuComponent', () => {
       fixture.detectChanges();
     });
 
-    it('renders every nav item from NAV_SECTIONS', () => {
+    it('renders every top-level item from NAV_SECTIONS (submenu triggers included)', () => {
+      const topLevel = NAV_SECTIONS.flatMap((s) => s.items);
       const texts = itemTexts();
-      expect(texts).toHaveLength(NAV_MENU_ITEMS.length);
-      expect(texts).toEqual(NAV_MENU_ITEMS.map((i) => i.text));
+      expect(texts).toHaveLength(topLevel.length);
+      expect(texts).toEqual(topLevel.map((i) => i.text));
+    });
+
+    it('Dev submenu trigger opens a menu listing the dev routes', async () => {
+      const trigger = Array.from(
+        el().querySelectorAll<HTMLButtonElement>('.nav-menu-item'),
+      ).find((n) => n.textContent?.trim() === 'Dev')!;
+      expect(trigger.classList.contains('nav-submenu-trigger')).toBe(true);
+
+      trigger.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const menuItems = Array.from(
+        document.querySelectorAll<HTMLElement>('.mat-mdc-menu-panel .mat-mdc-menu-item'),
+      ).map((n) => n.textContent?.trim());
+      expect(menuItems).toEqual([
+        'Flex Chart Sandbox',
+        'Gallery (Dev)',
+        'Screenshot (Dev)',
+      ]);
+    });
+
+    it('clicking a Dev submenu item emits navigate with that child', async () => {
+      const emitted: NavItem[] = [];
+      component.navigate.subscribe((i) => emitted.push(i));
+
+      const trigger = Array.from(
+        el().querySelectorAll<HTMLButtonElement>('.nav-menu-item'),
+      ).find((n) => n.textContent?.trim() === 'Dev')!;
+      trigger.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      document
+        .querySelector<HTMLElement>('.mat-mdc-menu-panel .mat-mdc-menu-item')!
+        .click();
+      fixture.detectChanges();
+
+      expect(emitted).toEqual([
+        {
+          name: 'flex-chart-sandbox',
+          text: 'Flex Chart Sandbox',
+          href: 'dev/flex-chart',
+        },
+      ]);
     });
 
     it('renders group labels in NAV_SECTIONS order, skipping the unlabeled tail', () => {
@@ -105,7 +151,9 @@ describe('SidenavMenuComponent', () => {
   it('swaps sections when auth state changes', () => {
     user.set({ uid: 'u1', email: 'a@b.c' } as User);
     fixture.detectChanges();
-    expect(itemTexts()).toHaveLength(NAV_MENU_ITEMS.length);
+    expect(itemTexts()).toHaveLength(
+      NAV_SECTIONS.flatMap((s) => s.items).length,
+    );
 
     user.set(null);
     fixture.detectChanges();

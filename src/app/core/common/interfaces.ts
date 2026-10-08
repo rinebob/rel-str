@@ -63,11 +63,14 @@ export interface ButtonMetadata {
 }
 
 /** One nav entry — `name` is the unique @for track key, `text` the label,
- *  `href` the canonical route path (relative to the root core route). */
+ *  `href` the canonical route path (relative to the root core route).
+ *  An item with `children` is a submenu trigger — it renders a popup menu
+ *  instead of navigating, and `href` is unused (''). */
 export interface NavItem {
     name: string;
     text: string;
     href: string;
+    children?: NavItem[];
 }
 
 /** Labeled group of nav items — the workflow-ordered sidenav unit (#660).

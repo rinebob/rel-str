@@ -62,6 +62,18 @@
                     outline-offset: -2px;
                 }
             }
+
+            .nav-submenu-trigger {
+                align-items: center;
+                display: flex;
+                justify-content: space-between;
+
+                &::after {
+                    content: '▸';
+                    font-size: 12px;
+                    opacity: 0.6;
+                }
+            }
         }
     }
 }

@@ -23,13 +23,43 @@
 
             @for (item of section.items; track item.name) {
 
-                <button type="button" class="nav-menu-item"
-                               (click)="handleNavigation(item)"
-                >
+                @if (item.children?.length) {
 
-                    {{item.text}}
+                    <button type="button" class="nav-menu-item nav-submenu-trigger"
+                                   [matMenuTriggerFor]="submenu"
+                    >
 
-                </button>
+                        {{item.text}}
+
+                    </button>
+
+                    <mat-menu #submenu="matMenu">
+
+                        @for (child of item.children; track child.name) {
+
+                            <button type="button" mat-menu-item
+                                           (click)="handleNavigation(child)"
+                            >
+
+                                {{child.text}}
+
+                            </button>
+
+                        }
+
+                    </mat-menu>
+
+                } @else {
+
+                    <button type="button" class="nav-menu-item"
+                                   (click)="handleNavigation(item)"
+                    >
+
+                        {{item.text}}
+
+                    </button>
+
+                }
 
             }
 

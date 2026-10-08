@@ -4,8 +4,9 @@ import { AppRoutes, NavItem, NavSection, PageInfo } from "./interfaces";
 /** Workflow-ordered sidenav sections — the Journey Navigation data
  *  model (#660/#700). Groups match the PRD Sidenav Groups table; the
  *  empty-label section is the unlabeled tail. Auth items are NOT data —
- *  the shell renders them by auth state (T3). Hidden/dev surfaces are
- *  reachable by URL but absent here. */
+ *  the shell renders them by auth state (T3). Dev surfaces live in the
+ *  Tools ▸ Dev submenu; retired/legacy routes stay URL-reachable but
+ *  absent here. */
 export const NAV_SECTIONS: NavSection[] = [
     {
         label: 'Portfolio',
@@ -52,6 +53,14 @@ export const NAV_SECTIONS: NavSection[] = [
         items: [
             { name: 'rh-account-inquiry', text: 'Account Inquiry', href: 'tools/account' },
             { name: 'topic-viewer', text: 'Topic Viewer', href: 'tools/topic-viewer' },
+            {
+                name: 'dev-menu', text: 'Dev', href: '',
+                children: [
+                    { name: 'flex-chart-sandbox', text: 'Flex Chart Sandbox', href: 'dev/flex-chart' },
+                    { name: 'dev-gallery', text: 'Gallery (Dev)', href: 'dev/gallery' },
+                    { name: 'dev-screenshot', text: 'Screenshot (Dev)', href: 'dev/screenshot' },
+                ],
+            },
         ],
     },
     {
@@ -63,9 +72,13 @@ export const NAV_SECTIONS: NavSection[] = [
 ];
 
 /** Flat view of NAV_SECTIONS — kept for consumers that still iterate a
- *  flat list (sidenav until T3; several specs). Single source of truth
- *  is NAV_SECTIONS; do not extend this list directly. */
-export const NAV_MENU_ITEMS: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
+ *  flat list (sidenav until T3; several specs). Submenu triggers (e.g.
+ *  Dev) are not destinations; their children flatten in their place.
+ *  Single source of truth is NAV_SECTIONS; do not extend this list
+ *  directly. */
+export const NAV_MENU_ITEMS: NavItem[] = NAV_SECTIONS.flatMap(
+    (s) => s.items.flatMap((i) => i.children ?? [i]),
+);
 
 /** Signed-out sidenav content — auth actions only. Every href MUST resolve
  *  to an unguarded route (no canActivate); nav-sections.spec pins that
