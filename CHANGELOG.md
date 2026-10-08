@@ -4,6 +4,9 @@
 ## [2026-10-08]
 
 ### Added
+- [Portfolio Dashboard] 219-886_SHARED-IMPL-PORTFOLIO: StopLossFormComponent full param surface — timeInForce/marketHours model() inputs (gtc/regular_hours), StopLossSubmit payload, TIF + Hours pills (Extended/All Day disabled — RH rejects non-regular stops, live-verified), showOrderParams + initialStopPrice prefill inputs
+- [Portfolio Dashboard] 219-886_FE-IMPL-PORTFOLIO: Stop param plumbing at both consumers — dialog threads StopLossSubmit; regular_hours pinned at both submission seams; order ticket binds neither pill (no silent Day stops); dead onPlaceStopLoss fallback + canPlaceStopLoss removed
+- [Portfolio Dashboard] 219-886_DOCS-PORTFOLIO: #886 CODE-REVIEW (PASS) + #912 UAT (Complete — 5 live stops placed) + PRD US16/IMPL amendments for the confirmed regular-hours constraint
 - [Portfolio Allocation] 576-778_FE-IMPL-PORTFOLIO: Shared AccountSwitcherComponent — single-select pill group (accountName per account, non-agentic flag chip with tooltip+ARIA, deselect guard) shared by dashboard header and allocation page
 - [Portfolio Allocation] 576-779_FE-IMPL-PORTFOLIO: Visual-language mixins — page-host (calc(100vh − --header-height) fixes the one-header-height viewport clip), stat-strip, tab-scroll-pane; bounded-tab-group emits a live ::ng-deep .mat-mdc-tab-body-wrapper bound + 32px dense tab row
 - [Portfolio Allocation] 576-693_FE-CHORE-PORTFOLIO: Bucket-row expansion — inline detail panel under each bucket/Unassigned row (stats + positions mini-table, multi-expand, retired-section support) replacing the detail dialog; shared isUnassignedRow/fmtQty/positionPnl helpers; carries #779's table-wrap row-scroll + sticky header + dense controls
