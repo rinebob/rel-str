@@ -10,7 +10,7 @@
 **Type:** Code Review  
 **Status:** Complete  
 **Created:** 2026-10-07  
-**Last Updated:** 2026-10-07  
+**Last Updated:** 2026-10-08  
 
 # Code Review — title-markup sweep + page inventory (#854)
 
