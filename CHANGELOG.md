@@ -4,6 +4,13 @@
 ## [2026-10-08]
 
 ### Added
+- [Portfolio Allocation] 576-778_FE-IMPL-PORTFOLIO: Shared AccountSwitcherComponent — single-select pill group (accountName per account, non-agentic flag chip with tooltip+ARIA, deselect guard) shared by dashboard header and allocation page
+- [Portfolio Allocation] 576-779_FE-IMPL-PORTFOLIO: Visual-language mixins — page-host (calc(100vh − --header-height) fixes the one-header-height viewport clip), stat-strip, tab-scroll-pane; bounded-tab-group emits a live ::ng-deep .mat-mdc-tab-body-wrapper bound + 32px dense tab row
+- [Portfolio Allocation] 576-693_FE-CHORE-PORTFOLIO: Bucket-row expansion — inline detail panel under each bucket/Unassigned row (stats + positions mini-table, multi-expand, retired-section support) replacing the detail dialog; shared isUnassignedRow/fmtQty/positionPnl helpers; carries #779's table-wrap row-scroll + sticky header + dense controls
+- [Portfolio Allocation] 576-779_FE-IMPL-PORTFOLIO: Allocation page shell — header bar (switcher pills + Portfolio link + refresh), tokenized account strip (Value/Allocated/Cash/Unassigned + as-of), single Buckets|Positions tab row at 0ms animation, bounded scroll chain, shared loading/error/empty states incl. accountsLoaded-driven true empty state
+- [Portfolio Allocation] 576-693_DOCS-PORTFOLIO: #693 IMPL + code review + #839 UAT record
+- [Portfolio Allocation] 576-778_DOCS-PORTFOLIO: #778 code review (PASS) + #789 UAT record
+- [Portfolio Allocation] 576-779_DOCS-PORTFOLIO: #779 code review (PASS) + #897 UAT (Complete — 12 scenarios PASS incl. two in-loop fixes)
 - [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: PageIdentityService — route-driven title+icon shared by rs-header and the shell; fullscreen reveal becomes an identity chip (icon + title + exit); .page-title promoted to h1
 - [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: Sidenav Dev submenu — NavItem.children + mat-menu popup; Tools ▸ Dev lists dev/flex-chart, dev/gallery, dev/screenshot without polluting the workflow nav
 - [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: Page title sweep (21 surfaces) + default-header fullscreen flip (auto setFullscreen(true) removed from 13 pages + signal-review facade; ngOnDestroy cleanup kept) + right-anchored action bars
