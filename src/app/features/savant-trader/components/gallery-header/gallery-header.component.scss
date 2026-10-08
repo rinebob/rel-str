@@ -7,16 +7,14 @@
   flex-wrap: wrap;
 }
 
-.gallery-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0;
-  white-space: nowrap;
-}
-
 .run-date {
   font-size: 12px;
   opacity: 0.7;
+}
+
+.run-time {
+  font-size: 12px;
+  opacity: 0.55;
 }
 
 .card-count {
@@ -31,4 +29,41 @@
 
 .header-spacer {
   flex: 1;
+}
+
+// Global chart D/W toggle — same pill recipe as the per-card chip group.
+.gh-chart-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .gh-chart-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.6;
+  }
+}
+
+.gh-chart-pills {
+  display: flex;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+
+  button {
+    border: 0;
+    padding: 2px 9px;
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--mat-sys-on-surface-variant);
+    background: transparent;
+    cursor: pointer;
+
+    &.active {
+      color: var(--mat-sys-on-secondary-container);
+      background: var(--mat-sys-secondary-container);
+    }
+  }
 }

@@ -14,7 +14,6 @@ import { of } from 'rxjs';
 
 import { GalleryCardActionsService } from './gallery-card-actions.service';
 import { GroupStore } from './group.store';
-import { SymbolHistoryStore } from './symbol-history.store';
 import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { SymbolListStore } from './symbol-list.store';
 import { OrderTicketStore } from './order-ticket.store';
@@ -105,6 +104,7 @@ function makeCard(
     direction: side === 'buy' ? SignalDirection.LONG : SignalDirection.SHORT,
     profile: makeProfile(symbol),
     occurrences: signals,
+    allOccurrences: signals,
     status,
     allRejected: false,
     actionedAt: '',
@@ -119,9 +119,6 @@ describe('GalleryCardActionsService', () => {
     activeRunId: ReturnType<typeof signal<string | null>>;
     activeRunMarketDate: ReturnType<typeof signal<string | null>>;
     isActionableRun: ReturnType<typeof signal<boolean>>;
-  };
-  let historyStoreMock: {
-    signalHistoryCache: ReturnType<typeof signal<Record<string, StSignalItem[]>>>;
   };
   let occurrenceStoreMock: {
     occurrenceDecisions: ReturnType<typeof signal<Record<string, StOccurrenceDecision>>>;
@@ -152,12 +149,6 @@ describe('GalleryCardActionsService', () => {
       activeRunId: signal<string | null>(RUN_ID),
       activeRunMarketDate: signal<string | null>(MARKET_DATE),
       isActionableRun: signal(true),
-    };
-    historyStoreMock = {
-      signalHistoryCache: signal<Record<string, StSignalItem[]>>({
-        [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)],
-        [`TSLA::${RUN_ID}`]: [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)],
-      }),
     };
     occurrenceStoreMock = {
       occurrenceDecisions: signal<Record<string, StOccurrenceDecision>>({}),
@@ -195,7 +186,6 @@ describe('GalleryCardActionsService', () => {
     await TestBed.configureTestingModule({
       providers: [
         { provide: GroupStore, useValue: groupStoreMock },
-        { provide: SymbolHistoryStore, useValue: historyStoreMock },
         { provide: OccurrenceDecisionStore, useValue: occurrenceStoreMock },
         { provide: SymbolListStore, useValue: symbolListStoreMock },
         { provide: OrderTicketStore, useValue: ticketStoreMock },
@@ -249,11 +239,6 @@ describe('GalleryCardActionsService', () => {
   });
 
   it('trade stages a quantity ticket sized on the signal close — no decision writes (#759)', async () => {
-    historyStoreMock.signalHistoryCache.set({
-      [`AAPL::${RUN_ID}`]: [
-        makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 }),
-      ],
-    });
     const card = makeCard('AAPL', 'buy', [
       makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 }),
     ]);
@@ -303,11 +288,6 @@ describe('GalleryCardActionsService', () => {
   });
 
   it('paper stages the card ticket and sends it through sendTicketToPaper', async () => {
-    historyStoreMock.signalHistoryCache.set({
-      [`AAPL::${RUN_ID}`]: [
-        makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 }),
-      ],
-    });
     const card = makeCard('AAPL', 'buy', [
       makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 }),
     ]);
@@ -380,10 +360,9 @@ describe('GalleryCardActionsService', () => {
     it('reject acts on the card\'s FULL occurrence set, not the timeframe-trimmed card list', () => {
       const daily = makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG);
       const weekly = { ...makeSignal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG), signalType: 'RS_WEEKLY' };
-      historyStoreMock.signalHistoryCache.set({ [`AAPL::${RUN_ID}`]: [daily, weekly] });
-      // The Daily page filter trims the card to the daily occurrence —
-      // rejecting must still cover the weekly leg.
-      const card = makeCard('AAPL', 'buy', [daily]);
+      // The Daily page filter trims `occurrences` to the daily leg —
+      // `allOccurrences` carries the full set rejecting must cover.
+      const card = makeCard('AAPL', 'buy', [daily], 'pending', { allOccurrences: [daily, weekly] });
 
       actions.rejectCard(card);
 
@@ -397,8 +376,7 @@ describe('GalleryCardActionsService', () => {
     it('restore also resets the full occurrence set', () => {
       const daily = makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG);
       const weekly = { ...makeSignal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG), signalType: 'RS_WEEKLY' };
-      historyStoreMock.signalHistoryCache.set({ [`AAPL::${RUN_ID}`]: [daily, weekly] });
-      const card = makeCard('AAPL', 'buy', [daily], 'rejected');
+      const card = makeCard('AAPL', 'buy', [daily], 'rejected', { allOccurrences: [daily, weekly] });
 
       actions.rejectCard(card);
 
@@ -420,9 +398,6 @@ describe('GalleryCardActionsService', () => {
     });
 
     it('a second tradeCard while staging cannot double-stage (#755 review)', async () => {
-      historyStoreMock.signalHistoryCache.set({
-        [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 })],
-      });
       const card = makeCard('AAPL', 'buy', [
         makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 }),
       ]);
@@ -463,9 +438,6 @@ describe('GalleryCardActionsService', () => {
     });
 
     it('paper persists the staged ticket BEFORE the paper callable runs (#755 review)', async () => {
-      historyStoreMock.signalHistoryCache.set({
-        [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 })],
-      });
       const card = makeCard('AAPL', 'buy', [
         makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 }),
       ]);
@@ -478,9 +450,6 @@ describe('GalleryCardActionsService', () => {
     });
 
     it('a failed paper send discards the ticket the click itself created', async () => {
-      historyStoreMock.signalHistoryCache.set({
-        [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 })],
-      });
       const card = makeCard('AAPL', 'buy', [
         makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 }),
       ]);
@@ -513,7 +482,6 @@ describe('GalleryCardActionsService', () => {
 
     it('a watched card whose occurrences are all REJECTed cannot trade — the REJECTs stay reachable via Restore', async () => {
       const signal = makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 });
-      historyStoreMock.signalHistoryCache.set({ [`AAPL::${RUN_ID}`]: [signal] });
       const dec = rejectDecision(signal);
       occurrenceStoreMock.occurrenceDecisions.set({ [dec.id]: dec });
       // Monitor wins status precedence — the card renders 'watched' but
@@ -533,7 +501,6 @@ describe('GalleryCardActionsService', () => {
     it('staging excludes REJECTed occurrences from the ticket decisionIds — removal can never un-reject them', async () => {
       const kept = makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 });
       const rejected = { ...makeSignal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG), signalType: 'RS_WEEKLY' };
-      historyStoreMock.signalHistoryCache.set({ [`AAPL::${RUN_ID}`]: [kept, rejected] });
       const dec = rejectDecision(rejected);
       occurrenceStoreMock.occurrenceDecisions.set({ [dec.id]: dec });
       const card = makeCard('AAPL', 'buy', [kept, rejected]);
@@ -549,7 +516,6 @@ describe('GalleryCardActionsService', () => {
 
     it('an all-rejected card stages nothing — snackbar, no ticket', async () => {
       const signal = makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT, { closePrice: 50 });
-      historyStoreMock.signalHistoryCache.set({ [`TSLA::${RUN_ID}`]: [signal] });
       const dec = rejectDecision(signal);
       occurrenceStoreMock.occurrenceDecisions.set({ [dec.id]: dec });
       const card = makeCard('TSLA', 'sell', [signal]);
@@ -603,9 +569,6 @@ describe('GalleryCardActionsService', () => {
 
   describe('#755 review round 3', () => {
     it('warmConfig does NOT release a busy key held by an in-flight action', async () => {
-      historyStoreMock.signalHistoryCache.set({
-        [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 })],
-      });
       const card = makeCard('AAPL', 'buy', [
         makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 }),
       ]);

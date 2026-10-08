@@ -15,6 +15,46 @@
     }
   </div>
 
+  <div class="card-meta">
+    @if (priceChange(); as pc) {
+      <span class="meta-price">{{ pc.price | number: '1.2-2' }}</span>
+      <span class="meta-change" [class.up]="pc.change >= 0" [class.down]="pc.change < 0">
+        {{ pc.change >= 0 ? '+' : '' }}{{ pc.change | number: '1.2-2' }}
+        ({{ pc.change >= 0 ? '+' : '' }}{{ pc.pct | number: '1.1-1' }}%)
+      </span>
+      @if (card().profile.exchange || card().profile.marketCapTier || card().profile.beta != null || card().profile.peRatio != null) {
+        <span class="meta-sep">·</span>
+      }
+    }
+    @if (card().profile.exchange) {
+      <span class="meta-field">{{ card().profile.exchange }}</span>
+    }
+    @if (card().profile.marketCapTier) {
+      @if (card().profile.exchange) { <span class="meta-sep">·</span> }
+      <span class="badge tier tier-{{ card().profile.marketCapTier }}">{{ tierLabel(card().profile.marketCapTier) }}</span>
+    }
+    @if (card().profile.beta != null) {
+      @if (card().profile.exchange || card().profile.marketCapTier) { <span class="meta-sep">·</span> }
+      <span class="meta-field">β {{ card().profile.beta | number: '1.2-2' }}</span>
+    }
+    @if (card().profile.peRatio != null) {
+      @if (card().profile.exchange || card().profile.marketCapTier || card().profile.beta != null) { <span class="meta-sep">·</span> }
+      <span class="meta-field">P/E {{ card().profile.peRatio | number: '1.1-1' }}</span>
+    }
+  </div>
+
+  @if (card().profile.sector || card().profile.industry) {
+    <div class="card-meta">
+      @if (card().profile.sector) {
+        <span class="meta-field">{{ card().profile.sector }}</span>
+      }
+      @if (card().profile.industry) {
+        @if (card().profile.sector) { <span class="meta-sep">·</span> }
+        <span class="meta-field">{{ card().profile.industry }}</span>
+      }
+    </div>
+  }
+
   @if (card().ticket) {
     <div class="ticket-line">{{ ticketLine() }}</div>
   }
@@ -33,12 +73,6 @@
       </li>
     }
   </ul>
-
-  @defer (on viewport; prefetch on idle) {
-    <app-gallery-card-chart [card]="card()" />
-  } @placeholder {
-    <div class="chart-placeholder">chart</div>
-  }
 
   <div class="card-actions">
     <button class="action-btn action-trade"
@@ -62,4 +96,10 @@
       Chart
     </button>
   </div>
+
+  @defer (on viewport; prefetch on idle) {
+    <app-gallery-card-chart [card]="card()" />
+  } @placeholder {
+    <div class="chart-placeholder">chart</div>
+  }
 </div>

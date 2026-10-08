@@ -16,16 +16,16 @@
  *   double-click can't double-stage or double-send (#755 review).
  *
  * Decisions and ticket provenance operate on the card's FULL occurrence
- * set — resolved from the run's unfiltered signal map, not the card's
- * timeframe-trimmed `occurrences` (#755 review: under the Daily filter a
- * merged D+W card otherwise only rejected its daily leg).
+ * set — `card.allOccurrences`, not the timeframe-trimmed `occurrences`
+ * (#755 review: under the Daily filter a merged D+W card otherwise only
+ * rejected its daily leg; #819 r2 consolidated every full-set reader onto
+ * the card field).
  */
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { GroupStore } from './group.store';
-import { SymbolHistoryStore } from './symbol-history.store';
 import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { SymbolListStore } from './symbol-list.store';
 import { OrderTicketStore } from './order-ticket.store';
@@ -37,8 +37,6 @@ import {
   OrderTicketStatus,
   TradingConfig,
 } from '../services/order-ticket.types';
-import { StSignalItem } from '../services/types';
-import { signalsBySymbolForRun } from '../utils/utils';
 import {
   buildSignalOrderTickets,
   buildTicketId,
@@ -54,17 +52,18 @@ import { formatError } from '../utils/format-error.util';
 import { SYSTEM_LIST_KEYS } from '../common/symbol-list-defs';
 import { ReviewDecision } from '../common/constants';
 import {
-  canRejectCard,
-  canTradeCard,
-  findCardTickets,
   GalleryActionContext,
   GalleryCard,
 } from '../utils/gallery-cards.util';
+import {
+  canRejectCard,
+  canTradeCard,
+  findCardTickets,
+} from '../utils/gallery-card-actions.util';
 
 @Injectable({ providedIn: 'root' })
 export class GalleryCardActionsService {
   private readonly groupStore = inject(GroupStore);
-  private readonly historyStore = inject(SymbolHistoryStore);
   private readonly occurrenceStore = inject(OccurrenceDecisionStore);
   private readonly symbolListStore = inject(SymbolListStore);
   private readonly ticketStore = inject(OrderTicketStore);
@@ -79,14 +78,6 @@ export class GalleryCardActionsService {
 
   /** Mutation actions require the viewed run to be completed. */
   readonly isActionableRun = computed(() => this.groupStore.isActionableRun());
-
-  /** Run-scoped occurrences keyed by symbol — the UNFILTERED source the
-   *  card actions act on (see file doc). */
-  private readonly signalsBySymbol = computed((): Record<string, StSignalItem[]> => {
-    const runId = this.groupStore.activeRunId();
-    if (!runId) return {};
-    return signalsBySymbolForRun(this.historyStore.signalHistoryCache(), runId);
-  });
 
   /** Card keys with an action in flight — the page binds these to each
    *  card's `actionBusy` input; methods also re-check them so a rapid
@@ -150,7 +141,7 @@ export class GalleryCardActionsService {
     const runId = this.groupStore.activeRunId();
     const marketDate = this.groupStore.activeRunMarketDate();
     if (!runId || !marketDate) return;
-    const occurrences = this.cardOccurrences(card);
+    const occurrences = card.allOccurrences;
     // 'watched' cards can also be fully rejected — Monitor wins status
     // precedence, so `allRejected` is the restore condition there (#755
     // review: otherwise a watched+rejected card exposes Reject again and
@@ -242,17 +233,6 @@ export class GalleryCardActionsService {
     }
   }
 
-  /** All of the card's occurrences for this run+side — unfiltered by the
-   *  page's timeframe filter, so decisions/tickets can't under-cover
-   *  hidden occurrences. Falls back to the card's own list when the
-   *  source map isn't loaded. */
-  private cardOccurrences(card: GalleryCard): StSignalItem[] {
-    const full = (this.signalsBySymbol()[card.symbol] ?? []).filter(
-      (s) => s.direction === card.direction,
-    );
-    return full.length ? full : card.occurrences;
-  }
-
   private async withBusy<T>(key: string, fn: () => Promise<T>): Promise<T> {
     const entered = new Set(this._busyKeys());
     entered.add(key);
@@ -306,7 +286,7 @@ export class GalleryCardActionsService {
     }
 
     const decisions = this.actionContext().decisions;
-    const occurrences = this.cardOccurrences(card).filter(
+    const occurrences = card.allOccurrences.filter(
       (o) =>
         decisions[buildStOccurrenceDecisionId(runId, o.symbol, o.timeframe, o.signalType)]
           ?.decisionType !== ReviewDecision.REJECT,
@@ -342,12 +322,11 @@ export class GalleryCardActionsService {
 
   /** Remove the card's staged tickets (reject path). Matches by canonical
    *  occurrence-decision ids — not just symbol+side — so a same-symbol
-   *  staged ticket from a DIFFERENT run survives (#755 review). The card
-   *  is rebuilt over the full unfiltered occurrence set so a hidden
-   *  timeframe leg can't hide a matching id. */
+   *  staged ticket from a DIFFERENT run survives (#755 review).
+   *  findCardTickets reads allOccurrences, so a hidden timeframe leg can't
+   *  hide a matching id. */
   private removeStagedTickets(card: GalleryCard): void {
-    const full: GalleryCard = { ...card, occurrences: this.cardOccurrences(card) };
-    for (const t of findCardTickets(full, this.actionContext())) {
+    for (const t of findCardTickets(card, this.actionContext())) {
       if (t.status === OrderTicketStatus.STAGED) {
         this.ticketStore.removeTicket(t.id);
       }

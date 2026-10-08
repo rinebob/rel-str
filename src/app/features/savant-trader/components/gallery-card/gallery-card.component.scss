@@ -30,6 +30,66 @@
   gap: 8px;
 }
 
+// Company meta rows (#838): row 1 is exchange · cap-tier badge · β · P/E;
+// row 2 is sector · industry.
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.meta-field {
+  font-size: 10px;
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+}
+
+// Price + day-change lead the financial row — sourced from the card's
+// prefetched daily bars; up/down reuse the side-badge palette.
+.meta-price {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.meta-change {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  &.up {
+    color: #4caf50;
+  }
+
+  &.down {
+    color: #f44336;
+  }
+}
+
+.meta-sep {
+  font-size: 10px;
+  color: var(--mat-sys-outline);
+}
+
+.badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 6px;
+  white-space: nowrap;
+
+  &.tier {
+    &-mega  { background: var(--mat-sys-primary);    color: var(--mat-sys-on-primary); }
+    &-large { background: var(--mat-sys-tertiary);   color: var(--mat-sys-on-tertiary); }
+    &-mid   { background: var(--mat-sys-secondary);  color: var(--mat-sys-on-secondary); }
+    &-small { background: var(--mat-sys-error);       color: var(--mat-sys-on-error); }
+    &-micro { background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface-variant); }
+  }
+}
+
 .symbol {
   font-size: 15px;
   font-weight: 700;

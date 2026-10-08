@@ -5,6 +5,7 @@
 }
 
 .card-chart {
+  position: relative;
   height: 100%;
   min-height: 0;
   overflow: hidden;
@@ -12,6 +13,67 @@
   // so the floor doesn't bind today, but keep the override so the cell can
   // shrink below it without silently clipping the chart.
   --fc-min-height: 0;
+}
+
+// Symbol overlay — mirrors .cc-controls on the left so a chart scrolled
+// past its card header stays identifiable (also labels the placeholders
+// during metered stream-in). pointer-events: none — pure readout.
+.cc-symbol {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  padding: 1px 7px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--mat-sys-surface) 80%, transparent);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--mat-sys-on-surface);
+  pointer-events: none;
+}
+
+// Per-card control cluster (#819) — overlays the chart's top-right corner
+// so it doesn't consume layout height. The D/W chip overrides the
+// header-driven interval until the next header timeframe change
+// (linkedSignal reset); ±50 adjusts the visible-bar window per card.
+.cc-controls {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+}
+
+.cc-chip-group {
+  display: flex;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--mat-sys-surface) 80%, transparent);
+
+  button {
+    border: 0;
+    padding: 1px 7px;
+    font: inherit;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--mat-sys-on-surface-variant);
+    background: transparent;
+    cursor: pointer;
+
+    &.active {
+      color: var(--mat-sys-on-secondary-container);
+      background: var(--mat-sys-secondary-container);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+  }
 }
 
 // Loading / unavailable states keep the cell's footprint so the grid

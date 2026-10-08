@@ -1,13 +1,45 @@
 <div class="card-chart">
+  <span class="cc-symbol">{{ card().symbol }}</span>
+  <div class="cc-controls">
+    <div class="cc-chip-group" role="group" aria-label="Chart timeframe">
+      <button
+        type="button"
+        [class.active]="interval() === ChartIntervalKey.DAILY"
+        (click)="setChartInterval(ChartIntervalKey.DAILY)">D</button>
+      <button
+        type="button"
+        [class.active]="interval() === ChartIntervalKey.WEEKLY"
+        (click)="setChartInterval(ChartIntervalKey.WEEKLY)">W</button>
+    </div>
+    <div class="cc-chip-group" role="group" aria-label="Visible bars">
+      <button
+        type="button"
+        [disabled]="!canRemoveBars()"
+        [title]="'Show ' + BAR_STEP + ' fewer bars'"
+        (click)="adjustVisibleBars(-BAR_STEP)">−{{ BAR_STEP }}</button>
+      <button
+        type="button"
+        [disabled]="!canAddBars()"
+        [title]="'Show ' + BAR_STEP + ' more bars'"
+        (click)="adjustVisibleBars(BAR_STEP)">+{{ BAR_STEP }}</button>
+    </div>
+  </div>
   @if (loading()) {
     <div class="cc-state cc-loading"><span>chart</span></div>
   } @else if (unavailable()) {
     <div class="cc-state cc-error"><span>chart unavailable</span></div>
   } @else {
-    <app-flex-chart
-      [chartData]="dataset()"
-      [config]="config()"
-      height="100%">
-    </app-flex-chart>
+    <!-- Unmount the Syncfusion chart when the cell is well offscreen —
+         mounted charts were accumulating as the user scrolled. The state
+         div keeps the cell's height so re-entry doesn't reflow. -->
+    @if (mounted()) {
+      <app-flex-chart
+        [chartData]="dataset()"
+        [config]="config()"
+        height="100%">
+      </app-flex-chart>
+    } @else {
+      <div class="cc-state"><span>chart</span></div>
+    }
   }
 </div>

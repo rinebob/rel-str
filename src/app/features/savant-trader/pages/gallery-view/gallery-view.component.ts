@@ -3,7 +3,8 @@
  *
  * The gallery's page shell (#743/#754): header with filters + group dimension, a
  * scrollable stack of expando groups whose bodies are responsive card grids
- * (#783), and empty states. The card toolbar's Trade/Reject/Paper actions
+ * (#783) — or a flat market-cap-sorted grid when the Group dimension is None
+ * (#820, the pinned Sunk panel still renders below) — and empty states. The card toolbar's Trade/Reject/Paper actions
  * dispatch through here (#755/#759) — Trade opens the staged ticket in a
  * dialog; a cancelled dialog discards the ticket it created.
  * Charts (#756) mount inside each card's @defer cell; this page warms the
@@ -17,27 +18,29 @@ import { GalleryCardActionsService } from '../../stores/gallery-card-actions.ser
 import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
 import { GalleryHeaderComponent } from '../../components/gallery-header/gallery-header.component';
 import { GalleryGroupComponent } from '../../components/gallery-group/gallery-group.component';
-import { GalleryCardAction } from '../../components/gallery-card/gallery-card.component';
+import { GalleryCardAction, GalleryCardComponent } from '../../components/gallery-card/gallery-card.component';
 import { GalleryTicketDialogComponent } from '../../components/gallery-ticket-dialog/gallery-ticket-dialog.component';
 import { GalleryCard } from '../../utils/gallery-cards.util';
 
 /** Idle scheduling with a setTimeout fallback (jsdom + older browsers).
+ *  One capability check for both halves — a mixed environment could
+ *  schedule via setTimeout then try cancelIdleCallback (#819 r2).
  *  window.setTimeout returns number under the DOM lib — no cast needed. */
+const HAS_IDLE_CALLBACK =
+  typeof requestIdleCallback === 'function' && typeof cancelIdleCallback === 'function';
+
 function scheduleIdle(cb: () => void): number {
-  return typeof requestIdleCallback === 'function'
-    ? requestIdleCallback(cb)
-    : window.setTimeout(cb, 0);
+  return HAS_IDLE_CALLBACK ? requestIdleCallback(cb) : window.setTimeout(cb, 0);
 }
 
 function cancelIdle(id: number): void {
-  if (typeof cancelIdleCallback === 'function') cancelIdleCallback(id);
-  else clearTimeout(id);
+  if (HAS_IDLE_CALLBACK) cancelIdleCallback(id); else clearTimeout(id);
 }
 
 @Component({
   selector: 'app-gallery-view',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [GalleryHeaderComponent, GalleryGroupComponent],
+  imports: [GalleryHeaderComponent, GalleryGroupComponent, GalleryCardComponent],
   templateUrl: './gallery-view.component.html',
   styleUrl: './gallery-view.component.scss',
 })
@@ -50,7 +53,9 @@ export class GalleryViewComponent implements OnInit {
   constructor() {
     // #756 — warm per-symbol daily bars on idle after first paint so the
     // @defer-mounted card charts render without a data wait. The store
-    // dedupes; re-schedules only when the visible card set changes.
+    // dedupes per symbol — the effect re-schedules on every visibleCards
+    // array change (even identity-retained ones), but prefetch() is a
+    // no-op for cached symbols so the reschedules are cheap.
     effect((onCleanup) => {
       const symbols = new Set(this.facade.visibleCards().map((c) => c.symbol));
       if (symbols.size === 0) return;

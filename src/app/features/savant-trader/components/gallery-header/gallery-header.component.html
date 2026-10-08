@@ -1,7 +1,10 @@
 <div class="gallery-header">
-  <h1 class="gallery-title">Signal Gallery</h1>
   @if (marketDate()) {
     <span class="run-date" matTooltip="Market date of the viewed run">{{ marketDate() }}</span>
+  }
+  @let completedAt = runCompletedAt();
+  @if (completedAt) {
+    <span class="run-time" matTooltip="When the viewed run completed — data refresh time">{{ formatTimestampPT(completedAt) }} PT</span>
   }
   <span class="card-count" matTooltip="Visible cards / total cards for this run">
     {{ cardCount() }}<span class="card-count-total"> / {{ totalCardCount() }}</span>
@@ -15,6 +18,18 @@
   </app-signal-filter-pills>
 
   <div class="header-spacer"></div>
+
+  <!-- Global chart interval — independent of the signal-timeframe filter. -->
+  <div class="gh-chart-toggle" role="group" aria-label="Chart timeframe"
+       matTooltip="Chart interval for all cards">
+    <span class="gh-chart-label">Chart</span>
+    <div class="gh-chart-pills">
+      <button type="button" [class.active]="chartTimeframe() === SignalTimeframe.DAILY"
+              (click)="chartTimeframeChange.emit(SignalTimeframe.DAILY)">D</button>
+      <button type="button" [class.active]="chartTimeframe() === SignalTimeframe.WEEKLY"
+              (click)="chartTimeframeChange.emit(SignalTimeframe.WEEKLY)">W</button>
+    </div>
+  </div>
 
   <app-rh-select-menu
     label="Group"
@@ -31,6 +46,12 @@
     (valueChange)="listFilterChange.emit($event)">
   </app-rh-select-menu>
 
+  <button mat-icon-button
+    [disabled]="refreshing()"
+    matTooltip="Refresh — switch to the newest run or reload signals"
+    (click)="refresh.emit()">
+    <mat-icon>refresh</mat-icon>
+  </button>
   <button mat-icon-button
     [matTooltip]="allGroupsExpanded() ? 'Collapse all groups' : 'Expand all groups'"
     (click)="expandAllToggle.emit()">

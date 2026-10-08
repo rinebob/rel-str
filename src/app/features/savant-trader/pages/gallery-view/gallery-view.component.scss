@@ -15,6 +15,17 @@
   padding-top: 16px;
 }
 
+// Flat-gallery grid (#820) — same recipe as gallery-group's .gallery-grid;
+// the horizontal/bottom margin matches the grouped panels' gutter, and the
+// container's own padding-top covers the top gap.
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  margin: 0 16px 12px;
+  align-content: start;
+}
+
 .gallery-empty {
   display: flex;
   align-items: center;

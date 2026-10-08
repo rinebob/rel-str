@@ -6,6 +6,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
 import { GalleryGroupComponent } from './gallery-group.component';
+import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
 import { GalleryCard, GalleryGroup } from '../../utils/gallery-cards.util';
 import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 
@@ -32,6 +33,18 @@ function card(
       status: SignalStatus.INTERIM,
       indicators: {},
     }],
+    allOccurrences: [{
+      id: '2026-08-25',
+      symbol,
+      barDate: '2026-08-25',
+      marketDate: '2026-08-25',
+      runId: 'run-1',
+      timeframe,
+      direction: side === 'buy' ? SignalDirection.LONG : SignalDirection.SHORT,
+      signalType: 'RS_RISE',
+      status: SignalStatus.INTERIM,
+      indicators: {},
+    }],
     status: 'pending',
     allRejected: false,
     actionedAt: '',
@@ -46,7 +59,15 @@ describe('GalleryGroupComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [GalleryGroupComponent],
-      providers: [provideNoopAnimations()],
+      providers: [
+        provideNoopAnimations(),
+        // GalleryCardComponent reads barsFor for the price/change meta —
+        // the deferred chart cell never mounts in jsdom (no IO).
+        {
+          provide: GalleryCardChartStore,
+          useValue: { barsFor: () => () => undefined },
+        },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(GalleryGroupComponent);
@@ -67,10 +88,18 @@ describe('GalleryGroupComponent', () => {
       key: 'sector:Tech',
       label: 'Tech',
       cards: [
-        { ...card('AAPL'), occurrences: [
-          ...card('AAPL').occurrences,
-          ...card('AAPL', 'buy', SignalTimeframe.WEEKLY).occurrences,
-        ] }, // D+W buy
+        // D+W buy — the weekly leg lives in the full occurrence set.
+        {
+          ...card('AAPL'),
+          occurrences: [
+            ...card('AAPL').occurrences,
+            ...card('AAPL', 'buy', SignalTimeframe.WEEKLY).occurrences,
+          ],
+          allOccurrences: [
+            ...card('AAPL').occurrences,
+            ...card('AAPL', 'buy', SignalTimeframe.WEEKLY).occurrences,
+          ],
+        },
         card('TSLA', 'sell'), // D sell
       ],
     });

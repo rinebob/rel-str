@@ -14,14 +14,9 @@ import {
 import {
   EquityOrderTicket,
   EtfOrderTicket,
-  InstrumentType,
   OrderTicket,
-  OrderTicketStatus,
 } from '../services/order-ticket.types';
-import {
-  buildStOccurrenceDecisionId,
-  canonicalOccurrenceDecisionId,
-} from '../services/firestore-helpers';
+import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import {
   ReviewDecision,
   SignalDirection,
@@ -60,6 +55,12 @@ export interface GalleryCard {
   profile: StSymbolProfile;
   /** Contributing occurrences, barDate descending. */
   occurrences: StSignalItem[];
+  /** The card's FULL occurrence set — untrimmed by the signal-timeframe
+   *  filter. `occurrences` is trimmed for the card's list render, but the
+   *  chart must see both timeframes so the card's own dots survive a
+   *  chart-interval vs signal-filter mismatch (#819 review: filter=D +
+   *  chart=W left zero card dots). */
+  allOccurrences: StSignalItem[];
   /** Derived from ticket + Monitor membership — see enrichGalleryCards. */
   status: GalleryCardStatus;
   /** Every occurrence in the run's symbol+side set carries a durable
@@ -107,8 +108,6 @@ export interface GalleryActionContext {
  *  dimension-prefixed so its collapse state survives dimension switches. */
 export const SUNK_GROUP_KEY = 'sunk';
 
-const SUNK_STATUSES: ReadonlySet<GalleryCardStatus> = new Set(['watched', 'settled', 'failed', 'rejected']);
-
 /** One expando section of the grouped gallery (#783). */
 export interface GalleryGroup {
   /** `${dimension}:${groupKey}` — stable key for expansion state and tracking. */
@@ -133,13 +132,15 @@ export function buildGalleryCards(
 }
 
 function card(p: StSymbolProfile, side: GallerySide, occurrences: StSignalItem[]): GalleryCard {
+  const sorted = [...occurrences].sort((a, b) => b.barDate.localeCompare(a.barDate));
   return {
     key: `${p.symbol}:${side}`,
     symbol: p.symbol,
     side,
     direction: side === 'buy' ? SignalDirection.LONG : SignalDirection.SHORT,
     profile: p,
-    occurrences: [...occurrences].sort((a, b) => b.barDate.localeCompare(a.barDate)),
+    occurrences: sorted,
+    allOccurrences: sorted,
     status: 'pending',
     allRejected: false,
     actionedAt: '',
@@ -168,10 +169,13 @@ export function filterGalleryCards(
     )
     .map((c) => {
       // Verdict over the FULL pre-trim set — all timeframes, since the
-      // reject write covers them all (#755 review r3).
+      // reject write covers them all (#755 review r3). Read allOccurrences
+      // so a re-filter of an already-trimmed card can't shrink the verdict.
       const allRejected =
-        c.occurrences.length > 0 && c.occurrences.every((o) => isRejectedOccurrence(o, actions));
-      const inTimeframe = c.occurrences.filter(
+        c.allOccurrences.length > 0 && c.allOccurrences.every((o) => isRejectedOccurrence(o, actions));
+      // Trim from the canonical full set — a re-filter of an already
+      // trimmed card can't permanently lose the other timeframe's legs.
+      const inTimeframe = c.allOccurrences.filter(
         (o) => filter.timeframe === SignalTimeframe.ALL || o.timeframe === filter.timeframe,
       );
       const kept = inTimeframe.filter((o) => !isRejectedOccurrence(o, actions));
@@ -225,151 +229,42 @@ export function groupGalleryCards(
 }
 
 /**
- * Enrich filtered cards with action status (#755): the signal-staged ticket
- * for this run+side, the derived lifecycle status, and the action timestamp
- * used for sunk ordering.
+ * Perf: retain prior card object identities across pipeline rebuilds.
+ * filterGalleryCards/enrichGalleryCards mint fresh GalleryCard objects on
+ * every upstream patch (tickets, decisions, history, lists) — without
+ * retention every card input churns and every mounted card chart
+ * re-renders per patch. Reusing the previous instance when nothing
+ * rendered-relevant changed keeps OnPush/signal inputs stable.
  */
-export function enrichGalleryCards(
-  cards: GalleryCard[],
-  actions: GalleryActionContext,
+export function retainGalleryCards(
+  prev: readonly GalleryCard[],
+  next: GalleryCard[],
 ): GalleryCard[] {
-  return cards.map((c) => {
-    const ticket = findCardTicket(c, actions);
-    return {
-      ...c,
-      status: deriveCardStatus(c, ticket, actions),
-      ticket,
-      actionedAt: ticket ? (ticket.terminalAt ?? ticket.updatedAt) : latestDecidedAt(c, actions),
-    };
+  if (prev.length === 0) return next;
+  const prevByKey = new Map(prev.map((c) => [c.key, c]));
+  return next.map((c) => {
+    const p = prevByKey.get(c.key);
+    return p && sameGalleryCard(p, c) ? p : c;
   });
 }
 
-/** Canonical decision id for an occurrence in the viewed run. */
-function occurrenceDecisionId(o: StSignalItem, ctx: GalleryActionContext): string {
-  return buildStOccurrenceDecisionId(ctx.runId, o.symbol, o.timeframe, o.signalType);
-}
-
-/** Latest decidedAt across the card's occurrences — '' when none decided. */
-function latestDecidedAt(card: GalleryCard, ctx: GalleryActionContext): string {
-  return card.occurrences
-    .map((o) => ctx.decisions[occurrenceDecisionId(o, ctx)]?.decidedAt)
-    .filter((d): d is string => !!d)
-    .sort()
-    .pop() ?? '';
-}
-
-/** All tickets statusing a card: same symbol+side, staged from one of the
- *  card's own occurrence decisions — exact canonical-id equality, not a
- *  `startsWith(runId_)` test (run ids embed underscores, so a decision id
- *  from run `${runA}_X` would falsely prefix-match viewed run `runA`, and
- *  an id for a decision not on this card would match too). Canonicalizing
- *  per-occurrence also resolves legacy-format secondary decisionIds whose
- *  embedded timeframe/signalType differ from the ticket's headline fields,
- *  and scopes matches to THIS run — a same-symbol/same-side ticket from
- *  another run carries that run's decision ids and never matches (#755
- *  review). Sorted by updatedAt desc. Equity/ETF only — option tickets
- *  carry no signalContext and can't stage from a signal. */
-export function findCardTickets(
-  card: GalleryCard,
-  ctx: GalleryActionContext,
-): Array<EquityOrderTicket | EtfOrderTicket> {
-  const canonicalId = (o: StSignalItem) =>
-    buildStOccurrenceDecisionId(ctx.runId, o.symbol, o.timeframe, o.signalType);
-  return (ctx.ticketsBySymbol[card.symbol.toUpperCase()] ?? [])
-    .filter((t): t is EquityOrderTicket | EtfOrderTicket => {
-      if (t.instrumentType === InstrumentType.OPTION) return false;
-      if (t.side !== card.side || !t.signalContext) return false;
-      const sc = t.signalContext;
-      const ids = sc.decisionIds?.length ? sc.decisionIds : [sc.decisionId];
-      return card.occurrences.some((o) =>
-        ids.some((id) => canonicalOccurrenceDecisionId(id, o) === canonicalId(o)),
-      );
-    })
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
-
-/** The latest ticket statusing a card — see {@link findCardTickets}. */
-function findCardTicket(
-  card: GalleryCard,
-  ctx: GalleryActionContext,
-): EquityOrderTicket | EtfOrderTicket | undefined {
-  return findCardTickets(card, ctx)[0];
-}
-
-/** The card's still-open staged ticket — the Trade button reopens this
- *  instead of duplicating (#759). */
-export function findStagedCardTicket(
-  card: GalleryCard,
-  ctx: GalleryActionContext,
-): EquityOrderTicket | EtfOrderTicket | undefined {
-  const ticket = findCardTicket(card, ctx);
-  return ticket?.status === OrderTicketStatus.STAGED ? ticket : undefined;
-}
-
-/** Status precedence: watch outranks everything — Monitor means "tracked
- *  elsewhere," so the card leaves the actionable set. A fully-REJECTed card
- *  ranks next — the decision supersedes any ticket state (a staged ticket
- *  is removed on reject anyway). Ticket lifecycle fills the rest. */
-function deriveCardStatus(
-  card: GalleryCard,
-  ticket: OrderTicket | undefined,
-  ctx: GalleryActionContext,
-): GalleryCardStatus {
-  // List contents are stored uppercase — normalize like the list-filter lookups.
-  if (ctx.monitorSymbols.has(card.symbol.toUpperCase())) return 'watched';
-  if (card.allRejected) {
-    return 'rejected';
-  }
-  if (!ticket) return 'pending';
-  switch (ticket.status) {
-    case OrderTicketStatus.SUBMITTING:
-      return 'submitting';
-    case OrderTicketStatus.SUBMITTED:
-    case OrderTicketStatus.QUEUED:
-    case OrderTicketStatus.RESTING:
-      return 'resting';
-    case OrderTicketStatus.FILLED:
-    case OrderTicketStatus.PAPER:
-      return 'settled';
-    case OrderTicketStatus.FAILED:
-    case OrderTicketStatus.CANCELLED:
-      return 'failed';
-    default: // STAGED — nothing placed yet
-      return 'pending';
-  }
-}
-
-/** Cards that leave the actionable set: watched/settled/failed/rejected
- *  sink to the bottom group. Resting stays in place — an in-flight order
- *  is still actionable context (#755, IMPL: resting stays). */
-export function isSunkCard(card: GalleryCard): boolean {
-  return SUNK_STATUSES.has(card.status);
-}
-
-/**
- * Trade/Paper precondition: the card must be in a decidable state —
- * `pending` or `watched` (a parked decision that stays tradeable) — must
- * not be fully rejected, and must not already carry a live ticket. A
- * STAGED ticket passes: Trade reopens it rather than duplicating. Sunk
- * cards expose only Restore — a rejected card restaging would carry
- * REJECT decisionIds whose removal silently un-rejects (#755 review).
- * The `allRejected` check matters for watched cards: Monitor wins status
- * precedence, so a fully-rejected watched card renders 'watched' and the
- * status check alone wouldn't catch it. */
-export function canTradeCard(card: GalleryCard): boolean {
-  if (card.status !== 'pending' && card.status !== 'watched') return false;
-  if (card.allRejected) return false;
-  return !card.ticket || card.ticket.status === OrderTicketStatus.STAGED;
-}
-
-/** Reject/Restore precondition: pending and watched cards can be
- *  rejected; a rejected card can be restored. Terminal and in-flight
- *  states are dealt with — no decision writes on them. */
-export function canRejectCard(card: GalleryCard): boolean {
+/** Shallow equivalence over the fields the card + chart actually read.
+ *  Occurrences compare element-wise — filter() rebuilds the array but the
+ *  StSignalItem refs stay stable. */
+function sameGalleryCard(a: GalleryCard, b: GalleryCard): boolean {
   return (
-    card.status === 'pending' ||
-    card.status === 'watched' ||
-    card.status === 'rejected'
+    a.symbol === b.symbol &&
+    a.side === b.side &&
+    a.direction === b.direction &&
+    a.profile === b.profile &&
+    a.allRejected === b.allRejected &&
+    a.status === b.status &&
+    a.actionedAt === b.actionedAt &&
+    a.ticket === b.ticket &&
+    a.occurrences.length === b.occurrences.length &&
+    a.occurrences.every((o, i) => o === b.occurrences[i]) &&
+    a.allOccurrences.length === b.allOccurrences.length &&
+    a.allOccurrences.every((o, i) => o === b.allOccurrences[i])
   );
 }
 

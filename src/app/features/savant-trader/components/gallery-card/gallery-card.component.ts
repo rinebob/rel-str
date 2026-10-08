@@ -6,12 +6,15 @@
  * Trade / Reject / Paper actions for one-step decisions (#759), plus the
  * @defer-mounted card chart cell (#756).
  */
-import { Component, ChangeDetectionStrategy, booleanAttribute, computed, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, booleanAttribute, computed, inject, input, output } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { GalleryCardChartComponent } from '../gallery-card-chart/gallery-card-chart.component';
+import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
 import { SignalTimeframe } from '../../common/constants';
 import { OrderTicketStatus } from '../../services/order-ticket.types';
-import { GalleryCard, GalleryCardStatus, canRejectCard, canTradeCard, isSunkCard } from '../../utils/gallery-cards.util';
+import { GalleryCard, GalleryCardStatus } from '../../utils/gallery-cards.util';
+import { canRejectCard, canTradeCard, isSunkCard } from '../../utils/gallery-card-actions.util';
+import { tierLabel } from '../../utils/utils';
 
 const STATUS_LABELS: Record<Exclude<GalleryCardStatus, 'pending'>, string> = {
   submitting: 'Submitting',
@@ -56,6 +59,22 @@ export class GalleryCardComponent {
   action = output<GalleryCardAction>();
 
   readonly SignalTimeframe = SignalTimeframe;
+  readonly tierLabel = tierLabel;
+
+  private readonly chartStore = inject(GalleryCardChartStore);
+
+  /** Last-close price + day-over-day change from the card's prefetched
+   *  daily bars — renders on the financial meta row once the idle
+   *  prefetch lands; absent until then (leaf selector, cheap reads). */
+  readonly priceChange = computed(() => {
+    const bars = this.chartStore.barsFor()(this.card().symbol);
+    if (!bars || bars.length < 2) return undefined;
+    const price = bars[bars.length - 1].close;
+    const prev = bars[bars.length - 2].close;
+    if (!prev) return undefined;
+    const change = price - prev;
+    return { price, change, pct: (change / prev) * 100 };
+  });
 
   readonly sunk = computed(() => isSunkCard(this.card()));
   /** Per-button disabled state: the page-level flag, an in-flight action,
@@ -65,7 +84,12 @@ export class GalleryCardComponent {
   readonly tradeDisabled = computed(
     () => this.actionsDisabled() || this.actionBusy() || !canTradeCard(this.card()),
   );
-  readonly paperDisabled = this.tradeDisabled;
+  /** Paper shares Trade's precondition today, but is its own computed —
+   *  an alias would silently couple the buttons if paper's rule ever
+   *  diverges (#819 r2). */
+  readonly paperDisabled = computed(
+    () => this.actionsDisabled() || this.actionBusy() || !canTradeCard(this.card()),
+  );
   readonly rejectDisabled = computed(
     () => this.actionsDisabled() || this.actionBusy() || !canRejectCard(this.card()),
   );

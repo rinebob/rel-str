@@ -1,6 +1,7 @@
 /**
  * GalleryCardComponent spec (#754) — renders the card shell's signal details.
  */
+import { signal } from '@angular/core';
 import { ComponentFixture, DeferBlockBehavior, DeferBlockState, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
@@ -8,6 +9,7 @@ import { GalleryCardComponent } from './gallery-card.component';
 import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { GalleryCard } from '../../utils/gallery-cards.util';
+import { PriceBar } from '../../../shared/components/flex-chart/flex-chart.types';
 import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 import { EquityOrderTicket, InstrumentType, OrderSource, OrderTicketStatus } from '../../services/order-ticket.types';
 
@@ -32,13 +34,7 @@ function ticket(): EquityOrderTicket {
 }
 
 function card(): GalleryCard {
-  return {
-    key: 'AAPL:buy',
-    symbol: 'AAPL',
-    side: 'buy',
-    direction: SignalDirection.LONG,
-    profile: { symbol: 'AAPL', enabled: true, createdAt: '2026-01-01', name: 'Apple Inc' },
-    occurrences: [
+  const occurrences: GalleryCard['occurrences'] = [
       {
         id: '2026-08-25',
         symbol: 'AAPL',
@@ -64,7 +60,15 @@ function card(): GalleryCard {
         status: SignalStatus.CONFIRMED,
         indicators: {},
       },
-    ],
+    ];
+  return {
+    key: 'AAPL:buy',
+    symbol: 'AAPL',
+    side: 'buy',
+    direction: SignalDirection.LONG,
+    profile: { symbol: 'AAPL', enabled: true, createdAt: '2026-01-01', name: 'Apple Inc' },
+    occurrences,
+    allOccurrences: occurrences,
     status: 'pending',
     allRejected: false,
     actionedAt: '',
@@ -73,10 +77,21 @@ function card(): GalleryCard {
 
 describe('GalleryCardComponent', () => {
   let fixture: ComponentFixture<GalleryCardComponent>;
+  let barsMap: ReturnType<typeof signal<Record<string, PriceBar[]>>>;
 
   const text = (): string => (fixture.nativeElement as HTMLElement).textContent ?? '';
 
+  const bar = (date: string, close: number): PriceBar => ({
+    date,
+    x: new Date(date),
+    open: close,
+    high: close,
+    low: close,
+    close,
+  });
+
   beforeEach(async () => {
+    barsMap = signal<Record<string, PriceBar[]>>({});
     await TestBed.configureTestingModule({
       imports: [GalleryCardComponent],
       providers: [
@@ -88,9 +103,13 @@ describe('GalleryCardComponent', () => {
           provide: GalleryCardChartStore,
           useValue: {
             ensureBars: jest.fn(),
-            barsFor: () => () => undefined,
+            ensureWeeklyBars: jest.fn(),
+            epoch: signal(0),
+            barsFor: () => (s: string) => barsMap()[s],
+            weeklyBarsFor: () => () => undefined,
             versionFor: () => () => '',
             errorFor: () => () => null,
+            weeklyErrorFor: () => () => null,
           },
         },
         {
@@ -110,6 +129,31 @@ describe('GalleryCardComponent', () => {
     expect(text()).toContain('AAPL');
     expect(text()).toContain('Apple Inc');
     expect(text()).toContain('BUY');
+  });
+
+  it('leads the financial row with price + day change once daily bars land', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.meta-price')).toBeNull(); // no bars yet
+
+    barsMap.set({ AAPL: [bar('2026-08-22', 200), bar('2026-08-25', 210)] });
+    fixture.detectChanges();
+
+    const meta = el.querySelector('.card-meta')!;
+    expect(meta.querySelector('.meta-price')!.textContent).toContain('210.00');
+    const chg = meta.querySelector('.meta-change')!;
+    expect(chg.textContent).toContain('+10.00');
+    expect(chg.textContent).toContain('(+5.0%)');
+    expect(chg.classList.contains('up')).toBe(true);
+  });
+
+  it('marks a down day with the down class and no leading +', () => {
+    barsMap.set({ AAPL: [bar('2026-08-22', 200), bar('2026-08-25', 190)] });
+    fixture.detectChanges();
+
+    const chg = fixture.nativeElement.querySelector('.meta-change')!;
+    expect(chg.textContent).toContain('-10.00');
+    expect(chg.textContent).toContain('(-5.0%)');
+    expect(chg.classList.contains('down')).toBe(true);
   });
 
   it('renders each occurrence with timeframe, type, and bar date', () => {
@@ -220,6 +264,18 @@ describe('GalleryCardComponent', () => {
     await blocks[0].render(DeferBlockState.Complete);
 
     expect(el.querySelector('app-gallery-card-chart')).toBeTruthy();
+  });
+
+  it('renders the action toolbar above the chart cell (#819)', async () => {
+    const blocks = await fixture.getDeferBlocks();
+    await blocks[0].render(DeferBlockState.Complete);
+
+    const el = fixture.nativeElement as HTMLElement;
+    const actions = el.querySelector('.card-actions')!;
+    const chart = el.querySelector('app-gallery-card-chart')!;
+    expect(
+      actions.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('disables the decision buttons when the run is not actionable', () => {

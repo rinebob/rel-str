@@ -1,19 +1,24 @@
 <div class="gallery-page">
   <app-gallery-header
-    [marketDate]="facade.viewedRun()?.marketDate ?? null"
+    [marketDate]="facade.runMarketDate()"
+    [runCompletedAt]="facade.viewedRun()?.completedAt ?? null"
     [cardCount]="facade.cardCount()"
     [totalCardCount]="facade.cards().length"
     [timeframe]="facade.timeframe()"
+    [chartTimeframe]="facade.chartTimeframe()"
     [direction]="facade.direction()"
     [listFilter]="facade.listFilter()"
     [listGroups]="facade.filterOptionGroups()"
     [groupDimension]="facade.groupDimension()"
     [allGroupsExpanded]="facade.allGroupsExpanded()"
+    [refreshing]="facade.refreshing()"
     (timeframeChange)="facade.setTimeframe($event)"
+    (chartTimeframeChange)="facade.setChartTimeframe($event)"
     (directionChange)="facade.setDirection($event)"
     (listFilterChange)="facade.setListFilter($event)"
     (dimensionChange)="facade.setGroupDimension($event)"
-    (expandAllToggle)="facade.toggleAllGroups()">
+    (expandAllToggle)="facade.toggleAllGroups()"
+    (refresh)="facade.refresh()">
   </app-gallery-header>
 
   @if (facade.pageInitializing()) {
@@ -26,6 +31,21 @@
     <div class="gallery-empty">No signals match the current filters.</div>
   } @else {
     <div class="gallery-groups">
+      @if (facade.ungrouped() && facade.flatCards().length) {
+        <!-- Flat gallery (#820): no expandos — every card in market-cap
+             order, then any Sunk group panels below via the groups loop.
+             Guarded on flatCards so an all-sunk view doesn't render an
+             empty grid's dead space above the panel. -->
+        <div class="gallery-grid">
+          @for (card of facade.flatCards(); track card.key) {
+            <app-gallery-card
+              [card]="card"
+              [actionsDisabled]="!actions.isActionableRun()"
+              [actionBusy]="actions.busyCardKeys().has(card.key)"
+              (action)="onCardAction($event)" />
+          }
+        </div>
+      }
       @let expandedMap = facade.expandedGroups();
       @for (group of facade.groups(); track group.key) {
         <app-gallery-group

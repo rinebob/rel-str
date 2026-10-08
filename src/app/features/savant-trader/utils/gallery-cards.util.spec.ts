@@ -6,12 +6,9 @@
  */
 import {
   buildGalleryCards,
-  canRejectCard,
-  canTradeCard,
-  enrichGalleryCards,
   filterGalleryCards,
   groupGalleryCards,
-  isSunkCard,
+  retainGalleryCards,
   sunkGalleryGroup,
   GalleryActionContext,
   GalleryCardStatus,
@@ -19,6 +16,12 @@ import {
   GalleryListContext,
   SUNK_GROUP_KEY,
 } from './gallery-cards.util';
+import {
+  canRejectCard,
+  canTradeCard,
+  enrichGalleryCards,
+  isSunkCard,
+} from './gallery-card-actions.util';
 import { StOccurrenceDecision, StSignalItem, StSymbolProfile } from '../services/types';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import {
@@ -586,6 +589,38 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
       const [c] = enrichGalleryCards(cards, ctx({ ticketsBySymbol: { AAPL: [legacy] } }));
       expect(c.status).toBe('resting');
     });
+
+    it('a ticket staged from a filter-hidden occurrence still statuses the card (#819 r2)', () => {
+      const multi = buildGalleryCards(
+        [profile('AAPL')],
+        {
+          AAPL: [
+            signal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG),
+            signal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG, { signalType: 'RS_WEEKLY' }),
+          ],
+        },
+      );
+      const [trimmed] = filterGalleryCards(
+        multi,
+        { ...allFilter, timeframe: SignalTimeframe.DAILY },
+        noLists,
+        noDecisions,
+      );
+      expect(trimmed.occurrences).toHaveLength(1); // weekly leg hidden
+
+      const weeklyTicket = ticket('AAPL', 'buy', OrderTicketStatus.RESTING, {
+        signalContext: {
+          signalType: 'RS_WEEKLY',
+          barDate: '2026-08-25',
+          timeframe: 'W',
+          direction: 'LONG',
+          decisionId: buildStOccurrenceDecisionId(RUN_ID, 'AAPL', 'W', 'RS_WEEKLY'),
+        },
+      });
+      const [c] = enrichGalleryCards([trimmed], ctx({ ticketsBySymbol: { AAPL: [weeklyTicket] } }));
+      expect(c.ticket?.id).toBe(weeklyTicket.id);
+      expect(c.status).toBe('resting');
+    });
   });
 
   describe('sunk model', () => {
@@ -641,5 +676,91 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
       );
       expect(c.actionedAt).toBe('2026-08-20T00:00:00Z');
     });
+
+    it('actionedAt sees a decision on a filter-hidden occurrence (#819 r2)', () => {
+      // D filter trims the AAPL card to its daily leg; the only decision
+      // is on the hidden weekly leg — it must still timestamp the card.
+      const hidden = {
+        ...decision('AAPL', 'RS_WEEKLY', ReviewDecision.REJECT, SignalTimeframe.WEEKLY),
+        decidedAt: '2026-08-27T00:00:00Z',
+      };
+      const [trimmed] = filterGalleryCards(
+        cards.filter((x) => x.symbol === 'AAPL'),
+        { ...allFilter, timeframe: SignalTimeframe.DAILY },
+        noLists,
+        noDecisions,
+      );
+      const [c] = enrichGalleryCards([trimmed], ctx({ decisions: { [hidden.id]: hidden } }));
+      expect(c.actionedAt).toBe('2026-08-27T00:00:00Z');
+    });
+  });
+});
+
+describe('retainGalleryCards — identity retention across pipeline rebuilds', () => {
+  const actions: GalleryActionContext = {
+    runId: RUN_ID, decisions: {}, ticketsBySymbol: {}, monitorSymbols: new Set(),
+  };
+  const profiles = [
+    profile('AAPL', { sector: 'Tech', marketCap: 100 }),
+    profile('TSLA', { sector: 'Auto', marketCap: 50 }),
+  ];
+  const signalsBySymbol = {
+    AAPL: [signal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)],
+    TSLA: [signal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)],
+  };
+
+  it('reuses card objects when nothing rendered-relevant changed', () => {
+    const prev = enrichGalleryCards(
+      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, actions),
+      actions,
+    );
+    // Simulate a fresh pipeline pass producing new object identities with
+    // equivalent content (the ticket patch path).
+    const next = enrichGalleryCards(
+      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, actions),
+      actions,
+    );
+    expect(next[0]).not.toBe(prev[0]); // pipeline mints fresh objects…
+
+    const retained = retainGalleryCards(prev, next);
+    expect(retained[0]).toBe(prev[0]); // …but retention restores identity
+    expect(retained[1]).toBe(prev[1]);
+  });
+
+  it('emits a new object for the card whose ticket/status changed', () => {
+    const ctx = { runId: RUN_ID, decisions: {}, ticketsBySymbol: {}, monitorSymbols: new Set<string>() };
+    const prev = enrichGalleryCards(
+      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, ctx),
+      ctx,
+    );
+    const ticket = {
+      id: 't-1',
+      symbol: 'AAPL',
+      side: 'buy',
+      source: OrderSource.SIGNAL_PIPELINE,
+      status: OrderTicketStatus.SUBMITTING,
+      signalContext: {
+        signalType: 'RS_RISE',
+        barDate: '2026-08-25',
+        timeframe: 'D',
+        direction: 'LONG',
+        decisionId: buildStOccurrenceDecisionId(RUN_ID, 'AAPL', 'D', 'RS_RISE'),
+      },
+    } as unknown as EquityOrderTicket;
+    const ctx2 = { ...ctx, ticketsBySymbol: { AAPL: [ticket] } };
+    const next = enrichGalleryCards(
+      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, ctx2),
+      ctx2,
+    );
+    const retained = retainGalleryCards(prev, next);
+    const aapl = retained.find((c) => c.symbol === 'AAPL')!;
+    const tsla = retained.find((c) => c.symbol === 'TSLA')!;
+    expect(aapl).not.toBe(prev.find((c) => c.symbol === 'AAPL'));
+    expect(tsla).toBe(prev.find((c) => c.symbol === 'TSLA'));
+  });
+
+  it('empty prev passes next through untouched', () => {
+    const next = buildGalleryCards(profiles, signalsBySymbol);
+    expect(retainGalleryCards([], next)).toBe(next);
   });
 });

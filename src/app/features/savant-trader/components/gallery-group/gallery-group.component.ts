@@ -34,12 +34,15 @@ export class GalleryGroupComponent {
   /** Card decision actions re-emitted for the page to dispatch. */
   readonly cardAction = output<GalleryCardAction>();
 
-  /** Cards carrying at least one daily occurrence (D+W cards count in both). */
+  /** Cards carrying at least one daily occurrence (D+W cards count in both).
+   *  Counts read allOccurrences — the card's true content — so a timeframe
+   *  filter doesn't zero out the opposite count while the card's chart can
+   *  still draw those dots (#819 r2). */
   readonly dailyCount = computed(() =>
-    this.group().cards.filter((c) => c.occurrences.some((o) => o.timeframe === SignalTimeframe.DAILY)).length,
+    this.group().cards.filter((c) => c.allOccurrences.some((o) => o.timeframe === SignalTimeframe.DAILY)).length,
   );
   readonly weeklyCount = computed(() =>
-    this.group().cards.filter((c) => c.occurrences.some((o) => o.timeframe === SignalTimeframe.WEEKLY)).length,
+    this.group().cards.filter((c) => c.allOccurrences.some((o) => o.timeframe === SignalTimeframe.WEEKLY)).length,
   );
   readonly longCount = computed(() => this.group().cards.filter((c) => c.side === 'buy').length);
   readonly shortCount = computed(() => this.group().cards.filter((c) => c.side === 'sell').length);

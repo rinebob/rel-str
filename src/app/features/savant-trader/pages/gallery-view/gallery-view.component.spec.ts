@@ -37,6 +37,19 @@ function card(symbol: string, side: 'buy' | 'sell'): GalleryCard {
       indicators: {},
       closePrice: 123.45,
     }],
+    allOccurrences: [{
+      id: '2026-08-25',
+      symbol,
+      barDate: '2026-08-25',
+      marketDate: '2026-08-25',
+      runId: 'run-1',
+      timeframe: SignalTimeframe.DAILY,
+      direction: side === 'buy' ? SignalDirection.LONG : SignalDirection.SHORT,
+      signalType: 'RS_RISE',
+      status: SignalStatus.INTERIM,
+      indicators: {},
+      closePrice: 123.45,
+    }],
     status: 'pending',
     allRejected: false,
     actionedAt: '',
@@ -48,6 +61,7 @@ describe('GalleryViewComponent', () => {
   let facadeMock: {
     enterGallery: jest.Mock;
     setTimeframe: jest.Mock;
+    setChartTimeframe: jest.Mock;
     setDirection: jest.Mock;
     setListFilter: jest.Mock;
     setGroupDimension: jest.Mock;
@@ -55,18 +69,24 @@ describe('GalleryViewComponent', () => {
     toggleAllGroups: jest.Mock;
     expandedGroups: ReturnType<typeof signal<Record<string, boolean>>>;
     viewedRun: ReturnType<typeof signal<{ marketDate: string } | null>>;
+    runMarketDate: ReturnType<typeof signal<string | null>>;
     cards: ReturnType<typeof signal<GalleryCard[]>>;
     visibleCards: ReturnType<typeof signal<GalleryCard[]>>;
     groups: ReturnType<typeof signal<GalleryGroup[]>>;
+    ungrouped: ReturnType<typeof signal<boolean>>;
+    flatCards: ReturnType<typeof signal<GalleryCard[]>>;
     pageInitializing: ReturnType<typeof signal<boolean>>;
     allFilteredOut: ReturnType<typeof signal<boolean>>;
     loadError: ReturnType<typeof signal<string | null>>;
     cardCount: ReturnType<typeof signal<number>>;
     timeframe: ReturnType<typeof signal<SignalTimeframe>>;
+    chartTimeframe: ReturnType<typeof signal<SignalTimeframe>>;
     direction: ReturnType<typeof signal<SignalDirection>>;
     listFilter: ReturnType<typeof signal<string>>;
     groupDimension: ReturnType<typeof signal<GroupDimension>>;
     allGroupsExpanded: ReturnType<typeof signal<boolean>>;
+    refreshing: ReturnType<typeof signal<boolean>>;
+    refresh: jest.Mock;
     filterOptionGroups: ReturnType<typeof signal<never[]>>;
   };
   let actionsMock: {
@@ -81,7 +101,7 @@ describe('GalleryViewComponent', () => {
   };
 
   let dialogMock: { open: jest.Mock };
-  let chartStoreMock: { prefetch: jest.Mock };
+  let chartStoreMock: { prefetch: jest.Mock; barsFor: () => () => unknown };
 
   const text = (): string => (fixture.nativeElement as HTMLElement).textContent ?? '';
   const cardEls = (): HTMLElement[] =>
@@ -91,6 +111,7 @@ describe('GalleryViewComponent', () => {
     facadeMock = {
       enterGallery: jest.fn(),
       setTimeframe: jest.fn(),
+      setChartTimeframe: jest.fn(),
       setDirection: jest.fn(),
       setListFilter: jest.fn(),
       setGroupDimension: jest.fn(),
@@ -98,18 +119,24 @@ describe('GalleryViewComponent', () => {
       toggleAllGroups: jest.fn(),
       expandedGroups: signal<Record<string, boolean>>({}),
       viewedRun: signal({ marketDate: '2026-08-25' }),
+      runMarketDate: signal<string | null>('2026-08-25'),
       cards: signal<GalleryCard[]>([]),
       visibleCards: signal<GalleryCard[]>([]),
       groups: signal<GalleryGroup[]>([]),
+      ungrouped: signal(false),
+      flatCards: signal<GalleryCard[]>([]),
       pageInitializing: signal(false),
       allFilteredOut: signal(false),
       loadError: signal<string | null>(null),
       cardCount: signal(0),
       timeframe: signal(SignalTimeframe.ALL),
+      chartTimeframe: signal(SignalTimeframe.DAILY),
       direction: signal(SignalDirection.ALL),
       listFilter: signal('ALL'),
       groupDimension: signal(GroupDimension.INDUSTRY),
       allGroupsExpanded: signal(true),
+      refreshing: signal(false),
+      refresh: jest.fn(),
       filterOptionGroups: signal<never[]>([]),
     };
     actionsMock = {
@@ -123,7 +150,12 @@ describe('GalleryViewComponent', () => {
       discardStagedTicket: jest.fn(),
     };
     dialogMock = { open: jest.fn().mockReturnValue({ afterClosed: () => of(null) }) };
-    chartStoreMock = { prefetch: jest.fn() };
+    // barsFor feeds the card's price/change meta (#860-era tweak); the rest
+    // is consumed only inside the deferred chart cell (manual in jsdom).
+    chartStoreMock = {
+      prefetch: jest.fn(),
+      barsFor: () => () => undefined,
+    };
 
     await TestBed.configureTestingModule({
       imports: [GalleryViewComponent],
@@ -220,6 +252,7 @@ describe('GalleryViewComponent', () => {
       (el) => el.name === 'app-gallery-header',
     ).componentInstance as {
       timeframeChange: { emit: (v: SignalTimeframe) => void };
+      chartTimeframeChange: { emit: (v: SignalTimeframe) => void };
       directionChange: { emit: (v: SignalDirection) => void };
       listFilterChange: { emit: (v: string) => void };
       dimensionChange: { emit: (v: GroupDimension) => void };
@@ -227,12 +260,14 @@ describe('GalleryViewComponent', () => {
     };
 
     header.timeframeChange.emit(SignalTimeframe.WEEKLY);
+    header.chartTimeframeChange.emit(SignalTimeframe.WEEKLY);
     header.directionChange.emit(SignalDirection.SHORT);
     header.listFilterChange.emit('PRIMARY');
     header.dimensionChange.emit(GroupDimension.MARKET_CAP_TIER);
     header.expandAllToggle.emit();
 
     expect(facadeMock.setTimeframe).toHaveBeenCalledWith(SignalTimeframe.WEEKLY);
+    expect(facadeMock.setChartTimeframe).toHaveBeenCalledWith(SignalTimeframe.WEEKLY);
     expect(facadeMock.setDirection).toHaveBeenCalledWith(SignalDirection.SHORT);
     expect(facadeMock.setListFilter).toHaveBeenCalledWith('PRIMARY');
     expect(facadeMock.setGroupDimension).toHaveBeenCalledWith(GroupDimension.MARKET_CAP_TIER);
@@ -294,5 +329,44 @@ describe('GalleryViewComponent', () => {
     expect(chartStoreMock.prefetch).toHaveBeenCalledTimes(1);
     const symbols = [...chartStoreMock.prefetch.mock.calls[0][0]] as string[];
     expect(symbols.sort()).toEqual(['AAPL', 'TSLA']);
+  });
+
+  it('flat mode (#820): renders cards without expandos when group dimension is None', () => {
+    const cards = [card('AAPL', 'buy'), card('TSLA', 'sell')];
+    facadeMock.cards.set(cards);
+    facadeMock.ungrouped.set(true);
+    facadeMock.flatCards.set(cards);
+    // Sunk group may still render as a panel — dimension groups do not.
+    facadeMock.groups.set([]);
+    fixture.detectChanges();
+
+    expect(cardEls()).toHaveLength(2);
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('app-gallery-group'),
+    ).toHaveLength(0);
+    expect(text()).toContain('AAPL');
+    expect(text()).toContain('TSLA');
+  });
+
+  it('flat mode (#820): a sunk panel still renders below the flat grid', () => {
+    const flat = [card('AAPL', 'buy'), card('TSLA', 'sell')];
+    const sunk = card('MSFT', 'buy');
+    facadeMock.cards.set([...flat, sunk]);
+    facadeMock.ungrouped.set(true);
+    facadeMock.flatCards.set(flat);
+    facadeMock.groups.set([{ key: 'sunk', label: 'Sunk', cards: [sunk] }]);
+    facadeMock.expandedGroups.set({ sunk: true });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    // Flat grid renders the two non-sunk cards directly…
+    const grid = el.querySelector<HTMLElement>('.gallery-grid')!;
+    expect(grid.querySelectorAll('app-gallery-card')).toHaveLength(2);
+    // …and the Sunk expando renders below it as an app-gallery-group.
+    const groupEl = el.querySelector<HTMLElement>('app-gallery-group')!;
+    expect(groupEl).toBeTruthy();
+    expect(
+      grid.compareDocumentPosition(groupEl) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
