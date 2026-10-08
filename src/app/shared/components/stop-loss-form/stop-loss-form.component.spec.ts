@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
-import { StopLossFormComponent } from './stop-loss-form.component';
+import { StopLossFormComponent, StopLossSubmit } from './stop-loss-form.component';
 
 describe('StopLossFormComponent', () => {
   let fixture: ComponentFixture<StopLossFormComponent>;
@@ -202,7 +202,7 @@ describe('StopLossFormComponent', () => {
       expect(preview).toEqual({
         symbol: 'AAPL',
         side: 'sell',
-        orderType: 'stop_market',
+        orderType: 'stop_loss',
         quantity: '100',
         stopPrice: '138.00',
         stopLossPercent: '8',
@@ -214,19 +214,19 @@ describe('StopLossFormComponent', () => {
   });
 
   describe('placeStopLoss output', () => {
-    it('emits placeStopLoss with stop price when onPlace is called', () => {
+    it('emits placeStopLoss with stop price and order params when onPlace is called', () => {
       fixture.componentRef.setInput('symbol', 'AAPL');
       fixture.componentRef.setInput('quantity', '100');
       fixture.componentRef.setInput('referencePrice', 150);
       fixture.componentRef.setInput('accountNumber', 'acc-1');
       fixture.detectChanges();
 
-      let emitted: { stopPrice: number } | null = null;
-      component.placeStopLoss.subscribe((e: { stopPrice: number }) => (emitted = e));
+      let emitted: StopLossSubmit | null = null;
+      component.placeStopLoss.subscribe((e) => (emitted = e));
 
       component.onPlace();
 
-      expect(emitted).toEqual({ stopPrice: 138 });
+      expect(emitted).toEqual({ stopPrice: 138, timeInForce: 'gtc', marketHours: 'regular_hours' });
     });
 
     it('does not emit when canPlace is false', () => {
@@ -242,6 +242,101 @@ describe('StopLossFormComponent', () => {
       component.onPlace();
 
       expect(emitted).toBe(false);
+    });
+  });
+
+  describe('order params — TIF / market hours (#886)', () => {
+    function setup(): HTMLElement {
+      fixture.componentRef.setInput('symbol', 'AAPL');
+      fixture.componentRef.setInput('quantity', '100');
+      fixture.componentRef.setInput('referencePrice', 150);
+      fixture.componentRef.setInput('accountNumber', 'acc-1');
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('defaults to gtc / regular_hours', () => {
+      setup();
+      expect(component.timeInForce()).toBe('gtc');
+      expect(component.marketHours()).toBe('regular_hours');
+    });
+
+    it('model() writes flow into the preview', () => {
+      setup();
+      fixture.componentRef.setInput('timeInForce', 'gfd');
+      fixture.componentRef.setInput('marketHours', 'extended_hours');
+      fixture.detectChanges();
+
+      expect(component.preview().timeInForce).toBe('gfd');
+      expect(component.preview().marketHours).toBe('extended_hours');
+    });
+
+    it('renders TIF and hours pill groups matching the order-ticket markup', () => {
+      const el = setup();
+      const groups = el.querySelectorAll('.pill-group');
+      expect(groups.length).toBe(2);
+      const labels = Array.from(el.querySelectorAll('.pill')).map((p) => p.textContent?.trim());
+      expect(labels).toEqual(['Day', 'GTC', 'Regular', 'Extended', 'All Day']);
+      expect(el.querySelector('.pill.active')?.textContent?.trim()).toBe('GTC');
+    });
+
+    it('hides the pill groups when showOrderParams is false', () => {
+      const el = setup();
+      fixture.componentRef.setInput('showOrderParams', false);
+      fixture.detectChanges();
+      expect(el.querySelectorAll('.pill-group').length).toBe(0);
+    });
+
+    it('clicking a TIF pill updates the model and emitted payload', () => {
+      const el = setup();
+      (Array.from(el.querySelectorAll('.pill')).find((p) => p.textContent?.trim() === 'Day') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.timeInForce()).toBe('gfd');
+      expect(component.marketHours()).toBe('regular_hours');
+
+      let emitted: StopLossSubmit | null = null;
+      component.placeStopLoss.subscribe((e) => (emitted = e));
+      component.onPlace();
+      expect(emitted).toEqual({ stopPrice: 138, timeInForce: 'gfd', marketHours: 'regular_hours' });
+    });
+
+    it('disables Extended/All Day — RH rejects stop orders outside regular hours', () => {
+      const el = setup();
+      const disabled = Array.from(el.querySelectorAll('.pill'))
+        .filter((p): p is HTMLButtonElement => p instanceof HTMLButtonElement && p.disabled)
+        .map((p) => p.textContent?.trim());
+      expect(disabled).toEqual(['Extended', 'All Day']);
+      expect(el.querySelector('.sl-hint')?.textContent).toContain('regular hours');
+    });
+  });
+
+  describe('initialStopPrice (#886)', () => {
+    it('seeds the stop price and derives the percent', () => {
+      fixture.componentRef.setInput('symbol', 'AAPL');
+      fixture.componentRef.setInput('quantity', '100');
+      fixture.componentRef.setInput('referencePrice', 150);
+      fixture.componentRef.setInput('accountNumber', 'acc-1');
+      fixture.componentRef.setInput('initialStopPrice', 140);
+      fixture.detectChanges();
+
+      expect(component.stopLossPrice()).toBe('140.00');
+      // ((150 - 140) / 150) * 100 = 6.7
+      expect(component.stopLossPercent()).toBe('6.7');
+    });
+
+    it('blocks the reference-price default from clobbering the seed', () => {
+      fixture.componentRef.setInput('symbol', 'AAPL');
+      fixture.componentRef.setInput('quantity', '100');
+      fixture.componentRef.setInput('referencePrice', 150);
+      fixture.componentRef.setInput('accountNumber', 'acc-1');
+      fixture.componentRef.setInput('initialStopPrice', 140);
+      fixture.detectChanges();
+
+      fixture.componentRef.setInput('referencePrice', 160);
+      fixture.detectChanges();
+
+      expect(component.stopLossPrice()).toBe('140.00');
     });
   });
 

@@ -19,6 +19,24 @@
       <button type="button" class="step-btn" aria-label="stop-percent-up" (click)="stopPercentUp()">&#9650;</button>
     </div>
   </div>
+  @if (showOrderParams()) {
+    <div class="sl-field">
+      <span class="sl-label">TIF</span>
+      <div class="pill-group">
+        <button type="button" class="pill" [class.active]="timeInForce() === 'gfd'" [disabled]="disabled()" (click)="timeInForce.set('gfd')">Day</button>
+        <button type="button" class="pill" [class.active]="timeInForce() === 'gtc'" [disabled]="disabled()" (click)="timeInForce.set('gtc')">GTC</button>
+      </div>
+    </div>
+    <div class="sl-field">
+      <span class="sl-label">Hours</span>
+      <div class="pill-group">
+        <button type="button" class="pill" [class.active]="marketHours() === 'regular_hours'" [disabled]="disabled()" (click)="marketHours.set('regular_hours')">Regular</button>
+        <button type="button" class="pill" disabled title="Robinhood rejects stop orders outside regular hours">Extended</button>
+        <button type="button" class="pill" disabled title="Robinhood rejects stop orders outside regular hours">All Day</button>
+      </div>
+      <span class="sl-hint">Stops execute during regular hours only</span>
+    </div>
+  }
   <button mat-flat-button color="warn" (click)="onPlace()" [disabled]="!canPlace() || disabled()">
     <mat-icon>shield</mat-icon>
     Submit Stop Loss

@@ -13,6 +13,7 @@
 import {
   Component,
   input,
+  model,
   output,
   computed,
   signal,
@@ -29,6 +30,15 @@ import {
   stopPercentFromPrice,
   DEFAULT_STOP_PERCENT,
 } from '../../utils/stop-loss-math.util';
+
+/** Full stop-order params emitted on submit (#886). The unions mirror
+ *  EquityTimeInForce / EquityMarketHours — kept literal here so shared/
+ *  stays free of feature imports. */
+export interface StopLossSubmit {
+  stopPrice: number;
+  timeInForce: 'gfd' | 'gtc';
+  marketHours: 'regular_hours' | 'extended_hours' | 'all_day_hours';
+}
 
 @Component({
   selector: 'app-stop-loss-form',
@@ -53,8 +63,23 @@ export class StopLossFormComponent {
   /** Whether the form is disabled (e.g., during submission). */
   readonly disabled = input(false);
 
+  /** Whether to render the TIF/hours pills. False when the parent already
+   *  surfaces the controls (order-ticket page) — the models are then driven
+   *  by two-way binding. */
+  readonly showOrderParams = input(true);
+
+  /** Seed stop price for update-mode prefill (#886) — applied once, marks
+   *  the price user-edited, and derives the percent from referencePrice. */
+  readonly initialStopPrice = input<number | null>(null);
+
+  /** Time-in-force for the stop order. */
+  readonly timeInForce = model<'gfd' | 'gtc'>('gtc');
+
+  /** Market session bucket for the stop order. */
+  readonly marketHours = model<'regular_hours' | 'extended_hours' | 'all_day_hours'>('regular_hours');
+
   /** Emitted when the user clicks "Submit Stop Loss". Parent handles actual placement. */
-  readonly placeStopLoss = output<{ stopPrice: number }>();
+  readonly placeStopLoss = output<StopLossSubmit>();
 
   // ========================================
   // Internal state
@@ -65,6 +90,9 @@ export class StopLossFormComponent {
 
   /** Whether the user has manually edited the stop price. Prevents re-initialization from clobbering edits. */
   private userEdited = signal(false);
+
+  /** Whether initialStopPrice has been applied — the seed fires once. */
+  private initialSeeded = signal(false);
 
   // ========================================
   // Computed
@@ -95,12 +123,12 @@ export class StopLossFormComponent {
   readonly preview = computed(() => ({
     symbol: this.symbol(),
     side: 'sell',
-    orderType: 'stop_market',
+    orderType: 'stop_loss',
     quantity: this.quantity(),
     stopPrice: this.stopLossPrice() || undefined,
     stopLossPercent: this.stopLossPercent() || undefined,
-    timeInForce: 'gtc',
-    marketHours: 'regular_hours',
+    timeInForce: this.timeInForce(),
+    marketHours: this.marketHours(),
     accountNumber: this.accountNumber(),
   }));
 
@@ -121,17 +149,41 @@ export class StopLossFormComponent {
         }
       });
     });
+
+    // Update-mode prefill: seed once from initialStopPrice, mark the price
+    // user-edited so a later referencePrice tick doesn't clobber it, and
+    // derive the percent through the existing price→percent linking.
+    effect(() => {
+      const initial = this.initialStopPrice();
+      untracked(() => {
+        if (initial === null || initial <= 0 || this.initialSeeded()) return;
+        this.initialSeeded.set(true);
+        this.userEdited.set(true);
+        this.stopLossPrice.set(initial.toFixed(2));
+        const refPrice = this.referencePrice();
+        if (refPrice !== null && refPrice > 0) {
+          const percent = stopPercentFromPrice(refPrice, initial);
+          if (Number.isFinite(percent) && percent >= 0) {
+            this.stopLossPercent.set(String(percent));
+          }
+        }
+      });
+    });
   }
 
   // ========================================
   // Public methods
   // ========================================
 
-  /** Emit the placeStopLoss event with the current stop price. */
+  /** Emit the placeStopLoss event with the full stop-order params. */
   onPlace(): void {
     if (this.disabled() || !this.canPlace()) return;
     const slPrice = parseFloat(this.stopLossPrice());
-    this.placeStopLoss.emit({ stopPrice: slPrice });
+    this.placeStopLoss.emit({
+      stopPrice: slPrice,
+      timeInForce: this.timeInForce(),
+      marketHours: this.marketHours(),
+    });
   }
 
   // ========================================

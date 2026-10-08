@@ -42,7 +42,50 @@
     color: var(--mat-sys-on-surface-variant);
     font-weight: 500;
     text-align: right;
-    width: 20px;
+    min-width: 20px;
+  }
+
+  /* Pill toggles — same pattern as the order ticket's TIF/hours pills. */
+  .pill-group {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+  }
+
+  .sl-hint {
+    font-size: 10px;
+    color: var(--mat-sys-on-surface-variant);
+    white-space: nowrap;
+  }
+
+  .pill {
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    background: var(--mat-sys-surface);
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 2px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+
+    &:hover {
+      background: var(--mat-sys-surface-container-highest);
+    }
+
+    &.active {
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-on-primary-container);
+      border-color: var(--mat-sys-primary);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   }
 
   .sl-input {
