@@ -383,7 +383,6 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   readonly hasMorePages = computed(() => !!this.store.catalogPageToken());
 
   ngOnInit(): void {
-    this.uiStateService.setFullscreen(true);
     const sym = this.symbol().trim().toUpperCase();
     this.store.setCatalogBuilder({ symbol: sym, type: this.catalogType() });
     if (sym) {

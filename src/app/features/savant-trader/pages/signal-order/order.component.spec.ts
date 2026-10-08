@@ -121,11 +121,11 @@ describe('OrderComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('loads tickets and sets fullscreen on init', () => {
+  it('loads tickets on init without auto-fullscreen', () => {
     component.ngOnInit();
 
     expect(storeMock.loadTickets).toHaveBeenCalledTimes(1);
-    expect(uiStateMock.setFullscreen).toHaveBeenCalledWith(true);
+    expect(uiStateMock.setFullscreen).not.toHaveBeenCalledWith(true);
   });
 
   it('resets fullscreen on destroy', () => {

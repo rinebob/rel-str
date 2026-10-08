@@ -117,7 +117,8 @@ describe('OptionChainComponent', () => {
     expect(fixture.componentInstance).toBeTruthy();
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector('.option-chain-page')).toBeTruthy();
-    expect(el.querySelector('.page-header')?.textContent).toContain('Option Chain');
+    expect(el.querySelector('.page-header')).toBeTruthy();
+    expect(el.querySelector('.page-header [data-testid="symbol-input"]')).toBeTruthy();
   });
 
   it('renders calls and puts grids from store contracts', async () => {
@@ -850,7 +851,7 @@ describe('option chain routing', () => {
   });
 
   it('exposes a sidenav entry routing to the page', () => {
-    const item = NAV_MENU_ITEMS.find((i) => i.text === 'Option Chain');
+    const item = NAV_MENU_ITEMS.find((i) => i.href === AppRoutes.OPTION_CHAIN);
     expect(item).toBeTruthy();
     expect(item?.href).toBe('options/chain');
   });

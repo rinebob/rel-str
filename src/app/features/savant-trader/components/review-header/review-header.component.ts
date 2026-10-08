@@ -2,7 +2,8 @@
  * Review Header
  *
  * Top bar of the Savant Trader review page: back/history navigation, selected-symbol
- * ACR actions, page title, and the manual symbol input.
+ * ACR actions, symbol context, and the manual symbol input. Page identity lives
+ * in the global rs-header (#854).
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';

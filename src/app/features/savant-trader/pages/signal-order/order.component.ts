@@ -236,7 +236,6 @@ export class OrderComponent implements OnInit, OnDestroy {
   }));
 
   ngOnInit(): void {
-    this.uiState.setFullscreen(true);
     this.stagingStore.loadTickets();
     this.loadConfig();
   }

@@ -91,7 +91,6 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
 <div class="swing-analysis-page">
   <header class="swing-analysis-header">
     <div class="header-text">
-      <h1>Swing Analysis</h1>
       <p class="subtitle">ZigZag pivot indicator — historical swing magnitude & duration</p>
     </div>
     <app-company-info
@@ -183,10 +182,6 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-    }
-    .swing-analysis-header h1 {
-      margin: 0 0 4px;
-      font-size: 1.5rem;
     }
     .header-actions {
       display: flex;
@@ -298,12 +293,10 @@ export class SwingAnalysisPageComponent implements OnDestroy {
   }));
 
   /** Reset store state on construction to avoid stale data from prior
-   *  visits, load the default symbol so the page opens populated, and
-   *  enter fullscreen (app header hidden) like the options pages. */
+   *  visits and load the default symbol so the page opens populated. */
   constructor() {
     this.store.resetState();
     this.store.setSymbol(DEFAULT_SYMBOL);
-    this.ui.setFullscreen(true);
     // Tracked-symbols universe — feeds the nav sequence.
     // Guarded no-op once loaded.
     this.store.loadTrackedSymbols();

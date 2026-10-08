@@ -12,7 +12,7 @@ import {
   ChangeDetectionStrategy,
   DestroyRef,
   OnDestroy,
-  OnInit,
+
   inject,
   signal,
 } from '@angular/core';
@@ -58,7 +58,7 @@ function describeError(err: unknown): string {
   styleUrl: './dev-screenshot.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DevScreenshotComponent implements OnInit, OnDestroy {
+export class DevScreenshotComponent implements OnDestroy {
   private readonly screenshots = inject(ScreenshotService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly ui = inject(UiStateService);
@@ -191,10 +191,6 @@ export class DevScreenshotComponent implements OnInit, OnDestroy {
     if (widthPx === undefined) return this.trustedSvg(zoomed ?? svg);
     const base = zoomed ?? this.variantSvgs()[widthPx]?.[interval] ?? sliceSvgRight(svg, widthPx);
     return this.trustedSvg(zoomed ? sliceSvgRight(base, widthPx) : base);
-  }
-
-  ngOnInit(): void {
-    this.ui.setFullscreen(true);
   }
 
   ngOnDestroy(): void {

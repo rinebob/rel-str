@@ -21,25 +21,6 @@
   flex-wrap: wrap;
 }
 
-.header-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.paper-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: #00838f;
-  color: #fff;
-  letter-spacing: 0.5px;
-}
-
 .header-stats {
   display: flex;
   gap: 8px;

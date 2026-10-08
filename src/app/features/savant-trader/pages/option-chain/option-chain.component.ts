@@ -276,10 +276,8 @@ export class OptionChainComponent implements OnInit, OnDestroy {
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  /** Full-screen page like the other savant-trader tools — the chain grid
-   *  wants the whole viewport. Auto-loads the default symbol. */
+  /** Auto-loads the default symbol. */
   ngOnInit(): void {
-    this.ui.setFullscreen(true);
     this.host.nativeElement.addEventListener('scroll', this.onGridsScroll, true);
     this.lists.loadProfiles();
     if (this.store.symbol()) this.store.loadChain();

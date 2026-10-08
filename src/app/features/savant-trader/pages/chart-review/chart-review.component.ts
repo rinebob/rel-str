@@ -158,9 +158,8 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Enter fullscreen and ensure symbol lists are loaded. */
+  /** Ensure symbol lists are loaded. */
   ngOnInit(): void {
-    this.uiStateService.setFullscreen(true);
     this.symbolListStore.loadSymbolLists();
   }
 

@@ -19,6 +19,7 @@ import {
   type CallHistoryEntry,
   type ToolArgProperty,
   argsValid,
+  jsonArgsValid,
   buildArgProperties,
   cleanArgsForExecution,
   extractNextCursor,
@@ -57,7 +58,6 @@ export class ObservationDashboardComponent implements OnInit, OnDestroy {
   );
 
   async ngOnInit(): Promise<void> {
-    this.uiStateService.setFullscreen(true);
     try {
       const loaded = await this.observationService.listTools();
       this.tools.set(loaded);
@@ -90,6 +90,10 @@ export class ObservationDashboardComponent implements OnInit, OnDestroy {
   async execute(): Promise<void> {
     if (!argsValid(this.argProperties(), this.argValues())) {
       this.showError('Fill in all required arguments.');
+      return;
+    }
+    if (!jsonArgsValid(this.argProperties(), this.argValues())) {
+      this.showError('Invalid JSON in a structured argument.');
       return;
     }
 

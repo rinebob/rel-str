@@ -101,9 +101,8 @@ export class TriageReportComponent implements OnInit, OnDestroy {
     return counts;
   });
 
-  /** Initialize the page in fullscreen mode and load the initial report. */
+  /** Initialize the page and load the initial report. */
   ngOnInit(): void {
-    this.uiState.setFullscreen(true);
     this.loadDecisions();
   }
 

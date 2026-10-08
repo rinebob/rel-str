@@ -167,14 +167,12 @@ describe('PortfolioDashboardComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('renders the header bar with icon, title, and actions (#777)', () => {
+  it('renders the header bar with actions (#777; title moved to global rs-header in #854)', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
     fixture.detectChanges();
 
     const header = fixture.nativeElement.querySelector('header.pd-header');
     expect(header).toBeTruthy();
-    expect(header.querySelector('.bar-icon')).toBeTruthy();
-    expect(header.querySelector('.bar-title')?.textContent).toContain('Portfolio');
     expect(header.querySelector('.bar-actions .pd-refresh')).toBeTruthy();
   });
 

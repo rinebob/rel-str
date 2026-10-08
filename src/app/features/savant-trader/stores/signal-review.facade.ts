@@ -226,9 +226,8 @@ export class SignalReviewFacade {
     });
   }
 
-  /** Enter the signal-review page: fullscreen, active run, load symbols and decisions. */
+  /** Enter the signal-review page: active run, load symbols and decisions. */
   enterPage(): void {
-    this.uiState.setFullscreen(true);
     // Page-entry defaults — re-applied on every visit.
     this.uiStore.setTimeframeFilter(SignalTimeframe.DAILY);
     this.uiStore.setDirectionFilter(SignalDirection.LONG);

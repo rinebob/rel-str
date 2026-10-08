@@ -135,13 +135,6 @@ describe('TopicViewerPageComponent', () => {
     expect(selectTopic).toHaveBeenCalledWith(1);
   });
 
-  it('page heading reads "Topic Viewer"', async () => {
-    response.set(RESPONSE);
-    await setup();
-    expect(fixture.nativeElement.querySelector('.page-title')?.textContent?.trim())
-      .toBe('Topic Viewer');
-  });
-
   it('topic rows strip the "Topic:" title prefix and show a stage dot', async () => {
     response.set(RESPONSE);
     await setup();

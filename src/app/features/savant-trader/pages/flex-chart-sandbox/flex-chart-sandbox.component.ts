@@ -22,7 +22,6 @@ import {
   viewChild,
   ChangeDetectionStrategy,
   OnDestroy,
-  OnInit,
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -98,7 +97,7 @@ const INTERVAL_TO_BARS: Record<ChartIntervalKey, BarsInterval> = {
   styleUrl: './flex-chart-sandbox.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FlexChartSandboxComponent implements OnInit, OnDestroy {
+export class FlexChartSandboxComponent implements OnDestroy {
   readonly ChartIntervalKey = ChartIntervalKey;
   readonly chartStore = inject(ChartStore);
   private readonly indicatorStore = inject(IndicatorSeriesStore);
@@ -267,12 +266,6 @@ export class FlexChartSandboxComponent implements OnInit, OnDestroy {
   readonly debugSourceText = computed(() =>
     this.dataMode() === 'synthetic' ? `synthetic:${this.preset()}` : `real:${this.symbol()}`,
   );
-
-  /** Full-screen page like the other savant-trader tools — the chart
-   *  wants the whole viewport. */
-  ngOnInit(): void {
-    this.ui.setFullscreen(true);
-  }
 
   ngOnDestroy(): void {
     this.ui.setFullscreen(false);

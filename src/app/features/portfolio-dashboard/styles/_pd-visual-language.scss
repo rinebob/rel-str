@@ -40,8 +40,9 @@ $down: #f44336;
 }
 
 /// Compact page header bar — run-dashboard `.dashboard-header`.
-/// Emits nested rules for `.bar-icon`, `.bar-title`, and `.bar-actions`
-/// children, plus a generic compact-button override inside `.bar-actions`.
+/// Page titles live in the global rs-header (#853/#854); the mixin emits
+/// `.bar-actions` (right-anchored via margin-left:auto for title-less
+/// headers) plus a generic compact-button override inside it.
 @mixin header-bar() {
   display: flex;
   justify-content: space-between;
@@ -52,27 +53,8 @@ $down: #f44336;
   flex-shrink: 0;
   gap: 8px;
 
-  .bar-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .bar-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-    color: var(--mat-sys-primary);
-  }
-
-  .bar-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--mat-sys-on-surface);
-  }
-
   .bar-actions {
+    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 4px;

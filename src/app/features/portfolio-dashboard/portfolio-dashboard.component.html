@@ -1,12 +1,8 @@
 <div class="pd-root">
 
-  <!-- Header bar: icon + title | scoreboard | privacy + allocations + refresh -->
+  <!-- Header bar: scoreboard | privacy + allocations + refresh (title lives
+       in the global rs-header - #853/#854) -->
   <header class="pd-header">
-    <div class="bar-left">
-      <mat-icon class="bar-icon" aria-hidden="true">account_balance</mat-icon>
-      <h1 class="bar-title">Portfolio</h1>
-    </div>
-
     @if (hasAccounts()) {
       <div class="pd-scoreboard" aria-label="Aggregate summary">
         <span class="sb-item">

@@ -31,7 +31,6 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
   template: `
     <div class="page" data-testid="topic-viewer-page">
       <header class="header">
-        <h1 class="page-title">Topic Viewer</h1>
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="repo-picker">
           <mat-select [value]="store.selectedRepoIndex()" aria-label="Repository"
             data-testid="repo-picker" (selectionChange)="store.selectRepo($event.value)">
@@ -115,10 +114,6 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
   styles: [`
     .page { display: flex; flex-direction: column; gap: 8px; padding: 12px; height: 100%; box-sizing: border-box; }
     .header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .page-title {
-      margin: 0 4px 0 0; font-size: 1.15rem; font-weight: 500;
-      color: var(--mat-sys-on-surface, inherit);
-    }
     .repo-picker { width: 180px; }
     .dim { color: var(--mat-sys-on-surface-variant, #888); font-size: 0.8rem; }
     .banner {

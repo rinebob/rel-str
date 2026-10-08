@@ -56,7 +56,6 @@ export class SpreadChartPageComponent implements OnInit, OnDestroy {
   readonly SpreadStatus = SpreadStatus;
 
   ngOnInit(): void {
-    this.uiStateService.setFullscreen(true);
     const sym = this.symbolInput().trim().toUpperCase();
     if (sym) {
       this.store.setSymbol(sym);

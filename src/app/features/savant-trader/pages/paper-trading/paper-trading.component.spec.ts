@@ -185,8 +185,6 @@ describe('PaperTradingComponent', () => {
     const cashCard = [...fixture.nativeElement.querySelectorAll('.stat-card')]
       .find((el: Element) => el.textContent!.includes('Cash'));
     expect(cashCard?.querySelector('.stat-value')?.classList.contains('negative')).toBe(true);
-    expect(text).toContain('Paper Trading');
-    expect(fixture.nativeElement.querySelector('.paper-badge')?.textContent).toContain('PAPER');
   });
 
   it('default group-by renders one all-trades group', () => {

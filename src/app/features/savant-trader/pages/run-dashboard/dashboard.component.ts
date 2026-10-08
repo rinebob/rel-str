@@ -10,7 +10,7 @@ import {
   signal,
   computed,
   effect,
-  OnInit,
+
   OnDestroy,
   ChangeDetectionStrategy,
 } from '@angular/core';
@@ -56,7 +56,7 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
   styleUrl: './dashboard.component.scss',
   providers: [DashboardStore],
 })
-export class DashboardComponent implements OnInit, OnDestroy {
+export class DashboardComponent implements OnDestroy {
   // Inject the data store - manages all business logic and API calls
   readonly store = inject(StStore);
   readonly uiStore = inject(DashboardStore);
@@ -110,11 +110,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (this.uiStore.selectedRunId()) return;
       this.uiStore.selectRun(latest.id);
     });
-  }
-
-  /** Enter fullscreen mode when the dashboard is active. */
-  ngOnInit(): void {
-    this.uiState.setFullscreen(true);
   }
 
   /** Leave fullscreen mode when the dashboard is destroyed. */

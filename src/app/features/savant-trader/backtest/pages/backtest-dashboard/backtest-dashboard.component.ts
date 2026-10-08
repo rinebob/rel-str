@@ -4,7 +4,7 @@
  * Phase 2 dashboard for the Savant Trader strategy backtest run management UI.
  * Wires the run store, UI store, control strip, and run list together.
  */
-import { Component, computed, inject, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
+import { Component, computed, inject, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 
@@ -32,7 +32,7 @@ import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequ
   templateUrl: './backtest-dashboard.component.html',
   styleUrl: './backtest-dashboard.component.scss',
 })
-export class BacktestDashboardComponent implements OnInit, OnDestroy {
+export class BacktestDashboardComponent implements OnDestroy {
   readonly runStore = inject(BacktestRunStore);
   readonly uiStore = inject(BacktestUiStore);
   private readonly dialog = inject(MatDialog);
@@ -46,10 +46,6 @@ export class BacktestDashboardComponent implements OnInit, OnDestroy {
   constructor() {
     this.runStore.loadRuns();
     this.runStore.loadStrategies();
-  }
-
-  ngOnInit(): void {
-    this.uiStateService.setFullscreen(true);
   }
 
   ngOnDestroy(): void {

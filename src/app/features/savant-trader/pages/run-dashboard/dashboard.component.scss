@@ -25,33 +25,13 @@
 
 .dashboard-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: 8px 16px;
   background: var(--mat-sys-surface-container-high);
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   flex-shrink: 0;
   gap: 8px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.header-icon {
-  font-size: 20px;
-  width: 20px;
-  height: 20px;
-  color: var(--mat-sys-primary);
-}
-
-.header-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--mat-sys-on-surface);
 }
 
 .header-actions {

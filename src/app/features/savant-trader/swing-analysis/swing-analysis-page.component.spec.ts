@@ -302,10 +302,14 @@ describe('SwingAnalysisPageComponent', () => {
     expect(btn.getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('enters fullscreen on init and restores the app header on destroy', async () => {
+  it('leaves the header visible on init; a manual fullscreen exits on destroy', async () => {
     const { fixture } = await setupPage();
     const ui = TestBed.inject(UiStateService);
-    expect(ui.fullscreen()).toBe(true);
+    expect(ui.fullscreen()).toBe(false);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.classList.contains('fullscreen')).toBe(false);
+
+    ui.setFullscreen(true);
     fixture.detectChanges();
     expect(fixture.nativeElement.classList.contains('fullscreen')).toBe(true);
     fixture.destroy();

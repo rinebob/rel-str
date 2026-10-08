@@ -51,7 +51,6 @@ import { take } from 'rxjs';
   template: `
     <div class="pct-change-page" [class.fullscreen]="ui.fullscreen()">
       <div class="page-header">
-        <h2>Option Chain % Change Grid</h2>
         <div class="header-actions">
           <label class="contrast-picker">
             Cell text
@@ -357,14 +356,10 @@ import { take } from 'rxjs';
       .page-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-end;
         padding: 0.5rem 1rem;
         border-bottom: 1px solid #e0e0e0;
         flex-shrink: 0;
-      }
-      .page-header h2 {
-        margin: 0;
-        font-size: 1.1rem;
       }
       .header-actions {
         display: flex;
@@ -628,9 +623,8 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   protected readonly optionTypePut = OptionType.PUT;
   protected readonly toNum = toNum;
 
-  /** Enter fullscreen on page load. */
+  /** Load saved configs and initial symbol data. */
   ngOnInit(): void {
-    this.ui.setFullscreen(true);
     this.store.loadSavedConfigs();
     // Load swing sets + signal history for the initial symbol — setSymbol
     // only fires on input change, so the starting symbol needs this.

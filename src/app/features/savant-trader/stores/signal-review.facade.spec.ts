@@ -405,7 +405,7 @@ describe('SignalReviewFacade', () => {
   });
 
   describe('enterPage', () => {
-    it('enters fullscreen and applies the daily/long default filter', () => {
+    it('applies the daily/long default filter', () => {
       facade.enterPage();
       expect(uiStoreMock.setTimeframeFilter).toHaveBeenCalledWith(SignalTimeframe.DAILY);
       expect(uiStoreMock.setDirectionFilter).toHaveBeenCalledWith(SignalDirection.LONG);

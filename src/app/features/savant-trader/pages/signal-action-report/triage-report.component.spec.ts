@@ -32,8 +32,8 @@ describe('TriageReportComponent', () => {
     fixture.detectChanges();
   });
 
-  it('enters fullscreen on init', () => {
-    expect(uiStateMock.setFullscreen).toHaveBeenCalledWith(true);
+  it('does not auto-fullscreen on init — the header stays visible by default', () => {
+    expect(uiStateMock.setFullscreen).not.toHaveBeenCalledWith(true);
   });
 
   it('resets fullscreen on destroy', () => {

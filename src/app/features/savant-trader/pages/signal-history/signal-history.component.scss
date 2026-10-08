@@ -14,21 +14,6 @@
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   flex-shrink: 0;
 
-  h1 {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-    font-size: 16px;
-    font-weight: 500;
-
-    mat-icon {
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
-    }
-  }
-
   .symbol-input {
     display: flex;
     align-items: center;
