@@ -1,0 +1,200 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © rinebob
+
+//@version=6
+indicator("Savant Trader Zones + Signals", "ST Zones", overlay=false, timeframe="", timeframe_gaps=false)
+
+// Standalone Zone V1/V2 indicator. Zone crosses render in this lower pane;
+// Trend Rider signal dots render on the main price pane via force_overlay.
+// Trend Bands and Trend Strength are separate companion indicators.
+
+const int CTF_FAST_LENGTH = 5
+const int CTF_SLOW_LENGTH = 10
+const int HTF_MULTIPLIER = 3
+const int ATR_LENGTH = 14
+const float ZONE_DOT_ATR_MULTIPLIER = 2.5
+
+f_ema(series float source, simple int length) =>
+    float alpha = 2.0 / (length + 1.0)
+    float seed = ta.sma(source, length)
+    var float value = na
+    value := na(value) ? seed : na(source) ? value : source * alpha + value * (1.0 - alpha)
+    value
+
+f_smha_ctf(series float sourceOpen, series float sourceHigh, series float sourceLow, series float sourceClose, simple int smoothLength, simple int afterSmoothLength) =>
+    float smoothOpen = f_ema(sourceOpen, smoothLength)
+    float smoothHigh = f_ema(sourceHigh, smoothLength)
+    float smoothLow = f_ema(sourceLow, smoothLength)
+    float smoothClose = f_ema(sourceClose, smoothLength)
+    float haClose = (smoothOpen + smoothHigh + smoothLow + smoothClose) / 4.0
+    var float haOpen = na
+    haOpen := na(haClose) ? na : na(haOpen[1]) ? (smoothOpen + smoothClose) / 2.0 : (haOpen[1] + haClose[1]) / 2.0
+    float postOpen = f_ema(haOpen, afterSmoothLength)
+    float postClose = f_ema(haClose, afterSmoothLength)
+    float bandHigh = math.max(postOpen, postClose)
+    float bandLow = math.min(postOpen, postClose)
+    [postOpen, bandHigh, bandLow, postClose, postClose > postOpen, postOpen > postClose]
+
+f_smha_htf(series float sourceOpen, series float sourceHigh, series float sourceLow, series float sourceClose, series int htfCloseTime, simple int smoothLength, simple int afterSmoothLength) =>
+    int beforeLength = smoothLength * HTF_MULTIPLIER
+    int afterLength = afterSmoothLength * HTF_MULTIPLIER
+    bool closeTimeMatch = time_close == htfCloseTime
+    float smoothOpen = f_ema(sourceOpen, beforeLength)
+    float smoothHigh = f_ema(sourceHigh, beforeLength)
+    float smoothLow = f_ema(sourceLow, beforeLength)
+    float smoothClose = f_ema(sourceClose, beforeLength)
+    float haClose = (smoothOpen + smoothHigh + smoothLow + smoothClose) / 4.0
+    var float haOpen = na
+    haOpen := na(haClose) ? na : na(haOpen[HTF_MULTIPLIER]) ? (smoothOpen + smoothClose) / 2.0 : (haOpen[HTF_MULTIPLIER] + haClose[HTF_MULTIPLIER]) / 2.0
+    float postOpen = f_ema(haOpen, afterLength)
+    float postClose = f_ema(haClose, afterLength)
+    var float steppedOpen = na
+    var float steppedClose = na
+    steppedOpen := closeTimeMatch and not na(postOpen) ? postOpen : steppedOpen[1]
+    steppedClose := closeTimeMatch and not na(postClose) ? postClose : steppedClose[1]
+    [steppedOpen, math.max(steppedOpen, steppedClose), math.min(steppedOpen, steppedClose), steppedClose, steppedClose > steppedOpen, steppedOpen > steppedClose]
+
+string stHtfTimeframe = timeframe.from_seconds(timeframe.in_seconds() * HTF_MULTIPLIER)
+int stHtfCloseTime = request.security(syminfo.tickerid, stHtfTimeframe, time_close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+[stCtfFastOpen, stCtfFastHigh, stCtfFastLow, stCtfFastClose, stCtfFastUp, stCtfFastDown] = f_smha_ctf(open, high, low, close, CTF_FAST_LENGTH, CTF_FAST_LENGTH)
+[stCtfSlowOpen, stCtfSlowHigh, stCtfSlowLow, stCtfSlowClose, stCtfSlowUp, stCtfSlowDown] = f_smha_ctf(open, high, low, close, CTF_SLOW_LENGTH, CTF_SLOW_LENGTH)
+[stHtfFastOpen, stHtfFastHigh, stHtfFastLow, stHtfFastClose, stHtfFastUp, stHtfFastDown] = f_smha_htf(open, high, low, close, stHtfCloseTime, CTF_FAST_LENGTH, CTF_FAST_LENGTH)
+[stHtfSlowOpen, stHtfSlowHigh, stHtfSlowLow, stHtfSlowClose, stHtfSlowUp, stHtfSlowDown] = f_smha_htf(open, high, low, close, stHtfCloseTime, CTF_SLOW_LENGTH, CTF_SLOW_LENGTH)
+
+float stCtfFastMid = (stCtfFastHigh + stCtfFastLow) / 2.0
+float stCtfSlowMid = (stCtfSlowHigh + stCtfSlowLow) / 2.0
+float stHtfFastMid = (stHtfFastHigh + stHtfFastLow) / 2.0
+float stHtfSlowMid = (stHtfSlowHigh + stHtfSlowLow) / 2.0
+float stBarMid = (high + low) / 2.0
+
+// Zone V1 classification.
+bool stV1Ready = not na(stCtfFastMid) and not na(stCtfSlowMid) and not na(stHtfFastMid)
+bool stV1ThreeUp = (stCtfFastUp and stCtfSlowUp and stHtfFastUp) or (stCtfFastUp and stCtfSlowDown and stHtfFastUp)
+bool stV1TwoUp = stCtfFastDown and stCtfSlowUp and stHtfFastUp
+bool stV1OneUp = stCtfFastDown and stCtfSlowDown and stHtfFastUp
+bool stV1OneDown = stCtfFastUp and stCtfSlowUp and stHtfFastDown
+bool stV1TwoDown = stCtfFastUp and stCtfSlowDown and stHtfFastDown
+bool stV1ThreeDown = (stHtfFastDown and stCtfSlowDown and stCtfFastDown) or (stHtfFastDown and stCtfSlowUp and stCtfFastDown)
+bool stV1IsUp = stV1OneUp or stV1TwoUp or stV1ThreeUp
+bool stV1IsDown = stV1OneDown or stV1TwoDown or stV1ThreeDown
+bool stV1PlusThree = stV1Ready and ((stBarMid > stCtfFastMid and stV1IsUp) or (stBarMid > stHtfFastMid and stV1IsDown))
+bool stV1MinusThree = stV1Ready and ((stBarMid < stCtfFastMid and stV1IsDown) or (stBarMid < stHtfFastMid and stV1IsUp))
+bool stV1PlusTwo = stV1Ready and stBarMid > stCtfSlowMid and stBarMid <= stCtfFastMid and (stV1TwoUp or stV1ThreeUp)
+bool stV1MinusTwo = stV1Ready and stBarMid < stCtfSlowMid and stBarMid >= stCtfFastMid and (stV1TwoDown or stV1ThreeDown)
+bool stV1PlusOne = stV1Ready and stBarMid > stHtfFastMid and stBarMid <= stCtfSlowMid and stV1IsUp
+bool stV1MinusOne = stV1Ready and stBarMid < stHtfFastMid and stBarMid >= stCtfSlowMid and stV1IsDown
+int stZoneV1 = stV1PlusThree ? 3 : stV1PlusTwo ? 2 : stV1PlusOne ? 1 : stV1MinusOne ? -1 : stV1MinusTwo ? -2 : stV1MinusThree ? -3 : 0
+
+// Zone V2 classification.
+bool stV2Ready = not na(stCtfFastMid) and not na(stCtfSlowMid) and not na(stHtfFastMid) and not na(stHtfSlowMid)
+int stV2BaseZone = (stCtfFastUp ? 1 : -1) + (stCtfSlowUp ? 1 : -1) + (stHtfFastUp ? 1 : -1) + (stHtfSlowUp ? 1 : -1)
+int stZoneV2 = 0
+if stV2Ready
+    if stV2BaseZone == 4
+        stZoneV2 := 4
+    else if stV2BaseZone == -4
+        stZoneV2 := -4
+    else if stV2BaseZone == 2
+        float bearishMid = not stCtfFastUp ? stCtfFastMid : not stCtfSlowUp ? stCtfSlowMid : not stHtfFastUp ? stHtfFastMid : stHtfSlowMid
+        stZoneV2 := stBarMid > bearishMid ? 3 : 2
+    else if stV2BaseZone == -2
+        float bullishMid = stCtfFastUp ? stCtfFastMid : stCtfSlowUp ? stCtfSlowMid : stHtfFastUp ? stHtfFastMid : stHtfSlowMid
+        stZoneV2 := stBarMid < bullishMid ? -3 : -2
+    else if stV2BaseZone == 0
+        float avgMid = (stCtfFastMid + stCtfSlowMid + stHtfFastMid + stHtfSlowMid) / 4.0
+        stZoneV2 := stBarMid > avgMid ? 1 : -1
+
+// Zone rows in this lower pane. Each family uses one connected line plus
+// circle markers at every active zone value. Neutral bars remain na because
+// the historical row layout has no neutral row.
+float stV1Row = stZoneV1 == 3 ? 5 : stZoneV1 == 2 ? 4 : stZoneV1 == 1 ? 3 : stZoneV1 == -1 ? 2 : stZoneV1 == -2 ? 1 : stZoneV1 == -3 ? 0 : na
+float stV2Row = stZoneV2 == 4 ? 14 : stZoneV2 == 3 ? 13 : stZoneV2 == 2 ? 12 : stZoneV2 == 1 ? 11 : stZoneV2 == -1 ? 10 : stZoneV2 == -2 ? 9 : stZoneV2 == -3 ? 8 : stZoneV2 == -4 ? 7 : na
+
+color stV1Color = stZoneV1 > 0 ? (stZoneV1 == 3 ? color.blue : stZoneV1 == 2 ? color.teal : color.silver) : (stZoneV1 == -1 ? color.white : stZoneV1 == -2 ? color.fuchsia : color.yellow)
+color stV2Color = stZoneV2 > 0 ? (stZoneV2 == 4 ? color.lime : stZoneV2 == 3 ? color.blue : stZoneV2 == 2 ? color.teal : color.silver) : (stZoneV2 == -1 ? color.white : stZoneV2 == -2 ? color.fuchsia : stZoneV2 == -3 ? color.yellow : color.red)
+
+// Zero is halfway between -1 and +1 in each static row mapping:
+// V1: -1→2, +1→3, so zero→2.5. V2: -1→10, +1→11, so zero→10.5.
+hline(2.5, "Zone V1 Zero", color=color.gray, linestyle=hline.style_dotted, linewidth=1)
+hline(10.5, "Zone V2 Zero", color=color.gray, linestyle=hline.style_dotted, linewidth=1)
+
+plot(stV1Row, "Zone V1 line", style=plot.style_line, linewidth=1, color=stV1Color)
+plot(stV1Row, "Zone V1 dots", style=plot.style_circles, linewidth=3, color=stV1Color)
+plot(stV2Row, "Zone V2 line", style=plot.style_line, linewidth=1, color=stV2Color)
+plot(stV2Row, "Zone V2 dots", style=plot.style_circles, linewidth=3, color=stV2Color)
+
+// Trend Rider signal dots: lower-pane Zone values plus main-pane markers.
+float stDotOffset = ta.atr(ATR_LENGTH) * ZONE_DOT_ATR_MULTIPLIER
+var int stV1LongState = 0
+var int stV1ShortState = 0
+int stV1PrevZone = nz(stZoneV1[1], 0)
+int stV1Delta = stZoneV1 - stV1PrevZone
+bool stV1LongEvent = false
+if stZoneV2 > 0
+    if stV1Delta > 0
+        if stV1LongState == 0 and stV1PrevZone >= 1
+            stV1LongEvent := true
+            stV1LongState := 1
+    else if stV1Delta < 0
+        stV1LongState := 0
+else
+    stV1LongState := 0
+bool stV1ShortEvent = false
+if stZoneV2 < 0
+    if stV1Delta < 0
+        if stV1ShortState == 0 and stV1PrevZone <= -1
+            stV1ShortEvent := true
+            stV1ShortState := 1
+    else if stV1Delta > 0
+        stV1ShortState := 0
+else
+    stV1ShortState := 0
+var int stV2LongState = 0
+var int stV2ShortState = 0
+int stV2PrevZone = nz(stZoneV2[1], 0)
+int stV2Delta = stZoneV2 - stV2PrevZone
+bool stV2LongEvent = false
+if stZoneV2 > 0
+    if stV2Delta > 0
+        if stV2LongState == 0 and stV2PrevZone >= 1
+            stV2LongEvent := true
+            stV2LongState := 1
+    else if stV2Delta < 0
+        stV2LongState := 0
+else
+    stV2LongState := 0
+bool stV2ShortEvent = false
+if stZoneV2 < 0
+    if stV2Delta < 0
+        if stV2ShortState == 0 and stV2PrevZone <= -1
+            stV2ShortEvent := true
+            stV2ShortState := 1
+    else if stV2Delta > 0
+        stV2ShortState := 0
+else
+    stV2ShortState := 0
+
+// Trend Rider Zero Cross: sign flip detection (no state machine, no confirmation delay).
+// Fires on the cross bar when the zone value flips sign between consecutive bars.
+// Zero is treated as neutral — transitions to/from zero do not trigger.
+bool stV1ZeroCrossLong  = stZoneV1[1] < 0 and stZoneV1 > 0
+bool stV1ZeroCrossShort = stZoneV1[1] > 0 and stZoneV1 < 0
+bool stV2ZeroCrossLong  = stZoneV2[1] < 0 and stZoneV2 > 0
+bool stV2ZeroCrossShort = stZoneV2[1] > 0 and stZoneV2 < 0
+
+plot(stV1LongEvent ? low - stDotOffset : na, "V1 Long", style=plot.style_circles, linewidth=3, color=color.green, force_overlay=true)
+plot(stV1ShortEvent ? high + stDotOffset : na, "V1 Short", style=plot.style_circles, linewidth=3, color=color.red, force_overlay=true)
+plot(stV2LongEvent ? low - stDotOffset : na, "V2 Long", style=plot.style_cross, linewidth=3, color=color.lime, force_overlay=true)
+plot(stV2ShortEvent ? high + stDotOffset : na, "V2 Short", style=plot.style_cross, linewidth=3, color=color.orange, force_overlay=true)
+
+// Trend Rider Zero Cross plots — early entry dots on sign flip.
+// Teal (long) and orange (short), matching the TS implementation colors exactly.
+// V1 uses style_circles (same as V1 Trend Rider), V2 uses style_cross (same as V2 Trend Rider).
+// Note: V2 short zero-cross uses the same color/style as V2 short Trend Rider — this
+// matches the TS implementation which also uses #ff9800 for both. Visual distinction
+// for zero-cross vs confirmation is primarily via the long color (teal vs green/lime).
+plot(stV1ZeroCrossLong ? low - stDotOffset : na, "V1 Zero Cross Long", style=plot.style_circles, linewidth=3, color=color.rgb(0, 150, 136), force_overlay=true)
+plot(stV1ZeroCrossShort ? high + stDotOffset : na, "V1 Zero Cross Short", style=plot.style_circles, linewidth=3, color=color.orange, force_overlay=true)
+plot(stV2ZeroCrossLong ? low - stDotOffset : na, "V2 Zero Cross Long", style=plot.style_cross, linewidth=3, color=color.rgb(0, 150, 136), force_overlay=true)
+plot(stV2ZeroCrossShort ? high + stDotOffset : na, "V2 Zero Cross Short", style=plot.style_cross, linewidth=3, color=color.orange, force_overlay=true)

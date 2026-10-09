@@ -34,6 +34,7 @@
 - [Trading Indicator Library] 261-880_FE-IMPL-INDICATOR-LIB: Trigger Bands dev gate + sandbox wiring — FlexChartConfig.dev strips dev-typed configs in effectiveConfig, ST_DEV_INDICATOR_OPTIONS, dev/flex-chart picker + lean opt-in request (D+W, own cache key) + "TB dots" sub-toggle, two MultiColoredLine series with step-expanded hinge+level data reproducing TV's right-endpoint coloring, dot scatter overlay; carries #879's renderer lineage
 - [Trading Indicator Library] 261-880_DOCS-INDICATOR-LIB: #879 + #880 CODE-REVIEWs (both PASS) + #910 UAT (Complete) + IMPL/TEST plans synced to as-built armed-state dots and two-series renderer
 - [Trading Indicator Library] 261-273_SHARED-IMPL-INDICATOR-LIB: Land rb-st-std-dev-lines.pine Pine export — referenced by Topic #261, copied from sibling rb-ps project (checkpoint)
+- [Trading Indicator Library] 261-311_SHARED-IMPL-INDICATOR-LIB: Land rb-st-zones.pine Pine export — referenced by Topic #261, copied from sibling rb-ps project (checkpoint)
 
 
 ## [2026-10-07]
