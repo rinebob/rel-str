@@ -62,6 +62,27 @@ export { ST_SCREENSHOTS_COLLECTION } from '@screenshot-capture/contracts';
 /** Trading config collection (new). */
 export const ST_TRADING_CONFIG_COLLECTION = 'savant-trader/data/trading-config';
 
+/** Doc id for the auto-paper ingest config under trading-config. */
+export const AUTO_PAPER_CONFIG_DOC = 'autoPaper';
+
+/**
+ * Auto-paper ingest config (Thread #904) — read by the `stAutoPaperIngest`
+ * task at run completion.
+ *
+ * `lists` names symbol-list keys to capture from (lists are user-scoped —
+ * `symbol-lists/{uid}_{KEY}`); a `'*'` entry flips to global capture, which
+ * is how "open it for a few runs" stays a config-only experiment.
+ * `signalTypes` overrides the default daily trend-rider allowlist.
+ * `ownerUid` picks which user's list doc to read when several users carry
+ * the same list key.
+ */
+export interface AutoPaperConfig {
+  enabled: boolean;
+  lists: string[];
+  signalTypes?: string[];
+  ownerUid?: string;
+}
+
 /** Occurrence decisions collection (matches FE Collection enum). */
 export const ST_OCCURRENCE_DECISIONS_COLLECTION = 'savant-trader/data/occurrence-decisions';
 

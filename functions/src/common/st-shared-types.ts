@@ -17,3 +17,15 @@ export interface SymbolJobPayload {
   runStartedAt: string;  // ISO timestamp — when the run started; written to run-ids docs for distinguishability
   triggeredBy?: StTriggeredBy;  // Source of the run; 'nightly' enables signal-history writes
 }
+
+/**
+ * Cloud Task payload for the auto-paper ingest (Thread #904). Enqueued once
+ * per run by RunProgressTracker at run completion; consumed by the
+ * `stAutoPaperIngest` task.
+ */
+export interface AutoPaperIngestPayload {
+  runId: string;
+  /** The run's marketDate — the live-date gate compares it to today PT. */
+  marketDate?: string;
+  triggeredBy?: StTriggeredBy;
+}

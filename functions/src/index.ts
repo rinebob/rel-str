@@ -70,6 +70,8 @@ export { cleanupStOccurrenceDecisions } from './scheduled/cleanup-st-occurrence-
 // ST (Savant Trader) exports - Event-driven daily scan architecture
 export { stTriggerDaily } from './st-cloud-function/trigger';
 export { stProcessSymbol } from './st-cloud-function/worker';
+// Thread #904 — auto-paper ingest at run completion
+export { stAutoPaperIngest } from './paper-trading/auto-paper-ingest-task';
 
 // ST Admin utilities
 export {
