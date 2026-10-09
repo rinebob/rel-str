@@ -10,9 +10,9 @@
 **Domain:** INDICATOR-LIB  
 **Type:** Test Plan  
 **Area:** FE  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-07  
-**Last Updated:** 2026-10-07  
+**Last Updated:** 2026-10-08  
 
 ## Unit tests
 
@@ -36,7 +36,7 @@ Prior art: `st-std-dev-lines.indicator.spec.ts`.
 ### Dots: `signal-marker-converters.spec.ts` (extend)
 
 - `dotMarkers.triggerBands` maps to scatter points with correct `x`, `y`, `index`.
-- Long and short colours differ; breakout and pullback dots are distinguishable by `signalType`.
+- Dot colours follow the Pine vocabulary — long breakout blue, short breakout yellow, long pullback yellow, short pullback blue (two hues; position carries the side).
 - Missing `dotMarkers.triggerBands` returns `[]`.
 
 ### Request wiring
@@ -50,7 +50,7 @@ Prior art: `st-std-dev-lines.indicator.spec.ts`.
 
 ## E2E / UI verification (manual)
 
-- Dev server (`npm start`): enable Trigger Bands on a daily chart. The bands render as step lines; colours change on pullback and breakout bars; dots appear on breakout bars and on every pullback bar.
+- Dev server (`npm start`, `dev/flex-chart` sandbox): enable Trigger Bands on a daily chart. The bands render as step lines in the Pine palette (white neutral; yellow/blue state colours); colours change on pullback and breakout bars; dots appear on breakout bars and on every bar the pullback state is armed, stopping when the breakout fires.
 - Weekly chart: same, from the weekly series.
 - Disable the indicator: bands and dots disappear and the request no longer includes the family.
 - Compare a symbol/period against the TradingView script: bands and pullback/breakout bars coincide.
@@ -60,5 +60,5 @@ Prior art: `st-std-dev-lines.indicator.spec.ts`.
 
 - Response arrives before bars: no render, no error.
 - Fewer than 3 bars: empty bands.
-- Dense pullback dots: remain readable at the default zoom.
+- Pullback dots appear on every armed-state bar and stop when the breakout fires; a pullback and a breakout dot never share a bar on the same side.
 - Older deployed backend returns no `triggerBands`: indicator renders nothing and logs no errors.

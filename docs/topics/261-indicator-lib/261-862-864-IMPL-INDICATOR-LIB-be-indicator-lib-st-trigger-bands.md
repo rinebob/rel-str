@@ -10,9 +10,9 @@
 **Domain:** INDICATOR-LIB  
 **Type:** Implementation Plan  
 **Area:** BE  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-07  
-**Last Updated:** 2026-10-07  
+**Last Updated:** 2026-10-08  
 
 ## Overview
 
@@ -79,7 +79,7 @@ Extend `DotMarker.version` with `'TB'` in both type files (additive).
 - `computeSymbolIndicatorSeries` adds `indicators.triggerBands` to each interval.
 - Dot markers: `generateTriggerBandsDotMarkers(points, bars)` returns `DotMarker[]` with `version: 'TB'`:
   - breakout dots: `signalType` `TRIGGER_BANDS_LONG_BREAKOUT` / `TRIGGER_BANDS_SHORT_BREAKOUT`;
-  - pullback dots: `TRIGGER_BANDS_LONG_PULLBACK` / `TRIGGER_BANDS_SHORT_PULLBACK`, on every bar where `longPullback` / `shortPullback` is true.
+  - pullback dots: `TRIGGER_BANDS_LONG_PULLBACK` / `TRIGGER_BANDS_SHORT_PULLBACK`, on every bar the pullback **state** is armed (`longPullbackState` / `shortPullbackState` — the Pine plots the state as circles: the warning stays lit on every bar until the breakout fires and clears it). The per-bar pullback flag is pointwise identical to the state (while armed, a rising band would itself be the breakout), so this reads the same as marking the flag.
   - `y` placement follows `generateZoneDotMarkers` (long below the bar low, short above the bar high, by the ATR-based offset). Implemented with a single 1.5x ATR offset (closer than the zone dots' 2.5x so the two do not overlap): a pullback and a breakout on the same side never share a bar, so they never need distinct offsets. Stored under `dotMarkers.triggerBands`. Implemented in #877.
   - `filterResponse` and the default interval/indicator/strategy sets moved from `indicator-series.ts` to a pure `indicator-series-filter.ts` (no Firebase imports) so the filtering rules are unit testable; behavior for existing families is unchanged.
   - Measured on AAPL (1,823 daily bars): opting in adds ~33% to the full response (2.7 MB to 3.6 MB across D/W/M), and 2,958 daily dots. The FE should request only the intervals it renders (the `intervals` filter already exists).
@@ -98,7 +98,7 @@ Extend `DotMarker.version` with `'TB'` in both type files (additive).
 
 - **Crossover subtlety.** The previous-bar term of the crossover compares against `upper[t-2]`. Found while implementing #876: given the `upper[t-2] >= upper[t-1]` gate, that term is always true (the current bar is inside its own window, so `bodyHigh[t-1] <= upper[t-1] <= upper[t-2]`), and a pullback and a breakout can never share a bar (a breakout needs `upper[t] > upper[t-1]`). The engine still implements the Pine expression literally; tests cover the reachable cases plus a mirror-symmetry check.
 - **Hand-synced types.** `TriggerBandsPoint` and `DotMarker` exist in two files with no compiler link; both must change in one task.
-- **Dot density.** Pullback dots on every pullback bar can be dense (PRD accepts this).
+- **Dot density.** Intentional after sandbox UAT: pullback dots fire on every armed-state bar (the warning stays lit until the breakout fires), matching the Pine's `longPullbackState` circle plot.
 - **Forming bar.** The last (live) bar's flags can change until close; documented, not mitigated.
 - **Opt-in request path.** Confirm in the FE task how `IndicatorSeriesStore` keys cache entries by filters so requesting `TRIGGER_BANDS` does not invalidate the cached default response.
 

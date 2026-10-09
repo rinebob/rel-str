@@ -10,9 +10,9 @@
 **Domain:** INDICATOR-LIB  
 **Type:** Test Plan  
 **Area:** BE  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-07  
-**Last Updated:** 2026-10-07  
+**Last Updated:** 2026-10-08  
 
 ## Unit tests: `computeStTriggerBands`
 
@@ -35,7 +35,7 @@ Location: alongside existing indicator-computation specs.
 
 - `computeSymbolIndicatorSeries` returns `indicators.triggerBands` for daily, weekly and monthly, one point per bar with matching `d`.
 - Trigger bands are present even when an interval has fewer than 30 bars but at least 3 (not gated by the other indicators' 30-bar rule).
-- `dotMarkers.triggerBands` contains a breakout dot for every breakout flag and a pullback dot for every pullback flag, with `version: 'TB'`, correct `direction`, `signalType` and `index`; `y` is on the correct side of the bar.
+- `dotMarkers.triggerBands` contains a breakout dot for every breakout flag and a pullback dot for every armed pullback-state bar (the warning stays lit until the breakout clears it — revised after sandbox UAT to match the Pine's `longPullbackState` circle plot), with `version: 'TB'`, correct `direction`, `signalType` and `index`; `y` is on the correct side of the bar.
 - Existing families (`zoneV1`, `zoneV2`, `trendStrength`, `trendBands`, zone and trend-strength dots, HTF windows) are byte-identical to before for the same input (regression).
 
 ## Callable filtering tests

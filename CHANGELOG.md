@@ -20,6 +20,10 @@
 - [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: Sidenav Dev submenu — NavItem.children + mat-menu popup; Tools ▸ Dev lists dev/flex-chart, dev/gallery, dev/screenshot without polluting the workflow nav
 - [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: Page title sweep (21 surfaces) + default-header fullscreen flip (auto setFullscreen(true) removed from 13 pages + signal-review facade; ngOnDestroy cleanup kept) + right-anchored action bars
 - [Navigation and Workflows] 625-854_DOCS-WORKFLOWS: #854 CODE-REVIEW (PASS, 2 rounds) + page inventory (38/38) + #898 UAT (Complete — nav-surface-scoped)
+- [Trading Indicator Library] 261-880_SHARED-IMPL-INDICATOR-LIB: Trigger Bands Pine palette — ST_TRIGGER_BANDS_COLORS (white neutral, cross-side yellow/blue state colors), dot colors keyed by backend signalType, uniform line width
+- [Trading Indicator Library] 261-880_BE-IMPL-INDICATOR-LIB: Pullback dots on every armed-state bar — dot emission keyed on longPullbackState/shortPullbackState (Pine plot semantics; dots stop when breakout clears the state), verify script + golden fixture updated
+- [Trading Indicator Library] 261-880_FE-IMPL-INDICATOR-LIB: Trigger Bands dev gate + sandbox wiring — FlexChartConfig.dev strips dev-typed configs in effectiveConfig, ST_DEV_INDICATOR_OPTIONS, dev/flex-chart picker + lean opt-in request (D+W, own cache key) + "TB dots" sub-toggle, two MultiColoredLine series with step-expanded hinge+level data reproducing TV's right-endpoint coloring, dot scatter overlay; carries #879's renderer lineage
+- [Trading Indicator Library] 261-880_DOCS-INDICATOR-LIB: #879 + #880 CODE-REVIEWs (both PASS) + #910 UAT (Complete) + IMPL/TEST plans synced to as-built armed-state dots and two-series renderer
 
 
 ## [2026-10-07]
