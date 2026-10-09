@@ -101,6 +101,17 @@ export type PaperTradeOverrides = Partial<
     | 'capitalRequired'
     | 'lastMarkedAt'
     | 'legacyStatus'
+    // auto-paper stamp fields (Thread #904)
+    | 'signalType'
+    | 'signalTimeframe'
+    | 'signalBarDate'
+    | 'signalStatus'
+    | 'signalRunId'
+    | 'signalIndicators'
+    | 'sector'
+    | 'industry'
+    | 'marketCapTier'
+    | 'captureList'
   >
 >;
 

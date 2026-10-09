@@ -185,6 +185,18 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsAdc: false,
   },
+  {
+    name: 'auto-paper signal-trade contracts',
+    file: 'paper-trading-auto-paper-916-contracts.ts',
+    needsAccount: false,
+  },
+  {
+    name: 'auto-paper ingest inputs (prod read)',
+    file: 'verify/paper-trading-auto-paper-916-inputs.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
 ];
 
 function hasGhAuth(): boolean {

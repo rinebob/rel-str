@@ -37,6 +37,7 @@ deliberately, on-demand.
 | #804 — BE KMS credential repository | [rh-mcp-kms-repository-804.md](rh-mcp-kms-repository-804.md) | KMS encrypt/decrypt → Firestore ciphertext doc → CAS revision guard → load round-trip → delete | `functions/scripts/verify/rh-mcp-kms-repository-804.ts` (needs ADC + `RH_CREDENTIAL_KEY_NAME`; runs from `functions/`) |
 | #806 — BE credential upload + seed | [rh-mcp-upload-806.md](rh-mcp-upload-806.md) | bundle file → parse → KMS+Firestore seed → reload round-trip → seed refusal → replace CAS → delete | `functions/scripts/verify/rh-mcp-upload-806.ts` (needs ADC + `RH_CREDENTIAL_KEY_NAME`; runs from `functions/`) — real seed via `functions/scripts/upload-rh-credential.ts` |
 | #807 — BE rhApi cloud function | [rh-mcp-cloud-api-807.md](rh-mcp-cloud-api-807.md) | deployed function auth gate → shared dispatch → KMS repo → MCP execute → reauth state | `functions/scripts/verify/rh-mcp-cloud-api-807.ts` (unauth checks standalone; `--token <idToken>` for the owner path) |
+| #916 — SHARED auto-paper contracts | [paper-trading-auto-paper-916.md](paper-trading-auto-paper-916.md) | signal desc/dedupe keys + stats scope ids + AUTO_PAPER_USER_ID; prod-read of run-ids/symbols/symbol-lists inputs | `paper-trading-auto-paper-916-contracts.ts` (no credentials) + `functions/scripts/verify/paper-trading-auto-paper-916-inputs.ts` (needs ADC; runs from `functions/`) |
 
 ## Run All
 
