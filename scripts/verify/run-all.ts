@@ -197,6 +197,13 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'auto-paper enqueue + gates',
+    file: 'verify/paper-trading-auto-paper-917-gates.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
 ];
 
 function hasGhAuth(): boolean {
