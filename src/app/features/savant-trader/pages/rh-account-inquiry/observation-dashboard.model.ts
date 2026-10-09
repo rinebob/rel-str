@@ -22,7 +22,9 @@ export interface AccountInfo {
 
 export interface ToolArgProperty {
   name: string;
-  type: 'string' | 'string[]' | 'number' | 'boolean' | 'unknown';
+  /** 'json' = structured param (object or array-of-objects) — rendered as a
+   *  JSON textarea and parsed at execution time. */
+  type: 'string' | 'string[]' | 'number' | 'boolean' | 'json' | 'unknown';
   required: boolean;
   description?: string;
   isAccountNumber: boolean;
@@ -367,6 +369,29 @@ export function normalizeSymbolValue(value: unknown): unknown {
     return value.map((item) => (typeof item === 'string' ? item.toUpperCase() : item));
   }
   return value;
+}
+
+/** True when every non-empty 'json' arg parses — gate execution on this so a
+ *  malformed object/array body never reaches the tool as a raw string. */
+export function jsonArgsValid(
+  argProperties: ToolArgProperty[],
+  values: Record<string, unknown>,
+): boolean {
+  for (const prop of argProperties) {
+    if (prop.type !== 'json') {
+      continue;
+    }
+    const value = values[prop.name];
+    if (isEmptyValue(value) || typeof value !== 'string') {
+      continue;
+    }
+    try {
+      JSON.parse(value);
+    } catch {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function cleanArgsForExecution(
