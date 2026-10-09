@@ -10,7 +10,7 @@
 **Area:** FE  
 **Status:** Draft  
 **Created:** 2026-10-07  
-**Last Updated:** 2026-10-07  
+**Last Updated:** 2026-10-08  
 
 # FE Implementation Plan: ST Anchored VWAP
 
@@ -55,7 +55,7 @@ interface AnchorEvent {
 
 **Location:** same `indicators/` directory. No Angular, no chart imports.
 
-**Input:** `PriceBar[]` and config `{ smallRetracementPct, largeRetracementPct, leftDepth, rightDepth, historyStart?: number /* ms */, maxHistory }`.
+**Input:** `PriceBar[]` and config `{ smallRetracementPct, largeRetracementPct, leftDepth, rightDepth, historyStart?: string /* 'YYYY-MM-DD' */, maxHistory }`.
 
 **Algorithm**
 
@@ -68,7 +68,7 @@ interface AnchorEvent {
 
 **History Window** (terminated segments only; active segments are never windowed or pruned). Applied per scale across both sides combined, per the PRD wording "per scale":
 
-- `historyStart` set → keep terminated segments whose pivot bar time ≥ `historyStart`, ordered by `startBar`, then keep the **first** `maxHistory` (the cap eats the recent end).
+- `historyStart` set → keep terminated segments whose pivot's **session date** (`bars[pivotBar].date`) ≥ `historyStart` — a lexicographic ISO-date compare, not a `x.getTime()` epoch compare, so `bar.x`'s timezone is irrelevant — ordered by `startBar`, then keep the **first** `maxHistory` (the cap eats the recent end).
 - `historyStart` unset → keep the **last** `maxHistory` terminated segments by `startBar` (oldest pruned first).
 
 **Output:**
@@ -94,7 +94,7 @@ function computeAnchoredVwap(bars, config): AnchoredVwapSegment[]
 **Location:** same `indicators/` directory. Follows the ZigZag / StdDevLines pattern.
 
 - `ST_ANCHORED_VWAP_INDICATOR: IndicatorOption` — `id: 'st-anchored-vwap'`, `type: StIndicator.ST_ANCHORED_VWAP` (new enum member in `flex-chart.types.ts`), `defaultPane: 'overlay'`, `axisScale: 'price'`.
-- Params (all `number | string | boolean`, as `IndicatorParamDef` requires): `smallRetracementPct` 2.0, `largeRetracementPct` 5.0, `leftDepth` 5, `rightDepth` 5, `smallHighColor` `#FF8CFF`, `smallLowColor` `#8CF5FF`, `largeHighColor` `#FF00E6`, `largeLowColor` `#00E5FF`, `maxHistory` 100. There is **no `historyStart` param** (decision 2026-10-08: the ZigZag pivots decide the dates, so the window is always the most recent `maxHistory`; the engine's `historyStart` option stays but is not exposed).
+- Params (all `number | string | boolean`, as `IndicatorParamDef` requires): `smallRetracementPct` 2.0, `largeRetracementPct` 5.0, `leftDepth` 5, `rightDepth` 5, `smallHighColor` `#FF8CFF`, `smallLowColor` `#8CF5FF`, `largeHighColor` `#FF00E6`, `largeLowColor` `#00E5FF`, `maxHistory` 100, `historyStart` `''` (ISO `'YYYY-MM-DD'` string — decision revised 2026-10-08 under #872: the date control is back, sandbox-only. `extractConfig` validates it via the shared `parseIsoDateLocal` helper and passes the canonical string through; the engine compares `bars[pivotBar].date` lexicographically — `PriceBar.x` is `toDatePt()` (Pacific-Time midnight, not browser-local), so any epoch compare shifts the boundary for users west of PT).
 - `extractConfig(params)` clamps and parses params the way `st-zigzag.indicator.ts` does.
 - `computeAnchoredVwapSeries(bars, params, options?)` maps `AnchoredVwapSegment[]` to **fixed-slot series** (below).
 
@@ -124,8 +124,8 @@ interface AnchoredVwapLineSeries {
 
 Today no ST indicator has a param-editing surface: the sandbox and the gallery build configs from `buildDefaultConfig` defaults only, and `IndicatorConfigDialogComponent` is number-only and referenced by nothing. Per the Plan decision, **controls are sandbox-only** (no new shared settings UI).
 
-- In `flex-chart-sandbox.component.ts/.html`, when `st-anchored-vwap` is enabled, show controls for `smallRetracementPct`, `largeRetracementPct`, `leftDepth`, `rightDepth`, the four colors and `maxHistory` (no `historyStart` date picker — decision 2026-10-08: the ZigZag pivots decide the dates). Overrides merge onto the default config before it reaches the chart.
-- Controls are local to the sandbox and do not carry to other pages — this is the iteration loop, not general UI.
+- In `flex-chart-sandbox.component.ts/.html`, when `st-anchored-vwap` is enabled, show controls for `smallRetracementPct`, `largeRetracementPct`, `leftDepth`, `rightDepth`, the four colors and `maxHistory` — the template iterates `ST_ANCHORED_VWAP_INDICATOR.params` (color keys get `type="color"`, the rest `type="number"`) — plus a `historyStart` row: a plain ISO text input, a `mat-datepicker` driven through a rendered-but-invisible anchor input (the option-chain pattern — a `display:none` input anchors the overlay at 0,0, and a locale-formatted matDatepicker input parses ISO as UTC), and a clear button. Overrides merge onto the default config in `config()` before it reaches the chart; an emptied control deletes its override so the param falls back to the default.
+- Controls are local to the sandbox and do not carry to other pages — this is the iteration loop, not general UI. Overrides persist across enable/disable so toggling off to compare doesn't lose tuning.
 
 ## Phases
 
@@ -139,7 +139,7 @@ Foundation. Nothing here touches the chart.
 ### Phase 2: Chart integration
 
 - **T3** — Indicator definition + registry + `StIndicator` member + adapter series + template render. Demoable in the sandbox via the menu toggle with default params. Blocked by T2.
-- **T4** — Sandbox param controls (the `historyStart` date picker was dropped 2026-10-08; remaining scope to be confirmed). Blocked by T3.
+- **T4** — Sandbox param controls, including the `historyStart` `mat-datepicker` (reinstated 2026-10-08 under #872). Blocked by T3.
 
 ## Cross-Area Dependencies
 
@@ -154,5 +154,5 @@ Foundation. Nothing here touches the chart.
 - **`maxHistory` scope is ambiguous.** The PRD says "per scale"; the Pine prototype capped per line (side), which would exceed TradingView's polyline budget (4 lines × 48). This plan implements per scale, both sides combined, as the PRD reads. Confirm at T2 if the intent was per slot.
 - **Series reinit.** A data-dependent series count would reinitialise the chart. Mitigation: fixed 12 slots.
 - **Calculator contract.** The generic `IndicatorCalculator` path returns flat `{x, y}` points and cannot express four lines. Mitigation: bespoke adapter series (same as ZigZag); T3 verifies `computeIndicators`/legend tolerate an empty calculator result.
-- **Date entry.** Dropped 2026-10-08: no `historyStart` param or date picker; the engine's `historyStart` option stays unexposed.
+- **Date entry.** `historyStart` is an ISO string parsed to local-midnight ms — pivot times are local-midnight `getTime()`, so a UTC parse (`Date.parse`, `toISOString` round-trip) drops boundary-date anchors in western timezones. The datepicker emits `Date` objects, so the sandbox formats local Y/M/D explicitly.
 - **Pivot-bar edge.** A pivot with zero volume since the anchor needs the seed rule (pivot bar typical price) so the first drawn value is defined.

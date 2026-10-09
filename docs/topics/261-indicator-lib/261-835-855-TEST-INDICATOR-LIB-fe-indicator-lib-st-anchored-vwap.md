@@ -10,7 +10,7 @@
 **Area:** FE  
 **Status:** Draft  
 **Created:** 2026-10-07  
-**Last Updated:** 2026-10-07  
+**Last Updated:** 2026-10-08  
 
 # FE Test Plan: ST Anchored VWAP
 
@@ -19,7 +19,7 @@
 - Journey 1: User opens the flex-chart sandbox, enables **ST Anchored VWAP** from the indicator menu with default params → sees four lines (magenta high / cyan low, thick large / thin small) on the price pane, each starting where its pivot became knowable, plus history segments in the same style.
 - Journey 2: User toggles AVWAP on a chart that has no ST ZigZag enabled → lines still render (AVWAP does not depend on the ZigZag indicator).
 - Journey 3: User changes the retracement percentages and depths in the sandbox controls → the lines and anchors recompute; the series count does not change.
-- Journey 4: (dropped 2026-10-08 — no `historyStart` date picker; the ZigZag pivots decide the dates and history is always the most recent `maxHistory`.)
+- Journey 4: User picks a `historyStart` date in the sandbox `mat-datepicker` → history shows the terminated segments anchored on/after that date (first `maxHistory` of them — the cap can window out the recent end); clearing it returns to the most-recent `maxHistory` view. (Reinstated 2026-10-08 under #872.)
 - Journey 5: User scrubs through a chart with a known pivot and checks that no line exists before that pivot's confirmation bar and that the old same-side line runs through the new pivot's confirmation bar.
 
 ## Integration Tests
@@ -63,7 +63,7 @@
 - **Volume edge cases:** missing volume and zero volume contribute nothing; the line carries flat across them; zero volume since the anchor seeds with the pivot bar's typical price.
 - **Scales:** small and large run independently; a pivot that qualifies at the small percentage but not the large appears only in the small set.
 - **Active vs terminated:** the last segment per side is active and ends at the last bar; earlier segments are terminated.
-- **History Window — `historyStart` set:** only terminated segments with pivot time ≥ date; chronological; the first `maxHistory` kept; nothing before the date; the cap eats the recent end.
+- **History Window — `historyStart` set:** only terminated segments whose pivot's session date (`bars[pivotBar].date`, not `x`) ≥ date; chronological; the first `maxHistory` kept; nothing before the date; the cap eats the recent end.
 - **History Window — unset:** the last `maxHistory` terminated segments kept; the oldest dropped; recent never dropped.
 - **Windowing scope:** active segments are never windowed or pruned in either mode; the cap applies per scale across both sides combined.
 - **`maxHistory` boundaries:** 1; larger than available; zero available segments.
@@ -73,7 +73,7 @@
 ### Indicator + series builder (`st-anchored-vwap.indicator.spec.ts`)
 
 - `extractConfig` clamps retracement %, depths and `maxHistory`; falls back to defaults on missing/garbage params.
-- No `historyStart` param (dropped 2026-10-08).
+- `historyStart` param (ISO `'YYYY-MM-DD'` string): a boundary date keeps that date's anchor (inclusive, compared on `bar.date`); after the last anchor empties history while actives remain; before the first anchor ≡ unset; empty/garbage ≡ unset. Regression: a bar whose `x` carries a non-midnight timestamp must still filter on `date` alone.
 - `computeAnchoredVwapSeries` always returns 12 series with the documented keys, regardless of data (including empty data).
 - Adjacent segments of a slot land in alternating history series; no history series contains two points at the same `index`.
 - Break points (`y: null`) separate segments within a history series.
@@ -93,7 +93,10 @@
 
 ### Sandbox (`flex-chart-sandbox.component.spec.ts`)
 
-- Control values merge onto the default config.
+- The params panel renders only while the indicator is enabled; a control exists per editable param.
+- Control values merge onto the default config; emptied controls revert to the default; each change produces a fresh config (recompute).
+- `historyStart`: the `mat-datepicker` anchor is bound to the picker (`MatDatepickerInput._datepicker`), selection commits a local `YYYY-MM-DD`, typing ISO text sets it, the clear button unsets it.
+- Overrides persist across enable→disable→enable and never leak into other indicators' configs.
 
 ## Test Seams
 
