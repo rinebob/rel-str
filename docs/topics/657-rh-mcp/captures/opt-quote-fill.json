@@ -1,0 +1,60 @@
+{
+  "id": "opt-quote-fill",
+  "tool": "get_option_quotes",
+  "group": "opt-matrix",
+  "gate": "read",
+  "note": "Fresh 70C mark/ask immediately before the fill-priced buy — sets NFLX_OPT_ASK/HI/STOP.",
+  "args": {
+    "instrument_ids": [
+      "$ENV:NFLX_OPT_ID"
+    ]
+  },
+  "capturedAt": "2026-10-08T17:23:19.959Z",
+  "outcome": "success",
+  "latencyMs": 807,
+  "success": true,
+  "response": {
+    "data": {
+      "results": [
+        {
+          "quote": {
+            "instrument_id": "••••da44",
+            "ask_price": "1.950000",
+            "ask_size": 290,
+            "bid_price": "1.870000",
+            "bid_size": 479,
+            "break_even_price": "71.910000",
+            "adjusted_mark_price": "1.910000",
+            "mark_price": "1.910000",
+            "high_fill_rate_buy_price": "1.932000",
+            "low_fill_rate_buy_price": "1.893000",
+            "high_fill_rate_sell_price": "1.887000",
+            "low_fill_rate_sell_price": "1.926000",
+            "previous_close_price": "1.240000",
+            "previous_close_date": "2026-10-07",
+            "implied_volatility": "0.306293",
+            "delta": "0.642642",
+            "gamma": "0.115061",
+            "rho": "0.009718",
+            "theta": "-0.079467",
+            "vega": "0.039512",
+            "open_interest": 13931,
+            "volume": 7265,
+            "chance_of_profit_long": "0.393660",
+            "chance_of_profit_short": "0.606340",
+            "updated_at": "2026-10-08T17:23:19.353606483Z"
+          },
+          "close": {
+            "instrument_id": "••••da44",
+            "symbol": "NFLX",
+            "date": "2026-10-07",
+            "price": "1.24",
+            "interpolated": false,
+            "source": "ddb-market-snapshot"
+          }
+        }
+      ]
+    },
+    "guide": "Each entry in results pairs the live quote with the official prior-session close for the same option contract. Current price: use quote.mark_price (adjusted_mark_price when comparing against historical cost basis); verify quote.updated_at is recent before calling it 'current' — otherwise phrase as 'as of <updated_at>'. 1D P&L per contract: (quote.mark_price - close.price) × multiplier × position_quantity (multiplier is typically 100; use trade_value_multiplier from get_option_positions for adjusted contracts). Prefer results[].close.price (official settled close) over quote.previous_close_price; when a result is missing close — either closes_error is set tool-wide, or this contract had no close in an otherwise-successful batch — fall back to quote.previous_close_price and tell the user the official close lookup is unavailable. When close.interpolated is true, surface close.date — the price is not from the requested day. Drop bid/ask when zero."
+  }
+}

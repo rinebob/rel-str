@@ -1,0 +1,71 @@
+{
+  "id": "opt-place-stplim",
+  "tool": "place_option_order",
+  "group": "opt-matrix",
+  "gate": "mutation",
+  "note": "BTO stop_limit, trigger above mark — rests, then opt-can-stplim.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "$ENV:NFLX_OPT_ID",
+        "side": "buy",
+        "position_effect": "open"
+      }
+    ],
+    "quantity": "1",
+    "type": "stop_limit",
+    "stop_price": "$ENV:NFLX_OPT_STOP",
+    "price": "$ENV:NFLX_OPT_STOPLIM",
+    "time_in_force": "gfd",
+    "ref_id": "$ENV:NFLX_OPT_REF6"
+  },
+  "capturedAt": "2026-10-08T17:27:49.875Z",
+  "outcome": "success",
+  "latencyMs": 1083,
+  "success": true,
+  "response": {
+    "data": {
+      "order": {
+        "id": "6ac7d295-c8d5-41e0-b3bd-1692f61492cd",
+        "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+        "chain_symbol": "NFLX",
+        "state": "unconfirmed",
+        "type": "limit",
+        "trigger": "stop",
+        "direction": "debit",
+        "quantity": "1.00000",
+        "processed_quantity": "0.00000",
+        "pending_quantity": "1.00000",
+        "canceled_quantity": "0.00000",
+        "price": "••••000000",
+        "stop_price": "••••000000",
+        "premium": "450.00000000",
+        "processed_premium": "0",
+        "trade_value_multiplier": "100.0000",
+        "time_in_force": "gfd",
+        "market_hours": "regular_hours",
+        "opening_strategy": "long_call",
+        "closing_strategy": null,
+        "placed_agent": "agentic",
+        "created_at": "2026-10-08T17:27:49.227554Z",
+        "updated_at": "2026-10-08T17:27:49.370646Z",
+        "last_transaction_at": null,
+        "is_replaceable": true,
+        "legs": [
+          {
+            "id": "7dc0a3c3-ff65-4f9f-87cc-095d7aff7537",
+            "option_id": "••••da44",
+            "side": "buy",
+            "position_effect": "open",
+            "ratio_quantity": 1,
+            "expiration_date": "2026-10-16",
+            "strike_price": "70.0000",
+            "option_type": "call"
+          }
+        ]
+      }
+    },
+    "guide": "The order has been submitted — not necessarily filled. Describe with state. Summarize chain_symbol, opening_strategy or closing_strategy, quantity, price, direction; remind the user it may not have filled and that they can check status or cancel via id. Source chain_symbol from the response directly. On error, the order was NOT placed; report the error verbatim. CURB-rejection errors mean market_hours is incompatible with the chain or the CURB session is closed — suggest 'regular_hours' or waiting for the session."
+  }
+}

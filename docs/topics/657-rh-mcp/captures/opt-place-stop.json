@@ -1,0 +1,40 @@
+{
+  "id": "opt-place-stop",
+  "tool": "place_option_order",
+  "group": "opt-matrix",
+  "gate": "mutation",
+  "note": "BTO stop_market, trigger above mark — rests, then opt-can-stop.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "$ENV:NFLX_OPT_ID",
+        "side": "buy",
+        "position_effect": "open"
+      }
+    ],
+    "quantity": "1",
+    "type": "stop_market",
+    "stop_price": "$ENV:NFLX_OPT_STOP",
+    "time_in_force": "gfd",
+    "ref_id": "$ENV:NFLX_OPT_REF5"
+  },
+  "capturedAt": "2026-10-08T17:27:35.702Z",
+  "outcome": "error",
+  "latencyMs": 1056,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 400: {\"detail\":\"Stop market orders aren't supported when buying to open. Select another order type to place this order.\"}"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 400: {\"detail\":\"Stop market orders aren't supported when buying to open. Select another order type to place this order.\"}"
+}

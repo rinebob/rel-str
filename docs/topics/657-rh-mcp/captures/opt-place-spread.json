@@ -1,0 +1,46 @@
+{
+  "id": "opt-place-spread",
+  "tool": "place_option_order",
+  "group": "opt-matrix",
+  "gate": "mutation",
+  "note": "Place 2-leg vertical spread limit far below mid — rests; harvest id → opt-can-spread.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "$ENV:NFLX_OPT_ID",
+        "side": "buy",
+        "position_effect": "open"
+      },
+      {
+        "option_id": "$ENV:NFLX_OPT_ID2",
+        "side": "sell",
+        "position_effect": "open"
+      }
+    ],
+    "quantity": "1",
+    "direction": "debit",
+    "type": "limit",
+    "price": "$ENV:NFLX_OPT_PRICE_LO",
+    "time_in_force": "gfd",
+    "ref_id": "$ENV:NFLX_OPT_REF2"
+  },
+  "capturedAt": "2026-10-08T16:50:33.077Z",
+  "outcome": "error",
+  "latencyMs": 1287,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 400: {\"detail\":\"Multi-leg options orders aren't supported in the Robinhood Trading MCP yet. You can still place multi-leg options orders through the app or on web.\"}"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 400: {\"detail\":\"Multi-leg options orders aren't supported in the Robinhood Trading MCP yet. You can still place multi-leg options orders through the app or on web.\"}"
+}

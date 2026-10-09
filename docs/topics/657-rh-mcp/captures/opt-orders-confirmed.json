@@ -8,9 +8,9 @@
     "account_number": "$ENV:RH_ACCOUNT_NUMBER",
     "state": "confirmed"
   },
-  "capturedAt": "2026-10-07T19:09:32.586Z",
+  "capturedAt": "2026-10-08T16:50:47.791Z",
   "outcome": "success",
-  "latencyMs": 930,
+  "latencyMs": 1086,
   "success": true,
   "response": {
     "data": {

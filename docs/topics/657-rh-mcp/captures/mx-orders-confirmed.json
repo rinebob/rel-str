@@ -8,24 +8,162 @@
     "account_number": "$ENV:RH_ACCOUNT_NUMBER",
     "state": "confirmed"
   },
-  "capturedAt": "2026-10-07T22:29:23.322Z",
+  "capturedAt": "2026-10-08T16:49:13.639Z",
   "outcome": "success",
-  "latencyMs": 7980,
+  "latencyMs": 1543,
   "success": true,
   "response": {
     "data": {
       "orders": [
         {
-          "id": "6ac5481e-9f37-42ee-84d0-8b1822b8f7be",
-          "ref_id": "0409b773-daad-49fc-a0e6-62b4ee88e8b4",
+          "id": "6ac7c216-74ab-4ce9-af3e-9597d74b2154",
+          "ref_id": "7d02aa35-5093-4c7f-9e9a-76e13274a00c",
+          "instrument_id": "7fad03c5-de6b-4c60-917b-524a38f5aac8",
+          "symbol": "CLMT",
+          "side": "sell",
+          "type": "market",
+          "state": "confirmed",
+          "quantity": "2.000000",
+          "cumulative_quantity": "0.000000",
+          "price": null,
+          "stop_price": "53.220000",
+          "average_price": null,
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "stop",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T16:17:26.583035Z",
+          "last_transaction_at": "2026-10-08T16:17:26.682Z",
+          "executions": []
+        },
+        {
+          "id": "6ac7c202-759c-4704-9b16-abe4f3fe3e40",
+          "ref_id": "92a0d824-8570-45ac-b2dd-d325825d43ac",
+          "instrument_id": "8a9fe49d-5d0a-4040-a19b-f3f4df44408f",
+          "symbol": "CSCO",
+          "side": "sell",
+          "type": "market",
+          "state": "confirmed",
+          "quantity": "1.000000",
+          "cumulative_quantity": "0.000000",
+          "price": null,
+          "stop_price": "106.840000",
+          "average_price": null,
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "stop",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T16:17:06.801546Z",
+          "last_transaction_at": "2026-10-08T16:17:06.927Z",
+          "executions": []
+        },
+        {
+          "id": "6ac7c1e6-e23d-459a-bc0f-ed548d8f7899",
+          "ref_id": "10869ff1-f4c2-4938-acf7-365377f1591d",
+          "instrument_id": "33a262a2-a14d-4877-9e3e-f708e0df2880",
+          "symbol": "KLIC",
+          "side": "sell",
+          "type": "market",
+          "state": "confirmed",
+          "quantity": "1.000000",
+          "cumulative_quantity": "0.000000",
+          "price": null,
+          "stop_price": "84.780000",
+          "average_price": null,
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "stop",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T16:16:38.623635Z",
+          "last_transaction_at": "2026-10-08T16:16:38.707Z",
+          "executions": []
+        },
+        {
+          "id": "6ac7c1b9-00f1-45cb-b73d-2000b81099fb",
+          "ref_id": "c8028e06-1ed1-4fe2-b48a-39da291280dc",
           "instrument_id": "18006bfb-cbad-4326-8348-738c94ea47fa",
           "symbol": "AMAT",
+          "side": "sell",
+          "type": "market",
+          "state": "confirmed",
+          "quantity": "1.000000",
+          "cumulative_quantity": "0.000000",
+          "price": null,
+          "stop_price": "478.630000",
+          "average_price": null,
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "stop",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T16:15:53.316736Z",
+          "last_transaction_at": "2026-10-08T16:15:53.442Z",
+          "executions": []
+        },
+        {
+          "id": "6ac7c1a1-a8de-4fc6-bdbb-39b1759a2a68",
+          "ref_id": "69474e51-db50-4cdb-965e-629b2ebb9f82",
+          "instrument_id": "0c0bf051-7468-4a31-a727-a1565892c011",
+          "symbol": "AXTI",
+          "side": "sell",
+          "type": "market",
+          "state": "confirmed",
+          "quantity": "1.000000",
+          "cumulative_quantity": "0.000000",
+          "price": null,
+          "stop_price": "68.430000",
+          "average_price": null,
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "stop",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T16:15:29.076407Z",
+          "last_transaction_at": "2026-10-08T16:15:29.182Z",
+          "executions": []
+        },
+        {
+          "id": "6ac71dca-a349-48bb-b9f5-46985bdd1650",
+          "ref_id": "49b9d021-42c4-419b-9380-3630f0c672a4",
+          "instrument_id": "3e446f3b-b7d9-4aa5-a182-3daf02daf8a5",
+          "symbol": "SLDE",
+          "side": "sell",
+          "type": "market",
+          "state": "confirmed",
+          "quantity": "4.000000",
+          "cumulative_quantity": "0.000000",
+          "price": null,
+          "stop_price": "22.660000",
+          "average_price": null,
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "stop",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T04:36:26.774235Z",
+          "last_transaction_at": "2026-10-08T12:20:58.002Z",
+          "executions": []
+        },
+        {
+          "id": "6ac7127c-516f-4916-a181-e979e410dff0",
+          "ref_id": "952eaef1-daa0-434a-bdbb-5bd20fa0108f",
+          "instrument_id": "7c8be10c-443c-44f1-a743-e7899597b561",
+          "symbol": "CIEN",
           "side": "buy",
           "type": "limit",
           "state": "confirmed",
           "quantity": "1.000000",
           "cumulative_quantity": "0.000000",
-          "price": "505.000000",
+          "price": "411.010000",
           "stop_price": null,
           "average_price": null,
           "fees": "0.000000",
@@ -34,8 +172,31 @@
           "market_hours": "regular_hours",
           "trigger": "immediate",
           "placed_agent": "agentic",
-          "created_at": "2026-10-06T19:12:30.291146Z",
-          "last_transaction_at": "2026-10-07T12:20:01.191Z",
+          "created_at": "2026-10-08T03:48:12.374281Z",
+          "last_transaction_at": "2026-10-08T12:24:36.892Z",
+          "executions": []
+        },
+        {
+          "id": "6ac70905-cd0c-4f21-8949-573591c36731",
+          "ref_id": "998172d9-8586-4630-88e2-bdfb614214a0",
+          "instrument_id": "af8660a8-6516-41ef-97c7-7a5ea9067a23",
+          "symbol": "APPS",
+          "side": "sell",
+          "type": "market",
+          "state": "confirmed",
+          "quantity": "10.000000",
+          "cumulative_quantity": "0.000000",
+          "price": null,
+          "stop_price": "9.770000",
+          "average_price": null,
+          "fees": "0.000000",
+          "dollar_based_amount": null,
+          "time_in_force": "gtc",
+          "market_hours": "regular_hours",
+          "trigger": "stop",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T03:07:49.40715Z",
+          "last_transaction_at": "2026-10-08T12:27:45.86Z",
           "executions": []
         },
         {
@@ -58,7 +219,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-10-06T19:10:12.198476Z",
-          "last_transaction_at": "2026-10-07T12:27:23.587Z",
+          "last_transaction_at": "2026-10-08T12:28:14.494Z",
           "executions": []
         },
         {
@@ -81,7 +242,7 @@
           "trigger": "stop",
           "placed_agent": "agentic",
           "created_at": "2026-10-04T17:53:07.419018Z",
-          "last_transaction_at": "2026-10-07T12:28:07.856Z",
+          "last_transaction_at": "2026-10-08T12:21:13.448Z",
           "executions": []
         },
         {
@@ -104,7 +265,7 @@
           "trigger": "stop",
           "placed_agent": "agentic",
           "created_at": "2026-10-04T17:52:23.944282Z",
-          "last_transaction_at": "2026-10-07T12:27:42.44Z",
+          "last_transaction_at": "2026-10-08T12:22:33.198Z",
           "executions": []
         },
         {
@@ -127,7 +288,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-10-01T22:53:17.180721Z",
-          "last_transaction_at": "2026-10-07T10:43:40.473Z",
+          "last_transaction_at": "2026-10-08T10:45:41.848Z",
           "executions": []
         },
         {
@@ -150,7 +311,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-10-01T22:52:23.853736Z",
-          "last_transaction_at": "2026-10-07T10:49:20.777Z",
+          "last_transaction_at": "2026-10-08T10:44:53.593Z",
           "executions": []
         },
         {
@@ -173,7 +334,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-10-01T00:00:24.352001Z",
-          "last_transaction_at": "2026-10-07T12:27:01.06Z",
+          "last_transaction_at": "2026-10-08T12:28:37.067Z",
           "executions": []
         },
         {
@@ -196,7 +357,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-09-30T22:46:59.516262Z",
-          "last_transaction_at": "2026-10-07T12:20:56.45Z",
+          "last_transaction_at": "2026-10-08T12:27:13.849Z",
           "executions": []
         },
         {
@@ -219,7 +380,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-09-30T18:19:14.971924Z",
-          "last_transaction_at": "2026-10-07T12:21:13.589Z",
+          "last_transaction_at": "2026-10-08T12:28:22.955Z",
           "executions": []
         },
         {
@@ -242,7 +403,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-09-30T18:18:26.111032Z",
-          "last_transaction_at": "2026-10-07T12:26:40.969Z",
+          "last_transaction_at": "2026-10-08T12:24:45.976Z",
           "executions": []
         },
         {
@@ -265,30 +426,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-09-30T18:12:56.710861Z",
-          "last_transaction_at": "2026-10-07T12:29:53.91Z",
-          "executions": []
-        },
-        {
-          "id": "6abc982a-cb45-46b6-8932-badd3f8ccb86",
-          "ref_id": "358d931d-fe8f-4119-8b61-4564cd44af64",
-          "instrument_id": "0c0bf051-7468-4a31-a727-a1565892c011",
-          "symbol": "AXTI",
-          "side": "buy",
-          "type": "limit",
-          "state": "confirmed",
-          "quantity": "1.000000",
-          "cumulative_quantity": "0.000000",
-          "price": "73.150000",
-          "stop_price": null,
-          "average_price": null,
-          "fees": "0.000000",
-          "dollar_based_amount": null,
-          "time_in_force": "gtc",
-          "market_hours": "regular_hours",
-          "trigger": "immediate",
-          "placed_agent": "agentic",
-          "created_at": "2026-09-30T05:03:38.419738Z",
-          "last_transaction_at": "2026-10-07T12:27:25.562Z",
+          "last_transaction_at": "2026-10-08T12:21:17.508Z",
           "executions": []
         },
         {
@@ -311,7 +449,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-09-30T05:00:31.142357Z",
-          "last_transaction_at": "2026-10-07T12:21:17.443Z",
+          "last_transaction_at": "2026-10-08T12:24:25.794Z",
           "executions": []
         },
         {
@@ -334,7 +472,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-09-30T04:54:20.518475Z",
-          "last_transaction_at": "2026-10-07T12:25:49.562Z",
+          "last_transaction_at": "2026-10-08T12:29:45.606Z",
           "executions": []
         },
         {
@@ -357,7 +495,7 @@
           "trigger": "stop",
           "placed_agent": "agentic",
           "created_at": "2026-09-28T14:59:07.68113Z",
-          "last_transaction_at": "2026-10-07T12:29:33.258Z",
+          "last_transaction_at": "2026-10-08T12:28:31.869Z",
           "executions": []
         },
         {
@@ -380,7 +518,7 @@
           "trigger": "stop",
           "placed_agent": "agentic",
           "created_at": "2026-09-28T14:58:52.98878Z",
-          "last_transaction_at": "2026-10-07T12:23:46.654Z",
+          "last_transaction_at": "2026-10-08T12:28:13.367Z",
           "executions": []
         },
         {
@@ -403,7 +541,7 @@
           "trigger": "stop",
           "placed_agent": "agentic",
           "created_at": "2026-09-28T14:58:38.554323Z",
-          "last_transaction_at": "2026-10-07T12:20:34.46Z",
+          "last_transaction_at": "2026-10-08T12:27:11.597Z",
           "executions": []
         },
         {
@@ -426,7 +564,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-09-28T05:59:34.449883Z",
-          "last_transaction_at": "2026-10-07T12:27:55.232Z",
+          "last_transaction_at": "2026-10-08T12:20:28.492Z",
           "executions": []
         },
         {
@@ -449,7 +587,7 @@
           "trigger": "immediate",
           "placed_agent": "agentic",
           "created_at": "2026-09-28T05:55:22.343524Z",
-          "last_transaction_at": "2026-10-07T12:25:38.481Z",
+          "last_transaction_at": "2026-10-08T12:27:39.921Z",
           "executions": []
         },
         {
@@ -472,7 +610,7 @@
           "trigger": "stop",
           "placed_agent": "agentic",
           "created_at": "2026-09-08T18:52:57.262154Z",
-          "last_transaction_at": "2026-10-07T12:25:39.689Z",
+          "last_transaction_at": "2026-10-08T12:21:51.392Z",
           "executions": []
         },
         {
@@ -495,7 +633,7 @@
           "trigger": "stop",
           "placed_agent": "agentic",
           "created_at": "2026-09-08T15:49:22.526129Z",
-          "last_transaction_at": "2026-10-07T12:25:23.677Z",
+          "last_transaction_at": "2026-10-08T12:25:43.551Z",
           "executions": []
         },
         {
@@ -518,7 +656,7 @@
           "trigger": "stop",
           "placed_agent": "agentic",
           "created_at": "2026-09-04T19:14:01.830189Z",
-          "last_transaction_at": "2026-10-07T12:20:45.347Z",
+          "last_transaction_at": "2026-10-08T12:20:31.415Z",
           "executions": []
         }
       ]

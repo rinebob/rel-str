@@ -1,0 +1,141 @@
+{
+  "id": "opt-rev-naked",
+  "tool": "review_option_order",
+  "group": "opt-matrix",
+  "gate": "read",
+  "note": "Review sim: naked STO call (195C, max strike) WITH chain_symbol+underlying_type hints — the fee/collateral-fields variant inside opt-matrix (spec AC).",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "$ENV:NFLX_OPT_ID3",
+        "side": "sell",
+        "position_effect": "open"
+      }
+    ],
+    "quantity": "1",
+    "direction": "credit",
+    "type": "limit",
+    "price": "0.10",
+    "time_in_force": "gfd",
+    "chain_symbol": "NFLX",
+    "underlying_type": "equity"
+  },
+  "capturedAt": "2026-10-08T17:38:40.654Z",
+  "outcome": "success",
+  "latencyMs": 1175,
+  "success": true,
+  "response": {
+    "data": {
+      "account_number": "••••6245",
+      "type": "limit",
+      "direction": "credit",
+      "quantity": "1",
+      "price": "0.10",
+      "time_in_force": "gfd",
+      "legs": [
+        {
+          "option_id": "••••deb3",
+          "side": "sell",
+          "position_effect": "open"
+        }
+      ],
+      "order_checks": {
+        "alertType": "OPTION_NOT_ENOUGH_SHARES_FOR_COLLATERAL",
+        "details": {
+          "instruments": [
+            {
+              "symbol": "NFLX",
+              "strikePrice": "195.0000",
+              "type": "CALL",
+              "expirationDate": "2026-10-16",
+              "underlyingType": "EQUITY"
+            }
+          ],
+          "orderQuantity": "1.00000",
+          "underlyingSymbols": [
+            "NFLX"
+          ],
+          "underlyingType": "EQUITY"
+        }
+      },
+      "option_quotes": [
+        {
+          "instrument_id": "••••deb3",
+          "ask_price": "0.010000",
+          "ask_size": 1,
+          "bid_price": "0.000000",
+          "bid_size": 0,
+          "break_even_price": "195.010000",
+          "adjusted_mark_price": "0.010000",
+          "mark_price": "0.005000",
+          "high_fill_rate_buy_price": "",
+          "low_fill_rate_buy_price": "",
+          "high_fill_rate_sell_price": "",
+          "low_fill_rate_sell_price": "",
+          "previous_close_price": "0.010000",
+          "previous_close_date": "2026-10-07",
+          "implied_volatility": "2.179965",
+          "delta": "0.001640",
+          "gamma": "0.000226",
+          "rho": "0.000024",
+          "theta": "-0.007559",
+          "vega": "0.000561",
+          "open_interest": 11,
+          "volume": 0,
+          "chance_of_profit_long": "0.000547",
+          "chance_of_profit_short": "0.999453",
+          "updated_at": "2026-10-08T14:07:12.788421264Z"
+        }
+      ],
+      "fees": {
+        "occ_fee": {
+          "fee_rate": "0.02",
+          "fee": "0.02"
+        },
+        "or_fee": {
+          "fee_rate": "0.02",
+          "fee": "0.02"
+        },
+        "contract_fee": {
+          "fee_rate": "0.00",
+          "fee": "0.00"
+        },
+        "exchange_fee": {
+          "fee_rate": "0.00",
+          "fee": "0.00"
+        },
+        "cat_fee": {
+          "fee_rate": "0.0000",
+          "fee": "0.00"
+        },
+        "gold_fee_savings": {
+          "fee_saving_rate": "0.00",
+          "fee_total_savings": "0.00"
+        },
+        "sales_taxes": [],
+        "is_gold": true,
+        "total_fee": "0.04"
+      },
+      "collateral": {
+        "account_number": "••••6245",
+        "cash": {
+          "amount": "0.0000",
+          "direction": "debit",
+          "infinite": true
+        },
+        "equities": [
+          {
+            "instrument_id": "81733743-965a-4d93-b87a-6973cb9efd34",
+            "instrument": "http://edge-internal.brokeback-shard-router.region.rh/instruments/81733743-965a-4d93-b87a-6973cb9efd34/",
+            "symbol": "NFLX",
+            "quantity": "0E-8",
+            "direction": "debit",
+            "uncovered_shares": "100.00000000"
+          }
+        ]
+      }
+    },
+    "guide": "This tool does NOT place the order — it returns a preview for the user to review. Reaching this tool means the user opted into the review step, so you MUST present the preview to the user (legs, type, quantity, price/stop_price, alerts, fees, collateral, quote) and get explicit confirmation before calling place_option_order (for a new order) or replace_option_order (when modifying an existing order). This holds even when order_checks is empty ({}) — empty means no broker alerts, NOT that confirmation can be skipped; the user asked to review, so let them review. Non-empty order_checks: present alertType + details verbatim and ask the user to confirm before proceeding. On user ack, call place_option_order (or replace_option_order) with the same parameters. With several legs, present each leg (pair it with its option_quotes entry by instrument_id) and then the net direction and price for the order as a whole. Use option_quotes (mark_price, bid/ask, greeks) to help judge cost. When fees is present, lead with total_fee; mention gold_fee_savings when non-zero. When collateral is present, show cash amount/direction; warn on cash.infinite=true (unlimited-risk position) or non-empty equities (share-based collateral). Echo the order type: for market/stop_market remind the user the fill price is unbounded; for stop_limit/stop_market note the order only triggers when the underlying reaches stop_price."
+  }
+}

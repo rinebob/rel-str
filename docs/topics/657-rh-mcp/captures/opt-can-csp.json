@@ -1,0 +1,21 @@
+{
+  "id": "opt-can-csp",
+  "tool": "cancel_option_order",
+  "group": "opt-matrix",
+  "gate": "mutation",
+  "note": "Cancel the resting CSP STO if it placed — set NFLX_OPT_ORDER_ID6; skip if opt-place-csp rejected.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "order_id": "$ENV:NFLX_OPT_ORDER_ID6"
+  },
+  "capturedAt": "2026-10-08T17:40:11.989Z",
+  "outcome": "success",
+  "latencyMs": 966,
+  "success": true,
+  "response": {
+    "data": {
+      "accepted": true
+    },
+    "guide": "accepted=true means the broker accepted the cancel request, NOT that the order is already cancelled (cancellation is asynchronous). For the final state, call get_option_orders: state 'pending_cancelled' = in flight; 'cancelled' = succeeded; any filled state = a fill raced the cancel. Offer to check the final state. On error, the cancel was rejected outright — report verbatim."
+  }
+}

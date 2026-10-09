@@ -1,0 +1,40 @@
+{
+  "id": "opt-place-naked",
+  "tool": "place_option_order",
+  "group": "opt-matrix",
+  "gate": "mutation",
+  "note": "STO 195C naked call @ credit 1.00 (mark ~0 — cannot fill). Records the PLACE-level naked-call constraint (review is advisory only). Expect either a resting order or a margin/collateral reject.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "$ENV:NFLX_OPT_ID3",
+        "side": "sell",
+        "position_effect": "open"
+      }
+    ],
+    "quantity": "1",
+    "type": "limit",
+    "price": "1.00",
+    "time_in_force": "gfd",
+    "ref_id": "$ENV:NFLX_OPT_REF7"
+  },
+  "capturedAt": "2026-10-08T17:39:26.767Z",
+  "outcome": "error",
+  "latencyMs": 1393,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 400: {\"detail\":\"This order introduces infinite risk.\"}"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 400: {\"detail\":\"This order introduces infinite risk.\"}"
+}

@@ -1,0 +1,83 @@
+{
+  "id": "opt-place-fill",
+  "tool": "place_option_order",
+  "group": "opt-matrix",
+  "gate": "mutation",
+  "note": "BTO limit @ ask — expected fill (task AC). Settle polls get_option_orders account-wide.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "legs": [
+      {
+        "option_id": "$ENV:NFLX_OPT_ID",
+        "side": "buy",
+        "position_effect": "open"
+      }
+    ],
+    "quantity": "1",
+    "type": "limit",
+    "price": "$ENV:NFLX_OPT_ASK",
+    "time_in_force": "gfd",
+    "ref_id": "$ENV:NFLX_OPT_REF2"
+  },
+  "capturedAt": "2026-10-08T17:25:57.653Z",
+  "outcome": "success",
+  "latencyMs": 1145,
+  "success": true,
+  "response": {
+    "data": {
+      "order": {
+        "id": "6ac7d224-0943-423f-bc09-0756eaba68b1",
+        "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+        "chain_symbol": "NFLX",
+        "state": "unconfirmed",
+        "type": "limit",
+        "trigger": "immediate",
+        "direction": "debit",
+        "quantity": "1.00000",
+        "processed_quantity": "0.00000",
+        "pending_quantity": "1.00000",
+        "canceled_quantity": "0.00000",
+        "price": "••••000000",
+        "stop_price": null,
+        "premium": "196.00000000",
+        "processed_premium": "0",
+        "trade_value_multiplier": "100.0000",
+        "time_in_force": "gfd",
+        "market_hours": "regular_hours",
+        "opening_strategy": "long_call",
+        "closing_strategy": null,
+        "placed_agent": "agentic",
+        "created_at": "2026-10-08T17:25:56.073994Z",
+        "updated_at": "2026-10-08T17:25:56.161878Z",
+        "last_transaction_at": null,
+        "is_replaceable": true,
+        "legs": [
+          {
+            "id": "de1fe949-2ab8-4ee2-bb66-7a6e291b74ac",
+            "option_id": "••••da44",
+            "side": "buy",
+            "position_effect": "open",
+            "ratio_quantity": 1,
+            "expiration_date": "2026-10-16",
+            "strike_price": "70.0000",
+            "option_type": "call"
+          }
+        ]
+      }
+    },
+    "guide": "The order has been submitted — not necessarily filled. Describe with state. Summarize chain_symbol, opening_strategy or closing_strategy, quantity, price, direction; remind the user it may not have filled and that they can check status or cancel via id. Source chain_symbol from the response directly. On error, the order was NOT placed; report the error verbatim. CURB-rejection errors mean market_hours is incompatible with the chain or the CURB session is closed — suggest 'regular_hours' or waiting for the session."
+  },
+  "settle": {
+    "tool": "get_option_orders",
+    "attempts": 1,
+    "pendingStates": [
+      "new",
+      "queued",
+      "confirmed",
+      "unconfirmed",
+      "partially_filled",
+      "pending_cancelled"
+    ],
+    "settled": true
+  }
+}

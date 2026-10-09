@@ -1,16 +1,16 @@
 {
-  "id": "opt-positions",
+  "id": "opt-pos-flat",
   "tool": "get_option_positions",
   "group": "opt-matrix",
   "gate": "read",
-  "note": "Open option positions — expected empty on this acct; verifies the nonzero filter shape.",
+  "note": "Verify option position ended flat (task AC).",
   "args": {
     "account_number": "$ENV:RH_ACCOUNT_NUMBER",
     "nonzero": true
   },
-  "capturedAt": "2026-10-08T17:40:23.676Z",
+  "capturedAt": "2026-10-08T17:27:22.434Z",
   "outcome": "success",
-  "latencyMs": 1077,
+  "latencyMs": 1405,
   "success": true,
   "response": {
     "data": {

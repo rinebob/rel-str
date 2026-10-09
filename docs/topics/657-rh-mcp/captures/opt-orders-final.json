@@ -1,0 +1,275 @@
+{
+  "id": "opt-orders-final",
+  "tool": "get_option_orders",
+  "group": "opt-matrix",
+  "gate": "read",
+  "note": "Final resting-order check — UNFILTERED (resting option orders report state 'unconfirmed', not 'confirmed' — a state filter would be blind to a leak). Expect orders:[].",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER"
+  },
+  "capturedAt": "2026-10-08T17:42:17.014Z",
+  "outcome": "success",
+  "latencyMs": 1070,
+  "success": true,
+  "response": {
+    "data": {
+      "orders": [
+        {
+          "id": "6ac7d55e-fc2e-4d35-946b-b589bd74e569",
+          "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+          "chain_symbol": "NFLX",
+          "state": "cancelled",
+          "type": "limit",
+          "trigger": "immediate",
+          "direction": "credit",
+          "quantity": "1.00000",
+          "processed_quantity": "0.00000",
+          "pending_quantity": "0.00000",
+          "canceled_quantity": "1.00000",
+          "price": "2.00000000",
+          "stop_price": null,
+          "premium": "200.00000000",
+          "processed_premium": "0",
+          "trade_value_multiplier": "100.0000",
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "opening_strategy": "short_put",
+          "closing_strategy": null,
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T17:39:42.455566Z",
+          "updated_at": "2026-10-08T17:40:11.676996Z",
+          "last_transaction_at": null,
+          "is_replaceable": false,
+          "legs": [
+            {
+              "id": "cb344292-53f0-4cb4-b75e-3259e609119e",
+              "option_id": "3a05b283-cf75-4bad-9cdd-4626d8ea232a",
+              "side": "sell",
+              "position_effect": "open",
+              "ratio_quantity": 1,
+              "expiration_date": "2026-10-16",
+              "strike_price": "40.0000",
+              "option_type": "put"
+            }
+          ]
+        },
+        {
+          "id": "6ac7d295-c8d5-41e0-b3bd-1692f61492cd",
+          "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+          "chain_symbol": "NFLX",
+          "state": "cancelled",
+          "type": "limit",
+          "trigger": "stop",
+          "direction": "debit",
+          "quantity": "1.00000",
+          "processed_quantity": "0.00000",
+          "pending_quantity": "0.00000",
+          "canceled_quantity": "1.00000",
+          "price": "4.50000000",
+          "stop_price": "4.40000000",
+          "premium": "450.00000000",
+          "processed_premium": "0",
+          "trade_value_multiplier": "100.0000",
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "opening_strategy": "long_call",
+          "closing_strategy": null,
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T17:27:49.227554Z",
+          "updated_at": "2026-10-08T17:28:08.262793Z",
+          "last_transaction_at": null,
+          "is_replaceable": false,
+          "legs": [
+            {
+              "id": "7dc0a3c3-ff65-4f9f-87cc-095d7aff7537",
+              "option_id": "14a8e49b-0f10-4d64-9cf9-bd1a68e9da44",
+              "side": "buy",
+              "position_effect": "open",
+              "ratio_quantity": 1,
+              "expiration_date": "2026-10-16",
+              "strike_price": "70.0000",
+              "option_type": "call"
+            }
+          ]
+        },
+        {
+          "id": "6ac7d269-fe88-456a-be0f-c8c0c5460fb2",
+          "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+          "chain_symbol": "NFLX",
+          "state": "filled",
+          "type": "market",
+          "trigger": "immediate",
+          "direction": "credit",
+          "quantity": "1.00000",
+          "processed_quantity": "1.00000",
+          "pending_quantity": "0.00000",
+          "canceled_quantity": "0.00000",
+          "price": "",
+          "stop_price": null,
+          "premium": "",
+          "processed_premium": "180",
+          "trade_value_multiplier": "100.0000",
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "opening_strategy": null,
+          "closing_strategy": "long_call",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T17:27:05.074736Z",
+          "updated_at": "2026-10-08T17:27:05.491363Z",
+          "last_transaction_at": null,
+          "is_replaceable": false,
+          "legs": [
+            {
+              "id": "031054b2-54ce-4d71-9e62-2ca213b864c6",
+              "option_id": "14a8e49b-0f10-4d64-9cf9-bd1a68e9da44",
+              "side": "sell",
+              "position_effect": "close",
+              "ratio_quantity": 1,
+              "expiration_date": "2026-10-16",
+              "strike_price": "70.0000",
+              "option_type": "call",
+              "executions": [
+                {
+                  "id": "12702ffc-8733-4828-9e02-1c865b731834",
+                  "price": "1.80000000",
+                  "quantity": "1.00000",
+                  "settlement_date": "2026-10-09",
+                  "trade_date": "2026-10-08",
+                  "timestamp": "2026-10-08T17:27:05.234000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6ac7d24d-09b0-4de6-905c-571613bc1b9c",
+          "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+          "chain_symbol": "NFLX",
+          "state": "cancelled",
+          "type": "limit",
+          "trigger": "immediate",
+          "direction": "credit",
+          "quantity": "1.00000",
+          "processed_quantity": "0.00000",
+          "pending_quantity": "0.00000",
+          "canceled_quantity": "1.00000",
+          "price": "3.90000000",
+          "stop_price": null,
+          "premium": "390.00000000",
+          "processed_premium": "0",
+          "trade_value_multiplier": "100.0000",
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "opening_strategy": null,
+          "closing_strategy": "long_call",
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T17:26:37.184961Z",
+          "updated_at": "2026-10-08T17:26:54.657399Z",
+          "last_transaction_at": null,
+          "is_replaceable": false,
+          "legs": [
+            {
+              "id": "6a251c25-83ef-45bf-b9a4-f95a12380885",
+              "option_id": "14a8e49b-0f10-4d64-9cf9-bd1a68e9da44",
+              "side": "sell",
+              "position_effect": "close",
+              "ratio_quantity": 1,
+              "expiration_date": "2026-10-16",
+              "strike_price": "70.0000",
+              "option_type": "call"
+            }
+          ]
+        },
+        {
+          "id": "6ac7d224-0943-423f-bc09-0756eaba68b1",
+          "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+          "chain_symbol": "NFLX",
+          "state": "filled",
+          "type": "limit",
+          "trigger": "immediate",
+          "direction": "debit",
+          "quantity": "1.00000",
+          "processed_quantity": "1.00000",
+          "pending_quantity": "0.00000",
+          "canceled_quantity": "0.00000",
+          "price": "1.96000000",
+          "stop_price": null,
+          "premium": "196.00000000",
+          "processed_premium": "190",
+          "trade_value_multiplier": "100.0000",
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "opening_strategy": "long_call",
+          "closing_strategy": null,
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T17:25:56.073994Z",
+          "updated_at": "2026-10-08T17:25:56.375400Z",
+          "last_transaction_at": null,
+          "is_replaceable": false,
+          "legs": [
+            {
+              "id": "de1fe949-2ab8-4ee2-bb66-7a6e291b74ac",
+              "option_id": "14a8e49b-0f10-4d64-9cf9-bd1a68e9da44",
+              "side": "buy",
+              "position_effect": "open",
+              "ratio_quantity": 1,
+              "expiration_date": "2026-10-16",
+              "strike_price": "70.0000",
+              "option_type": "call",
+              "executions": [
+                {
+                  "id": "6ac7d224-9919-467d-bb8a-b41bcb239359",
+                  "price": "1.90000000",
+                  "quantity": "1.00000",
+                  "settlement_date": "2026-10-09",
+                  "trade_date": "2026-10-08",
+                  "timestamp": "2026-10-08T17:25:56.253000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6ac7c9ad-9c38-4ed5-890a-3f4d89a84a9b",
+          "chain_id": "ee032604-37d6-46c2-8a8c-cafe8d014b48",
+          "chain_symbol": "NFLX",
+          "state": "cancelled",
+          "type": "limit",
+          "trigger": "immediate",
+          "direction": "debit",
+          "quantity": "1.00000",
+          "processed_quantity": "0.00000",
+          "pending_quantity": "0.00000",
+          "canceled_quantity": "1.00000",
+          "price": "0.60000000",
+          "stop_price": null,
+          "premium": "60.00000000",
+          "processed_premium": "0",
+          "trade_value_multiplier": "100.0000",
+          "time_in_force": "gfd",
+          "market_hours": "regular_hours",
+          "opening_strategy": "long_call",
+          "closing_strategy": null,
+          "placed_agent": "agentic",
+          "created_at": "2026-10-08T16:49:49.763455Z",
+          "updated_at": "2026-10-08T16:50:12.253006Z",
+          "last_transaction_at": null,
+          "is_replaceable": false,
+          "legs": [
+            {
+              "id": "225acf31-64f1-4044-9c8d-3eb64eb26d8e",
+              "option_id": "14a8e49b-0f10-4d64-9cf9-bd1a68e9da44",
+              "side": "buy",
+              "position_effect": "open",
+              "ratio_quantity": 1,
+              "expiration_date": "2026-10-16",
+              "strike_price": "70.0000",
+              "option_type": "call"
+            }
+          ]
+        }
+      ]
+    },
+    "guide": "Describe orders by chain_symbol, opening_strategy or closing_strategy, state, quantity (with processed_quantity when partially filled), and premium; show id when cancellation may follow. Source chain_symbol from the response directly — never infer. Mention placed_agent when not 'user'. Recover the user-facing order type from type+trigger (limit+immediate=limit, market+immediate=market, limit+stop=stop_limit, market+stop=stop_market) and surface price for limit/stop_limit, stop_price for stop_limit/stop_market. is_replaceable=true marks orders eligible for replace_option_order (cancel-and-replace on the same contract). When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
+  }
+}
