@@ -3,7 +3,12 @@
 
 ## [2026-10-08]
 
+### Fixed
+- [Trading Indicator Library] 261-872_FE-IMPL-INDICATOR-LIB: historyStart now compares the pivot's session date (ISO 'YYYY-MM-DD' string on bar.date), not the bar's x epoch — production x is a PT-midnight instant, so the boundary shifted for users west of PT; Candidate/pivotTime deleted; parseIsoDateLocal shared helper + regression test pushes every x to 2030
+
 ### Added
+- [Trading Indicator Library] 261-872_FE-IMPL-INDICATOR-LIB: Anchored VWAP sandbox params panel — 10-param override surface gated on enable (number min/max + color swatches), empty-control reverts to default, mat-datepicker + ISO text + clear for historyStart; IndicatorParamDef.input discriminator
+- [Trading Indicator Library] 261-872_DOCS-INDICATOR-LIB: FE IMPL/TEST plan sync + #872 CODE-REVIEW (PASS — J1 major epoch-vs-session-date remediated in-loop) + #930 UAT (Complete — A1-A11 automated, M1-M10 user-verified)
 - [Trading Indicator Library] 261-871_FE-IMPL-INDICATOR-LIB: ST Anchored VWAP in the flex-chart - indicator definition with 8 params, fixed 12-series builder (4 slots x active + 2 alternating history, null gap breaks), registry/menu opt-in, adapter computed with theme + log-scale mapping, dedicated template render loop; 42 new tests
 - [Trading Indicator Library] 261-871_DOCS-INDICATOR-LIB: #871 CODE-REVIEW (PASS, 2 rounds - Syncfusion null-Gap verified from source) + #902 UAT (Complete - A1-A9 automated, M1-M6 user-verified) + FE IMPL/TEST plan sync
 - [Portfolio Dashboard] 219-886_SHARED-IMPL-PORTFOLIO: StopLossFormComponent full param surface — timeInForce/marketHours model() inputs (gtc/regular_hours), StopLossSubmit payload, TIF + Hours pills (Extended/All Day disabled — RH rejects non-regular stops, live-verified), showOrderParams + initialStopPrice prefill inputs
