@@ -1,0 +1,183 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © rinebob
+
+//@version=6
+indicator("Savant Trader StdDevLines", "ST StdDev", overlay=true, timeframe="", timeframe_gaps=false)
+
+// Standalone, read-only ST Standard Deviation Lines main-pane indicator.
+// Mirrors the ST StdDevLines implementation (functions/src/indicators/std-dev-lines.ts
+// and flex-chart/indicators/st-std-dev-lines.indicator.ts).
+//
+// Computes a configurable moving average (SMA or EMA) as the center line,
+// then plots regular and Fibonacci deviation bands above and below it.
+// Uses population standard deviation (divide by N, not N-1).
+//
+// Three display modes:
+//   - regular-only: center line + regular bands (0.5, 1.0, 1.5, 2.0, 2.5 sigma)
+//   - fib-only:    center line + Fibonacci bands (0.618, 1.618, 2.618 sigma)
+//   - combined:    center line + both band sets + fills between nearest pairs
+
+// =============================================================================
+// INPUTS
+// =============================================================================
+
+int period = input.int(50, "Period", minval=2, maxval=500)
+string maType = input.string("sma", "MA Type", options=["sma", "ema"])
+string displayMode = input.string("combined", "Display Mode", options=["regular-only", "fib-only", "combined"])
+
+// =============================================================================
+// COLORS
+// =============================================================================
+
+const color CENTER_COLOR = color.rgb(25, 118, 210)
+const color REG_COLOR_05 = color.rgb(224, 224, 224)
+const color REG_COLOR_10 = color.rgb(189, 189, 189)
+const color REG_COLOR_15 = color.rgb(158, 158, 158)
+const color REG_COLOR_20 = color.rgb(117, 117, 117)
+const color REG_COLOR_25 = color.rgb(66, 66, 66)
+const color FIB_COLOR_06 = color.rgb(129, 199, 132)
+const color FIB_COLOR_16 = color.rgb(102, 187, 106)
+const color FIB_COLOR_26 = color.rgb(76, 175, 80)
+
+// =============================================================================
+// CENTER LINE (SMA or EMA)
+// =============================================================================
+
+// SMA — called unconditionally (Pine requires ta.* calls on every bar)
+float sma = ta.sma(close, period)
+
+// EMA — manual computation, seeded with SMA to match the TS implementation.
+// Pine's ta.ema seeds with SMA and uses the same recursive formula, but we
+// compute manually so the EMA std dev can reuse the same value.
+// NaN closes carry forward the previous EMA (matching TS emaSeries).
+float alpha = 2.0 / (period + 1.0)
+var float emaValue = na
+if maType == "ema"
+    if bar_index == period - 1
+        emaValue := sma
+    else if bar_index > period - 1 and not na(emaValue[1])
+        emaValue := na(close) ? emaValue[1] : close * alpha + emaValue[1] * (1.0 - alpha)
+
+// =============================================================================
+// STD DEV — population (divide by N)
+// =============================================================================
+
+// Rolling population std dev for SMA mode.
+// stdDev[i] = sqrt( sum( (close[j] - sma[i])^2 for j in window ) / period )
+// Guarded by maType so the O(period) loop doesn't run in EMA mode.
+float smaStd = na
+if maType == "sma" and not na(sma)
+    float sumSq = 0.0
+    for j = 0 to period - 1
+        float diff = close[j] - sma
+        sumSq += diff * diff
+    smaStd := math.sqrt(sumSq / period)
+
+// Exponentially-weighted population std dev for EMA mode.
+// Seed: population variance of first `period` closes around the EMA seed.
+// Update: var = alpha * diff^2 + (1-alpha) * var_prev  (same decay factor as EMA).
+// NaN closes carry forward the previous variance (matching TS computeEmaStdDev).
+var float ewmaVar = na
+if maType == "ema"
+    if bar_index == period - 1 and not na(emaValue)
+        float sumSq = 0.0
+        for j = 0 to period - 1
+            float diff = close[j] - emaValue
+            sumSq += diff * diff
+        ewmaVar := sumSq / period
+    else if bar_index > period - 1 and not na(emaValue) and not na(ewmaVar[1])
+        if na(close)
+            ewmaVar := ewmaVar[1]
+        else
+            float diff = close - emaValue
+            ewmaVar := alpha * diff * diff + (1.0 - alpha) * ewmaVar[1]
+float emaStd = na(ewmaVar) ? na : math.sqrt(ewmaVar)
+
+// Select center line and std dev based on MA type
+float center = maType == "ema" ? emaValue : sma
+float stdDev = maType == "ema" ? emaStd : smaStd
+
+// =============================================================================
+// DISPLAY FLAGS
+// =============================================================================
+
+bool showRegular = displayMode == "regular-only" or displayMode == "combined"
+bool showFib = displayMode == "fib-only" or displayMode == "combined"
+bool showFills = displayMode == "combined"
+
+// =============================================================================
+// PLOTS — CENTER LINE
+// =============================================================================
+
+plot(center, title="Center", color=CENTER_COLOR, linewidth=2)
+
+// =============================================================================
+// PLOTS — REGULAR BANDS (5 levels: 0.5, 1.0, 1.5, 2.0, 2.5)
+// Colors: gray gradient from light to dark
+// =============================================================================
+
+float rUp05 = showRegular ? center + 0.5 * stdDev : na
+float rLo05 = showRegular ? center - 0.5 * stdDev : na
+float rUp10 = showRegular ? center + 1.0 * stdDev : na
+float rLo10 = showRegular ? center - 1.0 * stdDev : na
+float rUp15 = showRegular ? center + 1.5 * stdDev : na
+float rLo15 = showRegular ? center - 1.5 * stdDev : na
+float rUp20 = showRegular ? center + 2.0 * stdDev : na
+float rLo20 = showRegular ? center - 2.0 * stdDev : na
+float rUp25 = showRegular ? center + 2.5 * stdDev : na
+float rLo25 = showRegular ? center - 2.5 * stdDev : na
+
+pRUp05 = plot(rUp05, title="+0.5σ", color=REG_COLOR_05, linewidth=1)
+pRLo05 = plot(rLo05, title="-0.5σ", color=REG_COLOR_05, linewidth=1)
+pRUp10 = plot(rUp10, title="+1.0σ", color=REG_COLOR_10, linewidth=1)
+pRLo10 = plot(rLo10, title="-1.0σ", color=REG_COLOR_10, linewidth=1)
+pRUp15 = plot(rUp15, title="+1.5σ", color=REG_COLOR_15, linewidth=1)
+pRLo15 = plot(rLo15, title="-1.5σ", color=REG_COLOR_15, linewidth=1)
+pRUp20 = plot(rUp20, title="+2.0σ", color=REG_COLOR_20, linewidth=1)
+pRLo20 = plot(rLo20, title="-2.0σ", color=REG_COLOR_20, linewidth=1)
+pRUp25 = plot(rUp25, title="+2.5σ", color=REG_COLOR_25, linewidth=1)
+pRLo25 = plot(rLo25, title="-2.5σ", color=REG_COLOR_25, linewidth=1)
+
+// =============================================================================
+// PLOTS — FIBONACCI BANDS (3 levels: 0.618, 1.618, 2.618)
+// Colors: green gradient from light to dark
+// =============================================================================
+
+float fUp06 = showFib ? center + 0.618 * stdDev : na
+float fLo06 = showFib ? center - 0.618 * stdDev : na
+float fUp16 = showFib ? center + 1.618 * stdDev : na
+float fLo16 = showFib ? center - 1.618 * stdDev : na
+float fUp26 = showFib ? center + 2.618 * stdDev : na
+float fLo26 = showFib ? center - 2.618 * stdDev : na
+
+pFUp06 = plot(fUp06, title="+0.618σ fib", color=FIB_COLOR_06, linewidth=1)
+pFLo06 = plot(fLo06, title="-0.618σ fib", color=FIB_COLOR_06, linewidth=1)
+pFUp16 = plot(fUp16, title="+1.618σ fib", color=FIB_COLOR_16, linewidth=1)
+pFLo16 = plot(fLo16, title="-1.618σ fib", color=FIB_COLOR_16, linewidth=1)
+pFUp26 = plot(fUp26, title="+2.618σ fib", color=FIB_COLOR_26, linewidth=1)
+pFLo26 = plot(fLo26, title="-2.618σ fib", color=FIB_COLOR_26, linewidth=1)
+
+// =============================================================================
+// FILLS — combined mode only
+// Each regular level fills to its nearest Fibonacci level (upper-to-upper,
+// lower-to-lower). Fill color = regular band color at 8% opacity.
+//
+// Nearest fib mapping:
+//   0.5 → 0.618, 1.0 → 0.618, 1.5 → 1.618, 2.0 → 1.618, 2.5 → 2.618
+// =============================================================================
+
+// 0.5σ ↔ 0.618σ fib
+fill(pRUp05, pFUp06, color=showFills ? color.new(REG_COLOR_05, 92) : na)
+fill(pRLo05, pFLo06, color=showFills ? color.new(REG_COLOR_05, 92) : na)
+// 1.0σ ↔ 0.618σ fib
+fill(pRUp10, pFUp06, color=showFills ? color.new(REG_COLOR_10, 92) : na)
+fill(pRLo10, pFLo06, color=showFills ? color.new(REG_COLOR_10, 92) : na)
+// 1.5σ ↔ 1.618σ fib
+fill(pRUp15, pFUp16, color=showFills ? color.new(REG_COLOR_15, 92) : na)
+fill(pRLo15, pFLo16, color=showFills ? color.new(REG_COLOR_15, 92) : na)
+// 2.0σ ↔ 1.618σ fib
+fill(pRUp20, pFUp16, color=showFills ? color.new(REG_COLOR_20, 92) : na)
+fill(pRLo20, pFLo16, color=showFills ? color.new(REG_COLOR_20, 92) : na)
+// 2.5σ ↔ 2.618σ fib
+fill(pRUp25, pFUp26, color=showFills ? color.new(REG_COLOR_25, 92) : na)
+fill(pRLo25, pFLo26, color=showFills ? color.new(REG_COLOR_25, 92) : na)
