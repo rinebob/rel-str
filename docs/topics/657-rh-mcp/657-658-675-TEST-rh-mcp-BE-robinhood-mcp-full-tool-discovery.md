@@ -9,7 +9,7 @@
 **Type:** TEST  
 **Status:** Complete  
 **Created:** 2026-09-28  
-**Last Updated:** 2026-10-07  
+**Last Updated:** 2026-10-08  
 
 > **2026-09-29 amendment.** Manifest loader (24 cases) + drift diff (17 cases) shipped. Live surface = 76 tools — the read sweep target expands accordingly; coverage matrix rows = live tool count.  
 > **2026-10-05 amendment — #684 read-only sweep executed.** 233 manifest probes → 233 captures in `docs/topics/657-rh-mcp/captures/` (plus 2 pre-existing #682 artifacts = 235 files). See "Sweep execution results" below.
@@ -215,8 +215,10 @@ stays).
 
 ## Option order matrix session (#686) — execution runbook
 
-19 `opt-matrix` probes authored + dry-run validated (harvest reads, 8 review
-sims incl. 3 deliberate constraint rejects, 2 place + 2 cancel mutations).
+38 `opt-matrix` probes authored + dry-run validated across three passes
+(harvest reads incl. put side, 10 review sims incl. deliberate constraint
+rejects + the chain-hint fee/collateral variants, 12 place + 8 cancel
+mutations, flat/resting verification reads).
 **Unblocked 2026-10-07:** the Agentic account now reports
 `type: limited_margin` + `option_level: option_level_3` (verified via
 get_accounts) — level 3 covers the multi-leg spread probes; limited margin
@@ -233,8 +235,9 @@ clears the settle-free reuse path for the equity matrix too.
 | `NFLX_OPT_ID2` | after harvest | next strike up, same expiration |
 | `NFLX_OPT_PRICE` | after `opt-optq` | ~mark price of the ATM leg (review sims) |
 | `NFLX_OPT_PRICE_LO` | before places | ~half the mark — rests, cannot fill |
-| `NFLX_OPT_REF` / `NFLX_OPT_REF2` | before places | fresh UUIDs (idempotency) |
-| `NFLX_OPT_ORDER_ID` / `_2` | before cancels | `id` from the place captures |
+| `NFLX_OPT_REF` / `_2`…`_6` | before places | fresh UUIDs (idempotency) |
+| `NFLX_OPT_ORDER_ID` / `_2`…`_4` | before cancels | `id` from the place captures |
+| `NFLX_OPT_ASK` / `_HI` / `_STOP` / `_STOPLIM` | second pass | `opt-quote-fill` mark — ask for the fill buy, mark+~2 for resting sells/stops |
 
 ### Notes
 
@@ -255,6 +258,81 @@ clears the settle-free reuse path for the equity matrix too.
 - Abort: `opt-orders-confirmed` (`state:"confirmed"` — resting option
   orders use the same state name as equities), cancel anything resting
   under this session's ref ids.
+
+### Session results (2026-10-08) — executed
+
+18 of 19 probes captured (`opt-can-spread` intentionally skipped — nothing
+live). 15 harvest/review probes ran 2026-10-07; the 4 mutation probes ran
+2026-10-08 during regular hours:
+
+- `opt-place-lim` — NFLX 70C debit limit @ 0.60 (half the ~1.21 mark)
+  accepted, rested `unconfirmed`, cancelled cleanly via `opt-can-lim`.
+- **`opt-place-spread` — headline finding:** `place_option_order` rejects
+  **all multi-leg orders**, even though the schema takes a `legs` array and
+  `review_option_order` simulated a 2-leg vertical without complaint:
+  `400 "Multi-leg options orders aren't supported in the Robinhood Trading
+  MCP yet. You can still place multi-leg options orders through the app or
+  on web."` Advisory-review vs place-enforcement divergence confirmed end
+  to end — review accepts what place rejects.
+- `opt-can-spread` intentionally skipped (same pattern as `mx-can-lots`) —
+  no order was created; `opt-orders-confirmed` refresh verifies 0 resting
+  option orders.
+- **Residual #685 closed:** `mx-sell-frac-flat` (market sell 0.252705 OOMA,
+  regular hours) — position row gone, zero resting OOMA orders. Literal
+  "ends flat" AC now satisfied.
+
+### Session results (2026-10-08, second pass) — fill round-trip legs
+
+12 more probes (`opt-quote-fill` … `opt-orders-final`, total group 31)
+added to cover the task's fill / sell-to-close / stop-open ACs. Executed
+~17:23–17:28Z with the mark at ~1.91 (rallied from ~1.21):
+
+- `opt-place-fill` — BTO limit @ 1.96 (crossed the 1.95 ask) **filled**:
+  `opt-pos-open` shows long 1 NFLX 70C, avg_price 190.00. Note the place
+  response itself returns `state: unconfirmed` with `processed_quantity: 0`
+  — the fill is only visible via positions/orders reads.
+- `opt-sell-lim` — STC limit @ 3.90 (above mark) rested `unconfirmed`,
+  cancelled via `opt-can-stc` (`accepted: true`).
+- `opt-sell-mkt` — STC market **filled**; `opt-pos-flat` shows
+  `positions: []`. Position flat round-trip complete.
+- **`opt-place-stop` — second capability boundary:** `stop_market` BTO
+  rejected verbatim: `400 "Stop market orders aren't supported when buying
+  to open. Select another order type to place this order."` `opt-can-stop`
+  skipped (nothing live).
+- `opt-place-stplim` — `stop_limit` BTO **accepted** (rests as
+  `type: limit, trigger: stop`, state `unconfirmed`) — the stop_market
+  restriction does NOT extend to stop_limit. Cancelled via `opt-can-stplim`.
+- `opt-orders-final` — refreshed to an UNFILTERED scan after review
+  (resting option orders report `state: unconfirmed`, not `confirmed` —
+  a state filter would be blind to a leaked order). Result: 6 orders, all
+  terminal (2 filled, 4 cancelled) — the full session audit trail.
+
+### Session results (2026-10-08, third pass) — sell-to-open constraints
+
+7 more probes (total group 38) to close the spec's STO coverage — review
+sims WITH `chain_symbol`+`underlying_type` (fee/collateral variant inside
+opt-matrix) plus real place-level STO attempts, ~17:38–17:44Z:
+
+- `opt-instr-puts` — put-side harvest (first pass was calls-only);
+  NFLX 2026-10-16 40P selected for the CSP leg.
+- `opt-rev-naked` — review sim, STO 195C (max strike): success envelope
+  carrying `order_checks.alertType=OPTION_NOT_ENOUGH_SHARES_FOR_COLLATERAL`
+  + full `fees` block + `collateral.cash` infinite-debit (margin).
+- `opt-rev-csp` — review sim, STO 40P: success, **empty `order_checks`**,
+  `collateral.cash.amount = 4000.0000` — exactly strike×100, the
+  cash-secured requirement shown live.
+- **`opt-place-naked` — third capability boundary:** naked STO call
+  rejected verbatim: `400 "This order introduces infinite risk."` The
+  advisory alert in review is enforced hard at place time.
+  `opt-can-naked` skipped (nothing live).
+- `opt-place-csp` — STO 40P @ credit 2.00 (above mark) **ACCEPTED**
+  (`opening_strategy: short_put`, rested `unconfirmed`) — cash-secured
+  passes where naked fails. Cancelled via `opt-can-csp`.
+- `opt-orders-final` re-run: `orders: []` at close.
+
+35 of 38 opt-matrix probes captured; `opt-can-spread`, `opt-can-stop`,
+`opt-can-naked` intentionally skipped (no live order — same pattern as
+`mx-can-lots`). Option side ends flat: `positions: []`, `orders: []`.
 
 ## Error-envelope session (#687, 2026-10-06)
 

@@ -1,6 +1,6 @@
 # Robinhood MCP — Canonical Tool Discovery
 
-> **Generated draft** (2026-10-07T22:59:52.059Z) — assembled from `probe-manifest.json` × `captures/` × live `tools/list`. Hand-finished by task #689: safety notes, gap callouts, curated samples.
+> **Generated draft** (2026-10-08T17:43:07.474Z) — assembled from `probe-manifest.json` × `captures/` × live `tools/list`. Hand-finished by task #689: safety notes, gap callouts, curated samples.
 
 ## Coverage matrix
 
@@ -11,7 +11,7 @@
 | cancel_crypto_order | Crypto | 2/2 | — | — | missing |
 | cancel_equity_order | Orders | 2/2 | 13 | 10 success, 3 error | probed |
 | cancel_option_exercise | Orders | 2/2 | — | — | missing |
-| cancel_option_order | Orders | 2/2 | 2 | — | unprobed |
+| cancel_option_order | Orders | 2/2 | 7 | 4 success | probed |
 | create_alert | Alerts | 2/5 | — | — | missing |
 | create_scan | Scanners | 0/5 | — | — | missing |
 | create_watchlist | Watchlists | 1/3 | — | — | missing |
@@ -45,11 +45,11 @@
 | get_limited_margin_upgrade_info | Account & Performance | 1/1 | 1 | 1 success | probed |
 | get_option_chains | Options | 0/2 | 5 | 5 success | probed |
 | get_option_historicals | Options | 2/5 | 3 | 3 success | probed |
-| get_option_instruments | Options | 0/9 | 12 | 11 success, 1 error | probed |
+| get_option_instruments | Options | 0/9 | 13 | 12 success, 1 error | probed |
 | get_option_level_upgrade_info | Options | 1/1 | 2 | 2 success | probed |
-| get_option_orders | Orders | 1/8 | 13 | 13 success | probed |
-| get_option_positions | Options | 1/10 | 11 | 11 success | probed |
-| get_option_quotes | Options | 1/1 | 3 | 3 success | probed |
+| get_option_orders | Orders | 1/8 | 14 | 14 success | probed |
+| get_option_positions | Options | 1/10 | 13 | 13 success | probed |
+| get_option_quotes | Options | 1/1 | 4 | 4 success | probed |
 | get_option_watchlist | Options | 0/0 | 1 | 1 success | probed |
 | get_pnl_trade_history | Account & Performance | 1/4 | 7 | 7 success | probed |
 | get_politician_trades | Market Data & Research | 0/2 | 3 | 3 success | probed |
@@ -67,14 +67,14 @@
 | get_watchlists | Watchlists | 0/0 | 1 | 1 success | probed |
 | mark_alerts_read | Alerts | 0/2 | 1 | 1 success | probed |
 | place_crypto_order | Crypto | 4/11 | — | — | missing |
-| place_equity_order | Orders | 4/12 | 21 | 17 success, 5 error, 1 skipped | probed |
-| place_option_order | Orders | 3/10 | 2 | — | unprobed |
+| place_equity_order | Orders | 4/12 | 22 | 18 success, 5 error, 1 skipped | probed |
+| place_option_order | Orders | 3/10 | 9 | 6 success, 3 error | probed |
 | preview_crypto_order | Crypto | 4/10 | 6 | 6 error | error-only |
 | preview_scan | Scanners | 1/2 | 7 | 5 success, 2 error | probed |
 | remove_from_watchlist | Watchlists | 1/4 | — | — | missing |
 | remove_option_from_watchlist | Watchlists | 1/2 | — | — | missing |
 | review_equity_order | Orders | 4/11 | 19 | 19 success | probed |
-| review_option_order | Orders | 3/11 | 25 | 21 success, 4 error | probed |
+| review_option_order | Orders | 3/11 | 27 | 23 success, 4 error | probed |
 | run_scan | Scanners | 1/1 | 1 | 1 error | error-only |
 | search | Market Data & Research | 1/3 | 6 | 4 success, 2 error | probed |
 | unfollow_watchlist | Watchlists | 1/1 | — | — | missing |
@@ -1300,7 +1300,7 @@ List option contracts. One of chain_symbol, chain_id, or ids is required; narrow
 | ids | string | no | Comma-separated instrument UUIDs. |
 | cursor | string | no | Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim. |
 
-**Response field tree** (union over 11 success capture(s)):
+**Response field tree** (union over 12 success capture(s)):
 
 - `data`: object
   - `instruments`: array<object>
@@ -1333,6 +1333,7 @@ List option contracts. One of chain_symbol, chain_id, or ids is required; narrow
 - [dep-opt-instr-10](captures/dep-opt-instr-10.json) — success — SPXW index-option instruments - source of index option_id for curb-hours review (chain extended_hours_state=enabled).
 - [dep-opt-instr-cur-01](captures/dep-opt-instr-cur-01.json) — success — PAGINATION FOLLOW: cursor harvested from ro-opt-instr-01 data.next.
 - [opt-instr-harvest](captures/opt-instr-harvest.json) — success — Harvest leg instruments — set NFLX_CHAIN_ID + NFLX_EXP from opt-chains-nflx; pick ~ATM call (NFLX_OPT_ID) + one strike up (NFLX_OPT_ID2).
+- [opt-instr-puts](captures/opt-instr-puts.json) — success — Put-side harvest (first pass was calls-only) — pick a far-OTM put for the CSP leg.
 - [ro-opt-instr-01](captures/ro-opt-instr-01.json) — success — Base instruments page - source of option instrument UUIDs.
 - [ro-opt-instr-02](captures/ro-opt-instr-02.json) — success — type=call + expiration filter.
 - [ro-opt-instr-03](captures/ro-opt-instr-03.json) — success — type=put + expiration filter.
@@ -1353,6 +1354,7 @@ List option contracts. One of chain_symbol, chain_id, or ids is required; narrow
 - SPXW index-option instruments - source of index option_id for curb-hours review (chain extended_hours_state=enabled).
 - state=inactive (last unprobed enum on this tool).
 - Harvest leg instruments — set NFLX_CHAIN_ID + NFLX_EXP from opt-chains-nflx; pick ~ATM call (NFLX_OPT_ID) + one strike up (NFLX_OPT_ID2).
+- Put-side harvest (first pass was calls-only) — pick a far-OTM put for the CSP leg.
 
 ### get_option_level_upgrade_info
 
@@ -1404,16 +1406,34 @@ List options positions for an account. Returns open and closed (zero-quantity) p
 | expiration_date_gte | string | no | Lower bound on expiration (YYYY-MM-DD). |
 | cursor | string | no | Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim. |
 
-**Response field tree** (union over 11 success capture(s)):
+**Response field tree** (union over 13 success capture(s)):
 
 - `data`: object
-  - `positions`: array<unknown>
+  - `positions`: array<object>
+    - `option_id`[]: string
+    - `chain_id`[]: string
+    - `chain_symbol`[]: string
+    - `type`[]: string
+    - `quantity`[]: string
+    - `average_price`[]: string
+    - `expiration_date`[]: string
+    - `trade_value_multiplier`[]: string
+    - `intraday_average_open_price`[]: string
+    - `intraday_quantity`[]: string
+    - `pending_buy_quantity`[]: string
+    - `pending_sell_quantity`[]: string
+    - `pending_exercise_quantity`[]: string
+    - `pending_assignment_quantity`[]: string
+    - `pending_expiration_quantity`[]: string
+    - `opened_at`[]: string
 - `guide`: string
 
 **Captures:**
 
 - [dep-opt-pos-chain](captures/dep-opt-pos-chain.json) — success — chain_ids filter on positions.
 - [dep-opt-pos-ids](captures/dep-opt-pos-ids.json) — success — option_ids CSV filter on positions.
+- [opt-pos-flat](captures/opt-pos-flat.json) — success — Verify option position ended flat (task AC).
+- [opt-pos-open](captures/opt-pos-open.json) — success — Verify the long 70C position exists before sell legs.
 - [opt-positions](captures/opt-positions.json) — success — Open option positions — expected empty on this acct; verifies the nonzero filter shape.
 - [ro-opt-pos-01](captures/ro-opt-pos-01.json) — success — Base.
 - [ro-opt-pos-02](captures/ro-opt-pos-02.json) — success — nonzero=true (open only).
@@ -1437,6 +1457,8 @@ List options positions for an account. Returns open and closed (zero-quantity) p
 - chain_ids filter on positions.
 - option_ids CSV filter on positions.
 - Open option positions — expected empty on this acct; verifies the nonzero filter shape.
+- Verify the long 70C position exists before sell legs.
+- Verify option position ended flat (task AC).
 
 ### get_option_quotes
 
@@ -1450,7 +1472,7 @@ Get real-time quotes for one or more option contracts by instrument UUID, plus t
 |---|---|---|---|
 | instrument_ids | null \| array | yes | Option instrument UUIDs. Above 20, quotes still return but closes is omitted with closes_error set. |
 
-**Response field tree** (union over 3 success capture(s)):
+**Response field tree** (union over 4 success capture(s)):
 
 - `data`: object
   - `results`: array<object>
@@ -1495,11 +1517,13 @@ Get real-time quotes for one or more option contracts by instrument UUID, plus t
 - [dep-opt-quotes-01](captures/dep-opt-quotes-01.json) — success — instrument_ids harvested from get_option_instruments (NFLX Nov-20 $2.5 call + Oct-16 $2.5 put).
 - [err-optq-bad-id](captures/err-optq-bad-id.json) — success — Deliberate error: malformed option instrument id.
 - [opt-optq](captures/opt-optq.json) — success — Leg quotes — harvest mark for a below-market limit price (NFLX_OPT_PRICE).
+- [opt-quote-fill](captures/opt-quote-fill.json) — success — Fresh 70C mark/ask immediately before the fill-priced buy — sets NFLX_OPT_ASK/HI/STOP.
 
 **Notes:**
 
 - instrument_ids harvested from get_option_instruments (NFLX Nov-20 $2.5 call + Oct-16 $2.5 put).
 - Leg quotes — harvest mark for a below-market limit price (NFLX_OPT_PRICE).
+- Fresh 70C mark/ask immediately before the fill-priced buy — sets NFLX_OPT_ASK/HI/STOP.
 - Deliberate error: malformed option instrument id.
 
 ### get_option_watchlist
@@ -2832,7 +2856,7 @@ _No captures — missing probes._
 
 ### cancel_option_order
 
-**Safety:** financial mutation · **Status:** unprobed
+**Safety:** financial mutation · **Status:** probed
 
 Cancel an open option order by account_number + order_id. Always confirm with the user before calling. Resolve order_id via get_option_orders if the user refers to it by description; pass the same account_number you used there. Requires an agentic_allowed=true account; non-agentic accounts are rejected. Cancellation may be rejected if the order has already filled, was already cancelled, or is otherwise ineligible.
 
@@ -2843,12 +2867,28 @@ Cancel an open option order by account_number + order_id. Always confirm with th
 | account_number | string | yes | Brokerage account that owns the order. Must come from the user or be clearly implied — never default from get_accounts. Must be agentic_allowed=true. Mismatc… |
 | order_id | string | yes | Order UUID from get_option_orders. Must live in account_number. |
 
-_No captures — probes authored but not yet executed._
+**Response field tree** (union over 4 success capture(s)):
+
+- `data`: object
+  - `accepted`: boolean
+- `guide`: string
+
+**Captures:**
+
+- [opt-can-csp](captures/opt-can-csp.json) — success — Cancel the resting CSP STO if it placed — set NFLX_OPT_ORDER_ID6; skip if opt-place-csp rejected.
+- [opt-can-lim](captures/opt-can-lim.json) — success — Cancel the resting opt-place-lim order — set NFLX_OPT_ORDER_ID from its capture.
+- [opt-can-stc](captures/opt-can-stc.json) — success — Cancel the resting STC limit — set NFLX_OPT_ORDER_ID2 from opt-sell-lim.
+- [opt-can-stplim](captures/opt-can-stplim.json) — success — Cancel resting stop_limit open — set NFLX_OPT_ORDER_ID4.
 
 **Notes:**
 
 - Cancel the resting opt-place-lim order — set NFLX_OPT_ORDER_ID from its capture.
-- Cancel the resting spread order — set NFLX_OPT_ORDER_ID2 from opt-place-spread capture.
+- Intentionally skipped — opt-place-spread rejected with 400 'Multi-leg options orders aren't supported in the Robinhood Trading MCP yet.' Nothing live to cancel; kept in manifest for symmetry/re-arm.
+- Cancel the resting STC limit — set NFLX_OPT_ORDER_ID2 from opt-sell-lim.
+- Cancel resting stop_market open — set NFLX_OPT_ORDER_ID3. Intentionally skipped: opt-place-stop rejected 400 (stop_market BTO unsupported), nothing live.
+- Cancel resting stop_limit open — set NFLX_OPT_ORDER_ID4.
+- Intentionally skipped — opt-place-naked rejected 400 'infinite risk', nothing live to cancel; kept in manifest for symmetry/re-arm.
+- Cancel the resting CSP STO if it placed — set NFLX_OPT_ORDER_ID6; skip if opt-place-csp rejected.
 
 ### exercise_option
 
@@ -2992,10 +3032,51 @@ Filtering tips:
 | placed_agent | string | no | Filter to one source: 'user', 'agentic' (MCP), 'recurring', 'drip', etc. |
 | cursor | string | no | Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim. |
 
-**Response field tree** (union over 13 success capture(s)):
+**Response field tree** (union over 14 success capture(s)):
 
 - `data`: object
-  - `orders`: array<unknown>
+  - `orders`: array<object>
+    - `id`[]: string
+    - `chain_id`[]: string
+    - `chain_symbol`[]: string
+    - `state`[]: string
+    - `type`[]: string
+    - `trigger`[]: string
+    - `direction`[]: string
+    - `quantity`[]: string
+    - `processed_quantity`[]: string
+    - `pending_quantity`[]: string
+    - `canceled_quantity`[]: string
+    - `price`[]: string
+    - `stop_price`[]: null | string
+    - `premium`[]: string
+    - `processed_premium`[]: string
+    - `trade_value_multiplier`[]: string
+    - `time_in_force`[]: string
+    - `market_hours`[]: string
+    - `opening_strategy`[]: null | string
+    - `closing_strategy`[]: null | string
+    - `placed_agent`[]: string
+    - `created_at`[]: string
+    - `updated_at`[]: string
+    - `last_transaction_at`[]: null
+    - `is_replaceable`[]: boolean
+    - `legs`[]: array<object>
+      - `id`[]: string
+      - `option_id`[]: string
+      - `side`[]: string
+      - `position_effect`[]: string
+      - `ratio_quantity`[]: number
+      - `expiration_date`[]: string
+      - `strike_price`[]: string
+      - `option_type`[]: string
+      - `executions`[]: array<object>
+        - `id`[]: string
+        - `price`[]: string
+        - `quantity`[]: string
+        - `settlement_date`[]: string
+        - `trade_date`[]: string
+        - `timestamp`[]: string
 - `guide`: string
 
 **Captures:**
@@ -3003,6 +3084,7 @@ Filtering tips:
 - [dep-opt-orders-13](captures/dep-opt-orders-13.json) — success — order_id param exercised w/ an equity order id (no option orders exist to harvest) - expect not-found/empty.
 - [dep-opt-orders-chain](captures/dep-opt-orders-chain.json) — success — chain_ids filter (harvested chain). Account has 0 option orders - expect empty list.
 - [opt-orders-confirmed](captures/opt-orders-confirmed.json) — success — Resting option-order inventory — mirrors the equity confirmed-state finding; expected empty.
+- [opt-orders-final](captures/opt-orders-final.json) — success — Final resting-order check — UNFILTERED (resting option orders report state 'unconfirmed', not 'confirmed' — a state filter would be blind to a leak). Expect orders:[].
 - [ro-opt-orders-01](captures/ro-opt-orders-01.json) — success — Base option order history.
 - [ro-opt-orders-02](captures/ro-opt-orders-02.json) — success — underlying_type=equity.
 - [ro-opt-orders-03](captures/ro-opt-orders-03.json) — success — underlying_type=index.
@@ -3029,6 +3111,7 @@ Filtering tips:
 - chain_ids filter (harvested chain). Account has 0 option orders - expect empty list.
 - order_id param exercised w/ an equity order id (no option orders exist to harvest) - expect not-found/empty.
 - Resting option-order inventory — mirrors the equity confirmed-state finding; expected empty.
+- Final resting-order check — UNFILTERED (resting option orders report state 'unconfirmed', not 'confirmed' — a state filter would be blind to a leak). Expect orders:[].
 
 ### place_equity_order
 
@@ -3064,7 +3147,7 @@ Parameter rules:
 | tax_lots | null \| array | no | Optional specified-lot selection for a SELL order. To sell specific tax lots instead of the default FIFO cost basis, pass the exact lots as {open_lot_id, qua… |
 | ref_id | string | no | Idempotency key (UUID). Generate once per logical order and re-send on retry — the upstream deduplicates by ref_id. Omitting falls back to a server-generated… |
 
-**Response field tree** (union over 17 success capture(s)):
+**Response field tree** (union over 18 success capture(s)):
 
 - `data`: object
   - `order`: object
@@ -3110,6 +3193,7 @@ Parameter rules:
 - [mx-buy-stplim](captures/mx-buy-stplim.json) — success — E6 stop_limit buy — rests, then cancel
 - [mx-sell-flat-xh](captures/mx-sell-flat-xh.json) — success — Post-close flat-out — market sells queue for next session after 16:00 ET; extended_hours executes limit only, so flat-out switches to limit@bid. Fractional remainder may reject or rest until regular hours.
 - [mx-sell-flat](captures/mx-sell-flat.json) — success — X8 sell-all market — ends the session flat; set OOMA_ALL_QTY from get_equity_positions ref_id env-driven for re-arm after consumed UUID.
+- [mx-sell-frac-flat](captures/mx-sell-frac-flat.json) — success — Residual close-out — the 0.252705 fractional remainder left by mx-sell-flat-xh (fractional is regular_hours-only). Run during regular hours; fills and finishes the flat AC.
 - [mx-sell-lim-tgt](captures/mx-sell-lim-tgt.json) — success — X1 sell limit 1 @ +2% target — rests, then cancel
 - [mx-sell-lots](captures/mx-sell-lots.json) — error — X6 sell limit w/ tax_lots (real open_lot_id) — rests, then cancel
 - [mx-sell-oversell](captures/mx-sell-oversell.json) — error — X7 oversell — qty 999 vs ~2.4 held — capture rejection
@@ -3144,10 +3228,11 @@ Parameter rules:
 - S1 short probe — sell 1 zero-held symbol — capture short rejection
 - Post-close flat-out — market sells queue for next session after 16:00 ET; extended_hours executes limit only, so flat-out switches to limit@bid. Fractional remainder may reject or rest until regular hours.
 - Deliberate reject — fractional qty in extended_hours. Re-captures the verbatim 'regular_hours-only' error lost when mx-sell-flat-xh attempt-1 was overwritten by its successful rerun. NOT expected to execute; if it ever fills, cancel via mx-can-cleanup pattern.
+- Residual close-out — the 0.252705 fractional remainder left by mx-sell-flat-xh (fractional is regular_hours-only). Run during regular hours; fills and finishes the flat AC.
 
 ### place_option_order
 
-**Safety:** financial mutation · **Status:** unprobed
+**Safety:** financial mutation · **Status:** probed
 
 Place a real options order with real money.
 
@@ -3186,12 +3271,71 @@ Not currently supported anywhere (including the Robinhood apps):
 | market_hours | string | no | 'regular_hours' (default), 'regular_curb_hours', or 'regular_curb_overnight_hours'. Non-limit-immediate orders only place in regular_hours. CURB requires an … |
 | ref_id | string | no | Idempotency key (UUID). Generate once per logical order and re-send on retry. Omitting falls back to a server-generated key. |
 
-_No captures — probes authored but not yet executed._
+**Response field tree** (union over 6 success capture(s)):
+
+- `data`: object
+  - `order`: object
+    - `id`: string
+    - `chain_id`: string
+    - `chain_symbol`: string
+    - `state`: string
+    - `type`: string
+    - `trigger`: string
+    - `direction`: string
+    - `quantity`: string
+    - `processed_quantity`: string
+    - `pending_quantity`: string
+    - `canceled_quantity`: string
+    - `price`: string
+    - `stop_price`: null | string
+    - `premium`: string
+    - `processed_premium`: string
+    - `trade_value_multiplier`: string
+    - `time_in_force`: string
+    - `market_hours`: string
+    - `opening_strategy`: null | string
+    - `closing_strategy`: null | string
+    - `placed_agent`: string
+    - `created_at`: string
+    - `updated_at`: string
+    - `last_transaction_at`: null
+    - `is_replaceable`: boolean
+    - `legs`: array<object>
+      - `id`[]: string
+      - `option_id`[]: string
+      - `side`[]: string
+      - `position_effect`[]: string
+      - `ratio_quantity`[]: number
+      - `expiration_date`[]: string
+      - `strike_price`[]: string
+      - `option_type`[]: string
+- `guide`: string
+
+**Errors observed:** 3 capture(s), 3 distinct shape(s)
+
+**Captures:**
+
+- [opt-place-csp](captures/opt-place-csp.json) — success — STO far-OTM put (CSP) @ credit above mark — records the PLACE-level CSP constraint. Expect resting order or collateral reject.
+- [opt-place-fill](captures/opt-place-fill.json) — success — BTO limit @ ask — expected fill (task AC). Settle polls get_option_orders account-wide.
+- [opt-place-lim](captures/opt-place-lim.json) — success — Place single-leg buy limit FAR below market (NFLX_OPT_PRICE_LO ~ half the mark) — rests, harvest id → opt-can-lim. Expect permission reject if option_level stays empty.
+- [opt-place-naked](captures/opt-place-naked.json) — error — STO 195C naked call @ credit 1.00 (mark ~0 — cannot fill). Records the PLACE-level naked-call constraint (review is advisory only). Expect either a resting order or a margin/collateral reject.
+- [opt-place-spread](captures/opt-place-spread.json) — error — Place 2-leg vertical spread limit far below mid — rests; harvest id → opt-can-spread.
+- [opt-place-stop](captures/opt-place-stop.json) — error — BTO stop_market, trigger above mark — rests, then opt-can-stop.
+- [opt-place-stplim](captures/opt-place-stplim.json) — success — BTO stop_limit, trigger above mark — rests, then opt-can-stplim.
+- [opt-sell-lim](captures/opt-sell-lim.json) — success — STC limit priced well above mark — rests, then opt-can-stc.
+- [opt-sell-mkt](captures/opt-sell-mkt.json) — success — STC market — expected fill, position flat.
 
 **Notes:**
 
 - Place single-leg buy limit FAR below market (NFLX_OPT_PRICE_LO ~ half the mark) — rests, harvest id → opt-can-lim. Expect permission reject if option_level stays empty.
-- Place 2-leg vertical spread limit far below mid — rests; harvest id → opt-can-spread.
+- LIVE FINDING: place_option_order rejects ALL multi-leg orders — 400 'Multi-leg options orders aren't supported in the Robinhood Trading MCP yet. You can still place multi-leg options orders through the app or on web.' The tool description still advertises level-3 spreads; place-time enforcement is the real boundary. opt-can-spread skipped (nothing live).
+- BTO limit @ ask — expected fill (task AC). Settle polls get_option_orders account-wide. Disclosure: first attempt failed FORBIDDEN (wrong account number in operator env), capture overwritten by successful rerun — the error record was lost per the known overwrite hazard.
+- STC limit priced well above mark — rests, then opt-can-stc.
+- STC market — expected fill, position flat.
+- LIVE FINDING: stop_market buy-to-open rejected — 400 'Stop market orders aren't supported when buying to open. Select another order type to place this order.' stop_limit BTO IS accepted (opt-place-stplim) — the restriction is stop_market-specific. opt-can-stop skipped (nothing live).
+- BTO stop_limit, trigger above mark — rests, then opt-can-stplim.
+- LIVE FINDING: naked STO call rejected at place time — 400 'This order introduces infinite risk.' Review sim (opt-rev-naked) surfaces the same constraint only as an advisory order_checks alert inside a success envelope — place is where it's enforced. opt-can-naked skipped (nothing live).
+- CSP STO put (40P) @ credit above mark — ACCEPTED and rested (opening_strategy short_put), cancelled via opt-can-csp. Contrast with naked-call reject: cash-secured collateral (review showed cash debit 4000 = strike×100) clears the risk check.
 
 ### review_equity_order
 
@@ -3344,7 +3488,7 @@ Parameter rules:
 | chain_symbol | string | no | Underlying ticker (e.g. 'AAPL', 'SPXW'). Supply alongside underlying_type to include fees and collateral in the response — always do so when known. |
 | underlying_type | string | no | 'equity' or 'index'. Required alongside chain_symbol to enable the fee + collateral fetch. |
 
-**Response field tree** (union over 21 success capture(s)):
+**Response field tree** (union over 23 success capture(s)):
 
 - `data`: object
   - `account_number`: string
@@ -3438,7 +3582,13 @@ Parameter rules:
       - `amount`: string
       - `direction`: string
       - `infinite`: boolean
-    - `equities`: array<unknown>
+    - `equities`: array<object>
+      - `instrument_id`[]: string
+      - `instrument`[]: string
+      - `symbol`[]: string
+      - `quantity`[]: string
+      - `direction`[]: string
+      - `uncovered_shares`[]: string
   - `time_in_force`: string
   - `market_hours`: string
   - `stop_price`: string
@@ -3467,7 +3617,9 @@ Parameter rules:
 - [dep-rev-opt-18](captures/dep-rev-opt-18.json) — success — market_hours=regular_curb_overnight_hours on the same SPXW leg.
 - [opt-rev-close-nopos](captures/opt-rev-close-nopos.json) — success — Constraint probe: position_effect=close with no open position — capture the reject.
 - [opt-rev-credit](captures/opt-rev-credit.json) — success — Review sim: single-leg sell-to-open (credit) — collateral/margin requirement surface; expect reject on a level-less cash acct.
+- [opt-rev-csp](captures/opt-rev-csp.json) — success — Review sim: cash-secured STO put — collateral surface for CSP constraint (spec AC).
 - [opt-rev-mkt-gtc](captures/opt-rev-mkt-gtc.json) — success — Constraint probe: market + gtc — schema says market must be gfd; captures the reject text.
+- [opt-rev-naked](captures/opt-rev-naked.json) — success — Review sim: naked STO call (195C, max strike) WITH chain_symbol+underlying_type hints — the fee/collateral-fields variant inside opt-matrix (spec AC).
 - [opt-rev-single-lim](captures/opt-rev-single-lim.json) — success — Review sim: single-leg buy-to-open limit debit — the baseline happy path. Captures fee/collateral fields.
 - [opt-rev-single-mkt](captures/opt-rev-single-mkt.json) — success — Review sim: single-leg market — captures market-order envelope + any extended-hours constraint.
 - [opt-rev-spread-lim](captures/opt-rev-spread-lim.json) — success — Review sim: 2-leg vertical debit spread — direction=debit, net-premium limit. The multi-leg baseline.
@@ -3501,4 +3653,6 @@ Parameter rules:
 - Review sim: single-leg sell-to-open (credit) — collateral/margin requirement surface; expect reject on a level-less cash acct.
 - Review sim: stop_market single leg — stop_price semantics on options.
 - Constraint probe: position_effect=close with no open position — capture the reject.
+- Review sim: naked STO call (195C, max strike) WITH chain_symbol+underlying_type hints — the fee/collateral-fields variant inside opt-matrix (spec AC).
+- Review sim: cash-secured STO put — collateral surface for CSP constraint (spec AC).
 
