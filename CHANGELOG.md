@@ -7,6 +7,9 @@
 - [Trading Indicator Library] 261-872_FE-IMPL-INDICATOR-LIB: historyStart now compares the pivot's session date (ISO 'YYYY-MM-DD' string on bar.date), not the bar's x epoch — production x is a PT-midnight instant, so the boundary shifted for users west of PT; Candidate/pivotTime deleted; parseIsoDateLocal shared helper + regression test pushes every x to 2030
 
 ### Added
+- [Paper Trading Infra] 553-916_SHARED-IMPL-PAPER-TRADING: Auto-paper signal stamps + stats scope ids — signalTradeDesc (EQV{n}{L|S}, fails loud off trend-rider daily), signalDedupeKey, six statsScope* builders, 10 optional PaperTrade stamp fields, AUTO_PAPER_USER_ID
+- [Paper Trading Infra] 553-916_BE-IMPL-PAPER-TRADING: PaperTradeOverrides stamp whitelist + auto-paper verify scripts (no-cred contracts + ADC prod-inputs — caught the flattened signals.* run-ids shape)
+- [Paper Trading Infra] 553-916_DOCS-PAPER-TRADING: Signals Auto Paper Trade PRD + IMPL/TEST plans (shared/BE/FE) + #916 CODE-REVIEW (PASS, 2 rounds) + #929 UAT (Complete)
 - [Trading Indicator Library] 261-872_FE-IMPL-INDICATOR-LIB: Anchored VWAP sandbox params panel — 10-param override surface gated on enable (number min/max + color swatches), empty-control reverts to default, mat-datepicker + ISO text + clear for historyStart; IndicatorParamDef.input discriminator
 - [Trading Indicator Library] 261-872_DOCS-INDICATOR-LIB: FE IMPL/TEST plan sync + #872 CODE-REVIEW (PASS — J1 major epoch-vs-session-date remediated in-loop) + #930 UAT (Complete — A1-A11 automated, M1-M10 user-verified)
 - [Trading Indicator Library] 261-871_FE-IMPL-INDICATOR-LIB: ST Anchored VWAP in the flex-chart - indicator definition with 8 params, fixed 12-series builder (4 slots x active + 2 alternating history, null gap breaks), registry/menu opt-in, adapter computed with theme + log-scale mapping, dedicated template render loop; 42 new tests
