@@ -28,6 +28,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 
 import { UiStateService } from '../../../../core/services/ui-state.service';
 
@@ -51,7 +53,10 @@ import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-c
 import type {
   FlexChartConfig,
   FlexChartDataset,
+  IndicatorParamDef,
 } from '../../../shared/components/flex-chart/flex-chart.types';
+import { formatLocalDate } from '../../utils/utils';
+import { parseIsoDateLocal } from '../../../shared/utils/date.util';
 import { ChartIntervalKey, StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
 import { BarsInterval } from '../../../../core/models/partner.types';
@@ -59,6 +64,7 @@ import {
   ST_INDICATOR_OPTIONS,
   ST_DEV_INDICATOR_OPTIONS,
   buildDefaultConfig,
+  ST_ANCHORED_VWAP_INDICATOR,
 } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
 import { ST_TRIGGER_BANDS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
@@ -104,7 +110,7 @@ const INTERVAL_TO_BARS: Record<ChartIntervalKey, BarsInterval> = {
 @Component({
   selector: 'app-flex-chart-sandbox',
   standalone: true,
-  imports: [CommonModule, MatProgressSpinnerModule, FlexChartComponent],
+  imports: [CommonModule, MatProgressSpinnerModule, MatDatepickerModule, MatNativeDateModule, FlexChartComponent],
   templateUrl: './flex-chart-sandbox.component.html',
   styleUrl: './flex-chart-sandbox.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -137,6 +143,27 @@ export class FlexChartSandboxComponent implements OnDestroy {
   readonly triggerBandsDots = signal(false);
   readonly tbIndicatorId = ST_TRIGGER_BANDS_INDICATOR.id;
   readonly debugState = signal<ChartDebugSnapshot>({ viewport: null, axis: null, logTicks: [] });
+
+  // ── ST Anchored VWAP params (#872) ───────────────────────────────────────
+  // Sandbox-local overrides merged over the indicator's declared defaults in
+  // `config()`. Kept across enable/disable so toggling off to compare doesn't
+  // lose tuning. `historyStart` is an ISO 'YYYY-MM-DD' string passed through
+  // to the engine, which compares it against each pivot bar's session `date`.
+  readonly avwapIndicatorId = ST_ANCHORED_VWAP_INDICATOR.id;
+  readonly avwapParams = ST_ANCHORED_VWAP_INDICATOR.params;
+  readonly avwapHistoryParam = this.avwapParams.find((p) => p.key === 'historyStart')!;
+  readonly avwapEnabled = computed(() => this.enabledIndicators().has(this.avwapIndicatorId));
+  readonly avwapOverrides = signal<Record<string, number | string>>({});
+  readonly avwapValues = computed<Record<string, number | string | boolean>>(() => ({
+    ...Object.fromEntries(this.avwapParams.map((p) => [p.key, p.default])),
+    ...this.avwapOverrides(),
+  }));
+  /** The picker's selected date — follows both the calendar and the ISO text
+   *  input, so clearing un-highlights and typing syncs the calendar. */
+  readonly avwapHistoryDate = computed(() => {
+    const v = this.avwapValues()['historyStart'];
+    return typeof v === 'string' ? parseIsoDateLocal(v) : null;
+  });
 
   @ViewChild('indicatorPicker') private indicatorPicker?: ElementRef<HTMLDetailsElement>;
   private readonly flexChart = viewChild(FlexChartComponent);
@@ -245,8 +272,14 @@ export class FlexChartSandboxComponent implements OnDestroy {
           : undefined
       : undefined;
     const tbDots = tbData && this.triggerBandsDots() ? convertTriggerBandsDotMarkers(tbData) : undefined;
+    const avwapOverrides = this.avwapOverrides();
     const base = injectTriggerBandsData(
-      this.indicatorOptions.filter((o) => enabled.has(o.id)).map(buildDefaultConfig),
+      this.indicatorOptions.filter((o) => enabled.has(o.id)).map((o) => {
+        const cfg = buildDefaultConfig(o);
+        return o.id === this.avwapIndicatorId
+          ? { ...cfg, params: { ...cfg.params, ...avwapOverrides } }
+          : cfg;
+      }),
       tbData,
     );
     const indicators =
@@ -400,6 +433,39 @@ export class FlexChartSandboxComponent implements OnDestroy {
     if ((event.target as HTMLInputElement).checked) next.add(id);
     else next.delete(id);
     this.enabledIndicators.set(next);
+  }
+
+  /** Single override-mutation seam — `undefined` removes the key so the param
+   *  falls back to its declared default. */
+  private setAvwapOverride(key: string, value: number | string | undefined): void {
+    const next = { ...this.avwapOverrides() };
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+    this.avwapOverrides.set(next);
+  }
+
+  /** Commit an AVWAP control — an empty or non-numeric input deletes the
+   *  override so the param falls back to its declared default. (Check the
+   *  raw string: Number('') is 0, which would silently pin the param.) */
+  onAvwapParam(p: IndicatorParamDef, event: Event): void {
+    const raw = (event.target as HTMLInputElement).value.trim();
+    if (p.input === 'number') {
+      const n = Number(raw);
+      this.setAvwapOverride(p.key, raw === '' || !Number.isFinite(n) ? undefined : n);
+    } else {
+      this.setAvwapOverride(p.key, raw === '' ? undefined : raw);
+    }
+  }
+
+  /** Datepicker commit — formatLocalDate gives local Y/M/D. NativeDateAdapter
+   *  produces local-midnight Dates; toISOString would shift back a day in US
+   *  timezones. */
+  onAvwapHistoryDate(d: Date | null): void {
+    this.setAvwapOverride('historyStart', d && Number.isFinite(d.getTime()) ? formatLocalDate(d) : undefined);
+  }
+
+  clearAvwapHistory(): void {
+    this.setAvwapOverride('historyStart', undefined);
   }
 
   onDebugStateChange(snapshot: ChartDebugSnapshot): void {

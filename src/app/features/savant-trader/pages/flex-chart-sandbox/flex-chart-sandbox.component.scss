@@ -78,6 +78,67 @@ app-flex-chart {
   }
 }
 
+.avwap-params {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  background: #f4f7f9;
+  border: 1px solid #cfd8dc;
+  border-radius: 4px;
+
+  .avwap-params-title {
+    font-weight: 600;
+  }
+
+  input[type='number'] {
+    width: 58px;
+    padding: 2px 4px;
+  }
+
+  input[type='color'] {
+    width: 28px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid #90a4ae;
+    background: transparent;
+  }
+
+  input[type='text'] {
+    width: 96px;
+    padding: 2px 6px;
+    text-transform: none;
+  }
+
+  .avwap-history {
+    position: relative;
+
+    button {
+      padding: 0 6px;
+      border: 1px solid #90a4ae;
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+    }
+  }
+
+  // Rendered-but-invisible matDatepicker anchor — the picker overlay
+  // positions from this element's rect (display:none would anchor at 0,0).
+  .date-anchor {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
 .debug-readout {
   display: flex;
   gap: 24px;

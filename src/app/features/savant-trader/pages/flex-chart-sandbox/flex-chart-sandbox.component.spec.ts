@@ -28,6 +28,7 @@ jest.mock('@angular/fire/auth', () => ({
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { MatDatepicker, MatDatepickerInput } from '@angular/material/datepicker';
 import { of } from 'rxjs';
 
 import { FlexChartSandboxComponent } from './flex-chart-sandbox.component';
@@ -498,6 +499,151 @@ describe('Trigger Bands dev wiring (#880)', () => {
     fixture.componentInstance.toggleIndicator(TB_ID, { target: { checked: true } } as unknown as Event);
     fixture.detectChanges();
     expect(mockIndicatorStore.loadIfNeeded).not.toHaveBeenCalled();
+  });
+});
+
+// =============================================================================
+// Anchored VWAP params — Topic #261 / Task #872
+//
+// Sandbox-only params editor: rendered only while ST Anchored VWAP is enabled;
+// overrides merge onto the indicator's declared defaults in the config handed
+// to the mock chart. `historyStart` is an ISO 'YYYY-MM-DD' string fed by a
+// mat-datepicker whose adapter produces local-midnight Dates — the handler
+// formats local Y/M/D, not toISOString (same off-by-one trap as option-chain).
+// =============================================================================
+
+describe('Anchored VWAP param controls (#872)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const AVWAP_ID = 'st-anchored-vwap';
+
+  function enableAvwap(fixture: ComponentFixture<FlexChartSandboxComponent>): void {
+    (fixture.nativeElement.querySelector(`[data-testid="ind-${AVWAP_ID}"]`) as HTMLInputElement).click();
+    fixture.detectChanges();
+  }
+
+  const avwapConfig = (chart: MockFlexChartComponent) =>
+    chart.config!.indicators.find((i) => i.type === StIndicator.ST_ANCHORED_VWAP);
+
+  function setInput(fixture: ComponentFixture<FlexChartSandboxComponent>, testid: string, value: string): void {
+    const input = fixture.nativeElement.querySelector(`[data-testid="${testid}"]`) as HTMLInputElement;
+    input.value = value;
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
+  it('shows the params panel only while the indicator is enabled', async () => {
+    const { fixture, chart } = await setup();
+    expect(fixture.nativeElement.querySelector('[data-testid="avwap-params"]')).toBeNull();
+    expect(avwapConfig(chart)).toBeUndefined();
+
+    enableAvwap(fixture);
+    expect(fixture.nativeElement.querySelector('[data-testid="avwap-params"]')).toBeTruthy();
+    expect(avwapConfig(chart)).toBeTruthy();
+
+    enableAvwap(fixture); // uncheck
+    expect(fixture.nativeElement.querySelector('[data-testid="avwap-params"]')).toBeNull();
+    expect(avwapConfig(chart)).toBeUndefined();
+  });
+
+  it('exposes a control per editable param', async () => {
+    const { fixture } = await setup();
+    enableAvwap(fixture);
+    for (const key of [
+      'smallRetracementPct', 'largeRetracementPct', 'leftDepth', 'rightDepth',
+      'smallHighColor', 'smallLowColor', 'largeHighColor', 'largeLowColor',
+      'maxHistory', 'historyStart',
+    ]) {
+      expect(fixture.nativeElement.querySelector(`[data-testid="avwap-${key}"]`)).toBeTruthy();
+    }
+  });
+
+  it('merges numeric overrides onto the defaults; untouched params stay at theirs', async () => {
+    const { fixture, chart } = await setup();
+    enableAvwap(fixture);
+    expect(avwapConfig(chart)!.params['smallRetracementPct']).toBe(2);
+
+    setInput(fixture, 'avwap-smallRetracementPct', '3.5');
+    const params = avwapConfig(chart)!.params;
+    expect(params['smallRetracementPct']).toBe(3.5);
+    expect(params['largeRetracementPct']).toBe(5);
+    expect(params['maxHistory']).toBe(100);
+  });
+
+  it('emptying a control reverts that param to its default', async () => {
+    const { fixture, chart } = await setup();
+    enableAvwap(fixture);
+    setInput(fixture, 'avwap-maxHistory', '20');
+    expect(avwapConfig(chart)!.params['maxHistory']).toBe(20);
+
+    setInput(fixture, 'avwap-maxHistory', '');
+    expect(avwapConfig(chart)!.params['maxHistory']).toBe(100);
+  });
+
+  it('a colour override lands as its hex string', async () => {
+    const { fixture, chart } = await setup();
+    enableAvwap(fixture);
+    setInput(fixture, 'avwap-smallHighColor', '#123456');
+    expect(avwapConfig(chart)!.params['smallHighColor']).toBe('#123456');
+  });
+
+  it('each control change produces a fresh config so the chart recomputes', async () => {
+    const { fixture, chart } = await setup();
+    enableAvwap(fixture);
+    const before = chart.config;
+    setInput(fixture, 'avwap-smallRetracementPct', '4');
+    expect(chart.config).not.toBe(before);
+  });
+
+  it('the datepicker commits historyStart as a local YYYY-MM-DD string', async () => {
+    const { fixture, chart } = await setup();
+    enableAvwap(fixture);
+    // NativeDateAdapter produces local-midnight Dates — format local Y/M/D,
+    // not toISOString (which shifts back a day in western timezones).
+    fixture.componentInstance.onAvwapHistoryDate(new Date(2026, 8, 20));
+    fixture.detectChanges();
+    expect(avwapConfig(chart)!.params['historyStart']).toBe('2026-09-20');
+  });
+
+  it('typing an ISO date into the text input sets historyStart; the clear button unsets it', async () => {
+    const { fixture, chart } = await setup();
+    enableAvwap(fixture);
+    setInput(fixture, 'avwap-historyStart', '2025-06-15');
+    expect(avwapConfig(chart)!.params['historyStart']).toBe('2025-06-15');
+    // The picker's anchor tracks the typed date — reopening shows it, not a stale day.
+    const anchorInput = fixture.debugElement.query(By.directive(MatDatepickerInput)).injector.get(MatDatepickerInput);
+    expect(anchorInput.value).toEqual(new Date(2025, 5, 15));
+
+    fixture.nativeElement.querySelector('[data-testid="avwap-history-clear"]').click();
+    fixture.detectChanges();
+    expect(avwapConfig(chart)!.params['historyStart']).toBe('');
+    expect(anchorInput.value).toBeNull();
+  });
+
+  it('the hidden anchor input is bound to the mat-datepicker', async () => {
+    const { fixture } = await setup();
+    enableAvwap(fixture);
+    // The picker refuses to open without an associated input — if the
+    // association breaks, the calendar silently stops working.
+    const dir = fixture.debugElement.query(By.directive(MatDatepickerInput));
+    expect(dir).toBeTruthy();
+    const picker = fixture.debugElement.query(By.directive(MatDatepicker));
+    expect(dir.injector.get(MatDatepickerInput)._datepicker).toBe(picker.componentInstance);
+  });
+
+  it('overrides survive an enable→disable→enable round-trip and never leak into other indicators', async () => {
+    const { fixture, chart } = await setup();
+    enableAvwap(fixture);
+    setInput(fixture, 'avwap-maxHistory', '7');
+
+    enableAvwap(fixture); // off
+    expect(avwapConfig(chart)).toBeUndefined();
+    for (const i of chart.config!.indicators) {
+      expect(Object.keys(i.params)).not.toContain('smallRetracementPct');
+    }
+
+    enableAvwap(fixture); // on again — tuning preserved
+    expect(avwapConfig(chart)!.params['maxHistory']).toBe(7);
   });
 });
 

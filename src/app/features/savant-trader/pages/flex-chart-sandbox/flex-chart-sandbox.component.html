@@ -97,6 +97,54 @@
     </details>
   </header>
 
+  @if (avwapEnabled()) {
+    <div class="avwap-params" data-testid="avwap-params">
+      <span class="avwap-params-title">AVWAP</span>
+      @for (p of avwapParams; track p.key) {
+        @if (p.input !== 'date') {
+          <label class="field">
+            {{ p.label }}
+            <input
+              [type]="p.input ?? 'text'"
+              [attr.data-testid]="'avwap-' + p.key"
+              [attr.min]="p.min ?? null"
+              [attr.max]="p.max ?? null"
+              [value]="avwapValues()[p.key]"
+              (change)="onAvwapParam(p, $event)"
+            />
+          </label>
+        }
+      }
+      <label class="field avwap-history">
+        {{ avwapHistoryParam.label }}
+        <input
+          type="text"
+          data-testid="avwap-historyStart"
+          placeholder="YYYY-MM-DD"
+          [value]="avwapValues()['historyStart']"
+          (change)="onAvwapParam(avwapHistoryParam, $event)"
+        />
+        <!-- Rendered-but-invisible anchor — the picker overlay positions from
+             this element's rect; a display:none input would anchor at 0,0.
+             The visible input stays a plain ISO box (a matDatepicker input
+             would reformat via the locale adapter and parse ISO as UTC). -->
+        <input
+          type="text" class="date-anchor" aria-hidden="true" tabindex="-1" readonly
+          [value]="avwapHistoryDate()"
+          [matDatepicker]="avwapHistoryPicker" (dateChange)="onAvwapHistoryDate($event.value)"
+        />
+        <mat-datepicker-toggle [for]="avwapHistoryPicker" />
+        <mat-datepicker #avwapHistoryPicker />
+        <button
+          type="button"
+          data-testid="avwap-history-clear"
+          aria-label="Clear history start"
+          (click)="clearAvwapHistory()"
+        >×</button>
+      </label>
+    </div>
+  }
+
   <div class="debug-readout" data-testid="debug-readout">
     <span data-testid="dbg-source">source: {{ debugSourceText() }}</span>
     <span data-testid="dbg-scale">scale: {{ logScale() ? 'log' : 'linear' }}</span>
