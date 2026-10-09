@@ -27,6 +27,7 @@ import {
   SIGNAL_SHADOW_VARIANT_KEYS,
   isGoverningEligiblePct,
   TERMINAL_VARIANT_FAMILIES,
+  AUTO_PAPER_USER_ID,
   type ClosePaperTradeRequest,
   type ClosePaperTradeResponse,
   type CancelPaperTradeRequest,
@@ -34,6 +35,7 @@ import {
 } from './paper-trading-contracts';
 import { OptionType, OptionQuoteSource, StrategyFrequency } from './options-common';
 import { TradeSide } from './common';
+import { buildAccountId } from './paper-trading-ids';
 import { LifecycleState } from './options-strategy-engine-contracts';
 import type { PaperStrategyInstance } from './paper-trading-contracts';
 
@@ -214,5 +216,78 @@ describe('trade exits contracts (#652)', () => {
     expect(closeReq.tradeId).toBe('t1');
     expect(closeRes.realizedPnl).toBe(-50);
     expect(cancelRes.tradeId).toBe(cancelReq.tradeId);
+  });
+});
+
+describe('auto-paper signal trades (Thread #904)', () => {
+  it('AUTO_PAPER_USER_ID is the dedicated system uid', () => {
+    expect(AUTO_PAPER_USER_ID).toBe('auto-paper');
+    expect(buildAccountId(AUTO_PAPER_USER_ID)).toBe('acct-auto-paper');
+  });
+
+  it('a fully-stamped auto-papered trade is a valid PaperTrade', () => {
+    const autoTrade: PaperTrade = {
+      kind: PaperTradingKind.TRADE,
+      id: '261008-sig-AAPL-EQV1L',
+      createdAt: NOW, updatedAt: NOW,
+      status: PaperTradeStatus.OPEN,
+      userId: AUTO_PAPER_USER_ID,
+      source: PaperTradeSource.SIGNAL,
+      signalId: 'AAPL_D_ST_TREND_RIDER_V1_LONG_2026-10-08',
+      symbol: 'AAPL',
+      expression: 'EQ',
+      governingVariant: 'trailing-8',
+      order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 },
+      fills: [{
+        fillId: 'f1', role: 'entry', date: '2026-10-08', price: 245.5,
+        quantity: 1, quoteSource: OptionQuoteSource.RH_MCP,
+      }],
+      legs: [{ kind: 'share', side: TradeSide.LONG, quantity: 1, multiplier: 1, entryMark: 245.5, lastMark: 245.5 }],
+      marks: { '2026-10-08': { mark: 245.5 } },
+      variantRuns: [{
+        variantKey: 'trailing-8', governing: true, state: 'ACTIVE',
+        workingState: { highWaterMark: 245.5 },
+      }],
+      variantKeys: ['trailing-8'],
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      // auto-paper stamps
+      signalType: 'D_ST_TREND_RIDER_V1_LONG',
+      signalTimeframe: 'D',
+      signalBarDate: '2026-10-08',
+      signalStatus: 'INTERIM',
+      signalRunId: 'run-261008-1200',
+      signalIndicators: { adx: 31.4, zone: 'bull', note: 'fresh' },
+      sector: 'Technology',
+      industry: 'Consumer Electronics',
+      marketCapTier: 'mega',
+      captureList: 'PRIMARY',
+    };
+    expect(isPaperTrade(autoTrade)).toBe(true);
+    expect(autoTrade.signalType).toBe('D_ST_TREND_RIDER_V1_LONG');
+    expect(autoTrade.signalIndicators?.zone).toBe('bull');
+  });
+
+  it('a manual trade compiles with every stamp field absent', () => {
+    const manual: PaperTrade = {
+      kind: PaperTradingKind.TRADE,
+      id: '261008-man-SPY-EQ',
+      createdAt: NOW, updatedAt: NOW,
+      status: PaperTradeStatus.OPEN,
+      source: PaperTradeSource.MANUAL,
+      symbol: 'SPY',
+      expression: 'EQ',
+      governingVariant: 'trailing-8',
+      order: { side: TradeSide.LONG, type: 'MARKET', quantity: 10 },
+      fills: [],
+      legs: [],
+      marks: {},
+      variantRuns: [],
+      variantKeys: [],
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+    };
+    expect(isPaperTrade(manual)).toBe(true);
+    expect(manual.signalType).toBeUndefined();
   });
 });

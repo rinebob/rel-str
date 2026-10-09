@@ -19,6 +19,8 @@ import {
   buildTradeId,
   EQUITY_TRADE_DESC,
   buildSpreadTradeDesc,
+  signalTradeDesc,
+  signalDedupeKey,
   buildCohortId,
   buildStatsId,
   statsScopeAll,
@@ -27,10 +29,17 @@ import {
   statsScopeCohort,
   statsScopeSignal,
   statsScopeSymbol,
+  statsScopeSignalType,
+  statsScopeDirection,
+  statsScopeSector,
+  statsScopeIndustry,
+  statsScopeCapTier,
+  statsScopeSignalStatus,
   buildRawQuoteId,
   parseTradeId,
   type TradeOrigin,
 } from './paper-trading-ids';
+import { TradeSide } from './common';
 
 const DAY = new Date('2026-09-24T18:30:00Z');
 
@@ -133,6 +142,86 @@ describe('buildRawQuoteId', () => {
   it('builds rq-{tradeId}-{YYMMDD}', () => {
     expect(buildRawQuoteId('260924-st-QQQM-CSP-020-30', new Date('2026-09-25')))
       .toBe('rq-260924-st-QQQM-CSP-020-30-260925');
+  });
+});
+
+describe('signalTradeDesc and signalDedupeKey (Thread #904)', () => {
+  it.each([
+    ['D_ST_TREND_RIDER_V1_LONG', 'EQV1L'],
+    ['D_ST_TREND_RIDER_V1_SHORT', 'EQV1S'],
+    ['D_ST_TREND_RIDER_V2_LONG', 'EQV2L'],
+    ['D_ST_TREND_RIDER_V2_SHORT', 'EQV2S'],
+  ])('maps %s → %s', (signalType, desc) => {
+    expect(signalTradeDesc(signalType)).toBe(desc);
+  });
+
+  it('produces trade ids that round-trip through parseTradeId', () => {
+    const id = buildTradeId(DAY, 'sig', 'AAPL', signalTradeDesc('D_ST_TREND_RIDER_V1_LONG'));
+    expect(id).toBe('260924-sig-AAPL-EQV1L');
+    expect(parseTradeId(id)).toEqual({
+      date: '260924', origin: 'sig', symbol: 'AAPL', desc: 'EQV1L', suffix: undefined,
+    });
+  });
+
+  it('gives V1 and V2 distinct ids for the same symbol/day', () => {
+    const v1 = buildTradeId(DAY, 'sig', 'AAPL', signalTradeDesc('D_ST_TREND_RIDER_V1_LONG'));
+    const v2 = buildTradeId(DAY, 'sig', 'AAPL', signalTradeDesc('D_ST_TREND_RIDER_V2_LONG'));
+    expect(v1).not.toBe(v2);
+  });
+
+  it('throws on a signal type without the version/direction suffix', () => {
+    expect(() => signalTradeDesc('SOME_OTHER_SIGNAL')).toThrow();
+    expect(() => signalTradeDesc('D_ST_TREND_RIDER_V1')).toThrow();
+  });
+
+  it('throws on non-daily signals rather than colliding on tradeId', () => {
+    // W_/M_ twins would produce the same EQV{L|S} desc — silent dedupe
+    // collision — so unsupported timeframes fail loudly.
+    expect(() => signalTradeDesc('W_ST_TREND_RIDER_V1_LONG')).toThrow();
+    expect(() => signalTradeDesc('M_ST_TREND_RIDER_V2_SHORT')).toThrow();
+    // Different daily strategy would collide on EQV{L|S} too — fails loud.
+    expect(() => signalTradeDesc('D_MEAN_REVERT_V1_LONG')).toThrow();
+  });
+
+  it('dedupe key is SYMBOL_SIGNALTYPE_BARDATE, symbol uppercased', () => {
+    expect(signalDedupeKey('aapl', 'D_ST_TREND_RIDER_V1_LONG', '2026-10-08'))
+      .toBe('AAPL_D_ST_TREND_RIDER_V1_LONG_2026-10-08');
+  });
+});
+
+describe('auto-paper stats scopes (Thread #904)', () => {
+  it('per-signalType scope slugifies the type', () => {
+    expect(statsScopeSignalType('D_ST_TREND_RIDER_V1_LONG'))
+      .toBe('sigtype-d-st-trend-rider-v1-long');
+  });
+
+  it('per-direction scope keys off the TradeSide value', () => {
+    expect(statsScopeDirection(TradeSide.LONG)).toBe('dir-long');
+    expect(statsScopeDirection(TradeSide.SHORT)).toBe('dir-short');
+  });
+
+  it('sector/industry scopes slugify display strings', () => {
+    expect(statsScopeSector('Health Care')).toBe('sector-health-care');
+    expect(statsScopeIndustry('Medical Devices')).toBe('ind-medical-devices');
+    expect(statsScopeIndustry('Banks—Diversified')).toBe('ind-banks-diversified');
+  });
+
+  it('cap-tier scope', () => {
+    expect(statsScopeCapTier('mega')).toBe('captier-mega');
+    expect(statsScopeCapTier('LARGE_CAP')).toBe('captier-large-cap');
+  });
+
+  it('separator-only differences slugify to the same scope (accepted collision)', () => {
+    expect(statsScopeIndustry('A-B')).toBe(statsScopeIndustry('A B'));
+  });
+
+  it('signal-status scope', () => {
+    expect(statsScopeSignalStatus('INTERIM')).toBe('sigstatus-interim');
+    expect(statsScopeSignalStatus('CONFIRMED')).toBe('sigstatus-confirmed');
+  });
+
+  it('is deterministic', () => {
+    expect(statsScopeSector('Health Care')).toBe(statsScopeSector('Health Care'));
   });
 });
 

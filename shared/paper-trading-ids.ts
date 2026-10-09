@@ -12,7 +12,8 @@
  * ID formats:
  *   account  acct-{userId}
  *   trade    YYMMDD-{origin}-{SYMBOL}-{desc}        origin: st|sig|man
- *            desc = EQ | {SPREAD}-{DELTA3}-{DTE2};  collision suffix -HHMM
+ *            desc = EQ | EQV{n}{L|S} | {SPREAD}-{DELTA3}-{DTE2}
+ *            collision suffix -HHMM
  *   cohort   cohort-YYMMDD-{SYMBOL}-{seq2}
  *   stats    stats-{scope}
  *   rawQuote rq-{tradeId}-{YYMMDD}
@@ -20,6 +21,7 @@
  */
 
 import { formatDelta, formatDte, formatYYMMDD } from './id-format';
+import { TradeSide } from './common';
 
 /** Root collection for all paper-trading records. */
 export const PAPER_TRADING_ROOT = 'paper-trading';
@@ -86,6 +88,35 @@ export function buildTradeId(
 /** Equity (share) trade desc. */
 export const EQUITY_TRADE_DESC = 'EQ';
 
+// ── Auto-paper signal trades (Thread #904) ───────────────────────────────────
+
+/**
+ * Deterministic dedupe key for an auto-papered signal occurrence:
+ * `{SYMBOL}_{signalType}_{barDate}`. One trade per signal per day across
+ * timed and manual runs; a next-day re-fire has a new barDate → new key.
+ * Stored on `trade.signalId`.
+ */
+export function signalDedupeKey(symbol: string, signalType: string, barDate: string): string {
+  return `${symbol.toUpperCase()}_${signalType}_${barDate}`;
+}
+
+/**
+ * Trade-id desc for an auto-papered signal: `EQ{Vn}{L|S}` derived from the
+ * `D_ST_TREND_RIDER_V{n}_{LONG|SHORT}` signalType shape (e.g. V1 long → EQV1L).
+ * Keeps the same symbol/day distinct per signal type so tradeId doubles as a
+ * doc-existence dedupe key.
+ *
+ * Trend-rider daily signals only: a `W_`/`M_`-prefixed type, or a different
+ * daily strategy, would map onto the same desc and silently collide on
+ * tradeId — both throw here. New strategies/timeframes joining auto-paper
+ * must extend the desc to stay distinct (e.g. a strategy or timeframe char).
+ */
+export function signalTradeDesc(signalType: string): string {
+  const m = /^D_ST_TREND_RIDER_V(\d+)_(LONG|SHORT)$/.exec(signalType);
+  if (!m) throw new Error(`signalTradeDesc: unsupported signal type '${signalType}'`);
+  return `EQV${m[1]}${m[2] === 'LONG' ? 'L' : 'S'}`;
+}
+
 /** Spread desc `{CODE}-{DELTA3}-{DTE2}` — e.g. CSP-020-30 for 20Δ 30-DTE. */
 export function buildSpreadTradeDesc(code: string, targetDelta: number, dte: number): string {
   return `${code.toUpperCase()}-${formatDelta(targetDelta)}-${formatDte(dte)}`;
@@ -95,7 +126,7 @@ export interface ParsedTradeId {
   date: string;      // YYMMDD
   origin: TradeOrigin;
   symbol: string;
-  desc: string;      // EQ or {CODE}-{DELTA}-{DTE}
+  desc: string;      // EQ | EQV{n}{L|S} (auto-paper) | {CODE}-{DELTA}-{DTE}
   suffix?: string;   // HHMM collision suffix when present
 }
 
@@ -127,6 +158,39 @@ export function statsScopeCohort(cohortId: string): string {
 }
 export function statsScopeSignal(signalId: string): string { return `sig-${signalId}`; }
 export function statsScopeSymbol(symbol: string): string { return `sym-${symbol.toUpperCase()}`; }
+
+// ── Auto-paper slice dimensions (Thread #904) ────────────────────────────────
+
+/**
+ * Lowercase slug for scope ids — [a-z0-9] runs joined with '-'.
+ * Accepted collision: inputs that differ only by separator characters
+ * ('A-B' vs 'A B') slugify identically — deliberate, matches how the
+ * slice dims read; don't encode separators to "fix" it.
+ */
+function scopeSlug(value: string): string {
+  const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (!slug) throw new Error(`scopeSlug: '${value}' produces an empty slug`);
+  return slug;
+}
+
+export function statsScopeSignalType(signalType: string): string {
+  return `sigtype-${scopeSlug(signalType)}`;
+}
+export function statsScopeDirection(side: TradeSide): string {
+  return `dir-${side}`;
+}
+export function statsScopeSector(sector: string): string {
+  return `sector-${scopeSlug(sector)}`;
+}
+export function statsScopeIndustry(industry: string): string {
+  return `ind-${scopeSlug(industry)}`;
+}
+export function statsScopeCapTier(tier: string): string {
+  return `captier-${scopeSlug(tier)}`;
+}
+export function statsScopeSignalStatus(status: string): string {
+  return `sigstatus-${scopeSlug(status)}`;
+}
 
 // ── Raw quote ──────────────────────────────────────────────────────────────
 

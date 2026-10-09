@@ -213,7 +213,34 @@ export interface PaperTrade extends PaperTradingDocBase {
     quantity: number;
     costBasis: number;
   };
+  // ── Auto-paper provenance stamps (Thread #904) — set only on trades
+  // created by the run-completion auto-ingest; all absent on manual trades.
+  /** Signal type that fired, e.g. 'D_ST_TREND_RIDER_V1_LONG'. */
+  signalType?: string;
+  /** Signal timeframe — 'D' for this thread's daily-only scope. */
+  signalTimeframe?: 'D' | 'W' | 'M';
+  /** YYYY-MM-DD bar the signal fired on (dedupe component). */
+  signalBarDate?: string;
+  /** 'INTERIM' | 'CONFIRMED' — signal status at capture time. */
+  signalStatus?: 'INTERIM' | 'CONFIRMED';
+  /** ST run that produced the signal. */
+  signalRunId?: string;
+  /** Scalar indicator snapshot, verbatim from the signal entry. */
+  signalIndicators?: Record<string, number | string | null>;
+  /** Symbol-meta slice dims denormalized at ingest. */
+  sector?: string;
+  industry?: string;
+  marketCapTier?: string;
+  /** Symbol list that admitted this trade into capture (e.g. 'PRIMARY'). */
+  captureList?: string;
 }
+
+/**
+ * Dedicated system uid for auto-papered signal trades (Thread #904).
+ * Segregates the forensics dataset from live/manual activity; the
+ * `acct-auto-paper` account doc self-creates via `baseAccount` on first fill.
+ */
+export const AUTO_PAPER_USER_ID = 'auto-paper';
 
 // ── Signal expression templates ─────────────────────────────────────────────
 
