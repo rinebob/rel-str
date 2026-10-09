@@ -5,9 +5,9 @@
 **Topic Parent:** #576  
 **Domain:** PORTFOLIO  
 **Type:** UAT  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-06  
-**Last Updated:** 2026-10-06  
+**Last Updated:** 2026-10-08  
 
 # UAT — Bucket-detail form factor: expandable inline rows
 
@@ -248,13 +248,13 @@ multi-account items.
 | 2 | Panel contents | PASS (auto) | spec: stats strip + `expanded mini-table shows column totals` + `fractional share quantities to 2 decimals` | 2026-10-06 |
 | 3 | Collapse | PASS (auto) | spec: `a second name click collapses the panel` | 2026-10-06 |
 | 4 | Unassigned expands | PASS (auto) | spec: `the Unassigned row expands to list unattributed positions` | 2026-10-06 |
-| 5 | Dangling → Unassigned | manual | delete→Unassigned flow needs live writes (dangling `unresolved` path proven by spec predicate + fixtures) | |
+| 5 | Dangling → Unassigned | PASS | user: assigned position to scratch bucket, deleted bucket, position lands under expanded Unassigned | 2026-10-08 |
 | 6 | Retired expands | PASS (auto) | spec: `retired rows expand inside the retired section` | 2026-10-06 |
 | 7 | Cash no expand | PASS (auto) | spec: `the Cash row has no expand affordance` | 2026-10-06 |
 | 8 | Multiple expansions | PASS (auto) | spec: `multiple rows can be expanded at once` | 2026-10-06 |
 | 9 | Live re-derivation | PASS (auto) | spec: `expanded panel re-derives when positions change — a moved position disappears` | 2026-10-06 |
 | 10 | Empty bucket | PASS (auto) | spec: `an empty bucket expands to an empty state, not a blank panel` | 2026-10-06 |
 | 11 | Dialog never opens | PASS (auto) | spec: name click asserts `dialog.open` not called | 2026-10-06 |
-| 12 | Account-switch carry-over | manual | needs ≥2 live accounts + feel judgment | |
-| 13 | Refinement pass | FAIL → findings routed | **(a)** page doesn't scroll — expandos clip below viewport (interim shell has no scroll bound; fix tracked under **#779**, AC added). **(b)** tables read as nested wrappers — pre-migration interim styling, covered by **#779** + **#780**. Per user direction no new tasks — findings linked on QA #839. | 2026-10-06 |
-| 14 | Regression | manual | spec covers warn banner / retired toggle / CRUD dialog wiring; live CRUD writes + tab-count agreement eyeballed manually | |
+| 12 | Account-switch carry-over | PASS | user: expansion persists by row key across account switch and return — feels right | 2026-10-08 |
+| 13 | Refinement pass | **PASS (re-verify)** — prior FAIL 2026-10-06 → findings routed: **(a)** page didn't scroll (interim shell had no scroll bound) — fixed by #779's page-host `calc(100vh − --header-height)` + `.table-wrap` row-scroll; **(b)** nested-wrapper look — fixed by the #779 visual-language migration + expando inset styling. User re-verified 2026-10-08: scrolls to bottom, inset reads inside-the-row, chevrons/alignment/totals good. Decision recorded: Unassigned `Drift $0.00` kept as-is. | 2026-10-08 |
+| 14 | Regression | PASS | user: scratch bucket create/edit/retire/delete, >100% banner, Positions `Unassigned (n)` agrees with expanded panel | 2026-10-08 |

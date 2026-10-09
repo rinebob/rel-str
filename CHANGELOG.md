@@ -16,6 +16,7 @@
 - [Portfolio Allocation] 576-693_DOCS-PORTFOLIO: #693 IMPL + code review + #839 UAT record
 - [Portfolio Allocation] 576-778_DOCS-PORTFOLIO: #778 code review (PASS) + #789 UAT record
 - [Portfolio Allocation] 576-779_DOCS-PORTFOLIO: #779 code review (PASS) + #897 UAT (Complete — 12 scenarios PASS incl. two in-loop fixes)
+- [Portfolio Allocation] 576-693_DOCS-PORTFOLIO: #839 UAT Complete — all 14 scenarios PASS; the scroll-clip + nested-wrapper findings resolved by #779's shell work
 - [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: PageIdentityService — route-driven title+icon shared by rs-header and the shell; fullscreen reveal becomes an identity chip (icon + title + exit); .page-title promoted to h1
 - [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: Sidenav Dev submenu — NavItem.children + mat-menu popup; Tools ▸ Dev lists dev/flex-chart, dev/gallery, dev/screenshot without polluting the workflow nav
 - [Navigation and Workflows] 625-854_FE-IMPL-WORKFLOWS: Page title sweep (21 surfaces) + default-header fullscreen flip (auto setFullscreen(true) removed from 13 pages + signal-review facade; ngOnDestroy cleanup kept) + right-anchored action bars
