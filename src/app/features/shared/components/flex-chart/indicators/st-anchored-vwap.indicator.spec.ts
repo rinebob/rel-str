@@ -9,17 +9,16 @@ import type { PriceBar } from '../flex-chart.types';
 // Test helpers
 // =============================================================================
 
+/** Local-midnight Date → its ISO 'YYYY-MM-DD' — matches `PriceBar.date`. */
+const isoOf = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 /** Bars whose typical price equals the close: high = c+1, low = c-1. */
 function barsFromCloses(closes: number[]): PriceBar[] {
-  return closes.map((c, i) => ({
-    date: `d${i}`,
-    x: new Date(2026, 0, 1 + i),
-    open: c,
-    high: c + 1,
-    low: c - 1,
-    close: c,
-    volume: 1000,
-  }));
+  return closes.map((c, i) => {
+    const x = new Date(2026, 0, 1 + i);
+    return { date: isoOf(x), x, open: c, high: c + 1, low: c - 1, close: c, volume: 1000 };
+  });
 }
 
 /** Six straight legs, 31 bars: with depth 2/2 the pivots are high@5, low@10, high@15, low@20, high@25. */
@@ -44,9 +43,10 @@ function makeWalk(seed: number, n: number): PriceBar[] {
   for (let i = 0; i < n; i++) {
     const open = close;
     close = open * (1 + (rnd() - 0.5) * 0.06);
+    const x = new Date(2026, 0, 1 + i);
     bars.push({
-      date: `d${i}`,
-      x: new Date(2026, 0, 1 + i),
+      date: isoOf(x),
+      x,
       open,
       high: Math.max(open, close) * (1 + rnd() * 0.01),
       low: Math.min(open, close) * (1 - rnd() * 0.01),
@@ -109,6 +109,7 @@ describe('ST_ANCHORED_VWAP_INDICATOR', () => {
       largeHighColor: '#FF00E6',
       largeLowColor: '#00E5FF',
       maxHistory: 100,
+      historyStart: '',
     });
   });
 });
@@ -160,6 +161,54 @@ describe('computeAnchoredVwapSeries — fixed slots', () => {
     expect(chunks(byKey(series, 'small-high-history-a'))[0]).toEqual(seg('small', 'high', 5).points);
     expect(chunks(byKey(series, 'small-high-history-b'))[0]).toEqual(seg('small', 'high', 15).points);
     expect(byKey(series, 'small-high-active').data).toEqual(seg('small', 'high', 25).points);
+  });
+});
+
+// =============================================================================
+// historyStart — ISO date string param (#872)
+//
+// Fixture bars carry `date`/`x` pairs for Jan 1+i 2026, so the pivots of CLOSES
+// (high@5, low@10, high@15, low@20, high@25) land on 2026-01-06, 01-11, 01-16,
+// 01-21, 01-26. The window compares the pivot bar's session `date` to the ISO
+// string — calendars, not epochs — so no timezone conversion happens anywhere
+// in the chain (pivot `x` is a PT-midnight instant in real mode).
+// =============================================================================
+
+describe('computeAnchoredVwapSeries — historyStart', () => {
+  const bars = barsFromCloses(CLOSES);
+
+  it('windows history to anchors on or after the ISO date — the boundary date is inclusive', () => {
+    const series = computeAnchoredVwapSeries(bars, { ...PARAMS, historyStart: '2026-01-16' });
+    const oracle = computeAnchoredVwap(bars, { ...PARAMS, historyStart: '2026-01-16' });
+    // small-high: pivot@5 dropped, pivot@15 kept (now first → history-a); pivot@25 stays active.
+    expect(chunks(byKey(series, 'small-high-history-a'))[0]).toEqual(
+      oracle.find((s) => s.scale === 'small' && s.side === 'high' && s.pivotBar === 15)!.points,
+    );
+    expect(byKey(series, 'small-high-history-b').data).toEqual([]);
+    // small-low: its only terminated anchor is pivot@10 (Jan 11) — dropped; pivot@20 stays active.
+    expect(byKey(series, 'small-low-history-a').data).toEqual([]);
+    expect(byKey(series, 'small-low-history-b').data).toEqual([]);
+    expect(byKey(series, 'small-low-active').data.length).toBeGreaterThan(0);
+  });
+
+  it('a historyStart after the last anchor empties every history series; the active lines remain', () => {
+    const series = computeAnchoredVwapSeries(bars, { ...PARAMS, historyStart: '2026-01-27' });
+    for (const s of series) {
+      if (s.key.endsWith('-active')) continue;
+      expect(s.data).toEqual([]);
+    }
+    expect(byKey(series, 'small-high-active').data.length).toBeGreaterThan(0);
+    expect(byKey(series, 'small-low-active').data.length).toBeGreaterThan(0);
+  });
+
+  it('a historyStart before every anchor is equivalent to unset', () => {
+    expect(computeAnchoredVwapSeries(bars, { ...PARAMS, historyStart: '2020-01-01' }))
+      .toEqual(computeAnchoredVwapSeries(bars, PARAMS));
+  });
+
+  it.each(['banana', '2026-13-40', ''])('an empty or unparseable historyStart is ignored — %s', (v) => {
+    expect(computeAnchoredVwapSeries(bars, { ...PARAMS, historyStart: v }))
+      .toEqual(computeAnchoredVwapSeries(bars, PARAMS));
   });
 });
 

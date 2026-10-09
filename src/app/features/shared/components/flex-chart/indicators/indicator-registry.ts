@@ -115,7 +115,8 @@ export function buildDefaultConfig(option: IndicatorOption): IndicatorConfig {
   }
 
   const label = option.label.toUpperCase().replace(/ /g, '-');
-  const paramStr = option.params.map(p => p.default).join(',');
+  // Empty-string defaults (e.g. an unset date) would leave a stray comma.
+  const paramStr = option.params.map(p => p.default).filter(v => v !== '').join(',');
   const name = paramStr ? `${label}(${paramStr})` : label;
 
   return {

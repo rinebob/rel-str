@@ -46,15 +46,19 @@ export const ST_ANCHORED_VWAP_INDICATOR: IndicatorOption = {
   defaultPane: 'overlay',
   axisScale: 'price',
   params: [
-    { key: 'smallRetracementPct', label: 'Small Retracement %', default: DEFAULTS.smallRetracementPct, min: 0.1, max: 50 },
-    { key: 'largeRetracementPct', label: 'Large Retracement %', default: DEFAULTS.largeRetracementPct, min: 0.1, max: 50 },
-    { key: 'leftDepth', label: 'Left Depth', default: DEFAULTS.leftDepth, min: 2, max: 100 },
-    { key: 'rightDepth', label: 'Right Depth', default: DEFAULTS.rightDepth, min: 2, max: 100 },
-    { key: 'smallHighColor', label: 'Small High Color', default: DEFAULTS.smallHighColor },
-    { key: 'smallLowColor', label: 'Small Low Color', default: DEFAULTS.smallLowColor },
-    { key: 'largeHighColor', label: 'Large High Color', default: DEFAULTS.largeHighColor },
-    { key: 'largeLowColor', label: 'Large Low Color', default: DEFAULTS.largeLowColor },
-    { key: 'maxHistory', label: 'Max History', default: DEFAULTS.maxHistory, min: 0, max: 1000 },
+    { key: 'smallRetracementPct', label: 'Small Retracement %', default: DEFAULTS.smallRetracementPct, min: 0.1, max: 50, input: 'number' },
+    { key: 'largeRetracementPct', label: 'Large Retracement %', default: DEFAULTS.largeRetracementPct, min: 0.1, max: 50, input: 'number' },
+    { key: 'leftDepth', label: 'Left Depth', default: DEFAULTS.leftDepth, min: 2, max: 100, input: 'number' },
+    { key: 'rightDepth', label: 'Right Depth', default: DEFAULTS.rightDepth, min: 2, max: 100, input: 'number' },
+    { key: 'smallHighColor', label: 'Small High Color', default: DEFAULTS.smallHighColor, input: 'color' },
+    { key: 'smallLowColor', label: 'Small Low Color', default: DEFAULTS.smallLowColor, input: 'color' },
+    { key: 'largeHighColor', label: 'Large High Color', default: DEFAULTS.largeHighColor, input: 'color' },
+    { key: 'largeLowColor', label: 'Large Low Color', default: DEFAULTS.largeLowColor, input: 'color' },
+    { key: 'maxHistory', label: 'Max History', default: DEFAULTS.maxHistory, min: 0, max: 1000, input: 'number' },
+    // ISO 'YYYY-MM-DD' — only a string survives the params panel. The engine
+    // compares it against the pivot bar's session `date` (calendar strings,
+    // not epochs), so no timezone conversion happens anywhere.
+    { key: 'historyStart', label: 'History Start (YYYY-MM-DD)', default: '', input: 'date' },
   ],
 };
 
@@ -97,6 +101,11 @@ function extractConfig(params: Params): AnchoredVwapConfig {
     leftDepth: Math.max(2, Math.floor(num(params['leftDepth'], DEFAULTS.leftDepth))),
     rightDepth: Math.max(2, Math.floor(num(params['rightDepth'], DEFAULTS.rightDepth))),
     maxHistory: Math.max(0, Math.floor(num(params['maxHistory'], DEFAULTS.maxHistory))),
+    // ISO date string through to the engine, which validates it and compares
+    // against each pivot's session `date` — no epoch conversion here.
+    ...(typeof params['historyStart'] === 'string' && params['historyStart'].trim() !== ''
+      ? { historyStart: params['historyStart'].trim() }
+      : {}),
   };
 }
 

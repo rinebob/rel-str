@@ -234,6 +234,13 @@ export interface IndicatorParamDef {
   max?: number;
   /** For string params: list of allowed values for dropdown rendering */
   options?: string[];
+  /**
+   * Control kind for surfaces that render an editor per param (the sandbox's
+   * params panel). Declared on the def so input type isn't guessed from the
+   * key name. Unset ⇒ callers fall back to the plain control for the value's
+   * JS type.
+   */
+  input?: 'number' | 'color' | 'date' | 'text';
 }
 
 /** Available indicator definition — each indicator type exports one of these */
