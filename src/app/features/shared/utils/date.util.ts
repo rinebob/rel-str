@@ -51,6 +51,23 @@ export function addDays(date: Date | number, days: number): Date {
   return d;
 }
 
+const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Parse a strict ISO 'YYYY-MM-DD' to a local-midnight Date, or null.
+ * `new Date(y, m, d)` rolls impossible dates forward ('2026-02-31' → Mar 3),
+ * so the parsed parts must round-trip. Returns a LOCAL Date — not
+ * `Date.parse`, whose UTC midnight shifts the calendar day for users west
+ * of Greenwich (the option-chain off-by-one).
+ */
+export function parseIsoDateLocal(v: string): Date | null {
+  const m = ISO_DATE_RE.exec(v.trim());
+  if (!m) return null;
+  const [y, mo, d] = [+m[1], +m[2], +m[3]];
+  const dt = new Date(y, mo - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d ? dt : null;
+}
+
 /**
  * Whole days between two YYYY-MM-DD dates (UTC).
  */

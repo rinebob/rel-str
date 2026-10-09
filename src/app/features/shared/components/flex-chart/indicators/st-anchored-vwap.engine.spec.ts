@@ -8,16 +8,25 @@ import type { PriceBar } from '../flex-chart.types';
 
 type Row = { o: number; h: number; l: number; c: number; v?: number };
 
+/** Local-midnight Date → its ISO 'YYYY-MM-DD' — matches `PriceBar.date`. */
+const isoOf = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 function makeBars(rows: Row[]): PriceBar[] {
-  return rows.map((r, i) => ({
-    date: `d${i}`,
-    x: new Date(2026, 0, 1 + i),
-    open: r.o,
-    high: r.h,
-    low: r.l,
-    close: r.c,
-    volume: r.v,
-  }));
+  return rows.map((r, i) => {
+    const x = new Date(2026, 0, 1 + i);
+    return {
+      // The history window compares `date`, not `x` — keep them consistent so
+      // fixtures model the production pair (x is a PT-midnight instant there).
+      date: isoOf(x),
+      x,
+      open: r.o,
+      high: r.h,
+      low: r.l,
+      close: r.c,
+      volume: r.v,
+    };
+  });
 }
 
 /** Bars whose typical price (H+L+C)/3 equals the close: high = c+1, low = c-1. */
@@ -196,7 +205,7 @@ describe('computeAnchoredVwap — typical price and volume', () => {
 
 describe('computeAnchoredVwap — history window', () => {
   const bars = barsFromCloses(CLOSES);
-  const timeOf = (bar: number): number => bars[bar].x.getTime();
+  const dateOf = (bar: number): string => bars[bar].date;
   const run = (over: Partial<AnchoredVwapConfig>) => computeAnchoredVwap(bars, { ...CONFIG, ...over });
   const terminated = (segs: AnchoredVwapSegment[], scale: AnchoredVwapSegment['scale']) =>
     segs.filter((s) => s.scale === scale && !s.active);
@@ -219,12 +228,12 @@ describe('computeAnchoredVwap — history window', () => {
 
   it('set: starts at the date and fills chronologically forward until maxHistory, never pruning the start', () => {
     // From bar 0: the cap of 2 keeps the FIRST two and drops the most recent.
-    expect(pivots(terminated(run({ historyStart: timeOf(0), maxHistory: 2 }), 'small'))).toEqual([5, 10]);
-    expect(pivots(terminated(run({ historyStart: timeOf(0), maxHistory: 1 }), 'small'))).toEqual([5]);
+    expect(pivots(terminated(run({ historyStart: dateOf(0), maxHistory: 2 }), 'small'))).toEqual([5, 10]);
+    expect(pivots(terminated(run({ historyStart: dateOf(0), maxHistory: 1 }), 'small'))).toEqual([5]);
   });
 
   it('set: only segments whose pivot is on or after the date are eligible', () => {
-    const segs = run({ historyStart: timeOf(10), maxHistory: 100 });
+    const segs = run({ historyStart: dateOf(10), maxHistory: 100 });
     expect(pivots(terminated(segs, 'small'))).toEqual([10, 15]);
     expect(pivots(terminated(segs, 'large'))).toEqual([15]);
   });
@@ -254,12 +263,21 @@ describe('computeAnchoredVwap — history window', () => {
     expect(terminated(run({ maxHistory: 0 }), 'small')).toEqual([]);
     expect(actives(run({ maxHistory: 1 }))).toEqual(ALL_ACTIVE);
     // A start date after every pivot leaves no history but all three active lines.
-    const late = run({ historyStart: timeOf(30) + 86_400_000, maxHistory: 100 });
+    const late = run({ historyStart: '2026-02-01', maxHistory: 100 });
     expect(terminated(late, 'small')).toEqual([]);
     expect(actives(late)).toEqual(ALL_ACTIVE);
   });
 
-  it('treats a non-finite historyStart as unset', () => {
-    expect(pivots(terminated(run({ historyStart: NaN, maxHistory: 2 }), 'small'))).toEqual([10, 15]);
+  it.each(['not-a-date', '2026-13-40', ''])('treats a non-ISO historyStart as unset — %s', (v) => {
+    expect(pivots(terminated(run({ historyStart: v, maxHistory: 2 }), 'small'))).toEqual([10, 15]);
+  });
+
+  it('filters on the pivot\'s session date, never the epoch of x', () => {
+    // Production `x` is a PT-midnight instant; an epoch threshold parsed in
+    // the user's timezone would move the boundary for users west of PT. Only
+    // `date` participates — push every epoch into 2030 and nothing changes.
+    const shifted = bars.map((b) => ({ ...b, x: new Date(Date.UTC(2030, 5, 15)) }));
+    const segs = computeAnchoredVwap(shifted, { ...CONFIG, historyStart: '2026-01-16', maxHistory: 100 });
+    expect(pivots(terminated(segs, 'small'))).toEqual([15]);
   });
 });

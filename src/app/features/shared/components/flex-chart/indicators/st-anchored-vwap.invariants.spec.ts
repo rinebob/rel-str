@@ -22,7 +22,11 @@ function makeWalk(seed: number, n: number): PriceBar[] {
     const high = Math.max(open, close) * (1 + rnd() * 0.01);
     const low = Math.min(open, close) * (1 - rnd() * 0.01);
     const volume = rnd() < 0.1 ? 0 : Math.floor(rnd() * 5000);
-    bars.push({ date: `d${i}`, x: new Date(2026, 0, 1 + i), open, high, low, close, volume });
+    const x = new Date(2026, 0, 1 + i);
+    // `date` must be x's ISO calendar — the history window compares `date`,
+    // not `x`, so a synthetic label would silently disable era mode here.
+    const date = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+    bars.push({ date, x, open, high, low, close, volume });
   }
   return bars;
 }
@@ -129,7 +133,7 @@ describe('computeAnchoredVwap — invariants on varied series', () => {
         const byKey = new Map<string, AnchoredVwapSegment>(segs.map((s) => [s.key, s]));
         const modes: Partial<AnchoredVwapConfig>[] = [
           { maxHistory: 3 },
-          { maxHistory: 3, historyStart: bars[Math.floor(bars.length / 2)].x.getTime() },
+          { maxHistory: 3, historyStart: bars[Math.floor(bars.length / 2)].date },
           { maxHistory: 0 },
         ];
         for (const mode of modes) {

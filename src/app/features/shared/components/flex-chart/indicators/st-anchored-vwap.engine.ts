@@ -20,6 +20,7 @@
  */
 
 import type { PriceBar } from '../flex-chart.types';
+import { parseIsoDateLocal } from '../../../utils/date.util';
 import { computeZigZagAnchorEvents, DEFAULT_CONFIG, type AnchorEvent } from './st-zigzag.engine';
 import type {
   AnchoredVwapConfig,
@@ -98,36 +99,27 @@ function segmentPoints(
   return points;
 }
 
-/** A segment plus the pivot time the history window filters on. */
-interface Candidate {
-  segment: AnchoredVwapSegment;
-  pivotTime: number;
-}
-
 /** The segments of one side of one scale: one per anchor, in confirmation order. */
-function sideCandidates(
+function sideSegments(
   sums: CumulativeSums,
   anchors: AnchorEvent[],
   scale: AnchoredVwapScale,
   side: AnchoredVwapSide,
   lastBar: number,
-): Candidate[] {
+): AnchoredVwapSegment[] {
   return anchors.map((anchor, k) => {
     const next = anchors[k + 1];
     const startBar = anchor.confirmBar;
     const endBar = next ? next.confirmBar : lastBar;
     return {
-      pivotTime: anchor.time,
-      segment: {
-        key: `${scale}-${side}-${anchor.pivotBar}-${startBar}`,
-        scale,
-        side,
-        pivotBar: anchor.pivotBar,
-        startBar,
-        endBar,
-        active: !next,
-        points: segmentPoints(sums, anchor, startBar, endBar),
-      },
+      key: `${scale}-${side}-${anchor.pivotBar}-${startBar}`,
+      scale,
+      side,
+      pivotBar: anchor.pivotBar,
+      startBar,
+      endBar,
+      active: !next,
+      points: segmentPoints(sums, anchor, startBar, endBar),
     };
   });
 }
@@ -140,32 +132,35 @@ function sideCandidates(
  * Select what to draw for one scale: every active line, plus a window of the
  * terminated segments (both sides combined, ordered by start bar).
  *
- * - `historyStart` set: terminated segments whose pivot is on or after it,
- *   chronologically forward, the first `maxHistory` kept — the cap eats the
- *   recent end.
- * - unset (or non-finite): the most recent `maxHistory` kept, oldest pruned.
+ * - `historyStart` set (ISO 'YYYY-MM-DD'): terminated segments whose pivot's
+ *   session `date` is on or after it, chronologically forward, the first
+ *   `maxHistory` kept — the cap eats the recent end. Calendar strings are
+ *   compared, not epochs: a pivot's `x` is a PT-midnight instant for real
+ *   bars and browser-local midnight for synthetic ones, so an epoch
+ *   threshold would shift the boundary for users outside PT.
+ * - unset (or not an ISO date): the most recent `maxHistory` kept, oldest
+ *   pruned.
  *
  * Active lines are never windowed.
  */
 function applyHistoryWindow(
-  candidates: Candidate[],
-  historyStart: number | undefined,
+  bars: PriceBar[],
+  segments: AnchoredVwapSegment[],
+  historyStart: string | undefined,
   maxHistory: number,
 ): AnchoredVwapSegment[] {
   const cap = Math.max(0, Math.floor(maxHistory)) || 0;
-  const terminated = candidates
-    .filter((c) => !c.segment.active)
-    .sort((a, b) => a.segment.startBar - b.segment.startBar || (a.segment.side < b.segment.side ? -1 : 1));
+  const terminated = segments
+    .filter((s) => !s.active)
+    .sort((a, b) => a.startBar - b.startBar || (a.side < b.side ? -1 : 1));
 
-  let kept: Candidate[];
-  if (historyStart !== undefined && Number.isFinite(historyStart)) {
-    kept = terminated.filter((c) => c.pivotTime >= historyStart).slice(0, cap);
-  } else {
-    kept = terminated.slice(Math.max(0, terminated.length - cap));
-  }
+  const trimmed = historyStart?.trim();
+  const era = trimmed && parseIsoDateLocal(trimmed) !== null ? trimmed : undefined;
+  const kept = era !== undefined
+    ? terminated.filter((s) => bars[s.pivotBar].date >= era).slice(0, cap)
+    : terminated.slice(Math.max(0, terminated.length - cap));
 
-  return [...kept, ...candidates.filter((c) => c.segment.active)]
-    .map((c) => c.segment)
+  return [...kept, ...segments.filter((s) => s.active)]
     .sort((a, b) => (a.side === b.side ? a.startBar - b.startBar : a.side < b.side ? -1 : 1));
 }
 
@@ -199,10 +194,10 @@ export function computeAnchoredVwap(bars: PriceBar[], config: AnchoredVwapConfig
       allowZigZagOnOneBar: true,
       projectionPivots: false,
     });
-    const candidates = (['high', 'low'] as const).flatMap((side) =>
-      sideCandidates(sums, events.filter((e) => e.isHigh === (side === 'high')), scale, side, bars.length - 1),
+    const sideSegs = (['high', 'low'] as const).flatMap((side) =>
+      sideSegments(sums, events.filter((e) => e.isHigh === (side === 'high')), scale, side, bars.length - 1),
     );
-    segments.push(...applyHistoryWindow(candidates, config.historyStart, config.maxHistory));
+    segments.push(...applyHistoryWindow(bars, sideSegs, config.historyStart, config.maxHistory));
   }
 
   return segments;

@@ -22,11 +22,14 @@ export interface AnchoredVwapConfig {
   /** Shared pivot-confirmation depth, bars to the right — also the confirmation lag. */
   rightDepth: number;
   /**
-   * Optional history start (ms). Set: terminated segments whose pivot is on or
-   * after it render chronologically up to `maxHistory`. Unset: the most recent
-   * `maxHistory` terminated segments render.
+   * Optional history start as ISO 'YYYY-MM-DD' — compared against the pivot
+   * bar's session `date`, so the boundary is a calendar date, not an epoch
+   * (pivot `x` is a PT-midnight instant in real mode and local-midnight in
+   * synthetic; comparing strings sidesteps all of that). Set: terminated
+   * segments whose pivot is on or after it render chronologically up to
+   * `maxHistory`. Unset: the most recent `maxHistory` terminated segments.
    */
-  historyStart?: number;
+  historyStart?: string;
   /** Max terminated segments per scale, both sides combined. Active lines are never counted. */
   maxHistory: number;
 }
