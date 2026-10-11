@@ -3,8 +3,10 @@
  *
  * Generalized paper-wide stats pass: one trade listing fans out to rollup
  * scopes across every dimension field — all, inst-*, var-*, cohort-*,
- * sig-*, sym-* — each written as a `paper-trading/stats/items/stats-{scope}`
- * doc via the shared recompute seam (equity curve + drawdown included).
+ * sig-*, sym-*, plus the #919 auto-paper stamp slices sigtype-*, dir-*,
+ * sector-*, ind-*, captier-*, sigstatus-* — each written as a
+ * `paper-trading/stats/items/stats-{scope}` doc via the shared recompute
+ * seam (equity curve + drawdown included).
  */
 
 import assert from 'node:assert/strict';
@@ -84,6 +86,54 @@ describe('tradeScopes', () => {
       'all',
       'sym-SPY',
     ]);
+  });
+
+  it('a fully-stamped auto-paper trade rolls into all six new scopes + existing', () => {
+    const t = trade({
+      signalId: 'AAPL_D_ST_TREND_RIDER_V1_LONG_2026-10-09',
+      signalType: 'D_ST_TREND_RIDER_V1_LONG',
+      signalStatus: 'CONFIRMED',
+      sector: 'TECHNOLOGY',
+      industry: 'Software - Application',
+      marketCapTier: 'mega' as PaperTrade['marketCapTier'],
+      variantKeys: ['trailing-8'],
+      order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 },
+    });
+    assert.deepEqual(tradeScopes(t).sort(), [
+      'all',
+      'captier-mega',
+      'dir-long',
+      'ind-software-application',
+      'sector-technology',
+      'sig-AAPL_D_ST_TREND_RIDER_V1_LONG_2026-10-09',
+      'sigstatus-confirmed',
+      'sigtype-d-st-trend-rider-v1-long',
+      'sym-QQQM',
+      'var-trailing-8',
+    ]);
+  });
+
+  it('dir-* only emits for signal trades (no signalType → no dir scope)', () => {
+    const t = trade({
+      sector: 'TECHNOLOGY',
+      order: { side: TradeSide.SHORT, type: 'LIMIT', quantity: 1 },
+    });
+    const scopes = tradeScopes(t);
+    assert.equal(scopes.includes('dir-short'), false);
+    assert.equal(scopes.includes('sector-technology'), true);
+  });
+
+  it('an un-sluggable stamp drops just that scope, not the pass', () => {
+    const t = trade({
+      signalType: 'D_ST_TREND_RIDER_V1_LONG',
+      sector: '!!!',
+      industry: 'Software',
+    });
+    const scopes = tradeScopes(t);
+    assert.equal(scopes.includes('sector-!!!'), false);
+    assert.equal(scopes.some((s) => s.startsWith('sector-')), false);
+    assert.equal(scopes.includes('ind-software'), true);
+    assert.equal(scopes.includes('sigtype-d-st-trend-rider-v1-long'), true);
   });
 });
 

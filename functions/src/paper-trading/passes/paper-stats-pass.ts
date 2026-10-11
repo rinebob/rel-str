@@ -10,6 +10,9 @@
  *   cohort-{cohortId}      — signal cohort group
  *   sig-{signalId}         — originating signal
  *   sym-{SYMBOL}           — underlying symbol
+ *   sigtype-{signalType}   — auto-paper signal-type slice (#919)
+ *   dir-{side}             — signal direction slice (signal trades only)
+ *   sector-*, ind-*, captier-*, sigstatus-* — auto-paper stamp slices
  *
  * Each scope is recomputed from the positions-adapted trades via the shared
  * `recomputeStats` seam (equity-curve point + max drawdown + counts + P&L),
@@ -26,9 +29,15 @@
 
 import {
   statsScopeAll,
+  statsScopeCapTier,
   statsScopeCohort,
+  statsScopeDirection,
+  statsScopeIndustry,
   statsScopeInstance,
+  statsScopeSector,
   statsScopeSignal,
+  statsScopeSignalStatus,
+  statsScopeSignalType,
   statsScopeSymbol,
   statsScopeVariant,
 } from '@paper-trading/ids';
@@ -54,6 +63,27 @@ export function tradeScopes(trade: PaperTrade): string[] {
   for (const variantKey of trade.variantKeys) {
     scopes.push(statsScopeVariant(variantKey));
   }
+
+  // Auto-paper stamp slices (Thread #904 / task #919). An un-sluggable
+  // stamp (e.g. all-separator sector, or a Unicode-fold char like 'ſ')
+  // drops just that scope — scopeSlug throws on empty slugs and a throw
+  // here would kill the whole pass, so catch rather than predict.
+  const slugScope = (value: string | undefined, build: (v: string) => string) => {
+    if (value === undefined) return;
+    try {
+      scopes.push(build(value));
+    } catch {
+      logger.warn(`stats scope skipped — un-sluggable stamp '${value}' on ${trade.id}`);
+    }
+  };
+  if (trade.signalType) {
+    slugScope(trade.signalType, statsScopeSignalType);
+    scopes.push(statsScopeDirection(trade.order.side));
+  }
+  slugScope(trade.signalStatus, statsScopeSignalStatus);
+  slugScope(trade.sector, statsScopeSector);
+  slugScope(trade.industry, statsScopeIndustry);
+  slugScope(trade.marketCapTier, statsScopeCapTier);
   return scopes;
 }
 
