@@ -148,6 +148,32 @@ describe('PaperTradingComponent', () => {
         ['EQ', [TRADES[0], TRADES[2]]],
         ['CSP', [TRADES[1]]],
       ])),
+      tradesBySignalType: signal(new Map<string, PaperTrade[]>([
+        ['D_ST_TREND_RIDER_V1_LONG', [TRADES[0]]],
+        ['—', [TRADES[1], TRADES[2]]],
+      ])),
+      tradesByDirection: signal(new Map<string, PaperTrade[]>([
+        ['long', [TRADES[0]]],
+        ['short', [TRADES[2]]],
+        ['—', [TRADES[1]]], // non-signal trades bucket here — real grouper semantics
+      ])),
+      tradesBySector: signal(new Map<string, PaperTrade[]>([
+        ['TECHNOLOGY', [TRADES[0], TRADES[1]]],
+        ['!!!', [TRADES[2]]], // un-sluggable — scopeSlug rejects it
+        ['—', [TRADES[1]]],
+      ])),
+      tradesByIndustry: signal(new Map<string, PaperTrade[]>([
+        ['Software - Application', [TRADES[0]]],
+        ['—', [TRADES[1], TRADES[2]]],
+      ])),
+      tradesByCapTier: signal(new Map<string, PaperTrade[]>([
+        ['mega', [TRADES[0]]],
+        ['—', [TRADES[1], TRADES[2]]],
+      ])),
+      tradesBySignalStatus: signal(new Map<string, PaperTrade[]>([
+        ['CONFIRMED', [TRADES[0], TRADES[1]]],
+        ['—', [TRADES[2]]],
+      ])),
       loadAll: jest.fn(),
       loadAccount: jest.fn(),
       loadTrades: jest.fn(),
@@ -264,6 +290,75 @@ describe('PaperTradingComponent', () => {
     // Rendering exposes the jump affordance per group section.
     const jump = fixture.nativeElement.querySelector('.scope-jump');
     expect(jump).toBeTruthy();
+  });
+
+  it.each([
+    ['signalType', 'D_ST_TREND_RIDER_V1_LONG'],
+    ['sector', 'TECHNOLOGY'],
+    ['industry', 'Software - Application'],
+    ['capTier', 'mega'],
+    ['signalStatus', 'CONFIRMED'],
+  ] as const)('group-by %s repivots the table with a "—" unstamped bucket', (dim, stampedKey) => {
+    fixture.detectChanges();
+    component.groupBy.set(dim);
+    fixture.detectChanges();
+
+    const keys = [...fixture.nativeElement.querySelectorAll('.table-section')]
+      .map((g) => g.getAttribute('data-group-key'));
+    expect(keys).toContain(stampedKey);
+    expect(keys).toContain('—');
+  });
+
+  it('group-by direction repivots by order side', () => {
+    fixture.detectChanges();
+    component.groupBy.set('direction');
+    fixture.detectChanges();
+    const keys = [...fixture.nativeElement.querySelectorAll('.table-section')]
+      .map((g) => g.getAttribute('data-group-key'));
+    expect(keys).toContain('long');
+    expect(keys).toContain('short');
+  });
+
+  it.each([
+    ['signalType', 'D_ST_TREND_RIDER_V1_LONG', 'sigtype-d-st-trend-rider-v1-long'],
+    ['direction', 'long', 'dir-long'],
+    ['sector', 'TECHNOLOGY', 'sector-technology'],
+    ['industry', 'Software - Application', 'ind-software-application'],
+    ['capTier', 'mega', 'captier-mega'],
+    ['signalStatus', 'CONFIRMED', 'sigstatus-confirmed'],
+  ] as const)('scope-jump on %s group repivots the curve to %s', (dim, key, scope) => {
+    component.groupBy.set(dim);
+    component.selectGroupScope(key);
+    expect(component.statsScope()).toBe(scope);
+  });
+
+  it('"—" group keys leave the stats scope unchanged and hide the jump button', () => {
+    fixture.detectChanges();
+    component.groupBy.set('sector');
+    fixture.detectChanges();
+
+    component.statsScope.set('sym-AAPL');
+    component.selectGroupScope('—');
+    expect(component.statsScope()).toBe('sym-AAPL');
+
+    const dashGroup = [...fixture.nativeElement.querySelectorAll('.table-section')]
+      .find((g) => g.getAttribute('data-group-key') === '—');
+    expect(dashGroup).toBeTruthy();
+    expect(dashGroup!.querySelector('.scope-jump')).toBeNull();
+  });
+
+  it('an un-sluggable group key gets no jump button and cannot repivot', () => {
+    fixture.detectChanges();
+    component.groupBy.set('sector');
+    fixture.detectChanges();
+
+    const junkGroup = [...fixture.nativeElement.querySelectorAll('.table-section')]
+      .find((g) => g.getAttribute('data-group-key') === '!!!');
+    expect(junkGroup).toBeTruthy();
+    expect(junkGroup!.querySelector('.scope-jump')).toBeNull();
+
+    component.selectGroupScope('!!!');
+    expect(component.statsScope()).toBe('all');
   });
 
   it('falls back to the all scope when the selected scope disappears', () => {

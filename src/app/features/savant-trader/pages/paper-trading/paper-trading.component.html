@@ -49,6 +49,12 @@
           <mat-option value="variant">Exit variant</mat-option>
           <mat-option value="expression">Expression</mat-option>
           <mat-option value="symbol">Symbol</mat-option>
+          <mat-option value="signalType">Signal Type</mat-option>
+          <mat-option value="direction">Direction</mat-option>
+          <mat-option value="sector">Sector</mat-option>
+          <mat-option value="industry">Industry</mat-option>
+          <mat-option value="capTier">Cap Tier</mat-option>
+          <mat-option value="signalStatus">Signal Status</mat-option>
         </mat-select>
       </mat-form-field>
       <a mat-stroked-button [routerLink]="'/' + appRoutes.STRATEGY_BUILDER" class="manage-strategies-btn">
@@ -81,10 +87,12 @@
                   <mat-icon>{{ selectedCohort() === group.key ? 'expand_less' : 'expand_more' }}</mat-icon>
                   Cohort {{ group.key }}
                 </button>
+              } @else if (dimLabel()) {
+                {{ dimLabel() }}: {{ group.key }}
               } @else {
                 {{ group.key }}
               }
-              @if (groupBy() !== 'all' && groupBy() !== 'expression' && group.key !== 'none') {
+              @if (scopeForGroup(group.key)) {
                 <button
                   mat-icon-button
                   class="scope-jump"

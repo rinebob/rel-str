@@ -147,7 +147,7 @@ describe('PaperTradingStore', () => {
     mockService.listPaperTrades$.mockReturnValue(of({ trades: [makeTrade(), SIGNAL_TRADE] }));
     store.loadTrades({ cohortId: 'cohort-9', expression: 'CSP' });
     await new Promise<void>((r) => setTimeout(r, 0));
-    expect(mockService.listPaperTrades$).toHaveBeenCalledWith({ cohortId: 'cohort-9', expression: 'CSP' });
+    expect(mockService.listPaperTrades$).toHaveBeenCalledWith({ cohortId: 'cohort-9', expression: 'CSP', includeAutoPaper: true });
     expect(store.trades().length).toBe(2);
     expect(store.isLoadingTrades()).toBe(false);
     expect(store.tradeFilters()).toEqual({ cohortId: 'cohort-9', expression: 'CSP' });
@@ -156,7 +156,7 @@ describe('PaperTradingStore', () => {
   it('setTradeFilters replaces the request and refetches', async () => {
     store.setTradeFilters({ symbol: 'AAPL' });
     await new Promise<void>((r) => setTimeout(r, 0));
-    expect(mockService.listPaperTrades$).toHaveBeenCalledWith({ symbol: 'AAPL' });
+    expect(mockService.listPaperTrades$).toHaveBeenCalledWith({ symbol: 'AAPL', includeAutoPaper: true });
   });
 
   it('open/closed/pending selectors split by status', async () => {
@@ -307,7 +307,69 @@ describe('PaperTradingStore', () => {
     mockService.listPaperTrades$.mockReturnValue(of({ trades: [] }));
     store.loadTrades({ symbol: 'QQQM' });
     expect(pending.observed).toBe(false); // first sub was dropped
-    expect(mockService.listPaperTrades$).toHaveBeenLastCalledWith({ symbol: 'QQQM' });
+    expect(mockService.listPaperTrades$).toHaveBeenLastCalledWith({ symbol: 'QQQM', includeAutoPaper: true });
+  });
+
+  it('auto-paper stamp dims group stamped trades; unstamped bucket under "—"', async () => {
+    const stamped = makeTrade({
+      id: 't-auto',
+      signalType: 'D_ST_TREND_RIDER_V1_LONG',
+      signalStatus: 'CONFIRMED',
+      sector: 'TECHNOLOGY',
+      industry: 'Software - Application',
+      marketCapTier: 'mega',
+    });
+    // Partially stamped: signalType but no sector/industry/etc.
+    const partial = makeTrade({ id: 't-partial', signalType: 'D_ST_TREND_RIDER_V2_SHORT' });
+    mockService.listPaperTrades$.mockReturnValue(of({ trades: [stamped, partial, makeTrade()] }));
+    store.loadTrades();
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    expect(store.tradesBySignalType().get('D_ST_TREND_RIDER_V1_LONG')?.map((t) => t.id)).toEqual(['t-auto']);
+    expect(store.tradesBySignalType().get('D_ST_TREND_RIDER_V2_SHORT')?.map((t) => t.id)).toEqual(['t-partial']);
+    expect(store.tradesBySignalType().get('—')?.map((t) => t.id)).toEqual(['t-1']);
+    expect(store.tradesBySector().get('TECHNOLOGY')?.map((t) => t.id)).toEqual(['t-auto']);
+    expect(store.tradesBySector().get('—')?.map((t) => t.id)).toEqual(['t-partial', 't-1']);
+    expect(store.tradesByIndustry().get('Software - Application')?.map((t) => t.id)).toEqual(['t-auto']);
+    expect(store.tradesByCapTier().get('mega')?.map((t) => t.id)).toEqual(['t-auto']);
+    expect(store.tradesBySignalStatus().get('CONFIRMED')?.map((t) => t.id)).toEqual(['t-auto']);
+    expect(store.tradesBySignalStatus().get('—')?.map((t) => t.id)).toEqual(['t-partial', 't-1']);
+  });
+
+  it('direction groups signal trades by order.side; non-signal trades bucket under "—"', async () => {
+    // Group membership must match what the stats dir-* docs contain —
+    // the stats pass only emits dir-* for trades carrying signalType.
+    const signalShort = makeTrade({
+      id: 't-sig-short',
+      signalType: 'D_ST_TREND_RIDER_V2_SHORT',
+    });
+    const signalLong = makeTrade({
+      id: 't-sig-long',
+      signalType: 'D_ST_TREND_RIDER_V1_LONG',
+      order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 },
+    });
+    mockService.listPaperTrades$.mockReturnValue(
+      of({ trades: [makeTrade(), signalShort, signalLong] }),
+    );
+    store.loadTrades();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(store.tradesByDirection().get('short')?.map((t) => t.id)).toEqual(['t-sig-short']);
+    expect(store.tradesByDirection().get('long')?.map((t) => t.id)).toEqual(['t-sig-long']);
+    expect(store.tradesByDirection().get('—')?.map((t) => t.id)).toEqual(['t-1']);
+  });
+
+  it('loadTrades always includes auto-paper trades alongside active filters', async () => {
+    mockService.listPaperTrades$.mockReturnValue(of({ trades: [] }));
+    store.loadTrades();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(mockService.listPaperTrades$).toHaveBeenCalledWith({ includeAutoPaper: true });
+
+    store.loadTrades({ symbol: 'AAPL' });
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(mockService.listPaperTrades$).toHaveBeenLastCalledWith({
+      includeAutoPaper: true,
+      symbol: 'AAPL',
+    });
   });
 
   it('ungrouped fields bucket under "none"', async () => {

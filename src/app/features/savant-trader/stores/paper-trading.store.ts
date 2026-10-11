@@ -29,6 +29,10 @@ import { PaperTradeStatus } from '@paper-trading/contracts';
 
 const NO_GROUP = 'none';
 
+/** Bucket for trades missing an auto-paper stamp field — keeps the '—'
+ *  placeholder out of statsScope mapping (no stats doc exists for it). */
+const NO_STAMP = '—';
+
 /** Group trades by a key projection — multi-key projections (variantKeys)
  *  place a trade in every bucket it belongs to. */
 function groupTradesBy(
@@ -148,6 +152,31 @@ export const PaperTradingStore = signalStore(
     tradesByExpression: computed(() =>
       groupTradesBy(state.trades(), (t) => [t.expression ?? NO_GROUP]),
     ),
+
+    /** Auto-paper stamp dims (#921) — manual/unstamped trades bucket
+     *  under '—'. Direction also gates on signalType so group membership
+     *  matches the stats-dir-* scope contents (the BE only emits dir-*
+     *  for signal trades). */
+    tradesBySignalType: computed(() =>
+      groupTradesBy(state.trades(), (t) => [t.signalType ?? NO_STAMP]),
+    ),
+    tradesByDirection: computed(() =>
+      groupTradesBy(state.trades(), (t) =>
+        [t.signalType ? (t.order?.side ?? NO_STAMP) : NO_STAMP],
+      ),
+    ),
+    tradesBySector: computed(() =>
+      groupTradesBy(state.trades(), (t) => [t.sector ?? NO_STAMP]),
+    ),
+    tradesByIndustry: computed(() =>
+      groupTradesBy(state.trades(), (t) => [t.industry ?? NO_STAMP]),
+    ),
+    tradesByCapTier: computed(() =>
+      groupTradesBy(state.trades(), (t) => [t.marketCapTier ?? NO_STAMP]),
+    ),
+    tradesBySignalStatus: computed(() =>
+      groupTradesBy(state.trades(), (t) => [t.signalStatus ?? NO_STAMP]),
+    ),
   })),
 
   withMethods(
@@ -172,8 +201,11 @@ export const PaperTradingStore = signalStore(
           }
           patchState(state, { isLoadingTrades: true, error: null });
 
+          // This page is the auto-paper surface — include the synthetic
+          // 'auto-paper' user's trades (excluded server-side by default).
+          // Flag last: it's a page contract, not an overridable filter.
           tradesSub = service
-            .listPaperTrades$(state.tradeFilters())
+            .listPaperTrades$({ ...state.tradeFilters(), includeAutoPaper: true })
             .pipe(
               catchError((err) => {
                 const msg = toMessage(err, 'Failed to load paper trades');

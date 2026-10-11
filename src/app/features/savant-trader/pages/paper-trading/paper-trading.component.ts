@@ -31,9 +31,32 @@ import {
   statsScopeInstance,
   statsScopeSymbol,
   statsScopeVariant,
+  statsScopeSignalType,
+  statsScopeDirection,
+  statsScopeSector,
+  statsScopeIndustry,
+  statsScopeCapTier,
+  statsScopeSignalStatus,
 } from '@paper-trading/ids';
+import { TradeSide } from '@common';
 
-export type GroupByKey = 'all' | 'instance' | 'cohort' | 'variant' | 'expression' | 'symbol';
+export type GroupByKey =
+  | 'all' | 'instance' | 'cohort' | 'variant' | 'expression' | 'symbol'
+  | 'signalType' | 'direction' | 'sector' | 'industry' | 'capTier' | 'signalStatus';
+
+/** Group keys that carry no stats scope — unstamped ('—') and legacy
+ *  ungrouped ('none') buckets skip the equity-curve repivot. */
+const NO_SCOPE_KEYS = new Set(['—', 'none']);
+
+/** Per-dimension config: the store grouping, the stats-scope builder
+ *  (absent for dims with no stats doc — 'all', 'expression'), and an
+ *  optional header label for dims whose raw keys need context
+ *  ("Direction: long"). One table — a new dim touches one entry. */
+interface GroupDim {
+  label?: string;
+  map: () => Map<string, PaperTrade[]>;
+  scope?: (key: string) => string;
+}
 
 export interface TradeGroup {
   key: string;
@@ -105,6 +128,25 @@ export class PaperTradingComponent implements OnInit {
   /** Cohort open in the drill-down panel (cohortId), or null. */
   readonly selectedCohort = signal<string | null>(null);
 
+  /** One row per groupable dimension — drives groupedTrades, the group
+   *  header label, and the scope-jump button. */
+  private readonly GROUP_DIMS: Partial<Record<GroupByKey, GroupDim>> = {
+    instance: { map: () => this.store.tradesByInstance(), scope: statsScopeInstance },
+    cohort: { map: () => this.store.tradesByCohort(), scope: statsScopeCohort },
+    variant: { map: () => this.store.tradesByVariant(), scope: statsScopeVariant },
+    expression: { map: () => this.store.tradesByExpression() },
+    symbol: { map: () => this.store.tradesBySymbol(), scope: statsScopeSymbol },
+    signalType: { label: 'Signal Type', map: () => this.store.tradesBySignalType(), scope: statsScopeSignalType },
+    direction: { label: 'Direction', map: () => this.store.tradesByDirection(), scope: (k) => statsScopeDirection(k as TradeSide) },
+    sector: { label: 'Sector', map: () => this.store.tradesBySector(), scope: statsScopeSector },
+    industry: { label: 'Industry', map: () => this.store.tradesByIndustry(), scope: statsScopeIndustry },
+    capTier: { label: 'Cap Tier', map: () => this.store.tradesByCapTier(), scope: statsScopeCapTier },
+    signalStatus: { label: 'Signal Status', map: () => this.store.tradesBySignalStatus(), scope: statsScopeSignalStatus },
+  };
+
+  /** Dimension label for group card headers, or null to show the raw key. */
+  protected readonly dimLabel = computed(() => this.GROUP_DIMS[this.groupBy()]?.label ?? null);
+
   // Chart config (same Syncfusion setup as the options dashboard).
   readonly primaryXAxis = {
     valueType: 'DateTime' as const,
@@ -127,14 +169,9 @@ export class PaperTradingComponent implements OnInit {
   /** Trades grouped per the selected dimension. The store's tradesBy*
    *  computeds return Maps — iterate .entries(), not Object.entries. */
   readonly groupedTrades = computed<TradeGroup[]>(() => {
-    const by = this.groupBy();
     const map =
-      by === 'instance' ? this.store.tradesByInstance()
-      : by === 'cohort' ? this.store.tradesByCohort()
-      : by === 'variant' ? this.store.tradesByVariant()
-      : by === 'expression' ? this.store.tradesByExpression()
-      : by === 'symbol' ? this.store.tradesBySymbol()
-      : new Map<string, PaperTrade[]>([['all', this.store.trades()]]);
+      this.GROUP_DIMS[this.groupBy()]?.map()
+      ?? new Map<string, PaperTrade[]>([['all', this.store.trades()]]);
     return [...map.entries()]
       .map(([key, trades]) => toTradeGroup(key, trades))
       .sort((a, b) => b.trades.length - a.trades.length || a.key.localeCompare(b.key));
@@ -195,15 +232,24 @@ export class PaperTradingComponent implements OnInit {
 
   // ── Template helpers ──────────────────────────────────────────────────────
 
+  /** Stats scope for a group key under the active dimension, or null when
+   *  the dim has no scope mapping, the key is a placeholder ('—'/'none'),
+   *  or the scope builder rejects the key. The template uses the same
+   *  check to hide the jump button, so a rendered button always repivots. */
+  scopeForGroup(key: string): string | null {
+    const fn = this.GROUP_DIMS[this.groupBy()]?.scope;
+    if (!fn || NO_SCOPE_KEYS.has(key)) return null;
+    try {
+      return fn(key);
+    } catch {
+      return null; // un-sluggable key (scopeSlug throws on empty slugs)
+    }
+  }
+
   /** Point the equity-curve scope at a group (couples group-by selection
    *  to the chart per AC "repivots trades + curve per dimension"). */
   selectGroupScope(key: string): void {
-    const scope =
-      this.groupBy() === 'instance' ? statsScopeInstance(key)
-      : this.groupBy() === 'cohort' ? statsScopeCohort(key)
-      : this.groupBy() === 'variant' ? statsScopeVariant(key)
-      : this.groupBy() === 'symbol' ? statsScopeSymbol(key)
-      : null;
+    const scope = this.scopeForGroup(key);
     if (scope) this.statsScope.set(scope);
   }
 
