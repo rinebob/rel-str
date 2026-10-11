@@ -138,6 +138,7 @@ export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
     [AppRoutes.STRATEGY_BUILDER]:             { title: 'Strategy Builder',           icon: 'build' },
     [AppRoutes.PORTFOLIO_DASHBOARD]:          { title: 'Portfolio Dashboard',        icon: 'account_balance_wallet' },
     [AppRoutes.PORTFOLIO_ALLOCATION]:         { title: 'Portfolio Allocation',       icon: 'pie_chart' },
+    [AppRoutes.PORTFOLIO_GALLERY_V2]:         { title: 'Portfolio (v2)',             icon: 'dashboard' },
     [AppRoutes.OPTION_CHAIN_PCT_CHANGE]:      { title: 'Option Chain % Change',      icon: 'percent' },
     [AppRoutes.OPTION_CHAIN]:                 { title: 'Option Chain',               icon: 'link' },
     [AppRoutes.SWING_ANALYSIS]:               { title: 'Swing Analysis',             icon: 'query_stats' },

@@ -37,6 +37,7 @@ describe('core-routes — canonical journey paths (#699)', () => {
     ['dashboard-v3', 'Dashboard V3'],
     ['signal-history', 'Signal History'],
     ['signal-action-report', 'Triage Report'],
+    ['portfolio-v2', 'Portfolio Gallery (#950 — hyphenated, not portfolio/v2)'],
   ])('registers %s (%s) as an auth-gated component route', (path) => {
     const route = routeByPath(path);
     expect(route).toBeTruthy();
@@ -123,6 +124,7 @@ describe('core-routes — canonical journey paths (#699)', () => {
   it('AppRoutes values match the canonical tree', () => {
     const expected: Partial<Record<keyof typeof AppRoutes, string>> = {
       PORTFOLIO_DASHBOARD: 'portfolio',
+      PORTFOLIO_GALLERY_V2: 'portfolio-v2',
       PORTFOLIO_ALLOCATION: 'portfolio/allocation',
       RUN_DASHBOARD: 'signals/runs',
       SIGNAL_REVIEW: 'signals/review',

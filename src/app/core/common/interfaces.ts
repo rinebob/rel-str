@@ -36,6 +36,8 @@ export enum AppRoutes {
 	STRATEGY_BUILDER = 'options/strategy/build',
 	PORTFOLIO_DASHBOARD = 'portfolio',
 	PORTFOLIO_ALLOCATION = 'portfolio/allocation',
+	/** Position gallery — live equity positions as cards (#926). */
+	PORTFOLIO_GALLERY_V2 = 'portfolio-v2',
 	OPTION_CHAIN_PCT_CHANGE = 'options/pct-change',
 	OPTION_CHAIN = 'options/chain',
 	SWING_ANALYSIS = 'analysis/swings',

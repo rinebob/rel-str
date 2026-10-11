@@ -105,6 +105,12 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.AllocationPageComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.PORTFOLIO_GALLERY_V2,
+                title: PAGE_INFO[AppRoutes.PORTFOLIO_GALLERY_V2].title,
+                loadComponent: () => import('../features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-view.component')
+                .then(mod => mod.PortfolioGalleryViewComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.TRADE_JOURNAL,
                 title: PAGE_INFO[AppRoutes.TRADE_JOURNAL].title,
                 loadComponent: () => import('../features/trade-journal/trade-journal.view')
