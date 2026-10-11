@@ -9,7 +9,7 @@
 **Type:** TEST  
 **Status:** Complete  
 **Created:** 2026-09-28  
-**Last Updated:** 2026-10-08  
+**Last Updated:** 2026-10-09  
 
 > **2026-09-29 amendment.** Manifest loader (24 cases) + drift diff (17 cases) shipped. Live surface = 76 tools — the read sweep target expands accordingly; coverage matrix rows = live tool count.  
 > **2026-10-05 amendment — #684 read-only sweep executed.** 233 manifest probes → 233 captures in `docs/topics/657-rh-mcp/captures/` (plus 2 pre-existing #682 artifacts = 235 files). See "Sweep execution results" below.
@@ -333,6 +333,36 @@ opt-matrix) plus real place-level STO attempts, ~17:38–17:44Z:
 35 of 38 opt-matrix probes captured; `opt-can-spread`, `opt-can-stop`,
 `opt-can-naked` intentionally skipped (no live order — same pattern as
 `mx-can-lots`). Option side ends flat: `positions: []`, `orders: []`.
+
+## Misc-mutation sweep (#689 coverage gap-closure, 2026-10-09)
+
+Group `misc-mut` — 18 probes covering the 18 tools that had zero
+captures (all write-path): watchlist lifecycle, alert lifecycle, scan
+lifecycle, crypto order, option exercise.
+
+- Watchlist round-trip (`wl-create` → `wl-add-eq`/`wl-add-opt` →
+  `wl-update` → `wl-rm-opt`/`wl-rm-eq` → `wl-follow`/`wl-unfollow`) — all
+  success. `add_option_to_watchlist` notably takes **no `list_id`**
+  (options land in a dedicated option watchlist). **Residue:** no
+  `delete_watchlist` tool exists — the `MCP-DISCOVERY-TEST-2` list must
+  be removed manually in-app.
+- Alert round-trip (`al-create` price_below → `al-update` → `al-delete`
+  confirm:true) — all success; `alert_id` harvested from create.
+- Scan round-trip (`sc-create` → `sc-update-config` →
+  `sc-update-filters`) — all success. **Residue:** no `delete_scan` tool
+  — `MCP-DISCOVERY-TEST` scan must be removed manually.
+- `cx-place` ($1 BTC limit buy @ far-below-mark) — **rejected**:
+  `"no crypto account linked to brokerage account"` — this brokerage
+  account has no crypto account (signup gate). `cx-cancel` re-armed
+  during #689 review with a nil `order_id` — same `no crypto account
+  linked` envelope captured (error-only; a success-path capture needs a
+  crypto-enabled account).
+- `ox-exercise` (NFLX 70C, no position) — `400 not_enough_contracts`.
+- `ox-cancel-ex` — `no queued exercise found` tool-level message.
+
+Result: every live tool now has an observed envelope — manifest 351
+probes / 352 captures; canonical doc reports 69 probed + 7 error-only,
+zero unprobed.
 
 ## Error-envelope session (#687, 2026-10-06)
 

@@ -1,23 +1,23 @@
 # Robinhood MCP — Canonical Tool Discovery
 
-> **Generated draft** (2026-10-08T17:43:07.474Z) — assembled from `probe-manifest.json` × `captures/` × live `tools/list`. Hand-finished by task #689: safety notes, gap callouts, curated samples.
+> **Canonical** — assembled (2026-10-11) from `probe-manifest.json` × `captures/` × live `tools/list`, hand-finished under #689: universal envelope, per-tool safety classification, gap callouts, allowlist mapping. Regenerate via `functions/src/rh-agent-mcp/diagnostics/run-assemble-discovery-doc.ts`, then re-apply the sections marked *(#689)*.
 
 ## Coverage matrix
 
 | tool | category | params (req/total) | probes | outcomes | status |
 |---|---|---|---|---|---|
-| add_option_to_watchlist | Watchlists | 1/2 | — | — | missing |
-| add_to_watchlist | Watchlists | 1/4 | — | — | missing |
-| cancel_crypto_order | Crypto | 2/2 | — | — | missing |
+| add_option_to_watchlist | Watchlists | 1/2 | 1 | 1 success | probed |
+| add_to_watchlist | Watchlists | 1/4 | 1 | 1 success | probed |
+| cancel_crypto_order | Crypto | 2/2 | 1 | 1 error | error-only |
 | cancel_equity_order | Orders | 2/2 | 13 | 10 success, 3 error | probed |
-| cancel_option_exercise | Orders | 2/2 | — | — | missing |
+| cancel_option_exercise | Orders | 2/2 | 1 | 1 error | error-only |
 | cancel_option_order | Orders | 2/2 | 7 | 4 success | probed |
-| create_alert | Alerts | 2/5 | — | — | missing |
-| create_scan | Scanners | 0/5 | — | — | missing |
-| create_watchlist | Watchlists | 1/3 | — | — | missing |
-| delete_alert | Alerts | 1/2 | — | — | missing |
-| exercise_option | Orders | 3/6 | — | — | missing |
-| follow_watchlist | Watchlists | 1/1 | — | — | missing |
+| create_alert | Alerts | 2/5 | 1 | 1 success | probed |
+| create_scan | Scanners | 0/5 | 1 | 1 success | probed |
+| create_watchlist | Watchlists | 1/3 | 1 | 1 success | probed |
+| delete_alert | Alerts | 1/2 | 1 | 1 success | probed |
+| exercise_option | Orders | 3/6 | 1 | 1 error | error-only |
+| follow_watchlist | Watchlists | 1/1 | 1 | 1 success | probed |
 | get_accounts | Account & Performance | 0/0 | 1 | 1 success | probed |
 | get_alert_log | Alerts | 0/4 | 4 | 4 success | probed |
 | get_alerts | Alerts | 0/3 | 5 | 4 success, 1 error | probed |
@@ -36,7 +36,7 @@
 | get_equity_price_book | Market Data & Research | 1/1 | 1 | 1 success | probed |
 | get_equity_quotes | Market Data & Research | 1/1 | 5 | 4 success, 3 error | probed |
 | get_equity_tax_lots | Account & Performance | 2/3 | 3 | 3 success | probed |
-| get_equity_technical_indicators | Market Data & Research | 4/15 | 20 | 20 success | probed |
+| get_equity_technical_indicators | Market Data & Research | 3/16 | 20 | 20 success | probed |
 | get_equity_tradability | Market Data & Research | 2/2 | 1 | 1 success | probed |
 | get_financials | Market Data & Research | 1/3 | 2 | 2 success | probed |
 | get_index_historicals | Market Data & Research | 3/4 | 3 | 2 success, 1 error | probed |
@@ -66,28 +66,71 @@
 | get_watchlist_items | Watchlists | 1/1 | 2 | 1 success, 1 error | probed |
 | get_watchlists | Watchlists | 0/0 | 1 | 1 success | probed |
 | mark_alerts_read | Alerts | 0/2 | 1 | 1 success | probed |
-| place_crypto_order | Crypto | 4/11 | — | — | missing |
+| place_crypto_order | Crypto | 4/11 | 1 | 1 error | error-only |
 | place_equity_order | Orders | 4/12 | 22 | 18 success, 5 error, 1 skipped | probed |
 | place_option_order | Orders | 3/10 | 9 | 6 success, 3 error | probed |
 | preview_crypto_order | Crypto | 4/10 | 6 | 6 error | error-only |
 | preview_scan | Scanners | 1/2 | 7 | 5 success, 2 error | probed |
-| remove_from_watchlist | Watchlists | 1/4 | — | — | missing |
-| remove_option_from_watchlist | Watchlists | 1/2 | — | — | missing |
-| review_equity_order | Orders | 4/11 | 19 | 19 success | probed |
+| remove_from_watchlist | Watchlists | 1/4 | 1 | 1 success | probed |
+| remove_option_from_watchlist | Watchlists | 1/2 | 1 | 1 success | probed |
+| review_equity_order | Orders | 4/11 | 20 | 20 success | probed |
 | review_option_order | Orders | 3/11 | 27 | 23 success, 4 error | probed |
 | run_scan | Scanners | 1/1 | 1 | 1 error | error-only |
 | search | Market Data & Research | 1/3 | 6 | 4 success, 2 error | probed |
-| unfollow_watchlist | Watchlists | 1/1 | — | — | missing |
-| update_alert | Alerts | 1/5 | — | — | missing |
-| update_scan_config | Scanners | 1/4 | — | — | missing |
-| update_scan_filters | Scanners | 2/2 | — | — | missing |
-| update_watchlist | Watchlists | 1/4 | — | — | missing |
+| unfollow_watchlist | Watchlists | 1/1 | 1 | 1 success | probed |
+| update_alert | Alerts | 1/5 | 1 | 1 success | probed |
+| update_scan_config | Scanners | 1/4 | 1 | 1 success | probed |
+| update_scan_filters | Scanners | 2/2 | 1 | 1 success | probed |
+| update_watchlist | Watchlists | 1/4 | 1 | 1 success | probed |
 
 ## Drift — bundled catalog vs live tools/list
 
-- Live tools: **76** · catalog: **49** · generated 2026-09-30T07:02:17.783Z
-- Added on live: `cancel_crypto_order`, `cancel_option_exercise`, `create_alert`, `delete_alert`, `exercise_option`, `get_alert_log`, `get_alerts`, `get_crypto_account_onboarding_info`, `get_crypto_orders`, `get_crypto_positions`, `get_crypto_quotes`, `get_currency_pairs`, `get_equity_analyst_ratings`, `get_index_historicals`, `get_limited_margin_upgrade_info`, `get_option_historicals`, `get_politician_trades`, `get_scanner_datapoints`, `get_sec_filing`, `get_sec_filing_facts`, `get_sec_filing_facts_catalog`, `get_sec_filing_index`, `mark_alerts_read`, `place_crypto_order`, `preview_crypto_order`, `preview_scan`, `update_alert`
-- Changed schemas: `add_to_watchlist`, `cancel_equity_order`, `cancel_option_order`, `create_scan`, `create_watchlist`, `get_accounts`, `get_earnings_calendar`, `get_earnings_results`, `get_equity_fundamentals`, `get_equity_historicals`, `get_equity_orders`, `get_equity_positions`, `get_equity_tax_lots`, `get_equity_technical_indicators`, `get_equity_tradability`, `get_financials`, `get_indexes`, `get_option_instruments`, `get_option_level_upgrade_info`, `get_option_orders`, `get_option_positions`, `get_option_watchlist`, `get_pnl_trade_history`, `get_realized_pnl`, `get_scanner_filter_specs`, `get_scans`, `get_watchlist_items`, `place_equity_order`, `place_option_order`, `remove_from_watchlist`, `remove_option_from_watchlist`, `review_equity_order`, `review_option_order`, `run_scan`, `search`, `update_scan_config`, `update_scan_filters`
+- Live tools: **76** · catalog: **76** · generated 2026-10-09T16:09:02.304Z
+- Changed schemas: `get_equity_technical_indicators`
+
+## Response envelope *(#689)*
+
+Every tool call returns one of two wire envelopes (verified across 353 captures):
+
+- **Success** — `{"data": <tool payload>, "guide": "<agent-facing interpretation instructions>"}`. The `guide` text is part of the contract: it tells the caller how to phrase results, which fields to surface, and what follow-up calls are safe. Never ignore it.
+- **Error** — `{"_meta": {"rh_error_category": <category>}, "content": [{"type": "text", "text": "<message>"}], "isError": true}`. Messages arrive in three dialects: `API error <NNN>: <json detail>` (HTTP passthrough), plain-text domain rejects (e.g. `not_enough_contracts`, `no queued exercise found`), and HTML error pages on some 404s. `rh_error_category` values observed: `invalid_request` (all 53 error captures), and uncategorized tool-level messages.
+
+A third shape appears in two captures (`err-quote-missing-param`, `err-quote-wrong-type`): `{"category": "VALIDATION", "error": "<ajv message>"}` — emitted by the probe runner's arg validation before the call ever reaches Robinhood. It is not a wire envelope; app-side callers see their own client-side validation instead.
+
+**Pagination** — list tools take an optional `cursor`; pass the prior response's `next` verbatim. Confirmed live on `get_equity_orders` / `get_option_orders` (see `ro-*`/matrix captures).
+
+**Numeric fields** — quantities, prices, premiums, and collateral amounts are decimal **strings** (`"190.0000"`, `"4000.0000"`), never numbers. Options premiums are per-contract dollars; `premium`/`processed_premium` in order objects are multiplied by `trade_value_multiplier` (100).
+
+## Safety classification *(#689)*
+
+| Class | Meaning | Tools |
+|---|---|---|
+| `read-only` | No account state change | 49 of 76 |
+| `financial mutation` | Moves money / places live orders | `place_equity_order`, `cancel_equity_order`, `place_option_order`, `cancel_option_order`, `place_crypto_order`, `cancel_crypto_order`, `exercise_option`, `cancel_option_exercise` |
+| `account write` | Mutates non-money state (watchlists, alerts, scans) | `create_watchlist`, `update_watchlist`, `add_to_watchlist`, `remove_from_watchlist`, `follow_watchlist`, `unfollow_watchlist`, `add_option_to_watchlist`, `remove_option_from_watchlist`, `create_alert`, `update_alert`, `delete_alert`, `mark_alerts_read`, `create_scan`, `update_scan_config`, `update_scan_filters` |
+| `simulation` | Advisory preview; never submits | `review_equity_order`, `review_option_order`, `preview_crypto_order`, `preview_scan` |
+
+## App allowlist — 9 domain groups *(#689)*
+
+Sections below match `functions/src/rh-agent-mcp/tools/robinhood-tools.ts` `TOOL_GROUPS` one-to-one: **Account & Performance, Market Data & Research, Options, Crypto, Alerts, SEC Filings, Scanners, Watchlists, Orders**. All nine groups are members of `ALL_ENABLED_TOOLS` — the app allowlist exposes the full live surface, including Crypto, Alerts, and SEC Filings. (Task #689's wording said "6 domain-group sections"; the authoritative `TOOL_GROUPS` has 9 and this doc follows the code.)
+
+## Gaps & undocumented behaviors *(#689)* — verbatim
+
+- **No `delete_watchlist`, no `delete_scan`** — created lists and scans are permanent residue (this discovery run left `MCP-DISCOVERY-TEST-2` behind deliberately; delete manually in-app). `update_watchlist` exists; deletion does not.
+- **No `trailing_stop` equity order type** — `place_equity_order` `type` accepts only `market | limit | stop | stop_limit`; a trailing exit must be done as cancel/replace of a plain `stop` order (the `mx-sell-trail-*` probes document the workaround).
+- **Multi-leg options orders are NOT supported at place time** — `400 "Multi-leg options orders aren't supported in the Robinhood Trading MCP yet. You can still place multi-leg options orders through the app or on web."` (`opt-place-spread`). Both the `place_option_order` schema (`legs` array) and `review_option_order` accept multi-leg shapes — the capability boundary is enforced only at place time, contradicting the tool's own level-3 capability text.
+- **`review_option_order` is advisory, not a validation gate** — market+gtc and sell-close-without-position return success with empty `order_checks`; the naked-call credit returns success carrying `OPTION_NOT_ENOUGH_SHARES_FOR_COLLATERAL` as a *warning*. Enforcement lives in `place_option_order`.
+- **Equity short sales rejected at place, flagged at review** — `place_equity_order` sell on a zero-held symbol → `400 {"detail":"Not enough shares to sell."}` (`mx-sell-short`; same 400 on `mx-sell-oversell` at 999 vs ~2.4 held). `review_equity_order` returns **success** carrying `order_checks.alertType = "EQUITY_MAX_SELL_SHARES_EXCEEDED"` with `sharesCanSell:"0"`, `sharesOwned:"0"` (`mx-rev-sell-short`) — advisory-only, same divergence as options. No `position_effect` param exists for equities, so no sell-to-open/buy-to-close contract surface.
+- **`stop_market` buy-to-open rejected** — `400 "Stop market orders aren't supported when buying to open."` (`opt-place-stop`). `stop_limit` BTO **is** accepted (rests as `type:limit, trigger:stop`).
+- **Naked sell-to-open call rejected** — `400 "This order introduces infinite risk."` (`opt-place-naked`). Cash-secured put STO **accepted** — `opt-rev-csp` shows `collateral.cash.amount = 4000.0000` (strike×100).
+- **Resting option orders report `state:"unconfirmed"`** — NOT `confirmed` as on equities. Filter `state:"confirmed"` on `get_option_orders` is blind to resting option orders (fixed in `opt-orders-final` after review caught it).
+- **`accepted:true` on cancel is NOT terminal** — cancellation is asynchronous; poll `get_option_orders`/`get_equity_orders` for `cancelled` (a fill can race the cancel).
+- **Option place response does not show the fill** — a filled order returns `state:"unconfirmed", processed_quantity:"0"`; the position is only visible via `get_option_positions` (`opt-place-fill` → `opt-pos-open`, +39 ms).
+- **Fractional / dollar equity orders are `regular_hours`-only** — post-close they reject with a regular-hours restriction (`mx-sell-xh-frac` verbatim).
+- **`ref_id` uniqueness enforced server-side** — re-sending a consumed ref_id returns `409` (`mx-buy-lim-bid-409-refid`).
+- **Crypto requires a separate crypto account** — all crypto mutations/read order-paths on this account reject `"no crypto account linked to brokerage account"` (`cx-place`, `dep-prev-crypto-*`); preview also fails past that gate.
+- **`exercise_option` requires a held position** — `400 {"error":"not_enough_contracts"}` when no contracts are held (`ox-exercise`); `cancel_option_exercise` without a queued exercise returns `no queued exercise found` (`ox-cancel-ex`).
+- **Schema drift residual** — `get_equity_technical_indicators`: live *added* a deprecated single-symbol `symbol` param and *dropped* `symbols` from `required` (catalog still requires it). Live accepts either; pass `symbols` (the deprecated `symbol` is single-symbol only).
 
 ## Account & Performance
 
@@ -764,7 +807,7 @@ Get real-time stock quotes and the official last-completed-session close for one
 
 **Safety:** read-only · **Status:** probed
 
-Compute a technical indicator (RSI, MACD, Bollinger Bands, moving averages, ATR, VWAP, and more) over one equity symbol's OHLCV bars across a time range. For the raw OHLCV bars themselves, use get_equity_historicals.
+Compute a technical indicator (RSI, MACD, Bollinger Bands, moving averages, ATR, VWAP, and more) over the OHLCV bars of up to 10 equity symbols across a time range. For the raw OHLCV bars themselves, use get_equity_historicals.
 
 Parameter rules:
 - The parameters an indicator accepts depend on type:
@@ -778,13 +821,15 @@ Parameter rules:
   Omit a parameter to use its default. Passing a parameter the chosen type does not accept is rejected.
 - interval is REQUIRED — indicator periods are counted in bars, so there is no auto-selection.
 - adjustment_type defaults to 'split'; 'all' (split + dividend) requires a day-or-coarser interval.
-- If the requested range plus the indicator's warm-up exceeds the per-request bar cap, narrow the range or coarsen the interval.
+- If the requested range plus the indicator's warm-up exceeds the per-symbol bar cap, narrow the range or coarsen the interval.
+- When screening several symbols, prefer output 'latest' or 'last:N' over the full series.
 
 **Parameters (live inputSchema):**
 
 | param | type | required | description |
 |---|---|---|---|
-| symbol | string | yes | Stock symbol (uppercase). Exactly one symbol per call. |
+| symbols | null \| array | no | Stock symbols (uppercase), max 10 per call. Pass every symbol you need in one call rather than one call per symbol; with more than 10, split across calls of … |
+| symbol | string | no | Deprecated: use symbols. A single stock symbol; pass either symbols or symbol, not both. |
 | type | string | yes | Indicator to compute. One of: ema, sma, rsi, momentum, roc, cci, williams_r, atr, mfi, adx, donchian_channels, bollinger_bands, macd, keltner_channels, super… |
 | interval | string | yes | Required bar interval the indicator is computed on. Intraday: 15second, 30second, minute, 5minute, 10minute, 30minute, hour, 4hour. Interday: day, week, mont… |
 | start_time | string | yes | Start of the range (RFC3339 UTC, e.g. '2026-01-01T00:00:00Z'). Required. |
@@ -1555,7 +1600,7 @@ _No parameters._
 
 ### cancel_crypto_order
 
-**Safety:** financial mutation · **Status:** missing
+**Safety:** financial mutation · **Status:** error-only
 
 Cancel an open crypto order by order_id. Always confirm with the user before calling. Resolve order_id via get_crypto_orders if the user refers to it by description; pass the same rhs_account_number that owns the order. Cancellation may be rejected if the order has already filled, was already canceled, or is otherwise ineligible.
 
@@ -1566,7 +1611,15 @@ Cancel an open crypto order by order_id. Always confirm with the user before cal
 | rhs_account_number | string | yes | Numeric brokerage account number (the 'rhs_account_number' field on get_accounts entries — distinct from the alphanumeric 'account_number'). The order must b… |
 | order_id | string | yes | Order UUID from get_crypto_orders. Must belong to rhs_account_number. Required. |
 
-_No captures — missing probes._
+**Errors observed:** 1 capture(s), 1 distinct shape(s)
+
+**Captures:**
+
+- [cx-cancel](captures/cx-cancel.json) — error — Cancel a nil order_id — observes the tool's error envelope on this account (cx-place rejected 'no crypto account linked', so no live order exists to cancel). Re-arm with a real CX_ORDER_ID on a crypto-enabled account for a success-path capture.
+
+**Notes:**
+
+- Cancel a nil order_id — observes the tool's error envelope on this account (cx-place rejected 'no crypto account linked', so no live order exists to cancel). Re-arm with a real CX_ORDER_ID on a crypto-enabled account for a success-path capture.
 
 ### get_crypto_account_onboarding_info
 
@@ -1792,7 +1845,7 @@ List Robinhood-supported crypto currency pairs (e.g. BTC-USD, ETH-USD), includin
 
 ### place_crypto_order
 
-**Safety:** financial mutation · **Status:** missing
+**Safety:** financial mutation · **Status:** error-only
 
 Place a real crypto order with real money. Parameters mirror preview_crypto_order plus the optional ref_id. Requires an agentic-enabled crypto account.
 
@@ -1819,7 +1872,15 @@ Parameter rules:
 | tax_lots | null \| array | no | Optional specified-lot selection for a SELL order. To sell specific tax lots instead of the default disposal, pass {open_lot_id, quantity} objects whose quan… |
 | ref_id | string | no | Idempotency key (UUID). Generate once per logical order and re-send the SAME value on retries of transient failures — the upstream deduplicates by ref_id. Om… |
 
-_No captures — missing probes._
+**Errors observed:** 1 capture(s), 1 distinct shape(s)
+
+**Captures:**
+
+- [cx-place](captures/cx-place.json) — error — $1 BTC limit buy far below mark — rests, harvest order_id -> cx-cancel.
+
+**Notes:**
+
+- $1 BTC limit buy far below mark — rests, harvest order_id -> cx-cancel.
 
 ### preview_crypto_order
 
@@ -1871,7 +1932,7 @@ Parameter rules:
 
 ### create_alert
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Create a price or indicator alert on an equity or crypto symbol. Confirm the symbol and condition with the user before calling — this is a real write; when it fires the user gets their usual Robinhood notification.
 
@@ -1893,11 +1954,33 @@ Parameter rules:
 | threshold | string | no | Decimal string: the trigger price for price conditions, or the target indicator value for sma_above-style conditions. Not used for price-vs-indicator-line co… |
 | indicator | null \| object | no | Indicator configuration. Required for every indicator condition; not used for price conditions. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `alert`: object
+    - `alert_id`: string
+    - `asset_class`: string
+    - `symbol`: string
+    - `display_name`: string
+    - `enabled`: boolean
+    - `condition_type`: string
+    - `condition`: object
+      - `target_price`: string
+    - `created_at`: string
+    - `updated_at`: string
+- `guide`: string
+
+**Captures:**
+
+- [al-create](captures/al-create.json) — success — Create a far-below-market alert — harvest alert_id for update/delete.
+
+**Notes:**
+
+- Create a far-below-market alert — harvest alert_id for update/delete.
 
 ### delete_alert
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Permanently delete a price or indicator alert, with a server-enforced confirmation step: a call without confirm deletes nothing and returns a preview of exactly what would be deleted; show that preview to the user, and only after they approve call again with confirm=true. There is no undo. If the user only wants to stop notifications for a while, disable the alert with update_alert (enabled=false) instead of deleting it.
 
@@ -1908,7 +1991,30 @@ Permanently delete a price or indicator alert, with a server-enforced confirmati
 | alert_id | string | yes | The alert to delete — take it from get_alerts or create_alert; never construct one. |
 | confirm | boolean | no | Set true only after the user approved the preview returned by a prior call without confirm. Omitted or false = preview only: nothing is deleted. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `deleted`: boolean
+  - `alert`: object
+    - `alert_id`: string
+    - `asset_class`: string
+    - `symbol`: string
+    - `display_name`: string
+    - `enabled`: boolean
+    - `condition_type`: string
+    - `condition`: object
+      - `target_price`: string
+    - `created_at`: string
+    - `updated_at`: string
+- `guide`: string
+
+**Captures:**
+
+- [al-delete](captures/al-delete.json) — success — Delete the probe alert — confirm:true is the documented operator-consent flag.
+
+**Notes:**
+
+- Delete the probe alert — confirm:true is the documented operator-consent flag.
 
 ### get_alert_log
 
@@ -2020,7 +2126,7 @@ Parameter rules:
 
 ### update_alert
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Change an existing price or indicator alert: enable/disable it, adjust its threshold or indicator settings, or switch its condition within the same family. Confirm the change with the user before calling — this is a real write.
 
@@ -2039,7 +2145,29 @@ Parameter rules:
 | threshold | string | no | New trigger price or target indicator value, as a decimal string. Omitted = unchanged. |
 | indicator | null \| object | no | New indicator configuration — replaces the stored one wholesale, so send the complete configuration when provided. Omitted = unchanged. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `alert`: object
+    - `alert_id`: string
+    - `asset_class`: string
+    - `symbol`: string
+    - `display_name`: string
+    - `enabled`: boolean
+    - `condition_type`: string
+    - `condition`: object
+      - `target_price`: string
+    - `created_at`: string
+    - `updated_at`: string
+- `guide`: string
+
+**Captures:**
+
+- [al-update](captures/al-update.json) — success — Change the trigger — set ALERT_ID from al-create.
+
+**Notes:**
+
+- Change the trigger — set ALERT_ID from al-create.
 
 ## SEC Filings
 
@@ -2220,7 +2348,7 @@ List a company's SEC filings, optionally filtered by form type and date. Use thi
 
 ### create_scan
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Create a new saved scanner (screener) on the user's account — or, with scan_id, update an existing one by appending a new configuration version. Filters can be enum-based (from get_scanner_filter_specs) or expression-based (a raw market-data expression built from get_scanner_datapoints). Returns the scan's id, title, applied filters, and live market results.
 
@@ -2236,7 +2364,7 @@ Parameters:
 - scan_id (optional) — update this existing scan instead of creating one. REPLACE semantics: the new version holds exactly the filters and columns passed, so read the current set via get_scans first and send the complete intended set. Cortex-managed scans are rejected.
 - preset (optional) — starting preset for a new scan. Default: DAILY_GAINERS when no filters supplied, INITIAL when filters supplied. Valid values: INITIAL, DAILY_GAINERS, DAILY_LOSERS, HIGH_OPTIONS_VOLUME_IV, UPCOMING_EARNINGS.
 - filters (optional for a new scan, required with scan_id) — array of filter specs, enum and/or expression. Call get_scanner_filter_specs for enum filters; call get_scanner_datapoints before composing an expression.
-- columns (optional) — extra result columns on top of the filters' own columns and the standard defaults. An expression matching a standard column's canonical form is saved as that standard column, canonical name included (e.g. "optionsPutDayVolume" always saves as "Total put volume").
+- columns (optional) — extra result columns on top of the filters' own columns and the standard defaults. An expression matching a standard column's canonical form is saved as that standard column, canonical name included (e.g. "optionsPutDayVolume" always saves as "Total put volume"). When re-sending a column the scan already has, send it by display_name ALONE if it comes from one of the scan's filters or is a standard column, and by display_name plus its expression only if it is a column you yourself added with an expression. Do not echo back the expression get_scans reports for a filter-created or standard column: that is rejected with "column already exists from a filter".
 - title (optional) — custom human-readable name for the scan.
 
 Example: to make "stocks with RSI > 70 and volume > 1M", call with
@@ -2274,7 +2402,25 @@ Example: to tighten that saved screen later without creating a second scan, call
 | columns | null \| array | no | Optional result columns to display on top of what the filters and the standard default columns already show. Each column: display_name plus either an express… |
 | title | string | no | Optional custom title for the saved scan. If omitted: a new scan gets Beacon's default title for the preset, and a scan_id update keeps the scan's existing t… |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `result`: object
+    - `scan_id`: string
+    - `scan_title`: string
+    - `total_items`: number
+    - `results`: array<unknown>
+    - `sorted_by`: string
+    - `cortex_managed`: boolean
+- `guide`: string
+
+**Captures:**
+
+- [sc-create](captures/sc-create.json) — success — Create a probe scan — harvest scan_id. RESIDUE: no delete_scan tool exists; remove manually in app.
+
+**Notes:**
+
+- Create a probe scan — harvest scan_id. RESIDUE: no delete_scan tool exists; remove manually in app.
 
 ### get_scanner_datapoints
 
@@ -2512,7 +2658,7 @@ Use get_scans first to discover available scan_ids if the user has not specified
 
 ### update_scan_config
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Change the sort order of a saved scan's results table, and/or replace its extra result columns. The scan's filters are always preserved.
 
@@ -2520,7 +2666,7 @@ Parameters:
 - scan_id (required) — the scan to modify.
 - sorting_column (required unless columns is provided) — display name of the column to sort by. Must match a column on the scan; the error response lists available columns when no match is found.
 - sorting_direction — "asc" or "desc". Required with sorting_column.
-- columns (optional) — REPLACE the scan's extra result columns (beyond the filters' own columns and the standard defaults). The scan keeps its current filters verbatim and gets a new configuration version — earlier versions are preserved. To add one column, pass the complete intended set (current columns from get_scans plus the new one). Columns display values, filters screen — to show a datapoint without restricting results, this is the tool, never a no-op filter.
+- columns (optional) — REPLACE the scan's extra result columns (beyond the filters' own columns and the standard defaults). The scan keeps its current filters verbatim and gets a new configuration version — earlier versions are preserved. To add one column, pass the complete intended set (current columns from get_scans plus the new one). When re-sending a column the scan already has, send it by display_name ALONE if it comes from one of the scan's filters or is a standard column, and by display_name plus its expression only if it is a column you yourself added with an expression. Do not echo back the expression get_scans reports for a filter-created or standard column: that is rejected with "column already exists from a filter". Columns display values, filters screen — to show a datapoint without restricting results, this is the tool, never a no-op filter.
 
 Restrictions:
 - Cortex-managed scans (cortex_managed: true in get_scans) are rejected.
@@ -2538,11 +2684,29 @@ Returns the scan with the changes applied and fresh live results.
 | sorting_direction | string | no | "asc" or "desc" (ascending or descending). Required with sorting_column. |
 | columns | null \| array | no | REPLACE the scan's extra result columns (the ones beyond what its filters and the standard defaults contribute): the scan keeps its current filters verbatim … |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `result`: object
+    - `scan_id`: string
+    - `scan_title`: string
+    - `total_items`: number
+    - `results`: array<unknown>
+    - `sorted_by`: string
+    - `cortex_managed`: boolean
+- `guide`: string
+
+**Captures:**
+
+- [sc-update-config](captures/sc-update-config.json) — success — Sort the probe scan — set SCAN_ID from sc-create.
+
+**Notes:**
+
+- Sort the probe scan — set SCAN_ID from sc-create.
 
 ### update_scan_filters
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Replace the filters on an existing saved scan. The complete filter set provided replaces whatever filters the scan had — this is REPLACE semantics, not merge. To add a single filter to an existing scan, the agent must first read the scan (via get_scans or run_scan), then call this tool with all the existing filters plus the new one.
 
@@ -2563,13 +2727,50 @@ Returns the scan with its new filters and fresh live results.
 | scan_id | string | yes | The scan to modify. Get this from get_scans or create_scan. Cortex-managed scans (cortex_managed: true in get_scans output) are rejected. |
 | filters | null \| array | yes | The complete set of filters the scan should have after the update. REPLACE semantics — to add a filter, supply all existing filters plus the new one. To remo… |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `result`: object
+    - `scan_id`: string
+    - `scan_title`: string
+    - `total_items`: number
+    - `results`: array<object>
+      - `ticker`[]: string
+      - `instrument_id`[]: string
+      - `instrument_type`[]: string
+      - `columns`[]: object
+        - `% Change`: string
+        - `Asset type`: string
+        - `Last`: string
+        - `Market cap`: string
+        - `Name`: string
+        - `Net change`: string
+        - `Relative volume`: string
+        - `Symbol`: string
+        - `Volume`: string
+    - `sorted_by`: string
+    - `filters_applied`: array<object>
+      - `filter_type`[]: string
+      - `filter_type_enum`[]: string
+      - `predicate`[]: string
+      - `values`[]: array<string>
+      - `expression`[]: string
+    - `cortex_managed`: boolean
+- `guide`: string
+
+**Captures:**
+
+- [sc-update-filters](captures/sc-update-filters.json) — success — Set an enum filter — shape proven by dep-prev-scan-01 (filter_type_enum required, not display label).
+
+**Notes:**
+
+- Set an enum filter — shape proven by dep-prev-scan-01 (filter_type_enum required, not display label).
 
 ## Watchlists
 
 ### add_option_to_watchlist
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Add option contracts to the user's options watchlist. Works for both equity options (AAPL, NVDA) and index options (SPX, NDX, RUT). Source option_ids from get_option_instruments. Confirm with the user before calling — this is a real write.
 
@@ -2580,11 +2781,27 @@ Add option contracts to the user's options watchlist. Works for both equity opti
 | option_ids | null \| array | yes | Option contract UUIDs to add. Each becomes a single-leg position on the user's options watchlist. Source from get_option_instruments. |
 | position_type | string | no | "long" (default) or "short". Applies to every option_id in this call. For mixed long/short adds, issue two calls. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `option_ids`: array<string>
+  - `position_type`: string
+  - `list_id`: string
+  - `operation`: string
+  - `status`: string
+- `guide`: string
+
+**Captures:**
+
+- [wl-add-opt](captures/wl-add-opt.json) — success — Add NFLX 70C to the options watchlist — NOTE: schema has no list_id (options land in a dedicated option watchlist).
+
+**Notes:**
+
+- Add NFLX 70C to the options watchlist — NOTE: schema has no list_id (options land in a dedicated option watchlist).
 
 ### add_to_watchlist
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Add items to a watchlist. Exactly one of symbols (stocks/ETFs), currency_pair_ids (crypto), or index_ids (market indexes like SPX, NDX) is required — mutually exclusive. For options use add_option_to_watchlist (separate dedicated watchlist). Futures still require the Robinhood app. Already-present items are no-ops. Confirm with the user before calling.
 
@@ -2597,11 +2814,27 @@ Add items to a watchlist. Exactly one of symbols (stocks/ETFs), currency_pair_id
 | currency_pair_ids | null \| array | no | Currency-pair UUIDs to add (e.g. the object_id from get_watchlist_items where object_type=currency_pair, or the id from get_currency_pairs). Mutually exclusi… |
 | index_ids | null \| array | no | Market-index UUIDs to add (the id field from get_indexes; SPX, NDX, DJI, etc.). Mutually exclusive with symbols and currency_pair_ids. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `symbols`: array<string>
+  - `object_type`: string
+  - `list_id`: string
+  - `operation`: string
+  - `status`: string
+- `guide`: string
+
+**Captures:**
+
+- [wl-add-eq](captures/wl-add-eq.json) — success — Add equity symbol to the probe list — set WL_ID from wl-create.
+
+**Notes:**
+
+- Add equity symbol to the probe list — set WL_ID from wl-create.
 
 ### create_watchlist
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Create a new custom watchlist for the user — a real write. When the user has already specified the name, call this directly; ask for a name first only when they have not. Do not use this to follow a Robinhood-curated list (use follow_watchlist).
 
@@ -2613,11 +2846,30 @@ Create a new custom watchlist for the user — a real write. When the user has a
 | icon_emoji | string | no | Emoji shown next to the name (one character). |
 | display_description | string | no | Short description shown under the name. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `watchlist`: object
+    - `id`: string
+    - `display_name`: string
+    - `display_description`: string
+    - `icon_emoji`: string
+    - `owner_type`: string
+    - `item_count`: number
+    - `allowed_object_types`: array<string>
+- `guide`: string
+
+**Captures:**
+
+- [wl-create](captures/wl-create.json) — success — Create a probe watchlist — harvest list_id for the rest of the lifecycle. RESIDUE: no delete_watchlist tool exists; the list must be removed manually.
+
+**Notes:**
+
+- Create a probe watchlist — harvest list_id for the rest of the lifecycle. RESIDUE: no delete_watchlist tool exists; the list must be removed manually.
 
 ### follow_watchlist
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Follow a Robinhood-curated list so it appears in the user's watchlists. Confirm with the user before calling. Use only for curated lists; the user already owns their custom lists.
 
@@ -2627,7 +2879,26 @@ Follow a Robinhood-curated list so it appears in the user's watchlists. Confirm 
 |---|---|---|---|
 | list_id | string | yes | UUID of the Robinhood-curated list to follow. Obtain from get_popular_watchlists. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `follower`: object
+    - `list_id`: string
+    - `user_id`: string
+    - `owner_type`: string
+    - `created_at`: string
+  - `list_id`: string
+  - `action`: string
+  - `status`: string
+- `guide`: string
+
+**Captures:**
+
+- [wl-follow](captures/wl-follow.json) — success — Follow the curated 'Trending stocks' list — set POPWL_ID from ro-popwl-01.
+
+**Notes:**
+
+- Follow the curated 'Trending stocks' list — set POPWL_ID from ro-popwl-01.
 
 ### get_popular_watchlists
 
@@ -2723,7 +2994,7 @@ _No parameters._
 
 ### remove_from_watchlist
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Remove items from a watchlist. Exactly one of symbols (stocks/ETFs), currency_pair_ids (crypto), or index_ids (market indexes) is required — mutually exclusive. For options use remove_option_from_watchlist. Items not on the list are no-ops (not errors). Confirm with the user before calling.
 
@@ -2736,11 +3007,27 @@ Remove items from a watchlist. Exactly one of symbols (stocks/ETFs), currency_pa
 | currency_pair_ids | null \| array | no | Currency-pair UUIDs to remove. Mutually exclusive with symbols and index_ids. |
 | index_ids | null \| array | no | Index UUIDs to remove. Mutually exclusive with symbols and currency_pair_ids. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `symbols`: array<string>
+  - `object_type`: string
+  - `list_id`: string
+  - `operation`: string
+  - `status`: string
+- `guide`: string
+
+**Captures:**
+
+- [wl-rm-eq](captures/wl-rm-eq.json) — success — Remove OOMA from the probe list.
+
+**Notes:**
+
+- Remove OOMA from the probe list.
 
 ### remove_option_from_watchlist
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Remove option contracts from the user's options watchlist. Specify the same position_type used when the contract was added (defaults to "long"). Contracts not on the list are no-ops. Confirm with the user before calling.
 
@@ -2751,11 +3038,27 @@ Remove option contracts from the user's options watchlist. Specify the same posi
 | option_ids | null \| array | yes | Option contract UUIDs to remove. The position_type must match how each contract was added (most likely "long"). |
 | position_type | string | no | "long" (default) or "short". Must match how the contract was originally added. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `option_ids`: array<string>
+  - `position_type`: string
+  - `list_id`: string
+  - `operation`: string
+  - `status`: string
+- `guide`: string
+
+**Captures:**
+
+- [wl-rm-opt](captures/wl-rm-opt.json) — success — Remove the NFLX 70C — position_type must match how it was added.
+
+**Notes:**
+
+- Remove the NFLX 70C — position_type must match how it was added.
 
 ### unfollow_watchlist
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Stop following a Robinhood-curated list. The list itself is unchanged — it just no longer appears in the user's watchlists. Confirm with the user before calling.
 
@@ -2765,11 +3068,25 @@ Stop following a Robinhood-curated list. The list itself is unchanged — it jus
 |---|---|---|---|
 | list_id | string | yes | UUID of the Robinhood-curated list to unfollow. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `list_id`: string
+  - `action`: string
+  - `status`: string
+- `guide`: string
+
+**Captures:**
+
+- [wl-unfollow](captures/wl-unfollow.json) — success — Unfollow it again — clean lifecycle round-trip.
+
+**Notes:**
+
+- Unfollow it again — clean lifecycle round-trip.
 
 ### update_watchlist
 
-**Safety:** account write · **Status:** missing
+**Safety:** account write · **Status:** probed
 
 Rename a custom watchlist or change its icon/description. Robinhood-curated lists cannot be renamed; the call will fail with 404. Provide at least one of display_name, icon_emoji, display_description.
 
@@ -2782,7 +3099,26 @@ Rename a custom watchlist or change its icon/description. Robinhood-curated list
 | icon_emoji | string | no | New emoji. |
 | display_description | string | no | New description. |
 
-_No captures — missing probes._
+**Response field tree** (union over 1 success capture(s)):
+
+- `data`: object
+  - `watchlist`: object
+    - `id`: string
+    - `display_name`: string
+    - `display_description`: string
+    - `icon_emoji`: string
+    - `owner_type`: string
+    - `item_count`: number
+    - `allowed_object_types`: array<string>
+- `guide`: string
+
+**Captures:**
+
+- [wl-update](captures/wl-update.json) — success — Rename the probe list.
+
+**Notes:**
+
+- Rename the probe list.
 
 ## Orders
 
@@ -2841,7 +3177,7 @@ Cancel an open equity order by order_id. Always confirm with the user before cal
 
 ### cancel_option_exercise
 
-**Safety:** financial mutation · **Status:** missing
+**Safety:** financial mutation · **Status:** error-only
 
 Cancel all queued exercise requests for an option position. Pass the same account_number and option_id used for exercise_option. Internally looks up all queued exercise events for that option and cancels each one. Typically there is one; multiple means the user submitted separate exercise batches. Only cancels events in state=queued — events already processing are rejected by the broker. Always confirm with the user before calling.
 
@@ -2852,7 +3188,15 @@ Cancel all queued exercise requests for an option position. Pass the same accoun
 | account_number | string | yes | Brokerage account that owns the exercise. Must be agentic_allowed=true. |
 | option_id | string | yes | Option instrument UUID — the same option_id used for exercise_option. The tool looks up the queued exercise for this option and cancels it. |
 
-_No captures — missing probes._
+**Errors observed:** 1 capture(s), 1 distinct shape(s)
+
+**Captures:**
+
+- [ox-cancel-ex](captures/ox-cancel-ex.json) — error — Cancel an exercise request that doesn't exist — captures the verbatim reject.
+
+**Notes:**
+
+- Cancel an exercise request that doesn't exist — captures the verbatim reject.
 
 ### cancel_option_order
 
@@ -2892,7 +3236,7 @@ Cancel an open option order by account_number + order_id. Always confirm with th
 
 ### exercise_option
 
-**Safety:** financial mutation · **Status:** missing
+**Safety:** financial mutation · **Status:** error-only
 
 Exercise a long options position — a call exercises the right to buy the underlying shares at the strike price; a put exercises the right to sell. Exercise is irrevocable once state moves past queued.
 
@@ -2921,7 +3265,15 @@ Parameter rules:
 | reason | string | no | Optional exercise reason: covering_early_assignment \| buying_stocks \| not_enough_liquidity_or_spread_too_wide \| hedging_position. |
 | allow_shorts | boolean | no | When true, allows a PUT exercise to proceed even when the account does not own enough shares to deliver — creating a short equity position. Requires explicit… |
 
-_No captures — missing probes._
+**Errors observed:** 1 capture(s), 1 distinct shape(s)
+
+**Captures:**
+
+- [ox-exercise](captures/ox-exercise.json) — error — Exercise NFLX 70C with NO position held — captures the verbatim reject.
+
+**Notes:**
+
+- Exercise NFLX 70C with NO position held — captures the verbatim reject.
 
 ### get_equity_orders
 
@@ -3368,7 +3720,7 @@ Parameter rules:
 | market_hours | string | no | 'regular_hours' (default, 9:30–16:00 ET), 'extended_hours' (pre-/post-market), or 'all_day_hours' (the 24 Hour Market / overnight session). extended_hours an… |
 | tax_lots | null \| array | no | Optional specified-lot selection for a SELL order. To sell specific tax lots instead of the default FIFO cost basis, pass the exact lots as {open_lot_id, qua… |
 
-**Response field tree** (union over 19 success capture(s)):
+**Response field tree** (union over 20 success capture(s)):
 
 - `data`: object
   - `symbol`: string
@@ -3420,6 +3772,7 @@ Parameter rules:
 - [mx-rev-sell-lim](captures/mx-rev-sell-lim.json) — success — review: sell limit @ target
 - [mx-rev-sell-lots](captures/mx-rev-sell-lots.json) — success — review: sell limit w/ tax_lots
 - [mx-rev-sell-mkt](captures/mx-rev-sell-mkt.json) — success — review: sell market
+- [mx-rev-sell-short](captures/mx-rev-sell-short.json) — success — Review sim: sell a zero-held symbol — does the advisory layer flag a short sale, or return success like the options advisory divergences? Place side already captured: mx-sell-short 400 'Not enough shares to sell.'
 - [mx-rev-sell-stp](captures/mx-rev-sell-stp.json) — success — review: sell stop_market
 - [mx-rev-sell-stplim](captures/mx-rev-sell-stplim.json) — success — review: sell stop_limit
 - [ro-rev-eq-01](captures/ro-rev-eq-01.json) — success — market + quantity - baseline review shape.
@@ -3452,6 +3805,7 @@ Parameter rules:
 - review: sell stop_limit
 - review: sell limit w/ tax_lots
 - review: sell market
+- Review sim: sell a zero-held symbol — does the advisory layer flag a short sale, or return success like the options advisory divergences? Place side already captured: mx-sell-short 400 'Not enough shares to sell.'
 
 ### review_option_order
 
