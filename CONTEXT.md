@@ -375,3 +375,13 @@ _Avoid_: trigger bar (the existing ZigZag trigger dots mark where the deviation 
 ## History Window
 
 The render filter for terminated Anchored VWAP segments. `historyStart` (optional date) selects an era - segments anchored on/after it render chronologically until `maxHistory` is reached. Unset, the most recent `maxHistory` segments render (oldest pruned first) so history runs to the latest bar. Detection itself is unaffected - the window only controls which segments draw.
+
+## Option Order Ticket
+
+An Order Ticket whose instrument is a single Robinhood option contract (`instrumentType = 'option'`). Carries the same signal provenance (signalContext, decisionIds) and bucket choice as an equity ticket, but its leg holds the Robinhood `option_id` plus `positionEffect` — the two values the broker order tools require. Staged lazily from the Option tab of the gallery Trade dialog rather than at Trade-click.
+_Avoid_: option intent, contract order
+
+## Contract Picker
+
+The contract-choice UI on the Option tab: compact selects (expiration → strike → call/put) fed by `get_option_chains`/`get_option_instruments`, plus a paste field accepting contract details copied from the option-chain page. Either path resolves to a Robinhood `option_id` via `get_option_instruments`. Distinct from the OCC-contract-id selection used by the option-chain pages — the two instrument namespaces do not interoperate without a resolution step.
+_Avoid_: option selector, chain picker
