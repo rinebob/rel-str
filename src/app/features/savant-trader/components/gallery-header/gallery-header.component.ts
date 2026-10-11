@@ -18,10 +18,7 @@ import {
   RhSelectOption,
   RhSelectOptionGroup,
 } from '../rh-select-menu/rh-select-menu.component';
-
-const SENTINEL: RhSelectOption<SymbolListFilter>[] = [
-  { value: 'ALL', label: 'All' },
-];
+import { SYMBOL_LIST_SENTINEL_OPTIONS } from '../../common/symbol-list-filter-options';
 
 /** Same grouping dimensions as signal-review (#783), plus a flat-grid
  *  "None" mode (#820). */
@@ -40,7 +37,7 @@ const DIMENSION_OPTIONS: RhSelectOption<GroupDimension>[] = [
   styleUrl: './gallery-header.component.scss',
 })
 export class GalleryHeaderComponent {
-  readonly sentinelOptions = SENTINEL;
+  readonly sentinelOptions = SYMBOL_LIST_SENTINEL_OPTIONS;
   readonly dimensionOptions = DIMENSION_OPTIONS;
 
   /** Market date of the run the gallery is showing. */

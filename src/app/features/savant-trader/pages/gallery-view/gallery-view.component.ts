@@ -21,21 +21,7 @@ import { GalleryGroupComponent } from '../../components/gallery-group/gallery-gr
 import { GalleryCardAction, GalleryCardComponent } from '../../components/gallery-card/gallery-card.component';
 import { GalleryTicketDialogComponent } from '../../components/gallery-ticket-dialog/gallery-ticket-dialog.component';
 import { GalleryCard } from '../../utils/gallery-cards.util';
-
-/** Idle scheduling with a setTimeout fallback (jsdom + older browsers).
- *  One capability check for both halves — a mixed environment could
- *  schedule via setTimeout then try cancelIdleCallback (#819 r2).
- *  window.setTimeout returns number under the DOM lib — no cast needed. */
-const HAS_IDLE_CALLBACK =
-  typeof requestIdleCallback === 'function' && typeof cancelIdleCallback === 'function';
-
-function scheduleIdle(cb: () => void): number {
-  return HAS_IDLE_CALLBACK ? requestIdleCallback(cb) : window.setTimeout(cb, 0);
-}
-
-function cancelIdle(id: number): void {
-  if (HAS_IDLE_CALLBACK) cancelIdleCallback(id); else clearTimeout(id);
-}
+import { scheduleIdle, cancelIdle } from '../../../shared/utils/schedule-idle.util';
 
 @Component({
   selector: 'app-gallery-view',
