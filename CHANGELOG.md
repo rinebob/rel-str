@@ -1,6 +1,16 @@
 # Changelog
 
 
+## [2026-10-11]
+
+### Added
+- [Portfolio Dashboard] 219-950_FE-REFACTOR-PORTFOLIO: Shared scheduleIdle/cancelIdle util + SYMBOL_LIST_SENTINEL_OPTIONS extracted; signal gallery view + header consume both
+- [Portfolio Dashboard] 219-950_FE-IMPL-PORTFOLIO: PositionCard join model + PortfolioGalleryFacade + PortfolioGalleryUiStore — dashboard/quotes/profiles/attribution/buckets/orders compose into cards with independent degradation; signed short day-P&L, closed/zero-qty filter, long-only protection guard, per-slice partialErrors, watchers keyed on primitive accountNumber
+- [Portfolio Dashboard] 219-950_FE-IMPL-PORTFOLIO: Portfolio-v2 page shell — 7-stat summary strip, All/Long/Short pills, Chart D/W, Group + List dropdowns, refresh, loading/error/no-agentic/empty/filtered-empty/warn states, stub flat grid
+- [Portfolio Dashboard] 219-950_FE-IMPL-PORTFOLIO: portfolio-v2 lazy route behind authGuard + PAGE_INFO + route spec
+- [Portfolio Dashboard] 219-950_DOCS-PORTFOLIO: Portfolio gallery thread docs — PRD + IMPL/TEST plans + #950 CODE-REVIEW (PASS, 1 round) + #966 UAT (Complete)
+
+
 ## [2026-10-08]
 
 ### Fixed
