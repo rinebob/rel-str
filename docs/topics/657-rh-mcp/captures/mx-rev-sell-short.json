@@ -1,0 +1,58 @@
+{
+  "id": "mx-rev-sell-short",
+  "tool": "review_equity_order",
+  "group": "eq-matrix",
+  "gate": "read",
+  "note": "Review sim: sell a zero-held symbol — does the advisory layer flag a short sale, or return success like the options advisory divergences? Place side already captured: mx-sell-short 400 'Not enough shares to sell.'",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "symbol": "$ENV:RH_ZERO_SYM",
+    "side": "sell",
+    "type": "market",
+    "quantity": "1",
+    "time_in_force": "gfd"
+  },
+  "capturedAt": "2026-10-11T14:47:31.472Z",
+  "outcome": "success",
+  "latencyMs": 5863,
+  "success": true,
+  "response": {
+    "data": {
+      "symbol": "••••",
+      "side": "sell",
+      "type": "market",
+      "quantity": "1",
+      "order_checks": {
+        "alertType": "EQUITY_MAX_SELL_SHARES_EXCEEDED",
+        "equityMaxSellSharesExceededAlertDetails": {
+          "instrumentId": "b1144f1e-e2ff-45b2-a24c-42a3e514eef0",
+          "instrumentSymbol": "••••",
+          "sharesCanSell": "0",
+          "sharesOptionsCollateral": "0",
+          "sharesOwned": "0",
+          "sharesPendingFromOptionsEvents": "0",
+          "sharesPendingSell": "0",
+          "sharesRewards": "0"
+        }
+      },
+      "quote_data": {
+        "symbol": "••••",
+        "last_trade_price": "20.070000",
+        "venue_last_trade_time": "2026-10-09T19:59:50.571467758Z",
+        "last_non_reg_trade_price": "20.040000",
+        "venue_last_non_reg_trade_time": "2026-10-09T20:00:02.485015074Z",
+        "adjusted_previous_close": "20.100000",
+        "previous_close": "20.100000",
+        "previous_close_date": "2026-10-08",
+        "bid_price": "18.240000",
+        "venue_bid_time": "2026-10-10T00:00:00.197305543Z",
+        "ask_price": "22.390000",
+        "venue_ask_time": "2026-10-10T00:00:00.197305543Z",
+        "has_traded": true,
+        "state": "active"
+      },
+      "market_data_disclosure": "Bid $19.93 × 100 P · Ask $21.50 × 300 P · Last $20.04 × 344. Updated 8:04 PM ET."
+    },
+    "guide": "This tool does NOT place the order — it returns a preview for the user to review. Reaching this tool means the user opted into the review step, so you MUST present the preview to the user (symbol, side, type, quantity or dollar_amount, limit/stop prices, estimated execution) and get explicit confirmation before calling place_equity_order. This holds even when order_checks is empty ({}) — empty means no broker alerts, NOT that confirmation can be skipped; the user asked to review, so let them review. Surface any non-empty alert in order_checks verbatim alongside the preview. In addition, you MUST always show the quotes to the user for compliance reasons: whenever market_data_disclosure is present, display it to the user exactly as provided — verbatim and unmodified — as the required compliance quote disclosure. Market orders: estimate execution from quote_data.last_trade_price (ask for buys, bid for sells when spreads are wide). Limit orders: compare limit_price to quote_data bid/ask so the user knows the distance from market."
+  }
+}

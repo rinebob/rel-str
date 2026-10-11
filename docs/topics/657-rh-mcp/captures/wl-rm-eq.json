@@ -1,0 +1,29 @@
+{
+  "id": "wl-rm-eq",
+  "tool": "remove_from_watchlist",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Remove OOMA from the probe list.",
+  "args": {
+    "list_id": "$ENV:WL_ID",
+    "symbols": [
+      "OOMA"
+    ]
+  },
+  "capturedAt": "2026-10-09T16:14:24.028Z",
+  "outcome": "success",
+  "latencyMs": 990,
+  "success": true,
+  "response": {
+    "data": {
+      "symbols": [
+        "OOMA"
+      ],
+      "object_type": "instrument",
+      "list_id": "••••15c9",
+      "operation": "delete",
+      "status": "ok"
+    },
+    "guide": "On success the response echoes the operations applied. 404 means the list_id is not writable by the user."
+  }
+}

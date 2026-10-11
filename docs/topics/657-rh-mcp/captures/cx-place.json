@@ -1,0 +1,35 @@
+{
+  "id": "cx-place",
+  "tool": "place_crypto_order",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "$1 BTC limit buy far below mark — rests, harvest order_id -> cx-cancel.",
+  "args": {
+    "rhs_account_number": "$ENV:RH_RHS_ACCOUNT_NUMBER",
+    "symbol": "BTC-USD",
+    "side": "buy",
+    "type": "limit",
+    "dollar_amount": "1.00",
+    "limit_price": "$ENV:BTC_LO",
+    "time_in_force": "gtc",
+    "ref_id": "$ENV:CX_REF"
+  },
+  "capturedAt": "2026-10-09T16:16:07.304Z",
+  "outcome": "error",
+  "latencyMs": 846,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "no crypto account linked to brokerage account ••••6245\n\nThis account has no crypto account. To trade crypto, the user must first sign the crypto user agreement and open a crypto account here: https://applink.robinhood.com/crypto_signup_short. Once they have signed, they can retry."
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "no crypto account linked to brokerage account ••••6245\n\nThis account has no crypto account. To trade crypto, the user must first sign the crypto user agreement and open a crypto account here: https://applink.robinhood.com/crypto_signup_short. Once they have signed, they can retry."
+}

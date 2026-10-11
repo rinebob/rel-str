@@ -1,0 +1,29 @@
+{
+  "id": "sc-update-config",
+  "tool": "update_scan_config",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Sort the probe scan — set SCAN_ID from sc-create.",
+  "args": {
+    "scan_id": "$ENV:SCAN_ID",
+    "sorting_column": "% Change",
+    "sorting_direction": "desc"
+  },
+  "capturedAt": "2026-10-09T16:15:42.335Z",
+  "outcome": "success",
+  "latencyMs": 854,
+  "success": true,
+  "response": {
+    "data": {
+      "result": {
+        "scan_id": "••••d5d0",
+        "scan_title": "MCP-DISCOVERY-TEST",
+        "total_items": 0,
+        "results": [],
+        "sorted_by": "% Change desc",
+        "cortex_managed": false
+      }
+    },
+    "guide": "How to interpret the response:\n- result.sorted_by — the sort in effect (\"Volume desc\" etc.).\n- result.columns — the scan's columns after the change (when columns were passed, verify the intended set landed; expression columns matching a standard column adopt its canonical name).\n- result.results — live results reflecting the change.\n- The change is persisted: subsequent run_scan calls on this scan_id will return rows accordingly.\n\nWhen presenting:\n- Confirm what changed (sort, columns, or both) to the user.\n- Render the results as a table. Eyeball-verify a sort change with the user if they care: the top rows should match the requested direction.\n- Mention that the change is saved for future runs of the scan.\n\nError handling:\n- \"no column named X\" → the requested sorting_column does not match any column. The error message lists available columns — relay them to the user and ask which they meant. When changing columns and sort together, the sort can name one of the new columns; if the sort fails, the columns change has already landed — retry with update_scan_config sorting-only rather than re-sending columns.\n- \"columns[N]: ...\" → column validation failure at index N, nothing was changed.\n- \"no standard column is named X\" → the display name (without expression) isn't a standard column; the error lists valid names. Either pick one or provide an expression.\n- \"column X already exists from a filter\" → one of the scan's filters already produces a column with that display name, and an expression was passed for it as well. Re-send that column with NO expression to customize it (visibility, position), or give it a different display_name. Do not drop the filter.\n- \"created by Cortex\" → the scan is read-only via MCP. Suggest creating a fresh scan via create_scan.\n- \"scan X does not exist or you do not have access\" → bad scan_id. Suggest get_scans."
+  }
+}

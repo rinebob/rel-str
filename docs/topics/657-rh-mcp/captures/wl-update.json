@@ -1,0 +1,37 @@
+{
+  "id": "wl-update",
+  "tool": "update_watchlist",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Rename the probe list.",
+  "args": {
+    "list_id": "$ENV:WL_ID",
+    "display_name": "MCP-DISCOVERY-TEST-2",
+    "display_description": "renamed by probe"
+  },
+  "capturedAt": "2026-10-09T16:14:12.929Z",
+  "outcome": "success",
+  "latencyMs": 786,
+  "success": true,
+  "response": {
+    "data": {
+      "watchlist": {
+        "id": "••••15c9",
+        "display_name": "MCP-DISCOVERY-TEST-2",
+        "display_description": "renamed by probe",
+        "icon_emoji": "T",
+        "owner_type": "custom",
+        "item_count": 1,
+        "allowed_object_types": [
+          "currency_pair",
+          "futures",
+          "futures_product",
+          "index",
+          "instrument",
+          "tokenized_stock"
+        ]
+      }
+    },
+    "guide": "On success the response contains the full updated list. 404 means the list_id is not user-writable (it's curated or doesn't exist)."
+  }
+}

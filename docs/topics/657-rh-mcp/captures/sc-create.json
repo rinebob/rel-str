@@ -1,0 +1,28 @@
+{
+  "id": "sc-create",
+  "tool": "create_scan",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Create a probe scan — harvest scan_id. RESIDUE: no delete_scan tool exists; remove manually in app.",
+  "args": {
+    "preset": "INITIAL",
+    "title": "MCP-DISCOVERY-TEST"
+  },
+  "capturedAt": "2026-10-09T16:15:28.693Z",
+  "outcome": "success",
+  "latencyMs": 930,
+  "success": true,
+  "response": {
+    "data": {
+      "result": {
+        "scan_id": "c25cdf57-4e5a-41ec-8ed7-6cf93080d5d0",
+        "scan_title": "MCP-DISCOVERY-TEST",
+        "total_items": 0,
+        "results": [],
+        "sorted_by": "Market cap desc",
+        "cortex_managed": false
+      }
+    },
+    "guide": "How to interpret the response:\n- result.scan_id — the created scan (or, when scan_id was passed, that same scan: the update landed as a new configuration version on it). Pass this to run_scan, update_scan_filters, or update_scan_config in follow-up calls.\n- result.scan_title — final title (custom if provided; else Beacon's default for a new scan, or the existing title on a scan_id update).\n- result.filters_applied — the filter set actually in effect after the call. If this doesn't match what the user asked for, one of the composite steps failed silently — surface that to the user.\n- result.results — initial live results (real-time market data at scan creation time).\n- result.total_items — total matches. May exceed len(results) if the scan's frontend_limit is hit.\n\nWhen presenting:\n- Confirm the scan was created and note its title + filters_applied (so the user knows what was actually saved).\n- Render the initial results as a table.\n- Tell the user the scan is saved and can be re-run anytime with run_scan + the returned scan_id.\n- If results is empty: tell the user no instruments match the filters right now, and suggest broadening them with update_scan_filters.\n\nError handling:\n- \"unknown preset X\" → preset enum not recognized. List the valid presets to the user.\n- \"filter[N]: ...\" → filter validation failure at index N. Tell the user which filter and why. Rejected before any Beacon call — nothing was created.\n- \"created by Cortex and cannot be modified\" (with scan_id) → the target scan is Cortex-managed. Offer to create a fresh scan (omit scan_id) instead.\n- \"column X already exists from a filter\" → one of the scan's filters already produces a column with that display name, and an expression was passed for it as well. Re-send that column with NO expression to customize it (visibility, position), or give it a different display_name. Do not drop the filter.\n- \"no standard column is named X\" → the display name is not a standard column and no expression was given. Pick one of the valid names the error lists, or supply an expression from get_scanner_datapoints.\n- Partial-failure responses (e.g. \"scan X created but preset Y could not be applied\") indicate a partial success on the enum path: the scan exists but is missing some of the intended state. Use filters_applied on the response to see what actually landed; mention this clearly to the user so they know whether they need to follow up with update_scan_filters.\n- With expression filters there are no partial failures: an upstream validation error (e.g. \"unresolved reference: X\", \"unsupported candle-period\") means nothing was saved. Fix the expression — get_scanner_datapoints has the valid names and signatures — and call again, or iterate with preview_scan first."
+  }
+}

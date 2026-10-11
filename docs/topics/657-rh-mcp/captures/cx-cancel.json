@@ -1,0 +1,29 @@
+{
+  "id": "cx-cancel",
+  "tool": "cancel_crypto_order",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Cancel a nil order_id — observes the tool's error envelope on this account (cx-place rejected 'no crypto account linked', so no live order exists to cancel). Re-arm with a real CX_ORDER_ID on a crypto-enabled account for a success-path capture.",
+  "args": {
+    "rhs_account_number": "$ENV:RH_RHS_ACCOUNT_NUMBER",
+    "order_id": "00000000-0000-0000-0000-000000000000"
+  },
+  "capturedAt": "2026-10-09T18:15:12.475Z",
+  "outcome": "error",
+  "latencyMs": 1765,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "no crypto account linked to brokerage account ••••6245\n\nThis account has no crypto account. To trade crypto, the user must first sign the crypto user agreement and open a crypto account here: https://applink.robinhood.com/crypto_signup_short. Once they have signed, they can retry."
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "no crypto account linked to brokerage account ••••6245\n\nThis account has no crypto account. To trade crypto, the user must first sign the crypto user agreement and open a crypto account here: https://applink.robinhood.com/crypto_signup_short. Once they have signed, they can retry."
+}

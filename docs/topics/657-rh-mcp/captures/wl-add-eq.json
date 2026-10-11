@@ -1,0 +1,29 @@
+{
+  "id": "wl-add-eq",
+  "tool": "add_to_watchlist",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Add equity symbol to the probe list — set WL_ID from wl-create.",
+  "args": {
+    "list_id": "$ENV:WL_ID",
+    "symbols": [
+      "OOMA"
+    ]
+  },
+  "capturedAt": "2026-10-09T16:14:02.476Z",
+  "outcome": "success",
+  "latencyMs": 4596,
+  "success": true,
+  "response": {
+    "data": {
+      "symbols": [
+        "OOMA"
+      ],
+      "object_type": "instrument",
+      "list_id": "••••15c9",
+      "operation": "create",
+      "status": "ok"
+    },
+    "guide": "On success the response echoes the operations applied. 400 with 'invalid instrument id' means a symbol could not be resolved — confirm spelling with the user. 404 means the list_id is not writable by the user (likely a curated list; use a custom list instead). 400 with an allowed_object_types message means the target list does not accept this asset type — check the list's allowed_object_types in get_watchlists."
+  }
+}

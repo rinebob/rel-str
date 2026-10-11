@@ -1,0 +1,22 @@
+{
+  "id": "wl-unfollow",
+  "tool": "unfollow_watchlist",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Unfollow it again — clean lifecycle round-trip.",
+  "args": {
+    "list_id": "$ENV:POPWL_ID"
+  },
+  "capturedAt": "2026-10-09T16:14:39.355Z",
+  "outcome": "success",
+  "latencyMs": 846,
+  "success": true,
+  "response": {
+    "data": {
+      "list_id": "••••8cb4",
+      "action": "unfollowed",
+      "status": "ok"
+    },
+    "guide": "404 means the user wasn't following that list (already-clean state)."
+  }
+}

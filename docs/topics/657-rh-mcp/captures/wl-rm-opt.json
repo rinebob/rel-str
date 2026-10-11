@@ -1,0 +1,29 @@
+{
+  "id": "wl-rm-opt",
+  "tool": "remove_option_from_watchlist",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Remove the NFLX 70C — position_type must match how it was added.",
+  "args": {
+    "option_ids": [
+      "$ENV:NFLX_OPT_ID"
+    ],
+    "position_type": "long"
+  },
+  "capturedAt": "2026-10-09T16:14:16.729Z",
+  "outcome": "success",
+  "latencyMs": 1031,
+  "success": true,
+  "response": {
+    "data": {
+      "option_ids": [
+        "••••da44"
+      ],
+      "position_type": "long",
+      "list_id": "f4b9ad9a-e78c-40a6-b8e3-c1e2370a183f",
+      "operation": "delete",
+      "status": "ok"
+    },
+    "guide": "Each option_id is matched as a single-leg position with the supplied position_type. The upstream resolves the leg back to the existing strategy and removes it. \"no options watchlist found\" means the user has not enabled options trading."
+  }
+}

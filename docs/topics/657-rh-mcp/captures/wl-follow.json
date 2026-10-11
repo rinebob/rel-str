@@ -1,0 +1,28 @@
+{
+  "id": "wl-follow",
+  "tool": "follow_watchlist",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Follow the curated 'Trending stocks' list — set POPWL_ID from ro-popwl-01.",
+  "args": {
+    "list_id": "$ENV:POPWL_ID"
+  },
+  "capturedAt": "2026-10-09T16:14:35.488Z",
+  "outcome": "success",
+  "latencyMs": 1516,
+  "success": true,
+  "response": {
+    "data": {
+      "follower": {
+        "list_id": "••••8cb4",
+        "user_id": "••••",
+        "owner_type": "robinhood",
+        "created_at": "2026-10-09T16:14:35.336373Z"
+      },
+      "list_id": "••••8cb4",
+      "action": "followed",
+      "status": "ok"
+    },
+    "guide": "400 with 'you cannot follow a list you own' means the user already owns this list (no action needed). 400 with a follow-limit message means the user is at their max followed lists — they need to unfollow one first."
+  }
+}

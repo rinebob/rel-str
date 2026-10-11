@@ -1,0 +1,31 @@
+{
+  "id": "ox-exercise",
+  "tool": "exercise_option",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Exercise NFLX 70C with NO position held — captures the verbatim reject.",
+  "args": {
+    "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+    "option_id": "$ENV:NFLX_OPT_ID",
+    "quantity": 1,
+    "ref_id": "$ENV:OX_REF"
+  },
+  "capturedAt": "2026-10-09T16:16:26.291Z",
+  "outcome": "error",
+  "latencyMs": 1015,
+  "success": false,
+  "response": {
+    "_meta": {
+      "rh_error_category": "invalid_request"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "API error 400: {\"error\":\"not_enough_contracts\",\"detail\":\"You don't own enough contracts to complete this order.\",\"title\":\"Not Enough Contracts\",\"context\":{}}"
+      }
+    ],
+    "isError": true
+  },
+  "category": "MCP",
+  "error": "API error 400: {\"error\":\"not_enough_contracts\",\"detail\":\"You don't own enough contracts to complete this order.\",\"title\":\"Not Enough Contracts\",\"context\":{}}"
+}

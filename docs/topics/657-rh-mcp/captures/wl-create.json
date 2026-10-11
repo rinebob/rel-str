@@ -1,0 +1,37 @@
+{
+  "id": "wl-create",
+  "tool": "create_watchlist",
+  "group": "misc-mut",
+  "gate": "mutation",
+  "note": "Create a probe watchlist — harvest list_id for the rest of the lifecycle. RESIDUE: no delete_watchlist tool exists; the list must be removed manually.",
+  "args": {
+    "display_name": "MCP-DISCOVERY-TEST",
+    "icon_emoji": "T",
+    "display_description": "probe — safe to delete in app"
+  },
+  "capturedAt": "2026-10-09T16:13:20.510Z",
+  "outcome": "success",
+  "latencyMs": 3378,
+  "success": true,
+  "response": {
+    "data": {
+      "watchlist": {
+        "id": "bf9321b8-4db1-4928-8001-99ed100315c9",
+        "display_name": "MCP-DISCOVERY-TEST",
+        "display_description": "probe — safe to delete in app",
+        "icon_emoji": "T",
+        "owner_type": "custom",
+        "item_count": 0,
+        "allowed_object_types": [
+          "currency_pair",
+          "futures",
+          "futures_product",
+          "index",
+          "instrument",
+          "tokenized_stock"
+        ]
+      }
+    },
+    "guide": "On success the response includes the new list_id — pass it to add_to_watchlist to populate the list. If a 400 mentions 'unique set' the user already has a list with that name; suggest a different name."
+  }
+}
