@@ -204,6 +204,13 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'auto-paper ingest dry-run (prod read)',
+    file: 'verify/paper-trading-auto-paper-918-ingest.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
 ];
 
 function hasGhAuth(): boolean {

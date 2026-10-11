@@ -11,6 +11,7 @@ import { describe, it } from 'node:test';
 
 import { TradeSide } from '../../../shared/common';
 import {
+  AUTO_PAPER_USER_ID,
   PaperTradingKind,
   PaperTradeSource,
   PaperTradeStatus,
@@ -147,6 +148,22 @@ describe('handleListPaperTrades', () => {
     const deps = makeDeps();
     await handleListPaperTrades(request({} as ListPaperTradesRequest), deps);
     assert.deepEqual(deps.lastFilters, {});
+  });
+
+  it('excludes auto-paper trades unless includeAutoPaper is set', async () => {
+    const deps = makeDeps({
+      listTrades: async () => [
+        trade({ id: 'user-trade', userId: UID }),
+        trade({ id: 'auto-trade', userId: AUTO_PAPER_USER_ID }),
+      ],
+    });
+    const def = await handleListPaperTrades(request({} as ListPaperTradesRequest), deps);
+    assert.deepEqual(def.trades.map((t) => t.id), ['user-trade']);
+    const inc = await handleListPaperTrades(
+      request({ includeAutoPaper: true } as ListPaperTradesRequest),
+      deps,
+    );
+    assert.deepEqual(inc.trades.map((t) => t.id), ['user-trade', 'auto-trade']);
   });
 });
 
