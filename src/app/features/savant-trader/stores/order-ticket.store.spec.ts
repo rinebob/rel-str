@@ -15,6 +15,7 @@ import {
   OrderSource,
   InstrumentType,
   EquityOrderTicket,
+  OptionOrderTicket,
 } from '../services/order-ticket.types';
 
 describe('OrderTicketStore', () => {
@@ -39,6 +40,33 @@ describe('OrderTicketStore', () => {
       instrumentType: InstrumentType.EQUITY,
       symbol: 'AAPL',
       quantity: '10',
+      createdAt: '2026-08-25T12:00:00Z',
+      updatedAt: '2026-08-25T12:00:00Z',
+      ...overrides,
+    };
+  }
+
+  function mockOptionTicket(overrides: Partial<OptionOrderTicket> = {}): OptionOrderTicket {
+    return {
+      id: 'opt-1',
+      refId: 'ref-opt-1',
+      source: OrderSource.SIGNAL_PIPELINE,
+      status: OrderTicketStatus.STAGED,
+      accountNumber: '123456789',
+      side: 'buy',
+      orderType: 'limit',
+      timeInForce: 'gfd',
+      marketHours: 'regular_hours',
+      instrumentType: InstrumentType.OPTION,
+      symbol: 'QQQ',
+      legs: [{
+        side: 'buy',
+        symbol: 'QQQ  260320C00500000',
+        optionId: 'opt-uuid-1',
+        positionEffect: 'open',
+      }],
+      quantity: '2',
+      price: '3.50',
       createdAt: '2026-08-25T12:00:00Z',
       updatedAt: '2026-08-25T12:00:00Z',
       ...overrides,
@@ -261,6 +289,26 @@ describe('OrderTicketStore', () => {
       expect(ticketService.updateTicket).not.toHaveBeenCalled();
     });
 
+    it('round-trips updated option legs through the merge', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockOptionTicket());
+      const newLegs = [{
+        side: 'buy' as const,
+        symbol: 'QQQ  260320P00480000',
+        optionId: 'opt-uuid-2',
+        positionEffect: 'open' as const,
+      }];
+
+      // The store patch type is Partial<Omit<OrderTicket,'instrumentType'>> —
+      // Omit doesn't distribute, so option-only fields need the variant cast
+      // (same convention as the equity partial casts above).
+      store.updateTicket('opt-1', { legs: newLegs } as Partial<OptionOrderTicket>);
+
+      expect((store.tickets()['opt-1'] as OptionOrderTicket).legs).toEqual(newLegs);
+      expect(ticketService.updateTicket).toHaveBeenCalledWith('opt-1', { legs: newLegs });
+    });
+
     it('error rollback restores only the failed entry — a sibling\u2019s local SUBMITTING survives', () => {
       // A wholesale map revert would clobber the transient SUBMITTING on
       // another ticket (in-flight paper send), reopening the remove/submit
@@ -348,6 +396,19 @@ describe('OrderTicketStore', () => {
       expect(store.loading()).toBe(false);
     });
 
+    it('hydrates an option ticket preserving leg optionId/positionEffect/side', () => {
+      const option = mockOptionTicket();
+      ticketService.loadAllTickets.and.returnValue(of([option]));
+
+      store.loadTickets();
+
+      const hydrated = store.tickets()['opt-1'] as OptionOrderTicket;
+      expect(hydrated).toEqual(option);
+      expect(hydrated.legs[0].optionId).toBe('opt-uuid-1');
+      expect(hydrated.legs[0].positionEffect).toBe('open');
+      expect(hydrated.legs[0].side).toBe('buy');
+    });
+
     it('preserves a transient local SUBMITTING over a persisted STAGED doc', () => {
       // The in-flight paper-send/submit marker is never persisted — a
       // rehydrate mid-flight must not drop the ticket back into the
@@ -424,6 +485,22 @@ describe('OrderTicketStore', () => {
       expect(attrService.seedFromTicket$).toHaveBeenCalledWith('123456789', 'AAPL', 'acct_wheel', 'o1');
     });
 
+    it('a filled OPTION ticket with bucketId does not seed — the position key is the underlying, not a contract', () => {
+      // OptionOrderTicket carries `symbol` (underlying) — a `in`-probe guard
+      // would seed attribution keyed by the ticker, not the option instrument.
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.batchUpdateTerminalStatus.and.returnValue(of(undefined));
+      store.stageTicket(mockOptionTicket({
+        id: 't1', status: OrderTicketStatus.SUBMITTED, bucketId: 'acct_wheel',
+        result: { orderId: 'o1' },
+      }));
+
+      store.reconcileTerminalStatuses(rhFilledOrder('o1'));
+
+      expect(store.tickets()['t1'].status).toBe(OrderTicketStatus.FILLED);
+      expect(attrService.seedFromTicket$).not.toHaveBeenCalled();
+    });
+
     it('a filled ticket WITHOUT bucketId does not seed', () => {
       ticketService.createTicket.and.returnValue(of(undefined));
       ticketService.batchUpdateTerminalStatus.and.returnValue(of(undefined));
@@ -478,6 +555,21 @@ describe('OrderTicketStore', () => {
       const bySymbol = store.ticketsBySymbol();
       expect(bySymbol['AAPL'].length).toBe(2);
       expect(bySymbol['MSFT'].length).toBe(1);
+    });
+
+    it('groups an option ticket under its underlying symbol, not the OCC leg symbol', () => {
+      // Deliberately mismatched namespaces: underlying 'AAPL' vs a QQQ
+      // contract leg — proves the grouping key is ticket.symbol.
+      const option = mockOptionTicket({ id: 'opt-1', symbol: 'AAPL' });
+      const equity = mockEquityTicket({ id: 'i2', status: OrderTicketStatus.STAGED, symbol: 'AAPL' });
+      ticketService.loadAllTickets.and.returnValue(of([option, equity]));
+
+      store.loadTickets();
+
+      const bySymbol = store.ticketsBySymbol();
+      expect(bySymbol['AAPL']).toContain(option);
+      expect(bySymbol['AAPL'].length).toBe(2);
+      expect(bySymbol['QQQ  260320C00500000']).toBeUndefined();
     });
   });
 

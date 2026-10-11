@@ -379,7 +379,7 @@ export class OrderComponent implements OnInit, OnDestroy {
     const docIdsFor = (t: OrderTicket): string[] => {
       const ctx = t.signalContext;
       const raw = ctx?.decisionIds?.length ? ctx.decisionIds : ctx?.decisionId ? [ctx.decisionId] : [];
-      const symbol = 'symbol' in t ? t.symbol : undefined;
+      const symbol = t.symbol;
       return raw.map((id) =>
         symbol
           ? canonicalOccurrenceDecisionId(id, {
@@ -531,7 +531,7 @@ export class OrderComponent implements OnInit, OnDestroy {
     if (!ok) return;
 
     this.selectedTicketId.set(id);
-    const symbol = 'symbol' in ticket ? ticket.symbol : 'Order';
+    const symbol = ticket.symbol;
     this.snackBar.open(`${symbol} moved to staged`, 'Dismiss', { duration: 3000 });
   }
 

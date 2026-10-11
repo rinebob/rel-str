@@ -2,8 +2,8 @@
  * Savant Trader OrderTicket type model.
  *
  * Discriminated union on InstrumentType for equity, ETF, and option order tickets.
- * Equity and ETF tickets are implemented; OptionOrderTicket is defined but not wired
- * — extension point for future option order work.
+ * Equity and ETF tickets are implemented; OptionOrderTicket is the model for the
+ * single-leg option order flow (Topic #942) — one leg, buy-to-open.
  *
  * Ref: PRD-savant-trader-order-placement-refactor.md §Order ticket data model
  * Ref: IMPL-savant-trader-order-placement-shared.md §4 (OrderTicket type model)
@@ -180,14 +180,24 @@ export interface EtfOrderTicket extends BaseOrderTicket {
 }
 
 export interface OptionLeg {
-  type: 'buy' | 'sell';
-  symbol: string;                // OCC contract symbol
-  quantity: string;              // contracts (positive integer string)
+  /** RH leg fields — place_option_order takes option_id, side,
+   *  position_effect, ratio_quantity per leg. `symbol` is the OCC contract
+   *  identifier kept for display only; `optionId` is the ordering identity
+   *  (different namespaces — an OCC symbol is not a valid option_id). */
+  side: 'buy' | 'sell';
+  symbol: string;                // OCC contract symbol — display only
+  optionId: string;              // RH instrument UUID — ordering identity
+  positionEffect: 'open' | 'close';
+  ratioQuantity?: number;        // multi-leg contract ratio — reserved; v1 single-leg omits it
 }
 
 export interface OptionOrderTicket extends BaseOrderTicket {
   instrumentType: InstrumentType.OPTION;
-  legs: OptionLeg[];
+  /** Underlying ticker — NOT the OCC contract symbol (that lives on the
+   *  leg). Lets `ticketsBySymbol` group the ticket under the signal card's
+   *  symbol unchanged. */
+  symbol: string;
+  legs: OptionLeg[];             // exactly one leg in the single-leg flow
   quantity: string;              // contracts (positive integer string)
   price?: string;                // limit price per contract
   stopPrice?: string;
@@ -212,6 +222,10 @@ export interface TradingConfig {
   maxUnits?: number;
   /** Max percentage of account value allocatable to positions. Default 80. */
   maxAllocationPercent?: number;
+  /** Fatfinger guardrail for option orders — max percentage of available
+   *  cash a single order's premium (quantity × price × 100) may consume.
+   *  Default 25. */
+  optionMaxPremiumCashPercent?: number;
   updatedAt: string;
 }
 

@@ -59,7 +59,8 @@ export class GalleryTicketDialogComponent implements OnInit {
   readonly ticket = computed(
     (): OrderTicket | null => this.ticketStore.tickets()[this.data.ticketId] ?? null,
   );
-  /** Gallery tickets are always equity/ETF — option tickets carry no `symbol`. */
+  /** Equity/ETF tickets only — option tickets also carry `symbol` (the
+   *  underlying), but the equity price binding doesn't apply to them. */
   readonly symbol = computed(() => {
     const t = this.ticket();
     return t && t.instrumentType !== InstrumentType.OPTION ? t.symbol : null;

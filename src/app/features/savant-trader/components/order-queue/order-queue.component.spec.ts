@@ -554,7 +554,7 @@ describe('OrderQueueComponent', () => {
     it('excludes option tickets and non-staged tickets from the staged aggregates', () => {
       const optionTicket = makeTicket('opt', OrderTicketStatus.STAGED, 'QQQ', 'buy', {
         instrumentType: InstrumentType.OPTION,
-        legs: [{ type: 'buy', symbol: 'QQQ  260320C00500000', quantity: '2' }],
+        legs: [{ side: 'buy', symbol: 'QQQ  260320C00500000', optionId: 'opt-uuid-1', positionEffect: 'open' }],
         quantity: '2',
         dollarAmount: '9999',
       });
@@ -734,7 +734,7 @@ describe('OrderQueueComponent', () => {
     it('shows contract count for option tickets instead of share math', () => {
       const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'QQQ', 'buy', {
         instrumentType: InstrumentType.OPTION,
-        legs: [{ type: 'buy', symbol: 'QQQ  260320C00500000', quantity: '2' }],
+        legs: [{ side: 'buy', symbol: 'QQQ  260320C00500000', optionId: 'opt-uuid-1', positionEffect: 'open' }],
         quantity: '2',
       });
       fixture.componentRef.setInput('tickets', [ticket]);
@@ -932,7 +932,7 @@ describe('OrderQueueComponent', () => {
       const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
         instrumentType: InstrumentType.OPTION,
         quantity: '1',
-        legs: [{ type: 'buy', symbol: 'AAPL 260918C150', quantity: '1' }],
+        legs: [{ side: 'buy', symbol: 'AAPL  260918C00150000', optionId: 'opt-uuid-1', positionEffect: 'open' }],
       });
       fixture.componentRef.setInput('tickets', [ticket]);
       fixture.componentRef.setInput('prices', {});

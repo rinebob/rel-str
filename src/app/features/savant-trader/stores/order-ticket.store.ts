@@ -95,9 +95,7 @@ export const OrderTicketStore = signalStore(
     ticketsBySymbol: computed((): Record<string, OrderTicket[]> => {
       const grouped: Record<string, OrderTicket[]> = {};
       for (const ticket of Object.values(state.tickets())) {
-        const symbol = 'symbol' in ticket
-          ? ticket.symbol
-          : ticket.legs[0]?.symbol ?? '';
+        const symbol = ticket.symbol;
         if (!grouped[symbol]) grouped[symbol] = [];
         grouped[symbol].push(ticket);
       }
@@ -398,11 +396,14 @@ export const OrderTicketStore = signalStore(
       // exits a position; seeding one would attribute an instrument you're
       // leaving (sells keep the existing doc, which no-ops anyway, but an
       // unattributed instrument would wrongly acquire a bucket on exit).
-      // Equity/ETF only: the position key is the symbol; option orders
-      // aren't submittable yet anyway.
+      // Equity/ETF only: the position key is the symbol. Explicit
+      // instrumentType check — OptionOrderTicket carries `symbol` too (the
+      // underlying), so a `in` probe would seed attribution on the wrong
+      // instrument identity once option orders can fill (#942).
       for (const ticket of Object.values(patchedTickets)) {
         const orderId = ticket.result?.orderId;
-        const instrumentId = 'symbol' in ticket ? ticket.symbol : '';
+        if (ticket.instrumentType === InstrumentType.OPTION) continue;
+        const instrumentId = ticket.symbol;
         if (ticket.status !== OrderTicketStatus.FILLED || ticket.side !== 'buy'
           || !ticket.bucketId || !orderId || !instrumentId) continue;
         attrService

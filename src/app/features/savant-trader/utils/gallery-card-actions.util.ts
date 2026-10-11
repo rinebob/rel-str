@@ -76,8 +76,9 @@ function latestDecidedAt(card: GalleryCard, ctx: GalleryActionContext): string {
  *  embedded timeframe/signalType differ from the ticket's headline fields,
  *  and scopes matches to THIS run — a same-symbol/same-side ticket from
  *  another run carries that run's decision ids and never matches (#755
- *  review). Sorted by updatedAt desc. Equity/ETF only — option tickets
- *  carry no signalContext and can't stage from a signal. */
+ *  review). Sorted by updatedAt desc. Equity/ETF only today — option
+ *  tickets also carry signalContext (signal-gallery provenance, #942);
+ *  admitting them is #964's card-statusing work. */
 export function findCardTickets(
   card: GalleryCard,
   ctx: GalleryActionContext,
