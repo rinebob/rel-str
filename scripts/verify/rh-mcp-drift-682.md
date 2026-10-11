@@ -34,7 +34,7 @@ Prerequisite: a stored local Robinhood credential (same auth path as
   if the credential is stale).
 
 Note: the committed `00-drift.json` is the **discovery baseline** — the
-2026-07-17 catalog vs live (76 vs 49). It intentionally documents that
-delta; the catalog has since been regenerated (via `refresh-tool-catalog.ts`),
-so a fresh run correctly reports `NO DRIFT` — re-run only when establishing
-a new baseline.
+2026-07-23 catalog vs live (76 vs 76; one residual schema delta on
+`get_equity_technical_indicators` — live added deprecated `symbol` and
+dropped `symbols` from required). Re-run only when establishing a new
+baseline.

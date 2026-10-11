@@ -186,6 +186,13 @@ const scripts: VerifyScript[] = [
     needsAdc: false,
   },
   {
+    name: 'rh-mcp tool inventory (canonical doc)',
+    file: 'verify/rh-mcp-tool-inventory-690.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: false,
+  },
+  {
     name: 'auto-paper signal-trade contracts',
     file: 'paper-trading-auto-paper-916-contracts.ts',
     needsAccount: false,
