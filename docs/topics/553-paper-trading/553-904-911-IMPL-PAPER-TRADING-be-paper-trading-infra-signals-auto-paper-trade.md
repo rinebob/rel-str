@@ -66,10 +66,14 @@ Delegates to `runAutoPaperIngestPass(payload, deps)`.
 Deps-injected like `runPaperStatsPass`. Steps:
 
 1. **Config gate.** Read `savant-trader/data/trading-config/autoPaper`:
-   `{ enabled: boolean; lists: string[]; signalTypes?: string[] }`.
+   `{ enabled: boolean; lists: string[]; signalTypes?: string[];
+     ownerUid?: string }`.
    Missing/disabled → log + exit. Default `signalTypes` const:
    `['D_ST_TREND_RIDER_V1_LONG','D_ST_TREND_RIDER_V1_SHORT',
      'D_ST_TREND_RIDER_V2_LONG','D_ST_TREND_RIDER_V2_SHORT']`.
+   **Operating scope (decision):** `lists: ['PRIMARY']` — paper-trade
+   PRIMARY-list signals only, not all tracked symbols. `lists:['*']`
+   remains a supported config-only escape hatch for global capture.
 2. **Live-date gate.** `payload.marketDate === todayPT()` (PT calendar —
    `normalizeMarketDate`/`pt-date-utils` pattern). Historical/replay runs
    exit with a `st_autopaper_skip` log (`reason: 'historical-run'`).
@@ -97,8 +101,10 @@ Deps-injected like `runPaperStatsPass`. Steps:
    needs its own fix (writer, interface, or reader) outside #916.
 6. **Per qualifying signal:**
    a. `signalId = SYMBOL_SIGNALTYPE_BARDATE`; `tradeId =
-      buildTradeId(now, 'sig', sym, signalTradeDesc(signalType))`.
-      `getTrade(tradeId)` → exists ⇒ skip (dedupe).
+      buildTradeId(barDay, 'sig', sym, signalTradeDesc(signalType))` —
+      keyed on the signal's **barDate** (not dispatch date) so a next-day
+      re-dispatch mints the same doc id. `getTrade(tradeId)` → exists ⇒
+      skip (dedupe); the ledger's `already exists` throw also counts.
    b. **RH quote** — `get_equity_quotes` via `executeObservationTool`
       inside `createRobinhoodMcpSessionManagerFromEnv` session (same seam
       `netExitBreakdown`/`signal-mark-pass` uses). Batch request per run
