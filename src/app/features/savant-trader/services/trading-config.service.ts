@@ -44,6 +44,7 @@ export class TradingConfigService {
           defaultDollarAmount?: number;
           maxUnits?: number;
           maxAllocationPercent?: number;
+          optionMaxPremiumCashPercent?: number;
         };
         if (!data.accountNumber) return null;
         return {
@@ -51,6 +52,7 @@ export class TradingConfigService {
           defaultDollarAmount: data.defaultDollarAmount,
           maxUnits: data.maxUnits,
           maxAllocationPercent: data.maxAllocationPercent,
+          optionMaxPremiumCashPercent: data.optionMaxPremiumCashPercent,
           updatedAt: data.updatedAt ?? new Date().toISOString(),
         };
       })),
@@ -73,6 +75,7 @@ export class TradingConfigService {
         if (config.defaultDollarAmount !== undefined) payload.defaultDollarAmount = config.defaultDollarAmount;
         if (config.maxUnits !== undefined) payload.maxUnits = config.maxUnits;
         if (config.maxAllocationPercent !== undefined) payload.maxAllocationPercent = config.maxAllocationPercent;
+        if (config.optionMaxPremiumCashPercent !== undefined) payload.optionMaxPremiumCashPercent = config.optionMaxPremiumCashPercent;
         await setDoc(docRef, payload, { merge: true });
       })),
       map(() => undefined)

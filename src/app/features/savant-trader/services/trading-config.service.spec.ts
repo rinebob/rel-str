@@ -1,11 +1,24 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
-import { Firestore } from '@angular/fire/firestore';
-import { of } from 'rxjs';
+import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
+import { of, firstValueFrom } from 'rxjs';
 
 import { TradingConfigService } from './trading-config.service';
 import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
+
+// Partial mock: keep the real Firestore injection token, stub the modular
+// read/write fns so loadConfig/saveConfig payloads are directly observable.
+jest.mock('@angular/fire/firestore', () => ({
+  ...jest.requireActual('@angular/fire/firestore'),
+  doc: jest.fn(),
+  getDoc: jest.fn(),
+  setDoc: jest.fn(),
+}));
+
+const mockDoc = doc as jest.Mock;
+const mockGetDoc = getDoc as jest.Mock;
+const mockSetDoc = setDoc as jest.Mock;
 
 describe('TradingConfigService', () => {
   let service: TradingConfigService;
@@ -22,7 +35,12 @@ describe('TradingConfigService', () => {
         {
           provide: Auth,
           useValue: {
-            authState: () => of({ uid: 'user-123' }),
+            // AngularFire's authState() wraps onAuthStateChanged — the stub
+            // must emit a user synchronously and return an unsubscribe.
+            onAuthStateChanged: (cb: (u: unknown) => void) => {
+              cb({ uid: 'user-123' });
+              return () => {};
+            },
           },
         },
         {
@@ -173,6 +191,37 @@ describe('TradingConfigService', () => {
   });
 
   describe('loadConfig', () => {
+    beforeEach(() => {
+      mockDoc.mockReset().mockReturnValue({});
+      mockGetDoc.mockReset();
+      mockSetDoc.mockReset();
+    });
+
+    it('maps optionMaxPremiumCashPercent from the stored doc', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({
+          accountNumber: '123456789',
+          optionMaxPremiumCashPercent: 15,
+        }),
+      });
+
+      const config = await firstValueFrom(service.loadConfig());
+
+      expect(config?.optionMaxPremiumCashPercent).toBe(15);
+    });
+
+    it('returns undefined optionMaxPremiumCashPercent when the doc predates the field', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ accountNumber: '123456789' }),
+      });
+
+      const config = await firstValueFrom(service.loadConfig());
+
+      expect(config?.optionMaxPremiumCashPercent).toBeUndefined();
+    });
+
     it('returns null when no config doc exists', (done) => {
       // The service uses modular Firestore getDoc which reads from the real
       // Firestore instance. With an empty Firestore mock, getDoc will throw
@@ -195,6 +244,31 @@ describe('TradingConfigService', () => {
   });
 
   describe('saveConfig', () => {
+    beforeEach(() => {
+      mockDoc.mockReset().mockReturnValue({});
+      mockGetDoc.mockReset();
+      mockSetDoc.mockReset().mockResolvedValue(undefined);
+    });
+
+    it('writes optionMaxPremiumCashPercent to the config doc', async () => {
+      await firstValueFrom(
+        service.saveConfig({ accountNumber: '123456789', optionMaxPremiumCashPercent: 15 }),
+      );
+
+      expect(mockSetDoc).toHaveBeenCalledWith(
+        {},
+        jasmine.objectContaining({ optionMaxPremiumCashPercent: 15 }),
+        { merge: true },
+      );
+    });
+
+    it('omits optionMaxPremiumCashPercent when unset', async () => {
+      await firstValueFrom(service.saveConfig({ accountNumber: '123456789' }));
+
+      const payload = mockSetDoc.mock.calls[0][1] as Record<string, unknown>;
+      expect('optionMaxPremiumCashPercent' in payload).toBe(false);
+    });
+
     it('returns an observable that completes', (done) => {
       service.saveConfig({ accountNumber: '123456789' }).subscribe({
         next: () => {
