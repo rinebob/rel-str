@@ -166,10 +166,10 @@ function strAt(obj: unknown, ...path: string[]): string | undefined {
 }
 
 /**
- * Extract the per-symbol equity price from a `get_equity_quotes` response.
- * `last_trade_price` preferred; falls back to `close.price` (after-hours).
+ * Find the raw per-symbol item in a `get_equity_quotes` response — the node
+ * callers persist verbatim into raw-quote audit docs.
  */
-export function extractEquityPrice(parsed: unknown, symbol: string): number | undefined {
+export function findEquityQuoteItem(parsed: unknown, symbol: string): unknown {
   if (!isPlainObject(parsed)) return undefined;
   const root: unknown = isPlainObject(parsed.data) ? parsed.data : parsed;
   const results = isPlainObject(root)
@@ -178,14 +178,23 @@ export function extractEquityPrice(parsed: unknown, symbol: string): number | un
   if (!Array.isArray(results)) return undefined;
   for (const item of results) {
     const sym = strAt(item, 'quote', 'symbol') ?? strAt(item, 'symbol');
-    if (sym?.toUpperCase() !== symbol.toUpperCase()) continue;
-    const price =
-      numAt(item, 'quote', 'last_trade_price') ??
-      numAt(item, 'quote', 'last_non_reg_trade_price') ??
-      numAt(item, 'quote', 'last_price') ??
-      numAt(item, 'quote', 'price') ??
-      numAt(item, 'close', 'price');
-    return price;
+    if (sym?.toUpperCase() === symbol.toUpperCase()) return item;
   }
   return undefined;
+}
+
+/**
+ * Extract the per-symbol equity price from a `get_equity_quotes` response.
+ * `last_trade_price` preferred; falls back to `close.price` (after-hours).
+ */
+export function extractEquityPrice(parsed: unknown, symbol: string): number | undefined {
+  const item = findEquityQuoteItem(parsed, symbol);
+  if (item === undefined) return undefined;
+  return (
+    numAt(item, 'quote', 'last_trade_price') ??
+    numAt(item, 'quote', 'last_non_reg_trade_price') ??
+    numAt(item, 'quote', 'last_price') ??
+    numAt(item, 'quote', 'price') ??
+    numAt(item, 'close', 'price')
+  );
 }

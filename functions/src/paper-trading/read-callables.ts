@@ -16,16 +16,17 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import type { CallableRequest } from 'firebase-functions/v2/https';
-import type {
-  GetPaperAccountResponse,
-  GetPaperStatsRequest,
-  GetPaperStatsResponse,
-  ListExitVariantsResponse,
-  ListPaperTradesRequest,
-  ListPaperTradesResponse,
-  PaperAccount,
-  PaperStats,
-  PaperTrade,
+import {
+  AUTO_PAPER_USER_ID,
+  type GetPaperAccountResponse,
+  type GetPaperStatsRequest,
+  type GetPaperStatsResponse,
+  type ListExitVariantsResponse,
+  type ListPaperTradesRequest,
+  type ListPaperTradesResponse,
+  type PaperAccount,
+  type PaperStats,
+  type PaperTrade,
 } from '@paper-trading/contracts';
 import { buildAccountId, buildStatsId } from '@paper-trading/ids';
 import { db } from '../firebase-admin-init';
@@ -72,8 +73,13 @@ export async function handleListPaperTrades(
     ...(f.variantKey ? { variantKey: f.variantKey } : {}),
   };
   const trades = await deps.listTrades(filters);
-  logger.info(`listPaperTrades ${JSON.stringify(filters)} → ${trades.length} trades`);
-  return { trades };
+  // Auto-paper forensics trades stay out of user-facing lists by default —
+  // #921's dedicated surface opts back in via includeAutoPaper.
+  const visible = f.includeAutoPaper
+    ? trades
+    : trades.filter((t) => t.userId !== AUTO_PAPER_USER_ID);
+  logger.info(`listPaperTrades ${JSON.stringify(filters)} → ${visible.length} trades`);
+  return { trades: visible };
 }
 
 export async function handleGetPaperStats(

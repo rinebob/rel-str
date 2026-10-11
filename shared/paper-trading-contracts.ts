@@ -452,6 +452,10 @@ export interface ListPaperTradesRequest {
   symbol?: string;
   expression?: string;
   variantKey?: string;
+  /** Auto-paper forensics trades (userId 'auto-paper', Thread #904) are
+   *  excluded unless true — they would otherwise flood the user list at
+   *  ~hundreds/day. #921's auto-paper surface passes this flag. */
+  includeAutoPaper?: boolean;
 }
 
 export interface ListPaperTradesResponse {
