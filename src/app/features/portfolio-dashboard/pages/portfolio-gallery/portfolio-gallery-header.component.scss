@@ -1,0 +1,101 @@
+:host {
+  display: block;
+}
+
+.pg-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pg-summary-strip {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.pg-summary-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pg-summary-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+
+.pg-summary-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pg-pos { color: #4caf50; }
+.pg-neg { color: #ef5350; }
+.pg-warn { color: #ffa726; }
+
+.pg-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+}
+
+.card-count {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-count-total {
+  opacity: 0.55;
+  font-weight: 400;
+}
+
+.header-spacer {
+  flex: 1 1 auto;
+}
+
+.pg-side-pills,
+.pg-chart-pills {
+  display: inline-flex;
+  gap: 2px;
+
+  button {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    cursor: pointer;
+
+    &:first-child { border-radius: 10px 0 0 10px; }
+    &:last-child { border-radius: 0 10px 10px 0; }
+    &:only-child { border-radius: 10px; }
+
+    &.active {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+  }
+}
+
+.pg-chart-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pg-chart-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}

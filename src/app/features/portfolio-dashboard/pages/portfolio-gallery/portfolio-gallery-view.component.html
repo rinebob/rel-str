@@ -1,0 +1,74 @@
+<div class="pg-page">
+  <app-portfolio-gallery-header
+    [summary]="facade.summary()"
+    [cardCount]="facade.cardCount()"
+    [totalCardCount]="facade.totalCardCount()"
+    [side]="facade.side()"
+    [chartTimeframe]="facade.chartTimeframe()"
+    [listFilter]="facade.listFilter()"
+    [listGroups]="facade.filterOptionGroups()"
+    [groupDimension]="facade.groupDimension()"
+    [refreshing]="facade.refreshing()"
+    (sideChange)="facade.setSide($event)"
+    (chartTimeframeChange)="facade.setChartTimeframe($event)"
+    (listFilterChange)="facade.setListFilter($event)"
+    (dimensionChange)="facade.setGroupDimension($event)"
+    (refresh)="facade.refresh()">
+  </app-portfolio-gallery-header>
+
+  <div class="pg-body">
+    @for (err of facade.partialErrors(); track err) {
+      <div class="pg-partial-error" data-testid="partial-error">
+        <mat-icon>warning_amber</mat-icon>
+        <span>{{ err }}</span>
+      </div>
+    }
+    @if (facade.noAgenticAccount()) {
+      <div class="pg-state pg-error">
+        <mat-icon>account_balance_wallet</mat-icon>
+        <p>No agentic-enabled account found.</p>
+        <p class="pg-state-sub">This page renders live positions for agentic accounts only.</p>
+      </div>
+    } @else if (facade.initialLoading()) {
+      <div class="pg-state">
+        <mat-progress-spinner diameter="36" mode="indeterminate" aria-label="Loading positions" />
+        <p>Loading positions…</p>
+      </div>
+    } @else if (facade.loadError()) {
+      <div class="pg-state pg-error">
+        <mat-icon>error_outline</mat-icon>
+        <p>{{ facade.loadError() }}</p>
+        <button mat-stroked-button (click)="facade.refresh()">Retry</button>
+      </div>
+    } @else if (facade.noPositions()) {
+      <div class="pg-state">
+        <mat-icon>inbox</mat-icon>
+        <p>No live positions</p>
+        <p class="pg-state-sub">Positions you hold will appear here as cards.</p>
+      </div>
+    } @else if (facade.allFilteredOut()) {
+      <div class="pg-state">
+        <mat-icon>filter_list_off</mat-icon>
+        <p>No positions match the current filters</p>
+      </div>
+    } @else {
+      <!-- Placeholder flat grid — real PositionCard components land in #951.
+           Proves the facade join end-to-end: symbol, side, qty, mark, P&L. -->
+      <div class="pg-grid" data-testid="position-grid">
+        @for (card of facade.flatCards(); track card.key) {
+          <div class="pg-card-stub">
+            <div class="pg-card-stub-head">
+              <span class="pg-card-symbol">{{ card.symbol }}</span>
+              <span class="pg-card-side" [class.short]="card.side === 'short'">{{ card.side === 'short' ? 'SHORT' : 'LONG' }}</span>
+            </div>
+            <div class="pg-card-stub-meta">
+              <span>{{ num(card.quantity) }} @ {{ money(card.averageCost) }}</span>
+              <span>{{ money(card.marketPrice) }}</span>
+              <span>{{ money(card.unrealizedPnl) }}</span>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

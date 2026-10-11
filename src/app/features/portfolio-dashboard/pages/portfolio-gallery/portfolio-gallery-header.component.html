@@ -1,0 +1,80 @@
+<div class="pg-header">
+  <div class="pg-summary-strip">
+    <div class="pg-summary-item">
+      <span class="pg-summary-label">Total Value</span>
+      <span class="pg-summary-value">{{ fmtDollars(summary().totalValue) }}</span>
+    </div>
+    <div class="pg-summary-item">
+      <span class="pg-summary-label">Equity</span>
+      <span class="pg-summary-value">{{ fmtDollars(summary().equityValue) }}</span>
+    </div>
+    <div class="pg-summary-item">
+      <span class="pg-summary-label">Cash</span>
+      <span class="pg-summary-value">{{ fmtDollars(summary().cash) }}</span>
+    </div>
+    <div class="pg-summary-item">
+      <span class="pg-summary-label">Buying Power</span>
+      <span class="pg-summary-value">{{ fmtDollars(summary().buyingPower) }}</span>
+    </div>
+    <div class="pg-summary-item">
+      <span class="pg-summary-label">Day P&amp;L</span>
+      <span class="pg-summary-value" [class.pg-pos]="(summary().dayPnl ?? 0) > 0" [class.pg-neg]="(summary().dayPnl ?? 0) < 0">{{ fmtPnl(summary().dayPnl) }}</span>
+    </div>
+    <div class="pg-summary-item">
+      <span class="pg-summary-label">Unrealized</span>
+      <span class="pg-summary-value" [class.pg-pos]="(summary().unrealizedPnl ?? 0) > 0" [class.pg-neg]="(summary().unrealizedPnl ?? 0) < 0">{{ fmtPnl(summary().unrealizedPnl) }}</span>
+    </div>
+    <div class="pg-summary-item">
+      <span class="pg-summary-label">Unprotected</span>
+      <span class="pg-summary-value" [class.pg-warn]="summary().unprotectedCount > 0"
+            matTooltip="Positions without an active protective stop order">{{ summary().unprotectedCount }}</span>
+    </div>
+  </div>
+
+  <div class="pg-toolbar">
+    <span class="card-count" matTooltip="Visible cards / total positions">
+      {{ cardCount() }}<span class="card-count-total"> / {{ totalCardCount() }}</span>
+    </span>
+
+    <div class="pg-side-pills" role="group" aria-label="Side filter" matTooltip="Position side">
+      <button type="button" [class.active]="side() === 'all'" (click)="sideChange.emit('all')">All</button>
+      <button type="button" [class.active]="side() === 'long'" (click)="sideChange.emit('long')">Long</button>
+      <button type="button" [class.active]="side() === 'short'" (click)="sideChange.emit('short')">Short</button>
+    </div>
+
+    <div class="header-spacer"></div>
+
+    <div class="pg-chart-toggle" role="group" aria-label="Chart timeframe"
+         matTooltip="Chart interval for all cards">
+      <span class="pg-chart-label">Chart</span>
+      <div class="pg-chart-pills">
+        <button type="button" [class.active]="chartTimeframe() === SignalTimeframe.DAILY"
+                (click)="chartTimeframeChange.emit(SignalTimeframe.DAILY)">D</button>
+        <button type="button" [class.active]="chartTimeframe() === SignalTimeframe.WEEKLY"
+                (click)="chartTimeframeChange.emit(SignalTimeframe.WEEKLY)">W</button>
+      </div>
+    </div>
+
+    <app-rh-select-menu
+      label="Group"
+      [options]="dimensionOptions"
+      [value]="groupDimension()"
+      (valueChange)="dimensionChange.emit($event)">
+    </app-rh-select-menu>
+
+    <app-rh-select-menu
+      label="List"
+      [options]="sentinelOptions"
+      [optionGroups]="listGroups()"
+      [value]="listFilter()"
+      (valueChange)="listFilterChange.emit($event)">
+    </app-rh-select-menu>
+
+    <button mat-icon-button
+      [disabled]="refreshing()"
+      matTooltip="Refresh positions, orders, and quotes"
+      (click)="refresh.emit()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+</div>
