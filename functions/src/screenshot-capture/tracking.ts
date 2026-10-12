@@ -59,7 +59,7 @@ export function enginePositionCarrier(docPath: string): LifecycleCarrier {
 }
 
 /** Full doc path for a `st-screenshots` index entry (pair with
- *  `screenshotIndexDocId` from lifecycle-capture). */
+ *  `buildScreenshotIndexDocId` from `@screenshot-capture/utils`). */
 export function screenshotIndexDocPath(docId: string): string {
   return `${ST_SCREENSHOTS_COLLECTION}/${docId}`;
 }

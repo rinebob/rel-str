@@ -16,8 +16,9 @@
  *   path, and a detached continuation can't be frozen mid-write. All errors
  *   (and the timeout) resolve to `{status:'failed'}` — nothing propagates.
  * - **Manifest + index** commit in one transaction: the carrier's
- *   `capturedEvents` entry flips to `captured` and the flat `st-screenshots`
- *   index doc lands under the deterministic id `{groupId}-{refId}-{event}`.
+ *   `capturedEvents` entry flips to `captured` and one `st-screenshots`
+ *   index doc lands per artifact, id matching the filename segments —
+ *   `{SYMBOL}-{date}-{time}-{event}[-{ref6}]-{interval}` (PT).
  *
  * `CaptureChartSnapshotDeps` seams keep the whole intake unit-testable
  * without firebase-admin; `createLifecycleCaptureDeps` wires the real seams.
@@ -41,6 +42,7 @@ import {
   type LifecycleCarrier,
   type ScreenshotIndexEntry,
 } from '@screenshot-capture/contracts';
+import { buildScreenshotIndexDocId } from '@screenshot-capture/utils';
 import { assembleChartModels } from './chart-data-loader';
 import { executeCaptureChart, type CaptureChartSnapshotDeps } from './capture-chart';
 import { rasterizeSvgToPng } from './rasterizer';
@@ -109,19 +111,6 @@ export interface LifecycleCaptureDeps {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Deterministic, overwrite-safe index doc id. Firestore doc ids forbid
- *  `/`; whitespace/slashes collapse to `-`. */
-export function screenshotIndexDocId(
-  groupId: string | undefined,
-  refId: string,
-  event: CaptureEvent,
-): string {
-  return [groupId, refId, event]
-    .filter((p): p is string => !!p)
-    .join('-')
-    .replace(/[\s/]+/g, '-');
-}
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -237,19 +226,36 @@ export async function captureLifecycleEvent(
         capturedAt,
         paths: result.paths,
       });
-      txn.writeIndex(screenshotIndexDocId(input.groupId, refId, event), {
-        // Firestore rejects explicit `undefined` field values — omit the key
-        // entirely for ungrouped captures.
-        ...(input.groupId ? { groupId: input.groupId } : {}),
-        positionId: input.positionId,
-        refId,
-        event,
-        symbol: input.symbol,
-        positionType: input.positionType,
-        carrier,
-        capturedAt,
-        paths: result.paths,
-      });
+      // One index doc per artifact — id mirrors the filename segments so a
+      // bucket listing and the collection read the same way. Skip anything
+      // missing paths or the PT stamp (a caller-built result without them).
+      for (const a of result.artifacts) {
+        if (!a.svgPath || !a.pngPath || !result.date || !result.time) continue;
+        txn.writeIndex(
+          buildScreenshotIndexDocId({
+            symbol: input.symbol,
+            event,
+            interval: a.interval,
+            date: result.date,
+            time: result.time,
+            refId,
+          }),
+          {
+            symbol: input.symbol,
+            event,
+            positionType: input.positionType,
+            interval: a.interval,
+            refId,
+            // Firestore rejects explicit `undefined` values — omit the key.
+            ...(input.groupId ? { groupId: input.groupId } : {}),
+            positionId: input.positionId,
+            carrier,
+            capturedAt,
+            svgPath: a.svgPath,
+            pngPath: a.pngPath,
+          },
+        );
+      }
       return undefined;
     });
   } catch (err) {

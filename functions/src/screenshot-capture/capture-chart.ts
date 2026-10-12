@@ -16,6 +16,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { getStorage } from 'firebase-admin/storage';
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Side-effect import: initializes the default app for getStorage().
 import '../firebase-admin-init';
@@ -36,9 +37,12 @@ import {
 } from '@screenshot-capture/contracts';
 import {
   buildCaptureChartResult,
+  buildScreenshotIndexDocId,
   buildScreenshotStoragePath,
   symbolPathSegment,
 } from '@screenshot-capture/utils';
+import { ST_SCREENSHOTS_COLLECTION } from '@screenshot-capture/contracts';
+import type { ScreenshotIndexEntry } from '@screenshot-capture/contracts';
 import { ST_ALLOWED_ORIGINS } from '../st-cloud-function/cors';
 import {
   InsufficientBarsError,
@@ -151,14 +155,34 @@ export interface CaptureChartSnapshotDeps {
   renderChartSvg: (model: ChartRenderModel) => string;
   rasterizeSvgToPng: (svg: string) => Buffer;
   writeArtifact: ArtifactWriter;
+  /** Optional `st-screenshots` index write — one doc per stored artifact.
+   *  Lifecycle callers omit it and ledger the index in their own
+   *  transaction instead. */
+  writeIndexDoc?: (docId: string, entry: ScreenshotIndexEntry) => Promise<unknown>;
   now: () => Date;
 }
 
 /** One timestamp for the whole capture — every interval's path shares the
- *  same date+time segments. */
+ *  same date+time segments. PT wall-clock: filenames and index ids are
+ *  user-facing, and all other user-facing dates in the app are PT
+ *  (`common/pt-date-utils`). */
+const PT_TIMEZONE = 'America/Los_Angeles';
 function captureTimestamp(now: Date): { date: string; time: string } {
-  const iso = now.toISOString(); // yyyy-mm-ddTHH:mm:ss.sssZ
-  return { date: iso.slice(0, 10), time: iso.slice(11, 19).replaceAll(':', '') };
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: PT_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const part = (type: string): string => parts.find((p) => p.type === type)!.value;
+  return {
+    date: `${part('year')}-${part('month')}-${part('day')}`,
+    time: `${part('hour')}${part('minute')}${part('second')}`,
+  };
 }
 
 /** CallableRequest minus the fields the handler doesn't need — keeps the
@@ -212,7 +236,50 @@ export async function executeCaptureChart(
     }),
   );
 
-  const result = buildCaptureChartResult(artifacts);
+  const result = buildCaptureChartResult(artifacts, store ? { date, time } : undefined);
+
+  // Index write — one `st-screenshots` doc per artifact, id matching the
+  // filename segments. Swallowed like the artifact layer's contract:
+  // the artifacts exist either way and a missing index row is
+  // reconstructible from the bucket prefix.
+  if (store && deps.writeIndexDoc && result.artifacts.length > 0) {
+    const capturedAt = now.toISOString();
+    await Promise.all(
+      result.artifacts.map(async (a) => {
+        try {
+          await deps.writeIndexDoc!(
+            buildScreenshotIndexDocId({
+              symbol,
+              event,
+              interval: a.interval,
+              date,
+              time,
+              refId,
+            }),
+            {
+              symbol,
+              event,
+              positionType,
+              interval: a.interval,
+              ...(refId ? { refId } : {}),
+              ...(groupId ? { groupId } : {}),
+              capturedAt,
+              svgPath: a.svgPath!,
+              pngPath: a.pngPath!,
+            },
+          );
+        } catch (err) {
+          logger.warn('capture_index_write_failed', {
+            symbol,
+            event,
+            interval: a.interval,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }),
+    );
+  }
+
   logger.info('capture_chart_snapshot', { symbol, paths: result.paths });
   return result;
 }
@@ -253,6 +320,8 @@ export const captureChartSnapshot = onCall<unknown, Promise<CaptureChartResult>>
       renderChartSvg,
       rasterizeSvgToPng,
       writeArtifact: createArtifactWriter(getStorage().bucket()),
+      writeIndexDoc: (docId, entry) =>
+        getFirestore().collection(ST_SCREENSHOTS_COLLECTION).doc(docId).set(entry),
       now: () => new Date(),
     }),
 );

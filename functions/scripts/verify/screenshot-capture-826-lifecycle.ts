@@ -47,12 +47,10 @@ await import('../../src/firebase-admin-init'); // side-effect: default app init
 const {
   captureLifecycleEvent,
   createLifecycleCaptureDeps,
-  screenshotIndexDocId,
 } = await import('../../src/screenshot-capture/lifecycle-capture');
 const {
   CAPTURED_EVENTS_FIELD,
   enginePositionCarrier,
-  screenshotIndexDocPath,
 } = await import('../../src/screenshot-capture/tracking');
 const {
   CaptureEvent,
@@ -70,7 +68,9 @@ const POSITION_ID = 'verify-826-carrier';
 const GROUP_ID = 'verify-826-lifecycle';
 const EVENT = CaptureEvent.ORDER_FILLED;
 const REF_ID = `${POSITION_ID}-${EVENT}`; // intake default composition
-const INDEX_DOC_ID = screenshotIndexDocId(GROUP_ID, REF_ID, EVENT);
+// Index doc ids are timestamped ({SYMBOL}-{date}-{time}-{event}-{ref6}-
+// {interval}, PT) — not precomputable, so lookups go through the refId field.
+const REF_SEGMENT = 'verify'; // sanitizeSegment(REF_ID) → 'verify826…' → 'verify'
 
 let checks = 0;
 let passed = 0;
@@ -90,10 +90,14 @@ async function main(): Promise<void> {
   // either way — so overriding it changes nothing the intake guarantees.
   const deps = { ...createLifecycleCaptureDeps(db), timeoutMs: 120_000 };
 
-  // Clean slate: drop the carrier's dedup ledger and the index doc so a
-  // rerun captures fresh instead of skipping on the previous run's entry.
+  // Clean slate: drop the carrier's dedup ledger and any prior index docs
+  // for this refId so a rerun captures fresh instead of skipping.
   await db.doc(CARRIER_PATH).delete();
-  await db.doc(screenshotIndexDocPath(INDEX_DOC_ID)).delete();
+  const staleIndex = await db
+    .collection(ST_SCREENSHOTS_COLLECTION)
+    .where('refId', '==', REF_ID)
+    .get();
+  await Promise.all(staleIndex.docs.map((d) => d.ref.delete()));
   await db.doc(CARRIER_PATH).set({
     kind: 'verify-scratch',
     note: 'Task #848 lifecycle-capture verify carrier — safe to delete.',
@@ -154,37 +158,53 @@ async function main(): Promise<void> {
   );
 
   console.log('\n— st-screenshots index —');
-  const indexSnap = await db.collection(ST_SCREENSHOTS_COLLECTION).doc(INDEX_DOC_ID).get();
-  check('index doc exists', indexSnap.exists);
-  const idx = (indexSnap.data() ?? {}) as Partial<ScreenshotIndexEntry>;
-  check('index id is {groupId}-{refId}-{event}', INDEX_DOC_ID === `${GROUP_ID}-${REF_ID}-${EVENT}`);
-  check('index positionId', idx.positionId === POSITION_ID);
-  check('index refId', idx.refId === REF_ID);
-  check('index event', idx.event === EVENT);
-  check('index symbol', idx.symbol === SYMBOL);
-  check('index positionType', idx.positionType === PositionType.OPTION_SINGLE);
-  check('index groupId', idx.groupId === GROUP_ID);
-  check(
-    'index carrier points at the scratch doc',
-    idx.carrier?.kind === 'engine-position' && idx.carrier?.docPath === CARRIER_PATH,
-  );
-  check(
-    'index paths match outcome',
-    Array.isArray(idx.paths) && JSON.stringify(idx.paths) === JSON.stringify(paths),
-  );
+  const indexQuery = await db
+    .collection(ST_SCREENSHOTS_COLLECTION)
+    .where('refId', '==', REF_ID)
+    .get();
+  check('index doc(s) exist', indexQuery.size >= 1);
+  const indexSnap = indexQuery.docs
+    .filter((d) => d.id.startsWith(`${SYMBOL}-`))
+    .sort((a, b) => b.id.localeCompare(a.id))[0];
+  check('index id is {SYMBOL}-{date}-{time}-{event}-{ref6}-{interval}', !!indexSnap);
+  if (indexSnap) {
+    console.log(`  index doc: ${indexSnap.id}`);
+    const idx = indexSnap.data() as Partial<ScreenshotIndexEntry>;
+    check(
+      'index id format',
+      new RegExp(`^${SYMBOL}-\\d{4}-\\d{2}-\\d{2}-\\d{6}-order-filled-${REF_SEGMENT}-daily$`).test(
+        indexSnap.id,
+      ),
+    );
+    check('index positionId', idx.positionId === POSITION_ID);
+    check('index refId', idx.refId === REF_ID);
+    check('index event', idx.event === EVENT);
+    check('index symbol', idx.symbol === SYMBOL);
+    check('index interval daily', idx.interval === ChartInterval.DAILY);
+    check('index positionType', idx.positionType === PositionType.OPTION_SINGLE);
+    check('index groupId', idx.groupId === GROUP_ID);
+    check(
+      'index carrier points at the scratch doc',
+      idx.carrier?.kind === 'engine-position' && idx.carrier?.docPath === CARRIER_PATH,
+    );
+    check(
+      'index paths ⊆ outcome paths',
+      !!idx.svgPath && !!idx.pngPath && paths.includes(idx.svgPath) && paths.includes(idx.pngPath),
+    );
+  }
 
   console.log('\n— dedup rerun —');
   const [before] = await bucket.getFiles({
     prefix: `${SCREENSHOT_STORAGE_PREFIX}/${SYMBOL}/${GROUP_ID}/`,
   });
-  const indexBefore = (await indexSnap.ref.get()).updateTime ?? null;
+  const indexBefore = indexSnap ? (await indexSnap.ref.get()).updateTime ?? null : null;
   const second = await captureLifecycleEvent(input, deps);
   check('second call is skipped-duplicate', second.status === 'skipped-duplicate');
   const [after] = await bucket.getFiles({
     prefix: `${SCREENSHOT_STORAGE_PREFIX}/${SYMBOL}/${GROUP_ID}/`,
   });
   check('no new objects written', after.length === before.length);
-  const indexAfter = (await indexSnap.ref.get()).updateTime;
+  const indexAfter = indexSnap ? (await indexSnap.ref.get()).updateTime : null;
   check(
     'index doc untouched',
     !!indexBefore && !!indexAfter && indexAfter.isEqual(indexBefore),

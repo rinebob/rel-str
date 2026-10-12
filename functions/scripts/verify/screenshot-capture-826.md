@@ -27,20 +27,23 @@ Requires ADC (`gcloud auth application-default login` or
 - Scratch carrier doc `st-screenshot-verify/826-lifecycle` (kind
   `engine-position`; safe to delete). Deleted + re-seeded at the start of
   each run so reruns capture fresh instead of deduping on the previous run.
-- Index doc `st-screenshots/verify-826-lifecycle-verify-826-carrier-order-filled-order-filled`.
+- Index docs under `st-screenshots/` — one per artifact, human-readable
+  `{SYMBOL}-{PT date}-{PT time}-{event}-{refId6}-{interval}` ids (e.g.
+  `GOOG-2026-10-05-073022-order-filled-826-ca-daily`).
 - Real objects under
   `gs://rel-str.appspot.com/st-trade-screenshots/{SYMBOL}/verify-826-lifecycle/`
-  — timestamped, so each run adds one SVG + one PNG.
+  — PT-timestamped filenames `{SYMBOL}-{date}-{time}-{event}-{positionType}-{refId}-{interval}.{svg,png}`,
+  so each run adds one SVG + one PNG per interval.
 
 **Passing:** all checks print `✔`, exit 0. Verifies: outcome
 `captured` with SVG+PNG paths under `{symbol}/{groupId}/`, each object
 exists with the right `contentType`, the carrier doc's
 `capturedEvents['order-filled']` entry is `{status: captured, claimedAt,
-capturedAt, paths}` matching the outcome, the index doc carries the
-deterministic `{groupId}-{refId}-{event}` id plus
-positionId/refId/event/symbol/positionType/groupId/carrier/paths, and a
-second invocation returns `skipped-duplicate` with no new objects and an
-untouched index doc.
+capturedAt, paths}` matching the outcome, index docs carry the
+human-readable id plus
+positionId/refId/event/symbol/positionType/groupId/carrier/svgPath/pngPath,
+and a second invocation returns `skipped-duplicate` with no new objects and
+untouched index docs.
 
 **Failing:** a `✖` line names the broken invariant; exit 1. ADC or
 Firestore/bucket-permission failures surface as `verify failed` output.

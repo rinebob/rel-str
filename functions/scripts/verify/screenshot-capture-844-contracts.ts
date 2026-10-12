@@ -91,8 +91,9 @@ async function main(): Promise<void> {
     positionType: PositionType.OPTION_SINGLE,
     interval: ChartInterval.DAILY,
     ext: 'svg',
+    // NOW (14:30:22Z) is 07:30:22 PDT — paths stamp PT wall-clock.
     date: '2026-10-05',
-    time: '143022',
+    time: '073022',
     refId: 'leg-1',
     groupId: GROUP_ID,
   });

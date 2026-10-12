@@ -85,7 +85,7 @@ async function main(): Promise<void> {
       result.paths[i * 2] === a.svgPath && result.paths[i * 2 + 1] === a.pngPath));
 
   const pathRe = new RegExp(
-    `^${SCREENSHOT_STORAGE_PREFIX}/${SYMBOL}/\\d{4}-\\d{2}-\\d{2}-\\d{6}-manual-stock-verify-(daily|weekly)\\.(svg|png)$`,
+    `^${SCREENSHOT_STORAGE_PREFIX}/${SYMBOL}/${SYMBOL}-\\d{4}-\\d{2}-\\d{2}-\\d{6}-manual-stock-verify-(daily|weekly)\\.(svg|png)$`,
   );
   check('paths match the storage convention', result.paths.every((p) => pathRe.test(p)));
 

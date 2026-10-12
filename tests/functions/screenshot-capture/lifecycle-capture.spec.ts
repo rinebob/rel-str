@@ -9,6 +9,7 @@
  */
 import {
   CaptureEvent,
+  ChartInterval,
   PositionType,
   type CaptureChartResult,
   type CaptureChartSpec,
@@ -17,7 +18,6 @@ import {
   CAPTURED_EVENTS_FIELD,
   LIFECYCLE_CAPTURE_TIMEOUT_MS,
   captureLifecycleEvent,
-  screenshotIndexDocId,
   type CapturedEventEntry,
   type LifecycleCaptureDeps,
   type LifecycleCaptureInput,
@@ -28,10 +28,20 @@ const NOW = new Date('2026-10-05T14:30:22.000Z');
 const INTENT_DOC = 'savant-trader/data/order-intents/intent-1';
 const POSITION_DOC = 'paper-trading/positions/items/pos-1';
 
+const DAILY_SVG =
+  'st-trade-screenshots/GOOG/cohort-9/GOOG-2026-10-05-073022-order-filled-vertical-debit-spread-pos1or-daily.svg';
+const DAILY_PNG =
+  'st-trade-screenshots/GOOG/cohort-9/GOOG-2026-10-05-073022-order-filled-vertical-debit-spread-pos1or-daily.png';
+const INDEX_DOC_ID = 'GOOG-2026-10-05-073022-order-filled-pos1or-daily';
+
 const CAPTURED: CaptureChartResult = {
   svg: '<svg/>',
-  paths: ['st-trade-screenshots/GOOG/cohort-9/a.svg', 'st-trade-screenshots/GOOG/cohort-9/a.png'],
-  artifacts: [],
+  paths: [DAILY_SVG, DAILY_PNG],
+  artifacts: [
+    { interval: ChartInterval.DAILY, svg: '<svg/>', svgPath: DAILY_SVG, pngPath: DAILY_PNG },
+  ],
+  date: '2026-10-05',
+  time: '073022',
 };
 
 const BASE_INPUT: LifecycleCaptureInput = {
@@ -192,18 +202,21 @@ describe('captureLifecycleEvent — happy path', () => {
     expect(entry.paths).toEqual(CAPTURED.paths);
   });
 
-  it('writes the st-screenshots index doc with deterministic id {groupId}-{refId}-{event}', async () => {
+  it('writes a per-artifact index doc — id mirrors the filename segments', async () => {
     const { deps, store } = makeDeps();
     await captureLifecycleEvent(BASE_INPUT, deps);
-    const docId = screenshotIndexDocId('cohort-9', 'pos-1-order-filled', CaptureEvent.ORDER_FILLED);
-    const idx = store.index.get(docId) as Record<string, unknown>;
+    const idx = store.index.get(INDEX_DOC_ID) as Record<string, unknown>;
     expect(idx).toBeDefined();
     expect(idx.groupId).toBe('cohort-9');
     expect(idx.positionId).toBe('pos-1');
+    expect(idx.refId).toBe('pos-1-order-filled');
     expect(idx.event).toBe(CaptureEvent.ORDER_FILLED);
     expect(idx.symbol).toBe('GOOG');
+    expect(idx.interval).toBe(ChartInterval.DAILY);
+    expect(idx.carrier).toEqual(BASE_INPUT.carrier);
     expect(idx.capturedAt).toBe(NOW.toISOString());
-    expect(idx.paths).toEqual(CAPTURED.paths);
+    expect(idx.svgPath).toBe(DAILY_SVG);
+    expect(idx.pngPath).toBe(DAILY_PNG);
   });
 
   it('ledgers on an intent carrier the same way (both carrier kinds)', async () => {
@@ -222,8 +235,7 @@ describe('captureLifecycleEvent — happy path', () => {
     const { deps, store, captureSpecs } = makeDeps();
     await captureLifecycleEvent(input, deps);
     expect(captureSpecs[0].groupId).toBeUndefined();
-    const docId = screenshotIndexDocId(undefined, 'pos-1-order-filled', CaptureEvent.ORDER_FILLED);
-    const idx = store.index.get(docId) as Record<string, unknown>;
+    const idx = store.index.get(INDEX_DOC_ID) as Record<string, unknown>;
     expect(idx).toBeDefined();
     // Firestore rejects explicit undefined values — the key must be absent.
     expect('groupId' in idx).toBe(false);
@@ -261,15 +273,6 @@ describe('captureLifecycleEvent — failure handling', () => {
     const { deps } = makeDeps({ transactError: new Error('firestore down') });
     const outcome = await captureLifecycleEvent(BASE_INPUT, deps);
     expect(outcome.status).toBe('failed');
-  });
-});
-
-describe('screenshotIndexDocId', () => {
-  it('composes {groupId}-{refId}-{event} and strips path-hostile characters', () => {
-    expect(screenshotIndexDocId('cohort-9', 'pos-1-order-filled', CaptureEvent.ORDER_FILLED)).toBe(
-      'cohort-9-pos-1-order-filled-order-filled',
-    );
-    expect(screenshotIndexDocId('a/b', 'x y', CaptureEvent.MANUAL)).toBe('a-b-x-y-manual');
   });
 });
 

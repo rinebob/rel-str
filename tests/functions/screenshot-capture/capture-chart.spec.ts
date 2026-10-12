@@ -18,6 +18,7 @@ import {
   PositionType,
   type CaptureChartResult,
   type CaptureChartSpec,
+  type ScreenshotIndexEntry,
 } from '@screenshot-capture/contracts';
 import {
   SCREENSHOT_STORAGE_PREFIX,
@@ -327,10 +328,12 @@ describe('handleCaptureChartSnapshot', () => {
     expect(deps.rasterizeSvgToPng).toHaveBeenCalledTimes(2);
     expect(writes).toHaveLength(4);
 
-    const dailySvg = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-daily.svg`;
-    const dailyPng = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-daily.png`;
-    const weeklySvg = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-weekly.svg`;
-    const weeklyPng = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-ord123-weekly.png`;
+    // NOW (14:30:22Z) is 07:30:22 PDT — paths stamp PT wall-clock and lead
+    // the filename with the symbol.
+    const dailySvg = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/GOOG-2026-10-05-073022-order-placed-stock-ord123-daily.svg`;
+    const dailyPng = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/GOOG-2026-10-05-073022-order-placed-stock-ord123-daily.png`;
+    const weeklySvg = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/GOOG-2026-10-05-073022-order-placed-stock-ord123-weekly.svg`;
+    const weeklyPng = `${SCREENSHOT_STORAGE_PREFIX}/GOOG/GOOG-2026-10-05-073022-order-placed-stock-ord123-weekly.png`;
     expect(writes.map((w) => w.path)).toEqual([dailySvg, dailyPng, weeklySvg, weeklyPng]);
     expect(writes.filter((w) => w.path.endsWith('.svg'))
       .every((w) => w.contentType === 'image/svg+xml')).toBe(true);
@@ -345,7 +348,9 @@ describe('handleCaptureChartSnapshot', () => {
     ]);
     expect(result.artifacts.map((a) => a.pngPath)).toEqual([dailyPng, weeklyPng]);
     // Canonical result shape — equivalent to buildCaptureChartResult output.
-    expect(result).toEqual(buildCaptureChartResult(result.artifacts));
+    expect(result).toEqual(
+      buildCaptureChartResult(result.artifacts, { date: result.date!, time: result.time! }),
+    );
   });
 
   it('writes to identical paths for the same spec at the same timestamp (overwrite-safe retry)', async () => {
@@ -365,7 +370,7 @@ describe('handleCaptureChartSnapshot', () => {
       deps,
     );
     expect(result.artifacts[0].svgPath).toBe(
-      `${SCREENSHOT_STORAGE_PREFIX}/GOOG/cohort-260915-goog-01/2026-10-05-143022-order-placed-stock-pos9-daily.svg`,
+      `${SCREENSHOT_STORAGE_PREFIX}/GOOG/cohort-260915-goog-01/GOOG-2026-10-05-073022-order-placed-stock-pos9-daily.svg`,
     );
   });
 
@@ -373,8 +378,90 @@ describe('handleCaptureChartSnapshot', () => {
     const { deps } = makeDeps();
     const result = await handleCaptureChartSnapshot(req({ ...VALID_SPEC, renderOnly: false }), deps);
     expect(result.artifacts[0].svgPath).toBe(
-      `${SCREENSHOT_STORAGE_PREFIX}/GOOG/2026-10-05-143022-order-placed-stock-daily.svg`,
+      `${SCREENSHOT_STORAGE_PREFIX}/GOOG/GOOG-2026-10-05-073022-order-placed-stock-daily.svg`,
     );
+  });
+
+  it('returns the PT date/time stamp on a stored capture, omitted on render-only', async () => {
+    const { deps } = makeDeps();
+    const stored = await handleCaptureChartSnapshot(req({ ...VALID_SPEC, renderOnly: false }), deps);
+    expect(stored.date).toBe('2026-10-05');
+    expect(stored.time).toBe('073022');
+
+    const renderOnly = await handleCaptureChartSnapshot(req(VALID_SPEC), deps);
+    expect('date' in renderOnly).toBe(false);
+    expect('time' in renderOnly).toBe(false);
+  });
+
+  it('formats PT midnight as 000000, not 240000 (h23 cycle)', async () => {
+    // 2026-03-08T08:00Z is 00:00:00 PST (DST switch day — still standard time at midnight).
+    const { deps } = makeDeps({ now: () => new Date('2026-03-08T08:00:00Z') });
+    const result = await handleCaptureChartSnapshot(req({ ...VALID_SPEC, renderOnly: false }), deps);
+    expect(result.date).toBe('2026-03-08');
+    expect(result.time).toBe('000000');
+  });
+
+  describe('st-screenshots index write', () => {
+    function makeIndexDeps() {
+      const index = new Map<string, ScreenshotIndexEntry>();
+      const { deps, writes } = makeDeps({
+        writeIndexDoc: jest.fn(async (docId: string, entry: ScreenshotIndexEntry) => {
+          index.set(docId, entry);
+        }),
+      });
+      return { deps, writes, index };
+    }
+
+    it('writes one doc per artifact — id mirrors the filename segments', async () => {
+      const { deps, index } = makeIndexDeps();
+      await handleCaptureChartSnapshot(
+        req({ ...VALID_SPEC, refId: 'ord123', groupId: 'cohort-9', renderOnly: false }),
+        deps,
+      );
+
+      expect([...index.keys()]).toEqual([
+        'GOOG-2026-10-05-073022-order-placed-ord123-daily',
+        'GOOG-2026-10-05-073022-order-placed-ord123-weekly',
+      ]);
+      const daily = index.get('GOOG-2026-10-05-073022-order-placed-ord123-daily')!;
+      expect(daily).toMatchObject({
+        symbol: 'GOOG',
+        event: 'order-placed',
+        positionType: 'stock',
+        interval: 'daily',
+        refId: 'ord123',
+        groupId: 'cohort-9',
+        capturedAt: NOW.toISOString(),
+        svgPath: expect.stringContaining('daily.svg'),
+        pngPath: expect.stringContaining('daily.png'),
+      });
+    });
+
+    it('skips the index on render-only and without the dep', async () => {
+      const { deps, index } = makeIndexDeps();
+      await handleCaptureChartSnapshot(req(VALID_SPEC), deps);
+      expect(index.size).toBe(0);
+
+      const { deps: noIndex } = makeDeps();
+      const result = await handleCaptureChartSnapshot(
+        req({ ...VALID_SPEC, renderOnly: false }),
+        noIndex,
+      );
+      expect(result.paths.length).toBeGreaterThan(0);
+    });
+
+    it('swallows index-write failures — the artifacts still return', async () => {
+      const { deps } = makeDeps({
+        writeIndexDoc: jest.fn(async () => {
+          throw new Error('firestore denied');
+        }),
+      });
+      const result = await handleCaptureChartSnapshot(
+        req({ ...VALID_SPEC, renderOnly: false }),
+        deps,
+      );
+      expect(result.paths.length).toBe(4);
+    });
   });
 
   it('defaults to render-only — renders SVGs but writes nothing (no paths)', async () => {
