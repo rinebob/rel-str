@@ -1,0 +1,28 @@
+<mat-expansion-panel
+  class="position-group"
+  [expanded]="expanded()"
+  (opened)="expandedChange.emit(true)"
+  (closed)="expandedChange.emit(false)">
+  <mat-expansion-panel-header class="group-header">
+    <mat-panel-title class="group-title">
+      <span class="group-label">{{ group().label }}</span>
+      <span class="group-summary">
+        {{ group().cards.length }} position{{ group().cards.length === 1 ? '' : 's' }}
+        @if (longCount() > 0) {
+          <span class="grp-dir long">↑ {{ longCount() }}</span>
+        }
+        @if (shortCount() > 0) {
+          <span class="grp-dir short">↓ {{ shortCount() }}</span>
+        }
+      </span>
+    </mat-panel-title>
+  </mat-expansion-panel-header>
+  <div class="position-grid">
+    @for (card of group().cards; track card.key) {
+      <app-position-card
+        [card]="card"
+        [actionsDisabled]="actionsDisabled()"
+        (action)="cardAction.emit($event)" />
+    }
+  </div>
+</mat-expansion-panel>
