@@ -15,7 +15,6 @@ import {
   resolveAutoPaperScope,
   runAutoPaperIngestFill,
   runAutoPaperIngestPass,
-  signalEntriesFromRunDoc,
   type AutoPaperIngestDeps,
   type AutoPaperIngestFillDeps,
   type AutoPaperScope,
@@ -432,27 +431,4 @@ describe('runAutoPaperIngestFill', () => {
   });
 });
 
-describe('signalEntriesFromRunDoc', () => {
-  it('reads flattened signals.* keys (prod shape)', () => {
-    const doc = { [`signals.${V1L}`]: entry(), other: 1 };
-    const out = signalEntriesFromRunDoc(doc);
-    assert.deepEqual(Object.keys(out), [V1L]);
-    assert.equal(out[V1L].direction, 'LONG');
-  });
-
-  it('reads a nested signals map (backfill shape)', () => {
-    const doc = { signals: { [V2S]: entry({ direction: 'SHORT' }) } };
-    const out = signalEntriesFromRunDoc(doc);
-    assert.deepEqual(Object.keys(out), [V2S]);
-  });
-
-  it('merges both shapes and ignores non-entry values', () => {
-    const doc = {
-      [`signals.${V1L}`]: entry(),
-      signals: { [V2S]: entry({ direction: 'SHORT' }) },
-      'signals.notAnEntry': null,
-    };
-    const out = signalEntriesFromRunDoc(doc);
-    assert.deepEqual(Object.keys(out).sort(), [V1L, V2S].sort());
-  });
-});
+// signalEntriesFromDoc specs moved to tests/functions/signal-entries-from-doc.test.ts (#931)

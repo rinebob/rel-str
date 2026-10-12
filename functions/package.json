@@ -27,6 +27,7 @@
     "test:options-error-mapping": "tsx --test ../tests/functions/options-error-mapping.test.ts",
     "test:paper-trading": "tsx --test ../tests/functions/paper-trading/ledger.test.ts ../tests/functions/paper-trading/repository.test.ts ../tests/functions/paper-trading/trade-adapter.test.ts ../tests/functions/paper-trading/exit-variants.test.ts ../tests/functions/paper-trading/exit-eval-pass.test.ts ../tests/functions/paper-trading/signal-order.test.ts ../tests/functions/paper-trading/expression-fill-pass.test.ts ../tests/functions/paper-trading/paper-stats-pass.test.ts ../tests/functions/paper-trading/read-callables.test.ts ../tests/functions/paper-trading/signal-mark-pass.test.ts ../tests/functions/paper-trading/signal-settlement-pass.test.ts ../tests/functions/paper-trading/auto-paper-ingest-pass.test.ts ../tests/functions/paper-trading/screenshot-lifecycle.test.ts ../tests/functions/options-strategy-engine/settlement-pass.test.ts",
     "test:st-run-completion": "tsx --test ../tests/functions/st-run-completion.test.ts",
+    "test:st-signals": "tsx --test ../tests/functions/signal-entries-from-doc.test.ts",
     "probe:rh-agent-mcp-auth": "tsx src/rh-agent-mcp/diagnostics/run-local-oauth-bootstrap.ts",
     "probe:rh-agent-mcp-tool": "tsx src/rh-agent-mcp/diagnostics/run-tool-observation.ts",
     "serve:observation": "tsx src/rh-agent-mcp/local-api/start-observation-api.ts",
