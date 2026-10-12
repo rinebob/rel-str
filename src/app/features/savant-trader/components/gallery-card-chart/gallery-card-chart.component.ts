@@ -10,6 +10,14 @@
  * Mounted lazily by the card's @defer (on viewport). Bars come from
  * GalleryCardChartStore — shared per symbol, prefetched on idle by the
  * page — so mounting is render-only in the common path.
+ *
+ * KEPT IN SYNC WITH position-card-chart.component.ts (portfolio-v2,
+ * #952) — it clones the interval lane, leaf selectors, extras, config
+ * scaffold, and grant machinery from here. A fix landing in this file
+ * (mount-queue protocol, new per-interval data slot, selector perf)
+ * should be ported there — the clone intentionally diverges on entity
+ * (symbol input, no occurrence dots) and mount semantics (latch vs
+ * viewport-unmount), not on the shared machinery.
  */
 import {
   ChangeDetectionStrategy,
