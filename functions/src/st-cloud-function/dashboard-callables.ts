@@ -15,9 +15,9 @@ import {
   StSymbolProfile,
 } from '../common/st-collections';
 import {
-  StSignalHistoryDoc,
   StRunIdDoc,
   StSignalEntry,
+  signalEntriesFromDoc,
 } from './signals';
 
 // Response types
@@ -170,8 +170,10 @@ export const stGetSymbolSignalHistory = onCall<
 
       const signals: SignalItem[] = [];
       for (const doc of snapshot.docs) {
-        const d = doc.data() as StSignalHistoryDoc;
-        for (const entry of Object.values(d.signals ?? {}) as (StSignalEntry & { sourceRunId: string })[]) {
+        const d = doc.data();
+        // Prod signal docs carry flattened `signals.{type}` top-level
+        // fields, not a nested map — normalize via the shared reader (#931).
+        for (const entry of Object.values(signalEntriesFromDoc(d)) as (StSignalEntry & { sourceRunId: string })[]) {
           signals.push({
             id: doc.id,
             symbol: d.symbol,

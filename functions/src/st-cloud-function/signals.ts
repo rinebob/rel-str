@@ -55,19 +55,25 @@ export interface StSignalEntry {
 /**
  * Signal history doc stored under savant-trader/data/symbol-meta/{SYMBOL}/signal-history/{date}.
  * Canonical EOD record — written only by the nightly run for CONFIRMED signals.
- * One doc per symbol per date; signals stored as a map keyed by signalType.
+ * One doc per symbol per date; signals intended as a map keyed by signalType,
+ * but prod writers emit literal flattened `signals.{type}` top-level fields —
+ * always read via signalEntriesFromDoc.
  */
 export interface StSignalHistoryDoc {
   symbol: string;
   date: string;                  // YYYY-MM-DD — doc ID; for weekly signals: the week-open (Monday bar date)
   updatedAt: Timestamp | FieldValue;
   canonicalizedAt: Timestamp | FieldValue;
-  signals: Record<string, StSignalEntry & { sourceRunId: string }>;
+  /** Optional: prod writers emit literal flattened `signals.{type}` top-level
+   *  fields instead of this nested map — always read via signalEntriesFromDoc. */
+  signals?: Record<string, StSignalEntry & { sourceRunId: string }>;
 }
 
 /**
  * Run-id doc stored under savant-trader/data/symbol-meta/{SYMBOL}/run-ids/{runId}.
- * One doc per run; all signals produced by that run stored as a map keyed by signalType.
+ * One doc per run; all signals produced by that run intended as a map keyed by
+ * signalType — but prod writers emit literal flattened `signals.{type}`
+ * top-level fields; always read via signalEntriesFromDoc.
  * This is the real-time / intraday path. Nightly runs also write here before writing to signal-history.
  */
 export interface StRunIdDoc {
@@ -76,5 +82,36 @@ export interface StRunIdDoc {
   marketDate: string;            // YYYY-MM-DD — calendar date of the run
   startedAt: string;             // ISO timestamp — distinguishes 8AM vs 10AM vs 12PM PDR runs
   updatedAt: Timestamp | FieldValue;
-  signals: Record<string, StSignalEntry>;
+  /** Optional: prod writers emit literal flattened `signals.{type}` top-level
+   *  fields instead of this nested map — always read via signalEntriesFromDoc. */
+  signals?: Record<string, StSignalEntry>;
+}
+
+/**
+ * Pull signal entries out of a signal-bearing doc (`run-ids`,
+ * `signal-history`, `signal-dates`) in BOTH observed prod shapes:
+ * literal flattened top-level `signals.{type}` fields (dotted keys
+ * survive `set(merge)` verbatim — all current writers emit this) and a
+ * nested `signals` map (e.g. signal-dates docs). Flattened wins on key
+ * collision; values that aren't entry-shaped are ignored. This is the
+ * canonical read boundary — never read `.signals` directly (#931).
+ */
+export function signalEntriesFromDoc(
+  data: Record<string, unknown>,
+): Record<string, StSignalEntry> {
+  const out: Record<string, StSignalEntry> = {};
+  const isEntry = (v: unknown): v is StSignalEntry =>
+    typeof v === 'object' && v !== null && 'barDate' in v && 'direction' in v;
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith('signals.') && isEntry(value)) {
+      out[key.slice('signals.'.length)] = value;
+    }
+  }
+  const nested = data['signals'];
+  if (typeof nested === 'object' && nested !== null) {
+    for (const [type, value] of Object.entries(nested as Record<string, unknown>)) {
+      if (isEntry(value)) out[type] ??= value;
+    }
+  }
+  return out;
 }
