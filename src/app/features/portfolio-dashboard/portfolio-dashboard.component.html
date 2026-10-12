@@ -1,8 +1,19 @@
 <div class="pd-root">
 
   <!-- Header bar: scoreboard | privacy + allocations + refresh (title lives
-       in the global rs-header - #853/#854) -->
+       in the global rs-header — #853) -->
   <header class="pd-header">
+    <!-- Account pill switcher in the header bar (#778 — shared component,
+         same one the allocation page uses). -->
+    @if (hasAccounts()) {
+      <app-account-switcher
+        class="pd-account-switcher"
+        [accounts]="accounts()"
+        [selectedIndex]="selectedAccountIndex()"
+        (selectionChange)="onAccountSelect($event)"
+      />
+    }
+
     @if (hasAccounts()) {
       <div class="pd-scoreboard" aria-label="Aggregate summary">
         <span class="sb-item">
@@ -87,19 +98,6 @@
     }
 
     @if (hasAccounts()) {
-      <!-- Account switcher — pill toggle row (same pattern the allocation
-           page converges on in #778). -->
-      <mat-button-toggle-group
-        class="pd-account-switcher"
-        [value]="selectedAccountIndex()"
-        (change)="onTabChange($event.value)"
-        aria-label="Select account"
-      >
-        @for (acct of accounts(); track acct.accountNumber; let i = $index) {
-          <mat-button-toggle [value]="i">{{ acct.accountName }} ({{ acct.accountNumber }})</mat-button-toggle>
-        }
-      </mat-button-toggle-group>
-
       @if (selectedAccount(); as sel) {
         <mat-tab-group
           class="pd-tabs"

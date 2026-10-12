@@ -1,8 +1,7 @@
 @use 'styles/pd-visual-language' as vl;
 
 :host {
-  display: block;
-  height: 100%;
+  @include vl.page-host;
 }
 
 .pd-root {
@@ -35,74 +34,38 @@
   margin-top: 12px;
 }
 
-/* Scoreboard — signal-order header convention: sb-label / monospace
-   sb-value / pipe separators. Dollar values are masked until the user
-   opts in via the visibility toggle. */
+/* Scoreboard — stat-strip convention (sb-label / monospace sb-value /
+   pipe separators). Dollar values are masked until the user opts in via
+   the visibility toggle. */
 .pd-scoreboard {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  white-space: nowrap;
+  @include vl.stat-strip;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   justify-content: center;
-
-  .sb-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .sb-label {
-    color: var(--mat-sys-on-surface-variant);
-    font-weight: 500;
-  }
-
-  .sb-value {
-    font-weight: 600;
-    font-family: monospace;
-    color: var(--mat-sys-on-surface);
-  }
-
-  .sb-sep {
-    color: var(--mat-sys-outline-variant);
-  }
 }
 
 .pd-negative {
   color: vl.$down;
 }
 
-/* Account pill row — replaces the account mat-tab-group. */
+/* Account pill switcher host in the header bar — group + label styling
+   lives in AccountSwitcherComponent (#778). */
 .pd-account-switcher {
-  margin-top: 8px;
   flex-shrink: 0;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 4px;
-
-  .mat-button-toggle {
-    font-size: 12px;
-
-    .mat-button-toggle-label-content {
-      padding: 0 12px;
-      line-height: 30px;
-    }
-  }
 }
 
 .pd-tabs {
-  flex: 1;
-  min-height: 0;
+  @include vl.bounded-tab-group;
   margin-top: 8px;
+
 }
 
-/* Each section pane scrolls internally so the tab bar (and future sticky
-   table headers) stay put. */
+/* Section panes size to the tab body; the table's own wrap scrolls its rows
+   (sticky header/footer) so the pane itself doesn't double-scroll. Non-table
+   panes still fall back to pane-level scrolling. */
 .pd-tab-content {
-  height: 100%;
-  overflow-y: auto;
+  @include vl.tab-scroll-pane;
   padding: 8px 0 16px;
 }
 

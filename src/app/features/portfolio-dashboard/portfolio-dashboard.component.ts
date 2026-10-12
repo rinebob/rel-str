@@ -15,7 +15,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -27,6 +26,7 @@ import { AppRoutes } from '../../core/common/interfaces';
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
 import { SectionName } from './portfolio-dashboard.types';
 import { AccountSummaryComponent } from './components/account-summary.component';
+import { AccountSwitcherComponent } from './components/account-switcher.component';
 import { EquityPositionsTableComponent } from './components/equity-positions-table.component';
 import { OptionPositionsTableComponent } from './components/option-positions-table.component';
 import { OpenOrdersTableComponent } from './components/open-orders-table.component';
@@ -41,12 +41,12 @@ import { EquityPositionWithPnL } from './portfolio-dashboard.types';
   imports: [
     RouterLink,
     MatButtonModule,
-    MatButtonToggleModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatTabsModule,
     MatTooltipModule,
     AccountSummaryComponent,
+    AccountSwitcherComponent,
     EquityPositionsTableComponent,
     OptionPositionsTableComponent,
     OpenOrdersTableComponent,
@@ -112,7 +112,7 @@ export class PortfolioDashboardComponent implements OnInit {
     this.store.refresh().catch(() => {});
   }
 
-  onTabChange(index: number): void {
+  onAccountSelect(index: number): void {
     this.store.selectAccount(index);
   }
 

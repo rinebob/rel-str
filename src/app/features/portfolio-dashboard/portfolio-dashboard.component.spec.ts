@@ -167,12 +167,13 @@ describe('PortfolioDashboardComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('renders the header bar with actions (#777; title moved to global rs-header in #854)', () => {
+  it('renders the header bar with account switcher and actions (#777; title moved to global rs-header in #853)', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
     fixture.detectChanges();
 
     const header = fixture.nativeElement.querySelector('header.pd-header');
     expect(header).toBeTruthy();
+    expect(header.querySelector('app-account-switcher')).toBeTruthy();
     expect(header.querySelector('.bar-actions .pd-refresh')).toBeTruthy();
   });
 
@@ -182,8 +183,15 @@ describe('PortfolioDashboardComponent', () => {
 
     const column = fixture.nativeElement.querySelector('.pd-content');
     expect(column).toBeTruthy();
-    expect(column.querySelector('.pd-account-switcher')).toBeTruthy();
     expect(column.querySelector('mat-tab-group')).toBeTruthy();
+  });
+
+  it('puts the account pill switcher in the header bar (#778)', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const header = fixture.nativeElement.querySelector('header.pd-header');
+    expect(header.querySelector('app-account-switcher.pd-account-switcher')).toBeTruthy();
   });
 
   it('puts the aggregate scoreboard in the header bar (#777)', () => {
@@ -286,7 +294,7 @@ describe('PortfolioDashboardComponent', () => {
     expect(text).toContain('$500.00');
   });
 
-  it('renders account pills with name and number', () => {
+  it('renders account pills with account name only — no number (#778)', () => {
     store._setAccounts([
       makeAccountState('Account A', '111222333'),
       makeAccountState('Account B', '444555666'),
@@ -294,8 +302,24 @@ describe('PortfolioDashboardComponent', () => {
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent;
-    expect(text).toContain('Account A (111222333)');
-    expect(text).toContain('Account B (444555666)');
+    expect(text).toContain('Account A');
+    expect(text).toContain('Account B');
+    expect(text).not.toContain('111222333');
+    expect(text).not.toContain('444555666');
+  });
+
+  it('flags non-agentic accounts inside the pill — same tooltip/ARIA as allocation (#778)', () => {
+    store._setAccounts([
+      makeAccountState('Agentic', '111'),
+      makeAccountState('ReadOnly', '222', { agenticAllowed: false }),
+    ]);
+    fixture.detectChanges();
+
+    const flag = fixture.nativeElement.querySelector('[data-testid="non-agentic-flag-222"]');
+    expect(flag).toBeTruthy();
+    expect(flag.textContent).toMatch(/non-agentic|read.?only/i);
+    expect(flag.getAttribute('aria-label')).toContain('Non-agentic');
+    expect(fixture.nativeElement.querySelector('[data-testid="non-agentic-flag-111"]')).toBeNull();
   });
 
   it('calls store.refresh() when refresh button clicked', () => {
@@ -308,14 +332,14 @@ describe('PortfolioDashboardComponent', () => {
     expect(store.refresh).toHaveBeenCalledTimes(2); // once on init, once on click
   });
 
-  it('calls store.selectAccount() on tab change', () => {
+  it('calls store.selectAccount() on account switcher select', () => {
     store._setAccounts([
       makeAccountState('Account A', '111'),
       makeAccountState('Account B', '222'),
     ]);
     fixture.detectChanges();
 
-    component.onTabChange(1);
+    component.onAccountSelect(1);
     expect(store.selectAccount).toHaveBeenCalledWith(1);
   });
 

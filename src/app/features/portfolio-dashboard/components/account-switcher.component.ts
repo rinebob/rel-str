@@ -37,6 +37,8 @@ import type { AccountInfo } from '../../../core/robinhood-mcp/types/robinhood-mc
   `,
   styles: [`
     .account-switcher {
+      /* Dense pill row — half Material's default toggle height (#778 QA). */
+      --mat-button-toggle-height: 24px;
       border: 1px solid var(--mat-sys-outline-variant);
       border-radius: 4px;
     }
