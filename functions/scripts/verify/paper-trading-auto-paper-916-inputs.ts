@@ -44,7 +44,7 @@ import {
   statsScopeIndustry,
   statsScopeCapTier,
 } from '../../../shared/paper-trading-ids';
-import type { StSignalEntry } from '../../src/st-cloud-function/signals';
+import { signalEntriesFromDoc, type StSignalEntry } from '../../src/st-cloud-function/signals';
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = ''): void {
@@ -98,15 +98,10 @@ async function main(): Promise<void> {
   if (!runIdDoc.exists) process.exit(1);
 
   // Prod run-ids docs store entries as literal flattened top-level keys
-  // ('signals.D_ST_...'), not a nested `signals` map — enumerate by prefix.
-  // Older/other writers produce a nested map; tolerate both shapes.
+  // ('signals.D_ST_...'), not a nested `signals` map — the canonical
+  // read boundary tolerates both observed shapes (#931).
   const data = runIdDoc.data() ?? {};
-  const entries: StSignalEntry[] = Object.entries(data)
-    .filter(([k, v]) => k.startsWith('signals.') && v && typeof v === 'object')
-    .map(([, v]) => v as StSignalEntry);
-  if (data.signals && typeof data.signals === 'object') {
-    entries.push(...(Object.values(data.signals) as StSignalEntry[]));
-  }
+  const entries: StSignalEntry[] = Object.values(signalEntriesFromDoc(data));
   check('signals entries non-empty (flattened keys)', entries.length > 0, `${entries.length} entries`);
   if (entries.length === 0) process.exit(1);
 
