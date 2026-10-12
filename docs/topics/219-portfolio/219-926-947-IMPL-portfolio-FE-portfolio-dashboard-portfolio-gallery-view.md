@@ -121,9 +121,9 @@ withState(() => ({
 
 `pages/portfolio-gallery/components/position-card-chart.component.ts` — cloned-and-adapted from `gallery-card-chart.component`:
 
-- Same bar fetch via `GalleryCardChartStore` (`ensureDaily`/`ensureWeekly` — verify exact method names at implementation), same `IndicatorSeriesStore` indicator computation, same `GalleryChartMountQueueService` deferred-mount, same `@defer (on viewport)` block.
+- Same bar fetch via `GalleryCardChartStore` (`ensureBars`/`ensureWeeklyBars`), same `IndicatorSeriesStore` indicator computation, same `GalleryChartMountQueueService` deferred-mount, same `@defer (on viewport)` block. **As shipped:** mount is a mount-once latch — scroll-out keeps the chart mounted (the gallery's viewport-unmount flashed and reflowed the positions page on re-entry); the latch releases on data loss and the remount re-paces through the queue.
 - Same default ST indicator set as the gallery chart.
-- **No signal dots, no signal markers** — the chart draws price + indicators only. This is the concrete place the "same chart, different entity" boundary lives: the chart component takes `symbol` + `interval` + `override` inputs, never a `GalleryCard`.
+- **No per-card signal dots, no signal markers** — the chart draws price + the default ST indicator set only; the callable's `signalDots`/uptick-dot extras stay (symbol-level indicator data, same as quick-charts). This is the concrete place the "same chart, different entity" boundary lives: the chart component takes a `symbol` input and reads `interval`/`override` from `PortfolioGalleryUiStore`, never a `GalleryCard`.
 - Per-card D/W override + global `chartTimeframeSeq` resync — copy the gallery's lane computed/effect verbatim (it has no signal coupling).
 - `'Position Chart'` is registered in the chart-config vocabulary as a reserved name mapping to this same chart in v1 (a `PositionChartConfig` placeholder/enum entry + comment; overlays — entry/stop levels — land in a later thread).
 
@@ -152,7 +152,7 @@ withState(() => ({
 - Zero positions → "No live positions" empty state.
 - Filters exclude everything → "No positions match the current filters" (distinct copy from zero-positions).
 - Quote missing for a symbol → card renders with `—` for price/P&L fields, still actionable.
-- Chart load failure → per-card chart error block with retry (existing gallery behavior — reuse).
+- Chart load failure → per-card "chart unavailable" block (matches the gallery's static error state — it has no retry affordance; a manual refresh re-ensures bars via the epoch effect).
 - Position disappears after a refresh → card simply vanishes (no sunk state; the grid re-derives from the store).
 
 ### 9. Out of scope (explicit)

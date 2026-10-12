@@ -90,8 +90,9 @@ FE-only test plan for `portfolio-v2`. Same shape as the signal gallery's: heavy 
 - `@defer (on viewport)` — the chart doesn't fetch until visible (mirror the gallery spec's approach for asserting defer behavior).
 - Per-card D/W toggle switches interval and fetches the other timeframe's bars lazily.
 - Global `chartTimeframeSeq` bump resets every card to the global timeframe (copy the gallery spec's seq-driven resync test, driving a real `PortfolioGalleryUiStore`).
-- No signal-dot / signal-marker rendering path exists (assert the chart receives no signal input — negative test that pins the entity boundary).
-- Chart-load failure renders the per-card error + retry (existing gallery behavior, same assertion shape).
+- No per-card signal-dot / signal-marker rendering path exists (assert the chart receives no signal input — negative test that pins the entity boundary). The callable's `signalDots`/uptick-dot extras stay — they're symbol-level indicator data, part of the default ST indicator set quick-charts also renders.
+- Chart-load failure renders the per-card "chart unavailable" block (matches the gallery's static error state — the gallery has no retry affordance).
+- Mount-once latch: scroll-out keeps the chart mounted (no destroy/remount flash); the latch releases on data loss and the remount re-paces through the queue. Diverges from the gallery's viewport-unmount — accepted QA refinement (#952).
 
 ## Component — page / header / group
 
