@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026-10-12]
+
+### Added
+- [Options Trading Support] 942-960_FE-IMPL-OPTIONS: MCP client option chain/instrument methods — getOptionChains + getOptionInstruments typed methods, OptionChain/OptionInstrument/OptionInstrumentFilters types, capture-verified fields, active/tradable pins, data.next truncation warn, batch-composable ToolSpecs
+- [Options Trading Support] 942-960_DOCS-OPTIONS: #960 CODE-REVIEW (PASS, in-review remediation) + #973 UAT (Complete)
 
 ## [2026-10-11]
 
