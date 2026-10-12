@@ -86,7 +86,11 @@
     </button>
   </div>
 
-  <!-- Chart cell — position-card-chart lands in #952; the placeholder holds
+  <!-- Chart cell — mounts lazily on viewport entry; the placeholder holds
        the footprint so cards don't reflow when it mounts. -->
-  <div class="chart-placeholder">chart</div>
+  @defer (on viewport; prefetch on idle) {
+    <app-position-card-chart [symbol]="card().symbol" />
+  } @placeholder {
+    <div class="chart-placeholder">chart</div>
+  }
 </div>

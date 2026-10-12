@@ -1,10 +1,10 @@
 /**
- * Position Card (#926/#951)
+ * Position Card (#926/#951; chart cell #952)
  *
  * One held position as a gallery card — the position-gallery counterpart of
  * GalleryCardComponent with the triage layer stripped: no status lane, no
- * decision buttons, no sunk styling. Layout mirrors the signal card: meta
- * top block → chart cell → action row. Close/Stop emit the card action for
+ * decision buttons, no sunk styling. Layout: meta top block → action row →
+ * chart cell. Close/Stop emit the card action for
  * the page to dispatch (#953 wires the dialogs); Add/Detail/Orders are
  * disabled stubs until then.
  */
@@ -12,12 +12,14 @@ import { ChangeDetectionStrategy, Component, booleanAttribute, computed, input, 
 
 import { PositionCard } from '../../utils/position-cards.util';
 import { fmtMoney, fmtNum, tierLabel } from '../../../../../savant-trader/utils/utils';
+import { PositionCardChartComponent } from '../position-card-chart/position-card-chart.component';
 
 export type PositionCardAction = { type: 'close' | 'stop'; card: PositionCard };
 
 @Component({
   selector: 'app-position-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PositionCardChartComponent],
   templateUrl: './position-card.component.html',
   styleUrl: './position-card.component.scss',
 })
