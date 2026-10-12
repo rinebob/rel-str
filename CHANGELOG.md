@@ -2,12 +2,16 @@
 
 ## [2026-10-12]
 
+### Fixed
+- [Paper Trading Infra] 553-931_BE-IMPL-PAPER-TRADING: stSignalHistory flattened-signals reader — prod signal docs carry literal `signals.{type}` top-level fields (all 3 writers emit via set(merge)) but the callable read a nested map and returned []; signalEntriesFromDoc canonical both-shape read boundary + StRunIdDoc/StSignalHistoryDoc signals? optional — verified broken live then returning real entries post-deploy
+- [Paper Trading Infra] 553-931_BE-REFACTOR-PAPER-TRADING: auto-paper ingest repointed to the shared reader — signalEntriesFromRunDoc moved verbatim out of the pass, zero behavior change
+- [Paper Trading Infra] 553-931_BE-VERIFY-PAPER-TRADING: st-signal-history-931-reader prod script (real docs → real entries) + #916-inputs third reader copy deduped to the canonical boundary
+
 ### Added
+- [Paper Trading Infra] 553-931_BE-TEST-PAPER-TRADING: signalEntriesFromDoc specs — flattened/nested/merge/precedence/sourceRunId/empty, wired as test:st-signals
+- [Paper Trading Infra] 553-931_DOCS-PAPER-TRADING: #931 CODE-REVIEW (PASS, 1 round) + #975 UAT (Complete — verified live on deployed callable)
 - [Options Trading Support] 942-960_FE-IMPL-OPTIONS: MCP client option chain/instrument methods — getOptionChains + getOptionInstruments typed methods, OptionChain/OptionInstrument/OptionInstrumentFilters types, capture-verified fields, active/tradable pins, data.next truncation warn, batch-composable ToolSpecs
 - [Options Trading Support] 942-960_DOCS-OPTIONS: #960 CODE-REVIEW (PASS, in-review remediation) + #973 UAT (Complete)
-- [Portfolio Allocation] 576-778_FE-IMPL-PORTFOLIO: Dashboard adopts shared account switcher in the header bar — name-only pills, non-agentic chip, half-height toggles via --mat-button-toggle-height: 24px; agentic-preferred default selection in both stores
-- [Portfolio Allocation] 576-778_FE-IMPL-PORTFOLIO: Allocation shell — account stat strip + New bucket button into the header bar (full column for tab panes); retired bucket list removed entirely
-- [Portfolio Allocation] 576-778_DOCS-PORTFOLIO: #789 UAT (Complete — 9/9 scenarios, both refinement rounds recorded)
 
 ## [2026-10-11]
 
