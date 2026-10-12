@@ -38,8 +38,8 @@ import { StRunStatus } from '../../src/common/st-runs';
 import { isValidMarketDate } from '../../src/common/pt-date-utils';
 import {
   AUTO_PAPER_DEFAULT_SIGNAL_TYPES,
-  signalEntriesFromRunDoc,
 } from '../../src/paper-trading/passes/auto-paper-ingest-pass';
+import { signalEntriesFromDoc } from '../../src/st-cloud-function/signals';
 import {
   buildTradeId,
   signalDedupeKey,
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
       .collection(ST_RUN_IDS_SUBCOLLECTION)
       .doc(runId)
       .get();
-    const signals = doc.exists ? signalEntriesFromRunDoc(doc.data() ?? {}) : {};
+    const signals = doc.exists ? signalEntriesFromDoc(doc.data() ?? {}) : {};
     const meta = (await db.collection(ST_SYMBOLS_COLLECTION).doc(symbol).get()).data() ?? {};
     for (const [signalType, entry] of Object.entries(signals)) {
       if (!AUTO_PAPER_DEFAULT_SIGNAL_TYPES.includes(signalType)) continue;

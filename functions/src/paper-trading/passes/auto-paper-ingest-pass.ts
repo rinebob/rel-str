@@ -34,7 +34,12 @@ import {
 import { getMarketDatePT, isValidMarketDate } from '../../common/pt-date-utils';
 import { db } from '../../firebase-admin-init';
 import type { AutoPaperIngestPayload } from '../../common/st-shared-types';
-import { StSignalDirection, StSignalType, type StSignalEntry } from '../../st-cloud-function/signals';
+import {
+  StSignalDirection,
+  StSignalType,
+  signalEntriesFromDoc,
+  type StSignalEntry,
+} from '../../st-cloud-function/signals';
 import { createLogger } from '../engine/logging';
 import {
   buildRawQuoteId,
@@ -116,32 +121,6 @@ export interface AutoPaperIngestDeps {
 }
 
 // ── #918 — selection → quote → fill ──────────────────────────────────────
-
-/**
- * Pull signal entries out of a run-ids doc in BOTH observed shapes:
- * prod stores them as literal flattened top-level `signals.{type}` fields
- * (dotted keys survive `set(merge)` verbatim), while backfill-produced docs
- * carry a nested `signals` map. Values that aren't entry-shaped are ignored.
- */
-export function signalEntriesFromRunDoc(
-  data: Record<string, unknown>,
-): Record<string, StSignalEntry> {
-  const out: Record<string, StSignalEntry> = {};
-  const isEntry = (v: unknown): v is StSignalEntry =>
-    typeof v === 'object' && v !== null && 'barDate' in v && 'direction' in v;
-  for (const [key, value] of Object.entries(data)) {
-    if (key.startsWith('signals.') && isEntry(value)) {
-      out[key.slice('signals.'.length)] = value;
-    }
-  }
-  const nested = data['signals'];
-  if (typeof nested === 'object' && nested !== null) {
-    for (const [type, value] of Object.entries(nested as Record<string, unknown>)) {
-      if (isEntry(value)) out[type] ??= value;
-    }
-  }
-  return out;
-}
 
 export interface AutoPaperFillSummary {
   candidates: number;
@@ -565,7 +544,7 @@ export function defaultAutoPaperIngestFillDeps(
         .collection(ST_RUN_IDS_SUBCOLLECTION)
         .doc(runId)
         .get();
-      return doc.exists ? signalEntriesFromRunDoc(doc.data() ?? {}) : {};
+      return doc.exists ? signalEntriesFromDoc(doc.data() ?? {}) : {};
     },
     getSymbolMeta: async (symbol) => {
       const doc = await db.collection(ST_SYMBOLS_COLLECTION).doc(symbol).get();
