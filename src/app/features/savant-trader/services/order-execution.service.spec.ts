@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
+import { of, throwError } from 'rxjs';
 
 import { OrderExecutionService } from './order-execution.service';
 import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
+import { ScreenshotService } from '../../dev-screenshot/screenshot.service';
 import {
   OrderSource,
   OrderTicketStatus,
@@ -13,6 +15,7 @@ import {
 describe('OrderExecutionService', () => {
   let service: OrderExecutionService;
   let mcpService: any;
+  let screenshots: { captureChartSnapshot$: jasmine.Spy };
 
   function mockTicket(overrides: Partial<EquityOrderTicket> = {}): EquityOrderTicket {
     return {
@@ -38,11 +41,17 @@ describe('OrderExecutionService', () => {
     mcpService = {
       executeTool: jasmine.createSpy('executeTool'),
     };
+    screenshots = {
+      captureChartSnapshot$: jasmine.createSpy('captureChartSnapshot$').and.returnValue(
+        of({ artifacts: [], paths: [] }),
+      ),
+    };
 
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         { provide: RobinhoodMcpObservationService, useValue: mcpService },
+        { provide: ScreenshotService, useValue: screenshots },
         OrderExecutionService,
       ],
     });
@@ -198,6 +207,70 @@ describe('OrderExecutionService', () => {
       expect(reviewArgs.limit_price).toBe('150.00');
       expect(reviewArgs.stop_price).toBe('145.00');
       expect(reviewArgs.type).toBe('stop_limit');
+    });
+  });
+
+  describe('screenshot capture (#746)', () => {
+    function placeSuccess(state: string) {
+      mcpService.executeTool.and.callFake((name: string) => {
+        if (name === 'place_equity_order') {
+          return Promise.resolve({
+            success: true,
+            parsed: { id: 'order-123', symbol: 'AAPL', state },
+            redacted: {},
+            tool: name,
+          });
+        }
+        return Promise.resolve({ success: true, parsed: {}, redacted: {}, tool: name });
+      });
+    }
+
+    it('fires an order-placed capture on a confirmed resting order', async () => {
+      placeSuccess('confirmed');
+
+      const result = await service.submitEquityOrder(mockTicket());
+
+      expect(result.success).toBe(true);
+      expect(screenshots.captureChartSnapshot$).toHaveBeenCalledWith({
+        symbol: 'AAPL',
+        event: 'order-placed',
+        positionType: 'stock',
+        refId: 'ref-abc-123',
+        groupId: 'ref-abc-123',
+        renderOnly: false,
+      });
+    });
+
+    it('fires an order-filled capture on a synchronous market fill', async () => {
+      placeSuccess('filled');
+
+      const result = await service.submitEquityOrder(mockTicket());
+
+      expect(result.success).toBe(true);
+      expect(screenshots.captureChartSnapshot$).toHaveBeenCalledWith(
+        jasmine.objectContaining({ event: 'order-filled' }),
+      );
+    });
+
+    it('does not capture when the placement fails', async () => {
+      mcpService.executeTool.and.resolveTo({ success: false, error: 'rejected', tool: 'place_equity_order' });
+
+      const result = await service.submitEquityOrder(mockTicket());
+
+      expect(result.success).toBe(false);
+      expect(screenshots.captureChartSnapshot$).not.toHaveBeenCalled();
+    });
+
+    it('swallows capture errors — the order result is unaffected', async () => {
+      placeSuccess('confirmed');
+      screenshots.captureChartSnapshot$.and.returnValue(
+        throwError(() => new Error('bucket down')),
+      );
+
+      const result = await service.submitEquityOrder(mockTicket());
+
+      expect(result.success).toBe(true);
+      expect(result.result?.orderId).toBe('order-123');
     });
   });
 

@@ -14,6 +14,8 @@
 import { Injectable, inject } from '@angular/core';
 
 import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
+import { ScreenshotService } from '../../dev-screenshot/screenshot.service';
+import { CaptureEvent, PositionType } from '@screenshot-capture/contracts';
 import {
   BrokerOrderSnapshot,
   EquityOrderTicket,
@@ -60,6 +62,7 @@ const RETRYABLE_PATTERNS = [
 @Injectable({ providedIn: 'root' })
 export class OrderExecutionService {
   private readonly mcpService = inject(RobinhoodMcpObservationService);
+  private readonly screenshots = inject(ScreenshotService);
 
   /** Submit an equity order: preflight review, then place with ref_id idempotency. */
   async submitEquityOrder(ticket: EquityOrderTicket): Promise<ExecutionResult> {
@@ -101,23 +104,22 @@ export class OrderExecutionService {
       const parsed = (placeResult as { parsed?: unknown }).parsed;
       const brokerOrder = this.parseBrokerOrder(parsed);
       const direct = parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : undefined;
-      return {
-        success: true,
-        result: brokerOrder
-          ? {
-              orderId: brokerOrder.id,
-              state: brokerOrder.state,
-              fillPrice: brokerOrder.price ?? undefined,
-              filledQuantity: brokerOrder.cumulativeQuantity ?? brokerOrder.quantity,
-              brokerOrder,
-            }
-          : {
-              orderId: direct?.['id'] as string | undefined,
-              state: direct?.['state'] as string | undefined,
-              fillPrice: direct?.['average_price'] as string | undefined,
-              filledQuantity: direct?.['filled_quantity'] as string | undefined,
-            },
-      };
+      const result: OrderTicketResult = brokerOrder
+        ? {
+            orderId: brokerOrder.id,
+            state: brokerOrder.state,
+            fillPrice: brokerOrder.price ?? undefined,
+            filledQuantity: brokerOrder.cumulativeQuantity ?? brokerOrder.quantity,
+            brokerOrder,
+          }
+        : {
+            orderId: direct?.['id'] as string | undefined,
+            state: direct?.['state'] as string | undefined,
+            fillPrice: direct?.['average_price'] as string | undefined,
+            filledQuantity: direct?.['filled_quantity'] as string | undefined,
+          };
+      this.captureOrderSnapshot(ticket, result);
+      return { success: true, result };
     } catch (err) {
       return {
         success: false,
@@ -236,6 +238,30 @@ export class OrderExecutionService {
   }
 
   /** Classify a ToolExecutionFailure error string as retryable or non-retryable. */
+  /** Lifecycle documentation (Topic #746): fire-and-forget chart capture on a
+   *  confirmed-live or synchronously-filled order. Callers detect and pass
+   *  the event; this side only produces the screenshot. Failures log and are
+   *  swallowed — a capture outage must never affect the order path. */
+  private captureOrderSnapshot(ticket: EquityOrderTicket, result: OrderTicketResult): void {
+    try {
+      const event = result.state === 'filled' ? CaptureEvent.ORDER_FILLED : CaptureEvent.ORDER_PLACED;
+      this.screenshots.captureChartSnapshot$({
+        symbol: ticket.symbol,
+        event,
+        positionType: PositionType.STOCK,
+        refId: ticket.refId,
+        groupId: ticket.refId,
+        renderOnly: false,
+      }).subscribe({
+        error: (err: unknown) => {
+          console.warn(`[OrderExecution] screenshot capture failed for ${ticket.symbol} (${event}):`, err);
+        },
+      });
+    } catch (err) {
+      console.warn(`[OrderExecution] screenshot capture threw for ${ticket.symbol}:`, err);
+    }
+  }
+
   private classifyError(error: string): OrderTicketError {
     const lower = error.toLowerCase();
     for (const pattern of NON_RETRYABLE_PATTERNS) {
