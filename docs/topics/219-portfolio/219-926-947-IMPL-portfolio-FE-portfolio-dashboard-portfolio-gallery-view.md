@@ -50,18 +50,20 @@ export interface PositionCard {
   symbol: string;
   side: 'long' | 'short';         // sign of quantity
   quantity: number;
-  averageCost: number;
+  averageCost: number | null;
   marketPrice: number | null;     // quote lastTradePrice; null when quote absent
-  dayChange: number | null;       // marketPrice - quote.previousClose; null without a quote
+  dayChange: number | null;       // marketPrice - quote.previousClose; INSTRUMENT-signed
+                                  // (the card negates for shorts at render); null without a quote
   dayChangePct: number | null;
   unrealizedPnl: number | null;   // from equityPositionsWithPnL
   unrealizedPnlPct: number | null;
-  marketValue: number | null;     // quantity * marketPrice
+  marketValue: number | null;     // |quantity| * marketPrice
   daysHeld: number | null;        // today - entryDate (computeEntryDates)
   bucketName: string | null;      // attribution → bucket name; null = unassigned
   protected: boolean;             // symbol ∈ stopLossProtectedSymbols
   stopPrice: number | null;       // from the protecting live order, when identifiable
-  stopDistancePct: number | null; // (marketPrice - stopPrice) / marketPrice, signed for shorts
+  stopDistancePct: number | null; // (marketPrice - stopPrice) / marketPrice; longs only —
+                                  // shorts never protect, so always null for shorts
   openOrders: BrokerOrder[];      // live orders on the symbol, classified in the card view-model
   companyName: string | null;
   sector: string | null;

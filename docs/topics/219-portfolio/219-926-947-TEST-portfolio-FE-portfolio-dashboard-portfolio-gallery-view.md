@@ -36,8 +36,8 @@ FE-only test plan for `portfolio-v2`. Same shape as the signal gallery's: heavy 
 - Missing attribution → `bucketName: null`.
 - `side` derives from quantity sign (long positive, short negative).
 - `dayChange`/`dayChangePct` compute from `lastTradePrice` vs `previousClose`; `previousClose: null` → both `null`.
-- `daysHeld` = calendar days from entryDate to today; null when no entry date resolves.
-- `protected`/`stopPrice`/`stopDistancePct` populate from the protecting live order; `stopDistancePct` sign is correct for a short position.
+- `daysHeld` = elapsed days (floored 24h periods) from entryDate to now; null when no entry date resolves.
+- `protected`/`stopPrice`/`stopDistancePct` populate from the protecting live order; a sell stop on a shorted symbol is NOT protection (long-only predicate — short-position protection is future work).
 - Options/option-positions never enter the card set (the input is `equityPositionsWithPnL` — a spec asserting the facade passes the equity slice only, plus a fixture-level guard that an option-shaped record can't produce a card).
 
 `filterPositionCards`:
@@ -54,7 +54,7 @@ FE-only test plan for `portfolio-v2`. Same shape as the signal gallery's: heavy 
 
 `sortFlat`: marketCap desc — **company market cap, not position market value** (spec asserts a small position in a mega-cap sorts above a large position in a small-cap). Null marketCap sorts last; equal caps sort by symbol.
 
-`classifyCardOrders`: protective stop orders land in `stopOrders`; limit/market/other resting orders land in `otherOrders`; the classification agrees with `computeProtectedSymbols` on the same fixture (the badge and popup can never diverge — this is the spec that pins it).
+`classifyCardOrders`: protective stop orders land in `stopOrders`; limit/market/other resting orders land in `otherOrders`; the classification agrees with `isStopLossProtecting` on the same fixture (the badge and popup can never diverge — this is the spec that pins it). For long positions this also agrees with `computeProtectedSymbols`; shorts diverge by design — the card says UNPROTECTED (correct: a sell stop can't protect a short) while the v1 table's `stopLossProtectedSymbols` still counts non-zero quantity (known divergence, flagged for the v1 stop work).
 
 ## Store — `PortfolioGalleryUiStore`
 
@@ -77,7 +77,7 @@ FE-only test plan for `portfolio-v2`. Same shape as the signal gallery's: heavy 
 ## Component — `position-card`
 
 - Renders the full meta set for a populated card; renders `—` for null fields without crashing.
-- `PROTECTED @ price (pct)` vs `UNPROTECTED` badge; distance sign correct for shorts.
+- `PROTECTED @ price (pct)` vs `UNPROTECTED` badge; shorts always read UNPROTECTED (no sell-side protection).
 - Stop action label resolves `Add Stop`/`Update Stop` from card state.
 - `Add` and `Detail` buttons present and `disabled` with the tooltip.
 - `Orders` button renders the live-order count; hover/focus opens the popup listing `STOP` vs `LIMIT`/`other` rows; popup is read-only (no buttons inside).

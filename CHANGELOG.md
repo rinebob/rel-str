@@ -3,7 +3,15 @@
 
 ## [2026-10-11]
 
+### Fixed
+- [Portfolio Dashboard] 219-951_FE-BUG-PORTFOLIO: Retry symbol-profile load after a failed fetch — getAllSymbols fails soft and left the session degraded (no tier chips, sector/industry, cap sort); facade effect + refresh() retry path, store self-guards
+
 ### Added
+- [Portfolio Dashboard] 219-951_FE-IMPL-PORTFOLIO: PositionCard sort/group/order refinements — dimension-primary group order (alphabetical, tier rank for cap-tier) with sinks last, empty-string sinking, unhandled-dim throw, degenerate-quote day-change guards, isStopLossProtecting widened to Pick + quantity>0 long-only invariant
+- [Portfolio Dashboard] 219-951_FE-IMPL-PORTFOLIO: Position card — cap-tier badge left of symbol + LONG/SHORT chip, econ/meta rows (qty@cost, mark, position-signed day change, P&L, value, days, bucket, sector·industry), PROTECTED @ price (pct) / UNPROTECTED badge, action row above chart cell (Close/Stop emit; Add/Detail/Orders stubs)
+- [Portfolio Dashboard] 219-951_FE-IMPL-PORTFOLIO: Position gallery group expando — label, N positions, ↑/↓ side tallies; retained dormant behind useExpandos pending flat-vs-expando confirmation
+- [Portfolio Dashboard] 219-951_FE-IMPL-PORTFOLIO: Group-sorted flat grid — facade.orderedCards (flat cap sort in NONE, contiguous dimension blocks otherwise), useExpandos flag, expand-all hidden while expandos dormant
+- [Portfolio Dashboard] 219-951_DOCS-PORTFOLIO: #951 IMPL/TEST corrections + CODE-REVIEW (PASS, 2 rounds) + #969 UAT (Complete)
 - [Portfolio Dashboard] 219-950_FE-REFACTOR-PORTFOLIO: Shared scheduleIdle/cancelIdle util + SYMBOL_LIST_SENTINEL_OPTIONS extracted; signal gallery view + header consume both
 - [Portfolio Dashboard] 219-950_FE-IMPL-PORTFOLIO: PositionCard join model + PortfolioGalleryFacade + PortfolioGalleryUiStore — dashboard/quotes/profiles/attribution/buckets/orders compose into cards with independent degradation; signed short day-P&L, closed/zero-qty filter, long-only protection guard, per-slice partialErrors, watchers keyed on primitive accountNumber
 - [Portfolio Dashboard] 219-950_FE-IMPL-PORTFOLIO: Portfolio-v2 page shell — 7-stat summary strip, All/Long/Short pills, Chart D/W, Group + List dropdowns, refresh, loading/error/no-agentic/empty/filtered-empty/warn states, stub flat grid

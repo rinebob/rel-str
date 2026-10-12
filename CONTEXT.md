@@ -292,6 +292,12 @@ _Avoid_: percent change grid (that is the analysis tool), option chain table
 
 The actionable unit of the Order Ticket Gallery view (`dev/gallery`, promoted to `trading/gallery` by a later task): one card per symbol+side aggregating that symbol's contributing Signal Occurrences from the viewed run. Carries signal details, a chart area, and the labeled action toolbar. **Trade** stages a whole-share quantity ticket (no decision writes) and opens it in the Order Ticket dialog for submission; **Reject** writes durable REJECT occurrence decisions, removes this run's staged tickets, and sinks the card — Restore on the sunk card resets it; **Paper** stages and sends through the paper-trading callable. Cards carry a derived lifecycle status (watched > rejected > failed > settled > resting > submitting > pending); watched/settled/failed/rejected cards leave their dimension group and collect in the pinned Sunk group. Gallery orders are whole-share only — fractional orders are not permitted.
 
+## Position Card
+
+The review unit of the portfolio-v2 position gallery (`/portfolio-v2`, #926/#950-951): one card per live equity position, joining position+PnL, quote, live orders, symbol profile, and allocation bucket — each field degrades independently (`—`) rather than dropping the card. Deliberately separate from the signal gallery's Gallery Card — **positions and signals never mix** and the card models differ. Carries the PROTECTED @ price (pct) / UNPROTECTED badge (long-only protective-stop semantics: a sell stop on a shorted symbol is not protection) and an action row (Close/Stop emit for #953; Add/Detail/Orders are stubs). The Group dropdown re-sorts one flat grid — contiguous blocks ordered by dimension value (alphabetical; tier rank for cap-tier), market-cap desc within, `(Unassigned)`/`(Unknown)` sinks last; the expando render path stays dormant behind the view's `useExpandos` flag.
+
+_Avoid_: signal card, gallery card (those mean the Order Ticket Gallery's signal unit)
+
 ## Session Resolution
 
 The rule that maps "today" to an actual trading-session date for the Option Chain Grid. Before 1:00 PM PT (market close — the app standardizes on Pacific Time) resolves to the prior trading session; after 1 PM PT it tries today's date and falls back to prior sessions when no snapshot exists. Resolution walks back over weekends/holidays to the most recent session with a snapshot (cap: 7 calendar days).
