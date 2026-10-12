@@ -15,6 +15,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatTabGroup } from '@angular/material/tabs';
 import { By } from '@angular/platform-browser';
 import { AllocationPageComponent } from './allocation-page.component';
+import { AllocationBucketDialogComponent } from './allocation-bucket-dialog.component';
 import { AllocationStore } from './allocation.store';
 import type { AccountInfo } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 import type {
@@ -120,9 +121,11 @@ function mockStore() {
 describe('AllocationPageComponent', () => {
   let fixture: ComponentFixture<AllocationPageComponent>;
   let store: ReturnType<typeof mockStore>;
+  let dialog: { open: jest.Mock };
 
   async function setup() {
     store = mockStore();
+    dialog = { open: jest.fn(() => ({ afterClosed: () => of(undefined) })) };
     await TestBed.configureTestingModule({
       imports: [AllocationPageComponent],
       providers: [
@@ -130,7 +133,7 @@ describe('AllocationPageComponent', () => {
         provideNoopAnimations(),
         provideRouter([]),
         { provide: AllocationStore, useValue: store },
-        { provide: MatDialog, useValue: { open: jest.fn(() => ({ afterClosed: () => of(undefined) })) } },
+        { provide: MatDialog, useValue: dialog },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(AllocationPageComponent);
@@ -156,8 +159,36 @@ describe('AllocationPageComponent', () => {
     const bar = fixture.nativeElement.querySelector('[data-testid="page-header"]');
     expect(bar).toBeTruthy();
     expect(bar.querySelector('[data-testid="account-switcher"]')).toBeTruthy();
+    expect(bar.querySelector('[data-testid="create-bucket-btn"]')).toBeTruthy();
     expect(bar.querySelector('[data-testid="back-to-portfolio"]')).toBeTruthy();
     expect(bar.querySelector('[data-testid="refresh-btn"]')).toBeTruthy();
+  });
+
+  it('account strip + create button live in the header bar, not the content column (#789)', async () => {
+    await setup();
+    const bar = fixture.nativeElement.querySelector('[data-testid="page-header"]');
+    expect(bar.querySelector('[data-testid="account-header"]')).toBeTruthy();
+    expect(bar.querySelector('[data-testid="create-bucket-btn"]')).toBeTruthy();
+    const content = fixture.nativeElement.querySelector('.alloc-content');
+    expect(content.querySelector('[data-testid="account-header"]')).toBeNull();
+  });
+
+  it('New bucket opens the dialog in create mode with the selected account (#789)', async () => {
+    await setup();
+    (fixture.nativeElement.querySelector('[data-testid="create-bucket-btn"]') as HTMLElement).click();
+    expect(dialog.open).toHaveBeenCalledWith(
+      AllocationBucketDialogComponent,
+      expect.objectContaining({
+        data: expect.objectContaining({ mode: 'create', accountNumber: ACCT_A }),
+      }),
+    );
+  });
+
+  it('New bucket hides when there are no accounts (#789)', async () => {
+    await setup();
+    store.accounts.set([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="create-bucket-btn"]')).toBeNull();
   });
 
   it('keeps exactly one Buckets|Positions tab group with instant switching (#779)', async () => {
@@ -261,8 +292,8 @@ describe('AllocationPageComponent', () => {
     await flush();
     fixture.detectChanges();
     expect(store.selectAccount).toHaveBeenCalledWith(1);
-    // The account header is a sibling of the subtab group now (one
-    // instance for the selected account, not a tab body per account).
+    // The account strip lives in the page header (#789) — one instance
+    // for the selected account, not a tab body per account.
     expect(fixture.nativeElement.querySelector('[data-testid="account-header"]').textContent).toContain('5,000');
     const active = () => fixture.nativeElement.querySelector('.mat-mdc-tab-body-active') as HTMLElement;
     const bRows = active().querySelectorAll('[data-testid^="bucket-row-"]');

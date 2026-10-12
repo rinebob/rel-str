@@ -2,10 +2,11 @@
  * AllocationBucketsTableComponent — the unified Buckets subtab (task #589).
  *
  * Config + analytics in one table: name, target %, target $, exposure,
- * drift, P&L, open/closed, status — plus row actions (edit, retire) and a
- * create affordance. Cash pinned last, Unassigned shown with no actions,
- * RETIRED buckets collapsed into a toggleable section. The dialog owns
- * writes — the table only opens it with the right data.
+ * drift, P&L, open/closed, status — plus row actions (edit, retire,
+ * delete). Cash pinned last, Unassigned shown with no actions, retired
+ * buckets not rendered (#778 QA). The create affordance lives in the
+ * page header (#789). The dialog owns writes — the table only opens it
+ * with the right data.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
@@ -117,31 +118,17 @@ describe('AllocationBucketsTableComponent', () => {
     expect(text).toContain('ACTIVE');
   });
 
-  it('retired buckets live in a collapsed section — hidden by default, stats intact when expanded', async () => {
+  it('retired buckets are not rendered — the section was removed (#778 QA)', async () => {
     await setup([
       bucketRow(bucket('b1', 'Active', 25)),
       bucketRow(bucket('b2', 'Old', 30, BucketStatus.RETIRED)),
     ]);
-    // Main table: only the active row. Retired section header shows the count.
+    // Main table: only the active row — no retired row, no toggle anywhere.
     const mainRows = fixture.nativeElement
       .querySelectorAll('tbody > tr[data-testid^="bucket-row-"]');
     expect(mainRows.length).toBe(1);
-    const toggle = fixture.nativeElement.querySelector('[data-testid="retired-toggle"]');
-    expect(toggle.textContent).toContain('Retired (1)');
-    // Hidden until toggled.
-    expect(fixture.nativeElement.querySelector('.retired')).toBeNull();
-    toggle.click();
-    fixture.detectChanges();
-    const retiredRow = fixture.nativeElement.querySelector('.retired [data-testid="bucket-row-b2"]');
-    expect(retiredRow).toBeTruthy();
-    expect(retiredRow.textContent).toContain('Old');
-    expect(retiredRow.textContent).toContain('30');    // targetPct preserved
-    expect(retiredRow.textContent).toContain('1,000'); // exposure preserved
-    expect(retiredRow.textContent).toContain('RETIRED');
-    // No edit/retire on retired rows — but delete stays available.
-    expect(retiredRow.querySelector('[data-testid^="edit-"]')).toBeNull();
-    expect(retiredRow.querySelector('[data-testid^="retire-"]')).toBeNull();
-    expect(retiredRow.querySelector('[data-testid="delete-b2"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="retired-toggle"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="bucket-row-b2"]')).toBeNull();
   });
 
   it('warns (never blocks) when active targets sum over 100%', async () => {
@@ -168,17 +155,6 @@ describe('AllocationBucketsTableComponent', () => {
   it('no warn when targets fit within 100%', async () => {
     await setup([bucketRow(bucket('b1', 'A', 60)), bucketRow(bucket('b2', 'B', 40))]);
     expect(fixture.nativeElement.querySelector('[data-testid="target-over-100"]')).toBeNull();
-  });
-
-  it('create button opens the dialog in create mode with the account number', async () => {
-    await setup([]);
-    (fixture.nativeElement.querySelector('[data-testid="create-bucket-btn"]') as HTMLElement).click();
-    expect(dialog.open).toHaveBeenCalledWith(
-      AllocationBucketDialogComponent,
-      expect.objectContaining({
-        data: expect.objectContaining({ mode: 'create', accountNumber: ACCT }),
-      }),
-    );
   });
 
   it('edit opens dialog in edit mode with the row bucket + account', async () => {
@@ -307,19 +283,6 @@ describe('AllocationBucketsTableComponent', () => {
     // Dangling attribution (deleted bucket) counts as unassigned too.
     expect(panel.textContent).toContain('MSFT');
     expect(panel.textContent).not.toContain('NVDA');
-  });
-
-  it('retired rows expand inside the retired section', async () => {
-    const b = bucket('b2', 'Old', 30, BucketStatus.RETIRED);
-    await setup([bucketRow(bucket('b1', 'Active', 25)), bucketRow(b)], [posRow('AAPL', 'b2')]);
-    (fixture.nativeElement.querySelector('[data-testid="retired-toggle"]') as HTMLElement).click();
-    fixture.detectChanges();
-    (fixture.nativeElement.querySelector('[data-testid="expand-b2"]') as HTMLElement).click();
-    fixture.detectChanges();
-
-    const panel = fixture.nativeElement.querySelector('[data-testid="expand-panel-b2"]');
-    expect(panel).toBeTruthy();
-    expect(panel.textContent).toContain('AAPL');
   });
 
   it('the Cash row has no expand affordance', async () => {

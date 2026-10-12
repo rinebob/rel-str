@@ -4,11 +4,11 @@
  * computeBucketStats analytics: name, target %/$, exposure, drift,
  * realized+unrealized P&L, open/closed counts, status. Cash row pinned
  * last (computed, non-editable); Unassigned pseudo-row is read-only.
- * Row actions (edit → rename+retarget, retire → confirm) and the create
- * affordance open the shared bucket dialog, which owns the write and
- * only closes on success. RETIRED buckets move to a collapsed section
- * below the table — hidden by default, stats preserved. Σ active
- * targets > 100% warns — never blocks.
+ * Row actions (edit → rename+retarget, retire → confirm) open the
+ * shared bucket dialog, which owns the write and only closes on
+ * success. The create affordance lives in the page header bar (#789).
+ * Retired buckets render nowhere (#778 QA). Σ active targets > 100%
+ * warns — never blocks.
  *
  * Clicking a bucket (or Unassigned) name expands an inline panel —
  * stats strip + positions mini-table (task #693, replaces the modal
@@ -45,12 +45,6 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="buckets-pane">
-      <div class="pane-toolbar">
-        <button mat-stroked-button type="button" data-testid="create-bucket-btn"
-          (click)="openCreate()"
-        ><mat-icon>add</mat-icon> New bucket</button>
-      </div>
-
       @if (overTarget(); as total) {
         <div class="warn-banner" data-testid="target-over-100" tabindex="0"
           role="note" aria-label="Bucket targets exceed 100 percent of account cash"
@@ -73,26 +67,6 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
           }
         </tbody>
       </table>
-
-      @if (retiredRows().length) {
-        <div class="retired-section">
-          <button class="retired-toggle" type="button" data-testid="retired-toggle"
-            [attr.aria-expanded]="showRetired()"
-            (click)="showRetired.set(!showRetired())"
-          >
-            {{ showRetired() ? '▾' : '▸' }} Retired ({{ retiredRows().length }})
-          </button>
-          @if (showRetired()) {
-            <table class="alloc-table retired">
-              <tbody>
-                @for (row of retiredRows(); track rowKey(row)) {
-                  <ng-container *ngTemplateOutlet="bucketRow; context: { $implicit: row }" />
-                }
-              </tbody>
-            </table>
-          }
-        </div>
-      }
       </div>
     </div>
 
@@ -220,18 +194,12 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
        own wrap scrolls the rows under a sticky header. */
     :host { display: block; height: 100%; }
     .buckets-pane { display: flex; flex-direction: column; height: 100%; }
-    .pane-toolbar { display: flex; justify-content: flex-end; margin: 8px 0 4px; flex-shrink: 0; }
     .warn-banner {
       padding: 6px 10px; margin: 4px 0; border-radius: 4px; flex-shrink: 0;
       background: #fff8e1; color: #8d6e00; font-size: 0.8rem; cursor: help;
     }
     .table-wrap { flex: 1; min-height: 0; overflow: auto; }
-    /* Dense buttons — ≈⅔ height: 24px stroked (dashboard row-action
-       convention) / 28px icon buttons. */
-    .pane-toolbar button[mat-stroked-button] {
-      --mdc-outlined-button-container-height: 24px;
-      height: 24px; min-width: 0; padding: 0 8px; font-size: 0.7rem; line-height: 1; letter-spacing: 0;
-    }
+    /* Dense row-action buttons — 28px icon buttons. */
     .actions button[mat-icon-button] {
       --mdc-icon-button-state-layer-size: 28px;
       width: 28px; height: 28px; padding: 0;
@@ -249,7 +217,6 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
     .alloc-table .dim { color: #999; }
     .alloc-table tr[data-kind='cash'] td { background: #fafafa; font-style: italic; }
     .alloc-table tr[data-kind='unassigned'] td { color: #888; }
-    .alloc-table.retired td { color: var(--mat-sys-on-surface-variant); font-style: italic; }
     .neg { color: #c62828; } .pos { color: #2e7d32; }
     .actions { white-space: nowrap; }
     .name-link {
@@ -258,14 +225,6 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
       text-decoration-color: #bbb; text-underline-offset: 2px;
     }
     .name-link:hover { text-decoration-color: #555; }
-    /* Retired-section chrome on tokens (#779); full density reskin is
-       #780's dense-table pass. */
-    .retired-section { margin-top: 10px; }
-    .retired-toggle {
-      border: 0; background: none; padding: 4px 0; cursor: pointer;
-      font-size: 0.8rem; color: var(--mat-sys-on-surface-variant);
-    }
-    .retired-toggle:hover { color: var(--mat-sys-on-surface); }
     /* Expando reads as part of the table row, not a nested card — subtle
        container tint + a hairline outline border, both tokenized. */
     .expand-row td {
@@ -289,20 +248,12 @@ export class AllocationBucketsTableComponent {
   protected readonly BucketStatus = BucketStatus;
   private readonly dialog = inject(MatDialog);
 
-  /** Retired buckets hidden by default — toggle in the section header. */
-  readonly showRetired = signal(false);
-
-  /** Main table: active buckets, Unassigned, Cash pinned last. */
+  /** Main table: active buckets, Unassigned, Cash pinned last. Retired
+   *  buckets are not rendered anywhere — the retired section was removed
+   *  (#778 QA feedback): retirement is a state, not a list the user needs. */
   readonly activeRows = computed(() =>
     this.store.bucketRows().filter(
       (r) => r.kind !== 'bucket' || r.bucket!.status === BucketStatus.ACTIVE,
-    ),
-  );
-
-  /** Retired rows — moved to the collapsed section, stats preserved. */
-  readonly retiredRows = computed(() =>
-    this.store.bucketRows().filter(
-      (r) => r.kind === 'bucket' && r.bucket!.status === BucketStatus.RETIRED,
     ),
   );
 
@@ -323,15 +274,6 @@ export class AllocationBucketsTableComponent {
 
   readonly fmtQty = fmtQtyShared;
 
-  openCreate(): void {
-    // Capture the account at open time — a create writes by accountNumber.
-    const acct = this.store.selectedAccount();
-    if (!acct) return;
-    this.dialog.open(AllocationBucketDialogComponent, {
-      data: { mode: 'create', accountNumber: acct.accountNumber } satisfies BucketDialogData,
-    });
-  }
-
   openEdit(row: BucketRow): void {
     const acct = this.store.selectedAccount();
     if (!acct) return;
@@ -349,8 +291,8 @@ export class AllocationBucketsTableComponent {
   }
 
   /** Row ids whose inline positions panel is open (task #693 — replaces
-   *  the modal detail dialog on this page). Keyed by rowKey so bucket,
-   *  unassigned, and retired rows share the mechanic. Bucket ids are
+   *  the modal detail dialog on this page). Keyed by rowKey so bucket and
+   *  unassigned rows share the mechanic. Bucket ids are
    *  account-scoped so stale keys can't cross-pollinate on an account
    *  switch; 'unassigned' staying open across accounts is intentional —
    *  the panel re-derives to the new account's rows. */

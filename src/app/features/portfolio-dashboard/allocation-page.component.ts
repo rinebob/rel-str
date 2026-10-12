@@ -2,17 +2,19 @@
  * AllocationPageComponent — the Allocation Manager page shell
  * (Blueprint #582 / task #588; visual-language migration in #779).
  *
- * Mirrors the dashboard shell (#776): header bar carrying the shared
- * account switcher + page actions, a compact account strip (data, not
- * nav) below it, then a single Buckets | Positions tab group in the
- * centered content column. The shell bounds the tab chain so tall
- * content (expanded bucket panels) scrolls the pane instead of
- * clipping below the viewport.
+ * Mirrors the dashboard shell (#776): the header bar carries the shared
+ * account switcher, the compact account strip (data, not nav), and the
+ * page actions (New bucket, back, refresh — #789: everything non-table
+ * lives in the bar so the tab panes get the full column below it). A
+ * single Buckets | Positions tab group sits in the centered content
+ * column. The shell bounds the tab chain so tall content (expanded
+ * bucket panels) scrolls the pane instead of clipping below the viewport.
  */
 import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -21,6 +23,10 @@ import { AllocationStore } from './allocation.store';
 import { fmtDollars } from './allocation.types';
 import { AppRoutes } from '../../core/common/interfaces';
 import { AccountSwitcherComponent } from './components/account-switcher.component';
+import {
+  AllocationBucketDialogComponent,
+  type BucketDialogData,
+} from './allocation-bucket-dialog.component';
 import { AllocationBucketsTableComponent } from './allocation-buckets-table.component';
 import { AllocationPositionsTableComponent } from './allocation-positions-table.component';
 
@@ -33,9 +39,10 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
     <div class="alloc-root">
       @let accounts = store.accounts();
 
-      <!-- Header bar: account switcher | back + refresh (title lives in
-           the global rs-header — #853). Refresh stays rendered even with
-           zero accounts — it doubles as the load-retry control. -->
+      <!-- Header bar: account switcher | account strip | new-bucket +
+           back + refresh (title lives in the global rs-header — #853).
+           Refresh stays rendered even with zero accounts — it doubles as
+           the load-retry control. -->
       <header class="alloc-header" data-testid="page-header">
         @if (accounts.length) {
           <app-account-switcher
@@ -44,8 +51,45 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
             [selectedIndex]="store.selectedAccountIndex()"
             (selectionChange)="onAccountSelect($event)"
           />
+          @if (store.accountHeader(); as hdr) {
+            <div class="account-header" data-testid="account-header">
+              <span class="sb-item">
+                <span class="sb-label">Value</span>
+                <span class="sb-value">{{ fmt(hdr.accountValue) }}</span>
+              </span>
+              <span class="sb-sep">|</span>
+              <span class="sb-item">
+                <span class="sb-label">Allocated</span>
+                <span class="sb-value">{{ fmt(hdr.allocated) }}</span>
+              </span>
+              <span class="sb-sep">|</span>
+              <span class="sb-item">
+                <span class="sb-label">Cash</span>
+                <span class="sb-value">{{ fmt(hdr.cash) }}</span>
+                @if (hdr.cashDiverged) {
+                  <span class="diverged" data-testid="cash-diverged"
+                    tabindex="0" role="img" aria-label="Cash divergence warning — broker vs derived mismatch"
+                    matTooltip="Broker cash {{ fmt(hdr.cash) }} vs derived {{ fmt(hdr.derivedCash) }} — positions snapshot may be stale"
+                  >⚠</span>
+                }
+              </span>
+              <span class="sb-sep">|</span>
+              <span class="sb-item">
+                <span class="sb-label">Unassigned</span>
+                <span class="sb-value">{{ fmt(hdr.unassignedExposure) }}</span>
+              </span>
+              @if (hdr.asOf) {
+                <span class="as-of" data-testid="as-of">as of {{ hdr.asOf | date:'short' }}</span>
+              }
+            </div>
+          }
         }
         <div class="bar-actions">
+          @if (accounts.length) {
+            <button mat-stroked-button type="button" data-testid="create-bucket-btn"
+              (click)="openCreate()"
+            ><mat-icon>add</mat-icon> New bucket</button>
+          }
           <a mat-stroked-button [routerLink]="portfolioRoute" data-testid="back-to-portfolio">Portfolio</a>
           <button mat-icon-button type="button" data-testid="refresh-btn"
             [disabled]="store.selectedAllocation().loading"
@@ -78,39 +122,6 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
         }
 
         @if (accounts.length) {
-          @if (store.accountHeader(); as hdr) {
-            <header class="account-header" data-testid="account-header">
-              <span class="sb-item">
-                <span class="sb-label">Value</span>
-                <span class="sb-value">{{ fmt(hdr.accountValue) }}</span>
-              </span>
-              <span class="sb-sep">|</span>
-              <span class="sb-item">
-                <span class="sb-label">Allocated</span>
-                <span class="sb-value">{{ fmt(hdr.allocated) }}</span>
-              </span>
-              <span class="sb-sep">|</span>
-              <span class="sb-item">
-                <span class="sb-label">Cash</span>
-                <span class="sb-value">{{ fmt(hdr.cash) }}</span>
-                @if (hdr.cashDiverged) {
-                  <span class="diverged" data-testid="cash-diverged"
-                    tabindex="0" role="img" aria-label="Cash divergence warning — broker vs derived mismatch"
-                    matTooltip="Broker cash {{ fmt(hdr.cash) }} vs derived {{ fmt(hdr.derivedCash) }} — positions snapshot may be stale"
-                  >⚠</span>
-                }
-              </span>
-              <span class="sb-sep">|</span>
-              <span class="sb-item">
-                <span class="sb-label">Unassigned</span>
-                <span class="sb-value">{{ fmt(hdr.unassignedExposure) }}</span>
-              </span>
-              @if (hdr.asOf) {
-                <span class="as-of" data-testid="as-of">as of {{ hdr.asOf | date:'short' }}</span>
-              }
-            </header>
-          }
-
           <mat-tab-group data-testid="subtabs" class="alloc-tabs" animationDuration="0ms">
             <mat-tab>
               <ng-template mat-tab-label><span data-testid="subtab-buckets">Buckets</span></ng-template>
@@ -151,6 +162,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
 })
 export class AllocationPageComponent implements OnInit {
   protected readonly store = inject(AllocationStore);
+  private readonly dialog = inject(MatDialog);
 
   /** Same `allocationRoute` convention as the dashboard (#776). */
   readonly portfolioRoute = '/' + AppRoutes.PORTFOLIO_DASHBOARD;
@@ -161,6 +173,17 @@ export class AllocationPageComponent implements OnInit {
 
   onAccountSelect(index: number): void {
     this.store.selectAccount(index);
+  }
+
+  /** Create-bucket affordance lives in the page header (#789) — the
+   *  same dialog the buckets table's edit/retire/delete rows use.
+   *  Capture the account at open time — a create writes by accountNumber. */
+  openCreate(): void {
+    const acct = this.store.selectedAccount();
+    if (!acct) return;
+    this.dialog.open(AllocationBucketDialogComponent, {
+      data: { mode: 'create', accountNumber: acct.accountNumber } satisfies BucketDialogData,
+    });
   }
 
   /** Refresh the selected account; when nothing is loaded (or the account

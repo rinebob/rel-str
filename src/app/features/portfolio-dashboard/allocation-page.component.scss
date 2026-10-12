@@ -31,20 +31,23 @@
   margin-top: 12px;
 }
 
-/* Account strip — data, not nav: compact surface-container strip on the
-   stat-strip convention (sb-label / sb-value / pipe separators). */
+/* Account strip inside the header bar (#789) — data, not nav: same
+   stat-strip convention (sb-label / sb-value / pipe separators), no
+   chrome of its own (the bar carries the tint). flex:1 + min-width:0
+   lets it absorb the slack between the pills and the action cluster;
+   overflow clips at the separators on narrow widths rather than
+   pushing the actions out. */
 .account-header {
   @include vl.stat-strip;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
   gap: 10px;
-  margin-top: 8px;
-  padding: 6px 10px;
-  background: var(--mat-sys-surface-container);
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  overflow: hidden;
 }
 
 .account-header .as-of {
-  margin-left: auto;
+  margin-left: 6px;
   font-size: 11px;
   color: var(--mat-sys-on-surface-variant);
 }
