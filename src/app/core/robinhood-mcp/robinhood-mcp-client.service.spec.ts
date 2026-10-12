@@ -8,6 +8,8 @@ import {
   PortfolioSnapshot,
   EquityPosition,
   OptionPosition,
+  OptionChain,
+  OptionInstrument,
   EquityQuote,
   OptionQuote,
   BrokerOrder,
@@ -418,6 +420,255 @@ describe('RobinhoodMcpClient', () => {
       } catch (err) {
         expect(err).toBeInstanceOf(RobinhoodMcpError);
         expect((err as RobinhoodMcpError).tool).toBe('get_option_positions');
+      }
+    });
+  });
+
+  // ===========================================================================
+  // getOptionChains / getOptionInstruments (contract discovery, #960)
+  // ===========================================================================
+
+  describe('getOptionChains', () => {
+    // Field names mirror the captured NFLX payload
+    // (docs/topics/657-rh-mcp/captures/ro-opt-chains-01.json).
+    it('parses chains from the { data: { chains: [...] } } envelope and sends underlying_symbol', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            chains: [
+              { id: 'chain-1', symbol: 'NFLX', expiration_dates: ['2026-10-16', '2026-11-20'], settle_on_open: false },
+              { id: 'chain-2', symbol: 'NFLX', expiration_dates: ['2026-10-16'], settle_on_open: true },
+            ],
+          },
+        },
+        redacted: {},
+        tool: 'get_option_chains',
+      });
+
+      const chains = await client.getOptionChains('NFLX');
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('get_option_chains', { args: { underlying_symbol: 'NFLX' } });
+      expect(chains).toEqual([
+        { chainId: 'chain-1', symbol: 'NFLX', expirationDates: ['2026-10-16', '2026-11-20'], settleOnOpen: false } satisfies OptionChain,
+        { chainId: 'chain-2', symbol: 'NFLX', expirationDates: ['2026-10-16'], settleOnOpen: true } satisfies OptionChain,
+      ]);
+    });
+
+    it('omits settleOnOpen when the payload lacks it, and skips id-less chain entries', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            chains: [
+              { symbol: 'AAPL', expiration_dates: ['2026-10-16'] },
+              { id: 'chain-1', symbol: 'AAPL', expiration_dates: ['2026-10-16'], settle_on_open: null },
+            ],
+          },
+        },
+        redacted: {},
+        tool: 'get_option_chains',
+      });
+
+      const chains = await client.getOptionChains('AAPL');
+
+      expect(chains).toEqual([
+        { chainId: 'chain-1', symbol: 'AAPL', expirationDates: ['2026-10-16'] } satisfies OptionChain,
+      ]);
+      expect('settleOnOpen' in chains[0]).toBe(false);
+    });
+
+    it('sorts expiration_dates ascending regardless of payload order', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            chains: [{ id: 'chain-1', symbol: 'AAPL', expiration_dates: ['2027-01-15', '2026-06-19', '2026-10-16'] }],
+          },
+        },
+        redacted: {},
+        tool: 'get_option_chains',
+      });
+
+      const chains = await client.getOptionChains('AAPL');
+
+      expect(chains[0].expirationDates).toEqual(['2026-06-19', '2026-10-16', '2027-01-15']);
+    });
+
+    it('returns [] for a malformed payload instead of throwing', async () => {
+      mockResolve({ success: true, parsed: { data: { nope: true } }, redacted: {}, tool: 'get_option_chains' });
+
+      expect(await client.getOptionChains('AAPL')).toEqual([]);
+    });
+
+    it('throws RobinhoodMcpError on failure', async () => {
+      mockFailure('No such underlying', ToolExecutionErrorCategory.MCP);
+
+      try {
+        await client.getOptionChains('ZZZZ');
+        fail('Expected throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(RobinhoodMcpError);
+        expect((err as RobinhoodMcpError).tool).toBe('get_option_chains');
+      }
+    });
+  });
+
+  describe('getOptionInstruments', () => {
+    // Field names mirror the captured NFLX instruments page
+    // (docs/topics/657-rh-mcp/captures/ro-opt-instr-02.json) — the payload
+    // carries no OCC/rhs contract symbol; chain_symbol + expiration_date +
+    // type + strike_price is the contract identity.
+    it('parses instruments from the { data: { instruments: [...] } } envelope', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            instruments: [
+              {
+                id: 'instr-uuid-1',
+                chain_id: 'chain-uuid-1',
+                chain_symbol: 'NFLX',
+                expiration_date: '2026-10-16',
+                strike_price: '2.5000',
+                type: 'call',
+                state: 'active',
+                tradability: 'tradable',
+              },
+            ],
+            next: null,
+          },
+        },
+        redacted: {},
+        tool: 'get_option_instruments',
+      });
+
+      const instruments = await client.getOptionInstruments({ chainSymbol: 'NFLX' });
+
+      expect(instruments).toEqual([
+        {
+          instrumentId: 'instr-uuid-1',
+          chainId: 'chain-uuid-1',
+          chainSymbol: 'NFLX',
+          expirationDate: '2026-10-16',
+          strikePrice: 2.5,
+          type: 'call',
+        } satisfies OptionInstrument,
+      ]);
+    });
+
+    it('sends the filters — expiration CSV, 4dp strike, type — with state + tradability pinned', async () => {
+      mockResolve({
+        success: true,
+        parsed: { data: { instruments: [] } },
+        redacted: {},
+        tool: 'get_option_instruments',
+      });
+
+      await client.getOptionInstruments({
+        chainSymbol: 'AAPL',
+        expirationDates: ['2026-10-16', '2026-11-20'],
+        strikePrice: 150,
+        type: 'put',
+      });
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('get_option_instruments', {
+        args: {
+          chain_symbol: 'AAPL',
+          expiration_dates: '2026-10-16,2026-11-20',
+          strike_price: '150.0000',
+          type: 'put',
+          state: 'active',
+          tradability: 'tradable',
+        },
+      });
+    });
+
+    it('omits optional filters when not provided', async () => {
+      mockResolve({
+        success: true,
+        parsed: { data: { instruments: [] } },
+        redacted: {},
+        tool: 'get_option_instruments',
+      });
+
+      await client.getOptionInstruments({ chainSymbol: 'AAPL' });
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('get_option_instruments', {
+        args: { chain_symbol: 'AAPL', state: 'active', tradability: 'tradable' },
+      });
+    });
+
+    it('omits a non-finite strike instead of sending NaN/Infinity verbatim', async () => {
+      mockResolve({
+        success: true,
+        parsed: { data: { instruments: [] } },
+        redacted: {},
+        tool: 'get_option_instruments',
+      });
+
+      await client.getOptionInstruments({ chainSymbol: 'AAPL', strikePrice: NaN });
+      await client.getOptionInstruments({ chainSymbol: 'AAPL', strikePrice: Infinity });
+
+      for (const call of mcp.executeTool.calls.allArgs()) {
+        expect('strike_price' in (call[1] as { args: Record<string, unknown> }).args).toBe(false);
+      }
+    });
+
+    it('warns when data.next indicates a truncated first page', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockResolve({
+        success: true,
+        // dep-opt-instr-10 proves one expiration with no type filter can
+        // exceed the ~100-instrument page (SPXW: 100 + next).
+        parsed: { data: { instruments: [], next: 'cD03MTIwLjAwMDA=' } },
+        redacted: {},
+        tool: 'get_option_instruments',
+      });
+
+      const instruments = await client.getOptionInstruments({ chainSymbol: 'SPXW' });
+
+      expect(instruments).toEqual([]);
+      expect(warn).toHaveBeenCalled();
+      expect(String(warn.mock.calls.at(-1)?.[0])).toContain('next');
+    });
+
+    it('skips instruments with no instrument id instead of failing the list', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            instruments: [
+              { chain_symbol: 'AAPL', expiration_date: '2026-10-16', strike_price: '150.0000', type: 'call' },
+              { id: 'good-1', chain_symbol: 'AAPL', expiration_date: '2026-10-16', strike_price: '155.0000', type: 'call' },
+            ],
+          },
+        },
+        redacted: {},
+        tool: 'get_option_instruments',
+      });
+
+      const instruments = await client.getOptionInstruments({ chainSymbol: 'AAPL' });
+
+      expect(instruments.length).toBe(1);
+      expect(instruments[0].instrumentId).toBe('good-1');
+    });
+
+    it('returns [] for a malformed payload instead of throwing', async () => {
+      mockResolve({ success: true, parsed: 'garbage', redacted: {}, tool: 'get_option_instruments' });
+
+      expect(await client.getOptionInstruments({ chainSymbol: 'AAPL' })).toEqual([]);
+    });
+
+    it('throws RobinhoodMcpError on failure', async () => {
+      mockFailure('MCP timeout', ToolExecutionErrorCategory.MCP);
+
+      try {
+        await client.getOptionInstruments({ chainSymbol: 'AAPL' });
+        fail('Expected throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(RobinhoodMcpError);
+        expect((err as RobinhoodMcpError).tool).toBe('get_option_instruments');
       }
     });
   });

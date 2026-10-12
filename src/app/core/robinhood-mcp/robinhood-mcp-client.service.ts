@@ -20,6 +20,9 @@ import {
   PortfolioSnapshot,
   EquityPosition,
   OptionPosition,
+  OptionChain,
+  OptionInstrument,
+  OptionInstrumentFilters,
   EquityQuote,
   OptionQuote,
   BrokerOrder,
@@ -167,6 +170,106 @@ export class RobinhoodMcpClient {
           quantity: this.toNumber(p['quantity']),
           averageCost: this.toNumber(p['average_cost']),
         }));
+      },
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Option contract discovery (#960)
+  // ---------------------------------------------------------------------------
+
+  async getOptionChains(symbol: string): Promise<OptionChain[]> {
+    return this.run(this.optionChainsSpec(symbol));
+  }
+
+  optionChainsSpec(symbol: string): ToolSpec<OptionChain[]> {
+    return {
+      tool: 'get_option_chains',
+      args: { underlying_symbol: symbol },
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_option_chains', result.category);
+        }
+
+        const raw = this.extractList(result.parsed, 'chains');
+        const chains: OptionChain[] = [];
+        for (const c of raw) {
+          // A chain without an id can't feed chain_id instrument lookups.
+          const id = c['id'];
+          if (typeof id !== 'string' || !id) continue;
+          chains.push({
+            chainId: id,
+            symbol: String(c['symbol'] ?? ''),
+            expirationDates: (Array.isArray(c['expiration_dates']) ? c['expiration_dates'] : [])
+              .map(String)
+              .sort(),
+            ...(typeof c['settle_on_open'] === 'boolean' ? { settleOnOpen: c['settle_on_open'] } : {}),
+          });
+        }
+        return chains;
+      },
+    };
+  }
+
+  async getOptionInstruments(filters: OptionInstrumentFilters): Promise<OptionInstrument[]> {
+    return this.run(this.optionInstrumentsSpec(filters));
+  }
+
+  optionInstrumentsSpec(filters: OptionInstrumentFilters): ToolSpec<OptionInstrument[]> {
+    const args: Record<string, unknown> = {
+      chain_symbol: filters.chainSymbol,
+      // Active + tradable contracts only ('active' is also the tool
+      // default — pinned for clarity); expired/inactive/untradable
+      // discovery is out of scope for the order-entry flow.
+      state: 'active',
+      tradability: 'tradable',
+    };
+    if (filters.expirationDates?.length) {
+      args['expiration_dates'] = filters.expirationDates.join(',');
+    }
+    if (filters.strikePrice !== undefined && Number.isFinite(filters.strikePrice)) {
+      // RH matches the exact 4-decimal form ('150.0000') per the tool guide.
+      args['strike_price'] = filters.strikePrice.toFixed(4);
+    }
+    if (filters.type) {
+      args['type'] = filters.type;
+    }
+
+    return {
+      tool: 'get_option_instruments',
+      args,
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_option_instruments', result.category);
+        }
+
+        // First page only — `data.next` is the pagination cursor. One
+        // expiration + a type filter fits under the ~100-instrument page,
+        // but an unfiltered-type page can exceed it (capture
+        // dep-opt-instr-10: SPXW, 100 + next) — flag truncation so a
+        // strike dropdown doesn't silently lose strikes (IMPL-948).
+        const next = this.extractNested(result.parsed, 'data')['next'];
+        if (typeof next === 'string' && next) {
+          console.warn(
+            `get_option_instruments returned data.next — first page only, results may be truncated (chain_symbol=${filters.chainSymbol})`,
+          );
+        }
+        const raw = this.extractList(result.parsed, 'instruments');
+        const instruments: OptionInstrument[] = [];
+        for (const i of raw) {
+          // An instrument without an id is unorderable — skip it.
+          const id = i['id'];
+          if (typeof id !== 'string' || !id) continue;
+          instruments.push({
+            instrumentId: id,
+            chainId: String(i['chain_id'] ?? ''),
+            chainSymbol: String(i['chain_symbol'] ?? ''),
+            expirationDate: String(i['expiration_date'] ?? ''),
+            strikePrice: this.toNumber(i['strike_price']),
+            type: String(i['type'] ?? ''),
+          });
+        }
+        return instruments;
       },
     };
   }

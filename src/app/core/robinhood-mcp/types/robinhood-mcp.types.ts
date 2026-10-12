@@ -56,6 +56,54 @@ export interface OptionPosition {
 }
 
 // ---------------------------------------------------------------------------
+// Option contract discovery (get_option_chains / get_option_instruments)
+// ---------------------------------------------------------------------------
+
+/** An option chain for one underlying — the set of expiration dates plus
+ *  the chain UUID needed to enumerate instruments. Field names verified
+ *  against captures/ro-opt-chains-01.json. */
+export interface OptionChain {
+  /** Chain UUID — the `chain_id` arg on get_option_instruments. */
+  chainId: string;
+  /** Underlying ticker (e.g. 'AAPL', 'SPX'). */
+  symbol: string;
+  /** YYYY-MM-DD expiration dates offered by this chain, sorted ascending. */
+  expirationDates: string[];
+  /** AM-settled chain when true — pick matching chains when the settlement
+   *  session matters (get_option_instruments guide). */
+  settleOnOpen?: boolean;
+}
+
+/** One tradable option contract. The instrument UUID is the ordering and
+ *  quote identity (OptionLeg.optionId / get_option_quotes instrument_ids);
+ *  the payload carries no OCC symbol — chain_symbol + expiration_date +
+ *  type + strike_price is the contract identity (verified against
+ *  captures/ro-opt-instr-02.json). */
+export interface OptionInstrument {
+  /** Instrument UUID — ordering/quote identity. */
+  instrumentId: string;
+  chainId: string;
+  /** Underlying ticker. */
+  chainSymbol: string;
+  /** YYYY-MM-DD. */
+  expirationDate: string;
+  strikePrice: number | null;
+  /** 'call' | 'put' verbatim — raw string, consumers narrow. */
+  type: string;
+}
+
+/** Filters for get_option_instruments — the tool requires one of
+ *  chain_symbol/chain_id/ids; the v1 discovery flow always resolves by
+ *  chain_symbol. */
+export interface OptionInstrumentFilters {
+  chainSymbol: string;
+  /** YYYY-MM-DD dates — sent as a comma-separated list. */
+  expirationDates?: string[];
+  strikePrice?: number;
+  type?: 'call' | 'put';
+}
+
+// ---------------------------------------------------------------------------
 // Quotes
 // ---------------------------------------------------------------------------
 
