@@ -249,6 +249,21 @@ export class PortfolioGalleryFacade {
       const sel = accounts[this.dashboard.selectedAccountIndex()];
       if (sel && !sel.agenticAllowed) this.dashboard.selectAccount(idx);
     });
+
+    /**
+     * Profile-load retry: getAllSymbols fails soft ([] + profilesLoaded
+     * stays false), so a transient miss would otherwise degrade the whole
+     * session — no tier chips, no sector/industry, no cap sort. loadProfiles
+     * self-guards (loaded or in-flight → no-op), so re-firing it on any
+     * card/globalLoading transition is safe and gives every refresh cycle
+     * a retry. On success profilesLoaded flips → the effect settles.
+     */
+    effect(() => {
+      if (this.symbolStore.profilesLoaded()) return;
+      if (this.dashboard.globalLoading()) return;
+      if (this.cards().length === 0) return;
+      void this.symbolStore.loadProfiles();
+    });
   }
 
   /**
@@ -269,9 +284,12 @@ export class PortfolioGalleryFacade {
   }
 
   /** Manual refresh — reloads the live pipeline and drops the bar cache so
-   *  a new trading day's bars aren't hidden by session-permanent entries. */
+   *  a new trading day's bars aren't hidden by session-permanent entries.
+   *  loadProfiles is guarded — a no-op once loaded, a retry after a failed
+   *  first attempt. */
   refresh(): void {
     this.cardChartStore.clearCache();
+    void this.symbolStore.loadProfiles();
     void this.dashboard.refresh();
   }
 
