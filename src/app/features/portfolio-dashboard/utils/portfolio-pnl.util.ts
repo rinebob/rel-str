@@ -94,16 +94,20 @@ export function computePnL(
  *   stop price set)
  * - Order side is `sell` (closing direction for a long)
  * - Order is not in a terminal state (filled, cancelled, rejected, etc.)
- * - Order symbol matches a position with non-zero quantity
+ * - Order symbol matches a position with positive quantity — a sell stop
+ *   resting on a shorted symbol is not protection
  *
  * Note: This function is long-only. Short position protection (buy-stop)
  * is deferred to future work.
  */
-export function isStopLossProtecting(order: BrokerOrder, positions: EquityPosition[]): boolean {
+export function isStopLossProtecting(
+  order: BrokerOrder,
+  positions: Pick<EquityPosition, 'symbol' | 'quantity'>[],
+): boolean {
   if (!isProtectiveStopOrder(order)) return false;
 
   return positions.some(
-    (p) => p.symbol === order.symbol && p.quantity !== null && p.quantity !== 0,
+    (p) => p.symbol === order.symbol && p.quantity !== null && p.quantity > 0,
   );
 }
 

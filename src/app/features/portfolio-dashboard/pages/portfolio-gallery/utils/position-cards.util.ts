@@ -1,5 +1,5 @@
 /**
- * Position-gallery card view-model and pure mapping utilities (#926/#950).
+ * Position-gallery card view-model and pure mapping utilities (#926/#950-951).
  *
  * `PositionCard` is deliberately separate from the signal gallery's
  * `GalleryCard` — positions and signals never mix (#926 PRD). The join
@@ -9,12 +9,18 @@
  */
 import {
   BrokerOrder,
+  EquityPosition,
   EquityQuote,
 } from '../../../../../core/robinhood-mcp/types/robinhood-mcp.types';
 import type { StSymbolProfile } from '../../../../savant-trader/services/types';
 import { SymbolListFilter } from '../../../../savant-trader/common/constants';
 import { isStopLossProtecting } from '../../../utils/portfolio-pnl.util';
-import { shouldShowInListFilter } from '../../../../savant-trader/utils/utils';
+import {
+  marketCapTierRank,
+  shouldShowInListFilter,
+  tierLabel,
+  UNKNOWN_GROUP,
+} from '../../../../savant-trader/utils/utils';
 import { EquityPositionWithPnL } from '../../../portfolio-dashboard.types';
 
 export type PositionSide = 'long' | 'short';
@@ -106,20 +112,29 @@ export function buildPositionCards(
     // quotes map — prefer it; the map supplies previousClose for day change.
     const marketPrice = p.currentPrice ?? quote?.lastTradePrice ?? null;
     const previousClose = quote?.previousClose ?? null;
+    // Instrument day move — signed by the symbol's direction, NOT the
+    // position's. The card negates for shorts at render so the display
+    // tracks the position's day P&L; the facade's dayPnl = dayChange ×
+    // signed quantity stays correct on the raw field. A zero/NaN close
+    // can't be a sane baseline, so it degrades to null like a missing
+    // quote rather than displaying the full price as the day's "change".
     const dayChange =
-      marketPrice !== null && previousClose !== null ? marketPrice - previousClose : null;
+      marketPrice !== null && Number.isFinite(marketPrice) &&
+      previousClose !== null && previousClose > 0
+        ? marketPrice - previousClose
+        : null;
     const dayChangePct =
-      dayChange !== null && previousClose !== null && previousClose !== 0
+      dayChange !== null && previousClose !== null && previousClose > 0
         ? (dayChange / previousClose) * 100
         : null;
     const quantity = p.quantity ?? 0;
     const cardOrders = liveOrders.filter(
       (o) => o.instrumentType === 'equity' && o.symbol === p.symbol,
     );
-    // isStopLossProtecting is sell-side/long-only — a sell stop resting on
-    // a shorted symbol is not protection, so shorts never read protected.
-    const stopOrder =
-      quantity > 0 ? (cardOrders.find((o) => isStopLossProtecting(o, [p])) ?? null) : null;
+    // isStopLossProtecting is sell-side and requires a positive quantity —
+    // a sell stop resting on a shorted symbol is not protection, so
+    // shorts never read protected.
+    const stopOrder = cardOrders.find((o) => isStopLossProtecting(o, [p])) ?? null;
     const stopPrice = stopOrder?.stopPrice ?? null;
     const stopDistancePct =
       stopPrice !== null && marketPrice !== null && marketPrice !== 0
@@ -178,4 +193,109 @@ export function sortFlatPositionCards(cards: PositionCard[]): PositionCard[] {
     if (bc !== ac) return bc - ac;
     return a.symbol.localeCompare(b.symbol);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Grouping
+// ---------------------------------------------------------------------------
+
+export interface PositionCardGroup {
+  /** `${dimension}:${label}` — dimension-scoped so a dimension switch
+   *  starts with fresh expansion state and a round-trip restores it;
+   *  keys persist across re-sorts and refreshes. */
+  key: string;
+  label: string;
+  cards: PositionCard[];
+}
+
+/** Bucket-dimension sink for positions with no resolved bucket name.
+ *  The profile-dimension sink is the shared `UNKNOWN_GROUP`. */
+export const UNASSIGNED_GROUP_LABEL = '(Unassigned)';
+
+function positionGroupKey(card: PositionCard, dimension: PositionGroupDimension): string {
+  switch (dimension) {
+    case PositionGroupDimension.BUCKET:
+      return card.bucketName || UNASSIGNED_GROUP_LABEL;
+    case PositionGroupDimension.SECTOR:
+      return card.sector || UNKNOWN_GROUP;
+    case PositionGroupDimension.INDUSTRY:
+      return card.industry || UNKNOWN_GROUP;
+    case PositionGroupDimension.CAP_TIER:
+      // Display label matches the card's tier badge (MEGA/LG/...).
+      return card.capTier ? tierLabel(card.capTier) : UNKNOWN_GROUP;
+    default:
+      // #820 lesson: never collapse an unhandled dimension into a silent
+      // '' group — a future enum member without a case must throw.
+      throw new Error(`groupPositionCards: unhandled dimension ${dimension}`);
+  }
+}
+
+/** Group already-sorted cards by the dimension. Input order is preserved
+ *  within each group — callers apply `sortFlatPositionCards` first so
+ *  within-group order is the flat market-cap ranking. The dimension value
+ *  is the primary group order: alphabetical for label dimensions, tier
+ *  rank for cap-tier (MEGA→MICRO regardless of whose caps are biggest);
+ *  ranking groups by their top card's cap would let market cap dominate
+ *  the sort again. The missing-data sinks ((Unassigned)/(Unknown)) always
+ *  sort last — the signal gallery's convention. NONE returns no groups
+ *  (the page renders flatCards). */
+export function groupPositionCards(
+  cards: PositionCard[],
+  dimension: PositionGroupDimension,
+): PositionCardGroup[] {
+  if (dimension === PositionGroupDimension.NONE) return [];
+  const byLabel = new Map<string, PositionCard[]>();
+  for (const c of cards) {
+    const label = positionGroupKey(c, dimension);
+    const bucket = byLabel.get(label);
+    if (bucket) bucket.push(c);
+    else byLabel.set(label, [c]);
+  }
+  // The two sentinel names are shared across dimensions — a bucket
+  // literally named '(Unknown)' sinks last too. Ordering-only collision;
+  // acceptable (same class as the reference's sink names).
+  const isSink = (label: string) =>
+    label === UNASSIGNED_GROUP_LABEL || label === UNKNOWN_GROUP;
+  const named = [...byLabel.entries()].filter(([label]) => !isSink(label));
+  const sinks = [...byLabel.entries()].filter(([label]) => isSink(label));
+  named.sort(([la, ca], [lb, cb]) =>
+    dimension === PositionGroupDimension.CAP_TIER
+      ? marketCapTierRank(ca[0].capTier ?? undefined) -
+        marketCapTierRank(cb[0].capTier ?? undefined)
+      : la.localeCompare(lb),
+  );
+  return [...named, ...sinks].map(([label, groupCards]) => ({
+    key: `${dimension}:${label}`,
+    label,
+    cards: groupCards,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Order classification
+// ---------------------------------------------------------------------------
+
+export interface ClassifiedCardOrders {
+  /** Orders the protected badge counts on — sell-side protective stops. */
+  stopOrders: BrokerOrder[];
+  /** Everything else resting on the symbol (limits, markets, terminal). */
+  otherOrders: BrokerOrder[];
+}
+
+/** Split a position's live orders into protective stops vs everything else
+ *  through the same `isStopLossProtecting` predicate the card badge uses —
+ *  the Orders popup and the badge can never disagree. Long-only like the
+ *  badge: a sell stop resting on a shorted symbol is not protection.
+ *  Callers must pass only this symbol's orders — the function does not
+ *  symbol-filter (card.openOrders is already symbol-scoped). */
+export function classifyCardOrders(
+  orders: BrokerOrder[],
+  position: Pick<EquityPosition, 'symbol' | 'quantity'>,
+): ClassifiedCardOrders {
+  const held = [{ symbol: position.symbol, quantity: position.quantity }];
+  const isStop = (o: BrokerOrder) => isStopLossProtecting(o, held);
+  const stopOrders: BrokerOrder[] = [];
+  const otherOrders: BrokerOrder[] = [];
+  for (const o of orders) (isStop(o) ? stopOrders : otherOrders).push(o);
+  return { stopOrders, otherOrders };
 }

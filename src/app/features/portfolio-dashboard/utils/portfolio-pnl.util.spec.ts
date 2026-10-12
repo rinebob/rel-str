@@ -216,6 +216,13 @@ describe('isStopLossProtecting', () => {
     expect(isStopLossProtecting(order, positions)).toBe(false);
   });
 
+  it('returns false when the position is short — a sell stop does not protect it', () => {
+    const order = makeOrder({ type: 'stop_market', side: 'sell', symbol: 'AAPL' });
+    const positions = [makePosition({ symbol: 'AAPL', quantity: -100 })];
+
+    expect(isStopLossProtecting(order, positions)).toBe(false);
+  });
+
   it('returns false for unknown order type with no stop price', () => {
     const order = makeOrder({ type: 'unknown', side: 'sell', symbol: 'AAPL', stopPrice: null });
     const positions = [makePosition({ symbol: 'AAPL', quantity: 100 })];

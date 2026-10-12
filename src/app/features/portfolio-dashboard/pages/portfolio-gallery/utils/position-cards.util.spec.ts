@@ -17,13 +17,17 @@ import {
   makeEquityQuote,
   makeOrder,
 } from '../../../portfolio-dashboard.spec-fixtures';
+import { computeProtectedSymbols } from '../../../utils/portfolio-pnl.util';
 import {
   buildPositionCards,
   filterPositionCards,
   sortFlatPositionCards,
+  groupPositionCards,
+  classifyCardOrders,
   daysHeldFromEntry,
   PositionCard,
   PositionCardFilter,
+  PositionGroupDimension,
 } from './position-cards.util';
 
 const NOW = new Date('2026-10-11T18:00:00Z');
@@ -86,6 +90,10 @@ describe('daysHeldFromEntry', () => {
     expect(daysHeldFromEntry('2026-10-11T00:00:00Z', NOW)).toBe(0);
   });
 
+  it('counts across a month boundary', () => {
+    expect(daysHeldFromEntry('2026-09-28T14:00:00Z', NOW)).toBe(13);
+  });
+
   it('returns null without an entry date', () => {
     expect(daysHeldFromEntry(null, NOW)).toBeNull();
   });
@@ -123,6 +131,14 @@ describe('buildPositionCards', () => {
     expect(card.side).toBe('short');
   });
 
+  it('keeps dayChange instrument-signed for shorts — the component negates at render', () => {
+    // lastTradePrice 155 vs previousClose 152 → +3 for the instrument; the
+    // facade's dayPnl = dayChange × signed qty depends on the raw sign.
+    const card = buildOne({ position: { quantity: -40 } });
+    expect(card.dayChange).toBeCloseTo(3);
+    expect(card.dayChangePct).toBeCloseTo((3 / 152) * 100);
+  });
+
   it('degrades to null price fields when the quote is missing', () => {
     const card = buildOne({ quote: null, position: { currentPrice: null, pnl: null, pnlPercent: null } });
     expect(card.marketPrice).toBeNull();
@@ -134,6 +150,12 @@ describe('buildPositionCards', () => {
 
   it('degrades day change when previousClose is null', () => {
     const card = buildOne({ quote: makeEquityQuote({ previousClose: null }) });
+    expect(card.dayChange).toBeNull();
+    expect(card.dayChangePct).toBeNull();
+  });
+
+  it('degrades day change when previousClose is zero — full price is not a "change"', () => {
+    const card = buildOne({ quote: makeEquityQuote({ previousClose: 0 }) });
     expect(card.dayChange).toBeNull();
     expect(card.dayChangePct).toBeNull();
   });
@@ -270,5 +292,166 @@ describe('sortFlatPositionCards', () => {
     )[0];
     const out = sortFlatPositionCards([noCap, a]);
     expect(out.map((c) => c.symbol)).toEqual(['AAA', 'NOCAP']);
+  });
+
+  it('breaks equal market caps by symbol ascending', () => {
+    const out = sortFlatPositionCards([
+      buildOne({ position: { symbol: 'BETA' }, profile: makeProfile({ symbol: 'BETA', marketCap: 1e9 }) }),
+      buildOne({ position: { symbol: 'ALPHA' }, profile: makeProfile({ symbol: 'ALPHA', marketCap: 1e9 }) }),
+    ]);
+    expect(out.map((c) => c.symbol)).toEqual(['ALPHA', 'BETA']);
+  });
+});
+
+describe('groupPositionCards', () => {
+  const DIM = PositionGroupDimension;
+
+  /** One card per symbol with the given profile/bucket overrides. */
+  function card(
+    symbol: string,
+    opts: { profile?: Partial<StSymbolProfile> | null; bucketName?: string } = {},
+  ): PositionCard {
+    const profile =
+      opts.profile === null ? null : makeProfile({ symbol, ...(opts.profile ?? {}) });
+    const profiles = profile
+      ? new Map([[symbol.toUpperCase(), profile]])
+      : new Map<string, StSymbolProfile>();
+    const buckets = opts.bucketName
+      ? new Map([[symbol, opts.bucketName]])
+      : new Map<string, string>();
+    return buildPositionCards('a', [makePosition({ symbol })], null, [], profiles, buckets, NOW)[0];
+  }
+
+  it('NONE returns no groups — flat mode renders flatCards', () => {
+    expect(groupPositionCards([card('AAPL')], DIM.NONE)).toEqual([]);
+  });
+
+  it('BUCKET groups by bucketName, unattributed into (Unassigned)', () => {
+    const groups = groupPositionCards(
+      [card('AAPL', { bucketName: 'Growth' }), card('MSFT', { bucketName: 'Income' }), card('XYZ')],
+      DIM.BUCKET,
+    );
+    expect(groups.map((g) => g.label)).toEqual(['Growth', 'Income', '(Unassigned)']);
+    expect(groups.find((g) => g.label === '(Unassigned)')!.cards.map((c) => c.symbol)).toEqual(['XYZ']);
+  });
+
+  it('SECTOR/INDUSTRY/CAP_TIER group by profile field, missing into (Unknown)', () => {
+    const cards = [card('AAPL', { profile: { sector: 'Technology' } }), card('NOPROF', { profile: null })];
+    expect(groupPositionCards(cards, DIM.SECTOR).map((g) => g.label)).toEqual(['Technology', '(Unknown)']);
+    expect(
+      groupPositionCards(
+        [card('AAPL', { profile: { industry: 'Consumer Electronics' } }), card('NOPROF', { profile: null })],
+        DIM.INDUSTRY,
+      ).map((g) => g.label),
+    ).toEqual(['Consumer Electronics', '(Unknown)']);
+    expect(
+      groupPositionCards(
+        [card('AAPL', { profile: { marketCapTier: 'mega' } }), card('NOPROF', { profile: null })],
+        DIM.CAP_TIER,
+      ).map((g) => g.label),
+    ).toEqual(['MEGA', '(Unknown)']);
+  });
+
+  it('uses the display label for cap-tier groups — MEGA, not the raw tier key', () => {
+    const groups = groupPositionCards([card('AAPL', { profile: { marketCapTier: 'mega' } })], DIM.CAP_TIER);
+    expect(groups[0].label).toBe('MEGA');
+    expect(groups[0].key).toBe('CAP_TIER:MEGA');
+  });
+
+  it('sinks (Unassigned)/(Unknown) groups last even when their top card ranks first', () => {
+    const cards = sortFlatPositionCards([
+      card('UNBUCKETED', { profile: { marketCap: 3e12 } }),
+      card('SMALL', { bucketName: 'Growth', profile: { marketCap: 1e9 } }),
+    ]);
+    expect(groupPositionCards(cards, DIM.BUCKET).map((g) => g.label)).toEqual(['Growth', '(Unassigned)']);
+    expect(
+      groupPositionCards(
+        sortFlatPositionCards([
+          card('NOSECTOR', { profile: { sector: undefined, marketCap: 3e12 } }),
+          card('SMALL', { profile: { sector: 'Technology', marketCap: 1e9 } }),
+        ]),
+        DIM.SECTOR,
+      ).map((g) => g.label),
+    ).toEqual(['Technology', '(Unknown)']);
+  });
+
+  it('treats empty-string profile fields as missing — (Unknown) sink, not a blank label', () => {
+    expect(
+      groupPositionCards([card('AAPL', { profile: { sector: '' } })], DIM.SECTOR).map((g) => g.label),
+    ).toEqual(['(Unknown)']);
+  });
+
+  it('throws on an unhandled dimension rather than collapsing into one unlabeled group', () => {
+    expect(() =>
+      groupPositionCards([card('AAPL')], 'BOGUS' as PositionGroupDimension),
+    ).toThrow('unhandled dimension');
+  });
+
+  it('orders groups by dimension value (not top-card cap) and cards within by the flat sort', () => {
+    // Flat order: BIG (mega-cap, sector T) > MID (small-cap, sector H) > LOW
+    // (mid-cap, sector T) > NOCAP (sector T). Alphabetical labels → H
+    // leads even though T holds the mega-cap; within a group the flat
+    // cap-desc ranking still applies.
+    const cards = sortFlatPositionCards([
+      card('BIG', { profile: { sector: 'T', marketCap: 3e12 } }),
+      card('MID', { profile: { sector: 'H', marketCap: 5e9 } }),
+      card('LOW', { profile: { sector: 'T', marketCap: 1e12 } }),
+      card('NOCAP', { profile: { sector: 'T', marketCap: undefined } }),
+    ]);
+    const groups = groupPositionCards(cards, DIM.SECTOR);
+    expect(groups.map((g) => g.label)).toEqual(['H', 'T']);
+    expect(groups[0].cards.map((c) => c.symbol)).toEqual(['MID']);
+    expect(groups[1].cards.map((c) => c.symbol)).toEqual(['BIG', 'LOW', 'NOCAP']);
+  });
+
+  it('orders cap-tier groups by tier rank — a bigger cap in a lower tier does not lead', () => {
+    const cards = sortFlatPositionCards([
+      card('HUGE_MICRO', { profile: { marketCapTier: 'micro', marketCap: 4e12 } }),
+      card('TINY_MEGA', { profile: { marketCapTier: 'mega', marketCap: 1 } }),
+      card('LARGE_CO', { profile: { marketCapTier: 'large', marketCap: 5e11 } }),
+    ]);
+    expect(groupPositionCards(cards, DIM.CAP_TIER).map((g) => g.label)).toEqual([
+      'MEGA', 'LG', 'µ',
+    ]);
+  });
+
+  it('keys groups by dimension:label so expando state survives a dim switch', () => {
+    const groups = groupPositionCards([card('AAPL', { bucketName: 'Growth' })], DIM.BUCKET);
+    expect(groups[0].key).toBe('BUCKET:Growth');
+  });
+});
+
+describe('classifyCardOrders', () => {
+  it('puts protective stops in stopOrders and other resting orders in otherOrders', () => {
+    const stop = makeOrder({ orderId: 'o1', side: 'sell', type: 'stop_market', state: 'confirmed', stopPrice: 145 });
+    const limit = makeOrder({ orderId: 'o2', side: 'sell', type: 'limit', state: 'confirmed', price: 170 });
+    const out = classifyCardOrders([stop, limit], { symbol: 'AAPL', quantity: 100 });
+    expect(out.stopOrders.map((o) => o.orderId)).toEqual(['o1']);
+    expect(out.otherOrders.map((o) => o.orderId)).toEqual(['o2']);
+  });
+
+  it('agrees with the protected badge — terminal stops and non-stops never classify', () => {
+    const filledStop = makeOrder({ orderId: 'o1', side: 'sell', type: 'stop_market', state: 'filled', stopPrice: 145 });
+    const buyStop = makeOrder({ orderId: 'o2', side: 'buy', type: 'stop_market', state: 'confirmed', stopPrice: 165 });
+    const out = classifyCardOrders([filledStop, buyStop], { symbol: 'AAPL', quantity: 100 });
+    expect(out.stopOrders).toEqual([]);
+    expect(out.otherOrders.length).toBe(2);
+  });
+
+  it('a long classifies iff computeProtectedSymbols marks the symbol — shared predicate', () => {
+    const stop = makeOrder({ orderId: 'o1', side: 'sell', type: 'stop_market', state: 'confirmed', stopPrice: 145 });
+    const out = classifyCardOrders([stop], { symbol: 'AAPL', quantity: 100 });
+    const protectedSymbols = computeProtectedSymbols(
+      [stop],
+      [makePosition({ symbol: 'AAPL', quantity: 100 })],
+    );
+    expect(out.stopOrders.length > 0).toBe(protectedSymbols.has('AAPL'));
+  });
+
+  it('a sell stop on a shorted symbol is not protection — mirrors the card badge', () => {
+    const stop = makeOrder({ orderId: 'o1', side: 'sell', type: 'stop_market', state: 'confirmed', stopPrice: 145 });
+    const out = classifyCardOrders([stop], { symbol: 'AAPL', quantity: -100 });
+    expect(out.stopOrders).toEqual([]);
+    expect(out.otherOrders.map((o) => o.orderId)).toEqual(['o1']);
   });
 });
