@@ -15,7 +15,11 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px;
+  // Trailing room ≈ a chart cell + slack: the card's @defer (on viewport)
+  // fires only when the placeholder intersects the clipped scrollport —
+  // without this the last card's chart could pin below the fold at max
+  // scroll and never activate (a clipped target reports no intersection).
+  padding: 12px 12px 480px;
 }
 
 .pg-state {
