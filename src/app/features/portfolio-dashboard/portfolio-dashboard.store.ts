@@ -306,9 +306,13 @@ export const PortfolioDashboardStore = signalStore(
         if (b.accountNumber === PRIMARY_AGENTIC_ACCOUNT_NUMBER) return 1;
         return 0;
       });
+      // Default to the first agentic account — the primary-agentic sort puts
+      // it at index 0 when present, but a list without it shouldn't land on
+      // a non-agentic account (#778 QA).
+      const agenticIdx = sorted.findIndex((a) => a.agenticAllowed);
       patchState(store, {
         accounts: sorted.map(createAccountState),
-        selectedAccountIndex: 0,
+        selectedAccountIndex: agenticIdx >= 0 ? agenticIdx : 0,
       });
     }
 

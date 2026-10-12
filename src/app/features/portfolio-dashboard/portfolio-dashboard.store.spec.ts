@@ -80,6 +80,15 @@ describe('PortfolioDashboardStore', () => {
       expect(store.selectedAccountIndex()).toBe(0);
     });
 
+    it('defaults selection to the first agentic account, not index 0', async () => {
+      client.getAccounts.and.returnValue(resolve([
+        makeAccount({ accountNumber: '999', agenticAllowed: false }),
+        makeAccount({ accountNumber: '111', agenticAllowed: true }),
+      ]));
+      await store.loadAccounts();
+      expect(store.selectedAccountIndex()).toBe(1);
+    });
+
     it('sets globalLoading false after success', async () => {
       client.getAccounts.and.returnValue(resolve([makeAccount()]));
       await store.loadAccounts();

@@ -316,7 +316,10 @@ export const AllocationStore = signalStore(
           // resolve by accountNumber, not index, since RH order can shift.
           const prevSelected = store.accounts()[store.selectedAccountIndex()]?.accountNumber;
           const idx = prevSelected ? accounts.findIndex((a) => a.accountNumber === prevSelected) : -1;
-          const selectedAccountIndex = idx >= 0 ? idx : 0;
+          // No prior selection → default to the first order-placement-enabled
+          // (agentic) account, not raw index 0 (#778 QA).
+          const agenticIdx = accounts.findIndex((a) => a.agenticAllowed);
+          const selectedAccountIndex = idx >= 0 ? idx : agenticIdx >= 0 ? agenticIdx : 0;
           patchState(store, { accounts, selectedAccountIndex, accountsLoaded: true });
           const sel = accounts[selectedAccountIndex];
           if (sel) {

@@ -165,6 +165,17 @@ describe('AllocationStore', () => {
     expect(store.selectedAccount()?.accountNumber).toBe(ACCT_A);
   });
 
+  it('loadAccounts defaults selection to the first agentic account, not index 0', async () => {
+    const mocks = buildMocks();
+    mocks.data.listAccounts = jest.fn(async (): Promise<AccountInfo[]> => [
+      account('NAG1', false),
+      account(ACCT_B, false),
+      account(ACCT_A),
+    ]);
+    const { store } = await setup(mocks);
+    expect(store.selectedAccount()?.accountNumber).toBe(ACCT_A);
+  });
+
   it('loads snapshot + positions + fills for the selected account and stamps asOf', async () => {
     const { store } = await setup(buildMocks());
     await flush();
