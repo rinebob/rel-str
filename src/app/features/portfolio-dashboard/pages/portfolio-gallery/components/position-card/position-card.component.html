@@ -1,0 +1,92 @@
+<div class="position-card" [class.long]="card().side === 'long'" [class.short]="card().side === 'short'">
+  <div class="card-header">
+    @if (card().capTier) {
+      <span class="badge tier tier-{{ card().capTier }}" [title]="'Market cap tier: ' + card().capTier">{{ tierLabel(card().capTier!) }}</span>
+    }
+    <span class="position-symbol">{{ card().symbol }}</span>
+    @if (card().companyName) {
+      <span class="name" [title]="card().companyName">{{ card().companyName }}</span>
+    }
+    <span class="side-badge" [class.long]="card().side === 'long'" [class.short]="card().side === 'short'">
+      {{ card().side === 'long' ? 'LONG' : 'SHORT' }}
+    </span>
+  </div>
+
+  <!-- Financial row: qty @ cost · mark · signed day change. -->
+  <div class="card-meta">
+    <span class="meta-field">{{ num(card().quantity) }} @ {{ money(card().averageCost) }}</span>
+    <span class="meta-sep">·</span>
+    <span class="meta-price">{{ money(card().marketPrice) }}</span>
+    @let dayChange = this.dayChange();
+    @if (dayChange !== null) {
+      <span class="meta-change" [class.up]="dayChange >= 0" [class.down]="dayChange < 0">
+        {{ signedMoney(dayChange) }} ({{ signedPct(this.dayChangePct()) }})
+      </span>
+    }
+  </div>
+
+  <!-- Position row: unrealized P&L · market value · days held · bucket. -->
+  <div class="card-meta">
+    <span class="meta-field pnl" [class.up]="(card().unrealizedPnl ?? 0) >= 0" [class.down]="(card().unrealizedPnl ?? 0) < 0">
+      P&amp;L {{ signedMoney(card().unrealizedPnl) }} ({{ signedPct(card().unrealizedPnlPct) }})
+    </span>
+    <span class="meta-sep">·</span>
+    <span class="meta-field">Val {{ money(card().marketValue) }}</span>
+    @if (card().daysHeld !== null) {
+      <span class="meta-sep">·</span>
+      <span class="meta-field">{{ card().daysHeld }}d</span>
+    }
+    @if (card().bucketName) {
+      <span class="meta-sep">·</span>
+      <span class="meta-field bucket" [title]="'Bucket: ' + card().bucketName">{{ card().bucketName }}</span>
+    }
+  </div>
+
+  @if (card().sector || card().industry) {
+    <div class="card-meta">
+      @if (card().sector) {
+        <span class="meta-field">{{ card().sector }}</span>
+      }
+      @if (card().industry) {
+        @if (card().sector) { <span class="meta-sep">·</span> }
+        <span class="meta-field">{{ card().industry }}</span>
+      }
+    </div>
+  }
+
+  <!-- Morning-scan headline — protected with the resting stop's terms, or
+       the unprotected flag. -->
+  <div class="protection-badge" [class.protected]="card().protected" [class.unprotected]="!card().protected">
+    @if (card().protected) {
+      PROTECTED @ {{ money(card().stopPrice) }} ({{ pct(card().stopDistancePct) }})
+    } @else {
+      UNPROTECTED
+    }
+  </div>
+
+  <div class="card-actions">
+    <button class="action-btn action-close"
+            [disabled]="actionsDisabled()"
+            (click)="action.emit({ type: 'close', card: card() })">
+      Close
+    </button>
+    <button class="action-btn action-stop"
+            [disabled]="actionsDisabled()"
+            (click)="action.emit({ type: 'stop', card: card() })">
+      {{ stopLabel() }}
+    </button>
+    <button class="action-btn action-add" disabled title="Add to position — coming soon">
+      Add
+    </button>
+    <button class="action-btn action-detail" disabled title="Position detail — coming soon">
+      Detail
+    </button>
+    <button class="action-btn action-orders" disabled title="Orders popup — coming soon">
+      {{ ordersLabel() }}
+    </button>
+  </div>
+
+  <!-- Chart cell — position-card-chart lands in #952; the placeholder holds
+       the footprint so cards don't reflow when it mounts. -->
+  <div class="chart-placeholder">chart</div>
+</div>

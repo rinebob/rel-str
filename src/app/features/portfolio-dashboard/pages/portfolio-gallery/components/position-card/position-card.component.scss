@@ -1,0 +1,207 @@
+.position-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  min-height: 120px;
+
+  &.long {
+    border-top: 2px solid #4caf50;
+  }
+  &.short {
+    border-top: 2px solid #f44336;
+  }
+}
+
+.card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+
+  // The tier badge leads the header (left of the symbol) — centered so it
+  // doesn't ride the symbol's text baseline.
+  .badge.tier {
+    align-self: center;
+  }
+}
+
+.position-symbol {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.name {
+  font-size: 12px;
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.side-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+
+  &.long {
+    color: #4caf50;
+    background: rgba(76, 175, 80, 0.15);
+  }
+  &.short {
+    color: #f44336;
+    background: rgba(244, 67, 54, 0.15);
+  }
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.meta-field {
+  font-size: 10px;
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+
+  &.pnl.up { color: #4caf50; }
+  &.pnl.down { color: #f44336; }
+  &.bucket { font-weight: 600; }
+}
+
+.meta-price {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.meta-change {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  &.up { color: #4caf50; }
+  &.down { color: #f44336; }
+}
+
+.meta-sep {
+  font-size: 10px;
+  color: var(--mat-sys-outline);
+}
+
+.badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 6px;
+  white-space: nowrap;
+
+  &.tier {
+    &-mega  { background: var(--mat-sys-primary);    color: var(--mat-sys-on-primary); }
+    &-large { background: var(--mat-sys-tertiary);   color: var(--mat-sys-on-tertiary); }
+    &-mid   { background: var(--mat-sys-secondary);  color: var(--mat-sys-on-secondary); }
+    &-small { background: var(--mat-sys-error);       color: var(--mat-sys-on-error); }
+    &-micro { background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface-variant); }
+  }
+}
+
+// The morning-scan headline — protected (green, with stop terms) vs
+// unprotected (red flag) at a glance.
+.protection-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+  font-variant-numeric: tabular-nums;
+
+  &.protected {
+    color: #81c784;
+    background: rgba(129, 199, 132, 0.15);
+  }
+  &.unprotected {
+    color: #ff8a80;
+    background: rgba(255, 138, 128, 0.15);
+  }
+}
+
+// Chart cell — #952 mounts the real chart; placeholder holds the footprint.
+.chart-placeholder {
+  height: 440px;
+  border: 1px dashed var(--mat-sys-outline);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.6;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 7px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  transition: background 0.1s;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: var(--mat-sys-surface-container-high);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+.action-close {
+  background: rgba(244, 67, 54, 0.14);
+  color: #e57373;
+
+  &:hover:not(:disabled) {
+    background: rgba(244, 67, 54, 0.24);
+  }
+}
+
+.action-stop {
+  background: rgba(255, 183, 77, 0.14);
+  color: #ffb74d;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 183, 77, 0.24);
+  }
+}
