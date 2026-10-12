@@ -1,10 +1,12 @@
 /**
  * Portfolio Gallery View (#926/#950)
  *
- * portfolio-v2 page shell: account summary + facet header, a flat
- * market-cap-ordered card grid (grouped expandos land in #951), and the
- * loading / error / no-agentic-account / empty states. Live equity
- * positions only — one card per held position, no triage state.
+ * portfolio-v2 page shell: account summary + facet header, a
+ * market-cap-ordered card grid (flat, or group-sorted rows when a
+ * dimension is picked — the expando render path is retained behind
+ * useExpandos but currently dormant), and the loading / error /
+ * no-agentic-account / empty states. Live equity positions only —
+ * one card per held position, no triage state.
  */
 import { ChangeDetectionStrategy, Component, effect, inject, OnInit } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,7 +16,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PortfolioGalleryFacade } from './portfolio-gallery.facade';
 import { GalleryCardChartStore } from '../../../savant-trader/stores/gallery-card-chart.store';
 import { PortfolioGalleryHeaderComponent } from './portfolio-gallery-header.component';
-import { fmtMoney, fmtNum } from '../../../savant-trader/utils/utils';
+import { PositionCardComponent } from './components/position-card/position-card.component';
+import { PositionGalleryGroupComponent } from './components/position-gallery-group/position-gallery-group.component';
 import { scheduleIdle, cancelIdle } from '../../../shared/utils/schedule-idle.util';
 
 @Component({
@@ -25,6 +28,8 @@ import { scheduleIdle, cancelIdle } from '../../../shared/utils/schedule-idle.ut
     MatButtonModule,
     MatProgressSpinnerModule,
     PortfolioGalleryHeaderComponent,
+    PositionCardComponent,
+    PositionGalleryGroupComponent,
   ],
   templateUrl: './portfolio-gallery-view.component.html',
   styleUrl: './portfolio-gallery-view.component.scss',
@@ -32,9 +37,15 @@ import { scheduleIdle, cancelIdle } from '../../../shared/utils/schedule-idle.ut
 export class PortfolioGalleryViewComponent implements OnInit {
   readonly facade = inject(PortfolioGalleryFacade);
   private readonly cardCharts = inject(GalleryCardChartStore);
-  /** Null-tolerant wrappers over the shared formatters. */
-  readonly money = (v: number | null | undefined): string => fmtMoney(v ?? undefined);
-  readonly num = (v: number | null | undefined): string => fmtNum(v ?? undefined);
+
+  /**
+   * Expando render path — kept live but dormant while the grouped-sort
+   * flat grid proves out. Flip to true to restore expando groups
+   * (expansion state, toggleAll wiring, and the group component are all
+   * still in place); delete with PositionGalleryGroupComponent once the
+   * flat layout is confirmed.
+   */
+  useExpandos = false;
 
   constructor() {
     // Warm per-symbol daily bars on idle after first paint so the card

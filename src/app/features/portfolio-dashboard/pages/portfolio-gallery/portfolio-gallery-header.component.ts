@@ -58,14 +58,24 @@ export class PortfolioGalleryHeaderComponent {
   listFilter = input<SymbolListFilter>('ALL');
   listGroups = input<RhSelectOptionGroup<SymbolListFilter>[]>([]);
   groupDimension = input.required<PositionGroupDimension>();
+  /** Every rendered group expanded — drives the expand-all icon. */
+  allGroupsExpanded = input(false);
+  /** No groups rendered (empty result set) — expand-all is a no-op. */
+  expandAllDisabled = input(false);
+  /** Whether the grid renders expando groups — the expand-all button only
+   *  makes sense when they're mounted (currently dormant: the grouped
+   *  view renders a sorted flat grid instead). */
+  expandAllVisible = input(true);
   refreshing = input(false);
 
   readonly SignalTimeframe = SignalTimeframe;
+  readonly PositionGroupDimension = PositionGroupDimension;
 
   sideChange = output<'all' | PositionSide>();
   chartTimeframeChange = output<CardChartTimeframe>();
   listFilterChange = output<SymbolListFilter>();
   dimensionChange = output<PositionGroupDimension>();
+  expandAllToggle = output<void>();
   refresh = output<void>();
 
   /** Whole-dollar display, '—' for missing. */

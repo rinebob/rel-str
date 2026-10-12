@@ -1,17 +1,19 @@
 /**
- * Specs for PortfolioGalleryViewComponent (#926/#950) — page shell states,
- * header wiring, and the placeholder flat grid. Facade is a signal stub.
+ * Specs for PortfolioGalleryViewComponent (#926/#950-951) — page shell
+ * states, header wiring, flat/group-sorted card rendering, and the
+ * (currently dormant) expando path + expansion persistence. Facade is a
+ * signal stub.
  */
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
 
 import { PortfolioGalleryViewComponent } from './portfolio-gallery-view.component';
 import { PortfolioGalleryFacade } from './portfolio-gallery.facade';
 import { GalleryCardChartStore } from '../../../savant-trader/stores/gallery-card-chart.store';
-import { PositionGroupDimension, PositionCard } from './utils/position-cards.util';
+import { PositionGroupDimension, PositionCard, PositionCardGroup } from './utils/position-cards.util';
 import { SignalTimeframe } from '../../../savant-trader/common/constants';
 import { RhSelectMenuComponent } from '../../../savant-trader/components/rh-select-menu/rh-select-menu.component';
 import type { PortfolioGallerySummary } from './portfolio-gallery.facade';
@@ -70,6 +72,13 @@ function facadeStub() {
     groupDimension: signal(PositionGroupDimension.NONE),
     refreshing: signal(false),
     flatCards: signal<PositionCard[]>([]),
+    orderedCards: signal<PositionCard[]>([]),
+    groups: signal<PositionCardGroup[]>([]),
+    ungrouped: signal(true),
+    expandedGroups: signal<Record<string, boolean>>({}),
+    allGroupsExpanded: signal(false),
+    toggleAllGroups: jest.fn(),
+    setGroupExpanded: jest.fn(),
     initialLoading: signal(false),
     loadError: signal<string | null>(null),
     partialErrors: signal<string[]>([]),
@@ -92,9 +101,10 @@ describe('PortfolioGalleryViewComponent', () => {
   beforeEach(async () => {
     stub = facadeStub();
     await TestBed.configureTestingModule({
-      imports: [PortfolioGalleryViewComponent, NoopAnimationsModule],
+      imports: [PortfolioGalleryViewComponent],
       providers: [
         provideZonelessChangeDetection(),
+        provideNoopAnimations(),
         { provide: PortfolioGalleryFacade, useValue: stub },
         { provide: GalleryCardChartStore, useValue: { prefetch: jest.fn(), clearCache: jest.fn() } },
       ],
@@ -126,15 +136,111 @@ describe('PortfolioGalleryViewComponent', () => {
     ]);
   });
 
-  it('renders one stub card per flat card', () => {
-    stub.flatCards.set([makeCard('AAPL'), makeCard('MSFT', { side: 'short' })]);
+  it('renders one position-card per ordered card in ungrouped mode', () => {
+    stub.orderedCards.set([makeCard('AAPL'), makeCard('MSFT', { side: 'short' })]);
     stub.cardCount.set(2);
     stub.totalCardCount.set(2);
     fixture.detectChanges();
-    const cards = fixture.nativeElement.querySelectorAll('.pg-card-stub');
+    const cards = fixture.nativeElement.querySelectorAll('app-position-card');
     expect(cards.length).toBe(2);
     expect(fixture.nativeElement.textContent).toContain('AAPL');
     expect(fixture.nativeElement.textContent).toContain('SHORT');
+  });
+
+  it('grouped mode renders the group-sorted cards in the flat grid — no expandos', () => {
+    stub.ungrouped.set(false);
+    stub.groupDimension.set(PositionGroupDimension.BUCKET);
+    // Facade flattens groups back into orderedCards — Growth's card first.
+    stub.groups.set([
+      { key: 'BUCKET:Growth', label: 'Growth', cards: [makeCard('AAPL')] },
+      { key: 'BUCKET:(Unassigned)', label: '(Unassigned)', cards: [makeCard('MSFT')] },
+    ]);
+    stub.orderedCards.set([makeCard('AAPL'), makeCard('MSFT')]);
+    stub.cardCount.set(2);
+    stub.totalCardCount.set(2);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('app-position-gallery-group').length).toBe(0);
+    const cards = fixture.nativeElement.querySelectorAll('.pg-grid app-position-card');
+    expect(cards.length).toBe(2);
+    expect(cards[0].textContent).toContain('AAPL');
+    expect(cards[1].textContent).toContain('MSFT');
+  });
+
+  // Plain-field flag flips need markForCheck — zoneless CD only renders
+  // dirty views, and mutating a non-signal field doesn't mark any.
+  const flipExpandos = (on: boolean) => {
+    fixture.componentInstance.useExpandos = on;
+    fixture.componentRef.changeDetectorRef.markForCheck();
+  };
+
+  it('useExpandos restores the expando groups in grouped mode', () => {
+    flipExpandos(true);
+    stub.ungrouped.set(false);
+    stub.groupDimension.set(PositionGroupDimension.BUCKET);
+    stub.groups.set([
+      { key: 'BUCKET:Growth', label: 'Growth', cards: [makeCard('AAPL')] },
+      { key: 'BUCKET:(Unassigned)', label: '(Unassigned)', cards: [makeCard('MSFT')] },
+    ]);
+    stub.cardCount.set(2);
+    stub.totalCardCount.set(2);
+    fixture.detectChanges();
+    const groups = fixture.nativeElement.querySelectorAll('app-position-gallery-group');
+    expect(groups.length).toBe(2);
+    expect(fixture.nativeElement.textContent).toContain('Growth');
+    expect(fixture.nativeElement.textContent).toContain('(Unassigned)');
+    expect(fixture.nativeElement.querySelector('.pg-grid')).toBeNull();
+  });
+
+  it('expando open/close persists through the facade', () => {
+    flipExpandos(true);
+    stub.ungrouped.set(false);
+    stub.groupDimension.set(PositionGroupDimension.BUCKET);
+    stub.groups.set([{ key: 'BUCKET:Growth', label: 'Growth', cards: [makeCard('AAPL')] }]);
+    fixture.detectChanges();
+
+    const grp = fixture.debugElement.query(By.css('app-position-gallery-group'))!.componentInstance;
+    grp.expandedChange.emit(true);
+    expect(stub.setGroupExpanded).toHaveBeenCalledWith('BUCKET:Growth', true);
+    grp.expandedChange.emit(false);
+    expect(stub.setGroupExpanded).toHaveBeenCalledWith('BUCKET:Growth', false);
+  });
+
+  it('expand-all toggles through the facade', () => {
+    flipExpandos(true);
+    stub.ungrouped.set(false);
+    stub.groupDimension.set(PositionGroupDimension.BUCKET);
+    stub.groups.set([{ key: 'BUCKET:Growth', label: 'Growth', cards: [makeCard('AAPL')] }]);
+    fixture.detectChanges();
+
+    const header = fixture.debugElement.queryAll(By.css('app-portfolio-gallery-header'))[0]
+      .componentInstance;
+    header.expandAllToggle.emit();
+    expect(stub.toggleAllGroups).toHaveBeenCalled();
+  });
+
+  it('hides the expand-all button while expandos are dormant — even grouped', () => {
+    const expandIcon = () =>
+      [...fixture.nativeElement.querySelectorAll('mat-icon')].find(
+        (i) => i.textContent?.trim() === 'unfold_more' || i.textContent?.trim() === 'unfold_less',
+      );
+    stub.ungrouped.set(false);
+    stub.groupDimension.set(PositionGroupDimension.BUCKET);
+    fixture.detectChanges();
+    expect(expandIcon()).toBeUndefined();
+
+    // A consumed-signal write is what marks the view dirty in zoneless —
+    // the groups write flushes both the flag flip and the render.
+    flipExpandos(true);
+    stub.groups.set([{ key: 'BUCKET:Growth', label: 'Growth', cards: [makeCard('AAPL')] }]);
+    fixture.detectChanges();
+    expect(expandIcon()).toBeTruthy();
+
+    flipExpandos(false);
+    stub.ungrouped.set(true);
+    stub.groupDimension.set(PositionGroupDimension.NONE);
+    fixture.detectChanges();
+    expect(expandIcon()).toBeUndefined();
   });
 
   it('shows the loading state while the first load runs', () => {

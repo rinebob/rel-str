@@ -30,7 +30,9 @@ import {
   buildPositionCards,
   filterPositionCards,
   sortFlatPositionCards,
+  groupPositionCards,
   PositionCard,
+  PositionCardGroup,
   PositionGroupDimension,
   PositionSide,
 } from './utils/position-cards.util';
@@ -151,9 +153,31 @@ export class PortfolioGalleryFacade {
     filterPositionCards(this.cards(), this.activeFilter(), this.listContext()),
   );
 
-  /** Flat mode ordering — company market cap desc. Grouped rendering lands
-   *  in the card/grid task (#951); until then this is the render set. */
+  /** Flat mode ordering — company market cap desc; also the pre-group
+   *  sort, so groups and within-group order match the flat ranking. */
   readonly flatCards = computed(() => sortFlatPositionCards(this.visibleCards()));
+
+  /** Grouped render set — empty in flat mode (NONE). Retained for the
+   *  expando render path (currently dormant — see the view's useExpandos
+   *  flag); also the ordering source for orderedCards. */
+  readonly groups = computed((): PositionCardGroup[] =>
+    groupPositionCards(this.flatCards(), this.uiStore.groupDimension()),
+  );
+  /** Flat mode — no group dimension selected. */
+  readonly ungrouped = computed(() => this.uiStore.groupDimension() === PositionGroupDimension.NONE);
+  /** The order the card grid renders — flat market-cap sort in NONE mode,
+   *  otherwise the group ordering flattened into one row-wrap list:
+   *  contiguous blocks ordered by dimension value (alphabetical; tier rank
+   *  for cap-tier), sinks last, market-cap desc within each block. */
+  readonly orderedCards = computed((): PositionCard[] =>
+    this.ungrouped() ? this.flatCards() : this.groups().flatMap((g) => g.cards),
+  );
+  /** Every visible group expanded — drives the header's expand-all icon. */
+  readonly allGroupsExpanded = computed(
+    () =>
+      this.groups().length > 0 &&
+      this.groups().every((g) => this.uiStore.expandedGroups()[g.key] ?? false),
+  );
 
   /** Cards exist but every one is filtered out — distinct empty state. */
   readonly allFilteredOut = computed(
@@ -310,5 +334,16 @@ export class PortfolioGalleryFacade {
   /** Header chart D/W toggle — re-syncs every card chart via the seq bump. */
   setChartTimeframe(timeframe: CardChartTimeframe): void {
     this.uiStore.setChartTimeframe(timeframe);
+  }
+
+  setGroupExpanded(key: string, expanded: boolean): void {
+    this.uiStore.setGroupExpanded(key, expanded);
+  }
+
+  /** Expand-all / collapse-all over the currently rendered groups. */
+  toggleAllGroups(): void {
+    const keys = this.groups().map((g) => g.key);
+    if (!keys.length) return; // flat mode — nothing to toggle
+    this.uiStore.setAllGroupsExpanded(keys, !this.allGroupsExpanded());
   }
 }

@@ -285,15 +285,40 @@ describe('PortfolioGalleryFacade', () => {
     it('flatCards applies side/list filters then sorts by market cap', async () => {
       const { facade, ui, mocks } = setup({
         accounts: [account({
-          positions: [withPnl({ symbol: 'SMALL', quantity: 1000 }), withPnl({ symbol: 'BIG', quantity: 1 })],
+          positions: [
+            withPnl({ symbol: 'SMALL', quantity: 1000 }),
+            withPnl({ symbol: 'BIG', quantity: 1 }),
+            withPnl({ symbol: 'SHORTY', quantity: -3 }),
+          ],
         })],
       });
       mocks.profilesBySymbol.set(new Map([
         ['SMALL', profile('SMALL', { marketCap: 1e9 })],
         ['BIG', profile('BIG', { marketCap: 3e12 })],
+        ['SHORTY', profile('SHORTY', { marketCap: 2e12 })],
       ]));
       ui.setSide('long');
       expect(facade.flatCards().map((c) => c.symbol)).toEqual(['BIG', 'SMALL']);
+      ui.setSide('short');
+      expect(facade.flatCards().map((c) => c.symbol)).toEqual(['SHORTY']);
+      ui.setSide('all');
+      expect(facade.flatCards().map((c) => c.symbol)).toEqual(['BIG', 'SHORTY', 'SMALL']);
+    });
+
+    it('a removed position drops its card — no error, no stale card', async () => {
+      const { facade, mocks } = setup({
+        accounts: [account({
+          positions: [withPnl({ symbol: 'AAPL' }), withPnl({ symbol: 'MSFT' })],
+        })],
+      });
+      await new Promise<void>((r) => setTimeout(r, 0));
+      TestBed.tick();
+      expect(facade.flatCards().length).toBe(2);
+
+      mocks.accounts.set([account({ positions: [withPnl({ symbol: 'AAPL' })] })]);
+      await new Promise<void>((r) => setTimeout(r, 0));
+      TestBed.tick();
+      expect(facade.flatCards().map((c) => c.symbol)).toEqual(['AAPL']);
     });
 
     it('allFilteredOut distinguishes filtered-empty from empty', async () => {
@@ -430,6 +455,85 @@ describe('PortfolioGalleryFacade', () => {
       expect(facade.chartTimeframe()).toBe(SignalTimeframe.WEEKLY);
       expect(facade.groupDimension()).toBe(PositionGroupDimension.BUCKET);
       expect(facade.filterOptionGroups()).toEqual([]);
+    });
+  });
+
+  describe('groups', () => {
+    it('NONE yields no groups; a dimension buckets the flat-sorted cards', async () => {
+      const { facade, ui } = setup({
+        accounts: [
+          account({ positions: [withPnl({ symbol: 'AAPL' }), withPnl({ symbol: 'MSFT' })] }),
+        ],
+        attributions: [makeAttribution({ instrumentId: 'AAPL' })],
+        buckets: [makeBucket()],
+      });
+      await new Promise<void>((r) => setTimeout(r, 0));
+      TestBed.tick();
+      expect(facade.groups()).toEqual([]);
+      expect(facade.ungrouped()).toBe(true);
+
+      ui.setGroupDimension(PositionGroupDimension.BUCKET);
+      expect(facade.ungrouped()).toBe(false);
+      const labels = facade.groups().map((g) => g.label).sort();
+      expect(labels).toEqual(['(Unassigned)', 'Growth']);
+      const growth = facade.groups().find((g) => g.label === 'Growth')!;
+      expect(growth.cards.map((c) => c.symbol)).toEqual(['AAPL']);
+      expect(growth.key).toBe('BUCKET:Growth');
+    });
+
+    it('group expansion persists per key and toggleAll drives all groups', async () => {
+      const { facade, ui } = setup({
+        accounts: [
+          account({ positions: [withPnl({ symbol: 'AAPL' }), withPnl({ symbol: 'MSFT' })] }),
+        ],
+        attributions: [makeAttribution({ instrumentId: 'AAPL' })],
+        buckets: [makeBucket()],
+      });
+      await new Promise<void>((r) => setTimeout(r, 0));
+      TestBed.tick();
+      ui.setGroupDimension(PositionGroupDimension.BUCKET);
+
+      facade.setGroupExpanded('BUCKET:Growth', true);
+      expect(facade.expandedGroups()['BUCKET:Growth']).toBe(true);
+      expect(facade.allGroupsExpanded()).toBe(false); // '(Unassigned)' still collapsed
+
+      facade.toggleAllGroups();
+      expect(facade.allGroupsExpanded()).toBe(true);
+      facade.toggleAllGroups();
+      expect(facade.allGroupsExpanded()).toBe(false);
+    });
+
+    it('orderedCards flattens the group sort — group blocks contiguous, sinks last', async () => {
+      const { facade, mocks, ui } = setup({
+        accounts: [
+          account({
+            positions: [
+              withPnl({ symbol: 'AAPL' }),
+              withPnl({ symbol: 'MSFT' }),
+              withPnl({ symbol: 'GOOG' }),
+            ],
+          }),
+        ],
+        attributions: [makeAttribution({ instrumentId: 'MSFT' })],
+        buckets: [makeBucket()],
+      });
+      mocks.profilesBySymbol.set(
+        new Map([
+          ['AAPL', profile('AAPL', { marketCap: 1e12 })],
+          ['MSFT', profile('MSFT', { marketCap: 5e11 })],
+          ['GOOG', profile('GOOG', { marketCap: 2e11 })],
+        ]),
+      );
+      await new Promise<void>((r) => setTimeout(r, 0));
+      TestBed.tick();
+
+      // NONE → the flat market-cap order.
+      expect(facade.orderedCards().map((c) => c.symbol)).toEqual(['AAPL', 'MSFT', 'GOOG']);
+
+      // Grouped → the named Growth block first (dimension value ordered),
+      // the (Unassigned) sink block last, cap-desc within each.
+      ui.setGroupDimension(PositionGroupDimension.BUCKET);
+      expect(facade.orderedCards().map((c) => c.symbol)).toEqual(['MSFT', 'AAPL', 'GOOG']);
     });
   });
 });

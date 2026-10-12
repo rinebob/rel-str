@@ -69,39 +69,8 @@
   gap: 12px;
 }
 
-.pg-card-stub {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.pg-card-stub-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.pg-card-symbol {
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.pg-card-side {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: #4caf50;
-
-  &.short { color: #ef5350; }
-}
-
-.pg-card-stub-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.8;
+// Flat-mode cards are stretched to fill their grid cell like the signal
+// gallery's — mat-expansion-panel handles margins in grouped mode.
+.pg-grid app-position-card {
+  display: block;
 }

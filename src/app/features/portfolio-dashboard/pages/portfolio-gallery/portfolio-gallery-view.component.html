@@ -8,11 +8,15 @@
     [listFilter]="facade.listFilter()"
     [listGroups]="facade.filterOptionGroups()"
     [groupDimension]="facade.groupDimension()"
+    [allGroupsExpanded]="facade.allGroupsExpanded()"
+    [expandAllDisabled]="facade.groups().length === 0"
+    [expandAllVisible]="useExpandos"
     [refreshing]="facade.refreshing()"
     (sideChange)="facade.setSide($event)"
     (chartTimeframeChange)="facade.setChartTimeframe($event)"
     (listFilterChange)="facade.setListFilter($event)"
     (dimensionChange)="facade.setGroupDimension($event)"
+    (expandAllToggle)="facade.toggleAllGroups()"
     (refresh)="facade.refresh()">
   </app-portfolio-gallery-header>
 
@@ -52,20 +56,23 @@
         <p>No positions match the current filters</p>
       </div>
     } @else {
-      <!-- Placeholder flat grid — real PositionCard components land in #951.
-           Proves the facade join end-to-end: symbol, side, qty, mark, P&L. -->
-      <div class="pg-grid" data-testid="position-grid">
-        @for (card of facade.flatCards(); track card.key) {
-          <div class="pg-card-stub">
-            <div class="pg-card-stub-head">
-              <span class="pg-card-symbol">{{ card.symbol }}</span>
-              <span class="pg-card-side" [class.short]="card.side === 'short'">{{ card.side === 'short' ? 'SHORT' : 'LONG' }}</span>
-            </div>
-            <div class="pg-card-stub-meta">
-              <span>{{ num(card.quantity) }} @ {{ money(card.averageCost) }}</span>
-              <span>{{ money(card.marketPrice) }}</span>
-              <span>{{ money(card.unrealizedPnl) }}</span>
-            </div>
+      <div class="pg-groups" data-testid="position-grid">
+        @if (useExpandos && !facade.ungrouped()) {
+          @let expandedMap = facade.expandedGroups();
+          @for (group of facade.groups(); track group.key) {
+            <app-position-gallery-group
+              [group]="group"
+              [expanded]="expandedMap[group.key] ?? false"
+              [actionsDisabled]="facade.refreshing()"
+              (expandedChange)="facade.setGroupExpanded(group.key, $event)" />
+          }
+        } @else {
+          <div class="pg-grid">
+            @for (card of facade.orderedCards(); track card.key) {
+              <app-position-card
+                [card]="card"
+                [actionsDisabled]="facade.refreshing()" />
+            }
           </div>
         }
       </div>

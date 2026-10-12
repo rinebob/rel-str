@@ -76,5 +76,13 @@
       (click)="refresh.emit()">
       <mat-icon>refresh</mat-icon>
     </button>
+    @if (expandAllVisible() && groupDimension() !== PositionGroupDimension.NONE) {
+      <button mat-icon-button
+        [disabled]="expandAllDisabled()"
+        [matTooltip]="allGroupsExpanded() ? 'Collapse all groups' : 'Expand all groups'"
+        (click)="expandAllToggle.emit()">
+        <mat-icon>{{ allGroupsExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+      </button>
+    }
   </div>
 </div>
