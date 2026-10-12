@@ -79,12 +79,14 @@ function sanitizeGroupSegment(value: string): string {
 }
 
 /**
- * `st-trade-screenshots/{SYMBOL}/[{groupId}/]{date}-{time}-{event}-{positionType}[-{ref6}]-{interval}.{ext}`
- * e.g. `st-trade-screenshots/GOOG/2026-10-03-143022-order-filled-stock-ord123-daily.png`
- * or `st-trade-screenshots/GOOG/cohort-1/2026-10-03-143022-order-filled-stock-ord123-daily.png`.
- * The time segment makes same-day collisions impossible; refId adds a
- * caller-supplied lookup key when present; groupId groups a campaign's
- * captures under one prefix for enumeration.
+ * `st-trade-screenshots/{SYMBOL}/[{groupId}/]{SYMBOL}-{date}-{time}-{event}-{positionType}[-{ref6}]-{interval}.{ext}`
+ * e.g. `st-trade-screenshots/GOOG/GOOG-2026-10-03-143022-order-filled-stock-ord123-daily.png`
+ * or `st-trade-screenshots/GOOG/cohort-1/GOOG-2026-10-03-143022-order-filled-stock-ord123-daily.png`.
+ * Date/time are PT wall-clock (supplied by the writer). The time segment
+ * makes same-day collisions impossible; refId adds a caller-supplied lookup
+ * key when present; groupId groups a campaign's captures under one prefix
+ * for enumeration. The symbol leads the filename so a flat listing stays
+ * self-describing.
  */
 export function buildScreenshotStoragePath(spec: ScreenshotPathSpec): string {
   const symbol = symbolPathSegment(spec.symbol);
@@ -95,7 +97,43 @@ export function buildScreenshotStoragePath(spec: ScreenshotPathSpec): string {
   const refSegment = ref ? `-${ref}` : '';
   const group = spec.groupId ? sanitizeGroupSegment(spec.groupId) : '';
   const groupSegment = group ? `${group}/` : '';
-  return `${SCREENSHOT_STORAGE_PREFIX}/${symbol}/${groupSegment}${spec.date}-${spec.time}-${spec.event}-${spec.positionType}${refSegment}-${spec.interval}.${spec.ext}`;
+  return `${SCREENSHOT_STORAGE_PREFIX}/${symbol}/${groupSegment}${symbol}-${spec.date}-${spec.time}-${spec.event}-${spec.positionType}${refSegment}-${spec.interval}.${spec.ext}`;
+}
+
+// ── Index doc id convention ────────────────────────────────────────────────
+
+export interface ScreenshotIndexIdSpec {
+  symbol: string;
+  event: CaptureEvent;
+  interval: CaptureInterval;
+  /** `yyyy-mm-dd` and `HHmmss`, PT wall-clock — the same segments baked
+   *  into the artifact filename. */
+  date: string;
+  time: string;
+  /** Optional caller key — same sanitize+truncate rule as the filename's
+   *  ref segment (the 'hash' slot in the id). */
+  refId?: string;
+}
+
+/**
+ * Human-readable `st-screenshots` index doc id — one doc per artifact:
+ * `{SYMBOL}-{date}-{time}-{event}[-{ref6}]-{interval}`
+ * e.g. `GOOG-2026-10-03-143022-order-filled-ord123-daily`.
+ *
+ * Firestore doc ids forbid `/`; all inputs are already path-safe segments
+ * (symbol sanitized, date/time digits, enum values, ref6) so no further
+ * escaping is needed. Time is the uniqueness guard — a same-second
+ * recapture of the same event+interval+refId rewrites the same doc, which
+ * is correct (the artifacts overwrote too).
+ */
+export function buildScreenshotIndexDocId(spec: ScreenshotIndexIdSpec): string {
+  const symbol = symbolPathSegment(spec.symbol);
+  if (!symbol) {
+    throw new Error('symbol contains no path-safe characters — spec validation must reject this upstream');
+  }
+  const ref = spec.refId ? sanitizeSegment(spec.refId) : '';
+  const refSegment = ref ? `-${ref}` : '';
+  return `${symbol}-${spec.date}-${spec.time}-${spec.event}${refSegment}-${spec.interval}`;
 }
 
 // ── Result assembly ────────────────────────────────────────────────────────
@@ -105,12 +143,16 @@ export function buildScreenshotStoragePath(spec: ScreenshotPathSpec): string {
  * `paths` from `artifacts` so the denormalized fields cannot disagree with
  * the canonical payload.
  */
-export function buildCaptureChartResult(artifacts: CaptureArtifact[]): CaptureChartResult {
+export function buildCaptureChartResult(
+  artifacts: CaptureArtifact[],
+  stamp?: { date: string; time: string },
+): CaptureChartResult {
   return {
     svg: artifacts[0]?.svg ?? '',
     paths: artifacts.flatMap((a) =>
       [a.svgPath, a.pngPath].filter((p): p is string => !!p),
     ),
     artifacts,
+    ...(stamp ?? {}),
   };
 }

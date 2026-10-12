@@ -147,14 +147,23 @@ export interface CaptureChartResult {
   /** Flattened storage paths across all artifacts. */
   paths: string[];
   artifacts: CaptureArtifact[];
+  /** PT wall-clock segments baked into the artifact paths
+   *  (`yyyy-mm-dd` / `HHmmss`) — index-doc ids reuse them. Absent on
+   *  render-only captures (nothing was written). */
+  date?: string;
+  time?: string;
 }
 
 // ── Lifecycle tracking (Thread #826 — order lifecycle capture) ─────────────
 
 /**
- * Flat root collection for the screenshot index — one doc per lifecycle
- * capture, id `{groupId}-{refId}-{event}`. Backend-written by
- * `captureLifecycleEvent`; FE reads it for the screenshot library.
+ * Flat root collection for the screenshot index — one doc per stored
+ * artifact (each capture writes one per interval), id
+ * `{SYMBOL}-{date}-{time}-{event}[-{ref6}]-{interval}` — the same
+ * human-readable segments as the artifact filename. Backend-written by
+ * `executeCaptureChart` (direct callable captures) and
+ * `captureLifecycleEvent` (carrier-ledgered captures); FE reads it for
+ * the screenshot library.
  */
 export const ST_SCREENSHOTS_COLLECTION = 'st-screenshots';
 
@@ -182,17 +191,24 @@ export interface LifecycleCarrier {
   docPath: string;
 }
 
-/** One `st-screenshots` index doc — the flat query surface for the library. */
+/** One `st-screenshots` index doc — one per stored artifact (per interval).
+ *  The flat query surface for the library; the doc id itself carries the
+ *  `{SYMBOL}-{date}-{time}-{event}[-{ref6}]-{interval}` lookup key. */
 export interface ScreenshotIndexEntry {
-  groupId?: string;
-  positionId: string;
-  refId: string;
-  event: CaptureEvent;
   symbol: string;
+  event: CaptureEvent;
   positionType: PositionType;
-  carrier: LifecycleCarrier;
+  interval: CaptureInterval;
+  /** Caller's lookup key (order/position ref) — echoed verbatim for queries. */
+  refId?: string;
+  groupId?: string;
+  /** Lifecycle captures only — the position the carrier ledger tracks. */
+  positionId?: string;
+  /** Lifecycle captures only — which carrier doc ledgered this capture. */
+  carrier?: LifecycleCarrier;
   capturedAt: string;
-  paths: string[];
+  svgPath: string;
+  pngPath: string;
 }
 
 /** The role an order intent plays against a position — drives the lifecycle
