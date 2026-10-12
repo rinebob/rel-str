@@ -19,6 +19,10 @@
 - [Portfolio Dashboard] 219-952_FE-IMPL-PORTFOLIO: Position card chart — cloned gallery-card-chart minus signal entity (symbol input, no occurrence dots); shared card-chart/indicator/mount-queue stores; per-card D/W + ±50; mount-once latch (scroll-out keeps chart mounted, releases on data loss)
 - [Portfolio Dashboard] 219-952_FE-IMPL-PORTFOLIO: Position card mounts real chart via @defer viewport + prefetch idle
 - [Portfolio Dashboard] 219-952_DOCS-PORTFOLIO: #952 IMPL/TEST corrections + CODE-REVIEW (PASS) + #976 UAT (Complete — last-card activation finding resolved mid-QA)
+- [On-demand Screenshot Capture] 746-850_SHARED-IMPL-SCREENSHOT: per-artifact ScreenshotIndexEntry (interval + svgPath/pngPath), CaptureChartResult PT date/time stamp, symbol-prefixed artifact basenames, buildScreenshotIndexDocId ({SYMBOL}-{PTdate}-{PTtime}-{event}[-{refId6}]-{interval})
+- [On-demand Screenshot Capture] 746-850_BE-IMPL-SCREENSHOT: capture timestamps are Pacific Time (DST-aware, h23) instead of UTC; filenames carry the symbol; captureChartSnapshot writes one swallowed index doc per stored artifact; lifecycle capture writes the same readable per-artifact ids inside the carrier transaction
+- [On-demand Screenshot Capture] 746-850_FE-IMPL-SCREENSHOT: OrderExecutionService fires captureChartSnapshot on confirmed placement (order-placed) or synchronous fill (order-filled) — refId/groupId = ticket refId, fire-and-forget, failures can never affect the order result; live-verified with real resting orders post-deploy
+- [On-demand Screenshot Capture] 746-850_DOCS-SCREENSHOT: #850 CODE-REVIEW (PASS, in-loop sync-throw fix) + #936 UAT (Complete)
 
 ## [2026-10-11]
 
