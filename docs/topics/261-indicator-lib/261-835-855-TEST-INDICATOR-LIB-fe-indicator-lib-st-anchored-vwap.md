@@ -10,13 +10,14 @@
 **Area:** FE  
 **Status:** Draft  
 **Created:** 2026-10-07  
-**Last Updated:** 2026-10-08  
+**Last Updated:** 2026-10-09  
 
 # FE Test Plan: ST Anchored VWAP
 
 ## E2E User Journeys
 
-- Journey 1: User opens the flex-chart sandbox, enables **ST Anchored VWAP** from the indicator menu with default params → sees four lines (magenta high / cyan low, thick large / thin small) on the price pane, each starting where its pivot became knowable, plus history segments in the same style.
+- Journey 1: User opens the flex-chart sandbox, enables **ST Anchored VWAP** from the indicator menu with default params → sees four lines (magenta high / cyan low, thick set-2 / thin set-1) on the price pane, each starting where its pivot became knowable, plus history segments in the same style, plus the ZigZag legs — a confirmed chain through the surviving anchors (alternating like the standalone ST ZigZag), dashed developing leg at the right edge.
+- Journey 1b: User unchecks `showZigZag` → the four VWAP lines and history remain; all leg rendering disappears (both sets, confirmed and developing).
 - Journey 2: User toggles AVWAP on a chart that has no ST ZigZag enabled → lines still render (AVWAP does not depend on the ZigZag indicator).
 - Journey 3: User changes the retracement percentages and depths in the sandbox controls → the lines and anchors recompute; the series count does not change.
 - Journey 4: User picks a `historyStart` date in the sandbox `mat-datepicker` → history shows the terminated segments anchored on/after that date (first `maxHistory` of them — the cap can window out the recent end); clearing it returns to the most-recent `maxHistory` view. (Reinstated 2026-10-08 under #872.)
@@ -26,8 +27,8 @@
 
 - Engine + AVWAP computation: `computeZigZagAnchorEvents` output feeds `computeAnchoredVwap` end to end on synthetic bar sets with known pivots.
 - Indicator + registry: `ST_ANCHORED_VWAP` appears in `ST_INDICATOR_OPTIONS`, `buildDefaultConfig` yields valid defaults, and `BASE_CONFIGS` module load does not throw.
-- Adapter + indicator: `anchoredVwapSeries` returns exactly 12 series for any data, themes colors and maps `y`, and returns `[]` when no AVWAP config is present.
-- Adapter + template: the main-pane generic-line loop skips `ST_ANCHORED_VWAP` (no double render); the bespoke `@for` renders the 12 series with Gap handling.
+- Adapter + indicator: `anchoredVwapSeries` returns exactly 16 series for any data (12 VWAP + 2 confirmed-chain + 2 developing-leg), themes colors and maps `y`, and returns `[]` when no AVWAP config is present.
+- Adapter + template: the main-pane generic-line loop skips `ST_ANCHORED_VWAP` (no double render); the bespoke `@for` renders the 16 series with Gap handling.
 - Sandbox + chart: control changes merge onto the default config and reach the adapter; enabling/disabling the indicator toggles the series.
 
 ## Unit Tests
@@ -74,11 +75,21 @@
 
 - `extractConfig` clamps retracement %, depths and `maxHistory`; falls back to defaults on missing/garbage params.
 - `historyStart` param (ISO `'YYYY-MM-DD'` string): a boundary date keeps that date's anchor (inclusive, compared on `bar.date`); after the last anchor empties history while actives remain; before the first anchor ≡ unset; empty/garbage ≡ unset. Regression: a bar whose `x` carries a non-midnight timestamp must still filter on `date` alone.
-- `computeAnchoredVwapSeries` always returns 12 series with the documented keys, regardless of data (including empty data).
+- `computeAnchoredVwapSeries` always returns 16 series with the documented keys, regardless of data (including empty data).
 - Adjacent segments of a slot land in alternating history series; no history series contains two points at the same `index`.
 - Break points (`y: null`) separate segments within a history series.
-- History series match the active series' colour and width (no fading); large scale wider than small; side → hue.
-- Series names follow `AVWAP-H {pct}%` / `AVWAP-L {pct}%`.
+- History series match the active series' colour and width (no fading); set 2 wider than set 1; side → hue.
+- Series names follow `AVWAP-1H {pct}%` / `AVWAP-1L {pct}%` / `AVWAP-2H {pct}%` / `AVWAP-2L {pct}%`.
+- `showZigZag` false → the two leg series per set carry no points (series still exist — count stays 16); VWAP series unaffected.
+
+### ZigZag leg geometry (`st-anchored-vwap.engine.spec.ts`, added 2026-10-09)
+
+- **Vertex = surviving anchor event:** anchor events superseded by a `replaced` event are *not* leg vertices (changed in #945 QA — the event-stream chain drew high→high / low→low legs; superseded anchors keep their terminated VWAP segments but no mark). Invariants assert every vertex is a real anchor event, every active anchor is a vertex, and superseded anchors have no vertex.
+- **Consecutive same-side events** (a superseded anchor) draw as a continuing leg — no gap, no reversal fabricated.
+- **Legs connect consecutive events per set** in confirmation order; legs from set 1 never mix with set 2.
+- **Developing leg:** absent with zero confirmed anchors; when present, runs from the last surviving vertex to the running extreme; its tip updates as new extremes print and never appears before the last confirmed vertex.
+- **Confirmed-only:** no confirmed-chain vertex sits at a bar whose pivot never registered; the developing leg is the only geometry past the last anchor event.
+- **Legs only rewrite forward:** survival isn't causal — an anchor superseded later disappears from the chain — so a truncated chain isn't a strict prefix of the full one. The invariant: every truncated vertex is a real anchor event of the full stream (surviving or later superseded); the developing tip remains causal (`≤ t`).
 
 ### Registry (`indicator-registry.spec.ts` or equivalent)
 
@@ -88,7 +99,7 @@
 ### Adapter (`chart-data-adapter.service.spec.ts`)
 
 - `anchoredVwapSeries` is `[]` with no AVWAP config and with empty bars.
-- With an AVWAP config, returns 12 series with themed colors and mapped `y`; `null` break points are preserved.
+- With an AVWAP config, returns 16 series with themed colors and mapped `y`; `null` break points are preserved.
 - Multiple AVWAP configs (if present) do not collide on keys.
 
 ### Sandbox (`flex-chart-sandbox.component.spec.ts`)
@@ -96,6 +107,7 @@
 - The params panel renders only while the indicator is enabled; a control exists per editable param.
 - Control values merge onto the default config; emptied controls revert to the default; each change produces a fresh config (recompute).
 - `historyStart`: the `mat-datepicker` anchor is bound to the picker (`MatDatepickerInput._datepicker`), selection commits a local `YYYY-MM-DD`, typing ISO text sets it, the clear button unsets it.
+- `showZigZag`: checkbox defaults checked; unchecking empties the leg series only; state survives enable→disable→enable like other overrides.
 - Overrides persist across enable→disable→enable and never leak into other indicators' configs.
 
 ## Test Seams
@@ -114,7 +126,7 @@
 ## Edge Cases
 
 - Empty bars, single bar, fewer bars than `leftDepth + rightDepth`.
-- No pivots found (monotonic data) → no segments; the indicator renders nothing without error.
+- No pivots found (monotonic data) → no segments and no legs; the indicator renders nothing without error.
 - Only one side has pivots.
 - Bars with missing `volume`, all-zero volume, or volume only after the anchor.
 - Pivot on the very last confirmable bar (active segment of length 1).

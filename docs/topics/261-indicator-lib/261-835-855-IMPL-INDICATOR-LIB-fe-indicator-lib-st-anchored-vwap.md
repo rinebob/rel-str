@@ -10,13 +10,13 @@
 **Area:** FE  
 **Status:** Draft  
 **Created:** 2026-10-07  
-**Last Updated:** 2026-10-08  
+**Last Updated:** 2026-10-09  
 
 # FE Implementation Plan: ST Anchored VWAP
 
 ## Overview
 
-All computation is FE-side and pure. The indicator runs the existing ZigZag pivot walk at two retracement scales, turns the resulting anchor events into Anchored VWAP line segments that start on each anchor's **confirmation bar** (accumulating from the **pivot bar**), applies the History Window, and renders four lines (high/low × small/large scale) plus faded history in the flex-chart overlay pane.
+All computation is FE-side and pure. The indicator runs the existing ZigZag pivot walk at two retracement sets (line 1 / line 2 — renamed from `small`/`large` 2026-10-09), turns the resulting anchor events into Anchored VWAP line segments that start on each anchor's **confirmation bar** (accumulating from the **pivot bar**), applies the History Window, and renders four lines (high/low × set) plus faded history in the flex-chart overlay pane. It additionally renders the **ZigZag legs** that produced the anchors (added 2026-10-09): a confirmed-vertex chain per set plus a dashed developing leg to the running extreme, gated by `showZigZag`.
 
 Governing PRD: `261-835-836-PRD-INDICATOR-LIB-indicator-lib-st-anchored-vwap.md` (Approved). Nothing is drawn before a line's confirmation bar and nothing is back-attached to the pivot bar, so the output at bar `t` depends only on bars `0..t`.
 
@@ -47,6 +47,7 @@ interface AnchorEvent {
 - `confirmBar = i + rightDepth` where `i` is the candidate bar and `rightDepth` is the config value clamped to ≥ 2, as the walk already does. The walk's `if (i + rightDepth >= bars.length) break;` guarantees `confirmBar < bars.length`.
 - Candidates rejected by `processPivot` (below the deviation threshold, or not more extreme) emit nothing. `allowZigZagOnOneBar` can yield a high and a low event with the same `confirmBar`; both are kept.
 - Re-export both from the `st-zigzag.engine.ts` barrel. Call with `projectionPivots: false` — projected pivots must never anchor.
+- (Added under #945, 2026-10-09) `computeZigZagAnchorResult(bars, config): { events, projection }` — a third wrapper over the same walk, collecting the anchor stream *and* the developing projection in one pass so the leg overlay adds no second pivot run. `computeZigZagAnchorEvents` is a thin wrapper over it; AVWAP calls it with `projectionPivots: true` (the projection feeds the render-only developing leg only — it still never anchors a segment).
 - Per-side anchor sequence for a line = events filtered by `isHigh`, in order. A high line changes on every high event (new high or replacement); a low line likewise.
 
 **Prior art / regression:** `st-zigzag.pivots.spec.ts`, `st-zigzag.engine.spec.ts`, `st-zigzag.indicator.spec.ts`. The existing suites must pass unmodified.
@@ -55,12 +56,12 @@ interface AnchorEvent {
 
 **Location:** same `indicators/` directory. No Angular, no chart imports.
 
-**Input:** `PriceBar[]` and config `{ smallRetracementPct, largeRetracementPct, leftDepth, rightDepth, historyStart?: string /* 'YYYY-MM-DD' */, maxHistory }`.
+**Input:** `PriceBar[]` and config `{ line1RetracementPct, line2RetracementPct, leftDepth, rightDepth, historyStart?: string /* 'YYYY-MM-DD' */, maxHistory }` (renamed from `small*/large*` 2026-10-09).
 
 **Algorithm**
 
 1. Build cumulative arrays once: `cumPV[i] += typical(i) * vol(i)`, `cumV[i] += vol(i)`, with `typical = (high + low + close) / 3` and `vol = bar.volume ?? 0` (missing/zero contributes nothing).
-2. For each scale, `events = computeZigZagAnchorEvents(bars, { devThreshold: pct, leftDepth, rightDepth, allowZigZagOnOneBar: true, projectionPivots: false, ... })`.
+2. For each set, `{ events, projection } = computeZigZagAnchorResult(bars, { devThreshold: pct, leftDepth, rightDepth, allowZigZagOnOneBar: true, projectionPivots: true, ... })` — one walk yields anchors and the developing leg together (#945).
 3. For each side, anchors `a_0..a_n` are that side's events in order. Segment `k` has `pivotBar = a_k.pivotBar`, `startBar = a_k.confirmBar`, and `endBar = a_{k+1}.confirmBar` (terminated) or the last bar index (active).
 4. VWAP at bar `j` for anchor `a`: `(cumPV[j] - cumPV[a-1]) / (cumV[j] - cumV[a-1])`, with `cumX[-1] = 0`. The first drawn value (at `startBar`) is therefore the VWAP of pivot bar through confirmation bar — **accumulation starts at the pivot bar; drawing starts at the confirmation bar.**
 5. Flat-carry: where `cumV[j] - cumV[a-1] == 0` (no volume since the pivot), use the previous drawn value; before the first drawn value, seed with the pivot bar's typical price.
@@ -75,8 +76,8 @@ interface AnchorEvent {
 
 ```ts
 interface AnchoredVwapSegment {
-  key: string;                      // stable: `${scale}-${side}-${pivotBar}-${startBar}`
-  scale: 'small' | 'large';
+  key: string;                      // stable: `${set}-${side}-${pivotBar}-${startBar}`
+  set: 'line1' | 'line2';
   side: 'high' | 'low';
   pivotBar: number;
   startBar: number;
@@ -87,6 +88,20 @@ interface AnchoredVwapSegment {
 function computeAnchoredVwap(bars, config): AnchoredVwapSegment[]
 ```
 
+**ZigZag leg output (added 2026-10-09).** One walk per set (`computeZigZagAnchorResult`) yields `events` + `projection` together — no second pivot run, one input set for legs and VWAP:
+
+- **Confirmed chain** — vertices are the *surviving* anchor events in walk order: an event immediately followed by a `replaced` event was superseded and drops out, so legs alternate sides exactly like the standalone ST ZigZag (changed during #945 QA — the event-stream chain drew confusing high→high / low→low legs; superseded anchors keep their terminated VWAP segments but lose the mark). Note the overlay is retroactive here: a vertex can vanish once drawn when its replacer registers — the VWAP segments remain strictly causal. Vertex `(pivotBar, price)`, colored by the outgoing leg's destination-side hue for the set (MultiColoredLine paints a segment from its start vertex's color). A same-bar high+low pair collapses to the later event — a single line series cannot draw two vertices at one index; the earlier event still anchors its VWAP segment.
+- **Developing leg** — one provisional leg per set from the last anchor event to the running extreme (the projection pivot the walk already tracks). Dashed, in the set's side hue; recomputed each bar and absent when no confirmed anchor exists.
+
+```ts
+interface ZigZagLeg { from: { index: number; y: number }; to: { index: number; y: number }; isHigh: boolean; }
+interface AnchoredVwapResult {
+  segments: AnchoredVwapSegment[];
+  legs: { confirmed: ZigZagLeg[]; developing: ZigZagLeg | null } /* per set */;
+}
+```
+(`computeAnchoredVwap` may return `{ segments, legsByScale }` or a sibling `computeZigZagLegs(events, bars)` — whichever keeps the pure module clean.)
+
 **Complexity:** O(n) for the cumulative sums plus O(total points); segments within a slot are disjoint apart from the shared handoff bar, so total points ≈ 4n at most (fewer after windowing). This is a one-shot batch computation — unlike the Pine prototype, there is no per-bar rebuild.
 
 ### 3. Indicator definition + series builder — `st-anchored-vwap.indicator.ts`
@@ -94,16 +109,16 @@ function computeAnchoredVwap(bars, config): AnchoredVwapSegment[]
 **Location:** same `indicators/` directory. Follows the ZigZag / StdDevLines pattern.
 
 - `ST_ANCHORED_VWAP_INDICATOR: IndicatorOption` — `id: 'st-anchored-vwap'`, `type: StIndicator.ST_ANCHORED_VWAP` (new enum member in `flex-chart.types.ts`), `defaultPane: 'overlay'`, `axisScale: 'price'`.
-- Params (all `number | string | boolean`, as `IndicatorParamDef` requires): `smallRetracementPct` 2.0, `largeRetracementPct` 5.0, `leftDepth` 5, `rightDepth` 5, `smallHighColor` `#FF8CFF`, `smallLowColor` `#8CF5FF`, `largeHighColor` `#FF00E6`, `largeLowColor` `#00E5FF`, `maxHistory` 100, `historyStart` `''` (ISO `'YYYY-MM-DD'` string — decision revised 2026-10-08 under #872: the date control is back, sandbox-only. `extractConfig` validates it via the shared `parseIsoDateLocal` helper and passes the canonical string through; the engine compares `bars[pivotBar].date` lexicographically — `PriceBar.x` is `toDatePt()` (Pacific-Time midnight, not browser-local), so any epoch compare shifts the boundary for users west of PT).
+- Params (all `number | string | boolean`, as `IndicatorParamDef` requires): `line1RetracementPct` 2.0, `line2RetracementPct` 5.0, `leftDepth` 5, `rightDepth` **2** (default lowered 2026-10-09 — narrows the confirmed-amount/unconfirmed-time gap; still clamped ≥ 2 by the walk), `line1HighColor` `#FF8CFF`, `line1LowColor` `#8CF5FF`, `line2HighColor` `#FF00E6`, `line2LowColor` `#00E5FF`, `showZigZag` `true`, `maxHistory` 100, `historyStart` `''` (ISO `'YYYY-MM-DD'` string — decision revised 2026-10-08 under #872: the date control is back, sandbox-only. `extractConfig` validates it via the shared `parseIsoDateLocal` helper and passes the canonical string through; the engine compares `bars[pivotBar].date` lexicographically — `PriceBar.x` is `toDatePt()` (Pacific-Time midnight, not browser-local), so any epoch compare shifts the boundary for users west of PT). Param keys renamed `small*/large*` → `line1*`/`line2*` 2026-10-09 — update sandbox overrides, specs, and any persisted configs.
 - `extractConfig(params)` clamps and parses params the way `st-zigzag.indicator.ts` does.
 - `computeAnchoredVwapSeries(bars, params, options?)` maps `AnchoredVwapSegment[]` to **fixed-slot series** (below).
 
-**Fixed slots (rendering shape).** A Syncfusion chart reinitialises when its series structure changes, so the series count must not depend on the data. There are always 12 series: 4 slots (scale × side), each with one **active** series and two **history** series that segments alternate between (`k` even → `history-a`, odd → `history-b`). Alternation is required because adjacent segments share the confirmation bar and one series holds only one `y` per bar. Within a history series, consecutive segments are separated by an explicit break point (`y: null`) with `emptyPointSettings: { mode: 'Gap' }` (pattern already used by the trend-band candle series in `flex-chart.component.html`).
+**Fixed slots (rendering shape).** A Syncfusion chart reinitialises when its series structure changes, so the series count must not depend on the data. There are always **16 series** (was 12 before the 2026-10-09 leg overlay): 4 VWAP slots (set × side), each with one **active** series and two **history** series that segments alternate between (`k` even → `history-a`, odd → `history-b`), plus per set one **zigzag chain** series (confirmed legs — a single connected polyline through the surviving-anchor vertices) and one **developing leg** series (dashed, from the last vertex to the running extreme). `showZigZag` toggles the two leg series per set (emptied data, not unmounted — the count stays fixed). Alternation is required because adjacent segments share the confirmation bar and one series holds only one `y` per bar. Within a history series, consecutive segments are separated by an explicit break point (`y: null`) with `emptyPointSettings: { mode: 'Gap' }` (pattern already used by the trend-band candle series in `flex-chart.component.html`).
 
 ```ts
 interface AnchoredVwapLineSeries {
-  key: string;        // `${scale}-${side}-active` | `-history-a` | `-history-b`
-  name: string;       // `AVWAP-H {pct}%` / `AVWAP-L {pct}%`
+  key: string;        // `${set}-${side}-active` | `-history-a` | `-history-b`
+  name: string;       // `AVWAP-1H {pct}%` / `AVWAP-1L {pct}%` / `AVWAP-2H {pct}%` / `AVWAP-2L {pct}%`
   color: string;
   width: number;      // large thick, small thin
   data: { index: number; y: number | null }[];
@@ -124,7 +139,7 @@ interface AnchoredVwapLineSeries {
 
 Today no ST indicator has a param-editing surface: the sandbox and the gallery build configs from `buildDefaultConfig` defaults only, and `IndicatorConfigDialogComponent` is number-only and referenced by nothing. Per the Plan decision, **controls are sandbox-only** (no new shared settings UI).
 
-- In `flex-chart-sandbox.component.ts/.html`, when `st-anchored-vwap` is enabled, show controls for `smallRetracementPct`, `largeRetracementPct`, `leftDepth`, `rightDepth`, the four colors and `maxHistory` — the template iterates `ST_ANCHORED_VWAP_INDICATOR.params` (color keys get `type="color"`, the rest `type="number"`) — plus a `historyStart` row: a plain ISO text input, a `mat-datepicker` driven through a rendered-but-invisible anchor input (the option-chain pattern — a `display:none` input anchors the overlay at 0,0, and a locale-formatted matDatepicker input parses ISO as UTC), and a clear button. Overrides merge onto the default config in `config()` before it reaches the chart; an emptied control deletes its override so the param falls back to the default.
+- In `flex-chart-sandbox.component.ts/.html`, when `st-anchored-vwap` is enabled, show controls for `line1RetracementPct`, `line2RetracementPct`, `leftDepth`, `rightDepth`, the four colors and `maxHistory` — the template iterates `ST_ANCHORED_VWAP_INDICATOR.params` (color keys get `type="color"`, the rest `type="number"`) — a `showZigZag` checkbox, plus a `historyStart` row: a plain ISO text input, a `mat-datepicker` driven through a rendered-but-invisible anchor input (the option-chain pattern — a `display:none` input anchors the overlay at 0,0, and a locale-formatted matDatepicker input parses ISO as UTC), and a clear button. Overrides merge onto the default config in `config()` before it reaches the chart; an emptied control deletes its override so the param falls back to the default.
 - Controls are local to the sandbox and do not carry to other pages — this is the iteration loop, not general UI. Overrides persist across enable/disable so toggling off to compare doesn't lose tuning.
 
 ## Phases
@@ -140,6 +155,7 @@ Foundation. Nothing here touches the chart.
 
 - **T3** — Indicator definition + registry + `StIndicator` member + adapter series + template render. Demoable in the sandbox via the menu toggle with default params. Blocked by T2.
 - **T4** — Sandbox param controls, including the `historyStart` `mat-datepicker` (reinstated 2026-10-08 under #872). Blocked by T3.
+- **T6** — *Refinement 2026-10-09:* ZigZag leg overlay (confirmed chain + dashed developing leg, `showZigZag`), param rename `small*/large*` → `line1*`/`line2*` throughout (params, `set` union, legend names, sandbox controls, specs), `rightDepth` default 5 → 2. Builds on the shipped T1–T4 surface.
 
 ## Cross-Area Dependencies
 
@@ -151,8 +167,9 @@ Foundation. Nothing here touches the chart.
 
 - **Engine regression.** Touching `st-zigzag.pivots.ts` risks ZigZag's own output and the swing-analysis page. Mitigation: refactor to a shared walk with a thin unchanged wrapper; the existing ZigZag specs must pass unmodified; add an explicit equality regression test against the pre-refactor behaviour on varied bar sets.
 - **Lookahead.** Any read past bar `t` silently reintroduces the hindsight lines the PRD removed. Mitigation: the no-lookahead property test (output at `t` from `bars[0..t]` equals output at `t` from the full series) is a gate on T2.
-- **`maxHistory` scope is ambiguous.** The PRD says "per scale"; the Pine prototype capped per line (side), which would exceed TradingView's polyline budget (4 lines × 48). This plan implements per scale, both sides combined, as the PRD reads. Confirm at T2 if the intent was per slot.
-- **Series reinit.** A data-dependent series count would reinitialise the chart. Mitigation: fixed 12 slots.
+- **`maxHistory` scope is ambiguous.** The PRD says "per scale" (per set); the Pine prototype capped per line (side), which would exceed TradingView's polyline budget (4 lines × 48). This plan implements per set, both sides combined, as the PRD reads. Confirm at T2 if the intent was per slot.
+- **Series reinit.** A data-dependent series count would reinitialise the chart. Mitigation: fixed slots — 16 series after the leg overlay (12 VWAP + 2 chain + 2 developing).
+- **Leg/anchor drift.** QA (#945) resolved this the other way: vertices are survivors, so a *superseded* anchor's bar is legitimately unmarked. Gate: invariants asserting every vertex is a real anchor, every active anchor is a vertex, and superseded anchors have no vertex.
 - **Calculator contract.** The generic `IndicatorCalculator` path returns flat `{x, y}` points and cannot express four lines. Mitigation: bespoke adapter series (same as ZigZag); T3 verifies `computeIndicators`/legend tolerate an empty calculator result.
 - **Date entry.** `historyStart` is an ISO string parsed to local-midnight ms — pivot times are local-midnight `getTime()`, so a UTC parse (`Date.parse`, `toISOString` round-trip) drops boundary-date anchors in western timezones. The datepicker emits `Date` objects, so the sandbox formats local Y/M/D explicitly.
 - **Pivot-bar edge.** A pivot with zero volume since the anchor needs the seed rule (pivot bar typical price) so the first drawn value is defined.

@@ -11,7 +11,7 @@
 **Type:** PRD  
 **Status:** Approved  
 **Created:** 2026-10-06  
-**Last Updated:** 2026-10-07  
+**Last Updated:** 2026-10-09  
 
 ## Problem Statement
 
@@ -19,7 +19,7 @@ Traders using Savant Trader can see where ZigZag pivots occurred, but not how vo
 
 ## Solution
 
-A new **ST Anchored VWAP** chart indicator that draws VWAP lines anchored to ZigZag-detected swing pivots. The indicator runs the existing ZigZag pivot engine internally at **two retracement scales** (small and large), and for each scale draws a VWAP line forward from the most recent confirmed pivot high and the most recent confirmed pivot low — four active lines. A pivot only confirms ~`rightDepth` bars after it forms, so **every line is drawn only from its confirmation bar forward — never back to the pivot bar.** When a new same-side pivot confirms, the old line keeps running *through the confirmation bar* (the bar on which the new pivot became knowable) and stops there, and the new line starts on that same bar. Nothing is back-attached to the actual pivot bar: doing so would draw lines that could not have existed in real time. Superseded lines remain visible as faded history for retrospective analysis.
+A new **ST Anchored VWAP** chart indicator that draws VWAP lines anchored to ZigZag-detected swing pivots. The indicator runs the existing ZigZag pivot engine internally at **two retracement sets** (line 1 and line 2), and for each set draws a VWAP line forward from the most recent confirmed pivot high and the most recent confirmed pivot low — four active lines. The indicator also draws the **ZigZag legs themselves** (2026-10-09): the same input set drives pivots and VWAP, so every anchor pivot is visible on the chart and the VWAP lines are decipherable without enabling a separate ZigZag indicator. A pivot only confirms ~`rightDepth` bars after it forms, so **every line is drawn only from its confirmation bar forward — never back to the pivot bar.** When a new same-side pivot confirms, the old line keeps running *through the confirmation bar* (the bar on which the new pivot became knowable) and stops there, and the new line starts on that same bar. Nothing is back-attached to the actual pivot bar: doing so would draw lines that could not have existed in real time. Superseded lines remain visible as faded history for retrospective analysis.
 
 A line is still *anchored* to its pivot — its VWAP accumulates from the pivot bar's data — but the line is not *drawn* before its confirmation bar. Its first drawn value is the VWAP of the pivot bar through the confirmation bar.
 
@@ -31,25 +31,28 @@ The indicator is delivered **in two stages**: a TradingView Pine v6 prototype fi
 
 | Param | Type | Default | Notes |
 |---|---|---|---|
-| `smallRetracementPct` | number | 2.0 | ZigZag `devThreshold` for the small-scale pivot set |
-| `largeRetracementPct` | number | 5.0 | ZigZag `devThreshold` for the large-scale pivot set |
+| `line1RetracementPct` | number | 2.0 | ZigZag `devThreshold` for line set 1 |
+| `line2RetracementPct` | number | 5.0 | ZigZag `devThreshold` for line set 2 |
 | `leftDepth` | number | 5 | Shared pivot-confirmation depth (bars left) |
-| `rightDepth` | number | 5 | Shared pivot-confirmation depth (bars right) — also the confirmation lag: a pivot's line first appears `rightDepth` bars after the pivot bar |
-| `smallHighColor` / `smallLowColor` | color | pale magenta `#FF8CFF` / pale cyan `#8CF5FF` | Small-scale line hues |
-| `largeHighColor` / `largeLowColor` | color | magenta `#FF00E6` / cyan `#00E5FF` | Large-scale line hues |
+| `rightDepth` | number | 2 | Shared pivot-confirmation depth (bars right) — also the confirmation lag: a pivot's line first appears `rightDepth` bars after the pivot bar. Default loosened below `leftDepth` (2026-10-09) to narrow the confirmed-but-unregistered gap |
+| `line1HighColor` / `line1LowColor` | color | pale magenta `#FF8CFF` / pale cyan `#8CF5FF` | Line-set-1 hues |
+| `line2HighColor` / `line2LowColor` | color | magenta `#FF00E6` / cyan `#00E5FF` | Line-set-2 hues |
+| `showZigZag` | boolean | true | Draw the ZigZag legs that produced the anchors |
 | `historyStart` | date | unset | Only render terminated segments anchored on/after this date |
-| `maxHistory` | number | 100 | Max terminated segments per scale. Pine prototype clamps to 48 per scale (see Technical Context); web has no platform cap |
+| `maxHistory` | number | 100 | Max terminated segments per line set. Pine prototype clamps to 48 per scale (see Technical Context); web has no platform cap |
 
-`allowZigZagOnOneBar` is fixed `true` internally; `projectionPivots` is irrelevant (confirmed pivots only).
+`allowZigZagOnOneBar` is fixed `true` internally; `projectionPivots` never anchors a VWAP line (confirmed pivots only), but the running projection supplies the *developing leg* tip for the leg overlay (render-only).
+
+*Renamed 2026-10-09:* the two scales were `small*`/`large*` — now **line 1 / line 2** (`line1RetracementPct`, `line2RetracementPct`, `line1HighColor`, `line1LowColor`, `line2HighColor`, `line2LowColor`, segment `scale: 'line1' | 'line2'`). The sets are two independent tunings, not an ordered size hierarchy.
 
 ## User Stories
 
 1. As a trader, I want a VWAP line drawn forward from the most recent confirmed pivot high, so that I can see the volume-weighted mean price since that swing high.
 2. As a trader, I want a second VWAP line from the most recent confirmed pivot low, so that I can see both sides of the current swing structure.
 3. As a trader, I want VWAP lines at two retracement scales simultaneously, so that I can compare short-swing vs. structural-swing volume positioning without reconfiguring the indicator.
-   - *Acceptance:* the chart shows up to four active lines — high/low × small/large scale — each extending to the latest bar.
+   - *Acceptance:* the chart shows up to four active lines — high/low × line 1/line 2 — each extending to the latest bar.
 4. As a trader, I want the VWAP lines to *not* depend on the ST ZigZag indicator being enabled, so that I can run AVWAP alone or alongside a differently-tuned ZigZag.
-   - *Acceptance:* enabling AVWAP with no ZigZag indicator on the chart still renders anchor lines correctly.
+   - *Acceptance:* enabling AVWAP with no ZigZag indicator on the chart still renders anchor lines correctly. (Its own leg overlay is driven by AVWAP's internal pivot run, not by the standalone indicator.)
 5. As a trader, when a new pivot high confirms, I want the previous high-anchored line to continue through the **confirmation bar** and stop there, and a new line to begin on that same bar, so that the chart shows only what was knowable at each bar.
    - *Acceptance:* the superseded line's last rendered point is the new pivot's confirmation bar; the new line's first point is the same bar. At most one active high line and one active low line per scale cover any given bar.
 6. As a trader, I want no line ever drawn before its confirmation bar — no back-attachment to the actual pivot bar — so that I never read a line that could not have existed in real time.
@@ -63,25 +66,32 @@ The indicator is delivered **in two stages**: a TradingView Pine v6 prototype fi
     - *Acceptance:* the VWAP of an anchor evaluated at its own pivot bar equals that bar's typical price; the first *drawn* value (at the confirmation bar) is the VWAP of pivot bar through confirmation bar.
 11. As a trader, I want the line to continue across bars with missing or zero volume without breaking, so the line never fragments.
     - *Acceptance:* a zero/missing-volume bar contributes nothing to the sums and the line carries flat.
-12. As a trader, I want per-scale color/width distinction (large scale thick and saturated, small scale thin and pale) with configurable colors, so the four lines are distinguishable at a glance.
-    - *Acceptance:* hue encodes side (magenta = pivot-high anchor, cyan = pivot-low anchor); saturation and thickness encode scale. The default palette avoids red/green pairing (colour-vision accessibility) and does not collide with the blue and yellow already used by other ST indicators.
+12. As a trader, I want per-set color/width distinction (line set 2 thick and saturated, line set 1 thin and pale) with configurable colors, so the four lines are distinguishable at a glance.
+    - *Acceptance:* hue encodes side (magenta = pivot-high anchor, cyan = pivot-low anchor); saturation and thickness encode the line set. The default palette avoids red/green pairing (colour-vision accessibility) and does not collide with the blue and yellow already used by other ST indicators.
 13. As a trader, I want the indicator as an opt-in toggle in the ST indicator menu — not auto-loaded — rendered on the price overlay pane.
 14. As a trader, I want a TradingView Pine version of the indicator, so that I can judge the indicator's relevance on real charts.
     - *Acceptance:* `rb-ps/rb-ta/ind/rb-st-anchored-vwap.pine` loads in TradingView and shows the four-line + history behavior. **Prototype delivered; relevance confirmed.** The prototype predates the no-backfill rule above, so it is to be refined to match the web behaviour after Stage 2.
+15. As a trader, I want the ZigZag legs that produced the anchors drawn alongside the VWAP lines — driven by the same inputs — so I can see exactly which pivots each line is anchored to, and I want a `showZigZag` toggle (default on) to hide them.
+    - *Acceptance:* vertices sit at every confirmed anchor **including later-replaced ones** — a terminated segment's anchor is always a marked vertex. Legs connect consecutive anchor events per set (a same-side replacement draws as a continuing leg), colored to the destination pivot's side hue for that set. The legs are part of this indicator, not the standalone ST ZigZag.
+16. As a trader, I want the **developing leg** — from the last confirmed pivot to the current running extreme — drawn provisionally, so a forming-but-unconfirmed pivot is visible at the right edge instead of a void.
+    - *Acceptance:* the developing leg renders dashed in the set's palette; its tip tracks the running extreme and can extend or retract on new bars; it never anchors a VWAP line and is never a confirmed vertex until it earns confirmation.
 
 ## Implementation Decisions
 
-- **Pivot engine reuse.** The indicator calls the existing `computeZigZagPivots(bars, config)` pure engine twice — once per scale — with `smallRetracementPct`/`largeRetracementPct` mapped to `devThreshold` and shared `leftDepth`/`rightDepth`. It does not read, depend on, or share config with any visible ST ZigZag indicator instance.
+- **Pivot engine reuse.** The indicator calls the existing `computeZigZagPivots(bars, config)` pure engine twice — once per line set — with `line1RetracementPct`/`line2RetracementPct` mapped to `devThreshold` and shared `leftDepth`/`rightDepth`. It does not read, depend on, or share config with any visible ST ZigZag indicator instance.
 - **Confirmed pivots only.** The engine's unconfirmed `projection` pivot is never used as an anchor — a projected anchor would produce a line that jumps or vanishes as the projection mutates.
 - **VWAP accumulation.** Per anchor: `cumPV += typicalPrice * volume`, `cumV += volume`, `vwap = cumPV / cumV`, accumulating from the pivot bar inclusive; the line is drawn from the confirmation bar and extends to the latest bar while active. `typicalPrice = (high + low + close) / 3`. Missing/zero volume contributes nothing — the line carries flat.
 - **Line lifecycle.** Each anchor produces a VWAP series seeded at its pivot bar and first drawn at its **confirmation bar**. A series is *active* until a later same-side anchor confirms, then it is *terminated* with its final rendered point at the superseding anchor's **confirmation bar** — the old line is never trimmed back to the new pivot's bar. A terminated segment therefore spans exactly *its confirmation bar → the next same-side anchor's confirmation bar*. There is no retroactive drawing at any point.
 - **Replaced anchors are real anchors.** When a more extreme same-side pivot replaces the current anchor (the engine overwrites the last pivot), the replaced anchor *was* the live anchor until that confirmation bar, so its line is drawn and terminated at the replacement's confirmation bar like any other. The replacement's line starts on that bar.
 - **History window semantics.** `historyStart` set → render terminated segments anchored on/after the date, chronologically forward, stopping at `maxHistory` (prunes the *recent* end). `historyStart` unset → render the most recent `maxHistory` terminated segments (prune *oldest*-first). Active lines are never pruned or windowed. `maxHistory` is a per-scale input (default 100); the Pine prototype clamps it to its polyline budget (48 per scale); the web build has no platform cap.
-- **One indicator, dual scales.** A single `st-anchored-vwap` indicator carries both scales' params — the two sets are guaranteed by construction rather than by the user adding two instances.
-- **Rendering (web).** Multi-segment output can't use the flat `{x,y}` `IndicatorCalculator` contract — it gets a bespoke computed series in `ChartDataAdapter` like `zigZagSeries`/`stdDevLineSeries`, mapped to index-keyed line segments. Overlay pane, price axis. New `StIndicator` member + `IndicatorOption` + registry entry; opt-in via the ST indicator menu (not in `DEFAULT_ST_INDICATORS`).
+- **One indicator, dual line sets.** A single `st-anchored-vwap` indicator carries both sets' params — the two sets are guaranteed by construction rather than by the user adding two instances.
+- **ZigZag legs rendered (2026-10-09).** The indicator draws the pivot legs produced by its own anchor walk — one input set drives pivots and VWAP alike. Vertices are **every anchor event, including `replaced` ones**: a terminated segment's anchor must always be a marked vertex, so the survivor-pivot list (which overwrites replacements) is *not* the vertex source. Legs connect consecutive anchor events per set in confirmation order — consecutive same-side events (a superseded anchor) render as a continuing leg. Leg color is the destination pivot's side hue for that set.
+- **Developing leg (2026-10-09).** One provisional leg per set, dashed, from the last confirmed anchor to the current running extreme (the projection pivot). Render-only context: it never anchors a VWAP line, can extend or retract on each new bar, and lives only at the right edge. `showZigZag` (default on) gates both leg series.
+- **Confirmation-gap rule kept (2026-10-09).** A pivot exists only when reversal *amount* (deviation threshold) **and** reversal *time* (`rightDepth` bars) are both met; a lower low before `rightDepth` elapses is a rule gap, not a new pivot — the terminated leg is not extended into it. No logic change: the default `rightDepth` drops to 2 (below `leftDepth` 5) to narrow the gap; it remains a param.
+- **Rendering (web).** Multi-segment output can't use the flat `{x,y}` `IndicatorCalculator` contract — it gets bespoke computed series in `ChartDataAdapter` like `zigZagSeries`/`stdDevLineSeries`, mapped to index-keyed line segments. Overlay pane, price axis. New `StIndicator` member + `IndicatorOption` + registry entry; opt-in via the ST indicator menu (not in `DEFAULT_ST_INDICATORS`).
 - **Engine seam — requirement found in review.** The existing `computeZigZagPivots` returns only *surviving* pivots: a more extreme same-side candidate overwrites the last pivot (`pivots[pivots.length - 1] = candidate`), so replaced anchors are lost, and `Pivot` carries `barIndex` but no confirmation bar. Because lines now start at the confirmation bar and every live anchor (including later-replaced ones) must be drawn, the indicator needs both. The engine must therefore additionally expose an **anchor event sequence** (confirmation bar, pivot bar, side, and whether it replaced the prior same-side anchor), or an equivalent additive output. This must be additive — existing ZigZag callers and `Pivot` consumers must be unaffected. A survivor's confirmation bar is exactly `barIndex + rightDepth`; replacements are what the survivor list cannot reconstruct. *Design of this seam is deferred to Blueprint.*
-- **Visual encoding.** Per-side hue (high = magenta family, low = cyan family), per-scale saturation and weight (large saturated and thick, small pale and thin). Terminated segments render the same hue/weight at reduced opacity (the prototype used ~45% transparency; terminated lines should stay clearly readable). Palette is configurable; defaults avoid red/green. Confirmation-bar markers are *not* required: a line's first point is already the confirmation bar.
-- **Legend naming.** `AVWAP-H {pct}%`, `AVWAP-L {pct}%` per scale.
+- **Visual encoding.** Per-side hue (high = magenta family, low = cyan family), per-set saturation and weight (line 2 saturated and thick, line 1 pale and thin). Terminated segments render the same hue/weight at reduced opacity (the prototype used ~45% transparency; terminated lines should stay clearly readable). Palette is configurable; defaults avoid red/green. Confirmation-bar markers are *not* required: a line's first point is already the confirmation bar.
+- **Legend naming.** `AVWAP-1H {pct}%` / `AVWAP-1L {pct}%` / `AVWAP-2H {pct}%` / `AVWAP-2L {pct}%` (renamed with the line-set params, 2026-10-09).
 - **Pine prototype (Stage 1, to be refined after Stage 2).** `rb-ps/rb-ta/ind/rb-st-anchored-vwap.pine`, Pine v6, `overlay=true`. A stripped port of the `rb-st-zigzag.pine` detection core (confirmed pivots only); each VWAP segment is one `polyline` (a VWAP is a curve; `line` is two-point); per-bar history held in arrays indexed by `bar_index` (avoids Pine history-buffer limits that broke an earlier `series[offset]` approach); active polylines drawn once on the last bar. It currently implements the earlier *backfill-to-pivot-bar* model, plus thin step lines, confirmation markers and a temporary debug table that this PRD no longer calls for. It is not updated during Stage 2; the refinement pass after Stage 2 brings it in line with this PRD.
 
 ## Stage sequencing
@@ -103,6 +113,7 @@ The indicator is delivered **in two stages**: a TradingView Pine v6 prototype fi
 ## Technical Context (user-affecting)
 
 - **Confirmation lag.** A pivot only confirms after `rightDepth` bars, so a new line starts `rightDepth` bars after its pivot, and the previous same-side line runs that much longer. This is inherent to ZigZag-based anchoring, not a defect. By design the chart never shows a line before its confirmation bar.
+- **Confirmation gap (accepted, 2026-10-09).** A reversal can exceed the deviation threshold *before* `rightDepth` bars have printed on the new extreme — intuitively a new pivot, but the rule isn't met. The terminated leg is not extended into it and no anchor exists yet; the dashed developing leg is what makes this window visible. Defaulting `rightDepth` (2) below `leftDepth` (5) narrows the window.
 - **Forming-bar caveat.** Lines do not repaint on closed bars, but ZigZag pivots can still change on the forming (live) bar. Anything making real-time decisions should act on closed bars only.
 - **Pine drawing budget (prototype only).** The Pine prototype draws every segment as a `polyline`, which TradingView caps (the script sets `max_polylines_count = 100`, which compiled; worth verifying against current Pine documentation that 100 is the platform maximum). With four active lines reserved, history is clamped to 48 terminated segments per scale. The earlier assumption of a 500-*line* budget does not apply to polylines. The web build has no such cap.
 - **Volume dependency.** Symbols/bars without volume data produce flat-carrying lines rather than gaps.
@@ -139,16 +150,17 @@ What the Pine prototype established, and what it left open:
 flowchart LR
     subgraph Inputs
         BARS["PriceBar[]<br/>OHLC + volume"]
-        PARAMS["Indicator params<br/>smallRetr / largeRetr<br/>depths, colors,<br/>historyStart, maxHistory"]
+        PARAMS["Indicator params<br/>line1Retr / line2Retr<br/>depths, colors, showZigZag,<br/>historyStart, maxHistory"]
     end
 
     subgraph Engine["Indicator core (pure)"]
-        ZZ1["computeZigZagPivots<br/>small scale"]
-        ZZ2["computeZigZagPivots<br/>large scale"]
+        ZZ1["computeZigZagPivots<br/>line set 1"]
+        ZZ2["computeZigZagPivots<br/>line set 2"]
         ACC["VWAP accumulator<br/>hlc3 × volume"]
         EVT["Anchor events<br/>(additive engine output)<br/>confirmation bar + replaced anchors"]
         LIFE["Line lifecycle<br/>draw from confirmation bar →<br/>end at next same-side<br/>anchor's confirmation bar"]
         WIN["History window<br/>historyStart / maxHistory"]
+        LEGS["ZigZag leg builder<br/>confirmed chain (vertices =<br/>all anchor events) +<br/>dashed developing leg"]
     end
 
     subgraph Surfaces
@@ -162,5 +174,7 @@ flowchart LR
     ZZ1 & ZZ2 --> EVT
     EVT --> LIFE
     ACC --> LIFE --> WIN
+    EVT --> LEGS
     WIN -->|"active + terminated<br/>line segments"| PINE & WEB
+    LEGS -->|"zigzag legs<br/>(showZigZag)"| WEB
 ```
