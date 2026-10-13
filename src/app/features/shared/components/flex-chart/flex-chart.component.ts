@@ -51,7 +51,10 @@ import { resolveChartPalette } from '@flex-chart/theme';
 import { ChartViewportStore } from './store/chart-viewport.store';
 import { ChartYAxisViewportController } from './services/chart-y-axis-viewport-controller.service';
 import { ChartLifecycleFacade } from './services/chart-lifecycle-facade.service';
-import { ChartDataAdapter } from './services/chart-data-adapter.service';
+import {
+  BESPOKE_MAIN_PANE_INDICATORS,
+  ChartDataAdapter,
+} from './services/chart-data-adapter.service';
 import type { ChartDebugSnapshot, SfAxisLabelRenderArgs, SfChartInstance } from './services/chart-instance.types';
 import { ChartAxisLabelService } from './services/chart-axis-label.service';
 import { ChartSyncOverlayComponent } from './components/chart-sync-overlay.component';
@@ -87,6 +90,9 @@ import { ChartSyncOverlayComponent } from './components/chart-sync-overlay.compo
 })
 export class FlexChartComponent implements OnDestroy {
   readonly StIndicator = StIndicator;
+  /** Types whose series come from bespoke adapter computeds — excluded from
+   *  the generic main-pane line loop (they render via dedicated blocks). */
+  readonly bespokeMainPaneTypes = BESPOKE_MAIN_PANE_INDICATORS;
 
   private readonly el = inject(ElementRef);
   private readonly zone = inject(NgZone);

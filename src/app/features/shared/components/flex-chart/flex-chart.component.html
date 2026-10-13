@@ -221,7 +221,7 @@
 
         <!-- Main pane indicators (overlay on price) -->
         @for (indicator of mainPaneSeries(); track indicator.id) {
-          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.ST_STD_DEV_LINES && indicator.config.type !== StIndicator.ST_ZIGZAG && indicator.config.type !== StIndicator.ST_ANCHORED_VWAP && indicator.config.type !== StIndicator.ST_TRIGGER_BANDS && indicator.config.seriesType === 'line') {
+          @if (!bespokeMainPaneTypes.has(indicator.config.type) && indicator.config.seriesType === 'line') {
             <e-series
               [dataSource]="indicator.data"
               type="Line"

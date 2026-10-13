@@ -4,6 +4,7 @@ import type {
   FlexChartDataset,
   ComputedIndicatorSeries,
   IndicatorPane,
+  IndicatorType,
 } from '../flex-chart.types';
 import {
   StIndicator,
@@ -19,6 +20,18 @@ import { computeZigZagSeries, type ZigZagChartSeries } from '../indicators/st-zi
 import { computeAnchoredVwapSeries, type AnchoredVwapLineSeries } from '../indicators/st-anchored-vwap.indicator';
 import { computeTriggerBandLines, type TriggerBandLine } from '../indicators/st-trigger-bands.indicator';
 import { toLogAxis } from '@flex-chart/scale-math';
+
+/** Indicator types whose series are emitted by bespoke adapter computeds
+ *  (trend bands, std-dev lines, zigzag, anchored VWAP, trigger bands) rather
+ *  than the generic `series.data` pipe. The template excludes these from the
+ *  generic main-pane line loop so they are not double-drawn. */
+export const BESPOKE_MAIN_PANE_INDICATORS: ReadonlySet<IndicatorType> = new Set<IndicatorType>([
+  StIndicator.TREND_BANDS,
+  StIndicator.ST_STD_DEV_LINES,
+  StIndicator.ST_ZIGZAG,
+  StIndicator.ST_ANCHORED_VWAP,
+  StIndicator.ST_TRIGGER_BANDS,
+]);
 
 export interface LowerPaneView {
   /** The pane slot ID (e.g. 'lower-1'). */
