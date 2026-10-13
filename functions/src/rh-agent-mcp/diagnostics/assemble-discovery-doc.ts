@@ -53,6 +53,28 @@ export interface AssemblerInput {
   generatedAt: string;
 }
 
+/** Filename stem shared by the main doc and every per-category child. */
+export const MAIN_DOC_FILENAME = 'rh-mcp-tool-discovery-canonical-657-658-689.md';
+
+export interface AssembledDocs {
+  /** Contents of MAIN_DOC_FILENAME — general info + indexes, no tool sections. */
+  main: string;
+  /** One `rh-mcp-tools-<slug>.md` per category — the `### tool` sections. */
+  children: { filename: string; title: string; content: string }[];
+}
+
+/** 'Market Data & Research' → 'market-data-research' (file slugs). */
+export function categorySlug(cat: string): string {
+  return cat
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-');
+}
+
+export function childDocFilename(cat: string): string {
+  return `rh-mcp-tools-${categorySlug(cat)}.md`;
+}
+
 // ── Safety classification ──────────────────────────────────────────────────
 
 export function safetyClass(tool: string): string {
@@ -151,14 +173,15 @@ function renderChildren(
   const shown = keys.slice(0, MAX_KEYS);
   for (const key of shown) {
     const n = children.get(key)!;
-    lines.push(`${'  '.repeat(depth)}- \`${key}\`${prefix}: ${typeLabel(n)}`);
+    const path = `${prefix}${key}`;
+    lines.push(`${path}: ${typeLabel(n)}`);
     if (depth < MAX_DEPTH) {
-      if (n.children.size) renderChildren(n.children, depth + 1, lines, '');
-      if (n.itemChildren.size) renderChildren(n.itemChildren, depth + 1, lines, '[]');
+      if (n.children.size) renderChildren(n.children, depth + 1, lines, `${path}.`);
+      if (n.itemChildren.size) renderChildren(n.itemChildren, depth + 1, lines, `${path}[].`);
     }
   }
   if (keys.length > shown.length) {
-    lines.push(`${'  '.repeat(depth)}- … (+${keys.length - shown.length} more fields)`);
+    lines.push(`${prefix}… (+${keys.length - shown.length} more fields)`);
   }
 }
 
@@ -222,7 +245,7 @@ const CATEGORY_ORDER = [
   'Orders',
 ];
 
-export function assembleDiscoveryDoc(input: AssemblerInput): string {
+export function assembleDiscoveryDoc(input: AssemblerInput): AssembledDocs {
   const probesByTool = new Map<string, ManifestProbe[]>();
   for (const p of input.probes) {
     const list = probesByTool.get(p.tool) ?? [];
@@ -247,37 +270,62 @@ export function assembleDiscoveryDoc(input: AssemblerInput): string {
   const out: string[] = [];
   out.push('# Robinhood MCP — Canonical Tool Discovery');
   out.push('');
-  out.push(`> **Generated draft** (${input.generatedAt}) — assembled from ` +
-    `\`probe-manifest.json\` × \`captures/\` × live \`tools/list\`. ` +
-    'Hand-finished by task #689: safety notes, gap callouts, curated samples.');
+  out.push(`> **Canonical** — assembled (${input.generatedAt}) from ` +
+    `\`probe-manifest.json\` × \`captures/\` × live \`tools/list\`, ` +
+    'hand-finished under #689: universal envelope, per-tool safety ' +
+    'classification, gap callouts, allowlist mapping. Per-tool details live ' +
+    'in the `rh-mcp-tools-*.md` category docs linked below. Regenerate via ' +
+    '`functions/src/rh-agent-mcp/diagnostics/run-assemble-discovery-doc.ts`, ' +
+    'then re-apply the sections marked *(#689)*.');
   out.push('');
 
-  // Coverage matrix
-  out.push('## Coverage matrix');
+  // Contents — one link + tool count per per-category child doc.
+  const catsForToc = [...byCategory.keys()].sort(
+    (a, b) =>
+      (CATEGORY_ORDER.indexOf(a) === -1 ? CATEGORY_ORDER.length : CATEGORY_ORDER.indexOf(a)) -
+      (CATEGORY_ORDER.indexOf(b) === -1 ? CATEGORY_ORDER.length : CATEGORY_ORDER.indexOf(b)),
+  );
+  out.push('## Contents');
   out.push('');
-  out.push('| tool | category | params (req/total) | probes | outcomes | status |');
-  out.push('|---|---|---|---|---|---|');
-  for (const t of input.tools) {
-    const probes = probesByTool.get(t.name) ?? [];
-    const captures = capturesByTool.get(t.name) ?? [];
-    const schema = t.inputSchema ?? {};
-    const total = Object.keys((schema.properties ?? {}) as object).length;
-    const req = ((schema.required ?? []) as string[]).length;
-    const outcomes = captures.length
-      ? ['success', 'error', 'skipped']
-          .map((o) => {
-            const n = captures.filter((c) => c.outcome === o).length;
-            return n ? `${n} ${o}` : null;
-          })
-          .filter(Boolean)
-          .join(', ')
-      : '—';
+  for (const cat of catsForToc) {
     out.push(
-      `| ${t.name} | ${getToolCategory(t.name) ?? 'Other'} | ${req}/${total} | ` +
-      `${probes.length || '—'} | ${outcomes} | ${toolStatus(probes, captures)} |`,
+      `- [${cat}](${childDocFilename(cat)}) — ${byCategory.get(cat)!.length} tools`,
     );
   }
   out.push('');
+
+  // Coverage matrix — grouped by category; tool names deep-link into the
+  // child doc that carries the tool's section.
+  out.push('## Coverage matrix');
+  out.push('');
+  for (const cat of catsForToc) {
+    const childFile = childDocFilename(cat);
+    out.push(`**${cat}** — ${byCategory.get(cat)!.length} tools · [doc](${childFile})`);
+    out.push('');
+    out.push('| tool | params (req/total) | probes | outcomes | status |');
+    out.push('|---|---|---|---|---|');
+    for (const t of byCategory.get(cat)!.sort((a, b) => a.name.localeCompare(b.name))) {
+      const probes = probesByTool.get(t.name) ?? [];
+      const captures = capturesByTool.get(t.name) ?? [];
+      const schema = t.inputSchema ?? {};
+      const total = Object.keys((schema.properties ?? {}) as object).length;
+      const req = ((schema.required ?? []) as string[]).length;
+      const outcomes = captures.length
+        ? ['success', 'error', 'skipped']
+            .map((o) => {
+              const n = captures.filter((c) => c.outcome === o).length;
+              return n ? `${n} ${o}` : null;
+            })
+            .filter(Boolean)
+            .join(', ')
+        : '—';
+      out.push(
+        `| [${t.name}](${childFile}#${t.name}) | ${req}/${total} | ` +
+        `${probes.length || '—'} | ${outcomes} | ${toolStatus(probes, captures)} |`,
+      );
+    }
+    out.push('');
+  }
 
   // Drift
   if (input.drift) {
@@ -297,15 +345,18 @@ export function assembleDiscoveryDoc(input: AssemblerInput): string {
     out.push('');
   }
 
-  // Per-category tool sections
-  const cats = [...byCategory.keys()].sort(
-    (a, b) =>
-      (CATEGORY_ORDER.indexOf(a) === -1 ? CATEGORY_ORDER.length : CATEGORY_ORDER.indexOf(a)) -
-      (CATEGORY_ORDER.indexOf(b) === -1 ? CATEGORY_ORDER.length : CATEGORY_ORDER.indexOf(b)),
-  );
+  // Per-category tool sections — one child doc per category.
+  const children: AssembledDocs['children'] = [];
+  const cats = catsForToc;
   for (const cat of cats) {
-    out.push(`## ${cat}`);
-    out.push('');
+    const cout: string[] = [];
+    cout.push(`# Robinhood MCP — ${cat}`);
+    cout.push('');
+    cout.push(
+      `> Part of the [canonical tool discovery](${MAIN_DOC_FILENAME}) ` +
+      `— ${byCategory.get(cat)!.length} tools in this group.`,
+    );
+    cout.push('');
     for (const t of byCategory.get(cat)!.sort((a, b) => a.name.localeCompare(b.name))) {
       const probes = probesByTool.get(t.name) ?? [];
       const captures = capturesByTool.get(t.name) ?? [];
@@ -313,20 +364,22 @@ export function assembleDiscoveryDoc(input: AssemblerInput): string {
       const successes = captures.filter((c) => c.outcome === 'success' && c.response !== undefined);
       const errors = captures.filter((c) => c.outcome === 'error');
 
-      out.push(`### ${t.name}`);
-      out.push('');
-      out.push(`**Safety:** ${safetyClass(t.name)} · **Status:** ${status}`);
-      if (t.description) out.push(`\n${t.description}`);
-      out.push('');
-      out.push('**Parameters (live inputSchema):**');
-      out.push('');
-      out.push(renderParamsTable(t));
-      out.push('');
+      cout.push(`### ${t.name}`);
+      cout.push('');
+      cout.push(`**Safety:** ${safetyClass(t.name)} · **Status:** ${status}`);
+      if (t.description) cout.push(`\n${t.description}`);
+      cout.push('');
+      cout.push('**Parameters (live inputSchema):**');
+      cout.push('');
+      cout.push(renderParamsTable(t));
+      cout.push('');
       if (successes.length) {
-        out.push(`**Response field tree** (union over ${successes.length} success capture(s)):`);
-        out.push('');
-        out.push(renderFieldTree(buildFieldTree(successes.map((c) => c.response))));
-        out.push('');
+        cout.push(`**Response shape** (union over ${successes.length} success capture(s)):`);
+        cout.push('');
+        cout.push('```');
+        cout.push(renderFieldTree(buildFieldTree(successes.map((c) => c.response))));
+        cout.push('```');
+        cout.push('');
       }
       if (errors.length) {
         const kinds = new Map<string, number>();
@@ -334,33 +387,34 @@ export function assembleDiscoveryDoc(input: AssemblerInput): string {
           const msg = JSON.stringify(e.response ?? e.error ?? '').slice(0, 120);
           kinds.set(msg, (kinds.get(msg) ?? 0) + 1);
         }
-        out.push(`**Errors observed:** ${errors.length} capture(s), ${kinds.size} distinct shape(s)`);
-        out.push('');
+        cout.push(`**Errors observed:** ${errors.length} capture(s), ${kinds.size} distinct shape(s)`);
+        cout.push('');
       }
       if (captures.length) {
-        out.push('**Captures:**');
-        out.push('');
+        cout.push('**Captures:**');
+        cout.push('');
         for (const c of captures) {
           const note = c.note ?? probes.find((p) => p.id === c.id)?.note ?? '';
-          out.push(`- [${c.id}](captures/${c.id}.json) — ${c.outcome}${note ? ` — ${note}` : ''}`);
+          cout.push(`- [${c.id}](captures/${c.id}.json) — ${c.outcome}${note ? ` — ${note}` : ''}`);
         }
-        out.push('');
+        cout.push('');
       } else if (probes.length) {
-        out.push('_No captures — probes authored but not yet executed._');
-        out.push('');
+        cout.push('_No captures — probes authored but not yet executed._');
+        cout.push('');
       } else {
-        out.push('_No captures — missing probes._');
-        out.push('');
+        cout.push('_No captures — missing probes._');
+        cout.push('');
       }
       const notes = probes.map((p) => p.note).filter(Boolean);
       if (notes.length) {
-        out.push('**Notes:**');
-        out.push('');
-        for (const n of new Set(notes)) out.push(`- ${n}`);
-        out.push('');
+        cout.push('**Notes:**');
+        cout.push('');
+        for (const n of new Set(notes)) cout.push(`- ${n}`);
+        cout.push('');
       }
     }
+    children.push({ filename: childDocFilename(cat), title: cat, content: cout.join('\n') });
   }
 
-  return out.join('\n');
+  return { main: out.join('\n'), children };
 }

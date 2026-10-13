@@ -55,7 +55,7 @@ function main(): void {
     ? JSON.parse(readFileSync(driftPath, 'utf-8'))
     : undefined;
 
-  const doc = assembleDiscoveryDoc({
+  const docs = assembleDiscoveryDoc({
     tools,
     probes,
     captures,
@@ -63,9 +63,17 @@ function main(): void {
     generatedAt: new Date().toISOString(),
   });
 
-  writeFileSync(outPath, doc + '\n', 'utf-8');
-  console.log(`tools=${tools.length} probes=${probes.length} captures=${captures.length}`);
-  console.log(`wrote ${outPath}`);
+  writeFileSync(outPath, docs.main + '\n', 'utf-8');
+  // Children land next to --out so their relative captures/ links resolve.
+  const outDir = dirname(outPath);
+  for (const child of docs.children) {
+    writeFileSync(join(outDir, child.filename), child.content + '\n', 'utf-8');
+  }
+  console.log(
+    `tools=${tools.length} probes=${probes.length} captures=${captures.length} ` +
+    `children=${docs.children.length}`,
+  );
+  console.log(`wrote ${outPath} + ${docs.children.length} category docs`);
 }
 
 main();

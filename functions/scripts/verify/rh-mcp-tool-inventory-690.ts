@@ -2,12 +2,13 @@
  * Verify task #690 — canonical discovery doc completeness. Disk-only:
  * no credentials, no network, no MCP session.
  *
- * Checks against `docs/topics/657-rh-mcp/rh-mcp-tool-discovery-canonical-*.md`:
- *  - every catalog tool name appears as a `### <tool>` section
+ * Checks against `docs/topics/657-rh-mcp/rh-mcp-tool-discovery-canonical-*.md`
+ * (main index doc) plus its `rh-mcp-tools-*.md` per-category children:
+ *  - every catalog tool name appears as a `### <tool>` section in a child doc
  *  - every section carries `**Safety:**`, `**Parameters`, `**Notes:**`
  *    and at least one `captures/*.json` link (the observed-response
  *    evidence block; error-only tools link error captures)
- *  - the coverage matrix has exactly one row per catalog tool
+ *  - the main doc's coverage matrix has exactly one row per catalog tool
  *  - no capture file leaks an account number: every
  *    `account_number`/`rhs_account_number` JSON field is masked
  *    (`••••`) or an `$ENV:` placeholder, and the real account values
@@ -16,7 +17,8 @@
  * Usage (from functions/):
  *   npx tsx scripts/verify/rh-mcp-tool-inventory-690.ts [--doc <path>]
  *
- * `--doc` overrides the canonical doc path — used to prove the script
+ * `--doc` overrides the main doc path; child docs resolve as
+ * `rh-mcp-tools-*.md` siblings of that path. Used to prove the script
  * fails when a tool section is removed (see rh-mcp-tool-inventory-690.md).
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -62,16 +64,31 @@ const catalog = await loadToolCatalog();
 const catalogNames = new Set(catalog.tools.map((t) => t.name));
 
 const doc = readFileSync(DOC_PATH, 'utf-8');
-const heads = [...doc.matchAll(/^### (\w+)[^\n]*/gm)];
+// Tool sections live in the per-category children next to the main doc.
+const CHILD_RE = /^rh-mcp-tools-[\w-]+\.md$/;
+const childPaths = readdirSync(dirname(DOC_PATH))
+  .filter((f) => CHILD_RE.test(f))
+  .map((f) => join(dirname(DOC_PATH), f));
+const childDocs = new Map<string, string>(
+  childPaths.map((p) => [p, readFileSync(p, 'utf-8')]),
+);
+
 const sections = new Map<string, string>();
-heads.forEach((h, i) => {
-  const start = (h.index ?? 0) + h[0].length;
-  const end = i + 1 < heads.length ? (heads[i + 1].index ?? doc.length) : doc.length;
-  sections.set(h[1], doc.slice(start, end));
-});
+for (const [, text] of childDocs) {
+  const heads = [...text.matchAll(/^### (\w+)[^\n]*/gm)];
+  heads.forEach((h, i) => {
+    const start = (h.index ?? 0) + h[0].length;
+    const end = i + 1 < heads.length ? (heads[i + 1].index ?? text.length) : text.length;
+    sections.set(h[1], text.slice(start, end));
+  });
+}
+// All generated text — capture links and secrets can appear anywhere.
+const allDocs = [doc, ...childDocs.values()].join('\n');
 
 console.log(`doc: ${DOC_PATH}`);
-console.log(`catalog: ${catalogNames.size} tools · doc: ${sections.size} sections`);
+console.log(
+  `catalog: ${catalogNames.size} tools · children: ${childDocs.size} · doc: ${sections.size} sections`,
+);
 
 check('every catalog tool has a doc section', () => {
   const missing = [...catalogNames].filter((n) => !sections.has(n));
@@ -105,7 +122,7 @@ check('every section links >=1 capture (observed response evidence)', () => {
 check('every linked capture file exists on disk', () => {
   const onDisk = new Set(readdirSync(CAPTURES_DIR));
   const missing = new Set<string>();
-  for (const m of doc.matchAll(/captures\/([\w.-]+\.json)/g)) {
+  for (const m of allDocs.matchAll(/captures\/([\w.-]+\.json)/g)) {
     if (!onDisk.has(m[1])) missing.add(m[1]);
   }
   assert(missing.size === 0, `missing files: ${[...missing].join(', ')}`);
@@ -116,7 +133,7 @@ check('coverage matrix row count == catalog tool count', () => {
   assert(matrix !== null, 'no Coverage matrix section');
   const rows = matrix[1]
     .split('\n')
-    .filter((l) => /^\| \w+ \|/.test(l) && !/^\| tool /.test(l));
+    .filter((l) => /^\| \[?\w+/.test(l) && !/^\| tool /.test(l));
   assert(
     rows.length === catalogNames.size,
     `matrix rows ${rows.length} != catalog ${catalogNames.size}`,
@@ -157,7 +174,8 @@ check('real account numbers from .env.local absent verbatim', () => {
   }
   const hits: string[] = [];
   const targets = [
-    ['doc', doc],
+    ['main doc', doc],
+    ...[...childDocs.entries()].map(([p, text]) => [p.split(/[\\/]/).pop() ?? p, text] as const),
     ...readdirSync(CAPTURES_DIR)
       .filter((f) => f.endsWith('.json'))
       .map((f) => [f, readFileSync(join(CAPTURES_DIR, f), 'utf-8')] as const),
