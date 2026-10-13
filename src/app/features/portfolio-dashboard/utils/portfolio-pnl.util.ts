@@ -5,7 +5,7 @@
  * by `PortfolioDashboardStore` computed selectors.
  */
 
-import { BrokerOrder, EquityPosition, OrderType } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
+import { BrokerOrder, EquityPosition, OrderState, OrderType } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { TERMINAL_ORDER_STATES } from './order-states.util';
 
 // ---------------------------------------------------------------------------
@@ -145,4 +145,46 @@ export function computeProtectedSymbols(
   }
 
   return protectedSymbols;
+}
+
+// ---------------------------------------------------------------------------
+// computeEntryDates
+// ---------------------------------------------------------------------------
+
+/** Order states that represent actual executions. */
+const EXECUTED_ORDER_STATES: ReadonlySet<OrderState> = new Set([
+  'filled',
+  'partially_filled',
+  'partially_filled_rest_cancelled',
+]);
+
+/**
+ * Compute the earliest entry timestamp per symbol from order history.
+ *
+ * The broker's positions endpoint carries no date fields, so entry date is
+ * derived as the earliest execution timestamp (falling back to the order's
+ * `createdAt`) among executed orders for each symbol. Keys are
+ * `${side}:${symbol}` so shorts derive from sell-side fills.
+ *
+ * Positions entered before the order-history window (transfers, very old
+ * lots) have no matching order and resolve to `null`.
+ */
+export function computeEntryDates(orders: BrokerOrder[]): Map<string, string> {
+  const earliest = new Map<string, string>();
+  for (const o of orders) {
+    if (!EXECUTED_ORDER_STATES.has(o.state)) continue;
+    if (!o.symbol || !o.side) continue;
+
+    let ts: string | null = null;
+    for (const ex of o.executions ?? []) {
+      if (ex.timestamp && (ts === null || ex.timestamp < ts)) ts = ex.timestamp;
+    }
+    ts ??= o.createdAt;
+    if (ts === null) continue;
+
+    const key = `${o.side}:${o.symbol}`;
+    const prev = earliest.get(key);
+    if (prev === undefined || ts < prev) earliest.set(key, ts);
+  }
+  return earliest;
 }

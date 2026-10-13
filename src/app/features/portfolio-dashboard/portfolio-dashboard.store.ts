@@ -28,10 +28,8 @@ import {
   EquityQuote,
   OptionQuote,
   BrokerOrder,
-  PnlTrade,
-  PnlTradeSpan,
 } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
-import { computePnL, computeProtectedSymbols } from './utils/portfolio-pnl.util';
+import { computePnL, computeProtectedSymbols, computeEntryDates } from './utils/portfolio-pnl.util';
 import {
   LIVE_ORDER_STATES,
   TERMINAL_ORDER_STATES,
@@ -61,7 +59,6 @@ const PRIMARY_AGENTIC_ACCOUNT_NUMBER = '677616245';
 const initialState: DashboardState = {
   accounts: [],
   selectedAccountIndex: 0,
-  showClosedPositions: false,
   showOrderHistory: false,
   globalLoading: false,
   loadError: null,
@@ -148,46 +145,20 @@ export const PortfolioDashboardStore = signalStore(
       const positions = acct.equityPositions.data;
       if (!positions) return [];
       const quotes = acct.equityQuotes.data;
+      const entryDates = computeEntryDates(acct.equityOrders.data ?? []);
 
       return positions.map((p) => {
         const currentPrice = quotes?.get(p.symbol)?.lastTradePrice ?? null;
         const qty = p.quantity;
         const closed = qty === null || qty === 0;
+        const side = qty !== null && qty < 0 ? 'sell' : 'buy';
+        const entryDate = entryDates.get(`${side}:${p.symbol}`) ?? null;
         if (closed || currentPrice === null) {
-          return { ...p, currentPrice, pnl: null, pnlPercent: null, closed };
+          return { ...p, currentPrice, pnl: null, pnlPercent: null, closed, entryDate };
         }
         const isShort = qty < 0;
         const result = computePnL(p.averageBuyPrice, currentPrice, Math.abs(qty), isShort);
-        return { ...p, currentPrice, pnl: result.pnl, pnlPercent: result.pnlPercent, closed };
-      });
-    }),
-
-    /** Closed trades from `get_pnl_trade_history`, mapped to EquityPositionWithPnL. */
-    closedTradesWithPnL: computed((): EquityPositionWithPnL[] => {
-      const acct = state.accounts()[state.selectedAccountIndex()];
-      if (!acct) return [];
-      const trades = acct.closedTrades.data;
-      if (!trades) return [];
-      return trades.map((t): EquityPositionWithPnL => {
-        const pnl = t.realizedGain;
-        const proceeds = t.price != null && t.quantity != null ? t.price * t.quantity : null;
-        const costBasis = proceeds != null && pnl != null ? proceeds - pnl : null;
-        const averageBuyPrice = costBasis != null && t.quantity != null && t.quantity !== 0
-          ? costBasis / Math.abs(t.quantity)
-          : null;
-        const pnlPercent = costBasis != null && costBasis !== 0 && pnl != null
-          ? (pnl / costBasis) * 100
-          : null;
-        return {
-          symbol: t.symbol,
-          quantity: t.quantity,
-          averageBuyPrice,
-          sharesHeldForSells: null,
-          currentPrice: t.price,
-          pnl,
-          pnlPercent,
-          closed: true,
-        };
+        return { ...p, currentPrice, pnl: result.pnl, pnlPercent: result.pnlPercent, closed, entryDate };
       });
     }),
 
@@ -233,16 +204,6 @@ export const PortfolioDashboardStore = signalStore(
       const orders = acct.equityOrders.data ?? [];
       const positions = acct.equityPositions.data ?? [];
       return computeProtectedSymbols(orders, positions);
-    }),
-  })),
-
-  withComputed((state) => ({
-    /** Equity positions for display — open positions, plus closed trades when showClosed is on. */
-    displayedEquityPositions: computed((): EquityPositionWithPnL[] => {
-      const open = state.equityPositionsWithPnL();
-      if (!state.showClosedPositions()) return open;
-      const closed = state.closedTradesWithPnL();
-      return [...open, ...closed];
     }),
   })),
 
@@ -442,7 +403,7 @@ export const PortfolioDashboardStore = signalStore(
       }));
 
       try {
-        let data: PortfolioSnapshot | EquityPosition[] | OptionPosition[] | Map<string, EquityQuote> | Map<string, OptionQuote> | BrokerOrder[] | PnlTrade[];
+        let data: PortfolioSnapshot | EquityPosition[] | OptionPosition[] | Map<string, EquityQuote> | Map<string, OptionQuote> | BrokerOrder[];
         switch (section) {
           case 'portfolio':
             data = await client.getPortfolio(acct.accountNumber);
@@ -465,11 +426,6 @@ export const PortfolioDashboardStore = signalStore(
           case 'optionOrders':
             data = await client.getOptionOrders(acct.accountNumber);
             break;
-          case 'closedTrades': {
-            const history = await client.getPnlTradeHistory(acct.accountNumber, '3month');
-            data = history.trades.filter((t) => t.side === 'sell' && t.symbol);
-            break;
-          }
           default: {
             const _exhaustive: never = section;
             throw new Error(`Unknown section: ${_exhaustive}`);
@@ -487,52 +443,14 @@ export const PortfolioDashboardStore = signalStore(
       }
     }
 
-    async function loadClosedTrades(accountIndex: number, span: PnlTradeSpan = '3month'): Promise<void> {
-      const acct = store.accounts()[accountIndex];
-      if (!acct) return;
-
-      patchAccount(acct.accountNumber, (a) => ({
-        ...a,
-        closedTrades: loadingSection(a.closedTrades),
-      }));
-
-      try {
-        const history = await client.getPnlTradeHistory(acct.accountNumber, span);
-        // Filter to sell-side equity trades (exclude empty-side options assignments).
-        const equityTrades = history.trades.filter((t) => t.side === 'sell' && t.symbol);
-        patchAccount(acct.accountNumber, (a) => ({
-          ...a,
-          closedTrades: dataSection(equityTrades),
-        }));
-      } catch (err) {
-        patchAccount(acct.accountNumber, (a) => ({
-          ...a,
-          closedTrades: errorSection(a.closedTrades, errMessage(err)),
-        }));
-      }
-    }
-
     return {
       loadAccounts,
       loadPhase1,
       loadPhase2,
       refresh,
       retrySection,
-      loadClosedTrades,
       selectAccount(index: number): void {
         patchState(store, { selectedAccountIndex: index });
-      },
-      toggleClosedPositions(): void {
-        const showing = !store.showClosedPositions();
-        patchState(store, { showClosedPositions: showing });
-        // Load closed trades on-demand when toggling on.
-        if (showing) {
-          const idx = store.selectedAccountIndex();
-          const acct = store.accounts()[idx];
-          if (acct && acct.closedTrades.data === null && !acct.closedTrades.loading) {
-            loadClosedTrades(idx);
-          }
-        }
       },
       toggleOrderHistory(): void {
         patchState(store, { showOrderHistory: !store.showOrderHistory() });

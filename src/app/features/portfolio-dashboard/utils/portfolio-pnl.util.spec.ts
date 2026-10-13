@@ -2,6 +2,7 @@ import {
   computePnL,
   isStopLossProtecting,
   computeProtectedSymbols,
+  computeEntryDates,
 } from './portfolio-pnl.util';
 import { BrokerOrder, EquityPosition } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 
@@ -417,5 +418,77 @@ describe('computeProtectedSymbols', () => {
     expect(result.size).toBe(1);
     expect(result.has('AAPL')).toBe(true);
     expect(result.has('NVDA')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeEntryDates
+// ---------------------------------------------------------------------------
+
+describe('computeEntryDates', () => {
+  it('returns the earliest createdAt among filled orders for a symbol', () => {
+    const orders = [
+      makeOrder({ orderId: '1', side: 'buy', state: 'filled', createdAt: '2026-03-10T14:00:00Z' }),
+      makeOrder({ orderId: '2', side: 'buy', state: 'filled', createdAt: '2026-01-15T10:00:00Z' }),
+      makeOrder({ orderId: '3', side: 'buy', state: 'filled', createdAt: '2026-02-20T09:00:00Z' }),
+    ];
+
+    const result = computeEntryDates(orders);
+
+    expect(result.get('buy:AAPL')).toBe('2026-01-15T10:00:00Z');
+  });
+
+  it('prefers the earliest execution timestamp over createdAt', () => {
+    const orders = [
+      makeOrder({
+        orderId: '1',
+        side: 'buy',
+        state: 'filled',
+        createdAt: '2026-01-15T10:00:00Z',
+        executions: [
+          { price: 150, quantity: 50, timestamp: '2026-01-16T15:00:00Z' },
+          { price: 149, quantity: 50, timestamp: '2026-01-15T14:30:00Z' },
+        ],
+      }),
+    ];
+
+    const result = computeEntryDates(orders);
+
+    expect(result.get('buy:AAPL')).toBe('2026-01-15T14:30:00Z');
+  });
+
+  it('keys sell-side fills separately for short positions', () => {
+    const orders = [
+      makeOrder({ orderId: '1', side: 'buy', state: 'filled', createdAt: '2026-01-15T10:00:00Z' }),
+      makeOrder({ orderId: '2', side: 'sell', state: 'filled', createdAt: '2026-02-01T10:00:00Z' }),
+    ];
+
+    const result = computeEntryDates(orders);
+
+    expect(result.get('buy:AAPL')).toBe('2026-01-15T10:00:00Z');
+    expect(result.get('sell:AAPL')).toBe('2026-02-01T10:00:00Z');
+  });
+
+  it('includes partially_filled orders and skips non-executed states', () => {
+    const orders = [
+      makeOrder({ orderId: '1', side: 'buy', state: 'confirmed', createdAt: '2026-01-01T10:00:00Z' }),
+      makeOrder({ orderId: '2', side: 'buy', state: 'cancelled', createdAt: '2026-01-02T10:00:00Z' }),
+      makeOrder({ orderId: '3', side: 'buy', state: 'partially_filled', createdAt: '2026-01-20T10:00:00Z' }),
+    ];
+
+    const result = computeEntryDates(orders);
+
+    expect(result.get('buy:AAPL')).toBe('2026-01-20T10:00:00Z');
+  });
+
+  it('returns no entry when orders have no timestamp or symbol', () => {
+    const orders = [
+      makeOrder({ orderId: '1', side: 'buy', state: 'filled', createdAt: null }),
+      makeOrder({ orderId: '2', side: 'buy', state: 'filled', symbol: null }),
+    ];
+
+    const result = computeEntryDates(orders);
+
+    expect(result.size).toBe(0);
   });
 });

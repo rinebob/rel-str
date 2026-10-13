@@ -14,8 +14,6 @@ import {
   makeOrder,
   makeOptionOrder,
   makePortfolio,
-  makePnlTrade,
-  makePnlTradeHistory,
   rejected,
   resolve,
   reject,
@@ -39,7 +37,6 @@ describe('PortfolioDashboardStore', () => {
     it('initializes with expected default state', () => {
       expect(store.accounts()).toEqual([]);
       expect(store.selectedAccountIndex()).toBe(0);
-      expect(store.showClosedPositions()).toBe(false);
       expect(store.showOrderHistory()).toBe(false);
       expect(store.globalLoading()).toBe(false);
       expect(store.loadError()).toBeNull();
@@ -457,108 +454,34 @@ describe('PortfolioDashboardStore', () => {
     });
   });
 
-  describe('toggleClosedPositions', () => {
-    it('flips showClosedPositions', () => {
-      expect(store.showClosedPositions()).toBe(false);
-      store.toggleClosedPositions();
-      expect(store.showClosedPositions()).toBe(true);
-      store.toggleClosedPositions();
-      expect(store.showClosedPositions()).toBe(false);
-    });
-
-    it('loads closed trades on-demand when toggling on', async () => {
+  describe('entryDate derivation', () => {
+    beforeEach(async () => {
       client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
       await store.loadAccounts();
-
-      client.getPnlTradeHistory.and.returnValue(resolve(makePnlTradeHistory({
-        accountNumber: '111',
-        trades: [makePnlTrade({ symbol: 'AAPL', side: 'sell' })],
-      })));
-
-      store.toggleClosedPositions();
-      await new Promise((r) => setTimeout(r, 0));
-
-      expect(client.getPnlTradeHistory).toHaveBeenCalledWith('111', '3month');
-      const acct = store.accounts()[0];
-      expect(acct.closedTrades.data).toEqual([makePnlTrade({ symbol: 'AAPL', side: 'sell' })]);
-      expect(acct.closedTrades.loading).toBe(false);
-      expect(acct.closedTrades.error).toBeNull();
+      client.getEquityPositions.and.returnValue(resolve([
+        makeEquityPosition({ symbol: 'AAPL', quantity: 10 }),
+      ]));
     });
 
-    it('does not reload closed trades if already loaded', async () => {
-      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
-      await store.loadAccounts();
+    it('attaches the earliest buy fill timestamp to the position', async () => {
+      client.getEquityOrders.and.returnValue(resolve([
+        makeOrder({ side: 'buy', state: 'filled', symbol: 'AAPL', createdAt: '2026-03-01T10:00:00Z' }),
+        makeOrder({ side: 'buy', state: 'filled', symbol: 'AAPL', createdAt: '2026-01-15T10:00:00Z' }),
+      ]));
+      await store.retrySection(0, 'equityPositions');
+      await store.retrySection(0, 'equityOrders');
 
-      client.getPnlTradeHistory.and.returnValue(resolve(makePnlTradeHistory()));
-      store.toggleClosedPositions();
-      await new Promise((r) => setTimeout(r, 0));
-      expect(client.getPnlTradeHistory).toHaveBeenCalledTimes(1);
-
-      // Toggle off then on again — should not reload
-      store.toggleClosedPositions();
-      store.toggleClosedPositions();
-      await new Promise((r) => setTimeout(r, 0));
-      expect(client.getPnlTradeHistory).toHaveBeenCalledTimes(1);
+      expect(store.equityPositionsWithPnL()[0].entryDate).toBe('2026-01-15T10:00:00Z');
     });
 
-    it('filters to sell-side equity trades only', async () => {
-      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
-      await store.loadAccounts();
+    it('is null when order history has no matching fill', async () => {
+      client.getEquityOrders.and.returnValue(resolve([
+        makeOrder({ side: 'sell', state: 'filled', symbol: 'AAPL' }),
+      ]));
+      await store.retrySection(0, 'equityPositions');
+      await store.retrySection(0, 'equityOrders');
 
-      client.getPnlTradeHistory.and.returnValue(resolve(makePnlTradeHistory({
-        trades: [
-          makePnlTrade({ symbol: 'AAPL', side: 'sell' }),
-          makePnlTrade({ symbol: 'GOOG', side: 'buy' }),
-          makePnlTrade({ symbol: '', side: 'sell' }),
-          makePnlTrade({ symbol: 'TSLA', side: '' }),
-        ],
-      })));
-
-      store.toggleClosedPositions();
-      await new Promise((r) => setTimeout(r, 0));
-
-      const trades = store.accounts()[0].closedTrades.data ?? [];
-      expect(trades.length).toBe(1);
-      expect(trades[0].symbol).toBe('AAPL');
-    });
-
-    it('sets error on closedTrades when getPnlTradeHistory fails', async () => {
-      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
-      await store.loadAccounts();
-
-      client.getPnlTradeHistory.and.returnValue(reject('MCP error'));
-      store.toggleClosedPositions();
-      await new Promise((r) => setTimeout(r, 0));
-
-      const acct = store.accounts()[0];
-      expect(acct.closedTrades.data).toBeNull();
-      expect(acct.closedTrades.error).toBe('MCP error');
-    });
-  });
-
-  describe('closedTradesWithPnL', () => {
-    it('maps closed trades to EquityPositionWithPnL with pnl and pnlPercent', async () => {
-      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
-      await store.loadAccounts();
-
-      client.getPnlTradeHistory.and.returnValue(resolve(makePnlTradeHistory({
-        trades: [makePnlTrade({ symbol: 'AAPL', quantity: 10, price: 175, realizedGain: 250 })],
-      })));
-
-      store.toggleClosedPositions();
-      await new Promise((r) => setTimeout(r, 0));
-
-      const closed = store.closedTradesWithPnL();
-      expect(closed.length).toBe(1);
-      expect(closed[0].symbol).toBe('AAPL');
-      expect(closed[0].quantity).toBe(10);
-      expect(closed[0].currentPrice).toBe(175);
-      expect(closed[0].pnl).toBe(250);
-      expect(closed[0].closed).toBe(true);
-      // cost basis = (175 * 10) - 250 = 1500; avgBuyPrice = 1500 / 10 = 150
-      expect(closed[0].averageBuyPrice).toBe(150);
-      // pnlPercent = 250/1500 * 100 = 16.67
-      expect(closed[0].pnlPercent).toBeCloseTo(16.67, 1);
+      expect(store.equityPositionsWithPnL()[0].entryDate).toBeNull();
     });
   });
 
