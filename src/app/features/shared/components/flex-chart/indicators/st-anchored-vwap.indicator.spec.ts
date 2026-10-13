@@ -1,6 +1,6 @@
 import { ST_ANCHORED_VWAP_INDICATOR, computeAnchoredVwapSeries } from './st-anchored-vwap.indicator';
 import type { AnchoredVwapLineSeries } from './st-anchored-vwap.indicator';
-import { computeAnchoredVwap } from './st-anchored-vwap.engine';
+import { computeAnchoredVwap, computeAnchoredVwapResult } from './st-anchored-vwap.engine';
 import type { AnchoredVwapConfig, AnchoredVwapSegment } from './st-anchored-vwap.types';
 import { StIndicator } from '../flex-chart.types';
 import type { PriceBar } from '../flex-chart.types';
@@ -58,18 +58,22 @@ function makeWalk(seed: number, n: number): PriceBar[] {
 }
 
 const PARAMS = {
-  smallRetracementPct: 5,
-  largeRetracementPct: 25,
+  line1RetracementPct: 5,
+  line2RetracementPct: 25,
   leftDepth: 2,
   rightDepth: 2,
   maxHistory: 100,
 };
 
-const EXPECTED_KEYS = (['small', 'large'] as const).flatMap((scale) =>
-  (['high', 'low'] as const).flatMap((side) =>
+const SCALES = ['line1', 'line2'] as const;
+
+const EXPECTED_KEYS = SCALES.flatMap((scale) => [
+  ...(['high', 'low'] as const).flatMap((side) =>
     ['history-a', 'history-b', 'active'].map((kind) => `${scale}-${side}-${kind}`),
   ),
-);
+  `${scale}-zigzag`,
+  `${scale}-developing`,
+]);
 
 const byKey = (series: AnchoredVwapLineSeries[], key: string): AnchoredVwapLineSeries =>
   series.find((s) => s.key === key)!;
@@ -100,17 +104,28 @@ describe('ST_ANCHORED_VWAP_INDICATOR', () => {
   it('declares every param with its default', () => {
     const defaults = Object.fromEntries(ST_ANCHORED_VWAP_INDICATOR.params.map((p) => [p.key, p.default]));
     expect(defaults).toEqual({
-      smallRetracementPct: 2,
-      largeRetracementPct: 5,
+      line1RetracementPct: 2,
+      line2RetracementPct: 5,
       leftDepth: 5,
-      rightDepth: 5,
-      smallHighColor: '#FF8CFF',
-      smallLowColor: '#8CF5FF',
-      largeHighColor: '#FF00E6',
-      largeLowColor: '#00E5FF',
+      // rightDepth defaults below leftDepth so a reversal that has met the
+      // deviation amount confirms sooner.
+      rightDepth: 2,
+      line1HighColor: '#FF8CFF',
+      line1LowColor: '#8CF5FF',
+      line2HighColor: '#FF00E6',
+      line2LowColor: '#00E5FF',
+      showZigZag: true,
       maxHistory: 100,
       historyStart: '',
     });
+  });
+
+  it('labels the two sets as line 1 and line 2', () => {
+    const labels = Object.fromEntries(ST_ANCHORED_VWAP_INDICATOR.params.map((p) => [p.key, p.label]));
+    expect(labels['line1RetracementPct']).toContain('Line 1');
+    expect(labels['line2RetracementPct']).toContain('Line 2');
+    expect(labels['line1HighColor']).toContain('Line 1');
+    expect(labels['showZigZag']).toContain('ZigZag');
   });
 });
 
@@ -124,31 +139,31 @@ describe('computeAnchoredVwapSeries — fixed slots', () => {
     ['a flat series with no pivots', barsFromCloses(Array.from({ length: 30 }, () => 100))],
     ['the hand-built fixture', barsFromCloses(CLOSES)],
     ['a random walk', makeWalk(7, 300)],
-  ])('always returns the same 12 keys in the same order — %s', (_label, bars) => {
+  ])('always returns the same 16 keys in the same order — %s', (_label, bars) => {
     expect(computeAnchoredVwapSeries(bars, PARAMS).map((s) => s.key)).toEqual(EXPECTED_KEYS);
   });
 
-  it('orders each slot history first and active last, and the large scale after the small, so the live and large lines draw on top', () => {
-    expect(EXPECTED_KEYS.slice(0, 3)).toEqual(['small-high-history-a', 'small-high-history-b', 'small-high-active']);
-    expect(EXPECTED_KEYS.indexOf('large-high-history-a')).toBeGreaterThan(EXPECTED_KEYS.indexOf('small-low-active'));
+  it('orders each slot history first and active last, legs after the VWAP slots, and line 2 after line 1, so the live and line-2 lines draw on top', () => {
+    expect(EXPECTED_KEYS.slice(0, 3)).toEqual(['line1-high-history-a', 'line1-high-history-b', 'line1-high-active']);
+    expect(EXPECTED_KEYS.indexOf('line2-high-history-a')).toBeGreaterThan(EXPECTED_KEYS.indexOf('line1-developing'));
   });
 
   it('draws the live line in the active series and the older segments in history, alternating', () => {
     const series = computeAnchoredVwapSeries(barsFromCloses(CLOSES), PARAMS);
-    // small-high: terminated [7..17], [17..27] then active [27..30]
-    expect(byKey(series, 'small-high-history-a').data.map((p) => p.index)).toEqual(
+    // line1-high: terminated [7..17], [17..27] then active [27..30]
+    expect(byKey(series, 'line1-high-history-a').data.map((p) => p.index)).toEqual(
       Array.from({ length: 11 }, (_, i) => 7 + i),
     );
-    expect(byKey(series, 'small-high-history-b').data.map((p) => p.index)).toEqual(
+    expect(byKey(series, 'line1-high-history-b').data.map((p) => p.index)).toEqual(
       Array.from({ length: 11 }, (_, i) => 17 + i),
     );
-    expect(byKey(series, 'small-high-active').data.map((p) => p.index)).toEqual([27, 28, 29, 30]);
+    expect(byKey(series, 'line1-high-active').data.map((p) => p.index)).toEqual([27, 28, 29, 30]);
   });
 
   it('leaves the history and active series of a side with no anchors empty', () => {
     const series = computeAnchoredVwapSeries(barsFromCloses(CLOSES), PARAMS);
     for (const kind of ['history-a', 'history-b', 'active']) {
-      expect(byKey(series, `large-low-${kind}`).data).toEqual([]);
+      expect(byKey(series, `line2-low-${kind}`).data).toEqual([]);
     }
   });
 
@@ -157,10 +172,90 @@ describe('computeAnchoredVwapSeries — fixed slots', () => {
     const segments = computeAnchoredVwap(bars, { ...PARAMS, historyStart: undefined });
     const series = computeAnchoredVwapSeries(bars, PARAMS);
     const seg = (scale: string, side: string, pivotBar: number): AnchoredVwapSegment =>
-      segments.find((s) => s.scale === scale && s.side === side && s.pivotBar === pivotBar)!;
-    expect(chunks(byKey(series, 'small-high-history-a'))[0]).toEqual(seg('small', 'high', 5).points);
-    expect(chunks(byKey(series, 'small-high-history-b'))[0]).toEqual(seg('small', 'high', 15).points);
-    expect(byKey(series, 'small-high-active').data).toEqual(seg('small', 'high', 25).points);
+      segments.find((s) => s.set === scale && s.side === side && s.pivotBar === pivotBar)!;
+    expect(chunks(byKey(series, 'line1-high-history-a'))[0]).toEqual(seg('line1', 'high', 5).points);
+    expect(chunks(byKey(series, 'line1-high-history-b'))[0]).toEqual(seg('line1', 'high', 15).points);
+    expect(byKey(series, 'line1-high-active').data).toEqual(seg('line1', 'high', 25).points);
+  });
+});
+
+// =============================================================================
+// ZigZag legs
+// =============================================================================
+
+describe('computeAnchoredVwapSeries — zigzag legs', () => {
+  const bars = barsFromCloses(CLOSES);
+  const series = computeAnchoredVwapSeries(bars, PARAMS);
+
+  it('renders the confirmed chain as a MultiColoredLine over the surviving anchor vertices, in pivot order', () => {
+    const chain = byKey(series, 'line1-zigzag');
+    expect(chain.type).toBe('MultiColoredLine');
+    expect(chain.dashArray).toBe('');
+    expect(chain.pointColorMapping).toBe('color');
+    // Vertices are the anchor pivots in order: high@5, low@10, high@15, low@20, high@25.
+    expect(chain.data.map((p) => [p.index, p.y])).toEqual([[5, 121], [10, 99], [15, 131], [20, 109], [25, 141]]);
+    // A segment takes the color of its start vertex = the leg's destination
+    // side: legs into lows are the low hue, legs into highs the high hue.
+    expect(chain.data.map((p) => p.color)).toEqual(['#8CF5FF', '#FF8CFF', '#8CF5FF', '#FF8CFF', '#FF8CFF']);
+  });
+
+  it('drops superseded anchors — the line-2 chain marks only the surviving high', () => {
+    // Line 2's three high events (5, 15, 25) are two replacements — only the
+    // survivor is a vertex, so no same-side legs are drawn.
+    const chain = byKey(series, 'line2-zigzag');
+    expect(chain.data).toEqual([{ index: 25, y: 141, color: '#FF00E6' }]);
+  });
+
+  it('marks a lone anchor on the chain even when no legs connect', () => {
+    // One climb then a monotone decline: high@4 is the only anchor — the chain
+    // still carries its vertex (painted with its own side's hue).
+    const solo = barsFromCloses([100, 105, 110, 115, 120, 115, 110, 105, 100, 95, 90, 85, 80, 75, 70]);
+    const chain = byKey(computeAnchoredVwapSeries(solo, PARAMS), 'line1-zigzag');
+    expect(chain.data).toEqual([{ index: 4, y: 121, color: '#FF8CFF' }]);
+  });
+
+  it('renders the developing leg dashed, from the last anchor to the running extreme', () => {
+    const dev = byKey(series, 'line1-developing');
+    expect(dev.type).toBe('Line');
+    expect(dev.dashArray).toBe('5,3');
+    expect(dev.data).toEqual([
+      { index: 25, y: 141 },
+      { index: 30, y: 119 },
+    ]);
+    // Destination is a low extreme → the line-1 low hue.
+    expect(dev.color).toBe('#8CF5FF');
+  });
+
+  it('leaves a set’s developing series empty when no projection pivot exists', () => {
+    // Line 2 at 25%: the drop after high@25 (~15.6%) never reaches the threshold.
+    expect(byKey(series, 'line2-developing').data).toEqual([]);
+  });
+
+  it('every active segment’s anchor is a chain vertex; superseded anchors are not', () => {
+    const { segments, legs } = computeAnchoredVwapResult(bars, PARAMS);
+    for (const scale of SCALES) {
+      const chain = byKey(series, `${scale}-zigzag`);
+      const legSet = legs.find((l) => l.set === scale)!;
+      // The chain carries exactly the engine's surviving-anchor vertices.
+      expect(chain.data.map((p) => [p.index, p.y])).toEqual(legSet.vertices.map((v) => [v.index, v.y]));
+      // The active anchor always survives; superseded anchors keep their
+      // (terminated) segments but no vertex.
+      const vertices = new Set(chain.data.map((p) => p.index));
+      for (const s of segments.filter((x) => x.set === scale && x.active)) {
+        expect(vertices.has(s.pivotBar)).toBe(true);
+      }
+    }
+  });
+
+  it.each([false, 'false'])('showZigZag: %s empties both leg series but keeps all 16 keys', (v) => {
+    const off = computeAnchoredVwapSeries(bars, { ...PARAMS, showZigZag: v });
+    expect(off.map((s) => s.key)).toEqual(EXPECTED_KEYS);
+    for (const scale of SCALES) {
+      expect(byKey(off, `${scale}-zigzag`).data).toEqual([]);
+      expect(byKey(off, `${scale}-developing`).data).toEqual([]);
+    }
+    // The VWAP slots are untouched.
+    expect(byKey(off, 'line1-high-active').data).toEqual(byKey(series, 'line1-high-active').data);
   });
 });
 
@@ -180,25 +275,28 @@ describe('computeAnchoredVwapSeries — historyStart', () => {
   it('windows history to anchors on or after the ISO date — the boundary date is inclusive', () => {
     const series = computeAnchoredVwapSeries(bars, { ...PARAMS, historyStart: '2026-01-16' });
     const oracle = computeAnchoredVwap(bars, { ...PARAMS, historyStart: '2026-01-16' });
-    // small-high: pivot@5 dropped, pivot@15 kept (now first → history-a); pivot@25 stays active.
-    expect(chunks(byKey(series, 'small-high-history-a'))[0]).toEqual(
-      oracle.find((s) => s.scale === 'small' && s.side === 'high' && s.pivotBar === 15)!.points,
+    // line1-high: pivot@5 dropped, pivot@15 kept (now first → history-a); pivot@25 stays active.
+    expect(chunks(byKey(series, 'line1-high-history-a'))[0]).toEqual(
+      oracle.find((s) => s.set === 'line1' && s.side === 'high' && s.pivotBar === 15)!.points,
     );
-    expect(byKey(series, 'small-high-history-b').data).toEqual([]);
-    // small-low: its only terminated anchor is pivot@10 (Jan 11) — dropped; pivot@20 stays active.
-    expect(byKey(series, 'small-low-history-a').data).toEqual([]);
-    expect(byKey(series, 'small-low-history-b').data).toEqual([]);
-    expect(byKey(series, 'small-low-active').data.length).toBeGreaterThan(0);
+    expect(byKey(series, 'line1-high-history-b').data).toEqual([]);
+    // line1-low: its only terminated anchor is pivot@10 (Jan 11) — dropped; pivot@20 stays active.
+    expect(byKey(series, 'line1-low-history-a').data).toEqual([]);
+    expect(byKey(series, 'line1-low-history-b').data).toEqual([]);
+    expect(byKey(series, 'line1-low-active').data.length).toBeGreaterThan(0);
+    // The window filters history lines only — the legs are structural and stay.
+    expect(byKey(series, 'line1-zigzag').data.length).toBeGreaterThan(0);
   });
 
-  it('a historyStart after the last anchor empties every history series; the active lines remain', () => {
+  it('a historyStart after the last anchor empties every history series; the active lines and legs remain', () => {
     const series = computeAnchoredVwapSeries(bars, { ...PARAMS, historyStart: '2026-01-27' });
     for (const s of series) {
-      if (s.key.endsWith('-active')) continue;
+      if (!s.key.includes('history')) continue;
       expect(s.data).toEqual([]);
     }
-    expect(byKey(series, 'small-high-active').data.length).toBeGreaterThan(0);
-    expect(byKey(series, 'small-low-active').data.length).toBeGreaterThan(0);
+    expect(byKey(series, 'line1-high-active').data.length).toBeGreaterThan(0);
+    expect(byKey(series, 'line1-low-active').data.length).toBeGreaterThan(0);
+    expect(byKey(series, 'line1-zigzag').data.length).toBeGreaterThan(0);
   });
 
   it('a historyStart before every anchor is equivalent to unset', () => {
@@ -229,7 +327,8 @@ describe('computeAnchoredVwapSeries — packing on varied series', () => {
       });
 
       it('separates packed segments with exactly one null break, never leading or trailing', () => {
-        for (const s of series) {
+        // The leg series are chains, not packed segments — they carry no nulls.
+        for (const s of series.filter((x) => !x.key.endsWith('-zigzag') && !x.key.endsWith('-developing'))) {
           const ys = s.data.map((p) => p.y);
           if (ys.length === 0) continue;
           expect(ys[0]).not.toBeNull();
@@ -239,9 +338,9 @@ describe('computeAnchoredVwapSeries — packing on varied series', () => {
       });
 
       it('packs the terminated segments of each slot alternately into history-a and history-b, and the live one into active', () => {
-        for (const scale of ['small', 'large'] as const) {
+        for (const scale of SCALES) {
           for (const side of ['high', 'low'] as const) {
-            const slot = segments.filter((s) => s.scale === scale && s.side === side).sort((a, b) => a.startBar - b.startBar);
+            const slot = segments.filter((s) => s.set === scale && s.side === side).sort((a, b) => a.startBar - b.startBar);
             const terminated = slot.filter((s) => !s.active);
             const a = chunks(byKey(series, `${scale}-${side}-history-a`));
             const b = chunks(byKey(series, `${scale}-${side}-history-b`));
@@ -252,13 +351,27 @@ describe('computeAnchoredVwapSeries — packing on varied series', () => {
           }
         }
       });
+
+      it('every vertex is a real anchor and every active anchor is a vertex — superseded anchors are unmarked', () => {
+        const { legs } = computeAnchoredVwapResult(bars, config);
+        for (const scale of SCALES) {
+          const legSet = legs.find((l) => l.set === scale)!;
+          const anchorBars = new Set(segments.filter((x) => x.set === scale).map((s) => s.pivotBar));
+          for (const v of legSet.vertices) expect(anchorBars.has(v.index)).toBe(true);
+          // The active anchor always survives; a terminated anchor may have
+          // been superseded — its segment stays, its vertex is dropped.
+          for (const s of segments.filter((x) => x.set === scale && x.active)) {
+            expect(legSet.vertices.some((v) => v.index === s.pivotBar)).toBe(true);
+          }
+        }
+      });
     });
   }
 
-  it('honours maxHistory per scale across both sides', () => {
+  it('honours maxHistory per set across both sides', () => {
     const bars = makeWalk(1, 320);
     const series = computeAnchoredVwapSeries(bars, { ...PARAMS, maxHistory: 3 });
-    for (const scale of ['small', 'large']) {
+    for (const scale of SCALES) {
       const total = series
         .filter((s) => s.key.startsWith(scale) && s.key.includes('history'))
         .reduce((n, s) => n + chunks(s).length, 0);
@@ -275,13 +388,13 @@ describe('computeAnchoredVwapSeries — packing on varied series', () => {
 describe('computeAnchoredVwapSeries — styling', () => {
   const series = computeAnchoredVwapSeries(barsFromCloses(CLOSES), PARAMS);
 
-  it('draws the large scale thicker than the small scale', () => {
-    expect(byKey(series, 'large-high-active').width).toBeGreaterThan(byKey(series, 'small-high-active').width);
-    expect(byKey(series, 'large-low-active').width).toBeGreaterThan(byKey(series, 'small-low-active').width);
+  it('draws line 2 thicker than line 1', () => {
+    expect(byKey(series, 'line2-high-active').width).toBeGreaterThan(byKey(series, 'line1-high-active').width);
+    expect(byKey(series, 'line2-low-active').width).toBeGreaterThan(byKey(series, 'line1-low-active').width);
   });
 
   it('keeps the width and colour of history identical to the active line — no fading', () => {
-    for (const slot of ['small-high', 'small-low', 'large-high', 'large-low']) {
+    for (const slot of ['line1-high', 'line1-low', 'line2-high', 'line2-low']) {
       const active = byKey(series, `${slot}-active`);
       for (const kind of ['history-a', 'history-b']) {
         const h = byKey(series, `${slot}-${kind}`);
@@ -293,23 +406,25 @@ describe('computeAnchoredVwapSeries — styling', () => {
   });
 
   it('uses the default colours, hue encoding the side', () => {
-    expect(byKey(series, 'small-high-active').color).toBe('#FF8CFF');
-    expect(byKey(series, 'small-low-active').color).toBe('#8CF5FF');
-    expect(byKey(series, 'large-high-active').color).toBe('#FF00E6');
-    expect(byKey(series, 'large-low-active').color).toBe('#00E5FF');
+    expect(byKey(series, 'line1-high-active').color).toBe('#FF8CFF');
+    expect(byKey(series, 'line1-low-active').color).toBe('#8CF5FF');
+    expect(byKey(series, 'line2-high-active').color).toBe('#FF00E6');
+    expect(byKey(series, 'line2-low-active').color).toBe('#00E5FF');
   });
 
   it('applies colour params', () => {
-    const custom = computeAnchoredVwapSeries(barsFromCloses(CLOSES), { ...PARAMS, smallHighColor: '#123456' });
-    expect(byKey(custom, 'small-high-active').color).toBe('#123456');
-    expect(byKey(custom, 'small-low-active').color).toBe('#8CF5FF');
+    const custom = computeAnchoredVwapSeries(barsFromCloses(CLOSES), { ...PARAMS, line1HighColor: '#123456' });
+    expect(byKey(custom, 'line1-high-active').color).toBe('#123456');
+    expect(byKey(custom, 'line1-low-active').color).toBe('#8CF5FF');
   });
 
-  it('names lines by side and retracement percentage', () => {
-    expect(byKey(series, 'small-high-active').name).toBe('AVWAP-H 5%');
-    expect(byKey(series, 'small-low-active').name).toBe('AVWAP-L 5%');
-    expect(byKey(series, 'large-high-active').name).toBe('AVWAP-H 25%');
-    expect(byKey(series, 'large-low-active').name).toBe('AVWAP-L 25%');
+  it('names lines by set, side and retracement percentage', () => {
+    expect(byKey(series, 'line1-high-active').name).toBe('AVWAP-1H 5%');
+    expect(byKey(series, 'line1-low-active').name).toBe('AVWAP-1L 5%');
+    expect(byKey(series, 'line2-high-active').name).toBe('AVWAP-2H 25%');
+    expect(byKey(series, 'line2-low-active').name).toBe('AVWAP-2L 25%');
+    expect(byKey(series, 'line1-zigzag').name).toBe('ZZ 5%');
+    expect(byKey(series, 'line2-zigzag').name).toBe('ZZ 25%');
   });
 });
 
@@ -317,27 +432,32 @@ describe('computeAnchoredVwapSeries — params', () => {
   it('uses the declared defaults when no params are supplied', () => {
     const series = computeAnchoredVwapSeries(makeWalk(2, 300), {});
     expect(series.map((s) => s.key)).toEqual(EXPECTED_KEYS);
-    expect(byKey(series, 'small-high-active').name).toBe('AVWAP-H 2%');
-    expect(byKey(series, 'large-high-active').name).toBe('AVWAP-H 5%');
+    expect(byKey(series, 'line1-high-active').name).toBe('AVWAP-1H 2%');
+    expect(byKey(series, 'line2-high-active').name).toBe('AVWAP-2H 5%');
   });
 
   it('falls back to defaults for non-numeric params and clamps out-of-range ones', () => {
     const series = computeAnchoredVwapSeries(makeWalk(2, 300), {
-      smallRetracementPct: 'abc',
-      largeRetracementPct: Number.NaN,
+      line1RetracementPct: 'abc',
+      line2RetracementPct: Number.NaN,
       leftDepth: 0,
       rightDepth: -3,
       maxHistory: -5,
     });
     expect(series.map((s) => s.key)).toEqual(EXPECTED_KEYS);
-    expect(byKey(series, 'small-high-active').name).toBe('AVWAP-H 2%');
+    expect(byKey(series, 'line1-high-active').name).toBe('AVWAP-1H 2%');
     // maxHistory clamps to 0: no history anywhere, active lines still draw.
     expect(series.filter((s) => s.key.includes('history')).every((s) => s.data.length === 0)).toBe(true);
     expect(series.some((s) => s.key.endsWith('active') && s.data.length > 0)).toBe(true);
   });
 
   it('ignores non-string colour params', () => {
-    const series = computeAnchoredVwapSeries(barsFromCloses(CLOSES), { ...PARAMS, smallHighColor: 7 });
-    expect(byKey(series, 'small-high-active').color).toBe('#FF8CFF');
+    const series = computeAnchoredVwapSeries(barsFromCloses(CLOSES), { ...PARAMS, line1HighColor: 7 });
+    expect(byKey(series, 'line1-high-active').color).toBe('#FF8CFF');
+  });
+
+  it('shows the legs by default when the param is absent', () => {
+    const series = computeAnchoredVwapSeries(barsFromCloses(CLOSES), { ...PARAMS });
+    expect(byKey(series, 'line1-zigzag').data.length).toBeGreaterThan(0);
   });
 });
