@@ -23,7 +23,7 @@
  */
 
 import type { PriceBar } from '../flex-chart.types';
-import type { AnchorEvent, ZigZagConfig, Pivot, ZigZagResult } from './st-zigzag.types';
+import type { AnchorEvent, ZigZagConfig, Pivot, ZigZagResult, ZigZagAnchorResult } from './st-zigzag.types';
 import { DEFAULT_CONFIG } from './st-zigzag.types';
 import { isFiniteNum, calcDev } from './st-zigzag.utils';
 
@@ -279,6 +279,16 @@ function makeProjectionPivot(
 // MAIN COMPUTATION
 // =============================================================================
 
+/** The developing pivot after `lastPivot`, when `config.projectionPivots` is set. */
+function projectionFor(bars: PriceBar[], lastPivot: Pivot | null, config: ZigZagConfig): Pivot | undefined {
+  if (!config.projectionPivots || !lastPivot) return undefined;
+  return findProjectionPivot(
+    bars, lastPivot,
+    Math.max(2, config.leftDepth), Math.max(2, config.rightDepth),
+    config.devThreshold,
+  );
+}
+
 /**
  * Compute ZigZag pivots from a bar array.
  *
@@ -297,32 +307,43 @@ export function computeZigZagPivots(
   bars: PriceBar[],
   config: ZigZagConfig = DEFAULT_CONFIG,
 ): ZigZagResult {
-  const leftDepth = Math.max(2, config.leftDepth);
-  const rightDepth = Math.max(2, config.rightDepth);
-
   if (bars.length === 0) {
     return { pivots: [] };
   }
 
   const { pivots, lastPivot } = walkPivots(bars, config);
+  return { pivots, projection: projectionFor(bars, lastPivot, config) };
+}
 
-  // Projection: find the developing pivot after the last confirmed pivot
-  let projection: Pivot | undefined;
-  if (config.projectionPivots && lastPivot) {
-    projection = findProjectionPivot(bars, lastPivot, leftDepth, rightDepth, config.devThreshold);
-  }
-
-  return { pivots, projection };
+/**
+ * Compute every anchor the ZigZag walk produces, in walk order — new pivots
+ * and same-side replacements alike — each with the bar on which it became
+ * knowable (`confirmBar = pivotBar + rightDepth`). When
+ * `config.projectionPivots` is set, the same walk also yields the developing
+ * (projected) pivot — one pass feeds both the anchor stream and the
+ * provisional leg.
+ *
+ * Runs the same walk as `computeZigZagPivots`, so the two can never disagree.
+ * The surviving pivots are what is left after each `replaced` event removes
+ * its predecessor. Projected pivots never produce events.
+ *
+ * @param bars - OHLCV bars
+ * @param config - ZigZag configuration
+ * @returns Anchor events in walk order (non-decreasing `confirmBar`) + projection
+ */
+export function computeZigZagAnchorResult(
+  bars: PriceBar[],
+  config: ZigZagConfig = DEFAULT_CONFIG,
+): ZigZagAnchorResult {
+  const events: AnchorEvent[] = [];
+  const { lastPivot } = walkPivots(bars, config, (event) => events.push(event));
+  return { events, projection: projectionFor(bars, lastPivot, config) };
 }
 
 /**
  * Compute every anchor the ZigZag walk produces, in walk order — new pivots
  * and same-side replacements alike — each with the bar on which it became
  * knowable (`confirmBar = pivotBar + rightDepth`).
- *
- * Runs the same walk as `computeZigZagPivots`, so the two can never disagree.
- * The surviving pivots are what is left after each `replaced` event removes
- * its predecessor. Projected pivots never produce events.
  *
  * @param bars - OHLCV bars
  * @param config - ZigZag configuration
@@ -332,9 +353,8 @@ export function computeZigZagAnchorEvents(
   bars: PriceBar[],
   config: ZigZagConfig = DEFAULT_CONFIG,
 ): AnchorEvent[] {
-  const events: AnchorEvent[] = [];
-  walkPivots(bars, config, (event) => events.push(event));
-  return events;
+  // Skip the projection scan — events don't depend on `projectionPivots`.
+  return computeZigZagAnchorResult(bars, { ...config, projectionPivots: false }).events;
 }
 
 // =============================================================================

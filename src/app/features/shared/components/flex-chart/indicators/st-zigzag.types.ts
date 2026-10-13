@@ -67,6 +67,14 @@ export interface ZigZagResult {
   projection?: Pivot;
 }
 
+/** Result of computeZigZagAnchorResult — one walk feeding both consumers. */
+export interface ZigZagAnchorResult {
+  /** Every anchor the walk registered, in walk order (replaced anchors kept). */
+  events: AnchorEvent[];
+  /** The current projected (unconfirmed) pivot, if requested and found. */
+  projection?: Pivot;
+}
+
 /** A swing segment between two consecutive pivots. */
 export interface Swing {
   direction: 'up' | 'down';

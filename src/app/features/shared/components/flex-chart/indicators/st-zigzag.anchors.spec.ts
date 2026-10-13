@@ -1,5 +1,5 @@
 import * as engine from './st-zigzag.engine';
-import { computeZigZagAnchorEvents, computeZigZagPivots } from './st-zigzag.pivots';
+import { computeZigZagAnchorEvents, computeZigZagAnchorResult, computeZigZagPivots } from './st-zigzag.pivots';
 import type { AnchorEvent, ZigZagConfig } from './st-zigzag.types';
 import type { PriceBar } from '../flex-chart.types';
 
@@ -226,6 +226,18 @@ describe('computeZigZagAnchorEvents', () => {
     const off = computeZigZagAnchorEvents(bars, { ...config, projectionPivots: false });
     const on = computeZigZagAnchorEvents(bars, { ...config, projectionPivots: true });
     expect(on).toEqual(off);
+  });
+
+  it('computeZigZagAnchorResult matches both single-purpose wrappers, from one walk', () => {
+    const bars = makeWalk(3, 400);
+    const config = { ...TEST_CONFIG, devThreshold: 2, leftDepth: 2, rightDepth: 4, projectionPivots: true };
+    const { events, projection } = computeZigZagAnchorResult(bars, config);
+    expect(events).toEqual(computeZigZagAnchorEvents(bars, config));
+    expect(projection).toEqual(computeZigZagPivots(bars, config).projection);
+  });
+
+  it('computeZigZagAnchorResult is exported from the engine barrel', () => {
+    expect(engine.computeZigZagAnchorResult).toBe(computeZigZagAnchorResult);
   });
 
   describe('invariants on varied series', () => {
