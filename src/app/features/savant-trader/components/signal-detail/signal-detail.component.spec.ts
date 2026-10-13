@@ -13,6 +13,21 @@ import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { UiStateService, ChartLayout } from '../../../../core/services/ui-state.service';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
+import { StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
+import {
+  ST_TRIGGER_BANDS_DOTS_INDICATOR,
+  ST_TRIGGER_BANDS_INDICATOR,
+} from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
+import {
+  TRIGGER_BANDS_CHART_INDICATORS,
+  TRIGGER_BANDS_CHART_INTERVALS,
+  TRIGGER_BANDS_CHART_STRATEGIES,
+} from '../../stores/chart.store';
+import {
+  IndicatorFamily,
+  type SymbolIndicatorSeriesResponse,
+} from '../../common/indicator.types';
+import { TRIGGER_BANDS_SIGNAL_TYPES } from '@flex-chart/indicator-visuals';
 
 const bar = { x: new Date(), open: 1, high: 1, low: 1, close: 1, volume: 1 };
 
@@ -167,5 +182,178 @@ describe('SignalDetailComponent — log scale toggle', () => {
     toolbar().logScaleToggle.emit();
     fixture.detectChanges();
     expect(chartConfigs().map((c) => c.logScale)).toEqual([false]);
+  });
+});
+
+// =============================================================================
+// Trigger Bands prod promotion — Task #932
+// The bands and dots are opt-in menu entries; enabling either fires the lean
+// TRIGGER_BANDS callable under its own IndicatorSeriesStore cache key (the
+// default response is never refetched or invalidated). Daily + weekly only —
+// monthly never carries the series.
+// =============================================================================
+
+const tbPoint = (d: string) => ({
+  d,
+  upper: 110,
+  lower: 90,
+  longPullback: false,
+  longPullbackState: false,
+  longBreakout: false,
+  shortPullback: false,
+  shortPullbackState: false,
+  shortBreakout: false,
+});
+
+const tbDot = (d: string) => ({
+  d,
+  index: 0,
+  direction: 'long' as const,
+  y: 88,
+  version: 'TB' as const,
+  signalType: TRIGGER_BANDS_SIGNAL_TYPES.LONG_PULLBACK,
+});
+
+const TB_RESPONSE: SymbolIndicatorSeriesResponse = {
+  symbol: 'QQQ',
+  marketDate: '2026-01-10',
+  computedAt: '2026-01-10T00:00:00Z',
+  intervals: {
+    daily: {
+      indicators: { triggerBands: [tbPoint('2026-01-02'), tbPoint('2026-01-05')] },
+      signals: {},
+      dotMarkers: { triggerBands: [tbDot('2026-01-05')] },
+    },
+    weekly: {
+      indicators: { triggerBands: [tbPoint('2026-01-05')] },
+      signals: {},
+      dotMarkers: { triggerBands: [tbDot('2026-01-05')] },
+    },
+  },
+};
+
+describe('SignalDetailComponent — Trigger Bands promotion (#932)', () => {
+  let fixture: ComponentFixture<SignalDetailComponent>;
+  let component: SignalDetailComponent;
+  let loadIfNeeded: jest.Mock;
+
+  const mockChartStore = {
+    symbolDataVersion: signal('v1'),
+    dailyData: signal({ bars: [bar] }),
+    weeklyData: signal({ bars: [bar] }),
+    monthlyData: signal({ bars: [bar] }),
+    loading: signal(false),
+    error: signal(null),
+    clearCharts: jest.fn(),
+    loadCharts: jest.fn(),
+  };
+
+  const mockUiState = {
+    chartLayout: signal(ChartLayout.TRIPLE),
+    fullscreen: signal(false),
+    toggleChartLayout: jest.fn(),
+    toggleFullscreen: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    mockUiState.chartLayout.set(ChartLayout.TRIPLE);
+    loadIfNeeded = jest.fn();
+    // The lean lookup is keyed by the request's indicator families — only the
+    // TRIGGER_BANDS filter set returns the fixture response.
+    const mockIndicatorStore = {
+      loadIfNeeded,
+      responseFor: () => (
+        _symbol: string,
+        _version: string,
+        _intervals: unknown,
+        indicators: IndicatorFamily[] | undefined,
+      ) => (indicators?.includes(IndicatorFamily.TRIGGER_BANDS) ? TB_RESPONSE : undefined),
+    };
+    await TestBed.configureTestingModule({
+      imports: [SignalDetailComponent],
+      providers: [
+        { provide: ChartStore, useValue: mockChartStore },
+        { provide: SymbolHistoryStore, useValue: { loadSignalHistory: jest.fn() } },
+        { provide: IndicatorSeriesStore, useValue: mockIndicatorStore },
+        { provide: UiStateService, useValue: mockUiState },
+      ],
+    })
+      .overrideComponent(SignalDetailComponent, {
+        remove: { imports: [FlexChartComponent, ChartToolbarComponent, SymbolListActionsComponent] },
+        add: { imports: [MockFlexChartComponent, MockChartToolbarComponent, MockSymbolListActionsComponent] },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(SignalDetailComponent);
+    component = fixture.componentRef.instance;
+    fixture.componentRef.setInput('manualSymbol', 'QQQ');
+    fixture.componentRef.setInput('listCatalog', []);
+    fixture.detectChanges();
+  });
+
+  function chartConfigs(): FlexChartConfig[] {
+    return fixture.debugElement
+      .queryAll(By.directive(MockFlexChartComponent))
+      .map((el) => el.componentInstance.config());
+  }
+
+  // Template order in triple mode: weekly, monthly, daily.
+  const weeklyConfig = () => chartConfigs()[0];
+  const monthlyConfig = () => chartConfigs()[1];
+  const dailyConfig = () => chartConfigs()[2];
+
+  it('offers the bands and dots options in the D/W-scoped menu, unchecked by default', () => {
+    const optionIds = component.activeChartIndicatorOptions().map((o) => o.id);
+    expect(optionIds).toContain(ST_TRIGGER_BANDS_INDICATOR.id);
+    expect(optionIds).toContain(ST_TRIGGER_BANDS_DOTS_INDICATOR.id);
+    // Opt-in: not enabled until the user picks them — the lean request must
+    // not fire before then.
+    expect(component.activeSelectedIndicatorIds().has(ST_TRIGGER_BANDS_INDICATOR.id)).toBe(false);
+    expect(component.activeSelectedIndicatorIds().has(ST_TRIGGER_BANDS_DOTS_INDICATOR.id)).toBe(false);
+    expect(loadIfNeeded).not.toHaveBeenCalled();
+  });
+
+  it('fires the lean callable under its own filter args when the bands option is enabled', () => {
+    component.onToggleIndicator([ST_TRIGGER_BANDS_INDICATOR.id]);
+    fixture.detectChanges();
+    expect(loadIfNeeded).toHaveBeenCalledWith(
+      'QQQ',
+      'v1',
+      TRIGGER_BANDS_CHART_INTERVALS,
+      TRIGGER_BANDS_CHART_INDICATORS,
+      TRIGGER_BANDS_CHART_STRATEGIES,
+    );
+  });
+
+  it('injects band data onto daily and weekly configs; monthly carries no TB config', () => {
+    component.onToggleIndicator([ST_TRIGGER_BANDS_INDICATOR.id]);
+    fixture.detectChanges();
+
+    const dailyTb = dailyConfig().indicators.find((i) => i.type === StIndicator.ST_TRIGGER_BANDS);
+    expect(dailyTb?.triggerBandData).toHaveLength(2);
+    const weeklyTb = weeklyConfig().indicators.find((i) => i.type === StIndicator.ST_TRIGGER_BANDS);
+    expect(weeklyTb?.triggerBandData).toHaveLength(1);
+    expect(monthlyConfig().indicators.some((i) => i.type === StIndicator.ST_TRIGGER_BANDS)).toBe(false);
+  });
+
+  it('attaches dot markers only when the dots option is enabled — bands not required', () => {
+    component.onToggleIndicator([ST_TRIGGER_BANDS_DOTS_INDICATOR.id]);
+    fixture.detectChanges();
+
+    // Dots alone still fire the lean request (they ride the same response).
+    expect(loadIfNeeded).toHaveBeenCalled();
+    const daily = dailyConfig();
+    expect(daily.indicators.some((i) => i.type === StIndicator.ST_TRIGGER_BANDS)).toBe(false);
+    const dots = daily.indicators.find((i) => i.type === StIndicator.ST_TRIGGER_BANDS_DOTS);
+    expect(dots?.data).toHaveLength(1);
+  });
+
+  it('hides both TB options when only monthly is in scope', () => {
+    mockUiState.chartLayout.set(ChartLayout.SINGLE);
+    component.onIntervalChange(BarsInterval.MONTHLY);
+    fixture.detectChanges();
+    const optionIds = component.activeChartIndicatorOptions().map((o) => o.id);
+    expect(optionIds).not.toContain(ST_TRIGGER_BANDS_INDICATOR.id);
+    expect(optionIds).not.toContain(ST_TRIGGER_BANDS_DOTS_INDICATOR.id);
   });
 });

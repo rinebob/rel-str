@@ -33,6 +33,10 @@ import type { FlexChartConfig, IndicatorConfig, IndicatorOption, PriceBar } from
 import { ChartIntervalKey, StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
+import {
+  ST_TRIGGER_BANDS_DOTS_INDICATOR,
+  ST_TRIGGER_BANDS_INDICATOR,
+} from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
 import { ChartToolbarComponent } from '../chart-toolbar/chart-toolbar.component';
 import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
 import {
@@ -45,17 +49,24 @@ import {
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
   injectCallableIndicatorData,
+  injectTriggerBandsData,
+  convertTriggerBandsDotMarkers,
+  bindTriggerBandsRequest,
 } from '../../utils/chart-indicators';
 import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
-import type { SymbolIndicatorSeriesResponse } from '../../common/indicator.types';
+import type { IntervalData, SymbolIndicatorSeriesResponse } from '../../common/indicator.types';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
 
-/** Savant Trader indicator menu options: shared ST base + Savant Trader-specific HTF zone windows. */
+/** Savant Trader indicator menu options: shared ST base (includes Trigger Bands
+ *  bands since #932) + Savant Trader-specific HTF zone windows + the Trigger
+ *  Bands dots — a separate opt-in entry so the pullback warning can be toggled
+ *  independently of the bands. */
 const ST_EXTRA_INDICATOR_OPTIONS: IndicatorOption[] = [
   ...ST_INDICATOR_OPTIONS,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
+  ST_TRIGGER_BANDS_DOTS_INDICATOR,
 ];
 
 /** Approximate trading-bar counts used by {@link SignalDetailComponent.rangeBarsFor}. */
@@ -92,17 +103,37 @@ export class SignalDetailComponent {
       ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id,
       ST_ZONE_WINDOW_WEEKLY_INDICATOR.id,
       StIndicator.ST_STD_DEV_LINES,
+      ST_TRIGGER_BANDS_INDICATOR.id, ST_TRIGGER_BANDS_DOTS_INDICATOR.id,
     ],
     [ChartIntervalKey.WEEKLY]: [
       StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
       ST_SIGNAL_DOTS_INDICATOR.id, ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id,
       ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id,
       ST_ZONE_WINDOW_MONTHLY_INDICATOR.id,
+      ST_TRIGGER_BANDS_INDICATOR.id, ST_TRIGGER_BANDS_DOTS_INDICATOR.id,
     ],
     [ChartIntervalKey.MONTHLY]: [
       StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
     ],
   };
+
+  /** Allowlisted ids that start UNCHECKED — enabling them triggers the opt-in
+   *  Trigger Bands callable request, so they must not fire on first paint.
+   *  Trigger Bands carries no monthly data (lean request is D/W only), which
+   *  is also why monthly excludes it above. */
+  private static readonly OPT_IN_INDICATOR_IDS = new Set<string>([
+    ST_TRIGGER_BANDS_INDICATOR.id,
+    ST_TRIGGER_BANDS_DOTS_INDICATOR.id,
+  ]);
+
+  /** Default-on selection for an interval: the allowlist minus opt-in ids. */
+  private static defaultSelection(key: ChartIntervalKey): Set<string> {
+    return new Set(
+      SignalDetailComponent.INDICATORS_BY_INTERVAL[key].filter(
+        (id) => !SignalDetailComponent.OPT_IN_INDICATOR_IDS.has(id),
+      ),
+    );
+  }
 
   /** Maps a `BarsInterval` to its corresponding `ChartIntervalKey` enum value.
    *  Used wherever the two enums must be bridged (config building, INDICATORS_BY_INTERVAL lookup).
@@ -148,6 +179,7 @@ export class SignalDetailComponent {
     ids: Set<string>,
     response: SymbolIndicatorSeriesResponse | undefined,
     bars: PriceBar[] | undefined,
+    triggerBandsIntervalData?: IntervalData,
   ): IndicatorConfig[] {
     const base = buildBaseIndicators(key).filter(cfg => ids.has(cfg.type));
     // Add configs for selected non-default indicators (e.g. STD_DEV_LINES)
@@ -157,8 +189,12 @@ export class SignalDetailComponent {
       .map(id => buildConfigForId(id))
       .filter((cfg): cfg is IndicatorConfig => cfg !== undefined);
     const all = [...base, ...extras];
-    if (!response || !bars || bars.length === 0) return all;
-    return injectCallableIndicatorData(all, response.intervals[key], bars, `signal-detail:${key}`);
+    const injected = !response || !bars || bars.length === 0
+      ? all
+      : injectCallableIndicatorData(all, response.intervals[key], bars, `signal-detail:${key}`);
+    // Trigger Bands arrive on a separate opt-in response — its own injector so
+    // the default path neither blanks nor is invalidated by it.
+    return injectTriggerBandsData(injected, triggerBandsIntervalData, bars, `signal-detail:${key}`);
   }
 
   /** Pure function: assembles a `FlexChartConfig` for one chart in triple mode.
@@ -330,9 +366,9 @@ export class SignalDetailComponent {
    *  signal write triggers one reactive propagation through the indicator computed chain.
    */
   private selectedIdsByInterval = signal<Record<ChartIntervalKey, Set<string>>>({
-    [ChartIntervalKey.DAILY]:   new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL[ChartIntervalKey.DAILY]),
-    [ChartIntervalKey.WEEKLY]:  new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL[ChartIntervalKey.WEEKLY]),
-    [ChartIntervalKey.MONTHLY]: new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL[ChartIntervalKey.MONTHLY]),
+    [ChartIntervalKey.DAILY]:   SignalDetailComponent.defaultSelection(ChartIntervalKey.DAILY),
+    [ChartIntervalKey.WEEKLY]:  SignalDetailComponent.defaultSelection(ChartIntervalKey.WEEKLY),
+    [ChartIntervalKey.MONTHLY]: SignalDetailComponent.defaultSelection(ChartIntervalKey.MONTHLY),
   });
 
   /** The interval keys currently in scope for indicator menu actions.
@@ -399,6 +435,32 @@ export class SignalDetailComponent {
   /** Weekly interval slice of the callable response — fed into `createExtrasSignals`. */
   private weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
 
+  /** True while a Trigger Bands option (bands or dots) is enabled on a
+   *  supported (D/W) interval that is also in scope — the opt-in gate for the
+   *  lean request. A monthly-only view doesn't fetch D/W data it won't draw. */
+  private readonly triggerBandsSelected = computed(() => {
+    const sel = this.selectedIdsByInterval();
+    const scope = new Set(this.indicatorScope());
+    return [ChartIntervalKey.DAILY, ChartIntervalKey.WEEKLY].some(
+      (k) =>
+        scope.has(k) &&
+        (sel[k].has(ST_TRIGGER_BANDS_INDICATOR.id) || sel[k].has(ST_TRIGGER_BANDS_DOTS_INDICATOR.id)),
+    );
+  });
+
+  /** Opt-in Trigger Bands response — a separate, lean callable result cached
+   *  under its own IndicatorSeriesStore key; the default response is never
+   *  refetched or invalidated. The binding also owns the request effect. */
+  private readonly triggerBandsResponse = bindTriggerBandsRequest({
+    enabled: this.triggerBandsSelected,
+    symbol: this.manualSymbol,
+    version: this.chartStore.symbolDataVersion,
+    store: this.indicatorStore,
+  });
+
+  private readonly tbDailyIntervalData = computed(() => this.triggerBandsResponse()?.intervals?.daily);
+  private readonly tbWeeklyIntervalData = computed(() => this.triggerBandsResponse()?.intervals?.weekly);
+
   /** Derived computed signals for all backend-supplied extras (HTF windows, signal dots,
    *  uptick dots). Centralised here so daily and weekly charts share the same conversions.
    *  Must be declared after `dailyIntervalData` and `weeklyIntervalData`.
@@ -418,6 +480,7 @@ export class SignalDetailComponent {
     const sel = this.selectedIdsByInterval()[ChartIntervalKey.DAILY];
     return addChartExtras(SignalDetailComponent.baseIndicatorsFor(
       ChartIntervalKey.DAILY, sel, this.indicatorResponse(), this.chartData()?.bars,
+      this.tbDailyIntervalData(),
     ), {
       htfWindow: sel.has(ST_ZONE_WINDOW_WEEKLY_INDICATOR.id)
         ? { option: ST_ZONE_WINDOW_WEEKLY_INDICATOR, data: this.extras.windowDataWeeklyOnDaily() }
@@ -425,6 +488,9 @@ export class SignalDetailComponent {
       signalDots: sel.has(ST_SIGNAL_DOTS_INDICATOR.id) ? this.extras.dailySignalDots() : undefined,
       uptickDotsV1: sel.has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.extras.dailyUptickDotsV1() : undefined,
       uptickDotsV2: sel.has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.extras.dailyUptickDotsV2() : undefined,
+      triggerBandsDots: sel.has(ST_TRIGGER_BANDS_DOTS_INDICATOR.id)
+        ? convertTriggerBandsDotMarkers(this.tbDailyIntervalData())
+        : undefined,
     });
   });
 
@@ -435,6 +501,7 @@ export class SignalDetailComponent {
     const sel = this.selectedIdsByInterval()[ChartIntervalKey.WEEKLY];
     return addChartExtras(SignalDetailComponent.baseIndicatorsFor(
       ChartIntervalKey.WEEKLY, sel, this.indicatorResponse(), this.chartDataWeekly()?.bars,
+      this.tbWeeklyIntervalData(),
     ), {
       htfWindow: sel.has(ST_ZONE_WINDOW_MONTHLY_INDICATOR.id)
         ? { option: ST_ZONE_WINDOW_MONTHLY_INDICATOR, data: this.extras.windowDataMonthlyOnWeekly() }
@@ -442,6 +509,9 @@ export class SignalDetailComponent {
       signalDots: sel.has(ST_SIGNAL_DOTS_INDICATOR.id) ? this.extras.weeklySignalDots() : undefined,
       uptickDotsV1: sel.has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.extras.weeklyUptickDotsV1() : undefined,
       uptickDotsV2: sel.has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.extras.weeklyUptickDotsV2() : undefined,
+      triggerBandsDots: sel.has(ST_TRIGGER_BANDS_DOTS_INDICATOR.id)
+        ? convertTriggerBandsDotMarkers(this.tbWeeklyIntervalData())
+        : undefined,
     });
   });
 
