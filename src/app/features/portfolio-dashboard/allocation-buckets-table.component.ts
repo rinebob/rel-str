@@ -188,60 +188,7 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
       }
     </ng-template>
   `,
-  styles: [`
-    /* Row-scroll convention (#779 QA / pd table-wrap): the pane fills the
-       bounded tab body; the toolbar/warn banner stay put while the table's
-       own wrap scrolls the rows under a sticky header. */
-    :host { display: block; height: 100%; }
-    .buckets-pane { display: flex; flex-direction: column; height: 100%; }
-    .warn-banner {
-      padding: 6px 10px; margin: 4px 0; border-radius: 4px; flex-shrink: 0;
-      background: #fff8e1; color: #8d6e00; font-size: 0.8rem; cursor: help;
-    }
-    .table-wrap { flex: 1; min-height: 0; overflow: auto; }
-    /* Dense row-action buttons — 28px icon buttons. */
-    .actions button[mat-icon-button] {
-      --mdc-icon-button-state-layer-size: 28px;
-      width: 28px; height: 28px; padding: 0;
-      --mdc-icon-button-icon-size: 16px;
-    }
-    .alloc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    .alloc-table th {
-      position: sticky; top: 0; z-index: 1;
-      background: var(--mat-sys-surface);
-      text-align: left; font-weight: 500; color: #777; padding: 4px 8px; border-bottom: 1px solid #ddd;
-    }
-    .alloc-table th.num { text-align: right; }
-    .alloc-table td { padding: 4px 8px; border-bottom: 1px solid #eee; }
-    .alloc-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-    .alloc-table .dim { color: #999; }
-    .alloc-table tr[data-kind='cash'] td { background: #fafafa; font-style: italic; }
-    .alloc-table tr[data-kind='unassigned'] td { color: #888; }
-    .neg { color: #c62828; } .pos { color: #2e7d32; }
-    .actions { white-space: nowrap; }
-    .name-link {
-      border: 0; background: none; padding: 0; cursor: pointer;
-      font: inherit; color: inherit; text-decoration: underline;
-      text-decoration-color: #bbb; text-underline-offset: 2px;
-    }
-    .name-link:hover { text-decoration-color: #555; }
-    /* Expando reads as part of the table row, not a nested card — subtle
-       container tint + a hairline outline border, both tokenized. */
-    .expand-row td {
-      background: var(--mat-sys-surface-container-low);
-      border-bottom: 1px solid var(--mat-sys-outline-variant);
-      border-left: 3px solid var(--mat-sys-outline-variant);
-      padding: 8px;
-    }
-    .expand-stats { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.8rem; color: #666; margin-bottom: 8px; }
-    .mini-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    .mini-table th { text-align: left; font-weight: 500; color: #888; padding: 2px 12px 2px 0; }
-    .mini-table th.num { text-align: right; padding-left: 24px; }
-    .mini-table td { padding: 2px 12px 2px 0; border-top: 1px solid #f0f0f0; }
-    .mini-table tfoot td { border-top: 1px solid #ddd; font-weight: 500; padding-top: 4px; }
-    .mini-table td.num { text-align: right; padding-left: 24px; font-variant-numeric: tabular-nums; }
-    .empty-expand { font-size: 0.8rem; padding: 8px 0; }
-  `],
+  styleUrl: './allocation-buckets-table.component.scss',
 })
 export class AllocationBucketsTableComponent {
   protected readonly store = inject(AllocationStore);

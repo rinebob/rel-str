@@ -218,4 +218,13 @@ describe('AllocationPositionsTableComponent', () => {
     expect(store.unassignPositions).toHaveBeenCalledWith(ACCT, ['AAPL', 'MSFT']);
     expect(fixture.nativeElement.querySelector('[data-testid="selection-bar"]')).toBeNull();
   });
+
+  it('marks numeric columns with the dense-table num class', async () => {
+    await setup([row('AAPL', 'b1', 'Wheel')]);
+    // Market value is the only numeric column
+    expect(fixture.nativeElement.querySelectorAll('.alloc-table thead th.num').length).toBe(1);
+    expect(
+      fixture.nativeElement.querySelectorAll('.alloc-table tbody tr:first-child td.num').length,
+    ).toBe(1);
+  });
 });

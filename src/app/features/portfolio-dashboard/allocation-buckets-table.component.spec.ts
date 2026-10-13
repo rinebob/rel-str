@@ -314,4 +314,19 @@ describe('AllocationBucketsTableComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="expand-panel-b1"]').textContent).not.toContain('AAPL');
     expect(fixture.nativeElement.querySelector('[data-testid="expand-panel-b1"]').textContent).toContain('No positions');
   });
+
+  it('marks numeric columns with the dense-table num class — main and expando mini-table', async () => {
+    const b = bucket('b1', 'Wheel', 25);
+    await setup([bucketRow(b)], [posRow('AAPL', 'b1')]);
+    // Target %, Target $, Exposure, Drift, Realized, Unrealized, Open/Closed
+    expect(fixture.nativeElement.querySelectorAll('.alloc-table thead th.num').length).toBe(7);
+
+    (fixture.nativeElement.querySelector('[data-testid="expand-b1"]') as HTMLElement).click();
+    fixture.detectChanges();
+    // Qty, Market value, Cost basis, Unrealized — header, row, and totals row
+    const panel = fixture.nativeElement.querySelector('[data-testid="expand-panel-b1"]');
+    expect(panel.querySelectorAll('.mini-table thead th.num').length).toBe(4);
+    expect(panel.querySelectorAll('.mini-table tbody td.num').length).toBe(4);
+    expect(panel.querySelector('.mini-table tfoot tr.totals')).toBeTruthy();
+  });
 });

@@ -1,0 +1,120 @@
+@use 'styles/pd-visual-language' as vl;
+
+/* Row-scroll convention (#779 QA / pd table-wrap): the pane fills the
+   bounded tab body; the warn banner stays put while the table's own
+   wrap scrolls the rows under a sticky header. */
+:host {
+  display: block;
+  height: 100%;
+}
+
+.buckets-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.warn-banner {
+  padding: 6px 10px;
+  margin: 4px 0;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: var(--mat-sys-warning-container);
+  color: var(--mat-sys-on-warning-container);
+  font-size: 0.8rem;
+  cursor: help;
+}
+
+.table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.alloc-table {
+  @include vl.dense-table;
+
+  .dim {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  tr[data-kind='cash'] td {
+    background: var(--mat-sys-surface-container-low);
+    font-style: italic;
+  }
+
+  tr[data-kind='unassigned'] td {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  /* Expando reads as part of the table row, not a nested card — subtle
+     container tint + a hairline outline border, both tokenized. Child
+     combinator — the expando cell is the tr's direct child; a descendant
+     td would also capture every nested .mini-table cell. */
+  .expand-row > td {
+    background: var(--mat-sys-surface-container-low);
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    border-left: 3px solid var(--mat-sys-outline-variant);
+    padding: 8px;
+  }
+}
+
+/* Dense row-action buttons — 28px icon buttons. */
+.actions button[mat-icon-button] {
+  --mat-icon-button-state-layer-size: 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  --mat-icon-button-icon-size: 16px;
+}
+
+.neg {
+  color: vl.$down;
+}
+.pos {
+  color: vl.$up;
+}
+
+.actions {
+  white-space: nowrap;
+}
+
+.name-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--mat-sys-outline-variant);
+  text-underline-offset: 2px;
+}
+
+.name-link:hover {
+  text-decoration-color: var(--mat-sys-on-surface-variant);
+}
+
+.expand-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--mat-sys-on-surface-variant);
+  margin-bottom: 8px;
+}
+
+.mini-table {
+  @include vl.dense-table;
+
+  // Nested inside an expando cell — a second sticky header would pin
+  // mid-panel against the outer wrap's scroll.
+  thead {
+    position: static;
+  }
+}
+
+.empty-expand {
+  font-size: 0.8rem;
+  padding: 8px 0;
+}
