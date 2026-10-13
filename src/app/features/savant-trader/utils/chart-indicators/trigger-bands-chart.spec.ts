@@ -12,7 +12,11 @@ import {
   ST_TRIGGER_BANDS_DOTS_INDICATOR,
   ST_TRIGGER_BANDS_INDICATOR,
 } from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
-import { ST_TRIGGER_BANDS_DOT_COLORS } from '@flex-chart/indicator-visuals';
+import {
+  ST_TRIGGER_BANDS_DOT_COLORS,
+  TRIGGER_BANDS_SIGNAL_TYPES,
+} from '@flex-chart/indicator-visuals';
+import type { TriggerBandsSignalType } from '@flex-chart/indicator-visuals';
 import type { DotMarker, IntervalData } from '../../common/indicator.types';
 import { toDatePt } from '../../utils/utils';
 
@@ -42,11 +46,11 @@ describe('convertTriggerBandsDotMarkers (#880)', () => {
   });
 
   it('colours the four kinds per the Pine vocabulary: breakout in the side colour, pullback in the opposite', () => {
-    const kinds = [
-      'TRIGGER_BANDS_LONG_BREAKOUT',
-      'TRIGGER_BANDS_SHORT_BREAKOUT',
-      'TRIGGER_BANDS_LONG_PULLBACK',
-      'TRIGGER_BANDS_SHORT_PULLBACK',
+    const kinds: TriggerBandsSignalType[] = [
+      TRIGGER_BANDS_SIGNAL_TYPES.LONG_BREAKOUT,
+      TRIGGER_BANDS_SIGNAL_TYPES.SHORT_BREAKOUT,
+      TRIGGER_BANDS_SIGNAL_TYPES.LONG_PULLBACK,
+      TRIGGER_BANDS_SIGNAL_TYPES.SHORT_PULLBACK,
     ];
     const dots = convertTriggerBandsDotMarkers(
       interval({
@@ -128,7 +132,7 @@ describe('injectTriggerBandsData (#880)', () => {
     const other = { ...buildBaseIndicators(ChartIntervalKey.DAILY)[0], data: [{ x: new Date(), y: 1 }] };
     const data = interval({ indicators: { triggerBands: [point('2026-01-01'), point('2026-01-02')] } });
 
-    const [outTb, outOther] = injectTriggerBandsData([tb, other], data);
+    const [outTb, outOther] = injectTriggerBandsData([tb, other], data, undefined);
 
     expect(outTb.triggerBandData).toHaveLength(2);
     expect(outOther).toBe(other);
@@ -136,7 +140,7 @@ describe('injectTriggerBandsData (#880)', () => {
 
   it('survives an absent or empty response without error', () => {
     const tb = buildConfigForId(ST_TRIGGER_BANDS_INDICATOR.id)!;
-    expect(injectTriggerBandsData([tb], undefined)[0].triggerBandData).toEqual([]);
-    expect(injectTriggerBandsData([tb], interval())[0].triggerBandData).toEqual([]);
+    expect(injectTriggerBandsData([tb], undefined, undefined)[0].triggerBandData).toEqual([]);
+    expect(injectTriggerBandsData([tb], interval(), undefined)[0].triggerBandData).toEqual([]);
   });
 });

@@ -86,6 +86,36 @@ function triggerBandsToChartData(points: TriggerBandsPoint[]): TriggerBandPoint[
     }));
 }
 
+/** Warn when a continuous backend series ends before the last chart bar.
+ *  Dot markers and HTF windows are sparse by design (a signal/dot exists only
+ *  on the dates where the condition fires) — only continuous series are
+ *  checked. Shared by both injectors so the lean Trigger Bands path keeps the
+ *  diagnostic the default path has. */
+function warnIfStaleSeries(
+  families: [string, { d: string }[] | undefined][],
+  bars: PriceBar[],
+  label?: string,
+): void {
+  if (bars.length === 0) return;
+  const lastBarDate = bars[bars.length - 1].date;
+  // Bars without `date` (malformed or bare test fixtures) can't support the
+  // comparison — bail quietly rather than warn "last bar undefined".
+  if (!lastBarDate) return;
+  const mismatched = families
+    .filter((f): f is [string, { d: string }[]] => !!f[1]?.length && f[1][f[1].length - 1].d !== lastBarDate)
+    .map(([name, pts]) => {
+      const lastD = pts[pts.length - 1].d;
+      const behind = bars.filter((b) => b.date > lastD).length;
+      const ahead = bars.filter((b) => b.date < lastD).length;
+      return behind > 0
+        ? `${name} ends ${lastD} (${behind} bars behind ${lastBarDate})`
+        : `${name} ends ${lastD} (ahead of last bar ${lastBarDate} by ${ahead} bars)`;
+    });
+  if (mismatched.length > 0) {
+    console.warn(`[flex-chart] ${label ?? 'callable'} data does not reach the last bar — ${mismatched.join('; ')}`);
+  }
+}
+
 /** Attach Trigger Bands series from a separate (opt-in) callable response to the
  *  Trigger Bands config only. The lean request carries no other families, so
  *  running the full `injectCallableIndicatorData` over it would blank the zone
@@ -93,14 +123,25 @@ function triggerBandsToChartData(points: TriggerBandsPoint[]): TriggerBandPoint[
 export function injectTriggerBandsData(
   indicators: IndicatorConfig[],
   intervalData: IntervalData | undefined,
+  bars: PriceBar[] | undefined,
+  label?: string,
 ): IndicatorConfig[] {
+  if (intervalData && bars?.length) {
+    warnIfStaleSeries(
+      [['triggerBands', intervalData.indicators?.triggerBands]],
+      bars,
+      label,
+    );
+  }
   const points = triggerBandsToChartData(intervalData?.indicators?.triggerBands ?? []);
   return indicators.map((cfg) =>
     cfg.type === StIndicator.ST_TRIGGER_BANDS ? { ...cfg, triggerBandData: points } : cfg,
   );
 }
 
-/** Convert one interval of the callable response into chart-ready data. */
+/** Convert one interval of the callable response into chart-ready data.
+ *  Trigger Bands is deliberately NOT here — it rides the opt-in lean response
+ *  and injects via `injectTriggerBandsData`, not the default-response path. */
 export function convertIntervalIndicators(
   intervalData: IntervalData | undefined,
   bars: PriceBar[],
@@ -108,17 +149,14 @@ export function convertIntervalIndicators(
   zoneV1: ChartScatterPoint[];
   zoneV2: ChartScatterPoint[];
   trendBands: BandSeriesData[];
-  triggerBands: TriggerBandPoint[];
 } {
   const zoneV1 = intervalData?.indicators?.zoneV1 ?? [];
   const zoneV2 = intervalData?.indicators?.zoneV2 ?? [];
   const trendBands = intervalData?.indicators?.trendBands ?? [];
-  const triggerBands = intervalData?.indicators?.triggerBands ?? [];
   return {
     zoneV1: zoneToChartData(zoneV1),
     zoneV2: zoneToChartData(zoneV2),
     trendBands: trendBandsToChartData(trendBands, bars),
-    triggerBands: triggerBandsToChartData(triggerBands),
   };
 }
 
@@ -134,29 +172,16 @@ export function injectCallableIndicatorData(
   bars: PriceBar[],
   label?: string,
 ): IndicatorConfig[] {
-  if (intervalData && bars.length > 0) {
-    const lastBarDate = bars[bars.length - 1].date;
-    // Only warn for continuous series. Dot markers and HTF windows are sparse
-    // by design (a signal/dot exists only on the dates where the condition fires).
-    const families: [string, { d: string }[] | undefined][] = [
-      ['zoneV1', intervalData.indicators?.zoneV1],
-      ['zoneV2', intervalData.indicators?.zoneV2],
-      ['trendBands', intervalData.indicators?.trendBands],
-      ['triggerBands', intervalData.indicators?.triggerBands],
-    ];
-    const mismatched = families
-      .filter((f): f is [string, { d: string }[]] => !!f[1]?.length && f[1][f[1].length - 1].d !== lastBarDate)
-      .map(([name, pts]) => {
-        const lastD = pts[pts.length - 1].d;
-        const behind = bars.filter((b) => b.date > lastD).length;
-        const ahead = bars.filter((b) => b.date < lastD).length;
-        return behind > 0
-          ? `${name} ends ${lastD} (${behind} bars behind ${lastBarDate})`
-          : `${name} ends ${lastD} (ahead of last bar ${lastBarDate} by ${ahead} bars)`;
-      });
-    if (mismatched.length > 0) {
-      console.warn(`[flex-chart] ${label ?? 'callable'} data does not reach the last bar — ${mismatched.join('; ')}`);
-    }
+  if (intervalData) {
+    warnIfStaleSeries(
+      [
+        ['zoneV1', intervalData.indicators?.zoneV1],
+        ['zoneV2', intervalData.indicators?.zoneV2],
+        ['trendBands', intervalData.indicators?.trendBands],
+      ],
+      bars,
+      label,
+    );
   }
   const converted = convertIntervalIndicators(intervalData, bars);
 
@@ -173,8 +198,6 @@ export function injectCallableIndicatorData(
         return cfg;
       case StIndicator.TREND_BANDS:
         return { ...cfg, bandData: converted.trendBands };
-      case StIndicator.ST_TRIGGER_BANDS:
-        return { ...cfg, triggerBandData: converted.triggerBands };
       default:
         return cfg;
     }

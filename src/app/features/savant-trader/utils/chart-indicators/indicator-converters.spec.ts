@@ -1,4 +1,4 @@
-import { injectCallableIndicatorData } from './indicator-converters';
+import { injectCallableIndicatorData, injectTriggerBandsData } from './indicator-converters';
 import type { IndicatorConfig, PriceBar } from '../../../shared/components/flex-chart/flex-chart.types';
 import { StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { IntervalData } from '../../common/indicator.types';
@@ -84,7 +84,7 @@ const tbPoint = (d: string, over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-describe('injectCallableIndicatorData - trigger bands (#879)', () => {
+describe('injectTriggerBandsData — lean-response injector (#879/#932)', () => {
   const bars = [bar('2026-01-01'), bar('2026-01-02'), bar('2026-01-03'), bar('2026-01-04')];
 
   // Most cases use short series, which legitimately trips the staleness warning;
@@ -95,9 +95,9 @@ describe('injectCallableIndicatorData - trigger bands (#879)', () => {
   });
   afterEach(() => warnSpy.mockRestore());
 
-  function inject(points: unknown[] | undefined, b = bars) {
+  function inject(points: unknown[] | undefined) {
     const intervalData = { indicators: points ? { triggerBands: points } : {}, signals: {} } as IntervalData;
-    return injectCallableIndicatorData([triggerCfg()], intervalData, b, 'daily')[0];
+    return injectTriggerBandsData([triggerCfg()], intervalData, bars, 'lean')[0];
   }
 
   it('maps the series onto the config as triggerBandData', () => {
@@ -137,25 +137,44 @@ describe('injectCallableIndicatorData - trigger bands (#879)', () => {
 
   it('yields an empty series - no error - when the response has no triggerBands', () => {
     expect(inject(undefined).triggerBandData).toEqual([]);
-    expect(injectCallableIndicatorData([triggerCfg()], undefined, bars, 'daily')[0].triggerBandData).toEqual([]);
+    expect(injectTriggerBandsData([triggerCfg()], undefined, bars)[0].triggerBandData).toEqual([]);
   });
 
   it('leaves other configs untouched', () => {
     const intervalData = { indicators: { triggerBands: [tbPoint('2026-01-01')], zoneV1: [] }, signals: {} } as unknown as IntervalData;
-    const [zone] = injectCallableIndicatorData([zoneCfg()], intervalData, bars, 'daily');
+    const [zone] = injectTriggerBandsData([zoneCfg()], intervalData, bars);
     expect(zone.triggerBandData).toBeUndefined();
   });
 
-  describe('staleness warning', () => {
-    it('covers triggerBands when the series ends before the last bar', () => {
-      inject([tbPoint('2026-01-01')]);
+  it('the default-response injector no longer handles TB — the lean injector owns it (#932)', () => {
+    const intervalData = { indicators: { triggerBands: [tbPoint('2026-01-01')] }, signals: {} } as unknown as IntervalData;
+    const [tb] = injectCallableIndicatorData([triggerCfg()], intervalData, bars, 'daily');
+    expect(tb.triggerBandData).toBeUndefined();
+  });
+
+  describe('staleness warning (live path — the lean injector)', () => {
+    const injectLean = (points: unknown[]) => {
+      const intervalData = { indicators: { triggerBands: points }, signals: {} } as IntervalData;
+      injectTriggerBandsData([triggerCfg()], intervalData, bars, 'lean');
+    };
+
+    it('warns when the series ends before the last bar', () => {
+      injectLean([tbPoint('2026-01-01')]);
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('triggerBands ends 2026-01-01 (3 bars behind 2026-01-04)'),
       );
     });
 
     it('stays quiet when the series reaches the last bar', () => {
-      inject([tbPoint('2026-01-03'), tbPoint('2026-01-04')]);
+      injectLean([tbPoint('2026-01-03'), tbPoint('2026-01-04')]);
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('the default injector does not warn for a stale TB series it cannot carry', () => {
+      // The default response never contains triggerBands — a stale TB series
+      // routed through it is a caller bug, not data the injector owns.
+      const intervalData = { indicators: { triggerBands: [tbPoint('2026-01-01')] }, signals: {} } as IntervalData;
+      injectCallableIndicatorData([triggerCfg()], intervalData, bars, 'daily');
       expect(warnSpy).not.toHaveBeenCalled();
     });
   });

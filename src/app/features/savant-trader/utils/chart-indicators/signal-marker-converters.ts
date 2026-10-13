@@ -11,7 +11,11 @@ import type { IntervalData } from '../../common/indicator.types';
 import { toDatePt } from '../../utils/utils';
 import type { ChartScatterPoint } from './base-indicators';
 import { UptickDotColors } from './base-indicators';
-import { ST_SIGNAL_DOT_COLORS, ST_TRIGGER_BANDS_DOT_COLORS } from '@flex-chart/indicator-visuals';
+import {
+  isTriggerBandsSignalType,
+  ST_SIGNAL_DOT_COLORS,
+  ST_TRIGGER_BANDS_DOT_COLORS,
+} from '@flex-chart/indicator-visuals';
 
 const SIGNAL_DOT_LONG_COLOR = ST_SIGNAL_DOT_COLORS.long;
 const SIGNAL_DOT_SHORT_COLOR = ST_SIGNAL_DOT_COLORS.short;
@@ -108,8 +112,8 @@ export function convertTriggerBandsDotMarkers(
 ): ChartScatterPoint[] {
   const dots: ChartScatterPoint[] = [];
   for (const m of intervalData?.dotMarkers?.triggerBands ?? []) {
+    if (!isTriggerBandsSignalType(m.signalType)) continue;
     const color = ST_TRIGGER_BANDS_DOT_COLORS[m.signalType];
-    if (!color) continue;
     dots.push({ x: toDatePt(m.d), y: m.y, color, index: m.index });
   }
   return dots;

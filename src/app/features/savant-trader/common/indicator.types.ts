@@ -75,7 +75,6 @@ export interface IntervalData {
     zoneV1?: SignalMarker[];
     zoneV2?: SignalMarker[];
     trendStrength?: SignalMarker[];
-    triggerBands?: SignalMarker[];
   };
   dotMarkers?: {
     zoneV1?: DotMarker[];
