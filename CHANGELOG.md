@@ -25,6 +25,11 @@
 - [On-demand Screenshot Capture] 746-850_DOCS-SCREENSHOT: #850 CODE-REVIEW (PASS, in-loop sync-throw fix) + #936 UAT (Complete)
 - [Options Trading Support] 942-961_FE-IMPL-OPTIONS: Option contract + staging utils — parseOptionPaste/chainsToExpirations/selectsToInstrumentArgs/premiumNotional/fatfingerBlock (fail-closed on any non-finite input, default 25) + buildOptionSignalTicket; ticket id {SYMBOL}-OPT-{LONG|SHORT}-{occId}-{ts} prevents PT-minute .set() collisions
 - [Options Trading Support] 942-961_DOCS-OPTIONS: #961 CODE-REVIEW (PASS, 3 rounds) + #977 UAT (Complete) + IMPL-948 caller-contract pins for #963/#964
+- [Portfolio Dashboard] 219-887_SHARED-IMPL-PORTFOLIO: get_equity_orders single-order lookup (order_id arg — terminal orders ARE returned, live-verified) + partially_filled_rest_cancelled in OrderState/VALID_STATES
+- [Portfolio Dashboard] 219-887_FE-IMPL-PORTFOLIO: updateEquityStopOrder primitive — cancel → order_id confirm-poll → bounded replacement retry on same refId; phase/unprotected reporting; three-channel tool-error extraction (a rejected cancel can no longer report success); fill-adjacent aborts (fills/executions/ambiguous-cum-quantity → refresh-first); live-denylist place responses (PLACEMENT_DEAD vs PLACEMENT_UNCONFIRMED)
+- [Portfolio Dashboard] 219-887_FE-IMPL-PORTFOLIO: Store + dialog hardening for ambiguous placement — clean-dead mints+persists fresh refId, dead-with-fills keeps burned refId; dialogs disableClose through in-flight + close(true) on any submission attempt
+- [Portfolio Dashboard] 219-887_FE-VERIFY-PORTFOLIO: portfolio-update-stop-887 live probe — exercised the real path on SCHB (27.38 → 27.28; old confirmed cancelled via order_id poll, replacement confirmed)
+- [Portfolio Dashboard] 219-887_DOCS-PORTFOLIO: IMPL/TEST synced to as-built contract + #887 CODE-REVIEW (PASS, 7 rounds) + #925 UAT (Complete — live-verified)
 
 ## [2026-10-11]
 
