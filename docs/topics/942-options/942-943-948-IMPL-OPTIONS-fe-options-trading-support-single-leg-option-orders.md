@@ -169,7 +169,12 @@ type) → `getOptionInstruments` → take the single active tradable result
   for OPTION tickets.
 - `tradeCard`/dialog close: discard **all** still-STAGED tickets for the
   card (equity + option), not just the one id — extends
-  `discardStagedTicket` semantics via `findCardTickets`.
+  `discardStagedTicket` semantics via `findCardTickets`. Once OPTION
+  tickets match, `rejectCard`→`removeStagedTickets` removes the staged
+  option ticket too — verify the decision-clearing ordering: removal
+  clears the ticket's `decisionIds` (`docIdsFor`), so it must not flip
+  freshly-marked REJECTs back to pending (the #755 hazard, now on the
+  option path).
 
 ## Execution (`order-execution.service.ts`)
 
@@ -237,6 +242,18 @@ Form (Material, matching `order-ticket` styling):
   edits → `updateTicket` merges (legs replaced when contract changes,
   refId preserved). The component binds `ticketStore.tickets()[id]` so
   status/error surfaces in place.
+- **Staging guard** (pinned by the #961 review — caller contract the
+  builder cannot enforce): before `stageTicketAndWait`, check for an
+  existing OPTION ticket for this card via `findCardTickets` /
+  `signalContext.decisionIds` overlap. The ticket id is deterministic
+  per {symbol, direction, contract, PT-minute} and `createTicket`
+  `.set()`s unconditionally — re-stage must reopen when the match is
+  STAGED and block + snackbar when it is live (SUBMITTING/SUBMITTED/
+  PAPER), or the fresh doc would wipe `refId`/`result.orderId`. Also:
+  filter REJECTed occurrences out of `signals` before calling the
+  builder (its documented contract — a REJECT id on the ticket is
+  un-rejected on discard, #755), and reject a paste whose parsed
+  `symbol` ≠ the card's underlying.
 - **Available cash**: `PortfolioService.getSnapshot(accountNumber,
   defaultDollarAmount)` once on tab activation → `cash` — the fatfinger
   check `premium ≤ cash × (optionMaxPremiumCashPercent ?? 25) / 100`

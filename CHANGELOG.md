@@ -23,6 +23,8 @@
 - [On-demand Screenshot Capture] 746-850_BE-IMPL-SCREENSHOT: capture timestamps are Pacific Time (DST-aware, h23) instead of UTC; filenames carry the symbol; captureChartSnapshot writes one swallowed index doc per stored artifact; lifecycle capture writes the same readable per-artifact ids inside the carrier transaction
 - [On-demand Screenshot Capture] 746-850_FE-IMPL-SCREENSHOT: OrderExecutionService fires captureChartSnapshot on confirmed placement (order-placed) or synchronous fill (order-filled) — refId/groupId = ticket refId, fire-and-forget, failures can never affect the order result; live-verified with real resting orders post-deploy
 - [On-demand Screenshot Capture] 746-850_DOCS-SCREENSHOT: #850 CODE-REVIEW (PASS, in-loop sync-throw fix) + #936 UAT (Complete)
+- [Options Trading Support] 942-961_FE-IMPL-OPTIONS: Option contract + staging utils — parseOptionPaste/chainsToExpirations/selectsToInstrumentArgs/premiumNotional/fatfingerBlock (fail-closed on any non-finite input, default 25) + buildOptionSignalTicket; ticket id {SYMBOL}-OPT-{LONG|SHORT}-{occId}-{ts} prevents PT-minute .set() collisions
+- [Options Trading Support] 942-961_DOCS-OPTIONS: #961 CODE-REVIEW (PASS, 3 rounds) + #977 UAT (Complete) + IMPL-948 caller-contract pins for #963/#964
 
 ## [2026-10-11]
 
