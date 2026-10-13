@@ -18,10 +18,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AppRoutes } from '../../core/common/interfaces';
+import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
+import { OrderExecutionService } from '../savant-trader/services/order-execution.service';
+import { buildModifyOrderTicket } from '../savant-trader/utils/modify-order-ticket.util';
 
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
 import { SectionName } from './portfolio-dashboard.types';
@@ -32,8 +36,11 @@ import { OptionPositionsTableComponent } from './components/option-positions-tab
 import { OpenOrdersTableComponent } from './components/open-orders-table.component';
 import { OrderHistoryTableComponent } from './components/order-history-table.component';
 import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
+import { ConfirmDialogComponent } from './components/confirm-dialog.component';
+import { ModifyOrderDialogComponent } from './components/modify-order-dialog.component';
 import { StopLossDialogComponent, StopLossDialogData } from './components/stop-loss-dialog/stop-loss-dialog.component';
 import { EquityPositionWithPnL } from './portfolio-dashboard.types';
+import { orderMark } from './utils/order-mark.util';
 
 @Component({
   selector: 'app-portfolio-dashboard',
@@ -59,6 +66,8 @@ import { EquityPositionWithPnL } from './portfolio-dashboard.types';
 export class PortfolioDashboardComponent implements OnInit {
   readonly store = inject(PortfolioDashboardStore);
   private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly orderExecution = inject(OrderExecutionService);
 
   readonly summary = this.store.aggregateSummary;
   readonly accounts = this.store.accounts;
@@ -67,12 +76,11 @@ export class PortfolioDashboardComponent implements OnInit {
   readonly globalLoading = this.store.globalLoading;
   readonly loadError = this.store.loadError;
 
-  readonly equityPositions = this.store.displayedEquityPositions;
+  readonly equityPositions = this.store.equityPositionsWithPnL;
   readonly optionPositions = this.store.optionPositionsWithPnL;
   readonly openOrders = this.store.openOrders;
   readonly orderHistory = this.store.orderHistory;
   readonly protectedSymbols = this.store.stopLossProtectedSymbols;
-  readonly showClosedPositions = this.store.showClosedPositions;
   /** Whether the selected account is agent-enabled (controls action button visibility). */
   readonly agenticAllowed = computed(() => this.selectedAccount()?.agenticAllowed ?? false);
 
@@ -114,10 +122,6 @@ export class PortfolioDashboardComponent implements OnInit {
 
   onAccountSelect(index: number): void {
     this.store.selectAccount(index);
-  }
-
-  onToggleClosedPositions(): void {
-    this.store.toggleClosedPositions();
   }
 
   toggleAmounts(): void {
@@ -168,6 +172,108 @@ export class PortfolioDashboardComponent implements OnInit {
         if (result === true) {
           this.store.refresh().catch(() => {});
         }
+      });
+  }
+
+  onCancelOrder(order: BrokerOrder): void {
+    const account = this.selectedAccount();
+    if (!account) return;
+    const summary = `${order.side} ${order.type} ${order.symbol ?? order.orderId.slice(0, 8)}`;
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          title: 'Cancel order',
+          message: `Cancel the ${summary} order?`,
+          confirmLabel: 'Cancel Order',
+        },
+      })
+      .afterClosed()
+      .subscribe(async (confirmed) => {
+        if (confirmed !== true) return;
+        const res = order.instrumentType === 'option'
+          ? await this.orderExecution.cancelOptionOrder(account.accountNumber, order.orderId)
+          : await this.orderExecution.cancelEquityOrder(account.accountNumber, order.orderId);
+        if (res.success) {
+          this.snackBar.open('Order cancelled', 'Dismiss', { duration: 3000 });
+          this.store.refresh().catch(() => {});
+        } else {
+          this.snackBar.open(`Cancel failed: ${res.error?.message ?? 'unknown error'}`, 'Dismiss', {
+            duration: 5000,
+          });
+        }
+      });
+  }
+
+  /** Bulk cancel — one confirmation, then each selected order cancelled in
+   *  sequence via the same per-order path. Refresh once at the end. */
+  onCancelSelected(orders: BrokerOrder[]): void {
+    const account = this.selectedAccount();
+    if (!account || orders.length === 0) return;
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          title: 'Cancel orders',
+          message: `Cancel ${orders.length} open ${orders.length === 1 ? 'order' : 'orders'}?`,
+          confirmLabel: 'Cancel Orders',
+        },
+      })
+      .afterClosed()
+      .subscribe(async (confirmed) => {
+        if (confirmed !== true) return;
+        let ok = 0;
+        const failures: string[] = [];
+        for (const order of orders) {
+          const res = order.instrumentType === 'option'
+            ? await this.orderExecution.cancelOptionOrder(account.accountNumber, order.orderId)
+            : await this.orderExecution.cancelEquityOrder(account.accountNumber, order.orderId);
+          if (res.success) ok++;
+          else failures.push(order.symbol ?? order.orderId.slice(0, 8));
+        }
+        const msg = failures.length === 0
+          ? `${ok} ${ok === 1 ? 'order' : 'orders'} cancelled`
+          : `${ok} cancelled, ${failures.length} failed (${failures.join(', ')})`;
+        this.snackBar.open(msg, 'Dismiss', { duration: 5000 });
+        if (ok > 0) this.store.refresh().catch(() => {});
+      });
+  }
+
+  /** Per-row Modify — equity limit orders only (the table gates the button).
+   *  Cancel-and-replace: RH has no modify endpoint, and the cancelled order's
+   *  ref_id is burned so the replacement ticket mints a fresh one. */
+  onModifyOrder(order: BrokerOrder): void {
+    const account = this.selectedAccount();
+    if (!account) return;
+    const mark = orderMark(order, account.equityQuotes.data, account.optionQuotes.data);
+    this.dialog
+      .open(ModifyOrderDialogComponent, { data: { order, markPrice: mark } })
+      .afterClosed()
+      .subscribe(async (newPrice: number | undefined) => {
+        if (newPrice == null) return;
+        const cancel = await this.orderExecution.cancelEquityOrder(
+          account.accountNumber,
+          order.orderId,
+        );
+        if (!cancel.success) {
+          this.snackBar.open(
+            `Modify aborted — cancel failed: ${cancel.error?.message ?? 'unknown error'}. The order may still be live.`,
+            'Dismiss',
+            { duration: 5000 },
+          );
+          return;
+        }
+        const place = await this.orderExecution.submitEquityOrder(
+          buildModifyOrderTicket(order, newPrice),
+        );
+        if (place.success) {
+          this.snackBar.open('Order replaced', 'Dismiss', { duration: 3000 });
+        } else {
+          this.snackBar.open(
+            `Order cancelled but replacement failed: ${place.error?.message ?? 'unknown error'}. Re-place manually if still needed.`,
+            'Dismiss',
+            { duration: 6000 },
+          );
+        }
+        this.store.refresh().catch(() => {});
       });
   }
 

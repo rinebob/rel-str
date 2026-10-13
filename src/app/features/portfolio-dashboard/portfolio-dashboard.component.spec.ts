@@ -3,6 +3,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { signal, computed } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
 
 import { PortfolioDashboardComponent } from './portfolio-dashboard.component';
@@ -16,6 +17,7 @@ import {
 import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
 import { StopLossDialogComponent, StopLossDialogData } from './components/stop-loss-dialog/stop-loss-dialog.component';
+import { OrderExecutionService } from '../savant-trader/services/order-execution.service';
 
 function makeEquityPosition(overrides: Partial<EquityPositionWithPnL> = {}): EquityPositionWithPnL {
   return {
@@ -27,6 +29,26 @@ function makeEquityPosition(overrides: Partial<EquityPositionWithPnL> = {}): Equ
     pnl: 2500,
     pnlPercent: 16.67,
     closed: false,
+    entryDate: null,
+    ...overrides,
+  };
+}
+
+function makeBrokerOrder(overrides: Partial<BrokerOrder> = {}): BrokerOrder {
+  return {
+    orderId: 'ord-1',
+    accountNumber: '123456',
+    instrumentType: 'equity',
+    symbol: 'AAPL',
+    side: 'buy',
+    type: 'limit',
+    state: 'queued',
+    quantity: 10,
+    cumulativeQuantity: 0,
+    price: 175,
+    stopPrice: null,
+    averageFillPrice: null,
+    createdAt: '2026-09-12T10:00:00Z',
     ...overrides,
   };
 }
@@ -45,7 +67,6 @@ function makeAccountState(name: string, number: string, overrides: Partial<Accou
     optionQuotes: { ...empty },
     equityOrders: { ...empty },
     optionOrders: { ...empty },
-    closedTrades: { ...empty },
     ...overrides,
   };
 }
@@ -61,7 +82,6 @@ function makeStoreMock(overrides: Partial<{
   openOrders: BrokerOrder[];
   orderHistory: BrokerOrder[];
   protectedSymbols: Set<string>;
-  showClosedPositions: boolean;
   showOrderHistory: boolean;
 }> = {}) {
   const accounts = signal(overrides.accounts ?? []);
@@ -76,12 +96,10 @@ function makeStoreMock(overrides: Partial<{
     totalPnL: null,
   });
   const equityPositions = signal(overrides.equityPositions ?? []);
-  const closedTrades = signal<EquityPositionWithPnL[]>([]);
   const optionPositions = signal(overrides.optionPositions ?? []);
   const openOrders = signal(overrides.openOrders ?? []);
   const orderHistory = signal(overrides.orderHistory ?? []);
   const protectedSymbols = signal(overrides.protectedSymbols ?? new Set<string>());
-  const showClosedPositions = signal(overrides.showClosedPositions ?? false);
   const showOrderHistory = signal(overrides.showOrderHistory ?? false);
 
   return {
@@ -92,24 +110,16 @@ function makeStoreMock(overrides: Partial<{
     aggregateSummary: computed(() => summary()),
     selectedAccount: computed(() => accounts()[selectedAccountIndex()] ?? null),
     equityPositionsWithPnL: computed(() => equityPositions()),
-    closedTradesWithPnL: computed(() => closedTrades()),
-    displayedEquityPositions: computed(() => {
-      const open = equityPositions();
-      if (!showClosedPositions()) return open;
-      return [...open, ...closedTrades()];
-    }),
     optionPositionsWithPnL: computed(() => optionPositions()),
     openOrders: computed(() => openOrders()),
     orderHistory: computed(() => orderHistory()),
     stopLossProtectedSymbols: computed(() => protectedSymbols()),
-    showClosedPositions,
     showOrderHistory,
     loadAccounts: jasmine.createSpy('loadAccounts').and.returnValue(Promise.resolve()),
     loadPhase1: jasmine.createSpy('loadPhase1').and.returnValue(Promise.resolve()),
     loadPhase2: jasmine.createSpy('loadPhase2').and.returnValue(Promise.resolve()),
     refresh: jasmine.createSpy('refresh').and.returnValue(Promise.resolve()),
     selectAccount: jasmine.createSpy('selectAccount'),
-    toggleClosedPositions: jasmine.createSpy('toggleClosedPositions'),
     toggleOrderHistory: jasmine.createSpy('toggleOrderHistory'),
     retrySection: jasmine.createSpy('retrySection').and.returnValue(Promise.resolve()),
     _setAccounts: (a: AccountState[]) => accounts.set(a),
@@ -117,12 +127,10 @@ function makeStoreMock(overrides: Partial<{
     _setLoading: (l: boolean) => globalLoading.set(l),
     _setLoadError: (e: string | null) => loadError.set(e),
     _setEquityPositions: (p: EquityPositionWithPnL[]) => equityPositions.set(p),
-    _setClosedTrades: (t: EquityPositionWithPnL[]) => closedTrades.set(t),
     _setOptionPositions: (p: OptionPositionWithPnL[]) => optionPositions.set(p),
     _setOpenOrders: (o: BrokerOrder[]) => openOrders.set(o),
     _setOrderHistory: (o: BrokerOrder[]) => orderHistory.set(o),
     _setProtectedSymbols: (s: Set<string>) => protectedSymbols.set(s),
-    _setShowClosedPositions: (b: boolean) => showClosedPositions.set(b),
     _setShowOrderHistory: (b: boolean) => showOrderHistory.set(b),
   };
 }
@@ -151,6 +159,15 @@ describe('PortfolioDashboardComponent', () => {
         provideRouter([]),
         { provide: PortfolioDashboardStore, useValue: store },
         { provide: MatDialog, useValue: dialog },
+        { provide: MatSnackBar, useValue: { open: jasmine.createSpy('snack') } },
+        {
+          provide: OrderExecutionService,
+          useValue: {
+            cancelEquityOrder: jasmine.createSpy('cancelEquity').and.returnValue(Promise.resolve({ success: true })),
+            cancelOptionOrder: jasmine.createSpy('cancelOption').and.returnValue(Promise.resolve({ success: true })),
+            submitEquityOrder: jasmine.createSpy('submitEquity').and.returnValue(Promise.resolve({ success: true })),
+          },
+        },
       ],
     }).compileComponents();
 
@@ -360,6 +377,17 @@ describe('PortfolioDashboardComponent', () => {
     expect(text).toContain('Loading');
   });
 
+  it('suppresses section tabs while global loading; mounts them when load completes', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    store._setLoading(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('mat-tab-group')).toBeNull();
+
+    store._setLoading(false);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('mat-tab-group')).toBeTruthy();
+  });
+
   it('formats null currency as dash when amounts are revealed', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
     component.showAmounts.set(true);
@@ -459,16 +487,6 @@ describe('PortfolioDashboardComponent', () => {
     expect(table).toBeNull();
   });
 
-  it('calls store.toggleClosedPositions() when equity table emits toggleClosed', () => {
-    store._setAccounts([makeAccountState('Account A', '111')]);
-    fixture.detectChanges();
-
-    const equity = fixture.debugElement.query((el) => el.name === 'app-equity-positions-table');
-    equity.triggerEventHandler('toggleClosed', undefined);
-
-    expect(store.toggleClosedPositions).toHaveBeenCalledTimes(1);
-  });
-
   it('calls store.retrySection(\'portfolio\') when account summary emits retry', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
     component.selectedSection.set(4);
@@ -489,49 +507,6 @@ describe('PortfolioDashboardComponent', () => {
     orders.triggerEventHandler('retry', undefined);
 
     expect(store.retrySection).toHaveBeenCalledWith(0, 'orders');
-  });
-
-  it('passes showClosedPositions to equity positions table', () => {
-    store._setAccounts([makeAccountState('Account A', '111')]);
-    store._setShowClosedPositions(true);
-    fixture.detectChanges();
-
-    const table = fixture.nativeElement.querySelector('app-equity-positions-table');
-    expect(table).toBeTruthy();
-    // Verify the input is set on the component instance
-    const tableComp = fixture.debugElement.query((el) => el.nativeElement === table)?.componentInstance;
-    expect(tableComp?.showClosed?.()).toBe(true);
-  });
-
-  it('merges open positions with closed trades when showClosedPositions is true', () => {
-    const openPos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, closed: false });
-    const closedTrade = makeEquityPosition({ symbol: 'GOOG', quantity: 10, closed: true, pnl: 250 });
-    store._setAccounts([makeAccountState('Account A', '111')]);
-    store._setEquityPositions([openPos]);
-    store._setClosedTrades([closedTrade]);
-    store._setShowClosedPositions(true);
-    fixture.detectChanges();
-
-    const tableComp = fixture.debugElement.query((el) => el.name === 'app-equity-positions-table')?.componentInstance;
-    const positions = tableComp?.positions?.() ?? [];
-    expect(positions.length).toBe(2);
-    expect(positions[0].symbol).toBe('AAPL');
-    expect(positions[1].symbol).toBe('GOOG');
-  });
-
-  it('does not merge closed trades when showClosedPositions is false', () => {
-    const openPos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, closed: false });
-    const closedTrade = makeEquityPosition({ symbol: 'GOOG', quantity: 10, closed: true, pnl: 250 });
-    store._setAccounts([makeAccountState('Account A', '111')]);
-    store._setEquityPositions([openPos]);
-    store._setClosedTrades([closedTrade]);
-    store._setShowClosedPositions(false);
-    fixture.detectChanges();
-
-    const tableComp = fixture.debugElement.query((el) => el.name === 'app-equity-positions-table')?.componentInstance;
-    const positions = tableComp?.positions?.() ?? [];
-    expect(positions.length).toBe(1);
-    expect(positions[0].symbol).toBe('AAPL');
   });
 
   it('passes protectedSymbols to open orders table', () => {
@@ -630,6 +605,121 @@ describe('PortfolioDashboardComponent', () => {
     store.refresh.calls.reset();
     component.onAddStopLoss(pos);
 
+    expect(store.refresh).not.toHaveBeenCalled();
+  });
+
+  it('cancels an equity order via OrderExecutionService after confirmation', async () => {
+    const order = makeBrokerOrder({ instrumentType: 'equity' });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    fixture.detectChanges();
+    store.refresh.calls.reset();
+
+    component.onCancelOrder(order);
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
+      cancelEquityOrder: jasmine.Spy;
+      cancelOptionOrder: jasmine.Spy;
+    };
+    expect(execSvc.cancelEquityOrder).toHaveBeenCalledWith('123456', 'ord-1');
+    expect(execSvc.cancelOptionOrder).not.toHaveBeenCalled();
+    expect(store.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels an option order via cancelOptionOrder', async () => {
+    const order = makeBrokerOrder({ instrumentType: 'option' });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    fixture.detectChanges();
+
+    component.onCancelOrder(order);
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
+      cancelOptionOrder: jasmine.Spy;
+    };
+    expect(execSvc.cancelOptionOrder).toHaveBeenCalledWith('123456', 'ord-1');
+  });
+
+  it('does not cancel when the confirm dialog is dismissed', async () => {
+    const order = makeBrokerOrder();
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    fixture.detectChanges();
+    store.refresh.calls.reset();
+
+    dialog.open.and.returnValue({ afterClosed: () => of(false) });
+    component.onCancelOrder(order);
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
+      cancelEquityOrder: jasmine.Spy;
+    };
+    expect(execSvc.cancelEquityOrder).not.toHaveBeenCalled();
+    expect(store.refresh).not.toHaveBeenCalled();
+  });
+
+  it('bulk cancel runs the per-order cancel path for each selected order', async () => {
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    fixture.detectChanges();
+
+    store.refresh.calls.reset();
+    const orders = [
+      makeBrokerOrder({ orderId: 'ord-a', symbol: 'AAPL', accountNumber: '123456' }),
+      makeBrokerOrder({ orderId: 'ord-b', symbol: 'MSFT', instrumentType: 'option', accountNumber: '123456' }),
+    ];
+    component.onCancelSelected(orders);
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
+      cancelEquityOrder: jasmine.Spy;
+      cancelOptionOrder: jasmine.Spy;
+    };
+    expect(execSvc.cancelEquityOrder).toHaveBeenCalledWith('123456', 'ord-a');
+    expect(execSvc.cancelOptionOrder).toHaveBeenCalledWith('123456', 'ord-b');
+    expect(store.refresh).toHaveBeenCalled();
+  });
+
+  it('modify cancels the old order then submits a replacement ticket', async () => {
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    dialog.open.and.returnValue({ afterClosed: () => of(180) });
+    fixture.detectChanges();
+
+    store.refresh.calls.reset();
+    const order = makeBrokerOrder({ orderId: 'ord-1', symbol: 'AAPL', price: 170, quantity: 10 });
+    component.onModifyOrder(order);
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
+      cancelEquityOrder: jasmine.Spy;
+      submitEquityOrder: jasmine.Spy;
+    };
+    expect(execSvc.cancelEquityOrder).toHaveBeenCalledWith('123456', 'ord-1');
+    expect(execSvc.submitEquityOrder).toHaveBeenCalledTimes(1);
+    const ticket = execSvc.submitEquityOrder.calls.first().args[0];
+    expect(ticket.symbol).toBe('AAPL');
+    expect(ticket.orderType).toBe('limit');
+    expect(ticket.limitPrice).toBe('180.00');
+    expect(ticket.quantity).toBe('10');
+    expect(store.refresh).toHaveBeenCalled();
+  });
+
+  it('modify does not place a replacement when the cancel fails', async () => {
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    dialog.open.and.returnValue({ afterClosed: () => of(180) });
+    fixture.detectChanges();
+
+    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
+      cancelEquityOrder: jasmine.Spy;
+      submitEquityOrder: jasmine.Spy;
+    };
+    execSvc.cancelEquityOrder.and.returnValue(
+      Promise.resolve({ success: false, error: { message: 'boom', retryable: false } }),
+    );
+
+    store.refresh.calls.reset();
+    component.onModifyOrder(makeBrokerOrder({ orderId: 'ord-1', price: 170 }));
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    expect(execSvc.submitEquityOrder).not.toHaveBeenCalled();
     expect(store.refresh).not.toHaveBeenCalled();
   });
 });

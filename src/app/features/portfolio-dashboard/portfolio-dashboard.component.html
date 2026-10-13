@@ -97,7 +97,7 @@
       </div>
     }
 
-    @if (hasAccounts()) {
+    @if (hasAccounts() && !globalLoading()) {
       @if (selectedAccount(); as sel) {
         <mat-tab-group
           class="pd-tabs"
@@ -111,11 +111,9 @@
                 [positions]="equityPositions()"
                 [loading]="sel.equityPositions.loading"
                 [error]="sel.equityPositions.error"
-                [showClosed]="showClosedPositions()"
                 [protectedSymbols]="protectedSymbols()"
                 [agenticAllowed]="agenticAllowed()"
                 (retry)="onRetrySection('equityPositions')"
-                (toggleClosed)="onToggleClosedPositions()"
                 (closePosition)="onClosePosition($event)"
                 (addStopLoss)="onAddStopLoss($event)"
               />
@@ -128,9 +126,7 @@
                 [positions]="optionPositions()"
                 [loading]="sel.optionPositions.loading"
                 [error]="sel.optionPositions.error"
-                [showClosed]="showClosedPositions()"
                 (retry)="onRetrySection('optionPositions')"
-                (toggleClosed)="onToggleClosedPositions()"
               />
             </div>
           </mat-tab>
@@ -139,10 +135,15 @@
             <div class="pd-tab-content">
               <app-open-orders-table
                 [orders]="openOrders()"
-                [protectedSymbols]="protectedSymbols()"
+                [agenticAllowed]="agenticAllowed()"
                 [loading]="ordersLoading()"
                 [error]="ordersError()"
+                [equityQuotes]="sel.equityQuotes.data"
+                [optionQuotes]="sel.optionQuotes.data"
                 (retry)="onRetrySection('orders')"
+                (cancelOrder)="onCancelOrder($event)"
+                (modifyOrder)="onModifyOrder($event)"
+                (cancelSelected)="onCancelSelected($event)"
               />
             </div>
           </mat-tab>
