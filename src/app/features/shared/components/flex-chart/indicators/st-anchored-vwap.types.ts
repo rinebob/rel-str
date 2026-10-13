@@ -5,18 +5,18 @@
  * imported by `st-anchored-vwap.engine.ts` and the chart indicator.
  */
 
-/** Which retracement scale produced a line. */
-export type AnchoredVwapScale = 'small' | 'large';
+/** Which retracement set produced a line (two independent tunings, not an ordered size hierarchy). */
+export type AnchoredVwapSet = 'line1' | 'line2';
 
 /** Which side of the swing a line is anchored on. */
 export type AnchoredVwapSide = 'high' | 'low';
 
 /** Configuration for the Anchored VWAP computation. */
 export interface AnchoredVwapConfig {
-  /** ZigZag deviation threshold (%) for the small-scale pivot set. */
-  smallRetracementPct: number;
-  /** ZigZag deviation threshold (%) for the large-scale pivot set. */
-  largeRetracementPct: number;
+  /** ZigZag deviation threshold (%) for the line-1 pivot set. */
+  line1RetracementPct: number;
+  /** ZigZag deviation threshold (%) for the line-2 pivot set. */
+  line2RetracementPct: number;
   /** Shared pivot-confirmation depth, bars to the left. */
   leftDepth: number;
   /** Shared pivot-confirmation depth, bars to the right — also the confirmation lag. */
@@ -30,8 +30,56 @@ export interface AnchoredVwapConfig {
    * `maxHistory`. Unset: the most recent `maxHistory` terminated segments.
    */
   historyStart?: string;
-  /** Max terminated segments per scale, both sides combined. Active lines are never counted. */
+  /** Max terminated segments per set, both sides combined. Active lines are never counted. */
   maxHistory: number;
+}
+
+// =============================================================================
+// ZIGZAG LEGS (render-only context)
+// =============================================================================
+
+/** A leg vertex: a pivot bar, its price, and its side. */
+export interface AnchoredVwapVertex {
+  /** Bar index of the pivot. */
+  index: number;
+  /** Pivot price. */
+  y: number;
+  /** True = pivot high, false = pivot low. */
+  isHigh: boolean;
+}
+
+/**
+ * One leg between two pivots. `isHigh` is the *destination* vertex's side —
+ * it selects the leg's hue so a leg into a pivot high draws the set's high
+ * color.
+ */
+export interface AnchoredVwapLeg {
+  from: AnchoredVwapVertex;
+  to: AnchoredVwapVertex;
+  isHigh: boolean;
+}
+
+/**
+ * The ZigZag legs of one set. `vertices` is the deduplicated surviving-anchor
+ * chain — superseded (`replaced`) anchors drop out so legs alternate like the
+ * standalone ST ZigZag — with same-bar high+low pairs collapsed to the later
+ * event (one index can carry only one vertex). `confirmed` chains consecutive
+ * vertices; a lone anchor is still a vertex even with no legs. `developing`
+ * runs from the last anchor to the running extreme (the engine's projection
+ * pivot); it is render-only, never an anchor, and null when no anchor exists
+ * yet or the post-pivot move hasn't met the deviation threshold.
+ */
+export interface AnchoredVwapLegSet {
+  set: AnchoredVwapSet;
+  vertices: AnchoredVwapVertex[];
+  confirmed: AnchoredVwapLeg[];
+  developing: AnchoredVwapLeg | null;
+}
+
+/** Segments plus the legs that produced their anchors. */
+export interface AnchoredVwapResult {
+  segments: AnchoredVwapSegment[];
+  legs: AnchoredVwapLegSet[];
 }
 
 /** One drawn point of a segment. */
@@ -48,9 +96,9 @@ export interface AnchoredVwapPoint {
  * to the last bar while active. The VWAP itself accumulates from `pivotBar`.
  */
 export interface AnchoredVwapSegment {
-  /** Stable unique key: `${scale}-${side}-${pivotBar}-${startBar}`. */
+  /** Stable unique key: `${set}-${side}-${pivotBar}-${startBar}`. */
   key: string;
-  scale: AnchoredVwapScale;
+  set: AnchoredVwapSet;
   side: AnchoredVwapSide;
   /** Bar index of the pivot the VWAP accumulates from. */
   pivotBar: number;

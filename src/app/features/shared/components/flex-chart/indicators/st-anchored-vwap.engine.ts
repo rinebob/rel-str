@@ -1,7 +1,7 @@
 /**
  * ST Anchored VWAP — pure computation.
  *
- * Turns two scales of ZigZag anchor events into Anchored VWAP line segments.
+ * Turns two sets of ZigZag anchor events into Anchored VWAP line segments.
  * Each line is drawn from its anchor's confirmation bar (the bar on which the
  * pivot became knowable) and never back to the pivot bar, so the output at
  * bar `t` depends only on bars `0..t`. The VWAP itself accumulates from the
@@ -12,6 +12,10 @@
  * anchor's line begins. A same-side pivot that replaces the current anchor is
  * itself an anchor — the replaced one was the live line until then.
  *
+ * `computeAnchoredVwapResult` additionally returns each set's ZigZag legs —
+ * a vertex per surviving anchor plus a render-only developing leg — so the
+ * chart can mark the pivots the live lines came from.
+ *
  * The History Window is a pure filter over which terminated segments draw: a
  * segment's content never depends on the window, but which history segments
  * are shown legitimately depends on how much history exists.
@@ -21,13 +25,23 @@
 
 import type { PriceBar } from '../flex-chart.types';
 import { parseIsoDateLocal } from '../../../utils/date.util';
-import { computeZigZagAnchorEvents, DEFAULT_CONFIG, type AnchorEvent } from './st-zigzag.engine';
+import {
+  computeZigZagAnchorResult,
+  DEFAULT_CONFIG,
+  type AnchorEvent,
+  type Pivot,
+  type ZigZagConfig,
+} from './st-zigzag.engine';
 import type {
   AnchoredVwapConfig,
+  AnchoredVwapLeg,
+  AnchoredVwapLegSet,
   AnchoredVwapPoint,
-  AnchoredVwapScale,
+  AnchoredVwapResult,
   AnchoredVwapSegment,
+  AnchoredVwapSet,
   AnchoredVwapSide,
+  AnchoredVwapVertex,
 } from './st-anchored-vwap.types';
 
 // =============================================================================
@@ -99,11 +113,11 @@ function segmentPoints(
   return points;
 }
 
-/** The segments of one side of one scale: one per anchor, in confirmation order. */
+/** The segments of one side of one set: one per anchor, in confirmation order. */
 function sideSegments(
   sums: CumulativeSums,
   anchors: AnchorEvent[],
-  scale: AnchoredVwapScale,
+  set: AnchoredVwapSet,
   side: AnchoredVwapSide,
   lastBar: number,
 ): AnchoredVwapSegment[] {
@@ -112,8 +126,8 @@ function sideSegments(
     const startBar = anchor.confirmBar;
     const endBar = next ? next.confirmBar : lastBar;
     return {
-      key: `${scale}-${side}-${anchor.pivotBar}-${startBar}`,
-      scale,
+      key: `${set}-${side}-${anchor.pivotBar}-${startBar}`,
+      set,
       side,
       pivotBar: anchor.pivotBar,
       startBar,
@@ -129,7 +143,7 @@ function sideSegments(
 // =============================================================================
 
 /**
- * Select what to draw for one scale: every active line, plus a window of the
+ * Select what to draw for one set: every active line, plus a window of the
  * terminated segments (both sides combined, ordered by start bar).
  *
  * - `historyStart` set (ISO 'YYYY-MM-DD'): terminated segments whose pivot's
@@ -165,40 +179,108 @@ function applyHistoryWindow(
 }
 
 // =============================================================================
+// ZIGZAG LEGS
+// =============================================================================
+
+/**
+ * The set's legs from one walk: `vertices` is every *surviving* anchor —
+ * an event immediately followed by a `replaced` event was superseded by it
+ * and drops out, so legs alternate sides like the standalone ST ZigZag
+ * (a superseded anchor still anchored its now-terminated VWAP segment; only
+ * the mark is dropped. Unlike the segments, the chain is retroactive here:
+ * a drawn vertex can vanish once its replacer registers). Same-bar high+low
+ * pairs still collapse to the later event — a line series can't draw two
+ * vertices at one index. Legs join consecutive vertices; `developing` runs
+ * from the last vertex to the walk's projection pivot. Render-only; it never
+ * anchors a VWAP line.
+ */
+function legsForSet(events: AnchorEvent[], projection: Pivot | undefined, set: AnchoredVwapSet): AnchoredVwapLegSet {
+  const vertices: AnchoredVwapVertex[] = [];
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    if (events[i + 1]?.replaced) continue;
+    // `allowZigZagOnOneBar` can register a high and a low on the same bar —
+    // two vertices at one index can't both draw, so collapse them to the
+    // later event (its side colors the outgoing leg).
+    const vertex: AnchoredVwapVertex = { index: e.pivotBar, y: e.price, isHigh: e.isHigh };
+    if (vertices.length && vertices[vertices.length - 1].index === vertex.index) {
+      vertices[vertices.length - 1] = vertex;
+    } else {
+      vertices.push(vertex);
+    }
+  }
+
+  const confirmed: AnchoredVwapLeg[] = [];
+  for (let i = 0; i < vertices.length - 1; i++) {
+    confirmed.push({ from: vertices[i], to: vertices[i + 1], isHigh: vertices[i + 1].isHigh });
+  }
+
+  const last = vertices[vertices.length - 1];
+  const developing: AnchoredVwapLeg | null = last && projection
+    ? {
+        from: last,
+        to: { index: projection.barIndex, y: projection.price, isHigh: projection.isHigh },
+        isHigh: projection.isHigh,
+      }
+    : null;
+
+  return { set, vertices, confirmed, developing };
+}
+
+// =============================================================================
 // MAIN COMPUTATION
 // =============================================================================
 
 /**
- * Compute the Anchored VWAP segments for both retracement scales.
+ * Compute the Anchored VWAP segments and the ZigZag legs for both
+ * retracement sets.
  *
  * @param bars - OHLCV bars
- * @param config - retracement scales, pivot depths and history window
- * @returns Segments ordered by scale, then side (high first), then start bar
+ * @param config - retracement sets, pivot depths and history window
+ * @returns Segments ordered by set, then side (high first), then start bar;
+ *          legs ordered by set
  */
-export function computeAnchoredVwap(bars: PriceBar[], config: AnchoredVwapConfig): AnchoredVwapSegment[] {
-  if (bars.length === 0) return [];
+export function computeAnchoredVwapResult(bars: PriceBar[], config: AnchoredVwapConfig): AnchoredVwapResult {
+  const empty: AnchoredVwapResult = { segments: [], legs: [] };
+  if (bars.length === 0) return empty;
 
   const sums = cumulativeSums(bars);
-  const scales: [AnchoredVwapScale, number][] = [
-    ['small', config.smallRetracementPct],
-    ['large', config.largeRetracementPct],
+  const sets: [AnchoredVwapSet, number][] = [
+    ['line1', config.line1RetracementPct],
+    ['line2', config.line2RetracementPct],
   ];
   const segments: AnchoredVwapSegment[] = [];
+  const legs: AnchoredVwapLegSet[] = [];
 
-  for (const [scale, devThreshold] of scales) {
-    const events = computeZigZagAnchorEvents(bars, {
+  for (const [set, devThreshold] of sets) {
+    const zigzagConfig: ZigZagConfig = {
       ...DEFAULT_CONFIG,
       devThreshold,
       leftDepth: config.leftDepth,
       rightDepth: config.rightDepth,
       allowZigZagOnOneBar: true,
-      projectionPivots: false,
-    });
+      projectionPivots: true,
+    };
+    // One walk per set: events drive both the VWAP anchors and the leg
+    // chain; the same pass also yields the developing-leg projection.
+    const { events, projection } = computeZigZagAnchorResult(bars, zigzagConfig);
     const sideSegs = (['high', 'low'] as const).flatMap((side) =>
-      sideSegments(sums, events.filter((e) => e.isHigh === (side === 'high')), scale, side, bars.length - 1),
+      sideSegments(sums, events.filter((e) => e.isHigh === (side === 'high')), set, side, bars.length - 1),
     );
     segments.push(...applyHistoryWindow(bars, sideSegs, config.historyStart, config.maxHistory));
+    legs.push(legsForSet(events, projection, set));
   }
 
-  return segments;
+  return { segments, legs };
+}
+
+/**
+ * Compute the Anchored VWAP segments for both retracement sets.
+ *
+ * @param bars - OHLCV bars
+ * @param config - retracement sets, pivot depths and history window
+ * @returns Segments ordered by set, then side (high first), then start bar
+ */
+export function computeAnchoredVwap(bars: PriceBar[], config: AnchoredVwapConfig): AnchoredVwapSegment[] {
+  return computeAnchoredVwapResult(bars, config).segments;
 }

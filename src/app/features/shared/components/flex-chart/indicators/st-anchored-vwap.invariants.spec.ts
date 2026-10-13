@@ -1,4 +1,4 @@
-import { computeAnchoredVwap } from './st-anchored-vwap.engine';
+import { computeAnchoredVwap, computeAnchoredVwapResult } from './st-anchored-vwap.engine';
 import { computeZigZagAnchorEvents, DEFAULT_CONFIG, type AnchorEvent } from './st-zigzag.engine';
 import type { AnchoredVwapConfig, AnchoredVwapSegment } from './st-anchored-vwap.types';
 import type { PriceBar } from '../flex-chart.types';
@@ -33,15 +33,15 @@ function makeWalk(seed: number, n: number): PriceBar[] {
 
 /** Window disabled so the full output is directly comparable to a truncated one. */
 const SCENARIOS: { name: string; seed: number; n: number; config: AnchoredVwapConfig }[] = [
-  { name: 'depth 3/3, 3% and 8%', seed: 1, n: 320, config: { smallRetracementPct: 3, largeRetracementPct: 8, leftDepth: 3, rightDepth: 3, maxHistory: 100_000 } },
-  { name: 'depth 2/4, 2% and 6%', seed: 3, n: 320, config: { smallRetracementPct: 2, largeRetracementPct: 6, leftDepth: 2, rightDepth: 4, maxHistory: 100_000 } },
-  { name: 'depth 4/2, 5% and 12%', seed: 4, n: 280, config: { smallRetracementPct: 5, largeRetracementPct: 12, leftDepth: 4, rightDepth: 2, maxHistory: 100_000 } },
+  { name: 'depth 3/3, 3% and 8%', seed: 1, n: 320, config: { line1RetracementPct: 3, line2RetracementPct: 8, leftDepth: 3, rightDepth: 3, maxHistory: 100_000 } },
+  { name: 'depth 2/4, 2% and 6%', seed: 3, n: 320, config: { line1RetracementPct: 2, line2RetracementPct: 6, leftDepth: 2, rightDepth: 4, maxHistory: 100_000 } },
+  { name: 'depth 4/2, 5% and 12%', seed: 4, n: 280, config: { line1RetracementPct: 5, line2RetracementPct: 12, leftDepth: 4, rightDepth: 2, maxHistory: 100_000 } },
 ];
 
-const events = (bars: PriceBar[], config: AnchoredVwapConfig, scale: 'small' | 'large'): AnchorEvent[] =>
+const events = (bars: PriceBar[], config: AnchoredVwapConfig, scale: 'line1' | 'line2'): AnchorEvent[] =>
   computeZigZagAnchorEvents(bars, {
     ...DEFAULT_CONFIG,
-    devThreshold: scale === 'small' ? config.smallRetracementPct : config.largeRetracementPct,
+    devThreshold: scale === 'line1' ? config.line1RetracementPct : config.line2RetracementPct,
     leftDepth: config.leftDepth,
     rightDepth: config.rightDepth,
     allowZigZagOnOneBar: true,
@@ -73,18 +73,18 @@ describe('computeAnchoredVwap — invariants on varied series', () => {
       const bars = makeWalk(sc.seed, sc.n);
       const segs = computeAnchoredVwap(bars, sc.config);
 
-      it('produces lines for both scales and both sides', () => {
-        for (const scale of ['small', 'large'] as const) {
+      it('produces lines for both sets and both sides', () => {
+        for (const scale of ['line1', 'line2'] as const) {
           for (const side of ['high', 'low'] as const) {
-            expect(segs.some((s) => s.scale === scale && s.side === side)).toBe(true);
+            expect(segs.some((s) => s.set === scale && s.side === side)).toBe(true);
           }
         }
       });
 
       it('starts every line on its anchor’s confirmation bar and nowhere earlier', () => {
-        for (const scale of ['small', 'large'] as const) {
+        for (const scale of ['line1', 'line2'] as const) {
           const ev = events(bars, sc.config, scale);
-          for (const s of segs.filter((x) => x.scale === scale)) {
+          for (const s of segs.filter((x) => x.set === scale)) {
             const anchor = ev.find((e) => e.pivotBar === s.pivotBar && e.isHigh === (s.side === 'high'))!;
             expect(anchor).toBeDefined();
             expect(s.startBar).toBe(anchor.confirmBar);
@@ -95,9 +95,9 @@ describe('computeAnchoredVwap — invariants on varied series', () => {
       });
 
       it('hands each line to the next same-side anchor on its confirmation bar, with the last line active to the final bar', () => {
-        for (const scale of ['small', 'large'] as const) {
+        for (const scale of ['line1', 'line2'] as const) {
           for (const side of ['high', 'low'] as const) {
-            const line = segs.filter((s) => s.scale === scale && s.side === side).sort((a, b) => a.startBar - b.startBar);
+            const line = segs.filter((s) => s.set === scale && s.side === side).sort((a, b) => a.startBar - b.startBar);
             const anchors = events(bars, sc.config, scale).filter((e) => e.isHigh === (side === 'high'));
             expect(line.map((s) => s.pivotBar)).toEqual(anchors.map((a) => a.pivotBar));
             line.forEach((s, k) => {
@@ -153,6 +153,100 @@ describe('computeAnchoredVwap — invariants on varied series', () => {
           for (const s of truncated) {
             const full = byKey.get(s.key)!;
             expect(s.points).toEqual(full.points.filter((p) => p.index <= t));
+          }
+        }
+      });
+
+      it('chains legs over surviving anchors only — superseded anchors anchor segments but not vertices', () => {
+        const { legs } = computeAnchoredVwapResult(bars, sc.config);
+        for (const scale of ['line1', 'line2'] as const) {
+          const legSet = legs.find((l) => l.set === scale)!;
+          const anchors = events(bars, sc.config, scale);
+          // A `replaced` event supersedes the anchor immediately before it;
+          // the chain walks survivors only, so legs alternate like ST ZigZag.
+          const surviving = anchors.filter((a, i) => !anchors[i + 1]?.replaced);
+          // Same-bar high+low survivors still collapse to the later one (a
+          // line series can't draw two vertices at one index).
+          const expected = surviving
+            .filter((a, i, all) => i === all.length - 1 || all[i + 1].pivotBar !== a.pivotBar);
+          expect(legSet.vertices.map((v) => v.index)).toEqual(expected.map((a) => a.pivotBar));
+          expect(legSet.vertices.map((v) => v.y)).toEqual(expected.map((a) => a.price));
+          // Legs connect consecutive vertices, each painted its destination's side.
+          expect(legSet.confirmed.map((l) => [l.from, l.to])).toEqual(
+            legSet.vertices.slice(1).map((to, i) => [legSet.vertices[i], to]),
+          );
+          expect(legSet.confirmed.map((l) => l.isHigh)).toEqual(legSet.vertices.slice(1).map((v) => v.isHigh));
+          // A surviving anchor's segment has a coincident vertex; a superseded
+          // anchor keeps its segment but loses the mark — unless a surviving
+          // opposite-side event coincidentally shares its bar.
+          for (const s of segs.filter((x) => x.set === scale)) {
+            const anchor = anchors.find((a) => a.pivotBar === s.pivotBar && a.isHigh === (s.side === 'high'))!;
+            const vertex = legSet.vertices.find((v) => v.index === s.pivotBar && v.isHigh === anchor.isHigh);
+            if (!surviving.includes(anchor)) {
+              expect(vertex).toBeUndefined();
+            } else if (expected.includes(anchor)) {
+              expect(vertex?.y).toBe(anchor.price);
+            } else {
+              // Survived but lost a same-bar collapse — the kept opposite-side
+              // event still marks the bar.
+              expect(legSet.vertices.some((v) => v.index === s.pivotBar)).toBe(true);
+            }
+          }
+        }
+      });
+
+      it('legs only rewrite forward: a truncated chain’s vertices are all real anchors of the full stream — superseded at most', () => {
+        const full = computeAnchoredVwapResult(bars, sc.config).legs;
+        const verticesOf = (legs: typeof full, scale: string) =>
+          legs.find((l) => l.set === scale)!.vertices.map((v) => `${v.index}@${v.y}`);
+        for (let t = 40; t < bars.length; t += 11) {
+          const truncated = computeAnchoredVwapResult(bars.slice(0, t + 1), sc.config);
+          for (const legSet of truncated.legs) {
+            // Survival isn't causal — an anchor superseded later disappears
+            // from the full chain — so the truncated chain isn't a prefix of
+            // it. But it can't invent anchors: every vertex is a real anchor
+            // event of the full stream, surviving or later superseded.
+            const fullEvents = events(bars, sc.config, legSet.set);
+            const allowed = new Set([
+              ...verticesOf(full, legSet.set),
+              ...fullEvents.filter((a, i) => fullEvents[i + 1]?.replaced).map((a) => `${a.pivotBar}@${a.price}`),
+            ]);
+            for (const v of verticesOf(truncated.legs, legSet.set)) {
+              expect(allowed.has(v)).toBe(true);
+            }
+          }
+        }
+      });
+
+      it('develops the leg only beyond the last anchor — it never anchors a line', () => {
+        const { legs } = computeAnchoredVwapResult(bars, sc.config);
+        for (const legSet of legs) {
+          // No anchors → nothing to chain a developing leg off.
+          if (legSet.vertices.length === 0) {
+            expect(legSet.developing).toBeNull();
+            continue;
+          }
+          // Anchors but no qualifying post-pivot move → no developing leg.
+          if (!legSet.developing) continue;
+          const lastVertex = legSet.vertices[legSet.vertices.length - 1];
+          expect(legSet.developing.from).toEqual(lastVertex);
+          // The projection pivot is scanned strictly after the last anchor.
+          expect(legSet.developing.to.index).toBeGreaterThan(legSet.developing.from.index);
+          // The developing tip is never a segment anchor.
+          expect(segs.filter((s) => s.set === legSet.set).every((s) => s.pivotBar !== legSet.developing!.to.index)).toBe(true);
+        }
+      });
+
+      it('the developing tip is causal: on bars[0..t] it chains off that prefix’s last vertex', () => {
+        for (let t = 40; t < bars.length; t += 11) {
+          const truncated = computeAnchoredVwapResult(bars.slice(0, t + 1), sc.config);
+          for (const legSet of truncated.legs) {
+            if (!legSet.developing) continue; // no qualifying move on the prefix
+            const lastVertex = legSet.vertices[legSet.vertices.length - 1];
+            expect(legSet.developing.from).toEqual(lastVertex);
+            // Tip strictly after the last vertex and within the prefix.
+            expect(legSet.developing.to.index).toBeGreaterThan(lastVertex.index);
+            expect(legSet.developing.to.index).toBeLessThanOrEqual(t);
           }
         }
       });
