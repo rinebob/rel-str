@@ -16,6 +16,7 @@ import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-cha
 import { StIndicator } from '../flex-chart.types';
 import { computeZigZagPivots, computeTriggerPoints, DEFAULT_CONFIG } from './st-zigzag.engine';
 import type { ZigZagConfig, Pivot } from './st-zigzag.engine';
+import { boolParam } from './indicator-params';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -83,23 +84,16 @@ export interface ZigZagChartSeries {
 // 3. PARAM EXTRACTION
 // =============================================================================
 
-/** Parse a boolean param that may be a string ('true'/'false'), boolean, or undefined. */
-function toBool(v: number | string | boolean | undefined, fallback: boolean): boolean {
-  if (v === true || v === 'true') return true;
-  if (v === false || v === 'false') return false;
-  return fallback;
-}
-
 /** Extract a ZigZagConfig from indicator params, falling back to DEFAULT_CONFIG. */
 function extractConfig(params: Record<string, number | string | boolean>): ZigZagConfig {
   return {
     devThreshold: Math.max(0.1, Number(params['devThreshold'] ?? DEFAULT_CONFIG.devThreshold)),
     leftDepth: Math.max(2, Math.floor(Number(params['leftDepth'] ?? DEFAULT_CONFIG.leftDepth))),
     rightDepth: Math.max(2, Math.floor(Number(params['rightDepth'] ?? DEFAULT_CONFIG.rightDepth))),
-    allowZigZagOnOneBar: toBool(params['allowZigZagOnOneBar'], DEFAULT_CONFIG.allowZigZagOnOneBar),
-    projectionPivots: toBool(params['projectionPivots'], DEFAULT_CONFIG.projectionPivots),
+    allowZigZagOnOneBar: boolParam(params['allowZigZagOnOneBar'], DEFAULT_CONFIG.allowZigZagOnOneBar),
+    projectionPivots: boolParam(params['projectionPivots'], DEFAULT_CONFIG.projectionPivots),
     lineColor: typeof params['lineColor'] === 'string' ? params['lineColor'] : DEFAULT_CONFIG.lineColor,
-    showTriggerDots: toBool(params['showTriggerDots'], true),
+    showTriggerDots: boolParam(params['showTriggerDots'], true),
   };
 }
 
