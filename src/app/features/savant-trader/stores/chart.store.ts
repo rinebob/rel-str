@@ -106,6 +106,10 @@ export const ChartStore = signalStore(
         selectedSymbol: symbol,
         loading: true,
         error: null,
+        // Blank the version while the new symbol's bars are in flight —
+        // consumers key indicator responses by it, so leaving the prior
+        // symbol's version would key lookups/fetches under `newSymbol|oldV`.
+        symbolDataVersion: '',
       });
 
       barsSub = chartService

@@ -26,7 +26,7 @@ import {
 } from '../common/indicator.types';
 
 export interface IndicatorSeriesState {
-  /** Cache keyed by symbol|version|intervals|indicators|strategies */
+  /** Cache keyed by callable|symbol|version|intervals|indicators|strategies */
   cache: Record<string, SymbolIndicatorSeriesResponse>;
   /** Per-key loading flags */
   loading: Record<string, boolean>;
@@ -143,7 +143,8 @@ export const IndicatorSeriesStore = signalStore(
       const loading = { ...state.loading() };
       const error = { ...state.error() };
       for (const key of Object.keys(cache)) {
-        if (key.startsWith(`${symbol}|`)) {
+        // Key layout: callable|symbol|version|intervals|indicators|strategies.
+        if (key.split('|')[1] === symbol) {
           delete cache[key];
           delete loading[key];
           delete error[key];

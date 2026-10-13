@@ -60,6 +60,24 @@ describe('ChartStore', () => {
     expect(store.symbolDataVersion()).toBe('v1');
   });
 
+  it('blanks symbolDataVersion while a new symbol loads (no stale-key lookups)', () => {
+    // Consumers key indicator responses by symbolDataVersion — while B's bars
+    // are in flight the version must not still name A, or a response keyed
+    // 'B|vA' can inject onto A's chart and a dead cache entry is burned.
+    chartServiceMock.loadBars$.mockReturnValueOnce(of(barsResult()));
+    store.loadCharts('AAA');
+    expect(store.symbolDataVersion()).toBe('v1');
+
+    const pending = new Subject<ReturnType<typeof barsResult>>();
+    chartServiceMock.loadBars$.mockReturnValueOnce(pending.asObservable());
+    store.loadCharts('BBB');
+
+    expect(store.symbolDataVersion()).toBe('');
+
+    pending.next({ ...barsResult(), version: 'v2' });
+    expect(store.symbolDataVersion()).toBe('v2');
+  });
+
   it('clearCharts cancels an in-flight request', () => {
     const pending = new Subject<ReturnType<typeof barsResult>>();
     chartServiceMock.loadBars$.mockReturnValue(pending.asObservable());
