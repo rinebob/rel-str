@@ -136,6 +136,7 @@ export type OrderState =
   | 'failed'
   | 'voided'
   | 'pending_cancelled'
+  | 'partially_filled_rest_cancelled'
   | 'unknown';
 
 export type OrderType = 'market' | 'limit' | 'stop_market' | 'stop_limit' | 'unknown';

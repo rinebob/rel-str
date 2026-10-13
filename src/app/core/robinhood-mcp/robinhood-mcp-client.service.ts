@@ -323,13 +323,20 @@ export class RobinhoodMcpClient {
   // Orders
   // ---------------------------------------------------------------------------
 
-  async getEquityOrders(accountNumber: string, opts?: { state?: OrderState }): Promise<BrokerOrder[]> {
+  async getEquityOrders(
+    accountNumber: string,
+    opts?: { state?: OrderState; orderId?: string },
+  ): Promise<BrokerOrder[]> {
     return this.run(this.equityOrdersSpec(accountNumber, opts));
   }
 
-  equityOrdersSpec(accountNumber: string, opts?: { state?: OrderState }): ToolSpec<BrokerOrder[]> {
+  equityOrdersSpec(
+    accountNumber: string,
+    opts?: { state?: OrderState; orderId?: string },
+  ): ToolSpec<BrokerOrder[]> {
     const args: Record<string, unknown> = { account_number: accountNumber };
     if (opts?.state) args['state'] = opts.state;
+    if (opts?.orderId) args['order_id'] = opts.orderId;
 
     return {
       tool: 'get_equity_orders',
@@ -578,6 +585,8 @@ export class RobinhoodMcpClient {
   private static readonly VALID_STATES: ReadonlySet<string> = new Set([
     'new', 'queued', 'confirmed', 'unconfirmed', 'partially_filled',
     'filled', 'cancelled', 'rejected', 'failed', 'voided', 'pending_cancelled',
+    // Named in the captured cancel guide (mx-can-bid) as a success state.
+    'partially_filled_rest_cancelled',
   ]);
 
   private parseOrderState(value: unknown): OrderState {

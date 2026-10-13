@@ -729,6 +729,35 @@ describe('RobinhoodMcpClient', () => {
       expect(mcp.executeTool).toHaveBeenCalledWith('get_equity_orders', { args: { account_number: '123456789', state: 'filled' } });
     });
 
+    it('passes order_id for single-order lookup', async () => {
+      mockResolve({ success: true, parsed: { results: [] }, redacted: {}, tool: 'get_equity_orders' });
+
+      await client.getEquityOrders('123456789', { orderId: 'order-abc' });
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('get_equity_orders', { args: { account_number: '123456789', order_id: 'order-abc' } });
+    });
+
+    it('normalizes partially_filled_rest_cancelled instead of collapsing to unknown', async () => {
+      // RH terminal state when a partially-filled order's remainder is
+      // cancelled — the update-stop confirmation relies on seeing it verbatim.
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            orders: [
+              { id: 'o-1', side: 'sell', type: 'stop_loss', state: 'partially_filled_rest_cancelled', symbol: 'AAPL', quantity: '5' },
+            ],
+          },
+        },
+        redacted: {},
+        tool: 'get_equity_orders',
+      });
+
+      const orders = await client.getEquityOrders('123456789', { orderId: 'o-1' });
+
+      expect(orders[0].state).toBe('partially_filled_rest_cancelled');
+    });
+
     it('throws RobinhoodMcpError on failure', async () => {
       mockFailure('Server error', ToolExecutionErrorCategory.MCP);
 
