@@ -1,0 +1,340 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © rinebob
+
+//@version=5
+
+indicator(title="rb Donchian Channels", shorttitle="rbDC", overlay=true, timeframe="", timeframe_gaps=true)
+
+import rinebob/rb_TA_lib/14 as rbLib
+
+//#region------------------------ Donchian Channels -------------------------------
+
+//////////////////////// DONCHIAN CHANNELS ////////////////////////////////////////
+
+//////// INPUTS ////////////
+
+length = input.int(3, minval = 1)
+horzOffset = input.int(0)
+vertOffset = input.float(0.05)
+longColor = input.color(color.blue, "Long color")
+shortColor = input.color(color.yellow, "Short color")
+midpointColor = input.color(color.black, "Midpoint color")
+
+//////////// INTERNAL METHOD ///////////////////
+
+// method rbDonchianChannels(simple int length) =>
+method rbDonchianChannels(series float src_open, series float src_high, series float src_low, series float src_close, simple int length, simple bool use_body) =>
+    bodyHigh = src_open < src_close ? src_close : src_open
+    bodyLow = src_open > src_close ? src_close : src_open
+
+    highToUse = use_body ? bodyHigh : src_high
+    lowToUse = use_body ? bodyLow : src_low
+
+    // upper = ta.highest(high, length)
+    // lower = ta.lowest(low, length)
+    upper = ta.highest(highToUse, length)
+    lower = ta.lowest(lowToUse, length)
+    midpoint = math.avg(upper, lower)
+
+    // // Pullbacks and breakouts
+    series bool longPullback = false
+    series bool longPullbackState = false
+    longPullback := upper <= upper[1]
+    longBreakout = upper[2] >= upper[1] and ta.crossover(bodyHigh, upper[1]) and longPullbackState[1] == true
+    longPullbackState := longPullback ? true : longBreakout ? false : longPullbackState[1]
+
+
+
+    // series bool longRetrace = false
+    // series bool longRetraceState = false
+    // longRetrace := lower < lower[1] and lower[1] >= lower[2]
+    // longRetraceState := longRetrace ? true : longBreakout ? false : longRetraceState[1]
+
+
+
+    series bool shortPullback = false
+    series bool shortPullbackState = false
+    shortPullback := lower >= lower[1]
+    shortBreakout = lower[2] <= lower[1] and ta.crossunder(bodyLow, lower[1]) and shortPullbackState[1] == true
+    shortPullbackState := shortPullback ? true : shortBreakout ? false : shortPullbackState[1]
+
+    // series bool shortRetrace = false
+    // series bool shortRetraceState = false
+    // shortRetrace := upper > upper[1] and upper[1] <= upper[2]
+    // shortRetraceState := shortRetrace ? true : shortBreakout ? false : shortRetraceState[1]
+
+    [lower, upper, midpoint, longPullback, longPullbackState, longBreakout, shortPullback, shortPullbackState, shortBreakout]
+
+
+// [
+//  lower,
+//  upper,
+//  midpoint,
+//  longPullback,
+//  longPullbackState,
+//  longRetrace,
+//  longRetraceState,
+//  longBreakout,
+//  shortPullback,
+//  shortPullbackState,
+//  shortRetrace,
+//  shortRetraceState,
+//  shortBreakout
+//  ] = rbDonchianChannels(length)
+
+/////////////////////////////////////
+
+/////// v10 FUNCTION CALL //////////////
+
+// [
+//  lower,
+//  upper,
+//  midpoint,
+//  longPullback,
+//  longPullbackState,
+//  longRetrace,
+//  longRetraceState,
+//  longBreakout,
+//  shortPullback,
+//  shortPullbackState,
+//  shortRetrace,
+//  shortRetraceState,
+//  shortBreakout
+//  ] = rbLib.rb_donchian_channels(length)
+
+
+////////// NEW CALCULATIONS //////////////////////////
+
+// TODO: add to lib function
+// bodyHigh = open < close ? close : open
+// bodyLow = open < close ? open : close
+
+// [
+//  lower,
+//  upper,
+//  midpoint,
+//  longPullback,
+//  longPullbackState,
+//  longRetrace,
+//  longRetraceState,
+//  longBreakout,
+//  shortPullback,
+//  shortPullbackState,
+//  shortRetrace,
+//  shortRetraceState,
+//  shortBreakout
+//  ] = rbDonchianChannels(bodyHigh, bodyLow, length)
+
+[
+ lower,
+ upper,
+ midpoint,
+ longPullback,
+ longPullbackState,
+ longBreakout,
+ shortPullback,
+ shortPullbackState,
+ shortBreakout
+ ] = rbDonchianChannels(open, high, low, close, length, true)
+
+/////// NEW DIAGNOSTIC PLOTS //////////////
+
+// use_body = false
+use_body = true
+bodyHigh = open < close ? close : open
+bodyLow = open > close ? close : open
+
+highToUse = use_body ? bodyHigh : high
+lowToUse = use_body ? bodyLow : low
+// upper = ta.highest(high, length)
+// lower = ta.lowest(low, length)
+// upper = ta.highest(highToUse, length)
+// lower = ta.lowest(lowToUse, length)
+// midpoint = math.avg(upper, lower)
+
+// lower =  ta.lowest(length)
+// upper =  ta.highest(length)
+// midpoint =  math.avg(upper, lower)
+// plot(midpoint, "midpoint", color = #FF6D00, offset = horzOffset, style = plot.style_stepline)
+// u = plot(upper, "Upper", color = color.red, linewidth = 3, offset = horzOffset, style = plot.style_stepline)
+// l = plot(lower, "Lower", color = color.red, linewidth = 3, offset = horzOffset, style = plot.style_stepline)
+// plot(bodyHigh, "bodyHigh", color = color.white, linewidth = 3, offset = horzOffset, style = plot.style_stepline)
+// plot(bodyLow, "bodyLow", color = color.yellow, linewidth = 3, offset = horzOffset, style = plot.style_stepline)
+
+// // Pullbacks and breakouts
+// series bool longPullback = false
+// series bool longPullbackState = false
+// longPullback := upper <= upper[1]
+// longBreakout = upper[2] > upper[1] and ta.crossover(high, upper[1]) and longPullbackState[1] == true
+// longPullbackState := longPullback ? true : longBreakout ? false : longPullbackState[1]
+
+
+
+// series bool longRetrace = false
+// series bool longRetraceState = false
+// longRetrace := lower < lower[1] and lower[1] >= lower[2]
+// longRetraceState := longRetrace ? true : longBreakout ? false : longRetraceState[1]
+
+
+
+// series bool shortPullback = false
+// series bool shortPullbackState = false
+// shortPullback := lower >= lower[1]
+// shortBreakout = lower[2] < lower[1] and ta.crossunder(low, lower[1]) and shortPullbackState[1] == true
+// shortPullbackState := shortPullback ? true : shortBreakout ? false : shortPullbackState[1]
+
+// plot(longPullback ? lower - vertOffset : na, "long pullback", color = color.blue, style = plot.style_cross, linewidth = 4)
+// plot(shortPullback ? upper + vertOffset : na, "short pullback", color = color.yellow, style = plot.style_cross, linewidth = 4)
+longRetraceColor = shortColor
+shortRetraceColor = longColor
+// retraceColor = longRetrace ? longRetraceColor : shortRetrace ? shortRetraceColor : na
+// plot(ta.sma(close, 14) - .1, "retrace", color=retraceColor, style = plot.style_stepline, linewidth = 3)
+
+// retraceStateColor = longRetraceState ? longRetraceColor : shortRetraceState ? shortRetraceColor : na
+// plot(ta.sma(close, 14) - .15, "retraceState", color=retraceStateColor, style = plot.style_stepline, linewidth = 3)
+
+
+// TODO: add to lib function and export keeping all existing exports
+// bodyLower =  lower
+// bodyUpper =  upper
+// bodyMidpoint =  math.avg(bodyLower, bodyUpper)
+
+/////// PLOTS /////////////
+// Plot colors
+upperBandColor = color.white
+lowerBandColor = color.white
+midpointBaseColor = color.black
+longPullbackColor = shortColor
+shortPullbackColor = longColor
+longBreakoutColor = longColor
+shortBreakoutColor = shortColor
+
+upperColor = longPullback ? longPullbackColor : longBreakout ? longBreakoutColor : upperBandColor
+lowerColor = shortPullback ? shortPullbackColor : shortBreakout ? shortBreakoutColor : lowerBandColor
+// upperColor = longPullback ? longPullbackColor : longBreakout ? longBreakoutColor : na
+// lowerColor = shortPullback ? shortPullbackColor : shortBreakout ? shortBreakoutColor : na
+
+// midpoint
+// plot(midpoint, "Midpoint", color = midpointColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset)
+
+// upper
+u2 = plot(upper, "Upper", color = upperColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset, force_overlay = true)
+
+// lower
+l2 = plot(lower, "Lower", color = lowerColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset, force_overlay = true)
+
+// fill
+// fill(u, l, color = color.rgb(33, 150, 243, 95), title = "Background")
+
+// plot(longBreakout ? lower - vertOffset : na, "long breakout", color = color.blue, style = plot.style_cross, linewidth = 4, force_overlay = true)
+// plot(longRetrace ? lower - vertOffset * 1.5 : na, "long retrace", color = color.purple, style = plot.style_cross, linewidth = 4)
+// plot(longRetraceState ? lower - vertOffset * 2 : na, "long retrace state", color = color.red, style = plot.style_cross, linewidth = 4)
+
+// plot(shortBreakout ? upper + vertOffset : na, "short breakout", color = color.yellow, style = plot.style_cross, linewidth = 4, force_overlay = true)
+// plot(shortRetrace ? upper + vertOffset * 1.5 : na, "short retrace", color = color.orange, style = plot.style_cross, linewidth = 4)
+// plot(shortRetraceState ? upper + vertOffset * 2 : na, "short retrace state", color = color.fuchsia, style = plot.style_cross, linewidth = 4)
+
+plot(longPullbackState ? 5 : na, "longPullbackState", color=color.yellow, style = plot.style_circles, linewidth = 3)
+plot(longBreakout ? 10 : na, "longBreakout", color=color.blue, style = plot.style_cross, linewidth = 3)
+plot(shortPullbackState ? -5 : na, "shortPullbackState", color=color.blue, style = plot.style_circles, linewidth = 3)
+plot(shortBreakout ? -10 : na, "shortBreakout", color=color.yellow, style = plot.style_cross, linewidth = 3)
+
+
+//////////////// NEW PLOTS - remove when new vars exported from lib function //////////////////////
+
+// bodyMidpoint
+// plot(bodyMidpoint, "bodyMidpoint", color = midpointColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset)
+
+// bodyUpper
+// plot(bodyUpper, "bodyUpper", color = upperColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset)
+
+// bodyLower
+// plot(bodyLower, "bodyLower", color = lowerColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset)
+
+////////////  DIAGNOSTIC PLOTS //////////////////////////
+
+plot(bar_index, "Bar index", display = display.data_window, precision = 0)
+
+// new
+
+
+///////// LOGGING //////////////////
+
+formattedTime = str.format_time(time, "yyyy-MM-dd HH:mm", syminfo.timezone)
+
+log.info(
+     "\n====== rb DonChans START {0} {1} ======== \n",
+
+     formattedTime, bar_index
+  )
+
+log.info(
+     "\nprice \n
+      open: {0}\n
+      high: {1}\n
+      low: {2}\n
+      close: {3}\n
+      end price\n
+     ",
+
+     open, high, low, close
+  )
+
+// log.info(
+//      "\nchannels \n
+//       upper: {0}\n
+//       midpoint: {1}\n
+//       lower: {2}\n
+//       upper[1]: {3}\n
+//       closeCrossesAboveUpper[1]
+//       lower[1]: {4}\n
+//       closeCrossesBelowLower[1]
+//       end channels\n
+//      ",
+
+//      upper, midpoint, lower, upper[1], ta.crossover(close, upper[1]), lower[1], ta.crossunder(close, lower[1])
+//   )
+
+// log.info(
+//      "\nretrace breakouts \n
+//       longRetrace: {0}\n
+//       longRetraceState: {1}\n
+//       longPullback: {2}\n
+//       longBreakout: {3}\n
+//       shortRetrace: {4}\n
+//       shortRetraceState: {5}\n
+//       shortPullback: {6}\n
+//       shortBreakout: {7}\n
+//       end zones\n
+//      ",
+
+//      longRetrace, longRetraceState, longPullback, longBreakout, shortRetrace, shortRetraceState, shortPullback, shortBreakout
+//   )
+
+if bar_index >= last_bar_index - 10
+    log.info(
+         "\n{0} {1} idx {2}\nupper: {3,number,#.##}\nlower: {4,number,#.##}\nlongPullback: {5}\nlongPullbackState: {6}\nlongBreakout: {7}\nshortPullback: {8}\nshortPullbackState: {9}\nshortBreakout: {10}\n",
+         syminfo.ticker, formattedTime, bar_index,
+         upper,
+         lower,
+         longPullback,
+         longPullbackState,
+         longBreakout,
+         shortPullback,
+         shortPullbackState,
+         shortBreakout
+      )
+
+log.info(
+     "\n====== rb DonChans END {0} {1} ======== \n",
+
+     formattedTime, bar_index
+  )
+
+  
+
+////////////////////////////////////////////////////////////////////
+
+//#endregion------------------------ Donchian Channels -------------------------------
+
+
