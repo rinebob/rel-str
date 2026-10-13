@@ -94,7 +94,12 @@ $down: #f44336;
   thead {
     position: sticky;
     top: 0;
-    z-index: 1;
+    // Must exceed the z-index:1 MDC puts on `.mdc-button__label`/`.mat-icon`
+    // inside stroked/text buttons — `.mdc-button` roots are
+    // `position:relative; z-index:auto` (no stacking context), so cell
+    // buttons' internals compete directly with this header and win ties
+    // on DOM order. (mat-icon-button self-contains: its root is z-index:0.)
+    z-index: 2;
     background: var(--mat-sys-surface-container);
 
     th {
@@ -122,9 +127,11 @@ $down: #f44336;
       }
     }
 
+    // NB: no `color` on td — at (0,1,2) it would beat single-class
+    // accents (.neg/.pos/.pd-positive) at (0,1,0); cells inherit
+    // on-surface from the page shell.
     td {
       padding: 5px 10px;
-      color: var(--mat-sys-on-surface);
 
       &.num {
         text-align: right;
@@ -136,6 +143,22 @@ $down: #f44336;
       text-align: center;
       padding: 32px;
       color: var(--mat-sys-on-surface-variant);
+    }
+  }
+
+  // Totals rows (position tables, expando mini-table) — same density, a
+  // hairline separates them from the body. Pinning (sticky bottom) is
+  // table-specific and stays in the component styles.
+  tfoot {
+    td {
+      padding: 5px 10px;
+      font-weight: 600;
+      border-top: 1px solid var(--mat-sys-outline-variant);
+
+      &.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
     }
   }
 }
