@@ -8,77 +8,90 @@
 **Task:** #648  
 **Domain:** WORKFLOWS  
 **Type:** UAT  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-09-28  
-**Last Updated:** 2026-09-28  
+**Last Updated:** 2026-10-11  
 
-# UAT — #648 Daily Session run-sheet
+# UAT — Daily Session run-sheet → Daily/Weekly Checklist (#648 / QA #655)
 
-Docs-only task. Deliverable: `docs/topics/625-workflows/625-646-648-RUNSHEET-workflows-daily-session.md`. Acceptance is doc review — no running app required.
+## Scope
 
-## Prerequisites
+Document-deliverable task. The artifact under test is
+`docs/topics/625-workflows/625-646-648-RUNSHEET-workflows-daily-session.md`.
 
-- Repo checked out locally; the run-sheet doc exists on disk.
+## Scope change (2026-10-11 — user-directed)
+
+The original ACs specified a workflow-framework run-sheet (live-order
+sequence, triggered-workflow table, six-workflow inventory, template
+conformance). On review the user redirected: what they need is a **simple
+daily + weekly checklist** that grows as more strategy types ship. The doc
+was rewritten to that form; the heavy scaffolding (inventory/status table,
+timebox ceremony, `Feeds:` graph references, per-workflow docs indexing) was
+removed. ACs below are re-mapped to the checklist form — the original ACs
+are superseded by this decision.
+
+## Checklist form under test
+
+- `## Every session — in order` — daily items as plain `- [ ]` checkboxes
+- `## Triggered — run only when it fires` — event-driven items
+- `## Weekly — pick a session` — incl. `(external)` RS Momentum item
+- `## Per-candidate drill-down` — growth seam for per-strategy checklists
+- `## Parking lot` — anti-distraction capture
+- Tags: `(manual)` = no app surface; `(external)` = outside this app
 
 ## Scenarios
 
-### S1 — Doc exists with standard header
+### 1. Doc exists with standard proj doc header
 
-- **Steps:** open `docs/topics/625-workflows/625-646-648-RUNSHEET-workflows-daily-session.md`.
-- **Expected:** header block carries all fields; `Issue: #646`, `Task: #648`, `Type: Run-Sheet`; every line ends with two trailing spaces.
-- **Result:** PASS — verified by inspection + code review rounds 1–3.
+- Steps: open the file under `docs/topics/625-workflows/`; canonical header,
+  fields one-per-line, two-space breaks, `Task: #648`.
+- Result: **PASS** — header intact; `Last Updated` bumped 2026-10-11.
 
-### S2 — Daily sequence in live order
+### 2. Daily items in live order, portfolio first, routes valid
 
-- **Steps:** read `## Daily sequence`.
-- **Expected:** 1) portfolio management (with `/portfolio-dashboard` as interim surface), 2) signal review (with `/signal-review` surface + in-flight doc note), 3) event-driven slots. Short-day rule present with live-candidate override.
-- **Result:** PASS — verified programmatically (sequence order + override sentence present).
+- Steps: read `## Every session` — portfolio pass first, then signal review
+  (funnel numbers + live/paper/decline decision), then triggered work; each
+  names a route or tag.
+- Expected: routes match `AppRoutes` (`/portfolio`, `/signals/review`).
+- Result: **PASS** — order + content verified; routes checked against
+  `core/common/interfaces.ts`.
 
-### S3 — Triggered section
+### 3. Triggered section names workflows + triggers
 
-- **Steps:** read `## Triggered workflows` table.
-- **Expected:** order placement (trigger: signal review flags order candidates) + position selection (marked planned — needs position-builder; today's implicit default noted; future chain `signal review → position selection → order placement` documented).
-- **Result:** PASS — verified programmatically + round-3 review confirmed consistency with the user's SR→OP ruling.
+- Steps: read `## Triggered` — order placement fires on flagged candidates;
+  position selection tagged `(manual)` with today's implicit procedure.
+- Result: **PASS** — both items present, position selection honestly tagged.
 
-### S4 — Weekly + inventory
+### 4. Weekly section incl. external item
 
-- **Steps:** read `## Weekly / periodic` + `## Workflow inventory`.
-- **Expected:** strategy analysis + results review with cadence/timebox; inventory table has all six workflows with Status, Doc, Last updated columns; ownership/update rule stated (incl. chain-reference updates when position-builder lands).
-- **Result:** PASS — all six rows confirmed programmatically; update conventions verified in code review.
+- Steps: read `## Weekly` — strategy analysis, results review, and
+  "Review RS Momentum App for new symbols (external)".
+- Result: **PASS** — all three present; external item tagged.
 
-### S5 — Timebox honesty + parking lot
+### 5. Growth seam + parking lot
 
-- **Steps:** check every timebox carries `(est.)`; read `## Session timebox guidance` + `## Parking lot`.
-- **Expected:** all estimates marked; guidance names them estimates; parking lot has real guidance text (no placeholders).
-- **Result:** PASS — all four timebox cells carry `(est.)` + blanket note in guidance.
+- Steps: `## Per-candidate drill-down` holds per-strategy-type checklist
+  stubs (long stock, vertical debit, calendar, short put, synthetic long);
+  parking lot line present.
+- Result: **PASS** — five strategy stubs + parking lot.
 
-### S6 — Readability / rendered markdown (user judgment)
+### 6. Rendered markdown *(user judgment)*
 
-- **Steps:** preview the run-sheet in IDE markdown preview (Ctrl+Shift+V) or GitHub. Header fields one-per-line; three tables render; no broken cells.
-- **Result:** pending user confirmation.
+- Steps: preview the doc — header lines, checkboxes, sections render clean.
+- Result: **PASS** — user confirmed 2026-10-13 (directed the checklist rewrite, reviewed the result, issued the ship directive).
 
-### S7 — Actionable at session start (user judgment)
+### 7. Actionable at session start *(user judgment)*
 
-- **Steps:** pretend it's tomorrow's session start. Open the run-sheet — could you follow it end to end without asking questions? Every step either names a route, marks `(manual)`, or is honestly marked Planned?
-- **Result:** pending user confirmation.
+- Steps: pretend it's tomorrow's open — can you work it top to bottom
+  without asking questions?
+- Result: **PASS** — user confirmed 2026-10-13 ("ok thats a lot better" on
+  the checklist skeleton + the rewritten doc; ship directive issued).
 
-## Traceability
+## Execution record
 
-| Criterion (task #648 / PRD) | Scenario |
-|---|---|
-| Doc exists w/ standard header | S1 |
-| Daily sequence, PM first | S2 |
-| Triggered section + triggers | S3 |
-| Six-workflow inventory + status | S4 |
-| Template + conventions conformance | S1, S5 |
-| Session timebox guidance (IMPL §2) | S5 |
-| Handoff chain = user's ruling (SR→OP; PS planned) | S3 |
-| Usable at session start (PRD intent) | S7 |
-
-## Refinement pass
-
-No app UI surface — rendered-markdown quality covered by S6.
-
-## Regression / smoke
-
-- `npx jest --coverage=false` — 155 suites / 2112 tests green (docs touch no code).
+| Date | Run by | Result | Notes |
+|---|---|---|---|
+| 2026-09-28 | agent | Partial | First draft UAT vs original run-sheet. |
+| 2026-10-08 | agent | — | Stale routes fixed, then user redirected scope. |
+| 2026-10-11 | agent | 5 of 7 PASS | Checklist-form rewrite; scenarios re-mapped to new ACs. 6/7 await user. |
+| 2026-10-13 | user | PASS | Scenarios 6/7 confirmed; ship directive issued. QA #655 → RESOLVED. |

@@ -3,6 +3,7 @@
 ## [2026-10-13]
 
 ### Added
+- [Navigation and Workflows] 625-648_DOCS-WORKFLOWS: Daily Session run-sheet rewritten as plain daily/weekly checklist (scope pivot — user-directed); stale routes fixed (/portfolio, /signals/review); (external) tag + RS Momentum weekly item; per-strategy drill-down growth seam; #655 UAT Complete
 - [Robinhood MCP] 657-792_BE-IMPL-RH-MCP: Surface all 76 RH MCP tools in the observation allowlist — 9 domain groups; Crypto/Alerts/SEC Filings new; mutation/simulation/financial-mutation classification for the new surface
 - [Robinhood MCP] 657-792_FE-IMPL-RH-MCP: Observation page — rhs_account_number account dropdown (name-driven + pnl-tool mapping), JSON textarea args for object/array params (legs, tax_lots, scan filters/columns, alert indicator), malformed-JSON execute block, category order for the new groups
 - [Trading Indicator Library] 261-932_SHARED-IMPL-INDICATOR-LIB: Trigger Bands wire consts + keyed dot map + light neutral remap — TRIGGER_BANDS_SIGNAL_TYPES/TriggerBandsSignalType/isTriggerBandsSignalType as single BE-FE source; light colorRemap #ffffff->#9e9e9e (checkpoint)

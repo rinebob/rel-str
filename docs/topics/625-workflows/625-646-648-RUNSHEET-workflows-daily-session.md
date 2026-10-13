@@ -10,59 +10,41 @@
 **Type:** Run-Sheet  
 **Status:** Complete  
 **Created:** 2026-09-28  
-**Last Updated:** 2026-09-28  
+**Last Updated:** 2026-10-11  
 
-# Daily Session Run-Sheet
+# Daily / Weekly Checklist
 
-**Purpose:** the single doc opened at session start — sequences the Trading Workflows into the day's plan so nothing gets skipped and nothing rabbit-holes.  
-**When:** once per trading session, before any workflow begins.  
-**Timebox:** ~5 min to skim + orient; the workflows themselves carry their own budgets.  
-**Inputs:** the workflow docs listed below; the app.  
-**Feeds:** none — this doc launches workflows, it doesn't hand data between them.  
+The doc opened at session start. Work top to bottom; triggered sections run only when they fire. Tags: `(manual)` = no app surface yet, do it by hand; `(external)` = happens outside this app.
 
-Doc-as-script: open this beside the app at session start. Work the sections in order. Checkboxes in the linked workflow docs are optional scaffolding — tick them or don't (conventions: `625-646-647-CONVENTIONS-workflows-trading-workflows.md`).
+## Every session — in order
 
-## Daily sequence — live order
+- [ ] Portfolio pass — `/portfolio` (Portfolio ▸ Portfolio Dashboard): open positions, exposure, anything needing action today (~5 min)
+- [ ] Signal review — `/signals/review` (Signals ▸ Signal Review): ~150–200 raw signals → watch list → timeframe → direction → ~5–15 candidates; per candidate decide **live / paper / decline** (~20 min)
+- [ ] Triggered work — work whatever the section below has queued; skip empty slots, don't manufacture work
 
-1. **Portfolio management** — positions come first once you hold any: systematic pass at `/portfolio-dashboard` — open positions, exposure, anything needing action today. Positions also get watched intraday; the session-start pass is the deliberate one. *(Planned — no workflow doc yet; route is the interim procedure.)*
-2. **Signal review** — the funnel, not the firehose: ~150–200 raw signals/day → filter by watch list → timeframe → direction → ~5–15 actionable for primary daily long. Per-candidate decision is **live / paper / decline**. Feeds order placement. *(Surface: `/signal-review`; workflow doc in flight — task #649.)*
-3. **Event-driven slots** — after signal review, work whatever the triggered workflows below have queued. Skip slots with nothing pending; don't manufacture work.
+Short day? A triggered slot holding a **live candidate** (approved, awaiting order placement) outranks routine review — place pending orders first.
 
-The whole point is compartmentalization — each step is its own box, so 150+ signals never sit on the desk at once.
+## Triggered — run only when it fires
 
-If the day is short, the daily sequence still runs in this order — but a triggered slot with a **live candidate** (an approved candidate awaiting order placement) outranks routine review: place pending orders before re-running routine triage.
+- [ ] Order placement — fires when signal review flags order candidates — `/trading/live` (Trading ▸ Live) (~15 min)
+- [ ] Position selection (manual — implicit today: default to shares or long calls inside order placement; a real position-builder surface comes later) (~15 min)
 
-## Triggered workflows — run when their trigger fires
+## Weekly — pick a session
 
-| Workflow | Trigger | Timebox | Doc |
-|---|---|---|---|
-| Order placement | Signal review flags order candidates | ~15 min (est.) | *Planned — no doc yet* |
-| Position selection | *(planned)* Signal review flags candidates — needs the position-builder surface (pick structure/strikes/stops). Today it's implicit: default to shares or long calls inside order placement. | ~15 min (est.) | *Planned — no Thread yet. When built it slots in: `signal review → position selection → order placement`* |
+- [ ] Strategy analysis (~60 min)
+- [ ] Results review (~30 min)
+- [ ] Review RS Momentum App for new symbols (external)
 
-## Weekly / periodic
+## Per-candidate drill-down
 
-| Workflow | Cadence | Timebox | Doc |
-|---|---|---|---|
-| Strategy analysis | Weekly (or on request) | ~60 min (est.) | *Planned — no doc yet* |
-| Results review | Weekly (or on request) | ~30 min (est.) | *Planned — no doc yet* |
+Checklists per position type — fills in as each strategy ships. Today most candidates default to shares or long calls inside order placement.
 
-## Session timebox guidance
-
-All workflow timeboxes are **estimates** until the docs exist and get tuned by real use (conventions: timeboxes start as estimates). Budget the session loosely — daily workflows plus whatever triggered slots actually fired. If a workflow blows its timebox, note the overflow in that doc's parking lot — don't silently absorb it; the timebox exists to make rabbit-holing visible.
-
-## Workflow inventory
-
-| Workflow | Status | Doc | Last updated |
-|---|---|---|---|
-| Portfolio management | Planned — no Thread yet | — | — |
-| Signal review | In progress — task #649 | `docs/topics/625-workflows/625-646-649-WORKFLOW-workflows-signal-review.md` (in flight) | — |
-| Position selection | Planned — no Thread yet | — | — |
-| Order placement | Planned — no Thread yet | — | — |
-| Strategy analysis | Planned — no Thread yet | — | — |
-| Results review | Planned — no Thread yet | — | — |
-
-Update this table whenever a workflow doc is written, materially revised, or retired — whoever changes a workflow owns the table update in the same change. If a doc lands under a different filename than the one linked, fix the link in the same change. When the position-builder lands and position selection becomes live, update the chain references in the daily sequence too (signal review's Feeds edge flips from order placement to position selection).
+### Long stock
+### Vertical debit
+### Calendar
+### Short put
+### Synthetic long
 
 ## Parking lot
 
-Stray thoughts and ideas that surface at session start go here — capture them, act on them after the day's workflows are done, not during.
+Stray thoughts at session start or mid-workflow go here — capture them, act on them after the day's work, not during.
