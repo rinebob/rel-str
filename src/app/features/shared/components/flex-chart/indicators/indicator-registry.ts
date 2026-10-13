@@ -56,6 +56,7 @@ export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
   ST_STD_DEV_LINES_INDICATOR,
   ST_ZIGZAG_INDICATOR,
   ST_ANCHORED_VWAP_INDICATOR,
+  ST_TRIGGER_BANDS_INDICATOR,
 ];
 
 /** Indicator types reserved for in-development features. Stripped from the
@@ -63,18 +64,14 @@ export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
  *  flex-chart.component) — prod surfaces can't render these even if a caller
  *  emits a config for them. Add dev indicator types here, never to
  *  ST_INDICATOR_OPTIONS; promote to prod by moving the option into a prod menu
- *  list and removing the type from this set. */
-export const DEV_INDICATOR_TYPES: ReadonlySet<IndicatorType> = new Set([
-  StIndicator.ST_TRIGGER_BANDS,
-  StIndicator.ST_TRIGGER_BANDS_DOTS,
-]);
+ *  list and removing the type from this set. Currently empty — Trigger Bands
+ *  was promoted to prod in #932. */
+export const DEV_INDICATOR_TYPES: ReadonlySet<IndicatorType> = new Set();
 
 /** Dev-only menu options — the flex-chart sandbox adds these to its picker.
  *  Prod menus keep using ST_INDICATOR_OPTIONS so unfinished indicators can
- *  never be selected on live surfaces. */
-export const ST_DEV_INDICATOR_OPTIONS: IndicatorOption[] = [
-  ST_TRIGGER_BANDS_INDICATOR,
-];
+ *  never be selected on live surfaces. Currently empty. */
+export const ST_DEV_INDICATOR_OPTIONS: IndicatorOption[] = [];
 
 /** Calculator map — keyed by IndicatorType, used by computeIndicators() */
 export const indicatorCalculators: Record<string, IndicatorCalculator> = {

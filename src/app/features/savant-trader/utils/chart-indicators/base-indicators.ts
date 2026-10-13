@@ -9,7 +9,7 @@ import type { IndicatorConfig, IndicatorOption } from '../../../../features/shar
 import { ChartIntervalKey, StIndicator } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../../features/shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
-import { ST_TRIGGER_BANDS_DOTS_INDICATOR, ST_TRIGGER_BANDS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trigger-bands.indicator';
+import { ST_TRIGGER_BANDS_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trigger-bands.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
 import { ST_UPTICK_DOT_COLORS } from '@flex-chart/indicator-visuals';
@@ -32,10 +32,10 @@ const INDICATORS_BY_INTERVAL: Record<ChartIntervalKey, StIndicator[]> = {
 const BASE_CONFIGS = new Map<string, IndicatorConfig>(
   (() => {
     const m: [string, IndicatorConfig][] = [];
-    // Trigger Bands is opt-in and deliberately outside ST_INDICATOR_OPTIONS (the
-    // shared menu list); it is resolvable by id here but never part of
-    // INDICATORS_BY_INTERVAL, so no default chart picks it up.
-    for (const opt of [...ST_INDICATOR_OPTIONS, ST_TRIGGER_BANDS_INDICATOR]) {
+    // Trigger Bands is in ST_INDICATOR_OPTIONS (promoted in #932) but stays
+    // out of INDICATORS_BY_INTERVAL — resolvable by id for opt-in selection,
+    // never auto-loaded on a default chart.
+    for (const opt of ST_INDICATOR_OPTIONS) {
       const cfg = buildDefaultConfig(opt);
       // Pane slots come from each indicator's defaultPane (canonical layout:
       // lower-1 trend strength + dots, lower-2 zone V1, lower-3 zone V2 +

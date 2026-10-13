@@ -48,8 +48,9 @@ export const ST_TRIGGER_BANDS_INDICATOR: IndicatorOption = {
   defaultOptions: {},
 };
 
-/** Companion scatter overlay for the pullback / breakout dots. It is not a menu
- *  entry of its own - the Trigger Bands toggle attaches it with the bands. */
+/** Companion scatter overlay for the pullback / breakout dots. On prod
+ *  surfaces it is a separate opt-in menu entry ("ST Trigger Bands Signals",
+ *  #932); the sandbox keeps it as a sub-toggle of the bands instead. */
 export const ST_TRIGGER_BANDS_DOTS_INDICATOR: IndicatorOption = {
   id: 'st-trigger-bands-dots',
   label: 'ST Trigger Bands Signals',

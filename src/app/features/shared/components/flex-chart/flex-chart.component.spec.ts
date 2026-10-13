@@ -301,11 +301,13 @@ describe('FlexChartComponent crosshair clamping', () => {
 });
 
 // =============================================================================
-// Dev-mode gate — Topic #261 / Task #880
+// Dev-mode gate — Topic #261 / Tasks #880, #932
 //
 // `FlexChartConfig.dev` opts a chart into dev-typed indicator configs
 // (DEV_INDICATOR_TYPES). effectiveConfig is the single funnel into the
 // adapter/lifecycle/axis services, so stripping here covers every render path.
+// The set is empty since Trigger Bands promoted to prod in #932 — the
+// mechanism stays in place for the next in-development indicator.
 // =============================================================================
 
 describe('FlexChartComponent dev-mode gate', () => {
@@ -336,32 +338,15 @@ describe('FlexChartComponent dev-mode gate', () => {
     fixture.componentRef.setInput('chartData', null);
   });
 
-  const devCfg = (type: StIndicator) =>
+  const tbCfg = (type: StIndicator) =>
     buildDefaultConfig(type === StIndicator.ST_TRIGGER_BANDS
       ? ST_TRIGGER_BANDS_INDICATOR
       : ST_TRIGGER_BANDS_DOTS_INDICATOR);
   const prodCfg = () => buildDefaultConfig(ST_TREND_BANDS_INDICATOR);
 
-  it('strips dev-typed indicator configs when dev is unset', () => {
+  it('renders Trigger Bands configs for prod callers — #932 promotion removed them from the strip set', () => {
     fixture.componentRef.setInput('config', {
-      indicators: [prodCfg(), devCfg(StIndicator.ST_TRIGGER_BANDS), devCfg(StIndicator.ST_TRIGGER_BANDS_DOTS)],
-    });
-    const types = component.effectiveConfig().indicators.map((i) => i.type);
-    expect(types).toEqual([StIndicator.TREND_BANDS]);
-  });
-
-  it('strips dev-typed indicator configs when dev is false', () => {
-    fixture.componentRef.setInput('config', {
-      dev: false,
-      indicators: [devCfg(StIndicator.ST_TRIGGER_BANDS)],
-    });
-    expect(component.effectiveConfig().indicators).toEqual([]);
-  });
-
-  it('keeps dev-typed indicator configs when dev is true', () => {
-    fixture.componentRef.setInput('config', {
-      dev: true,
-      indicators: [prodCfg(), devCfg(StIndicator.ST_TRIGGER_BANDS), devCfg(StIndicator.ST_TRIGGER_BANDS_DOTS)],
+      indicators: [prodCfg(), tbCfg(StIndicator.ST_TRIGGER_BANDS), tbCfg(StIndicator.ST_TRIGGER_BANDS_DOTS)],
     });
     const types = component.effectiveConfig().indicators.map((i) => i.type);
     expect(types).toEqual([
@@ -371,10 +356,19 @@ describe('FlexChartComponent dev-mode gate', () => {
     ]);
   });
 
-  it('keeps the strip set in sync with the dev options: bands offered, dots reserved', () => {
-    expect(ST_DEV_INDICATOR_OPTIONS.map((o) => o.id)).toEqual([ST_TRIGGER_BANDS_INDICATOR.id]);
-    expect(DEV_INDICATOR_TYPES.has(StIndicator.ST_TRIGGER_BANDS)).toBe(true);
-    expect(DEV_INDICATOR_TYPES.has(StIndicator.ST_TRIGGER_BANDS_DOTS)).toBe(true);
+  it('dev flag remains a no-op until the next dev indicator registers', () => {
+    fixture.componentRef.setInput('config', {
+      dev: true,
+      indicators: [prodCfg(), tbCfg(StIndicator.ST_TRIGGER_BANDS)],
+    });
+    expect(component.effectiveConfig().indicators).toHaveLength(2);
+  });
+
+  it('keeps the dev-gate machinery with empty sets after promotion', () => {
+    expect(DEV_INDICATOR_TYPES.size).toBe(0);
+    expect(ST_DEV_INDICATOR_OPTIONS).toEqual([]);
+    // Bands joined the prod menu; dots stay a companion attached per-surface.
+    expect(ST_INDICATOR_OPTIONS.map((o) => o.id)).toContain(ST_TRIGGER_BANDS_INDICATOR.id);
     expect(ST_INDICATOR_OPTIONS.some((o) => DEV_INDICATOR_TYPES.has(o.type))).toBe(false);
   });
 });
