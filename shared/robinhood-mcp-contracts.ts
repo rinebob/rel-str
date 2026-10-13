@@ -53,6 +53,15 @@ export interface ToolExecutionFailure {
   success: false;
   error: string;
   category: ToolExecutionErrorCategory;
+  /**
+   * Internal executor marker — the failure came from the MCP
+   * session/transport itself (dead connection, not-connected), never a
+   * timed-out call, which may still be executing server-side. The executor
+   * retries these once via `sessionCache.recover()`. Set only on errors
+   * thrown by the `callTool` await, and stripped at the `/api/rh` route
+   * boundary — it is never serialized to clients.
+   */
+  sessionFailure?: boolean;
 }
 
 export type ToolExecutionResult = ToolExecutionSuccess | ToolExecutionFailure;
