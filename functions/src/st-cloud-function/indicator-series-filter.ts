@@ -31,10 +31,18 @@ export function filterResponse(
     const intervalData: IntervalData = { indicators: {}, signals: {} };
     for (const family of indicators) {
       if (source.indicators[family]) {
+        // Write-side escape hatch: `source.indicators[family]` is a union of
+        // the per-family point arrays, which won't assign to a single keyed
+        // slot without it. Every IndicatorFamily member keys this map, so the
+        // cast cannot hide a missing slot.
         (intervalData.indicators as Record<string, unknown>)[family] = source.indicators[family];
       }
     }
     for (const family of strategies) {
+      // Trigger Bands is an indicator-only family — it carries no `signals`
+      // slot (its dots follow the indicator request below). Skipping it
+      // narrows `family` to the strategy keys `signals` actually has.
+      if (family === StrategyFamily.TRIGGER_BANDS) continue;
       if (source.signals[family]) {
         intervalData.signals[family] = source.signals[family];
       }

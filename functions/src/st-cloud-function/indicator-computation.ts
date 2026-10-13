@@ -14,7 +14,13 @@ import { detectAllStTrendRiderSignals, detectAllZoneZeroCrossSignals } from './s
 import { StSignalDirection } from './signals';
 import type { OHLCV } from '../indicators/st-trend-bands';
 import type { OhlcBar } from '../common/market-data-types';
-import { ST_HTF_WINDOW, ST_SIGNAL_DOT_OFFSET, ST_TREND_BAND_COLORS } from '@flex-chart/indicator-visuals';
+import {
+  ST_HTF_WINDOW,
+  ST_SIGNAL_DOT_OFFSET,
+  ST_TREND_BAND_COLORS,
+  TRIGGER_BANDS_SIGNAL_TYPES,
+} from '@flex-chart/indicator-visuals';
+import type { TriggerBandsSignalType } from '@flex-chart/indicator-visuals';
 
 // =============================================================================
 // TYPES
@@ -110,7 +116,6 @@ export interface SignalIntervalData {
   zoneV1?: IndicatorSignalMarker[];
   zoneV2?: IndicatorSignalMarker[];
   trendStrength?: IndicatorSignalMarker[];
-  triggerBands?: IndicatorSignalMarker[];
   dotMarkers?: {
     zoneV1?: DotMarker[];
     zoneV2?: DotMarker[];
@@ -165,7 +170,6 @@ export interface IntervalData {
     zoneV1?: IndicatorSignalMarker[];
     zoneV2?: IndicatorSignalMarker[];
     trendStrength?: IndicatorSignalMarker[];
-    triggerBands?: IndicatorSignalMarker[];
   };
   dotMarkers?: {
     zoneV1?: DotMarker[];
@@ -464,7 +468,7 @@ function generateTriggerBandsDotMarkers(points: TriggerBandsPoint[], bars: OhlcB
     const bar = bars[i];
     if (!bar) return;
     const offset = atr[i] * TRIGGER_DOT_ATR_MULT;
-    const push = (direction: 'long' | 'short', signalType: string): void => {
+    const push = (direction: 'long' | 'short', signalType: TriggerBandsSignalType): void => {
       markers.push({
         d: p.d,
         index: i,
@@ -474,10 +478,10 @@ function generateTriggerBandsDotMarkers(points: TriggerBandsPoint[], bars: OhlcB
         signalType,
       });
     };
-    if (p.longPullbackState) push('long', 'TRIGGER_BANDS_LONG_PULLBACK');
-    if (p.shortPullbackState) push('short', 'TRIGGER_BANDS_SHORT_PULLBACK');
-    if (p.longBreakout) push('long', 'TRIGGER_BANDS_LONG_BREAKOUT');
-    if (p.shortBreakout) push('short', 'TRIGGER_BANDS_SHORT_BREAKOUT');
+    if (p.longPullbackState) push('long', TRIGGER_BANDS_SIGNAL_TYPES.LONG_PULLBACK);
+    if (p.shortPullbackState) push('short', TRIGGER_BANDS_SIGNAL_TYPES.SHORT_PULLBACK);
+    if (p.longBreakout) push('long', TRIGGER_BANDS_SIGNAL_TYPES.LONG_BREAKOUT);
+    if (p.shortBreakout) push('short', TRIGGER_BANDS_SIGNAL_TYPES.SHORT_BREAKOUT);
   });
   return markers;
 }
