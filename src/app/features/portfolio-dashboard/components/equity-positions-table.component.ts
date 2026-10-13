@@ -1,18 +1,32 @@
 /**
  * EquityPositionsTableComponent — table of equity positions with PnL.
  *
- * Columns: Symbol, Quantity, Avg Cost, Current Price, PnL, PnL%.
- * Shows loading, error with retry, empty states, and a toggle for closed positions.
- * Closed positions (quantity === 0) are hidden by default and shown with muted
- * styling when `showClosed` is true.
+ * Columns: Symbol, Quantity, Avg Cost, Entry, Cost Basis, Current Price,
+ * Value, PnL, PnL%.
+ * Shows loading, error with retry, and empty states. Closed positions
+ * (quantity === 0) are filtered out — realized-P&L history is a separate
+ * concern from the open-positions view.
  */
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { EquityPositionWithPnL } from '../portfolio-dashboard.types';
+import { compareSortable, SortDirection } from '../utils/table-sort.util';
+
+/** Sortable column keys — Actions is intentionally excluded. */
+type SortKey =
+  | 'symbol'
+  | 'quantity'
+  | 'avgCost'
+  | 'entry'
+  | 'costBasis'
+  | 'currentPrice'
+  | 'value'
+  | 'pnl'
+  | 'pnlPercent';
 
 @Component({
   selector: 'app-equity-positions-table',
@@ -26,26 +40,65 @@ export class EquityPositionsTableComponent {
   readonly positions = input<EquityPositionWithPnL[]>([]);
   readonly loading = input(false);
   readonly error = input<string | null>(null);
-  readonly showClosed = input(false);
   /** Symbols with active stop-loss protection — disables the Add Stop button. */
   readonly protectedSymbols = input<Set<string>>(new Set());
   /** Whether the selected account is agent-enabled (controls action button visibility). */
   readonly agenticAllowed = input(true);
   readonly retry = output<void>();
-  readonly toggleClosed = output<void>();
   readonly closePosition = output<EquityPositionWithPnL>();
   /** Emits the position when the user clicks Add Stop. */
   readonly addStopLoss = output<EquityPositionWithPnL>();
 
-  /** Positions filtered by closed state — closed positions hidden unless showClosed is true. */
-  readonly visiblePositions = computed(() => {
-    const all = this.positions();
-    if (this.showClosed()) return all;
-    return all.filter((p) => !p.closed);
+  /** Open positions only — closed rows are out of scope for this table. */
+  readonly visiblePositions = computed(() => this.positions().filter((p) => !p.closed));
+
+  readonly sortKey = signal<SortKey>('symbol');
+  readonly sortDir = signal<SortDirection>('asc');
+
+  /** Rows rendered by the table — visible positions in the active sort order. */
+  readonly sortedPositions = computed(() => {
+    const key = this.sortKey();
+    const dir = this.sortDir();
+    return [...this.visiblePositions()].sort((a, b) =>
+      compareSortable(this.sortValue(a, key), this.sortValue(b, key), dir),
+    );
   });
 
   readonly hasPositions = computed(() => this.visiblePositions().length > 0);
-  readonly hasAnyPositions = computed(() => this.positions().length > 0);
+
+  /** Click a header: first click sorts ascending, repeat toggles direction. */
+  setSort(key: SortKey): void {
+    if (this.sortKey() === key) {
+      this.sortDir.update((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      this.sortKey.set(key);
+      this.sortDir.set('asc');
+    }
+  }
+
+  ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
+    if (this.sortKey() !== key) return 'none';
+    return this.sortDir() === 'asc' ? 'ascending' : 'descending';
+  }
+
+  sortIcon(key: SortKey): string {
+    if (this.sortKey() !== key) return 'unfold_more';
+    return this.sortDir() === 'asc' ? 'arrow_upward' : 'arrow_downward';
+  }
+
+  private sortValue(p: EquityPositionWithPnL, key: SortKey): string | number | null {
+    switch (key) {
+      case 'symbol': return p.symbol;
+      case 'quantity': return p.quantity;
+      case 'avgCost': return p.averageBuyPrice;
+      case 'entry': return p.entryDate;
+      case 'costBasis': return this.costBasis(p);
+      case 'currentPrice': return p.currentPrice;
+      case 'value': return this.currentValue(p);
+      case 'pnl': return p.pnl;
+      case 'pnlPercent': return p.pnlPercent;
+    }
+  }
 
   private readonly currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -65,6 +118,13 @@ export class EquityPositionsTableComponent {
   formatNumber(value: number | null | undefined): string {
     if (value == null) return '—';
     return this.numberFormatter.format(value);
+  }
+
+  /** ISO timestamp → date-only display (yyyy-MM-dd). */
+  formatDate(value: string | null | undefined): string {
+    if (!value) return '—';
+    const date = value.slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : '—';
   }
 
   formatPnl(value: number | null | undefined): string {

@@ -96,4 +96,38 @@ describe('OrderHistoryTableComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('No order history');
   });
+
+  it('renders the scrollable table wrapper', () => {
+    fixture.componentRef.setInput('orders', [makeOrder()]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.pd-table-wrap')).toBeTruthy();
+  });
+
+  it('sorts by symbol ascending on first header click', () => {
+    fixture.componentRef.setInput('orders', [
+      makeOrder({ orderId: 'ord-1', symbol: 'MSFT' }),
+      makeOrder({ orderId: 'ord-2', symbol: 'AAPL' }),
+    ]);
+    fixture.detectChanges();
+
+    const symbolBtn = fixture.nativeElement.querySelectorAll('th .pd-sort')[0];
+    symbolBtn.click();
+    fixture.detectChanges();
+
+    const cells = fixture.nativeElement.querySelectorAll('tbody tr .pd-symbol');
+    expect(cells[0].textContent).toContain('AAPL');
+    expect(cells[1].textContent).toContain('MSFT');
+  });
+
+  it('marks numeric columns with the dense-table num class', () => {
+    fixture.componentRef.setInput('orders', [makeOrder()]);
+    fixture.detectChanges();
+
+    // Qty, Fill Qty, Avg Fill
+    expect(fixture.nativeElement.querySelectorAll('thead th.num').length).toBe(3);
+    expect(
+      fixture.nativeElement.querySelectorAll('tbody tr:first-child td.num').length,
+    ).toBe(3);
+  });
 });

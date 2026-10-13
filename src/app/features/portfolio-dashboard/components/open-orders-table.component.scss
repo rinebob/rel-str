@@ -1,56 +1,117 @@
+@use '../styles/pd-visual-language' as vl;
+
+:host {
+  display: block;
+  height: 100%;
+}
+
 .pd-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   padding: 8px 0;
 }
 
-.pd-section-title {
-  font-size: 1rem;
-  font-weight: 500;
-  margin: 0 0 8px 0;
+.pd-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .pd-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
+  @include vl.dense-table;
 }
 
-.pd-table th {
-  text-align: left;
-  padding: 8px 12px;
-  border-bottom: 2px solid rgba(0, 0, 0, 0.12);
-  font-weight: 500;
-  color: rgba(0, 0, 0, 0.54);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.pd-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
 }
 
-.pd-table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+.pd-sort:hover {
+  color: var(--mat-sys-on-surface);
 }
 
-.pd-table tbody tr:hover {
-  background: rgba(0, 0, 0, 0.02);
+.pd-sort-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  opacity: 0.5;
+}
+
+th[aria-sort='ascending'] .pd-sort-icon,
+th[aria-sort='descending'] .pd-sort-icon {
+  opacity: 1;
+}
+
+/* Bulk selection bar — same recipe as the allocation positions table. */
+.pd-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+  background: var(--mat-sys-surface-container-low);
+  font-size: 0.78rem;
+}
+
+.pd-bulk-count {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.pd-bulk-cancel {
+  --mat-button-outlined-container-height: 24px;
+  height: 24px;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 0.72rem;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.pd-sel-col {
+  width: 28px;
+  padding-right: 4px;
+  text-align: center;
+}
+
+.pd-check {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--mat-sys-primary);
+  cursor: pointer;
 }
 
 .pd-symbol {
   font-weight: 600;
 }
 
-.pd-stop-loss {
-  display: inline-flex;
-  align-items: center;
+.pd-actions {
+  display: flex;
   gap: 4px;
-  font-size: 0.75rem;
-  color: #1565c0;
-  font-weight: 500;
+  white-space: nowrap;
 }
 
-.pd-stop-loss mat-icon {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
+.pd-actions .pd-cancel-action,
+.pd-actions .pd-modify-action {
+  --mat-button-outlined-container-height: 24px;
+  height: 24px;
+  min-width: 0;
+  padding: 0 6px;
+  font-size: 0.7rem;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .pd-section-loading,
@@ -60,11 +121,11 @@
   align-items: center;
   gap: 8px;
   padding: 16px;
-  color: rgba(0, 0, 0, 0.54);
+  color: var(--mat-sys-on-surface-variant);
 }
 
 .pd-section-error {
-  color: #721c24;
+  color: var(--mat-sys-error);
 }
 
 .pd-section-error-icon {

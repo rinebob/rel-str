@@ -4,12 +4,27 @@
  * Columns: Underlying, Type, Strike, Expiration, Quantity, Avg Cost,
  * Current Price, PnL, PnL%.
  */
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { OptionPositionWithPnL } from '../portfolio-dashboard.types';
+import { compareSortable, SortDirection } from '../utils/table-sort.util';
+
+/** Sortable column keys. */
+type SortKey =
+  | 'underlying'
+  | 'type'
+  | 'strike'
+  | 'expiration'
+  | 'quantity'
+  | 'avgCost'
+  | 'costBasis'
+  | 'currentPrice'
+  | 'value'
+  | 'pnl'
+  | 'pnlPercent';
 
 @Component({
   selector: 'app-option-positions-table',
@@ -23,19 +38,60 @@ export class OptionPositionsTableComponent {
   readonly positions = input<OptionPositionWithPnL[]>([]);
   readonly loading = input(false);
   readonly error = input<string | null>(null);
-  readonly showClosed = input(false);
   readonly retry = output<void>();
-  readonly toggleClosed = output<void>();
 
-  /** Positions filtered by closed state — closed positions hidden unless showClosed is true. */
-  readonly visiblePositions = computed(() => {
-    const all = this.positions();
-    if (this.showClosed()) return all;
-    return all.filter((p) => !p.closed);
+  /** Open positions only — closed rows are out of scope for this table. */
+  readonly visiblePositions = computed(() => this.positions().filter((p) => !p.closed));
+
+  readonly sortKey = signal<SortKey>('underlying');
+  readonly sortDir = signal<SortDirection>('asc');
+
+  /** Rows rendered by the table — visible positions in the active sort order. */
+  readonly sortedPositions = computed(() => {
+    const key = this.sortKey();
+    const dir = this.sortDir();
+    return [...this.visiblePositions()].sort((a, b) =>
+      compareSortable(this.sortValue(a, key), this.sortValue(b, key), dir),
+    );
   });
 
   readonly hasPositions = computed(() => this.visiblePositions().length > 0);
-  readonly hasAnyPositions = computed(() => this.positions().length > 0);
+
+  /** Click a header: first click sorts ascending, repeat toggles direction. */
+  setSort(key: SortKey): void {
+    if (this.sortKey() === key) {
+      this.sortDir.update((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      this.sortKey.set(key);
+      this.sortDir.set('asc');
+    }
+  }
+
+  ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
+    if (this.sortKey() !== key) return 'none';
+    return this.sortDir() === 'asc' ? 'ascending' : 'descending';
+  }
+
+  sortIcon(key: SortKey): string {
+    if (this.sortKey() !== key) return 'unfold_more';
+    return this.sortDir() === 'asc' ? 'arrow_upward' : 'arrow_downward';
+  }
+
+  private sortValue(p: OptionPositionWithPnL, key: SortKey): string | number | null {
+    switch (key) {
+      case 'underlying': return p.chainSymbol;
+      case 'type': return p.optionType;
+      case 'strike': return p.strikePrice;
+      case 'expiration': return p.expirationDate;
+      case 'quantity': return p.quantity;
+      case 'avgCost': return p.averageCost;
+      case 'costBasis': return this.costBasis(p);
+      case 'currentPrice': return p.currentPrice;
+      case 'value': return this.currentValue(p);
+      case 'pnl': return p.pnl;
+      case 'pnlPercent': return p.pnlPercent;
+    }
+  }
 
   private readonly currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',

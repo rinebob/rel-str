@@ -10,46 +10,84 @@
       <span class="pd-section-error-text">{{ err }}</span>
       <button type="button" mat-stroked-button class="pd-section-retry" (click)="retry.emit()">Retry</button>
     </div>
-  } @else if (hasAnyPositions()) {
-    <div class="pd-section-header">
-      <h3 class="pd-section-title">Option Positions</h3>
-      <button type="button" mat-stroked-button class="pd-toggle-closed" (click)="toggleClosed.emit()">
-        {{ showClosed() ? 'Hide Closed' : 'Show Closed' }}
-      </button>
-    </div>
-    @if (hasPositions()) {
+  } @else if (hasPositions()) {
+    <div class="pd-table-wrap">
       <table class="pd-table">
         <thead>
           <tr>
-            <th scope="col">Underlying</th>
-            <th scope="col">Type</th>
-            <th scope="col">Strike</th>
-            <th scope="col">Expiration</th>
-            <th scope="col">Qty</th>
-            <th scope="col">Avg Cost</th>
-            <th scope="col">Cost Basis</th>
-            <th scope="col">Current</th>
-            <th scope="col">Value</th>
-            <th scope="col">PnL</th>
-            <th scope="col">PnL%</th>
+            <th scope="col" [attr.aria-sort]="ariaSort('underlying')">
+              <button type="button" class="pd-sort" (click)="setSort('underlying')">
+                Underlying <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('underlying') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('type')">
+              <button type="button" class="pd-sort" (click)="setSort('type')">
+                Type <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('type') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('strike')">
+              <button type="button" class="pd-sort" (click)="setSort('strike')">
+                Strike <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('strike') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('expiration')">
+              <button type="button" class="pd-sort" (click)="setSort('expiration')">
+                Expiration <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('expiration') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('quantity')">
+              <button type="button" class="pd-sort" (click)="setSort('quantity')">
+                Qty <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('quantity') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('avgCost')">
+              <button type="button" class="pd-sort" (click)="setSort('avgCost')">
+                Avg Cost <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('avgCost') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('costBasis')">
+              <button type="button" class="pd-sort" (click)="setSort('costBasis')">
+                Cost Basis <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('costBasis') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('currentPrice')">
+              <button type="button" class="pd-sort" (click)="setSort('currentPrice')">
+                Current <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('currentPrice') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('value')">
+              <button type="button" class="pd-sort" (click)="setSort('value')">
+                Value <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('value') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('pnl')">
+              <button type="button" class="pd-sort" (click)="setSort('pnl')">
+                PnL <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('pnl') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('pnlPercent')">
+              <button type="button" class="pd-sort" (click)="setSort('pnlPercent')">
+                PnL% <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('pnlPercent') }}</mat-icon>
+              </button>
+            </th>
           </tr>
         </thead>
         <tbody>
-          @for (pos of visiblePositions(); track pos.instrumentId) {
-            <tr [class.pd-closed]="pos.closed">
+          @for (pos of sortedPositions(); track $index) {
+            <tr>
               <td class="pd-symbol">{{ pos.chainSymbol }}</td>
               <td>{{ pos.optionType }}</td>
-              <td>{{ formatCurrency(pos.strikePrice) }}</td>
+              <td class="num">{{ formatCurrency(pos.strikePrice) }}</td>
               <td>{{ pos.expirationDate }}</td>
-              <td>{{ formatNumber(pos.quantity) }}</td>
-              <td>{{ formatCurrency(pos.averageCost) }}</td>
-              <td>{{ formatCurrency(costBasis(pos)) }}</td>
-              <td>{{ formatCurrency(pos.currentPrice) }}</td>
-              <td>{{ formatCurrency(currentValue(pos)) }}</td>
-              <td class="pd-pnl" [class.pd-positive]="pos.pnl != null && pos.pnl >= 0" [class.pd-negative]="pos.pnl != null && pos.pnl < 0">
+              <td class="num">{{ formatNumber(pos.quantity) }}</td>
+              <td class="num">{{ formatCurrency(pos.averageCost) }}</td>
+              <td class="num">{{ formatCurrency(costBasis(pos)) }}</td>
+              <td class="num">{{ formatCurrency(pos.currentPrice) }}</td>
+              <td class="num">{{ formatCurrency(currentValue(pos)) }}</td>
+              <td class="pd-pnl num" [class.pd-positive]="pos.pnl != null && pos.pnl >= 0" [class.pd-negative]="pos.pnl != null && pos.pnl < 0">
                 {{ formatPnl(pos.pnl) }}
               </td>
-              <td [class.pd-positive]="pos.pnlPercent != null && pos.pnlPercent >= 0" [class.pd-negative]="pos.pnlPercent != null && pos.pnlPercent < 0">
+              <td class="num" [class.pd-positive]="pos.pnlPercent != null && pos.pnlPercent >= 0" [class.pd-negative]="pos.pnlPercent != null && pos.pnlPercent < 0">
                 {{ formatPnlPercent(pos.pnlPercent) }}
               </td>
             </tr>
@@ -59,24 +97,19 @@
           <tr class="pd-totals">
             <td colspan="5">Totals</td>
             <td></td>
-            <td>{{ formatCurrency(totalCostBasis()) }}</td>
+            <td class="num">{{ formatCurrency(totalCostBasis()) }}</td>
             <td></td>
-            <td>{{ formatCurrency(totalValue()) }}</td>
-            <td [class.pd-positive]="totalPnL() != null && totalPnL()! >= 0" [class.pd-negative]="totalPnL() != null && totalPnL()! < 0">
+            <td class="num">{{ formatCurrency(totalValue()) }}</td>
+            <td class="num" [class.pd-positive]="totalPnL() != null && totalPnL()! >= 0" [class.pd-negative]="totalPnL() != null && totalPnL()! < 0">
               {{ formatPnl(totalPnL()) }}
             </td>
-            <td [class.pd-positive]="avgPnlPercent() != null && avgPnlPercent()! >= 0" [class.pd-negative]="avgPnlPercent() != null && avgPnlPercent()! < 0">
+            <td class="num" [class.pd-positive]="avgPnlPercent() != null && avgPnlPercent()! >= 0" [class.pd-negative]="avgPnlPercent() != null && avgPnlPercent()! < 0">
               {{ formatPnlPercent(avgPnlPercent()) }}
             </td>
           </tr>
         </tfoot>
       </table>
-    } @else {
-      <div class="pd-section-empty" aria-live="polite">
-        <mat-icon aria-hidden="true">inbox</mat-icon>
-        <span>No open option positions — toggle "Show Closed" to view closed positions</span>
-      </div>
-    }
+    </div>
   } @else {
     <div class="pd-section-empty" aria-live="polite">
       <mat-icon aria-hidden="true">inbox</mat-icon>

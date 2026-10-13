@@ -97,6 +97,41 @@ describe('OptionPositionsTableComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('No option positions');
   });
 
+  it('sorts by a column ascending on first header click, descending on second', () => {
+    fixture.componentRef.setInput('positions', [
+      makeOption({ chainSymbol: 'MSFT', strikePrice: 400, instrumentId: 'opt-1' }),
+      makeOption({ chainSymbol: 'AAPL', strikePrice: 150, instrumentId: 'opt-2' }),
+      makeOption({ chainSymbol: 'GOOG', strikePrice: 180, instrumentId: 'opt-3' }),
+    ]);
+    fixture.detectChanges();
+
+    const headers = fixture.nativeElement.querySelectorAll('.pd-sort');
+    const strikeHeader = headers[2];
+    strikeHeader.click();
+    fixture.detectChanges();
+
+    let symbols = [...fixture.nativeElement.querySelectorAll('tbody .pd-symbol')].map((el) => el.textContent.trim());
+    expect(symbols).toEqual(['AAPL', 'GOOG', 'MSFT']);
+
+    strikeHeader.click();
+    fixture.detectChanges();
+
+    symbols = [...fixture.nativeElement.querySelectorAll('tbody .pd-symbol')].map((el) => el.textContent.trim());
+    expect(symbols).toEqual(['MSFT', 'GOOG', 'AAPL']);
+  });
+
+  it('filters out closed positions', () => {
+    fixture.componentRef.setInput('positions', [
+      makeOption({ chainSymbol: 'AAPL', closed: false }),
+      makeOption({ chainSymbol: 'OLD', closed: true, quantity: 0, instrumentId: 'opt-old' }),
+    ]);
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('AAPL');
+  });
+
   it('applies positive/negative PnL classes', () => {
     fixture.componentRef.setInput('positions', [
       makeOption({ pnl: 250, pnlPercent: 50 }),
@@ -107,5 +142,16 @@ describe('OptionPositionsTableComponent', () => {
     const pnlCells = fixture.nativeElement.querySelectorAll('.pd-pnl');
     expect(pnlCells[0].classList.contains('pd-positive')).toBe(true);
     expect(pnlCells[1].classList.contains('pd-negative')).toBe(true);
+  });
+
+  it('marks numeric columns with the dense-table num class', () => {
+    fixture.componentRef.setInput('positions', [makeOption()]);
+    fixture.detectChanges();
+
+    // Strike, Qty, Avg Cost, Cost Basis, Current, Value, PnL, PnL%
+    expect(fixture.nativeElement.querySelectorAll('thead th.num').length).toBe(8);
+    expect(
+      fixture.nativeElement.querySelectorAll('tbody tr:first-child td.num').length,
+    ).toBe(8);
   });
 });

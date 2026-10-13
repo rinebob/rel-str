@@ -11,35 +11,68 @@
       <button type="button" mat-stroked-button class="pd-section-retry" (click)="retry.emit()">Retry</button>
     </div>
   } @else if (hasOrders()) {
-    <h3 class="pd-section-title">Order History</h3>
-    <table class="pd-table">
-      <thead>
-        <tr>
-          <th scope="col">Symbol</th>
-          <th scope="col">Side</th>
-          <th scope="col">Type</th>
-          <th scope="col">State</th>
-          <th scope="col">Qty</th>
-          <th scope="col">Fill Qty</th>
-          <th scope="col">Avg Fill</th>
-          <th scope="col">Created</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (order of orders(); track order.orderId) {
+    <div class="pd-table-wrap">
+      <table class="pd-table">
+        <thead>
           <tr>
-            <td class="pd-symbol">{{ order.symbol ?? '—' }}</td>
-            <td>{{ order.side }}</td>
-            <td>{{ order.type }}</td>
-            <td>{{ order.state }}</td>
-            <td>{{ formatNumber(order.quantity) }}</td>
-            <td>{{ formatNumber(order.cumulativeQuantity) }}</td>
-            <td>{{ formatCurrency(order.averageFillPrice) }}</td>
-            <td>{{ formatDate(order.createdAt) }}</td>
+            <th scope="col" [attr.aria-sort]="ariaSort('symbol')">
+              <button type="button" class="pd-sort" (click)="setSort('symbol')">
+                Symbol <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('symbol') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('side')">
+              <button type="button" class="pd-sort" (click)="setSort('side')">
+                Side <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('side') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('type')">
+              <button type="button" class="pd-sort" (click)="setSort('type')">
+                Type <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('type') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('state')">
+              <button type="button" class="pd-sort" (click)="setSort('state')">
+                State <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('state') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('quantity')">
+              <button type="button" class="pd-sort" (click)="setSort('quantity')">
+                Qty <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('quantity') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('cumulativeQuantity')">
+              <button type="button" class="pd-sort" (click)="setSort('cumulativeQuantity')">
+                Fill Qty <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('cumulativeQuantity') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('averageFillPrice')">
+              <button type="button" class="pd-sort" (click)="setSort('averageFillPrice')">
+                Avg Fill <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('averageFillPrice') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('createdAt')">
+              <button type="button" class="pd-sort" (click)="setSort('createdAt')">
+                Created <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('createdAt') }}</mat-icon>
+              </button>
+            </th>
           </tr>
-        }
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          @for (order of sortedOrders(); track $index) {
+            <tr>
+              <td class="pd-symbol">{{ order.symbol ?? '—' }}</td>
+              <td>{{ order.side }}</td>
+              <td>{{ order.type }}</td>
+              <td>{{ order.state }}</td>
+              <td class="num">{{ formatNumber(order.quantity) }}</td>
+              <td class="num">{{ formatNumber(order.cumulativeQuantity) }}</td>
+              <td class="num">{{ formatCurrency(order.averageFillPrice) }}</td>
+              <td>{{ formatDate(order.createdAt) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   } @else {
     <div class="pd-section-empty" aria-live="polite">
       <mat-icon aria-hidden="true">history</mat-icon>

@@ -11,44 +11,142 @@
       <button type="button" mat-stroked-button class="pd-section-retry" (click)="retry.emit()">Retry</button>
     </div>
   } @else if (hasOrders()) {
-    <h3 class="pd-section-title">Open Orders</h3>
-    <table class="pd-table">
-      <thead>
-        <tr>
-          <th scope="col">Symbol</th>
-          <th scope="col">Side</th>
-          <th scope="col">Type</th>
-          <th scope="col">State</th>
-          <th scope="col">Qty</th>
-          <th scope="col">Price</th>
-          <th scope="col">Stop</th>
-          <th scope="col">Created</th>
-          <th scope="col">Protection</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (order of orders(); track order.orderId) {
+    @if (selectedCount() > 0) {
+      <div class="pd-bulk-bar" aria-live="polite">
+        <span class="pd-bulk-count">{{ selectedCount() }} selected</span>
+        <button
+          type="button"
+          mat-stroked-button
+          class="pd-bulk-cancel"
+          (click)="emitCancelSelected()"
+        >
+          Cancel {{ selectedCount() }} {{ selectedCount() === 1 ? 'order' : 'orders' }}
+        </button>
+      </div>
+    }
+    <div class="pd-table-wrap">
+      <table class="pd-table">
+        <thead>
           <tr>
-            <td class="pd-symbol">{{ order.symbol ?? '—' }}</td>
-            <td>{{ order.side }}</td>
-            <td>{{ order.type }}</td>
-            <td>{{ order.state }}</td>
-            <td>{{ formatNumber(order.quantity) }}</td>
-            <td>{{ formatCurrency(order.price) }}</td>
-            <td>{{ formatCurrency(order.stopPrice) }}</td>
-            <td>{{ formatDate(order.createdAt) }}</td>
-            <td>
-              @if (isProtected(order)) {
-                <span class="pd-stop-loss" matTooltip="Stop-loss order protecting an open position">
-                  <mat-icon aria-hidden="true">shield</mat-icon>
-                  Stop-loss
-                </span>
-              }
-            </td>
+            @if (agenticAllowed()) {
+              <th scope="col" class="pd-sel-col">
+                <input
+                  type="checkbox"
+                  class="pd-check"
+                  aria-label="Select all orders"
+                  [checked]="allSelected()"
+                  (change)="toggleAll()"
+                />
+              </th>
+            }
+            <th scope="col" [attr.aria-sort]="ariaSort('symbol')">
+              <button type="button" class="pd-sort" (click)="setSort('symbol')">
+                Symbol <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('symbol') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('side')">
+              <button type="button" class="pd-sort" (click)="setSort('side')">
+                Side <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('side') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('type')">
+              <button type="button" class="pd-sort" (click)="setSort('type')">
+                Type <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('type') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('state')">
+              <button type="button" class="pd-sort" (click)="setSort('state')">
+                State <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('state') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('quantity')">
+              <button type="button" class="pd-sort" (click)="setSort('quantity')">
+                Qty <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('quantity') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('price')">
+              <button type="button" class="pd-sort" (click)="setSort('price')">
+                Price <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('price') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('stopPrice')">
+              <button type="button" class="pd-sort" (click)="setSort('stopPrice')">
+                Stop <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('stopPrice') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('mark')">
+              <button type="button" class="pd-sort" (click)="setSort('mark')">
+                Mark <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('mark') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('dist')">
+              <button type="button" class="pd-sort" (click)="setSort('dist')">
+                Dist <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('dist') }}</mat-icon>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="ariaSort('createdAt')">
+              <button type="button" class="pd-sort" (click)="setSort('createdAt')">
+                Created <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('createdAt') }}</mat-icon>
+              </button>
+            </th>
+            @if (agenticAllowed()) {
+              <th scope="col">Actions</th>
+            }
           </tr>
-        }
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          @for (order of sortedOrders(); track order.orderId) {
+            <tr>
+              @if (agenticAllowed()) {
+                <td class="pd-sel-col">
+                  <input
+                    type="checkbox"
+                    class="pd-check"
+                    [attr.aria-label]="'Select order ' + (order.symbol ?? order.orderId)"
+                    [checked]="selected().has(order.orderId)"
+                    (change)="toggleSelected(order)"
+                  />
+                </td>
+              }
+              <td class="pd-symbol">{{ order.symbol ?? '—' }}</td>
+              <td>{{ order.side }}</td>
+              <td>{{ order.type }}</td>
+              <td>{{ order.state }}</td>
+              <td class="num">{{ formatNumber(order.quantity) }}</td>
+              <td class="num">{{ formatCurrency(order.price) }}</td>
+              <td class="num">{{ formatCurrency(order.stopPrice) }}</td>
+              <td class="num pd-mark">{{ formatCurrency(markFor(order)) }}</td>
+              <td class="num pd-dist">{{ formatPercent(distFor(order)) }}</td>
+              <td>{{ formatDate(order.createdAt) }}</td>
+              @if (agenticAllowed()) {
+                <td>
+                  <div class="pd-actions">
+                    @if (canModify(order)) {
+                      <button
+                        type="button"
+                        mat-stroked-button
+                        class="pd-modify-action"
+                        (click)="modifyOrder.emit(order)"
+                      >
+                        Modify
+                      </button>
+                    }
+                    <button
+                      type="button"
+                      mat-stroked-button
+                      class="pd-cancel-action"
+                      (click)="cancelOrder.emit(order)"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   } @else {
     <div class="pd-section-empty" aria-live="polite">
       <mat-icon aria-hidden="true">inbox</mat-icon>

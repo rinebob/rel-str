@@ -14,6 +14,7 @@ function makePosition(overrides: Partial<EquityPositionWithPnL> = {}): EquityPos
     pnl: 2500.00,
     pnlPercent: 16.67,
     closed: false,
+    entryDate: null,
     ...overrides,
   };
 }
@@ -84,18 +85,6 @@ describe('EquityPositionsTableComponent', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  it('emits toggleClosed when toggle button clicked', () => {
-    fixture.componentRef.setInput('positions', [makePosition()]);
-    fixture.componentRef.setInput('showClosed', false);
-    fixture.detectChanges();
-
-    const spy = jasmine.createSpy('toggleClosed');
-    component.toggleClosed.subscribe(spy);
-
-    fixture.nativeElement.querySelector('.pd-toggle-closed').click();
-    expect(spy).toHaveBeenCalledTimes(1);
-  });
-
   it('shows empty state when no positions', () => {
     fixture.componentRef.setInput('positions', []);
     fixture.componentRef.setInput('loading', false);
@@ -121,20 +110,6 @@ describe('EquityPositionsTableComponent', () => {
     expect(pnlCell.classList.contains('pd-positive')).toBe(true);
   });
 
-  it('shows toggle button text reflecting showClosed state', () => {
-    fixture.componentRef.setInput('positions', [makePosition()]);
-    fixture.componentRef.setInput('showClosed', false);
-    fixture.detectChanges();
-
-    const toggle = fixture.nativeElement.querySelector('.pd-toggle-closed');
-    expect(toggle.textContent).toContain('Show Closed');
-
-    fixture.componentRef.setInput('showClosed', true);
-    fixture.detectChanges();
-
-    expect(toggle.textContent).toContain('Hide Closed');
-  });
-
   it('formats null PnL as dash', () => {
     fixture.componentRef.setInput('positions', [makePosition({ pnl: null, pnlPercent: null })]);
     fixture.detectChanges();
@@ -143,41 +118,94 @@ describe('EquityPositionsTableComponent', () => {
     expect(pnlCell.textContent.trim()).toContain('—');
   });
 
-  it('hides closed positions by default', () => {
+  it('wraps the table in a scrollable container for the sticky header', () => {
+    fixture.componentRef.setInput('positions', [makePosition()]);
+    fixture.detectChanges();
+
+    const wrap = fixture.nativeElement.querySelector('.pd-table-wrap');
+    expect(wrap).toBeTruthy();
+    expect(wrap.querySelector('table.pd-table')).toBeTruthy();
+  });
+
+  it('sorts by a column ascending on first header click, descending on second', () => {
+    fixture.componentRef.setInput('positions', [
+      makePosition({ symbol: 'MSFT', pnl: 100 }),
+      makePosition({ symbol: 'AAPL', pnl: 500 }),
+      makePosition({ symbol: 'GOOG', pnl: -300 }),
+    ]);
+    fixture.detectChanges();
+
+    const headers = fixture.nativeElement.querySelectorAll('.pd-sort');
+    const pnlHeader = headers[headers.length - 2]; // PnL, before PnL%
+    pnlHeader.click();
+    fixture.detectChanges();
+
+    let symbols = [...fixture.nativeElement.querySelectorAll('tbody .pd-symbol')].map((el) => el.textContent.trim());
+    expect(symbols).toEqual(['GOOG', 'MSFT', 'AAPL']);
+
+    pnlHeader.click();
+    fixture.detectChanges();
+
+    symbols = [...fixture.nativeElement.querySelectorAll('tbody .pd-symbol')].map((el) => el.textContent.trim());
+    expect(symbols).toEqual(['AAPL', 'MSFT', 'GOOG']);
+  });
+
+  it('sorts symbol ascending by default', () => {
+    fixture.componentRef.setInput('positions', [
+      makePosition({ symbol: 'MSFT' }),
+      makePosition({ symbol: 'AAPL' }),
+    ]);
+    fixture.detectChanges();
+
+    const symbols = [...fixture.nativeElement.querySelectorAll('tbody .pd-symbol')].map((el) => el.textContent.trim());
+    expect(symbols).toEqual(['AAPL', 'MSFT']);
+  });
+
+  it('keeps null values last in both sort directions', () => {
+    fixture.componentRef.setInput('positions', [
+      makePosition({ symbol: 'MSFT', pnl: 100 }),
+      makePosition({ symbol: 'NULLS', pnl: null }),
+      makePosition({ symbol: 'AAPL', pnl: 500 }),
+    ]);
+    fixture.detectChanges();
+
+    const headers = fixture.nativeElement.querySelectorAll('.pd-sort');
+    const pnlHeader = headers[headers.length - 2];
+    pnlHeader.click(); // asc
+    fixture.detectChanges();
+
+    let symbols = [...fixture.nativeElement.querySelectorAll('tbody .pd-symbol')].map((el) => el.textContent.trim());
+    expect(symbols[symbols.length - 1]).toBe('NULLS');
+
+    pnlHeader.click(); // desc
+    fixture.detectChanges();
+
+    symbols = [...fixture.nativeElement.querySelectorAll('tbody .pd-symbol')].map((el) => el.textContent.trim());
+    expect(symbols[symbols.length - 1]).toBe('NULLS');
+  });
+
+  it('renders the entry date column as a date or dash', () => {
+    fixture.componentRef.setInput('positions', [
+      makePosition({ symbol: 'AAPL', entryDate: '2026-01-15T14:30:00Z' }),
+      makePosition({ symbol: 'MSFT', entryDate: null }),
+    ]);
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(rows[0].textContent).toContain('2026-01-15');
+    expect(rows[1].textContent).toContain('—');
+  });
+
+  it('filters out closed positions', () => {
     fixture.componentRef.setInput('positions', [
       makePosition({ symbol: 'AAPL', closed: false }),
       makePosition({ symbol: 'CLOSED1', closed: true, quantity: 0 }),
     ]);
-    fixture.componentRef.setInput('showClosed', false);
     fixture.detectChanges();
 
     const rows = fixture.nativeElement.querySelectorAll('tbody tr');
     expect(rows.length).toBe(1);
     expect(rows[0].textContent).toContain('AAPL');
-  });
-
-  it('shows closed positions when showClosed is true', () => {
-    fixture.componentRef.setInput('positions', [
-      makePosition({ symbol: 'AAPL', closed: false }),
-      makePosition({ symbol: 'CLOSED1', closed: true, quantity: 0 }),
-    ]);
-    fixture.componentRef.setInput('showClosed', true);
-    fixture.detectChanges();
-
-    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
-    expect(rows.length).toBe(2);
-    expect(rows[1].textContent).toContain('CLOSED1');
-  });
-
-  it('applies muted styling to closed position rows', () => {
-    fixture.componentRef.setInput('positions', [
-      makePosition({ symbol: 'CLOSED1', closed: true, quantity: 0 }),
-    ]);
-    fixture.componentRef.setInput('showClosed', true);
-    fixture.detectChanges();
-
-    const row = fixture.nativeElement.querySelector('tbody tr');
-    expect(row.classList.contains('pd-closed')).toBe(true);
   });
 
   it('shows Close action on open position rows', () => {
@@ -187,15 +215,6 @@ describe('EquityPositionsTableComponent', () => {
     const closeBtn = fixture.nativeElement.querySelector('.pd-close-action');
     expect(closeBtn).toBeTruthy();
     expect(closeBtn.textContent).toContain('Close');
-  });
-
-  it('does not show Close action on closed positions', () => {
-    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'CLOSED1', quantity: 0, closed: true })]);
-    fixture.componentRef.setInput('showClosed', true);
-    fixture.detectChanges();
-
-    const closeBtn = fixture.nativeElement.querySelector('.pd-close-action');
-    expect(closeBtn).toBeNull();
   });
 
   it('emits closePosition with the position when Close clicked', () => {
@@ -240,16 +259,6 @@ describe('EquityPositionsTableComponent', () => {
     expect(addStopBtn.disabled).toBe(false);
   });
 
-  it('does not show Add Stop action on closed positions', () => {
-    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'CLOSED1', quantity: 0, closed: true })]);
-    fixture.componentRef.setInput('showClosed', true);
-    fixture.componentRef.setInput('protectedSymbols', new Set<string>());
-    fixture.detectChanges();
-
-    const addStopBtn = fixture.nativeElement.querySelector('.pd-add-stop-action');
-    expect(addStopBtn).toBeNull();
-  });
-
   it('emits addStopLoss with the position when Add Stop clicked', () => {
     const pos = makePosition({ symbol: 'AAPL', quantity: 100, closed: false });
     fixture.componentRef.setInput('positions', [pos]);
@@ -271,5 +280,16 @@ describe('EquityPositionsTableComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.pd-close-action')).toBeNull();
     expect(fixture.nativeElement.querySelector('.pd-add-stop-action')).toBeNull();
+  });
+
+  it('marks numeric columns with the dense-table num class', () => {
+    fixture.componentRef.setInput('positions', [makePosition()]);
+    fixture.detectChanges();
+
+    // Quantity, Avg Cost, Cost Basis, Current Price, Value, PnL, PnL%
+    expect(fixture.nativeElement.querySelectorAll('thead th.num').length).toBe(7);
+    expect(
+      fixture.nativeElement.querySelectorAll('tbody tr:first-child td.num').length,
+    ).toBe(7);
   });
 });
