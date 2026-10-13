@@ -33,6 +33,9 @@ export {
   injectTriggerBandsData,
 } from './chart-indicators/indicator-converters';
 
+export { bindTriggerBandsRequest } from './chart-indicators/trigger-bands-request';
+export type { TriggerBandsRequestStore } from './chart-indicators/trigger-bands-request';
+
 export { createExtrasSignals } from './chart-indicators/extras-signals';
 
 export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from './chart-indicators/base-indicators';
