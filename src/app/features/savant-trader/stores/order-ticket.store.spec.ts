@@ -229,6 +229,107 @@ describe('OrderTicketStore', () => {
       expect(store.tickets()['ticket-1'].refId).toBe(originalRefId);
     });
 
+    it('mints a fresh refId on PLACEMENT_DEAD and records the dead orderId', async () => {
+      // The dead order consumed the refId — resubmitting it would 409 forever.
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(of(undefined));
+      orderExecution.submitEquityOrder.and.returnValue(
+        Promise.resolve({
+          success: false,
+          result: { orderId: 'order-dead', state: 'rejected' },
+          error: { message: 'order order-dead placed but already terminal (rejected)', code: 'PLACEMENT_DEAD', retryable: false },
+        }),
+      );
+      store.stageTicket(mockEquityTicket({ refId: 'ref-burned' }));
+
+      store.submitTicket('ticket-1');
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const result = store.tickets()['ticket-1'];
+      expect(result.status).toBe(OrderTicketStatus.STAGED);
+      expect(result.refId).not.toBe('ref-burned');
+      expect(result.result?.orderId).toBe('order-dead');
+      // The fresh refId must be persisted — a reload restoring the burned
+      // refId would wedge the ticket on 409s (r6-M6.1).
+      expect(ticketService.updateTicket).toHaveBeenCalledWith(
+        'ticket-1',
+        jasmine.objectContaining({ refId: result.refId }),
+      );
+    });
+
+    it('keeps the burned refId when the dead order carried fills', async () => {
+      // Dead-with-fills means the position shrank — the ticket's quantity is
+      // stale. A fresh refId would let a resubmit oversell; the burned one
+      // 409s harmlessly while the user refreshes and re-stages.
+      ticketService.createTicket.and.returnValue(of(undefined));
+      orderExecution.submitEquityOrder.and.returnValue(
+        Promise.resolve({
+          success: false,
+          result: { orderId: 'order-dead', state: 'cancelled', filledQuantity: '1' },
+          error: { message: 'order order-dead placed but already terminal (cancelled) with 1 filled', code: 'PLACEMENT_DEAD', retryable: false },
+        }),
+      );
+      store.stageTicket(mockEquityTicket({ refId: 'ref-burned' }));
+
+      store.submitTicket('ticket-1');
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const result = store.tickets()['ticket-1'];
+      expect(result.status).toBe(OrderTicketStatus.STAGED);
+      expect(result.refId).toBe('ref-burned');
+      expect(result.error?.message).toContain('re-stage');
+    });
+
+    it('keeps the burned refId when the dead order has an absent fill field', async () => {
+      // cancelled with no fillQuantity is ambiguous — a fresh-refId resubmit
+      // would carry the stale quantity over a possibly-shrunken position.
+      ticketService.createTicket.and.returnValue(of(undefined));
+      orderExecution.submitEquityOrder.and.returnValue(
+        Promise.resolve({
+          success: false,
+          result: { orderId: 'order-dead', state: 'cancelled' },
+          error: { message: 'order order-dead placed but already terminal (cancelled)', code: 'PLACEMENT_DEAD', retryable: false },
+        }),
+      );
+      store.stageTicket(mockEquityTicket({ refId: 'ref-burned' }));
+
+      store.submitTicket('ticket-1');
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const result = store.tickets()['ticket-1'];
+      expect(result.status).toBe(OrderTicketStatus.STAGED);
+      expect(result.refId).toBe('ref-burned');
+      expect(result.error?.message).toContain('re-stage');
+    });
+
+    it('keeps the refId on PLACEMENT_UNCONFIRMED so a retry converges', async () => {
+      // The order may be live — resubmitting the same refId dedupes via 409
+      // instead of minting a duplicate.
+      ticketService.createTicket.and.returnValue(of(undefined));
+      orderExecution.submitEquityOrder.and.returnValue(
+        Promise.resolve({
+          success: false,
+          error: { message: 'placement unconfirmed — no order id in response', code: 'PLACEMENT_UNCONFIRMED', retryable: true },
+        }),
+      );
+      store.stageTicket(mockEquityTicket({ refId: 'ref-maybe-live' }));
+
+      store.submitTicket('ticket-1');
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const result = store.tickets()['ticket-1'];
+      expect(result.status).toBe(OrderTicketStatus.STAGED);
+      expect(result.refId).toBe('ref-maybe-live');
+    });
+
     it('rejects double-submit while a submission is in flight', async () => {
       ticketService.createTicket.and.returnValue(of(undefined));
       ticketService.updateTicket.and.returnValue(of(undefined));

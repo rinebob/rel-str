@@ -10,7 +10,7 @@ import { EquityPosition } from '../../../../core/robinhood-mcp/types/robinhood-m
 describe('ClosePositionDialogComponent', () => {
   let component: ClosePositionDialogComponent;
   let orderExecution: { submitEquityOrder: jasmine.Spy };
-  let dialogRef: { close: jasmine.Spy };
+  let dialogRef: { close: jasmine.Spy; disableClose?: boolean };
 
   const position: EquityPosition = {
     symbol: 'AAPL',
@@ -156,6 +156,12 @@ describe('ClosePositionDialogComponent', () => {
 
     expect(orderExecution.submitEquityOrder).toHaveBeenCalledTimes(2);
     expect(component.state()).toBe('success');
+    // Retry must resubmit the SAME ticket — same refId — so RH idempotency
+    // dedupes a retry of a placement whose response was lost.
+    const firstTicket = orderExecution.submitEquityOrder.calls.argsFor(0)[0];
+    const retryTicket = orderExecution.submitEquityOrder.calls.argsFor(1)[0];
+    expect(retryTicket).toBe(firstTicket);
+    expect(retryTicket.refId).toBe(firstTicket.refId);
   });
 
   it('closes dialog on done', () => {
@@ -166,6 +172,37 @@ describe('ClosePositionDialogComponent', () => {
   it('closes dialog on cancel', () => {
     component.onCancel();
     expect(dialogRef.close).toHaveBeenCalledWith(false);
+  });
+
+  it('closes true on cancel after a submission attempt so the dashboard refreshes', async () => {
+    // A failed/ambiguous placement may still have registered broker-side —
+    // dismissing must not leave the reopened view on a stale position.
+    orderExecution.submitEquityOrder.and.returnValue(Promise.resolve({
+      success: false,
+      error: { message: 'placement unconfirmed — no order id in response', code: 'PLACEMENT_UNCONFIRMED', retryable: true },
+    }));
+
+    await component.onSubmit();
+    component.onCancel();
+
+    expect(dialogRef.close).toHaveBeenCalledWith(true);
+  });
+
+  it('blocks dismiss once a submission runs — in flight and after', async () => {
+    let resolveSubmit!: (v: unknown) => void;
+    orderExecution.submitEquityOrder.and.returnValue(
+      new Promise((r) => { resolveSubmit = r; }),
+    );
+
+    const submit = component.onSubmit();
+    await Promise.resolve();
+    expect(dialogRef.disableClose).toBe(true);
+
+    resolveSubmit({ success: true, result: { orderId: 'rh-x', state: 'confirmed' } });
+    await submit;
+    // Stays disabled after settle — the order registered, so an ESC/backdrop
+    // dismiss would skip the refresh; only Cancel/Done (both close true) exit.
+    expect(dialogRef.disableClose).toBe(true);
   });
 
   it('includes limitPrice in ticket when limit order submitted', async () => {

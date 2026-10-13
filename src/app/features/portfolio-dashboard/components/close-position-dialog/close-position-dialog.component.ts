@@ -16,6 +16,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatIconModule } from '@angular/material/icon';
 
 import { OrderExecutionService, ExecutionResult } from '../../../savant-trader/services/order-execution.service';
+import { EquityOrderTicket } from '../../../savant-trader/services/order-ticket.types';
 import { EquityPosition } from '../../../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { buildClosePositionTicket } from '../../../savant-trader/utils/close-position-ticket.util';
 
@@ -57,6 +58,8 @@ export class ClosePositionDialogComponent {
   readonly limitPrice = signal<string>('');
   readonly state = signal<DialogState>('editing');
   readonly result = signal<ExecutionResult | null>(null);
+  /** Last built ticket, retained for retry to preserve refId idempotency. */
+  private lastTicket: EquityOrderTicket | null = null;
 
   readonly isLimit = computed(() => this.orderType() === 'limit');
   readonly error = computed(() => this.state() === 'error' ? this.result()?.error?.message ?? 'Unknown error' : null);
@@ -88,26 +91,35 @@ export class ClosePositionDialogComponent {
 
   async onSubmit(): Promise<void> {
     if (!this.canSubmit()) return;
-    await this.submitTicket();
-  }
-
-  async onRetry(): Promise<void> {
-    await this.submitTicket();
-  }
-
-  /** Build the ticket, submit to the broker, and transition to success/error state. */
-  private async submitTicket(): Promise<void> {
-    this.state.set('submitting');
     const lp = this.isLimit() ? parseFloat(this.limitPrice()) : undefined;
-    const ticket = buildClosePositionTicket(
+    // Build once — a retry must resubmit the same refId so RH idempotency
+    // dedupes a retry of a placement that registered broker-side but whose
+    // response was lost.
+    this.lastTicket = buildClosePositionTicket(
       this.data.position,
       this.orderType(),
       this.quantity(),
       this.accountNumber(),
       lp,
     );
+    await this.submitTicket();
+  }
+
+  async onRetry(): Promise<void> {
+    if (this.state() === 'submitting' || !this.lastTicket) return;
+    await this.submitTicket();
+  }
+
+  /** Submit the last built ticket to the broker and transition to success/error state. */
+  private async submitTicket(): Promise<void> {
+    if (!this.lastTicket) return;
+    this.state.set('submitting');
+    // Once a submission runs, ESC/backdrop must stay disabled — a dismiss
+    // resolves afterClosed with undefined (no refresh) while the attempt may
+    // have registered broker-side. Cancel/Done close true and stay available.
+    this.dialogRef.disableClose = true;
     try {
-      const res = await this.orderExecution.submitEquityOrder(ticket);
+      const res = await this.orderExecution.submitEquityOrder(this.lastTicket);
       this.result.set(res);
       this.state.set(res.success ? 'success' : 'error');
     } catch (e) {
@@ -124,6 +136,9 @@ export class ClosePositionDialogComponent {
   }
 
   onCancel(): void {
-    this.dialogRef.close(false);
+    // Once a submission ran, the outcome may have registered broker-side
+    // (success, lost-ack, ref-id conflict) — close true so the dashboard
+    // refreshes rather than reopening a stale position view.
+    this.dialogRef.close(this.lastTicket !== null);
   }
 }

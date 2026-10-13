@@ -89,6 +89,10 @@ export class StopLossDialogComponent {
   private async submitTicket(): Promise<void> {
     if (!this.lastTicket) return;
     this.state.set('submitting');
+    // Once a submission runs, ESC/backdrop must stay disabled — a dismiss
+    // resolves afterClosed with undefined (no refresh) while the attempt may
+    // have registered broker-side. Cancel/Done close true and stay available.
+    this.dialogRef.disableClose = true;
     try {
       const res = await this.orderExecution.submitEquityOrder(this.lastTicket);
       this.result.set(res);
@@ -107,6 +111,9 @@ export class StopLossDialogComponent {
   }
 
   onCancel(): void {
-    this.dialogRef.close(false);
+    // Once a submission ran, the outcome may have registered broker-side
+    // (success, lost-ack, ref-id conflict) — close true so the dashboard
+    // refreshes rather than reopening a stale position view.
+    this.dialogRef.close(this.lastTicket !== null);
   }
 }

@@ -36,7 +36,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { firstValueFrom, from } from 'rxjs';
 
 import { OrderTicketService } from '../services/order-ticket.service';
-import { OrderExecutionService } from '../services/order-execution.service';
+import { OrderExecutionService, ExecutionResult, PLACEMENT_DEAD_CODE, FILL_CAPABLE_DEAD_STATES } from '../services/order-execution.service';
 import {
   OrderTicket,
   OrderTicketStatus,
@@ -45,7 +45,6 @@ import {
   EquityOrderTicket,
   EtfOrderTicket,
 } from '../services/order-ticket.types';
-import { ExecutionResult } from '../services/order-execution.service';
 import { PaperTradingService } from '../services/paper-trading.service';
 import { isPaperEligibleTicket, toPaperSignalOrderRequest } from '../utils/paper-ticket.util';
 import { formatError } from '../utils/format-error.util';
@@ -282,6 +281,50 @@ export const OrderTicketStore = signalStore(
                 error: result.error,
                 updatedAt: new Date().toISOString(),
               };
+              if (result.error?.code === PLACEMENT_DEAD_CODE && result.result?.orderId) {
+                const fills = parseFloat(result.result.filledQuantity ?? '') || 0;
+                const fillAmbiguous =
+                  FILL_CAPABLE_DEAD_STATES.has(result.result.state ?? '') &&
+                  !Number.isFinite(parseFloat(result.result.filledQuantity ?? ''));
+                if (fills > 0 || fillAmbiguous) {
+                  // The dead order carried fills — the position shrank, so the
+                  // ticket's quantity is stale. Keep the burned refId (a retry
+                  // 409s harmlessly) and tell the user to refresh + re-stage.
+                  reverted.error = {
+                    ...result.error,
+                    message: `${result.error.message} — refresh the position and re-stage rather than retrying`,
+                  };
+                } else {
+                  // Clean-dead: refId is consumed, so resubmitting would 409
+                  // forever — mint a fresh one and keep the dead orderId so
+                  // reconciliation can mark the attempt terminal. PERSISTED:
+                  // the failure revert is local-only, but a reload would
+                  // restore the burned refId and wedge the ticket on 409s
+                  // (same durability reason as updateTicketAndWait's refId
+                  // mints at #717).
+                  reverted.refId = crypto.randomUUID();
+                  reverted.result = {
+                    orderId: result.result.orderId,
+                    state: result.result.state,
+                  };
+                  ticketService.updateTicket(id, {
+                    refId: reverted.refId,
+                    result: reverted.result,
+                    updatedAt: reverted.updatedAt,
+                  })
+                    .pipe(takeUntilDestroyed(destroyRef))
+                    .subscribe({
+                      error: (err: unknown) => {
+                        console.error('[OrderTicketStore] Failed to persist fresh refId:', err);
+                        snackBar.open('Failed to save order state — the ticket may need re-staging', 'Dismiss', { duration: 5000 });
+                      },
+                    });
+                }
+              }
+              // PLACEMENT_UNCONFIRMED / ref-id-conflict keep the original
+              // refId on purpose: the order may be live, and resubmitting the
+              // same refId converges (place if lost, dedupe-409 if live)
+              // instead of minting a duplicate.
               patchState(state, { tickets: { ...state.tickets(), [id]: reverted } });
               return;
             }
@@ -304,6 +347,10 @@ export const OrderTicketStore = signalStore(
             ticketService.updateTicket(id, {
               status: OrderTicketStatus.SUBMITTED,
               result: submitted.result,
+              // Persist the in-flight refId — self-heals the doc when a prior
+              // clean-dead refId mint failed to persist (otherwise the doc
+              // would record a burned refId against the live order).
+              refId: existing.refId,
               error: undefined,
               updatedAt: submitted.updatedAt,
             })

@@ -10,7 +10,7 @@ import { EquityPosition } from '../../../../core/robinhood-mcp/types/robinhood-m
 describe('StopLossDialogComponent', () => {
   let component: StopLossDialogComponent;
   let orderExecution: { submitEquityOrder: jasmine.Spy };
-  let dialogRef: { close: jasmine.Spy };
+  let dialogRef: { close: jasmine.Spy; disableClose?: boolean };
 
   const position: EquityPosition = {
     symbol: 'AAPL',
@@ -163,6 +163,37 @@ describe('StopLossDialogComponent', () => {
   it('closes dialog on cancel', () => {
     component.onCancel();
     expect(dialogRef.close).toHaveBeenCalledWith(false);
+  });
+
+  it('closes true on cancel after a submission attempt so the dashboard refreshes', async () => {
+    // A failed/ambiguous placement may still have registered broker-side —
+    // dismissing must not leave the reopened view on a stale position.
+    orderExecution.submitEquityOrder.and.returnValue(Promise.resolve({
+      success: false,
+      error: { message: 'placement unconfirmed — no order id in response', code: 'PLACEMENT_UNCONFIRMED', retryable: true },
+    }));
+
+    await component.onSubmit({ stopPrice: 160, timeInForce: 'gtc', marketHours: 'regular_hours' });
+    component.onCancel();
+
+    expect(dialogRef.close).toHaveBeenCalledWith(true);
+  });
+
+  it('blocks dismiss once a submission runs — in flight and after', async () => {
+    let resolveSubmit!: (v: unknown) => void;
+    orderExecution.submitEquityOrder.and.returnValue(
+      new Promise((r) => { resolveSubmit = r; }),
+    );
+
+    const submit = component.onSubmit({ stopPrice: 160, timeInForce: 'gtc', marketHours: 'regular_hours' });
+    await Promise.resolve();
+    expect(dialogRef.disableClose).toBe(true);
+
+    resolveSubmit({ success: true, result: { orderId: 'rh-x', state: 'confirmed' } });
+    await submit;
+    // Stays disabled after settle — the order registered, so an ESC/backdrop
+    // dismiss would skip the refresh; only Cancel/Done (both close true) exit.
+    expect(dialogRef.disableClose).toBe(true);
   });
 
   it('hides retry button when error is non-retryable', async () => {
