@@ -59,6 +59,17 @@ export function sendJson(response: ServerResponse, status: number, body: unknown
   response.end(JSON.stringify(body));
 }
 
+/** `sessionFailure` is the executor's internal recover-and-retry marker —
+ *  it drives logic inside this process and must not leak onto the wire. */
+function stripSessionFailure<T>(result: T): T {
+  if (typeof result !== 'object' || result === null || !('sessionFailure' in result)) {
+    return result;
+  }
+  const copy = { ...(result as Record<string, unknown>) };
+  delete copy.sessionFailure;
+  return copy as T;
+}
+
 export function readBody(request: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -169,7 +180,7 @@ async function handleExecuteTool(
     outcome: result.success ? 'success' : 'failure',
   });
 
-  sendJson(response, 200, result);
+  sendJson(response, 200, stripSessionFailure(result));
 }
 
 interface BatchRequestBody {
@@ -243,7 +254,13 @@ async function handleExecuteBatch(
       });
     }
   }
-  sendJson(response, 200, outcome);
+  sendJson(
+    response,
+    200,
+    outcome.success
+      ? { ...outcome, results: outcome.results.map(stripSessionFailure) }
+      : stripSessionFailure(outcome),
+  );
 }
 
 function routeTable(options: RhApiRoutesOptions): Route[] {

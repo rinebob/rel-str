@@ -22,6 +22,10 @@ export class RobinhoodMcpConnectionError extends Error {
 
 export interface ConnectedRobinhoodMcpSession {
   session: RobinhoodMcpSession;
+  /** Access token the session was built with — captured post-connect so an
+   *  in-connect credential refresh is reflected (the session cache keys its
+   *  reuse decision on this value). */
+  accessToken: string;
   close: () => Promise<void>;
 }
 
@@ -33,6 +37,9 @@ export interface ConnectLocalRobinhoodMcpSessionOptions {
   fetchFn?: OAuthRefreshFetch;
 }
 
+export const NO_STORED_CREDENTIAL_MESSAGE =
+  'No stored Robinhood credential. Run the local OAuth bootstrap, then upload-rh-credential.';
+
 export async function connectLocalRobinhoodMcpSession(
   options: ConnectLocalRobinhoodMcpSessionOptions = {},
 ): Promise<ConnectedRobinhoodMcpSession> {
@@ -40,9 +47,7 @@ export async function connectLocalRobinhoodMcpSession(
   const provider = new RepositoryOAuthProvider(repository, {
     redirectUrl: 'http://127.0.0.1:0/callback',
     openAuthorizationUrl: async () => {
-      throw new RobinhoodMcpConnectionError(
-        'No stored Robinhood credential. Run the local OAuth bootstrap, then upload-rh-credential.',
-      );
+      throw new RobinhoodMcpConnectionError(NO_STORED_CREDENTIAL_MESSAGE);
     },
   });
 
@@ -51,9 +56,7 @@ export async function connectLocalRobinhoodMcpSession(
   const refreshPolicy = new DefaultTokenRefreshPolicy();
 
   if (!bundle?.tokens) {
-    throw new RobinhoodMcpConnectionError(
-      'No stored Robinhood credential. Run the local OAuth bootstrap, then upload-rh-credential.',
-    );
+    throw new RobinhoodMcpConnectionError(NO_STORED_CREDENTIAL_MESSAGE);
   }
 
   if (refreshPolicy.shouldRefresh(bundle, now, false)) {
@@ -90,8 +93,17 @@ export async function connectLocalRobinhoodMcpSession(
   const session = new RobinhoodMcpSession(provider, options.transportFactory);
   await session.connect();
 
+  const connectedTokens = await provider.tokens();
+  if (!connectedTokens?.access_token) {
+    await session.close().catch(() => undefined);
+    throw new RobinhoodMcpConnectionError(
+      'Robinhood MCP connected without an access token. Re-run the local OAuth bootstrap, then upload-rh-credential.',
+    );
+  }
+
   return {
     session,
+    accessToken: connectedTokens.access_token,
     close: async () => {
       await session.close().catch(() => undefined);
     },

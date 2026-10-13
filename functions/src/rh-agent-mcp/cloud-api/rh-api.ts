@@ -24,6 +24,8 @@ import {
 } from '../api-shared/rh-api-routes';
 import type { RobinhoodCredentialRepository } from '../auth/credential-repository';
 import type { RobinhoodMcpTransportFactory } from '../client/robinhood-mcp-session';
+import type { ObservationSessionCache } from '../tools/session-acquisition';
+import { RobinhoodMcpSessionCache } from './rh-session-cache';
 import {
   FirestoreDocStore,
   KmsFirestoreCredentialRepository,
@@ -49,6 +51,9 @@ export interface RhApiDeps {
   /** Test seams forwarded to the executor — prod leaves both unset. */
   callTimeoutMs?: number;
   batchBudgetMs?: number;
+  /** Warm MCP session cache shared across requests on this instance. When
+   *  absent the executor connects per call (local-API behavior). */
+  sessionCache?: ObservationSessionCache;
 }
 
 type RequestHandler = (
@@ -100,6 +105,7 @@ export function createRhApiHandler(deps: RhApiDeps): RequestHandler {
         transportFactory: deps.transportFactory,
         callTimeoutMs: deps.callTimeoutMs,
         batchBudgetMs: deps.batchBudgetMs,
+        sessionCache: deps.sessionCache,
       },
       reauthHandler: async (_request, res) =>
         sendJson(res, 200, {
@@ -157,16 +163,25 @@ async function productionHandler(
   applyRhApiCors(request, response);
   if (response.writableEnded) return;
 
-  cachedHandler ??= createRhApiHandler({
-    verifyIdToken: async (token) => {
-      const decoded = await getAuth().verifyIdToken(token);
-      return { uid: decoded.uid };
-    },
-    ownerUid: process.env.RH_OWNER_UID ?? '',
-    repository: createProductionRepository(),
-    onAudit: (entry) => logger.info('rh_api_call', entry),
-    onAuditReject: (entry) => logger.warn('rh_api_auth_reject', entry),
-  });
+  if (!cachedHandler) {
+    const repository = createProductionRepository();
+    cachedHandler = createRhApiHandler({
+      verifyIdToken: async (token) => {
+        const decoded = await getAuth().verifyIdToken(token);
+        return { uid: decoded.uid };
+      },
+      ownerUid: process.env.RH_OWNER_UID ?? '',
+      repository,
+      // Built once per warm instance alongside the handler — this cache is
+      // the module-scope session lifetime the latency design calls for.
+      sessionCache: new RobinhoodMcpSessionCache({
+        repository,
+        onEvent: (event) => logger.info('rh_mcp_session', event),
+      }),
+      onAudit: (entry) => logger.info('rh_api_call', entry),
+      onAuditReject: (entry) => logger.warn('rh_api_auth_reject', entry),
+    });
+  }
   await cachedHandler(request, response);
 }
 
@@ -175,8 +190,11 @@ export const rhApi = onRequest(
     region: 'us-central1',
     timeoutSeconds: 120,
     memory: '512MiB',
-    // Bounds concurrent-refresh amplification per instance.
-    // minInstances lands with the session cache in task #808.
+    // minInstances keeps one instance warm so the module-scope session cache
+    // survives between page loads; concurrency bounds per-instance
+    // amplification on the shared session (callTool multiplexes over
+    // StreamableHTTP — verified in rh-agent-mcp-session-cache.test.ts).
+    minInstances: 1,
     concurrency: 8,
   },
   productionHandler,

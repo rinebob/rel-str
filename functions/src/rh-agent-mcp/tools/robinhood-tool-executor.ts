@@ -1,14 +1,23 @@
 import {
   type RobinhoodMcpTransportFactory,
-  McpSessionNotConnectedError,
 } from '../client/robinhood-mcp-session';
 import {
-  connectLocalRobinhoodMcpSession,
   type ConnectLocalRobinhoodMcpSessionOptions,
   type ConnectedRobinhoodMcpSession,
-  RobinhoodMcpConnectionError,
 } from '../auth/robinhood-mcp-connection';
 import type { OAuthRefreshFetch } from '../auth/stored-credential-refresh';
+import {
+  acquireMcpSession,
+  boundSessionConnect,
+  categorizeExecutionError,
+  closeSessionBounded,
+  isSessionFailure,
+  MCP_CONNECT_TIMEOUT_MS,
+  McpCallTimeoutError,
+  type ObservationSessionCache,
+  toolCallFailure,
+  withTimeout,
+} from './session-acquisition';
 import {
   getObservationToolDefinition,
   isObservationTool,
@@ -24,16 +33,29 @@ import {
 } from '@robinhood-mcp/contracts';
 import { isPlainObject } from '@robinhood-mcp/utils';
 
+// Session-acquisition plumbing moved to ./session-acquisition so the warm
+// session cache can use it without depending on the executor. The two
+// re-exports keep existing consumers (run-probe-manifest) working.
+export { categorizeExecutionError, withTimeout };
+
 export interface ExecuteObservationToolOptions {
   transportFactory?: RobinhoodMcpTransportFactory;
   repository?: ConnectLocalRobinhoodMcpSessionOptions['repository'];
   /**
    * Caller-owned session to execute against instead of connecting fresh —
    * the caller owns the lifecycle; the executor neither connects nor
-   * closes it. Ignored by `executeObservationToolBatch`, which always
-   * owns its session.
+   * closes it. `executeObservationToolBatch` ignores this option — it
+   * acquires its own connection (or the cache's) and pins items onto it.
    */
   session?: ConnectedRobinhoodMcpSession;
+  /**
+   * Warm session cache (cloud `rhApi`) — requests reuse one connection
+   * instead of connecting per call. On a session-level failure the executor
+   * recovers once and retries the call once; a timed-out call is never
+   * retried (it may still be executing server-side). Takes lower precedence
+   * than `session` — batch items run on the batch's acquired connection.
+   */
+  sessionCache?: ObservationSessionCache;
   /**
    * Authoritative schema source — pass the LIVE tools/list definition when
    * the bundled catalog may have drifted (ajv removeAdditional would strip a
@@ -52,11 +74,6 @@ export interface ExecuteObservationToolOptions {
 /** Timeout for individual MCP tool calls (45 seconds — longer than the frontend 30s). */
 export const MCP_CALL_TIMEOUT_MS = 45_000;
 
-/** Timeout for session establishment — credential load, token refresh, and
- *  the transport handshake all live inside connect and must never hang a
- *  request through to the host timeout. */
-export const MCP_CONNECT_TIMEOUT_MS = 30_000;
-
 /** Upper bound on total batch execution, measured from batch start including
  *  connect. Must stay under the local API's 90s request timeout and rhApi's
  *  120s function timeout — a host kill mid-batch loses every result. 75s
@@ -64,17 +81,6 @@ export const MCP_CONNECT_TIMEOUT_MS = 30_000;
  *  timeouts are clamped to the remaining budget so a dispatched call can't
  *  overrun it; calls still pending at the deadline get failure entries. */
 export const MCP_BATCH_BUDGET_MS = 75_000;
-
-/** Reject a promise if it does not settle within timeoutMs. */
-export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
-}
 
 interface McpToolContentItem {
   type: string;
@@ -160,7 +166,7 @@ export async function executeObservationTool(
   if (!isPlainObject(args)) {
     return {
       success: false,
-      error: `Tool arguments must be a JSON object.`,
+      error: 'Tool arguments must be a JSON object.',
       category: ToolExecutionErrorCategory.VALIDATION,
     };
   }
@@ -174,74 +180,87 @@ export async function executeObservationTool(
     };
   }
 
-  const ownsConnection = options.session === undefined;
+  const runCall = async (
+    connection: ConnectedRobinhoodMcpSession,
+  ): Promise<ToolExecutionResult | ToolExecutionError> => {
+    // Only an error thrown by the callTool await itself can be session-level
+    // — a parse/redact throw means the session answered fine.
+    const callTimeoutMs = options.callTimeoutMs ?? MCP_CALL_TIMEOUT_MS;
+    let mcpResult: unknown;
+    try {
+      mcpResult = await withTimeout(
+        connection.session.callTool(stripServerPrefix(toolName), validation.args),
+        callTimeoutMs,
+        () => new McpCallTimeoutError(
+          `MCP callTool timed out after ${callTimeoutMs / 1000}s for tool "${toolName}"`,
+        ),
+      );
+    } catch (error) {
+      // A timeout counts toward the wedged-session streak; anything else
+      // (including McpError tool failures) is liveness proof — the session
+      // answered, so the streak resets. No-op on non-cache paths.
+      options.sessionCache?.noteOutcome(
+        connection,
+        error instanceof McpCallTimeoutError ? 'timeout' : 'completed',
+      );
+      return toolCallFailure(error, isSessionFailure(error));
+    }
+    options.sessionCache?.noteOutcome(connection, 'completed');
+    try {
+      const parsed = parseToolResult(mcpResult);
+      const toolError = toolEnvelopeError(mcpResult);
+      return {
+        success: true,
+        parsed,
+        redacted: redactResponse(parsed ?? mcpResult, redactionOptions),
+        tool: toolName,
+        ...(toolError !== undefined ? { toolError } : {}),
+      };
+    } catch (error) {
+      return toolCallFailure(error);
+    }
+  };
+
+  // Session acquisition precedence: caller-owned `session` > warm
+  // `sessionCache` > connect-per-call. Only the connect-per-call mode closes.
+  if (options.session) {
+    return runCall(options.session);
+  }
+
+  if (options.sessionCache) {
+    const cache = options.sessionCache;
+    const context = `tool "${toolName}"`;
+    let connection: ConnectedRobinhoodMcpSession;
+    try {
+      connection = await boundSessionConnect(cache.acquire(), context);
+    } catch (error) {
+      return toolCallFailure(error);
+    }
+    let result = await runCall(connection);
+    if (!result.success && result.sessionFailure === true) {
+      try {
+        connection = await boundSessionConnect(cache.recover(connection), context);
+      } catch (error) {
+        return toolCallFailure(error);
+      }
+      result = await runCall(connection);
+    }
+    return result;
+  }
+
+  // Connect-per-call never retries: a retry would double the connect cost on
+  // the latency path that exists precisely because connects are expensive.
+  // The warm-session mode owns the recover-once semantics.
   let connection: ConnectedRobinhoodMcpSession | undefined;
   try {
-    connection = ownsConnection
-      ? await acquireMcpSession(options, `tool "${toolName}"`)
-      : options.session!;
-    const callTimeoutMs = options.callTimeoutMs ?? MCP_CALL_TIMEOUT_MS;
-    const mcpResult = await withTimeout(
-      connection.session.callTool(stripServerPrefix(toolName), validation.args),
-      callTimeoutMs,
-      `MCP callTool timed out after ${callTimeoutMs / 1000}s for tool "${toolName}"`,
-    );
-    const parsed = parseToolResult(mcpResult);
-    const toolError = toolEnvelopeError(mcpResult);
-    return {
-      success: true,
-      parsed,
-      redacted: redactResponse(parsed ?? mcpResult, redactionOptions),
-      tool: toolName,
-      ...(toolError !== undefined ? { toolError } : {}),
-    };
+    connection = await acquireMcpSession(options, `tool "${toolName}"`);
+    return await runCall(connection);
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-      category: categorizeExecutionError(error),
-    };
+    return toolCallFailure(error);
   } finally {
-    if (ownsConnection && connection) {
-      await withTimeout(connection.close(), 5_000, 'MCP session close timed out')
-        .catch(() => undefined);
+    if (connection) {
+      await closeSessionBounded(connection);
     }
-  }
-}
-
-/**
- * Connect with timeout for an executor-owned session — the single entry
- * point for session acquisition so the batch path can't drift. A
- * Promise.race can't cancel connect: if the timeout wins, the late-arriving
- * connection must still be closed or it leaks a live MCP session/socket.
- */
-async function acquireMcpSession(
-  options: ExecuteObservationToolOptions,
-  context: string,
-): Promise<ConnectedRobinhoodMcpSession> {
-  let abandoned = false;
-  const connectPromise = connectLocalRobinhoodMcpSession({
-    transportFactory: options.transportFactory,
-    repository: options.repository,
-    fetchFn: options.fetchFn,
-  });
-  void connectPromise.then(
-    (conn) => {
-      if (abandoned) {
-        void conn.close().catch(() => undefined);
-      }
-    },
-    () => undefined,
-  );
-  try {
-    return await withTimeout(
-      connectPromise,
-      MCP_CONNECT_TIMEOUT_MS,
-      `MCP session connect timed out after ${MCP_CONNECT_TIMEOUT_MS / 1000}s for ${context}`,
-    );
-  } catch (error) {
-    abandoned = true;
-    throw error;
   }
 }
 
@@ -276,16 +295,15 @@ export async function executeObservationToolBatch(
   }
   const budgetMs = options.batchBudgetMs ?? MCP_BATCH_BUDGET_MS;
   const deadline = Date.now() + budgetMs;
+  const cache = options.sessionCache;
 
   let connection: ConnectedRobinhoodMcpSession;
   try {
-    connection = await acquireMcpSession(options, 'batch');
+    connection = cache
+      ? await boundSessionConnect(cache.acquire(), 'batch')
+      : await acquireMcpSession(options, 'batch');
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-      category: categorizeExecutionError(error),
-    };
+    return toolCallFailure(error);
   }
 
   try {
@@ -304,20 +322,65 @@ export async function executeObservationToolBatch(
         });
         continue;
       }
-      try {
-        const result = await executeObservationTool(tool, call?.args ?? {}, {}, {
+      const executeItem = (conn: ConnectedRobinhoodMcpSession, budgetLeftMs: number) =>
+        executeObservationTool(tool, call?.args ?? {}, {}, {
           ...options,
           // Clamp the call's timeout to the remaining budget so the
           // deadline bounds total execution, not just dispatch.
           callTimeoutMs: Math.min(
             options.callTimeoutMs ?? MCP_CALL_TIMEOUT_MS,
-            remaining,
+            budgetLeftMs,
           ),
           // `definition` is per-tool — a caller-supplied one would
           // mis-validate every subsequent item in the batch.
           definition: undefined,
-          session: connection,
+          session: conn,
         });
+      try {
+        let result = await executeItem(connection, remaining);
+        if (!result.success && result.sessionFailure === true && cache) {
+          // Dead/stale session mid-batch — recover once, retry this item once
+          // on the new connection. recover() adopts a peer-rotated session
+          // rather than double-connecting. The budget is recomputed — the
+          // failed call already consumed part of `remaining`.
+          const recoverBudget = Math.min(
+            MCP_CONNECT_TIMEOUT_MS,
+            deadline - Date.now(),
+          );
+          if (recoverBudget <= 0) {
+            results.push({
+              success: false,
+              tool,
+              error: `Batch budget of ${budgetMs / 1000}s exhausted before session recovery`,
+              category: ToolExecutionErrorCategory.MCP,
+            });
+            continue;
+          }
+          try {
+            connection = await boundSessionConnect(
+              cache.recover(connection),
+              `batch tool "${tool}"`,
+              recoverBudget,
+            );
+          } catch (error) {
+            results.push({
+              ...toolCallFailure(error),
+              tool,
+            });
+            continue;
+          }
+          const retryRemaining = deadline - Date.now();
+          if (retryRemaining <= 0) {
+            results.push({
+              success: false,
+              tool,
+              error: `Batch budget of ${budgetMs / 1000}s exhausted before retry dispatch`,
+              category: ToolExecutionErrorCategory.MCP,
+            });
+            continue;
+          }
+          result = await executeItem(connection, retryRemaining);
+        }
         results.push({ ...result, tool });
       } catch (error) {
         results.push({
@@ -330,17 +393,10 @@ export async function executeObservationToolBatch(
     }
     return { success: true, results };
   } finally {
-    await withTimeout(connection.close(), 5_000, 'MCP session close timed out')
-      .catch(() => undefined);
+    // The session cache owns its connection's lifecycle — only
+    // connect-per-call mode closes here.
+    if (!cache) {
+      await closeSessionBounded(connection);
+    }
   }
-}
-
-export function categorizeExecutionError(error: unknown): ToolExecutionErrorCategory {
-  if (error instanceof RobinhoodMcpConnectionError || error instanceof McpSessionNotConnectedError) {
-    return ToolExecutionErrorCategory.AUTH;
-  }
-  if (error instanceof Error) {
-    return ToolExecutionErrorCategory.MCP;
-  }
-  return ToolExecutionErrorCategory.UNKNOWN;
 }
