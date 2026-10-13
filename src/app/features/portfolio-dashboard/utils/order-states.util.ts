@@ -28,5 +28,6 @@ export const TERMINAL_ORDER_STATES: ReadonlySet<OrderState> = new Set([
   'rejected',
   'failed',
   'voided',
+  'partially_filled_rest_cancelled',
   'unknown',
 ]);

@@ -82,7 +82,15 @@ export function parseEquityOrdersResponse(parsed: unknown): Record<string, Broke
 }
 
 /** Terminal states that indicate an order is no longer active. */
-const TERMINAL_STATES = new Set(['filled', 'cancelled', 'canceled', 'failed', 'rejected', 'voided']);
+const TERMINAL_STATES = new Set([
+  'filled',
+  'cancelled',
+  'canceled',
+  'failed',
+  'rejected',
+  'voided',
+  'partially_filled_rest_cancelled',
+]);
 
 /**
  * Narrow a verbatim RH `time_in_force` string to the canonical ticket union.
@@ -115,7 +123,8 @@ export function rhStateToTerminalStatus(rhState: string): OrderTicketStatus | nu
   switch (rhState.toLowerCase()) {
     case 'filled': return OrderTicketStatus.FILLED;
     case 'cancelled':
-    case 'canceled': return OrderTicketStatus.CANCELLED;
+    case 'canceled':
+    case 'partially_filled_rest_cancelled': return OrderTicketStatus.CANCELLED;
     case 'failed':
     case 'rejected':
     case 'voided': return OrderTicketStatus.FAILED;

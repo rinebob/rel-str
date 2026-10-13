@@ -32,7 +32,7 @@ import type {
 const OPTION_MULTIPLIER = 100;
 
 /** States whose fills count toward realized/unrealized activity. */
-const FILL_STATES = new Set(['filled', 'partially_filled']);
+const FILL_STATES = new Set(['filled', 'partially_filled', 'partially_filled_rest_cancelled']);
 
 /**
  * Robinhood positions → allocation inputs. A missing quote yields a NaN
