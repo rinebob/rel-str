@@ -427,11 +427,13 @@ export class ChartDataAdapter {
     }));
   });
 
-  /** Anchored VWAP series — the fixed 12 line series (4 slots x active + two
-   *  alternating history series) of the first ST_ANCHORED_VWAP indicator, so a
-   *  second instance cannot change the series count. Prices go through the
-   *  scale transform; `null` break points are kept so the chart draws gaps.
-   *  Empty array when no ST_ANCHORED_VWAP indicator is configured.
+  /** Anchored VWAP series — the fixed 16 line series (4 VWAP slots x active +
+   *  two alternating history series, plus the ZigZag chain and developing leg
+   *  per set) of the first ST_ANCHORED_VWAP indicator, so a second instance
+   *  cannot change the series count. Prices go through the scale transform;
+   *  `null` break points are kept so the chart draws gaps. Point colors are
+   *  themed too — the chain is a MultiColoredLine whose per-leg hues live on
+   *  the points. Empty array when no ST_ANCHORED_VWAP indicator is configured.
    */
   anchoredVwapSeries = computed<AnchoredVwapLineSeries[]>(() => {
     const data = this.chartData();
@@ -444,7 +446,11 @@ export class ChartDataAdapter {
     return computeAnchoredVwapSeries(data.bars, avwapConfig.params).map((line) => ({
       ...line,
       color: this.themeColor(line.color) ?? line.color,
-      data: line.data.map((p) => ({ ...p, y: p.y === null ? null : this.transformY(p.y) })),
+      data: line.data.map((p) => ({
+        ...p,
+        y: p.y === null ? null : this.transformY(p.y),
+        ...(p.color !== undefined ? { color: this.themeColor(p.color) ?? p.color } : {}),
+      })),
     }));
   });
 

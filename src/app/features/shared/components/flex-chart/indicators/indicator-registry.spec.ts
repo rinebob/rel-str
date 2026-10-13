@@ -23,7 +23,7 @@ describe('indicator registry — ST Anchored VWAP', () => {
   });
 
   it('exports the series builder through the registry', () => {
-    expect(computeAnchoredVwapSeries(bars(5), {})).toHaveLength(12);
+    expect(computeAnchoredVwapSeries(bars(5), {})).toHaveLength(16);
   });
 
   it('builds a valid default config: overlay line series with every declared param', () => {
@@ -34,7 +34,7 @@ describe('indicator registry — ST Anchored VWAP', () => {
     expect(cfg.seriesType).toBe('line');
     expect(cfg.options.axisScale).toBe('price');
     expect(Object.keys(cfg.params)).toEqual(ST_ANCHORED_VWAP_INDICATOR.params.map((p) => p.key));
-    expect(computeAnchoredVwapSeries(bars(40), cfg.params)).toHaveLength(12);
+    expect(computeAnchoredVwapSeries(bars(40), cfg.params)).toHaveLength(16);
   });
 
   it('is tolerated by computeIndicators without a calculator: no throw, no generic points', () => {

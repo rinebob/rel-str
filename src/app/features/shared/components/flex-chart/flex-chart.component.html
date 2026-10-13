@@ -202,17 +202,22 @@
           </e-series>
         }
 
-        <!-- Anchored VWAP: fixed 12 series (4 slots x active + 2 alternating history).
-             y:null break points + Gap keep packed segments from joining. -->
+        <!-- Anchored VWAP: fixed 16 series (4 VWAP slots x active + 2
+             alternating history, plus per set the confirmed ZigZag chain —
+             MultiColoredLine with per-leg hues on the points — and the
+             dashed developing leg). y:null break points + Gap keep packed
+             segments from joining. -->
         @for (line of anchoredVwapSeries(); track line.key) {
           <e-series
             [dataSource]="line.data"
-            type="Line"
+            [type]="line.type"
             xName="index"
             yName="y"
+            [pointColorMapping]="line.pointColorMapping"
             [name]="line.name"
             [fill]="line.color"
             [width]="line.width"
+            [dashArray]="line.dashArray"
             [emptyPointSettings]="{ mode: 'Gap' }"
             [enableTooltip]="true"
             [animation]="noAnimation">
