@@ -1,5 +1,28 @@
 # Changelog
 
+## [2026-10-13]
+
+### Added
+- [Robinhood MCP] 657-792_BE-IMPL-RH-MCP: Surface all 76 RH MCP tools in the observation allowlist — 9 domain groups; Crypto/Alerts/SEC Filings new; mutation/simulation/financial-mutation classification for the new surface
+- [Robinhood MCP] 657-792_FE-IMPL-RH-MCP: Observation page — rhs_account_number account dropdown (name-driven + pnl-tool mapping), JSON textarea args for object/array params (legs, tax_lots, scan filters/columns, alert indicator), malformed-JSON execute block, category order for the new groups
+- [Trading Indicator Library] 261-932_SHARED-IMPL-INDICATOR-LIB: Trigger Bands wire consts + keyed dot map + light neutral remap — TRIGGER_BANDS_SIGNAL_TYPES/TriggerBandsSignalType/isTriggerBandsSignalType as single BE-FE source; light colorRemap #ffffff->#9e9e9e (checkpoint)
+- [Trading Indicator Library] 261-932_BE-IMPL-INDICATOR-LIB: Emit shared TB signal consts; drop dead signals.triggerBands contract slot (checkpoint)
+- [Trading Indicator Library] 261-932_FE-IMPL-INDICATOR-LIB: FE mirror drops dead signals.triggerBands; warnIfStaleSeries extracted — staleness diagnostic lives on the lean injector path (checkpoint)
+- [Trading Indicator Library] 261-932_FE-IMPL-INDICATOR-LIB: Trigger Bands promoted to prod ST_INDICATOR_OPTIONS; dev sets emptied (checkpoint)
+- [Trading Indicator Library] 261-932_FE-IMPL-INDICATOR-LIB: Signal-detail opt-in Trigger Bands on D+W — separate bands/dots menu entries, lean request under own cache key (checkpoint)
+- [Trading Indicator Library] 261-932_SHARED-IMPL-INDICATOR-LIB: Land rb-st-trigger-bands.pine reference export (checkpoint)
+
+### Changed
+- [Robinhood MCP] 657-690_BE-IMPL-RH-MCP: Discovery assembler emits main index doc + 9 per-category children; flat dot-path response shapes; inventory verifier aggregates across children
+- [Robinhood MCP] 657-689_DOCS-RH-MCP: Canonical discovery doc split into main index + 9 category docs with bidirectional links
+- [Robinhood MCP] 657-792_DOCS-RH-MCP: CODE-REVIEW (PASS) + UAT (Complete) for the 76-tool observation page
+- [Trading Indicator Library] 261-932_FE-REFACTOR-INDICATOR-LIB: bindTriggerBandsRequest shared lean-request binding replaces triplicated computed+effect twins (checkpoint)
+- [Trading Indicator Library] 261-932_FE-REFACTOR-INDICATOR-LIB: BESPOKE_MAIN_PANE_INDICATORS set replaces the five-clause !== template chain (checkpoint)
+- [Trading Indicator Library] 261-932_DOCS-INDICATOR-LIB: #932 CODE-REVIEW (PASS, rounds 2-4) + UAT doc for #939 (checkpoint)
+
+### Fixed
+- [Trading Indicator Library] 261-932_FE-BUG-INDICATOR-LIB: IndicatorSeriesStore.clearCache(symbol) never matched the callable|symbol|... key layout; ChartStore.loadCharts blanks symbolDataVersion at fetch start — no stale-key fetch or cross-symbol overlay (checkpoint)
+
 ## [2026-10-12]
 
 ### Fixed
