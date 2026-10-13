@@ -84,8 +84,15 @@ describe('CHART_PALETTES indicator colors', () => {
     expect(dark.scatterConnector).toBe('#8f97a3');
   });
 
-  it('light palette leaves emitted indicator colors untouched', () => {
-    expect(CHART_PALETTES.light.colorRemap).toEqual({});
+  it('light palette remaps only colors that are invisible on a light surface', () => {
+    // The Trigger Bands neutral band emits pure white — invisible on the
+    // light background — so light maps it to the zone-neutral grey. Every
+    // other emitted hex stays untouched (light identity, per #734).
+    const remap = CHART_PALETTES.light.colorRemap;
+    expect(remap['#ffffff']).toBe('#9e9e9e');
+    expect(Object.keys(remap)).toEqual(['#ffffff']);
+    expect(remap['#ffeb3b']).toBeUndefined();
+    expect(remap['#2962ff']).toBeUndefined();
     expect(CHART_PALETTES.light.seriesLine).toBe('#2196f3');
     expect(CHART_PALETTES.light.seriesSignal).toBe('#e91e63');
     expect(CHART_PALETTES.light.seriesColumn).toBe('#26a69a');

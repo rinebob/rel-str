@@ -68,8 +68,9 @@ export interface ChartPalette {
    *  series data (zone scales, dot colors, band colors, ref lines, baked
    *  `options.color` defaults). Keys are the light-vocabulary hexes
    *  (lowercase); values are the appearance-appropriate replacements.
-   *  Hexes with no entry pass through unchanged — the light palette leaves
-   *  this empty so `appearance: 'light'` renders bit-identically. */
+   *  Hexes with no entry pass through unchanged — the light palette remaps
+   *  only hexes that would be invisible on a light surface (e.g. the
+   *  Trigger Bands neutral white); everything else renders bit-identically. */
   colorRemap: Record<string, string>;
 }
 
@@ -143,7 +144,11 @@ export const CHART_PALETTES: Record<ChartAppearance, ChartPalette> = {
     seriesColumn: '#26a69a',
     seriesColumnHtf: '#0d47a1',
     scatterConnector: '#9e9e9e',
-    colorRemap: {},
+    colorRemap: {
+      // Trigger Bands neutral band is pure white — invisible on the light
+      // surface. Map it to the zone-neutral grey (#932).
+      '#ffffff': '#9e9e9e',
+    },
   },
 };
 

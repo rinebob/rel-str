@@ -111,8 +111,9 @@ export const ST_STD_DEV_FIB_DASH = '2,2';
  *  opposite side's colour (the warning reads against the trend) and a
  *  breakout keeps its own — long: pullback yellow, breakout blue; short:
  *  pullback blue, breakout yellow. TradingView palette: blue #2962ff,
- *  yellow #ffeb3b. NOTE: neutral white is for the dark theme; on the light
- *  appearance it needs a remap before use there. */
+ *  yellow #ffeb3b. NOTE: neutral white targets the dark theme; the light
+ *  palette remaps it to zone-neutral grey in `CHART_PALETTES.light.colorRemap`
+ *  (#932). */
 export const ST_TRIGGER_BANDS_COLORS = {
   upper: { neutral: '#ffffff', pullback: '#ffeb3b', breakout: '#2962ff' },
   lower: { neutral: '#ffffff', pullback: '#2962ff', breakout: '#ffeb3b' },
@@ -122,15 +123,32 @@ export const ST_TRIGGER_BANDS_COLORS = {
  *  the pullback/breakout state carries colour only, not weight. */
 export const ST_TRIGGER_BANDS_LINE_WIDTH = 2;
 
+/** Trigger Bands dot-marker `signalType` wire values — the backend
+ *  (`generateTriggerBandsDotMarkers`) emits these; the FE dot-colour map and
+ *  converter consume them. One source so a drifted literal fails loudly
+ *  instead of silently dropping dots. */
+export const TRIGGER_BANDS_SIGNAL_TYPES = {
+  LONG_PULLBACK: 'TRIGGER_BANDS_LONG_PULLBACK',
+  SHORT_PULLBACK: 'TRIGGER_BANDS_SHORT_PULLBACK',
+  LONG_BREAKOUT: 'TRIGGER_BANDS_LONG_BREAKOUT',
+  SHORT_BREAKOUT: 'TRIGGER_BANDS_SHORT_BREAKOUT',
+} as const;
+export type TriggerBandsSignalType =
+  (typeof TRIGGER_BANDS_SIGNAL_TYPES)[keyof typeof TRIGGER_BANDS_SIGNAL_TYPES];
+
+export function isTriggerBandsSignalType(v: string): v is TriggerBandsSignalType {
+  return (Object.values(TRIGGER_BANDS_SIGNAL_TYPES) as string[]).includes(v);
+}
+
 /** Trigger Bands signal dots, keyed by the backend `signalType`. Same
  *  cross-side vocabulary as the bands (Pine diagnostic plots): breakout =
  *  the side's own colour, pullback = the opposite side's. Two hues only —
  *  the dot's position (long below the bar, short above) carries the side. */
-export const ST_TRIGGER_BANDS_DOT_COLORS: Readonly<Record<string, string>> = {
-  TRIGGER_BANDS_LONG_BREAKOUT: '#2962ff',
-  TRIGGER_BANDS_SHORT_BREAKOUT: '#ffeb3b',
-  TRIGGER_BANDS_LONG_PULLBACK: '#ffeb3b',
-  TRIGGER_BANDS_SHORT_PULLBACK: '#2962ff',
+export const ST_TRIGGER_BANDS_DOT_COLORS: Readonly<Record<TriggerBandsSignalType, string>> = {
+  [TRIGGER_BANDS_SIGNAL_TYPES.LONG_BREAKOUT]: '#2962ff',
+  [TRIGGER_BANDS_SIGNAL_TYPES.SHORT_BREAKOUT]: '#ffeb3b',
+  [TRIGGER_BANDS_SIGNAL_TYPES.LONG_PULLBACK]: '#ffeb3b',
+  [TRIGGER_BANDS_SIGNAL_TYPES.SHORT_PULLBACK]: '#2962ff',
 };
 
 // ── HTF zone window (lower-3 dots + capture main-pane shading) ─────────────
