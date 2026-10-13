@@ -83,6 +83,17 @@
                   (input)="updateArgValue(prop.name, parseNumber($any($event.target).value))" />
               </mat-form-field>
             }
+            @case ('json') {
+              <mat-form-field appearance="outline" class="arg-input arg-input-json">
+                <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
+                <textarea
+                  matInput
+                  rows="4"
+                  [value]="argValues()[prop.name]"
+                  (input)="updateArgValue(prop.name, $any($event.target).value)"
+                  placeholder='JSON — e.g. [{"key":"value"}] or {"key":"value"}'></textarea>
+              </mat-form-field>
+            }
             @default {
               @if (prop.isAccountNumber && accounts().length > 0) {
                 <app-rh-select-menu

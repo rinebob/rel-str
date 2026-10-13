@@ -38,6 +38,14 @@ export const TOOLS_USING_RHS_ACCOUNT_NUMBER = new Set<string>([
   'get_realized_pnl',
 ]);
 
+/** Params that take an account identifier and get the account dropdown. The
+ *  crypto surface asks for `rhs_account_number` by name (not `account_number`
+ *  with rhs semantics like the pnl tools) — name alone determines both. */
+const ACCOUNT_NUMBER_PARAM_NAMES = new Set<string>([
+  'account_number',
+  'rhs_account_number',
+]);
+
 export interface ToolInputSchema {
   type?: string | string[];
   required?: string[];
@@ -231,10 +239,19 @@ export function selectDefaultAccount(accounts: AccountInfo[]): string {
 
 export function inferPropertyType(prop: ToolInputSchemaProperty): ToolArgProperty['type'] {
   const type = prop.type;
+  const itemType = prop.items?.type;
+  const isArray = Array.isArray(type) ? type.includes('array') : type === 'array';
+  const isObject = Array.isArray(type) ? type.includes('object') : type === 'object';
+  if (isArray) {
+    // Only string arrays get the comma-separated input; object arrays
+    // (option legs, tax_lots, scan filters/columns) and anything else get
+    // the JSON textarea.
+    return itemType === 'string' ? 'string[]' : 'json';
+  }
+  if (isObject) {
+    return 'json';
+  }
   if (Array.isArray(type)) {
-    if (type.includes('array') && prop.items?.type === 'string') {
-      return 'string[]';
-    }
     if (type.includes('string')) {
       return 'string';
     }
@@ -248,10 +265,6 @@ export function inferPropertyType(prop: ToolInputSchemaProperty): ToolArgPropert
       return 'number';
     }
     return 'unknown';
-  }
-
-  if (type === 'array' && prop.items?.type === 'string') {
-    return 'string[]';
   }
   if (type === 'string') {
     return 'string';
@@ -279,7 +292,7 @@ export function inferDefaultValue(
   defaultAccountNumber: string,
   overrides: Record<string, unknown> = DEFAULT_ARRAY_DEFAULTS,
 ): unknown {
-  if (name === 'account_number' && defaultAccountNumber) {
+  if (ACCOUNT_NUMBER_PARAM_NAMES.has(name) && defaultAccountNumber) {
     return defaultAccountNumber;
   }
   const override = overrides[name];
@@ -324,8 +337,10 @@ export function buildArgProperties(
   const values: Record<string, unknown> = {};
   const argProps: ToolArgProperty[] = propertiesArray.map(([name, prop]) => {
     const type = inferPropertyType(prop);
-    const isAccountNumber = name === 'account_number';
-    const useRhsAccountNumber = isAccountNumber && toolUsesRhsAccountNumber;
+    const isAccountNumber = ACCOUNT_NUMBER_PARAM_NAMES.has(name);
+    const useRhsAccountNumber =
+      name === 'rhs_account_number' ||
+      (name === 'account_number' && toolUsesRhsAccountNumber);
     const propRequired = required.has(name);
     const resolvedAccountNumber = resolveDefaultAccountNumber(
       defaultAccountNumber,
@@ -402,6 +417,16 @@ export function cleanArgsForExecution(
   for (const prop of argProperties) {
     const value = values[prop.name];
     if (isEmptyValue(value)) {
+      continue;
+    }
+    if (prop.type === 'json' && typeof value === 'string') {
+      // Validated by jsonArgsValid before execution; a non-string value
+      // (e.g. a pre-parsed history entry) passes through as-is.
+      try {
+        cleaned[prop.name] = JSON.parse(value);
+      } catch {
+        continue;
+      }
       continue;
     }
     cleaned[prop.name] = isSymbolField(prop.name)

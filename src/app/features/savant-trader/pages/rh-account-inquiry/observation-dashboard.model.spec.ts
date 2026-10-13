@@ -1,13 +1,17 @@
 import {
+  buildArgProperties,
   cleanArgsForExecution,
   extractNextCursor,
   formatResultValue,
+  inferPropertyType,
   isEmptyValue,
   isPlainObject,
   isSymbolField,
+  jsonArgsValid,
   normalizeSymbolValue,
   type ToolArgProperty,
 } from './observation-dashboard.model';
+import type { RobinhoodToolDefinition } from '@robinhood-mcp/contracts';
 
 describe('Observation dashboard model helpers', () => {
   describe('isEmptyValue', () => {
@@ -123,6 +127,93 @@ describe('Observation dashboard model helpers', () => {
       expect(cleaned['chain_symbol']).toBe('AAPL');
       expect(cleaned['symbols']).toEqual(['AAPL', 'NVDA']);
       expect(cleaned['strike_price']).toBe('150.0000');
+    });
+
+    it('parses json props before execution and passes pre-parsed values through', () => {
+      const props: ToolArgProperty[] = [
+        { name: 'legs', type: 'json', required: false, isAccountNumber: false, useRhsAccountNumber: false },
+        { name: 'indicator', type: 'json', required: false, isAccountNumber: false, useRhsAccountNumber: false },
+      ];
+      const values = {
+        legs: '[{"option_id":"abc","side":"buy"}]',
+        indicator: { period: 14 },
+      };
+      const cleaned = cleanArgsForExecution(props, values);
+      expect(cleaned['legs']).toEqual([{ option_id: 'abc', side: 'buy' }]);
+      expect(cleaned['indicator']).toEqual({ period: 14 });
+    });
+  });
+
+  describe('inferPropertyType', () => {
+    it('maps objects and non-string arrays to json', () => {
+      expect(inferPropertyType({ type: ['null', 'object'] })).toBe('json');
+      expect(
+        inferPropertyType({
+          type: ['null', 'array'],
+          items: { type: 'object' },
+        }),
+      ).toBe('json');
+    });
+
+    it('keeps string arrays on the comma-separated input', () => {
+      expect(inferPropertyType({ type: 'array', items: { type: 'string' } })).toBe('string[]');
+      expect(inferPropertyType({ type: ['null', 'array'], items: { type: 'string' } })).toBe('string[]');
+    });
+  });
+
+  describe('jsonArgsValid', () => {
+    const props: ToolArgProperty[] = [
+      { name: 'legs', type: 'json', required: false, isAccountNumber: false, useRhsAccountNumber: false },
+    ];
+
+    it('accepts empty and valid JSON values', () => {
+      expect(jsonArgsValid(props, { legs: '' })).toBe(true);
+      expect(jsonArgsValid(props, { legs: '[]' })).toBe(true);
+      expect(jsonArgsValid(props, { legs: '{"a":1}' })).toBe(true);
+    });
+
+    it('rejects malformed JSON', () => {
+      expect(jsonArgsValid(props, { legs: '[{oops' })).toBe(false);
+    });
+  });
+
+  describe('buildArgProperties account fields', () => {
+    const tool = (name: string, params: string[]): RobinhoodToolDefinition => ({
+      name,
+      description: '',
+      mutation: false,
+      simulation: false,
+      financialMutation: false,
+      inputSchema: {
+        type: 'object',
+        properties: Object.fromEntries(params.map((p) => [p, { type: 'string' }])),
+      },
+    });
+    const accounts = [
+      { account_number: 'ACCT-1', rhs_account_number: 'RHS-1', agentic_allowed: true },
+    ];
+
+    it('gives rhs_account_number the account dropdown with rhs values', () => {
+      const { properties, values } = buildArgProperties(
+        tool('get_crypto_quotes', ['rhs_account_number', 'symbols']),
+        'ACCT-1',
+        accounts,
+      );
+      const prop = properties.find((p) => p.name === 'rhs_account_number')!;
+      expect(prop.isAccountNumber).toBe(true);
+      expect(prop.useRhsAccountNumber).toBe(true);
+      expect(values['rhs_account_number']).toBe('RHS-1');
+    });
+
+    it('keeps account_number on the account dropdown without rhs for ordinary tools', () => {
+      const { properties } = buildArgProperties(
+        tool('get_portfolio', ['account_number']),
+        'ACCT-1',
+        accounts,
+      );
+      const prop = properties.find((p) => p.name === 'account_number')!;
+      expect(prop.isAccountNumber).toBe(true);
+      expect(prop.useRhsAccountNumber).toBe(false);
     });
   });
 

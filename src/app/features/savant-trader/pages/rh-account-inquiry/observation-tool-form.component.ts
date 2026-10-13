@@ -28,6 +28,9 @@ const TOOL_CATEGORY_ORDER = [
   'Orders',
   'Market Data & Research',
   'Options',
+  'Crypto',
+  'Alerts',
+  'SEC Filings',
   'Scanners',
   'Watchlists',
 ];
