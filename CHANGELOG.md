@@ -3,6 +3,7 @@
 ## [2026-10-13]
 
 ### Added
+- [Robinhood MCP] 657-808_BE-IMPL-RH-MCP: Warm MCP session cache — module-scope {connection, accessToken} reuse with token-match invalidation, auth/session-failure single reconnect+retry, timeout rotation; concurrency 8 + minInstances 1 on rhApi (warm-session 1793→~400ms)
 - [Navigation and Workflows] 625-648_DOCS-WORKFLOWS: Daily Session run-sheet rewritten as plain daily/weekly checklist (scope pivot — user-directed); stale routes fixed (/portfolio, /signals/review); (external) tag + RS Momentum weekly item; per-strategy drill-down growth seam; #655 UAT Complete
 - [Robinhood MCP] 657-792_BE-IMPL-RH-MCP: Surface all 76 RH MCP tools in the observation allowlist — 9 domain groups; Crypto/Alerts/SEC Filings new; mutation/simulation/financial-mutation classification for the new surface
 - [Robinhood MCP] 657-792_FE-IMPL-RH-MCP: Observation page — rhs_account_number account dropdown (name-driven + pnl-tool mapping), JSON textarea args for object/array params (legs, tax_lots, scan filters/columns, alert indicator), malformed-JSON execute block, category order for the new groups
@@ -12,6 +13,13 @@
 - [Trading Indicator Library] 261-932_FE-IMPL-INDICATOR-LIB: Trigger Bands promoted to prod ST_INDICATOR_OPTIONS; dev sets emptied (checkpoint)
 - [Trading Indicator Library] 261-932_FE-IMPL-INDICATOR-LIB: Signal-detail opt-in Trigger Bands on D+W — separate bands/dots menu entries, lean request under own cache key (checkpoint)
 - [Trading Indicator Library] 261-932_SHARED-IMPL-INDICATOR-LIB: Land rb-st-trigger-bands.pine reference export (checkpoint)
+- [Trading Indicator Library] 261-945_FE-IMPL-INDICATOR-LIB: computeZigZagAnchorResult — one walkPivots pass emits anchor events + projection pivots (checkpoint)
+- [Trading Indicator Library] 261-945_FE-REFACTOR-INDICATOR-LIB: shared numParam/colorParam/boolParam extracted to indicator-params.ts (checkpoint)
+- [Trading Indicator Library] 261-945_FE-IMPL-INDICATOR-LIB: AVWAP {segments, legs} engine — surviving-anchor chain alternates H/L like ST ZigZag; line1/line2 rename (checkpoint)
+- [Trading Indicator Library] 261-945_FE-IMPL-INDICATOR-LIB: 16-series AVWAP builder — MultiColoredLine chain w/ per-leg hues + dashed developing leg; rightDepth default 2; showZigZag toggle (checkpoint)
+- [Trading Indicator Library] 261-945_FE-IMPL-INDICATOR-LIB: render path — series type/dashArray/pointColorMapping bindings + per-point color theming (checkpoint)
+- [Trading Indicator Library] 261-945_DOCS-INDICATOR-LIB: PRD/IMPL/TEST sync — surviving-anchor leg overlay (checkpoint)
+- [Trading Indicator Library] 261-945_DOCS-INDICATOR-LIB: #945 CODE-REVIEW (PASS) + #954 UAT doc (checkpoint)
 - [Portfolio Allocation] 576-780_FE-IMPL-PORTFOLIO: dense-table() mixin + missing M3 tokens in global :root (outline-variant, surface-container-low — M2 indigo-pink emits none; hairlines/hover/tints app-wide were silently dead)
 - [Portfolio Allocation] 576-780_FE-IMPL-PORTFOLIO: allocation buckets (expando mini-table + totals) + positions tables migrated to dense-table, inline styles -> styleUrl scss
 - [Portfolio Allocation] 576-780_FE-IMPL-PORTFOLIO: equity/option/open-orders/order-history migrated to dense-table (.num numerics, sticky chrome, pinned totals) — commit also lands fused in-flight work (sortable headers, Entry column, open-orders Mark/Dist/select/modify) + removes rowShim dev scaffolding
@@ -30,9 +38,13 @@
 - [Portfolio Allocation] 576-780_DOCS-PORTFOLIO: #780 CODE-REVIEW (PASS, 2 rounds) + #978 UAT (Complete)
 - [Portfolio Dashboard] 219-979_DOCS-PORTFOLIO: #979 CODE-REVIEW (PASS, round 2 — cancel→place race fixed) + #982 UAT (Complete)
 ### Fixed
-- [Paper Trading Infra] 553-980_BE-FIX-PAPER-TRADING: auto-paper trigger gate — stAutoPaperIngest admits nightly+manual only; pdr/symbol-added/absent triggers skip non-post-trigger (intraday runs no longer mint trades)
 - [Trading Indicator Library] 261-932_FE-BUG-INDICATOR-LIB: IndicatorSeriesStore.clearCache(symbol) never matched the callable|symbol|... key layout; ChartStore.loadCharts blanks symbolDataVersion at fetch start — no stale-key fetch or cross-symbol overlay (checkpoint)
 - [Portfolio Allocation] 576-780_FE-BUG-PORTFOLIO: /portfolio renders once all section data loads — tab group gated on globalLoading instead of 4 concurrent table spinners (mid-QA finding); includes fused #979 order-table wiring + dialog deps
+- [Paper Trading Infra] 553-980_BE-FIX-PAPER-TRADING: auto-paper trigger gate — stAutoPaperIngest admits nightly+manual only; pdr/symbol-added/absent triggers skip non-post-trigger (intraday runs no longer mint trades)
+
+
+
+- [Portfolio Dashboard] 219-979_FE-FIX-PORTFOLIO: open-orders bulk bar + selection affordances gated on agenticAllowed; dead MatCheckboxModule dropped; order-mark spec added
 - [Portfolio Dashboard] 219-979_FE-FIX-PORTFOLIO: buildModifyOrderTicket fail-fast on missing symbol/zero remainder; modify dialog rejects same-price + non-positive; safe mark @if
 - [Portfolio Dashboard] 219-979_FE-FIX-PORTFOLIO: open-orders bulk bar + selection affordances gated on agenticAllowed; dead MatCheckboxModule dropped; order-mark spec added
 
