@@ -447,10 +447,22 @@ export function defaultAutoPaperIngestDeps(): AutoPaperIngestDeps {
 // ── Pass ──────────────────────────────────────────────────────────────────
 
 export type AutoPaperSkipReason =
+  | 'non-post-trigger'
   | 'missing-config'
   | 'disabled'
   | 'historical-run'
   | 'empty-scope';
+
+/**
+ * Auto-paper is a POST-run lifecycle (#980): only the end-of-day
+ * 'nightly' run and explicit 'manual' dispatches ingest. Intraday
+ * 'pdr' and 'symbol-added' completions mint trades off intraday bars —
+ * never the contract.
+ */
+const AUTO_PAPER_ALLOWED_TRIGGERS: ReadonlySet<string> = new Set([
+  'nightly',
+  'manual',
+]);
 
 export type AutoPaperIngestResult =
   | { status: 'skipped'; reason: AutoPaperSkipReason; scope?: never }
@@ -467,6 +479,13 @@ export async function runAutoPaperIngestPass(
 ): Promise<AutoPaperIngestResult> {
   const { runId, marketDate, triggeredBy } = payload;
   const base = { runId, marketDate, triggeredBy };
+
+  // Trigger gate first — cheapest skip and the most informative reason
+  // for the common intraday case. Fails closed on a missing trigger.
+  if (!triggeredBy || !AUTO_PAPER_ALLOWED_TRIGGERS.has(triggeredBy)) {
+    logEvent('st_autopaper_skip', { ...base, reason: 'non-post-trigger' });
+    return { status: 'skipped', reason: 'non-post-trigger' };
+  }
 
   const config = await deps.loadConfig();
   if (!config) {
