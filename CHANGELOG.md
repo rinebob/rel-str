@@ -15,6 +15,8 @@
 - [Portfolio Allocation] 576-780_FE-IMPL-PORTFOLIO: dense-table() mixin + missing M3 tokens in global :root (outline-variant, surface-container-low — M2 indigo-pink emits none; hairlines/hover/tints app-wide were silently dead)
 - [Portfolio Allocation] 576-780_FE-IMPL-PORTFOLIO: allocation buckets (expando mini-table + totals) + positions tables migrated to dense-table, inline styles -> styleUrl scss
 - [Portfolio Allocation] 576-780_FE-IMPL-PORTFOLIO: equity/option/open-orders/order-history migrated to dense-table (.num numerics, sticky chrome, pinned totals) — commit also lands fused in-flight work (sortable headers, Entry column, open-orders Mark/Dist/select/modify) + removes rowShim dev scaffolding
+- [Portfolio Dashboard] 219-979_FE-IMPL-PORTFOLIO: replaceEquityOrder extracted — confirmed-cancel gate + bounded place loop; updateEquityStopOrder delegates; cancelOptionOrder wrapper
+- [Portfolio Dashboard] 219-979_FE-IMPL-PORTFOLIO: Order Modify routed through replaceEquityOrder (phase-mapped snackbars, always-refresh); bulk cancel parallelized via allSettled
 ### Changed
 - [Robinhood MCP] 657-690_BE-IMPL-RH-MCP: Discovery assembler emits main index doc + 9 per-category children; flat dot-path response shapes; inventory verifier aggregates across children
 - [Robinhood MCP] 657-689_DOCS-RH-MCP: Canonical discovery doc split into main index + 9 category docs with bidirectional links
@@ -24,9 +26,12 @@
 - [Trading Indicator Library] 261-932_DOCS-INDICATOR-LIB: #932 CODE-REVIEW (PASS, rounds 2-4) + UAT doc for #939 (checkpoint)
 - [Portfolio Allocation] 576-780_FE-REFACTOR-PORTFOLIO: position entryDate derived from order history; closed-trades section dropped from dashboard state
 - [Portfolio Allocation] 576-780_DOCS-PORTFOLIO: #780 CODE-REVIEW (PASS, 2 rounds) + #978 UAT (Complete)
+- [Portfolio Dashboard] 219-979_DOCS-PORTFOLIO: #979 CODE-REVIEW (PASS, round 2 — cancel→place race fixed) + #982 UAT (Complete)
 ### Fixed
 - [Trading Indicator Library] 261-932_FE-BUG-INDICATOR-LIB: IndicatorSeriesStore.clearCache(symbol) never matched the callable|symbol|... key layout; ChartStore.loadCharts blanks symbolDataVersion at fetch start — no stale-key fetch or cross-symbol overlay (checkpoint)
 - [Portfolio Allocation] 576-780_FE-BUG-PORTFOLIO: /portfolio renders once all section data loads — tab group gated on globalLoading instead of 4 concurrent table spinners (mid-QA finding); includes fused #979 order-table wiring + dialog deps
+- [Portfolio Dashboard] 219-979_FE-FIX-PORTFOLIO: buildModifyOrderTicket fail-fast on missing symbol/zero remainder; modify dialog rejects same-price + non-positive; safe mark @if
+- [Portfolio Dashboard] 219-979_FE-FIX-PORTFOLIO: open-orders bulk bar + selection affordances gated on agenticAllowed; dead MatCheckboxModule dropped; order-mark spec added
 
 ## [2026-10-12]
 
