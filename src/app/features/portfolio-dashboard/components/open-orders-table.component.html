@@ -11,7 +11,7 @@
       <button type="button" mat-stroked-button class="pd-section-retry" (click)="retry.emit()">Retry</button>
     </div>
   } @else if (hasOrders()) {
-    @if (selectedCount() > 0) {
+    @if (agenticAllowed() && selectedCount() > 0) {
       <div class="pd-bulk-bar" aria-live="polite">
         <span class="pd-bulk-count">{{ selectedCount() }} selected</span>
         <button

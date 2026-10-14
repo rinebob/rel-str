@@ -13,7 +13,6 @@
  */
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
@@ -41,7 +40,7 @@ type SortKey =
 @Component({
   selector: 'app-open-orders-table',
   standalone: true,
-  imports: [MatButtonModule, MatCheckboxModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   templateUrl: './open-orders-table.component.html',
   styleUrl: './open-orders-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

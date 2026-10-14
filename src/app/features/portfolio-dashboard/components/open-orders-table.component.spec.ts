@@ -178,6 +178,20 @@ describe('OpenOrdersTableComponent', () => {
     expect(fixture.nativeElement.querySelector('.pd-cancel-action')).toBeNull();
   });
 
+  it('exposes no selection affordances when account is not agent-enabled', () => {
+    fixture.componentRef.setInput('orders', [makeOrder(), makeOrder({ orderId: 'ord-2' })]);
+    fixture.componentRef.setInput('agenticAllowed', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('thead input[type="checkbox"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('tbody input[type="checkbox"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.pd-bulk-bar')).toBeNull();
+    // Even if selection state were forced, the bulk bar stays gated.
+    component.selected.set(new Set(['ord-1', 'ord-2']));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.pd-bulk-bar')).toBeNull();
+  });
+
   it('marks numeric columns with the dense-table num class', () => {
     fixture.componentRef.setInput('orders', [makeOrder()]);
     fixture.detectChanges();
