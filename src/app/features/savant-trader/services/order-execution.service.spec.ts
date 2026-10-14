@@ -1035,6 +1035,46 @@ describe('OrderExecutionService', () => {
       expect(result.unprotected).toBe(false);
       expect(toolCalls.filter(c => c.name === 'place_equity_order')).toHaveLength(2);
     }, 10000);
+
+    describe('replaceEquityOrder (generalized form)', () => {
+      it('runs the same cancel → confirm → place flow for a generic order', async () => {
+        mockTools(placeOk);
+
+        const result = await service.replaceEquityOrder(
+          '123456789', 'order-old', stopTicket(), 'order',
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.result?.orderId).toBe('order-new');
+        expect(toolCalls.map(c => c.name)).toEqual(['cancel_equity_order', 'review_equity_order', 'place_equity_order']);
+      });
+
+      it('labels fill-adjacent messages with the order noun', async () => {
+        mockTools(() => Promise.resolve({
+          success: true,
+          parsed: { id: 'order-filled', symbol: 'AAPL', state: 'filled' },
+          redacted: {},
+        }));
+
+        const result = await service.replaceEquityOrder(
+          '123456789', 'order-old', stopTicket(), 'order',
+        );
+
+        expect(result.error?.message).toContain('replacement order order-filled filled immediately');
+      });
+
+      it('defaults the noun to stop (updateEquityStopOrder delegate behavior)', async () => {
+        mockTools(() => Promise.resolve({
+          success: true,
+          parsed: { id: 'order-filled', symbol: 'AAPL', state: 'filled' },
+          redacted: {},
+        }));
+
+        const result = await service.replaceEquityOrder('123456789', 'order-old', stopTicket());
+
+        expect(result.error?.message).toContain('replacement stop order-filled filled immediately');
+      });
+    });
   });
 
   describe('error classification', () => {

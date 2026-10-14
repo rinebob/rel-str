@@ -315,6 +315,11 @@ export class OrderExecutionService {
     return this.cancelOrder('cancel_equity_order', accountNumber, orderId);
   }
 
+  /** Cancel an open option order by order_id. Caller should verify the order is not already in a terminal state. */
+  async cancelOptionOrder(accountNumber: string, orderId: string): Promise<ExecutionResult> {
+    return this.cancelOrder('cancel_option_order', accountNumber, orderId);
+  }
+
   /**
    * Replace an existing protective stop: cancel it, then submit the replacement
    * ticket with bounded retry on retryable errors.
@@ -367,6 +372,26 @@ export class OrderExecutionService {
     accountNumber: string,
     orderId: string,
     ticket: EquityOrderTicket,
+  ): Promise<UpdateStopResult> {
+    return this.replaceEquityOrder(accountNumber, orderId, ticket, 'stop');
+  }
+
+  /**
+   * Generalized cancel-and-replace for an equity order: cancel `orderId`,
+   * confirm the cancel landed (`awaitCancelled` — RH cancel is async, an
+   * accepted cancel can still fill), then submit `ticket` with bounded
+   * retry on retryable errors. Same phase/unprotected contract as
+   * `updateEquityStopOrder` (see its doc) — `noun` only labels the
+   * replacement in error messages ('stop' vs 'order').
+   *
+   * NOT reentrant: serialize per order — two concurrent replaces can both
+   * confirm the cancel and place two different-refId replacements.
+   */
+  async replaceEquityOrder(
+    accountNumber: string,
+    orderId: string,
+    ticket: EquityOrderTicket,
+    noun: 'stop' | 'order' = 'stop',
   ): Promise<UpdateStopResult> {
     if (accountNumber !== ticket.accountNumber) {
       return {
@@ -426,7 +451,7 @@ export class OrderExecutionService {
             unprotected: false,
             result: result.result,
             error: {
-              message: `replacement stop ${result.result.orderId} filled immediately — position exited; refresh before updating`,
+              message: `replacement ${noun} ${result.result.orderId} filled immediately — position exited; refresh before updating`,
               retryable: false,
             },
           };
@@ -460,7 +485,7 @@ export class OrderExecutionService {
             unprotected: false,
             result: result.result,
             error: {
-              message: `replacement stop ${result.result!.orderId} ${fills > 0 ? 'partially filled then died' : 'died with fill state unknown'} — position may have shrunk; refresh before updating`,
+              message: `replacement ${noun} ${result.result!.orderId} ${fills > 0 ? 'partially filled then died' : 'died with fill state unknown'} — position may have shrunk; refresh before updating`,
               retryable: false,
             },
           };
@@ -576,19 +601,23 @@ export class OrderExecutionService {
    *  the event; this side only produces the screenshot. Failures log and are
    *  swallowed — a capture outage must never affect the order path. */
   private captureOrderSnapshot(ticket: EquityOrderTicket, result: OrderTicketResult): void {
-    const event = result.state === 'filled' ? CaptureEvent.ORDER_FILLED : CaptureEvent.ORDER_PLACED;
-    this.screenshots.captureChartSnapshot$({
-      symbol: ticket.symbol,
-      event,
-      positionType: PositionType.STOCK,
-      refId: ticket.refId,
-      groupId: ticket.refId,
-      renderOnly: false,
-    }).subscribe({
-      error: (err: unknown) => {
-        console.warn(`[OrderExecution] screenshot capture failed for ${ticket.symbol} (${event}):`, err);
-      },
-    });
+    try {
+      const event = result.state === 'filled' ? CaptureEvent.ORDER_FILLED : CaptureEvent.ORDER_PLACED;
+      this.screenshots.captureChartSnapshot$({
+        symbol: ticket.symbol,
+        event,
+        positionType: PositionType.STOCK,
+        refId: ticket.refId,
+        groupId: ticket.refId,
+        renderOnly: false,
+      }).subscribe({
+        error: (err: unknown) => {
+          console.warn(`[OrderExecution] screenshot capture failed for ${ticket.symbol} (${event}):`, err);
+        },
+      });
+    } catch (err) {
+      console.warn(`[OrderExecution] screenshot capture threw for ${ticket.symbol}:`, err);
+    }
   }
 
   private async cancelOrder(
