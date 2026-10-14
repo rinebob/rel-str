@@ -281,6 +281,8 @@ export class FlexChartSandboxComponent implements OnDestroy {
           : cfg;
       }),
       tbData,
+      this.chartData()?.bars,
+      'flex-chart-sandbox',
     );
     const indicators =
       interval === ChartIntervalKey.DAILY
