@@ -142,16 +142,28 @@ describe('PortfolioDashboardComponent', () => {
   let component: PortfolioDashboardComponent;
   let store: StoreMock;
   let dialog: { open: jasmine.Spy };
+  let snack: { open: jasmine.Spy };
+  let execSvc: {
+    cancelEquityOrder: jasmine.Spy;
+    cancelOptionOrder: jasmine.Spy;
+    replaceEquityOrder: jasmine.Spy;
+  };
 
   beforeEach(async () => {
     // showAmounts persists via localStorage — reset so each test starts masked.
     localStorage.clear();
     store = makeStoreMock();
+    execSvc = {
+      cancelEquityOrder: jasmine.createSpy('cancelEquity').and.returnValue(Promise.resolve({ success: true })),
+      cancelOptionOrder: jasmine.createSpy('cancelOption').and.returnValue(Promise.resolve({ success: true })),
+      replaceEquityOrder: jasmine.createSpy('replaceEquity').and.returnValue(Promise.resolve({ success: true })),
+    };
     dialog = {
       open: jasmine.createSpy('open').and.returnValue({
         afterClosed: () => of(true),
       }),
     };
+    snack = { open: jasmine.createSpy('snack') };
     await TestBed.configureTestingModule({
       imports: [PortfolioDashboardComponent],
       providers: [
@@ -159,14 +171,10 @@ describe('PortfolioDashboardComponent', () => {
         provideRouter([]),
         { provide: PortfolioDashboardStore, useValue: store },
         { provide: MatDialog, useValue: dialog },
-        { provide: MatSnackBar, useValue: { open: jasmine.createSpy('snack') } },
+        { provide: MatSnackBar, useValue: snack },
         {
           provide: OrderExecutionService,
-          useValue: {
-            cancelEquityOrder: jasmine.createSpy('cancelEquity').and.returnValue(Promise.resolve({ success: true })),
-            cancelOptionOrder: jasmine.createSpy('cancelOption').and.returnValue(Promise.resolve({ success: true })),
-            submitEquityOrder: jasmine.createSpy('submitEquity').and.returnValue(Promise.resolve({ success: true })),
-          },
+          useValue: execSvc,
         },
       ],
     }).compileComponents();
@@ -617,10 +625,6 @@ describe('PortfolioDashboardComponent', () => {
     component.onCancelOrder(order);
     await new Promise<void>((r) => setTimeout(r, 0));
 
-    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
-      cancelEquityOrder: jasmine.Spy;
-      cancelOptionOrder: jasmine.Spy;
-    };
     expect(execSvc.cancelEquityOrder).toHaveBeenCalledWith('123456', 'ord-1');
     expect(execSvc.cancelOptionOrder).not.toHaveBeenCalled();
     expect(store.refresh).toHaveBeenCalledTimes(1);
@@ -634,9 +638,6 @@ describe('PortfolioDashboardComponent', () => {
     component.onCancelOrder(order);
     await new Promise<void>((r) => setTimeout(r, 0));
 
-    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
-      cancelOptionOrder: jasmine.Spy;
-    };
     expect(execSvc.cancelOptionOrder).toHaveBeenCalledWith('123456', 'ord-1');
   });
 
@@ -650,9 +651,6 @@ describe('PortfolioDashboardComponent', () => {
     component.onCancelOrder(order);
     await new Promise<void>((r) => setTimeout(r, 0));
 
-    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
-      cancelEquityOrder: jasmine.Spy;
-    };
     expect(execSvc.cancelEquityOrder).not.toHaveBeenCalled();
     expect(store.refresh).not.toHaveBeenCalled();
   });
@@ -669,16 +667,12 @@ describe('PortfolioDashboardComponent', () => {
     component.onCancelSelected(orders);
     await new Promise<void>((r) => setTimeout(r, 0));
 
-    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
-      cancelEquityOrder: jasmine.Spy;
-      cancelOptionOrder: jasmine.Spy;
-    };
     expect(execSvc.cancelEquityOrder).toHaveBeenCalledWith('123456', 'ord-a');
     expect(execSvc.cancelOptionOrder).toHaveBeenCalledWith('123456', 'ord-b');
     expect(store.refresh).toHaveBeenCalled();
   });
 
-  it('modify cancels the old order then submits a replacement ticket', async () => {
+  it('modify delegates to replaceEquityOrder with the replacement ticket', async () => {
     store._setAccounts([makeAccountState('Account A', '123456')]);
     dialog.open.and.returnValue({ afterClosed: () => of(180) });
     fixture.detectChanges();
@@ -688,13 +682,11 @@ describe('PortfolioDashboardComponent', () => {
     component.onModifyOrder(order);
     await new Promise<void>((r) => setTimeout(r, 0));
 
-    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
-      cancelEquityOrder: jasmine.Spy;
-      submitEquityOrder: jasmine.Spy;
-    };
-    expect(execSvc.cancelEquityOrder).toHaveBeenCalledWith('123456', 'ord-1');
-    expect(execSvc.submitEquityOrder).toHaveBeenCalledTimes(1);
-    const ticket = execSvc.submitEquityOrder.calls.first().args[0];
+    expect(execSvc.replaceEquityOrder).toHaveBeenCalledTimes(1);
+    const [acct, orderId, ticket, noun] = execSvc.replaceEquityOrder.calls.first().args;
+    expect(acct).toBe('123456');
+    expect(orderId).toBe('ord-1');
+    expect(noun).toBe('order');
     expect(ticket.symbol).toBe('AAPL');
     expect(ticket.orderType).toBe('limit');
     expect(ticket.limitPrice).toBe('180.00');
@@ -702,24 +694,53 @@ describe('PortfolioDashboardComponent', () => {
     expect(store.refresh).toHaveBeenCalled();
   });
 
-  it('modify does not place a replacement when the cancel fails', async () => {
+  it('modify warns the order may still be live on a cancel-phase failure', async () => {
     store._setAccounts([makeAccountState('Account A', '123456')]);
     dialog.open.and.returnValue({ afterClosed: () => of(180) });
     fixture.detectChanges();
 
-    const execSvc = TestBed.inject(OrderExecutionService) as unknown as {
-      cancelEquityOrder: jasmine.Spy;
-      submitEquityOrder: jasmine.Spy;
-    };
-    execSvc.cancelEquityOrder.and.returnValue(
-      Promise.resolve({ success: false, error: { message: 'boom', retryable: false } }),
+    execSvc.replaceEquityOrder.and.returnValue(
+      Promise.resolve({
+        success: false,
+        phase: 'cancel',
+        error: { message: 'boom', retryable: false },
+      }),
     );
 
     store.refresh.calls.reset();
     component.onModifyOrder(makeBrokerOrder({ orderId: 'ord-1', price: 170 }));
     await new Promise<void>((r) => setTimeout(r, 0));
 
-    expect(execSvc.submitEquityOrder).not.toHaveBeenCalled();
-    expect(store.refresh).not.toHaveBeenCalled();
+    expect(snack.open).toHaveBeenCalledWith(
+      'Modify aborted — boom. The order may still be live.',
+      'Dismiss',
+      { duration: 6000 },
+    );
+    expect(store.refresh).toHaveBeenCalled();
+  });
+
+  it('modify flags the position as possibly unprotected on a place-phase failure', async () => {
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    dialog.open.and.returnValue({ afterClosed: () => of(180) });
+    fixture.detectChanges();
+
+    execSvc.replaceEquityOrder.and.returnValue(
+      Promise.resolve({
+        success: false,
+        phase: 'place',
+        unprotected: true,
+        error: { message: 'boom', retryable: false },
+      }),
+    );
+
+    component.onModifyOrder(makeBrokerOrder({ orderId: 'ord-1', price: 170 }));
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    expect(snack.open).toHaveBeenCalledWith(
+      'Order cancelled but the replacement never landed: boom. Re-place manually if still needed.',
+      'Dismiss',
+      { duration: 6000 },
+    );
+    expect(store.refresh).toHaveBeenCalled();
   });
 });

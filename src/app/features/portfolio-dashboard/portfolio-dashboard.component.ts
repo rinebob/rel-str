@@ -24,7 +24,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AppRoutes } from '../../core/common/interfaces';
 import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
-import { OrderExecutionService } from '../savant-trader/services/order-execution.service';
+import { ExecutionResult, OrderExecutionService } from '../savant-trader/services/order-execution.service';
 import { buildModifyOrderTicket } from '../savant-trader/utils/modify-order-ticket.util';
 
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
@@ -190,12 +190,10 @@ export class PortfolioDashboardComponent implements OnInit {
       .afterClosed()
       .subscribe(async (confirmed) => {
         if (confirmed !== true) return;
-        const res = order.instrumentType === 'option'
-          ? await this.orderExecution.cancelOptionOrder(account.accountNumber, order.orderId)
-          : await this.orderExecution.cancelEquityOrder(account.accountNumber, order.orderId);
+        const res = await this.cancelOne(account.accountNumber, order);
+        this.store.refresh().catch(() => {});
         if (res.success) {
           this.snackBar.open('Order cancelled', 'Dismiss', { duration: 3000 });
-          this.store.refresh().catch(() => {});
         } else {
           this.snackBar.open(`Cancel failed: ${res.error?.message ?? 'unknown error'}`, 'Dismiss', {
             duration: 5000,
@@ -204,8 +202,15 @@ export class PortfolioDashboardComponent implements OnInit {
       });
   }
 
-  /** Bulk cancel — one confirmation, then each selected order cancelled in
-   *  sequence via the same per-order path. Refresh once at the end. */
+  private cancelOne(accountNumber: string, order: BrokerOrder): Promise<ExecutionResult> {
+    return order.instrumentType === 'option'
+      ? this.orderExecution.cancelOptionOrder(accountNumber, order.orderId)
+      : this.orderExecution.cancelEquityOrder(accountNumber, order.orderId);
+  }
+
+  /** Bulk cancel — one confirmation, then all selected orders cancelled in
+   *  parallel (no ordering dependency). Always refreshes: an all-failures
+   *  outcome is exactly when broker state may have diverged from the list. */
   onCancelSelected(orders: BrokerOrder[]): void {
     const account = this.selectedAccount();
     if (!account || orders.length === 0) return;
@@ -220,26 +225,28 @@ export class PortfolioDashboardComponent implements OnInit {
       .afterClosed()
       .subscribe(async (confirmed) => {
         if (confirmed !== true) return;
-        let ok = 0;
+        const settled = await Promise.allSettled(
+          orders.map((o) => this.cancelOne(account.accountNumber, o)),
+        );
         const failures: string[] = [];
-        for (const order of orders) {
-          const res = order.instrumentType === 'option'
-            ? await this.orderExecution.cancelOptionOrder(account.accountNumber, order.orderId)
-            : await this.orderExecution.cancelEquityOrder(account.accountNumber, order.orderId);
-          if (res.success) ok++;
-          else failures.push(order.symbol ?? order.orderId.slice(0, 8));
-        }
+        settled.forEach((res, i) => {
+          if (res.status !== 'fulfilled' || !res.value.success) {
+            failures.push(orders[i].symbol ?? orders[i].orderId.slice(0, 8));
+          }
+        });
+        const ok = orders.length - failures.length;
         const msg = failures.length === 0
           ? `${ok} ${ok === 1 ? 'order' : 'orders'} cancelled`
           : `${ok} cancelled, ${failures.length} failed (${failures.join(', ')})`;
         this.snackBar.open(msg, 'Dismiss', { duration: 5000 });
-        if (ok > 0) this.store.refresh().catch(() => {});
+        this.store.refresh().catch(() => {});
       });
   }
 
   /** Per-row Modify — equity limit orders only (the table gates the button).
-   *  Cancel-and-replace: RH has no modify endpoint, and the cancelled order's
-   *  ref_id is burned so the replacement ticket mints a fresh one. */
+   *  Cancel-and-replace via the service's hardened replace flow: awaits the
+   *  cancel's terminal state before placing (an accepted cancel can still
+   *  fill), then places the fresh-refId ticket with bounded retry. */
   onModifyOrder(order: BrokerOrder): void {
     const account = this.selectedAccount();
     if (!account) return;
@@ -249,31 +256,45 @@ export class PortfolioDashboardComponent implements OnInit {
       .afterClosed()
       .subscribe(async (newPrice: number | undefined) => {
         if (newPrice == null) return;
-        const cancel = await this.orderExecution.cancelEquityOrder(
-          account.accountNumber,
-          order.orderId,
-        );
-        if (!cancel.success) {
+        const ticket = buildModifyOrderTicket(order, newPrice);
+        if (!ticket) {
           this.snackBar.open(
-            `Modify aborted — cancel failed: ${cancel.error?.message ?? 'unknown error'}. The order may still be live.`,
+            'Cannot build a replacement ticket for this order — nothing was cancelled.',
             'Dismiss',
             { duration: 5000 },
           );
           return;
         }
-        const place = await this.orderExecution.submitEquityOrder(
-          buildModifyOrderTicket(order, newPrice),
+        const res = await this.orderExecution.replaceEquityOrder(
+          account.accountNumber,
+          order.orderId,
+          ticket,
+          'order',
         );
-        if (place.success) {
+        // Always reconcile — every failure branch leaves broker state in
+        // question (live original, unprotected gap, or unconfirmed place).
+        this.store.refresh().catch(() => {});
+        if (res.success) {
           this.snackBar.open('Order replaced', 'Dismiss', { duration: 3000 });
+        } else if (res.phase === 'cancel') {
+          this.snackBar.open(
+            `Modify aborted — ${res.error?.message ?? 'cancel failed'}. The order may still be live.`,
+            'Dismiss',
+            { duration: 6000 },
+          );
+        } else if (res.unprotected) {
+          this.snackBar.open(
+            `Order cancelled but the replacement never landed: ${res.error?.message ?? 'unknown error'}. Re-place manually if still needed.`,
+            'Dismiss',
+            { duration: 6000 },
+          );
         } else {
           this.snackBar.open(
-            `Order cancelled but replacement failed: ${place.error?.message ?? 'unknown error'}. Re-place manually if still needed.`,
+            `Replacement state unclear — ${res.error?.message ?? 'unknown error'}. Check open orders before retrying.`,
             'Dismiss',
             { duration: 6000 },
           );
         }
-        this.store.refresh().catch(() => {});
       });
   }
 
