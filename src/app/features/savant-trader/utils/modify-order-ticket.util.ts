@@ -21,8 +21,11 @@ export function buildModifyOrderTicket(
   order: BrokerOrder,
   newLimitPrice: number,
   now = new Date(),
-): EquityOrderTicket {
+): EquityOrderTicket | null {
   const remaining = (order.quantity ?? 0) - (order.cumulativeQuantity ?? 0);
+  // Fail fast — a ticket with no symbol or zero remaining quantity is a
+  // broker call we'd immediately regret. Caller aborts before cancelling.
+  if (!order.symbol || remaining <= 0) return null;
   const tif: EquityTimeInForce =
     order.timeInForce === 'gtc' || order.timeInForce === 'gfd' ? order.timeInForce : 'gfd';
   const hours: EquityMarketHours =
@@ -30,7 +33,7 @@ export function buildModifyOrderTicket(
       ? order.marketHours
       : 'regular_hours';
   return {
-    id: `${(order.symbol ?? 'ORDER').toUpperCase()}-MODIFY-${now.toISOString()}`,
+    id: `${order.symbol.toUpperCase()}-MODIFY-${now.toISOString()}`,
     refId: crypto.randomUUID(),
     source: OrderSource.MANUAL,
     sourceRef: { type: 'order_modify', id: order.orderId },
@@ -41,8 +44,8 @@ export function buildModifyOrderTicket(
     timeInForce: tif,
     marketHours: hours,
     instrumentType: InstrumentType.EQUITY,
-    symbol: order.symbol ?? '',
-    quantity: String(Math.max(remaining, 0)),
+    symbol: order.symbol,
+    quantity: String(remaining),
     limitPrice: newLimitPrice.toFixed(2),
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),

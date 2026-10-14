@@ -28,8 +28,8 @@ export interface ModifyOrderDialogData {
       <p class="mod-context">
         {{ data.order.side }} {{ data.order.type }} · current limit
         {{ data.order.price != null ? ('$' + data.order.price.toFixed(2)) : '—' }}
-        @if (data.markPrice != null) {
-          · mark {{ '$' + data.markPrice!.toFixed(2) }}
+        @if (data.markPrice; as m) {
+          · mark {{ '$' + m.toFixed(2) }}
         }
       </p>
       <mat-form-field appearance="outline" class="mod-field">
@@ -75,6 +75,7 @@ export class ModifyOrderDialogComponent {
 
   readonly valid = computed(() => {
     const p = this.price();
-    return p != null && Number.isFinite(p) && p > 0;
+    // Same-price modify burns a cancel + the order's queue priority for a no-op.
+    return p != null && Number.isFinite(p) && p > 0 && p !== this.data.order.price;
   });
 }
