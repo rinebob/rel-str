@@ -34,9 +34,42 @@ function depsWith(config: AutoPaperConfig | null, todayPT = TODAY): AutoPaperIng
 const ENABLED: AutoPaperConfig = { enabled: true, lists: ['PRIMARY'] };
 
 describe('runAutoPaperIngestPass gates', () => {
-  it('skips cleanly when the config doc is missing', async () => {
+  // #980 — auto-paper is a POST-run lifecycle: only the end-of-day
+  // ('nightly') run and explicit 'manual' dispatches ingest; intraday
+  // 'pdr' and 'symbol-added' run completions must never mint trades.
+  for (const triggeredBy of ['pdr', 'symbol-added'] as const) {
+    it(`skips the ${triggeredBy} trigger — intraday runs never mint paper trades`, async () => {
+      const result = await runAutoPaperIngestPass(
+        { runId: 'r1', marketDate: TODAY, triggeredBy },
+        depsWith(ENABLED),
+      );
+      assert.equal(result.status, 'skipped');
+      assert.equal(result.reason, 'non-post-trigger');
+    });
+  }
+
+  it('fails closed on a missing triggeredBy', async () => {
     const result = await runAutoPaperIngestPass(
       { runId: 'r1', marketDate: TODAY },
+      depsWith(ENABLED),
+    );
+    assert.equal(result.status, 'skipped');
+    assert.equal(result.reason, 'non-post-trigger');
+  });
+
+  for (const triggeredBy of ['nightly', 'manual'] as const) {
+    it(`admits the ${triggeredBy} trigger`, async () => {
+      const result = await runAutoPaperIngestPass(
+        { runId: 'r1', marketDate: TODAY, triggeredBy },
+        depsWith(ENABLED),
+      );
+      assert.equal(result.status, 'ready');
+    });
+  }
+
+  it('skips cleanly when the config doc is missing', async () => {
+    const result = await runAutoPaperIngestPass(
+      { runId: 'r1', marketDate: TODAY, triggeredBy: 'nightly' },
       depsWith(null),
     );
     assert.equal(result.status, 'skipped');
@@ -46,7 +79,7 @@ describe('runAutoPaperIngestPass gates', () => {
 
   it('skips cleanly when disabled', async () => {
     const result = await runAutoPaperIngestPass(
-      { runId: 'r1', marketDate: TODAY },
+      { runId: 'r1', marketDate: TODAY, triggeredBy: 'nightly' },
       depsWith({ enabled: false, lists: ['PRIMARY'] }),
     );
     assert.equal(result.status, 'skipped');
@@ -55,7 +88,7 @@ describe('runAutoPaperIngestPass gates', () => {
 
   it('skips historical/replay runs (marketDate ≠ today PT)', async () => {
     const result = await runAutoPaperIngestPass(
-      { runId: 'r1', marketDate: '2020-01-02' },
+      { runId: 'r1', marketDate: '2020-01-02', triggeredBy: 'nightly' },
       depsWith(ENABLED),
     );
     assert.equal(result.status, 'skipped');
@@ -64,7 +97,7 @@ describe('runAutoPaperIngestPass gates', () => {
 
   it('skips when the payload has no marketDate', async () => {
     const result = await runAutoPaperIngestPass(
-      { runId: 'r1' },
+      { runId: 'r1', triggeredBy: 'nightly' },
       depsWith(ENABLED),
     );
     assert.equal(result.status, 'skipped');
@@ -73,7 +106,7 @@ describe('runAutoPaperIngestPass gates', () => {
 
   it('skips an enabled config with an empty lists scope', async () => {
     const result = await runAutoPaperIngestPass(
-      { runId: 'r1', marketDate: TODAY },
+      { runId: 'r1', marketDate: TODAY, triggeredBy: 'nightly' },
       depsWith({ enabled: true, lists: [] }),
     );
     assert.equal(result.status, 'skipped');
@@ -82,7 +115,7 @@ describe('runAutoPaperIngestPass gates', () => {
 
   it('skips a malformed config whose lists field is not an array', async () => {
     const result = await runAutoPaperIngestPass(
-      { runId: 'r1', marketDate: TODAY },
+      { runId: 'r1', marketDate: TODAY, triggeredBy: 'nightly' },
       depsWith({ enabled: true } as AutoPaperConfig),
     );
     assert.equal(result.status, 'skipped');
@@ -91,7 +124,7 @@ describe('runAutoPaperIngestPass gates', () => {
 
   it('passes the gates on a live-date enabled config', async () => {
     const result = await runAutoPaperIngestPass(
-      { runId: 'r1', marketDate: TODAY },
+      { runId: 'r1', marketDate: TODAY, triggeredBy: 'nightly' },
       depsWith(ENABLED),
     );
     assert.equal(result.status, 'ready');
