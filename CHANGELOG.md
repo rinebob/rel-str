@@ -17,6 +17,8 @@
 - [Portfolio Allocation] 576-780_FE-IMPL-PORTFOLIO: equity/option/open-orders/order-history migrated to dense-table (.num numerics, sticky chrome, pinned totals) — commit also lands fused in-flight work (sortable headers, Entry column, open-orders Mark/Dist/select/modify) + removes rowShim dev scaffolding
 - [Portfolio Dashboard] 219-979_FE-IMPL-PORTFOLIO: replaceEquityOrder extracted — confirmed-cancel gate + bounded place loop; updateEquityStopOrder delegates; cancelOptionOrder wrapper
 - [Portfolio Dashboard] 219-979_FE-IMPL-PORTFOLIO: Order Modify routed through replaceEquityOrder (phase-mapped snackbars, always-refresh); bulk cancel parallelized via allSettled
+- [Paper Trading Infra] 553-980_BE-VERIFY-PAPER-TRADING: auto-paper dispatch script parameterized {runId, marketDate, triggeredBy} — drives live gate + ingest QA legs
+- [Paper Trading Infra] 553-980_DOCS-PAPER-TRADING: #980 CODE-REVIEW (PASS) + #981 UAT (Complete) — live dispatch evidence for all trigger legs
 ### Changed
 - [Robinhood MCP] 657-690_BE-IMPL-RH-MCP: Discovery assembler emits main index doc + 9 per-category children; flat dot-path response shapes; inventory verifier aggregates across children
 - [Robinhood MCP] 657-689_DOCS-RH-MCP: Canonical discovery doc split into main index + 9 category docs with bidirectional links
@@ -28,6 +30,7 @@
 - [Portfolio Allocation] 576-780_DOCS-PORTFOLIO: #780 CODE-REVIEW (PASS, 2 rounds) + #978 UAT (Complete)
 - [Portfolio Dashboard] 219-979_DOCS-PORTFOLIO: #979 CODE-REVIEW (PASS, round 2 — cancel→place race fixed) + #982 UAT (Complete)
 ### Fixed
+- [Paper Trading Infra] 553-980_BE-FIX-PAPER-TRADING: auto-paper trigger gate — stAutoPaperIngest admits nightly+manual only; pdr/symbol-added/absent triggers skip non-post-trigger (intraday runs no longer mint trades)
 - [Trading Indicator Library] 261-932_FE-BUG-INDICATOR-LIB: IndicatorSeriesStore.clearCache(symbol) never matched the callable|symbol|... key layout; ChartStore.loadCharts blanks symbolDataVersion at fetch start — no stale-key fetch or cross-symbol overlay (checkpoint)
 - [Portfolio Allocation] 576-780_FE-BUG-PORTFOLIO: /portfolio renders once all section data loads — tab group gated on globalLoading instead of 4 concurrent table spinners (mid-QA finding); includes fused #979 order-table wiring + dialog deps
 - [Portfolio Dashboard] 219-979_FE-FIX-PORTFOLIO: buildModifyOrderTicket fail-fast on missing symbol/zero remainder; modify dialog rejects same-price + non-positive; safe mark @if
