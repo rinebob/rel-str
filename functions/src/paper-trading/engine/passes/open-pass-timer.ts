@@ -7,6 +7,13 @@
  * openTimePT, and runs the open pass for those instances only.
  *
  * Reads underlying price from symbol-data (does NOT depend on SDS completion).
+ *
+ * Cron note: `*\/5 6-13` covers 6:00–13:55 PT. The 6:00–6:25 ticks are
+ * no-ops because the market opens at 6:30 PT and no instance can be
+ * configured with an `openTimePT` before then — cron can't express
+ * "6:30–13:55" in one expression (minute ranges restart each hour), and the
+ * split-schedule alternative costs more readability than ~6 empty
+ * invocations per weekday.
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
