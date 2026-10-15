@@ -3,6 +3,11 @@
 ## [2026-10-15]
 
 ### Added
+- [ST Firestore Reorg] 984-997_SHARED-IMPL-DATA-PIPELINE: st- collection path constants + @st/collections alias — shared module (flat + anchored roots, path helpers, guards), BE re-export barrel, offline verify script
+- [ST Firestore Reorg] 984-997_FE-IMPL-DATA-PIPELINE: @deprecated markers on legacy Collection enum members — successor pointers for cutover tasks
+- [ST Firestore Reorg] 984-997_DOCS-DATA-PIPELINE: Topic docs — ADR-009, DATA-MAP, PRD, IMPL/TEST plans
+- [ST Firestore Reorg] 984-997_DOCS-DATA-PIPELINE: CODE-REVIEW (5 passes, PASS) + UAT (Complete) for st- collections
+### Added (checkpoints)
 - [Paper Trading Infra] 553-920_BE-VERIFY-PAPER-TRADING: autoPaper trading-config seed script for #920 umbrella QA — resolves ownerUid from {uid}_PRIMARY, writes + reads back (checkpoint)
 - [Paper Trading Infra] 553-920_DOCS-PAPER-TRADING: #920 UAT doc (umbrella) — PARTIAL, AC1 PASS / AC2-4 BLOCKED (checkpoint)
 - [Paper Trading Infra] 553-553_DOCS-PAPER-TRADING: AS-BUILT feature inventory + topic-level end-to-end UAT docs (checkpoint)
