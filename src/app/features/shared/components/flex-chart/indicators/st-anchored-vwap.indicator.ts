@@ -32,14 +32,18 @@ import { boolParam, colorParam, numParam } from './indicator-params';
 const DEFAULTS = {
   line1RetracementPct: 2,
   line2RetracementPct: 5,
-  leftDepth: 5,
-  // rightDepth defaults below leftDepth: narrows the window where a
-  // reversal has met the deviation amount but not yet the bar count.
-  rightDepth: 2,
+  line1LeftDepth: 5,
+  line1RightDepth: 2,
+  line2LeftDepth: 5,
+  line2RightDepth: 2,
   line1HighColor: '#FF8CFF',
   line1LowColor: '#8CF5FF',
-  line2HighColor: '#FF00E6',
-  line2LowColor: '#00E5FF',
+  // Orange/green — deliberately outside line 1's magenta/cyan family so the
+  // two sets cannot be confused (#955).
+  line2HighColor: '#FFA500',
+  line2LowColor: '#00C853',
+  showLine1: true,
+  showLine2: true,
   showZigZag: true,
   maxHistory: 100,
 } as const;
@@ -53,13 +57,19 @@ export const ST_ANCHORED_VWAP_INDICATOR: IndicatorOption = {
   params: [
     { key: 'line1RetracementPct', label: 'Line 1 Retracement %', default: DEFAULTS.line1RetracementPct, min: 0.1, max: 50, input: 'number' },
     { key: 'line2RetracementPct', label: 'Line 2 Retracement %', default: DEFAULTS.line2RetracementPct, min: 0.1, max: 50, input: 'number' },
-    { key: 'leftDepth', label: 'Left Depth', default: DEFAULTS.leftDepth, min: 2, max: 100, input: 'number' },
-    { key: 'rightDepth', label: 'Right Depth', default: DEFAULTS.rightDepth, min: 2, max: 100, input: 'number' },
+    { key: 'line1LeftDepth', label: 'Line 1 Left Depth', default: DEFAULTS.line1LeftDepth, min: 2, max: 100, input: 'number' },
+    // rightDepth defaults below leftDepth: narrows the window where a
+    // reversal has met the deviation amount but not yet the bar count.
+    { key: 'line1RightDepth', label: 'Line 1 Right Depth', default: DEFAULTS.line1RightDepth, min: 2, max: 100, input: 'number' },
+    { key: 'line2LeftDepth', label: 'Line 2 Left Depth', default: DEFAULTS.line2LeftDepth, min: 2, max: 100, input: 'number' },
+    { key: 'line2RightDepth', label: 'Line 2 Right Depth', default: DEFAULTS.line2RightDepth, min: 2, max: 100, input: 'number' },
     { key: 'line1HighColor', label: 'Line 1 High Color', default: DEFAULTS.line1HighColor, input: 'color' },
     { key: 'line1LowColor', label: 'Line 1 Low Color', default: DEFAULTS.line1LowColor, input: 'color' },
     { key: 'line2HighColor', label: 'Line 2 High Color', default: DEFAULTS.line2HighColor, input: 'color' },
     { key: 'line2LowColor', label: 'Line 2 Low Color', default: DEFAULTS.line2LowColor, input: 'color' },
     // No `input` — boolean defaults fall back to a checkbox control.
+    { key: 'showLine1', label: 'Show Line 1', default: DEFAULTS.showLine1 },
+    { key: 'showLine2', label: 'Show Line 2', default: DEFAULTS.showLine2 },
     { key: 'showZigZag', label: 'Show ZigZag Legs', default: DEFAULTS.showZigZag },
     { key: 'maxHistory', label: 'Max History', default: DEFAULTS.maxHistory, min: 0, max: 1000, input: 'number' },
     // ISO 'YYYY-MM-DD' — only a string survives the params panel. The engine
@@ -103,8 +113,10 @@ function extractConfig(params: Params): AnchoredVwapConfig {
   return {
     line1RetracementPct: Math.max(0.1, numParam(params['line1RetracementPct'], DEFAULTS.line1RetracementPct)),
     line2RetracementPct: Math.max(0.1, numParam(params['line2RetracementPct'], DEFAULTS.line2RetracementPct)),
-    leftDepth: Math.max(2, Math.floor(numParam(params['leftDepth'], DEFAULTS.leftDepth))),
-    rightDepth: Math.max(2, Math.floor(numParam(params['rightDepth'], DEFAULTS.rightDepth))),
+    line1LeftDepth: Math.max(2, Math.floor(numParam(params['line1LeftDepth'], DEFAULTS.line1LeftDepth))),
+    line1RightDepth: Math.max(2, Math.floor(numParam(params['line1RightDepth'], DEFAULTS.line1RightDepth))),
+    line2LeftDepth: Math.max(2, Math.floor(numParam(params['line2LeftDepth'], DEFAULTS.line2LeftDepth))),
+    line2RightDepth: Math.max(2, Math.floor(numParam(params['line2RightDepth'], DEFAULTS.line2RightDepth))),
     maxHistory: Math.max(0, Math.floor(numParam(params['maxHistory'], DEFAULTS.maxHistory))),
     // ISO date string through to the engine, which validates it and compares
     // against each pivot's session `date` — no epoch conversion here.
@@ -155,6 +167,7 @@ export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): Anc
       width: LINE1_WIDTH,
       highColor: colorParam(params['line1HighColor'], DEFAULTS.line1HighColor),
       lowColor: colorParam(params['line1LowColor'], DEFAULTS.line1LowColor),
+      show: boolParam(params['showLine1'], DEFAULTS.showLine1),
     },
     {
       set: 'line2' as const,
@@ -162,10 +175,11 @@ export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): Anc
       width: LINE2_WIDTH,
       highColor: colorParam(params['line2HighColor'], DEFAULTS.line2HighColor),
       lowColor: colorParam(params['line2LowColor'], DEFAULTS.line2LowColor),
+      show: boolParam(params['showLine2'], DEFAULTS.showLine2),
     },
   ];
 
-  return sets.flatMap(({ set, pct, width, highColor, lowColor }) => {
+  return sets.flatMap(({ set, pct, width, highColor, lowColor, show }) => {
     const sideColor = (isHigh: boolean) => (isHigh ? highColor : lowColor);
     const vwapSeries = (['high', 'low'] as const).flatMap((side) => {
       const slot = segments
@@ -222,6 +236,9 @@ export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): Anc
       data: showZigZag && dev ? [{ index: dev.from.index, y: dev.from.y }, { index: dev.to.index, y: dev.to.y }] : [],
     };
 
-    return [...vwapSeries, chain, developing];
+    // A hidden set empties only its VWAP slots — the leg series answer to
+    // showZigZag alone, so legs can be inspected without the VWAP lines.
+    // The 16-key structure is preserved either way (#955).
+    return [...vwapSeries.map((s) => (show ? s : { ...s, data: [] })), chain, developing];
   });
 }

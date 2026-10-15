@@ -1,0 +1,320 @@
+// ST Anchored VWAP — Thread #835 (Topic 261, indicator-lib)
+// VWAP lines anchored to ZigZag-detected pivot highs/lows at two retracement
+// scales. Detection reuses the same ZigZag engine as rb-st-zigzag.pine
+// (TradingView ZigZag Library v9 port), stripped to confirmed pivots only —
+// no drawings, labels, or projected pivots.
+//
+// Line lifecycle (per scale, per side): a confirmed pivot seeds a VWAP line at
+// its bar, accumulating hlc3*volume forward. When a new same-side pivot
+// confirms, the old line terminates AT the new anchor's bar (the confirmation
+// tail is trimmed — the anchor sits ~rightDepth bars in the past) and a new
+// line starts there. Terminated segments persist faded, bounded by the
+// history window: `historyStart` set → render forward from that date up to
+// `maxHistory`; unset → most recent `maxHistory` (oldest pruned first).
+//
+// Rendering: every segment is one polyline (VWAP is a curve — `line` can't
+// express it). TradingView caps polylines at 100 total, so per-scale history
+// clamps to 48 (4 active lines + 2×48 = 100). Values are retrocomputed via
+// cumulative PV/V sums, so the anchor..detection backfill draws correctly.
+
+//@version=6
+indicator("ST Anchored VWAP", overlay = true, max_polylines_count = 100)
+
+//#region ———————————————————— ZigZag engine (confirmed pivots only)
+
+// Stripped from rb-st-zigzag.pine: drawing/label/projection code removed.
+// Pivot = {start, end, isHigh}; ZigZag.pivots accumulates confirmed pivots in
+// chronological order. `update()` must run on every bar.
+
+type Settings
+    float devThreshold        = 5.0
+    int   leftDepth           = 5
+    int   rightDepth          = 5
+    bool  allowZigZagOnOneBar = true
+
+type Pivot
+    chart.point start
+    chart.point end
+    bool        isHigh
+
+type ZigZag
+    Settings     settings
+    array<Pivot> pivots
+
+// Local-extreme check: the value rightDepth bars back must strictly beat all
+// bars 0..rightDepth-1 and beat-or-equal all bars rightDepth+1..+leftDepth.
+findPivotPoint(series float source, series int leftDepth, series int rightDepth, simple bool isHigh) =>
+    float pivotPrice = nz(source[rightDepth])
+    if rightDepth == 0
+        chart.point.new(time, bar_index, pivotPrice)
+    else if rightDepth + leftDepth <= bar_index
+        bool isFound = true
+        for i = 0 to rightDepth - 1
+            if (isHigh and source[i] > pivotPrice) or (not isHigh and source[i] < pivotPrice)
+                isFound := false
+                break
+        for i = rightDepth + 1 to rightDepth + leftDepth
+            if (isHigh and source[i] >= pivotPrice) or (not isHigh and source[i] <= pivotPrice)
+                isFound := false
+                break
+        if isFound
+            chart.point.new(time[rightDepth], bar_index[rightDepth], pivotPrice)
+
+calcDev(series float start, series float end) =>
+    float result = 100 * (end - start) / math.abs(start)
+
+method isMorePrice(Pivot this, chart.point point) =>
+    int m = this.isHigh ? 1 : -1
+    bool result = point.price * m > this.end.price * m
+
+method lastPivot(ZigZag this) =>
+    Pivot result = this.pivots.size() > 0 ? this.pivots.last() : na
+
+// Same-side refinement: slide the latest pivot's end to a more extreme point.
+method updateLastPivot(ZigZag this, chart.point point) =>
+    Pivot lastPivot = this.lastPivot()
+    if this.pivots.size() == 1
+        lastPivot.start := point
+    lastPivot.end := point
+
+method newPivotPointFound(ZigZag this, simple bool isHigh, chart.point point) =>
+    bool result = false
+    Pivot lastPivot = this.lastPivot()
+    if not na(lastPivot)
+        if lastPivot.isHigh == isHigh
+            if lastPivot.isMorePrice(point)
+                this.updateLastPivot(point)
+                result := true
+        else
+            float dev = calcDev(lastPivot.end.price, point.price)
+            if not lastPivot.isHigh and dev >= this.settings.devThreshold or
+                 lastPivot.isHigh and dev <= -1 * this.settings.devThreshold
+                this.pivots.push(Pivot.new(lastPivot.end, point, isHigh))
+                result := true
+    else
+        this.pivots.push(Pivot.new(point, point, isHigh))
+        result := true
+    result
+
+method tryFindPivot(
+    ZigZag this, series float source, simple bool isHigh, series int leftDepth, series int rightDepth, series bool registerPivot = true
+) =>
+    chart.point point = findPivotPoint(source, leftDepth, rightDepth, isHigh)
+    bool result = not na(point) and registerPivot ? this.newPivotPointFound(isHigh, point) : false
+
+method update(ZigZag this) =>
+    int leftDepth  = math.max(2, this.settings.leftDepth)
+    int rightDepth = math.max(2, this.settings.rightDepth)
+    bool newHigh = this.tryFindPivot(high, true, leftDepth, rightDepth)
+    bool newLow  = this.tryFindPivot(low, false, leftDepth, rightDepth, this.settings.allowZigZagOnOneBar or not newHigh)
+    bool result = newHigh or newLow
+
+//#endregion
+
+//#region ———————————————————— Anchored VWAP
+
+// Per-bar history buffers. Every bar pushes one entry, so array index ==
+// bar_index. Reading history via arrays (not `series[offset]`) avoids Pine's
+// history-buffer limits entirely — anchors can be arbitrarily old and the
+// readers may run conditionally. Cumulative sums make any anchored VWAP over
+// [a, j] = (cumPV[j] - cumPV[a-1]) / (cumV[j] - cumV[a-1]), computable
+// retroactively for the anchor→detection backfill. nz(volume) gives the
+// flat-carry rule: zero/missing volume contributes to neither sum.
+type Buf
+    array<float> cumPV
+    array<float> cumV
+    array<float> tp
+    array<int>   ts
+
+var Buf buf = Buf.new(array.new<float>(), array.new<float>(), array.new<float>(), array.new<int>())
+buf.cumPV.push((bar_index > 0 ? buf.cumPV.last() : 0.0) + nz(volume) * hlc3)
+buf.cumV.push((bar_index > 0 ? buf.cumV.last() : 0.0) + nz(volume))
+buf.tp.push(hlc3)
+buf.ts.push(time)
+
+// Anchored VWAP at bar j for an anchor at bar a (a <= j); na while no volume
+// has accumulated since the anchor.
+vwapAt(Buf b, int a, int j) =>
+    float basePV = a > 0 ? b.cumPV.get(a - 1) : 0.0
+    float baseV  = a > 0 ? b.cumV.get(a - 1) : 0.0
+    float dv = b.cumV.get(j) - baseV
+    dv > 0 ? (b.cumPV.get(j) - basePV) / dv : na
+
+// Point list for one VWAP segment over bar indexes [aIdx, endIdx].
+// Zero-volume stretches reuse the previous value (flat carry, no gaps);
+// before any volume, fall back to typical price.
+buildPoints(Buf b, int aIdx, int endIdx) =>
+    array<chart.point> pts = array.new<chart.point>()
+    float last = na
+    for j = aIdx to endIdx
+        float v = nz(vwapAt(b, aIdx, j), na(last) ? b.tp.get(j) : last)
+        last := v
+        pts.push(chart.point.new(b.ts.get(j), j, v))
+    pts
+
+// Latest pivot of a given side (scan back — array is chronological).
+latestFor(ZigZag zz, bool isHigh) =>
+    Pivot result = na
+    int n = zz.pivots.size()
+    if n > 0
+        for i = n - 1 to 0
+            Pivot p = zz.pivots.get(i)
+            if p.isHigh == isHigh
+                result := p
+                break
+    result
+
+// One active VWAP line + its terminated-segment history, for one side of one
+// scale. `anchorIndex` is the bar_index of the current anchor pivot's end.
+type AnchorLine
+    bool    isHigh
+    color   colr
+    int     width
+    int         anchorIndex = na
+    polyline    pl          = na
+    float       lastValue   = na
+    bool        fresh       = false
+    array<polyline> hist
+
+// The current active segment was superseded by a new same-side anchor at
+// `newAnchorIdx`: archive the old segment as a faded polyline spanning
+// [anchorIndex, newAnchorIdx] (window+cap permitting), then re-anchor.
+method terminateAt(AnchorLine this, Buf b, int newAnchorIdx, int cap, int histStart, bool histOn) =>
+    if not na(this.anchorIndex) and newAnchorIdx > this.anchorIndex
+        int  aT       = b.ts.get(this.anchorIndex)
+        bool inWindow = not histOn or aT >= histStart
+        if inWindow
+            if this.hist.size() >= cap
+                if histOn
+                    inWindow := false   // date mode: stop at cap, keep earliest
+                else
+                    polyline old = this.hist.shift()
+                    old.delete()        // default mode: prune oldest, keep recent
+            if inWindow
+                array<chart.point> pts = buildPoints(b, this.anchorIndex, newAnchorIdx)
+                if pts.size() > 0
+                    this.hist.push(polyline.new(pts, curved = false, closed = false, xloc = xloc.bar_index, line_color = color.new(this.colr, 45), line_style = line.style_solid, line_width = this.width))
+    this.anchorIndex := newAnchorIdx
+    this.fresh := true
+
+// Active polyline over [anchorIndex .. bar_index], drawn once on the last
+// bar only (earlier bars' drawings would be discarded anyway) — backfills the
+// anchor..detection bars and extends to the latest bar. lastValue is O(1)
+// and tracked every bar for the data-window readout.
+method refresh(AnchorLine this, Buf b) =>
+    if not na(this.anchorIndex)
+        this.lastValue := vwapAt(b, this.anchorIndex, bar_index)
+        if barstate.islast
+            array<chart.point> pts = buildPoints(b, this.anchorIndex, bar_index)
+            if not na(this.pl)
+                this.pl.delete()
+            if pts.size() > 1
+                this.pl := polyline.new(pts, curved = false, closed = false, xloc = xloc.bar_index, line_color = this.colr, line_style = line.style_solid, line_width = this.width)
+
+// One retracement scale: its own ZigZag instance plus a high and a low line.
+type AnchorScale
+    ZigZag     zz
+    AnchorLine hi
+    AnchorLine lo
+    int        prevSize = 0
+
+method update(AnchorScale this, Buf b, int cap, int histStart, bool histOn) =>
+    this.hi.fresh := false
+    this.lo.fresh := false
+    this.zz.update()
+    // Newly appended pivots → the matching side terminates + re-anchors.
+    int size = this.zz.pivots.size()
+    if size > this.prevSize
+        for k = this.prevSize to size - 1
+            Pivot p = this.zz.pivots.get(k)
+            if p.isHigh
+                this.hi.terminateAt(b, p.end.index, cap, histStart, histOn)
+            else
+                this.lo.terminateAt(b, p.end.index, cap, histStart, histOn)
+    this.prevSize := size
+    // Same-pivot end refinement (the pivot slid forward) → silent re-anchor.
+    Pivot hiP = latestFor(this.zz, true)
+    if not na(hiP) and (na(this.hi.anchorIndex) or this.hi.anchorIndex != hiP.end.index)
+        this.hi.anchorIndex := hiP.end.index
+        this.hi.fresh := true
+    Pivot loP = latestFor(this.zz, false)
+    if not na(loP) and (na(this.lo.anchorIndex) or this.lo.anchorIndex != loP.end.index)
+        this.lo.anchorIndex := loP.end.index
+        this.lo.fresh := true
+    this.hi.refresh(b)
+    this.lo.refresh(b)
+
+//#endregion
+
+//#region ———————————————————— Inputs and execution
+
+float smallRetr = input.float(2.0, "Small Retracement %", minval = 0.1, maxval = 50.0)
+float largeRetr = input.float(5.0, "Large Retracement %", minval = 0.1, maxval = 50.0)
+int   leftDepthInput  = input.int(5, "Left Depth",  minval = 2, tooltip = "Bars left of a pivot candidate for confirmation")
+int   rightDepthInput = input.int(5, "Right Depth", minval = 2, tooltip = "Bars right of a pivot for confirmation — also the anchor backfill lag")
+color smallHighCol = input.color(#FF8CFF, "Small High line")
+color smallLowCol  = input.color(#8CF5FF, "Small Low line")
+color largeHighCol = input.color(#FF00E6, "Large High line")
+color largeLowCol  = input.color(#00E5FF, "Large Low line")
+bool histOn    = input.bool(false, "Limit history to a start date")
+int  histStart = input.time(timestamp("1 Jan 2020"), "History start date")
+int  maxHist   = input.int(100, "Max history segments / scale", minval = 1, maxval = 100,
+     tooltip = "TradingView caps polylines at 100 total; effective per-scale cap is min(this, 48) — 4 active lines + history share the budget")
+
+int cap = math.min(maxHist, 48)
+
+var AnchorScale smallScale = AnchorScale.new(
+     ZigZag.new(Settings.new(smallRetr, leftDepthInput, rightDepthInput, true), array.new<Pivot>()),
+     AnchorLine.new(true,  smallHighCol, 2, hist = array.new<polyline>()),
+     AnchorLine.new(false, smallLowCol,  2, hist = array.new<polyline>()))
+
+var AnchorScale largeScale = AnchorScale.new(
+     ZigZag.new(Settings.new(largeRetr, leftDepthInput, rightDepthInput, true), array.new<Pivot>()),
+     AnchorLine.new(true,  largeHighCol, 4, hist = array.new<polyline>()),
+     AnchorLine.new(false, largeLowCol,  4, hist = array.new<polyline>()))
+
+smallScale.update(buf, cap, histStart, histOn)
+largeScale.update(buf, cap, histStart, histOn)
+
+// CAUSAL lines — the tradable version. Each bar's value uses only the anchor
+// known on that bar: na before the first confirmed pivot, and it switches to
+// a new anchor ON the confirmation bar (no backfill, no hindsight). Strategies
+// and alerts should read these plots, never the polylines. Live use should
+// also gate on barstate.isconfirmed — ZigZag pivots can repaint on the
+// forming bar.
+plot(smallScale.hi.lastValue, "AVWAP-H small (causal)", smallHighCol, 1, plot.style_linebr)
+plot(smallScale.lo.lastValue, "AVWAP-L small (causal)", smallLowCol,  1, plot.style_linebr)
+plot(largeScale.hi.lastValue, "AVWAP-H large (causal)", largeHighCol, 1, plot.style_linebr)
+plot(largeScale.lo.lastValue, "AVWAP-L large (causal)", largeLowCol,  1, plot.style_linebr)
+
+// Confirmation-bar markers: drawn on the bar where the new anchor became
+// knowable (not the pivot bar, which is ~rightDepth bars earlier).
+plotshape(smallScale.hi.fresh, "Small high anchor confirmed", shape.triangledown, location.abovebar, smallHighCol, size = size.tiny)
+plotshape(smallScale.lo.fresh, "Small low anchor confirmed",  shape.triangleup,   location.belowbar, smallLowCol,  size = size.tiny)
+plotshape(largeScale.hi.fresh, "Large high anchor confirmed", shape.diamond,      location.abovebar, largeHighCol, size = size.normal)
+plotshape(largeScale.lo.fresh, "Large low anchor confirmed",  shape.diamond,      location.belowbar, largeLowCol,  size = size.normal)
+
+// Temporary diagnostics (last bar): pivots found / anchor bar / terminated
+// segments drawn / active-line values, per scale.
+bool debugOn = input.bool(true, "Show debug table")
+if debugOn and barstate.islast
+    var table dbg = table.new(position.top_right, 5, 4, bgcolor = color.new(color.black, 20), border_width = 1)
+    table.cell(dbg, 0, 0, "scale", text_color = color.white)
+    table.cell(dbg, 1, 0, "pivots", text_color = color.white)
+    table.cell(dbg, 2, 0, "H anchor/hist", text_color = color.white)
+    table.cell(dbg, 3, 0, "L anchor/hist", text_color = color.white)
+    table.cell(dbg, 4, 0, "bars", text_color = color.white)
+    table.cell(dbg, 0, 1, "small", text_color = color.white)
+    table.cell(dbg, 1, 1, str.tostring(smallScale.zz.pivots.size()), text_color = color.white)
+    table.cell(dbg, 2, 1, str.tostring(smallScale.hi.anchorIndex) + " / " + str.tostring(smallScale.hi.hist.size()), text_color = color.white)
+    table.cell(dbg, 3, 1, str.tostring(smallScale.lo.anchorIndex) + " / " + str.tostring(smallScale.lo.hist.size()), text_color = color.white)
+    table.cell(dbg, 4, 1, str.tostring(bar_index + 1), text_color = color.white)
+    table.cell(dbg, 0, 2, "large", text_color = color.white)
+    table.cell(dbg, 1, 2, str.tostring(largeScale.zz.pivots.size()), text_color = color.white)
+    table.cell(dbg, 2, 2, str.tostring(largeScale.hi.anchorIndex) + " / " + str.tostring(largeScale.hi.hist.size()), text_color = color.white)
+    table.cell(dbg, 3, 2, str.tostring(largeScale.lo.anchorIndex) + " / " + str.tostring(largeScale.lo.hist.size()), text_color = color.white)
+    table.cell(dbg, 0, 3, "active", text_color = color.white)
+    table.cell(dbg, 1, 3, str.tostring(smallScale.hi.lastValue, "#.##") + " | " + str.tostring(smallScale.lo.lastValue, "#.##"), text_color = color.white)
+    table.cell(dbg, 2, 3, str.tostring(largeScale.hi.lastValue, "#.##") + " | " + str.tostring(largeScale.lo.lastValue, "#.##"), text_color = color.white)
+
+//#endregion

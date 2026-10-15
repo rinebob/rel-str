@@ -33,17 +33,17 @@ function makeWalk(seed: number, n: number): PriceBar[] {
 
 /** Window disabled so the full output is directly comparable to a truncated one. */
 const SCENARIOS: { name: string; seed: number; n: number; config: AnchoredVwapConfig }[] = [
-  { name: 'depth 3/3, 3% and 8%', seed: 1, n: 320, config: { line1RetracementPct: 3, line2RetracementPct: 8, leftDepth: 3, rightDepth: 3, maxHistory: 100_000 } },
-  { name: 'depth 2/4, 2% and 6%', seed: 3, n: 320, config: { line1RetracementPct: 2, line2RetracementPct: 6, leftDepth: 2, rightDepth: 4, maxHistory: 100_000 } },
-  { name: 'depth 4/2, 5% and 12%', seed: 4, n: 280, config: { line1RetracementPct: 5, line2RetracementPct: 12, leftDepth: 4, rightDepth: 2, maxHistory: 100_000 } },
+  { name: 'depth 3/3, 3% and 8%', seed: 1, n: 320, config: { line1RetracementPct: 3, line2RetracementPct: 8, line1LeftDepth: 3, line1RightDepth: 3, line2LeftDepth: 3, line2RightDepth: 3, maxHistory: 100_000 } },
+  { name: 'depth 2/4, 2% and 6%', seed: 3, n: 320, config: { line1RetracementPct: 2, line2RetracementPct: 6, line1LeftDepth: 2, line1RightDepth: 4, line2LeftDepth: 2, line2RightDepth: 4, maxHistory: 100_000 } },
+  { name: 'depth 4/2, 5% and 12%', seed: 4, n: 280, config: { line1RetracementPct: 5, line2RetracementPct: 12, line1LeftDepth: 4, line1RightDepth: 2, line2LeftDepth: 4, line2RightDepth: 2, maxHistory: 100_000 } },
 ];
 
 const events = (bars: PriceBar[], config: AnchoredVwapConfig, scale: 'line1' | 'line2'): AnchorEvent[] =>
   computeZigZagAnchorEvents(bars, {
     ...DEFAULT_CONFIG,
     devThreshold: scale === 'line1' ? config.line1RetracementPct : config.line2RetracementPct,
-    leftDepth: config.leftDepth,
-    rightDepth: config.rightDepth,
+    leftDepth: scale === 'line1' ? config.line1LeftDepth : config.line2LeftDepth,
+    rightDepth: scale === 'line1' ? config.line1RightDepth : config.line2RightDepth,
     allowZigZagOnOneBar: true,
     projectionPivots: false,
   });

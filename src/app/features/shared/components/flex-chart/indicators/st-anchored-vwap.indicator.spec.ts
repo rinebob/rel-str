@@ -60,8 +60,10 @@ function makeWalk(seed: number, n: number): PriceBar[] {
 const PARAMS = {
   line1RetracementPct: 5,
   line2RetracementPct: 25,
-  leftDepth: 2,
-  rightDepth: 2,
+  line1LeftDepth: 2,
+  line1RightDepth: 2,
+  line2LeftDepth: 2,
+  line2RightDepth: 2,
   maxHistory: 100,
 };
 
@@ -106,14 +108,19 @@ describe('ST_ANCHORED_VWAP_INDICATOR', () => {
     expect(defaults).toEqual({
       line1RetracementPct: 2,
       line2RetracementPct: 5,
-      leftDepth: 5,
+      line1LeftDepth: 5,
+      line1RightDepth: 2,
+      line2LeftDepth: 5,
       // rightDepth defaults below leftDepth so a reversal that has met the
       // deviation amount confirms sooner.
-      rightDepth: 2,
+      line2RightDepth: 2,
       line1HighColor: '#FF8CFF',
       line1LowColor: '#8CF5FF',
-      line2HighColor: '#FF00E6',
-      line2LowColor: '#00E5FF',
+      // Line 2 deliberately sits outside line 1's magenta/cyan family.
+      line2HighColor: '#FFA500',
+      line2LowColor: '#00C853',
+      showLine1: true,
+      showLine2: true,
       showZigZag: true,
       maxHistory: 100,
       historyStart: '',
@@ -203,7 +210,7 @@ describe('computeAnchoredVwapSeries — zigzag legs', () => {
     // Line 2's three high events (5, 15, 25) are two replacements — only the
     // survivor is a vertex, so no same-side legs are drawn.
     const chain = byKey(series, 'line2-zigzag');
-    expect(chain.data).toEqual([{ index: 25, y: 141, color: '#FF00E6' }]);
+    expect(chain.data).toEqual([{ index: 25, y: 141, color: '#FFA500' }]);
   });
 
   it('marks a lone anchor on the chain even when no legs connect', () => {
@@ -256,6 +263,60 @@ describe('computeAnchoredVwapSeries — zigzag legs', () => {
     }
     // The VWAP slots are untouched.
     expect(byKey(off, 'line1-high-active').data).toEqual(byKey(series, 'line1-high-active').data);
+  });
+});
+
+// =============================================================================
+// Per-set visibility (#955)
+// =============================================================================
+
+describe('computeAnchoredVwapSeries — set visibility', () => {
+  const bars = barsFromCloses(CLOSES);
+  const series = computeAnchoredVwapSeries(bars, PARAMS);
+
+  it.each(['line1', 'line2'] as const)('%s hidden empties its 6 VWAP slots but keeps its legs, the other set, and all 16 keys', (hidden) => {
+    const off = computeAnchoredVwapSeries(bars, { ...PARAMS, [`show${hidden === 'line1' ? 'Line1' : 'Line2'}`]: false });
+    expect(off.map((s) => s.key)).toEqual(EXPECTED_KEYS);
+    for (const s of off) {
+      const isHiddenVwapSlot = s.key.startsWith(hidden) && !s.key.endsWith('zigzag') && !s.key.endsWith('developing');
+      expect(s.data).toEqual(isHiddenVwapSlot ? [] : byKey(series, s.key).data);
+    }
+  });
+
+  it('legs still render when both sets are hidden — showZigZag governs them alone', () => {
+    const off = computeAnchoredVwapSeries(bars, { ...PARAMS, showLine1: false, showLine2: false });
+    expect(byKey(off, 'line1-zigzag').data.length).toBeGreaterThan(0);
+    expect(off.filter((s) => s.key.includes('-high-') || s.key.includes('-low-')).every((s) => s.data.length === 0)).toBe(true);
+  });
+
+  it('shows both sets by default when the params are absent', () => {
+    for (const s of series) expect(s.data).not.toBeUndefined();
+    expect(byKey(series, 'line1-high-active').data.length).toBeGreaterThan(0);
+    expect(byKey(series, 'line2-high-active').data.length).toBeGreaterThan(0);
+  });
+});
+
+// =============================================================================
+// Per-set depths (#955)
+// =============================================================================
+
+describe('computeAnchoredVwapSeries — per-set depths', () => {
+  const bars = makeWalk(7, 300);
+
+  it('line-2 depth changes leave every line-1 series byte-identical', () => {
+    const a = computeAnchoredVwapSeries(bars, { ...PARAMS, line2LeftDepth: 2, line2RightDepth: 2 });
+    const b = computeAnchoredVwapSeries(bars, { ...PARAMS, line2LeftDepth: 12, line2RightDepth: 12 });
+    for (const s of a.filter((x) => x.key.startsWith('line1'))) {
+      expect(s.data).toEqual(byKey(b, s.key).data);
+    }
+  });
+
+  it('line-1 depth changes leave every line-2 series byte-identical', () => {
+    const a = computeAnchoredVwapSeries(bars, { ...PARAMS, line1LeftDepth: 2, line1RightDepth: 2 });
+    const b = computeAnchoredVwapSeries(bars, { ...PARAMS, line1LeftDepth: 12, line1RightDepth: 12 });
+    for (const s of a.filter((x) => x.key.startsWith('line2'))) {
+      expect(s.data).toEqual(byKey(b, s.key).data);
+    }
   });
 });
 
@@ -408,8 +469,8 @@ describe('computeAnchoredVwapSeries — styling', () => {
   it('uses the default colours, hue encoding the side', () => {
     expect(byKey(series, 'line1-high-active').color).toBe('#FF8CFF');
     expect(byKey(series, 'line1-low-active').color).toBe('#8CF5FF');
-    expect(byKey(series, 'line2-high-active').color).toBe('#FF00E6');
-    expect(byKey(series, 'line2-low-active').color).toBe('#00E5FF');
+    expect(byKey(series, 'line2-high-active').color).toBe('#FFA500');
+    expect(byKey(series, 'line2-low-active').color).toBe('#00C853');
   });
 
   it('applies colour params', () => {
@@ -440,8 +501,8 @@ describe('computeAnchoredVwapSeries — params', () => {
     const series = computeAnchoredVwapSeries(makeWalk(2, 300), {
       line1RetracementPct: 'abc',
       line2RetracementPct: Number.NaN,
-      leftDepth: 0,
-      rightDepth: -3,
+      line1LeftDepth: 0,
+      line2RightDepth: -3,
       maxHistory: -5,
     });
     expect(series.map((s) => s.key)).toEqual(EXPECTED_KEYS);

@@ -17,10 +17,14 @@ export interface AnchoredVwapConfig {
   line1RetracementPct: number;
   /** ZigZag deviation threshold (%) for the line-2 pivot set. */
   line2RetracementPct: number;
-  /** Shared pivot-confirmation depth, bars to the left. */
-  leftDepth: number;
-  /** Shared pivot-confirmation depth, bars to the right — also the confirmation lag. */
-  rightDepth: number;
+  /** Line-1 pivot-confirmation depth, bars to the left. */
+  line1LeftDepth: number;
+  /** Line-1 pivot-confirmation depth, bars to the right — also the confirmation lag. */
+  line1RightDepth: number;
+  /** Line-2 pivot-confirmation depth, bars to the left. */
+  line2LeftDepth: number;
+  /** Line-2 pivot-confirmation depth, bars to the right — also the confirmation lag. */
+  line2RightDepth: number;
   /**
    * Optional history start as ISO 'YYYY-MM-DD' — compared against the pivot
    * bar's session `date`, so the boundary is a calendar date, not an epoch

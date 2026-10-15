@@ -51,8 +51,10 @@ const CLOSES = [
 const CONFIG: AnchoredVwapConfig = {
   line1RetracementPct: 5,
   line2RetracementPct: 25,
-  leftDepth: 2,
-  rightDepth: 2,
+  line1LeftDepth: 2,
+  line1RightDepth: 2,
+  line2LeftDepth: 2,
+  line2RightDepth: 2,
   maxHistory: 100,
 };
 

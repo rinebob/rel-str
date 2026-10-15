@@ -245,19 +245,19 @@ export function computeAnchoredVwapResult(bars: PriceBar[], config: AnchoredVwap
   if (bars.length === 0) return empty;
 
   const sums = cumulativeSums(bars);
-  const sets: [AnchoredVwapSet, number][] = [
-    ['line1', config.line1RetracementPct],
-    ['line2', config.line2RetracementPct],
+  const sets: [AnchoredVwapSet, number, number, number][] = [
+    ['line1', config.line1RetracementPct, config.line1LeftDepth, config.line1RightDepth],
+    ['line2', config.line2RetracementPct, config.line2LeftDepth, config.line2RightDepth],
   ];
   const segments: AnchoredVwapSegment[] = [];
   const legs: AnchoredVwapLegSet[] = [];
 
-  for (const [set, devThreshold] of sets) {
+  for (const [set, devThreshold, leftDepth, rightDepth] of sets) {
     const zigzagConfig: ZigZagConfig = {
       ...DEFAULT_CONFIG,
       devThreshold,
-      leftDepth: config.leftDepth,
-      rightDepth: config.rightDepth,
+      leftDepth,
+      rightDepth,
       allowZigZagOnOneBar: true,
       projectionPivots: true,
     };

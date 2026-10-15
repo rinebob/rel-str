@@ -599,7 +599,7 @@ describe('ChartDataAdapter.anchoredVwapSeries', () => {
 
   function makeAvwapConfig(params: Record<string, number | string | boolean> = {}, extra: Partial<FlexChartConfig> = {}): FlexChartConfig {
     const base = buildDefaultConfig(ST_ANCHORED_VWAP_INDICATOR);
-    return { indicators: [{ ...base, params: { ...base.params, leftDepth: 3, rightDepth: 3, ...params } }], ...extra };
+    return { indicators: [{ ...base, params: { ...base.params, line1LeftDepth: 3, line1RightDepth: 3, line2LeftDepth: 3, line2RightDepth: 3, ...params } }], ...extra };
   }
 
   it('is empty with no AVWAP config, no data, or no bars', () => {
@@ -654,9 +654,9 @@ describe('ChartDataAdapter.anchoredVwapSeries', () => {
     const color = (s: typeof dark, key: string) => s.find((x) => x.key === key)!.color;
     expect(color(dark, 'line1-high-active')).toBe('#33d17a');
     expect(color(light, 'line1-high-active')).toBe('#4caf50');
-    // The line-2 defaults are not in the remap vocabulary and pass through in both themes.
-    expect(color(dark, 'line2-high-active')).toBe('#FF00E6');
-    expect(color(light, 'line2-low-active')).toBe('#00E5FF');
+    // The default orange/green are not in the remap vocabulary and pass through in both themes.
+    expect(color(dark, 'line2-high-active')).toBe('#FFA500');
+    expect(color(light, 'line2-low-active')).toBe('#00C853');
   });
 
   it('carries the ZigZag-leg series through with their type, dash, and themed per-point colors', () => {
