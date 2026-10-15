@@ -6,6 +6,12 @@
 - [Paper Trading Infra] 553-920_BE-VERIFY-PAPER-TRADING: autoPaper trading-config seed script for #920 umbrella QA — resolves ownerUid from {uid}_PRIMARY, writes + reads back (checkpoint)
 - [Paper Trading Infra] 553-920_DOCS-PAPER-TRADING: #920 UAT doc (umbrella) — PARTIAL, AC1 PASS / AC2-4 BLOCKED (checkpoint)
 - [Paper Trading Infra] 553-553_DOCS-PAPER-TRADING: AS-BUILT feature inventory + topic-level end-to-end UAT docs (checkpoint)
+- [Flex Chart Visual Polish] 213-934_FE-IMPL-FLEX-CHART: sandbox settings persisted to localStorage — versioned read/save/clear, per-option paramOverrides map (checkpoint)
+- [Flex Chart Visual Polish] 213-955_FE-IMPL-FLEX-CHART: AVWAP per-line depth params, showLine1/showLine2 toggles, distinct orange/green line-2 defaults + Pine reference export (checkpoint)
+- [Flex Chart Visual Polish] 213-935_FE-IMPL-FLEX-CHART: ZigZag param input types for bespoke params strip (checkpoint)
+- [Flex Chart Visual Polish] 213-909_DOCS-FLEX-CHART: PRD — dev save settings (checkpoint)
+- [Flex Chart Visual Polish] 213-928_DOCS-FLEX-CHART: IMPL + TEST — sandbox persisted settings & param editing FE (checkpoint)
+- [Flex Chart Visual Polish] 213-934_DOCS-FLEX-CHART: #933 CODE-REVIEW + #934 UAT docs for sandbox settings persistence (checkpoint)
 ### Changed
 - [Paper Trading Infra] 553-920_BE-CHORE-PAPER-TRADING: cron coverage rationale comment on open-pass timer (checkpoint)
 ### Fixed
