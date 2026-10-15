@@ -13,11 +13,15 @@
 - [Flex Chart Visual Polish] 213-928_DOCS-FLEX-CHART: IMPL + TEST — sandbox persisted settings & param editing FE (checkpoint)
 - [Flex Chart Visual Polish] 213-934_DOCS-FLEX-CHART: #933 CODE-REVIEW + #934 UAT docs for sandbox settings persistence (checkpoint)
 - [Option Chain Pct Change Grid] 326-518_DOCS-OPTIONS: SA corpus handoff SPEC update + RATIONALE doc — why swing generation/options corpus move to SA (checkpoint)
+- [Project] DOCS-PARTNER: PDR daily outage report 2026-10-13 (checkpoint)
+- [Project] DOCS-PROJ: commit-approval rule in AGENTS.md, TOPICS-INVENTORY #828 entry, skill-gap mock-blindness note (checkpoint)
 ### Changed
+- [Project] CHORE-PROJ: ports:kill covers 4210/3456 + single-port variant; start-dev.mjs async killTree + child-exit shutdown (checkpoint)
 - [Paper Trading Infra] 553-920_BE-CHORE-PAPER-TRADING: cron coverage rationale comment on open-pass timer (checkpoint)
 ### Fixed
 - [Paper Trading Infra] 553-920_BE-BUG-PAPER-TRADING: instrument-map resolver surfaces MCP tool-level isError as thrown error — adapter parity (checkpoint)
 - [Paper Trading Infra] 553-920_BE-TEST-PAPER-TRADING: listOrders asserts BrokerAdapterError on MCP isError instead of empty page (checkpoint)
+- [Robinhood MCP] 657-657_FE-BUG-RH-MCP: display-name fallback for nicknameless accounts — 'Investing' for individual brokerage, title-cased kind otherwise (checkpoint)
 
 ## [2026-10-13]
 

@@ -108,6 +108,14 @@ Tasks advance through stage labels on the GitHub issue:
 
 `7_QA` is not automatic: after `/proj review` passes and the task reaches `7_QA`, run `/proj qa {topic} {task}` to execute the QA checklist and set the linked QA issue **Status** = `RESOLVED`. `/proj ship` will not proceed until the QA issue is RESOLVED.
 
+### Commits — NEVER without explicit per-commit approval
+
+A `/proj ship`, `checkpoint`, or any other request is **not** authorization to
+run `git commit`. The only acceptable flow is: stage the specific paths →
+show `git diff --cached` → wait for the user's explicit approval of that
+exact commit → commit → repeat for the next one. If the user says "ship"
+or "commit", that means prepare and present the commits, not execute them.
+
 ### Advancing a task
 
 Swap the stage label and update the project Status field. Example —

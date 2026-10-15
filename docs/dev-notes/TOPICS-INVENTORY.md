@@ -119,6 +119,9 @@ Open topics are organized under proposed super-groups (derived 2026-09-26 from d
 - **[#433 — Signal Pipeline Maintenance](https://github.com/rinebob/rel-str/issues/433)** · MAINT · 3_BLUEPRINT · IN PROGRESS
   - [#434 — Misc fixes](https://github.com/rinebob/rel-str/issues/434) · 3_BLUEPRINT · IN PROGRESS
 
+- **[#828 — Trailing Stops](https://github.com/rinebob/rel-str/issues/828)** · FEATURE · 1_IDEA · IN PROGRESS
+  - [#830 — Trailing Stops](https://github.com/rinebob/rel-str/issues/830) · 1_IDEA · IN PROGRESS
+
 ## Closed Topics
 
 - **[#114 — Options Strategy Engine — Hybrid Quote Provider (AV EOD + Robinhood MCP)](https://github.com/rinebob/rel-str/issues/114)** · `—` · *(no stage label)* · RESOLVED · CLOSED *(group A)*
