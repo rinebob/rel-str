@@ -30,6 +30,7 @@ const scripts: VerifyScript[] = [
   { name: 'list positions', file: 'savant-trader-broker-positions-list.ts', needsAccount: true },
   { name: 'paper-trading contracts', file: 'paper-trading-contracts-560-ids.ts', needsAccount: false },
   { name: 'st-collections paths', file: 'data-pipeline-st-collections-997.ts', needsAccount: false },
+  { name: 'st- type shapes', file: 'data-pipeline-st-types-998.ts', needsAccount: false },
   { name: 'paper-trading trade-exits contracts', file: 'paper-trading-contracts-665.ts', needsAccount: false },
   {
     name: 'swing config library',
