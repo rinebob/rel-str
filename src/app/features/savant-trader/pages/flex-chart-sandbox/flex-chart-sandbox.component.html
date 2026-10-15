@@ -76,6 +76,14 @@
       />
       TB dots
     </label>
+    <div class="interval-btns" role="group" aria-label="Settings">
+      <button
+        type="button"
+        data-testid="reset-settings"
+        title="Clear saved settings and restore defaults"
+        (click)="resetSettings()"
+      >Reset</button>
+    </div>
     <details class="indicator-picker" #indicatorPicker>
       <summary data-testid="indicator-summary">
         ST indicators ({{ enabledIndicators().size }})
@@ -87,7 +95,7 @@
               type="checkbox"
               [attr.data-testid]="'ind-' + o.id"
               [checked]="enabledIndicators().has(o.id)"
-              [disabled]="dataMode() === 'synthetic' && devOptionIds.has(o.id)"
+              [disabled]="dataMode() === 'synthetic' && callableOnlyOptionIds.has(o.id)"
               (change)="toggleIndicator(o.id, $event)"
             />
             {{ o.label }}
@@ -98,21 +106,33 @@
   </header>
 
   @if (avwapEnabled()) {
-    <div class="avwap-params" data-testid="avwap-params">
-      <span class="avwap-params-title">AVWAP</span>
+    <div class="params-strip" data-testid="avwap-params">
+      <span class="params-strip-title">AVWAP</span>
       @for (p of avwapParams; track p.key) {
         @if (p.input !== 'date') {
-          <label class="field">
-            {{ p.label }}
-            <input
-              [type]="p.input ?? 'text'"
-              [attr.data-testid]="'avwap-' + p.key"
-              [attr.min]="p.min ?? null"
-              [attr.max]="p.max ?? null"
-              [value]="avwapValues()[p.key]"
-              (change)="onAvwapParam(p, $event)"
-            />
-          </label>
+          @if (typeof p.default === 'boolean') {
+            <label class="field">
+              <input
+                type="checkbox"
+                [attr.data-testid]="'avwap-' + p.key"
+                [checked]="avwapValues()[p.key]"
+                (change)="onParam(avwapIndicatorId, p, $event)"
+              />
+              {{ p.label }}
+            </label>
+          } @else {
+            <label class="field">
+              {{ p.label }}
+              <input
+                [type]="p.input ?? 'text'"
+                [attr.data-testid]="'avwap-' + p.key"
+                [attr.min]="p.min ?? null"
+                [attr.max]="p.max ?? null"
+                [value]="avwapValues()[p.key]"
+                (change)="onParam(avwapIndicatorId, p, $event)"
+              />
+            </label>
+          }
         }
       }
       <label class="field avwap-history">
@@ -122,7 +142,7 @@
           data-testid="avwap-historyStart"
           placeholder="YYYY-MM-DD"
           [value]="avwapValues()['historyStart']"
-          (change)="onAvwapParam(avwapHistoryParam, $event)"
+          (change)="onParam(avwapIndicatorId, avwapHistoryParam, $event)"
         />
         <!-- Rendered-but-invisible anchor — the picker overlay positions from
              this element's rect; a display:none input would anchor at 0,0.
@@ -142,6 +162,37 @@
           (click)="clearAvwapHistory()"
         >×</button>
       </label>
+    </div>
+  }
+
+  @if (zigzagEnabled()) {
+    <div class="params-strip" data-testid="zigzag-params">
+      <span class="params-strip-title">ZigZag</span>
+      @for (p of zigzagParams; track p.key) {
+        @if (typeof p.default === 'boolean') {
+          <label class="field">
+            <input
+              type="checkbox"
+              [attr.data-testid]="'zigzag-' + p.key"
+              [checked]="zigzagValues()[p.key]"
+              (change)="onParam(zigzagIndicatorId, p, $event)"
+            />
+            {{ p.label }}
+          </label>
+        } @else {
+          <label class="field">
+            {{ p.label }}
+            <input
+              [type]="p.input ?? 'text'"
+              [attr.data-testid]="'zigzag-' + p.key"
+              [attr.min]="p.min ?? null"
+              [attr.max]="p.max ?? null"
+              [value]="zigzagValues()[p.key]"
+              (change)="onParam(zigzagIndicatorId, p, $event)"
+            />
+          </label>
+        }
+      }
     </div>
   }
 

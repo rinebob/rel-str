@@ -22,7 +22,6 @@ import {
   viewChild,
   ChangeDetectionStrategy,
   OnDestroy,
-  untracked,
 
   ViewChild,
 } from '@angular/core';
@@ -38,13 +37,11 @@ import {
   DEFAULT_CHART_INDICATORS,
   DEFAULT_CHART_INTERVALS,
   DEFAULT_CHART_STRATEGIES,
-  TRIGGER_BANDS_CHART_INTERVALS,
-  TRIGGER_BANDS_CHART_INDICATORS,
-  TRIGGER_BANDS_CHART_STRATEGIES,
 } from '../../stores/chart.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import {
   addChartExtras,
+  bindTriggerBandsRequest,
   createExtrasSignals,
   injectTriggerBandsData,
   convertTriggerBandsDotMarkers,
@@ -65,6 +62,7 @@ import {
   ST_DEV_INDICATOR_OPTIONS,
   buildDefaultConfig,
   ST_ANCHORED_VWAP_INDICATOR,
+  ST_ZIGZAG_INDICATOR,
 } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
 import { ST_TRIGGER_BANDS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
@@ -77,8 +75,16 @@ import {
   SYNTHETIC_PRESETS,
   type SyntheticPreset,
 } from './synthetic-data';
+import {
+  clearSandboxSettings,
+  defaultSandboxSettings,
+  readSandboxSettings,
+  saveSandboxSettings,
+  SANDBOX_SETTINGS_VERSION,
+  type SandboxDataMode,
+  type SandboxSettings,
+} from './sandbox-settings';
 
-const DEFAULT_SYMBOL = 'QQQ';
 /** Sentinel — clamped to the loaded bar count, so "all of history". */
 const SHOW_ALL_BARS = 1_000_000;
 
@@ -88,18 +94,6 @@ const TWO_YEAR_BARS: Record<ChartIntervalKey, number> = {
   [ChartIntervalKey.WEEKLY]: 104,
   [ChartIntervalKey.MONTHLY]: 24,
 };
-
-const DEFAULT_ENABLED_INDICATORS = new Set<string>([
-  StIndicator.TREND_BANDS,
-  StIndicator.TREND_STRENGTH,
-  StIndicator.ZONE,
-  StIndicator.ZONE_V2,
-  ST_SIGNAL_DOTS_INDICATOR.id,
-  ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id,
-  ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id,
-]);
-
-type DataMode = 'real' | 'synthetic';
 
 const INTERVAL_TO_BARS: Record<ChartIntervalKey, BarsInterval> = {
   [ChartIntervalKey.DAILY]: BarsInterval.DAILY,
@@ -121,26 +115,32 @@ export class FlexChartSandboxComponent implements OnDestroy {
   private readonly indicatorStore = inject(IndicatorSeriesStore);
   private readonly ui = inject(UiStateService);
 
-  readonly symbol = signal(DEFAULT_SYMBOL);
-  readonly interval = signal<ChartIntervalKey>(ChartIntervalKey.DAILY);
-  readonly logScale = signal(true);
-  readonly dataMode = signal<DataMode>('real');
-  readonly preset = signal<SyntheticPreset>('wide-ratio');
   readonly presets = SYNTHETIC_PRESETS;
-  /** ST indicator option ids currently enabled — default to the core ST
-   *  suite (trend bands + trend strength + zones V1/V2). */
-  readonly enabledIndicators = signal<ReadonlySet<string>>(DEFAULT_ENABLED_INDICATORS);
-  /** Picker list: the prod ST options plus the dev-only options — dev
-   *  indicators are offered here and nowhere else. */
+  /** Picker list: the prod ST options (Trigger Bands joined in #932) plus any
+   *  dev-only options — dev indicators are offered here and nowhere else. */
   readonly indicatorOptions = [...ST_INDICATOR_OPTIONS, ...ST_DEV_INDICATOR_OPTIONS];
-  /** Dev-option ids — their checkboxes are disabled in synthetic mode because
-   *  generated bars have no callable response to draw from. */
-  readonly devOptionIds = new Set(ST_DEV_INDICATOR_OPTIONS.map((o) => o.id));
-  /** Dev toggle: Trigger Bands pullback/breakout dots. Off by default — the
-   *  band state transitions are inspected without the marker noise; flip on
-   *  to check the dots themselves. Sandbox-only control, not part of the
-   *  indicator contract. */
-  readonly triggerBandsDots = signal(false);
+  /** Settings restored from localStorage — every persisted control seeds its
+   *  signal from this (./sandbox-settings). Defaults when absent or stale. */
+  private readonly stored = readSandboxSettings(this.indicatorOptions);
+  readonly symbol = signal(this.stored.symbol);
+  readonly interval = signal<ChartIntervalKey>(this.stored.interval);
+  readonly logScale = signal(this.stored.logScale);
+  readonly dataMode = signal<SandboxDataMode>(this.stored.dataMode);
+  readonly preset = signal<SyntheticPreset>(this.stored.preset);
+  /** ST indicator option ids currently enabled — the stored set, or the
+   *  default core ST suite (trend bands + trend strength + zones V1/V2). */
+  readonly enabledIndicators = signal<ReadonlySet<string>>(new Set(this.stored.enabledIndicators));
+  /** Callable-fed option ids — their checkboxes are disabled in synthetic mode
+   *  because generated bars have no backend response to draw from. */
+  readonly callableOnlyOptionIds = new Set<string>([
+    ...ST_DEV_INDICATOR_OPTIONS.map((o) => o.id),
+    ST_TRIGGER_BANDS_INDICATOR.id,
+  ]);
+  /** Sandbox sub-toggle: Trigger Bands pullback/breakout dots. Off by default —
+   *  the band state transitions are inspected without the marker noise; flip on
+   *  to check the dots themselves. On prod surfaces the dots are a separate
+   *  menu option (ST Trigger Bands Signals); here they stay a debug toggle. */
+  readonly triggerBandsDots = signal(this.stored.triggerBandsDots);
   readonly tbIndicatorId = ST_TRIGGER_BANDS_INDICATOR.id;
   readonly debugState = signal<ChartDebugSnapshot>({ viewport: null, axis: null, logTicks: [] });
 
@@ -153,10 +153,12 @@ export class FlexChartSandboxComponent implements OnDestroy {
   readonly avwapParams = ST_ANCHORED_VWAP_INDICATOR.params;
   readonly avwapHistoryParam = this.avwapParams.find((p) => p.key === 'historyStart')!;
   readonly avwapEnabled = computed(() => this.enabledIndicators().has(this.avwapIndicatorId));
-  readonly avwapOverrides = signal<Record<string, number | string>>({});
+  /** Per-option param overrides — generic map so any indicator (AVWAP today,
+   *  ZigZag next) can deviate from its declared defaults and persist. */
+  readonly paramOverrides = signal<SandboxSettings['paramOverrides']>(this.stored.paramOverrides);
   readonly avwapValues = computed<Record<string, number | string | boolean>>(() => ({
     ...Object.fromEntries(this.avwapParams.map((p) => [p.key, p.default])),
-    ...this.avwapOverrides(),
+    ...this.paramOverrides()[this.avwapIndicatorId],
   }));
   /** The picker's selected date — follows both the calendar and the ISO text
    *  input, so clearing un-highlights and typing syncs the calendar. */
@@ -164,6 +166,17 @@ export class FlexChartSandboxComponent implements OnDestroy {
     const v = this.avwapValues()['historyStart'];
     return typeof v === 'string' ? parseIsoDateLocal(v) : null;
   });
+
+  // ── ST ZigZag params (#935) ──────────────────────────────────────────────
+  // Same strip as AVWAP minus the appearance concerns — `input: 'color'`
+  // params (lineColor) are filtered out; there are no date/history params.
+  readonly zigzagIndicatorId = ST_ZIGZAG_INDICATOR.id;
+  readonly zigzagParams = ST_ZIGZAG_INDICATOR.params.filter((p) => p.input !== 'color');
+  readonly zigzagEnabled = computed(() => this.enabledIndicators().has(this.zigzagIndicatorId));
+  readonly zigzagValues = computed<Record<string, number | string | boolean>>(() => ({
+    ...Object.fromEntries(this.zigzagParams.map((p) => [p.key, p.default])),
+    ...this.paramOverrides()[this.zigzagIndicatorId],
+  }));
 
   @ViewChild('indicatorPicker') private indicatorPicker?: ElementRef<HTMLDetailsElement>;
   private readonly flexChart = viewChild(FlexChartComponent);
@@ -230,25 +243,26 @@ export class FlexChartSandboxComponent implements OnDestroy {
   private readonly dailyIntervalData = computed(() => this.indicatorResponse()?.intervals?.daily);
   private readonly weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
 
+  /** Opt-in gate for the lean request — real mode + a drawn interval only
+   *  (generated bars have no backend response to draw from; the lean request
+   *  is daily+weekly only, so monthly would fetch data nothing renders). */
+  private readonly triggerBandsEnabled = computed(
+    () =>
+      this.dataMode() !== 'synthetic' &&
+      this.interval() !== ChartIntervalKey.MONTHLY &&
+      this.enabledIndicators().has(ST_TRIGGER_BANDS_INDICATOR.id),
+  );
+
   /** Opt-in Trigger Bands response — a separate, lean callable result cached
-   *  under its own IndicatorSeriesStore key. Undefined until the dev indicator
-   *  is enabled and the request lands (an older backend that ignores the
-   *  family returns data without `triggerBands`: nothing draws). */
-  private readonly triggerBandsResponse = computed(() => {
-    const symbol = this.symbol();
-    const version = this.chartStore.symbolDataVersion();
-    if (
-      this.dataMode() === 'synthetic' ||
-      !this.enabledIndicators().has(ST_TRIGGER_BANDS_INDICATOR.id) ||
-      !symbol || !version
-    ) return undefined;
-    return this.indicatorStore.responseFor()(
-      symbol,
-      version,
-      TRIGGER_BANDS_CHART_INTERVALS,
-      TRIGGER_BANDS_CHART_INDICATORS,
-      TRIGGER_BANDS_CHART_STRATEGIES,
-    );
+   *  under its own IndicatorSeriesStore key (same binding signal-detail uses
+   *  in prod). Undefined until the indicator is enabled and the request lands
+   *  (an older backend that ignores the family returns data without
+   *  `triggerBands`: nothing draws). */
+  private readonly triggerBandsResponse = bindTriggerBandsRequest({
+    enabled: this.triggerBandsEnabled,
+    symbol: this.symbol,
+    version: this.chartStore.symbolDataVersion,
+    store: this.indicatorStore,
   });
 
   private readonly tbDaily = computed(() => this.triggerBandsResponse()?.intervals?.daily);
@@ -261,7 +275,7 @@ export class FlexChartSandboxComponent implements OnDestroy {
     const enabled = this.enabledIndicators();
     const interval = this.interval();
     const has = (id: string) => enabled.has(id);
-    // Dev indicator merge: bands ride on the config's triggerBandData; the
+    // Trigger Bands merge: bands ride on the config's triggerBandData; the
     // pullback/breakout dots come from the same lean response. Monthly is not
     // in the lean request, so the toggle draws nothing on M.
     const tbData = has(ST_TRIGGER_BANDS_INDICATOR.id)
@@ -272,13 +286,12 @@ export class FlexChartSandboxComponent implements OnDestroy {
           : undefined
       : undefined;
     const tbDots = tbData && this.triggerBandsDots() ? convertTriggerBandsDotMarkers(tbData) : undefined;
-    const avwapOverrides = this.avwapOverrides();
+    const overrides = this.paramOverrides();
     const base = injectTriggerBandsData(
       this.indicatorOptions.filter((o) => enabled.has(o.id)).map((o) => {
         const cfg = buildDefaultConfig(o);
-        return o.id === this.avwapIndicatorId
-          ? { ...cfg, params: { ...cfg.params, ...avwapOverrides } }
-          : cfg;
+        const ov = overrides[o.id];
+        return ov ? { ...cfg, params: { ...cfg.params, ...ov } } : cfg;
       }),
       tbData,
       this.chartData()?.bars,
@@ -381,31 +394,45 @@ export class FlexChartSandboxComponent implements OnDestroy {
       this.chartStore.loadCharts(sym);
     });
 
-    // Opt-in request: only while the dev Trigger Bands indicator is enabled
-    // in real mode — the lean bands+dots filter set under its own cache key;
-    // the default response is never refetched or invalidated.
-    effect(() => {
-      const symbol = this.symbol();
-      const version = this.chartStore.symbolDataVersion();
-      if (
-        this.dataMode() === 'synthetic' ||
-        !this.enabledIndicators().has(ST_TRIGGER_BANDS_INDICATOR.id) ||
-        !symbol || !version
-      ) return;
-      untracked(() =>
-        this.indicatorStore.loadIfNeeded(
-          symbol,
-          version,
-          TRIGGER_BANDS_CHART_INTERVALS,
-          TRIGGER_BANDS_CHART_INDICATORS,
-          TRIGGER_BANDS_CHART_STRATEGIES,
-        ),
-      );
-    });
+    // Auto-save (#934): any persisted control change rewrites the blob.
+    effect(() => saveSandboxSettings(this.settingsSnapshot()));
   }
 
-  setDataMode(mode: DataMode): void {
+  /** Current state of every persisted control — the single place the blob's
+   *  field list is enumerated for a write. */
+  private settingsSnapshot(): SandboxSettings {
+    return {
+      version: SANDBOX_SETTINGS_VERSION,
+      symbol: this.symbol(),
+      interval: this.interval(),
+      logScale: this.logScale(),
+      dataMode: this.dataMode(),
+      preset: this.preset(),
+      triggerBandsDots: this.triggerBandsDots(),
+      enabledIndicators: [...this.enabledIndicators()],
+      paramOverrides: this.paramOverrides(),
+    };
+  }
+
+  setDataMode(mode: SandboxDataMode): void {
     this.dataMode.set(mode);
+  }
+
+  /** Clear the stored blob and restore every control to factory defaults.
+   *  `clearSandboxSettings` covers the destroy-before-flush window — if the
+   *  page tears down before the auto-save effect re-runs, the cleared key
+   *  guarantees the next load still sees defaults. */
+  resetSettings(): void {
+    const d = defaultSandboxSettings();
+    this.symbol.set(d.symbol);
+    this.interval.set(d.interval);
+    this.logScale.set(d.logScale);
+    this.dataMode.set(d.dataMode);
+    this.preset.set(d.preset);
+    this.triggerBandsDots.set(d.triggerBandsDots);
+    this.enabledIndicators.set(new Set(d.enabledIndicators));
+    this.paramOverrides.set(d.paramOverrides);
+    clearSandboxSettings();
   }
 
   onPresetChange(event: Event): void {
@@ -438,24 +465,39 @@ export class FlexChartSandboxComponent implements OnDestroy {
   }
 
   /** Single override-mutation seam — `undefined` removes the key so the param
-   *  falls back to its declared default. */
-  private setAvwapOverride(key: string, value: number | string | undefined): void {
-    const next = { ...this.avwapOverrides() };
+   *  falls back to its declared default. An emptied option entry is pruned so
+   *  the persisted blob stays minimal. */
+  private setParamOverride(optionId: string, key: string, value: number | string | boolean | undefined): void {
+    const all = { ...this.paramOverrides() };
+    const next = { ...(all[optionId] ?? {}) };
     if (value === undefined) delete next[key];
     else next[key] = value;
-    this.avwapOverrides.set(next);
+    if (Object.keys(next).length === 0) delete all[optionId];
+    else all[optionId] = next;
+    this.paramOverrides.set(all);
   }
 
-  /** Commit an AVWAP control — an empty or non-numeric input deletes the
-   *  override so the param falls back to its declared default. (Check the
-   *  raw string: Number('') is 0, which would silently pin the param.) */
-  onAvwapParam(p: IndicatorParamDef, event: Event): void {
+  /** Commit a params-strip control — an empty or non-numeric input deletes
+   *  the override so the param falls back to its declared default. (Check the
+   *  raw string: Number('') is 0, which would silently pin the param.) The
+   *  number branch keys on the default's type, not the declared `input`, so
+   *  defs that omit the hint still commit numbers. */
+  onParam(optionId: string, p: IndicatorParamDef, event: Event): void {
+    if (typeof p.default === 'boolean') {
+      const checked = (event.target as HTMLInputElement).checked;
+      // Matching the default clears the override — the persisted blob stays minimal.
+      this.setParamOverride(optionId, p.key, checked === p.default ? undefined : checked);
+      return;
+    }
     const raw = (event.target as HTMLInputElement).value.trim();
-    if (p.input === 'number') {
+    if (typeof p.default === 'number') {
       const n = Number(raw);
-      this.setAvwapOverride(p.key, raw === '' || !Number.isFinite(n) ? undefined : n);
+      // Clamp on commit so in-session state matches what the reload-time
+      // sanitizer would restore — no unclamped drift between the two.
+      const clamped = Math.min(p.max ?? n, Math.max(p.min ?? n, n));
+      this.setParamOverride(optionId, p.key, raw === '' || !Number.isFinite(n) ? undefined : clamped);
     } else {
-      this.setAvwapOverride(p.key, raw === '' ? undefined : raw);
+      this.setParamOverride(optionId, p.key, raw === '' ? undefined : raw);
     }
   }
 
@@ -463,11 +505,11 @@ export class FlexChartSandboxComponent implements OnDestroy {
    *  produces local-midnight Dates; toISOString would shift back a day in US
    *  timezones. */
   onAvwapHistoryDate(d: Date | null): void {
-    this.setAvwapOverride('historyStart', d && Number.isFinite(d.getTime()) ? formatLocalDate(d) : undefined);
+    this.setParamOverride(this.avwapIndicatorId, 'historyStart', d && Number.isFinite(d.getTime()) ? formatLocalDate(d) : undefined);
   }
 
   clearAvwapHistory(): void {
-    this.setAvwapOverride('historyStart', undefined);
+    this.setParamOverride(this.avwapIndicatorId, 'historyStart', undefined);
   }
 
   onDebugStateChange(snapshot: ChartDebugSnapshot): void {

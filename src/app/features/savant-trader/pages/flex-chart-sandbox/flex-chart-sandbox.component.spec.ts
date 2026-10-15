@@ -1,7 +1,8 @@
 /// <reference types="jest" />
 /**
  * Tests for FlexChartSandboxComponent — the dev sandbox page hosting a single
- * FlexChartComponent for log-axis work (Topic #468, task #477).
+ * FlexChartComponent. Log-axis coverage: Topic #468, task #477. Persisted
+ * sandbox settings: Topic #213, task #934.
  *
  * FlexChartComponent is mocked so the page's own wiring is the unit under test.
  * The real ChartStore is provided with a mocked ChartService; IndicatorSeriesStore
@@ -37,6 +38,7 @@ import { ChartService } from '../../services/chart.service';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import {
+  ChartIntervalKey,
   StIndicator,
   type FlexChartConfig,
   type FlexChartDataset,
@@ -45,12 +47,14 @@ import {
 import type { ChartAxisState, ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { ChartInterval, IndicatorFamily, StrategyFamily } from '../../common/indicator.types';
+import type { SymbolIndicatorSeriesResponse } from '../../common/indicator.types';
 import {
   TRIGGER_BANDS_CHART_INTERVALS,
   TRIGGER_BANDS_CHART_INDICATORS,
   TRIGGER_BANDS_CHART_STRATEGIES,
 } from '../../stores/chart.store';
 import { ST_TRIGGER_BANDS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
+import { SANDBOX_SETTINGS_KEY, SANDBOX_SETTINGS_VERSION } from './sandbox-settings';
 import { SYNTHETIC_BAR_COUNT } from './synthetic-data';
 import CORE_ROUTES from '../../../../core/core-routes';
 import { AppRoutes } from '../../../../core/common/interfaces';
@@ -121,7 +125,20 @@ function mockChartService(bars: PriceBar[]): Partial<ChartService> {
   };
 }
 
-const mockIndicatorStore = {
+type ResponseLookup = (
+  symbol: string,
+  version: string,
+  intervals: ChartInterval[],
+  indicators: IndicatorFamily[],
+  strategies: StrategyFamily[],
+) => SymbolIndicatorSeriesResponse | undefined;
+
+const mockIndicatorStore: {
+  responseFor: () => ResponseLookup;
+  loadIfNeeded: jest.Mock;
+  loadingFor: () => () => boolean;
+  errorFor: () => () => null;
+} = {
   responseFor: () => () => undefined,
   loadIfNeeded: jest.fn(),
   loadingFor: () => () => false,
@@ -165,6 +182,10 @@ async function setup(bars: PriceBar[] = makeBars()): Promise<Setup> {
 // =============================================================================
 // Tests
 // =============================================================================
+
+// The auto-save effect writes settings on every component — clear between
+// tests so persisted state can't leak across specs.
+afterEach(() => localStorage.clear());
 
 describe('FlexChartSandboxComponent', () => {
   afterEach(() => TestBed.resetTestingModule());
@@ -214,7 +235,7 @@ describe('FlexChartSandboxComponent', () => {
     const dot = (d: string, index: number) => ({
       d, index, direction: 'long' as const, y: 1, version: 'TS' as const, signalType: 'X',
     });
-    const response = {
+    const response: SymbolIndicatorSeriesResponse = {
       symbol: 'QQQ',
       marketDate: '2026-01-10',
       computedAt: '',
@@ -231,7 +252,7 @@ describe('FlexChartSandboxComponent', () => {
       },
     };
     const original = mockIndicatorStore.responseFor;
-    mockIndicatorStore.responseFor = () => () => response as never;
+    mockIndicatorStore.responseFor = () => () => response;
     try {
       const { chart } = await setup();
       const byId = (id: string) => chart.config?.indicators.find((i) => i.id === `${id}-default`);
@@ -372,14 +393,16 @@ describe('FlexChartSandboxComponent', () => {
 });
 
 // =============================================================================
-// Trigger Bands dev wiring — Topic #261 / Task #880
+// Trigger Bands wiring — Topic #261 / Tasks #880, #932
 //
-// The sandbox is the only surface that offers dev indicators: the picker gets
-// ST_DEV_INDICATOR_OPTIONS, the config carries dev: true, and enabling the
-// toggle issues the lean bands+dots callable request under its own cache key.
+// TB promoted to prod in #932 — the picker entry now comes through
+// ST_INDICATOR_OPTIONS — but the sandbox still exercises the same wiring:
+// enabling the toggle issues the lean bands+dots callable request under its
+// own cache key, bands inject onto the config, and the sandbox-only "TB dots"
+// sub-toggle stays off by default.
 // =============================================================================
 
-describe('Trigger Bands dev wiring (#880)', () => {
+describe('Trigger Bands sandbox wiring (#880/#932)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   const TB_ID = ST_TRIGGER_BANDS_INDICATOR.id; // 'st-trigger-bands'
@@ -391,7 +414,7 @@ describe('Trigger Bands dev wiring (#880)', () => {
   const tbDot = (d: string, index: number, signalType: string) => ({
     d, index, direction: 'long' as const, y: 7, version: 'TB' as const, signalType,
   });
-  const tbResponse = {
+  const tbResponse: SymbolIndicatorSeriesResponse = {
     symbol: 'QQQ',
     marketDate: '2026-01-10',
     computedAt: '',
@@ -409,12 +432,12 @@ describe('Trigger Bands dev wiring (#880)', () => {
   /** responseFor serves tbResponse only for the lean Trigger Bands filter set. */
   function withLeanResponse(): typeof mockIndicatorStore.responseFor {
     const original = mockIndicatorStore.responseFor;
-    mockIndicatorStore.responseFor = (() => (
-      _symbol: string,
-      _version: string,
-      _intervals: unknown[],
-      indicators: string[],
-    ) => (indicators.includes(IndicatorFamily.TRIGGER_BANDS) ? tbResponse : undefined)) as never;
+    mockIndicatorStore.responseFor = () => (
+      _symbol,
+      _version,
+      _intervals,
+      indicators,
+    ) => (indicators.includes(IndicatorFamily.TRIGGER_BANDS) ? tbResponse : undefined);
     return original;
   }
 
@@ -424,7 +447,7 @@ describe('Trigger Bands dev wiring (#880)', () => {
     fixture.detectChanges();
   }
 
-  it('marks the chart config as dev so dev-typed indicators can render', async () => {
+  it('keeps the chart config dev:true — the sandbox is where the next dev indicator lands', async () => {
     const { chart } = await setup();
     expect(chart.config?.dev).toBe(true);
   });
@@ -550,9 +573,10 @@ describe('Anchored VWAP param controls (#872)', () => {
     const { fixture } = await setup();
     enableAvwap(fixture);
     for (const key of [
-      'smallRetracementPct', 'largeRetracementPct', 'leftDepth', 'rightDepth',
-      'smallHighColor', 'smallLowColor', 'largeHighColor', 'largeLowColor',
-      'maxHistory', 'historyStart',
+      'line1RetracementPct', 'line2RetracementPct',
+      'line1LeftDepth', 'line1RightDepth', 'line2LeftDepth', 'line2RightDepth',
+      'line1HighColor', 'line1LowColor', 'line2HighColor', 'line2LowColor',
+      'showLine1', 'showLine2', 'showZigZag', 'maxHistory', 'historyStart',
     ]) {
       expect(fixture.nativeElement.querySelector(`[data-testid="avwap-${key}"]`)).toBeTruthy();
     }
@@ -561,13 +585,30 @@ describe('Anchored VWAP param controls (#872)', () => {
   it('merges numeric overrides onto the defaults; untouched params stay at theirs', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
-    expect(avwapConfig(chart)!.params['smallRetracementPct']).toBe(2);
+    expect(avwapConfig(chart)!.params['line1RetracementPct']).toBe(2);
 
-    setInput(fixture, 'avwap-smallRetracementPct', '3.5');
+    setInput(fixture, 'avwap-line1RetracementPct', '3.5');
     const params = avwapConfig(chart)!.params;
-    expect(params['smallRetracementPct']).toBe(3.5);
-    expect(params['largeRetracementPct']).toBe(5);
+    expect(params['line1RetracementPct']).toBe(3.5);
+    expect(params['line2RetracementPct']).toBe(5);
     expect(params['maxHistory']).toBe(100);
+  });
+
+  it('the showZigZag checkbox writes a boolean override and re-checking clears it', async () => {
+    const { fixture, chart } = await setup();
+    enableAvwap(fixture);
+    const box = fixture.nativeElement.querySelector('[data-testid="avwap-showZigZag"]') as HTMLInputElement;
+    expect(box.type).toBe('checkbox');
+    expect(box.checked).toBe(true); // declared default
+    expect(avwapConfig(chart)!.params['showZigZag']).toBe(true);
+
+    box.click();
+    fixture.detectChanges();
+    expect(avwapConfig(chart)!.params['showZigZag']).toBe(false);
+
+    box.click();
+    fixture.detectChanges();
+    expect(avwapConfig(chart)!.params['showZigZag']).toBe(true);
   });
 
   it('emptying a control reverts that param to its default', async () => {
@@ -583,15 +624,15 @@ describe('Anchored VWAP param controls (#872)', () => {
   it('a colour override lands as its hex string', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
-    setInput(fixture, 'avwap-smallHighColor', '#123456');
-    expect(avwapConfig(chart)!.params['smallHighColor']).toBe('#123456');
+    setInput(fixture, 'avwap-line1HighColor', '#123456');
+    expect(avwapConfig(chart)!.params['line1HighColor']).toBe('#123456');
   });
 
   it('each control change produces a fresh config so the chart recomputes', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
     const before = chart.config;
-    setInput(fixture, 'avwap-smallRetracementPct', '4');
+    setInput(fixture, 'avwap-line1RetracementPct', '4');
     expect(chart.config).not.toBe(before);
   });
 
@@ -639,11 +680,240 @@ describe('Anchored VWAP param controls (#872)', () => {
     enableAvwap(fixture); // off
     expect(avwapConfig(chart)).toBeUndefined();
     for (const i of chart.config!.indicators) {
-      expect(Object.keys(i.params)).not.toContain('smallRetracementPct');
+      expect(Object.keys(i.params)).not.toContain('line1RetracementPct');
     }
 
     enableAvwap(fixture); // on again — tuning preserved
     expect(avwapConfig(chart)!.params['maxHistory']).toBe(7);
+  });
+});
+
+// =============================================================================
+// ZigZag bespoke params — Topic #213 / Task #935
+//
+// Same strip as AVWAP minus the appearance/date concerns: number fields for
+// the math params, checkboxes for the toggles. `lineColor` is deliberately
+// not exposed. Commits flow through the shared paramOverrides map.
+// =============================================================================
+
+describe('ZigZag bespoke params (#935)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const ZZ_ID = 'st-zigzag';
+
+  function enableZigzag(fixture: ComponentFixture<FlexChartSandboxComponent>): void {
+    (fixture.nativeElement.querySelector(`[data-testid="ind-${ZZ_ID}"]`) as HTMLInputElement).click();
+    fixture.detectChanges();
+  }
+
+  const zigzagConfig = (chart: MockFlexChartComponent) =>
+    chart.config!.indicators.find((i) => i.type === StIndicator.ST_ZIGZAG);
+
+  function setInput(fixture: ComponentFixture<FlexChartSandboxComponent>, testid: string, value: string): void {
+    const input = fixture.nativeElement.querySelector(`[data-testid="${testid}"]`) as HTMLInputElement;
+    input.value = value;
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
+  it('shows the params strip only while the indicator is enabled', async () => {
+    const { fixture, chart } = await setup();
+    expect(fixture.nativeElement.querySelector('[data-testid="zigzag-params"]')).toBeNull();
+    expect(zigzagConfig(chart)).toBeUndefined();
+
+    enableZigzag(fixture);
+    expect(fixture.nativeElement.querySelector('[data-testid="zigzag-params"]')).toBeTruthy();
+    expect(zigzagConfig(chart)).toBeTruthy();
+
+    enableZigzag(fixture); // uncheck
+    expect(fixture.nativeElement.querySelector('[data-testid="zigzag-params"]')).toBeNull();
+    expect(zigzagConfig(chart)).toBeUndefined();
+  });
+
+  it('exposes a control per editable param — math and toggles, but no lineColor', async () => {
+    const { fixture } = await setup();
+    enableZigzag(fixture);
+    for (const key of [
+      'devThreshold', 'leftDepth', 'rightDepth',
+      'allowZigZagOnOneBar', 'projectionPivots', 'showTriggerDots',
+    ]) {
+      expect(fixture.nativeElement.querySelector(`[data-testid="zigzag-${key}"]`)).toBeTruthy();
+    }
+    expect(fixture.nativeElement.querySelector('[data-testid="zigzag-lineColor"]')).toBeNull();
+  });
+
+  it('merges numeric overrides onto the defaults; untouched params stay at theirs', async () => {
+    const { fixture, chart } = await setup();
+    enableZigzag(fixture);
+    expect(zigzagConfig(chart)!.params['devThreshold']).toBe(5);
+
+    setInput(fixture, 'zigzag-devThreshold', '9');
+    const params = zigzagConfig(chart)!.params;
+    expect(params['devThreshold']).toBe(9);
+    expect(params['leftDepth']).toBe(5);
+    expect(params['rightDepth']).toBe(5);
+  });
+
+  it('the depth fields clamp to their declared min on commit', async () => {
+    const { fixture, chart } = await setup();
+    enableZigzag(fixture);
+    setInput(fixture, 'zigzag-leftDepth', '0');
+    expect(zigzagConfig(chart)!.params['leftDepth']).toBe(2);
+  });
+
+  it('a boolean toggle writes an override and re-checking clears it', async () => {
+    const { fixture, chart } = await setup();
+    enableZigzag(fixture);
+    const box = fixture.nativeElement.querySelector('[data-testid="zigzag-showTriggerDots"]') as HTMLInputElement;
+    expect(box.type).toBe('checkbox');
+    expect(box.checked).toBe(true); // declared default
+
+    box.click();
+    fixture.detectChanges();
+    expect(zigzagConfig(chart)!.params['showTriggerDots']).toBe(false);
+
+    box.click();
+    fixture.detectChanges();
+    expect(zigzagConfig(chart)!.params['showTriggerDots']).toBe(true);
+  });
+
+  it('emptying a control reverts that param to its default', async () => {
+    const { fixture, chart } = await setup();
+    enableZigzag(fixture);
+    setInput(fixture, 'zigzag-rightDepth', '8');
+    expect(zigzagConfig(chart)!.params['rightDepth']).toBe(8);
+
+    setInput(fixture, 'zigzag-rightDepth', '');
+    expect(zigzagConfig(chart)!.params['rightDepth']).toBe(5);
+  });
+});
+
+// =============================================================================
+// Persisted sandbox settings — Topic #213 / Task #934
+//
+// Every control state lives in a versioned localStorage blob: it seeds the
+// signals at construction (restore-on-load) and an auto-save effect rewrites
+// it on every change. Reset to defaults clears it.
+// =============================================================================
+
+describe('Sandbox settings persistence (#934)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const seed = (partial: Record<string, unknown>) =>
+    localStorage.setItem(SANDBOX_SETTINGS_KEY, JSON.stringify({
+      version: SANDBOX_SETTINGS_VERSION,
+      ...partial,
+    }));
+  const stored = () => JSON.parse(localStorage.getItem(SANDBOX_SETTINGS_KEY) ?? 'null');
+
+  /** Angular effects flush on change detection; a macrotask drains any stragglers. */
+  const flush = () => new Promise<void>((r) => setTimeout(r, 0));
+
+  it('restores persisted controls on load', async () => {
+    seed({
+      symbol: 'MSFT',
+      interval: 'weekly',
+      logScale: false,
+      dataMode: 'synthetic',
+      preset: 'penny',
+      triggerBandsDots: true,
+      enabledIndicators: ['st-zigzag', 'st-anchored-vwap'],
+      paramOverrides: { 'st-anchored-vwap': { maxHistory: 7 } },
+    });
+    const { fixture, chart } = await setup();
+    const c = fixture.componentInstance;
+    expect(c.symbol()).toBe('MSFT');
+    expect(c.interval()).toBe(ChartIntervalKey.WEEKLY);
+    expect(c.logScale()).toBe(false);
+    expect(c.dataMode()).toBe('synthetic');
+    expect(c.preset()).toBe('penny');
+    expect(c.triggerBandsDots()).toBe(true);
+    expect(c.enabledIndicators().has('st-zigzag')).toBe(true);
+
+    const avwap = chart.config!.indicators.find((i) => i.type === StIndicator.ST_ANCHORED_VWAP);
+    expect(avwap!.params['maxHistory']).toBe(7);
+    expect(avwap!.params['line1RetracementPct']).toBe(2); // unset params keep defaults
+  });
+
+  it('a persisted override reaches any indicator\'s config params — not just AVWAP', async () => {
+    // The generic merge path the ZigZag params strip (#935) will write through.
+    seed({
+      enabledIndicators: ['st-zigzag'],
+      paramOverrides: { 'st-zigzag': { devThreshold: 9 } },
+    });
+    const { chart } = await setup();
+    const zz = chart.config!.indicators.find((i) => i.type === StIndicator.ST_ZIGZAG);
+    expect(zz!.params['devThreshold']).toBe(9);
+    expect(zz!.params['showTriggerDots']).toBe(true); // untouched params keep declared defaults
+  });
+
+  it('still renders with factory defaults when localStorage is unavailable', async () => {
+    const getSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    const { fixture } = await setup();
+    expect(fixture.componentInstance.symbol()).toBe('QQQ');
+    expect(fixture.componentInstance.enabledIndicators().size).toBeGreaterThan(0);
+    getSpy.mockRestore();
+    setSpy.mockRestore();
+  });
+
+  it('ignores a stale blob — unknown ids and wrong version fall back', async () => {
+    localStorage.setItem(SANDBOX_SETTINGS_KEY, JSON.stringify({
+      version: 999,
+      symbol: 'MSFT',
+      enabledIndicators: ['ghost-indicator'],
+    }));
+    const { fixture } = await setup();
+    const c = fixture.componentInstance;
+    expect(c.symbol()).toBe('QQQ');
+    expect(c.enabledIndicators().has('st-trend-bands')).toBe(true);
+  });
+
+  it('auto-saves every control change to the blob', async () => {
+    const { fixture } = await setup();
+    fixture.nativeElement.querySelector('[data-testid="interval-weekly"]').click();
+    fixture.detectChanges();
+    await flush();
+    expect(stored().interval).toBe('weekly');
+
+    fixture.nativeElement.querySelector('[data-testid="ind-st-zigzag"]').click();
+    fixture.detectChanges();
+    await flush();
+    expect(stored().enabledIndicators).toContain('st-zigzag');
+  });
+
+  it('persists param overrides committed through the AVWAP form', async () => {
+    const { fixture } = await setup();
+    (fixture.nativeElement.querySelector('[data-testid="ind-st-anchored-vwap"]') as HTMLInputElement).click();
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('[data-testid="avwap-maxHistory"]') as HTMLInputElement;
+    input.value = '42';
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    await flush();
+    expect(stored().paramOverrides['st-anchored-vwap'].maxHistory).toBe(42);
+  });
+
+  it('reset-to-defaults restores factory state and clears the blob', async () => {
+    seed({ symbol: 'MSFT', enabledIndicators: ['st-zigzag'], logScale: false });
+    const { fixture } = await setup();
+    expect(fixture.componentInstance.symbol()).toBe('MSFT');
+
+    fixture.nativeElement.querySelector('[data-testid="reset-settings"]').click();
+    fixture.detectChanges();
+    await flush();
+
+    const c = fixture.componentInstance;
+    expect(c.symbol()).toBe('QQQ');
+    expect(c.logScale()).toBe(true);
+    expect(c.enabledIndicators().has('st-zigzag')).toBe(false);
+    // The auto-save effect rewrote defaults — next reload sees factory state.
+    expect(stored().symbol).toBe('QQQ');
+    expect(stored().enabledIndicators).not.toContain('st-zigzag');
   });
 });
 
