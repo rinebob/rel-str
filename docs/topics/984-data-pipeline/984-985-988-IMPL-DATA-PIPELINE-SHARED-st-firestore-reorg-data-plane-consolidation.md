@@ -10,7 +10,7 @@
 **Area:** SHARED  
 **Status:** Draft  
 **Created:** 2026-10-14  
-**Last Updated:** 2026-10-14  
+**Last Updated:** 2026-10-15  
 
 # IMPL — Data Plane Consolidation: SHARED (contracts, paths, ID builders)
 
@@ -42,22 +42,31 @@ FE mirrors the subset it reads/writes (`src/app/features/savant-trader/common/co
 
 ### 2. Type shapes
 
-**`StSignal`** — `functions/src/common/st-signals.ts`:
+Delivered as **single shared sources** in `shared/` behind `@st/*` path aliases
+(`@st/types`, `@st/signals`, `@st/order-tickets`, `@st/position-groups`,
+`@st/strategy-instances`) rather than BE/FE mirror files — BE and FE shapes
+are structurally identical by construction, and the BE surface is re-exported
+from `functions/src/common/` where a barrel is needed (same pattern as #997).
+Review deltas vs the original draft are marked `*` below.
+
+**`StSignal`** — `shared/st-signals.ts`:
 
 ```ts
 interface StSignal {
   symbol: string; signalType: string; barDate: string;   // identity (doc id)
   marketDate: string;                                    // first-detection run date
-  direction: 'long' | 'short'; timeframe: 'D' | 'W' | 'M';
-  indicators: Record<string, unknown>;                   // signal payload
-  status: 'INTERIM' | 'CONFIRMED';                       // barStatus-driven
+  direction: TradeSide; timeframe: StSignalTimeframe;    // 'long'|'short', 'D'|'W'|'M'
+  indicators: Record<string, number | string | null>;    //* narrowed scalar payload
+  status: StSignalStatus;                                // 'INTERIM'|'CONFIRMED', barStatus-driven
   sourceRunId: string; runIds: string[];                 // provenance
   ticketIds: string[]; positionGroupIds: string[];       // downstream lineage
   createdAt; updatedAt;
 }
+// plus normalizeStSignalDirection(): 'LONG'/'SHORT' → TradeSide — legacy
+// StSignalEntry.direction is uppercase; writers must map through it. *
 ```
 
-**`StOrderTicket`** — `functions/src/common/st-order-tickets.ts` + FE `order-ticket.service.ts` mirror:
+**`StOrderTicket`** — `shared/st-order-tickets.ts`:
 
 ```ts
 interface StOrderTicket {
@@ -66,25 +75,36 @@ interface StOrderTicket {
             signalId?: string; instanceId?: string; runId?: string;
             positionGroupId?: string };
   auto: boolean; mode: 'live' | 'paper';
-  terms: { side; instrument?; expression?; quantity?; dollarAmount?; limits? };
-  state: 'staged'|'submitted'|'cancel_pending'|'filled'|'cancelled'|'expired';
+  terms: { symbol: string;                               //* required — ticker being ordered
+           side: 'buy'|'sell'; instrument?; expression?;
+           quantity?; dollarAmount?; limits?;
+           legs?: StTicketLeg[];                         //* option contract identity
+           expressionTemplate?: SignalExpressionTemplate;//* staged paper recipe
+           orderType?; timeInForce?; marketHours?;       //* RH order params
+           taxLots?: { lotId; quantity }[] };            //* lot-specified sells
+  state: 'staged'|'submitted'|'cancel_pending'|'filled'|'cancelled'|'expired'|'failed';//*
   refId: string;                                         // RH ref_id idempotency
   brokerOrderId?: string;                                // live only
   reviewSnapshot?: { orderChecks; collateral };
   fillSummary?: { averagePrice; filledQty; filledAt };
   lastError?: { category: string; message: string };
   accountTarget; userId;
+  bucketId?; signalContext?; tracking?; terminalAt?;     //* order-intents migration
   createdAt; updatedAt; submittedAt?; filledAt?; cancelledAt?;
 }
 ```
 
-**`StPositionGroup`** — `functions/src/common/st-position-groups.ts`:
+`validateStTicketTerms` requires exactly one of `quantity`/`dollarAmount`,
+each positive and finite (`quantity` integral). *
+
+**`StPositionGroup`** — `shared/st-position-groups.ts`:
 
 ```ts
 interface StPositionGroup {
   id: string;                                            // {SYM}-{YYMMDD}-grp-{NN}
   origin: { type: 'signal'|'program'|'manual'; signalId?; instanceId? };
   mode: 'live'|'paper';
+  userId: string;                                        //* ownership scoping
   memberTicketIds: string[]; memberTradeIds: string[]; brokerOrderIds: string[];
   status: 'open'|'closed';
   rollups: { openCount; closedCount; realizedPnl? };
@@ -92,9 +112,13 @@ interface StPositionGroup {
 }
 ```
 
-**`StStrategyInstance`** — extends existing `StrategyInstanceConfig` with `mode: 'live'|'paper'`, `enabled`, `lastFiredAt` (shape already exists in engine contracts; add mode + move path).
+**`StStrategyInstance`** — `shared/st-strategy-instances.ts`: extends existing
+`StrategyInstanceConfig` with `mode: 'live'|'paper'`, `paperAccountId?` (*,
+required when `mode='paper'` — was `PaperStrategyInstance.paperAccountId`),
+`enabled`, `lastFiredAt`. `enabled=false` wins over `lifecycleState`; when
+enabled, `PAUSED`/`STOPPED` manage existing positions but open no new ones.
 
-**`PaperTrade` extensions** — `positionGroupId`, resolved `strike`/`expiration`/`optionType` top-level fields (indexed for analysis); remove `PENDING` from the writable status set (tickets hold pending intent).
+**`PaperTrade` extensions** — `positionGroupId`, resolved `strike`/`expiration`/`optionType` top-level fields (indexed for analysis); `PENDING` excluded from `PAPER_TRADE_WRITABLE_STATUSES` (tickets hold pending intent); `signalTimeframe`/`signalStatus` typed as `StSignalTimeframe`/`StSignalStatus` (*).
 
 ### 3. ID builders — `functions/src/common/st-ids.ts` (+ FE equivalents where minted client-side)
 

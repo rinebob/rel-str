@@ -7,6 +7,10 @@
 - [ST Firestore Reorg] 984-997_FE-IMPL-DATA-PIPELINE: @deprecated markers on legacy Collection enum members — successor pointers for cutover tasks
 - [ST Firestore Reorg] 984-997_DOCS-DATA-PIPELINE: Topic docs — ADR-009, DATA-MAP, PRD, IMPL/TEST plans
 - [ST Firestore Reorg] 984-997_DOCS-DATA-PIPELINE: CODE-REVIEW (5 passes, PASS) + UAT (Complete) for st- collections
+- [ST Firestore Reorg] 984-998_SHARED-IMPL-DATA-PIPELINE: canonical st- type shapes — StSignal, StOrderTicket (symbol, option legs, failed state, migration homes), StPositionGroup (+userId), StStrategyInstance (+mode/paperAccountId/enabled), PaperTrade lineage/contract fields, direction normalizer, 41 specs
+- [ST Firestore Reorg] 984-998_CONFIG-DATA-PIPELINE: @st/* path aliases (FE + BE + jest + tsx) + 38-check offline types verify script
+- [ST Firestore Reorg] 984-998_BE-IMPL-DATA-PIPELINE: StSignalStatus delegates to @st/signals — single canonical source
+- [ST Firestore Reorg] 984-998_DOCS-DATA-PIPELINE: IMPL §2 as-built deltas + CODE-REVIEW (PASS) + UAT (Complete) for st- type shapes
 ### Added (checkpoints)
 - [Paper Trading Infra] 553-920_BE-VERIFY-PAPER-TRADING: autoPaper trading-config seed script for #920 umbrella QA — resolves ownerUid from {uid}_PRIMARY, writes + reads back (checkpoint)
 - [Paper Trading Infra] 553-920_DOCS-PAPER-TRADING: #920 UAT doc (umbrella) — PARTIAL, AC1 PASS / AC2-4 BLOCKED (checkpoint)
