@@ -109,7 +109,7 @@ describe('broker-position-adapter integration', () => {
     }
   });
 
-  it('listOrders returns empty page when MCP tool throws internally', async () => {
+  it('listOrders throws BrokerAdapterError when MCP tool throws internally', async () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const server = new McpServer({ name: 'synthetic-server', version: '1.0.0' });
     server.registerTool('get_equity_orders', {}, async () => {
@@ -118,13 +118,17 @@ describe('broker-position-adapter integration', () => {
     await server.connect(serverTransport);
 
     try {
-      const page = await listOrders('1234567890', {
-        executorOptions: {
-          transportFactory: () => clientTransport,
-          repository: new InMemoryCredentialRepository(createCredential()),
-        },
-      });
-      assert.equal(page.orders.length, 0);
+      // An envelope-level isError must surface as an error — an empty page
+      // would silently report a broker failure as "no orders".
+      await assert.rejects(
+        listOrders('1234567890', {
+          executorOptions: {
+            transportFactory: () => clientTransport,
+            repository: new InMemoryCredentialRepository(createCredential()),
+          },
+        }),
+        BrokerAdapterError,
+      );
     } finally {
       await server.close();
     }
