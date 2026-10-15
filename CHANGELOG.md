@@ -11,6 +11,8 @@
 - [ST Firestore Reorg] 984-998_CONFIG-DATA-PIPELINE: @st/* path aliases (FE + BE + jest + tsx) + 38-check offline types verify script
 - [ST Firestore Reorg] 984-998_BE-IMPL-DATA-PIPELINE: StSignalStatus delegates to @st/signals — single canonical source
 - [ST Firestore Reorg] 984-998_DOCS-DATA-PIPELINE: IMPL §2 as-built deltas + CODE-REVIEW (PASS) + UAT (Complete) for st- type shapes
+- [Portfolio Allocation] 576-781_FE-IMPL-PORTFOLIO: Dialogs → token/density pass — dialog-chrome + dialog-status mixins in _pd-visual-language.scss; 5 dialogs tokenized (hex/rgba → --mat-sys-*), dense fields, 32px stroked actions, inline styles → .scss
+- [Portfolio Allocation] 576-781_DOCS-PORTFOLIO: CODE-REVIEW (PASS) + UAT (Complete) for dialog token/density pass
 ### Added (checkpoints)
 - [Paper Trading Infra] 553-920_BE-VERIFY-PAPER-TRADING: autoPaper trading-config seed script for #920 umbrella QA — resolves ownerUid from {uid}_PRIMARY, writes + reads back (checkpoint)
 - [Paper Trading Infra] 553-920_DOCS-PAPER-TRADING: #920 UAT doc (umbrella) — PARTIAL, AC1 PASS / AC2-4 BLOCKED (checkpoint)
