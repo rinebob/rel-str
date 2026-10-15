@@ -41,27 +41,43 @@ ngServe.on('error', (err) => {
   console.error('❌ Failed to start ng serve:', err);
 });
 
-function cleanup() {
+let shuttingDown = false;
+
+function onChildExit(name) {
+  return (code, signal) => {
+    if (shuttingDown) return;
+    console.error(`❌ ${name} exited (code ${code ?? 'null'}${signal ? `, signal ${signal}` : ''}). Shutting down.`);
+    shutdown(code ?? 1);
+  };
+}
+
+obsServer.on('exit', onChildExit('Observation API'));
+ngServe.on('exit', onChildExit('ng serve'));
+
+function killTree(child) {
+  return new Promise((resolveKill) => {
+    if (!child.pid || child.exitCode !== null) return resolveKill();
+    const k = spawn('taskkill', ['/pid', String(child.pid), '/f', '/t'], { stdio: 'ignore', shell: true });
+    k.on('exit', resolveKill);
+    k.on('error', resolveKill);
+  });
+}
+
+async function cleanup() {
+  shuttingDown = true;
   console.log('\n🛑 Stopping servers...');
   if (isWindows) {
-    if (obsServer.pid) {
-      spawn('taskkill', ['/pid', String(obsServer.pid), '/f', '/t'], { stdio: 'ignore', shell: true });
-    }
-    if (ngServe.pid) {
-      spawn('taskkill', ['/pid', String(ngServe.pid), '/f', '/t'], { stdio: 'ignore', shell: true });
-    }
+    await Promise.all([killTree(obsServer), killTree(ngServe)]);
   } else {
     obsServer.kill('SIGINT');
     ngServe.kill('SIGINT');
   }
 }
 
-process.on('SIGINT', () => {
-  cleanup();
-  process.exit(0);
-});
+async function shutdown(exitCode) {
+  await cleanup();
+  process.exit(exitCode);
+}
 
-process.on('SIGTERM', () => {
-  cleanup();
-  process.exit(0);
-});
+process.on('SIGINT', () => shutdown(0));
+process.on('SIGTERM', () => shutdown(0));
