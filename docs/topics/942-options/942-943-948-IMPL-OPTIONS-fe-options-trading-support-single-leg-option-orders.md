@@ -254,6 +254,19 @@ Form (Material, matching `order-ticket` styling):
   builder (its documented contract — a REJECT id on the ticket is
   un-rejected on discard, #755), and reject a paste whose parsed
   `symbol` ≠ the card's underlying.
+- **Persisted-fields contract** (pinned by the #962 review — the
+  confirm dialog renders `quantity`/`price`, and `submitTicket`
+  submits the STORED ticket, not the form's typed overlay): the option
+  editor must write `quantity` and `price` (per-contract limit) onto
+  the OptionOrderTicket via `updateTicket` — the shared
+  `editedPartial` in `order-ticket.component.ts` writes those fields
+  only for EQUITY/ETF today. Related: `onCancel`/`onModify` in the
+  same component call `cancelEquityOrder` unconditionally — when
+  option tickets become user-manageable they must route by
+  `instrumentType` to `cancelOptionOrder` (precedent:
+  `portfolio-dashboard.component.ts` already routes on instrument).
+  `submitOptionOrder` pre-validates legs + positive quantity before
+  any tool call, but that's a guard, not a substitute for persistence.
 - **Available cash**: `PortfolioService.getSnapshot(accountNumber,
   defaultDollarAmount)` once on tab activation → `cash` — the fatfinger
   check `premium ≤ cash × (optionMaxPremiumCashPercent ?? 25) / 100`

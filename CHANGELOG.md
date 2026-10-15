@@ -13,6 +13,8 @@
 - [ST Firestore Reorg] 984-998_DOCS-DATA-PIPELINE: IMPL §2 as-built deltas + CODE-REVIEW (PASS) + UAT (Complete) for st- type shapes
 - [Portfolio Allocation] 576-781_FE-IMPL-PORTFOLIO: Dialogs → token/density pass — dialog-chrome + dialog-status mixins in _pd-visual-language.scss; 5 dialogs tokenized (hex/rgba → --mat-sys-*), dense fields, 32px stroked actions, inline styles → .scss
 - [Portfolio Allocation] 576-781_DOCS-PORTFOLIO: CODE-REVIEW (PASS) + UAT (Complete) for dialog token/density pass
+- [Options Trading] 942-962_FE-IMPL-OPTIONS: submitOptionOrder via shared review→place→classify flow (review_option_order→place_option_order, legs wire shape, ref_id place-only, no direction) + pre-validation guards + processed_quantity fills + submitTicket OPTION routing + confirm-dialog contract summary (OCC, BUY TO OPEN, premium qty×100)
+- [Options Trading] 942-962_DOCS-OPTIONS: CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for option submit path; IMPL-948 persisted-fields/cancel-routing pins for #963/#964
 ### Added (checkpoints)
 - [Paper Trading Infra] 553-920_BE-VERIFY-PAPER-TRADING: autoPaper trading-config seed script for #920 umbrella QA — resolves ownerUid from {uid}_PRIMARY, writes + reads back (checkpoint)
 - [Paper Trading Infra] 553-920_DOCS-PAPER-TRADING: #920 UAT doc (umbrella) — PARTIAL, AC1 PASS / AC2-4 BLOCKED (checkpoint)
