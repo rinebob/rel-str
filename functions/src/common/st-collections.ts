@@ -4,25 +4,75 @@
  * Collection names, document ID patterns, and core symbol document shapes used
  * across the ST cloud function and related modules such as symbol-data-sync.
  * Keeping these in one place prevents typos and makes renames easy.
+ *
+ * This file is also the functions-side re-export surface for the canonical
+ * `st-` roots in shared/st-collections.ts (@st/collections) — during the #984
+ * dual-write window it carries both legacy (deprecated) and new names.
  */
 import type { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { ST_JOBS_SUBCOLLECTION_NAME } from '@st/collections';
 
-/** Root collection for agent run records (metadata, status, summary). */
+// Canonical `st-` roots live in shared/st-collections.ts (@st/collections) —
+// single source for BE + FE. Explicit re-export list (fails loudly on a name
+// collision, unlike `export *` which would silently shadow); names use *_ROOT,
+// disjoint from the legacy *_COLLECTION constants below.
+export {
+  ST_SYMBOLS_ROOT,
+  ST_SIGNALS_ROOT,
+  ST_RUNS_ROOT,
+  ST_ORDER_TICKETS_ROOT,
+  ST_POSITION_GROUPS_ROOT,
+  ST_STRATEGY_INSTANCES_ROOT,
+  ST_CONFIG_ROOT,
+  ST_SYMBOL_LISTS_ROOT,
+  ST_BACKTEST_RUNS_ROOT,
+  ST_BACKTEST_PERMUTATIONS_ROOT,
+  ST_PAPER_TRADING_ROOT,
+  ST_PORTFOLIO_ROOT,
+  ST_CONFIG_STATUS_DOC,
+  ST_JOBS_SUBCOLLECTION_NAME,
+  StPaperTradingKind,
+  StPortfolioKind,
+  stRunJobsPath,
+  stRunJobDocPath,
+  stPaperTradingItemsPath,
+  stPaperTradingDocPath,
+  stPortfolioItemsPath,
+  stPortfolioDocPath,
+} from '@st/collections';
+export type { StPaperTradingPathKind } from '@st/collections';
+
+/**
+ * Root collection for agent run records (metadata, status, summary).
+ * @deprecated Use ST_RUNS_ROOT ('st-runs') for new writes; removed in #1013.
+ */
 export const ST_RUNS_COLLECTION = 'savant-trader/data/runs';
 
-/** Singleton doc ID for agent status under savant-trader/data/status/{AGENT_STATUS_DOC}. */
+/**
+ * Singleton doc ID for agent status under savant-trader/data/status/{AGENT_STATUS_DOC}.
+ * @deprecated Status doc moves to st-config/status — ST_CONFIG_ROOT + ST_CONFIG_STATUS_DOC (#984); removed in #1013.
+ */
 export const AGENT_STATUS_DOC = 'current';
 
-/** Root collection for agent configuration and status. */
+/**
+ * Root collection for agent configuration and status.
+ * @deprecated Use ST_CONFIG_ROOT ('st-config') for new writes; removed in #1013.
+ */
 export const ST_STATUS_COLLECTION = 'savant-trader/data/status';
 
 /** UTC cron for the nightly ST Cloud Scheduler (6 PM PT Mon-Fri in PDT). */
 export const ST_SCHEDULE_CRON = '0 1 * * 2-6';
 
-/** Symbol list collection for daily scanning. */
+/**
+ * Symbol list collection for daily scanning.
+ * @deprecated Use ST_SYMBOLS_ROOT ('st-symbols') for new writes; removed in #1013.
+ */
 export const ST_SYMBOLS_COLLECTION = 'savant-trader/data/symbols';
 
-/** User-defined symbol lists (NEW, PRIMARY, SECONDARY, etc.). */
+/**
+ * User-defined symbol lists (NEW, PRIMARY, SECONDARY, etc.).
+ * @deprecated Use ST_SYMBOL_LISTS_ROOT ('st-symbol-lists') for new writes; removed in #1013.
+ */
 export const ST_SYMBOL_LISTS_COLLECTION = 'savant-trader/data/symbol-lists';
 
 /**
@@ -39,16 +89,28 @@ export enum StSymbolSource {
   PARTNER_UNIVERSE = 'partner-universe',
 }
 
-/** Symbol analysis jobs (subcollection under runs). */
-export const ST_JOBS_SUBCOLLECTION = 'jobs';
+/**
+ * Symbol analysis jobs subcollection name (same 'jobs' under legacy runs and st-runs).
+ * @deprecated Use ST_JOBS_SUBCOLLECTION_NAME / stRunJobsPath from @st/collections for new code.
+ */
+export const ST_JOBS_SUBCOLLECTION = ST_JOBS_SUBCOLLECTION_NAME;
 
-/** Run-ids subcollection under each symbol doc. One doc per runId, signals as a map field. */
+/**
+ * Run-ids subcollection under each symbol doc. One doc per runId, signals as a map field.
+ * @deprecated Superseded by runIds[] on st-signals occurrence docs (#984); removed in #1013.
+ */
 export const ST_RUN_IDS_SUBCOLLECTION = 'run-ids';
 
-/** Signal-history subcollection under each symbol doc. One doc per date; canonical EOD truth. */
+/**
+ * Signal-history subcollection under each symbol doc. One doc per date; canonical EOD truth.
+ * @deprecated Superseded by flat st-signals occurrence docs (#984); removed in #1013.
+ */
 export const ST_SIGNAL_HISTORY_SUBCOLLECTION = 'signal-history';
 
-/** Order intents collection (new). */
+/**
+ * Order intents collection (new).
+ * @deprecated Use ST_ORDER_TICKETS_ROOT ('st-order-tickets') for new writes; removed in #1013.
+ */
 export const ST_ORDER_INTENTS_COLLECTION = 'savant-trader/data/order-intents';
 
 /**
@@ -59,10 +121,13 @@ export const ST_ORDER_INTENTS_COLLECTION = 'savant-trader/data/order-intents';
  */
 export { ST_SCREENSHOTS_COLLECTION } from '@screenshot-capture/contracts';
 
-/** Trading config collection (new). */
+/**
+ * Trading config collection (new).
+ * @deprecated Use ST_CONFIG_ROOT ('st-config') for new writes; removed in #1013.
+ */
 export const ST_TRADING_CONFIG_COLLECTION = 'savant-trader/data/trading-config';
 
-/** Doc id for the auto-paper ingest config under trading-config. */
+/** Doc id for the auto-paper ingest config — legacy trading-config/autoPaper, moves to st-config/autoPaper (#984). */
 export const AUTO_PAPER_CONFIG_DOC = 'autoPaper';
 
 /**
@@ -83,15 +148,22 @@ export interface AutoPaperConfig {
   ownerUid?: string;
 }
 
-/** Occurrence decisions collection (matches FE Collection enum). */
+/**
+ * Occurrence decisions collection (matches FE Collection enum).
+ * @deprecated Decisions fold into st-order-tickets (#984); removed in #1013.
+ */
 export const ST_OCCURRENCE_DECISIONS_COLLECTION = 'savant-trader/data/occurrence-decisions';
 
-/** Review list collection (matches FE Collection enum). */
+/**
+ * Review list collection (matches FE Collection enum).
+ * @deprecated Being removed entirely in #984 — do not write new consumers.
+ */
 export const ST_REVIEW_LIST_COLLECTION = 'savant-trader/data/review-list';
 
 /**
- * Symbol document in savant-trader/data/symbol-meta/{SYMBOL}.
- * Config fields coexist with SA company overview and signal gate fields.
+ * Symbol document — today under savant-trader/data/symbols/{SYMBOL}
+ * (config fields coexist with SA company overview + signal gate fields);
+ * symbols + symbol-meta merge into st-symbols/{SYMBOL} in #984.
  */
 export interface StSymbol {
   symbol: string;

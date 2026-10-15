@@ -1,5 +1,5 @@
 /**
- * Run all verification scripts for the broker-order adapter.
+ * Run all registered verification scripts in this directory.
  * Runs each script in order and reports pass/fail.
  *
  * Usage:
@@ -29,6 +29,7 @@ const scripts: VerifyScript[] = [
   { name: 'list orders', file: 'savant-trader-broker-orders-list.ts', needsAccount: true },
   { name: 'list positions', file: 'savant-trader-broker-positions-list.ts', needsAccount: true },
   { name: 'paper-trading contracts', file: 'paper-trading-contracts-560-ids.ts', needsAccount: false },
+  { name: 'st-collections paths', file: 'data-pipeline-st-collections-997.ts', needsAccount: false },
   { name: 'paper-trading trade-exits contracts', file: 'paper-trading-contracts-665.ts', needsAccount: false },
   {
     name: 'swing config library',
