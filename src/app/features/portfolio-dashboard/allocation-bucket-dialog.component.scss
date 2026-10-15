@@ -1,0 +1,9 @@
+@use 'styles/pd-visual-language' as vl;
+
+:host {
+  @include vl.dialog-chrome;
+
+  mat-dialog-content {
+    min-width: 320px;
+  }
+}

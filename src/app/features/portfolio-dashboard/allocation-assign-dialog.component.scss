@@ -1,0 +1,25 @@
+@use 'styles/pd-visual-language' as vl;
+
+:host {
+  @include vl.dialog-chrome;
+
+  mat-dialog-content {
+    min-width: 280px;
+  }
+
+  .picker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .dim {
+      font-size: 12px;
+    }
+  }
+
+  .link-note {
+    font-size: 12px;
+    color: var(--mat-sys-on-surface-variant);
+    margin: 0;
+  }
+}

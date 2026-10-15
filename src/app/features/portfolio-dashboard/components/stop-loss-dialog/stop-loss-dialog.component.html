@@ -55,10 +55,10 @@
 <mat-dialog-actions align="end">
   @switch (state()) {
     @case ('editing') {
-      <button mat-button (click)="onCancel()">Cancel</button>
+      <button mat-stroked-button (click)="onCancel()">Cancel</button>
     }
     @case ('submitting') {
-      <button mat-button disabled>Submitting...</button>
+      <button mat-stroked-button disabled>Submitting...</button>
     }
     @case ('success') {
       <button mat-flat-button color="primary" (click)="onDone()">
@@ -67,7 +67,7 @@
       </button>
     }
     @case ('error') {
-      <button mat-button (click)="onCancel()">Cancel</button>
+      <button mat-stroked-button (click)="onCancel()">Cancel</button>
       @if (canRetry()) {
         <button mat-flat-button color="primary" (click)="onRetry()">
           <mat-icon>refresh</mat-icon>

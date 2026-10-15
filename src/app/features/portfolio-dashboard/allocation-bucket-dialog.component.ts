@@ -52,14 +52,14 @@ export interface BucketDialogResult {
           bucket remains — no history row, no stats.
         </p>
       } @else {
-        <mat-form-field appearance="outline">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Bucket name</mat-label>
           <input matInput data-testid="bucket-name-input"
             [value]="name()" (input)="name.set($any($event.target).value)"
             placeholder="e.g. Theta wheel"
           />
         </mat-form-field>
-        <mat-form-field appearance="outline">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Target %</mat-label>
           <input matInput type="number" min="0" max="100" step="0.5"
             data-testid="bucket-pct-input"
@@ -73,7 +73,7 @@ export interface BucketDialogResult {
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button type="button" data-testid="dialog-cancel"
+      <button mat-stroked-button type="button" data-testid="dialog-cancel"
         [disabled]="pending()" (click)="ref.close(undefined)"
       >Cancel</button>
       @if (data.mode === 'retire' || data.mode === 'delete') {
@@ -95,15 +95,7 @@ export interface BucketDialogResult {
       }
     </mat-dialog-actions>
   `,
-  styles: [`
-    mat-dialog-content { display: flex; flex-direction: column; gap: 8px; min-width: 320px; }
-    mat-form-field { width: 100%; }
-    mat-spinner { display: inline-block; margin-right: 6px; }
-    .dialog-error {
-      padding: 8px 12px; border-radius: 4px;
-      background: #fdecea; color: #b3261e; font-size: 0.85rem;
-    }
-  `],
+  styleUrl: './allocation-bucket-dialog.component.scss',
 })
 export class AllocationBucketDialogComponent {
   protected readonly data = inject<BucketDialogData>(MAT_DIALOG_DATA);

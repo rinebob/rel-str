@@ -121,29 +121,10 @@ export interface BucketDetailDialogData {
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
-      <button mat-button type="button" data-testid="dialog-close" (click)="ref.close()">Close</button>
+      <button mat-stroked-button type="button" data-testid="dialog-close" (click)="ref.close()">Close</button>
     </mat-dialog-actions>
   `,
-  styles: [`
-    .title-row { display: flex; align-items: center; gap: 12px; }
-    .bucket-picker { min-width: 200px; font-size: 1rem; }
-    .meta { font-size: 0.8rem; }
-    mat-dialog-content { min-width: 420px; }
-    .stats-strip { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.85rem; margin-bottom: 12px; }
-    .carousel { display: flex; align-items: center; gap: 8px; min-height: 140px; }
-    .pos-card { flex: 1; border: 1px solid #eee; border-radius: 6px; padding: 12px; }
-    .pos-head { display: flex; justify-content: space-between; margin-bottom: 8px; }
-    .pos-stats { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.85rem; }
-    .fills { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
-    .fill-row { font-size: 0.75rem; color: #666; font-variant-numeric: tabular-nums; }
-    .chart-stub {
-      margin-top: 10px; padding: 24px; text-align: center;
-      border: 1px dashed #ccc; border-radius: 6px; color: #999; font-size: 0.8rem;
-    }
-    .dim { color: #999; }
-    .empty { padding: 24px; text-align: center; width: 100%; }
-    .neg { color: #c62828; }
-  `],
+  styleUrl: './allocation-bucket-detail-dialog.component.scss',
 })
 export class AllocationBucketDetailDialogComponent {
   protected readonly data = inject<BucketDetailDialogData>(MAT_DIALOG_DATA);

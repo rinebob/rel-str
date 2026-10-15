@@ -60,7 +60,7 @@ const UNASSIGNED = '__unassigned__';
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button type="button" data-testid="dialog-cancel"
+      <button mat-stroked-button type="button" data-testid="dialog-cancel"
         [disabled]="pending()" (click)="ref.close(undefined)"
       >Cancel</button>
       <button mat-flat-button color="primary" type="button" data-testid="dialog-save"
@@ -71,17 +71,7 @@ const UNASSIGNED = '__unassigned__';
       </button>
     </mat-dialog-actions>
   `,
-  styles: [`
-    mat-dialog-content { display: flex; flex-direction: column; gap: 10px; min-width: 280px; }
-    .picker { display: flex; flex-direction: column; gap: 6px; }
-    .dim { color: #999; font-size: 0.8rem; }
-    .link-note { font-size: 0.8rem; color: #777; margin: 0; }
-    mat-spinner { display: inline-block; margin-right: 6px; }
-    .dialog-error {
-      padding: 8px 12px; border-radius: 4px;
-      background: #fdecea; color: #b3261e; font-size: 0.85rem;
-    }
-  `],
+  styleUrl: './allocation-assign-dialog.component.scss',
 })
 export class AllocationAssignDialogComponent {
   protected readonly data = inject<AssignDialogData>(MAT_DIALOG_DATA);

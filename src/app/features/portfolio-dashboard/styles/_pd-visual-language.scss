@@ -250,6 +250,133 @@ $down: #f44336;
   }
 }
 
+/// Compact dialog chrome — order-confirm-dialog convention (task #781).
+/// Apply inside `:host`. Emits: 16px title row with a small tertiary
+/// icon, a flex-column content body, dense form fields (spread-builder
+/// density tokens), 32px action buttons with 16px icons, a `.dim`
+/// muted-text utility, and a tokenized `.dialog-error` block. Per-dialog
+/// min-width stays with the component — dialogs legitimately differ.
+/// Secondary actions should be `mat-stroked-button`, the primary stays
+/// `mat-flat-button` (both get the 32px row height).
+@mixin dialog-chrome() {
+  // Spread-builder density convention — on :host so the custom props
+  // cascade into any mat-form-field rendered by a child component.
+  // Dynamic subscript sizing stays a per-field template attribute.
+  --mat-form-field-container-vertical-padding: 4px;
+  --mat-form-field-container-height: 40px;
+
+  h2[mat-dialog-title] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: var(--mat-sys-tertiary);
+    }
+  }
+
+  mat-dialog-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    // Full-width fields are the dialog norm; pickers living in the title
+    // row (bucket-detail switcher) are deliberately excluded.
+    mat-form-field {
+      width: 100%;
+    }
+  }
+
+  .dim {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  .dialog-error {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    background: var(--mat-sys-error-container);
+    color: var(--mat-sys-on-error-container);
+  }
+
+  mat-dialog-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 32px;
+    font-size: 12px;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    mat-spinner {
+      display: inline-block;
+      margin-right: 6px;
+    }
+  }
+}
+
+/// Dialog status states — the submitting/success/error presentation
+/// shared verbatim by the close-position and stop-loss dialogs (#781).
+/// Emits `.status-section` (+ success/error icon accents), `.result-row`
+/// label/value pairs, and `.error-message`. `.spinner` resolves the
+/// global `@keyframes spin` in src/styles.scss — do not redefine it.
+@mixin dialog-status() {
+  .status-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 0;
+
+    mat-icon {
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+    }
+
+    &.success mat-icon {
+      color: $up;
+    }
+
+    &.error mat-icon {
+      color: var(--mat-sys-error);
+    }
+
+    .spinner {
+      animation: spin 1s linear infinite;
+    }
+  }
+
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 280px;
+    padding: 4px 0;
+
+    .label {
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .value {
+      font-weight: 500;
+    }
+  }
+
+  .error-message {
+    color: var(--mat-sys-error);
+    text-align: center;
+  }
+}
+
 /// Tokenized error banner — replaces the hard-coded `#fef0f0` red banner.
 @mixin error-banner() {
   display: flex;
