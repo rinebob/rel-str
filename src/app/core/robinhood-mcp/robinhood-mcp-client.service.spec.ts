@@ -93,7 +93,7 @@ describe('RobinhoodMcpClient', () => {
       } satisfies AccountInfo);
       expect(accounts[1]).toEqual({
         accountNumber: '987654321',
-        accountName: '',
+        accountName: 'Retirement',
         accountType: 'retirement',
         agenticAllowed: false,
       } satisfies AccountInfo);
@@ -121,7 +121,26 @@ describe('RobinhoodMcpClient', () => {
 
       expect(accounts.length).toBe(1);
       expect(accounts[0].accountNumber).toBe('111222333');
-      expect(accounts[0].accountName).toBe('');
+      expect(accounts[0].accountName).toBe('Brokerage');
+    });
+
+    it('labels a nicknameless individual brokerage account "Investing" (RH app parity)', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            accounts: [
+              { account_number: '1655', type: 'margin', brokerage_account_type: 'individual', agentic_allowed: false },
+            ],
+          },
+        },
+        redacted: {},
+        tool: 'get_accounts',
+      });
+
+      const accounts = await client.getAccounts();
+
+      expect(accounts[0].accountName).toBe('Investing');
     });
 
     it('returns all accounts from bare array shape', async () => {

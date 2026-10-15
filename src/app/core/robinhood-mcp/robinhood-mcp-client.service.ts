@@ -75,10 +75,23 @@ export class RobinhoodMcpClient {
     const raw = this.extractAccountList(result.parsed);
     return raw.map((a) => ({
       accountNumber: String(a['account_number'] ?? ''),
-      accountName: String(a['nickname'] ?? ''),
+      accountName: this.accountDisplayName(a),
       accountType: String(a['type'] ?? ''),
       agenticAllowed: a['agentic_allowed'] === true,
     }));
+  }
+
+  /** Display name per the RH accounts guide: `nickname` when set, else a
+   *  label for the account kind — 'Investing' for the standard individual
+   *  brokerage (the RH app's own label), title-cased account kind
+   *  otherwise. Guarantees a non-empty label for unnamed accounts. */
+  private accountDisplayName(a: Record<string, unknown>): string {
+    const nickname = String(a['nickname'] ?? '');
+    if (nickname) return nickname;
+    const kind = String(a['brokerage_account_type'] ?? '');
+    if (kind === 'individual') return 'Investing';
+    const raw = kind || String(a['type'] ?? 'account');
+    return raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   // ---------------------------------------------------------------------------
