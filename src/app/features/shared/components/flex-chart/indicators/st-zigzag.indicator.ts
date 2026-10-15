@@ -29,12 +29,13 @@ export const ST_ZIGZAG_INDICATOR: IndicatorOption = {
   defaultPane: 'overlay',
   axisScale: 'price',
   params: [
-    { key: 'devThreshold', label: 'Dev Threshold %', default: DEFAULT_CONFIG.devThreshold, min: 0.1, max: 50 },
-    { key: 'leftDepth', label: 'Left Depth', default: DEFAULT_CONFIG.leftDepth, min: 2, max: 100 },
-    { key: 'rightDepth', label: 'Right Depth', default: DEFAULT_CONFIG.rightDepth, min: 2, max: 100 },
+    { key: 'devThreshold', label: 'Dev Threshold %', default: DEFAULT_CONFIG.devThreshold, min: 0.1, max: 50, input: 'number' },
+    { key: 'leftDepth', label: 'Left Depth', default: DEFAULT_CONFIG.leftDepth, min: 2, max: 100, input: 'number' },
+    { key: 'rightDepth', label: 'Right Depth', default: DEFAULT_CONFIG.rightDepth, min: 2, max: 100, input: 'number' },
+    // No `input` — boolean defaults fall back to a checkbox control.
     { key: 'allowZigZagOnOneBar', label: 'Allow on One Bar', default: DEFAULT_CONFIG.allowZigZagOnOneBar },
     { key: 'projectionPivots', label: 'Projection Pivots', default: DEFAULT_CONFIG.projectionPivots },
-    { key: 'lineColor', label: 'Line Color', default: DEFAULT_CONFIG.lineColor },
+    { key: 'lineColor', label: 'Line Color', default: DEFAULT_CONFIG.lineColor, input: 'color' },
     { key: 'showTriggerDots', label: 'Trigger Dots', default: true },
   ],
 };
