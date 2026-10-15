@@ -9,7 +9,7 @@
 **Type:** SPEC (SA handoff)  
 **Status:** Complete  
 **Created:** 2026-09-22  
-**Last Updated:** 2026-09-22  
+**Last Updated:** 2026-09-23  
 
 ---
 
@@ -141,19 +141,33 @@ Two new boolean fields on SA's symbol record, editable in Symbol Manager:
   curation data for deciding `optionsEnabled`. One-time backfill job +
   on-add probe for new symbols.
 
-## 3. Options corpus
+## 3. Options corpus — the full pipeline
 
-- Reuse the existing GCS corpus infra (the QQQ/TQQQ CSV-per-date layout)
-  unchanged.
-- Docs keyed `(symbol, date)`.
+Two-stage ingest, both SA-owned (this exists today for QQQ/TQQQ — this
+spec asks SA to generalize it to the `optionsEnabled` universe):
+
+**Stage 1 — daily chain snapshots → GCS CSV docs.** One CSV per
+`(symbol, date)` on the existing corpus layout, unchanged. This is the
+snapshot corpus `partnerHistoricalOptionsV2` serves from.
+
+**Stage 2 — per-contract Firestore time-series docs.** From each chain
+snapshot, SA derives one doc per contract id that accumulates the
+contract's daily observations (mark/OHLC, volume, OI, IV, greeks) into a
+time series — that's what powers the contract-chart viewer. Today this
+runs SA-side only; under this spec it must run for every ingested
+`(symbol, date)` — seeded pivots, backfill dates, and any live-fetched
+docs SA chooses to persist — so every enabled symbol's contracts get
+time-series coverage, not just QQQ/TQQQ.
+
 - **Update trigger:** when the swing pipeline detects a newly-*confirmed*
   pivot for an enabled symbol (config × symbol), ingest that pivot date's
-  chain. Repaint semantics: the doc lands when the pivot confirms
-  (rightDepth bars later), not when it first paints.
-- **One-time backfill:** after the `optionsEnabled` flag is populated, seed
-  the corpus with every enabled symbol's historical pivot dates across all
-  4 configs. Idempotent — rerunnable, skips existing docs.
-- Per-contract docs + contract-chart viewer stay SA-side, unchanged.
+  chain (stage 1 + stage 2). Repaint semantics: the doc lands when the
+  pivot confirms (rightDepth bars later), not when it first paints.
+- **One-time backfill:** after the `optionsEnabled` flag is populated,
+  seed the corpus with every enabled symbol's historical pivot dates
+  across all 4 configs — both stages. Idempotent — rerunnable, skips
+  existing docs.
+- The contract-chart viewer stays SA-side, unchanged.
 
 ## 4. Endpoint contract — what ST depends on
 

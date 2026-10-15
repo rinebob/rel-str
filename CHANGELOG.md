@@ -12,6 +12,7 @@
 - [Flex Chart Visual Polish] 213-909_DOCS-FLEX-CHART: PRD — dev save settings (checkpoint)
 - [Flex Chart Visual Polish] 213-928_DOCS-FLEX-CHART: IMPL + TEST — sandbox persisted settings & param editing FE (checkpoint)
 - [Flex Chart Visual Polish] 213-934_DOCS-FLEX-CHART: #933 CODE-REVIEW + #934 UAT docs for sandbox settings persistence (checkpoint)
+- [Option Chain Pct Change Grid] 326-518_DOCS-OPTIONS: SA corpus handoff SPEC update + RATIONALE doc — why swing generation/options corpus move to SA (checkpoint)
 ### Changed
 - [Paper Trading Infra] 553-920_BE-CHORE-PAPER-TRADING: cron coverage rationale comment on open-pass timer (checkpoint)
 ### Fixed
