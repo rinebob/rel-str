@@ -14,6 +14,7 @@
 import { OptionType, OptionQuoteSource } from './options-common';
 import { TradeSide, type EquityCurvePoint } from './common';
 import type { StrategyInstanceConfig } from './options-strategy-engine-contracts';
+import type { StSignalStatus, StSignalTimeframe } from './st-signals';
 import { PaperTradingKind } from './paper-trading-ids';
 
 export { PaperTradingKind } from './paper-trading-ids';
@@ -53,6 +54,21 @@ export enum PaperTradeStatus {
   ASSIGNED = 'ASSIGNED',
   CANCELLED = 'CANCELLED', // PENDING trade cancelled before fill — never held
 }
+
+/**
+ * Statuses writers may stamp on a PaperTrade (#984) — PENDING excluded:
+ * pending expression intent lives on order tickets (st-order-tickets), so
+ * trade docs are created only after contract resolution. PENDING stays in
+ * the enum for legacy docs and read paths.
+ */
+export type PaperTradeWritableStatus = Exclude<PaperTradeStatus, PaperTradeStatus.PENDING>;
+export const PAPER_TRADE_WRITABLE_STATUSES: readonly PaperTradeWritableStatus[] = [
+  PaperTradeStatus.OPEN,
+  PaperTradeStatus.CLOSED,
+  PaperTradeStatus.EXPIRED,
+  PaperTradeStatus.ASSIGNED,
+  PaperTradeStatus.CANCELLED,
+];
 
 export enum PaperTradeSource {
   STRATEGY = 'strategy',
@@ -171,9 +187,18 @@ export interface PaperTrade extends PaperTradingDocBase {
   source: PaperTradeSource;
   strategyInstanceId?: string;
   cohortId?: string;
+  /** Owning position group (st-position-groups/{id}, #984) — supersedes
+   *  `cohortId` on new trades; both fields coexist during dual-write. */
+  positionGroupId?: string;
   signalId?: string;
   symbol: string;
   expression: string;               // 'EQ' | 'CSP' | 'BCS' | ...
+  /** Resolved contract fields denormalized to top level for analysis
+   *  indexing (#984) — written when the expression-fill pass resolves a
+   *  contract; absent on share trades. */
+  strike?: number;
+  expiration?: string;              // ISO date
+  optionType?: OptionType;
   governingVariant: string;         // variantKey governing the real lifecycle
   // lifecycle payloads
   ticket?: PaperTicket;
@@ -217,12 +242,14 @@ export interface PaperTrade extends PaperTradingDocBase {
   // created by the run-completion auto-ingest; all absent on manual trades.
   /** Signal type that fired, e.g. 'D_ST_TREND_RIDER_V1_LONG'. */
   signalType?: string;
-  /** Signal timeframe — 'D' for this thread's daily-only scope. */
-  signalTimeframe?: 'D' | 'W' | 'M';
+  /** Signal timeframe — 'D' for this thread's daily-only scope.
+   *  Canonical type: StSignalTimeframe (@st/signals). */
+  signalTimeframe?: StSignalTimeframe;
   /** YYYY-MM-DD bar the signal fired on (dedupe component). */
   signalBarDate?: string;
-  /** 'INTERIM' | 'CONFIRMED' — signal status at capture time. */
-  signalStatus?: 'INTERIM' | 'CONFIRMED';
+  /** 'INTERIM' | 'CONFIRMED' — signal status at capture time.
+   *  Canonical type: StSignalStatus (@st/signals). */
+  signalStatus?: StSignalStatus;
   /** ST run that produced the signal. */
   signalRunId?: string;
   /** Scalar indicator snapshot, verbatim from the signal entry. */

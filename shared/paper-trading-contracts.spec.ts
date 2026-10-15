@@ -28,6 +28,7 @@ import {
   isGoverningEligiblePct,
   TERMINAL_VARIANT_FAMILIES,
   AUTO_PAPER_USER_ID,
+  PAPER_TRADE_WRITABLE_STATUSES,
   type ClosePaperTradeRequest,
   type ClosePaperTradeResponse,
   type CancelPaperTradeRequest,
@@ -289,5 +290,74 @@ describe('auto-paper signal trades (Thread #904)', () => {
     };
     expect(isPaperTrade(manual)).toBe(true);
     expect(manual.signalType).toBeUndefined();
+  });
+});
+
+describe('PaperTrade st- lineage extensions (#984)', () => {
+  it('carries positionGroupId + resolved contract fields at top level', () => {
+    const trade: PaperTrade = {
+      kind: PaperTradingKind.TRADE,
+      id: 'ADPT-260927-sig-CSP-01',
+      createdAt: NOW, updatedAt: NOW,
+      status: PaperTradeStatus.OPEN,
+      source: PaperTradeSource.SIGNAL,
+      positionGroupId: 'ADPT-260927-grp-01',
+      strike: 155,
+      expiration: '2026-11-20',
+      optionType: OptionType.PUT,
+      symbol: 'ADPT',
+      expression: 'CSP',
+      governingVariant: 'trailing-8',
+      order: { side: TradeSide.SHORT, type: 'LIMIT', quantity: 1 },
+      fills: [],
+      legs: [],
+      marks: {},
+      variantRuns: [],
+      variantKeys: [],
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+    };
+    expect(isPaperTrade(trade)).toBe(true);
+    expect(trade.positionGroupId).toBe('ADPT-260927-grp-01');
+    expect(trade.strike).toBe(155);
+    expect(trade.expiration).toBe('2026-11-20');
+    expect(trade.optionType).toBe(OptionType.PUT);
+  });
+
+  it('a share trade compiles with the contract fields absent', () => {
+    const share: PaperTrade = {
+      kind: PaperTradingKind.TRADE,
+      id: 'ADPT-260927-sig-EQ-01',
+      createdAt: NOW, updatedAt: NOW,
+      status: PaperTradeStatus.OPEN,
+      source: PaperTradeSource.SIGNAL,
+      positionGroupId: 'ADPT-260927-grp-01',
+      symbol: 'ADPT',
+      expression: 'EQ',
+      governingVariant: 'trailing-8',
+      order: { side: TradeSide.LONG, type: 'MARKET', quantity: 10 },
+      fills: [],
+      legs: [],
+      marks: {},
+      variantRuns: [],
+      variantKeys: [],
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+    };
+    expect(share.strike).toBeUndefined();
+    expect(share.optionType).toBeUndefined();
+  });
+
+  it('writable statuses exclude PENDING — tickets hold pending intent', () => {
+    expect(PAPER_TRADE_WRITABLE_STATUSES).not.toContain(PaperTradeStatus.PENDING);
+    expect([...PAPER_TRADE_WRITABLE_STATUSES].sort()).toEqual([
+      PaperTradeStatus.ASSIGNED,
+      PaperTradeStatus.CANCELLED,
+      PaperTradeStatus.CLOSED,
+      PaperTradeStatus.EXPIRED,
+      PaperTradeStatus.OPEN,
+    ]);
+    // PENDING stays in the enum — legacy docs + reads still honor it.
+    expect(Object.values(PaperTradeStatus)).toContain('PENDING');
   });
 });
