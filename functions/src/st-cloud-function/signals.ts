@@ -9,6 +9,7 @@
 // under functions/tsconfig but not under the jest spec tsconfig, so modules
 // that transitively reach this file must not rely on it.
 import type { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import type { StSignalStatus } from '@st/signals';
 
 /**
  * Signal direction — whether the signal is a long or short entry.
@@ -36,8 +37,10 @@ export enum StSignalType {
 /**
  * Signal status — INTERIM for open W/M periods, CONFIRMED once the period closes.
  * Daily signals are INTERIM during intraday runs, CONFIRMED on the nightly run.
+ * Canonical definition: @st/signals (shared/st-signals.ts) — re-exported here
+ * for the legacy signal-entry surface (#984).
  */
-export type StSignalStatus = 'INTERIM' | 'CONFIRMED';
+export type { StSignalStatus };
 
 /**
  * Individual signal entry stored in the signals map of a run-ids or signal-history doc.
