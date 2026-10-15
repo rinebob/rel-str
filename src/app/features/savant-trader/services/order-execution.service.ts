@@ -1,13 +1,15 @@
 /**
  * Savant Trader Order Execution Service
  *
- * Wraps RobinhoodMcpObservationService for equity order placement and cancellation.
- * Does NOT handle user-facing confirmation dialogs — that is the UI's responsibility.
- * The review_equity_order preflight is a simulation, not a confirmation gate.
+ * Wraps RobinhoodMcpObservationService for equity and option order placement
+ * and cancellation. Does NOT handle user-facing confirmation dialogs — that is
+ * the UI's responsibility. The review_*_order preflight is a simulation, not a
+ * confirmation gate.
  *
- * submitEquityOrder: review_equity_order (simulation preflight) → place_equity_order
- *   with ref_id idempotency. Classifies errors as retryable vs non-retryable.
- * cancelEquityOrder: calls cancel_equity_order.
+ * submitEquityOrder / submitOptionOrder: review_*_order (simulation preflight)
+ *   → place_*_order with ref_id idempotency, via the shared submitReviewThenPlace
+ *   flow. Classifies errors as retryable vs non-retryable.
+ * cancelEquityOrder / cancelOptionOrder: call the matching cancel tool.
  * updateEquityStopOrder: cancel an existing protective stop → submit the replacement
  *   ticket with bounded retry. Reports which phase failed and whether the position
  *   was left unprotected (cancel succeeded but the replacement never landed).
@@ -23,6 +25,7 @@ import { CaptureEvent, PositionType } from '@screenshot-capture/contracts';
 import {
   BrokerOrderSnapshot,
   EquityOrderTicket,
+  OptionOrderTicket,
   OrderTicketError,
   OrderTicketResult,
 } from './order-ticket.types';
@@ -32,6 +35,17 @@ export interface ExecutionResult {
   success: boolean;
   result?: OrderTicketResult;
   error?: OrderTicketError;
+}
+
+/** One review→place submission leg — the per-instrument deltas to the
+ *  shared submitReviewThenPlace flow are exactly these five. */
+interface ReviewPlaceFlow {
+  reviewTool: string;
+  reviewArgs: Record<string, unknown>;
+  placeTool: string;
+  placeArgs: Record<string, unknown>;
+  positionType: PositionType;
+  parsePlace: (parsed: unknown) => OrderTicketResult;
 }
 
 /** Result of a stop-order update (cancel existing → place replacement). */
@@ -196,10 +210,80 @@ export class OrderExecutionService {
 
   /** Submit an equity order: preflight review, then place with ref_id idempotency. */
   async submitEquityOrder(ticket: EquityOrderTicket): Promise<ExecutionResult> {
-    // Preflight: review_equity_order (simulation)
+    return this.submitReviewThenPlace(
+      { symbol: ticket.symbol, refId: ticket.refId },
+      {
+        reviewTool: 'review_equity_order',
+        reviewArgs: this.buildReviewArgs(ticket),
+        placeTool: 'place_equity_order',
+        placeArgs: this.buildPlaceArgs(ticket),
+        positionType: PositionType.STOCK,
+        parsePlace: (parsed) => this.parseEquityPlaceResult(parsed),
+      },
+    );
+  }
+
+  /** Submit an option order: review_option_order preflight, then
+   *  place_option_order with ref_id idempotency. Same review → place →
+   *  classify machinery as equity — only the tool names, wire args, and
+   *  response parse differ (option responses nest under data.order and
+   *  carry no symbol field). */
+  async submitOptionOrder(ticket: OptionOrderTicket): Promise<ExecutionResult> {
+    // Fail before any tool call on an unplaceable ticket — staging leaves
+    // quantity '' for the user to fill, a legless ticket has nothing to
+    // order, v1 carries exactly one leg (RH rejects multi-leg live), RH
+    // requires integer contract counts, priced/stopped types need their
+    // price fields, and market orders must be gfd. Non-retryable: a retry
+    // without a fix loops the same rejection.
+    const qty = parseFloat(ticket.quantity);
+    const wireType = this.optionWireType(ticket.orderType);
+    const priced = wireType === 'limit' || wireType === 'stop_limit';
+    const stopped = wireType === 'stop_market' || wireType === 'stop_limit';
+    const invalid =
+      ticket.legs.length !== 1 ||
+      !Number.isInteger(qty) ||
+      qty <= 0 ||
+      (priced && !(parseFloat(ticket.price ?? '') > 0)) ||
+      (stopped && !(parseFloat(ticket.stopPrice ?? '') > 0)) ||
+      (wireType === 'market' && ticket.timeInForce !== 'gfd');
+    if (invalid) {
+      return {
+        success: false,
+        error: {
+          message:
+            'unplaceable option ticket — requires exactly one leg, a positive integer contract quantity, price on limit/stop_limit, stop price on stop types, and gfd on market orders',
+          retryable: false,
+        },
+      };
+    }
+    return this.submitReviewThenPlace(
+      { symbol: ticket.symbol, refId: ticket.refId },
+      {
+        reviewTool: 'review_option_order',
+        reviewArgs: this.buildOptionOrderArgs(ticket),
+        placeTool: 'place_option_order',
+        placeArgs: this.buildOptionPlaceArgs(ticket),
+        positionType: PositionType.OPTION_SINGLE,
+        parsePlace: (parsed) => this.parseOptionPlaceResult(parsed),
+      },
+    );
+  }
+
+  /**
+   * Shared review → place → classify submission flow. Review is a
+   * simulation preflight — an error there short-circuits (place never
+   * runs). The place response is parsed per instrument; a success
+   * envelope with no order id or a dead/unrecognized state classifies as
+   * PLACEMENT_UNCONFIRMED / PLACEMENT_DEAD rather than a phantom success.
+   */
+  private async submitReviewThenPlace(
+    ticket: { symbol: string; refId: string },
+    flow: ReviewPlaceFlow,
+  ): Promise<ExecutionResult> {
+    // Preflight (simulation)
     try {
-      const reviewResult = await this.mcpService.executeTool('review_equity_order', {
-        args: this.buildReviewArgs(ticket),
+      const reviewResult = await this.mcpService.executeTool(flow.reviewTool, {
+        args: flow.reviewArgs,
       });
       const reviewError = this.extractToolError(reviewResult);
       if (reviewError) {
@@ -221,8 +305,8 @@ export class OrderExecutionService {
 
     // Place the real order with ref_id idempotency
     try {
-      const placeResult = await this.mcpService.executeTool('place_equity_order', {
-        args: this.buildPlaceArgs(ticket),
+      const placeResult = await this.mcpService.executeTool(flow.placeTool, {
+        args: flow.placeArgs,
       });
       const placeError = this.extractToolError(placeResult);
       if (placeError) {
@@ -232,24 +316,7 @@ export class OrderExecutionService {
         };
       }
       const parsed = (placeResult as { parsed?: unknown }).parsed;
-      const brokerOrder = this.parseBrokerOrder(parsed);
-      const direct = parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : undefined;
-      const result: OrderTicketResult = brokerOrder
-        ? {
-            orderId: brokerOrder.id,
-            state: brokerOrder.state,
-            fillPrice: brokerOrder.price ?? undefined,
-            filledQuantity: brokerOrder.cumulativeQuantity,
-            brokerOrder,
-          }
-        : {
-            orderId: direct?.['id'] as string | undefined,
-            state: direct?.['state'] as string | undefined,
-            fillPrice: direct?.['average_price'] as string | undefined,
-            // cumulative_quantity is the verified RH fill field (order list
-            // captures); filled_quantity is kept as a fallback only.
-            filledQuantity: (direct?.['cumulative_quantity'] ?? direct?.['filled_quantity']) as string | undefined,
-          };
+      const result = flow.parsePlace(parsed);
       if (!result.orderId) {
         // A success envelope with no order id must not be reported as a placed
         // order — callers would persist an uncancellable phantom. Fail
@@ -297,7 +364,7 @@ export class OrderExecutionService {
           },
         };
       }
-      this.captureOrderSnapshot(ticket, result);
+      this.captureOrderSnapshot(ticket, flow.positionType, result);
       return { success: true, result };
     } catch (err) {
       return {
@@ -600,13 +667,17 @@ export class OrderExecutionService {
    *  confirmed-live or synchronously-filled order. Callers detect and pass
    *  the event; this side only produces the screenshot. Failures log and are
    *  swallowed — a capture outage must never affect the order path. */
-  private captureOrderSnapshot(ticket: EquityOrderTicket, result: OrderTicketResult): void {
+  private captureOrderSnapshot(
+    ticket: { symbol: string; refId: string },
+    positionType: PositionType,
+    result: OrderTicketResult,
+  ): void {
     try {
       const event = result.state === 'filled' ? CaptureEvent.ORDER_FILLED : CaptureEvent.ORDER_PLACED;
       this.screenshots.captureChartSnapshot$({
         symbol: ticket.symbol,
         event,
-        positionType: PositionType.STOCK,
+        positionType,
         refId: ticket.refId,
         groupId: ticket.refId,
         renderOnly: false,
@@ -693,15 +764,107 @@ export class OrderExecutionService {
     return args;
   }
 
-  /** Normalize the nested or direct broker order response into the persisted shape. */
-  private parseBrokerOrder(parsed: unknown): BrokerOrderSnapshot | null {
+  /** Option wire order type — 'stop_loss' isn't a valid RH option type;
+   *  maps to 'stop_market' like the equity builder. */
+  private optionWireType(orderType: OptionOrderTicket['orderType']): string {
+    return orderType === 'stop_loss' ? 'stop_market' : orderType;
+  }
+
+  /** Build the args for review_option_order from an OptionOrderTicket.
+   *  The RH wire shape is legs-oriented: one {option_id, side,
+   *  position_effect} object per leg (ratio_quantity only when the leg
+   *  sets it — v1 single-leg omits it), plus type/quantity/market_hours.
+   *  `direction` is never sent — RH derives it from the legs, and the
+   *  single buy-to-open leg resolves to 'debit' automatically. `price` is
+   *  the net per-contract limit — sent only for priced order types. */
+  private buildOptionOrderArgs(ticket: OptionOrderTicket): Record<string, unknown> {
+    const wireType = this.optionWireType(ticket.orderType);
+    const args: Record<string, unknown> = {
+      account_number: ticket.accountNumber,
+      legs: ticket.legs.map((leg) => {
+        const wire: Record<string, unknown> = {
+          option_id: leg.optionId,
+          side: leg.side,
+          position_effect: leg.positionEffect,
+        };
+        if (leg.ratioQuantity != null) wire['ratio_quantity'] = leg.ratioQuantity;
+        return wire;
+      }),
+      type: wireType,
+      quantity: ticket.quantity,
+      // Options only trade regular hours — the ticket field is typed for
+      // the equity enum, so pin the literal here rather than trusting it.
+      market_hours: 'regular_hours',
+    };
+    // price rides only on priced types; stop_price only on stop types —
+    // RH rejects either field on a type that doesn't carry it.
+    const priced = wireType === 'limit' || wireType === 'stop_limit';
+    const stopped = wireType === 'stop_market' || wireType === 'stop_limit';
+    if (priced && ticket.price) args['price'] = ticket.price;
+    if (stopped && ticket.stopPrice) args['stop_price'] = ticket.stopPrice;
+    if (ticket.timeInForce) args['time_in_force'] = ticket.timeInForce;
+    return args;
+  }
+
+  /** Build the args for place_option_order — review args + ref_id. */
+  private buildOptionPlaceArgs(ticket: OptionOrderTicket): Record<string, unknown> {
+    const args = this.buildOptionOrderArgs(ticket);
+    args['ref_id'] = ticket.refId;
+    return args;
+  }
+
+  /** Parse a place_equity_order response: prefer the fully-normalized
+   *  broker order (nested or direct); fall back to the shared field map. */
+  private parseEquityPlaceResult(parsed: unknown): OrderTicketResult {
+    const brokerOrder = this.parseBrokerOrder(parsed);
+    return brokerOrder
+      ? {
+          orderId: brokerOrder.id,
+          state: brokerOrder.state,
+          fillPrice: brokerOrder.price ?? undefined,
+          filledQuantity: brokerOrder.cumulativeQuantity,
+          brokerOrder,
+        }
+      : this.mapOrderRecord(this.unwrapOrderRecord(parsed));
+  }
+
+  /** Parse a place_option_order response. Option order records nest under
+   *  `data.order` and carry no `symbol`, so the equity brokerOrder parse
+   *  would reject them — unwrap + shared field map only (no brokerOrder
+   *  snapshot — an equity-shaped record isn't derivable from the option
+   *  payload). */
+  private parseOptionPlaceResult(parsed: unknown): OrderTicketResult {
+    return this.mapOrderRecord(this.unwrapOrderRecord(parsed));
+  }
+
+  /** The shared id/state/fill field map over an unwrapped order record.
+   *  `cumulative_quantity` is the verified equity fill field; option order
+   *  records carry `processed_quantity` instead (opt-place-fill capture);
+   *  `filled_quantity` is a fallback only. */
+  private mapOrderRecord(order: Record<string, unknown> | null): OrderTicketResult {
+    return {
+      orderId: order?.['id'] as string | undefined,
+      state: order?.['state'] as string | undefined,
+      fillPrice: order?.['average_price'] as string | undefined,
+      filledQuantity: (order?.['cumulative_quantity'] ?? order?.['processed_quantity'] ?? order?.['filled_quantity']) as string | undefined,
+    };
+  }
+
+  /** Unwrap an order record from the common response envelopes:
+   *  `{data:{order}}`, `{order}`, or the record itself. */
+  private unwrapOrderRecord(parsed: unknown): Record<string, unknown> | null {
     if (!parsed || typeof parsed !== 'object') return null;
     const root = parsed as Record<string, unknown>;
     const data = root['data'];
     const dataRecord = data && typeof data === 'object' ? data as Record<string, unknown> : undefined;
     const order = dataRecord?.['order'] ?? root['order'] ?? parsed;
-    if (!order || typeof order !== 'object') return null;
-    const value = order as Record<string, unknown>;
+    return order && typeof order === 'object' ? order as Record<string, unknown> : null;
+  }
+
+  /** Normalize the nested or direct broker order response into the persisted shape. */
+  private parseBrokerOrder(parsed: unknown): BrokerOrderSnapshot | null {
+    const value = this.unwrapOrderRecord(parsed);
+    if (!value) return null;
     if (typeof value['id'] !== 'string' || typeof value['symbol'] !== 'string' || typeof value['state'] !== 'string') return null;
     return {
       id: value['id'],

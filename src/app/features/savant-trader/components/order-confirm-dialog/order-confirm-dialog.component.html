@@ -5,14 +5,31 @@
 
 <mat-dialog-content>
   <div class="confirm-summary">
-    <div class="confirm-row">
-      <span class="label">Symbol</span>
-      <span class="value">{{ symbol() }}</span>
-    </div>
+    @if (optionContract(); as opt) {
+      <div class="confirm-row">
+        <span class="label">Underlying</span>
+        <span class="value">{{ opt.underlying }}</span>
+      </div>
+      <div class="confirm-row">
+        <span class="label">Contract</span>
+        <span class="value">{{ opt.occSymbol }}</span>
+      </div>
+      @if (opt.parsed; as contract) {
+        <div class="confirm-row">
+          <span class="label">Expires · Strike</span>
+          <span class="value">{{ contract.expiration }} · ${{ contract.strike }} {{ contract.type | uppercase }}</span>
+        </div>
+      }
+    } @else {
+      <div class="confirm-row">
+        <span class="label">Symbol</span>
+        <span class="value">{{ symbol() }}</span>
+      </div>
+    }
     <div class="confirm-row">
       <span class="label">Side</span>
       <span class="value" [class.buy]="ticket().side === 'buy'" [class.sell]="ticket().side === 'sell'">
-        {{ ticket().side | uppercase }}
+        {{ sideLabel() | uppercase }}
       </span>
     </div>
     <div class="confirm-row">
@@ -21,12 +38,24 @@
     </div>
     <div class="confirm-row">
       <span class="label">Quantity</span>
-      <span class="value">{{ quantity() }}</span>
+      <span class="value">{{ quantity() }}{{ optionContract() ? ' contracts' : '' }}</span>
     </div>
     @if (limitPrice()) {
       <div class="confirm-row">
         <span class="label">Limit Price</span>
         <span class="value">${{ limitPrice() }}</span>
+      </div>
+    }
+    @if (optionLimitPrice()) {
+      <div class="confirm-row">
+        <span class="label">Limit Price</span>
+        <span class="value">${{ optionLimitPrice() }} / contract</span>
+      </div>
+    }
+    @if (optionPremium() != null) {
+      <div class="confirm-row">
+        <span class="label">Premium</span>
+        <span class="value">${{ optionPremium() | number: '1.2-2' }}</span>
       </div>
     }
     @if (stopPrice()) {
@@ -41,7 +70,7 @@
     </div>
     <div class="confirm-row">
       <span class="label">Market Hours</span>
-      <span class="value">{{ ticket().marketHours }}</span>
+      <span class="value">{{ marketHours() }}</span>
     </div>
     <div class="confirm-row">
       <span class="label">Account</span>

@@ -11,6 +11,7 @@ import {
   OrderTicketStatus,
   InstrumentType,
   EquityOrderTicket,
+  OptionOrderTicket,
 } from './order-ticket.types';
 
 describe('OrderExecutionService', () => {
@@ -254,6 +255,218 @@ describe('OrderExecutionService', () => {
       expect(result.error?.retryable).toBe(false);
       expect(result.error?.message).toContain('rejected');
       expect(result.result?.orderId).toBe('order-dead');
+    });
+  });
+
+  describe('submitOptionOrder', () => {
+    function mockOptionTicket(overrides: Partial<OptionOrderTicket> = {}): OptionOrderTicket {
+      return {
+        id: 'opt-ticket-1',
+        refId: 'ref-opt-1',
+        source: OrderSource.SIGNAL_PIPELINE,
+        status: OrderTicketStatus.SUBMITTING,
+        accountNumber: '123456789',
+        side: 'buy',
+        orderType: 'limit',
+        timeInForce: 'gfd',
+        marketHours: 'regular_hours',
+        instrumentType: InstrumentType.OPTION,
+        symbol: 'AAPL',
+        legs: [
+          { side: 'buy', symbol: 'AAPL251016C00150000', optionId: 'opt-uuid-1', positionEffect: 'open' },
+        ],
+        quantity: '2',
+        price: '3.50',
+        createdAt: '2026-08-25T12:00:00Z',
+        updatedAt: '2026-08-25T12:00:00Z',
+        ...overrides,
+      };
+    }
+
+    function placeOptionSuccess(parsed: unknown = { id: 'opt-order-1', state: 'confirmed' }) {
+      mcpService.executeTool.and.callFake((name: string) => {
+        if (name === 'place_option_order') {
+          return Promise.resolve({ success: true, parsed, redacted: {}, tool: name });
+        }
+        return Promise.resolve({ success: true, parsed: {}, redacted: {}, tool: name });
+      });
+    }
+
+    it('calls review_option_order preflight then place_option_order with the RH leg shape', async () => {
+      placeOptionSuccess();
+
+      const result = await service.submitOptionOrder(mockOptionTicket());
+
+      expect(result.success).toBe(true);
+      expect(result.result?.orderId).toBe('opt-order-1');
+      expect(result.result?.state).toBe('confirmed');
+      expect(mcpService.executeTool).toHaveBeenCalledTimes(2);
+
+      const reviewCall = mcpService.executeTool.calls.argsFor(0);
+      expect(reviewCall[0]).toBe('review_option_order');
+      expect(reviewCall[1].args).toEqual({
+        account_number: '123456789',
+        legs: [{ option_id: 'opt-uuid-1', side: 'buy', position_effect: 'open' }],
+        type: 'limit',
+        quantity: '2',
+        price: '3.50',
+        time_in_force: 'gfd',
+        market_hours: 'regular_hours',
+      });
+      // Single-leg: direction is derived, never sent; ref_id is place-only.
+      expect((reviewCall[1].args as any).direction).toBeUndefined();
+      expect((reviewCall[1].args as any).ref_id).toBeUndefined();
+
+      const placeCall = mcpService.executeTool.calls.argsFor(1);
+      expect(placeCall[0]).toBe('place_option_order');
+      expect(placeCall[1].args).toEqual({ ...reviewCall[1].args, ref_id: 'ref-opt-1' });
+    });
+
+    it('rejects an unplaceable ticket before any tool call', async () => {
+      const cases: Partial<OptionOrderTicket>[] = [
+        { quantity: '' },
+        { quantity: '2.5' },            // RH requires integer contracts
+        { legs: [] },
+        { legs: [mockOptionTicket().legs[0], mockOptionTicket().legs[0]] }, // v1 single-leg; RH rejects multi-leg live
+        { price: undefined },           // limit without a price
+        { orderType: 'stop_limit', price: '3.50', stopPrice: undefined }, // stop type without stop price
+        { orderType: 'market', price: undefined, timeInForce: 'gtc' },    // market must be gfd
+      ];
+      for (const overrides of cases) {
+        const result = await service.submitOptionOrder(mockOptionTicket(overrides));
+        expect(result.success).toBe(false);
+        expect(result.error?.retryable).toBe(false);
+      }
+      expect(mcpService.executeTool).not.toHaveBeenCalled();
+    });
+
+    it('sends both price and stop_price on stop_limit; stop_loss maps to stop_market', async () => {
+      placeOptionSuccess();
+
+      await service.submitOptionOrder(
+        mockOptionTicket({ orderType: 'stop_limit', price: '3.50', stopPrice: '3.75' }),
+      );
+      const stopLimitArgs = mcpService.executeTool.calls.argsFor(0)[1].args;
+      expect(stopLimitArgs.type).toBe('stop_limit');
+      expect(stopLimitArgs.price).toBe('3.50');
+      expect(stopLimitArgs.stop_price).toBe('3.75');
+
+      mcpService.executeTool.calls.reset();
+      await service.submitOptionOrder(
+        mockOptionTicket({ orderType: 'stop_loss', stopPrice: '3.00', price: undefined }),
+      );
+      const stopLossArgs = mcpService.executeTool.calls.argsFor(0)[1].args;
+      expect(stopLossArgs.type).toBe('stop_market');
+      expect(stopLossArgs.stop_price).toBe('3.00');
+      expect(stopLossArgs.price).toBeUndefined();
+    });
+
+    it('omits price for a market option order', async () => {
+      placeOptionSuccess();
+
+      await service.submitOptionOrder(mockOptionTicket({ orderType: 'market', price: undefined }));
+
+      const reviewArgs = mcpService.executeTool.calls.argsFor(0)[1].args;
+      expect(reviewArgs.type).toBe('market');
+      expect(reviewArgs.price).toBeUndefined();
+      expect(mcpService.executeTool.calls.argsFor(1)[1].args.price).toBeUndefined();
+    });
+
+    it('returns failure when the option review preflight errors — place never runs', async () => {
+      mcpService.executeTool.and.resolveTo({ success: false, error: 'insufficient buying power', tool: 'review_option_order' });
+
+      const result = await service.submitOptionOrder(mockOptionTicket());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.retryable).toBe(false);
+      expect(mcpService.executeTool).toHaveBeenCalledTimes(1);
+    });
+
+    it('treats a place_option_order toolError envelope as classified failure', async () => {
+      mcpService.executeTool.and.callFake((name: string) => {
+        if (name === 'place_option_order') {
+          return Promise.resolve({
+            success: true,
+            toolError: 'account not agentic_allowed for options',
+            redacted: {},
+            tool: name,
+          });
+        }
+        return Promise.resolve({ success: true, parsed: {}, redacted: {}, tool: name });
+      });
+
+      const result = await service.submitOptionOrder(mockOptionTicket());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.message).toContain('agentic_allowed');
+      expect(result.error?.retryable).toBe(false);
+    });
+
+    it('fails retryable PLACEMENT_UNCONFIRMED when the place response carries no order id', async () => {
+      placeOptionSuccess({ legs: [{ option_id: 'opt-uuid-1' }] });
+
+      const result = await service.submitOptionOrder(mockOptionTicket());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('PLACEMENT_UNCONFIRMED');
+      expect(result.error?.retryable).toBe(true);
+    });
+
+    it('parses option fill fields — processed_quantity drives the dead-with-fills branch', async () => {
+      placeOptionSuccess({ id: 'opt-dead-fill', state: 'cancelled', processed_quantity: '1.00000' });
+
+      const result = await service.submitOptionOrder(mockOptionTicket());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('PLACEMENT_DEAD');
+      expect(result.result?.filledQuantity).toBe('1.00000');
+      expect(result.error?.message).toContain('with 1 filled');
+    });
+
+    it('fails non-retryable PLACEMENT_DEAD when the placed option order lands terminal', async () => {
+      placeOptionSuccess({ id: 'opt-order-dead', state: 'rejected' });
+
+      const result = await service.submitOptionOrder(mockOptionTicket());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('PLACEMENT_DEAD');
+      expect(result.error?.retryable).toBe(false);
+      expect(result.result?.orderId).toBe('opt-order-dead');
+    });
+
+    it('fails retryable PLACEMENT_UNCONFIRMED on an unrecognized state', async () => {
+      placeOptionSuccess({ id: 'opt-order-x', state: 'mystery' });
+
+      const result = await service.submitOptionOrder(mockOptionTicket());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('PLACEMENT_UNCONFIRMED');
+      expect(result.result?.orderId).toBe('opt-order-x');
+    });
+
+    it('parses a data.order-nested option place response', async () => {
+      placeOptionSuccess({ data: { order: { id: 'opt-nested-1', state: 'confirmed' } } });
+
+      const result = await service.submitOptionOrder(mockOptionTicket());
+
+      expect(result.success).toBe(true);
+      expect(result.result?.orderId).toBe('opt-nested-1');
+    });
+
+    it('fires a chart capture with the option-single position type on a confirmed order', async () => {
+      placeOptionSuccess();
+
+      const result = await service.submitOptionOrder(mockOptionTicket());
+
+      expect(result.success).toBe(true);
+      expect(screenshots.captureChartSnapshot$).toHaveBeenCalledWith({
+        symbol: 'AAPL',
+        event: 'order-placed',
+        positionType: 'option-single',
+        refId: 'ref-opt-1',
+        groupId: 'ref-opt-1',
+        renderOnly: false,
+      });
     });
   });
 

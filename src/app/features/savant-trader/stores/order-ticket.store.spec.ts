@@ -94,6 +94,9 @@ describe('OrderTicketStore', () => {
       submitEquityOrder: jasmine.createSpy('submitEquityOrder').and.returnValue(
         Promise.resolve({ success: true, result: { orderId: 'o1', state: 'confirmed' } }),
       ),
+      submitOptionOrder: jasmine.createSpy('submitOptionOrder').and.returnValue(
+        Promise.resolve({ success: true, result: { orderId: 'o-opt-1', state: 'confirmed' } }),
+      ),
       cancelEquityOrder: jasmine.createSpy('cancelEquityOrder').and.returnValue(
         Promise.resolve({ success: true }),
       ),
@@ -359,6 +362,39 @@ describe('OrderTicketStore', () => {
     it('does nothing for a non-existent ticket id', () => {
       store.submitTicket('nonexistent');
       expect(orderExecution.submitEquityOrder).not.toHaveBeenCalled();
+    });
+
+    it('routes an OPTION ticket to submitOptionOrder — SUBMITTED on success', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.updateTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockOptionTicket());
+
+      store.submitTicket('opt-1');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(orderExecution.submitOptionOrder).toHaveBeenCalled();
+      expect(orderExecution.submitEquityOrder).not.toHaveBeenCalled();
+      const result = store.tickets()['opt-1'];
+      expect(result.status).toBe(OrderTicketStatus.SUBMITTED);
+      expect(result.result?.orderId).toBe('o-opt-1');
+    });
+
+    it('reverts an OPTION ticket to STAGED on submit failure — no snackbar block', async () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      orderExecution.submitOptionOrder.and.returnValue(
+        Promise.resolve({ success: false, error: { message: 'insufficient buying power', retryable: false } }),
+      );
+      store.stageTicket(mockOptionTicket());
+
+      store.submitTicket('opt-1');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const result = store.tickets()['opt-1'];
+      expect(result.status).toBe(OrderTicketStatus.STAGED);
+      expect(result.error?.message).toBe('insufficient buying power');
+      expect(snackBar.open).not.toHaveBeenCalled();
     });
   });
 

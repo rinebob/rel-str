@@ -252,10 +252,6 @@ export const OrderTicketStore = signalStore(
       if (!existing) return;
       // Concurrency guard: reject double-submit while a submission is in flight.
       if (existing.status === OrderTicketStatus.SUBMITTING) return;
-      if (existing.instrumentType === InstrumentType.OPTION) {
-        snackBar.open('Option orders are not yet supported', 'Dismiss', { duration: 4000 });
-        return;
-      }
 
       // Set SUBMITTING locally for UI feedback (not persisted — it's transient)
       const submitting: OrderTicket = {
@@ -266,7 +262,11 @@ export const OrderTicketStore = signalStore(
       };
       patchState(state, { tickets: { ...prev, [id]: submitting } });
 
-      from(orderExecution.submitEquityOrder(existing as EquityOrderTicket))
+      const submission =
+        existing.instrumentType === InstrumentType.OPTION
+          ? orderExecution.submitOptionOrder(existing)
+          : orderExecution.submitEquityOrder(existing as EquityOrderTicket);
+      from(submission)
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result: ExecutionResult) => {
