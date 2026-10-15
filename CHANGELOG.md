@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-10-15]
+
+### Added
+- [Paper Trading Infra] 553-920_BE-VERIFY-PAPER-TRADING: autoPaper trading-config seed script for #920 umbrella QA — resolves ownerUid from {uid}_PRIMARY, writes + reads back (checkpoint)
+- [Paper Trading Infra] 553-920_DOCS-PAPER-TRADING: #920 UAT doc (umbrella) — PARTIAL, AC1 PASS / AC2-4 BLOCKED (checkpoint)
+- [Paper Trading Infra] 553-553_DOCS-PAPER-TRADING: AS-BUILT feature inventory + topic-level end-to-end UAT docs (checkpoint)
+### Changed
+- [Paper Trading Infra] 553-920_BE-CHORE-PAPER-TRADING: cron coverage rationale comment on open-pass timer (checkpoint)
+### Fixed
+- [Paper Trading Infra] 553-920_BE-BUG-PAPER-TRADING: instrument-map resolver surfaces MCP tool-level isError as thrown error — adapter parity (checkpoint)
+- [Paper Trading Infra] 553-920_BE-TEST-PAPER-TRADING: listOrders asserts BrokerAdapterError on MCP isError instead of empty page (checkpoint)
+
 ## [2026-10-13]
 
 ### Added
