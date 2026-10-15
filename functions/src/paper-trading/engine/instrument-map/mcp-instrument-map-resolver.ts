@@ -9,6 +9,7 @@
 
 import type { OptionContractRef } from '@options-strategy-engine/contracts';
 import { executeObservationTool } from '../../../rh-agent-mcp/tools/robinhood-tool-executor';
+import { getToolLevelErrorMessage } from '../../../rh-agent-mcp/broker/broker-order-normalizer';
 import { extractChains, fetchAllOptionInstruments, MCP_PREFIX } from '../rh-mcp-shapes';
 import type { RhInstrument } from '../rh-mcp-shapes';
 import type {
@@ -35,6 +36,12 @@ function makeDefaultMcpToolCaller(): McpToolCaller {
     const result = await executeObservationTool(toolName, args);
     if (!result.success) {
       throw new Error(`MCP tool ${toolName} failed: ${result.error}`);
+    }
+    // Envelope-level isError survives as `toolError`; a JSON-parseable error
+    // body carries `isError` inside `parsed` — check both (adapter parity).
+    const toolErr = result.toolError ?? getToolLevelErrorMessage(result.parsed);
+    if (toolErr) {
+      throw new Error(`MCP tool ${toolName} error: ${toolErr}`);
     }
     return result.parsed ?? {};
   };
