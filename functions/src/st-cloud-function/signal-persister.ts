@@ -10,9 +10,9 @@ import { logger } from 'firebase-functions/v2';
 import { SignalDateWriter } from './signal-date-writer';
 import {
   StSignalEntry,
-  StSignalStatus,
   StSignalDirection,
 } from './signals';
+import { stSignalStatusFromBarStatus } from '@st/signals';
 import type { StrategyOutput } from './strategies/strategy-registry';
 
 export interface SignalPersistenceResult {
@@ -71,9 +71,7 @@ export async function persistSymbolSignals(
 /**
  * Build a signal entry for the run-ids and signal-history maps.
  *
- * barStatus is authoritative for interim vs. historical:
- *   - barStatus === 1  → historical (CONFIRMED).
- *   - barStatus === -1 or 0 or undefined → interim (INTERIM).
+ * barStatus → status delegates to stSignalStatusFromBarStatus (@st/signals).
  *
  * barDate is always the date of the bar that fired the signal (from the strategy
  * output), never the run date. The run date is captured separately in marketDate.
@@ -85,9 +83,8 @@ function createSignalEntry(
 ): StSignalEntry {
   const timeframe = deriveTimeframe(result.signalType);
   const barStatus = barStatusByTimeframe?.[timeframe];
-  const isHistorical = barStatus === 1;
   const barDate = result.barDate || marketDate;
-  const status: StSignalStatus = isHistorical ? 'CONFIRMED' : 'INTERIM';
+  const status = stSignalStatusFromBarStatus(barStatus);
   return {
     signalType: result.signalType,
     timeframe,
