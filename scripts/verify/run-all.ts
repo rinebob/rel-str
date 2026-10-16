@@ -53,6 +53,13 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'st-signals backfill parity',
+    file: 'verify/data-pipeline-st-signals-backfill-1001.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
   { name: 'paper-trading trade-exits contracts', file: 'paper-trading-contracts-665.ts', needsAccount: false },
   {
     name: 'swing config library',
