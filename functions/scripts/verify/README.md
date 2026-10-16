@@ -37,6 +37,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #720 | `paper-trading-signal-settlement-720.ts` | expired signal option legs settle — worthless / intrinsic | [paper-trading-signal-settlement-720.md](../../../scripts/verify/paper-trading-signal-settlement-720.md) |
 | #983 | `paper-trading-eod-close-983.ts` | signal-trade marks[date] vs SDS official close (read-only drift report) | inline usage in script header |
 | #983 | `sds-consumer-dispatch.ts` | replay the nightly settlement chain on demand — enqueues `{consumer, marketDate}` onto `sdsConsumerDispatch` (QA re-dispatch path; writes via the normal chain) | inline usage in script header |
+| #1000 | `data-pipeline-st-signals-dual-write-1000.ts` | st-signals ⇄ run-ids dual-write parity for a marketDate — expected occurrences, runIds union, status/direction, create-only provenance (read-only, needs ADC) | inline usage in script header |
 | #724 | `paper-trading-engine-settlement-724.ts` | engine settlement retries missed nights + weekend-expiry walk-back | [paper-trading-engine-settlement-724.md](../../../scripts/verify/paper-trading-engine-settlement-724.md) |
 | #669 | `paper-trading-trade-exits-669.ts` | composed exit seam — prod seeding audit + governingVariant resolution + seed guards + cancel/close guards | [paper-trading-trade-exits-669.md](../../../scripts/verify/paper-trading-trade-exits-669.md) |
 | #766 | `screenshot-capture-766-render.ts` | render model → SVG (fixture render + structural checks + browser artifact) | [screenshot-capture-766.md](screenshot-capture-766.md) |
@@ -71,3 +72,4 @@ npx tsx scripts/verify/{script-name}.ts
 20. **#848** — `screenshot-capture-826-lifecycle.ts` (lifecycle intake: carrier ledger + index + dedup, real Firestore + bucket)
 21. **#876** — `indicator-lib-876-engine.ts` (trigger bands engine)
 22. **#877** — `indicator-lib-877-callable.ts` (trigger bands in the indicator series)
+23. **#1000** — `data-pipeline-st-signals-dual-write-1000.ts` (st-signals ⇄ run-ids dual-write parity for a marketDate)

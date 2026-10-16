@@ -32,6 +32,13 @@ const scripts: VerifyScript[] = [
   { name: 'st-collections paths', file: 'data-pipeline-st-collections-997.ts', needsAccount: false },
   { name: 'st- type shapes', file: 'data-pipeline-st-types-998.ts', needsAccount: false },
   { name: 'st- id builders + mappers', file: 'data-pipeline-st-ids-999.ts', needsAccount: false },
+  {
+    name: 'st-signals dual-write parity',
+    file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
   { name: 'paper-trading trade-exits contracts', file: 'paper-trading-contracts-665.ts', needsAccount: false },
   {
     name: 'swing config library',
