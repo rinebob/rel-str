@@ -15,6 +15,11 @@
 - [Portfolio Allocation] 576-781_DOCS-PORTFOLIO: CODE-REVIEW (PASS) + UAT (Complete) for dialog token/density pass
 - [Options Trading] 942-962_FE-IMPL-OPTIONS: submitOptionOrder via shared review→place→classify flow (review_option_order→place_option_order, legs wire shape, ref_id place-only, no direction) + pre-validation guards + processed_quantity fills + submitTicket OPTION routing + confirm-dialog contract summary (OCC, BUY TO OPEN, premium qty×100)
 - [Options Trading] 942-962_DOCS-OPTIONS: CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for option submit path; IMPL-948 persisted-fields/cancel-routing pins for #963/#964
+- [ST Firestore Reorg] 984-999_SHARED-IMPL-DATA-PIPELINE: st- doc-id builders (@st/ids) — signal/ticket/trade/group layouts, origin codes, guard contract (arg-order trap, '/' + '_' + dash + bad-seq + invalid-Date rejections), seq-allocation contract
+- [ST Firestore Reorg] 984-999_SHARED-IMPL-DATA-PIPELINE: legacy→canonical mapping helpers — OrderSource→origin.type, OrderTicketStatus→{mode,state}, barStatus→StSignalStatus
+- [ST Firestore Reorg] 984-999_BE-IMPL-DATA-PIPELINE: signal-persister delegates barStatus mapping to @st/signals
+- [ST Firestore Reorg] 984-999_CONFIG-DATA-PIPELINE: @st/ids alias (FE + BE + jest + tsx) + offline ids verify script
+- [ST Firestore Reorg] 984-999_DOCS-DATA-PIPELINE: IMPL §3/§4 as-built + CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for st- id builders + mappers
 ### Added (checkpoints)
 - [Paper Trading Infra] 553-920_BE-VERIFY-PAPER-TRADING: autoPaper trading-config seed script for #920 umbrella QA — resolves ownerUid from {uid}_PRIMARY, writes + reads back (checkpoint)
 - [Paper Trading Infra] 553-920_DOCS-PAPER-TRADING: #920 UAT doc (umbrella) — PARTIAL, AC1 PASS / AC2-4 BLOCKED (checkpoint)

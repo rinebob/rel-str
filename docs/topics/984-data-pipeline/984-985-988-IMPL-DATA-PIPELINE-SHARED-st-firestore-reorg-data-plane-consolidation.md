@@ -120,22 +120,28 @@ enabled, `PAUSED`/`STOPPED` manage existing positions but open no new ones.
 
 **`PaperTrade` extensions** — `positionGroupId`, resolved `strike`/`expiration`/`optionType` top-level fields (indexed for analysis); `PENDING` excluded from `PAPER_TRADE_WRITABLE_STATUSES` (tickets hold pending intent); `signalTimeframe`/`signalStatus` typed as `StSignalTimeframe`/`StSignalStatus` (*).
 
-### 3. ID builders — `functions/src/common/st-ids.ts` (+ FE equivalents where minted client-side)
+### 3. ID builders — `shared/st-ids.ts` behind `@st/ids` (*)
 
 ```ts
-signalOccurrenceId(sym, barDate, signalType)  // {SYM}_{barDate}_{signalType}
-ticketId(mode, seq)                            // {liv|pap}_{...}
-tradeId(sym, date, origin, expr, exp?, strike?, nn)  // {SYM}-{YYMMDD}-{origin}-{expr}[-{exp}-{strike}]-{NN}
-groupId(sym, date, nn)                         // {SYM}-{YYMMDD}-grp-{NN}
+stSignalOccurrenceId(sym, barDate, signalType)  // {SYM}_{barDate}_{signalType}
+stTicketId(mode, id)                            // {liv|pap}_{id}
+stTradeId(sym, date, originType, expr, exp?, strike?, nn)  // {SYM}-{YYMMDD}-{origin}-{expr}[-{exp}-{strike}]-{NN}
+stPositionGroupId(sym, date, nn)                // {SYM}-{YYMMDD}-grp-{NN}
 ```
 
-Builders are pure functions — unit-testable, reused by every writer.
+Builders are pure functions — unit-testable, reused by every writer. `originType`
+maps through `ORIGIN_TYPE_TO_TRADE_CODE` (sig/prg/man/mgmt); `exp`/`strike` are
+both-or-neither and dash-free; `expr`/`symbol` uppercase; `barDate` validated
+YYYY-MM-DD; `{NN}` pads to 2 min, rolls past 99, must be a positive safe integer
+allocated under transaction/`create()` (seq contract in the module header). *
+As-built lives in `shared/` — single source for BE + FE, same as §2.
 
-### 4. Mapping helpers
+### 4. Mapping helpers — colocated with their domain types (*)
 
-- `source → origin.type` (`signal_pipeline`→`signal`, `position_management`→`management`) for the 77-doc intent migration.
-- `status:'paper'` (legacy intent status) → `mode:'paper'` + state derivation.
-- `barStatus` → `INTERIM|CONFIRMED` (existing logic — reuse, don't duplicate).
+- `mapOrderSourceToOriginType(source)` in `st-order-tickets.ts` — `signal_pipeline`→`signal`, `manual`→`manual`, `position_management`→`management`; unknown → null. For the 77-doc intent migration.
+- `mapLegacyTicketStatus(status)` in `st-order-tickets.ts` — `'paper'` → `{mode:'paper', state:'submitted'}`; broker-side post-submit states (`submitting`/`queued`/`resting`) → `submitted`; `expired` passes through; unknown → null.
+- `stSignalStatusFromBarStatus(barStatus)` in `st-signals.ts` — 1→CONFIRMED else INTERIM; `signal-persister.ts` delegates (reuse, don't duplicate).
+- `normalizeStSignalDirection` in `st-signals.ts` — legacy `'LONG'/'SHORT'` → `TradeSide` (shipped in #998).
 
 ## Dependencies
 
