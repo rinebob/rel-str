@@ -107,7 +107,8 @@ export function buildOptionSignalTicket(
         positionEffect: 'open',
       },
     ],
-    quantity: '', // contracts — the user fills this on the ticket
+    quantity: '1', // contracts — default 1 (same as the equity ticket);
+    // the ticket form can edit it before submit
     signalContext: {
       signalType: first.signalType,
       barDate: first.barDate,

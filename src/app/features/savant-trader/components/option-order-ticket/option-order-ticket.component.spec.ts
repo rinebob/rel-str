@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { provideZonelessChangeDetection, computed, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
@@ -113,7 +113,7 @@ describe('OptionOrderTicketComponent', () => {
     getOptionQuotes: jest.Mock<Promise<Map<string, OptionQuote>>, [string[]]>;
   };
   let tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
-  let ticketsBySymbol: ReturnType<typeof signal<Record<string, OrderTicket[]>>>;
+  let ticketsBySymbol: ReturnType<typeof computed<Record<string, OrderTicket[]>>>;
   let store: {
     tickets: typeof tickets;
     ticketsBySymbol: typeof ticketsBySymbol;
@@ -188,15 +188,20 @@ describe('OptionOrderTicketComponent', () => {
         new Map(ids.map((id) => [id, { instrumentId: id, lastTradePrice: 3.5, previousClose: 3.2 }])),
       ),
     };
-    ticketsBySymbol = signal<Record<string, OrderTicket[]>>({});
+    // Derived exactly like the real store — specs write to `tickets`
+    // only, so the two views can never disagree (#964 review).
+    ticketsBySymbol = computed(() => {
+      const grouped: Record<string, OrderTicket[]> = {};
+      for (const t of Object.values(tickets())) {
+        (grouped[t.symbol] ??= []).push(t);
+      }
+      return grouped;
+    });
     store = {
       tickets,
       ticketsBySymbol,
       stageTicketAndWait: jest.fn(async (t: OrderTicket) => {
         tickets.update((m) => ({ ...m, [t.id]: t }));
-        // The real store derives ticketsBySymbol from tickets() — keep
-        // the mock faithful so the card guard sees staged tickets.
-        ticketsBySymbol.update((m) => ({ ...m, [t.symbol]: [...(m[t.symbol] ?? []), t] }));
         return true;
       }),
       updateTicket: jest.fn((id: string, partial: OrderTicketPatch) => {
@@ -211,14 +216,6 @@ describe('OptionOrderTicketComponent', () => {
           }
           return { ...m, [id]: merged as unknown as OrderTicket };
         });
-        const updated = tickets()[id];
-        if (updated) {
-          ticketsBySymbol.update((m) => {
-            const list = m[updated.symbol];
-            if (!list) return m;
-            return { ...m, [updated.symbol]: list.map((t) => (t.id === id ? updated : t)) };
-          });
-        }
       }),
       submitTicket: jest.fn(),
     };
@@ -373,6 +370,99 @@ describe('OptionOrderTicketComponent', () => {
       await resolveViaSelects();
       expect(component.limitPrice()).toBe('3.50');
     });
+
+    it('re-fills an auto-filled price when the contract changes', async () => {
+      await render();
+      await resolveViaSelects();
+      expect(component.limitPrice()).toBe('3.50');
+
+      mcp.getOptionInstruments.mockResolvedValue([
+        instrument({ strikePrice: 505, instrumentId: 'opt-uuid-9' }),
+      ]);
+      mcp.getOptionQuotes.mockResolvedValue(
+        new Map([['opt-uuid-9', { instrumentId: 'opt-uuid-9', lastTradePrice: 4.25, previousClose: 4 }]]),
+      );
+      await resolveViaSelects(EXP, 505, 'call');
+
+      expect(component.limitPrice()).toBe('4.25');
+    });
+
+    it('keeps a user-typed price across a contract change', async () => {
+      await render();
+      await resolveViaSelects();
+      component.onLimitPriceInput({ target: { value: '9.99' } } as unknown as Event);
+
+      mcp.getOptionInstruments.mockResolvedValue([
+        instrument({ strikePrice: 505, instrumentId: 'opt-uuid-9' }),
+      ]);
+      mcp.getOptionQuotes.mockResolvedValue(
+        new Map([['opt-uuid-9', { instrumentId: 'opt-uuid-9', lastTradePrice: 4.25, previousClose: 4 }]]),
+      );
+      await resolveViaSelects(EXP, 505, 'call');
+
+      expect(component.limitPrice()).toBe('9.99');
+    });
+
+    it('clears a stale auto-fill when the new contract has no quote', async () => {
+      await render();
+      await resolveViaSelects();
+      expect(component.limitPrice()).toBe('3.50');
+
+      mcp.getOptionInstruments.mockResolvedValue([
+        instrument({ strikePrice: 505, instrumentId: 'opt-uuid-9' }),
+      ]);
+      mcp.getOptionQuotes.mockRejectedValue(new Error('no quote'));
+      await resolveViaSelects(EXP, 505, 'call');
+
+      expect(component.limitPrice()).toBe('');
+    });
+
+    it('clears an auto-filled price when the triplet goes incomplete', async () => {
+      await render();
+      await resolveViaSelects();
+      expect(component.limitPrice()).toBe('3.50');
+
+      component.selectedStrike.set(null);
+      fixture.detectChanges();
+      await flush();
+
+      expect(component.limitPrice()).toBe('');
+    });
+
+    it('a late quote for a superseded contract does not fill the price', async () => {
+      let release!: (q: Map<string, OptionQuote>) => void;
+      const deferred = new Promise<Map<string, OptionQuote>>((r) => (release = r));
+      await render();
+      mcp.getOptionQuotes.mockReturnValue(deferred);
+
+      component.selectedExpiration.set(EXP);
+      fixture.detectChanges();
+      await flush();
+      component.selectedStrike.set(STRIKE);
+      component.contractType.set('call');
+      fixture.detectChanges();
+      await flush();
+
+      // Contract change while the first quote is still in flight.
+      mcp.getOptionInstruments.mockResolvedValue([
+        instrument({ strikePrice: 505, instrumentId: 'opt-uuid-9' }),
+      ]);
+      mcp.getOptionQuotes.mockResolvedValue(
+        new Map([['opt-uuid-9', { instrumentId: 'opt-uuid-9', lastTradePrice: 4.25, previousClose: 4 }]]),
+      );
+      component.selectedStrike.set(505);
+      fixture.detectChanges();
+      await flush();
+
+      // The stale quote now lands — the seq guard must drop it.
+      release(
+        new Map([[OPT_ID, { instrumentId: OPT_ID, lastTradePrice: 3.5, previousClose: 3.2 }]]),
+      );
+      await flush();
+
+      expect(component.resolvedContract()?.optionId).toBe('opt-uuid-9');
+      expect(component.limitPrice()).toBe('4.25');
+    });
   });
 
   describe('paste path', () => {
@@ -445,7 +535,6 @@ describe('OptionOrderTicketComponent', () => {
     it('adopts a STAGED card ticket — binds, re-legs, no new stage', async () => {
       const existing = existingOptionTicket(OrderTicketStatus.STAGED);
       tickets.set({ [existing.id]: existing });
-      store.ticketsBySymbol.set({ [SYMBOL]: [existing] });
 
       await render();
       await resolveViaSelects();
@@ -462,7 +551,6 @@ describe('OptionOrderTicketComponent', () => {
     it('blocks staging when the card already has a live option ticket', async () => {
       const live = existingOptionTicket(OrderTicketStatus.SUBMITTED);
       tickets.set({ [live.id]: live });
-      store.ticketsBySymbol.set({ [SYMBOL]: [live] });
 
       await render();
       await resolveViaSelects();
@@ -487,7 +575,6 @@ describe('OptionOrderTicketComponent', () => {
         error: { message: 'broker rejected', retryable: true },
       };
       tickets.set({ [existing.id]: existing });
-      store.ticketsBySymbol.set({ [SYMBOL]: [existing] });
 
       await render();
       await resolveViaSelects();
@@ -506,7 +593,6 @@ describe('OptionOrderTicketComponent', () => {
           new Promise<boolean>((res) => {
             releaseStage = () => {
               tickets.update((m) => ({ ...m, [t.id]: t }));
-              ticketsBySymbol.update((m) => ({ ...m, [t.symbol]: [...(m[t.symbol] ?? []), t] }));
               res(true);
             };
           }),
@@ -543,13 +629,18 @@ describe('OptionOrderTicketComponent', () => {
         bound!.id,
         expect.objectContaining({ legs: [expect.objectContaining({ optionId: 'opt-uuid-9' })] }),
       );
-      expect(stagedEvents).toEqual([{ ticketId: bound!.id, created: true }]);
+      // Two emits for the same id: the stale stage frame reports its
+      // created ticket for discard tracking, then the winner's adopt
+      // reports it again — the host dedupes by id (#964 review).
+      expect(stagedEvents).toEqual([
+        { ticketId: bound!.id, created: true },
+        { ticketId: bound!.id, created: true },
+      ]);
     });
 
     it('ignores terminal tickets — a FAILED card ticket does not block staging', async () => {
       const dead = existingOptionTicket(OrderTicketStatus.FAILED);
       tickets.set({ [dead.id]: dead });
-      store.ticketsBySymbol.set({ [SYMBOL]: [dead] });
 
       await render();
       await resolveViaSelects();
@@ -595,7 +686,6 @@ describe('OptionOrderTicketComponent', () => {
     it('clears a stale stage error when the triplet goes incomplete', async () => {
       const live = existingOptionTicket(OrderTicketStatus.SUBMITTED);
       tickets.set({ [live.id]: live });
-      store.ticketsBySymbol.set({ [SYMBOL]: [live] });
       await render();
       await resolveViaSelects();
       expect(component.stageError()).toBeTruthy();
@@ -611,7 +701,6 @@ describe('OptionOrderTicketComponent', () => {
     it('hydrates the bucket pick from an adopted ticket', async () => {
       const existing = { ...existingOptionTicket(OrderTicketStatus.STAGED), bucketId: 'bucket-9' };
       tickets.set({ [existing.id]: existing });
-      store.ticketsBySymbol.set({ [SYMBOL]: [existing] });
 
       await render();
       await resolveViaSelects();
@@ -652,6 +741,14 @@ describe('OptionOrderTicketComponent', () => {
       component.quantity.set('abc');
       fixture.detectChanges();
       expect(component.canSubmit()).toBe(false);
+    });
+
+    it('defaults quantity to 1 — a resolved contract with a mark submits with no qty click', async () => {
+      await render();
+      await resolveViaSelects(); // mark 3.50 auto-fills limit price; qty default '1'
+      fixture.detectChanges();
+      expect(component.quantity()).toBe('1');
+      expect(component.canSubmit()).toBe(true);
     });
 
     it('requires a limit price on limit orders', async () => {
@@ -752,7 +849,6 @@ describe('OptionOrderTicketComponent', () => {
           new Promise<boolean>((res) => {
             releaseStage = () => {
               tickets.update((m) => ({ ...m, [t.id]: t }));
-              ticketsBySymbol.update((m) => ({ ...m, [t.symbol]: [...(m[t.symbol] ?? []), t] }));
               res(true);
             };
           }),
@@ -780,10 +876,13 @@ describe('OptionOrderTicketComponent', () => {
 
       expect(store.stageTicketAndWait).toHaveBeenCalledTimes(1);
       expect(store.updateTicket).not.toHaveBeenCalled();
-      // A's stage committed before the deselect, but the ticket stays
-      // unbound — the emit for a deselected contract is suppressed.
+      // A's stage committed before the deselect — the ticket stays
+      // unbound (no ghost bind), but the emit still fires: the host's
+      // discard-on-close needs the id or the STAGED doc orphans (#964).
       expect(component.ticketId()).toBeNull();
-      expect(stagedEvents).toHaveLength(0);
+      expect(stagedEvents).toEqual([
+        { ticketId: expect.any(String) as string, created: true },
+      ]);
     });
 
     it('does not land a ghost contract when the triplet clears mid-resolution', async () => {

@@ -48,10 +48,8 @@ import {
 } from '../../services/order-ticket.types';
 import { StOccurrenceDecision, StSignalItem } from '../../services/types';
 import { ReviewDecision, SignalDirection } from '../../common/constants';
-import {
-  buildStOccurrenceDecisionId,
-  canonicalOccurrenceDecisionId,
-} from '../../services/firestore-helpers';
+import { buildStOccurrenceDecisionId } from '../../services/firestore-helpers';
+import { findCardTickets } from '../../utils/gallery-card-actions.util';
 import {
   DEFAULT_OPTION_MAX_PREMIUM_CASH_PERCENT,
   chainsToExpirations,
@@ -166,7 +164,9 @@ export class OptionOrderTicketComponent {
   // ------------------------------------------------------------------
 
   readonly orderType = signal<OptionOrderType>('limit');
-  readonly quantity = signal<string>('');
+  /** Defaults to 1 contract — submit is enabled as soon as a contract
+   *  resolves; the stepper goes 1 → 2 on the first up-click. */
+  readonly quantity = signal<string>('1');
   readonly limitPrice = signal<string>('');
   readonly timeInForce = signal<OptionTimeInForce>('gfd');
   readonly selectedBucketId = signal<string>('');
@@ -196,6 +196,9 @@ export class OptionOrderTicketComponent {
   private cashSeq = 0;
   private instrumentsSeq = 0;
   private resolveSeq = 0;
+  /** True while limitPrice holds a quote default (not user input) — a
+   *  new contract's mark may overwrite it; a typed price never is. */
+  private priceAutoFilled = false;
   /** Serializes ensureStagedTicket — two rapid resolutions could otherwise
    *  both pass the bound/matches checks while the first stageTicketAndWait
    *  is still in flight and double-stage (#963 review). */
@@ -376,6 +379,10 @@ export class OptionOrderTicketComponent {
         this.resolvedContract.set(null);
         this.resolveError.set(null);
         this.stageError.set(null);
+        if (this.priceAutoFilled) {
+          this.limitPrice.set('');
+          this.priceAutoFilled = false;
+        }
         return;
       }
       untracked(() => void this.resolveAndStage(sym, exp, strike, type));
@@ -511,8 +518,17 @@ export class OptionOrderTicketComponent {
       if (seq !== this.resolveSeq) return;
 
       this.resolvedContract.set({ occSymbol, optionId: instrument.instrumentId, mark });
-      if (mark !== null && !this.limitPrice()) {
+      // The quote fills the limit-price default — a price the user typed
+      // is theirs, so only an empty field or a previous auto-fill gets
+      // overwritten. An auto-fill when the new contract's quote is gone
+      // must clear too: contract A's mark must not sit in the field
+      // looking like contract B's.
+      if (mark !== null && (!this.limitPrice() || this.priceAutoFilled)) {
         this.limitPrice.set(mark.toFixed(2));
+        this.priceAutoFilled = true;
+      } else if (mark === null && this.priceAutoFilled) {
+        this.limitPrice.set('');
+        this.priceAutoFilled = false;
       }
       await this.ensureStagedTicket(
         { occSymbol, optionId: instrument.instrumentId },
@@ -638,6 +654,10 @@ export class OptionOrderTicketComponent {
     const persisted = await this.ticketStore.stageTicketAndWait(ticket);
     if (!persisted) return null;
     this.sessionStagedIds.add(ticket.id);
+    // Emit BEFORE the stale bail — the host's discard-on-close tracks
+    // created tickets by this event; suppressing it orphans a persisted
+    // STAGED doc the card can never clean up (#964 review).
+    this.staged.emit({ ticketId: ticket.id, created: true });
     // The stage committed (can't be un-rung) — but a deselect during the
     // write means the ticket stays unbound rather than binding a ghost;
     // a later resolution adopts it via the card guard (and the adopt
@@ -645,36 +665,17 @@ export class OptionOrderTicketComponent {
     if (stale()) return ticket;
     this.ticketId.set(ticket.id);
     this.stageError.set(null);
-    this.staged.emit({ ticketId: ticket.id, created: true });
     return ticket;
   }
 
-  /** OPTION tickets whose signalContext decisionIds overlap this card's
-   *  occurrences — the staging guard's match set. findCardTickets can't
-   *  be reused: it excludes OPTION by design (admitting them for card
-   *  statusing is #964's change). Unlike the equity matcher there's no
-   *  side check — an option ticket is always side 'buy' even on a SHORT
-   *  card. */
+  /** OPTION tickets matching this card via findCardTickets — side is
+   *  pinned 'buy' only to satisfy the equity-check shape; OPTION skips
+   *  the side test (a long put on a SHORT card is still side 'buy'). */
   private cardOptionTickets(): OptionOrderTicket[] {
-    const sym = this.symbol().toUpperCase();
-    const runId = this.runId();
-    const occurrences = this.signals();
-    return (this.ticketStore.ticketsBySymbol()[sym] ?? [])
-      .filter((t): t is OptionOrderTicket => {
-        if (t.instrumentType !== InstrumentType.OPTION || !t.signalContext) return false;
-        const ids = t.signalContext.decisionIds?.length
-          ? t.signalContext.decisionIds
-          : [t.signalContext.decisionId];
-        return occurrences.some((o) =>
-          ids.some((id: string) =>
-            canonicalOccurrenceDecisionId(id, o) ===
-            buildStOccurrenceDecisionId(runId, o.symbol, o.timeframe, o.signalType),
-          ),
-        );
-      })
-      // Newest first — the STAGED adopt pick is deterministic when more
-      // than one card ticket matches.
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return findCardTickets(
+      { symbol: this.symbol(), side: 'buy', allOccurrences: this.signals() },
+      { runId: this.runId(), ticketsBySymbol: this.ticketStore.ticketsBySymbol() },
+    ).filter((t): t is OptionOrderTicket => t.instrumentType === InstrumentType.OPTION);
   }
 
   /** Occurrences minus REJECTed ones — the builder's documented contract:
@@ -747,6 +748,13 @@ export class OptionOrderTicketComponent {
 
   setInputValue(field: WritableSignal<string>, event: Event): void {
     field.set((event.target as HTMLInputElement).value);
+  }
+
+  /** User-typed limit price — stops the quote auto-fill from owning the
+   *  field (the next resolution's mark must not clobber it). */
+  onLimitPriceInput(event: Event): void {
+    this.priceAutoFilled = false;
+    this.setInputValue(this.limitPrice, event);
   }
 
   onQuantityInput(event: Event): void {

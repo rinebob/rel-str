@@ -55,7 +55,7 @@ describe('buildOptionSignalTicket', () => {
     expect(t.legs).toEqual([
       { side: 'buy', symbol: 'AAPL251016C00150000', optionId: 'opt-uuid-1', positionEffect: 'open' },
     ]);
-    expect(t.quantity).toBe('');
+    expect(t.quantity).toBe('1');
     expect(t.createdAt).toBe(NOW.toISOString());
     expect(t.updatedAt).toBe(NOW.toISOString());
   });

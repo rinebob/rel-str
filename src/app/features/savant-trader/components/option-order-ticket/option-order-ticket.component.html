@@ -142,7 +142,7 @@
         <div class="form-row">
           <span class="field-label">Limit $</span>
           <input class="cf-input" data-testid="limit-price-input"
-            [value]="limitPrice()" (input)="setInputValue(limitPrice, $event)" placeholder="0.00">
+            [value]="limitPrice()" (input)="onLimitPriceInput($event)" placeholder="0.00">
           <span class="field-label">per contract</span>
         </div>
       }
