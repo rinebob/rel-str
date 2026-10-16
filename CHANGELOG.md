@@ -27,6 +27,9 @@
 - [Paper Trading Infra] 553-983_DOCS-PAPER-TRADING: #983 CODE-REVIEW (PASS) + #1027 UAT (Complete) — dispatched settlement replay evidence, ok=155 drifted=0
 - [Options Trading Support] 942-963_FE-IMPL-OPTIONS: OptionOrderTicketComponent — expiration/strike/type selects + OCC paste → seq-guarded staged option ticket (re-leg/adopt/live-ticket guard, self-healing blocks), qty/price/TIF/fatfinger/bucket form, persist→confirm→reverify→submit; OrderTicketPatch distributive union widening
 - [Options Trading Support] 942-963_DOCS-OPTIONS: #963 CODE-REVIEW (3 rounds, PASS) + UAT (Complete) + IMPL as-built drift fix
+- [Savant Design System] 1024-1034_SHARED-IMPL-DESIGN-SYSTEM: savant-ds package skeleton (C:\aa\projects\savant-ds) — package.json + README consumption contract (file: dep, includePaths) + _index.scss + verify stub
+- [Savant Design System] 1024-1034_SHARED-VERIFY-DESIGN-SYSTEM: savant-ds skeleton verify — real file: install + junction probe (14 checks) + run-all needsPath gate
+- [Savant Design System] 1024-1034_DOCS-DESIGN-SYSTEM: Topic 1024 docs — PRD + IMPL×2 + TEST×2 + CODE-REVIEW (PASS) + UAT (Complete); CONTEXT.md savant-ds/Design Token/DS Gallery glossary
 ### Added (checkpoints)
 - [Paper Trading Infra] 553-920_BE-VERIFY-PAPER-TRADING: autoPaper trading-config seed script for #920 umbrella QA — resolves ownerUid from {uid}_PRIMARY, writes + reads back (checkpoint)
 - [Paper Trading Infra] 553-920_DOCS-PAPER-TRADING: #920 UAT doc (umbrella) — PARTIAL, AC1 PASS / AC2-4 BLOCKED (checkpoint)

@@ -391,3 +391,18 @@ _Avoid_: option intent, contract order
 
 The contract-choice UI on the Option tab: compact selects (expiration → strike → call/put) fed by `get_option_chains`/`get_option_instruments`, plus a paste field accepting contract details copied from the option-chain page. Either path resolves to a Robinhood `option_id` via `get_option_instruments`. Distinct from the OCC-contract-id selection used by the option-chain pages — the two instrument namespaces do not interoperate without a resolution step.
 _Avoid_: option selector, chain picker
+
+## Savant Design System (savant-ds)
+
+The shared design vocabulary for all Savant-* apps — design tokens plus SCSS pattern mixins shipped as a standalone package at `C:\aa\projects\savant-ds`, consumed by ST and SA via npm `file:` dependency. SCSS/CSS-only by design so both Angular versions consume it identically. The long-term replacement for per-feature visual language files and, eventually, for Angular Material.
+_Avoid_: theme, style guide, daisyUI (rejected — Tailwind-coupled)
+
+## Design Token
+
+A named, single-source styling value exposed as a CSS custom property (`--ds-*` prefix) — color, spacing, typography, density, elevation. Tokens are the portable layer of the Savant Design System: framework- and version-agnostic, theme-swapped via `data-theme="dark"`.
+_Avoid_: variable, constant, SCSS variable (tokens are emitted as CSS custom properties, not Sass vars)
+
+## DS Gallery
+
+The ST `/dev`-route showcase that renders every element the design system owns, each annotated with "seen in" provenance naming the source surfaces it generalizes. Doubles as the element inventory and the source of screenshots for mockups in planning docs.
+_Avoid_: storybook, styleguide page, component library
