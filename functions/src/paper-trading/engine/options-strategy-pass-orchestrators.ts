@@ -27,6 +27,11 @@ import {
   runSignalSettlementPass,
   type SignalSettlementPassSummary,
 } from '../passes/signal-settlement-pass';
+import {
+  defaultSignalEodCloseDeps,
+  runSignalEodClosePass,
+  type SignalEodClosePassSummary,
+} from '../passes/signal-eod-close-pass';
 import { db as paperDb } from '../../firebase-admin-init';
 import type { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import { getUnderlyingClose, getUnderlyingCloseForDate } from './options-strategy-market-data';
@@ -261,10 +266,27 @@ export async function runSettlementForAllInstances(
     (date) => runPaperStatsPass(date, createPaperStatsPassDeps()),
   signalSettlementPass: (date: string) => Promise<SignalSettlementPassSummary> =
     (date) => runSignalSettlementPass(date, defaultSignalSettlementDeps(paperDb)),
+  signalEodClosePass: (date: string) => Promise<SignalEodClosePassSummary> =
+    (date) => runSignalEodClosePass(date, defaultSignalEodCloseDeps(paperDb)),
 ): Promise<Record<string, SettlementPassSummary | { error: string }>> {
-  // Nightly chain: marks → exit-variant eval → settlement → stats. The eval
-  // pass is global (governing closes create fills/cash; shadow runs record
-  // counterfactual exits) — runs once before the per-instance loop.
+  // Nightly chain: EOD close stamp → exit-variant eval → settlement →
+  // stats. The close stamp runs first so signal trades' marks[date]
+  // carries the official SDS close — not the last ~1 PM PT intraday
+  // quote — when eval reads it (#983). Own try/catch: a stamp failure
+  // must not skip eval (intraday marks still stand in that case).
+  try {
+    const eodSummary = await signalEodClosePass(marketDate);
+    log.info(
+      `Signal EOD close pass for ${marketDate}: stamped=${eodSummary.stamped} ` +
+        `skipped=${eodSummary.skipped} noClose=${eodSummary.skippedNoClose} ` +
+        `errors=${eodSummary.errors.length}`,
+    );
+  } catch (err) {
+    log.error(
+      `Signal EOD close pass failed for ${marketDate}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   try {
     const evalSummary = await evalPass(marketDate);
     log.info(

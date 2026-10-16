@@ -250,7 +250,14 @@ export async function updateVariantRun(
 export async function markSignalTrade(
   db: Firestore,
   tradeId: string,
-  update: { mark: number; unrealizedPnl?: number; asOf: string },
+  update: {
+    mark: number;
+    unrealizedPnl?: number;
+    asOf: string;
+    /** EOD stamps (#983) also carry the SDS official close so eval
+     *  variants see the same `underlyingClose` shape settlement writes. */
+    underlyingClose?: number;
+  },
   rawQuote: RawQuote,
 ): Promise<boolean> {
   const now = new Date().toISOString();
@@ -273,7 +280,13 @@ export async function markSignalTrade(
       return false;
     }
     const marks = { ...(trade.marks ?? {}) };
-    marks[rawQuote.date] = { ...marks[rawQuote.date], mark: update.mark };
+    marks[rawQuote.date] = {
+      ...marks[rawQuote.date],
+      mark: update.mark,
+      ...(update.underlyingClose !== undefined
+        ? { underlyingClose: update.underlyingClose }
+        : {}),
+    };
     txn.update(ref, {
       legs:
         trade.legs.length === 1
