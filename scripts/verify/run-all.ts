@@ -23,6 +23,8 @@ interface VerifyScript {
   needsAdc?: boolean;
   needsGh?: boolean;
   needsEnv?: string;
+  /** Repo-relative path that must exist for the script to run (sibling checkout). */
+  needsPath?: string;
 }
 
 const scripts: VerifyScript[] = [
@@ -32,6 +34,12 @@ const scripts: VerifyScript[] = [
   { name: 'st-collections paths', file: 'data-pipeline-st-collections-997.ts', needsAccount: false },
   { name: 'st- type shapes', file: 'data-pipeline-st-types-998.ts', needsAccount: false },
   { name: 'st- id builders + mappers', file: 'data-pipeline-st-ids-999.ts', needsAccount: false },
+  {
+    name: 'design-system package skeleton',
+    file: 'design-system-package-1034.ts',
+    needsAccount: false,
+    needsPath: '../savant-ds',
+  },
   {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
@@ -268,6 +276,11 @@ for (const script of scripts) {
   }
   if (script.needsEnv && !process.env[script.needsEnv]) {
     console.log(`\n--- ${script.name} --- SKIPPED (needs ${script.needsEnv})`);
+    skipped++;
+    continue;
+  }
+  if (script.needsPath && !existsSync(script.needsPath)) {
+    console.log(`\n--- ${script.name} --- SKIPPED (needs ${script.needsPath} checkout)`);
     skipped++;
     continue;
   }

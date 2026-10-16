@@ -46,6 +46,7 @@ deliberately, on-demand.
 | #998 — SHARED st- type shapes | [data-pipeline-st-types-998.md](data-pipeline-st-types-998.md) | `@st/*` alias resolution + canonical shape keys/value sets + ticket-terms validation + writable status set | `data-pipeline-st-types-998.ts` (no credentials) |
 | #999 — SHARED st- id builders + mappers | [data-pipeline-st-ids-999.md](data-pipeline-st-ids-999.md) | `@st/ids` layouts + origin codes + NN rollover + contract omission + legacy source/status/barStatus mappings | `data-pipeline-st-ids-999.ts` (no credentials) |
 | #1000 — BE st-signals dual-write | (functions/scripts/verify/README.md row) | st-signals ⇄ run-ids parity for a marketDate — occurrences, runIds union, status/direction, create-only provenance | `cd functions && npx tsx scripts/verify/data-pipeline-st-signals-dual-write-1000.ts <marketDate> [SYMBOL]` (needs ADC + a deployed run) |
+| #1034 — SHARED savant-ds package skeleton | [design-system-package-1034.md](design-system-package-1034.md) | package exists + `file:../savant-ds` resolves (dry-run) + real install links into node_modules | `design-system-package-1034.ts` (no credentials) |
 | #887 — FE updateEquityStopOrder primitive | (UAT doc: `docs/topics/219-portfolio/219-925-887-UAT-PORTFOLIO-portfolio-dashboard.md`) | real cancel→confirm-poll→place against a live stop; resolves wire questions (terminal order_id lookup, sync place state) | `portfolio-update-stop-887.ts <accountNumber> <orderId> <newStopPrice>` (needs local observation API on :3456 — `npm start`) |
 
 ## Run All
