@@ -8,7 +8,7 @@ Event-driven daily scan that:
 1. Triggers on `partner-data-ready` Pub/Sub (`runType: "intraday-snapshot"`)
 2. Fetches a bulk intraday snapshot from SavantAPI for all monitored symbols
 3. Enqueues one Cloud Tasks job per symbol for parallel analysis
-4. Each worker reads historical OHLCV bars from `symbol-data/{symbol}` subcollections, injects the intraday snapshot as an in-memory partial bar, executes the selected ST trend-rider strategy, and persists signal entries under `savant-trader/data/symbols/{symbol}/run-ids` and `savant-trader/data/symbols/{symbol}/signal-history`
+4. Each worker reads historical OHLCV bars from `symbol-data/{symbol}` subcollections, injects the intraday snapshot as an in-memory partial bar, executes the selected ST trend-rider strategy, and persists signal entries under `savant-trader/data/symbols/{symbol}/run-ids`, `savant-trader/data/symbols/{symbol}/signal-history`, and the canonical `st-signals` occurrence docs (#984 dual-write)
 5. Signals appear in the Angular dashboard for grouped review and triage
 
 The retired Claude bridge and executor prototypes are preserved in archive documents. Direct MCP execution is not yet implemented.
@@ -17,25 +17,25 @@ The retired Claude bridge and executor prototypes are preserved in archive docum
 
 ```
 SDS completion (sds-consumer-dispatch.ts)
-    ¦
+    ï¿½
     ?
 stTriggerDaily (manual) / SDS consumer dispatch (automatic)
     +- callPartnerIntradaySnapshotV2(symbols)  [one bulk POST]
     +- createDailyRun(marketDate, 'pdr')
-    +- createJobAndEnqueue(symbol, intraday)   [× N symbols]
-            ¦
+    +- createJobAndEnqueue(symbol, intraday)   [ï¿½ N symbols]
+            ï¿½
             ?
     Cloud Tasks Queue (max 20 concurrent)
-            ¦
+            ï¿½
             ?
     stProcessSymbol (per symbol)
             +- loadSymbolBars(symbol, marketDate)  [symbol-data]
             +- inject intraday snapshot as partial bar  [in-memory only]
             +- executeStrategy('st-trend-rider')  // ST Trend Rider
-            ¦      +- compute V1/V2 zone signals
-            ¦      +- return LONG/SHORT signals
-            +- persistSignals()  [savant-trader/data/symbols/{symbol}/run-ids/{runId}, savant-trader/data/symbols/{symbol}/signal-history/{barDate}]
-                        ¦
+            ï¿½      +- compute V1/V2 zone signals
+            ï¿½      +- return LONG/SHORT signals
+            +- persistSignals()  [savant-trader/data/symbols/{symbol}/run-ids/{runId}, savant-trader/data/symbols/{symbol}/signal-history/{barDate}, st-signals/{SYM}_{barDate}_{type}]
+                        ï¿½
                         ?
             Angular Dashboard (grouped review / triage)
 ```
@@ -50,11 +50,11 @@ stTriggerDaily (manual) / SDS consumer dispatch (automatic)
 | `opportunities.ts` | `StTradeAction` | Trade action and opportunity types |
 | `st-shared-types.ts` | `SymbolJobPayload`, `IntradaySnapshot` | Cross-cutting payloads and snapshots |
 | `st-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue`, `fetchIntradaySnapshots` | Shared helpers used by triggers and manual callable |
-| `trigger.ts` | `stTriggerDaily` | HTTP admin trigger with `?date` override (PDR Pub/Sub trigger deleted — Savant Trader now triggered by SDS completion via sds-consumer-dispatch.ts) |
+| `trigger.ts` | `stTriggerDaily` | HTTP admin trigger with `?date` override (PDR Pub/Sub trigger deleted ï¿½ Savant Trader now triggered by SDS completion via sds-consumer-dispatch.ts) |
 | `worker.ts` | `stProcessSymbol` | Cloud Tasks worker: reads bars, executes strategy, persists signals |
 | `callables.ts` | `stManualRun` | HTTPS callable for dashboard "Run Now" button |
 | `dashboard-callables.ts` | `stGetStatus`, `stGetRunHistory`, `stGetSymbolsWithSignals` | Dashboard status, run history, and grouped-review symbol query |
-| `signal-date-writer.ts` | `SignalDateWriter` | Persists signal entries under `savant-trader/data/symbols/{symbol}/run-ids` and `savant-trader/data/symbols/{symbol}/signal-history` |
+| `signal-date-writer.ts` | `SignalDateWriter` | Persists signal entries under `savant-trader/data/symbols/{symbol}/run-ids` + `signal-history` and dual-writes canonical `st-signals` occurrence docs (#984) |
 | `overview-sync-orchestrator.ts` / `overview-sync-worker.ts` | `stOverviewSync`, `stOverviewSyncSymbol` | Enqueues company-overview backfill tasks |
 | `seed-admin.ts` | `clearStSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
 | `strategies/` | `base-strategy`, `signal-detection`, `st-trend-rider.strategy` | Strategy adapter, signal state machine, and concrete trend-rider strategy |
@@ -66,6 +66,7 @@ stTriggerDaily (manual) / SDS consumer dispatch (automatic)
 | `savant-trader/data/symbols` | `{symbol}` | Monitored symbols with `enabled`, overview, and last-signal fields |
 | `savant-trader/data/symbols/{symbol}/run-ids` | `{runId}` | Per-run signal entries keyed by signal type |
 | `savant-trader/data/symbols/{symbol}/signal-history` | `{barDate}` | Canonical EOD signal entries keyed by signal type |
+| `st-signals` | `{SYM}_{barDate}_{signalType}` | Canonical signal occurrence docs (#984) â€” upserted dual-write; supersede run-ids/signal-history after cutover |
 | `savant-trader/data/runs` | PDR: `marketDate`; manual: `{marketDate}_manual_{ts}` | Run metadata and counters |
 | `savant-trader/data/runs/{runId}/jobs` | `{symbol}` | Per-symbol job status |
 | `savant-trader/data/status/current` | `current` | Agent status singleton |
@@ -101,10 +102,10 @@ curl "https://rhagenttriggerdaily-<hash>-uc.a.run.app?date=2026-06-13"
 
 ## Signal Strategy
 
-**ST Trend Rider** — fires when the ST zone crosses into a higher (lower) zone on the same timeframe:
+**ST Trend Rider** ï¿½ fires when the ST zone crosses into a higher (lower) zone on the same timeframe:
 - **Daily** zone V1/V2 context
 - **Weekly** zone V1/V2 context
-- Both V1 (±3) and V2 (±4) zone classifications are computed; a signal can fire independently from each
+- Both V1 (ï¿½3) and V2 (ï¿½4) zone classifications are computed; a signal can fire independently from each
 
 A signal is generated when the last bar completes a zone transition:
 - **LONG** uptick: same-timeframe zone rises and is already positive
@@ -152,6 +153,6 @@ ng serve
 
 ## Status
 
-- **Signal generation** — active through the event-driven Cloud Functions architecture
-- **Direct Robinhood MCP authentication and execution** — planned under the Phase A workflow; not yet implemented
-- **Legacy Claude bridge and executor** — executable source removed and preserved in archive documents
+- **Signal generation** ï¿½ active through the event-driven Cloud Functions architecture
+- **Direct Robinhood MCP authentication and execution** ï¿½ planned under the Phase A workflow; not yet implemented
+- **Legacy Claude bridge and executor** ï¿½ executable source removed and preserved in archive documents
