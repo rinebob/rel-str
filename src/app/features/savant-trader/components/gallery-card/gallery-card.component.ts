@@ -11,7 +11,7 @@ import { DecimalPipe } from '@angular/common';
 import { GalleryCardChartComponent } from '../gallery-card-chart/gallery-card-chart.component';
 import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
 import { SignalTimeframe } from '../../common/constants';
-import { OrderTicketStatus } from '../../services/order-ticket.types';
+import { InstrumentType, OrderTicketStatus } from '../../services/order-ticket.types';
 import { GalleryCard, GalleryCardStatus } from '../../utils/gallery-cards.util';
 import { canRejectCard, canTradeCard, isSunkCard } from '../../utils/gallery-card-actions.util';
 import { tierLabel } from '../../utils/utils';
@@ -104,11 +104,18 @@ export class GalleryCardComponent {
     () => this.card().status === 'rejected' || this.card().allRejected,
   );
   /** `limit 10 @ 210.50 · Resting` for quantity tickets; `market $200 ·
-   *  Staged` for the dollar-based market tickets the signal stager emits. */
+   *  Staged` for the dollar-based market tickets the signal stager emits.
+   *  Option tickets (#964) render `opt 2 @ 1.25` — quantity is contracts
+   *  and the price field is `price`, not `limitPrice`. */
   readonly ticketLine = computed(() => {
     const t = this.card().ticket;
     if (!t) return '';
-    const terms = t.quantity ? `${t.quantity} @ ${t.limitPrice ?? 'mkt'}` : `$${t.dollarAmount ?? '—'}`;
+    const terms =
+      t.instrumentType === InstrumentType.OPTION
+        ? `opt ${t.quantity}${t.price ? ` @ ${t.price}` : ''}`
+        : t.quantity
+          ? `${t.quantity} @ ${t.limitPrice ?? 'mkt'}`
+          : `$${t.dollarAmount ?? '—'}`;
     return `${t.orderType} ${terms} · ${TICKET_STATUS_LABELS[t.status]}`;
   });
 }

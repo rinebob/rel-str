@@ -12,8 +12,6 @@
  * timestamp, and match the card (#819 r2).
  */
 import {
-  EquityOrderTicket,
-  EtfOrderTicket,
   InstrumentType,
   OrderTicket,
   OrderTicketStatus,
@@ -50,7 +48,7 @@ export function enrichGalleryCards(
 }
 
 /** Canonical decision id for an occurrence in the viewed run. */
-function occurrenceDecisionId(o: StSignalItem, ctx: GalleryActionContext): string {
+function occurrenceDecisionId(o: StSignalItem, ctx: Pick<GalleryActionContext, 'runId'>): string {
   return buildStOccurrenceDecisionId(ctx.runId, o.symbol, o.timeframe, o.signalType);
 }
 
@@ -76,31 +74,43 @@ function latestDecidedAt(card: GalleryCard, ctx: GalleryActionContext): string {
  *  embedded timeframe/signalType differ from the ticket's headline fields,
  *  and scopes matches to THIS run — a same-symbol/same-side ticket from
  *  another run carries that run's decision ids and never matches (#755
- *  review). Sorted by updatedAt desc. Equity/ETF only today — option
- *  tickets also carry signalContext (signal-gallery provenance, #942);
- *  admitting them is #964's card-statusing work. */
+ *  review). Sorted by updatedAt desc. OPTION tickets are admitted by the
+ *  same decisionIds test (#964) — the side check exists for equity's
+ *  symbol+side dedupe, and an option ticket is always `side: 'buy'` (a
+ *  long put on a SHORT card must still status it). */
 export function findCardTickets(
-  card: GalleryCard,
-  ctx: GalleryActionContext,
-): Array<EquityOrderTicket | EtfOrderTicket> {
+  card: Pick<GalleryCard, 'symbol' | 'side' | 'allOccurrences'>,
+  ctx: Pick<GalleryActionContext, 'runId' | 'ticketsBySymbol'>,
+): OrderTicket[] {
+  // A live ticket (order in flight / just placed) outranks a STAGED one
+  // regardless of updatedAt — otherwise touching the staged ticket would
+  // flip a resting card back to 'pending' and hide the live order (#964
+  // review). Within a rank, newest first.
+  const rank = (t: OrderTicket) =>
+    t.status === OrderTicketStatus.SUBMITTING ||
+    t.status === OrderTicketStatus.SUBMITTED ||
+    t.status === OrderTicketStatus.QUEUED ||
+    t.status === OrderTicketStatus.RESTING
+      ? 1
+      : 0;
   return (ctx.ticketsBySymbol[card.symbol.toUpperCase()] ?? [])
-    .filter((t): t is EquityOrderTicket | EtfOrderTicket => {
-      if (t.instrumentType === InstrumentType.OPTION) return false;
-      if (t.side !== card.side || !t.signalContext) return false;
+    .filter((t) => {
+      if (t.instrumentType !== InstrumentType.OPTION && t.side !== card.side) return false;
+      if (!t.signalContext) return false;
       const sc = t.signalContext;
       const ids = sc.decisionIds?.length ? sc.decisionIds : [sc.decisionId];
       return card.allOccurrences.some((o) =>
         ids.some((id: string) => canonicalOccurrenceDecisionId(id, o) === occurrenceDecisionId(o, ctx)),
       );
     })
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    .sort((a, b) => rank(b) - rank(a) || b.updatedAt.localeCompare(a.updatedAt));
 }
 
 /** The latest ticket statusing a card — see {@link findCardTickets}. */
 function findCardTicket(
   card: GalleryCard,
   ctx: GalleryActionContext,
-): EquityOrderTicket | EtfOrderTicket | undefined {
+): OrderTicket | undefined {
   return findCardTickets(card, ctx)[0];
 }
 

@@ -34,6 +34,7 @@ import { EquityPriceService } from '../services/equity-price.service';
 import {
   EquityOrderTicket,
   EtfOrderTicket,
+  InstrumentType,
   OrderTicketStatus,
   TradingConfig,
 } from '../services/order-ticket.types';
@@ -78,6 +79,15 @@ export class GalleryCardActionsService {
 
   /** Mutation actions require the viewed run to be completed. */
   readonly isActionableRun = computed(() => this.groupStore.isActionableRun());
+
+  /** Viewed run id — exposed for the option-tab seed the ticket dialog
+   *  binds (#964). */
+  readonly activeRunId = this.groupStore.activeRunId;
+
+  /** Live occurrence-decision record — the dialog binds it into the
+   *  option ticket's `decisions` input so its self-healing retry sees
+   *  un-rejects while the dialog is open (#964). */
+  readonly occurrenceDecisions = this.occurrenceStore.occurrenceDecisions;
 
   /** Card keys with an action in flight — the page binds these to each
    *  card's `actionBusy` input; methods also re-check them so a rapid
@@ -124,10 +134,16 @@ export class GalleryCardActionsService {
     // a render snapshot, so a ticket submitted elsewhere between render
     // and click must stop a duplicate stage, not just the STAGED reopen.
     return this.withBusy(card.key, async () => {
-      const all = findCardTickets(card, this.actionContext());
-      const existing = all.find((t) => t.status === OrderTicketStatus.STAGED);
+      // Equity-scope the reopen check — findCardTickets admits OPTION
+      // tickets (#964), but they never gate the stock tab: an existing
+      // STAGED option ticket is adopted by the option component itself,
+      // and a live option ticket already sank the card (canTradeCard).
+      const equity = findCardTickets(card, this.actionContext()).filter(
+        (t): t is EquityOrderTicket | EtfOrderTicket => t.instrumentType !== InstrumentType.OPTION,
+      );
+      const existing = equity.find((t) => t.status === OrderTicketStatus.STAGED);
       if (existing) return { ticket: existing, created: false };
-      if (all.length) return null; // ticket advanced past STAGED — stale snapshot
+      if (equity.length) return null; // ticket advanced past STAGED — stale snapshot
       const ticket = await this.stageCardTicket(card, runId);
       return ticket ? { ticket, created: true } : null;
     });
@@ -165,10 +181,14 @@ export class GalleryCardActionsService {
     if (!runId || this._busyKeys().has(card.key)) return;
     await this.withBusy(card.key, async () => {
       // Same stale-snapshot guard as tradeCard — any non-STAGED matching
-      // ticket means the card's state moved on since render.
-      const all = findCardTickets(card, this.actionContext());
-      const existing = all.find((t) => t.status === OrderTicketStatus.STAGED);
-      if (!existing && all.length) return;
+      // EQUITY ticket means the card's state moved on since render.
+      // Option tickets are excluded: they can't go to paper and must not
+      // masquerade as the staged equity ticket (#964).
+      const equity = findCardTickets(card, this.actionContext()).filter(
+        (t): t is EquityOrderTicket | EtfOrderTicket => t.instrumentType !== InstrumentType.OPTION,
+      );
+      const existing = equity.find((t) => t.status === OrderTicketStatus.STAGED);
+      if (!existing && equity.length) return;
       const created = !existing;
       const staged = existing ?? (await this.stageCardTicket(card, runId));
       if (!staged) return;

@@ -7,7 +7,7 @@
  * staged tickets, Paper routes through `sendTicketToPaper`, and
  * `busyCardKeys`/`isActionableRun` guard re-entry.
  */
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
@@ -24,6 +24,7 @@ import { StOccurrenceDecision, StSignalItem, StSymbolProfile } from '../services
 import {
   EquityOrderTicket,
   InstrumentType,
+  OptionOrderTicket,
   OrderSource,
   OrderTicket,
   OrderTicketStatus,
@@ -90,6 +91,38 @@ function makeTicket(
   } as EquityOrderTicket;
 }
 
+function makeOptionTicket(
+  symbol: string,
+  status: OrderTicketStatus,
+  direction: 'LONG' | 'SHORT' = 'LONG',
+): OptionOrderTicket {
+  return {
+    id: `opt-${symbol}`,
+    refId: 'ref-opt',
+    source: OrderSource.SIGNAL_PIPELINE,
+    status,
+    accountNumber: 'acct-1',
+    side: 'buy',
+    orderType: 'limit',
+    timeInForce: 'gfd',
+    marketHours: 'regular_hours',
+    instrumentType: InstrumentType.OPTION,
+    symbol,
+    legs: [{ side: 'buy', symbol: `${symbol}260116C00200000`, optionId: 'opt-1', positionEffect: 'open' }],
+    quantity: '1',
+    price: '1.25',
+    signalContext: {
+      signalType: 'RS_RISE',
+      barDate: MARKET_DATE,
+      timeframe: 'D',
+      direction,
+      decisionId: buildStOccurrenceDecisionId(RUN_ID, symbol, 'D', 'RS_RISE'),
+    },
+    createdAt: '2026-08-25T00:00:00Z',
+    updatedAt: '2026-08-26T00:00:00Z',
+  };
+}
+
 function makeCard(
   symbol: string,
   side: 'buy' | 'sell',
@@ -130,7 +163,7 @@ describe('GalleryCardActionsService', () => {
     symbolLists: ReturnType<typeof signal<Record<string, string[]>>>;
   };
   let ticketStoreMock: {
-    ticketsBySymbol: ReturnType<typeof signal<Record<string, OrderTicket[]>>>;
+    ticketsBySymbol: ReturnType<typeof computed<Record<string, OrderTicket[]>>>;
     tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
     stageTicketAndWait: jest.Mock;
     sendTicketToPaper: jest.Mock;
@@ -142,6 +175,12 @@ describe('GalleryCardActionsService', () => {
     fetchPrices: jest.Mock;
   };
   let configServiceMock: { loadConfig: jest.Mock };
+
+  /** Write tickets into the store map — ticketsBySymbol derives from
+   *  it exactly like the real store, so the two views can't drift. */
+  const seedTickets = (...list: OrderTicket[]) => {
+    ticketStoreMock.tickets.set(Object.fromEntries(list.map((t) => [t.id, t])));
+  };
 
   beforeEach(async () => {
     snackBarMock = { open: jest.fn() };
@@ -160,17 +199,19 @@ describe('GalleryCardActionsService', () => {
       symbolLists: signal<Record<string, string[]>>({}),
     };
     ticketStoreMock = {
-      ticketsBySymbol: signal<Record<string, OrderTicket[]>>({}),
+      ticketsBySymbol: computed((): Record<string, OrderTicket[]> => {
+        const grouped: Record<string, OrderTicket[]> = {};
+        for (const t of Object.values(ticketStoreMock.tickets())) {
+          (grouped[t.symbol] ??= []).push(t);
+        }
+        return grouped;
+      }),
       tickets: signal<Record<string, OrderTicket>>({}),
       // Pessimistic stage: the service awaits the write, so the mock must
       // actually land the ticket in the store maps (a later tickets()[id]
       // re-read depends on it).
       stageTicketAndWait: jest.fn(async (t: EquityOrderTicket) => {
         ticketStoreMock.tickets.update((m) => ({ ...m, [t.id]: t }));
-        ticketStoreMock.ticketsBySymbol.update((m) => ({
-          ...m,
-          [t.symbol]: [...(m[t.symbol] ?? []), t],
-        }));
         return true;
       }),
       sendTicketToPaper: jest.fn().mockResolvedValue({ cohortId: 'c1', expressionTradeIds: [] }),
@@ -204,7 +245,7 @@ describe('GalleryCardActionsService', () => {
 
   it('reject writes durable REJECTs for the card occurrences and removes its side\'s staged tickets', () => {
     const staged = makeTicket('TSLA', 'sell', OrderTicketStatus.STAGED);
-    ticketStoreMock.ticketsBySymbol.set({ TSLA: [staged] });
+    seedTickets(staged);
 
     actions.rejectCard(tslaSell());
 
@@ -272,7 +313,7 @@ describe('GalleryCardActionsService', () => {
 
   it('trade reopens an existing staged ticket instead of duplicating (#759)', async () => {
     const staged = makeTicket('TSLA', 'sell', OrderTicketStatus.STAGED);
-    ticketStoreMock.ticketsBySymbol.set({ TSLA: [staged] });
+    seedTickets(staged);
 
     const result = await actions.tradeCard(tslaSell());
 
@@ -304,8 +345,7 @@ describe('GalleryCardActionsService', () => {
 
   it('paper reuses the card\'s existing staged ticket', async () => {
     const staged = makeTicket('TSLA', 'sell', OrderTicketStatus.STAGED, { quantity: '4' });
-    ticketStoreMock.ticketsBySymbol.set({ TSLA: [staged] });
-    ticketStoreMock.tickets.set({ [staged.id]: staged });
+    seedTickets(staged);
 
     await actions.paperCard(tslaSell());
 
@@ -317,8 +357,7 @@ describe('GalleryCardActionsService', () => {
 
   it('paper surfaces the failure when the paper send rejects (ticket existed — kept)', async () => {
     const staged = makeTicket('TSLA', 'sell', OrderTicketStatus.STAGED, { quantity: '4' });
-    ticketStoreMock.ticketsBySymbol.set({ TSLA: [staged] });
-    ticketStoreMock.tickets.set({ [staged.id]: staged });
+    seedTickets(staged);
     ticketStoreMock.sendTicketToPaper.mockRejectedValue(new Error('boom'));
 
     await actions.paperCard(tslaSell());
@@ -421,8 +460,7 @@ describe('GalleryCardActionsService', () => {
 
     it('a second paperCard during the send cannot double-send (#755 review)', async () => {
       const staged = makeTicket('TSLA', 'sell', OrderTicketStatus.STAGED, { quantity: '4' });
-      ticketStoreMock.ticketsBySymbol.set({ TSLA: [staged] });
-      ticketStoreMock.tickets.set({ [staged.id]: staged });
+      seedTickets(staged);
       let release!: (v: unknown) => void;
       ticketStoreMock.sendTicketToPaper.mockImplementationOnce(
         () => new Promise((r) => { release = r; }),
@@ -544,7 +582,7 @@ describe('GalleryCardActionsService', () => {
           decisionId: buildStOccurrenceDecisionId('run-other', 'TSLA', 'D', 'RS_RISE'),
         },
       });
-      ticketStoreMock.ticketsBySymbol.set({ TSLA: [mine, otherRun] });
+      seedTickets(mine, otherRun);
 
       actions.rejectCard(makeCard('TSLA', 'sell', [signal]));
 
@@ -554,8 +592,7 @@ describe('GalleryCardActionsService', () => {
 
     it('two rapid trade clicks on an existing ticket open one dialog — busy covers the reopen path', async () => {
       const staged = makeTicket('TSLA', 'sell', OrderTicketStatus.STAGED);
-      ticketStoreMock.ticketsBySymbol.set({ TSLA: [staged] });
-      ticketStoreMock.tickets.set({ [staged.id]: staged });
+      seedTickets(staged);
 
       // Same-tick double-click: the first call registers busy synchronously
       // before its reopen-check resolves, so the second sees the busy key.
@@ -596,8 +633,7 @@ describe('GalleryCardActionsService', () => {
       // Rendered card has no ticket, but another surface submitted one
       // for this run+side between render and click.
       const submitted = makeTicket('TSLA', 'sell', OrderTicketStatus.SUBMITTED);
-      ticketStoreMock.ticketsBySymbol.set({ TSLA: [submitted] });
-      ticketStoreMock.tickets.set({ [submitted.id]: submitted });
+      seedTickets(submitted);
       priceServiceMock.prices.set({ TSLA: 25 });
 
       const result = await actions.tradeCard(tslaSell());
@@ -608,8 +644,7 @@ describe('GalleryCardActionsService', () => {
 
     it('paper bails on the same stale-snapshot guard — no stage, no send', async () => {
       const submitted = makeTicket('TSLA', 'sell', OrderTicketStatus.SUBMITTED);
-      ticketStoreMock.ticketsBySymbol.set({ TSLA: [submitted] });
-      ticketStoreMock.tickets.set({ [submitted.id]: submitted });
+      seedTickets(submitted);
 
       await actions.paperCard(tslaSell());
 
@@ -619,8 +654,7 @@ describe('GalleryCardActionsService', () => {
 
     it('the store\'s eligibility guard surfaces an actionable snackbar, not internal wording', async () => {
       const staged = makeTicket('TSLA', 'sell', OrderTicketStatus.STAGED, { quantity: '4' });
-      ticketStoreMock.ticketsBySymbol.set({ TSLA: [staged] });
-      ticketStoreMock.tickets.set({ [staged.id]: staged });
+      seedTickets(staged);
       ticketStoreMock.sendTicketToPaper.mockRejectedValue(
         new Error('ticket t-TSLA-sell is no longer paper-eligible'),
       );
@@ -630,6 +664,55 @@ describe('GalleryCardActionsService', () => {
       expect(snackBarMock.open).toHaveBeenCalledWith(
         expect.stringContaining('ticket changed before send'), 'Dismiss', { duration: 5000 },
       );
+    });
+  });
+
+  describe('#964 option tickets', () => {
+    it('trade stages a fresh equity ticket when only a STAGED OPTION ticket exists — the option ticket is not the stock-tab reopen', async () => {
+      const card = makeCard('AAPL', 'buy', [
+        makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 }),
+      ]);
+      seedTickets(makeOptionTicket('AAPL', OrderTicketStatus.STAGED));
+
+      const result = await actions.tradeCard(card);
+
+      expect(result?.created).toBe(true);
+      expect(result?.ticket.instrumentType).toBe(InstrumentType.EQUITY);
+      expect(ticketStoreMock.stageTicketAndWait).toHaveBeenCalled();
+    });
+
+    it('paper ignores a STAGED OPTION ticket — it can never be paper-sent and must not masquerade as the equity ticket', async () => {
+      const card = makeCard('TSLA', 'sell', [
+        makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT, { closePrice: 40 }),
+      ]);
+      seedTickets(makeOptionTicket('TSLA', OrderTicketStatus.STAGED, 'SHORT'));
+
+      await actions.paperCard(card);
+
+      // A fresh equity ticket staged + sent, not the option ticket adopted.
+      expect(ticketStoreMock.stageTicketAndWait).toHaveBeenCalled();
+      expect(ticketStoreMock.sendTicketToPaper).toHaveBeenCalled();
+      const sent = ticketStoreMock.sendTicketToPaper.mock.calls[0][0] as OrderTicket;
+      expect(sent.instrumentType).toBe(InstrumentType.EQUITY);
+    });
+
+    it('reject removes the card\'s STAGED option ticket alongside the equity one', () => {
+      const stagedEq = makeTicket('TSLA', 'sell', OrderTicketStatus.STAGED);
+      const stagedOpt = makeOptionTicket('TSLA', OrderTicketStatus.STAGED, 'SHORT');
+      seedTickets(stagedEq, stagedOpt);
+
+      actions.rejectCard(tslaSell());
+
+      expect(ticketStoreMock.removeTicket).toHaveBeenCalledWith(stagedEq.id);
+      expect(ticketStoreMock.removeTicket).toHaveBeenCalledWith(stagedOpt.id);
+    });
+
+    it('exposes the live run id and decision record for the option-tab seed', () => {
+      expect(actions.activeRunId()).toBe(RUN_ID);
+      occurrenceStoreMock.occurrenceDecisions.set({
+        'd-1': { decisionType: ReviewDecision.REJECT } as StOccurrenceDecision,
+      });
+      expect(actions.occurrenceDecisions()['d-1']).toBeTruthy();
     });
   });
 });

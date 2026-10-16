@@ -11,11 +11,7 @@ import {
   StSignalItem,
   StSymbolProfile,
 } from '../services/types';
-import {
-  EquityOrderTicket,
-  EtfOrderTicket,
-  OrderTicket,
-} from '../services/order-ticket.types';
+import { OrderTicket } from '../services/order-ticket.types';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import {
   ReviewDecision,
@@ -72,8 +68,9 @@ export interface GalleryCard {
    *  non-tradeable even though it renders 'watched'. */
   allRejected: boolean;
   /** The signal-staged ticket statusing this card, when one exists —
-   *  always equity/ETF (the gallery only stages stock tickets). */
-  ticket?: EquityOrderTicket | EtfOrderTicket;
+   *  equity/ETF or OPTION (#964 — option tickets status the card via
+   *  decisionIds; `ticketLine` renders a per-variant terms string). */
+  ticket?: OrderTicket;
   /** Best-effort action timestamp (ticket terminalAt/updatedAt, else the
    *  latest occurrence decidedAt); '' when unknown — drives sunk ordering
    *  (desc, untimestamped last). */

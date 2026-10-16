@@ -93,6 +93,8 @@ describe('GalleryViewComponent', () => {
     isActionableRun: ReturnType<typeof signal<boolean>>;
     busyCardKeys: ReturnType<typeof signal<ReadonlySet<string>>>;
     config: ReturnType<typeof signal<null>>;
+    activeRunId: ReturnType<typeof signal<string | null>>;
+    occurrenceDecisions: ReturnType<typeof signal<Record<string, unknown>>>;
     warmConfig: jest.Mock;
     rejectCard: jest.Mock;
     paperCard: jest.Mock;
@@ -143,6 +145,8 @@ describe('GalleryViewComponent', () => {
       isActionableRun: signal(true),
       busyCardKeys: signal<ReadonlySet<string>>(new Set()),
       config: signal(null),
+      activeRunId: signal<string | null>('run-1'),
+      occurrenceDecisions: signal({}),
       warmConfig: jest.fn(),
       rejectCard: jest.fn(),
       paperCard: jest.fn(),
@@ -315,6 +319,51 @@ describe('GalleryViewComponent', () => {
     await fixture.whenStable();
 
     expect(actionsMock.discardStagedTicket).not.toHaveBeenCalled();
+  });
+
+  it('passes the option-tab seed and discards a session-created option ticket on close (#964)', async () => {
+    const c = card('AAPL', 'buy');
+    actionsMock.tradeCard.mockResolvedValue({ ticket: { id: 't-1' }, created: true });
+    let afterClosedCb: (() => void) | undefined;
+    dialogMock.open.mockReturnValue({
+      afterClosed: () => ({ subscribe: (cb: () => void) => { afterClosedCb = cb; } }),
+    });
+    facadeMock.cards.set([c]);
+    facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards: [c] }]);
+    fixture.detectChanges();
+
+    const group = fixture.debugElement.query((el) => el.name === 'app-gallery-group')
+      .componentInstance as { cardAction: { emit: (v: { type: string; card: GalleryCard }) => void } };
+    group.cardAction.emit({ type: 'trade', card: c });
+    await fixture.whenStable();
+
+    const data = dialogMock.open.mock.calls[0][1].data;
+    expect(data.option).toMatchObject({ symbol: 'AAPL', runId: 'run-1', signals: c.allOccurrences });
+
+    // The Option tab staged a ticket this session → it discards on close
+    // alongside the created equity ticket.
+    data.option.onStaged({ ticketId: 'opt-1', created: true });
+    data.option.onStaged({ ticketId: 'opt-2', created: false }); // adopted — survives
+    afterClosedCb!();
+    expect(actionsMock.discardStagedTicket).toHaveBeenCalledWith('t-1');
+    expect(actionsMock.discardStagedTicket).toHaveBeenCalledWith('opt-1');
+    expect(actionsMock.discardStagedTicket).not.toHaveBeenCalledWith('opt-2');
+  });
+
+  it('renders Stock-only (no option seed) when no run is active', async () => {
+    const c = card('AAPL', 'buy');
+    actionsMock.activeRunId.set(null);
+    actionsMock.tradeCard.mockResolvedValue({ ticket: { id: 't-1' }, created: true });
+    facadeMock.cards.set([c]);
+    facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards: [c] }]);
+    fixture.detectChanges();
+
+    const group = fixture.debugElement.query((el) => el.name === 'app-gallery-group')
+      .componentInstance as { cardAction: { emit: (v: { type: string; card: GalleryCard }) => void } };
+    group.cardAction.emit({ type: 'trade', card: c });
+    await fixture.whenStable();
+
+    expect(dialogMock.open.mock.calls[0][1].data.option).toBeUndefined();
   });
 
   it('prefetches card-chart bars for visible symbols on idle (#756)', async () => {

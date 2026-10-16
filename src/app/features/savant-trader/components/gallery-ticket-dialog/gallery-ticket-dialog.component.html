@@ -1,13 +1,40 @@
 <h2 mat-dialog-title>
-  {{ symbol() }} {{ ticket()?.side | uppercase }} Order Ticket
+  Open order ticket
 </h2>
 
 <mat-dialog-content>
-  <app-order-ticket
-    [ticket]="ticket()"
-    [price]="price()"
-    [tradingConfig]="tradingConfig()">
-  </app-order-ticket>
+  @if (data.option) {
+    <!-- preserveContent keeps the lazy Option pane alive across tab
+         switches — without it a deactivated lazy tab destroys its
+         content and wipes the form state (#964 review). -->
+    <mat-tab-group mat-stretch-tabs="false" preserveContent>
+      <mat-tab label="Stock">
+        <app-order-ticket
+          [ticket]="ticket()"
+          [price]="price()"
+          [tradingConfig]="tradingConfig()">
+        </app-order-ticket>
+      </mat-tab>
+      <mat-tab label="Option">
+        <ng-template matTabContent>
+          <app-option-order-ticket
+            [symbol]="data.option.symbol"
+            [signals]="data.option.signals"
+            [runId]="data.option.runId"
+            [tradingConfig]="tradingConfig()"
+            [decisions]="data.option.decisions()"
+            (staged)="onOptionStaged($event)">
+          </app-option-order-ticket>
+        </ng-template>
+      </mat-tab>
+    </mat-tab-group>
+  } @else {
+    <app-order-ticket
+      [ticket]="ticket()"
+      [price]="price()"
+      [tradingConfig]="tradingConfig()">
+    </app-order-ticket>
+  }
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">

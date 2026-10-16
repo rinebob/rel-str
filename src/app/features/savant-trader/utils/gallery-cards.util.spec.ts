@@ -27,6 +27,7 @@ import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import {
   EquityOrderTicket,
   InstrumentType,
+  OptionOrderTicket,
   OrderSource,
   OrderTicket,
   OrderTicketStatus,
@@ -553,10 +554,80 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
       expect(c.status).toBe('pending');
     });
 
-    it('ignores option tickets — they never carry signal context', () => {
-      const opt = { ...ticket('AAPL', 'buy', OrderTicketStatus.RESTING), instrumentType: InstrumentType.OPTION };
-      const [c] = enrichGalleryCards(cards, ctx({ ticketsBySymbol: { AAPL: [opt as OrderTicket] } }));
+    it('statuses the card from an OPTION ticket via decisionIds (#964)', () => {
+      const opt: OrderTicket = {
+        ...ticket('AAPL', 'buy', OrderTicketStatus.RESTING),
+        instrumentType: InstrumentType.OPTION,
+        legs: [{ side: 'buy', symbol: 'AAPL260116C00200000', optionId: 'opt-1', positionEffect: 'open' }],
+        quantity: '1',
+      } as OptionOrderTicket;
+      const [c] = enrichGalleryCards(cards, ctx({ ticketsBySymbol: { AAPL: [opt] } }));
+      expect(c.status).toBe('resting');
+      expect(c.ticket?.id).toBe(opt.id);
+    });
+
+    it('matches an OPTION ticket despite the card-side check — a long put on a SHORT card is side buy (#964)', () => {
+      const shortCards = buildGalleryCards(
+        [profile('AAPL')],
+        { AAPL: [signal('AAPL', SignalTimeframe.DAILY, SignalDirection.SHORT)] },
+      );
+      const opt: OrderTicket = {
+        ...ticket('AAPL', 'buy', OrderTicketStatus.SUBMITTED),
+        instrumentType: InstrumentType.OPTION,
+        legs: [{ side: 'buy', symbol: 'AAPL260116P00200000', optionId: 'opt-1', positionEffect: 'open' }],
+        quantity: '1',
+      } as OptionOrderTicket;
+      const [c] = enrichGalleryCards(shortCards, ctx({ ticketsBySymbol: { AAPL: [opt] } }));
+      expect(c.status).toBe('resting');
+    });
+
+    it('still applies the side check to equity tickets — a sell ticket never statuses a buy card', () => {
+      const sell = ticket('AAPL', 'sell', OrderTicketStatus.RESTING);
+      const [c] = enrichGalleryCards(cards, ctx({ ticketsBySymbol: { AAPL: [sell] } }));
       expect(c.status).toBe('pending');
+    });
+
+    it('ignores option tickets without signalContext', () => {
+      const opt = {
+        ...ticket('AAPL', 'buy', OrderTicketStatus.RESTING),
+        instrumentType: InstrumentType.OPTION,
+        legs: [{ side: 'buy', symbol: 'AAPL260116C00200000', optionId: 'opt-1', positionEffect: 'open' }],
+        quantity: '1',
+        signalContext: undefined,
+      } as OptionOrderTicket;
+      const [c] = enrichGalleryCards(cards, ctx({ ticketsBySymbol: { AAPL: [opt] } }));
+      expect(c.status).toBe('pending');
+    });
+
+    it('a live option ticket outranks a newer STAGED equity ticket — the card stays resting (#964)', () => {
+      const opt = {
+        ...ticket('AAPL', 'buy', OrderTicketStatus.RESTING),
+        id: 'opt-live',
+        instrumentType: InstrumentType.OPTION,
+        legs: [{ side: 'buy', symbol: 'AAPL260116C00200000', optionId: 'opt-1', positionEffect: 'open' }],
+        quantity: '1',
+        updatedAt: '2026-08-25T00:00:00Z',
+      } as OptionOrderTicket;
+      const staged = ticket('AAPL', 'buy', OrderTicketStatus.STAGED, {
+        id: 'eq-staged',
+        updatedAt: '2026-08-27T00:00:00Z', // newer — would win on updatedAt alone
+      });
+      const [c] = enrichGalleryCards(cards, ctx({ ticketsBySymbol: { AAPL: [staged, opt] } }));
+      expect(c.status).toBe('resting');
+      expect(c.ticket?.id).toBe('opt-live');
+      expect(canTradeCard(c)).toBe(false);
+    });
+
+    it('a STAGED option ticket leaves the card pending and tradeable (Trade reopens it)', () => {
+      const opt = {
+        ...ticket('AAPL', 'buy', OrderTicketStatus.STAGED),
+        instrumentType: InstrumentType.OPTION,
+        legs: [{ side: 'buy', symbol: 'AAPL260116C00200000', optionId: 'opt-1', positionEffect: 'open' }],
+        quantity: '1',
+      } as OptionOrderTicket;
+      const [c] = enrichGalleryCards(cards, ctx({ ticketsBySymbol: { AAPL: [opt] } }));
+      expect(c.status).toBe('pending');
+      expect(canTradeCard(c)).toBe(true);
     });
 
     it('ignores a same-run ticket whose decision is not one of the card\'s occurrences', () => {
