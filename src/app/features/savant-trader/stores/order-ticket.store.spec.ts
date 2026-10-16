@@ -404,10 +404,10 @@ describe('OrderTicketStore', () => {
       ticketService.updateTicket.and.returnValue(of(undefined));
       store.stageTicket(mockEquityTicket({ quantity: '10' }));
 
-      store.updateTicket('ticket-1', { quantity: '20' } as Partial<EquityOrderTicket>);
+      store.updateTicket('ticket-1', { quantity: '20' });
 
       expect(store.tickets()['ticket-1'].quantity).toBe('20');
-      expect(ticketService.updateTicket).toHaveBeenCalledWith('ticket-1', { quantity: '20' } as Partial<EquityOrderTicket>);
+      expect(ticketService.updateTicket).toHaveBeenCalledWith('ticket-1', { quantity: '20' });
     });
 
     it('rolls back on updateTicket error', () => {
@@ -415,7 +415,7 @@ describe('OrderTicketStore', () => {
       ticketService.updateTicket.and.returnValue(throwError(() => new Error('Update failed')));
       store.stageTicket(mockEquityTicket({ quantity: '10' }));
 
-      store.updateTicket('ticket-1', { quantity: '20' } as Partial<EquityOrderTicket>);
+      store.updateTicket('ticket-1', { quantity: '20' });
 
       expect(store.tickets()['ticket-1'].quantity).toBe('10');
       expect(snackBar.open).toHaveBeenCalled();
@@ -437,10 +437,9 @@ describe('OrderTicketStore', () => {
         positionEffect: 'open' as const,
       }];
 
-      // The store patch type is Partial<Omit<OrderTicket,'instrumentType'>> —
-      // Omit doesn't distribute, so option-only fields need the variant cast
-      // (same convention as the equity partial casts above).
-      store.updateTicket('opt-1', { legs: newLegs } as Partial<OptionOrderTicket>);
+      // OrderTicketPatch is a distributive-omit union — option-only
+      // fields like legs type-check without a variant cast.
+      store.updateTicket('opt-1', { legs: newLegs });
 
       expect((store.tickets()['opt-1'] as OptionOrderTicket).legs).toEqual(newLegs);
       expect(ticketService.updateTicket).toHaveBeenCalledWith('opt-1', { legs: newLegs });
@@ -456,7 +455,7 @@ describe('OrderTicketStore', () => {
       store.stageTicket(mockEquityTicket({ id: 't2', status: OrderTicketStatus.STAGED }));
       ticketService.updateTicket.and.returnValue(pending);
 
-      store.updateTicket('t1', { quantity: '20' } as Partial<EquityOrderTicket>);
+      store.updateTicket('t1', { quantity: '20' });
       store.setTicketStatusLocal('t2', OrderTicketStatus.SUBMITTING);
       pending.error(new Error('write failed'));
 
@@ -510,7 +509,7 @@ describe('OrderTicketStore', () => {
       ticketService.updateTicket.and.returnValue(throwError(() => new Error('write failed')));
       store.stageTicket(mockEquityTicket({ quantity: '10' }));
 
-      const ok = await store.updateTicketAndWait('ticket-1', { quantity: '20' } as Partial<EquityOrderTicket>);
+      const ok = await store.updateTicketAndWait('ticket-1', { quantity: '20' });
 
       expect(ok).toBe(false);
       expect(store.tickets()['ticket-1'].quantity).toBe('10');

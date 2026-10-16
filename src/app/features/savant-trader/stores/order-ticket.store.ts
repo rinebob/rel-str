@@ -39,6 +39,7 @@ import { OrderTicketService } from '../services/order-ticket.service';
 import { OrderExecutionService, ExecutionResult, PLACEMENT_DEAD_CODE, FILL_CAPABLE_DEAD_STATES } from '../services/order-execution.service';
 import {
   OrderTicket,
+  OrderTicketPatch,
   OrderTicketStatus,
   OrderSource,
   InstrumentType,
@@ -71,7 +72,7 @@ const initialState: OrderTicketState = {
  *  are removed (matching the service's `deleteField()` behavior). */
 function mergeTicketPartial(
   existing: OrderTicket,
-  partial: Partial<Omit<OrderTicket, 'instrumentType'>>,
+  partial: OrderTicketPatch,
 ): OrderTicket {
   const updated = { ...existing, updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>;
   for (const [key, value] of Object.entries(partial)) {
@@ -167,7 +168,7 @@ export const OrderTicketStore = signalStore(
     /** Update an existing record (configuration changes before submission).
      *  Any field with value `undefined` in the partial is removed from the
      *  local ticket (matching the service's `deleteField()` behavior). */
-    updateTicket(id: string, partial: Partial<Omit<OrderTicket, 'instrumentType'>>): void {
+    updateTicket(id: string, partial: OrderTicketPatch): void {
       const prev = state.tickets();
       const existing = prev[id];
       if (!existing) return;
@@ -201,7 +202,7 @@ export const OrderTicketStore = signalStore(
      *  pool during the write (a terminal ticket stays non-checkable). */
     async updateTicketAndWait(
       id: string,
-      partial: Partial<Omit<OrderTicket, 'instrumentType'>>,
+      partial: OrderTicketPatch,
     ): Promise<boolean> {
       if (!state.tickets()[id]) return false;
       try {

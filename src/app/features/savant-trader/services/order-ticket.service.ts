@@ -24,6 +24,7 @@ import { Collection } from '../../../core/common/constants';
 import { requireUserId } from './firestore-helpers';
 import {
   OrderTicket,
+  OrderTicketPatch,
   OrderTicketStatus,
 } from './order-ticket.types';
 
@@ -83,7 +84,7 @@ export class OrderTicketService {
 
   /** Merge-update an existing ticket. The instrumentType discriminant cannot be changed.
    *  Any field with value `undefined` in the partial is deleted from Firestore via deleteField(). */
-  updateTicket(id: string, partial: Partial<Omit<OrderTicket, 'instrumentType'>>): Observable<void> {
+  updateTicket(id: string, partial: OrderTicketPatch): Observable<void> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap(() => runInInjectionContext(this.injector, async () => {

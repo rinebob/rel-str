@@ -209,6 +209,14 @@ export interface OptionOrderTicket extends BaseOrderTicket {
 
 export type OrderTicket = EquityOrderTicket | EtfOrderTicket | OptionOrderTicket;
 
+/** Distributive Omit — Omit over a union collapses to common keys, which
+ *  drops variant-only fields (legs, price). Distributing preserves them. */
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
+
+/** Update-payload shape for ticket edits — per-variant fields without the
+ *  discriminant (instrumentType is immutable once staged). */
+export type OrderTicketPatch = Partial<DistributiveOmit<OrderTicket, 'instrumentType'>>;
+
 // =============================
 // Trading config
 // =============================

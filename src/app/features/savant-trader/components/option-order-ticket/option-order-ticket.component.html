@@ -1,0 +1,217 @@
+<div class="option-ticket">
+  <div class="ticket-content">
+    <!-- Header -->
+    <div class="ticket-header">
+      <div class="ticket-symbol">
+        <span class="symbol">{{ symbol() }}</span>
+        <span class="ticket-kicker">Option — buy to open</span>
+        @if (ticket(); as t) {
+          <span class="status-badge" [class]="'status-' + t.status">
+            {{ t.status | uppercase }}
+          </span>
+        }
+      </div>
+    </div>
+
+    <!-- Ticket error (submit failures revert to STAGED with the error attached) -->
+    @if (ticketError(); as err) {
+      <div class="error-section">
+        <mat-icon>error_outline</mat-icon>
+        <div class="error-details">
+          <p class="error-message">{{ err.message }}</p>
+          @if (err.retryable) {
+            <p class="error-hint">This error is retryable. You can retry the order.</p>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Contract selection -->
+    <div class="form-section">
+      <!-- Expiration -->
+      <div class="form-row">
+        <span class="field-label">Exp</span>
+        @if (chainsLoading()) {
+          <span class="inline-loading">Loading expirations…</span>
+        } @else if (chainsError(); as chainErr) {
+          <span class="inline-error" data-testid="chains-error">
+            {{ chainErr }}
+            <button type="button" class="step-btn retry-btn" (click)="retryChains()" matTooltip="Retry">↻</button>
+          </span>
+        } @else {
+          <select class="cf-input exp-select" data-testid="expiration-select"
+            [value]="selectedExpiration()" (change)="onExpirationChange($event)">
+            <option value="" [selected]="!selectedExpiration()">Select…</option>
+            @for (exp of expirations(); track exp) {
+              <option [value]="exp" [selected]="exp === selectedExpiration()">{{ exp }}</option>
+            }
+          </select>
+        }
+      </div>
+
+      <!-- Strike -->
+      <div class="form-row">
+        <span class="field-label">Strike</span>
+        @if (instrumentsLoading()) {
+          <span class="inline-loading">Loading strikes…</span>
+        } @else if (instrumentsError(); as instrErr) {
+          <span class="inline-error" data-testid="instruments-error">
+            {{ instrErr }}
+            <button type="button" class="step-btn retry-btn" (click)="retryInstruments()" matTooltip="Retry">↻</button>
+          </span>
+        } @else {
+          <select class="cf-input strike-select" data-testid="strike-select"
+            [disabled]="!selectedExpiration()"
+            [value]="selectedStrike()" (change)="onStrikeChange($event)">
+            <option value="" [selected]="selectedStrike() === null">Select…</option>
+            @for (s of strikes(); track s) {
+              <option [value]="s" [selected]="s === selectedStrike()">{{ s }}</option>
+            }
+          </select>
+        }
+        <div class="pill-group">
+          <button type="button" class="pill" data-testid="call-pill"
+            [class.active]="contractType() === 'call'" (click)="contractType.set('call')">Call</button>
+          <button type="button" class="pill" data-testid="put-pill"
+            [class.active]="contractType() === 'put'" (click)="contractType.set('put')">Put</button>
+        </div>
+      </div>
+
+      <!-- Paste -->
+      <div class="form-row">
+        <span class="field-label" matTooltip="Paste an OCC contract id, e.g. AAPL   251016C00150000">Paste</span>
+        <input class="cf-input paste-input" data-testid="paste-input"
+          [value]="pasteText()" (input)="onPasteInput($event)"
+          placeholder="AAPL   251016C00150000">
+        <button type="button" class="step-btn import-btn" data-testid="import-btn"
+          (click)="onImportPaste()" [disabled]="!pasteText()">Import</button>
+        @if (pasteError(); as pasteErr) {
+          <span class="inline-error" data-testid="paste-error">{{ pasteErr }}</span>
+        }
+      </div>
+
+      <!-- Resolved contract -->
+      @if (resolving()) {
+        <div class="form-row">
+          <span class="field-label">Contract</span>
+          <span class="inline-loading" data-testid="resolving">Resolving…</span>
+        </div>
+      } @else if (resolveError(); as resErr) {
+        <div class="form-row">
+          <span class="field-label">Contract</span>
+          <span class="inline-error" data-testid="resolve-error">{{ resErr }}</span>
+        </div>
+      } @else if (resolvedContract(); as c) {
+        <div class="contract-summary" data-testid="contract-summary">
+          <span class="mono">{{ c.occSymbol }}</span>
+          <span class="field-label">Mark</span>
+          <span class="stat-value">{{ c.mark !== null ? (c.mark | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
+        </div>
+      }
+      @if (stageError(); as stageErr) {
+        <div class="form-row">
+          <span class="inline-error" data-testid="stage-error">{{ stageErr }}</span>
+        </div>
+      }
+    </div>
+
+    <!-- Order form — only meaningful once a ticket is staged/editable -->
+    <div class="form-section">
+      <div class="form-row">
+        <span class="field-label">Type</span>
+        <div class="pill-group">
+          <button type="button" class="pill" data-testid="limit-pill"
+            [class.active]="orderType() === 'limit'" (click)="setOrderType('limit')">Limit</button>
+          <button type="button" class="pill" data-testid="market-pill"
+            [class.active]="orderType() === 'market'" (click)="setOrderType('market')">Mkt</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <span class="field-label">Qty</span>
+        <div class="stepper">
+          <button type="button" class="step-btn" (click)="qtyDown()">&#9660;</button>
+          <input class="cf-input" data-testid="quantity-input" inputmode="numeric" pattern="[0-9]*"
+            [value]="quantity()" (input)="onQuantityInput($event)" placeholder="1">
+          <button type="button" class="step-btn" (click)="qtyUp()">&#9650;</button>
+        </div>
+        <span class="field-label">contracts</span>
+      </div>
+
+      @if (orderType() === 'limit') {
+        <div class="form-row">
+          <span class="field-label">Limit $</span>
+          <input class="cf-input" data-testid="limit-price-input"
+            [value]="limitPrice()" (input)="setInputValue(limitPrice, $event)" placeholder="0.00">
+          <span class="field-label">per contract</span>
+        </div>
+      }
+
+      @if (estimatedPremium(); as premium) {
+        <div class="form-row">
+          <span class="field-label">Premium</span>
+          <span class="stat-value" data-testid="premium-estimate">{{ premium | currency:'USD':'symbol':'1.2-2' }}</span>
+        </div>
+      }
+
+      <div class="form-row">
+        <span class="field-label">TIF</span>
+        <div class="pill-group">
+          <button type="button" class="pill" [class.active]="effectiveTimeInForce() === 'gfd'"
+            (click)="timeInForce.set('gfd')">Day</button>
+          <button type="button" class="pill" [class.active]="effectiveTimeInForce() === 'gtc'"
+            [disabled]="orderType() === 'market'" (click)="timeInForce.set('gtc')">GTC</button>
+        </div>
+        @if (orderType() === 'market') {
+          <span class="field-label">market orders are Day-only</span>
+        }
+      </div>
+
+      <!-- Bucket (optional — seeds position attribution at fill) -->
+      <div class="form-row">
+        <span class="field-label" matTooltip="Optional — seeds the position's allocation bucket on fill">Bucket</span>
+        <select class="cf-input bucket-select" data-testid="bucket-select"
+          (change)="onBucketChange($event)">
+          <option value="" [selected]="!selectedBucketId()">Unassigned</option>
+          @for (b of bucketOptions(); track b.id) {
+            <option [value]="b.id" [selected]="b.id === selectedBucketId()">{{ b.name }}</option>
+          }
+          @if (selectedBucketId() && !bucketOptions().some((b) => b.id === selectedBucketId())) {
+            <!-- Hydrated from an adopted ticket but not in this account's
+                 ACTIVE list (inactive or still loading) — show it
+                 honestly instead of silently rendering "Unassigned". -->
+            <option [value]="selectedBucketId()" [selected]="true" disabled>Saved bucket (inactive)</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <!-- Fatfinger block -->
+    @if (fatfingerExceeded()) {
+      <div class="error-section" data-testid="fatfinger-block">
+        <mat-icon>error_outline</mat-icon>
+        <div class="error-details">
+          <p class="error-message">
+            Premium exceeds {{ maxPremiumPct() }}% of available cash
+          </p>
+        </div>
+      </div>
+    }
+
+    <!-- Actions -->
+    <div class="action-section">
+      @if (isSubmitting()) {
+        <div class="submitting-indicator">
+          <mat-icon>hourglass_empty</mat-icon>
+          <span>Submitting…</span>
+        </div>
+      } @else {
+        <button mat-flat-button color="primary" data-testid="submit-btn"
+          (click)="onSubmit()" [disabled]="!canSubmit()">
+          <mat-icon>send</mat-icon>
+          Submit Order
+        </button>
+      }
+    </div>
+  </div>
+</div>
