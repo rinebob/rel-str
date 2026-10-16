@@ -22,6 +22,9 @@
 - [ST Firestore Reorg] 984-999_BE-IMPL-DATA-PIPELINE: signal-persister delegates barStatus mapping to @st/signals
 - [ST Firestore Reorg] 984-999_CONFIG-DATA-PIPELINE: @st/ids alias (FE + BE + jest + tsx) + offline ids verify script
 - [ST Firestore Reorg] 984-999_DOCS-DATA-PIPELINE: IMPL §3/§4 as-built + CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for st- id builders + mappers
+- [ST Firestore Reorg] 984-1000_BE-IMPL-DATA-PIPELINE: st-signals dual-write in SignalDateWriter — canonical occurrence docs upserted in the same batch as legacy run-ids/signal-history/gate-date writes; fail-soft per-entry so canonical failures can't drop legacy writes
+- [ST Firestore Reorg] 984-1000_BE-VERIFY-DATA-PIPELINE: read-only st-signals ⇄ run-ids parity audit (per-occurrence aggregation, runIds union, create-only provenance)
+- [ST Firestore Reorg] 984-1000_DOCS-DATA-PIPELINE: IMPL §1 as-built + CODE-REVIEW (PASS) + UAT (Complete) for st-signals dual-write
 ### Added (checkpoints)
 - [Paper Trading Infra] 553-920_BE-VERIFY-PAPER-TRADING: autoPaper trading-config seed script for #920 umbrella QA — resolves ownerUid from {uid}_PRIMARY, writes + reads back (checkpoint)
 - [Paper Trading Infra] 553-920_DOCS-PAPER-TRADING: #920 UAT doc (umbrella) — PARTIAL, AC1 PASS / AC2-4 BLOCKED (checkpoint)

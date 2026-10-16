@@ -20,7 +20,7 @@ All writer/reader changes on the functions side, executed in phases that preserv
 
 ## Phase 1 — Canonical signals (`st-signals`)
 
-1. `SignalDateWriter.persistBarDate()` — add upsert of `st-signals/{SYM}_{barDate}_{signalType}` alongside existing `run-ids`/`signal-history` batch writes. Upsert semantics: `set(merge)` + `runIds: arrayUnion(runId)`; `status` from `barStatus` (INTERIM unless historical); `marketDate`/`sourceRunId` set on create only.
+1. `SignalDateWriter.persistBarDate()` — add upsert of `st-signals/{SYM}_{barDate}_{signalType}` alongside existing `run-ids`/`signal-history` batch writes. Upsert semantics: `set(merge)` + `runIds: arrayUnion(runId)`; `status` from `barStatus` (INTERIM unless historical); `marketDate`/`sourceRunId` set on create only. *(As-built #1000: done — plus fail-soft per-entry skip + wholesale try/catch so a canonical-path failure can't drop the legacy batch; deps seam `{db, fieldValue, logger}`; parity audit `functions/scripts/verify/data-pipeline-st-signals-dual-write-1000.ts`.)*
 2. **Backfill script** (`.devin/tmp`-style tsx or `scripts/`): walk `signal-history/{barDate}` docs → mint canonical `st-signals` docs (status CONFIRMED); walk `run-ids` for occurrences absent from history → INTERIM. Verify: counts per symbol, no dupes.
 3. Gate fields on `st-symbols/{SYM}` — keep writing to both `savant-trader/data/symbols` and `st-symbols` during transition (mirror write).
 4. Cutover: after verification soak, flip reads to `st-signals`/`st-symbols`, stop legacy writes.
