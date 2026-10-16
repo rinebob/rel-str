@@ -11,7 +11,7 @@
 **Type:** IMPL  
 **Status:** Draft  
 **Created:** 2026-10-11  
-**Last Updated:** 2026-10-11  
+**Last Updated:** 2026-10-15  
 
 Single-area plan: **FE only**. The Robinhood MCP backend pass-through
 (`/api/rh/tools/{tool}`) already exposes `get_option_chains`,
@@ -209,7 +209,7 @@ mirroring `submitEquityOrder`:
   staging inputs the action service already has (`symbol`, `runId`,
   non-rejected `occurrences`, `accountNumber`) — so the option tab never
   re-derives card context.
-- The option component emits `(staged)=ticketId` once it persists; the
+- The option component emits `(staged)={ticketId, created}` once it persists; the
   dialog keeps `optionTicketId` signal and the close-on-done effect
   watches **both** the equity ticket and the option ticket (close when
   either reaches a DIALOG_DONE status).
@@ -218,14 +218,19 @@ mirroring `submitEquityOrder`:
 
 ## Option order ticket component (`components/option-order-ticket/`)
 
-Inputs: `seed: OptionTicketSeed`, `tradingConfig`. Output:
-`(staged): string` (ticket id), `(submitted)` optional for future use.
+Inputs (as built — flat, no `OptionTicketSeed` wrapper): `symbol`,
+`signals` (full occurrence set), `runId`, `tradingConfig`, `decisions`
+(durable occurrence decisions — REJECTs filtered before the builder).
+Output: `(staged): { ticketId: string; created: boolean }` — `created`
+distinguishes a new stage from an adopted STAGED ticket (host needs it
+for discard-on-close, #964). `(submitted)` optional for future use.
 
-Form (Material, matching `order-ticket` styling):
+Form (matching `order-ticket` styling — as built: native `select` /
+`input` with `cf-input` styling + `pill` button groups, no Mat select/
+toggle widgets):
 
-- **Contract row**: expiration `mat-select` ← `getOptionChains`; strike
-  `mat-select` ← `getOptionInstruments(expiration)`; call/put
-  `mat-button-toggle-group`.
+- **Contract row**: expiration `select` ← `getOptionChains`; strike
+  `select` ← `getOptionInstruments(expiration)`; call/put pill buttons.
 - **Paste field**: `mat-input` + Import button — `parseOptionPaste` →
   resolve → populate the selects to match (or show inline error).
 - **Resolved contract summary**: OCC symbol, mark (from
@@ -249,7 +254,8 @@ Form (Material, matching `order-ticket` styling):
   per {symbol, direction, contract, PT-minute} and `createTicket`
   `.set()`s unconditionally — re-stage must reopen when the match is
   STAGED and block + snackbar when it is live (SUBMITTING/SUBMITTED/
-  PAPER), or the fresh doc would wipe `refId`/`result.orderId`. Also:
+  QUEUED/RESTING/FILLED — PAPER excluded, paper tickets are equity-only;
+  as built), or the fresh doc would wipe `refId`/`result.orderId`. Also:
   filter REJECTed occurrences out of `signals` before calling the
   builder (its documented contract — a REJECT id on the ticket is
   un-rejected on discard, #755), and reject a paste whose parsed
