@@ -43,6 +43,10 @@ const QUOTE_BATCH_SIZE = 20;
 /** Maximum tool calls per /batch request — mirrors the API's own cap. */
 const BATCH_CALLS_LIMIT = 20;
 
+/** get_option_instruments pagination bound (~100 rows/page — 10 pages is
+ *  ~1k contracts, deep past any single-expiration strike board). */
+const MAX_OPTION_INSTRUMENT_PAGES = 10;
+
 /**
  * One tool call plus its typed parse — the unit `executeBatch` sends over
  * the wire ({ tool, args }) and maps back through `parse` on that call's
@@ -225,17 +229,33 @@ export class RobinhoodMcpClient {
   }
 
   async getOptionInstruments(filters: OptionInstrumentFilters): Promise<OptionInstrument[]> {
-    return this.run(this.optionInstrumentsSpec(filters));
+    // One expiration + no type filter exceeds the ~100-instrument page
+    // (SPXW capture, dep-opt-instr-10) — page on `data.next` until
+    // exhausted so the strike board isn't silently truncated.
+    const spec = this.optionInstrumentsSpec(filters);
+    const instruments: OptionInstrument[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < MAX_OPTION_INSTRUMENT_PAGES; page++) {
+      const result = await this.mcp.executeTool('get_option_instruments', {
+        args: { ...spec.args, ...(cursor ? { cursor } : {}) },
+      });
+      instruments.push(...this.parseSpecResult(spec, result));
+      const next = this.extractNested(result.success ? result.parsed : null, 'data')['next'];
+      cursor = typeof next === 'string' && next ? next : undefined;
+      if (!cursor) return instruments;
+    }
+    console.warn(
+      `get_option_instruments hit the ${MAX_OPTION_INSTRUMENT_PAGES}-page cap (chain_symbol=${filters.chainSymbol}) — results may be truncated`,
+    );
+    return instruments;
   }
 
   optionInstrumentsSpec(filters: OptionInstrumentFilters): ToolSpec<OptionInstrument[]> {
     const args: Record<string, unknown> = {
       chain_symbol: filters.chainSymbol,
-      // Active + tradable contracts only ('active' is also the tool
-      // default — pinned for clarity); expired/inactive/untradable
-      // discovery is out of scope for the order-entry flow.
-      state: 'active',
-      tradability: 'tradable',
+      // Do NOT pin state/tradability: the tool defaults to
+      // active+tradable, but passing the same values explicitly makes
+      // upstream return ZERO instruments — verified live (#964).
     };
     if (filters.expirationDates?.length) {
       args['expiration_dates'] = filters.expirationDates.join(',');
@@ -256,23 +276,15 @@ export class RobinhoodMcpClient {
           throw new RobinhoodMcpError(result.error, 'get_option_instruments', result.category);
         }
 
-        // First page only — `data.next` is the pagination cursor. One
-        // expiration + a type filter fits under the ~100-instrument page,
-        // but an unfiltered-type page can exceed it (capture
-        // dep-opt-instr-10: SPXW, 100 + next) — flag truncation so a
-        // strike dropdown doesn't silently lose strikes (IMPL-948).
-        const next = this.extractNested(result.parsed, 'data')['next'];
-        if (typeof next === 'string' && next) {
-          console.warn(
-            `get_option_instruments returned data.next — first page only, results may be truncated (chain_symbol=${filters.chainSymbol})`,
-          );
-        }
         const raw = this.extractList(result.parsed, 'instruments');
         const instruments: OptionInstrument[] = [];
         for (const i of raw) {
-          // An instrument without an id is unorderable — skip it.
+          // An instrument without an id is unorderable — skip it. The
+          // state/tradability args can't go on the wire (they zero the
+          // response — see getOptionInstruments), so filter here instead.
           const id = i['id'];
           if (typeof id !== 'string' || !id) continue;
+          if (i['tradability'] === 'untradable' || i['state'] === 'inactive' || i['state'] === 'expired') continue;
           instruments.push({
             instrumentId: id,
             chainId: String(i['chain_id'] ?? ''),
@@ -318,14 +330,24 @@ export class RobinhoodMcpClient {
       'get_option_quotes',
       'instrument_ids',
       (q) => {
-        // Results may be flat or nested under a `quote` key.
+        // Live payload: { quote: {...}, close: {...} } — `close` pairs the
+        // official settled close (preferred over previous_close_price per
+        // the tool guide). Flat shapes still parse.
         const raw = (q['quote'] && typeof q['quote'] === 'object') ? q['quote'] as Record<string, unknown> : q;
         const id = String(raw['instrument_id'] ?? '');
         if (!id) return null;
+        const close = (q['close'] && typeof q['close'] === 'object') ? q['close'] as Record<string, unknown> : {};
         return {
           instrumentId: id,
-          lastTradePrice: this.toNumber(raw['last_trade_price']),
-          previousClose: this.toNumber(raw['previous_close']),
+          // RH option quotes carry mark_price (current mark) — there is
+          // no last_trade_price field in the wire payload; the property
+          // name is the equity shape's. mark is the better "current
+          // price" anyway.
+          lastTradePrice: this.toNumber(raw['last_trade_price']) ?? this.toNumber(raw['mark_price']),
+          previousClose:
+            this.toNumber(close['price']) ??
+            this.toNumber(raw['previous_close_price']) ??
+            this.toNumber(raw['previous_close']),
         };
       },
       (quote) => quote.instrumentId,

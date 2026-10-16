@@ -576,7 +576,10 @@ describe('RobinhoodMcpClient', () => {
       ]);
     });
 
-    it('sends the filters — expiration CSV, 4dp strike, type — with state + tradability pinned', async () => {
+    it('sends the filters — expiration CSV, 4dp strike, type — without state/tradability pins', async () => {
+      // state:'active' + tradability:'tradable' are the tool defaults, and
+      // passing them explicitly makes the live tool return ZERO
+      // instruments (verified live, #964) — they must stay off the wire.
       mockResolve({
         success: true,
         parsed: { data: { instruments: [] } },
@@ -597,8 +600,6 @@ describe('RobinhoodMcpClient', () => {
           expiration_dates: '2026-10-16,2026-11-20',
           strike_price: '150.0000',
           type: 'put',
-          state: 'active',
-          tradability: 'tradable',
         },
       });
     });
@@ -614,7 +615,7 @@ describe('RobinhoodMcpClient', () => {
       await client.getOptionInstruments({ chainSymbol: 'AAPL' });
 
       expect(mcp.executeTool).toHaveBeenCalledWith('get_option_instruments', {
-        args: { chain_symbol: 'AAPL', state: 'active', tradability: 'tradable' },
+        args: { chain_symbol: 'AAPL' },
       });
     });
 
@@ -634,22 +635,61 @@ describe('RobinhoodMcpClient', () => {
       }
     });
 
-    it('warns when data.next indicates a truncated first page', async () => {
-      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      mockResolve({
+    it('pages through data.next until exhausted — a single expiration can exceed one page', async () => {
+      // dep-opt-instr-10 proves one expiration with no type filter can
+      // exceed the ~100-instrument page (SPXW: 100 + next).
+      const page = (id: string, next: string | null): ToolExecutionResult => ({
         success: true,
-        // dep-opt-instr-10 proves one expiration with no type filter can
-        // exceed the ~100-instrument page (SPXW: 100 + next).
-        parsed: { data: { instruments: [], next: 'cD03MTIwLjAwMDA=' } },
+        parsed: {
+          data: {
+            instruments: [
+              {
+                id, chain_id: 'c', chain_symbol: 'SPXW',
+                expiration_date: '2026-10-16', strike_price: '100.0000', type: 'call',
+              },
+            ],
+            next,
+          },
+        },
         redacted: {},
         tool: 'get_option_instruments',
       });
+      mcp.executeTool.and.callFake((_tool: string, req: { args: Record<string, unknown> }) =>
+        Promise.resolve(page(req.args['cursor'] ? 'p2' : 'p1', req.args['cursor'] ? null : 'cursor-abc')),
+      );
 
       const instruments = await client.getOptionInstruments({ chainSymbol: 'SPXW' });
 
-      expect(instruments).toEqual([]);
+      expect(instruments.map((i) => i.instrumentId)).toEqual(['p1', 'p2']);
+      expect(mcp.executeTool.calls.count()).toBe(2);
+      const secondArgs = (mcp.executeTool.calls.argsFor(1)[1] as { args: Record<string, unknown> }).args;
+      expect(secondArgs['cursor']).toBe('cursor-abc');
+    });
+
+    it('stops at the page cap and warns rather than looping on a stuck cursor', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mcp.executeTool.and.callFake(() =>
+        Promise.resolve({
+          success: true,
+          parsed: {
+            data: {
+              instruments: [
+                { id: 'x', chain_symbol: 'AAPL', expiration_date: '2026-10-16', strike_price: '100.0000', type: 'call' },
+              ],
+              next: 'forever',
+            },
+          },
+          redacted: {},
+          tool: 'get_option_instruments',
+        }),
+      );
+
+      const instruments = await client.getOptionInstruments({ chainSymbol: 'AAPL' });
+
+      expect(mcp.executeTool.calls.count()).toBe(10);
+      expect(instruments.length).toBe(10);
       expect(warn).toHaveBeenCalled();
-      expect(String(warn.mock.calls.at(-1)?.[0])).toContain('next');
+      warn.mockRestore();
     });
 
     it('skips instruments with no instrument id instead of failing the list', async () => {
@@ -1135,6 +1175,39 @@ describe('RobinhoodMcpClient', () => {
         instrumentId: 'opt-uuid-1',
         lastTradePrice: 3.5,
         previousClose: 3,
+      } satisfies OptionQuote);
+    });
+
+    it('parses the live {results:[{quote,close}]} shape — mark_price is the current price', async () => {
+      // Captured live (#964): entries pair quote.mark_price with the
+      // official settled close at close.price; the equity-style
+      // last_trade_price/previous_close fields are absent on the wire.
+      mockBatchResolve({
+        success: true,
+        parsed: {
+          data: {
+            results: [
+              {
+                quote: {
+                  instrument_id: 'opt-uuid-1',
+                  mark_price: '193.350000',
+                  previous_close_price: '192.550000',
+                },
+                close: { instrument_id: 'opt-uuid-1', price: '192.55' },
+              },
+            ],
+          },
+        },
+        redacted: {},
+        tool: 'get_option_quotes',
+      });
+
+      const quotes = await client.getOptionQuotes(['opt-uuid-1']);
+
+      expect(quotes.get('opt-uuid-1')).toEqual({
+        instrumentId: 'opt-uuid-1',
+        lastTradePrice: 193.35,
+        previousClose: 192.55,
       } satisfies OptionQuote);
     });
 
