@@ -3,6 +3,8 @@
 ## [2026-10-15]
 
 ### Added
+- [Paper Trading Infra] 553-983_BE-VERIFY-PAPER-TRADING: read-only marks-vs-SDS-close drift report + sdsConsumerDispatch replay script (QA re-dispatch path)
+- [Paper Trading Infra] 553-983_DOCS-PAPER-TRADING: #983 CODE-REVIEW (PASS) + #1027 UAT (Complete) — dispatched settlement replay evidence, ok=155 drifted=0
 - [ST Firestore Reorg] 984-997_SHARED-IMPL-DATA-PIPELINE: st- collection path constants + @st/collections alias — shared module (flat + anchored roots, path helpers, guards), BE re-export barrel, offline verify script
 - [ST Firestore Reorg] 984-997_FE-IMPL-DATA-PIPELINE: @deprecated markers on legacy Collection enum members — successor pointers for cutover tasks
 - [ST Firestore Reorg] 984-997_DOCS-DATA-PIPELINE: Topic docs — ADR-009, DATA-MAP, PRD, IMPL/TEST plans
@@ -37,6 +39,8 @@
 - [Project] CHORE-PROJ: ports:kill covers 4210/3456 + single-port variant; start-dev.mjs async killTree + child-exit shutdown (checkpoint)
 - [Paper Trading Infra] 553-920_BE-CHORE-PAPER-TRADING: cron coverage rationale comment on open-pass timer (checkpoint)
 ### Fixed
+- [Paper Trading Infra] 553-983_BE-IMPL-PAPER-TRADING: nightly EOD close stamp — runSignalEodClosePass writes SDS official close into signal-trade marks[date] ({mark,underlyingClose}) before exit eval; markSignalTrade persists underlyingClose
+- [Paper Trading Infra] 553-983_BE-TEST-PAPER-TRADING: 8 eod-close pass specs (incl. chain ordering) + 3 markSignalTrade repo specs
 - [Paper Trading Infra] 553-920_BE-BUG-PAPER-TRADING: instrument-map resolver surfaces MCP tool-level isError as thrown error — adapter parity (checkpoint)
 - [Paper Trading Infra] 553-920_BE-TEST-PAPER-TRADING: listOrders asserts BrokerAdapterError on MCP isError instead of empty page (checkpoint)
 - [Robinhood MCP] 657-657_FE-BUG-RH-MCP: display-name fallback for nicknameless accounts — 'Investing' for individual brokerage, title-cased kind otherwise (checkpoint)
