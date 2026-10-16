@@ -6,6 +6,9 @@
 - [Savant Design System] 1024-1035_SHARED-IMPL-DESIGN-SYSTEM: --ds-* token layer (styles/_tokens.scss) — --mat-sys-* mirrors + P&L accents + spacing/typography/density/elevation + [data-theme="dark"] shadow overrides; _index.scss pinned to mixins-only emission contract
 - [Savant Design System] 1024-1035_SHARED-VERIFY-DESIGN-SYSTEM: token-layer verify (86 checks) — real sass compile, manifest set-equality both directions, exact literal + dark values, per-alias --mat-sys-* binding, loadPaths consumer resolution; rel-str relay script + run-all needsPath gate
 - [Savant Design System] 1024-1035_DOCS-DESIGN-SYSTEM: IMPL _index-forwarding contract fix + CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for --ds-* tokens
+- [ST Firestore Reorg] 984-1001_BE-IMPL-DATA-PIPELINE: st-signals backfill script — folds legacy signal-history + run-ids into canonical occurrences (entry.barDate ids, runIds union, history-gated CONFIRMED, earliest-detection provenance, upgrade-only merges, malformed/notes channels, dry-run/--symbol, per-symbol isolation, chunked getAll + batch ≤400)
+- [ST Firestore Reorg] 984-1001_BE-VERIFY-DATA-PIPELINE: read-only all-dates backfill parity audit — FAIL/WARN tiers (missing/dupes/bad-status/field-identity vs live-created-provenance divergence), runIds extras, doc-id prefix EXTRA scan, per-symbol isolation
+- [ST Firestore Reorg] 984-1001_DOCS-DATA-PIPELINE: CODE-REVIEW (3 rounds, PASS) + UAT (Complete) for st-signals backfill
 
 ## [2026-10-15]
 
