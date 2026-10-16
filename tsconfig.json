@@ -34,6 +34,7 @@
       "@lifecycle/contracts": ["./shared/lifecycle-contracts.ts"],
       "@lifecycle/tree": ["./shared/lifecycle-tree.ts"],
       "@st/collections": ["./shared/st-collections.ts"],
+      "@st/ids": ["./shared/st-ids.ts"],
       "@st/types": ["./shared/st-types.ts"],
       "@st/signals": ["./shared/st-signals.ts"],
       "@st/order-tickets": ["./shared/st-order-tickets.ts"],

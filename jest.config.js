@@ -38,6 +38,7 @@ module.exports = {
     '^@lifecycle/contracts$': '<rootDir>/shared/lifecycle-contracts.ts',
     '^@lifecycle/tree$': '<rootDir>/shared/lifecycle-tree.ts',
     '^@st/collections$': '<rootDir>/shared/st-collections.ts',
+    '^@st/ids$': '<rootDir>/shared/st-ids.ts',
     '^@st/types$': '<rootDir>/shared/st-types.ts',
     '^@st/signals$': '<rootDir>/shared/st-signals.ts',
     '^@st/order-tickets$': '<rootDir>/shared/st-order-tickets.ts',

@@ -31,6 +31,7 @@ const scripts: VerifyScript[] = [
   { name: 'paper-trading contracts', file: 'paper-trading-contracts-560-ids.ts', needsAccount: false },
   { name: 'st-collections paths', file: 'data-pipeline-st-collections-997.ts', needsAccount: false },
   { name: 'st- type shapes', file: 'data-pipeline-st-types-998.ts', needsAccount: false },
+  { name: 'st- id builders + mappers', file: 'data-pipeline-st-ids-999.ts', needsAccount: false },
   { name: 'paper-trading trade-exits contracts', file: 'paper-trading-contracts-665.ts', needsAccount: false },
   {
     name: 'swing config library',
