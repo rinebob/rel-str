@@ -1,5 +1,5 @@
 /**
- * @topic #984 — ST Firestore Reorg (task #998)
+ * @topic #984 — ST Firestore Reorg (tasks #998/#999)
  *
  * Shape pins for the canonical `st-order-tickets` contract. Doc-level
  * coverage — literal value sets, structural keys, terms validation.
@@ -9,6 +9,8 @@ import {
   ST_TICKET_STATES,
   ST_TICKET_SIDES,
   ST_TICKET_INSTRUMENTS,
+  mapLegacyTicketStatus,
+  mapOrderSourceToOriginType,
   validateStTicketTerms,
   StOrderTicket,
 } from './st-order-tickets';
@@ -96,6 +98,43 @@ describe('StOrderTicket shape', () => {
     expect(leg.optionId).toBe('opt-uuid-1');
     expect(leg.positionEffect).toBe('open');
     expect(OPTION_TICKET.terms.orderType).toBe('limit');
+  });
+});
+
+describe('order-intents migration mappers (#999)', () => {
+  it('mapOrderSourceToOriginType maps the legacy OrderSource values', () => {
+    expect(mapOrderSourceToOriginType('signal_pipeline')).toBe('signal');
+    expect(mapOrderSourceToOriginType('manual')).toBe('manual');
+    expect(mapOrderSourceToOriginType('position_management')).toBe('management');
+  });
+
+  it('mapOrderSourceToOriginType returns null for unknown sources', () => {
+    expect(mapOrderSourceToOriginType('webhook')).toBeNull();
+    expect(mapOrderSourceToOriginType('')).toBeNull();
+  });
+
+  it('legacy status "paper" derives mode=paper + submitted state', () => {
+    expect(mapLegacyTicketStatus('paper')).toEqual({ mode: 'paper', state: 'submitted' });
+  });
+
+  it('non-paper legacy statuses derive mode=live + canonical state', () => {
+    for (const [legacy, state] of [
+      ['staged', 'staged'],
+      ['submitting', 'submitted'],
+      ['submitted', 'submitted'],
+      ['queued', 'submitted'],
+      ['resting', 'submitted'],
+      ['filled', 'filled'],
+      ['failed', 'failed'],
+      ['cancelled', 'cancelled'],
+      ['expired', 'expired'],
+    ] as const) {
+      expect(mapLegacyTicketStatus(legacy)).toEqual({ mode: 'live', state });
+    }
+  });
+
+  it('unknown legacy status → null', () => {
+    expect(mapLegacyTicketStatus('bogus')).toBeNull();
   });
 });
 

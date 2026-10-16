@@ -1,5 +1,5 @@
 /**
- * @topic #984 — ST Firestore Reorg (task #998)
+ * @topic #984 — ST Firestore Reorg (tasks #998/#999)
  *
  * Canonical `st-signals` occurrence shape — one doc per
  * {symbol, barDate, signalType} (`{SYM}_{barDate}_{signalType}` doc id),
@@ -25,6 +25,15 @@ export function normalizeStSignalDirection(v: string | TradeSide | null | undefi
   if (raw === 'long') return TradeSide.LONG;
   if (raw === 'short') return TradeSide.SHORT;
   return null;
+}
+
+/**
+ * barStatus → StSignalStatus. barStatus is authoritative for interim vs
+ * historical: 1 → CONFIRMED (period closed); -1, 0, or undefined → INTERIM.
+ * Canonical single source — signal-persister delegates here.
+ */
+export function stSignalStatusFromBarStatus(barStatus: -1 | 0 | 1 | undefined): StSignalStatus {
+  return barStatus === 1 ? 'CONFIRMED' : 'INTERIM';
 }
 
 /**

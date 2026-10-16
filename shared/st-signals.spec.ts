@@ -1,5 +1,5 @@
 /**
- * @topic #984 — ST Firestore Reorg (task #998)
+ * @topic #984 — ST Firestore Reorg (tasks #998/#999)
  *
  * Pins the canonical StSignal shape (st-signals/{SYM}_{barDate}_{signalType})
  * both BE and FE consume via `@st/signals`.
@@ -8,6 +8,7 @@ import {
   ST_SIGNAL_STATUSES,
   ST_SIGNAL_TIMEFRAMES,
   normalizeStSignalDirection,
+  stSignalStatusFromBarStatus,
   StSignal,
 } from './st-signals';
 import { TradeSide } from './common';
@@ -66,5 +67,14 @@ describe('normalizeStSignalDirection', () => {
     expect(normalizeStSignalDirection('sideways')).toBeNull();
     expect(normalizeStSignalDirection(null)).toBeNull();
     expect(normalizeStSignalDirection(undefined)).toBeNull();
+  });
+});
+
+describe('stSignalStatusFromBarStatus', () => {
+  it('barStatus 1 → CONFIRMED; -1/0/undefined → INTERIM', () => {
+    expect(stSignalStatusFromBarStatus(1)).toBe('CONFIRMED');
+    expect(stSignalStatusFromBarStatus(-1)).toBe('INTERIM');
+    expect(stSignalStatusFromBarStatus(0)).toBe('INTERIM');
+    expect(stSignalStatusFromBarStatus(undefined)).toBe('INTERIM');
   });
 });

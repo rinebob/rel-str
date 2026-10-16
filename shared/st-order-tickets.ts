@@ -1,5 +1,5 @@
 /**
- * @topic #984 — ST Firestore Reorg (task #998)
+ * @topic #984 — ST Firestore Reorg (tasks #998/#999)
  *
  * Canonical `st-order-tickets` shape — the universal order ticket connecting
  * signals, programs, and manual actions to live or paper execution
@@ -180,6 +180,50 @@ export interface StOrderTicket {
   submittedAt?: string;
   filledAt?: string;
   cancelledAt?: string;
+}
+
+// ── Order-intents migration mappers (#999) ─────────────────────────────────
+
+/** Legacy `OrderSource` → canonical `origin.type`. `program` has no legacy
+ *  source — it only exists on new docs. Unknown source → null. */
+export function mapOrderSourceToOriginType(source: string | null | undefined): StTicketOriginType | null {
+  switch (source) {
+    case 'signal_pipeline':      return 'signal';
+    case 'manual':               return 'manual';
+    case 'position_management':  return 'management';
+    default:                     return null;
+  }
+}
+
+/**
+ * Legacy `OrderTicketStatus` → `{mode, state}` for the st-order-tickets
+ * migration. `paper` is a mode, not a state: a paper-status intent was
+ * accepted into the paper ledger → `{mode:'paper', state:'submitted'}`.
+ * Everything else was a live intent → `mode:'live'`; broker-side states
+ * that post-date submission collapse to `submitted` except `expired`,
+ * which passes through. Unknown → null.
+ *
+ * ⚠ #1003 note: a migrated `paper` ticket is non-terminal — its lifecycle
+ * continues in the paper ledger. The migration must settle each ticket's
+ * final state from the linked trade (open → stays, closed → 'filled' /
+ * 'cancelled' as appropriate), or run a post-migration reconcile pass.
+ */
+export function mapLegacyTicketStatus(
+  status: string | null | undefined,
+): { mode: StMode; state: StTicketState } | null {
+  if (status === 'paper') return { mode: 'paper', state: 'submitted' };
+  switch (status) {
+    case 'staged':      return { mode: 'live', state: 'staged' };
+    case 'submitting':
+    case 'submitted':
+    case 'queued':
+    case 'resting':     return { mode: 'live', state: 'submitted' };
+    case 'filled':      return { mode: 'live', state: 'filled' };
+    case 'failed':      return { mode: 'live', state: 'failed' };
+    case 'cancelled':   return { mode: 'live', state: 'cancelled' };
+    case 'expired':     return { mode: 'live', state: 'expired' };
+    default:            return null;
+  }
 }
 
 /**
