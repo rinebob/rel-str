@@ -72,8 +72,11 @@ renamed to the `ds-` namespace:
 | `ds.dialog-status()` | `.status-section` + success/error icons, `.result-row`, `.error-message` |
 | `ds.error-banner()` | tokenized error banner (replaces `#fef0f0` literals) |
 
-`_index.scss` is `@forward 'tokens'; @forward 'page'; @forward 'dialog';
-@forward 'feedback';` so consumers write `@use 'index' as ds;`.
+`_index.scss` is `@forward 'page'; @forward 'dialog'; @forward 'feedback';`
+so consumers write `@use 'index' as ds;`. **Tokens are deliberately NOT
+forwarded** — `@use 'index'` in a component would re-emit the `:root`
+token block into every component's encapsulated style chunk (dead CSS).
+Tokens emit once via `@use 'tokens'` in the app's global stylesheet only.
 
 ## Consumption contract
 

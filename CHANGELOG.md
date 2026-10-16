@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-10-16]
+
+### Added
+- [Savant Design System] 1024-1035_SHARED-IMPL-DESIGN-SYSTEM: --ds-* token layer (styles/_tokens.scss) — --mat-sys-* mirrors + P&L accents + spacing/typography/density/elevation + [data-theme="dark"] shadow overrides; _index.scss pinned to mixins-only emission contract
+- [Savant Design System] 1024-1035_SHARED-VERIFY-DESIGN-SYSTEM: token-layer verify (86 checks) — real sass compile, manifest set-equality both directions, exact literal + dark values, per-alias --mat-sys-* binding, loadPaths consumer resolution; rel-str relay script + run-all needsPath gate
+- [Savant Design System] 1024-1035_DOCS-DESIGN-SYSTEM: IMPL _index-forwarding contract fix + CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for --ds-* tokens
+
 ## [2026-10-15]
 
 ### Added
