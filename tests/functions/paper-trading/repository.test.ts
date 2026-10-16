@@ -28,6 +28,7 @@ import {
   getAccount,
   ledgerDeps,
   listTrades,
+  markSignalTrade,
   resolveTradeId,
   setTrade,
   updateVariantRun,
@@ -325,6 +326,77 @@ describe('repository writes', () => {
     assert.equal(saved.exitEvent?.pnl, 170);
     // denormalized query field stays in sync with the runs array
     assert.deepEqual(updated.variantKeys, ['trailing-20']);
+  });
+});
+
+// ── markSignalTrade (#676 marks + #983 eod-close stamps) ────────────────────
+
+describe('markSignalTrade', () => {
+  const MARK_DATE = '2026-10-15';
+  const RQ_PATH = `paper-trading/raw-quotes/items/rq-${TRADE_ID}-261015`;
+
+  const shareSignalTrade = (): PaperTrade => ({
+    ...makeTrade(),
+    source: PaperTradeSource.SIGNAL,
+    legs: [
+      {
+        kind: 'share',
+        side: TradeSide.LONG,
+        quantity: 10,
+        multiplier: 1,
+        entryMark: 240,
+        lastMark: 241.5,
+      },
+    ],
+    marks: { [MARK_DATE]: { mark: 241.5 } },
+    unrealizedPnl: 15,
+  });
+
+  it('stamps marks[date] with mark + underlyingClose + refreshed P&L (eod-close)', async () => {
+    const { db, stored } = createFakeDb({ [TRADE_PATH]: shareSignalTrade() });
+    const wrote = await markSignalTrade(
+      db,
+      TRADE_ID,
+      { mark: 245, underlyingClose: 245, unrealizedPnl: 50, asOf: NOW },
+      { date: MARK_DATE, rawResponse: { mark: 245, pass: 'eod-close' } },
+    );
+
+    assert.equal(wrote, true);
+    const t = stored<PaperTrade>(TRADE_PATH);
+    assert.deepEqual(t.marks[MARK_DATE], { mark: 245, underlyingClose: 245 });
+    assert.equal(t.legs[0].lastMark, 245);
+    assert.equal(t.unrealizedPnl, 50);
+    assert.equal(t.lastMarkedAt, NOW);
+    const rq = stored<Record<string, unknown>>(RQ_PATH);
+    assert.equal((rq.rawResponse as { pass: string }).pass, 'eod-close');
+  });
+
+  it('omits underlyingClose when not provided — intraday mark path unchanged', async () => {
+    const { db, stored } = createFakeDb({ [TRADE_PATH]: shareSignalTrade() });
+    const wrote = await markSignalTrade(
+      db,
+      TRADE_ID,
+      { mark: 243.1, asOf: NOW },
+      { date: MARK_DATE, rawResponse: { mark: 243.1, pass: 'signal-mark' } },
+    );
+
+    assert.equal(wrote, true);
+    const t = stored<PaperTrade>(TRADE_PATH);
+    assert.deepEqual(t.marks[MARK_DATE], { mark: 243.1 });
+  });
+
+  it('returns false and writes no mark when the trade left OPEN', async () => {
+    const closed = { ...shareSignalTrade(), status: PaperTradeStatus.CLOSED };
+    const { db, stored } = createFakeDb({ [TRADE_PATH]: closed });
+    const wrote = await markSignalTrade(
+      db,
+      TRADE_ID,
+      { mark: 245, underlyingClose: 245, asOf: NOW },
+      { date: MARK_DATE, rawResponse: { mark: 245, pass: 'eod-close' } },
+    );
+
+    assert.equal(wrote, false);
+    assert.equal(stored<PaperTrade>(TRADE_PATH).marks[MARK_DATE].mark, 241.5);
   });
 });
 
