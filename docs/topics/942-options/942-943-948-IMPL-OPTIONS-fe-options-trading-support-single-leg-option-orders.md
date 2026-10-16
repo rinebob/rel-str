@@ -108,6 +108,10 @@ Two typed methods following the existing `ToolSpec` + `run` pattern:
   expirationDate, occSymbol? }`. Cursor pagination exists on the tool;
   v1 fetches the first page per expiration (strikes at one expiration are
   far under a page) — flag if a page boundary ever matters.
+  **As-built (#964):** live probing overturned both assumptions —
+  explicit `state`/`tradability` pins zero the upstream response (dropped;
+  client-side filtering instead), and a page boundary DOES matter (~100
+  rows/page; `data.next` cursors followed up to a 10-page cap).
 
 `getOptionQuotes(instrumentIds)` already exists — reuse for mark/ask.
 
@@ -174,7 +178,10 @@ type) → `getOptionInstruments` → take the single active tradable result
   option ticket too — verify the decision-clearing ordering: removal
   clears the ticket's `decisionIds` (`docIdsFor`), so it must not flip
   freshly-marked REJECTs back to pending (the #755 hazard, now on the
-  option path).
+  option path). **As-built (#964):** discard is scoped to tickets
+  *created during that dialog session* — the view tracks emitted
+  `(staged)` ids in a `Set`; a pre-existing STAGED ticket adopted by the
+  dialog survives close-without-submit.
 
 ## Execution (`order-execution.service.ts`)
 
@@ -215,6 +222,10 @@ mirroring `submitEquityOrder`:
   either reaches a DIALOG_DONE status).
 - The equity `symbol`/`price` computed stays scoped to the equity ticket;
   dialog title should reflect the active tab (e.g. `AAPL Order Ticket`).
+  **As-built (#964):** user required the fixed title `Open order ticket`;
+  tab group uses `preserveContent` on `mat-tab-group` (lazy
+  `matTabContent` would otherwise destroy the option ticket on
+  deactivation, losing form state).
 
 ## Option order ticket component (`components/option-order-ticket/`)
 

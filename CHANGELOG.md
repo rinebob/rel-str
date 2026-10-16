@@ -9,6 +9,12 @@
 - [ST Firestore Reorg] 984-1001_BE-IMPL-DATA-PIPELINE: st-signals backfill script — folds legacy signal-history + run-ids into canonical occurrences (entry.barDate ids, runIds union, history-gated CONFIRMED, earliest-detection provenance, upgrade-only merges, malformed/notes channels, dry-run/--symbol, per-symbol isolation, chunked getAll + batch ≤400)
 - [ST Firestore Reorg] 984-1001_BE-VERIFY-DATA-PIPELINE: read-only all-dates backfill parity audit — FAIL/WARN tiers (missing/dupes/bad-status/field-identity vs live-created-provenance divergence), runIds extras, doc-id prefix EXTRA scan, per-symbol isolation
 - [ST Firestore Reorg] 984-1001_DOCS-DATA-PIPELINE: CODE-REVIEW (3 rounds, PASS) + UAT (Complete) for st-signals backfill
+- [Options Trading] 942-964_FE-IMPL-OPTIONS: gallery dialog Stock/Option tabs (lazy matTabContent + preserveContent), 'Open order ticket' title, dual close-on-done, OPTION card statusing via decisionIds (side-skip, live-over-STAGED), equity-scoped trade/paper reopen, session-created STAGED discard on close
+- [Options Trading] 942-964_DOCS-OPTIONS: CODE-REVIEW (PASS after in-review remediation) + UAT (Complete) for gallery option tab + statusing/discard
+
+### Fixed
+- [Options Trading] 942-964_SHARED-BUG-OPTIONS: option instrument/quote wire contract — dropped state/tradability pins that zeroed upstream results, data.next pagination (10-page cap), client-side tradability filter, get_option_quotes live-shape parse (mark_price→lastTradePrice, close.price→previousClose)
+- [Options Trading] 942-964_FE-BUG-OPTIONS: option ticket hosting fixes — qty default '1' (submit enables immediately, stepper 1→2), quote mark auto-fill preserving user-typed prices, staged emit on stale-session commits (host discard), computed ticketsBySymbol spec mocks
 
 ## [2026-10-15]
 
