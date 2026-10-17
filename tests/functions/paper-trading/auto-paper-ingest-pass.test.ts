@@ -465,3 +465,148 @@ describe('runAutoPaperIngestFill', () => {
 });
 
 // signalEntriesFromDoc specs moved to tests/functions/signal-entries-from-doc.test.ts (#931)
+
+// ── #1002 — canonical st-order-tickets emission ────────────────────────────
+
+interface EmitCall {
+  mode: string;
+  idSeed: string;
+  origin: Record<string, unknown>;
+  auto: boolean;
+  terms: Record<string, unknown>;
+  accountTarget: string;
+  userId: string;
+  signalContext?: Record<string, unknown>;
+}
+
+/** Spy tickets dep — records emit/markFilled/markFailed into `calls`. */
+function spyTickets(calls: string[]) {
+  const emits: EmitCall[] = [];
+  const fills: string[] = [];
+  const fails: string[] = [];
+  return {
+    emits,
+    fills,
+    fails,
+    dep: {
+      emit: async (input: EmitCall) => {
+        calls.push('emit');
+        emits.push(input);
+        return `pap_${input.idSeed}`;
+      },
+      markFilled: async (id: string) => {
+        calls.push('markFilled');
+        fills.push(id);
+      },
+      markFailed: async (id: string) => {
+        calls.push('markFailed');
+        fails.push(id);
+      },
+    },
+  };
+}
+
+function ticketDeps(calls: string[], over: Parameters<typeof fillDeps>[0] = {}) {
+  const spy = spyTickets(calls);
+  return { spy, ...fillDeps({ tickets: spy.dep, ...over }) };
+}
+
+describe('runAutoPaperIngestFill — st-order-tickets emission (#1002)', () => {
+  const base = () => ({
+    listCandidates: async () => ['AAPL'],
+    listMembers: async () => ['AAPL'],
+    getSignals: async () => ({ [V1L]: entry() }),
+    getEquityQuotes: async () => quotesFor({ AAPL: 250.5 }),
+  });
+
+  it('stages a signal/auto/paper ticket BEFORE the ledger write, marks it filled', async () => {
+    const calls: string[] = [];
+    const { deps, spy } = ticketDeps(calls, base());
+    // Wrap the default fill dep — asserts ordering at the seam itself.
+    const origFill = deps.applyEntryFill;
+    deps.applyEntryFill = (input) => {
+      assert.ok(spy.emits.length > 0, 'ticket emitted before the ledger write');
+      calls.push('applyEntryFill');
+      return origFill(input);
+    };
+    await runAutoPaperIngestFill({ runId: 'r1', marketDate: TODAY }, SCOPE, deps);
+
+    assert.deepEqual(calls, ['emit', 'applyEntryFill', 'markFilled']);
+    assert.equal(spy.emits.length, 1);
+    const t = spy.emits[0];
+    assert.equal(t.mode, 'paper');
+    assert.equal(t.auto, true);
+    assert.deepEqual(t.origin, {
+      type: 'signal',
+      signalId: `AAPL_${BARDATE}_${V1L}`,
+      runId: 'r1',
+    });
+    assert.equal(t.terms.symbol, 'AAPL');
+    assert.equal(t.terms.side, 'buy');
+    assert.equal(t.terms.quantity, 1);
+    assert.equal(t.accountTarget, 'acct-auto-paper');
+    assert.equal(t.userId, AUTO_PAPER_USER_ID);
+    assert.equal(t.signalContext?.signalType, V1L);
+    assert.equal(t.signalContext?.barDate, BARDATE);
+    // idSeed is the tradeId → the pap_ id is deterministic across retries
+    assert.equal(spy.fills[0], `pap_${spy.emits[0].idSeed}`);
+  });
+
+  it('emits one ticket per signal (V1 + V2 same symbol → two tickets)', async () => {
+    const calls: string[] = [];
+    const { deps, spy } = ticketDeps(calls, {
+      ...base(),
+      getSignals: async () => ({ [V1L]: entry(), [V2S]: entry({ direction: 'SHORT' }) }),
+    });
+    await runAutoPaperIngestFill({ runId: 'r1', marketDate: TODAY }, SCOPE, deps);
+    assert.equal(spy.emits.length, 2);
+    assert.deepEqual(
+      calls.filter((c) => c === 'markFilled').length,
+      2,
+      'each emitted ticket is filled',
+    );
+  });
+
+  it('emit failure is fail-soft — the ledger fill still runs', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    spy.dep.emit = async () => {
+      calls.push('emit');
+      throw new Error('canonical write down');
+    };
+    const { deps, fills } = fillDeps({ ...base(), tickets: spy.dep });
+    const summary = await runAutoPaperIngestFill({ runId: 'r1', marketDate: TODAY }, SCOPE, deps);
+    assert.equal(summary.created, 1, 'fill proceeds despite emit throw');
+    assert.equal(fills.length, 1);
+    assert.equal(spy.fails.length, 0, 'no ticket id → no markFailed');
+  });
+
+  it('fill failure flips the emitted ticket to failed with lastError', async () => {
+    const calls: string[] = [];
+    const { deps, spy } = ticketDeps(calls, {
+      ...base(),
+      applyEntryFill: async () => {
+        calls.push('applyEntryFill');
+        throw new Error('ledger blew up');
+      },
+    });
+    const summary = await runAutoPaperIngestFill({ runId: 'r1', marketDate: TODAY }, SCOPE, deps);
+    assert.equal(summary.errors.length, 1);
+    assert.equal(spy.fails.length, 1);
+    assert.deepEqual(calls, ['emit', 'applyEntryFill', 'markFailed']);
+  });
+
+  it('already-existing trade race still resolves the ticket as filled', async () => {
+    const calls: string[] = [];
+    const { deps, spy } = ticketDeps(calls, {
+      ...base(),
+      applyEntryFill: async () => {
+        throw new Error('trade already exists');
+      },
+    });
+    const summary = await runAutoPaperIngestFill({ runId: 'r1', marketDate: TODAY }, SCOPE, deps);
+    assert.equal(summary.deduped, 1);
+    assert.equal(spy.fills.length, 1, 'concurrent creator won → ticket filled, not failed');
+    assert.equal(spy.fails.length, 0);
+  });
+});

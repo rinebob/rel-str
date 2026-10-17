@@ -42,12 +42,16 @@ import {
 } from '../../st-cloud-function/signals';
 import { createLogger } from '../engine/logging';
 import {
+  buildAccountId,
   buildRawQuoteId,
   buildTradeId,
   EQUITY_TRADE_DESC,
   signalDedupeKey,
   signalTradeDesc,
 } from '@paper-trading/ids';
+import { stSignalOccurrenceId } from '@st/ids';
+import { StOrderTicketWriter } from '../../order-tickets/st-order-ticket-writer';
+import type { StOrderTicketEmitter } from '../../order-tickets/st-order-ticket-writer';
 import { TradeSide } from '@common';
 import { OptionQuoteSource } from '@options/common';
 import {
@@ -150,6 +154,15 @@ export interface AutoPaperIngestFillDeps {
   applyEntryFill(input: EntryFillInput): Promise<ApplyFillResult>;
   writeRawQuote(doc: RawQuoteDoc): Promise<void>;
   now(): Date;
+  /**
+   * Canonical `st-order-tickets` emitter (#984/#1002). When present, each
+   * fill stages a `signal`/`auto`/`paper` ticket BEFORE the ledger write
+   * and flips it `filled` after success (or `failed` on a non-dedupe
+   * error). Emit and transitions are fail-soft inside the writer; the
+   * dep is optional so existing callers/tests without the canonical path
+   * keep working unchanged.
+   */
+  tickets?: Pick<StOrderTicketEmitter, 'emit' | 'markFilled' | 'markFailed'>;
 }
 
 /**
@@ -330,11 +343,71 @@ export async function runAutoPaperIngestFill(
 
   const now = deps.now();
   const fillDate = marketDate ?? getMarketDatePT(now);
+  const tickets = deps.tickets;
+
+  // Canonical ticket helpers (#984/#1002): the staged `signal`/`auto`/`paper`
+  // ticket is the action record; the ledger fill is its outcome. idSeed =
+  // tradeId so a retry re-emits the same pap_ doc instead of a sibling.
+  // Both are fail-soft — a ticket failure must never skip the ledger write
+  // (dual-write window).
+  const emitSignalTicket = async (
+    w: (typeof pending)[number],
+    side: TradeSide,
+  ): Promise<string | null> => {
+    if (!tickets) return null;
+    try {
+      return await tickets.emit({
+        mode: 'paper',
+        idSeed: w.tradeId,
+        origin: {
+          type: 'signal',
+          signalId: stSignalOccurrenceId(w.symbol, w.entry.barDate, w.signalType),
+          runId,
+        },
+        auto: true,
+        terms: {
+          symbol: w.symbol,
+          side: side === TradeSide.SHORT ? 'sell' : 'buy',
+          instrument: 'equity',
+          quantity: 1,
+          orderType: 'market',
+          timeInForce: 'gfd',
+          marketHours: 'regular_hours',
+        },
+        accountTarget: buildAccountId(AUTO_PAPER_USER_ID),
+        userId: AUTO_PAPER_USER_ID,
+        signalContext: {
+          signalType: w.signalType,
+          barDate: w.entry.barDate,
+          timeframe: w.entry.timeframe,
+          direction: w.entry.direction,
+        },
+        now: now.toISOString(),
+      });
+    } catch (err) {
+      logger.warn(
+        `st_autopaper_ticket_emit ${JSON.stringify({ ...base, symbol: w.symbol, signalType: w.signalType, error: err instanceof Error ? err.message : String(err) })}`,
+      );
+      return null;
+    }
+  };
+
+  const fillTicket = async (ticketId: string | null, px: number): Promise<void> => {
+    if (!ticketId || !tickets) return;
+    await tickets.markFilled(
+      ticketId,
+      { averagePrice: px, filledQty: 1, filledAt: now.toISOString() },
+      now.toISOString(),
+    );
+  };
 
   // 8. Fill loop — one ledger txn per surviving signal.
   for (const w of pending) {
+    // Hoisted past the try so the catch can resolve the staged ticket.
+    let ticketId: string | null = null;
+    let price: number | undefined;
     try {
-      const price = extractEquityPrice(rawQuotes, w.symbol);
+      price = extractEquityPrice(rawQuotes, w.symbol);
       if (price === undefined || !Number.isFinite(price)) {
         summary.quoteFailed++;
         logEvent('st_autopaper_quote_failed', { ...base, symbol: w.symbol, signalType: w.signalType });
@@ -368,6 +441,9 @@ export async function runAutoPaperIngestFill(
           now.toISOString(),
         ),
       );
+
+      // Canonical ticket BEFORE the ledger write (see emitSignalTicket).
+      ticketId = await emitSignalTicket(w, side);
 
       await deps.applyEntryFill({
         userId: AUTO_PAPER_USER_ID,
@@ -415,15 +491,27 @@ export async function runAutoPaperIngestFill(
         },
         now: now.toISOString(),
       });
+      await fillTicket(ticketId, price);
       summary.created++;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (/already exists/i.test(message)) {
-        // Concurrent creator won the tradeId race inside the txn.
+        // Concurrent creator won the tradeId race inside the txn — the
+        // counterpart trade already filled, so its ticket is terminal too.
         summary.deduped++;
+        if (price !== undefined) {
+          await fillTicket(ticketId, price);
+        }
       } else {
         summary.errors.push({ symbol: w.symbol, signalType: w.signalType, error: message });
         logEvent('st_autopaper_fill_failed', { ...base, symbol: w.symbol, signalType: w.signalType, error: message });
+        if (ticketId && tickets) {
+          await tickets.markFailed(
+            ticketId,
+            { category: 'paper-fill', message },
+            now.toISOString(),
+          );
+        }
       }
     }
   }
@@ -527,6 +615,7 @@ export function defaultAutoPaperIngestFillDeps(
   callTool: (name: string, args: Record<string, unknown>) => Promise<unknown>,
 ): AutoPaperIngestFillDeps {
   return {
+    tickets: new StOrderTicketWriter(),
     listCandidates: async (runId) => {
       const snap = await db
         .collection(ST_RUNS_COLLECTION)
