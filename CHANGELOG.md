@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-10-17]
+
+### Added
+- [ST Firestore Reorg] 984-1003_SHARED-IMPL-DATA-PIPELINE: fractional-quantity terms validation — non-option instruments accept fractional shares; option/expressionTemplate tickets still require integers; st-types-998 verifier pin updated
+- [ST Firestore Reorg] 984-1003_BE-IMPL-DATA-PIPELINE: order-intents→st-order-tickets soak — legacyIntentToTicket pure mapper (status→mode/state incl. 'paper'→mode, lineage/tracking/signalContext, migratedFrom) + orderIntentsMirror txn dual-write (terminal-wins, updatedAt non-regression, opposite-prefix orphan delete, fail-soft malformed)
+- [ST Firestore Reorg] 984-1003_BE-IMPL-DATA-PIPELINE: canonical-first reads — getTicketDoc queries st-order-tickets by refId with lifecycle-sibling-safe pick chain + legacy fallback; screenshot tracking.ts repointed to nested tracking.* on canonical tickets
+- [ST Firestore Reorg] 984-1003_BE-IMPL-DATA-PIPELINE: migrate-order-intents-1003 — dry-run-default backfill (EQ-trade paper settlement, terminal suppression, orphan cleanup) + post-apply parity audit; applied on prod: 90/90 created, paperSettled=9, rerun unchanged=90, audit 0 FAIL
+- [ST Firestore Reorg] 984-1003_DOCS-DATA-PIPELINE: CODE-REVIEW (4 rounds, PASS — incl. stored-PaperTrade-shape + sibling-refId majors remediated) + UAT (Complete — live soak probe 11/11, mirror deployed with eventarc.eventReceiver grant)
+
 ## [2026-10-16]
 
 ### Added
