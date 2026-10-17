@@ -42,10 +42,11 @@ import {
 } from '@paper-trading/ids';
 import { db } from '../firebase-admin-init';
 import { getMarketDatePT, calendarDaysBetween } from '../common/pt-date-utils';
-import { ST_ORDER_INTENTS_COLLECTION } from '../common/st-collections';
+import { ST_ORDER_INTENTS_COLLECTION, ST_ORDER_TICKETS_ROOT } from '../common/st-collections';
 import { buildAccountId } from '@paper-trading/ids';
 import { stSignalOccurrenceId, stTicketId } from '@st/ids';
 import { StOrderTicketWriter } from '../order-tickets/st-order-ticket-writer';
+import type { StOrderTicket } from '@st/order-tickets';
 import type {
   EmitStOrderTicketInput,
   StOrderTicketEmitter,
@@ -187,10 +188,13 @@ export async function handlePaperSignalOrder(
   // Quantity inherits the order ticket's computed sizing (PRD); request
   // quantity is the fallback for tickets that carry none.
   const ticketQty = ticket.quantity === undefined ? undefined : Number(ticket.quantity);
-  const quantity =
-    ticketQty !== undefined && Number.isInteger(ticketQty) && ticketQty > 0
-      ? ticketQty
-      : data.quantity;
+  const ticketQtyUsable = ticketQty !== undefined && Number.isInteger(ticketQty) && ticketQty > 0;
+  if (ticketQty !== undefined && !ticketQtyUsable) {
+    logger.warn(
+      `ticket quantity ${ticket.quantity} unusable for refId ${data.refId} — falling back to request quantity`,
+    );
+  }
+  const quantity = ticketQtyUsable ? ticketQty : data.quantity;
   if (quantity === undefined || !Number.isInteger(quantity) || quantity <= 0) {
     throw new HttpsError(
       'invalid-argument',
@@ -467,7 +471,51 @@ function buildCohortDoc(
 
 // ── Production wiring ──────────────────────────────────────────────────────
 
-async function getTicketDoc(firestore: Firestore, refId: string): Promise<OrderTicketDoc | null> {
+/**
+ * Canonical `st-order-tickets` → legacy `OrderTicketDoc` view (#1003
+ * reader cutover). The paper-order handler reads the same narrow fields
+ * either way; the adapter keeps the deps contract stable.
+ */
+export function stTicketToOrderTicketDoc(t: StOrderTicket): OrderTicketDoc {
+  const qty = t.terms?.quantity;
+  return {
+    id: t.id,
+    refId: t.refId,
+    symbol: t.terms?.symbol,
+    side: t.terms?.side,
+    quantity: qty != null ? String(qty) : undefined,
+    signalContext: t.signalContext
+      ? {
+          signalType: t.signalContext.signalType,
+          barDate: t.signalContext.barDate,
+          direction: t.signalContext.direction,
+          decisionId: t.signalContext.decisionId,
+        }
+      : undefined,
+  };
+}
+
+/**
+ * Ticket lookup by refId — canonical-first with legacy fallback (#1003).
+ * Correct at every point in the soak: pre-migration misses fall through
+ * to `order-intents`; post-migration hits return the canonical doc.
+ */
+export async function getTicketDoc(firestore: Firestore, refId: string): Promise<OrderTicketDoc | null> {
+  const canon = await firestore
+    .collection(ST_ORDER_TICKETS_ROOT)
+    .where('refId', '==', refId)
+    .get();
+  if (!canon.empty) {
+    // refId collides with emitted pap_{tradeId} lifecycle tickets during
+    // the soak — order docs never carry terms.expression/expressionTemplate,
+    // lifecycle tickets always do. If every hit is a lifecycle ticket the
+    // order doc lives in the legacy collection — fall through.
+    const docs = canon.docs.map((d) => d.data() as StOrderTicket);
+    const pick =
+      docs.find((t) => t.migratedFrom === 'order-intents')
+      ?? docs.find((t) => t.terms != null && t.terms.expression === undefined && t.terms.expressionTemplate === undefined);
+    if (pick) return stTicketToOrderTicketDoc(pick);
+  }
   const byRef = await firestore
     .collection(ST_ORDER_INTENTS_COLLECTION)
     .where('refId', '==', refId)

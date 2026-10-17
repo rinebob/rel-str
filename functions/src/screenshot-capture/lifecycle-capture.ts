@@ -43,6 +43,8 @@ import {
   type ScreenshotIndexEntry,
 } from '@screenshot-capture/contracts';
 import { buildScreenshotIndexDocId } from '@screenshot-capture/utils';
+import { mergeCapturedEventMaps } from './tracking';
+import { ST_ORDER_TICKETS_ROOT } from '../common/st-collections';
 import { assembleChartModels } from './chart-data-loader';
 import { executeCaptureChart, type CaptureChartSnapshotDeps } from './capture-chart';
 import { rasterizeSvgToPng } from './rasterizer';
@@ -271,6 +273,19 @@ export async function captureLifecycleEvent(
 
 // ── Real seams ──────────────────────────────────────────────────────────────
 
+/** Carrier-doc merge payload for one ledger entry. `st-order-tickets`
+ *  carriers keep the ledger nested under `tracking` per the #998 canonical
+ *  contract (#1003); every other carrier keeps it top-level. */
+export function carrierEventWritePayload(
+  docPath: string,
+  event: string,
+  entry: CapturedEventEntry,
+): Record<string, unknown> {
+  return docPath.startsWith(`${ST_ORDER_TICKETS_ROOT}/`)
+    ? { tracking: { [CAPTURED_EVENTS_FIELD]: { [event]: entry } } }
+    : { [CAPTURED_EVENTS_FIELD]: { [event]: entry } };
+}
+
 /** Production deps — Firestore transactions on the carrier doc +
  *  `st-screenshots`, and the real capture pipeline (in-process). */
 export function createLifecycleCaptureDeps(db = getFirestore()): LifecycleCaptureDeps {
@@ -287,14 +302,14 @@ export function createLifecycleCaptureDeps(db = getFirestore()): LifecycleCaptur
         work({
           readCarrierEvents: async (docPath) => {
             const snap = await t.get(db.doc(docPath));
-            return (
-              (snap.data()?.[CAPTURED_EVENTS_FIELD] as Record<string, CapturedEventEntry>) ?? {}
+            return mergeCapturedEventMaps(
+              snap.data() as Record<string, unknown> | undefined,
             );
           },
           writeCarrierEvent: (docPath, event, entry) => {
             t.set(
               db.doc(docPath),
-              { [CAPTURED_EVENTS_FIELD]: { [event]: entry } },
+              carrierEventWritePayload(docPath, event, entry),
               { merge: true },
             );
           },

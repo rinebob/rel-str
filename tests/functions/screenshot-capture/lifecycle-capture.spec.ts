@@ -18,6 +18,7 @@ import {
   CAPTURED_EVENTS_FIELD,
   LIFECYCLE_CAPTURE_TIMEOUT_MS,
   captureLifecycleEvent,
+  carrierEventWritePayload,
   type CapturedEventEntry,
   type LifecycleCaptureDeps,
   type LifecycleCaptureInput,
@@ -25,7 +26,7 @@ import {
 } from '../../../functions/src/screenshot-capture/lifecycle-capture';
 
 const NOW = new Date('2026-10-05T14:30:22.000Z');
-const INTENT_DOC = 'savant-trader/data/order-intents/intent-1';
+const INTENT_DOC = 'st-order-tickets/liv_intent-1';
 const POSITION_DOC = 'paper-trading/positions/items/pos-1';
 
 const DAILY_SVG =
@@ -239,6 +240,22 @@ describe('captureLifecycleEvent — happy path', () => {
     expect(idx).toBeDefined();
     // Firestore rejects explicit undefined values — the key must be absent.
     expect('groupId' in idx).toBe(false);
+  });
+});
+
+describe('carrierEventWritePayload (#1003)', () => {
+  const entry: CapturedEventEntry = { status: 'captured', claimedAt: 't', capturedAt: 't2' };
+
+  it('nests the ledger under tracking for st-order-tickets carriers', () => {
+    expect(carrierEventWritePayload('st-order-tickets/liv_x', 'order-filled', entry)).toEqual({
+      tracking: { [CAPTURED_EVENTS_FIELD]: { 'order-filled': entry } },
+    });
+  });
+
+  it('keeps the ledger top-level for engine/other carriers', () => {
+    expect(carrierEventWritePayload(POSITION_DOC, 'order-filled', entry)).toEqual({
+      [CAPTURED_EVENTS_FIELD]: { 'order-filled': entry },
+    });
   });
 });
 
