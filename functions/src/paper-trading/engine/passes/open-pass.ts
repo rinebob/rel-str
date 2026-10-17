@@ -30,6 +30,9 @@ import { incrementStatsOnOpen } from '../stats-repository';
 import type { Position, PositionLeg, RawQuote } from '../types';
 import { PositionStatus } from '../types';
 import { createLogger } from '../logging';
+import { buildAccountId } from '@paper-trading/ids';
+import type { StMode } from '@st/types';
+import type { StOrderTicketEmitter } from '../../../order-tickets/st-order-ticket-writer';
 
 const logger = createLogger('OpenPass');
 
@@ -94,6 +97,15 @@ export interface OpenPassDependencies {
     positionId?: string,
   ) => Promise<Position>;
   writeOpenPassResult?: OpenPassResultWriter;
+  /**
+   * Canonical `st-order-tickets` emitter (#984/#1002). When present, the
+   * pass stages a `program`/`auto` ticket (mode from the instance —
+   * `paper` until #1006 migrates `st-strategy-instances` docs that carry
+   * `mode`) BEFORE the brokerage order + position write, then flips it
+   * `filled` on success or `failed` on a thrown execution error. Optional —
+   * absent dep keeps pre-#1002 behavior for tests/callers not yet wired.
+   */
+  tickets?: Pick<StOrderTicketEmitter, 'emit' | 'markFilled' | 'markFailed'>;
 }
 
 // ── Default readers/writers ─────────────────────────────────────────────────
@@ -163,7 +175,7 @@ function buildOpenPassResult(
 export async function runOpenPass(
   instanceId: string,
   date: string,
-  config: StrategyInstanceConfig,
+  config: StrategyInstanceConfig & { mode?: StMode; paperAccountId?: string },
   currentUnderlyingPrice: number,
   deps: OpenPassDependencies = {},
 ): Promise<OpenPassResult | null> {
@@ -286,12 +298,68 @@ export async function runOpenPass(
   // 7. Place brokerage order BEFORE creating the position in Firestore.
   //    If the order fails, no position is created.
   const positionId = buildPositionId(config, date);
-  const order = await placeOrder(instanceId, leg, config, mark);
-  logger.info(
-    `Brokerage order placed for ${instanceId}/${date}: orderId=${order.orderId}, fillPrice=${order.fillPrice}`,
-  );
 
-  const created = await create(position, [leg], rawQuote, positionId);
+  // Canonical program ticket (#984/#1002) — staged before execution;
+  // idSeed = positionId so a re-fired pass re-emits the same doc. The
+  // contract detail lives on the position doc sharing that id — ticket
+  // terms carry the strategy-level terms (underlying/side/quantity), not
+  // legs (RH optionId is a live-ordering identity the paper sim lacks).
+  // Fail-soft: an emit failure must never block the open.
+  let ticketId: string | null = null;
+  if (deps.tickets) {
+    try {
+      ticketId = await deps.tickets.emit({
+        mode: config.mode === 'live' ? 'live' : 'paper',
+        idSeed: positionId,
+        origin: { type: 'program', instanceId },
+        auto: true,
+        terms: {
+          symbol: config.symbol,
+          side: config.side === TradeSide.SHORT ? 'sell' : 'buy',
+          instrument: 'option',
+          quantity: 1,
+          orderType: 'market',
+          timeInForce: 'gfd',
+          marketHours: 'regular_hours',
+        },
+        accountTarget: config.paperAccountId ?? buildAccountId(config.userId),
+        userId: config.userId,
+        now: new Date().toISOString(),
+      });
+    } catch (err) {
+      logger.warn(
+        `st_open_pass_ticket_emit ${instanceId}/${date}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  let order: { orderId: string; fillPrice: number };
+  let created: Position;
+  try {
+    order = await placeOrder(instanceId, leg, config, mark);
+    logger.info(
+      `Brokerage order placed for ${instanceId}/${date}: orderId=${order.orderId}, fillPrice=${order.fillPrice}`,
+    );
+
+    created = await create(position, [leg], rawQuote, positionId);
+  } catch (err) {
+    if (ticketId && deps.tickets) {
+      await deps.tickets.markFailed(
+        ticketId,
+        { category: 'program-fill', message: err instanceof Error ? err.message : String(err) },
+        new Date().toISOString(),
+      );
+    }
+    throw err;
+  }
+
+  if (ticketId && deps.tickets) {
+    await deps.tickets.markFilled(
+      ticketId,
+      { averagePrice: order.fillPrice, filledQty: 1, filledAt: new Date().toISOString() },
+      new Date().toISOString(),
+    );
+  }
 
   // 8. Incrementally update stats (premium + open count) for per-instance + ALL
   await incrementStatsOnOpen(instanceId, premiumCollected);

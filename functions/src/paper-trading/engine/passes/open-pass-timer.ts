@@ -23,6 +23,7 @@ import { listActiveInstances } from '../strategy-instance-repository';
 import { getUnderlyingClose } from '../options-strategy-market-data';
 import { runOpenPass } from './open-pass';
 import { createLogger } from '../logging';
+import { StOrderTicketWriter } from '../../../order-tickets/st-order-ticket-writer';
 
 const log = createLogger('OpenPassTimer');
 
@@ -51,6 +52,7 @@ export const openPassTimer = onSchedule(
 
       logger.info('open_pass_timer_matching', { slot, count: matching.length });
 
+      const tickets = new StOrderTicketWriter();
       for (const instance of matching) {
         if (!instance.phases?.[0]) {
           log.error(`No phase configured for ${instance.id}`);
@@ -69,6 +71,7 @@ export const openPassTimer = onSchedule(
             marketDate,
             instance,
             currentPrice,
+            { tickets },
           );
           if (result) {
             log.info(

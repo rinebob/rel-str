@@ -207,3 +207,146 @@ describe('runOpenPass', () => {
     assert.ok(Math.abs(result.actualOvernightMovePct - (-0.015)) < 0.001);
   });
 });
+
+// ── #1002 — canonical st-order-tickets emission ────────────────────────────
+
+interface TicketEmitCall {
+  mode: string;
+  idSeed: string;
+  origin: Record<string, unknown>;
+  auto: boolean;
+  terms: Record<string, unknown>;
+  accountTarget: string;
+  userId: string;
+}
+
+function spyTickets(calls: string[]) {
+  const emits: TicketEmitCall[] = [];
+  const fills: { id: string; averagePrice: number }[] = [];
+  const fails: { id: string; category: string }[] = [];
+  return {
+    emits,
+    fills,
+    fails,
+    dep: {
+      emit: async (input: TicketEmitCall) => {
+        calls.push('emit');
+        emits.push(input);
+        return `${input.mode === 'live' ? 'liv' : 'pap'}_${input.idSeed}`;
+      },
+      markFilled: async (id: string, fill: { averagePrice: number; filledQty: number; filledAt: string }) => {
+        calls.push('markFilled');
+        fills.push({ id, averagePrice: fill.averagePrice });
+      },
+      markFailed: async (id: string, error: { category: string; message: string }) => {
+        calls.push('markFailed');
+        fails.push({ id, category: error.category });
+      },
+    },
+  };
+}
+
+const ticketDeps = (calls: string[]) => {
+  const spy = spyTickets(calls);
+  return {
+    spy,
+    deps: {
+      readDailyAnalysis: async () => makeSimulation(),
+      listOpenPositions: async () => [],
+      createPosition: async (position: Omit<Position, 'id'>) =>
+        ({ id: 'inst-1-2025-08-15', ...position }) as Position,
+      writeOpenPassResult: async () => {},
+      tickets: spy.dep,
+    },
+  };
+};
+
+describe('runOpenPass — st-order-tickets emission (#1002)', () => {
+  it('stages a program/auto/paper ticket BEFORE the brokerage order, marks it filled', async () => {
+    const calls: string[] = [];
+    const { deps, spy } = ticketDeps(calls);
+    const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, deps);
+
+    assert.ok(result);
+    assert.deepEqual(calls, ['emit', 'markFilled']);
+    assert.equal(spy.emits.length, 1);
+    const t = spy.emits[0];
+    assert.equal(t.mode, 'paper', 'legacy instance has no mode → paper');
+    assert.equal(t.auto, true);
+    assert.deepEqual(t.origin, { type: 'program', instanceId: 'inst-1' });
+    assert.equal(t.idSeed, '250815-SPY-CSP-030-5-D-1200', 'idSeed = deterministic positionId');
+    assert.equal(t.terms.symbol, 'SPY');
+    assert.equal(t.terms.side, 'sell', 'SHORT strategy sells the option');
+    assert.equal(t.terms.instrument, 'option');
+    assert.equal(t.terms.quantity, 1);
+    assert.equal(t.accountTarget, 'acct-test-user');
+    assert.equal(t.userId, 'test-user');
+    // fill stamped from the brokerage order's fill price (stub returns mark)
+    assert.equal(spy.fills.length, 1);
+    assert.equal(spy.fills[0].id, 'pap_250815-SPY-CSP-030-5-D-1200');
+    assert.equal(spy.fills[0].averagePrice, 0.5);
+  });
+
+  it('emits a liv_ ticket when the instance carries mode: live', async () => {
+    const calls: string[] = [];
+    const { deps, spy } = ticketDeps(calls);
+    // Post-#1006 the canonical st-strategy-instances doc carries `mode`.
+    const liveConfig = makeConfig() as StrategyInstanceConfig & { mode?: string };
+    liveConfig.mode = 'live';
+    await runOpenPass('inst-1', '2025-08-15', liveConfig, 101, deps);
+    assert.equal(spy.emits[0].mode, 'live');
+    assert.equal(spy.fills[0].id, 'liv_250815-SPY-CSP-030-5-D-1200');
+  });
+
+  it('emits nothing on a skip (existing position)', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
+      readDailyAnalysis: async () => makeSimulation(),
+      listOpenPositions: async () => [{ id: 'existing' } as Position],
+      writeOpenPassResult: async () => {},
+      tickets: spy.dep,
+    });
+    assert.equal(result?.skipped, true);
+    assert.equal(spy.emits.length, 0);
+  });
+
+  it('marks the ticket failed when the brokerage order throws', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    await assert.rejects(
+      runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
+        readDailyAnalysis: async () => makeSimulation(),
+        listOpenPositions: async () => [],
+        placeBrokerageOrder: async () => {
+          throw new Error('broker down');
+        },
+        createPosition: async (position: Omit<Position, 'id'>) => ({ id: 'x', ...position }) as Position,
+        writeOpenPassResult: async () => {},
+        tickets: spy.dep,
+      }),
+      /broker down/,
+    );
+    assert.equal(spy.fails.length, 1);
+    assert.equal(spy.fails[0].category, 'program-fill');
+    assert.equal(spy.fills.length, 0);
+  });
+
+  it('marks the ticket failed when createPosition throws', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    await assert.rejects(
+      runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
+        readDailyAnalysis: async () => makeSimulation(),
+        listOpenPositions: async () => [],
+        createPosition: async () => {
+          throw new Error('firestore write failed');
+        },
+        writeOpenPassResult: async () => {},
+        tickets: spy.dep,
+      }),
+      /firestore write failed/,
+    );
+    assert.equal(spy.fails.length, 1);
+  });
+});
