@@ -78,6 +78,13 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'st-order-tickets canonical shape',
+    file: 'verify/data-pipeline-st-order-tickets-1002.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
   { name: 'paper-trading trade-exits contracts', file: 'paper-trading-contracts-665.ts', needsAccount: false },
   {
     name: 'swing config library',
