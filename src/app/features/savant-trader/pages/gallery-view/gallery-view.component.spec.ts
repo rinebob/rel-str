@@ -5,6 +5,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, DeferBlockBehavior, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 
@@ -165,6 +166,8 @@ describe('GalleryViewComponent', () => {
       imports: [GalleryViewComponent],
       providers: [
         provideNoopAnimations(),
+        // Cards render a routerLink option-chain affordance (#1055).
+        provideRouter([]),
         { provide: GalleryFacade, useValue: facadeMock },
         { provide: GalleryCardActionsService, useValue: actionsMock },
         { provide: GalleryCardChartStore, useValue: chartStoreMock },

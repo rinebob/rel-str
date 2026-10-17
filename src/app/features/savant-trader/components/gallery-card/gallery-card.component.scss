@@ -236,6 +236,21 @@ app-gallery-card-chart {
   }
 }
 
+// Right-justified navigation affordance — visually separated from the
+// decision actions it sits beside (#1055). Rendered as an <a> so the
+// browser handles the new-tab semantics natively.
+.action-chain {
+  margin-left: auto;
+  gap: 3px;
+  text-decoration: none;
+
+  mat-icon {
+    font-size: 11px;
+    width: 11px;
+    height: 11px;
+  }
+}
+
 .ticket-line {
   font-size: 11px;
   opacity: 0.75;

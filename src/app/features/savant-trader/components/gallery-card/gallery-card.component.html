@@ -95,6 +95,16 @@
             title="Signal chart popup — coming soon">
       Chart
     </button>
+    <a class="action-btn action-chain"
+       data-testid="open-chain-btn"
+       [routerLink]="['/' + OPTION_CHAIN_ROUTE]"
+       [queryParams]="{ symbol: card().symbol }"
+       target="_blank"
+       rel="noopener"
+       [attr.aria-label]="'Open option chain for ' + card().symbol"
+       title="Open option chain in a new tab">
+      Option chain <mat-icon>open_in_new</mat-icon>
+    </a>
   </div>
 
   @defer (on viewport; prefetch on idle) {

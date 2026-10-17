@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, ParamMap } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 import { signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { MatDatepicker, MatDatepickerInput } from '@angular/material/datepicker';
@@ -28,8 +29,12 @@ function oc(over: Partial<HistoricalOptionContract> = {}): HistoricalOptionContr
 }
 
 function makeMockStore() {
+  // setSymbol mirrors the real store's normalization so specs can prove
+  // call ORDER and COUNTS (single load) — a bare jest.fn leaves symbol()
+  // stuck at '' and hides which path actually fired loadChain.
+  const symbol = signal('');
   return {
-    symbol: signal(''),
+    symbol,
     dateInput: signal(''),
     resolvedDate: signal<string | null>(null),
     priorDate: signal<string | null>(null),
@@ -42,7 +47,7 @@ function makeMockStore() {
     resolvedNoData: signal(false),
     sessionClose: signal<number | null>(null),
     priorClose: signal<number | null>(null),
-    setSymbol: jest.fn(),
+    setSymbol: jest.fn((s: string) => symbol.set(String(s ?? '').trim().toUpperCase())),
     setDateInput: jest.fn(),
     loadChain: jest.fn(),
     loadToday: jest.fn(),
@@ -92,7 +97,19 @@ describe('OptionChainComponent', () => {
 
   beforeEach(() => localStorage.clear());
 
-  async function render(initialSymbol = '') {
+  interface RouteStub {
+    snapshot: { queryParamMap: ParamMap };
+    queryParamMap: BehaviorSubject<ParamMap>;
+  }
+
+  function routeStub(symbol: string | null): RouteStub {
+    const params$ = new BehaviorSubject<ParamMap>(
+      convertToParamMap(symbol == null ? {} : { symbol }),
+    );
+    return { snapshot: { queryParamMap: params$.value }, queryParamMap: params$ };
+  }
+
+  async function render(initialSymbol = '', route?: RouteStub) {
     mockStore = makeMockStore();
     mockStore.symbol.set(initialSymbol);
     mockLists = {
@@ -103,6 +120,7 @@ describe('OptionChainComponent', () => {
       imports: [OptionChainComponent],
       providers: [
         provideRouter([]),
+        ...(route ? [{ provide: ActivatedRoute, useValue: route }] : []),
         { provide: OptionChainStore, useValue: mockStore },
         { provide: SymbolListStore, useValue: mockLists },
       ],
@@ -166,6 +184,80 @@ describe('OptionChainComponent', () => {
 
     el.querySelector<HTMLButtonElement>('[data-testid="load-btn"]')!.click();
     expect(mockStore.loadChain).toHaveBeenCalled();
+  });
+
+  it('deep link: ?symbol=X drives setSymbol + loadChain exactly once (#1055)', async () => {
+    await render('', routeStub('aapl'));
+    // The subscription normalizes like the store — uppercase arrives.
+    expect(mockStore.setSymbol).toHaveBeenCalledWith('AAPL');
+    expect(mockStore.symbol()).toBe('AAPL');
+    expect(mockStore.loadChain).toHaveBeenCalledTimes(1);
+  });
+
+  it('deep link: absent param preserves the default load', async () => {
+    await render('QQQ', routeStub(null));
+    expect(mockStore.setSymbol).not.toHaveBeenCalled();
+    expect(mockStore.loadChain).toHaveBeenCalledTimes(1);
+  });
+
+  it('deep link: a literal empty ?symbol= is treated as absent', async () => {
+    await render('QQQ', routeStub(''));
+    expect(mockStore.setSymbol).not.toHaveBeenCalled();
+    expect(mockStore.loadChain).toHaveBeenCalledTimes(1);
+  });
+
+  it('deep link: later param changes reload the chain', async () => {
+    const route = routeStub('AAPL');
+    const fixture = await render('QQQ', route);
+    mockStore.setSymbol.mockClear();
+    mockStore.loadChain.mockClear();
+
+    route.queryParamMap.next(convertToParamMap({ symbol: 'TSLA' }));
+    fixture.detectChanges();
+    expect(mockStore.setSymbol).toHaveBeenCalledWith('TSLA');
+    expect(mockStore.loadChain).toHaveBeenCalledTimes(1);
+  });
+
+  it('deep link: an unchanged param on re-emission does not reload', async () => {
+    const route = routeStub('AAPL');
+    const fixture = await render('AAPL', route);
+    mockStore.loadChain.mockClear();
+    route.queryParamMap.next(convertToParamMap({ symbol: 'AAPL' }));
+    fixture.detectChanges();
+    expect(mockStore.loadChain).not.toHaveBeenCalled();
+  });
+
+  it('deep link: a stale param cannot revert a manually-loaded symbol', async () => {
+    // Entry on ?symbol=AAPL → applied; user then types TSLA + Load.
+    // An unrelated queryParam emission still carrying symbol=AAPL must
+    // NOT revert the user's choice — distinctUntilChanged keys on the
+    // param, not the store symbol.
+    const route = routeStub('AAPL');
+    const fixture = await render('', route);
+    mockStore.setSymbol.mockClear();
+    mockStore.loadChain.mockClear();
+
+    mockStore.symbol.set('TSLA'); // user's manual choice
+    route.queryParamMap.next(convertToParamMap({ symbol: 'AAPL', unrelated: '1' }));
+    fixture.detectChanges();
+
+    expect(mockStore.setSymbol).not.toHaveBeenCalled();
+    expect(mockStore.loadChain).not.toHaveBeenCalled();
+    expect(mockStore.symbol()).toBe('TSLA');
+  });
+
+  it('deep link: removing the param does not reload or revert', async () => {
+    const route = routeStub('AAPL');
+    const fixture = await render('', route);
+    mockStore.setSymbol.mockClear();
+    mockStore.loadChain.mockClear();
+
+    route.queryParamMap.next(convertToParamMap({}));
+    fixture.detectChanges();
+
+    expect(mockStore.setSymbol).not.toHaveBeenCalled();
+    expect(mockStore.loadChain).not.toHaveBeenCalled();
+    expect(mockStore.symbol()).toBe('AAPL');
   });
 
   it('side toggle switches between calls/puts/both panes', async () => {

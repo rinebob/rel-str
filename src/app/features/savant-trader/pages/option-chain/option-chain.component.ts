@@ -11,8 +11,11 @@
  * re-sync, and the expiration column picker (persisted per symbol).
  * Grids: #501 layout, #502 icon-hover popup.
  */
-import { Component, ChangeDetectionStrategy, computed, effect, ElementRef, inject, OnDestroy, OnInit, signal, viewChildren } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, DestroyRef, effect, ElementRef, inject, OnDestroy, OnInit, signal, viewChildren } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { distinctUntilChanged, map } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 
@@ -275,12 +278,36 @@ export class OptionChainComponent implements OnInit, OnDestroy {
   }
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
-  /** Auto-loads the default symbol. */
+  /** Auto-loads the default symbol — or the deep-linked one (#1055):
+   *  `?symbol=X` feeds the same setSymbol+loadChain path as the header
+   *  input, so an invalid symbol surfaces the store's normal fetch
+   *  error. distinctUntilChanged on the PARAM (not the store symbol)
+   *  means a later unrelated queryParam emission can't silently revert
+   *  the user's manually-loaded symbol; an absent/removed param never
+   *  reloads. The first emission covers the entry value — the snapshot
+   *  check below exists only to skip the default load in that case. */
   ngOnInit(): void {
     this.host.nativeElement.addEventListener('scroll', this.onGridsScroll, true);
     this.lists.loadProfiles();
-    if (this.store.symbol()) this.store.loadChain();
+
+    this.route.queryParamMap
+      .pipe(
+        map((params) => params.get('symbol')?.trim().toUpperCase() ?? ''),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((sym) => {
+        if (!sym) return;
+        this.store.setSymbol(sym);
+        this.store.loadChain();
+      });
+
+    if (!this.route.snapshot.queryParamMap.get('symbol')?.trim() && this.store.symbol()) {
+      this.store.loadChain();
+    }
   }
 
   ngOnDestroy(): void {

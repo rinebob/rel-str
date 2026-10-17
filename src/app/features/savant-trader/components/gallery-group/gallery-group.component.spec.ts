@@ -4,6 +4,7 @@
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
 
 import { GalleryGroupComponent } from './gallery-group.component';
 import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
@@ -61,6 +62,8 @@ describe('GalleryGroupComponent', () => {
       imports: [GalleryGroupComponent],
       providers: [
         provideNoopAnimations(),
+        // GalleryCardComponent renders a routerLink affordance (#1055).
+        provideRouter([]),
         // GalleryCardComponent reads barsFor for the price/change meta —
         // the deferred chart cell never mounts in jsdom (no IO).
         {

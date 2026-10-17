@@ -8,6 +8,9 @@
  */
 import { Component, ChangeDetectionStrategy, booleanAttribute, computed, inject, input, output } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { GalleryCardChartComponent } from '../gallery-card-chart/gallery-card-chart.component';
 import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
 import { SignalTimeframe } from '../../common/constants';
@@ -44,7 +47,7 @@ export type GalleryCardAction =
 @Component({
   selector: 'app-gallery-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, GalleryCardChartComponent],
+  imports: [DecimalPipe, MatIconModule, RouterLink, GalleryCardChartComponent],
   templateUrl: './gallery-card.component.html',
   styleUrl: './gallery-card.component.scss',
 })
@@ -59,6 +62,8 @@ export class GalleryCardComponent {
   action = output<GalleryCardAction>();
 
   readonly SignalTimeframe = SignalTimeframe;
+  /** Route enum for the Option chain deep link (#1055). */
+  readonly OPTION_CHAIN_ROUTE = AppRoutes.OPTION_CHAIN;
   readonly tierLabel = tierLabel;
 
   private readonly chartStore = inject(GalleryCardChartStore);

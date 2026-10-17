@@ -4,6 +4,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, DeferBlockBehavior, DeferBlockState, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
 
 import { GalleryCardComponent } from './gallery-card.component';
 import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
@@ -96,6 +97,7 @@ describe('GalleryCardComponent', () => {
       imports: [GalleryCardComponent],
       providers: [
         provideNoopAnimations(),
+        provideRouter([]),
         // The chart cell is @defer (on viewport) — jsdom has no
         // IntersectionObserver, so defer blocks stay manual and the chart
         // store is stubbed for the one test that completes the block.
@@ -129,6 +131,26 @@ describe('GalleryCardComponent', () => {
     expect(text()).toContain('AAPL');
     expect(text()).toContain('Apple Inc');
     expect(text()).toContain('BUY');
+  });
+
+  it('option-chain link deep-links the card symbol in a new tab (#1055)', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const link = el.querySelector<HTMLAnchorElement>('[data-testid="open-chain-btn"]');
+    expect(link).toBeTruthy();
+    expect(link!.textContent).toContain('Option chain');
+    expect(link!.href).toContain('/options/chain?symbol=AAPL');
+    expect(link!.target).toBe('_blank');
+  });
+
+  it('option-chain link stays reachable when decision actions are disabled', () => {
+    fixture.componentRef.setInput('actionsDisabled', true);
+    fixture.componentRef.setInput('actionBusy', true);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    // Anchors can't be disabled — navigation is intentionally untouched
+    // by actionsDisabled/actionBusy, so the deep link must still resolve.
+    const link = el.querySelector<HTMLAnchorElement>('[data-testid="open-chain-btn"]')!;
+    expect(link.href).toContain('/options/chain?symbol=AAPL');
   });
 
   it('leads the financial row with price + day change once daily bars land', () => {
