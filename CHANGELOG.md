@@ -8,6 +8,9 @@
 - [ST Firestore Reorg] 984-1003_BE-IMPL-DATA-PIPELINE: canonical-first reads — getTicketDoc queries st-order-tickets by refId with lifecycle-sibling-safe pick chain + legacy fallback; screenshot tracking.ts repointed to nested tracking.* on canonical tickets
 - [ST Firestore Reorg] 984-1003_BE-IMPL-DATA-PIPELINE: migrate-order-intents-1003 — dry-run-default backfill (EQ-trade paper settlement, terminal suppression, orphan cleanup) + post-apply parity audit; applied on prod: 90/90 created, paperSettled=9, rerun unchanged=90, audit 0 FAIL
 - [ST Firestore Reorg] 984-1003_DOCS-DATA-PIPELINE: CODE-REVIEW (4 rounds, PASS — incl. stored-PaperTrade-shape + sibling-refId majors remediated) + UAT (Complete — live soak probe 11/11, mirror deployed with eventarc.eventReceiver grant)
+- [Savant Design System] 1024-1040_FE-IMPL-DESIGN-SYSTEM: _pd-visual-language delegation shim — @forward 'index' delegates 7 mixins to savant-ds (zero duplicated bodies); $up/$down → var(--ds-*) reads; 5 data-display mixins sole-source pending #1052; ds-parity-probe now delegation-aware (probes diff delegated-vs-package emission through the real shim)
+- [Savant Design System] 1024-1040_FE-VERIFY-DESIGN-SYSTEM: design-system-vl-shim-1040 relay (39 checks) — sole-forward + index*-shadow guards, boundary-exact 14-member fixture through real includePaths, no :root leakage, sass via package createRequire
+- [Savant Design System] 1024-1040_DOCS-DESIGN-SYSTEM: CODE-REVIEW (2 rounds, PASS — R1 probe regression + fixture/shadow/leak holes remediated) + UAT (Complete — 545/545 jest, all 6 DS relays green)
 
 ## [2026-10-16]
 
