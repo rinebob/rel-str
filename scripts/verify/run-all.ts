@@ -12,8 +12,14 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const accountNumber = process.argv[2] ?? process.env.ACCOUNT_NUMBER;
+
+// Repo root derived from this file's location — needsPath entries are
+// repo-relative and must not depend on the caller's cwd.
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 interface VerifyScript {
   name: string;
@@ -49,6 +55,12 @@ const scripts: VerifyScript[] = [
   {
     name: 'design-system page mixins',
     file: 'design-system-page-mixins-1036.ts',
+    needsAccount: false,
+    needsPath: '../savant-ds',
+  },
+  {
+    name: 'design-system dialog/feedback mixins',
+    file: 'design-system-dialog-mixins-1037.ts',
     needsAccount: false,
     needsPath: '../savant-ds',
   },
@@ -298,7 +310,7 @@ for (const script of scripts) {
     skipped++;
     continue;
   }
-  if (script.needsPath && !existsSync(script.needsPath)) {
+  if (script.needsPath && !existsSync(path.resolve(REPO_ROOT, script.needsPath))) {
     console.log(`\n--- ${script.name} --- SKIPPED (needs ${script.needsPath} checkout)`);
     skipped++;
     continue;

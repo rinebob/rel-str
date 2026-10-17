@@ -21,8 +21,9 @@ checks live in `C:\aa\projects\savant-ds\scripts\verify.mjs`:
 
 ## What the relay adds locally
 
-After the package verify passes, this script runs a **verbatim-semantics
-parity probe**: it compiles the same four mixins from BOTH
+After the package verify passes, this script runs the shared
+**verbatim-semantics parity probe** (`scripts/verify/ds-parity-probe.ts`):
+it compiles the same four mixins from BOTH
 `savant-ds/styles/_page.scss` (via `@use 'index'`) and the source
 `src/app/features/portfolio-dashboard/styles/_pd-visual-language.scss`,
 normalizes `var(--ds-*)` to whatever the compiled `_tokens.scss` `:root`
