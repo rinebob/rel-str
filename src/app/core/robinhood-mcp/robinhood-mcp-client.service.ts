@@ -348,6 +348,8 @@ export class RobinhoodMcpClient {
             this.toNumber(close['price']) ??
             this.toNumber(raw['previous_close_price']) ??
             this.toNumber(raw['previous_close']),
+          bidPrice: this.toNumber(raw['bid_price']),
+          askPrice: this.toNumber(raw['ask_price']),
         };
       },
       (quote) => quote.instrumentId,

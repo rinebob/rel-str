@@ -111,12 +111,16 @@ export interface EquityQuote {
   symbol: string;
   lastTradePrice: number | null;
   previousClose: number | null;
+  bidPrice?: number | null;
+  askPrice?: number | null;
 }
 
 export interface OptionQuote {
   instrumentId: string;
   lastTradePrice: number | null;
   previousClose: number | null;
+  bidPrice?: number | null;
+  askPrice?: number | null;
 }
 
 // ---------------------------------------------------------------------------

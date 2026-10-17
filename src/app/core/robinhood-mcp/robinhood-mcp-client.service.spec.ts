@@ -1175,6 +1175,8 @@ describe('RobinhoodMcpClient', () => {
         instrumentId: 'opt-uuid-1',
         lastTradePrice: 3.5,
         previousClose: 3,
+        bidPrice: null,
+        askPrice: null,
       } satisfies OptionQuote);
     });
 
@@ -1192,6 +1194,8 @@ describe('RobinhoodMcpClient', () => {
                   instrument_id: 'opt-uuid-1',
                   mark_price: '193.350000',
                   previous_close_price: '192.550000',
+                  bid_price: '193.00',
+                  ask_price: '193.70',
                 },
                 close: { instrument_id: 'opt-uuid-1', price: '192.55' },
               },
@@ -1208,6 +1212,8 @@ describe('RobinhoodMcpClient', () => {
         instrumentId: 'opt-uuid-1',
         lastTradePrice: 193.35,
         previousClose: 192.55,
+        bidPrice: 193.0,
+        askPrice: 193.7,
       } satisfies OptionQuote);
     });
 
