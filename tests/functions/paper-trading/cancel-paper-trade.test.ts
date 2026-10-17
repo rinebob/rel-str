@@ -144,3 +144,34 @@ describe('handleCancelPaperTrade', () => {
     await expectHttpsError(handleCancelPaperTrade(authed, deps), 'failed-precondition');
   });
 });
+
+describe('handleCancelPaperTrade — st-order-tickets (#1002)', () => {
+  it('marks the staged pap_ ticket cancelled after the ledger cancel', async () => {
+    const cancels: string[] = [];
+    const { deps } = makeDeps({
+      tickets: {
+        markCancelled: async (id: string) => {
+          cancels.push(id);
+        },
+      },
+    });
+    await handleCancelPaperTrade(authed, deps);
+    assert.deepEqual(cancels, ['pap_260928-sig-QQQM-CSP-030-45']);
+  });
+
+  it('does not touch the ticket when the ledger cancel fails', async () => {
+    const cancels: string[] = [];
+    const { deps } = makeDeps({
+      cancelPendingTrade: async () => {
+        throw new Error('paper trade t is not pending (status OPEN)');
+      },
+      tickets: {
+        markCancelled: async (id: string) => {
+          cancels.push(id);
+        },
+      },
+    });
+    await expectHttpsError(handleCancelPaperTrade(authed, deps), 'failed-precondition');
+    assert.equal(cancels.length, 0);
+  });
+});

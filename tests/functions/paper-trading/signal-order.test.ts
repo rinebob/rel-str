@@ -325,3 +325,152 @@ describe('handlePaperSignalOrder', () => {
     ]);
   });
 });
+
+// ── #1002 — canonical st-order-tickets emission ────────────────────────────
+
+interface SignalTicketEmit {
+  mode: string;
+  idSeed: string;
+  origin: Record<string, unknown>;
+  auto: boolean;
+  terms: Record<string, unknown>;
+  refId?: string;
+  accountTarget: string;
+  userId: string;
+  signalContext?: Record<string, unknown>;
+}
+
+function spyTickets(calls: string[]) {
+  const emits: SignalTicketEmit[] = [];
+  const fills: string[] = [];
+  const fails: string[] = [];
+  return {
+    emits,
+    fills,
+    fails,
+    dep: {
+      emit: async (input: SignalTicketEmit) => {
+        calls.push('emit');
+        emits.push(input);
+        return `pap_${input.idSeed}`;
+      },
+      markFilled: async (id: string) => {
+        calls.push('markFilled');
+        fills.push(id);
+      },
+      markFailed: async (id: string) => {
+        calls.push('markFailed');
+        fails.push(id);
+      },
+    },
+  };
+}
+
+describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
+  it('emits a staged ticket per action: equity (filled) + one per expression template', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const { deps, pendingInputs } = makeDeps({ tickets: spy.dep });
+    await handlePaperSignalOrder(request(), deps);
+
+    const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
+    assert.equal(spy.emits.length, 1 + templates.length);
+    const equity = spy.emits[0];
+    assert.equal(equity.mode, 'paper');
+    assert.equal(equity.auto, false, 'user-accepted — not an automated flow');
+    assert.equal(equity.refId, 'ref-1', 'refId preserves order-ticket lineage');
+    assert.equal(equity.accountTarget, 'acct-user1');
+    assert.equal(equity.userId, 'user1');
+    assert.equal(equity.terms.instrument, 'equity');
+    assert.equal(equity.terms.quantity, 100);
+    assert.equal(equity.terms.expression, 'EQ');
+
+    for (const t of spy.emits.slice(1)) {
+      assert.equal(t.terms.instrument, 'option');
+      assert.equal(t.terms.quantity, 1);
+      assert.ok(t.terms.expressionTemplate, 'staged ticket carries the contract recipe');
+    }
+    assert.deepEqual(
+      spy.emits.slice(1).map((t) => t.idSeed).sort(),
+      pendingInputs.map((p) => p.tradeId).sort(),
+      'idSeed = the pending trade id each ticket expresses',
+    );
+    // equity ticket filled; expression tickets stay staged (no mark calls)
+    assert.equal(spy.fills.length, 1);
+    assert.equal(spy.fills[0], `pap_${equity.idSeed}`);
+    assert.equal(spy.fails.length, 0);
+  });
+
+  it('origin is signal when the order ticket carries signalContext', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const { deps } = makeDeps({
+      tickets: spy.dep,
+      getTicket: async () => ({
+        id: 't',
+        refId: 'ref-1',
+        symbol: 'QQQM',
+        side: 'buy',
+        signalContext: {
+          signalType: 'D_ST_TREND_RIDER_V1_LONG',
+          barDate: '2026-09-25',
+          direction: 'LONG',
+          decisionId: 'dec-1',
+        },
+      }),
+    });
+    await handlePaperSignalOrder(request(), deps);
+    assert.deepEqual(spy.emits[0].origin, {
+      type: 'signal',
+      signalId: 'QQQM_2026-09-25_D_ST_TREND_RIDER_V1_LONG',
+    });
+    assert.equal(spy.emits[0].signalContext?.decisionId, 'dec-1');
+  });
+
+  it('origin is manual when the ticket has no signalContext', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const { deps } = makeDeps({ tickets: spy.dep });
+    await handlePaperSignalOrder(request(), deps);
+    assert.deepEqual(spy.emits[0].origin, { type: 'manual' });
+  });
+
+  it('marks the equity ticket failed when the entry fill throws', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const { deps } = makeDeps({
+      tickets: spy.dep,
+      applyEntryFill: async () => {
+        throw new Error('ledger txn aborted');
+      },
+    });
+    await assert.rejects(handlePaperSignalOrder(request(), deps), /ledger txn aborted/);
+    assert.equal(spy.fails.length, 1);
+    assert.equal(spy.fails[0], `pap_${spy.emits[0].idSeed}`);
+  });
+
+  it('emits no tickets on the idempotent retry path', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const { deps } = makeDeps({
+      tickets: spy.dep,
+      listTradesBySignal: async () => [
+        { id: '260925-sig-QQQM-EQ', expression: 'EQ', cohortId: 'cohort-260925-QQQM-01' } as PaperTrade,
+      ],
+      getCohort: async () => ({
+        kind: PaperTradingKind.COHORT,
+        id: 'cohort-260925-QQQM-01',
+        signalId: 'sig-1',
+        symbol: 'QQQM',
+        direction: TradeSide.LONG,
+        acceptedAt: '2026-09-25T12:00:00Z',
+        tradeIds: ['260925-sig-QQQM-EQ'],
+        expressionTemplates: [],
+        createdAt: '2026-09-25T12:00:00Z',
+        updatedAt: '2026-09-25T12:00:00Z',
+      }),
+    });
+    await handlePaperSignalOrder(request(), deps);
+    assert.equal(spy.emits.length, 0, 'existing trades → early return before emission');
+  });
+});

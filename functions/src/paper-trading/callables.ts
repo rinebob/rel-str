@@ -43,6 +43,13 @@ import {
 import { db } from '../firebase-admin-init';
 import { getMarketDatePT, calendarDaysBetween } from '../common/pt-date-utils';
 import { ST_ORDER_INTENTS_COLLECTION } from '../common/st-collections';
+import { buildAccountId } from '@paper-trading/ids';
+import { stSignalOccurrenceId, stTicketId } from '@st/ids';
+import { StOrderTicketWriter } from '../order-tickets/st-order-ticket-writer';
+import type {
+  EmitStOrderTicketInput,
+  StOrderTicketEmitter,
+} from '../order-tickets/st-order-ticket-writer';
 import { extractEquityPrice, MCP_PREFIX } from './engine/rh-mcp-shapes';
 import {
   applyEntryFill,
@@ -87,8 +94,16 @@ export interface OrderTicketDoc {
   symbol?: string;
   side?: string;
   quantity?: string;
-  signalContext?: { signalType?: string; direction?: string; decisionId?: string };
+  signalContext?: {
+    signalType?: string;
+    barDate?: string;
+    direction?: string;
+    decisionId?: string;
+  };
 }
+
+/** Narrow ticket-writer surface the paper callables need (#984/#1002). */
+export type PaperOrderTicketsDep = Pick<StOrderTicketEmitter, 'emit' | 'markFilled' | 'markFailed'>;
 
 export interface PaperSignalOrderDeps {
   /** Order-ticket lookup by refId (idempotency lineage); null when not found. */
@@ -104,6 +119,15 @@ export interface PaperSignalOrderDeps {
   createPendingTrade(input: PendingTradeInput): Promise<unknown>;
   setCohort(cohort: PaperCohort): Promise<void>;
   now(): Date;
+  /**
+   * Canonical `st-order-tickets` emitter (#984/#1002). When present, the
+   * handler stages `pap_` tickets alongside the legacy writes: one per
+   * expression template (stays `staged` — pending intent lives on the
+   * ticket until #1005 rewires the fill pass) plus the equity ticket,
+   * which flips `filled`/`failed` with its ledger fill. Optional for
+   * tests/pre-wired callers.
+   */
+  tickets?: PaperOrderTicketsDep;
 }
 
 function validate(data: Partial<PaperSignalOrderRequest>): asserts data is PaperSignalOrderRequest {
@@ -234,52 +258,152 @@ export async function handlePaperSignalOrder(
     ),
   );
 
+  // Canonical staged tickets (#984/#1002) — emitted alongside the legacy
+  // writes during the dual-write window: one per expression template
+  // (stays `staged`; pending intent lives on the ticket until #1005
+  // rewires expression-fill to consume it) plus the equity ticket, which
+  // flips filled/failed with its ledger fill. idSeed = the trade id each
+  // ticket expresses → retries re-emit the same pap_ docs.
+  const sc = ticket.signalContext;
+  const originType = sc?.signalType ? 'signal' : 'manual';
+  const emitTicket = async (input: Omit<EmitStOrderTicketInput, 'mode' | 'auto' | 'refId' | 'accountTarget' | 'userId' | 'now'>) => {
+    if (!deps.tickets) return null;
+    try {
+      return await deps.tickets.emit({
+        mode: 'paper',
+        auto: false,
+        refId: data.refId,
+        accountTarget: buildAccountId(userId),
+        userId,
+        // Manual-origin tickets carry no signal lineage — emit the field
+        // only when the legacy ticket's signalContext exists (an
+        // all-undefined object is Firestore noise).
+        ...(sc
+          ? {
+              signalContext: {
+                signalType: sc.signalType,
+                barDate: sc.barDate,
+                direction: sc.direction,
+                decisionId: sc.decisionId,
+              },
+            }
+          : {}),
+        now: nowIso,
+        ...input,
+      });
+    } catch (err) {
+      logger.warn(
+        `st_paper_signal_ticket_emit ${JSON.stringify({ signalId: data.signalId, error: err instanceof Error ? err.message : String(err) })}`,
+      );
+      return null;
+    }
+  };
+  // Canonical st-signals occurrence id — only when the legacy ticket's
+  // signalContext carries the barDate + signalType needed to mint it.
+  const occurrenceId =
+    sc?.signalType && sc?.barDate
+      ? stSignalOccurrenceId(symbol, sc.barDate, sc.signalType)
+      : undefined;
+  const ticketOrigin: EmitStOrderTicketInput['origin'] =
+    originType === 'signal'
+      ? { type: 'signal', ...(occurrenceId ? { signalId: occurrenceId } : {}) }
+      : { type: 'manual' };
+
   // 3. Equity side: RH quote → entry fill via the ledger.
   const quote = await deps.callTool(`${MCP_PREFIX}get_equity_quotes`, { symbols: [symbol] });
   const price = extractEquityPrice(quote, symbol);
   if (price === undefined) {
     throw new HttpsError('unavailable', `no equity quote for ${symbol}`);
   }
-  await deps.applyEntryFill({
-    userId,
-    tradeId: equityTradeId,
-    order: { side: data.direction, type: 'MARKET', quantity },
-    legs: [
-      {
-        kind: 'share',
-        side: data.direction,
-        quantity,
-        multiplier: 1,
-        entryMark: price,
-        lastMark: price,
-      },
-    ],
-    fill: {
-      fillId: `entry-${equityTradeId}`,
-      role: 'entry',
-      date: marketDate,
-      price,
-      quantity,
-      quoteSource: OptionQuoteSource.RH_MCP,
-    },
-    dims: {
-      source: PaperTradeSource.SIGNAL,
+  const equityTicketId = await emitTicket({
+    idSeed: equityTradeId,
+    origin: ticketOrigin,
+    terms: {
       symbol,
+      side: data.direction === TradeSide.SHORT ? 'sell' : 'buy',
+      instrument: 'equity',
+      quantity,
+      orderType: 'market',
+      timeInForce: 'gfd',
+      marketHours: 'regular_hours',
       expression: EQUITY_TRADE_DESC,
-      governingVariant: SIGNAL_GOVERNING_VARIANT,
-      variantKeys,
-      cohortId,
-      signalId: data.signalId,
-      ticket: paperTicket,
     },
-    underlyingClose: price,
-    now: nowIso,
   });
+  try {
+    await deps.applyEntryFill({
+      userId,
+      tradeId: equityTradeId,
+      order: { side: data.direction, type: 'MARKET', quantity },
+      legs: [
+        {
+          kind: 'share',
+          side: data.direction,
+          quantity,
+          multiplier: 1,
+          entryMark: price,
+          lastMark: price,
+        },
+      ],
+      fill: {
+        fillId: `entry-${equityTradeId}`,
+        role: 'entry',
+        date: marketDate,
+        price,
+        quantity,
+        quoteSource: OptionQuoteSource.RH_MCP,
+      },
+      dims: {
+        source: PaperTradeSource.SIGNAL,
+        symbol,
+        expression: EQUITY_TRADE_DESC,
+        governingVariant: SIGNAL_GOVERNING_VARIANT,
+        variantKeys,
+        cohortId,
+        signalId: data.signalId,
+        ticket: paperTicket,
+      },
+      underlyingClose: price,
+      now: nowIso,
+    });
+  } catch (err) {
+    if (equityTicketId && deps.tickets) {
+      await deps.tickets.markFailed(
+        equityTicketId,
+        { category: 'paper-fill', message: err instanceof Error ? err.message : String(err) },
+        nowIso,
+      );
+    }
+    throw err;
+  }
+  if (equityTicketId && deps.tickets) {
+    await deps.tickets.markFilled(
+      equityTicketId,
+      { averagePrice: price, filledQty: quantity, filledAt: nowIso },
+      nowIso,
+    );
+  }
 
-  // 4. PENDING expression trades — the noon pass resolves contracts.
+  // 4. PENDING expression trades — the noon pass resolves contracts. Each
+  //    staged ticket carries the expressionTemplate recipe (#1005 will
+  //    read tickets instead of PENDING trades).
   await Promise.all(
-    templates.map((t: SignalExpressionTemplate, i: number) =>
-      deps.createPendingTrade({
+    templates.map(async (t: SignalExpressionTemplate, i: number) => {
+      await emitTicket({
+        idSeed: pendingIds[i],
+        origin: ticketOrigin,
+        terms: {
+          symbol,
+          side: t.side === TradeSide.SHORT ? 'sell' : 'buy',
+          instrument: 'option',
+          quantity: 1,
+          orderType: 'market',
+          timeInForce: 'gfd',
+          marketHours: 'regular_hours',
+          expression: t.expression,
+          expressionTemplate: t,
+        },
+      });
+      return deps.createPendingTrade({
         userId,
         tradeId: pendingIds[i],
         order: { side: t.side, type: 'MARKET', quantity: 1 },
@@ -295,8 +419,8 @@ export async function handlePaperSignalOrder(
         },
         expressionTemplate: t,
         now: nowIso,
-      }),
-    ),
+      });
+    }),
   );
 
   // 5. Cohort doc — the fan-out anchor.
@@ -381,6 +505,7 @@ export function paperSignalOrderProdDeps(
     createPendingTrade: (input) => createPendingTrade(input, ledgerDeps(db)),
     setCohort: (cohort) => setCohort(db, cohort),
     now: () => new Date(),
+    tickets: new StOrderTicketWriter(),
   };
 }
 
@@ -424,6 +549,10 @@ export interface CancelPaperTradeDeps {
   getTrade(tradeId: string): Promise<PaperTrade | null>;
   cancelPendingTrade(input: CancelTradeInput): Promise<unknown>;
   now(): Date;
+  /** Canonical ticket cancellation (#984/#1002) — after the ledger cancel
+   *  succeeds, the staged `pap_{tradeId}` ticket flips to `cancelled`.
+   *  Fail-soft inside the writer; absent dep keeps pre-#1002 behavior. */
+  tickets?: Pick<StOrderTicketEmitter, 'markCancelled'>;
 }
 
 export async function handleCancelPaperTrade(
@@ -452,11 +581,12 @@ export async function handleCancelPaperTrade(
       `paper trade ${trade.id} is not pending (status ${trade.status})`,
     );
   }
+  const nowIso = deps.now().toISOString();
   try {
     await deps.cancelPendingTrade({
       userId: request.auth.uid,
       tradeId: trade.id,
-      now: deps.now().toISOString(),
+      now: nowIso,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -468,6 +598,17 @@ export async function handleCancelPaperTrade(
       throw new HttpsError('failed-precondition', msg);
     }
     throw err;
+  }
+  // Ledger cancel succeeded — settle the canonical ticket too. A fill
+  // racing this cancel wins inside the writer's txn guard (filled ≥ staged).
+  // Fail-soft like every other ticket write: a canonical-doc failure must
+  // not turn an already-succeeded ledger cancel into an internal error.
+  try {
+    await deps.tickets?.markCancelled(stTicketId('paper', trade.id), nowIso);
+  } catch (err) {
+    logger.warn(
+      `st_paper_cancel_ticket ${JSON.stringify({ tradeId: trade.id, error: err instanceof Error ? err.message : String(err) })}`,
+    );
   }
   return { tradeId: trade.id };
 }
@@ -484,6 +625,7 @@ export const cancelPaperTrade = onCall<CancelPaperTradeRequest, Promise<CancelPa
         getTrade: (tradeId) => getTrade(db, tradeId),
         cancelPendingTrade: (input) => cancelPendingTrade(input, ledgerDeps(db)),
         now: () => new Date(),
+        tickets: new StOrderTicketWriter(),
       });
     } catch (err) {
       if (err instanceof HttpsError) throw err;
