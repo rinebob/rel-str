@@ -182,13 +182,25 @@ check(
   threw(() => validateStTicketTerms({ symbol: 'ADPT', side: 'buy' })),
   true,
 );
-for (const quantity of [0, -5, 1.5, NaN]) {
+for (const quantity of [0, -5, NaN]) {
   check(
     `terms: bad quantity ${quantity} throws`,
     threw(() => validateStTicketTerms({ symbol: 'ADPT', side: 'buy', quantity })),
     true,
   );
 }
+// #1003: fractional quantity is legal on non-option terms (prod fractional
+// shares); integer rule applies to option/expressionTemplate tickets only.
+check(
+  'terms: fractional quantity without instrument passes (#1003 relax)',
+  threw(() => validateStTicketTerms({ symbol: 'ADPT', side: 'buy', quantity: 1.5 })),
+  false,
+);
+check(
+  'terms: fractional option quantity still throws',
+  threw(() => validateStTicketTerms({ symbol: 'ADPT', side: 'buy', instrument: 'option', quantity: 1.5 })),
+  true,
+);
 for (const dollarAmount of [0, -100, NaN]) {
   check(
     `terms: bad dollarAmount ${dollarAmount} throws`,

@@ -15,6 +15,8 @@ import {
   StOrderTicket,
 } from './st-order-tickets';
 import { ST_MODES } from './st-types';
+import { SIGNAL_EXPRESSION_TEMPLATES } from './paper-trading-contracts';
+import { TradeSide } from './common';
 
 const TICKET: StOrderTicket = {
   id: 'pap_abc123',
@@ -154,10 +156,21 @@ describe('validateStTicketTerms', () => {
     expect(() => validateStTicketTerms({ symbol: 'ADPT', side: 'buy' })).toThrow(/required/);
   });
 
-  it('rejects non-positive and non-integer quantities', () => {
-    for (const quantity of [0, -5, 1.5, NaN, Infinity]) {
-      expect(() => validateStTicketTerms({ symbol: 'ADPT', side: 'buy', quantity })).toThrow(/positive integer/);
+  it('rejects non-positive and non-finite quantities', () => {
+    for (const quantity of [0, -5, NaN, Infinity]) {
+      expect(() => validateStTicketTerms({ symbol: 'ADPT', side: 'buy', quantity })).toThrow(/positive and finite/);
     }
+  });
+
+  it('allows fractional share quantity but requires integral option quantity (#1003)', () => {
+    expect(() => validateStTicketTerms({ symbol: 'KMEM', side: 'sell', instrument: 'equity', quantity: 0.5 })).not.toThrow();
+    expect(() => validateStTicketTerms({ symbol: 'SPY', side: 'buy', instrument: 'option', quantity: 1.5 })).toThrow(/positive integer/);
+    // expressionTemplate tickets resolve to option contracts — integral even
+    // without an explicit instrument tag (pending-intent tickets carry none).
+    expect(() => validateStTicketTerms({
+      symbol: 'SPY', side: 'sell', quantity: 1.5,
+      expressionTemplate: SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG][0],
+    })).toThrow(/positive integer/);
   });
 
   it('rejects non-positive and non-finite dollar amounts', () => {

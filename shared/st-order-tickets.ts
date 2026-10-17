@@ -173,6 +173,11 @@ export interface StOrderTicket {
   /** Screenshot-capture ledger fields read by functions/screenshot-capture
    *  tracking — preserved through the order-intents migration. */
   tracking?: OrderIntentTrackingFields;
+  /** Provenance marker on docs mapped from a legacy `order-intents` doc —
+   *  by the #1003 one-shot migration OR the soak-period mirror trigger.
+   *  Lets audits distinguish legacy-mapped gaps (e.g. a `filled` legacy
+   *  doc that never captured fillPrice) from fresh-emission bugs. */
+  migratedFrom?: 'order-intents';
   /** RH-derived terminal-state timestamp (reconciliation; recency filters). */
   terminalAt?: string;
   createdAt: string;
@@ -228,19 +233,28 @@ export function mapLegacyTicketStatus(
 
 /**
  * Terms validation — sizing is exactly one of quantity or dollarAmount,
- * and both must be positive finite numbers (quantity also integral).
+ * and both must be positive finite numbers. Fractional quantity is legal
+ * for share instruments (RH supports fractional equity orders — a
+ * migrated close ticket can carry e.g. 0.5 shares); option tickets are
+ * contract-quantized and must stay integral.
  * Throws on violation (writer-side gate before staging).
  */
 export function validateStTicketTerms(terms: StTicketTerms): void {
-  const { quantity, dollarAmount } = terms;
+  const { quantity, dollarAmount, instrument } = terms;
   if (quantity != null && dollarAmount != null) {
     throw new Error('ticket terms: quantity and dollarAmount are mutually exclusive');
   }
   if (quantity == null && dollarAmount == null) {
     throw new Error('ticket terms: either quantity or dollarAmount is required');
   }
-  if (quantity != null && (!Number.isFinite(quantity) || quantity <= 0 || !Number.isInteger(quantity))) {
-    throw new Error('ticket terms: quantity must be a positive integer');
+  if (quantity != null && (!Number.isFinite(quantity) || quantity <= 0)) {
+    throw new Error('ticket terms: quantity must be positive and finite');
+  }
+  // Option-quantized orders must be integral: an explicit option instrument,
+  // or an expressionTemplate ticket (whose contract resolves to options).
+  const optionLike = instrument === 'option' || terms.expressionTemplate != null;
+  if (quantity != null && optionLike && !Number.isInteger(quantity)) {
+    throw new Error('ticket terms: option quantity must be a positive integer');
   }
   if (dollarAmount != null && (!Number.isFinite(dollarAmount) || dollarAmount <= 0)) {
     throw new Error('ticket terms: dollarAmount must be positive and finite');
