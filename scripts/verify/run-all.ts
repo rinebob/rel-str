@@ -76,7 +76,12 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsPath: '../savant-ds',
   },
-  
+  {
+    name: 'design-system vl delegation shim',
+    file: 'design-system-vl-shim-1040.ts',
+    needsAccount: false,
+    needsPath: '../savant-ds',
+  },
   {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',

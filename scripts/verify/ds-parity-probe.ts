@@ -102,8 +102,22 @@ export function runParityProbe(a: ParityProbeArgs): number {
   }
   const dsMixins = mixinNames(dsFilePath);
   const srcMixins = mixinNames(srcFilePath);
+  // #1040: the source may delegate rather than define — a mixin satisfied
+  // by an `@forward` of the package index is still verified (the decl
+  // diff below proves the forwarded emission is verbatim).
+  const srcSrc = readFileSync(srcFilePath, 'utf8')
+    .replaceAll(/\/\*[\s\S]*?\*\//g, '')
+    .replaceAll(/\/\/.*$/gm, '');
+  const srcDelegates = /@forward\s+['"](?:index|page|dialog|feedback)['"]/.test(srcSrc);
   for (const m of a.mixins) {
-    if (!srcMixins.includes(m)) { console.log(`FAIL source missing mixin ${m}`); bad++; }
+    if (!srcMixins.includes(m)) {
+      if (srcDelegates) {
+        console.log(`OK   source delegates ${m} via @forward`);
+      } else {
+        console.log(`FAIL source missing mixin ${m}`);
+        bad++;
+      }
+    }
     if (!dsMixins.includes(m)) { console.log(`FAIL ${a.dsFile} missing mixin ${m}`); bad++; }
   }
   for (const m of dsMixins) {
@@ -119,7 +133,12 @@ export function runParityProbe(a: ParityProbeArgs): number {
   let dsDecls: Record<string, string[]> = {};
   try {
     srcDecls = declsOf(
-      sass.compileString(fixture('vl', a.srcModule), { loadPaths: [a.srcDir] }).css,
+      // #1040: srcDir first (importer shape), ds styles second so the
+      // shim's `@forward 'index'` resolves exactly as it does in the
+      // angular build's includePaths.
+      sass.compileString(fixture('vl', a.srcModule), {
+        loadPaths: [a.srcDir, path.join(a.dsRoot, 'styles')],
+      }).css,
     );
     dsDecls = declsOf(
       sass.compileString(fixture('ds', 'index'), {
@@ -147,7 +166,9 @@ export function runParityProbe(a: ParityProbeArgs): number {
       return t;
     };
     const dsNorm = props.map(normalize).sort();
-    const srcT = tally(src);
+    // Normalize the source side too — post-shim the delegated mixin emits
+    // the same `var(--ds-*)` reads the package does.
+    const srcT = tally(src.map(normalize));
     const dsT = tally(dsNorm);
     const missing: string[] = [];
     const extra: string[] = [];
