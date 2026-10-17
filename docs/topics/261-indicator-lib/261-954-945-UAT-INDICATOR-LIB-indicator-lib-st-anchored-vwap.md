@@ -8,9 +8,9 @@
 **Task:** #945  
 **Domain:** INDICATOR-LIB  
 **Type:** UAT  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-13  
-**Last Updated:** 2026-10-13  
+**Last Updated:** 2026-10-16  
 
 # UAT — FE: ST Anchored VWAP ZigZag leg overlay + line1/line2 rename + rightDepth default (#945)
 
@@ -72,15 +72,15 @@ State: sandbox at `/dev/flex-chart`, signed in. **Prefer a real symbol or an alt
 
 | # | Scenario | Steps | Expected | Result |
 |---|---|---|---|---|
-| M1 | Chain geometry | Enable ST Anchored VWAP (defaults) | Legs connect surviving pivots only — always H→L→H alternating, colored by destination side (magenta into highs / cyan into lows for line 1) | PENDING |
-| M2 | Overlay parity | Enable **ST ZigZag**, set its strip to dev `2` / left `5` / right `2` | Standalone ZigZag legs land exactly on line-1 chain vertices (same walk, same config) | PENDING |
-| M3 | Developing leg | Right edge of chart | A dashed leg from the last vertex toward the running extreme, updating as new extremes print; never left of the last vertex | PENDING |
-| M4 | `showZigZag` | Uncheck **Show ZigZag Legs** | Both leg series vanish; all VWAP lines unchanged; re-checking restores | PENDING |
-| M5 | Superseded anchors | Find a terminated VWAP segment whose anchor has no chain vertex | Expected on superseded anchors — the segment is real, the mark is dropped. Verify surviving vertices land exactly on swing extremes | PENDING |
-| M6 | Lone vertex visible? | On data where a set has one surviving anchor (e.g. line 2 on `wide-ratio`) | **Question for tester:** does a single-vertex `MultiColoredLine` render anything visible? If invisible, decide marker/scatter or accept | PENDING — known open item |
-| M7 | No hindsight geometry | Inspect any VWAP line start | Line starts at the pivot's confirm bar (right of the actual pivot bar) — never back-attached to the pivot | PENDING |
-| M8 | Controls renamed | AVWAP params row | Labels read Line 1/Line 2 Retracement %, per-line depths default 5/2; no Small/Large labels | PENDING |
-| M9 | Hygiene | Devtools console + theme | No errors; legs legible in dark theme; dashes distinguishable from VWAP lines | PENDING |
+| M1 | Chain geometry | Enable ST Anchored VWAP (defaults) | Legs connect surviving pivots only — always H→L→H alternating, colored by destination side (magenta into highs / cyan into lows for line 1) | **PASS — accepted** (user-confirmed 2026-10-16; geometry evidence A1/A2; tester accepted rendering without detailed discrimination — see Findings) |
+| M2 | Overlay parity | Enable **ST ZigZag**, set its strip to dev `2` / left `5` / right `2` | Standalone ZigZag legs land exactly on line-1 chain vertices (same walk, same config) | **PASS — accepted** (user-confirmed 2026-10-16; parity evidence A8) |
+| M3 | Developing leg | Right edge of chart | A dashed leg from the last vertex toward the running extreme, updating as new extremes print; never left of the last vertex | **PASS — accepted** (user-confirmed 2026-10-16; geometry evidence A4) |
+| M4 | `showZigZag` | Uncheck **Show ZigZag Legs** | Both leg series vanish; all VWAP lines unchanged; re-checking restores | **PASS** — sandbox spec toggles the checkbox end-to-end + A6 |
+| M5 | Superseded anchors | Find a terminated VWAP segment whose anchor has no chain vertex | Expected on superseded anchors — the segment is real, the mark is dropped. Verify surviving vertices land exactly on swing extremes | **PASS — accepted** (user-confirmed 2026-10-16; geometry evidence A1/A3) |
+| M6 | Lone vertex visible? | On data where a set has one surviving anchor (e.g. line 2 on `wide-ratio`) | **Question for tester:** does a single-vertex `MultiColoredLine` render anything visible? If invisible, decide marker/scatter or accept | **WAIVED** — user accepted; revisit decision recorded in Findings |
+| M7 | No hindsight geometry | Inspect any VWAP line start | Line starts at the pivot's confirm bar (right of the actual pivot bar) — never back-attached to the pivot | **PASS** — A3 truncation invariant + audit window table confirm confirm-bar starts |
+| M8 | Controls renamed | AVWAP params row | Labels read Line 1/Line 2 Retracement %, per-line depths default 5/2; no Small/Large labels | **PASS** — A7 + sandbox spec asserts renamed controls |
+| M9 | Hygiene | Devtools console + theme | No errors; legs legible in dark theme; dashes distinguishable from VWAP lines | **PASS — accepted** (user-confirmed 2026-10-16) |
 
 ## Traceability
 
@@ -106,9 +106,11 @@ State: sandbox at `/dev/flex-chart`, signed in. **Prefer a real symbol or an alt
 
 ## Findings
 
-- **OPEN (under investigation):** user reported the overlay "just off" in the sandbox during this gate. Analysis: on `wide-ratio` the surviving-anchor chains are degenerate (see Audit evidence) and superseded anchors carry no mark, so ~30 terminated VWAP segments per set draw with only 1–3 chain vertices — plausibly the "off" look. Awaiting tester confirmation on non-degenerate data; if a different defect is observed it becomes a FAIL item + finding task.
+- **CLOSED — accepted, revisit deferred:** user reported the overlay "just off" / "hard to tell what's going on" in the sandbox during this gate. Analysis: on `wide-ratio` the surviving-anchor chains are degenerate (see Audit evidence) and superseded anchors carry no mark, so ~30 terminated VWAP segments per set draw with only 1–3 chain vertices — the numerically-correct but visually sparse outcome. Tester accepted the current rendering on 2026-10-16 rather than discriminate the visual detail; if a real defect surfaces on revisit it goes through `/proj triage`. M6 (lone-vertex visibility) stays an open question — a 1-point `MultiColoredLine` may render nothing; decide marker vs accept on revisit.
 - Resolved during QA: same-side legs (high→high / low→low) — changed spec to surviving-anchor chain per user decision (option B).
 
 ## Results log
+
+**2026-10-16 (QA close):** Focused suite re-run — 15/356 green (incl. stacked #955/#935 work). M1–M9 closed: M4/M7/M8 PASS on spec+invariant evidence; M1/M2/M3/M5/M9 PASS as user-accepted without detailed visual discrimination (tester-direct, 2026-10-16); M6 waived pending revisit. Open finding closed as tester-accepted with revisit deferred — recorded above. **QA PASS.**
 
 **2026-10-13 (QA session):** A1–A11 PASS. Focused suite 15/356 green; `tsc` app+spec clean; `ng build` clean. Audit dump verified event→vertex→segment consistency on `wide-ratio`. QA-driven spec change applied: vertices = surviving anchors only (superseded anchors unmarked; VWAP segments unchanged). Manual scenarios M1–M9 pending tester.

@@ -14,6 +14,7 @@
 - [ST Firestore Reorg] 984-1001_DOCS-DATA-PIPELINE: CODE-REVIEW (3 rounds, PASS) + UAT (Complete) for st-signals backfill
 - [Options Trading] 942-964_FE-IMPL-OPTIONS: gallery dialog Stock/Option tabs (lazy matTabContent + preserveContent), 'Open order ticket' title, dual close-on-done, OPTION card statusing via decisionIds (side-skip, live-over-STAGED), equity-scoped trade/paper reopen, session-created STAGED discard on close
 - [Options Trading] 942-964_DOCS-OPTIONS: CODE-REVIEW (PASS after in-review remediation) + UAT (Complete) for gallery option tab + statusing/discard
+- [Trading Indicator Library] 261-945_DOCS-INDICATOR-LIB: UAT Complete — QA #954 RESOLVED/PASS (M1–M9 recorded; spec evidence M4/M7/M8, user-accepted M1/M2/M3/M5/M9, M6 waived pending revisit); ST Anchored VWAP leg-overlay task shipped
 
 ### Fixed
 - [Options Trading] 942-964_SHARED-BUG-OPTIONS: option instrument/quote wire contract — dropped state/tradability pins that zeroed upstream results, data.next pagination (10-page cap), client-side tradability filter, get_option_quotes live-shape parse (mark_price→lastTradePrice, close.price→previousClose)
