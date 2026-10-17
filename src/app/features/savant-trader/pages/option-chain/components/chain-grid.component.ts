@@ -11,7 +11,7 @@
  * a cell reveals a corner icon; hovering the icon opens the contract
  * popup anchored to the cell element.
  */
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { Overlay, OverlayModule, type ConnectedPosition } from '@angular/cdk/overlay';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -92,21 +92,42 @@ export class ChainGridComponent {
   readonly hoverCell = signal<ChainCell | null>(null);
   readonly hoverOrigin = signal<HTMLElement | null>(null);
 
+  /** Selectors shared between the delegated-hover config, the template
+   *  panel class, and the guard/refocus paths (#965 review r2). */
+  static readonly POPUP_PANEL_CLASS = 'chain-popup-panel';
+  private static readonly ICON_SELECTOR = '.popup-icon-btn';
+  readonly popupPanelClass = ChainGridComponent.POPUP_PANEL_CLASS;
+
   /** Shared delegated-hover mechanics (icon reveal, intra-cell
    *  suppression, icon enter/leave) — see DelegatedCellHover. */
   private readonly hover = new DelegatedCellHover<ChainCell>({
     cellIdAttr: 'data-cid',
-    iconSelector: '.popup-icon-btn',
+    iconSelector: ChainGridComponent.ICON_SELECTOR,
     cellFor: (id) => this.cellById().get(id) ?? null,
     onIconEnter: (cell, el) => {
+      // closePopup() refocuses the armed icon on Escape — that focusin
+      // would otherwise reopen the popup it just closed.
+      if (this.suppressFocusOpen) return;
+      this.cancelPopupHide();
       this.hoverCell.set(cell);
       this.hoverOrigin.set(el);
     },
-    onIconLeave: () => {
-      this.hoverCell.set(null);
-      this.hoverOrigin.set(null);
+    // Delayed close: the popup is interactive (copy button, #965) — the
+    // pointer needs a grace window to travel icon → popup before we tear
+    // it down. Hovering the popup cancels the pending close. Focus that
+    // moved INTO the overlay (icon Enter → copy button) also cancels it.
+    onIconLeave: (to) => {
+      if (to?.closest(`.${ChainGridComponent.POPUP_PANEL_CLASS}`)) {
+        this.cancelPopupHide();
+        return;
+      }
+      this.schedulePopupHide();
     },
   });
+
+  /** The live popup component instance — for focus queries/transfers
+   *  between the grid's icon and the overlay's copy button. */
+  private readonly popupCmp = viewChild(ChainCellPopupComponent);
 
   /** contractID of the cell currently showing the popup icon — alias of
    *  the shared controller's signal so the template stays terse. */
@@ -116,12 +137,86 @@ export class ChainGridComponent {
   // AND the icon id so neither can bind to a dead element.
   private readonly clearHoverOnModel = effect(() => {
     this.model();
-    this.hoverCell.set(null);
-    this.hoverOrigin.set(null);
+    this.resetHover();
     this.hover.reset();
   });
 
+  /** #965 — icon-leave grace before the popup tears down, so the pointer
+   *  can cross into the interactive popup (copy button). Public so specs
+   *  advance the same value rather than hardcoding a margin. */
+  static readonly POPUP_HIDE_DELAY_MS = 250;
+  private hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Drop the hover anchor + any pending close — no focus bookkeeping;
+   *  safe to call from effects (does not read popupCmp). */
+  private resetHover(): void {
+    this.cancelPopupHide();
+    this.hoverCell.set(null);
+    this.hoverOrigin.set(null);
+  }
+
+  private schedulePopupHide(): void {
+    // Never tear the overlay down under a focused element — focus would
+    // drop to <body> and Escape becomes unreachable (#965 review r2).
+    // Single choke point: icon-leave AND popup-leave route through here.
+    if (this.popupCmp()?.containsFocus()) return;
+    this.cancelPopupHide();
+    this.hideTimer = setTimeout(() => {
+      this.hideTimer = null;
+      this.resetHover();
+    }, ChainGridComponent.POPUP_HIDE_DELAY_MS);
+  }
+
+  private cancelPopupHide(): void {
+    if (this.hideTimer !== null) {
+      clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+  }
+
+  /** Guards the refocus inside closePopup — see onIconEnter. */
+  private suppressFocusOpen = false;
+
+  /** Close the popup now — Escape inside the popup. Focus that was inside
+   *  the overlay returns to the armed icon so it isn't dumped to <body>. */
+  closePopup(): void {
+    const refocus = this.popupCmp()?.containsFocus() ?? false;
+    const origin = this.hoverOrigin();
+    this.resetHover();
+    if (refocus) {
+      this.suppressFocusOpen = true;
+      try {
+        origin?.querySelector<HTMLElement>(ChainGridComponent.ICON_SELECTOR)?.focus();
+      } finally {
+        this.suppressFocusOpen = false;
+      }
+    }
+  }
+
+  /** Pointer/focus inside the popup cancels the pending close; leaving
+   *  reschedules it — the hover bridge for the copy button. */
+  onPopupEnter(): void {
+    this.cancelPopupHide();
+  }
+
+  onPopupLeave(): void {
+    this.schedulePopupHide();
+  }
+
+  /** Enter/Space on the armed icon — the popup is already open via
+   *  focusin; move focus into it so keyboard users reach the copy
+   *  button without depending on overlay tab order (#965 review).
+   *  Space is preventDefault'd so the native button click doesn't
+   *  fire a delegated re-open after we move focus. */
+  onIconActivate(event?: Event): void {
+    event?.preventDefault();
+    this.cancelPopupHide();
+    requestAnimationFrame(() => this.popupCmp()?.focusCopyButton());
+  }
+
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.cancelPopupHide());
+
     // The chain is a sparse cross-product — strikes descending puts the
     // far-OTM rows (mostly holes) on top. Center the ATM row once per
     // distinct model identity (new session / new strike set / orientation

@@ -63,6 +63,9 @@
                     type="button"
                     class="popup-icon-btn"
                     aria-label="Show contract details"
+                    (keydown.enter)="onIconActivate()"
+                    (keydown.space)="onIconActivate($event)"
+                    (keydown.escape)="closePopup()"
                   >
                     <mat-icon>info_outline</mat-icon>
                   </button>
@@ -90,10 +93,17 @@
       [cdkConnectedOverlayPositions]="popupPositions"
       [cdkConnectedOverlayScrollStrategy]="scrollStrategy"
       [cdkConnectedOverlayViewportMargin]="8"
-      cdkConnectedOverlayPanelClass="chain-popup-panel"
+      [cdkConnectedOverlayPanelClass]="popupPanelClass"
     >
       @if (hoverCell(); as hc) {
-        <app-chain-cell-popup [cell]="hc" />
+        <app-chain-cell-popup
+          [cell]="hc"
+          (mouseenter)="onPopupEnter()"
+          (mouseleave)="onPopupLeave()"
+          (focusin)="onPopupEnter()"
+          (focusout)="onPopupLeave()"
+          (keydown.escape)="closePopup()"
+        />
       }
     </ng-template>
   }

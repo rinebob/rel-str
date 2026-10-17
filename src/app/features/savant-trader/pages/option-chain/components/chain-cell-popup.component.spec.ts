@@ -1,14 +1,16 @@
 /// <reference types="jest" />
 import { TestBed } from '@angular/core/testing';
 
-import { ChainCellPopupComponent } from './chain-cell-popup.component';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { ChainCellPopupComponent, POPUP_COPIED_MS } from './chain-cell-popup.component';
+import { parseOptionPaste } from '../../../utils/option-contract.util';
 import type { ChainCell } from '../utils/chain.utils';
 import type { HistoricalOptionContract } from '@options-contract/contracts';
 import { OptionType } from '@options-contract/contracts';
 
 function contract(over: Partial<HistoricalOptionContract> = {}): HistoricalOptionContract {
   return {
-    contractID: 'QQQ251016C00600000',
+    contractID: 'QQQ261016C00600000',
     symbol: 'QQQ',
     expiration: '2026-10-16',
     strike: '600',
@@ -33,7 +35,7 @@ function contract(over: Partial<HistoricalOptionContract> = {}): HistoricalOptio
 
 function cell(over: Partial<ChainCell> = {}): ChainCell {
   return {
-    contractID: 'QQQ251016C00600000',
+    contractID: 'QQQ261016C00600000',
     expiration: '2026-10-16',
     strike: 600,
     mark: 3.05,
@@ -56,9 +58,16 @@ function cell(over: Partial<ChainCell> = {}): ChainCell {
   };
 }
 
+/** Stub navigator.clipboard for a test — returns the writeText spy. */
+function mockClipboard(writeText = jest.fn().mockResolvedValue(undefined)): jest.Mock {
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+  return writeText;
+}
+
 async function render(c: ChainCell) {
   await TestBed.configureTestingModule({
     imports: [ChainCellPopupComponent],
+    providers: [{ provide: MatSnackBar, useValue: { open: jest.fn() } }],
   }).compileComponents();
   const fixture = TestBed.createComponent(ChainCellPopupComponent);
   fixture.componentRef.setInput('cell', c);
@@ -70,7 +79,7 @@ describe('ChainCellPopupComponent', () => {
   it('renders the full contract payload', async () => {
     const fixture = await render(cell());
     const text: string = fixture.nativeElement.textContent;
-    expect(text).toContain('QQQ251016C00600000');
+    expect(text).toContain('QQQ261016C00600000');
     expect(text).toContain('$3.05'); // mark
     expect(text).toContain('$3.10'); // last
     expect(text).toContain('3.00'); // bid
@@ -117,5 +126,73 @@ describe('ChainCellPopupComponent', () => {
     expect(rowText('Last')).toContain('n/a');
     expect(rowText('Volume')).toContain('n/a');
     expect(rowText('Open Interest')).toContain('n/a');
+  });
+
+  it('copy button writes the OCC contract id to the clipboard', async () => {
+    const writeText = mockClipboard();
+    const fixture = await render(cell());
+    const btn: HTMLButtonElement | null = fixture.nativeElement.querySelector('.copy-btn');
+    expect(btn).toBeTruthy();
+    expect(btn!.getAttribute('aria-label')).toBe('Copy contract id');
+
+    jest.useFakeTimers();
+    try {
+      btn!.click();
+      await Promise.resolve();
+      await Promise.resolve();
+      fixture.detectChanges();
+      expect(writeText).toHaveBeenCalledWith('QQQ261016C00600000');
+      expect(btn!.querySelector('mat-icon')?.textContent?.trim()).toBe('check');
+
+      // Copied state reverts after the feedback window.
+      jest.advanceTimersByTime(POPUP_COPIED_MS);
+      fixture.detectChanges();
+      expect(btn!.querySelector('mat-icon')?.textContent?.trim()).toBe('content_copy');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('the copied check resets when the popup is re-input for another cell', async () => {
+    mockClipboard();
+    const fixture = await render(cell());
+    const btn: HTMLButtonElement = fixture.nativeElement.querySelector('.copy-btn')!;
+
+    btn.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    fixture.detectChanges();
+    expect(btn.querySelector('mat-icon')?.textContent?.trim()).toBe('check');
+
+    // Icon-A → icon-B hop reuses this instance — cell B must not
+    // inherit cell A's "copied" state (#965 review).
+    fixture.componentRef.setInput('cell', cell({ contractID: 'QQQ261016C00610000' }));
+    fixture.detectChanges();
+    expect(btn.querySelector('mat-icon')?.textContent?.trim()).toBe('content_copy');
+  });
+
+  // AC2 — the copied payload is the raw OCC id; the Option tab's paste
+  // field must resolve it via parseOptionPaste back to this contract.
+  it('copied contract id round-trips through parseOptionPaste', async () => {
+    const writeText = mockClipboard();
+    const fixture = await render(cell());
+    (fixture.nativeElement.querySelector('.copy-btn') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    const parsed = parseOptionPaste(writeText.mock.calls[0][0]);
+    expect(parsed).toEqual({ symbol: 'QQQ', expiration: '2026-10-16', strike: 600, type: 'call' });
+  });
+
+  it('copy failure surfaces a snackbar instead of failing silently', async () => {
+    const writeText = mockClipboard(jest.fn().mockRejectedValue(new Error('denied')));
+    const fixture = await render(cell());
+    const btn: HTMLButtonElement = fixture.nativeElement.querySelector('.copy-btn')!;
+
+    btn.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalled();
+    // Icon does not claim success on failure.
+    expect(btn.querySelector('mat-icon')?.textContent?.trim()).toBe('content_copy');
   });
 });

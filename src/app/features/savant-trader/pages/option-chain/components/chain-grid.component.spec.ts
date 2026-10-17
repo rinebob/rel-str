@@ -20,6 +20,18 @@ function oc(over: Partial<HistoricalOptionContract> = {}): HistoricalOptionContr
 }
 
 describe('ChainGridComponent', () => {
+  const POPUP_GRACE = ChainGridComponent.POPUP_HIDE_DELAY_MS;
+
+  /** Enable fake timers for the close-grace assertions — call only AFTER
+   *  the popup is attached (fixture.whenStable deadlocks under fake
+   *  timers while the overlay is still mounting). */
+  const advancePastGrace = (fixture: { detectChanges: () => void }) => {
+    jest.advanceTimersByTime(POPUP_GRACE);
+    fixture.detectChanges();
+  };
+
+  afterEach(() => jest.useRealTimers());
+
   async function render(
     session: HistoricalOptionContract[],
     prior: HistoricalOptionContract[] = [],
@@ -306,10 +318,13 @@ describe('ChainGridComponent', () => {
     expect(popups().length).toBe(1);
     expect(popups()[0].textContent).toContain('CALL-A');
 
-    // Icon leave into the cell body closes the popup; icon stays.
+    // Icon leave into the cell body schedules the close (a short grace so
+    // the pointer can travel icon → popup); icon stays.
+    jest.useFakeTimers();
     iconA.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: cellA }));
     fixture.detectChanges();
-    await fixture.whenStable();
+    advancePastGrace(fixture);
+    jest.useRealTimers();
     expect(popups().length).toBe(0);
     expect(cellA.querySelector('.popup-icon-btn')).toBeTruthy();
 
@@ -320,6 +335,36 @@ describe('ChainGridComponent', () => {
     expect(cellA.querySelector('.popup-icon-btn')).toBeFalsy();
     expect(cellB.querySelector('.popup-icon-btn')).toBeTruthy();
     expect(popups().length).toBe(0);
+  });
+
+  it('hovering into the open popup cancels the close; leaving it closes after the grace', async () => {
+    const fixture = await render([oc({ contractID: 'CALL-A', strike: '600' })]);
+    const el: HTMLElement = fixture.nativeElement;
+    const cellA = el.querySelector<HTMLElement>('[data-cid="CALL-A"]')!;
+    const popups = () => document.querySelectorAll('.chain-cell-popup');
+
+    cellA.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    fixture.detectChanges();
+    const iconA = cellA.querySelector<HTMLElement>('.popup-icon-btn')!;
+    iconA.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: cellA }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(popups().length).toBe(1);
+    const popup = popups()[0] as HTMLElement;
+    const popupHost = popup.closest('app-chain-cell-popup') as HTMLElement;
+
+    // Icon → popup: leave schedules the close, popup enter cancels it.
+    jest.useFakeTimers();
+    iconA.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: popup }));
+    popupHost.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+    advancePastGrace(fixture);
+    expect(popups().length).toBe(1);
+
+    // Leaving the popup without returning to an icon closes it.
+    popupHost.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+    advancePastGrace(fixture);
+    expect(popups().length).toBe(0);
+    jest.useRealTimers();
   });
 
   it('reveals a labeled popup icon on cell hover, hides it on exit', async () => {
@@ -388,14 +433,132 @@ describe('ChainGridComponent', () => {
     const icon = cell.querySelector<HTMLElement>('.popup-icon-btn');
     expect(icon).toBeTruthy();
 
-    // Tab lands on the button → focusin opens the popup.
-    icon!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    // Tab lands on the button → real focusin opens the popup.
+    icon!.focus();
+    expect(document.activeElement).toBe(icon);
     fixture.detectChanges();
     expect(popups().length).toBe(1);
 
+    // Focusout (Tab away, nothing else focused) schedules the close.
+    jest.useFakeTimers();
     icon!.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
-    fixture.detectChanges();
+    advancePastGrace(fixture);
+    jest.useRealTimers();
     expect(popups().length).toBe(0);
+  });
+
+  it('Enter on the armed icon moves focus to the copy button; focus inside keeps the popup open (#965)', async () => {
+    const fixture = await render([oc({ contractID: 'a' })]);
+    const el: HTMLElement = fixture.nativeElement;
+    const popups = () => document.querySelectorAll('.chain-cell-popup');
+    const cell = el.querySelector<HTMLElement>('[data-cid="a"]')!;
+
+    cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+    const icon = cell.querySelector<HTMLElement>('.popup-icon-btn')!;
+
+    // Real focus — not a synthetic focusin — so activeElement is the
+    // icon and the Enter path fires the icon's genuine focusout with
+    // relatedTarget = copy button (the guard path, #965 review r2).
+    icon.focus();
+    expect(document.activeElement).toBe(icon);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(popups().length).toBe(1);
+
+    // Enter — the popup lives in a body-level overlay outside tab order,
+    // so the grid moves focus into it programmatically.
+    icon.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    fixture.detectChanges();
+    const copyBtn = popups()[0].querySelector<HTMLElement>('.copy-btn')!;
+    expect(document.activeElement).toBe(copyBtn);
+
+    // Pointer drifting off EITHER the popup or the icon must not tear
+    // it down while a descendant holds focus — that would drop focus
+    // to <body>.
+    jest.useFakeTimers();
+    const popupHost = popups()[0].closest('app-chain-cell-popup') as HTMLElement;
+    popupHost.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+    icon.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: el }));
+    advancePastGrace(fixture);
+    expect(popups().length).toBe(1);
+    expect(document.activeElement).toBe(copyBtn);
+    jest.useRealTimers();
+  });
+
+  it('focus leaving the popup closes it after the grace; Escape closes and refocuses the icon', async () => {
+    const fixture = await render([oc({ contractID: 'a' })]);
+    const el: HTMLElement = fixture.nativeElement;
+    const popups = () => document.querySelectorAll('.chain-cell-popup');
+    const cell = el.querySelector<HTMLElement>('[data-cid="a"]')!;
+
+    cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+    const icon = cell.querySelector<HTMLElement>('.popup-icon-btn')!;
+    icon.focus();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    icon.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    fixture.detectChanges();
+    const popupHost = popups()[0].closest('app-chain-cell-popup') as HTMLElement;
+
+    // Tab off the copy button — real focus moves first (containsFocus
+    // reads document.activeElement; document.body isn't focusable in
+    // jsdom, so use a real button), then focusout reschedules the close.
+    const elsewhere = document.createElement('button');
+    document.body.appendChild(elsewhere);
+    elsewhere.focus();
+    expect(document.activeElement).toBe(elsewhere);
+
+    jest.useFakeTimers();
+    const copyBtn = popupHost.querySelector<HTMLElement>('.copy-btn')!;
+    copyBtn.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: el }));
+    advancePastGrace(fixture);
+    expect(popups().length).toBe(0);
+    jest.useRealTimers();
+    elsewhere.remove();
+
+    // Reopen + Enter → Escape closes and returns focus to the icon.
+    icon.focus();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    icon.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(
+      document.querySelector('.chain-cell-popup .copy-btn'),
+    );
+
+    const popupHost2 = document
+      .querySelector('.chain-cell-popup')!
+      .closest('app-chain-cell-popup') as HTMLElement;
+    popupHost2.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(popups().length).toBe(0);
+    expect(document.activeElement).toBe(icon);
+  });
+
+  it('destroying the grid with a pending close does not throw or leak the timer', async () => {
+    const fixture = await render([oc({ contractID: 'a' })]);
+    const el: HTMLElement = fixture.nativeElement;
+    const cell = el.querySelector<HTMLElement>('[data-cid="a"]')!;
+    cell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    fixture.detectChanges();
+    const icon = cell.querySelector<HTMLElement>('.popup-icon-btn')!;
+    icon.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: cell }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    jest.useFakeTimers();
+    icon.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: cell }));
+    fixture.detectChanges();
+    expect(() => fixture.destroy()).not.toThrow();
+    jest.useRealTimers();
   });
 
   it('clears a showing icon when the model rebuilds', async () => {
