@@ -10,9 +10,10 @@
  * `{db, logger}`, fail-soft so a canonical-path failure never drops the
  * legacy artifact the path actually runs on.
  *
- * - `emit()` stages a ticket doc: `get`-then-`set` so a deterministic
- *   `idSeed` makes re-emission idempotent — an existing doc is returned
- *   untouched (state and provenance are never rewritten).
+ * - `emit()` stages a ticket doc via `create()` + ALREADY_EXISTS so a
+ *   deterministic `idSeed` makes re-emission idempotent — an existing
+ *   doc is returned untouched (state and provenance are never
+ *   rewritten, and a racing fill can't be clobbered back to staged).
  * - Transitions run inside a transaction with a state guard: terminal
  *   states can't be re-opened and a fill racing an async cancel wins
  *   (`cancel_pending`/`cancelled` → `filled`), matching the RH cancel

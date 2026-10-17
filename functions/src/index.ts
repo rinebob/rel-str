@@ -170,3 +170,6 @@ export {
 
 // Screenshot capture — on-demand chart snapshot callable (#746 / #768)
 export { captureChartSnapshot } from './screenshot-capture/capture-chart';
+
+// #984 / #1003 — soak-period dual-write: legacy order-intents → st-order-tickets
+export { orderIntentsMirror } from './order-tickets/order-intents-mirror';
