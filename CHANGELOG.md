@@ -21,6 +21,10 @@
 - [Options Trading] 942-964_FE-IMPL-OPTIONS: gallery dialog Stock/Option tabs (lazy matTabContent + preserveContent), 'Open order ticket' title, dual close-on-done, OPTION card statusing via decisionIds (side-skip, live-over-STAGED), equity-scoped trade/paper reopen, session-created STAGED discard on close
 - [Options Trading] 942-964_DOCS-OPTIONS: CODE-REVIEW (PASS after in-review remediation) + UAT (Complete) for gallery option tab + statusing/discard
 - [Trading Indicator Library] 261-945_DOCS-INDICATOR-LIB: UAT Complete — QA #954 RESOLVED/PASS (M1–M9 recorded; spec evidence M4/M7/M8, user-accepted M1/M2/M3/M5/M9, M6 waived pending revisit); ST Anchored VWAP leg-overlay task shipped
+- [Options Trading] 942-965_SHARED-IMPL-OPTIONS: optional bid/ask on EquityQuote + OptionQuote — getOptionQuotes fills bid_price/ask_price, feeds the order-dialog quote strip + option ticket quote line
+- [Options Trading] 942-965_FE-IMPL-OPTIONS: chain-page copy-contract button + interactive popup — OCC id to clipboard (paste resolves via parseOptionPaste), 250ms delayed-close hover bridge, keyboard path (Enter/Space → copy button, Escape → refocus), focus-suppressed teardown, copy feedback (check icon, aria-live, snackbar on failure)
+- [Options Trading] 942-965_FE-IMPL-OPTIONS: order-ticket dialog header/quote + option contract block — 'Order ticket' title row with {SYM}·company + quote strip, EquityPriceService quotes map, live {exp sym strike type} → OCC → RH id → quote block replacing the old ticket header, dialog 640px/92vh de-padded
+- [Options Trading] 942-965_DOCS-OPTIONS: CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for chain copy button + dialog layout pass
 
 ### Fixed
 - [Options Trading] 942-964_SHARED-BUG-OPTIONS: option instrument/quote wire contract — dropped state/tradability pins that zeroed upstream results, data.next pagination (10-page cap), client-side tradability filter, get_option_quotes live-shape parse (mark_price→lastTradePrice, close.price→previousClose)
