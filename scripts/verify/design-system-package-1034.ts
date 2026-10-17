@@ -75,7 +75,11 @@ const dry = spawnSync('npm', ['install', '--dry-run', 'savant-ds@file:../savant-
   encoding: 'utf8',
 });
 const dryOut = `${dry.stdout ?? ''}${dry.stderr ?? ''}`;
-check('npm --dry-run resolves file:../savant-ds', dry.status === 0 && dryOut.includes('savant-ds'),
+// Exit 0 proves npm resolved the spec — dry-run fails on unresolvable
+// file: paths. The literal name only appears in output when npm plans a
+// change; once #1039 declared+installed the dep at this spec, dry-run
+// reports up-to-date work and legitimately omits it.
+check('npm --dry-run resolves file:../savant-ds', dry.status === 0,
   dry.status !== 0 ? dryOut.slice(0, 300) : 'resolved');
 
 // ── 3. Real install into a scratch consumer ───────────────────────────────

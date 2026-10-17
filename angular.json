@@ -26,6 +26,9 @@
             ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
+            "stylePreprocessorOptions": {
+              "includePaths": ["node_modules/savant-ds/styles"]
+            },
             "assets": [
               "src/favicon.ico",
               "src/assets"
@@ -108,6 +111,9 @@
             ],
             "tsConfig": "tsconfig.spec.json",
             "inlineStyleLanguage": "scss",
+            "stylePreprocessorOptions": {
+              "includePaths": ["node_modules/savant-ds/styles"]
+            },
             "assets": [
               "src/favicon.ico",
               "src/assets"

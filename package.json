@@ -62,6 +62,7 @@
     "@syncfusion/ej2-charts": "^30.2.7",
     "javascript-color-gradient": "^2.5.0",
     "rxjs": "~7.8.0",
+    "savant-ds": "file:../savant-ds",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.1"
   },

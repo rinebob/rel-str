@@ -1,5 +1,11 @@
 @use './app/styles/mixins-global' as global;
 @use './app/styles/variables-global' as globalVar;
+// savant-ds token layer — emits :root { --ds-* } once, here in the global
+// stylesheet. @use must precede other rules, so this sits above the
+// hand-rolled --mat-sys-* :root below; the --ds-* aliases still resolve
+// because CSS custom-property var() binds at computed time, not source
+// order (#1039).
+@use 'tokens';
 @import '../node_modules/@syncfusion/ej2-angular-base/styles/material.css';
 
 // Material 3 system variables are not emitted by the prebuilt indigo-pink theme,
