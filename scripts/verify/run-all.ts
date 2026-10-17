@@ -65,6 +65,12 @@ const scripts: VerifyScript[] = [
     needsPath: '../savant-ds',
   },
   {
+    name: 'design-system index forwards + surface verify',
+    file: 'design-system-index-verify-1038.ts',
+    needsAccount: false,
+    needsPath: '../savant-ds',
+  },
+  {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
     cwd: 'functions',
