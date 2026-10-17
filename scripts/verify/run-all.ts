@@ -76,6 +76,7 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsPath: '../savant-ds',
   },
+  
   {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
@@ -93,6 +94,13 @@ const scripts: VerifyScript[] = [
   {
     name: 'st-order-tickets canonical shape',
     file: 'verify/data-pipeline-st-order-tickets-1002.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
+  {
+    name: 'order-intents migration parity',
+    file: 'verify/data-pipeline-st-order-tickets-migration-1003.ts',
     cwd: 'functions',
     needsAccount: false,
     needsAdc: true,

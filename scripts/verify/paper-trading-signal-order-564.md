@@ -5,7 +5,7 @@
 Verifies the whole signal→paper pipeline on production Firestore with real RH
 MCP calls — no stubs:
 
-1. Seeds a real order-ticket doc (`savant-trader/data/order-intents/verify-564-ticket`).
+1. Seeds a real order-ticket doc (`st-order-tickets/pap_verify-564-ticket` — canonical, #1003).
 2. Runs `handlePaperSignalOrder` with production deps (real `get_equity_quotes`,
    real `ledgerDeps` transactions) — equity trade filled at the live quote,
    cohort doc, one PENDING trade per bullish expression template.

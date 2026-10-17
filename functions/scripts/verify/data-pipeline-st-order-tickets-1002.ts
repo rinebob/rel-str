@@ -113,7 +113,13 @@ function auditDoc(docId: string, d: StOrderTicket): void {
 
   const state = d.state;
   if (state === 'filled' && (!d.fillSummary || !isStr(d.filledAt))) {
-    fail(docId, `state 'filled' without fillSummary/filledAt`);
+    // Migrated legacy docs may genuinely lack fill data (the FE didn't
+    // always persist result.fillPrice) — flagged WARN, not FAIL (#1003).
+    if (d.migratedFrom) {
+      warn(docId, `migrated '${d.migratedFrom}' ticket 'filled' without fillSummary/filledAt — legacy doc never captured fill data`);
+    } else {
+      fail(docId, `state 'filled' without fillSummary/filledAt`);
+    }
   }
   if (state === 'cancelled' && (!isStr(d.cancelledAt) || !isStr(d.terminalAt))) {
     fail(docId, `state 'cancelled' without cancelledAt/terminalAt`);

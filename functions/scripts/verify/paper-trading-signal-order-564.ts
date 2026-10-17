@@ -3,7 +3,9 @@
  *
  * Real-environment verification of the signal→paper path on prod:
  *
- *   1. Seeds a real order-ticket doc (savant-trader/data/order-intents).
+ *   1. Seeds a real order-ticket doc — canonical `st-order-tickets`
+ *      post-#1003 (the reader is canonical-first; the legacy path remains
+ *      as fallback).
  *   2. Runs `handlePaperSignalOrder` with production deps + the real RH MCP
  *      observation tool — equity trade filled at the live acceptance quote,
  *      cohort doc, PENDING expression trades seeded.
@@ -34,7 +36,9 @@ import {
 } from '../../src/paper-trading/callables';
 import { applyPendingFill } from '../../src/paper-trading/ledger';
 import { ledgerDeps, listTrades } from '../../src/paper-trading/repository';
-import { ST_ORDER_INTENTS_COLLECTION } from '../../src/common/st-collections';
+import { getStorage } from 'firebase-admin/storage';
+import { ST_ORDER_INTENTS_COLLECTION, ST_ORDER_TICKETS_ROOT } from '../../src/common/st-collections';
+import { ST_SCREENSHOTS_COLLECTION } from '@screenshot-capture/contracts';
 import { getMarketDatePT } from '../../src/common/pt-date-utils';
 import { runExpressionFillPass } from '../../src/paper-trading/passes/expression-fill-pass';
 
@@ -69,18 +73,25 @@ function callDeps() {
 }
 
 async function seed(): Promise<void> {
-  await db.doc(`${ST_ORDER_INTENTS_COLLECTION}/${TICKET_ID}`).set({
-    id: TICKET_ID,
+  // Canonical ticket doc (#1003 reader cutover) — the shape
+  // StOrderTicketWriter/the migration emits.
+  await db.doc(`${ST_ORDER_TICKETS_ROOT}/pap_${TICKET_ID}`).set({
+    id: `pap_${TICKET_ID}`,
+    origin: { type: 'signal', signalId: SIGNAL_ID },
+    auto: true,
+    mode: 'paper',
+    terms: {
+      symbol: SYMBOL,
+      side: 'buy',
+      instrument: 'equity',
+      quantity: 1,
+      orderType: 'market',
+      timeInForce: 'gfd',
+      marketHours: 'regular_hours',
+    },
+    state: 'submitted',
     refId: REF_ID,
-    source: 'SIGNAL_PIPELINE',
-    status: 'SUBMITTED',
-    accountNumber: 'paper-verify',
-    side: 'buy',
-    orderType: 'market',
-    timeInForce: 'gfd',
-    marketHours: 'regular_hours',
-    symbol: SYMBOL,
-    quantity: '1',
+    accountTarget: 'paper-verify',
     userId: USER_ID,
     signalContext: {
       signalType: 'verify-564',
@@ -91,17 +102,23 @@ async function seed(): Promise<void> {
     },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    submittedAt: new Date().toISOString(),
   });
-  console.log(`seeded order ticket ${TICKET_ID}`);
+  console.log(`seeded canonical order ticket pap_${TICKET_ID}`);
 }
 
 async function cleanup(cohortIds: string[], tradeIds: string[]): Promise<void> {
+  await db.doc(`${ST_ORDER_TICKETS_ROOT}/pap_${TICKET_ID}`).delete().catch(() => undefined);
+  // Belt-and-suspenders: pre-#1003 runs seeded the legacy path instead.
   await db.doc(`${ST_ORDER_INTENTS_COLLECTION}/${TICKET_ID}`).delete().catch(() => undefined);
   for (const id of cohortIds) {
     await db.doc(`paper-trading/cohorts/items/${id}`).delete().catch(() => undefined);
   }
   for (const id of tradeIds) {
     await db.doc(`paper-trading/trades/items/${id}`).delete().catch(() => undefined);
+    // #1002 emission writes pap_{tradeId} tickets per action — drop them too
+    // or the #1003 parity audit reports them as legacy-less canonical docs.
+    await db.doc(`${ST_ORDER_TICKETS_ROOT}/pap_${id}`).delete().catch(() => undefined);
   }
   // belt-and-suspenders: any verify-564 leftovers
   for (const anchor of ['cohorts', 'trades', 'accounts']) {
@@ -114,6 +131,23 @@ async function cleanup(cohortIds: string[], tradeIds: string[]): Promise<void> {
     .doc(`paper-trading/accounts/items/${buildAccountId(USER_ID)}`)
     .delete()
     .catch(() => undefined);
+  // Screenshot lifecycle: the equity fill's capture (wired via
+  // ledgerDepsWithCapture) writes st-screenshots index docs + Storage
+  // artifacts keyed by carrier.docPath — drop both or they accumulate.
+  const bucket = getStorage().bucket('rel-str.appspot.com');
+  for (const id of tradeIds) {
+    const snap = await db
+      .collection(ST_SCREENSHOTS_COLLECTION)
+      .where('carrier.docPath', '==', `paper-trading/trades/items/${id}`)
+      .get()
+      .catch(() => null);
+    for (const d of snap?.docs ?? []) {
+      const { svgPath, pngPath } = d.data() as { svgPath?: string; pngPath?: string };
+      if (svgPath) await bucket.file(svgPath).delete().catch(() => undefined);
+      if (pngPath) await bucket.file(pngPath).delete().catch(() => undefined);
+      await d.ref.delete().catch(() => undefined);
+    }
+  }
   console.log('cleanup: verification docs removed');
 }
 

@@ -40,6 +40,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #1000 | `data-pipeline-st-signals-dual-write-1000.ts` | st-signals ⇄ run-ids dual-write parity for a marketDate — expected occurrences, runIds union, status/direction, create-only provenance (read-only, needs ADC) | inline usage in script header |
 | #1001 | `data-pipeline-st-signals-backfill-1001.ts` | st-signals ⇄ legacy (signal-history + run-ids) backfill parity across ALL dates — missing/extra/mismatch per symbol (read-only, needs ADC) | inline usage in script header |
 | #1002 | `data-pipeline-st-order-tickets-1002.ts` | st-order-tickets canonical-shape audit — id prefix vs mode, origin/state/terms axes, state↔field coherence (read-only, needs ADC) | inline usage in script header |
+| #1003 | `data-pipeline-st-order-tickets-migration-1003.ts` | order-intents ⇄ st-order-tickets parity — counterpart exists per mappable legacy doc, refId/origin/state/terms/tracking preserved (read-only, needs ADC) | inline usage in script header |
 | #724 | `paper-trading-engine-settlement-724.ts` | engine settlement retries missed nights + weekend-expiry walk-back | [paper-trading-engine-settlement-724.md](../../../scripts/verify/paper-trading-engine-settlement-724.md) |
 | #669 | `paper-trading-trade-exits-669.ts` | composed exit seam — prod seeding audit + governingVariant resolution + seed guards + cancel/close guards | [paper-trading-trade-exits-669.md](../../../scripts/verify/paper-trading-trade-exits-669.md) |
 | #766 | `screenshot-capture-766-render.ts` | render model → SVG (fixture render + structural checks + browser artifact) | [screenshot-capture-766.md](screenshot-capture-766.md) |
@@ -77,3 +78,4 @@ npx tsx scripts/verify/{script-name}.ts
 23. **#1000** — `data-pipeline-st-signals-dual-write-1000.ts` (st-signals ⇄ run-ids dual-write parity for a marketDate)
 24. **#1001** — `data-pipeline-st-signals-backfill-1001.ts` (st-signals ⇄ legacy backfill parity across all dates; run after `backfill-st-signals-1001.ts`)
 25. **#1002** — `data-pipeline-st-order-tickets-1002.ts` (st-order-tickets canonical-shape audit; empty until post-deploy emission)
+26. **#1003** — `data-pipeline-st-order-tickets-migration-1003.ts` (order-intents ⇄ canonical parity; run after `migrate-order-intents-1003.ts --apply` + during the mirror soak)
