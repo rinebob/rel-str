@@ -73,6 +73,9 @@ interface ResolvedContract {
   /** Mark price (last trade, previousClose fallback); null when the
    *  quote call failed — the contract is still resolved and orderable. */
   mark: number | null;
+  /** The full option quote (mark/bid/ask/prev close) for the display
+   *  line — null when the quote call failed. */
+  quote: OptionQuote | null;
 }
 
 type OptionOrderType = 'limit' | 'market';
@@ -214,6 +217,30 @@ export class OptionOrderTicketComponent {
   // ------------------------------------------------------------------
 
   readonly accountNumber = computed(() => this.tradingConfig()?.accountNumber ?? '');
+
+  /** Contract identity line built live from the selects — "exp sym
+   *  strike TYPE" with placeholders for unchosen segments (#965-era
+   *  header rework: symbol context moved to the dialog header). */
+  readonly contractLine = computed(
+    () =>
+      `${this.selectedExpiration() || '—'} ${this.symbol()} ` +
+      `${this.selectedStrike() ?? '—'} ${this.contractType().toUpperCase()}`,
+  );
+
+  /** OCC contract id from the select triplet — computable before the
+   *  instrument resolves (the paste field and leg id use the same
+   *  builder). Null until the triplet is complete. */
+  readonly occId = computed<string | null>(() => {
+    const exp = this.selectedExpiration();
+    const strike = this.selectedStrike();
+    if (!exp || strike === null) return null;
+    return buildOccContractId(
+      this.symbol(),
+      exp,
+      this.contractType() === 'call' ? OptionType.CALL : OptionType.PUT,
+      strike,
+    );
+  });
   private readonly defaultDollarAmount = computed(() => this.tradingConfig()?.defaultDollarAmount ?? 100);
 
   /** Strikes at the selected expiration for the selected contract type —
@@ -503,13 +530,14 @@ export class OptionOrderTicketComponent {
         strike,
       );
 
+      let quote: OptionQuote | null = null;
       let mark: number | null = null;
       try {
         const quotes: Map<string, OptionQuote> = await this.mcpClient.getOptionQuotes([
           instrument.instrumentId,
         ]);
-        const q = quotes.get(instrument.instrumentId);
-        mark = q?.lastTradePrice ?? q?.previousClose ?? null;
+        quote = quotes.get(instrument.instrumentId) ?? null;
+        mark = quote?.lastTradePrice ?? quote?.previousClose ?? null;
       } catch (err) {
         // The contract is still resolved + orderable — the mark is a
         // display convenience and the market-order premium estimate.
@@ -517,7 +545,12 @@ export class OptionOrderTicketComponent {
       }
       if (seq !== this.resolveSeq) return;
 
-      this.resolvedContract.set({ occSymbol, optionId: instrument.instrumentId, mark });
+      this.resolvedContract.set({
+        occSymbol,
+        optionId: instrument.instrumentId,
+        mark,
+        quote,
+      });
       // The quote fills the limit-price default — a price the user typed
       // is theirs, so only an empty field or a previous auto-fill gets
       // overwritten. An auto-fill when the new contract's quote is gone

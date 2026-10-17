@@ -93,7 +93,8 @@ export class GalleryViewComponent implements OnInit {
 
     const ref = this.dialog.open(GalleryTicketDialogComponent, {
       data: { ticketId: staged.ticket.id, tradingConfig: this.actions.config, option },
-      width: '560px',
+      width: '640px',
+      maxHeight: '92vh',
       autoFocus: false,
     });
     ref.afterClosed().subscribe(() => {

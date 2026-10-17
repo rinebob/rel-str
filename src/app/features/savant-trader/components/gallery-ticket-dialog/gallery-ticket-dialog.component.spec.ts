@@ -11,6 +11,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { GalleryTicketDialogComponent } from './gallery-ticket-dialog.component';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { EquityPriceService } from '../../services/equity-price.service';
+import { SymbolListStore } from '../../stores/symbol-list.store';
+import type { EquityQuote } from '../../../../core/robinhood-mcp/types/robinhood-mcp.types';
+import type { StSymbolProfile } from '../../services/types';
 import { PaperTradingService } from '../../services/paper-trading.service';
 import { OrderExecutionService } from '../../services/order-execution.service';
 import { RobinhoodMcpClient } from '../../../../core/robinhood-mcp/robinhood-mcp-client.service';
@@ -74,7 +77,12 @@ describe('GalleryTicketDialogComponent', () => {
   let fixture: ComponentFixture<GalleryTicketDialogComponent>;
   let tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
   let dialogRefMock: { close: jest.Mock };
-  let priceServiceMock: { prices: ReturnType<typeof signal<Record<string, number>>>; fetchPrices: jest.Mock };
+  let priceServiceMock: {
+    prices: ReturnType<typeof signal<Record<string, number>>>;
+    quotes: ReturnType<typeof signal<Record<string, EquityQuote>>>;
+    fetchPrices: jest.Mock;
+  };
+  let profiles: ReturnType<typeof signal<Map<string, StSymbolProfile>>>;
   let mcpClientMock: {
     getOptionChains: jest.Mock;
     getOptionInstruments: jest.Mock;
@@ -87,8 +95,10 @@ describe('GalleryTicketDialogComponent', () => {
     dialogRefMock = { close: jest.fn() };
     priceServiceMock = {
       prices: signal<Record<string, number>>({}),
+      quotes: signal<Record<string, EquityQuote>>({}),
       fetchPrices: jest.fn().mockResolvedValue(undefined),
     };
+    profiles = signal<Map<string, StSymbolProfile>>(new Map());
     mcpClientMock = {
       getOptionChains: jest.fn().mockResolvedValue([]),
       getOptionInstruments: jest.fn().mockResolvedValue([]),
@@ -118,6 +128,13 @@ describe('GalleryTicketDialogComponent', () => {
         { provide: MatDialogRef, useValue: dialogRefMock },
         { provide: OrderTicketStore, useValue: { tickets } },
         { provide: EquityPriceService, useValue: priceServiceMock },
+        {
+          provide: SymbolListStore,
+          useValue: {
+            profilesBySymbol: profiles,
+            loadProfiles: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         // OrderTicketComponent's + OptionOrderTicketComponent's injected
         // services — stubbed so Firebase tokens never resolve (AGENTS.md).
         { provide: PaperTradingService, useValue: {} },
@@ -171,6 +188,55 @@ describe('GalleryTicketDialogComponent', () => {
     tickets.set({});
     fixture.detectChanges();
     expect(dialogRefMock.close).toHaveBeenCalled();
+  });
+
+  describe('subtitle — underlying identity + quote', () => {
+    it('renders the symbol and company name under the title', () => {
+      profiles.set(
+        new Map([['AAPL', { symbol: 'AAPL', name: 'Apple Inc.' } as StSymbolProfile]]),
+      );
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      const identity = el.querySelector('[data-testid="underlying-identity"]');
+      expect(identity?.textContent).toContain('AAPL');
+      expect(identity?.textContent).toContain('Apple Inc.');
+    });
+
+    it('renders last, change, prev close, bid and ask when the quote lands', () => {
+      priceServiceMock.quotes.set({
+        AAPL: {
+          symbol: 'AAPL',
+          lastTradePrice: 200.5,
+          previousClose: 198,
+          bidPrice: 200.4,
+          askPrice: 200.6,
+        },
+      });
+      fixture.detectChanges();
+      const quote = (fixture.nativeElement as HTMLElement).querySelector(
+        '[data-testid="underlying-quote"]',
+      );
+      expect(quote?.textContent).toContain('$200.50');
+      expect(quote?.textContent).toContain('+2.50');
+      expect(quote?.textContent).toContain('+1.3%');
+      expect(quote?.textContent).toContain('Prev $198.00');
+      expect(quote?.textContent).toContain('Bid $200.40');
+      expect(quote?.textContent).toContain('Ask $200.60');
+    });
+
+    it('omits the quote row until a quote arrives; tolerates missing bid/ask', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="underlying-quote"]')).toBeNull();
+
+      priceServiceMock.quotes.set({
+        AAPL: { symbol: 'AAPL', lastTradePrice: 200, previousClose: null },
+      });
+      fixture.detectChanges();
+      const quote = el.querySelector('[data-testid="underlying-quote"]');
+      expect(quote?.textContent).toContain('$200.00');
+      expect(quote?.textContent).toContain('Prev —');
+      expect(quote?.textContent).not.toContain('Bid');
+    });
   });
 
   describe('option tab (#964)', () => {

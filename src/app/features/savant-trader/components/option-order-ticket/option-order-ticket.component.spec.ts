@@ -465,6 +465,71 @@ describe('OptionOrderTicketComponent', () => {
     });
   });
 
+  describe('contract identity block', () => {
+    const text = (testid: string) =>
+      (fixture.nativeElement as HTMLElement)
+        .querySelector(`[data-testid="${testid}"]`)
+        ?.textContent?.trim();
+
+    it('builds the summary line live from the selects — placeholders until picked', async () => {
+      await render();
+      expect(text('contract-line')).toBe('— QQQ — CALL');
+
+      component.selectedExpiration.set(EXP);
+      fixture.detectChanges();
+      expect(text('contract-line')).toBe(`${EXP} QQQ — CALL`);
+
+      component.selectedStrike.set(STRIKE);
+      component.contractType.set('put');
+      fixture.detectChanges();
+      expect(text('contract-line')).toBe(`${EXP} QQQ 500 PUT`);
+    });
+
+    it('shows the OCC id once the triplet is complete — before resolution lands', async () => {
+      await render();
+      expect(fixture.nativeElement.querySelector('[data-testid="occ-id"]')).toBeNull();
+
+      component.selectedExpiration.set(EXP);
+      component.selectedStrike.set(STRIKE);
+      fixture.detectChanges();
+      await flush();
+
+      expect(text('occ-id')).toBe('OCC QQQ261016C00500000');
+    });
+
+    it('shows the RH instrument id and quote line after resolution', async () => {
+      mcp.getOptionQuotes.mockResolvedValue(
+        new Map([[OPT_ID, {
+          instrumentId: OPT_ID,
+          lastTradePrice: 3.5,
+          previousClose: 3.2,
+          bidPrice: 3.4,
+          askPrice: 3.6,
+        }]]),
+      );
+      await render();
+      await resolveViaSelects();
+      fixture.detectChanges();
+
+      expect(text('rh-id')).toBe(`RH ${OPT_ID}`);
+      const quote = text('contract-quote');
+      expect(quote).toContain('Mark $3.50');
+      expect(quote).toContain('Bid $3.40');
+      expect(quote).toContain('Ask $3.60');
+      expect(quote).toContain('Prev $3.20');
+    });
+
+    it('keeps the RH id but drops the quote line when the quote fetch fails', async () => {
+      mcp.getOptionQuotes.mockRejectedValue(new Error('no quote'));
+      await render();
+      await resolveViaSelects();
+      fixture.detectChanges();
+
+      expect(text('rh-id')).toBe(`RH ${OPT_ID}`);
+      expect(fixture.nativeElement.querySelector('[data-testid="contract-quote"]')).toBeNull();
+    });
+  });
+
   describe('paste path', () => {
     it('converges on the same resolution as the selects', async () => {
       await render();

@@ -8,6 +8,7 @@ import { Injectable, inject } from '@angular/core';
 import { signal, Signal } from '@angular/core';
 import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { getNestedNumber, getNestedString, extractNumber } from '../utils/mcp-response.util';
+import type { EquityQuote } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 
 @Injectable({ providedIn: 'root' })
 export class EquityPriceService {
@@ -15,6 +16,10 @@ export class EquityPriceService {
 
   /** In-memory price cache: symbol → price. */
   private readonly _prices = signal<Record<string, number>>({});
+
+  /** In-memory quote cache: symbol → full quote fields (last, prev close,
+   *  bid/ask) — the richer sibling of `prices` for header-style displays. */
+  private readonly _quotes = signal<Record<string, EquityQuote>>({});
 
   /** Loading state. */
   private readonly _loading = signal(false);
@@ -25,6 +30,9 @@ export class EquityPriceService {
 
   /** Read-only price map. */
   readonly prices: Signal<Record<string, number>> = this._prices.asReadonly();
+
+  /** Read-only quote map — symbol → EquityQuote. */
+  readonly quotes: Signal<Record<string, EquityQuote>> = this._quotes.asReadonly();
 
   /** Loading state. */
   readonly loading: Signal<boolean> = this._loading.asReadonly();
@@ -52,11 +60,12 @@ export class EquityPriceService {
         return;
       }
 
-      const prices = this.extractPrices(result.parsed);
+      const { prices, quotes } = this.extractQuotes(result.parsed);
       if (Object.keys(prices).length === 0) {
         console.warn('[EquityPriceService] No prices extracted from response. Parsed shape:', JSON.stringify(result.parsed)?.slice(0, 500));
       }
       this._prices.update((prev) => ({ ...prev, ...prices }));
+      this._quotes.update((prev) => ({ ...prev, ...quotes }));
     } catch (err) {
       this.lastRequestedSymbols = '';
       const message = err instanceof Error ? err.message : String(err);
@@ -72,14 +81,18 @@ export class EquityPriceService {
     return this._prices()[symbol.toUpperCase()] ?? null;
   }
 
-  /** Extract prices from the MCP response.
+  /** Extract prices + full quotes from the MCP response.
    *
    * Response shape from get_equity_quotes:
    * { data: { results: [ { quote: { symbol, last_trade_price, ... }, close: { ... } } ] } }
    */
-  private extractPrices(parsed: unknown): Record<string, number> {
+  private extractQuotes(parsed: unknown): {
+    prices: Record<string, number>;
+    quotes: Record<string, EquityQuote>;
+  } {
     const result: Record<string, number> = {};
-    if (!parsed || typeof parsed !== 'object') return result;
+    const quotes: Record<string, EquityQuote> = {};
+    if (!parsed || typeof parsed !== 'object') return { prices: result, quotes };
 
     const record = parsed as Record<string, unknown>;
     const data = record['data'];
@@ -105,9 +118,25 @@ export class EquityPriceService {
           ?? extractNumber(itemRecord['last_price'])
           ?? extractNumber(itemRecord['price']);
         if (sym && price !== null) result[sym.toUpperCase()] = price;
+        if (sym) {
+          quotes[sym.toUpperCase()] = {
+            symbol: sym.toUpperCase(),
+            lastTradePrice: price,
+            previousClose:
+              getNestedNumber(itemRecord, 'close', 'price') ??
+              getNestedNumber(itemRecord, 'quote', 'previous_close') ??
+              getNestedNumber(itemRecord, 'quote', 'adjusted_previous_close'),
+            bidPrice:
+              getNestedNumber(itemRecord, 'quote', 'bid_price') ??
+              extractNumber(itemRecord['bid_price']),
+            askPrice:
+              getNestedNumber(itemRecord, 'quote', 'ask_price') ??
+              extractNumber(itemRecord['ask_price']),
+          };
+        }
       }
     }
 
-    return result;
+    return { prices: result, quotes };
   }
 }

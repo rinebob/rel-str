@@ -14,10 +14,11 @@ import { Component, ChangeDetectionStrategy, computed, effect, inject, OnInit, S
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTabsModule } from '@angular/material/tabs';
-import { UpperCasePipe } from '@angular/common';
+import { CurrencyPipe, DecimalPipe, UpperCasePipe } from '@angular/common';
 
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { EquityPriceService } from '../../services/equity-price.service';
+import { SymbolListStore } from '../../stores/symbol-list.store';
 import { InstrumentType, OrderTicket, OrderTicketStatus, TradingConfig } from '../../services/order-ticket.types';
 import { StOccurrenceDecision, StSignalItem } from '../../services/types';
 import { OrderTicketComponent } from '../order-ticket/order-ticket.component';
@@ -70,6 +71,8 @@ const DIALOG_DONE_STATUSES: ReadonlySet<OrderTicketStatus> = new Set([
   selector: 'app-gallery-ticket-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CurrencyPipe,
+    DecimalPipe,
     UpperCasePipe,
     MatDialogModule,
     MatButtonModule,
@@ -84,6 +87,7 @@ export class GalleryTicketDialogComponent implements OnInit {
   private readonly dialogRef = inject(MatDialogRef<GalleryTicketDialogComponent>);
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly priceService = inject(EquityPriceService);
+  private readonly lists = inject(SymbolListStore);
 
   readonly data = inject(MAT_DIALOG_DATA) as GalleryTicketDialogData;
 
@@ -102,6 +106,32 @@ export class GalleryTicketDialogComponent implements OnInit {
     return sym ? (this.priceService.prices()[sym.toUpperCase()] ?? null) : null;
   });
   readonly tradingConfig = this.data.tradingConfig;
+
+  /** The dialog's underlying — the option seed carries it when present
+   *  (the card's symbol, independent of which ticket is bound); the
+   *  equity ticket's symbol is the fallback. */
+  readonly displaySymbol = computed(
+    () => this.data.option?.symbol ?? this.symbol(),
+  );
+  /** Company display name from the tracked-symbol profiles. */
+  readonly companyName = computed(() => {
+    const sym = this.displaySymbol();
+    return sym ? (this.lists.profilesBySymbol().get(sym.toUpperCase())?.name ?? null) : null;
+  });
+  /** The full equity quote for the header strip (last/prev/bid/ask). */
+  readonly quote = computed(() => {
+    const sym = this.displaySymbol();
+    return sym ? (this.priceService.quotes()[sym.toUpperCase()] ?? null) : null;
+  });
+  /** Change vs previous close — null until both prices land. */
+  readonly change = computed(() => {
+    const q = this.quote();
+    if (!q || q.lastTradePrice === null || q.previousClose === null || q.previousClose === 0) {
+      return null;
+    }
+    const abs = q.lastTradePrice - q.previousClose;
+    return { abs, pct: (abs / q.previousClose) * 100 };
+  });
 
   /** The option tab's bound ticket id — set when the option component
    *  stages (created) or adopts (created:false) a ticket. Drives the
@@ -134,8 +164,9 @@ export class GalleryTicketDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const symbol = this.symbol();
+    const symbol = this.displaySymbol();
     if (symbol) void this.priceService.fetchPrices([symbol]);
+    void this.lists.loadProfiles();
   }
 
   /** Option ticket staged/adopted — bind the id for close-on-done and

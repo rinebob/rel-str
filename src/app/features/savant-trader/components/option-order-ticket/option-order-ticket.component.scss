@@ -7,59 +7,51 @@
 .ticket-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px;
+  gap: 8px;
+  padding: 8px;
   overflow-y: auto;
 }
 
-.ticket-header {
+.contract-block {
   display: flex;
-  align-items: center;
-}
-
-.ticket-symbol {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-
-  .symbol {
-    font-size: 18px;
-    font-weight: 700;
-    font-family: monospace;
-  }
-}
-
-.ticket-kicker {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.status-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 3px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
   background: var(--mat-sys-surface-container-high);
+  border-radius: 4px;
+}
+
+.contract-line {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: monospace;
+  letter-spacing: 0.02em;
+}
+
+.contract-id {
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  word-break: break-all;
+}
+
+.contract-quote {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
   color: var(--mat-sys-on-surface-variant);
 
-  &.status-staged { color: var(--mat-sys-primary); }
-  &.status-submitting, &.status-submitted, &.status-queued, &.status-resting {
-    color: var(--mat-sys-tertiary);
+  span {
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
   }
-  &.status-filled, &.status-paper { color: var(--mat-sys-primary); }
-  &.status-failed, &.status-cancelled { color: var(--mat-sys-error); }
 }
 
 .form-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  gap: 6px;
+  padding: 6px 8px;
   background: var(--mat-sys-surface-container-high);
   border-radius: 4px;
 }
@@ -157,13 +149,6 @@
     border-color: var(--mat-sys-primary);
     font-weight: 600;
   }
-}
-
-.contract-summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
 }
 
 .mono { font-family: monospace; }

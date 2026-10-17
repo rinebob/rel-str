@@ -1,16 +1,23 @@
 <div class="option-ticket">
   <div class="ticket-content">
-    <!-- Header -->
-    <div class="ticket-header">
-      <div class="ticket-symbol">
-        <span class="symbol">{{ symbol() }}</span>
-        <span class="ticket-kicker">Option — buy to open</span>
-        @if (ticket(); as t) {
-          <span class="status-badge" [class]="'status-' + t.status">
-            {{ t.status | uppercase }}
-          </span>
+    <!-- Contract identity — built live from the selects; symbol context
+         lives in the dialog header. -->
+    <div class="contract-block" data-testid="contract-block">
+      <div class="contract-line" data-testid="contract-line">{{ contractLine() }}</div>
+      @if (occId(); as occ) {
+        <div class="contract-id mono" data-testid="occ-id">OCC {{ occ }}</div>
+      }
+      @if (resolvedContract(); as c) {
+        <div class="contract-id mono" data-testid="rh-id">RH {{ c.optionId }}</div>
+        @if (c.quote; as q) {
+          <div class="contract-quote" data-testid="contract-quote">
+            <span>Mark {{ q.lastTradePrice !== null ? (q.lastTradePrice | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
+            <span>Bid {{ q.bidPrice != null ? (q.bidPrice | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
+            <span>Ask {{ q.askPrice != null ? (q.askPrice | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
+            <span>Prev {{ q.previousClose !== null ? (q.previousClose | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
+          </div>
         }
-      </div>
+      }
     </div>
 
     <!-- Ticket error (submit failures revert to STAGED with the error attached) -->
@@ -100,12 +107,6 @@
         <div class="form-row">
           <span class="field-label">Contract</span>
           <span class="inline-error" data-testid="resolve-error">{{ resErr }}</span>
-        </div>
-      } @else if (resolvedContract(); as c) {
-        <div class="contract-summary" data-testid="contract-summary">
-          <span class="mono">{{ c.occSymbol }}</span>
-          <span class="field-label">Mark</span>
-          <span class="stat-value">{{ c.mark !== null ? (c.mark | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
         </div>
       }
       @if (stageError(); as stageErr) {

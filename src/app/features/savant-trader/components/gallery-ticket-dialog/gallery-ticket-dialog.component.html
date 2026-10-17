@@ -1,5 +1,33 @@
-<h2 mat-dialog-title>
-  Open order ticket
+<h2 mat-dialog-title class="dialog-title-row">
+  <span class="dialog-title-text">Order ticket</span>
+  <span class="dialog-subtitle" data-testid="dialog-subtitle">
+    <span class="underlying-identity" data-testid="underlying-identity">
+      <span class="sym">{{ displaySymbol() ?? '—' }}</span>
+      @if (companyName(); as name) {
+        <span class="company">{{ name }}</span>
+      }
+    </span>
+    @if (quote(); as q) {
+      <span class="underlying-quote" data-testid="underlying-quote">
+        <span class="q-item q-last">
+          {{ q.lastTradePrice !== null ? (q.lastTradePrice | currency:'USD':'symbol':'1.2-2') : '—' }}
+        </span>
+        @if (change(); as chg) {
+          <span class="q-item" [class.up]="chg.abs >= 0" [class.down]="chg.abs < 0">
+            {{ chg.abs >= 0 ? '+' : '' }}{{ chg.abs | number:'1.2-2' }}
+            ({{ chg.abs >= 0 ? '+' : '' }}{{ chg.pct | number:'1.1-1' }}%)
+          </span>
+        }
+        <span class="q-item">Prev {{ q.previousClose !== null ? (q.previousClose | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
+        @if (q.bidPrice != null) {
+          <span class="q-item">Bid {{ q.bidPrice | currency:'USD':'symbol':'1.2-2' }}</span>
+        }
+        @if (q.askPrice != null) {
+          <span class="q-item">Ask {{ q.askPrice | currency:'USD':'symbol':'1.2-2' }}</span>
+        }
+      </span>
+    }
+  </span>
 </h2>
 
 <mat-dialog-content>
