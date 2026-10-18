@@ -10,7 +10,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { TradeSide } from '../../../shared/common';
-import { OptionType, OptionQuoteSource } from '../../../shared/options-common';
+import { OptionType, OptionQuoteSource, PositionSpreadType, StrategyFrequency } from '../../../shared/options-common';
+import { LifecycleState } from '../../../shared/options-strategy-engine-contracts';
 import {
   PaperTradeSource,
   PaperTradeStatus,
@@ -275,16 +276,41 @@ describe('resolveAccountOwner (#652)', () => {
   it('falls back to the instance doc when the trade has no userId', async () => {
     // Legacy strategy trades predate the doc-level userId — owner resolves
     // through the instance.
-    const fakeDb = {
-      doc: () => ({
-        get: async () => ({
-          exists: true,
-          data: () => ({
-            kind: PaperTradingKind.INSTANCE,
-            userId: 'user-from-instance',
-          }),
+    const instDoc = {
+      get: async () => ({
+        exists: true,
+        data: () => ({
+          // Valid StStrategyInstance doc — the repository validator requires
+          // the engine fields before returning the instance.
+          symbol: 'QQQM',
+          optionType: OptionType.PUT,
+          side: TradeSide.SHORT,
+          targetDelta: 0.2,
+          dteMin: 21,
+          dteMax: 30,
+          phases: [
+            {
+              spreadType: PositionSpreadType.CASH_SECURED_PUT,
+              targetDelta: 0.2,
+              dteMin: 21,
+              dteMax: 30,
+            },
+          ],
+          frequency: StrategyFrequency.DAILY,
+          openTimePT: '12:00',
+          exitPolicies: [],
+          lifecycleState: LifecycleState.ACTIVE,
+          userId: 'user-from-instance',
+          mode: 'paper',
+          enabled: true,
+          createdAt: '2025-08-16T00:00:00Z',
+          updatedAt: '2025-08-16T00:00:00Z',
         }),
       }),
+    };
+    const fakeDb = {
+      doc: () => instDoc,
+      collection: () => ({ doc: () => instDoc }),
     } as never;
     const trade = makeTrade({ userId: undefined, strategyInstanceId: 'inst-1' });
     assert.equal(await resolveAccountOwner(fakeDb, trade), 'user-from-instance');

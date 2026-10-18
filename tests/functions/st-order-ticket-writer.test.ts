@@ -102,7 +102,7 @@ function createFakeDb(initial: Record<string, Record<string, unknown>> = {}) {
     db: db as unknown as WriterDb,
     logger,
     logs,
-    stored: (path: string) => store.get(path),
+    stored: (path: string) => store.get(path) as unknown,
   };
 }
 
