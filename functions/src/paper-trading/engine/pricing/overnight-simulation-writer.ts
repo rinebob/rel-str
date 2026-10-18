@@ -11,8 +11,7 @@
  */
 
 import { db } from '../../../firebase-admin-init';
-import { PaperTradingKind } from '@paper-trading/contracts';
-import { paperItemsRef } from '../../collections';
+import { strategyInstanceDailyAnalysisRef } from '../strategy-instance-repository';
 import type { OvernightDeltaSimulation } from '@options-strategy-engine/contracts';
 
 export const LATEST_DAILY_ANALYSIS_DOC_ID = 'latest';
@@ -25,9 +24,7 @@ export type OvernightSimulationWriter = (
 
 export function createDefaultOvernightSimulationWriter(): OvernightSimulationWriter {
   return async (instanceId, date, simulation) => {
-    const dailyAnalysisCol = paperItemsRef(db, PaperTradingKind.INSTANCE)
-      .doc(instanceId)
-      .collection('daily-analysis');
+    const dailyAnalysisCol = strategyInstanceDailyAnalysisRef(instanceId, db);
 
     const payload = { overnightDeltaSimulation: simulation };
 

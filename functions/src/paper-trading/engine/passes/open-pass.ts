@@ -17,8 +17,7 @@ import type {
 import { parseOccContractId } from '@options/common';
 import { TradeSide } from '@common';
 import { db } from '../../../firebase-admin-init';
-import { PaperTradingKind } from '@paper-trading/contracts';
-import { paperItemsRef } from '../../collections';
+import { strategyInstanceDailyAnalysisRef } from '../strategy-instance-repository';
 import { LATEST_DAILY_ANALYSIS_DOC_ID } from '../pricing/overnight-simulation-writer';
 import {
   buildLegId,
@@ -112,9 +111,7 @@ export interface OpenPassDependencies {
 
 function createDefaultDailyAnalysisReader(): DailyAnalysisReader {
   return async (instanceId) => {
-    const snap = await paperItemsRef(db, PaperTradingKind.INSTANCE)
-      .doc(instanceId)
-      .collection('daily-analysis')
+    const snap = await strategyInstanceDailyAnalysisRef(instanceId, db)
       .doc(LATEST_DAILY_ANALYSIS_DOC_ID)
       .get();
     if (!snap.exists) {
@@ -127,9 +124,7 @@ function createDefaultDailyAnalysisReader(): DailyAnalysisReader {
 
 function createDefaultOpenPassResultWriter(): OpenPassResultWriter {
   return async (instanceId, _date, result) => {
-    await paperItemsRef(db, PaperTradingKind.INSTANCE)
-      .doc(instanceId)
-      .collection('daily-analysis')
+    await strategyInstanceDailyAnalysisRef(instanceId, db)
       .doc(LATEST_DAILY_ANALYSIS_DOC_ID)
       .set({ openPassResult: result }, { merge: true });
   };

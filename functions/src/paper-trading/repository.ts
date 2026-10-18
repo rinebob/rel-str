@@ -14,7 +14,6 @@ import {
   isPaperAccount,
   isPaperCohort,
   isPaperStats,
-  isPaperStrategyInstance,
   isPaperTrade,
   isRawQuoteDoc,
   PaperTradingKind,
@@ -25,7 +24,6 @@ import {
   type PaperFill,
   type PaperMark,
   type PaperStats,
-  type PaperStrategyInstance,
   type PaperTrade,
   type PaperTradingDoc,
   type RawQuoteDoc,
@@ -34,6 +32,11 @@ import {
 import { paperDocRef, paperItemsRef } from './collections';
 import type { LedgerDeps, LedgerTxn } from './ledger';
 import { rawQuoteToDoc } from './engine/trade-adapter';
+import {
+  getInstance as getStrategyInstance,
+  strategyInstanceRef,
+} from './engine/strategy-instance-repository';
+import type { StStrategyInstance } from '@st/strategy-instances';
 import type { RawQuote } from './engine/types';
 
 // ── Generic get/set per kind ────────────────────────────────────────────────
@@ -126,15 +129,21 @@ export function setCohort(db: Firestore, cohort: PaperCohort): Promise<void> {
   return setItem(db, PaperTradingKind.COHORT, cohort);
 }
 
+// Strategy instances live in the flat `st-strategy-instances` root (#1006) —
+// delegate to the engine repository, which union-reads the legacy
+// paper-trading/instances anchor during the FE-write soak window.
 export function getInstance(
   db: Firestore,
   instanceId: string,
-): Promise<PaperStrategyInstance | null> {
-  return getItem(db, PaperTradingKind.INSTANCE, instanceId, isPaperStrategyInstance);
+): Promise<StStrategyInstance | null> {
+  return getStrategyInstance(instanceId, db);
 }
 
-export function setInstance(db: Firestore, instance: PaperStrategyInstance): Promise<void> {
-  return setItem(db, PaperTradingKind.INSTANCE, instance);
+export async function setInstance(db: Firestore, instance: StStrategyInstance): Promise<void> {
+  // The doc id lives in the path, not the payload — and the legacy anchor's
+  // `kind` discriminator doesn't exist on the canonical shape.
+  const { id, kind: _kind, ...data } = instance as StStrategyInstance & { kind?: unknown };
+  await strategyInstanceRef(id, db).set(data, { merge: true });
 }
 
 export function getStats(db: Firestore, statsId: string): Promise<PaperStats | null> {

@@ -37,7 +37,7 @@ import {
   rawQuoteToDoc,
   tradeToPosition,
 } from './trade-adapter';
-import { getInstance } from './strategy-instance-repository';
+import { getInstance, strategyInstanceRef } from './strategy-instance-repository';
 import type {
   DailyUpdate,
   Position,
@@ -292,9 +292,16 @@ export async function markPositionSettled(
     }
 
     const instRef = trade.strategyInstanceId
-      ? paperDocRef(db, PaperTradingKind.INSTANCE, trade.strategyInstanceId)
+      ? strategyInstanceRef(trade.strategyInstanceId, db)
       : null;
-    const instSnap = instRef ? await txn.get(instRef) : null;
+    let instSnap = instRef ? await txn.get(instRef) : null;
+    // Legacy anchor fallback during the FE-write soak window (#1014) — an
+    // anchor-only instance would otherwise lose account bookkeeping.
+    if (!instSnap?.exists && trade.strategyInstanceId) {
+      instSnap = await txn.get(
+        paperItemsRef(db, PaperTradingKind.INSTANCE).doc(trade.strategyInstanceId),
+      );
+    }
     const instUserId = instSnap?.exists
       ? (instSnap.data() as { userId?: string }).userId
       : undefined;
