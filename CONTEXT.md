@@ -411,3 +411,18 @@ _Avoid_: variable, constant, SCSS variable (tokens are emitted as CSS custom pro
 
 The ST `/dev`-route showcase that renders every element the design system owns, each annotated with "seen in" provenance naming the source surfaces it generalizes. Doubles as the element inventory and the source of screenshots for mockups in planning docs.
 _Avoid_: storybook, styleguide page, component library
+
+## Analysis Dataset
+
+A versioned CSV of trade rows (one row per trade, ~45 cols: identity, provenance, outcomes, excursion, `ind.*` signal snapshot, `strength.*` computed context) generated on demand and stored in GCS (`analysis-datasets/{id}.csv`) with a metadata index doc carrying origin, params, provenance, row count, tags, and notes. Two producers: a **live snapshot** (export of `paper-trading/trades/items`) and a **replay run** (signals regenerated from SDS bars, walked through an exit rule). Snapshots are append-only — a new generation is a new dataset, never an overwrite. Thread #1059.
+_Avoid_: materialized analysis collection (rejected — the CSV is the substrate), report
+
+## Slice
+
+A named, saved filter predicate over Analysis Dataset columns (e.g., `signalType=V2_LONG & zoneV2=4`), persisted as JSON in GCS (`analysis-slices/{id}.json`) and applicable to any dataset — the vehicle for testing whether a single-symbol finding generalizes.
+_Avoid_: saved query, view
+
+## Trade Row
+
+One flattened record per paper trade in an Analysis Dataset — the analysis grain. `tradeRetPct` is direction-aware (shorts profit when the symbol falls); `symbolMovePct` is direction-neutral. Live rows carry ledger-observed entry/exit/marks; replay rows observe only OHLC + regenerated indicators, with entry/exit/outcomes modeled under the run's recorded conventions. Analysis views compute on `status=CLOSED` rows only — open trades are quarantined, not excluded from the file.
+_Avoid_: observation (that's raw inputs), ledger entry

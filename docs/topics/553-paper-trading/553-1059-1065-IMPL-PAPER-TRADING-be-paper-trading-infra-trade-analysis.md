@@ -21,11 +21,14 @@ Generation side of the pipeline (PRD US1/US2). One write path — **all** genera
 
 - `writeDataset(rows, meta, deps)` → serializes via the SHARED codec, uploads to `getStorage().bucket()` at `analysis-datasets/{datasetId}.csv` (precedent: `screenshot-capture/storage-writer.ts`), then updates the index doc at `analysisDatasetsPath()/items/{datasetId}` with `status: 'ready'`, `rowCount`, `gcsPath`.
 - Failure flips the doc to `status: 'failed'` + `error` — never leaves `generating` stuck.
-- Dataset id: `ds-{yyyymmdd}-{origin}-{shortHash(params)}` — versioned, never overwritten (PRD: snapshots accumulate).
+- Dataset id: `ds-{yyyymmdd}-{origin}-{shortHash(params)}` — versioned, never overwritten (PRD: snapshots accumulate). **As-built (#1076):** the hash input is `canonicalParams|isoTimestamp|nonce` — pure params-hash would collide on same-day same-config reruns; the nonce keeps "never overwritten" while honoring "two same-day runs → distinct ids".
 
 ## 2. Entry callable — `generateTradeDataset` (new `CallableName`)
 
 - Validates params (`origin`, symbolScope, signalTypes, exitRule grammar, barRange, entryConvention, entryFilters), creates the index doc `generating`, enqueues `analysisDatasetTask` (pattern: `auto-paper-ingest-task.ts` — `onTaskDispatched`, dedupe on active dataset id is unnecessary since ids are unique), returns `{ datasetId }`.
+- **As-built (#1076):** request/response/`AnalysisRunParams`/`AnalysisDatasetTaskPayload`/`ENTRY_CONVENTIONS` live in `shared/analysis-dataset-contracts.ts`; `entryFilters` added to `AnalysisDatasetDoc` (provenance-only). Validation whitelists `entryConvention` + `signalTypes`, checks exit-rule grammar via `parseVariantKey` gated to the three firing PRD families (`initial-stop`/`trailing-stop`/`time-stop` — `limit-stddev` parses but is stubbed never to fire, so it's rejected here), requires real calendar dates in `barRange` (regex + `Date.parse` — '2026-13-45' rejected), and uppercases `symbolScope` (the ledger keys symbols uppercase — a lowercase scope would silently produce an empty dataset).
+- **As-built (#1076):** `analysisDatasetTask` ships as a stub `onTaskDispatched` that flips the index doc to `failed` ('not implemented — #1077/#1078') — an undeployed enqueue target would wedge docs at `generating`; a fail-loud stub keeps the deployable surface honest. Real passes land in #1077 (live) / #1078 (replay).
+- **As-built (#1076):** verify scripts must name the bucket (`rel-str.appspot.com`) — parameterless admin init resolves the default bucket only in the function runtime, not under local ADC.
 
 ## 3. Task handler — `functions/src/paper-trading/analysis/analysis-dataset-task.ts`
 

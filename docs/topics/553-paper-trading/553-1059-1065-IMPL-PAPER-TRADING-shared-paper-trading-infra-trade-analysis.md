@@ -31,7 +31,8 @@ Shared contracts for the CSV-native analysis pipeline (PRD: `553-1059-1060-PRD-P
 
 ## 2. Dataset index + slice contracts — `shared/analysis-dataset-contracts.ts` (cont.)
 
-- `AnalysisDatasetDoc`: `{ id, origin: 'live'|'replay', status: 'generating'|'ready'|'failed', rowCount, symbolScope, signalTypes, exitRule, barRange, entryConvention, generatedAt, gcsPath, tags[], notes, error? }`
+- `AnalysisDatasetDoc`: `{ id, origin: 'live'|'replay', status: 'generating'|'ready'|'failed', rowCount, symbolScope, signalTypes, exitRule, barRange, entryConvention, entryFilters?, generatedAt, gcsPath, tags[], notes, error? }`
+- **As-built (#1076):** the callable contracts landed here too — `AnalysisRunParams` / `GenerateTradeDatasetRequest` / `GenerateTradeDatasetResponse` / `AnalysisDatasetTaskPayload` / `ENTRY_CONVENTIONS` ('signal-bar-close'); `SIGNAL_TYPES` exported for the callable's whitelist.
 - Path helpers in `@paper-trading/ids`: `analysisDatasetsPath()` → `paper-trading/analysis-datasets/items`, `analysisSlicesPath()` → `paper-trading/analysis-slices/items` (anchor pattern per AGENTS.md).
 - `AnalysisSlice`: `{ id, name, note?, createdAt, filters: SliceFilter[] }` where `SliceFilter = { column, op: 'in'|'range'|'dateRange', value }`. Slices serialize to JSON; missing-column predicates are skipped client-side with a notice.
 
