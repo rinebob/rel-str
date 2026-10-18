@@ -8,11 +8,13 @@
  *      as fallback).
  *   2. Runs `handlePaperSignalOrder` with production deps + the real RH MCP
  *      observation tool — equity trade filled at the live acceptance quote,
- *      cohort doc, PENDING expression trades seeded.
- *   3. Runs `runExpressionFillPass` — real chains → instruments → quotes →
- *      delta/DTE selection → applyPendingFill → OPEN (or a documented skip
- *      when no contract is selectable).
- *   4. Asserts no place_\* / review_\* tool calls occurred anywhere.
+ *      cohort doc, STAGED expression tickets (no PENDING trades, #1005).
+ *   3. Cancels one staged ticket via `handleCancelPaperTrade` — the ticket
+ *      flips `cancelled`, no trade is involved (#1005).
+ *   4. Runs `runExpressionFillPass` — real chains → instruments → quotes →
+ *      delta/DTE selection → the remaining tickets MINT contract-bearing
+ *      `{SYM}-{YYMMDD}-sig-{expr}-{exp}-{strike}-{NN}` trades → OPEN.
+ *   5. Asserts no place_\* / review_\* tool calls occurred anywhere.
  *
  * Requires ADC + local RH MCP OAuth + NODE_OPTIONS ipv4 preload.
  * Run from functions/:
@@ -31,11 +33,17 @@ import {
 import { buildAccountId } from '../../../shared/paper-trading-ids';
 import { executeObservationTool } from '../../src/rh-agent-mcp/tools/robinhood-tool-executor';
 import {
+  handleCancelPaperTrade,
   handlePaperSignalOrder,
   paperSignalOrderProdDeps,
 } from '../../src/paper-trading/callables';
-import { applyPendingFill } from '../../src/paper-trading/ledger';
-import { ledgerDeps, listTrades } from '../../src/paper-trading/repository';
+import { applyEntryFill, applyPendingFill, cancelPendingTrade } from '../../src/paper-trading/ledger';
+import { getTrade, ledgerDeps, listTrades, listTradeDocIdsByPrefix } from '../../src/paper-trading/repository';
+import { ledgerDepsWithCapture } from '../../src/paper-trading/screenshot-lifecycle';
+import { StOrderTicketWriter } from '../../src/order-tickets/st-order-ticket-writer';
+import { StPositionGroupWriter } from '../../src/position-groups/st-position-group-writer';
+import { stTicketId } from '../../../shared/st-ids';
+import type { StOrderTicket } from '../../../shared/st-order-tickets';
 import { getStorage } from 'firebase-admin/storage';
 import {
   ST_ORDER_INTENTS_COLLECTION,
@@ -112,7 +120,12 @@ async function seed(): Promise<void> {
   console.log(`seeded canonical order ticket pap_${TICKET_ID}`);
 }
 
-async function cleanup(cohortIds: string[], tradeIds: string[], groupIds: string[] = []): Promise<void> {
+async function cleanup(
+  cohortIds: string[],
+  tradeIds: string[],
+  groupIds: string[] = [],
+  ticketIds: string[] = [],
+): Promise<void> {
   // #1004 — canonical group docs for the accept.
   for (const id of groupIds) {
     await db.doc(`${ST_POSITION_GROUPS_ROOT}/${id}`).delete().catch(() => undefined);
@@ -126,6 +139,10 @@ async function cleanup(cohortIds: string[], tradeIds: string[], groupIds: string
     if (g.userId === USER_ID) await d.ref.delete().catch(() => undefined);
   }
   await db.doc(`${ST_ORDER_TICKETS_ROOT}/pap_${TICKET_ID}`).delete().catch(() => undefined);
+  // Staged expression tickets + minted-trade tickets (#1005).
+  for (const id of ticketIds) {
+    await db.doc(`${ST_ORDER_TICKETS_ROOT}/${id}`).delete().catch(() => undefined);
+  }
   // Belt-and-suspenders: pre-#1003 runs seeded the legacy path instead.
   await db.doc(`${ST_ORDER_INTENTS_COLLECTION}/${TICKET_ID}`).delete().catch(() => undefined);
   for (const id of cohortIds) {
@@ -172,6 +189,7 @@ async function main(): Promise<void> {
   const cohortIds: string[] = [];
   const tradeIds: string[] = [];
   const groupIds: string[] = [];
+  const ticketIds: string[] = []; // pap_ docs beyond pap_{tradeId} (seeds, minted trades)
   try {
     await seed();
 
@@ -209,12 +227,15 @@ async function main(): Promise<void> {
         retry.equityTradeId === res.equityTradeId &&
         retry.expressionTradeIds.length === res.expressionTradeIds.length);
     cohortIds.push(res.cohortId);
-    tradeIds.push(res.equityTradeId, ...res.expressionTradeIds);
+    tradeIds.push(res.equityTradeId);
+    // expressionTradeIds are staged-TICKET seeds post-#1005 — the pap_
+    // docs are the pending expressions; trades only exist after the fill pass.
+    ticketIds.push(...res.expressionTradeIds.map((s) => stTicketId('paper', s)));
 
     const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
-    check('response: equity + one pending id per template',
+    check('response: equity + one staged-ticket seed per template',
       res.expressionTradeIds.length === templates.length);
-    check('trade ids carry sig origin',
+    check('ticket seeds carry sig origin',
       [res.equityTradeId, ...res.expressionTradeIds].every((id) => id.includes('-sig-')));
 
     const eqTrade = (await db.doc(`paper-trading/trades/items/${res.equityTradeId}`).get()).data() as PaperTrade;
@@ -230,30 +251,42 @@ async function main(): Promise<void> {
       eqTrade.variantRuns[0].governing === true &&
       eqTrade.variantRuns[0].variantKey === 'trailing-8');
 
-    const pendings = await Promise.all(
+    // #1005 — no PENDING trades; the staged pap_ tickets ARE the pending expressions.
+    const stagedTickets = await Promise.all(
       res.expressionTradeIds.map(
-        async (id) => (await db.doc(`paper-trading/trades/items/${id}`).get()).data() as PaperTrade,
+        async (s) =>
+          (await db.doc(`${ST_ORDER_TICKETS_ROOT}/${stTicketId('paper', s)}`).get()).data() as
+            | StOrderTicket
+            | undefined,
       ),
     );
-    check('pending trades: all PENDING with templates, no fills/legs',
-      pendings.length === templates.length &&
-      pendings.every(
+    check('staged tickets: all staged with expressionTemplate recipes',
+      stagedTickets.length === templates.length &&
+      stagedTickets.every(
         (t) =>
-          t.status === PaperTradeStatus.PENDING &&
-          !!t.expressionTemplate &&
-          t.fills.length === 0 &&
-          t.legs.length === 0 &&
+          t?.state === 'staged' &&
+          !!t.terms.expressionTemplate &&
+          t.mode === 'paper' &&
           t.cohortId === res.cohortId,
       ));
-    check('pending templates match direction config',
-      JSON.stringify(pendings.map((t) => t.expressionTemplate!.key).sort()) ===
+    check('staged templates match direction config',
+      JSON.stringify(stagedTickets.map((t) => t!.terms.expressionTemplate!.key).sort()) ===
         JSON.stringify(templates.map((t) => t.key).sort()));
+    check('no PENDING expression trades written (seeds have no trade docs)',
+      (
+        await Promise.all(
+          res.expressionTradeIds.map(
+            async (s) => (await db.doc(`paper-trading/trades/items/${s}`).get()).exists,
+          ),
+        )
+      ).every((exists) => !exists));
 
     const cohort = (await db.doc(`paper-trading/cohorts/items/${res.cohortId}`).get()).data() as PaperCohort;
-    check('cohort: groups all member trades + template keys',
+    check('cohort: equity trade + template keys only (expressions are tickets)',
       cohort.signalId === SIGNAL_ID &&
       cohort.direction === TradeSide.LONG &&
-      cohort.tradeIds.length === 1 + templates.length &&
+      cohort.tradeIds.length === 1 &&
+      cohort.tradeIds[0] === res.equityTradeId &&
       cohort.expressionTemplates.length === templates.length);
 
     // #1004 — canonical position group (dual-write alongside the cohort).
@@ -265,12 +298,13 @@ async function main(): Promise<void> {
       const group = (await db.doc(`${ST_POSITION_GROUPS_ROOT}/${res.positionGroupId}`).get()).data() as StPositionGroup;
       check('group: paper mode + owning userId + open status',
         group.mode === 'paper' && group.userId === USER_ID && group.status === 'open');
-      check('group: covers every member trade + pap_ ticket',
-        group.memberTradeIds.length === 1 + templates.length &&
+      check('group: equity trade + all pap_ member tickets (expressions join at fill)',
+        group.memberTradeIds.length === 1 &&
+          group.memberTradeIds[0] === res.equityTradeId &&
           group.memberTicketIds.length === 1 + templates.length &&
-          group.memberTradeIds.includes(res.equityTradeId));
-      check('trades stamped positionGroupId at mint',
-        [eqTrade, ...pendings].every((t) => t.positionGroupId === res.positionGroupId));
+          group.rollups.openCount === 1);
+      check('equity trade stamped positionGroupId at mint',
+        eqTrade.positionGroupId === res.positionGroupId);
       const memberTickets = await Promise.all(
         group.memberTicketIds.map(
           async (id) =>
@@ -290,45 +324,100 @@ async function main(): Promise<void> {
     check('no broker mutation tools invoked on the accept path',
       mcpCalls.every((n) => !/place_|review_/.test(n)));
 
-    // ── 2. expression-fill pass — real chains/instruments/quotes ──
+    // ── 2. cancel — the staged ticket is the pending expression (#1005) ──
+    const cancelSeed = res.expressionTradeIds[0];
+    const cancelRes = await handleCancelPaperTrade(
+      { auth: { uid: USER_ID }, data: { tradeId: cancelSeed } },
+      {
+        getTrade: (tradeId) => getTrade(db, tradeId),
+        cancelPendingTrade: (input) => cancelPendingTrade(input, ledgerDeps(db)),
+        now: () => new Date(),
+        tickets: new StOrderTicketWriter(),
+        listTradesByTicketId: (ticketId) => listTrades(db, { ticketId }),
+      },
+    );
+    check('cancel: resolves the staged ticket', cancelRes.tradeId === cancelSeed);
+    const cancelledTicket = (
+      await db.doc(`${ST_ORDER_TICKETS_ROOT}/${stTicketId('paper', cancelSeed)}`).get()
+    ).data() as StOrderTicket;
+    check('cancel: ticket flipped to cancelled, no trade minted',
+      cancelledTicket.state === 'cancelled' &&
+        !(await db.doc(`paper-trading/trades/items/${cancelSeed}`).get()).exists);
+    const liveSeeds = res.expressionTradeIds.slice(1);
+
+    // ── 3. expression-fill pass — staged tickets mint contract-bearing trades ──
     const marketDate = getMarketDatePT();
+    const ticketsWriter = new StOrderTicketWriter();
     const summary = await runExpressionFillPass(marketDate, {
+      listStagedExpressionTickets: () =>
+        ticketsWriter.listStagedExpressionTickets().then((ts) =>
+          ts.filter((t) => t.userId === USER_ID),
+        ),
       listPendingTrades: () =>
         listTrades(db, { status: PaperTradeStatus.PENDING }).then((ts) =>
           ts.filter((t) => t.userId === USER_ID),
         ),
+      getTrade: (tradeId) => getTrade(db, tradeId),
+      listTradesByTicketId: (ticketId) => listTrades(db, { ticketId }),
+      listTradeDocIdsByPrefix: (prefix) => listTradeDocIdsByPrefix(db, prefix),
       callTool: realCallTool,
       applyPendingFill: (input) => applyPendingFill(input, ledgerDeps(db)),
+      applyEntryFill: (input) => applyEntryFill(input, ledgerDepsWithCapture(db)),
+      getTicket: (ticketId) => ticketsWriter.get(ticketId),
+      recordTicketError: (ticketId, error, now) => ticketsWriter.noteError(ticketId, error, now),
+      markTicketFilled: (ticketId, fill, now) => ticketsWriter.markFilled(ticketId, fill, now),
+      markTicketCancelled: (ticketId, now) => ticketsWriter.markCancelled(ticketId, now),
+      groups: new StPositionGroupWriter(),
       now: () => new Date(),
     });
     console.log(`fill summary: filled=${summary.filled} skipped=${summary.skipped} errors=${summary.errors.length}`);
     check('fill pass: no errors', summary.errors.length === 0, JSON.stringify(summary.errors));
-    check('fill pass: all pending accounted for (filled or skipped)',
-      summary.filled + summary.skipped === templates.length);
+    check('fill pass: all live seeds accounted for (filled or skipped)',
+      summary.filled + summary.skipped === liveSeeds.length);
     check('no broker mutation tools invoked on the fill path',
       mcpCalls.every((n) => !/place_|review_/.test(n)));
 
     if (summary.filled > 0) {
-      const filled = (
-        await Promise.all(
-          res.expressionTradeIds.map(
-            async (id) => (await db.doc(`paper-trading/trades/items/${id}`).get()).data() as PaperTrade,
-          ),
-        )
-      ).find((t) => t.status === PaperTradeStatus.OPEN);
-      check('filled expression: OPEN with real contract leg + entry fill',
+      // Minted trades are discovered via the ticket.ticketId back-stamp —
+      // canonical ids ({SYM}-{YYMMDD}-sig-{expr}-{exp}-{strike}-{NN}) only
+      // exist after contract resolution.
+      const minted = (
+        await Promise.all(liveSeeds.map((s) => listTrades(db, { ticketId: stTicketId('paper', s) })))
+      ).flat();
+      tradeIds.push(...minted.map((t) => t.id));
+      const filled = minted.find((t) => t.status === PaperTradeStatus.OPEN);
+      check('minted expression trade: OPEN with real contract leg + entry fill',
         !!filled &&
           filled.legs[0]?.kind === 'option' &&
           !!filled.fills[0] &&
           filled.fills[0].price > 0);
+      check('minted trade: canonical contract-bearing id + lineage stamps',
+        !!filled &&
+          new RegExp(`^${SYMBOL}-\\d{6}-sig-[A-Z]+-\\d{6}-[\\d.]+-\\d{2,}$`).test(filled.id) &&
+          !!filled.strike && !!filled.expiration && !!filled.optionType &&
+          filled.cohortId === res.cohortId &&
+          filled.positionGroupId === res.positionGroupId &&
+          !!filled.ticket?.ticketId);
+      const filledTicket = (
+        await db.doc(`${ST_ORDER_TICKETS_ROOT}/${filled?.ticket?.ticketId}`).get()
+      ).data() as StOrderTicket | undefined;
+      check('source ticket marked filled', filledTicket?.state === 'filled');
+      if (res.positionGroupId) {
+        const groupAfter = (
+          await db.doc(`${ST_POSITION_GROUPS_ROOT}/${res.positionGroupId}`).get()
+        ).data() as StPositionGroup;
+        check('minted trade joined the group (memberTradeIds + openCount)',
+          minted.every((t) => groupAfter.memberTradeIds.includes(t.id)) &&
+            groupAfter.rollups.openCount === 1 + minted.length);
+      }
     } else {
-      console.log('WARN: no pending expression filled (market closed / no candidates?) — skip assertions bypassed');
+      console.log('WARN: no staged expression filled (market closed / no candidates?) — skip assertions bypassed');
     }
 
     check('no broker mutation tools anywhere in the run',
       mcpCalls.every((n) => !/place_|review_/.test(n)));
   } finally {
-    await cleanup(cohortIds, tradeIds, groupIds);
+    await cleanup(cohortIds, tradeIds, groupIds, ticketIds);
   }
 
   console.log(`\n=== ${passed} passed, ${failed} failed ===`);
