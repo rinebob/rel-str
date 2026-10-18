@@ -33,6 +33,13 @@ Generation side of the pipeline (PRD US1/US2). One write path — **all** genera
 ## 3. Task handler — `functions/src/paper-trading/analysis/analysis-dataset-task.ts`
 
 - **live path**: enumerate `paper-trading/trades/items` (repo read), map each trade → `TradeAnalysisRow`: ledger-observed lifecycle fields, stamped `ind.*` from signal context, `strength.*` computed from SDS bars at entry date (reuse SDS reader used by eval-pass), `excursionSource: 'marks'`.
+- **As-built (#1077):** `strength.*` anchors at the **signal bar** (`signalBarDate`), not the entry fill — under `signal-bar-close` they're the same bar. Bars load once per symbol (`asOf '9999-12-31'`) and slice to each anchor in memory; a symbol with many signal dates would otherwise re-read its full history per anchor.
+- **As-built (#1077):** cohort rule = `expression==='EQ'` **and** signal-linked (`signalType`/`signalId`/`ticket.signalId`) → `signal-equity`; everything else (manual, option-expression) → `excluded`, kept in the file.
+- **As-built (#1077):** excursion walks `marks` on `mark ?? underlyingClose`, direction-aware, bounds `[entryDate, exitDate]`; `givebackRatio` only on terminal rows. Open trades carry a provisional `tradeRetPct` vs the latest mark (views compute on CLOSED anyway). `exitReason` = `governingVariant` on terminal rows.
+- **As-built (#1077):** task handler wraps both branches — `live` runs the pass; `replay` still fails loud ('lands in #1078'); `retryConfig.maxAttempts: 3`, `memory: 1GiB`. Any pre-writer throw flips the index doc `failed` too.
+- **As-built (#1077):** `entryFilters` is provenance-only — validated/carried but not applied (no entry gating exists to apply it to on a snapshot).
+- **As-built (#1077):** `barRange` bounds `signalBarDate ?? entryDate` — a manual trade with no signal bar is bounded by its entry fill date (a 2019 manual can't leak into a 2026 snapshot); only fully-undated trades bypass the range. Multi-fill entries map earliest entry fill / latest exit fill.
+- **As-built (#1077):** the task handler guards a missing/blank `datasetId` before any doc write — `doc()` would mint a random id and stamp `failed` onto a junk doc.
 - **replay path**: for each symbol in scope, read SDS daily bars (`symbol-data/{sym}/daily/{yr}`), run `detectAllStTrendRiderSignals` (`st-cloud-function/strategies/signal-detection.ts`), filter to selected signalTypes, walk each signal forward under the exit-registry grammar (`paper-trading/exits/` — `trailing-N`, `time-Nd`, `initial-stop-N`) on daily closes; entry at signal-day close per `entryConvention`; outcomes/excursion modeled, `excursionSource: 'replay'`.
 - Row batching: accumulate rows per symbol, write once at end; progress logged per symbol for multi-symbol runs.
 
