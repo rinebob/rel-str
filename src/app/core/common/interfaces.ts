@@ -46,6 +46,8 @@ export enum AppRoutes {
 	DEV_GALLERY = 'dev/gallery',
 	/** Dev playground for captureChartSnapshot — spec form + artifact preview (#746/#770). */
 	SCREENSHOT_DEV = 'dev/screenshot',
+	/** Design-system element gallery — one card per savant-ds element group with provenance (#1024/#1041). */
+	DS_GALLERY = 'dev/ds',
 	/** Topic Viewer: read-only GitHub issue-lifecycle tree (#619). */
 	TOPIC_VIEWER = 'tools/topic-viewer',
 }

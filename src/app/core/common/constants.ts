@@ -59,6 +59,7 @@ export const NAV_SECTIONS: NavSection[] = [
                     { name: 'flex-chart-sandbox', text: 'Flex Chart Sandbox', href: 'dev/flex-chart' },
                     { name: 'dev-gallery', text: 'Gallery (Dev)', href: 'dev/gallery' },
                     { name: 'dev-screenshot', text: 'Screenshot (Dev)', href: 'dev/screenshot' },
+                    { name: 'ds-gallery', text: 'DS Gallery (Dev)', href: 'dev/ds' },
                 ],
             },
         ],
@@ -145,6 +146,7 @@ export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
     [AppRoutes.FLEX_CHART_SANDBOX]:           { title: 'Flex Chart Sandbox',         icon: 'lab_profile' },
     [AppRoutes.DEV_GALLERY]:                  { title: 'Gallery (Dev)',              icon: 'photo_library' },
     [AppRoutes.SCREENSHOT_DEV]:               { title: 'Screenshot (Dev)',           icon: 'screenshot_monitor' },
+    [AppRoutes.DS_GALLERY]:                   { title: 'DS Gallery (Dev)',           icon: 'style' },
     [AppRoutes.TOPIC_VIEWER]:                 { title: 'Topic Viewer',               icon: 'account_tree' },
 };
 

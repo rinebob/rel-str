@@ -1,0 +1,182 @@
+<!-- /dev/ds — savant-ds element gallery (#1024 / #1041).
+     Card grid driven by `entries`; each card demos one element group
+     via the package's own mixins/tokens and ends with a "seen in"
+     provenance footnote. Dark toggle flips [data-theme] on :host. -->
+<div class="gallery">
+  <header class="gallery-header">
+    <span class="header-title">Design System — element gallery</span>
+    <div class="bar-actions">
+      <button type="button" class="theme-toggle" (click)="toggleDark()">
+        <mat-icon>{{ dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        {{ dark() ? 'Light' : 'Dark' }} theme
+      </button>
+    </div>
+  </header>
+
+  <div class="gallery-body">
+    <div class="card-grid">
+      @for (entry of entries; track entry.kind) {
+        <section class="card" [attr.data-kind]="entry.kind">
+          <h2 class="card-title">{{ entry.title }}</h2>
+          <p class="card-blurb">{{ entry.blurb }}</p>
+
+          <div class="demo">
+            @switch (entry.kind) {
+
+              @case ('color-tokens') {
+                <div class="swatch-grid">
+                  @for (token of colorTokens; track token) {
+                    <div class="swatch">
+                      <div class="swatch-chip" [style.background]="'var(' + token + ')'"></div>
+                      <span class="swatch-name">{{ token }}</span>
+                    </div>
+                  }
+                </div>
+              }
+
+              @case ('spacing') {
+                <div class="space-list">
+                  @for (token of spaceTokens; track token) {
+                    <div class="space-row">
+                      <div class="space-bar" [style.width]="'var(' + token + ')'"></div>
+                      <span class="token-name">{{ token }}</span>
+                    </div>
+                  }
+                </div>
+              }
+
+              @case ('typography') {
+                <div class="type-demo">
+                  <p class="type-sm">font-size-sm — the quick brown fox</p>
+                  <p class="type-md">font-size-md — the quick brown fox</p>
+                  <p class="type-lg">font-size-lg — the quick brown fox</p>
+                  <p><span class="w-regular">regular 400</span> ·
+                     <span class="w-medium">medium 500</span> ·
+                     <span class="w-bold">bold 600</span></p>
+                </div>
+              }
+
+              @case ('density') {
+                <div class="density-demo">
+                  <div class="density-row">
+                    <div class="density-box row-h"></div>
+                    <span>--ds-row-height (32)</span>
+                  </div>
+                  <div class="density-row">
+                    <div class="density-box field-h"></div>
+                    <span>--ds-field-height (40)</span>
+                  </div>
+                </div>
+              }
+
+              @case ('elevation') {
+                <div class="elevation-demo">
+                  <div class="elev-card shadow-1">--ds-shadow-1</div>
+                  <div class="elev-card shadow-2">--ds-shadow-2</div>
+                  <div class="elev-card radius-demo">--ds-radius-md</div>
+                </div>
+                @if (resolvedShadow1()) {
+                  <p class="resolved">
+                    resolved shadow-1: {{ resolvedShadow1() }}<br>
+                    resolved shadow-2: {{ resolvedShadow2() }}
+                  </p>
+                }
+              }
+
+              @case ('page-shell') {
+                <div class="mini-page">
+                  <div class="mini-header">
+                    <span class="mini-title">header-bar</span>
+                    <div class="bar-actions"><button type="button">Action</button></div>
+                  </div>
+                  <div class="mini-column">
+                    <p>content-column — centered, 1100px cap in real pages.</p>
+                  </div>
+                </div>
+              }
+
+              @case ('dialog') {
+                <div class="demo-dialog">
+                  <h2 mat-dialog-title><mat-icon>info</mat-icon> Dialog title</h2>
+                  <mat-dialog-content>
+                    <span class="dim">.dim — secondary text</span>
+                    <div class="dialog-error">.dialog-error — inline error</div>
+                  </mat-dialog-content>
+                  <mat-dialog-actions>
+                    <button type="button"><mat-icon>close</mat-icon> Cancel</button>
+                    <button type="button"><mat-icon>check</mat-icon> Confirm</button>
+                  </mat-dialog-actions>
+                </div>
+                <div class="demo-dialog-status">
+                  <div class="status-section success">
+                    <mat-icon>check_circle</mat-icon>
+                    <span>status-section.success</span>
+                  </div>
+                  <div class="status-section error">
+                    <mat-icon>error</mat-icon>
+                    <span>status-section.error</span>
+                  </div>
+                </div>
+              }
+
+              @case ('error-banner') {
+                <div class="demo-error-banner">
+                  <mat-icon>warning</mat-icon>
+                  <span class="error-text">Something failed — the retry button would sit here.</span>
+                </div>
+              }
+
+              @case ('direction-badges') {
+                <div class="badge-row">
+                  <span class="dir-badge up">LONG ▲</span>
+                  <span class="dir-badge down">SHORT ▼</span>
+                  <span class="pnl up">+12.4%</span>
+                  <span class="pnl down">−8.1%</span>
+                </div>
+              }
+
+              @case ('dense-table') {
+                <table class="demo-table">
+                  <thead>
+                    <tr><th>Symbol</th><th class="num">Qty</th><th class="num">P&L</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>QQQM</td><td class="num">100</td><td class="num">+12.40</td></tr>
+                    <tr><td>AAPL</td><td class="num">50</td><td class="num">−3.20</td></tr>
+                    <tr class="empty-row"><td colspan="3">empty-row demo</td></tr>
+                  </tbody>
+                  <tfoot>
+                    <tr><td>Total</td><td class="num">150</td><td class="num">+9.20</td></tr>
+                  </tfoot>
+                </table>
+              }
+
+              @case ('state-block') {
+                <div class="demo-state-block">
+                  <mat-icon>inbox</mat-icon>
+                  <p>Nothing here yet</p>
+                  <span class="hint">.hint — secondary copy</span>
+                </div>
+              }
+
+              @case ('stat-strip') {
+                <div class="demo-stat-strip">
+                  <span class="sb-item"><span class="sb-label">Cash</span><span class="sb-value">$4,210</span></span>
+                  <span class="sb-sep">|</span>
+                  <span class="sb-item"><span class="sb-label">Equity</span><span class="sb-value">$12,904</span></span>
+                  <span class="sb-sep">|</span>
+                  <span class="sb-item"><span class="sb-label">Open</span><span class="sb-value">3</span></span>
+                </div>
+              }
+
+            }
+          </div>
+
+          <footer class="seen-in">
+            <span class="seen-in-label">seen in:</span> {{ entry.seenIn.join(' · ') }}
+          </footer>
+        </section>
+      }
+    </div>
+  </div>
+</div>
