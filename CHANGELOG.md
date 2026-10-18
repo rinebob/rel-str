@@ -3,6 +3,10 @@
 ## [2026-10-20]
 
 ### Added
+- [Paper Trading Infra] 553-1073_SHARED-IMPL-PAPER-TRADING: TradeAnalysisRow 46-column schema + ANALYSIS_COLUMNS manifest (key/label/kind/enumValues/filterable/defaultVisible) + AnalysisDatasetDoc/AnalysisSlice/SliceFilter/analysisCohort + PaperTradingDoc union & is* guards + analysis-datasets/analysis-slices anchor paths; flat dot-keyed rows (ind.*/strength.*) so manifest key = row key = CSV header
+- [Paper Trading Infra] 553-1073_CONFIG-PAPER-TRADING: @paper-trading/analysis alias registered in tsconfig/functions/tsconfig/jest + firestore.rules authed CRUD for analysis-slices (was instances-only writes; deployed)
+- [Paper Trading Infra] 553-1073_BE-VERIFY-PAPER-TRADING: paper-trading-analysis-1073-contracts relay (16 checks — dataset/slice doc round-trip, manifest bijection, path parity) + per-task guide + README/run-all index + signal-trades-export Layer-0 seed script
+- [Paper Trading Infra] 553-1073_DOCS-PAPER-TRADING: #1073 CODE-REVIEW (PASS — standards/spec/thermo-nuclear) + #1090 UAT (Complete, 9 scenarios PASS) + #1059 thread PRD/IMPL/TEST docs + design note
 - [Savant Design System] 1024-1040_FE-IMPL-DESIGN-SYSTEM: _pd-visual-language delegation shim — @forward 'index' delegates 7 mixins to savant-ds (zero duplicated bodies); $up/$down → var(--ds-*) reads; 5 data-display mixins sole-source pending #1052; ds-parity-probe now delegation-aware (probes diff delegated-vs-package emission through the real shim)
 - [Savant Design System] 1024-1040_FE-VERIFY-DESIGN-SYSTEM: design-system-vl-shim-1040 relay (39 checks) — sole-forward + index*-shadow guards, boundary-exact 14-member fixture through real includePaths, no :root leakage, sass via package createRequire
 - [Savant Design System] 1024-1040_DOCS-DESIGN-SYSTEM: CODE-REVIEW (2 rounds, PASS — R1 probe regression + fixture/shadow/leak holes remediated) + UAT (Complete — 545/545 jest, all 6 DS relays green)
