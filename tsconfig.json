@@ -26,6 +26,7 @@
       "@options-strategy-engine/id": ["./shared/strategy-instance-id.ts"],
       "@paper-trading/contracts": ["./shared/paper-trading-contracts.ts"],
       "@paper-trading/ids": ["./shared/paper-trading-ids.ts"],
+      "@paper-trading/analysis": ["./shared/analysis-dataset-contracts.ts"],
       "@spread/contracts": ["./shared/spread-contracts.ts"],
       "@portfolio-allocation/contracts": ["./shared/portfolio-allocation-contracts.ts"],
       "@portfolio-allocation/ids": ["./shared/portfolio-allocation-ids.ts"],
