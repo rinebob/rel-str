@@ -45,12 +45,14 @@ import {
   createExtrasSignals,
   injectTriggerBandsData,
   convertTriggerBandsDotMarkers,
+  UptickDotColors,
 } from '../../utils/chart-indicators';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import type {
   FlexChartConfig,
   FlexChartDataset,
   IndicatorParamDef,
+  PriceBar,
 } from '../../../shared/components/flex-chart/flex-chart.types';
 import { formatLocalDate } from '../../utils/utils';
 import { parseIsoDateLocal } from '../../../shared/utils/date.util';
@@ -63,13 +65,17 @@ import {
   buildDefaultConfig,
   ST_ANCHORED_VWAP_INDICATOR,
   ST_ZIGZAG_INDICATOR,
+  calculateStZone,
+  calculateStZoneV2,
 } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
 import { ST_TRIGGER_BANDS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
 import {
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
+  detectZoneUptickDots,
 } from '../../../shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
+import { aggregateDailyToTwoDay } from './two-day-bars';
 import {
   generateSyntheticBars,
   SYNTHETIC_PRESETS,
@@ -93,12 +99,16 @@ const TWO_YEAR_BARS: Record<ChartIntervalKey, number> = {
   [ChartIntervalKey.DAILY]: 504,
   [ChartIntervalKey.WEEKLY]: 104,
   [ChartIntervalKey.MONTHLY]: 24,
+  [ChartIntervalKey.TWO_DAY]: 252,
 };
 
 const INTERVAL_TO_BARS: Record<ChartIntervalKey, BarsInterval> = {
   [ChartIntervalKey.DAILY]: BarsInterval.DAILY,
   [ChartIntervalKey.WEEKLY]: BarsInterval.WEEKLY,
   [ChartIntervalKey.MONTHLY]: BarsInterval.MONTHLY,
+  // No BarsInterval counterpart — dataset.interval only feeds the chart's
+  // memo key, so the source interval label is harmless.
+  [ChartIntervalKey.TWO_DAY]: BarsInterval.DAILY,
 };
 
 @Component({
@@ -197,6 +207,30 @@ export class FlexChartSandboxComponent implements OnDestroy {
    *  so an unrelated signal flip doesn't produce a fresh array identity. */
   private readonly syntheticBars = computed(() => generateSyntheticBars(this.preset()));
 
+  /** 2-trading-day bars aggregated from the loaded daily series — the eval
+   *  interval has no Firestore feed, daily bars are the source. */
+  private readonly twoDayBars = computed<PriceBar[]>(() => {
+    const daily = this.chartStore.dailyData();
+    return daily ? aggregateDailyToTwoDay(daily.bars) : [];
+  });
+
+  /** Trend Rider dots computed on the 2D bars — zones come from the
+   *  client-side engines and the zone series doubles as its own window
+   *  context, mirroring the backend detection call (windowV2 = zone). */
+  private readonly twoDayUptickDotsV1 = computed(() => this.twoDayUptickDots(true));
+  private readonly twoDayUptickDotsV2 = computed(() => this.twoDayUptickDots(false));
+
+  private twoDayUptickDots(v1: boolean): { x: Date; y: number; color: string }[] {
+    const bars = this.twoDayBars();
+    if (bars.length === 0) return [];
+    const zone = (v1 ? calculateStZone : calculateStZoneV2)(bars, {});
+    return detectZoneUptickDots(
+      zone, zone, bars,
+      v1 ? UptickDotColors.v1Long : UptickDotColors.v2Long,
+      v1 ? UptickDotColors.v1Short : UptickDotColors.v2Short,
+    );
+  }
+
   readonly chartData = computed<FlexChartDataset | null>(() => {
     if (this.dataMode() === 'synthetic') {
       // Synthetic mode bypasses ChartStore entirely — same FlexChartDataset
@@ -212,6 +246,10 @@ export class FlexChartSandboxComponent implements OnDestroy {
     switch (this.interval()) {
       case ChartIntervalKey.WEEKLY: return this.chartStore.weeklyData();
       case ChartIntervalKey.MONTHLY: return this.chartStore.monthlyData();
+      case ChartIntervalKey.TWO_DAY: {
+        const daily = this.chartStore.dailyData();
+        return daily ? { ...daily, bars: this.twoDayBars() } : null;
+      }
       default: return this.chartStore.dailyData();
     }
   });
@@ -249,7 +287,8 @@ export class FlexChartSandboxComponent implements OnDestroy {
   private readonly triggerBandsEnabled = computed(
     () =>
       this.dataMode() !== 'synthetic' &&
-      this.interval() !== ChartIntervalKey.MONTHLY &&
+      (this.interval() === ChartIntervalKey.DAILY ||
+        this.interval() === ChartIntervalKey.WEEKLY) &&
       this.enabledIndicators().has(ST_TRIGGER_BANDS_INDICATOR.id),
   );
 
@@ -312,13 +351,20 @@ export class FlexChartSandboxComponent implements OnDestroy {
               uptickDotsV2: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.extras.weeklyUptickDotsV2() : undefined,
               triggerBandsDots: tbDots,
             })
-          : base;
+          : interval === ChartIntervalKey.TWO_DAY
+            ? addChartExtras(base, {
+                // No backend-fed extras exist for 2D — trend-rider dots are
+                // computed locally on the aggregated bars.
+                uptickDotsV1: has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.twoDayUptickDotsV1() : undefined,
+                uptickDotsV2: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.twoDayUptickDotsV2() : undefined,
+              })
+            : base;
     return {
       indicators,
       showCrosshair: true,
       showZoomToolbar: true,
       enableScrollbar: true,
-      showTooltips: true,
+      showTooltips: false,
       visibleBars: SHOW_ALL_BARS,
       interval,
       logScale: this.logScale(),

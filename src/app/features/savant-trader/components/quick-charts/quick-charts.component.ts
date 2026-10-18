@@ -44,6 +44,9 @@ const QUICK_VISIBLE_BARS: Record<ChartIntervalKey, number> = {
   [ChartIntervalKey.DAILY]: 30,
   [ChartIntervalKey.WEEKLY]: 30,
   [ChartIntervalKey.MONTHLY]: 100,
+  // 2D is a sandbox-eval interval — never drawn here; key required for
+  // Record exhaustiveness.
+  [ChartIntervalKey.TWO_DAY]: 30,
 };
 
 const DEFAULT_CELL_HEIGHT_PX = 560;

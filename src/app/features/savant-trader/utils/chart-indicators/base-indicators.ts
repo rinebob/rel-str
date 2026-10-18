@@ -26,6 +26,9 @@ const INDICATORS_BY_INTERVAL: Record<ChartIntervalKey, StIndicator[]> = {
   [ChartIntervalKey.DAILY]:   [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
   [ChartIntervalKey.WEEKLY]:  [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
   [ChartIntervalKey.MONTHLY]: [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
+  // 2D is a sandbox-eval interval — client-computable indicators only (no
+  // backend-fed extras exist for it).
+  [ChartIntervalKey.TWO_DAY]: [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
 };
 
 /** Pre-built base IndicatorConfig map with pane assignments and display names. */

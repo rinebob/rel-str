@@ -50,6 +50,9 @@ export enum ChartIntervalKey {
   DAILY   = 'daily',
   WEEKLY  = 'weekly',
   MONTHLY = 'monthly',
+  /** Rolling 2-trading-day bars aggregated client-side from daily bars.
+   *  No BarsInterval/backend counterpart — sandbox evaluation only. */
+  TWO_DAY = 'two-day',
 }
 
 /** Indicator types supported */

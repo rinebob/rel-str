@@ -44,6 +44,14 @@
       >D</button>
       <button
         type="button"
+        data-testid="interval-two-day"
+        title="2-trading-day bars, aggregated client-side from daily bars"
+        [class.active]="interval() === ChartIntervalKey.TWO_DAY"
+        [disabled]="dataMode() === 'synthetic'"
+        (click)="setInterval(ChartIntervalKey.TWO_DAY)"
+      >2D</button>
+      <button
+        type="button"
         data-testid="interval-weekly"
         [class.active]="interval() === ChartIntervalKey.WEEKLY"
         [disabled]="dataMode() === 'synthetic'"

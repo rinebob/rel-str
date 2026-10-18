@@ -115,6 +115,11 @@ export class SignalDetailComponent {
     [ChartIntervalKey.MONTHLY]: [
       StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
     ],
+    // Never selectable here (the interval switch is BarsInterval D/W/M) —
+    // present only to keep the Record exhaustive.
+    [ChartIntervalKey.TWO_DAY]: [
+      StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
+    ],
   };
 
   /** Allowlisted ids that start UNCHECKED — enabling them triggers the opt-in
@@ -189,9 +194,12 @@ export class SignalDetailComponent {
       .map(id => buildConfigForId(id))
       .filter((cfg): cfg is IndicatorConfig => cfg !== undefined);
     const all = [...base, ...extras];
-    const injected = !response || !bars || bars.length === 0
+    // TWO_DAY has no backend interval data — the response only carries
+    // daily/weekly/monthly.
+    const intervalData = key === ChartIntervalKey.TWO_DAY ? undefined : response?.intervals[key];
+    const injected = !intervalData || !bars || bars.length === 0
       ? all
-      : injectCallableIndicatorData(all, response.intervals[key], bars, `signal-detail:${key}`);
+      : injectCallableIndicatorData(all, intervalData, bars, `signal-detail:${key}`);
     // Trigger Bands arrive on a separate opt-in response — its own injector so
     // the default path neither blanks nor is invalidated by it.
     return injectTriggerBandsData(injected, triggerBandsIntervalData, bars, `signal-detail:${key}`);
@@ -369,6 +377,7 @@ export class SignalDetailComponent {
     [ChartIntervalKey.DAILY]:   SignalDetailComponent.defaultSelection(ChartIntervalKey.DAILY),
     [ChartIntervalKey.WEEKLY]:  SignalDetailComponent.defaultSelection(ChartIntervalKey.WEEKLY),
     [ChartIntervalKey.MONTHLY]: SignalDetailComponent.defaultSelection(ChartIntervalKey.MONTHLY),
+    [ChartIntervalKey.TWO_DAY]: SignalDetailComponent.defaultSelection(ChartIntervalKey.TWO_DAY),
   });
 
   /** The interval keys currently in scope for indicator menu actions.
