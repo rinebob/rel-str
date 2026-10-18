@@ -11,6 +11,8 @@
 - [Savant Design System] 1024-1040_FE-IMPL-DESIGN-SYSTEM: _pd-visual-language delegation shim — @forward 'index' delegates 7 mixins to savant-ds (zero duplicated bodies); $up/$down → var(--ds-*) reads; 5 data-display mixins sole-source pending #1052; ds-parity-probe now delegation-aware (probes diff delegated-vs-package emission through the real shim)
 - [Savant Design System] 1024-1040_FE-VERIFY-DESIGN-SYSTEM: design-system-vl-shim-1040 relay (39 checks) — sole-forward + index*-shadow guards, boundary-exact 14-member fixture through real includePaths, no :root leakage, sass via package createRequire
 - [Savant Design System] 1024-1040_DOCS-DESIGN-SYSTEM: CODE-REVIEW (2 rounds, PASS — R1 probe regression + fixture/shadow/leak holes remediated) + UAT (Complete — 545/545 jest, all 6 DS relays green)
+- [Paper Trading Infra] 553-1067_FE-IMPL-PAPER-TRADING: paper trades table rework — sticky thead + rows-only scroll (border-collapse:separate), viewport-height flex page (ungrouped fills to bottom; grouped outer panel scroll, ~40vh per-table caps), cohort sections collapsed with accordion expandos, duplicate drill-down rendering removed, 8-column sortable headers with multi-key sort chain (shift+click, asc→desc→removed, rank badges, aria-sort + Enter/Space), equity curve panel + orphaned stats pipeline retired (store statsByScope/statsList/isLoadingStats + service getPaperStats$), group open-count/capital via canonical LIFECYCLE_OPEN_TRADE_STATUSES
+- [Paper Trading Infra] 553-1067_DOCS-PAPER-TRADING: #1067 CODE-REVIEW (2 rounds, PASS — majors: dead only-child flex chain, stats-fetch waste, grouped-section shrink-to-strips, literal status sets → canonical lifecycle const) + #1068 UAT (Complete — 11/11 scenarios, 9 live-verified)
 
 ## [2026-10-16]
 
