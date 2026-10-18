@@ -134,6 +134,11 @@ const POST_STAGING_STATES: ReadonlySet<StTicketState> = new Set([
  *  detection, parity audit) must not depend on insertion order. */
 export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
+  // Firestore stores NaN natively (seen in legacy daily-analysis sims) —
+  // NaN === NaN is false but identical docs must compare equal.
+  if (typeof a === 'number' && typeof b === 'number') {
+    return Number.isNaN(a) && Number.isNaN(b);
+  }
   if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') {
     return false;
   }

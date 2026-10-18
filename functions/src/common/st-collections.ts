@@ -114,6 +114,14 @@ export const ST_SIGNAL_HISTORY_SUBCOLLECTION = 'signal-history';
 export const ST_ORDER_INTENTS_COLLECTION = 'savant-trader/data/order-intents';
 
 /**
+ * Pre-#1006 strategy-instance root (orphaned — nothing read it; the engine
+ * read the paper-trading/instances anchor). Referenced by migration/audit
+ * scripts only.
+ * @deprecated Superseded by ST_STRATEGY_INSTANCES_ROOT; removed in #1013.
+ */
+export const LEGACY_OPTIONS_STRATEGY_INSTANCES = 'options-strategy-instances';
+
+/**
  * Screenshot-capture index — one flat doc per lifecycle capture
  * (`{groupId}-{refId}-{event}`), backend-written, FE read-only for the
  * screenshot library. Canonical home is `@screenshot-capture/contracts`
