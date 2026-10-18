@@ -14,8 +14,9 @@ in a scratch consumer; this checks the real wiring the app builds with.
   dir — vendor edits must propagate), and its realpath resolves to
   `vendor/savant-ds`
 - **Vendor drift** — every file in `vendor/savant-ds/styles/` is
-  byte-identical to `../savant-ds/styles/` (names + contents); an
-  unsynced package edit FAILs with the `npm run sync:ds` remedy
+  content-identical to `../savant-ds/styles/` (names + contents,
+  line-ending normalized — IDE CRLF re-saves don't false-positive; an
+  unsynced package edit FAILs with the `npm run sync:ds` remedy)
 - `angular.json` carries `stylePreprocessorOptions.includePaths:
   ["node_modules/savant-ds/styles"]` on **both** SCSS-compiling targets
   (`build` and `test` — component styles compile under karma too)

@@ -77,8 +77,11 @@ if (existsSync(INSTALLED)) {
 }
 
 // Vendor drift — the committed copy is what cloud builds see. Compare
-// every file (names + bytes) against the sibling checkout's styles/ so
+// every file (names + contents) against the sibling checkout's styles/ so
 // an unsynced package edit fails loudly with the remedy printed.
+// Comparison is line-ending normalized: the IDE re-saves worktree files
+// as CRLF while git's autocrlf stores LF either way — what the repo
+// actually carries (and cloud checkouts receive) is the LF content.
 const srcStyles = path.join(DS, 'styles');
 check('vendor/savant-ds/styles exists', existsSync(path.join(VENDOR, 'styles')));
 if (existsSync(srcStyles) && existsSync(path.join(VENDOR, 'styles'))) {
@@ -89,10 +92,10 @@ if (existsSync(srcStyles) && existsSync(path.join(VENDOR, 'styles'))) {
   check('vendor styles match package filenames',
     srcNames.join(',') === dstNames.join(','),
     `src:${srcNames.join(',')} vendor:${dstNames.join(',')}`);
+  const normalize = (p: string) => readFileSync(p, 'utf8').replaceAll('\r\n', '\n');
   const drifted = srcNames.filter((f) =>
-    !readFileSync(path.join(srcStyles, f))
-      .equals(readFileSync(path.join(VENDOR, 'styles', f))));
-  check('vendor styles byte-identical to ../savant-ds (npm run sync:ds to fix)',
+    normalize(path.join(srcStyles, f)) !== normalize(path.join(VENDOR, 'styles', f)));
+  check('vendor styles content-identical to ../savant-ds (npm run sync:ds to fix)',
     drifted.length === 0, drifted.join(', '));
 }
 
