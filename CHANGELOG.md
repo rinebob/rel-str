@@ -56,6 +56,10 @@
 - [ST Firestore Reorg] 984-1005_BE-VERIFY-DATA-PIPELINE: verify-564 accept→retry→cancel→fill→group-join→cleanup — 28/28 PASS live
 - [ST Firestore Reorg] 984-1005_FE-IMPL-DATA-PIPELINE: order-ticket vocabulary in FE ticket types
 - [ST Firestore Reorg] 984-1005_DOCS-DATA-PIPELINE: #1005 CODE-REVIEW (3 rounds, PASS — majors: cross-day double-staging, cancel-vs-mint race, seq-scan double-mint, stamped-trade cancel divergence, foreign-ticket cancel) + #1092 UAT (Complete — deploy + verify-564 28/28 + zero leftovers)
+- [Savant Design System] 1024-1043_DOCS-IMPL-DESIGN-SYSTEM: 1024-1025-DS-INVENTORY.md — element catalog (12 extracted + 4 infra + 9 candidate rows), live call-site dup counts, real-path citations; mockup convention (/dev/ds screenshots or token-built SVGs, cited by element name)
+- [Savant Design System] 1024-1043_FE-VERIFY-DESIGN-SYSTEM: design-system-inventory-1043 relay (16 checks — doc path, canonical header, convention stated, every cited path resolves incl. sibling checkouts, tables populated) + guide + README/run-all index
+- [Savant Design System] 1024-1043_DOCS-DESIGN-SYSTEM: #1043 CODE-REVIEW (4 rounds converged — stat-strip miscite, error-literal overcount, bare-filename cites normalized, ST vendoring row added) + #1095 UAT (Complete, 7 scenarios PASS, all 11 DS relays green)
+
 
 ## [2026-10-17]
 
