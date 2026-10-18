@@ -3,8 +3,9 @@
  *
  * Unit tests for StOrderTicketWriter (task #1002): canonical
  * `st-order-tickets` emission + lifecycle transitions. emit() is
- * get-then-set idempotent (deterministic idSeed → re-emit never regresses
- * state); transitions are txn-guarded so a fill racing a cancel wins
+ * create()+ALREADY_EXISTS idempotent (deterministic idSeed → re-emit
+ * never regresses state); transitions are txn-guarded so a fill racing
+ * a cancel wins
  * (`filled` outranks `cancel_pending`/`cancelled`) and terminal states
  * can't be re-opened.
  */
@@ -58,7 +59,22 @@ function createFakeDb(initial: Record<string, Record<string, unknown>> = {}) {
   };
 
   const db = {
-    collection: (path: string) => ({ doc: (id: string) => makeDocRef(`${path}/${id}`) }),
+    collection: (path: string) => {
+      const query = (filters: [string, unknown][]) => ({
+        where: (field: string, _op: string, value: unknown) =>
+          query([...filters, [field, value]]),
+        get: async () => ({
+          docs: [...store.entries()]
+            .filter(([p]) => p.startsWith(`${path}/`))
+            .filter(([, d]) => filters.every(([f, v]) => d[f] === v))
+            .map(([p, d]) => ({ id: p.split('/').pop()!, data: () => d })),
+        }),
+      });
+      return {
+        doc: (id: string) => makeDocRef(`${path}/${id}`),
+        where: (field: string, _op: string, value: unknown) => query([[field, value]]),
+      };
+    },
     doc: (path: string) => makeDocRef(path),
     runTransaction: async <T>(fn: (txn: unknown) => Promise<T>): Promise<T> => {
       const txn = {
@@ -366,5 +382,104 @@ describe('StOrderTicketWriter transitions (#1002)', () => {
     assert.equal(res.applied, false);
     assert.equal((stored(PATH) as StOrderTicket).state, 'staged');
     assert.equal(logs.some((l) => l.level === 'warn'), true);
+  });
+});
+
+// ── #1005 — ticket reads + staged-expression listing + seed resolution ──────
+
+describe('StOrderTicketWriter reads + resolveTicketSeed (#1005)', () => {
+  const doc = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
+    id: 'pap_x',
+    origin: { type: 'signal' },
+    auto: false,
+    mode: 'paper',
+    terms: { symbol: 'QQQM', side: 'buy', quantity: 1 },
+    state: 'staged',
+    refId: 'ref-1',
+    accountTarget: 'acct-u',
+    userId: 'u',
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...over,
+  });
+
+  it('get returns the doc / null when missing', async () => {
+    const { db } = createFakeDb({ 'st-order-tickets/pap_x': doc() });
+    const w = writerFor(db);
+    assert.equal((await w.get('pap_x'))?.id, 'pap_x');
+    assert.equal(await w.get('pap_missing'), null);
+  });
+
+  it('listStagedExpressionTickets filters mode=paper + staged + template', async () => {
+    const { db } = createFakeDb({
+      'st-order-tickets/pap_staged': doc({ id: 'pap_staged', terms: { symbol: 'Q', side: 'sell', quantity: 1, expressionTemplate: { key: 'csp-030-45' } } }),
+      'st-order-tickets/pap_noTemplate': doc({ id: 'pap_noTemplate' }),
+      'st-order-tickets/pap_filled': doc({ id: 'pap_filled', state: 'filled', terms: { symbol: 'Q', side: 'sell', quantity: 1, expressionTemplate: { key: 'x' } } }),
+      'st-order-tickets/liv_staged': doc({ id: 'liv_staged', mode: 'live', terms: { symbol: 'Q', side: 'sell', quantity: 1, expressionTemplate: { key: 'x' } } }),
+    });
+    const w = writerFor(db);
+    const tickets = await w.listStagedExpressionTickets();
+    assert.deepEqual(tickets.map((t) => t.id), ['pap_staged']);
+  });
+
+  it('resolveTicketSeed returns the base when free or already owned by the refId', async () => {
+    const { db } = createFakeDb({
+      'st-order-tickets/pap_owned': doc({ id: 'pap_owned', refId: 'ref-1' }),
+    });
+    const w = writerFor(db);
+    assert.equal(await w.resolveTicketSeed('free-seed', 'ref-1'), 'free-seed');
+    assert.equal(await w.resolveTicketSeed('owned', 'ref-1'), 'owned', 're-emit idempotent');
+  });
+
+  it('resolveTicketSeed suffixes when the base is owned by another refId', async () => {
+    const { db } = createFakeDb({
+      'st-order-tickets/pap_taken': doc({ id: 'pap_taken', refId: 'ref-A' }),
+      'st-order-tickets/pap_taken-2': doc({ id: 'pap_taken-2', refId: 'ref-B' }),
+    });
+    const w = writerFor(db);
+    assert.equal(await w.resolveTicketSeed('taken', 'ref-1'), 'taken-3');
+  });
+
+  it('resolveTicketSeed adopts a same-signal ticket under a different refId', async () => {
+    // Client retry carries a fresh refId — signalContext.signalId equality
+    // is the same logical accept, so the base is owned, not foreign.
+    const { db } = createFakeDb({
+      'st-order-tickets/pap_reissue': doc({
+        id: 'pap_reissue', refId: 'ref-A', signalContext: { signalId: 'sig-9' },
+      }),
+    });
+    const w = writerFor(db);
+    assert.equal(await w.resolveTicketSeed('reissue', 'ref-NEW', 'sig-9'), 'reissue');
+    // A foreign signal under a different refId is still foreign.
+    const { db: db2 } = createFakeDb({
+      'st-order-tickets/pap_alien': doc({
+        id: 'pap_alien', refId: 'ref-A', signalContext: { signalId: 'sig-other' },
+      }),
+    });
+    assert.equal(await writerFor(db2).resolveTicketSeed('alien', 'ref-NEW', 'sig-9'), 'alien-2');
+  });
+
+  it('noteError stamps lastError without a state change', async () => {
+    const { db } = createFakeDb({
+      'st-order-tickets/pap_s1': doc({ id: 'pap_s1' }),
+    });
+    const w = writerFor(db);
+    await w.noteError('pap_s1', { category: 'no_contract', message: 'no match' }, NOW);
+    const after = (await w.get('pap_s1'))!;
+    assert.equal(after.state, 'staged', 'no state transition');
+    assert.equal(after.lastError?.category, 'no_contract');
+    assert.equal(after.lastError?.message, 'no match');
+  });
+
+  it('noteError on a missing ticket warns — never mints a stateless zombie', async () => {
+    const { db, stored, logger, logs } = createFakeDb();
+    const w = writerFor(db, logger);
+    await w.noteError('pap_ghost', { category: 'no_contract', message: 'gone' }, NOW);
+    assert.equal(await w.get('pap_ghost'), null);
+    assert.equal(stored('st-order-tickets/pap_ghost'), undefined);
+    assert.ok(
+      logs.some((l) => l.message.includes('noteError failed')),
+      'missing-doc failure surfaced as a warn, not a write',
+    );
   });
 });

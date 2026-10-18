@@ -33,7 +33,7 @@ import {
   type StTicketState,
   type StTicketTerms,
 } from '@st/order-tickets';
-import type { OrderIntentTrackingFields } from '@screenshot-capture/contracts';
+import type { OrderTicketTrackingFields } from '@screenshot-capture/contracts';
 
 export interface LegacyIntentMapResult {
   ticket?: StOrderTicket;
@@ -325,12 +325,12 @@ export function legacyIntentToTicket(
       })
     : undefined;
 
-  const tracking: OrderIntentTrackingFields = stripUndefined({
-    role: legacy.role as OrderIntentTrackingFields['role'],
+  const tracking: OrderTicketTrackingFields = stripUndefined({
+    role: legacy.role as OrderTicketTrackingFields['role'],
     linkedPositionId: str(legacy.linkedPositionId),
     signalId: str(legacy.signalId),
     lastSeenState: str(legacy.lastSeenState),
-    capturedEvents: legacy.capturedEvents as OrderIntentTrackingFields['capturedEvents'],
+    capturedEvents: legacy.capturedEvents as OrderTicketTrackingFields['capturedEvents'],
   });
   const hasTracking = Object.values(tracking).some((v) => v !== undefined);
 

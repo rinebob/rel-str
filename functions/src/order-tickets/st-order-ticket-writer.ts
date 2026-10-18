@@ -57,7 +57,16 @@ export interface StOrderTicketWriterDeps {
  *  Sites needing fewer methods Pick from this type. */
 export type StOrderTicketEmitter = Pick<
   StOrderTicketWriter,
-  'emit' | 'markFilled' | 'markFailed' | 'markCancelled'
+  | 'emit'
+  | 'markFilled'
+  | 'markFailed'
+  | 'markCancelled'
+  | 'markSubmitted'
+  | 'markCancelPending'
+  | 'markExpired'
+  | 'get'
+  | 'listStagedExpressionTickets'
+  | 'resolveTicketSeed'
 >;
 
 /** Everything a caller supplies to stage a ticket doc. */
@@ -81,6 +90,9 @@ export interface EmitStOrderTicketInput {
   accountTarget: string;
   userId: string;
   signalContext?: StTicketSignalContext;
+  /** Legacy cohort doc id — soak bridge carried to the minted trade so
+   *  `trade.cohortId` stays populated until the cohort cutover (#1005). */
+  cohortId?: string;
   bucketId?: string;
   /** ISO timestamp stamped on createdAt/updatedAt. */
   now: string;
@@ -156,6 +168,7 @@ export class StOrderTicketWriter {
         updatedAt: input.now,
       };
       if (input.signalContext) doc.signalContext = input.signalContext;
+      if (input.cohortId) doc.cohortId = input.cohortId;
       if (input.bucketId) doc.bucketId = input.bucketId;
       // create() not get-then-set: atomic — a racing emit/transition
       // resolves ALREADY_EXISTS instead of overwriting a filled doc back
@@ -255,5 +268,97 @@ export class StOrderTicketWriter {
   /** submitted/cancel_pending → expired (TIF expired at the broker). */
   markExpired(ticketId: string, now: string): Promise<StTicketTransitionResult> {
     return this.transition(ticketId, 'expired', { terminalAt: now }, now);
+  }
+
+  /**
+   * Resolve a staged-ticket idSeed (#1005): `base` when `pap_{base}` is
+   * free — or already owned by this accept. Ownership = same `refId` OR
+   * same `signalContext.signalId` (a client retry can carry a fresh
+   * refId while the dedupe is signal-scoped; an accept that died between
+   * the ticket emits and the first trade write would otherwise mint `-2`
+   * duplicates). A foreign doc means a distinct accept took the base, so
+   * `-2`, `-3`, … are tried. Read-before-emit is advisory only; `emit`'s
+   * `create()` keeps the write itself race-safe.
+   */
+  async resolveTicketSeed(
+    base: string,
+    refId: string,
+    signalId?: string,
+  ): Promise<string> {
+    for (let i = 0; i < 100; i++) {
+      const seed = i === 0 ? base : `${base}-${i + 1}`;
+      const existing = await this.get(stTicketId('paper', seed));
+      if (
+        !existing
+        || existing.refId === refId
+        || (signalId !== undefined && existing.signalContext?.signalId === signalId)
+      ) {
+        return seed;
+      }
+    }
+    throw new Error(`ticket seed exhausted for ${base}`);
+  }
+
+  /** Read a ticket doc — null when missing or unreadable (fail-soft). */
+  async get(ticketId: string): Promise<StOrderTicket | null> {
+    try {
+      const snap = await this.db.collection(ST_ORDER_TICKETS_ROOT).doc(ticketId).get();
+      return snap.exists ? (snap.data() as StOrderTicket) : null;
+    } catch (err) {
+      this.log.warn('st-order-ticket get failed', { ticketId, error: String(err) });
+      return null;
+    }
+  }
+
+  /**
+   * Staged paper expression tickets — the pending expressions the
+   * expression-fill pass consumes (#1005). Filtered to
+   * `terms.expressionTemplate` client-side: staged equity tickets flip to
+   * `filled` at accept, so anything still staged with a recipe is an
+   * unresolved expression.
+   */
+  async listStagedExpressionTickets(): Promise<StOrderTicket[]> {
+    try {
+      const snap = await this.db
+        .collection(ST_ORDER_TICKETS_ROOT)
+        .where('mode', '==', 'paper')
+        .where('state', '==', 'staged')
+        .get();
+      return snap.docs
+        .map((d) => d.data() as StOrderTicket)
+        .filter((t) => t.terms?.expressionTemplate != null);
+    } catch (err) {
+      // Rethrow — swallowing a query outage reads as "no staged tickets"
+      // and the pass would silently skip every pending expression.
+      this.log.error('st-order-ticket listStagedExpressionTickets failed', {
+        error: String(err),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Non-terminal bookkeeping — stamps `lastError` without a state change
+   * (the fill pass notes why a staged ticket skipped and keeps it
+   * staged for the next pass's retry).
+   */
+  async noteError(
+    ticketId: string,
+    error: StTicketError,
+    now: string,
+  ): Promise<void> {
+    try {
+      // update() not set(merge): a missing doc must fail — merge would
+      // mint a stateless {lastError,updatedAt} zombie.
+      await this.db
+        .collection(ST_ORDER_TICKETS_ROOT)
+        .doc(ticketId)
+        .update({ lastError: error, updatedAt: now });
+    } catch (err) {
+      this.log.warn('st-order-ticket noteError failed', {
+        ticketId,
+        error: String(err),
+      });
+    }
   }
 }

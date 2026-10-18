@@ -108,7 +108,7 @@ export const ST_RUN_IDS_SUBCOLLECTION = 'run-ids';
 export const ST_SIGNAL_HISTORY_SUBCOLLECTION = 'signal-history';
 
 /**
- * Order intents collection (new).
+ * Legacy order-intents collection (FE-written order tickets pre-#1003).
  * @deprecated Use ST_ORDER_TICKETS_ROOT ('st-order-tickets') for new writes; removed in #1013.
  */
 export const ST_ORDER_INTENTS_COLLECTION = 'savant-trader/data/order-intents';
