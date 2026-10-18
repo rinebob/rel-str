@@ -29,6 +29,10 @@
 - [Savant Design System] 1024-1034_SHARED-IMPL-DESIGN-SYSTEM: savant-ds package skeleton (C:\aa\projects\savant-ds) — package.json + README consumption contract (file: dep, includePaths) + _index.scss + verify stub
 - [Savant Design System] 1024-1034_SHARED-VERIFY-DESIGN-SYSTEM: savant-ds skeleton verify — real file: install + junction probe (14 checks) + run-all needsPath gate
 - [Savant Design System] 1024-1034_DOCS-DESIGN-SYSTEM: Topic 1024 docs — PRD + IMPL×2 + TEST×2 + CODE-REVIEW (PASS) + UAT (Complete); CONTEXT.md savant-ds/Design Token/DS Gallery glossary
+- [ST Firestore Reorg] 984-1004_SHARED-IMPL-DATA-PIPELINE: LIFECYCLE_OPEN_TRADE_STATUSES (PENDING|OPEN|ASSIGNED — one canonical "member counts open" set) + PaperTrade/PaperSignalOrderResponse positionGroupId + member-ticket origin.positionGroupId contract
+- [ST Firestore Reorg] 984-1004_BE-IMPL-DATA-PIPELINE: st-position-groups — StPositionGroupWriter (create()+ALREADY_EXISTS seq-alloc, same-origin+membersCovered adoption, ensure restore, addMembers txn union; fail-soft) + handlePaperSignalOrder mints the group before member ticket emits and stamps tickets/trades + mirror carries origin.positionGroupId through soak rewrites + shared firestore-utils (isAlreadyExists/unionIds) + live tax-lot/option-position join helpers + cohortToGroup mapper
+- [ST Firestore Reorg] 984-1004_BE-IMPL-DATA-PIPELINE: migrate-cohorts-1004 (dry-run default; stamp-aware target resolution — unanimous member-trade stamp wins, split/foreign-origin → conflicted skip; union-merge; never overwrites foreign stamps) + st-position-groups audit (shape/parity/bidirectional incl. reverse-direction dangling-stamp + real-data live-join probe) + verify-564 group assertions; applied on prod — 9 groups/27 trades/9 tickets, conflicted 0
+- [ST Firestore Reorg] 984-1004_DOCS-DATA-PIPELINE: #1004 CODE-REVIEW (3 rounds, PASS — majors: lifecycle-status three-way disagreement, manual-origin adoption, migration seq-divergence clobber) + #1070 UAT (Complete — deploy + verify-564 22/22 + prod apply/audit all green)
 
 ## [2026-10-17]
 

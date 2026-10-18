@@ -47,6 +47,11 @@ _Avoid_: broker event log, observation collection
 One Firestore document per accepted signal that results in an order submission. Written once at staging, updated once to record the RH order ID after submission, then never touched again. Stores only the signal-to-order link: signal context, refId (idempotency key), RH order ID, symbol, side, and account. Does not track broker lifecycle, fill results, or stop order IDs — RH is authoritative for all order state. Queryable by signal type, date, and symbol for signal success analysis. See ADR-008.
 _Avoid_: Trading Case, Order Intent, Order Ticket
 
+## Position Group
+
+The lineage anchor that links a signal's spawned activity — one Firestore doc per accepted signal order (`st-position-groups/{SYM}-{YYMMDD}-grp-{NN}`) carrying `memberTicketIds`, `memberTradeIds`, `brokerOrderIds`, and open/closed rollups. Every spawned Order Ticket carries it via `origin.positionGroupId`; every member paper trade via `positionGroupId`. Distinct manual accepts mint separate groups; live Robinhood positions join via tax-lot `order_id` (equity) or `option_id`/`chain_id` (options). Replaces the legacy `cohortId` as the canonical grouping. Topic #984 / Task #1004.
+_Avoid_: cohort (the legacy pre-#1004 name), strategy instance, ticket batch
+
 ## Symbol Position
 
 The aggregate broker-reported holding for one account and symbol. A Symbol Position can be contributed to by multiple independent Trading Cases and owns aggregate quantity, exposure, protection coverage, and position-level exit management. When protection covers less than the aggregate quantity, the Symbol Position is protection-drifted and requires explicit user action to update the Protective Stop. It is distinct from each Trading Case and from each Broker Order.
