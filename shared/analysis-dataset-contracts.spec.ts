@@ -18,6 +18,8 @@ import {
 import {
   ANALYSIS_COLUMNS,
   AnalysisCohort,
+  type AnalysisSlice,
+  type SliceFilter,
   type TradeAnalysisRow,
 } from './analysis-dataset-contracts';
 import {
@@ -179,6 +181,36 @@ describe('ANALYSIS_COLUMNS manifest', () => {
     expect(byKey.get('excursionSource')?.enumValues).toEqual([
       'marks', 'replay',
     ]);
+  });
+});
+
+describe('AnalysisSlice / SliceFilter', () => {
+  it('serializes to JSON and back verbatim — all three ops round-trip', () => {
+    const slice: AnalysisSlice = {
+      kind: PaperTradingKind.ANALYSIS_SLICE,
+      id: 'slice-v2-adverse',
+      createdAt: '2026-10-20T00:00:00Z',
+      updatedAt: '2026-10-20T00:00:00Z',
+      name: 'V2 shorts, adverse zone',
+      filters: [
+        { column: 'signalType', op: 'in', value: ['D_ST_TREND_RIDER_V2_SHORT'] },
+        { column: 'ind.zoneV2', op: 'range', value: { max: -1 } },
+        { column: 'entryDate', op: 'dateRange', value: { from: '2023-01-01' } },
+      ],
+    };
+    const back = JSON.parse(JSON.stringify(slice)) as AnalysisSlice;
+    expect(back).toEqual(slice);
+    expect(back.filters.map((f) => f.op)).toEqual(['in', 'range', 'dateRange']);
+  });
+
+  it('every op discriminates on a manifest column', () => {
+    const manifestKeys = new Set(ANALYSIS_COLUMNS.map((c) => c.key));
+    const filters: SliceFilter[] = [
+      { column: 'symbol', op: 'in', value: ['AMAT'] },
+      { column: 'tradeRetPct', op: 'range', value: { min: -5, max: 5 } },
+      { column: 'entryDate', op: 'dateRange', value: { to: '2026-10-20' } },
+    ];
+    for (const f of filters) expect(manifestKeys.has(f.column)).toBe(true);
   });
 });
 
