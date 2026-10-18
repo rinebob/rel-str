@@ -160,6 +160,10 @@ export {
   getPaperAccount,
   listExitVariants,
 } from './paper-trading/read-callables';
+
+// Paper trading — analysis dataset generation entry (#1076; generation passes land #1077/#1078)
+export { generateTradeDataset } from './paper-trading/analysis/analysis-callables';
+export { analysisDatasetTask } from './paper-trading/analysis/analysis-dataset-task';
 export { getLifecycleTree } from './gh-lifecycle/callables';
 
 // Options strategy engine — dashboard callables

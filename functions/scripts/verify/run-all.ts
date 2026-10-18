@@ -44,6 +44,7 @@ const scripts = [
   'data-pipeline-st-position-groups-1004.ts',
   'paper-trading-analysis-1073-contracts.ts',
   'paper-trading-analysis-1074-csv-codec.ts',
+  'paper-trading-analysis-1076-dataset-writer.ts',
 ];
 
 let passed = 0;
