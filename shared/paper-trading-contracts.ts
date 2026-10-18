@@ -16,6 +16,12 @@ import { TradeSide, type EquityCurvePoint } from './common';
 import type { StrategyInstanceConfig } from './options-strategy-engine-contracts';
 import type { StSignalStatus, StSignalTimeframe } from './st-signals';
 import { PaperTradingKind } from './paper-trading-ids';
+// Type-only — no runtime cycle (analysis contracts import PaperTradingKind
+// as a value from ./paper-trading-ids and enums from this module).
+import type {
+  AnalysisDatasetDoc,
+  AnalysisSlice,
+} from './analysis-dataset-contracts';
 
 export { PaperTradingKind } from './paper-trading-ids';
 
@@ -551,7 +557,9 @@ export type PaperTradingDoc =
   | PaperCohort
   | PaperStrategyInstance
   | PaperStats
-  | RawQuoteDoc;
+  | RawQuoteDoc
+  | AnalysisDatasetDoc
+  | AnalysisSlice;
 
 export function isPaperAccount(d: PaperTradingDoc): d is PaperAccount {
   return d.kind === PaperTradingKind.ACCOUNT;
@@ -570,4 +578,10 @@ export function isPaperStrategyInstance(d: PaperTradingDoc): d is PaperStrategyI
 }
 export function isRawQuoteDoc(d: PaperTradingDoc): d is RawQuoteDoc {
   return d.kind === PaperTradingKind.RAW_QUOTE;
+}
+export function isAnalysisDatasetDoc(d: PaperTradingDoc): d is AnalysisDatasetDoc {
+  return d.kind === PaperTradingKind.ANALYSIS_DATASET;
+}
+export function isAnalysisSliceDoc(d: PaperTradingDoc): d is AnalysisSlice {
+  return d.kind === PaperTradingKind.ANALYSIS_SLICE;
 }

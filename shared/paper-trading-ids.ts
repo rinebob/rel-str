@@ -34,6 +34,8 @@ export enum PaperTradingKind {
   TRADE = 'trade',
   STATS = 'stats',
   RAW_QUOTE = 'raw-quote',
+  ANALYSIS_DATASET = 'analysis-dataset',
+  ANALYSIS_SLICE = 'analysis-slice',
 }
 
 const KIND_ANCHORS: Record<PaperTradingKind, string> = {
@@ -43,6 +45,8 @@ const KIND_ANCHORS: Record<PaperTradingKind, string> = {
   [PaperTradingKind.TRADE]: 'trades',
   [PaperTradingKind.STATS]: 'stats',
   [PaperTradingKind.RAW_QUOTE]: 'raw-quotes',
+  [PaperTradingKind.ANALYSIS_DATASET]: 'analysis-datasets',
+  [PaperTradingKind.ANALYSIS_SLICE]: 'analysis-slices',
 };
 
 /** Firestore collection path for a kind's `items` subcollection (odd segments). */
@@ -190,6 +194,23 @@ export function statsScopeCapTier(tier: string): string {
 }
 export function statsScopeSignalStatus(status: string): string {
   return `sigstatus-${scopeSlug(status)}`;
+}
+
+// ── Analysis datasets (Thread #1059) ─────────────────────────────────────────
+
+/** `paper-trading/analysis-datasets/items` — dataset index collection. */
+export function analysisDatasetsPath(): string {
+  return paperTradingItemsPath(PaperTradingKind.ANALYSIS_DATASET);
+}
+
+/** `paper-trading/analysis-slices/items` — saved slice collection. */
+export function analysisSlicesPath(): string {
+  return paperTradingItemsPath(PaperTradingKind.ANALYSIS_SLICE);
+}
+
+/** GCS object path for a dataset's CSV payload: `analysis-datasets/{id}.csv`. */
+export function analysisDatasetGcsPath(datasetId: string): string {
+  return `analysis-datasets/${datasetId}.csv`;
 }
 
 // ── Raw quote ──────────────────────────────────────────────────────────────
