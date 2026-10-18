@@ -95,6 +95,12 @@ const scripts: VerifyScript[] = [
     needsPath: '../savant-ds',
   },
   {
+    name: 'design-system sa consumption',
+    file: 'design-system-sa-consumption-1042.ts',
+    needsAccount: false,
+    needsPath: '../av-proxy-api',
+  },
+  {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
     cwd: 'functions',
