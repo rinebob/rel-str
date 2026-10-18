@@ -83,6 +83,12 @@ const scripts: VerifyScript[] = [
     needsPath: '../savant-ds',
   },
   {
+    name: 'design-system data-display mixins',
+    file: 'design-system-data-display-1052.ts',
+    needsAccount: false,
+    needsPath: '../savant-ds',
+  },
+  {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
     cwd: 'functions',

@@ -5,14 +5,16 @@
 Proves the shim contract on
 `src/app/features/portfolio-dashboard/styles/_pd-visual-language.scss`:
 
-- `@forward 'index'` delegates the 7 graduated mixins to savant-ds
+- `@forward 'index'` delegates the graduated mixins to savant-ds
   (page-host, page-shell, content-column, header-bar, dialog-chrome,
-  dialog-status, error-banner) — zero local bodies for those names,
+  dialog-status, error-banner — plus dense-table, state-block,
+  stat-strip graduated in #1052) — zero local bodies for those names,
   exactly one `@forward`, and no `index*` partial/dir beside the shim
   (an importer-relative shadow would silently reroute the delegation)
-- The 5 ungraduated data-display mixins stay sole-source in the file
-  pending #1052 (dense-table, state-block, bounded-tab-group,
-  tab-scroll-pane, stat-strip); no unexpected extra mixins
+- The 2 tab-layout mixins stay sole-source in the file intentionally —
+  #1052 judged bounded-tab-group + tab-scroll-pane PD-domain
+  (Material-coupled `::ng-deep` tab internals, two call sites);
+  no unexpected extra mixins
 - `$up`/`$down` are `var(--ds-up)`/`var(--ds-down)` reads — no hex
   accent literals remain
 - Header names savant-ds as the source of truth

@@ -3,10 +3,10 @@
  *
  * Proves the shim contract without duplicating the package's own verify:
  *  1. The shim forwards the savant-ds index (delegation, not copy).
- *  2. Zero mixin bodies for the 7 graduated names remain in the file —
- *     sole-source local mixins (dense-table, state-block,
- *     bounded-tab-group, tab-scroll-pane, stat-strip) may keep bodies
- *     until #1052 graduates them.
+ *  2. Zero mixin bodies for the 10 graduated names remain in the file —
+ *     sole-source local mixins (bounded-tab-group, tab-scroll-pane) keep
+ *     bodies intentionally: #1052 judged them PD-domain (Material-coupled
+ *     ::ng-deep tab internals, two call sites).
  *  3. $up/$down are --ds-* reads, not literals.
  *  4. The header points readers at savant-ds.
  *  5. A sass compile through the real includePaths + shim resolves all
@@ -75,17 +75,17 @@ check(
 const DELEGATED = [
   'page-host', 'page-shell', 'content-column', 'header-bar',
   'dialog-chrome', 'dialog-status', 'error-banner',
+  'dense-table', 'state-block', 'stat-strip',
 ];
 const LOCAL = [
-  'dense-table', 'state-block', 'bounded-tab-group',
-  'tab-scroll-pane', 'stat-strip',
+  'bounded-tab-group', 'tab-scroll-pane',
 ];
 const defined = [...body.matchAll(/@mixin\s+([\w-]+)/g)].map((m) => m[1]);
 for (const name of DELEGATED) {
   check(`no local @mixin ${name} body (delegated)`, !defined.includes(name));
 }
 for (const name of LOCAL) {
-  check(`local @mixin ${name} kept (sole-source pending #1052)`, defined.includes(name));
+  check(`local @mixin ${name} kept (sole-source, PD-domain per #1052)`, defined.includes(name));
 }
 check(
   'no unexpected extra mixins',
