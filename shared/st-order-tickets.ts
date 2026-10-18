@@ -11,7 +11,7 @@
  */
 import type { StMode } from './st-types';
 import type { SignalExpressionTemplate } from './paper-trading-contracts';
-import type { OrderIntentTrackingFields } from './screenshot-capture-contracts';
+import type { OrderTicketTrackingFields } from './screenshot-capture-contracts';
 export type { StMode } from './st-types';
 
 /** What originated the ticket. */
@@ -116,6 +116,11 @@ export interface StTicketTerms {
  *  the parts of legacy signalContext the st- model doesn't already cover
  *  via origin.signalId. */
 export interface StTicketSignalContext {
+  /** Accepted signal doc id as the caller passed it (legacy `data.signalId`
+   *  — distinct from `origin.signalId`, the canonical st-signals occurrence
+   *  id). Stamped so trades minted from this ticket keep the same signalId
+   *  `listTradesBySignal` queries on the accept retry path (#1005). */
+  signalId?: string;
   signalType?: string;
   barDate?: string;
   timeframe?: string;
@@ -146,7 +151,7 @@ export interface StTicketError {
 
 /**
  * Universal order ticket (`st-order-tickets/{liv|pap}_{id}`).
- * Pending expression intent lives here — trade docs are created only after
+ * Pending expressions live here — trade docs are created only after
  * contract resolution.
  */
 export interface StOrderTicket {
@@ -172,9 +177,14 @@ export interface StOrderTicket {
   bucketId?: string;
   /** Signal lineage migrated from legacy order-intents docs. */
   signalContext?: StTicketSignalContext;
+  /** Legacy cohort doc id the minted trade joins (`paper-trading/cohorts`)
+   *  — soak-window bridge stamped on staged expression tickets so the
+   *  #1005 fill pass can keep `trade.cohortId` populated until the FE
+   *  re-points to position groups (#1013 removes with the legacy roots). */
+  cohortId?: string;
   /** Screenshot-capture ledger fields read by functions/screenshot-capture
    *  tracking — preserved through the order-intents migration. */
-  tracking?: OrderIntentTrackingFields;
+  tracking?: OrderTicketTrackingFields;
   /** Provenance marker on docs mapped from a legacy `order-intents` doc —
    *  by the #1003 one-shot migration OR the soak-period mirror trigger.
    *  Lets audits distinguish legacy-mapped gaps (e.g. a `filled` legacy
@@ -204,9 +214,9 @@ export function mapOrderSourceToOriginType(source: string | null | undefined): S
 
 /**
  * Legacy `OrderTicketStatus` → `{mode, state}` for the st-order-tickets
- * migration. `paper` is a mode, not a state: a paper-status intent was
- * accepted into the paper ledger → `{mode:'paper', state:'submitted'}`.
- * Everything else was a live intent → `mode:'live'`; broker-side states
+ * migration. `paper` is a mode, not a state: a paper-status order-intent
+ * doc was accepted into the paper ledger → `{mode:'paper', state:'submitted'}`.
+ * Everything else was a live order-intent doc → `mode:'live'`; broker-side states
  * that post-date submission collapse to `submitted` except `expired`,
  * which passes through. Unknown → null.
  *

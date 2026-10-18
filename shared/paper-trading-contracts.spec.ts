@@ -348,7 +348,7 @@ describe('PaperTrade st- lineage extensions (#984)', () => {
     expect(share.optionType).toBeUndefined();
   });
 
-  it('writable statuses exclude PENDING — tickets hold pending intent', () => {
+  it('writable statuses exclude PENDING — tickets hold pending expressions', () => {
     expect(PAPER_TRADE_WRITABLE_STATUSES).not.toContain(PaperTradeStatus.PENDING);
     expect([...PAPER_TRADE_WRITABLE_STATUSES].sort()).toEqual([
       PaperTradeStatus.ASSIGNED,

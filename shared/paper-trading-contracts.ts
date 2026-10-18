@@ -63,7 +63,7 @@ export enum PaperTradeStatus {
 
 /**
  * Statuses writers may stamp on a PaperTrade (#984) — PENDING excluded:
- * pending expression intent lives on order tickets (st-order-tickets), so
+ * pending expression lives on order tickets (st-order-tickets), so
  * trade docs are created only after contract resolution. PENDING stays in
  * the enum for legacy docs and read paths.
  */
@@ -187,9 +187,14 @@ export interface PaperOrderTerms {
 
 /** Signal provenance for trades accepted from the signal-order page. */
 export interface PaperTicket {
-  signalId: string;
+  /** Caller-passed signal id — absent on manual-origin minted trades. */
+  signalId?: string;
   refId: string;                    // order-ticket refId (idempotency lineage)
   acceptedAt: string;               // ISO
+  /** Canonical `st-order-tickets/{liv|pap}_{id}` doc id — set on trades
+   *  minted from a staged ticket by the expression-fill pass (#1005);
+   *  the dedupe key that makes a ticket consumable exactly once. */
+  ticketId?: string;
 }
 
 /**
@@ -483,11 +488,12 @@ export interface PaperSignalOrderRequest {
 export interface PaperSignalOrderResponse {
   cohortId: string;
   equityTradeId: string;
-  /** Expression-trade ids in the cohort (may be OPEN if a retry lands post-fill). */
+  /** Expression member ids — post-#1005 these are the staged-ticket seeds
+   *  (the trade materializes under a contract-bearing id at fill); a retry
+   *  landing post-fill reports the minted trade ids instead. */
   expressionTradeIds: string[];
-  /** Canonical st-position-groups doc id — set once the #1004 group
-   *  write is wired; absent for pre-#1004 cohorts or when the groups dep
-   *  is not configured. */
+  /** Canonical st-position-groups doc id; absent for pre-#1004 cohorts or
+   *  when the groups dep is not configured. */
   positionGroupId?: string;
 }
 
@@ -501,6 +507,9 @@ export interface ListPaperTradesRequest {
   symbol?: string;
   expression?: string;
   variantKey?: string;
+  /** `ticket.ticketId` — the staged `pap_*` ticket that minted the trade
+   *  (#1005 dedupe: a minted trade marks its source ticket filled). */
+  ticketId?: string;
   /** Auto-paper forensics trades (userId 'auto-paper', Thread #904) are
    *  excluded unless true — they would otherwise flood the user list at
    *  ~hundreds/day. #921's auto-paper surface passes this flag. */

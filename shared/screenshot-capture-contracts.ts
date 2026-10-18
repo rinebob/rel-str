@@ -168,7 +168,8 @@ export interface CaptureChartResult {
 export const ST_SCREENSHOTS_COLLECTION = 'st-screenshots';
 
 /** Carrier-doc field holding the dedup ledger + manifest map — lives on
- *  `st-order-intents` docs and engine/paper position docs. */
+ *  `st-order-tickets` docs (nested under `tracking`) and engine/paper
+ *  position docs (top-level). */
 export const CAPTURED_EVENTS_FIELD = 'capturedEvents';
 
 /** One `capturedEvents` map entry — the dedup slot for one lifecycle event. */
@@ -182,8 +183,10 @@ export interface CapturedEventEntry {
   error?: string;
 }
 
-/** Where a capture's dedup ledger lives. `intent` = an `st-order-intents`
- *  doc; `engine-position` = an engine/paper-trade position doc. */
+/** Where a capture's dedup ledger lives. `'intent'` = a canonical
+ *  `st-order-tickets` doc (the value name is persisted on `st-screenshots`
+ *  docs and predates the #984 order-intent → order-ticket rename — do not
+ *  rename); `engine-position` = an engine/paper-trade position doc. */
 export type LifecycleCarrierKind = 'intent' | 'engine-position';
 
 export interface LifecycleCarrier {
@@ -211,19 +214,19 @@ export interface ScreenshotIndexEntry {
   pngPath: string;
 }
 
-/** The role an order intent plays against a position — drives the lifecycle
- *  events an intent carriers. */
-export type OrderIntentRole = 'open' | 'close';
+/** The role an order ticket plays against a position — drives the lifecycle
+ *  events a ticket carrier records. */
+export type OrderTicketRole = 'open' | 'close';
 
 /**
- * Tracking fields an `st-order-intents` doc carries for screenshot
+ * Tracking fields an `st-order-tickets` doc carries for screenshot
  * lifecycle capture. The FE writes `role`/`linkedPositionId` at ticket
  * creation (#849); the backend writes `lastSeenState` (detector
  * bookkeeping) and `capturedEvents` (dedup ledger + manifest) itself.
  */
-export interface OrderIntentTrackingFields {
-  role?: OrderIntentRole;
-  /** Close tickets → the opening intent's refId / group root. */
+export interface OrderTicketTrackingFields {
+  role?: OrderTicketRole;
+  /** Close tickets → the opening ticket's refId / group root. */
   linkedPositionId?: string;
   /** Signal id — group linkage on signal-pipeline tickets. */
   signalId?: string;

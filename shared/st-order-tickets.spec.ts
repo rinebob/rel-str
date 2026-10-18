@@ -166,7 +166,7 @@ describe('validateStTicketTerms', () => {
     expect(() => validateStTicketTerms({ symbol: 'KMEM', side: 'sell', instrument: 'equity', quantity: 0.5 })).not.toThrow();
     expect(() => validateStTicketTerms({ symbol: 'SPY', side: 'buy', instrument: 'option', quantity: 1.5 })).toThrow(/positive integer/);
     // expressionTemplate tickets resolve to option contracts — integral even
-    // without an explicit instrument tag (pending-intent tickets carry none).
+    // without an explicit instrument tag (pending-expression tickets carry none).
     expect(() => validateStTicketTerms({
       symbol: 'SPY', side: 'sell', quantity: 1.5,
       expressionTemplate: SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG][0],
