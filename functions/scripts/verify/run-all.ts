@@ -37,6 +37,12 @@ const scripts = [
   'screenshot-capture-826-lifecycle.ts',
   'indicator-lib-876-engine.ts',
   'indicator-lib-877-callable.ts',
+  'data-pipeline-st-signals-dual-write-1000.ts',
+  'data-pipeline-st-signals-backfill-1001.ts',
+  'data-pipeline-st-order-tickets-1002.ts',
+  'data-pipeline-st-order-tickets-migration-1003.ts',
+  'data-pipeline-st-position-groups-1004.ts',
+  'paper-trading-analysis-1073-contracts.ts',
 ];
 
 let passed = 0;
