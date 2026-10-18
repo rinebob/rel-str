@@ -43,6 +43,7 @@ const scripts = [
   'data-pipeline-st-order-tickets-migration-1003.ts',
   'data-pipeline-st-position-groups-1004.ts',
   'paper-trading-analysis-1073-contracts.ts',
+  'paper-trading-analysis-1074-csv-codec.ts',
 ];
 
 let passed = 0;
