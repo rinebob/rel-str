@@ -1,0 +1,8 @@
+{
+  "name": "savant-ds",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Savant Design System — vendored copy of ../savant-ds for cloud builds. DO NOT EDIT — run `npm run sync:ds` to refresh from the sibling checkout.",
+  "type": "module",
+  "files": ["styles"]
+}

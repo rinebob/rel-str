@@ -7,6 +7,7 @@
     "serve:ng": "ng serve",
     "prebuild": "node scripts/gen-syncfusion-license.js",
     "build": "ng build",
+    "sync:ds": "tsx scripts/sync-savant-ds.ts",
     "watch": "ng build --watch --configuration development",
     "build:functions": "npm --prefix functions run build",
     "test:rh-agent-mcp-boundary": "npm --prefix functions run test:rh-agent-mcp-boundary",
@@ -62,7 +63,7 @@
     "@syncfusion/ej2-charts": "^30.2.7",
     "javascript-color-gradient": "^2.5.0",
     "rxjs": "~7.8.0",
-    "savant-ds": "file:../savant-ds",
+    "savant-ds": "file:vendor/savant-ds",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.1"
   },

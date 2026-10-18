@@ -6,9 +6,11 @@
  * wiring the app builds with.
  *
  * Checks:
- *  1. package.json declares `"savant-ds": "file:../savant-ds"` and
- *     node_modules/savant-ds resolves to the SIBLING checkout as a
- *     link/junction (edit-in-place consumption, not a copy).
+ *  1. package.json declares `"savant-ds": "file:vendor/savant-ds"` and
+ *     node_modules/savant-ds resolves to the committed vendor/ copy —
+ *     #1071: the sibling file: dep can't resolve in cloud builds, so the
+ *     vendored copy is what ships; the sibling checkout stays the source
+ *     of truth and drift is checked byte-for-byte below.
  *  2. angular.json carries the includePaths entry on BOTH targets that
  *     compile SCSS (build + test).
  *  3. src/styles.scss loads the token layer via the package specifier.
@@ -37,6 +39,7 @@ function check(name: string, ok: boolean, detail = ''): void {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DS = path.resolve(ROOT, '..', 'savant-ds');
+const VENDOR = path.join(ROOT, 'vendor', 'savant-ds');
 const INSTALLED = path.join(ROOT, 'node_modules', 'savant-ds');
 const STYLES_DIR = path.join(INSTALLED, 'styles');
 
@@ -54,23 +57,43 @@ try {
   check('package.json parses', false, String(err).slice(0, 120));
 }
 const spec: string = pkg?.dependencies?.['savant-ds'] ?? pkg?.devDependencies?.['savant-ds'] ?? '';
-check("package.json declares savant-ds 'file:../savant-ds'",
-  spec === 'file:../savant-ds', spec || 'not declared');
+check("package.json declares savant-ds 'file:vendor/savant-ds'",
+  spec === 'file:vendor/savant-ds', spec || 'not declared');
 
 check('node_modules/savant-ds exists', existsSync(INSTALLED));
 if (existsSync(INSTALLED)) {
-  // A plain directory means npm copied — package edits wouldn't
-  // propagate and the edit-in-place story silently breaks.
+  // A plain directory means npm copied — vendor edits wouldn't propagate
+  // and a stale copy could ship unnoticed.
   const isLink = lstatSync(INSTALLED).isSymbolicLink();
   check('installed entry is a link/junction', isLink, isLink ? 'junction' : 'not-a-link');
   try {
     const target = realpathSync(INSTALLED);
-    check('link resolves to the sibling checkout',
-      path.resolve(target) === path.resolve(DS), target);
+    check('link resolves to the committed vendor/ copy',
+      path.resolve(target) === path.resolve(VENDOR), target);
   } catch (err) {
     check('link target resolvable', false, String(err));
   }
   check('styles/ readable through the link', existsSync(STYLES_DIR));
+}
+
+// Vendor drift — the committed copy is what cloud builds see. Compare
+// every file (names + bytes) against the sibling checkout's styles/ so
+// an unsynced package edit fails loudly with the remedy printed.
+const srcStyles = path.join(DS, 'styles');
+check('vendor/savant-ds/styles exists', existsSync(path.join(VENDOR, 'styles')));
+if (existsSync(srcStyles) && existsSync(path.join(VENDOR, 'styles'))) {
+  const namesOf = (d: string) => readdirSync(d, { withFileTypes: true })
+    .filter((e) => e.isFile()).map((e) => e.name).sort();
+  const srcNames = namesOf(srcStyles);
+  const dstNames = namesOf(path.join(VENDOR, 'styles'));
+  check('vendor styles match package filenames',
+    srcNames.join(',') === dstNames.join(','),
+    `src:${srcNames.join(',')} vendor:${dstNames.join(',')}`);
+  const drifted = srcNames.filter((f) =>
+    !readFileSync(path.join(srcStyles, f))
+      .equals(readFileSync(path.join(VENDOR, 'styles', f))));
+  check('vendor styles byte-identical to ../savant-ds (npm run sync:ds to fix)',
+    drifted.length === 0, drifted.join(', '));
 }
 
 // ── 2. angular.json includePaths on both SCSS-compiling targets ───────────
@@ -104,7 +127,10 @@ check("styles.scss loads 'tokens' via the package",
 const srcEntries = existsSync(path.join(ROOT, 'src'))
   ? readdirSync(path.join(ROOT, 'src'))
   : [];
-const SHADOWABLE = ['tokens', 'index', 'page', 'dialog', 'feedback'];
+// Derived from the installed package's styles/ dir — a new partial name
+// (data-display shipped in #1052) enters the guard automatically.
+const SHADOWABLE = (existsSync(STYLES_DIR) ? readdirSync(STYLES_DIR) : [])
+  .map((f) => f.replace(/^_/, '').replace(/\.(scss|sass|css)$/, ''));
 const shadows = srcEntries.filter((e) =>
   SHADOWABLE.includes(e)
   || SHADOWABLE.some((n) => e === `_${n}.scss` || e === `${n}.scss` || e === `_${n}.sass` || e === `${n}.sass`),

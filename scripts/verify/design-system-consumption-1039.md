@@ -6,10 +6,16 @@ in a scratch consumer; this checks the real wiring the app builds with.
 
 ## What it checks
 
-- `package.json` declares `"savant-ds": "file:../savant-ds"`
+- `package.json` declares `"savant-ds": "file:vendor/savant-ds"` — the
+  **committed** copy (#1071: `file:../savant-ds` can't resolve in cloud
+  builds; `../savant-ds` stays the source of truth, synced via
+  `npm run sync:ds`)
 - `node_modules/savant-ds` exists, is a **link/junction** (not a copied
-  dir — edits must propagate), and its realpath resolves to the sibling
-  `../savant-ds` checkout
+  dir — vendor edits must propagate), and its realpath resolves to
+  `vendor/savant-ds`
+- **Vendor drift** — every file in `vendor/savant-ds/styles/` is
+  byte-identical to `../savant-ds/styles/` (names + contents); an
+  unsynced package edit FAILs with the `npm run sync:ds` remedy
 - `angular.json` carries `stylePreprocessorOptions.includePaths:
   ["node_modules/savant-ds/styles"]` on **both** SCSS-compiling targets
   (`build` and `test` — component styles compile under karma too)
@@ -17,9 +23,11 @@ in a scratch consumer; this checks the real wiring the app builds with.
   package specifier
 - **No `src/` shadow** — Sass resolves `@use 'tokens'` importer-relative
   before loadPaths, so a future `src/_tokens.scss` (or `tokens.scss`,
-  `tokens/`, and the same for `index`/`page`/`dialog`/`feedback`) would
+  `tokens/`, and the same for every package partial name) would
   silently reroute the layer while every other check stays green. The
-  relay asserts no same-named file/dir exists at `src/` root.
+  shadowable-name list is **derived** from the installed `styles/` dir,
+  so new partials (e.g. `data-display` in #1052) enter the guard
+  automatically.
 - A `sass.compileString("@use 'tokens'")` through the real installed
   includePaths emits **every** `--ds-*` token declared in
   `_tokens.scss` (read live from the package — not hard-coded) scoped to
