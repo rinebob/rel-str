@@ -8,6 +8,7 @@
  */
 
 import type { Firestore, Transaction } from 'firebase-admin/firestore';
+import { FieldPath } from 'firebase-admin/firestore';
 import { buildAccountId, buildRawQuoteId } from '@paper-trading/ids';
 import {
   isPaperAccount,
@@ -108,6 +109,7 @@ export async function listTrades(
   if (filters.variantKey) {
     query = query.where('variantKeys', 'array-contains', filters.variantKey);
   }
+  if (filters.ticketId) eq('ticket.ticketId', filters.ticketId);
   const snap = await query.get();
   return snap.docs
     .map((d) => ({ id: d.id, ...(d.data() as object) }) as PaperTradingDoc)
@@ -302,6 +304,25 @@ export async function markSignalTrade(
     });
     return true;
   });
+}
+
+/**
+ * Trade doc ids under a prefix — used by the #1005 expression-fill pass to
+ * allocate the trailing `{NN}` of a canonical `stTradeId`
+ * (`{SYM}-{YYMMDD}-{origin}-{expr}[-{exp}-{strike}]-{NN}`). Document-id
+ * range query, `select()` so only ids cross the wire. Advisory scan — the
+ * ledger's entry-fill re-checks existence inside its transaction.
+ */
+export async function listTradeDocIdsByPrefix(
+  db: Firestore,
+  prefix: string,
+): Promise<string[]> {
+  const snap = await paperItemsRef(db, PaperTradingKind.TRADE)
+    .select()
+    .where(FieldPath.documentId(), '>=', prefix)
+    .where(FieldPath.documentId(), '<=', `${prefix}\uffff`)
+    .get();
+  return snap.docs.map((d) => d.id);
 }
 
 // ── Trade-id collision ──────────────────────────────────────────────────────
