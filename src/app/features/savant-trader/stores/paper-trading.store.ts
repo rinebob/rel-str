@@ -1,8 +1,8 @@
 /**
  * Signal-based store for the paper trade dashboard. Holds the account,
- * the trades list (with the active filter request), stats docs, exit
- * variants, and loading/error state. Mirrors the
- * OptionsStrategyDashboardStore pattern.
+ * the trades list (with the active filter request), exit variants,
+ * and loading/error state. Mirrors the OptionsStrategyDashboardStore
+ * pattern.
  */
 
 import { computed, inject, DestroyRef } from '@angular/core';
@@ -14,7 +14,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, EMPTY, finalize, of, Subscription } from 'rxjs';
+import { catchError, finalize, of, Subscription } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { PaperTradingService } from '../services/paper-trading.service';
@@ -22,15 +22,13 @@ import type {
   ExitVariantConfig,
   ListPaperTradesRequest,
   PaperAccount,
-  PaperStats,
   PaperTrade,
 } from '@paper-trading/contracts';
 import { PaperTradeStatus } from '@paper-trading/contracts';
 
 const NO_GROUP = 'none';
 
-/** Bucket for trades missing an auto-paper stamp field — keeps the '—'
- *  placeholder out of statsScope mapping (no stats doc exists for it). */
+/** Bucket label for trades missing an auto-paper stamp field. */
 const NO_STAMP = '—';
 
 /** Group trades by a key projection — multi-key projections (variantKeys)
@@ -57,11 +55,8 @@ export interface PaperTradingState {
   tradeFilters: ListPaperTradesRequest;
   trades: PaperTrade[];
   account: PaperAccount | null;
-  /** Stats docs keyed by scope for the dashboard scope selector. */
-  statsByScope: Record<string, PaperStats>;
   exitVariants: ExitVariantConfig[];
   isLoadingTrades: boolean;
-  isLoadingStats: boolean;
   isLoadingAccount: boolean;
   error: string | null;
 }
@@ -70,10 +65,8 @@ const initialState: PaperTradingState = {
   tradeFilters: {},
   trades: [],
   account: null,
-  statsByScope: {},
   exitVariants: [],
   isLoadingTrades: false,
-  isLoadingStats: false,
   isLoadingAccount: false,
   error: null,
 };
@@ -91,10 +84,7 @@ export const PaperTradingStore = signalStore(
   withComputed((state) => ({
     /** True while any section is loading. */
     isLoading: computed(
-      () =>
-        state.isLoadingTrades() ||
-        state.isLoadingStats() ||
-        state.isLoadingAccount(),
+      () => state.isLoadingTrades() || state.isLoadingAccount(),
     ),
 
     isEmpty: computed(
@@ -110,16 +100,6 @@ export const PaperTradingStore = signalStore(
     pendingTrades: computed(() =>
       state.trades().filter((t) => t.status === PaperTradeStatus.PENDING),
     ),
-
-    /** All stats docs, sorted by scope for the scope selector. */
-    statsList: computed(() =>
-      Object.values(state.statsByScope()).sort((a, b) =>
-        a.scope.localeCompare(b.scope),
-      ),
-    ),
-
-    /** The global rollup when present. */
-    allScopeStats: computed(() => state.statsByScope()['all'] ?? null),
 
     /** Derived filter options from the loaded trades. */
     availableInstances: computed(() =>
@@ -154,9 +134,8 @@ export const PaperTradingStore = signalStore(
     ),
 
     /** Auto-paper stamp dims (#921) — manual/unstamped trades bucket
-     *  under '—'. Direction also gates on signalType so group membership
-     *  matches the stats-dir-* scope contents (the BE only emits dir-*
-     *  for signal trades). */
+     *  under '—'. Direction gates on signalType: only signal-stamped
+     *  trades expose a long/short side. */
     tradesBySignalType: computed(() =>
       groupTradesBy(state.trades(), (t) => [t.signalType ?? NO_STAMP]),
     ),
@@ -187,7 +166,6 @@ export const PaperTradingStore = signalStore(
       destroyRef = inject(DestroyRef),
     ) => {
       let tradesSub: Subscription | null = null;
-      let statsSub: Subscription | null = null;
       let accountSub: Subscription | null = null;
       let variantsSub: Subscription | null = null;
 
@@ -218,41 +196,6 @@ export const PaperTradingStore = signalStore(
             )
             .subscribe({
               next: (res) => patchState(state, { trades: res.trades }),
-            });
-        },
-
-        /** Load stats — a named scope, or every doc when scope is omitted. */
-        loadStats(scope?: string): void {
-          statsSub?.unsubscribe();
-          patchState(state, { isLoadingStats: true, error: null });
-
-          statsSub = service
-            .getPaperStats$(scope ? { scope } : {})
-            .pipe(
-              catchError((err) => {
-                const msg = toMessage(err, 'Failed to load paper stats');
-                patchState(state, { error: msg });
-                snackBar.open(msg, 'Dismiss', { duration: 5000 });
-                // EMPTY keeps `next` from firing — a failed enumerate-all
-                // must not wholesale-replace statsByScope with {}.
-                return EMPTY;
-              }),
-              finalize(() => patchState(state, { isLoadingStats: false })),
-              takeUntilDestroyed(destroyRef),
-            )
-            .subscribe({
-              next: (res) => {
-                const incoming = Object.fromEntries(
-                  res.stats.map((s) => [s.scope, s]),
-                );
-                // Omitted scope enumerates every stats doc — replace the
-                // map wholesale so scopes deleted server-side drop out.
-                // A scoped fetch is a partial read — merge it in.
-                const statsByScope = scope
-                  ? { ...state.statsByScope(), ...incoming }
-                  : incoming;
-                patchState(state, { statsByScope });
-              },
             });
         },
 
@@ -304,11 +247,10 @@ export const PaperTradingStore = signalStore(
           this.loadTrades(filters);
         },
 
-        /** Load account + trades + stats in parallel. */
+        /** Load account + trades in parallel. */
         loadAll(): void {
           this.loadAccount();
           this.loadTrades();
-          this.loadStats();
         },
       };
     },

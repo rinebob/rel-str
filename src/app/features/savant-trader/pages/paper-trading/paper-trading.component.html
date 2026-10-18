@@ -1,46 +1,47 @@
-<!-- @topic #553 — Paper Trading Infra | @task #569 -->
+<!-- @topic #553 — Paper Trading Infra | @task #569, #1067 -->
 <div class="paper-trading-dashboard">
   <div class="dashboard-header">
     <div class="header-left">
+      @let account = store.account();
       <div class="header-stats">
         <div class="stat-card">
           <span class="stat-label">Cash</span>
-          <span class="stat-value" [class.negative]="(store.account()?.cash ?? 0) < 0">
-            {{ store.account() ? currency(store.account()!.cash) : '—' }}
+          <span class="stat-value" [class.negative]="(account?.cash ?? 0) < 0">
+            {{ account ? (account.cash | currency:'USD') : '—' }}
           </span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Equity</span>
-          <span class="stat-value" [class.negative]="(store.account()?.equity ?? 0) < 0">
-            {{ store.account() ? currency(store.account()!.equity) : '—' }}
+          <span class="stat-value" [class.negative]="(account?.equity ?? 0) < 0">
+            {{ account ? (account.equity | currency:'USD') : '—' }}
           </span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Realized</span>
           <span class="stat-value"
-            [class.positive]="(store.account()?.realizedPnl ?? 0) > 0"
-            [class.negative]="(store.account()?.realizedPnl ?? 0) < 0">
-            {{ store.account() ? currency(store.account()!.realizedPnl) : '—' }}
+            [class.positive]="(account?.realizedPnl ?? 0) > 0"
+            [class.negative]="(account?.realizedPnl ?? 0) < 0">
+            {{ account ? (account.realizedPnl | currency:'USD') : '—' }}
           </span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Unrealized</span>
           <span class="stat-value" [class.positive]="unrealizedPnl() > 0" [class.negative]="unrealizedPnl() < 0">
-            {{ currency(unrealizedPnl()) }}
+            {{ unrealizedPnl() | currency:'USD' }}
           </span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Capital Required</span>
-          <span class="stat-value">{{ currency(capitalRequired()) }}</span>
+          <span class="stat-value">{{ capitalRequired() | currency:'USD' }}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Open</span>
-          <span class="stat-value">{{ store.account()?.openTradeCount ?? store.openTrades().length }}</span>
+          <span class="stat-value">{{ account?.openTradeCount ?? store.openTrades().length }}</span>
         </div>
       </div>
     </div>
     <div class="header-actions">
-      <mat-form-field appearance="outline" class="scope-select">
+      <mat-form-field appearance="outline" class="group-select">
         <mat-label>Group by</mat-label>
         <mat-select [value]="groupBy()" (selectionChange)="groupBy.set($event.value)">
           <mat-option value="all">All trades</mat-option>
@@ -57,7 +58,7 @@
           <mat-option value="signalStatus">Signal Status</mat-option>
         </mat-select>
       </mat-form-field>
-      <a mat-stroked-button [routerLink]="'/' + appRoutes.STRATEGY_BUILDER" class="manage-strategies-btn">
+      <a mat-stroked-button [routerLink]="'/' + appRoutes.STRATEGY_BUILDER">
         Strategy Builder
       </a>
     </div>
@@ -76,8 +77,6 @@
       <p>No paper trades yet. Accept a signal as paper from the signal-order page, or launch a strategy from the strategy builder.</p>
     </div>
   } @else {
-    <div class="dashboard-split">
-      <!-- Left: grouped trades -->
       <div class="trades-panel">
         @for (group of groupedTrades(); track group.key) {
           <div class="table-section" [attr.data-group-key]="group.key">
@@ -90,38 +89,36 @@
               } @else if (dimLabel()) {
                 {{ dimLabel() }}: {{ group.key }}
               } @else {
-                {{ group.key }}
-              }
-              @if (scopeForGroup(group.key)) {
-                <button
-                  mat-icon-button
-                  class="scope-jump"
-                  matTooltip="Show {{ group.key }} equity curve"
-                  (click)="selectGroupScope(group.key)"
-                >
-                  <mat-icon>show_chart</mat-icon>
-                </button>
+                {{ group.key === 'all' ? 'All trades' : group.key }}
               }
               <span class="group-stats">
                 {{ group.trades.length }} trades · {{ group.openCount }} open
                 @if (group.pendingCount > 0) { · {{ group.pendingCount }} pending } ·
                 <span [class.positive]="group.realizedPnl > 0" [class.negative]="group.realizedPnl < 0">
-                  {{ currency(group.realizedPnl) }} realized
+                  {{ group.realizedPnl | currency:'USD' }} realized
                 </span>
               </span>
             </h2>
 
+            @if (groupBy() !== 'cohort' || selectedCohort() === group.key) {
+            <div class="table-scroll">
             <table class="trades-table">
               <thead>
                 <tr>
-                  <th scope="col">ID</th>
-                  <th scope="col">Symbol</th>
-                  <th scope="col">Expr</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Qty</th>
-                  <th scope="col">Variant</th>
-                  <th scope="col">Realized</th>
-                  <th scope="col">Unrealized</th>
+                  @for (col of COLUMNS; track col.key) {
+                    <th scope="col" class="sortable" tabindex="0" role="button"
+                        title="Click to sort · shift+click to add a secondary sort"
+                        (click)="toggleSort(col.key, $event)"
+                        (keydown.enter)="toggleSort(col.key, $event)"
+                        (keydown.space)="toggleSort(col.key, $event); $event.preventDefault()"
+                        [attr.aria-sort]="sortAria(col.key)">
+                      {{ col.label }}
+                      @let icon = sortIcon(col.key);
+                      @if (icon) { <mat-icon class="sort-icon">{{ icon }}</mat-icon> }
+                      @let rank = sortRank(col.key);
+                      @if (rank !== null) { <span class="sort-rank">{{ rank }}</span> }
+                    </th>
+                  }
                 </tr>
               </thead>
               <tbody>
@@ -134,77 +131,21 @@
                     <td>{{ trade.order.quantity }}</td>
                     <td>{{ trade.governingVariant }}</td>
                     <td [class.positive]="trade.realizedPnl > 0" [class.negative]="trade.realizedPnl < 0">
-                      {{ currency(trade.realizedPnl) }}
+                      {{ trade.realizedPnl | currency:'USD' }}
                     </td>
                     <td [class.positive]="trade.unrealizedPnl > 0" [class.negative]="trade.unrealizedPnl < 0">
-                      {{ currency(trade.unrealizedPnl) }}
+                      {{ trade.unrealizedPnl | currency:'USD' }}
                     </td>
                   </tr>
                 }
               </tbody>
             </table>
-
-            <!-- Cohort drill-down: expression groups + variant outcomes -->
-            @if (groupBy() === 'cohort' && selectedCohort() === group.key) {
-              <div class="cohort-detail">
-                @for (expr of cohortExpressions(); track expr.expression) {
-                  <div class="expression-block">
-                    <h3 class="expression-title">Expression {{ expr.expression }}</h3>
-                    @for (trade of expr.trades; track trade.id) {
-                      <div class="variant-runs">
-                        <span class="trade-ref mono">{{ trade.id }}</span>
-                        <span class="trade-legs" title="legs">{{ legsSummary(trade) }}</span>
-                        <span class="trade-mark" title="last mark">mark: {{ lastMark(trade) }}</span>
-                        @for (run of trade.variantRuns; track run.variantKey) {
-                          <div class="variant-run" [class.governing]="run.governing">
-                            <span class="variant-key">{{ run.variantKey }}</span>
-                            @if (run.governing) { <span class="gov-badge">governing</span> }
-                            <span class="variant-outcome">{{ variantOutcome(run) }}</span>
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
+            </div>
             }
           </div>
+        } @empty {
+          <div class="empty-state"><p>No trades in this grouping.</p></div>
         }
       </div>
-
-      <!-- Right: equity curve -->
-      <div class="chart-panel">
-        <mat-form-field appearance="outline" class="scope-select">
-          <mat-label>Equity curve scope</mat-label>
-          <mat-select [value]="effectiveScope()" (selectionChange)="statsScope.set($event.value)">
-            @for (scope of scopeOptions(); track scope) {
-              <mat-option [value]="scope">{{ scope }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        @if (chartPoints().length > 0) {
-          <h2 class="section-title">Equity Curve — {{ effectiveScope() }}</h2>
-          <ejs-chart
-            [primaryXAxis]="primaryXAxis"
-            [primaryYAxis]="primaryYAxis"
-            [tooltip]="tooltip"
-          >
-            <e-series-collection>
-              <e-series
-                type="Line"
-                [dataSource]="chartPoints()"
-                xName="date"
-                yName="value"
-                name="Cumulative P&L"
-                [width]="2"
-                [animation]="animation"
-              ></e-series>
-            </e-series-collection>
-          </ejs-chart>
-        } @else {
-          <p class="empty-table-message">No equity curve data for this scope yet — stats are computed by the nightly pass.</p>
-        }
-      </div>
-    </div>
   }
 </div>

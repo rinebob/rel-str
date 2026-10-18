@@ -1,8 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { Component, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { ChartModule } from '@syncfusion/ej2-angular-charts';
 
 import { PaperTradingComponent } from './paper-trading.component';
 import { PaperTradingStore } from '../../stores/paper-trading.store';
@@ -12,7 +11,6 @@ import {
   PaperTradeSource,
   PaperTradingKind,
   type PaperAccount,
-  type PaperStats,
   type PaperTrade,
 } from '@paper-trading/contracts';
 
@@ -43,24 +41,6 @@ function makeTrade(id: string, overrides: Partial<PaperTrade> = {}): PaperTrade 
   } as PaperTrade;
 }
 
-function makeStats(scope: string, overrides: Partial<PaperStats> = {}): PaperStats {
-  return {
-    id: `stats-${scope}`,
-    kind: PaperTradingKind.STATS,
-    scope,
-    totalRealizedPnl: 0,
-    totalUnrealizedPnl: 0,
-    openTradeCount: 0,
-    closedTradeCount: 0,
-    maxDrawdown: 0,
-    equityCurve: [
-      { date: '2026-09-01', cumulativePnl: 0 },
-      { date: '2026-09-02', cumulativePnl: 100 },
-    ],
-    ...overrides,
-  } as PaperStats;
-}
-
 const ACCOUNT: PaperAccount = {
   id: 'acct-u1',
   kind: PaperTradingKind.ACCOUNT,
@@ -70,17 +50,6 @@ const ACCOUNT: PaperAccount = {
   realizedPnl: 1200,
   openTradeCount: 3,
 } as PaperAccount;
-
-// =============================================================================
-// Syncfusion chart stubs — the real ejs-chart can't render under jsdom.
-// =============================================================================
-
-@Component({ selector: 'ejs-chart', template: '<div class="stub-chart"></div>' })
-class StubEjsChart {}
-@Component({ selector: 'e-series-collection', template: '' })
-class StubSeriesCollection {}
-@Component({ selector: 'e-series', template: '' })
-class StubSeries {}
 
 // =============================================================================
 
@@ -93,11 +62,7 @@ describe('PaperTradingComponent', () => {
     makeTrade('pt-aapl-sig-x-eq', {
       cohortId: 'cohort-x', symbol: 'AAPL', expression: 'EQ',
       governingVariant: 'exit-14d', realizedPnl: 50, unrealizedPnl: 10,
-      variantRuns: [
-        { variantKey: 'exit-14d', governing: true, state: 'ACTIVE', workingState: {} },
-        { variantKey: 'exit-7d', governing: false, state: 'EXITED', workingState: {},
-          exitEvent: { date: '2026-09-05', price: 1.2, pnl: 30, daysHeld: 7 } },
-      ],
+      signalType: 'D_ST_TREND_RIDER_V1_LONG',
     }),
     makeTrade('pt-aapl-sig-x-csp', {
       cohortId: 'cohort-x', symbol: 'AAPL', expression: 'CSP',
@@ -107,6 +72,10 @@ describe('PaperTradingComponent', () => {
     makeTrade('pt-nvda-sig-y-eq', {
       cohortId: 'cohort-y', symbol: 'NVDA', expression: 'EQ',
       status: PaperTradeStatus.PENDING, unrealizedPnl: -5,
+      // Stamped short signal — the real direction grouper puts stamped
+      // trades under order.side, unstamped under '—'.
+      signalType: 'D_ST_TREND_RIDER_V1_SHORT',
+      order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 10 },
     }),
   ];
 
@@ -114,22 +83,10 @@ describe('PaperTradingComponent', () => {
     storeMock = {
       account: signal<PaperAccount | null>(ACCOUNT),
       trades: signal<PaperTrade[]>(TRADES),
-      // Cohort stats scope is the cohortId itself (already 'cohort-' prefixed).
-      statsByScope: signal<Record<string, PaperStats>>({
-        all: makeStats('all'),
-        'cohort-x': makeStats('cohort-x'),
-      }),
-      statsList: signal<PaperStats[]>([makeStats('all'), makeStats('cohort-x')]),
-      exitVariants: signal([]),
       error: signal<string | null>(null),
       isLoading: signal(false),
-      isLoadingAccount: signal(false),
-      isLoadingTrades: signal(false),
-      isLoadingStats: signal(false),
       isEmpty: signal(false),
       openTrades: signal(TRADES.filter((t) => t.status === PaperTradeStatus.OPEN)),
-      closedTrades: signal(TRADES.filter((t) => t.status === PaperTradeStatus.CLOSED)),
-      pendingTrades: signal(TRADES.filter((t) => t.status === PaperTradeStatus.PENDING)),
       // Real Maps — the store's tradesBy* computeds return Map, not Record.
       tradesByInstance: signal(new Map([['none', TRADES]])),
       tradesByCohort: signal(new Map<string, PaperTrade[]>([
@@ -150,7 +107,8 @@ describe('PaperTradingComponent', () => {
       ])),
       tradesBySignalType: signal(new Map<string, PaperTrade[]>([
         ['D_ST_TREND_RIDER_V1_LONG', [TRADES[0]]],
-        ['—', [TRADES[1], TRADES[2]]],
+        ['D_ST_TREND_RIDER_V1_SHORT', [TRADES[2]]],
+        ['—', [TRADES[1]]],
       ])),
       tradesByDirection: signal(new Map<string, PaperTrade[]>([
         ['long', [TRADES[0]]],
@@ -159,8 +117,7 @@ describe('PaperTradingComponent', () => {
       ])),
       tradesBySector: signal(new Map<string, PaperTrade[]>([
         ['TECHNOLOGY', [TRADES[0], TRADES[1]]],
-        ['!!!', [TRADES[2]]], // un-sluggable — scopeSlug rejects it
-        ['—', [TRADES[1]]],
+        ['—', [TRADES[2]]],
       ])),
       tradesByIndustry: signal(new Map<string, PaperTrade[]>([
         ['Software - Application', [TRADES[0]]],
@@ -175,10 +132,6 @@ describe('PaperTradingComponent', () => {
         ['—', [TRADES[2]]],
       ])),
       loadAll: jest.fn(),
-      loadAccount: jest.fn(),
-      loadTrades: jest.fn(),
-      loadStats: jest.fn(),
-      loadExitVariants: jest.fn(),
     };
 
     await TestBed.configureTestingModule({
@@ -188,12 +141,7 @@ describe('PaperTradingComponent', () => {
         provideRouter([]),
         { provide: PaperTradingStore, useValue: storeMock },
       ],
-    })
-      .overrideComponent(PaperTradingComponent, {
-        remove: { imports: [ChartModule] },
-        add: { imports: [StubEjsChart, StubSeriesCollection, StubSeries] },
-      })
-      .compileComponents();
+    }).compileComponents();
 
     fixture = TestBed.createComponent(PaperTradingComponent);
     component = fixture.componentInstance;
@@ -243,23 +191,6 @@ describe('PaperTradingComponent', () => {
     expect(keys).toContain('NVDA');
   });
 
-  it('cohort drill-down shows expression groups with variant outcomes', () => {
-    fixture.detectChanges();
-    component.groupBy.set('cohort');
-    component.toggleCohort('cohort-x');
-    fixture.detectChanges();
-
-    const detail = fixture.nativeElement.querySelector('.cohort-detail');
-    expect(detail).toBeTruthy();
-    // Two expression blocks (EQ + CSP) for cohort-x.
-    expect(detail.querySelectorAll('.expression-block').length).toBe(2);
-    // Variant runs rendered: governing badge + shadow outcome.
-    expect(detail.textContent).toContain('exit-14d');
-    expect(detail.textContent).toContain('governing');
-    expect(detail.textContent).toContain('2026-09-05');
-    expect(detail.textContent).toContain('+$30.00');
-  });
-
   it('toggling the same cohort collapses the drill-down', () => {
     fixture.detectChanges();
     component.toggleCohort('cohort-x');
@@ -268,28 +199,125 @@ describe('PaperTradingComponent', () => {
     expect(component.selectedCohort()).toBeNull();
   });
 
-  it('equity curve scope selector defaults to all and repivots per scope', () => {
+  it('clicking a column header sorts rows within the group; re-click flips direction', () => {
     fixture.detectChanges();
-    expect(component.effectiveScope()).toBe('all');
-    expect(component.chartPoints().length).toBe(2);
+    component.groupBy.set('all');
+    component.toggleSort('symbol');
+    fixture.detectChanges();
 
-    component.statsScope.set('cohort-x');
+    const rows = () =>
+      [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')].map(
+        (r: Element) => r.textContent,
+      );
+    let text = rows().join('|');
+    expect(text.indexOf('AAPL')).toBeLessThan(text.indexOf('NVDA')); // asc
+
+    component.toggleSort('symbol');
     fixture.detectChanges();
-    expect(component.scopedStats()?.scope).toBe('cohort-x');
+    text = rows().join('|');
+    expect(text.indexOf('NVDA')).toBeLessThan(text.indexOf('AAPL')); // desc
   });
 
-  it('group-by couples to the equity curve via the scope-jump button', () => {
+  it('numeric columns sort numerically, not lexically', () => {
+    fixture.detectChanges();
+    component.groupBy.set('all');
+    component.toggleSort('realized');
+    fixture.detectChanges();
+
+    const ids = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')].map(
+      (r: Element) => r.querySelector('.mono')!.textContent,
+    );
+    // realizedPnl: pt-nvda 0 < pt-aapl-sig-x-eq 50 < pt-aapl-sig-x-csp 80
+    expect(ids).toEqual(['pt-nvda-sig-y-eq', 'pt-aapl-sig-x-eq', 'pt-aapl-sig-x-csp']);
+  });
+
+  it('shift-adds a secondary sort key applied within primary ties', () => {
+    fixture.detectChanges();
+    component.groupBy.set('all');
+    component.toggleSort('symbol'); // primary: AAPL trades before NVDA
+    component.toggleSort('realized', true); // secondary asc — flips to desc below
+    component.toggleSort('realized', true);
+    fixture.detectChanges();
+
+    expect(component.sorts()).toEqual([
+      { key: 'symbol', dir: 'asc' },
+      { key: 'realized', dir: 'desc' },
+    ]);
+    const ids = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')].map(
+      (r: Element) => r.querySelector('.mono')!.textContent,
+    );
+    // AAPL pair ordered by secondary realized desc: csp(80) then eq(50)
+    expect(ids).toEqual(['pt-aapl-sig-x-csp', 'pt-aapl-sig-x-eq', 'pt-nvda-sig-y-eq']);
+  });
+
+  it('a sorted column cycles asc → desc → removed', () => {
+    fixture.detectChanges();
+    component.toggleSort('symbol');
+    component.toggleSort('symbol');
+    expect(component.sortAria('symbol')).toBe('descending');
+    component.toggleSort('symbol');
+    expect(component.sortAria('symbol')).toBe('none');
+    expect(component.sorts()).toEqual([]);
+  });
+
+  it('sort applies per-group when grouped by a dimension', () => {
+    fixture.detectChanges();
+    component.groupBy.set('cohort');
+    component.toggleCohort('cohort-x'); // cohort sections render collapsed
+    component.toggleSort('realized');
+    component.toggleSort('realized'); // desc
+    fixture.detectChanges();
+
+    const cohortX = [...fixture.nativeElement.querySelectorAll('.table-section')]
+      .find((g) => g.getAttribute('data-group-key') === 'cohort-x');
+    const ids = [...cohortX!.querySelectorAll('tbody tr')].map(
+      (r: Element) => r.querySelector('.mono')!.textContent,
+    );
+    // desc within cohort-x: csp (80) before eq (50)
+    expect(ids).toEqual(['pt-aapl-sig-x-csp', 'pt-aapl-sig-x-eq']);
+  });
+
+  it('clicking a rendered column header drives the sort (wiring, not internals)', () => {
+    fixture.detectChanges();
+    const headers = [...fixture.nativeElement.querySelectorAll('th.sortable')] as HTMLElement[];
+    const symbolTh = headers.find((h) => h.textContent!.includes('Symbol'))!;
+
+    symbolTh.click();
+    fixture.detectChanges();
+    let ids = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')].map(
+      (r: Element) => r.querySelector('.mono')!.textContent,
+    );
+    expect(ids).toEqual(['pt-aapl-sig-x-eq', 'pt-aapl-sig-x-csp', 'pt-nvda-sig-y-eq']); // asc
+    expect(symbolTh.getAttribute('aria-sort')).toBe('ascending');
+
+    symbolTh.click();
+    fixture.detectChanges();
+    ids = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')].map(
+      (r: Element) => r.querySelector('.mono')!.textContent,
+    );
+    expect(ids).toEqual(['pt-nvda-sig-y-eq', 'pt-aapl-sig-x-eq', 'pt-aapl-sig-x-csp']); // desc
+    expect(symbolTh.getAttribute('aria-sort')).toBe('descending');
+  });
+
+  it('cohort sections render collapsed — table hidden until the expando opens', () => {
     fixture.detectChanges();
     component.groupBy.set('cohort');
     fixture.detectChanges();
 
-    component.selectGroupScope('cohort-x');
-    expect(component.statsScope()).toBe('cohort-x');
-    expect(component.scopedStats()?.scope).toBe('cohort-x');
+    const section = (key: string) =>
+      [...fixture.nativeElement.querySelectorAll('.table-section')]
+        .find((g) => g.getAttribute('data-group-key') === key) as HTMLElement;
 
-    // Rendering exposes the jump affordance per group section.
-    const jump = fixture.nativeElement.querySelector('.scope-jump');
-    expect(jump).toBeTruthy();
+    expect(section('cohort-x').querySelector('.trades-table')).toBeNull();
+
+    component.toggleCohort('cohort-x');
+    fixture.detectChanges();
+    expect(section('cohort-x').querySelector('.trades-table')).toBeTruthy();
+    expect(section('cohort-y').querySelector('.trades-table')).toBeNull(); // accordion
+
+    component.toggleCohort('cohort-x');
+    fixture.detectChanges();
+    expect(section('cohort-x').querySelector('.trades-table')).toBeNull(); // closes
   });
 
   it.each([
@@ -319,54 +347,12 @@ describe('PaperTradingComponent', () => {
     expect(keys).toContain('short');
   });
 
-  it.each([
-    ['signalType', 'D_ST_TREND_RIDER_V1_LONG', 'sigtype-d-st-trend-rider-v1-long'],
-    ['direction', 'long', 'dir-long'],
-    ['sector', 'TECHNOLOGY', 'sector-technology'],
-    ['industry', 'Software - Application', 'ind-software-application'],
-    ['capTier', 'mega', 'captier-mega'],
-    ['signalStatus', 'CONFIRMED', 'sigstatus-confirmed'],
-  ] as const)('scope-jump on %s group repivots the curve to %s', (dim, key, scope) => {
-    component.groupBy.set(dim);
-    component.selectGroupScope(key);
-    expect(component.statsScope()).toBe(scope);
-  });
-
-  it('"—" group keys leave the stats scope unchanged and hide the jump button', () => {
+  it('the equity curve panel and scope plumbing are gone (#1067)', () => {
     fixture.detectChanges();
-    component.groupBy.set('sector');
-    fixture.detectChanges();
-
-    component.statsScope.set('sym-AAPL');
-    component.selectGroupScope('—');
-    expect(component.statsScope()).toBe('sym-AAPL');
-
-    const dashGroup = [...fixture.nativeElement.querySelectorAll('.table-section')]
-      .find((g) => g.getAttribute('data-group-key') === '—');
-    expect(dashGroup).toBeTruthy();
-    expect(dashGroup!.querySelector('.scope-jump')).toBeNull();
-  });
-
-  it('an un-sluggable group key gets no jump button and cannot repivot', () => {
-    fixture.detectChanges();
-    component.groupBy.set('sector');
-    fixture.detectChanges();
-
-    const junkGroup = [...fixture.nativeElement.querySelectorAll('.table-section')]
-      .find((g) => g.getAttribute('data-group-key') === '!!!');
-    expect(junkGroup).toBeTruthy();
-    expect(junkGroup!.querySelector('.scope-jump')).toBeNull();
-
-    component.selectGroupScope('!!!');
-    expect(component.statsScope()).toBe('all');
-  });
-
-  it('falls back to the all scope when the selected scope disappears', () => {
-    fixture.detectChanges();
-    component.statsScope.set('cohort-x');
-    storeMock.statsByScope.set({ all: makeStats('all') });
-    fixture.detectChanges();
-    expect(component.effectiveScope()).toBe('all');
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.chart-panel')).toBeNull();
+    expect(el.querySelector('ejs-chart')).toBeNull();
+    expect(el.querySelector('.scope-jump')).toBeNull();
   });
 
   it('capital required counts only open/pending trades', () => {
@@ -375,27 +361,6 @@ describe('PaperTradingComponent', () => {
     const closed = { ...TRADES[1], capitalRequired: 5000 };
     storeMock.trades.set([TRADES[0], closed, { ...TRADES[2], capitalRequired: 100 }]);
     expect(component.capitalRequired()).toBe(100);
-  });
-
-  it('cohort drill-down renders legs summary and last mark', () => {
-    storeMock.trades.set([
-      makeTrade('pt-legs', {
-        cohortId: 'cohort-x', expression: 'CSP', status: PaperTradeStatus.OPEN,
-        legs: [
-          { kind: PaperTradingKind.TRADE, id: 'leg-1', side: TradeSide.SHORT, quantity: 1, multiplier: 100,
-            entryMark: 0.42, lastMark: 0.55 } as never,
-        ],
-        marks: { '2026-09-24': { mark: 0.55 }, '2026-09-25': { mark: 0.61 } },
-      }),
-    ]);
-    fixture.detectChanges();
-    component.groupBy.set('cohort');
-    component.toggleCohort('cohort-x');
-    fixture.detectChanges();
-
-    const text = fixture.nativeElement.textContent;
-    expect(text).toContain('short 1×100 @0.42→0.55');
-    expect(text).toContain('mark: 2026-09-25 @ $0.61');
   });
 
   it('empty state when no trades and no account', () => {

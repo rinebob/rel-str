@@ -1,10 +1,12 @@
 /**
- * @topic #553 — Paper Trading Infra | @task #569
+ * @topic #553 — Paper Trading Infra | @task #569, #1067
  *
  * Paper trading dashboard. Reads the paper ledger via PaperTradingStore
- * (listPaperTrades / getPaperStats / getPaperAccount) — client-side
- * group-by over the loaded trade list, cohort drill-down with
- * variant-run outcomes, account header (negative cash visible).
+ * (listPaperTrades / getPaperAccount) — client-side
+ * group-by over the loaded trade list, expandable cohort sections,
+ * account header (negative cash visible).
+ * #1067: sortable columns + sticky table headers; equity curve removed
+ * (forensics surface moves to the trade-analysis work, Thread #1059).
  */
 import { Component, ChangeDetectionStrategy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -13,49 +15,29 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import {
-  ChartModule,
-  LineSeriesService,
-  DateTimeService,
-  TooltipService,
-  LegendService,
-} from '@syncfusion/ej2-angular-charts';
 
 import { PaperTradingStore } from '../../stores/paper-trading.store';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import type { PaperTrade, PaperTradeLeg, VariantRun } from '@paper-trading/contracts';
-import {
-  statsScopeCohort,
-  statsScopeInstance,
-  statsScopeSymbol,
-  statsScopeVariant,
-  statsScopeSignalType,
-  statsScopeDirection,
-  statsScopeSector,
-  statsScopeIndustry,
-  statsScopeCapTier,
-  statsScopeSignalStatus,
-} from '@paper-trading/ids';
-import { TradeSide } from '@common';
+import { LIFECYCLE_OPEN_TRADE_STATUSES, PaperTradeStatus } from '@paper-trading/contracts';
+import type { PaperTrade } from '@paper-trading/contracts';
 
 export type GroupByKey =
   | 'all' | 'instance' | 'cohort' | 'variant' | 'expression' | 'symbol'
   | 'signalType' | 'direction' | 'sector' | 'industry' | 'capTier' | 'signalStatus';
 
-/** Group keys that carry no stats scope — unstamped ('—') and legacy
- *  ungrouped ('none') buckets skip the equity-curve repivot. */
-const NO_SCOPE_KEYS = new Set(['—', 'none']);
+export type SortKey =
+  | 'id' | 'symbol' | 'expression' | 'status' | 'qty' | 'variant'
+  | 'realized' | 'unrealized';
 
-/** Per-dimension config: the store grouping, the stats-scope builder
- *  (absent for dims with no stats doc — 'all', 'expression'), and an
- *  optional header label for dims whose raw keys need context
- *  ("Direction: long"). One table — a new dim touches one entry. */
+type SortDir = 'asc' | 'desc';
+
+/** Per-dimension config: the store grouping and an optional header label
+ *  for dims whose raw keys need context ("Direction: long"). One table —
+ *  a new dim touches one entry. */
 interface GroupDim {
   label?: string;
   map: () => Map<string, PaperTrade[]>;
-  scope?: (key: string) => string;
 }
 
 export interface TradeGroup {
@@ -67,21 +49,6 @@ export interface TradeGroup {
   pendingCount: number;
 }
 
-interface ChartPoint {
-  date: Date;
-  value: number;
-}
-
-/** Convert stats equity-curve points to chart points. */
-export function toChartPoints(
-  points: { date: string; cumulativePnl: number }[] | undefined,
-): ChartPoint[] {
-  return (points ?? [])
-    .filter((p) => p.date)
-    .map((p) => ({ date: new Date(p.date), value: p.cumulativePnl }))
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
-}
-
 function toTradeGroup(key: string, trades: PaperTrade[]): TradeGroup {
   let realized = 0;
   let unrealized = 0;
@@ -90,8 +57,8 @@ function toTradeGroup(key: string, trades: PaperTrade[]): TradeGroup {
   for (const t of trades) {
     realized += t.realizedPnl;
     unrealized += t.unrealizedPnl;
-    if (t.status === 'OPEN') openCount += 1;
-    if (t.status === 'PENDING') pendingCount += 1;
+    if (t.status === PaperTradeStatus.OPEN || t.status === PaperTradeStatus.ASSIGNED) openCount += 1;
+    if (t.status === PaperTradeStatus.PENDING) pendingCount += 1;
   }
   return { key, trades, realizedPnl: realized, unrealizedPnl: unrealized, openCount, pendingCount };
 }
@@ -107,11 +74,8 @@ function toTradeGroup(key: string, trades: PaperTrade[]): TradeGroup {
     MatProgressSpinnerModule,
     MatSelectModule,
     MatFormFieldModule,
-    MatTooltipModule,
     RouterLink,
-    ChartModule,
   ],
-  providers: [LineSeriesService, DateTimeService, TooltipService, LegendService],
   templateUrl: './paper-trading.component.html',
   styleUrl: './paper-trading.component.scss',
 })
@@ -122,75 +86,80 @@ export class PaperTradingComponent implements OnInit {
   /** Group-by dimension for the trades table. */
   readonly groupBy = signal<GroupByKey>('all');
 
-  /** Stats scope for the equity curve — 'all' or a per-dimension scope key. */
-  readonly statsScope = signal<string>('all');
+  /** Active column sorts, in priority order — plain click replaces the
+   *  list with a single sort; shift+click toggles a secondary key in or
+   *  out of the chain (asc → desc → remove). */
+  readonly sorts = signal<{ key: SortKey; dir: SortDir }[]>([]);
 
-  /** Cohort open in the drill-down panel (cohortId), or null. */
+  /** Cohort section expanded open (cohortId), or null — cohort sections
+   *  render collapsed (header + stats only) until toggled. */
   readonly selectedCohort = signal<string | null>(null);
 
-  /** One row per groupable dimension — drives groupedTrades, the group
-   *  header label, and the scope-jump button. */
+  /** Table columns — label + sort accessor; the thead iterates this. */
+  protected readonly COLUMNS: { key: SortKey; label: string; acc: (t: PaperTrade) => string | number }[] = [
+    { key: 'id', label: 'ID', acc: (t) => t.id },
+    { key: 'symbol', label: 'Symbol', acc: (t) => t.symbol },
+    { key: 'expression', label: 'Expr', acc: (t) => t.expression },
+    { key: 'status', label: 'Status', acc: (t) => t.status },
+    { key: 'qty', label: 'Qty', acc: (t) => t.order.quantity },
+    { key: 'variant', label: 'Variant', acc: (t) => t.governingVariant },
+    { key: 'realized', label: 'Realized', acc: (t) => t.realizedPnl },
+    { key: 'unrealized', label: 'Unrealized', acc: (t) => t.unrealizedPnl },
+  ];
+
+  /** One row per groupable dimension — drives groupedTrades and the group
+   *  header label. */
   private readonly GROUP_DIMS: Partial<Record<GroupByKey, GroupDim>> = {
-    instance: { map: () => this.store.tradesByInstance(), scope: statsScopeInstance },
-    cohort: { map: () => this.store.tradesByCohort(), scope: statsScopeCohort },
-    variant: { map: () => this.store.tradesByVariant(), scope: statsScopeVariant },
+    instance: { map: () => this.store.tradesByInstance() },
+    cohort: { map: () => this.store.tradesByCohort() },
+    variant: { map: () => this.store.tradesByVariant() },
     expression: { map: () => this.store.tradesByExpression() },
-    symbol: { map: () => this.store.tradesBySymbol(), scope: statsScopeSymbol },
-    signalType: { label: 'Signal Type', map: () => this.store.tradesBySignalType(), scope: statsScopeSignalType },
-    direction: { label: 'Direction', map: () => this.store.tradesByDirection(), scope: (k) => statsScopeDirection(k as TradeSide) },
-    sector: { label: 'Sector', map: () => this.store.tradesBySector(), scope: statsScopeSector },
-    industry: { label: 'Industry', map: () => this.store.tradesByIndustry(), scope: statsScopeIndustry },
-    capTier: { label: 'Cap Tier', map: () => this.store.tradesByCapTier(), scope: statsScopeCapTier },
-    signalStatus: { label: 'Signal Status', map: () => this.store.tradesBySignalStatus(), scope: statsScopeSignalStatus },
+    symbol: { map: () => this.store.tradesBySymbol() },
+    signalType: { label: 'Signal Type', map: () => this.store.tradesBySignalType() },
+    direction: { label: 'Direction', map: () => this.store.tradesByDirection() },
+    sector: { label: 'Sector', map: () => this.store.tradesBySector() },
+    industry: { label: 'Industry', map: () => this.store.tradesByIndustry() },
+    capTier: { label: 'Cap Tier', map: () => this.store.tradesByCapTier() },
+    signalStatus: { label: 'Signal Status', map: () => this.store.tradesBySignalStatus() },
   };
 
   /** Dimension label for group card headers, or null to show the raw key. */
   protected readonly dimLabel = computed(() => this.GROUP_DIMS[this.groupBy()]?.label ?? null);
 
-  // Chart config (same Syncfusion setup as the options dashboard).
-  readonly primaryXAxis = {
-    valueType: 'DateTime' as const,
-    labelFormat: 'MMM d',
-    majorGridLines: { width: 0 },
-  };
-  readonly primaryYAxis = {
-    labelFormat: '${value}',
-    rangePadding: 'Round' as const,
-  };
-  readonly tooltip = { enable: true };
-  readonly animation = { enable: false };
-
   ngOnInit(): void {
     this.store.loadAll();
   }
 
-  // ── Grouping ──────────────────────────────────────────────────────────────
+  // ── Grouping + sorting ────────────────────────────────────────────────────
 
-  /** Trades grouped per the selected dimension. The store's tradesBy*
-   *  computeds return Maps — iterate .entries(), not Object.entries. */
+  /** Trades grouped per the selected dimension, each group's rows sorted
+   *  per the active column sort. The store's tradesBy* computeds return
+   *  Maps — iterate .entries(), not Object.entries. */
   readonly groupedTrades = computed<TradeGroup[]>(() => {
     const map =
       this.GROUP_DIMS[this.groupBy()]?.map()
       ?? new Map<string, PaperTrade[]>([['all', this.store.trades()]]);
+    const sorts = this.sorts();
+    const accFor = (key: SortKey) => this.COLUMNS.find((c) => c.key === key)!.acc;
+    const sortTrades = (trades: PaperTrade[]): PaperTrade[] => {
+      if (!sorts.length) return trades;
+      return [...trades].sort((a, b) => {
+        for (const s of sorts) {
+          const acc = accFor(s.key);
+          const va = acc(a);
+          const vb = acc(b);
+          const cmp =
+            typeof va === 'number' && typeof vb === 'number'
+              ? va - vb
+              : String(va).localeCompare(String(vb));
+          if (cmp !== 0) return (s.dir === 'asc' ? 1 : -1) * cmp;
+        }
+        return 0;
+      });
+    };
     return [...map.entries()]
-      .map(([key, trades]) => toTradeGroup(key, trades))
+      .map(([key, trades]) => toTradeGroup(key, sortTrades(trades)))
       .sort((a, b) => b.trades.length - a.trades.length || a.key.localeCompare(b.key));
-  });
-
-  /** Cohort's trades grouped by expression (drill-down view). */
-  readonly cohortExpressions = computed<{ expression: string; trades: PaperTrade[] }[]>(() => {
-    const cohortId = this.selectedCohort();
-    if (!cohortId) return [];
-    const byExpression = new Map<string, PaperTrade[]>();
-    for (const t of this.store.trades().filter((x) => x.cohortId === cohortId)) {
-      const key = t.expression ?? '—';
-      const list = byExpression.get(key) ?? [];
-      list.push(t);
-      byExpression.set(key, list);
-    }
-    return [...byExpression.entries()]
-      .map(([expression, trades]) => ({ expression, trades }))
-      .sort((a, b) => a.expression.localeCompare(b.expression));
   });
 
   // ── Account header ────────────────────────────────────────────────────────
@@ -200,89 +169,62 @@ export class PaperTradingComponent implements OnInit {
     this.store.openTrades().reduce((s, t) => s + t.unrealizedPnl, 0),
   );
 
-  /** Capital required across open/pending trades only — closed trades
-   *  released their margin back to cash already. */
+  /** Capital required across lifecycle-active trades only — closed
+   *  trades released their margin back to cash already. */
   readonly capitalRequired = computed(() =>
     this.store
       .trades()
-      .filter((t) => t.status === 'OPEN' || t.status === 'PENDING')
+      .filter((t) => LIFECYCLE_OPEN_TRADE_STATUSES.has(t.status))
       .reduce((s, t) => s + (t.capitalRequired ?? 0), 0),
-  );
-
-  // ── Equity curve ──────────────────────────────────────────────────────────
-
-  /** Effective scope — falls back to 'all' when the selected scope no
-   *  longer exists in the stats set (e.g. after a reload). */
-  readonly effectiveScope = computed(() => {
-    const scopes = this.store.statsByScope();
-    return this.statsScope() in scopes ? this.statsScope() : 'all';
-  });
-
-  /** Stats doc for the selected scope (equity curve source). */
-  readonly scopedStats = computed(() => this.store.statsByScope()[this.effectiveScope()] ?? null);
-
-  readonly chartPoints = computed(() => toChartPoints(this.scopedStats()?.equityCurve));
-
-  /** Stable scope list for the scope selector (sorted, 'all' first). */
-  readonly scopeOptions = computed(() =>
-    this.store.statsList().map((s) => s.scope).sort((a, b) =>
-      a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b),
-    ),
   );
 
   // ── Template helpers ──────────────────────────────────────────────────────
 
-  /** Stats scope for a group key under the active dimension, or null when
-   *  the dim has no scope mapping, the key is a placeholder ('—'/'none'),
-   *  or the scope builder rejects the key. The template uses the same
-   *  check to hide the jump button, so a rendered button always repivots. */
-  scopeForGroup(key: string): string | null {
-    const fn = this.GROUP_DIMS[this.groupBy()]?.scope;
-    if (!fn || NO_SCOPE_KEYS.has(key)) return null;
-    try {
-      return fn(key);
-    } catch {
-      return null; // un-sluggable key (scopeSlug throws on empty slugs)
+  /** Header click: same column cycles asc → desc → removed; a new column
+   *  starts asc. Shift+click (additive) keeps the existing sort chain and
+   *  toggles this column as a lower-priority key. */
+  toggleSort(key: SortKey, ev?: MouseEvent | KeyboardEvent | Event | boolean): void {
+    const additive =
+      typeof ev === 'boolean' ? ev
+      : ev instanceof MouseEvent || ev instanceof KeyboardEvent ? ev.shiftKey
+      : false;
+    const cur = this.sorts();
+    const i = cur.findIndex((s) => s.key === key);
+    if (!additive) {
+      // Plain click keeps only this column; cycles asc → desc → unsorted.
+      this.sorts.set(
+        i === -1 ? [{ key, dir: 'asc' }]
+        : cur[i].dir === 'asc' ? [{ key, dir: 'desc' }]
+        : [],
+      );
+      return;
     }
+    const list = [...cur];
+    if (i === -1) list.push({ key, dir: 'asc' });
+    else if (list[i].dir === 'asc') list[i] = { key, dir: 'desc' };
+    else list.splice(i, 1);
+    this.sorts.set(list);
   }
 
-  /** Point the equity-curve scope at a group (couples group-by selection
-   *  to the chart per AC "repivots trades + curve per dimension"). */
-  selectGroupScope(key: string): void {
-    const scope = this.scopeForGroup(key);
-    if (scope) this.statsScope.set(scope);
+  /** Header indicator: mat-icon name for the active column, '' otherwise
+   *  (same convention as swing-table's sortIcon). */
+  sortIcon(key: SortKey): string {
+    const s = this.sorts().find((x) => x.key === key);
+    return s ? (s.dir === 'asc' ? 'arrow_upward' : 'arrow_downward') : '';
   }
 
-  currency(value: number | undefined): string {
-    if (value == null) return '—';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+  /** aria-sort value for the column header. */
+  sortAria(key: SortKey): 'ascending' | 'descending' | 'none' {
+    const s = this.sorts().find((x) => x.key === key);
+    return s ? (s.dir === 'asc' ? 'ascending' : 'descending') : 'none';
   }
 
-  /** Legs summary for the drill-down — "long 1x100 @0.42→0.55". */
-  legsSummary(trade: PaperTrade): string {
-    if (!trade.legs?.length) return '—';
-    return trade.legs
-      .map((l: PaperTradeLeg) => `${l.side} ${l.quantity}×${l.multiplier} @${l.entryMark}→${l.lastMark}`)
-      .join(', ');
-  }
-
-  /** Latest mark date + price, or '—' when unmarked. */
-  lastMark(trade: PaperTrade): string {
-    const dates = Object.keys(trade.marks ?? {}).sort();
-    if (!dates.length) return '—';
-    const day = dates[dates.length - 1];
-    const mark = trade.marks[day]?.mark;
-    return mark != null ? `${day} @ $${mark.toFixed(2)}` : day;
-  }
-
-  /** Variant outcome label for the drill-down (exit event or ACTIVE). */
-  variantOutcome(run: VariantRun): string {
-    if (run.exitEvent) {
-      const e = run.exitEvent;
-      const pnl = e.pnl >= 0 ? `+$${e.pnl.toFixed(2)}` : `-$${Math.abs(e.pnl).toFixed(2)}`;
-      return `${e.date} @ $${e.price.toFixed(2)} (${e.daysHeld}d, ${pnl})`;
-    }
-    return 'active';
+  /** 1-based priority badge — shown only when multiple sorts are active. */
+  sortRank(key: SortKey): number | null {
+    const list = this.sorts();
+    if (list.length < 2) return null;
+    const i = list.findIndex((s) => s.key === key);
+    return i === -1 ? null : i + 1;
   }
 
   toggleCohort(cohortId: string): void {

@@ -28,7 +28,6 @@ import {
 } from '@paper-trading/contracts';
 import type {
   PaperAccount,
-  PaperStats,
   PaperTrade,
 } from '@paper-trading/contracts';
 import { TradeSide } from '@common';
@@ -94,32 +93,12 @@ const ACCOUNT: PaperAccount = {
   updatedAt: NOW,
 };
 
-function makeStats(scope: string): PaperStats {
-  return {
-    kind: PaperTradingKind.STATS,
-    id: `stats-${scope}`,
-    scope,
-    openTradeCount: 1,
-    closedTradeCount: 0,
-    totalPremiumCollected: 100,
-    totalRealizedPnl: 0,
-    totalUnrealizedPnl: -25,
-    assignedCount: 0,
-    expiredWorthlessCount: 0,
-    equityCurve: [{ date: '2026-09-26', cumulativePnl: -25 }],
-    maxDrawdown: 0,
-    createdAt: NOW,
-    updatedAt: NOW,
-  };
-}
-
 // ── Test setup ───────────────────────────────────────────────────────────────
 
 describe('PaperTradingStore', () => {
   let store: InstanceType<typeof PaperTradingStore>;
   let mockService: {
     listPaperTrades$: jest.Mock;
-    getPaperStats$: jest.Mock;
     getPaperAccount$: jest.Mock;
     listExitVariants$: jest.Mock;
   };
@@ -127,7 +106,6 @@ describe('PaperTradingStore', () => {
   beforeEach(() => {
     mockService = {
       listPaperTrades$: jest.fn().mockReturnValue(of({ trades: [] })),
-      getPaperStats$: jest.fn().mockReturnValue(of({ stats: [] })),
       getPaperAccount$: jest.fn().mockReturnValue(of({ account: ACCOUNT })),
       listExitVariants$: jest.fn().mockReturnValue(of({ variants: [] })),
     };
@@ -190,24 +168,7 @@ describe('PaperTradingStore', () => {
     expect(store.availableVariantKeys()).toEqual(['time-9d', 'trailing-20']);
   });
 
-  // ── stats / account / variants ──────────────────────────────────────────
-
-  it('loadStats indexes docs by scope; omitted scope enumerates all', async () => {
-    mockService.getPaperStats$.mockReturnValue(of({ stats: [makeStats('all'), makeStats('sym-QQQM')] }));
-    store.loadStats();
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(mockService.getPaperStats$).toHaveBeenCalledWith({});
-    expect(store.allScopeStats()?.scope).toBe('all');
-    expect(store.statsByScope()['sym-QQQM'].openTradeCount).toBe(1);
-    expect(store.statsList().map((s) => s.scope)).toEqual(['all', 'sym-QQQM']);
-  });
-
-  it('loadStats with a scope forwards it', async () => {
-    mockService.getPaperStats$.mockReturnValue(of({ stats: [makeStats('sym-QQQM')] }));
-    store.loadStats('sym-QQQM');
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(mockService.getPaperStats$).toHaveBeenCalledWith({ scope: 'sym-QQQM' });
-  });
+  // ── account / variants ────────────────────────────────────────────────────
 
   it('loadAccount stores the account; missing account → null', async () => {
     store.loadAccount();
@@ -246,11 +207,11 @@ describe('PaperTradingStore', () => {
   });
 
   it('generic errors use the fallback message', async () => {
-    mockService.getPaperStats$.mockReturnValue(throwError(() => new Error('boom')));
-    store.loadStats();
+    mockService.getPaperAccount$.mockReturnValue(throwError(() => new Error('boom')));
+    store.loadAccount();
     await new Promise<void>((r) => setTimeout(r, 0));
-    expect(store.error()).toBe('Failed to load paper stats');
-    expect(store.isLoadingStats()).toBe(false);
+    expect(store.error()).toBe('Failed to load paper account');
+    expect(store.isLoadingAccount()).toBe(false);
   });
 
   it('error clears on the next successful load', async () => {
@@ -264,38 +225,6 @@ describe('PaperTradingStore', () => {
     await new Promise<void>((r) => setTimeout(r, 0));
     expect(store.error()).toBeNull();
     expect(store.trades().length).toBe(1);
-  });
-
-  it('enumerating stats replaces the map — deleted scopes drop out', async () => {
-    mockService.getPaperStats$.mockReturnValue(of({ stats: [makeStats('all'), makeStats('sym-QQQM')] }));
-    store.loadStats();
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(store.statsList().length).toBe(2);
-
-    // Scoped fetch merges — existing scopes survive.
-    mockService.getPaperStats$.mockReturnValue(of({ stats: [makeStats('inst-1')] }));
-    store.loadStats('inst-1');
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(store.statsList().map((s) => s.scope)).toEqual(['all', 'inst-1', 'sym-QQQM']);
-
-    // Enumerate-all now returns fewer docs — sym-QQQM drops out.
-    mockService.getPaperStats$.mockReturnValue(of({ stats: [makeStats('all'), makeStats('inst-1')] }));
-    store.loadStats();
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(store.statsList().map((s) => s.scope)).toEqual(['all', 'inst-1']);
-  });
-
-  it('a failed enumerate-all does NOT wipe cached stats docs', async () => {
-    mockService.getPaperStats$.mockReturnValue(of({ stats: [makeStats('all'), makeStats('sym-QQQM')] }));
-    store.loadStats();
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(store.statsList().length).toBe(2);
-
-    mockService.getPaperStats$.mockReturnValue(throwError(() => new Error('boom')));
-    store.loadStats();
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(store.error()).toBe('Failed to load paper stats');
-    expect(store.statsList().length).toBe(2); // map preserved
   });
 
   it('loadTrades cancels an in-flight request', () => {
@@ -337,8 +266,8 @@ describe('PaperTradingStore', () => {
   });
 
   it('direction groups signal trades by order.side; non-signal trades bucket under "—"', async () => {
-    // Group membership must match what the stats dir-* docs contain —
-    // the stats pass only emits dir-* for trades carrying signalType.
+    // Direction only has meaning for signal-stamped trades — unstamped
+    // (manual) trades bucket under '—' rather than by order side.
     const signalShort = makeTrade({
       id: 't-sig-short',
       signalType: 'D_ST_TREND_RIDER_V2_SHORT',

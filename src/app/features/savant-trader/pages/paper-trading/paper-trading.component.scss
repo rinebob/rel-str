@@ -1,8 +1,12 @@
-/* @topic #553 — Paper Trading Infra | @task #569 */
+/* @topic #553 — Paper Trading Infra | @task #569, #1067 */
 .paper-trading-dashboard {
-  padding: 24px;
-  max-width: 1600px;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--header-height, 48px));
+  min-height: 400px;
+  overflow: hidden;
+  padding: 24px 24px 0;   // no bottom padding — the table's scroll edge is the page edge
+  box-sizing: border-box;
 }
 
 .dashboard-header {
@@ -33,7 +37,7 @@
   gap: 16px;
 }
 
-.scope-select {
+.group-select {
   min-width: 220px;
 }
 
@@ -79,39 +83,36 @@
   font-weight: 500;
 }
 
-// ── Split layout ────────────────────────────────────────────────────────────
-
-.dashboard-split {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
-}
-
 .trades-panel {
-  flex: 1 1 60%;
+  flex: 1;
+  min-height: 0;
   min-width: 0;
+  display: flex;          // lets a lone .table-section flex-fill the panel
+  flex-direction: column;
+  overflow-y: auto;   // outer scroll — reaches lower groups/expandos
 }
 
-.chart-panel {
-  flex: 0 0 38%;
-  position: sticky;
-  top: 24px;
-  min-width: 0;
-}
+.table-section {
+  display: flex;
+  flex-direction: column;
+  // Grouped mode: sections keep natural height (40vh-capped tables) and
+  // overflow the panel — default flex-shrink would squeeze them into
+  // strips and the outer scrollbar would never appear.
+  flex-shrink: 0;
+  min-height: 0;
+  margin-bottom: 24px;
 
-@media (max-width: 1100px) {
-  .dashboard-split {
-    flex-direction: column;
-  }
+  // Ungrouped ('all'): the single section fills the panel so the table's
+  // inner scroll region reaches the viewport bottom.
+  &:only-child {
+    flex: 1;
+    margin-bottom: 0;
 
-  .trades-panel,
-  .chart-panel {
-    flex: 1 1 100%;
-  }
-
-  .chart-panel {
-    position: relative;
-    top: 0;
+    .table-scroll {
+      flex: 1;
+      min-height: 0;   // flex item must be allowed to shrink for inner scroll
+      max-height: none;
+    }
   }
 }
 
@@ -132,18 +133,17 @@
   color: rgba(0, 0, 0, 0.54);
 }
 
-.table-section {
-  margin-bottom: 24px;
-}
-
-.empty-table-message {
-  color: rgba(0, 0, 0, 0.54);
-  font-style: italic;
+.table-scroll {
+  max-height: 40vh;   // grouped mode: cap per table, outer panel scrolls
+  overflow-y: auto;
 }
 
 .trades-table {
   width: 100%;
-  border-collapse: collapse;
+  // separate + spacing:0 — collapse drops the sticky header's border
+  // while rows scroll under it.
+  border-collapse: separate;
+  border-spacing: 0;
 
   th {
     text-align: left;
@@ -153,6 +153,32 @@
     font-weight: 500;
     color: rgba(0, 0, 0, 0.54);
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    background: var(--mat-sys-surface, #fff);
+    z-index: 1;
+
+    &.sortable {
+      cursor: pointer;
+      user-select: none;
+
+      &:hover { color: rgba(0, 0, 0, 0.87); }
+    }
+  }
+
+  .sort-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+  }
+
+  // Multi-sort priority badge — 1 = primary key.
+  .sort-rank {
+    margin-left: 2px;
+    font-size: 9px;
+    font-weight: 700;
+    vertical-align: super;
   }
 
   td {
@@ -171,7 +197,7 @@
 .positive { color: #2e7d32; }
 .negative { color: #c62828; }
 
-// ── Cohort drill-down ───────────────────────────────────────────────────────
+// ── Cohort expando ──────────────────────────────────────────────────────────
 
 .cohort-toggle {
   padding: 0 4px;
@@ -180,56 +206,4 @@
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
 
-.cohort-detail {
-  margin: 8px 0 16px 24px;
-  padding: 8px 12px;
-  border-left: 3px solid #00838f;
-  background: #fafafa;
-  border-radius: 0 4px 4px 0;
-}
 
-.expression-block {
-  margin-bottom: 12px;
-}
-
-.expression-title {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
-}
-
-.variant-runs {
-  margin-left: 12px;
-  font-size: 12px;
-}
-
-.trade-ref {
-  color: rgba(0, 0, 0, 0.54);
-}
-
-.variant-run {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 2px 12px 2px 0;
-  padding: 2px 8px;
-  border-radius: 3px;
-  background: var(--mat-sys-surface-container, #eee);
-  font-size: 11px;
-
-  &.governing {
-    border: 1px solid #00838f;
-    background: #00838f11;
-  }
-}
-
-.variant-key {
-  font-weight: 600;
-}
-
-.gov-badge {
-  font-size: 9px;
-  font-weight: 700;
-  color: #00838f;
-  text-transform: uppercase;
-}

@@ -10,8 +10,6 @@ import { from, map, Observable } from 'rxjs';
 import { CallableName } from '../../../core/common/constants';
 import type {
   GetPaperAccountResponse,
-  GetPaperStatsRequest,
-  GetPaperStatsResponse,
   ListExitVariantsResponse,
   ListPaperTradesRequest,
   ListPaperTradesResponse,
@@ -50,14 +48,6 @@ export class PaperTradingService {
    */
   listPaperTrades$(request: ListPaperTradesRequest = {}): Observable<ListPaperTradesResponse> {
     return this.call(CallableName.LIST_PAPER_TRADES, request);
-  }
-
-  /**
-   * Fetch rollup stats. Pass a scope id ('all', 'inst-…', 'sym-…', …) for
-   * one rollup; omit to enumerate every stats doc for the dashboard.
-   */
-  getPaperStats$(request: GetPaperStatsRequest = {}): Observable<GetPaperStatsResponse> {
-    return this.call(CallableName.GET_PAPER_STATS, request);
   }
 
   /** Fetch the caller's paper account (null when none exists yet). */

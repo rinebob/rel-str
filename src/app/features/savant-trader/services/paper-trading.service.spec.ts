@@ -59,11 +59,7 @@ describe('PaperTradingService', () => {
     expect(mockCallable).toHaveBeenCalledWith({});
   });
 
-  it('getPaperStats$ passes scope; getPaperAccount$/listExitVariants$ send {}', async () => {
-    await lastValueFrom(service.getPaperStats$({ scope: 'sym-QQQM' }));
-    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.GET_PAPER_STATS);
-    expect(mockCallable).toHaveBeenCalledWith({ scope: 'sym-QQQM' });
-
+  it('getPaperAccount$/listExitVariants$ send {}', async () => {
     await lastValueFrom(service.getPaperAccount$());
     expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.GET_PAPER_ACCOUNT);
     expect(mockCallable).toHaveBeenCalledWith({});
