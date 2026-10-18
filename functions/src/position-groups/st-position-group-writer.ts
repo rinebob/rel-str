@@ -167,8 +167,10 @@ export class StPositionGroupWriter {
   /**
    * Union new member ids into the group's lists inside a transaction —
    * the live-join path appends `brokerOrderIds` as member tickets fill,
-   * and minted trades join by `tradeIds`. Returns false (warn logged)
-   * when the group doc is missing or the txn fails.
+   * and minted trades join by `tradeIds` (#1005: a trade joining for the
+   * first time increments `rollups.openCount` — re-adds don't recount).
+   * Returns false (warn logged) when the group doc is missing or the
+   * txn fails.
    */
   async addMembers(
     groupId: string,
@@ -181,10 +183,20 @@ export class StPositionGroupWriter {
         const snap = await txn.get(ref);
         if (!snap.exists) return false;
         const g = snap.data() as StPositionGroup;
+        const newTrades = (members.tradeIds ?? []).filter(
+          (id) => !g.memberTradeIds.includes(id),
+        ).length;
         txn.update(ref, {
           memberTicketIds: unionIds(g.memberTicketIds, members.ticketIds),
           memberTradeIds: unionIds(g.memberTradeIds, members.tradeIds),
           brokerOrderIds: unionIds(g.brokerOrderIds, members.brokerOrderIds),
+          rollups: {
+            openCount: (g.rollups?.openCount ?? 0) + newTrades,
+            closedCount: g.rollups?.closedCount ?? 0,
+            ...(g.rollups?.realizedPnl !== undefined
+              ? { realizedPnl: g.rollups.realizedPnl }
+              : {}),
+          },
           updatedAt: now,
         });
         return true;

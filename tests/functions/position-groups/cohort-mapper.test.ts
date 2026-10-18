@@ -80,7 +80,7 @@ describe('cohortToGroup', () => {
     const g = cohortToGroup(COHORT, {
       userId: 'u-owner',
       originSignalId: 'ADPT_2026-09-15_D_ST_TREND_RIDER_V2_LONG',
-      memberTicketIds: ['pap_intent-1'],
+      memberTicketIds: ['pap_ticket-1'],
       memberTrades: [trade({ status: PaperTradeStatus.OPEN }), trade({ status: PaperTradeStatus.PENDING })],
       now: '2026-10-20T00:00:00.000Z',
     });
@@ -93,7 +93,7 @@ describe('cohortToGroup', () => {
       signalId: 'ADPT_2026-09-15_D_ST_TREND_RIDER_V2_LONG',
     });
     assert.deepEqual(g!.memberTradeIds, COHORT.tradeIds);
-    assert.deepEqual(g!.memberTicketIds, ['pap_intent-1']);
+    assert.deepEqual(g!.memberTicketIds, ['pap_ticket-1']);
     assert.deepEqual(g!.brokerOrderIds, []);
     assert.equal(g!.createdAt, COHORT.acceptedAt);
     assert.equal(g!.updatedAt, '2026-10-20T00:00:00.000Z');

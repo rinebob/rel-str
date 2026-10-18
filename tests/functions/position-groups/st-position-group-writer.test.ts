@@ -288,3 +288,28 @@ describe('StPositionGroupWriter.addMembers', () => {
     assert.ok(f.logs.some((l) => l.level === 'warn'));
   });
 });
+
+describe('addMembers rollups (#1005)', () => {
+  async function seeded() {
+    const f = createFakeDb();
+    const w = new StPositionGroupWriter({ db: f.db, logger: f.logger });
+    const id = (await w.create(emit()))!;
+    return { f, w, id };
+  }
+
+  it('increments openCount only for trade ids actually added', async () => {
+    const { f, w, id } = await seeded();
+    // emit() leaves rollups at the default {openCount:0} — the seeded
+    // equity member makes 1 the baseline.
+    await w.addMembers(id, { tradeIds: ['QQQM-261020-sig-CSP-261120-580-01'] }, NOW);
+    assert.equal(f.stored(docPath(id))!.rollups.openCount, 1);
+    // re-add (retried fill-pass mint) — already a member, no recount
+    await w.addMembers(id, { tradeIds: ['QQQM-261020-sig-CSP-261120-580-01'] }, NOW);
+    assert.equal(f.stored(docPath(id))!.rollups.openCount, 1);
+    // ticket/broker unions never count as open trades
+    await w.addMembers(id, { ticketIds: ['pap_x'], brokerOrderIds: ['rh-1'] }, NOW);
+    assert.equal(f.stored(docPath(id))!.rollups.openCount, 1);
+    // existing realizedPnl is preserved
+    assert.deepEqual(Object.keys(f.stored(docPath(id))!.rollups).sort(), ['closedCount', 'openCount']);
+  });
+});
