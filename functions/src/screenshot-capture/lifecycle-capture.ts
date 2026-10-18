@@ -79,7 +79,7 @@ export interface LifecycleCaptureInput {
   positionId: string;
   /** Per-capture dedup/path key — defaults to `{positionId}-{event}`. */
   refId?: string;
-  /** Campaign root (cohort / position group / opening intent ref) — becomes
+  /** Campaign root (cohort / position group / opening ticket ref) — becomes
    *  the `{groupId}` directory level and index field. */
   groupId?: string;
   event: CaptureEvent;

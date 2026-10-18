@@ -1,24 +1,24 @@
 /**
  * @topic #746 — On-demand Screenshot Capture (task #846)
  *
- * tracking.ts — carrier builders (intent / engine-position doc paths) and
- * the st-order-intents tracking-field I/O behind the narrow TrackingDb
+ * tracking.ts — carrier builders (order-ticket / engine-position doc paths)
+ * and the st-order-tickets tracking-field I/O behind the narrow TrackingDb
  * seam. The fake is a plain doc map; the real seam is the admin Firestore.
  */
 import { CAPTURED_EVENTS_FIELD } from '@screenshot-capture/contracts';
 import {
   enginePositionCarrier,
-  intentCarrier,
-  intentDocPath,
+  orderTicketCarrier,
+  orderTicketDocPath,
   readCapturedEvents,
-  readIntentTracking,
+  readTicketTracking,
   screenshotIndexDocPath,
-  writeIntentLastSeenState,
-  writeIntentTracking,
+  writeTicketLastSeenState,
+  writeTicketTracking,
   type TrackingDb,
 } from '../../../functions/src/screenshot-capture/tracking';
 
-const INTENT_ID = 'intent-abc';
+const TICKET_ID = 'pap_test-ticket-abc';
 
 function fakeDb(seed: Record<string, Record<string, unknown>> = {}) {
   const store = new Map<string, Record<string, unknown>>(
@@ -51,13 +51,13 @@ function fakeDb(seed: Record<string, Record<string, unknown>> = {}) {
 }
 
 describe('carrier builders', () => {
-  it('intentCarrier points at the canonical st-order-tickets doc (#1003)', () => {
-    expect(intentDocPath(INTENT_ID)).toBe(
-      'st-order-tickets/intent-abc',
+  it('orderTicketCarrier points at the canonical st-order-tickets doc (#1003)', () => {
+    expect(orderTicketDocPath(TICKET_ID)).toBe(
+      'st-order-tickets/pap_test-ticket-abc',
     );
-    expect(intentCarrier(INTENT_ID)).toEqual({
+    expect(orderTicketCarrier(TICKET_ID)).toEqual({
       kind: 'intent',
-      docPath: 'st-order-tickets/intent-abc',
+      docPath: 'st-order-tickets/pap_test-ticket-abc',
     });
   });
 
@@ -75,10 +75,10 @@ describe('carrier builders', () => {
   });
 });
 
-describe('intent tracking I/O', () => {
-  it('readIntentTracking returns the nested tracking fields off a canonical doc', async () => {
+describe('ticket tracking I/O', () => {
+  it('readTicketTracking returns the nested tracking fields off a canonical doc', async () => {
     const { db } = fakeDb({
-      [intentDocPath(INTENT_ID)]: {
+      [orderTicketDocPath(TICKET_ID)]: {
         tracking: {
           role: 'open',
           linkedPositionId: 'pos-9',
@@ -91,7 +91,7 @@ describe('intent tracking I/O', () => {
         unrelatedField: 42,
       },
     });
-    const fields = await readIntentTracking(db, INTENT_ID);
+    const fields = await readTicketTracking(db, TICKET_ID);
     expect(fields).toEqual({
       role: 'open',
       linkedPositionId: 'pos-9',
@@ -103,24 +103,24 @@ describe('intent tracking I/O', () => {
     });
   });
 
-  it('readIntentTracking falls back to legacy top-level fields', async () => {
+  it('readTicketTracking falls back to legacy top-level fields', async () => {
     const { db } = fakeDb({
-      [intentDocPath(INTENT_ID)]: { role: 'close', lastSeenState: 'filled' },
+      [orderTicketDocPath(TICKET_ID)]: { role: 'close', lastSeenState: 'filled' },
     });
-    const fields = await readIntentTracking(db, INTENT_ID);
+    const fields = await readTicketTracking(db, TICKET_ID);
     expect(fields).toMatchObject({ role: 'close', lastSeenState: 'filled' });
   });
 
-  it('readIntentTracking resolves undefined for a missing doc', async () => {
+  it('readTicketTracking resolves undefined for a missing doc', async () => {
     const { db } = fakeDb();
-    expect(await readIntentTracking(db, 'nope')).toBeUndefined();
+    expect(await readTicketTracking(db, 'nope')).toBeUndefined();
   });
 
-  it('writeIntentTracking merge-writes under tracking without clobbering the doc', async () => {
+  it('writeTicketTracking merge-writes under tracking without clobbering the doc', async () => {
     const { db, sets } = fakeDb({
-      [intentDocPath(INTENT_ID)]: { status: 'submitted', tracking: { role: 'open' } },
+      [orderTicketDocPath(TICKET_ID)]: { status: 'submitted', tracking: { role: 'open' } },
     });
-    await writeIntentTracking(db, INTENT_ID, {
+    await writeTicketTracking(db, TICKET_ID, {
       linkedPositionId: 'pos-9',
       lastSeenState: 'filled',
     });
@@ -130,9 +130,9 @@ describe('intent tracking I/O', () => {
     });
   });
 
-  it('writeIntentTracking drops explicit undefined values (Firestore rejects them)', async () => {
-    const { db, sets } = fakeDb({ [intentDocPath(INTENT_ID)]: {} });
-    await writeIntentTracking(db, INTENT_ID, {
+  it('writeTicketTracking drops explicit undefined values (Firestore rejects them)', async () => {
+    const { db, sets } = fakeDb({ [orderTicketDocPath(TICKET_ID)]: {} });
+    await writeTicketTracking(db, TICKET_ID, {
       role: 'close',
       linkedPositionId: undefined,
       signalId: undefined,
@@ -140,9 +140,9 @@ describe('intent tracking I/O', () => {
     expect(sets[0].data).toEqual({ tracking: { role: 'close' } });
   });
 
-  it('writeIntentLastSeenState writes only the detector bookkeeping field', async () => {
-    const { db, sets } = fakeDb({ [intentDocPath(INTENT_ID)]: {} });
-    await writeIntentLastSeenState(db, INTENT_ID, 'queued');
+  it('writeTicketLastSeenState writes only the detector bookkeeping field', async () => {
+    const { db, sets } = fakeDb({ [orderTicketDocPath(TICKET_ID)]: {} });
+    await writeTicketLastSeenState(db, TICKET_ID, 'queued');
     expect(sets[0].data).toEqual({ tracking: { lastSeenState: 'queued' } });
   });
 });

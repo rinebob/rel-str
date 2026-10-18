@@ -26,7 +26,7 @@ import {
 } from '../../../functions/src/screenshot-capture/lifecycle-capture';
 
 const NOW = new Date('2026-10-05T14:30:22.000Z');
-const INTENT_DOC = 'st-order-tickets/liv_intent-1';
+const TICKET_DOC = 'st-order-tickets/liv_ticket-1';
 const POSITION_DOC = 'paper-trading/positions/items/pos-1';
 
 const DAILY_SVG =
@@ -220,15 +220,15 @@ describe('captureLifecycleEvent — happy path', () => {
     expect(idx.pngPath).toBe(DAILY_PNG);
   });
 
-  it('ledgers on an intent carrier the same way (both carrier kinds)', async () => {
+  it('ledgers on an order-ticket carrier the same way (both carrier kinds)', async () => {
     const input: LifecycleCaptureInput = {
       ...BASE_INPUT,
-      carrier: { kind: 'intent', docPath: INTENT_DOC },
+      carrier: { kind: 'intent', docPath: TICKET_DOC },
     };
     const { deps, store } = makeDeps();
     const outcome = await captureLifecycleEvent(input, deps);
     expect(outcome.status).toBe('captured');
-    expect(entryAt(store, INTENT_DOC, CaptureEvent.ORDER_FILLED).status).toBe('captured');
+    expect(entryAt(store, TICKET_DOC, CaptureEvent.ORDER_FILLED).status).toBe('captured');
   });
 
   it('writes the index doc without the group prefix when groupId is absent', async () => {

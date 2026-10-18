@@ -4,7 +4,7 @@
  * Two surfaces:
  *
  * - **Carrier builders** — the doc path + kind a `captureLifecycleEvent`
- *   call ledgers against. `intentCarrier` points at a canonical
+ *   call ledgers against. `orderTicketCarrier` points at a canonical
  *   `st-order-tickets` doc (pass the `{liv|pap}_` ticket id);
  *   `enginePositionCarrier` takes the caller's own doc path (paper-trade
  *   position, engine trade record).
@@ -27,7 +27,7 @@ import {
   ST_SCREENSHOTS_COLLECTION,
   type CapturedEventEntry,
   type LifecycleCarrier,
-  type OrderIntentTrackingFields,
+  type OrderTicketTrackingFields,
 } from '@screenshot-capture/contracts';
 import { ST_ORDER_TICKETS_ROOT } from '../common/st-collections';
 
@@ -46,16 +46,16 @@ export interface TrackingDb {
 
 // ── Carrier builders ────────────────────────────────────────────────────────
 
-/** Canonical ticket doc path — `intentId` is the `{liv|pap}_` ticket id
+/** Canonical ticket doc path — `ticketId` is the `{liv|pap}_` ticket id
  *  post-#1003 (the carrier IS the ledger home). */
-export function intentDocPath(intentId: string): string {
-  return `${ST_ORDER_TICKETS_ROOT}/${intentId}`;
+export function orderTicketDocPath(ticketId: string): string {
+  return `${ST_ORDER_TICKETS_ROOT}/${ticketId}`;
 }
 
 /** Carrier for detector-driven live captures — the ticket doc IS the
  *  ledger home. */
-export function intentCarrier(intentId: string): LifecycleCarrier {
-  return { kind: 'intent', docPath: intentDocPath(intentId) };
+export function orderTicketCarrier(ticketId: string): LifecycleCarrier {
+  return { kind: 'intent', docPath: orderTicketDocPath(ticketId) };
 }
 
 /** Carrier for engine/paper-trade positions — the caller owns the doc path
@@ -70,7 +70,7 @@ export function screenshotIndexDocPath(docId: string): string {
   return `${ST_SCREENSHOTS_COLLECTION}/${docId}`;
 }
 
-// ── Intent tracking I/O ─────────────────────────────────────────────────────
+// ── Ticket tracking I/O ─────────────────────────────────────────────────────
 
 /** Merge a carrier doc's nested (`tracking.capturedEvents`) and top-level
  *  ledgers — canonical tickets nest (#998); docs pre-dating the nesting
@@ -93,15 +93,15 @@ export function mergeCapturedEventMaps(
  *  `st-order-tickets` (#998); top-level fields merge in per-field for docs
  *  that pre-date the nesting convention (top-level wins a collision,
  *  matching `mergeCapturedEventMaps`). */
-export async function readIntentTracking(
+export async function readTicketTracking(
   db: TrackingDb,
-  intentId: string,
-): Promise<OrderIntentTrackingFields | undefined> {
-  const snap = await db.doc(intentDocPath(intentId)).get();
+  ticketId: string,
+): Promise<OrderTicketTrackingFields | undefined> {
+  const snap = await db.doc(orderTicketDocPath(ticketId)).get();
   if (!snap.exists) return undefined;
   const data = (snap.data() ?? {}) as Record<string, unknown>;
-  const t = (data.tracking ?? {}) as OrderIntentTrackingFields;
-  type F = OrderIntentTrackingFields;
+  const t = (data.tracking ?? {}) as OrderTicketTrackingFields;
+  type F = OrderTicketTrackingFields;
   return {
     role: (data.role as F['role']) ?? t.role,
     linkedPositionId: (data.linkedPositionId as F['linkedPositionId']) ?? t.linkedPositionId,
@@ -116,28 +116,28 @@ export async function readIntentTracking(
  *  are all optional). Nested merge preserves sibling tracking keys.
  *  Explicit `undefined` values are dropped first: Firestore rejects them,
  *  and an unset optional should mean "don't write", not "write undefined". */
-export async function writeIntentTracking(
+export async function writeTicketTracking(
   db: TrackingDb,
-  intentId: string,
-  fields: Partial<OrderIntentTrackingFields>,
+  ticketId: string,
+  fields: Partial<OrderTicketTrackingFields>,
 ): Promise<void> {
   const clean = Object.fromEntries(
     Object.entries(fields).filter(([, v]) => v !== undefined),
   );
-  await db.doc(intentDocPath(intentId)).set({ tracking: clean }, { merge: true });
+  await db.doc(orderTicketDocPath(ticketId)).set({ tracking: clean }, { merge: true });
 }
 
 /** Convenience for the detector's most frequent write — the state it just
  *  observed so a terminal re-read doesn't double-fire. */
-export async function writeIntentLastSeenState(
+export async function writeTicketLastSeenState(
   db: TrackingDb,
-  intentId: string,
+  ticketId: string,
   state: string,
 ): Promise<void> {
-  return writeIntentTracking(db, intentId, { lastSeenState: state });
+  return writeTicketTracking(db, ticketId, { lastSeenState: state });
 }
 
-/** Read the dedup ledger off any carrier doc (intent or engine position) —
+/** Read the dedup ledger off any carrier doc (order ticket or engine position) —
  *  the detector consults this before deciding whether a transition still
  *  needs a capture call. Canonical tickets nest the ledger under
  *  `tracking.capturedEvents`; engine carriers keep it top-level — both
