@@ -3,9 +3,10 @@
  *
  * `paperSignalOrder` callable — accept an ST signal as a paper trade.
  * The order ticket is the provenance anchor: the equity side fills at the
- * acceptance-time RH quote through the ledger, then the cohort fans out
- * into PENDING expression trades (one per direction-mapped template) that
- * the noon-PT expression-fill pass resolves into real contracts.
+ * acceptance-time RH quote through the ledger, and each direction-mapped
+ * expression template is emitted as a STAGED st-order-tickets doc (#1005)
+ * that the noon-PT expression-fill pass resolves into a contract-bearing
+ * trade (legacy PENDING trades still drain — no new ones are written).
  *
  * No broker mutation calls exist anywhere on this path — the only MCP
  * tools invoked are read-only quote/chain lookups.
@@ -17,10 +18,8 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { TradeSide } from '@common';
 import { OptionQuoteSource } from '@options/common';
 import {
-  PaperTradingKind,
   PaperTradeSource,
   PaperTradeStatus,
-  LIFECYCLE_OPEN_TRADE_STATUSES,
   SIGNAL_EXPRESSION_TEMPLATES,
   SIGNAL_GOVERNING_VARIANT,
   SIGNAL_SHADOW_VARIANT_KEYS,
@@ -44,10 +43,9 @@ import {
 import { db } from '../firebase-admin-init';
 import { getMarketDatePT, calendarDaysBetween } from '../common/pt-date-utils';
 import { ST_ORDER_INTENTS_COLLECTION, ST_ORDER_TICKETS_ROOT } from '../common/st-collections';
-import { buildAccountId } from '@paper-trading/ids';
 import { stSignalOccurrenceId, stTicketId } from '@st/ids';
 import { StOrderTicketWriter } from '../order-tickets/st-order-ticket-writer';
-import { StPositionGroupWriter, buildGroupDoc } from '../position-groups/st-position-group-writer';
+import { StPositionGroupWriter } from '../position-groups/st-position-group-writer';
 import type { StPositionGroupEmitter } from '../position-groups/st-position-group-writer';
 import type { StGroupOrigin } from '@st/position-groups';
 import type { StOrderTicket } from '@st/order-tickets';
@@ -61,7 +59,6 @@ import {
   applyExitFill,
   cancelPendingTrade,
   computeExitPnl,
-  createPendingTrade,
   orderPriceForLiquidationValue,
 } from './ledger';
 import type {
@@ -69,7 +66,6 @@ import type {
   CancelTradeInput,
   EntryFillInput,
   ExitFillInput,
-  PendingTradeInput,
 } from './ledger';
 import {
   getCohort,
@@ -81,6 +77,7 @@ import {
   updateVariantRun,
 } from './repository';
 import { ledgerDepsWithCapture } from './screenshot-lifecycle';
+import { buildCohortDoc, makeTicketEmitter, runSignalOrderRetry } from './signal-order-retry';
 import { RobinhoodMcpOptionQuoteProvider } from './engine/quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import { createRobinhoodMcpSessionManagerFromEnv } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
@@ -107,8 +104,11 @@ export interface OrderTicketDoc {
   };
 }
 
-/** Narrow ticket-writer surface the paper callables need (#984/#1002). */
-export type PaperOrderTicketsDep = Pick<StOrderTicketEmitter, 'emit' | 'markFilled' | 'markFailed'>;
+/** Narrow ticket-writer surface the paper callables need (#984/#1002/#1005). */
+export type PaperOrderTicketsDep = Pick<
+  StOrderTicketEmitter,
+  'emit' | 'markFilled' | 'markFailed' | 'resolveTicketSeed' | 'get'
+>;
 
 export interface PaperSignalOrderDeps {
   /** Order-ticket lookup by refId (idempotency lineage); null when not found. */
@@ -121,16 +121,15 @@ export interface PaperSignalOrderDeps {
   resolveTradeId(baseId: string): Promise<string>;
   resolveCohortId(date: Date, symbol: string): Promise<string>;
   applyEntryFill(input: EntryFillInput): Promise<unknown>;
-  createPendingTrade(input: PendingTradeInput): Promise<unknown>;
   setCohort(cohort: PaperCohort): Promise<void>;
   now(): Date;
   /**
-   * Canonical `st-order-tickets` emitter (#984/#1002). When present, the
-   * handler stages `pap_` tickets alongside the legacy writes: one per
-   * expression template (stays `staged` — pending intent lives on the
-   * ticket until #1005 rewires the fill pass) plus the equity ticket,
-   * which flips `filled`/`failed` with its ledger fill. Optional for
-   * tests/pre-wired callers.
+   * Canonical `st-order-tickets` emitter (#984/#1002/#1005). When present,
+   * the handler stages `pap_` tickets: one per expression template
+   * (stays `staged` — the ticket IS the pending expression; the expression-
+   * fill pass mints the trade when it resolves a contract) plus the
+   * equity ticket, which flips `filled`/`failed` with its ledger fill.
+   * Optional for tests/pre-wired callers.
    */
   tickets?: PaperOrderTicketsDep;
   /**
@@ -241,6 +240,36 @@ export async function handlePaperSignalOrder(
       ? { type: 'signal', ...(occurrenceId ? { signalId: occurrenceId } : {}) }
       : { type: 'manual' };
 
+  // Expression member ids are staged-ticket seeds (#1005), resolved against
+  // emitted pap_ docs — a matching refId = this accept's own ticket
+  // (idempotent re-emit); a foreign refId = the base is taken, suffix it.
+  const expressionSeedsFor = (side: TradeSide): Promise<string[]> =>
+    Promise.all(
+      (SIGNAL_EXPRESSION_TEMPLATES[side] ?? []).map((t) => {
+        const base = buildTradeId(
+          idDate,
+          'sig',
+          symbol,
+          buildSpreadTradeDesc(t.expression, t.targetDelta, t.targetDte),
+        );
+        return deps.tickets
+          ? deps.tickets.resolveTicketSeed(base, data.refId, data.signalId)
+          : base;
+      }),
+    );
+
+  // Canonical staged tickets (#984/#1002/#1005) — emitted on both the fresh
+  // and retry paths (emit is create()-idempotent): one per expression
+  // template (stays `staged` — the ticket IS the pending expression) plus the
+  // equity ticket, which flips filled/failed with its ledger fill.
+  const emitTicket = makeTicketEmitter({
+    tickets: deps.tickets,
+    data,
+    userId,
+    sc,
+    nowIso,
+  });
+
   // Idempotent retry: a prior call for this signal already wrote trades —
   // return the existing cohort (rebuild the doc if the earlier run died
   // between trade writes and the cohort write) instead of minting a
@@ -251,120 +280,36 @@ export async function handlePaperSignalOrder(
   const existing = await deps.listTradesBySignal(data.signalId);
   if (existing.length > 0) {
     const eqTrade = existing.find((t) => t.expression === EQUITY_TRADE_DESC);
-    const cohortId = eqTrade?.cohortId;
-    if (!cohortId || !eqTrade) {
+    if (!eqTrade) {
       throw new HttpsError(
         'failed-precondition',
         `signal ${data.signalId} has partial trades (${existing.map((t) => t.id).join(', ')}) — manual cleanup required`,
       );
     }
-    const expressionIds = existing.filter((t) => t.id !== eqTrade.id).map((t) => t.id);
-    if (!(await deps.getCohort(cohortId))) {
-      logger.warn(`rebuilding missing cohort ${cohortId} for signal ${data.signalId}`);
-      // Rebuild from the stored trade dims, not the new request — a retry
-      // must reproduce the original cohort, not the caller's args.
-      const templateKeys = existing.filter(hasTemplate).map((t) => t.expressionTemplate.key);
-      if (templateKeys.length !== expressionIds.length) {
-        logger.warn(
-          `cohort ${cohortId}: only ${templateKeys.length}/${expressionIds.length} expression trades carry templates`,
-        );
-      }
-      await deps.setCohort(
-        buildCohortDoc(cohortId, data.signalId, eqTrade.symbol, eqTrade.order.side,
-          [eqTrade.id, ...expressionIds], templateKeys,
-          eqTrade.createdAt ?? nowIso, nowIso),
-      );
-    }
-    // Same rebuild contract as the cohort (#1004): trades carry the group
-    // id — when the doc never landed, restore it from the stored members.
-    // The stamp-absent case (group create failed soft before any trade was
-    // stamped) is undetectable here by design — migrate-cohorts-1004.ts
-    // heals it from the cohort doc on its next run.
-    const positionGroupId = eqTrade.positionGroupId;
-    if (positionGroupId && deps.groups) {
-      try {
-        if (!(await deps.groups.get(positionGroupId))) {
-          logger.warn(`rebuilding missing position group ${positionGroupId} for signal ${data.signalId}`);
-          // Membership is cohort-scoped — same-signal trades from other
-          // flows (auto-paper ingest writes source:SIGNAL trades with no
-          // cohort) must not be rebuilt into the group.
-          const members = existing.filter((t) => t.cohortId === cohortId);
-          const memberIds = members.map((t) => t.id);
-          const openCount = members.filter((t) => LIFECYCLE_OPEN_TRADE_STATUSES.has(t.status)).length;
-          await deps.groups.ensure(
-            buildGroupDoc(positionGroupId, {
-              origin: ticketOrigin,
-              mode: 'paper',
-              userId,
-              memberTicketIds: memberIds.map((id) => stTicketId('paper', id)),
-              memberTradeIds: memberIds,
-              status: openCount > 0 ? 'open' : 'closed',
-              rollups: { openCount, closedCount: memberIds.length - openCount },
-              now: nowIso,
-              createdAt: eqTrade.createdAt ?? nowIso,
-            }),
-          );
-        }
-      } catch (err) {
-        logger.warn(`st_position_group_restore ${JSON.stringify({ positionGroupId, error: String(err) })}`);
-      }
-    }
-    return { cohortId, equityTradeId: eqTrade.id, expressionTradeIds: expressionIds, ...(positionGroupId ? { positionGroupId } : {}) };
+    return runSignalOrderRetry({
+      deps, data, userId, existing, eqTrade, ticketOrigin, emitTicket, nowIso,
+      fallbackIdDate: idDate,
+    });
   }
 
   const templates = SIGNAL_EXPRESSION_TEMPLATES[data.direction];
   const variantKeys = [SIGNAL_GOVERNING_VARIANT, ...SIGNAL_SHADOW_VARIANT_KEYS];
-  const paperTicket = { signalId: data.signalId, refId: data.refId, acceptedAt: nowIso };
 
   // 2. Resolve all ids up front so the cohort can reference every member.
   const equityBase = buildTradeId(idDate, 'sig', symbol, EQUITY_TRADE_DESC);
   const equityTradeId = await deps.resolveTradeId(equityBase);
   const cohortId = await deps.resolveCohortId(idDate, symbol);
-  const pendingIds = await Promise.all(
-    templates.map((t: SignalExpressionTemplate) =>
-      deps.resolveTradeId(
-        buildTradeId(idDate, 'sig', symbol, buildSpreadTradeDesc(t.expression, t.targetDelta, t.targetDte)),
-      ),
-    ),
-  );
-
-  // Canonical staged tickets (#984/#1002) — emitted alongside the legacy
-  // writes during the dual-write window: one per expression template
-  // (stays `staged`; pending intent lives on the ticket until #1005
-  // rewires expression-fill to consume it) plus the equity ticket, which
-  // flips filled/failed with its ledger fill. idSeed = the trade id each
-  // ticket expresses → retries re-emit the same pap_ docs.
-  const emitTicket = async (input: Omit<EmitStOrderTicketInput, 'mode' | 'auto' | 'refId' | 'accountTarget' | 'userId' | 'now'>) => {
-    if (!deps.tickets) return null;
-    try {
-      return await deps.tickets.emit({
-        mode: 'paper',
-        auto: false,
-        refId: data.refId,
-        accountTarget: buildAccountId(userId),
-        userId,
-        // Manual-origin tickets carry no signal lineage — emit the field
-        // only when the legacy ticket's signalContext exists (an
-        // all-undefined object is Firestore noise).
-        ...(sc
-          ? {
-              signalContext: {
-                signalType: sc.signalType,
-                barDate: sc.barDate,
-                direction: sc.direction,
-                decisionId: sc.decisionId,
-              },
-            }
-          : {}),
-        now: nowIso,
-        ...input,
-      });
-    } catch (err) {
-      logger.warn(
-        `st_paper_signal_ticket_emit ${JSON.stringify({ signalId: data.signalId, error: err instanceof Error ? err.message : String(err) })}`,
-      );
-      return null;
-    }
+  const expressionSeeds = await expressionSeedsFor(data.direction);
+  const paperTicket = {
+    signalId: data.signalId,
+    refId: data.refId,
+    acceptedAt: nowIso,
+    // Trade → canonical ticket join key. For accept-time members the
+    // lifecycle ticket is `pap_{tradeId}`; #1005-minted expression trades
+    // instead stamp `pap_{seed}` — the staged ticket they grew from —
+    // which is why consumers join on `trade.ticket.ticketId`, not a
+    // derived `pap_{tradeId}`.
+    ticketId: stTicketId('paper', equityTradeId),
   };
 
   // Canonical position group (#984/#1004): one `{SYM}-{YYMMDD}-grp-{NN}`
@@ -372,7 +317,12 @@ export async function handlePaperSignalOrder(
   // partner of the legacy cohort doc. Deterministic members: ticket ids
   // are `pap_{tradeId}`, so the full set is known before any write.
   // Written BEFORE the emits so member tickets carry `origin.positionGroupId`.
-  const memberTradeIds = [equityTradeId, ...pendingIds];
+  // Post-#1005: expression members are staged tickets, not trades — the
+  // group's memberTradeIds/openCount cover only what exists as a trade
+  // (the equity leg); expression trades join via groups.addMembers at fill.
+  const memberTicketIds = [equityTradeId, ...expressionSeeds].map((id) =>
+    stTicketId('paper', id),
+  );
   const positionGroupId = deps.groups
     ? await deps.groups.create({
         symbol,
@@ -380,12 +330,10 @@ export async function handlePaperSignalOrder(
         origin: ticketOrigin,
         mode: 'paper',
         userId,
-        memberTicketIds: memberTradeIds.map((id) => stTicketId('paper', id)),
-        memberTradeIds,
-        // Every declared member is lifecycle-active at mint — the equity
-        // leg fills OPEN below; expression members stay PENDING (which the
-        // shared LIFECYCLE_OPEN set also counts as open).
-        rollups: { openCount: memberTradeIds.length, closedCount: 0 },
+        memberTicketIds: deps.tickets ? memberTicketIds : [],
+        memberTradeIds: [equityTradeId],
+        // Only the equity trade exists at mint — it fills OPEN below.
+        rollups: { openCount: 1, closedCount: 0 },
         now: nowIso,
       })
     : null;
@@ -402,6 +350,7 @@ export async function handlePaperSignalOrder(
   const equityTicketId = await emitTicket({
     idSeed: equityTradeId,
     origin: memberOrigin,
+    cohortId,
     terms: {
       symbol,
       side: data.direction === TradeSide.SHORT ? 'sell' : 'buy',
@@ -468,14 +417,18 @@ export async function handlePaperSignalOrder(
     );
   }
 
-  // 4. PENDING expression trades — the noon pass resolves contracts. Each
-  //    staged ticket carries the expressionTemplate recipe (#1005 will
-  //    read tickets instead of PENDING trades).
+  // 4. Staged expression tickets — the pending expressions the noon-PT
+  //    expression-fill pass consumes (#1005). No PENDING trade is written;
+  //    the trade materializes at fill under a minted
+  //    {SYM}-{YYMMDD}-{origin}-{expr}-{exp}-{strike}-{NN} id carrying the
+  //    resolved contract. cohortId is a soak-period bridge so the minted
+  //    trade can still carry the legacy cohort grouping.
   await Promise.all(
     templates.map(async (t: SignalExpressionTemplate, i: number) => {
       await emitTicket({
-        idSeed: pendingIds[i],
+        idSeed: expressionSeeds[i],
         origin: memberOrigin,
+        cohortId,
         terms: {
           symbol,
           side: t.side === TradeSide.SHORT ? 'sell' : 'buy',
@@ -488,72 +441,29 @@ export async function handlePaperSignalOrder(
           expressionTemplate: t,
         },
       });
-      return deps.createPendingTrade({
-        userId,
-        tradeId: pendingIds[i],
-        order: { side: t.side, type: 'MARKET', quantity: 1 },
-        dims: {
-          source: PaperTradeSource.SIGNAL,
-          symbol,
-          expression: t.expression,
-          governingVariant: SIGNAL_GOVERNING_VARIANT,
-          variantKeys,
-          cohortId,
-          ...(positionGroupId ? { positionGroupId } : {}),
-          signalId: data.signalId,
-          ticket: paperTicket,
-        },
-        expressionTemplate: t,
-        now: nowIso,
-      });
     }),
   );
 
-  // 5. Cohort doc — the fan-out anchor.
+  // 5. Cohort doc — the fan-out anchor. tradeIds lists only minted trades
+  //    (the equity leg); expressionTemplates stays the soak anchor for the
+  //    staged members (minted trades rejoin the cohort via ticket.cohortId).
   await deps.setCohort(
     buildCohortDoc(
       cohortId, data.signalId, symbol, data.direction,
-      [equityTradeId, ...pendingIds], templates.map((t) => t.key), nowIso, nowIso,
+      [equityTradeId], templates.map((t) => t.key), nowIso, nowIso,
     ),
   );
 
   logger.info(
-    `signal ${data.signalId}: equity ${equityTradeId} + ${pendingIds.length} pending ` +
-      `expressions → ${cohortId}` +
+    `signal ${data.signalId}: equity ${equityTradeId} + ${expressionSeeds.length} staged ` +
+      `expression tickets → ${cohortId}` +
       (positionGroupId ? ` (group ${positionGroupId})` : ''),
   );
   return {
     cohortId,
     equityTradeId,
-    expressionTradeIds: pendingIds,
+    expressionTradeIds: expressionSeeds,
     ...(positionGroupId ? { positionGroupId } : {}),
-  };
-}
-
-const hasTemplate = (t: PaperTrade): t is PaperTrade & { expressionTemplate: SignalExpressionTemplate } =>
-  !!t.expressionTemplate;
-
-function buildCohortDoc(
-  id: string,
-  signalId: string,
-  symbol: string,
-  direction: TradeSide,
-  tradeIds: string[],
-  expressionTemplates: string[],
-  acceptedAt: string,
-  updatedAt: string,
-): PaperCohort {
-  return {
-    kind: PaperTradingKind.COHORT,
-    id,
-    signalId,
-    symbol,
-    direction,
-    acceptedAt,
-    tradeIds,
-    expressionTemplates,
-    createdAt: acceptedAt,
-    updatedAt,
   };
 }
 
@@ -638,7 +548,6 @@ export function paperSignalOrderProdDeps(
     resolveTradeId: (base) => resolveTradeId(db, base, timeSuffix),
     resolveCohortId: (date, symbol) => resolveCohortId(db, date, symbol),
     applyEntryFill: (input) => applyEntryFill(input, ledgerDepsWithCapture(db)),
-    createPendingTrade: (input) => createPendingTrade(input, ledgerDeps(db)),
     setCohort: (cohort) => setCohort(db, cohort),
     now: () => new Date(),
     tickets: new StOrderTicketWriter(),
@@ -686,10 +595,16 @@ export interface CancelPaperTradeDeps {
   getTrade(tradeId: string): Promise<PaperTrade | null>;
   cancelPendingTrade(input: CancelTradeInput): Promise<unknown>;
   now(): Date;
-  /** Canonical ticket cancellation (#984/#1002) — after the ledger cancel
-   *  succeeds, the staged `pap_{tradeId}` ticket flips to `cancelled`.
-   *  Fail-soft inside the writer; absent dep keeps pre-#1002 behavior. */
-  tickets?: Pick<StOrderTicketEmitter, 'markCancelled'>;
+  /** Canonical ticket lookup + cancellation (#984/#1002/#1005) — after the
+   *  ledger cancel succeeds, `pap_{tradeId}` flips to `cancelled`; when no
+   *  trade exists at all, a still-`staged` expression ticket IS the pending
+   *  expression and is cancelled directly (#1005). Fail-soft inside the writer;
+   *  absent dep keeps pre-#1002 behavior. */
+  tickets?: Pick<StOrderTicketEmitter, 'get' | 'markCancelled'>;
+  /** Trades stamped with a staged ticket's id (#1005) — a still-`staged`
+   *  ticket can already own a minted OPEN trade (group-join retry window);
+   *  cancelling it must not strand a live position. */
+  listTradesByTicketId?(ticketId: string): Promise<PaperTrade[]>;
 }
 
 export async function handleCancelPaperTrade(
@@ -705,7 +620,49 @@ export async function handleCancelPaperTrade(
   }
   const trade = await deps.getTrade(data.tradeId);
   if (!trade) {
-    throw new HttpsError('not-found', `paper trade ${data.tradeId} not found`);
+    // #1005: pending expressions are staged tickets, not PENDING trades —
+    // cancel `pap_{tradeId}` when it's the caller's own staged ticket.
+    const ticketId = stTicketId('paper', data.tradeId);
+    const ticket = await deps.tickets?.get(ticketId);
+    if (!ticket) {
+      throw new HttpsError('not-found', `paper trade ${data.tradeId} not found`);
+    }
+    if (!ticket.userId || ticket.userId !== request.auth.uid) {
+      throw new HttpsError('permission-denied', 'paper trade belongs to another user');
+    }
+    if (ticket.state !== 'staged') {
+      throw new HttpsError(
+        'failed-precondition',
+        `paper trade ${data.tradeId} is not pending (ticket ${ticket.state})`,
+      );
+    }
+    // A staged ticket can already own a minted OPEN trade — mint commits
+    // before the ticket flips filled, and a failed group join leaves the
+    // ticket staged by design. Cancelling here would strand a live
+    // position with a cancelled provenance ticket and no heal path
+    // (listStagedExpressionTickets only reads state:'staged').
+    const stamped = (await deps.listTradesByTicketId?.(ticketId)) ?? [];
+    const live = stamped.filter(
+      (t) => t.status !== PaperTradeStatus.CANCELLED && t.status !== PaperTradeStatus.EXPIRED,
+    );
+    if (live.length > 0) {
+      throw new HttpsError(
+        'failed-precondition',
+        `paper trade ${data.tradeId} already filled (${live[0].id}) — cancel the position, not the ticket`,
+      );
+    }
+    const nowIso = deps.now().toISOString();
+    const res = await deps.tickets?.markCancelled(ticketId, nowIso);
+    if (res && !res.applied) {
+      // The state moved between the read and the txn — report the real
+      // outcome rather than a false "cancelled" success.
+      const raced = await deps.tickets?.get(ticketId);
+      throw new HttpsError(
+        'failed-precondition',
+        `paper trade ${data.tradeId} is not pending (ticket ${raced?.state ?? res.from ?? 'unavailable'})`,
+      );
+    }
+    return { tradeId: data.tradeId };
   }
   // Fail closed: a trade with no recorded owner isn't cancellable at all
   // (every first-party PENDING producer sets userId — absent means corrupt).
@@ -741,7 +698,24 @@ export async function handleCancelPaperTrade(
   // Fail-soft like every other ticket write: a canonical-doc failure must
   // not turn an already-succeeded ledger cancel into an internal error.
   try {
-    await deps.tickets?.markCancelled(stTicketId('paper', trade.id), nowIso);
+    const memberTicketId = stTicketId('paper', trade.id);
+    // Ownership guard: `pap_{trade.id}` can belong to a DIFFERENT accept —
+    // resolveTicketSeed consults ticket docs only, so a staged expression
+    // ticket may sit on this seed while the pending trade is foreign to
+    // it. Same doctrine as the fill pass: refId OR signalId.
+    const memberTicket = await deps.tickets?.get(memberTicketId);
+    const tradeSignalId = trade.ticket?.signalId ?? trade.signalId;
+    const sameAccept =
+      memberTicket != null &&
+      (memberTicket.refId === trade.ticket?.refId ||
+        (!!tradeSignalId && memberTicket.signalContext?.signalId === tradeSignalId));
+    if (memberTicket && !sameAccept) {
+      logger.warn(
+        `st_paper_cancel_ticket_foreign ${JSON.stringify({ tradeId: trade.id, ticketId: memberTicketId })}`,
+      );
+    } else {
+      await deps.tickets?.markCancelled(memberTicketId, nowIso);
+    }
   } catch (err) {
     logger.warn(
       `st_paper_cancel_ticket ${JSON.stringify({ tradeId: trade.id, error: err instanceof Error ? err.message : String(err) })}`,
@@ -763,6 +737,7 @@ export const cancelPaperTrade = onCall<CancelPaperTradeRequest, Promise<CancelPa
         cancelPendingTrade: (input) => cancelPendingTrade(input, ledgerDeps(db)),
         now: () => new Date(),
         tickets: new StOrderTicketWriter(),
+        listTradesByTicketId: (ticketId) => listTrades(db, { ticketId }),
       });
     } catch (err) {
       if (err instanceof HttpsError) throw err;

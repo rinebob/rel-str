@@ -3,7 +3,8 @@
  *
  * paperSignalOrder callable: accepts an ST signal as a paper cohort —
  * equity trade filled at the acceptance quote (applyEntryFill), a cohort
- * doc, and PENDING expression trades per direction-mapped template.
+ * doc, and STAGED expression tickets per direction-mapped template (#1005 —
+ * no PENDING trades; the pap_ ticket is the pending expression).
  * No broker mutation calls (place_\* / review_\*) may appear on this path.
  */
 import assert from 'node:assert/strict';
@@ -26,13 +27,14 @@ import {
   handlePaperSignalOrder,
   type PaperSignalOrderDeps,
 } from '../../../functions/src/paper-trading/callables';
-import type { EntryFillInput, PendingTradeInput } from '../../../functions/src/paper-trading/ledger';
+import type { EntryFillInput } from '../../../functions/src/paper-trading/ledger';
 import type { ApplyFillResult } from '../../../functions/src/paper-trading/ledger';
 import {
   buildGroupDoc,
   type EmitPositionGroupInput,
 } from '../../../functions/src/position-groups/st-position-group-writer';
 import type { StPositionGroup } from '../../../shared/st-position-groups';
+import type { StOrderTicket } from '../../../shared/st-order-tickets';
 
 const NOW = new Date('2026-09-25T19:00:00.000Z'); // Friday → PT market date 2026-09-25
 
@@ -50,7 +52,6 @@ const EQUITY_QUOTE = {
 function makeDeps(overrides: Partial<PaperSignalOrderDeps> = {}) {
   const calls: { name: string; args: Record<string, unknown> }[] = [];
   const entryInputs: EntryFillInput[] = [];
-  const pendingInputs: PendingTradeInput[] = [];
   const cohorts: PaperCohort[] = [];
 
   const deps: PaperSignalOrderDeps = {
@@ -75,17 +76,13 @@ function makeDeps(overrides: Partial<PaperSignalOrderDeps> = {}) {
       entryInputs.push(input);
       return {} as ApplyFillResult;
     },
-    createPendingTrade: async (input) => {
-      pendingInputs.push(input);
-      return { id: input.tradeId } as PaperTrade;
-    },
     setCohort: async (cohort) => {
       cohorts.push(cohort);
     },
     now: () => NOW,
     ...overrides,
   };
-  return { deps, calls, entryInputs, pendingInputs, cohorts };
+  return { deps, calls, entryInputs, cohorts };
 }
 
 function request(direction: TradeSide = TradeSide.LONG) {
@@ -158,8 +155,8 @@ describe('handlePaperSignalOrder', () => {
     );
   });
 
-  it('accepts a LONG signal: equity fill + cohort + PENDING expression trades', async () => {
-    const { deps, calls, entryInputs, pendingInputs, cohorts } = makeDeps();
+  it('accepts a LONG signal: equity fill + cohort + staged expression tickets', async () => {
+    const { deps, calls, entryInputs, cohorts } = makeDeps();
     const res = await handlePaperSignalOrder(request(), deps);
 
     // equity fill applied once at the quote
@@ -185,40 +182,35 @@ describe('handlePaperSignalOrder', () => {
     // #652: exactly one governing trailing-8 run — no shadows.
     assert.deepEqual(entry.dims.variantKeys, ['trailing-8']);
 
-    // one PENDING trade per bullish template
+    // one staged-ticket seed per bullish template — no PENDING trades (#1005)
     const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
-    assert.equal(pendingInputs.length, templates.length);
-    assert.deepEqual(
-      pendingInputs.map((p) => p.expressionTemplate?.key).sort(),
-      templates.map((t) => t.key).sort(),
-    );
-    for (const p of pendingInputs) {
-      assert.match(p.tradeId, /^\d{6}-sig-QQQM-/);
-      assert.equal(p.dims.cohortId, 'cohort-260925-QQQM-01');
-      assert.equal(p.dims.signalId, 'sig-1');
-      assert.equal(p.order.quantity, 1); // expression legs are 1 contract
+    assert.equal(res.expressionTradeIds.length, templates.length);
+    for (const seed of res.expressionTradeIds) {
+      assert.match(seed, /^\d{6}-sig-QQQM-/);
     }
 
-    // cohort groups all member trades
+    // cohort lists the minted trade only; templates stay the soak anchor
     assert.equal(cohorts.length, 1);
     assert.equal(cohorts[0].signalId, 'sig-1');
     assert.equal(cohorts[0].direction, TradeSide.LONG);
-    assert.equal(cohorts[0].tradeIds.length, 1 + templates.length);
+    assert.deepEqual(cohorts[0].tradeIds, [entryInputs[0].tradeId]);
     assert.deepEqual(cohorts[0].expressionTemplates, templates.map((t) => t.key));
 
     assert.equal(res.cohortId, 'cohort-260925-QQQM-01');
-    assert.equal(res.expressionTradeIds.length, templates.length);
   });
 
-  it('accepts a SHORT signal: bearish templates only', async () => {
-    const { deps, pendingInputs } = makeDeps({
+  it('accepts a SHORT signal: bearish template seeds only', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const { deps } = makeDeps({
+      tickets: spy.dep,
       getTicket: async () => ({ id: 't', refId: 'ref-1', symbol: 'QQQM', side: 'sell' }),
     });
-    await handlePaperSignalOrder(request(TradeSide.SHORT), deps);
+    const res = await handlePaperSignalOrder(request(TradeSide.SHORT), deps);
     const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.SHORT];
-    assert.equal(pendingInputs.length, templates.length);
+    assert.equal(res.expressionTradeIds.length, templates.length);
     assert.deepEqual(
-      pendingInputs.map((p) => p.expressionTemplate?.key).sort(),
+      spy.emits.slice(1).map((t) => (t.terms.expressionTemplate as SignalExpressionTemplate).key).sort(),
       templates.map((t) => t.key).sort(),
     );
   });
@@ -253,7 +245,7 @@ describe('handlePaperSignalOrder', () => {
       status: PaperTradeStatus.PENDING,
       expressionTemplate: { key: 'csp-030-45' } as SignalExpressionTemplate,
     });
-    const { deps, entryInputs, pendingInputs, calls } = makeDeps({
+    const { deps, entryInputs, calls } = makeDeps({
       listTradesBySignal: async () => [existingTrade, existingPending],
       getCohort: async () => ({
         kind: PaperTradingKind.COHORT,
@@ -272,9 +264,10 @@ describe('handlePaperSignalOrder', () => {
 
     assert.equal(res.cohortId, 'cohort-260925-QQQM-01');
     assert.equal(res.equityTradeId, '260925-sig-QQQM-EQ');
+    // A legacy PENDING trade reports its real id; post-#1005 retries
+    // report the recomputed ticket seeds.
     assert.deepEqual(res.expressionTradeIds, ['260925-sig-QQQM-CSP-030-45']);
     assert.equal(entryInputs.length, 0);  // no second equity fill
-    assert.equal(pendingInputs.length, 0); // no second pending fan-out
     assert.equal(calls.length, 0);         // no quote fetch on a retry
   });
 
@@ -291,6 +284,12 @@ describe('handlePaperSignalOrder', () => {
     assert.equal(res.cohortId, 'cohort-260925-QQQM-01');
     assert.equal(cohorts.length, 1);
     assert.deepEqual(cohorts[0].tradeIds, ['260925-sig-QQQM-EQ']);
+    // No expression trades to read keys from — rebuilt from the direction's
+    // template set (#1005).
+    assert.deepEqual(
+      cohorts[0].expressionTemplates,
+      SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG].map((t) => t.key),
+    );
     // provenance preserved: acceptedAt from the original trade, not retry time
     assert.equal(cohorts[0].acceptedAt, '2026-09-25T12:00:00Z');
   });
@@ -320,12 +319,16 @@ interface SignalTicketEmit {
   accountTarget: string;
   userId: string;
   signalContext?: Record<string, unknown>;
+  cohortId?: string;
 }
 
 function spyTickets(calls: string[]) {
   const emits: SignalTicketEmit[] = [];
   const fills: string[] = [];
   const fails: string[] = [];
+  // pap_{seed} → owner fields so resolveTicketSeed/get can model the
+  // owned (same refId or same signalId) vs foreign check.
+  const seeds = new Map<string, { refId: string; signalId?: string }>();
   return {
     emits,
     fills,
@@ -334,6 +337,10 @@ function spyTickets(calls: string[]) {
       emit: async (input: SignalTicketEmit) => {
         calls.push('emit');
         emits.push(input);
+        seeds.set(input.idSeed, {
+          refId: input.refId ?? '',
+          signalId: input.signalContext?.signalId as string | undefined,
+        });
         return `pap_${input.idSeed}`;
       },
       markFilled: async (id: string) => {
@@ -344,6 +351,26 @@ function spyTickets(calls: string[]) {
         calls.push('markFailed');
         fails.push(id);
       },
+      // Minimal doc for the retry-path ownership checks — refId +
+      // signalContext.signalId are all the handler reads.
+      get: async (id: string) => {
+        const seed = id.replace(/^pap_/, '');
+        const owner = seeds.get(seed);
+        return owner
+          ? ({ id, refId: owner.refId, signalContext: { signalId: owner.signalId } } as StOrderTicket)
+          : null;
+      },
+      resolveTicketSeed: async (base: string, refId: string, signalId?: string) => {
+        for (let i = 0; i < 100; i++) {
+          const seed = i === 0 ? base : `${base}-${i + 1}`;
+          const owner = seeds.get(seed);
+          if (owner === undefined || owner.refId === refId
+            || (signalId !== undefined && owner.signalId === signalId)) {
+            return seed;
+          }
+        }
+        throw new Error(`ticket seed exhausted for ${base}`);
+      },
     },
   };
 }
@@ -352,8 +379,8 @@ describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
   it('emits a staged ticket per action: equity (filled) + one per expression template', async () => {
     const calls: string[] = [];
     const spy = spyTickets(calls);
-    const { deps, pendingInputs } = makeDeps({ tickets: spy.dep });
-    await handlePaperSignalOrder(request(), deps);
+    const { deps } = makeDeps({ tickets: spy.dep });
+    const res = await handlePaperSignalOrder(request(), deps);
 
     const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
     assert.equal(spy.emits.length, 1 + templates.length);
@@ -374,8 +401,12 @@ describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
     }
     assert.deepEqual(
       spy.emits.slice(1).map((t) => t.idSeed).sort(),
-      pendingInputs.map((p) => p.tradeId).sort(),
-      'idSeed = the pending trade id each ticket expresses',
+      res.expressionTradeIds.slice().sort(),
+      'idSeed = the staged-ticket seed each member carries (#1005)',
+    );
+    assert.ok(
+      spy.emits.slice(1).every((t) => t.cohortId === 'cohort-260925-QQQM-01'),
+      'staged tickets carry the cohort bridge for minted trades',
     );
     // equity ticket filled; expression tickets stay staged (no mark calls)
     assert.equal(spy.fills.length, 1);
@@ -407,6 +438,9 @@ describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
       signalId: 'QQQM_2026-09-25_D_ST_TREND_RIDER_V1_LONG',
     });
     assert.equal(spy.emits[0].signalContext?.decisionId, 'dec-1');
+    // Caller-passed signal id rides the ticket so the #1005-minted trade
+    // keeps listTradesBySignal(data.signalId) lineage on retry.
+    assert.equal(spy.emits[0].signalContext?.signalId, 'sig-1');
   });
 
   it('origin is manual when the ticket has no signalContext', async () => {
@@ -431,13 +465,19 @@ describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
     assert.equal(spy.fails[0], `pap_${spy.emits[0].idSeed}`);
   });
 
-  it('emits no tickets on the idempotent retry path', async () => {
+  it('re-emits staged tickets on retry — heals a first accept that died before the emits (#1005)', async () => {
     const calls: string[] = [];
     const spy = spyTickets(calls);
     const { deps } = makeDeps({
       tickets: spy.dep,
+      // Post-#1005 shape: only the equity trade exists; the staged
+      // expression tickets are the pending expressions.
       listTradesBySignal: async () => [
-        signalTrade({ id: '260925-sig-QQQM-EQ', cohortId: 'cohort-260925-QQQM-01' }),
+        signalTrade({
+          id: '260925-sig-QQQM-EQ',
+          cohortId: 'cohort-260925-QQQM-01',
+          fills: [{ fillId: 'f', role: 'entry', date: '2026-09-25', price: 5, quantity: 100 }],
+        }),
       ],
       getCohort: async () => ({
         kind: PaperTradingKind.COHORT,
@@ -453,7 +493,69 @@ describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
       }),
     });
     await handlePaperSignalOrder(request(), deps);
-    assert.equal(spy.emits.length, 0, 'existing trades → early return before emission');
+
+    const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
+    // equity lifecycle ticket + one staged ticket per template — emit is
+    // create()-idempotent so re-emitting live tickets is a no-op in prod
+    assert.equal(spy.emits.length, 1 + templates.length);
+    assert.equal(spy.emits[0].idSeed, '260925-sig-QQQM-EQ');
+    assert.ok(
+      spy.emits.slice(1).every((t) => (t.terms as { instrument?: string }).instrument === 'option'),
+      'every member emit is a staged expression ticket',
+    );
+    // the already-filled equity trade heals its lifecycle ticket
+    assert.equal(spy.fills.length, 1);
+    assert.equal(spy.fills[0], 'pap_260925-sig-QQQM-EQ');
+  });
+
+  it('adopts prior tickets on a retry carrying a different refId — no duplicate staged tickets', async () => {
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    let acceptCount = 0;
+    const { deps } = makeDeps({
+      tickets: spy.dep,
+      // First call is the fresh accept (emits the seeds); the second hits
+      // the retry branch with the equity trade present.
+      listTradesBySignal: async () =>
+        acceptCount++ === 0
+          ? []
+          : [
+              signalTrade({
+                id: '260925-sig-QQQM-EQ',
+                cohortId: 'cohort-260925-QQQM-01',
+                fills: [{ fillId: 'f', role: 'entry', date: '2026-09-25', price: 5, quantity: 100 }],
+              }),
+            ],
+      getCohort: async () => ({
+        kind: PaperTradingKind.COHORT,
+        id: 'cohort-260925-QQQM-01',
+        signalId: 'sig-1',
+        symbol: 'QQQM',
+        direction: TradeSide.LONG,
+        acceptedAt: '2026-09-25T12:00:00Z',
+        tradeIds: ['260925-sig-QQQM-EQ'],
+        expressionTemplates: [],
+        createdAt: '2026-09-25T12:00:00Z',
+        updatedAt: '2026-09-25T12:00:00Z',
+      }),
+    });
+
+    // Fresh accept under ref-1, then a client retry under a NEW refId —
+    // the signalId dedupe is what makes this the same logical accept.
+    await handlePaperSignalOrder(request(), deps);
+    const firstSeeds = spy.emits.slice(1).map((t) => t.idSeed);
+    const retry = { auth: { uid: 'user1' }, data: { ...request().data, refId: 'ref-2' } };
+    await handlePaperSignalOrder(retry, deps);
+
+    const retrySeeds = spy.emits
+      .slice(1 + SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG].length)
+      .slice(1)
+      .map((t) => t.idSeed);
+    assert.deepEqual(
+      retrySeeds.sort(),
+      firstSeeds.sort(),
+      'same-signal tickets adopted by signalId — no -2 duplicate staged tickets',
+    );
   });
 });
 
@@ -522,11 +624,14 @@ describe('handlePaperSignalOrder — st-position-groups (#1004)', () => {
     assert.equal(g.userId, 'user1');
     assert.deepEqual(g.origin, { type: 'manual' });
     const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
-    assert.equal(g.memberTradeIds!.length, 1 + templates.length);
+    // Post-#1005: only the equity trade is a member trade at mint —
+    // expression members are staged tickets until the fill pass mints them.
+    assert.equal(g.memberTradeIds!.length, 1);
+    assert.deepEqual(g.rollups, { openCount: 1, closedCount: 0 });
     assert.equal(
       g.memberTicketIds!.length,
       1 + templates.length,
-      'pap_{tradeId} lifecycle tickets are members',
+      'equity lifecycle ticket + one staged ticket per expression template',
     );
     assert.equal(g.brokerOrderIds, undefined, 'paper accept — no broker orders; writer defaults []');
     assert.equal(res.positionGroupId, 'QQQM-260925-grp-01');
@@ -536,7 +641,7 @@ describe('handlePaperSignalOrder — st-position-groups (#1004)', () => {
     const groups = spyGroups();
     const calls: string[] = [];
     const spy = spyTickets(calls);
-    const { deps, entryInputs, pendingInputs } = makeDeps({
+    const { deps, entryInputs } = makeDeps({
       groups: groups.dep,
       tickets: spy.dep,
     });
@@ -549,9 +654,6 @@ describe('handlePaperSignalOrder — st-position-groups (#1004)', () => {
       );
     }
     assert.equal(entryInputs[0].dims.positionGroupId, 'QQQM-260925-grp-01');
-    for (const p of pendingInputs) {
-      assert.equal(p.dims.positionGroupId, 'QQQM-260925-grp-01');
-    }
   });
 
   it('works unchanged when the groups dep is absent (pre-wired callers)', async () => {
@@ -564,8 +666,11 @@ describe('handlePaperSignalOrder — st-position-groups (#1004)', () => {
 
   it('retry path returns the stored positionGroupId and ensures the group doc', async () => {
     const groups = spyGroups(); // empty — group doc missing → ensure() rebuild
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
     const { deps } = makeDeps({
       groups: groups.dep,
+      tickets: spy.dep,
       listTradesBySignal: async () => [
         signalTrade({
           id: '260925-sig-QQQM-EQ',
@@ -593,10 +698,109 @@ describe('handlePaperSignalOrder — st-position-groups (#1004)', () => {
     const rebuilt = groups.ensures[0];
     assert.equal(rebuilt.id, 'QQQM-260925-grp-01');
     assert.deepEqual(rebuilt.memberTradeIds, ['260925-sig-QQQM-EQ']);
-    assert.deepEqual(rebuilt.memberTicketIds, ['pap_260925-sig-QQQM-EQ']);
+    // memberTickets = lifecycle tickets for minted trades + staged
+    // expression seeds (#1005) recomputed from the direction's templates.
+    const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
+    assert.equal(rebuilt.memberTicketIds[0], 'pap_260925-sig-QQQM-EQ');
+    assert.equal(rebuilt.memberTicketIds.length, 1 + templates.length);
     assert.deepEqual(rebuilt.rollups, { openCount: 1, closedCount: 0 });
     assert.equal(rebuilt.status, 'open');
     assert.equal(rebuilt.createdAt, '2026-09-25T12:00:00Z', 'original accept time preserved');
+  });
+
+  it('a cross-day retry re-keys member seeds on the ORIGINAL accept date', async () => {
+    // Seeds embed the market date — a Monday retry of a Friday accept must
+    // adopt the original 260925 pap_ tickets, not stage a second 260928 set
+    // (a fresh-date re-key would double-mint both sets at the fill pass).
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const { deps } = makeDeps({
+      tickets: spy.dep,
+      now: () => new Date('2026-09-28T19:00:00.000Z'), // Monday → market date 260928
+      listTradesBySignal: async () => [
+        signalTrade({ id: '260925-sig-QQQM-EQ', cohortId: 'cohort-260925-QQQM-01' }),
+      ],
+      getCohort: async () => ({
+        kind: PaperTradingKind.COHORT,
+        id: 'cohort-260925-QQQM-01',
+        signalId: 'sig-1',
+        symbol: 'QQQM',
+        direction: TradeSide.LONG,
+        acceptedAt: '2026-09-25T12:00:00Z',
+        tradeIds: ['260925-sig-QQQM-EQ'],
+        expressionTemplates: [],
+        createdAt: '2026-09-25T12:00:00Z',
+        updatedAt: '2026-09-25T12:00:00Z',
+      }),
+    });
+    const res = await handlePaperSignalOrder(request(), deps);
+
+    const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
+    assert.equal(res.expressionTradeIds.length, templates.length);
+    assert.ok(
+      res.expressionTradeIds.every((id) => id.startsWith('260925-')),
+      'member seeds carry the original accept date, not the retry date',
+    );
+    assert.ok(
+      spy.emits.every((t) => t.idSeed.startsWith('260925-')),
+      're-emitted tickets adopt the original seeds — no 260928 duplicates',
+    );
+    assert.ok(
+      !spy.emits.some((t) => t.idSeed.includes('-2')),
+      'no -2 duplicate staged members',
+    );
+  });
+
+  it('a covered member whose trade id diverged from the seed is NOT re-staged', async () => {
+    // Same-day id collision at accept → resolveTradeId suffixed this
+    // member's trade id (-HHMM). Coverage by id-equality alone would see
+    // the recomputed base seed as "uncovered" and stage a second position
+    // for a template that already has a live member.
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
+    const covered = signalTrade({
+      id: '260925-sig-QQQM-CSP-030-45-1430',
+      status: PaperTradeStatus.PENDING,
+      cohortId: 'cohort-260925-QQQM-01',
+      expression: templates[0].expression,
+      expressionTemplate: templates[0],
+    });
+    const { deps } = makeDeps({
+      tickets: spy.dep,
+      listTradesBySignal: async () => [
+        signalTrade({ id: '260925-sig-QQQM-EQ', cohortId: 'cohort-260925-QQQM-01' }),
+        covered,
+      ],
+      getCohort: async () => ({
+        kind: PaperTradingKind.COHORT,
+        id: 'cohort-260925-QQQM-01',
+        signalId: 'sig-1',
+        symbol: 'QQQM',
+        direction: TradeSide.LONG,
+        acceptedAt: '2026-09-25T12:00:00Z',
+        tradeIds: ['260925-sig-QQQM-EQ', covered.id],
+        expressionTemplates: [templates[0].key],
+        createdAt: '2026-09-25T12:00:00Z',
+        updatedAt: '2026-09-25T12:00:00Z',
+      }),
+    });
+    const res = await handlePaperSignalOrder(request(), deps);
+
+    // emits = equity lifecycle + pending-member lifecycle + (N-1) staged
+    // — the covered template's base seed must NOT be re-staged.
+    const seeds = spy.emits.map((t) => t.idSeed);
+    assert.ok(
+      !seeds.includes('260925-sig-QQQM-CSP-030-45'),
+      'template with a suffixed member must not re-stage its base seed',
+    );
+    assert.ok(
+      seeds.includes(covered.id),
+      'the pending member still gets its lifecycle ticket',
+    );
+    assert.equal(seeds.length, 1 + 1 + (templates.length - 1));
+    // Response reports the real member id plus the still-staged seeds.
+    assert.ok(res.expressionTradeIds.includes(covered.id));
   });
 
   it('rebuild membership excludes same-signal trades outside the cohort', async () => {
