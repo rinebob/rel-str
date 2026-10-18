@@ -180,7 +180,8 @@ const col = (
 const PAPER_TRADE_STATUSES: readonly PaperTradeStatus[] =
   Object.values(PaperTradeStatus);
 const SIGNAL_STATUSES: readonly StSignalStatus[] = ['INTERIM', 'CONFIRMED'];
-const SIGNAL_TYPES: readonly string[] = [
+/** Whitelist of analyzable signal types — manifest enumValues + callable validation. */
+export const SIGNAL_TYPES: readonly string[] = [
   'D_ST_TREND_RIDER_V1_LONG', 'D_ST_TREND_RIDER_V1_SHORT',
   'D_ST_TREND_RIDER_V2_LONG', 'D_ST_TREND_RIDER_V2_SHORT',
 ];
@@ -272,6 +273,8 @@ export interface AnalysisDatasetDoc extends PaperTradingDocBase {
   barRange: { from: string; to: string };
   /** How entryPrice/entryDate were derived (e.g. 'signal-bar-close'). */
   entryConvention: string;
+  /** Run-config entry filters — provenance-only today. */
+  entryFilters?: Record<string, unknown>;
   /** ISO timestamp when generation finished (or failed). */
   generatedAt: string;
   /** GCS object path — `analysis-datasets/{id}.csv`. */
@@ -300,4 +303,50 @@ export interface AnalysisSlice extends PaperTradingDocBase {
   name: string;
   note?: string;
   filters: SliceFilter[];
+}
+
+// ── Generation request/response (generateTradeDataset, task #1076) ─────────
+
+/**
+ * How entry price/date are derived at generation time. Only
+ * `signal-bar-close` exists today (PRD: extensible) — the whitelist keeps
+ * typos from silently minting uninterpretable provenance.
+ */
+export type AnalysisEntryConvention = 'signal-bar-close';
+export const ENTRY_CONVENTIONS: readonly AnalysisEntryConvention[] = [
+  'signal-bar-close',
+];
+
+/**
+ * The run-config params — stored verbatim on the index doc as provenance
+ * and forwarded to `analysisDatasetTask` as the generation recipe.
+ */
+export interface AnalysisRunParams {
+  origin: AnalysisDatasetOrigin;
+  /** Symbols in scope; empty = every symbol in scope for the origin. */
+  symbolScope: string[];
+  /** Signal types included; empty = all. */
+  signalTypes: string[];
+  /** Exit rule in the exit-registry grammar (`trailing-{pct}`,
+   *  `time-{N}d`, `initial-stop-{pct}`). Validated BE-side by the
+   *  registry parser, not here — shared stays grammar-free. */
+  exitRule: string;
+  /** ISO `YYYY-MM-DD` bounds on the data considered. */
+  barRange: { from: string; to: string };
+  entryConvention: AnalysisEntryConvention;
+  /** Provenance-only today — reserved for replay-side entry gating. */
+  entryFilters?: Record<string, unknown>;
+}
+
+/** `generateTradeDataset` request — validates then enqueues generation. */
+export type GenerateTradeDatasetRequest = AnalysisRunParams;
+
+export interface GenerateTradeDatasetResponse {
+  datasetId: string;
+}
+
+/** Cloud Task payload consumed by `analysisDatasetTask` (#1077/#1078). */
+export interface AnalysisDatasetTaskPayload {
+  datasetId: string;
+  params: AnalysisRunParams;
 }
