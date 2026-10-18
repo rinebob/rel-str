@@ -20,6 +20,7 @@ import {
   PaperTradingKind,
   PaperTradeSource,
   PaperTradeStatus,
+  LIFECYCLE_OPEN_TRADE_STATUSES,
   SIGNAL_EXPRESSION_TEMPLATES,
   SIGNAL_GOVERNING_VARIANT,
   SIGNAL_SHADOW_VARIANT_KEYS,
@@ -46,6 +47,9 @@ import { ST_ORDER_INTENTS_COLLECTION, ST_ORDER_TICKETS_ROOT } from '../common/st
 import { buildAccountId } from '@paper-trading/ids';
 import { stSignalOccurrenceId, stTicketId } from '@st/ids';
 import { StOrderTicketWriter } from '../order-tickets/st-order-ticket-writer';
+import { StPositionGroupWriter, buildGroupDoc } from '../position-groups/st-position-group-writer';
+import type { StPositionGroupEmitter } from '../position-groups/st-position-group-writer';
+import type { StGroupOrigin } from '@st/position-groups';
 import type { StOrderTicket } from '@st/order-tickets';
 import type {
   EmitStOrderTicketInput,
@@ -129,7 +133,18 @@ export interface PaperSignalOrderDeps {
    * tests/pre-wired callers.
    */
   tickets?: PaperOrderTicketsDep;
+  /**
+   * Canonical `st-position-groups` emitter (#984/#1004). When present, the
+   * handler creates one `{SYM}-{YYMMDD}-grp-{NN}` doc per accept covering
+   * every member ticket/trade, stamps `origin.positionGroupId` on emitted
+   * tickets and `dims.positionGroupId` on trades, and returns the id.
+   * Optional for tests/pre-wired callers — cohorts keep writing either way.
+   */
+  groups?: PaperPositionGroupsDep;
 }
+
+/** Narrow group-writer surface the paper callables need (#984/#1004). */
+export type PaperPositionGroupsDep = Pick<StPositionGroupEmitter, 'create' | 'ensure' | 'get'>;
 
 function validate(data: Partial<PaperSignalOrderRequest>): asserts data is PaperSignalOrderRequest {
   const quantityOk =
@@ -209,6 +224,23 @@ export async function handlePaperSignalOrder(
   const idDate = new Date(`${marketDate}T12:00:00Z`);
   const symbol = data.symbol.toUpperCase();
 
+  // Signal lineage — resolved early: the retry path rebuilds a missing
+  // position group from it, and the fresh path mints ticket origins.
+  const sc = ticket.signalContext;
+  const originType = sc?.signalType ? 'signal' : 'manual';
+  // Canonical st-signals occurrence id — only when the legacy ticket's
+  // signalContext carries the barDate + signalType needed to mint it.
+  const occurrenceId =
+    sc?.signalType && sc?.barDate
+      ? stSignalOccurrenceId(symbol, sc.barDate, sc.signalType)
+      : undefined;
+  // StGroupOrigin (signal|program|manual) widens to the ticket origin —
+  // the same object seeds both the group doc and member ticket origins.
+  const ticketOrigin: StGroupOrigin =
+    originType === 'signal'
+      ? { type: 'signal', ...(occurrenceId ? { signalId: occurrenceId } : {}) }
+      : { type: 'manual' };
+
   // Idempotent retry: a prior call for this signal already wrote trades —
   // return the existing cohort (rebuild the doc if the earlier run died
   // between trade writes and the cohort write) instead of minting a
@@ -243,7 +275,41 @@ export async function handlePaperSignalOrder(
           eqTrade.createdAt ?? nowIso, nowIso),
       );
     }
-    return { cohortId, equityTradeId: eqTrade.id, expressionTradeIds: expressionIds };
+    // Same rebuild contract as the cohort (#1004): trades carry the group
+    // id — when the doc never landed, restore it from the stored members.
+    // The stamp-absent case (group create failed soft before any trade was
+    // stamped) is undetectable here by design — migrate-cohorts-1004.ts
+    // heals it from the cohort doc on its next run.
+    const positionGroupId = eqTrade.positionGroupId;
+    if (positionGroupId && deps.groups) {
+      try {
+        if (!(await deps.groups.get(positionGroupId))) {
+          logger.warn(`rebuilding missing position group ${positionGroupId} for signal ${data.signalId}`);
+          // Membership is cohort-scoped — same-signal trades from other
+          // flows (auto-paper ingest writes source:SIGNAL trades with no
+          // cohort) must not be rebuilt into the group.
+          const members = existing.filter((t) => t.cohortId === cohortId);
+          const memberIds = members.map((t) => t.id);
+          const openCount = members.filter((t) => LIFECYCLE_OPEN_TRADE_STATUSES.has(t.status)).length;
+          await deps.groups.ensure(
+            buildGroupDoc(positionGroupId, {
+              origin: ticketOrigin,
+              mode: 'paper',
+              userId,
+              memberTicketIds: memberIds.map((id) => stTicketId('paper', id)),
+              memberTradeIds: memberIds,
+              status: openCount > 0 ? 'open' : 'closed',
+              rollups: { openCount, closedCount: memberIds.length - openCount },
+              now: nowIso,
+              createdAt: eqTrade.createdAt ?? nowIso,
+            }),
+          );
+        }
+      } catch (err) {
+        logger.warn(`st_position_group_restore ${JSON.stringify({ positionGroupId, error: String(err) })}`);
+      }
+    }
+    return { cohortId, equityTradeId: eqTrade.id, expressionTradeIds: expressionIds, ...(positionGroupId ? { positionGroupId } : {}) };
   }
 
   const templates = SIGNAL_EXPRESSION_TEMPLATES[data.direction];
@@ -268,8 +334,6 @@ export async function handlePaperSignalOrder(
   // rewires expression-fill to consume it) plus the equity ticket, which
   // flips filled/failed with its ledger fill. idSeed = the trade id each
   // ticket expresses → retries re-emit the same pap_ docs.
-  const sc = ticket.signalContext;
-  const originType = sc?.signalType ? 'signal' : 'manual';
   const emitTicket = async (input: Omit<EmitStOrderTicketInput, 'mode' | 'auto' | 'refId' | 'accountTarget' | 'userId' | 'now'>) => {
     if (!deps.tickets) return null;
     try {
@@ -302,16 +366,32 @@ export async function handlePaperSignalOrder(
       return null;
     }
   };
-  // Canonical st-signals occurrence id — only when the legacy ticket's
-  // signalContext carries the barDate + signalType needed to mint it.
-  const occurrenceId =
-    sc?.signalType && sc?.barDate
-      ? stSignalOccurrenceId(symbol, sc.barDate, sc.signalType)
-      : undefined;
-  const ticketOrigin: EmitStOrderTicketInput['origin'] =
-    originType === 'signal'
-      ? { type: 'signal', ...(occurrenceId ? { signalId: occurrenceId } : {}) }
-      : { type: 'manual' };
+
+  // Canonical position group (#984/#1004): one `{SYM}-{YYMMDD}-grp-{NN}`
+  // doc per accept covering every member ticket/trade — the dual-write
+  // partner of the legacy cohort doc. Deterministic members: ticket ids
+  // are `pap_{tradeId}`, so the full set is known before any write.
+  // Written BEFORE the emits so member tickets carry `origin.positionGroupId`.
+  const memberTradeIds = [equityTradeId, ...pendingIds];
+  const positionGroupId = deps.groups
+    ? await deps.groups.create({
+        symbol,
+        idDate,
+        origin: ticketOrigin,
+        mode: 'paper',
+        userId,
+        memberTicketIds: memberTradeIds.map((id) => stTicketId('paper', id)),
+        memberTradeIds,
+        // Every declared member is lifecycle-active at mint — the equity
+        // leg fills OPEN below; expression members stay PENDING (which the
+        // shared LIFECYCLE_OPEN set also counts as open).
+        rollups: { openCount: memberTradeIds.length, closedCount: 0 },
+        now: nowIso,
+      })
+    : null;
+  const memberOrigin: EmitStOrderTicketInput['origin'] = positionGroupId
+    ? { ...ticketOrigin, positionGroupId }
+    : { ...ticketOrigin };
 
   // 3. Equity side: RH quote → entry fill via the ledger.
   const quote = await deps.callTool(`${MCP_PREFIX}get_equity_quotes`, { symbols: [symbol] });
@@ -321,7 +401,7 @@ export async function handlePaperSignalOrder(
   }
   const equityTicketId = await emitTicket({
     idSeed: equityTradeId,
-    origin: ticketOrigin,
+    origin: memberOrigin,
     terms: {
       symbol,
       side: data.direction === TradeSide.SHORT ? 'sell' : 'buy',
@@ -363,6 +443,7 @@ export async function handlePaperSignalOrder(
         governingVariant: SIGNAL_GOVERNING_VARIANT,
         variantKeys,
         cohortId,
+        ...(positionGroupId ? { positionGroupId } : {}),
         signalId: data.signalId,
         ticket: paperTicket,
       },
@@ -394,7 +475,7 @@ export async function handlePaperSignalOrder(
     templates.map(async (t: SignalExpressionTemplate, i: number) => {
       await emitTicket({
         idSeed: pendingIds[i],
-        origin: ticketOrigin,
+        origin: memberOrigin,
         terms: {
           symbol,
           side: t.side === TradeSide.SHORT ? 'sell' : 'buy',
@@ -418,6 +499,7 @@ export async function handlePaperSignalOrder(
           governingVariant: SIGNAL_GOVERNING_VARIANT,
           variantKeys,
           cohortId,
+          ...(positionGroupId ? { positionGroupId } : {}),
           signalId: data.signalId,
           ticket: paperTicket,
         },
@@ -437,9 +519,15 @@ export async function handlePaperSignalOrder(
 
   logger.info(
     `signal ${data.signalId}: equity ${equityTradeId} + ${pendingIds.length} pending ` +
-      `expressions → ${cohortId}`,
+      `expressions → ${cohortId}` +
+      (positionGroupId ? ` (group ${positionGroupId})` : ''),
   );
-  return { cohortId, equityTradeId, expressionTradeIds: pendingIds };
+  return {
+    cohortId,
+    equityTradeId,
+    expressionTradeIds: pendingIds,
+    ...(positionGroupId ? { positionGroupId } : {}),
+  };
 }
 
 const hasTemplate = (t: PaperTrade): t is PaperTrade & { expressionTemplate: SignalExpressionTemplate } =>
@@ -554,6 +642,7 @@ export function paperSignalOrderProdDeps(
     setCohort: (cohort) => setCohort(db, cohort),
     now: () => new Date(),
     tickets: new StOrderTicketWriter(),
+    groups: new StPositionGroupWriter(),
   };
 }
 

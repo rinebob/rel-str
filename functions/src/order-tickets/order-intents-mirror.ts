@@ -30,7 +30,7 @@ import {
   ST_ORDER_TICKETS_ROOT,
 } from '../common/st-collections';
 import { stTicketId } from '@st/ids';
-import type { StOrderTicket } from '@st/order-tickets';
+import type { StOrderTicket, StTicketOrigin } from '@st/order-tickets';
 import {
   legacyIntentToTicket,
   suppressTerminalRegression,
@@ -106,6 +106,14 @@ export async function mirrorOrderIntent(
         && existingData.updatedAt > doc.updatedAt
       ) {
         doc.updatedAt = existingData.updatedAt;
+      }
+      // set(merge:true) replaces the `origin` map wholesale — carry
+      // forward stamps the mapper doesn't own (e.g. the #1004 migration's
+      // positionGroupId) or a soak rewrite would wipe them.
+      const docOrigin = doc.origin as StTicketOrigin | undefined;
+      const existingGroupId = existingData?.origin?.positionGroupId;
+      if (existingGroupId && docOrigin && !docOrigin.positionGroupId) {
+        doc.origin = { ...docOrigin, positionGroupId: existingGroupId };
       }
       txn.set(ref, doc, { merge: true });
       if (other.exists) txn.delete(otherRef);

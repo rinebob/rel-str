@@ -28,6 +28,11 @@ import {
 } from '../../../functions/src/paper-trading/callables';
 import type { EntryFillInput, PendingTradeInput } from '../../../functions/src/paper-trading/ledger';
 import type { ApplyFillResult } from '../../../functions/src/paper-trading/ledger';
+import {
+  buildGroupDoc,
+  type EmitPositionGroupInput,
+} from '../../../functions/src/position-groups/st-position-group-writer';
+import type { StPositionGroup } from '../../../shared/st-position-groups';
 
 const NOW = new Date('2026-09-25T19:00:00.000Z'); // Friday → PT market date 2026-09-25
 
@@ -236,29 +241,6 @@ describe('handlePaperSignalOrder', () => {
     assert.equal(entryInputs[0].legs[0].quantity, 100);
   });
 
-  function signalTrade(overrides: Partial<PaperTrade>): PaperTrade {
-    return {
-      kind: PaperTradingKind.TRADE,
-      id: 'x',
-      status: PaperTradeStatus.OPEN,
-      source: PaperTradeSource.SIGNAL,
-      symbol: 'QQQM',
-      expression: 'EQ',
-      governingVariant: 'none',
-      order: { side: TradeSide.LONG, type: 'MARKET', quantity: 100 },
-      fills: [],
-      legs: [],
-      marks: {},
-      variantRuns: [],
-      variantKeys: [],
-      realizedPnl: 0,
-      unrealizedPnl: 0,
-      createdAt: '2026-09-25T12:00:00Z',
-      updatedAt: '2026-09-25T12:00:00Z',
-      ...overrides,
-    };
-  }
-
   it('is idempotent: a retry for the same signal returns the existing cohort', async () => {
     const existingTrade = signalTrade({
       id: '260925-sig-QQQM-EQ',
@@ -455,7 +437,7 @@ describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
     const { deps } = makeDeps({
       tickets: spy.dep,
       listTradesBySignal: async () => [
-        { id: '260925-sig-QQQM-EQ', expression: 'EQ', cohortId: 'cohort-260925-QQQM-01' } as PaperTrade,
+        signalTrade({ id: '260925-sig-QQQM-EQ', cohortId: 'cohort-260925-QQQM-01' }),
       ],
       getCohort: async () => ({
         kind: PaperTradingKind.COHORT,
@@ -472,5 +454,198 @@ describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
     });
     await handlePaperSignalOrder(request(), deps);
     assert.equal(spy.emits.length, 0, 'existing trades → early return before emission');
+  });
+});
+
+// ── #1004 — canonical st-position-groups ────────────────────────────────────
+
+function signalTrade(overrides: Partial<PaperTrade>): PaperTrade {
+  return {
+    kind: PaperTradingKind.TRADE,
+    id: 'x',
+    status: PaperTradeStatus.OPEN,
+    source: PaperTradeSource.SIGNAL,
+    symbol: 'QQQM',
+    expression: 'EQ',
+    governingVariant: 'none',
+    order: { side: TradeSide.LONG, type: 'MARKET', quantity: 100 },
+    fills: [],
+    legs: [],
+    marks: {},
+    variantRuns: [],
+    variantKeys: [],
+    realizedPnl: 0,
+    unrealizedPnl: 0,
+    createdAt: '2026-09-25T12:00:00Z',
+    updatedAt: '2026-09-25T12:00:00Z',
+    ...overrides,
+  };
+}
+
+function spyGroups(existing: Map<string, StPositionGroup> = new Map()) {
+  const creates: EmitPositionGroupInput[] = [];
+  const ensures: StPositionGroup[] = [];
+  let seq = 0;
+  return {
+    creates,
+    ensures,
+    dep: {
+      create: async (input: EmitPositionGroupInput) => {
+        creates.push(input);
+        seq++;
+        const id = `QQQM-260925-grp-0${seq}`;
+        existing.set(id, buildGroupDoc(id, input));
+        return id;
+      },
+      ensure: async (group: StPositionGroup) => {
+        ensures.push(group);
+        existing.set(group.id, group);
+        return group.id;
+      },
+      get: async (id: string) => existing.get(id) ?? null,
+    },
+  };
+}
+
+describe('handlePaperSignalOrder — st-position-groups (#1004)', () => {
+  it('creates one group covering every member ticket/trade and returns its id', async () => {
+    const groups = spyGroups();
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const { deps } = makeDeps({ groups: groups.dep, tickets: spy.dep });
+    const res = await handlePaperSignalOrder(request(), deps);
+
+    assert.equal(groups.creates.length, 1);
+    const g = groups.creates[0];
+    assert.equal(g.symbol, 'QQQM');
+    assert.equal(g.mode, 'paper');
+    assert.equal(g.userId, 'user1');
+    assert.deepEqual(g.origin, { type: 'manual' });
+    const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];
+    assert.equal(g.memberTradeIds!.length, 1 + templates.length);
+    assert.equal(
+      g.memberTicketIds!.length,
+      1 + templates.length,
+      'pap_{tradeId} lifecycle tickets are members',
+    );
+    assert.equal(g.brokerOrderIds, undefined, 'paper accept — no broker orders; writer defaults []');
+    assert.equal(res.positionGroupId, 'QQQM-260925-grp-01');
+  });
+
+  it('stamps positionGroupId on emitted ticket origins and trade dims', async () => {
+    const groups = spyGroups();
+    const calls: string[] = [];
+    const spy = spyTickets(calls);
+    const { deps, entryInputs, pendingInputs } = makeDeps({
+      groups: groups.dep,
+      tickets: spy.dep,
+    });
+    await handlePaperSignalOrder(request(), deps);
+
+    for (const e of spy.emits) {
+      assert.equal(
+        (e.origin as Record<string, unknown>).positionGroupId,
+        'QQQM-260925-grp-01',
+      );
+    }
+    assert.equal(entryInputs[0].dims.positionGroupId, 'QQQM-260925-grp-01');
+    for (const p of pendingInputs) {
+      assert.equal(p.dims.positionGroupId, 'QQQM-260925-grp-01');
+    }
+  });
+
+  it('works unchanged when the groups dep is absent (pre-wired callers)', async () => {
+    const { deps, entryInputs } = makeDeps();
+    const res = await handlePaperSignalOrder(request(), deps);
+    assert.equal(res.cohortId, 'cohort-260925-QQQM-01');
+    assert.equal(res.positionGroupId, undefined);
+    assert.equal(entryInputs[0].dims.positionGroupId, undefined);
+  });
+
+  it('retry path returns the stored positionGroupId and ensures the group doc', async () => {
+    const groups = spyGroups(); // empty — group doc missing → ensure() rebuild
+    const { deps } = makeDeps({
+      groups: groups.dep,
+      listTradesBySignal: async () => [
+        signalTrade({
+          id: '260925-sig-QQQM-EQ',
+          cohortId: 'cohort-260925-QQQM-01',
+          positionGroupId: 'QQQM-260925-grp-01',
+        }),
+      ],
+      getCohort: async () => ({
+        kind: PaperTradingKind.COHORT,
+        id: 'cohort-260925-QQQM-01',
+        signalId: 'sig-1',
+        symbol: 'QQQM',
+        direction: TradeSide.LONG,
+        acceptedAt: '2026-09-25T12:00:00Z',
+        tradeIds: ['260925-sig-QQQM-EQ'],
+        expressionTemplates: [],
+        createdAt: '2026-09-25T12:00:00Z',
+        updatedAt: '2026-09-25T12:00:00Z',
+      }),
+    });
+    const res = await handlePaperSignalOrder(request(), deps);
+    assert.equal(res.positionGroupId, 'QQQM-260925-grp-01');
+    assert.equal(groups.ensures.length, 1, 'missing group rebuilt on retry');
+    assert.equal(groups.creates.length, 0);
+    const rebuilt = groups.ensures[0];
+    assert.equal(rebuilt.id, 'QQQM-260925-grp-01');
+    assert.deepEqual(rebuilt.memberTradeIds, ['260925-sig-QQQM-EQ']);
+    assert.deepEqual(rebuilt.memberTicketIds, ['pap_260925-sig-QQQM-EQ']);
+    assert.deepEqual(rebuilt.rollups, { openCount: 1, closedCount: 0 });
+    assert.equal(rebuilt.status, 'open');
+    assert.equal(rebuilt.createdAt, '2026-09-25T12:00:00Z', 'original accept time preserved');
+  });
+
+  it('rebuild membership excludes same-signal trades outside the cohort', async () => {
+    const groups = spyGroups();
+    const { deps } = makeDeps({
+      groups: groups.dep,
+      listTradesBySignal: async () => [
+        signalTrade({
+          id: '260925-sig-QQQM-EQ',
+          cohortId: 'cohort-260925-QQQM-01',
+          positionGroupId: 'QQQM-260925-grp-01',
+        }),
+        // Auto-paper ingest writes source:SIGNAL trades with no cohort —
+        // same signalId, but not a member of this group.
+        signalTrade({ id: '260925-sig-QQQM-auto', expression: 'CSP' }),
+      ],
+      getCohort: async () => ({
+        kind: PaperTradingKind.COHORT,
+        id: 'cohort-260925-QQQM-01',
+        signalId: 'sig-1',
+        symbol: 'QQQM',
+        direction: TradeSide.LONG,
+        acceptedAt: '2026-09-25T12:00:00Z',
+        tradeIds: ['260925-sig-QQQM-EQ'],
+        expressionTemplates: [],
+        createdAt: '2026-09-25T12:00:00Z',
+        updatedAt: '2026-09-25T12:00:00Z',
+      }),
+    });
+    await handlePaperSignalOrder(request(), deps);
+    assert.equal(groups.ensures.length, 1);
+    assert.deepEqual(
+      groups.ensures[0].memberTradeIds,
+      ['260925-sig-QQQM-EQ'],
+      'non-cohort same-signal trade excluded from rebuild',
+    );
+  });
+
+  it('fail-soft: group create returning null completes the accept unstamped', async () => {
+    const groups = spyGroups();
+    groups.dep.create = async (input: EmitPositionGroupInput) => {
+      groups.creates.push(input);
+      return null; // writer fail-soft — canonical write failed
+    };
+    const { deps, entryInputs, cohorts } = makeDeps({ groups: groups.dep });
+    const res = await handlePaperSignalOrder(request(), deps);
+    assert.ok(res.cohortId, 'legacy cohort still written');
+    assert.equal(cohorts.length, 1);
+    assert.equal(res.positionGroupId, undefined);
+    assert.equal(entryInputs[0].dims.positionGroupId, undefined);
   });
 });

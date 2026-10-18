@@ -483,6 +483,24 @@ describe('mirrorOrderIntent', () => {
     assert.ok(f.deletes.includes('st-order-tickets/pap_i5'));
   });
 
+  it('carries origin.positionGroupId forward — merge:true replaces the origin map (#1004)', async () => {
+    const f = fakeFirestore({
+      'st-order-tickets/liv_i4c': {
+        state: 'submitted',
+        refId: 'r1',
+        origin: { type: 'signal', signalId: 'ADPT_2026-10-14_D_ST_TREND_RIDER_V2_LONG', positionGroupId: 'ADPT-261014-grp-01' },
+      },
+    });
+    const res = await mirrorOrderIntent(fakeDeps(f), 'i4c', liveIntent({ status: 'submitted' }));
+    assert.equal(res, 'upserted');
+    const stored = f.store.get('st-order-tickets/liv_i4c')!;
+    assert.equal(
+      (stored.origin as { positionGroupId?: string }).positionGroupId,
+      'ADPT-261014-grp-01',
+      'soak rewrite must not wipe the group stamp',
+    );
+  });
+
   it('is fail-soft on Firestore errors', async () => {
     const db = {
       collection: () => ({ doc: () => ({ get: async () => { throw new Error('down'); } }) }),

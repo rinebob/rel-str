@@ -27,6 +27,7 @@
 import { logger as defaultLogger } from 'firebase-functions/v2';
 import { db as defaultDb } from '../firebase-admin-init';
 import { ST_ORDER_TICKETS_ROOT } from '../common/st-collections';
+import { isAlreadyExists } from '../common/firestore-utils';
 import { stTicketId } from '@st/ids';
 import {
   validateStTicketTerms,
@@ -255,10 +256,4 @@ export class StOrderTicketWriter {
   markExpired(ticketId: string, now: string): Promise<StTicketTransitionResult> {
     return this.transition(ticketId, 'expired', { terminalAt: now }, now);
   }
-}
-
-/** Firestore's ALREADY_EXISTS — the emit idempotency signal. */
-function isAlreadyExists(err: unknown): boolean {
-  const code = (err as { code?: unknown })?.code;
-  return code === 6 || code === 'already-exists' || code === 'ALREADY_EXISTS';
 }
