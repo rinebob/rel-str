@@ -12,11 +12,12 @@
 //   vl.page-host / page-shell / content-column / header-bar  ← _page.scss
 //   vl.dialog-chrome / dialog-status                       ← _dialog.scss
 //   vl.error-banner                                        ← _feedback.scss
+//   vl.dense-table / state-block / stat-strip              ← _data-display.scss
 //
-// Still local — data-display mixins pending #1052 graduation into
-// savant-ds (they are sole-source here, not duplicates):
-//   dense-table, state-block, bounded-tab-group, tab-scroll-pane,
-//   stat-strip.
+// Still local — intentionally PD-domain, NOT graduated in #1052:
+// bounded-tab-group + tab-scroll-pane are Material-coupled (::ng-deep
+// into mat-mdc-tab DOM, --mat-tab-container-height) and only serve the
+// two PD page shells. They stay here while Material is being exited.
 @forward 'index';
 
 // P&L / direction accents — reads of the savant-ds tokens (emitted
@@ -26,116 +27,6 @@
 $up: var(--ds-up);
 $down: var(--ds-down);
 
-/// Dense table — signal-table spec. Apply to the table element's class:
-/// `.my-table { @include vl.dense-table; }`
-/// Emits nested thead/tbody rules; numeric columns opt in via `.num`
-/// (right-aligned + tabular-nums) matching the migrated components.
-/// (#1052: graduate to savant-ds.)
-@mixin dense-table() {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-
-  thead {
-    position: sticky;
-    top: 0;
-    // Must exceed the z-index:1 MDC puts on `.mdc-button__label`/`.mat-icon`
-    // inside stroked/text buttons — `.mdc-button` roots are
-    // `position:relative; z-index:auto` (no stacking context), so cell
-    // buttons' internals compete directly with this header and win ties
-    // on DOM order. (mat-icon-button self-contains: its root is z-index:0.)
-    z-index: 2;
-    background: var(--mat-sys-surface-container);
-
-    th {
-      padding: 6px 10px;
-      text-align: left;
-      font-weight: 600;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--mat-sys-on-surface-variant);
-      border-bottom: 1px solid var(--mat-sys-outline-variant);
-
-      &.num {
-        text-align: right;
-      }
-    }
-  }
-
-  tbody {
-    tr {
-      border-bottom: 1px solid var(--mat-sys-outline-variant);
-
-      &:hover {
-        background: var(--mat-sys-surface-container-low);
-      }
-    }
-
-    // NB: no `color` on td — at (0,1,2) it would beat single-class
-    // accents (.neg/.pos/.pd-positive) at (0,1,0); cells inherit
-    // on-surface from the page shell.
-    td {
-      padding: 5px 10px;
-
-      &.num {
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-    }
-
-    .empty-row {
-      text-align: center;
-      padding: 32px;
-      color: var(--mat-sys-on-surface-variant);
-    }
-  }
-
-  // Totals rows (position tables, expando mini-table) — same density, a
-  // hairline separates them from the body. Pinning (sticky bottom) is
-  // table-specific and stays in the component styles.
-  tfoot {
-    td {
-      padding: 5px 10px;
-      font-weight: 600;
-      border-top: 1px solid var(--mat-sys-outline-variant);
-
-      &.num {
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-    }
-  }
-}
-
-/// Centered state block — loading / empty / error presentation from
-/// signal-review's `.empty-state`. (#1052: graduate to savant-ds.)
-@mixin state-block() {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 48px 24px;
-  gap: 8px;
-  color: var(--mat-sys-on-surface-variant);
-
-  mat-icon {
-    font-size: 36px;
-    width: 36px;
-    height: 36px;
-    opacity: 0.4;
-  }
-
-  p {
-    margin: 0;
-    font-size: 14px;
-  }
-
-  .hint {
-    font-size: 12px;
-    opacity: 0.6;
-  }
-}
-
 /// Bounded tab chain — apply to the `mat-tab-group` host class inside a
 /// content column. `flex:1; min-height:0` lets the group shrink inside the
 /// column; the ::ng-deep wrapper rule makes the bound explicit inside
@@ -143,7 +34,7 @@ $down: var(--ds-down);
 /// (the dashboard's pre-#779 copy of that rule was dead code). With the
 /// wrapper bounded, the active body's overflow-y:auto — and any
 /// `tab-scroll-pane` inside it — gets a definite height and scrolls.
-/// (#1052: graduate to savant-ds.)
+/// (#1052: stays PD-local — Material-coupled, two call sites.)
 @mixin bounded-tab-group() {
   flex: 1;
   min-height: 0;
@@ -158,42 +49,9 @@ $down: var(--ds-down);
 }
 
 /// Inner scroll region inside a bounded tab body.
-/// (#1052: graduate to savant-ds.)
+/// (#1052: stays PD-local — Material-coupled, two call sites.)
 @mixin tab-scroll-pane() {
   height: 100%;
   box-sizing: border-box;
   overflow-y: auto;
-}
-
-/// Stat strip — scoreboard convention: `.sb-item` label/value pairs
-/// separated by `.sb-sep` pipe hairlines. The host supplies outer layout
-/// (justify-content, padding, background, borders).
-/// (#1052: graduate to savant-ds.)
-@mixin stat-strip() {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  white-space: nowrap;
-
-  .sb-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .sb-label {
-    color: var(--mat-sys-on-surface-variant);
-    font-weight: 500;
-  }
-
-  .sb-value {
-    font-weight: 600;
-    font-family: monospace;
-    color: var(--mat-sys-on-surface);
-  }
-
-  .sb-sep {
-    color: var(--mat-sys-outline-variant);
-  }
 }
