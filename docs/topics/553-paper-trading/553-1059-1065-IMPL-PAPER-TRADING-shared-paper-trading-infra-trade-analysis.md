@@ -37,7 +37,7 @@ Shared contracts for the CSV-native analysis pipeline (PRD: `553-1059-1060-PRD-P
 
 ## 3. CSV codec — `shared/analysis-csv.ts`
 
-- `serializeDataset(rows: TradeAnalysisRow[], columns?): string` — header row from manifest order, RFC-4180 quoting, numbers in percent-units with fixed precision, dates ISO `YYYY-MM-DD`, empty cells for absent sparse fields.
+- `serializeDataset(rows: TradeAnalysisRow[], columns?): string` — header row from manifest order, RFC-4180 quoting, dates ISO `YYYY-MM-DD`, empty cells for absent sparse fields. Numbers emit shortest-round-trip `String(v)` (as-built, #1074: real fills carry 3–4-decimal prices, so 2-decimal padding was rejected as lossy; percent fields remain percent-units).
 - Column-type map (`COLUMN_TYPES`) consumed by the FE to coerce papaparse output (papaparse stays FE-only — no dep in shared).
 - Deterministic output is required: same input rows → byte-identical CSV (stable sort on tradeId before serialize), so dataset diffs are meaningful.
 
