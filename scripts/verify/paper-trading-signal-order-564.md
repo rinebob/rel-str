@@ -40,6 +40,10 @@ All checks `OK`; exit code 0. Covers:
   no shadows).
 - Pending trades: PENDING, carry `expressionTemplate`, no fills/legs.
 - Cohort: groups all member trades + template keys.
+- Position group (#1004): response `positionGroupId` minted
+  `{SYM}-{YYMMDD}-grp-{NN}`, retry returns the same id, group covers every
+  member trade + `pap_` ticket, trades stamped `positionGroupId` at mint,
+  member tickets carry `origin.positionGroupId`.
 - Account: cash debited by the equity fill, `openTradeCount` = 1.
 - Fill pass: no errors, every pending trade filled or skipped.
 - Zero broker mutation tool calls.
@@ -49,5 +53,5 @@ All checks `OK`; exit code 0. Covers:
 - If the market is closed or no contract is selectable, the fill pass may
   report `skipped` — the script still passes but logs a WARN that the
   OPEN/leg/fill assertions were bypassed.
-- All seeded docs (ticket, cohort, trades, account) are cleaned up, including
-  belt-and-suspenders prefix sweeps.
+- All seeded docs (ticket, cohort, trades, account, position group) are
+  cleaned up, including belt-and-suspenders prefix sweeps.

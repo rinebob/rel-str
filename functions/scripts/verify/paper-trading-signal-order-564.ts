@@ -37,7 +37,12 @@ import {
 import { applyPendingFill } from '../../src/paper-trading/ledger';
 import { ledgerDeps, listTrades } from '../../src/paper-trading/repository';
 import { getStorage } from 'firebase-admin/storage';
-import { ST_ORDER_INTENTS_COLLECTION, ST_ORDER_TICKETS_ROOT } from '../../src/common/st-collections';
+import {
+  ST_ORDER_INTENTS_COLLECTION,
+  ST_ORDER_TICKETS_ROOT,
+  ST_POSITION_GROUPS_ROOT,
+} from '../../src/common/st-collections';
+import type { StPositionGroup } from '../../../shared/st-position-groups';
 import { ST_SCREENSHOTS_COLLECTION } from '@screenshot-capture/contracts';
 import { getMarketDatePT } from '../../src/common/pt-date-utils';
 import { runExpressionFillPass } from '../../src/paper-trading/passes/expression-fill-pass';
@@ -107,7 +112,19 @@ async function seed(): Promise<void> {
   console.log(`seeded canonical order ticket pap_${TICKET_ID}`);
 }
 
-async function cleanup(cohortIds: string[], tradeIds: string[]): Promise<void> {
+async function cleanup(cohortIds: string[], tradeIds: string[], groupIds: string[] = []): Promise<void> {
+  // #1004 — canonical group docs for the accept.
+  for (const id of groupIds) {
+    await db.doc(`${ST_POSITION_GROUPS_ROOT}/${id}`).delete().catch(() => undefined);
+  }
+  // Belt-and-suspenders: groups minted by this run's accepts share the
+  // verify day+symbol — seq-scan can't see which are ours, so only the
+  // tracked ids are removed above.
+  const gSnap = await db.collection(ST_POSITION_GROUPS_ROOT).get().catch(() => null);
+  for (const d of gSnap?.docs ?? []) {
+    const g = d.data() as StPositionGroup;
+    if (g.userId === USER_ID) await d.ref.delete().catch(() => undefined);
+  }
   await db.doc(`${ST_ORDER_TICKETS_ROOT}/pap_${TICKET_ID}`).delete().catch(() => undefined);
   // Belt-and-suspenders: pre-#1003 runs seeded the legacy path instead.
   await db.doc(`${ST_ORDER_INTENTS_COLLECTION}/${TICKET_ID}`).delete().catch(() => undefined);
@@ -154,6 +171,7 @@ async function cleanup(cohortIds: string[], tradeIds: string[]): Promise<void> {
 async function main(): Promise<void> {
   const cohortIds: string[] = [];
   const tradeIds: string[] = [];
+  const groupIds: string[] = [];
   try {
     await seed();
 
@@ -238,6 +256,33 @@ async function main(): Promise<void> {
       cohort.tradeIds.length === 1 + templates.length &&
       cohort.expressionTemplates.length === templates.length);
 
+    // #1004 — canonical position group (dual-write alongside the cohort).
+    check('response: canonical positionGroupId minted',
+      typeof res.positionGroupId === 'string' && /-grp-\d{2,}$/.test(res.positionGroupId));
+    if (res.positionGroupId) {
+      groupIds.push(res.positionGroupId);
+      check('retry returns the same positionGroupId', retry.positionGroupId === res.positionGroupId);
+      const group = (await db.doc(`${ST_POSITION_GROUPS_ROOT}/${res.positionGroupId}`).get()).data() as StPositionGroup;
+      check('group: paper mode + owning userId + open status',
+        group.mode === 'paper' && group.userId === USER_ID && group.status === 'open');
+      check('group: covers every member trade + pap_ ticket',
+        group.memberTradeIds.length === 1 + templates.length &&
+          group.memberTicketIds.length === 1 + templates.length &&
+          group.memberTradeIds.includes(res.equityTradeId));
+      check('trades stamped positionGroupId at mint',
+        [eqTrade, ...pendings].every((t) => t.positionGroupId === res.positionGroupId));
+      const memberTickets = await Promise.all(
+        group.memberTicketIds.map(
+          async (id) =>
+            (await db.doc(`${ST_ORDER_TICKETS_ROOT}/${id}`).get()).data() as
+              | { origin?: { positionGroupId?: string } }
+              | undefined,
+        ),
+      );
+      check('member tickets carry origin.positionGroupId',
+        memberTickets.every((t) => t?.origin?.positionGroupId === res.positionGroupId));
+    }
+
     const acct = (await db.doc(`paper-trading/accounts/items/${buildAccountId(USER_ID)}`).get()).data() as PaperAccount;
     check('account: debited by equity fill, openTradeCount 1',
       acct.cash === -eqTrade.fills[0].price && acct.openTradeCount === 1);
@@ -283,7 +328,7 @@ async function main(): Promise<void> {
     check('no broker mutation tools anywhere in the run',
       mcpCalls.every((n) => !/place_|review_/.test(n)));
   } finally {
-    await cleanup(cohortIds, tradeIds);
+    await cleanup(cohortIds, tradeIds, groupIds);
   }
 
   console.log(`\n=== ${passed} passed, ${failed} failed ===`);
