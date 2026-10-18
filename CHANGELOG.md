@@ -1,5 +1,35 @@
 # Changelog
 
+## [2026-10-20]
+
+### Added
+- [Savant Design System] 1024-1040_FE-IMPL-DESIGN-SYSTEM: _pd-visual-language delegation shim — @forward 'index' delegates 7 mixins to savant-ds (zero duplicated bodies); $up/$down → var(--ds-*) reads; 5 data-display mixins sole-source pending #1052; ds-parity-probe now delegation-aware (probes diff delegated-vs-package emission through the real shim)
+- [Savant Design System] 1024-1040_FE-VERIFY-DESIGN-SYSTEM: design-system-vl-shim-1040 relay (39 checks) — sole-forward + index*-shadow guards, boundary-exact 14-member fixture through real includePaths, no :root leakage, sass via package createRequire
+- [Savant Design System] 1024-1040_DOCS-DESIGN-SYSTEM: CODE-REVIEW (2 rounds, PASS — R1 probe regression + fixture/shadow/leak holes remediated) + UAT (Complete — 545/545 jest, all 6 DS relays green)
+- [Savant Design System] 1024-1052_SHARED-IMPL-DESIGN-SYSTEM: data-display mixins graduate — dense-table/state-block/stat-strip verbatim-tokenized into savant-ds _data-display.scss + index forward; bounded-tab-group/tab-scroll-pane stay PD-local (Material-coupled, 2 call sites); shim delegates 10, keeps 2
+- [Savant Design System] 1024-1052_SHARED-VERIFY-DESIGN-SYSTEM: design-system-data-display-1052 relay + package fixture/decl asserts (20 selectors, both directions); #1039 shadow guard now derives names from installed styles/
+- [Savant Design System] 1024-1071_SHARED-IMPL-DESIGN-SYSTEM: vendored savant-ds consumption — vendor/savant-ds committed + dep re-pointed to file:vendor/savant-ds (cloud builds can't resolve sibling file:); sync:ds refresh script; #1039 relay vendor-drift byte-compare; #1034 dry-run spec updated
+- [Savant Design System] 1024-1052_DOCS-DESIGN-SYSTEM: #1052 CODE-REVIEW (PASS — R1 hardcoded shadow-list remediated) + #1069 UAT (Complete — historical verbatim parity vs pre-graduation bodies, 20/20 selectors)
+- [Savant Design System] 1024-1035_SHARED-IMPL-DESIGN-SYSTEM: --ds-* token layer (styles/_tokens.scss) — --mat-sys-* mirrors + P&L accents + spacing/typography/density/elevation + [data-theme="dark"] shadow overrides; _index.scss pinned to mixins-only emission contract
+- [Savant Design System] 1024-1035_SHARED-VERIFY-DESIGN-SYSTEM: token-layer verify (86 checks) — real sass compile, manifest set-equality both directions, exact literal + dark values, per-alias --mat-sys-* binding, loadPaths consumer resolution; rel-str relay script + run-all needsPath gate
+- [Savant Design System] 1024-1035_DOCS-DESIGN-SYSTEM: IMPL _index-forwarding contract fix + CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for --ds-* tokens
+- [Savant Design System] 1024-1036_SHARED-IMPL-DESIGN-SYSTEM: _page.scss — ds.page-host/page-shell/content-column/header-bar graduated from _pd-visual-language.scss, tokenized to --ds-*; _index.scss @forward 'page' (first mixin export)
+- [Savant Design System] 1024-1036_SHARED-VERIFY-DESIGN-SYSTEM: mixin verify (128 checks) — declaration-anchored fixture asserts, emission contract (only fixture classes emit), mixin-surface set-equality; rel-str relay + verbatim-semantics parity probe (derived token map, 30 decls/6 selectors)
+- [Savant Design System] 1024-1036_DOCS-DESIGN-SYSTEM: CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for ds.* page mixins
+- [Savant Design System] 1024-1037_SHARED-IMPL-DESIGN-SYSTEM: _dialog.scss (ds.dialog-chrome/dialog-status) + _feedback.scss (ds.error-banner) graduated from _pd-visual-language.scss, tokenized to --ds-*; .spinner resolves the app's global @keyframes spin; _index.scss forwards all three mixin modules
+- [Savant Design System] 1024-1037_SHARED-VERIFY-DESIGN-SYSTEM: verify hardened (303 checks) — comment-stripped scans, bidirectional decl asserts, tokens/index emission contracts, anchored fixture roots; shared ds-parity-probe.ts lib + #1036 relay refactor + #1037 relay; run-all needsPath cwd fix
+- [Savant Design System] 1024-1037_DOCS-DESIGN-SYSTEM: CODE-REVIEW (3 rounds, PASS) + UAT (Complete) for ds.* dialog/feedback mixins
+- [Savant Design System] 1024-1038_SHARED-IMPL-DESIGN-SYSTEM: surface-consolidation verify (340 checks) — styles/ all-entries manifest, _index forwards-exactly-{page,dialog,feedback} (+quote-style/parse-count guards), fixture-exercises-every-mixin both directions, _tokens member-free guard, //-in-string anomaly guard
+- [Savant Design System] 1024-1039_SHARED-IMPL-DESIGN-SYSTEM: _tokens.scss header contract correction — --mat-sys-* need only exist on :root (var() binds at computed time; source order irrelevant)
+- [Savant Design System] 1024-1039_FE-IMPL-DESIGN-SYSTEM: ST consumption wiring — savant-ds file: dep + junction link, angular.json includePaths on build+test, styles.scss @use 'tokens' (27 --ds-* + dark block in emitted bundle)
+- [Savant Design System] 1024-1039_FE-VERIFY-DESIGN-SYSTEM: design-system-consumption-1039 relay (37 checks) — package-anchored sass createRequire, live token-name reads, :root-scoped boundary-exact emitted asserts, src/ shadow guard; #1034 dry-run check de-proxied (exit-0 = resolved)
+- [Savant Design System] 1024-1039_DOCS-DESIGN-SYSTEM: CODE-REVIEW (PASS, A1–A4 remediated) + UAT (Complete) for ST consumption wiring
+- [Savant Design System] 1024-1038_SHARED-VERIFY-DESIGN-SYSTEM: design-system-index-verify-1038 relay (npm run verify in ../savant-ds) + run-all/README registration
+- [Savant Design System] 1024-1038_DOCS-DESIGN-SYSTEM: CODE-REVIEW (2 rounds, PASS) + UAT (Complete) for index forwards + surface verify — Phase #1032 package foundation complete
+- [Savant Design System] 1024-1034_SHARED-IMPL-DESIGN-SYSTEM: savant-ds package skeleton (C:\aa\projects\savant-ds) — package.json + README consumption contract (file: dep, includePaths) + _index.scss + verify stub
+- [Savant Design System] 1024-1034_SHARED-VERIFY-DESIGN-SYSTEM: savant-ds skeleton verify — real file: install + junction probe (14 checks) + run-all needsPath gate
+- [Savant Design System] 1024-1034_DOCS-DESIGN-SYSTEM: Topic 1024 docs — PRD + IMPL×2 + TEST×2 + CODE-REVIEW (PASS) + UAT (Complete); CONTEXT.md savant-ds/Design Token/DS Gallery glossary
+
 ## [2026-10-17]
 
 ### Added
