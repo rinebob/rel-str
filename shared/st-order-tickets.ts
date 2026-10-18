@@ -54,7 +54,9 @@ export interface StTicketOrigin {
   instanceId?: string;
   /** st-runs doc id — provenance for signal/program tickets. */
   runId?: string;
-  /** st-position-groups doc id — set when type='management'. */
+  /** st-position-groups doc id — REQUIRED when type='management' (the
+   *  group being managed); also set on member tickets a group was created
+   *  for (signal/program accepts stamp it at emit, #1004). */
   positionGroupId?: string;
 }
 

@@ -70,6 +70,18 @@ export const PAPER_TRADE_WRITABLE_STATUSES: readonly PaperTradeWritableStatus[] 
   PaperTradeStatus.CANCELLED,
 ];
 
+/**
+ * Lifecycle-active trade statuses (#1004) — a position group counts a
+ * member as "open" while its trade is PENDING, OPEN, or ASSIGNED. One
+ * definition shared by the cohort→group mapper, the accept-path rebuild,
+ * and the st-position-groups audit so rollups agree everywhere.
+ */
+export const LIFECYCLE_OPEN_TRADE_STATUSES: ReadonlySet<PaperTradeStatus> = new Set([
+  PaperTradeStatus.PENDING,
+  PaperTradeStatus.OPEN,
+  PaperTradeStatus.ASSIGNED,
+]);
+
 export enum PaperTradeSource {
   STRATEGY = 'strategy',
   SIGNAL = 'signal',
@@ -467,6 +479,10 @@ export interface PaperSignalOrderResponse {
   equityTradeId: string;
   /** Expression-trade ids in the cohort (may be OPEN if a retry lands post-fill). */
   expressionTradeIds: string[];
+  /** Canonical st-position-groups doc id — set once the #1004 group
+   *  write is wired; absent for pre-#1004 cohorts or when the groups dep
+   *  is not configured. */
+  positionGroupId?: string;
 }
 
 /** `listPaperTrades` request — all filters optional AND-combined. */
