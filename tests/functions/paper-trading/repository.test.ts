@@ -182,8 +182,8 @@ function createFakeDb(initial: Record<string, PaperTradingDoc> = {}) {
 
 const NOW = '2026-09-24T19:00:00.000Z';
 const TRADE_ID = '260924-st-QQQM-CSP-020-30';
-const TRADE_PATH = `paper-trading/trades/items/${TRADE_ID}`;
-const ACCOUNT_PATH = 'paper-trading/accounts/items/acct-user1';
+const TRADE_PATH = `st-paper-trading/trades/items/${TRADE_ID}`;
+const ACCOUNT_PATH = 'st-paper-trading/accounts/items/acct-user1';
 
 function makeTrade(): PaperTrade {
   return {
@@ -251,7 +251,7 @@ describe('repository reads', () => {
     closed.status = PaperTradeStatus.CLOSED;
     const { db } = createFakeDb({
       [TRADE_PATH]: open,
-      'paper-trading/trades/items/other': closed,
+      'st-paper-trading/trades/items/other': closed,
     });
     const result = await listTrades(db, { status: PaperTradeStatus.OPEN });
     assert.equal(result.length, 1);
@@ -270,10 +270,10 @@ describe('repository reads', () => {
     const wrongExpr = { ...match, id: 'wrong-expr', expression: 'BCS' };
     const wrongVar = { ...match, id: 'wrong-var', variantKeys: ['time-9d'] };
     const { db } = createFakeDb({
-      'paper-trading/trades/items/match': match,
-      'paper-trading/trades/items/wrong-cohort': wrongCohort,
-      'paper-trading/trades/items/wrong-expr': wrongExpr,
-      'paper-trading/trades/items/wrong-var': wrongVar,
+      'st-paper-trading/trades/items/match': match,
+      'st-paper-trading/trades/items/wrong-cohort': wrongCohort,
+      'st-paper-trading/trades/items/wrong-expr': wrongExpr,
+      'st-paper-trading/trades/items/wrong-var': wrongVar,
     });
     const result = await listTrades(db, {
       cohortId: 'cohort-1',
@@ -333,7 +333,7 @@ describe('repository writes', () => {
 
 describe('markSignalTrade', () => {
   const MARK_DATE = '2026-10-15';
-  const RQ_PATH = `paper-trading/raw-quotes/items/rq-${TRADE_ID}-261015`;
+  const RQ_PATH = `st-paper-trading/raw-quotes/items/rq-${TRADE_ID}-261015`;
 
   const shareSignalTrade = (): PaperTrade => ({
     ...makeTrade(),

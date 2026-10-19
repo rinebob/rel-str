@@ -3,8 +3,9 @@
  *
  * Position view repository — same API surface the engine passes have always
  * used (`getPosition`, `listOpenPositions`, `markPosition`, …) but backed by
- * `paper-trading/trades/items` + `paper-trading/raw-quotes/items` instead of
- * the legacy `options-strategy-positions` tree.
+ * `st-paper-trading/trades/items` + `st-paper-trading/raw-quotes/items`
+ * (`paper-trading/*` pre-#1007) instead of the legacy
+ * `options-strategy-positions` tree.
  *
  * The trade doc is authoritative; `Position` is a derived view produced by
  * `engine/trade-adapter.ts`. New opens go through the ledger

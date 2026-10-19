@@ -177,3 +177,11 @@ export { captureChartSnapshot } from './screenshot-capture/capture-chart';
 
 // #984 / #1003 — soak-period dual-write: legacy order-intents → st-order-tickets
 export { orderIntentsMirror } from './order-tickets/order-intents-mirror';
+
+// #984 / #1007 — rename soaks: FE-written legacy portfolio → st-portfolio;
+// canonical st-backtest-* → legacy backtest-* for stranded FE readers
+export { portfolioItemsMirror } from './portfolio/portfolio-mirror';
+export {
+  stBacktestRunsMirror,
+  stBacktestPermutationsMirror,
+} from './st-cloud-function/backtest/backtest-mirror';

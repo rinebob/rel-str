@@ -59,7 +59,7 @@ export function orderTicketCarrier(ticketId: string): LifecycleCarrier {
 }
 
 /** Carrier for engine/paper-trade positions — the caller owns the doc path
- *  (e.g. `paper-trading/{anchor}/items/{id}`). */
+ *  (e.g. `st-paper-trading/trades/items/{id}`). */
 export function enginePositionCarrier(docPath: string): LifecycleCarrier {
   return { kind: 'engine-position', docPath };
 }

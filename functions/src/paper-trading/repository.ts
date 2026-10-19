@@ -1,7 +1,9 @@
 /**
  * @topic #553 — Paper Trading Infra (task #561)
  *
- * Firestore repository for the `paper-trading/{anchor}/items/{id}` layout.
+ * Firestore repository for the `{root}/{anchor}/items/{id}` layout —
+ * account/trade/stats/raw-quote on `st-paper-trading` since the #1007
+ * cutover; instances/cohorts/analysis-* still on legacy `paper-trading`.
  * CRUD for all six record kinds plus the single-write embedded mutations the
  * passes use (`appendMark`, `appendFill`, `updateVariantRun`). All functions
  * take `db` as the first parameter so unit tests can inject a fake.

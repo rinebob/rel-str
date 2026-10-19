@@ -2,7 +2,8 @@
  * @topic #553 — Paper Trading Infra (task #562)
  *
  * Stats rollup repository — same API the engine passes/callables have always
- * used, backed by `paper-trading/stats/items/stats-{scope}` docs with an
+ * used, backed by `st-paper-trading/stats/items/stats-{scope}` docs
+ * (`paper-trading/stats/items` pre-#1007) with an
  * embedded `equityCurve` array instead of the legacy
  * `options-strategy-stats/{scope}` + `equity-curve/` subcollection.
  */

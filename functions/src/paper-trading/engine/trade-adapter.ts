@@ -3,8 +3,9 @@
  *
  * Position ↔ PaperTrade converters. The engine passes keep operating on the
  * legacy `Position`/`PositionLeg` view; this module adapts that view to the
- * `paper-trading/trades/items` documents so storage is fully on the new
- * collections while pass internals stay unchanged.
+ * `st-paper-trading/trades/items` documents (`paper-trading/trades/items`
+ * pre-#1007) so storage is fully on the new collections while pass
+ * internals stay unchanged.
  *
  * Value conventions (from the engine):
  * - leg `premium`/`lastMark` are per-contract option prices (×100 = dollars)

@@ -23,7 +23,7 @@ import {
   type PaperTrade,
   type PaperTradeLeg,
 } from '@paper-trading/contracts';
-import { paperTradingDocPath } from '@paper-trading/ids';
+import { paperTradingDocPathFor } from './collections';
 import { enginePositionCarrier } from '../screenshot-capture/tracking';
 import type {
   LifecycleCaptureDeps,
@@ -80,7 +80,7 @@ export function lifecycleInputFor(
     event,
     symbol: trade.symbol,
     positionType: positionTypeForLegs(trade.legs),
-    carrier: enginePositionCarrier(paperTradingDocPath(PaperTradingKind.TRADE, trade.id)),
+    carrier: enginePositionCarrier(paperTradingDocPathFor(PaperTradingKind.TRADE, trade.id)),
   };
 }
 

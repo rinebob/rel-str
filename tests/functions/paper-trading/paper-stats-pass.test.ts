@@ -5,7 +5,7 @@
  * scopes across every dimension field — all, inst-*, var-*, cohort-*,
  * sig-*, sym-*, plus the #919 auto-paper stamp slices sigtype-*, dir-*,
  * sector-*, ind-*, captier-*, sigstatus-* — each written as a
- * `paper-trading/stats/items/stats-{scope}` doc via the shared recompute
+ * `st-paper-trading/stats/items/stats-{scope}` doc via the shared recompute
  * seam (equity curve + drawdown included).
  */
 

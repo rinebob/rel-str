@@ -132,7 +132,7 @@ describe('lifecycleInputFor', () => {
     assert.equal(input.positionType, PositionType.OPTION_SINGLE);
     assert.deepEqual(input.carrier, {
       kind: 'engine-position',
-      docPath: 'paper-trading/trades/items/260924-sig-QQQM-CSP-020-30',
+      docPath: 'st-paper-trading/trades/items/260924-sig-QQQM-CSP-020-30',
     });
   });
 
