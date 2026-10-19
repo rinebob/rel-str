@@ -39,6 +39,11 @@
   --mat-sys-surface-container-low: #f8f9fd;
   --mat-sys-success: #4caf50;
   --mat-sys-on-success: #ffffff;
+  // Container pair — consumed by success badges/pills across the app
+  // (signal-filter-pills, review-header, status chips); without them
+  // every var(--mat-sys-success-container) declaration silently drops.
+  --mat-sys-success-container: #c8e6c9;
+  --mat-sys-on-success-container: #1b5e20;
   --mat-sys-warning-container: #fff3e0;
   --mat-sys-on-warning-container: #e65100;
 }

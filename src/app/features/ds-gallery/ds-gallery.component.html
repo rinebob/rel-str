@@ -14,14 +14,13 @@
   </header>
 
   <div class="gallery-body">
-    <div class="card-grid">
-      @for (entry of entries; track entry.kind) {
-        <section class="card" [attr.data-kind]="entry.kind">
-          <h2 class="card-title">{{ entry.title }}</h2>
-          <p class="card-blurb">{{ entry.blurb }}</p>
+    <ng-template #cardBody let-entry>
+      <section class="card" [attr.data-kind]="entry.kind">
+        <h2 class="card-title">{{ entry.title }}</h2>
+        <p class="card-blurb">{{ entry.blurb }}</p>
 
-          <div class="demo">
-            @switch (entry.kind) {
+        <div class="demo">
+          @switch (entry.kind) {
 
               @case ('color-tokens') {
                 <div class="swatch-grid">
@@ -169,13 +168,144 @@
                 </div>
               }
 
-            }
-          </div>
+              <!-- ── Widget layer (#1108) — canonical markup; the class
+                   names ARE the mixin contract. ── -->
 
-          <footer class="seen-in">
-            <span class="seen-in-label">seen in:</span> {{ entry.seenIn.join(' · ') }}
-          </footer>
-        </section>
+              @case ('pill-toggle') {
+                <div class="demo-stack">
+                  <div class="pill-group">
+                    <button type="button" class="pill" [class.active]="pillSel() === 0"
+                            (click)="pillSel.set(0)">ALL</button>
+                    <button type="button" class="pill long" [class.active]="pillSel() === 1"
+                            (click)="pillSel.set(1)">LONG</button>
+                    <button type="button" class="pill short" [class.active]="pillSel() === 2"
+                            (click)="pillSel.set(2)">SHORT</button>
+                  </div>
+                  <div class="pill-group flat">
+                    @for (iv of ['1D', '1W', '1M', '3M']; track iv; let i = $index) {
+                      <button type="button" class="pill" [class.active]="intervalSel() === i"
+                              (click)="intervalSel.set(i)">{{ iv }}</button>
+                    }
+                  </div>
+                  <span class="demo-note">.pill-group — standard + .flat</span>
+                </div>
+              }
+
+              @case ('pill-btn') {
+                <div class="demo-row">
+                  <button type="button" class="pill-btn">
+                    <mat-icon>refresh</mat-icon> refresh
+                    <span class="pill-count">12</span>
+                  </button>
+                  <span class="pill-btn emph">
+                    signals <span class="pill-count">4</span>
+                  </span>
+                  <button type="button" class="pill-btn small">small</button>
+                  <button type="button" class="pill-btn" disabled>
+                    <mat-icon>block</mat-icon> disabled
+                  </button>
+                </div>
+              }
+
+              @case ('badge') {
+                <div class="demo-row">
+                  <span class="badge dir-long">LONG</span>
+                  <span class="badge dir-short">SHORT</span>
+                  <span class="badge type">RS_RISE</span>
+                  <span class="badge tf">W</span>
+                  <span class="badge count">42</span>
+                  <span class="badge count muted">7</span>
+                </div>
+              }
+
+              @case ('icon-btn') {
+                <div class="demo-row">
+                  <button type="button" class="icon-btn"><mat-icon>refresh</mat-icon></button>
+                  <button type="button" class="icon-btn"><mat-icon>zoom_in</mat-icon></button>
+                  <button type="button" class="icon-btn dim"><mat-icon>zoom_out</mat-icon></button>
+                  <button type="button" class="icon-btn" disabled><mat-icon>settings</mat-icon></button>
+                </div>
+              }
+
+              @case ('toolbar-row') {
+                <div class="demo-toolbar">
+                  <span class="title">AAPL</span>
+                  <button type="button" class="icon-btn"><mat-icon>refresh</mat-icon></button>
+                  <button type="button" class="icon-btn"><mat-icon>zoom_in</mat-icon></button>
+                  <div class="pill-group flat">
+                    <button type="button" class="pill active">1D</button>
+                    <button type="button" class="pill">1W</button>
+                  </div>
+                  <span class="toolbar-spacer"></span>
+                  <span class="badge dir-long">LONG</span>
+                  <div class="demo-stepper">
+                    <button type="button" class="nav-btn"><mat-icon>chevron_left</mat-icon></button>
+                    <span class="nav-position">3 / 12</span>
+                    <button type="button" class="nav-btn"><mat-icon>chevron_right</mat-icon></button>
+                  </div>
+                </div>
+                <span class="demo-note">composed: title + icon-btns + flat pill-toggle + spacer + badge + stepper</span>
+              }
+
+              @case ('nav-stepper') {
+                <div class="demo-row">
+                  <div class="demo-stepper">
+                    <button type="button" class="nav-btn" disabled><mat-icon>chevron_left</mat-icon></button>
+                    <span class="nav-position">3 / 12</span>
+                    <button type="button" class="nav-btn"><mat-icon>chevron_right</mat-icon></button>
+                  </div>
+                </div>
+              }
+
+              @case ('field-input') {
+                <div class="demo-row">
+                  <div class="demo-field">
+                    <mat-icon class="icon">search</mat-icon>
+                    <input [value]="fieldValue()" (input)="fieldValue.set($any($event.target).value)"
+                           placeholder="Filter" />
+                    <button type="button" class="clear" (click)="fieldValue.set('')">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              }
+
+              @case ('toggle-chip') {
+                <div class="demo-row">
+                  @for (c of ['Swing', 'Momentum', 'Reversal']; track c; let i = $index) {
+                    <button type="button" class="chip" [class.active]="chipSel().has(i)"
+                            (click)="toggleChip(i)">{{ c }}</button>
+                  }
+                </div>
+              }
+
+              @case ('dir-edge') {
+                <div class="demo-stack">
+                  <div class="edge-row dir-edge-long"><span class="badge dir-long">LONG</span> AAPL — table-row accent</div>
+                  <div class="edge-row dir-edge-short"><span class="badge dir-short">SHORT</span> TSLA — table-row accent</div>
+                  <div class="edge-card dir-edge-long">Any element — a card can carry the same marker</div>
+                </div>
+              }
+
+          }
+        </div>
+
+        <footer class="seen-in">
+          <span class="seen-in-label">seen in:</span> {{ entry.seenIn.join(' · ') }}
+        </footer>
+      </section>
+    </ng-template>
+
+    <div class="card-grid">
+      @for (entry of entries; track entry.kind) {
+        <ng-container *ngTemplateOutlet="cardBody; context: { $implicit: entry }" />
+      }
+    </div>
+
+    <h2 class="section-title">Widgets</h2>
+    <div class="card-grid">
+      @for (entry of widgetEntries; track entry.kind) {
+        <ng-container *ngTemplateOutlet="cardBody; context: { $implicit: entry }" />
       }
     </div>
   </div>

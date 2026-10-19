@@ -6,6 +6,66 @@
 
 :host {
   @include ds.page-host;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+// Dark demo palette — the app emits no dark --mat-sys-* theme (_tokens.scss
+// contract: "ST does not today"), so the toggle re-declares the tokens the
+// demos consume, scoped to this page. Every descendant var() — direct
+// --mat-sys-* reads and --ds-* aliases — resolves the dark values via
+// inheritance. Approximate M3 dark values for visual exercise only; when a
+// real app dark theme lands, this block is replaced by it.
+:host[data-theme='dark'] {
+  // color-scheme flips UA defaults for the subtree — inherited text,
+  // native control chrome, and placeholders all go dark-mode; explicit
+  // color sets the base for elements that never declare one.
+  color-scheme: dark;
+  color: var(--mat-sys-on-surface);
+  --mat-sys-surface: #131722;
+  --mat-sys-on-surface: #e2e6f0;
+  --mat-sys-on-surface-variant: #a8adbb;
+  --mat-sys-surface-container-low: #161a26;
+  --mat-sys-surface-container: #1c2130;
+  --mat-sys-surface-container-high: #262c3d;
+  --mat-sys-surface-container-highest: #303749;
+  --mat-sys-outline: #8b8f99;
+  --mat-sys-outline-variant: #454b5c;
+  --mat-sys-primary: #a3b8ff;
+  --mat-sys-on-primary: #1a237e;
+  --mat-sys-primary-container: #39448b;
+  --mat-sys-on-primary-container: #dae1ff;
+  --mat-sys-error: #ef9a9a;
+  --mat-sys-error-container: #7e2222;
+  --mat-sys-on-error-container: #ffd7d7;
+  --mat-sys-success: #81c784;
+  --mat-sys-success-container: #2c4a2e;
+  --mat-sys-on-success-container: #c8e6c9;
+  --ds-surface: var(--mat-sys-surface);
+  --ds-on-surface: var(--mat-sys-on-surface);
+  --ds-surface-variant: var(--mat-sys-surface-container);
+  --ds-error: var(--mat-sys-error);
+  --ds-border-subtle: var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface);
+
+  .gallery,
+  .gallery-body {
+    background: var(--mat-sys-surface);
+    color: var(--mat-sys-on-surface);
+  }
+
+  .gallery-header {
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-on-surface);
+  }
+
+  .theme-toggle:hover {
+    background: var(--mat-sys-surface-container-highest);
+  }
+
+  .gallery-body {
+    scrollbar-color: var(--mat-sys-outline) var(--mat-sys-surface-container-low);
+  }
 }
 
 .gallery {
@@ -59,6 +119,7 @@
   gap: var(--ds-space-2);
   padding: var(--ds-space-4);
   background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
   border: 1px solid var(--ds-border-subtle);
   border-radius: var(--ds-radius-md);
   box-shadow: var(--ds-shadow-1);
@@ -67,6 +128,7 @@
 .card-title {
   margin: 0;
   font-size: var(--ds-font-size-lg);
+  color: var(--mat-sys-on-surface);
 }
 
 .card-blurb {
@@ -79,6 +141,22 @@
   flex: 1;
   min-height: 0;
   padding: var(--ds-space-3) 0;
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  label,
+  :where(button, input, select, textarea) {
+    color: var(--mat-sys-on-surface);
+  }
+
+  :where(input, textarea)::placeholder {
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 1;
+  }
 }
 
 .seen-in {
@@ -302,4 +380,84 @@
 
 .demo-stat-strip {
   @include ds.stat-strip;
+}
+
+// ── widget demos (#1108) — canonical class names ARE the contract ────────
+
+.section-title {
+  margin: var(--ds-space-4) 0 0;
+  font-size: var(--ds-font-size-md);
+  font-weight: var(--ds-font-weight-bold);
+  color: var(--ds-on-surface);
+}
+
+.demo-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  align-items: flex-start;
+}
+
+.demo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  flex-wrap: wrap;
+}
+
+.demo-note {
+  font-size: 10px;
+  color: var(--mat-sys-on-surface-variant);
+  font-family: monospace;
+}
+
+.pill-group {
+  @include ds.pill-toggle;
+}
+
+.pill-btn {
+  @include ds.pill-btn;
+}
+
+.badge {
+  @include ds.badge;
+}
+
+.icon-btn {
+  @include ds.icon-btn;
+}
+
+.demo-toolbar {
+  @include ds.toolbar-row;
+  border-radius: var(--ds-radius-sm);
+}
+
+.demo-stepper {
+  @include ds.nav-stepper;
+}
+
+.demo-field {
+  @include ds.field-input;
+}
+
+.chip {
+  @include ds.toggle-chip;
+}
+
+.edge-row {
+  @include ds.dir-edge;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-1) var(--ds-space-2);
+  background: var(--mat-sys-surface-container);
+  font-size: var(--ds-font-size-sm);
+}
+
+.edge-card {
+  @include ds.dir-edge;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  background: var(--mat-sys-surface-container);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-sm);
 }

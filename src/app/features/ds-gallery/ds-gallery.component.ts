@@ -21,6 +21,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 /** Demo body rendered inside a card — the template @switches on this. */
@@ -36,7 +37,16 @@ export type DsDemoKind =
   | 'direction-badges'
   | 'dense-table'
   | 'state-block'
-  | 'stat-strip';
+  | 'stat-strip'
+  | 'pill-toggle'
+  | 'pill-btn'
+  | 'badge'
+  | 'icon-btn'
+  | 'toolbar-row'
+  | 'nav-stepper'
+  | 'field-input'
+  | 'toggle-chip'
+  | 'dir-edge';
 
 export interface DsGalleryEntry {
   kind: DsDemoKind;
@@ -140,10 +150,69 @@ const ENTRIES: readonly DsGalleryEntry[] = [
   },
 ];
 
+/** Widget layer (#1108) — one card per `ds.*` widget mixin; markup is the
+ *  canonical contract consumers copy (class names are the API). */
+const WIDGET_ENTRIES: readonly DsGalleryEntry[] = [
+  {
+    kind: 'pill-toggle',
+    title: 'Pill toggle',
+    blurb: 'Segmented option group — .pill options inside the group container; .flat is the borderless toolbar variant. Direction options carry .long/.short for the success/error accents.',
+    seenIn: ['signal-filter-pills', 'chart-toolbar interval/range toggles'],
+  },
+  {
+    kind: 'pill-btn',
+    title: 'Pill button + count',
+    blurb: 'Micro action pill with an optional .pill-count chip; .emph is the display-total look (not a control), .small the 8px cut.',
+    seenIn: ['signal-review-header refresh/review pills', 'review-header'],
+  },
+  {
+    kind: 'badge',
+    title: 'Badge family',
+    blurb: 'Display markers — .dir-long/.dir-short (--ds-* 15% tints), .type, .tf, .count (+.muted). Direction counts ride this too.',
+    seenIn: ['signal-table dir badges', 'review-header tf/count', 'signal-review-header dir counts'],
+  },
+  {
+    kind: 'icon-btn',
+    title: 'Icon button',
+    blurb: '28px square icon control — hover tint, .dim pre-disabled quiet state, :disabled.',
+    seenIn: ['chart-toolbar', 'review-header back/history', 'group-panel'],
+  },
+  {
+    kind: 'toolbar-row',
+    title: 'Toolbar row (composition)',
+    blurb: 'Canonical header strip — gap 8 / padding 4px 8px / 40px min. Composes icon-btns, pill-toggle, nav-stepper, badges around a .toolbar-spacer.',
+    seenIn: ['chart-toolbar', 'signal-review-header', 'review-header'],
+  },
+  {
+    kind: 'nav-stepper',
+    title: 'Nav stepper',
+    blurb: 'Prev/next + position counter — .nav-btn 22px chevrons, tabular-nums .nav-position.',
+    seenIn: ['chart-toolbar symbol-nav'],
+  },
+  {
+    kind: 'field-input',
+    title: 'Field input',
+    blurb: 'Compact labeled input — .icon + bare input + .clear button, 32px. The filter-input pattern generalized; <select> is deferred.',
+    seenIn: ['review-header header-filter'],
+  },
+  {
+    kind: 'toggle-chip',
+    title: 'Toggle chip',
+    blurb: 'Single-select chip — hover outline, .active primary-container ring. Multi-select by toggling each chip.',
+    seenIn: ['review-header strategy chips'],
+  },
+  {
+    kind: 'dir-edge',
+    title: 'Direction edge',
+    blurb: 'Companion marker — .dir-edge-long/.dir-edge-short 3px left accent on any element: table rows, cards, list items. dense-table stays unmodified.',
+    seenIn: ['signal-table tr.long/tr.short'],
+  },
+];
+
 @Component({
   selector: 'app-ds-gallery',
   standalone: true,
-  imports: [MatIconModule],
+  imports: [MatIconModule, NgTemplateOutlet],
   templateUrl: './ds-gallery.component.html',
   styleUrl: './ds-gallery.component.scss',
   host: { '[attr.data-theme]': 'dark() ? "dark" : null' },
@@ -157,8 +226,25 @@ export class DsGalleryComponent {
   private readonly host = inject(ElementRef<HTMLElement>);
 
   readonly entries = ENTRIES;
+  readonly widgetEntries = WIDGET_ENTRIES;
   readonly colorTokens = COLOR_TOKENS;
   readonly spaceTokens = SPACE_TOKENS;
+
+  // ── Widget demo state (active indices only — behavior stays demo-local) ──
+  /** Direction pill-toggle selection (0 ALL · 1 LONG · 2 SHORT). */
+  readonly pillSel = signal(1);
+  /** Flat interval pill-toggle selection (1D · 1W · 1M · 3M). */
+  readonly intervalSel = signal(1);
+  /** Toggle-chip multi-select set. */
+  readonly chipSel = signal<ReadonlySet<number>>(new Set([0]));
+  /** Field-input demo value. */
+  readonly fieldValue = signal('RS_');
+
+  toggleChip(i: number): void {
+    const next = new Set(this.chipSel());
+    if (next.has(i)) next.delete(i); else next.add(i);
+    this.chipSel.set(next);
+  }
 
   /** Dark preview — flips [data-theme="dark"] on the gallery root. */
   readonly dark = signal(false);
