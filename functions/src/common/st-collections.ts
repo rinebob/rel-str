@@ -30,6 +30,7 @@ export {
   ST_PAPER_TRADING_ROOT,
   ST_PORTFOLIO_ROOT,
   ST_CONFIG_STATUS_DOC,
+  stConfigDocPath,
   ST_JOBS_SUBCOLLECTION_NAME,
   StPaperTradingKind,
   StPortfolioKind,
@@ -136,7 +137,7 @@ export { ST_SCREENSHOTS_COLLECTION } from '@screenshot-capture/contracts';
  */
 export const ST_TRADING_CONFIG_COLLECTION = 'savant-trader/data/trading-config';
 
-/** Doc id for the auto-paper ingest config — legacy trading-config/autoPaper, moves to st-config/autoPaper (#984). */
+/** Doc id for the auto-paper ingest config — st-config/autoPaper (#984/#1008; legacy trading-config/autoPaper mirrors during the soak). */
 export const AUTO_PAPER_CONFIG_DOC = 'autoPaper';
 
 /**

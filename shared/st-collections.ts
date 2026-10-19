@@ -59,6 +59,11 @@ export const ST_CONFIG_ROOT = 'st-config';
 /** Doc id for the run-status singleton under st-config (was savant-trader/data/status/current). */
 export const ST_CONFIG_STATUS_DOC = 'status';
 
+/** `st-config/{docId}` — hosts heterogeneous singletons/user docs (status, autoPaper, {uid} trading config). */
+export function stConfigDocPath(docId: string): string {
+  return `${ST_CONFIG_ROOT}/${docId}`;
+}
+
 // ── Flat roots (cont.) ───────────────────────────────────────────────────────
 
 /** User-defined symbol lists — {uid}_{KEY} doc ids (was savant-trader/data/symbol-lists). */
