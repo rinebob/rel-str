@@ -16,9 +16,10 @@
  *     or set GOOGLE_APPLICATION_CREDENTIALS to a service account JSON key.
  *   - Do NOT set FUNCTIONS_EMULATOR=true (this targets prod).
  */
-import { db, FieldValue } from '../src/firebase-admin-init';
+import { db } from '../src/firebase-admin-init';
 import { callPartnerTrackedSymbols } from '../src/partner-proxy';
 import { syncSymbolToSymbolData } from '../src/symbol-data-sync/symbol-data-backfill';
+import { addSymbolToDefaultList } from '../src/symbol-data-sync/symbol-data-symbol-added';
 import { fetchAndWriteSymbolOverview } from '../src/common/st-overview-helper';
 import { createDailyRun, getDeadlineISO } from '../src/common/st-run-creation';
 import { createJobAndEnqueue } from '../src/common/st-job-enqueueing';
@@ -28,9 +29,7 @@ import {
   getRunIdPT,
 } from '../src/common/pt-date-utils';
 import {
-  DEFAULT_SYMBOL_LIST_NAME,
   ST_SYMBOLS_COLLECTION,
-  ST_SYMBOL_LISTS_COLLECTION,
   StSymbol,
 } from '../src/common/st-collections';
 import { SYMBOL_DATA_COLLECTION } from '../src/webhooks/webhooks-config';
@@ -47,16 +46,8 @@ async function getCollectionIds(collection: string): Promise<Set<string>> {
   return ids;
 }
 
-/** Add a symbol to the NEW inbox list (mirrors the consumer). */
-async function addSymbolToDefaultList(symbol: string): Promise<void> {
-  await db
-    .collection(ST_SYMBOL_LISTS_COLLECTION)
-    .doc(DEFAULT_SYMBOL_LIST_NAME)
-    .set(
-      { name: DEFAULT_SYMBOL_LIST_NAME, symbols: FieldValue.arrayUnion(symbol) },
-      { merge: true },
-    );
-}
+/** NEW inbox add reuses the consumer's writer — it dual-writes legacy +
+ *  st-symbol-lists during the #1008 soak. */
 
 /** Trigger a single-symbol RH Agent run (mirrors the consumer). */
 async function triggerSymbolAddedRun(symbol: string): Promise<void> {
