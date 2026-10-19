@@ -69,10 +69,10 @@ stTriggerDaily (manual) / SDS consumer dispatch (automatic)
 | `st-signals` | `{SYM}_{barDate}_{signalType}` | Canonical signal occurrence docs (#984) — upserted dual-write; supersede run-ids/signal-history after cutover |
 | `savant-trader/data/runs` | PDR: `marketDate`; manual: `{marketDate}_manual_{ts}` | Run metadata and counters |
 | `savant-trader/data/runs/{runId}/jobs` | `{symbol}` | Per-symbol job status |
-| `savant-trader/data/status/current` | `current` | Agent status singleton |
+| `st-config/status` | `status` | Agent status singleton (#1008 — mirrored to legacy `savant-trader/data/status/current` during the soak) |
 | `savant-trader/data/symbol-meta` | `{symbol}` | Symbol-level classification/tags (universe management) |
 | `savant-trader/data/occurrence-decisions` | `{symbol}_{marketDate}` | Daily PACR review decisions |
-| `savant-trader/data/symbol-lists` | `{listName}` | User-defined watchlists |
+| `st-symbol-lists` | `{listName}` | User-defined watchlists (#1008 — mirrored to legacy `savant-trader/data/symbol-lists` during the soak) |
 
 ## Setup
 
