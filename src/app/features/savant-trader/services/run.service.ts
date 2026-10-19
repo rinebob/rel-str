@@ -32,7 +32,6 @@ export class RunService {
   private readonly adminHttpUrl = 'https://us-central1-rel-str.cloudfunctions.net/symbolDataSyncAdminHttp';
 
   private readonly runsCollection = Collection.ST_RUNS;
-  private readonly statusDoc = 'savant-trader/data/status/current';
 
   /**
    * Trigger symbol-data backfill via symbolDataSyncAdminHttp HTTPS endpoint.
