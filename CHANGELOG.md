@@ -3,6 +3,9 @@
 ## [2026-10-20]
 
 ### Added
+- [Savant Design System] 1024-1111_FE-IMPL-DESIGN-SYSTEM: ST vendored widget sync + `/dev/ds` Widgets section — 9 canonical compiled-mixin demos with provenance, interactive pill/chip/input state, focused specs, and QA-refined full-page light/dark token treatment; add missing success-container token pair used by existing app surfaces
+- [Savant Design System] 1024-1111_FE-IMPL-DESIGN-SYSTEM: SavantApi vendored widget sync — `_widgets.scss` + `_index.scss` byte-identical to `savant-ds`, with no consumer migrations in this task
+- [Savant Design System] 1024-1111_DOCS-DESIGN-SYSTEM: #1111 CODE-REVIEW (PASS — standards/spec/thermo-nuclear) + #1126 UAT (Complete — vendor parity, 7/7 focused specs, build, and user-confirmed light/dark visual refinement)
 - [Paper Trading Infra] 553-1073_SHARED-IMPL-PAPER-TRADING: TradeAnalysisRow 46-column schema + ANALYSIS_COLUMNS manifest (key/label/kind/enumValues/filterable/defaultVisible) + AnalysisDatasetDoc/AnalysisSlice/SliceFilter/analysisCohort + PaperTradingDoc union & is* guards + analysis-datasets/analysis-slices anchor paths; flat dot-keyed rows (ind.*/strength.*) so manifest key = row key = CSV header
 - [Paper Trading Infra] 553-1073_CONFIG-PAPER-TRADING: @paper-trading/analysis alias registered in tsconfig/functions/tsconfig/jest + firestore.rules authed CRUD for analysis-slices (was instances-only writes; deployed)
 - [Paper Trading Infra] 553-1073_BE-VERIFY-PAPER-TRADING: paper-trading-analysis-1073-contracts relay (16 checks — dataset/slice doc round-trip, manifest bijection, path parity) + per-task guide + README/run-all index + signal-trades-export Layer-0 seed script
