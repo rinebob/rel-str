@@ -5,6 +5,11 @@
  * Run from the functions/ directory so firebase-admin is available.
  *
  * Usage: node scripts/migrate-st-collections.js
+ *
+ * ⚠ RETIRED — do not re-run (#984/#1009). savant-trader/data/* is itself
+ * being dismantled: re-running repopulates retired collections
+ * (occurrence-decisions, review-list) and stale copies of migrated ones.
+ * Kept for archaeology only; delete candidate at #1013.
  */
 const admin = require('firebase-admin');
 admin.initializeApp({ projectId: 'rel-str' });
