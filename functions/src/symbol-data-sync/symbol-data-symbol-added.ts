@@ -14,6 +14,7 @@
  */
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions';
+import type { Firestore } from 'firebase-admin/firestore';
 import { PARTNER_SYMBOL_ADDED_TOPIC } from '../webhooks/webhooks-config';
 import { createDailyRun, getDeadlineISO } from '../common/st-run-creation';
 import { createJobAndEnqueue } from '../common/st-job-enqueueing';
@@ -28,6 +29,7 @@ import {
   DEFAULT_SYMBOL_LIST_NAME,
   ST_SYMBOLS_COLLECTION,
   ST_SYMBOL_LISTS_COLLECTION,
+  ST_SYMBOL_LISTS_ROOT,
   StSymbol,
 } from '../common/st-collections';
 import { fetchAndWriteSymbolOverview } from '../common/st-overview-helper';
@@ -36,12 +38,25 @@ import { decodeSymbolAddedMessage, normalizeSource } from '../common/st-symbol-a
 /** Deadline for the single-symbol ST run triggered after onboarding. */
 const RUN_DEADLINE_MINUTES = 30;
 
-/** Add a symbol to the NEW inbox list (triaged by the user, not auto-filed). */
-async function addSymbolToDefaultList(symbol: string): Promise<void> {
-  await db.collection(ST_SYMBOL_LISTS_COLLECTION).doc(DEFAULT_SYMBOL_LIST_NAME).set(
-    { name: DEFAULT_SYMBOL_LIST_NAME, symbols: FieldValue.arrayUnion(symbol) },
-    { merge: true },
-  );
+/** Add a symbol to the NEW inbox list (triaged by the user, not auto-filed).
+ *  Dual-writes legacy + st-symbol-lists during the #1008 soak — the FE probes
+ *  bare-name list docs on the legacy root until its #1014 re-point; the
+ *  canonical leg lands immediately instead of waiting on the mirror.
+ *  One batch — a half-applied add can't happen (canonical→legacy has no
+ *  mirror to heal a legacy-leg failure). */
+export async function addSymbolToDefaultList(
+  symbol: string,
+  firestoreDb: Firestore = db,
+): Promise<void> {
+  const payload = {
+    name: DEFAULT_SYMBOL_LIST_NAME,
+    symbols: FieldValue.arrayUnion(symbol),
+  };
+  const batch = firestoreDb.batch();
+  const opts = { merge: true };
+  batch.set(firestoreDb.collection(ST_SYMBOL_LISTS_COLLECTION).doc(DEFAULT_SYMBOL_LIST_NAME), payload, opts);
+  batch.set(firestoreDb.collection(ST_SYMBOL_LISTS_ROOT).doc(DEFAULT_SYMBOL_LIST_NAME), payload, opts);
+  await batch.commit();
 }
 
 /** Trigger a single-symbol ST run for a newly onboarded symbol. */

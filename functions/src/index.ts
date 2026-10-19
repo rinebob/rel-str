@@ -185,3 +185,12 @@ export {
   stBacktestRunsMirror,
   stBacktestPermutationsMirror,
 } from './st-cloud-function/backtest/backtest-mirror';
+
+// #984 / #1008 — st-config + st-symbol-lists soaks: legacy → canonical for
+// FE-written config/list docs; st-config/status → legacy shadow for
+// rules-permitted readers + rollback during the soak
+export {
+  tradingConfigMirror,
+  symbolListsMirror,
+  stStatusMirror,
+} from './st-config/config-lists-mirror';

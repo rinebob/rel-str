@@ -11,9 +11,9 @@ import { loadEnabledSymbols } from '../common/st-symbol-source';
 import { enqueueSymbolJobs } from '../common/st-job-enqueueing';
 import { normalizeMarketDate } from '../common/pt-date-utils';
 import {
+  ST_CONFIG_STATUS_DOC,
+  stConfigDocPath,
   ST_RUNS_COLLECTION,
-  ST_STATUS_COLLECTION,
-  AGENT_STATUS_DOC,
   ST_SCHEDULE_CRON,
   ST_SYMBOLS_COLLECTION,
 } from '../common/st-collections';
@@ -156,7 +156,7 @@ export const stGetStatus = onCall<void, Promise<AgentStatusResponse>>(
       .get();
     const symbolsMonitored = symbolsSnapshot.docs.map((d) => d.data().symbol as string);
 
-    const doc = await db.collection(ST_STATUS_COLLECTION).doc(AGENT_STATUS_DOC).get();
+    const doc = await db.doc(stConfigDocPath(ST_CONFIG_STATUS_DOC)).get();
 
     if (!doc.exists) {
       return {

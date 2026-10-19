@@ -9,10 +9,10 @@ import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
 import { db, FieldValue } from '../firebase-admin-init';
 import {
+  ST_CONFIG_STATUS_DOC,
+  stConfigDocPath,
   ST_RUNS_COLLECTION,
-  ST_STATUS_COLLECTION,
   ST_JOBS_SUBCOLLECTION,
-  AGENT_STATUS_DOC,
   ST_SCHEDULE_CRON,
 } from '../common/st-collections';
 import {
@@ -177,7 +177,7 @@ export class RunProgressTracker {
    */
   private async checkRunCompletion(): Promise<void> {
     const runRef = db.collection(ST_RUNS_COLLECTION).doc(this.runId);
-    const statusRef = db.collection(ST_STATUS_COLLECTION).doc(AGENT_STATUS_DOC);
+    const statusRef = db.doc(stConfigDocPath(ST_CONFIG_STATUS_DOC));
 
     try {
       let completion: RunCompletionResult | undefined;

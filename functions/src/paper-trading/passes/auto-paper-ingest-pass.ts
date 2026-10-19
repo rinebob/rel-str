@@ -9,8 +9,9 @@
  * This file owns the GATES (`runAutoPaperIngestPass`) and the fill
  * pipeline (`runAutoPaperIngestFill`, #918):
  *
- *   1. Config gate — `savant-trader/data/trading-config/autoPaper` missing
+ *   1. Config gate — `st-config/autoPaper` missing
  *      or `enabled: false` → skip (no candidate reads, no quotes).
+ *      (`savant-trader/data/trading-config/autoPaper` pre-#1008.)
  *   2. Live-date gate — `payload.marketDate !== today PT` →
  *      `st_autopaper_skip` (historical/replay runs never paper-trade).
  *      PARTIAL runs proceed — succeeded signals are still valid.
@@ -23,12 +24,12 @@
 
 import {
   AUTO_PAPER_CONFIG_DOC,
+  ST_CONFIG_ROOT,
   ST_JOBS_SUBCOLLECTION,
   ST_RUN_IDS_SUBCOLLECTION,
   ST_RUNS_COLLECTION,
   ST_SYMBOLS_COLLECTION,
-  ST_SYMBOL_LISTS_COLLECTION,
-  ST_TRADING_CONFIG_COLLECTION,
+  ST_SYMBOL_LISTS_ROOT,
   type AutoPaperConfig,
 } from '../../common/st-collections';
 import { getMarketDatePT, isValidMarketDate } from '../../common/pt-date-utils';
@@ -523,7 +524,7 @@ export function defaultAutoPaperIngestDeps(): AutoPaperIngestDeps {
   return {
     loadConfig: async () => {
       const doc = await db
-        .collection(ST_TRADING_CONFIG_COLLECTION)
+        .collection(ST_CONFIG_ROOT)
         .doc(AUTO_PAPER_CONFIG_DOC)
         .get();
       return (doc.exists ? doc.data() : null) as AutoPaperConfig | null;
@@ -628,13 +629,13 @@ export function defaultAutoPaperIngestFillDeps(
     listMembers: async (listKey, ownerUid) => {
       if (ownerUid) {
         const doc = await db
-          .collection(ST_SYMBOL_LISTS_COLLECTION)
+          .collection(ST_SYMBOL_LISTS_ROOT)
           .doc(`${ownerUid}_${listKey}`)
           .get();
         return ((doc.data()?.symbols ?? []) as string[]);
       }
       const snap = await db
-        .collection(ST_SYMBOL_LISTS_COLLECTION)
+        .collection(ST_SYMBOL_LISTS_ROOT)
         .where('key', '==', listKey)
         .get();
       if (snap.size > 1) {
