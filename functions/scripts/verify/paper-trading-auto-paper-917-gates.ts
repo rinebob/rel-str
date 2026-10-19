@@ -6,7 +6,7 @@
  *
  *   1. `stAutoPaperIngest` is defined by the task module (export/registration).
  *   2. `AUTO_PAPER_CONFIG_DOC` resolves the `autoPaper` doc under the
- *      trading-config collection.
+ *      st-config collection (was trading-config pre-#1008).
  *   3. The default signal-type allowlist is exactly the four daily
  *      trend-rider types.
  *   4. The pass gates behave against the REAL config doc:
@@ -29,7 +29,7 @@
 import { db } from '../../src/firebase-admin-init';
 import {
   AUTO_PAPER_CONFIG_DOC,
-  ST_TRADING_CONFIG_COLLECTION,
+  ST_CONFIG_ROOT,
   type AutoPaperConfig,
 } from '../../src/common/st-collections';
 import { getMarketDatePT } from '../../src/common/pt-date-utils';
@@ -56,9 +56,9 @@ async function main(): Promise<void> {
   // 2. Config doc id + path
   check('AUTO_PAPER_CONFIG_DOC === autoPaper', AUTO_PAPER_CONFIG_DOC === 'autoPaper');
   check(
-    'config doc path under trading-config',
-    `${ST_TRADING_CONFIG_COLLECTION}/${AUTO_PAPER_CONFIG_DOC}` ===
-      'savant-trader/data/trading-config/autoPaper',
+    'config doc path under st-config (#1008 cutover)',
+    `${ST_CONFIG_ROOT}/${AUTO_PAPER_CONFIG_DOC}` ===
+      'st-config/autoPaper',
   );
 
   // 3. Default allowlist
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
 
   // 4. Gates against the real prod config doc
   const configDoc = await db
-    .collection(ST_TRADING_CONFIG_COLLECTION)
+    .collection(ST_CONFIG_ROOT)
     .doc(AUTO_PAPER_CONFIG_DOC)
     .get();
   const config = (configDoc.exists ? configDoc.data() : null) as AutoPaperConfig | null;

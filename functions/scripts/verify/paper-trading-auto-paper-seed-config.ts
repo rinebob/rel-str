@@ -1,5 +1,6 @@
 /**
- * Seed `savant-trader/data/trading-config/autoPaper` for #920 umbrella QA.
+ * Seed `st-config/autoPaper` for #920 umbrella QA (was
+ * savant-trader/data/trading-config/autoPaper pre-#1008).
  *
  * Resolves ownerUid from the `{uid}_PRIMARY` symbol-list doc id (the same
  * lookup the ingest pass uses), writes { enabled, lists, ownerUid }, then
@@ -9,13 +10,13 @@
  */
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
-import { ST_SYMBOL_LISTS_COLLECTION, ST_TRADING_CONFIG_COLLECTION, AUTO_PAPER_CONFIG_DOC } from '../../src/common/st-collections.js';
+import { ST_CONFIG_ROOT, ST_SYMBOL_LISTS_ROOT, AUTO_PAPER_CONFIG_DOC } from '../../src/common/st-collections.js';
 
 initializeApp({ credential: applicationDefault() });
 const db = getFirestore();
 
 const listSnap = await db
-  .collection(ST_SYMBOL_LISTS_COLLECTION)
+  .collection(ST_SYMBOL_LISTS_ROOT)
   .where('key', '==', 'PRIMARY')
   .get();
 if (listSnap.size !== 1) throw new Error(`expected 1 PRIMARY doc, got ${listSnap.size}`);
@@ -25,7 +26,7 @@ if (!primaryId.endsWith('_PRIMARY')) throw new Error(`unexpected PRIMARY doc id:
 const ownerUid = primaryId.slice(0, -'_PRIMARY'.length);
 console.log(`PRIMARY doc: ${primaryId} → ownerUid: ${ownerUid}`);
 
-const ref = db.collection(ST_TRADING_CONFIG_COLLECTION).doc(AUTO_PAPER_CONFIG_DOC);
+const ref = db.collection(ST_CONFIG_ROOT).doc(AUTO_PAPER_CONFIG_DOC);
 const before = await ref.get();
 console.log(`existing config: ${before.exists ? JSON.stringify(before.data()) : '(none)'}`);
 

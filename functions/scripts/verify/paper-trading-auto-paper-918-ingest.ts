@@ -32,7 +32,7 @@ import {
   ST_RUN_IDS_SUBCOLLECTION,
   ST_RUNS_COLLECTION,
   ST_SYMBOLS_COLLECTION,
-  ST_SYMBOL_LISTS_COLLECTION,
+  ST_SYMBOL_LISTS_ROOT,
 } from '../../src/common/st-collections';
 import { StRunStatus } from '../../src/common/st-runs';
 import { isValidMarketDate } from '../../src/common/pt-date-utils';
@@ -78,9 +78,10 @@ async function main(): Promise<void> {
   const candidates = jobs.docs.map((d) => d.id);
   check('candidate query returns symbols', candidates.length > 0, `${candidates.length} candidates`);
 
-  // List gate — PRIMARY is the configured capture scope.
+  // List gate — PRIMARY is the configured capture scope. The ingest pass
+  // reads st-symbol-lists since the #1008 cutover, so the verify does too.
   const listSnap = await db
-    .collection(ST_SYMBOL_LISTS_COLLECTION)
+    .collection(ST_SYMBOL_LISTS_ROOT)
     .where('key', '==', 'PRIMARY')
     .get();
   const primary = new Set<string>((listSnap.docs[0]?.data()?.symbols ?? []) as string[]);

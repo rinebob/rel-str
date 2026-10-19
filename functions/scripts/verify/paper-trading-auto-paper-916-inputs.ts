@@ -11,7 +11,7 @@
  *      each carries direction/status/barDate/marketDate/indicators.
  *   3. Reads `symbols/{SYMBOL}` — confirms sector/industry/marketCapTier
  *      are populated (the slice dims the ingest denormalizes); checks a
- *      user-scoped `symbol-lists/{uid}_PRIMARY` doc exists.
+ *      user-scoped `st-symbol-lists/{uid}_PRIMARY` doc exists (was savant-trader/data/symbol-lists pre-#1008).
  *   4. Prints the tradeId / signalId / scope ids the ingest WOULD derive —
  *      proving the contract maps onto real data.
  *
@@ -31,7 +31,7 @@ import {
   ST_JOBS_SUBCOLLECTION,
   ST_SYMBOLS_COLLECTION,
   ST_RUN_IDS_SUBCOLLECTION,
-  ST_SYMBOL_LISTS_COLLECTION,
+  ST_SYMBOL_LISTS_ROOT,
 } from '../../src/common/st-collections';
 import {
   signalTradeDesc,
@@ -122,8 +122,9 @@ async function main(): Promise<void> {
   check(`${symbol} symbols-doc marketCapTier`, typeof m.marketCapTier === 'string' && m.marketCapTier.length > 0, String(m.marketCapTier));
 
   // Symbol lists are user-scoped: doc id {uid}_{KEY}, members in symbols[].
+  // The ingest pass reads st-symbol-lists since #1008 — verify the same root.
   const lists = await db
-    .collection(ST_SYMBOL_LISTS_COLLECTION)
+    .collection(ST_SYMBOL_LISTS_ROOT)
     .where('key', '==', 'PRIMARY')
     .get();
   check('a PRIMARY list doc exists', !lists.empty);
