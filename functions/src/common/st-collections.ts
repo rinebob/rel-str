@@ -159,18 +159,6 @@ export interface AutoPaperConfig {
 }
 
 /**
- * Occurrence decisions collection (matches FE Collection enum).
- * @deprecated Decisions fold into st-order-tickets (#984); removed in #1013.
- */
-export const ST_OCCURRENCE_DECISIONS_COLLECTION = 'savant-trader/data/occurrence-decisions';
-
-/**
- * Review list collection (matches FE Collection enum).
- * @deprecated Being removed entirely in #984 — do not write new consumers.
- */
-export const ST_REVIEW_LIST_COLLECTION = 'savant-trader/data/review-list';
-
-/**
  * Symbol document — today under savant-trader/data/symbols/{SYMBOL}
  * (config fields coexist with SA company overview + signal gate fields);
  * symbols + symbol-meta merge into st-symbols/{SYMBOL} in #984.

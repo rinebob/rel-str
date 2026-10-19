@@ -29,6 +29,7 @@
     "test:st-order-tickets": "tsx --test ../tests/functions/st-order-ticket-writer.test.ts ../tests/functions/order-intents-migration.test.ts",
     "test:collection-renames": "tsx --test ../tests/functions/collection-renames-1007.test.ts",
     "test:config-lists": "tsx --test ../tests/functions/config-lists-1008.test.ts",
+    "test:decisions-retirement": "tsx --test ../tests/functions/decisions-retirement-1009.test.ts",
     "test:st-position-groups": "tsx --test ../tests/functions/position-groups/st-position-group-writer.test.ts ../tests/functions/position-groups/live-position-join.test.ts ../tests/functions/position-groups/cohort-mapper.test.ts",
     "test:st-run-completion": "tsx --test ../tests/functions/st-run-completion.test.ts",
     "test:st-signals": "tsx --test ../tests/functions/signal-entries-from-doc.test.ts ../tests/functions/signal-date-writer.test.ts ../tests/functions/st-signals-backfill-1001.test.ts",
