@@ -48,6 +48,7 @@ const scripts = [
   'paper-trading-analysis-1074-csv-codec.ts',
   'paper-trading-analysis-1076-dataset-writer.ts',
   'paper-trading-analysis-1077-live-snapshot.ts',
+  'paper-trading-analysis-dataset.ts',
 ];
 
 let passed = 0;
