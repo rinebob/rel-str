@@ -49,6 +49,7 @@
     "src",
     "scripts/backtest-qqq-underlying.ts",
     "scripts/migrate-cohorts-1004.ts",
+    "scripts/migrate-collection-renames-1007.ts",
     "scripts/migrate-order-intents-1003.ts",
     "scripts/open-close-strategy-comparison.ts",
     "scripts/seed-options-strategy-instances.ts",
