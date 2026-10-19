@@ -11,7 +11,7 @@
 **Type:** Implementation Plan  
 **Status:** Draft  
 **Created:** 2026-10-17  
-**Last Updated:** 2026-10-17  
+**Last Updated:** 2026-10-20  
 
 ## Scope
 
@@ -55,6 +55,10 @@ Generation side of the pipeline (PRD US1/US2). One write path — **all** genera
 - Dry-run live snapshot (counts rows, samples columns) without writing.
 - Replay AMAT with defaults → row count + stats (98 closed, ~32.7% profitable, payoff ~1.30) compared to the validated prototype tolerances.
 - Registered in `scripts/verify/run-all.ts` under the paper-trading group.
+- **As-built (#1079):** both legs run the REAL passes (`runLiveSnapshot`/`runReplay`) with only `writeDataset` swapped for an in-memory collector — the relay exercises the production mapping end-to-end and structurally cannot touch GCS or the index.
+- **As-built (#1079):** the parity leg replays the prototype's exact bar window — `loadDailyBars` slices `d >= 2023-01-01` (the prototype computed indicators on that slice, so warmup must match) and `barRange.to` is frozen at 2026-10-16 (the fixture's max referenced date) so appended SDS bars can't drift the check. Expected stats derive from the checked-in CSV `paper-trading-analysis-dataset-amat-prototype.csv` at run time; asserts are exact on rows/closed/signal-set, ±0.5pp winrate, ±0.02 payoff.
+- **As-built (#1079):** a full-history AMAT leg (no warmup slice, same frozen `to`) prints as informational only — the production-faithful baseline (194/193/35.8%/1.30) legitimately drifts if SDS backfills older shards.
+- **As-built (#1079):** #1007 transitional fallback — working-tree `collections.ts` routes `trades` to `st-paper-trading/trades/items`, empty until the rename migration runs (deploy → `--apply` per its runbook). When canonical enumerates zero, the `listTrades` dep reads the legacy path with a ⚠ (same `{id, ...data}` + `isPaperTrade` construction as `listTrades`). Self-healing once canonical has docs; the warn does not fail the run.
 
 ## Risks
 
