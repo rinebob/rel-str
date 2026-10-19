@@ -71,7 +71,7 @@ stTriggerDaily (manual) / SDS consumer dispatch (automatic)
 | `savant-trader/data/runs/{runId}/jobs` | `{symbol}` | Per-symbol job status |
 | `st-config/status` | `status` | Agent status singleton (#1008 — mirrored to legacy `savant-trader/data/status/current` during the soak) |
 | `savant-trader/data/symbol-meta` | `{symbol}` | Symbol-level classification/tags (universe management) |
-| `savant-trader/data/occurrence-decisions` | `{symbol}_{marketDate}` | Daily PACR review decisions |
+| `savant-trader/data/occurrence-decisions` | `{symbol}_{marketDate}` | ~~Daily PACR review decisions~~ retired (#1009) — no BE reads/writes; FE writes stop at #1016/#1017; TTL sweeper drains until #1013 deletes the collection |
 | `st-symbol-lists` | `{listName}` | User-defined watchlists (#1008 — mirrored to legacy `savant-trader/data/symbol-lists` during the soak) |
 
 ## Setup
