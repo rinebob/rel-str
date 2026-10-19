@@ -90,6 +90,9 @@
 - [ST Firestore Reorg] 984-1008_BE-VERIFY-DATA-PIPELINE: data-pipeline-config-lists-1008 parity audit — destInclude partitions shared st-config root (no autoPaper/uid dest-only noise), direction-aware FAIL/WARN; prod run 0 FAIL/0 WARN post-deploy; 916/917/918/seed-config verifies re-pointed to canonical roots + README/run-all index
 - [ST Firestore Reorg] 984-1008_FE-CHORE-DATA-PIPELINE: dead run.service.statusDoc field dropped (no live FE status-doc reader — callable-only)
 - [ST Firestore Reorg] 984-1008_DOCS-DATA-PIPELINE: #1008 CODE-REVIEW (2 rounds, PASS — audit dest-only noise, non-atomic dual-write, second legacy-only sweep writer, status-doc collapse) + #1128 UAT (Complete — inverted migrate→deploy→re-migrate→audit ordering, 4 live soak probes, canonical ingest/status reads verified on prod)
+- [ST Firestore Reorg] 984-1009_BE-IMPL-DATA-PIPELINE: review-list + occurrence-decisions BE surface retired — dead deprecated constants removed from st-collections.ts (last BE reference surface; both collections FE-owned until #1016/#1017); 5-spec guard suite pins zero functions/src references outside the whitelisted TTL sweeper; sweeper deliberately retained (drains until #1013)
+- [ST Firestore Reorg] 984-1009_BE-VERIFY-DATA-PIPELINE: data-pipeline-decisions-retirement-1009 prod audit — cwd-independent code-invariant scan, anchored sweeper-export check, decidedAt range validation (missing WARNs as undrainable, unparseable FAILs — no NaN false-OK), fresh-write WARN expected until #1017; run-all/README registered; migrate-st-collections.js do-not-rerun guard
+- [ST Firestore Reorg] 984-1009_DOCS-DATA-PIPELINE: #1009 CODE-REVIEW (1 round, PASS — audit NaN-guard major remediated + 9 minors) + #1142 UAT (Complete — 5/5 scenarios, prod audit 0 FAIL/0 WARN, sweeper verified deployed) + st-cloud README retired-path row fix
 
 
 ## [2026-10-17]
