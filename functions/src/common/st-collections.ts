@@ -33,6 +33,7 @@ export {
   ST_JOBS_SUBCOLLECTION_NAME,
   StPaperTradingKind,
   StPortfolioKind,
+  ST_PORTFOLIO_ANCHORS,
   stRunJobsPath,
   stRunJobDocPath,
   stPaperTradingItemsPath,

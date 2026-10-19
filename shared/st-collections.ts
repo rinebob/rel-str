@@ -156,7 +156,9 @@ export enum StPortfolioKind {
   ATTRIBUTION = 'attribution',
 }
 
-const ST_PORTFOLIO_ANCHORS: Record<StPortfolioKind, string> = {
+/** Anchor doc name per portfolio kind — exported so the #1007 mirror can
+ *  invert it (legacy anchor → kind) instead of re-encoding the map. */
+export const ST_PORTFOLIO_ANCHORS: Record<StPortfolioKind, string> = {
   [StPortfolioKind.BUCKET]: 'buckets',
   [StPortfolioKind.ATTRIBUTION]: 'attributions',
 };
