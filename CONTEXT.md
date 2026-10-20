@@ -426,3 +426,23 @@ _Avoid_: saved query, view
 
 One flattened record per paper trade in an Analysis Dataset — the analysis grain. `tradeRetPct` is direction-aware (shorts profit when the symbol falls); `symbolMovePct` is direction-neutral. Live rows carry ledger-observed entry/exit/marks; replay rows observe only OHLC + regenerated indicators, with entry/exit/outcomes modeled under the run's recorded conventions. Analysis views compute on `status=CLOSED` rows only — open trades are quarantined, not excluded from the file.
 _Avoid_: observation (that's raw inputs), ledger entry
+
+## Tracked Symbol Universe
+
+The upstream-owned set of symbols ST's data pipeline syncs and scans — ~925 names fetched via `partnerListTrackedSymbolsV2` and cached at `app/trackedSymbolsCache`. Read-only from ST; membership changes happen upstream (adds arrive via `partner-symbol-added` Pub/Sub → backfill → `rh-agent-symbols` enable). Distinct from user symbol lists, which are locally writable triage buckets layered on top.
+_Avoid_: watchlist, symbol list, tracked list (ambiguous without "universe")
+
+## Scan Recipe
+
+A named, code-versioned `preview_scan` bundle — filter set (unit-corrected expression filters, optional `symbol` scope), result columns, and sort — surfaced as a menu item on the Scanner page. Encodes the scanner field-guide corrections (fraction thresholds, ANY_OF/IN_LIST scoping); users pick recipes, never raw filters.
+_Avoid_: screen (RH's word), saved scan (that's the RH-account entity)
+
+## Curation Proposal
+
+The persisted artifact of a Scanner compare run (`st-scanner/proposals/items/{id}`): recipe, timestamp, matched count, and the four buckets — add candidates (matched ∧ untracked), drop candidates (tracked ∧ failed), dead/uncovered (tracked ∧ absent from scanner), no-data (tracked ∧ returned-but-blank). Proposals are the output; applying them to the universe is a deferred decision.
+_Avoid_: diff, recommendation, plan
+
+## Dead Symbol
+
+A tracked-universe symbol the Robinhood scanner never returns even when explicitly scoped via `symbol ANY_OF` — delisted/acquired or unsupported. Surfaced in its own proposal bucket, separate from quality failures (verify before dropping).
+_Avoid_: invalid symbol, missing symbol
