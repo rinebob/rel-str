@@ -201,4 +201,40 @@ describe('scanner recipe catalog (#1137)', () => {
       }
     }
   });
+
+  it('quality noDataPred flags blank key metrics via the canonical lookup', () => {
+    // The real predicate resolves 'ROE'/'NPM' through QUALITY_LOOKUP —
+    // a lookup regression silently routes blank rows to dropCandidates.
+    const q = scannerRecipeById('quality-mid')!;
+    const mk = (values: Record<string, string>) => ({
+      symbol: 'X',
+      name: '',
+      instrumentType: 'EQUITY',
+      values,
+      tracked: false,
+    });
+    expect(q.noDataPred!(mk({}))).toBe(true);
+    // Blank strings and non-numeric cells count as no-data too.
+    expect(q.noDataPred!(mk({ 'Return on equity': '', 'Net profit margin': 'abc' }))).toBe(true);
+    expect(q.noDataPred!(mk({ 'Return on equity': '0.2' }))).toBe(false);
+    expect(q.noDataPred!(mk({ 'Net profit margin': '0.3' }))).toBe(false);
+    // Raw display-name keys work too (presence fallback in numericColumn).
+    expect(q.noDataPred!(mk({ ROE: '0.2' }))).toBe(false);
+  });
+
+  it('no column display_name collides with a filter display_title (live wire error)', () => {
+    // Probed 2026-10-20: backend rejects 'column "X" already exists from
+    // a filter' when a column re-declares a title the filter produced.
+    for (const r of SCANNER_RECIPES) {
+      const titles = new Set(
+        r.filters
+          .filter(isExpressionFilter)
+          .map((f) => f.display_title)
+          .filter(Boolean),
+      );
+      for (const c of r.columns) {
+        expect(titles.has(c.display_name)).toBe(false);
+      }
+    }
+  });
 });
