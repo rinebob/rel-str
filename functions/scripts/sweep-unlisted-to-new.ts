@@ -1,11 +1,18 @@
 /**
- * Sweep Unlisted Symbols → NEW — one-time inbox backfill.
+ * Sweep Unlisted Symbols → NEW — one-time inbox backfill (#1011).
  *
- * Scans the tracked-symbol universe (savant-trader/data/symbols) and files
- * every symbol that belongs to no EXCLUSIVE list into the user's
- * NEW inbox list. Exclusive keys are the triage buckets (NEW/PRIMARY/
- * SECONDARY/NEUTRAL/AVOID/HIDE); MONITOR and user lists are nonexclusive —
+ * Scans the tracked-symbol universe and files every symbol that
+ * belongs to no EXCLUSIVE list into the user's NEW inbox list.
+ * Exclusive keys are the triage buckets (NEW/PRIMARY/SECONDARY/
+ * NEUTRAL/AVOID/HIDE); MONITOR and user lists are nonexclusive —
  * membership there does not count as triaged.
+ *
+ * Both roots are read for membership AND the universe (legacy
+ * `savant-trader/data/*` + canonical `st-*`) so drift between roots
+ * can't mis-file a symbol. Writes are dual and per-leg: each root's
+ * payload is built from that root's own doc state, so a doc existing
+ * in only one leg gets meta+createdAt minted there and a union-only
+ * update in the other.
  *
  * Usage:
  *   cd functions
@@ -23,91 +30,121 @@ import { db, FieldValue } from '../src/firebase-admin-init';
 import {
   ST_SYMBOLS_COLLECTION,
   ST_SYMBOL_LISTS_COLLECTION,
+  ST_SYMBOLS_ROOT,
   ST_SYMBOL_LISTS_ROOT,
 } from '../src/common/st-collections';
-
-const EXCLUSIVE_KEYS = new Set(['NEW', 'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE']);
-const NEW_KEY = 'NEW';
-const NEW_SYSTEM_META = { key: NEW_KEY, label: 'New symbols', order: -1, role: 'exclusive', hidden: false };
+import {
+  buildNewListDoc,
+  computeUnlisted,
+  enabledSymbolIds,
+  listKeyOf,
+  NEW_LIST_KEY,
+  resolveNewListTarget,
+  summarizeListDocs,
+} from '../src/common/st-new-list-sweep';
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
-const uidArg = args.includes('--uid') ? args[args.indexOf('--uid') + 1] : undefined;
-
-/** Registry key for a list doc: `key` field when stamped, else the bare doc id (legacy). */
-function listKey(docId: string, data: FirebaseFirestore.DocumentData): string {
-  return typeof data['key'] === 'string' ? data['key'] : docId;
+const uidFlagIdx = args.indexOf('--uid');
+const uidArg = uidFlagIdx >= 0 ? args[uidFlagIdx + 1] : undefined;
+if (uidFlagIdx >= 0 && (uidArg === undefined || !/^\S+$/.test(uidArg) || uidArg.startsWith('--'))) {
+  console.error('usage: --uid <uid> requires a non-empty uid value');
+  process.exit(1);
 }
 
 async function main(): Promise<void> {
-  console.log(`=== Sweep Unlisted → ${NEW_KEY} (${APPLY ? 'APPLY' : 'DRY-RUN'}) ===\n`);
+  console.log(`=== Sweep Unlisted → ${NEW_LIST_KEY} (${APPLY ? 'APPLY' : 'DRY-RUN'}) ===\n`);
 
-  const [symbolsSnap, listsSnap] = await Promise.all([
-    db.collection(ST_SYMBOLS_COLLECTION).get(),
+  const [legacySyms, canonSyms, legacyLists, canonLists] = await Promise.all([
+    db.collection(ST_SYMBOLS_COLLECTION).select('enabled').get(),
+    db.collection(ST_SYMBOLS_ROOT).select('enabled').get(),
     db.collection(ST_SYMBOL_LISTS_COLLECTION).get(),
+    db.collection(ST_SYMBOL_LISTS_ROOT).get(),
   ]);
 
-  // Universe: doc id is the symbol.
-  const universe = new Set(symbolsSnap.docs.map((d) => d.id.toUpperCase()));
+  // Universe: doc id is the symbol, union of both roots.
+  const universe = enabledSymbolIds([...legacySyms.docs, ...canonSyms.docs]);
 
-  // Membership: union of symbols[] across EXCLUSIVE list docs only.
-  const exclusiveMembership = new Set<string>();
-  const newDocCandidates: FirebaseFirestore.QueryDocumentSnapshot[] = [];
-  const uids = new Set<string>();
-  for (const d of listsSnap.docs) {
-    const data = d.data();
-    if (typeof data['userId'] === 'string') uids.add(data['userId']);
-    const key = listKey(d.id, data);
-    if (key === NEW_KEY) newDocCandidates.push(d);
-    if (!EXCLUSIVE_KEYS.has(key)) continue;
-    const members = Array.isArray(data['symbols']) ? (data['symbols'] as string[]) : [];
-    for (const s of members) exclusiveMembership.add(String(s).toUpperCase());
-  }
+  const { members, newDocIds, uids } = summarizeListDocs([
+    ...legacyLists.docs,
+    ...canonLists.docs,
+  ]);
+  const unlisted = computeUnlisted(universe, members);
 
-  const unlisted = [...universe].filter((s) => !exclusiveMembership.has(s)).sort();
-
-  console.log(`Universe:        ${universe.size} symbols`);
-  console.log(`List docs:       ${listsSnap.size} (${exclusiveMembership.size} symbols in exclusive lists)`);
+  console.log(`Universe:        ${universe.size} symbols (legacy ${legacySyms.size} + canonical ${canonSyms.size})`);
+  console.log(`List docs:       ${legacyLists.size + canonLists.size} (${members.size} symbols in exclusive lists)`);
   console.log(`Unlisted → NEW:  ${unlisted.length}`);
   if (unlisted.length) console.log(`  ${unlisted.join(' ')}\n`);
 
-  if (!APPLY || unlisted.length === 0) {
-    if (!APPLY) console.log('Dry-run only — rerun with --apply to write.');
+  if (unlisted.length === 0) {
+    console.log(APPLY ? 'Nothing to write.' : 'Dry-run only — rerun with --apply to write.');
     return;
   }
 
-  // Target doc: --uid forces {uid}_NEW; otherwise reuse an existing NEW doc
-  // (prefer a uid-scoped one over a bare legacy id); else mint {uid}_NEW
-  // when exactly one uid exists across the list docs.
-  let targetId: string;
-  if (uidArg) {
-    targetId = `${uidArg}_${NEW_KEY}`;
-  } else if (newDocCandidates.length > 0) {
-    const scoped = newDocCandidates.find((d) => d.data()['userId']);
-    targetId = (scoped ?? newDocCandidates[0]).id;
-  } else if (uids.size === 1) {
-    targetId = `${[...uids][0]}_${NEW_KEY}`;
-  } else {
-    throw new Error(`Cannot resolve NEW doc — ${uids.size} distinct userIds in lists; pass --uid.`);
+  const targetId = resolveNewListTarget({ uidArg, newDocIds, uids });
+  console.log(`Target doc:      ${targetId}`);
+  if (!APPLY) {
+    console.log('Dry-run only — rerun with --apply to write.');
+    return;
   }
 
-  const targetRef = db.collection(ST_SYMBOL_LISTS_COLLECTION).doc(targetId);
-  const existing = await targetRef.get();
-  const userId = uidArg ?? existing.data()?.['userId'] ?? [...uids][0];
+  const legacyRef = db.collection(ST_SYMBOL_LISTS_COLLECTION).doc(targetId);
+  const canonRef = db.collection(ST_SYMBOL_LISTS_ROOT).doc(targetId);
+  const [legacyDoc, canonDoc] = await Promise.all([legacyRef.get(), canonRef.get()]);
 
-  // #1008 soak: dual-write legacy + st-symbol-lists in one batch — FE
-  // still reads legacy, BE reads canonical.
-  const doc = {
-    ...(existing.exists ? {} : NEW_SYSTEM_META),
-    key: NEW_KEY,
-    symbols: FieldValue.arrayUnion(...unlisted),
-    userId,
-    updatedAt: FieldValue.serverTimestamp(),
-    ...(existing.exists ? {} : { createdAt: FieldValue.serverTimestamp() }),
-  };
+  // --uid is a force flag; refusing to repurpose a non-NEW doc keeps it
+  // from hijacking `key:'NEW'` onto a user list.
+  for (const leg of [legacyDoc, canonDoc]) {
+    if (leg.exists && listKeyOf(leg.id, leg.data()!) !== NEW_LIST_KEY) {
+      throw new Error(
+        `--uid target ${targetId} exists but is not a NEW list (key=${listKeyOf(leg.id, leg.data()!)})`,
+      );
+    }
+  }
+
+  // Owner attribution: --uid → the doc's own userId (either leg) → the
+  // target's id prefix (`u1_NEW` owns u1 — better than a cross-uid
+  // guess) → a single-uid store. Multi-uid ambiguity stays
+  // unattributed rather than stamping a guessed owner (a userId on a
+  // shared doc changes who can see it).
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' && v !== '' ? v : undefined;
+  const targetPrefixUid = targetId.endsWith(`_${NEW_LIST_KEY}`)
+    ? targetId.slice(0, targetId.length - NEW_LIST_KEY.length - 1)
+    : undefined;
+  const userId =
+    uidArg ??
+    str(legacyDoc.data()?.['userId']) ??
+    str(canonDoc.data()?.['userId']) ??
+    targetPrefixUid ??
+    (uids.size === 1 ? [...uids][0] : undefined);
+
+  // Both legs are written even though symbolListsMirror will overwrite
+  // canonical with the legacy image moments later (soak-window design):
+  // where the mirror agrees this is a no-op, and where it's down the
+  // canonical leg still lands. Canonical-only divergent members are
+  // sacrificed by the mirror either way — they resurface as unlisted.
   const batch = db.batch();
-  batch.set(targetRef, doc, { merge: true });
-  batch.set(db.collection(ST_SYMBOL_LISTS_ROOT).doc(targetId), doc, { merge: true });
+  batch.set(
+    legacyRef,
+    buildNewListDoc({
+      fieldValue: FieldValue,
+      existing: legacyDoc.exists ? legacyDoc.data() : undefined,
+      unlisted,
+      userId,
+    }),
+    { merge: true },
+  );
+  batch.set(
+    canonRef,
+    buildNewListDoc({
+      fieldValue: FieldValue,
+      existing: canonDoc.exists ? canonDoc.data() : undefined,
+      unlisted,
+      userId,
+    }),
+    { merge: true },
+  );
   await batch.commit();
   console.log(
     `Wrote ${unlisted.length} symbols to ${ST_SYMBOL_LISTS_COLLECTION}/${targetId}` +
