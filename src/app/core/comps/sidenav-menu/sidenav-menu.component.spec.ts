@@ -77,6 +77,7 @@ describe('SidenavMenuComponent', () => {
         'Flex Chart Sandbox',
         'Gallery (Dev)',
         'Screenshot (Dev)',
+        'DS Gallery (Dev)',
       ]);
     });
 
