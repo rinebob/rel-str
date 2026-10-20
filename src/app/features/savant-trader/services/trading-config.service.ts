@@ -2,7 +2,8 @@
  * Savant Trader Trading Config Service
  *
  * Reads and writes the user's trading configuration (account number preference)
- * at savant-trader/data/trading-config. Also fetches the list of agentic-allowed
+ * at st-config/{uid} (was savant-trader/data/trading-config — re-pointed in
+ * #1014). Also fetches the list of agentic-allowed
  * accounts from the Robinhood MCP.
  *
  * Ref: IMPL-savant-trader-order-placement-fe.md §7 (Account number preference)
@@ -18,7 +19,7 @@ import {
 import { Observable, from } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
-import { Collection } from '../../../core/common/constants';
+import { stConfigDocPath } from '@st/collections';
 import { requireUserId } from './firestore-helpers';
 import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { TradingConfig, AccountInfo } from './order-ticket.types';
@@ -35,7 +36,7 @@ export class TradingConfigService {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
-        const docRef = doc(this.firestore, Collection.ST_TRADING_CONFIG, userId);
+        const docRef = doc(this.firestore, stConfigDocPath(userId));
         const snap = await getDoc(docRef);
         if (!snap.exists()) return null;
         const data = snap.data() as {
@@ -65,7 +66,7 @@ export class TradingConfigService {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
-        const docRef = doc(this.firestore, Collection.ST_TRADING_CONFIG, userId);
+        const docRef = doc(this.firestore, stConfigDocPath(userId));
         const nowIso = new Date().toISOString();
         const payload: Record<string, unknown> = {
           userId,

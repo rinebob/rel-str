@@ -221,7 +221,7 @@ export type OrderTicketPatch = Partial<DistributiveOmit<OrderTicket, 'instrument
 // Trading config
 // =============================
 
-/** User's trading configuration stored at savant-trader/data/trading-config. */
+/** User's trading configuration stored at st-config/{uid}. */
 export interface TradingConfig {
   accountNumber: string;
   /** Target dollar value per trade. Default 100. */

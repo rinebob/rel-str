@@ -6,6 +6,7 @@ import { of, firstValueFrom } from 'rxjs';
 
 import { TradingConfigService } from './trading-config.service';
 import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
+import { stConfigDocPath } from '@st/collections';
 
 // Partial mock: keep the real Firestore injection token, stub the modular
 // read/write fns so loadConfig/saveConfig payloads are directly observable.
@@ -209,6 +210,17 @@ describe('TradingConfigService', () => {
       const config = await firstValueFrom(service.loadConfig());
 
       expect(config?.optionMaxPremiumCashPercent).toBe(15);
+    });
+
+    it('reads the user config doc at st-config/{uid}', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ accountNumber: '123456789' }),
+      });
+
+      await firstValueFrom(service.loadConfig());
+
+      expect(mockDoc).toHaveBeenCalledWith(expect.anything(), stConfigDocPath('user-123'));
     });
 
     it('returns undefined optionMaxPremiumCashPercent when the doc predates the field', async () => {
