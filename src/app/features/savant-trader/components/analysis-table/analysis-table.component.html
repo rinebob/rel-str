@@ -52,6 +52,7 @@
       <tr>
         @for (col of visibleDefs(); track col.key) {
           <th scope="col" class="sortable" tabindex="0" role="button"
+              [style.width]="colWidth(col)"
               title="Click to sort · shift+click to add a secondary sort"
               (click)="toggleSort(col, $event)"
               (keydown.enter)="toggleSort(col, $event)"
@@ -79,10 +80,10 @@
       </tr>
     </thead>
     <tbody>
-      @for (row of rows(); track $index) {
-        <tr [class.provisional]="isProvisional(row)">
-          @for (col of visibleDefs(); track col.key) {
-            <td [class]="cellClass(row, col)">{{ cellText(row, col) }}</td>
+      @for (r of renderRows(); track r.key) {
+        <tr [class.provisional]="r.provisional">
+          @for (cell of r.cells; track $index) {
+            <td [class]="cell.cls">{{ cell.text }}</td>
           }
         </tr>
       } @empty {
@@ -103,15 +104,14 @@
          (keydown)="$event.stopPropagation()">
       <div class="filter-panel-title">{{ col.label }}</div>
       @if (col.kind === 'enum' || col.kind === 'string') {
-        <mat-select class="in-filter" multiple
-                    [ngModel]="inValues(col)"
-                    (ngModelChange)="setInFilter(col, $event)"
-                    [attr.aria-label]="'Filter ' + col.label"
-                    placeholder="any">
+        <div class="in-filter-list" role="group" [attr.aria-label]="'Filter ' + col.label">
           @for (opt of optionsFor(col); track opt) {
-            <mat-option [value]="opt">{{ opt }}</mat-option>
+            <mat-checkbox [checked]="inValues(col).includes(opt)"
+                          (change)="toggleInValue(col, opt, $event.checked)">
+              {{ opt }}
+            </mat-checkbox>
           }
-        </mat-select>
+        </div>
       } @else if (col.kind === 'number') {
         <input class="bound" type="number" placeholder="min"
                [value]="rangeValue(col, 'min')"

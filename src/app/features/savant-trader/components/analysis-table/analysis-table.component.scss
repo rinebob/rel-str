@@ -88,6 +88,11 @@
 .analysis-table {
   border-collapse: separate;
   border-spacing: 0;
+  // Fixed layout — column widths come from the header row, so Chrome
+  // never intrinsic-measures ~4k cells per layout pass (the hang).
+  table-layout: fixed;
+  // max-content is cheap under fixed layout (sums header widths only,
+  // no cell measurement) and keeps the horizontal-scroll behavior.
   width: max-content;
   min-width: 100%;
   font-size: 0.82rem;
@@ -97,6 +102,11 @@
     text-align: left;
     white-space: nowrap;
     border-bottom: 1px solid var(--mat-sys-outline-variant, #333);
+  }
+
+  td {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   th, td { box-sizing: border-box; }
@@ -163,13 +173,6 @@
     opacity: 0.75;
   }
 
-  // Skip layout/paint for rows outside the scrollport — a sort or
-  // filter re-bind of ~4k cells is cheap if only the visible ~15 pay it.
-  tbody tr {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 27px;
-  }
-
   .empty-row td {
     text-align: center;
     padding: 24px;
@@ -193,10 +196,12 @@
     letter-spacing: 0.04em;
   }
 
-  .in-filter {
-    width: 100%;
+  .in-filter-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 240px;
+    overflow-y: auto;
     font-size: 0.8rem;
-    ::ng-deep .mat-mdc-select-value { font-size: 0.8rem; }
   }
 
   .bound {

@@ -21,11 +21,9 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatSelectModule } from '@angular/material/select';
 
 import {
   ANALYSIS_COLUMNS,
@@ -47,11 +45,9 @@ export interface AnalysisSortToggle {
   selector: 'app-analysis-table',
   standalone: true,
   imports: [
-    FormsModule,
     MatCheckboxModule,
     MatIconModule,
     MatMenuModule,
-    MatSelectModule,
   ],
   templateUrl: './analysis-table.component.html',
   styleUrl: './analysis-table.component.scss',
@@ -174,6 +170,20 @@ export class AnalysisTableComponent {
     return f && f.op === 'in' ? [...f.value] : [];
   }
 
+  /** Checkbox-list toggle for one 'in' option — replaces the previous
+   *  mat-select, which busy-looped inside the mat-menu overlay (#1084 QA). */
+  protected toggleInValue(
+    col: AnalysisColumnDef,
+    opt: string | number,
+    checked: boolean,
+  ): void {
+    const cur = this.inValues(col);
+    this.setInFilter(
+      col,
+      checked ? [...cur, opt] : cur.filter((v) => v !== opt),
+    );
+  }
+
   setInFilter(col: AnalysisColumnDef, values: (string | number)[]): void {
     this.replaceColumnFilter(
       col,
@@ -291,4 +301,38 @@ export class AnalysisTableComponent {
   protected isProvisional(row: TradeAnalysisRow): boolean {
     return row.status !== 'CLOSED' || row.analysisCohort === 'excluded';
   }
+
+  /** Fixed-layout column widths (header row sizes every column — the
+   *  alternative, intrinsic sizing, is what hung layout on ~4k cells). */
+  protected colWidth(col: AnalysisColumnDef): string {
+    switch (col.kind) {
+      case 'number': return '6.5rem';
+      case 'date': return '7.5rem';
+      case 'enum': return '6.5rem';
+      default: return '8.5rem';
+    }
+  }
+
+  /** Cell text/classes precomputed once per rows×columns change —
+   *  keeps per-CD method calls out of a ~3.8k-cell grid (sort then
+   *  moves DOM nodes keyed by tradeId instead of dirtying bindings). */
+  protected readonly renderRows = computed(() => {
+    const defs = this.visibleDefs();
+    const seen = new Set<string>();
+    return this.rows().map((row, i) => {
+      let key = row.tradeId ?? `row-${i}`;
+      while (seen.has(key)) key += '~';
+      seen.add(key);
+      return {
+        // tradeId keeps keys stable across sorts — an index suffix would
+        // re-key every row and force a full DOM rebuild.
+        key,
+        provisional: this.isProvisional(row),
+        cells: defs.map((col) => ({
+          text: this.cellText(row, col),
+          cls: this.cellClass(row, col),
+        })),
+      };
+    });
+  });
 }

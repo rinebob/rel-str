@@ -34,7 +34,7 @@ import { authGuard } from './auth/auth.guard';
                 loadComponent: () => import('./comps/contact/contact.component')
                 .then(mod => mod.ContactComponent),
             },
-            {path: AppRoutes.LOGIN, 
+            {path: AppRoutes.LOGIN,
                 title: PAGE_INFO[AppRoutes.LOGIN].title,
                 loadComponent: () => import('./comps/login/login.component')
                 .then(mod => mod.LoginComponent),

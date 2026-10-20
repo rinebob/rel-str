@@ -175,7 +175,7 @@ describe('AnalysisTableComponent', () => {
     fixture.detectChanges();
     const panel = document.querySelector('.filter-panel')!;
     expect(panel.textContent).toContain('Symbol');
-    expect(panel.querySelector('.in-filter')).not.toBeNull();
+    expect(panel.querySelector('.in-filter-list')).not.toBeNull();
   });
 
   it('the filter icon marks columns with an active filter', () => {
