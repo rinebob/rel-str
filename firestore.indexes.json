@@ -290,6 +290,145 @@
         { "fieldPath": "accountNumber", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "st-signals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "marketDate", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-signals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "symbol", "order": "ASCENDING" },
+        { "fieldPath": "barDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-signals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "symbol", "order": "ASCENDING" },
+        { "fieldPath": "marketDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-signals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "timeframe", "order": "ASCENDING" },
+        { "fieldPath": "marketDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-signals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "runIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "marketDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-order-tickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "mode", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-order-tickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "mode", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" },
+        { "fieldPath": "origin.positionGroupId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-order-tickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-order-tickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "origin.runId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-order-tickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "origin.signalId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-order-tickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "terms.symbol", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-position-groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "positionGroupId", "order": "ASCENDING" },
+        { "fieldPath": "expiration", "order": "ASCENDING" },
+        { "fieldPath": "optionType", "order": "ASCENDING" },
+        { "fieldPath": "strike", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "signalId", "order": "ASCENDING" },
+        { "fieldPath": "source", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-symbols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enabled", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-symbol-lists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "st-backtest-permutations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "runId", "order": "ASCENDING" },
+        { "fieldPath": "completedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

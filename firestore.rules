@@ -405,6 +405,139 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
+    // ── ST canonical data plane (Topic #984 — st-* roots) ────────────────────
+    // Consolidated roots replacing savant-trader/data/* and the renamed
+    // backtest/paper-trading/portfolio roots. Backend writers use the admin
+    // SDK (which bypasses rules); each block mirrors the policy of the legacy
+    // collection it replaces.
+
+    // st-symbols — tracked-symbol universe (was savant-trader/data/symbols).
+    // Authed read for pickers/universe views; all writes are backend.
+    match /st-symbols/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // st-signals — flat signal occurrences ({SYM}_{barDate}_{signalType}).
+    // Authed read for gallery/review pages; writes are backend dual-write.
+    match /st-signals/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // st-runs — run history + per-run jobs subcollection (was
+    // savant-trader/data/runs). Authed read; writes are backend.
+    match /st-runs/{runId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+      match /jobs/{jobId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+    }
+
+    // st-order-tickets — universal ticket root (was order-intents +
+    // occurrence-decisions). User-scoped CRUD; the `resource == null`
+    // escape allows collection list queries — the client must filter by
+    // userId (same convention as the legacy intents rule).
+    match /st-order-tickets/{docId} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // st-position-groups — aggregation units over ticket/trade members.
+    // User-scoped read for the positions view; groups are minted and
+    // stamped by backend passes only.
+    match /st-position-groups/{docId} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+      allow write: if false;
+    }
+
+    // st-strategy-instances — program/time-based strategy instances (was
+    // options-strategy-instances). User-scoped CRUD.
+    match /st-strategy-instances/{docId} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // st-config — heterogeneous config root (was trading-config/* +
+    // status/current). 'status' and 'autoPaper' are backend-written
+    // singletons — authed read only. Remaining docs are per-user trading
+    // config ({uid} doc ids) — user-scoped CRUD.
+    match /st-config/{docId} {
+      allow read: if request.auth != null
+        && (docId in ['status', 'autoPaper']
+            || resource == null
+            || request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // st-symbol-lists — user-scoped CRUD (was savant-trader/data/symbol-lists).
+    // Same shape as the legacy rule, including the no-userId escape: a doc
+    // can briefly lack the stamp while the mirror dual-write lands; clients
+    // may read/delete those so the lazy rekey path keeps working.
+    match /st-symbol-lists/{listId} {
+      allow read: if request.auth != null && (resource == null || resource.data.get('userId', null) == null || request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && (resource.data.get('userId', null) == null || request.auth.uid == resource.data.userId);
+    }
+
+    // st-backtest-runs / st-backtest-permutations — renamed roots (were
+    // backtest-runs / backtest-permutations). Same policy: authed read;
+    // the FE may only flip archived/qualityDesignation (+updatedAt) on runs.
+    match /st-backtest-runs/{runId} {
+      allow read: if request.auth != null;
+      allow create: if false;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archived', 'qualityDesignation', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /st-backtest-permutations/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // st-paper-trading — renamed anchors (accounts/trades/stats/raw-quotes
+    // items). All writes are server-side (ledger passes); FE is read-only,
+    // including one level of nested subcollections for future kinds.
+    match /st-paper-trading/{anchor}/items/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+      match /{sub}/{subDocId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+    }
+
+    // st-portfolio — renamed buckets/attributions anchors (was
+    // portfolio/*). Same user-scoped CRUD, including the get/list split so
+    // missing-doc probes inside transactions keep working (see portfolio).
+    match /st-portfolio/{anchor} {
+      allow read, write: if false;
+      match /items/{docId} {
+        allow get: if request.auth != null
+          && (anchor == 'buckets' || anchor == 'attributions')
+          && (resource == null || request.auth.uid == resource.data.userId);
+        allow list: if request.auth != null
+          && (anchor == 'buckets' || anchor == 'attributions')
+          && request.auth.uid == resource.data.userId;
+        allow create: if request.auth != null
+          && (anchor == 'buckets' || anchor == 'attributions')
+          && request.auth.uid == request.resource.data.userId;
+        allow update, delete: if request.auth != null
+          && (anchor == 'buckets' || anchor == 'attributions')
+          && request.auth.uid == resource.data.userId;
+      }
+    }
+
     // Saved user configurations — authenticated CRUD, no user-scoping.
     // This is a single-user app (one developer account), so all authenticated
     // users are the owner. Path: configs/{feature-name}/configs/{configId}
