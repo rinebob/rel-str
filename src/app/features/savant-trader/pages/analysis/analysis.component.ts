@@ -38,10 +38,17 @@ import {
   type RunConfigSubmission,
 } from './analysis-run-config.component';
 import { AnalysisTableComponent } from '../../components/analysis-table/analysis-table.component';
+import { AnalysisStatsComponent } from '../../components/analysis-views/analysis-stats.component';
+import { AnalysisHistogramComponent } from '../../components/analysis-views/analysis-histogram.component';
+import { AnalysisScatterComponent } from '../../components/analysis-views/analysis-scatter.component';
 import type {
   AnalysisDatasetDoc,
   AnalysisDatasetStatus,
 } from '@paper-trading/analysis';
+
+/** #1084 — workbench panes. */
+const WORKBENCH_VIEWS = ['table', 'stats', 'histogram', 'scatter'] as const;
+type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
 
 @Component({
   selector: 'app-analysis',
@@ -57,6 +64,9 @@ import type {
     MatProgressSpinnerModule,
     AnalysisRunConfigComponent,
     AnalysisTableComponent,
+    AnalysisStatsComponent,
+    AnalysisHistogramComponent,
+    AnalysisScatterComponent,
   ],
   templateUrl: './analysis.component.html',
   styleUrl: './analysis.component.scss',
@@ -72,6 +82,10 @@ export class AnalysisComponent implements OnInit, OnDestroy {
   protected readonly editTags = signal('');
   protected readonly editNotes = signal('');
   protected readonly confirmDeleteId = signal<string | null>(null);
+
+  /** #1084 — workbench pane: data grid vs the analysis views. */
+  protected readonly workbenchViews = WORKBENCH_VIEWS;
+  protected readonly workbenchView = signal<WorkbenchView>('table');
 
   /** Poll interval while a 'generating' entry exists — the callable
    *  mints the doc instantly, the task flips status seconds later. */

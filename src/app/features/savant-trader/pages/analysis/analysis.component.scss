@@ -62,10 +62,21 @@
 
 .dataset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  // One horizontal strip — cards scroll off to the right instead of
+  // wrapping and pushing the workbench below the viewport.
+  grid-auto-flow: column;
+  grid-auto-columns: 340px;
+  grid-template-rows: none;
   gap: 16px;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   min-height: 0;
+  max-height: 220px;
+}
+
+.dataset-card {
+  overflow-y: auto;
+  max-height: 100%;
 }
 
 .dataset-card.generating {
@@ -182,6 +193,31 @@
     font-size: 1rem;
     font-weight: 600;
     .card-id { font-weight: 400; font-size: 0.75rem; margin-left: 8px; opacity: 0.5; }
+  }
+}
+
+.view-switch {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+  border: 1px solid var(--mat-sys-outline-variant, #444);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.view-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  border-radius: 4px;
+  color: inherit;
+  opacity: 0.7;
+  &.active {
+    background: var(--mat-sys-secondary-container, rgba(33, 150, 243, 0.2));
+    opacity: 1;
   }
 }
 

@@ -157,6 +157,14 @@
           {{ scopeLabel(active) }} · {{ active.exitRule }}
           <span class="card-id">{{ active.id }}</span>
         </h3>
+        <div class="view-switch" role="tablist">
+          @for (v of workbenchViews; track v) {
+            <button type="button" class="view-btn" role="tab"
+                    [class.active]="workbenchView() === v"
+                    [attr.aria-selected]="workbenchView() === v"
+                    (click)="workbenchView.set(v)">{{ v }}</button>
+          }
+        </div>
         <button type="button" class="close-workbench" (click)="store.closeDataset()"
                 aria-label="Close dataset" title="Close dataset">
           <mat-icon>close</mat-icon>
@@ -164,7 +172,7 @@
       </div>
       @if (store.isLoadingRows()) {
         <div class="loading-rows"><mat-spinner diameter="32"></mat-spinner></div>
-      } @else {
+      } @else if (workbenchView() === 'table') {
         <app-analysis-table
           [rows]="store.sortedRows()"
           [universeRows]="store.viewRows()"
@@ -176,6 +184,16 @@
           (sortToggled)="store.toggleSort($event.column, $event.additive)"
           (filtersChanged)="store.setFilters($event)"
           (includeOpenRowsChanged)="store.setIncludeOpenRows($event)" />
+      } @else if (workbenchView() === 'stats') {
+        <app-analysis-stats [rows]="store.filteredRows()" />
+      } @else if (workbenchView() === 'histogram') {
+        <app-analysis-histogram
+          [rows]="store.filteredRows()"
+          [baselineRows]="store.viewRows()" />
+      } @else {
+        <app-analysis-scatter
+          [rows]="store.filteredRows()"
+          [columns]="store.columns()" />
       }
     </div>
   }
