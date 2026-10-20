@@ -350,3 +350,17 @@ export interface AnalysisDatasetTaskPayload {
   datasetId: string;
   params: AnalysisRunParams;
 }
+
+/**
+ * `fetchDatasetCsv` request/response — the workbench's CSV read path.
+ * Reads the Storage object server-side so the browser never talks to
+ * firebasestorage.googleapis.com directly (QA #1147: client networks
+ * that blackhole QUIC/UDP hang forever on a plain download fetch).
+ */
+export interface FetchDatasetCsvRequest {
+  datasetId: string;
+}
+
+export interface FetchDatasetCsvResponse {
+  csv: string;
+}
