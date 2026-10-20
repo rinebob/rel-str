@@ -115,6 +115,11 @@ const scripts: VerifyScript[] = [
     needsPaths: ['../savant-ds', '../av-proxy-api'],
   },
   {
+    name: 'design-system signals/review widget migration',
+    file: 'design-system-widget-migration-1114.ts',
+    needsAccount: false,
+  },
+  {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
     cwd: 'functions',
