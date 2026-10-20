@@ -2,7 +2,8 @@
  * Backtest run service.
  *
  * Wraps the `stBacktestStart` and `stBacktestStrategies` callables
- * plus realtime Firestore listeners for `backtest-runs` and `backtest-permutations`.
+ * plus realtime Firestore listeners for `st-backtest-runs` and
+ * `st-backtest-permutations`.
  */
 
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
@@ -18,6 +19,7 @@ import type {
   StartBacktestResponse,
 } from '../common/backtest.types';
 import { convertBacktestPermutationDoc, convertBacktestRunDoc } from './backtest-firestore-converter';
+import { ST_BACKTEST_RUNS_ROOT, ST_BACKTEST_PERMUTATIONS_ROOT } from '@st/collections';
 
 @Injectable({
   providedIn: 'root',
@@ -27,8 +29,8 @@ export class BacktestRunService {
   private readonly firestore = inject(Firestore);
   private readonly injector = inject(EnvironmentInjector);
 
-  private readonly runsCollection = 'backtest-runs';
-  private readonly permutationsCollection = 'backtest-permutations';
+  private readonly runsCollection = ST_BACKTEST_RUNS_ROOT;
+  private readonly permutationsCollection = ST_BACKTEST_PERMUTATIONS_ROOT;
 
   /**
    * Fetch strategy metadata from the backend registry.
