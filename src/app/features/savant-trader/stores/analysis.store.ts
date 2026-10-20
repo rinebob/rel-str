@@ -1,0 +1,411 @@
+/**
+ * AnalysisStore (Thread #1059, task #1081) — signal store for the
+ * trading/analysis surface. Holds the dataset library, the open
+ * dataset's rows + present-column manifest, the active filter chain,
+ * saved slices, the compare dataset, and loading/error state.
+ * Same NgRx signalStore pattern as PaperTradingStore.
+ */
+import { computed, inject } from '@angular/core';
+import {
+  signalStore,
+  withState,
+  withComputed,
+  withMethods,
+  patchState,
+} from '@ngrx/signals';
+import { catchError, finalize, of, Subscription, switchMap } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
+
+import { AnalysisService } from '../services/analysis.service';
+import {
+  applySliceFilters,
+  sortAnalysisRows,
+  type AnalysisSort,
+} from '../utils/analysis-rows.util';
+import type {
+  AnalysisDatasetDoc,
+  AnalysisRunParams,
+  AnalysisSlice,
+  SliceFilter,
+  TradeAnalysisRow,
+} from '@paper-trading/analysis';
+
+export type { AnalysisSort, AnalysisSortDir } from '../utils/analysis-rows.util';
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+export interface AnalysisState {
+  datasets: AnalysisDatasetDoc[];
+  activeDataset: AnalysisDatasetDoc | null;
+  rows: TradeAnalysisRow[];
+  /** CSV header names actually present in the loaded dataset — slice
+   *  predicates on absent columns are skipped with a notice. */
+  columns: string[];
+  filters: SliceFilter[];
+  /** Columns skipped by the last applySlice — drives the UI notice. */
+  skippedSliceColumns: string[];
+  sorts: AnalysisSort[];
+  slices: AnalysisSlice[];
+  compareDatasetId: string | null;
+  compareRows: TradeAnalysisRow[];
+  isLoadingDatasets: boolean;
+  isLoadingRows: boolean;
+  isLoadingCompare: boolean;
+  /** True while the generateTradeDataset callable + follow-up refresh
+   *  are in flight — the run-config form disables submit on it. */
+  isGenerating: boolean;
+  error: string | null;
+}
+
+const initialState: AnalysisState = {
+  datasets: [],
+  activeDataset: null,
+  rows: [],
+  columns: [],
+  filters: [],
+  skippedSliceColumns: [],
+  sorts: [],
+  slices: [],
+  compareDatasetId: null,
+  compareRows: [],
+  isLoadingDatasets: false,
+  isLoadingRows: false,
+  isLoadingCompare: false,
+  isGenerating: false,
+  error: null,
+};
+
+const toMessage = (err: unknown, fallback: string): string =>
+  (err as { code?: string })?.code === 'unauthenticated'
+    ? 'Authentication required to view analysis data'
+    : fallback;
+
+// ── Store ────────────────────────────────────────────────────────────────────
+
+export const AnalysisStore = signalStore(
+  { providedIn: 'root' },
+  withState(initialState),
+
+  withComputed((state) => ({
+    isLoading: computed(
+      () => state.isLoadingDatasets() || state.isLoadingRows(),
+    ),
+
+    /** Rows through the active filter chain (AND). */
+    filteredRows: computed(() =>
+      applySliceFilters(state.rows(), state.filters()),
+    ),
+
+    /** Filtered rows through the sort chain — the workbench view. */
+    sortedRows: computed(() =>
+      sortAnalysisRows(applySliceFilters(state.rows(), state.filters()), state.sorts()),
+    ),
+
+    /** The compare dataset's index doc, or null. */
+    compareDataset: computed(
+      () =>
+        state.datasets().find((d) => d.id === state.compareDatasetId()) ?? null,
+    ),
+
+    /** Compare rows through the SAME filter chain — the overlay set. */
+    filteredCompareRows: computed(() =>
+      applySliceFilters(state.compareRows(), state.filters()),
+    ),
+  })),
+
+  withMethods(
+    (
+      state,
+      service = inject(AnalysisService),
+      snackBar = inject(MatSnackBar),
+    ) => {
+      let datasetsSub: Subscription | null = null;
+      let rowsSub: Subscription | null = null;
+      let compareSub: Subscription | null = null;
+      let generateSub: Subscription | null = null;
+
+      return {
+      // ── dataset library ──────────────────────────────────────────────
+
+      loadDatasets(): void {
+        datasetsSub?.unsubscribe();
+        patchState(state, { isLoadingDatasets: true, error: null });
+        datasetsSub = service
+          .listDatasets$()
+          .pipe(
+            catchError((err) => {
+              const msg = toMessage(err, 'Failed to load datasets');
+              patchState(state, { error: msg });
+              snackBar.open(msg, 'Dismiss', { duration: 5000 });
+              return of([] as AnalysisDatasetDoc[]);
+            }),
+            finalize(() => patchState(state, { isLoadingDatasets: false })),
+          )
+          .subscribe((datasets) => patchState(state, { datasets }));
+      },
+
+      /** Load a dataset's CSV rows into the workbench — resets filters
+       *  and sort so a new dataset starts clean. Cancels any in-flight
+       *  load so a slower previous fetch can't overwrite the newer
+       *  selection's rows. */
+      openDataset(dataset: AnalysisDatasetDoc): void {
+        rowsSub?.unsubscribe();
+        patchState(state, {
+          isLoadingRows: true,
+          error: null,
+          activeDataset: dataset,
+          filters: [],
+          skippedSliceColumns: [],
+          sorts: [],
+        });
+        rowsSub = service
+          .loadDataset$(dataset)
+          .pipe(
+            catchError((err) => {
+              const msg = toMessage(err, 'Failed to load dataset');
+              patchState(state, { error: msg });
+              snackBar.open(msg, 'Dismiss', { duration: 5000 });
+              return of({ rows: [] as TradeAnalysisRow[], columns: [] as string[] });
+            }),
+            finalize(() => patchState(state, { isLoadingRows: false })),
+          )
+          .subscribe((loaded) =>
+            patchState(state, { rows: loaded.rows, columns: loaded.columns }),
+          );
+      },
+
+      closeDataset(): void {
+        rowsSub?.unsubscribe(); // a late resolve must not repopulate rows
+        patchState(state, {
+          activeDataset: null,
+          rows: [],
+          columns: [],
+          filters: [],
+          skippedSliceColumns: [],
+          sorts: [],
+        });
+      },
+
+      updateTagsNotes(datasetId: string, tags: string[], notes?: string | null): void {
+        service.updateTagsNotes$(datasetId, tags, notes).subscribe({
+          next: () =>
+            patchState(state, {
+              datasets: state
+                .datasets()
+                .map((d) =>
+                  d.id === datasetId
+                    ? { ...d, tags, ...(notes !== undefined ? { notes: notes ?? undefined } : {}) }
+                    : d,
+                ),
+            }),
+          error: (err) => {
+            const msg = toMessage(err, 'Failed to update dataset');
+            patchState(state, { error: msg });
+            snackBar.open(msg, 'Dismiss', { duration: 5000 });
+          },
+        });
+      },
+
+      /** Delete doc + object; drops it from the library and clears it
+       *  from the workbench and compare slot if it was either. */
+      deleteDataset(dataset: AnalysisDatasetDoc): void {
+        service.deleteDataset$(dataset).subscribe({
+          next: () =>
+            patchState(state, {
+              datasets: state.datasets().filter((d) => d.id !== dataset.id),
+              ...(state.activeDataset()?.id === dataset.id
+                ? {
+                    activeDataset: null,
+                    rows: [],
+                    columns: [],
+                    filters: [],
+                    skippedSliceColumns: [],
+                    sorts: [],
+                  }
+                : {}),
+              ...(state.compareDatasetId() === dataset.id
+                ? { compareDatasetId: null, compareRows: [] }
+                : {}),
+            }),
+          error: (err) => {
+            const msg = toMessage(err, 'Failed to delete dataset');
+            patchState(state, { error: msg });
+            snackBar.open(msg, 'Dismiss', { duration: 5000 });
+          },
+        });
+      },
+
+      /** Enqueue a dataset generation (task #1082): callable → optional
+       *  tags/notes on the new index doc → library refresh so the
+       *  minted 'generating' entry surfaces immediately. */
+      generateDataset(
+        params: AnalysisRunParams,
+        meta?: { tags?: string[]; notes?: string },
+      ): void {
+        generateSub?.unsubscribe();
+        patchState(state, { isGenerating: true, error: null });
+        generateSub = service
+          .generateDataset$(params)
+          .pipe(
+            switchMap((datasetId) =>
+              meta && (meta.tags?.length || meta.notes)
+                ? service
+                    .updateTagsNotes$(datasetId, meta.tags ?? [], meta.notes)
+                    .pipe(catchError(() => of(void 0))) // doc minted — don't lose the refresh
+                : of(void 0),
+            ),
+            switchMap(() => service.listDatasets$()),
+            catchError((err) => {
+              const msg = toMessage(err, 'Failed to start dataset generation');
+              patchState(state, { error: msg });
+              snackBar.open(msg, 'Dismiss', { duration: 5000 });
+              return of(null);
+            }),
+            finalize(() => patchState(state, { isGenerating: false })),
+          )
+          .subscribe((datasets) => {
+            if (datasets) patchState(state, { datasets });
+          });
+      },
+
+      // ── filters ──────────────────────────────────────────────────────
+
+      addFilter(filter: SliceFilter): void {
+        patchState(state, { filters: [...state.filters(), filter] });
+      },
+
+      removeFilter(index: number): void {
+        patchState(state, {
+          filters: state.filters().filter((_, i) => i !== index),
+        });
+      },
+
+      clearFilters(): void {
+        patchState(state, { filters: [], skippedSliceColumns: [] });
+      },
+
+      // ── sort chain — same cycle as #1067: asc → desc → removed;
+      //  additive keeps the chain and toggles this column's key. ────────
+
+      toggleSort(column: AnalysisSort['column'], additive = false): void {
+        const cur = state.sorts();
+        const i = cur.findIndex((s) => s.column === column);
+        if (!additive) {
+          patchState(state, {
+            sorts:
+              i === -1
+                ? [{ column, dir: 'asc' }]
+                : cur[i].dir === 'asc'
+                  ? [{ column, dir: 'desc' }]
+                  : [],
+          });
+          return;
+        }
+        const list = [...cur];
+        if (i === -1) list.push({ column, dir: 'asc' });
+        else if (list[i].dir === 'asc') list[i] = { column, dir: 'desc' };
+        else list.splice(i, 1);
+        patchState(state, { sorts: list });
+      },
+
+      // ── slices ───────────────────────────────────────────────────────
+
+      loadSlices(): void {
+        service
+          .listSlices$()
+          .pipe(
+            catchError((err) => {
+              const msg = toMessage(err, 'Failed to load slices');
+              patchState(state, { error: msg });
+              snackBar.open(msg, 'Dismiss', { duration: 5000 });
+              return of([] as AnalysisSlice[]);
+            }),
+          )
+          .subscribe((slices) => patchState(state, { slices }));
+      },
+
+      /** Serialize the current filter chain as a named slice. */
+      saveSlice(name: string, note?: string): void {
+        service
+          .saveSlice$(name, state.filters(), note)
+          .pipe(
+            catchError((err) => {
+              const msg = toMessage(err, 'Failed to save slice');
+              patchState(state, { error: msg });
+              snackBar.open(msg, 'Dismiss', { duration: 5000 });
+              return of(null);
+            }),
+          )
+          .subscribe((slice) => {
+            if (slice) patchState(state, { slices: [...state.slices(), slice] });
+          });
+      },
+
+      /** Install a slice's predicates as the active filters. Predicates
+       *  on columns the loaded dataset lacks are skipped — per contract —
+       *  and recorded on skippedSliceColumns for the UI notice. */
+      applySlice(slice: AnalysisSlice): void {
+        const have = new Set(state.columns());
+        const kept = slice.filters.filter((f) => have.has(f.column));
+        const skipped = slice.filters
+          .filter((f) => !have.has(f.column))
+          .map((f) => f.column);
+        patchState(state, {
+          filters: kept,
+          skippedSliceColumns: skipped,
+        });
+        if (skipped.length > 0) {
+          snackBar.open(
+            `Slice predicates skipped — column not in dataset: ${skipped.join(', ')}`,
+            'Dismiss',
+            { duration: 6000 },
+          );
+        }
+      },
+
+      deleteSlice(sliceId: string): void {
+        service.deleteSlice$(sliceId).subscribe({
+          next: () =>
+            patchState(state, {
+              slices: state.slices().filter((s) => s.id !== sliceId),
+            }),
+          error: (err) => {
+            const msg = toMessage(err, 'Failed to delete slice');
+            patchState(state, { error: msg });
+            snackBar.open(msg, 'Dismiss', { duration: 5000 });
+          },
+        });
+      },
+
+      // ── compare ──────────────────────────────────────────────────────
+
+      /** Load a second dataset's rows for side-by-side/overlay compare.
+       *  Cancels any in-flight compare load. */
+      loadCompareDataset(dataset: AnalysisDatasetDoc): void {
+        compareSub?.unsubscribe();
+        patchState(state, {
+          isLoadingCompare: true,
+          compareDatasetId: dataset.id,
+        });
+        compareSub = service
+          .loadDataset$(dataset)
+          .pipe(
+            catchError((err) => {
+              const msg = toMessage(err, 'Failed to load compare dataset');
+              patchState(state, { error: msg, compareDatasetId: null });
+              snackBar.open(msg, 'Dismiss', { duration: 5000 });
+              return of({ rows: [] as TradeAnalysisRow[], columns: [] as string[] });
+            }),
+            finalize(() => patchState(state, { isLoadingCompare: false })),
+          )
+          .subscribe((loaded) => patchState(state, { compareRows: loaded.rows }));
+      },
+
+      clearCompare(): void {
+        compareSub?.unsubscribe();
+        patchState(state, { compareDatasetId: null, compareRows: [] });
+      },
+      };
+    },
+  ),
+);
