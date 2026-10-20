@@ -1,8 +1,10 @@
 // _pd-visual-language.scss — delegation shim over savant-ds
 // (Thread #751 / task #776; repointed in #1024/#1040).
 //
-// Feature-internal only — @use from component SCSS inside
-// `features/portfolio-dashboard/`; do not import from other features.
+// Feature-internal to portfolio-dashboard for its native call sites.
+// SavantTrader components also @use this shim as the vl.* consumption path
+// for the Widget Layer (Phase #1113, tasks #1114/#1115) until a canonical
+// shared-styles location exists.
 //
 // The graduated mixin set delegates to the savant-ds package via
 // `@forward 'index'` — resolved through angular.json's includePaths to

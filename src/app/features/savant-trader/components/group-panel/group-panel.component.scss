@@ -1,3 +1,5 @@
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
 .group-panel {
   margin-bottom: 4px;
   border-radius: 8px !important;
@@ -28,44 +30,19 @@
   font-weight: 400;
 }
 
-.grp-dir {
-  font-weight: 700;
-  &.long  { color: #2e7d32; }
-  &.short { color: var(--mat-sys-error); }
+.badge {
+  @include vl.badge;
+}
+
+.icon-btn {
+  @include vl.icon-btn;
 }
 
 .expand-all-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
   margin-left: 4px;
   opacity: 0.6;
 
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
-
   &:hover { opacity: 1; }
-}
-
-.signal-badge {
-  font-size: 10px;
-  font-weight: 700;
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
-  padding: 1px 6px;
-  border-radius: 8px;
-  min-width: 20px;
-  text-align: center;
-}
-
-.total-badge {
-  font-size: 10px;
-  background: var(--mat-sys-surface-container-high);
-  color: var(--mat-sys-on-surface-variant);
-  padding: 1px 6px;
-  border-radius: 8px;
 }
 
 .symbol-accordion {

@@ -6,14 +6,14 @@
       <span class="group-summary">
         {{ visibleSymbolCount() }} symbols
         @if (visibleLongCount() > 0) {
-          <span class="grp-dir long">↑ {{ visibleLongCount() }} long</span>
+          <span class="badge dir-long">↑ {{ visibleLongCount() }} long</span>
         }
         @if (visibleShortCount() > 0) {
-          <span class="grp-dir short">↓ {{ visibleShortCount() }} short</span>
+          <span class="badge dir-short">↓ {{ visibleShortCount() }} short</span>
         }
       </span>
 
-      <button mat-icon-button class="expand-all-btn"
+      <button type="button" mat-icon-button class="icon-btn expand-all-btn"
         (click)="onExpandAll($event)"
         [matTooltip]="expanded() ? 'Collapse all' : 'Expand all'">
         <mat-icon>{{ expanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>

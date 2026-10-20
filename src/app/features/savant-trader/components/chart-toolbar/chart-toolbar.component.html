@@ -7,8 +7,8 @@
     (toggle)="indicatorToggle.emit($event)">
   </app-indicator-menu>
 
-  <button mat-icon-button class="toolbar-icon-btn" (click)="zoomToggle.emit()"
-    [class.zoom-off]="!showZoomToolbar()"
+  <button type="button" mat-icon-button class="icon-btn" (click)="zoomToggle.emit()"
+    [class.dim]="!showZoomToolbar()"
     [matTooltip]="showZoomToolbar() ? 'Hide zoom toolbar' : 'Show zoom toolbar'">
     <mat-icon>{{ showZoomToolbar() ? 'zoom_in' : 'zoom_out' }}</mat-icon>
   </button>
@@ -19,12 +19,12 @@
   <!-- Symbol nav: prev/next within review queue -->
   @if (symbolCount() > 0) {
     <span class="symbol-nav">
-      <button class="nav-btn" (click)="prevSymbol.emit()"
+      <button type="button" class="nav-btn" (click)="prevSymbol.emit()"
         [disabled]="symbolIndex() <= 0" title="Previous symbol">
         <mat-icon>chevron_left</mat-icon>
       </button>
       <span class="nav-position">{{ symbolIndex() + 1 }}&nbsp;/&nbsp;{{ symbolCount() }}</span>
-      <button class="nav-btn" (click)="nextSymbol.emit()"
+      <button type="button" class="nav-btn" (click)="nextSymbol.emit()"
         [disabled]="symbolIndex() >= symbolCount() - 1" title="Next symbol">
         <mat-icon>chevron_right</mat-icon>
       </button>
@@ -35,27 +35,27 @@
   <ng-content select="[chartToolbarCenter]"></ng-content>
 
   <!-- Right: D/W/M, range, layout, fullscreen -->
-  <span class="interval-toggle">
-    <button class="interval-btn" [class.active]="selectedInterval() === BarsInterval.DAILY"
+  <span class="pill-group flat">
+    <button type="button" class="pill" [class.active]="selectedInterval() === BarsInterval.DAILY"
       (click)="intervalChange.emit(BarsInterval.DAILY)">D</button>
-    <button class="interval-btn" [class.active]="selectedInterval() === BarsInterval.WEEKLY"
+    <button type="button" class="pill" [class.active]="selectedInterval() === BarsInterval.WEEKLY"
       (click)="intervalChange.emit(BarsInterval.WEEKLY)">W</button>
-    <button class="interval-btn" [class.active]="selectedInterval() === BarsInterval.MONTHLY"
+    <button type="button" class="pill" [class.active]="selectedInterval() === BarsInterval.MONTHLY"
       (click)="intervalChange.emit(BarsInterval.MONTHLY)">M</button>
   </span>
-  <span class="range-toggle">
-    <button class="range-btn" [class.active]="selectedRange() === 'recent'" (click)="rangeChange.emit('recent')">Recent</button>
-    <button class="range-btn" [class.active]="selectedRange() === '6m'" (click)="rangeChange.emit('6m')">6M</button>
-    <button class="range-btn" [class.active]="selectedRange() === '1y'" (click)="rangeChange.emit('1y')">1Y</button>
-    <button class="range-btn" [class.active]="selectedRange() === '5y'" (click)="rangeChange.emit('5y')">5Y</button>
-    <button class="range-btn" [class.active]="selectedRange() === 'all'" (click)="rangeChange.emit('all')">All</button>
+  <span class="pill-group flat">
+    <button type="button" class="pill" [class.active]="selectedRange() === 'recent'" (click)="rangeChange.emit('recent')">Recent</button>
+    <button type="button" class="pill" [class.active]="selectedRange() === '6m'" (click)="rangeChange.emit('6m')">6M</button>
+    <button type="button" class="pill" [class.active]="selectedRange() === '1y'" (click)="rangeChange.emit('1y')">1Y</button>
+    <button type="button" class="pill" [class.active]="selectedRange() === '5y'" (click)="rangeChange.emit('5y')">5Y</button>
+    <button type="button" class="pill" [class.active]="selectedRange() === 'all'" (click)="rangeChange.emit('all')">All</button>
   </span>
 
-  <button mat-icon-button class="toolbar-icon-btn" (click)="layoutToggle.emit()"
+  <button type="button" mat-icon-button class="icon-btn" (click)="layoutToggle.emit()"
     [matTooltip]="layout() === ChartLayout.SINGLE ? 'Three-chart layout' : 'Single-chart layout'">
     <mat-icon>{{ layout() === ChartLayout.SINGLE ? 'grid_view' : 'crop_square' }}</mat-icon>
   </button>
-  <button mat-icon-button class="toolbar-icon-btn" (click)="fullscreenToggle.emit()"
+  <button type="button" mat-icon-button class="icon-btn" (click)="fullscreenToggle.emit()"
     [matTooltip]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
     <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
   </button>
