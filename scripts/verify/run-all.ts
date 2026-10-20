@@ -31,6 +31,8 @@ interface VerifyScript {
   needsEnv?: string;
   /** Repo-relative path that must exist for the script to run (sibling checkout). */
   needsPath?: string;
+  /** Repo-relative paths that must all exist for the script to run. */
+  needsPaths?: string[];
 }
 
 const scripts: VerifyScript[] = [
@@ -105,6 +107,12 @@ const scripts: VerifyScript[] = [
     file: 'design-system-inventory-1043.ts',
     needsAccount: false,
     needsPath: '../savant-ds',
+  },
+  {
+    name: 'design-system widget contract',
+    file: 'design-system-widgets-1112.ts',
+    needsAccount: false,
+    needsPaths: ['../savant-ds', '../av-proxy-api'],
   },
   {
     name: 'st-signals dual-write parity',
@@ -375,6 +383,14 @@ for (const script of scripts) {
   }
   if (script.needsPath && !existsSync(path.resolve(REPO_ROOT, script.needsPath))) {
     console.log(`\n--- ${script.name} --- SKIPPED (needs ${script.needsPath} checkout)`);
+    skipped++;
+    continue;
+  }
+  const missingPaths = script.needsPaths?.filter(
+    (requiredPath) => !existsSync(path.resolve(REPO_ROOT, requiredPath)),
+  ) ?? [];
+  if (missingPaths.length > 0) {
+    console.log(`\n--- ${script.name} --- SKIPPED (needs ${missingPaths.join(', ')} checkout)`);
     skipped++;
     continue;
   }
