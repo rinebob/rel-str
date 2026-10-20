@@ -3,6 +3,10 @@
 ## [2026-10-20]
 
 ### Added
+- [Savant Trader] 1098-1131_SHARED-IMPL-SAVANT-TRADER: scanner wire + domain contracts — preview_scan types verified vs live catalog (filters+columns only; ScanSort is client-side recipe sort), ScanRecipe/CurationProposal, narrowing/chunking/truncation helpers, proposal serialize/parse; 13 specs
+- [Savant Trader] 1098-1131_CONFIG-SAVANT-TRADER: @st/scanner alias registered in tsconfig/functions/tsconfig/jest
+- [Savant Trader] 1098-1131_SHARED-VERIFY-SAVANT-TRADER: rh-scanner-contracts-1131 live relay — 7 checks vs real RH MCP session (enum + symbol-scoped scans)
+- [Savant Trader] 1098-1131_DOCS-SAVANT-TRADER: scanner-page PRD + SHARED/FE IMPL/TEST plans + #1131 CODE-REVIEW (PASS) + #1143 UAT (Complete) + RH MCP scanner field guide
 - [Savant Design System] 1024-1111_FE-IMPL-DESIGN-SYSTEM: ST vendored widget sync + `/dev/ds` Widgets section — 9 canonical compiled-mixin demos with provenance, interactive pill/chip/input state, focused specs, and QA-refined full-page light/dark token treatment; add missing success-container token pair used by existing app surfaces
 - [Savant Design System] 1024-1111_FE-IMPL-DESIGN-SYSTEM: SavantApi vendored widget sync — `_widgets.scss` + `_index.scss` byte-identical to `savant-ds`, with no consumer migrations in this task
 - [Savant Design System] 1024-1111_DOCS-DESIGN-SYSTEM: #1111 CODE-REVIEW (PASS — standards/spec/thermo-nuclear) + #1126 UAT (Complete — vendor parity, 7/7 focused specs, build, and user-confirmed light/dark visual refinement)
