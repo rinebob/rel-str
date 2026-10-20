@@ -120,6 +120,11 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
   },
   {
+    name: 'design-system chart/gallery widget migration',
+    file: 'design-system-widget-migration-1115.ts',
+    needsAccount: false,
+  },
+  {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
     cwd: 'functions',
