@@ -23,6 +23,8 @@ describe('core-routes — canonical journey paths (#699)', () => {
     ['signals/charts', 'Chart Review'],
     ['trading/live', 'Signal Order'],
     ['trading/paper', 'Paper Trading'],
+    ['trading/analysis', 'Trade Analysis'],
+    ['trading/gallery', 'Signal Gallery'],
     ['options/chain', 'Option Chain'],
     ['options/pct-change', 'Option Chain % Change'],
     ['options/chart', 'Option Chart'],
@@ -34,6 +36,9 @@ describe('core-routes — canonical journey paths (#699)', () => {
     ['tools/account', 'RH Account Inquiry'],
     ['tools/topic-viewer', 'Topic Viewer'],
     ['dev/flex-chart', 'Flex Chart Sandbox'],
+    // Retained alongside the canonical trading/gallery (#762) — the dev
+    // route must keep resolving to the same component.
+    ['dev/gallery', 'Gallery (Dev)'],
     ['dashboard-v3', 'Dashboard V3'],
     ['signal-history', 'Signal History'],
     ['signal-action-report', 'Triage Report'],
@@ -131,6 +136,8 @@ describe('core-routes — canonical journey paths (#699)', () => {
       CHART_REVIEW: 'signals/charts',
       SIGNAL_ORDER: 'trading/live',
       PAPER_TRADING: 'trading/paper',
+      TRADE_ANALYSIS: 'trading/analysis',
+      GALLERY: 'trading/gallery',
       OPTION_CHAIN: 'options/chain',
       OPTION_CHAIN_PCT_CHANGE: 'options/pct-change',
       OPTION_CHART: 'options/chart',

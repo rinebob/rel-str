@@ -1,0 +1,155 @@
+<!-- @topic #553 — Paper Trading Infra | @task #1082 -->
+<div class="analysis-page">
+  <div class="page-header">
+    <div class="header-left">
+      <div>
+        <h2>Trade Analysis</h2>
+        <p class="page-subtitle">
+          Datasets are generated CSVs of trade rows — <strong>replay</strong> re-runs
+          historical signals through an exit rule; <strong>live</strong> snapshots your
+          paper ledger. Open a ready dataset to load it into the workbench.
+        </p>
+      </div>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search datasets</mat-label>
+        <input matInput [value]="search()" (input)="search.set($any($event.target).value)"
+               placeholder="symbol, name, or tag" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="showRunConfig.set(!showRunConfig())">
+        <mat-icon>{{ showRunConfig() ? 'close' : 'add' }}</mat-icon>
+        New dataset
+      </button>
+      <a mat-stroked-button [routerLink]="'/' + appRoutes.PAPER_TRADING">
+        Paper
+      </a>
+    </div>
+  </div>
+
+  @if (showRunConfig()) {
+    <app-analysis-run-config
+      [busy]="store.isGenerating()"
+      (submitted)="onGenerate($event)"
+      (cancelled)="showRunConfig.set(false)" />
+  }
+
+  @if (store.error()) {
+    <div class="error-banner" role="alert">{{ store.error() }}</div>
+  }
+
+  @if (store.isLoadingDatasets() && store.datasets().length === 0) {
+    <div class="loading-container">
+      <mat-spinner diameter="48"></mat-spinner>
+      <span>Loading datasets…</span>
+    </div>
+  } @else if (filteredDatasets().length === 0) {
+    <div class="empty-state">
+      @if (store.datasets().length === 0) {
+        <p>No analysis datasets yet — generate a replay or live snapshot to start.</p>
+      } @else {
+        <p>No datasets match "{{ search() }}".</p>
+      }
+    </div>
+  } @else {
+    <div class="dataset-grid">
+      @for (ds of filteredDatasets(); track ds.id) {
+        <mat-card class="dataset-card" [class.generating]="ds.status === 'generating'">
+          <mat-card-header>
+            <div class="card-header-row">
+              <span class="origin-badge" [class.origin-replay]="ds.origin === 'replay'"
+                    [class.origin-live]="ds.origin === 'live'">{{ ds.origin }}</span>
+              <span class="status-chip" [class]="statusClass(ds.status)">
+                @if (ds.status === 'generating') {
+                  <mat-spinner diameter="12"></mat-spinner>
+                }
+                {{ ds.status }}
+              </span>
+              <span class="card-id">{{ ds.id }}</span>
+            </div>
+            <div class="card-title">
+              {{ scopeLabel(ds) }} · {{ ds.exitRule }}
+            </div>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="param-line">
+              <span class="line-label">Params</span>
+              <span class="param">{{ ds.entryConvention }}</span>
+              <span class="sep">·</span>
+              <span class="param">{{ ds.entryConvention }}</span>
+              <span class="sep">·</span>
+              <span class="param">{{ ds.barRange.from }} → {{ ds.barRange.to }}</span>
+            </div>
+            <div class="param-line">
+              <span class="line-label">Scope</span>
+              <span class="param">{{ scopeLabel(ds) }}</span>
+              <span class="sep">·</span>
+              <span class="param">{{ typesLabel(ds) }}</span>
+              <span class="sep">·</span>
+              <span class="param">
+                {{ ds.status === 'ready' ? (ds.rowCount ?? 0) + ' rows' : '—' }}
+              </span>
+            </div>
+            <div class="param-line meta-line">
+              <span class="line-label">Generated</span>
+              <span class="generated">{{ ds.generatedAt | date:'MMM d, y, h:mm a' }}</span>
+              @for (t of ds.tags; track t) {
+                <span class="tag">{{ t }}</span>
+              }
+            </div>
+            @if (ds.notes && editingId() !== ds.id) {
+              <div class="notes-line">{{ ds.notes }}</div>
+            }
+            @if (store.activeDataset()?.id === ds.id) {
+              <div class="open-banner">
+                ● Open — {{ store.rows().length }} rows loaded; the workbench
+                table lands with #1083.
+              </div>
+            }
+            @if (ds.status === 'failed' && ds.error) {
+              <div class="error-line" role="alert">{{ ds.error }}</div>
+            }
+            @if (editingId() === ds.id) {
+              <div class="meta-edit">
+                <mat-form-field appearance="outline" class="edit-tags">
+                  <mat-label>Tags</mat-label>
+                  <input matInput [value]="editTags()"
+                         (input)="editTags.set($any($event.target).value)" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="edit-notes">
+                  <mat-label>Notes</mat-label>
+                  <textarea matInput rows="2" [value]="editNotes()"
+                            (input)="editNotes.set($any($event.target).value)"></textarea>
+                </mat-form-field>
+                <div class="edit-actions">
+                  <button mat-button color="primary" (click)="saveMeta(ds)">Save</button>
+                  <button mat-button (click)="cancelEdit()">Cancel</button>
+                </div>
+              </div>
+            }
+          </mat-card-content>
+          <mat-card-actions>
+            <button mat-button color="primary" [disabled]="ds.status !== 'ready'"
+                    (click)="store.openDataset(ds)">
+              <mat-icon>folder_open</mat-icon> Open
+            </button>
+            <button mat-button (click)="startEdit(ds)">
+              <mat-icon>edit</mat-icon> Tags / notes
+            </button>
+            @if (confirmDeleteId() === ds.id) {
+              <button mat-button color="warn" (click)="confirmDelete(ds)">
+                Confirm delete
+              </button>
+              <button mat-button (click)="cancelDelete()">Keep</button>
+            } @else {
+              <button mat-button color="warn" (click)="requestDelete(ds)">
+                <mat-icon>delete</mat-icon> Delete
+              </button>
+            }
+          </mat-card-actions>
+        </mat-card>
+      }
+    </div>
+  }
+</div>

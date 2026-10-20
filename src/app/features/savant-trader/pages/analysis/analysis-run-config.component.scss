@@ -1,0 +1,57 @@
+.run-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container);
+}
+
+.origin-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.origin-hint {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 16px;
+}
+
+.bar-range {
+  display: flex;
+  gap: 12px;
+
+  mat-form-field {
+    flex: 1;
+  }
+}
+
+.bar-range-error,
+.exit-grammar-hint {
+  color: var(--mat-sys-error);
+}
+
+.bar-range-error {
+  font-size: 0.8rem;
+  grid-column: 1 / -1;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 16px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+}

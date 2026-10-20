@@ -376,4 +376,11 @@ describe('PaperTradingComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.error-banner')?.textContent).toContain('load failed');
   });
+
+  it('header links to the trade-analysis workbench (#1082)', () => {
+    fixture.detectChanges();
+    const link = fixture.nativeElement.querySelector('a.analysis-link');
+    expect(link?.textContent).toContain('Trade Analysis');
+    expect(link?.getAttribute('href')).toContain('trading/analysis');
+  });
 });

@@ -159,6 +159,12 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.OrderComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.GALLERY,
+                title: PAGE_INFO[AppRoutes.GALLERY].title,
+                loadComponent: () => import('../features/savant-trader/pages/gallery-view/gallery-view.component')
+                .then(mod => mod.GalleryViewComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.SIGNAL_ACTION_REPORT,
                 title: PAGE_INFO[AppRoutes.SIGNAL_ACTION_REPORT].title,
                 loadComponent: () => import('../features/savant-trader/pages/signal-action-report/triage-report.component')
@@ -211,6 +217,12 @@ import { authGuard } from './auth/auth.guard';
                 title: PAGE_INFO[AppRoutes.PAPER_TRADING].title,
                 loadComponent: () => import('../features/savant-trader/pages/paper-trading/paper-trading.component')
                 .then(mod => mod.PaperTradingComponent),
+                canActivate: [authGuard],
+            },
+            {path: AppRoutes.TRADE_ANALYSIS,
+                title: PAGE_INFO[AppRoutes.TRADE_ANALYSIS].title,
+                loadComponent: () => import('../features/savant-trader/pages/analysis/analysis.component')
+                .then(mod => mod.AnalysisComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.OPTION_CHAIN_PCT_CHANGE,

@@ -1,0 +1,201 @@
+.analysis-page {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.page-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  opacity: 0.7;
+  max-width: 60ch;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.search-field {
+  min-width: 260px;
+}
+
+.error-banner {
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: rgba(244, 67, 54, 0.12);
+  color: var(--mat-sys-error);
+}
+
+.loading-container,
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 0;
+  opacity: 0.8;
+}
+
+.dataset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.dataset-card.generating {
+  opacity: 0.85;
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.origin-badge {
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  &.origin-replay {
+    background: rgba(33, 150, 243, 0.18);
+    color: #64b5f6;
+  }
+
+  &.origin-live {
+    background: rgba(76, 175, 80, 0.18);
+    color: #81c784;
+  }
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+
+  &.status-ready {
+    background: rgba(76, 175, 80, 0.18);
+    color: #81c784;
+  }
+
+  &.status-generating {
+    background: rgba(255, 193, 7, 0.18);
+    color: #ffd54f;
+  }
+
+  &.status-failed {
+    background: rgba(244, 67, 54, 0.18);
+    color: #e57373;
+  }
+}
+
+.card-id {
+  font-size: 0.8rem;
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.param-line {
+  font-size: 0.85rem;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-top: 2px;
+}
+
+.line-label {
+  width: 64px;
+  flex: none;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.55;
+}
+
+.open-banner {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: rgba(76, 175, 80, 0.14);
+  color: #81c784;
+}
+
+.sep {
+  opacity: 0.4;
+}
+
+.generated {
+  opacity: 0.6;
+  font-size: 0.8rem;
+}
+
+.tag {
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  background: rgba(156, 39, 176, 0.18);
+  color: #ce93d8;
+}
+
+.notes-line {
+  font-size: 0.85rem;
+  font-style: italic;
+  opacity: 0.8;
+  margin-top: 6px;
+}
+
+.error-line {
+  color: var(--mat-sys-error);
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
+.meta-edit {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+}

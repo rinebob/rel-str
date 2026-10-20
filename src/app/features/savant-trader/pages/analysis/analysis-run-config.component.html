@@ -1,0 +1,91 @@
+<!-- @topic #553 — Paper Trading Infra | @task #1082 -->
+<form class="run-config" [formGroup]="form" (ngSubmit)="submit()">
+  <div class="origin-row">
+    <mat-button-toggle-group formControlName="origin" aria-label="Dataset origin">
+      <mat-button-toggle value="replay">Replay</mat-button-toggle>
+      <mat-button-toggle value="live">Live snapshot</mat-button-toggle>
+    </mat-button-toggle-group>
+    <span class="origin-hint">
+      {{ origin() === 'replay'
+        ? 'Re-run historical signals through an exit rule into an analysis dataset.'
+        : 'Snapshot every live paper-trade signal — all symbols, all signal types, signal-bar-close entries.' }}
+    </span>
+  </div>
+
+  @if (origin() === 'replay') {
+    <div class="params-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Symbols</mat-label>
+        <input matInput formControlName="symbols"
+               placeholder="AMAT, NVDA — empty = all" />
+        <mat-hint>Comma-separated; empty includes every symbol</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Signal types</mat-label>
+        <mat-select formControlName="signalTypes" multiple>
+          @for (t of signalTypeOptions; track t) {
+            <mat-option [value]="t">{{ t }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>Empty = all signal types</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="exit-rule-field">
+        <mat-label>Exit rule</mat-label>
+        <input matInput formControlName="exitRule" placeholder="trailing-8" />
+        @if (form.controls.exitRule.invalid) {
+          <mat-hint class="exit-grammar-hint">
+            Registry grammar: trailing-{{ '{' }}pct{{ '}' }}, initial-stop-{{ '{' }}pct{{ '}' }}, time-{{ '{' }}N{{ '}' }}d
+          </mat-hint>
+        } @else {
+          <mat-hint>e.g. trailing-8, initial-stop-10, time-30d</mat-hint>
+        }
+        @if (form.controls.exitRule.hasError('required')) {
+          <mat-error>Exit rule is required</mat-error>
+        }
+        @if (form.controls.exitRule.hasError('exitRule')) {
+          <mat-error>Not a registry key — use trailing-{{ '{' }}pct{{ '}' }}, initial-stop-{{ '{' }}pct{{ '}' }}, or time-{{ '{' }}N{{ '}' }}d</mat-error>
+        }
+      </mat-form-field>
+
+      <div class="bar-range">
+        <mat-form-field appearance="outline">
+          <mat-label>Bars from</mat-label>
+          <input matInput [matDatepicker]="fromPicker" formControlName="barFrom" />
+          <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
+          <mat-datepicker #fromPicker></mat-datepicker>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Bars to</mat-label>
+          <input matInput [matDatepicker]="toPicker" formControlName="barTo" />
+          <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
+          <mat-datepicker #toPicker></mat-datepicker>
+        </mat-form-field>
+      </div>
+      @if (form.hasError('barRange')) {
+        <div class="bar-range-error" role="alert">Start date must be on or before end date</div>
+      }
+    </div>
+  }
+
+  <div class="meta-grid">
+    <mat-form-field appearance="outline">
+      <mat-label>Tags</mat-label>
+      <input matInput formControlName="tags" placeholder="amat, v2-longs" />
+      <mat-hint>Comma-separated</mat-hint>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Notes</mat-label>
+      <textarea matInput formControlName="notes" rows="2"
+                placeholder="What question does this dataset answer?"></textarea>
+    </mat-form-field>
+  </div>
+
+  <div class="form-actions">
+    <button mat-flat-button color="primary" type="submit" [disabled]="busy">
+      @if (busy) { Generating… } @else { Generate dataset }
+    </button>
+    <button mat-button type="button" (click)="cancel()">Cancel</button>
+  </div>
+</form>

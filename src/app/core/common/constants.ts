@@ -26,8 +26,10 @@ export const NAV_SECTIONS: NavSection[] = [
     {
         label: 'Trading',
         items: [
+            { name: 'signal-gallery', text: 'Gallery', href: 'trading/gallery' },
             { name: 'signal-order', text: 'Live', href: 'trading/live' },
             { name: 'paper-trading', text: 'Paper', href: 'trading/paper' },
+            { name: 'trade-analysis', text: 'Analysis', href: 'trading/analysis' },
         ],
     },
     {
@@ -136,6 +138,8 @@ export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
     [AppRoutes.SPREAD_CHART]:                 { title: 'Spread Chart',               icon: 'show_chart' },
     [AppRoutes.OPTIONS_STRATEGY_DASHBOARD]:   { title: 'Options Strategy Dashboard', icon: 'analytics' },
     [AppRoutes.PAPER_TRADING]:                { title: 'Paper Trading',              icon: 'receipt_long' },
+    [AppRoutes.TRADE_ANALYSIS]:               { title: 'Trade Analysis',             icon: 'science' },
+    [AppRoutes.GALLERY]:                      { title: 'Signal Gallery',             icon: 'photo_library' },
     [AppRoutes.STRATEGY_BUILDER]:             { title: 'Strategy Builder',           icon: 'build' },
     [AppRoutes.PORTFOLIO_DASHBOARD]:          { title: 'Portfolio Dashboard',        icon: 'account_balance_wallet' },
     [AppRoutes.PORTFOLIO_ALLOCATION]:         { title: 'Portfolio Allocation',       icon: 'pie_chart' },
@@ -211,6 +215,8 @@ export enum CallableName {
   GET_PAPER_ACCOUNT = 'getPaperAccount',
   /** Paper trading: exit-variant registry configs */
   LIST_EXIT_VARIANTS = 'listExitVariants',
+  /** Paper trading analysis: enqueue dataset generation (#553/#1059) */
+  GENERATE_TRADE_DATASET = 'generateTradeDataset',
   /** Dev lifecycle viewer: GitHub issue-hierarchy tree for supported repos */
   GET_LIFECYCLE_TREE = 'getLifecycleTree',
   /** Screenshot capture: spec → SVG+PNG artifacts in the default bucket (#746) */

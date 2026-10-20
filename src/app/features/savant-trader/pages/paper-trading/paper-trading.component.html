@@ -58,6 +58,10 @@
           <mat-option value="signalStatus">Signal Status</mat-option>
         </mat-select>
       </mat-form-field>
+      <a mat-stroked-button [routerLink]="'/' + appRoutes.TRADE_ANALYSIS"
+         class="analysis-link">
+        Trade Analysis
+      </a>
       <a mat-stroked-button [routerLink]="'/' + appRoutes.STRATEGY_BUILDER">
         Strategy Builder
       </a>

@@ -33,6 +33,10 @@ export enum AppRoutes {
 	OPTIONS_STRATEGY_DASHBOARD = 'options/strategy-dashboard',
 	/** Paper trading dashboard: paper ledger trades + stats (#553/#569). */
 	PAPER_TRADING = 'trading/paper',
+	/** Trade analysis workbench: dataset library + run-config (#553/#1059). */
+	TRADE_ANALYSIS = 'trading/analysis',
+	/** Order Ticket Gallery — primary signal review + order placement surface (#743/#762). */
+	GALLERY = 'trading/gallery',
 	STRATEGY_BUILDER = 'options/strategy/build',
 	PORTFOLIO_DASHBOARD = 'portfolio',
 	PORTFOLIO_ALLOCATION = 'portfolio/allocation',
@@ -42,7 +46,7 @@ export enum AppRoutes {
 	OPTION_CHAIN = 'options/chain',
 	SWING_ANALYSIS = 'analysis/swings',
 	FLEX_CHART_SANDBOX = 'dev/flex-chart',
-	/** Gallery View dev surface — promoted to trading/gallery by #762 (#743). */
+	/** Gallery View dev surface — canonical route is trading/gallery (#762/#743). */
 	DEV_GALLERY = 'dev/gallery',
 	/** Dev playground for captureChartSnapshot — spec form + artifact preview (#746/#770). */
 	SCREENSHOT_DEV = 'dev/screenshot',
