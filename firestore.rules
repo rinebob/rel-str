@@ -348,22 +348,32 @@ service cloud.firestore {
     // - instances/items: user-scoped CRUD (Strategy Builder writes directly).
     // - analysis-slices/items: authed CRUD — saved analysis views are
     //   user-written from the workbench (#1059/#1073).
-    // - all other anchors (accounts/trades/cohorts/stats/raw-quotes/
-    //   analysis-datasets): authenticated read for the single-user app;
-    //   writes are server-side (admin SDK bypasses rules — ledger passes
-    //   and the dataset generator own all writes).
+    // - analysis-datasets/items: authed update + delete — the workbench
+    //   edits tags/notes and deletes datasets (#1059/#1081); create stays
+    //   server-side (the generateTradeDataset callable mints index docs).
+    // - all other anchors (accounts/trades/cohorts/stats/raw-quotes):
+    //   authenticated read for the single-user app; writes are
+    //   server-side (admin SDK bypasses rules — ledger passes and the
+    //   dataset generator own all writes).
     match /paper-trading/{anchor}/items/{docId} {
       allow read: if request.auth != null;
-      allow create, update: if
+      allow create: if
         (anchor == 'instances' &&
          request.auth != null &&
          request.auth.uid == request.resource.data.userId) ||
         (anchor == 'analysis-slices' && request.auth != null);
+      allow update: if
+        (anchor == 'instances' &&
+         request.auth != null &&
+         request.auth.uid == request.resource.data.userId) ||
+        (anchor == 'analysis-slices' && request.auth != null) ||
+        (anchor == 'analysis-datasets' && request.auth != null);
       allow delete: if
         (anchor == 'instances' &&
          request.auth != null &&
          request.auth.uid == resource.data.userId) ||
-        (anchor == 'analysis-slices' && request.auth != null);
+        (anchor == 'analysis-slices' && request.auth != null) ||
+        (anchor == 'analysis-datasets' && request.auth != null);
       match /{sub}/{subDocId} {
         allow read: if request.auth != null;
         allow write: if false;

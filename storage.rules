@@ -11,6 +11,14 @@ service firebase.storage {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Analysis datasets (#1059/#1081): the workbench reads CSVs (already
+    // covered by the authed-read fallback) and deletes the object when the
+    // user deletes a dataset. Writes stay server-side — the generator owns
+    // the objects.
+    match /analysis-datasets/{datasetFile} {
+      allow delete: if request.auth != null;
+    }
+
     // Fallback rule: other paths remain read-only to authenticated clients,
     // and writes are restricted to backend Functions (service account).
     match /{allPaths=**} {
