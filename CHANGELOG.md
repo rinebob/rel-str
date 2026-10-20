@@ -3,6 +3,10 @@
 ## [2026-10-20]
 
 ### Added
+- [Screenshot Capture] 746-765_SHARED-CHORE-SCREENSHOT: refresh stale PositionType contract expectation to cover the already-shipped stock/vertical-debit-spread/calendar/option-single enum surface
+- [Savant Design System] 1024-1112_FE-CHORE-DESIGN-SYSTEM: refresh sidenav regression expectation for the already-shipped DS Gallery (Dev) menu item
+- [Savant Design System] 1024-1112_FE-VERIFY-DESIGN-SYSTEM: widget contract relay — 85 checks across canonical package, byte-identical ST/SA vendors, index/vl shim resolution, exact 9-mixin surface, retired-scope guards, gallery entry/case/include contracts, both-checkout runner gating, and inventory graduation; guide + run-all/README registration
+- [Savant Design System] 1024-1112_DOCS-DESIGN-SYSTEM: inventory graduates 9 widgets to Extracted; Phase 1/2 R6 boundary corrected in FE IMPL/TEST; #1112 CODE-REVIEW (PASS) + #1148 UAT (Complete — relays/package/build + 4047/4047 Jest)
 - [Gallery Order Ticket View] 743-762_FE-IMPL-GALLERY-VIEW: order-submit handoff — dialog stays open on done-status (confirmation panel: terms + View order / Done; reverts to form if a bound leg flips FAILED); shared orderTicketTerms(); ticket-line + View order deep-link to /trading/live?ticket=<id> held until match or full-queue visibility (rhOrdersLoaded race fix); goBack → trading/gallery
 - [Gallery Order Ticket View] 743-762_FE-IMPL-GALLERY-VIEW: Actioned lifecycle — 'watched' removed from card status (Monitor membership no longer sinks cards — QA root cause for stale-looking Actioned symbols); Unwatch path removed end to end; Actioned section split per-status (FAILED/SETTLED/REJECTED sub-headers + color accent bars via facade actionedGroups); manual Paper hidden behind GALLERY_MANUAL_PAPER_ENABLED=false; Chart stub removed
 - [Gallery Order Ticket View] 743-762_FE-IMPL-GALLERY-VIEW: page behavior — Group dropdown defaults to None; run-dashboard 'Review Latest Signals' + per-run Review action navigate to trading/gallery via setActiveRun; dataPending waits on symbol lists (no 'No signals' flash)

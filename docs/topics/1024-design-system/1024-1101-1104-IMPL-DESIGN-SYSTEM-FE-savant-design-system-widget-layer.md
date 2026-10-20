@@ -29,7 +29,7 @@ its `sync:ds` but has no widget migrations in this thread.
 |---|---|
 | `vendor/savant-ds/styles/_widgets.scss`, `_index.scss` | via `npm run sync:ds` |
 | `av-proxy-api/vendor/savant-ds/…` | via `av-proxy-api` `sync:ds` |
-| `src/styles/_pd-visual-language.scss` | **no edit** — `@forward 'index'` picks up `_widgets.scss` automatically |
+| `src/app/features/portfolio-dashboard/styles/_pd-visual-language.scss` | **no edit** — `@forward 'index'` picks up `_widgets.scss` automatically |
 
 ### Gallery — `src/app/features/ds-gallery/`
 
@@ -72,7 +72,8 @@ Markup touched only where the canonical class contract requires it
 - all 9 mixin names present in the partial
 - zero `verdict`/`acr`/`expando`/`mat-expansion` occurrences in the partial (retired-scope guard)
 - gallery template references each of the 9 demo sections
-- each migrated `.scss` contains `@include vl.<mixin>` and no leftover duplicate rules (spot-check literals: `rgba(76,175,80`, `#4caf50`, `#f44336`, `#7b1fa2`, `#1b5e20` gone from migrated files)
+- inventory rows for all 9 widgets have moved from Candidate to Extracted
+- consumer-migration checks (`@include vl.<mixin>` + retired-literal absence) land with Tasks #1114/#1115; they cannot gate the Phase 1 relay before those Phase 2 migrations exist
 
 ## 3. Phases / tasks
 

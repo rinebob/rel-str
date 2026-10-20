@@ -42,10 +42,12 @@ relay. All FE; no BE surface touched.
 - R4: zero `verdict`/`acr`/`expansion`/`--ds-verdict` in package + vendored
   copies.
 - R5: gallery template contains all 9 demo sections (marker comments or
-  stable class hooks).
-- R6: each migrated `.scss` contains `@include vl.<mixin>`; retired
-  literals (`#4caf50`, `#f44336`, `#7b1fa2`, `#1b5e20`,
-  `rgba(76,175,80`) absent from migrated files.
+  stable class hooks), and all 9 inventory rows are Extracted rather than
+  Candidate.
+- R6 (Tasks #1114/#1115): each migrated `.scss` contains `@include
+  vl.<mixin>`; retired literals (`#4caf50`, `#f44336`, `#7b1fa2`,
+  `#1b5e20`, `rgba(76,175,80`) are absent from migrated files. This is a
+  Phase 2 gate and cannot run in Task #1112 before the migrations exist.
 
 ## Integration boundaries
 
