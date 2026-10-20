@@ -42,7 +42,6 @@ export {
 export {
   ReviewDecision,
   ALL_REVIEW_STATUSES,
-  SymbolType,
   GroupDimension,
 } from './common/constants';
 
@@ -67,11 +66,10 @@ export {
 export * as ChartIndicators from './utils/chart-indicators';
 
 // Shared Firestore Helpers (Phase 6B — centralize duplicated utilities)
-export { requireUserId, chunkArray, getDocData, CreatedAtDoc } from './services/firestore-helpers';
+export { requireUserId } from './services/firestore-helpers';
 
 // Persistence & Universe Services (Phase 5C)
 export { TriageService } from './services/triage.service';
-export { SymbolMetaService, SymbolMeta, SymbolMetaInput } from './services/symbol-meta.service';
 export { SymbolListService, SymbolList } from './services/symbol-list.service';
 
 // Components

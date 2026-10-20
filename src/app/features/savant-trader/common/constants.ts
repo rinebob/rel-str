@@ -73,9 +73,6 @@ export function isLiveListFilter(
  */
 export type SymbolListFilter = 'ALL' | typeof NO_MEMBERSHIP | (string & {});
 
-/** Symbol type classification for the trading universe. */
-export type SymbolType = 'STOCK' | 'ETF' | 'FUTURE' | 'FOREX' | 'CRYPTO' | 'OTHER';
-
 /** Dimensions available for grouping the symbol list in the grouped review.
  *  NONE is a gallery-only flat-mode sentinel (#820), not a real dimension —
  *  grouping code throws on it (see getGroupKey). */
