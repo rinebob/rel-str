@@ -46,6 +46,7 @@ const scripts = [
   'data-pipeline-collection-renames-1007.ts',
   'data-pipeline-config-lists-1008.ts',
   'data-pipeline-decisions-retirement-1009.ts',
+  'data-pipeline-run-jobs-ttl-1010.ts',
   'paper-trading-analysis-1073-contracts.ts',
   'paper-trading-analysis-1074-csv-codec.ts',
   'paper-trading-analysis-1076-dataset-writer.ts',
