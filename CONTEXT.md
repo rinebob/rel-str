@@ -72,7 +72,7 @@ _Avoid_: Review status, review decision
 
 ## Monitor
 
-A non-exclusive symbol list (MONITOR; legacy Firestore doc name PAST_SIGNALS, migrated on load) for tracking symbols the user wants to keep an eye on. Can coexist with any exclusive list assignment. Also the target of the Order Ticket Gallery's "watch" card action — watching a card adds its symbol to Monitor, making the symbol queryable on later sessions.
+A non-exclusive symbol list (MONITOR; legacy Firestore doc name PAST_SIGNALS, migrated on load) for tracking symbols the user wants to keep an eye on. Can coexist with any exclusive list assignment. Membership is informational in the gallery — it does not action a card (#762 QA: monitoring ≠ a decision about the signal).
 _Avoid_: Watch, watchlist
 
 ## Symbol List (Exclusive)
@@ -295,7 +295,7 @@ _Avoid_: percent change grid (that is the analysis tool), option chain table
 
 ## Gallery Card
 
-The actionable unit of the Order Ticket Gallery view (`dev/gallery`, promoted to `trading/gallery` by a later task): one card per symbol+side aggregating that symbol's contributing Signal Occurrences from the viewed run. Carries signal details, a chart area, and the labeled action toolbar. **Trade** stages a whole-share quantity ticket (no decision writes) and opens it in the Order Ticket dialog for submission; **Reject** writes durable REJECT occurrence decisions, removes this run's staged tickets, and sinks the card — Restore on the sunk card resets it; **Paper** stages and sends through the paper-trading callable. Cards carry a derived lifecycle status (watched > rejected > failed > settled > resting > submitting > pending); watched/settled/failed/rejected cards leave their dimension group and collect in the pinned Sunk group. Gallery orders are whole-share only — fractional orders are not permitted.
+The actionable unit of the Order Ticket Gallery view (`trading/gallery`; `dev/gallery` retained): one card per symbol+side aggregating that symbol's contributing Signal Occurrences from the viewed run. Carries signal details, a chart area, and the labeled action toolbar. **Trade** stages a whole-share quantity ticket (no decision writes) and opens it in the Order Ticket dialog for submission; **Reject** writes durable REJECT occurrence decisions, removes this run's staged tickets, and parks the card in Actioned — Restore on an actioned card resets it; **Paper** (disabled pending `GALLERY_MANUAL_PAPER_ENABLED`) stages and sends through the paper-trading callable. Cards carry a derived lifecycle status (rejected > failed > settled > resting > submitting > pending); settled/failed/rejected cards leave the actionable grid and collect in the Actioned section, each exposing the inverse of its sinking action (rejected→Restore, failed→Requeue; settled is terminal). Monitor list membership does not status a card — a watched symbol's fresh signal stays actionable. The ticket line deep-links to `trading/live?ticket=<id>`. Gallery orders are whole-share only — fractional orders are not permitted.
 
 ## Position Card
 

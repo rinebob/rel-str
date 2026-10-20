@@ -4,15 +4,15 @@
 **Topic Slug:** order-ticket-gallery-view  
 **Thread:** Gallery View Page  
 **Thread Slug:** gallery-view-page  
-**Issue:** #865 (rotates per task — latest QA issue listed)  
+**Issue:** #1127 (rotates per task — latest QA issue listed)  
 **Thread Parent:** #744  
 **Topic Parent:** #743  
-**Task:** #860  
+**Task:** #762  
 **Domain:** GALLERY-VIEW  
 **Type:** UAT  
-**Status:** Complete  
+**Status:** Draft  
 **Created:** 2026-10-04  
-**Last Updated:** 2026-10-07  
+**Last Updated:** 2026-10-20  
 
 This is the Thread-level UAT for the Gallery Order Ticket View feature. It is
 cumulative: each task appends or updates a scenario section as it reaches QA,
@@ -947,3 +947,167 @@ the frame budget. Unmounts stay immediate — never queued. Fixes the
 | Immediate unmount; dead grants free | M4 |
 | Refresh re-paces (no bypass on data arrival) | M5 |
 | D/W, ±50, actions, grouped mode unchanged | M6 |
+
+## Scope — Task #762: route promotion + order-flow handoff
+
+Canonical `trading/gallery` route (lazy, auth-gated — same component as
+retained `dev/gallery`), Trading → Gallery nav entry, run-dashboard
+navigation consolidated to the gallery ('Review Latest Signals' + per-run
+row action, both seeding `setActiveRun`), `signals/review`/`trading/live`
+unchanged. Delivered with the task's user-directed additions:
+"Sunk"→**Actioned** section with per-status exits (Restore /
+Requeue; Settled terminal — Monitor membership does not sink cards,
+#762 QA refinement), default grouping **None** + `dataPending`
+loading gate, ticket dialog stays open on done-status showing a
+**confirmation panel** (View order / Done), card ticket-line deep link to
+`trading/live?ticket=<id>` honored by the order page, manual **Paper**
+disabled behind `GALLERY_MANUAL_PAPER_ENABLED`.
+
+⚠ Order submission is REAL — `trading/gallery` is not a sandbox. For R6
+either submit a token whole-share order on a symbol you intend to trade,
+or verify the confirmation panel via a path you don't mind executing.
+
+## Test scenarios — #762
+
+### R1 — Canonical route renders the gallery
+
+- **Confirms:** `trading/gallery` loads the gallery, auth-gated.
+- **Steps:** Navigate to `http://localhost:4200/trading/gallery`.
+- **Expected:** gallery renders (card grid or loading/empty states); URL
+  stays `trading/gallery`.
+- **Result:** ☐ PASS ☐ FAIL
+
+### R2 — Dev route retained
+
+- **Confirms:** `dev/gallery` still resolves to the same page.
+- **Steps:** Navigate to `/dev/gallery`.
+- **Expected:** identical gallery; no redirect.
+- **Result:** ☐ PASS ☐ FAIL
+
+### R3 — Nav entry
+
+- **Confirms:** 'Gallery' appears in the Trading nav group and navigates.
+- **Steps:** Left nav → Trading group → click Gallery.
+- **Expected:** lands on `/trading/gallery`; header 'Signal Gallery';
+  Gallery listed above Live/Paper.
+- **Result:** ☐ PASS ☐ FAIL
+
+### R4 — Dashboard entry points
+
+- **Confirms:** run-dashboard navigates into the gallery both ways.
+- **Steps:** `/signals/runs` → click **Review Latest Signals**; back, then
+  click a run row's Review action.
+- **Expected:** both land on `/trading/gallery`; the row variant shows
+  THAT run's cards (`setActiveRun` seeding), not necessarily the latest.
+- **Result:** ☐ PASS ☐ FAIL
+
+### R5 — Loading gate + default flat grouping
+
+- **Confirms:** `dataPending` covers the signal load (no 'No signals'
+  flash); Group defaults to None.
+- **Steps:** Hard-reload `/trading/gallery` on a run with signals.
+- **Expected:** 'Loading signals…' → cards appear progressively; Group
+  dropdown shows 'None' (flat grid).
+- **Result:** ☐ PASS ☐ FAIL
+
+### R6 — Submit → dialog stays open with confirmation
+
+- **Confirms:** done-status keeps the dialog open on a confirmation panel
+  instead of closing silently.
+- **Steps:** On an actionable card: Trade → submit a quantity order (⚠
+  real order — see scope note).
+- **Expected:** confirmation panel shows status copy ('Order submitted'/
+  'resting…'), symbol + terms (`buy limit 10 @ 210.50`), 'View order' +
+  'Done' actions — no auto-close.
+- **Result:** ☐ PASS ☐ FAIL
+
+### R7 — View order handoff
+
+- **Confirms:** confirmation's 'View order' deep-links to the ticket.
+- **Steps:** From the R6 panel: click **View order**.
+- **Expected:** dialog closes → `/trading/live?ticket=<id>` with THAT
+  ticket selected (not the first row).
+- **Result:** ☐ PASS ☐ FAIL
+
+### R8 — Card ticket-line deep link
+
+- **Confirms:** the ticket line is a working link to the order.
+- **Steps:** Click a card's ticket line (`limit 10 @ … · Resting`).
+- **Expected:** `/trading/live?ticket=<id>` with the ticket selected —
+  including resting/settled tickets after RH orders load (a brief
+  first-row fallback may flash first).
+- **Result:** ☐ PASS ☐ FAIL
+
+### R9 — Actioned section + exits
+
+- **Confirms:** Actioned band + per-status exits work end to end;
+  monitored symbols' cards stay in the actionable grid.
+- **Steps:** On a run with rejected/failed cards, scroll to the Actioned
+  section. Restore a Rejected card; Requeue a Failed card. Confirm a
+  Monitor-listed symbol's card (e.g. BTSG/TDY) is in the active grid,
+  not Actioned.
+- **Expected:** prominent 'ACTIONED · N' header; cards legible (muted
+  bg, no opacity dim). Restore/Requeue exit; Settled shows no exit
+  buttons; no Unwatch pill exists (#762 QA: watched status removed).
+- **Result:** ☐ PASS ☐ FAIL — BTSG/TDY in Actioned was the QA finding;
+  fix landed (Monitor membership no longer statused), needs re-check.
+
+### R10 — Manual Paper hidden
+
+- **Confirms:** Paper button absent while manual paper is disabled
+  (QA-refined: hidden, not disabled).
+- **Steps:** Inspect the toolbar on an actionable card.
+- **Expected:** no Paper button; `GALLERY_MANUAL_PAPER_ENABLED=false`
+  gates it — auto-paper ingest covers the workflow.
+- **Result:** ☑ PASS ☐ FAIL — user observation (2026-10-20): asked why
+  the button was still visible → hidden behind the flag.
+
+### R11 — Legacy surfaces unchanged
+
+- **Confirms:** `signals/review` + `trading/live` behave as before.
+- **Steps:** Open both directly and via nav.
+- **Expected:** identical to pre-change; queue ops on trading/live
+  unaffected.
+- **Result:** ☐ PASS ☐ FAIL
+
+### R12 — Stale deep link falls back
+
+- **Confirms:** unknown `?ticket=` doesn't wedge the page.
+- **Steps:** Open `/trading/live?ticket=NOPE-INVALID`.
+- **Expected:** first queue row selected; no error, no blank pane.
+- **Result:** ☐ PASS ☐ FAIL
+
+### R13 — Confirmation reverts on failure
+
+- **Confirms:** the panel never shows success over a failed leg.
+- **Steps:** (Optional — needs a ticket that reverts to FAILED while its
+  dialog confirmation is open, e.g. a bound equity/option pair where one
+  leg fails) Trigger the revert.
+- **Expected:** confirmation clears; the ticket form (with error)
+  returns.
+- **Result:** ☐ PASS ☐ FAIL — spec-covered
+  (`gallery-ticket-dialog.component.spec.ts`: done+failed-legs → form)
+
+## Refinement pass — #762
+
+- Confirmation panel copy/hierarchy, View-order affordance, ticket-line
+  link styling (inline, `open_in_new` icon, aria-label), Actioned band
+  prominence, Paper-disabled tooltip copy — all need live eyes.
+- **Result:** ☐ PASS ☐ FAIL
+
+## Traceability — #762
+
+| QA acceptance item | Evidence |
+|---|---|
+| `trading/gallery` lazy + auth; `dev/gallery` works | R1, R2 |
+| Dashboard entry → gallery (consolidation variant) | R4 |
+| `signals/review`, `trading/live` unchanged | R11 |
+| Nav entry | R3 |
+| Loading gate + flat default | R5 |
+| Dialog confirmation + View order | R6, R7, R13 |
+| Ticket deep link + fallback | R8, R12 |
+| Actioned exits | R9 |
+| Manual Paper disabled | R10 |
+
+Full task UAT (numbered table + prerequisites):
+`743-1127-762-UAT-GALLERY-VIEW-order-ticket-gallery-view.md`

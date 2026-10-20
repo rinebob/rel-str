@@ -3,6 +3,10 @@
 ## [2026-10-20]
 
 ### Added
+- [Gallery Order Ticket View] 743-762_FE-IMPL-GALLERY-VIEW: order-submit handoff — dialog stays open on done-status (confirmation panel: terms + View order / Done; reverts to form if a bound leg flips FAILED); shared orderTicketTerms(); ticket-line + View order deep-link to /trading/live?ticket=<id> held until match or full-queue visibility (rhOrdersLoaded race fix); goBack → trading/gallery
+- [Gallery Order Ticket View] 743-762_FE-IMPL-GALLERY-VIEW: Actioned lifecycle — 'watched' removed from card status (Monitor membership no longer sinks cards — QA root cause for stale-looking Actioned symbols); Unwatch path removed end to end; Actioned section split per-status (FAILED/SETTLED/REJECTED sub-headers + color accent bars via facade actionedGroups); manual Paper hidden behind GALLERY_MANUAL_PAPER_ENABLED=false; Chart stub removed
+- [Gallery Order Ticket View] 743-762_FE-IMPL-GALLERY-VIEW: page behavior — Group dropdown defaults to None; run-dashboard 'Review Latest Signals' + per-run Review action navigate to trading/gallery via setActiveRun; dataPending waits on symbol lists (no 'No signals' flash)
+- [Gallery Order Ticket View] 743-762_DOCS-GALLERY-VIEW: #762 CODE-REVIEW (PASS, 2 rounds) + #1127 UAT (Complete — owner-waived live-order scenarios, spec-covered) + cumulative thread UAT + CONTEXT Monitor/Gallery Card entries
 - [Savant Trader] 1098-1131_SHARED-IMPL-SAVANT-TRADER: scanner wire + domain contracts — preview_scan types verified vs live catalog (filters+columns only; ScanSort is client-side recipe sort), ScanRecipe/CurationProposal, narrowing/chunking/truncation helpers, proposal serialize/parse; 13 specs
 - [Savant Trader] 1098-1131_CONFIG-SAVANT-TRADER: @st/scanner alias registered in tsconfig/functions/tsconfig/jest
 - [Savant Trader] 1098-1131_SHARED-VERIFY-SAVANT-TRADER: rh-scanner-contracts-1131 live relay — 7 checks vs real RH MCP session (enum + symbol-scoped scans)
