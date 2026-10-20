@@ -27,6 +27,41 @@ mat-dialog-actions {
   padding: 0 16px 10px;
 }
 
+// Post-submit confirmation (#762) — icon + outcome line + follow-through
+// hint; replaces the ticket form once a bound ticket reaches a terminal
+// state.
+.confirm-panel {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px 4px 8px;
+}
+
+.confirm-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  color: var(--mat-sys-primary);
+}
+
+.confirm-headline {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.confirm-terms {
+  font-size: 12px;
+  font-family: monospace;
+  margin-top: 4px;
+  color: var(--mat-sys-on-surface);
+}
+
+.confirm-hint {
+  font-size: 11px;
+  margin-top: 8px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
 .dialog-subtitle {
   display: flex;
   flex-direction: column;

@@ -1,12 +1,14 @@
 /**
  * GalleryTicketDialogComponent spec (#759) — hosts OrderTicketComponent bound
- * to a staged ticket; auto-closes when the ticket leaves STAGED.
+ * to a staged ticket; on a done status it shows a confirmation panel and
+ * stays open until the user dismisses it (#762).
  */
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 
 import { GalleryTicketDialogComponent } from './gallery-ticket-dialog.component';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
@@ -89,6 +91,7 @@ describe('GalleryTicketDialogComponent', () => {
     getOptionQuotes: jest.Mock;
   };
   let seedOnStaged: jest.Mock;
+  let routerMock: { navigate: jest.Mock };
 
   beforeEach(async () => {
     tickets = signal<Record<string, OrderTicket>>({ 't-1': stagedTicket() });
@@ -105,6 +108,7 @@ describe('GalleryTicketDialogComponent', () => {
       getOptionQuotes: jest.fn().mockResolvedValue({}),
     };
     seedOnStaged = jest.fn();
+    routerMock = { navigate: jest.fn().mockResolvedValue(true) };
 
     await TestBed.configureTestingModule({
       imports: [GalleryTicketDialogComponent],
@@ -151,6 +155,7 @@ describe('GalleryTicketDialogComponent', () => {
         },
         { provide: MatDialog, useValue: { open: jest.fn() } },
         { provide: MatSnackBar, useValue: { open: jest.fn() } },
+        { provide: Router, useValue: routerMock },
       ],
     }).compileComponents();
 
@@ -166,10 +171,64 @@ describe('GalleryTicketDialogComponent', () => {
     expect(dialogRefMock.close).not.toHaveBeenCalled();
   });
 
-  it('auto-closes when the ticket leaves STAGED (submitted / papered)', () => {
+  it('shows the confirmation panel on a done status instead of closing (#762)', () => {
     tickets.set({ 't-1': { ...stagedTicket(), status: OrderTicketStatus.SUBMITTED } });
     fixture.detectChanges();
+    expect(dialogRefMock.close).not.toHaveBeenCalled();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const panel = el.querySelector('[data-testid="order-confirmation"]');
+    expect(panel?.textContent).toContain('Order submitted');
+    expect(panel?.textContent).toContain('AAPL');
+    expect(panel?.textContent).toContain('buy market');
+    // The ticket form is replaced by the confirmation.
+    expect(el.querySelector('app-order-ticket')).toBeNull();
+  });
+
+  it('shows the paper outcome message on PAPER', () => {
+    tickets.set({ 't-1': { ...stagedTicket(), status: OrderTicketStatus.PAPER } });
+    fixture.detectChanges();
+    const panel = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="order-confirmation"]',
+    );
+    expect(panel?.textContent).toContain('Sent to paper trade');
+  });
+
+  it('Done closes after the confirmation is acknowledged', () => {
+    tickets.set({ 't-1': { ...stagedTicket(), status: OrderTicketStatus.RESTING } });
+    fixture.detectChanges();
+    const done = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('mat-dialog-actions button'),
+    ).find((b) => b.textContent?.trim() === 'Done');
+    done?.click();
     expect(dialogRefMock.close).toHaveBeenCalled();
+  });
+
+  it('View order deep-links the ticket on the live-order page and closes', () => {
+    tickets.set({ 't-1': { ...stagedTicket(), status: OrderTicketStatus.SUBMITTED } });
+    fixture.detectChanges();
+    const viewOrder = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('mat-dialog-actions button'),
+    ).find((b) => b.textContent?.trim() === 'View order');
+    viewOrder?.click();
+    expect(routerMock.navigate).toHaveBeenCalledWith(
+      ['/', 'trading/live'],
+      { queryParams: { ticket: 't-1' } },
+    );
+    expect(dialogRefMock.close).toHaveBeenCalled();
+  });
+
+  it('clears the confirmation back to the form when the done ticket reverts — requeue or reconcile to FAILED (#762 review)', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    tickets.set({ 't-1': { ...stagedTicket(), status: OrderTicketStatus.SUBMITTED } });
+    fixture.detectChanges();
+    expect(el.querySelector('[data-testid="order-confirmation"]')).toBeTruthy();
+
+    tickets.set({ 't-1': { ...stagedTicket(), status: OrderTicketStatus.FAILED } });
+    fixture.detectChanges();
+    expect(el.querySelector('[data-testid="order-confirmation"]')).toBeNull();
+    expect(el.querySelector('app-order-ticket')).toBeTruthy();
+    expect(dialogRefMock.close).not.toHaveBeenCalled();
   });
 
   it('stays open on the transient SUBMITTING marker (#755 review)', () => {
@@ -295,7 +354,7 @@ describe('GalleryTicketDialogComponent', () => {
       expect(dialogRefMock.close).not.toHaveBeenCalled();
     });
 
-    it('closes when the OPTION ticket reaches a done status even though the equity ticket is still STAGED', () => {
+    it('shows the confirmation when the OPTION ticket is done even though the equity ticket is still STAGED', () => {
       fixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
       tickets.set({
         't-1': stagedTicket(),
@@ -307,7 +366,11 @@ describe('GalleryTicketDialogComponent', () => {
         } as OrderTicket,
       });
       fixture.detectChanges();
-      expect(dialogRefMock.close).toHaveBeenCalled();
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      const panel = (fixture.nativeElement as HTMLElement).querySelector(
+        '[data-testid="order-confirmation"]',
+      );
+      expect(panel?.textContent).toContain('Order submitted');
     });
 
     it('closes when a bound option ticket is removed elsewhere', () => {
@@ -315,6 +378,25 @@ describe('GalleryTicketDialogComponent', () => {
       tickets.set({ 't-1': stagedTicket() });
       fixture.detectChanges();
       expect(dialogRefMock.close).toHaveBeenCalled();
+    });
+
+    it('FAILED on a bound leg outranks the other leg\'s done status — the error is not masked (#762 round 2)', () => {
+      fixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
+      // Equity done + option failed → form, not the equity confirmation.
+      tickets.set({
+        't-1': { ...stagedTicket(), status: OrderTicketStatus.SUBMITTED },
+        'opt-1': {
+          ...stagedTicket(),
+          id: 'opt-1',
+          instrumentType: InstrumentType.OPTION,
+          status: OrderTicketStatus.FAILED,
+        } as OrderTicket,
+      });
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="order-confirmation"]')).toBeNull();
+      expect(el.querySelector('app-order-ticket')).toBeTruthy();
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
     });
 
     it('stays open while the option ticket is STAGED or SUBMITTING', () => {

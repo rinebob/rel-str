@@ -8,6 +8,8 @@ import {
   EquityOrderTicket,
   InstrumentType,
   OrderSource,
+  OrderTicket,
+  OrderTicketPatch,
   OrderTicketStatus,
 } from '../services/order-ticket.types';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
@@ -17,6 +19,34 @@ import { SignalDirection } from '../common/constants';
  *  shared by the signal-review and gallery staging paths so the number
  *  can't drift between surfaces. */
 export const DEFAULT_DOLLAR_AMOUNT = 100;
+
+/** Patch returning a terminal (FAILED/CANCELLED) ticket to STAGED (#717):
+ *  RH burns a refId once the order reaches a terminal state — resubmitting
+ *  with the old one 409s — so the patch mints a fresh refId and clears the
+ *  broker result, error, and terminalAt. Idempotency survives: the NEW
+ *  refId is reused if the resubmit itself is retried. Shared by the order
+ *  queue's Requeue action and the gallery card's failed-exit. */
+export function requeueTicketPatch(): OrderTicketPatch {
+  return {
+    status: OrderTicketStatus.STAGED,
+    refId: crypto.randomUUID(),
+    result: undefined,
+    error: undefined,
+    terminalAt: undefined,
+  };
+}
+
+/** Order terms for display — `opt 2 @ 1.25` (option contracts use `price`,
+ *  not `limitPrice`), `10 @ 210.50` / `10 @ mkt` (quantity equity), or
+ *  `$200` (dollar-based market). Shared by the gallery card's ticket line
+ *  and the dialog confirmation so the formats can't drift (#762 review). */
+export function orderTicketTerms(t: OrderTicket): string {
+  return t.instrumentType === InstrumentType.OPTION
+    ? `opt ${t.quantity}${t.price ? ` @ ${t.price}` : ''}`
+    : t.quantity
+      ? `${t.quantity} @ ${t.limitPrice ?? 'mkt'}`
+      : `$${t.dollarAmount ?? '—'}`;
+}
 
 /** Inputs needed to build signal-staged tickets. */
 export interface SignalOrderStagingContext {

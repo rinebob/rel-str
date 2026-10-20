@@ -24,7 +24,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { firstValueFrom } from 'rxjs';
 
@@ -44,6 +44,7 @@ import { formatError } from '../../utils/format-error.util';
 import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, rhStateToDisplayStatus, restingLimitBuyNotional } from '../../utils/broker-order.util';
 import { canonicalOccurrenceDecisionId } from '../../services/firestore-helpers';
 import { isPaperEligibleTicket, paperQuantityFor } from '../../utils/paper-ticket.util';
+import { requeueTicketPatch } from '../../utils/signal-order-staging.util';
 
 @Component({
   selector: 'app-signal-order',
@@ -57,6 +58,7 @@ export class OrderComponent implements OnInit, OnDestroy {
   readonly uiState = inject(UiStateService);
   protected readonly appRoutes = AppRoutes;
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly configService = inject(TradingConfigService);
   private readonly priceService = inject(EquityPriceService);
   private readonly portfolioService = inject(PortfolioService);
@@ -67,6 +69,11 @@ export class OrderComponent implements OnInit, OnDestroy {
 
   /** Currently selected ticket id. */
   readonly selectedTicketId = signal<string | null>(null);
+
+  /** `?ticket=` deep-link target (#762) — consumed by the auto-select
+   *  effect once the queue has loaded, then cleared so the normal
+   *  selection clamp takes over. */
+  private wantedTicketId: string | null = null;
 
   /** Open RH positions — shown so the user can place protective stops. */
   readonly brokerPositions = signal<BrokerPosition[]>([]);
@@ -245,6 +252,11 @@ export class OrderComponent implements OnInit, OnDestroy {
   }
 
   constructor() {
+    // `?ticket=` deep link from the gallery card's ticket line (#762) —
+    // read at construction so it's set before the auto-select effect's
+    // first run below.
+    this.wantedTicketId = this.route.snapshot.queryParamMap.get('ticket');
+
     // Fetch prices when tickets are loaded or change. Selection is clamped
     // to visible tickets — if the selected ticket leaves the queue (removed,
     // filtered, accepted-as-paper), select the first remaining row so the
@@ -254,6 +266,22 @@ export class OrderComponent implements OnInit, OnDestroy {
       untracked(() => {
         if (tickets.length === 0) return;
         this.fetchPrices();
+        // A `?ticket=` deep link outranks the default-first select —
+        // the gallery card's ticket line lands here targeting its order.
+        // Hold the pending id until it matches: allTickets hides
+        // non-STAGED/FAILED rows until rhOrdersLoaded, and a resting/
+        // submitted target is exactly what the ticket line links to —
+        // clearing on the first non-empty emission would lose it.
+        if (this.wantedTicketId) {
+          if (tickets.some((t) => t.id === this.wantedTicketId)) {
+            this.selectedTicketId.set(this.wantedTicketId);
+            this.wantedTicketId = null;
+          } else if (this.rhOrdersLoaded()) {
+            // Queue fully visible and the target still isn't there —
+            // the link names a filtered-out ticket; release it.
+            this.wantedTicketId = null;
+          }
+        }
         const sel = this.selectedTicketId();
         if (!sel || !tickets.some((t) => t.id === sel)) {
           this.selectedTicketId.set(tickets[0].id);
@@ -519,13 +547,7 @@ export class OrderComponent implements OnInit, OnDestroy {
     if (!ticket) return;
     if (ticket.status !== OrderTicketStatus.CANCELLED && ticket.status !== OrderTicketStatus.FAILED) return;
 
-    const ok = await this.stagingStore.updateTicketAndWait(id, {
-      status: OrderTicketStatus.STAGED,
-      refId: crypto.randomUUID(),
-      result: undefined,
-      error: undefined,
-      terminalAt: undefined,
-    });
+    const ok = await this.stagingStore.updateTicketAndWait(id, requeueTicketPatch());
     // The write failed — the ticket reverted to its terminal state and the
     // store already surfaced the error; don't claim it was requeued.
     if (!ok) return;
@@ -600,9 +622,10 @@ export class OrderComponent implements OnInit, OnDestroy {
     this.snackBar.open('Manual order creation coming soon', 'Dismiss', { duration: 3000 });
   }
 
-  /** Navigate back to the signal review page. */
+  /** Navigate back to the gallery — the primary triage surface (#762)
+   *  and the only producer of `?ticket=` deep links into this page. */
   goBack(): void {
-    this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
+    this.router.navigate(['/' + AppRoutes.GALLERY]);
   }
 
   /**

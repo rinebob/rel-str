@@ -13,13 +13,17 @@
 import { Component, ChangeDetectionStrategy, computed, effect, inject, OnInit, Signal, signal } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
-import { CurrencyPipe, DecimalPipe, UpperCasePipe } from '@angular/common';
+import { Router } from '@angular/router';
+import { CurrencyPipe, DecimalPipe } from '@angular/common';
+import { AppRoutes } from '../../../../core/common/interfaces';
 
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { SymbolListStore } from '../../stores/symbol-list.store';
 import { InstrumentType, OrderTicket, OrderTicketStatus, TradingConfig } from '../../services/order-ticket.types';
+import { orderTicketTerms } from '../../utils/signal-order-staging.util';
 import { StOccurrenceDecision, StSignalItem } from '../../services/types';
 import { OrderTicketComponent } from '../order-ticket/order-ticket.component';
 import { OptionOrderTicketComponent } from '../option-order-ticket/option-order-ticket.component';
@@ -67,15 +71,26 @@ const DIALOG_DONE_STATUSES: ReadonlySet<OrderTicketStatus> = new Set([
   OrderTicketStatus.CANCELLED,
 ]);
 
+/** Confirmation copy per done status — the dialog now shows this instead
+ *  of closing on submit so the order's landing is explicit (#762). */
+const CONFIRMATION_MESSAGES: Partial<Record<OrderTicketStatus, string>> = {
+  [OrderTicketStatus.SUBMITTED]: 'Order submitted',
+  [OrderTicketStatus.QUEUED]: 'Order queued with the broker',
+  [OrderTicketStatus.RESTING]: 'Order resting with the broker',
+  [OrderTicketStatus.FILLED]: 'Order filled',
+  [OrderTicketStatus.PAPER]: 'Sent to paper trade',
+  [OrderTicketStatus.CANCELLED]: 'Order cancelled',
+};
+
 @Component({
   selector: 'app-gallery-ticket-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CurrencyPipe,
     DecimalPipe,
-    UpperCasePipe,
     MatDialogModule,
     MatButtonModule,
+    MatIconModule,
     MatTabsModule,
     OrderTicketComponent,
     OptionOrderTicketComponent,
@@ -88,6 +103,7 @@ export class GalleryTicketDialogComponent implements OnInit {
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly priceService = inject(EquityPriceService);
   private readonly lists = inject(SymbolListStore);
+  private readonly router = inject(Router);
 
   readonly data = inject(MAT_DIALOG_DATA) as GalleryTicketDialogData;
 
@@ -144,22 +160,64 @@ export class GalleryTicketDialogComponent implements OnInit {
     },
   );
 
+  /** The bound ticket in a done status — drives the confirmation panel
+   *  (#762). Live-read, so a later status change updates the message
+   *  (SUBMITTED→RESTING); cleared if the ticket leaves done-status
+   *  (requeue to STAGED, or reconcile to FAILED) so the form — and its
+   *  error — comes back. */
+  readonly confirmation = signal<OrderTicket | null>(null);
+
+  readonly confirmationMessage = computed(() => {
+    const t = this.confirmation();
+    return t ? (CONFIRMATION_MESSAGES[t.status] ?? 'Order accepted') : '';
+  });
+  readonly confirmationIcon = computed(() =>
+    this.confirmation()?.status === OrderTicketStatus.CANCELLED ? 'cancel' : 'task_alt',
+  );
+  /** `buy limit 10 @ 210.50` / `buy market $200` / `opt 2 @ 1.25` — the
+   *  accepted terms on the confirmation line (shared formatter, #762). */
+  readonly confirmationTerms = computed(() => {
+    const t = this.confirmation();
+    if (!t) return '';
+    return `${t.side} ${t.orderType} ${orderTicketTerms(t)}`;
+  });
+
   constructor() {
-    // Close when EITHER ticket is accepted (submitted/papered) or removed
-    // by another surface — not on the transient SUBMITTING marker or a
-    // FAILED status, where closing would swallow the error (#755 review).
-    // The option ticket only counts once bound: a never-touched Option
-    // tab must not hold the dialog open or close it (#964).
+    // A done ticket shows the confirmation panel — the user closes with
+    // Done or follows through to the order page (#762). Removal closes
+    // outright (cancel/discard semantics); SUBMITTING and FAILED keep the
+    // dialog in the ticket view so the error isn't swallowed (#755
+    // review). A FAILED leg outranks a done leg — equity submitted +
+    // option failed must surface the error, not the confirmation (#762
+    // review round 2). A confirmed ticket that reverts drops back to the
+    // form. The option ticket only counts once bound (#964).
     effect(() => {
       const t = this.ticket();
-      if (!t || DIALOG_DONE_STATUSES.has(t.status)) {
+      if (!t) {
         this.dialogRef.close();
         return;
       }
       const opt = this.optionTicket();
-      if (this.optionTicketId() && (!opt || DIALOG_DONE_STATUSES.has(opt.status))) {
+      if (this.optionTicketId() && !opt) {
         this.dialogRef.close();
+        return;
       }
+      if (t.status === OrderTicketStatus.FAILED || opt?.status === OrderTicketStatus.FAILED) {
+        this.confirmation.set(null);
+        return;
+      }
+      if (DIALOG_DONE_STATUSES.has(t.status)) {
+        this.confirmation.set(t);
+        return;
+      }
+      if (this.optionTicketId() && opt && DIALOG_DONE_STATUSES.has(opt.status)) {
+        this.confirmation.set(opt);
+        return;
+      }
+      // Neither bound ticket is done — a confirmed ticket reverted
+      // (FAILED-after-done or requeue): drop back to the form (#762
+      // review).
+      this.confirmation.set(null);
     });
   }
 
@@ -167,6 +225,21 @@ export class GalleryTicketDialogComponent implements OnInit {
     const symbol = this.displaySymbol();
     if (symbol) void this.priceService.fetchPrices([symbol]);
     void this.lists.loadProfiles();
+  }
+
+  onDone(): void {
+    this.dialogRef.close();
+  }
+
+  /** Follow the accepted order to the live-order page — deep-links the
+   *  ticket via the `ticket` query param (#762). */
+  onViewOrder(): void {
+    const t = this.confirmation();
+    void this.router.navigate(
+      ['/', AppRoutes.SIGNAL_ORDER],
+      t ? { queryParams: { ticket: t.id } } : undefined,
+    );
+    this.dialogRef.close();
   }
 
   /** Option ticket staged/adopted — bind the id for close-on-done and

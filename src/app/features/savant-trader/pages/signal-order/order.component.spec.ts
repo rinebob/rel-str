@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { Router, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of, throwError, from } from 'rxjs';
@@ -14,6 +14,7 @@ import { EquityPriceService } from '../../services/equity-price.service';
 import { PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { OrderTicketService } from '../../services/order-ticket.service';
+import { OrderExecutionService } from '../../services/order-execution.service';
 import { PaperTradingService } from '../../services/paper-trading.service';
 import { AllocationStore } from '../../../portfolio-dashboard/allocation.store';
 import { UiStateService } from '../../../../core/services/ui-state.service';
@@ -60,6 +61,10 @@ describe('OrderComponent', () => {
   let storeMock: any;
   let uiStateMock: any;
   let occurrenceMock: any;
+  /** Mutable `?ticket=` deep-link params — the ActivatedRoute stub's
+   *  snapshot resolves this lazily, so a test can set it before creating
+   *  a second component instance (#762). */
+  let routeParams: Record<string, string>;
 
   beforeEach(async () => {
     storeMock = {
@@ -90,6 +95,7 @@ describe('OrderComponent', () => {
     occurrenceMock = {
       clearDecisionById: jasmine.createSpy('clearDecisionById'),
     };
+    routeParams = {};
 
     await TestBed.configureTestingModule({
       imports: [OrderComponent],
@@ -99,6 +105,20 @@ describe('OrderComponent', () => {
         { provide: OccurrenceDecisionStore, useValue: occurrenceMock },
         { provide: UiStateService, useValue: uiStateMock },
         provideRouter([]),
+        // Controllable deep link (#762) — the component reads
+        // route.snapshot.queryParamMap in its constructor.
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            get snapshot() {
+              return { queryParamMap: convertToParamMap(routeParams) };
+            },
+          },
+        },
+        // OrderTicketComponent injects OrderExecutionService, whose
+        // ScreenshotService chain needs the Firebase Functions token —
+        // stub at the boundary (AGENTS.md).
+        { provide: OrderExecutionService, useValue: {} },
         { provide: TradingConfigService, useValue: { loadConfig: jasmine.createSpy('loadConfig').and.returnValue(of(null)) } },
         { provide: EquityPriceService, useValue: { prices: signal({}), loading: signal(false), fetchPrices: jasmine.createSpy('fetchPrices') } },
         { provide: PortfolioService, useValue: { getSnapshot: jasmine.createSpy('getSnapshot').and.returnValue(Promise.resolve(null)) } },
@@ -252,11 +272,11 @@ describe('OrderComponent', () => {
     expect(scoreboard).toContain('$500');
   });
 
-  it('navigates back to signal-review on goBack', () => {
+  it('navigates back to the gallery on goBack (#762)', () => {
     const router = TestBed.inject(Router);
     const navSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
     component.goBack();
-    expect(navSpy).toHaveBeenCalledWith(['/signals/review']);
+    expect(navSpy).toHaveBeenCalledWith(['/trading/gallery']);
   });
 
   it('selects the first loaded ticket automatically', () => {
@@ -265,6 +285,45 @@ describe('OrderComponent', () => {
 
     expect(component.selectedTicketId()).toBe('1');
     expect(fixture.nativeElement.querySelector('.ticket-content').textContent).toContain('AAPL');
+  });
+
+  it('selects the ticket named by the ?ticket= deep link over the first row (#762)', () => {
+    routeParams = { ticket: 't-2' };
+    const deepLinked = TestBed.createComponent(OrderComponent);
+    storeMock.tickets.set({
+      't-1': makeTicket('t-1', 'AAPL'),
+      't-2': makeTicket('t-2', 'MSFT'),
+    });
+    deepLinked.detectChanges();
+
+    expect(deepLinked.componentInstance.selectedTicketId()).toBe('t-2');
+  });
+
+  it('falls back to the first row when the ?ticket= param names an unknown id (#762)', () => {
+    routeParams = { ticket: 'nope' };
+    const deepLinked = TestBed.createComponent(OrderComponent);
+    storeMock.tickets.set({ 't-1': makeTicket('t-1', 'AAPL') });
+    deepLinked.detectChanges();
+
+    expect(deepLinked.componentInstance.selectedTicketId()).toBe('t-1');
+  });
+
+  it('holds the ?ticket= link until its ticket becomes visible — resting rows hide until RH orders load (#762 review)', () => {
+    routeParams = { ticket: 't-2' };
+    const deepLinked = TestBed.createComponent(OrderComponent);
+    const c = deepLinked.componentInstance;
+    // t-2 is RESTING — allTickets hides it until rhOrdersLoaded; the link
+    // must survive the interim instead of burning on the first emission.
+    storeMock.tickets.set({
+      't-1': makeTicket('t-1', 'AAPL'),
+      't-2': makeTicket('t-2', 'MSFT', OrderTicketStatus.RESTING),
+    });
+    deepLinked.detectChanges();
+    expect(c.selectedTicketId()).toBe('t-1'); // interim fallback
+
+    c.rhOrdersLoaded.set(true);
+    deepLinked.detectChanges();
+    expect(c.selectedTicketId()).toBe('t-2');
   });
 
   it('shows ticket content when an ticket is selected', () => {
