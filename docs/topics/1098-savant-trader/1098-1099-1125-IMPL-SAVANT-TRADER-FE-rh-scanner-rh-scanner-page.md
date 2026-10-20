@@ -11,7 +11,7 @@
 **Type:** IMPL  
 **Status:** Draft  
 **Created:** 2026-10-20  
-**Last Updated:** 2026-10-20  
+**Last Updated:** 2026-10-21  
 
 ## 1. Scope
 
@@ -111,26 +111,37 @@ export interface CompareResult {
   buckets: CurationProposalBuckets;
   dropDetail: Record<string, Record<string, string>>;
   truncated: boolean;
+  unevaluated: string[];              // prune: tracked symbols with no returned row
 }
 
-export function compareDiscovery(rows, tracked: Set<string>): CompareResult;
-export function comparePrune(
-  evaluated: ScanRow[],          // every returned row (matched = passed)
-  tracked: string[],             // the full universe evaluated
-  unevaluated: string[],         // chunks whose calls failed
-  noDataPred: (row: ScanRow) => boolean,
+export function compareDiscovery(
+  rows: ScanRow[], tracked: Set<string>, truncated: boolean,
 ): CompareResult;
+export function comparePrune(args: {
+  coverage: ScanRow[],       // scope + columns, NO filters — every covered symbol
+  matched: ScanRow[],        // scope + filters — passers only
+  tracked: string[],
+  unevaluated: string[],     // UNION of both evals' rejected chunks
+  noDataPred: (row: ScanRow) => boolean,
+  truncated: boolean,
+}): CompareResult;
 ```
 
 - Discovery: `addCandidates = matched ∩ ¬tracked`; `tracked` flag stamped.
-- Prune: `deadSymbols = tracked ∩ ¬returned ∪ unevaluated` (flagged
-  `dead/uncovered` — verify-before-drop per CONTEXT.md); `noData` =
-  returned ∧ predicate-blank; `dropCandidates` = tracked ∧ returned ∧
-  ¬noData ∧ failed (a scoped row returned means it *passed* — a tracked
-  symbol that was evaluated but not returned failed the screen).
-- `truncated`: use shared `isScanTruncated(result)` from `@st/scanner`
-  (`results.length >= 200 || total_items > results.length`) — single
-  canonical rule, don't re-derive.
+- Prune (revised at implementation — live probe 2026-10-20 proved a
+  scoped+filtered preview_scan returns only matchers, so one filtered
+  eval can't separate "failed" from "uncovered" and can't supply
+  dropDetail values; prune therefore runs TWO evals per universe):
+  `deadSymbols = tracked ∧ ¬returned ∧ ¬unevaluated` where
+  `returned = covered ∪ matched` (verify-before-drop per CONTEXT.md);
+  `noData = tracked ∧ row ∧ noDataPred(row)` — checked before the
+  matched-pass so a passer with blank key metrics still flags;
+  `dropCandidates = covered ∧ tracked ∧ ¬noData ∧ ¬matched` with
+  dropDetail = the coverage row's column values; unevaluated-chunk
+  symbols surfaced separately on the result, never folded into dead.
+- `truncated`: caller derives via shared `isScanTruncated(result)` from
+  `@st/scanner` (`results.length >= 200 || total_items > results.length`)
+  and passes the flag in — single canonical rule, don't re-derive.
 
 ### Store — `stores/scanner.store.ts`
 
@@ -140,7 +151,9 @@ export function comparePrune(
 
 Methods: `selectRecipe`, `runScan` (→ discovery compare + persist),
 `evaluateTracked` (prune direction, quality recipes only — enabled when
-the recipe declares `supportsPrune`), `openProposal`, `clearError`.
+the recipe declares `supportsPrune`; runs evaluateUniverse TWICE —
+coverage eval with scope+columns and no filters, then the filtered eval
+— and unions both `unevaluated` lists), `openProposal`, `clearError`.
 Proposal persisted on every completed compare (both directions) —
 auto-persist, not a save button.
 
