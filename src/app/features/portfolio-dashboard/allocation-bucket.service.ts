@@ -1,6 +1,7 @@
 /**
  * Allocation Bucket Service — Firestore CRUD on
- * `portfolio/buckets/items` (Blueprint #582 / task #586).
+ * `st-portfolio/buckets/items` (was `portfolio/buckets/items` — Blueprint #582,
+ * re-pointed in #1014).
  *
  * Doc id = `{accountNumber}_{bucketSlug(name)}`, minted once and FROZEN —
  * renames update `name` only. Because slug-derived ids are never freed
@@ -30,11 +31,11 @@ import { map, switchMap, take } from 'rxjs/operators';
 
 import { requireUserId } from '../savant-trader/services/firestore-helpers';
 import { BucketStatus, type AllocationBucket } from '@portfolio-allocation/contracts';
-import {
-  PORTFOLIO_ATTRIBUTIONS_COLLECTION,
-  PORTFOLIO_BUCKETS_COLLECTION,
-  buildBucketId,
-} from '@portfolio-allocation/ids';
+import { buildBucketId } from '@portfolio-allocation/ids';
+import { StPortfolioKind, stPortfolioItemsPath } from '@st/collections';
+
+const BUCKETS_ITEMS = stPortfolioItemsPath(StPortfolioKind.BUCKET);
+const ATTRIBUTIONS_ITEMS = stPortfolioItemsPath(StPortfolioKind.ATTRIBUTION);
 
 @Injectable({ providedIn: 'root' })
 export class AllocationBucketService {
@@ -48,7 +49,7 @@ export class AllocationBucketService {
       switchMap((userId) =>
         new Observable<AllocationBucket[]>((subscriber) => {
           const sub = runInInjectionContext(this.injector, () => {
-            const coll = collection(this.firestore, PORTFOLIO_BUCKETS_COLLECTION);
+            const coll = collection(this.firestore, BUCKETS_ITEMS);
             const q = query(
               coll,
               where('userId', '==', userId),
@@ -70,7 +71,7 @@ export class AllocationBucketService {
       take(1),
       switchMap((userId) =>
         runInInjectionContext(this.injector, async () => {
-          const coll = collection(this.firestore, PORTFOLIO_BUCKETS_COLLECTION);
+          const coll = collection(this.firestore, BUCKETS_ITEMS);
           const q = query(
             coll,
             where('userId', '==', userId),
@@ -109,7 +110,7 @@ export class AllocationBucketService {
             createdAt: now,
             updatedAt: now,
           };
-          const ref = doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, id);
+          const ref = doc(this.firestore, BUCKETS_ITEMS, id);
           await runTransaction(this.firestore, async (txn) => {
             const existing = await txn.get(ref);
             if (existing.exists()) {
@@ -135,7 +136,7 @@ export class AllocationBucketService {
       take(1),
       switchMap((userId) =>
         runInInjectionContext(this.injector, async () => {
-          const coll = collection(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION);
+          const coll = collection(this.firestore, ATTRIBUTIONS_ITEMS);
           const snap = await getDocs(query(
             coll,
             where('userId', '==', userId),
@@ -144,7 +145,7 @@ export class AllocationBucketService {
           const attrRefs = snap.docs.map((d) => d.ref);
           await runTransaction(this.firestore, async (txn) => {
             for (const ref of attrRefs) txn.delete(ref);
-            txn.delete(doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, bucketId));
+            txn.delete(doc(this.firestore, BUCKETS_ITEMS, bucketId));
           });
         }),
       ),
@@ -161,7 +162,7 @@ export class AllocationBucketService {
             throw new Error(`Invalid targetPct: ${targetPct}`);
           }
           return updateDoc(
-            doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, bucketId),
+            doc(this.firestore, BUCKETS_ITEMS, bucketId),
             { targetPct, updatedAt: new Date().toISOString() },
           );
         }),
@@ -180,7 +181,7 @@ export class AllocationBucketService {
       switchMap(() =>
         runInInjectionContext(this.injector, async () => {
           await runTransaction(this.firestore, async (txn) => {
-            const currentRef = doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, bucket.id);
+            const currentRef = doc(this.firestore, BUCKETS_ITEMS, bucket.id);
             const current = await txn.get(currentRef);
             if (!current.exists()) {
               throw new Error(`Bucket '${bucket.id}' does not exist`);
@@ -191,7 +192,7 @@ export class AllocationBucketService {
             const stored = current.data() as AllocationBucket;
             const newId = buildBucketId(stored.accountNumber, newName); // throws on un-slugifiable
             if (newId !== bucket.id) {
-              const newRef = doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, newId);
+              const newRef = doc(this.firestore, BUCKETS_ITEMS, newId);
               const occupied = await txn.get(newRef);
               if (occupied.exists()) {
                 throw new Error(`Bucket name conflict: '${newName.trim()}' is already in use`);
@@ -216,7 +217,7 @@ export class AllocationBucketService {
       switchMap(() =>
         runInInjectionContext(this.injector, () =>
           updateDoc(
-            doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, bucketId),
+            doc(this.firestore, BUCKETS_ITEMS, bucketId),
             { status: BucketStatus.RETIRED, updatedAt: new Date().toISOString() },
           ),
         ),

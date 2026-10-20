@@ -1,6 +1,6 @@
 /**
- * Position Attribution Service — `portfolio/attributions/items`
- * (Blueprint #582 / task #586).
+ * Position Attribution Service — `st-portfolio/attributions/items`
+ * (was `portfolio/attributions/items` — Blueprint #582, re-pointed in #1014).
  *
  * One doc per {account, instrument}; `bucketId` + append-only `history`
  * (AttributionEvent — null fromBucketId = initial assignment). Absence of
@@ -35,11 +35,11 @@ import {
   type AttributionEvent,
   type PositionAttribution,
 } from '@portfolio-allocation/contracts';
-import {
-  PORTFOLIO_ATTRIBUTIONS_COLLECTION,
-  PORTFOLIO_BUCKETS_COLLECTION,
-  buildAttributionId,
-} from '@portfolio-allocation/ids';
+import { buildAttributionId } from '@portfolio-allocation/ids';
+import { StPortfolioKind, stPortfolioItemsPath } from '@st/collections';
+
+const ATTRIBUTIONS_ITEMS = stPortfolioItemsPath(StPortfolioKind.ATTRIBUTION);
+const BUCKETS_ITEMS = stPortfolioItemsPath(StPortfolioKind.BUCKET);
 
 @Injectable({ providedIn: 'root' })
 export class PositionAttributionService {
@@ -53,7 +53,7 @@ export class PositionAttributionService {
       switchMap((userId) =>
         new Observable<PositionAttribution[]>((subscriber) => {
           const sub = runInInjectionContext(this.injector, () => {
-            const coll = collection(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION);
+            const coll = collection(this.firestore, ATTRIBUTIONS_ITEMS);
             const q = query(
               coll,
               where('userId', '==', userId),
@@ -75,7 +75,7 @@ export class PositionAttributionService {
       take(1),
       switchMap((userId) =>
         runInInjectionContext(this.injector, async () => {
-          const coll = collection(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION);
+          const coll = collection(this.firestore, ATTRIBUTIONS_ITEMS);
           const q = query(
             coll,
             where('userId', '==', userId),
@@ -125,7 +125,7 @@ export class PositionAttributionService {
             ? existing.filter((a) => a.linkKey === effectiveLinkKey)
             : [];
 
-          const bucketRef = doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, toBucketId);
+          const bucketRef = doc(this.firestore, BUCKETS_ITEMS, toBucketId);
           // memberId → instrumentId for doc construction on the new-doc path.
           const members = new Map(group.map((a) => [a.id, a.instrumentId]));
           members.set(selfId, instrumentId);
@@ -145,7 +145,7 @@ export class PositionAttributionService {
 
             const snaps = new Map<string, PositionAttribution | undefined>();
             for (const id of members.keys()) {
-              const ref = doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id);
+              const ref = doc(this.firestore, ATTRIBUTIONS_ITEMS, id);
               const snap = await txn.get(ref);
               snaps.set(id, snap.exists() ? (snap.data() as PositionAttribution) : undefined);
             }
@@ -180,7 +180,7 @@ export class PositionAttributionService {
                 createdAt: current?.createdAt ?? now,
                 updatedAt: now,
               };
-              const ref = doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id);
+              const ref = doc(this.firestore, ATTRIBUTIONS_ITEMS, id);
               txn.set(ref, next as unknown as DocumentData);
             }
           });
@@ -219,7 +219,7 @@ export class PositionAttributionService {
             members.set(selfId, item.instrumentId);
           }
 
-          const bucketRef = doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, toBucketId);
+          const bucketRef = doc(this.firestore, BUCKETS_ITEMS, toBucketId);
           await runTransaction(this.firestore, async (txn) => {
             const bucket = await txn.get(bucketRef);
             if (!bucket.exists()
@@ -233,7 +233,7 @@ export class PositionAttributionService {
 
             const snaps = new Map<string, PositionAttribution | undefined>();
             for (const id of members.keys()) {
-              const ref = doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id);
+              const ref = doc(this.firestore, ATTRIBUTIONS_ITEMS, id);
               const snap = await txn.get(ref);
               snaps.set(id, snap.exists() ? (snap.data() as PositionAttribution) : undefined);
             }
@@ -258,7 +258,7 @@ export class PositionAttributionService {
                 createdAt: current?.createdAt ?? now,
                 updatedAt: now,
               };
-              txn.set(doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id),
+              txn.set(doc(this.firestore, ATTRIBUTIONS_ITEMS, id),
                 next as unknown as DocumentData);
             }
           });
@@ -290,7 +290,7 @@ export class PositionAttributionService {
           }
           await runTransaction(this.firestore, async (txn) => {
             for (const id of ids) {
-              txn.delete(doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id));
+              txn.delete(doc(this.firestore, ATTRIBUTIONS_ITEMS, id));
             }
           });
         }),
@@ -318,7 +318,7 @@ export class PositionAttributionService {
 
           await runTransaction(this.firestore, async (txn) => {
             for (const id of ids) {
-              txn.delete(doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id));
+              txn.delete(doc(this.firestore, ATTRIBUTIONS_ITEMS, id));
             }
           });
         }),
@@ -346,7 +346,7 @@ export class PositionAttributionService {
         runInInjectionContext(this.injector, async () => {
           const id = buildAttributionId(accountNumber, instrumentId);
           const now = new Date().toISOString();
-          const ref = doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id);
+          const ref = doc(this.firestore, ATTRIBUTIONS_ITEMS, id);
           const attr: PositionAttribution = {
             id,
             userId,
@@ -366,7 +366,7 @@ export class PositionAttributionService {
             // Verify the bucket is still ACTIVE and belongs to this account
             // inside the txn — the ticket's bucketId is a pre-txn value.
             const bucketSnap = await txn.get(
-              doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, bucketId));
+              doc(this.firestore, BUCKETS_ITEMS, bucketId));
             const bucket = bucketSnap.data() as AllocationBucket | undefined;
             if (!bucketSnap.exists() || bucket?.status !== BucketStatus.ACTIVE
               || bucket.accountNumber !== accountNumber) return;
@@ -380,7 +380,7 @@ export class PositionAttributionService {
   }
 
   private async readAttributions(userId: string, accountNumber: string): Promise<PositionAttribution[]> {
-    const coll = collection(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION);
+    const coll = collection(this.firestore, ATTRIBUTIONS_ITEMS);
     const q = query(coll, where('userId', '==', userId), where('accountNumber', '==', accountNumber));
     const snap = await getDocs(q);
     // Carry the snapshot id — the doc's `id` field is authoritative only
@@ -389,7 +389,7 @@ export class PositionAttributionService {
   }
 
   private async readBuckets(userId: string, accountNumber: string): Promise<AllocationBucket[]> {
-    const coll = collection(this.firestore, PORTFOLIO_BUCKETS_COLLECTION);
+    const coll = collection(this.firestore, BUCKETS_ITEMS);
     const q = query(coll, where('userId', '==', userId), where('accountNumber', '==', accountNumber));
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ ...d.data(), id: d.id }) as AllocationBucket);

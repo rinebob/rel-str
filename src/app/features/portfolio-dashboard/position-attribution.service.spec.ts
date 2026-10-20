@@ -1,6 +1,7 @@
 /**
  * PositionAttributionService — attribution writes on
- * portfolio/attributions/items (Blueprint #582 / task #586).
+ * st-portfolio/attributions/items (Blueprint #582 / task #586;
+ * re-pointed in #1014).
  *
  * Asserts the history-append contract, linkKey group atomicity,
  * retired-bucket rejection, and ticket seeding resolution rules.
@@ -42,10 +43,14 @@ jest.mock('@angular/fire/auth', () => ({
 
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, of, Subject } from 'rxjs';
-import { Firestore } from '@angular/fire/firestore';
+import { Firestore, collection } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { PositionAttributionService } from './position-attribution.service';
 import { BucketStatus, type AllocationBucket, type PositionAttribution } from '@portfolio-allocation/contracts';
+import { StPortfolioKind, stPortfolioItemsPath } from '@st/collections';
+
+const ATTRIBUTIONS_ITEMS = stPortfolioItemsPath(StPortfolioKind.ATTRIBUTION);
+const BUCKETS_ITEMS = stPortfolioItemsPath(StPortfolioKind.BUCKET);
 
 const ACCT = '5AC12345';
 
@@ -107,16 +112,21 @@ describe('PositionAttributionService', () => {
     service = TestBed.inject(PositionAttributionService);
   });
 
-  it('watchAttributions$ streams docs for the account', async () => {
+  it('watchAttributions$ streams docs for the account from the st-portfolio path', async () => {
     const promise = firstValueFrom(service.watchAttributions$(ACCT));
     mockSnap.subject.next([{ id: attribution().id, data: () => attribution() }]);
     expect(await promise).toEqual([attribution()]);
+    expect(collection).toHaveBeenCalledWith(expect.anything(), ATTRIBUTIONS_ITEMS);
   });
 
-  it('assign on an unattributed position writes fromBucketId: null', async () => {
+  it('assign on an unattributed position writes fromBucketId: null at the st-portfolio path', async () => {
     txnSeeds({ [`${ACCT}_csp-wheel`]: bucket() });
     await firstValueFrom(service.attribute$(ACCT, 'AAPL', `${ACCT}_csp-wheel`));
-    const [, written] = mockTxn.set.mock.calls[0];
+    const [writtenRef, written] = mockTxn.set.mock.calls[0];
+    expect((writtenRef as { path: string }).path).toBe(`${ATTRIBUTIONS_ITEMS}/${ACCT}_AAPL`);
+    // The bucket lookup resolves through the st-portfolio buckets anchor.
+    const bucketGetPath = (mockTxn.get.mock.calls[0][0] as { path: string }).path;
+    expect(bucketGetPath).toBe(`${BUCKETS_ITEMS}/${ACCT}_csp-wheel`);
     expect(written).toMatchObject({
       id: `${ACCT}_AAPL`,
       bucketId: `${ACCT}_csp-wheel`,

@@ -1,6 +1,6 @@
 /**
- * AllocationBucketService — bucket CRUD on portfolio/buckets/items
- * (Blueprint #582 / task #586).
+ * AllocationBucketService — bucket CRUD on st-portfolio/buckets/items
+ * (Blueprint #582 / task #586; re-pointed in #1014).
  *
  * Firestore and Auth are mocked at the @angular/fire boundary; doc()
  * returns an identifiable ref so write/transaction paths can be asserted.
@@ -38,7 +38,9 @@ import { Firestore, getDocs, updateDoc, where } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { AllocationBucketService } from './allocation-bucket.service';
 import { BucketStatus, type AllocationBucket } from '@portfolio-allocation/contracts';
-import { PORTFOLIO_BUCKETS_COLLECTION } from '@portfolio-allocation/ids';
+import { StPortfolioKind, stPortfolioItemsPath } from '@st/collections';
+
+const BUCKETS_ITEMS = stPortfolioItemsPath(StPortfolioKind.BUCKET);
 
 const ACCT = '5AC12345';
 
@@ -97,7 +99,7 @@ describe('AllocationBucketService', () => {
     expect(created.userId).toBe('user-1');
     expect(created.status).toBe(BucketStatus.ACTIVE);
     expect(mockTxn.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: `${PORTFOLIO_BUCKETS_COLLECTION}/${ACCT}_csp-wheel` }),
+      expect.objectContaining({ path: `${BUCKETS_ITEMS}/${ACCT}_csp-wheel` }),
       expect.objectContaining({ name: 'CSP Wheel', targetPct: 25 }),
     );
   });
@@ -124,7 +126,7 @@ describe('AllocationBucketService', () => {
       }));
     await firstValueFrom(service.renameBucket$(bucketDoc(), 'Wheel v2'));
     expect(mockTxn.update).toHaveBeenCalledWith(
-      expect.objectContaining({ path: `${PORTFOLIO_BUCKETS_COLLECTION}/${ACCT}_csp-wheel` }),
+      expect.objectContaining({ path: `${BUCKETS_ITEMS}/${ACCT}_csp-wheel` }),
       expect.objectContaining({ name: 'Wheel v2' }),
     );
   });
@@ -146,7 +148,7 @@ describe('AllocationBucketService', () => {
   it('retireBucket$ flips status to RETIRED and keeps the doc', async () => {
     await firstValueFrom(service.retireBucket$(`${ACCT}_csp-wheel`));
     expect(updateDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ path: `${PORTFOLIO_BUCKETS_COLLECTION}/${ACCT}_csp-wheel` }),
+      expect.objectContaining({ path: `${BUCKETS_ITEMS}/${ACCT}_csp-wheel` }),
       expect.objectContaining({ status: BucketStatus.RETIRED }),
     );
   });
@@ -154,7 +156,7 @@ describe('AllocationBucketService', () => {
   it('updateTargetPct$ writes the new target', async () => {
     await firstValueFrom(service.updateTargetPct$(`${ACCT}_csp-wheel`, 40));
     expect(updateDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ path: `${PORTFOLIO_BUCKETS_COLLECTION}/${ACCT}_csp-wheel` }),
+      expect.objectContaining({ path: `${BUCKETS_ITEMS}/${ACCT}_csp-wheel` }),
       expect.objectContaining({ targetPct: 40 }),
     );
   });
@@ -171,7 +173,7 @@ describe('AllocationBucketService', () => {
     expect(mockTxn.delete).toHaveBeenCalledWith({ path: 'attr/a1' });
     expect(mockTxn.delete).toHaveBeenCalledWith({ path: 'attr/a2' });
     expect(mockTxn.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ path: `${PORTFOLIO_BUCKETS_COLLECTION}/${ACCT}_csp-wheel` }),
+      expect.objectContaining({ path: `${BUCKETS_ITEMS}/${ACCT}_csp-wheel` }),
     );
     // The membership query scopes by owner + bucket.
     expect(where).toHaveBeenCalledWith('bucketId', '==', `${ACCT}_csp-wheel`);
