@@ -14,7 +14,7 @@ import {
   DocumentData,
 } from '@angular/fire/firestore';
 
-import { Collection } from '../../../core/common/constants';
+import { ST_SYMBOL_LISTS_ROOT } from '@st/collections';
 import {
   SymbolListDef,
   symbolListDocId,
@@ -98,7 +98,7 @@ export async function resolveSnapshot(
       createdAt: existing?.createdAt ?? d.data['createdAt'],
     };
     batch.set(
-      doc(firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key)),
+      doc(firestore, ST_SYMBOL_LISTS_ROOT, symbolListDocId(userId, key)),
       {
         key: def.key,
         label: def.label,
@@ -114,7 +114,7 @@ export async function resolveSnapshot(
     );
     // A prefixed-but-unstamped doc rekeys to itself — delete would erase it.
     if (d.id !== symbolListDocId(userId, key)) {
-      batch.delete(doc(firestore, Collection.ST_SYMBOL_LISTS, d.id));
+      batch.delete(doc(firestore, ST_SYMBOL_LISTS_ROOT, d.id));
     }
     out.set(key, def);
   }
@@ -123,7 +123,7 @@ export async function resolveSnapshot(
     if (out.has(template.key)) continue;
     const def: SymbolListDef = { ...template, symbols: [], userId };
     batch.set(
-      doc(firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, def.key)),
+      doc(firestore, ST_SYMBOL_LISTS_ROOT, symbolListDocId(userId, def.key)),
       {
         ...def,
         createdAt: serverTimestamp(),

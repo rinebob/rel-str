@@ -98,7 +98,7 @@ describe('SymbolListService.watchLists$', () => {
       [...SYSTEM_LIST_DEFS].sort((a, b) => a.order - b.order).map((d) => d.key),
     );
     expect(mockBatch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_PRIMARY' }),
       expect.objectContaining({ key: 'PRIMARY', label: 'Primary', role: 'exclusive', symbols: [], userId: 'user-1' }),
       { merge: true },
     );
@@ -133,7 +133,7 @@ describe('SymbolListService.watchLists$', () => {
     ]);
 
     expect(mockBatch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_PRIMARY' }),
       expect.objectContaining({
         key: 'PRIMARY', label: 'Primary', order: 0, role: 'exclusive',
         hidden: false, symbols: ['MSFT'], userId: 'user-1',
@@ -141,7 +141,7 @@ describe('SymbolListService.watchLists$', () => {
       { merge: true },
     );
     expect(mockBatch.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/PRIMARY' }),
     );
     expect(mockBatch.commit).toHaveBeenCalled();
 
@@ -159,12 +159,12 @@ describe('SymbolListService.watchLists$', () => {
     ]);
 
     expect(mockBatch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_MONITOR' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_MONITOR' }),
       expect.objectContaining({ key: 'MONITOR', role: 'nonexclusive', symbols: ['AAPL'] }),
       { merge: true },
     );
     expect(mockBatch.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/PAST_SIGNALS' }),
+      expect.objectContaining({ path: 'st-symbol-lists/PAST_SIGNALS' }),
     );
     expect(emissions[0].map((d) => d.key)).toEqual(
       [...SYSTEM_LIST_DEFS].sort((a, b) => a.order - b.order).map((d) => d.key),
@@ -182,7 +182,7 @@ describe('SymbolListService.watchLists$', () => {
     ]);
 
     expect(mockBatch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_PRIMARY' }),
       expect.objectContaining({ symbols: ['MSFT', 'AAPL'] }),
       { merge: true },
     );
@@ -216,7 +216,7 @@ describe('SymbolListService.watchLists$', () => {
     ]);
 
     expect(mockBatch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_MONITOR' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_MONITOR' }),
       expect.objectContaining({ symbols: ['MSFT', 'AAPL'] }),
       { merge: true },
     );
@@ -234,12 +234,12 @@ describe('SymbolListService.watchLists$', () => {
     ]);
 
     expect(mockBatch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_PRIMARY' }),
       expect.objectContaining({ key: 'PRIMARY', symbols: ['X'] }),
       { merge: true },
     );
     expect(mockBatch.delete).not.toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_PRIMARY' }),
     );
     sub.unsubscribe();
   });
@@ -247,7 +247,7 @@ describe('SymbolListService.watchLists$', () => {
   it('migrates a bare-name doc that has no userId field (found via legacy-id probe)', async () => {
     (getDoc as jest.Mock).mockImplementation((ref: { path: string }) =>
       Promise.resolve(
-        ref.path === 'savant-trader/data/symbol-lists/PRIMARY'
+        ref.path === 'st-symbol-lists/PRIMARY'
           ? { exists: () => true, data: () => ({ name: 'PRIMARY', symbols: ['T'] }) }
           : { exists: () => false, data: () => undefined },
       ),
@@ -259,12 +259,12 @@ describe('SymbolListService.watchLists$', () => {
     await emit([registryDoc('MONITOR', { role: 'nonexclusive' })]);
 
     expect(mockBatch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_PRIMARY' }),
       expect.objectContaining({ key: 'PRIMARY', symbols: ['T'] }),
       { merge: true },
     );
     expect(mockBatch.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/PRIMARY' }),
     );
     const def = emissions[0].find((d) => d.key === 'PRIMARY');
     expect(def?.symbols).toEqual(['T']);
@@ -328,7 +328,7 @@ describe('SymbolListService writes use composite doc ids', () => {
   it('addToList targets {userId}_{key}', async () => {
     await firstValueFrom(service.addToList('aapl', 'PRIMARY'));
     expect(setDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_PRIMARY' }),
       expect.objectContaining({ key: 'PRIMARY', symbols: ['AAPL'] }),
       { merge: true },
     );
@@ -360,12 +360,12 @@ describe('SymbolListService writes use composite doc ids', () => {
     await firstValueFrom(service.moveToList('AAPL', 'PRIMARY', ['PRIMARY', 'SECONDARY']));
 
     expect(mockBatch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_PRIMARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_PRIMARY' }),
       expect.objectContaining({ symbols: ['AAPL'] }),
       { merge: true },
     );
     expect(mockBatch.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_SECONDARY' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_SECONDARY' }),
       expect.objectContaining({ symbols: [] }),
       { merge: true },
     );
@@ -396,7 +396,7 @@ describe('SymbolListService user-list CRUD', () => {
 
     expect(key).toBe('my-other-picks');
     expect(setDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_my-other-picks' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_my-other-picks' }),
       expect.objectContaining({
         key: 'my-other-picks', label: 'My Other Picks!', order: 101,
         role: 'nonexclusive', hidden: false, symbols: [], userId: 'user-1',
@@ -435,7 +435,7 @@ describe('SymbolListService user-list CRUD', () => {
     );
     await firstValueFrom(service.renameList('my-picks', 'Watchlist B'));
     const [ref, payload] = (updateDoc as jest.Mock).mock.calls[0];
-    expect(ref.path).toBe('savant-trader/data/symbol-lists/user-1_my-picks');
+    expect(ref.path).toBe('st-symbol-lists/user-1_my-picks');
     expect(payload.label).toBe('Watchlist B');
     expect(payload.symbols).toBeUndefined();
     expect(payload.order).toBeUndefined();
@@ -454,7 +454,7 @@ describe('SymbolListService user-list CRUD', () => {
   it('deleteList removes the composite doc', async () => {
     await firstValueFrom(service.deleteList('my-picks'));
     expect(deleteDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_my-picks' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_my-picks' }),
     );
   });
 
@@ -470,11 +470,11 @@ describe('SymbolListService user-list CRUD', () => {
     // resurrecting a ghost doc. PRIMARY is filtered — never touched.
     expect(mockBatch.set).not.toHaveBeenCalled();
     expect(mockBatch.update).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_b-list' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_b-list' }),
       expect.objectContaining({ order: 100 }),
     );
     expect(mockBatch.update).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_a-list' }),
+      expect.objectContaining({ path: 'st-symbol-lists/user-1_a-list' }),
       expect.objectContaining({ order: 101 }),
     );
     expect(mockBatch.update).toHaveBeenCalledTimes(2);

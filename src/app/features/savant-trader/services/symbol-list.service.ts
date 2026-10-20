@@ -7,7 +7,7 @@
  * `watchLists$` (live snapshots); legacy pre-registry docs are lazily
  * rekeyed and stamped on first emission.
  *
- * Collection: savant-trader/data/symbol-lists
+ * Collection: st-symbol-lists
  * Document ID: {userId}_{key}
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
@@ -34,7 +34,7 @@ import { Observable } from 'rxjs';
 import { map, switchMap, take, concatMap } from 'rxjs/operators';
 
 import { requireUserId } from './firestore-helpers';
-import { Collection } from '../../../core/common/constants';
+import { ST_SYMBOL_LISTS_ROOT } from '@st/collections';
 import {
   SymbolListDef,
   symbolListDocId,
@@ -60,7 +60,7 @@ export class SymbolListService {
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
 
-  private readonly listsCollection = collection(this.firestore, Collection.ST_SYMBOL_LISTS);
+  private readonly listsCollection = collection(this.firestore, ST_SYMBOL_LISTS_ROOT);
 
   /**
    * Live stream of the current user's list registry. Each snapshot lazily
@@ -135,7 +135,7 @@ export class SymbolListService {
       await Promise.all(
         candidates.map(async (id) => {
           try {
-            const snap = await getDoc(doc(this.firestore, Collection.ST_SYMBOL_LISTS, id));
+            const snap = await getDoc(doc(this.firestore, ST_SYMBOL_LISTS_ROOT, id));
             if (!snap.exists()) return;
             const data = snap.data();
             // A bare-id doc owned by another user stays for its owner.
@@ -156,7 +156,7 @@ export class SymbolListService {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
-        const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key));
+        const docRef = doc(this.firestore, ST_SYMBOL_LISTS_ROOT, symbolListDocId(userId, key));
         const existing = await getDoc(docRef);
         const normalized = symbol.toUpperCase();
         const current = existing.exists() ? (existing.data()['symbols'] as string[] ?? []) : [];
@@ -185,7 +185,7 @@ export class SymbolListService {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
-        const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key));
+        const docRef = doc(this.firestore, ST_SYMBOL_LISTS_ROOT, symbolListDocId(userId, key));
         const existing = await getDoc(docRef);
         if (!existing.exists()) return;
         const normalized = symbol.toUpperCase();
@@ -223,7 +223,7 @@ export class SymbolListService {
 
         // Read all list docs in parallel to avoid sequential round-trips.
         const reads = allKeys.map(async (key) => {
-          const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key));
+          const docRef = doc(this.firestore, ST_SYMBOL_LISTS_ROOT, symbolListDocId(userId, key));
           const existing = await getDoc(docRef);
           return { key, docRef, existing };
         });
@@ -290,7 +290,7 @@ export class SymbolListService {
         for (let i = 2; taken.has(key); i++) key = `${base}-${i}`;
 
         await setDoc(
-          doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key)),
+          doc(this.firestore, ST_SYMBOL_LISTS_ROOT, symbolListDocId(userId, key)),
           {
             key,
             label: label.trim() || key,
@@ -318,7 +318,7 @@ export class SymbolListService {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
-        const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key));
+        const docRef = doc(this.firestore, ST_SYMBOL_LISTS_ROOT, symbolListDocId(userId, key));
         // Pre-read for the friendly error; updateDoc (not merge-set) so a
         // doc deleted mid-flight rejects atomically instead of
         // materializing a key-less stub the migration would resurrect.
@@ -342,7 +342,7 @@ export class SymbolListService {
           throw new Error(`'${key}' is a system list and cannot be deleted`);
         }
         return deleteDoc(
-          doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key)),
+          doc(this.firestore, ST_SYMBOL_LISTS_ROOT, symbolListDocId(userId, key)),
         );
       })),
       map(() => undefined),
@@ -361,7 +361,7 @@ export class SymbolListService {
         const batch = writeBatch(this.firestore);
         orderedKeys.filter((key) => !systemListDef(key)).forEach((key, i) => {
           batch.update(
-            doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key)),
+            doc(this.firestore, ST_SYMBOL_LISTS_ROOT, symbolListDocId(userId, key)),
             { order: USER_LIST_ORDER_START + i, updatedAt: serverTimestamp() },
           );
         });

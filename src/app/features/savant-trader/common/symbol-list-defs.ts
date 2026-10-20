@@ -2,7 +2,7 @@
  * Registry model for Savant Trader symbol lists (Topic #465, Thread #492).
  *
  * Every list — system or user-created — is a doc in the
- * `savant-trader/data/symbol-lists` collection (`Collection.ST_SYMBOL_LISTS`)
+ * `st-symbol-lists` collection (`ST_SYMBOL_LISTS_ROOT`)
  * carrying its own metadata. `key` is the immutable machine identifier;
  * `label` is renameable cosmetics; `role` drives exclusivity behavior.
  *
