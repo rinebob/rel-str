@@ -3,6 +3,9 @@
 ## [2026-10-20]
 
 ### Added
+- [Savant Design System] 1024-1114_FE-IMPL-DESIGN-SYSTEM: signals/review widget migration — filter pills → pill-toggle; Signal Review header → toolbar-row/pill-btn/badge with canonical count/direction markup; Chart Review header → toolbar-row/icon-btn/pill-btn; signal table → badge/dir-edge; dead non-rendering header selectors and duplicated direction literals removed
+- [Savant Design System] 1024-1114_FE-VERIFY-DESIGN-SYSTEM: design-system-widget-migration-1114 relay — 47 checks for real shim imports, applicable mixin contracts, canonical markup, dead-selector/literal guards, registration, and Sass compilation against the vendored package; guide + run-all/README registration
+- [Savant Design System] 1024-1114_DOCS-DESIGN-SYSTEM: Phase 2 R6 direction-literal/ACR boundary clarified + #1114 CODE-REVIEW (PASS, 3 bounded passes) + #1151 UAT (Complete — 47/47 migration, 85/85 widget relay, build, 4100/4100 Jest, user-confirmed review/chart visuals)
 - [Screenshot Capture] 746-765_SHARED-CHORE-SCREENSHOT: refresh stale PositionType contract expectation to cover the already-shipped stock/vertical-debit-spread/calendar/option-single enum surface
 - [Savant Design System] 1024-1112_FE-CHORE-DESIGN-SYSTEM: refresh sidenav regression expectation for the already-shipped DS Gallery (Dev) menu item
 - [Savant Design System] 1024-1112_FE-VERIFY-DESIGN-SYSTEM: widget contract relay — 85 checks across canonical package, byte-identical ST/SA vendors, index/vl shim resolution, exact 9-mixin surface, retired-scope guards, gallery entry/case/include contracts, both-checkout runner gating, and inventory graduation; guide + run-all/README registration

@@ -44,9 +44,11 @@ relay. All FE; no BE surface touched.
 - R5: gallery template contains all 9 demo sections (marker comments or
   stable class hooks), and all 9 inventory rows are Extracted rather than
   Candidate.
-- R6 (Tasks #1114/#1115): each migrated `.scss` contains `@include
-  vl.<mixin>`; retired literals (`#4caf50`, `#f44336`, `#7b1fa2`,
-  `#1b5e20`, `rgba(76,175,80`) are absent from migrated files. This is a
+- R6 (Tasks #1114/#1115): each migrated `.scss` contains its applicable
+  `@include vl.<mixin>` and removes duplicated direction literals
+  (`#4caf50`, `#f44336`, whitespace variants of `rgba(76,175,80,…)`).
+  Task #1114 deliberately exempts the local `.review`/`.accept` ACR variants
+  (`#7b1fa2`/`#1b5e20`) until that retiring workflow is deleted. This is a
   Phase 2 gate and cannot run in Task #1112 before the migrations exist.
 
 ## Integration boundaries
