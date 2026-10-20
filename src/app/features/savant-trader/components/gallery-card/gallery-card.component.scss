@@ -15,12 +15,24 @@
     border-top: 2px solid #f44336;
   }
 
-  &.sunk {
-    opacity: 0.55;
+  // Actioned cards (#755) — a lighter surface reads "parked" on the dark
+  // page without dimming the card's contents (the exits stay readable).
+  &.actioned {
+    background: var(--mat-sys-surface-container);
+    border-color: rgba(255, 255, 255, 0.14);
   }
 
+  // Per-status left accent — the Actioned sub-sections carry the same
+  // colors, so a card's category reads from the card itself too.
   &.status-failed {
-    border-color: rgba(244, 67, 54, 0.5);
+    border-left: 4px solid #f44336;
+    border-top-color: rgba(244, 67, 54, 0.5);
+  }
+  &.status-settled {
+    border-left: 4px solid #81c784;
+  }
+  &.status-rejected {
+    border-left: 4px solid #ff8a80;
   }
 }
 
@@ -145,10 +157,6 @@
     color: #e57373;
     background: rgba(229, 115, 115, 0.15);
   }
-  &.status-watched {
-    color: #ba68c8;
-    background: rgba(186, 104, 200, 0.15);
-  }
   &.status-rejected {
     color: #ff8a80;
     background: rgba(255, 138, 128, 0.15);
@@ -251,10 +259,29 @@ app-gallery-card-chart {
   }
 }
 
+// Ticket line (#755) — an <a> to the live-order page (#762); inherits the
+// card's palette rather than link chrome, with a subtle hover so the
+// affordance reads.
 .ticket-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: 11px;
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+
+  mat-icon {
+    font-size: 11px;
+    width: 11px;
+    height: 11px;
+  }
 }
 
 .occurrences {

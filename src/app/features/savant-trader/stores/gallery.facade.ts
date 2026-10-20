@@ -27,18 +27,19 @@ import { StSignalItem, StRun } from '../services/types';
 import { CardChartTimeframe, GroupDimension, SignalDirection, SignalTimeframe, SymbolListFilter } from '../common/constants';
 import { SYSTEM_LIST_KEYS } from '../common/symbol-list-defs';
 import {
+  actionedGalleryCards,
   buildGalleryCards,
   filterGalleryCards,
   groupGalleryCards,
   retainGalleryCards,
-  sunkGalleryGroup,
   GalleryActionContext,
   GalleryCard,
+  GalleryCardStatus,
   GalleryFilter,
   GalleryGroup,
   GalleryListContext,
 } from '../utils/gallery-cards.util';
-import { enrichGalleryCards, isSunkCard } from '../utils/gallery-card-actions.util';
+import { enrichGalleryCards, isActionedCard } from '../utils/gallery-card-actions.util';
 
 @Injectable({ providedIn: 'root' })
 export class GalleryFacade {
@@ -80,12 +81,11 @@ export class GalleryFacade {
     listFilter: this.uiStore.listFilter(),
   }));
 
-  /** Decision/ticket/monitor context for reject-trim + status derivation (#755). */
+  /** Decision/ticket context for reject-trim + status derivation (#755). */
   private readonly actionContext = computed((): GalleryActionContext => ({
     runId: this.groupStore.activeRunId() ?? '',
     decisions: this.occurrenceStore.occurrenceDecisions(),
     ticketsBySymbol: this.ticketStore.ticketsBySymbol(),
-    monitorSymbols: new Set(this.symbolListStore.symbolLists()[SYSTEM_LIST_KEYS.MONITOR] ?? []),
   }));
 
   /** Filtered, status-enriched cards feeding the grouped grid.
@@ -113,37 +113,57 @@ export class GalleryFacade {
    * Visible cards bucketed by the active grouping dimension (#783) —
    * sector/industry/market-cap, mirroring signal-review. Filters apply
    * first (visibleCards), then grouping; within-group order is
-   * marketCap desc. Sunk cards (#755 — watched/settled/failed) leave the
-   * dimension groups entirely and collect in a pinned "Sunk" panel at the
-   * bottom, ordered by action time desc. GroupDimension.NONE (#820) skips
-   * dimension grouping entirely — only the Sunk panel remains (it's a
-   * lifecycle bucket, not a dimension group) and the page renders
-   * `flatCards` above it.
+   * marketCap desc. Actioned cards (#755 — settled/failed/
+   * rejected) leave the dimension groups entirely; the page renders them
+   * in the Actioned section below via `actionedCards`.
    */
   readonly groups = computed((): GalleryGroup[] => {
     const cards = this.visibleCards();
     const dim = this.uiStore.groupDimension();
-    const groups =
-      dim === GroupDimension.NONE
-        ? []
-        : groupGalleryCards(
-            cards.filter((c) => !isSunkCard(c)),
-            dim,
-          );
-    const sunk = cards.filter(isSunkCard);
-    if (sunk.length) groups.push(sunkGalleryGroup(sunk));
-    return groups;
+    return dim === GroupDimension.NONE
+      ? []
+      : groupGalleryCards(
+          cards.filter((c) => !isActionedCard(c)),
+          dim,
+        );
   });
+
+  /** Actioned-section cards (#755) — settled/failed/rejected,
+   *  ordered by action time desc. Rendered below the flat grid or the
+   *  dimension groups in both modes. */
+  readonly actionedCards = computed((): GalleryCard[] =>
+    actionedGalleryCards(this.visibleCards().filter(isActionedCard)),
+  );
+
+  /**
+   * Actioned cards bucketed per status — one labeled sub-section each so
+   * failed/settled/rejected are distinguishable at a glance. Order is by
+   * attention: failed needs an exit decision, settled are confirmations,
+   * rejected are dismissals.
+   */
+  readonly actionedGroups = computed(
+    (): { status: GalleryCardStatus; label: string; cards: GalleryCard[] }[] => {
+      const groups: { status: GalleryCardStatus; label: string; cards: GalleryCard[] }[] = [
+        { status: 'failed', label: 'Failed', cards: [] },
+        { status: 'settled', label: 'Settled', cards: [] },
+        { status: 'rejected', label: 'Rejected', cards: [] },
+      ];
+      for (const card of this.actionedCards()) {
+        groups.find((g) => g.status === card.status)?.cards.push(card);
+      }
+      return groups.filter((g) => g.cards.length > 0);
+    },
+  );
 
   /** Flat gallery mode (#820) — true when the Group dropdown selects
    *  "None"; the page renders `flatCards` with no expandos. */
   readonly ungrouped = computed(() => this.uiStore.groupDimension() === GroupDimension.NONE);
 
-  /** Non-sunk visible cards in flat mode, ordered by market cap desc —
+  /** Non-actioned visible cards in flat mode, ordered by market cap desc —
    *  the same comparator groups use within each bucket. */
   readonly flatCards = computed((): GalleryCard[] =>
     this.visibleCards()
-      .filter((c) => !isSunkCard(c))
+      .filter((c) => !isActionedCard(c))
       .sort((a, b) => (b.profile.marketCap ?? 0) - (a.profile.marketCap ?? 0)),
   );
 
@@ -181,6 +201,30 @@ export class GalleryFacade {
     if (this.cards().length > 0) return false;
     return (
       this.groupStore.symbolsLoading() ||
+      this.symbolListStore.symbolListsLoading() ||
+      hasPendingRunHistory(this.historyStore.signalHistoryLoading(), runId)
+    );
+  });
+
+  /**
+   * Run-scoped data still streaming after first paint — a symbols reload or
+   * per-symbol history in flight for the active run. `pageInitializing`
+   * intentionally flips false once any card exists (keeps the grid mounted
+   * through reloads, #838 M2); the page suppresses its empty states while
+   * this holds so it can't flash "No signals" between the loading phase
+   * and late-arriving cards. Already-visible cards keep rendering —
+   * progressive fill, not a remount (#762).
+   */
+  readonly dataPending = computed(() => {
+    const runId = this.groupStore.activeRunId();
+    if (!runId) return false;
+    return (
+      this.groupStore.symbolsLoading() ||
+      // Same leg pageInitializing carries — the catalog stream's
+      // open/retry window re-derives the PRIMARY/MONITOR list filters,
+      // which can transiently empty visibleCards (#762 review).
+      // One-shot after first emission — writes go through enqueueWrite
+      // and never re-arm it.
       this.symbolListStore.symbolListsLoading() ||
       hasPendingRunHistory(this.historyStore.signalHistoryLoading(), runId)
     );
@@ -306,7 +350,7 @@ export class GalleryFacade {
   /** Expand-all / collapse-all over the currently rendered groups. */
   toggleAllGroups(): void {
     const keys = this.groups().map((g) => g.key);
-    if (!keys.length) return; // flat mode with no Sunk panel — nothing to toggle
+    if (!keys.length) return; // flat mode — no dimension groups to toggle
     this.uiStore.setAllGroupsExpanded(keys, !this.allGroupsExpanded());
   }
 

@@ -190,15 +190,15 @@ describe('GalleryCardComponent', () => {
     expect(fixture.nativeElement.querySelector('.status-chip')).toBeNull();
   });
 
-  it('shows the status chip and dims sunk cards (#755)', () => {
-    fixture.componentRef.setInput('card', { ...card(), status: 'watched' });
+  it('shows the status chip and mutes actioned cards (#755)', () => {
+    fixture.componentRef.setInput('card', { ...card(), status: 'rejected' });
     fixture.detectChanges();
 
-    expect(text()).toContain('Watched');
-    expect(fixture.nativeElement.querySelector('.gallery-card.sunk')).toBeTruthy();
+    expect(text()).toContain('Rejected');
+    expect(fixture.nativeElement.querySelector('.gallery-card.actioned')).toBeTruthy();
   });
 
-  it('renders the ticket-status line when a ticket exists (#755)', () => {
+  it('renders the ticket-status line as a deep link to the order when a ticket exists (#755/#762)', () => {
     fixture.componentRef.setInput('card', {
       ...card(),
       status: 'resting',
@@ -208,6 +208,13 @@ describe('GalleryCardComponent', () => {
 
     expect(text()).toContain('Resting');
     expect(text()).toContain('limit 10 @ 210.50 · Resting');
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      '[data-testid="ticket-line-link"]',
+    );
+    expect(link).toBeTruthy();
+    expect(link?.getAttribute('href')).toContain('/trading/live');
+    expect(link?.getAttribute('href')).toContain('ticket=t-1');
   });
 
   it('renders the dollar amount for signal-staged market tickets (#755)', () => {
@@ -226,17 +233,14 @@ describe('GalleryCardComponent', () => {
     expect(text()).toContain('market $200 · Staged');
   });
 
-  it('renders the labeled decision toolbar — Trade / Reject / Paper / Chart stub (#755/#759)', () => {
+  it('renders the labeled decision toolbar — Trade / Reject (#755/#759)', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.action-trade')).toBeTruthy();
     expect(el.querySelector('.action-reject')).toBeTruthy();
-    expect(el.querySelector('.action-paper')).toBeTruthy();
-    const chart = el.querySelector<HTMLButtonElement>('.action-chart');
-    expect(chart).toBeTruthy();
-    expect(chart?.disabled).toBe(true); // stub until #756
+    // Paper hidden while GALLERY_MANUAL_PAPER_ENABLED=false (#762 QA).
+    expect(el.querySelector('.action-paper')).toBeNull();
     expect(text()).toContain('Trade');
     expect(text()).toContain('Reject');
-    expect(text()).toContain('Paper');
   });
 
   it('emits a typed card action for each toolbar button (#755)', () => {
@@ -247,12 +251,17 @@ describe('GalleryCardComponent', () => {
       (fixture.nativeElement.querySelector(`.${cls}`) as HTMLButtonElement).click();
     click('action-trade');
     click('action-reject');
-    click('action-paper');
 
-    expect(emitted.map((a) => a.type)).toEqual(['trade', 'reject', 'paper']);
+    expect(emitted.map((a) => a.type)).toEqual(['trade', 'reject']);
   });
 
-  it('shows Restore on a rejected sunk card', () => {
+  it('hides the Paper button — manual paper is off while auto-paper covers the workflow (#762)', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.action-paper')).toBeNull();
+    expect(el.textContent).not.toContain('Paper');
+  });
+
+  it('shows Restore on a rejected actioned card', () => {
     fixture.componentRef.setInput('card', { ...card(), status: 'rejected' });
     fixture.detectChanges();
 
@@ -261,11 +270,44 @@ describe('GalleryCardComponent', () => {
     expect(btn.classList.contains('active')).toBe(true);
   });
 
-  it('a fully-rejected watched card shows Restore and blocks Trade/Paper (#755 review)', () => {
-    // Monitor wins status precedence — the chip says Watched but every
-    // occurrence is rejected; the REJECTs must stay restorable and the
-    // card untradeable.
-    fixture.componentRef.setInput('card', { ...card(), status: 'watched', allRejected: true });
+  it('no Unwatch affordance — Monitor membership does not action a card (#762 QA)', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.action-unwatch')).toBeNull();
+  });
+
+  it('failed card shows Requeue and enables Reject; Trade stays disabled', () => {
+    const emitted: { type: string }[] = [];
+    fixture.componentInstance.action.subscribe((a) => emitted.push(a));
+    fixture.componentRef.setInput('card', { ...card(), status: 'failed' });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const requeue = el.querySelector<HTMLButtonElement>('.action-requeue');
+    expect(requeue).toBeTruthy();
+    expect(requeue!.disabled).toBe(false);
+    expect(el.querySelector<HTMLButtonElement>('.action-unwatch')).toBeNull();
+    expect(el.querySelector<HTMLButtonElement>('.action-reject')!.disabled).toBe(false);
+    expect(el.querySelector<HTMLButtonElement>('.action-trade')!.disabled).toBe(true);
+
+    requeue!.click();
+    expect(emitted.map((a) => a.type)).toEqual(['requeue']);
+  });
+
+  it('settled card is terminal — no exit buttons, all decisions disabled', () => {
+    fixture.componentRef.setInput('card', { ...card(), status: 'settled' });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.action-unwatch')).toBeNull();
+    expect(el.querySelector('.action-requeue')).toBeNull();
+    expect(el.querySelector<HTMLButtonElement>('.action-trade')!.disabled).toBe(true);
+    expect(el.querySelector<HTMLButtonElement>('.action-reject')!.disabled).toBe(true);
+  });
+
+  it('a fully-rejected card shows Restore and blocks Trade (#755 review)', () => {
+    // Every occurrence carries a REJECT; the REJECTs must stay restorable
+    // and the card untradeable.
+    fixture.componentRef.setInput('card', { ...card(), status: 'rejected', allRejected: true });
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
@@ -273,7 +315,6 @@ describe('GalleryCardComponent', () => {
     expect(reject.textContent).toContain('Restore');
     expect(reject.disabled).toBe(false); // Restore stays reachable
     expect(el.querySelector<HTMLButtonElement>('.action-trade')!.disabled).toBe(true);
-    expect(el.querySelector<HTMLButtonElement>('.action-paper')!.disabled).toBe(true);
   });
 
   it('defers the chart cell — placeholder until the block completes (#756)', async () => {
@@ -305,7 +346,7 @@ describe('GalleryCardComponent', () => {
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
-    for (const cls of ['.action-trade', '.action-reject', '.action-paper']) {
+    for (const cls of ['.action-trade', '.action-reject']) {
       expect(el.querySelector<HTMLButtonElement>(cls)?.disabled).toBe(true);
     }
   });

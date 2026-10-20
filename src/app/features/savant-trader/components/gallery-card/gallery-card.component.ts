@@ -14,9 +14,16 @@ import { AppRoutes } from '../../../../core/common/interfaces';
 import { GalleryCardChartComponent } from '../gallery-card-chart/gallery-card-chart.component';
 import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
 import { SignalTimeframe } from '../../common/constants';
-import { InstrumentType, OrderTicketStatus } from '../../services/order-ticket.types';
+import { OrderTicketStatus } from '../../services/order-ticket.types';
+import { orderTicketTerms } from '../../utils/signal-order-staging.util';
 import { GalleryCard, GalleryCardStatus } from '../../utils/gallery-cards.util';
-import { canRejectCard, canTradeCard, isSunkCard } from '../../utils/gallery-card-actions.util';
+import {
+  canRejectCard,
+  canRequeueCard,
+  canTradeCard,
+  GALLERY_MANUAL_PAPER_ENABLED,
+  isActionedCard,
+} from '../../utils/gallery-card-actions.util';
 import { tierLabel } from '../../utils/utils';
 
 const STATUS_LABELS: Record<Exclude<GalleryCardStatus, 'pending'>, string> = {
@@ -24,7 +31,6 @@ const STATUS_LABELS: Record<Exclude<GalleryCardStatus, 'pending'>, string> = {
   resting: 'Resting',
   settled: 'Settled',
   failed: 'Failed',
-  watched: 'Watched',
   rejected: 'Rejected',
 };
 
@@ -42,7 +48,7 @@ const TICKET_STATUS_LABELS: Record<OrderTicketStatus, string> = {
 
 /** Single action channel — one output to forward through the group shell. */
 export type GalleryCardAction =
-  | { type: 'trade' | 'reject' | 'paper'; card: GalleryCard };
+  | { type: 'trade' | 'reject' | 'paper' | 'requeue'; card: GalleryCard };
 
 @Component({
   selector: 'app-gallery-card',
@@ -64,6 +70,8 @@ export class GalleryCardComponent {
   readonly SignalTimeframe = SignalTimeframe;
   /** Route enum for the Option chain deep link (#1055). */
   readonly OPTION_CHAIN_ROUTE = AppRoutes.OPTION_CHAIN;
+  /** Route enum for the ticket-line order deep link (#762). */
+  readonly ORDER_ROUTE = AppRoutes.SIGNAL_ORDER;
   readonly tierLabel = tierLabel;
 
   private readonly chartStore = inject(GalleryCardChartStore);
@@ -81,30 +89,38 @@ export class GalleryCardComponent {
     return { price, change, pct: (change / prev) * 100 };
   });
 
-  readonly sunk = computed(() => isSunkCard(this.card()));
+  readonly actioned = computed(() => isActionedCard(this.card()));
   /** Per-button disabled state: the page-level flag, an in-flight action,
-   *  or the card's own decidable state. Sunk/terminal cards expose only
-   *  Restore (#755 review — a rejected card restaging would carry REJECT
-   *  decisionIds whose removal silently un-rejects). */
+   *  or the card's own decidable state. Actioned cards expose the inverse
+   *  of the action that actioned them — rejected →
+   *  Restore, failed → Requeue/Reject; settled is terminal. */
   readonly tradeDisabled = computed(
     () => this.actionsDisabled() || this.actionBusy() || !canTradeCard(this.card()),
   );
-  /** Paper shares Trade's precondition today, but is its own computed —
+  /** Manual Paper is hidden while GALLERY_MANUAL_PAPER_ENABLED=false —
+   *  auto-paper ingest captures qualifying signals at run completion, so
+   *  a manual send has no use case. Flip the flag to restore the button. */
+  readonly manualPaperEnabled = GALLERY_MANUAL_PAPER_ENABLED;
+  /** Paper shares Trade's precondition, but is its own computed —
    *  an alias would silently couple the buttons if paper's rule ever
-   *  diverges (#819 r2). */
+   *  diverges (#819 r2). Reached only when manualPaperEnabled renders
+   *  the button. */
   readonly paperDisabled = computed(
-    () => this.actionsDisabled() || this.actionBusy() || !canTradeCard(this.card()),
+    () => this.actionsDisabled() || this.actionBusy() || !GALLERY_MANUAL_PAPER_ENABLED || !canTradeCard(this.card()),
   );
   readonly rejectDisabled = computed(
     () => this.actionsDisabled() || this.actionBusy() || !canRejectCard(this.card()),
+  );
+  readonly requeueDisabled = computed(
+    () => this.actionsDisabled() || this.actionBusy() || !canRequeueCard(this.card()),
   );
   readonly statusLabel = computed(() => {
     const s = this.card().status;
     return s === 'pending' ? '' : STATUS_LABELS[s];
   });
   /** REJECTed card — drives the Restore label/active state. `allRejected`
-   *  covers a fully-rejected card that renders 'watched' (Monitor wins
-   *  status precedence) — its REJECTs must stay restorable (#755 review). */
+   *  belts-and-braces the status so REJECTs stay restorable even if a
+   *  card's status derivation ever lags its decisions (#755 review). */
   readonly rejected = computed(
     () => this.card().status === 'rejected' || this.card().allRejected,
   );
@@ -115,12 +131,6 @@ export class GalleryCardComponent {
   readonly ticketLine = computed(() => {
     const t = this.card().ticket;
     if (!t) return '';
-    const terms =
-      t.instrumentType === InstrumentType.OPTION
-        ? `opt ${t.quantity}${t.price ? ` @ ${t.price}` : ''}`
-        : t.quantity
-          ? `${t.quantity} @ ${t.limitPrice ?? 'mkt'}`
-          : `$${t.dollarAmount ?? '—'}`;
-    return `${t.orderType} ${terms} · ${TICKET_STATUS_LABELS[t.status]}`;
+    return `${t.orderType} ${orderTicketTerms(t)} · ${TICKET_STATUS_LABELS[t.status]}`;
   });
 }

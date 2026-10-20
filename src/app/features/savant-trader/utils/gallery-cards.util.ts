@@ -30,15 +30,17 @@ import {
 
 export type GallerySide = 'buy' | 'sell';
 
-/** Lifecycle shown on the card (#755). 'sunk' is NOT a status — it is the
- *  grouping derived from watched/settled/failed/rejected (see isSunkCard). */
+/** Lifecycle shown on the card (#755). 'actioned' is NOT a status — it is
+ *  the section derived from settled/failed/rejected (see
+ *  isActionedCard). Monitor list membership deliberately does NOT status
+ *  a card (#762 QA): a watched symbol's fresh signal is still actionable
+ *  — monitoring ≠ a decision about this signal. */
 export type GalleryCardStatus =
   | 'pending'
   | 'submitting'
   | 'resting'
   | 'settled'
   | 'failed'
-  | 'watched'
   | 'rejected';
 
 export interface GalleryCard {
@@ -57,23 +59,20 @@ export interface GalleryCard {
    *  chart-interval vs signal-filter mismatch (#819 review: filter=D +
    *  chart=W left zero card dots). */
   allOccurrences: StSignalItem[];
-  /** Derived from ticket + Monitor membership — see enrichGalleryCards. */
+  /** Derived from ticket + reject decisions — see enrichGalleryCards. */
   status: GalleryCardStatus;
   /** Every occurrence in the run's symbol+side set carries a durable
    *  REJECT (#755 review) — computed by `filterGalleryCards` over the
    *  full pre-trim set, since reject/restore write the full set too: a
-   *  timeframe filter must not shrink the verdict. Tracked separately
-   *  from status because Monitor wins precedence — a watched card can
-   *  still be fully rejected, and that state must stay restorable and
-   *  non-tradeable even though it renders 'watched'. */
+   *  timeframe filter must not shrink the verdict. */
   allRejected: boolean;
   /** The signal-staged ticket statusing this card, when one exists —
    *  equity/ETF or OPTION (#964 — option tickets status the card via
    *  decisionIds; `ticketLine` renders a per-variant terms string). */
   ticket?: OrderTicket;
   /** Best-effort action timestamp (ticket terminalAt/updatedAt, else the
-   *  latest occurrence decidedAt); '' when unknown — drives sunk ordering
-   *  (desc, untimestamped last). */
+   *  latest occurrence decidedAt); '' when unknown — drives actioned
+   *  ordering (desc, untimestamped last). */
   actionedAt: string;
 }
 
@@ -89,7 +88,7 @@ export interface GalleryListContext {
   exclusiveListKeys: string[];
 }
 
-/** Decision/ticket/monitor state the card pipeline reads (#755). */
+/** Decision/ticket state the card pipeline reads (#755). */
 export interface GalleryActionContext {
   /** The viewed run — decisions and tickets are scoped to it. */
   runId: string;
@@ -97,13 +96,7 @@ export interface GalleryActionContext {
   decisions: Record<string, StOccurrenceDecision>;
   /** Live/staged tickets grouped by symbol (OrderTicketStore.ticketsBySymbol). */
   ticketsBySymbol: Record<string, OrderTicket[]>;
-  /** Symbols in the MONITOR list — Monitor is symbol-level, both side cards watch. */
-  monitorSymbols: ReadonlySet<string>;
 }
-
-/** Expansion-panel key for the pinned sunk group — deliberately not
- *  dimension-prefixed so its collapse state survives dimension switches. */
-export const SUNK_GROUP_KEY = 'sunk';
 
 /** One expando section of the grouped gallery (#783). */
 export interface GalleryGroup {
@@ -265,17 +258,13 @@ function sameGalleryCard(a: GalleryCard, b: GalleryCard): boolean {
   );
 }
 
-/** The pinned bottom group collecting sunk cards, ordered by action time
- *  desc; untimestamped cards (e.g. externally watched) go last. */
-export function sunkGalleryGroup(cards: GalleryCard[]): GalleryGroup {
-  return {
-    key: SUNK_GROUP_KEY,
-    label: 'Sunk',
-    cards: [...cards].sort((a, b) => {
-      if (a.actionedAt === b.actionedAt) return a.key.localeCompare(b.key);
-      if (!a.actionedAt) return 1;
-      if (!b.actionedAt) return -1;
-      return b.actionedAt.localeCompare(a.actionedAt);
-    }),
-  };
+/** The Actioned section's card order — action time desc; untimestamped
+ *  cards (e.g. a reconcile-landed settle with no decidedAt) go last. */
+export function actionedGalleryCards(cards: GalleryCard[]): GalleryCard[] {
+  return [...cards].sort((a, b) => {
+    if (a.actionedAt === b.actionedAt) return a.key.localeCompare(b.key);
+    if (!a.actionedAt) return 1;
+    if (!b.actionedAt) return -1;
+    return b.actionedAt.localeCompare(a.actionedAt);
+  });
 }

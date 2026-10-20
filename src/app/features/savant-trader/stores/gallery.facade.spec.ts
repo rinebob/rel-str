@@ -24,7 +24,7 @@ import { SymbolListDef } from '../common/symbol-list-defs';
 import { StOccurrenceDecision, StSignalItem, StSymbolProfile } from '../services/types';
 import { EquityOrderTicket, InstrumentType, OrderSource, OrderTicket, OrderTicketStatus } from '../services/order-ticket.types';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
-import { SUNK_GROUP_KEY } from '../utils/gallery-cards.util';
+
 
 const RUN_ID = 'run-1';
 const MARKET_DATE = '2026-08-25';
@@ -236,7 +236,7 @@ describe('GalleryFacade', () => {
       expect(uiStore.timeframe()).toBe(SignalTimeframe.DAILY);
       expect(uiStore.direction()).toBe(SignalDirection.LONG);
       expect(uiStore.listFilter()).toBe('PRIMARY');
-      expect(uiStore.groupDimension()).toBe(GroupDimension.SECTOR);
+      expect(uiStore.groupDimension()).toBe(GroupDimension.NONE);
     });
 
     it('setChartTimeframe updates the page chart interval without touching the signal filter (#819)', () => {
@@ -336,6 +336,8 @@ describe('GalleryFacade', () => {
         ],
         [`TSLA::${RUN_ID}`]: [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)],
       });
+      // Page default is NONE (#762) — these tests exercise dimension grouping.
+      facade.setGroupDimension(GroupDimension.SECTOR);
     });
 
     it('groups visible cards by sector alphabetically', () => {
@@ -351,6 +353,14 @@ describe('GalleryFacade', () => {
       // No industry on the profiles → all land in (Unknown).
       facade.setGroupDimension(GroupDimension.INDUSTRY);
       expect(facade.groups().map((g) => g.label)).toEqual(['(Unknown)']);
+    });
+
+    it('defaults to the flat ungrouped mode (#762)', () => {
+      // Page-entry default is NONE — no dimension groups, flat market-cap grid.
+      uiStore.setGroupDimension(GroupDimension.NONE);
+      expect(facade.ungrouped()).toBe(true);
+      expect(facade.groups()).toEqual([]);
+      expect(facade.flatCards().map((c) => c.symbol)).toEqual(['AAPL', 'TSLA']);
     });
 
     it('groups reflect the active filter', () => {
@@ -413,17 +423,15 @@ describe('GalleryFacade', () => {
       );
     });
 
-    it('emits no dimension groups — Sunk stays the only panel', () => {
+    it('emits no dimension groups — the Actioned section stays the only collection', () => {
       expect(facade.groups()).toEqual([]);
-      // A rejected card still collects in the pinned Sunk panel.
+      // A rejected card still collects in the Actioned section.
       const decisions: Record<string, StOccurrenceDecision> = {};
       decisions[buildStOccurrenceDecisionId(RUN_ID, 'MID', SignalTimeframe.DAILY, 'RS_RISE')] =
         makeReject('MID', SignalTimeframe.DAILY);
       occurrenceStoreMock.occurrenceDecisions.set(decisions);
-      const groups = facade.groups();
-      expect(groups).toHaveLength(1);
-      expect(groups[0].key).toBe(SUNK_GROUP_KEY);
-      expect(groups[0].cards.map((c) => c.symbol)).toEqual(['MID']);
+      expect(facade.groups()).toEqual([]);
+      expect(facade.actionedCards().map((c) => c.symbol)).toEqual(['MID']);
       expect(facade.flatCards().map((c) => c.symbol)).toEqual(['BIG', 'SMALL', 'NOCAP']);
     });
 
@@ -445,7 +453,7 @@ describe('GalleryFacade', () => {
     });
   });
 
-  describe('action status + sunk model (#755)', () => {
+  describe('action status + actioned model (#755)', () => {
     beforeEach(() => {
       uiStore.setTimeframe(SignalTimeframe.ALL);
       uiStore.setDirection(SignalDirection.ALL);
@@ -459,9 +467,12 @@ describe('GalleryFacade', () => {
         [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)],
         [`TSLA::${RUN_ID}`]: [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)],
       });
+      // Page default is NONE (#762) — these tests exercise the Actioned
+      // section under dimension grouping.
+      facade.setGroupDimension(GroupDimension.SECTOR);
     });
 
-    it('a watched symbol sinks both its cards to a pinned Sunk group', () => {
+    it('Monitor membership does not sink cards — a monitored symbol stays actionable (#762 QA)', () => {
       historyStoreMock.signalHistoryCache.set({
         [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)],
         [`TSLA::${RUN_ID}`]: [
@@ -472,35 +483,60 @@ describe('GalleryFacade', () => {
       symbolListStoreMock.symbolLists.set({ MONITOR: ['TSLA'] });
 
       const groups = facade.groups();
-      expect(groups.map((g) => g.key)).toEqual(['sector:Tech', SUNK_GROUP_KEY]);
-      expect(groups[0].cards.map((c) => c.key)).toEqual(['AAPL:buy']);
-      expect(groups[1].cards.map((c) => c.key).sort()).toEqual(['TSLA:buy', 'TSLA:sell']);
-      expect(groups[1].cards[0].status).toBe('watched');
+      expect(groups.map((g) => g.key)).toEqual(['sector:Tech']);
+      expect(groups[0].cards.map((c) => c.key).sort()).toEqual(['AAPL:buy', 'TSLA:buy', 'TSLA:sell']);
+      expect(facade.actionedCards()).toEqual([]);
     });
 
-    it('a filled ticket sinks its card; a resting ticket stays in its group', () => {
+    it('a filled ticket parks its card; a resting ticket stays in its group', () => {
       ticketStoreMock.ticketsBySymbol.set({
         AAPL: [makeTicket('AAPL', 'buy', OrderTicketStatus.FILLED)],
         TSLA: [makeTicket('TSLA', 'sell', OrderTicketStatus.RESTING)],
       });
 
       const groups = facade.groups();
-      expect(groups.map((g) => g.key)).toEqual(['sector:Tech', SUNK_GROUP_KEY]);
+      expect(groups.map((g) => g.key)).toEqual(['sector:Tech']);
       expect(groups[0].cards.map((c) => `${c.key}:${c.status}`)).toEqual(['TSLA:sell:resting']);
-      expect(groups[1].cards.map((c) => `${c.key}:${c.status}`)).toEqual(['AAPL:buy:settled']);
+      expect(facade.actionedCards().map((c) => `${c.key}:${c.status}`)).toEqual(['AAPL:buy:settled']);
     });
 
-    it('sunk cards order by action time desc', () => {
+    it('actioned cards order by action time desc', () => {
       ticketStoreMock.ticketsBySymbol.set({
         AAPL: [makeTicket('AAPL', 'buy', OrderTicketStatus.FILLED, { updatedAt: '2026-08-20T00:00:00Z' })],
         TSLA: [makeTicket('TSLA', 'sell', OrderTicketStatus.FAILED, { updatedAt: '2026-08-27T00:00:00Z' })],
       });
-      const sunk = facade.groups().find((g) => g.key === SUNK_GROUP_KEY)!;
-      expect(sunk.cards.map((c) => c.key)).toEqual(['TSLA:sell', 'AAPL:buy']);
+      expect(facade.actionedCards().map((c) => c.key)).toEqual(['TSLA:sell', 'AAPL:buy']);
     });
 
-    it('no Sunk group renders when nothing is actioned', () => {
+    it('actionedGroups buckets per status in attention order — failed, settled, rejected — and drops empty buckets', () => {
+      groupStoreMock.signalSymbols.set([
+        makeProfile('AAPL', { sector: 'Tech', marketCap: 100 }),
+        makeProfile('TSLA', { sector: 'Tech', marketCap: 50 }),
+        makeProfile('MSFT', { sector: 'Tech', marketCap: 80 }),
+      ]);
+      historyStoreMock.signalHistoryCache.set({
+        [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)],
+        [`TSLA::${RUN_ID}`]: [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)],
+        [`MSFT::${RUN_ID}`]: [makeSignal('MSFT', SignalTimeframe.DAILY, SignalDirection.LONG)],
+      });
+      ticketStoreMock.ticketsBySymbol.set({
+        AAPL: [makeTicket('AAPL', 'buy', OrderTicketStatus.FILLED, { updatedAt: '2026-08-20T00:00:00Z' })],
+        TSLA: [makeTicket('TSLA', 'sell', OrderTicketStatus.FAILED, { updatedAt: '2026-08-27T00:00:00Z' })],
+      });
+      const d = makeReject('MSFT', SignalTimeframe.DAILY);
+      occurrenceStoreMock.occurrenceDecisions.set({ [d.id]: d });
+
+      const groups = facade.actionedGroups();
+      expect(groups.map((g) => `${g.status}:${g.cards.map((c) => c.key).join(',')}`)).toEqual([
+        'failed:TSLA:sell',
+        'settled:AAPL:buy',
+        'rejected:MSFT:buy',
+      ]);
+    });
+
+    it('no Actioned section renders when nothing is actioned', () => {
       expect(facade.groups().map((g) => g.key)).toEqual(['sector:Tech']);
+      expect(facade.actionedCards()).toEqual([]);
     });
 
     it('rejected occurrences trim; a fully-rejected card keeps its occurrences and sinks', () => {
@@ -516,13 +552,13 @@ describe('GalleryFacade', () => {
       occurrenceStoreMock.occurrenceDecisions.set({ [d1.id]: d1, [d2.id]: d2 });
 
       const groups = facade.groups();
-      expect(groups.map((g) => g.key)).toEqual(['sector:Tech', SUNK_GROUP_KEY]);
+      expect(groups.map((g) => g.key)).toEqual(['sector:Tech']);
       // Partial reject — the surviving occurrence keeps the card in its group.
       const aapl = groups[0].cards.find((c) => c.symbol === 'AAPL')!;
       expect(aapl.occurrences.map((o) => o.signalType)).toEqual(['RS_WEEKLY']);
-      // Full reject — the card sinks with its occurrences intact so the
-      // decision stays reachable (reset/un-reject on-page).
-      const tsla = groups[1].cards.find((c) => c.symbol === 'TSLA')!;
+      // Full reject — the card parks in Actioned with its occurrences
+      // intact so the decision stays reachable (reset/un-reject on-page).
+      const tsla = facade.actionedCards().find((c) => c.symbol === 'TSLA')!;
       expect(tsla.status).toBe('rejected');
       expect(tsla.occurrences).toHaveLength(1);
     });
@@ -643,6 +679,43 @@ describe('GalleryFacade', () => {
       groupStoreMock.symbolsLoading.set(true);
       expect(facade.cards().length).toBeGreaterThan(0);
       expect(facade.pageInitializing()).toBe(false);
+    });
+  });
+
+  describe('dataPending (#762)', () => {
+    it('is false with no active run', () => {
+      expect(facade.dataPending()).toBe(false);
+    });
+
+    it('stays true while run-scoped history streams after first cards exist', () => {
+      // AAPL landed and produced a card, TSLA is still in flight — the
+      // flash window where the empty state used to show.
+      groupStoreMock.activeRunId.set(RUN_ID);
+      groupStoreMock.signalSymbols.set([makeProfile('AAPL'), makeProfile('TSLA')]);
+      historyStoreMock.signalHistoryCache.set({
+        [`AAPL::${RUN_ID}`]: [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)],
+      });
+      historyStoreMock.signalHistoryLoading.set({ [`TSLA::${RUN_ID}`]: true });
+      expect(facade.cards().length).toBeGreaterThan(0);
+      expect(facade.dataPending()).toBe(true);
+
+      historyStoreMock.signalHistoryLoading.set({ [`TSLA::${RUN_ID}`]: false });
+      expect(facade.dataPending()).toBe(false);
+    });
+
+    it('is true during a same-run symbols reload', () => {
+      groupStoreMock.activeRunId.set(RUN_ID);
+      groupStoreMock.symbolsLoading.set(true);
+      expect(facade.dataPending()).toBe(true);
+    });
+
+    it('ignores pending history for other runs and bare-symbol keys', () => {
+      groupStoreMock.activeRunId.set(RUN_ID);
+      historyStoreMock.signalHistoryLoading.set({
+        'AAPL::run-other': true,
+        TSLA: true,
+      });
+      expect(facade.dataPending()).toBe(false);
     });
   });
 

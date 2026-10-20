@@ -13,7 +13,7 @@ import { GalleryViewComponent } from './gallery-view.component';
 import { GalleryFacade } from '../../stores/gallery.facade';
 import { GalleryCardActionsService } from '../../stores/gallery-card-actions.service';
 import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
-import { GalleryCard, GalleryGroup } from '../../utils/gallery-cards.util';
+import { GalleryCard, GalleryCardStatus, GalleryGroup } from '../../utils/gallery-cards.util';
 import { GroupDimension, SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 import { StSymbolProfile } from '../../services/types';
 
@@ -76,7 +76,12 @@ describe('GalleryViewComponent', () => {
     groups: ReturnType<typeof signal<GalleryGroup[]>>;
     ungrouped: ReturnType<typeof signal<boolean>>;
     flatCards: ReturnType<typeof signal<GalleryCard[]>>;
+    actionedCards: ReturnType<typeof signal<GalleryCard[]>>;
+    actionedGroups: ReturnType<
+      typeof signal<{ status: GalleryCardStatus; label: string; cards: GalleryCard[] }[]>
+    >;
     pageInitializing: ReturnType<typeof signal<boolean>>;
+    dataPending: ReturnType<typeof signal<boolean>>;
     allFilteredOut: ReturnType<typeof signal<boolean>>;
     loadError: ReturnType<typeof signal<string | null>>;
     cardCount: ReturnType<typeof signal<number>>;
@@ -100,6 +105,7 @@ describe('GalleryViewComponent', () => {
     rejectCard: jest.Mock;
     paperCard: jest.Mock;
     tradeCard: jest.Mock;
+    requeueCard: jest.Mock;
     discardStagedTicket: jest.Mock;
   };
 
@@ -128,7 +134,12 @@ describe('GalleryViewComponent', () => {
       groups: signal<GalleryGroup[]>([]),
       ungrouped: signal(false),
       flatCards: signal<GalleryCard[]>([]),
+    actionedCards: signal<GalleryCard[]>([]),
+      actionedGroups: signal<
+        { status: GalleryCardStatus; label: string; cards: GalleryCard[] }[]
+      >([]),
       pageInitializing: signal(false),
+      dataPending: signal(false),
       allFilteredOut: signal(false),
       loadError: signal<string | null>(null),
       cardCount: signal(0),
@@ -152,6 +163,7 @@ describe('GalleryViewComponent', () => {
       rejectCard: jest.fn(),
       paperCard: jest.fn(),
       tradeCard: jest.fn(),
+      requeueCard: jest.fn(),
       discardStagedTicket: jest.fn(),
     };
     dialogMock = { open: jest.fn().mockReturnValue({ afterClosed: () => of(null) }) };
@@ -209,6 +221,27 @@ describe('GalleryViewComponent', () => {
     expect(text()).toContain('No signals match the current filters');
   });
 
+  it('keeps the loading state while run data still streams with nothing visible yet (#762)', () => {
+    // The gap between "first load resolved" and "late history landed" —
+    // empty states stay suppressed so the page can't flash "No signals".
+    facadeMock.dataPending.set(true);
+    fixture.detectChanges();
+    expect(text()).toContain('Loading signals');
+    expect(text()).not.toContain('No signals');
+  });
+
+  it('renders already-visible cards while more run data streams in (#762)', () => {
+    const cards = [card('AAPL', 'buy')];
+    facadeMock.cards.set(cards);
+    facadeMock.visibleCards.set(cards);
+    facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards }]);
+    facadeMock.dataPending.set(true);
+    fixture.detectChanges();
+
+    expect(cardEls()).toHaveLength(1);
+    expect(text()).toContain('AAPL');
+  });
+
   it('renders one card shell per visible card with signal details (#783: inside groups)', () => {
     const cards = [card('AAPL', 'buy'), card('TSLA', 'sell')];
     facadeMock.cards.set(cards);
@@ -228,6 +261,7 @@ describe('GalleryViewComponent', () => {
   it('renders one expando per group with label and count (#783)', () => {
     const cards = [card('AAPL', 'buy')];
     facadeMock.cards.set(cards);
+    facadeMock.visibleCards.set(cards);
     facadeMock.groups.set([
       { key: 'sector:Tech', label: 'Tech', cards },
       { key: 'sector:Energy', label: 'Energy', cards: [card('TSLA', 'sell')] },
@@ -245,6 +279,7 @@ describe('GalleryViewComponent', () => {
   it('routes group expansion events back to the facade (#783)', () => {
     const cards = [card('AAPL', 'buy')];
     facadeMock.cards.set(cards);
+    facadeMock.visibleCards.set(cards);
     facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards }]);
     fixture.detectChanges();
 
@@ -286,6 +321,7 @@ describe('GalleryViewComponent', () => {
     const stagedTicket = { id: 't-1' };
     actionsMock.tradeCard.mockResolvedValue({ ticket: stagedTicket, created: true });
     facadeMock.cards.set([c]);
+    facadeMock.visibleCards.set([c]);
     facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards: [c] }]);
     fixture.detectChanges();
 
@@ -313,6 +349,7 @@ describe('GalleryViewComponent', () => {
     const c = card('AAPL', 'buy');
     actionsMock.tradeCard.mockResolvedValue({ ticket: { id: 't-9' }, created: false });
     facadeMock.cards.set([c]);
+    facadeMock.visibleCards.set([c]);
     facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards: [c] }]);
     fixture.detectChanges();
 
@@ -332,6 +369,7 @@ describe('GalleryViewComponent', () => {
       afterClosed: () => ({ subscribe: (cb: () => void) => { afterClosedCb = cb; } }),
     });
     facadeMock.cards.set([c]);
+    facadeMock.visibleCards.set([c]);
     facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards: [c] }]);
     fixture.detectChanges();
 
@@ -358,6 +396,7 @@ describe('GalleryViewComponent', () => {
     actionsMock.activeRunId.set(null);
     actionsMock.tradeCard.mockResolvedValue({ ticket: { id: 't-1' }, created: true });
     facadeMock.cards.set([c]);
+    facadeMock.visibleCards.set([c]);
     facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards: [c] }]);
     fixture.detectChanges();
 
@@ -386,9 +425,11 @@ describe('GalleryViewComponent', () => {
   it('flat mode (#820): renders cards without expandos when group dimension is None', () => {
     const cards = [card('AAPL', 'buy'), card('TSLA', 'sell')];
     facadeMock.cards.set(cards);
+    facadeMock.visibleCards.set(cards);
     facadeMock.ungrouped.set(true);
     facadeMock.flatCards.set(cards);
-    // Sunk group may still render as a panel — dimension groups do not.
+    // The Actioned section may still render below — dimension groups
+    // do not.
     facadeMock.groups.set([]);
     fixture.detectChanges();
 
@@ -400,25 +441,62 @@ describe('GalleryViewComponent', () => {
     expect(text()).toContain('TSLA');
   });
 
-  it('flat mode (#820): a sunk panel still renders below the flat grid', () => {
+  it('flat mode (#820): the Actioned section renders below the flat grid — no expando', () => {
     const flat = [card('AAPL', 'buy'), card('TSLA', 'sell')];
-    const sunk = card('MSFT', 'buy');
-    facadeMock.cards.set([...flat, sunk]);
+    const actioned = card('MSFT', 'buy');
+    facadeMock.cards.set([...flat, actioned]);
+    facadeMock.visibleCards.set([...flat, actioned]);
     facadeMock.ungrouped.set(true);
     facadeMock.flatCards.set(flat);
-    facadeMock.groups.set([{ key: 'sunk', label: 'Sunk', cards: [sunk] }]);
-    facadeMock.expandedGroups.set({ sunk: true });
+    facadeMock.groups.set([]);
+    facadeMock.actionedCards.set([actioned]);
+    facadeMock.actionedGroups.set([
+      { status: 'settled', label: 'Settled', cards: [actioned] },
+    ]);
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
-    // Flat grid renders the two non-sunk cards directly…
+    // Flat grid renders the two non-actioned cards directly…
     const grid = el.querySelector<HTMLElement>('.gallery-grid')!;
     expect(grid.querySelectorAll('app-gallery-card')).toHaveLength(2);
-    // …and the Sunk expando renders below it as an app-gallery-group.
-    const groupEl = el.querySelector<HTMLElement>('app-gallery-group')!;
-    expect(groupEl).toBeTruthy();
+    // …and the Actioned section renders below it — a labeled section, not
+    // an app-gallery-group expando.
+    const section = el.querySelector<HTMLElement>('.gallery-actioned')!;
+    expect(section).toBeTruthy();
+    expect(section.querySelectorAll('app-gallery-card')).toHaveLength(1);
+    expect(el.querySelector('app-gallery-group')).toBeNull();
+    expect(section.textContent).toContain('Actioned');
+    // Per-status sub-section header carries the category label + count.
+    const sub = section.querySelector<HTMLElement>('.actioned-sub.actioned-settled')!;
+    expect(sub).toBeTruthy();
+    expect(sub.textContent).toContain('Settled');
     expect(
-      grid.compareDocumentPosition(groupEl) & Node.DOCUMENT_POSITION_FOLLOWING,
+      grid.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('grouped mode: the Actioned section renders below the dimension groups', () => {
+    const grouped = card('AAPL', 'buy');
+    const actioned = card('MSFT', 'buy');
+    facadeMock.cards.set([grouped, actioned]);
+    facadeMock.visibleCards.set([grouped, actioned]);
+    facadeMock.ungrouped.set(false);
+    facadeMock.groups.set([{ key: 'sector:Tech', label: 'Tech', cards: [grouped] }]);
+    facadeMock.expandedGroups.set({ 'sector:Tech': true });
+    facadeMock.actionedCards.set([actioned]);
+    facadeMock.actionedGroups.set([
+      { status: 'rejected', label: 'Rejected', cards: [actioned] },
+    ]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const groupEl = el.querySelector<HTMLElement>('app-gallery-group')!;
+    const section = el.querySelector<HTMLElement>('.gallery-actioned')!;
+    expect(groupEl).toBeTruthy();
+    expect(section).toBeTruthy();
+    expect(section.querySelectorAll('app-gallery-card')).toHaveLength(1);
+    expect(
+      groupEl.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 });

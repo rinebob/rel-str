@@ -26,6 +26,74 @@
   align-content: start;
 }
 
+// Actioned section (#755) — a solid band above the parked cards so the
+// section break reads at a glance, not an expando header.
+.gallery-actioned {
+  margin-top: 16px;
+}
+
+.actioned-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 16px 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: var(--mat-sys-surface-container-high);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-surface);
+}
+
+.actioned-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+}
+
+// Per-status sub-section headers — each carries the status's card/chip
+// accent color so the categories are distinguishable without reading.
+.actioned-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 16px 8px;
+  padding: 4px 10px;
+  border-left: 4px solid transparent;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant);
+
+  &.actioned-failed {
+    border-left-color: #f44336;
+    color: #ef9a9a;
+  }
+  &.actioned-settled {
+    border-left-color: #81c784;
+    color: #a5d6a7;
+  }
+  &.actioned-rejected {
+    border-left-color: #ff8a80;
+    color: #ffab91;
+  }
+}
+
+.actioned-sub-count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .gallery-empty {
   display: flex;
   align-items: center;

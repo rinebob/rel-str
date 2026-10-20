@@ -15,7 +15,7 @@ import { of } from 'rxjs';
 import { GalleryCardActionsService } from './gallery-card-actions.service';
 import { GroupStore } from './group.store';
 import { OccurrenceDecisionStore } from './occurrence-decision.store';
-import { SymbolListStore } from './symbol-list.store';
+
 import { OrderTicketStore } from './order-ticket.store';
 import { EquityPriceService } from '../services/equity-price.service';
 import { TradingConfigService } from '../services/trading-config.service';
@@ -30,6 +30,7 @@ import {
   OrderTicketStatus,
 } from '../services/order-ticket.types';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
+
 import { GalleryCard } from '../utils/gallery-cards.util';
 
 const RUN_ID = 'run-1';
@@ -159,9 +160,6 @@ describe('GalleryCardActionsService', () => {
     rejectSignals: jest.Mock;
     resetSignals: jest.Mock;
   };
-  let symbolListStoreMock: {
-    symbolLists: ReturnType<typeof signal<Record<string, string[]>>>;
-  };
   let ticketStoreMock: {
     ticketsBySymbol: ReturnType<typeof computed<Record<string, OrderTicket[]>>>;
     tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
@@ -169,6 +167,7 @@ describe('GalleryCardActionsService', () => {
     sendTicketToPaper: jest.Mock;
     removeTicket: jest.Mock;
     updateTicket: jest.Mock;
+    updateTicketAndWait: jest.Mock;
   };
   let priceServiceMock: {
     prices: ReturnType<typeof signal<Record<string, number>>>;
@@ -195,9 +194,6 @@ describe('GalleryCardActionsService', () => {
       rejectSignals: jest.fn(),
       resetSignals: jest.fn(),
     };
-    symbolListStoreMock = {
-      symbolLists: signal<Record<string, string[]>>({}),
-    };
     ticketStoreMock = {
       ticketsBySymbol: computed((): Record<string, OrderTicket[]> => {
         const grouped: Record<string, OrderTicket[]> = {};
@@ -217,6 +213,7 @@ describe('GalleryCardActionsService', () => {
       sendTicketToPaper: jest.fn().mockResolvedValue({ cohortId: 'c1', expressionTradeIds: [] }),
       removeTicket: jest.fn(),
       updateTicket: jest.fn(),
+      updateTicketAndWait: jest.fn().mockResolvedValue(true),
     };
     priceServiceMock = {
       prices: signal<Record<string, number>>({}),
@@ -228,7 +225,6 @@ describe('GalleryCardActionsService', () => {
       providers: [
         { provide: GroupStore, useValue: groupStoreMock },
         { provide: OccurrenceDecisionStore, useValue: occurrenceStoreMock },
-        { provide: SymbolListStore, useValue: symbolListStoreMock },
         { provide: OrderTicketStore, useValue: ticketStoreMock },
         { provide: EquityPriceService, useValue: priceServiceMock },
         { provide: TradingConfigService, useValue: configServiceMock },
@@ -387,11 +383,13 @@ describe('GalleryCardActionsService', () => {
     actions.rejectCard(tslaSell());
     const trade = await actions.tradeCard(aaplBuy());
     await actions.paperCard(aaplBuy());
+    await actions.requeueCard(makeCard('MSFT', 'buy', [makeSignal('MSFT', SignalTimeframe.DAILY, SignalDirection.LONG)], 'failed'));
 
     expect(occurrenceStoreMock.rejectSignals).not.toHaveBeenCalled();
     expect(occurrenceStoreMock.resetSignals).not.toHaveBeenCalled();
     expect(ticketStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
     expect(ticketStoreMock.sendTicketToPaper).not.toHaveBeenCalled();
+    expect(ticketStoreMock.updateTicketAndWait).not.toHaveBeenCalled();
     expect(trade).toBeNull();
   });
 
@@ -423,7 +421,7 @@ describe('GalleryCardActionsService', () => {
       expect(signals).toHaveLength(2);
     });
 
-    it('sunk cards cannot be traded or papered — only restored', async () => {
+    it('actioned cards cannot be traded or papered directly — they exit first', async () => {
       const rejected = makeCard('AAPL', 'buy', [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)], 'rejected');
       const settled = makeCard('TSLA', 'sell', [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)], 'settled');
 
@@ -503,6 +501,47 @@ describe('GalleryCardActionsService', () => {
     });
   });
 
+  describe('actioned-section exits', () => {
+    it('requeue regenerates the failed ticket to STAGED with a fresh refId', async () => {
+      const failed = makeTicket('TSLA', 'sell', OrderTicketStatus.FAILED);
+      seedTickets(failed);
+
+      await actions.requeueCard(
+        makeCard('TSLA', 'sell', [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)], 'failed'),
+      );
+
+      expect(ticketStoreMock.updateTicketAndWait).toHaveBeenCalledTimes(1);
+      const [id, patch] = ticketStoreMock.updateTicketAndWait.mock.calls[0];
+      expect(id).toBe(failed.id);
+      expect(patch.status).toBe(OrderTicketStatus.STAGED);
+      expect(patch.refId).toBeTruthy();
+      expect(patch.refId).not.toBe('ref-1'); // fresh — the terminal order burned it
+      expect(patch.result).toBeUndefined();
+      expect(patch.error).toBeUndefined();
+      expect(patch.terminalAt).toBeUndefined();
+    });
+
+    it('requeue no-ops when the card has no terminal ticket or is not failed', async () => {
+      await actions.requeueCard(
+        makeCard('TSLA', 'sell', [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)], 'failed'),
+      ); // no ticket seeded
+      await actions.requeueCard(tslaSell()); // pending card
+
+      expect(ticketStoreMock.updateTicketAndWait).not.toHaveBeenCalled();
+    });
+
+    it('a failed card can be rejected — REJECTs write but the failed ticket stays', () => {
+      seedTickets(makeTicket('TSLA', 'sell', OrderTicketStatus.FAILED));
+
+      actions.rejectCard(
+        makeCard('TSLA', 'sell', [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)], 'failed'),
+      );
+
+      expect(occurrenceStoreMock.rejectSignals).toHaveBeenCalled();
+      expect(ticketStoreMock.removeTicket).not.toHaveBeenCalled(); // only STAGED tickets are removed
+    });
+  });
+
   describe('#755 review round 2', () => {
     const rejectDecision = (signal: StSignalItem): StOccurrenceDecision => ({
       id: buildStOccurrenceDecisionId(RUN_ID, signal.symbol, signal.timeframe, signal.signalType),
@@ -518,13 +557,11 @@ describe('GalleryCardActionsService', () => {
       isCurrentInLatestRun: true,
     });
 
-    it('a watched card whose occurrences are all REJECTed cannot trade — the REJECTs stay reachable via Restore', async () => {
+    it('a rejected card cannot trade — the REJECTs stay reachable via Restore', async () => {
       const signal = makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 });
       const dec = rejectDecision(signal);
       occurrenceStoreMock.occurrenceDecisions.set({ [dec.id]: dec });
-      // Monitor wins status precedence — the card renders 'watched' but
-      // every occurrence is rejected.
-      const card = makeCard('AAPL', 'buy', [signal], 'watched', { allRejected: true });
+      const card = makeCard('AAPL', 'buy', [signal], 'rejected', { allRejected: true });
 
       expect(await actions.tradeCard(card)).toBeNull();
       await actions.paperCard(card);

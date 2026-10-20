@@ -2,16 +2,18 @@
  * Gallery Card Actions Service
  *
  * Owns the gallery card's decision mutations (#755) — extracted from
- * GalleryFacade so the facade stays a view-model seam. Three labeled
- * actions per card: Trade stages a quantity ticket and opens it for
- * editing, Reject writes durable REJECTs (toggle — click again on the
- * sunk card restores it), Paper sends the staged ticket through the
- * paperSignalOrder callable.
+ * GalleryFacade so the facade stays a view-model seam. Actions per card:
+ * Trade stages a quantity ticket and opens it for editing, Reject writes
+ * durable REJECTs (toggle — click again on a rejected card restores it),
+ * Paper sends the staged ticket through the paperSignalOrder callable.
+ * Actioned-section exit: Requeue regenerates a failed card's terminal
+ * ticket to STAGED.
  *
  * Guards (re-checks alongside the card's disabled buttons):
  * - `isActionableRun` — mutations require the viewed run to be completed.
- * - `canTradeCard`/`canRejectCard` — sunk/in-flight cards expose only
- *   Restore.
+ * - `canTradeCard`/`canRejectCard`/`canRequeueCard` —
+ *   each actioned card exposes only the inverse of its sinking action;
+ *   settled is terminal.
  * - `busyCardKeys` — an in-flight action per card blocks re-entry so a
  *   double-click can't double-stage or double-send (#755 review).
  *
@@ -27,7 +29,6 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { GroupStore } from './group.store';
 import { OccurrenceDecisionStore } from './occurrence-decision.store';
-import { SymbolListStore } from './symbol-list.store';
 import { OrderTicketStore } from './order-ticket.store';
 import { TradingConfigService } from '../services/trading-config.service';
 import { EquityPriceService } from '../services/equity-price.service';
@@ -42,6 +43,7 @@ import {
   buildSignalOrderTickets,
   buildTicketId,
   DEFAULT_DOLLAR_AMOUNT,
+  requeueTicketPatch,
 } from '../utils/signal-order-staging.util';
 import {
   isPaperEligibleTicket,
@@ -50,7 +52,6 @@ import {
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import { computePositionSize } from '../utils/position-sizing.util';
 import { formatError } from '../utils/format-error.util';
-import { SYSTEM_LIST_KEYS } from '../common/symbol-list-defs';
 import { ReviewDecision } from '../common/constants';
 import {
   GalleryActionContext,
@@ -58,6 +59,7 @@ import {
 } from '../utils/gallery-cards.util';
 import {
   canRejectCard,
+  canRequeueCard,
   canTradeCard,
   findCardTickets,
 } from '../utils/gallery-card-actions.util';
@@ -66,7 +68,6 @@ import {
 export class GalleryCardActionsService {
   private readonly groupStore = inject(GroupStore);
   private readonly occurrenceStore = inject(OccurrenceDecisionStore);
-  private readonly symbolListStore = inject(SymbolListStore);
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly priceService = inject(EquityPriceService);
   private readonly configService = inject(TradingConfigService);
@@ -99,7 +100,6 @@ export class GalleryCardActionsService {
     runId: this.groupStore.activeRunId() ?? '',
     decisions: this.occurrenceStore.occurrenceDecisions(),
     ticketsBySymbol: this.ticketStore.ticketsBySymbol(),
-    monitorSymbols: new Set(this.symbolListStore.symbolLists()[SYSTEM_LIST_KEYS.MONITOR] ?? []),
   }));
 
   /** Eagerly load the trading config on page enter so the first Trade
@@ -149,8 +149,9 @@ export class GalleryCardActionsService {
     });
   }
 
-  /** Reject toggle: writes durable REJECTs and sinks the card; clicking
-   *  Restore on the sunk card clears them back to pending (#755). */
+  /** Reject toggle: writes durable REJECTs and parks the card in
+   *  Actioned; clicking Restore on a rejected card clears them back to
+   *  pending (#755). */
   rejectCard(card: GalleryCard): void {
     if (!this.isActionableRun() || !canRejectCard(card)) return;
     if (this._busyKeys().has(card.key)) return;
@@ -158,10 +159,9 @@ export class GalleryCardActionsService {
     const marketDate = this.groupStore.activeRunMarketDate();
     if (!runId || !marketDate) return;
     const occurrences = card.allOccurrences;
-    // 'watched' cards can also be fully rejected — Monitor wins status
-    // precedence, so `allRejected` is the restore condition there (#755
-    // review: otherwise a watched+rejected card exposes Reject again and
-    // its REJECTs are unreachable).
+    // `allRejected` belts-and-braces the restore condition — a card whose
+    // status derivation lags its decisions must not expose Reject again
+    // over unreachable REJECTs (#755 review).
     if (card.status === 'rejected' || card.allRejected) {
       this.occurrenceStore.resetSignals(occurrences, runId);
       return;
@@ -240,6 +240,23 @@ export class GalleryCardActionsService {
           : `${t.symbol} paper send failed: ${msg}`;
         this.snackBar.open(friendly, 'Dismiss', { duration: 5000 });
       }
+    });
+  }
+
+  /** Requeue: regenerate the failed card's terminal ticket to STAGED —
+   *  the card returns to pending and Trade reopens the ticket for
+   *  resubmission. The patch mints a fresh refId (RH burns a terminal
+   *  order's refId, #717) via the shared requeueTicketPatch. */
+  async requeueCard(card: GalleryCard): Promise<void> {
+    if (!this.isActionableRun() || !canRequeueCard(card)) return;
+    if (this._busyKeys().has(card.key)) return;
+    const ticket = findCardTickets(card, this.actionContext()).find(
+      (t) => t.status === OrderTicketStatus.FAILED || t.status === OrderTicketStatus.CANCELLED,
+    );
+    if (!ticket) return;
+    await this.withBusy(card.key, async () => {
+      const ok = await this.ticketStore.updateTicketAndWait(ticket.id, requeueTicketPatch());
+      if (ok) this.snackBar.open(`${card.symbol} moved to staged`, 'Dismiss', { duration: 3000 });
     });
   }
 

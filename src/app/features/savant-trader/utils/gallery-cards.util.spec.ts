@@ -5,22 +5,22 @@
  * timeframe/direction/list filtering, and dimension grouping (#783).
  */
 import {
+  actionedGalleryCards,
   buildGalleryCards,
   filterGalleryCards,
   groupGalleryCards,
   retainGalleryCards,
-  sunkGalleryGroup,
   GalleryActionContext,
   GalleryCardStatus,
   GalleryFilter,
   GalleryListContext,
-  SUNK_GROUP_KEY,
 } from './gallery-cards.util';
 import {
   canRejectCard,
+  canRequeueCard,
   canTradeCard,
   enrichGalleryCards,
-  isSunkCard,
+  isActionedCard,
 } from './gallery-card-actions.util';
 import { StOccurrenceDecision, StSignalItem, StSymbolProfile } from '../services/types';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
@@ -262,7 +262,7 @@ describe('groupGalleryCards (#783) — mirrors signal-review buildSymbolGroups',
   });
 });
 
-describe('action context (#755) — reject trim, status derivation, sunk model', () => {
+describe('action context (#755) — reject trim, status derivation, actioned model', () => {
   function decision(
     symbol: string,
     signalType: string,
@@ -319,7 +319,6 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
     runId: RUN_ID,
     decisions: {},
     ticketsBySymbol: {},
-    monitorSymbols: new Set(),
   };
 
   function ctx(over: Partial<GalleryActionContext>): GalleryActionContext {
@@ -359,7 +358,7 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
       expect(tsla.occurrences).toHaveLength(1);
       const [enriched] = enrichGalleryCards([tsla], ctx({ decisions }));
       expect(enriched.status).toBe('rejected');
-      expect(isSunkCard(enriched)).toBe(true);
+      expect(isActionedCard(enriched)).toBe(true);
     });
 
     it('does not trim occurrences with ACCEPT decisions', () => {
@@ -378,7 +377,7 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
       { AAPL: [signal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)] },
     );
 
-    it('pending when no ticket and not watched', () => {
+    it('pending when no ticket', () => {
       const [c] = enrichGalleryCards(cards, noActions);
       expect(c.status).toBe('pending');
       expect(c.ticket).toBeUndefined();
@@ -405,27 +404,13 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
       }
     });
 
-    it('watched when the symbol is in MONITOR, and it wins over a resting ticket', () => {
-      const [c] = enrichGalleryCards(
-        cards,
-        ctx({
-          monitorSymbols: new Set(['AAPL']),
-          ticketsBySymbol: { AAPL: [ticket('AAPL', 'buy', OrderTicketStatus.RESTING)] },
-        }),
-      );
-      expect(c.status).toBe('watched');
-    });
-
-    it('watched + all-rejected: status stays watched but allRejected is set — untradeable, restorable (#755 review)', () => {
+    it('all-rejected card derives rejected — untradeable, restorable (#755 review)', () => {
       const reject = decision('AAPL', 'RS_RISE', ReviewDecision.REJECT);
       const [c] = enrichGalleryCards(
         filterGalleryCards(cards, allFilter, noLists, ctx({ decisions: { [reject.id]: reject } })),
-        ctx({
-          decisions: { [reject.id]: reject },
-          monitorSymbols: new Set(['AAPL']),
-        }),
+        ctx({ decisions: { [reject.id]: reject } }),
       );
-      expect(c.status).toBe('watched'); // Monitor precedence is the AC
+      expect(c.status).toBe('rejected');
       expect(c.allRejected).toBe(true);
       expect(canTradeCard(c)).toBe(false);
       expect(canRejectCard(c)).toBe(true); // Restore stays reachable
@@ -694,7 +679,7 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
     });
   });
 
-  describe('sunk model', () => {
+  describe('actioned model', () => {
     function cardWith(status: GalleryCardStatus, actionedAt = '') {
       const [c] = enrichGalleryCards(
         buildGalleryCards([profile('X')], { X: [signal('X', SignalTimeframe.DAILY, SignalDirection.LONG)] }),
@@ -703,24 +688,40 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
       return { ...c, status, actionedAt };
     }
 
-    it('isSunkCard: watched/settled/failed/rejected sink; pending/submitting/resting stay', () => {
-      expect(isSunkCard(cardWith('watched'))).toBe(true);
-      expect(isSunkCard(cardWith('settled'))).toBe(true);
-      expect(isSunkCard(cardWith('failed'))).toBe(true);
-      expect(isSunkCard(cardWith('rejected'))).toBe(true);
-      expect(isSunkCard(cardWith('pending'))).toBe(false);
-      expect(isSunkCard(cardWith('submitting'))).toBe(false);
-      expect(isSunkCard(cardWith('resting'))).toBe(false);
+    it('isActionedCard: settled/failed/rejected collect; pending/submitting/resting stay', () => {
+      expect(isActionedCard(cardWith('settled'))).toBe(true);
+      expect(isActionedCard(cardWith('failed'))).toBe(true);
+      expect(isActionedCard(cardWith('rejected'))).toBe(true);
+      expect(isActionedCard(cardWith('pending'))).toBe(false);
+      expect(isActionedCard(cardWith('submitting'))).toBe(false);
+      expect(isActionedCard(cardWith('resting'))).toBe(false);
     });
 
-    it('sunkGalleryGroup orders by actionedAt desc with untimestamped cards last', () => {
-      const group = sunkGalleryGroup([
-        cardWith('watched'),
+    it('actionedGalleryCards orders by actionedAt desc with untimestamped cards last', () => {
+      const cards = actionedGalleryCards([
+        cardWith('rejected'),
         cardWith('settled', '2026-08-26T00:00:00Z'),
         cardWith('failed', '2026-08-27T00:00:00Z'),
       ]);
-      expect(group.key).toBe(SUNK_GROUP_KEY);
-      expect(group.cards.map((c) => c.status)).toEqual(['failed', 'settled', 'watched']);
+      expect(cards.map((c) => c.status)).toEqual(['failed', 'settled', 'rejected']);
+    });
+
+    it('each actioned status exposes only its own exit', () => {
+      // rejected → Restore (the Reject button's toggle label)
+      const rejected = cardWith('rejected');
+      expect(canRejectCard(rejected)).toBe(true);
+      expect(canRequeueCard(rejected)).toBe(false);
+      expect(canTradeCard(rejected)).toBe(false);
+      // failed → Requeue or Reject
+      const failed = cardWith('failed');
+      expect(canRequeueCard(failed)).toBe(true);
+      expect(canRejectCard(failed)).toBe(true);
+      expect(canTradeCard(failed)).toBe(false);
+      // settled → terminal, no exit
+      const settled = cardWith('settled');
+      expect(canRequeueCard(settled)).toBe(false);
+      expect(canRejectCard(settled)).toBe(false);
+      expect(canTradeCard(settled)).toBe(false);
     });
   });
 
@@ -769,7 +770,7 @@ describe('action context (#755) — reject trim, status derivation, sunk model',
 
 describe('retainGalleryCards — identity retention across pipeline rebuilds', () => {
   const actions: GalleryActionContext = {
-    runId: RUN_ID, decisions: {}, ticketsBySymbol: {}, monitorSymbols: new Set(),
+    runId: RUN_ID, decisions: {}, ticketsBySymbol: {},
   };
   const profiles = [
     profile('AAPL', { sector: 'Tech', marketCap: 100 }),
@@ -799,7 +800,7 @@ describe('retainGalleryCards — identity retention across pipeline rebuilds', (
   });
 
   it('emits a new object for the card whose ticket/status changed', () => {
-    const ctx = { runId: RUN_ID, decisions: {}, ticketsBySymbol: {}, monitorSymbols: new Set<string>() };
+    const ctx = { runId: RUN_ID, decisions: {}, ticketsBySymbol: {} };
     const prev = enrichGalleryCards(
       filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, ctx),
       ctx,
