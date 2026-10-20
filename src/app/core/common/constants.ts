@@ -235,28 +235,23 @@ export enum Collection {
   APP = 'app',
   POSITIONS = 'positions',
   SYMBOL_DATA = 'symbol-data',
-  /** @deprecated Decisions fold into st-order-tickets (#984); removed in #1013. */
+  /** @deprecated Decisions fold into st-order-tickets (#984); FE removal in #1017. */
   ST_OCCURRENCE_DECISIONS = 'savant-trader/data/occurrence-decisions',
-  /** @deprecated Being removed entirely in #984 — do not write new consumers. */
+  /** @deprecated Being removed entirely in #984 — FE removal in #1016. */
   ST_REVIEW_LIST = 'savant-trader/data/review-list',
-  /** @deprecated Use @st/collections ST_SYMBOL_LISTS_ROOT (#984); removed in #1013. */
-  ST_SYMBOL_LISTS = 'savant-trader/data/symbol-lists',
-  /** @deprecated Use @st/collections ST_SYMBOLS_ROOT (#984); removed in #1013. */
+  /** @deprecated Use @st/collections ST_SYMBOLS_ROOT (#984); still bound by
+   *  signal.service run-ids/signal-history reads — removed in #1019. */
   ST_SYMBOLS = 'savant-trader/data/symbols',
-  /** @deprecated Meta fields merge into st-symbols docs (#984); removed in #1013. */
-  ST_SYMBOL_META = 'savant-trader/data/symbol-meta',
-  /** @deprecated Use @st/collections ST_RUNS_ROOT (#984); removed in #1013. */
+  /** @deprecated Use @st/collections ST_RUNS_ROOT ('st-runs') once the BE
+   *  populates it — no runs migration task exists yet; nothing writes
+   *  st-runs today (#984 blueprint gap). */
   ST_RUNS = 'savant-trader/data/runs',
-  /** @deprecated Use @st/collections ST_ORDER_TICKETS_ROOT (#984); removed in #1013. */
+  /** @deprecated Use @st/collections ST_ORDER_TICKETS_ROOT (#984); FE re-point in #1015. */
   ST_ORDER_INTENTS = 'savant-trader/data/order-intents',
   /** Screenshot-capture index — backend-written, FE read-only (#846). */
   ST_SCREENSHOTS = 'st-screenshots',
-  /** @deprecated Use @st/collections ST_CONFIG_ROOT (#984); removed in #1013. */
-  ST_TRADING_CONFIG = 'savant-trader/data/trading-config',
   SPREAD_RUNS = 'spread-runs',
   SPREAD_LISTS = 'spread-lists',
-  /** @deprecated Instances move to st-strategy-instances (#984); removed in #1013. */
-  PAPER_TRADING_INSTANCES = 'paper-trading/instances/items',
 }
 
 /** Known subcollection names under a user document. */
