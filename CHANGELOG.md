@@ -1318,3 +1318,8 @@
 
 ### Changed
 - [Spread Time Series Viewer] 77-80_CHORE-CHORE-SPREAD-VIEWER: Remove @topic tags after ship
+- [Paper Trading Infra] 553-1083_SHARED-IMPL-PAPER-TRADING: FetchDatasetCsvRequest/Response + chunk doc contract for the workbench read path
+- [Paper Trading Infra] 553-1083_BE-IMPL-PAPER-TRADING: Firestore chunk mirror in dataset-writer (items/{id}/chunks/{i}, ~400KB batched) + fetchDatasetCsv callable (pre-migration fallback); deployed 2026-10-20
+- [Paper Trading Infra] 553-1083_FE-IMPL-PAPER-TRADING: manifest-driven workbench table — 46-col grid, #1067 sort chain, per-kind filters via lazy per-column filter_list menu, chips/count/reset, column picker, include-open quarantine toggle; store chained computeds; Firestore chunk read; page height bound + dataset-grid scroll region; QA remediations (lazy filter menu, content-visibility rows, card fixes)
+- [Paper Trading Infra] 553-1083_CONFIG-PAPER-TRADING: bucket CORS for localhost + prod origins (applied to rel-str.appspot.com)
+- [Paper Trading Infra] 553-1083_DOCS-PAPER-TRADING: #1083 CODE-REVIEW (PASS, 3 passes) + #1147 UAT (Complete — 8/8 scenarios on the real AMAT trailing-8 dataset)

@@ -56,6 +56,18 @@ The analysis surface (PRD US3–US7): new `trading/analysis` route beside `tradi
 - Open-row quarantine: `status` column badge; analysis views default to `status=CLOSED`/`analysisCohort='signal-equity'`, opt-in "include open/provisional" toggle with a visible banner.
 - Column cells typed via manifest kind (mono for numbers, chips for enums) — the table is generic enough to reuse on `trading/paper` later (PRD concept item 5 — not wired now).
 
+**As-built (#1083):** `components/analysis-table/` — input-driven (no store
+dep): rows/universeRows/columns/sorts/filters/includeOpenRows in,
+sortToggled/filtersChanged/includeOpenRowsChanged out. String-kind columns
+filter via distinct-value multiselect ('in' op; SliceFilter has no
+contains op). Quarantine lives in the store as `includeOpenRows` (default
+false) — `isClosedCohortRow` = analysisCohort='signal-equity' ∧
+status='CLOSED' applied before user filters so table + future stats share
+the cohort; toggle reveals provisional rows (italic row + status chip) with
+a banner; hiddenRowCount badges the toggle. Store also gained setFilters
+(chain replace for table-driven edits) and viewRows/hiddenRowCount
+computeds.
+
 ## 4. Analysis views — filtered subset, live recompute
 
 - **Histogram** (`ejs-chart` column series): `tradeRetPct` bins w/ adjustable width, win/loss coloring, mean/median markers, optional second-cohort overlay.
