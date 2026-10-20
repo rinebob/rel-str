@@ -2,7 +2,7 @@
  * @topic #984 — ST Firestore Reorg (task #998)
  *
  * Pins the canonical StStrategyInstance shape (st-strategy-instances/{id}) —
- * StrategyInstanceConfig extended with mode/enabled/lastFiredAt — consumed
+ * StrategyInstanceConfig extended with mode/enabled/lastFiredAt/deletedAt — consumed
  * via `@st/strategy-instances`.
  */
 import { StStrategyInstance } from './st-strategy-instances';

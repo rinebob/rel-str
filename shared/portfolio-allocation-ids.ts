@@ -29,10 +29,12 @@
  *    frees a doc id, so a slug once minted is occupied permanently.
  */
 
-/** Collection PATH of AllocationBucket docs under the `portfolio` root. */
+/** Collection PATH of AllocationBucket docs under the `portfolio` root.
+ *  @deprecated Legacy root — superseded by st-portfolio (#1014); removed in #1013. */
 export const PORTFOLIO_BUCKETS_COLLECTION = 'portfolio/buckets/items';
 
-/** Collection PATH of PositionAttribution docs under the `portfolio` root. */
+/** Collection PATH of PositionAttribution docs under the `portfolio` root.
+ *  @deprecated Legacy root — superseded by st-portfolio (#1014); removed in #1013. */
 export const PORTFOLIO_ATTRIBUTIONS_COLLECTION = 'portfolio/attributions/items';
 
 const ACCOUNT_NUMBER_RE = /^[A-Za-z0-9]+$/;

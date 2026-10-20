@@ -27,4 +27,6 @@ export interface StStrategyInstance extends StrategyInstanceConfig {
   enabled: boolean;
   /** ISO of the last pass that fired this instance. */
   lastFiredAt?: string;
+  /** ISO of the soft-delete stamp written by StrategyBuilderService.deleteInstance. */
+  deletedAt?: string;
 }
