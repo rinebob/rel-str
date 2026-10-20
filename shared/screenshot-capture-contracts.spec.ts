@@ -33,9 +33,13 @@ describe('screenshot-capture contracts', () => {
   });
 
   describe('PositionType', () => {
-    it('is limited to stock in this thread', () => {
-      expect(PositionType.STOCK).toBe('stock');
-      expect(Object.values(PositionType)).toEqual(['stock']);
+    it('carries every supported path-safe instrument class', () => {
+      expect(Object.values(PositionType)).toEqual([
+        'stock',
+        'vertical-debit-spread',
+        'calendar',
+        'option-single',
+      ]);
     });
   });
 
