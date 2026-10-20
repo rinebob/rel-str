@@ -134,6 +134,15 @@
 - [ST Firestore Reorg] 984-1011_DOCS-DATA-PIPELINE: #1011 CODE-REVIEW (PASS, 2 rounds — majors remediated: per-leg doc state on the dual-root write, FE list-key parity, audit multi-NEW crash; round-2 false-positive major rejected with evidence) + #1150 UAT (Complete — 7/7 scenarios, prod 0 unlisted, audit 0 FAIL/0 WARN)
 - [ST Firestore Reorg] 984-1012_BE-IMPL-DATA-PIPELINE: firestore.rules + indexes for all 13 canonical st-* roots — legacy-parity policies (user-scoped CRUD tickets/instances/lists, read-only backend roots, st-config status/autoPaper-vs-{uid} split, portfolio get/list probe split, archive-only backtest updates) + 17 composites covering the AC tuples AND the absorbed legacy query surface (signal-history/signals/run-ids → st-signals, occurrence-decisions fold → tickets, listTradesBySignal → items); 13-spec content gate incl. direction/arrayConfig assertions
 - [ST Firestore Reorg] 984-1012_DOCS-DOCS-DATA-PIPELINE: #1012 CODE-REVIEW (PASS, 1 round — direction-assertion gap remediated in spec) + #1153 UAT (Complete — 37/37 live emulator rule-enforcement probes; unauthed deny, cross-user deny, singleton write-lock, bare-list escape, archive-only diff, missing-doc probe, default-deny catch-all)
+- [ST Firestore Reorg] 984-1014_SHARED-IMPL-DATA-PIPELINE: StStrategyInstance gains deletedAt (covers deleteInstance soft-delete write) + @deprecated on PORTFOLIO_* path constants (pinned until #1013)
+- [ST Firestore Reorg] 984-1014_FE-IMPL-DATA-PIPELINE: symbol-list services → st-symbol-lists — all list CRUD/membership/rekey via ST_SYMBOL_LISTS_ROOT, same doc IDs/query shapes
+- [ST Firestore Reorg] 984-1014_FE-IMPL-DATA-PIPELINE: strategy-builder → st-strategy-instances — InstanceInput/payload re-typed on canonical StStrategyInstance (mode:StMode compile-pinned), kind dropped, dead PaperStrategyInstance casts removed
+- [ST Firestore Reorg] 984-1014_FE-IMPL-DATA-PIPELINE: portfolio services → st-portfolio — allocation buckets + position attributions via stPortfolioItemsPath(BUCKET|ATTRIBUTION)
+- [ST Firestore Reorg] 984-1014_FE-IMPL-DATA-PIPELINE: backtest readers → ST_BACKTEST_RUNS_ROOT + ST_BACKTEST_PERMUTATIONS_ROOT
+- [ST Firestore Reorg] 984-1014_FE-IMPL-DATA-PIPELINE: trading-config → stConfigDocPath(uid) = st-config/{uid}
+- [ST Firestore Reorg] 984-1014_FE-IMPL-DATA-PIPELINE: Collection enum pruned (ST_SYMBOL_LISTS/ST_SYMBOL_META/ST_TRADING_CONFIG/PAPER_TRADING_INSTANCES removed; ST_RUNS/ST_ORDER_INTENTS/ST_REVIEW_LIST/ST_OCCURRENCE_DECISIONS/ST_SYMBOLS retained @deprecated for #1015-#1019/#1159) + st-path-cutover-1014 spec — pin assertions + fs grep-scan asserting zero legacy literals in src/app
+- [ST Firestore Reorg] 984-1014_FE-CHORE-DATA-PIPELINE: dead-code removal — symbol-meta.service.ts (zero callers, retired collection), orphaned chunkArray/getDocData/CreatedAtDoc helpers, dead SymbolType
+- [ST Firestore Reorg] 984-1014_DOCS-DATA-PIPELINE: #1014 CODE-REVIEW (PASS, 2 rounds — majors remediated) + #1157 UAT (Complete — prod-probe verified populated roots, caught empty st-runs/st-symbols → deferred to #1159; analysis anchors → #1160; grep-scan green)
 
 
 ## [2026-10-17]
