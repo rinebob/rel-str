@@ -74,6 +74,24 @@ computeds.
 - **Scatter** (`ejs-chart` scatter): x/y/color pickers over any manifest column, jitter toggle for discrete x, point hover → tradeId.
 - **Stats block**: count, %profitable, avg/median return, avg win/loss, payoff, profit factor, expectancy, max consecutive W/L, avg daysHeld, avg MFE/MAE, giveback — plus per-`signalType` breakdown table. All derived from `filteredRows` via computeds; `analysisCohort='excluded'` rows never enter stats.
 
+**As-built (#1084):** `utils/analysis-stats.util.ts` carries the pure math —
+`computeAnalysisStats` (metrics above; max-consecutive ordered by entryDate;
+PF = Infinity on all-wins, null on all-losses), `histogramBins` (edges on
+multiples of width → each bin wholly win- or loss-side), `scatterPoints`
+(null-axis omission, tradeId passthrough). Three input-driven components
+under `components/analysis-views/` (stats / histogram / scatter), mounted in
+the workbench header's view-switcher (table | stats | histogram | scatter),
+all consuming `store.filteredRows()`. The histogram's second-cohort overlay
+is `baselineRows` ← `store.viewRows()` — the full quarantined set drawn
+faint behind the filtered bins, toggleable ("overlay full set"). Scatter
+defaults to daysHeld × tradeRetPct; color split capped at 12 groups;
+jitter toggle only appears when distinct x ≤ 20 (deterministic 7919-hash
+offset ≤ 0.6 × min gap). Syncfusion feature services must be component
+providers (`ColumnSeriesService`/`ScatterSeriesService`/`LegendService`/
+`TooltipService`/`StripLineService`) — without them ejs-chart renders an
+empty shell; specs strip ChartModule via overrideComponent + NO_ERRORS_SCHEMA
+and assert on the computeds.
+
 ## 5. Slices + compare
 
 - "Save as slice" → serialize current filters → `analysisSlicesPath()` doc; slice list on library + workbench.
