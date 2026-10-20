@@ -9,8 +9,8 @@
  * - Throws `RobinhoodMcpError` on failure
  *
  * Quote methods (`getEquityQuotes`, `getOptionQuotes`) handle batching
- * internally — deduplicate symbols, split into ~20-symbol chunks, parallel
- * fetch, merge into one map.
+ * internally — deduplicate symbols, split into ~20-symbol chunks, ride the
+ * /batch endpoint in BATCH_CALLS_LIMIT groups, merge into one map.
  */
 
 import { Injectable, inject } from '@angular/core';
@@ -35,10 +35,23 @@ import {
   PnlTradeSpan,
   RobinhoodMcpError,
 } from './types/robinhood-mcp.types';
-import { ToolExecutionErrorCategory, type ToolExecutionResult } from '@robinhood-mcp/contracts';
+import {
+  ToolExecutionErrorCategory,
+  type PreviewScanResponse,
+  type PreviewScanResult,
+  type ScanAppliedFilter,
+  type ScanExpressionFilter,
+  type ScanResultRow,
+  type ToolExecutionResult,
+} from '@robinhood-mcp/contracts';
+import { chunkSymbols, isExpressionFilter, type ScanRecipe } from '@st/scanner';
 
 /** Maximum symbols per quote batch call (above 20, closes are omitted). */
 const QUOTE_BATCH_SIZE = 20;
+
+/** Symbols per preview_scan scope chunk — keeps the /batch request count
+ *  under the 20-call cap for the ~925-symbol tracked universe. */
+const UNIVERSE_SCOPE_CHUNK = 150;
 
 /** Maximum tool calls per /batch request — mirrors the API's own cap. */
 const BATCH_CALLS_LIMIT = 20;
@@ -57,6 +70,26 @@ export interface ToolSpec<T> {
   tool: string;
   args?: Record<string, unknown>;
   parse: (result: ToolExecutionResult) => T;
+}
+
+/** One preview_scan run — parsed out of `data.result` (#1098). */
+export interface ScanRunResult {
+  totalItems: number;
+  rows: ScanResultRow[];
+  /** Parsed echo of each applied filter — feeds buildColumnLookup. */
+  filtersApplied: ScanAppliedFilter[];
+  /** Display string, e.g. 'Last desc'. */
+  sortedBy?: string;
+}
+
+/** evaluateUniverse outcome — rows deduped by ticker, plus the symbols
+ *  whose chunk rejected (the caller reports them as unevaluated). */
+export interface UniverseEvalResult {
+  rows: ScanResultRow[];
+  unevaluated: string[];
+  /** filters_applied echo from the first fulfilled chunk with a
+   *  non-empty echo (an empty echo lets a later chunk's win). */
+  filtersApplied: ScanAppliedFilter[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -445,6 +478,131 @@ export class RobinhoodMcpClient {
       })),
       nextCursor: String(data['next_cursor'] ?? ''),
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scanner — preview_scan (#1098)
+  // ---------------------------------------------------------------------------
+
+  async previewScan(recipe: ScanRecipe): Promise<ScanRunResult> {
+    return this.run(this.previewScanSpec(recipe));
+  }
+
+  previewScanSpec(recipe: ScanRecipe): ToolSpec<ScanRunResult> {
+    return {
+      tool: 'preview_scan',
+      args: { filters: recipe.filters, columns: recipe.columns },
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'preview_scan', result.category);
+        }
+        const r = this.parseScanResult(result.parsed);
+        return {
+          totalItems: r.total_items,
+          rows: r.results,
+          filtersApplied: Array.isArray(r.filters_applied) ? r.filters_applied : [],
+          ...(typeof r.sorted_by === 'string' && r.sorted_by ? { sortedBy: r.sorted_by } : {}),
+        };
+      },
+    };
+  }
+
+  /** Parse the `data.result` payload off a preview_scan response. Throws
+   *  on a missing/malformed result — an absent `data.result` is wire
+   *  drift, not "zero matches" (a legitimately empty scan is
+   *  `results: []`). */
+  private parseScanResult(parsed: unknown): PreviewScanResult {
+    const r = (parsed as Partial<PreviewScanResponse> | undefined)?.data?.result;
+    if (
+      !r ||
+      !Array.isArray(r.results) ||
+      typeof r.total_items !== 'number' ||
+      !r.results.every((row) => !!row && typeof row === 'object')
+    ) {
+      throw new RobinhoodMcpError(
+        'preview_scan response missing data.result shape',
+        'preview_scan',
+        ToolExecutionErrorCategory.MCP,
+      );
+    }
+    return r;
+  }
+
+  /** Symbol-scoped variant of a recipe — the chunk's ANY_OF scope replaces
+   *  any baked-in symbol scope in the recipe's filters. */
+  evaluateUniverseSpec(recipe: ScanRecipe, symbols: string[]): ToolSpec<PreviewScanResult> {
+    const filters = recipe.filters.filter(
+      (f) =>
+        !(
+          isExpressionFilter(f) &&
+          typeof f.expression === 'string' &&
+          f.expression.trim().toLowerCase() === 'symbol'
+        ),
+    );
+    const scope: ScanExpressionFilter = {
+      expression: 'symbol',
+      predicate: 'ANY_OF',
+      values: symbols,
+    };
+    return {
+      tool: 'preview_scan',
+      args: { filters: [...filters, scope], columns: recipe.columns },
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'preview_scan', result.category);
+        }
+        return this.parseScanResult(result.parsed);
+      },
+    };
+  }
+
+  /**
+   * Evaluate the recipe against the tracked universe: symbols chunk at
+   * UNIVERSE_SCOPE_CHUNK per scope call, all chunks ride one /batch
+   * request per BATCH_CALLS_LIMIT group. A rejected chunk isolates to its
+   * own symbols — they come back in `unevaluated`, not as a failed run.
+   * A batch-level transport failure rejects the whole call — degraded
+   * sessions must surface as errors, never a silent empty result.
+   */
+  async evaluateUniverse(recipe: ScanRecipe, symbols: string[]): Promise<UniverseEvalResult> {
+    // Sanitize like batchQuotes — trims, drops empties, dedupes before
+    // chunking so a duped input can't double-count or double-report.
+    const unique = [...new Set(symbols.map((s) => s.trim()).filter((s) => s.length > 0))];
+    if (unique.length === 0) return { rows: [], unevaluated: [], filtersApplied: [] };
+
+    const chunks = chunkSymbols(unique, UNIVERSE_SCOPE_CHUNK);
+    const settled: PromiseSettledResult<PreviewScanResult>[] = [];
+    for (let i = 0; i < chunks.length; i += BATCH_CALLS_LIMIT) {
+      const group = chunks.slice(i, i + BATCH_CALLS_LIMIT);
+      settled.push(
+        ...(await this.executeBatch(
+          group.map((chunk) => this.evaluateUniverseSpec(recipe, chunk)),
+        )),
+      );
+    }
+
+    const rows: ScanResultRow[] = [];
+    const seen = new Set<string>();
+    const unevaluated: string[] = [];
+    let filtersApplied: ScanAppliedFilter[] = [];
+    chunks.forEach((chunk, i) => {
+      const s = settled[i];
+      if (s.status === 'fulfilled') {
+        if (filtersApplied.length === 0 && Array.isArray(s.value.filters_applied)) {
+          filtersApplied = s.value.filters_applied;
+        }
+        for (const row of s.value.results) {
+          const ticker = typeof row.ticker === 'string' ? row.ticker.trim() : '';
+          if (ticker && !seen.has(ticker)) {
+            seen.add(ticker);
+            rows.push(row);
+          }
+        }
+      } else {
+        unevaluated.push(...chunk);
+      }
+    });
+    return { rows, unevaluated, filtersApplied };
   }
 
   // ---------------------------------------------------------------------------

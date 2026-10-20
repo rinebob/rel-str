@@ -18,6 +18,7 @@ import {
   RobinhoodMcpError,
 } from './types/robinhood-mcp.types';
 import { ToolExecutionErrorCategory, type ToolExecutionResult } from '@robinhood-mcp/contracts';
+import type { ScanRecipe } from '@st/scanner';
 
 describe('RobinhoodMcpClient', () => {
   let client: RobinhoodMcpClient;
@@ -1611,6 +1612,265 @@ describe('RobinhoodMcpClient', () => {
       const calls = mcp.executeTools.calls.mostRecent().args[0] as { tool: string; args: Record<string, unknown> }[];
       expect(calls[0]).toEqual({ tool: 'get_equity_orders', args: { account_number: '222', state: 'filled' } });
       expect(calls[1]).toEqual({ tool: 'get_option_orders', args: { account_number: '222' } });
+    });
+  });
+
+  // ===========================================================================
+  // Scanner — preview_scan (#1136)
+  // ===========================================================================
+
+  describe('scanner', () => {
+    const recipe = {
+      id: 'quality-mega',
+      title: 'Quality — Mega Cap',
+      blurb: 'x',
+      filters: [
+        {
+          expression: 'roe',
+          predicate: 'PREDICATE_GREATER_THAN',
+          values: ['0.15'],
+        },
+      ],
+      columns: [{ display_name: 'ROE', expression: 'roe' }],
+    } satisfies ScanRecipe;
+
+    // Wire row shape from dep-prev-scan-01.json — all values stringified.
+    const wireRow = (ticker: string) => ({
+      ticker,
+      instrument_id: `id-${ticker}`,
+      instrument_type: 'EQUITY',
+      columns: { Symbol: ticker, Name: ticker, 'Return on equity': '0.2' },
+    });
+
+    const scanPayload = (total: number, tickers: string[]): ToolExecutionResult => ({
+      success: true,
+      parsed: {
+        data: {
+          result: {
+            total_items: total,
+            results: tickers.map(wireRow),
+          },
+        },
+      },
+      redacted: {},
+      tool: 'preview_scan',
+    });
+
+    it('previewScan parses data.result → { totalItems, rows }', async () => {
+      mockResolve(scanPayload(2, ['BRK.A', 'NVR']));
+
+      const result = await client.previewScan(recipe);
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('preview_scan', {
+        args: { filters: recipe.filters, columns: recipe.columns },
+      });
+      expect(result.totalItems).toBe(2);
+      expect(result.rows.map((r) => r.ticker)).toEqual(['BRK.A', 'NVR']);
+      expect(result.rows[0].columns['Return on equity']).toBe('0.2');
+    });
+
+    it('previewScan throws RobinhoodMcpError on a failed result', async () => {
+      mockFailure('scanner down');
+
+      await expect(client.previewScan(recipe)).rejects.toBeInstanceOf(RobinhoodMcpError);
+    });
+
+    it('previewScan throws on a success result missing data.result — never a silent empty table', async () => {
+      mockResolve({ success: true, parsed: { data: {} }, redacted: {}, tool: 'preview_scan' });
+
+      await expect(client.previewScan(recipe)).rejects.toThrow('missing data.result');
+    });
+
+    it('previewScan throws on element-level drift — a null row must not reach aggregation', async () => {
+      mockResolve({
+        success: true,
+        parsed: { data: { result: { total_items: 1, results: [null] } } },
+        redacted: {},
+        tool: 'preview_scan',
+      });
+
+      await expect(client.previewScan(recipe)).rejects.toBeInstanceOf(RobinhoodMcpError);
+    });
+
+    it('previewScan surfaces filters_applied + sorted_by', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            result: {
+              total_items: 1,
+              results: [wireRow('AAPL')],
+              sorted_by: 'Last desc',
+              filters_applied: [
+                {
+                  filter_type: 'Return on equity',
+                  filter_type_enum: 'FILTER_TYPE_CUSTOM',
+                  predicate: 'PREDICATE_GREATER_THAN',
+                  values: ['0.15'],
+                  expression: 'roe',
+                },
+              ],
+            },
+          },
+        },
+        redacted: {},
+        tool: 'preview_scan',
+      });
+
+      const result = await client.previewScan(recipe);
+      expect(result.sortedBy).toBe('Last desc');
+      expect(result.filtersApplied[0].expression).toBe('roe');
+    });
+
+    it('evaluateUniverse chunks symbols ≤150/call over ONE /batch request', async () => {
+      const symbols = Array.from({ length: 160 }, (_, i) => `S${i}`);
+      mockBatchResolve(scanPayload(1, ['AAPL']));
+
+      const out = await client.evaluateUniverse(recipe, symbols);
+
+      expect(mcp.executeTools).toHaveBeenCalledTimes(1);
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as {
+        tool: string;
+        args: { filters: { expression?: string; predicate?: string; values?: string[] }[] };
+      }[];
+      expect(calls).toHaveLength(2);
+      // The scope filter is appended as a symbol ANY_OF expression.
+      const scope0 = calls[0].args.filters.at(-1)!;
+      expect(scope0.expression).toBe('symbol');
+      expect(scope0.predicate).toBe('ANY_OF');
+      expect(scope0.values).toHaveLength(150);
+      const scope1 = calls[1].args.filters.at(-1)!;
+      expect(scope1.values).toEqual(['S150', 'S151', 'S152', 'S153', 'S154', 'S155', 'S156', 'S157', 'S158', 'S159']);
+      // Recipe filters survive ahead of the scope.
+      expect(calls[0].args.filters[0].expression).toBe('roe');
+      // Both chunks returned 'AAPL' — dedupe by ticker collapses to one row.
+      expect(out.rows.map((r) => r.ticker)).toEqual(['AAPL']);
+      expect(out.unevaluated).toEqual([]);
+    });
+
+    it('evaluateUniverse replaces a baked-in symbol scope rather than stacking it', async () => {
+      const scoped = {
+        ...recipe,
+        filters: [
+          ...recipe.filters,
+          { expression: 'symbol', predicate: 'ANY_OF', values: ['OLD1', 'OLD2'] },
+        ],
+      };
+      mockBatchResolve(scanPayload(1, ['AAPL']));
+
+      await client.evaluateUniverse(scoped, ['AAA', 'BBB']);
+
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as {
+        args: { filters: { expression?: string; values?: string[] }[] };
+      }[];
+      const scopes = calls[0].args.filters.filter((f) => f.expression === 'symbol');
+      expect(scopes).toHaveLength(1);
+      expect(scopes[0].values).toEqual(['AAA', 'BBB']);
+    });
+
+    it('evaluateUniverse isolates a rejected chunk — its symbols land in unevaluated', async () => {
+      const symbols = Array.from({ length: 160 }, (_, i) => `S${i}`);
+      let callIdx = 0;
+      mockBatchDispatch((call) => {
+        callIdx += 1;
+        // Reject only the second chunk's slot.
+        return callIdx === 2
+          ? { success: false, error: 'chunk blew up', category: ToolExecutionErrorCategory.MCP }
+          : { ...scanPayload(1, ['AAPL']), tool: call.tool };
+      });
+
+      const out = await client.evaluateUniverse(recipe, symbols);
+
+      expect(out.rows.map((r) => r.ticker)).toEqual(['AAPL']);
+      expect(out.unevaluated).toEqual(symbols.slice(150));
+    });
+
+    it('evaluateUniverse dedupes duplicate tickers within a response (cross-chunk covered by the 160-symbol spec)', async () => {
+      mockBatchResolve(scanPayload(2, ['AAPL', 'AAPL']));
+
+      const out = await client.evaluateUniverse(recipe, ['AAA', 'BBB']);
+
+      expect(out.rows.map((r) => r.ticker)).toEqual(['AAPL']);
+    });
+
+    it('evaluateUniverse with an empty universe makes no calls', async () => {
+      const out = await client.evaluateUniverse(recipe, []);
+
+      expect(out).toEqual({ rows: [], unevaluated: [], filtersApplied: [] });
+      expect(mcp.executeTools).not.toHaveBeenCalled();
+    });
+
+    it('evaluateUniverse propagates a batch-level transport failure', async () => {
+      mcp.executeTools.and.callFake(() => Promise.reject(new Error('HTTP 503')));
+
+      await expect(client.evaluateUniverse(recipe, ['A', 'B'])).rejects.toThrow('HTTP 503');
+    });
+
+    it('evaluateUniverse splits >20 chunks into sequential /batch groups', async () => {
+      // 3100 symbols → 21 chunks → two batch requests (20 + 1).
+      const symbols = Array.from({ length: 3100 }, (_, i) => `S${i}`);
+      mockBatchResolve(scanPayload(0, []));
+
+      const out = await client.evaluateUniverse(recipe, symbols);
+
+      expect(mcp.executeTools).toHaveBeenCalledTimes(2);
+      const groups = mcp.executeTools.calls
+        .allArgs()
+        .map((a: unknown[]) => a[0] as { tool: string }[]);
+      expect(groups[0].length).toBe(20);
+      expect(groups[1].length).toBe(1);
+      expect(out.unevaluated).toEqual([]);
+    });
+
+    it('evaluateUniverse surfaces filters_applied from the first fulfilled chunk', async () => {
+      let callIdx = 0;
+      mockBatchDispatch((call) => {
+        callIdx += 1;
+        if (callIdx === 1) {
+          return { success: false, error: 'chunk1 down', category: ToolExecutionErrorCategory.MCP };
+        }
+        return {
+          success: true,
+          parsed: {
+            data: {
+              result: {
+                total_items: 0,
+                results: [],
+                filters_applied: [
+                  {
+                    filter_type: 'ROE',
+                    filter_type_enum: 'FILTER_TYPE_CUSTOM',
+                    predicate: '>',
+                    values: ['0.15'],
+                    expression: 'roe',
+                  },
+                ],
+              },
+            },
+          },
+          redacted: {},
+          tool: call.tool,
+        };
+      });
+
+      const out = await client.evaluateUniverse(recipe, ['A', 'B', ...Array.from({ length: 149 }, (_, i) => `C${i}`)]);
+
+      // First chunk rejected → echo comes from chunk 2.
+      expect(out.filtersApplied[0]?.expression).toBe('roe');
+      expect(out.unevaluated).toHaveLength(150);
+    });
+
+    it('evaluateUniverse sanitizes input — dupes/blanks never reach the wire', async () => {
+      mockBatchResolve(scanPayload(1, ['AAPL']));
+
+      const out = await client.evaluateUniverse(recipe, [' AAPL ', 'AAPL', '', 'MSFT']);
+
+      const calls = mcp.executeTools.calls.mostRecent().args[0] as {
+        args: { filters: { values?: string[] }[] };
+      }[];
+      const scope = calls[0].args.filters.at(-1)!;
+      expect(scope.values).toEqual(['AAPL', 'MSFT']);
+      expect(out.unevaluated).toEqual([]);
     });
   });
 });
