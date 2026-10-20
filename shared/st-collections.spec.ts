@@ -15,6 +15,8 @@ import {
   ST_PORTFOLIO_ROOT,
   ST_POSITION_GROUPS_ROOT,
   ST_RUNS_ROOT,
+  ST_SCANNER_PROPOSALS_ANCHOR,
+  ST_SCANNER_ROOT,
   ST_SIGNALS_ROOT,
   ST_STRATEGY_INSTANCES_ROOT,
   ST_SYMBOL_LISTS_ROOT,
@@ -27,6 +29,8 @@ import {
   stPaperTradingItemsPath,
   stPortfolioDocPath,
   stPortfolioItemsPath,
+  stScannerProposalDocPath,
+  stScannerProposalsPath,
 } from './st-collections';
 import {
   PaperTradingKind,
@@ -50,7 +54,7 @@ const FLAT_ROOTS = [
   ST_BACKTEST_PERMUTATIONS_ROOT,
 ] as const;
 
-const ANCHORED_ROOTS = [ST_PAPER_TRADING_ROOT, ST_PORTFOLIO_ROOT] as const;
+const ANCHORED_ROOTS = [ST_PAPER_TRADING_ROOT, ST_PORTFOLIO_ROOT, ST_SCANNER_ROOT] as const;
 
 describe('st-collections roots', () => {
   it('exposes the canonical flat roots', () => {
@@ -180,5 +184,22 @@ describe('st-portfolio anchored paths', () => {
 
   it('throws for non-member strings (plural anchor is not a kind)', () => {
     expect(() => stPortfolioItemsPath('buckets' as StPortfolioKind)).toThrow(/no anchor/);
+  });
+});
+
+describe('st-scanner anchored paths', () => {
+  it('exposes the root and proposals anchor', () => {
+    expect(ST_SCANNER_ROOT).toBe('st-scanner');
+    expect(ST_SCANNER_PROPOSALS_ANCHOR).toBe('proposals');
+  });
+
+  it('stScannerProposalsPath builds the items collection path (odd segments)', () => {
+    expect(stScannerProposalsPath()).toBe('st-scanner/proposals/items');
+    expect(stScannerProposalsPath().split('/').length % 2).toBe(1);
+  });
+
+  it('stScannerProposalDocPath builds a doc path (even segments)', () => {
+    expect(stScannerProposalDocPath('prop-1')).toBe('st-scanner/proposals/items/prop-1');
+    expect(stScannerProposalDocPath('prop-1').split('/').length % 2).toBe(0);
   });
 });

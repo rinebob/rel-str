@@ -26,6 +26,7 @@
  *                       st-runs/{runId}   st-runs/{runId}/jobs/{SYM}
  *   anchored roots      st-paper-trading/{kind-anchor}/items/{id}
  *                       st-portfolio/{kind-anchor}/items/{id}
+ *                       st-scanner/{kind-anchor}/items/{id}
  *   backtest roots      st-backtest-runs/{runId}  st-backtest-permutations/{id}
  */
 
@@ -185,4 +186,29 @@ export function stPortfolioItemsPath(kind: StPortfolioKind): string {
 /** Document path for a portfolio record (even segments). */
 export function stPortfolioDocPath(kind: StPortfolioKind, id: string): string {
   return `${stPortfolioItemsPath(kind)}/${id}`;
+}
+
+/** Root collection for RH-scanner records (#1098). */
+export const ST_SCANNER_ROOT = 'st-scanner';
+
+/**
+ * Record kinds housed under the `st-scanner` root. Only `proposals` exists
+ * today — persisted curation proposals from scanner-vs-universe compares.
+ * Named so IMPL-doc references and future kind-parameterized helpers have a
+ * spelling to pin against; the current helpers are per-kind named functions
+ * (arity-0) since a single kind needs no map/guard machinery.
+ */
+export type StScannerKind = 'proposals';
+
+/** Anchor doc name for curation proposals. */
+export const ST_SCANNER_PROPOSALS_ANCHOR = 'proposals';
+
+/** Collection path for curation proposals (odd segments). */
+export function stScannerProposalsPath(): string {
+  return `${ST_SCANNER_ROOT}/${ST_SCANNER_PROPOSALS_ANCHOR}/items`;
+}
+
+/** Document path for a curation proposal (even segments). */
+export function stScannerProposalDocPath(id: string): string {
+  return `${stScannerProposalsPath()}/${id}`;
 }

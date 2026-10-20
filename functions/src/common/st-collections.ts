@@ -41,8 +41,12 @@ export {
   stPaperTradingDocPath,
   stPortfolioItemsPath,
   stPortfolioDocPath,
+  ST_SCANNER_ROOT,
+  ST_SCANNER_PROPOSALS_ANCHOR,
+  stScannerProposalsPath,
+  stScannerProposalDocPath,
 } from '@st/collections';
-export type { StPaperTradingPathKind } from '@st/collections';
+export type { StPaperTradingPathKind, StScannerKind } from '@st/collections';
 
 /**
  * Root collection for agent run records (metadata, status, summary).
