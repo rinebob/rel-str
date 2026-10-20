@@ -8,7 +8,7 @@ constants: canonical `st-`-prefixed roots and anchored-kind path helpers
 
 | Script | Stage | Purpose |
 |---|---|---|
-| `data-pipeline-st-collections-997.ts` | paths | Asserts every flat root string, the `st-runs/{runId}/jobs` helper, and both anchored domains (`st-paper-trading`, `st-portfolio`) — including odd/even segment parity and the deliberate absence of `instances`/`cohorts` kinds (moved to `st-strategy-instances` / `st-position-groups`) |
+| `data-pipeline-st-collections-997.ts` | paths | Asserts every flat root string, the `st-runs/{runId}/jobs` helper, the `st-config` doc helper, and all anchored domains (`st-paper-trading`, `st-portfolio`, `st-scanner`) — including odd/even segment parity, the deliberate absence of `instances`/`cohorts` kinds (moved to `st-strategy-instances` / `st-position-groups`), and a probe of every `st-scanner` name through the functions barrel re-export |
 
 ### Usage
 

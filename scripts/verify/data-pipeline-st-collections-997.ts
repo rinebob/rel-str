@@ -23,6 +23,8 @@ import {
   ST_PORTFOLIO_ROOT,
   ST_POSITION_GROUPS_ROOT,
   ST_RUNS_ROOT,
+  ST_SCANNER_PROPOSALS_ANCHOR,
+  ST_SCANNER_ROOT,
   ST_SIGNALS_ROOT,
   ST_STRATEGY_INSTANCES_ROOT,
   ST_SYMBOL_LISTS_ROOT,
@@ -35,12 +37,21 @@ import {
   stPaperTradingItemsPath,
   stPortfolioDocPath,
   stPortfolioItemsPath,
+  stScannerProposalDocPath,
+  stScannerProposalsPath,
+  stConfigDocPath,
 } from '@st/collections';
 import {
   PaperTradingKind,
   paperTradingItemsPath,
 } from '@paper-trading/ids';
-import { ST_JOBS_SUBCOLLECTION } from '../../functions/src/common/st-collections';
+import {
+  ST_JOBS_SUBCOLLECTION,
+  ST_SCANNER_PROPOSALS_ANCHOR as barrelScannerAnchor,
+  ST_SCANNER_ROOT as barrelScannerRoot,
+  stScannerProposalDocPath as barrelScannerDocPath,
+  stScannerProposalsPath as barrelScannerProposalsPath,
+} from '../../functions/src/common/st-collections';
 
 let failures = 0;
 
@@ -151,6 +162,32 @@ check(
   (() => { try { stPortfolioItemsPath('buckets' as StPortfolioKind); return 'no-throw'; } catch { return 'threw'; } })(),
   'threw',
 );
+
+// ── st-scanner anchored kinds ────────────────────────────────────────────
+
+check('scanner root', ST_SCANNER_ROOT, 'st-scanner');
+check('scanner proposals anchor', ST_SCANNER_PROPOSALS_ANCHOR, 'proposals');
+check('scanner proposals items', stScannerProposalsPath(), 'st-scanner/proposals/items');
+check('scanner proposals odd segments', stScannerProposalsPath().split('/').length % 2, 1);
+check(
+  'scanner proposal doc path',
+  stScannerProposalDocPath('prop-1'),
+  'st-scanner/proposals/items/prop-1',
+);
+check('scanner proposal doc even segments', stScannerProposalDocPath('prop-1').split('/').length % 2, 0);
+check('barrel scanner root', barrelScannerRoot, 'st-scanner');
+check('barrel scanner anchor', barrelScannerAnchor, 'proposals');
+check('barrel scanner items path', barrelScannerProposalsPath(), 'st-scanner/proposals/items');
+check(
+  'barrel scanner doc path',
+  barrelScannerDocPath('prop-1'),
+  'st-scanner/proposals/items/prop-1',
+);
+
+// ── st-config doc helper ─────────────────────────────────────────────────
+
+check('config doc path', stConfigDocPath('status'), 'st-config/status');
+check('config doc path even segments', stConfigDocPath('status').split('/').length % 2, 0);
 
 if (failures === 0) {
   console.log('=== ALL CHECKS PASSED ===');
