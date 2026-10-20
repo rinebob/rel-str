@@ -36,7 +36,7 @@ import {
 import { of } from 'rxjs';
 
 import { StrategyBuilderService } from './strategy-builder.service';
-import { Collection } from '../../../core/common/constants';
+import { ST_STRATEGY_INSTANCES_ROOT } from '@st/collections';
 import { OptionType, PositionSpreadType, StrategyFrequency } from '@options/common';
 import { TradeSide } from '@common';
 import { ExitPolicy, LifecycleState, type StrategyInstanceConfig } from '@options-strategy-engine/contracts';
@@ -161,7 +161,7 @@ describe('StrategyBuilderService', () => {
 
       expect(doc).toHaveBeenCalledWith(
         expect.anything(),
-        `${Collection.PAPER_TRADING_INSTANCES}/250816-QQQM-CSP-020-30-D-1200`,
+        `${ST_STRATEGY_INSTANCES_ROOT}/250816-QQQM-CSP-020-30-D-1200`,
       );
       expect(setDoc).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'unused' }),
@@ -169,7 +169,8 @@ describe('StrategyBuilderService', () => {
           userId: 'test-user',
           symbol: 'QQQM',
           lifecycleState: LifecycleState.ACTIVE,
-          kind: 'instance',
+          mode: 'paper',
+          enabled: true,
           paperAccountId: 'acct-test-user',
           governingVariant: 'none',
           createdAt: '2025-08-16T00:00:00.000Z',
@@ -187,7 +188,7 @@ describe('StrategyBuilderService', () => {
 
       await service.updateInstance('instance-1', { symbol: 'SPY' });
 
-      expect(doc).toHaveBeenCalledWith(expect.anything(), `${Collection.PAPER_TRADING_INSTANCES}/instance-1`);
+      expect(doc).toHaveBeenCalledWith(expect.anything(), `${ST_STRATEGY_INSTANCES_ROOT}/instance-1`);
       expect(updateDoc).toHaveBeenCalledWith(
         mockDoc,
         expect.objectContaining({

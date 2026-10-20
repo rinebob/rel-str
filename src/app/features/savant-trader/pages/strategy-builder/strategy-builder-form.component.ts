@@ -21,7 +21,6 @@ import {
   NONE_VARIANT_KEY,
   TERMINAL_VARIANT_FAMILIES,
   type ExitVariantParams,
-  type PaperStrategyInstance,
 } from '@paper-trading/contracts';
 import { PositionSpreadType, StrategyFrequency, OptionType } from '@options/common';
 import { TradeSide } from '@common';
@@ -252,8 +251,6 @@ export class StrategyBuilderFormComponent {
 
   /** Pre-fill form from an existing instance (edit mode). */
   private prefillFromInstance(instance: StrategyInstanceConfig): void {
-    // governingVariant lives on the paper-ledger extension of the config.
-    const paper = instance as PaperStrategyInstance;
     const phase = instance.phases[0];
     this.form.patchValue({
       spreadType: phase?.spreadType ?? PositionSpreadType.CASH_SECURED_PUT,
@@ -268,7 +265,7 @@ export class StrategyBuilderFormComponent {
     // families are selectable (US4) — a stored non-terminal or unparseable
     // key coerces to the trailing-8 default, matching the BE resolver's
     // warn-and-default treatment.
-    const parsed = parseVariantKey(paper.governingVariant ?? NONE_VARIANT_KEY);
+    const parsed = parseVariantKey(instance.governingVariant ?? NONE_VARIANT_KEY);
     const eligible =
       parsed &&
       TERMINAL_VARIANT_FAMILIES.includes(parsed.family) &&

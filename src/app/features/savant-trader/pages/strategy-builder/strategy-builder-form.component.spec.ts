@@ -24,7 +24,7 @@ import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { StrategyBuilderFormComponent } from './strategy-builder-form.component';
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
 import { PaperTradingStore } from '../../stores/paper-trading.store';
-import { PaperTradingKind, type ExitVariantConfig, type PaperStrategyInstance } from '@paper-trading/contracts';
+import { type ExitVariantConfig } from '@paper-trading/contracts';
 import { OptionType, PositionSpreadType, StrategyFrequency } from '@options/common';
 import { TradeSide } from '@common';
 import {
@@ -559,7 +559,7 @@ describe('StrategyBuilderFormComponent', () => {
   });
 
   it('pre-fills family+param from an existing instance in edit mode', async () => {
-    const instance = makeInstance() as PaperStrategyInstance;
+    const instance = makeInstance();
     instance.governingVariant = 'trailing-15';
     await configureWithStore({}, { instance });
     expect(component.form.controls.variantFamily.value).toBe('trailing-stop');
@@ -569,7 +569,7 @@ describe('StrategyBuilderFormComponent', () => {
   it.each(['time-30d', 'custom-legacy-key', 'none'])(
     'stored ineligible variant %s coerces to the trailing-8 default (BE resolver parity)',
     async (stored) => {
-      const instance = makeInstance() as PaperStrategyInstance;
+      const instance = makeInstance();
       instance.governingVariant = stored;
       await configureWithStore({}, { instance });
       expect(component.form.controls.variantFamily.value).toBe('trailing-stop');
