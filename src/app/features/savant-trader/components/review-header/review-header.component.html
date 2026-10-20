@@ -1,18 +1,18 @@
 <div class="review-header">
-  <button mat-icon-button class="back-btn" (click)="back.emit()" matTooltip="Back to grouped review">
+  <button mat-icon-button class="icon-btn back-btn" (click)="back.emit()" matTooltip="Back to grouped review">
     <mat-icon>arrow_back</mat-icon>
   </button>
-  <button mat-icon-button class="history-btn" (click)="history.emit()" matTooltip="Signal History">
+  <button mat-icon-button class="icon-btn history-btn" (click)="history.emit()" matTooltip="Signal History">
     <mat-icon>history</mat-icon>
   </button>
-  <a mat-icon-button class="observation-btn" [routerLink]="'/' + appRoutes.RH_ACCOUNT_INQUIRY" matTooltip="Observation dashboard">
+  <a mat-icon-button class="icon-btn observation-btn" [routerLink]="'/' + appRoutes.RH_ACCOUNT_INQUIRY" matTooltip="Observation dashboard">
     <mat-icon>query_stats</mat-icon>
   </a>
 
   <div class="header-left-column">
     @let activeSymbol = selectedSymbol() ?? manualSymbol();
     @if (activeSymbol; as symbol) {
-      <div class="header-signal-block" [class.review-queue]="selectedSymbol()">
+      <div class="header-signal-block">
         @if (selectedSymbol()) {
           <div class="header-acr">
             <button type="button" class="acr-btn accept"
@@ -41,7 +41,7 @@
           @if (companyName()) {
             <span class="company-name">{{ companyName() }}</span>
           }
-          <span class="header-spacer"></span>
+          <span class="toolbar-spacer"></span>
           @if (selectedSymbol()) {
             <span class="reason">Queued for review</span>
           } @else {
@@ -53,7 +53,7 @@
 
   </div>
 
-  <div class="header-spacer"></div>
+  <div class="toolbar-spacer"></div>
 
   <div class="header-actions">
     <button mat-icon-button
@@ -77,7 +77,7 @@
       <mat-icon>new_releases</mat-icon>
     </button>
 
-    <button type="button" class="stage-accepted-btn"
+    <button type="button" class="pill-btn stage-accepted-btn"
       [disabled]="acceptedCount() === 0 || !isActionableRun()"
       (click)="goToOrder.emit()"
       matTooltip="Go to signal order page">

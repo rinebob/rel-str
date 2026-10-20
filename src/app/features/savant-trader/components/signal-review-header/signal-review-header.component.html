@@ -5,14 +5,14 @@
 
   <div class="signal-counts">
     <span class="signal-count">{{ totalSignalCount() }} symbols</span>
-    <span class="signal-count tf-badge">W {{ weeklySignalCount() }}</span>
-    <span class="signal-count tf-badge">D {{ dailySignalCount() }}</span>
+    <span class="badge tf">W {{ weeklySignalCount() }}</span>
+    <span class="badge tf">D {{ dailySignalCount() }}</span>
   </div>
 
   @if (longCount() > 0 || shortCount() > 0) {
     <div class="dir-counts">
-      <span class="dir-count long">↑ {{ longCount() }}</span>
-      <span class="dir-count short">↓ {{ shortCount() }}</span>
+      <span class="badge dir-long">↑ {{ longCount() }}</span>
+      <span class="badge dir-short">↓ {{ shortCount() }}</span>
     </div>
   }
 
@@ -23,7 +23,7 @@
     (directionChange)="directionFilterChange.emit($event)">
   </app-signal-filter-pills>
 
-  <span class="pill-btn signals-total"
+  <span class="pill-btn emph"
     matTooltip="Signals matching the current timeframe / direction / list filters">
     <mat-icon>notifications</mat-icon>
     Signals <span class="pill-count">{{ filteredSignalCount() }}</span>
@@ -31,7 +31,7 @@
 
   <app-status-summary-chips [counts]="statusCounts()"></app-status-summary-chips>
 
-  <div class="header-spacer"></div>
+  <div class="toolbar-spacer"></div>
 
   <div class="pipeline-actions">
     <button type="button" class="pill-btn review"

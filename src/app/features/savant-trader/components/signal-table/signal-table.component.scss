@@ -1,3 +1,5 @@
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
 .signal-table-container {
   flex: 1;
   overflow-y: auto;
@@ -29,11 +31,10 @@
 
   tbody {
     tr {
+      @include vl.dir-edge;
       border-bottom: 1px solid var(--mat-sys-outline-variant);
 
       &:hover { background: var(--mat-sys-surface-container-low); }
-      &.long  { border-left: 3px solid #4caf50; }
-      &.short { border-left: 3px solid #f44336; }
     }
 
     td {
@@ -53,15 +54,6 @@
   .empty-row { text-align: center; padding: 32px; color: var(--mat-sys-on-surface-variant); }
 }
 
-.dir-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
-
-  &.dir-long  { background: rgba(76, 175, 80, 0.15);  color: #4caf50; }
-  &.dir-short { background: rgba(244, 67, 54, 0.15); color: #f44336; }
+.badge {
+  @include vl.badge;
 }
