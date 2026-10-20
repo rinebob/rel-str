@@ -33,6 +33,7 @@
       "@st/order-tickets": ["../shared/st-order-tickets.ts"],
       "@st/position-groups": ["../shared/st-position-groups.ts"],
       "@st/strategy-instances": ["../shared/st-strategy-instances.ts"],
+      "@st/scanner": ["../shared/scanner-contracts.ts"],
       "@screenshot-capture/contracts": ["../shared/screenshot-capture-contracts.ts"],
       "@screenshot-capture/utils": ["../shared/screenshot-capture-utils.ts"],
       "@flex-chart/theme": ["../shared/flex-chart-theme.ts"],

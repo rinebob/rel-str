@@ -46,6 +46,7 @@ module.exports = {
     '^@st/order-tickets$': '<rootDir>/shared/st-order-tickets.ts',
     '^@st/position-groups$': '<rootDir>/shared/st-position-groups.ts',
     '^@st/strategy-instances$': '<rootDir>/shared/st-strategy-instances.ts',
+    '^@st/scanner$': '<rootDir>/shared/scanner-contracts.ts',
     '^@screenshot-capture/contracts$': '<rootDir>/shared/screenshot-capture-contracts.ts',
     '^@screenshot-capture/utils$': '<rootDir>/shared/screenshot-capture-utils.ts',
     '^@flex-chart/theme$': '<rootDir>/shared/flex-chart-theme.ts',
