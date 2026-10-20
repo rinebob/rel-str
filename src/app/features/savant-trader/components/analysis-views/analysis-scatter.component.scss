@@ -1,0 +1,29 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.scatter-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+  mat-select {
+    width: 170px;
+    font-size: 0.8rem;
+  }
+}
+
+ejs-chart {
+  flex: 1;
+  min-height: 0;
+}
+
+.empty-state {
+  padding: 32px;
+  text-align: center;
+  opacity: 0.6;
+}

@@ -1,0 +1,47 @@
+<div class="scatter-controls">
+  <mat-select [ngModel]="xKey()" (ngModelChange)="setX($event)" aria-label="X axis column">
+    @for (c of numericCols(); track c.key) {
+      <mat-option [value]="c.key">x: {{ c.label }}</mat-option>
+    }
+  </mat-select>
+  <mat-select [ngModel]="yKey()" (ngModelChange)="setY($event)" aria-label="Y axis column">
+    @for (c of numericCols(); track c.key) {
+      <mat-option [value]="c.key">y: {{ c.label }}</mat-option>
+    }
+  </mat-select>
+  <mat-select [ngModel]="colorKey()" (ngModelChange)="setColor($event)" aria-label="Color column">
+    <mat-option value="">color: none</mat-option>
+    @for (c of colorCols(); track c.key) {
+      <mat-option [value]="c.key">color: {{ c.label }}</mat-option>
+    }
+  </mat-select>
+  @if (discreteX()) {
+    <mat-checkbox [checked]="jitter()" (change)="setJitter($event.checked)">
+      jitter x
+    </mat-checkbox>
+  }
+</div>
+
+@if (points().length === 0) {
+  <div class="empty-state">No plottable rows in the current filter.</div>
+} @else {
+  <ejs-chart
+    [primaryXAxis]="primaryXAxis()"
+    [primaryYAxis]="primaryYAxis()"
+    [tooltip]="tooltip"
+    [legendSettings]="legendSettings">
+    <e-series-collection>
+      @for (s of series(); track s.name) {
+        <e-series
+          type="Scatter"
+          [dataSource]="s.data"
+          xName="x"
+          yName="y"
+          tooltipMappingName="tradeId"
+          [marker]="marker"
+          [name]="s.name">
+        </e-series>
+      }
+    </e-series-collection>
+  </ejs-chart>
+}

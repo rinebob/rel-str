@@ -1,0 +1,35 @@
+@let s = stats();
+<div class="stats-grid">
+  <div class="stat"><span class="stat-label">Trades</span><span class="stat-value">{{ s.count }}</span></div>
+  <div class="stat"><span class="stat-label">Win rate</span><span class="stat-value" [class]="pctCls(s.profitablePct)">{{ fmt(s.profitablePct, 1, '%') }}</span></div>
+  <div class="stat"><span class="stat-label">Avg return</span><span class="stat-value" [class]="pctCls(s.avgRetPct)">{{ fmt(s.avgRetPct, 2, '%') }}</span></div>
+  <div class="stat"><span class="stat-label">Median return</span><span class="stat-value" [class]="pctCls(s.medianRetPct)">{{ fmt(s.medianRetPct, 2, '%') }}</span></div>
+  <div class="stat"><span class="stat-label">Avg win</span><span class="stat-value positive">{{ fmt(s.avgWinPct, 2, '%') }}</span></div>
+  <div class="stat"><span class="stat-label">Avg loss</span><span class="stat-value negative">{{ fmt(s.avgLossPct, 2, '%') }}</span></div>
+  <div class="stat"><span class="stat-label">Payoff</span><span class="stat-value">{{ fmt(s.payoff) }}</span></div>
+  <div class="stat"><span class="stat-label">Profit factor</span><span class="stat-value">{{ fmt(s.profitFactor) }}</span></div>
+  <div class="stat"><span class="stat-label">Expectancy</span><span class="stat-value" [class]="pctCls(s.expectancyPct)">{{ fmt(s.expectancyPct, 2, '%') }}</span></div>
+  <div class="stat"><span class="stat-label">Max consec W / L</span><span class="stat-value">{{ s.maxConsecutiveWins }} / {{ s.maxConsecutiveLosses }}</span></div>
+  <div class="stat"><span class="stat-label">Avg days held</span><span class="stat-value">{{ fmt(s.avgDaysHeld, 1) }}</span></div>
+  <div class="stat"><span class="stat-label">Avg MFE / MAE</span><span class="stat-value">{{ fmt(s.avgMfePct, 1, '%') }} / {{ fmt(s.avgMaePct, 1, '%') }}</span></div>
+  <div class="stat"><span class="stat-label">Avg giveback</span><span class="stat-value">{{ fmt(s.avgGivebackRatio, 2) }}</span></div>
+</div>
+
+@if (s.bySignalType.length > 0) {
+  <table class="signal-type-table">
+    <thead>
+      <tr><th>Signal Type</th><th>N</th><th>Win %</th><th>Avg Ret</th><th>PF</th></tr>
+    </thead>
+    <tbody>
+      @for (t of s.bySignalType; track t.signalType) {
+        <tr>
+          <td>{{ t.signalType }}</td>
+          <td>{{ t.count }}</td>
+          <td [class]="pctCls(t.winPct === null ? null : t.winPct - 50)">{{ fmt(t.winPct, 1, '%') }}</td>
+          <td [class]="pctCls(t.avgRetPct)">{{ fmt(t.avgRetPct, 2, '%') }}</td>
+          <td>{{ fmt(t.profitFactor) }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

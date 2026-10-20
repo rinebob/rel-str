@@ -1,0 +1,46 @@
+<div class="histogram-controls">
+  <span class="control-label">Bin width</span>
+  <mat-select class="width-select" [ngModel]="binWidth()" (ngModelChange)="setBinWidth($event)"
+              aria-label="Histogram bin width">
+    @for (w of widthOptions; track w) {
+      <mat-option [value]="w">{{ w }}%</mat-option>
+    }
+  </mat-select>
+  @if (baselineRows()) {
+    <mat-checkbox [checked]="showBaseline()" (change)="setShowBaseline($event.checked)">
+      overlay full set
+    </mat-checkbox>
+  }
+</div>
+
+@if (chartData().length === 0) {
+  <div class="empty-state">No rows with returns in the current filter.</div>
+} @else {
+  <ejs-chart
+    [primaryXAxis]="primaryXAxis()"
+    [primaryYAxis]="primaryYAxis"
+    [tooltip]="tooltip"
+    [legendSettings]="legendSettings()">
+    <e-series-collection>
+      @if (baselineActive()) {
+        <e-series
+          type="Column"
+          [dataSource]="baselineData()"
+          xName="cx"
+          yName="count"
+          fill="#9e9e9e"
+          [opacity]="0.35"
+          name="full set">
+        </e-series>
+      }
+      <e-series
+        type="Column"
+        [dataSource]="chartData()"
+        xName="cx"
+        yName="count"
+        pointColorMapping="fill"
+        name="filtered">
+      </e-series>
+    </e-series-collection>
+  </ejs-chart>
+}
