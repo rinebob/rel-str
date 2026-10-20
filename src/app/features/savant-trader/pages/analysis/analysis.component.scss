@@ -3,6 +3,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  height: calc(100vh - var(--header-height, 48px));
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .page-header {
@@ -61,6 +64,8 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 16px;
+  overflow: auto;
+  min-height: 0;
 }
 
 .dataset-card.generating {
@@ -138,10 +143,11 @@
   font-weight: 600;
   letter-spacing: 0.01em;
   margin-top: 2px;
+  .title-rule { white-space: nowrap; }
 }
 
 .line-label {
-  width: 64px;
+  width: 72px;
   flex: none;
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -151,11 +157,48 @@
 
 .open-banner {
   margin-top: 8px;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 0.75rem;
   background: rgba(76, 175, 80, 0.14);
   color: #81c784;
+  display: inline-block;
+}
+
+.workbench {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.workbench-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  h3 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    font-weight: 600;
+    .card-id { font-weight: 400; font-size: 0.75rem; margin-left: 8px; opacity: 0.5; }
+  }
+}
+
+.close-workbench {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  opacity: 0.7;
+  &:hover { opacity: 1; }
+}
+
+.loading-rows {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
 }
 
 .sep {

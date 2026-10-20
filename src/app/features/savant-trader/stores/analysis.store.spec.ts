@@ -374,6 +374,19 @@ describe('AnalysisStore', () => {
     expect(store.filteredCompareRows().map((r) => r.tradeId)).toEqual(['o-2']);
   });
 
+  it('compare rows are quarantined the same as the main view (#1083)', () => {
+    store.loadDatasets();
+    const otherRows = [
+      row({ tradeId: 'o-closed', datasetId: 'ds-2' }),
+      row({ tradeId: 'o-open', datasetId: 'ds-2', status: PaperTradeStatus.OPEN }),
+    ];
+    svc.loadDataset$.mockReturnValue(of({ rows: otherRows, columns: ['tradeId'] }));
+    store.loadCompareDataset(ds2);
+    expect(store.filteredCompareRows().map((r) => r.tradeId)).toEqual(['o-closed']);
+    store.setIncludeOpenRows(true);
+    expect(store.filteredCompareRows().length).toBe(2);
+  });
+
   it('clearCompare drops the compare set', () => {
     store.loadDatasets();
     store.loadCompareDataset(ds2);
@@ -410,6 +423,61 @@ describe('AnalysisStore', () => {
     expect(store.error()).toContain('Failed to start dataset generation');
     expect(svc.listDatasets$).not.toHaveBeenCalled();
     expect(store.isGenerating()).toBe(false);
+  });
+
+  // ── open-row quarantine (#1083) ─────────────────────────────────────────
+
+  it('the workbench defaults to the closed signal-equity cohort', () => {
+    svc.loadDataset$.mockReturnValue(
+      of({
+        rows: [
+          ...rows,
+          row({ tradeId: 'tr-open', status: PaperTradeStatus.OPEN }),
+          row({ tradeId: 'tr-excl', analysisCohort: AnalysisCohort.EXCLUDED }),
+        ],
+        columns: ['tradeId'],
+      }),
+    );
+    store.openDataset(ds);
+    expect(store.rows().length).toBe(5);
+    expect(store.viewRows().map((r) => r.tradeId)).toEqual(['tr-1', 'tr-2', 'tr-3']);
+    expect(store.sortedRows().map((r) => r.tradeId)).toEqual(['tr-1', 'tr-2', 'tr-3']);
+    expect(store.hiddenRowCount()).toBe(2);
+  });
+
+  it('setIncludeOpenRows lifts the quarantine for view, filters, and compare', () => {
+    svc.loadDataset$.mockReturnValue(
+      of({
+        rows: [row({ tradeId: 'tr-open', status: PaperTradeStatus.OPEN }), ...rows],
+        columns: ['tradeId'],
+      }),
+    );
+    store.openDataset(ds);
+    store.setIncludeOpenRows(true);
+    expect(store.viewRows().length).toBe(4);
+    expect(store.hiddenRowCount()).toBe(0);
+    // and the quarantine still composes with user filters
+    store.setFilters([
+      { column: 'direction', op: 'in', value: [TradeSide.SHORT] },
+    ]);
+    expect(store.filteredRows().map((r) => r.tradeId)).toEqual(['tr-3']);
+  });
+
+  it('setFilters replaces the whole chain; clearFilters empties it', () => {
+    store.openDataset(ds);
+    store.setFilters([
+      { column: 'direction', op: 'in', value: [TradeSide.LONG] },
+    ]);
+    expect(store.filters().length).toBe(1);
+    expect(store.filteredRows().map((r) => r.tradeId)).toEqual(['tr-1', 'tr-2']);
+    store.clearFilters();
+    expect(store.filteredRows().length).toBe(3);
+  });
+
+  it('openDataset resets the quarantine to closed-only', () => {
+    store.setIncludeOpenRows(true);
+    store.openDataset(ds);
+    expect(store.includeOpenRows()).toBe(false);
   });
 
   // ── errors ─────────────────────────────────────────────────────────────

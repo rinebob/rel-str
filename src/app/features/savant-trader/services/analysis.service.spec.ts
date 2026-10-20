@@ -1,7 +1,8 @@
 /**
  * AnalysisService spec (Thread #1059, task #1081).
  *
- * Mocks at the @angular/fire boundary + global fetch; papaparse runs for
+ * Mocks at the @angular/fire boundary (httpsCallable for the CSV
+ * read path); papaparse runs for
  * real on fixture CSV text (TEST doc integration boundary). Covers:
  * - dataset index CRUD (list ordered by generatedAt, tags/notes update,
  *   delete doc + storage object together)
@@ -30,7 +31,6 @@ jest.mock('@angular/fire/firestore', () => ({
 jest.mock('@angular/fire/storage', () => ({
   Storage: class {},
   ref: (s: unknown, path: string) => mockStorageRef(s, path),
-  getDownloadURL: jest.fn(),
   deleteObject: jest.fn(() => Promise.resolve()),
 }));
 const mockCallableImpl = jest.fn();
@@ -57,7 +57,6 @@ import {
 import {
   Storage,
   deleteObject,
-  getDownloadURL,
 } from '@angular/fire/storage';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
@@ -110,11 +109,8 @@ function sliceDoc(over: Partial<AnalysisSlice> = {}): AnalysisSlice {
   };
 }
 
-function fetchCsv(csv: string): void {
-  (global.fetch as jest.Mock) = jest.fn().mockResolvedValue({
-    ok: true,
-    text: () => Promise.resolve(csv),
-  });
+function callableCsv(csv: string): void {
+  mockCallableImpl.mockResolvedValue({ data: { csv } });
 }
 
 describe('AnalysisService', () => {
@@ -124,8 +120,6 @@ describe('AnalysisService', () => {
     jest.clearAllMocks();
     (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
     (deleteObject as jest.Mock).mockResolvedValue(undefined);
-    (getDownloadURL as jest.Mock).mockResolvedValue('https://storage.example/ds.csv');
-    global.fetch = jest.fn();
     TestBed.configureTestingModule({
       providers: [
         AnalysisService,
@@ -206,7 +200,7 @@ describe('AnalysisService', () => {
 
   // ── loadDataset ────────────────────────────────────────────────────────
 
-  it('loadDataset$ fetches the gcsPath, parses by header name, and coerces via COLUMN_TYPES', async () => {
+  it('loadDataset$ fetches via the callable, parses by header name, and coerces via COLUMN_TYPES', async () => {
     // Reordered columns + an appended unknown column — rows must still
     // bind by header name and ignore the extra.
     const csv = [
@@ -214,11 +208,13 @@ describe('AnalysisService', () => {
       'AMAT,6.51,long,ds-1,tr-1,ignored',
       'AMAT,,short,ds-1,tr-2,ignored',
     ].join('\n');
-    fetchCsv(csv);
+    callableCsv(csv);
     const loaded = await firstValueFrom(service.loadDataset$(datasetDoc()));
-    expect(getDownloadURL).toHaveBeenCalledWith(
-      expect.objectContaining({ path: datasetDoc().gcsPath }),
+    expect(httpsCallable).toHaveBeenCalledWith(
+      expect.anything(),
+      CallableName.FETCH_DATASET_CSV,
     );
+    expect(mockCallableImpl).toHaveBeenCalledWith({ datasetId: datasetDoc().id });
     expect(loaded.columns).toContain('someFutureColumn');
     expect(loaded.rows).toHaveLength(2);
     const [r1, r2] = loaded.rows;
@@ -233,19 +229,32 @@ describe('AnalysisService', () => {
   });
 
   it('loadDataset$ reports the CSV columns actually present for slice-apply checks', async () => {
-    fetchCsv('tradeId,symbol\ntr-1,AMAT\n');
+    callableCsv('tradeId,symbol\ntr-1,AMAT\n');
     const loaded = await firstValueFrom(service.loadDataset$(datasetDoc()));
     expect(loaded.columns).toEqual(['tradeId', 'symbol']);
   });
 
   it('loadDataset$ surfaces a malformed CSV as an error', async () => {
-    fetchCsv('tradeId,symbol\ntr-1\n');
+    callableCsv('tradeId,symbol\ntr-1\n');
     await expect(firstValueFrom(service.loadDataset$(datasetDoc()))).rejects.toThrow(/parse/i);
   });
 
-  it('loadDataset$ fails on a non-ok fetch', async () => {
-    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 403 });
+  it('loadDataset$ propagates a callable failure', async () => {
+    mockCallableImpl.mockRejectedValue(new Error('not-found'));
     await expect(firstValueFrom(service.loadDataset$(datasetDoc()))).rejects.toThrow();
+  });
+
+  it('loadDataset$ reads the Firestore chunk mirror before calling fetchDatasetCsv', async () => {
+    (getDocs as jest.Mock).mockResolvedValueOnce({
+      docs: [
+        { data: () => ({ i: 0, data: 'tradeId,symbol\ntr-1,' }) },
+        { data: () => ({ i: 1, data: 'AMAT\n' }) },
+      ],
+    });
+    const loaded = await firstValueFrom(service.loadDataset$(datasetDoc()));
+    expect(mockCallableImpl).not.toHaveBeenCalledWith({ datasetId: datasetDoc().id });
+    expect(loaded.rows).toHaveLength(1);
+    expect(loaded.rows[0].symbol).toBe('AMAT');
   });
 
   // ── slices ─────────────────────────────────────────────────────────────

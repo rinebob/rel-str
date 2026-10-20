@@ -37,6 +37,7 @@ import {
   AnalysisRunConfigComponent,
   type RunConfigSubmission,
 } from './analysis-run-config.component';
+import { AnalysisTableComponent } from '../../components/analysis-table/analysis-table.component';
 import type {
   AnalysisDatasetDoc,
   AnalysisDatasetStatus,
@@ -55,6 +56,7 @@ import type {
     MatInputModule,
     MatProgressSpinnerModule,
     AnalysisRunConfigComponent,
+    AnalysisTableComponent,
   ],
   templateUrl: './analysis.component.html',
   styleUrl: './analysis.component.scss',

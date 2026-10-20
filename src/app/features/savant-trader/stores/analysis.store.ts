@@ -19,6 +19,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { AnalysisService } from '../services/analysis.service';
 import {
   applySliceFilters,
+  isClosedCohortRow,
   sortAnalysisRows,
   type AnalysisSort,
 } from '../utils/analysis-rows.util';
@@ -44,6 +45,10 @@ export interface AnalysisState {
   filters: SliceFilter[];
   /** Columns skipped by the last applySlice — drives the UI notice. */
   skippedSliceColumns: string[];
+  /** #1083 quarantine: when false, only closed signal-equity rows reach
+   *  the workbench view (and future stats). When true, open/provisional
+   *  and excluded-cohort rows are included — flagged in the UI. */
+  includeOpenRows: boolean;
   sorts: AnalysisSort[];
   slices: AnalysisSlice[];
   compareDatasetId: string | null;
@@ -64,6 +69,7 @@ const initialState: AnalysisState = {
   columns: [],
   filters: [],
   skippedSliceColumns: [],
+  includeOpenRows: false,
   sorts: [],
   slices: [],
   compareDatasetId: null,
@@ -91,14 +97,12 @@ export const AnalysisStore = signalStore(
       () => state.isLoadingDatasets() || state.isLoadingRows(),
     ),
 
-    /** Rows through the active filter chain (AND). */
-    filteredRows: computed(() =>
-      applySliceFilters(state.rows(), state.filters()),
-    ),
-
-    /** Filtered rows through the sort chain — the workbench view. */
-    sortedRows: computed(() =>
-      sortAnalysisRows(applySliceFilters(state.rows(), state.filters()), state.sorts()),
+    /** The workbench's visible universe: the closed signal-equity
+     *  cohort unless includeOpenRows lifts the quarantine. */
+    viewRows: computed(() =>
+      state.includeOpenRows()
+        ? state.rows()
+        : state.rows().filter(isClosedCohortRow),
     ),
 
     /** The compare dataset's index doc, or null. */
@@ -106,10 +110,35 @@ export const AnalysisStore = signalStore(
       () =>
         state.datasets().find((d) => d.id === state.compareDatasetId()) ?? null,
     ),
+  })),
 
-    /** Compare rows through the SAME filter chain — the overlay set. */
+  withComputed((state) => ({
+    /** Rows the quarantine is hiding — drives the toggle's badge. */
+    hiddenRowCount: computed(
+      () => state.rows().length - state.viewRows().length,
+    ),
+
+    /** Rows through the active filter chain (AND). */
+    filteredRows: computed(() =>
+      applySliceFilters(state.viewRows(), state.filters()),
+    ),
+
+    /** Compare rows through the SAME quarantine + filter chain — the
+     *  overlay set. */
     filteredCompareRows: computed(() =>
-      applySliceFilters(state.compareRows(), state.filters()),
+      applySliceFilters(
+        state.includeOpenRows()
+          ? state.compareRows()
+          : state.compareRows().filter(isClosedCohortRow),
+        state.filters(),
+      ),
+    ),
+  })),
+
+  withComputed((state) => ({
+    /** Filtered rows through the sort chain — the workbench view. */
+    sortedRows: computed(() =>
+      sortAnalysisRows(state.filteredRows(), state.sorts()),
     ),
   })),
 
@@ -156,6 +185,7 @@ export const AnalysisStore = signalStore(
           activeDataset: dataset,
           filters: [],
           skippedSliceColumns: [],
+          includeOpenRows: false,
           sorts: [],
         });
         rowsSub = service
@@ -182,6 +212,7 @@ export const AnalysisStore = signalStore(
           columns: [],
           filters: [],
           skippedSliceColumns: [],
+          includeOpenRows: false,
           sorts: [],
         });
       },
@@ -220,6 +251,7 @@ export const AnalysisStore = signalStore(
                     columns: [],
                     filters: [],
                     skippedSliceColumns: [],
+                    includeOpenRows: false,
                     sorts: [],
                   }
                 : {}),
@@ -282,6 +314,18 @@ export const AnalysisStore = signalStore(
 
       clearFilters(): void {
         patchState(state, { filters: [], skippedSliceColumns: [] });
+      },
+
+      /** Replace the whole filter chain — the workbench table's
+       *  per-column controls emit chain-level updates. */
+      setFilters(filters: SliceFilter[]): void {
+        patchState(state, { filters, skippedSliceColumns: [] });
+      },
+
+      /** #1083 quarantine toggle — lifting it reveals open/provisional
+       *  and excluded-cohort rows (UI marks them). */
+      setIncludeOpenRows(include: boolean): void {
+        patchState(state, { includeOpenRows: include });
       },
 
       // ── sort chain — same cycle as #1067: asc → desc → removed;

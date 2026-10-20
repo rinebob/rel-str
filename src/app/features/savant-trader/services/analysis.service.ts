@@ -31,7 +31,6 @@ import {
 import {
   Storage,
   deleteObject,
-  getDownloadURL,
   ref,
 } from '@angular/fire/storage';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -50,6 +49,8 @@ import {
   type AnalysisDatasetDoc,
   type AnalysisRunParams,
   type AnalysisSlice,
+  type FetchDatasetCsvRequest,
+  type FetchDatasetCsvResponse,
   type GenerateTradeDatasetRequest,
   type GenerateTradeDatasetResponse,
   type SliceFilter,
@@ -136,11 +137,11 @@ export class AnalysisService {
   }
 
   /**
-   * Delete a dataset — Storage object first, then the index doc, so a
-   * failed object delete leaves the whole dataset intact and retryable.
-   * `object-not-found` is tolerated: generating/failed datasets have a
-   * gcsPath but no object, and a retry after a partial delete must still
-   * reach the doc.
+   * Delete a dataset — Storage object, Firestore chunk docs, then the
+   * index doc, so a failed object delete leaves the whole dataset
+   * intact and retryable. `object-not-found` is tolerated:
+   * generating/failed datasets have a gcsPath but no object, and a
+   * retry after a partial delete must still reach the doc.
    */
   deleteDataset$(dataset: AnalysisDatasetDoc): Observable<void> {
     return requireUserId(this.auth, this.injector).pipe(
@@ -154,6 +155,10 @@ export class AnalysisService {
               throw err;
             }
           }
+          const chunkSnap = await getDocs(
+            collection(doc(this.firestore, analysisDatasetsPath(), dataset.id), 'chunks'),
+          );
+          for (const c of chunkSnap.docs) await deleteDoc(c.ref);
           await deleteDoc(doc(this.firestore, analysisDatasetsPath(), dataset.id));
         }),
       ),
@@ -183,22 +188,20 @@ export class AnalysisService {
   }
 
   /**
-   * Fetch + parse a dataset's CSV: gcsPath → getDownloadURL → fetch →
-   * papaparse → coerce by COLUMN_TYPES. Binding is by header NAME, so a
-   * CSV with reordered or appended columns still produces full rows;
-   * columns the file lacks come back null.
+   * Fetch + parse a dataset's CSV via the `fetchDatasetCsv` callable —
+   * the object is read server-side so the browser never talks to
+   * firebasestorage.googleapis.com (QA #1147: networks that blackhole
+   * QUIC/UDP hang forever on the download fetch). Binding is by header
+   * NAME, so a CSV with reordered or appended columns still produces
+   * full rows; columns the file lacks come back null.
    */
   loadDataset$(dataset: AnalysisDatasetDoc): Observable<LoadedDataset> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap(() =>
         this.inCtx(async () => {
-          const url = await getDownloadURL(ref(this.storage, dataset.gcsPath));
-          const res = await fetch(url);
-          if (!res.ok) {
-            throw new Error(`dataset fetch failed (HTTP ${res.status})`);
-          }
-          const parsed = Papa.parse<Record<string, string>>(await res.text(), {
+          const csv = await this.readDatasetCsv(dataset);
+          const parsed = Papa.parse<Record<string, string>>(csv, {
             header: true,
             skipEmptyLines: true,
           });
@@ -211,6 +214,29 @@ export class AnalysisService {
         }),
       ),
     );
+  }
+
+  /**
+   * CSV body for a dataset: the Firestore chunk mirror first (the
+   * channel the rest of the app uses — immune to networks that stall
+   * large HTTPS response bodies, QA #1147), falling back to the
+   * `fetchDatasetCsv` callable for datasets written before chunking.
+   */
+  private async readDatasetCsv(dataset: AnalysisDatasetDoc): Promise<string> {
+    const chunksQuery = query(
+      collection(doc(this.firestore, analysisDatasetsPath(), dataset.id), 'chunks'),
+      orderBy('i', 'asc'),
+    );
+    const snap = await getDocs(chunksQuery);
+    if (snap.docs.length > 0) {
+      return snap.docs.map((d) => d.data().data as string).join('');
+    }
+    const callable = httpsCallable<
+      FetchDatasetCsvRequest,
+      FetchDatasetCsvResponse
+    >(this.functions, CallableName.FETCH_DATASET_CSV);
+    const res = await callable({ datasetId: dataset.id });
+    return res.data.csv;
   }
 
   // ── slices ─────────────────────────────────────────────────────────────

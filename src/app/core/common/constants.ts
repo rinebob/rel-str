@@ -217,6 +217,8 @@ export enum CallableName {
   LIST_EXIT_VARIANTS = 'listExitVariants',
   /** Paper trading analysis: enqueue dataset generation (#553/#1059) */
   GENERATE_TRADE_DATASET = 'generateTradeDataset',
+  /** Paper trading analysis: server-side CSV read for the workbench (#553/#1059) */
+  FETCH_DATASET_CSV = 'fetchDatasetCsv',
   /** Dev lifecycle viewer: GitHub issue-hierarchy tree for supported repos */
   GET_LIFECYCLE_TREE = 'getLifecycleTree',
   /** Screenshot capture: spec → SVG+PNG artifacts in the default bucket (#746) */

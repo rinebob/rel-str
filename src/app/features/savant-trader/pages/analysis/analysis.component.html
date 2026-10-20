@@ -69,13 +69,13 @@
               <span class="card-id">{{ ds.id }}</span>
             </div>
             <div class="card-title">
-              {{ scopeLabel(ds) }} · {{ ds.exitRule }}
+              {{ scopeLabel(ds) }} · <span class="title-rule">{{ ds.exitRule }}</span>
             </div>
           </mat-card-header>
           <mat-card-content>
             <div class="param-line">
               <span class="line-label">Params</span>
-              <span class="param">{{ ds.entryConvention }}</span>
+              <span class="param">{{ ds.exitRule }}</span>
               <span class="sep">·</span>
               <span class="param">{{ ds.entryConvention }}</span>
               <span class="sep">·</span>
@@ -102,10 +102,7 @@
               <div class="notes-line">{{ ds.notes }}</div>
             }
             @if (store.activeDataset()?.id === ds.id) {
-              <div class="open-banner">
-                ● Open — {{ store.rows().length }} rows loaded; the workbench
-                table lands with #1083.
-              </div>
+              <div class="open-banner">● Open in workbench</div>
             }
             @if (ds.status === 'failed' && ds.error) {
               <div class="error-line" role="alert">{{ ds.error }}</div>
@@ -149,6 +146,36 @@
             }
           </mat-card-actions>
         </mat-card>
+      }
+    </div>
+  }
+
+  @if (store.activeDataset(); as active) {
+    <div class="workbench">
+      <div class="workbench-header">
+        <h3>
+          {{ scopeLabel(active) }} · {{ active.exitRule }}
+          <span class="card-id">{{ active.id }}</span>
+        </h3>
+        <button type="button" class="close-workbench" (click)="store.closeDataset()"
+                aria-label="Close dataset" title="Close dataset">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      @if (store.isLoadingRows()) {
+        <div class="loading-rows"><mat-spinner diameter="32"></mat-spinner></div>
+      } @else {
+        <app-analysis-table
+          [rows]="store.sortedRows()"
+          [universeRows]="store.viewRows()"
+          [columns]="store.columns()"
+          [sorts]="store.sorts()"
+          [filters]="store.filters()"
+          [includeOpenRows]="store.includeOpenRows()"
+          [hiddenRowCount]="store.hiddenRowCount()"
+          (sortToggled)="store.toggleSort($event.column, $event.additive)"
+          (filtersChanged)="store.setFilters($event)"
+          (includeOpenRowsChanged)="store.setIncludeOpenRows($event)" />
       }
     </div>
   }

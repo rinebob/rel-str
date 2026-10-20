@@ -1,0 +1,136 @@
+<div class="table-toolbar">
+  <span class="row-count">
+    {{ rows().length }} of {{ universeRows().length }} rows
+  </span>
+
+  @if (filters().length > 0) {
+    <span class="filter-chips">
+      @for (f of filters(); track $index) {
+        <span class="filter-chip">
+          {{ chipLabel(f) }}
+          <button type="button" class="chip-x" (click)="removeFilterAt($index)"
+                  [attr.aria-label]="'Remove filter ' + chipLabel(f)">×</button>
+        </span>
+      }
+      <button type="button" class="reset-filters" (click)="resetFilters()">Reset</button>
+    </span>
+  }
+
+  <span class="toolbar-spacer"></span>
+
+  <mat-checkbox
+    class="include-open"
+    [checked]="includeOpenRows()"
+    (change)="includeOpenRowsChanged.emit($event.checked)">
+    Include open/excluded@if (hiddenRowCount() > 0) { ({{ hiddenRowCount() }}) }
+  </mat-checkbox>
+
+  <button type="button" class="col-picker-btn" [matMenuTriggerFor]="colMenu"
+          title="Show/hide columns" aria-label="Choose columns">
+    <mat-icon>view_column</mat-icon>
+  </button>
+  <mat-menu #colMenu="matMenu">
+    @for (c of columnDefs(); track c.key) {
+      <button mat-menu-item (click)="$event.stopPropagation(); toggleHidden(c.key)">
+        <mat-icon>{{ isHidden(c.key) ? 'check_box_outline_blank' : 'check_box' }}</mat-icon>
+        {{ c.label }}
+      </button>
+    }
+  </mat-menu>
+</div>
+
+@if (includeOpenRows()) {
+  <div class="provisional-banner">
+    Open/provisional and excluded-cohort rows included — returns on open
+    trades are marks, not realized outcomes.
+  </div>
+}
+
+<div class="table-scroll">
+  <table class="analysis-table">
+    <thead>
+      <tr>
+        @for (col of visibleDefs(); track col.key) {
+          <th scope="col" class="sortable" tabindex="0" role="button"
+              title="Click to sort · shift+click to add a secondary sort"
+              (click)="toggleSort(col, $event)"
+              (keydown.enter)="toggleSort(col, $event)"
+              (keydown.space)="toggleSort(col, $event); $event.preventDefault()"
+              [attr.aria-sort]="sortAria(col)">
+            {{ col.label }}
+            @let icon = sortIcon(col);
+            @if (icon) { <mat-icon class="sort-icon">{{ icon }}</mat-icon> }
+            @let rank = sortRank(col);
+            @if (rank !== null) { <span class="sort-rank">{{ rank }}</span> }
+            @if (col.filterable) {
+              <button type="button" class="col-filter-btn"
+                      [class.filter-active]="hasFilter(col)"
+                      [matMenuTriggerFor]="colFilterMenu"
+                      [matMenuTriggerData]="{ col: col }"
+                      (click)="$event.stopPropagation()"
+                      (keydown)="$event.stopPropagation()"
+                      [attr.aria-label]="'Filter ' + col.label"
+                      title="Filter column">
+                <mat-icon>filter_list</mat-icon>
+              </button>
+            }
+          </th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track $index) {
+        <tr [class.provisional]="isProvisional(row)">
+          @for (col of visibleDefs(); track col.key) {
+            <td [class]="cellClass(row, col)">{{ cellText(row, col) }}</td>
+          }
+        </tr>
+      } @empty {
+        <tr class="empty-row">
+          <td [attr.colspan]="visibleDefs().length">
+            No rows match the active filters.
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<mat-menu #colFilterMenu="matMenu" class="col-filter-menu">
+  <ng-template matMenuContent let-col="col">
+    <div class="filter-panel"
+         (click)="$event.stopPropagation()"
+         (keydown)="$event.stopPropagation()">
+      <div class="filter-panel-title">{{ col.label }}</div>
+      @if (col.kind === 'enum' || col.kind === 'string') {
+        <mat-select class="in-filter" multiple
+                    [ngModel]="inValues(col)"
+                    (ngModelChange)="setInFilter(col, $event)"
+                    [attr.aria-label]="'Filter ' + col.label"
+                    placeholder="any">
+          @for (opt of optionsFor(col); track opt) {
+            <mat-option [value]="opt">{{ opt }}</mat-option>
+          }
+        </mat-select>
+      } @else if (col.kind === 'number') {
+        <input class="bound" type="number" placeholder="min"
+               [value]="rangeValue(col, 'min')"
+               (change)="setRangeFilter(col, 'min', $any($event.target).value)"
+               [attr.aria-label]="col.label + ' min'" />
+        <input class="bound" type="number" placeholder="max"
+               [value]="rangeValue(col, 'max')"
+               (change)="setRangeFilter(col, 'max', $any($event.target).value)"
+               [attr.aria-label]="col.label + ' max'" />
+      } @else {
+        <input class="bound" type="date"
+               [value]="rangeValue(col, 'from')"
+               (change)="setDateFilter(col, 'from', $any($event.target).value)"
+               [attr.aria-label]="col.label + ' from'" />
+        <input class="bound" type="date"
+               [value]="rangeValue(col, 'to')"
+               (change)="setDateFilter(col, 'to', $any($event.target).value)"
+               [attr.aria-label]="col.label + ' to'" />
+      }
+    </div>
+  </ng-template>
+</mat-menu>

@@ -60,14 +60,26 @@ describe('AnalysisComponent', () => {
     datasets: ReturnType<typeof signal<AnalysisDatasetDoc[]>>;
     activeDataset: ReturnType<typeof signal<AnalysisDatasetDoc | null>>;
     rows: ReturnType<typeof signal<unknown[]>>;
+    sortedRows: ReturnType<typeof signal<unknown[]>>;
+    viewRows: ReturnType<typeof signal<unknown[]>>;
+    columns: ReturnType<typeof signal<string[]>>;
+    sorts: ReturnType<typeof signal<unknown[]>>;
+    filters: ReturnType<typeof signal<unknown[]>>;
+    includeOpenRows: ReturnType<typeof signal<boolean>>;
+    hiddenRowCount: ReturnType<typeof signal<number>>;
+    isLoadingRows: ReturnType<typeof signal<boolean>>;
     isLoadingDatasets: ReturnType<typeof signal<boolean>>;
     isGenerating: ReturnType<typeof signal<boolean>>;
     error: ReturnType<typeof signal<string | null>>;
     loadDatasets: jest.Mock;
     openDataset: jest.Mock;
+    closeDataset: jest.Mock;
     deleteDataset: jest.Mock;
     updateTagsNotes: jest.Mock;
     generateDataset: jest.Mock;
+    toggleSort: jest.Mock;
+    setFilters: jest.Mock;
+    setIncludeOpenRows: jest.Mock;
   };
 
   function el(selector: string): HTMLElement | null {
@@ -83,14 +95,26 @@ describe('AnalysisComponent', () => {
       datasets: signal<AnalysisDatasetDoc[]>([READY, GENERATING, LIVE_READY]),
       activeDataset: signal<AnalysisDatasetDoc | null>(null),
       rows: signal<unknown[]>([]),
+      sortedRows: signal<unknown[]>([]),
+      viewRows: signal<unknown[]>([]),
+      columns: signal<string[]>([]),
+      sorts: signal<unknown[]>([]),
+      filters: signal<unknown[]>([]),
+      includeOpenRows: signal(false),
+      hiddenRowCount: signal(0),
+      isLoadingRows: signal(false),
       isLoadingDatasets: signal(false),
       isGenerating: signal(false),
       error: signal<string | null>(null),
       loadDatasets: jest.fn(),
       openDataset: jest.fn(),
+      closeDataset: jest.fn(),
       deleteDataset: jest.fn(),
       updateTagsNotes: jest.fn(),
       generateDataset: jest.fn(),
+      toggleSort: jest.fn(),
+      setFilters: jest.fn(),
+      setIncludeOpenRows: jest.fn(),
     };
     await TestBed.configureTestingModule({
       imports: [AnalysisComponent],
@@ -206,14 +230,21 @@ describe('AnalysisComponent', () => {
     expect(storeMock.openDataset).toHaveBeenCalledWith(READY);
   });
 
-  it('the opened card shows the rows-loaded interim banner (#1083 lands the table)', () => {
+  it('the opened card is marked and mounts the workbench table (#1083)', () => {
     fixture.detectChanges();
-    expect(el('.open-banner')).toBeNull();
+    expect(el('app-analysis-table')).toBeNull();
     storeMock.activeDataset.set(READY);
-    storeMock.rows.set(new Array(99));
     fixture.detectChanges();
     const banner = els('mat-card')[0].querySelector('.open-banner');
-    expect(banner?.textContent).toContain('99 rows loaded');
+    expect(banner?.textContent).toContain('Open in workbench');
+    expect(el('app-analysis-table')).not.toBeNull();
+  });
+
+  it('the workbench close button clears the active dataset', () => {
+    storeMock.activeDataset.set(READY);
+    fixture.detectChanges();
+    (el('.close-workbench') as HTMLButtonElement).click();
+    expect(storeMock.closeDataset).toHaveBeenCalled();
   });
 
   it('the page explains what a dataset is — subtitle with the replay/live distinction', () => {
