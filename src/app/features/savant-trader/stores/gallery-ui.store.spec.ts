@@ -13,11 +13,11 @@ describe('GalleryUiStore', () => {
     store = TestBed.inject(GalleryUiStore);
   });
 
-  it('defaults to daily longs on PRIMARY grouped by sector (#783)', () => {
+  it('defaults to daily longs on PRIMARY, ungrouped flat grid (#762)', () => {
     expect(store.timeframe()).toBe(SignalTimeframe.DAILY);
     expect(store.direction()).toBe(SignalDirection.LONG);
     expect(store.listFilter()).toBe('PRIMARY');
-    expect(store.groupDimension()).toBe(GroupDimension.SECTOR);
+    expect(store.groupDimension()).toBe(GroupDimension.NONE);
     expect(store.chartTimeframe()).toBe(SignalTimeframe.DAILY);
     expect(store.expandedGroups()).toEqual({});
   });
@@ -42,7 +42,7 @@ describe('GalleryUiStore', () => {
     expect(store.timeframe()).toBe(SignalTimeframe.DAILY);
     expect(store.direction()).toBe(SignalDirection.LONG);
     expect(store.listFilter()).toBe('PRIMARY');
-    expect(store.groupDimension()).toBe(GroupDimension.SECTOR);
+    expect(store.groupDimension()).toBe(GroupDimension.NONE);
   });
 
   // #783 — grouped expando layout state
@@ -70,7 +70,7 @@ describe('GalleryUiStore', () => {
     store.setGroupDimension(GroupDimension.MARKET_CAP_TIER);
     store.setGroupExpanded('sector:Tech', false);
     store.resetForPage();
-    expect(store.groupDimension()).toBe(GroupDimension.SECTOR);
+    expect(store.groupDimension()).toBe(GroupDimension.NONE);
     expect(store.expandedGroups()).toEqual({});
   });
 

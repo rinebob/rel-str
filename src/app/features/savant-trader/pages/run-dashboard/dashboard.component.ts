@@ -130,13 +130,13 @@ export class DashboardComponent implements OnDestroy {
     this.store.triggerManualRun(undefined);
   }
 
-  /** Navigate to the signal review page, pre-seeding the active run from the latest completed run. */
-  goToSignalReview(): void {
+  /** Navigate to the signal gallery, pre-seeding the active run from the latest completed run. */
+  goToGallery(): void {
     const latest = this.store.latestCompletedRun();
     if (latest?.id && latest?.marketDate) {
       this.groupStore.setActiveRun(latest.id, latest.marketDate);
     }
-    this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
+    this.router.navigate(['/' + AppRoutes.GALLERY]);
   }
 
   /** Select a run from the history table without navigating away. */
@@ -144,13 +144,13 @@ export class DashboardComponent implements OnDestroy {
     this.uiStore.selectRun(run.id);
   }
 
-  /** Review signals for a specific run selected from the run history panel. */
+  /** Open the gallery for a specific run selected from the run history panel. */
   onRunSelected(run: StRun): void {
     this.uiStore.selectRun(run.id);
     if (run.id && run.marketDate) {
       this.groupStore.setActiveRun(run.id, run.marketDate);
     }
-    this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
+    this.router.navigate(['/' + AppRoutes.GALLERY]);
   }
 
   /** Trigger a full company overview sync and show a snackbar with the result. */

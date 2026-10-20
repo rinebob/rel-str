@@ -4,7 +4,7 @@
  * The gallery's page shell (#743/#754): header with filters + group dimension, a
  * scrollable stack of expando groups whose bodies are responsive card grids
  * (#783) — or a flat market-cap-sorted grid when the Group dimension is None
- * (#820, the pinned Sunk panel still renders below) — and empty states. The card toolbar's Trade/Reject/Paper actions
+ * (#820, the Actioned section still renders below) — and empty states. The card toolbar's Trade/Reject/Paper actions
  * dispatch through here (#755/#759) — Trade opens the staged ticket in a
  * dialog; a cancelled dialog discards the ticket it created.
  * Charts (#756) mount inside each card's @defer cell; this page warms the
@@ -60,6 +60,8 @@ export class GalleryViewComponent implements OnInit {
     switch (action.type) {
       case 'reject': this.actions.rejectCard(action.card); break;
       case 'paper': void this.actions.paperCard(action.card); break;
+
+      case 'requeue': void this.actions.requeueCard(action.card); break;
       case 'trade': void this.openTicketDialog(action.card); break;
     }
   }

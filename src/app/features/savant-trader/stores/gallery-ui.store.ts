@@ -41,7 +41,7 @@ const initialState: GalleryUiState = {
   timeframe: SignalTimeframe.DAILY,
   direction: SignalDirection.LONG,
   listFilter: 'PRIMARY',
-  groupDimension: GroupDimension.SECTOR,
+  groupDimension: GroupDimension.NONE,
   chartTimeframe: DEFAULT_CARD_CHART_TIMEFRAME,
   chartTimeframeSeq: 0,
   expandedGroups: {},
