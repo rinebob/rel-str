@@ -16,6 +16,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFunctions } from 'firebase-admin/functions';
+import { getStorage } from 'firebase-admin/storage';
 import { logger } from 'firebase-functions/v2';
 
 import {
@@ -28,6 +29,8 @@ import {
   type AnalysisDatasetOrigin,
   type AnalysisDatasetTaskPayload,
   type AnalysisRunParams,
+  type FetchDatasetCsvRequest,
+  type FetchDatasetCsvResponse,
   type GenerateTradeDatasetRequest,
   type GenerateTradeDatasetResponse,
 } from '@paper-trading/analysis';
@@ -223,6 +226,89 @@ export const generateTradeDataset = onCall<
       throw new HttpsError(
         'internal',
         `generateTradeDataset failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  },
+);
+
+// ── fetchDatasetCsv ───────────────────────────────────────────────────────
+
+/**
+ * `fetchDatasetCsv` callable — the workbench's CSV read path (QA #1147).
+ * Reads the dataset's Storage object server-side and returns the body so
+ * the browser never fetches firebasestorage.googleapis.com directly —
+ * client networks that blackhole QUIC/UDP hang forever on a plain
+ * download fetch, while callables ride the same connection the rest of
+ * the app already uses.
+ */
+export interface FetchDatasetDeps {
+  readIndexDoc(datasetId: string): Promise<AnalysisDatasetDoc | null>;
+  readObject(gcsPath: string): Promise<Buffer>;
+}
+
+/** Callable JSON responses carry the CSV inline — guard well under the
+ *  32 MiB HTTP ceiling; real datasets are trade rows (~400 B each). */
+const MAX_CSV_BYTES = 24 * 1024 * 1024;
+
+export async function handleFetchDatasetCsv(
+  request: { data?: unknown; auth?: { uid: string } },
+  deps: FetchDatasetDeps,
+): Promise<FetchDatasetCsvResponse> {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Must be signed in to fetch a dataset');
+  }
+  const datasetId = (request.data as FetchDatasetCsvRequest | undefined)?.datasetId;
+  if (typeof datasetId !== 'string' || !datasetId.trim()) {
+    throw new HttpsError('invalid-argument', 'fetchDatasetCsv requires { datasetId }');
+  }
+  const doc = await deps.readIndexDoc(datasetId);
+  if (!doc) {
+    throw new HttpsError('not-found', `dataset '${datasetId}' not found`);
+  }
+  const gcsPath = doc.gcsPath || analysisDatasetGcsPath(datasetId);
+  const buf = await deps.readObject(gcsPath);
+  if (buf.length > MAX_CSV_BYTES) {
+    throw new HttpsError(
+      'resource-exhausted',
+      `dataset '${datasetId}' is ${buf.length} bytes — too large to fetch via callable`,
+    );
+  }
+  return { csv: buf.toString('utf8') };
+}
+
+function fetchDeps(): FetchDatasetDeps {
+  return {
+    readIndexDoc: (id) =>
+      db
+        .collection(analysisDatasetsPath())
+        .doc(id)
+        .get()
+        .then((s) => (s.exists ? (s.data() as AnalysisDatasetDoc) : null)),
+    readObject: (gcsPath) =>
+      getStorage()
+        .bucket()
+        .file(gcsPath)
+        .download()
+        .then(([buf]) => buf),
+  };
+}
+
+export const fetchDatasetCsv = onCall<
+  FetchDatasetCsvRequest,
+  Promise<FetchDatasetCsvResponse>
+>(
+  {
+    cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS,
+    timeoutSeconds: 60,
+  },
+  async (request) => {
+    try {
+      return await handleFetchDatasetCsv(request, fetchDeps());
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError(
+        'internal',
+        `fetchDatasetCsv failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   },
