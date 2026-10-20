@@ -53,6 +53,7 @@
     "scripts/migrate-collection-renames-1007.ts",
     "scripts/migrate-config-lists-1008.ts",
     "scripts/qa-probe-1008.ts",
+    "scripts/purge-st-run-jobs-1010.ts",
     "scripts/migrate-order-intents-1003.ts",
     "scripts/open-close-strategy-comparison.ts",
     "scripts/seed-options-strategy-instances.ts",
