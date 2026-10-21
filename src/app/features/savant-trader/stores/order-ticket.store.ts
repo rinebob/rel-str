@@ -36,6 +36,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { firstValueFrom, from } from 'rxjs';
 
 import { OrderTicketService } from '../services/order-ticket.service';
+import { stDocId } from '../services/order-ticket-st-mapper';
+import { stTicketId } from '@st/ids';
 import { OrderExecutionService, ExecutionResult, PLACEMENT_DEAD_CODE, FILL_CAPABLE_DEAD_STATES } from '../services/order-execution.service';
 import {
   OrderTicket,
@@ -50,7 +52,8 @@ import { PaperTradingService } from '../services/paper-trading.service';
 import { isPaperEligibleTicket, toPaperSignalOrderRequest } from '../utils/paper-ticket.util';
 import { formatError } from '../utils/format-error.util';
 import type { PaperSignalOrderResponse } from '@paper-trading/contracts';
-import { rhStateToTerminalStatus } from '../utils/broker-order.util';
+import { rhOrderFillSummary, rhStateToTerminalStatus } from '../utils/broker-order.util';
+import type { StTicketFillSummary } from '@st/order-tickets';
 import { PositionAttributionService } from '../../portfolio-dashboard/position-attribution.service';
 
 export interface OrderTicketState {
@@ -129,13 +132,16 @@ export const OrderTicketStore = signalStore(
             // persisted write lands, so a stale STAGED snapshot must not
             // clobber it back into the pool. If the stored doc moved on
             // (FAILED, gone), the server value wins.
+            // Local keys are bare ids; hydrated docs carry the {liv|pap}_
+            // prefix — normalize before looking up (#1015).
             for (const [id, local] of Object.entries(state.tickets())) {
+              const key = map[id] ? id : stDocId(id);
               if (
                 (local.status === OrderTicketStatus.SUBMITTING ||
                   local.status === OrderTicketStatus.PAPER) &&
-                map[id]?.status === OrderTicketStatus.STAGED
+                map[key]?.status === OrderTicketStatus.STAGED
               ) {
-                map[id] = { ...map[id], status: local.status, updatedAt: local.updatedAt };
+                map[key] = { ...map[key], status: local.status, updatedAt: local.updatedAt };
               }
             }
             patchState(state, { tickets: map, loading: false });
@@ -409,10 +415,18 @@ export const OrderTicketStore = signalStore(
      *  the 24-hour recency filter is anchored to the actual broker event. */
     reconcileTerminalStatuses(rhOrders: Record<string, import('../services/order-ticket.types').BrokerOrderSnapshot>): void {
       const tickets = state.tickets();
-      const updates: Array<{ id: string; status: OrderTicketStatus; terminalAt: string }> = [];
+      const updates: Array<{
+        id: string;
+        status: OrderTicketStatus;
+        terminalAt: string;
+        fillSummary?: StTicketFillSummary;
+        lastError?: { category: string; message: string };
+      }> = [];
       const patchedTickets: Record<string, OrderTicket> = {};
       for (const ticket of Object.values(tickets)) {
-        if (ticket.source !== OrderSource.SIGNAL_PIPELINE) continue;
+        // Any ticket with a broker order id reconciles — the source gate
+        // is intentionally absent: a management/program ticket parked in
+        // CANCEL_PENDING must still reach its terminal state (#1015).
         const orderId = ticket.result?.orderId;
         if (!orderId) continue;
         const rhOrder = rhOrders[orderId];
@@ -420,12 +434,44 @@ export const OrderTicketStore = signalStore(
         const terminal = rhStateToTerminalStatus(rhOrder.state);
         if (!terminal || ticket.status === terminal) continue;
         const terminalAt = rhOrder.lastTransactionAt ?? new Date().toISOString();
-        updates.push({ id: ticket.id, status: terminal, terminalAt });
+        // The canonical audit requires fillSummary (incl. its filledAt)
+        // on filled docs and lastError on failed docs — carry the RH
+        // snapshot through. executions[] supplies the real average;
+        // order-level price is null on market fills (#1015 R2).
+        const fillSummary = terminal === OrderTicketStatus.FILLED
+          ? (() => {
+              const f = rhOrderFillSummary(rhOrder);
+              return f ? { ...f, filledAt: terminalAt } : undefined;
+            })()
+          : undefined;
+        const lastError = terminal === OrderTicketStatus.FAILED
+          ? {
+              category: `broker_${rhOrder.state ?? 'unknown'}`,
+              message: `Order reached '${rhOrder.state}' at the broker`,
+            }
+          : undefined;
+        updates.push({
+          id: ticket.id, status: terminal, terminalAt,
+          ...(fillSummary ? { fillSummary } : {}),
+          ...(lastError ? { lastError } : {}),
+        });
         patchedTickets[ticket.id] = {
           ...ticket,
           status: terminal,
           terminalAt,
           updatedAt: new Date().toISOString(),
+          ...(fillSummary
+            ? {
+                result: {
+                  ...ticket.result,
+                  fillPrice: String(fillSummary.averagePrice),
+                  filledQuantity: String(fillSummary.filledQty),
+                },
+              }
+            : {}),
+          ...(lastError
+            ? { error: { message: lastError.message, code: lastError.category, retryable: false } }
+            : {}),
         };
       }
       if (updates.length === 0) return;
@@ -532,10 +578,34 @@ export const OrderTicketStore = signalStore(
         // rather than restoring the never-persisted SUBMITTING snapshot,
         // which would wedge the ticket for the session (#755 review).
         store.setTicketStatusLocal(current.id, OrderTicketStatus.STAGED);
-        store.updateTicket(current.id, {
-          status: OrderTicketStatus.PAPER,
-          error: undefined,
-          updatedAt: new Date().toISOString(),
+        // The callable emitted the canonical pap_{tradeId} lifecycle
+        // tickets — the liv_ staged doc is CONSUMED, not patched:
+        // writing mode:'paper' onto a liv_ doc breaks the {liv|pap}_
+        // prefix invariant (#1015 review). Delete it and repoint the
+        // local ticket at the BE's pap_ id so hydration merges on one
+        // entry instead of resurrecting a staged duplicate.
+        try {
+          await firstValueFrom(ticketService.deleteTicket(current.id));
+        } catch (cleanupErr) {
+          // The paper order already landed — a cleanup miss leaves a
+          // restageable liv_ staged doc; the callable's signalId dedupe
+          // makes a re-accept an idempotent retry, not a double order.
+          console.error('[OrderTicketStore] staged-ticket cleanup failed after paper accept:', cleanupErr);
+        }
+        const papId = stTicketId('paper', res.equityTradeId);
+        const restTickets = { ...store.tickets() };
+        delete restTickets[current.id];
+        patchState(store, {
+          tickets: {
+            ...restTickets,
+            [papId]: {
+              ...current,
+              id: papId,
+              status: OrderTicketStatus.PAPER,
+              error: undefined,
+              updatedAt: new Date().toISOString(),
+            },
+          },
         });
         return res;
       } catch (err) {
