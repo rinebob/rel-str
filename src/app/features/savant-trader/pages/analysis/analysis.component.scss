@@ -1,3 +1,5 @@
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
 .analysis-page {
   padding: 16px;
   display: flex;
@@ -50,14 +52,17 @@
   color: var(--mat-sys-error);
 }
 
-.loading-container,
-.empty-state {
+.loading-container {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
   padding: 48px 0;
   opacity: 0.8;
+}
+
+.empty-state {
+  @include vl.state-block;
 }
 
 .dataset-grid {

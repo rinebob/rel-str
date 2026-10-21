@@ -1,5 +1,7 @@
 // Cell density/fonts mirror pct-change-grid.component (1px padding,
 // 0.55rem base, minmax(50px,1fr) columns).
+@use '../../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
 :host {
   display: flex;
   flex-direction: column;
@@ -151,8 +153,6 @@
 .data-cell.delta-shaded { box-shadow: inset 0 0 0 100px rgba(0,0,0,0.08); }
 .data-cell.delta-shaded.top-gainer { box-shadow: inset 0 0 0 100px rgba(0,0,0,0.08), inset 0 0 0 2px #000; }
 .no-data {
-  padding: 1rem;
-  text-align: center;
-  color: #999;
+  @include vl.state-block;
   font-size: 0.8rem;
 }

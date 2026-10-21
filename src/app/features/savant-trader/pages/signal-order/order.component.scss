@@ -1,3 +1,5 @@
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
 .signal-order-page {
   display: flex;
   flex-direction: column;
@@ -21,28 +23,8 @@
 // SCOREBOARD
 // ========================================
 .scoreboard {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  white-space: nowrap;
+  @include vl.stat-strip;
   margin-left: 12px;
-
-  .sb-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .sb-label {
-    color: var(--mat-sys-on-surface-variant);
-    font-weight: 500;
-  }
-
-  .sb-value {
-    font-weight: 600;
-    font-family: monospace;
-  }
 
   /* Held-by-resting-buys annotation next to Cash (#707). */
   .sb-sub {
@@ -50,11 +32,6 @@
     font-family: monospace;
     font-size: 11px;
     cursor: help;
-  }
-
-  .sb-sep {
-    color: var(--mat-sys-outline-variant);
-    opacity: 0.6;
   }
 }
 
