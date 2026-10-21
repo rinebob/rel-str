@@ -125,6 +125,11 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
   },
   {
+    name: 'design-system foundation-mixin migration',
+    file: 'design-system-foundation-migration-1171.ts',
+    needsAccount: false,
+  },
+  {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
     cwd: 'functions',
