@@ -43,6 +43,8 @@ const TICKET_STATUS_LABELS: Record<OrderTicketStatus, string> = {
   [OrderTicketStatus.FILLED]: 'Filled',
   [OrderTicketStatus.FAILED]: 'Failed',
   [OrderTicketStatus.CANCELLED]: 'Cancelled',
+  [OrderTicketStatus.CANCEL_PENDING]: 'Cancelling',
+  [OrderTicketStatus.EXPIRED]: 'Expired',
   [OrderTicketStatus.PAPER]: 'Paper',
 };
 

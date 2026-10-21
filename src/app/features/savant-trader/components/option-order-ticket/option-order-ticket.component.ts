@@ -92,6 +92,7 @@ const LIVE_TICKET_STATUSES: ReadonlySet<OrderTicketStatus> = new Set([
   OrderTicketStatus.SUBMITTED,
   OrderTicketStatus.QUEUED,
   OrderTicketStatus.RESTING,
+  OrderTicketStatus.CANCEL_PENDING,
   OrderTicketStatus.FILLED,
 ]);
 

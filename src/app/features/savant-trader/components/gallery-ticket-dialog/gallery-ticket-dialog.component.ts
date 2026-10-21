@@ -69,6 +69,8 @@ const DIALOG_DONE_STATUSES: ReadonlySet<OrderTicketStatus> = new Set([
   OrderTicketStatus.FILLED,
   OrderTicketStatus.PAPER,
   OrderTicketStatus.CANCELLED,
+  OrderTicketStatus.CANCEL_PENDING,
+  OrderTicketStatus.EXPIRED,
 ]);
 
 /** Confirmation copy per done status — the dialog now shows this instead
@@ -80,6 +82,8 @@ const CONFIRMATION_MESSAGES: Partial<Record<OrderTicketStatus, string>> = {
   [OrderTicketStatus.FILLED]: 'Order filled',
   [OrderTicketStatus.PAPER]: 'Sent to paper trade',
   [OrderTicketStatus.CANCELLED]: 'Order cancelled',
+  [OrderTicketStatus.CANCEL_PENDING]: 'Cancelling with the broker',
+  [OrderTicketStatus.EXPIRED]: 'Order expired at the broker',
 };
 
 @Component({
@@ -171,9 +175,12 @@ export class GalleryTicketDialogComponent implements OnInit {
     const t = this.confirmation();
     return t ? (CONFIRMATION_MESSAGES[t.status] ?? 'Order accepted') : '';
   });
-  readonly confirmationIcon = computed(() =>
-    this.confirmation()?.status === OrderTicketStatus.CANCELLED ? 'cancel' : 'task_alt',
-  );
+  readonly confirmationIcon = computed(() => {
+    const s = this.confirmation()?.status;
+    if (s === OrderTicketStatus.CANCEL_PENDING) return 'hourglass_top';
+    if (s === OrderTicketStatus.CANCELLED || s === OrderTicketStatus.EXPIRED) return 'cancel';
+    return 'task_alt';
+  });
   /** `buy limit 10 @ 210.50` / `buy market $200` / `opt 2 @ 1.25` — the
    *  accepted terms on the confirmation line (shared formatter, #762). */
   readonly confirmationTerms = computed(() => {
