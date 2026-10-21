@@ -26,13 +26,15 @@
  *             canonicalization drift or a provider gap, not a clean
  *             keep (distinct from dead — a row exists — and from drop —
  *             no metrics to judge)
- *     drop  = covered ∧ tracked ∧ ¬noData ∧ ¬matched — covered but
- *             failed the screen; dropDetail carries the coverage row's
- *             column values (PRD #15: "the metric values that failed
- *             them")
- *     unevaluated = tracked symbols in rejected chunks with no returned
- *             row — surfaced separately on the result, NOT folded into
- *             deadSymbols (a failed chunk says nothing about coverage)
+ *     drop  = covered ∧ tracked ∧ ¬noData ∧ ¬matched ∧ ¬unevaluated —
+ *             covered but failed the screen; dropDetail carries the
+ *             coverage row's column values (PRD #15: "the metric values
+ *             that failed them")
+ *     unevaluated = tracked symbols whose screen verdict is unknown:
+ *             ¬returned ∧ chunk-failed, OR covered ∧ matched-chunk-
+ *             failed (a rejected coverage chunk yields no row, so union
+ *             membership on a covered symbol can only mean its matched
+ *             chunk failed). Surfaced separately, folded into NO bucket.
  * - `truncated` is an input flag — the caller derives it via the shared
  *   isScanTruncated contract (no re-derivation here).
  */
@@ -51,8 +53,9 @@ export interface CompareResult {
   dropDetail: Record<string, Record<string, string>>;
   /** Caller-derived via isScanTruncated — the pure engine only carries it. */
   truncated: boolean;
-  /** Prune only: tracked symbols in rejected chunks with no returned
-   *  row — excluded from every bucket. */
+  /** Prune only: tracked symbols whose screen verdict is unknown —
+   *  a rejected chunk left them unscreened (uncovered-side or
+   *  matched-side). Excluded from every bucket. */
   unevaluated: string[];
 }
 
@@ -141,9 +144,18 @@ export function comparePrune(args: ComparePruneArgs): CompareResult {
     const key = norm(r.symbol);
     if (!coverageBySymbol.has(key)) coverageBySymbol.set(key, r);
   }
+  // Matched-row fallback for noDataPred — a symbol whose coverage chunk
+  // rejected but matched chunk fulfilled still gets its (matched) row
+  // predicate-checked, so a blank-metric passer can't keep silently.
+  const matchedBySymbol = new Map<string, ScanRow>();
+  for (const r of args.matched) {
+    const key = norm(r.symbol);
+    if (!matchedBySymbol.has(key)) matchedBySymbol.set(key, r);
+  }
 
   const buckets = emptyBuckets();
   const dropDetail: Record<string, Record<string, string>> = {};
+  const surfaced: string[] = [];
 
   const seenTracked = new Set<string>();
   for (const symbol of args.tracked) {
@@ -153,13 +165,14 @@ export function comparePrune(args: ComparePruneArgs): CompareResult {
     const inCoverage = covered.has(key);
     const isMatched = matched.has(key);
     // Returned evidence wins over a stale unevaluated entry — a row in
-    // either response is proof; evaluateUniverse can't produce both,
-    // but a hand-rolled caller could.
+    // either response is proof of coverage; but a covered symbol whose
+    // MATCHED chunk rejected was never screened (below).
     if (!inCoverage && !isMatched) {
-      if (!unevaluatedNorm.has(key)) buckets.deadSymbols.push(symbol);
-      continue; // not returned: dead if evaluated, unknown (skip) if the chunk failed
+      if (unevaluatedNorm.has(key)) surfaced.push(symbol);
+      else buckets.deadSymbols.push(symbol);
+      continue;
     }
-    const row = coverageBySymbol.get(key);
+    const row = coverageBySymbol.get(key) ?? matchedBySymbol.get(key);
     // No-data before pass: a matched row whose key metrics read blank
     // is drift/gap (the predicate's purpose), not a clean keep.
     if (row && args.noDataPred(row)) {
@@ -167,7 +180,13 @@ export function comparePrune(args: ComparePruneArgs): CompareResult {
       continue;
     }
     if (isMatched) continue; // passed the screen
-    // covered ∧ ¬matched ∧ ¬noData — `row` is defined (inCoverage).
+    // covered ∧ ¬matched: union membership can only mean the matched
+    // chunk rejected — the symbol was never screened, so its verdict
+    // is unknown, not "failed". Verify-before-drop, same as dead.
+    if (unevaluatedNorm.has(key)) {
+      surfaced.push(symbol);
+      continue;
+    }
     buckets.dropCandidates.push(symbol);
     dropDetail[symbol] = { ...row!.values };
   }
@@ -193,32 +212,11 @@ export function comparePrune(args: ComparePruneArgs): CompareResult {
     displayRows.push(r);
   }
 
-  // Surface unevaluated minus any symbol a row already accounted for —
-  // the surfaced list means "genuinely unknown", never double-reported.
-  const unevaluated = dedupeSymbols(args.unevaluated).filter((s) => {
-    const key = norm(s);
-    return trackedNorm.has(key) && !covered.has(key) && !matched.has(key);
-  });
-
   return {
     rows: stamp(displayRows, trackedNorm),
     buckets,
     dropDetail,
     truncated: args.truncated,
-    unevaluated,
+    unevaluated: surfaced,
   };
-}
-
-/** Order-preserving dedupe on normalized form, keeping the input's
- *  original casing/trim for display. */
-function dedupeSymbols(symbols: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const s of symbols) {
-    const key = norm(s);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(s);
-  }
-  return out;
 }

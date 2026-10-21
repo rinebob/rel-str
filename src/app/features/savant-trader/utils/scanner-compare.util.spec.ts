@@ -100,18 +100,50 @@ describe('comparePrune (#1138)', () => {
     expect(res.unevaluated).toEqual(['LOST-CHUNK']);
   });
 
-  it('coverage evidence wins over a stale unevaluated entry', () => {
+  it('covered ∧ unevaluated means the matched chunk rejected — unknown, not a drop', () => {
+    // Union membership on a covered symbol can only come from the
+    // matched eval (a rejected coverage chunk yields no row) — the
+    // screen never ran, so "failed" would be a fabricated verdict.
     const res = comparePrune({
       coverage: [row('BOTH', { ROE: '-1' })],
       matched: [],
       tracked: ['BOTH'],
-      unevaluated: ['BOTH'], // contradictory input — the row is proof
+      unevaluated: ['BOTH'],
       noDataPred: none,
       truncated: false,
     });
     expect(res.buckets.deadSymbols).toEqual([]);
-    expect(res.buckets.dropCandidates).toEqual(['BOTH']);
-    // …and the surfaced unevaluated list doesn't double-report it.
+    expect(res.buckets.dropCandidates).toEqual([]);
+    expect(res.dropDetail['BOTH']).toBeUndefined();
+    expect(res.unevaluated).toEqual(['BOTH']);
+  });
+
+  it('matched-only symbol still gets the no-data check via the matched row', () => {
+    // Coverage chunk rejected, matched chunk fulfilled: the matched row
+    // is the only metric evidence — a blank-metric passer must flag
+    // noData, not silently keep.
+    const res = comparePrune({
+      coverage: [],
+      matched: [row('PASSER', {})],
+      tracked: ['PASSER'],
+      unevaluated: ['PASSER'], // coverage-chunk rejection — screened OK
+      noDataPred: blankKeyMetrics,
+      truncated: false,
+    });
+    expect(res.buckets.noDataSymbols).toEqual(['PASSER']);
+    expect(res.unevaluated).toEqual([]);
+  });
+
+  it('no-data still wins over a matched-chunk rejection — coverage evidence is real', () => {
+    const res = comparePrune({
+      coverage: [row('DRIFT', {})],
+      matched: [],
+      tracked: ['DRIFT'],
+      unevaluated: ['DRIFT'],
+      noDataPred: blankKeyMetrics,
+      truncated: false,
+    });
+    expect(res.buckets.noDataSymbols).toEqual(['DRIFT']);
     expect(res.unevaluated).toEqual([]);
   });
 
