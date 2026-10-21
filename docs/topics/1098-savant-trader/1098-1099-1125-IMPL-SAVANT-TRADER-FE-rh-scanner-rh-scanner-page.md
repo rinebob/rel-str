@@ -230,6 +230,22 @@ states; #1141 lands the compare panel + proposal history):
   canonicalization drift. `percentColumns` marks fraction-scaled
   columns for `N.N%` rendering; the table re-sorts the wire's
   Last-desc page per `recipe.sort` client-side.
+- Compare panel (#1141 as-built): ONE dumb
+  `ScannerComparePanelComponent` renders both the live compare
+  (`CompareResult.buckets/unevaluated/dropDetail` → `ComparePanelData`)
+  and a reopened proposal (`CurationProposal` → same shape —
+  `unevaluated` absent per contract; `readOnly`/`title`/`meta` inputs
+  drive the saved-proposal header + close). Non-empty buckets render
+  as expandos with count badges; chips emit `focusSymbol` and the page
+  highlights + scrolls the matching `tr[data-symbol]` (no-op when the
+  symbol isn't in the table — e.g. a reopened proposal's symbols).
+  `dropDetail` surfaces as the chip tooltip (key: value pairs, `—`
+  for blanks). Proposal history loads on init, lists
+  `ranAt · recipe · per-bucket counts`, and `openProposal` renders the
+  detail panel above the list — the store clears `proposalOpen` at the
+  START of a new run; a proposal opened mid-run can co-render with the
+  landing compare (still valid read-only data; expando ids are
+  per-instance so aria-controls can't collide).
 
 ## 4. File sketch
 
@@ -254,6 +270,20 @@ functions/scripts/verify/rh-scanner-recipes-1098.ts          (NEW relay)
 Dry-run: every catalog recipe through `preview_scan` on the real session
 via the existing executor path — asserts each returns `success` +
 `results[]` shaped per contract (schema-drift tripwire, read-only).
+As-built (#1141): imports `SCANNER_RECIPES` directly (the relay asserts
+the catalog the page ships, not a copy); catalog-level check pins unique
+ids + non-empty filters; per-recipe `preview_scan(filters, columns)` —
+the production arg shape — then asserts `total_items >= results.length`
+and the row contract (ticker/instrument_id/instrument_type + string
+columns). A requested column key (or its `columnLookup` rename) absent
+from EVERY row is a WARN, not a fail — sparse columns aren't drift.
+A failed recipe logs FAIL and the loop continues — every recipe is
+exercised; `toolError` surfaces before the data.result assert.
+Build side-effect: `scripts/verify/*.ts` sits in the functions tsconfig
+include, so `npm run build` compiles the relay AND its `src/app`
+imports (`scanner-recipes`/`scanner-rows.util`, both Angular-free)
+into `functions/lib/src/app/...` — extra bytes in the deploy bundle,
+consistent with every script already there.
 Registered in `scripts/verify/run-all.ts` + README row; needs the same
 credential/env setup as `run-tool-observation.ts`.
 

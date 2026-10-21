@@ -9,7 +9,7 @@
 **Type:** TEST  
 **Status:** Draft  
 **Created:** 2026-10-20  
-**Last Updated:** 2026-10-20  
+**Last Updated:** 2026-10-21  
 
 # Test Plan: RH Scanner page (FE)
 
@@ -32,8 +32,19 @@ relay is the live tripwire.
 
 - `scanner.component.spec` — renders picker/table; drives the
   store mock through loading/rows/error/capped states (prior art:
-  `gallery-view.component.spec.ts`). The compare panel is #1141
-  scope — the #1140 spec covers picker/table/status/error/empty.
+  `gallery-view.component.spec.ts`). #1140 covered
+  picker/table/status/error/empty; #1141 added: live panel rendered
+  from `compare()`, bucket chip → `onFocusSymbol` highlights the row
+  (`focused` class) + `scrollIntoView` (async via one macrotask
+  flush — `setTimeout` schedules the scroll), proposal history list,
+  `openProposal` → read-only detail panel (title/meta/close →
+  `closeProposal`), `loadProposals` on init.
+- `scanner-compare-panel.component.spec` (#1141) — dumb-component spec
+  via `setInput`: one expando per non-empty bucket with counts,
+  Unevaluated section only when present, chips emit `focusSymbol`,
+  dropDetail → chip tooltip, readOnly mode (title/meta/close →
+  `closed`), all-clear line when every bucket is empty, null data →
+  nothing.
 - `scanner.service.spec` — rhApi seam mocked at `RobinhoodMcpClient`;
   Firestore mocked at `@angular/fire` (AGENTS.md provider pattern);
   asserts the allowlist rejects a non-`preview_scan` tool name.
