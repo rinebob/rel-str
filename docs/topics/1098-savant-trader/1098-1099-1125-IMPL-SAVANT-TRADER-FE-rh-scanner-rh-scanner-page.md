@@ -94,11 +94,14 @@ Thin wrapper over `RobinhoodMcpClient` + `SymbolListStore.loadTrackedSymbols`
 + proposal persistence:
 
 - `runScan(recipe)` → `previewScan`.
-- `evaluateTracked(recipe)` → `loadTrackedSymbols()` then
-  `evaluateUniverse`; reports per-chunk failures.
+- `evaluateTracked(recipe, symbols, onProgress)` → TWO
+  `evaluateUniverse` passes (coverage `{...recipe, filters:[]}` then
+  filtered), combined `done/(2·total)` progress; the universe load
+  (`loadTrackedSymbols`) lives in the store.
 - `saveProposal(proposal)` / `listProposals()` / `getProposal(id)` —
   `st-scanner/proposals/items` via AngularFire (`collection`,
-  `addDoc`, `docData`/`collectionData` orderBy ranAt desc).
+  `addDoc`, `getDoc`/`getDocs` + `query(orderBy('ranAt','desc'))`);
+  drift-tolerant reads (list skips, get → null).
 - **Tool allowlist:** only `preview_scan` crosses the boundary —
   enforced in the service (and by construction: no other tool has a
   spec here).
@@ -111,7 +114,8 @@ export interface CompareResult {
   buckets: CurationProposalBuckets;
   dropDetail: Record<string, Record<string, string>>;
   truncated: boolean;
-  unevaluated: string[];              // prune: tracked symbols with no returned row
+  unevaluated: string[];              // prune: tracked symbols whose screen
+                                      // verdict is unknown (rejected chunk)
 }
 
 export function compareDiscovery(
@@ -136,24 +140,35 @@ export function comparePrune(args: {
   `returned = covered ∪ matched` (verify-before-drop per CONTEXT.md);
   `noData = tracked ∧ row ∧ noDataPred(row)` — checked before the
   matched-pass so a passer with blank key metrics still flags;
-  `dropCandidates = covered ∧ tracked ∧ ¬noData ∧ ¬matched` with
-  dropDetail = the coverage row's column values; unevaluated-chunk
-  symbols surfaced separately on the result, never folded into dead.
+  `dropCandidates = covered ∧ tracked ∧ ¬noData ∧ ¬matched ∧
+  ¬unevaluated` — a covered symbol in the union can only mean its
+  matched chunk rejected (a rejected coverage chunk yields no row),
+  so its screen verdict is unknown, not "failed"; dropDetail = the
+  coverage row's column values. The surfaced `unevaluated` list =
+  tracked symbols whose screen verdict is unknown (unscreened via a
+  rejected chunk on either side), folded into no bucket.
 - `truncated`: caller derives via shared `isScanTruncated(result)` from
   `@st/scanner` (`results.length >= 200 || total_items > results.length`)
   and passes the flag in — single canonical rule, don't re-derive.
 
 ### Store — `stores/scanner.store.ts`
 
-`signalStore` state: `recipes`, `activeRecipe`, `running`, `rows`,
-`compare` (CompareResult | null), `proposals`, `error`,
-`evaluatingUniverse` (progress: chunksDone/chunksTotal), `proposalOpen`.
+`signalStore` state: `recipes`, `activeRecipeId` (+computed
+`activeRecipe`), `running`, `rows`, `compare` (CompareResult | null),
+`proposals` (+`proposalsLoading`), `error`, `evaluating` (progress:
+done/total — one tick per /batch group), `proposalOpen`; computed
+`busy`, `requiresReauth`, `canEvaluateTracked`. Superseded-run
+cancellation via `runSeq`/`scanSeq`/`evalSeq` tokens — a newer run
+drops a stale result/error/save-prepend; `selectRecipe` supersedes
+too. Persist failure surfaces as `proposal save failed — …` with the
+compare kept (not a run failure).
 
 Methods: `selectRecipe`, `runScan` (→ discovery compare + persist),
 `evaluateTracked` (prune direction, quality recipes only — enabled when
 the recipe declares `supportsPrune`; runs evaluateUniverse TWICE —
 coverage eval with scope+columns and no filters, then the filtered eval
-— and unions both `unevaluated` lists), `openProposal`, `clearError`.
+— and unions both `unevaluated` lists), `loadProposals`, `openProposal`,
+`closeProposal`, `clearError`.
 Proposal persisted on every completed compare (both directions) —
 auto-persist, not a save button.
 
@@ -173,9 +188,9 @@ auto-persist, not a save button.
   icon `radar` (or nearest material icon).
 - Tracked badge styling reuses the badge vocabulary (`.badge`); drop
   rows can carry `.dir-edge-*`-style accents.
-- Error states: `RobinhoodMcpError` category `AUTH`/`SESSION` →
-  "Robinhood session needs reauthorization" card with the runbook hint;
-  other errors → inline error text.
+- Error states: `RobinhoodMcpError` category `AUTH` →
+  "Robinhood session needs reauthorization" card with the runbook hint
+  (no SESSION category exists); other errors → inline error text.
 - Truncation line always shows `shown/matched` and warns at caps.
 - Progress during `evaluateTracked`: `Evaluating 925 symbols… chunk k/7`.
 
