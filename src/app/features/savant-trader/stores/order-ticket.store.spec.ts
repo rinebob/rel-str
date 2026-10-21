@@ -561,6 +561,22 @@ describe('OrderTicketStore', () => {
       expect(store.tickets()['i1'].status).toBe(OrderTicketStatus.SUBMITTING);
     });
 
+    it('preserves a transient local SUBMITTING across the liv_ doc-id boundary (#1015)', () => {
+      // Locally-staged tickets key on the bare id; hydrated docs carry
+      // the {liv|pap}_ prefix. The preserve-merge must normalize or a
+      // mid-flight ticket falls back into the staged pool.
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ id: 'i1', status: OrderTicketStatus.STAGED }));
+      store.setTicketStatusLocal('i1', OrderTicketStatus.SUBMITTING);
+
+      ticketService.loadAllTickets.and.returnValue(of([
+        mockEquityTicket({ id: 'liv_i1', status: OrderTicketStatus.STAGED }),
+      ]));
+      store.loadTickets();
+
+      expect(store.tickets()['liv_i1'].status).toBe(OrderTicketStatus.SUBMITTING);
+    });
+
     it('preserves a local PAPER over a stale persisted STAGED doc — the optimistic mark precedes the write (#755 review r3)', () => {
       ticketService.createTicket.and.returnValue(of(undefined));
       store.stageTicket(mockEquityTicket({ id: 'i1', status: OrderTicketStatus.STAGED }));
@@ -606,6 +622,63 @@ describe('OrderTicketStore', () => {
         },
       };
     }
+
+    it('reconciles a non-signal ticket — a CANCEL_PENDING management ticket must still reach terminal (#1015)', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({
+        id: 'm1', status: OrderTicketStatus.CANCEL_PENDING,
+        source: OrderSource.POSITION_MANAGEMENT, result: { orderId: 'o-mgmt' },
+      }));
+
+      store.reconcileTerminalStatuses({
+        'o-mgmt': {
+          id: 'o-mgmt', symbol: 'AAPL', side: 'sell', type: 'market',
+          state: 'cancelled', lastTransactionAt: '2026-09-01T15:00:00Z',
+        },
+      });
+
+      expect(store.tickets()['m1'].status).toBe(OrderTicketStatus.CANCELLED);
+      expect(ticketService.batchUpdateTerminalStatus).toHaveBeenCalledWith([
+        jasmine.objectContaining({ id: 'm1', status: OrderTicketStatus.CANCELLED }),
+      ]);
+    });
+
+    it('carries fillSummary and lastError through to the canonical write (#1015)', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({
+        id: 't1', status: OrderTicketStatus.SUBMITTED, result: { orderId: 'o1' },
+      }));
+      store.stageTicket(mockEquityTicket({
+        id: 't2', status: OrderTicketStatus.SUBMITTED, symbol: 'MSFT', result: { orderId: 'o2' },
+      }));
+
+      store.reconcileTerminalStatuses({
+        o1: {
+          id: 'o1', symbol: 'AAPL', side: 'buy', type: 'market',
+          state: 'filled', price: '150.25', cumulativeQuantity: '10',
+          lastTransactionAt: '2026-09-01T15:00:00Z',
+        },
+        o2: {
+          id: 'o2', symbol: 'MSFT', side: 'buy', type: 'market',
+          state: 'rejected', lastTransactionAt: '2026-09-01T15:00:00Z',
+        },
+      });
+
+      // The canonical audit requires fillSummary (incl. its filledAt) on
+      // filled docs and lastError on failed docs — both travel with the batch.
+      expect(ticketService.batchUpdateTerminalStatus).toHaveBeenCalledWith([
+        jasmine.objectContaining({
+          id: 't1', status: OrderTicketStatus.FILLED,
+          fillSummary: { averagePrice: 150.25, filledQty: 10, filledAt: '2026-09-01T15:00:00Z' },
+        }),
+        jasmine.objectContaining({
+          id: 't2', status: OrderTicketStatus.FAILED,
+          lastError: { category: 'broker_rejected', message: "Order reached 'rejected' at the broker" },
+        }),
+      ]);
+      expect(store.tickets()['t1'].result?.fillPrice).toBe('150.25');
+      expect(store.tickets()['t2'].error?.code).toBe('broker_rejected');
+    });
 
     it('a filled ticket with bucketId seeds the position attribution', () => {
       ticketService.createTicket.and.returnValue(of(undefined));
@@ -753,9 +826,9 @@ describe('OrderTicketStore', () => {
         ...overrides,
       });
 
-    it('marks SUBMITTING during the callable then lands PAPER on success', async () => {
+    it('marks SUBMITTING during the callable then consumes the liv_ doc and lands PAPER under the pap_ id (#1015)', async () => {
       ticketService.createTicket.and.returnValue(of(undefined));
-      ticketService.updateTicket.and.returnValue(of(undefined));
+      ticketService.deleteTicket.and.returnValue(of(undefined));
       store.stageTicket(signalTicket());
       const statuses: OrderTicketStatus[] = [];
       paperTrading.paperSignalOrder$.mockImplementation(() => {
@@ -768,11 +841,16 @@ describe('OrderTicketStore', () => {
       // Transient SUBMITTING guarded the callable window (C1, #709).
       expect(statuses).toEqual([OrderTicketStatus.SUBMITTING]);
       expect(res.cohortId).toBe('c1');
-      expect(ticketService.updateTicket).toHaveBeenCalledWith(
+      // The liv_ doc is consumed — never patched to mode:'paper' (the
+      // {liv|pap}_ prefix must mirror mode). The callable's own
+      // pap_{tradeId} lifecycle doc is the paper record.
+      expect(ticketService.deleteTicket).toHaveBeenCalledWith('ticket-1');
+      expect(ticketService.updateTicket).not.toHaveBeenCalledWith(
         'ticket-1',
         jasmine.objectContaining({ status: OrderTicketStatus.PAPER }),
       );
-      expect(store.tickets()['ticket-1'].status).toBe(OrderTicketStatus.PAPER);
+      expect(store.tickets()['ticket-1']).toBeUndefined();
+      expect(store.tickets()['pap_eq-1'].status).toBe(OrderTicketStatus.PAPER);
     });
 
     it('builds the request from the ticket — canonical signalId, side-derived direction, refId', async () => {
@@ -856,10 +934,9 @@ describe('OrderTicketStore', () => {
       void first;
     });
 
-    it('a failed PAPER write leaves the ticket STAGED — never stuck on the transient SUBMITTING (#755 review)', async () => {
+    it('a failed liv_ cleanup still lands PAPER — the paper order already exists; the stale doc is best-effort (#1015)', async () => {
       ticketService.createTicket.and.returnValue(of(undefined));
-      // The status write to Firestore fails.
-      ticketService.updateTicket.and.returnValue(throwError(() => new Error('write down')));
+      ticketService.deleteTicket.and.returnValue(throwError(() => new Error('write down')));
       store.stageTicket(signalTicket());
       paperTrading.paperSignalOrder$.mockReturnValue(
         of({ cohortId: 'c1', equityTradeId: 'eq-1', expressionTradeIds: [] }),
@@ -867,10 +944,10 @@ describe('OrderTicketStore', () => {
 
       await store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 7);
 
-      // updateTicket's rollback restores the pre-update local state — the
-      // transient was reverted first, so the ticket lands back on STAGED
-      // (matching the server doc) instead of an unpersisted SUBMITTING.
-      expect(store.tickets()['ticket-1'].status).toBe(OrderTicketStatus.STAGED);
+      // The accept already happened server-side — the local ticket still
+      // repoints at the canonical pap_ id; the orphaned liv_ doc is a
+      // cleanup concern, not a reason to wedge the flow.
+      expect(store.tickets()['pap_eq-1']?.status).toBe(OrderTicketStatus.PAPER);
     });
   });
 });
