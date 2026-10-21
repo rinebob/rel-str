@@ -134,12 +134,12 @@
               </div>
               <!-- Badges/actions live on line 2 — keeping them on line 1
                    would overflow the fixed-width column budget. -->
-              @if ((ticket.side === 'buy' && hasProtection(ticket)) || isTerminalRow(ticket)) {
+              @if ((ticket.side === 'buy' && hasProtection(ticket)) || isRequeueableRow(ticket)) {
                 <div class="item-line-2">
                   @if (ticket.side === 'buy' && hasProtection(ticket)) {
                     <span class="protected-badge">PROTECTED</span>
                   }
-                  @if (ticket.status === TicketStatus.CANCELLED || ticket.status === TicketStatus.FAILED) {
+                  @if (isRequeueableRow(ticket)) {
                     <!-- Terminal orders have a burned refId — Requeue
                          regenerates it (#717); dismiss removes the row
                          (terminal rows have no checkbox). -->

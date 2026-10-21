@@ -27,6 +27,7 @@ import {
   OrderTicket,
   OrderTicketStatus,
   InstrumentType,
+  REQUEUEABLE_TICKET_STATUSES,
 } from '../../services/order-ticket.types';
 import { computePositionSize, ticketCostBasisPrice } from '../../utils/position-sizing.util';
 import { isPaperEligibleTicket } from '../../utils/paper-ticket.util';
@@ -160,13 +161,13 @@ export class OrderQueueComponent {
     return this.protectedSymbols().has(sym);
   }
 
-  /** Terminal rows (cancelled / broker-failed) — they have no checkbox,
-   *  so they get per-row Requeue and dismiss affordances instead (#717,
-   *  #709). FAILED only ever comes from RH terminal reconciliation, so
-   *  its refId is always burned and Requeue is the right path back. */
-  isTerminalRow(ticket: OrderTicket): boolean {
-    return ticket.status === OrderTicketStatus.CANCELLED ||
-      ticket.status === OrderTicketStatus.FAILED;
+  /** Requeueable terminal rows (cancelled / broker-failed / expired —
+   *  FILLED excluded: a filled order is a position, requeueing would
+   *  double-buy). They have no checkbox, so they get per-row Requeue and
+   *  dismiss affordances instead (#717, #709). A broker-terminated
+   *  order's refId is always burned, so Requeue is the right path back. */
+  isRequeueableRow(ticket: OrderTicket): boolean {
+    return REQUEUEABLE_TICKET_STATUSES.has(ticket.status);
   }
 
   /** Tickets this page displays. PAPER tickets never render — once an order
@@ -217,6 +218,12 @@ export class OrderQueueComponent {
         cssClass: 'group-resting',
       },
       {
+        label: 'Cancelling',
+        status: [OrderTicketStatus.CANCEL_PENDING],
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.CANCEL_PENDING)),
+        cssClass: 'group-cancel-pending',
+      },
+      {
         label: 'Open Positions',
         status: [OrderTicketStatus.FILLED],
         tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.FILLED)),
@@ -233,6 +240,12 @@ export class OrderQueueComponent {
         status: [OrderTicketStatus.CANCELLED],
         tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.CANCELLED)),
         cssClass: 'group-cancelled',
+      },
+      {
+        label: 'Expired',
+        status: [OrderTicketStatus.EXPIRED],
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.EXPIRED)),
+        cssClass: 'group-expired',
       },
     ].filter((g) => g.tickets.length > 0);
   });

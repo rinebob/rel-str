@@ -145,6 +145,8 @@
 .group-filled .group-dot { background: #1b5e20; }
 .group-failed .group-dot { background: var(--mat-sys-error); }
 .group-cancelled .group-dot { background: var(--mat-sys-on-surface-variant); opacity: 0.4; }
+.group-cancel-pending .group-dot { background: #e65100; }
+.group-expired .group-dot { background: var(--mat-sys-on-surface-variant); opacity: 0.4; }
 
 .queue-item {
   display: flex;

@@ -197,6 +197,32 @@ describe('OrderQueueComponent', () => {
       expect(groups.find((group) => group.label === 'Resting')?.tickets).toEqual([resting]);
     });
 
+    it('places CANCEL_PENDING tickets in the Cancelling group (#1015)', () => {
+      const pending = makeTicket('1', OrderTicketStatus.CANCEL_PENDING, 'AAPL');
+
+      fixture.componentRef.setInput('tickets', [pending]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const groups = component.groups();
+      expect(groups.find((group) => group.label === 'Cancelling')?.tickets).toEqual([pending]);
+      // Still mid-flight at the broker — not a terminal row, not removable.
+      expect(component.isRequeueableRow(pending)).toBe(false);
+    });
+
+    it('places EXPIRED tickets in the Expired group and treats them as terminal rows (#1015)', () => {
+      const expired = makeTicket('1', OrderTicketStatus.EXPIRED, 'AAPL');
+
+      fixture.componentRef.setInput('tickets', [expired]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const groups = component.groups();
+      expect(groups.find((group) => group.label === 'Expired')?.tickets).toEqual([expired]);
+      // Terminal like cancelled/failed — the row gets Requeue + dismiss.
+      expect(component.isRequeueableRow(expired)).toBe(true);
+    });
+
     it('groups STAGED tickets together', () => {
       const tickets = [
         makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
