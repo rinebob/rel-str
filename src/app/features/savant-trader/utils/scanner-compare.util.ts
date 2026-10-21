@@ -118,8 +118,14 @@ export interface ComparePruneArgs {
    *  call returns its own `unevaluated` — merge before passing, or
    *  coverage-chunk rejections masquerade as dead). */
   unevaluated: string[];
-  /** Recipe no-data predicate over a coverage row. */
-  noDataPred: (row: ScanRow) => boolean;
+  /** Recipe no-data predicate over a coverage (or matched-fallback) row.
+   *  Takes the caller's effective column lookup so the predicate and the
+   *  page resolve cells identically under canonicalization drift. */
+  noDataPred: (row: ScanRow, lookup?: ReadonlyMap<string, string>) => boolean;
+  /** The run's effective column lookup (echo-merged per the store's
+   *  mergeLookup) — forwarded to noDataPred so display and bucketing
+   *  agree on which key holds a metric. */
+  columnLookup?: ReadonlyMap<string, string>;
   /** Caller-derived via isScanTruncated on the eval results. */
   truncated: boolean;
 }
@@ -175,7 +181,7 @@ export function comparePrune(args: ComparePruneArgs): CompareResult {
     const row = coverageBySymbol.get(key) ?? matchedBySymbol.get(key);
     // No-data before pass: a matched row whose key metrics read blank
     // is drift/gap (the predicate's purpose), not a clean keep.
-    if (row && args.noDataPred(row)) {
+    if (row && args.noDataPred(row, args.columnLookup)) {
       buckets.noDataSymbols.push(symbol);
       continue;
     }

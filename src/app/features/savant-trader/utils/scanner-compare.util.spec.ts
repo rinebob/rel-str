@@ -178,6 +178,21 @@ describe('comparePrune (#1138)', () => {
     expect(res.buckets.dropCandidates).toEqual([]);
   });
 
+  it('forwards columnLookup to noDataPred — display and bucketing share the run lookup (#1140)', () => {
+    const lookup = new Map([['ROE', 'Return on equity']]);
+    const pred = jest.fn().mockReturnValue(false);
+    comparePrune({
+      coverage: [row('KEEP', { 'Return on equity': '0.2' })],
+      matched: [],
+      tracked: ['KEEP'],
+      unevaluated: [],
+      noDataPred: pred,
+      columnLookup: lookup,
+      truncated: false,
+    });
+    expect(pred).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'KEEP' }), lookup);
+  });
+
   it('display rows = coverage ∪ matched deduped; dead symbols have no row', () => {
     const res = comparePrune({
       coverage: [row('KEEP', { ROE: '0.2' }), row('DROP', { ROE: '-1' })],

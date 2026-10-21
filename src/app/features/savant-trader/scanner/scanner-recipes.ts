@@ -41,10 +41,15 @@ import { numericColumn, type ScanRow } from '../utils/scanner-rows.util';
 export interface ScannerRecipe extends ScanRecipe {
   /** Enable universe evaluation (quality screens only — IMPL §2). */
   supportsPrune?: boolean;
-  /** Returned row whose required metric columns are blank → no-data bucket. */
-  noDataPred?: (row: ScanRow) => boolean;
+  /** Returned row whose required metric columns are blank → no-data bucket.
+   *  Receives the run's effective lookup (echo-verified over the static
+   *  map); the default param keeps the static map as the fallback. */
+  noDataPred?: (row: ScanRow, lookup?: ReadonlyMap<string, string>) => boolean;
   /** Requested display_name → backend canonical column key. */
   columnLookup?: ReadonlyMap<string, string>;
+  /** Columns whose wire values are fraction-scaled (0.19 = 19%) — the
+   *  table rescales these via percentColumn; everything else renders raw. */
+  percentColumns?: readonly string[];
 }
 
 /** Expression boolean form — the verified wire shape. */
@@ -86,9 +91,12 @@ const QUALITY_LOOKUP: ReadonlyMap<string, string> = new Map([
 
 /** A scoped row came back but the metrics driving the screen are blank —
  *  suspicious data, not a quality verdict (CONTEXT.md: verify before drop). */
-const qualityNoData = (row: ScanRow): boolean =>
-  numericColumn(row, 'ROE', QUALITY_LOOKUP) === null &&
-  numericColumn(row, 'NPM', QUALITY_LOOKUP) === null;
+const qualityNoData = (
+  row: ScanRow,
+  lookup: ReadonlyMap<string, string> = QUALITY_LOOKUP,
+): boolean =>
+  numericColumn(row, 'ROE', lookup) === null &&
+  numericColumn(row, 'NPM', lookup) === null;
 
 function qualityRecipe(
   id: string,
@@ -106,6 +114,7 @@ function qualityRecipe(
     supportsPrune: true,
     noDataPred: qualityNoData,
     columnLookup: QUALITY_LOOKUP,
+    percentColumns: ['ROE', 'NPM'],
   };
 }
 
@@ -188,6 +197,7 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
     filters: [expr(`tradeAllDay.price >= ${HIGH_EXPR}`, 'At 52w high')],
     columns: [...RANGE_COLUMNS],
     sort: { column: 'Range pos', direction: 'desc' },
+    percentColumns: ['Range pos'],
   },
   {
     id: 'near-52w-high',
@@ -196,6 +206,7 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
     filters: [expr(`${RANGE_POS_EXPR} >= 0.95`, 'Range pos ≥ 95%')],
     columns: [...RANGE_COLUMNS],
     sort: { column: 'Range pos', direction: 'desc' },
+    percentColumns: ['Range pos'],
   },
   {
     id: 'low-52w',
@@ -204,6 +215,7 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
     filters: [expr(`tradeAllDay.price <= ${LOW_EXPR}`, 'At 52w low')],
     columns: [...RANGE_COLUMNS],
     sort: { column: 'Range pos', direction: 'asc' },
+    percentColumns: ['Range pos'],
   },
   {
     id: 'near-52w-low',
@@ -212,6 +224,7 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
     filters: [expr(`${RANGE_POS_EXPR} <= 0.05`, 'Range pos ≤ 5%')],
     columns: [...RANGE_COLUMNS],
     sort: { column: 'Range pos', direction: 'asc' },
+    percentColumns: ['Range pos'],
   },
 
   {
@@ -221,6 +234,7 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
     filters: [expr('ivRank >= 0.8', 'IVR ≥ 0.8'), MCAP_2B_FILTER],
     columns: [...IVR_COLUMNS],
     sort: { column: 'IV rank', direction: 'desc' },
+    percentColumns: ['IV rank'],
   },
   {
     id: 'ivr-low',
@@ -229,6 +243,7 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
     filters: [expr('ivRank <= 0.2', 'IVR ≤ 0.2'), MCAP_2B_FILTER],
     columns: [...IVR_COLUMNS],
     sort: { column: 'IV rank', direction: 'asc' },
+    percentColumns: ['IV rank'],
   },
 
   {
@@ -247,6 +262,7 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
     filters: [pctChangeFilter('>')],
     columns: [col('% Change'), col('Net change')],
     sort: { column: '% Change', direction: 'desc' },
+    percentColumns: ['% Change'],
   },
   {
     id: 'losers',
@@ -255,6 +271,7 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
     filters: [pctChangeFilter('<')],
     columns: [col('% Change'), col('Net change')],
     sort: { column: '% Change', direction: 'asc' },
+    percentColumns: ['% Change'],
   },
 ];
 

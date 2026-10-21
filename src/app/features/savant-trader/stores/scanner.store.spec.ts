@@ -79,7 +79,66 @@ describe('ScannerStore (#1139)', () => {
       }),
     );
     expect(store.proposals()[0].id).toBe('prop-1');
+    // Wire totalItems — the status line's truth under truncation (#1140).
+    expect(store.matchedCount()).toBe(2);
+    expect(store.runKind()).toBe('scan');
     expect(store.running()).toBe(false);
+  });
+
+  it('runScan merges the response echo over the static columnLookup', async () => {
+    // quality-mega static: ROE → 'Return on equity'. An applied-filter
+    // echo matching the ROE column's expression binds it to whatever the
+    // backend actually canonicalized — the echo wins on conflict.
+    service.runScan.mockResolvedValue({
+      totalItems: 1,
+      rows: [wireRow('KEEP', { 'ROE canonical': '0.2' })],
+      filtersApplied: [
+        {
+          filter_type: 'ROE canonical',
+          filter_type_enum: 'FILTER_TYPE_CUSTOM',
+          predicate: '=',
+          values: ['True'],
+          expression: 'fundamental.returnOnEquity',
+        },
+      ],
+    });
+    await store.runScan();
+    expect(store.columnLookup()?.get('ROE')).toBe('ROE canonical');
+    // NPM has no echo → the static map still resolves it.
+    expect(store.columnLookup()?.get('NPM')).toBe('Net profit margin');
+  });
+
+  it('a display-title echo cannot clobber the verified static mapping', async () => {
+    // dep-prev-scan-04: an expression filter's echo can carry its
+    // display_title in filter_type — never a row key. The presence
+    // check must keep 'Return on equity' (the key rows actually carry).
+    service.runScan.mockResolvedValue({
+      totalItems: 1,
+      rows: [wireRow('KEEP', { 'Return on equity': '0.2' })],
+      filtersApplied: [
+        {
+          filter_type: 'ROE ≥ 15%',
+          filter_type_enum: 'FILTER_TYPE_CUSTOM',
+          predicate: '=',
+          values: ['True'],
+          expression: 'fundamental.returnOnEquity',
+        },
+      ],
+    });
+    await store.runScan();
+    expect(store.columnLookup()?.get('ROE')).toBe('Return on equity');
+  });
+
+  it('selectRecipe resets matchedCount with the rest of the stale result', async () => {
+    service.runScan.mockResolvedValue({
+      totalItems: 5,
+      rows: [wireRow('KEEP', { ROE: '0.2' })],
+      filtersApplied: [],
+    });
+    await store.runScan();
+    expect(store.matchedCount()).toBe(5);
+    store.selectRecipe('gainers');
+    expect(store.matchedCount()).toBeNull();
   });
 
   it('evaluateTracked → two-eval prune compare → persist with dropDetail', async () => {
@@ -107,6 +166,7 @@ describe('ScannerStore (#1139)', () => {
     expect(service.saveProposal).toHaveBeenCalledWith(
       expect.objectContaining({ dropCandidates: ['DROP'], deadSymbols: ['DEAD'] }),
     );
+    expect(store.runKind()).toBe('eval');
     expect(store.evaluating()).toBeNull();
   });
 
@@ -204,6 +264,24 @@ describe('ScannerStore (#1139)', () => {
     await store.loadProposals();
     expect(store.proposals().map((p) => p.id)).toEqual(['p2']);
     expect(store.proposalsLoading()).toBe(false);
+  });
+
+  it('loadProposals merge keeps a proposal prepended by an in-flight persist', async () => {
+    // A run's persist() prepends locally after addDoc — a listProposals
+    // snapshot taken before the commit lacks it; a bare replace would
+    // silently drop the fresh entry until the next load.
+    service.runScan.mockResolvedValue({
+      totalItems: 1,
+      rows: [wireRow('X', { ROE: '0.2' })],
+      filtersApplied: [],
+    });
+    service.saveProposal.mockResolvedValue('prop-new');
+    const run = store.runScan();
+    // listProposals resolves with a stale snapshot mid-run.
+    service.listProposals.mockResolvedValue([]);
+    const load = store.loadProposals();
+    await Promise.all([run, load]);
+    expect(store.proposals().map((p) => p.id)).toEqual(['prop-new']);
   });
 
   it('evaluateTracked patches progress from the service callback', async () => {

@@ -20,7 +20,11 @@ import {
 } from '@ngrx/signals';
 
 import { ToolExecutionErrorCategory } from '@robinhood-mcp/contracts';
-import type { ScanResultRow } from '@robinhood-mcp/contracts';
+import type {
+  ScanAppliedFilter,
+  ScanColumn,
+  ScanResultRow,
+} from '@robinhood-mcp/contracts';
 import { RobinhoodMcpError } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { isScanTruncated } from '@st/scanner';
 import type { CurationProposal, ScanRecipe } from '@st/scanner';
@@ -31,7 +35,11 @@ import {
   SCANNER_RECIPES,
   type ScannerRecipe,
 } from '../scanner/scanner-recipes';
-import { parseScanRows, type ScanRow } from '../utils/scanner-rows.util';
+import {
+  buildColumnLookup,
+  parseScanRows,
+  type ScanRow,
+} from '../utils/scanner-rows.util';
 import { compareDiscovery, comparePrune } from '../utils/scanner-compare.util';
 import type { CompareResult } from '../utils/scanner-compare.util';
 
@@ -53,6 +61,18 @@ export interface ScannerState {
   running: boolean;
   rows: ScanRow[];
   compare: CompareResult | null;
+  /** Wire truth for the status line — discovery: total_items (survives
+   *  the 200-row cap); prune: matched rows. Null before a run lands. */
+  matchedCount: number | null;
+  /** Which run produced the current compare — the status line reads
+   *  "shown of matched" for discovery but "evaluated · matched" for
+   *  prune (prune display rows are coverage∪matched — they outnumber
+   *  the matched count, so "shown of matched" would print N > M). */
+  runKind: 'scan' | 'eval' | null;
+  /** Effective display_name → wire-key map for the current run —
+   *  presence-verified [echo, static, raw] per mergeLookup. Null →
+   *  the page falls back to the recipe's static map. */
+  columnLookup: ReadonlyMap<string, string> | null;
   proposals: StoredProposal[];
   proposalsLoading: boolean;
   proposalOpen: StoredProposal | null;
@@ -66,6 +86,9 @@ const initialState: ScannerState = {
   running: false,
   rows: [],
   compare: null,
+  matchedCount: null,
+  runKind: null,
+  columnLookup: null,
   proposals: [],
   proposalsLoading: false,
   proposalOpen: null,
@@ -80,6 +103,36 @@ const toError = (e: unknown): ScannerError =>
   e instanceof RobinhoodMcpError
     ? { message: e.message, category: e.category ?? null }
     : { message: e instanceof Error ? e.message : String(e), category: null };
+
+/** Effective display_name → wire-key map for a run. Candidates are
+ *  [response echo, static recipe map, raw name] and the FIRST key any
+ *  returned row actually carries wins — the echo is preferred when it
+ *  names a real column, but a bad echo (e.g. filter_type = a filter's
+ *  display_title, which is never a row key) can't clobber the verified
+ *  static mapping. When no candidate appears in the rows the static
+ *  map wins over the unverifiable echo. */
+const mergeLookup = (
+  recipe: { columns: readonly ScanColumn[]; columnLookup?: ReadonlyMap<string, string> },
+  applied: ScanAppliedFilter[] | undefined,
+  rows: readonly ScanRow[],
+): Map<string, string> => {
+  const dynamic = buildColumnLookup(applied, recipe.columns);
+  const lookup = new Map<string, string>();
+  for (const col of recipe.columns) {
+    const name = col.display_name;
+    const candidates = [
+      dynamic.get(name),
+      recipe.columnLookup?.get(name),
+      name,
+    ].filter((k): k is string => !!k);
+    const pick =
+      candidates.find((k) => rows.some((r) => Object.hasOwn(r.values, k))) ??
+      recipe.columnLookup?.get(name) ??
+      name;
+    if (pick !== name) lookup.set(name, pick);
+  }
+  return lookup;
+};
 
 const toProposal = (
   recipe: ScanRecipe,
@@ -185,6 +238,9 @@ export const ScannerStore = signalStore(
               activeRecipeId: id,
               rows: [],
               compare: null,
+              matchedCount: null,
+              runKind: null,
+              columnLookup: null,
               proposalOpen: null,
               error: null,
               running: false,
@@ -223,7 +279,13 @@ export const ScannerStore = signalStore(
               new Set(tracked),
               isScanTruncated(preview),
             );
-            patch({ rows: compare.rows, compare });
+            patch({
+              rows: compare.rows,
+              compare,
+              matchedCount: result.totalItems,
+              runKind: 'scan',
+              columnLookup: mergeLookup(recipe, result.filtersApplied, rows),
+            });
             // matchedCount = wire totalItems, not parsed rows.length —
             // under truncation the wire count is the truthful one.
             await persist(recipe, tracked.length, result.totalItems, compare, token);
@@ -261,16 +323,38 @@ export const ScannerStore = signalStore(
             if (token !== runSeq) return;
             const toRows = (rows: ScanResultRow[]) =>
               parseScanRows({ results: rows, total_items: rows.length });
+            const coverageRows = toRows(evals.coverage.rows);
+            const matchedRows = toRows(evals.matched.rows);
+            // Presence-verified over the union — the same map feeds the
+            // table AND noDataPred, so display and bucketing can't split
+            // under canonicalization drift.
+            const lookup = mergeLookup(recipe, evals.matched.filtersApplied, [
+              ...coverageRows,
+              ...matchedRows,
+            ]);
             const compare = comparePrune({
-              coverage: toRows(evals.coverage.rows),
-              matched: toRows(evals.matched.rows),
+              coverage: coverageRows,
+              matched: matchedRows,
               tracked,
               unevaluated: [...evals.coverage.unevaluated, ...evals.matched.unevaluated],
               noDataPred: recipe.noDataPred,
+              columnLookup: lookup,
               truncated: false,
             });
-            patch({ rows: compare.rows, compare });
-            await persist(recipe, tracked.length, evals.matched.rows.length, compare, token);
+            // Count unique matched symbols, not raw wire rows — a
+            // case-variant dup ('aapl'/'AAPL') would otherwise print
+            // 'N evaluated · M matched' with M > N.
+            const matchedCount = new Set(
+              matchedRows.map((r) => r.symbol.trim().toUpperCase()),
+            ).size;
+            patch({
+              rows: compare.rows,
+              compare,
+              matchedCount,
+              runKind: 'eval',
+              columnLookup: lookup,
+            });
+            await persist(recipe, tracked.length, matchedCount, compare, token);
           } catch (e) {
             if (token !== runSeq) return;
             patch({ error: toError(e) });
@@ -283,14 +367,19 @@ export const ScannerStore = signalStore(
         async loadProposals(): Promise<void> {
           patch({ proposalsLoading: true, error: null });
           try {
-            // Dedupe by id — a proposal prepended by a run's persist()
-            // while this fetch was in flight also appears in the fresh
-            // snapshot; either way each id lists once.
-            const seen = new Set<string>();
-            const list = (await service.listProposals()).filter(
-              (p) => !seen.has(p.id) && seen.add(p.id),
-            );
-            patch({ proposals: list });
+            // Merge by id — a proposal prepended by a run's persist()
+            // while this fetch was in flight may not be in the fresh
+            // snapshot (addDoc hadn't committed); a bare replace would
+            // silently drop it until the next load. Local entries not
+            // in the snapshot are newer, so they keep the front spots.
+            const fetched = await service.listProposals();
+            const ids = new Set(fetched.map((p) => p.id));
+            patch({
+              proposals: [
+                ...state.proposals().filter((p) => !ids.has(p.id)),
+                ...fetched,
+              ],
+            });
           } catch (e) {
             patch({ error: toError(e) });
           } finally {
@@ -312,7 +401,7 @@ export const ScannerStore = signalStore(
             const got = await service.getProposal(id);
             if (seq !== proposalSeq) return;
             if (got) {
-              patch({ proposalOpen: got });
+              patch({ proposalOpen: got, error: null });
             } else {
               patch({ error: { message: 'proposal not found', category: null } });
             }

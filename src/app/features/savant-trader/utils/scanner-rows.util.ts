@@ -51,7 +51,7 @@ export function parseScanRows(result: PreviewScanResult): ScanRow[] {
  */
 export function buildColumnLookup(
   applied?: ScanAppliedFilter[],
-  requested?: ScanColumn[],
+  requested?: readonly ScanColumn[],
 ): Map<string, string> {
   const lookup = new Map<string, string>();
   // Strip whitespace outside string literals — the backend echoes
