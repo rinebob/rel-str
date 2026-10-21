@@ -128,8 +128,45 @@ export function rhStateToTerminalStatus(rhState: string): OrderTicketStatus | nu
     case 'failed':
     case 'rejected':
     case 'voided': return OrderTicketStatus.FAILED;
+    // TIF-expired orders are terminal with no fill (#1015) — reconcile
+    // must mark the ticket expired or it stays live in the queue forever.
+    case 'expired': return OrderTicketStatus.EXPIRED;
     default: return null;
   }
+}
+
+/**
+ * Best-effort fill price/quantity for a terminal broker order. RH reports
+ * `price: null` on market fills — the real fill lives on `executions[]`
+ * (`{price, quantity}` legs), so weighted-average the legs first and fall
+ * back to the order-level `price`. Returns null only when no usable
+ * quantity exists; an undiscoverable price degrades to 0 rather than
+ * dropping the summary (the canonical audit requires the field present —
+ * a 0 is a visible gap, a missing field is silent schema drift). */
+export function rhOrderFillSummary(
+  order: BrokerOrderSnapshot,
+): { averagePrice: number; filledQty: number } | null {
+  let execQty = 0;
+  let execNotional = 0;
+  if (Array.isArray(order.executions)) {
+    for (const e of order.executions) {
+      const leg = e as Record<string, unknown> | null;
+      const p = Number(leg?.['price']);
+      const q = Number(leg?.['quantity']);
+      if (Number.isFinite(p) && Number.isFinite(q)) {
+        execNotional += p * q;
+        execQty += q;
+      }
+    }
+  }
+  const filledQty = execQty > 0
+    ? execQty
+    : Number(order.cumulativeQuantity ?? order.quantity ?? NaN);
+  if (!Number.isFinite(filledQty) || filledQty <= 0) return null;
+  const averagePrice = execQty > 0
+    ? Math.round((execNotional / execQty) * 10000) / 10000
+    : Number(order.price ?? 0) || 0;
+  return { averagePrice, filledQty };
 }
 
 /**

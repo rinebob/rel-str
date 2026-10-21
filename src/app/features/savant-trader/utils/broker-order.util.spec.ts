@@ -7,6 +7,7 @@ import {
   findActiveStopLoss,
   rhStateToTerminalStatus,
   rhStateToDisplayStatus,
+  rhOrderFillSummary,
   restingLimitBuyNotional,
   toEquityTimeInForce,
   toEquityMarketHours,
@@ -188,6 +189,10 @@ describe('broker-order.util', () => {
       expect(rhStateToTerminalStatus('voided')).toBe(OrderTicketStatus.FAILED);
     });
 
+    it('maps expired to EXPIRED — a TIF-expired order is terminal', () => {
+      expect(rhStateToTerminalStatus('expired')).toBe(OrderTicketStatus.EXPIRED);
+    });
+
     it('returns null for non-terminal states', () => {
       expect(rhStateToTerminalStatus('confirmed')).toBeNull();
       expect(rhStateToTerminalStatus('queued')).toBeNull();
@@ -319,4 +324,37 @@ describe('broker-order.util', () => {
       expect(toEquityMarketHours(undefined)).toBeUndefined();
     });
   });
+  describe('rhOrderFillSummary (#1015)', () => {
+    it('weighted-averages executions when present (market fills carry price:null)', () => {
+      const order = normalizeToBrokerOrderSnapshot({
+        ...orderRaw,
+        price: null,
+        executions: [
+          { price: '150.00', quantity: '6' },
+          { price: '150.50', quantity: '4' },
+        ],
+      })!;
+      expect(rhOrderFillSummary(order)).toEqual({ averagePrice: 150.2, filledQty: 10 });
+    });
+
+    it('falls back to order-level price + cumulativeQuantity without executions', () => {
+      const order = normalizeToBrokerOrderSnapshot({
+        ...orderRaw,
+        price: '149.75',
+        executions: [],
+      })!;
+      expect(rhOrderFillSummary(order)).toEqual({ averagePrice: 149.75, filledQty: 10 });
+    });
+
+    it('returns null when no usable quantity exists', () => {
+      const order = normalizeToBrokerOrderSnapshot({
+        ...orderRaw,
+        quantity: undefined,
+        cumulative_quantity: undefined,
+        executions: [],
+      })!;
+      expect(rhOrderFillSummary(order)).toBeNull();
+    });
+  });
 });
+
