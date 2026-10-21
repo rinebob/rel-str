@@ -31,6 +31,12 @@ export enum OrderTicketStatus {
   FILLED = 'filled',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
+  /** RH cancel accepted but not yet terminal — surfaced so cancel
+   *  submitted ≠ cancelled (#1015; canonical `cancel_pending`). */
+  CANCEL_PENDING = 'cancel_pending',
+  /** Time-in-force expired at the broker without a fill (canonical
+   *  `expired` state — present on migrated/order-tickets docs). */
+  EXPIRED = 'expired',
   /** Accepted as paper via the paperSignalOrder callable — tracked in the
    *  paper ledger, never sent to the broker (no RH-order polling). */
   PAPER = 'paper',
@@ -41,6 +47,9 @@ export enum OrderSource {
   SIGNAL_PIPELINE = 'signal_pipeline',
   MANUAL = 'manual',
   POSITION_MANAGEMENT = 'position_management',
+  /** Staged by a strategy-instance program pass (canonical origin type —
+   *  exists only on st-order-tickets docs, never written by the FE). */
+  PROGRAM = 'program',
 }
 
 // =============================
@@ -53,6 +62,23 @@ export type EquityTimeInForce = 'gfd' | 'gtc';
 /** Market session buckets supported by the RH equity order endpoint. */
 export type EquityMarketHours = 'regular_hours' | 'extended_hours' | 'all_day_hours';
 
+/** Broker-terminal statuses — the order's broker lifecycle is over.
+ *  Terminal rows stay visible briefly (requeue/dismiss) then age out. */
+export const TERMINAL_TICKET_STATUSES: ReadonlySet<OrderTicketStatus> = new Set([
+  OrderTicketStatus.FILLED,
+  OrderTicketStatus.CANCELLED,
+  OrderTicketStatus.EXPIRED,
+  OrderTicketStatus.FAILED,
+]);
+
+/** Terminal statuses a user can send back to STAGED — FILLED is excluded
+ *  (a filled order is a position; requeueing it would double-buy). */
+export const REQUEUEABLE_TICKET_STATUSES: ReadonlySet<OrderTicketStatus> = new Set([
+  OrderTicketStatus.FAILED,
+  OrderTicketStatus.CANCELLED,
+  OrderTicketStatus.EXPIRED,
+]);
+
 /** Link to the originating entity (e.g., an occurrence decision id). */
 export interface OrderTicketSourceRef {
   type: string;
@@ -61,6 +87,12 @@ export interface OrderTicketSourceRef {
 
 /** Signal context present when source = SIGNAL_PIPELINE. */
 export interface OrderTicketSignalContext {
+  /** Legacy `data.signalId` — the accept retry path's `listTradesBySignal`
+   *  dedupe key (#1005). Migrated docs carry it on `tracking.signalId`
+   *  (top-level `ticket.signalId` after hydration); canonical docs may
+   *  also carry it here on signalContext. Never populated by the FE
+   *  staging builders. */
+  signalId?: string;
   signalType: string;
   barDate: string;
   timeframe: string;
@@ -214,8 +246,11 @@ export type OrderTicket = EquityOrderTicket | EtfOrderTicket | OptionOrderTicket
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 
 /** Update-payload shape for ticket edits — per-variant fields without the
- *  discriminant (instrumentType is immutable once staged). */
-export type OrderTicketPatch = Partial<DistributiveOmit<OrderTicket, 'instrumentType'>>;
+ *  discriminant (instrumentType is immutable once staged). `id` and
+ *  `sourceRef` are excluded — identity can't be patched, and sourceRef
+ *  has no canonical slot (its id lives on origin.positionGroupId for
+ *  management tickets). The mapper still throws on either at runtime. */
+export type OrderTicketPatch = Partial<DistributiveOmit<OrderTicket, 'instrumentType' | 'id' | 'sourceRef'>>;
 
 // =============================
 // Trading config
