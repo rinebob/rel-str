@@ -521,6 +521,37 @@ describe('OrderComponent', () => {
 
       expect(storeMock.reconcileTerminalStatuses).not.toHaveBeenCalled();
     });
+
+    it('keeps a local CANCEL_PENDING through the merge while the broker order is still open (#1015)', () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.CANCEL_PENDING);
+      ticket.result = { orderId: 'rh-1', state: 'confirmed' };
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrders.set({
+        // RH applies the accepted cancel asynchronously — the order still
+        // reads confirmed until it resolves terminal.
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'confirmed', trigger: 'immediate' },
+      });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const merged = component.allTickets().find((t) => t.id === '1');
+      expect(merged?.status).toBe(OrderTicketStatus.CANCEL_PENDING);
+    });
+
+    it('resolves a local CANCEL_PENDING to CANCELLED when the broker order goes terminal (#1015)', () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.CANCEL_PENDING);
+      ticket.result = { orderId: 'rh-1', state: 'confirmed' };
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrders.set({
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'cancelled', trigger: 'immediate', lastTransactionAt: '2026-10-20T18:00:00Z' },
+      });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const merged = component.allTickets().find((t) => t.id === '1');
+      expect(merged?.status).toBe(OrderTicketStatus.CANCELLED);
+      expect(merged?.terminalAt).toBe('2026-10-20T18:00:00Z');
+    });
   });
 
   describe('cancelled ticket recency filter', () => {

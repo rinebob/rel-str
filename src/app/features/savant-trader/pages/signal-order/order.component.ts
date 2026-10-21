@@ -38,7 +38,7 @@ import { EquityPriceService } from '../../services/equity-price.service';
 import { AccountSnapshot, BrokerPosition, PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { OccurrenceDecisionStore } from '../../stores/occurrence-decision.store';
-import { OrderTicket, OrderTicketStatus, OrderSource, TradingConfig, InstrumentType } from '../../services/order-ticket.types';
+import { OrderTicket, OrderTicketStatus, OrderSource, TradingConfig, InstrumentType, REQUEUEABLE_TICKET_STATUSES } from '../../services/order-ticket.types';
 import { BrokerOrderSnapshot } from '../../services/order-ticket.types';
 import { formatError } from '../../utils/format-error.util';
 import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, rhStateToDisplayStatus, restingLimitBuyNotional } from '../../utils/broker-order.util';
@@ -137,11 +137,11 @@ export class OrderComponent implements OnInit, OnDestroy {
         return !positionSymbols.has(ticket.symbol);
       })
       .filter((ticket) => {
-        // Hide cancelled tickets older than 24 hours — they're stale and
-        // can't be requeued. Recent cancellations stay visible for requeue.
+        // Hide cancelled/expired tickets older than 24 hours — they're stale
+        // and can't be requeued. Recent ones stay visible for requeue.
         // Uses terminalAt (the RH order's lastTransactionAt) so the recency
         // window is anchored to the actual broker event, not to local writes.
-        if (ticket.status !== OrderTicketStatus.CANCELLED) return true;
+        if (ticket.status !== OrderTicketStatus.CANCELLED && ticket.status !== OrderTicketStatus.EXPIRED) return true;
         const ts = ticket.terminalAt ?? ticket.updatedAt;
         const terminalTime = new Date(ts).getTime();
         if (isNaN(terminalTime)) return true;
@@ -384,8 +384,7 @@ export class OrderComponent implements OnInit, OnDestroy {
     // delete a ticket while a broker call is in flight for it.
     const REMOVABLE = new Set<OrderTicketStatus>([
       OrderTicketStatus.STAGED,
-      OrderTicketStatus.CANCELLED,
-      OrderTicketStatus.FAILED,
+      ...REQUEUEABLE_TICKET_STATUSES,
     ]);
     const removed = ids
       .map((id) => this.stagingStore.tickets()[id])
@@ -545,7 +544,7 @@ export class OrderComponent implements OnInit, OnDestroy {
   async onRequeueTicket(id: string): Promise<void> {
     const ticket = this.stagingStore.tickets()[id];
     if (!ticket) return;
-    if (ticket.status !== OrderTicketStatus.CANCELLED && ticket.status !== OrderTicketStatus.FAILED) return;
+    if (!REQUEUEABLE_TICKET_STATUSES.has(ticket.status)) return;
 
     const ok = await this.stagingStore.updateTicketAndWait(id, requeueTicketPatch());
     // The write failed — the ticket reverted to its terminal state and the
@@ -642,8 +641,15 @@ export class OrderComponent implements OnInit, OnDestroy {
     if (!rhOrder) return ticket;
 
     const isMarket = ticket.orderType === 'market';
-    const mergedStatus = rhStateToDisplayStatus(rhOrder.state, isMarket);
     const terminal = rhStateToTerminalStatus(rhOrder.state);
+    // A locally-accepted cancel (cancel_pending) outranks the broker's
+    // still-open state — RH applies the cancel asynchronously, so the
+    // order may read 'confirmed'/'queued' until it resolves. Only a
+    // terminal broker state overrides the pending marker (#1015).
+    const mergedStatus =
+      ticket.status === OrderTicketStatus.CANCEL_PENDING && !terminal
+        ? OrderTicketStatus.CANCEL_PENDING
+        : rhStateToDisplayStatus(rhOrder.state, isMarket);
 
     return {
       ...ticket,
