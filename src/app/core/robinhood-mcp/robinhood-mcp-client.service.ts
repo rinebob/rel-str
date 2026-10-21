@@ -563,8 +563,17 @@ export class RobinhoodMcpClient {
    * own symbols — they come back in `unevaluated`, not as a failed run.
    * A batch-level transport failure rejects the whole call — degraded
    * sessions must surface as errors, never a silent empty result.
+   *
+   * `onProgress(done, total)` fires once per settled batch group —
+   * `total` is the chunk count, `done` the chunks settled so far. With
+   * ≤20 chunks per group (BATCH_CALLS_LIMIT) a ~900-symbol universe is
+   * a single group, so callers get one tick, not per-chunk granularity.
    */
-  async evaluateUniverse(recipe: ScanRecipe, symbols: string[]): Promise<UniverseEvalResult> {
+  async evaluateUniverse(
+    recipe: ScanRecipe,
+    symbols: string[],
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<UniverseEvalResult> {
     // Sanitize like batchQuotes — trims, drops empties, dedupes before
     // chunking so a duped input can't double-count or double-report.
     const unique = [...new Set(symbols.map((s) => s.trim()).filter((s) => s.length > 0))];
@@ -579,6 +588,7 @@ export class RobinhoodMcpClient {
           group.map((chunk) => this.evaluateUniverseSpec(recipe, chunk)),
         )),
       );
+      onProgress?.(settled.length, chunks.length);
     }
 
     const rows: ScanResultRow[] = [];

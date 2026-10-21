@@ -1822,6 +1822,17 @@ describe('RobinhoodMcpClient', () => {
       expect(out.unevaluated).toEqual([]);
     });
 
+    it('evaluateUniverse reports progress per settled batch group (#1139)', async () => {
+      // 3100 symbols → 21 chunks → two groups → ticks (20,21) then (21,21).
+      const symbols = Array.from({ length: 3100 }, (_, i) => `S${i}`);
+      mockBatchResolve(scanPayload(0, []));
+
+      const ticks: [number, number][] = [];
+      await client.evaluateUniverse(recipe, symbols, (d, t) => ticks.push([d, t]));
+
+      expect(ticks).toEqual([[20, 21], [21, 21]]);
+    });
+
     it('evaluateUniverse surfaces filters_applied from the first fulfilled chunk', async () => {
       let callIdx = 0;
       mockBatchDispatch((call) => {
