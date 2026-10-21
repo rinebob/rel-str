@@ -1,4 +1,6 @@
 /* @topic #137 — Strategy Builder UI */
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
 .options-strategy-dashboard {
   padding: 24px;
   max-width: 1600px;
@@ -34,11 +36,8 @@
 }
 
 .error-banner {
-  background-color: #ffebee;
-  color: #c62828;
-  padding: 12px 16px;
-  border-radius: 4px;
-  margin-bottom: 16px;
+  @include vl.error-banner;
+  margin-bottom: var(--ds-space-4);
 }
 
 .loading-container {
@@ -48,13 +47,7 @@
 }
 
 .empty-state {
-  text-align: center;
-  padding: 48px;
-  color: rgba(0, 0, 0, 0.54);
-}
-
-.empty-state p {
-  font-size: 16px;
+  @include vl.state-block;
 }
 
 .stat-card {
@@ -62,13 +55,13 @@
   flex-direction: column;
   padding: 4px 10px;
   border-radius: 6px;
-  background-color: #f5f5f5;
+  background-color: var(--mat-sys-surface-container);
   min-width: 70px;
 }
 
 .stat-label {
   font-size: 10px;
-  color: rgba(0, 0, 0, 0.54);
+  color: var(--mat-sys-on-surface-variant);
   margin-bottom: 0;
 }
 
@@ -128,36 +121,23 @@
 }
 
 .empty-table-message {
-  color: rgba(0, 0, 0, 0.54);
+  color: var(--mat-sys-on-surface-variant);
   font-style: italic;
 }
 
 .positions-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+  @include vl.dense-table;
 
-.positions-table th {
-  text-align: left;
-  padding: 4px 8px;
-  border-bottom: 2px solid #e0e0e0;
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(0, 0, 0, 0.54);
-  white-space: nowrap;
-}
-
-.positions-table td {
-  padding: 3px 8px;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 13px;
-  white-space: nowrap;
+  th,
+  td {
+    white-space: nowrap;
+  }
 }
 
 .positive {
-  color: #2e7d32;
+  color: vl.$up;
 }
 
 .negative {
-  color: #c62828;
+  color: vl.$down;
 }

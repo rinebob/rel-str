@@ -6,7 +6,7 @@
   </div>
 
   @if (store.error()) {
-    <div class="error-banner" role="alert">{{ store.error() }}</div>
+    <div class="error-banner" role="alert"><mat-icon aria-hidden="true">error</mat-icon><span class="error-text">{{ store.error() }}</span></div>
   }
 
   @if (store.isLoading()) {

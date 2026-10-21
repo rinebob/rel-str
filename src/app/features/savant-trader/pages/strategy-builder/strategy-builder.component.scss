@@ -1,3 +1,5 @@
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
 .strategy-builder {
   padding: 24px;
   max-width: 1400px;
@@ -12,11 +14,8 @@
 }
 
 .error-banner {
-  background-color: #ffebee;
-  color: #c62828;
-  padding: 12px 16px;
-  border-radius: 4px;
-  margin-bottom: 16px;
+  @include vl.error-banner;
+  margin-bottom: var(--ds-space-4);
 }
 
 .loading-container {
@@ -26,14 +25,7 @@
 }
 
 .empty-state {
-  text-align: center;
-  padding: 48px;
-  color: rgba(0, 0, 0, 0.54);
-}
-
-.empty-state p {
-  font-size: 16px;
-  margin-bottom: 16px;
+  @include vl.state-block;
 }
 
 .create-btn {
@@ -41,30 +33,23 @@
 }
 
 .instances-table {
-  width: 100%;
-  border-collapse: collapse;
+  @include vl.dense-table;
   line-height: 1.2;
-}
 
-.instances-table th {
-  text-align: left;
-  padding: 2px 6px;
-  border-bottom: 2px solid #e0e0e0;
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(0, 0, 0, 0.54);
-  white-space: nowrap;
-}
+  thead th {
+    white-space: nowrap;
+  }
 
-.instances-table td {
-  padding: 0 6px;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 12px;
-  white-space: nowrap;
-  line-height: 1;
-  height: 24px;
-  max-height: 24px;
-  overflow: hidden;
+  // Extra-dense 24px rows — the lifecycle badges need a tight grid, so
+  // td padding/height stay local over the mixin.
+  tbody td {
+    padding: 0 6px;
+    line-height: 1;
+    height: 24px;
+    max-height: 24px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
 }
 
 .lifecycle-badge {
@@ -76,18 +61,18 @@
 }
 
 .lifecycle-badge.active {
-  background-color: #e8f5e9;
-  color: #2e7d32;
+  background-color: var(--mat-sys-success-container);
+  color: var(--mat-sys-on-success-container);
 }
 
 .lifecycle-badge.paused {
-  background-color: #fff8e1;
-  color: #f57f17;
+  background-color: var(--mat-sys-warning-container);
+  color: var(--mat-sys-on-warning-container);
 }
 
 .lifecycle-badge.stopped {
-  background-color: #ffebee;
-  color: #c62828;
+  background-color: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
 }
 
 .actions-cell {
