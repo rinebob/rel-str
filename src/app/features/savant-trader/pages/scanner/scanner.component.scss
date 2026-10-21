@@ -113,3 +113,85 @@
 .empty-state {
   @include vl.state-block;
 }
+
+/* ── #1141 — panel, focus, history ───────────────────────────────── */
+
+tr.focused td {
+  background: var(--mat-sys-primary-container);
+  transition: background 0.15s;
+}
+
+app-scanner-compare-panel {
+  flex-shrink: 0;
+}
+
+.proposal-detail {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--ds-radius-sm);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  margin-bottom: var(--ds-space-2);
+}
+
+.history {
+  flex-shrink: 0;
+  font-size: var(--ds-font-size-sm);
+
+  .history-head {
+    margin: var(--ds-space-2) 0 var(--ds-space-1);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-bold);
+    color: var(--mat-sys-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+
+    .hint {
+      font-weight: 400;
+      text-transform: none;
+      opacity: 0.6;
+      margin-left: var(--ds-space-2);
+    }
+  }
+
+  .history-empty {
+    margin: var(--ds-space-1) 0;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.7;
+  }
+
+  .history-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-space-3);
+    width: 100%;
+    border: none;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    padding: var(--ds-space-1) var(--ds-space-2);
+    font-size: var(--ds-font-size-sm);
+    text-align: left;
+    border-radius: var(--ds-radius-sm);
+
+    &:hover { background: var(--mat-sys-surface-container-high); }
+    &.active { background: var(--mat-sys-surface-container-high); }
+
+    .when {
+      color: var(--mat-sys-on-surface-variant);
+      min-width: 110px;
+    }
+    .which { flex: 1; }
+    .counts {
+      display: inline-flex;
+      gap: var(--ds-space-1);
+      .badge { @include vl.badge; }
+      // vl.badge's dir-long/dir-short/muted cover add/drop/nodata;
+      // dead has no canonical variant — the warning pair rides the
+      // count chip (on-warning-container only reads on its container).
+      // .badge.dead ties .badge.count on specificity; source order wins.
+      .badge.dead {
+        background: var(--mat-sys-warning-container);
+        color: var(--mat-sys-on-warning-container);
+      }
+    }
+  }
+}

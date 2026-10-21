@@ -1,0 +1,56 @@
+<!-- @topic #1098 — RH Scanner | @task #1141 -->
+@if (readOnly()) {
+  <div class="panel-head">
+    <mat-icon>history</mat-icon>
+    <span class="panel-title">
+      {{ title() }}<span class="read-only-tag">saved proposal — read-only</span>
+    </span>
+    <button
+      mat-icon-button
+      class="close-btn"
+      aria-label="Close proposal"
+      (click)="closed.emit()"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+  @if (meta()) {
+    <p class="panel-meta">{{ meta() }}</p>
+  }
+}
+
+@if (empty()) {
+  <p class="all-clear">No curation candidates — every bucket is empty.</p>
+}
+
+<div class="bucket-list">
+  @for (s of sections(); track s.key) {
+    <div [class]="'bucket bucket-' + s.key">
+      <button
+        type="button"
+        class="bucket-head"
+        [attr.aria-expanded]="isExpanded(s.key)"
+        [attr.aria-controls]="uid + '-' + s.key"
+        (click)="toggle(s.key)"
+      >
+        <mat-icon class="chev">{{ isExpanded(s.key) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+        <span class="bucket-label">{{ s.label }}</span>
+        <span class="badge count">{{ s.symbols.length }}</span>
+      </button>
+      @if (isExpanded(s.key)) {
+        <div class="chip-row" [id]="uid + '-' + s.key">
+          @for (sym of s.symbols; track sym) {
+            <button
+              type="button"
+              class="sym-chip"
+              [title]="chipTitle(sym)"
+              (click)="focusSymbol.emit(sym)"
+            >
+              {{ sym }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

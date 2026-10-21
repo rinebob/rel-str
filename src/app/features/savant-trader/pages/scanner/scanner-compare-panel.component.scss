@@ -1,0 +1,95 @@
+// @topic #1098 — RH Scanner | @task #1141
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
+:host {
+  display: block;
+  font-size: 0.82rem;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mat-sys-on-surface-variant);
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  .panel-title { font-weight: 600; color: inherit; }
+  .read-only-tag {
+    margin-left: var(--ds-space-2);
+    font-weight: 400;
+    font-size: 0.72rem;
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .close-btn { margin-left: auto; }
+}
+
+.panel-meta {
+  margin: 2px 0 var(--ds-space-2);
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.78rem;
+}
+
+.all-clear {
+  margin: 6px 0;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.bucket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bucket-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: var(--ds-space-1) 6px;
+  font-size: 0.82rem;
+  text-align: left;
+  border-radius: var(--ds-radius-sm);
+
+  &:hover { background: var(--mat-sys-surface-container-high); }
+
+  .chev { font-size: 18px; width: 18px; height: 18px; opacity: 0.6; }
+  .bucket-label { font-weight: 600; }
+  .badge { @include vl.badge; }
+  .badge.count { margin-left: 2px; }
+}
+
+// Bucket accents — direction vocabulary (Add≈up, Drop≈down), the
+// warning container pair on dead counts (on-warning-container only
+// reads as a foreground ON its container bg), neutral for blank
+// data / unknown verdicts.
+.bucket-add .bucket-label { color: vl.$up; }
+.bucket-drop .bucket-label { color: vl.$down; }
+// Extra class keeps this ahead of the mixin's .badge.count defaults.
+.bucket-dead .bucket-head .badge.count {
+  background: var(--mat-sys-warning-container);
+  color: var(--mat-sys-on-warning-container);
+}
+.bucket-nodata .bucket-label,
+.bucket-uneval .bucket-label {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1);
+  padding: 2px 6px var(--ds-space-2) 30px;
+}
+
+.sym-chip {
+  @include vl.toggle-chip;
+  font-family: ui-monospace, monospace;
+}

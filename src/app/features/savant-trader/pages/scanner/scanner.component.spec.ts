@@ -24,9 +24,26 @@ import {
 } from '../../scanner/scanner-recipes';
 import type { ScanRow } from '../../utils/scanner-rows.util';
 import type { CompareResult } from '../../utils/scanner-compare.util';
+import type { CurationProposal } from '@st/scanner';
+import type { StoredProposal } from '../../services/scanner.service';
 
 const PRUNE_RECIPE = SCANNER_RECIPES.find((r) => r.supportsPrune)!; // quality-mega
 const SCAN_RECIPE = SCANNER_RECIPES.find((r) => !r.supportsPrune)!;
+
+function proposal(over: Partial<CurationProposal> = {}): CurationProposal {
+  return {
+    recipeId: PRUNE_RECIPE.id,
+    ranAt: '2026-10-21T14:30:00Z',
+    universeSize: 3,
+    matchedCount: 2,
+    truncated: false,
+    addCandidates: [],
+    dropCandidates: [],
+    deadSymbols: [],
+    noDataSymbols: [],
+    ...over,
+  };
+}
 
 function row(over: Partial<ScanRow> = {}): ScanRow {
   return {
@@ -72,9 +89,15 @@ describe('ScannerComponent', () => {
     busy: ReturnType<typeof signal<boolean>>;
     requiresReauth: ReturnType<typeof signal<boolean>>;
     canEvaluateTracked: ReturnType<typeof signal<boolean>>;
+    proposals: ReturnType<typeof signal<StoredProposal[]>>;
+    proposalsLoading: ReturnType<typeof signal<boolean>>;
+    proposalOpen: ReturnType<typeof signal<StoredProposal | null>>;
     selectRecipe: jest.Mock;
     runScan: jest.Mock;
     evaluateTracked: jest.Mock;
+    loadProposals: jest.Mock;
+    openProposal: jest.Mock;
+    closeProposal: jest.Mock;
     clearError: jest.Mock;
   };
   let mcpMock: { reauthenticate: jest.Mock };
@@ -103,9 +126,15 @@ describe('ScannerComponent', () => {
       busy: signal(false),
       requiresReauth: signal(false),
       canEvaluateTracked: signal(true),
+      proposals: signal<StoredProposal[]>([]),
+      proposalsLoading: signal(false),
+      proposalOpen: signal<StoredProposal | null>(null),
       selectRecipe: jest.fn(),
       runScan: jest.fn(),
       evaluateTracked: jest.fn(),
+      loadProposals: jest.fn(),
+      openProposal: jest.fn(),
+      closeProposal: jest.fn(),
       clearError: jest.fn(),
     };
     mcpMock = { reauthenticate: jest.fn() };
@@ -353,5 +382,112 @@ describe('ScannerComponent', () => {
     await new Promise<void>((r) => setTimeout(r, 0));
     expect(mcpMock.reauthenticate).toHaveBeenCalledTimes(1);
     expect(storeMock.clearError).toHaveBeenCalledTimes(1);
+  });
+
+  // ── #1141 — compare panel + proposal history ─────────────────────
+
+  it('loads proposal history on init', () => {
+    fixture.detectChanges();
+    expect(storeMock.loadProposals).toHaveBeenCalledTimes(1);
+  });
+
+  it('the live compare renders the panel with bucket sections', () => {
+    const rows = [row()];
+    storeMock.rows.set(rows);
+    storeMock.compare.set(
+      compare({ rows, buckets: { ...compare().buckets, addCandidates: ['AAPL'] } }),
+    );
+    fixture.detectChanges();
+    const panel = el('app-scanner-compare-panel');
+    expect(panel?.textContent).toContain('Add');
+  });
+
+  it('a bucket chip focuses the matching table row and scrolls it', async () => {
+    const scroll = jest.fn();
+    const orig = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scroll;
+    try {
+      const rows = [row()];
+      storeMock.rows.set(rows);
+      storeMock.compare.set(
+        compare({ rows, buckets: { ...compare().buckets, addCandidates: ['AAPL'] } }),
+      );
+      fixture.detectChanges();
+      (el('.bucket-add .bucket-head') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      (el('.sym-chip') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const tr = el('tr[data-symbol="AAPL"]');
+      expect(tr?.classList.contains('focused')).toBe(true);
+      // scrollIntoView is scheduled via setTimeout — flush the macrotask.
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(scroll).toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = orig;
+    }
+  });
+
+  it('clears the focused row when the compare changes', () => {
+    const rows = [row()];
+    storeMock.rows.set(rows);
+    storeMock.compare.set(
+      compare({ rows, buckets: { ...compare().buckets, addCandidates: ['AAPL'] } }),
+    );
+    fixture.detectChanges();
+    (el('.bucket-add .bucket-head') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (el('.sym-chip') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(el('tr.focused')).not.toBeNull();
+    // A superseding run lands a new compare — the stale focus must
+    // clear even though AAPL is still in the table.
+    storeMock.compare.set(compare({ rows }));
+    fixture.detectChanges();
+    expect(el('tr.focused')).toBeNull();
+  });
+
+  it('history renders ranAt · recipe title · bucket counts; click opens', () => {
+    storeMock.proposals.set([
+      {
+        id: 'p1',
+        proposal: proposal({ addCandidates: ['X'], dropCandidates: ['Y'] }),
+      },
+    ]);
+    fixture.detectChanges();
+    const row = el('.history-row')!;
+    expect(row.textContent).toContain('Oct 21');
+    expect(row.textContent).toContain(PRUNE_RECIPE.title);
+    expect(row.textContent).toContain('+1');
+    expect(row.textContent).toContain('−1');
+    (row as HTMLButtonElement).click();
+    expect(storeMock.openProposal).toHaveBeenCalledWith('p1');
+  });
+
+  it('an opened proposal renders read-only with meta; close delegates', () => {
+    storeMock.proposalOpen.set({
+      id: 'p1',
+      proposal: proposal({ universeSize: 150, matchedCount: 12, truncated: true }),
+    });
+    fixture.detectChanges();
+    const detail = el('.proposal-detail');
+    expect(detail?.textContent).toContain('read-only');
+    expect(detail?.textContent).toContain('universe 150 · 12 matched · capped');
+    (el('.close-btn') as HTMLButtonElement).click();
+    expect(storeMock.closeProposal).toHaveBeenCalledTimes(1);
+  });
+
+  it('a proposal chip does not throw when its symbol is absent from the table', () => {
+    storeMock.proposalOpen.set({
+      id: 'p1',
+      proposal: proposal({ dropCandidates: ['GHOST'] }),
+    });
+    storeMock.rows.set([row()]);
+    storeMock.compare.set(compare({ rows: [row()] }));
+    fixture.detectChanges();
+    (el('.proposal-detail .bucket-drop .bucket-head') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (el('.proposal-detail .sym-chip') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(el('tr.focused')).toBeNull();
   });
 });

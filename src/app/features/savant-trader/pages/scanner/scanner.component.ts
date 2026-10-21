@@ -5,15 +5,19 @@
  * (#1137), Run / Evaluate tracked actions, shown-of-matched status line
  * with truncation warning, and a dynamic-column results table (symbol /
  * name / tracked badge / recipe columns). All state lives in
- * ScannerStore (#1139); the compare panel + proposal history land in
- * #1141.
+ * ScannerStore (#1139); the compare panel + proposal history landed in
+ * #1141 (live panel + read-only proposal detail share the same dumb
+ * ScannerComparePanelComponent; chips focus table rows).
  */
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
+  ElementRef,
   inject,
   signal,
+  type OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -24,6 +28,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { PREVIEW_SCAN_ROW_CAP } from '@robinhood-mcp/contracts';
+import type { CurationProposal } from '@st/scanner';
 import { ScannerStore } from '../../stores/scanner.store';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import {
@@ -31,6 +36,10 @@ import {
   percentColumn,
   type ScanRow,
 } from '../../utils/scanner-rows.util';
+import {
+  ScannerComparePanelComponent,
+  type ComparePanelData,
+} from './scanner-compare-panel.component';
 
 @Component({
   selector: 'app-scanner',
@@ -42,17 +51,36 @@ import {
     MatIconModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    ScannerComparePanelComponent,
   ],
   templateUrl: './scanner.component.html',
   styleUrl: './scanner.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ScannerComponent {
+export class ScannerComponent implements OnInit {
   protected readonly store = inject(ScannerStore);
   private readonly mcp = inject(RobinhoodMcpObservationService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly el = inject(ElementRef);
 
   protected readonly reauthing = signal(false);
+  /** Symbol the compare panel asked to highlight — set only when the
+   *  symbol exists in displayRows (a reopened proposal's symbols may
+   *  not be in the live table). Cleared when the compare changes — a
+   *  new run or recipe pick must not leave a stale highlight on a
+   *  coincidentally-matching row. */
+  protected readonly focusedSymbol = signal<string | null>(null);
+
+  constructor() {
+    effect(() => {
+      this.store.compare();
+      this.focusedSymbol.set(null);
+    });
+  }
+
+  ngOnInit(): void {
+    this.store.loadProposals();
+  }
 
   /** Table columns — the active recipe's own column list (never hardcoded). */
   protected readonly columns = computed(
@@ -155,6 +183,65 @@ export class ScannerComponent {
     // The wire strings every cell, but a drifted non-string value
     // (number/bool) would crash .trim() — render it, don't throw.
     return typeof v !== 'string' ? String(v) : v.trim() === '' ? '—' : v;
+  }
+
+  // ── #1141 — compare panel + proposal history ─────────────────────
+
+  /** Live compare → panel input (buckets + unevaluated + dropDetail). */
+  protected readonly livePanelData = computed<ComparePanelData | null>(() => {
+    const c = this.store.compare();
+    return c
+      ? { ...c.buckets, unevaluated: c.unevaluated, dropDetail: c.dropDetail }
+      : null;
+  });
+
+  /** Opened proposal → panel input — same shape, no unevaluated
+   *  (proposals don't persist it — contract note carried from #1139). */
+  protected readonly openedPanelData = computed<ComparePanelData | null>(() => {
+    const p = this.store.proposalOpen()?.proposal;
+    return p
+      ? {
+          addCandidates: p.addCandidates,
+          dropCandidates: p.dropCandidates,
+          deadSymbols: p.deadSymbols,
+          noDataSymbols: p.noDataSymbols,
+          dropDetail: p.dropDetail,
+        }
+      : null;
+  });
+
+  /** History row label — catalog title when the recipe still exists,
+   *  else the raw id (a retired recipe shouldn't blank the entry). */
+  protected recipeTitle(id: string): string {
+    return this.store.recipes().find((r) => r.id === id)?.title ?? id;
+  }
+
+  /** Proposal meta line — universe · matched · capped flag. */
+  protected proposalMeta(p: CurationProposal): string {
+    let meta = `universe ${p.universeSize} · ${p.matchedCount} matched`;
+    if (p.truncated) meta += ' · capped';
+    return meta;
+  }
+
+  /** Chip → row focus: highlight + scroll only when the symbol is in
+   *  the current table (live rows or stale last-good rows). */
+  protected onFocusSymbol(sym: string): void {
+    const target = sym.trim().toUpperCase();
+    const found = this.displayRows().find(
+      (r) => r.symbol.trim().toUpperCase() === target,
+    );
+    if (!found) return;
+    this.focusedSymbol.set(found.symbol);
+    // One macrotask — let the .focused class render before scrolling.
+    // The focusedSymbol guard drops the scroll if a new run superseded
+    // this click in between (the effect clears it on compare change).
+    setTimeout(() => {
+      if (this.focusedSymbol() !== found.symbol) return;
+      const tr = this.el.nativeElement.querySelector(
+        'tr.focused',
+      ) as HTMLElement | null;
+      tr?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
   }
 
   /** In-browser RH re-auth — same flow as signal-order's onReauth. */

@@ -91,7 +91,10 @@
           </thead>
           <tbody>
             @for (row of displayRows(); track row.symbol) {
-              <tr>
+              <tr
+                [attr.data-symbol]="row.symbol"
+                [class.focused]="row.symbol === focusedSymbol()"
+              >
                 <td class="symbol">{{ row.symbol }}</td>
                 <td class="name">{{ row.name || '—' }}</td>
                 <td>
@@ -118,5 +121,60 @@
         </p>
       </div>
     }
+
+    @if (store.compare()) {
+      <app-scanner-compare-panel
+        [data]="livePanelData()"
+        (focusSymbol)="onFocusSymbol($event)"
+      />
+    }
+
+    <section class="history" aria-label="Proposal history">
+      @if (store.proposalOpen(); as open) {
+        <app-scanner-compare-panel
+          class="proposal-detail"
+          [data]="openedPanelData()"
+          [readOnly]="true"
+          [title]="recipeTitle(open.proposal.recipeId)"
+          [meta]="proposalMeta(open.proposal)"
+          (focusSymbol)="onFocusSymbol($event)"
+          (closed)="store.closeProposal()"
+        />
+      }
+      <h3 class="history-head">
+        Proposal history
+        @if (store.proposalsLoading()) {
+          <span class="hint">loading…</span>
+        }
+      </h3>
+      @if (!store.proposalsLoading() && store.proposals().length === 0) {
+        <p class="history-empty">No saved proposals yet — run a scan.</p>
+      }
+      @for (p of store.proposals(); track p.id) {
+        <button
+          type="button"
+          class="history-row"
+          [class.active]="store.proposalOpen()?.id === p.id"
+          (click)="store.openProposal(p.id)"
+        >
+          <span class="when">{{ p.proposal.ranAt | date:'MMM d, h:mm a' }}</span>
+          <span class="which">{{ recipeTitle(p.proposal.recipeId) }}</span>
+          <span class="counts">
+            @if (p.proposal.addCandidates.length) {
+              <span class="badge count dir-long">+{{ p.proposal.addCandidates.length }}</span>
+            }
+            @if (p.proposal.dropCandidates.length) {
+              <span class="badge count dir-short">−{{ p.proposal.dropCandidates.length }}</span>
+            }
+            @if (p.proposal.deadSymbols.length) {
+              <span class="badge count dead">dead {{ p.proposal.deadSymbols.length }}</span>
+            }
+            @if (p.proposal.noDataSymbols.length) {
+              <span class="badge count muted">blank {{ p.proposal.noDataSymbols.length }}</span>
+            }
+          </span>
+        </button>
+      }
+    </section>
   </div>
 </div>
