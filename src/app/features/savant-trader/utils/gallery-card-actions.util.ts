@@ -93,7 +93,8 @@ export function findCardTickets(
     t.status === OrderTicketStatus.SUBMITTING ||
     t.status === OrderTicketStatus.SUBMITTED ||
     t.status === OrderTicketStatus.QUEUED ||
-    t.status === OrderTicketStatus.RESTING
+    t.status === OrderTicketStatus.RESTING ||
+    t.status === OrderTicketStatus.CANCEL_PENDING
       ? 1
       : 0;
   return (ctx.ticketsBySymbol[card.symbol.toUpperCase()] ?? [])
@@ -136,12 +137,14 @@ function deriveCardStatus(
     case OrderTicketStatus.SUBMITTED:
     case OrderTicketStatus.QUEUED:
     case OrderTicketStatus.RESTING:
+    case OrderTicketStatus.CANCEL_PENDING:
       return 'resting';
     case OrderTicketStatus.FILLED:
     case OrderTicketStatus.PAPER:
       return 'settled';
     case OrderTicketStatus.FAILED:
     case OrderTicketStatus.CANCELLED:
+    case OrderTicketStatus.EXPIRED:
       return 'failed';
     default: // STAGED — nothing placed yet
       return 'pending';

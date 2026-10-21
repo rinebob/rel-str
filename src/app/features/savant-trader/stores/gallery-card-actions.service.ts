@@ -37,6 +37,7 @@ import {
   EtfOrderTicket,
   InstrumentType,
   OrderTicketStatus,
+  REQUEUEABLE_TICKET_STATUSES,
   TradingConfig,
 } from '../services/order-ticket.types';
 import {
@@ -251,7 +252,7 @@ export class GalleryCardActionsService {
     if (!this.isActionableRun() || !canRequeueCard(card)) return;
     if (this._busyKeys().has(card.key)) return;
     const ticket = findCardTickets(card, this.actionContext()).find(
-      (t) => t.status === OrderTicketStatus.FAILED || t.status === OrderTicketStatus.CANCELLED,
+      (t) => REQUEUEABLE_TICKET_STATUSES.has(t.status),
     );
     if (!ticket) return;
     await this.withBusy(card.key, async () => {
