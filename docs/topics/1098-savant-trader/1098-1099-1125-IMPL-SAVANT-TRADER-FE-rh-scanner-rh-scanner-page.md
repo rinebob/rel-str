@@ -54,15 +54,20 @@ export interface ScanRow {
 
 - `parseScanRows(result: PreviewScanResult): ScanRow[]` — capture-verified
   shape; missing `ticker` rows dropped.
-- `numericColumn(row, displayName): number | null` — `Number(v)` with
-  `''`/undefined → null (fundamentals are blank-scarce).
-- `percentColumn(row, displayName): number | null` — fraction→percent
-  coercion for the fraction-scaled fields (ROE 1.49 → 149.0); the
-  display layer applies `%` formatting, never the recipes.
-- `canonicalColumnName(expr | displayName)` — the backend canonicalizes
+- `numericColumn(row, displayName, lookup?): number | null` — `Number(v)`
+  with `''`/undefined → null (fundamentals are blank-scarce); resolves
+  `displayName` through the run's lookup first, falls back to the raw
+  name when the mapped key isn't a real column.
+- `percentColumn(row, displayName, lookup?): number | null` —
+  fraction→percent coercion for the fraction-scaled fields
+  (ROE 1.49 → 149.0); the display layer applies `%` formatting, never
+  the recipes.
+- `canonicalColumnName(lookup, name)` — the backend canonicalizes
   filter-identical expressions to standard column names (observed:
   `ROE` display_name came back as `Return on equity`) — lookups go
-  through a per-recipe `columnLookup` map, not raw display names.
+  through a `display_name → wire-key` map (recipe static map merged
+  under the run's `filters_applied` echo, presence-verified), not raw
+  display names.
 
 ### Recipe catalog — `features/savant-trader/scanner/scanner-recipes.ts`
 
@@ -126,7 +131,9 @@ export function comparePrune(args: {
   matched: ScanRow[],        // scope + filters — passers only
   tracked: string[],
   unevaluated: string[],     // UNION of both evals' rejected chunks
-  noDataPred: (row: ScanRow) => boolean,
+  noDataPred: (row: ScanRow, lookup?: ReadonlyMap<string, string>) => boolean,
+  columnLookup?: ReadonlyMap<string, string>,  // the run's merged map —
+                                               // display + bucketing share it
   truncated: boolean,
 }): CompareResult;
 ```
@@ -138,8 +145,10 @@ export function comparePrune(args: {
   dropDetail values; prune therefore runs TWO evals per universe):
   `deadSymbols = tracked ∧ ¬returned ∧ ¬unevaluated` where
   `returned = covered ∪ matched` (verify-before-drop per CONTEXT.md);
-  `noData = tracked ∧ row ∧ noDataPred(row)` — checked before the
-  matched-pass so a passer with blank key metrics still flags;
+  `noData = tracked ∧ row ∧ noDataPred(row, columnLookup)` — checked
+  before the matched-pass so a passer with blank key metrics still
+  flags, and the predicate resolves through the run's merged lookup
+  so bucketing and display can't split under canonicalization drift;
   `dropCandidates = covered ∧ tracked ∧ ¬noData ∧ ¬matched ∧
   ¬unevaluated` — a covered symbol in the union can only mean its
   matched chunk rejected (a rejected coverage chunk yields no row),
@@ -175,32 +184,60 @@ auto-persist, not a save button.
 ## 3. Page — `pages/scanner/scanner.component.ts` + children
 
 ```
-┌─ header: recipe picker (select w/ blurb) · Run · Evaluate tracked ─┐
-│  status line: "143 of ≥400 matched · top 200 shown" | spinner      │
-├─ results table: symbol · name · tracked-badge · recipe columns ────┤
-├─ compare panel: Add (n) | Drop (n) | Dead (n) | No-data (n) ───────┤
+┌─ header: recipe picker (select w/ blurb) · Run · Evaluate tracked ─┐  #1140
+│  status line: "143 shown of 400 matched" (eval: "N rows · M        │  #1140
+│    matched") | spinner · truncation warning                        │
+├─ results table: symbol · name · tracked-badge · recipe columns ────┤  #1140
+├─ compare panel: Add (n) | Drop (n) | Dead (n) | No-data (n) ───────┤  #1141
 │    bucket expandos → symbol chips → row focus                      │
-├─ proposal history: ranAt · recipe · bucket counts → open ──────────┘
+├─ proposal history: ranAt · recipe · bucket counts → open ──────────┘  #1141
 ```
 
+Task split (#1140 shipped picker/status/table + error/reauth/empty
+states; #1141 lands the compare panel + proposal history):
+
 - Route: `AppRoutes.SCANNER = 'trading/scanner'`; nav under Trading
-  (`Gallery · Live · Paper · Scanner`); `PAGE_INFO` title `Scanner`,
+  (`Gallery · Live · Paper · Analysis · Scanner` — appended last; this
+  sketch predated Analysis landing); `PAGE_INFO` title `Scanner`,
   icon `radar` (or nearest material icon).
 - Tracked badge styling reuses the badge vocabulary (`.badge`); drop
   rows can carry `.dir-edge-*`-style accents.
 - Error states: `RobinhoodMcpError` category `AUTH` →
-  "Robinhood session needs reauthorization" card with the runbook hint
-  (no SESSION category exists); other errors → inline error text.
-- Truncation line always shows `shown/matched` and warns at caps.
-- Progress during `evaluateTracked`: `Evaluating 925 symbols… chunk k/7`.
+  "Robinhood session expired — re-authorize in the popup window, then
+  retry the scan" banner with a working **Re-authorize** button
+  (`RobinhoodMcpObservationService.reauthenticate()`, the signal-order
+  flow — as-built #1140; the button supersedes the sketch's static
+  runbook hint. No SESSION category exists); other errors → inline
+  error banner with dismiss.
+- Status line always shows the count pair and warns at caps —
+  as-built: `N shown of M matched` for discovery, `N rows ·
+  M matched` for prune (store's `runKind`; prune display rows are
+  coverage∪matched — rows that returned data, not the evaluated
+  universe — so neither "shown of" nor "evaluated" is honest).
+  `matchedCount` is wire `totalItems` (discovery, truthful past the
+  cap) / unique matched symbols (prune — case-deduped so M can't
+  exceed the row count). Truncation fires on the cap page AND the
+  partial-page case (`total_items > rows < cap`) — the warning
+  covers both without claiming which.
+- Progress during `evaluateTracked`: `Evaluating tracked symbols…
+  done/total chunks` — the store ticks once per settled /batch group
+  (#1139 review), so the label stays coarse rather than implying
+  per-symbol granularity.
+- Column resolution: the store presence-verifies [response echo,
+  static `columnLookup`, raw name] per run into a `columnLookup`
+  state map (mergeLookup) — the page's cells/sort AND `noDataPred`
+  share it, so display and bucketing can't split under
+  canonicalization drift. `percentColumns` marks fraction-scaled
+  columns for `N.N%` rendering; the table re-sorts the wire's
+  Last-desc page per `recipe.sort` client-side.
 
 ## 4. File sketch
 
 ```
 src/app/features/savant-trader/
 ├── pages/scanner/
-│   ├── scanner.component.{ts,html,scss,spec.ts}
-│   └── scanner-compare-panel.component.{ts,html,scss,spec.ts}
+│   ├── scanner.component.{ts,html,scss,spec.ts}                  (#1140)
+│   └── scanner-compare-panel.component.{ts,html,scss,spec.ts}    (#1141)
 ├── services/scanner.service.{ts,spec.ts}
 ├── stores/scanner.store.{ts,spec.ts}
 ├── scanner/scanner-recipes.ts               (+ catalog spec)

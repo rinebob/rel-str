@@ -30,9 +30,10 @@ relay is the live tripwire.
 
 ## Integration Tests (jest + TestBed)
 
-- `scanner.component.spec` — renders picker/table/panel; drives the
+- `scanner.component.spec` — renders picker/table; drives the
   store mock through loading/rows/error/capped states (prior art:
-  `gallery-view.component.spec.ts`).
+  `gallery-view.component.spec.ts`). The compare panel is #1141
+  scope — the #1140 spec covers picker/table/status/error/empty.
 - `scanner.service.spec` — rhApi seam mocked at `RobinhoodMcpClient`;
   Firestore mocked at `@angular/fire` (AGENTS.md provider pattern);
   asserts the allowlist rejects a non-`preview_scan` tool name.
