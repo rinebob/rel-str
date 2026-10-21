@@ -1,0 +1,122 @@
+<!-- @topic #1098 — RH Scanner | @task #1140 -->
+<div class="scanner-page">
+  <div class="content-column">
+    <header class="scanner-header">
+      <mat-form-field class="recipe-picker" appearance="outline" subscriptSizing="dynamic">
+        <mat-select
+          aria-label="Scan recipe"
+          [value]="store.activeRecipeId()"
+          (selectionChange)="store.selectRecipe($event.value)"
+        >
+          @for (r of store.recipes(); track r.id) {
+            <mat-option [value]="r.id">{{ r.title }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      @if (store.activeRecipe(); as recipe) {
+        <p class="recipe-blurb">{{ recipe.blurb }}</p>
+      }
+      <div class="actions">
+        <button
+          mat-flat-button
+          color="primary"
+          [disabled]="store.busy() || !store.activeRecipeId()"
+          (click)="store.runScan()"
+        >
+          Run
+        </button>
+        @if (store.canEvaluateTracked()) {
+          <button
+            mat-stroked-button
+            [disabled]="store.busy()"
+            (click)="store.evaluateTracked()"
+          >
+            Evaluate tracked
+          </button>
+        }
+      </div>
+    </header>
+
+    @if (store.requiresReauth()) {
+      <div class="error-banner reauth-banner">
+        <mat-icon>vpn_key</mat-icon>
+        <span class="error-text">
+          Robinhood session expired — re-authorize in the popup window, then
+          retry the scan.
+        </span>
+        <button
+          mat-flat-button
+          color="primary"
+          [disabled]="reauthing()"
+          (click)="onReauth()"
+        >
+          {{ reauthing() ? 'Authorizing…' : 'Re-authorize' }}
+        </button>
+      </div>
+    } @else if (store.error(); as err) {
+      <div class="error-banner">
+        <mat-icon>error_outline</mat-icon>
+        <span class="error-text">{{ err.message }}</span>
+        <button mat-icon-button aria-label="Dismiss error" (click)="store.clearError()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    }
+
+    @if (store.busy()) {
+      <div class="progress-line" role="status">
+        <mat-spinner diameter="20"></mat-spinner>
+        <span>{{ progressLabel() }}</span>
+      </div>
+    }
+
+    @if (statusLine(); as status) {
+      <p class="status-line" [class.truncated]="store.compare()?.truncated">
+        {{ status }}
+      </p>
+    }
+
+    @if (displayRows().length > 0) {
+      <div class="table-scroll">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th scope="col">Symbol</th>
+              <th scope="col">Name</th>
+              <th scope="col">Tracked</th>
+              @for (c of columns(); track c.display_name) {
+                <th scope="col" class="num">{{ c.display_name }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of displayRows(); track row.symbol) {
+              <tr>
+                <td class="symbol">{{ row.symbol }}</td>
+                <td class="name">{{ row.name || '—' }}</td>
+                <td>
+                  <span class="badge" [class.tracked]="row.tracked">
+                    {{ row.tracked ? 'tracked' : 'new' }}
+                  </span>
+                </td>
+                @for (c of columns(); track c.display_name) {
+                  <td class="num">{{ columnValue(row, c.display_name) }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else if (store.compare() && !store.busy()) {
+      <div class="empty-state">
+        <mat-icon>search_off</mat-icon>
+        <p>No matching symbols.</p>
+        <p class="hint">
+          {{ store.runKind() === 'eval'
+            ? "Every tracked symbol was dead or failed to return rows in this window."
+            : "The recipe's filters matched nothing in this scan window." }}
+        </p>
+      </div>
+    }
+  </div>
+</div>

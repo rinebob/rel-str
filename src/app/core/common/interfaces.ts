@@ -37,6 +37,8 @@ export enum AppRoutes {
 	TRADE_ANALYSIS = 'trading/analysis',
 	/** Order Ticket Gallery — primary signal review + order placement surface (#743/#762). */
 	GALLERY = 'trading/gallery',
+	/** RH Scanner — curated preview_scan recipes + tracked-universe compare (#1098/#1140). */
+	SCANNER = 'trading/scanner',
 	STRATEGY_BUILDER = 'options/strategy/build',
 	PORTFOLIO_DASHBOARD = 'portfolio',
 	PORTFOLIO_ALLOCATION = 'portfolio/allocation',

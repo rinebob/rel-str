@@ -225,6 +225,12 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.AnalysisComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.SCANNER,
+                title: PAGE_INFO[AppRoutes.SCANNER].title,
+                loadComponent: () => import('../features/savant-trader/pages/scanner/scanner.component')
+                .then(mod => mod.ScannerComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.OPTION_CHAIN_PCT_CHANGE,
                 title: PAGE_INFO[AppRoutes.OPTION_CHAIN_PCT_CHANGE].title,
                 loadComponent: () => import('../features/savant-trader/pages/option-chain-pct-change/option-chain-pct-change.component')

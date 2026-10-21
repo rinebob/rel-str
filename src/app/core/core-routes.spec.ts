@@ -25,6 +25,7 @@ describe('core-routes — canonical journey paths (#699)', () => {
     ['trading/paper', 'Paper Trading'],
     ['trading/analysis', 'Trade Analysis'],
     ['trading/gallery', 'Signal Gallery'],
+    ['trading/scanner', 'Scanner'],
     ['options/chain', 'Option Chain'],
     ['options/pct-change', 'Option Chain % Change'],
     ['options/chart', 'Option Chart'],

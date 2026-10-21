@@ -30,6 +30,7 @@ export const NAV_SECTIONS: NavSection[] = [
             { name: 'signal-order', text: 'Live', href: 'trading/live' },
             { name: 'paper-trading', text: 'Paper', href: 'trading/paper' },
             { name: 'trade-analysis', text: 'Analysis', href: 'trading/analysis' },
+            { name: 'scanner', text: 'Scanner', href: 'trading/scanner' },
         ],
     },
     {
@@ -140,6 +141,7 @@ export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
     [AppRoutes.PAPER_TRADING]:                { title: 'Paper Trading',              icon: 'receipt_long' },
     [AppRoutes.TRADE_ANALYSIS]:               { title: 'Trade Analysis',             icon: 'science' },
     [AppRoutes.GALLERY]:                      { title: 'Signal Gallery',             icon: 'photo_library' },
+    [AppRoutes.SCANNER]:                      { title: 'Scanner',                    icon: 'radar' },
     [AppRoutes.STRATEGY_BUILDER]:             { title: 'Strategy Builder',           icon: 'build' },
     [AppRoutes.PORTFOLIO_DASHBOARD]:          { title: 'Portfolio Dashboard',        icon: 'account_balance_wallet' },
     [AppRoutes.PORTFOLIO_ALLOCATION]:         { title: 'Portfolio Allocation',       icon: 'pie_chart' },
