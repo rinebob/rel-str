@@ -24,11 +24,14 @@
   }
 
   .stats-strip {
-    display: flex;
+    @include vl.stat-strip;
     flex-wrap: wrap;
     gap: 16px;
-    font-size: 13px;
     margin-bottom: 12px;
+
+    .sb-value.neg {
+      color: vl.$down;
+    }
   }
 
   .carousel {
@@ -52,10 +55,13 @@
   }
 
   .pos-stats {
-    display: flex;
+    @include vl.stat-strip;
     flex-wrap: wrap;
     gap: 14px;
-    font-size: 13px;
+
+    .sb-value.neg {
+      color: vl.$down;
+    }
   }
 
   .fills {

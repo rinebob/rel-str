@@ -56,12 +56,17 @@ export interface BucketDetailDialogData {
     <mat-dialog-content>
       @if (detail(); as d) {
         <div class="stats-strip" data-testid="stats-strip">
-          <span>Exposure <b>{{ fmt(d.stats.exposure) }}</b></span>
-          <span>Target <b>{{ fmt(d.stats.targetDollars) }}</b></span>
-          <span>Drift <b [class.neg]="d.stats.drift < 0">{{ fmt(d.stats.drift) }}</b></span>
-          <span>Realized <b>{{ fmt(d.stats.realizedPnl) }}</b></span>
-          <span>Unrealized <b>{{ fmt(d.stats.unrealizedPnl) }}</b></span>
-          <span>Open/Closed <b>{{ d.stats.openCount }}/{{ d.stats.closedCount }}</b></span>
+          <span class="sb-item"><span class="sb-label">Exposure</span> <span class="sb-value">{{ fmt(d.stats.exposure) }}</span></span>
+          <span class="sb-sep">|</span>
+          <span class="sb-item"><span class="sb-label">Target</span> <span class="sb-value">{{ fmt(d.stats.targetDollars) }}</span></span>
+          <span class="sb-sep">|</span>
+          <span class="sb-item"><span class="sb-label">Drift</span> <span class="sb-value" [class.neg]="d.stats.drift < 0">{{ fmt(d.stats.drift) }}</span></span>
+          <span class="sb-sep">|</span>
+          <span class="sb-item"><span class="sb-label">Realized</span> <span class="sb-value">{{ fmt(d.stats.realizedPnl) }}</span></span>
+          <span class="sb-sep">|</span>
+          <span class="sb-item"><span class="sb-label">Unrealized</span> <span class="sb-value">{{ fmt(d.stats.unrealizedPnl) }}</span></span>
+          <span class="sb-sep">|</span>
+          <span class="sb-item"><span class="sb-label">Open/Closed</span> <span class="sb-value">{{ d.stats.openCount }}/{{ d.stats.closedCount }}</span></span>
         </div>
 
         <div class="carousel" data-testid="position-carousel">
@@ -76,10 +81,10 @@ export interface BucketDetailDialogData {
                 <span class="dim" data-testid="carousel-pager">{{ shownIdx() + 1 }} of {{ d.positions.length }}</span>
               </div>
               <div class="pos-stats">
-                <span>Qty <b>{{ fmtQty(pos.position.quantity) }}</b></span>
-                <span>Market value <b>{{ fmt(pos.position.marketValue) }}</b></span>
-                <span>Cost basis <b>{{ fmt(pos.position.costBasis) }}</b></span>
-                <span>Unrealized <b [class.neg]="pnlOf(pos) < 0">{{ fmt(pnlOf(pos)) }}</b></span>
+                <span class="sb-item"><span class="sb-label">Qty</span> <span class="sb-value">{{ fmtQty(pos.position.quantity) }}</span></span>
+                <span class="sb-item"><span class="sb-label">Market value</span> <span class="sb-value">{{ fmt(pos.position.marketValue) }}</span></span>
+                <span class="sb-item"><span class="sb-label">Cost basis</span> <span class="sb-value">{{ fmt(pos.position.costBasis) }}</span></span>
+                <span class="sb-item"><span class="sb-label">Unrealized</span> <span class="sb-value" [class.neg]="pnlOf(pos) < 0">{{ fmt(pnlOf(pos)) }}</span></span>
               </div>
               @if (shownFills().length) {
                 <div class="fills" data-testid="position-fills">

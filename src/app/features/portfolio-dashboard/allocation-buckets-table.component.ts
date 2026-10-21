@@ -145,13 +145,13 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
             @if (row.stats) {
               <div class="expand-stats">
                 @if (row.kind === 'bucket' && row.bucket) {
-                  <span>Target <b>{{ row.bucket.targetPct }}% → {{ fmt(row.stats.targetDollars) }}</b></span>
+                  <span class="sb-item"><span class="sb-label">Target</span> <span class="sb-value">{{ row.bucket.targetPct }}% → {{ fmt(row.stats.targetDollars) }}</span></span>
                 }
-                <span>Exposure <b>{{ fmt(row.stats.exposure) }}</b></span>
-                <span>Drift <b [class.neg]="row.stats.drift < 0">{{ fmt(row.stats.drift) }}</b></span>
-                <span>Realized <b>{{ fmt(row.stats.realizedPnl) }}</b></span>
-                <span>Unrealized <b>{{ fmt(row.stats.unrealizedPnl) }}</b></span>
-                <span>Open/Closed <b>{{ row.stats.openCount }}/{{ row.stats.closedCount }}</b></span>
+                <span class="sb-item"><span class="sb-label">Exposure</span> <span class="sb-value">{{ fmt(row.stats.exposure) }}</span></span>
+                <span class="sb-item"><span class="sb-label">Drift</span> <span class="sb-value" [class.neg]="row.stats.drift < 0">{{ fmt(row.stats.drift) }}</span></span>
+                <span class="sb-item"><span class="sb-label">Realized</span> <span class="sb-value">{{ fmt(row.stats.realizedPnl) }}</span></span>
+                <span class="sb-item"><span class="sb-label">Unrealized</span> <span class="sb-value">{{ fmt(row.stats.unrealizedPnl) }}</span></span>
+                <span class="sb-item"><span class="sb-label">Open/Closed</span> <span class="sb-value">{{ row.stats.openCount }}/{{ row.stats.closedCount }}</span></span>
               </div>
             }
             @if (positionsFor(row).length) {
