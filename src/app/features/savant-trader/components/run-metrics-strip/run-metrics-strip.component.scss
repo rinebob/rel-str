@@ -58,7 +58,5 @@
   border-radius: 8px;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
+// `spin` keyframes come from the global stylesheet (src/styles.scss) — the
+// local duplicate was removed in #1171.
