@@ -1,5 +1,7 @@
+@use '../portfolio-dashboard/styles/pd-visual-language' as vl;
+
 .heatmap-view {
-  // Shared dimensions for all heatmap cells (matrix preview + mat-table)
+  // Shared dimensions for all heatmap cells
   --heatmap-cell-width: 4rem;
   --heatmap-cell-height: 2rem;
   --heatmap-left-col-width: 7rem;
@@ -34,7 +36,11 @@
     gap: 1rem;
   }
 
-  // Matrix preview (new div-based layout) shown above the mat-table
+  &__empty {
+    @include vl.state-block;
+  }
+
+  // Matrix preview (div-based layout)
   &__matrix-preview {
     display: flex;
     align-items: flex-start;

@@ -19,7 +19,7 @@
     @if (vm().matrix.length === 0) {
     <div class="heatmap-view__empty">No data loaded.</div>
     } @else {
-        <!-- Matrix-based preview driven by vm().matrix; existing mat-table kept below unchanged. -->
+        <!-- Matrix-based preview driven by vm().matrix -->
         <div class="heatmap-view__matrix-preview">
             <div class="heatmap-view__matrix-left">
                 @for (row of vm().matrix; track row.label; let rowIndex = $index) {
