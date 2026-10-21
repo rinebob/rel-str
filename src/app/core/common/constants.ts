@@ -248,8 +248,6 @@ export enum Collection {
    *  populates it — no runs migration task exists yet; nothing writes
    *  st-runs today (#984 blueprint gap). */
   ST_RUNS = 'savant-trader/data/runs',
-  /** @deprecated Use @st/collections ST_ORDER_TICKETS_ROOT (#984); FE re-point in #1015. */
-  ST_ORDER_INTENTS = 'savant-trader/data/order-intents',
   /** Screenshot-capture index — backend-written, FE read-only (#846). */
   ST_SCREENSHOTS = 'st-screenshots',
   SPREAD_RUNS = 'spread-runs',

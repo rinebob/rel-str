@@ -4,7 +4,7 @@
  * Pins the `Collection` enum boundary: members whose roots were retired by
  * this cutover must be gone (a re-add or a leftover member means a service
  * is still compiling against a dead path), and members still consumed by
- * tasks #1015–#1019 stay pinned to their legacy spellings so this cutover
+ * tasks #1016–#1019 stay pinned to their legacy spellings so this cutover
  * can't silently move data those tasks haven't re-pointed yet.
  */
 import { readFileSync, readdirSync } from 'fs';
@@ -12,6 +12,7 @@ import { join, relative } from 'path';
 
 import { Collection } from '../../../core/common/constants';
 import {
+  ST_ORDER_TICKETS_ROOT,
   ST_SYMBOL_LISTS_ROOT,
   ST_STRATEGY_INSTANCES_ROOT,
   ST_BACKTEST_RUNS_ROOT,
@@ -31,13 +32,14 @@ describe('#1014 FE st-* path cutover', () => {
       'ST_SYMBOL_META',
       'ST_TRADING_CONFIG',
       'PAPER_TRADING_INSTANCES',
+      // #1015 — order-ticket.service re-pointed to st-order-tickets.
+      'ST_ORDER_INTENTS',
     ]) {
       expect(member in Collection).toBe(false);
     }
   });
 
-  it('members still consumed by #1015–#1019 keep their legacy spellings', () => {
-    expect(Collection.ST_ORDER_INTENTS).toBe('savant-trader/data/order-intents');
+  it('members still consumed by #1016–#1019 keep their legacy spellings', () => {
     expect(Collection.ST_REVIEW_LIST).toBe('savant-trader/data/review-list');
     expect(Collection.ST_OCCURRENCE_DECISIONS).toBe(
       'savant-trader/data/occurrence-decisions',
@@ -52,6 +54,7 @@ describe('#1014 FE st-* path cutover', () => {
   });
 
   it('canonical helpers resolve to the deployed st-* roots', () => {
+    expect(ST_ORDER_TICKETS_ROOT).toBe('st-order-tickets');
     expect(ST_SYMBOL_LISTS_ROOT).toBe('st-symbol-lists');
     expect(ST_STRATEGY_INSTANCES_ROOT).toBe('st-strategy-instances');
     expect(ST_BACKTEST_RUNS_ROOT).toBe('st-backtest-runs');
@@ -75,7 +78,7 @@ describe('#1014 FE st-* path cutover', () => {
     // match the quote-prefix requirement.
     const APP_ROOT = join(__dirname, '..', '..', '..');
     const ALLOWLIST = new Set([
-      // Retained members pinned above — deferred to #1015–#1019.
+      // Retained members pinned above — deferred to #1016–#1019.
       'core/common/constants.ts',
       // This spec's own expectations.
       'features/savant-trader/services/st-path-cutover-1014.spec.ts',
