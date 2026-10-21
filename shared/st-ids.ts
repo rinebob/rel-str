@@ -92,6 +92,19 @@ export function stTicketId(mode: StMode, id: string): string {
   return `${mode === 'live' ? 'liv' : 'pap'}_${id}`;
 }
 
+const ST_TICKET_PREFIX_RE = /^(liv|pap)_/;
+
+/** True when `id` already carries the `{liv|pap}_` ticket prefix. */
+export function isStTicketId(id: string): boolean {
+  return ST_TICKET_PREFIX_RE.test(id);
+}
+
+/** Strip the `{liv|pap}_` prefix — callers re-prefix through
+ *  `stTicketId` so the layout stays minted in one place. */
+export function stripStTicketPrefix(id: string): string {
+  return id.replace(ST_TICKET_PREFIX_RE, '');
+}
+
 /** Trade-id origin codes — the `{origin}` segment of trade doc ids. */
 export const ORIGIN_TYPE_TO_TRADE_CODE: Readonly<Record<StTicketOriginType, string>> = {
   signal: 'sig',
