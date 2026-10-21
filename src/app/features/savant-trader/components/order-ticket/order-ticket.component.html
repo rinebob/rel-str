@@ -79,6 +79,9 @@
             <mat-icon>error_outline</mat-icon>
             <div class="error-details">
               <p class="error-message">{{ ticketError()?.message }}</p>
+              @if (ticketError()?.code) {
+                <p class="error-code">{{ ticketError()?.code }}</p>
+              }
               @if (ticket()?.status === OrderTicketStatus.FAILED) {
                 <p class="error-hint">Requeue moves the stop-loss back to staged so it can be resubmitted.</p>
               } @else {
@@ -95,7 +98,7 @@
               Submit Stop Loss
             </button>
           }
-          @if (ticket()?.status === OrderTicketStatus.FAILED) {
+          @if (canRequeue()) {
             <button mat-stroked-button color="primary" (click)="onRequeue()">
               <mat-icon>replay</mat-icon>
               Requeue to Staged
@@ -118,7 +121,9 @@
               <mat-icon>sync</mat-icon>
               Refresh from Broker
             </button>
-            @if (ticket()?.result?.orderId) {
+            @if (isCancelling()) {
+              <ng-container *ngTemplateOutlet="cancelPending" />
+            } @else if (ticket()?.result?.orderId) {
               <button mat-stroked-button color="warn" (click)="onCancel()">
                 <mat-icon>cancel</mat-icon>
                 Cancel Stop Loss
@@ -155,6 +160,9 @@
           <mat-icon>error_outline</mat-icon>
           <div class="error-details">
             <p class="error-message">{{ ticketError()?.message }}</p>
+            @if (ticketError()?.code) {
+              <p class="error-code">{{ ticketError()?.code }}</p>
+            }
             @if (ticket()?.status === OrderTicketStatus.FAILED) {
               <p class="error-hint">Requeue moves the order back to staged so it can be edited and resubmitted.</p>
             } @else if (isRetryable()) {
@@ -274,7 +282,10 @@
           @if (entryConfirmation()?.fillPrice) {
             <div class="conf-row">
               <span class="conf-label">Fill</span>
-              <span class="conf-value">{{ entryConfirmation()?.fillPrice | currency:'USD':'symbol':'1.2-2' }}</span>
+              <span class="conf-value">
+                {{ entryConfirmation()?.filledQuantity ?? entryConfirmation()?.quantity }}
+                @ {{ entryConfirmation()?.fillPrice | currency:'USD':'symbol':'1.2-2' }}
+              </span>
             </div>
           }
           @if (entryConfirmation()?.limitPrice) {
@@ -386,8 +397,8 @@
           </button>
         }
 
-        @if (ticket()?.status === OrderTicketStatus.FAILED) {
-          <!-- A failed RH order burned its refId — Requeue mints a fresh
+        @if (canRequeue()) {
+          <!-- A terminal RH order burned its refId — Requeue mints a fresh
                one and returns the ticket to staged (#717). -->
           <button mat-stroked-button color="primary" (click)="onRequeue()">
             <mat-icon>replay</mat-icon>
@@ -400,14 +411,18 @@
             <mat-icon>sync</mat-icon>
             Refresh from Broker
           </button>
-          <button mat-stroked-button color="primary" (click)="onModify()">
-            <mat-icon>edit</mat-icon>
-            Modify
-          </button>
-          <button mat-stroked-button color="warn" (click)="onCancel()">
-            <mat-icon>cancel</mat-icon>
-            Cancel
-          </button>
+          @if (isCancelling()) {
+            <ng-container *ngTemplateOutlet="cancelPending" />
+          } @else {
+            <button mat-stroked-button color="primary" (click)="onModify()">
+              <mat-icon>edit</mat-icon>
+              Modify
+            </button>
+            <button mat-stroked-button color="warn" (click)="onCancel()">
+              <mat-icon>cancel</mat-icon>
+              Cancel
+            </button>
+          }
         }
 
         @if (isSubmitting()) {
@@ -421,7 +436,9 @@
           </button>
         }
 
-        @if (isStopLossSubmitted()) {
+        @if (showStopLossCancelPending()) {
+          <ng-container *ngTemplateOutlet="cancelPending" />
+        } @else if (isStopLossSubmitted()) {
           <button mat-stroked-button color="warn" (click)="onCancelStopLoss()">
             <mat-icon>cancel</mat-icon>
             Cancel Stop Loss
@@ -439,3 +456,11 @@
     }
   }
 </div>
+
+<!-- Shared indicator — cancel accepted at the broker, awaiting terminal. -->
+<ng-template #cancelPending>
+  <div class="submitting-indicator">
+    <mat-icon>hourglass_empty</mat-icon>
+    <span>Cancellation pending…</span>
+  </div>
+</ng-template>

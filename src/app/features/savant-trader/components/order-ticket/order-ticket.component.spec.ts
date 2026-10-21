@@ -738,6 +738,45 @@ describe('OrderTicketComponent — accept as paper', () => {
     expect(store.submitTicket).not.toHaveBeenCalled();
   });
 
+  it('onCancel marks the ticket CANCEL_PENDING on broker accept — not terminal CANCELLED (#1015)', async () => {
+    mount(signalTicket({
+      status: OrderTicketStatus.SUBMITTED,
+      result: { orderId: 'rh-9', state: 'confirmed' },
+    }));
+
+    await component.onCancel();
+
+    expect(orderExec.cancelEquityOrder).toHaveBeenCalledWith('agentic-account', 'rh-9');
+    const patch = store.updateTicket.calls.mostRecent().args[1];
+    expect(patch.status).toBe(OrderTicketStatus.CANCEL_PENDING);
+  });
+
+  it('onCancel leaves the status untouched when the broker cancel fails', async () => {
+    orderExec.cancelEquityOrder.mockResolvedValue({ success: false, error: { message: 'cancel rejected' } });
+    mount(signalTicket({
+      status: OrderTicketStatus.SUBMITTED,
+      result: { orderId: 'rh-9', state: 'confirmed' },
+    }));
+
+    await component.onCancel();
+
+    expect(store.updateTicket).not.toHaveBeenCalled();
+  });
+
+  it('suppresses Modify/Cancel while CANCEL_PENDING and shows the pending indicator', () => {
+    mount(signalTicket({
+      status: OrderTicketStatus.CANCEL_PENDING,
+      result: { orderId: 'rh-9', state: 'confirmed' },
+    }));
+
+    const el: HTMLElement = fixture.nativeElement;
+    const buttons = Array.from(el.querySelectorAll('button')).map((b) => b.textContent?.trim());
+    expect(buttons.some((t) => t === 'Cancel' || t === 'Modify')).toBe(false);
+    expect(el.textContent).toContain('Cancellation pending');
+    // Refresh stays available — the broker decides when pending resolves.
+    expect(buttons.some((t) => t?.includes('Refresh from Broker'))).toBe(true);
+  });
+
   it('onModify cancels at RH then reverts to STAGED with a FRESH refId (#717)', async () => {
     // The cancel makes the order terminal at RH — the old refId is burned,
     // so the reverted ticket must not resubmit it.

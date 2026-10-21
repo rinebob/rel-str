@@ -41,6 +41,7 @@ import {
   buildStopLossTicket,
 } from '../../utils/stop-loss-ticket.util';
 import { findActiveStopLoss, rhStateToDisplayStatus } from '../../utils/broker-order.util';
+import { stDocId } from '../../services/order-ticket-st-mapper';
 import { isPaperEligibleTicket } from '../../utils/paper-ticket.util';
 import {
   OrderTicket,
@@ -52,6 +53,7 @@ import {
   BrokerOrderSnapshot,
   EquityTimeInForce,
   EquityMarketHours,
+  REQUEUEABLE_TICKET_STATUSES,
 } from '../../services/order-ticket.types';
 import {
   computePositionSize,
@@ -205,8 +207,15 @@ export class OrderTicketComponent {
     return i.symbol;
   });
 
-  /** Whether the selected ticket is a linked stop-loss order. */
-  readonly isStopLossTicket = computed(() => this.ticket()?.sourceRef?.type === 'stop_loss');
+  /** Whether the selected ticket is a linked stop-loss order. sourceRef
+   *  survives on session-built tickets; hydrated management docs carry
+   *  only orderType — the canonical model has no sourceRef-kind slot
+   *  (#1015; terms.orderType still distinguishes stop-loss rows). */
+  readonly isStopLossTicket = computed(() => {
+    const t = this.ticket();
+    return t?.sourceRef?.type === 'stop_loss' ||
+      (t?.source === OrderSource.POSITION_MANAGEMENT && t.orderType === 'stop_loss');
+  });
 
   /** Whether the selected ticket closes a fractional remainder. */
   readonly isFractionalCloseTicket = computed(() => this.ticket()?.sourceRef?.type === 'fractional_close');
@@ -233,11 +242,15 @@ export class OrderTicketComponent {
       this.wholeQuantity() > 0 && parseFloat(this.stopLossPrice()) > 0;
   });
 
-  /** The entry/position protected by the selected stop-loss ticket. */
+  /** The entry/position protected by the selected stop-loss ticket.
+   *  sourceRef.id is a session-built bare id; a hydrated management
+   *  doc's positionGroupId lands there too — normalize across the
+   *  {liv|pap}_ boundary so either spelling resolves (#1015). */
   readonly protectedEntry = computed<OrderTicket | null>(() => {
     const parentId = this.ticket()?.sourceRef?.id;
     if (!parentId) return null;
-    return this.stagingStore.tickets()[parentId] ?? null;
+    const tickets = this.stagingStore.tickets();
+    return tickets[parentId] ?? tickets[stDocId(parentId)] ?? null;
   });
 
   /** Whether the ticket is in an editable state. FAILED is deliberately
@@ -263,8 +276,12 @@ export class OrderTicketComponent {
   /** Whether the ticket is submitted and awaiting fill (or submitting). */
   readonly isSubmitted = computed(() => {
     const s = this.ticket()?.status;
-    return s === OrderTicketStatus.SUBMITTED || s === OrderTicketStatus.QUEUED || s === OrderTicketStatus.RESTING || s === OrderTicketStatus.SUBMITTING;
+    return s === OrderTicketStatus.SUBMITTED || s === OrderTicketStatus.QUEUED || s === OrderTicketStatus.RESTING || s === OrderTicketStatus.SUBMITTING || s === OrderTicketStatus.CANCEL_PENDING;
   });
+
+  /** Cancel accepted at the broker, awaiting terminal confirmation — the
+   *  ticket stays edit-locked but Modify/Cancel are dead ends (#1015). */
+  readonly isCancelling = computed(() => this.ticket()?.status === OrderTicketStatus.CANCEL_PENDING);
 
   /** Whether the entry order has been filled (enables stop loss placement). */
   readonly isEntryFilled = computed(() => {
@@ -359,11 +376,27 @@ export class OrderTicketComponent {
     this.stopLossTicket()?.status === OrderTicketStatus.SUBMITTING,
   );
 
-  /** Whether the stop loss is submitted and awaiting fill. */
+  /** Whether the stop loss is submitted and awaiting fill — RH-derived
+   *  rows never carry our local cancel_pending marker; the pending state
+   *  is tracked on stopLossCancelPending instead. */
   readonly isStopLossSubmitted = computed(() =>
     this.stopLossTicket()?.status === OrderTicketStatus.SUBMITTED ||
     this.stopLossTicket()?.status === OrderTicketStatus.QUEUED ||
     this.stopLossTicket()?.status === OrderTicketStatus.RESTING,
+  );
+
+  /** True once the broker accepted our stop-loss cancel — the stop-loss
+   *  row is built from RH orders (its status never carries our local
+   *  cancel_pending marker), so the pending state is a local signal that
+   *  suppresses a repeat cancel until the order resolves terminal.
+   *  Reset when the selected ticket changes; gated on stopLossTicket()
+   *  so a resolved stop can't leave the indicator stuck. */
+  readonly stopLossCancelPending = signal(false);
+
+  /** Pending indicator that clears when the RH stop leaves the active
+   *  set (terminal) even if the flag is still set. */
+  readonly showStopLossCancelPending = computed(
+    () => this.stopLossCancelPending() && this.stopLossTicket() !== null,
   );
 
   /** Fill price from the entry order result, if filled. */
@@ -432,6 +465,13 @@ export class OrderTicketComponent {
   });
 
   constructor() {
+    // The local stop-loss cancel flag is per-ticket — reset on selection
+    // change so it can't leak across rows (#1015 review).
+    effect(() => {
+      this.ticket();
+      untracked(() => this.stopLossCancelPending.set(false));
+    });
+
     // Sync local editable fields when the ticket changes
     effect(() => {
       const i = this.ticket();
@@ -688,12 +728,17 @@ export class OrderTicketComponent {
     }
   }
 
-  /** Requeue a FAILED ticket — emits to the page, which mints a fresh
-   *  refId and returns the ticket to STAGED (#717). A failed RH order's
+  /** Requeue a terminal ticket — emits to the page, which mints a fresh
+   *  refId and returns the ticket to STAGED (#717). A terminal RH order's
    *  refId is burned, so it must never be resubmitted directly. */
+  readonly canRequeue = computed(() => {
+    const s = this.ticket()?.status;
+    return !!s && REQUEUEABLE_TICKET_STATUSES.has(s);
+  });
+
   onRequeue(): void {
     const i = this.ticket();
-    if (i?.status !== OrderTicketStatus.FAILED) return;
+    if (!i || !this.canRequeue()) return;
     this.requeueRequested.emit(i.id);
   }
 
@@ -707,7 +752,14 @@ export class OrderTicketComponent {
     this.snackBar.open('Cancelling order…', '', { duration: 3000 });
     const result = await this.orderExecution.cancelEquityOrder(i.accountNumber, orderId);
     if (result.success) {
-      this.snackBar.open('Order cancelled', 'Dismiss', { duration: 3000 });
+      // RH cancel is async — cancel accepted ≠ cancelled. Mark the ticket
+      // cancel_pending so the queue shows the in-flight state; the
+      // reconcile pass drives it terminal (#1015).
+      this.stagingStore.updateTicket(i.id, {
+        status: OrderTicketStatus.CANCEL_PENDING,
+        updatedAt: new Date().toISOString(),
+      });
+      this.snackBar.open('Cancel submitted — awaiting broker confirmation', 'Dismiss', { duration: 3000 });
       this.refreshRequested.emit();
     } else {
       const msg = result.error?.message ?? 'Cancel failed';
@@ -758,7 +810,11 @@ export class OrderTicketComponent {
     this.snackBar.open('Cancelling stop loss…', '', { duration: 3000 });
     const result = await this.orderExecution.cancelEquityOrder(sl.accountNumber, orderId);
     if (result.success) {
-      this.snackBar.open('Stop loss cancelled', 'Dismiss', { duration: 3000 });
+      // The stop-loss row is RH-order-derived — no ticket doc exists to
+      // mark cancel_pending, so the pending state is the local signal
+      // that swaps the cancel button for the pending indicator (#1015).
+      this.stopLossCancelPending.set(true);
+      this.snackBar.open('Cancel submitted — awaiting broker confirmation', 'Dismiss', { duration: 3000 });
       this.refreshRequested.emit();
     } else {
       const msg = result.error?.message ?? 'Cancel failed';
