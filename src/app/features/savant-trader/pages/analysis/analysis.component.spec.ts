@@ -11,14 +11,18 @@
  * store.generateDataset.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 
 import { AnalysisComponent } from './analysis.component';
 import { AnalysisStore } from '../../stores/analysis.store';
+import { AnalysisHistogramComponent } from '../../components/analysis-views/analysis-histogram.component';
+import { SliceMenuComponent } from '../../components/analysis-slices/slice-menu.component';
+import { WorkbenchToolsComponent } from '../../components/analysis-workbench/workbench-tools.component';
 import { PaperTradingKind } from '@paper-trading/contracts';
-import type { AnalysisDatasetDoc } from '@paper-trading/analysis';
+import type { AnalysisDatasetDoc, AnalysisSlice } from '@paper-trading/analysis';
 
 function doc(over: Partial<AnalysisDatasetDoc> = {}): AnalysisDatasetDoc {
   return {
@@ -62,6 +66,7 @@ describe('AnalysisComponent', () => {
     rows: ReturnType<typeof signal<unknown[]>>;
     sortedRows: ReturnType<typeof signal<unknown[]>>;
     viewRows: ReturnType<typeof signal<unknown[]>>;
+    filteredRows: ReturnType<typeof signal<unknown[]>>;
     columns: ReturnType<typeof signal<string[]>>;
     sorts: ReturnType<typeof signal<unknown[]>>;
     filters: ReturnType<typeof signal<unknown[]>>;
@@ -70,8 +75,20 @@ describe('AnalysisComponent', () => {
     isLoadingRows: ReturnType<typeof signal<boolean>>;
     isLoadingDatasets: ReturnType<typeof signal<boolean>>;
     isGenerating: ReturnType<typeof signal<boolean>>;
+    isLoadingCompare: ReturnType<typeof signal<boolean>>;
     error: ReturnType<typeof signal<string | null>>;
+    slices: ReturnType<typeof signal<AnalysisSlice[]>>;
+    skippedSliceColumns: ReturnType<typeof signal<string[]>>;
+    compareDataset: ReturnType<typeof signal<AnalysisDatasetDoc | null>>;
+    filteredCompareRows: ReturnType<typeof signal<unknown[]>>;
+    skippedCompareColumns: ReturnType<typeof signal<string[]>>;
     loadDatasets: jest.Mock;
+    loadSlices: jest.Mock;
+    saveSlice: jest.Mock;
+    applySlice: jest.Mock;
+    deleteSlice: jest.Mock;
+    loadCompareDataset: jest.Mock;
+    clearCompare: jest.Mock;
     openDataset: jest.Mock;
     closeDataset: jest.Mock;
     deleteDataset: jest.Mock;
@@ -97,6 +114,7 @@ describe('AnalysisComponent', () => {
       rows: signal<unknown[]>([]),
       sortedRows: signal<unknown[]>([]),
       viewRows: signal<unknown[]>([]),
+      filteredRows: signal<unknown[]>([]),
       columns: signal<string[]>([]),
       sorts: signal<unknown[]>([]),
       filters: signal<unknown[]>([]),
@@ -105,8 +123,20 @@ describe('AnalysisComponent', () => {
       isLoadingRows: signal(false),
       isLoadingDatasets: signal(false),
       isGenerating: signal(false),
+      isLoadingCompare: signal(false),
       error: signal<string | null>(null),
+      slices: signal<AnalysisSlice[]>([]),
+      skippedSliceColumns: signal<string[]>([]),
+      compareDataset: signal<AnalysisDatasetDoc | null>(null),
+      filteredCompareRows: signal<unknown[]>([]),
+      skippedCompareColumns: signal<string[]>([]),
       loadDatasets: jest.fn(),
+      loadSlices: jest.fn(),
+      saveSlice: jest.fn(),
+      applySlice: jest.fn(),
+      deleteSlice: jest.fn(),
+      loadCompareDataset: jest.fn(),
+      clearCompare: jest.fn(),
       openDataset: jest.fn(),
       closeDataset: jest.fn(),
       deleteDataset: jest.fn(),
@@ -339,5 +369,167 @@ describe('AnalysisComponent', () => {
     );
     fixture.detectChanges();
     expect(el('app-analysis-run-config')).toBeNull();
+  });
+
+  // ── #1085 — slices + compare ──────────────────────────────────────────
+
+  function openWorkbench(): void {
+    storeMock.activeDataset.set(READY);
+    fixture.detectChanges();
+  }
+
+  function sliceFixture(name: string, filters: AnalysisSlice['filters']): AnalysisSlice {
+    return {
+      id: `s-${name}`,
+      kind: PaperTradingKind.ANALYSIS_SLICE,
+      name,
+      filters,
+      createdAt: '2026-10-21T00:00:00Z',
+      updatedAt: '2026-10-21T00:00:00Z',
+    };
+  }
+
+  function tools(): WorkbenchToolsComponent {
+    return fixture.debugElement.query(By.directive(WorkbenchToolsComponent))
+      .componentInstance;
+  }
+
+  function clickViewBtn(name: string): void {
+    Array.from(els('.view-btn'))
+      .find((b) => b.textContent?.trim() === name)!
+      .click();
+    fixture.detectChanges();
+  }
+
+  it('loads slices on init alongside datasets', () => {
+    fixture.detectChanges();
+    expect(storeMock.loadSlices).toHaveBeenCalledTimes(1);
+  });
+
+  it('the library carries a manage-only slice menu (no apply)', () => {
+    fixture.detectChanges();
+    const menu = fixture.debugElement.query(
+      By.css('.header-actions app-slice-menu'),
+    ).componentInstance as SliceMenuComponent;
+    expect(menu.canApply()).toBe(false);
+  });
+
+  it('save slice serializes the filter chain under a name', () => {
+    openWorkbench();
+    storeMock.filters.set([
+      { column: 'ind.zoneV2', op: 'range', value: { min: 4, max: 4 } },
+    ]);
+    fixture.detectChanges();
+    const saveBtn = Array.from(els('.tool-btn')).find((b) =>
+      b.textContent?.includes('Save slice'),
+    ) as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(false);
+    saveBtn.click();
+    fixture.detectChanges();
+    const nameInput = el('.save-slice-form .slice-name') as HTMLInputElement;
+    nameInput.value = 'ZoneV2=4';
+    nameInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    Array.from(els('.save-slice-form .tool-btn'))
+      .find((b) => b.textContent?.trim() === 'Save')!
+      .click();
+    expect(storeMock.saveSlice).toHaveBeenCalledWith('ZoneV2=4', undefined);
+  });
+
+  it('save slice is disabled with no active filters', () => {
+    openWorkbench();
+    const saveBtn = Array.from(els('.tool-btn')).find((b) =>
+      b.textContent?.includes('Save slice'),
+    ) as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+  });
+
+  it('applying a slice forwards to store.applySlice', () => {
+    openWorkbench();
+    const slice = sliceFixture('Longs', [
+      { column: 'direction', op: 'in', value: ['LONG'] },
+    ]);
+    storeMock.slices.set([slice]);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector(
+      '.workbench-tools app-slice-menu .slice-btn',
+    ) as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (document.querySelector('.slice-item .slice-apply') as HTMLButtonElement).click();
+    expect(storeMock.applySlice).toHaveBeenCalledWith(slice);
+  });
+
+  it('deleting a slice forwards its id to store.deleteSlice', () => {
+    openWorkbench();
+    storeMock.slices.set([sliceFixture('Longs', [])]);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector(
+      '.workbench-tools app-slice-menu .slice-btn',
+    ) as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (document.querySelector('.slice-item .slice-delete') as HTMLButtonElement).click();
+    expect(storeMock.deleteSlice).toHaveBeenCalledWith('s-Longs');
+  });
+
+  it('skipped slice columns render as a persistent notice', () => {
+    openWorkbench();
+    storeMock.skippedSliceColumns.set(['ind.zoneV2']);
+    fixture.detectChanges();
+    expect(el('.skip-note')?.textContent).toContain('ind.zoneV2');
+  });
+
+  it('compare picker lists ready datasets except the active one', () => {
+    openWorkbench();
+    // READY is active; GENERATING is not ready; LIVE_READY is the only option.
+    expect(el('.compare-select')).not.toBeNull();
+    expect(tools().compareOptions().map((d) => d.id)).toEqual([LIVE_READY.id]);
+  });
+
+  it('selecting a compare dataset forwards the doc to loadCompareDataset', () => {
+    openWorkbench();
+    tools().compareSelected.emit(LIVE_READY);
+    expect(storeMock.loadCompareDataset).toHaveBeenCalledWith(LIVE_READY);
+  });
+
+  it('compare mode renders stats side-by-side and switches the histogram baseline', () => {
+    openWorkbench();
+    storeMock.compareDataset.set(LIVE_READY);
+    fixture.detectChanges();
+    // chip instead of the select
+    expect(el('.compare-chip')?.textContent).toContain(LIVE_READY.id);
+    expect(el('.compare-select')).toBeNull();
+    // stats view → two blocks
+    clickViewBtn('stats');
+    expect(els('.compare-col').length).toBe(2);
+    // histogram baseline resolves to filteredCompareRows labeled 'compare set'
+    clickViewBtn('histogram');
+    const hist = fixture.debugElement.query(
+      By.directive(AnalysisHistogramComponent),
+    ).componentInstance;
+    expect(hist.baselineRows()).toBe(storeMock.filteredCompareRows());
+    expect(hist.baselineLabel()).toBe('compare set');
+    // clear → back to the single-set baseline
+    storeMock.compareDataset.set(null);
+    fixture.detectChanges();
+    expect(hist.baselineRows()).toBe(storeMock.viewRows());
+    expect(hist.baselineLabel()).toBe('full set');
+  });
+
+  it('the compare chip ✕ forwards to store.clearCompare', () => {
+    openWorkbench();
+    storeMock.compareDataset.set(LIVE_READY);
+    fixture.detectChanges();
+    (el('.compare-chip .chip-x') as HTMLButtonElement).click();
+    expect(storeMock.clearCompare).toHaveBeenCalled();
+  });
+
+  it('skipped compare columns render their own notice', () => {
+    openWorkbench();
+    storeMock.compareDataset.set(LIVE_READY);
+    storeMock.skippedCompareColumns.set(['ind.zoneV2']);
+    fixture.detectChanges();
+    const notes = els('.skip-note').map((n) => n.textContent);
+    expect(notes.some((t) => t?.includes('compare skipped columns'))).toBe(true);
+    expect(notes.some((t) => t?.includes('ind.zoneV2'))).toBe(true);
   });
 });

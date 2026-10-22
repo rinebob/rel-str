@@ -41,6 +41,8 @@ import { AnalysisTableComponent } from '../../components/analysis-table/analysis
 import { AnalysisStatsComponent } from '../../components/analysis-views/analysis-stats.component';
 import { AnalysisHistogramComponent } from '../../components/analysis-views/analysis-histogram.component';
 import { AnalysisScatterComponent } from '../../components/analysis-views/analysis-scatter.component';
+import { SliceMenuComponent } from '../../components/analysis-slices/slice-menu.component';
+import { WorkbenchToolsComponent } from '../../components/analysis-workbench/workbench-tools.component';
 import type {
   AnalysisDatasetDoc,
   AnalysisDatasetStatus,
@@ -67,6 +69,8 @@ type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
     AnalysisStatsComponent,
     AnalysisHistogramComponent,
     AnalysisScatterComponent,
+    SliceMenuComponent,
+    WorkbenchToolsComponent,
   ],
   templateUrl: './analysis.component.html',
   styleUrl: './analysis.component.scss',
@@ -87,6 +91,25 @@ export class AnalysisComponent implements OnInit, OnDestroy {
   protected readonly workbenchViews = WORKBENCH_VIEWS;
   protected readonly workbenchView = signal<WorkbenchView>('table');
 
+  /** #1085 — compare candidates: every ready dataset except the open
+   *  one (the tools row renders the picker/chip). */
+  protected readonly otherReadyDatasets = computed(() =>
+    this.store
+      .datasets()
+      .filter(
+        (d) => d.status === 'ready' && d.id !== this.store.activeDataset()?.id,
+      ),
+  );
+
+  /** Histogram baseline — one computed so the rows and legend label
+   *  can't disagree: compare dataset's same-filter rows when compare is
+   *  active, else the full quarantined set (IMPL §4 overlay). */
+  protected readonly histogramBaseline = computed(() =>
+    this.store.compareDataset()
+      ? { rows: this.store.filteredCompareRows(), label: 'compare set' as const }
+      : { rows: this.store.viewRows(), label: 'full set' as const },
+  );
+
   /** Poll interval while a 'generating' entry exists — the callable
    *  mints the doc instantly, the task flips status seconds later. */
   static readonly REFRESH_INTERVAL_MS = 5000;
@@ -102,6 +125,7 @@ export class AnalysisComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.store.loadDatasets();
+    this.store.loadSlices();
     this.refreshTimer = setInterval(() => {
       if (this.hasGenerating() && !this.store.isLoadingDatasets()) {
         this.store.loadDatasets();

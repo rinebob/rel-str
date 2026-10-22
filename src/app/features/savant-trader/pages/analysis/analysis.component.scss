@@ -236,6 +236,27 @@
   &:hover { opacity: 1; }
 }
 
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.compare-col {
+  min-width: 0;
+  .compare-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    opacity: 0.7;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant, #333);
+    margin-bottom: 8px;
+  }
+}
+
 .loading-rows {
   display: flex;
   justify-content: center;

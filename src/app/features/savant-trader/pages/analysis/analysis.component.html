@@ -18,6 +18,10 @@
       </mat-form-field>
     </div>
     <div class="header-actions">
+      <app-slice-menu
+        [slices]="store.slices()"
+        [canApply]="false"
+        (deleted)="store.deleteSlice($event)" />
       <button mat-stroked-button (click)="showRunConfig.set(!showRunConfig())">
         <mat-icon>{{ showRunConfig() ? 'close' : 'add' }}</mat-icon>
         New dataset
@@ -170,6 +174,20 @@
           <mat-icon>close</mat-icon>
         </button>
       </div>
+      <app-workbench-tools
+        [canSave]="store.filters().length > 0"
+        [slices]="store.slices()"
+        [skippedSliceColumns]="store.skippedSliceColumns()"
+        [skippedCompareColumns]="store.skippedCompareColumns()"
+        [compareOptions]="otherReadyDatasets()"
+        [compareDataset]="store.compareDataset()"
+        [isLoadingCompare]="store.isLoadingCompare()"
+        [labelFor]="scopeLabel"
+        (saved)="store.saveSlice($event.name, $event.note)"
+        (applied)="store.applySlice($event)"
+        (deleted)="store.deleteSlice($event)"
+        (compareSelected)="store.loadCompareDataset($event)"
+        (compareCleared)="store.clearCompare()" />
       @if (store.isLoadingRows()) {
         <div class="loading-rows"><mat-spinner diameter="32"></mat-spinner></div>
       } @else if (workbenchView() === 'table') {
@@ -185,11 +203,25 @@
           (filtersChanged)="store.setFilters($event)"
           (includeOpenRowsChanged)="store.setIncludeOpenRows($event)" />
       } @else if (workbenchView() === 'stats') {
-        <app-analysis-stats [rows]="store.filteredRows()" />
+        @if (store.compareDataset(); as cmp) {
+          <div class="compare-grid">
+            <div class="compare-col">
+              <div class="compare-label">{{ scopeLabel(active) }} · {{ active.id }}</div>
+              <app-analysis-stats [rows]="store.filteredRows()" />
+            </div>
+            <div class="compare-col">
+              <div class="compare-label">{{ scopeLabel(cmp) }} · {{ cmp.id }}</div>
+              <app-analysis-stats [rows]="store.filteredCompareRows()" />
+            </div>
+          </div>
+        } @else {
+          <app-analysis-stats [rows]="store.filteredRows()" />
+        }
       } @else if (workbenchView() === 'histogram') {
         <app-analysis-histogram
           [rows]="store.filteredRows()"
-          [baselineRows]="store.viewRows()" />
+          [baselineRows]="histogramBaseline().rows"
+          [baselineLabel]="histogramBaseline().label" />
       } @else {
         <app-analysis-scatter
           [rows]="store.filteredRows()"
