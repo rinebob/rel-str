@@ -1,5 +1,15 @@
 # Changelog
 
+## [2026-10-22]
+
+### Removed
+- [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: review-list persistence removed — triage.service.ts deleted, Collection.ST_REVIEW_LIST dropped, pin spec asserts non-reintroduction
+- [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: triage store — session-local flags; loadReviewFlags + dead loading state deleted; REVIEW dual-write dropped; viewport default 'browse'
+- [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: viewport 'ALL' → list-member union (was the permanently-empty flagged queue)
+- [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: needs-review UI disabled — flag button, Review pill, clear-flags, viewport toggle, new-symbols; Watch selected-state + 'From list' label
+- [ST Firestore Reorg] 984-1016_CONFIG-DATA-PIPELINE: review-list rules ACL removed — deny-by-default until #1013 deletes data
+- [ST Firestore Reorg] 984-1016_DOCS-DATA-PIPELINE: DATA-MAP updated; #1016 CODE-REVIEW (PASS, 2 rounds) + #1200 UAT (Complete)
+
 ## [2026-10-21]
 
 ### Added

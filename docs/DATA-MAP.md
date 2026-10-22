@@ -59,7 +59,7 @@ directly (`signal.service.ts`) and via `st*` callables.
 | `…/status/current` | Agent status singleton | `RunProgressTracker` | status UI | 1 | live |
 | `…/symbol-lists/{uid}_{KEY}` | User triage lists (NEW/PRIMARY/…); auto-paper capture scope | FE | ingest pass, UI | 7 | live |
 | `…/occurrence-decisions` | User accept/decline per signal occurrence | FE | order-intent linkage | 12 | live |
-| `…/review-list` | Triage decisions (ex `rh-agent-triage-decisions`) | FE | UI | 12 | live |
+| `…/review-list` | Triage decisions (ex `rh-agent-triage-decisions`) | — | — | 12 | **removed #1016** — FE/BE readers/writers + rules gone; data pending #1013 deletion |
 | `…/order-intents` | Signal→order tickets; **bridges to the real RH account** | FE + screenshot tracking | `paperSignalOrder` callable | 77 | live; `sourceRef` id format inconsistent (`pdr-AAMI-…` vs `pdr_AAMI_…`) |
 | `…/trading-config/{docId}` | `autoPaper` ingest config (enabled, lists, signalTypes, ownerUid) | manual | `stAutoPaperIngest` task | 2 | live |
 
@@ -215,6 +215,6 @@ From AGENTS.md + observed implementation:
   universe), `symbol-data` (synced-bars registry), `rh-agent-symbols`
   (frozen). Different roles, but consider whether the ST universe should be
   flags on `symbol-data` rather than a parallel collection.
-- `occurrence-decisions` vs `order-intents` vs `review-list` — schema
-  overlap unverified; merge candidates under one `st-order-tickets`-style
-  lifecycle doc.
+- `occurrence-decisions` vs `order-intents` — schema overlap unverified;
+  merge candidates under one `st-order-tickets`-style lifecycle doc.
+  (`review-list` exited this trio when it was removed in #1016.)
