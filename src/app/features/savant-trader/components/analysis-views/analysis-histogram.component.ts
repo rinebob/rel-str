@@ -42,6 +42,11 @@ export class AnalysisHistogramComponent {
   /** Optional second cohort — overlaid as a faint baseline behind the
    *  filtered bins so the subset is read in context (IMPL §4). */
   baselineRows = input<TradeAnalysisRow[] | null>(null);
+  /** Toggle + legend label — 'full set' when the baseline is the same
+   *  dataset's unfiltered set, 'compare set' when it's the compare
+   *  dataset (#1085). Drives both the overlay checkbox and the
+   *  baseline series name so the legend can't disagree. */
+  baselineLabel = input<'full set' | 'compare set'>('full set');
 
   protected readonly widthOptions = WIDTH_OPTIONS;
   protected readonly binWidth = signal(5);
