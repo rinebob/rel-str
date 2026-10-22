@@ -32,8 +32,10 @@ import type { CurationProposal } from '@st/scanner';
 import { ScannerStore } from '../../stores/scanner.store';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import {
+  dedupeScanRows,
+  displayCell,
+  normScanSymbol,
   numericColumn,
-  percentColumn,
   type ScanRow,
 } from '../../utils/scanner-rows.util';
 import {
@@ -92,16 +94,9 @@ export class ScannerComponent implements OnInit {
    *  metric values sink to the bottom regardless of direction. */
   protected readonly displayRows = computed<ScanRow[]>(() => {
     const recipe = this.store.activeRecipe();
-    // Dedupe by normalized symbol, first-wins (same policy as the
-    // compare engine's `seen` set) — a duplicated wire ticker would
-    // otherwise hard-error the template's `track row.symbol` (NG0955),
-    // and case/whitespace variants ('aapl'/'AAPL ') would render as
-    // duplicate rows.
-    const seen = new Set<string>();
-    const rows = this.store.rows().filter((r) => {
-      const key = r.symbol.trim().toUpperCase();
-      return !seen.has(key) && !!seen.add(key);
-    });
+    // Normalized-ticker first-wins dedupe — a duplicated wire ticker
+    // would hard-error `track row.symbol` (NG0955).
+    const rows = dedupeScanRows(this.store.rows());
     const sort = recipe?.sort;
     if (!recipe || !sort) return rows;
     const dir = sort.direction === 'asc' ? 1 : -1;
@@ -167,22 +162,15 @@ export class ScannerComponent implements OnInit {
     return this.store.columnLookup() ?? this.store.activeRecipe()?.columnLookup;
   }
 
-  /** Cell text — fraction-scaled columns listed in the recipe's
-   *  percentColumns render as `N.N%`; everything else renders the raw
-   *  wire string (resolved through columnLookup first). */
+  /** Cell text — shared `displayCell` (#1197): percentColumns rescale
+   *  to `N.N%`, blank/drift → '—'/String(). */
   protected columnValue(row: ScanRow, displayName: string): string {
-    const recipe = this.store.activeRecipe();
-    const lookup = this.lookup();
-    if (recipe?.percentColumns?.includes(displayName)) {
-      const p = percentColumn(row, displayName, lookup);
-      return p === null ? '—' : `${p.toFixed(1)}%`;
-    }
-    const key = lookup?.get(displayName) ?? displayName;
-    const v: unknown = row.values[key] ?? row.values[displayName];
-    if (v === undefined || v === null) return '—';
-    // The wire strings every cell, but a drifted non-string value
-    // (number/bool) would crash .trim() — render it, don't throw.
-    return typeof v !== 'string' ? String(v) : v.trim() === '' ? '—' : v;
+    return displayCell(
+      row,
+      displayName,
+      this.lookup(),
+      this.store.activeRecipe()?.percentColumns,
+    );
   }
 
   // ── #1141 — compare panel + proposal history ─────────────────────
@@ -226,9 +214,9 @@ export class ScannerComponent implements OnInit {
   /** Chip → row focus: highlight + scroll only when the symbol is in
    *  the current table (live rows or stale last-good rows). */
   protected onFocusSymbol(sym: string): void {
-    const target = sym.trim().toUpperCase();
+    const target = normScanSymbol(sym);
     const found = this.displayRows().find(
-      (r) => r.symbol.trim().toUpperCase() === target,
+      (r) => normScanSymbol(r.symbol) === target,
     );
     if (!found) return;
     this.focusedSymbol.set(found.symbol);

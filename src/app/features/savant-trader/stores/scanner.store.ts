@@ -21,8 +21,7 @@ import {
 
 import { ToolExecutionErrorCategory } from '@robinhood-mcp/contracts';
 import type {
-  ScanAppliedFilter,
-  ScanColumn,
+  PreviewScanResult,
   ScanResultRow,
 } from '@robinhood-mcp/contracts';
 import { RobinhoodMcpError } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
@@ -36,7 +35,8 @@ import {
   type ScannerRecipe,
 } from '../scanner/scanner-recipes';
 import {
-  buildColumnLookup,
+  mergeLookup,
+  normScanSymbol,
   parseScanRows,
   type ScanRow,
 } from '../utils/scanner-rows.util';
@@ -53,6 +53,19 @@ export interface ScannerError {
   message: string;
   /** RobinhoodMcpError category — AUTH means the page should prompt re-auth. */
   category: ToolExecutionErrorCategory | null;
+}
+
+/** Per-recipe run state for the auto-run overview (#1183) — the entry
+ *  shape of the store's recipe-keyed runs map (added in #1198) and the
+ *  `run` input of the per-recipe table component (#1197). Each entry
+ *  tracks its own lifecycle so a failure or in-flight refresh never
+ *  disturbs the other recipes. */
+export interface RecipeRunState {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  /** Raw wire result — the table derives rows/lookup itself. */
+  result: PreviewScanResult | null;
+  ranAt: string | null;
+  errorKind: 'auth' | 'other' | null;
 }
 
 export interface ScannerState {
@@ -103,36 +116,6 @@ const toError = (e: unknown): ScannerError =>
   e instanceof RobinhoodMcpError
     ? { message: e.message, category: e.category ?? null }
     : { message: e instanceof Error ? e.message : String(e), category: null };
-
-/** Effective display_name → wire-key map for a run. Candidates are
- *  [response echo, static recipe map, raw name] and the FIRST key any
- *  returned row actually carries wins — the echo is preferred when it
- *  names a real column, but a bad echo (e.g. filter_type = a filter's
- *  display_title, which is never a row key) can't clobber the verified
- *  static mapping. When no candidate appears in the rows the static
- *  map wins over the unverifiable echo. */
-const mergeLookup = (
-  recipe: { columns: readonly ScanColumn[]; columnLookup?: ReadonlyMap<string, string> },
-  applied: ScanAppliedFilter[] | undefined,
-  rows: readonly ScanRow[],
-): Map<string, string> => {
-  const dynamic = buildColumnLookup(applied, recipe.columns);
-  const lookup = new Map<string, string>();
-  for (const col of recipe.columns) {
-    const name = col.display_name;
-    const candidates = [
-      dynamic.get(name),
-      recipe.columnLookup?.get(name),
-      name,
-    ].filter((k): k is string => !!k);
-    const pick =
-      candidates.find((k) => rows.some((r) => Object.hasOwn(r.values, k))) ??
-      recipe.columnLookup?.get(name) ??
-      name;
-    if (pick !== name) lookup.set(name, pick);
-  }
-  return lookup;
-};
 
 const toProposal = (
   recipe: ScanRecipe,
@@ -345,7 +328,7 @@ export const ScannerStore = signalStore(
             // case-variant dup ('aapl'/'AAPL') would otherwise print
             // 'N evaluated · M matched' with M > N.
             const matchedCount = new Set(
-              matchedRows.map((r) => r.symbol.trim().toUpperCase()),
+              matchedRows.map((r) => normScanSymbol(r.symbol)),
             ).size;
             patch({
               rows: compare.rows,

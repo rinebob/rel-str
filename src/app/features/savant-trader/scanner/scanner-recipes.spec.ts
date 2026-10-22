@@ -209,6 +209,7 @@ describe('scanner recipe catalog (#1137)', () => {
     const mk = (values: Record<string, string>) => ({
       symbol: 'X',
       name: '',
+      instrumentId: '',
       instrumentType: 'EQUITY',
       values,
       tracked: false,
@@ -238,13 +239,15 @@ describe('scanner recipe catalog (#1137)', () => {
     }
   });
 
-  it('every recipe sort.column names a declared column (page re-sort, #1140)', () => {
-    // The page re-sorts the wire's Last-desc page by this column — a
-    // drifted name would silently sort on all-null keys.
+  it('every recipe sort.column names a declared + VISIBLE column (page re-sort, #1140/#1197)', () => {
+    // The page seeds its sort chain with this column — a drifted name
+    // would silently sort on all-null keys, and a hidden column would
+    // apply an unremovable badge-less sort.
     for (const r of SCANNER_RECIPES) {
-      const names = new Set(r.columns.map((c) => c.display_name));
+      const col = r.columns.find((c) => c.display_name === r.sort?.column);
       expect(r.sort).toBeDefined();
-      expect(names.has(r.sort!.column)).toBe(true);
+      expect(col).toBeDefined();
+      expect(col!.visible).not.toBe(false);
     }
   });
 

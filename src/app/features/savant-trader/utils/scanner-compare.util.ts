@@ -39,7 +39,7 @@
  *   isScanTruncated contract (no re-derivation here).
  */
 import type { CurationProposalBuckets } from '@st/scanner';
-import type { ScanRow } from './scanner-rows.util';
+import { normScanSymbol, type ScanRow } from './scanner-rows.util';
 
 /** Compare outcome — buckets + display rows + supporting detail. */
 export interface CompareResult {
@@ -59,9 +59,9 @@ export interface CompareResult {
   unevaluated: string[];
 }
 
-/** Normalize for set membership — trim + case-fold, same convention as
- *  evaluateUniverse's symbol sanitize. */
-const norm = (s: string) => s.trim().toUpperCase();
+/** Normalize for set membership — the shared scan-symbol key policy
+ *  (same convention as evaluateUniverse's symbol sanitize). */
+const norm = normScanSymbol;
 
 const emptyBuckets = (): CurationProposalBuckets => ({
   addCandidates: [],

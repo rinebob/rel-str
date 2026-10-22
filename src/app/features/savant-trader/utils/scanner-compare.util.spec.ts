@@ -21,6 +21,7 @@ import { compareDiscovery, comparePrune } from './scanner-compare.util';
 const row = (symbol: string, values: Record<string, string> = {}): ScanRow => ({
   symbol,
   name: '',
+  instrumentId: '',
   instrumentType: 'EQUITY',
   values,
   tracked: false,

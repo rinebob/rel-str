@@ -18,6 +18,8 @@ export interface ScanRow {
   symbol: string;
   /** columns['Name'] ?? '' — display label, not the ticker. */
   name: string;
+  /** Wire instrument_id — RH's opaque instrument identifier. */
+  instrumentId: string;
   instrumentType: string;
   /** Raw display-name → stringified value map, untouched. */
   values: Record<string, string>;
@@ -35,12 +37,52 @@ export function parseScanRows(result: PreviewScanResult): ScanRow[] {
     rows.push({
       symbol,
       name: r.columns?.['Name'] ?? '',
+      instrumentId:
+        typeof r.instrument_id === 'string' ? r.instrument_id : '',
       instrumentType: typeof r.instrument_type === 'string' ? r.instrument_type : '',
       values: r.columns ?? {},
       tracked: false,
     });
   }
   return rows;
+}
+
+/** Canonical scan-symbol key — trim + case-fold. THE shared membership
+ *  policy: dedupe, tracked badges, compare buckets, and matchedCount
+ *  must all key identically or a case-variant drifts them apart. */
+export function normScanSymbol(symbol: string): string {
+  return symbol.trim().toUpperCase();
+}
+
+/** First-wins dedupe on the normalized ticker — protects
+ *  `track row.symbol` against a duplicated wire ticker (NG0955). */
+export function dedupeScanRows(rows: readonly ScanRow[]): ScanRow[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const key = normScanSymbol(row.symbol);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Displayed cell text for a display_name — percentColumns rescale to
+ *  `N.N%`, blank/missing → '—', drifted non-strings render via String()
+ *  rather than crashing the table. */
+export function displayCell(
+  row: ScanRow,
+  displayName: string,
+  lookup?: ReadonlyMap<string, string>,
+  percentColumns?: readonly string[],
+): string {
+  if (percentColumns?.includes(displayName)) {
+    const p = percentColumn(row, displayName, lookup);
+    return p === null ? '—' : `${p.toFixed(1)}%`;
+  }
+  const resolved = lookup ? canonicalColumnName(lookup, displayName) : displayName;
+  const v: unknown = row.values[resolved] ?? row.values[displayName];
+  if (v === undefined || v === null) return '—';
+  return typeof v !== 'string' ? String(v) : v.trim() === '' ? '—' : v;
 }
 
 /**
@@ -81,6 +123,42 @@ export function canonicalColumnName(
   name: string,
 ): string {
   return lookup.get(name) ?? name;
+}
+
+/**
+ * Effective display_name → wire-key map for a run. Candidates are
+ * [response echo, static recipe map, raw name] and the FIRST key any
+ * returned row actually carries wins — the echo is preferred when it
+ * names a real column, but a bad echo (e.g. filter_type = a filter's
+ * display_title, which is never a row key) can't clobber the verified
+ * static mapping. When no candidate appears in the rows the static
+ * map wins over the unverifiable echo. Shared by the store's run paths
+ * and the per-recipe table component (#1197).
+ */
+export function mergeLookup(
+  recipe: {
+    columns: readonly ScanColumn[];
+    columnLookup?: ReadonlyMap<string, string>;
+  },
+  applied: ScanAppliedFilter[] | undefined,
+  rows: readonly ScanRow[],
+): Map<string, string> {
+  const dynamic = buildColumnLookup(applied, recipe.columns);
+  const lookup = new Map<string, string>();
+  for (const col of recipe.columns) {
+    const name = col.display_name;
+    const candidates = [
+      dynamic.get(name),
+      recipe.columnLookup?.get(name),
+      name,
+    ].filter((k): k is string => !!k);
+    const pick =
+      candidates.find((k) => rows.some((r) => Object.hasOwn(r.values, k))) ??
+      recipe.columnLookup?.get(name) ??
+      name;
+    if (pick !== name) lookup.set(name, pick);
+  }
+  return lookup;
 }
 
 /** Stringified numeric column → number; '' / missing / unparseable → null. */

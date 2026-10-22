@@ -49,6 +49,7 @@ function row(over: Partial<ScanRow> = {}): ScanRow {
   return {
     symbol: 'AAPL',
     name: 'Apple Inc',
+    instrumentId: 'iid-aapl',
     instrumentType: 'stock',
     values: { 'Return on equity': '0.25', 'Net profit margin': '0.30' },
     tracked: false,
