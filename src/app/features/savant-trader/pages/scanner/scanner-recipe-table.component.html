@@ -1,0 +1,88 @@
+<!-- @topic #1098 — RH Scanner | @task #1197 -->
+@if (run().status !== 'error') {
+  <section class="recipe-table" [attr.data-recipe]="recipe().id">
+    <header class="recipe-head">
+      <div class="head-text">
+        <span class="recipe-title">{{ recipe().title }}</span>
+        <span class="recipe-blurb">{{ recipe().blurb }}</span>
+      </div>
+      <div class="head-meta">
+        @if (run().result; as r) {
+          <span class="count">{{ rows().length }} of {{ r.total_items }}</span>
+          @if (r.sorted_by; as sortedBy) {
+            <span class="sorted-by tf">{{ sortedBy }}</span>
+          }
+        }
+        @if (run().ranAt; as ranAt) {
+          <span class="ran-at">{{ ranAt | date: 'h:mm a' }}</span>
+        }
+        <button
+          mat-icon-button
+          class="refresh-btn"
+          [disabled]="run().status === 'loading'"
+          [attr.aria-label]="'Refresh ' + recipe().title"
+          (click)="refresh.emit()"
+        >
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    </header>
+
+    @if ((run().status === 'loading' || run().status === 'idle') && !run().result) {
+      <div class="table-loading" role="status">
+        <mat-spinner diameter="18"></mat-spinner>
+        <span>{{ run().status === 'idle' ? 'Queued…' : 'Running…' }}</span>
+      </div>
+    } @else if (sortedRows().length > 0) {
+      <table class="results-table">
+        <thead>
+          <tr>
+            @for (f of fixedColumns; track f.key) {
+              <th scope="col" class="clickable" (click)="onHeaderClick(f.key)">
+                {{ f.label }}
+                @if (badgeFor(f.key); as s) {
+                  <span class="sort-indicator">
+                    {{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}
+                  </span>
+                }
+              </th>
+            }
+            @for (c of tableColumns(); track c) {
+              <th scope="col" class="clickable" [class.num]="numericCols().has(c)" (click)="onHeaderClick(c)">
+                {{ c }}
+                @if (badgeFor(c); as s) {
+                  <span class="sort-indicator">
+                    {{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}
+                  </span>
+                }
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of sortedRows(); track row.symbol) {
+            <tr>
+              <td>
+                <span class="badge" [class.tracked]="isTracked(row)">
+                  {{ isTracked(row) ? 'tracked' : 'new' }}
+                </span>
+              </td>
+              <td class="symbol">{{ row.symbol }}</td>
+              <td class="mono">{{ row.instrumentId || '—' }}</td>
+              <td>{{ row.instrumentType || '—' }}</td>
+              @for (c of tableColumns(); track c) {
+                <td [class.num]="numericCols().has(c)">{{ cellValue(row, c) }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else if (run().result || run().status === 'success') {
+      <!-- A result exists but deduped to zero rows — also covers a stale
+           empty result during idle/loading re-queue, and a success
+           carrying no result (interface permits it; bare header would
+           otherwise render). -->
+      <div class="table-empty">No matching symbols.</div>
+    }
+  </section>
+}

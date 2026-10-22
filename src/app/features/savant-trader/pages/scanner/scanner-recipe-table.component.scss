@@ -1,0 +1,115 @@
+/* @topic #1098 — RH Scanner | @task #1197 */
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
+:host {
+  display: block;
+}
+
+.recipe-table {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--ds-radius-sm);
+  padding: var(--ds-space-2) var(--ds-space-3);
+}
+
+.recipe-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-2);
+
+  .head-text {
+    display: flex;
+    align-items: baseline;
+    gap: var(--ds-space-2);
+    min-width: 0;
+    flex: 1;
+  }
+
+  .recipe-title {
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-bold);
+  }
+
+  .recipe-blurb {
+    font-size: var(--ds-font-size-sm);
+    color: var(--mat-sys-on-surface-variant);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .head-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ds-space-2);
+    font-size: var(--ds-font-size-sm);
+    color: var(--mat-sys-on-surface-variant);
+    flex-shrink: 0;
+  }
+
+  // Canonical badge base + `.tf` variant (neutral, non-uppercase) —
+  // 'Last desc' keeps its casing.
+  .sorted-by {
+    @include vl.badge;
+  }
+}
+
+.table-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) 0;
+  font-size: var(--ds-font-size-sm);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// Matches .table-loading's quiet density — the 48px state-block chrome
+// would dominate a dense stacked-table page.
+.table-empty {
+  padding: var(--ds-space-2) 0;
+  font-size: var(--ds-font-size-sm);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.results-table {
+  @include vl.dense-table;
+
+  td.symbol {
+    font-weight: var(--ds-font-weight-bold);
+  }
+
+  td.mono {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  th.clickable {
+    cursor: pointer;
+
+    &:hover {
+      color: var(--mat-sys-primary);
+    }
+
+    // Option-chart idiom — numbered priority badge on sorted headers.
+    .sort-indicator {
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--mat-sys-primary);
+      margin-left: 2px;
+    }
+  }
+}
+
+// Membership badge — canonical vl.badge base; `.tracked` is the green
+// variant (no canonical membership variant exists, cf. .bucket-dead).
+.badge {
+  @include vl.badge;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+
+  &.tracked {
+    background: color-mix(in srgb, var(--ds-up) 15%, transparent);
+    color: var(--ds-up);
+  }
+}
