@@ -3,6 +3,11 @@
 ## [2026-10-21]
 
 ### Added
+- [Paper Trading Infra] 553-1085_FE-IMPL-PAPER-TRADING: Compare columns + missing-column parity in AnalysisStore
+- [Paper Trading Infra] 553-1085_FE-IMPL-PAPER-TRADING: Slice-menu component — apply/delete + manage-only mode
+- [Paper Trading Infra] 553-1085_FE-IMPL-PAPER-TRADING: Workbench-tools component — save-slice form, compare picker, skip notices
+- [Paper Trading Infra] 553-1085_FE-IMPL-PAPER-TRADING: Histogram baselineLabel input — truthful compare legend
+- [Paper Trading Infra] 553-1085_FE-IMPL-PAPER-TRADING: Wire slices + compare mode into the analysis page
 - [Manual Order Entry] 1177-1188_FE-REFACTOR-ORDER: Centralize trading-config cache and staged-ticket discard
 - [Manual Order Entry] 1177-1188_FE-IMPL-ORDER: Manual order ticket builders (equity + single-leg option)
 - [Manual Order Entry] 1177-1188_FE-IMPL-ORDER: Manual-mode data contract in gallery ticket dialog

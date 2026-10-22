@@ -9,9 +9,9 @@
 **Topic Parent:** #553  
 **Domain:** PAPER-TRADING  
 **Type:** Implementation Plan  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-17  
-**Last Updated:** 2026-10-20  
+**Last Updated:** 2026-10-21  
 
 ## Scope
 
@@ -97,6 +97,13 @@ and assert on the computeds.
 - "Save as slice" → serialize current filters → `analysisSlicesPath()` doc; slice list on library + workbench.
 - Apply-to-current-dataset; missing-column predicates skipped with a notice (per contract).
 - Compare mode: pick a second dataset + the active slice → overlaid histogram + side-by-side stats block.
+
+**As-built (#1085, post-review):**
+- `components/analysis-slices/slice-menu.component.ts` — input-driven standalone menu (`mat-menu`; apply rows are `mat-menu-item` so they auto-close + rove focus, delete stays a plain button for multi-delete; plain buttons only — no `mat-select` inside a menu, per the #1152 overlay-in-overlay defect). `canApply` input gates apply controls: workbench instance (`canApply=true`) shows Apply per slice; library-header instance (`canApply=false`) is manage-only (names + delete). Emits `applied`/`deleted`.
+- `components/analysis-workbench/workbench-tools.component.ts` — dumb component owning the workbench tools row: save-slice form (name + note; draft resets on open/cancel), slice menu, compare picker (`compareOptions` input), compare chip, and persistent skip notices. The page only wires store ↔ component.
+- `applySlice` (#1081 store) drops predicates on absent columns → `skippedSliceColumns` names them via snackbar AND a persistent `.skip-note` chip in the tools row. Compare side has parity: `filteredCompareRows` skips predicates on columns the compare dataset lacks (`compareColumns` state captured at load) → `skippedCompareColumns` renders its own notice.
+- Compare picker lists ready datasets excluding the active one → `store.loadCompareDataset(doc)`; selecting renders a chip with an ✕ that calls `clearCompare()`. Self-compare is impossible: `loadCompareDataset` early-outs on the active dataset AND `openDataset` clears the compare slot when the compare target is promoted. Compare-slot lifecycle is airtight: switching targets clears the old rows/columns at load-start (never stale data under a new label), and `deleteDataset` unsubscribes an in-flight compare load for the deleted doc.
+- Stats view: compare mode renders two `.compare-col` stat blocks side-by-side; histogram binds `baselineRows` = `filteredCompareRows()` with `baselineLabel` = "compare set" (new input on `analysis-histogram` — the baseline `e-series` binds `[name]="baselineLabel()"` so the legend matches; default stays "full set" ← `store.viewRows()` for single-set overlay).
 
 ## Risks
 
