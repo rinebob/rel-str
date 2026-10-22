@@ -28,6 +28,14 @@ import { StOccurrenceDecision, StSignalItem } from '../../services/types';
 import { OrderTicketComponent } from '../order-ticket/order-ticket.component';
 import { OptionOrderTicketComponent } from '../option-order-ticket/option-order-ticket.component';
 
+/** A ticket stage/adopt emit — `created` marks a ticket this dialog
+ *  session staged (discard on cancel) vs a pre-existing one it adopted
+ *  (survives close). */
+export interface StagedTicketEvent {
+  ticketId: string;
+  created: boolean;
+}
+
 /** Everything the Option tab needs from the card — precomputed by the
  *  caller so the component never re-derives card context. `decisions` is
  *  a LIVE signal: the option ticket's self-healing retry effect re-checks
@@ -44,19 +52,47 @@ export interface OptionTabSeed {
   /** Live durable occurrence decisions keyed by canonical id. */
   decisions: Signal<Record<string, StOccurrenceDecision>>;
   /** Forwards the option ticket's `(staged)` emit to the dialog opener. */
-  onStaged: (e: { ticketId: string; created: boolean }) => void;
+  onStaged: (e: StagedTicketEvent) => void;
 }
 
-export interface GalleryTicketDialogData {
-  /** Staged equity/ETF ticket id (OrderTicketStore.tickets() key). */
-  ticketId: string;
-  /** Live trading-config signal from the action service — the host passes
-   *  the signal itself so the dialog stays reactive without injecting
-   *  the gallery's services (#755 review). */
-  tradingConfig: Signal<TradingConfig | null>;
-  /** Option-tab seed — absent renders the dialog Stock-only (no tabs). */
-  option?: OptionTabSeed;
+/** Everything the dialog's manual mode needs — callbacks instead of
+ *  injected services, same decoupling rule as `tradingConfig`/`OptionTabSeed`
+ *  (#1177/#1188). The host tracks session-created ids via `onStaged` for
+ *  discard-on-close. */
+export interface ManualOrderDialogSeed {
+  /** Stage (or adopt) the manual equity ticket for a resolved symbol —
+   *  resolves null when staging can't proceed (no account, no price). */
+  stageEquityTicket: (symbol: string) => Promise<OrderTicket | null>;
+  /** Forwards stage/adopt emits so the opener tracks which tickets this
+   *  session created (created → discard on close). */
+  onStaged: (e: StagedTicketEvent) => void;
 }
+
+/** Dialog input — exactly one mode: a bound ticket (card mode) or the
+ *  manual seed. The union makes "mutually exclusive" compile-time — a
+ *  `{ ticketId, manual }` mix can't be constructed. */
+export type GalleryTicketDialogData = {
+  /** Live trading-config signal from the host — the dialog stays reactive
+   *  without injecting the caller's services (#755 review). */
+  tradingConfig: Signal<TradingConfig | null>;
+} & (
+  | {
+      /** Staged equity/ETF ticket id (OrderTicketStore.tickets() key) —
+       *  card mode. */
+      ticketId: string;
+      /** Option-tab seed — absent renders the dialog Stock-only (no tabs). */
+      option?: OptionTabSeed;
+      manual?: never;
+    }
+  | {
+      /** Manual-mode seed — renders the dialog in manual entry mode;
+       *  the equity ticket is bound once symbol-resolve stages it
+       *  (#1177). */
+      manual: ManualOrderDialogSeed;
+      ticketId?: never;
+      option?: never;
+    }
+);
 
 /** Ticket states that mean the dialog's work is done — the broker or the
  *  paper callable accepted the order. STAGED stays open (a failed submit
@@ -111,9 +147,11 @@ export class GalleryTicketDialogComponent implements OnInit {
 
   readonly data = inject(MAT_DIALOG_DATA) as GalleryTicketDialogData;
 
-  /** Reactive ticket lookup — reflects in-dialog edits and queue changes. */
+  /** Reactive ticket lookup — reflects in-dialog edits and queue changes.
+   *  Null in manual mode until the symbol-resolve flow stages a ticket. */
   readonly ticket = computed(
-    (): OrderTicket | null => this.ticketStore.tickets()[this.data.ticketId] ?? null,
+    (): OrderTicket | null =>
+      this.data.ticketId ? (this.ticketStore.tickets()[this.data.ticketId] ?? null) : null,
   );
   /** Equity/ETF tickets only — option tickets also carry `symbol` (the
    *  underlying), but the equity price binding doesn't apply to them. */
@@ -201,7 +239,13 @@ export class GalleryTicketDialogComponent implements OnInit {
     effect(() => {
       const t = this.ticket();
       if (!t) {
-        this.dialogRef.close();
+        // Card mode: the bound ticket vanished (discarded elsewhere).
+        // Manual mode owns its close path — pre-resolve there's simply
+        // no ticket yet (#1177).
+        // #1190: when the manual option tab lands, this early-return must
+        // still let a bound option ticket drive confirmation/close —
+        // manual mode's ticket() stays null by design.
+        if (!this.data.manual) this.dialogRef.close();
         return;
       }
       const opt = this.optionTicket();
@@ -252,8 +296,9 @@ export class GalleryTicketDialogComponent implements OnInit {
   /** Option ticket staged/adopted — bind the id for close-on-done and
    *  forward the emit so the host can track session-created tickets for
    *  discard-on-cancel (#964). */
-  onOptionStaged(e: { ticketId: string; created: boolean }): void {
+  onOptionStaged(e: StagedTicketEvent): void {
     this.optionTicketId.set(e.ticketId);
     this.data.option?.onStaged(e);
+    this.data.manual?.onStaged(e);
   }
 }

@@ -414,4 +414,78 @@ describe('GalleryTicketDialogComponent', () => {
       expect(dialogRefMock.close).not.toHaveBeenCalled();
     });
   });
+
+  describe('manual mode (#1177)', () => {
+    let manualFixture: ComponentFixture<GalleryTicketDialogComponent>;
+    let manualOnStaged: jest.Mock;
+
+    beforeEach(async () => {
+      // The outer beforeEach already instantiated a card-mode module —
+      // reset before reconfiguring with a manual seed.
+      TestBed.resetTestingModule();
+      manualOnStaged = jest.fn();
+      await TestBed.configureTestingModule({
+        imports: [GalleryTicketDialogComponent],
+        providers: [
+          provideNoopAnimations(),
+          {
+            provide: MAT_DIALOG_DATA,
+            useValue: {
+              manual: {
+                stageEquityTicket: jest.fn().mockResolvedValue(null),
+                onStaged: manualOnStaged,
+              },
+              tradingConfig: signal<TradingConfig | null>({
+                accountNumber: 'acct-1',
+                defaultDollarAmount: 100,
+                updatedAt: 'x',
+              }),
+            },
+          },
+          { provide: MatDialogRef, useValue: dialogRefMock },
+          { provide: OrderTicketStore, useValue: { tickets } },
+          { provide: EquityPriceService, useValue: priceServiceMock },
+          {
+            provide: SymbolListStore,
+            useValue: {
+              profilesBySymbol: profiles,
+              loadProfiles: jest.fn().mockResolvedValue(undefined),
+            },
+          },
+          { provide: PaperTradingService, useValue: {} },
+          { provide: OrderExecutionService, useValue: {} },
+          { provide: RobinhoodMcpClient, useValue: mcpClientMock },
+          { provide: PortfolioService, useValue: { getSnapshot: jest.fn().mockResolvedValue(null) } },
+          {
+            provide: AllocationStore,
+            useValue: {
+              byAccount: signal({}),
+              ensureAccount: jest.fn(),
+              bucketDetail: jest.fn().mockReturnValue(undefined),
+            },
+          },
+          { provide: MatDialog, useValue: { open: jest.fn() } },
+          { provide: MatSnackBar, useValue: { open: jest.fn() } },
+          { provide: Router, useValue: routerMock },
+        ],
+      }).compileComponents();
+    });
+
+    it('stays open with no ticket bound — the symbol-resolve flow owns the close path', () => {
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      // Card mode would self-close on a missing ticket; manual mode must
+      // not — the user hasn't resolved a symbol yet.
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+      expect(manualFixture.componentInstance.ticket()).toBeNull();
+    });
+
+    it('onOptionStaged forwards the emit to the manual seed so session ids reach the opener', () => {
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
+      expect(manualOnStaged).toHaveBeenCalledWith({ ticketId: 'opt-1', created: true });
+      expect(manualFixture.componentInstance.optionTicketId()).toBe('opt-1');
+    });
+  });
 });
