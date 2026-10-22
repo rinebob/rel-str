@@ -4,7 +4,7 @@
  * Pins the `Collection` enum boundary: members whose roots were retired by
  * this cutover must be gone (a re-add or a leftover member means a service
  * is still compiling against a dead path), and members still consumed by
- * tasks #1016–#1019 stay pinned to their legacy spellings so this cutover
+ * tasks #1017–#1019 stay pinned to their legacy spellings so this cutover
  * can't silently move data those tasks haven't re-pointed yet.
  */
 import { readFileSync, readdirSync } from 'fs';
@@ -34,13 +34,14 @@ describe('#1014 FE st-* path cutover', () => {
       'PAPER_TRADING_INSTANCES',
       // #1015 — order-ticket.service re-pointed to st-order-tickets.
       'ST_ORDER_INTENTS',
+      // #1016 — review-list removed entirely (service, constant, flag UX).
+      'ST_REVIEW_LIST',
     ]) {
       expect(member in Collection).toBe(false);
     }
   });
 
-  it('members still consumed by #1016–#1019 keep their legacy spellings', () => {
-    expect(Collection.ST_REVIEW_LIST).toBe('savant-trader/data/review-list');
+  it('members still consumed by #1017–#1019 keep their legacy spellings', () => {
     expect(Collection.ST_OCCURRENCE_DECISIONS).toBe(
       'savant-trader/data/occurrence-decisions',
     );
@@ -78,7 +79,7 @@ describe('#1014 FE st-* path cutover', () => {
     // match the quote-prefix requirement.
     const APP_ROOT = join(__dirname, '..', '..', '..');
     const ALLOWLIST = new Set([
-      // Retained members pinned above — deferred to #1016–#1019.
+      // Retained members pinned above — deferred to #1017–#1019.
       'core/common/constants.ts',
       // This spec's own expectations.
       'features/savant-trader/services/st-path-cutover-1014.spec.ts',

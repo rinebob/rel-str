@@ -69,7 +69,6 @@ export * as ChartIndicators from './utils/chart-indicators';
 export { requireUserId } from './services/firestore-helpers';
 
 // Persistence & Universe Services (Phase 5C)
-export { TriageService } from './services/triage.service';
 export { SymbolListService, SymbolList } from './services/symbol-list.service';
 
 // Components

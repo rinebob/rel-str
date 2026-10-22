@@ -239,8 +239,6 @@ export enum Collection {
   SYMBOL_DATA = 'symbol-data',
   /** @deprecated Decisions fold into st-order-tickets (#984); FE removal in #1017. */
   ST_OCCURRENCE_DECISIONS = 'savant-trader/data/occurrence-decisions',
-  /** @deprecated Being removed entirely in #984 — FE removal in #1016. */
-  ST_REVIEW_LIST = 'savant-trader/data/review-list',
   /** @deprecated Use @st/collections ST_SYMBOLS_ROOT (#984); still bound by
    *  signal.service run-ids/signal-history reads — removed in #1019. */
   ST_SYMBOLS = 'savant-trader/data/symbols',
