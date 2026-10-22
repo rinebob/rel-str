@@ -539,18 +539,22 @@ describe('OrderComponent', () => {
     });
 
     it('resolves a local CANCEL_PENDING to CANCELLED when the broker order goes terminal (#1015)', () => {
+      // Relative timestamp — a hardcoded past date falls outside the
+      // queue's 24h terminal-recency window once real time passes it,
+      // and the row is filtered before the merge is ever asserted.
+      const terminalAt = new Date().toISOString();
       const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.CANCEL_PENDING);
       ticket.result = { orderId: 'rh-1', state: 'confirmed' };
       storeMock.tickets.set({ '1': ticket });
       component.rhOrders.set({
-        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'cancelled', trigger: 'immediate', lastTransactionAt: '2026-10-20T18:00:00Z' },
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'cancelled', trigger: 'immediate', lastTransactionAt: terminalAt },
       });
       component.rhOrdersLoaded.set(true);
       fixture.detectChanges();
 
       const merged = component.allTickets().find((t) => t.id === '1');
       expect(merged?.status).toBe(OrderTicketStatus.CANCELLED);
-      expect(merged?.terminalAt).toBe('2026-10-20T18:00:00Z');
+      expect(merged?.terminalAt).toBe(terminalAt);
     });
   });
 
