@@ -4,9 +4,11 @@
       {{ row().decisionMarketDate }}
     </span>
   }
+  <!-- #1016 — review-list persistence removed; flagging is session-local
+       only. Disabled until the review pages are repurposed. -->
   <button type="button" class="acr-btn review"
     [class.active]="row().isReviewed"
-    [disabled]="disabled()"
+    disabled
     (click)="markForReview.emit(row().profile.symbol)"
     matTooltip="Review">
     <mat-icon>bookmark_border</mat-icon>

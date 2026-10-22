@@ -34,7 +34,7 @@ import { GroupStore } from '../../stores/group.store';
 import { SymbolListStore } from '../../stores/symbol-list.store';
 import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { SignalService } from '../../services/signal.service';
-import { ReviewDecision, type SymbolListFilter } from '../../common/constants';
+import { NO_MEMBERSHIP, ReviewDecision, type SymbolListFilter } from '../../common/constants';
 import { ChartReviewViewportService } from '../../services/chart-review-viewport.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { todayDate } from '../../utils/utils';
@@ -114,10 +114,16 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     return cache[symbol] ?? null;
   });
 
-  /** Status of the currently selected review symbol. */
+  /** Status of the currently selected review symbol — durable decision,
+   *  falling back to the ephemeral screening status (WATCH/CONSIDER) so
+   *  the Watch button can show its selected state. */
   selectedSymbolStatus = computed(() => {
     const symbol = this.selectedReviewSymbol();
-    return symbol ? this.occurrenceStore.statusForSymbol(symbol) : ReviewDecision.PENDING;
+    if (!symbol) return ReviewDecision.PENDING;
+    const durable = this.occurrenceStore.statusForSymbol(symbol);
+    return durable !== ReviewDecision.PENDING
+      ? durable
+      : (this.triageStore.screeningStatuses()[symbol] ?? ReviewDecision.PENDING);
   });
 
   /** Expose the actionable-run predicate from the group store for the template. */
@@ -179,7 +185,8 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     return this.signalService.getCurrentRunSignalsForSymbol(symbol, runId, this.historyStore.signalHistoryCache());
   }
 
-  // --- Review queue mode (symbols with REVIEW status from grouped review) ---
+  // --- Viewport selection (#1016 — was the REVIEW-flag queue; browse shows
+  //     list members now that flags are session-local) ---
 
   /** Select a symbol from the review queue. */
   onReviewSymbolSelected(symbol: string): void {
@@ -236,7 +243,8 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Flag a batch of found symbols for review and surface them in the left panel. */
+  /** Flag a batch of found symbols for review and surface them in the left panel.
+   *  #1016 — unreachable; the new-symbols button is disabled. */
   private addSymbolsToReview(symbols: string[]): void {
     if (!this.isActionableRun()) return;
     this.triageStore.markGroupForReview(symbols);
@@ -248,7 +256,40 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Toggle the active symbol's membership in a named list. */
   onToggleList(event: { symbol: string; listKey: string }): void {
+    const willLeave = this.willLeaveActiveList(event.symbol, event.listKey);
     this.symbolListStore.toggleSymbolInList(event.symbol, event.listKey);
+    // When the write drops the selected symbol out of the filtered viewport,
+    // advance to the next symbol NOW (same pre-write pattern as
+    // accept/watch/reject) — otherwise the index dangles at -1 and nav dies.
+    if (willLeave && event.symbol === this.selectedReviewSymbol()) {
+      this.advanceReviewQueue(event.symbol);
+    }
+  }
+
+  /**
+   * Whether toggling `listKey` removes `symbol` from the active viewport list.
+   * Predicts post-write membership so the queue can advance before the
+   * Firestore snapshot arrives:
+   * - exclusive chip: strips the symbol from every other exclusive list, so
+   *   it leaves iff the active filter is itself an exclusive list (a move or
+   *   an un-assign — filing into the active list can't happen when the
+   *   symbol is already in the viewport)
+   * - nonexclusive chip: membership changes only in `listKey` — leaves only
+   *   when toggling OFF the list currently being viewed
+   * - NO_MEMBERSHIP view: gaining an exclusive membership makes it triaged
+   */
+  private willLeaveActiveList(symbol: string, listKey: string): boolean {
+    const filter = this.activeReviewList();
+    if (filter === 'ALL') return false;
+    const def = this.symbolListStore.byKey().get(listKey);
+    if (!def) return false;
+    if (filter === NO_MEMBERSHIP) {
+      return def.role === 'exclusive' && !def.symbols.includes(symbol.toUpperCase());
+    }
+    if (def.role === 'exclusive') {
+      return this.symbolListStore.byKey().get(filter)?.role === 'exclusive';
+    }
+    return filter === listKey && def.symbols.includes(symbol.toUpperCase());
   }
 
   /** Load an arbitrary symbol for chart review without a decision queue. */
@@ -266,11 +307,11 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.selectedReviewSymbol.set(this.viewportSymbols()[idx - 1]);
   }
 
-  /** Navigate to the next symbol in the viewport. */
+  /** Navigate to the next symbol in the viewport; no selection starts at the first. */
   onNextSymbol(): void {
     const symbols = this.viewportSymbols();
     const idx = this.selectedReviewSymbolIndex();
-    if (idx < 0 || idx >= symbols.length - 1) return;
+    if (idx >= symbols.length - 1) return;
     this.selectedReviewSymbol.set(symbols[idx + 1]);
   }
 
@@ -298,7 +339,8 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.selectedReviewSymbol.set(null);
   }
 
-  /** Toggle viewport mode between 'signals' and 'browse'. */
+  /** Toggle viewport mode between 'signals' and 'browse'.
+   *  #1016 — unreachable; the mode toggle is disabled ('browse' is pinned). */
   toggleViewportMode(): void {
     const next = this.viewportMode() === 'signals' ? 'browse' : 'signals';
     this.viewportService.setViewportMode(next);

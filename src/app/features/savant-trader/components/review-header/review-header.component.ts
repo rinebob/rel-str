@@ -38,7 +38,7 @@ export class ReviewHeaderComponent {
   activeList = input<SymbolListFilter>('ALL');
   /** Grouped catalog options — Triage then My lists, from the store. */
   listGroups = input<RhSelectOptionGroup<SymbolListFilter>[]>([]);
-  viewportMode = input<ViewportMode>('signals');
+  viewportMode = input<ViewportMode>('browse'); // #1016 — 'signals' mode disabled
   /** When false, ACR and queue mutation controls are disabled for the viewed historical run. */
   isActionableRun = input(true);
   /** Count of accepted symbols available for staging. */

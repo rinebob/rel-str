@@ -22,6 +22,8 @@
     (goToOrder)="goToSignalOrder()">
   </app-review-header>
 
+  <!-- #1016 — 'signals' mode is unreachable while the viewport toggle is
+       disabled; kept for the repurpose pass. -->
   @if (viewportMode() === 'signals') {
     <div class="active-run-context">
       <app-run-metrics-strip

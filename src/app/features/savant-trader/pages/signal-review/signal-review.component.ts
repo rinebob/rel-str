@@ -113,7 +113,7 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.groupExpandChanged(event.group, event.expand);
   }
 
-  /** Set a symbol's status to REVIEW. */
+  /** Flag a symbol for review — session-local only (#1016). */
   onMarkForReview(symbol: string): void {
     this.facade.markForReview(symbol);
   }

@@ -34,8 +34,11 @@
   <div class="toolbar-spacer"></div>
 
   <div class="pipeline-actions">
+    <!-- #1016 — review-list removed; the flagged-review queue is
+         session-local only. Disabled until the pages are repurposed. -->
     <button type="button" class="pill-btn review"
       [class.active]="reviewCount() > 0"
+      disabled
       (click)="goToReview.emit()"
       matTooltip="Review symbols">
       <mat-icon>visibility</mat-icon>
@@ -61,8 +64,9 @@
       <mat-icon>query_stats</mat-icon>
       Observation
     </a>
+    <!-- #1016 — clears review flags; disabled with the flag feature. -->
     <button type="button" class="pill-btn small"
-      [disabled]="!isActionableRun()"
+      disabled
       (click)="clearReviewFlags.emit()"
       matTooltip="Clear review flags">
       <mat-icon>playlist_remove</mat-icon>

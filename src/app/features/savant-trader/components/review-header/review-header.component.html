@@ -43,7 +43,8 @@
           }
           <span class="toolbar-spacer"></span>
           @if (selectedSymbol()) {
-            <span class="reason">Queued for review</span>
+            <!-- #1016 — 'signals' queue is disabled; browse mode shows list members. -->
+            <span class="reason">{{ viewportMode() === 'signals' ? 'Queued for review' : 'From list' }}</span>
           } @else {
             <span class="reason">Manual chart</span>
           }
@@ -56,9 +57,12 @@
   <div class="toolbar-spacer"></div>
 
   <div class="header-actions">
+    <!-- #1016 — 'signals' viewport mode was the persisted flag queue;
+         disabled until the page is repurposed (browse stays default). -->
     <button mat-icon-button
+      disabled
       (click)="modeChange.emit()"
-      [matTooltip]="viewportMode() === 'signals' ? 'Showing signals only — click for all symbols' : 'Showing all symbols — click for signals only'">
+      matTooltip="View mode toggle disabled — flag queue removed (#1016)">
       <mat-icon>{{ viewportMode() === 'signals' ? 'filter_alt' : 'list' }}</mat-icon>
     </button>
 
@@ -70,8 +74,10 @@
       (valueChange)="listChange.emit($event)">
     </app-rh-select-menu>
 
+    <!-- #1016 — found symbols were added to the flagged review queue;
+         disabled until the page is repurposed. -->
     <button mat-icon-button
-      [disabled]="!isActionableRun()"
+      disabled
       (click)="newSymbols.emit()"
       matTooltip="Find newly added symbols">
       <mat-icon>new_releases</mat-icon>
