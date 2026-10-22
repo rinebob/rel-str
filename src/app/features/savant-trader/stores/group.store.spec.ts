@@ -51,7 +51,6 @@ describe('GroupStore', () => {
           provide: TriageStore,
           useValue: {
             resetForRun: jest.fn(),
-            loadReviewFlags: jest.fn(),
             clearScreeningStatuses: jest.fn(),
             screeningStatuses: signal({}),
             reviewFlags: signal({}),

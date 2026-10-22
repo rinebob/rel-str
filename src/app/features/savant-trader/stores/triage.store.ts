@@ -4,27 +4,25 @@
  * In-memory source of truth for ephemeral screening UI state across all
  * Savant Trader pages: Grouped Review, Review, and Order.
  *
- * Review flags are persisted via TriageService. CONSIDER/WATCH screening
- * statuses are ephemeral. Durable ACCEPT/REJECT decisions live in
+ * #1016 — review-list persistence was removed (TriageService and the
+ * savant-trader/data/review-list collection are gone). The persistence
+ * calls below are commented out; flags are session-local only until the
+ * review pages are repurposed. CONSIDER/WATCH screening statuses stay
+ * ephemeral. Durable ACCEPT/REJECT decisions live in
  * OccurrenceDecisionStore and are NOT duplicated here.
  *
  * providedIn: 'root' so state survives route navigation.
  */
-import { computed, inject, DestroyRef } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { computed } from '@angular/core';
 import {
   signalStore,
   withState,
   withComputed,
   withMethods,
-  withHooks,
   patchState,
 } from '@ngrx/signals';
 
-import { MatSnackBar } from '@angular/material/snack-bar';
-
 import { ReviewDecision, ViewportMode, type SymbolListFilter } from '../common/constants';
-import { TriageService } from '../services/triage.service';
 
 // ---------------------------------------------------------------------------
 // State
@@ -39,19 +37,16 @@ export interface TriageState {
   viewportMode: ViewportMode;
   /** Currently selected list for viewport filtering. */
   activeViewportList: SymbolListFilter;
-  /** True while review flags are loading from Firestore. */
-  reviewFlagsLoading: boolean;
-  /** Error from loading review flags. */
-  reviewFlagsError: string | null;
 }
 
 const initialState: TriageState = {
   reviewFlags: {},
   screeningStatuses: {},
-  viewportMode: 'signals',
+  // #1016 — 'signals' mode filtered on persisted review flags; with
+  // review-list removed the flagged queue stays empty, so the page
+  // opens on 'browse' until the review surfaces are repurposed.
+  viewportMode: 'browse',
   activeViewportList: 'ALL',
-  reviewFlagsLoading: false,
-  reviewFlagsError: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -75,119 +70,50 @@ export const TriageStore = signalStore(
     reviewCount: computed((): number =>
       Object.values(state.reviewFlags()).filter(Boolean).length
     ),
-
-    /** True while review flags are still loading. */
-    loading: computed((): boolean => state.reviewFlagsLoading()),
   })),
 
-  withMethods((
-    state,
-    triageService = inject(TriageService),
-    snackBar = inject(MatSnackBar),
-    destroyRef = inject(DestroyRef),
-  ) => ({
-    /** Load review flags from Firestore and replace local flags. */
-    loadReviewFlags(): void {
-      patchState(state, { reviewFlagsLoading: true, reviewFlagsError: null });
-      triageService.loadReviewFlags().subscribe({
-        next: (symbols) => {
-          patchState(state, { reviewFlagsLoading: false });
-          const flags: Record<string, boolean> = {};
-          for (const symbol of symbols) {
-            flags[symbol] = true;
-          }
-          patchState(state, { reviewFlags: flags });
-        },
-        error: (err: unknown) => {
-          console.error('[TriageStore] Failed to load review flags:', err);
-          patchState(state, { reviewFlagsLoading: false, reviewFlagsError: err instanceof Error ? err.message : String(err ?? 'Load failed') });
-        },
-      });
-    },
+  withMethods((state) => ({
+    // #1016 — the load path (Firestore hydrate + loading/error state)
+    // was deleted with review-list persistence; group.store keeps a
+    // breadcrumb at the seam where loadReviewFlags() used to fire.
 
-    /** Clear review flags — unflag all symbols from the review queue. Optimistic + persisted. */
+    /** Clear review flags — session-local only (#1016). */
     clearReviewFlags(): void {
-      const prev = state.reviewFlags();
-      const flaggedSymbols = Object.entries(prev).filter(([, f]) => f).map(([s]) => s);
+      // const flaggedSymbols = Object.entries(prev).filter(([, f]) => f).map(([s]) => s);
       patchState(state, { reviewFlags: {} });
-      if (flaggedSymbols.length === 0) return;
-      triageService.setReviewFlagsBatch(flaggedSymbols, false)
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({
-          error: (err: unknown) => {
-            patchState(state, { reviewFlags: prev, reviewFlagsError: err instanceof Error ? err.message : String(err) });
-            snackBar.open('Failed to clear review flags', 'Dismiss', { duration: 3000 });
-            console.error('[TriageStore] clearReviewFlags failed:', err);
-          },
-        });
+      // #1016 — persistence removed with review-list:
+      // triageService.setReviewFlagsBatch(flaggedSymbols, false).subscribe({...});
     },
 
-    // --- Review flag methods (independent of ACR, dateless) ---
+    // --- Review flag methods (independent of ACR, session-local) ---
 
-    /** Flag a symbol for review ("I want to look at this chart"). Optimistic + persisted. */
+    /** Flag a symbol for review — session-local only (#1016). */
     markForReview(symbol: string): void {
       const sym = symbol.toUpperCase();
-      const prevFlags = state.reviewFlags();
-      const prevStatuses = state.screeningStatuses();
       patchState(state, {
-        reviewFlags: { ...prevFlags, [sym]: true },
-        screeningStatuses: { ...prevStatuses, [sym]: ReviewDecision.REVIEW },
+        reviewFlags: { ...state.reviewFlags(), [sym]: true },
       });
-      triageService.setReviewFlag(sym)
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({
-          error: (err: unknown) => {
-            patchState(state, {
-              reviewFlags: prevFlags,
-              screeningStatuses: prevStatuses,
-              reviewFlagsError: err instanceof Error ? err.message : String(err),
-            });
-            snackBar.open('Failed to flag symbol for review', 'Dismiss', { duration: 3000 });
-            console.error('[TriageStore] markForReview failed:', err);
-          },
-        });
+      // #1016 — persistence removed with review-list:
+      // triageService.setReviewFlag(sym).subscribe({...});
     },
 
-    /** Unflag a symbol from review. Optimistic + persisted. */
+    /** Unflag a symbol from review — session-local only (#1016). */
     unmarkFromReview(symbol: string): void {
       const sym = symbol.toUpperCase();
-      const prevFlags = state.reviewFlags();
-      const prevStatuses = state.screeningStatuses();
-      const nextFlags = { ...prevFlags };
+      const nextFlags = { ...state.reviewFlags() };
       delete nextFlags[sym];
-      const nextStatuses = { ...prevStatuses };
-      delete nextStatuses[sym];
-      patchState(state, { reviewFlags: nextFlags, screeningStatuses: nextStatuses });
-      triageService.clearReviewFlag(sym)
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({
-          error: (err: unknown) => {
-            patchState(state, {
-              reviewFlags: prevFlags,
-              screeningStatuses: prevStatuses,
-              reviewFlagsError: err instanceof Error ? err.message : String(err),
-            });
-            snackBar.open('Failed to unflag symbol', 'Dismiss', { duration: 3000 });
-            console.error('[TriageStore] unmarkFromReview failed:', err);
-          },
-        });
+      patchState(state, { reviewFlags: nextFlags });
+      // #1016 — persistence removed with review-list:
+      // triageService.clearReviewFlag(sym).subscribe({...});
     },
 
-    /** Flag multiple symbols for review at once. Optimistic + persisted. */
+    /** Flag multiple symbols for review — session-local only (#1016). */
     markGroupForReview(symbols: string[]): void {
-      const prev = state.reviewFlags();
-      const flags = { ...prev };
-      for (const s of symbols) { flags[s] = true; }
+      const flags = { ...state.reviewFlags() };
+      for (const s of symbols) { flags[s.toUpperCase()] = true; }
       patchState(state, { reviewFlags: flags });
-      triageService.setReviewFlagsBatch(symbols, true)
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({
-          error: (err: unknown) => {
-            patchState(state, { reviewFlags: prev, reviewFlagsError: err instanceof Error ? err.message : String(err) });
-            snackBar.open('Failed to flag symbols for review', 'Dismiss', { duration: 3000 });
-            console.error('[TriageStore] markGroupForReview failed:', err);
-          },
-        });
+      // #1016 — persistence removed with review-list:
+      // triageService.setReviewFlagsBatch(symbols, true).subscribe({...});
     },
 
     // --- Screening status methods (ephemeral CONSIDER/WATCH only) ---
@@ -219,12 +145,6 @@ export const TriageStore = signalStore(
     /** Set the active list filter for viewport. */
     setActiveViewportList(listName: SymbolListFilter): void {
       patchState(state, { activeViewportList: listName });
-    },
-  })),
-
-  withHooks((store) => ({
-    onInit() {
-      store.loadReviewFlags();
     },
   }))
 );

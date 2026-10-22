@@ -146,7 +146,8 @@ export const GroupStore = signalStore(
     setActiveRun(runId: string, marketDate: string): void {
       patchState(state, { activeRunId: runId, _activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
       triageStore.resetForRun();
-      triageStore.loadReviewFlags();
+      // #1016 — review flags are session-local; the persisted load seam
+      // (triageStore.loadReviewFlags) was deleted with review-list.
       // Don't clear decisions before loading — loadRecentDecisions replaces state
       // on success, avoiding a flash of empty accepted/review lists.
       occurrenceStore.loadRecentDecisions();

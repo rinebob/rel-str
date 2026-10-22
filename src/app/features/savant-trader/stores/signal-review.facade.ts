@@ -361,6 +361,7 @@ export class SignalReviewFacade {
     return this.signalService.getCurrentRunSignalsForSymbol(symbol, runId, this.historyStore.signalHistoryCache());
   }
 
+  // #1016 — session-local flags; the only UI entry points are disabled.
   markForReview(symbol: string): void {
     this.runIfActionable(() => {
       const isReviewed = this.triageStore.reviewFlags()[symbol.toUpperCase()] === true;
@@ -435,6 +436,7 @@ export class SignalReviewFacade {
   // Pipeline actions
   // -------------------------------------------------------------------------
 
+  // #1016 — session-local flags; the only UI entry point is disabled.
   clearReviewFlags(): void {
     this.runIfActionable(() => this.triageStore.clearReviewFlags());
   }
