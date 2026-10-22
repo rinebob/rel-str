@@ -24,7 +24,6 @@
  * the card field).
  */
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { GroupStore } from './group.store';
@@ -38,7 +37,6 @@ import {
   InstrumentType,
   OrderTicketStatus,
   REQUEUEABLE_TICKET_STATUSES,
-  TradingConfig,
 } from '../services/order-ticket.types';
 import {
   buildSignalOrderTickets,
@@ -75,9 +73,9 @@ export class GalleryCardActionsService {
   private readonly snackBar = inject(MatSnackBar);
 
   /** Trading config — warmed on page enter, read by ticket staging and
-   *  the ticket dialog. */
-  private readonly _config = signal<TradingConfig | null>(null);
-  readonly config = this._config.asReadonly();
+   *  the ticket dialog. Lives on TradingConfigService (#1177) so every
+   *  order-staging surface shares one cache. */
+  readonly config = this.configService.config;
 
   /** Mutation actions require the viewed run to be completed. */
   readonly isActionableRun = computed(() => this.groupStore.isActionableRun());
@@ -111,13 +109,7 @@ export class GalleryCardActionsService {
    *  re-open the double-stage/double-send window the keys exist to close
    *  (#755 review r3). */
   warmConfig(): void {
-    this.configService.loadConfig().subscribe({
-      next: (config) => this._config.set(config),
-      error: (err: unknown) => {
-        console.error('[GalleryCardActions] Failed to load trading config:', err);
-        this.snackBar.open('Failed to load trading config', 'Dismiss', { duration: 5000 });
-      },
-    });
+    this.configService.warmConfig();
   }
 
   /** Trade result — `created` marks a ticket staged by this click, so the
@@ -209,7 +201,7 @@ export class GalleryCardActionsService {
       let livePrice: number | undefined;
       let defaultDollarAmount = DEFAULT_DOLLAR_AMOUNT;
       if (!t.quantity) {
-        const config = await this.ensureConfig();
+        const config = await this.configService.ensureConfig();
         defaultDollarAmount = config?.defaultDollarAmount ?? DEFAULT_DOLLAR_AMOUNT;
         await this.priceService.fetchPrices([t.symbol]);
         livePrice = this.priceService.prices()[t.symbol.toUpperCase()];
@@ -265,10 +257,7 @@ export class GalleryCardActionsService {
    *  close path calls this when the dialog was cancelled (still STAGED),
    *  restoring the card to pending (#759). */
   discardStagedTicket(ticketId: string): void {
-    const ticket = this.ticketStore.tickets()[ticketId];
-    if (ticket?.status === OrderTicketStatus.STAGED) {
-      this.ticketStore.removeTicket(ticketId);
-    }
+    this.ticketStore.discardIfStaged(ticketId);
   }
 
   private async withBusy<T>(key: string, fn: () => Promise<T>): Promise<T> {
@@ -281,22 +270,6 @@ export class GalleryCardActionsService {
       const next = new Set(this._busyKeys());
       next.delete(key);
       this._busyKeys.set(next);
-    }
-  }
-
-  /** Config for sizing paths — the warmed value or a fresh load. Null on
-   *  load failure (snackbar shown here) so callers share one error path. */
-  private async ensureConfig(): Promise<TradingConfig | null> {
-    const cached = this._config();
-    if (cached) return cached;
-    try {
-      const config = await firstValueFrom(this.configService.loadConfig());
-      this._config.set(config);
-      return config;
-    } catch (err) {
-      console.error('[GalleryCardActions] Failed to load trading config:', err);
-      this.snackBar.open('Failed to load trading config', 'Dismiss', { duration: 4000 });
-      return null;
     }
   }
 
@@ -315,7 +288,7 @@ export class GalleryCardActionsService {
     card: GalleryCard,
     runId: string,
   ): Promise<EquityOrderTicket | EtfOrderTicket | null> {
-    const config = await this.ensureConfig();
+    const config = await this.configService.ensureConfig();
     const accountNumber = config?.accountNumber ?? '';
     const defaultDollarAmount = config?.defaultDollarAmount ?? DEFAULT_DOLLAR_AMOUNT;
     if (!accountNumber) {

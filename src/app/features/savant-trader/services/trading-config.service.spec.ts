@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { of, firstValueFrom } from 'rxjs';
 
 import { TradingConfigService } from './trading-config.service';
@@ -24,11 +25,13 @@ const mockSetDoc = setDoc as jest.Mock;
 describe('TradingConfigService', () => {
   let service: TradingConfigService;
   let mcpService: any;
+  let snackBarMock: { open: jest.Mock };
 
   beforeEach(() => {
     mcpService = {
       executeTool: jasmine.createSpy('executeTool'),
     };
+    snackBarMock = { open: jest.fn() };
 
     TestBed.configureTestingModule({
       providers: [
@@ -49,6 +52,7 @@ describe('TradingConfigService', () => {
           useValue: {},
         },
         { provide: RobinhoodMcpObservationService, useValue: mcpService },
+        { provide: MatSnackBar, useValue: snackBarMock },
         TradingConfigService,
       ],
     });
@@ -252,6 +256,71 @@ describe('TradingConfigService', () => {
           done();
         },
       });
+    });
+  });
+
+  describe('config cache — ensureConfig/warmConfig (#1177)', () => {
+    beforeEach(() => {
+      mockDoc.mockReset().mockReturnValue({});
+      mockGetDoc.mockReset();
+    });
+
+    const doc = (data: Record<string, unknown>) => ({
+      exists: () => true,
+      data: () => data,
+    });
+
+    it('ensureConfig loads once then serves the cache — including the null case', async () => {
+      mockGetDoc.mockResolvedValue(doc({ accountNumber: '123' }));
+      const first = await service.ensureConfig();
+      const second = await service.ensureConfig();
+      expect(first?.accountNumber).toBe('123');
+      expect(second).toBe(first);
+      expect(mockGetDoc).toHaveBeenCalledTimes(1);
+      expect(service.config()?.accountNumber).toBe('123');
+    });
+
+    it('caches a legit null (no config doc) — no refetch storm', async () => {
+      mockGetDoc.mockResolvedValue({ exists: () => false });
+      await service.ensureConfig();
+      await service.ensureConfig();
+      expect(service.config()).toBeNull();
+      expect(mockGetDoc).toHaveBeenCalledTimes(1);
+    });
+
+    it('snackbars and returns null on load failure — a later call retries', async () => {
+      mockGetDoc.mockRejectedValue(new Error('firestore down'));
+      const r = await service.ensureConfig();
+      expect(r).toBeNull();
+      expect(snackBarMock.open).toHaveBeenCalledWith(
+        'Failed to load trading config', 'Dismiss', { duration: 4000 },
+      );
+      mockGetDoc.mockResolvedValue(doc({ accountNumber: '123' }));
+      const r2 = await service.ensureConfig();
+      expect(r2?.accountNumber).toBe('123');
+      expect(mockGetDoc).toHaveBeenCalledTimes(2);
+    });
+
+    it('warmConfig fills the shared cache so ensureConfig serves it without a read', async () => {
+      mockGetDoc.mockResolvedValue(doc({ accountNumber: '999' }));
+      service.warmConfig();
+      // Macrotask flush — the subscribe path crosses a promise boundary.
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(service.config()?.accountNumber).toBe('999');
+      const r = await service.ensureConfig();
+      expect(r?.accountNumber).toBe('999');
+      expect(mockGetDoc).toHaveBeenCalledTimes(1);
+    });
+
+    it('saveConfig invalidates the cache — the next ensureConfig re-fetches', async () => {
+      mockGetDoc.mockResolvedValue(doc({ accountNumber: '123' }));
+      mockSetDoc.mockReset().mockResolvedValue(undefined);
+      await service.ensureConfig();
+      await firstValueFrom(service.saveConfig({ accountNumber: '123456789' }));
+      mockGetDoc.mockResolvedValue(doc({ accountNumber: '123456789' }));
+      const r = await service.ensureConfig();
+      expect(r?.accountNumber).toBe('123456789');
+      expect(mockGetDoc).toHaveBeenCalledTimes(2);
     });
   });
 

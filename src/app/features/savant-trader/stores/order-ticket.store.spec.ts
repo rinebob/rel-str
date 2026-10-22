@@ -139,6 +139,38 @@ describe('OrderTicketStore', () => {
     });
   });
 
+  describe('discardIfStaged (#1177 discard-on-close guard)', () => {
+    it('removes a STAGED ticket, keeps an advanced one, and ignores a missing id', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.deleteTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ id: 'staged-1' }));
+      store.stageTicket(mockEquityTicket({ id: 'live-1', status: OrderTicketStatus.SUBMITTED }));
+
+      store.discardIfStaged('staged-1');
+      store.discardIfStaged('live-1');
+      store.discardIfStaged('missing');
+
+      expect(ticketService.deleteTicket).toHaveBeenCalledTimes(1);
+      expect(ticketService.deleteTicket).toHaveBeenCalledWith('staged-1');
+      expect(store.tickets()['staged-1']).toBeUndefined();
+      expect(store.tickets()['live-1']?.status).toBe(OrderTicketStatus.SUBMITTED);
+    });
+
+    it('finds a rehydrated liv_-keyed twin — a rekeyed entry is still discarded', () => {
+      // loadTickets() can rekey a session-staged bare entry under its
+      // liv_ doc id mid-dialog; the bare id the close path holds must
+      // still resolve (#1188 review r2).
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.deleteTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ id: 'liv_staged-1' }));
+
+      store.discardIfStaged('staged-1');
+
+      expect(ticketService.deleteTicket).toHaveBeenCalledWith('liv_staged-1');
+      expect(store.tickets()['liv_staged-1']).toBeUndefined();
+    });
+  });
+
   describe('removeTicket', () => {
     it('optimistically removes the ticket and calls deleteTicket', () => {
       ticketService.createTicket.and.returnValue(of(undefined));

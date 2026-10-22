@@ -8,7 +8,7 @@
  *
  * Ref: IMPL-savant-trader-order-placement-fe.md §7 (Account number preference)
  */
-import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext, signal } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import {
   Firestore,
@@ -16,7 +16,8 @@ import {
   getDoc,
   setDoc,
 } from '@angular/fire/firestore';
-import { Observable, from } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { Observable, firstValueFrom, from } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
 import { stConfigDocPath } from '@st/collections';
@@ -30,6 +31,19 @@ export class TradingConfigService {
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
   private readonly mcpService = inject(RobinhoodMcpObservationService);
+  private readonly snackBar = inject(MatSnackBar);
+
+  /** Cached trading config — shared by every order-staging surface (the
+   *  gallery card actions and the manual order dialog, #1177) so they all
+   *  warm + read one copy instead of re-fetching per call site. `_loaded`
+   *  caches the null case too — a user with no saved config shouldn't pay
+   *  a Firestore read on every ensureConfig call. */
+  private readonly _config = signal<TradingConfig | null>(null);
+  private _loaded = false;
+  /** Bumped by saveConfig — a load that started before a save must not
+   *  commit the pre-save doc over it. */
+  private _gen = 0;
+  readonly config = this._config.asReadonly();
 
   /** Load the user's trading config, or null if not yet configured. */
   loadConfig(): Observable<TradingConfig | null> {
@@ -61,6 +75,44 @@ export class TradingConfigService {
     );
   }
 
+  /** Warm the config cache in the background (called on page/dialog open
+   *  so the first stage sees a live signal). Failures surface a snackbar
+   *  but never throw — staging callers re-check via ensureConfig. */
+  warmConfig(): void {
+    const gen = this._gen;
+    this.loadConfig().subscribe({
+      next: (config) => {
+        if (gen !== this._gen) return; // a save landed mid-load — don't write stale
+        this._config.set(config);
+        this._loaded = true;
+      },
+      error: (err: unknown) => {
+        this.snackBar.open('Failed to load trading config', 'Dismiss', { duration: 5000 });
+        console.error('[TradingConfigService] config load failed:', err);
+      },
+    });
+  }
+
+  /** Return the cached config, loading it once if needed. Snackbars and
+   *  returns null on load failure so callers can bail without
+   *  double-reporting — check the return, don't snackbar again. */
+  async ensureConfig(): Promise<TradingConfig | null> {
+    if (this._loaded) return this._config();
+    const gen = this._gen;
+    try {
+      const config = await firstValueFrom(this.loadConfig());
+      // A save landed mid-load — the read is stale; refetch the fresh doc.
+      if (gen !== this._gen) return this.ensureConfig();
+      this._config.set(config);
+      this._loaded = true;
+      return config;
+    } catch (err) {
+      this.snackBar.open('Failed to load trading config', 'Dismiss', { duration: 4000 });
+      console.error('[TradingConfigService] config load failed:', err);
+      return null;
+    }
+  }
+
   /** Save the user's trading config. */
   saveConfig(config: Partial<TradingConfig> & { accountNumber: string }): Observable<void> {
     return requireUserId(this.auth, this.injector).pipe(
@@ -78,6 +130,11 @@ export class TradingConfigService {
         if (config.maxAllocationPercent !== undefined) payload.maxAllocationPercent = config.maxAllocationPercent;
         if (config.optionMaxPremiumCashPercent !== undefined) payload.optionMaxPremiumCashPercent = config.optionMaxPremiumCashPercent;
         await setDoc(docRef, payload, { merge: true });
+        // A successful save may have introduced an accountNumber — bust
+        // the cache so the next ensureConfig sees the fresh doc, and
+        // invalidate any load already in flight.
+        this._gen++;
+        this._loaded = false;
       })),
       map(() => undefined)
     );

@@ -21,6 +21,7 @@
  *                          write succeeds; resolves boolean
  *   setTicketStatusLocal — transient local-only status (never persisted)
  *   removeTicket         — discard a staged record
+ *   discardIfStaged      — STAGED-only discard (dialog close paths)
  *   reconcileTerminalStatuses — batch-write terminal states from RH orders
  */
 import { computed, inject, DestroyRef } from '@angular/core';
@@ -43,7 +44,6 @@ import {
   OrderTicket,
   OrderTicketPatch,
   OrderTicketStatus,
-  OrderSource,
   InstrumentType,
   EquityOrderTicket,
   EtfOrderTicket,
@@ -537,6 +537,19 @@ export const OrderTicketStore = signalStore(
         snackBar.open('Failed to stage signal entry', 'Dismiss', { duration: 4000 });
         console.error('[OrderTicketStore] stageTicketAndWait failed:', err);
         return false;
+      }
+    },
+
+    /** Discard a record only while it is still STAGED — the
+     *  discard-on-close guard shared by the gallery Trade dialog and the
+     *  manual order dialog (#1177): once a ticket has been submitted it
+     *  belongs to the order lifecycle, not the staging session. Probes
+     *  both id spellings — the map is mixed-keyed (bare session ids vs
+     *  hydrated liv_/pap_ doc ids), so a rehydrated entry is still found. */
+    discardIfStaged(id: string): void {
+      const key = store.tickets()[id] ? id : stDocId(id);
+      if (store.tickets()[key]?.status === OrderTicketStatus.STAGED) {
+        store.removeTicket(key);
       }
     },
 

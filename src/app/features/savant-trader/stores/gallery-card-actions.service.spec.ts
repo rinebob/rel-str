@@ -7,7 +7,7 @@
  * staged tickets, Paper routes through `sendTicketToPaper`, and
  * `busyCardKeys`/`isActionableRun` guard re-entry.
  */
-import { computed, signal } from '@angular/core';
+import { computed, signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
@@ -28,8 +28,10 @@ import {
   OrderSource,
   OrderTicket,
   OrderTicketStatus,
+  TradingConfig,
 } from '../services/order-ticket.types';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
+import { stDocId } from '../services/order-ticket-st-mapper';
 
 import { GalleryCard } from '../utils/gallery-cards.util';
 
@@ -166,6 +168,7 @@ describe('GalleryCardActionsService', () => {
     stageTicketAndWait: jest.Mock;
     sendTicketToPaper: jest.Mock;
     removeTicket: jest.Mock;
+    discardIfStaged: jest.Mock;
     updateTicket: jest.Mock;
     updateTicketAndWait: jest.Mock;
   };
@@ -173,7 +176,11 @@ describe('GalleryCardActionsService', () => {
     prices: ReturnType<typeof signal<Record<string, number>>>;
     fetchPrices: jest.Mock;
   };
-  let configServiceMock: { loadConfig: jest.Mock };
+  let configServiceMock: {
+    config: Signal<TradingConfig | null>;
+    ensureConfig: jest.Mock;
+    warmConfig: jest.Mock;
+  };
 
   /** Write tickets into the store map — ticketsBySymbol derives from
    *  it exactly like the real store, so the two views can't drift. */
@@ -211,7 +218,21 @@ describe('GalleryCardActionsService', () => {
         return true;
       }),
       sendTicketToPaper: jest.fn().mockResolvedValue({ cohortId: 'c1', expressionTradeIds: [] }),
-      removeTicket: jest.fn(),
+      removeTicket: jest.fn((id: string) => {
+        ticketStoreMock.tickets.update((m) => {
+          const next = { ...m };
+          delete next[id];
+          return next;
+        });
+      }),
+      // Mirror the store's STAGED-only discard guard, dual-key probe and
+      // all — the map is mixed bare/liv_-keyed, same as production (#1177).
+      discardIfStaged: jest.fn((id: string) => {
+        const key = ticketStoreMock.tickets()[id] ? id : stDocId(id);
+        if (ticketStoreMock.tickets()[key]?.status === OrderTicketStatus.STAGED) {
+          ticketStoreMock.removeTicket(key);
+        }
+      }),
       updateTicket: jest.fn(),
       updateTicketAndWait: jest.fn().mockResolvedValue(true),
     };
@@ -219,7 +240,11 @@ describe('GalleryCardActionsService', () => {
       prices: signal<Record<string, number>>({}),
       fetchPrices: jest.fn().mockResolvedValue(undefined),
     };
-    configServiceMock = { loadConfig: jest.fn().mockReturnValue(of({ accountNumber: '123' })) };
+    configServiceMock = {
+      config: signal<TradingConfig | null>(null).asReadonly(),
+      ensureConfig: jest.fn(async () => ({ accountNumber: '123' }) as TradingConfig),
+      warmConfig: jest.fn(),
+    };
 
     await TestBed.configureTestingModule({
       providers: [
@@ -363,6 +388,14 @@ describe('GalleryCardActionsService', () => {
     );
     // Pre-existing ticket is kept — only a ticket this click created is discarded.
     expect(ticketStoreMock.removeTicket).not.toHaveBeenCalled();
+  });
+
+  it('delegates config warmup and the staged-discard guard to the canonical services (#1177)', () => {
+    actions.warmConfig();
+    expect(configServiceMock.warmConfig).toHaveBeenCalled();
+
+    actions.discardStagedTicket('any-id');
+    expect(ticketStoreMock.discardIfStaged).toHaveBeenCalledWith('any-id');
   });
 
   it('discardStagedTicket removes a still-staged ticket but keeps a submitted one', () => {
