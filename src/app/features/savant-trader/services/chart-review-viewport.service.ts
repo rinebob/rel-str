@@ -32,10 +32,13 @@ export class ChartReviewViewportService {
 
   /**
    * Viewport symbols for the chart-review sidebar.
-   * - signals + list: intersection of reviewSymbols and list
-   * - signals + no list: all reviewSymbols
+   * - signals + list: intersection of reviewSymbols and list (#1016 —
+   *   unreachable while the flag UI is disabled; kept for repurpose)
    * - browse + list: all symbols in the list
-   * - browse + no list: all reviewSymbols (fallback)
+   * - NO_MEMBERSHIP: untriaged tracked symbols (signals mode intersects
+   *   them with reviewSymbols; browse returns the full set)
+   * - 'ALL': union of every list's members (#1016 — was the flagged
+   *   queue; flags are session-local so ALL fell back to nothing)
    */
   readonly viewportSymbols = computed((): string[] => {
     const mode = this.triageStore.viewportMode();
@@ -44,7 +47,12 @@ export class ChartReviewViewportService {
     const reviewSymbols = this.triageStore.reviewSymbols();
 
     if (filter === 'ALL') {
-      return reviewSymbols;
+      if (mode === 'signals') return reviewSymbols;
+      const all = new Set<string>();
+      for (const members of Object.values(this.symbolListStore.symbolLists())) {
+        for (const s of members) all.add(s);
+      }
+      return [...all];
     }
 
     if (filter === NO_MEMBERSHIP) {
