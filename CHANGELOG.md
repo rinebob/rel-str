@@ -2,6 +2,11 @@
 
 ## [2026-10-22]
 
+### Added
+- [RH Scanner] 1098-1197_FE-REFACTOR-SAVANT-TRADER: Shared scan-row helpers in scanner-rows.util — normScanSymbol/dedupeScanRows/displayCell/mergeLookup; ScanRow gains instrumentId; RecipeRunState type for run-all
+- [RH Scanner] 1098-1197_FE-IMPL-SAVANT-TRADER: ScannerRecipeTableComponent + scanner-sort.util — all wire fields, tracked badge, recipe-sort seed, click-cycle multi-sort with priority badges
+- [RH Scanner] 1098-1197_DOCS-SAVANT-TRADER: Auto-run thread docs — PRD/IMPL/TEST + #1197 CODE-REVIEW (3 rounds) + UAT
+
 ### Removed
 - [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: review-list persistence removed — triage.service.ts deleted, Collection.ST_REVIEW_LIST dropped, pin spec asserts non-reintroduction
 - [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: triage store — session-local flags; loadReviewFlags + dead loading state deleted; REVIEW dual-write dropped; viewport default 'browse'
