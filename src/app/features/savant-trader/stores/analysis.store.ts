@@ -53,6 +53,10 @@ export interface AnalysisState {
   slices: AnalysisSlice[];
   compareDatasetId: string | null;
   compareRows: TradeAnalysisRow[];
+  /** CSV header names present in the compare dataset — predicates on
+   *  absent columns are skipped there too, surfaced via
+   *  skippedCompareColumns. */
+  compareColumns: string[];
   isLoadingDatasets: boolean;
   isLoadingRows: boolean;
   isLoadingCompare: boolean;
@@ -74,6 +78,7 @@ const initialState: AnalysisState = {
   slices: [],
   compareDatasetId: null,
   compareRows: [],
+  compareColumns: [],
   isLoadingDatasets: false,
   isLoadingRows: false,
   isLoadingCompare: false,
@@ -124,14 +129,29 @@ export const AnalysisStore = signalStore(
     ),
 
     /** Compare rows through the SAME quarantine + filter chain — the
-     *  overlay set. */
-    filteredCompareRows: computed(() =>
-      applySliceFilters(
+     *  overlay set. Predicates on columns the compare dataset lacks are
+     *  skipped (same semantics as applySlice on the primary set) so a
+     *  missing column can't silently empty the compare side. */
+    filteredCompareRows: computed(() => {
+      const have = new Set(state.compareColumns());
+      const chain = state.filters().filter((f) => have.has(f.column));
+      return applySliceFilters(
         state.includeOpenRows()
           ? state.compareRows()
           : state.compareRows().filter(isClosedCohortRow),
-        state.filters(),
-      ),
+        chain,
+      );
+    }),
+
+    /** Active-filter columns absent from the compare dataset — the
+     *  persistent notice counterpart to applySlice's snackbar. */
+    skippedCompareColumns: computed(() =>
+      state.compareColumns().length === 0
+        ? []
+        : state
+            .filters()
+            .filter((f) => !state.compareColumns().includes(f.column))
+            .map((f) => f.column),
     ),
   })),
 
@@ -179,6 +199,17 @@ export const AnalysisStore = signalStore(
        *  selection's rows. */
       openDataset(dataset: AnalysisDatasetDoc): void {
         rowsSub?.unsubscribe();
+        // Self-compare guard: promoting the compare target to the open
+        // dataset clears the compare slot — same-set-on-both-sides is
+        // meaningless and the picker only filters at selection time.
+        if (state.compareDatasetId() === dataset.id) {
+          compareSub?.unsubscribe();
+          patchState(state, {
+            compareDatasetId: null,
+            compareRows: [],
+            compareColumns: [],
+          });
+        }
         patchState(state, {
           isLoadingRows: true,
           error: null,
@@ -241,7 +272,11 @@ export const AnalysisStore = signalStore(
        *  from the workbench and compare slot if it was either. */
       deleteDataset(dataset: AnalysisDatasetDoc): void {
         service.deleteDataset$(dataset).subscribe({
-          next: () =>
+          next: () => {
+            // An in-flight compare fetch for the deleted doc must not
+            // land rows after the clear (phantom compare state + a
+            // skip-note with no compare active).
+            if (state.compareDatasetId() === dataset.id) compareSub?.unsubscribe();
             patchState(state, {
               datasets: state.datasets().filter((d) => d.id !== dataset.id),
               ...(state.activeDataset()?.id === dataset.id
@@ -256,9 +291,10 @@ export const AnalysisStore = signalStore(
                   }
                 : {}),
               ...(state.compareDatasetId() === dataset.id
-                ? { compareDatasetId: null, compareRows: [] }
+                ? { compareDatasetId: null, compareRows: [], compareColumns: [] }
                 : {}),
-            }),
+            });
+          },
           error: (err) => {
             const msg = toMessage(err, 'Failed to delete dataset');
             patchState(state, { error: msg });
@@ -424,12 +460,17 @@ export const AnalysisStore = signalStore(
       // ── compare ──────────────────────────────────────────────────────
 
       /** Load a second dataset's rows for side-by-side/overlay compare.
-       *  Cancels any in-flight compare load. */
+       *  Cancels any in-flight compare load; the previous target's rows
+       *  + columns clear immediately so the new chip label can never
+       *  render over the old set while the fetch is in flight. */
       loadCompareDataset(dataset: AnalysisDatasetDoc): void {
+        if (dataset.id === state.activeDataset()?.id) return; // no self-compare
         compareSub?.unsubscribe();
         patchState(state, {
           isLoadingCompare: true,
           compareDatasetId: dataset.id,
+          compareRows: [],
+          compareColumns: [],
         });
         compareSub = service
           .loadDataset$(dataset)
@@ -442,12 +483,21 @@ export const AnalysisStore = signalStore(
             }),
             finalize(() => patchState(state, { isLoadingCompare: false })),
           )
-          .subscribe((loaded) => patchState(state, { compareRows: loaded.rows }));
+          .subscribe((loaded) =>
+            patchState(state, {
+              compareRows: loaded.rows,
+              compareColumns: loaded.columns,
+            }),
+          );
       },
 
       clearCompare(): void {
         compareSub?.unsubscribe();
-        patchState(state, { compareDatasetId: null, compareRows: [] });
+        patchState(state, {
+          compareDatasetId: null,
+          compareRows: [],
+          compareColumns: [],
+        });
       },
       };
     },

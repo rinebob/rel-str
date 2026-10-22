@@ -349,6 +349,12 @@ describe('AnalysisStore', () => {
       { column: 'signalType', op: 'in', value: ['D_ST_TREND_RIDER_V2_LONG'] },
     ]);
     expect(store.skippedSliceColumns()).toEqual(['ind.zoneV2']);
+    const snack = TestBed.inject(MatSnackBar);
+    expect(snack.open).toHaveBeenCalledWith(
+      expect.stringContaining('ind.zoneV2'),
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it('deleteSlice removes it from the list', () => {
@@ -374,6 +380,32 @@ describe('AnalysisStore', () => {
     expect(store.filteredCompareRows().map((r) => r.tradeId)).toEqual(['o-2']);
   });
 
+  it('compare-side predicates on missing columns are skipped, not silently applied', () => {
+    store.loadDatasets();
+    store.openDataset(ds);
+    const otherRows = [
+      row({ tradeId: 'o-1', datasetId: 'ds-2' }),
+      row({ tradeId: 'o-2', datasetId: 'ds-2' }),
+    ];
+    // compare dataset lacks 'direction' — the predicate must not evaluate
+    svc.loadDataset$.mockReturnValue(of({ rows: otherRows, columns: ['tradeRetPct'] }));
+    store.loadCompareDataset(ds2);
+    store.addFilter({ column: 'direction', op: 'in', value: [TradeSide.LONG] });
+    expect(store.skippedCompareColumns()).toEqual(['direction']);
+    // all compare rows survive — the missing-column filter was skipped
+    expect(store.filteredCompareRows().length).toBe(2);
+  });
+
+  it('opening the current compare target clears the comparison (no self-compare)', () => {
+    store.loadDatasets();
+    store.openDataset(ds);
+    store.loadCompareDataset(ds2);
+    expect(store.compareDatasetId()).toBe('ds-2');
+    store.openDataset(ds2);
+    expect(store.compareDatasetId()).toBeNull();
+    expect(store.compareRows()).toEqual([]);
+  });
+
   it('compare rows are quarantined the same as the main view (#1083)', () => {
     store.loadDatasets();
     const otherRows = [
@@ -393,6 +425,48 @@ describe('AnalysisStore', () => {
     store.clearCompare();
     expect(store.compareDatasetId()).toBeNull();
     expect(store.compareRows()).toEqual([]);
+  });
+
+  it('loadCompareDataset ignores the active dataset (no self-compare)', () => {
+    store.loadDatasets();
+    store.openDataset(ds);
+    store.loadCompareDataset(ds);
+    expect(store.compareDatasetId()).toBeNull();
+    expect(svc.loadDataset$).toHaveBeenCalledTimes(1); // only the open load
+  });
+
+  it('switching compare targets clears the previous rows while the new fetch is in flight', () => {
+    store.loadDatasets();
+    store.openDataset(ds);
+    store.loadCompareDataset(ds2); // resolves synchronously
+    expect(store.compareRows().length).toBe(3);
+    const ds3 = datasetDoc({ id: 'ds-3', gcsPath: 'analysis-datasets/ds-3.csv' });
+    const pending = new Subject<{ rows: TradeAnalysisRow[]; columns: string[] }>();
+    svc.loadDataset$.mockReturnValue(pending.asObservable());
+    store.loadCompareDataset(ds3);
+    // chip says ds-3 already — the old rows must not linger under it
+    expect(store.compareDatasetId()).toBe('ds-3');
+    expect(store.compareRows()).toEqual([]);
+    expect(store.filteredCompareRows()).toEqual([]);
+    pending.next({ rows: [row({ tradeId: 'n-1', datasetId: 'ds-3' })], columns: ['tradeId'] });
+    pending.complete();
+    expect(store.compareRows().map((r) => r.tradeId)).toEqual(['n-1']);
+  });
+
+  it('deleting the compare target cancels its in-flight load — late rows cannot land', () => {
+    store.loadDatasets();
+    store.openDataset(ds);
+    const pending = new Subject<{ rows: TradeAnalysisRow[]; columns: string[] }>();
+    svc.loadDataset$.mockReturnValue(pending.asObservable());
+    store.loadCompareDataset(ds2);
+    store.deleteDataset(ds2); // resolves synchronously; cancels + clears
+    expect(store.compareDatasetId()).toBeNull();
+    pending.next({ rows: [row({ tradeId: 'ghost' })], columns: ['direction'] });
+    pending.complete();
+    expect(store.compareRows()).toEqual([]);
+    // no phantom skip-note either — compareColumns stays empty
+    store.addFilter({ column: 'direction', op: 'in', value: [TradeSide.LONG] });
+    expect(store.skippedCompareColumns()).toEqual([]);
   });
 
   // ── generation (task #1082) ──────────────────────────────────────────
