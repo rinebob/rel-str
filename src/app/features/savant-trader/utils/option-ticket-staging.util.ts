@@ -31,10 +31,15 @@ export interface OptionTicketStagingContext {
   buildRefId: () => string;
 }
 
+/** Canonical OCC contract-id charset — the only safe leg of a ticket doc
+ *  id (a '/' or space would corrupt the Firestore path). Shared with the
+ *  manual builder (#1177) so both enforce the same contract. */
+export const OCC_SYMBOL_PATTERN = /^[A-Z0-9]+$/;
+
 /** Resolved contract identity for the leg. */
 export interface OptionContractRef {
   /** OCC contract id — leg display AND the ticket doc-id discriminator,
-   *  so it is load-bearing: it must match /^[A-Z0-9]+$/ (what
+   *  so it is load-bearing: it must match `OCC_SYMBOL_PATTERN` (what
    *  `buildOccContractId` emits). The builder normalizes case and
    *  refuses anything else — a '/' would corrupt the doc path. */
   occSymbol: string;
@@ -58,10 +63,10 @@ export function buildOptionSignalTicket(
   if (!signals.length) return null;
 
   // occSymbol lands in the Firestore doc id — normalize + enforce the
-  // OCC charset ([A-Z0-9]+, exactly what buildOccContractId emits) so a
-  // malformed caller string can't corrupt the doc path ('/', spaces).
+  // OCC charset (exactly what buildOccContractId emits) so a malformed
+  // caller string can't corrupt the doc path ('/', spaces).
   const occSymbol = String(contract.occSymbol ?? '').toUpperCase();
-  if (!/^[A-Z0-9]+$/.test(occSymbol)) return null;
+  if (!OCC_SYMBOL_PATTERN.test(occSymbol)) return null;
 
   const { runId, accountNumber, now, buildRefId } = context;
   const first = signals[0];
