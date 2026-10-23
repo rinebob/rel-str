@@ -1,4 +1,4 @@
-import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, ReviewDecision, GroupDimension, NO_MEMBERSHIP } from '../common/constants';
+import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, GroupDimension, NO_MEMBERSHIP } from '../common/constants';
 import type { StSignalItem, StSymbolProfile } from '../services/types';
 import type { SymbolGroup } from '../stores/group.store';
 import {
@@ -135,7 +135,6 @@ describe('rowHasDirection', () => {
       profile: mockProfile(TEST_CREATED_AT),
       hasSignal: true,
       signals: [mockSignal({ direction: SignalDirection.SHORT })],
-      reviewStatus: ReviewDecision.PENDING,
       isReviewed: false,
     };
     expect(rowHasDirection(row, SignalDirection.SHORT)).toBe(true);
@@ -147,7 +146,6 @@ describe('rowHasDirection', () => {
       profile: mockProfile(TEST_CREATED_AT, { lastDailySignalDirection: SignalDirection.LONG }),
       hasSignal: true,
       signals: undefined,
-      reviewStatus: ReviewDecision.PENDING,
       isReviewed: false,
     };
     expect(rowHasDirection(row, SignalDirection.LONG)).toBe(true);
@@ -164,7 +162,6 @@ describe('buildSymbolGroups', () => {
     symbolLists: {},
     exclusiveListKeys: [],
     activeListFilter: 'ALL',
-    statuses: {},
     reviewFlagSymbols: new Set<string>(),
     historyCache: {},
     historyLoading: {},

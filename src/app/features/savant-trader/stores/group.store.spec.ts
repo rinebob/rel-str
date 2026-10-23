@@ -6,7 +6,6 @@ import { of, Subject } from 'rxjs';
 import { GroupStore } from './group.store';
 import { StStore } from './st.store';
 import { TriageStore } from './triage.store';
-import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { SymbolListStore } from './symbol-list.store';
 import { SymbolHistoryStore } from './symbol-history.store';
 import { SignalReviewUiStore } from './signal-review-ui.store';
@@ -51,23 +50,8 @@ describe('GroupStore', () => {
           provide: TriageStore,
           useValue: {
             resetForRun: jest.fn(),
-            clearScreeningStatuses: jest.fn(),
-            screeningStatuses: signal({}),
             reviewFlags: signal({}),
             reviewCount: signal(0),
-          },
-        },
-        {
-          provide: OccurrenceDecisionStore,
-          useValue: {
-            loadRecentDecisions: jest.fn(),
-            markRunNotCurrent: jest.fn(),
-            statusBySymbol: signal({}),
-            latestBySymbol: signal({}),
-            durableStatusCounts: signal({ ACCEPT: 0, REJECT: 0 }),
-            acceptedCount: signal(0),
-            acceptedSymbols: signal<string[]>([]),
-            loading: signal(false),
           },
         },
         {

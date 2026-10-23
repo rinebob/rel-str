@@ -144,7 +144,6 @@ function mockHistoryStore(initial: Record<string, StSignalItem[]> = {}) {
     signalHistoryLoading: signal<Record<string, boolean>>({}),
     loadSignalHistory: jest.fn(),
     loadSignalHistoryForRun: jest.fn(),
-    clearSymbolHistory: jest.fn(),
   };
 }
 

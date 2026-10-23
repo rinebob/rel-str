@@ -34,10 +34,8 @@ import { StStore } from './st.store';
 import { TriageStore } from './triage.store';
 import { SymbolListStore } from './symbol-list.store';
 import { SymbolHistoryStore } from './symbol-history.store';
-import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import {
   GroupDimension,
-  ReviewDecision,
   SignalTimeframe,
   SignalDirection,
 } from '../common/constants';
@@ -60,13 +58,8 @@ export interface SymbolRow {
   hasSignal: boolean;
   signals?: StSignalItem[];
   signalsLoading?: boolean;
-  reviewStatus: ReviewDecision;
-  /** True if the symbol is flagged for review (bookmark), independent of accept/reject. */
+  /** True if the symbol is flagged for review (bookmark), independent of ticket actions. */
   isReviewed: boolean;
-  /** Market date of the latest decision for this symbol, or null if no decision. */
-  decisionMarketDate?: string | null;
-  /** True when the latest decision is from a different run than the active run. */
-  decisionStale?: boolean;
 }
 
 /** A rendered group in the expansion panel list. */
@@ -138,19 +131,15 @@ export const GroupStore = signalStore(
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
     triageStore = inject(TriageStore),
-    occurrenceStore = inject(OccurrenceDecisionStore),
     symbolListStore = inject(SymbolListStore),
     historyStore = inject(SymbolHistoryStore),
   ) => ({
-    /** Set the active run, clear in-memory triage state, load recent occurrence decisions, and reload symbols. */
+    /** Set the active run, clear in-memory triage state, and reload symbols. */
     setActiveRun(runId: string, marketDate: string): void {
       patchState(state, { activeRunId: runId, _activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
       triageStore.resetForRun();
       // #1016 — review flags are session-local; the persisted load seam
       // (triageStore.loadReviewFlags) was deleted with review-list.
-      // Don't clear decisions before loading — loadRecentDecisions replaces state
-      // on success, avoiding a flash of empty accepted/review lists.
-      occurrenceStore.loadRecentDecisions();
       this.loadSymbolsWithSignals();
     },
 
@@ -250,7 +239,7 @@ export const GroupStore = signalStore(
     },
   })),
 
-  withComputed((state, triageStore = inject(TriageStore), occurrenceStore = inject(OccurrenceDecisionStore), symbolListStore = inject(SymbolListStore), historyStore = inject(SymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
+  withComputed((state, triageStore = inject(TriageStore), symbolListStore = inject(SymbolListStore), historyStore = inject(SymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
     /**
      * Grouped view groups built from signalSymbols, sorted by marketCap desc within group.
      * Reads signalFilter directly from SignalReviewUiStore — single source of truth, no copy.
@@ -265,10 +254,6 @@ export const GroupStore = signalStore(
         symbolLists: symbolListStore.symbolLists(),
         exclusiveListKeys: symbolListStore.exclusiveListKeys(),
         activeListFilter: symbolListStore.activeListFilter(),
-        statuses: {
-          ...triageStore.screeningStatuses(),
-          ...occurrenceStore.statusBySymbol(),
-        },
         reviewFlagSymbols: new Set(
           Object.entries(triageStore.reviewFlags())
             .filter(([, f]) => f)
@@ -278,8 +263,6 @@ export const GroupStore = signalStore(
         historyLoading: historyStore.signalHistoryLoading(),
         activeRunId: state.activeRunId(),
         signalFilter: uiStore.signalFilter(),
-        latestDecisions: occurrenceStore.latestBySymbol(),
-        activeRunMarketDate: state._activeRunMarketDate(),
       })
     ),
   })),
@@ -378,7 +361,7 @@ export const GroupStore = signalStore(
     isActionableRun: computed(() => isCompletedRun(state.viewedRun())),
   })),
 
-  withHooks((store, agentStore = inject(StStore), uiStore = inject(SignalReviewUiStore), triageStore = inject(TriageStore), occurrenceStore = inject(OccurrenceDecisionStore)) => {
+  withHooks((store, agentStore = inject(StStore), uiStore = inject(SignalReviewUiStore)) => {
     /** Tracks the previous latest completed run ID to detect new-run transitions. */
     let previousLatestRunId: string | null = null;
 
@@ -396,10 +379,6 @@ export const GroupStore = signalStore(
 
           if (!latestId || !previousId || latestId === previousId) return;
 
-          // Durable decisions for the previous latest run are no longer current,
-          // regardless of which run is currently being viewed.
-          occurrenceStore.markRunNotCurrent(previousId);
-
           const viewedId = store.activeRunId();
           if (viewedId !== previousId) return;
 
@@ -407,7 +386,6 @@ export const GroupStore = signalStore(
           uiStore.setDirectionFilter(SignalDirection.ALL);
           uiStore.setAllExpanded(false, []);
           patchState(store, { selectedSymbol: null, quickChartSymbol: null });
-          triageStore.clearScreeningStatuses();
         });
       },
     };

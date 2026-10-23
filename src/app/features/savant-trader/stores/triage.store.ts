@@ -7,9 +7,9 @@
  * #1016 — review-list persistence was removed (TriageService and the
  * savant-trader/data/review-list collection are gone). The persistence
  * calls below are commented out; flags are session-local only until the
- * review pages are repurposed. CONSIDER/WATCH screening statuses stay
- * ephemeral. Durable ACCEPT/REJECT decisions live in
- * OccurrenceDecisionStore and are NOT duplicated here.
+ * review pages are repurposed.
+ * #1017 — the ACR workflow is gone: durable ACCEPT/REJECT decisions AND
+ * ephemeral CONSIDER/WATCH screening statuses were removed.
  *
  * providedIn: 'root' so state survives route navigation.
  */
@@ -22,7 +22,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 
-import { ReviewDecision, ViewportMode, type SymbolListFilter } from '../common/constants';
+import { ViewportMode, type SymbolListFilter } from '../common/constants';
 
 // ---------------------------------------------------------------------------
 // State
@@ -31,8 +31,6 @@ import { ReviewDecision, ViewportMode, type SymbolListFilter } from '../common/c
 export interface TriageState {
   /** Per-symbol review flag — "I want to look at this symbol's chart." Independent of ACR. */
   reviewFlags: Record<string, boolean>;
-  /** Per-symbol ephemeral screening status (CONSIDER/WATCH only). Durable ACCEPT/REJECT live in OccurrenceDecisionStore. */
-  screeningStatuses: Record<string, ReviewDecision>;
   /** Viewport mode: 'signals' = show only review-flagged symbols, 'browse' = show all list symbols. */
   viewportMode: ViewportMode;
   /** Currently selected list for viewport filtering. */
@@ -41,7 +39,6 @@ export interface TriageState {
 
 const initialState: TriageState = {
   reviewFlags: {},
-  screeningStatuses: {},
   // #1016 — 'signals' mode filtered on persisted review flags; with
   // review-list removed the flagged queue stays empty, so the page
   // opens on 'browse' until the review surfaces are repurposed.
@@ -79,10 +76,7 @@ export const TriageStore = signalStore(
 
     /** Clear review flags — session-local only (#1016). */
     clearReviewFlags(): void {
-      // const flaggedSymbols = Object.entries(prev).filter(([, f]) => f).map(([s]) => s);
       patchState(state, { reviewFlags: {} });
-      // #1016 — persistence removed with review-list:
-      // triageService.setReviewFlagsBatch(flaggedSymbols, false).subscribe({...});
     },
 
     // --- Review flag methods (independent of ACR, session-local) ---
@@ -93,8 +87,6 @@ export const TriageStore = signalStore(
       patchState(state, {
         reviewFlags: { ...state.reviewFlags(), [sym]: true },
       });
-      // #1016 — persistence removed with review-list:
-      // triageService.setReviewFlag(sym).subscribe({...});
     },
 
     /** Unflag a symbol from review — session-local only (#1016). */
@@ -103,8 +95,6 @@ export const TriageStore = signalStore(
       const nextFlags = { ...state.reviewFlags() };
       delete nextFlags[sym];
       patchState(state, { reviewFlags: nextFlags });
-      // #1016 — persistence removed with review-list:
-      // triageService.clearReviewFlag(sym).subscribe({...});
     },
 
     /** Flag multiple symbols for review — session-local only (#1016). */
@@ -112,27 +102,13 @@ export const TriageStore = signalStore(
       const flags = { ...state.reviewFlags() };
       for (const s of symbols) { flags[s.toUpperCase()] = true; }
       patchState(state, { reviewFlags: flags });
-      // #1016 — persistence removed with review-list:
-      // triageService.setReviewFlagsBatch(symbols, true).subscribe({...});
     },
 
-    // --- Screening status methods (ephemeral CONSIDER/WATCH only) ---
-
-    /** Set an ephemeral screening status (CONSIDER or WATCH) for a symbol. */
-    setScreeningStatus(symbol: string, status: ReviewDecision): void {
-      patchState(state, {
-        screeningStatuses: { ...state.screeningStatuses(), [symbol]: status },
-      });
-    },
-
-    /** Clear all ephemeral screening statuses. */
-    clearScreeningStatuses(): void {
-      patchState(state, { screeningStatuses: {} });
-    },
-
-    /** Drop ephemeral screening state when switching runs. Review flags are dateless and survive run switches. */
+    /** Run-switch hook — no-op since #1017 dropped the ephemeral
+     *  CONSIDER/WATCH screening statuses. Review flags are dateless and
+     *  survive run switches. Kept so setActiveRun's call stays at the seam. */
     resetForRun(): void {
-      patchState(state, { screeningStatuses: {} });
+      // #1017 — nothing ephemeral remains to reset.
     },
 
     // --- Viewport methods ---

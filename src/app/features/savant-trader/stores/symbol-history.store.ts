@@ -59,7 +59,7 @@ function enrichClosePrices(
 }
 
 export interface SymbolHistoryState {
-  /** Per-symbol signal history cache: symbol â†’ signals[] */
+  /** Per-symbol signal history cache: symbol -> signals[] */
   signalHistoryCache: Record<string, StSignalItem[]>;
   /** Per-symbol loading flags. */
   signalHistoryLoading: Record<string, boolean>;
@@ -77,7 +77,7 @@ export const SymbolHistoryStore = signalStore(
   withMethods((state, signalService = inject(SignalService), barRead = inject(LocalBarReadService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
     /**
      * Load signals for a symbol from a specific run (run-ids/{runId}).
-     * Used by signal review â€” shows only signals from the active run.
+     * Used by signal review - shows only signals from the active run.
      * Cache key: `${symbol}::${runId}` to avoid conflicts with all-history cache.
      */
     loadSignalHistoryForRun(symbol: string, runId: string): void {
@@ -145,15 +145,6 @@ export const SymbolHistoryStore = signalStore(
             console.error(`[SymbolHistoryStore] Failed to load signal history for ${symbol}:`, err);
           },
         });
-    },
-
-    /** Clear a single symbol's cached history. */
-    clearSymbolHistory(symbol: string): void {
-      const cache = { ...state.signalHistoryCache() };
-      const loading = { ...state.signalHistoryLoading() };
-      delete cache[symbol];
-      delete loading[symbol];
-      patchState(state, { signalHistoryCache: cache, signalHistoryLoading: loading });
     },
   })),
 );

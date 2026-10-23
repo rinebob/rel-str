@@ -7,7 +7,7 @@ import { MarketCapTier, StSignalItem, StSymbolProfile, ST_SCHEDULE_CRON, StSymbo
 import type { SymbolRow, SymbolGroup } from '../stores/group.store';
 import type { PriceBar } from '../../shared/components/flex-chart/flex-chart.types';
 import type { OhlcBar } from '../../../core/models/market-data.types';
-import { GroupDimension, NO_MEMBERSHIP, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection, type SymbolListFilter } from '../common/constants';
+import { GroupDimension, NO_MEMBERSHIP, SignalFilter, SignalTimeframe, SignalDirection, type SymbolListFilter } from '../common/constants';
 import type { Company } from '../../shared/types/rs.interfaces';
 
 /** Format a YYYY-MM-DD date string as a UTC date with the given Intl options. */
@@ -718,17 +718,12 @@ export interface BuildSymbolGroupsInput {
   /** Current catalog keys whose role is exclusive. */
   exclusiveListKeys: readonly string[];
   activeListFilter: SymbolListFilter;
-  statuses: Record<string, ReviewDecision>;
-  /** Set of symbols flagged for review (bookmark), independent of accept/reject. */
+  /** Set of symbols flagged for review (bookmark), independent of ticket actions. */
   reviewFlagSymbols: Set<string>;
   historyCache: Record<string, StSignalItem[]>;
   historyLoading: Record<string, boolean>;
   activeRunId: string | null;
   signalFilter: SignalFilter;
-  /** Latest decision per symbol (by decidedAt) for staleness display. */
-  latestDecisions?: Record<string, { marketDate: string; runId: string }>;
-  /** Market date of the active run, for staleness comparison. */
-  activeRunMarketDate?: string | null;
 }
 
 /**
@@ -744,14 +739,11 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] 
     symbolLists,
     exclusiveListKeys,
     activeListFilter,
-    statuses,
     reviewFlagSymbols,
     historyCache,
     historyLoading,
     activeRunId,
     signalFilter,
-    latestDecisions,
-    activeRunMarketDate,
   } = input;
 
   const signalSet = new Set(signalSymbols.map((s) => s.symbol));
@@ -799,18 +791,12 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] 
       const cacheKey = getCacheKey(item.profile.symbol, activeRunId);
       const rawSignals = historyCache[cacheKey];
       const signals = rawSignals ? filterSignals(rawSignals, signalFilter) : undefined;
-      const latest = latestDecisions?.[item.profile.symbol];
-      const decisionMarketDate = latest?.marketDate ?? null;
-      const decisionStale = !!latest && !!activeRunMarketDate && latest.marketDate !== activeRunMarketDate;
       return {
         profile: item.profile,
         hasSignal: item.hasSignal,
         signals,
         signalsLoading: historyLoading[cacheKey] ?? false,
-        reviewStatus: statuses[item.profile.symbol] ?? ReviewDecision.PENDING,
         isReviewed: reviewFlagSymbols.has(item.profile.symbol),
-        decisionMarketDate,
-        decisionStale,
       };
     });
 

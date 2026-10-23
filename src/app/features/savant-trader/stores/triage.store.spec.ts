@@ -2,12 +2,13 @@ import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 
 import { TriageStore } from './triage.store';
-import { ReviewDecision } from '../common/constants';
 
 /**
  * #1016 — review-list persistence was removed (TriageService deleted).
  * Flags are session-local only; these specs pin the in-memory behavior
  * that remains until the review pages are repurposed.
+ * #1017 — the ACR workflow is gone; the ephemeral CONSIDER/WATCH
+ * screening-status state was removed with it.
  */
 describe('TriageStore', () => {
   let store: InstanceType<typeof TriageStore>;
@@ -25,11 +26,6 @@ describe('TriageStore', () => {
       store.markForReview('AAPL');
       expect(store.reviewFlags()['AAPL']).toBe(true);
     });
-
-    it('does not write a screening status — that map is CONSIDER/WATCH only (#1016)', () => {
-      store.markForReview('AAPL');
-      expect(store.screeningStatuses()['AAPL']).toBeUndefined();
-    });
   });
 
   describe('unmarkFromReview', () => {
@@ -40,12 +36,6 @@ describe('TriageStore', () => {
     it('unflags the symbol in memory', () => {
       store.unmarkFromReview('AAPL');
       expect(store.reviewFlags()['AAPL']).toBeUndefined();
-    });
-
-    it('leaves screening statuses untouched', () => {
-      store.setScreeningStatus('AAPL', ReviewDecision.CONSIDER);
-      store.unmarkFromReview('AAPL');
-      expect(store.screeningStatuses()['AAPL']).toBe(ReviewDecision.CONSIDER);
     });
   });
 
@@ -70,33 +60,10 @@ describe('TriageStore', () => {
     });
   });
 
-  describe('screeningStatuses', () => {
-    it('initializes empty', () => {
-      expect(store.screeningStatuses()).toEqual({});
-    });
-
-    it('setScreeningStatus sets CONSIDER for a symbol', () => {
-      store.setScreeningStatus('AAPL', ReviewDecision.CONSIDER);
-      expect(store.screeningStatuses()['AAPL']).toBe(ReviewDecision.CONSIDER);
-    });
-
-    it('setScreeningStatus sets WATCH for a symbol', () => {
-      store.setScreeningStatus('MSFT', ReviewDecision.WATCH);
-      expect(store.screeningStatuses()['MSFT']).toBe(ReviewDecision.WATCH);
-    });
-
-    it('clearScreeningStatuses removes all screening statuses', () => {
-      store.setScreeningStatus('AAPL', ReviewDecision.CONSIDER);
-      store.setScreeningStatus('MSFT', ReviewDecision.WATCH);
-      store.clearScreeningStatuses();
-      expect(store.screeningStatuses()).toEqual({});
-    });
-
-    it('resetForRun clears screening statuses but review flags survive run switches', () => {
+  describe('resetForRun', () => {
+    it('is a no-op seam — review flags survive run switches (#1017)', () => {
       store.markForReview('MSFT');
-      store.setScreeningStatus('AAPL', ReviewDecision.CONSIDER);
       store.resetForRun();
-      expect(store.screeningStatuses()).toEqual({});
       expect(store.reviewFlags()['MSFT']).toBe(true);
     });
   });

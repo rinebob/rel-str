@@ -8,41 +8,9 @@
 import { SignalDirection } from '../../shared/constants/signal-direction';
 export { SignalDirection };
 
-/** Daily PACR review status for a symbol. */
-export enum ReviewDecision {
-  PENDING        = 'PENDING',
-  REVIEW         = 'REVIEW',
-  ACCEPT         = 'ACCEPT',
-  CONSIDER       = 'CONSIDER',
-  REJECT         = 'REJECT',
-  EXCLUDE        = 'EXCLUDE',
-  LOW_TRADABILITY = 'LOW_TRADABILITY',
-  WATCH          = 'WATCH',
-}
-
-/** All PACR review statuses in display order. */
-export const ALL_REVIEW_STATUSES: ReviewDecision[] = [
-  ReviewDecision.PENDING,
-  ReviewDecision.REVIEW,
-  ReviewDecision.ACCEPT,
-  ReviewDecision.CONSIDER,
-  ReviewDecision.REJECT,
-  ReviewDecision.EXCLUDE,
-  ReviewDecision.LOW_TRADABILITY,
-  ReviewDecision.WATCH,
-];
-
-/** Concrete count shape so templates can use dot access (e.g. counts.REVIEW). */
-export type StatusCounts = {
-  PENDING: number;
-  REVIEW: number;
-  ACCEPT: number;
-  CONSIDER: number;
-  REJECT: number;
-  EXCLUDE: number;
-  LOW_TRADABILITY: number;
-  WATCH: number;
-};
+// #1017 — the PACR review-decision vocabulary (ReviewDecision,
+// ALL_REVIEW_STATUSES, StatusCounts, DECISION_*_DAYS) was removed with
+// the ACR workflow; ticket existence is the decision now.
 
 /**
  * Filter value for the "Not triaged" option — symbols that belong to zero
@@ -143,22 +111,3 @@ export enum RunStatusFilter {
 
 /** Viewport mode for the chart-review sidebar. */
 export type ViewportMode = 'signals' | 'browse';
-
-// ---------------------------------------------------------------------------
-// Occurrence decision retention
-// ---------------------------------------------------------------------------
-
-/**
- * Number of days of occurrence decisions to load for the signal review UI.
- * Decisions older than this window are not fetched but may still exist in
- * Firestore until the TTL cleanup removes them. Change this value to adjust
- * how far back the signal review page looks.
- */
-export const DECISION_FETCH_DAYS = 3;
-
-/**
- * Age in days after which occurrence decisions are eligible for TTL deletion
- * by the scheduled cleanup function. Kept longer than `DECISION_FETCH_DAYS`
- * so there is a buffer between what the UI shows and what the DB retains.
- */
-export const DECISION_TTL_DAYS = 7;
