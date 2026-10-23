@@ -10,6 +10,10 @@
 
 ### Changed
 - [Manual Order Entry] 1177-1190_FE-IMPL-ORDER: manual staging permits parallel orders — live/FILLED tickets no longer block manual intent (add-to-position legitimate); STAGED adoption + same-minute doc-collision guard retained; signal/card lane unchanged
+- [Savant Design System] 1024-1207_FE-IMPL-DESIGN-SYSTEM: pre-paint data-theme bootstrap (index.html, dark default, corrupt→dark, no prefers-color-scheme) + root signal ThemeService (theme/set/toggle — attribute + localStorage authority)
+- [Savant Design System] 1024-1207_FE-IMPL-DESIGN-SYSTEM: header theme toggle — icon shows target theme, delegates to ThemeService
+- [Savant Design System] 1024-1207_SHARED-IMPL-DESIGN-SYSTEM: theme-plumbing verify relay — 21 checks incl. single documentElement data-theme writer invariant
+- [Savant Design System] 1024-1207_DOCS-DESIGN-SYSTEM: #1207 CODE-REVIEW (PASS, 2 rounds; M1 dark-before-#1209 user-accepted bound) + #1228 UAT (Complete)
 
 ## [2026-10-22]
 
