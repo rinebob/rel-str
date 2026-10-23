@@ -23,27 +23,22 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import { Observable, of } from 'rxjs';
-
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 import { Collection } from '../../../../core/common/constants';
-import type { StSignalItem } from '../../services/types';
 import { TriageStore } from '../../stores/triage.store';
-import { OccurrenceDecisionStore } from '../../stores/occurrence-decision.store';
 import { GroupStore } from '../../stores/group.store';
+import { StStore } from '../../stores/st.store';
 import { SymbolListStore } from '../../stores/symbol-list.store';
-import { SymbolHistoryStore } from '../../stores/symbol-history.store';
-import { SignalService } from '../../services/signal.service';
-import { NO_MEMBERSHIP, ReviewDecision, type SymbolListFilter } from '../../common/constants';
+import { NO_MEMBERSHIP, type SymbolListFilter } from '../../common/constants';
 import { ChartReviewViewportService } from '../../services/chart-review-viewport.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { todayDate } from '../../utils/utils';
 import { SignalListComponent } from '../../components/signal-list/signal-list.component';
 import { SignalDetailComponent } from '../../components/signal-detail/signal-detail.component';
 import { ReviewHeaderComponent } from '../../components/review-header/review-header.component';
 import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run-metrics-strip.component';
 import { NewSymbolsDialogService } from '../../services/new-symbols-dialog.service';
 import { SignalReviewFacade } from '../../stores/signal-review.facade';
+import { OrderTicketStore } from '../../stores/order-ticket.store';
 
 @Component({
   selector: 'app-chart-review',
@@ -63,15 +58,14 @@ import { SignalReviewFacade } from '../../stores/signal-review.facade';
 })
 export class ChartReviewComponent implements OnInit, OnDestroy {
   readonly triageStore = inject(TriageStore);
-  readonly occurrenceStore = inject(OccurrenceDecisionStore);
   readonly groupStore = inject(GroupStore);
   readonly symbolListStore = inject(SymbolListStore);
-  readonly historyStore = inject(SymbolHistoryStore);
-  readonly signalService = inject(SignalService);
+  private readonly agentStore = inject(StStore);
+  private readonly ticketStore = inject(OrderTicketStore);
   readonly viewportService = inject(ChartReviewViewportService);
   readonly uiStateService = inject(UiStateService);
   private readonly router = inject(Router);
-  private readonly reviewFacade = inject(SignalReviewFacade);
+  readonly reviewFacade = inject(SignalReviewFacade);
   private readonly newSymbolsDialog = inject(NewSymbolsDialogService);
   private readonly firestore = inject(Firestore);
   private readonly injector = inject(EnvironmentInjector);
@@ -114,22 +108,24 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     return cache[symbol] ?? null;
   });
 
-  /** Status of the currently selected review symbol — durable decision,
-   *  falling back to the ephemeral screening status (WATCH/CONSIDER) so
-   *  the Watch button can show its selected state. */
-  selectedSymbolStatus = computed(() => {
-    const symbol = this.selectedReviewSymbol();
-    if (!symbol) return ReviewDecision.PENDING;
-    const durable = this.occurrenceStore.statusForSymbol(symbol);
-    return durable !== ReviewDecision.PENDING
-      ? durable
-      : (this.triageStore.screeningStatuses()[symbol] ?? ReviewDecision.PENDING);
-  });
-
   /** Expose the actionable-run predicate from the group store for the template. */
   readonly isActionableRun = this.groupStore.isActionableRun;
 
   constructor() {
+    /**
+     * Establish run context on direct entry (#1017 QA) — this page never
+     * bootstrapped a run before because its buttons had no real action;
+     * Trade needs isActionableRun, and tradeSymbol needs the run's
+     * signals loaded (setActiveRun fans them out). Same pattern as
+     * GalleryFacade/SignalReviewFacade.
+     */
+    effect(() => {
+      const latest = this.agentStore.latestCompletedRun();
+      if (!latest) return;
+      if (this.groupStore.activeRunId()) return;
+      this.groupStore.setActiveRun(latest.id, latest.marketDate ?? '');
+    });
+
     /**
      * Auto-select the first review symbol when the queue changes and none is selected.
      * Skip when a manual symbol is active so the chart stays on the manual symbol.
@@ -164,25 +160,19 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Ensure symbol lists are loaded. */
+  /** Ensure symbol lists, the runs stream, and the ticket store are
+   *  loaded — without tickets hydrated, tradeSymbol's adopt/block
+   *  probes see an empty map and mint duplicate staged tickets (#1017
+   *  QA). */
   ngOnInit(): void {
     this.symbolListStore.loadSymbolLists();
+    this.agentStore.loadData();
+    this.ticketStore.loadTickets();
   }
 
   /** Leave fullscreen mode when the page is destroyed. */
   ngOnDestroy(): void {
     this.uiStateService.setFullscreen(false);
-  }
-
-  private currentMarketDate(): string {
-    return this.groupStore.activeRunMarketDate() ?? todayDate();
-  }
-
-  /** Return the current-run signal occurrences for a symbol, using the cache if available. */
-  private currentRunSignals(symbol: string): Observable<StSignalItem[]> {
-    const runId = this.groupStore.activeRunId();
-    if (!runId) return of([]);
-    return this.signalService.getCurrentRunSignalsForSymbol(symbol, runId, this.historyStore.signalHistoryCache());
   }
 
   // --- Viewport selection (#1016 — was the REVIEW-flag queue; browse shows
@@ -193,38 +183,22 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.selectedReviewSymbol.set(symbol);
   }
 
-  /** Accept the currently selected review symbol and advance the queue. */
-  onAcceptReview(): void {
+  /** Trade the currently selected symbol (#1017 — replaced the ACR
+   *  cluster): stage its signal-sourced ticket when run signals exist,
+   *  else open the seeded manual dialog. */
+  onTradeReview(): void {
     if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
-    this.reviewFacade.acceptSymbol(symbol);
-    this.advanceReviewQueue(symbol);
+    void this.reviewFacade.tradeSymbol(symbol);
   }
 
-  /** Watch the currently selected review symbol and advance the queue. */
-  onWatchReview(): void {
-    if (!this.isActionableRun()) return;
-    const symbol = this.selectedReviewSymbol();
-    if (!symbol) return;
-    this.triageStore.setScreeningStatus(symbol, ReviewDecision.WATCH);
-    this.advanceReviewQueue(symbol);
-  }
-
-  /** Reject the currently selected review symbol and advance the queue. */
-  onRejectReview(): void {
-    if (!this.isActionableRun()) return;
-    const symbol = this.selectedReviewSymbol();
-    if (!symbol) return;
-    this.reviewFacade.rejectSymbol(symbol);
-    this.advanceReviewQueue(symbol);
-  }
-
-  /** Move the selection to the next symbol in the viewport after a decision. */
-  private advanceReviewQueue(decidedSymbol: string): void {
+  /** Move the selection to the next symbol in the viewport — used when a
+   *  list-membership toggle drops the selected symbol out of the filter. */
+  private advanceReviewQueue(removedSymbol: string): void {
     const before = this.viewportSymbols();
-    const idx = before.indexOf(decidedSymbol);
-    const remaining = before.filter((s: string) => s !== decidedSymbol);
+    const idx = before.indexOf(removedSymbol);
+    const remaining = before.filter((s: string) => s !== removedSymbol);
     if (remaining.length === 0) { this.selectedReviewSymbol.set(null); return; }
     const nextIdx = Math.min(idx, remaining.length - 1);
     this.selectedReviewSymbol.set(remaining[nextIdx]);
@@ -259,8 +233,8 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     const willLeave = this.willLeaveActiveList(event.symbol, event.listKey);
     this.symbolListStore.toggleSymbolInList(event.symbol, event.listKey);
     // When the write drops the selected symbol out of the filtered viewport,
-    // advance to the next symbol NOW (same pre-write pattern as
-    // accept/watch/reject) — otherwise the index dangles at -1 and nav dies.
+    // advance to the next symbol NOW — otherwise the index dangles at -1
+    // and nav dies.
     if (willLeave && event.symbol === this.selectedReviewSymbol()) {
       this.advanceReviewQueue(event.symbol);
     }
@@ -320,7 +294,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
   }
 
-  /** Navigate to signal order, staging accepted decisions if any. */
+  /** Navigate to signal order. */
   goToSignalOrder(): void {
     this.reviewFacade.goToSignalOrder();
   }

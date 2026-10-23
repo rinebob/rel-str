@@ -30,13 +30,13 @@
     min-width: 0;
   }
 
-  .header-acr {
+  .header-trade {
     display: flex !important;
     gap: 4px;
     flex-shrink: 0;
     visibility: visible !important;
 
-    .acr-btn {
+    .trade-btn {
       width: 28px;
       height: 28px;
       padding: 0;
@@ -51,10 +51,18 @@
 
       mat-icon { font-size: 16px; width: 16px; height: 16px; color: white; display: flex; }
 
-      &.accept  { background-color: var(--mat-sys-success); &:hover { filter: brightness(1.1); } &.selected { background-color: #1b5e20; box-shadow: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px #1b5e20; } }
-      &.consider { background-color: #ff9800; &:hover { filter: brightness(1.1); } &.selected { background-color: #e65100; box-shadow: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px #e65100; } }
-      &.watch   { background-color: #f9a825; &:hover { filter: brightness(1.1); } &.selected { background-color: #f57f17; box-shadow: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px #f57f17; } }
-      &.reject  { background-color: var(--mat-sys-error); &:hover { filter: brightness(1.1); } &.selected { background-color: #c62828; box-shadow: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px #c62828; } }
+      &.trade {
+        // #1017 — Trade label pill replaced the ACR icon set.
+        width: auto;
+        padding: 0 10px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: #fff;
+        background-color: var(--mat-sys-success);
+        &:hover { filter: brightness(1.1); }
+        &:disabled { opacity: 0.4; cursor: not-allowed; }
+      }
     }
   }
 
@@ -91,7 +99,7 @@
       @include vl.pill-btn;
     }
 
-    .stage-accepted-btn {
+    .order-queue-btn {
       width: auto;
       gap: 4px;
       padding: 0 8px;

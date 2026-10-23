@@ -35,7 +35,7 @@ export class GroupPanelComponent {
   listCatalog = input.required<SymbolListDef[]>();
   selectedSymbol = input<string | null>(null);
   quickChartSymbol = input<string | null>(null);
-  /** When false, ACR mutation controls are disabled for all rows in this group. */
+  /** When false, trade controls are disabled for all rows in this group. */
   isActionableRun = input(true);
 
   readonly visibleSymbolCount = computed(() => this.visibleRows().length);
@@ -53,11 +53,8 @@ export class GroupPanelComponent {
   rowSelect = output<string>();
   rowViewQuickCharts = output<string>();
   rowMarkForReview = output<string>();
-  rowAccept = output<string>();
-  rowConsider = output<string>();
-  rowReject = output<string>();
-  rowReset = output<string>();
-  rowClearHistory = output<string>();
+  /** Trade the row's symbol (#1017 — replaced the ACR emit set). */
+  rowTrade = output<string>();
   rowToggleList = output<{ symbol: string; listKey: string }>();
 
   onExpandAll(event: Event): void {

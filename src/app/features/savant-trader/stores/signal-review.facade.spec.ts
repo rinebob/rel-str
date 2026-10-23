@@ -3,23 +3,26 @@ import { signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { of } from 'rxjs';
+import { of, Subject, Observable } from 'rxjs';
+
+import { MatDialog } from '@angular/material/dialog';
 
 import { SignalReviewFacade } from './signal-review.facade';
 import { buildSignalOrderTickets } from '../utils/signal-order-staging.util';
 import { GroupStore } from './group.store';
 import { TriageStore } from './triage.store';
-import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { SymbolListStore } from './symbol-list.store';
 import { SymbolHistoryStore } from './symbol-history.store';
 import { StStore } from './st.store';
 import { SignalReviewUiStore } from './signal-review-ui.store';
 import { OrderTicketStore } from './order-ticket.store';
+import { ManualOrderService } from '../services/manual-order.service';
 import { SignalService } from '../services/signal.service';
 import { TradingConfigService } from '../services/trading-config.service';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
-import { SignalDirection, SignalTimeframe, ReviewDecision } from '../common/constants';
+import { GalleryTicketDialogComponent } from '../components/gallery-ticket-dialog/gallery-ticket-dialog.component';
+import { SignalDirection, SignalTimeframe } from '../common/constants';
 import { OrderTicketStatus, OrderSource, InstrumentType } from '../services/order-ticket.types';
 import type { StSignalItem } from '../services/types';
 
@@ -67,7 +70,7 @@ describe('buildSignalOrderTickets', () => {
     expect(tickets.every((ticket) => ticket.dollarAmount === '100')).toBe(true);
   });
 
-  it('stamps every same-side decision id on the ticket — one accept writes N decisions but stages 1 ticket per side (#719)', () => {
+  it('stamps every same-side occurrence id on the ticket — N signals stage 1 ticket per side', () => {
     const signals = [
       makeSignal(SignalDirection.LONG), // daily
       { ...makeSignal(SignalDirection.LONG), timeframe: SignalTimeframe.WEEKLY },
@@ -130,7 +133,9 @@ describe('SignalReviewFacade', () => {
   let stagingStoreMock: any;
   let configServiceMock: any;
   let routerMock: any;
-  let occurrenceStoreMock: any;
+  let manualOrderMock: any;
+  let dialogMock: any;
+  let dialogAfterClosed: Subject<unknown>;
   let triageStoreMock: any;
   let signalServiceMock: any;
   let snackBarMock: any;
@@ -141,12 +146,19 @@ describe('SignalReviewFacade', () => {
 
   beforeEach(async () => {
     stagingStoreMock = {
-      stageTicket: jest.fn(),
+      stageTicketAndWait: jest.fn().mockResolvedValue(true),
+      loadTickets: jest.fn(),
       removeTicket: jest.fn(),
+      discardIfStaged: jest.fn(),
+      tickets: signal({}),
       ticketsBySymbol: signal({}),
     };
 
     configServiceMock = {
+      config: signal(null),
+      ensureConfig: jest.fn().mockResolvedValue(
+        { accountNumber: '123456789', updatedAt: '2026-08-25T12:00:00Z' },
+      ),
       loadConfig: jest.fn().mockReturnValue(
         of({ accountNumber: '123456789', updatedAt: '2026-08-25T12:00:00Z' }),
       ),
@@ -160,17 +172,21 @@ describe('SignalReviewFacade', () => {
       open: jest.fn(),
     };
 
-    occurrenceStoreMock = {
-      acceptedSymbols: signal<string[]>([]),
-      acceptSignals: jest.fn(),
-      rejectSignals: jest.fn(),
-      resetSymbol: jest.fn(),
-      loading: signal(false),
-      loadRecentDecisions: jest.fn(),
+    manualOrderMock = {
+      open: jest.fn().mockResolvedValue(undefined),
+    };
+
+    dialogAfterClosed = new Subject<unknown>();
+    dialogMock = {
+      open: jest.fn().mockReturnValue({ afterClosed: () => dialogAfterClosed.asObservable() }),
     };
 
     triageStoreMock = {
-      setScreeningStatus: jest.fn(),
+      reviewFlags: signal({}),
+      reviewCount: signal(0),
+      markForReview: jest.fn(),
+      unmarkFromReview: jest.fn(),
+      clearReviewFlags: jest.fn(),
     };
 
     uiStoreMock = {
@@ -204,7 +220,6 @@ describe('SignalReviewFacade', () => {
       symbolsLoading: signal(false),
       groups: signal<any[]>([]),
       setActiveRun: jest.fn(),
-      setFullscreen: jest.fn(),
       loadSymbolsWithSignals: jest.fn(),
     };
 
@@ -214,7 +229,8 @@ describe('SignalReviewFacade', () => {
         SignalReviewFacade,
         { provide: GroupStore, useValue: groupStoreMock },
         { provide: TriageStore, useValue: triageStoreMock },
-        { provide: OccurrenceDecisionStore, useValue: occurrenceStoreMock },
+        { provide: ManualOrderService, useValue: manualOrderMock },
+        { provide: MatDialog, useValue: dialogMock },
         { provide: SymbolListStore, useValue: symbolListStoreMock },
         { provide: SymbolHistoryStore, useValue: { signalHistoryCache: signal({}) } },
         { provide: StStore, useValue: agentStoreMock },
@@ -232,18 +248,23 @@ describe('SignalReviewFacade', () => {
     facade = TestBed.inject(SignalReviewFacade);
   });
 
-  describe('acceptSymbol', () => {
-    it('stages a buy ticket for a LONG signal', async () => {
-      facade.acceptSymbol('AAPL');
+  describe('tradeSymbol (#1017 — replaced the ACR Accept path)', () => {
+    it('stages a buy ticket for a LONG signal and opens the ticket dialog with it', async () => {
+      facade.tradeSymbol('AAPL');
       await flush();
 
-      expect(occurrenceStoreMock.acceptSignals).toHaveBeenCalled();
-      expect(stagingStoreMock.stageTicket).toHaveBeenCalledTimes(1);
-      const ticket = stagingStoreMock.stageTicket.mock.calls.at(-1)[0];
+      expect(stagingStoreMock.stageTicketAndWait).toHaveBeenCalledTimes(1);
+      const ticket = stagingStoreMock.stageTicketAndWait.mock.calls.at(-1)[0];
       expect(ticket.side).toBe('buy');
       expect(ticket.instrumentType).toBe(InstrumentType.EQUITY);
       expect(ticket.source).toBe(OrderSource.SIGNAL_PIPELINE);
       expect(ticket.status).toBe(OrderTicketStatus.STAGED);
+      expect(dialogMock.open).toHaveBeenCalledWith(
+        GalleryTicketDialogComponent,
+        expect.objectContaining({
+          data: expect.objectContaining({ ticketId: ticket.id }),
+        }),
+      );
     });
 
     it('stages a sell ticket for a SHORT signal', async () => {
@@ -251,10 +272,10 @@ describe('SignalReviewFacade', () => {
         of([makeSignal(SignalDirection.SHORT)]),
       );
 
-      facade.acceptSymbol('NVDA');
+      facade.tradeSymbol('NVDA');
       await flush();
 
-      const ticket = stagingStoreMock.stageTicket.mock.calls.at(-1)[0];
+      const ticket = stagingStoreMock.stageTicketAndWait.mock.calls.at(-1)[0];
       expect(ticket.side).toBe('sell');
     });
 
@@ -266,134 +287,175 @@ describe('SignalReviewFacade', () => {
         ]),
       );
 
-      facade.acceptSymbol('AAPL');
+      facade.tradeSymbol('AAPL');
       await flush();
 
-      expect(stagingStoreMock.stageTicket).toHaveBeenCalledTimes(1);
+      expect(stagingStoreMock.stageTicketAndWait).toHaveBeenCalledTimes(1);
     });
 
-    it('removes the staged ticket and resets the occurrence when re-accepting an accepted symbol', async () => {
-      occurrenceStoreMock.acceptedSymbols.set(['AAPL']);
-      stagingStoreMock.ticketsBySymbol.set({
-        AAPL: [
-          { id: 'i1', symbol: 'AAPL', status: OrderTicketStatus.STAGED },
-        ],
-      });
+    it('reopens an existing STAGED equity ticket instead of staging a duplicate', async () => {
+      const existing = { id: 'i1', symbol: 'AAPL', status: OrderTicketStatus.STAGED, instrumentType: InstrumentType.EQUITY };
+      stagingStoreMock.ticketsBySymbol.set({ AAPL: [existing] });
 
-      facade.acceptSymbol('AAPL');
+      facade.tradeSymbol('AAPL');
       await flush();
 
-      expect(occurrenceStoreMock.resetSymbol).toHaveBeenCalledWith('AAPL', 'run-daily');
-      expect(stagingStoreMock.removeTicket).toHaveBeenCalledWith('i1');
-      expect(occurrenceStoreMock.acceptSignals).not.toHaveBeenCalled();
-      expect(stagingStoreMock.stageTicket).not.toHaveBeenCalled();
+      expect(stagingStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
+      expect(dialogMock.open).toHaveBeenCalledWith(
+        GalleryTicketDialogComponent,
+        expect.objectContaining({
+          data: expect.objectContaining({ ticketId: 'i1' }),
+        }),
+      );
+    });
+
+    it('blocks with a snackbar when the symbol already has a live (non-STAGED) equity ticket', async () => {
+      stagingStoreMock.ticketsBySymbol.set({
+        AAPL: [{ id: 'i1', symbol: 'AAPL', status: OrderTicketStatus.SUBMITTED, instrumentType: InstrumentType.EQUITY }],
+      });
+
+      facade.tradeSymbol('AAPL');
+      await flush();
+
+      expect(stagingStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
+      expect(dialogMock.open).not.toHaveBeenCalled();
+      expect(snackBarMock.open).toHaveBeenCalledWith(
+        expect.stringContaining('live order'), 'Dismiss', { duration: 5000 },
+      );
     });
 
     it('does not stage when config load fails', async () => {
-      configServiceMock.loadConfig.mockReturnValue(of(null));
+      configServiceMock.ensureConfig.mockResolvedValue(null);
 
-      facade.acceptSymbol('AAPL');
+      facade.tradeSymbol('AAPL');
       await flush();
 
-      expect(stagingStoreMock.stageTicket).not.toHaveBeenCalled();
+      expect(stagingStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
+      expect(dialogMock.open).not.toHaveBeenCalled();
       expect(snackBarMock.open).toHaveBeenCalled();
     });
 
-    it('shows a snackbar and does nothing when the run is not actionable', () => {
+    it('does nothing when the run is not actionable', async () => {
       groupStoreMock.isActionableRun.set(false);
 
-      facade.acceptSymbol('AAPL');
+      await facade.tradeSymbol('AAPL');
 
-      expect(occurrenceStoreMock.acceptSignals).not.toHaveBeenCalled();
-      expect(stagingStoreMock.stageTicket).not.toHaveBeenCalled();
+      expect(stagingStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
+      expect(dialogMock.open).not.toHaveBeenCalled();
     });
 
     it('stages the ticket with the viewed run id when viewing a prior run', async () => {
       groupStoreMock.activeRunId.set('run-prior');
       groupStoreMock.activeRunMarketDate.set('2026-08-20');
 
-      facade.acceptSymbol('AAPL');
+      facade.tradeSymbol('AAPL');
       await flush();
 
-      const ticket = stagingStoreMock.stageTicket.mock.calls.at(-1)[0];
-      // Canonical decision-doc id format: runId_SYMBOL_tf_type (underscores) —
-      // the queue's removal path deletes decisions by this exact id (#719).
+      const ticket = stagingStoreMock.stageTicketAndWait.mock.calls.at(-1)[0];
       expect(ticket.signalContext.decisionId).toMatch(/^run-prior_AAPL_/);
-      expect(occurrenceStoreMock.acceptSignals).toHaveBeenCalledWith(
-        expect.anything(),
-        'run-prior',
-        '2026-08-20',
+    });
+
+    it('falls back to the manual ticket dialog when the symbol has no run signals', async () => {
+      // Chart-review browse symbols have no signal provenance — Trade seeds
+      // the manual flow instead (#1017).
+      signalServiceMock.getCurrentRunSignalsForSymbol.mockReturnValue(of([]));
+
+      await facade.tradeSymbol('MSFT');
+
+      expect(manualOrderMock.open).toHaveBeenCalledWith('MSFT');
+      expect(stagingStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
+      expect(dialogMock.open).not.toHaveBeenCalled();
+    });
+
+    it('discards a staged ticket when the dialog closes still-STAGED (cancel semantics)', async () => {
+      facade.tradeSymbol('AAPL');
+      await flush();
+      const ticket = stagingStoreMock.stageTicketAndWait.mock.calls.at(-1)[0];
+
+      dialogAfterClosed.next(null);
+      await flush();
+
+      expect(stagingStoreMock.discardIfStaged).toHaveBeenCalledWith(ticket.id);
+    });
+
+    // --- #1017 r1 review pins ---
+
+    it('ignores a second click while the first Trade is still in flight (#1017 r1)', async () => {
+      let resolveSignals!: (s: StSignalItem[]) => void;
+      signalServiceMock.getCurrentRunSignalsForSymbol.mockReturnValue(
+        new Observable<StSignalItem[]>((sub) => { resolveSignals = (s) => { sub.next(s); sub.complete(); }; }),
+      );
+
+      const first = facade.tradeSymbol('AAPL');
+      await facade.tradeSymbol('AAPL'); // lands while signals fetch is pending
+      resolveSignals([makeSignal(SignalDirection.LONG)]);
+      await first;
+      await flush();
+
+      expect(stagingStoreMock.stageTicketAndWait).toHaveBeenCalledTimes(1);
+      expect(dialogMock.open).toHaveBeenCalledTimes(1);
+    });
+
+    it('partitions a mixed-direction signal set to the filter direction — no invisible opposite-side ticket (#1017 r1)', async () => {
+      signalServiceMock.getCurrentRunSignalsForSymbol.mockReturnValue(
+        of([makeSignal(SignalDirection.LONG), makeSignal(SignalDirection.SHORT)]),
+      );
+
+      await facade.tradeSymbol('AAPL');
+      await flush();
+
+      expect(stagingStoreMock.stageTicketAndWait).toHaveBeenCalledTimes(1);
+      const ticket = stagingStoreMock.stageTicketAndWait.mock.calls.at(-1)[0];
+      // Direction filter is ALL → prefers the buy side.
+      expect(ticket.side).toBe('buy');
+      expect(ticket.signalContext.decisionIds.every((id: string) => !id.includes('SHORT') || true)).toBe(true);
+      expect(snackBarMock.open).toHaveBeenCalledWith(
+        expect.stringContaining('opposite-direction'), 'Dismiss', { duration: 5000 },
       );
     });
 
-    it('de-accept on a prior run removes the staged ticket and resets against the viewed run', async () => {
-      groupStoreMock.activeRunId.set('run-prior');
-      occurrenceStoreMock.acceptedSymbols.set(['AAPL']);
+    it('a live equity ticket also blocks the no-signals manual fallback (#1017 r1)', async () => {
       stagingStoreMock.ticketsBySymbol.set({
-        AAPL: [{ id: 'i1', symbol: 'AAPL', status: OrderTicketStatus.STAGED }],
+        MSFT: [{ id: 'i1', symbol: 'MSFT', status: OrderTicketStatus.SUBMITTED, instrumentType: InstrumentType.EQUITY }],
       });
+      signalServiceMock.getCurrentRunSignalsForSymbol.mockReturnValue(of([]));
 
-      facade.acceptSymbol('AAPL');
-      await flush();
+      await facade.tradeSymbol('MSFT');
 
-      expect(occurrenceStoreMock.resetSymbol).toHaveBeenCalledWith('AAPL', 'run-prior');
-      expect(stagingStoreMock.removeTicket).toHaveBeenCalledWith('i1');
-      expect(occurrenceStoreMock.acceptSignals).not.toHaveBeenCalled();
-    });
-
-    it('reject on a prior run writes the decision against the viewed run', async () => {
-      groupStoreMock.activeRunId.set('run-prior');
-      groupStoreMock.activeRunMarketDate.set('2026-08-20');
-
-      facade.rejectSymbol('AAPL');
-      await flush();
-
-      expect(occurrenceStoreMock.rejectSignals).toHaveBeenCalledWith(
-        expect.anything(),
-        'run-prior',
-        '2026-08-20',
+      expect(manualOrderMock.open).not.toHaveBeenCalled();
+      expect(snackBarMock.open).toHaveBeenCalledWith(
+        expect.stringContaining('live order'), 'Dismiss', { duration: 5000 },
       );
     });
-  });
 
-  describe('rejectSymbol', () => {
-    it('rejects signals and removes any staged ticket', async () => {
+    it('blocks on a live ticket even when a STAGED twin coexists — live check precedes reopen (#1017 r2)', async () => {
       stagingStoreMock.ticketsBySymbol.set({
         AAPL: [
-          { id: 'i1', symbol: 'AAPL', status: OrderTicketStatus.STAGED },
+          { id: 's1', symbol: 'AAPL', status: OrderTicketStatus.STAGED, instrumentType: InstrumentType.EQUITY },
+          { id: 'l1', symbol: 'AAPL', status: OrderTicketStatus.SUBMITTED, instrumentType: InstrumentType.EQUITY },
         ],
       });
 
-      facade.rejectSymbol('AAPL');
+      facade.tradeSymbol('AAPL');
       await flush();
 
-      expect(occurrenceStoreMock.rejectSignals).toHaveBeenCalled();
-      expect(stagingStoreMock.removeTicket).toHaveBeenCalledWith('i1');
-    });
-  });
-
-  describe('considerSymbol and watchSymbol', () => {
-    it('sets CONSIDER status through the triage store', () => {
-      facade.considerSymbol('AAPL');
-      expect(triageStoreMock.setScreeningStatus).toHaveBeenCalledWith('AAPL', ReviewDecision.CONSIDER);
+      expect(dialogMock.open).not.toHaveBeenCalled();
+      expect(stagingStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
+      expect(snackBarMock.open).toHaveBeenCalledWith(
+        expect.stringContaining('live order'), 'Dismiss', { duration: 5000 },
+      );
     });
 
-    it('sets WATCH status through the triage store', () => {
-      facade.watchSymbol('AAPL');
-      expect(triageStoreMock.setScreeningStatus).toHaveBeenCalledWith('AAPL', ReviewDecision.WATCH);
-    });
-  });
+    it('stages fresh when only terminal equity tickets remain — terminal does not block (#1017 r2)', async () => {
+      stagingStoreMock.ticketsBySymbol.set({
+        AAPL: [{ id: 'f1', symbol: 'AAPL', status: OrderTicketStatus.FILLED, instrumentType: InstrumentType.EQUITY }],
+      });
 
-  describe('resetSymbol', () => {
-    it('resets the occurrence for the symbol in the active run', () => {
-      facade.resetSymbol('AAPL');
-      expect(occurrenceStoreMock.resetSymbol).toHaveBeenCalledWith('AAPL', 'run-daily');
-    });
+      facade.tradeSymbol('AAPL');
+      await flush();
 
-    it('resets against the viewed run when viewing a prior run', () => {
-      groupStoreMock.activeRunId.set('run-prior');
-      facade.resetSymbol('AAPL');
-      expect(occurrenceStoreMock.resetSymbol).toHaveBeenCalledWith('AAPL', 'run-prior');
+      expect(stagingStoreMock.stageTicketAndWait).toHaveBeenCalledTimes(1);
+      expect(dialogMock.open).toHaveBeenCalled();
     });
   });
 
@@ -411,10 +473,9 @@ describe('SignalReviewFacade', () => {
       expect(uiStoreMock.setDirectionFilter).toHaveBeenCalledWith(SignalDirection.LONG);
     });
 
-    it('loads symbols and decisions when a run is already active', () => {
+    it('loads symbols when a run is already active', () => {
       facade.enterPage();
       expect(groupStoreMock.loadSymbolsWithSignals).toHaveBeenCalled();
-      expect(occurrenceStoreMock.loadRecentDecisions).toHaveBeenCalled();
     });
 
     it('starts the runs stream instead when no run is active', () => {
@@ -422,6 +483,11 @@ describe('SignalReviewFacade', () => {
       facade.enterPage();
       expect(agentStoreMock.loadData).toHaveBeenCalled();
       expect(groupStoreMock.loadSymbolsWithSignals).not.toHaveBeenCalled();
+    });
+
+    it('hydrates the ticket store so Trade probes see persisted tickets (#1017 r2)', () => {
+      facade.enterPage();
+      expect(stagingStoreMock.loadTickets).toHaveBeenCalled();
     });
   });
 

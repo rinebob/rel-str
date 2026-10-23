@@ -29,8 +29,6 @@
     Signals <span class="pill-count">{{ filteredSignalCount() }}</span>
   </span>
 
-  <app-status-summary-chips [counts]="statusCounts()"></app-status-summary-chips>
-
   <div class="toolbar-spacer"></div>
 
   <div class="pipeline-actions">
@@ -44,19 +42,13 @@
       <mat-icon>visibility</mat-icon>
       Review <span class="pill-count">{{ reviewCount() }}</span>
     </button>
-    <button type="button" class="pill-btn accept"
-      [class.active]="acceptedCount() > 0"
-      [disabled]="acceptedCount() === 0 || !isActionableRun()"
+    <button type="button" class="pill-btn order"
+      [class.active]="orderCount() > 0"
+      [disabled]="orderCount() === 0 || !isActionableRun()"
       (click)="goToOrder.emit()"
       matTooltip="Go to signal order page">
       <mat-icon>shopping_cart</mat-icon>
-      Order <span class="pill-count">{{ acceptedCount() }}</span>
-    </button>
-    <button type="button" class="pill-btn"
-      (click)="goToTriageReport.emit()"
-      matTooltip="View PACR triage report">
-      <mat-icon>assignment</mat-icon>
-      Report
+      Order <span class="pill-count">{{ orderCount() }}</span>
     </button>
     <a class="pill-btn"
       [routerLink]="'/' + appRoutes.RH_ACCOUNT_INQUIRY"

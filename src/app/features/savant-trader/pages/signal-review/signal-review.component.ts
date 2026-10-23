@@ -118,29 +118,10 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.markForReview(symbol);
   }
 
-  /** Set a symbol's status to ACCEPT. */
-  onAccept(symbol: string): void {
-    this.facade.acceptSymbol(symbol);
-  }
-
-  /** Set a symbol's status to CONSIDER. */
-  onConsider(symbol: string): void {
-    this.facade.considerSymbol(symbol);
-  }
-
-  /** Set a symbol's status to REJECT. */
-  onReject(symbol: string): void {
-    this.facade.rejectSymbol(symbol);
-  }
-
-  /** Reset a symbol's status to PENDING. */
-  onReset(symbol: string): void {
-    this.facade.resetSymbol(symbol);
-  }
-
-  /** Clear all decision history for a symbol across all runs. */
-  onClearHistory(symbol: string): void {
-    this.facade.clearSymbolHistory(symbol);
+  /** Trade a symbol (#1017 — replaced the ACR Accept path): stage its
+   *  signal-sourced ticket(s) and open the order dialog. */
+  onTrade(symbol: string): void {
+    void this.facade.tradeSymbol(symbol);
   }
 
   /** Clear all review flags from the queue. */
@@ -166,10 +147,5 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
   /** Navigate to signal order page. */
   goToSignalOrder(): void {
     this.facade.goToSignalOrder();
-  }
-
-  /** Navigate to the triage report page. */
-  goToTriageReport(): void {
-    this.facade.goToTriageReport();
   }
 }

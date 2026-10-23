@@ -1,0 +1,19 @@
+<div class="symbol-actions" (click)="$event.stopPropagation()">
+  <!-- #1016 — review-list persistence removed; flagging is session-local
+       only. Disabled until the review pages are repurposed. -->
+  <button type="button" class="action-btn review"
+    [class.active]="row().isReviewed"
+    disabled
+    (click)="markForReview.emit(row().profile.symbol)"
+    matTooltip="Review">
+    <mat-icon>bookmark_border</mat-icon>
+  </button>
+  <!-- #1017 — the ACR icon set became a single Trade action: stage the
+       symbol's signal-sourced ticket and open the order dialog. -->
+  <button type="button" class="action-btn trade"
+    [disabled]="disabled()"
+    (click)="trade.emit(row().profile.symbol)"
+    matTooltip="Trade">
+    Trade
+  </button>
+</div>

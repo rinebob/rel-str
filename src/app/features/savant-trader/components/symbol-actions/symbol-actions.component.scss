@@ -1,0 +1,41 @@
+.symbol-actions {
+  display: flex;
+  gap: 1px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: var(--mat-sys-on-surface-variant);
+  flex-shrink: 0;
+
+  mat-icon { font-size: 12px; width: 12px; height: 12px; }
+
+  &:hover  { background: var(--mat-sys-surface-container-high); }
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  &.review.active   { background: #7b1fa233; color: #7b1fa2; }
+  // #1017 — Trade label button replaced the ACR icon set; text needs a
+  // wider, padded pill rather than the 20px icon square.
+  &.trade {
+    width: auto;
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #1b5e20;
+
+    &:hover:not(:disabled) { background: #1b5e2033; }
+  }
+}

@@ -4,13 +4,11 @@ import { signal } from '@angular/core';
 import { SignalReviewComponent } from './signal-review.component';
 import { SignalReviewFacade } from '../../stores/signal-review.facade';
 import type { SymbolGroup, SymbolRow } from '../../stores/group.store';
-import { ReviewDecision } from '../../common/constants';
 
 function makeRow(symbol: string): SymbolRow {
   return {
     profile: { symbol } as SymbolRow['profile'],
     hasSignal: true,
-    reviewStatus: ReviewDecision.PENDING,
     isReviewed: false,
   };
 }

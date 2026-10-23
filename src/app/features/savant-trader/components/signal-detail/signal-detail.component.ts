@@ -256,12 +256,6 @@ export class SignalDetailComponent {
   /** Total number of symbols in the review queue. */
   symbolCount = input<number>(0);
 
-  /** Emits the signal ID when the user marks a signal as accepted (A key / button). */
-  signalAccepted = output<string>();
-  /** Emits the signal ID when the user marks a signal as considered (C key / button). */
-  signalConsidered = output<string>();
-  /** Emits the signal ID when the user marks a signal as rejected (R key / button). */
-  signalRejected = output<string>();
   /** Emits when the user toggles the active symbol's list membership. */
   toggleList = output<{ symbol: string; listKey: string }>();
   /** Emits when the user clicks the previous-symbol nav button. */

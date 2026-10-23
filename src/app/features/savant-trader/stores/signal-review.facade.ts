@@ -13,14 +13,15 @@
 import { computed, effect, inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, of, firstValueFrom } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
 import { GroupStore } from './group.store';
 import { TriageStore } from './triage.store';
-import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { SymbolListStore } from './symbol-list.store';
 import { SymbolHistoryStore } from './symbol-history.store';
 import { StStore } from './st.store';
 import { SignalReviewUiStore } from './signal-review-ui.store';
 import { OrderTicketStore } from './order-ticket.store';
+import { ManualOrderService } from '../services/manual-order.service';
 import { SignalService } from '../services/signal.service';
 import { TradingConfigService } from '../services/trading-config.service';
 import type { StSignalItem } from '../services/types';
@@ -28,7 +29,13 @@ import {
   buildSignalOrderTickets,
   buildTicketId,
   DEFAULT_DOLLAR_AMOUNT,
+  NO_ACCOUNT_SNACKBAR,
 } from '../utils/signal-order-staging.util';
+import {
+  GalleryTicketDialogComponent,
+  GalleryTicketDialogData,
+  OptionTabSeed,
+} from '../components/gallery-ticket-dialog/gallery-ticket-dialog.component';
 import { AppRoutes } from '../../../core/common/interfaces';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
@@ -39,19 +46,15 @@ import {
   NO_MEMBERSHIP,
   SignalTimeframe,
   SignalDirection,
-  ReviewDecision,
-  ALL_REVIEW_STATUSES,
-  StatusCounts,
 } from '../common/constants';
 import type { StRun } from '../services/types';
 import { formatTradingViewWatchlist } from '../utils/utils';
-import { OrderTicketStatus } from '../services/order-ticket.types';
+import { EquityOrderTicket, EtfOrderTicket, InstrumentType, OrderSource, OrderTicketStatus, TERMINAL_TICKET_STATUSES, isLiveOrderTicket } from '../services/order-ticket.types';
 
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
   private readonly groupStore = inject(GroupStore);
   private readonly triageStore = inject(TriageStore);
-  private readonly occurrenceStore = inject(OccurrenceDecisionStore);
   private readonly symbolListStore = inject(SymbolListStore);
   private readonly historyStore = inject(SymbolHistoryStore);
   private readonly signalService = inject(SignalService);
@@ -61,7 +64,9 @@ export class SignalReviewFacade {
   private readonly scrollTarget = inject(ScrollTargetService);
   private readonly router = inject(Router);
   private readonly stagingStore = inject(OrderTicketStore);
+  private readonly manualOrderService = inject(ManualOrderService);
   private readonly tradingConfigService = inject(TradingConfigService);
+  private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
   /** Grouped, filtered rows. */
@@ -86,27 +91,18 @@ export class SignalReviewFacade {
   readonly symbolLists = computed(() => this.symbolListStore.symbolLists());
   readonly listCatalog = computed(() => this.symbolListStore.catalog());
 
-  /** Triage state. */
-  readonly statusCounts = computed((): StatusCounts => {
-    const durable = this.occurrenceStore.durableStatusCounts();
-    const screening = this.triageStore.screeningStatuses();
-    const counts = Object.fromEntries(
-      ALL_REVIEW_STATUSES.map((s) => [s, 0])
-    ) as StatusCounts;
-    // Copy durable counts (ACCEPT/REJECT)
-    counts.ACCEPT = durable.ACCEPT;
-    counts.REJECT = durable.REJECT;
-    // Count screening statuses (CONSIDER/WATCH)
-    for (const status of Object.values(screening)) {
-      if (status === ReviewDecision.CONSIDER) counts.CONSIDER++;
-      else if (status === ReviewDecision.WATCH) counts.WATCH++;
-    }
-    // Review count from flags
-    counts.REVIEW = this.triageStore.reviewCount();
-    return counts;
-  });
+  /** Triage state — review flags only (#1017 — the durable ACCEPT/REJECT
+   *  and ephemeral CONSIDER/WATCH status counts are gone). */
   readonly reviewCount = computed(() => this.triageStore.reviewCount());
-  readonly acceptedCount = computed(() => this.occurrenceStore.acceptedCount());
+
+  /** Non-terminal tickets in the order queue — the header's Order count
+   *  (#1017 — ticket existence is the decision). */
+  readonly orderCount = computed(
+    () =>
+      Object.values(this.stagingStore.tickets()).filter(
+        (t) => !TERMINAL_TICKET_STATUSES.has(t.status),
+      ).length,
+  );
 
   /** UI filter / expansion. */
   readonly signalFilter = computed(() => this.uiStore.signalFilter());
@@ -226,7 +222,7 @@ export class SignalReviewFacade {
     });
   }
 
-  /** Enter the signal-review page: active run, load symbols and decisions. */
+  /** Enter the signal-review page: active run, load symbols. */
   enterPage(): void {
     // Page-entry defaults — re-applied on every visit.
     this.uiStore.setTimeframeFilter(SignalTimeframe.DAILY);
@@ -237,14 +233,15 @@ export class SignalReviewFacade {
       if (!this.groupStore.symbolsLoading()) {
         this.groupStore.loadSymbolsWithSignals();
       }
-      if (!this.occurrenceStore.loading()) {
-        this.occurrenceStore.loadRecentDecisions();
-      }
     } else {
       // Direct page reload — activeRunId not yet set. Start runs stream;
       // the constructor effect will auto-select the most recent run when it arrives.
       this.agentStore.loadData();
     }
+    // Hydrate the ticket store — Trade's reopen/block probes read
+    // ticketsBySymbol; a cold store would blind them (only gallery and
+    // the order page hydrated before; #1017 r2).
+    this.stagingStore.loadTickets();
   }
 
   /** Leave the signal-review page. */
@@ -373,63 +370,139 @@ export class SignalReviewFacade {
     });
   }
 
-  acceptSymbol(symbol: string): void {
-    this.runIfActionable(() => {
-      const runId = this.groupStore.activeRunId();
-      const marketDate = this.groupStore.activeRunMarketDate();
-      if (!runId || !marketDate) return;
+  /** Symbols with a Trade in flight — the guard the gallery gets from
+   *  busyCardKeys: two rapid clicks must not both pass the ticket probe
+   *  and stage twice (#1017 r1). Held through the dialog's lifetime —
+   *  a click while the dialog is open would stack a second one on the
+   *  same ticket (r2). Per-symbol — a Trade on a different symbol isn't
+   *  blocked. */
+  private readonly tradeInFlight = new Set<string>();
 
-      // Toggle: if already accepted, de-accept and remove the staged ticket.
-      const isAccepted = this.occurrenceStore.acceptedSymbols().includes(symbol.toUpperCase());
-      if (isAccepted) {
-        this.occurrenceStore.resetSymbol(symbol, runId);
-        this.removeStagedTicketForSymbol(symbol);
+  /**
+   * Trade (#1017 — replaced the ACR Accept path): stage the symbol's
+   * signal-sourced equity ticket and open the ticket dialog so the
+   * order can be reviewed and submitted. An existing STAGED equity ticket
+   * is reopened rather than duplicated; a live (advanced) ticket blocks
+   * with a snackbar. Tickets this click created are discarded when the
+   * dialog closes still-STAGED — same cancel semantics as the gallery's
+   * Trade flow (#759).
+   */
+  async tradeSymbol(symbol: string): Promise<void> {
+    const sym = symbol.toUpperCase();
+    if (this.tradeInFlight.has(sym)) return;
+    this.tradeInFlight.add(sym);
+    await this.tradeSymbolInner(sym);
+  }
+
+  private async tradeSymbolInner(sym: string): Promise<void> {
+    let keepGuard = false;
+    try {
+      await this.runIfActionable(async () => {
+      const runId = this.groupStore.activeRunId();
+      if (!runId) return;
+
+      // Equity ticket probe FIRST — reopen/block applies whether or not
+      // the symbol has run signals: a live equity order must also block
+      // the manual fallback (#1017 r1).
+      const equity = () =>
+        (this.stagingStore.ticketsBySymbol()[sym] ?? []).filter(
+          (t): t is EquityOrderTicket | EtfOrderTicket =>
+            t.instrumentType !== InstrumentType.OPTION,
+        );
+      // Live check BEFORE the STAGED reopen — a STAGED twin coexisting
+      // with an advanced ticket must not reopen while the live order
+      // sits alongside (#1017 r2). "Live" = non-terminal and not STAGED;
+      // terminal-only tickets don't block re-staging.
+      const live = () => equity().find(isLiveOrderTicket);
+      const stagedExisting = () => equity().find((t) => t.status === OrderTicketStatus.STAGED);
+      if (live()) {
+        this.snackBar.open(`${sym}: a live order already exists for this symbol`, 'Dismiss', { duration: 5000 });
         return;
       }
 
-      this.currentRunSignals(symbol).subscribe((signals) => {
-        if (signals.length === 0) return;
-        this.occurrenceStore.acceptSignals(signals, runId, marketDate);
-        this.stageTicketForSymbol(symbol, signals, runId);
+      const signals = await firstValueFrom(this.currentRunSignals(sym));
+      // Run switch or ticket mutation mid-flight — re-run the probe, the
+      // snapshot is stale (a ticket submitted elsewhere during the await
+      // must not get a parallel stage; #1017 r2).
+      if (this.groupStore.activeRunId() !== runId || live()) {
+        if (live()) this.snackBar.open(`${sym}: a live order already exists for this symbol`, 'Dismiss', { duration: 5000 });
+        return;
+      }
+
+      // Single-direction partition — an unpartitioned mixed-direction set
+      // would stage an invisible opposite-side ticket AND corrupt option
+      // provenance: findCardTickets skips the side check for OPTION
+      // tickets, so a mixed decisionIds set statuses both buy and sell
+      // cards, and Reject on the opposite card deletes the staged option
+      // ticket via decisionIds overlap (#1017 r1).
+      const tradeSignals = this.pickTradeDirection(signals, sym, stagedExisting()?.side);
+
+      const createdTicketIds = new Set<string>();
+      let dialogTicketId: string;
+      const staged = stagedExisting();
+      // A MANUAL-sourced STAGED ticket may belong to the open manual
+      // dialog — the manual dialog owns it; a Trade click here is a
+      // no-op rather than stacking a second dialog or staging a
+      // parallel ticket (#1017 r3).
+      if (staged?.source === OrderSource.MANUAL && this.manualOrderService.dialogOpen) return;
+      if (staged) {
+        dialogTicketId = staged.id;
+      } else {
+        // No run signals → the manual ticket path, seeded with the symbol
+        // (chart-review browse symbols have no signal provenance to stage
+        // from; #1017).
+        if (!tradeSignals.length) {
+          await this.manualOrderService.open(sym);
+          return;
+        }
+        const tickets = await this.stageTicketsForSymbol(sym, tradeSignals, runId);
+        if (!tickets.length) return;
+        // Final await passed — a live ticket that appeared during the
+        // config/persist awaits vetoes the dialog; discard the staged
+        // twins rather than park them beside a live order (#1017 r3).
+        if (live()) {
+          for (const t of tickets) this.stagingStore.discardIfStaged(t.id);
+          this.snackBar.open(`${sym}: a live order already exists for this symbol`, 'Dismiss', { duration: 5000 });
+          return;
+        }
+        for (const t of tickets) createdTicketIds.add(t.id);
+        dialogTicketId = tickets[0].id;
+      }
+
+      const option: OptionTabSeed | undefined = tradeSignals.length
+        ? {
+            symbol: sym,
+            runId,
+            signals: tradeSignals,
+            onStaged: (e) => {
+              if (e.created) createdTicketIds.add(e.ticketId);
+            },
+          }
+        : undefined;
+
+      const data: GalleryTicketDialogData = {
+        ticketId: dialogTicketId,
+        tradingConfig: this.tradingConfigService.config,
+        option,
+      };
+      const ref = this.dialog.open(GalleryTicketDialogComponent, {
+        data,
+        width: '640px',
+        maxHeight: '92vh',
+        autoFocus: false,
       });
-    });
-  }
-
-  considerSymbol(symbol: string): void {
-    this.runIfActionable(() => this.triageStore.setScreeningStatus(symbol, ReviewDecision.CONSIDER));
-  }
-
-  watchSymbol(symbol: string): void {
-    this.runIfActionable(() => this.triageStore.setScreeningStatus(symbol, ReviewDecision.WATCH));
-  }
-
-  rejectSymbol(symbol: string): void {
-    this.runIfActionable(() => {
-      const runId = this.groupStore.activeRunId();
-      const marketDate = this.groupStore.activeRunMarketDate();
-      if (!runId || !marketDate) return;
-      this.currentRunSignals(symbol).subscribe((signals) => {
-        if (signals.length === 0) return;
-        this.occurrenceStore.rejectSignals(signals, runId, marketDate);
-        this.removeStagedTicketForSymbol(symbol);
+      // Hold the in-flight guard until the dialog closes — a second
+      // Trade click while it's open would stack a second dialog on the
+      // same ticket (#1017 r2).
+      ref.afterClosed().subscribe(() => {
+        for (const id of createdTicketIds) this.stagingStore.discardIfStaged(id);
+        this.tradeInFlight.delete(sym);
       });
-    });
-  }
-
-  resetSymbol(symbol: string): void {
-    this.runIfActionable(() => {
-      const runId = this.groupStore.activeRunId();
-      if (!runId) return;
-      this.occurrenceStore.resetSymbol(symbol, runId);
-    });
-  }
-
-  /** Clear all decision history for a symbol across all runs. */
-  clearSymbolHistory(symbol: string): void {
-    this.runIfActionable(() => {
-      this.occurrenceStore.clearSymbolHistory(symbol);
-      this.removeStagedTicketForSymbol(symbol);
-    });
+      keepGuard = true;
+      });
+    } finally {
+      if (!keepGuard) this.tradeInFlight.delete(sym);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -458,25 +531,69 @@ export class SignalReviewFacade {
     this.router.navigate(['/' + AppRoutes.SIGNAL_ORDER]);
   }
 
+  /** Partition a run-signal set to one trade direction (#1017 r1): the
+   *  active direction filter's side, or the reopened ticket's side when
+   *  one is bound, else LONG (the default filter). A single-direction set
+   *  passes through untouched; on a mixed set the skipped side is
+   *  reported — its card stays tradable in the gallery. */
+  private pickTradeDirection(
+    signals: StSignalItem[],
+    sym: string,
+    preferSide?: 'buy' | 'sell',
+  ): StSignalItem[] {
+    const buys = signals.filter((s) => s.direction !== SignalDirection.SHORT);
+    const sells = signals.filter((s) => s.direction === SignalDirection.SHORT);
+    if (!buys.length || !sells.length) return signals;
+    const preferBuy = preferSide
+      ? preferSide === 'buy'
+      : this.uiStore.signalFilter().direction !== SignalDirection.SHORT;
+    const [chosen, skipped] = preferBuy ? [buys, sells] : [sells, buys];
+    this.snackBar.open(
+      `${sym}: trading ${preferBuy ? 'buy' : 'sell'} side — ${skipped.length} opposite-direction signal(s) untouched`,
+      'Dismiss',
+      { duration: 5000 },
+    );
+    return chosen;
+  }
+
   /**
-   * Stage a single equity order ticket for the given symbol immediately
-   * after accept. Loads account config, deduplicates by symbol+side.
+   * Stage the symbol's signal-sourced equity ticket(s) (#1017 — the Trade
+   * path). Loads account config, dedupes by symbol+side inside the builder
+   * (one ticket per direction present in the signals — callers pass a
+   * single-direction set, so one ticket). Pessimistic persist: the dialog
+   * may submit immediately, so the create must land before the callable
+   * reads it — same contract as the gallery's stageCardTicket (#1017 r1).
    */
-  private async stageTicketForSymbol(symbol: string, signals: StSignalItem[], runId: string): Promise<void> {
+  private async stageTicketsForSymbol(symbol: string, signals: StSignalItem[], runId: string): Promise<EquityOrderTicket[]> {
     let accountNumber: string;
     let defaultDollarAmount: number;
     try {
-      const config = await firstValueFrom(this.tradingConfigService.loadConfig());
+      // ensureConfig — NOT loadConfig: the dialog binds the service's
+      // `config` signal, which only ensureConfig/warmConfig populate.
+      // loadConfig would leave it null and disable the Place Order
+      // button on this page (#1017 r2).
+      const config = await this.tradingConfigService.ensureConfig();
       accountNumber = config?.accountNumber ?? '';
       defaultDollarAmount = config?.defaultDollarAmount ?? DEFAULT_DOLLAR_AMOUNT;
       if (!accountNumber) {
-        this.snackBar.open('Failed to auto-stage order — configure the agentic account first', 'Dismiss', { duration: 4000 });
-        return;
+        this.snackBar.open(NO_ACCOUNT_SNACKBAR, 'Dismiss', { duration: 4000 });
+        return [];
       }
     } catch (err) {
-      console.error('[SignalReviewFacade] Failed to load trading config for auto-staging:', err);
-      this.snackBar.open('Failed to auto-stage order — check account config', 'Dismiss', { duration: 4000 });
-      return;
+      console.error('[SignalReviewFacade] Failed to load trading config for staging:', err);
+      this.snackBar.open('Failed to stage order — check account config', 'Dismiss', { duration: 4000 });
+      return [];
+    }
+
+    // Re-probe after the config await — a live equity ticket landing
+    // mid-flight must veto the build (#1017 r3 — the caller's probe ran
+    // before this await).
+    const equity = (this.stagingStore.ticketsBySymbol()[symbol] ?? []).filter(
+      (t) => t.instrumentType !== InstrumentType.OPTION,
+    );
+    if (equity.some(isLiveOrderTicket)) {
+      this.snackBar.open(`${symbol}: a live order already exists for this symbol`, 'Dismiss', { duration: 5000 });
+      return [];
     }
 
     const now = new Date();
@@ -488,24 +605,10 @@ export class SignalReviewFacade {
       buildId: (ticketSymbol, side, createdAt) => buildTicketId(ticketSymbol, side, createdAt),
       buildRefId: () => crypto.randomUUID(),
     });
+    const staged: EquityOrderTicket[] = [];
     for (const ticket of tickets) {
-      this.stagingStore.stageTicket(ticket);
+      if (await this.stagingStore.stageTicketAndWait(ticket)) staged.push(ticket);
     }
-  }
-
-  /** Remove any staged tickets for the given symbol (used on de-accept/reject). */
-  private removeStagedTicketForSymbol(symbol: string): void {
-    const normalized = symbol.toUpperCase();
-    const bySymbol = this.stagingStore.ticketsBySymbol();
-    const tickets = bySymbol[normalized] ?? [];
-    for (const ticket of tickets) {
-      if (ticket.status === OrderTicketStatus.STAGED) {
-        this.stagingStore.removeTicket(ticket.id);
-      }
-    }
-  }
-
-  goToTriageReport(): void {
-    this.router.navigate(['/' + AppRoutes.SIGNAL_ACTION_REPORT]);
+    return staged;
   }
 }

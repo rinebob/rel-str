@@ -332,31 +332,6 @@
       }
     }
 
-    .status-badge {
-      font-size: 9px;
-      padding: 1px 4px;
-      border-radius: 3px;
-      text-transform: uppercase;
-      font-weight: 500;
-      margin-left: 8px;
-
-      &.status-pending {
-        background: var(--mat-sys-surface-container-highest);
-        color: var(--mat-sys-on-surface-variant);
-      }
-      &.status-accepted {
-        background: var(--mat-sys-success-container);
-        color: var(--mat-sys-success);
-      }
-      &.status-considered {
-        background: var(--mat-sys-tertiary-container);
-        color: var(--mat-sys-tertiary);
-      }
-      &.status-rejected {
-        background: var(--mat-sys-error-container);
-        color: var(--mat-sys-error);
-      }
-    }
   }
 }
 

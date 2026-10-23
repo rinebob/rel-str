@@ -14,24 +14,13 @@
     @if (activeSymbol; as symbol) {
       <div class="header-signal-block">
         @if (selectedSymbol()) {
-          <div class="header-acr">
-            <button type="button" class="acr-btn accept"
-              [class.selected]="status() === 'ACCEPT'"
+          <!-- #1017 — the ACR cluster became a single Trade action:
+               stage the symbol's ticket and open the order dialog. -->
+          <div class="header-trade">
+            <button type="button" class="trade-btn"
               [disabled]="!isActionableRun()"
-              (click)="accept.emit()" title="Accept">
-              <mat-icon>check</mat-icon>
-            </button>
-            <button type="button" class="acr-btn watch"
-              [class.selected]="status() === 'WATCH'"
-              [disabled]="!isActionableRun()"
-              (click)="watch.emit()" title="Watch">
-              <mat-icon>visibility</mat-icon>
-            </button>
-            <button type="button" class="acr-btn reject"
-              [class.selected]="status() === 'REJECT'"
-              [disabled]="!isActionableRun()"
-              (click)="reject.emit()" title="Reject">
-              <mat-icon>close</mat-icon>
+              (click)="trade.emit()" title="Trade">
+              Trade
             </button>
           </div>
         }
@@ -83,12 +72,12 @@
       <mat-icon>new_releases</mat-icon>
     </button>
 
-    <button type="button" class="pill-btn stage-accepted-btn"
-      [disabled]="acceptedCount() === 0 || !isActionableRun()"
+    <button type="button" class="pill-btn order-queue-btn"
+      [disabled]="orderCount() === 0 || !isActionableRun()"
       (click)="goToOrder.emit()"
       matTooltip="Go to signal order page">
       <mat-icon>shopping_cart</mat-icon>
-      Order <span class="pill-count">{{ acceptedCount() }}</span>
+      Order <span class="pill-count">{{ orderCount() }}</span>
     </button>
 
     <div class="manual-symbol-input">

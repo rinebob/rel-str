@@ -33,11 +33,7 @@
         (select)="rowSelect.emit(row.profile.symbol)"
         (viewQuickCharts)="rowViewQuickCharts.emit($event)"
         (markForReview)="rowMarkForReview.emit($event)"
-        (accept)="rowAccept.emit($event)"
-        (consider)="rowConsider.emit($event)"
-        (reject)="rowReject.emit($event)"
-        (reset)="rowReset.emit($event)"
-        (clearHistory)="rowClearHistory.emit($event)"
+        (trade)="rowTrade.emit($event)"
         (toggleList)="rowToggleList.emit($event)">
       </app-symbol-row>
     }

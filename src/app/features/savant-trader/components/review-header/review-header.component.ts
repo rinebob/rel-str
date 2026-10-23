@@ -2,7 +2,7 @@
  * Review Header
  *
  * Top bar of the Savant Trader review page: back/history navigation, selected-symbol
- * ACR actions, symbol context, and the manual symbol input. Page identity lives
+ * trade action, symbol context, and the manual symbol input. Page identity lives
  * in the global rs-header (#854).
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
@@ -34,21 +34,20 @@ export class ReviewHeaderComponent {
   selectedSymbol = input<string | null>(null);
   manualSymbol = input<string | null>(null);
   companyName = input<string | null>(null);
-  status = input('PENDING');
   activeList = input<SymbolListFilter>('ALL');
   /** Grouped catalog options — Triage then My lists, from the store. */
   listGroups = input<RhSelectOptionGroup<SymbolListFilter>[]>([]);
   viewportMode = input<ViewportMode>('browse'); // #1016 — 'signals' mode disabled
-  /** When false, ACR and queue mutation controls are disabled for the viewed historical run. */
+  /** When false, Trade and queue mutation controls are disabled for the viewed historical run. */
   isActionableRun = input(true);
-  /** Count of accepted symbols available for staging. */
-  acceptedCount = input(0);
+  /** Non-terminal tickets in the order queue (#1017 — replaced the
+   *  durable-accept count). */
+  orderCount = input(0);
 
   back = output<void>();
   history = output<void>();
-  accept = output<void>();
-  watch = output<void>();
-  reject = output<void>();
+  /** Trade the selected symbol (#1017 — replaced the ACR emit set). */
+  trade = output<void>();
   loadSymbol = output<string>();
   symbolKeydown = output<{ event: KeyboardEvent; input: HTMLInputElement }>();
   /** Emits when the user opens the "new symbols" dialog. */

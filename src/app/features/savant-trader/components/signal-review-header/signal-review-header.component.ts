@@ -10,8 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import { SymbolListFilter, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
-import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
+import { SymbolListFilter, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
 import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
 import { RhSelectMenuComponent, RhSelectOption, RhSelectOptionGroup } from '../rh-select-menu/rh-select-menu.component';
 
@@ -33,7 +32,6 @@ const SENTINEL: RhSelectOption<SymbolListFilter>[] = [
     MatIconModule,
     MatTooltipModule,
     RouterLink,
-    StatusSummaryChipsComponent,
     SignalFilterPillsComponent,
     RhSelectMenuComponent,
   ],
@@ -50,9 +48,10 @@ export class SignalReviewHeaderComponent {
   dailySignalCount = input(0);
   longCount = input(0);
   shortCount = input(0);
-  statusCounts = input.required<StatusCounts>();
   reviewCount = input(0);
-  acceptedCount = input(0);
+  /** Non-terminal tickets in the order queue (#1017 — replaced the
+   *  durable-accept count; ticket existence is the decision). */
+  orderCount = input(0);
   /** Total signals represented by the visible rows — display-only pill. */
   filteredSignalCount = input(0);
   groupDimension = input<GroupDimension>(GroupDimension.SECTOR);
@@ -73,7 +72,6 @@ export class SignalReviewHeaderComponent {
   back = output<void>();
   goToReview = output<void>();
   goToOrder = output<void>();
-  goToTriageReport = output<void>();
   dimensionChange = output<string>();
   listFilterChange = output<SymbolListFilter>();
   timeframeFilterChange = output<SignalTimeframe>();

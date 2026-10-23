@@ -6,9 +6,8 @@
     [dailySignalCount]="facade.dailySignalCount()"
     [longCount]="facade.longCount()"
     [shortCount]="facade.shortCount()"
-    [statusCounts]="facade.statusCounts()"
     [reviewCount]="facade.reviewCount()"
-    [acceptedCount]="facade.acceptedCount()"
+    [orderCount]="facade.orderCount()"
     [filteredSignalCount]="facade.filteredSignalCount()"
     [groupDimension]="facade.groupDimension()"
     [activeListFilter]="facade.activeListFilter()"
@@ -25,7 +24,6 @@
     (back)="goBack()"
     (goToReview)="goToReview()"
     (goToOrder)="goToSignalOrder()"
-    (goToTriageReport)="goToTriageReport()"
     (dimensionChange)="onDimension($event)"
     (listFilterChange)="onListFilter($event)"
     (timeframeFilterChange)="facade.setTimeframeFilter($event)"
@@ -84,11 +82,7 @@
             (rowSelect)="onSymbolClick($event)"
             (rowViewQuickCharts)="onViewQuickCharts($event)"
             (rowMarkForReview)="onMarkForReview($event)"
-            (rowAccept)="onAccept($event)"
-            (rowConsider)="onConsider($event)"
-            (rowReject)="onReject($event)"
-            (rowReset)="onReset($event)"
-            (rowClearHistory)="onClearHistory($event)"
+            (rowTrade)="onTrade($event)"
             (rowToggleList)="onToggleList($event)">
           </app-group-panel>
           }
