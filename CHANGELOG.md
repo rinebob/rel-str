@@ -20,6 +20,7 @@
 - [Paper Trading Infra] 553-670_FE-IMPL-PAPER-TRADING: close/cancel callables — CallableName.CLOSE_PAPER_TRADE/CANCEL_PAPER_TRADE + PaperTradingService wrappers with typed request/response contracts
 - [Paper Trading Infra] 553-670_FE-IMPL-PAPER-TRADING: store close/cancel actions — shared per-trade actingIds (cross-verb race block, defer-guarded invoke), close → reload trades+account, cancel → trades only, unified error surface
 - [Paper Trading Infra] 553-670_DOCS-PAPER-TRADING: #670 IMPL as-built + CODE-REVIEW (PASS, 3 axes) + #1221 UAT (Complete)
+- [Paper Trading Infra] 553-922_DOCS-PAPER-TRADING: retroactive UAT for #921 auto-paper group-by dims (Complete; shipped 10-11, gate ran 10-22)
 
 ### Changed
 - [Savant Design System] 1024-1205_SHARED-IMPL-DESIGN-SYSTEM: theme-tokens relay asserts vendored _tokens.scss parity in BOTH consumer apps; SA skip gated on checkout existence — a present checkout missing the vendored file now FAILs instead of silently skipping
