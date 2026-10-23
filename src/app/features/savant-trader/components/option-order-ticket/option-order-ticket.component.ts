@@ -118,7 +118,8 @@ export class OptionOrderTicketComponent {
    *  ticket, and the guard matches existing card tickets by them. */
   readonly signals = input<StSignalItem[]>([]);
 
-  /** The viewed run id — decision ids are scoped to it. */
+  /** The viewed run id — decision ids are scoped to it. The manual
+   *  dialog passes `''` — there is no card (#1177/#1189). */
   readonly runId = input.required<string>();
 
   /** Live trading config — supplies the account number and the
@@ -129,6 +130,14 @@ export class OptionOrderTicketComponent {
    *  filtered out before the builder maps ids into decisionIds (a REJECT
    *  id on the ticket would be silently un-rejected on discard, #755). */
   readonly decisions = input<Record<string, StOccurrenceDecision>>({});
+
+  /** Manual mode (#1189): the dialog mounts this tab with `runId === ''`
+   *  and empty provenance — the signal staging path can't run (empty
+   *  occurrence set always fails its guard), so the template shows a
+   *  placeholder until manual option staging lands (#1190). The
+   *  chains/cash/alloc warm effects below are gated on `!manual()` —
+   *  nothing selectable renders, so no MCP fetch is worth burning. */
+  readonly manual = computed(() => this.runId() === '');
 
   /** Emitted when a ticket is staged (created:true) or an existing STAGED
    *  card ticket is adopted (created:false) — the host uses the id for
@@ -337,9 +346,11 @@ export class OptionOrderTicketComponent {
   });
 
   constructor() {
-    // Load option chains once per symbol.
+    // Load option chains once per symbol. Skipped in manual mode —
+    // the placeholder renders no pickers (#1189; #1190 re-enables).
     effect(() => {
       const sym = this.symbol();
+      if (this.manual()) return;
       if (!sym || this.chainsRequestedFor === sym) return;
       this.chainsRequestedFor = sym;
       untracked(() => void this.loadChains(sym));
@@ -348,6 +359,7 @@ export class OptionOrderTicketComponent {
     // Fetch the account snapshot once — the fatfinger cap needs cash.
     effect(() => {
       const acct = this.accountNumber();
+      if (this.manual()) return;
       if (!acct || this.cashRequestedFor === acct) return;
       this.cashRequestedFor = acct;
       untracked(() => void this.loadCash(acct));
@@ -357,6 +369,7 @@ export class OptionOrderTicketComponent {
     // picker reads (the bound ticket's, falling back to the config's).
     effect(() => {
       const acct = this.ticket()?.accountNumber ?? this.accountNumber();
+      if (this.manual()) return;
       if (acct) untracked(() => this.allocStore.ensureAccount(acct));
     });
 

@@ -135,6 +135,7 @@ describe('OptionOrderTicketComponent', () => {
   async function render(opts: {
     signals?: StSignalItem[];
     decisions?: Record<string, StOccurrenceDecision>;
+    runId?: string;
     tradingConfig?: TradingConfig | null;
   } = {}): Promise<void> {
     await TestBed.configureTestingModule({
@@ -156,7 +157,7 @@ describe('OptionOrderTicketComponent', () => {
     stagedEvents = [];
     component.staged.subscribe((e) => stagedEvents.push(e));
     fixture.componentRef.setInput('symbol', SYMBOL);
-    fixture.componentRef.setInput('runId', RUN_ID);
+    fixture.componentRef.setInput('runId', opts.runId ?? RUN_ID);
     fixture.componentRef.setInput('signals', opts.signals ?? [sigItem()]);
     fixture.componentRef.setInput('tradingConfig', opts.tradingConfig === undefined ? config : opts.tradingConfig);
     fixture.componentRef.setInput('decisions', opts.decisions ?? {});
@@ -226,6 +227,24 @@ describe('OptionOrderTicketComponent', () => {
       byAccount: signal<Record<string, AccountAllocation>>({}),
       ensureAccount: jest.fn(async () => undefined),
     };
+  });
+
+  describe('manual mode (#1189)', () => {
+    it("runId='' renders the placeholder and burns no MCP/portfolio calls — pickers don't exist", async () => {
+      // The manual placeholder renders nothing selectable, so the
+      // chains/cash/alloc warm effects are gated on !manual() — a wasted
+      // getOptionChains call would be a silent regression.
+      await render({ runId: '' });
+
+      expect(mcp.getOptionChains).not.toHaveBeenCalled();
+      expect(mcp.getOptionInstruments).not.toHaveBeenCalled();
+      expect(mcp.getOptionQuotes).not.toHaveBeenCalled();
+      expect(portfolio.getSnapshot).not.toHaveBeenCalled();
+      expect(allocStore.ensureAccount).not.toHaveBeenCalled();
+      expect(component.manual()).toBe(true);
+      expect(fixture.nativeElement.querySelector('.manual-option-placeholder')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('mat-select')).toBeFalsy();
+    });
   });
 
   describe('chain + instrument loading', () => {

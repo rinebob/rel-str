@@ -1,4 +1,12 @@
 <div class="option-ticket">
+  @if (manual()) {
+    <!-- Manual mode (#1189): no card provenance — the signal staging
+         path can only fail, so an honest placeholder stands in until
+         manual option staging lands (#1190). -->
+    <p class="manual-option-placeholder" data-testid="manual-option-placeholder">
+      Manual option orders aren't available yet — coming in a follow-up update.
+    </p>
+  } @else {
   <div class="ticket-content">
     <!-- Contract identity — built live from the selects; symbol context
          lives in the dialog header. -->
@@ -215,4 +223,5 @@
       }
     </div>
   </div>
+  }
 </div>

@@ -11,6 +11,7 @@
 - [Savant Design System] 1024-1204_SHARED-CHORE-DESIGN-SYSTEM: verify.mjs manifest → 47-token literal contract; new design-system-theme-tokens-1204 relay (boundary-exact parsing, installed-path compile, vendor parity); UI-color inventory tooling
 - [Savant Design System] 1024-1204_DOCS-DESIGN-SYSTEM: Theme & Palette PRD/IMPL/TEST + #1204 CODE-REVIEW (PASS, 2 rounds) + #1220 UAT (Complete) + CONTEXT.md terms
 - [Manual Order Entry] 1177-1189_FE-IMPL-ORDER: Manual equity staging — source-agnostic STAGED adoption + live-order block guard
+- [Manual Order Entry] 1177-1189_FE-IMPL-ORDER: Option ticket manual mode — runId='' placeholder + gated chains/cash/alloc warm effects
 
 ### Removed
 - [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: review-list persistence removed — triage.service.ts deleted, Collection.ST_REVIEW_LIST dropped, pin spec asserts non-reintroduction
