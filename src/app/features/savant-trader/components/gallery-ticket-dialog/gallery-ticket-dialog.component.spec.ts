@@ -12,6 +12,7 @@ import { Router } from '@angular/router';
 
 import { GalleryTicketDialogComponent } from './gallery-ticket-dialog.component';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
+import { ManualOrderService } from '../../services/manual-order.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { SymbolListStore } from '../../stores/symbol-list.store';
 import type { EquityQuote } from '../../../../core/robinhood-mcp/types/robinhood-mcp.types';
@@ -19,9 +20,10 @@ import type { StSymbolProfile } from '../../services/types';
 import { PaperTradingService } from '../../services/paper-trading.service';
 import { OrderExecutionService } from '../../services/order-execution.service';
 import { RobinhoodMcpClient } from '../../../../core/robinhood-mcp/robinhood-mcp-client.service';
+import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { PortfolioService } from '../../services/portfolio.service';
 import { AllocationStore } from '../../../portfolio-dashboard/allocation.store';
-import { StOccurrenceDecision, StSignalItem } from '../../services/types';
+import { StSignalItem } from '../../services/types';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 import { of } from 'rxjs';
@@ -70,7 +72,6 @@ function optionSeed(over: Record<string, unknown> = {}) {
     symbol: 'AAPL',
     runId: 'run-1',
     signals: [sig],
-    decisions: signal<Record<string, StOccurrenceDecision>>({}),
     onStaged: jest.fn(),
     ...over,
   };
@@ -145,6 +146,14 @@ describe('GalleryTicketDialogComponent', () => {
         { provide: PaperTradingService, useValue: {} },
         { provide: OrderExecutionService, useValue: {} },
         { provide: RobinhoodMcpClient, useValue: mcpClientMock },
+        // OptionOrderTicketComponent's STO collateral preview (#1190).
+        {
+          provide: RobinhoodMcpObservationService,
+          useValue: { executeTool: jest.fn().mockResolvedValue({ success: true, parsed: {} }) },
+        },
+        // OrderTicketComponent injects ManualOrderService (#1017) — stub
+        // so TradingConfigService/Firestore never resolve.
+        { provide: ManualOrderService, useValue: { open: jest.fn() } },
         { provide: PortfolioService, useValue: { getSnapshot: jest.fn().mockResolvedValue(null) } },
         {
           provide: AllocationStore,
@@ -420,6 +429,7 @@ describe('GalleryTicketDialogComponent', () => {
     let manualFixture: ComponentFixture<GalleryTicketDialogComponent>;
     let manualOnStaged: jest.Mock;
     let manualStage: jest.Mock;
+    let seededSymbol: string | undefined;
 
     beforeEach(async () => {
       // The outer beforeEach already instantiated a card-mode module —
@@ -427,6 +437,7 @@ describe('GalleryTicketDialogComponent', () => {
       TestBed.resetTestingModule();
       manualOnStaged = jest.fn();
       manualStage = jest.fn().mockResolvedValue(null);
+      seededSymbol = undefined;
       await TestBed.configureTestingModule({
         imports: [GalleryTicketDialogComponent],
         providers: [
@@ -435,6 +446,11 @@ describe('GalleryTicketDialogComponent', () => {
             provide: MAT_DIALOG_DATA,
             useValue: {
               manual: {
+                // Read at createComponent time — a spec seeds it by
+                // setting `seededSymbol` before creating the fixture.
+                get initialSymbol() {
+                  return seededSymbol;
+                },
                 stageEquityTicket: manualStage,
                 onStaged: manualOnStaged,
               },
@@ -458,6 +474,11 @@ describe('GalleryTicketDialogComponent', () => {
           { provide: PaperTradingService, useValue: {} },
           { provide: OrderExecutionService, useValue: {} },
           { provide: RobinhoodMcpClient, useValue: mcpClientMock },
+          {
+            provide: RobinhoodMcpObservationService,
+            useValue: { executeTool: jest.fn().mockResolvedValue({ success: true, parsed: {} }) },
+          },
+          { provide: ManualOrderService, useValue: { open: jest.fn() } },
           { provide: PortfolioService, useValue: { getSnapshot: jest.fn().mockResolvedValue(null) } },
           {
             provide: AllocationStore,
@@ -574,7 +595,7 @@ describe('GalleryTicketDialogComponent', () => {
       expect(dialogRefMock.close).toHaveBeenCalled();
     });
 
-    it('the Option tab mounts on the resolved symbol without a card seed — manual placeholder, not the signal form', async () => {
+    it('the Option tab mounts on the resolved symbol without a card seed — manual BTO/STO form, no signal provenance', async () => {
       manualStage.mockImplementation(async () => {
         const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
         tickets.update((m) => ({ ...m, 'man-1': t }));
@@ -588,8 +609,9 @@ describe('GalleryTicketDialogComponent', () => {
       manualFixture.detectChanges();
 
       // The Option tab is lazy — activating it mounts the component on
-      // the resolved symbol with empty provenance. Manual mode renders a
-      // placeholder, not the signal staging form (#1189; staging is #1190).
+      // the resolved symbol with empty provenance. Manual mode renders
+      // the full contract form with the BTO/STO toggle (#1190) — the
+      // #1189 placeholder is gone.
       const tabs = manualFixture.nativeElement.querySelectorAll('.mdc-tab');
       (tabs[1] as HTMLElement).click();
       manualFixture.detectChanges();
@@ -598,8 +620,9 @@ describe('GalleryTicketDialogComponent', () => {
 
       const opt = manualFixture.nativeElement.querySelector('app-option-order-ticket');
       expect(opt).toBeTruthy();
-      expect(opt.querySelector('[data-testid="manual-option-placeholder"]')).toBeTruthy();
-      expect(opt.querySelector('[data-testid="expiration-select"]')).toBeFalsy();
+      expect(opt.querySelector('[data-testid="manual-option-placeholder"]')).toBeFalsy();
+      expect(opt.querySelector('[data-testid="expiration-select"]')).toBeTruthy();
+      expect(opt.querySelector('[data-testid="order-side-toggle"]')).toBeTruthy();
     });
 
     it('re-resolve is gated while a ticket is bound — no silent rebind or orphan (#1189 review)', async () => {
@@ -685,6 +708,30 @@ describe('GalleryTicketDialogComponent', () => {
       expect(el.querySelector('[data-testid="manual-symbol-error"]')?.textContent).toContain('AAPL');
       expect(manualFixture.componentInstance.resolving()).toBe(false);
       expect(manualFixture.componentInstance.enteredSymbol()).toBeNull();
+    });
+
+    it('a seeded initialSymbol prefills the input and auto-resolves on init (#1017)', async () => {
+      manualStage.mockImplementation(async () => {
+        const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, 'man-1': t }));
+        return t;
+      });
+      seededSymbol = 'AAPL';
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      await new Promise<void>((r) => setTimeout(r, 0)); // ngOnInit → resolve
+      manualFixture.detectChanges();
+
+      expect(manualStage).toHaveBeenCalledTimes(1);
+      expect(manualStage).toHaveBeenCalledWith('AAPL');
+      const el = manualFixture.nativeElement as HTMLElement;
+      // Pre-filled, bound, and gated — the seeded symbol can't re-resolve.
+      expect(
+        (el.querySelector('[data-testid="manual-symbol-input"]') as HTMLInputElement)
+          .disabled,
+      ).toBe(true);
+      expect(el.querySelector('mat-tab-group')).toBeTruthy();
+      expect(manualFixture.componentInstance.ticket()?.id).toBe('man-1');
     });
 
     it('a bound ticket that vanishes resets to the entry row — tabs unmount, input re-enables', async () => {

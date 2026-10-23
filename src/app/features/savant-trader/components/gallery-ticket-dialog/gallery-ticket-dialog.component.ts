@@ -29,7 +29,7 @@ import { SymbolListStore } from '../../stores/symbol-list.store';
 import { InstrumentType, OrderTicket, OrderTicketStatus, TradingConfig } from '../../services/order-ticket.types';
 import { orderTicketTerms } from '../../utils/signal-order-staging.util';
 import { normalizeUnderlyingSymbol } from '../../utils/manual-ticket-staging.util';
-import { StOccurrenceDecision, StSignalItem } from '../../services/types';
+import { StSignalItem } from '../../services/types';
 import { OrderTicketComponent } from '../order-ticket/order-ticket.component';
 import { OptionOrderTicketComponent } from '../option-order-ticket/option-order-ticket.component';
 
@@ -42,11 +42,9 @@ export interface StagedTicketEvent {
 }
 
 /** Everything the Option tab needs from the card — precomputed by the
- *  caller so the component never re-derives card context. `decisions` is
- *  a LIVE signal: the option ticket's self-healing retry effect re-checks
- *  staging blocks when an occurrence is un-rejected while the dialog is
- *  open. `onStaged` reports each stage/adopt emit so the host tracks
- *  which tickets this session created (created → discard on cancel). */
+ *  caller so the component never re-derives card context. `onStaged`
+ *  reports each stage/adopt emit so the host tracks which tickets this
+ *  session created (created → discard on cancel). */
 export interface OptionTabSeed {
   /** Underlying ticker — the card's symbol. */
   symbol: string;
@@ -54,8 +52,6 @@ export interface OptionTabSeed {
   runId: string;
   /** The card's FULL occurrence set (`allOccurrences`). */
   signals: StSignalItem[];
-  /** Live durable occurrence decisions keyed by canonical id. */
-  decisions: Signal<Record<string, StOccurrenceDecision>>;
   /** Forwards the option ticket's `(staged)` emit to the dialog opener. */
   onStaged: (e: StagedTicketEvent) => void;
 }
@@ -65,6 +61,10 @@ export interface OptionTabSeed {
  *  (#1177/#1188). The host tracks session-created ids via `onStaged` for
  *  discard-on-close. */
 export interface ManualOrderDialogSeed {
+  /** Symbol pre-filled into the entry row (#1017 — the review pages'
+   *  Trade button seeds the selected symbol so the dialog opens
+   *  resolving, not blank). */
+  initialSymbol?: string;
   /** Stage (or adopt) the manual equity ticket for a resolved symbol —
    *  resolves null when staging can't proceed (no account, no price). */
   stageEquityTicket: (symbol: string) => Promise<OrderTicket | null>;
@@ -244,8 +244,9 @@ export class GalleryTicketDialogComponent implements OnInit {
   // Manual mode — symbol entry + resolve (#1177/#1189)
   // ------------------------------------------------------------------
 
-  /** The user-typed symbol (raw, normalized on resolve). */
-  readonly symbolInput = signal('');
+  /** The user-typed symbol (raw, normalized on resolve) — pre-filled
+   *  when the opener seeds `initialSymbol` (#1017). */
+  readonly symbolInput = signal(this.data.manual?.initialSymbol ?? '');
   /** The resolved symbol — set only after the seed stage lands; drives
    *  displaySymbol, the quote strip, and tab rendering. */
   readonly enteredSymbol = signal<string | null>(null);
@@ -345,6 +346,10 @@ export class GalleryTicketDialogComponent implements OnInit {
     const symbol = this.displaySymbol();
     if (symbol) void this.priceService.fetchPrices([symbol]);
     void this.lists.loadProfiles();
+    // A seeded initialSymbol (#1017 — the review pages' Trade) resolves
+    // straight through the manual stage path instead of waiting on the
+    // entry row.
+    if (this.data.manual?.initialSymbol) void this.resolveSymbol();
   }
 
   onDone(): void {
