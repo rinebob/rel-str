@@ -14,7 +14,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, finalize, of, Subscription } from 'rxjs';
+import { catchError, defer, finalize, Observable, of, Subscription } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { PaperTradingService } from '../services/paper-trading.service';
@@ -58,6 +58,9 @@ export interface PaperTradingState {
   exitVariants: ExitVariantConfig[];
   isLoadingTrades: boolean;
   isLoadingAccount: boolean;
+  /** Per-tradeId in-flight exit actions (close/cancel) — one action at a
+   *  time per trade; the page binds row spinners to `actingIds`. */
+  actingTradeIds: string[];
   error: string | null;
 }
 
@@ -68,6 +71,7 @@ const initialState: PaperTradingState = {
   exitVariants: [],
   isLoadingTrades: false,
   isLoadingAccount: false,
+  actingTradeIds: [],
   error: null,
 };
 
@@ -85,6 +89,11 @@ export const PaperTradingStore = signalStore(
     /** True while any section is loading. */
     isLoading: computed(
       () => state.isLoadingTrades() || state.isLoadingAccount(),
+    ),
+
+    /** Set view of trade ids with an in-flight close/cancel action. */
+    actingIds: computed<ReadonlySet<string>>(
+      () => new Set(state.actingTradeIds()),
     ),
 
     isEmpty: computed(
@@ -169,6 +178,61 @@ export const PaperTradingStore = signalStore(
       let accountSub: Subscription | null = null;
       let variantsSub: Subscription | null = null;
 
+      /** Error → error signal + snackbar. Every load/action funnels
+       *  through this so messaging stays uniform. */
+      const reportError = (err: unknown, fallback: string): void => {
+        const msg = toMessage(err, fallback);
+        patchState(state, { error: msg });
+        snackBar.open(msg, 'Dismiss', { duration: 5000 });
+      };
+
+      /** Shared close/cancel runner (#670). The shared actingTradeIds
+       *  set serializes both verbs per trade — a close and a cancel on
+       *  the same tradeId can never race. `defer` keeps `invoke` lazy:
+       *  the service's `call()` fires the callable eagerly, so the
+       *  in-flight check must gate it — and a synchronous throw inside
+       *  `invoke` routes through catchError/finalize instead of leaking
+       *  the acting flag. `onSuccess` picks the reload surface (close
+       *  books realized P&L → account too; cancel moves no cash → list
+       *  only). */
+      const runExitAction = (
+        tradeId: string,
+        invoke: () => Observable<unknown>,
+        onSuccess: () => void,
+      ): void => {
+        if (state.actingTradeIds().includes(tradeId)) return;
+        patchState(state, {
+          actingTradeIds: [...state.actingTradeIds(), tradeId],
+          error: null,
+        });
+        defer(() => invoke())
+          .pipe(
+            catchError((err) => {
+              // Surface the callable's own message — quote/guard
+              // failures must be visible, never a silent catch.
+              const detail =
+                err instanceof Error && err.message
+                  ? err.message
+                  : 'Failed to update trade';
+              reportError(err, detail);
+              return of(null);
+            }),
+            finalize(() =>
+              patchState(state, {
+                actingTradeIds: state
+                  .actingTradeIds()
+                  .filter((id) => id !== tradeId),
+              }),
+            ),
+            takeUntilDestroyed(destroyRef),
+          )
+          .subscribe({
+            next: (res) => {
+              if (res !== null) onSuccess();
+            },
+          });
+      };
+
       return {
         /** Load trades honoring the current filter request; cancels any
          *  in-flight fetch. */
@@ -186,9 +250,7 @@ export const PaperTradingStore = signalStore(
             .listPaperTrades$({ ...state.tradeFilters(), includeAutoPaper: true })
             .pipe(
               catchError((err) => {
-                const msg = toMessage(err, 'Failed to load paper trades');
-                patchState(state, { error: msg });
-                snackBar.open(msg, 'Dismiss', { duration: 5000 });
+                reportError(err, 'Failed to load paper trades');
                 return of({ trades: [] });
               }),
               finalize(() => patchState(state, { isLoadingTrades: false })),
@@ -208,9 +270,7 @@ export const PaperTradingStore = signalStore(
             .getPaperAccount$()
             .pipe(
               catchError((err) => {
-                const msg = toMessage(err, 'Failed to load paper account');
-                patchState(state, { error: msg });
-                snackBar.open(msg, 'Dismiss', { duration: 5000 });
+                reportError(err, 'Failed to load paper account');
                 return of({ account: null });
               }),
               finalize(() => patchState(state, { isLoadingAccount: false })),
@@ -229,9 +289,7 @@ export const PaperTradingStore = signalStore(
             .listExitVariants$()
             .pipe(
               catchError((err) => {
-                const msg = toMessage(err, 'Failed to load exit variants');
-                patchState(state, { error: msg });
-                snackBar.open(msg, 'Dismiss', { duration: 5000 });
+                reportError(err, 'Failed to load exit variants');
                 return of({ variants: [] });
               }),
               takeUntilDestroyed(destroyRef),
@@ -251,6 +309,27 @@ export const PaperTradingStore = signalStore(
         loadAll(): void {
           this.loadAccount();
           this.loadTrades();
+        },
+
+        /** Close an OPEN trade at the live quote (#670). No-op while any
+         *  action is in-flight on this tradeId. */
+        closeTrade(tradeId: string): void {
+          runExitAction(
+            tradeId,
+            () => service.closePaperTrade$(tradeId),
+            () => this.loadAll(),
+          );
+        },
+
+        /** Cancel a PENDING trade before its fill pass (#670). No-op
+         *  while any action is in-flight on this tradeId. Cancel moves
+         *  no cash (PRD US2) — the trade list is the only stale surface. */
+        cancelTrade(tradeId: string): void {
+          runExitAction(
+            tradeId,
+            () => service.cancelPaperTrade$(tradeId),
+            () => this.loadTrades(),
+          );
         },
       };
     },

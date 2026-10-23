@@ -101,6 +101,8 @@ describe('PaperTradingStore', () => {
     listPaperTrades$: jest.Mock;
     getPaperAccount$: jest.Mock;
     listExitVariants$: jest.Mock;
+    closePaperTrade$: jest.Mock;
+    cancelPaperTrade$: jest.Mock;
   };
 
   beforeEach(() => {
@@ -108,6 +110,8 @@ describe('PaperTradingStore', () => {
       listPaperTrades$: jest.fn().mockReturnValue(of({ trades: [] })),
       getPaperAccount$: jest.fn().mockReturnValue(of({ account: ACCOUNT })),
       listExitVariants$: jest.fn().mockReturnValue(of({ variants: [] })),
+      closePaperTrade$: jest.fn(),
+      cancelPaperTrade$: jest.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -318,6 +322,170 @@ describe('PaperTradingStore', () => {
     await new Promise<void>((r) => setTimeout(r, 0));
     expect(store.error()).toBe('Failed to load exit variants');
     expect(store.exitVariants()).toEqual([]);
+  });
+
+  // ── close / cancel actions (#670) ─────────────────────────────────────
+
+  describe('close/cancel actions', () => {
+    it('closeTrade invokes the service with the tradeId and reloads on success', async () => {
+      mockService.closePaperTrade$.mockReturnValue(
+        of({ tradeId: 't-1', exitPrice: 10, realizedPnl: 5, closedAt: NOW }),
+      );
+      store.closeTrade('t-1');
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      expect(mockService.closePaperTrade$).toHaveBeenCalledWith('t-1');
+      expect(mockService.listPaperTrades$).toHaveBeenCalled(); // refresh
+      expect(mockService.getPaperAccount$).toHaveBeenCalled();
+      expect(store.actingIds().has('t-1')).toBe(false);
+      expect(store.error()).toBeNull();
+    });
+
+    it('marks the trade in-flight while the close is pending', async () => {
+      const pending = new Subject<unknown>();
+      mockService.closePaperTrade$.mockReturnValue(pending.asObservable());
+      store.closeTrade('t-1');
+      expect(store.actingIds().has('t-1')).toBe(true);
+
+      pending.next({});
+      pending.complete();
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(store.actingIds().has('t-1')).toBe(false);
+    });
+
+    it('ignores a second close on the same in-flight trade', async () => {
+      const pending = new Subject<unknown>();
+      mockService.closePaperTrade$.mockReturnValue(pending.asObservable());
+      store.closeTrade('t-1');
+      store.closeTrade('t-1');
+      expect(mockService.closePaperTrade$).toHaveBeenCalledTimes(1);
+
+      pending.next({});
+      pending.complete();
+      await new Promise<void>((r) => setTimeout(r, 0));
+      // after the flag clears the action is accepted again
+      mockService.closePaperTrade$.mockReturnValue(of({ tradeId: 't-1' }));
+      store.closeTrade('t-1');
+      expect(mockService.closePaperTrade$).toHaveBeenCalledTimes(2);
+    });
+
+    it('close failure surfaces the callable message; flag clears; no reload; row unchanged', async () => {
+      const snackBar = TestBed.inject(MatSnackBar);
+      const snackSpy = jest.spyOn(snackBar, 'open');
+      store.loadTrades();
+      await new Promise<void>((r) => setTimeout(r, 0));
+      const before = store.trades();
+
+      mockService.closePaperTrade$.mockReturnValue(
+        throwError(() => new Error('closePaperTrade failed: quote unavailable')),
+      );
+      store.closeTrade('t-1');
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      expect(store.error()).toBe('closePaperTrade failed: quote unavailable');
+      expect(snackSpy).toHaveBeenCalledWith(
+        'closePaperTrade failed: quote unavailable',
+        'Dismiss',
+        expect.anything(),
+      );
+      expect(store.actingIds().has('t-1')).toBe(false);
+      // No reload — the in-memory row is exactly what the last load set.
+      expect(mockService.listPaperTrades$).toHaveBeenCalledTimes(1);
+      expect(store.trades()).toBe(before);
+    });
+
+    it('unauthenticated close maps to the auth message', async () => {
+      mockService.closePaperTrade$.mockReturnValue(
+        throwError(() => Object.assign(new Error('nope'), { code: 'unauthenticated' })),
+      );
+      store.closeTrade('t-1');
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(store.error()).toBe('Authentication required to view paper trading data');
+    });
+
+    it('cancelTrade invokes the service and reloads trades only — no cash moves', async () => {
+      mockService.cancelPaperTrade$.mockReturnValue(of({ tradeId: 't-4' }));
+      store.cancelTrade('t-4');
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      expect(mockService.cancelPaperTrade$).toHaveBeenCalledWith('t-4');
+      expect(mockService.listPaperTrades$).toHaveBeenCalled();
+      // PRD US2 — cancel books no cash, so the account is not refetched.
+      expect(mockService.getPaperAccount$).not.toHaveBeenCalled();
+      expect(store.actingIds().has('t-4')).toBe(false);
+    });
+
+    it('cancel failure surfaces the error and leaves the flag clear', async () => {
+      const snackSpy = jest.spyOn(TestBed.inject(MatSnackBar), 'open');
+      mockService.cancelPaperTrade$.mockReturnValue(
+        throwError(() => new Error('cancelPaperTrade failed: not pending')),
+      );
+      store.cancelTrade('t-4');
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(store.error()).toBe('cancelPaperTrade failed: not pending');
+      expect(snackSpy).toHaveBeenCalledWith(
+        'cancelPaperTrade failed: not pending',
+        'Dismiss',
+        expect.anything(),
+      );
+      expect(store.actingIds().has('t-4')).toBe(false);
+    });
+
+    it('the shared in-flight set blocks close+cancel races on one trade', async () => {
+      const pending = new Subject<unknown>();
+      mockService.closePaperTrade$.mockReturnValue(pending.asObservable());
+      store.closeTrade('t-1');
+      store.cancelTrade('t-1');
+      expect(mockService.cancelPaperTrade$).not.toHaveBeenCalled();
+      pending.complete();
+      await new Promise<void>((r) => setTimeout(r, 0));
+    });
+
+    it('actions on different tradeIds proceed concurrently', async () => {
+      const pendingA = new Subject<unknown>();
+      const pendingB = new Subject<unknown>();
+      mockService.closePaperTrade$.mockImplementation((id: string) =>
+        id === 't-1' ? pendingA.asObservable() : pendingB.asObservable(),
+      );
+      store.closeTrade('t-1');
+      store.closeTrade('t-2');
+      expect(mockService.closePaperTrade$).toHaveBeenCalledTimes(2);
+      expect(store.actingIds().has('t-1')).toBe(true);
+      expect(store.actingIds().has('t-2')).toBe(true);
+
+      pendingA.complete();
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(store.actingIds().has('t-1')).toBe(false);
+      expect(store.actingIds().has('t-2')).toBe(true);
+      pendingB.complete();
+    });
+
+    it('a failed action can be retried on the same tradeId', async () => {
+      mockService.closePaperTrade$
+        .mockReturnValueOnce(throwError(() => new Error('first failed')))
+        .mockReturnValueOnce(of({ tradeId: 't-1' }));
+      store.closeTrade('t-1');
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(store.error()).toBe('first failed');
+      expect(store.actingIds().has('t-1')).toBe(false);
+
+      store.closeTrade('t-1');
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(mockService.closePaperTrade$).toHaveBeenCalledTimes(2);
+      expect(store.error()).toBeNull();
+    });
+
+    it('a synchronous service throw clears the flag instead of leaking it', async () => {
+      // defer(() => invoke()) routes the throw through catchError —
+      // without it actingTradeIds would pin the id forever.
+      mockService.closePaperTrade$.mockImplementation(() => {
+        throw new Error('injector destroyed');
+      });
+      store.closeTrade('t-1');
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(store.actingIds().has('t-1')).toBe(false);
+      expect(store.error()).toBe('injector destroyed');
+    });
   });
 
   it('isEmpty and isLoading compose correctly', async () => {
