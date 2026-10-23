@@ -22,6 +22,7 @@ import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robi
 import { RobinhoodMcpClient } from '../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import { ScreenshotService } from '../../dev-screenshot/screenshot.service';
 import { CaptureEvent, PositionType } from '@screenshot-capture/contracts';
+import { buildOptionOrderWireArgs } from '../utils/option-order-wire.util';
 import {
   BrokerOrderSnapshot,
   EquityOrderTicket,
@@ -776,34 +777,19 @@ export class OrderExecutionService {
    *  sets it — v1 single-leg omits it), plus type/quantity/market_hours.
    *  `direction` is never sent — RH derives it from the legs, and the
    *  single buy-to-open leg resolves to 'debit' automatically. `price` is
-   *  the net per-contract limit — sent only for priced order types. */
+   *  the net per-contract limit — sent only for priced order types.
+   *  The snake_case assembly itself lives in buildOptionOrderWireArgs —
+   *  shared with the STO collateral preview so the contract has one owner. */
   private buildOptionOrderArgs(ticket: OptionOrderTicket): Record<string, unknown> {
-    const wireType = this.optionWireType(ticket.orderType);
-    const args: Record<string, unknown> = {
-      account_number: ticket.accountNumber,
-      legs: ticket.legs.map((leg) => {
-        const wire: Record<string, unknown> = {
-          option_id: leg.optionId,
-          side: leg.side,
-          position_effect: leg.positionEffect,
-        };
-        if (leg.ratioQuantity != null) wire['ratio_quantity'] = leg.ratioQuantity;
-        return wire;
-      }),
-      type: wireType,
+    return buildOptionOrderWireArgs({
+      accountNumber: ticket.accountNumber,
+      legs: ticket.legs,
+      type: this.optionWireType(ticket.orderType),
       quantity: ticket.quantity,
-      // Options only trade regular hours — the ticket field is typed for
-      // the equity enum, so pin the literal here rather than trusting it.
-      market_hours: 'regular_hours',
-    };
-    // price rides only on priced types; stop_price only on stop types —
-    // RH rejects either field on a type that doesn't carry it.
-    const priced = wireType === 'limit' || wireType === 'stop_limit';
-    const stopped = wireType === 'stop_market' || wireType === 'stop_limit';
-    if (priced && ticket.price) args['price'] = ticket.price;
-    if (stopped && ticket.stopPrice) args['stop_price'] = ticket.stopPrice;
-    if (ticket.timeInForce) args['time_in_force'] = ticket.timeInForce;
-    return args;
+      price: ticket.price ?? undefined,
+      stopPrice: ticket.stopPrice ?? undefined,
+      timeInForce: ticket.timeInForce,
+    });
   }
 
   /** Build the args for place_option_order — review args + ref_id. */
