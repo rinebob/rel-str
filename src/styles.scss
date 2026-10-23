@@ -2,9 +2,10 @@
 @use './app/styles/variables-global' as globalVar;
 // savant-ds token layer — emits :root { --ds-* } once, here in the global
 // stylesheet. @use must precede other rules, so this sits above the
-// hand-rolled --mat-sys-* :root below; the --ds-* aliases still resolve
-// because CSS custom-property var() binds at computed time, not source
-// order (#1039).
+// hand-rolled --mat-sys-* :root below. Post-#1204 the --ds-* colors are
+// self-contained literals (no mat-sys aliases remain); this block below
+// stays purely as the Material bridge until #1163 removes it (#1209 adds
+// its dark half).
 @use 'tokens';
 @import '../node_modules/@syncfusion/ej2-angular-base/styles/material.css';
 
