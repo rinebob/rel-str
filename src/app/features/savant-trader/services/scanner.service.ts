@@ -36,6 +36,7 @@ import { firstValueFrom } from 'rxjs';
 import { RobinhoodMcpClient } from '../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import type { ScanRunResult, UniverseEvalResult } from '../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import type { CurationProposal, ScanRecipe } from '@st/scanner';
+import type { PreviewScanResult } from '@robinhood-mcp/contracts';
 import { parseCurationProposal, serializeCurationProposal } from '@st/scanner';
 import { stScannerProposalDocPath, stScannerProposalsPath } from '@st/collections';
 import { requireUserId } from './firestore-helpers';
@@ -62,6 +63,12 @@ export class ScannerService {
   /** One unscoped preview_scan run for a recipe. */
   runScan(recipe: ScanRecipe): Promise<ScanRunResult> {
     return this.client.previewScan(recipe);
+  }
+
+  /** Same call, raw wire shape — the auto-run overview's per-recipe
+   *  tables render `PreviewScanResult` directly (#1198). */
+  previewScanRaw(recipe: ScanRecipe): Promise<PreviewScanResult> {
+    return this.client.previewScanRaw(recipe);
   }
 
   /**

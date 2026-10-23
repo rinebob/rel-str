@@ -491,7 +491,7 @@ export class RobinhoodMcpClient {
   previewScanSpec(recipe: ScanRecipe): ToolSpec<ScanRunResult> {
     return {
       tool: 'preview_scan',
-      args: { filters: recipe.filters, columns: recipe.columns },
+      args: this.previewScanArgs(recipe),
       parse: (result) => {
         if (!result.success) {
           throw new RobinhoodMcpError(result.error, 'preview_scan', result.category);
@@ -505,6 +505,30 @@ export class RobinhoodMcpClient {
         };
       },
     };
+  }
+
+  /** Raw wire shape — the auto-run overview's per-recipe tables render
+   *  `PreviewScanResult` directly (#1198). Same call as `previewScan`,
+   *  un-flattened. */
+  async previewScanRaw(recipe: ScanRecipe): Promise<PreviewScanResult> {
+    return this.run(this.previewScanRawSpec(recipe));
+  }
+
+  previewScanRawSpec(recipe: ScanRecipe): ToolSpec<PreviewScanResult> {
+    return {
+      tool: 'preview_scan',
+      args: this.previewScanArgs(recipe),
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'preview_scan', result.category);
+        }
+        return this.parseScanResult(result.parsed);
+      },
+    };
+  }
+
+  private previewScanArgs(recipe: ScanRecipe): Record<string, unknown> {
+    return { filters: recipe.filters, columns: recipe.columns };
   }
 
   /** Parse the `data.result` payload off a preview_scan response. Throws

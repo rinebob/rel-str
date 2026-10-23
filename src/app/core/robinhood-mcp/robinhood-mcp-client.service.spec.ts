@@ -1722,6 +1722,39 @@ describe('RobinhoodMcpClient', () => {
       expect(result.filtersApplied[0].expression).toBe('roe');
     });
 
+    it('previewScanRaw returns the un-flattened wire shape (#1198)', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            result: {
+              total_items: 1,
+              results: [wireRow('AAPL')],
+              sorted_by: 'Last desc',
+              filters_applied: [],
+            },
+          },
+        },
+        redacted: {},
+        tool: 'preview_scan',
+      });
+
+      const result = await client.previewScanRaw(recipe);
+      expect(mcp.executeTool).toHaveBeenCalledWith('preview_scan', {
+        args: { filters: recipe.filters, columns: recipe.columns },
+      });
+      // Raw PreviewScanResult — snake_case keys, no camelCase flatten.
+      expect(result.total_items).toBe(1);
+      expect(result.sorted_by).toBe('Last desc');
+      expect(result.results[0].ticker).toBe('AAPL');
+      expect('rows' in result).toBe(false);
+    });
+
+    it('previewScanRaw throws RobinhoodMcpError on a failed result', async () => {
+      mockFailure('scanner down');
+      await expect(client.previewScanRaw(recipe)).rejects.toBeInstanceOf(RobinhoodMcpError);
+    });
+
     it('evaluateUniverse chunks symbols ≤150/call over ONE /batch request', async () => {
       const symbols = Array.from({ length: 160 }, (_, i) => `S${i}`);
       mockBatchResolve(scanPayload(1, ['AAPL']));

@@ -59,7 +59,11 @@ const proposal = (): CurationProposal => ({
 
 describe('ScannerService (#1139)', () => {
   let service: ScannerService;
-  let client: { previewScan: jest.Mock; evaluateUniverse: jest.Mock };
+  let client: {
+    previewScan: jest.Mock;
+    previewScanRaw: jest.Mock;
+    evaluateUniverse: jest.Mock;
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -69,6 +73,7 @@ describe('ScannerService (#1139)', () => {
     mockGetDoc.data = () => ({});
     client = {
       previewScan: jest.fn(),
+      previewScanRaw: jest.fn(),
       evaluateUniverse: jest.fn(),
     };
     TestBed.configureTestingModule({
@@ -87,6 +92,13 @@ describe('ScannerService (#1139)', () => {
     client.previewScan.mockResolvedValue(scan);
     expect(await service.runScan(recipe())).toBe(scan);
     expect(client.previewScan).toHaveBeenCalledWith(recipe());
+  });
+
+  it('previewScanRaw delegates to the raw-shape client call (#1198)', async () => {
+    const wire = { total_items: 1, results: [], filters_applied: [] };
+    client.previewScanRaw.mockResolvedValue(wire);
+    expect(await service.previewScanRaw(recipe())).toBe(wire);
+    expect(client.previewScanRaw).toHaveBeenCalledWith(recipe());
   });
 
   it('evaluateTracked runs coverage (filters: []) then the filtered eval', async () => {
