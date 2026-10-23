@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026-10-23]
+
+### Added
+- [Manual Order Entry] 1177-1190_FE-IMPL-ORDER: option staging lane + collateral/wire utils — OptionStageLane (signal card-lane vs manual contract-lane), {contract,side} lookup probe, verified review_option_order collateral parsing, shared wire-args owner
+- [Manual Order Entry] 1177-1190_FE-IMPL-ORDER: option ticket manual mode — real contract-resolution form replaces placeholder, BTO/STO toggle (OPT-MAN-{BTO|STO}-{occ} ids, source MANUAL), advisory STO collateral preview, retarget never re-legs a bound ticket
+- [Manual Order Entry] 1177-1190_FE-IMPL-ORDER: manual dialog mounts the real Option tab — empty-provenance mount, removed [decisions] binding
+- [Manual Order Entry] 1177-1190_DOCS-ORDER: #1190 CODE-REVIEW (PASS, 3 rounds) + #1226 UAT (Complete; S1–S5 user PASS, remainder spec-covered)
+
+### Changed
+- [Manual Order Entry] 1177-1190_FE-IMPL-ORDER: manual staging permits parallel orders — live/FILLED tickets no longer block manual intent (add-to-position legitimate); STAGED adoption + same-minute doc-collision guard retained; signal/card lane unchanged
+
 ## [2026-10-22]
 
 ### Added
