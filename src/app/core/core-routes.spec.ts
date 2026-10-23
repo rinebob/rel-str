@@ -42,7 +42,6 @@ describe('core-routes — canonical journey paths (#699)', () => {
     ['dev/gallery', 'Gallery (Dev)'],
     ['dashboard-v3', 'Dashboard V3'],
     ['signal-history', 'Signal History'],
-    ['signal-action-report', 'Triage Report'],
     ['portfolio-v2', 'Portfolio Gallery (#950 — hyphenated, not portfolio/v2)'],
   ])('registers %s (%s) as an auth-gated component route', (path) => {
     const route = routeByPath(path);

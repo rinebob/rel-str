@@ -24,7 +24,6 @@ export enum AppRoutes {
 	SIGNAL_REVIEW = 'signals/review',
 	/** Signal Order — the live order ticket (#660). */
 	SIGNAL_ORDER = 'trading/live',
-	SIGNAL_ACTION_REPORT = 'signal-action-report',
 	RH_ACCOUNT_INQUIRY = 'tools/account',
 	STRATEGY_BACKTEST = 'options/strategy/backtest',
 	SIGNAL_HISTORY = 'signal-history',

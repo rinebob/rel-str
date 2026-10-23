@@ -22,8 +22,6 @@ export {
   type StRun,
   type StSymbolProfile,
   type StSignalItem,
-  type StOccurrenceDecision,
-  type DurableDecisionType,
   type MarketCapTier,
   type SignalDirection,
   type ManualRunRequest,
@@ -40,12 +38,10 @@ export {
 } from './stores/group.store';
 
 export {
-  ReviewDecision,
-  ALL_REVIEW_STATUSES,
   GroupDimension,
 } from './common/constants';
 
-// Triage Store (Phase 5B — shared PACR state across pages)
+// Triage Store (Phase 5B — shared review-flag state across pages)
 export { TriageStore } from './stores/triage.store';
 
 // Symbol List Store (Phase 0 — extracted list management)
@@ -76,9 +72,8 @@ export { SignalReviewHeaderComponent } from './components/signal-review-header/s
 export { GroupPanelComponent } from './components/group-panel/group-panel.component';
 export { SymbolRowComponent } from './components/symbol-row/symbol-row.component';
 export { SymbolSignalHistoryComponent } from './components/symbol-signal-history/symbol-signal-history.component';
-export { SymbolAcrActionsComponent } from './components/symbol-acr-actions/symbol-acr-actions.component';
+export { SymbolActionsComponent } from './components/symbol-actions/symbol-actions.component';
 export { SymbolListActionsComponent } from './components/symbol-list-actions/symbol-list-actions.component';
-export { StatusSummaryChipsComponent } from './components/status-summary-chips/status-summary-chips.component';
 export { QuickChartsPanelComponent } from './components/quick-charts-panel/quick-charts-panel.component';
 export { ReviewHeaderComponent } from './components/review-header/review-header.component';
 export { TradeRowComponent, TradeRow } from './components/trade-row/trade-row.component';
@@ -95,7 +90,6 @@ export { DashboardComponent } from './pages/run-dashboard/dashboard.component';
 export { SignalReviewComponent } from './pages/signal-review/signal-review.component';
 export { ChartReviewComponent } from './pages/chart-review/chart-review.component';
 export { OrderComponent } from './pages/signal-order/order.component';
-export { TriageReportComponent } from './pages/signal-action-report/triage-report.component';
 export { ObservationDashboardComponent } from './pages/rh-account-inquiry/observation-dashboard.component';
 export { OptionChartComponent } from './pages/option-chart/option-chart.component';
 export { SpreadChartPageComponent } from './pages/spread-chart/spread-chart-page.component';

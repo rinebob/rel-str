@@ -131,7 +131,6 @@ export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
     [AppRoutes.CHART_REVIEW]:                 { title: 'Chart Review',               icon: 'image_search' },
     [AppRoutes.SIGNAL_REVIEW]:                { title: 'Signal Review',              icon: 'rate_review' },
     [AppRoutes.SIGNAL_ORDER]:                 { title: 'Signal Order',               icon: 'bolt' },
-    [AppRoutes.SIGNAL_ACTION_REPORT]:         { title: 'Triage Report',              icon: 'fact_check' },
     [AppRoutes.RH_ACCOUNT_INQUIRY]:           { title: 'Account Inquiry',            icon: 'account_balance' },
     [AppRoutes.STRATEGY_BACKTEST]:            { title: 'Strategy Backtest',          icon: 'science' },
     [AppRoutes.SIGNAL_HISTORY]:               { title: 'Signal History',             icon: 'manage_history' },
@@ -241,8 +240,6 @@ export enum Collection {
   APP = 'app',
   POSITIONS = 'positions',
   SYMBOL_DATA = 'symbol-data',
-  /** @deprecated Decisions fold into st-order-tickets (#984); FE removal in #1017. */
-  ST_OCCURRENCE_DECISIONS = 'savant-trader/data/occurrence-decisions',
   /** @deprecated Use @st/collections ST_SYMBOLS_ROOT (#984); still bound by
    *  signal.service run-ids/signal-history reads — removed in #1019. */
   ST_SYMBOLS = 'savant-trader/data/symbols',

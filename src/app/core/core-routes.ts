@@ -165,12 +165,6 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.GalleryViewComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.SIGNAL_ACTION_REPORT,
-                title: PAGE_INFO[AppRoutes.SIGNAL_ACTION_REPORT].title,
-                loadComponent: () => import('../features/savant-trader/pages/signal-action-report/triage-report.component')
-                .then(mod => mod.TriageReportComponent),
-                canActivate: [authGuard],
-            },
             {path: AppRoutes.RH_ACCOUNT_INQUIRY,
                 title: PAGE_INFO[AppRoutes.RH_ACCOUNT_INQUIRY].title,
                 loadComponent: () => import('../features/savant-trader/pages/rh-account-inquiry/observation-dashboard.component')
