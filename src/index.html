@@ -8,6 +8,19 @@
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script>
+    // #1207 — apply the saved theme before first paint (no light flash).
+    // Synchronous: runs before the Angular bundle; must stay inline.
+    // Anything unrecognized (missing, corrupt) resolves to 'dark' —
+    // ThemeService is the only post-bootstrap writer.
+    (function () {
+      var theme = 'dark';
+      try {
+        if (localStorage.getItem('savant-theme') === 'light') theme = 'light';
+      } catch (e) {}
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
 </head>
 <body class="mat-typography">
   <app-root></app-root>
