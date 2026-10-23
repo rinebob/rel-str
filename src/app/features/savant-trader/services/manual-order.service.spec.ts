@@ -294,12 +294,37 @@ describe('ManualOrderService', () => {
       expect(ticketStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
     });
 
-    it('stages fresh when only a signal ticket or a manual OPTION ticket exists for the symbol', async () => {
-      seedTickets(makeSignalEquity('AAPL'), makeManualOption('AAPL'));
+    it('adopts a STAGED signal equity ticket — a staged ticket for the symbol is reopened, not duplicated', async () => {
+      // #1189 r3: source-agnostic adoption — a signal-staged ticket in
+      // the queue must not get a parallel manual duplicate.
+      const existing = makeSignalEquity('AAPL');
+      seedTickets(existing);
+      const r = await service.stageEquityTicket('AAPL');
+      expect(r?.created).toBe(false);
+      expect(r?.ticket.id).toBe(existing.id);
+      expect(ticketStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
+    });
+
+    it('stages fresh when only a manual OPTION ticket exists for the symbol', async () => {
+      seedTickets(makeManualOption('AAPL'));
       priceServiceMock.prices.set({ AAPL: 100 });
       const r = await service.stageEquityTicket('AAPL');
       expect(r?.created).toBe(true);
       expect(ticketStoreMock.stageTicketAndWait).toHaveBeenCalledTimes(1);
+    });
+
+    it('blocks manual staging while a non-STAGED equity ticket is in flight for the symbol', async () => {
+      // Same guard as signal-review's Trade path — a live order for the
+      // underlying must not gain a parallel manual ticket (#1189 r3).
+      seedTickets(makeSignalEquity('AAPL', { status: OrderTicketStatus.SUBMITTED }));
+      const r = await service.stageEquityTicket('AAPL');
+      expect(r).toBeNull();
+      expect(snackBarMock.open).toHaveBeenCalledWith(
+        'AAPL: a live order already exists for this symbol',
+        'Dismiss',
+        expect.anything(),
+      );
+      expect(ticketStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
     });
 
     it('stages fresh alongside a different symbol\'s STAGED manual ticket', async () => {
@@ -315,7 +340,9 @@ describe('ManualOrderService', () => {
       jest.useFakeTimers().setSystemTime(new Date('2026-10-21T14:30:00Z'));
       try {
         // Same {SYM}-BUY-{minute} id the builder will mint — a ticket that
-        // advanced past STAGED must NOT be clobbered by the create.
+        // advanced past STAGED must NOT be clobbered by the create. (As of
+        // #1189 r3 this exits via the live-order guard — a non-STAGED
+        // equity ticket for the symbol blocks before the twin probe.)
         const live = makeManualEquity('AAPL', OrderTicketStatus.SUBMITTED, {
           id: buildTicketId('AAPL', 'BUY', new Date()),
         });
@@ -331,15 +358,18 @@ describe('ManualOrderService', () => {
       }
     });
 
-    it('does not adopt a STAGED signal ticket colliding on the same-minute id', async () => {
+    it('adopts a STAGED signal ticket even when it collides on the same-minute id', async () => {
+      // The source-agnostic STAGED probe fires before the twin check —
+      // any STAGED equity ticket for the symbol is reopened (#1189 r3).
       jest.useFakeTimers().setSystemTime(new Date('2026-10-21T14:30:00Z'));
       try {
-        seedTickets(makeSignalEquity('AAPL', {
+        const twin = makeSignalEquity('AAPL', {
           id: buildTicketId('AAPL', 'BUY', new Date()),
-        }));
-        priceServiceMock.prices.set({ AAPL: 100 });
+        });
+        seedTickets(twin);
         const r = await service.stageEquityTicket('AAPL');
-        expect(r).toBeNull();
+        expect(r?.created).toBe(false);
+        expect(r?.ticket.id).toBe(twin.id);
         expect(ticketStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
       } finally {
         jest.useRealTimers();

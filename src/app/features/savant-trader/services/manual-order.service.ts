@@ -160,13 +160,25 @@ export class ManualOrderService {
     try {
       // Adopt before any awaits — a cheap sync check that also serves the
       // double-resolve race (the second call lands after the first staged).
-      const existing = (this.ticketStore.ticketsBySymbol()[sym] ?? []).find(
+      // ANY STAGED equity ticket is adopted regardless of source (#1189
+      // r3): a signal-sourced STAGED ticket for this symbol otherwise
+      // gets a parallel manual duplicate — two submittable orders for one
+      // underlying. A non-STAGED equity ticket means a live order is in
+      // flight — same guard as signal-review's Trade path.
+      const equityFor = (this.ticketStore.ticketsBySymbol()[sym] ?? []).filter(
         (t): t is EquityOrderTicket | EtfOrderTicket =>
-          t.source === OrderSource.MANUAL &&
-          t.instrumentType !== InstrumentType.OPTION &&
-          t.status === OrderTicketStatus.STAGED,
+          t.instrumentType !== InstrumentType.OPTION,
       );
-      if (existing) return { ticket: existing, created: false };
+      const staged = equityFor.find((t) => t.status === OrderTicketStatus.STAGED);
+      if (staged) return { ticket: staged, created: false };
+      if (equityFor.length) {
+        this.snackBar.open(
+          `${sym}: a live order already exists for this symbol`,
+          'Dismiss',
+          { duration: 5000 },
+        );
+        return null;
+      }
 
       const config = await this.configService.ensureConfig();
       const accountNumber = config?.accountNumber ?? '';
