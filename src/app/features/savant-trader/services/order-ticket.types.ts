@@ -79,6 +79,13 @@ export const REQUEUEABLE_TICKET_STATUSES: ReadonlySet<OrderTicketStatus> = new S
   OrderTicketStatus.EXPIRED,
 ]);
 
+/** A ticket whose order is (or may be) live at the broker — everything
+ *  between STAGED and terminal. One predicate for every "a live order
+ *  already exists" probe so the definition can't drift (#1017 r2 —
+ *  three sites re-implemented the same check and disagreed on terminal). */
+export const isLiveOrderTicket = (t: OrderTicket): boolean =>
+  t.status !== OrderTicketStatus.STAGED && !TERMINAL_TICKET_STATUSES.has(t.status);
+
 /** Link to the originating entity (e.g., an occurrence decision id). */
 export interface OrderTicketSourceRef {
   type: string;
@@ -97,14 +104,16 @@ export interface OrderTicketSignalContext {
   barDate: string;
   timeframe: string;
   direction: string;
-  /** Canonical doc id of the primary occurrence decision this ticket was
-   *  staged from. */
+  /** Canonical occurrence-decision-format id of the primary signal
+   *  occurrence this ticket was staged from — a deterministic provenance
+   *  join key (`${runId}_${symbol}_${timeframe}_${signalType}`), not a
+   *  document id; the decision-doc layer was removed in #1017. */
   decisionId: string;
-  /** Every occurrence-decision doc id written by the accept that staged
-   *  this ticket — one decision is persisted per signal, but tickets are
-   *  deduped by symbol+side, so a single ticket can own several decisions.
-   *  Removal clears them all (#719). Absent on tickets staged before this
-   *  field existed; `decisionId` remains the fallback. */
+  /** Every same-side occurrence's canonical id on this ticket — one id
+   *  per signal occurrence, but tickets dedupe by symbol+side, so a
+   *  single ticket can carry several join keys. Card↔ticket matching
+   *  tests membership over the full set. Absent on tickets staged before
+   *  this field existed; `decisionId` remains the fallback. */
   decisionIds?: string[];
   /** Closing price of the bar that fired the signal — the price at signal
    *  generation. Captured at staging from the signal's `closePrice`; absent

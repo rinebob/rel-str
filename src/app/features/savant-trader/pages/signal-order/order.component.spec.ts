@@ -8,7 +8,6 @@ import { TradeSide } from '@common';
 
 import { OrderComponent } from './order.component';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
-import { OccurrenceDecisionStore } from '../../stores/occurrence-decision.store';
 import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { PortfolioService } from '../../services/portfolio.service';
@@ -60,7 +59,6 @@ describe('OrderComponent', () => {
   let component: OrderComponent;
   let storeMock: any;
   let uiStateMock: any;
-  let occurrenceMock: any;
   /** Mutable `?ticket=` deep-link params — the ActivatedRoute stub's
    *  snapshot resolves this lazily, so a test can set it before creating
    *  a second component instance (#762). */
@@ -92,9 +90,6 @@ describe('OrderComponent', () => {
       setFullscreen: jasmine.createSpy('setFullscreen'),
     };
 
-    occurrenceMock = {
-      clearDecisionById: jasmine.createSpy('clearDecisionById'),
-    };
     routeParams = {};
 
     await TestBed.configureTestingModule({
@@ -102,7 +97,6 @@ describe('OrderComponent', () => {
       providers: [
         provideNoopAnimations(),
         { provide: OrderTicketStore, useValue: storeMock },
-        { provide: OccurrenceDecisionStore, useValue: occurrenceMock },
         { provide: UiStateService, useValue: uiStateMock },
         provideRouter([]),
         // Controllable deep link (#762) — the component reads
@@ -656,8 +650,8 @@ describe('OrderComponent', () => {
     });
   });
 
-  describe('ticket removal clears the accepted decision (#719)', () => {
-    it('clears the decision when its queue ticket is removed', () => {
+  describe('ticket removal (#1017 — no decision-doc cleanup anymore)', () => {
+    it('removes the queue ticket', () => {
       const ticket = makeTicket('1', 'AAPL');
       ticket.signalContext = ctx('run1-AAPL-weekly-up');
       storeMock.tickets.set({ '1': ticket });
@@ -666,34 +660,6 @@ describe('OrderComponent', () => {
       component.onRemoveTickets(['1']);
 
       expect(storeMock.removeTicket).toHaveBeenCalledWith('1');
-      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('run1-AAPL-weekly-up');
-    });
-
-    it('keeps the decision while another live ticket references it', () => {
-      const t1 = makeTicket('1', 'AAPL');
-      t1.signalContext = ctx('dec-shared');
-      const t2 = makeTicket('2', 'AAPL');
-      t2.signalContext = ctx('dec-shared');
-      storeMock.tickets.set({ '1': t1, '2': t2 });
-      fixture.detectChanges();
-
-      component.onRemoveTickets(['1']);
-
-      expect(occurrenceMock.clearDecisionById).not.toHaveBeenCalled();
-    });
-
-    it('clears each distinct decision on a multi-ticket removal', () => {
-      const t1 = makeTicket('1', 'AAPL');
-      t1.signalContext = ctx('dec-a');
-      const t2 = makeTicket('2', 'MSFT');
-      t2.signalContext = ctx('dec-b');
-      storeMock.tickets.set({ '1': t1, '2': t2 });
-      fixture.detectChanges();
-
-      component.onRemoveTickets(['1', '2']);
-
-      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-a');
-      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-b');
     });
 
     it('skips removal of a mid-flight ticket — the queue can render terminal from a merged RH state', () => {
@@ -708,79 +674,7 @@ describe('OrderComponent', () => {
       component.onRemoveTickets(['1']);
 
       expect(storeMock.removeTicket).not.toHaveBeenCalled();
-      expect(occurrenceMock.clearDecisionById).not.toHaveBeenCalled();
       expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalled();
-    });
-
-    it('does not touch decisions for tickets without signalContext', () => {
-      const ticket = makeTicket('1', 'AAPL');
-      ticket.signalContext = undefined;
-      storeMock.tickets.set({ '1': ticket });
-      fixture.detectChanges();
-
-      component.onRemoveTickets(['1']);
-
-      expect(occurrenceMock.clearDecisionById).not.toHaveBeenCalled();
-    });
-
-    it('normalizes a legacy hyphen-format decisionId to the canonical doc id', () => {
-      // Tickets staged before the producer used buildStOccurrenceDecisionId
-      // carry `${runId}-${symbol}-${tf}-${type}`; the doc id is
-      // `${runId}_${SYMBOL}_${tf}_${type}`. Removing such a ticket must
-      // still delete the real decision doc (round-2 review critical).
-      const ticket = makeTicket('1', 'AAPL');
-      ticket.signalContext = ctx('run-2026-09-01-AAPL-weekly-D_ZONE_V1_UPTICK');
-      storeMock.tickets.set({ '1': ticket });
-      fixture.detectChanges();
-
-      component.onRemoveTickets(['1']);
-
-      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith(
-        'run-2026-09-01_AAPL_weekly_D_ZONE_V1_UPTICK',
-      );
-    });
-
-    it('clears every decisionId owned by a ticket — one accept writes N decisions but stages one deduped ticket', () => {
-      // Regression for the QA failure: two same-side signals → two decision
-      // docs but a single ticket. Clearing only `decisionId` left siblings
-      // live and the Accept toggle stayed on.
-      const ticket = makeTicket('1', 'AAPL');
-      ticket.signalContext = { ...ctx('run1_AAPL_D_SIG1'), decisionIds: ['dec-1', 'dec-2'] };
-      storeMock.tickets.set({ '1': ticket });
-      fixture.detectChanges();
-
-      component.onRemoveTickets(['1']);
-
-      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-1');
-      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-2');
-    });
-
-    it('a live ticket\'s decisionIds also protect shared decisions', () => {
-      const t1 = makeTicket('1', 'AAPL');
-      t1.signalContext = { ...ctx('dec-a'), decisionIds: ['dec-a', 'dec-shared'] };
-      const t2 = makeTicket('2', 'AAPL');
-      t2.signalContext = { ...ctx('dec-b'), decisionIds: ['dec-b', 'dec-shared'] };
-      storeMock.tickets.set({ '1': t1, '2': t2 });
-      fixture.detectChanges();
-
-      component.onRemoveTickets(['1']);
-
-      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-a');
-      expect(occurrenceMock.clearDecisionById).not.toHaveBeenCalledWith('dec-shared');
-    });
-
-    it('calls clearDecisionById once when two removed tickets share a decision', () => {
-      const t1 = makeTicket('1', 'AAPL');
-      t1.signalContext = ctx('dec-shared');
-      const t2 = makeTicket('2', 'AAPL');
-      t2.signalContext = ctx('dec-shared');
-      storeMock.tickets.set({ '1': t1, '2': t2 });
-      fixture.detectChanges();
-
-      component.onRemoveTickets(['1', '2']);
-
-      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledTimes(1);
-      expect(occurrenceMock.clearDecisionById).toHaveBeenCalledWith('dec-shared');
     });
   });
 

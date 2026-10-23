@@ -30,6 +30,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { OrderExecutionService } from '../../services/order-execution.service';
+import { ManualOrderService } from '../../services/manual-order.service';
 import { OrderConfirmDialogComponent } from '../order-confirm-dialog/order-confirm-dialog.component';
 import {
   bucketTargetWarnings,
@@ -86,6 +87,7 @@ export class OrderTicketComponent {
   private readonly allocStore = inject(AllocationStore);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly manualOrders = inject(ManualOrderService);
 
   /** The selected ticket to configure. */
   ticket = input<OrderTicket | null>(null);
@@ -822,9 +824,10 @@ export class OrderTicketComponent {
     }
   }
 
-  /** New Manual Order placeholder. */
+  /** New Manual Order — the shared manual-ticket dialog (#1017 r2 —
+   *  replaces the placeholder; ManualOrderService owns the session). */
   onNewManualOrder(): void {
-    this.snackBar.open('Manual order creation coming soon', 'Dismiss', { duration: 3000 });
+    void this.manualOrders.open();
   }
 
   /** Submit a market sell for the fractional remainder directly to RH. */

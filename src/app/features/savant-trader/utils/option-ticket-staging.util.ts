@@ -5,13 +5,13 @@
  * id → decisionId, all → decisionIds), but produces a single STAGED
  * OptionOrderTicket — one buy-to-open leg.
  *
- * The caller filters REJECTed occurrences out of `signals` before calling
- * (same rule as the equity path — a REJECT id on the ticket would be
- * silently un-rejected on discard, #755 review). There is no side dedup:
- * the option ticket is always side 'buy' even on a SHORT card (a long put
- * is a buy-to-open), so every non-rejected occurrence's id lands on it.
  * `signals` is assumed single-card — same symbol, same direction — same
  * trust model as the equity builder; `first.direction` lands in the id.
+ * There is no side dedup: the option ticket is always side 'buy' even on
+ * a SHORT card (a long put is a buy-to-open), so every occurrence's id
+ * lands on it. Reject is card-level session state post-#1017 — a
+ * rejected card can't reach this builder, so every passed occurrence's
+ * id is carried.
  */
 import { StSignalItem } from '../services/types';
 import {

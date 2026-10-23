@@ -32,17 +32,16 @@ import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { OrderQueueComponent } from '../../components/order-queue/order-queue.component';
 import { OrderTicketComponent } from '../../components/order-ticket/order-ticket.component';
 import { TradingConfigDialogComponent } from '../../components/trading-config-dialog/trading-config-dialog.component';
+import { ManualOrderService } from '../../services/manual-order.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { AccountSnapshot, BrokerPosition, PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
-import { OccurrenceDecisionStore } from '../../stores/occurrence-decision.store';
 import { OrderTicket, OrderTicketStatus, OrderSource, TradingConfig, InstrumentType, REQUEUEABLE_TICKET_STATUSES } from '../../services/order-ticket.types';
 import { BrokerOrderSnapshot } from '../../services/order-ticket.types';
 import { formatError } from '../../utils/format-error.util';
 import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, rhStateToDisplayStatus, restingLimitBuyNotional } from '../../utils/broker-order.util';
-import { canonicalOccurrenceDecisionId } from '../../services/firestore-helpers';
 import { isPaperEligibleTicket, paperQuantityFor } from '../../utils/paper-ticket.util';
 import { requeueTicketPatch } from '../../utils/signal-order-staging.util';
 
@@ -63,9 +62,9 @@ export class OrderComponent implements OnInit, OnDestroy {
   private readonly priceService = inject(EquityPriceService);
   private readonly portfolioService = inject(PortfolioService);
   private readonly mcpService = inject(RobinhoodMcpObservationService);
-  private readonly occurrenceStore = inject(OccurrenceDecisionStore);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly manualOrders = inject(ManualOrderService);
 
   /** Currently selected ticket id. */
   readonly selectedTicketId = signal<string | null>(null);
@@ -371,12 +370,9 @@ export class OrderComponent implements OnInit, OnDestroy {
 
   /** Handle batch remove from the queue. PAPER tickets never reach this
    *  handler — they are filtered from display in `allTickets`.
-   *
-   *  Signal-sourced tickets carry `signalContext.decisionId` — removing the
-   *  ticket clears that accepted decision so the Accept toggle on
-   *  signal-review un-checks instead of staying stuck on an orphan (#719).
-   *  A decision survives removal only while another live ticket still
-   *  references it. */
+   *  #1017 — removing a ticket no longer clears a backing decision doc;
+   *  the decision layer is gone and `signalContext.decisionIds` are pure
+   *  provenance join keys. */
   onRemoveTickets(ids: string[]): void {
     // Only STAGED and terminal tickets may be removed. The queue renders
     // off MERGED status (an RH order can pull a mid-submit ticket's display
@@ -399,37 +395,6 @@ export class OrderComponent implements OnInit, OnDestroy {
         'Dismiss',
         { duration: 4000 },
       );
-    }
-    // A ticket can own several decision ids — accept persists one decision
-    // per signal but tickets dedup by symbol+side (#719). Older tickets
-    // carry only `decisionId`.
-    const docIdsFor = (t: OrderTicket): string[] => {
-      const ctx = t.signalContext;
-      const raw = ctx?.decisionIds?.length ? ctx.decisionIds : ctx?.decisionId ? [ctx.decisionId] : [];
-      const symbol = t.symbol;
-      return raw.map((id) =>
-        symbol
-          ? canonicalOccurrenceDecisionId(id, {
-              symbol,
-              timeframe: ctx!.timeframe,
-              signalType: ctx!.signalType,
-            })
-          : id,
-      );
-    };
-    // Live tickets' decision ids are normalized to canonical doc ids too —
-    // a surviving legacy-format ticket still protects its decision.
-    const liveDecisionIds = new Set(
-      Object.values(this.stagingStore.tickets()).flatMap(docIdsFor),
-    );
-    const cleared = new Set<string>();
-    for (const ticket of removed) {
-      for (const docId of docIdsFor(ticket)) {
-        if (!liveDecisionIds.has(docId) && !cleared.has(docId)) {
-          cleared.add(docId);
-          this.occurrenceStore.clearDecisionById(docId);
-        }
-      }
     }
     const selected = this.selectedTicketId();
     if (selected && ids.includes(selected) && !this.stagingStore.tickets()[selected]) {
@@ -616,9 +581,10 @@ export class OrderComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** New Manual Order placeholder. */
+  /** New Manual Order — the shared manual-ticket dialog (#1017 r2 —
+   *  replaces the placeholder; ManualOrderService owns the session). */
   onNewManualOrder(): void {
-    this.snackBar.open('Manual order creation coming soon', 'Dismiss', { duration: 3000 });
+    void this.manualOrders.open();
   }
 
   /** Navigate back to the gallery — the primary triage surface (#762)

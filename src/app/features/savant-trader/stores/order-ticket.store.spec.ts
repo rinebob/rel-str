@@ -169,6 +169,44 @@ describe('OrderTicketStore', () => {
       expect(ticketService.deleteTicket).toHaveBeenCalledWith('liv_staged-1');
       expect(store.tickets()['liv_staged-1']).toBeUndefined();
     });
+
+    it('queues a SUBMITTING ticket — a failed submit reverts to STAGED and the drain removes it (#1017 r2)', () => {
+      // Dialog closed mid-submit: the in-flight callable owns the ticket,
+      // so the discard queues until the status settles.
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.deleteTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ id: 'sub-1' }));
+      store.setTicketStatusLocal('sub-1', OrderTicketStatus.SUBMITTING);
+
+      store.discardIfStaged('sub-1');
+      expect(store.tickets()['sub-1']).toBeDefined();
+      expect(ticketService.deleteTicket).not.toHaveBeenCalled();
+
+      store.setTicketStatusLocal('sub-1', OrderTicketStatus.STAGED);
+      TestBed.tick();
+
+      expect(store.tickets()['sub-1']).toBeUndefined();
+      expect(ticketService.deleteTicket).toHaveBeenCalledWith('sub-1');
+    });
+
+    it('clears the queued discard when the submit succeeds — the order survives (#1017 r2)', () => {
+      ticketService.createTicket.and.returnValue(of(undefined));
+      ticketService.deleteTicket.and.returnValue(of(undefined));
+      store.stageTicket(mockEquityTicket({ id: 'sub-ok' }));
+      store.setTicketStatusLocal('sub-ok', OrderTicketStatus.SUBMITTING);
+
+      store.discardIfStaged('sub-ok');
+      store.setTicketStatusLocal('sub-ok', OrderTicketStatus.SUBMITTED);
+      TestBed.tick();
+
+      // SUBMITTED survives — and the stale queue entry must not fire on a
+      // later requeue back to STAGED.
+      expect(store.tickets()['sub-ok']?.status).toBe(OrderTicketStatus.SUBMITTED);
+      store.setTicketStatusLocal('sub-ok', OrderTicketStatus.STAGED);
+      TestBed.tick();
+      expect(store.tickets()['sub-ok']?.status).toBe(OrderTicketStatus.STAGED);
+      expect(ticketService.deleteTicket).not.toHaveBeenCalled();
+    });
   });
 
   describe('removeTicket', () => {

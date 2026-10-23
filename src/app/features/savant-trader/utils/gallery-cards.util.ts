@@ -7,14 +7,11 @@
  * produce two cards.
  */
 import {
-  StOccurrenceDecision,
   StSignalItem,
   StSymbolProfile,
 } from '../services/types';
 import { OrderTicket } from '../services/order-ticket.types';
-import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import {
-  ReviewDecision,
   SignalDirection,
   SignalTimeframe,
   SymbolListFilter,
@@ -44,7 +41,7 @@ export type GalleryCardStatus =
   | 'rejected';
 
 export interface GalleryCard {
-  /** `${symbol}:${side}` — stable key for tracking and, later, decisions/tickets. */
+  /** `${symbol}:${side}` — stable key for tracking, session rejects, and tickets. */
   key: string;
   symbol: string;
   side: GallerySide;
@@ -59,19 +56,17 @@ export interface GalleryCard {
    *  chart-interval vs signal-filter mismatch (#819 review: filter=D +
    *  chart=W left zero card dots). */
   allOccurrences: StSignalItem[];
-  /** Derived from ticket + reject decisions — see enrichGalleryCards. */
+  /** Derived from ticket + session reject state — see enrichGalleryCards. */
   status: GalleryCardStatus;
-  /** Every occurrence in the run's symbol+side set carries a durable
-   *  REJECT (#755 review) — computed by `filterGalleryCards` over the
-   *  full pre-trim set, since reject/restore write the full set too: a
-   *  timeframe filter must not shrink the verdict. */
+  /** The card was rejected this session (#1017 — card-level and
+   *  session-ephemeral since durable REJECT decisions are gone). */
   allRejected: boolean;
   /** The signal-staged ticket statusing this card, when one exists —
    *  equity/ETF or OPTION (#964 — option tickets status the card via
    *  decisionIds; `ticketLine` renders a per-variant terms string). */
   ticket?: OrderTicket;
   /** Best-effort action timestamp (ticket terminalAt/updatedAt, else the
-   *  latest occurrence decidedAt); '' when unknown — drives actioned
+   *  session-reject timestamp); '' when unknown — drives actioned
    *  ordering (desc, untimestamped last). */
   actionedAt: string;
 }
@@ -88,12 +83,13 @@ export interface GalleryListContext {
   exclusiveListKeys: string[];
 }
 
-/** Decision/ticket state the card pipeline reads (#755). */
+/** Session/ticket state the card pipeline reads (#755; #1017 — the
+ *  durable decisions map became a session-ephemeral rejected-card set). */
 export interface GalleryActionContext {
-  /** The viewed run — decisions and tickets are scoped to it. */
+  /** The viewed run — tickets are scoped to it. */
   runId: string;
-  /** Durable occurrence decisions keyed by canonical decision id. */
-  decisions: Record<string, StOccurrenceDecision>;
+  /** Session-rejected cards — card key → reject timestamp. */
+  rejectedCards: ReadonlyMap<string, string>;
   /** Live/staged tickets grouped by symbol (OrderTicketStore.ticketsBySymbol). */
   ticketsBySymbol: Record<string, OrderTicket[]>;
 }
@@ -138,49 +134,32 @@ function card(p: StSymbolProfile, side: GallerySide, occurrences: StSignalItem[]
 }
 
 /**
- * Filter cards — timeframe and REJECTed occurrences trim *within* a card;
- * direction and listFilter drop whole cards. A card whose every occurrence
- * is REJECTed keeps them: the decision must stay reachable on the card
- * (reset / un-reject), so it survives and sinks as 'rejected' rather than
- * silently vanishing (#755). `actions` supplies the durable decisions —
- * required so callers can't silently skip the reject trim; pass
- * `{ runId: '', decisions: {} }` when decisions aren't tracked.
+ * Filter cards — timeframe trims *within* a card; direction and listFilter
+ * drop whole cards. `rejected` supplies the session-ephemeral rejected-card
+ * set (#1017 — card-level now that durable REJECTs are gone); a rejected
+ * card keeps its occurrences so its context stays reachable on the card.
  */
 export function filterGalleryCards(
   cards: GalleryCard[],
   filter: GalleryFilter,
   lists: GalleryListContext,
-  actions: Pick<GalleryActionContext, 'runId' | 'decisions'>,
+  rejected: ReadonlyMap<string, string>,
 ): GalleryCard[] {
   return cards
     .filter((c) => filter.direction === SignalDirection.ALL || c.direction === filter.direction)
     .filter((c) =>
       shouldShowInListFilter(c.symbol, lists.symbolLists, filter.listFilter, lists.exclusiveListKeys),
     )
-    .map((c) => {
-      // Verdict over the FULL pre-trim set — all timeframes, since the
-      // reject write covers them all (#755 review r3). Read allOccurrences
-      // so a re-filter of an already-trimmed card can't shrink the verdict.
-      const allRejected =
-        c.allOccurrences.length > 0 && c.allOccurrences.every((o) => isRejectedOccurrence(o, actions));
+    .map((c) => ({
+      ...c,
       // Trim from the canonical full set — a re-filter of an already
       // trimmed card can't permanently lose the other timeframe's legs.
-      const inTimeframe = c.allOccurrences.filter(
+      occurrences: c.allOccurrences.filter(
         (o) => filter.timeframe === SignalTimeframe.ALL || o.timeframe === filter.timeframe,
-      );
-      const kept = inTimeframe.filter((o) => !isRejectedOccurrence(o, actions));
-      // All-rejected → restore so the card can render its rejected context.
-      return { ...c, occurrences: kept.length ? kept : inTimeframe, allRejected };
-    })
+      ),
+      allRejected: rejected.has(c.key),
+    }))
     .filter((c) => c.occurrences.length > 0);
-}
-
-function isRejectedOccurrence(
-  o: StSignalItem,
-  actions: Pick<GalleryActionContext, 'runId' | 'decisions'>,
-): boolean {
-  const id = buildStOccurrenceDecisionId(actions.runId, o.symbol, o.timeframe, o.signalType);
-  return actions.decisions[id]?.decisionType === ReviewDecision.REJECT;
 }
 
 /**
@@ -221,7 +200,7 @@ export function groupGalleryCards(
 /**
  * Perf: retain prior card object identities across pipeline rebuilds.
  * filterGalleryCards/enrichGalleryCards mint fresh GalleryCard objects on
- * every upstream patch (tickets, decisions, history, lists) — without
+ * every upstream patch (tickets, session rejects, history, lists) — without
  * retention every card input churns and every mounted card chart
  * re-renders per patch. Reusing the previous instance when nothing
  * rendered-relevant changed keeps OnPush/signal inputs stable.
@@ -259,7 +238,7 @@ function sameGalleryCard(a: GalleryCard, b: GalleryCard): boolean {
 }
 
 /** The Actioned section's card order — action time desc; untimestamped
- *  cards (e.g. a reconcile-landed settle with no decidedAt) go last. */
+ *  cards (e.g. a reconcile-landed settle with no actionedAt) go last. */
 export function actionedGalleryCards(cards: GalleryCard[]): GalleryCard[] {
   return [...cards].sort((a, b) => {
     if (a.actionedAt === b.actionedAt) return a.key.localeCompare(b.key);

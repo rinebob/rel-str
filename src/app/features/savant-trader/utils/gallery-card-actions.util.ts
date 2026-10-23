@@ -45,25 +45,18 @@ export function enrichGalleryCards(
       ...c,
       status: deriveCardStatus(c, ticket),
       ticket,
-      actionedAt: ticket ? (ticket.terminalAt ?? ticket.updatedAt) : latestDecidedAt(c, actions),
+      actionedAt: ticket
+        ? (ticket.terminalAt ?? ticket.updatedAt)
+        : (actions.rejectedCards.get(c.key) ?? ''),
     };
   });
 }
 
-/** Canonical decision id for an occurrence in the viewed run. */
+/** Canonical decision id for an occurrence in the viewed run — a pure
+ *  deterministic join key between cards and ticket provenance (#1017 —
+ *  no decision doc ever existed for it). */
 function occurrenceDecisionId(o: StSignalItem, ctx: Pick<GalleryActionContext, 'runId'>): string {
   return buildStOccurrenceDecisionId(ctx.runId, o.symbol, o.timeframe, o.signalType);
-}
-
-/** Latest decidedAt across the card's FULL occurrence set — '' when none
- *  decided. A decision on a timeframe leg the filter hides must still
- *  timestamp the card (#819 r2). */
-function latestDecidedAt(card: GalleryCard, ctx: GalleryActionContext): string {
-  return card.allOccurrences
-    .map((o) => ctx.decisions[occurrenceDecisionId(o, ctx)]?.decidedAt)
-    .filter((d): d is string => !!d)
-    .sort()
-    .pop() ?? '';
 }
 
 /** All tickets statusing a card: same symbol+side, staged from one of the
@@ -118,7 +111,7 @@ function findCardTicket(
   return findCardTickets(card, ctx)[0];
 }
 
-/** Status precedence: a fully-REJECTed card outranks ticket state (a
+/** Status precedence: a session-rejected card outranks ticket state (a
  *  staged ticket is removed on reject anyway); ticket lifecycle fills
  *  the rest. Monitor list membership deliberately does NOT status a
  *  card (#762 QA) — monitoring a symbol isn't a decision about this
@@ -170,11 +163,9 @@ export function isActionedCard(card: GalleryCard): boolean {
 
 /**
  * Trade/Paper precondition: the card must be in a decidable state —
- * `pending` — must not be fully rejected, and must not already carry a
+ * `pending` — must not be session-rejected, and must not already carry a
  * live ticket. A STAGED ticket passes: Trade reopens it rather than
- * duplicating. Rejected cards expose only Restore — a rejected card
- * restaging would carry REJECT decisionIds whose removal silently
- * un-rejects (#755 review). */
+ * duplicating. Rejected cards expose only Restore. */
 export function canTradeCard(card: GalleryCard): boolean {
   if (card.status !== 'pending') return false;
   return !card.ticket || card.ticket.status === OrderTicketStatus.STAGED;

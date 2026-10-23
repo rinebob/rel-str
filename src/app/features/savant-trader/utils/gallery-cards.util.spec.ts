@@ -22,7 +22,7 @@ import {
   enrichGalleryCards,
   isActionedCard,
 } from './gallery-card-actions.util';
-import { StOccurrenceDecision, StSignalItem, StSymbolProfile } from '../services/types';
+import { StSignalItem, StSymbolProfile } from '../services/types';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import {
   EquityOrderTicket,
@@ -35,7 +35,6 @@ import {
 import {
   GroupDimension,
   NO_MEMBERSHIP,
-  ReviewDecision,
   SignalDirection,
   SignalStatus,
   SignalTimeframe,
@@ -79,9 +78,8 @@ const allFilter: GalleryFilter = {
   listFilter: 'ALL',
 };
 
-/** No decisions tracked — satisfies the required `actions` param without
- *  rejecting anything. */
-const noDecisions = { runId: '', decisions: {} };
+/** No session rejections — satisfies the required `rejected` param. */
+const noRejections: ReadonlyMap<string, string> = new Map();
 
 describe('buildGalleryCards', () => {
   it('aggregates same-side D+W occurrences into one card per symbol', () => {
@@ -148,16 +146,16 @@ describe('filterGalleryCards', () => {
   );
 
   it('returns all cards under the ALL/ALL/ALL filter', () => {
-    expect(filterGalleryCards(cards, allFilter, noLists, noDecisions)).toHaveLength(3);
+    expect(filterGalleryCards(cards, allFilter, noLists, noRejections)).toHaveLength(3);
   });
 
   it('filters to the matching direction', () => {
-    const out = filterGalleryCards(cards, { ...allFilter, direction: SignalDirection.SHORT }, noLists, noDecisions);
+    const out = filterGalleryCards(cards, { ...allFilter, direction: SignalDirection.SHORT }, noLists, noRejections);
     expect(out.map((c) => c.symbol).sort()).toEqual(['MSFT', 'TSLA']);
   });
 
   it('trims occurrences to the matching timeframe and drops empty cards', () => {
-    const out = filterGalleryCards(cards, { ...allFilter, timeframe: SignalTimeframe.WEEKLY }, noLists, noDecisions);
+    const out = filterGalleryCards(cards, { ...allFilter, timeframe: SignalTimeframe.WEEKLY }, noLists, noRejections);
     expect(out.map((c) => c.symbol).sort()).toEqual(['AAPL', 'TSLA']);
     const aapl = out.find((c) => c.symbol === 'AAPL')!;
     expect(aapl.occurrences).toHaveLength(1);
@@ -169,7 +167,7 @@ describe('filterGalleryCards', () => {
       symbolLists: { PRIMARY: ['AAPL'], MONITOR: ['TSLA'] },
       exclusiveListKeys: ['PRIMARY'],
     };
-    const out = filterGalleryCards(cards, { ...allFilter, listFilter: 'PRIMARY' }, lists, noDecisions);
+    const out = filterGalleryCards(cards, { ...allFilter, listFilter: 'PRIMARY' }, lists, noRejections);
     expect(out.map((c) => c.symbol)).toEqual(['AAPL']);
   });
 
@@ -180,7 +178,7 @@ describe('filterGalleryCards', () => {
       symbolLists: { PRIMARY: ['AAPL', 'MSFT'], MONITOR: ['TSLA'] },
       exclusiveListKeys: ['PRIMARY'],
     };
-    const out = filterGalleryCards(cards, { ...allFilter, listFilter: NO_MEMBERSHIP }, lists, noDecisions);
+    const out = filterGalleryCards(cards, { ...allFilter, listFilter: NO_MEMBERSHIP }, lists, noRejections);
     expect(out.map((c) => c.symbol)).toEqual(['TSLA']);
   });
 });
@@ -262,28 +260,7 @@ describe('groupGalleryCards (#783) — mirrors signal-review buildSymbolGroups',
   });
 });
 
-describe('action context (#755) — reject trim, status derivation, actioned model', () => {
-  function decision(
-    symbol: string,
-    signalType: string,
-    decisionType: StOccurrenceDecision['decisionType'],
-    timeframe: SignalTimeframe = SignalTimeframe.DAILY,
-  ): StOccurrenceDecision {
-    return {
-      id: buildStOccurrenceDecisionId(RUN_ID, symbol, timeframe, signalType),
-      runId: RUN_ID,
-      marketDate: '2026-08-25',
-      symbol,
-      timeframe,
-      direction: SignalDirection.LONG,
-      signalType,
-      barDate: '2026-08-25',
-      decisionType,
-      decidedAt: '2026-08-26T00:00:00Z',
-      isCurrentInLatestRun: true,
-    };
-  }
-
+describe('action context (#755) — session reject, status derivation, actioned model', () => {
   function ticket(
     symbol: string,
     side: 'buy' | 'sell',
@@ -317,7 +294,7 @@ describe('action context (#755) — reject trim, status derivation, actioned mod
 
   const noActions: GalleryActionContext = {
     runId: RUN_ID,
-    decisions: {},
+    rejectedCards: new Map(),
     ticketsBySymbol: {},
   };
 
@@ -325,7 +302,7 @@ describe('action context (#755) — reject trim, status derivation, actioned mod
     return { ...noActions, ...over };
   }
 
-  describe('filterGalleryCards — rejected occurrences', () => {
+  describe('filterGalleryCards — session-rejected cards (#1017)', () => {
     const cards = buildGalleryCards(
       [profile('AAPL'), profile('TSLA')],
       {
@@ -337,37 +314,29 @@ describe('action context (#755) — reject trim, status derivation, actioned mod
       },
     );
 
-    it('trims only the rejected occurrence; the card survives on the rest', () => {
-      const decisions = {
-        [decision('AAPL', 'RS_RISE', ReviewDecision.REJECT).id]:
-          decision('AAPL', 'RS_RISE', ReviewDecision.REJECT),
-      };
-      const out = filterGalleryCards(cards, allFilter, noLists, ctx({ decisions }));
+    it('marks a rejected card allRejected while keeping its occurrences reachable', () => {
+      // Card-level session reject (#1017): the whole card sinks — no
+      // per-occurrence trim. The occurrences stay on the card so its
+      // context (signals, chart dots) remains reachable in the sink.
+      const rejected = new Map([['AAPL:buy', '2026-08-26T00:00:00Z']]);
+      const out = filterGalleryCards(cards, allFilter, noLists, rejected);
       const aapl = out.find((c) => c.symbol === 'AAPL')!;
-      expect(aapl.occurrences).toHaveLength(1);
-      expect(aapl.occurrences[0].signalType).toBe('RS_WEEKLY');
+      expect(aapl.allRejected).toBe(true);
+      expect(aapl.occurrences).toHaveLength(2);
     });
 
-    it('keeps a fully-rejected card so the decision stays reachable (sinks as rejected)', () => {
-      const decisions = {
-        [decision('TSLA', 'RS_RISE', ReviewDecision.REJECT).id]:
-          decision('TSLA', 'RS_RISE', ReviewDecision.REJECT),
-      };
-      const out = filterGalleryCards(cards, allFilter, noLists, ctx({ decisions }));
+    it('a session-rejected card sinks as rejected + actioned', () => {
+      const rejected = new Map([['TSLA:buy', '2026-08-26T00:00:00Z']]);
+      const out = filterGalleryCards(cards, allFilter, noLists, rejected);
       const tsla = out.find((c) => c.symbol === 'TSLA')!;
-      expect(tsla.occurrences).toHaveLength(1);
-      const [enriched] = enrichGalleryCards([tsla], ctx({ decisions }));
+      const [enriched] = enrichGalleryCards([tsla], ctx({ rejectedCards: rejected }));
       expect(enriched.status).toBe('rejected');
       expect(isActionedCard(enriched)).toBe(true);
     });
 
-    it('does not trim occurrences with ACCEPT decisions', () => {
-      const decisions = {
-        [decision('TSLA', 'RS_RISE', ReviewDecision.ACCEPT).id]:
-          decision('TSLA', 'RS_RISE', ReviewDecision.ACCEPT),
-      };
-      const out = filterGalleryCards(cards, allFilter, noLists, ctx({ decisions }));
-      expect(out.find((c) => c.symbol === 'TSLA')!.occurrences).toHaveLength(1);
+    it('does not mark an un-rejected card', () => {
+      const out = filterGalleryCards(cards, allFilter, noLists, noRejections);
+      expect(out.every((c) => !c.allRejected)).toBe(true);
     });
   });
 
@@ -404,11 +373,11 @@ describe('action context (#755) — reject trim, status derivation, actioned mod
       }
     });
 
-    it('all-rejected card derives rejected — untradeable, restorable (#755 review)', () => {
-      const reject = decision('AAPL', 'RS_RISE', ReviewDecision.REJECT);
+    it('rejected card derives rejected — untradeable, restorable (#1017)', () => {
+      const rejected = new Map([['AAPL:buy', '2026-08-26T00:00:00Z']]);
       const [c] = enrichGalleryCards(
-        filterGalleryCards(cards, allFilter, noLists, ctx({ decisions: { [reject.id]: reject } })),
-        ctx({ decisions: { [reject.id]: reject } }),
+        filterGalleryCards(cards, allFilter, noLists, rejected),
+        ctx({ rejectedCards: rejected }),
       );
       expect(c.status).toBe('rejected');
       expect(c.allRejected).toBe(true);
@@ -416,45 +385,11 @@ describe('action context (#755) — reject trim, status derivation, actioned mod
       expect(canRejectCard(c)).toBe(true); // Restore stays reachable
     });
 
-    it('sets allRejected false when at least one occurrence is unrejected', () => {
-      const multi = buildGalleryCards(
-        [profile('AAPL')],
-        {
-          AAPL: [
-            signal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG),
-            signal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG, { signalType: 'RS_WEEKLY' }),
-          ],
-        },
-      );
-      const reject = decision('AAPL', 'RS_RISE', ReviewDecision.REJECT);
+    it('an un-rejected card stays pending + tradeable', () => {
       const [c] = enrichGalleryCards(
-        filterGalleryCards(multi, allFilter, noLists, ctx({ decisions: { [reject.id]: reject } })),
-        ctx({ decisions: { [reject.id]: reject } }),
+        filterGalleryCards(cards, allFilter, noLists, noRejections),
+        ctx({ rejectedCards: new Map() }),
       );
-      expect(c.allRejected).toBe(false);
-      expect(canTradeCard(c)).toBe(true);
-    });
-
-    it('allRejected verdicts the FULL set — a hidden unrejected timeframe keeps a filtered card actionable (#755 review r3)', () => {
-      const multi = buildGalleryCards(
-        [profile('AAPL')],
-        {
-          AAPL: [
-            signal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG),
-            signal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG, { signalType: 'RS_WEEKLY' }),
-          ],
-        },
-      );
-      // Daily rejected, weekly still live. Under the DAILY filter the
-      // visible set is all-rejected — but the reject write covered the
-      // weekly leg too, so the verdict must be false.
-      const reject = decision('AAPL', 'RS_RISE', ReviewDecision.REJECT);
-      const actx = ctx({ decisions: { [reject.id]: reject } });
-      const [c] = enrichGalleryCards(
-        filterGalleryCards(multi, { ...allFilter, timeframe: SignalTimeframe.DAILY }, noLists, actx),
-        actx,
-      );
-      expect(c.occurrences.every((o) => o.timeframe === SignalTimeframe.DAILY)).toBe(true);
       expect(c.allRejected).toBe(false);
       expect(c.status).toBe('pending');
       expect(canTradeCard(c)).toBe(true);
@@ -660,7 +595,7 @@ describe('action context (#755) — reject trim, status derivation, actioned mod
         multi,
         { ...allFilter, timeframe: SignalTimeframe.DAILY },
         noLists,
-        noDecisions,
+        noRejections,
       );
       expect(trimmed.occurrences).toHaveLength(1); // weekly leg hidden
 
@@ -725,7 +660,7 @@ describe('action context (#755) — reject trim, status derivation, actioned mod
     });
   });
 
-  describe('enrichGalleryCards — actionedAt fallback (#755)', () => {
+  describe('enrichGalleryCards — actionedAt fallback (#1017)', () => {
     const cards = buildGalleryCards(
       [profile('AAPL'), profile('TSLA')],
       {
@@ -737,32 +672,30 @@ describe('action context (#755) — reject trim, status derivation, actioned mod
       },
     );
 
-    it('actionedAt falls back to the latest occurrence decidedAt without a ticket', () => {
-      const older = {
-        ...decision('TSLA', 'RS_RISE', ReviewDecision.REJECT),
-        decidedAt: '2026-08-20T00:00:00Z',
-      };
-      const [c] = enrichGalleryCards(
+    it('actionedAt falls back to the session-reject timestamp without a ticket', () => {
+      const rejected = new Map([['TSLA:buy', '2026-08-20T00:00:00Z']]);
+      const filtered = filterGalleryCards(
         cards.filter((x) => x.symbol === 'TSLA'),
-        ctx({ decisions: { [older.id]: older } }),
+        allFilter,
+        noLists,
+        rejected,
       );
+      const [c] = enrichGalleryCards(filtered, ctx({ rejectedCards: rejected }));
       expect(c.actionedAt).toBe('2026-08-20T00:00:00Z');
+      expect(c.status).toBe('rejected');
     });
 
-    it('actionedAt sees a decision on a filter-hidden occurrence (#819 r2)', () => {
-      // D filter trims the AAPL card to its daily leg; the only decision
-      // is on the hidden weekly leg — it must still timestamp the card.
-      const hidden = {
-        ...decision('AAPL', 'RS_WEEKLY', ReviewDecision.REJECT, SignalTimeframe.WEEKLY),
-        decidedAt: '2026-08-27T00:00:00Z',
-      };
+    it('a rejected card timestamps even under a timeframe filter', () => {
+      // The session reject is card-level (#1017), so the filter can't
+      // hide the rejection — the card sinks regardless.
+      const rejected = new Map([['AAPL:buy', '2026-08-27T00:00:00Z']]);
       const [trimmed] = filterGalleryCards(
         cards.filter((x) => x.symbol === 'AAPL'),
         { ...allFilter, timeframe: SignalTimeframe.DAILY },
         noLists,
-        noDecisions,
+        rejected,
       );
-      const [c] = enrichGalleryCards([trimmed], ctx({ decisions: { [hidden.id]: hidden } }));
+      const [c] = enrichGalleryCards([trimmed], ctx({ rejectedCards: rejected }));
       expect(c.actionedAt).toBe('2026-08-27T00:00:00Z');
     });
   });
@@ -770,7 +703,7 @@ describe('action context (#755) — reject trim, status derivation, actioned mod
 
 describe('retainGalleryCards — identity retention across pipeline rebuilds', () => {
   const actions: GalleryActionContext = {
-    runId: RUN_ID, decisions: {}, ticketsBySymbol: {},
+    runId: RUN_ID, rejectedCards: new Map(), ticketsBySymbol: {},
   };
   const profiles = [
     profile('AAPL', { sector: 'Tech', marketCap: 100 }),
@@ -783,13 +716,13 @@ describe('retainGalleryCards — identity retention across pipeline rebuilds', (
 
   it('reuses card objects when nothing rendered-relevant changed', () => {
     const prev = enrichGalleryCards(
-      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, actions),
+      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, actions.rejectedCards),
       actions,
     );
     // Simulate a fresh pipeline pass producing new object identities with
     // equivalent content (the ticket patch path).
     const next = enrichGalleryCards(
-      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, actions),
+      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, actions.rejectedCards),
       actions,
     );
     expect(next[0]).not.toBe(prev[0]); // pipeline mints fresh objects…
@@ -800,9 +733,9 @@ describe('retainGalleryCards — identity retention across pipeline rebuilds', (
   });
 
   it('emits a new object for the card whose ticket/status changed', () => {
-    const ctx = { runId: RUN_ID, decisions: {}, ticketsBySymbol: {} };
+    const ctx = { runId: RUN_ID, rejectedCards: new Map(), ticketsBySymbol: {} };
     const prev = enrichGalleryCards(
-      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, ctx),
+      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, ctx.rejectedCards),
       ctx,
     );
     const ticket = {
@@ -821,7 +754,7 @@ describe('retainGalleryCards — identity retention across pipeline rebuilds', (
     } as unknown as EquityOrderTicket;
     const ctx2 = { ...ctx, ticketsBySymbol: { AAPL: [ticket] } };
     const next = enrichGalleryCards(
-      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, ctx2),
+      filterGalleryCards(buildGalleryCards(profiles, signalsBySymbol), allFilter, noLists, ctx2.rejectedCards),
       ctx2,
     );
     const retained = retainGalleryCards(prev, next);

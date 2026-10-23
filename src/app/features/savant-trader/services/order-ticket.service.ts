@@ -6,7 +6,7 @@
  * OrderTicket domain type; order-ticket-st-mapper translates it to and
  * from the StOrderTicket doc schema (mode/origin/terms/state) at this
  * boundary.
- * Mirrors the OccurrenceDecisionService pattern: requireUserId + injection context.
+ * Shared requireUserId + injection-context pattern with the feature's other services.
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Auth } from '@angular/fire/auth';

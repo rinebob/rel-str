@@ -24,13 +24,14 @@
  *   discardIfStaged      — STAGED-only discard (dialog close paths)
  *   reconcileTerminalStatuses — batch-write terminal states from RH orders
  */
-import { computed, inject, DestroyRef } from '@angular/core';
+import { computed, effect, inject, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   signalStore,
   withState,
   withComputed,
   withMethods,
+  withHooks,
   patchState,
 } from '@ngrx/signals';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -70,6 +71,14 @@ const initialState: OrderTicketState = {
   loading: false,
   error: null,
 };
+
+/** Ids queued for discard while a dialog closed mid-submit (#1017 r2).
+ *  `discardIfStaged` can't remove a SUBMITTING ticket (the in-flight
+ *  callable owns it), so it parks the id here; the drain effect below
+ *  removes the ticket if the submit fails back to STAGED, and clears
+ *  the entry if the ticket leaves the store or submits successfully.
+ *  Module scope is fine — the store is a root singleton. */
+const pendingDiscards = new Set<string>();
 
 /** Merge a partial into an existing ticket. Fields set to `undefined`
  *  are removed (matching the service's `deleteField()` behavior). */
@@ -545,10 +554,21 @@ export const OrderTicketStore = signalStore(
      *  manual order dialog (#1177): once a ticket has been submitted it
      *  belongs to the order lifecycle, not the staging session. Probes
      *  both id spellings — the map is mixed-keyed (bare session ids vs
-     *  hydrated liv_/pap_ doc ids), so a rehydrated entry is still found. */
+     *  hydrated liv_/pap_ doc ids), so a rehydrated entry is still found.
+     *  A SUBMITTING ticket is queued via {@link pendingDiscards} — the
+     *  drain removes it if the submit fails back to STAGED (#1017 r2). */
     discardIfStaged(id: string): void {
       const key = store.tickets()[id] ? id : stDocId(id);
-      if (store.tickets()[key]?.status === OrderTicketStatus.STAGED) {
+      const ticket = store.tickets()[key];
+      if (ticket?.status === OrderTicketStatus.SUBMITTING) {
+        // Dialog closed mid-submit — the in-flight callable owns the
+        // ticket, so queue the discard instead of dropping it (#1017 r2):
+        // a failed submit reverts to STAGED and the drain removes it.
+        pendingDiscards.add(key);
+        return;
+      }
+      pendingDiscards.delete(key);
+      if (ticket?.status === OrderTicketStatus.STAGED) {
         store.removeTicket(key);
       }
     },
@@ -633,4 +653,26 @@ export const OrderTicketStore = signalStore(
       }
     },
   })),
+
+  withHooks({
+    /** Drains {@link pendingDiscards}: once a queued ticket leaves
+     *  SUBMITTING, a revert to STAGED honors the queued discard; any
+     *  other outcome (SUBMITTED/PAPER/terminal/removed) clears it. */
+    onInit(store) {
+      effect(() => {
+        const tickets = store.tickets();
+        for (const id of [...pendingDiscards]) {
+          // Same mixed-key probe as discardIfStaged — a liv_-rekey
+          // between queue and settle must still resolve.
+          const key = tickets[id] ? id : stDocId(id);
+          const ticket = tickets[key];
+          if (ticket?.status === OrderTicketStatus.SUBMITTING) continue;
+          pendingDiscards.delete(id);
+          if (ticket?.status === OrderTicketStatus.STAGED) {
+            store.removeTicket(key);
+          }
+        }
+      });
+    },
+  }),
 );

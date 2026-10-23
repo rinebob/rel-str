@@ -11,6 +11,7 @@ import { OrderTicketComponent } from './order-ticket.component';
 import { StopLossFormComponent } from '../../../../shared/components/stop-loss-form/stop-loss-form.component';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { OrderExecutionService } from '../../services/order-execution.service';
+import { ManualOrderService } from '../../services/manual-order.service';
 import { PaperTradingService } from '../../services/paper-trading.service';
 import { InstrumentType, OrderTicket, OrderTicketStatus, OrderSource, TradingConfig } from '../../services/order-ticket.types';
 import type { PaperSignalOrderResponse } from '@paper-trading/contracts';
@@ -127,6 +128,7 @@ describe('OrderTicketComponent', () => {
         { provide: AllocationStore, useValue: allocStore },
         { provide: MatDialog, useValue: dialog },
         { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
+        { provide: ManualOrderService, useValue: { open: jest.fn() } },
       ],
     }).compileComponents();
 
@@ -515,6 +517,7 @@ describe('OrderTicketComponent — accept as paper', () => {
         { provide: AllocationStore, useValue: { byAccount: signal({}), ensureAccount: jest.fn(), bucketDetail: jest.fn(() => null) } },
         { provide: MatDialog, useValue: dialog },
         { provide: MatSnackBar, useValue: snackBar },
+        { provide: ManualOrderService, useValue: { open: jest.fn() } },
       ],
     }).compileComponents();
 
