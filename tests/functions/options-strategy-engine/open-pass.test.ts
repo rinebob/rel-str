@@ -7,6 +7,11 @@ import { TradeSide } from '../../../shared/common';
 import { ExitPolicy, LifecycleState, type StrategyInstanceConfig, type OvernightDeltaSimulation } from '../../../shared/options-strategy-engine-contracts';
 import type { Position, PositionLeg, RawQuote } from '../../../functions/src/options-strategy-engine/types';
 import { PositionStatus } from '../../../functions/src/options-strategy-engine/types';
+import type {
+  EmitStOrderTicketInput,
+  StTicketTransitionResult,
+} from '../../../functions/src/order-tickets/st-order-ticket-writer';
+import type { StMode } from '../../../shared/st-types';
 
 function makeConfig(
   overrides: Partial<StrategyInstanceConfig> = {},
@@ -210,15 +215,7 @@ describe('runOpenPass', () => {
 
 // ── #1002 — canonical st-order-tickets emission ────────────────────────────
 
-interface TicketEmitCall {
-  mode: string;
-  idSeed: string;
-  origin: Record<string, unknown>;
-  auto: boolean;
-  terms: Record<string, unknown>;
-  accountTarget: string;
-  userId: string;
-}
+type TicketEmitCall = EmitStOrderTicketInput;
 
 function spyTickets(calls: string[]) {
   const emits: TicketEmitCall[] = [];
@@ -234,13 +231,15 @@ function spyTickets(calls: string[]) {
         emits.push(input);
         return `${input.mode === 'live' ? 'liv' : 'pap'}_${input.idSeed}`;
       },
-      markFilled: async (id: string, fill: { averagePrice: number; filledQty: number; filledAt: string }) => {
+      markFilled: async (id: string, fill: { averagePrice: number; filledQty: number; filledAt: string }): Promise<StTicketTransitionResult> => {
         calls.push('markFilled');
         fills.push({ id, averagePrice: fill.averagePrice });
+        return { applied: true, ticketId: id, to: 'filled' };
       },
-      markFailed: async (id: string, error: { category: string; message: string }) => {
+      markFailed: async (id: string, error: { category: string; message: string }): Promise<StTicketTransitionResult> => {
         calls.push('markFailed');
         fails.push({ id, category: error.category });
+        return { applied: true, ticketId: id, to: 'failed' };
       },
     },
   };
@@ -291,7 +290,7 @@ describe('runOpenPass — st-order-tickets emission (#1002)', () => {
     const calls: string[] = [];
     const { deps, spy } = ticketDeps(calls);
     // Post-#1006 the canonical st-strategy-instances doc carries `mode`.
-    const liveConfig = makeConfig() as StrategyInstanceConfig & { mode?: string };
+    const liveConfig = makeConfig() as StrategyInstanceConfig & { mode?: StMode };
     liveConfig.mode = 'live';
     await runOpenPass('inst-1', '2025-08-15', liveConfig, 101, deps);
     assert.equal(spy.emits[0].mode, 'live');

@@ -274,7 +274,7 @@ describe('runExpressionFillPass — staged tickets (#1005)', () => {
     const winner = pendingTrade({
       id: 'QQQM-260925-sig-CSP-261106-580-01',
       status: PaperTradeStatus.OPEN,
-      fills: [{ fillId: 'f', role: 'entry', date: MARKET_DATE, price: 2.8, quantity: 1 }],
+      fills: [{ fillId: 'f', role: 'entry', date: MARKET_DATE, price: 2.8, quantity: 1, quoteSource: OptionQuoteSource.RH_MCP }],
     });
     let stampedLookups = 0;
     const { deps, entryFills, ticketFills } = makeDeps({
@@ -316,7 +316,7 @@ describe('runExpressionFillPass — staged tickets (#1005)', () => {
     const winner = pendingTrade({
       id: 'QQQM-260925-sig-CSP-261106-580-01',
       status: PaperTradeStatus.OPEN,
-      fills: [{ fillId: 'f', role: 'entry', date: MARKET_DATE, price: 2.8, quantity: 1 }],
+      fills: [{ fillId: 'f', role: 'entry', date: MARKET_DATE, price: 2.8, quantity: 1, quoteSource: OptionQuoteSource.RH_MCP }],
     });
     let stampedLookups = 0;
     const { deps, entryFills, ticketFills, memberAdds } = makeDeps({
@@ -366,7 +366,7 @@ describe('runExpressionFillPass — staged tickets (#1005)', () => {
       id: 'QQQM-260925-sig-CSP-261106-580-01',
       status: PaperTradeStatus.OPEN,
       fills: [
-        { fillId: 'f', role: 'entry', date: MARKET_DATE, price: 2.8, quantity: 1 },
+        { fillId: 'f', role: 'entry', date: MARKET_DATE, price: 2.8, quantity: 1, quoteSource: OptionQuoteSource.RH_MCP },
       ],
     });
     const { deps, entryFills, ticketFills, calls } = makeDeps({
@@ -399,7 +399,7 @@ describe('runExpressionFillPass — staged tickets (#1005)', () => {
         id === SEED
           ? pendingTrade({
               status: PaperTradeStatus.OPEN,
-              fills: [{ fillId: 'f', role: 'entry', date: MARKET_DATE, price: 2.8, quantity: 1 }],
+              fills: [{ fillId: 'f', role: 'entry', date: MARKET_DATE, price: 2.8, quantity: 1, quoteSource: OptionQuoteSource.RH_MCP }],
             })
           : null,
     });

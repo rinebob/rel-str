@@ -35,6 +35,10 @@ import {
 } from '../../../functions/src/position-groups/st-position-group-writer';
 import type { StPositionGroup } from '../../../shared/st-position-groups';
 import type { StOrderTicket } from '../../../shared/st-order-tickets';
+import type {
+  EmitStOrderTicketInput,
+  StTicketTransitionResult,
+} from '../../../functions/src/order-tickets/st-order-ticket-writer';
 
 const NOW = new Date('2026-09-25T19:00:00.000Z'); // Friday → PT market date 2026-09-25
 
@@ -309,18 +313,7 @@ describe('handlePaperSignalOrder', () => {
 
 // ── #1002 — canonical st-order-tickets emission ────────────────────────────
 
-interface SignalTicketEmit {
-  mode: string;
-  idSeed: string;
-  origin: Record<string, unknown>;
-  auto: boolean;
-  terms: Record<string, unknown>;
-  refId?: string;
-  accountTarget: string;
-  userId: string;
-  signalContext?: Record<string, unknown>;
-  cohortId?: string;
-}
+type SignalTicketEmit = EmitStOrderTicketInput;
 
 function spyTickets(calls: string[]) {
   const emits: SignalTicketEmit[] = [];
@@ -343,13 +336,15 @@ function spyTickets(calls: string[]) {
         });
         return `pap_${input.idSeed}`;
       },
-      markFilled: async (id: string) => {
+      markFilled: async (id: string): Promise<StTicketTransitionResult> => {
         calls.push('markFilled');
         fills.push(id);
+        return { applied: true, ticketId: id, to: 'filled' };
       },
-      markFailed: async (id: string) => {
+      markFailed: async (id: string): Promise<StTicketTransitionResult> => {
         calls.push('markFailed');
         fails.push(id);
+        return { applied: true, ticketId: id, to: 'failed' };
       },
       // Minimal doc for the retry-path ownership checks — refId +
       // signalContext.signalId are all the handler reads.
@@ -476,7 +471,7 @@ describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
         signalTrade({
           id: '260925-sig-QQQM-EQ',
           cohortId: 'cohort-260925-QQQM-01',
-          fills: [{ fillId: 'f', role: 'entry', date: '2026-09-25', price: 5, quantity: 100 }],
+          fills: [{ fillId: 'f', role: 'entry', date: '2026-09-25', price: 5, quantity: 100, quoteSource: OptionQuoteSource.RH_MCP }],
         }),
       ],
       getCohort: async () => ({
@@ -523,7 +518,7 @@ describe('handlePaperSignalOrder — st-order-tickets emission (#1002)', () => {
               signalTrade({
                 id: '260925-sig-QQQM-EQ',
                 cohortId: 'cohort-260925-QQQM-01',
-                fills: [{ fillId: 'f', role: 'entry', date: '2026-09-25', price: 5, quantity: 100 }],
+                fills: [{ fillId: 'f', role: 'entry', date: '2026-09-25', price: 5, quantity: 100, quoteSource: OptionQuoteSource.RH_MCP }],
               }),
             ],
       getCohort: async () => ({
@@ -592,7 +587,7 @@ function spyGroups(existing: Map<string, StPositionGroup> = new Map()) {
     creates,
     ensures,
     dep: {
-      create: async (input: EmitPositionGroupInput) => {
+      create: async (input: EmitPositionGroupInput): Promise<string | null> => {
         creates.push(input);
         seq++;
         const id = `QQQM-260925-grp-0${seq}`;
@@ -648,10 +643,7 @@ describe('handlePaperSignalOrder — st-position-groups (#1004)', () => {
     await handlePaperSignalOrder(request(), deps);
 
     for (const e of spy.emits) {
-      assert.equal(
-        (e.origin as Record<string, unknown>).positionGroupId,
-        'QQQM-260925-grp-01',
-      );
+      assert.equal(e.origin.positionGroupId, 'QQQM-260925-grp-01');
     }
     assert.equal(entryInputs[0].dims.positionGroupId, 'QQQM-260925-grp-01');
   });

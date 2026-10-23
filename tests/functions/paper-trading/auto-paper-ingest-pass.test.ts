@@ -20,6 +20,14 @@ import {
   type AutoPaperScope,
 } from '../../../functions/src/paper-trading/passes/auto-paper-ingest-pass';
 import type { AutoPaperConfig } from '../../../functions/src/common/st-collections';
+import {
+  StSignalDirection,
+  type StSignalEntry,
+} from '../../../functions/src/st-cloud-function/signals';
+import type {
+  EmitStOrderTicketInput,
+  StTicketTransitionResult,
+} from '../../../functions/src/order-tickets/st-order-ticket-writer';
 import { AUTO_PAPER_USER_ID } from '../../../shared/paper-trading-contracts';
 
 const TODAY = '2026-10-08';
@@ -182,9 +190,10 @@ const NOW = new Date('2026-10-09T20:00:00Z');
 const SCOPE: AutoPaperScope = { global: false, lists: ['PRIMARY'], signalTypes: [V1L, V2S] };
 const GLOBAL: AutoPaperScope = { global: true, lists: [], signalTypes: [V1L, V2S] };
 
-function entry(over: Record<string, unknown> = {}) {
+function entry(over: Partial<StSignalEntry> = {}): StSignalEntry {
   return {
-    direction: 'LONG',
+    signalType: V1L,
+    direction: StSignalDirection.LONG,
     status: 'CONFIRMED',
     timeframe: 'D',
     barDate: BARDATE,
@@ -277,7 +286,7 @@ describe('runAutoPaperIngestFill', () => {
     const { deps, fills } = fillDeps({
       listCandidates: async () => ['AAPL'],
       listMembers: async () => ['AAPL'],
-      getSignals: async () => ({ [V1L]: entry(), [V2S]: entry({ direction: 'SHORT' }) }),
+      getSignals: async () => ({ [V1L]: entry(), [V2S]: entry({ direction: StSignalDirection.SHORT, signalType: V2S }) }),
       getEquityQuotes: async () => quotesFor({ AAPL: 250 }),
     });
     const summary = await runAutoPaperIngestFill({ runId: 'r1', marketDate: TODAY }, SCOPE, deps);
@@ -348,7 +357,7 @@ describe('runAutoPaperIngestFill', () => {
     const { deps } = fillDeps({
       listCandidates: async () => ['AAPL'],
       listMembers: async () => ['AAPL'],
-      getSignals: async () => ({ [V1L]: entry(), [V2S]: entry({ direction: 'SHORT' }) }),
+      getSignals: async () => ({ [V1L]: entry(), [V2S]: entry({ direction: StSignalDirection.SHORT, signalType: V2S }) }),
       getSymbolMeta: async () => {
         metaCalls++;
         return { sector: 'TECHNOLOGY' };
@@ -468,16 +477,7 @@ describe('runAutoPaperIngestFill', () => {
 
 // ── #1002 — canonical st-order-tickets emission ────────────────────────────
 
-interface EmitCall {
-  mode: string;
-  idSeed: string;
-  origin: Record<string, unknown>;
-  auto: boolean;
-  terms: Record<string, unknown>;
-  accountTarget: string;
-  userId: string;
-  signalContext?: Record<string, unknown>;
-}
+type EmitCall = EmitStOrderTicketInput;
 
 /** Spy tickets dep — records emit/markFilled/markFailed into `calls`. */
 function spyTickets(calls: string[]) {
@@ -494,13 +494,15 @@ function spyTickets(calls: string[]) {
         emits.push(input);
         return `pap_${input.idSeed}`;
       },
-      markFilled: async (id: string) => {
+      markFilled: async (id: string): Promise<StTicketTransitionResult> => {
         calls.push('markFilled');
         fills.push(id);
+        return { applied: true, ticketId: id, to: 'filled' };
       },
-      markFailed: async (id: string) => {
+      markFailed: async (id: string): Promise<StTicketTransitionResult> => {
         calls.push('markFailed');
         fails.push(id);
+        return { applied: true, ticketId: id, to: 'failed' };
       },
     },
   };
@@ -556,7 +558,7 @@ describe('runAutoPaperIngestFill — st-order-tickets emission (#1002)', () => {
     const calls: string[] = [];
     const { deps, spy } = ticketDeps(calls, {
       ...base(),
-      getSignals: async () => ({ [V1L]: entry(), [V2S]: entry({ direction: 'SHORT' }) }),
+      getSignals: async () => ({ [V1L]: entry(), [V2S]: entry({ direction: StSignalDirection.SHORT, signalType: V2S }) }),
     });
     await runAutoPaperIngestFill({ runId: 'r1', marketDate: TODAY }, SCOPE, deps);
     assert.equal(spy.emits.length, 2);
