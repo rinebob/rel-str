@@ -17,13 +17,16 @@
  *  4. Shipped values are baked literals — no color-mix( anywhere.
  *  5. Direction defaults preserved in both modes:
  *     --ds-up #4caf50 / --ds-down #f44336.
- *  6. The vendored copy consumed by the app is content-identical to the
- *     sibling package checkout (npm run sync:ds to fix drift).
+ *  6. The vendored copies consumed by BOTH apps (rel-str and
+ *     av-proxy-api, when its sibling checkout exists) are
+ *     content-identical to the package source (npm run sync:ds in the
+ *     drifted app to fix).
  *
  * Usage: npx tsx scripts/verify/design-system-theme-tokens-1204.ts
  *
- * No credentials. When the sibling savant-ds checkout is absent the
- * script prints SKIPPED and exits 0 (matches the other savant-ds relays).
+ * No credentials. When the sibling savant-ds checkout is absent — or
+ * node_modules/savant-ds isn't installed — the script prints SKIPPED
+ * and exits 0 (matches the other savant-ds relays).
  * Pass: every check prints OK; exit 0. Fail: FAIL lines + exit 1.
  */
 
@@ -190,14 +193,33 @@ for (const [label, decls] of [[':root', rootDecls], ['dark', darkDecls]] as cons
     `got ${decls.get('--ds-down')}`);
 }
 
-// ── 6. Vendored copy is content-identical to the sibling checkout ─────────
+// ── 6. Vendored copies are content-identical to the sibling checkout ──────
 
+// Line-ending-normalized compare — IDE CRLF re-saves are not drift
+// (same convention as design-system-sa-consumption-1042).
 const normalize = (p: string) => readFileSync(p, 'utf8').replaceAll('\r\n', '\n');
 const srcTokens = path.join(DS, 'styles', '_tokens.scss');
-check('vendor/savant-ds/_tokens.scss exists', existsSync(VENDOR_TOKENS));
+check('rel-str vendor/savant-ds/styles/_tokens.scss exists', existsSync(VENDOR_TOKENS));
 if (existsSync(VENDOR_TOKENS)) {
-  check('vendored _tokens.scss identical to ../savant-ds (npm run sync:ds to fix)',
+  check('rel-str vendored _tokens.scss identical to ../savant-ds (npm run sync:ds to fix)',
     normalize(srcTokens) === normalize(VENDOR_TOKENS));
+}
+
+// Second consumer (TEST-SHARED R5): SA vendors the same package — its
+// copy must match too. SKIP gates on the CHECKOUT's absence (matching
+// the ../savant-ds convention); a checkout present but missing the
+// vendored file is real drift and FAILs, same as rel-str's half.
+const SA_ROOT = path.resolve(ROOT, '..', 'av-proxy-api');
+const SA_VENDOR_TOKENS = path.join(
+  SA_ROOT, 'vendor', 'savant-ds', 'styles', '_tokens.scss');
+if (!existsSync(SA_ROOT)) {
+  console.log('SKIPPED av-proxy-api vendor check — sibling checkout absent');
+} else {
+  check('av-proxy-api vendor/savant-ds/styles/_tokens.scss exists', existsSync(SA_VENDOR_TOKENS));
+  if (existsSync(SA_VENDOR_TOKENS)) {
+    check('av-proxy-api vendored _tokens.scss identical to ../savant-ds (npm run sync:ds in av-proxy-api)',
+      normalize(srcTokens) === normalize(SA_VENDOR_TOKENS));
+  }
 }
 
 // ── Result ────────────────────────────────────────────────────────────────

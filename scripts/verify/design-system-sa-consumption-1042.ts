@@ -5,7 +5,8 @@
  *   1. package.json declares a file: dep on savant-ds (vendored per #1071).
  *   2. angular.json includePaths carries node_modules/savant-ds/styles.
  *   3. styles.scss emits the token layer (@use 'tokens') and bridges
- *      --mat-sys-* (SA's prebuilt theme emits none — the DS alias contract).
+ *      --mat-sys-* (SA's prebuilt theme emits no usable values — the
+ *      vendored DS mixins still read them; post-#1204 the tokens do not).
  *   4. vendor/savant-ds/styles exists and matches ../savant-ds contents
  *      (line-ending normalized — IDE CRLF re-saves are not drift).
  *   5. At least one real element consumes the package via @use 'index' as ds.
