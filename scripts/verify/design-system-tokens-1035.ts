@@ -4,7 +4,8 @@
  * The authoritative checks live in the package itself —
  * `C:\aa\projects\savant-ds\scripts\verify.mjs` (npm run verify): real
  * sass compilation, every documented --ds-* token emitted under :root,
- * [data-theme="dark"] overrides, --mat-sys-* aliases, and consumer-style
+ * [data-theme="dark"] overrides (full color set, no --mat-sys aliases —
+ * #1204), and consumer-style
  * `@use 'tokens'` resolution via includePaths.
  *
  * This script is the rel-str-side mirror so `run-all.ts` covers the task:

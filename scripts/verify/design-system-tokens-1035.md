@@ -16,8 +16,10 @@ checks live in `C:\aa\projects\savant-ds\scripts\verify.mjs`:
   `--ds-down`), spacing `--ds-space-1..6`, font size/weight triples,
   density (`--ds-row-height`, `--ds-field-height`), elevation
   (`--ds-shadow-1/2`, `--ds-radius-sm/md`)
-- `[data-theme="dark"]` overrides emitted
-- Material-mirroring tokens alias `var(--mat-sys-*)`
+- `[data-theme="dark"]` overrides every color family + deepened shadows
+  (#1204: full dark set, not shadow-only)
+- `--ds-*` tokens are self-contained literals — no `var(--mat-sys-*)`
+  aliases anywhere in the token layer (#1204 removed the mirroring)
 - `@use 'tokens'` resolves via a `loadPaths` entry — the exact shape
   consumers get from `stylePreprocessorOptions.includePaths`
 
