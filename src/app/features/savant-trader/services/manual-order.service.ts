@@ -19,8 +19,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { OrderTicketStore } from '../stores/order-ticket.store';
 import { TradingConfigService } from './trading-config.service';
 import { EquityPriceService } from './equity-price.service';
-import {
-  GalleryTicketDialogComponent,
+import type {
   GalleryTicketDialogData,
   ManualOrderDialogSeed,
   StagedTicketEvent,
@@ -37,11 +36,13 @@ import {
   buildManualEquityTicket,
   normalizeUnderlyingSymbol,
 } from '../utils/manual-ticket-staging.util';
-import { buildTicketId, DEFAULT_DOLLAR_AMOUNT } from '../utils/signal-order-staging.util';
+import {
+  buildTicketId,
+  DEFAULT_DOLLAR_AMOUNT,
+  NO_ACCOUNT_SNACKBAR,
+} from '../utils/signal-order-staging.util';
 import { stDocId } from './order-ticket-st-mapper';
 import { computePositionSize } from '../utils/position-sizing.util';
-
-const NO_ACCOUNT_SNACKBAR = 'Failed to stage order — configure the agentic account first';
 
 /** Trade result — `created` marks a ticket this call staged, so close
  *  semantics can distinguish "discard" from "adopted — survives". */
@@ -62,7 +63,12 @@ export class ManualOrderService {
   readonly config = this.configService.config;
 
   /** One manual dialog at a time — a second open() while one is up is a
-   *  no-op (the close effect and ticket tracking assume a single session). */
+   *  no-op (the close effect and ticket tracking assume a single session).
+   *  Read publicly so other Trade surfaces don't adopt a ticket this
+   *  dialog owns (#1017 r3). */
+  get dialogOpen(): boolean {
+    return this._dialogOpen;
+  }
   private _dialogOpen = false;
 
   /** Re-entry guard per symbol — a rapid double-resolve can't double-stage. */
@@ -74,7 +80,7 @@ export class ManualOrderService {
    *  (same as the gallery staging path). Tickets this dialog session
    *  creates AND still has STAGED are discarded on close; adopted
    *  pre-existing and advanced (submitted) tickets survive. */
-  async open(): Promise<void> {
+  async open(initialSymbol?: string): Promise<void> {
     if (this._dialogOpen) return;
     // Claim the slot before the config await — two rapid open() calls
     // must not both reach dialog.open.
@@ -101,6 +107,7 @@ export class ManualOrderService {
       if (e.created) createdTicketIds.add(e.ticketId);
     };
     const manual: ManualOrderDialogSeed = {
+      initialSymbol,
       stageEquityTicket: async (symbol) => {
         const r = await this.stageEquityTicket(symbol);
         if (r) track({ ticketId: r.ticket.id, created: r.created });
@@ -119,6 +126,13 @@ export class ManualOrderService {
     const data: GalleryTicketDialogData = { manual, tradingConfig: this.config };
     let ref;
     try {
+      // Lazy-load the dialog — a static import of the component closes a
+      // metadata cycle (dialog → OrderTicketComponent → this service)
+      // that NG0919s at open time (#1017 wiring). MatDialog is a runtime
+      // load anyway, so the async boundary costs nothing.
+      const { GalleryTicketDialogComponent } = await import(
+        '../components/gallery-ticket-dialog/gallery-ticket-dialog.component'
+      );
       ref = this.dialog.open(GalleryTicketDialogComponent, {
         data,
         width: '640px',
@@ -138,9 +152,11 @@ export class ManualOrderService {
   }
 
   /** Stage (or adopt) the manual equity ticket for a resolved symbol.
-   *  Adopt: an existing STAGED MANUAL equity ticket is reopened rather
-   *  than duplicated — a signal-pipeline or OPTION ticket for the same
-   *  symbol does NOT count (different intent). Sizes whole shares from
+   *  Adopt: ANY existing STAGED equity ticket on the symbol is reopened
+   *  rather than duplicated (#1189 r3) — a signal-sourced STAGED ticket
+   *  otherwise gets a parallel manual duplicate; OPTION tickets don't
+   *  count (different intent). A non-STAGED equity ticket blocks (live
+   *  order in flight). Sizes whole shares from
    *  the quote + config default, same as the gallery card path; persists
    *  via `stageTicketAndWait` before returning.
    *
@@ -163,22 +179,15 @@ export class ManualOrderService {
       // ANY STAGED equity ticket is adopted regardless of source (#1189
       // r3): a signal-sourced STAGED ticket for this symbol otherwise
       // gets a parallel manual duplicate — two submittable orders for one
-      // underlying. A non-STAGED equity ticket means a live order is in
-      // flight — same guard as signal-review's Trade path.
-      const equityFor = (this.ticketStore.ticketsBySymbol()[sym] ?? []).filter(
+      // underlying. A live order does NOT block (QA #1226): manual intent
+      // governs — adding to a position or running a parallel order is
+      // legitimate; each minted ticket tracks its own broker order.
+      const staged = (this.ticketStore.ticketsBySymbol()[sym] ?? []).find(
         (t): t is EquityOrderTicket | EtfOrderTicket =>
-          t.instrumentType !== InstrumentType.OPTION,
+          t.instrumentType !== InstrumentType.OPTION &&
+          t.status === OrderTicketStatus.STAGED,
       );
-      const staged = equityFor.find((t) => t.status === OrderTicketStatus.STAGED);
       if (staged) return { ticket: staged, created: false };
-      if (equityFor.length) {
-        this.snackBar.open(
-          `${sym}: a live order already exists for this symbol`,
-          'Dismiss',
-          { duration: 5000 },
-        );
-        return null;
-      }
 
       const config = await this.configService.ensureConfig();
       const accountNumber = config?.accountNumber ?? '';

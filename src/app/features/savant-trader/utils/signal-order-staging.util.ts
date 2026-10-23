@@ -20,6 +20,12 @@ import { SignalDirection } from '../common/constants';
  *  can't drift between surfaces. */
 export const DEFAULT_DOLLAR_AMOUNT = 100;
 
+/** Shared snackbar copy when staging fails because no trading account is
+ *  configured — one literal for the gallery, signal-review, option-tab,
+ *  and manual paths so the wording can't drift (#1017 r2). */
+export const NO_ACCOUNT_SNACKBAR =
+  'Failed to stage order — configure the agentic account first';
+
 /** Patch returning a terminal (FAILED/CANCELLED) ticket to STAGED (#717):
  *  RH burns a refId once the order reaches a terminal state — resubmitting
  *  with the old one 409s — so the patch mints a fresh refId and clears the
@@ -76,14 +82,14 @@ export function buildSignalOrderTickets(
     if (seen.has(dedupKey)) continue;
     seen.add(dedupKey);
     const id = buildId(symbol, side, now);
-    // Must be the canonical occurrence-decision doc id — the queue's
-    // ticket-removal path deletes the decision by this id (#719), and the
-    // legacy `${runId}-${symbol}-…` format matched nothing (#717 review).
+    // Canonical occurrence-decision-format id — a deterministic join key
+    // between the signal occurrence and the ticket (the decision docs it
+    // names never existed; #1017 removed that layer). The legacy
+    // `${runId}-${symbol}-…` format matched nothing (#717 review).
     const decisionId = buildStOccurrenceDecisionId(runId, symbol, signal.timeframe, signal.signalType);
-    // Accept writes one decision doc per signal; tickets dedup by
-    // symbol+side, so this ticket owns every same-side decision — removal
-    // must clear them all, or a surviving sibling keeps the Accept toggle
-    // checked (#719 QA).
+    // One id per same-side signal — the card↔ticket dedupe
+    // (findCardTickets) and option staging both test membership over the
+    // full set, so the ticket carries every same-side occurrence id.
     const decisionIds = signals
       .filter((s) => (s.direction === SignalDirection.SHORT ? 'sell' : 'buy') === side)
       .map((s) => buildStOccurrenceDecisionId(runId, symbol, s.timeframe, s.signalType));

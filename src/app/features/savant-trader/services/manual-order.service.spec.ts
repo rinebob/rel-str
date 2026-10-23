@@ -313,18 +313,15 @@ describe('ManualOrderService', () => {
       expect(ticketStoreMock.stageTicketAndWait).toHaveBeenCalledTimes(1);
     });
 
-    it('blocks manual staging while a non-STAGED equity ticket is in flight for the symbol', async () => {
-      // Same guard as signal-review's Trade path — a live order for the
-      // underlying must not gain a parallel manual ticket (#1189 r3).
+    it('stages a parallel ticket while a live equity order is in flight for the symbol', async () => {
+      // QA #1226 — manual intent governs: adding to a position or running
+      // a parallel order is legitimate; a live order must not prevent a
+      // new one. Each minted ticket tracks its own broker order.
       seedTickets(makeSignalEquity('AAPL', { status: OrderTicketStatus.SUBMITTED }));
+      priceServiceMock.prices.set({ AAPL: 100 });
       const r = await service.stageEquityTicket('AAPL');
-      expect(r).toBeNull();
-      expect(snackBarMock.open).toHaveBeenCalledWith(
-        'AAPL: a live order already exists for this symbol',
-        'Dismiss',
-        expect.anything(),
-      );
-      expect(ticketStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
+      expect(r?.created).toBe(true);
+      expect(ticketStoreMock.stageTicketAndWait).toHaveBeenCalledTimes(1);
     });
 
     it('stages fresh alongside a different symbol\'s STAGED manual ticket', async () => {
@@ -340,9 +337,9 @@ describe('ManualOrderService', () => {
       jest.useFakeTimers().setSystemTime(new Date('2026-10-21T14:30:00Z'));
       try {
         // Same {SYM}-BUY-{minute} id the builder will mint — a ticket that
-        // advanced past STAGED must NOT be clobbered by the create. (As of
-        // #1189 r3 this exits via the live-order guard — a non-STAGED
-        // equity ticket for the symbol blocks before the twin probe.)
+        // advanced past STAGED must NOT be clobbered by the create. Exits
+        // via the twin probe (live orders no longer veto staging — the
+        // guard is doc-clobber protection, not an order gate).
         const live = makeManualEquity('AAPL', OrderTicketStatus.SUBMITTED, {
           id: buildTicketId('AAPL', 'BUY', new Date()),
         });
