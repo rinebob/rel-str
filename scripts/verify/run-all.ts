@@ -136,6 +136,11 @@ const scripts: VerifyScript[] = [
     needsPath: '../savant-ds',
   },
   {
+    name: 'design-system theme plumbing',
+    file: 'design-system-theme-plumbing-1207.ts',
+    needsAccount: false,
+  },
+  {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
     cwd: 'functions',
