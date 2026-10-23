@@ -11,7 +11,11 @@ import { ScannerStore } from './scanner.store';
 import { ScannerService } from '../services/scanner.service';
 import { SymbolListStore } from './symbol-list.store';
 import { RobinhoodMcpError } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
-import { ToolExecutionErrorCategory, type ScanResultRow } from '@robinhood-mcp/contracts';
+import {
+  ToolExecutionErrorCategory,
+  type PreviewScanResult,
+  type ScanResultRow,
+} from '@robinhood-mcp/contracts';
 import { SCANNER_RECIPES } from '../scanner/scanner-recipes';
 
 const wireRow = (ticker: string, values: Record<string, string> = {}): ScanResultRow => ({
@@ -25,6 +29,7 @@ describe('ScannerStore (#1139)', () => {
   let store: InstanceType<typeof ScannerStore>;
   let service: {
     runScan: jest.Mock;
+    previewScanRaw: jest.Mock;
     evaluateTracked: jest.Mock;
     saveProposal: jest.Mock;
     listProposals: jest.Mock;
@@ -35,6 +40,7 @@ describe('ScannerStore (#1139)', () => {
   beforeEach(() => {
     service = {
       runScan: jest.fn(),
+      previewScanRaw: jest.fn(),
       evaluateTracked: jest.fn(),
       saveProposal: jest.fn(() => Promise.resolve('prop-1')),
       listProposals: jest.fn(() => Promise.resolve([])),
@@ -437,5 +443,318 @@ describe('ScannerStore (#1139)', () => {
     rejectSave(new Error('stale save failure'));
     await run;
     expect(store.error()).toBeNull();
+  });
+});
+
+describe('ScannerStore run-all machinery (#1198)', () => {
+  let store: InstanceType<typeof ScannerStore>;
+  let service: {
+    runScan: jest.Mock;
+    previewScanRaw: jest.Mock;
+    evaluateTracked: jest.Mock;
+    saveProposal: jest.Mock;
+    listProposals: jest.Mock;
+    getProposal: jest.Mock;
+  };
+  let symbolLists: { loadTrackedSymbols: jest.Mock };
+
+  const preview = (
+    rows: ScanResultRow[],
+    over: Partial<PreviewScanResult> = {},
+  ): PreviewScanResult => ({
+    total_items: rows.length,
+    results: rows,
+    filters_applied: [],
+    sorted_by: 'Last desc',
+    ...over,
+  });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    service = {
+      runScan: jest.fn(),
+      previewScanRaw: jest.fn(),
+      evaluateTracked: jest.fn(),
+      saveProposal: jest.fn(() => Promise.resolve('prop-1')),
+      listProposals: jest.fn(() => Promise.resolve([])),
+      getProposal: jest.fn(() => Promise.resolve(null)),
+    };
+    symbolLists = { loadTrackedSymbols: jest.fn(() => Promise.resolve(['KEEP'])) };
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        ScannerStore,
+        { provide: ScannerService, useValue: service },
+        { provide: SymbolListStore, useValue: symbolLists },
+      ],
+    });
+    store = TestBed.inject(ScannerStore);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const recipeIds = () => SCANNER_RECIPES.map((r) => r.id);
+
+  it('initializes every catalog recipe at idle', () => {
+    expect(Object.keys(store.runs())).toEqual(recipeIds());
+    for (const entry of Object.values(store.runs())) {
+      expect(entry).toEqual({
+        status: 'idle',
+        result: null,
+        ranAt: null,
+        errorKind: null,
+      });
+    }
+    expect(store.authFailed()).toBe(false);
+  });
+
+  it('runAllRecipes launches every recipe ~1s apart, each landing independently', async () => {
+    service.previewScanRaw.mockImplementation((recipe: { id: string }) =>
+      Promise.resolve(preview([wireRow(recipe.id.toUpperCase())])),
+    );
+    store.runAllRecipes();
+    expect(service.previewScanRaw).toHaveBeenCalledTimes(0); // timers only
+    // One launch per 1s slot — step a second at a time to prove the
+    // stagger rather than jumping to the end.
+    for (let i = 0; i < SCANNER_RECIPES.length; i++) {
+      await jest.advanceTimersByTimeAsync(i === 0 ? 0 : 1000);
+      expect(service.previewScanRaw).toHaveBeenCalledTimes(i + 1);
+    }
+    // Every recipe was called with its own recipe object.
+    expect(service.previewScanRaw.mock.calls.map((c) => c[0].id)).toEqual(recipeIds());
+    for (const id of recipeIds()) {
+      expect(store.runs()[id].status).toBe('success');
+      expect(store.runs()[id].result?.results[0].ticker).toBe(id.toUpperCase());
+      expect(store.runs()[id].ranAt).toBeTruthy();
+      expect(store.runs()[id].errorKind).toBeNull();
+    }
+  });
+
+  it('a second runAllRecipes cancels the first wave\'s un-launched slots', async () => {
+    // Page remount mid-stagger calls ngOnInit → runAllRecipes again —
+    // wave-1's pending timers must not still fire on top of wave-2.
+    service.previewScanRaw.mockResolvedValue(preview([wireRow('A')]));
+    store.runAllRecipes();
+    await jest.advanceTimersByTimeAsync(3000); // 4 recipes launched (0..3s)
+    store.runAllRecipes();
+    await jest.advanceTimersByTimeAsync(SCANNER_RECIPES.length * 1000);
+    // 4 wave-1 launches + a full wave-2 — without cancellation wave-1's
+    // remaining armed slots would still fire on top of wave-2's.
+    expect(service.previewScanRaw).toHaveBeenCalledTimes(4 + SCANNER_RECIPES.length);
+  });
+
+  it('a pending stagger keeps later recipes queued (idle) until their slot', async () => {
+    service.previewScanRaw.mockResolvedValue(preview([wireRow('AAPL')]));
+    store.runAllRecipes();
+    await jest.advanceTimersByTimeAsync(0); // first launch settles
+    const last = SCANNER_RECIPES[SCANNER_RECIPES.length - 1].id;
+    expect(store.runs()[last].status).toBe('idle');
+    expect(store.runs()[SCANNER_RECIPES[0].id].status).toBe('success');
+  });
+
+  it('a per-recipe failure is isolated — status error, errorKind other, others unaffected', async () => {
+    const failing = SCANNER_RECIPES[2].id;
+    service.previewScanRaw.mockImplementation((recipe: { id: string }) =>
+      recipe.id === failing
+        ? Promise.reject(new Error('rate limited'))
+        : Promise.resolve(preview([wireRow(recipe.id)])),
+    );
+    store.runAllRecipes();
+    await jest.advanceTimersByTimeAsync(SCANNER_RECIPES.length * 1000);
+    expect(store.runs()[failing].status).toBe('error');
+    expect(store.runs()[failing].errorKind).toBe('other');
+    expect(store.authFailed()).toBe(false);
+    const others = Object.entries(store.runs()).filter(([id]) => id !== failing);
+    expect(others.every(([, r]) => r.status === 'success')).toBe(true);
+    // The single-run error channel is untouched — run-all failures are
+    // per-recipe, not page errors.
+    expect(store.error()).toBeNull();
+  });
+
+  it('an auth-shaped failure sets errorKind auth and flips authFailed', async () => {
+    service.previewScanRaw.mockRejectedValue(
+      new RobinhoodMcpError('session expired', 'preview_scan', ToolExecutionErrorCategory.AUTH),
+    );
+    store.runAllRecipes();
+    await jest.advanceTimersByTimeAsync(SCANNER_RECIPES.length * 1000);
+    for (const id of recipeIds()) {
+      expect(store.runs()[id].errorKind).toBe('auth');
+    }
+    expect(store.authFailed()).toBe(true);
+    // A non-RH error does NOT count as auth — the Firebase/auth-category
+    // distinction must hold in the run map too.
+    service.previewScanRaw.mockRejectedValue(new Error('firestore denied'));
+    store.refreshRecipe(recipeIds()[0]);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[recipeIds()[0]].errorKind).toBe('other');
+    expect(store.authFailed()).toBe(true); // other entries still auth
+  });
+
+  it('a non-AUTH RobinhoodMcpError is not auth — the category, not the type, decides', async () => {
+    // e.g. parseScanResult's own malformed-response throw is MCP-category;
+    // an `instanceof RobinhoodMcpError` check would wrongly raise reauth.
+    service.previewScanRaw.mockRejectedValue(
+      new RobinhoodMcpError('bad shape', 'preview_scan', ToolExecutionErrorCategory.MCP),
+    );
+    store.refreshRecipe(recipeIds()[0]);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[recipeIds()[0]].errorKind).toBe('other');
+    expect(store.authFailed()).toBe(false);
+  });
+
+  it('a successful refresh clears a prior auth failure for that recipe', async () => {
+    service.previewScanRaw.mockRejectedValueOnce(
+      new RobinhoodMcpError('expired', 'preview_scan', ToolExecutionErrorCategory.AUTH),
+    );
+    store.refreshRecipe(recipeIds()[0]);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.authFailed()).toBe(true);
+    service.previewScanRaw.mockResolvedValue(preview([wireRow('OK')]));
+    store.refreshRecipe(recipeIds()[0]);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[recipeIds()[0]].status).toBe('success');
+    expect(store.authFailed()).toBe(false);
+  });
+
+  it('refreshRecipe re-runs one recipe immediately — no stagger, others untouched', async () => {
+    const target = SCANNER_RECIPES[3];
+    const other = SCANNER_RECIPES[0];
+    service.previewScanRaw.mockResolvedValue(preview([wireRow('ONE')]));
+    // Give a sibling entry a result first — "untouched" must mean its
+    // data survives the refresh, not just that it was never launched.
+    store.refreshRecipe(other.id);
+    await jest.advanceTimersByTimeAsync(0);
+    const otherEntry = store.runs()[other.id];
+    store.refreshRecipe(target.id);
+    expect(service.previewScanRaw).toHaveBeenCalledTimes(2);
+    expect(service.previewScanRaw).toHaveBeenLastCalledWith(target);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[target.id].status).toBe('success');
+    expect(store.runs()[other.id]).toBe(otherEntry); // identity preserved
+    for (const id of recipeIds().filter((i) => i !== target.id && i !== other.id)) {
+      expect(store.runs()[id].status).toBe('idle');
+    }
+    store.refreshRecipe('not-a-recipe');
+    expect(service.previewScanRaw).toHaveBeenCalledTimes(2);
+  });
+
+  it('a refresh during the stagger consumes the recipe\'s armed slot — no double-fire', async () => {
+    const target = SCANNER_RECIPES[SCANNER_RECIPES.length - 1]; // last slot
+    service.previewScanRaw.mockResolvedValue(preview([wireRow('A')]));
+    store.runAllRecipes();
+    store.refreshRecipe(target.id); // user refreshes the queued table
+    await jest.advanceTimersByTimeAsync(SCANNER_RECIPES.length * 1000);
+    const callsFor = service.previewScanRaw.mock.calls.filter(
+      (c) => c[0].id === target.id,
+    );
+    expect(callsFor.length).toBe(1); // armed slot was consumed
+    expect(store.runs()[target.id].status).toBe('success');
+  });
+
+  it('an error entry keeps the prior result and ranAt — refresh can show where it left off', async () => {
+    const id = recipeIds()[0];
+    service.previewScanRaw.mockResolvedValueOnce(preview([wireRow('OLD')]));
+    store.refreshRecipe(id);
+    await jest.advanceTimersByTimeAsync(0);
+    const okRanAt = store.runs()[id].ranAt;
+    service.previewScanRaw.mockRejectedValueOnce(new Error('down'));
+    store.refreshRecipe(id);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[id].status).toBe('error');
+    expect(store.runs()[id].errorKind).toBe('other');
+    expect(store.runs()[id].result?.results[0].ticker).toBe('OLD');
+    expect(store.runs()[id].ranAt).toBe(okRanAt);
+  });
+
+  it('a runAll re-entry supersedes wave-1 launches still in flight', async () => {
+    // TEST edge: the 15-min interval ticking while the previous cycle's
+    // calls are in flight — newer wave wins per recipe.
+    const id = recipeIds()[0];
+    let resolveStale!: (v: PreviewScanResult) => void;
+    service.previewScanRaw
+      .mockImplementationOnce(() => new Promise((r) => (resolveStale = r)))
+      .mockResolvedValue(preview([wireRow('FRESH')]));
+    store.runAllRecipes();
+    await jest.advanceTimersByTimeAsync(0); // recipe 0 in flight (hangs)
+    store.runAllRecipes();
+    await jest.advanceTimersByTimeAsync(0); // wave-2 recipe 0 launches
+    expect(store.runs()[id].result?.results[0].ticker).toBe('FRESH');
+    resolveStale(preview([wireRow('STALE')]));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[id].result?.results[0].ticker).toBe('FRESH');
+  });
+
+  it('a refresh keeps the prior result while reloading — no collapse to blank', async () => {
+    const id = recipeIds()[0];
+    service.previewScanRaw.mockResolvedValueOnce(preview([wireRow('OLD')]));
+    store.refreshRecipe(id);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[id].result?.results[0].ticker).toBe('OLD');
+
+    let resolveNew!: (v: PreviewScanResult) => void;
+    service.previewScanRaw.mockImplementation(
+      () => new Promise((r) => (resolveNew = r)),
+    );
+    store.refreshRecipe(id);
+    expect(store.runs()[id].status).toBe('loading');
+    expect(store.runs()[id].result?.results[0].ticker).toBe('OLD'); // stale rows retained
+    resolveNew(preview([wireRow('NEW')]));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[id].result?.results[0].ticker).toBe('NEW');
+    expect(store.runs()[id].status).toBe('success');
+  });
+
+  it('an overlapping relaunch wins per recipe — a stale completion cannot clobber it', async () => {
+    const id = recipeIds()[0];
+    // First launch hangs; second (refresh) resolves first; the stale
+    // promise landing later must not overwrite the newer result.
+    let resolveStale!: (v: PreviewScanResult) => void;
+    service.previewScanRaw
+      .mockImplementationOnce(() => new Promise((r) => (resolveStale = r)))
+      .mockResolvedValueOnce(preview([wireRow('FRESH')]));
+    store.runAllRecipes(); // launch #1 in flight for this recipe
+    await jest.advanceTimersByTimeAsync(0);
+    store.refreshRecipe(id); // launch #2 supersedes for THIS recipe only
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[id].result?.results[0].ticker).toBe('FRESH');
+    resolveStale(preview([wireRow('STALE')]));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runs()[id].result?.results[0].ticker).toBe('FRESH');
+    expect(store.runs()[id].status).toBe('success');
+  });
+
+  it('run state persists in the root store — entries survive across page lifetimes', async () => {
+    service.previewScanRaw.mockResolvedValue(preview([wireRow('AAPL')]));
+    store.refreshRecipe(recipeIds()[0]);
+    await jest.advanceTimersByTimeAsync(0);
+    // A second store injection returns the same root instance — the map
+    // carries last results without re-firing anything.
+    const again = TestBed.inject(ScannerStore);
+    expect(again.runs()[recipeIds()[0]].status).toBe('success');
+    expect(service.previewScanRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('runsLoading covers armed-but-unfired slots — the gate cannot flicker mid-wave', async () => {
+    service.previewScanRaw.mockResolvedValue(preview([wireRow('X')]));
+    expect(store.runsLoading()).toBe(false);
+    store.runAllRecipes();
+    expect(store.runsLoading()).toBe(true); // all slots armed, none launched yet
+    await jest.advanceTimersByTimeAsync(0); // recipe 0 settles fast…
+    // …but recipes 1+ are still armed — the gate must stay closed.
+    expect(store.runsLoading()).toBe(true);
+    await jest.advanceTimersByTimeAsync(SCANNER_RECIPES.length * 1000);
+    expect(store.runsLoading()).toBe(false);
+
+    let resolveOne!: (v: PreviewScanResult) => void;
+    service.previewScanRaw.mockImplementation(
+      () => new Promise((r) => (resolveOne = r)),
+    );
+    store.refreshRecipe(recipeIds()[0]);
+    expect(store.runsLoading()).toBe(true);
+    resolveOne(preview([wireRow('X')]));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.runsLoading()).toBe(false);
   });
 });

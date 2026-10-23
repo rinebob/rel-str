@@ -86,6 +86,12 @@ export interface ScannerState {
    *  presence-verified [echo, static, raw] per mergeLookup. Null →
    *  the page falls back to the recipe's static map. */
   columnLookup: ReadonlyMap<string, string> | null;
+  /** Auto-run overview (#1183) — one entry per catalog recipe, `idle`
+   *  until runAllRecipes / refreshRecipe launches it (#1198). */
+  runs: Record<string, RecipeRunState>;
+  /** Recipe ids with a staggered launch armed but not yet fired —
+   *  keeps `runsLoading` true through the wave's gaps between slots. */
+  armedLaunches: string[];
   proposals: StoredProposal[];
   proposalsLoading: boolean;
   proposalOpen: StoredProposal | null;
@@ -93,10 +99,19 @@ export interface ScannerState {
   error: ScannerError | null;
 }
 
+const idleRun = (): RecipeRunState => ({
+  status: 'idle',
+  result: null,
+  ranAt: null,
+  errorKind: null,
+});
+
 const initialState: ScannerState = {
   recipes: SCANNER_RECIPES,
   activeRecipeId: SCANNER_RECIPES[0]?.id ?? null,
   running: false,
+  runs: Object.fromEntries(SCANNER_RECIPES.map((r) => [r.id, idleRun()])),
+  armedLaunches: [],
   rows: [],
   compare: null,
   matchedCount: null,
@@ -152,6 +167,19 @@ export const ScannerStore = signalStore(
       const r = state.recipes().find((x) => x.id === state.activeRecipeId());
       return !!r?.supportsPrune && typeof r.noDataPred === 'function';
     }),
+    /** Any recipe run carrying an auth-shaped error — auth failures are
+     *  session-global, so one is enough to warrant the reauth surface. */
+    authFailed: computed(() =>
+      Object.values(state.runs()).some((r) => r.errorKind === 'auth'),
+    ),
+    /** True while any recipe is armed or in flight — the page's Run all
+     *  button gates on it. Armed-but-unfired slots count so the gate
+     *  can't flicker open in the gaps between staggered launches. */
+    runsLoading: computed(
+      () =>
+        state.armedLaunches().length > 0 ||
+        Object.values(state.runs()).some((r) => r.status === 'loading'),
+    ),
   })),
 
   withMethods(
@@ -169,9 +197,67 @@ export const ScannerStore = signalStore(
       let scanSeq = 0;
       let evalSeq = 0;
       let proposalSeq = 0;
+      /** Per-recipe launch tokens for the auto-run map — a stale
+       *  completion from an overlapping runAll/refresh cycle can't
+       *  clobber a newer launch for that recipe (last-write-wins by
+       *  launch order, not network order). */
+      const recipeSeqs = new Map<string, number>();
+      /** Armed stagger slots, by recipe — a runAll re-entry clears the
+       *  whole wave, and launchRecipe consumes the recipe's own slot so
+       *  a refresh during the stagger can't double-fire it. */
+      const pendingLaunches = new Map<string, ReturnType<typeof setTimeout>>();
 
       const patch = (partial: Partial<ScannerState>) =>
         patchState(state, partial);
+
+      const patchRun = (id: string, entry: RecipeRunState) =>
+        patch({ runs: { ...state.runs(), [id]: entry } });
+
+      /** Launch one recipe: consume its armed slot if any (a refresh
+       *  during the stagger can't then double-fire it), flip the entry
+       *  to loading (prior result retained — the table keeps stale rows
+       *  visible mid-refresh), fire previewScanRaw, patch success/error
+       *  on settle. */
+      const launchRecipe = (recipe: ScannerRecipe): void => {
+        const armed = pendingLaunches.get(recipe.id);
+        if (armed !== undefined) {
+          // clearTimeout on an already-firing timer is a no-op — the
+          // delete matters either way.
+          clearTimeout(armed);
+          pendingLaunches.delete(recipe.id);
+        }
+        const seq = (recipeSeqs.get(recipe.id) ?? 0) + 1;
+        recipeSeqs.set(recipe.id, seq);
+        const prev = state.runs()[recipe.id] ?? idleRun();
+        patch({
+          armedLaunches: state.armedLaunches().filter((id) => id !== recipe.id),
+          runs: { ...state.runs(), [recipe.id]: { ...prev, status: 'loading', errorKind: null } },
+        });
+        service.previewScanRaw(recipe).then(
+          (result) => {
+            if (recipeSeqs.get(recipe.id) !== seq) return;
+            patchRun(recipe.id, {
+              status: 'success',
+              result,
+              ranAt: new Date().toISOString(),
+              errorKind: null,
+            });
+          },
+          (e: unknown) => {
+            if (recipeSeqs.get(recipe.id) !== seq) return;
+            // Category is RH-side only (see toError) — any non-AUTH
+            // failure is 'other'.
+            patchRun(recipe.id, {
+              ...prev,
+              status: 'error',
+              errorKind:
+                toError(e).category === ToolExecutionErrorCategory.AUTH
+                  ? 'auth'
+                  : 'other',
+            });
+          },
+        );
+      };
 
       async function persist(
         recipe: ScanRecipe,
@@ -344,6 +430,41 @@ export const ScannerStore = signalStore(
           } finally {
             if (seq === evalSeq) patch({ evaluating: null });
           }
+        },
+
+        /**
+         * Auto-run overview (#1183) — launch every catalog recipe
+         * ~1s apart (i * 1000ms). Calls overlap; the stagger spaces
+         * starts only. Failures stay per-recipe in the runs map — the
+         * page silently skips error entries and reads authFailed for
+         * the reauth surface.
+         */
+        runAllRecipes(): void {
+          // Re-entry (page remount mid-stagger, interval ticking while a
+          // wave is still queued) cancels un-launched slots — already
+          // in-flight recipes are re-launched by the new wave, pending
+          // ones aren't double-fired.
+          for (const t of pendingLaunches.values()) clearTimeout(t);
+          pendingLaunches.clear();
+          const armed: string[] = [];
+          state.recipes().forEach((recipe, i) => {
+            armed.push(recipe.id);
+            const h = setTimeout(() => {
+              // Ownership check — a queued-but-unfired callback must not
+              // fire after its slot was consumed (refresh) or replaced
+              // (re-entry): input tasks can interpose ahead of queued
+              // timer callbacks, so the Map entry is the truth.
+              if (pendingLaunches.get(recipe.id) === h) launchRecipe(recipe);
+            }, i * 1000);
+            pendingLaunches.set(recipe.id, h);
+          });
+          patch({ armedLaunches: armed });
+        },
+
+        /** Re-fire one recipe immediately — the per-table refresh. */
+        refreshRecipe(id: string): void {
+          const recipe = state.recipes().find((r) => r.id === id);
+          if (recipe) launchRecipe(recipe);
         },
 
         /** Load proposal history (newest first). */
