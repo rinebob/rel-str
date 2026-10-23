@@ -6,6 +6,10 @@
 - [RH Scanner] 1098-1197_FE-REFACTOR-SAVANT-TRADER: Shared scan-row helpers in scanner-rows.util — normScanSymbol/dedupeScanRows/displayCell/mergeLookup; ScanRow gains instrumentId; RecipeRunState type for run-all
 - [RH Scanner] 1098-1197_FE-IMPL-SAVANT-TRADER: ScannerRecipeTableComponent + scanner-sort.util — all wire fields, tracked badge, recipe-sort seed, click-cycle multi-sort with priority badges
 - [RH Scanner] 1098-1197_DOCS-SAVANT-TRADER: Auto-run thread docs — PRD/IMPL/TEST + #1197 CODE-REVIEW (3 rounds) + UAT
+- [Savant Design System] 1024-1204_SHARED-IMPL-DESIGN-SYSTEM: savant-ds token layer rewritten to 47-token semantic vocabulary — neutral ramp, accent/direction/feedback families; :root light + [data-theme="dark"], literal values, no mat-sys aliases (canonical commit in savant-ds repo)
+- [Savant Design System] 1024-1211_FE-IMPL-DESIGN-SYSTEM: /dev/ds palette explorer — accent/direction pickers, localStorage palettes, token inspector, Chrome coverage toggle; 'DS accent' default now previews shipped tokens
+- [Savant Design System] 1024-1204_SHARED-CHORE-DESIGN-SYSTEM: verify.mjs manifest → 47-token literal contract; new design-system-theme-tokens-1204 relay (boundary-exact parsing, installed-path compile, vendor parity); UI-color inventory tooling
+- [Savant Design System] 1024-1204_DOCS-DESIGN-SYSTEM: Theme & Palette PRD/IMPL/TEST + #1204 CODE-REVIEW (PASS, 2 rounds) + #1220 UAT (Complete) + CONTEXT.md terms
 
 ### Removed
 - [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: review-list persistence removed — triage.service.ts deleted, Collection.ST_REVIEW_LIST dropped, pin spec asserts non-reintroduction
