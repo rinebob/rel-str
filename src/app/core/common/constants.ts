@@ -217,6 +217,10 @@ export enum CallableName {
   GET_PAPER_ACCOUNT = 'getPaperAccount',
   /** Paper trading: exit-variant registry configs */
   LIST_EXIT_VARIANTS = 'listExitVariants',
+  /** Paper trading: close an OPEN trade at the live quote (#553/#652) */
+  CLOSE_PAPER_TRADE = 'closePaperTrade',
+  /** Paper trading: cancel a PENDING trade before its fill pass (#553/#652) */
+  CANCEL_PAPER_TRADE = 'cancelPaperTrade',
   /** Paper trading analysis: enqueue dataset generation (#553/#1059) */
   GENERATE_TRADE_DATASET = 'generateTradeDataset',
   /** Paper trading analysis: server-side CSV read for the workbench (#553/#1059) */

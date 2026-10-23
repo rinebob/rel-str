@@ -68,6 +68,16 @@ describe('PaperTradingService', () => {
     expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.LIST_EXIT_VARIANTS);
   });
 
+  it('closePaperTrade$/cancelPaperTrade$ send {tradeId} to the right callables', async () => {
+    await lastValueFrom(service.closePaperTrade$('t-1'));
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.CLOSE_PAPER_TRADE);
+    expect(mockCallable).toHaveBeenCalledWith({ tradeId: 't-1' });
+
+    await lastValueFrom(service.cancelPaperTrade$('t-4'));
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.CANCEL_PAPER_TRADE);
+    expect(mockCallable).toHaveBeenCalledWith({ tradeId: 't-4' });
+  });
+
   it('propagates callable errors to the subscriber', async () => {
     mockCallable.mockRejectedValue(new Error('unauthenticated'));
     await expect(

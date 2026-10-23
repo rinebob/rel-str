@@ -9,6 +9,10 @@ import { Functions, httpsCallable } from '@angular/fire/functions';
 import { from, map, Observable } from 'rxjs';
 import { CallableName } from '../../../core/common/constants';
 import type {
+  CancelPaperTradeRequest,
+  CancelPaperTradeResponse,
+  ClosePaperTradeRequest,
+  ClosePaperTradeResponse,
   GetPaperAccountResponse,
   ListExitVariantsResponse,
   ListPaperTradesRequest,
@@ -58,5 +62,23 @@ export class PaperTradingService {
   /** Fetch the exit-variant registry configs for the variant selector. */
   listExitVariants$(): Observable<ListExitVariantsResponse> {
     return this.call(CallableName.LIST_EXIT_VARIANTS, {});
+  }
+
+  /**
+   * Close an OPEN trade at the live quote — whole-unit market close.
+   * Returns the exit price, realized P&L, and close timestamp.
+   */
+  closePaperTrade$(tradeId: string): Observable<ClosePaperTradeResponse> {
+    const request: ClosePaperTradeRequest = { tradeId };
+    return this.call(CallableName.CLOSE_PAPER_TRADE, request);
+  }
+
+  /**
+   * Cancel a PENDING trade before its fill pass runs — the trade flips
+   * to CANCELLED and never reaches the ledger.
+   */
+  cancelPaperTrade$(tradeId: string): Observable<CancelPaperTradeResponse> {
+    const request: CancelPaperTradeRequest = { tradeId };
+    return this.call(CallableName.CANCEL_PAPER_TRADE, request);
   }
 }
