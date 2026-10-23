@@ -1,10 +1,10 @@
 /**
  * Gallery Card Actions Service
  *
- * Owns the gallery card's decision mutations (#755) — extracted from
+ * Owns the gallery card's action mutations (#755) — extracted from
  * GalleryFacade so the facade stays a view-model seam. Actions per card:
- * Trade stages a quantity ticket and opens it for editing, Reject writes
- * durable REJECTs (toggle — click again on a rejected card restores it),
+ * Trade stages a quantity ticket and opens it for editing, Reject parks
+ * the card in Actioned for the session (ephemeral — no writes; #1017),
  * Paper sends the staged ticket through the paperSignalOrder callable.
  * Actioned-section exit: Requeue regenerates a failed card's terminal
  * ticket to STAGED.
@@ -17,17 +17,14 @@
  * - `busyCardKeys` — an in-flight action per card blocks re-entry so a
  *   double-click can't double-stage or double-send (#755 review).
  *
- * Decisions and ticket provenance operate on the card's FULL occurrence
- * set — `card.allOccurrences`, not the timeframe-trimmed `occurrences`
- * (#755 review: under the Daily filter a merged D+W card otherwise only
- * rejected its daily leg; #819 r2 consolidated every full-set reader onto
- * the card field).
+ * Ticket provenance operates on the card's FULL occurrence set —
+ * `card.allOccurrences`, not the timeframe-trimmed `occurrences` (#819 r2
+ * consolidated every full-set reader onto the card field).
  */
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { GroupStore } from './group.store';
-import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { OrderTicketStore } from './order-ticket.store';
 import { TradingConfigService } from '../services/trading-config.service';
 import { EquityPriceService } from '../services/equity-price.service';
@@ -35,23 +32,24 @@ import {
   EquityOrderTicket,
   EtfOrderTicket,
   InstrumentType,
+  isLiveOrderTicket,
   OrderTicketStatus,
   REQUEUEABLE_TICKET_STATUSES,
+  TERMINAL_TICKET_STATUSES,
 } from '../services/order-ticket.types';
 import {
   buildSignalOrderTickets,
   buildTicketId,
   DEFAULT_DOLLAR_AMOUNT,
+  NO_ACCOUNT_SNACKBAR,
   requeueTicketPatch,
 } from '../utils/signal-order-staging.util';
 import {
   isPaperEligibleTicket,
   paperQuantityFor,
 } from '../utils/paper-ticket.util';
-import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 import { computePositionSize } from '../utils/position-sizing.util';
 import { formatError } from '../utils/format-error.util';
-import { ReviewDecision } from '../common/constants';
 import {
   GalleryActionContext,
   GalleryCard,
@@ -66,7 +64,6 @@ import {
 @Injectable({ providedIn: 'root' })
 export class GalleryCardActionsService {
   private readonly groupStore = inject(GroupStore);
-  private readonly occurrenceStore = inject(OccurrenceDecisionStore);
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly priceService = inject(EquityPriceService);
   private readonly configService = inject(TradingConfigService);
@@ -84,10 +81,26 @@ export class GalleryCardActionsService {
    *  binds (#964). */
   readonly activeRunId = this.groupStore.activeRunId;
 
-  /** Live occurrence-decision record — the dialog binds it into the
-   *  option ticket's `decisions` input so its self-healing retry sees
-   *  un-rejects while the dialog is open (#964). */
-  readonly occurrenceDecisions = this.occurrenceStore.occurrenceDecisions;
+  /** Session-rejected cards — `${runId}:${card.key}` → reject timestamp
+   *  (#1017 — replaced the durable REJECT write). Run-scoped so a card
+   *  rejected under one run can't sink the same symbol+side's card under
+   *  a later run — the durable model got run scope free from the doc id,
+   *  the session map carries it explicitly. Clears only on full reload. */
+  private readonly _rejectedByRun = signal<ReadonlyMap<string, string>>(new Map());
+
+  /** Rejected cards for the ACTIVE run, projected back to plain card
+   *  keys — the pipeline reads `${symbol}:${side}`, never the run-scoped
+   *  storage key. */
+  readonly rejectedCards = computed((): ReadonlyMap<string, string> => {
+    const runId = this.groupStore.activeRunId();
+    const out = new Map<string, string>();
+    if (!runId) return out;
+    const prefix = `${runId}:`;
+    for (const [key, ts] of this._rejectedByRun()) {
+      if (key.startsWith(prefix)) out.set(key.slice(prefix.length), ts);
+    }
+    return out;
+  });
 
   /** Card keys with an action in flight — the page binds these to each
    *  card's `actionBusy` input; methods also re-check them so a rapid
@@ -95,9 +108,11 @@ export class GalleryCardActionsService {
   private readonly _busyKeys = signal<ReadonlySet<string>>(new Set());
   readonly busyCardKeys = this._busyKeys.asReadonly();
 
-  private readonly actionContext = computed((): GalleryActionContext => ({
+  /** The card pipeline's action context — public so facades feeding the
+   *  same enrich/filter utils share one derivation (#1017 r1). */
+  readonly actionContext = computed((): GalleryActionContext => ({
     runId: this.groupStore.activeRunId() ?? '',
-    decisions: this.occurrenceStore.occurrenceDecisions(),
+    rejectedCards: this.rejectedCards(),
     ticketsBySymbol: this.ticketStore.ticketsBySymbol(),
   }));
 
@@ -127,6 +142,22 @@ export class GalleryCardActionsService {
     // a render snapshot, so a ticket submitted elsewhere between render
     // and click must stop a duplicate stage, not just the STAGED reopen.
     return this.withBusy(card.key, async () => {
+      // Re-check session rejection inside the busy window — a Reject
+      // click may have landed after the card snapshot rendered (#1017 r1).
+      if (this.rejectedCards().has(card.key)) return null;
+      // Symbol-wide equity probe BEFORE the card-scoped reopen: a live
+      // ticket for this symbol from ANY surface (manual, other run, the
+      // review rows) must block re-staging — provenance-scoped matching
+      // alone is blind to tickets without this card's decisionIds
+      // (#1017 r2). Live = non-terminal and not STAGED; terminal-only
+      // tickets don't block.
+      const symbolEquity = (this.ticketStore.ticketsBySymbol()[card.symbol] ?? []).filter(
+        (t): t is EquityOrderTicket | EtfOrderTicket => t.instrumentType !== InstrumentType.OPTION,
+      );
+      if (symbolEquity.some(isLiveOrderTicket)) {
+        this.snackBar.open(`${card.symbol}: a live order already exists for this symbol`, 'Dismiss', { duration: 5000 });
+        return null;
+      }
       // Equity-scope the reopen check — findCardTickets admits OPTION
       // tickets (#964), but they never gate the stock tab: an existing
       // STAGED option ticket is adopted by the option component itself,
@@ -134,32 +165,41 @@ export class GalleryCardActionsService {
       const equity = findCardTickets(card, this.actionContext()).filter(
         (t): t is EquityOrderTicket | EtfOrderTicket => t.instrumentType !== InstrumentType.OPTION,
       );
-      const existing = equity.find((t) => t.status === OrderTicketStatus.STAGED);
+      const existing = equity.find((t) => t.status === OrderTicketStatus.STAGED)
+        // Adopt a same-side STAGED twin even without matching provenance
+        // (manual or prior-run ticket — don't stage a parallel duplicate).
+        ?? symbolEquity.find((t) => t.status === OrderTicketStatus.STAGED && t.side === card.side);
       if (existing) return { ticket: existing, created: false };
-      if (equity.length) return null; // ticket advanced past STAGED — stale snapshot
       const ticket = await this.stageCardTicket(card, runId);
       return ticket ? { ticket, created: true } : null;
     });
   }
 
-  /** Reject toggle: writes durable REJECTs and parks the card in
-   *  Actioned; clicking Restore on a rejected card clears them back to
-   *  pending (#755). */
+  /** Reject toggle — session-ephemeral (#1017): parks the card in
+   *  Actioned for the session only, no decision writes (removing the
+   *  card's staged tickets IS a durable write — ticket existence is the
+   *  decision). Clicking Restore on a rejected card returns it to
+   *  pending. Synchronous — no busy key of its own; a reject landing
+   *  while Trade/Paper is mid-flight is dropped (the card's buttons are
+   *  busy-disabled anyway) so the in-flight stage can't complete into a
+   *  submittable ticket on a card the user just rejected (#1017 r1). */
   rejectCard(card: GalleryCard): void {
     if (!this.isActionableRun() || !canRejectCard(card)) return;
-    if (this._busyKeys().has(card.key)) return;
     const runId = this.groupStore.activeRunId();
-    const marketDate = this.groupStore.activeRunMarketDate();
-    if (!runId || !marketDate) return;
-    const occurrences = card.allOccurrences;
-    // `allRejected` belts-and-braces the restore condition — a card whose
-    // status derivation lags its decisions must not expose Reject again
-    // over unreachable REJECTs (#755 review).
-    if (card.status === 'rejected' || card.allRejected) {
-      this.occurrenceStore.resetSignals(occurrences, runId);
+    if (!runId) return;
+    if (this._busyKeys().has(card.key)) {
+      this.snackBar.open(`${card.symbol}: action in flight — reject after it finishes`, 'Dismiss', { duration: 3000 });
       return;
     }
-    this.occurrenceStore.rejectSignals(occurrences, runId, marketDate);
+    const scopedKey = `${runId}:${card.key}`;
+    const next = new Map(this._rejectedByRun());
+    if (card.status === 'rejected' || card.allRejected) {
+      next.delete(scopedKey);
+      this._rejectedByRun.set(next);
+      return;
+    }
+    next.set(scopedKey, new Date().toISOString());
+    this._rejectedByRun.set(next);
     this.removeStagedTickets(card);
   }
 
@@ -173,8 +213,10 @@ export class GalleryCardActionsService {
     const runId = this.groupStore.activeRunId();
     if (!runId || this._busyKeys().has(card.key)) return;
     await this.withBusy(card.key, async () => {
-      // Same stale-snapshot guard as tradeCard — any non-STAGED matching
-      // EQUITY ticket means the card's state moved on since render.
+      // Same stale-snapshot guard as tradeCard — the card may have been
+      // session-rejected after render (#1017 r1), and any non-STAGED
+      // matching EQUITY ticket means the card's state moved on.
+      if (this.rejectedCards().has(card.key)) return;
       // Option tickets are excluded: they can't go to paper and must not
       // masquerade as the staged equity ticket (#964).
       const equity = findCardTickets(card, this.actionContext()).filter(
@@ -248,6 +290,12 @@ export class GalleryCardActionsService {
     );
     if (!ticket) return;
     await this.withBusy(card.key, async () => {
+      // Re-read inside the busy window — the resolved snapshot may have
+      // advanced past a requeueable status; requeueTicketPatch would
+      // otherwise revert a live-order ticket and strip brokerOrderId
+      // (#1017 r2).
+      const cur = this.ticketStore.tickets()[ticket.id];
+      if (!cur || !REQUEUEABLE_TICKET_STATUSES.has(cur.status)) return;
       const ok = await this.ticketStore.updateTicketAndWait(ticket.id, requeueTicketPatch());
       if (ok) this.snackBar.open(`${card.symbol} moved to staged`, 'Dismiss', { duration: 3000 });
     });
@@ -278,34 +326,26 @@ export class GalleryCardActionsService {
    *  (#759). Same shared builder as signal-review — provenance/decisionIds
    *  parity, only the sizing differs. The ticket is persisted BEFORE this
    *  resolves (`stageTicketAndWait`) so a following backend callable
-   *  never races the write.
-   *
-   *  REJECTed occurrences are excluded before the builder maps ids into
-   *  `signalContext.decisionIds` — a ticket removal clears every id it
-   *  carries, so a REJECT id reaching the ticket would be silently
-   *  un-rejected if the ticket is later discarded (#755 review). */
+   *  never races the write. Reject is card-level and session-ephemeral
+   *  (#1017) — `canTradeCard` already gates a rejected card, so the FULL
+   *  occurrence set always reaches the builder. */
   private async stageCardTicket(
     card: GalleryCard,
     runId: string,
   ): Promise<EquityOrderTicket | EtfOrderTicket | null> {
     const config = await this.configService.ensureConfig();
+    // Run switch or reject mid-stage — the config await is a live
+    // interleave point; a ticket persisted under the stale run id or
+    // for a just-rejected card would strand (#1017 r2).
+    if (this.groupStore.activeRunId() !== runId || this.rejectedCards().has(card.key)) return null;
     const accountNumber = config?.accountNumber ?? '';
     const defaultDollarAmount = config?.defaultDollarAmount ?? DEFAULT_DOLLAR_AMOUNT;
     if (!accountNumber) {
-      this.snackBar.open('Failed to stage order — configure the agentic account first', 'Dismiss', { duration: 4000 });
+      this.snackBar.open(NO_ACCOUNT_SNACKBAR, 'Dismiss', { duration: 4000 });
       return null;
     }
 
-    const decisions = this.actionContext().decisions;
-    const occurrences = card.allOccurrences.filter(
-      (o) =>
-        decisions[buildStOccurrenceDecisionId(runId, o.symbol, o.timeframe, o.signalType)]
-          ?.decisionType !== ReviewDecision.REJECT,
-    );
-    if (!occurrences.length) {
-      this.snackBar.open(`${card.symbol}: all occurrences rejected — restore to trade`, 'Dismiss', { duration: 4000 });
-      return null;
-    }
+    const occurrences = card.allOccurrences;
     let price = occurrences.find((o) => o.closePrice)?.closePrice;
     if (!price) {
       await this.priceService.fetchPrices([card.symbol]);
@@ -314,6 +354,17 @@ export class GalleryCardActionsService {
     const shares = price ? computePositionSize(price, defaultDollarAmount).shares : 0;
     if (!price || shares <= 0) {
       this.snackBar.open(`${card.symbol}: no price — cannot size ticket`, 'Dismiss', { duration: 4000 });
+      return null;
+    }
+
+    // Last async boundary before the write — a live equity ticket that
+    // appeared during the config/price awaits must veto the stage, the
+    // caller's probe ran before them (#1017 r3).
+    const liveNow = (this.ticketStore.ticketsBySymbol()[card.symbol] ?? []).some(
+      (t) => t.instrumentType !== InstrumentType.OPTION && isLiveOrderTicket(t),
+    );
+    if (liveNow) {
+      this.snackBar.open(`${card.symbol}: a live order already exists for this symbol`, 'Dismiss', { duration: 5000 });
       return null;
     }
 
@@ -332,7 +383,7 @@ export class GalleryCardActionsService {
   }
 
   /** Remove the card's staged tickets (reject path). Matches by canonical
-   *  occurrence-decision ids — not just symbol+side — so a same-symbol
+   *  occurrence ids — not just symbol+side — so a same-symbol
    *  staged ticket from a DIFFERENT run survives (#755 review).
    *  findCardTickets reads allOccurrences, so a hidden timeframe leg can't
    *  hide a matching id. */

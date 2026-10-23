@@ -2,10 +2,11 @@
  * GalleryCardActionsService unit tests (#755).
  *
  * Card mutations extracted from GalleryFacade: Trade stages a quantity
- * ticket (pessimistically — `stageTicketAndWait`), Reject writes durable
- * REJECTs against the card's FULL unfiltered occurrence set and removes its
- * staged tickets, Paper routes through `sendTicketToPaper`, and
- * `busyCardKeys`/`isActionableRun` guard re-entry.
+ * ticket (pessimistically — `stageTicketAndWait`), Reject parks the card
+ * in Actioned for the session (ephemeral `rejectedCards` map — no
+ * writes; #1017) and removes its staged tickets, Paper routes through
+ * `sendTicketToPaper`, and `busyCardKeys`/`isActionableRun` guard
+ * re-entry.
  */
 import { computed, signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -14,13 +15,12 @@ import { of } from 'rxjs';
 
 import { GalleryCardActionsService } from './gallery-card-actions.service';
 import { GroupStore } from './group.store';
-import { OccurrenceDecisionStore } from './occurrence-decision.store';
 
 import { OrderTicketStore } from './order-ticket.store';
 import { EquityPriceService } from '../services/equity-price.service';
 import { TradingConfigService } from '../services/trading-config.service';
-import { ReviewDecision, SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
-import { StOccurrenceDecision, StSignalItem, StSymbolProfile } from '../services/types';
+import { SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
+import { StSignalItem, StSymbolProfile } from '../services/types';
 import {
   EquityOrderTicket,
   InstrumentType,
@@ -156,12 +156,6 @@ describe('GalleryCardActionsService', () => {
     activeRunMarketDate: ReturnType<typeof signal<string | null>>;
     isActionableRun: ReturnType<typeof signal<boolean>>;
   };
-  let occurrenceStoreMock: {
-    occurrenceDecisions: ReturnType<typeof signal<Record<string, StOccurrenceDecision>>>;
-    acceptSignals: jest.Mock;
-    rejectSignals: jest.Mock;
-    resetSignals: jest.Mock;
-  };
   let ticketStoreMock: {
     ticketsBySymbol: ReturnType<typeof computed<Record<string, OrderTicket[]>>>;
     tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
@@ -194,12 +188,6 @@ describe('GalleryCardActionsService', () => {
       activeRunId: signal<string | null>(RUN_ID),
       activeRunMarketDate: signal<string | null>(MARKET_DATE),
       isActionableRun: signal(true),
-    };
-    occurrenceStoreMock = {
-      occurrenceDecisions: signal<Record<string, StOccurrenceDecision>>({}),
-      acceptSignals: jest.fn(),
-      rejectSignals: jest.fn(),
-      resetSignals: jest.fn(),
     };
     ticketStoreMock = {
       ticketsBySymbol: computed((): Record<string, OrderTicket[]> => {
@@ -249,7 +237,6 @@ describe('GalleryCardActionsService', () => {
     await TestBed.configureTestingModule({
       providers: [
         { provide: GroupStore, useValue: groupStoreMock },
-        { provide: OccurrenceDecisionStore, useValue: occurrenceStoreMock },
         { provide: OrderTicketStore, useValue: ticketStoreMock },
         { provide: EquityPriceService, useValue: priceServiceMock },
         { provide: TradingConfigService, useValue: configServiceMock },
@@ -264,40 +251,33 @@ describe('GalleryCardActionsService', () => {
   const aaplBuy = () =>
     makeCard('AAPL', 'buy', [makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG)]);
 
-  it('reject writes durable REJECTs for the card occurrences and removes its side\'s staged tickets', () => {
+  it('reject marks the card session-rejected and removes its side\'s staged tickets', () => {
     const staged = makeTicket('TSLA', 'sell', OrderTicketStatus.STAGED);
     seedTickets(staged);
 
     actions.rejectCard(tslaSell());
 
-    const [signals, runId, marketDate] = occurrenceStoreMock.rejectSignals.mock.calls[0];
-    expect(runId).toBe(RUN_ID);
-    expect(marketDate).toBe(MARKET_DATE);
-    expect(signals.map((s: StSignalItem) => s.symbol)).toEqual(['TSLA']);
+    expect(actions.rejectedCards().has('TSLA:sell')).toBe(true);
     expect(ticketStoreMock.removeTicket).toHaveBeenCalledWith(staged.id);
   });
 
-  it('reject toggles off: an active reject resets the card back to pending', () => {
+  it('reject toggles off: restoring a rejected card returns it to the actionable set', () => {
     const signal = makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT);
-    const reject: StOccurrenceDecision = {
-      id: buildStOccurrenceDecisionId(RUN_ID, 'TSLA', 'D', 'RS_RISE'),
-      runId: RUN_ID,
-      marketDate: MARKET_DATE,
-      symbol: 'TSLA',
-      timeframe: SignalTimeframe.DAILY,
-      direction: SignalDirection.SHORT,
-      signalType: 'RS_RISE',
-      barDate: MARKET_DATE,
-      decisionType: ReviewDecision.REJECT,
-      decidedAt: '2026-08-26T00:00:00Z',
-      isCurrentInLatestRun: true,
-    };
-    occurrenceStoreMock.occurrenceDecisions.set({ [reject.id]: reject });
 
     actions.rejectCard(makeCard('TSLA', 'sell', [signal], 'rejected'));
 
-    expect(occurrenceStoreMock.resetSignals).toHaveBeenCalledWith([signal], RUN_ID);
-    expect(occurrenceStoreMock.rejectSignals).not.toHaveBeenCalled();
+    expect(actions.rejectedCards().has('TSLA:sell')).toBe(false);
+  });
+
+  it('session rejects are run-scoped — a card rejected under one run does not sink the same card under the next run (#1017 r1)', () => {
+    actions.rejectCard(tslaSell());
+    expect(actions.rejectedCards().has('TSLA:sell')).toBe(true);
+
+    groupStoreMock.activeRunId.set('run-next');
+    expect(actions.rejectedCards().has('TSLA:sell')).toBe(false);
+
+    groupStoreMock.activeRunId.set(RUN_ID);
+    expect(actions.rejectedCards().has('TSLA:sell')).toBe(true);
   });
 
   it('trade stages a quantity ticket sized on the signal close — no decision writes (#759)', async () => {
@@ -308,7 +288,6 @@ describe('GalleryCardActionsService', () => {
     const result = await actions.tradeCard(card);
 
     expect(result?.created).toBe(true);
-    expect(occurrenceStoreMock.acceptSignals).not.toHaveBeenCalled();
     expect(ticketStoreMock.stageTicketAndWait).toHaveBeenCalledTimes(1);
     const staged = ticketStoreMock.stageTicketAndWait.mock.calls[0][0] as EquityOrderTicket;
     expect(result?.ticket).toBe(staged);
@@ -418,8 +397,6 @@ describe('GalleryCardActionsService', () => {
     await actions.paperCard(aaplBuy());
     await actions.requeueCard(makeCard('MSFT', 'buy', [makeSignal('MSFT', SignalTimeframe.DAILY, SignalDirection.LONG)], 'failed'));
 
-    expect(occurrenceStoreMock.rejectSignals).not.toHaveBeenCalled();
-    expect(occurrenceStoreMock.resetSignals).not.toHaveBeenCalled();
     expect(ticketStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
     expect(ticketStoreMock.sendTicketToPaper).not.toHaveBeenCalled();
     expect(ticketStoreMock.updateTicketAndWait).not.toHaveBeenCalled();
@@ -427,31 +404,28 @@ describe('GalleryCardActionsService', () => {
   });
 
   describe('#755 review fixes', () => {
-    it('reject acts on the card\'s FULL occurrence set, not the timeframe-trimmed card list', () => {
+    it('reject removes staged tickets matched on the card\'s FULL occurrence set — a hidden leg\'s ticket is still removed', () => {
       const daily = makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG);
       const weekly = { ...makeSignal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG), signalType: 'RS_WEEKLY' };
-      // The Daily page filter trims `occurrences` to the daily leg —
-      // `allOccurrences` carries the full set rejecting must cover.
+      // The Daily page filter trims `occurrences` to the daily leg; the
+      // staged ticket's provenance is the hidden WEEKLY leg — it must
+      // still be found via allOccurrences and removed (#819 r2).
       const card = makeCard('AAPL', 'buy', [daily], 'pending', { allOccurrences: [daily, weekly] });
+      const weeklyTicket = makeTicket('AAPL', 'buy', OrderTicketStatus.STAGED, {
+        signalContext: {
+          signalType: 'RS_WEEKLY',
+          barDate: MARKET_DATE,
+          timeframe: 'W',
+          direction: 'LONG',
+          decisionId: buildStOccurrenceDecisionId(RUN_ID, 'AAPL', 'W', 'RS_WEEKLY'),
+        },
+      });
+      seedTickets(weeklyTicket);
 
       actions.rejectCard(card);
 
-      const signals = occurrenceStoreMock.rejectSignals.mock.calls[0][0] as StSignalItem[];
-      expect(signals.map((s) => s.timeframe).sort()).toEqual([
-        SignalTimeframe.DAILY,
-        SignalTimeframe.WEEKLY,
-      ]);
-    });
-
-    it('restore also resets the full occurrence set', () => {
-      const daily = makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG);
-      const weekly = { ...makeSignal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG), signalType: 'RS_WEEKLY' };
-      const card = makeCard('AAPL', 'buy', [daily], 'rejected', { allOccurrences: [daily, weekly] });
-
-      actions.rejectCard(card);
-
-      const signals = occurrenceStoreMock.resetSignals.mock.calls[0][0] as StSignalItem[];
-      expect(signals).toHaveLength(2);
+      expect(actions.rejectedCards().has('AAPL:buy')).toBe(true);
+      expect(ticketStoreMock.removeTicket).toHaveBeenCalledWith(weeklyTicket.id);
     });
 
     it('actioned cards cannot be traded or papered directly — they exit first', async () => {
@@ -563,80 +537,31 @@ describe('GalleryCardActionsService', () => {
       expect(ticketStoreMock.updateTicketAndWait).not.toHaveBeenCalled();
     });
 
-    it('a failed card can be rejected — REJECTs write but the failed ticket stays', () => {
+    it('a failed card can be rejected — sinks for the session, but the failed ticket stays', () => {
       seedTickets(makeTicket('TSLA', 'sell', OrderTicketStatus.FAILED));
 
       actions.rejectCard(
         makeCard('TSLA', 'sell', [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)], 'failed'),
       );
 
-      expect(occurrenceStoreMock.rejectSignals).toHaveBeenCalled();
+      expect(actions.rejectedCards().has('TSLA:sell')).toBe(true);
       expect(ticketStoreMock.removeTicket).not.toHaveBeenCalled(); // only STAGED tickets are removed
     });
   });
 
   describe('#755 review round 2', () => {
-    const rejectDecision = (signal: StSignalItem): StOccurrenceDecision => ({
-      id: buildStOccurrenceDecisionId(RUN_ID, signal.symbol, signal.timeframe, signal.signalType),
-      runId: RUN_ID,
-      marketDate: MARKET_DATE,
-      symbol: signal.symbol,
-      timeframe: signal.timeframe,
-      direction: signal.direction,
-      signalType: signal.signalType,
-      barDate: MARKET_DATE,
-      decisionType: ReviewDecision.REJECT,
-      decidedAt: '2026-08-26T00:00:00Z',
-      isCurrentInLatestRun: true,
-    });
-
-    it('a rejected card cannot trade — the REJECTs stay reachable via Restore', async () => {
+    it('a rejected card cannot trade — Restore returns it to actionable', async () => {
       const signal = makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 });
-      const dec = rejectDecision(signal);
-      occurrenceStoreMock.occurrenceDecisions.set({ [dec.id]: dec });
+      actions.rejectCard(makeCard('AAPL', 'buy', [signal]));
       const card = makeCard('AAPL', 'buy', [signal], 'rejected', { allRejected: true });
 
       expect(await actions.tradeCard(card)).toBeNull();
       await actions.paperCard(card);
       expect(ticketStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
 
-      // Reject button reads Restore for this card — resets the REJECTs.
+      // Reject button reads Restore for this card — clears the session reject.
       actions.rejectCard(card);
-      expect(occurrenceStoreMock.resetSignals).toHaveBeenCalledWith([signal], RUN_ID);
-      expect(occurrenceStoreMock.rejectSignals).not.toHaveBeenCalled();
-    });
-
-    it('staging excludes REJECTed occurrences from the ticket decisionIds — removal can never un-reject them', async () => {
-      const kept = makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG, { closePrice: 50 });
-      const rejected = { ...makeSignal('AAPL', SignalTimeframe.WEEKLY, SignalDirection.LONG), signalType: 'RS_WEEKLY' };
-      const dec = rejectDecision(rejected);
-      occurrenceStoreMock.occurrenceDecisions.set({ [dec.id]: dec });
-      const card = makeCard('AAPL', 'buy', [kept, rejected]);
-
-      const result = await actions.tradeCard(card);
-
-      const staged = ticketStoreMock.stageTicketAndWait.mock.calls[0][0] as EquityOrderTicket;
-      expect(result?.ticket).toBe(staged);
-      expect(staged.signalContext?.decisionIds).toEqual([
-        buildStOccurrenceDecisionId(RUN_ID, 'AAPL', SignalTimeframe.DAILY, 'RS_RISE'),
-      ]);
-    });
-
-    it('an all-rejected card stages nothing — snackbar, no ticket', async () => {
-      const signal = makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT, { closePrice: 50 });
-      const dec = rejectDecision(signal);
-      occurrenceStoreMock.occurrenceDecisions.set({ [dec.id]: dec });
-      const card = makeCard('TSLA', 'sell', [signal]);
-
-      // canTradeCard only blocks when the flag says allRejected — the
-      // stage path itself also refuses when nothing survives the filter.
-      const result = await actions.tradeCard(card);
-
-      expect(result).toBeNull();
-      expect(ticketStoreMock.stageTicketAndWait).not.toHaveBeenCalled();
-      expect(snackBarMock.open).toHaveBeenCalledWith(
-        expect.stringContaining('all occurrences rejected'), 'Dismiss', { duration: 4000 },
-      );
+      expect(actions.rejectedCards().has('AAPL:buy')).toBe(false);
     });
 
     it('reject removes only THIS run\'s staged ticket — a same-side ticket from another run survives', () => {
@@ -777,12 +702,8 @@ describe('GalleryCardActionsService', () => {
       expect(ticketStoreMock.removeTicket).toHaveBeenCalledWith(stagedOpt.id);
     });
 
-    it('exposes the live run id and decision record for the option-tab seed', () => {
+    it('exposes the live run id for the option-tab seed', () => {
       expect(actions.activeRunId()).toBe(RUN_ID);
-      occurrenceStoreMock.occurrenceDecisions.set({
-        'd-1': { decisionType: ReviewDecision.REJECT } as StOccurrenceDecision,
-      });
-      expect(actions.occurrenceDecisions()['d-1']).toBeTruthy();
     });
   });
 });

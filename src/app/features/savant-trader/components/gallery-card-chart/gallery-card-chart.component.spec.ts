@@ -318,7 +318,7 @@ describe('GalleryCardChartComponent', () => {
       [built],
       { timeframe: SignalTimeframe.DAILY, direction: SignalDirection.ALL, listFilter: 'ALL' },
       { symbolLists: {}, exclusiveListKeys: [] },
-      { runId: 'run-1', decisions: {} },
+      new Map(),
     );
     expect(filtered.occurrences).toHaveLength(1); // daily only — trimmed
 

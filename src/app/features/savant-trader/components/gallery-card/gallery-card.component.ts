@@ -2,8 +2,8 @@
  * Gallery Card
  *
  * Card for the gallery view (#743/#754/#755): signal details, the derived
- * status chip and ticket-status line, and the decision toolbar — labeled
- * Trade / Reject / Paper actions for one-step decisions (#759), plus the
+ * status chip and ticket-status line, and the action toolbar — labeled
+ * Trade / Reject / Paper actions for one-step orders (#759), plus the
  * @defer-mounted card chart cell (#756).
  */
 import { Component, ChangeDetectionStrategy, booleanAttribute, computed, inject, input, output } from '@angular/core';
@@ -61,7 +61,7 @@ export type GalleryCardAction =
 })
 export class GalleryCardComponent {
   card = input.required<GalleryCard>();
-  /** When true, the decision buttons are disabled (non-actionable run). */
+  /** When true, the action buttons are disabled (non-actionable run). */
   actionsDisabled = input(false, { transform: booleanAttribute });
   /** When true, a Trade/Paper/Reject is in flight on this card — the
    *  buttons stay disabled until it resolves (no double-stage/send). */
@@ -121,8 +121,8 @@ export class GalleryCardComponent {
     return s === 'pending' ? '' : STATUS_LABELS[s];
   });
   /** REJECTed card — drives the Restore label/active state. `allRejected`
-   *  belts-and-braces the status so REJECTs stay restorable even if a
-   *  card's status derivation ever lags its decisions (#755 review). */
+   *  belts-and-braces the status so session rejects stay restorable even
+   *  if a card's status derivation ever lags the reject map (#1017). */
   readonly rejected = computed(
     () => this.card().status === 'rejected' || this.card().allRejected,
   );

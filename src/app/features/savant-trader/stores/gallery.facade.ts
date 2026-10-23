@@ -4,12 +4,12 @@
  * Page-level composition seam for the gallery view (#743/#754). Composes the
  * existing domain stores — GroupStore owns the active run + signal symbols,
  * SymbolHistoryStore the per-symbol occurrences, SymbolListStore the list
- * catalog, OccurrenceDecisionStore the durable decisions, OrderTicketStore
+ * catalog, GalleryCardActionsService the session reject set, OrderTicketStore
  * the staged/live tickets — and derives symbol+side card view-models via the
  * pure gallery-cards utils. Page-local filter/group state lives in
  * GalleryUiStore.
  *
- * Card decision mutations live in GalleryCardActionsService — this facade
+ * Card action mutations live in GalleryCardActionsService — this facade
  * stays the read-only view-model seam.
  */
 import { computed, effect, inject, Injectable, linkedSignal } from '@angular/core';
@@ -18,7 +18,7 @@ import { StStore } from './st.store';
 import { GroupStore } from './group.store';
 import { SymbolHistoryStore } from './symbol-history.store';
 import { hasPendingRunHistory, signalsBySymbolForRun } from '../utils/utils';
-import { OccurrenceDecisionStore } from './occurrence-decision.store';
+import { GalleryCardActionsService } from './gallery-card-actions.service';
 import { SymbolListStore } from './symbol-list.store';
 import { OrderTicketStore } from './order-ticket.store';
 import { GalleryCardChartStore } from './gallery-card-chart.store';
@@ -46,7 +46,7 @@ export class GalleryFacade {
   private readonly agentStore = inject(StStore);
   private readonly groupStore = inject(GroupStore);
   private readonly historyStore = inject(SymbolHistoryStore);
-  private readonly occurrenceStore = inject(OccurrenceDecisionStore);
+  private readonly actionsService = inject(GalleryCardActionsService);
   private readonly symbolListStore = inject(SymbolListStore);
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly uiStore = inject(GalleryUiStore);
@@ -81,24 +81,21 @@ export class GalleryFacade {
     listFilter: this.uiStore.listFilter(),
   }));
 
-  /** Decision/ticket context for reject-trim + status derivation (#755). */
-  private readonly actionContext = computed((): GalleryActionContext => ({
-    runId: this.groupStore.activeRunId() ?? '',
-    decisions: this.occurrenceStore.occurrenceDecisions(),
-    ticketsBySymbol: this.ticketStore.ticketsBySymbol(),
-  }));
+  /** Session/ticket context for reject + status derivation — delegated
+   *  to the actions service so both owners share one derivation (#1017 r1). */
+  private readonly actionContext = this.actionsService.actionContext;
 
   /** Filtered, status-enriched cards feeding the grouped grid.
    *  linkedSignal carries the previous result so retainGalleryCards can
    *  keep unchanged cards' object identity across upstream patches
-   *  (tickets, decisions, history) — without it each patch churns every
+   *  (tickets, session rejects, history) — without it each patch churns every
    *  card input and re-renders every mounted card chart (#838, #819 r2).
    *  A custom `equal` couldn't retain per-element identity — it would
    *  keep/drop the whole array. */
   private readonly _visibleCards = linkedSignal({
     source: (): GalleryCard[] =>
       enrichGalleryCards(
-        filterGalleryCards(this.cards(), this.activeFilter(), this.listContext(), this.actionContext()),
+        filterGalleryCards(this.cards(), this.activeFilter(), this.listContext(), this.actionContext().rejectedCards),
         this.actionContext(),
       ),
     computation: (next: GalleryCard[], prev?: { value: GalleryCard[] }) =>
@@ -246,7 +243,7 @@ export class GalleryFacade {
     /**
      * Auto-select the latest completed run on direct page load — same
      * pattern as SignalReviewFacade. setActiveRun cascades symbol +
-     * occurrence + decision loads.
+     * occurrence loads.
      */
     effect(() => {
       const latest = this.agentStore.latestCompletedRun();
@@ -259,7 +256,7 @@ export class GalleryFacade {
   /**
    * Enter the gallery page: reset page-local filters, resolve the latest
    * completed run (via the runs stream when not yet selected), and eagerly
-   * load signals, decisions, lists, and tickets.
+   * load signals, lists, and tickets.
    */
   enterGallery(): void {
     this.uiStore.resetForPage();
@@ -274,14 +271,11 @@ export class GalleryFacade {
     }
   }
 
-  /** Reload the current run's symbols (which fans out per-symbol history),
-   *  decisions, and tickets — the shared enter/refresh reload path. */
+  /** Reload the current run's symbols (which fans out per-symbol history)
+   *  and tickets — the shared enter/refresh reload path. */
   private reloadRunData(): void {
     if (!this.groupStore.symbolsLoading()) {
       this.groupStore.loadSymbolsWithSignals();
-    }
-    if (!this.occurrenceStore.loading()) {
-      this.occurrenceStore.loadRecentDecisions();
     }
     this.ticketStore.loadTickets();
   }
@@ -293,7 +287,7 @@ export class GalleryFacade {
   /**
    * Header refresh (#838): if a newer completed run has landed in the
    * realtime stream, switch to it — setActiveRun cascades triage reset +
-   * decisions + symbols + per-symbol history fan-out. Otherwise reload the
+   * symbols + per-symbol history fan-out. Otherwise reload the
    * current run's data. Page filters/group expansion are preserved —
    * unlike enterGallery this does NOT resetForPage. The card-chart bar
    * cache is cleared either way so a new trading day's bars (or a promoted
@@ -304,7 +298,7 @@ export class GalleryFacade {
     const latest = this.agentStore.latestCompletedRun();
     const activeId = this.groupStore.activeRunId();
     if (latest && latest.id !== activeId) {
-      // Promote path — setActiveRun cascades symbols+decisions but not the
+      // Promote path — setActiveRun cascades symbols but not the
       // global ticket list (838 review: tickets staged elsewhere would stay
       // stale until next page entry).
       this.ticketStore.loadTickets();

@@ -69,38 +69,55 @@ export class GalleryViewComponent implements OnInit {
   /** Trade: stage/reopen the card's ticket and open it in the dialog.
    *  Closing while still STAGED discards the ticket — but only when this
    *  click created it; a reopened pre-existing ticket survives (#759).
-   *  The Option tab (#964) gets a precomputed seed + live decisions; each
+   *  The Option tab (#964) gets a precomputed seed; each
    *  `staged` emit with created:true is tracked so close-without-submit
    *  discards exactly the tickets THIS dialog session created — an
    *  adopted pre-existing option ticket survives like a reopened equity
    *  one. */
+  /** Cards with a ticket dialog open — a second Trade click while one
+   *  is open would stack a second dialog on the same ticket (#1017 r2;
+   *  the busy key releases when tradeCard returns, before the dialog
+   *  closes). */
+  private readonly openDialogs = new Set<string>();
+
   private async openTicketDialog(card: GalleryCard): Promise<void> {
-    const staged = await this.actions.tradeCard(card);
-    if (!staged) return;
+    if (this.openDialogs.has(card.key)) return;
+    this.openDialogs.add(card.key);
+    const release = () => this.openDialogs.delete(card.key);
+    try {
+      const staged = await this.actions.tradeCard(card);
+      if (!staged) {
+        release();
+        return;
+      }
 
-    const createdTicketIds = new Set<string>();
-    if (staged.created) createdTicketIds.add(staged.ticket.id);
-    const runId = this.actions.activeRunId();
-    const option: OptionTabSeed | undefined = runId
-      ? {
-          symbol: card.symbol,
-          runId,
-          signals: card.allOccurrences,
-          decisions: this.actions.occurrenceDecisions,
-          onStaged: (e) => {
-            if (e.created) createdTicketIds.add(e.ticketId);
-          },
-        }
-      : undefined;
+      const createdTicketIds = new Set<string>();
+      if (staged.created) createdTicketIds.add(staged.ticket.id);
+      const runId = this.actions.activeRunId();
+      const option: OptionTabSeed | undefined = runId
+        ? {
+            symbol: card.symbol,
+            runId,
+            signals: card.allOccurrences,
+            onStaged: (e) => {
+              if (e.created) createdTicketIds.add(e.ticketId);
+            },
+          }
+        : undefined;
 
-    const ref = this.dialog.open(GalleryTicketDialogComponent, {
-      data: { ticketId: staged.ticket.id, tradingConfig: this.actions.config, option },
-      width: '640px',
-      maxHeight: '92vh',
-      autoFocus: false,
-    });
-    ref.afterClosed().subscribe(() => {
-      for (const id of createdTicketIds) this.actions.discardStagedTicket(id);
-    });
+      const ref = this.dialog.open(GalleryTicketDialogComponent, {
+        data: { ticketId: staged.ticket.id, tradingConfig: this.actions.config, option },
+        width: '640px',
+        maxHeight: '92vh',
+        autoFocus: false,
+      });
+      ref.afterClosed().subscribe(() => {
+        for (const id of createdTicketIds) this.actions.discardStagedTicket(id);
+        release();
+      });
+    } catch (err) {
+      release();
+      throw err;
+    }
   }
 }

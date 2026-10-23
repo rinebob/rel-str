@@ -2,7 +2,7 @@
  * GalleryFacade unit tests (#754).
  *
  * Tests the page-level seam: enterGallery() orchestrates eager loading of the
- * latest completed run's signals, decisions, lists, tickets, and trading
+ * latest completed run's signals, lists, tickets, and trading
  * config; cards/visibleCards derive from the domain stores. Card mutations
  * (trade/reject/paper) live on GalleryCardActionsService — see
  * gallery-card-actions.service.spec.ts.
@@ -14,15 +14,16 @@ import { GalleryFacade } from './gallery.facade';
 import { GalleryUiStore } from './gallery-ui.store';
 import { GroupStore } from './group.store';
 import { SymbolHistoryStore } from './symbol-history.store';
-import { OccurrenceDecisionStore } from './occurrence-decision.store';
+import { GalleryCardActionsService } from './gallery-card-actions.service';
 import { SymbolListStore } from './symbol-list.store';
 import { OrderTicketStore } from './order-ticket.store';
 import { GalleryCardChartStore } from './gallery-card-chart.store';
 import { StStore } from './st.store';
-import { GroupDimension, ReviewDecision, SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
+import { GroupDimension, SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
 import { SymbolListDef } from '../common/symbol-list-defs';
-import { StOccurrenceDecision, StSignalItem, StSymbolProfile } from '../services/types';
+import { StSignalItem, StSymbolProfile } from '../services/types';
 import { EquityOrderTicket, InstrumentType, OrderSource, OrderTicket, OrderTicketStatus } from '../services/order-ticket.types';
+import { GalleryActionContext } from '../utils/gallery-cards.util';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 
 
@@ -85,22 +86,6 @@ function makeTicket(
   };
 }
 
-function makeReject(symbol: string, timeframe: SignalTimeframe, signalType = 'RS_RISE'): StOccurrenceDecision {
-  return {
-    id: buildStOccurrenceDecisionId(RUN_ID, symbol, timeframe, signalType),
-    runId: RUN_ID,
-    marketDate: MARKET_DATE,
-    symbol,
-    timeframe,
-    direction: SignalDirection.LONG,
-    signalType,
-    barDate: MARKET_DATE,
-    decisionType: ReviewDecision.REJECT,
-    decidedAt: '2026-08-26T00:00:00Z',
-    isCurrentInLatestRun: true,
-  };
-}
-
 describe('GalleryFacade', () => {
   let facade: GalleryFacade;
   let agentStoreMock: {
@@ -123,10 +108,9 @@ describe('GalleryFacade', () => {
     signalHistoryCache: ReturnType<typeof signal<Record<string, StSignalItem[]>>>;
     signalHistoryLoading: ReturnType<typeof signal<Record<string, boolean>>>;
   };
-  let occurrenceStoreMock: {
-    loading: ReturnType<typeof signal<boolean>>;
-    occurrenceDecisions: ReturnType<typeof signal<Record<string, StOccurrenceDecision>>>;
-    loadRecentDecisions: jest.Mock;
+  let actionsServiceMock: {
+    rejectedCards: ReturnType<typeof signal<ReadonlyMap<string, string>>>;
+    actionContext: ReturnType<typeof computed<GalleryActionContext>>;
   };
   let symbolListStoreMock: {
     symbolLists: ReturnType<typeof signal<Record<string, string[]>>>;
@@ -167,11 +151,15 @@ describe('GalleryFacade', () => {
       signalHistoryCache: signal<Record<string, StSignalItem[]>>({}),
       signalHistoryLoading: signal<Record<string, boolean>>({}),
     };
-    occurrenceStoreMock = {
-      loading: signal(false),
-      occurrenceDecisions: signal<Record<string, StOccurrenceDecision>>({}),
-      loadRecentDecisions: jest.fn(),
+    actionsServiceMock = {
+      rejectedCards: signal<ReadonlyMap<string, string>>(new Map()),
+      actionContext: null as unknown as ReturnType<typeof computed<GalleryActionContext>>,
     };
+    actionsServiceMock.actionContext = computed<GalleryActionContext>(() => ({
+      runId: groupStoreMock.activeRunId() ?? '',
+      rejectedCards: actionsServiceMock.rejectedCards(),
+      ticketsBySymbol: ticketStoreMock.ticketsBySymbol(),
+    }));
     symbolListStoreMock = {
       symbolLists: signal<Record<string, string[]>>({}),
       exclusiveListKeys: computed(() => ['PRIMARY']),
@@ -189,7 +177,7 @@ describe('GalleryFacade', () => {
         { provide: StStore, useValue: agentStoreMock },
         { provide: GroupStore, useValue: groupStoreMock },
         { provide: SymbolHistoryStore, useValue: historyStoreMock },
-        { provide: OccurrenceDecisionStore, useValue: occurrenceStoreMock },
+        { provide: GalleryCardActionsService, useValue: actionsServiceMock },
         { provide: SymbolListStore, useValue: symbolListStoreMock },
         { provide: OrderTicketStore, useValue: ticketStoreMock },
         { provide: GalleryCardChartStore, useValue: cardChartStoreMock },
@@ -214,11 +202,10 @@ describe('GalleryFacade', () => {
       expect(groupStoreMock.setActiveRun).toHaveBeenCalledWith(RUN_ID, MARKET_DATE);
     });
 
-    it('eagerly loads signals, decisions, and tickets when a run is already active', () => {
+    it('eagerly loads signals and tickets when a run is already active', () => {
       groupStoreMock.activeRunId.set(RUN_ID);
       facade.enterGallery();
       expect(groupStoreMock.loadSymbolsWithSignals).toHaveBeenCalled();
-      expect(occurrenceStoreMock.loadRecentDecisions).toHaveBeenCalled();
       expect(ticketStoreMock.loadTickets).toHaveBeenCalled();
     });
 
@@ -425,11 +412,8 @@ describe('GalleryFacade', () => {
 
     it('emits no dimension groups — the Actioned section stays the only collection', () => {
       expect(facade.groups()).toEqual([]);
-      // A rejected card still collects in the Actioned section.
-      const decisions: Record<string, StOccurrenceDecision> = {};
-      decisions[buildStOccurrenceDecisionId(RUN_ID, 'MID', SignalTimeframe.DAILY, 'RS_RISE')] =
-        makeReject('MID', SignalTimeframe.DAILY);
-      occurrenceStoreMock.occurrenceDecisions.set(decisions);
+      // A session-rejected card still collects in the Actioned section.
+      actionsServiceMock.rejectedCards.set(new Map([['MID:sell', '2026-08-26T00:00:00Z']]));
       expect(facade.groups()).toEqual([]);
       expect(facade.actionedCards().map((c) => c.symbol)).toEqual(['MID']);
       expect(facade.flatCards().map((c) => c.symbol)).toEqual(['BIG', 'SMALL', 'NOCAP']);
@@ -523,8 +507,7 @@ describe('GalleryFacade', () => {
         AAPL: [makeTicket('AAPL', 'buy', OrderTicketStatus.FILLED, { updatedAt: '2026-08-20T00:00:00Z' })],
         TSLA: [makeTicket('TSLA', 'sell', OrderTicketStatus.FAILED, { updatedAt: '2026-08-27T00:00:00Z' })],
       });
-      const d = makeReject('MSFT', SignalTimeframe.DAILY);
-      occurrenceStoreMock.occurrenceDecisions.set({ [d.id]: d });
+      actionsServiceMock.rejectedCards.set(new Map([['MSFT:buy', '2026-08-26T00:00:00Z']]));
 
       const groups = facade.actionedGroups();
       expect(groups.map((g) => `${g.status}:${g.cards.map((c) => c.key).join(',')}`)).toEqual([
@@ -539,7 +522,7 @@ describe('GalleryFacade', () => {
       expect(facade.actionedCards()).toEqual([]);
     });
 
-    it('rejected occurrences trim; a fully-rejected card keeps its occurrences and sinks', () => {
+    it('a session-rejected card sinks whole — card-level, occurrences stay reachable (#1017)', () => {
       historyStoreMock.signalHistoryCache.set({
         [`AAPL::${RUN_ID}`]: [
           makeSignal('AAPL', SignalTimeframe.DAILY, SignalDirection.LONG),
@@ -547,20 +530,17 @@ describe('GalleryFacade', () => {
         ],
         [`TSLA::${RUN_ID}`]: [makeSignal('TSLA', SignalTimeframe.DAILY, SignalDirection.SHORT)],
       });
-      const d1 = makeReject('AAPL', SignalTimeframe.DAILY);
-      const d2 = makeReject('TSLA', SignalTimeframe.DAILY);
-      occurrenceStoreMock.occurrenceDecisions.set({ [d1.id]: d1, [d2.id]: d2 });
+      actionsServiceMock.rejectedCards.set(new Map([['AAPL:buy', '2026-08-26T00:00:00Z']]));
 
       const groups = facade.groups();
       expect(groups.map((g) => g.key)).toEqual(['sector:Tech']);
-      // Partial reject — the surviving occurrence keeps the card in its group.
-      const aapl = groups[0].cards.find((c) => c.symbol === 'AAPL')!;
-      expect(aapl.occurrences.map((o) => o.signalType)).toEqual(['RS_WEEKLY']);
-      // Full reject — the card parks in Actioned with its occurrences
-      // intact so the decision stays reachable (reset/un-reject on-page).
-      const tsla = facade.actionedCards().find((c) => c.symbol === 'TSLA')!;
-      expect(tsla.status).toBe('rejected');
-      expect(tsla.occurrences).toHaveLength(1);
+      // Reject is card-level — no per-occurrence trim: rejecting the card
+      // sinks the whole thing, occurrences intact so its context stays
+      // reachable in Actioned (Restore on-page).
+      expect(groups[0].cards.map((c) => c.key)).toEqual(['TSLA:sell']);
+      const aapl = facade.actionedCards().find((c) => c.symbol === 'AAPL')!;
+      expect(aapl.status).toBe('rejected');
+      expect(aapl.occurrences).toHaveLength(2);
     });
   });
 
@@ -579,7 +559,6 @@ describe('GalleryFacade', () => {
       facade.refresh();
       expect(groupStoreMock.setActiveRun).not.toHaveBeenCalled();
       expect(groupStoreMock.loadSymbolsWithSignals).toHaveBeenCalled();
-      expect(occurrenceStoreMock.loadRecentDecisions).toHaveBeenCalled();
       expect(ticketStoreMock.loadTickets).toHaveBeenCalled();
     });
 

@@ -100,7 +100,6 @@ describe('GalleryViewComponent', () => {
     busyCardKeys: ReturnType<typeof signal<ReadonlySet<string>>>;
     config: ReturnType<typeof signal<null>>;
     activeRunId: ReturnType<typeof signal<string | null>>;
-    occurrenceDecisions: ReturnType<typeof signal<Record<string, unknown>>>;
     warmConfig: jest.Mock;
     rejectCard: jest.Mock;
     paperCard: jest.Mock;
@@ -158,7 +157,6 @@ describe('GalleryViewComponent', () => {
       busyCardKeys: signal<ReadonlySet<string>>(new Set()),
       config: signal(null),
       activeRunId: signal<string | null>('run-1'),
-      occurrenceDecisions: signal({}),
       warmConfig: jest.fn(),
       rejectCard: jest.fn(),
       paperCard: jest.fn(),
