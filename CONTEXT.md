@@ -412,6 +412,21 @@ _Avoid_: variable, constant, SCSS variable (tokens are emitted as CSS custom pro
 The ST `/dev`-route showcase that renders every element the design system owns, each annotated with "seen in" provenance naming the source surfaces it generalizes. Doubles as the element inventory and the source of screenshots for mockups in planning docs.
 _Avoid_: storybook, styleguide page, component library
 
+## Theme
+
+The app's active color token set — `dark` (default) or `light` (fallback). Swapped by the `data-theme` attribute on `<html>`, chosen via a header toggle, persisted in `localStorage`, and applied at bootstrap before first paint. Distinct from Palette: a theme is the mode, a palette is the color values within a mode.
+_Avoid_: dark mode (describes only one variant), skin
+
+## Brand Accent
+
+The swappable neon hue that carries the app's identity — applied to accent surfaces, borders, headings, and glow effects, never to neutral surfaces. Surfaces stay a hue-free grey ramp in both themes; the accent is the only color that changes when the palette changes. Distinct from Direction Colors and status/feedback colors, which are semantic and do not swap with the accent.
+_Avoid_: primary color (that's the Material name being replaced), highlight
+
+## Direction Colors
+
+The semantic up/down (long/short) color pair exposed as the `--ds-up` / `--ds-down` design tokens and consumed by badges, edges, pills, strips, banners, and P&L cells. User-pickable as a pair on `/dev/ds`; their values are preserved from the existing palette by default and are intentionally kept visually distinct from the Brand Accent.
+_Avoid_: bullish/bearish colors, buy/sell colors (those are order-side labels, not the token names)
+
 ## Analysis Dataset
 
 A versioned CSV of trade rows (one row per trade, ~45 cols: identity, provenance, outcomes, excursion, `ind.*` signal snapshot, `strength.*` computed context) generated on demand and stored in GCS (`analysis-datasets/{id}.csv`) with a metadata index doc carrying origin, params, provenance, row count, tags, and notes. Two producers: a **live snapshot** (export of `paper-trading/trades/items`) and a **replay run** (signals regenerated from SDS bars, walked through an exit rule). Snapshots are append-only — a new generation is a new dataset, never an overwrite. Thread #1059.
