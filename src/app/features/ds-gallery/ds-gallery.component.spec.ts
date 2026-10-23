@@ -6,12 +6,46 @@ describe('DsGalleryComponent', () => {
   let component: DsGalleryComponent;
 
   beforeEach(async () => {
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [DsGalleryComponent],
     }).compileComponents();
     fixture = TestBed.createComponent(DsGalleryComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  it('saves and restores palette choices and swatches through local storage', () => {
+    component.setAccent('mint');
+    component.setUp('neon');
+    component.setDown('coral');
+    component.dark.set(false);
+    component.paletteName.set('Mint light');
+    fixture.detectChanges();
+    component.saveAccent();
+    component.savePalette();
+    const restored = TestBed.createComponent(DsGalleryComponent);
+    expect(restored.componentInstance.savedAccents()).toEqual(['#00ff9d']);
+    const palette = restored.componentInstance.savedPalettes()[0];
+    expect(palette.name).toBe('Mint light');
+    restored.componentInstance.applyPalette(palette);
+    expect(restored.componentInstance.pickerAccent()).toBe('#00ff9d');
+    expect(restored.componentInstance.upHex()).toBe('#00e676');
+    expect(restored.componentInstance.downHex()).toBe('#ff7a5e');
+    expect(restored.componentInstance.dark()).toBe(false);
+    restored.destroy();
+  });
+
+  it('replaces named palettes and exposes saved colors for comparison', () => {
+    component.paletteName.set('Candidate');
+    component.savePalette();
+    component.setAccent('cyan');
+    fixture.detectChanges();
+    component.savePalette();
+    expect(component.savedPalettes()).toHaveLength(1);
+    component.compareName.set('Candidate');
+    expect(component.comparedPalette()?.accent).toBe('#22d3ee');
+    expect(Object.keys(component.comparedPalette()!.colors)).toContain('--mat-sys-error-container');
   });
 
   it('creates', () => {

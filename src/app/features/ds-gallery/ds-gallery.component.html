@@ -6,6 +6,54 @@
   <header class="gallery-header">
     <span class="header-title">Design System — element gallery</span>
     <div class="bar-actions">
+      <div class="accent-picker" role="group" aria-label="Accent color">
+        <button type="button" class="accent-chip"
+                [class.active]="accent() === 'current'"
+                (click)="setAccent('current')">DS accent</button>
+        @for (a of accents; track a.id) {
+          <button type="button" class="accent-chip"
+                  [class.active]="accent() === a.id"
+                  [title]="a.hex"
+                  (click)="setAccent(a.id)">
+            <span class="accent-dot" [style.background]="a.hex"></span>{{ a.label }}
+          </button>
+        }
+        <label class="accent-chip accent-custom" [class.active]="accent() === 'custom'"
+               (click)="setAccent('custom')">
+          <input type="color" [value]="customHex()" (input)="setCustomHex($event)">
+          Custom
+        </label>
+        <button type="button" class="accent-chip" (click)="saveAccent()">Save</button>
+        <label class="accent-chip coverage-toggle"
+               title="Saturate chrome with the accent — picked accents imply this; on 'DS accent' it previews wider coverage">
+          <input type="checkbox" [checked]="coverage()" (change)="coverage.set(!coverage())">
+          Chrome
+        </label>
+      </div>
+      <div class="dir-picker" role="group" aria-label="Up / long color">
+        <span class="dir-label">Up</span>
+        @for (a of upAccents; track a.id) {
+          <button type="button" class="dir-dot" [class.active]="upAccent() === a.id"
+                  [style.background]="a.hex" [title]="a.label + ' ' + a.hex"
+                  (click)="setUp(a.id)"></button>
+        }
+        <label class="dir-dot dir-custom" [class.active]="upAccent() === 'custom'" title="Custom up">
+          <input type="color" [value]="upCustom()"
+                 (input)="upCustom.set($any($event.target).value); setUp('custom')">
+        </label>
+      </div>
+      <div class="dir-picker" role="group" aria-label="Down / short color">
+        <span class="dir-label">Down</span>
+        @for (a of downAccents; track a.id) {
+          <button type="button" class="dir-dot" [class.active]="downAccent() === a.id"
+                  [style.background]="a.hex" [title]="a.label + ' ' + a.hex"
+                  (click)="setDown(a.id)"></button>
+        }
+        <label class="dir-dot dir-custom" [class.active]="downAccent() === 'custom'" title="Custom down">
+          <input type="color" [value]="downCustom()"
+                 (input)="downCustom.set($any($event.target).value); setDown('custom')">
+        </label>
+      </div>
       <button type="button" class="theme-toggle" (click)="toggleDark()">
         <mat-icon>{{ dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
         {{ dark() ? 'Light' : 'Dark' }} theme
@@ -13,7 +61,49 @@
     </div>
   </header>
 
+  <aside class="saved-accents" aria-label="Saved accent colors">
+    <h2>Saved accents</h2>
+    @if (!savedAccents().length) {
+      <p>Pick a color and press Save.</p>
+    }
+    @for (hex of savedAccents(); track hex) {
+      <button type="button" class="accent-chip" (click)="loadAccent(hex)"
+              [attr.aria-label]="'Apply saved accent ' + hex">
+        <span class="accent-dot" [style.background]="hex"></span>{{ hex }}
+      </button>
+    }
+    <h2>Saved palettes</h2>
+    <input aria-label="Palette name" placeholder="Palette name" [value]="paletteName()"
+           (input)="paletteName.set($any($event.target).value)">
+    <button type="button" class="accent-chip" [disabled]="!paletteName().trim()"
+            (click)="savePalette()">Save palette</button>
+    <small>Saving the same name replaces it.</small>
+    @for (p of savedPalettes(); track p.name) {
+      <button type="button" class="accent-chip" (click)="applyPalette(p)">
+        <span class="accent-dot" [style.background]="p.accent"></span>{{ p.name }} · {{ p.dark ? 'Dark' : 'Light' }}
+      </button>
+      <button type="button" class="accent-chip" (click)="compareName.set(p.name); inspectColors()">Compare {{ p.name }}</button>
+    }
+    @if (storageError()) { <p role="status">{{ storageError() }}</p> }
+  </aside>
   <div class="gallery-body">
+    <details class="palette-inspector" (toggle)="inspectColors()">
+      <summary>Full gallery color palette</summary>
+      <button type="button" class="accent-chip" (click)="inspectColors()">Refresh current colors</button>
+      <p>Current preview versus {{ comparedPalette()?.name ?? 'no saved palette selected' }}. Unset roles are marked explicitly.</p>
+      <table>
+        <thead><tr><th>Token / role</th><th>Current</th><th>Saved comparison</th></tr></thead>
+        <tbody>
+          @for (token of paletteTokens; track token) {
+            <tr>
+              <td>{{ token }}</td>
+              <td><span class="accent-dot" [style.background]="inspectedColors()[token]"></span>{{ inspectedColors()[token] || 'Unset' }}</td>
+              <td><span class="accent-dot" [style.background]="comparedPalette()?.colors?.[token]"></span>{{ comparedPalette()?.colors?.[token] || '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </details>
     <ng-template #cardBody let-entry>
       <section class="card" [attr.data-kind]="entry.kind">
         <h2 class="card-title">{{ entry.title }}</h2>

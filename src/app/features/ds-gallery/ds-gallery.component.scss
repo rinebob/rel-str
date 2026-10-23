@@ -10,27 +10,29 @@
   color: var(--mat-sys-on-surface);
 }
 
-// Dark demo palette — the app emits no dark --mat-sys-* theme (_tokens.scss
-// contract: "ST does not today"), so the toggle re-declares the tokens the
-// demos consume, scoped to this page. Every descendant var() — direct
-// --mat-sys-* reads and --ds-* aliases — resolves the dark values via
-// inheritance. Approximate M3 dark values for visual exercise only; when a
-// real app dark theme lands, this block is replaced by it.
+// Dark demo palette — the app emits no dark --mat-sys-* theme (FE Phase 2
+// #1209 lands it), so the toggle re-declares the --mat-sys-* values the
+// demos read, scoped to this page. --ds-* values are NOT redeclared —
+// the shipped token layer's [data-theme="dark"] block applies directly.
+// Approximate M3 dark values for visual exercise only; when the real app
+// bridge lands, this block is replaced by it.
 :host[data-theme='dark'] {
   // color-scheme flips UA defaults for the subtree — inherited text,
   // native control chrome, and placeholders all go dark-mode; explicit
   // color sets the base for elements that never declare one.
   color-scheme: dark;
   color: var(--mat-sys-on-surface);
-  --mat-sys-surface: #131722;
-  --mat-sys-on-surface: #e2e6f0;
-  --mat-sys-on-surface-variant: #a8adbb;
-  --mat-sys-surface-container-low: #161a26;
-  --mat-sys-surface-container: #1c2130;
-  --mat-sys-surface-container-high: #262c3d;
-  --mat-sys-surface-container-highest: #303749;
-  --mat-sys-outline: #8b8f99;
-  --mat-sys-outline-variant: #454b5c;
+  // Neutral grey ramp — deliberately hue-free; theme color lives in
+  // accents (primary family) only, per #1161 direction.
+  --mat-sys-surface: #131518;
+  --mat-sys-on-surface: #e2e4e8;
+  --mat-sys-on-surface-variant: #a8adb5;
+  --mat-sys-surface-container-low: #17191d;
+  --mat-sys-surface-container: #1c1f24;
+  --mat-sys-surface-container-high: #262a31;
+  --mat-sys-surface-container-highest: #31363e;
+  --mat-sys-outline: #84898f;
+  --mat-sys-outline-variant: #3c4149;
   --mat-sys-primary: #a3b8ff;
   --mat-sys-on-primary: #1a237e;
   --mat-sys-primary-container: #39448b;
@@ -41,11 +43,10 @@
   --mat-sys-success: #81c784;
   --mat-sys-success-container: #2c4a2e;
   --mat-sys-on-success-container: #c8e6c9;
-  --ds-surface: var(--mat-sys-surface);
-  --ds-on-surface: var(--mat-sys-on-surface);
-  --ds-surface-variant: var(--mat-sys-surface-container);
-  --ds-error: var(--mat-sys-error);
-  --ds-border-subtle: var(--mat-sys-outline-variant);
+  // No --ds-* surface/color redeclares — the shipped token layer (#1204)
+  // emits real dark values under [data-theme='dark']; this page previews
+  // THOSE. (The accent-preview block below still overrides --ds-shadow-*,
+  // deliberately — it previews accent bloom.)
   background: var(--mat-sys-surface);
 
   .gallery,
@@ -66,6 +67,217 @@
   .gallery-body {
     scrollbar-color: var(--mat-sys-outline) var(--mat-sys-surface-container-low);
   }
+}
+
+// ── #1161 accent exploration — neutral ramps + swappable accent ──────
+// Surfaces stay hue-free grey; the theme is one accent var (--picker-accent,
+// bound on :host) whose derived colors compute live via color-mix — any hex
+// works, presets and the free picker alike. Direction accents --ds-up/down
+// are untouched — order/chart semantics are frozen.
+
+// Dark accent — bright accent on near-black on-primary; container is a
+// deep tint of the accent over the neutral container, on-container a
+// light tint. Faint accent bloom rides the shadow tokens.
+:host[data-theme='dark']:not([data-accent='current']) {
+  --mat-sys-primary: var(--picker-accent);
+  --mat-sys-on-primary: #0a0f14;
+  --mat-sys-primary-container: color-mix(in srgb, var(--picker-accent) 22%, #14171c);
+  --mat-sys-on-primary-container: color-mix(in srgb, var(--picker-accent) 80%, #ffffff);
+  --mat-sys-secondary: color-mix(in srgb, var(--picker-accent) 55%, #8a93a5);
+  --mat-sys-secondary-container: color-mix(in srgb, var(--picker-accent) 14%, #1c1f24);
+  --mat-sys-on-secondary-container: color-mix(in srgb, var(--picker-accent) 60%, #e2e4e8);
+  --mat-sys-tertiary: var(--picker-accent);
+  --mat-sys-tertiary-container: var(--mat-sys-primary-container);
+  --mat-sys-on-tertiary-container: var(--mat-sys-on-primary-container);
+  --ds-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.6), 0 0 8px color-mix(in srgb, var(--picker-accent) 8%, transparent);
+  --ds-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.7), 0 0 16px color-mix(in srgb, var(--picker-accent) 10%, transparent);
+}
+
+// Light accent — neutral light-grey ramp; primary darkened for AA on
+// white, containers pale tints of the accent.
+:host:not([data-theme='dark']):not([data-accent='current']) {
+  --mat-sys-surface: #fafbfc;
+  --mat-sys-on-surface: #16181b;
+  --mat-sys-on-surface-variant: #4a4f55;
+  --mat-sys-surface-container-low: #f0f2f4;
+  --mat-sys-surface-container: #e7eaed;
+  --mat-sys-surface-container-high: #dadde1;
+  --mat-sys-surface-container-highest: #ccd1d6;
+  --mat-sys-outline: #83898f;
+  --mat-sys-outline-variant: #c4c9ce;
+  --mat-sys-primary: color-mix(in srgb, var(--picker-accent) 55%, #001018);
+  --mat-sys-on-primary: #ffffff;
+  --mat-sys-primary-container: color-mix(in srgb, var(--picker-accent) 18%, #eef1f3);
+  --mat-sys-on-primary-container: color-mix(in srgb, var(--picker-accent) 45%, #0a1216);
+  --mat-sys-secondary: color-mix(in srgb, var(--picker-accent) 45%, #4a4f55);
+  --mat-sys-secondary-container: color-mix(in srgb, var(--picker-accent) 10%, #e7eaed);
+  --mat-sys-on-secondary-container: color-mix(in srgb, var(--picker-accent) 45%, #16181b);
+}
+
+:host[data-accent] {
+  --mat-sys-success: var(--ds-up);
+  --mat-sys-error: var(--ds-down);
+  --mat-sys-on-success: var(--mat-sys-surface);
+  --mat-sys-on-error: var(--mat-sys-surface);
+  --mat-sys-success-container: color-mix(in srgb, var(--ds-up) 20%, var(--mat-sys-surface));
+  --mat-sys-error-container: color-mix(in srgb, var(--ds-down) 20%, var(--mat-sys-surface));
+  --mat-sys-on-success-container: var(--ds-up);
+  --mat-sys-on-error-container: var(--ds-down);
+}
+
+:host[data-accent]:not([data-theme='dark']) {
+  --mat-sys-on-success-container: color-mix(in srgb, var(--ds-up) 40%, #16181b);
+  --mat-sys-on-error-container: color-mix(in srgb, var(--ds-down) 40%, #16181b);
+}
+
+// 'current' = the shipped DS accent family. The tokens ARE the current
+// palette (#1204) — bridge the --mat-sys primary/tertiary family the
+// demos read so the default previews shipped values (cyan) instead of
+// the legacy Material indigo. Both modes: the --ds-* values already
+// flip under [data-theme='dark']. Alternative accents re-derive below.
+:host[data-accent='current'] {
+  --mat-sys-primary: var(--ds-accent);
+  --mat-sys-on-primary: var(--ds-on-accent);
+  --mat-sys-primary-container: var(--ds-accent-container);
+  --mat-sys-on-primary-container: var(--ds-on-accent-container);
+  --mat-sys-tertiary: var(--ds-accent);
+  --mat-sys-tertiary-container: var(--ds-accent-container);
+  --mat-sys-on-tertiary-container: var(--ds-on-accent-container);
+}
+
+// Accent-everywhere preview (#1161 exploration) — saturates the gallery
+// chrome with the accent so its coverage can be judged: card borders +
+// left edge, titles, header/footer rules, section borders, labels.
+// Implied by picked accents; the Chrome toggle adds it to 'current'/
+// shipped-DS too. Preview-only — real rollout decides where accents live.
+:host:not([data-accent='current']),
+:host[data-coverage] {
+  .gallery-header {
+    border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-primary) 60%, var(--ds-border-subtle));
+    box-shadow: 0 1px 8px color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+  }
+
+  .header-title {
+    color: var(--mat-sys-primary);
+    text-shadow: 0 0 12px color-mix(in srgb, var(--mat-sys-primary) 35%, transparent);
+  }
+
+  .card {
+    border-color: color-mix(in srgb, var(--mat-sys-primary) 45%, var(--ds-border-subtle));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--mat-sys-primary) 15%, transparent),
+      inset 3px 0 0 color-mix(in srgb, var(--mat-sys-primary) 70%, transparent);
+  }
+
+  .card-title {
+    color: var(--mat-sys-primary);
+  }
+
+  .card-blurb {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  .seen-in {
+    border-top-color: color-mix(in srgb, var(--mat-sys-primary) 35%, var(--ds-border-subtle));
+  }
+
+  .seen-in-label {
+    color: var(--mat-sys-primary);
+  }
+
+  .demo-note {
+    color: color-mix(in srgb, var(--mat-sys-primary) 75%, var(--mat-sys-on-surface-variant));
+  }
+
+  .swatch-name,
+  .token-name {
+    color: color-mix(in srgb, var(--mat-sys-primary) 80%, var(--mat-sys-on-surface));
+  }
+}
+
+.accent-picker {
+  display: inline-flex;
+  gap: var(--ds-space-1);
+  margin-right: var(--ds-space-2);
+  align-items: center;
+}
+
+.accent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: var(--ds-row-height);
+  padding: 0 var(--ds-space-2);
+  font-size: var(--ds-font-size-sm);
+  background: transparent;
+  color: var(--ds-on-surface);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--ds-radius-md);
+  cursor: pointer;
+}
+
+.accent-chip .accent-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 4px currentColor;
+}
+
+.accent-chip.active {
+  border-color: var(--mat-sys-primary);
+  color: var(--mat-sys-primary);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--mat-sys-primary) 40%, transparent);
+}
+
+.accent-custom input[type='color'] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+// Direction pickers — compact dot rows for --ds-up/--ds-down.
+.dir-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: var(--ds-space-2);
+}
+
+.dir-label {
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-on-surface);
+  opacity: 0.7;
+  margin-right: 2px;
+}
+
+.dir-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+}
+
+.dir-dot.active {
+  border-color: var(--mat-sys-on-surface);
+  box-shadow: 0 0 6px currentColor;
+}
+
+.dir-dot.dir-custom {
+  background: conic-gradient(#f44336, #ffc24d, #00ff9d, #22d3ee, #b18bff, #f44336);
+  position: relative;
+  overflow: hidden;
+}
+
+.dir-dot.dir-custom input[type='color'] {
+  position: absolute;
+  inset: -4px;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .gallery {
@@ -99,6 +311,57 @@
     width: 16px;
     height: 16px;
   }
+}
+
+.gallery {
+  position: relative;
+}
+
+.saved-accents {
+  position: absolute;
+  top: 72px;
+  left: calc(50% + 590px);
+  width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  max-height: calc(100% - 88px);
+  overflow-y: auto;
+
+  h2 {
+    margin: 0;
+    font-size: var(--ds-font-size-md);
+    color: var(--mat-sys-primary);
+  }
+
+  p {
+    font-size: var(--ds-font-size-sm);
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+@media (max-width: 1550px) {
+  .saved-accents {
+    position: static;
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: var(--ds-space-2) var(--ds-space-4);
+    flex-shrink: 0;
+    max-height: 120px;
+  }
+}
+
+.palette-inspector {
+  padding: var(--ds-space-3);
+  margin-bottom: var(--ds-space-4);
+  border: 1px solid var(--mat-sys-primary);
+  border-radius: var(--ds-radius-md);
+
+  table { width: 100%; font-size: var(--ds-font-size-sm); }
+  th, td { padding: var(--ds-space-2); text-align: left; overflow-wrap: anywhere; }
+  .accent-dot { display: inline-block; width: 14px; height: 14px; margin-right: 8px; }
 }
 
 .gallery-body {
