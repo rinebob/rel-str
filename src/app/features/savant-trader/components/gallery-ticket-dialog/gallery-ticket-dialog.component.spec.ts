@@ -22,6 +22,7 @@ import { RobinhoodMcpClient } from '../../../../core/robinhood-mcp/robinhood-mcp
 import { PortfolioService } from '../../services/portfolio.service';
 import { AllocationStore } from '../../../portfolio-dashboard/allocation.store';
 import { StOccurrenceDecision, StSignalItem } from '../../services/types';
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 import { of } from 'rxjs';
 import {
@@ -418,12 +419,14 @@ describe('GalleryTicketDialogComponent', () => {
   describe('manual mode (#1177)', () => {
     let manualFixture: ComponentFixture<GalleryTicketDialogComponent>;
     let manualOnStaged: jest.Mock;
+    let manualStage: jest.Mock;
 
     beforeEach(async () => {
       // The outer beforeEach already instantiated a card-mode module —
       // reset before reconfiguring with a manual seed.
       TestBed.resetTestingModule();
       manualOnStaged = jest.fn();
+      manualStage = jest.fn().mockResolvedValue(null);
       await TestBed.configureTestingModule({
         imports: [GalleryTicketDialogComponent],
         providers: [
@@ -432,7 +435,7 @@ describe('GalleryTicketDialogComponent', () => {
             provide: MAT_DIALOG_DATA,
             useValue: {
               manual: {
-                stageEquityTicket: jest.fn().mockResolvedValue(null),
+                stageEquityTicket: manualStage,
                 onStaged: manualOnStaged,
               },
               tradingConfig: signal<TradingConfig | null>({
@@ -486,6 +489,232 @@ describe('GalleryTicketDialogComponent', () => {
       manualFixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
       expect(manualOnStaged).toHaveBeenCalledWith({ ticketId: 'opt-1', created: true });
       expect(manualFixture.componentInstance.optionTicketId()).toBe('opt-1');
+    });
+
+    it('renders symbol entry + hint before resolution — no tabs yet', () => {
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      const el = manualFixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="manual-symbol-input"]')).toBeTruthy();
+      expect(el.querySelector('[data-testid="manual-symbol-resolve"]')).toBeTruthy();
+      expect(el.querySelector('[data-testid="manual-hint"]')).toBeTruthy();
+      expect(el.querySelector('mat-tab-group')).toBeFalsy();
+      expect(el.querySelector('app-order-ticket')).toBeFalsy();
+    });
+
+    it('resolve stages the manual ticket and binds the Stock tab', async () => {
+      manualStage.mockImplementation(async () => {
+        const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, 'man-1': t }));
+        return t;
+      });
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      // The card-mode fixture in the outer beforeEach already fetched —
+      // clear so this assertion means the resolve fetched.
+      priceServiceMock.fetchPrices.mockClear();
+      priceServiceMock.prices.set({ AAPL: 189.5 });
+      manualFixture.componentInstance.symbolInput.set('aapl');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      expect(priceServiceMock.fetchPrices).toHaveBeenCalledWith(['AAPL']);
+      expect(manualStage).toHaveBeenCalledWith('AAPL');
+      const el = manualFixture.nativeElement as HTMLElement;
+      expect(el.querySelector('mat-tab-group')).toBeTruthy();
+      expect(el.querySelector('app-order-ticket')).toBeTruthy();
+      expect(manualFixture.componentInstance.ticket()?.id).toBe('man-1');
+      // Both tabs render in manual mode — no card seed required (#1189).
+      expect(el.querySelectorAll('mat-tab-body').length).toBe(2);
+      expect(el.querySelectorAll('.mdc-tab').length).toBe(2);
+      expect(manualFixture.componentInstance.displaySymbol()).toBe('AAPL');
+    });
+
+    it('invalid symbol shows an inline error and burns no fetch or stage', async () => {
+      priceServiceMock.fetchPrices.mockClear();
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('!!!');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      expect(priceServiceMock.fetchPrices).not.toHaveBeenCalled();
+      const el = manualFixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="manual-symbol-error"]')).toBeTruthy();
+      expect(el.querySelector('mat-tab-group')).toBeFalsy();
+    });
+
+    it('an unresolvable ticker (seed returns null) shows an inline error and binds nothing', async () => {
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      // Default manualStage resolves null — the seed's own fetch found
+      // no quote (or stage failed); the inline error names the ticker.
+      manualFixture.componentInstance.symbolInput.set('ZZZZ');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      expect(manualStage).toHaveBeenCalledWith('ZZZZ');
+      const el = manualFixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="manual-symbol-error"]')?.textContent).toContain('ZZZZ');
+      expect(manualFixture.componentInstance.enteredSymbol()).toBeNull();
+      expect(el.querySelector('mat-tab-group')).toBeFalsy();
+    });
+
+    it('view order navigates to the portfolio dashboard in manual mode', () => {
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.confirmation.set({
+        ...stagedTicket(),
+        status: OrderTicketStatus.SUBMITTED,
+      });
+      manualFixture.componentInstance.onViewOrder();
+      expect(routerMock.navigate).toHaveBeenCalledWith(
+        ['/', AppRoutes.PORTFOLIO_DASHBOARD],
+      );
+      expect(dialogRefMock.close).toHaveBeenCalled();
+    });
+
+    it('the Option tab mounts on the resolved symbol without a card seed — manual placeholder, not the signal form', async () => {
+      manualStage.mockImplementation(async () => {
+        const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, 'man-1': t }));
+        return t;
+      });
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      priceServiceMock.prices.set({ AAPL: 189.5 });
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      // The Option tab is lazy — activating it mounts the component on
+      // the resolved symbol with empty provenance. Manual mode renders a
+      // placeholder, not the signal staging form (#1189; staging is #1190).
+      const tabs = manualFixture.nativeElement.querySelectorAll('.mdc-tab');
+      (tabs[1] as HTMLElement).click();
+      manualFixture.detectChanges();
+      await manualFixture.whenStable();
+      manualFixture.detectChanges();
+
+      const opt = manualFixture.nativeElement.querySelector('app-option-order-ticket');
+      expect(opt).toBeTruthy();
+      expect(opt.querySelector('[data-testid="manual-option-placeholder"]')).toBeTruthy();
+      expect(opt.querySelector('[data-testid="expiration-select"]')).toBeFalsy();
+    });
+
+    it('re-resolve is gated while a ticket is bound — no silent rebind or orphan (#1189 review)', async () => {
+      manualStage.mockImplementation(async () => {
+        const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, 'man-1': t }));
+        return t;
+      });
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      // Bound: the input + button disable and the resolve call no-ops.
+      const el = manualFixture.nativeElement as HTMLElement;
+      const input = el.querySelector('[data-testid="manual-symbol-input"]') as HTMLInputElement;
+      const btn = el.querySelector('[data-testid="manual-symbol-resolve"]') as HTMLButtonElement;
+      expect(input.disabled).toBe(true);
+      expect(btn.disabled).toBe(true);
+      expect(el.querySelector('[data-testid="manual-bound-hint"]')).toBeTruthy();
+
+      manualStage.mockClear();
+      manualFixture.componentInstance.symbolInput.set('MSFT');
+      await manualFixture.componentInstance.resolveSymbol();
+      expect(manualStage).not.toHaveBeenCalled();
+      expect(manualFixture.componentInstance.ticket()?.id).toBe('man-1');
+    });
+
+    it('a done manual ticket renders the confirmation panel via the store status', async () => {
+      manualStage.mockImplementation(async () => {
+        const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, 'man-1': t }));
+        return t;
+      });
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      // Submit transitions land through the store — the same watcher as
+      // card mode surfaces the confirmation (and the dialog stays open).
+      tickets.update((m) => ({
+        ...m,
+        'man-1': { ...m['man-1'], status: OrderTicketStatus.SUBMITTED },
+      }));
+      manualFixture.detectChanges();
+      const el = manualFixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="order-confirmation"]')).toBeTruthy();
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+    });
+
+    it('a second resolve while one is in flight is a no-op (resolving guard)', async () => {
+      let release!: (t: OrderTicket) => void;
+      manualStage.mockImplementation(
+        () => new Promise<OrderTicket>((r) => { release = r; }),
+      );
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+
+      const first = manualFixture.componentInstance.resolveSymbol();
+      const second = manualFixture.componentInstance.resolveSymbol();
+      await second; // returns immediately — guard tripped
+      const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
+      tickets.update((m) => ({ ...m, 'man-1': t }));
+      release(t);
+      await first;
+
+      expect(manualStage).toHaveBeenCalledTimes(1);
+    });
+
+    it('a rejected stage surfaces the inline error instead of an unhandled rejection', async () => {
+      manualStage.mockRejectedValue(new Error('config load failed'));
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      const el = manualFixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="manual-symbol-error"]')?.textContent).toContain('AAPL');
+      expect(manualFixture.componentInstance.resolving()).toBe(false);
+      expect(manualFixture.componentInstance.enteredSymbol()).toBeNull();
+    });
+
+    it('a bound ticket that vanishes resets to the entry row — tabs unmount, input re-enables', async () => {
+      manualStage.mockImplementation(async () => {
+        const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, 'man-1': t }));
+        return t;
+      });
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+      expect(manualFixture.componentInstance.ticket()?.id).toBe('man-1');
+
+      // External discard (queue removal / store rekey) — the dialog must
+      // not keep rendering a dead bound form (#1189 review r3).
+      tickets.set({});
+      manualFixture.detectChanges();
+
+      const el = manualFixture.nativeElement as HTMLElement;
+      expect(manualFixture.componentInstance.enteredSymbol()).toBeNull();
+      expect(el.querySelector('mat-tab-group')).toBeFalsy();
+      expect(
+        (el.querySelector('[data-testid="manual-symbol-input"]') as HTMLInputElement)
+          .disabled,
+      ).toBe(false);
+      expect(el.querySelector('[data-testid="manual-hint"]')).toBeTruthy();
+      // Manual mode still owns its close path — the dialog stays open.
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
     });
   });
 });

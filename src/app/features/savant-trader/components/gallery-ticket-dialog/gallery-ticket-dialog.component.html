@@ -40,9 +40,64 @@
       <div class="confirm-text">
         <div class="confirm-headline">{{ confirmationMessage() }}</div>
         <div class="confirm-terms">{{ done.symbol }} · {{ confirmationTerms() }}</div>
-        <div class="confirm-hint">Track progress on the Live Orders page.</div>
+        <div class="confirm-hint">Track progress on the {{ data.manual ? 'portfolio dashboard' : 'Live Orders page' }}.</div>
       </div>
     </div>
+  } @else if (data.manual) {
+    <!-- Manual mode (#1177/#1189): free-text symbol entry resolves to a
+         staged MANUAL equity ticket via the seed — then the same tab
+         group as card mode renders. The Option tab mounts the component
+         on the entered symbol with empty provenance (manual option
+         staging is #1190); nothing in the manual tab group reads the
+         card seed. -->
+    <div class="manual-entry">
+      <input class="manual-symbol-input" data-testid="manual-symbol-input"
+             type="text" placeholder="Ticker — AAPL, BRK.B…"
+             aria-label="Ticker symbol"
+             [value]="symbolInput()"
+             [disabled]="resolving() || !!ticket()"
+             (input)="symbolInput.set($any($event.target).value)"
+             (keydown.enter)="resolveSymbol(); $event.preventDefault()" />
+      <button mat-stroked-button data-testid="manual-symbol-resolve"
+              [disabled]="resolving() || !!ticket() || !symbolInput().trim()"
+              (click)="resolveSymbol()">
+        {{ resolving() ? 'Resolving…' : 'Resolve' }}
+      </button>
+    </div>
+    @if (ticket()) {
+      <!-- Re-resolve is gated while a ticket is bound — silently
+           rebinding would orphan the first STAGED ticket in the queue,
+           and a resolve during SUBMITTING would hide the real order's
+           confirmation (#1189 review). Close to order another symbol;
+           the session's staged ticket is discarded on close. -->
+      <p class="manual-hint" data-testid="manual-bound-hint">Close the dialog to order a different symbol.</p>
+    }
+    @if (symbolError(); as err) {
+      <div class="manual-symbol-error" data-testid="manual-symbol-error">{{ err }}</div>
+    }
+    @if (enteredSymbol(); as sym) {
+      <mat-tab-group mat-stretch-tabs="false" preserveContent>
+        <mat-tab label="Stock">
+          <app-order-ticket
+            [ticket]="ticket()"
+            [price]="price()"
+            [tradingConfig]="tradingConfig()">
+          </app-order-ticket>
+        </mat-tab>
+        <mat-tab label="Option">
+          <ng-template matTabContent>
+            <app-option-order-ticket
+              [symbol]="sym"
+              [runId]="''"
+              [tradingConfig]="tradingConfig()"
+              (staged)="onOptionStaged($event)">
+            </app-option-order-ticket>
+          </ng-template>
+        </mat-tab>
+      </mat-tab-group>
+    } @else {
+      <p class="manual-hint" data-testid="manual-hint">Enter a ticker to stage a stock or option order.</p>
+    }
   } @else if (data.option) {
     <!-- preserveContent keeps the lazy Option pane alive across tab
          switches — without it a deactivated lazy tab destroys its

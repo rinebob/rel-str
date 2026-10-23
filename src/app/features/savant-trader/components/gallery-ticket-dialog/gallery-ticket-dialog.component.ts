@@ -2,13 +2,17 @@
  * Gallery Ticket Dialog
  *
  * MatDialog host for the shared OrderTicketComponent (#743/#759) plus the
- * OptionOrderTicketComponent (#963) under a Stock/Option tab group (#964) —
- * the gallery card's Trade button stages a quantity ticket and opens it here
- * for editing/submission. The component binds reactively to the ticket
- * store so in-dialog edits and the order queue's view stay in sync. The
- * dialog closes itself when EITHER the equity or the option ticket leaves
- * STAGED (submitted, sent to paper, or removed elsewhere); the caller
- * decides whether still-STAGED tickets get discarded on close.
+ * OptionOrderTicketComponent (#963) under a Stock/Option tab group (#964).
+ * Card mode: the gallery card's Trade button stages a quantity ticket and
+ * opens it here for editing/submission. Manual mode (#1177/#1189): a
+ * symbol-entry row resolves a free-text ticker through the `manual` seed
+ * (stage-or-adopt), then binds the resulting ticket to the same Stock
+ * tab — same review-then-place path as card mode. The component binds
+ * reactively to the ticket store so in-dialog edits and the order
+ * queue's view stay in sync. The dialog closes itself when EITHER the
+ * equity or the option ticket leaves STAGED (submitted, sent to paper,
+ * or removed elsewhere); the caller decides whether still-STAGED tickets
+ * get discarded on close.
  */
 import { Component, ChangeDetectionStrategy, computed, effect, inject, OnInit, Signal, signal } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -24,6 +28,7 @@ import { EquityPriceService } from '../../services/equity-price.service';
 import { SymbolListStore } from '../../stores/symbol-list.store';
 import { InstrumentType, OrderTicket, OrderTicketStatus, TradingConfig } from '../../services/order-ticket.types';
 import { orderTicketTerms } from '../../utils/signal-order-staging.util';
+import { normalizeUnderlyingSymbol } from '../../utils/manual-ticket-staging.util';
 import { StOccurrenceDecision, StSignalItem } from '../../services/types';
 import { OrderTicketComponent } from '../order-ticket/order-ticket.component';
 import { OptionOrderTicketComponent } from '../option-order-ticket/option-order-ticket.component';
@@ -147,11 +152,18 @@ export class GalleryTicketDialogComponent implements OnInit {
 
   readonly data = inject(MAT_DIALOG_DATA) as GalleryTicketDialogData;
 
+  /** The manually staged ticket's id — set by `resolveSymbol` once the
+   *  seed stage lands (#1177/#1189). Writable because manual mode has no
+   *  ticket at open. */
+  private readonly manualTicketId = signal<string | null>(null);
+
   /** Reactive ticket lookup — reflects in-dialog edits and queue changes.
    *  Null in manual mode until the symbol-resolve flow stages a ticket. */
   readonly ticket = computed(
-    (): OrderTicket | null =>
-      this.data.ticketId ? (this.ticketStore.tickets()[this.data.ticketId] ?? null) : null,
+    (): OrderTicket | null => {
+      const id = this.data.ticketId ?? this.manualTicketId();
+      return id ? (this.ticketStore.tickets()[id] ?? null) : null;
+    },
   );
   /** Equity/ETF tickets only — option tickets also carry `symbol` (the
    *  underlying), but the equity price binding doesn't apply to them. */
@@ -166,10 +178,11 @@ export class GalleryTicketDialogComponent implements OnInit {
   readonly tradingConfig = this.data.tradingConfig;
 
   /** The dialog's underlying — the option seed carries it when present
-   *  (the card's symbol, independent of which ticket is bound); the
-   *  equity ticket's symbol is the fallback. */
+   *  (the card's symbol, independent of which ticket is bound); manual
+   *  mode takes the resolved entry, and the equity ticket's symbol is
+   *  the fallback. */
   readonly displaySymbol = computed(
-    () => this.data.option?.symbol ?? this.symbol(),
+    () => this.data.option?.symbol ?? this.enteredSymbol() ?? this.symbol(),
   );
   /** Company display name from the tracked-symbol profiles. */
   readonly companyName = computed(() => {
@@ -227,6 +240,55 @@ export class GalleryTicketDialogComponent implements OnInit {
     return `${t.side} ${t.orderType} ${orderTicketTerms(t)}`;
   });
 
+  // ------------------------------------------------------------------
+  // Manual mode — symbol entry + resolve (#1177/#1189)
+  // ------------------------------------------------------------------
+
+  /** The user-typed symbol (raw, normalized on resolve). */
+  readonly symbolInput = signal('');
+  /** The resolved symbol — set only after the seed stage lands; drives
+   *  displaySymbol, the quote strip, and tab rendering. */
+  readonly enteredSymbol = signal<string | null>(null);
+  /** True while a resolve is in flight — guards double-submits. */
+  readonly resolving = signal(false);
+  /** Inline resolve error — invalid ticker, no quote, or a seed-side
+   *  stage failure (the seed already snackbar'd the reason). */
+  readonly symbolError = signal<string | null>(null);
+
+  /** Resolve the entered ticker: validate the charset before any work,
+   *  then stage-or-adopt through the manual seed (the seed does its own
+   *  quote fetch for sizing — a ticker RH can't price returns null).
+   *  Success binds the ticket and reveals the tabs; failure shows an
+   *  inline error and leaves the field editable. The strip warm is
+   *  fire-and-forget — `fetchPrices` dedupes an identical in-flight
+   *  request, so awaiting it can't prove a quote landed (and a stale
+   *  cached price would pass anyway); `quote()` fills reactively. */
+  async resolveSymbol(): Promise<void> {
+    const manual = this.data.manual;
+    if (!manual || this.resolving() || this.ticket()) return;
+    const sym = normalizeUnderlyingSymbol(this.symbolInput());
+    if (!sym) {
+      this.symbolError.set('Enter a valid ticker — letters, digits, dots, hyphens');
+      return;
+    }
+    this.resolving.set(true);
+    this.symbolError.set(null);
+    try {
+      const staged = await manual.stageEquityTicket(sym);
+      if (!staged) {
+        this.symbolError.set(`${sym}: couldn't stage an order ticket`);
+        return;
+      }
+      this.enteredSymbol.set(sym);
+      this.manualTicketId.set(staged.id);
+      void this.priceService.fetchPrices([sym]);
+    } catch {
+      this.symbolError.set(`${sym}: couldn't stage an order ticket`);
+    } finally {
+      this.resolving.set(false);
+    }
+  }
+
   constructor() {
     // A done ticket shows the confirmation panel — the user closes with
     // Done or follows through to the order page (#762). Removal closes
@@ -240,12 +302,19 @@ export class GalleryTicketDialogComponent implements OnInit {
       const t = this.ticket();
       if (!t) {
         // Card mode: the bound ticket vanished (discarded elsewhere).
-        // Manual mode owns its close path — pre-resolve there's simply
-        // no ticket yet (#1177).
-        // #1190: when the manual option tab lands, this early-return must
-        // still let a bound option ticket drive confirmation/close —
-        // manual mode's ticket() stays null by design.
-        if (!this.data.manual) this.dialogRef.close();
+        // Manual mode: null means pre-resolve (or the session ticket was
+        // discarded elsewhere) — the dialog stays open either way so the
+        // user can resolve or re-resolve; a stale confirmation for the
+        // gone ticket must clear or it would mask the entry row (#1189).
+        if (!this.data.manual) {
+          this.dialogRef.close();
+          return;
+        }
+        this.confirmation.set(null);
+        // A vanished bound ticket also resets the entry row — the tabs
+        // would otherwise render OrderTicket on a null ticket.
+        this.enteredSymbol.set(null);
+        this.manualTicketId.set(null);
         return;
       }
       const opt = this.optionTicket();
@@ -282,14 +351,20 @@ export class GalleryTicketDialogComponent implements OnInit {
     this.dialogRef.close();
   }
 
-  /** Follow the accepted order to the live-order page — deep-links the
-   *  ticket via the `ticket` query param (#762). */
+  /** Follow the accepted order — card mode deep-links the ticket on the
+   *  live-order page via the `ticket` query param (#762); manual mode
+   *  lands on the portfolio dashboard, where resting/filled orders live
+   *  (the queue view isn't wired for manual tickets — #1177). */
   onViewOrder(): void {
     const t = this.confirmation();
-    void this.router.navigate(
-      ['/', AppRoutes.SIGNAL_ORDER],
-      t ? { queryParams: { ticket: t.id } } : undefined,
-    );
+    if (this.data.manual) {
+      void this.router.navigate(['/', AppRoutes.PORTFOLIO_DASHBOARD]);
+    } else {
+      void this.router.navigate(
+        ['/', AppRoutes.SIGNAL_ORDER],
+        t ? { queryParams: { ticket: t.id } } : undefined,
+      );
+    }
     this.dialogRef.close();
   }
 
