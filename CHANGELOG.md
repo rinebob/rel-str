@@ -13,6 +13,7 @@
 - [Manual Order Entry] 1177-1189_FE-IMPL-ORDER: Manual equity staging — source-agnostic STAGED adoption + live-order block guard
 - [Manual Order Entry] 1177-1189_FE-IMPL-ORDER: Option ticket manual mode — runId='' placeholder + gated chains/cash/alloc warm effects
 - [Manual Order Entry] 1177-1189_FE-IMPL-ORDER: Gallery ticket dialog manual mode — symbol entry, stage/adopt binding, re-resolve gate, dashboard follow-through
+- [Manual Order Entry] 1177-1189_DOCS-IMPL-ORDER: #1189 CODE-REVIEW (PASS, 3 rounds) + #1219 UAT (Complete) + IMPL doc correction
 
 ### Removed
 - [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: review-list persistence removed — triage.service.ts deleted, Collection.ST_REVIEW_LIST dropped, pin spec asserts non-reintroduction
