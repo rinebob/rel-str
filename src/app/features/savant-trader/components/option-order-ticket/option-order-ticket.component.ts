@@ -8,11 +8,14 @@
  * back through updateTicket. Submit persists the form fields, opens the
  * shared confirm dialog, and hands off to OrderTicketStore.submitTicket.
  *
- * v1 scope: one leg, buy-to-open, limit|market order types.
+ * v1 scope: one leg, limit|market order types. Signal cards stage
+ * buy-to-open only; manual mode (#1190) adds a buy-to-open/sell-to-open
+ * toggle with an advisory STO collateral preview.
  */
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   WritableSignal,
   computed,
   effect,
@@ -32,6 +35,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { OptionType, buildOccContractId } from '@options-contract/contracts';
 import { RobinhoodMcpClient } from '../../../../core/robinhood-mcp/robinhood-mcp-client.service';
+import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import {
   OptionInstrument,
   OptionQuote,
@@ -46,10 +50,8 @@ import {
   OrderTicketStatus,
   TradingConfig,
 } from '../../services/order-ticket.types';
-import { StOccurrenceDecision, StSignalItem } from '../../services/types';
-import { ReviewDecision, SignalDirection } from '../../common/constants';
-import { buildStOccurrenceDecisionId } from '../../services/firestore-helpers';
-import { findCardTickets } from '../../utils/gallery-card-actions.util';
+import { StSignalItem } from '../../services/types';
+import { SignalDirection } from '../../common/constants';
 import {
   DEFAULT_OPTION_MAX_PREMIUM_CASH_PERCENT,
   chainsToExpirations,
@@ -58,7 +60,17 @@ import {
   premiumNotional,
   selectsToInstrumentArgs,
 } from '../../utils/option-contract.util';
-import { buildOptionSignalTicket } from '../../utils/option-ticket-staging.util';
+import { stDocId } from '../../services/order-ticket-st-mapper';
+import {
+  manualOptionLane,
+  signalOptionLane,
+} from '../../utils/option-stage-lane.util';
+import { buildOptionOrderWireArgs } from '../../utils/option-order-wire.util';
+import { OptionCollateralPreview } from './option-collateral-preview';
+import {
+  DEFAULT_DOLLAR_AMOUNT,
+  NO_ACCOUNT_SNACKBAR,
+} from '../../utils/signal-order-staging.util';
 import { formatError } from '../../utils/format-error.util';
 import { AllocationStore } from '../../../portfolio-dashboard/allocation.store';
 import { BucketStatus } from '@portfolio-allocation/contracts';
@@ -81,35 +93,31 @@ interface ResolvedContract {
 type OptionOrderType = 'limit' | 'market';
 type OptionTimeInForce = 'gfd' | 'gtc';
 
-/** Ticket statuses that count as live for the staging guard — a live
- *  option ticket on the card blocks staging a new one (IMPL-948 caller
- *  contract: the deterministic id .set()s unconditionally, and one open
- *  option order per card is the v1 product decision). FILLED counts: a
- *  fill means the card's position is already on. PAPER is absent —
- *  paper tickets are equity-only. */
-const LIVE_TICKET_STATUSES: ReadonlySet<OrderTicketStatus> = new Set([
-  OrderTicketStatus.SUBMITTING,
-  OrderTicketStatus.SUBMITTED,
-  OrderTicketStatus.QUEUED,
-  OrderTicketStatus.RESTING,
-  OrderTicketStatus.CANCEL_PENDING,
-  OrderTicketStatus.FILLED,
-]);
-
 @Component({
   selector: 'app-option-order-ticket',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [OptionCollateralPreview],
   imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './option-order-ticket.component.html',
   styleUrl: './option-order-ticket.component.scss',
 })
 export class OptionOrderTicketComponent {
   private readonly mcpClient = inject(RobinhoodMcpClient);
+  /** Advisory STO collateral preview — owns the review_option_order call,
+   *  stale guard, and rendered line (#1190). */
+  protected readonly collateral = inject(OptionCollateralPreview);
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly portfolio = inject(PortfolioService);
   private readonly allocStore = inject(AllocationStore);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+
+  /** Set when the component is destroyed — a stage that resolves
+   *  post-destroy must discard its persisted ticket rather than emit
+   *  into the void (the host's createdTicketIds tracking is gone, so
+   *  the STAGED doc would leak; #1017 r2 — same fix shape the manual
+   *  path took). */
+  private destroyed = false;
 
   /** Underlying ticker the option trades on (the card's symbol). */
   readonly symbol = input.required<string>();
@@ -118,26 +126,19 @@ export class OptionOrderTicketComponent {
    *  ticket, and the guard matches existing card tickets by them. */
   readonly signals = input<StSignalItem[]>([]);
 
-  /** The viewed run id — decision ids are scoped to it. The manual
-   *  dialog passes `''` — there is no card (#1177/#1189). */
-  readonly runId = input.required<string>();
+  /** The viewed run id — decision ids are scoped to it. Optional (#1190):
+   *  absent or '' means manual mode — no card, no signal provenance. */
+  readonly runId = input<string>('');
 
   /** Live trading config — supplies the account number and the
    *  optionMaxPremiumCashPercent fatfinger cap. */
   readonly tradingConfig = input<TradingConfig | null>(null);
 
-  /** Durable occurrence decisions keyed by canonical id — REJECTs are
-   *  filtered out before the builder maps ids into decisionIds (a REJECT
-   *  id on the ticket would be silently un-rejected on discard, #755). */
-  readonly decisions = input<Record<string, StOccurrenceDecision>>({});
-
-  /** Manual mode (#1189): the dialog mounts this tab with `runId === ''`
-   *  and empty provenance — the signal staging path can't run (empty
-   *  occurrence set always fails its guard), so the template shows a
-   *  placeholder until manual option staging lands (#1190). The
-   *  chains/cash/alloc warm effects below are gated on `!manual()` —
-   *  nothing selectable renders, so no MCP fetch is worth burning. */
-  readonly manual = computed(() => this.runId() === '');
+  /** Manual mode (#1190): no run id → no card provenance exists, so the
+   *  ticket stages via buildManualOptionTicket (source MANUAL) instead of
+   *  the signal builder, the adopt/block guard keys on {contract, side}
+   *  rather than card decisionIds, and the BTO/STO toggle renders. */
+  readonly manual = computed(() => !this.runId());
 
   /** Emitted when a ticket is staged (created:true) or an existing STAGED
    *  card ticket is adopted (created:false) — the host uses the id for
@@ -159,6 +160,12 @@ export class OptionOrderTicketComponent {
 
   readonly selectedStrike = signal<number | null>(null);
   readonly contractType = signal<'call' | 'put'>('call');
+
+  /** Position-effect-OPEN direction — 'buy' (BTO, debit) or 'sell'
+   *  (STO, credit). Manual mode only: signal cards stage buy-to-open by
+   *  design (a long put on a SHORT card is still a buy), so the toggle
+   *  renders only when `manual()` and signal mode ignores this value. */
+  readonly orderSide = signal<'buy' | 'sell'>('buy');
 
   readonly resolving = signal(false);
   readonly resolvedContract = signal<ResolvedContract | null>(null);
@@ -251,7 +258,7 @@ export class OptionOrderTicketComponent {
       strike,
     );
   });
-  private readonly defaultDollarAmount = computed(() => this.tradingConfig()?.defaultDollarAmount ?? 100);
+  private readonly defaultDollarAmount = computed(() => this.tradingConfig()?.defaultDollarAmount ?? DEFAULT_DOLLAR_AMOUNT);
 
   /** Strikes at the selected expiration for the selected contract type —
    *  unique, sorted ascending. The broad fetch is type-unfiltered, so the
@@ -309,8 +316,10 @@ export class OptionOrderTicketComponent {
   /** Fatfinger cap — premium exceeds the configured fraction of
    *  available cash. Only evaluated when BOTH legs of the comparison are
    *  known; a failed snapshot pushes a confirm-dialog warning instead
-   *  (the cap can't run on missing data). */
+   *  (the cap can't run on missing data). Inert on the sell side — it's
+   *  a debit cap; STO risk is collateral, which the preview line covers. */
   readonly fatfingerExceeded = computed(() => {
+    if (this.orderSide() === 'sell') return false;
     const premium = this.estimatedPremium();
     const cash = this.availableCash();
     if (premium === null || cash === null) return false;
@@ -320,6 +329,9 @@ export class OptionOrderTicketComponent {
       this.tradingConfig()?.optionMaxPremiumCashPercent,
     );
   });
+
+  // The collateral advisory line is `collateral.text()` — the preview
+  // helper's computed, bound directly in the template (no wrapper).
 
   /** The TIF that will actually be sent — market orders pin gfd. */
   readonly effectiveTimeInForce = computed<OptionTimeInForce>(() =>
@@ -338,7 +350,7 @@ export class OptionOrderTicketComponent {
   readonly canSubmit = computed(() => {
     const t = this.ticket();
     if (!t || t.status !== OrderTicketStatus.STAGED) return false;
-    if (this.resolving()) return false;
+    if (this.resolving() || this.stageError()) return false;
     if (!this.resolvedContract() || !this.accountNumber()) return false;
     if (this.contractsQuantity() <= 0) return false;
     if (this.orderType() === 'limit' && this.premiumBasis() === null) return false;
@@ -346,11 +358,14 @@ export class OptionOrderTicketComponent {
   });
 
   constructor() {
-    // Load option chains once per symbol. Skipped in manual mode —
-    // the placeholder renders no pickers (#1189; #1190 re-enables).
+    inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
+    });
+
+    // Load option chains once per symbol — manual mode resolves against
+    // the same pickers (#1190), so there is no manual gate here anymore.
     effect(() => {
       const sym = this.symbol();
-      if (this.manual()) return;
       if (!sym || this.chainsRequestedFor === sym) return;
       this.chainsRequestedFor = sym;
       untracked(() => void this.loadChains(sym));
@@ -359,7 +374,6 @@ export class OptionOrderTicketComponent {
     // Fetch the account snapshot once — the fatfinger cap needs cash.
     effect(() => {
       const acct = this.accountNumber();
-      if (this.manual()) return;
       if (!acct || this.cashRequestedFor === acct) return;
       this.cashRequestedFor = acct;
       untracked(() => void this.loadCash(acct));
@@ -369,7 +383,6 @@ export class OptionOrderTicketComponent {
     // picker reads (the bound ticket's, falling back to the config's).
     effect(() => {
       const acct = this.ticket()?.accountNumber ?? this.accountNumber();
-      if (this.manual()) return;
       if (acct) untracked(() => this.allocStore.ensureAccount(acct));
     });
 
@@ -429,9 +442,64 @@ export class OptionOrderTicketComponent {
       untracked(() => void this.resolveAndStage(sym, exp, strike, type));
     });
 
+    // Manual BTO/STO flip — opposite sides are different ticket
+    // identities (OPT-MAN-{BTO|STO}), so a flip re-runs the stage/adopt
+    // guard for the already-resolved contract without an MCP refetch.
+    effect(() => {
+      const side = this.orderSide();
+      const c = this.resolvedContract();
+      if (!this.manual() || !c || this.resolving()) return;
+      untracked(() =>
+        void this.ensureStagedTicket(
+          { occSymbol: c.occSymbol, optionId: c.optionId },
+          this.resolveSeq,
+        ),
+      );
+    });
+
+    // STO collateral preview — advisory review_option_order for the
+    // sell-side order when a contract resolves. Silent: failure renders
+    // nothing and never gates submit — RH enforces collateral at place.
+    // Tracked deps are exactly what RH's collateral math reads (contract,
+    // qty, side, account) — orderType/limitPrice/tif are call args but
+    // don't move the collateral number, so they stay untracked. A
+    // blocked stage or missing account makes the estimate meaningless —
+    // don't burn the review call.
+    effect(() => {
+      const side = this.orderSide();
+      const c = this.resolvedContract();
+      const qty = this.quantity();
+      const acct = this.accountNumber();
+      const blocked = this.stageError() || this.resolving();
+      if (!this.manual() || side !== 'sell' || !c || !acct || blocked) {
+        this.collateral.clear();
+        return;
+      }
+      untracked(() =>
+        void this.collateral.preview(
+          buildOptionOrderWireArgs({
+            // The bound ticket's account wins (an adopted ticket can
+            // carry a different account) — untracked so a ticket patch
+            // doesn't refire the advisory call.
+            accountNumber: this.ticket()?.accountNumber ?? acct,
+            legs: [{ optionId: c.optionId, side: 'sell', positionEffect: 'open' }],
+            type: this.orderType(),
+            quantity: qty,
+            timeInForce: this.effectiveTimeInForce(),
+            price:
+              this.orderType() === 'limit' && this.limitPrice()
+                ? this.limitPrice()
+                : undefined,
+            chainSymbol: this.symbol(),
+            underlyingType: 'equity',
+          }),
+        ),
+      );
+    });
+
     // Retry staging when a block cause clears without a triplet change —
-    // a live ticket going terminal, an occurrence un-rejected, or the
-    // account becoming configured all surface as `stageError`, and the
+    // a live ticket going terminal or the account becoming configured
+    // surface as `stageError`, and the
     // user shouldn't have to wiggle a select to escape. Runs the guard
     // only (no MCP refetch — the contract is already resolved) and only
     // while blocked, so store churn elsewhere costs nothing.
@@ -439,7 +507,6 @@ export class OptionOrderTicketComponent {
       const blocked = this.stageError();
       const c = this.resolvedContract();
       this.ticketStore.tickets(); // live → terminal transitions
-      this.decisions(); // un-reject
       this.accountNumber(); // account configured
       if (!blocked || !c || this.resolving()) return;
       // Inherit the current seq — a deselect during the lock wait bumps
@@ -629,28 +696,63 @@ export class OptionOrderTicketComponent {
     const stale = () => seq !== undefined && seq !== this.resolveSeq;
     if (stale()) return null;
 
+    // The lane owns every axis that differs between the flows — leg
+    // side, adopt/block probe, block message, can-stage, builder — so
+    // the path below is mode-free (a manual BTO→STO flip is just a
+    // different lane, not a branch).
+    const lane = this.manual()
+      ? manualOptionLane({
+          symbol: this.symbol(),
+          side: this.orderSide(),
+          ticketsBySymbol: () => this.ticketStore.ticketsBySymbol(),
+        })
+      : signalOptionLane({
+          symbol: this.symbol(),
+          signals: this.signals(),
+          runId: this.runId(),
+          ticketsBySymbol: () => this.ticketStore.ticketsBySymbol(),
+        });
     const leg: OptionLeg = {
-      side: 'buy',
+      side: lane.side,
       symbol: contract.occSymbol,
       optionId: contract.optionId,
       positionEffect: 'open',
     };
     const now = new Date().toISOString();
 
-    // Already bound — same ticket, re-leg in place when the contract moved.
+    // Already bound — same ticket, re-leg in place when the contract
+    // moved. A manual side flip OR contract retarget is a different
+    // ticket identity (OPT-MAN-{BTO|STO}-{occ}), so a mismatched bound
+    // ticket falls through to the guard + stage path instead of being
+    // re-legged — re-legging past the probe would bypass the live-block
+    // on a live same-side ticket for the target contract.
     const bound = this.ticket();
-    if (bound) {
+    if (bound && bound.legs[0]?.side === lane.side && lane.isSameIdentity(bound, contract)) {
       if (bound.status === OrderTicketStatus.STAGED && bound.legs[0]?.optionId !== contract.optionId) {
         this.ticketStore.updateTicket(bound.id, { legs: [leg], error: undefined, updatedAt: now });
       }
+      // A bound ticket is a consistent state — any stale block error
+      // from a side-flip detour must not linger (the retry effect can
+      // re-enter here without ever clearing it).
+      this.stageError.set(null);
       return bound;
     }
+    // The bound ticket is the other identity's — unbind it before the
+    // guard so a live-block below leaves no stale submittable ticket on
+    // screen. Uniform across lanes: signal-mode bound tickets are always
+    // 'buy', so the signal path never reaches this. Keyed on the bound
+    // ID, not the resolved ticket — a ticket that vanished from the map
+    // is precisely the stale state this must clear.
+    if (this.ticketId()) this.ticketId.set(null);
 
-    // Guard: an existing OPTION ticket for this card (decisionIds
-    // overlap) — STAGED adopts, live blocks, terminal ignores.
-    const matches = this.cardOptionTickets();
-    if (matches.some((t) => LIVE_TICKET_STATUSES.has(t.status))) {
-      const msg = `${this.symbol()}: a live option order already exists for this card`;
+    // Guard — the lane's probe: card tickets by provenance for signal,
+    // source-agnostic {contract, side} for manual. The lane decides
+    // which matches block: the card's live-or-FILLED set for signal,
+    // none for manual (parallel orders are user intent).
+    const matches = lane.probe(contract.occSymbol);
+    const blocker = matches.find((t) => lane.isBlocking(t));
+    if (blocker) {
+      const msg = lane.blockMessage(blocker);
       if (this.stageError() !== msg) this.snackBar.open(msg, 'Dismiss', { duration: 5000 });
       this.stageError.set(msg);
       return null;
@@ -677,29 +779,46 @@ export class OptionOrderTicketComponent {
       return adoptable;
     }
 
-    const usable = this.nonRejectedSignals();
-    if (!usable.length) {
-      const msg = `${this.symbol()}: all occurrences rejected — restore to trade`;
-      if (this.stageError() !== msg) this.snackBar.open(msg, 'Dismiss', { duration: 4000 });
-      this.stageError.set(msg);
+    if (!lane.canStage()) {
       return null;
     }
     if (!this.accountNumber()) {
-      const msg = 'Failed to stage order — configure the agentic account first';
+      const msg = NO_ACCOUNT_SNACKBAR;
       if (this.stageError() !== msg) this.snackBar.open(msg, 'Dismiss', { duration: 4000 });
       this.stageError.set(msg);
       return null;
     }
 
-    const ticket = buildOptionSignalTicket(this.symbol(), usable, contract, {
-      runId: this.runId(),
+    const ctx = {
       accountNumber: this.accountNumber(),
       now: new Date(),
       buildRefId: () => crypto.randomUUID(),
-    });
+    };
+    const ticket = lane.build(contract, ctx);
     if (!ticket) return null;
+    // Same-minute id collision — the option twin of the equity service's
+    // guard (manual-order.service.ts): ids are minute-keyed, so a
+    // same-id doc that isn't the STAGED twin the probe already adopted
+    // is a ticket the .set() would clobber. Probe both key spellings —
+    // a hydrated twin sits under liv_{id}.
+    const allTickets = this.ticketStore.tickets();
+    if (allTickets[ticket.id] ?? allTickets[stDocId(ticket.id)]) {
+      this.snackBar.open(
+        `${this.symbol()}: a ticket for this contract was just staged — try again in a moment`,
+        'Dismiss',
+        { duration: 4000 },
+      );
+      return null;
+    }
     const persisted = await this.ticketStore.stageTicketAndWait(ticket);
     if (!persisted) return null;
+    // The dialog closed mid-stage — the emit would land on a destroyed
+    // binding and the host's createdTicketIds never sees the id; the
+    // persisted STAGED doc would leak. Discard it instead (#1017 r2).
+    if (this.destroyed) {
+      this.ticketStore.discardIfStaged(ticket.id);
+      return null;
+    }
     this.sessionStagedIds.add(ticket.id);
     // Emit BEFORE the stale bail — the host's discard-on-close tracks
     // created tickets by this event; suppressing it orphans a persisted
@@ -713,28 +832,6 @@ export class OptionOrderTicketComponent {
     this.ticketId.set(ticket.id);
     this.stageError.set(null);
     return ticket;
-  }
-
-  /** OPTION tickets matching this card via findCardTickets — side is
-   *  pinned 'buy' only to satisfy the equity-check shape; OPTION skips
-   *  the side test (a long put on a SHORT card is still side 'buy'). */
-  private cardOptionTickets(): OptionOrderTicket[] {
-    return findCardTickets(
-      { symbol: this.symbol(), side: 'buy', allOccurrences: this.signals() },
-      { runId: this.runId(), ticketsBySymbol: this.ticketStore.ticketsBySymbol() },
-    ).filter((t): t is OptionOrderTicket => t.instrumentType === InstrumentType.OPTION);
-  }
-
-  /** Occurrences minus REJECTed ones — the builder's documented contract:
-   *  a REJECT decisionId on the ticket is silently un-rejected on discard. */
-  private nonRejectedSignals(): StSignalItem[] {
-    const runId = this.runId();
-    const decisions = this.decisions();
-    return this.signals().filter(
-      (o) =>
-        decisions[buildStOccurrenceDecisionId(runId, o.symbol, o.timeframe, o.signalType)]
-          ?.decisionType !== ReviewDecision.REJECT,
-    );
   }
 
   // ------------------------------------------------------------------

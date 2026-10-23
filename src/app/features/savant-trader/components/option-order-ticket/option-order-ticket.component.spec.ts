@@ -7,6 +7,7 @@ import { of } from 'rxjs';
 
 import { OptionOrderTicketComponent } from './option-order-ticket.component';
 import { RobinhoodMcpClient } from '../../../../core/robinhood-mcp/robinhood-mcp-client.service';
+import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { PortfolioService, AccountSnapshot } from '../../services/portfolio.service';
 import { AllocationStore } from '../../../portfolio-dashboard/allocation.store';
@@ -19,8 +20,8 @@ import {
   OrderTicketStatus,
   TradingConfig,
 } from '../../services/order-ticket.types';
-import { StOccurrenceDecision, StSignalItem } from '../../services/types';
-import { ReviewDecision, SignalDirection, SignalTimeframe } from '../../common/constants';
+import { StSignalItem } from '../../services/types';
+import { SignalDirection, SignalTimeframe } from '../../common/constants';
 import { buildStOccurrenceDecisionId } from '../../services/firestore-helpers';
 import { BucketStatus } from '@portfolio-allocation/contracts';
 import type { AccountAllocation } from '../../../portfolio-dashboard/allocation.types';
@@ -65,22 +66,6 @@ function decisionId(s: StSignalItem): string {
   return buildStOccurrenceDecisionId(RUN_ID, s.symbol, s.timeframe, s.signalType);
 }
 
-function rejectDecision(s: StSignalItem): StOccurrenceDecision {
-  return {
-    id: decisionId(s),
-    runId: RUN_ID,
-    marketDate: s.marketDate,
-    symbol: s.symbol,
-    timeframe: s.timeframe,
-    direction: s.direction,
-    signalType: s.signalType,
-    barDate: s.barDate,
-    decisionType: ReviewDecision.REJECT,
-    decidedAt: '2026-10-13T12:00:00Z',
-    isCurrentInLatestRun: true,
-  };
-}
-
 function chains(): OptionChain[] {
   return [
     { chainId: 'chain-1', symbol: SYMBOL, expirationDates: [EXP, '2026-11-20'] },
@@ -112,6 +97,7 @@ describe('OptionOrderTicketComponent', () => {
     getOptionInstruments: jest.Mock<Promise<OptionInstrument[]>, [OptionInstrumentFilters]>;
     getOptionQuotes: jest.Mock<Promise<Map<string, OptionQuote>>, [string[]]>;
   };
+  let obsService: { executeTool: jest.Mock };
   let tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
   let ticketsBySymbol: ReturnType<typeof computed<Record<string, OrderTicket[]>>>;
   let store: {
@@ -134,9 +120,11 @@ describe('OptionOrderTicketComponent', () => {
 
   async function render(opts: {
     signals?: StSignalItem[];
-    decisions?: Record<string, StOccurrenceDecision>;
     runId?: string;
     tradingConfig?: TradingConfig | null;
+    /** Leave runId/signals unset entirely — proves manual mode keys on
+     *  absent provenance, not the '' sentinel the dialog passes. */
+    omitProvenance?: boolean;
   } = {}): Promise<void> {
     await TestBed.configureTestingModule({
       imports: [OptionOrderTicketComponent],
@@ -144,6 +132,7 @@ describe('OptionOrderTicketComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         { provide: RobinhoodMcpClient, useValue: mcp },
+        { provide: RobinhoodMcpObservationService, useValue: obsService },
         { provide: OrderTicketStore, useValue: store },
         { provide: PortfolioService, useValue: portfolio },
         { provide: AllocationStore, useValue: allocStore },
@@ -157,10 +146,11 @@ describe('OptionOrderTicketComponent', () => {
     stagedEvents = [];
     component.staged.subscribe((e) => stagedEvents.push(e));
     fixture.componentRef.setInput('symbol', SYMBOL);
-    fixture.componentRef.setInput('runId', opts.runId ?? RUN_ID);
-    fixture.componentRef.setInput('signals', opts.signals ?? [sigItem()]);
+    if (!opts.omitProvenance) {
+      fixture.componentRef.setInput('runId', opts.runId ?? RUN_ID);
+      fixture.componentRef.setInput('signals', opts.signals ?? [sigItem()]);
+    }
     fixture.componentRef.setInput('tradingConfig', opts.tradingConfig === undefined ? config : opts.tradingConfig);
-    fixture.componentRef.setInput('decisions', opts.decisions ?? {});
     fixture.detectChanges();
     await flush();
   }
@@ -220,6 +210,7 @@ describe('OptionOrderTicketComponent', () => {
       }),
       submitTicket: jest.fn(),
     };
+    obsService = { executeTool: jest.fn(async () => ({ success: true, parsed: {} })) };
     portfolio = { getSnapshot: jest.fn(async (_a: string, _d: number) => snapshot(10000)) };
     dialog = { open: jest.fn(() => ({ afterClosed: () => of(true) })) };
     snackBar = { open: jest.fn() };
@@ -229,21 +220,469 @@ describe('OptionOrderTicketComponent', () => {
     };
   });
 
-  describe('manual mode (#1189)', () => {
-    it("runId='' renders the placeholder and burns no MCP/portfolio calls — pickers don't exist", async () => {
-      // The manual placeholder renders nothing selectable, so the
-      // chains/cash/alloc warm effects are gated on !manual() — a wasted
-      // getOptionChains call would be a silent regression.
-      await render({ runId: '' });
+  describe('manual mode (#1177/#1190)', () => {
+    it('mounts with provenance inputs absent → manual, real pickers render, warm effects fire', async () => {
+      await render({ omitProvenance: true });
+      fixture.detectChanges();
 
-      expect(mcp.getOptionChains).not.toHaveBeenCalled();
-      expect(mcp.getOptionInstruments).not.toHaveBeenCalled();
-      expect(mcp.getOptionQuotes).not.toHaveBeenCalled();
-      expect(portfolio.getSnapshot).not.toHaveBeenCalled();
-      expect(allocStore.ensureAccount).not.toHaveBeenCalled();
       expect(component.manual()).toBe(true);
-      expect(fixture.nativeElement.querySelector('.manual-option-placeholder')).toBeTruthy();
-      expect(fixture.nativeElement.querySelector('mat-select')).toBeFalsy();
+      // The real form replaced the #1189 placeholder — no placeholder
+      // copy, the pickers exist, and the warm fetches run (a gated-out
+      // getOptionChains would leave the expiration select empty).
+      expect(fixture.nativeElement.querySelector('.manual-option-placeholder')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="expiration-select"]')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('[data-testid="contract-line"]')).toBeTruthy();
+      expect(mcp.getOptionChains).toHaveBeenCalledWith(SYMBOL);
+      expect(portfolio.getSnapshot).toHaveBeenCalledWith('agentic-account', 100);
+      expect(allocStore.ensureAccount).toHaveBeenCalledWith('agentic-account');
+    });
+
+    it("runId === '' (the dialog's explicit sentinel) is manual too", async () => {
+      await render({ runId: '' });
+      expect(component.manual()).toBe(true);
+    });
+
+    /** A MANUAL option ticket staged by an earlier session — the guard
+     *  probes the store for these, keyed on {contract, side}. */
+    function manualOptionTicket(overrides: Partial<OptionOrderTicket> = {}): OptionOrderTicket {
+      return {
+        id: 'man-opt-1',
+        refId: 'ref-man',
+        source: OrderSource.MANUAL,
+        status: OrderTicketStatus.STAGED,
+        accountNumber: 'agentic-account',
+        side: 'buy',
+        orderType: 'limit',
+        timeInForce: 'gfd',
+        marketHours: 'regular_hours',
+        instrumentType: InstrumentType.OPTION,
+        symbol: SYMBOL,
+        legs: [{ side: 'buy', symbol: 'QQQ261016C00500000', optionId: OPT_ID, positionEffect: 'open' }],
+        quantity: '1',
+        createdAt: '2026-10-13T12:00:00Z',
+        updatedAt: '2026-10-13T12:00:00Z',
+        ...overrides,
+      };
+    }
+
+    it('stages a MANUAL ticket on contract resolution — no provenance anywhere', async () => {
+      await render({ omitProvenance: true });
+      await resolveViaSelects();
+
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(1);
+      const staged = store.stageTicketAndWait.mock.calls[0][0] as OptionOrderTicket;
+      expect(staged.source).toBe(OrderSource.MANUAL);
+      expect(staged.signalContext).toBeUndefined();
+      expect(staged.sourceRef).toBeUndefined();
+      expect(staged.id).toContain('OPT-MAN-BTO');
+      expect(staged.side).toBe('buy');
+      expect(staged.legs).toEqual([
+        { side: 'buy', symbol: 'QQQ261016C00500000', optionId: OPT_ID, positionEffect: 'open' },
+      ]);
+      expect(component.ticket()?.id).toBe(staged.id);
+      expect(stagedEvents).toEqual([{ ticketId: staged.id, created: true }]);
+    });
+
+    it('adopts a STAGED MANUAL ticket for the same contract + side', async () => {
+      tickets.set({ 'man-opt-1': manualOptionTicket() });
+
+      await render({ omitProvenance: true });
+      await resolveViaSelects();
+
+      expect(store.stageTicketAndWait).not.toHaveBeenCalled();
+      expect(component.ticket()?.id).toBe('man-opt-1');
+      expect(stagedEvents).toEqual([{ ticketId: 'man-opt-1', created: false }]);
+    });
+
+    it('stages fresh when the STAGED MANUAL ticket is a different contract', async () => {
+      tickets.set({
+        'man-other': manualOptionTicket({
+          id: 'man-other',
+          legs: [{ side: 'buy', symbol: 'QQQ261016C00480000', optionId: 'opt-old', positionEffect: 'open' }],
+        }),
+      });
+
+      await render({ omitProvenance: true });
+      await resolveViaSelects();
+
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(1);
+      expect(component.ticket()?.id).not.toBe('man-other');
+    });
+
+    it('stages a parallel ticket when a live MANUAL ticket exists for the same contract + side', async () => {
+      // QA #1226: manual intent governs — adding to a position or running
+      // a parallel order is legitimate; a live order must not prevent a
+      // new one. Each minted ticket tracks its own broker order.
+      tickets.set({ 'man-live': manualOptionTicket({ id: 'man-live', status: OrderTicketStatus.SUBMITTED }) });
+
+      await render({ omitProvenance: true });
+      await resolveViaSelects();
+
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(1);
+      const staged = store.stageTicketAndWait.mock.calls[0][0] as OptionOrderTicket;
+      expect(staged.id).toContain('OPT-MAN-BTO');
+      expect(staged.id).not.toBe('man-live');
+      expect(component.stageError()).toBeNull();
+    });
+
+    it('adopts a signal-sourced STAGED ticket for the same contract + side', async () => {
+      // Source-agnostic probe (review-finding fix): a card-staged ticket
+      // IS the same pending order — adopt it rather than minting a
+      // parallel doc; created:false keeps it card-owned on close.
+      tickets.set({
+        'sig-staged': manualOptionTicket({
+          id: 'sig-staged',
+          source: OrderSource.SIGNAL_PIPELINE,
+        }),
+      });
+
+      await render({ omitProvenance: true });
+      await resolveViaSelects();
+
+      expect(store.stageTicketAndWait).not.toHaveBeenCalled();
+      expect(component.ticket()?.id).toBe('sig-staged');
+      expect(stagedEvents).toEqual([{ ticketId: 'sig-staged', created: false }]);
+    });
+
+    it('stages a parallel ticket when a live signal-sourced ticket exists for the same contract + side', async () => {
+      // A card's resting order doesn't block a manual stage either —
+      // the user can deliberately parallel the signal's order.
+      tickets.set({
+        'sig-live': manualOptionTicket({
+          id: 'sig-live',
+          status: OrderTicketStatus.RESTING,
+          source: OrderSource.SIGNAL_PIPELINE,
+        }),
+      });
+
+      await render({ omitProvenance: true });
+      await resolveViaSelects();
+
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(1);
+      expect(component.stageError()).toBeNull();
+    });
+
+    it('stages fresh on a FILLED twin — a position-on is the scale-in case', async () => {
+      tickets.set({ 'man-filled': manualOptionTicket({ id: 'man-filled', status: OrderTicketStatus.FILLED }) });
+
+      await render({ omitProvenance: true });
+      await resolveViaSelects();
+
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(1);
+      expect(component.stageError()).toBeNull();
+    });
+
+    it('contract retarget unbinds the bound ticket and stages the new contract — bound ticket NOT re-legged', async () => {
+      // Round-3 fix: a bound manual ticket retargeted to a different
+      // contract is a different ticket identity — it must unbind and run
+      // the probe, never re-leg in place. With a live same-side ticket
+      // on the target contract the new stage is a parallel order
+      // (manual intent governs — no live-block since QA #1226).
+      mcp.getOptionInstruments.mockImplementation(async (f: OptionInstrumentFilters) => {
+        if (f.strikePrice === 510)
+          return [instrument({ strikePrice: 510, instrumentId: 'opt-uuid-2' })];
+        if (f.strikePrice === 500) return [instrument()];
+        // Expiration-level strike discovery — both strikes trade.
+        return [instrument(), instrument({ strikePrice: 510, instrumentId: 'opt-uuid-2' })];
+      });
+
+      await render({ omitProvenance: true });
+      await resolveViaSelects(); // contract A bound (OPT_ID / ...C00500000)
+      const stagedId = component.ticketId()!;
+      expect(stagedId).toBeTruthy();
+
+      // A live same-side ticket already exists for contract B (510) —
+      // merge into the map (the staged T0 must remain, as the real store).
+      tickets.update((m) => ({
+        ...m,
+        'live-b': manualOptionTicket({
+          id: 'live-b',
+          status: OrderTicketStatus.RESTING,
+          legs: [{ side: 'buy', symbol: 'QQQ261016C00510000', optionId: 'opt-uuid-2', positionEffect: 'open' }],
+        }),
+      }));
+
+      component.selectedStrike.set(510);
+      fixture.detectChanges();
+      await flush();
+
+      // T0 stays contract-A untouched (orphaned STAGED, session-discard
+      // on close); a fresh contract-B ticket stages and binds — parallel
+      // to the live order.
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(2);
+      const bTicket = store.stageTicketAndWait.mock.calls[1][0] as OptionOrderTicket;
+      expect(bTicket.id).toContain('C00510000');
+      expect(
+        store.updateTicket.mock.calls.filter(([id]) => id === stagedId),
+      ).toEqual([]);
+      expect(component.ticketId()).toBe(bTicket.id);
+      expect(component.stageError()).toBeNull();
+      expect(component.canSubmit()).toBe(true);
+    });
+
+    it('renders the BTO/STO toggle in manual mode', async () => {
+      await render({ omitProvenance: true });
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="bto-pill"]')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('[data-testid="sto-pill"]')).toBeTruthy();
+    });
+
+    it('hides the BTO/STO toggle in signal mode', async () => {
+      await render();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="bto-pill"]')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="sto-pill"]')).toBeNull();
+    });
+
+    it('STO stages a sell-side ticket — OPT-MAN-STO id, sell on ticket + leg', async () => {
+      await render({ omitProvenance: true });
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await resolveViaSelects();
+
+      const staged = store.stageTicketAndWait.mock.calls[0][0] as OptionOrderTicket;
+      expect(staged.id).toContain('OPT-MAN-STO');
+      expect(staged.side).toBe('sell');
+      expect(staged.legs[0]).toEqual(
+        expect.objectContaining({ side: 'sell', positionEffect: 'open' }),
+      );
+    });
+
+    it('flipping the toggle re-stages the other side; flipping back adopts the first ticket', async () => {
+      await render({ omitProvenance: true });
+      await resolveViaSelects(); // BTO staged
+      const btoId = component.ticket()!.id;
+      expect(btoId).toContain('OPT-MAN-BTO');
+
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await flush();
+
+      // Opposite sides are different ticket identities — a fresh
+      // OPT-MAN-STO stage, not a re-leg of the BTO doc.
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(2);
+      const sto = store.stageTicketAndWait.mock.calls[1][0] as OptionOrderTicket;
+      expect(sto.legs[0].side).toBe('sell');
+      expect(component.ticket()?.id).toBe(sto.id);
+
+      // Flip back — the BTO doc is still STAGED in the store, so it
+      // adopts rather than staging a third ticket; created:true because
+      // this session minted it (host discard-on-close bookkeeping).
+      component.orderSide.set('buy');
+      fixture.detectChanges();
+      await flush();
+
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(2);
+      expect(component.ticket()?.id).toBe(btoId);
+      expect(stagedEvents.at(-1)).toEqual({ ticketId: btoId, created: true });
+    });
+
+    it('the premium cap does not gate an STO ticket', async () => {
+      portfolio.getSnapshot.mockResolvedValue(snapshot(1000)); // cap: 25% → 250
+      await render({ omitProvenance: true });
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await resolveViaSelects();
+      component.quantity.set('2'); // 2 × 3.50 × 100 = 700 — over the BTO cap
+      component.limitPrice.set('3.50');
+      fixture.detectChanges();
+
+      expect(component.fatfingerExceeded()).toBe(false);
+      expect(component.canSubmit()).toBe(true);
+    });
+
+    it('fires review_option_order for an STO contract and renders the collateral line', async () => {
+      // Real wire shape (opt-rev-csp capture): string amounts, direction,
+      // infinite flag, equities ARRAY — not the number/object shape the
+      // first pass assumed.
+      obsService.executeTool.mockResolvedValue({
+        success: true,
+        parsed: {
+          data: {
+            collateral: {
+              cash: { amount: '40000.0000', direction: 'debit', infinite: false },
+              equities: [],
+            },
+          },
+        },
+      });
+      await render({ omitProvenance: true });
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await resolveViaSelects();
+      await flush();
+      fixture.detectChanges();
+
+      expect(obsService.executeTool).toHaveBeenCalledWith(
+        'review_option_order',
+        {
+          args: expect.objectContaining({
+            chain_symbol: SYMBOL,
+            underlying_type: 'equity',
+            legs: [{ option_id: OPT_ID, side: 'sell', position_effect: 'open' }],
+          }),
+        },
+      );
+      const el = fixture.nativeElement.querySelector('[data-testid="collateral-preview"]');
+      expect(el?.textContent).toContain('40,000');
+    });
+
+    it('renders the uncovered-shares requirement for a share-collateralized STO', async () => {
+      // Covered-call shape (opt-rev-naked equities block): uncovered_shares
+      // is what the account lacks.
+      obsService.executeTool.mockResolvedValue({
+        success: true,
+        parsed: {
+          data: {
+            collateral: {
+              cash: { amount: '0.0000', direction: 'debit', infinite: false },
+              equities: [{ symbol: SYMBOL, quantity: '0E-8', uncovered_shares: '200.00000000' }],
+            },
+          },
+        },
+      });
+      await render({ omitProvenance: true });
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await resolveViaSelects();
+      await flush();
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement.querySelector('[data-testid="collateral-preview"]');
+      expect(el?.textContent).toContain('Requires ~200');
+      expect(el?.textContent).toContain(SYMBOL);
+    });
+
+    it('renders the unlimited-risk warning when cash.infinite is set (naked STO)', async () => {
+      obsService.executeTool.mockResolvedValue({
+        success: true,
+        parsed: {
+          data: {
+            collateral: {
+              cash: { amount: '0.0000', direction: 'debit', infinite: true },
+              equities: [{ symbol: SYMBOL, quantity: '0E-8', uncovered_shares: '100.00000000' }],
+            },
+          },
+        },
+      });
+      await render({ omitProvenance: true });
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await resolveViaSelects();
+      await flush();
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement.querySelector('[data-testid="collateral-preview"]');
+      expect(el?.textContent).toContain('Unlimited risk');
+    });
+
+    it('renders nothing on a toolError envelope result', async () => {
+      obsService.executeTool.mockResolvedValue({
+        success: true,
+        toolError: 'review rejected',
+        parsed: { data: { collateral: { cash: { amount: '100.0', direction: 'debit' } } } },
+      });
+      await render({ omitProvenance: true });
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await resolveViaSelects();
+      await flush();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('[data-testid="collateral-preview"]')).toBeNull();
+    });
+
+    it('fires the collateral preview even when a live same-side ticket exists', async () => {
+      // A live sell-side MANUAL ticket does NOT block (QA #1226 — the
+      // new STO is a deliberate parallel order), so the preview is still
+      // meaningful for it.
+      tickets.set({
+        'man-live-sto': manualOptionTicket({
+          id: 'man-live-sto',
+          status: OrderTicketStatus.SUBMITTED,
+          side: 'sell',
+          legs: [{ side: 'sell', symbol: 'QQQ261016C00500000', optionId: OPT_ID, positionEffect: 'open' }],
+        }),
+      });
+      await render({ omitProvenance: true });
+      await resolveViaSelects();
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await flush();
+
+      expect(component.stageError()).toBeNull();
+      expect(obsService.executeTool).toHaveBeenCalled();
+    });
+
+    it('flipping to a side with a live ticket stages a parallel order; flip-back re-adopts the BTO', async () => {
+      await render({ omitProvenance: true });
+      await resolveViaSelects(); // BTO staged + bound
+      const btoId = component.ticket()!.id;
+      component.quantity.set('1');
+      component.limitPrice.set('3.50');
+      fixture.detectChanges();
+      expect(component.canSubmit()).toBe(true);
+
+      // A live sell-side MANUAL ticket for the same contract appears —
+      // the flip stages a PARALLEL STO order (QA #1226: manual intent
+      // governs), unbinding but not blocking.
+      tickets.update((m) => ({
+        ...m,
+        'man-live-sto': manualOptionTicket({
+          id: 'man-live-sto',
+          status: OrderTicketStatus.RESTING,
+          side: 'sell',
+          legs: [
+            { side: 'sell', symbol: 'QQQ261016C00500000', optionId: OPT_ID, positionEffect: 'open' },
+          ],
+        }),
+      }));
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await flush();
+
+      expect(component.stageError()).toBeNull();
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(2);
+      const stoTicket = store.stageTicketAndWait.mock.calls[1][0] as OptionOrderTicket;
+      expect(stoTicket.id).toContain('OPT-MAN-STO');
+      expect(component.ticketId()).toBe(stoTicket.id);
+      expect(component.canSubmit()).toBe(true);
+
+      // Flip back — the still-STAGED BTO ticket is re-adopted.
+      component.orderSide.set('buy');
+      fixture.detectChanges();
+      await flush();
+
+      expect(component.stageError()).toBeNull();
+      expect(component.ticket()?.id).toBe(btoId);
+      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not fire the collateral preview on BTO', async () => {
+      await render({ omitProvenance: true });
+      await resolveViaSelects();
+      await flush();
+      expect(obsService.executeTool).not.toHaveBeenCalled();
+    });
+
+    it('does not fire the collateral preview in signal mode', async () => {
+      await render();
+      await resolveViaSelects();
+      await flush();
+      expect(obsService.executeTool).not.toHaveBeenCalled();
+    });
+
+    it('preview failure is silent and non-blocking', async () => {
+      obsService.executeTool.mockRejectedValue(new Error('boom'));
+      await render({ omitProvenance: true });
+      component.orderSide.set('sell');
+      fixture.detectChanges();
+      await resolveViaSelects();
+      await flush();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('[data-testid="collateral-preview"]')).toBeNull();
+      expect(component.canSubmit()).toBe(true);
     });
   });
 
@@ -731,42 +1170,6 @@ describe('OptionOrderTicketComponent', () => {
       expect(store.stageTicketAndWait).toHaveBeenCalledTimes(1);
     });
 
-    it('blocks staging when every occurrence is REJECTed — reason persists inline', async () => {
-      const rejected = sigItem();
-      await render({
-        signals: [rejected],
-        decisions: { [decisionId(rejected)]: rejectDecision(rejected) },
-      });
-      await resolveViaSelects();
-
-      expect(store.stageTicketAndWait).not.toHaveBeenCalled();
-      expect(component.ticketId()).toBeNull();
-      fixture.detectChanges();
-      expect(fixture.nativeElement.querySelector('[data-testid="stage-error"]')?.textContent)
-        .toContain('rejected');
-      expect(component.canSubmit()).toBe(false);
-    });
-
-    it('retries staging when the REJECT is lifted while the block is showing', async () => {
-      const rejected = sigItem();
-      await render({
-        signals: [rejected],
-        decisions: { [decisionId(rejected)]: rejectDecision(rejected) },
-      });
-      await resolveViaSelects();
-      expect(store.stageTicketAndWait).not.toHaveBeenCalled();
-      expect(component.stageError()).toContain('rejected');
-
-      // Un-reject — the retry effect re-runs the guard and stages.
-      fixture.componentRef.setInput('decisions', {});
-      fixture.detectChanges();
-      await flush();
-      await flush();
-
-      expect(store.stageTicketAndWait).toHaveBeenCalledTimes(1);
-      expect(component.stageError()).toBeNull();
-    });
-
     it('clears a stale stage error when the triplet goes incomplete', async () => {
       const live = existingOptionTicket(OrderTicketStatus.SUBMITTED);
       tickets.set({ [live.id]: live });
@@ -792,18 +1195,6 @@ describe('OptionOrderTicketComponent', () => {
       expect(component.selectedBucketId()).toBe('bucket-9');
     });
 
-    it('filters REJECTed occurrences out of decisionIds before building', async () => {
-      const accepted = sigItem();
-      const rejected = sigItem({ signalType: 'D_ZONE_V1_PULLBACK', id: '2026-10-09', barDate: '2026-10-09' });
-      const decisions = { [decisionId(rejected)]: rejectDecision(rejected) };
-
-      await render({ signals: [accepted, rejected], decisions });
-      await resolveViaSelects();
-
-      const stagedTicket = store.stageTicketAndWait.mock.calls[0][0] as OptionOrderTicket;
-      expect(stagedTicket.signalContext?.decisionIds).toEqual([decisionId(accepted)]);
-      expect(stagedTicket.signalContext?.decisionIds).not.toContain(decisionId(rejected));
-    });
   });
 
   describe('submit gating', () => {

@@ -1,12 +1,4 @@
 <div class="option-ticket">
-  @if (manual()) {
-    <!-- Manual mode (#1189): no card provenance — the signal staging
-         path can only fail, so an honest placeholder stands in until
-         manual option staging lands (#1190). -->
-    <p class="manual-option-placeholder" data-testid="manual-option-placeholder">
-      Manual option orders aren't available yet — coming in a follow-up update.
-    </p>
-  } @else {
   <div class="ticket-content">
     <!-- Contract identity — built live from the selects; symbol context
          lives in the dialog header. -->
@@ -43,6 +35,20 @@
 
     <!-- Contract selection -->
     <div class="form-section">
+      <!-- BTO/STO — manual only; signal cards always stage buy-to-open
+           (a long put on a SHORT card is still a buy). -->
+      @if (manual()) {
+        <div class="form-row">
+          <span class="field-label">Side</span>
+          <div class="pill-group" data-testid="order-side-toggle">
+            <button type="button" class="pill" data-testid="bto-pill"
+              [class.active]="orderSide() === 'buy'" (click)="orderSide.set('buy')">Buy to open</button>
+            <button type="button" class="pill" data-testid="sto-pill"
+              [class.active]="orderSide() === 'sell'" (click)="orderSide.set('sell')">Sell to open</button>
+          </div>
+        </div>
+      }
+
       <!-- Expiration -->
       <div class="form-row">
         <span class="field-label">Exp</span>
@@ -158,8 +164,17 @@
 
       @if (estimatedPremium(); as premium) {
         <div class="form-row">
-          <span class="field-label">Premium</span>
+          <span class="field-label">{{ orderSide() === 'sell' ? 'Est. credit' : 'Premium' }}</span>
           <span class="stat-value" data-testid="premium-estimate">{{ premium | currency:'USD':'symbol':'1.2-2' }}</span>
+        </div>
+      }
+
+      <!-- STO collateral estimate — advisory review_option_order output;
+           absent on buy-side or when the preview couldn't price it. -->
+      @if (collateral.text(); as text) {
+        <div class="form-row">
+          <span class="field-label">Collateral</span>
+          <span class="stat-value" data-testid="collateral-preview">{{ text }}</span>
         </div>
       }
 
@@ -223,5 +238,4 @@
       }
     </div>
   </div>
-  }
 </div>
