@@ -11,7 +11,7 @@
 **Type:** Implementation Plan  
 **Status:** Draft  
 **Created:** 2026-09-28  
-**Last Updated:** 2026-09-28  
+**Last Updated:** 2026-10-22  
 
 ## Files
 
@@ -32,6 +32,23 @@
   optimistically — prefer refresh, consistent with the page's load path);
   on failure surface the callable error message on the row/page error
   signal. Quote failures must be *visible* — no silent catch.
+
+**As-built (#670):**
+- `CallableName.CLOSE_PAPER_TRADE`/`CANCEL_PAPER_TRADE` added; service
+  methods take `tradeId` and build `{ tradeId }` — `cancelPaperTrade$`
+  returns `CancelPaperTradeResponse` (`{tradeId}`), not `void` — plan
+  corrected to the shipped contract.
+- Store: `actingTradeIds: string[]` state + `actingIds` computed
+  (`ReadonlySet<string>`) — one shared in-flight set covers close and
+  cancel so the two verbs can't race on the same tradeId; a second call
+  on an in-flight id is ignored (not queued).
+- Shared `runExitAction` helper: `invoke` stays lazy because
+  `service.call()` fires the callable eagerly at construction — the
+  in-flight check must gate it.
+- Success → `loadAll()` (account + trades — realized P&L changes both).
+  Failure → `error` signal + snackbar with the callable's own message;
+  `unauthenticated` maps to the store's auth message via `toMessage`.
+  Row/page button wiring is #671 — no UI surface in this task.
 
 ## 2. Dashboard actions
 

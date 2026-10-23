@@ -14,6 +14,9 @@
 - [Manual Order Entry] 1177-1189_FE-IMPL-ORDER: Option ticket manual mode — runId='' placeholder + gated chains/cash/alloc warm effects
 - [Manual Order Entry] 1177-1189_FE-IMPL-ORDER: Gallery ticket dialog manual mode — symbol entry, stage/adopt binding, re-resolve gate, dashboard follow-through
 - [Manual Order Entry] 1177-1189_DOCS-IMPL-ORDER: #1189 CODE-REVIEW (PASS, 3 rounds) + #1219 UAT (Complete) + IMPL doc correction
+- [Paper Trading Infra] 553-670_FE-IMPL-PAPER-TRADING: close/cancel callables — CallableName.CLOSE_PAPER_TRADE/CANCEL_PAPER_TRADE + PaperTradingService wrappers with typed request/response contracts
+- [Paper Trading Infra] 553-670_FE-IMPL-PAPER-TRADING: store close/cancel actions — shared per-trade actingIds (cross-verb race block, defer-guarded invoke), close → reload trades+account, cancel → trades only, unified error surface
+- [Paper Trading Infra] 553-670_DOCS-PAPER-TRADING: #670 IMPL as-built + CODE-REVIEW (PASS, 3 axes) + #1221 UAT (Complete)
 
 ### Removed
 - [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: review-list persistence removed — triage.service.ts deleted, Collection.ST_REVIEW_LIST dropped, pin spec asserts non-reintroduction
