@@ -12,7 +12,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { of, catchError, finalize, map, Subscription } from 'rxjs';
+import { of, catchError, finalize, map, retry, Subscription, timer } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
@@ -89,15 +89,36 @@ export const StStore = signalStore(
         patchState(state, { runsStreaming: true });
         runsSubscription = runService.watchRecentRunsRealtime(100).pipe(
           map((runs) => runs.filter((r) => r.triggeredBy !== 'symbol-added')),
-          catchError(() => {
-            snackBar.open('Failed to stream runs', 'Dismiss', { duration: 5000 });
-            return of([]);
+          // Self-heal transient listener failures — the old catchError→of([])
+          // both wiped `runs` AND completed the stream while the handle
+          // stayed non-null, so nothing ever resubscribed: viewedRun went
+          // null and every isActionableRun-gated button died until a
+          // reload (#1227). Retry unboundedly — a resubscribe mints a new
+          // listener, which is cheap — and never touch `runs` on failure,
+          // so last-known-good data keeps the page actionable through a
+          // hiccup. One snackbar per failure streak.
+          retry({
+            delay: (err, attempt) => {
+              if (attempt === 1) {
+                console.error('[StStore] runs stream errored — retrying', err);
+                snackBar.open('Live run updates interrupted — retrying…', 'Dismiss', { duration: 4000 });
+              }
+              return timer(10_000);
+            },
           }),
           takeUntilDestroyed(destroyRef),
         ).subscribe({
           next: (runs) => patchState(state, { runs, runsReceived: true }),
-          error: () => patchState(state, { runsStreaming: false, runsReceived: true }),
-          complete: () => patchState(state, { runsStreaming: false, runsReceived: true }),
+          // Unreachable while retry is unbounded; kept so a future
+          // bounded-retry change doesn't silently wedge the handle.
+          error: () => {
+            runsSubscription = null;
+            patchState(state, { runsStreaming: false, runsReceived: true });
+          },
+          complete: () => {
+            runsSubscription = null;
+            patchState(state, { runsStreaming: false, runsReceived: true });
+          },
         });
       }
     },
