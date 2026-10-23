@@ -40,6 +40,8 @@ export interface RecipeRunState {
 
 runs: Signal<Record<string, RecipeRunState>>   // keyed by recipe.id
 authFailed: Signal<boolean>
+runsLoading: Signal<boolean> // any recipe armed or in flight — gates Run all
+armedLaunches: string[]      // armed-but-unfired stagger slots (wave state)
 runAllRecipes(): void        // stagger ~1s between recipe launches
 refreshRecipe(id): void      // single call, no stagger
 ```
@@ -52,7 +54,13 @@ refreshRecipe(id): void      // single call, no stagger
   clears `errorKind`. On failure: `status:'error'`, `errorKind` set from
   the client's auth-error detection; any `errorKind:'auth'` flips
   `authFailed` true.
-- `refreshRecipe(id)` re-runs one recipe immediately.
+- `refreshRecipe(id)` re-runs one recipe immediately; it consumes the
+  recipe's armed stagger slot if one is pending (no double-fire).
+- `runAllRecipes` re-entry cancels the previous wave's armed slots —
+  remount or interval-overlap can't double-fire un-launched recipes;
+  in-flight recipes are superseded per-recipe by seq token.
+- Per-recipe launch tokens make overlapping launches last-write-wins;
+  error entries retain the prior `result`/`ranAt`.
 - Runs map persists for the app's session (store lives at root); leaving
   and returning shows last results.
 - Existing single-run `runScan`/`comparePrune`/proposal machinery:

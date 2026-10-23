@@ -67,6 +67,15 @@ per-recipe isolation, authFailed). Component specs cover render states.
 - Auth-shaped error → `errorKind:'auth'` + `authFailed()===true`
 - `refreshRecipe` re-runs one recipe only — other entries' results
   untouched
+- `runAllRecipes` re-entry cancels the previous wave's un-launched slots
+  and supersedes in-flight launches (remount/interval overlap must not
+  double-fire or corrupt)
+- `refreshRecipe` during the stagger consumes the recipe's armed slot —
+  no double-fire
+- Non-AUTH `RobinhoodMcpError` → `errorKind:'other'` (category decides,
+  not the error type)
+- Error entries retain prior `result`/`ranAt`; `runsLoading` stays true
+  through armed-but-unfired gaps
 - Results persist across page re-instantiation (store-level state)
 
 ### `scanner-sort.util.spec.ts`

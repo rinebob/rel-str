@@ -3,6 +3,9 @@
 ## [2026-10-22]
 
 ### Added
+- [RH Scanner] 1098-1198_FE-IMPL-SAVANT-TRADER: ScannerStore run-all machinery — per-recipe runs map + ~1s staggered runAllRecipes, refreshRecipe armed-slot consumption, armed+in-flight runsLoading, auth taxonomy, seq-token supersession
+- [RH Scanner] 1098-1198_FE-IMPL-SAVANT-TRADER: previewScanRaw path — RobinhoodMcpClient + ScannerService return un-flattened PreviewScanResult via shared previewScanArgs
+- [RH Scanner] 1098-1198_DOCS-SAVANT-TRADER: IMPL/TEST as-built sync + #1198 CODE-REVIEW (PASS, 2 rounds) + #1223 UAT (Complete)
 - [RH Scanner] 1098-1197_FE-REFACTOR-SAVANT-TRADER: Shared scan-row helpers in scanner-rows.util — normScanSymbol/dedupeScanRows/displayCell/mergeLookup; ScanRow gains instrumentId; RecipeRunState type for run-all
 - [RH Scanner] 1098-1197_FE-IMPL-SAVANT-TRADER: ScannerRecipeTableComponent + scanner-sort.util — all wire fields, tracked badge, recipe-sort seed, click-cycle multi-sort with priority badges
 - [RH Scanner] 1098-1197_DOCS-SAVANT-TRADER: Auto-run thread docs — PRD/IMPL/TEST + #1197 CODE-REVIEW (3 rounds) + UAT
