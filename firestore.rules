@@ -187,13 +187,9 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Savant Trader occurrence-level decisions — user-scoped read/write
-    match /savant-trader/data/occurrence-decisions/{decisionId} {
-      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
+    // Savant Trader occurrence decisions — collection removed in #1017 (no
+    // readers or writers remain); intentionally no match block so all access
+    // is denied until #1013 deletes the data.
 
     // Savant Trader review list — collection removed in #1016 (no readers
     // or writers remain); intentionally no match block so all access is

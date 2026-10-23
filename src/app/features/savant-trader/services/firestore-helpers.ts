@@ -19,7 +19,14 @@ export function requireUserId(auth: Auth, injector: EnvironmentInjector): Observ
   );
 }
 
-/** Build a stable doc id for an occurrence-level decision. */
+/** Build a stable occurrence-decision-format id — a deterministic
+ *  provenance join key between a signal occurrence and the ticket(s)
+ *  staged from it (#1017: the decision docs these ids once named are
+ *  gone; the ids live on as `signalContext.decisionId`/`decisionIds`).
+ *  Uniqueness rests on `signalType` encoding direction — every produced
+ *  type carries a `_LONG`/`_SHORT` suffix, so the same symbol+timeframe
+ *  on opposite cards never collides. A direction-agnostic signalType
+ *  would need direction folded into this format. */
 export function buildStOccurrenceDecisionId(
   runId: string,
   symbol: string,
@@ -30,7 +37,7 @@ export function buildStOccurrenceDecisionId(
 }
 
 /** Normalize a ticket's `signalContext.decisionId` to the canonical
- *  occurrence-decision doc id. Tickets staged before the producer used
+ *  occurrence-decision-format id. Tickets staged before the producer used
  *  `buildStOccurrenceDecisionId` carry the legacy format
  *  `${runId}-${symbol}-${timeframe}-${signalType}` (hyphens, raw-case
  *  symbol); the suffix is reconstructed from the ticket's own fields and

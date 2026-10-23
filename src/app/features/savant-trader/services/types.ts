@@ -5,7 +5,7 @@
  * can share them without circular dependencies.
  */
 
-import { ReviewDecision, SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
+import { SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
 
 /**
  * Cron expression for the Savant Trader daily scheduler (UTC).
@@ -109,41 +109,8 @@ export interface StSignalItem {
   closePrice?: number;
 }
 
-/** Subset of review decisions that are persisted as durable occurrence decisions. */
-export type DurableDecisionType =
-  | ReviewDecision.ACCEPT
-  | ReviewDecision.REJECT;
-
-export interface StOccurrenceDecision {
-  /** Stable identity for the decision doc. */
-  id: string;
-  /** User who made the decision. Optional when the object is built optimistically; the service stamps it. */
-  userId?: string;
-  /** Source run that produced the occurrence. */
-  runId: string;
-  /** Market date of the source run. */
-  marketDate: string;
-  /** Symbol ticker. */
-  symbol: string;
-  /** Timeframe of the signal: D or W. */
-  timeframe: SignalTimeframe;
-  /** LONG or SHORT direction of the signal. */
-  direction: SignalDirection;
-  /** Concrete signal type (e.g., D_ZONE_V1_UPTICK). */
-  signalType: string;
-  /** Bar date that fired the signal. */
-  barDate: string;
-  /** Decision type. */
-  decisionType: DurableDecisionType;
-  /** Timestamp when the user decision was recorded. */
-  decidedAt: string;
-  /** Whether this decision still appears in the latest completed run. */
-  isCurrentInLatestRun: boolean;
-  /** Optional user-facing notes. */
-  notes?: string;
-  /** Indicator payload snapshot from the source signal. */
-  indicators?: Record<string, number | string | null>;
-}
+/** #1017 — the durable occurrence-decision layer (StOccurrenceDecision,
+ *  DurableDecisionType) is removed; ticket existence is the decision. */
 
 export interface ManualRunRequest {
   symbols?: string[]; // Optional: specific symbols to run, or all enabled

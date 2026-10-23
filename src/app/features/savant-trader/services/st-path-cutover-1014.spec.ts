@@ -36,15 +36,15 @@ describe('#1014 FE st-* path cutover', () => {
       'ST_ORDER_INTENTS',
       // #1016 — review-list removed entirely (service, constant, flag UX).
       'ST_REVIEW_LIST',
+      // #1017 — occurrence-decisions removed entirely (service, store,
+      // constant, ACR workflow); ticket existence is the decision.
+      'ST_OCCURRENCE_DECISIONS',
     ]) {
       expect(member in Collection).toBe(false);
     }
   });
 
-  it('members still consumed by #1017–#1019 keep their legacy spellings', () => {
-    expect(Collection.ST_OCCURRENCE_DECISIONS).toBe(
-      'savant-trader/data/occurrence-decisions',
-    );
+  it('members still consumed by #1019 keep their legacy spellings', () => {
     // ST_SYMBOLS stays until #1019 — signal.service run-ids/signal-history
     // reads still target the legacy subcollections.
     expect(Collection.ST_SYMBOLS).toBe('savant-trader/data/symbols');
