@@ -58,7 +58,7 @@ directly (`signal.service.ts`) and via `st*` callables.
 | `…/runs/{runId}/jobs/{SYM}` | Per-symbol job outcome; `createdOpportunity` gates auto-paper candidates | `RunProgressTracker` | auto-paper ingest | ~1.24M | live telemetry — extreme volume |
 | `…/status/current` | Agent status singleton | `RunProgressTracker` | status UI | 1 | live |
 | `…/symbol-lists/{uid}_{KEY}` | User triage lists (NEW/PRIMARY/…); auto-paper capture scope | FE | ingest pass, UI | 7 | live |
-| `…/occurrence-decisions` | User accept/decline per signal occurrence | FE | order-intent linkage | 12 | live |
+| `…/occurrence-decisions` | User accept/decline per signal occurrence | — | — | 12 | **removed #1017** — ACR workflow deleted (ticket existence = decision); FE readers/writers + rules gone; data pending #1013 deletion |
 | `…/review-list` | Triage decisions (ex `rh-agent-triage-decisions`) | — | — | 12 | **removed #1016** — FE/BE readers/writers + rules gone; data pending #1013 deletion |
 | `…/order-intents` | Signal→order tickets; **bridges to the real RH account** | FE + screenshot tracking | `paperSignalOrder` callable | 77 | live; `sourceRef` id format inconsistent (`pdr-AAMI-…` vs `pdr_AAMI_…`) |
 | `…/trading-config/{docId}` | `autoPaper` ingest config (enabled, lists, signalTypes, ownerUid) | manual | `stAutoPaperIngest` task | 2 | live |
@@ -215,6 +215,7 @@ From AGENTS.md + observed implementation:
   universe), `symbol-data` (synced-bars registry), `rh-agent-symbols`
   (frozen). Different roles, but consider whether the ST universe should be
   flags on `symbol-data` rather than a parallel collection.
-- `occurrence-decisions` vs `order-intents` — schema overlap unverified;
-  merge candidates under one `st-order-tickets`-style lifecycle doc.
+- `occurrence-decisions` vs `order-intents` — resolved in #1017: the ACR
+  decision layer was deleted; ticket existence is the order intent and
+  `signalContext.decisionIds` survive as pure provenance join keys.
   (`review-list` exited this trio when it was removed in #1016.)
