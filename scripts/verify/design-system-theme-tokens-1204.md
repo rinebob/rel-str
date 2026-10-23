@@ -32,11 +32,15 @@ package's own package.json — the version its verify pins.
 4. No `color-mix(` in shipped declarations (dev-page-only tool).
 5. Direction defaults preserved in both modes: `--ds-up: #4caf50`,
    `--ds-down: #f44336`.
-6. `vendor/savant-ds/styles/_tokens.scss` is content-identical to the
-   sibling checkout (fix drift with `npm run sync:ds`).
+6. `vendor/savant-ds/styles/_tokens.scss` in BOTH consumer apps
+   (rel-str and `../av-proxy-api`) is content-identical to the package
+   source (fix drift with `npm run sync:ds` in the drifted app). The SA
+   check SKIPs only when the sibling checkout is absent — a checkout
+   present but missing the vendored file FAILs.
 
-**Pass:** every line prints `OK`, footer `=== ALL N CHECKS PASSED ===`,
-exit 0. **Fail:** `FAIL` lines name the missing/drifted item, exit 1.
+**Pass:** every check prints `OK` (optional sibling checks may print
+`SKIPPED`), footer `=== ALL N CHECKS PASSED ===`, exit 0. **Fail:**
+`FAIL` lines name the missing/drifted item, exit 1.
 
 **Setup/teardown:** none. The script reads files only — no writes, no
 network, no Firebase.

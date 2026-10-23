@@ -21,6 +21,10 @@
 - [Paper Trading Infra] 553-670_FE-IMPL-PAPER-TRADING: store close/cancel actions — shared per-trade actingIds (cross-verb race block, defer-guarded invoke), close → reload trades+account, cancel → trades only, unified error surface
 - [Paper Trading Infra] 553-670_DOCS-PAPER-TRADING: #670 IMPL as-built + CODE-REVIEW (PASS, 3 axes) + #1221 UAT (Complete)
 
+### Changed
+- [Savant Design System] 1024-1205_SHARED-IMPL-DESIGN-SYSTEM: theme-tokens relay asserts vendored _tokens.scss parity in BOTH consumer apps; SA skip gated on checkout existence — a present checkout missing the vendored file now FAILs instead of silently skipping
+- [Savant Design System] 1024-1205_DOCS-DESIGN-SYSTEM: savant-ds README corrected to post-#1204 contract; #1205 CODE-REVIEW (PASS, 2 rounds) + #1224 UAT (Complete) + relay guide/README updates
+
 ### Removed
 - [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: review-list persistence removed — triage.service.ts deleted, Collection.ST_REVIEW_LIST dropped, pin spec asserts non-reintroduction
 - [ST Firestore Reorg] 984-1016_FE-IMPL-DATA-PIPELINE: triage store — session-local flags; loadReviewFlags + dead loading state deleted; REVIEW dual-write dropped; viewport default 'browse'
