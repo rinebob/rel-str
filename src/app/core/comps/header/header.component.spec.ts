@@ -8,6 +8,7 @@ import { HeaderComponent } from './header.component';
 import { AuthStore } from '../../auth/auth.store';
 import { PAGE_INFO } from '../../common/constants';
 import { AppRoutes } from '../../common/interfaces';
+import { ThemeService } from '../../services/theme.service';
 import { UiStateService } from '../../services/ui-state.service';
 
 describe('HeaderComponent', () => {
@@ -86,6 +87,34 @@ describe('HeaderComponent', () => {
     const spy = jest.spyOn(uiState, 'toggleFullscreen');
     el().querySelector<HTMLButtonElement>('.fullscreen-toggle')!.click();
     expect(spy).toHaveBeenCalled();
+  });
+
+  // #1207 — the header toggle delegates to ThemeService; the icon
+  // shows the TARGET theme (the action a click takes).
+  describe('theme toggle (#1207)', () => {
+    let themeSvc: ThemeService;
+
+    beforeEach(() => {
+      localStorage.clear();
+      themeSvc = TestBed.inject(ThemeService);
+      fixture.detectChanges();
+    });
+
+    it('click calls ThemeService.toggle', () => {
+      const spy = jest.spyOn(themeSvc, 'toggle');
+      el().querySelector<HTMLButtonElement>('.theme-toggle')!.click();
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('shows light_mode under dark and dark_mode under light', () => {
+      themeSvc.set('dark');
+      fixture.detectChanges();
+      expect(el().querySelector('.theme-toggle mat-icon')?.textContent?.trim()).toBe('light_mode');
+
+      themeSvc.set('light');
+      fixture.detectChanges();
+      expect(el().querySelector('.theme-toggle mat-icon')?.textContent?.trim()).toBe('dark_mode');
+    });
   });
 
   describe('signed out', () => {

@@ -17,6 +17,11 @@
 
     <div class="nav-buttons-container">
 
+        <button mat-icon-button class="theme-toggle" (click)="theme.toggle()"
+                [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+            <mat-icon>{{ theme.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        </button>
+
         <button mat-icon-button class="fullscreen-toggle" (click)="uiState.toggleFullscreen()" aria-label="Enter fullscreen">
             <mat-icon>fullscreen</mat-icon>
         </button>

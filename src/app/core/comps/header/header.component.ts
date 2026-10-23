@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { AuthStore } from '../../auth/auth.store';
 import { AppRoutes } from '../../common/interfaces';
 import { PageIdentityService } from '../../services/page-identity.service';
+import { ThemeService } from '../../services/theme.service';
 import { UiStateService } from '../../services/ui-state.service';
 
 @Component({
@@ -22,6 +23,8 @@ export class HeaderComponent {
     private readonly auth = inject(AuthStore);
     private readonly router = inject(Router);
     readonly uiState = inject(UiStateService);
+    /** App theme authority (#1207) — the header toggle delegates to it. */
+    readonly theme = inject(ThemeService);
 
     // Auth-facing signals
     readonly user = this.auth.user;
