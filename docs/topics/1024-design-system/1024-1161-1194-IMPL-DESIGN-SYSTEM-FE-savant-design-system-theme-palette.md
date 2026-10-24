@@ -43,6 +43,12 @@ to two blocks matching the SHARED model (`:root` light +
 `[data-theme="dark"]` dark — see the SHARED IMPL emission-model section
 for why light sits in `:root`):
 
+> **Superseded by the #1209 task body (#1209):** the bridge shipped
+> inverted — `:root` = dark, `[data-theme="light"]` = the pre-change
+> light set. Rationale: the #1207 bootstrap defaults to dark, so the
+> attributeless fallback should match it. Both models render
+> identically at runtime since `data-theme` is always set.
+
 - `:root` — the existing light values, unchanged.
 - `[data-theme="dark"]` — a dark `--mat-sys-*` set (primary/accent,
   surfaces, on-colors, error, outline-variant…) so un-migrated Material

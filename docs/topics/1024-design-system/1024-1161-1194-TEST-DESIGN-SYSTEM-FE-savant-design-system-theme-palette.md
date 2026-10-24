@@ -43,6 +43,9 @@ sweep. All FE; no BE surface.
   before the app bundle tag.
 - R2: `styles.scss` emits `--mat-sys-*` under both `:root` (light) and
   `[data-theme="dark"]` — matching the SHARED emission model.
+  **Superseded by #1209 task body:** shipped inverted — `:root` = dark,
+  `[data-theme="light"]` = pre-change light (see
+  `design-system-mat-sys-bridge-1209.md` for why).
 - R3: `inventory-ui-colors.mjs` re-run after each sweep phase shows the
   phase's literal count dropped; remaining literals carry exception
   markers.

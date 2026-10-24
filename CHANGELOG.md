@@ -16,6 +16,9 @@
 - [Savant Design System] 1024-1207_FE-IMPL-DESIGN-SYSTEM: header theme toggle — icon shows target theme, delegates to ThemeService
 - [Savant Design System] 1024-1207_SHARED-IMPL-DESIGN-SYSTEM: theme-plumbing verify relay — 21 checks incl. single documentElement data-theme writer invariant
 - [Savant Design System] 1024-1207_DOCS-DESIGN-SYSTEM: #1207 CODE-REVIEW (PASS, 2 rounds; M1 dark-before-#1209 user-accepted bound) + #1228 UAT (Complete)
+- [Savant Design System] 1024-1209_FE-IMPL-DESIGN-SYSTEM: --mat-sys dark+light bridge — dark 31-key set at :root, pre-change light under [data-theme="light"], color-scheme flips; resolves the mixed-theme bound from #1207
+- [Savant Design System] 1024-1209_SHARED-IMPL-DESIGN-SYSTEM: mat-sys bridge verify relay — 11 checks, exact-literal pins both blocks, anti-smuggle exactly-twice guard
+- [Savant Design System] 1024-1209_DOCS-DESIGN-SYSTEM: #1209 CODE-REVIEW (PASS, 6 findings fixed in-review) + #1231 UAT (Complete; dark legibility/light/charts user-PASS) + IMPL/TEST superseded-model notes
 
 ## [2026-10-22]
 
