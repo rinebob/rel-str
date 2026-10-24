@@ -618,6 +618,24 @@ describe('ScannerStore run-all machinery (#1198)', () => {
     expect(store.authFailed()).toBe(false);
   });
 
+  it('runAllRecipes clears errorKind at arm — authFailed drops before the first launch lands', async () => {
+    // ~1s-per-recipe stagger: clearing at launch would leave the reauth
+    // banner up ~11s after a successful reauth. Arming clears it.
+    service.previewScanRaw.mockRejectedValueOnce(
+      new RobinhoodMcpError('expired', 'preview_scan', ToolExecutionErrorCategory.AUTH),
+    );
+    store.refreshRecipe(recipeIds()[0]);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.authFailed()).toBe(true);
+
+    service.previewScanRaw.mockResolvedValue(preview([wireRow('OK')]));
+    store.runAllRecipes();
+    expect(store.authFailed()).toBe(false); // armed — zero timers elapsed
+    // The failed entry keeps status 'error' (and its retained result)
+    // until its relaunch — only the auth flag clears early.
+    expect(store.runs()[recipeIds()[0]].status).toBe('error');
+  });
+
   it('refreshRecipe re-runs one recipe immediately — no stagger, others untouched', async () => {
     const target = SCANNER_RECIPES[3];
     const other = SCANNER_RECIPES[0];

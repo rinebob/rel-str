@@ -99,7 +99,10 @@ export interface ScannerState {
   error: ScannerError | null;
 }
 
-const idleRun = (): RecipeRunState => ({
+/** Fresh-idle entry — exported so read-side consumers (the scanner
+ *  page's rail) can mirror the store's own `?? idleRun()` fallback
+ *  policy for a missing runs key rather than trusting the record. */
+export const idleRun = (): RecipeRunState => ({
   status: 'idle',
   result: null,
   ranAt: null,
@@ -458,7 +461,21 @@ export const ScannerStore = signalStore(
             }, i * 1000);
             pendingLaunches.set(recipe.id, h);
           });
-          patch({ armedLaunches: armed });
+          // Clear errorKind at arm, not launch — otherwise authFailed
+          // (and the reauth banner) stays true until the LAST armed
+          // recipe launches ~11s later, long after a successful reauth
+          // already said "re-running". Entries keep status/result — an
+          // 'error' entry still reads err in the rail until its
+          // relaunch; a re-failing launch re-sets errorKind.
+          patch({
+            armedLaunches: armed,
+            runs: Object.fromEntries(
+              Object.entries(state.runs()).map(([id, r]) => [
+                id,
+                r.errorKind === null ? r : { ...r, errorKind: null },
+              ]),
+            ),
+          });
         },
 
         /** Re-fire one recipe immediately — the per-table refresh. */
