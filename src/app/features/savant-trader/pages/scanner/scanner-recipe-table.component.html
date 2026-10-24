@@ -1,14 +1,30 @@
-<!-- @topic #1098 — RH Scanner | @task #1197 -->
+<!-- @topic #1098 — RH Scanner | @task #1197, #1199 -->
 @if (run().status !== 'error') {
   <section class="recipe-table" [attr.data-recipe]="recipe().id">
     <header class="recipe-head">
       <div class="head-text">
         <span class="recipe-title">{{ recipe().title }}</span>
         <span class="recipe-blurb">{{ recipe().blurb }}</span>
+        @if (filterSummary(); as fs) {
+          <span class="applied-filters" [title]="fs">{{ fs }}</span>
+        }
       </div>
       <div class="head-meta">
         @if (run().result; as r) {
-          <span class="count">{{ rows().length }} of {{ r.total_items }}</span>
+          <!-- preview_scan pre-cuts to a page (~200 rows); when the wire
+               page is smaller than the universe the count says so
+               explicitly ('first N of M') — never imply completeness. -->
+          <span
+            class="count"
+            [title]="
+              r.results.length < r.total_items
+                ? 'preview_scan returns a capped page — these are the first rows under the scan sort'
+                : null
+            "
+            >{{
+              r.results.length < r.total_items ? 'first ' : ''
+            }}{{ rows().length }} of {{ r.total_items }}</span
+          >
           @if (r.sorted_by; as sortedBy) {
             <span class="sorted-by tf">{{ sortedBy }}</span>
           }
@@ -34,49 +50,53 @@
         <span>{{ run().status === 'idle' ? 'Queued…' : 'Running…' }}</span>
       </div>
     } @else if (sortedRows().length > 0) {
-      <table class="results-table">
-        <thead>
-          <tr>
-            @for (f of fixedColumns; track f.key) {
-              <th scope="col" class="clickable" (click)="onHeaderClick(f.key)">
-                {{ f.label }}
-                @if (badgeFor(f.key); as s) {
-                  <span class="sort-indicator">
-                    {{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}
-                  </span>
-                }
-              </th>
-            }
-            @for (c of tableColumns(); track c) {
-              <th scope="col" class="clickable" [class.num]="numericCols().has(c)" (click)="onHeaderClick(c)">
-                {{ c }}
-                @if (badgeFor(c); as s) {
-                  <span class="sort-indicator">
-                    {{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}
-                  </span>
-                }
-              </th>
-            }
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of sortedRows(); track row.symbol) {
+      <!-- The scroll region lives here (bounded by .detail through the
+           host chain) — thead stays sticky while rows scroll (#1199). -->
+      <div class="table-scroll">
+        <table class="results-table">
+          <thead>
             <tr>
-              <td>
-                <span class="badge" [class.tracked]="isTracked(row)">
-                  {{ isTracked(row) ? 'tracked' : 'new' }}
-                </span>
-              </td>
-              <td class="symbol">{{ row.symbol }}</td>
-              <td class="mono">{{ row.instrumentId || '—' }}</td>
-              <td>{{ row.instrumentType || '—' }}</td>
+              @for (f of fixedColumns; track f.key) {
+                <th scope="col" class="clickable" (click)="onHeaderClick(f.key)">
+                  {{ f.label }}
+                  @if (badgeFor(f.key); as s) {
+                    <span class="sort-indicator">
+                      {{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}
+                    </span>
+                  }
+                </th>
+              }
               @for (c of tableColumns(); track c) {
-                <td [class.num]="numericCols().has(c)">{{ cellValue(row, c) }}</td>
+                <th scope="col" class="clickable" [class.num]="numericCols().has(c)" (click)="onHeaderClick(c)">
+                  {{ c }}
+                  @if (badgeFor(c); as s) {
+                    <span class="sort-indicator">
+                      {{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}
+                    </span>
+                  }
+                </th>
               }
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (row of sortedRows(); track row.symbol) {
+              <tr>
+                <td>
+                  <span class="badge" [class.tracked]="isTracked(row)">
+                    {{ isTracked(row) ? 'tracked' : 'new' }}
+                  </span>
+                </td>
+                <td class="symbol">{{ row.symbol }}</td>
+                <td class="mono">{{ row.instrumentId || '—' }}</td>
+                <td>{{ row.instrumentType || '—' }}</td>
+                @for (c of tableColumns(); track c) {
+                  <td [class.num]="numericCols().has(c)">{{ cellValue(row, c) }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     } @else if (run().result || run().status === 'success') {
       <!-- A result exists but deduped to zero rows — also covers a stale
            empty result during idle/loading re-queue, and a success

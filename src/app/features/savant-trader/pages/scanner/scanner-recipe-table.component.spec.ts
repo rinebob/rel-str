@@ -94,12 +94,47 @@ describe('ScannerRecipeTableComponent', () => {
     const head = el().querySelector('.recipe-head')!;
     expect(head.textContent).toContain('Daily Gainers');
     expect(head.textContent).toContain('Positive % change');
-    expect(head.textContent).toContain('1 of 350');
+    // Capped page → explicit truncation wording, never implied
+    // completeness (PRD story-4 verify).
+    expect(head.textContent).toContain('first 1 of 350');
     expect(head.textContent).toContain('Last desc');
     // Timezone-robust — the date pipe renders local time.
     expect(head.querySelector('.ran-at')?.textContent).toMatch(
       /\d{1,2}:\d{2}\s?(AM|PM)/,
     );
+  });
+
+  it('echoes filters_applied as a compact header line (enum + expression forms)', () => {
+    mount(
+      GAINERS,
+      run({
+        result: result([wireRow('AAPL')], {
+          filters_applied: [
+            {
+              filter_type: 'Asset type',
+              filter_type_enum: 'FILTER_TYPE_INSTRUMENT_TYPE',
+              predicate: 'PREDICATE_ANY_OF',
+              values: ['EQUITY', 'ETF'],
+            },
+            {
+              filter_type: '',
+              filter_type_enum: 'FILTER_TYPE_CUSTOM',
+              predicate: '=',
+              values: ['True'],
+              expression: 'market_cap >= 2000000000',
+            },
+          ],
+        }),
+      }),
+    );
+    const fs = el().querySelector('.applied-filters')!;
+    expect(fs.textContent).toContain('Asset type ANY_OF EQUITY, ETF');
+    expect(fs.textContent).toContain('market_cap >= 2000000000');
+  });
+
+  it('omits the filters line when the result carries no filters_applied', () => {
+    mount(GAINERS, run({ result: result([wireRow('AAPL')]) }));
+    expect(el().querySelector('.applied-filters')).toBeNull();
   });
 
   it('refresh button emits (refresh)', () => {
@@ -137,6 +172,15 @@ describe('ScannerRecipeTableComponent', () => {
   it('error state renders nothing — the failed recipe is silently skipped', () => {
     mount(GAINERS, run({ status: 'error', errorKind: 'other' }));
     expect(el().querySelector('.recipe-table')).toBeNull();
+  });
+
+  it('the table sits inside .table-scroll so the sticky thead has a scroll ancestor', () => {
+    mount(GAINERS, run({ result: result([wireRow('AAPL')]) }));
+    const scroll = el().querySelector('.table-scroll');
+    expect(scroll?.querySelector('thead')).not.toBeNull();
+    // The recipe header stays outside the scroll region — title, count,
+    // and refresh remain fixed while rows scroll under thead.
+    expect(scroll!.parentElement!.querySelector(':scope > .recipe-head')).not.toBeNull();
   });
 
   it('columns: badge + ticker + instrument_id + instrument_type + declared columns', () => {
@@ -245,6 +289,40 @@ describe('ScannerRecipeTableComponent', () => {
     const heads = Array.from(headerCells()).map(headLabel);
     expect(cellText(tr, heads.indexOf('% Change'))).toBe('—');
     expect(cellText(tr, heads.indexOf('Net change'))).toBe('42');
+  });
+
+  it('numeric cells format by magnitude — sci-notation, decimal tails, separators', () => {
+    mount(
+      GAINERS,
+      run({
+        result: result([
+          wireRow('NVDA', {
+            'Market cap': '5.12423487e+12',
+            Volume: '8.0286822330603e+07',
+            'Range pos': '0.311158',
+            'IV rank': '-0.005419160265774495',
+            'Net change': '-1.1500000000000057',
+            Beta: '35.325882',
+            Shares: '22970',
+            Last: '1274.18',
+            'Wire pct': '117.2%',
+          }),
+        ]),
+      }),
+    );
+    const heads = Array.from(headerCells()).map(headLabel);
+    const tr = bodyRows()[0];
+    const v = (name: string) => cellText(tr, heads.indexOf(name));
+    expect(v('Market cap')).toBe('5.12T');
+    expect(v('Volume')).toBe('80.29M');
+    expect(v('Range pos')).toBe('0.3112');
+    expect(v('IV rank')).toBe('-0.005419');
+    expect(v('Net change')).toBe('-1.15');
+    expect(v('Beta')).toBe('35.33');
+    expect(v('Shares')).toBe('22,970');
+    expect(v('Last')).toBe('1,274.18');
+    // Already-formatted strings pass through untouched.
+    expect(v('Wire pct')).toBe('117.2%');
   });
 
   it('success with zero rows renders the empty state, not nothing', () => {

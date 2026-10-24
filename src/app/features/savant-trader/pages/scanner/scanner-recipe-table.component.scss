@@ -1,14 +1,47 @@
-/* @topic #1098 — RH Scanner | @task #1197 */
+/* @topic #1098 — RH Scanner | @task #1197, #1199 */
 @use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
 
 :host {
-  display: block;
+  // Bounded through .scanner-main → .detail (flex chains carry
+  // min-height:0) so .table-scroll inside gets a definite height.
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .recipe-table {
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: var(--ds-radius-sm);
   padding: var(--ds-space-2) var(--ds-space-3);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+// The table's own scroll region — the page doesn't scroll vertically.
+// overflow-y: scroll + ::-webkit-scrollbar styling keep the bar always
+// visible (auto-hide overlay scrollbars + color-scheme:dark made the
+// default invisible). thead's sticky top:0 (dense-table) anchors here.
+.table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: scroll;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--mat-sys-outline-variant);
+    border-radius: 5px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 .recipe-head {
@@ -33,6 +66,17 @@
   .recipe-blurb {
     font-size: var(--ds-font-size-sm);
     color: var(--mat-sys-on-surface-variant);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // The result's own filter echo — quieter than the blurb, ellipsis +
+  // full text on title-hover for long filter chains.
+  .applied-filters {
+    font-size: 11px;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.8;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

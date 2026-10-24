@@ -1,5 +1,5 @@
 /**
- * @topic #1098 — RH Scanner | @task #1197
+ * @topic #1098 — RH Scanner | @task #1197, #1199
  *
  * Scanner recipe table — one dumb per-recipe table for the auto-run
  * overview (#1183). Renders the raw PreviewScanResult: header line
@@ -31,16 +31,17 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import type { ScannerRecipe } from '../../scanner/scanner-recipes';
 import type { RecipeRunState } from '../../stores/scanner.store';
 import {
-  dedupeScanRows,
+  appliedFilterSummary,
   displayCell,
-  mergeLookup,
   normScanSymbol,
-  parseScanRows,
+  scanRunRows,
+  scanSortCell,
   type ScanRow,
 } from '../../utils/scanner-rows.util';
 import {
   nextSortLevels,
   numericCell,
+  seedSortLevels,
   sortInfo,
   sortRows,
   type SortLevel,
@@ -81,27 +82,24 @@ export class ScannerRecipeTableComponent {
   protected readonly fixedColumns = FIXED_COLUMNS;
 
   /** Seeded from the recipe's declared sort — the catalog's "best first"
-   *  contract (e.g. gainers % Change desc) holds until the user clicks. */
-  protected readonly sortLevels = linkedSignal<SortLevel[]>(() => {
-    const s = this.recipe().sort;
-    return s ? [{ key: s.column, direction: s.direction }] : [];
-  });
+   *  contract (e.g. gainers % Change desc) holds until the user clicks.
+   *  Shared seed (scanner-sort.util) so the rail's top tickers can't
+   *  drift from this initial order. */
+  protected readonly sortLevels = linkedSignal<SortLevel[]>(() =>
+    seedSortLevels(this.recipe()),
+  );
 
-  /** Parsed + first-wins-deduped rows (normalized ticker — NG0955-safe
-   *  against a duplicated wire ticker, same policy as compare engine). */
-  protected readonly rows = computed<ScanRow[]>(() => {
-    const r = this.run().result;
-    return r ? dedupeScanRows(parseScanRows(r)) : [];
-  });
+  /** Parsed + first-wins-deduped rows + the presence-verified
+   *  display_name → wire-key map — one pass via the shared pipeline
+   *  (scanner-rows.util scanRunRows) so the page rail's baseline sort
+   *  resolves identically. */
+  private readonly prepared = computed(() =>
+    scanRunRows(this.recipe(), this.run().result),
+  );
 
-  /** Per-run display_name → wire-key map — same echo/static/raw
-   *  presence-verified merge the store uses for single runs. */
-  protected readonly lookup = computed<ReadonlyMap<string, string>>(() =>
-    mergeLookup(
-      this.recipe(),
-      this.run().result?.filters_applied,
-      this.rows(),
-    ),
+  protected readonly rows = computed<ScanRow[]>(() => this.prepared().rows);
+  protected readonly lookup = computed<ReadonlyMap<string, string>>(
+    () => this.prepared().lookup,
   );
 
   /** Dynamic columns: recipe-declared names in declared order (visible
@@ -151,6 +149,12 @@ export class ScannerRecipeTableComponent {
     return numeric;
   });
 
+  /** Compact `filters_applied` echo — delegates to the canonical wire
+   *  reader (scanner-rows.util), which owns the applied-filter shape. */
+  protected readonly filterSummary = computed<string>(() =>
+    appliedFilterSummary(this.run().result?.filters_applied),
+  );
+
   protected readonly sortedRows = computed<ScanRow[]>(() =>
     sortRows(this.rows(), this.sortLevels(), (r, k) => this.cellFor(r, k)),
   );
@@ -173,24 +177,10 @@ export class ScannerRecipeTableComponent {
     return this.trackedNorm().has(normScanSymbol(row.symbol));
   }
 
-  /** Raw sortable value for a key — fixed fields, the tracked badge, or
-   *  a column cell. 'tracked' sorts 1/0 so asc groups new symbols first.
-   *  Fixed dispatch is case-insensitive to match FIXED_KEYS extras
-   *  suppression — a declared 'Symbol'/'TRACKED' column sorts the fixed
-   *  field it collides with, not a shadow wire key. */
+  /** Raw sortable value for a key — shared resolver (scanner-rows.util)
+   *  so the page's rail baseline sort orders identically. */
   private cellFor(row: ScanRow, key: string): unknown {
-    switch (key.toLowerCase()) {
-      case 'tracked':
-        return this.isTracked(row) ? '1' : '0';
-      case 'symbol':
-        return row.symbol;
-      case 'instrument_id':
-        return row.instrumentId;
-      case 'instrument_type':
-        return row.instrumentType;
-    }
-    const resolved = this.lookup().get(key) ?? key;
-    return row.values[resolved] ?? row.values[key] ?? '';
+    return scanSortCell(row, key, this.lookup(), this.isTracked(row));
   }
 
   protected cellValue(row: ScanRow, name: string): string {
