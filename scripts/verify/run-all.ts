@@ -141,6 +141,11 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
   },
   {
+    name: 'design-system mat-sys bridge',
+    file: 'design-system-mat-sys-bridge-1209.ts',
+    needsAccount: false,
+  },
+  {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
     cwd: 'functions',
