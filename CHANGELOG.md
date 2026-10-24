@@ -7,6 +7,8 @@
 - [Manual Order Entry] 1177-1190_FE-IMPL-ORDER: option ticket manual mode — real contract-resolution form replaces placeholder, BTO/STO toggle (OPT-MAN-{BTO|STO}-{occ} ids, source MANUAL), advisory STO collateral preview, retarget never re-legs a bound ticket
 - [Manual Order Entry] 1177-1190_FE-IMPL-ORDER: manual dialog mounts the real Option tab — empty-provenance mount, removed [decisions] binding
 - [Manual Order Entry] 1177-1190_DOCS-ORDER: #1190 CODE-REVIEW (PASS, 3 rounds) + #1226 UAT (Complete; S1–S5 user PASS, remainder spec-covered)
+- [Paper Trading Infra] 553-671_FE-IMPL-PAPER-TRADING: dashboard close/cancel actions + confirm dialog + CANCELLED chip — Actions column (OPEN→close, PENDING→cancel, spinner in-flight; cohort rows share the loop), PaperTradeActionDialogComponent, status filter w/ CANCELLED, per-status chips, cancelledTrades selector, ROW_ACTIONS map; QA #1229 remediation (clearError + banner dismiss/Retry)
+- [Paper Trading Infra] 553-671_DOCS-PAPER-TRADING: #671 CODE-REVIEW (PASS, 2 rounds to convergence) + #1229 UAT (Complete; S1–S7 user PASS + refinement) + IMPL §2/§4 as-built
 
 ### Changed
 - [Manual Order Entry] 1177-1190_FE-IMPL-ORDER: manual staging permits parallel orders — live/FILLED tickets no longer block manual intent (add-to-position legitimate); STAGED adoption + same-minute doc-collision guard retained; signal/card lane unchanged

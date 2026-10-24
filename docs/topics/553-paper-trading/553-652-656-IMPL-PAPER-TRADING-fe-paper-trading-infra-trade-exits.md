@@ -61,6 +61,23 @@
 - Same actions inside the cohort drill-down rows (shares the row renderer
   if the template allows — one component, both tables).
 
+**As-built (#671):**
+- New standalone `PaperTradeActionDialogComponent`
+  (`components/paper-trade-action-dialog/`) — `MAT_DIALOG_DATA` carries
+  `{ trade, action }`; summary shows id/symbol/expression/qty/variant and
+  the latest `mark` (descending scan — a latest entry may carry only
+  `underlyingClose`); confirm calls `store.closeTrade`/`cancelTrade`,
+  closes (no result value) once `actingIds` settles; errors surface via
+  the store's existing error/snackbar path (no separate transport).
+- Actions column added to the shared `@for` trade-row template — OPEN →
+  `exit_to_app` close button, PENDING → `cancel` cancel button, terminal
+  rows render the spinner while `actingIds` has the id and nothing
+  otherwise. Cohort drill-down rows get it free (same template loop).
+- Status `mat-select` in the header → `onStatusFilter` →
+  `store.setTradeFilters`; `'ALL'` clears the filter. CANCELLED is a
+  selectable entry, and `cancelledTrades` computed added to the store —
+  cancelled trades previously vanished from every selector.
+
 ## 3. Strategy builder — governing select
 
 - `variantFamilies` filtered by `TERMINAL_VARIANT_FAMILIES` → the family
@@ -79,3 +96,8 @@
 
 `CANCELLED` gets a chip/style in the trades table (dimmed, terminal) and
 appears in the status filter.
+
+**As-built (#671):** raw `{{ trade.status }}` text replaced with a
+`.status-chip.status-{status}` span — per-status tint for OPEN/PENDING/
+CLOSED/ASSIGNED, dimmed neutral for CANCELLED + EXPIRED (terminal
+never-held states read as inactive, not failed).
