@@ -42,6 +42,18 @@
     </div>
     <div class="header-actions">
       <mat-form-field appearance="outline" class="group-select">
+        <mat-label>Status</mat-label>
+        <mat-select
+          data-testid="status-filter"
+          [value]="store.tradeFilters().status ?? 'ALL'"
+          (selectionChange)="onStatusFilter($event.value)"
+        >
+          @for (s of STATUS_OPTIONS; track s) {
+            <mat-option [value]="s">{{ s === 'ALL' ? 'All' : s }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="group-select">
         <mat-label>Group by</mat-label>
         <mat-select [value]="groupBy()" (selectionChange)="groupBy.set($event.value)">
           <mat-option value="all">All trades</mat-option>
@@ -69,7 +81,18 @@
   </div>
 
   @if (store.error()) {
-    <div class="error-banner" role="alert"><mat-icon aria-hidden="true">error</mat-icon><span class="error-text">{{ store.error() }}</span></div>
+    <div class="error-banner" role="alert">
+      <mat-icon aria-hidden="true">error</mat-icon>
+      <span class="error-text">{{ store.error() }}</span>
+      <!-- Retry reloads the list (clears the error when the load
+           succeeds — the right affordance for a failed LOAD). ✕ dismisses
+           without reloading — for action errors, where the failed op is
+           retried from its row, not from the banner. -->
+      <button type="button" mat-stroked-button (click)="store.loadAll()">Retry</button>
+      <button mat-icon-button aria-label="Dismiss error" data-testid="dismiss-error" (click)="store.clearError()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
   }
 
   @if (store.isLoading()) {
@@ -123,6 +146,7 @@
                       @if (rank !== null) { <span class="sort-rank">{{ rank }}</span> }
                     </th>
                   }
+                  <th scope="col" class="actions-col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -131,7 +155,11 @@
                     <td class="mono">{{ trade.id }}</td>
                     <td>{{ trade.symbol }}</td>
                     <td>{{ trade.expression }}</td>
-                    <td>{{ trade.status }}</td>
+                    <td>
+                      <span class="status-chip status-{{ trade.status.toLowerCase() }}">
+                        {{ trade.status }}
+                      </span>
+                    </td>
                     <td>{{ trade.order.quantity }}</td>
                     <td>{{ trade.governingVariant }}</td>
                     <td [class.positive]="trade.realizedPnl > 0" [class.negative]="trade.realizedPnl < 0">
@@ -139,6 +167,20 @@
                     </td>
                     <td [class.positive]="trade.unrealizedPnl > 0" [class.negative]="trade.unrealizedPnl < 0">
                       {{ trade.unrealizedPnl | currency:'USD' }}
+                    </td>
+                    <td class="actions-col">
+                      @if (store.actingIds().has(trade.id)) {
+                        <mat-spinner diameter="18"></mat-spinner>
+                      } @else if (ROW_ACTIONS[trade.status]; as rowAction) {
+                        <button
+                          mat-icon-button
+                          [attr.data-testid]="rowAction.testId"
+                          [title]="rowAction.title"
+                          (click)="openActionDialog(trade, rowAction.action)"
+                        >
+                          <mat-icon>{{ rowAction.icon }}</mat-icon>
+                        </button>
+                      }
                     </td>
                   </tr>
                 }

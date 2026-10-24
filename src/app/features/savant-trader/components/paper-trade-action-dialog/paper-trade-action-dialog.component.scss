@@ -1,0 +1,47 @@
+.trade-summary {
+  margin: 0 0 var(--ds-space-3);
+  font-size: var(--ds-font-size-sm);
+}
+
+.summary-row {
+  display: flex;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-1) 0;
+
+  dt {
+    min-width: 88px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: var(--ds-font-weight-medium, 500);
+  }
+}
+
+.mono {
+  font-family: monospace;
+  font-size: var(--ds-font-size-xs);
+}
+
+.positive {
+  color: var(--ds-up);
+}
+
+.negative {
+  color: var(--ds-down);
+}
+
+.action-note {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+mat-dialog-actions {
+  gap: var(--ds-space-2);
+
+  button mat-spinner {
+    display: inline-block;
+  }
+}

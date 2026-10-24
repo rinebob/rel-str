@@ -109,6 +109,12 @@ export const PaperTradingStore = signalStore(
     pendingTrades: computed(() =>
       state.trades().filter((t) => t.status === PaperTradeStatus.PENDING),
     ),
+    // Library selector (#671 AC) — cancelled trades vanish from the
+    // open/closed/pending selectors; consuming surfaces (datasets,
+    // analysis workbench) read this rather than re-filtering.
+    cancelledTrades: computed(() =>
+      state.trades().filter((t) => t.status === PaperTradeStatus.CANCELLED),
+    ),
 
     /** Derived filter options from the loaded trades. */
     availableInstances: computed(() =>
@@ -303,6 +309,13 @@ export const PaperTradingStore = signalStore(
          *  clears all filters. */
         setTradeFilters(filters: ListPaperTradesRequest): void {
           this.loadTrades(filters);
+        },
+
+        /** Manual dismiss — the banner's ✕. Action failures skip the
+         *  reload that would clear `error`, so without this a failed
+         *  close/cancel pins the banner until navigation (#1229 QA). */
+        clearError(): void {
+          patchState(state, { error: null });
         },
 
         /** Load account + trades in parallel. */

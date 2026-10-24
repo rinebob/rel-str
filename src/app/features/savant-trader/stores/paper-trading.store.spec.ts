@@ -152,6 +152,24 @@ describe('PaperTradingStore', () => {
     expect(store.pendingTrades().map((t) => t.id)).toEqual(['t-4']);
   });
 
+  it('cancelledTrades selector — CANCELLED trades are listable, not vanished (#671)', async () => {
+    mockService.listPaperTrades$.mockReturnValue(
+      of({ trades: [makeTrade(), makeTrade({
+        id: 't-5',
+        status: PaperTradeStatus.CANCELLED,
+        realizedPnl: 0,
+        unrealizedPnl: 0,
+      })] }),
+    );
+    store.loadTrades();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(store.cancelledTrades().map((t) => t.id)).toEqual(['t-5']);
+    // And it's in none of the other status lists.
+    expect(store.openTrades().map((t) => t.id)).not.toContain('t-5');
+    expect(store.closedTrades().map((t) => t.id)).not.toContain('t-5');
+    expect(store.pendingTrades().map((t) => t.id)).not.toContain('t-5');
+  });
+
   it('group-by selectors partition by variant, symbol, and expression', async () => {
     mockService.listPaperTrades$.mockReturnValue(
       of({ trades: [makeTrade(), SIGNAL_TRADE, CLOSED_TRADE] }),
@@ -392,6 +410,20 @@ describe('PaperTradingStore', () => {
       // No reload — the in-memory row is exactly what the last load set.
       expect(mockService.listPaperTrades$).toHaveBeenCalledTimes(1);
       expect(store.trades()).toBe(before);
+    });
+
+    it('clearError dismisses a surfaced error without triggering a reload (#1229)', async () => {
+      mockService.closePaperTrade$.mockReturnValue(
+        throwError(() => new Error('closePaperTrade failed: quote unavailable')),
+      );
+      store.closeTrade('t-1');
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(store.error()).toBeTruthy();
+
+      store.clearError();
+      expect(store.error()).toBeNull();
+      // Dismiss is not a reload — no load fired beyond the action itself.
+      expect(mockService.listPaperTrades$).not.toHaveBeenCalled();
     });
 
     it('unauthenticated close maps to the auth message', async () => {

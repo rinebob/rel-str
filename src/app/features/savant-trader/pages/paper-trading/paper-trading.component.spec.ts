@@ -1,9 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { signal } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 
 import { PaperTradingComponent } from './paper-trading.component';
+import { PaperTradeActionDialogComponent } from '../../components/paper-trade-action-dialog/paper-trade-action-dialog.component';
 import { PaperTradingStore } from '../../stores/paper-trading.store';
 import { TradeSide } from '@common';
 import {
@@ -57,6 +59,7 @@ describe('PaperTradingComponent', () => {
   let fixture: ComponentFixture<PaperTradingComponent>;
   let component: PaperTradingComponent;
   let storeMock: any;
+  let dialogMock: { open: jest.Mock; openDialogs: unknown[] };
 
   const TRADES: PaperTrade[] = [
     makeTrade('pt-aapl-sig-x-eq', {
@@ -131,15 +134,24 @@ describe('PaperTradingComponent', () => {
         ['CONFIRMED', [TRADES[0], TRADES[1]]],
         ['—', [TRADES[2]]],
       ])),
+      // #671 — exit-action surface
+      tradeFilters: signal({}),
+      actingIds: signal<ReadonlySet<string>>(new Set()),
+      setTradeFilters: jest.fn(),
+      // Mirrors the real method — clears the error signal, no reload.
+      clearError: jest.fn(() => storeMock.error.set(null)),
       loadAll: jest.fn(),
     };
+    dialogMock = { open: jest.fn(), openDialogs: [] };
 
     await TestBed.configureTestingModule({
       imports: [PaperTradingComponent],
       providers: [
         provideNoopAnimations(),
+        provideZonelessChangeDetection(),
         provideRouter([]),
         { provide: PaperTradingStore, useValue: storeMock },
+        { provide: MatDialog, useValue: dialogMock },
       ],
     }).compileComponents();
 
@@ -375,6 +387,133 @@ describe('PaperTradingComponent', () => {
     storeMock.error.set('load failed');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.error-banner')?.textContent).toContain('load failed');
+  });
+
+  it('error banner dismiss clears the error without reloading (#1229 finding)', () => {
+    storeMock.error.set('closePaperTrade failed: quote unavailable');
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="dismiss-error"]') as HTMLElement).click();
+    fixture.detectChanges();
+
+    expect(storeMock.clearError).toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.error-banner')).toBeNull();
+    expect(storeMock.loadAll).toHaveBeenCalledTimes(1); // init only — dismiss is not a reload
+  });
+
+  it('error banner Retry re-fires loadAll — the only dismiss path (#1229 finding)', () => {
+    storeMock.error.set('load failed');
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.error-banner button') as HTMLButtonElement).click();
+    expect(storeMock.loadAll).toHaveBeenCalledTimes(2); // once on init, once on Retry
+  });
+
+  // ── #671 — exit actions, status chip, status filter ───────────────────
+
+  it('OPEN rows render the Close action; PENDING renders Cancel; terminal rows render neither', () => {
+    fixture.detectChanges();
+    const row = (id: string) =>
+      [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')]
+        .find((r: Element) => r.textContent!.includes(id)) as HTMLElement;
+
+    expect(row('pt-aapl-sig-x-eq').querySelector('[data-testid="close-trade"]')).toBeTruthy();
+    expect(row('pt-aapl-sig-x-eq').querySelector('[data-testid="cancel-trade"]')).toBeNull();
+
+    expect(row('pt-nvda-sig-y-eq').querySelector('[data-testid="cancel-trade"]')).toBeTruthy();
+    expect(row('pt-nvda-sig-y-eq').querySelector('[data-testid="close-trade"]')).toBeNull();
+
+    // All four terminal/no-action statuses — not just CLOSED.
+    storeMock.trades.set([
+      TRADES[1], // CLOSED
+      makeTrade('pt-expired', { status: PaperTradeStatus.EXPIRED }),
+      makeTrade('pt-assigned', { status: PaperTradeStatus.ASSIGNED }),
+      makeTrade('pt-cancelled', { status: PaperTradeStatus.CANCELLED }),
+    ]);
+    fixture.detectChanges();
+    for (const id of ['pt-aapl-sig-x-csp', 'pt-expired', 'pt-assigned', 'pt-cancelled']) {
+      expect(row(id).querySelector('[data-testid="close-trade"]')).toBeNull();
+      expect(row(id).querySelector('[data-testid="cancel-trade"]')).toBeNull();
+    }
+  });
+
+  it('clicking the row action opens the confirm dialog with the trade + verb', () => {
+    fixture.detectChanges();
+    const openRow = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')]
+      .find((r: Element) => r.textContent!.includes('pt-aapl-sig-x-eq')) as HTMLElement;
+    openRow.querySelector<HTMLElement>('[data-testid="close-trade"]')!.click();
+    expect(dialogMock.open).toHaveBeenCalledWith(
+      PaperTradeActionDialogComponent,
+      expect.objectContaining({ data: { trade: TRADES[0], action: 'close' } }),
+    );
+
+    const pendRow = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')]
+      .find((r: Element) => r.textContent!.includes('pt-nvda-sig-y-eq')) as HTMLElement;
+    pendRow.querySelector<HTMLElement>('[data-testid="cancel-trade"]')!.click();
+    expect(dialogMock.open).toHaveBeenCalledWith(
+      PaperTradeActionDialogComponent,
+      expect.objectContaining({ data: { trade: TRADES[2], action: 'cancel' } }),
+    );
+  });
+
+  it('an in-flight trade renders a spinner instead of the action button', () => {
+    fixture.detectChanges();
+    storeMock.actingIds.set(new Set(['pt-aapl-sig-x-eq']));
+    fixture.detectChanges();
+
+    const row = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')]
+      .find((r: Element) => r.textContent!.includes('pt-aapl-sig-x-eq')) as HTMLElement;
+    expect(row.querySelector('mat-spinner')).toBeTruthy();
+    expect(row.querySelector('[data-testid="close-trade"]')).toBeNull();
+  });
+
+  it('cohort drill-down rows expose the same actions', () => {
+    fixture.detectChanges();
+    component.groupBy.set('cohort');
+    component.toggleCohort('cohort-x');
+    fixture.detectChanges();
+
+    const section = [...fixture.nativeElement.querySelectorAll('.table-section')]
+      .find((g) => g.getAttribute('data-group-key') === 'cohort-x') as HTMLElement;
+    expect(section.querySelector('[data-testid="close-trade"]')).toBeTruthy();
+  });
+
+  it('status cells render chips; CANCELLED carries the dimmed terminal class', () => {
+    storeMock.trades.set([
+      TRADES[0],
+      makeTrade('pt-cancelled', { status: PaperTradeStatus.CANCELLED }),
+    ]);
+    fixture.detectChanges();
+
+    const cancelled = fixture.nativeElement.querySelector('.status-chip.status-cancelled');
+    expect(cancelled).toBeTruthy();
+    expect(cancelled.textContent).toContain('CANCELLED');
+    expect(fixture.nativeElement.querySelector('.status-chip.status-open')?.textContent).toContain('OPEN');
+  });
+
+  it('the status filter select drives setTradeFilters — CANCELLED is an entry', () => {
+    fixture.detectChanges();
+
+    // The option must actually render in the overlay, not just exist in
+    // STATUS_OPTIONS — click the select and read the overlay panel.
+    (fixture.nativeElement.querySelector('[data-testid="status-filter"]') as HTMLElement).click();
+    fixture.detectChanges();
+    const optionText = Array.from(document.querySelectorAll('.cdk-overlay-container mat-option'))
+      .map((o) => o.textContent!.trim());
+    expect(optionText).toContain('CANCELLED');
+
+    component.onStatusFilter(PaperTradeStatus.CANCELLED);
+    expect(storeMock.setTradeFilters).toHaveBeenCalledWith({ status: PaperTradeStatus.CANCELLED });
+
+    component.onStatusFilter('ALL');
+    expect(storeMock.setTradeFilters).toHaveBeenCalledWith({});
+  });
+
+  it('a second click while a dialog is open does not stack another', () => {
+    fixture.detectChanges();
+    dialogMock.openDialogs = [{}]; // one open — the guard consults MatDialog.openDialogs
+    const openRow = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')]
+      .find((r: Element) => r.textContent!.includes('pt-aapl-sig-x-eq')) as HTMLElement;
+    openRow.querySelector<HTMLElement>('[data-testid="close-trade"]')!.click();
+    expect(dialogMock.open).not.toHaveBeenCalled();
   });
 
   it('header links to the trade-analysis workbench (#1082)', () => {

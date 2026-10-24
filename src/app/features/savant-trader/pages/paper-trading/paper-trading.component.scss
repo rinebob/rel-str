@@ -194,4 +194,62 @@
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
 
+// ── #671 — status chip + row actions ────────────────────────────────────────
+
+.status-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface-variant);
+
+  &.status-open {
+    background: rgba(100, 181, 246, 0.18);
+    color: #64b5f6;
+  }
+  &.status-pending {
+    background: rgba(255, 183, 77, 0.18);
+    color: #ffb74d;
+  }
+  &.status-closed {
+    background: rgba(129, 199, 132, 0.18);
+    color: #81c784;
+  }
+  &.status-assigned {
+    background: rgba(186, 104, 200, 0.18);
+    color: #ba68c8;
+  }
+  // Terminal-never-held reads dimmed, not failed — cancelled trades were
+  // never in the ledger.
+  &.status-cancelled,
+  &.status-expired {
+    background: var(--mat-sys-surface-container-highest);
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.7;
+  }
+}
+
+.actions-col {
+  text-align: center;
+  width: 44px;
+
+  button {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+}
+
 

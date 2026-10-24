@@ -1,5 +1,5 @@
 /**
- * @topic #553 — Paper Trading Infra | @task #569, #1067
+ * @topic #553 — Paper Trading Infra | @task #569, #1067, #671
  *
  * Paper trading dashboard. Reads the paper ledger via PaperTradingStore
  * (listPaperTrades / getPaperAccount) — client-side
@@ -7,6 +7,8 @@
  * account header (negative cash visible).
  * #1067: sortable columns + sticky table headers; equity curve removed
  * (forensics surface moves to the trade-analysis work, Thread #1059).
+ * #671: per-row close/cancel actions (confirm dialog + acting spinner),
+ * status chips, and the status filter select.
  */
 import { Component, ChangeDetectionStrategy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -15,9 +17,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
 
 import { PaperTradingStore } from '../../stores/paper-trading.store';
+import {
+  PaperTradeActionDialogComponent,
+  type PaperTradeAction,
+} from '../../components/paper-trade-action-dialog/paper-trade-action-dialog.component';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { LIFECYCLE_OPEN_TRADE_STATUSES, PaperTradeStatus } from '@paper-trading/contracts';
 import type { PaperTrade } from '@paper-trading/contracts';
@@ -81,10 +88,24 @@ function toTradeGroup(key: string, trades: PaperTrade[]): TradeGroup {
 })
 export class PaperTradingComponent implements OnInit {
   readonly store = inject(PaperTradingStore);
+  private readonly dialog = inject(MatDialog);
   protected readonly appRoutes = AppRoutes;
 
   /** Group-by dimension for the trades table. */
   readonly groupBy = signal<GroupByKey>('all');
+
+  /** Status filter options — 'ALL' clears the server-side request;
+   *  every PaperTradeStatus (incl. CANCELLED) is a selectable entry so
+   *  cancelled trades are findable (#671). */
+  protected readonly STATUS_OPTIONS: (PaperTradeStatus | 'ALL')[] = [
+    'ALL',
+    PaperTradeStatus.PENDING,
+    PaperTradeStatus.OPEN,
+    PaperTradeStatus.ASSIGNED,
+    PaperTradeStatus.CLOSED,
+    PaperTradeStatus.EXPIRED,
+    PaperTradeStatus.CANCELLED,
+  ];
 
   /** Active column sorts, in priority order — plain click replaces the
    *  list with a single sort; shift+click toggles a secondary key in or
@@ -229,5 +250,49 @@ export class PaperTradingComponent implements OnInit {
 
   toggleCohort(cohortId: string): void {
     this.selectedCohort.set(this.selectedCohort() === cohortId ? null : cohortId);
+  }
+
+  // ── Row actions + status filter (#671) ──────────────────────────────────
+
+  /** Status → row action. Only statuses with an action get a button —
+   *  the domain rule "OPEN closes, PENDING cancels, terminal does
+   *  nothing" lives here as data, not a template if-chain. */
+  protected readonly ROW_ACTIONS: Partial<
+    Record<
+      PaperTradeStatus,
+      { action: PaperTradeAction; icon: string; title: string; testId: string }
+    >
+  > = {
+    [PaperTradeStatus.OPEN]: {
+      action: 'close',
+      icon: 'exit_to_app',
+      title: 'Close at the live quote',
+      testId: 'close-trade',
+    },
+    [PaperTradeStatus.PENDING]: {
+      action: 'cancel',
+      icon: 'cancel',
+      title: 'Cancel before fill',
+      testId: 'cancel-trade',
+    },
+  };
+
+  /** Status filter change — 'ALL' clears the request; otherwise sets the
+   *  single-status filter the store sends to listPaperTrades. */
+  onStatusFilter(value: PaperTradeStatus | 'ALL'): void {
+    this.store.setTradeFilters(value === 'ALL' ? {} : { status: value });
+  }
+
+  /** Row action → confirm dialog. The dialog owns the mutation + spinner;
+   *  the row just opens it. One dialog at a time — suppressed while ANY
+   *  dialog is open (app-wide `MatDialog.openDialogs`, deliberately
+   *  conservative: stacking a second confirm serves no use case). */
+  openActionDialog(trade: PaperTrade, action: PaperTradeAction): void {
+    if (this.dialog.openDialogs.length > 0) return;
+    this.dialog.open(PaperTradeActionDialogComponent, {
+      data: { trade, action },
+      width: '420px',
+      autoFocus: false,
+    });
   }
 }
