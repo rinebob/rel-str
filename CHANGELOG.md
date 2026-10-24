@@ -9,6 +9,8 @@
 - [Manual Order Entry] 1177-1190_DOCS-ORDER: #1190 CODE-REVIEW (PASS, 3 rounds) + #1226 UAT (Complete; S1–S5 user PASS, remainder spec-covered)
 - [Paper Trading Infra] 553-671_FE-IMPL-PAPER-TRADING: dashboard close/cancel actions + confirm dialog + CANCELLED chip — Actions column (OPEN→close, PENDING→cancel, spinner in-flight; cohort rows share the loop), PaperTradeActionDialogComponent, status filter w/ CANCELLED, per-status chips, cancelledTrades selector, ROW_ACTIONS map; QA #1229 remediation (clearError + banner dismiss/Retry)
 - [Paper Trading Infra] 553-671_DOCS-PAPER-TRADING: #671 CODE-REVIEW (PASS, 2 rounds to convergence) + #1229 UAT (Complete; S1–S7 user PASS + refinement) + IMPL §2/§4 as-built
+- [RH Scanner] 1098-1199_FE-IMPL-SAVANT-TRADER: scanner page auto-run overview — scoreboard rail + detail table (status/count/top-tickers per recipe), .table-scroll region + sticky thead, filters_applied echo, magnitude-aware numeric formatting, reauth re-fires the wave
+- [RH Scanner] 1098-1199_DOCS-SAVANT-TRADER: IMPL/TEST as-built sync (rail+detail, 12 recipes) + #1199 CODE-REVIEW (PASS, 3 rounds) + #1225 UAT (Complete; visual pass incl. scroll-in-table)
 
 ### Changed
 - [Manual Order Entry] 1177-1190_FE-IMPL-ORDER: manual staging permits parallel orders — live/FILLED tickets no longer block manual intent (add-to-position legitimate); STAGED adoption + same-minute doc-collision guard retained; signal/card lane unchanged

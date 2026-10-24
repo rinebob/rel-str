@@ -16,7 +16,7 @@
 ## 1. Scope
 
 Rebuild `trading/scanner` from single-recipe pick-and-run into an auto-run
-overview: all 9 `SCANNER_RECIPES` fire `preview_scan` on page load (~1s
+overview: all 12 `SCANNER_RECIPES` fire `preview_scan` on page load (~1s
 stagger), each recipe's results render as its own sortable table under one
 page scrollbar, a 15-minute auto-refresh cycle runs while the page is open,
 Run all re-fires the set, and each table gets a per-recipe refresh button.
@@ -90,15 +90,17 @@ unparseable rather than reading '1.5'; real wire values are numeric-like);
 Inputs: `recipe: ScannerRecipe`, `run: RecipeRunState`, `tracked: Set<string>`.
 Output: `refresh`.
 
-- Header line: recipe title + blurb · `{deduped-rows} of {total_items}`
-  (the rendered row count — a dropped/dupe wire ticker stays honest) ·
+- Header line: recipe title + blurb · `filters_applied` echo (compact,
+  ellipsis + title-hover) · `{deduped-rows} of {total_items}` (the
+  rendered row count — a dropped/dupe wire ticker stays honest) ·
   `sorted_by` chip when present · ran-at time · refresh icon-button →
   emits `refresh`.
 - Loading state: `status==='loading'` → spinner block; a stale result
-  stays rendered during refresh (nine stacked tables must not collapse
+  stays rendered during refresh (the detail table must not collapse
   and jump on every refresh). `idle` shows the same queued block.
-- `status==='error'` → component renders nothing (silent skip) — the page
-  filters it out entirely rather than rendering an empty shell.
+- `status==='error'` → component renders nothing (silent skip); the
+  page's detail pane substitutes a named "Scan failed" note + Retry
+  when the errored recipe is the selected one (blank pane otherwise).
 - Columns (fixed order): tracked badge (sortable — 1/0 membership),
   `ticker`, `instrument_id`, `instrument_type`, then all recipe-declared
   `columns` (visible ones in `order`), then undeclared wire keys as
@@ -121,18 +123,46 @@ Output: `refresh`.
 ngOnInit:  store.runAllRecipes(); arm 15-min interval → runAllRecipes()
 ngOnDestroy: clear interval
 header:    'Run all' button (disabled while any run is loading) +
-           'Last refresh HH:mm' text (max ranAt across runs)
-body:      @for recipe of SCANNER_RECIPES — <app-scanner-recipe-table>
-           [run]="store.runs()[recipe.id]" (refresh)=store.refreshRecipe(id)
+           'Last refresh h:mm a' text (max ranAt across runs)
+body:      rail + detail (scoreboard layout — winner of the
+           ?variant= prototype; visual pass picked it over tile-grid
+           and sticky-nav stacked variants):
+           .rail   — sticky scoreboard column, one button per recipe in
+                     catalog order: status dot (queued/running/done/err),
+                     `{deduped} / {total}` count, top-4 tickers in the
+                     recipe's declared baseline sort; click selects
+           .detail — the selected recipe's <app-scanner-recipe-table>;
+                     an errored selection renders a named "Scan failed"
+                     note + Retry (the table itself renders nothing).
+                     A retained stale result still shows its last-known
+                     tickers under the rail's err dot — last-known data
+                     in the scoreboard, honest failure in the detail.
 banner:    store.authFailed() → existing AUTH reauth banner
+layout:    .content-column with max-width:none (full-width scoreboard,
+           not the 1100px reading column); single vertical scroll
+           region; rail collapses to a horizontal strip ≤900px
 ```
+
+Rail/table ordering is shared at every level: `scanRunRows`
+(scanner-rows.util) owns the parse→dedupe→lookup pipeline prefix both
+surfaces run; `seedSortLevels` + `baselineSortedRows`
+(scanner-sort.util) own the catalog's declared "best first" seed and
+the full baseline composition, so rail top-tickers and the detail
+table's seeded top rows are one function, not two copies. The header
+count says "first N of M" whenever the wire page is capped below
+`total_items` (explicit truncation, per the PRD). Cell display values
+format by magnitude in `displayCell` (sci-notation → T/B/M, decimal
+tails → ≤4 sig digits / 2 decimals, ≥1000 → locale separators; percent
+columns and already-formatted strings untouched).
 
 Removed from template/ts: recipe picker, Run/Evaluate buttons, compare
 panel, proposal history, `onFocusSymbol`/focused-row plumbing, single-run
 status line. Component files for the compare panel stay on disk.
 
-Tracked set: `store.trackedSymbols`/`loadTrackedSymbols` retained — badge
-column needs it; loaded once on init alongside runAll.
+Tracked set: the page injects `SymbolListStore` directly —
+`trackedSymbols()` → `Set` for the tables' `[tracked]` input, and
+`loadTrackedSymbols()` fires once on init alongside runAll (as-built;
+no ScannerStore passthrough).
 
 ## 4. File sketch
 
@@ -155,12 +185,12 @@ src/app/features/savant-trader/stores/
 |---|------|----------|------------|
 | 1 | `scanner-recipe-table` + sort util | One recipe's full table: header w/ counts+refresh, all wire fields as columns, N-level click-cycle sort, loading/empty states | — |
 | 2 | Store run-all machinery | `runs` map, `runAllRecipes` 1s stagger, `refreshRecipe`, per-recipe error isolation, `authFailed` | — |
-| 3 | Page rebuild | `ngOnInit` runAll + 15-min timer + Run all + stacked tables + AUTH banner; picker/panel/history removed | 1, 2 |
+| 3 | Page rebuild | `ngOnInit` runAll + 15-min timer + Run all + rail+detail scoreboard layout + AUTH banner; picker/panel/history removed | 1, 2 |
 
 ## 6. Risks / notes
 
-- **9-call fan-out:** staggered launches keep the MCP session serial-ish;
-  still ~9 calls per cycle every 15 min while the page is open — accepted
+- **12-call fan-out:** staggered launches keep the MCP session serial-ish;
+  still ~12 calls per cycle every 15 min while the page is open — accepted
   per PRD (user-picked cadence).
 - **Sort on strings:** all wire cells are `string`; the numeric-aware
   comparator must handle `12.3%`-style recipe formatting *before* display

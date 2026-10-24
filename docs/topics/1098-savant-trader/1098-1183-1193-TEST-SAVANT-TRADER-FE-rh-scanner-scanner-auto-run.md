@@ -19,7 +19,7 @@ per-recipe isolation, authFailed). Component specs cover render states.
 
 ## E2E User Journeys
 
-1. Open `trading/scanner` → all 9 recipes fire staggered → tables fill as
+1. Open `trading/scanner` → all 12 recipes fire staggered → tables fill as
    calls return → each table shows its header metadata + all-field rows.
 2. Click a column header → `1↑` (a `2↑` if the recipe's declared sort
    seeded level 1); click a second column → `1↑`,`2↑` chain; click the
@@ -49,8 +49,15 @@ per-recipe isolation, authFailed). Component specs cover render states.
 - `ngOnInit` calls `runAllRecipes` + `loadTrackedSymbols`; arms the
   15-min interval (fake timers — no `setTimeout` flush under fakeTimers)
 - `ngOnDestroy` clears the interval — no calls continue off-page
-- One `<app-scanner-recipe-table>` per recipe in catalog order; page has
-  a single vertical scroll region (no inner scroll traps)
+- Rail + detail body (scoreboard layout, post-visual-rework):
+  - one `.rail-item` per recipe in catalog order; entries carry status
+    dot, `rows / total` count, and baseline-sort top tickers
+  - detail defaults to the first recipe; clicking a rail item swaps the
+    single table's binding (one table, selection-driven)
+  - detail pane lives in the page scroll region — no inner scroll traps
+  - a selected error recipe shows a named "Scan failed" note + Retry →
+    `refreshRecipe` (the table renders nothing on error)
+  - all-error wave: header + Run all functional, rail all-err, no tables
 - `Run all` calls `runAllRecipes`; disabled while any run is loading;
   shows last-refresh time from max ranAt
 - `authFailed()` → existing reauth banner renders; per-table `(refresh)`
@@ -58,9 +65,16 @@ per-recipe isolation, authFailed). Component specs cover render states.
 - Gone: picker, Run/Evaluate, compare panel, proposal history,
   focused-row plumbing
 
+Also covered in the recipe-table spec additions:
+- `filters_applied` echoes as a compact header line (enum + expression
+  forms); absent when the result carries none
+- Magnitude-aware numeric cell formatting — sci-notation → T/B/M,
+  decimal tails → 4 sig digits (<1) / 2 decimals (≥1), ≥1000 →
+  separators; already-formatted strings pass through
+
 ### `scanner.store.spec.ts` (additions)
 
-- `runAllRecipes` launches all 9 recipes ~1s apart (fake timers); each
+- `runAllRecipes` launches all 12 recipes ~1s apart (fake timers); each
   entry transitions loading→success independently
 - Per-recipe rejection → `status:'error'`, `errorKind:'other'`,
   other recipes unaffected
@@ -113,7 +127,7 @@ per-recipe isolation, authFailed). Component specs cover render states.
 - `total_items > results.length` → header shows the true `N of M`
 - A recipe's columns drift mid-session → unknown keys render blank, sort
   treats them as NaN-last
-- All 9 fail → auth banner if auth-shaped, otherwise a page with zero
+- All 12 fail → auth banner if auth-shaped, otherwise a page with zero
   tables + Run all still functional
 - Interval fires while a previous cycle is still in-flight → overlapping
   cycles must not corrupt per-recipe state (last-write-wins per recipe)
