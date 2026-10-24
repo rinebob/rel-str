@@ -1,4 +1,4 @@
-/* @topic #1098 — RH Scanner | @task #1140 */
+/* @topic #1098 — RH Scanner | @task #1199 */
 @use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
 
 :host {
@@ -11,36 +11,29 @@
 
 .content-column {
   @include vl.content-column;
+  // Data-dense scoreboard — lift the 1100px reading-column cap; the
+  // rail + wide result tables want the viewport width.
+  max-width: none;
+  // No global border-box reset — content-box + width:100% + padding
+  // pushes the element 32px past the viewport, hiding the right-edge
+  // scrollbar off-screen.
+  box-sizing: border-box;
   padding: var(--ds-space-4);
-  // The shell caps at overflow:hidden; the scanner is a scrollable page
-  // (200-row tables), not a bounded pane.
-  overflow-y: auto;
-  gap: var(--ds-space-3);
+  // The page itself does NOT scroll — the detail table owns the
+  // vertical scrollbar via its .table-scroll region (#1199).
+  gap: var(--ds-space-4);
 }
 
 .scanner-header {
   display: flex;
   align-items: baseline;
   gap: var(--ds-space-4);
-  flex-wrap: wrap;
   flex-shrink: 0;
 }
 
-.recipe-picker {
-  min-width: 240px;
-}
-
-.recipe-blurb {
-  margin: 0;
+.last-refresh {
   font-size: var(--ds-font-size-sm);
   color: var(--mat-sys-on-surface-variant);
-  flex: 1;
-  min-width: 200px;
-}
-
-.actions {
-  display: flex;
-  gap: var(--ds-space-2);
 }
 
 .error-banner {
@@ -48,150 +41,141 @@
   flex-shrink: 0;
 }
 
-.progress-line {
+/* Rail + detail — the rail is the morning scoreboard (one row per
+   recipe: status, hit count, top tickers); the detail pane's table
+   owns the scroll region. .scanner-main bounds to the column's
+   leftover height so .table-scroll inside gets a definite height. */
+.scanner-main {
   display: flex;
-  align-items: center;
-  gap: var(--ds-space-2);
-  padding: var(--ds-space-2) 0;
-  font-size: var(--ds-font-size-sm);
-  color: var(--mat-sys-on-surface-variant);
-  flex-shrink: 0;
-}
-
-.status-line {
-  margin: 0;
-  font-size: var(--ds-font-size-sm);
-  color: var(--mat-sys-on-surface-variant);
-
-  &.truncated {
-    // The container pair — --mat-sys-on-warning-container is only a
-    // foreground on its container bg.
-    background: var(--mat-sys-warning-container);
-    color: var(--mat-sys-on-warning-container);
-    padding: var(--ds-space-1) var(--ds-space-2);
-    border-radius: var(--ds-radius-sm);
-    display: inline-block;
-  }
-}
-
-.table-scroll {
-  overflow-y: auto;
+  gap: var(--ds-space-4);
   flex: 1;
   min-height: 0;
 }
 
-.results-table {
-  @include vl.dense-table;
-
-  td.symbol {
-    font-weight: var(--ds-font-weight-bold);
-  }
-
-  td.name {
-    color: var(--mat-sys-on-surface-variant);
-    max-width: 220px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.badge {
-  display: inline-block;
-  padding: 1px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  background: var(--mat-sys-surface-container-high);
-  color: var(--mat-sys-on-surface-variant);
-
-  &.tracked {
-    background: rgba(76, 175, 80, 0.16);
-    color: vl.$up;
-  }
-}
-
-.empty-state {
-  @include vl.state-block;
-}
-
-/* ── #1141 — panel, focus, history ───────────────────────────────── */
-
-tr.focused td {
-  background: var(--mat-sys-primary-container);
-  transition: background 0.15s;
-}
-
-app-scanner-compare-panel {
+.rail {
+  width: 260px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  // Stretched to .scanner-main's bounded height — scroll itself if a
+  // long catalog ever exceeds the pane.
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.proposal-detail {
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: var(--ds-radius-sm);
+.rail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   padding: var(--ds-space-2) var(--ds-space-3);
-  margin-bottom: var(--ds-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--mat-sys-on-surface);
+
+  &:hover {
+    background: var(--mat-sys-surface-container);
+  }
+
+  &.selected {
+    background: var(--mat-sys-surface-container);
+    border-color: var(--mat-sys-outline-variant);
+  }
 }
 
-.history {
+.rail-top {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   flex-shrink: 0;
+  background: var(--mat-sys-outline);
+}
+
+.dot.status-loading {
+  background: var(--mat-sys-tertiary, var(--mat-sys-primary));
+}
+
+.dot.status-success {
+  background: var(--mat-sys-primary);
+}
+
+.dot.status-error {
+  background: var(--mat-sys-error);
+}
+
+.rail-name {
+  flex: 1;
   font-size: var(--ds-font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  .history-head {
-    margin: var(--ds-space-2) 0 var(--ds-space-1);
-    font-size: var(--ds-font-size-sm);
-    font-weight: var(--ds-font-weight-bold);
-    color: var(--mat-sys-on-surface-variant);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+.rail-count {
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
 
-    .hint {
-      font-weight: 400;
-      text-transform: none;
-      opacity: 0.6;
-      margin-left: var(--ds-space-2);
-    }
+.rail-tickers {
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail {
+  flex: 1;
+  min-width: 0;
+  // Stretched to .scanner-main's bounded height (row direction) /
+  // grown to fill leftover space (mobile column direction) — the
+  // table inside scrolls, not this pane. Flex column so the child
+  // component host can flex-fill it (its :host carries flex:1).
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-error {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-4);
+  border: 1px dashed var(--mat-sys-outline-variant);
+  border-radius: var(--ds-radius-sm);
+  color: var(--mat-sys-on-surface-variant);
+  font-size: var(--ds-font-size-sm);
+}
+
+/* Narrow viewports — the rail stops being a column and becomes a
+   horizontal strip of scoreboard chips above the detail pane. */
+@media (max-width: 900px) {
+  .scanner-main {
+    flex-direction: column;
   }
 
-  .history-empty {
-    margin: var(--ds-space-1) 0;
-    color: var(--mat-sys-on-surface-variant);
-    opacity: 0.7;
-  }
-
-  .history-row {
-    display: flex;
-    align-items: center;
-    gap: var(--ds-space-3);
+  .rail {
     width: 100%;
-    border: none;
-    background: none;
-    color: inherit;
-    cursor: pointer;
-    padding: var(--ds-space-1) var(--ds-space-2);
-    font-size: var(--ds-font-size-sm);
-    text-align: left;
-    border-radius: var(--ds-radius-sm);
+    flex-direction: row;
+    overflow-x: auto;
+    // Column direction — take content height, don't grow into .detail's
+    // share of the bounded pane.
+    flex: none;
+  }
 
-    &:hover { background: var(--mat-sys-surface-container-high); }
-    &.active { background: var(--mat-sys-surface-container-high); }
-
-    .when {
-      color: var(--mat-sys-on-surface-variant);
-      min-width: 110px;
-    }
-    .which { flex: 1; }
-    .counts {
-      display: inline-flex;
-      gap: var(--ds-space-1);
-      .badge { @include vl.badge; }
-      // vl.badge's dir-long/dir-short/muted cover add/drop/nodata;
-      // dead has no canonical variant — the warning pair rides the
-      // count chip (on-warning-container only reads on its container).
-      // .badge.dead ties .badge.count on specificity; source order wins.
-      .badge.dead {
-        background: var(--mat-sys-warning-container);
-        color: var(--mat-sys-on-warning-container);
-      }
-    }
+  .rail-item {
+    min-width: 160px;
   }
 }

@@ -1,47 +1,57 @@
 /**
- * @topic #1098 — RH Scanner | @task #1140
+ * @topic #1098 — RH Scanner | @task #1199
  *
- * Scanner page — recipe picker over the curated SCANNER_RECIPES catalog
- * (#1137), Run / Evaluate tracked actions, shown-of-matched status line
- * with truncation warning, and a dynamic-column results table (symbol /
- * name / tracked badge / recipe columns). All state lives in
- * ScannerStore (#1139); the compare panel + proposal history landed in
- * #1141 (live panel + read-only proposal detail share the same dumb
- * ScannerComparePanelComponent; chips focus table rows).
+ * Scanner page — the auto-run overview (#1183), rail + detail layout
+ * (winner of the ?variant= prototype: the rail IS the morning scoreboard
+ * — one row per recipe with live status/count/top tickers — while the
+ * detail pane shows the selected recipe's full sortable table). On mount
+ * it fires `runAllRecipes` (one staggered preview_scan per catalog
+ * recipe) and re-arms a 15-minute refresh interval. The page owns the
+ * interval, the tracked-symbol set, and the selected recipe; the
+ * per-recipe lifecycle (stagger, failure isolation, auth taxonomy) lives
+ * in ScannerStore (#1198) and table rendering in
+ * ScannerRecipeTableComponent (#1197). Single-run picker/compare/
+ * proposal machinery stays in the store but is not surfaced here.
  */
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
-  ElementRef,
   inject,
   signal,
+  type OnDestroy,
   type OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { PREVIEW_SCAN_ROW_CAP } from '@robinhood-mcp/contracts';
-import type { CurationProposal } from '@st/scanner';
-import { ScannerStore } from '../../stores/scanner.store';
+import {
+  idleRun,
+  ScannerStore,
+  type RecipeRunState,
+} from '../../stores/scanner.store';
+import { SymbolListStore } from '../../stores/symbol-list.store';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
-import {
-  dedupeScanRows,
-  displayCell,
-  normScanSymbol,
-  numericColumn,
-  type ScanRow,
-} from '../../utils/scanner-rows.util';
-import {
-  ScannerComparePanelComponent,
-  type ComparePanelData,
-} from './scanner-compare-panel.component';
+import type { ScannerRecipe } from '../../scanner/scanner-recipes';
+import { normScanSymbol } from '../../utils/scanner-rows.util';
+import { baselineSortedRows } from '../../utils/scanner-sort.util';
+import { ScannerRecipeTableComponent } from './scanner-recipe-table.component';
+
+/** Auto-refresh cadence — the PRD's 15-minute cycle. */
+const SCAN_REFRESH_MS = 15 * 60 * 1000;
+
+/** One scoreboard row in the rail — everything the morning glance needs
+ *  without opening a table: the run (status drives the CSS dot class
+ *  directly), hit count, and the top-of-order tickers (same baseline
+ *  sort the detail table seeds). */
+interface RailEntry {
+  recipe: ScannerRecipe;
+  run: RecipeRunState;
+  count: string;
+  tickers: string;
+}
 
 @Component({
   selector: 'app-scanner',
@@ -49,187 +59,110 @@ import {
   imports: [
     CommonModule,
     MatButtonModule,
-    MatFormFieldModule,
     MatIconModule,
-    MatProgressSpinnerModule,
-    MatSelectModule,
-    ScannerComparePanelComponent,
+    ScannerRecipeTableComponent,
   ],
   templateUrl: './scanner.component.html',
   styleUrl: './scanner.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ScannerComponent implements OnInit {
+export class ScannerComponent implements OnInit, OnDestroy {
   protected readonly store = inject(ScannerStore);
+  private readonly symbolLists = inject(SymbolListStore);
   private readonly mcp = inject(RobinhoodMcpObservationService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly el = inject(ElementRef);
 
   protected readonly reauthing = signal(false);
-  /** Symbol the compare panel asked to highlight — set only when the
-   *  symbol exists in displayRows (a reopened proposal's symbols may
-   *  not be in the live table). Cleared when the compare changes — a
-   *  new run or recipe pick must not leave a stale highlight on a
-   *  coincidentally-matching row. */
-  protected readonly focusedSymbol = signal<string | null>(null);
 
-  constructor() {
-    effect(() => {
-      this.store.compare();
-      this.focusedSymbol.set(null);
-    });
-  }
-
-  ngOnInit(): void {
-    this.store.loadProposals();
-  }
-
-  /** Table columns — the active recipe's own column list (never hardcoded). */
-  protected readonly columns = computed(
-    () => this.store.activeRecipe()?.columns ?? [],
+  /** Tracked-universe membership for the table's badge column — the
+   *  list store keeps `string[]`; the table matches on a Set. */
+  protected readonly tracked = computed<ReadonlySet<string>>(
+    () => new Set(this.symbolLists.trackedSymbols()),
   );
 
-  /** Rows ordered by the recipe's client-side ScanSort (#1137: the wire
-   *  returns a Last-desc page; each recipe re-sorts within it). Missing
-   *  metric values sink to the bottom regardless of direction. */
-  protected readonly displayRows = computed<ScanRow[]>(() => {
-    const recipe = this.store.activeRecipe();
-    // Normalized-ticker first-wins dedupe — a duplicated wire ticker
-    // would hard-error `track row.symbol` (NG0955).
-    const rows = dedupeScanRows(this.store.rows());
-    const sort = recipe?.sort;
-    if (!recipe || !sort) return rows;
-    const dir = sort.direction === 'asc' ? 1 : -1;
-    const lookup = this.lookup();
-    rows.sort((a, b) => {
-      const av = numericColumn(a, sort.column, lookup);
-      const bv = numericColumn(b, sort.column, lookup);
-      if (av === null && bv === null) return a.symbol.localeCompare(b.symbol);
-      if (av === null) return 1;
-      if (bv === null) return -1;
-      return (av - bv) * dir || a.symbol.localeCompare(b.symbol);
-    });
-    return rows;
+  /** Normalized tracked set for the rail's shared sort resolver. */
+  private readonly trackedNorm = computed<ReadonlySet<string>>(
+    () => new Set(Array.from(this.tracked(), normScanSymbol)),
+  );
+
+  /** Rail selection — null falls through to the first catalog recipe so
+   *  the detail pane always has a target on first paint. */
+  protected readonly selectedId = signal<string | null>(null);
+
+  protected readonly currentId = computed(
+    () => this.selectedId() ?? this.store.recipes()[0]?.id ?? null,
+  );
+
+  /** Per-recipe scoreboard rows — catalog order, all recipes including
+   *  failures (a failed scan IS scoreboard state, not an absent row).
+   *  Count follows the stale-render policy: a retained result keeps
+   *  showing `N / M` through loading; error flags 'err' (the failure is
+   *  the state — last-known tickers still render alongside it). */
+  protected readonly railEntries = computed<RailEntry[]>(() =>
+    this.store.recipes().map((recipe) => {
+      // Same `?? idleRun()` fallback the store's own launchRecipe uses —
+      // a recipe id without a runs entry degrades to queued, not a crash.
+      const run = this.store.runs()[recipe.id] ?? idleRun();
+      const rows = baselineSortedRows(recipe, run.result, this.trackedNorm());
+      // Baseline sort is shared with the detail table (scanner-sort.util)
+      // — rail top tickers are exactly the table's seeded top rows.
+      let count: string;
+      if (run.status === 'error') count = 'err';
+      else if (run.result)
+        count = `${rows.length} / ${run.result.total_items}`;
+      else count = run.status === 'loading' ? '…' : '—';
+      return {
+        recipe,
+        run,
+        count,
+        tickers: rows
+          .slice(0, 4)
+          .map((r) => r.symbol)
+          .join(' · '),
+      };
+    }),
+  );
+
+  /** The entry the detail pane renders — the selected recipe. */
+  protected readonly selectedEntry = computed<RailEntry | null>(
+    () =>
+      this.railEntries().find((e) => e.recipe.id === this.currentId()) ??
+      null,
+  );
+
+
+
+  /** Max `ranAt` across recipe runs — the header's last-refresh readout. */
+  protected readonly lastRefresh = computed<Date | null>(() => {
+    let max: string | null = null;
+    for (const run of Object.values(this.store.runs())) {
+      if (run.ranAt !== null && (max === null || run.ranAt > max)) {
+        max = run.ranAt;
+      }
+    }
+    return max === null ? null : new Date(max);
   });
 
-  /** Status line — `matchedCount` is the wire's total_items under
-   *  truncation, so it stays truthful past the row cap. Prune runs
-   *  display coverage∪matched rows (they can outnumber the passers),
-   *  so "shown of matched" would print N > M — the label switches to
-   *  "rows · matched". */
-  protected readonly statusLine = computed<string | null>(() => {
-    const compare = this.store.compare();
-    if (!compare) return null;
-    const matched = this.store.matchedCount();
-    let line: string;
-    if (this.store.runKind() === 'eval') {
-      // Prune display rows are coverage∪matched — rows that returned
-      // data, NOT the evaluated universe (dead/chunk-failed symbols
-      // were evaluated but produce no row). "evaluated" would
-      // overcount; "shown of matched" would read N > M. "rows ·
-      // matched" states both numbers without implying a subset.
-      line = `${this.displayRows().length} rows`;
-      if (matched !== null) line += ` · ${matched} matched`;
-    } else {
-      line = `${this.displayRows().length} shown`;
-      if (matched !== null) line += ` of ${matched} matched`;
-    }
-    if (compare.truncated) {
-      // isScanTruncated fires on both the full cap page and the
-      // partial-page case (total_items > rows < cap) — the text
-      // covers both without claiming which.
-      line += ` — the ${PREVIEW_SCAN_ROW_CAP}-row page doesn't cover all matches; narrow the recipe for full coverage`;
-    }
-    return line;
-  });
+  /** The armed 15-min refresh interval — the page owns it (not the
+   *  root store): a remount re-arms it and `ngOnDestroy` stops
+   *  re-arming; an already-fired stagger wave still completes in the
+   *  root-scoped store after the page is gone. */
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
-  /** Busy label — the evaluating signal ticks once per settled /batch
-   *  group (binary progress, not per-chunk), so the text keeps it
-   *  honest with a spinner + coarse count. */
-  protected readonly progressLabel = computed(() => {
-    const ev = this.store.evaluating();
-    if (ev) {
-      return ev.total > 0
-        ? `Evaluating tracked symbols… ${ev.done}/${ev.total} chunks`
-        : 'Evaluating tracked symbols…';
-    }
-    return 'Running scan…';
-  });
-
-  /** The run's effective column lookup — response-derived echo over the
-   *  recipe's static map (falls back to the static map pre-run). */
-  private lookup(): ReadonlyMap<string, string> | undefined {
-    return this.store.columnLookup() ?? this.store.activeRecipe()?.columnLookup;
-  }
-
-  /** Cell text — shared `displayCell` (#1197): percentColumns rescale
-   *  to `N.N%`, blank/drift → '—'/String(). */
-  protected columnValue(row: ScanRow, displayName: string): string {
-    return displayCell(
-      row,
-      displayName,
-      this.lookup(),
-      this.store.activeRecipe()?.percentColumns,
+  ngOnInit(): void {
+    void this.symbolLists.loadTrackedSymbols();
+    this.store.runAllRecipes();
+    this.refreshTimer = setInterval(
+      () => this.store.runAllRecipes(),
+      SCAN_REFRESH_MS,
     );
   }
 
-  // ── #1141 — compare panel + proposal history ─────────────────────
-
-  /** Live compare → panel input (buckets + unevaluated + dropDetail). */
-  protected readonly livePanelData = computed<ComparePanelData | null>(() => {
-    const c = this.store.compare();
-    return c
-      ? { ...c.buckets, unevaluated: c.unevaluated, dropDetail: c.dropDetail }
-      : null;
-  });
-
-  /** Opened proposal → panel input — same shape, no unevaluated
-   *  (proposals don't persist it — contract note carried from #1139). */
-  protected readonly openedPanelData = computed<ComparePanelData | null>(() => {
-    const p = this.store.proposalOpen()?.proposal;
-    return p
-      ? {
-          addCandidates: p.addCandidates,
-          dropCandidates: p.dropCandidates,
-          deadSymbols: p.deadSymbols,
-          noDataSymbols: p.noDataSymbols,
-          dropDetail: p.dropDetail,
-        }
-      : null;
-  });
-
-  /** History row label — catalog title when the recipe still exists,
-   *  else the raw id (a retired recipe shouldn't blank the entry). */
-  protected recipeTitle(id: string): string {
-    return this.store.recipes().find((r) => r.id === id)?.title ?? id;
-  }
-
-  /** Proposal meta line — universe · matched · capped flag. */
-  protected proposalMeta(p: CurationProposal): string {
-    let meta = `universe ${p.universeSize} · ${p.matchedCount} matched`;
-    if (p.truncated) meta += ' · capped';
-    return meta;
-  }
-
-  /** Chip → row focus: highlight + scroll only when the symbol is in
-   *  the current table (live rows or stale last-good rows). */
-  protected onFocusSymbol(sym: string): void {
-    const target = normScanSymbol(sym);
-    const found = this.displayRows().find(
-      (r) => normScanSymbol(r.symbol) === target,
-    );
-    if (!found) return;
-    this.focusedSymbol.set(found.symbol);
-    // One macrotask — let the .focused class render before scrolling.
-    // The focusedSymbol guard drops the scroll if a new run superseded
-    // this click in between (the effect clears it on compare change).
-    setTimeout(() => {
-      if (this.focusedSymbol() !== found.symbol) return;
-      const tr = this.el.nativeElement.querySelector(
-        'tr.focused',
-      ) as HTMLElement | null;
-      tr?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    });
+  ngOnDestroy(): void {
+    if (this.refreshTimer !== null) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   }
 
   /** In-browser RH re-auth — same flow as signal-order's onReauth. */
@@ -241,13 +174,20 @@ export class ScannerComponent implements OnInit {
     try {
       const result = await this.mcp.reauthenticate();
       if (result.success) {
-        this.snackBar.open('Robinhood re-authenticated — retry the scan', 'Dismiss', {
-          duration: 4000,
-        });
+        this.snackBar.open(
+          'Robinhood re-authenticated — re-running the scans',
+          'Dismiss',
+          { duration: 4000 },
+        );
         this.store.clearError();
+        // authFailed clears per-recipe as each relaunch starts — a fresh
+        // wave both dismisses the banner and restores the failed tables.
+        this.store.runAllRecipes();
       } else {
         const detail = result.error ?? result.state ?? 'Authorization incomplete';
-        this.snackBar.open(`Re-auth failed: ${detail}`, 'Dismiss', { duration: 6000 });
+        this.snackBar.open(`Re-auth failed: ${detail}`, 'Dismiss', {
+          duration: 6000,
+        });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

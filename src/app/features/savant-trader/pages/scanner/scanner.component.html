@@ -1,48 +1,27 @@
-<!-- @topic #1098 — RH Scanner | @task #1140 -->
+<!-- @topic #1098 — RH Scanner | @task #1199 -->
 <div class="scanner-page">
   <div class="content-column">
     <header class="scanner-header">
-      <mat-form-field class="recipe-picker" appearance="outline" subscriptSizing="dynamic">
-        <mat-select
-          aria-label="Scan recipe"
-          [value]="store.activeRecipeId()"
-          (selectionChange)="store.selectRecipe($event.value)"
-        >
-          @for (r of store.recipes(); track r.id) {
-            <mat-option [value]="r.id">{{ r.title }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      @if (store.activeRecipe(); as recipe) {
-        <p class="recipe-blurb">{{ recipe.blurb }}</p>
+      <button
+        mat-flat-button
+        color="primary"
+        data-testid="run-all"
+        [disabled]="store.runsLoading()"
+        (click)="store.runAllRecipes()"
+      >
+        Run all
+      </button>
+      @if (lastRefresh(); as t) {
+        <span class="last-refresh">Last refresh {{ t | date: 'h:mm a' }}</span>
       }
-      <div class="actions">
-        <button
-          mat-flat-button
-          color="primary"
-          [disabled]="store.busy() || !store.activeRecipeId()"
-          (click)="store.runScan()"
-        >
-          Run
-        </button>
-        @if (store.canEvaluateTracked()) {
-          <button
-            mat-stroked-button
-            [disabled]="store.busy()"
-            (click)="store.evaluateTracked()"
-          >
-            Evaluate tracked
-          </button>
-        }
-      </div>
     </header>
 
-    @if (store.requiresReauth()) {
+    @if (store.authFailed() || store.requiresReauth()) {
       <div class="error-banner reauth-banner">
         <mat-icon>vpn_key</mat-icon>
         <span class="error-text">
           Robinhood session expired — re-authorize in the popup window, then
-          retry the scan.
+          run the scans again.
         </span>
         <button
           mat-flat-button
@@ -54,6 +33,9 @@
         </button>
       </div>
     } @else if (store.error(); as err) {
+      <!-- Nothing on this page writes store.error today (single-run/proposal
+           machinery is retained for a later surface) — kept as the dismiss
+           channel if that surface returns. -->
       <div class="error-banner">
         <mat-icon>error_outline</mat-icon>
         <span class="error-text">{{ err.message }}</span>
@@ -63,118 +45,57 @@
       </div>
     }
 
-    @if (store.busy()) {
-      <div class="progress-line" role="status">
-        <mat-spinner diameter="20"></mat-spinner>
-        <span>{{ progressLabel() }}</span>
-      </div>
-    }
-
-    @if (statusLine(); as status) {
-      <p class="status-line" [class.truncated]="store.compare()?.truncated">
-        {{ status }}
-      </p>
-    }
-
-    @if (displayRows().length > 0) {
-      <div class="table-scroll">
-        <table class="results-table">
-          <thead>
-            <tr>
-              <th scope="col">Symbol</th>
-              <th scope="col">Name</th>
-              <th scope="col">Tracked</th>
-              @for (c of columns(); track c.display_name) {
-                <th scope="col" class="num">{{ c.display_name }}</th>
-              }
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of displayRows(); track row.symbol) {
-              <tr
-                [attr.data-symbol]="row.symbol"
-                [class.focused]="row.symbol === focusedSymbol()"
-              >
-                <td class="symbol">{{ row.symbol }}</td>
-                <td class="name">{{ row.name || '—' }}</td>
-                <td>
-                  <span class="badge" [class.tracked]="row.tracked">
-                    {{ row.tracked ? 'tracked' : 'new' }}
-                  </span>
-                </td>
-                @for (c of columns(); track c.display_name) {
-                  <td class="num">{{ columnValue(row, c.display_name) }}</td>
-                }
-              </tr>
+    <main class="scanner-main">
+      <nav class="rail" aria-label="Scan scoreboard">
+        @for (e of railEntries(); track e.recipe.id) {
+          <button
+            type="button"
+            class="rail-item"
+            [class.selected]="e.recipe.id === currentId()"
+            [attr.aria-current]="e.recipe.id === currentId() || null"
+            [attr.data-recipe]="e.recipe.id"
+            (click)="selectedId.set(e.recipe.id)"
+          >
+            <span class="rail-top">
+              <span class="dot status-{{ e.run.status }}"></span>
+              <span class="rail-name">{{ e.recipe.title }}</span>
+              <span class="rail-count">{{ e.count }}</span>
+            </span>
+            @if (e.tickers) {
+              <span class="rail-tickers">{{ e.tickers }}</span>
             }
-          </tbody>
-        </table>
-      </div>
-    } @else if (store.compare() && !store.busy()) {
-      <div class="empty-state">
-        <mat-icon>search_off</mat-icon>
-        <p>No matching symbols.</p>
-        <p class="hint">
-          {{ store.runKind() === 'eval'
-            ? "Every tracked symbol was dead or failed to return rows in this window."
-            : "The recipe's filters matched nothing in this scan window." }}
-        </p>
-      </div>
-    }
-
-    @if (store.compare()) {
-      <app-scanner-compare-panel
-        [data]="livePanelData()"
-        (focusSymbol)="onFocusSymbol($event)"
-      />
-    }
-
-    <section class="history" aria-label="Proposal history">
-      @if (store.proposalOpen(); as open) {
-        <app-scanner-compare-panel
-          class="proposal-detail"
-          [data]="openedPanelData()"
-          [readOnly]="true"
-          [title]="recipeTitle(open.proposal.recipeId)"
-          [meta]="proposalMeta(open.proposal)"
-          (focusSymbol)="onFocusSymbol($event)"
-          (closed)="store.closeProposal()"
-        />
-      }
-      <h3 class="history-head">
-        Proposal history
-        @if (store.proposalsLoading()) {
-          <span class="hint">loading…</span>
+          </button>
         }
-      </h3>
-      @if (!store.proposalsLoading() && store.proposals().length === 0) {
-        <p class="history-empty">No saved proposals yet — run a scan.</p>
-      }
-      @for (p of store.proposals(); track p.id) {
-        <button
-          type="button"
-          class="history-row"
-          [class.active]="store.proposalOpen()?.id === p.id"
-          (click)="store.openProposal(p.id)"
-        >
-          <span class="when">{{ p.proposal.ranAt | date:'MMM d, h:mm a' }}</span>
-          <span class="which">{{ recipeTitle(p.proposal.recipeId) }}</span>
-          <span class="counts">
-            @if (p.proposal.addCandidates.length) {
-              <span class="badge count dir-long">+{{ p.proposal.addCandidates.length }}</span>
-            }
-            @if (p.proposal.dropCandidates.length) {
-              <span class="badge count dir-short">−{{ p.proposal.dropCandidates.length }}</span>
-            }
-            @if (p.proposal.deadSymbols.length) {
-              <span class="badge count dead">dead {{ p.proposal.deadSymbols.length }}</span>
-            }
-            @if (p.proposal.noDataSymbols.length) {
-              <span class="badge count muted">blank {{ p.proposal.noDataSymbols.length }}</span>
-            }
-          </span>
-        </button>
-      }
-    </section>
+      </nav>
+
+      <section class="detail">
+        @if (selectedEntry(); as sel) {
+          @if (sel.run.status === 'error') {
+            <!-- Table renders nothing for errors (silent-skip) — the
+                 rail flags it red and the detail names it rather than
+                 leaving a blank pane. -->
+            <div class="detail-error">
+              <strong>{{ sel.recipe.title }}</strong>
+              <span>Scan failed — the rest of the board is unaffected.</span>
+              <button
+                mat-button
+                color="primary"
+                data-testid="retry-selected"
+                (click)="store.refreshRecipe(sel.recipe.id)"
+              >
+                Retry
+              </button>
+            </div>
+          } @else {
+            <app-scanner-recipe-table
+              [recipe]="sel.recipe"
+              [run]="sel.run"
+              [tracked]="tracked()"
+              (refresh)="store.refreshRecipe(sel.recipe.id)"
+            />
+          }
+        }
+      </section>
+    </main>
   </div>
 </div>
