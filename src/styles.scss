@@ -11,8 +11,53 @@
 
 // Material 3 system variables are not emitted by the prebuilt indigo-pink theme,
 // but the app uses them extensively. Define them here so components can rely on them.
+// #1209 bridge — dark is the app default (the #1207 bootstrap writes
+// data-theme before first paint), so the un-attributed :root set is DARK
+// and the pre-#1209 light set moved under [data-theme="light"]. Neutral
+// grey ramp keyed to the ds-gallery demo dark set; accents keep the
+// indigo/pink/teal family. --mat-sys survives purely as the Material
+// bridge until #1163 removes it — legibility, not polish.
 :root {
   --app-header-height: 48px;
+  color-scheme: dark;
+  --mat-sys-primary: #a3b8ff;
+  --mat-sys-on-primary: #1a237e;
+  --mat-sys-primary-container: #39448b;
+  --mat-sys-on-primary-container: #dae1ff;
+  --mat-sys-secondary: #4db6ac;
+  --mat-sys-on-secondary: #00382f;
+  --mat-sys-secondary-container: #00524a;
+  --mat-sys-on-secondary-container: #a7e8dc;
+  --mat-sys-tertiary: #f48fb1;
+  --mat-sys-on-tertiary: #6b0f3d;
+  --mat-sys-tertiary-container: #9c1d5a;
+  --mat-sys-on-tertiary-container: #ffd1e1;
+  --mat-sys-error: #ef9a9a;
+  --mat-sys-on-error: #5c1210;
+  --mat-sys-error-container: #7e2222;
+  --mat-sys-on-error-container: #ffd7d7;
+  --mat-sys-surface: #131518;
+  --mat-sys-on-surface: #e2e4e8;
+  --mat-sys-on-surface-variant: #a8adb5;
+  --mat-sys-surface-container: #1c1f24;
+  --mat-sys-surface-container-high: #262a31;
+  --mat-sys-surface-container-highest: #31363e;
+  --mat-sys-outline: #84898f;
+  --mat-sys-outline-variant: #3c4149;
+  --mat-sys-surface-container-low: #17191d;
+  --mat-sys-success: #81c784;
+  --mat-sys-on-success: #0e3012;
+  --mat-sys-success-container: #2c4a2e;
+  --mat-sys-on-success-container: #c8e6c9;
+  --mat-sys-warning-container: #7a4a15;
+  --mat-sys-on-warning-container: #ffe0b2;
+}
+
+// Light theme — the exact pre-#1209 values, re-applied when the
+// bootstrap/ThemeService sets data-theme="light". Source order decides
+// (equal specificity with :root), so this block must follow it.
+[data-theme="light"] {
+  color-scheme: light;
   --mat-sys-primary: #3f51b5;
   --mat-sys-on-primary: #ffffff;
   --mat-sys-primary-container: #e8eaf6;
