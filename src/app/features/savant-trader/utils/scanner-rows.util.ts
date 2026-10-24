@@ -47,6 +47,20 @@ export function parseScanRows(result: PreviewScanResult): ScanRow[] {
   return rows;
 }
 
+/** Parse + first-wins-dedupe + lookup-merge for one run — the shared
+ *  row-pipeline prefix the recipe table and the page rail both consume,
+ *  so the two surfaces can't drift on dedupe or column resolution. */
+export function scanRunRows(
+  recipe: {
+    columns: readonly ScanColumn[];
+    columnLookup?: ReadonlyMap<string, string>;
+  },
+  result: PreviewScanResult | null,
+): { rows: ScanRow[]; lookup: ReadonlyMap<string, string> } {
+  const rows = result ? dedupeScanRows(parseScanRows(result)) : [];
+  return { rows, lookup: mergeLookup(recipe, result?.filters_applied, rows) };
+}
+
 /** Canonical scan-symbol key — trim + case-fold. THE shared membership
  *  policy: dedupe, tracked badges, compare buckets, and matchedCount
  *  must all key identically or a case-variant drifts them apart. */
@@ -68,7 +82,10 @@ export function dedupeScanRows(rows: readonly ScanRow[]): ScanRow[] {
 
 /** Displayed cell text for a display_name — percentColumns rescale to
  *  `N.N%`, blank/missing → '—', drifted non-strings render via String()
- *  rather than crashing the table. */
+ *  rather than crashing the table. Plain-numeric strings get
+ *  magnitude-aware formatting (sci-notation and long decimal tails come
+ *  through raw otherwise); already-formatted strings ('117.2%', '$1.2B',
+ *  'N/A') don't parse and pass through unchanged. */
 export function displayCell(
   row: ScanRow,
   displayName: string,
@@ -82,7 +99,57 @@ export function displayCell(
   const resolved = lookup ? canonicalColumnName(lookup, displayName) : displayName;
   const v: unknown = row.values[resolved] ?? row.values[displayName];
   if (v === undefined || v === null) return '—';
-  return typeof v !== 'string' ? String(v) : v.trim() === '' ? '—' : v;
+  const s = typeof v === 'string' ? v : String(v);
+  if (s.trim() === '') return '—';
+  const n = Number(s);
+  return Number.isFinite(n) ? formatNumericCell(n) : s;
+}
+
+/** Magnitude-aware formatting for a plain-numeric cell value —
+ *  scoreboard density, not accounting precision:
+ *  |n| ≥ 1e6 → '5.12T'/'80.29M'; ≥1000 → locale separators ('22,970',
+ *  '1,274.18'); ≥1 → integers verbatim, else 2 decimals ('35.33',
+ *  '-1.15'); <1 → 4 significant digits ('0.3112', '-0.005419'). */
+function formatNumericCell(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1e12) return `${round2(n / 1e12)}T`;
+  if (abs >= 1e9) return `${round2(n / 1e9)}B`;
+  if (abs >= 1e6) return `${round2(n / 1e6)}M`;
+  if (abs >= 1000)
+    return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  if (abs >= 1)
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  return Number(n.toPrecision(4)).toString();
+}
+
+/** toFixed(2) minus trailing zeros — '5.1T'/'5T' not '5.10T'/'5.00T'. */
+function round2(n: number): string {
+  return n.toFixed(2).replace(/\.?0+$/, '');
+}
+
+/** Compact `filters_applied` echo for the table header — the result's
+ *  own filter summary. Expression filters show their expression; enum
+ *  filters show `name predicate values` with the PREDICATE_ wire prefix
+ *  stripped. Wire-drift defensive: a malformed entry renders as nothing
+ *  rather than throwing inside a caller's computed. */
+export function appliedFilterSummary(
+  applied: ScanAppliedFilter[] | undefined,
+): string {
+  return (applied ?? [])
+    .map((f) => {
+      if (!f || typeof f !== 'object') return '';
+      if (typeof f.expression === 'string' && f.expression)
+        return f.expression;
+      const name = typeof f.filter_type === 'string' ? f.filter_type : '';
+      const pred =
+        typeof f.predicate === 'string'
+          ? f.predicate.replace(/^PREDICATE_/, '')
+          : '';
+      const vals = Array.isArray(f.values) ? f.values.join(', ') : '';
+      return `${name} ${pred} ${vals}`.trim();
+    })
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /**
@@ -159,6 +226,33 @@ export function mergeLookup(
     if (pick !== name) lookup.set(name, pick);
   }
   return lookup;
+}
+
+/** Raw sortable value for a row key — the fixed fields, the tracked
+ *  badge (1/0 so asc groups new symbols first), or a column cell resolved
+ *  through the lookup. Fixed dispatch is case-insensitive to match the
+ *  table's FIXED_KEYS extras suppression — a declared 'Symbol'/'TRACKED'
+ *  column sorts the fixed field it collides with, not a shadow wire key.
+ *  Shared by the recipe table's sort and the page's rail baseline sort so
+ *  both order rows identically. */
+export function scanSortCell(
+  row: ScanRow,
+  key: string,
+  lookup: ReadonlyMap<string, string>,
+  tracked: boolean,
+): unknown {
+  switch (key.toLowerCase()) {
+    case 'tracked':
+      return tracked ? '1' : '0';
+    case 'symbol':
+      return row.symbol;
+    case 'instrument_id':
+      return row.instrumentId;
+    case 'instrument_type':
+      return row.instrumentType;
+  }
+  const resolved = lookup.get(key) ?? key;
+  return row.values[resolved] ?? row.values[key] ?? '';
 }
 
 /** Stringified numeric column → number; '' / missing / unparseable → null. */

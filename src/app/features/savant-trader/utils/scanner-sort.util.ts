@@ -10,13 +10,44 @@
  * unparseable); blank or unparseable cells sink last in BOTH directions;
  * equal levels fall through to the next.
  */
-import type { ScanRow } from './scanner-rows.util';
+import type { PreviewScanResult } from '@robinhood-mcp/contracts';
+import type { ScanSort } from '@st/scanner';
+import {
+  normScanSymbol,
+  scanRunRows,
+  scanSortCell,
+  type ScanRow,
+} from './scanner-rows.util';
 
 export interface SortLevel {
   /** Column key — a fixed field ('tracked'|'symbol'|'instrument_id'|
    *  'instrument_type') or a column display name. */
   key: string;
   direction: 'asc' | 'desc';
+}
+
+/** The recipe's declared "best first" seed — the level the table's
+ *  sortLevels initializes with and the rail's top tickers sort by.
+ *  Shared so neither surface can drift on the seed's shape. */
+export function seedSortLevels(recipe: { sort?: ScanSort }): SortLevel[] {
+  return recipe.sort
+    ? [{ key: recipe.sort.column, direction: recipe.sort.direction }]
+    : [];
+}
+
+/** Rows in the catalog's baseline order — the parse→dedupe→lookup→
+ *  seed-sort composition the rail's top tickers and the table's seeded
+ *  order both run, so "rail top tickers === table seeded top rows" is
+ *  one function, not two hand-maintained copies. */
+export function baselineSortedRows(
+  recipe: Parameters<typeof scanRunRows>[0] & { sort?: ScanSort },
+  result: PreviewScanResult | null,
+  trackedNorm: ReadonlySet<string>,
+): ScanRow[] {
+  const { rows, lookup } = scanRunRows(recipe, result);
+  return sortRows(rows, seedSortLevels(recipe), (row, key) =>
+    scanSortCell(row, key, lookup, trackedNorm.has(normScanSymbol(row.symbol))),
+  );
 }
 
 /** Click-cycle: absent → asc → desc → removed. */
