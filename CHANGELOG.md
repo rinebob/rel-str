@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026-10-26]
+
+### Added
+- [Options Backtest] 1238-1275_SHARED-IMPL-BACKTEST: Selection Replay contract types — pick-doc coordinate/template, SA wire shapes, contract-list row union, run/list docs, callable + task payloads
+- [Options Backtest] 1238-1275_CONFIG-CONFIG-BACKTEST: `@options-replay/contracts` alias across root + functions tsconfig and jest mapper
+- [Options Backtest] 1238-1275_SHARED-IMPL-BACKTEST: contracts verify script — 18 credential-free checks through the real alias, registered in run-all + README index
+- [Options Backtest] 1238-1275_DOCS-BACKTEST: #1275 CODE-REVIEW (PASS, 2 convergence passes) + #1288 UAT (Complete; S1–S9 PASS) + Selection Replay PRD/IMPL/TEST/ADR thread docs + CONTEXT.md domain vocabulary
+
 ## [2026-10-25]
 
 ### Added

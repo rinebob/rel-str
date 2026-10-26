@@ -476,3 +476,33 @@ _Avoid_: scan history (one layer deep, not a history), cached scan (ambiguous), 
 
 The generic symbol-list chart viewer page at `trading/chart-view`, repurposed from the former chart-review page (`signals/charts`). Presents a list-source selector and symbol list in the left pane with three D/W/M Flex Charts in the detail pane. Decoupled from ST signal runs — any list source can feed the pane, and non-tracked symbols render via ephemeral RH OHLCV data.
 _Avoid_: chart review (the retired name), signal charts
+
+## Backtest Template
+
+A named, developer-curated strategy configuration registered as its own strategyId in the backtest strategy registry — e.g., "sell one 45DTE 20Δ put daily, hold to expiration" (`csp-45-20`). Several templates share one adapter implementation, differing only in default parameters (DTE band, target delta, validation tolerance). Distinct from a Parametric Spread Template (a spread-builder form configuration) — same word, different domain object.
+_Avoid_: preset, strategy variant
+
+## Selection Replay
+
+The run shape used by template-driven options backtests: for each trading day in the entry window (start date through the latest available data day), record the contract the template's rules would have opened — sourced from SA Pick Documents, not computed locally. There is no portfolio mark-to-market simulation; each selected contract's own Contract Series is its lifecycle history, and exits are modeled later at analysis time, not during the run.
+_Avoid_: simulation, paper-trade replay (the engine's live instance path)
+
+## Pick Document
+
+An SA-produced JSON document for one `{symbol, option type, target delta, expiration rule}` coordinate (e.g., `{QQQ, put, −0.15Δ, nearestDte:30}`) covering a date range — `days` maps every trading date to that day's pick (`contractId`, expiration, strike, actual delta, IV, mark, bid/ask, volume, open interest, underlying close) plus `pickCount`/`missCount` coverage stats. It is the per-day answer to "what contract does this rule pick" — the contract-selection primitive; single- or multi-leg positions are built by matching pick docs. **Direction-neutral**: a pick identifies the contract, never the order side — BTO/STO comes from the strategy consuming it. Carries a `gridVersion`.
+_Avoid_: pick list, selection file, chain snapshot
+
+## Contract List
+
+The persisted output of a Selection Replay: one row per entry date carrying the pick (contractId, strike, expiration, delta, IV, entry mark) or a `no-selection` marker for a day the Pick Document reports as a miss. Reviewable as a table; each row links to the contract's Contract Series. Distinct from Selected Positions (the Spread Time Series Viewer's session-working list).
+_Avoid_: trade list (no simulated trades exist yet), picks
+
+## Symbol IV Series
+
+A per-symbol daily implied-volatility time series produced by SA as part of its corpus ingest. Not consumed by Selection Replay (Pick Documents already carry per-day IV); available for later analysis surfaces.
+_Avoid_: IV index (implies an exchange product like VIX), realized vol
+
+## Result Set
+
+A saved performance-analysis output produced by applying a named exit rule (e.g., "limit exit at 50% of premium") to every contract in a Contract List, computed over each contract's Contract Series. Many Result Sets can share one Contract List; comparing them across exit parameters is the analysis goal. Deferred to the exit-analysis Thread — Phase 2 of the options-backtest work.
+_Avoid_: report (that's the rendered artifact), experiment
