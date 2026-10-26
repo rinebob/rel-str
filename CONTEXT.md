@@ -183,6 +183,11 @@ Summary indicators computed from the contract series: missing dates (gaps in the
 
 Days to expiration. Computed from the current date to the contract's expiration date. Displayed in the viewer header.
 
+## Plotted Set
+
+The session-scoped set of contracts whose Contract Series are rendered together on the `/options/chart` main pane — one mark-price line per contract plus the Underlying Overlay. Each entry is a `(openDate, contractId)` pair matching the Contract List row shape; the open date drives a span marker from open to expiration at the contract's strike, color-matched to its mark line. Contracts enter the Plotted Set from any feeder input (pasted pair list, catalog selection, future Contract List handoff) and can be removed individually. Multi-contract rendering normalizes every series onto a shared union-of-dates axis with null gaps. Restricted to a single underlying.
+_Avoid_: selected contracts (ambiguous with catalog selection state), comparison list
+
 ## Spread Time Series Viewer
 
 A dashboard page for requesting historical time series of multi-leg options spreads and plotting multiple spread price series simultaneously on a single chart with underlying price overlay. Supports two viewing modes: plain viewing mode for spreads constructed in the builder, and backtest plotting mode for positions output by strategy tests. Purpose is identifying price behavior patterns across spread types, expirations, and configurations relative to the underlying. Distinct from the Options Contract Viewer, which inspects a single contract.

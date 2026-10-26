@@ -2,6 +2,12 @@
 
 ## [2026-10-25]
 
+### Added
+- [Option Contract Time-Series Viewer] 1243-1262_SHARED-IMPL-OPTIONS: PlottedEntry — the (openDate, contractId) plotted-pair contract
+- [Option Contract Time-Series Viewer] 1243-1262_FE-IMPL-OPTIONS: Plotted-pair input parser + verification script
+- [Option Contract Time-Series Viewer] 1243-1262_FE-IMPL-OPTIONS: Plotted-set store feature
+- [Option Contract Time-Series Viewer] 1243-1262_DOCS-OPTIONS: Multi-symbol thread docs + review/UAT + Plotted Set term
+
 ### Changed
 - [Scanner Chart View] 1232-1255_FE-REFACTOR-CHART-REVIEW: chartIntervalKey and ChartRange moved to canonical homes — base-indicators/barrel bridge export, flex-chart.types range type, toolbar literal unions replaced
 - [Scanner Chart View] 1232-1255_FE-IMPL-CHART-REVIEW: chart toolbar state hoisted to page-scoped ChartToolbarStateService — SignalDetailComponent aliases service signals, showToolbar input suppresses in-template toolbar for the future merged toolbar
