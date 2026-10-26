@@ -29,6 +29,14 @@ export interface HistoricalOptionsContractV2Observation {
   rho?: string;
 }
 
+/** A (openDate, contractId) pair from a Contract List row or pasted input.
+ *  `openDate` is the position entry date used for the span marker and
+ *  clip-to-entry; `null` for bare IDs pasted without a date. */
+export interface PlottedEntry {
+  contractId: string;
+  openDate: string | null;
+}
+
 /** Response shape for partnerHistoricalOptionsContractV2 endpoint. */
 export interface PartnerHistoricalOptionsContractV2Response {
   ok: boolean;
