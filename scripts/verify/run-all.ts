@@ -369,6 +369,7 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsAdc: true,
   },
+  { name: 'options plotted-pairs parser', file: 'options-plotted-pairs-1262.ts' },
 ];
 
 function hasGhAuth(): boolean {
