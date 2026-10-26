@@ -39,10 +39,13 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
 import { NewSymbolsDialogService } from '../../services/new-symbols-dialog.service';
 import { SignalReviewFacade } from '../../stores/signal-review.facade';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
+import { ChartToolbarStateService } from '../../services/chart-toolbar-state.service';
 
 @Component({
   selector: 'app-chart-review',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Page-scoped toolbar state for SignalDetailComponent (#1232/#1255).
+  providers: [ChartToolbarStateService],
   imports: [
     MatButtonModule,
     MatDialogModule,

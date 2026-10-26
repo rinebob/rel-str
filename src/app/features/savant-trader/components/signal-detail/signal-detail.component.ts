@@ -29,9 +29,8 @@ import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { UiStateService, ChartLayout } from '../../../../core/services/ui-state.service';
-import type { FlexChartConfig, IndicatorConfig, IndicatorOption, PriceBar } from '../../../shared/components/flex-chart/flex-chart.types';
-import { ChartIntervalKey, StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
-import { ST_INDICATOR_OPTIONS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
+import type { FlexChartConfig, IndicatorConfig, PriceBar, ChartRange } from '../../../shared/components/flex-chart/flex-chart.types';
+import { ChartIntervalKey } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
 import {
   ST_TRIGGER_BANDS_DOTS_INDICATOR,
@@ -52,22 +51,13 @@ import {
   injectTriggerBandsData,
   convertTriggerBandsDotMarkers,
   bindTriggerBandsRequest,
+  chartIntervalKey,
 } from '../../utils/chart-indicators';
+import { ChartToolbarStateService } from '../../services/chart-toolbar-state.service';
 import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import type { IntervalData, SymbolIndicatorSeriesResponse } from '../../common/indicator.types';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
-
-/** Savant Trader indicator menu options: shared ST base (includes Trigger Bands
- *  bands since #932) + Savant Trader-specific HTF zone windows + the Trigger
- *  Bands dots — a separate opt-in entry so the pullback warning can be toggled
- *  independently of the bands. */
-const ST_EXTRA_INDICATOR_OPTIONS: IndicatorOption[] = [
-  ...ST_INDICATOR_OPTIONS,
-  ST_ZONE_WINDOW_WEEKLY_INDICATOR,
-  ST_ZONE_WINDOW_MONTHLY_INDICATOR,
-  ST_TRIGGER_BANDS_DOTS_INDICATOR,
-];
 
 /** Approximate trading-bar counts used by {@link SignalDetailComponent.rangeBarsFor}. */
 const TRADING_DAYS_PER_YEAR = 252;   /** ~252 trading sessions per calendar year. */
@@ -93,69 +83,11 @@ export class SignalDetailComponent {
   // Static constants and pure functions
   // ==========================================================================
 
-  /** Indicator IDs available per interval — all IDs reference the same option objects used in the menu.
-   *  StIndicator enum values equal the .id of their option object (id === type by convention).
-   */
-  private static readonly INDICATORS_BY_INTERVAL: Record<ChartIntervalKey, string[]> = {
-    [ChartIntervalKey.DAILY]: [
-      StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
-      ST_SIGNAL_DOTS_INDICATOR.id, ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id,
-      ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id,
-      ST_ZONE_WINDOW_WEEKLY_INDICATOR.id,
-      StIndicator.ST_STD_DEV_LINES,
-      ST_TRIGGER_BANDS_INDICATOR.id, ST_TRIGGER_BANDS_DOTS_INDICATOR.id,
-    ],
-    [ChartIntervalKey.WEEKLY]: [
-      StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
-      ST_SIGNAL_DOTS_INDICATOR.id, ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id,
-      ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id,
-      ST_ZONE_WINDOW_MONTHLY_INDICATOR.id,
-      ST_TRIGGER_BANDS_INDICATOR.id, ST_TRIGGER_BANDS_DOTS_INDICATOR.id,
-    ],
-    [ChartIntervalKey.MONTHLY]: [
-      StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
-    ],
-    // Never selectable here (the interval switch is BarsInterval D/W/M) —
-    // present only to keep the Record exhaustive.
-    [ChartIntervalKey.TWO_DAY]: [
-      StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
-    ],
-  };
-
-  /** Allowlisted ids that start UNCHECKED — enabling them triggers the opt-in
-   *  Trigger Bands callable request, so they must not fire on first paint.
-   *  Trigger Bands carries no monthly data (lean request is D/W only), which
-   *  is also why monthly excludes it above. */
-  private static readonly OPT_IN_INDICATOR_IDS = new Set<string>([
-    ST_TRIGGER_BANDS_INDICATOR.id,
-    ST_TRIGGER_BANDS_DOTS_INDICATOR.id,
-  ]);
-
-  /** Default-on selection for an interval: the allowlist minus opt-in ids. */
-  private static defaultSelection(key: ChartIntervalKey): Set<string> {
-    return new Set(
-      SignalDetailComponent.INDICATORS_BY_INTERVAL[key].filter(
-        (id) => !SignalDetailComponent.OPT_IN_INDICATOR_IDS.has(id),
-      ),
-    );
-  }
-
-  /** Maps a `BarsInterval` to its corresponding `ChartIntervalKey` enum value.
-   *  Used wherever the two enums must be bridged (config building, INDICATORS_BY_INTERVAL lookup).
-   */
-  private static intervalKey(interval: BarsInterval): ChartIntervalKey {
-    return interval === BarsInterval.WEEKLY
-      ? ChartIntervalKey.WEEKLY
-      : interval === BarsInterval.MONTHLY
-        ? ChartIntervalKey.MONTHLY
-        : ChartIntervalKey.DAILY;
-  }
-
   /** Pure function: converts a range preset to an approximate bar count for the given interval.
    *  'recent' returns fixed well-known bar counts; other presets multiply calendar units
    *  by the average bars-per-period for that interval.
    */
-  private static rangeBarsFor(interval: BarsInterval, range: string): number {
+  private static rangeBarsFor(interval: BarsInterval, range: ChartRange): number {
     const barsPerYear = interval === BarsInterval.WEEKLY ? WEEKS_PER_YEAR
       : interval === BarsInterval.MONTHLY ? MONTHS_PER_YEAR
       : TRADING_DAYS_PER_YEAR;
@@ -222,7 +154,7 @@ export class SignalDetailComponent {
       showZoomToolbar,
       enableScrollbar: true,
       visibleBars: rangeBars,
-      interval: SignalDetailComponent.intervalKey(interval),
+      interval: chartIntervalKey(interval),
       logScale,
     };
   }
@@ -239,6 +171,10 @@ export class SignalDetailComponent {
   readonly historyStore = inject(SymbolHistoryStore);
   /** @internal */
   readonly indicatorStore = inject(IndicatorSeriesStore);
+  /** Page-scoped toolbar state — hoisted (#1232/#1255) so the page-level
+   *  merged toolbar and this component's charts share one source. Provided
+   *  by the hosting page component. */
+  readonly toolbarState = inject(ChartToolbarStateService);
 
   // ==========================================================================
   // Enum re-exports, inputs, outputs
@@ -255,6 +191,10 @@ export class SignalDetailComponent {
   symbolIndex = input<number>(-1);
   /** Total number of symbols in the review queue. */
   symbolCount = input<number>(0);
+  /** When false, the in-template toolbar is suppressed — the host page renders
+   *  its own merged toolbar bound to the same `ChartToolbarStateService`
+   *  (chart-view, #1232/#1255). Charts are unaffected. */
+  showToolbar = input(true);
 
   /** Emits when the user toggles the active symbol's list membership. */
   toggleList = output<{ symbol: string; listKey: string }>();
@@ -270,30 +210,22 @@ export class SignalDetailComponent {
   /** True while `manualSymbol` is set — drives `@if (showChart())` in the template. */
   showChart = computed(() => !!this.manualSymbol());
 
-  /** Price-axis scale mode shared across all charts in this view.
-   *  Defaults to log — the shared chart default; the toolbar pill
-   *  toggles it for the session. */
-  logScale = signal<boolean>(true);
-
-  /** Whether the Syncfusion zoom/pan toolbar is visible on all charts in this view. */
-  showZoomToolbar = signal(false);
-
   /** Crosshair date shared across all three charts in triple layout for visual alignment. */
   crosshairDate = signal<Date | null>(null);
   /** Crosshair price shared across all three charts in triple layout for visual alignment. */
   crosshairPrice = signal<number | null>(null);
 
-  /** The interval currently rendered in single-chart mode. */
-  selectedInterval = signal<BarsInterval>(BarsInterval.DAILY);
-
-  /** Selected time-range preset controlling `visibleBars` on all charts. */
-  selectedRange = signal<'recent' | '6m' | '1y' | '5y' | 'all'>('recent');
-
-  /** The chart interval whose indicator menu badge is highlighted as 'active'.
-   *  In single mode this tracks `selectedInterval`; in triple mode it tracks
-   *  whichever chart the user last clicked.
-   */
-  activeChartInterval = signal<BarsInterval>(BarsInterval.DAILY);
+  // Toolbar view state lives in the page-scoped ChartToolbarStateService —
+  // aliased here so template bindings and local computeds stay unchanged.
+  readonly selectedInterval = this.toolbarState.selectedInterval;
+  readonly selectedRange = this.toolbarState.selectedRange;
+  readonly showZoomToolbar = this.toolbarState.showZoomToolbar;
+  readonly activeChartInterval = this.toolbarState.activeChartInterval;
+  readonly logScale = this.toolbarState.logScale;
+  private readonly selectedIdsByInterval = this.toolbarState.selectedIdsByInterval;
+  private readonly indicatorScope = this.toolbarState.indicatorScope;
+  readonly activeChartIndicatorOptions = this.toolbarState.activeChartIndicatorOptions;
+  readonly activeSelectedIndicatorIds = this.toolbarState.activeSelectedIndicatorIds;
 
   // ==========================================================================
   // Chart store data aliases
@@ -340,74 +272,13 @@ export class SignalDetailComponent {
    */
   chartConfig = computed<FlexChartConfig>(() => {
     const interval = this.selectedInterval();
-    const key = SignalDetailComponent.intervalKey(interval);
-
     const indicators = interval === BarsInterval.DAILY
       ? this.dailyIndicators()
       : interval === BarsInterval.WEEKLY
         ? this.weeklyIndicators()
         : this.monthlyIndicators();
-
-    return {
-      indicators,
-      showCrosshair: true,
-      showZoomToolbar: this.showZoomToolbar(),
-      enableScrollbar: true,
-      visibleBars: this.rangeBars(),
-      interval: key,
-      logScale: this.logScale(),
-    };
-  });
-
-  // ==========================================================================
-  // Indicator menu state
-  // ==========================================================================
-
-  /** Per-interval selected indicator ID sets.
-   *  Written atomically once per debounce window (see `onToggleIndicator`) so a single
-   *  signal write triggers one reactive propagation through the indicator computed chain.
-   */
-  private selectedIdsByInterval = signal<Record<ChartIntervalKey, Set<string>>>({
-    [ChartIntervalKey.DAILY]:   SignalDetailComponent.defaultSelection(ChartIntervalKey.DAILY),
-    [ChartIntervalKey.WEEKLY]:  SignalDetailComponent.defaultSelection(ChartIntervalKey.WEEKLY),
-    [ChartIntervalKey.MONTHLY]: SignalDetailComponent.defaultSelection(ChartIntervalKey.MONTHLY),
-    [ChartIntervalKey.TWO_DAY]: SignalDetailComponent.defaultSelection(ChartIntervalKey.TWO_DAY),
-  });
-
-  /** The interval keys currently in scope for indicator menu actions.
-   *  Triple layout: all three intervals.
-   *  Single layout: the active interval only.
-   */
-  private indicatorScope = computed<ChartIntervalKey[]>(() => {
-    if (this.uiStateService.chartLayout() === ChartLayout.TRIPLE) {
-      return [ChartIntervalKey.DAILY, ChartIntervalKey.WEEKLY, ChartIntervalKey.MONTHLY];
-    }
-    return [SignalDetailComponent.intervalKey(this.activeChartInterval())];
-  });
-
-  /** Indicator options visible in the menu — union of all in-scope intervals. */
-  activeChartIndicatorOptions = computed<IndicatorOption[]>(() => {
-    const allowed = new Set(this.indicatorScope().flatMap(
-      k => SignalDetailComponent.INDICATORS_BY_INTERVAL[k]
-    ));
-    return ST_EXTRA_INDICATOR_OPTIONS.filter(o => allowed.has(o.id));
-  });
-
-  /** Selected indicator IDs for the menu.
-   *  An indicator is checked only if it is on in ALL in-scope intervals that support it.
-   */
-  activeSelectedIndicatorIds = computed<Set<string>>(() => {
-    const scope = this.indicatorScope();
-    const current = this.selectedIdsByInterval();
-    return new Set(
-      ST_EXTRA_INDICATOR_OPTIONS
-        .filter(o => {
-          const supportingKeys = scope.filter(
-            k => SignalDetailComponent.INDICATORS_BY_INTERVAL[k].includes(o.id)
-          );
-          return supportingKeys.length > 0 && supportingKeys.every(k => current[k].has(o.id));
-        })
-        .map(o => o.id)
+    return SignalDetailComponent.tripleChartConfig(
+      interval, indicators, this.rangeBars(), this.showZoomToolbar(), this.logScale(),
     );
   });
 
@@ -581,44 +452,6 @@ export class SignalDetailComponent {
   // Public methods
   // ==========================================================================
 
-  /** Apply a batch of toggled indicator IDs from the debounce window atomically.
-   *  All IDs are applied in a single `selectedIdsByInterval.update()` call so Angular
-   *  emits exactly one change notification regardless of batch size.
-   *  In triple layout, each ID is toggled on every interval that supports it.
-   */
-  onToggleIndicator(optionIds: string[]): void {
-    const scope = this.indicatorScope();
-    this.selectedIdsByInterval.update(current => {
-      const updated = { ...current };
-      for (const optionId of optionIds) {
-        const keysToUpdate = scope.filter(
-          k => SignalDetailComponent.INDICATORS_BY_INTERVAL[k].includes(optionId)
-        );
-        for (const k of keysToUpdate) {
-          const next = new Set(updated[k]);
-          if (next.has(optionId)) next.delete(optionId); else next.add(optionId);
-          updated[k] = next;
-        }
-      }
-      return updated;
-    });
-  }
-
-  /** Sets which chart's interval is shown in the toolbar badge.
-   *  Called when the user clicks a chart cell in triple layout. */
-  setActiveChart(interval: BarsInterval): void {
-    this.activeChartInterval.set(interval);
-  }
-
-  /** Handles D/W/M interval button clicks from the toolbar.
-   *  Updates both `selectedInterval` (drives single-mode data) and
-   *  `activeChartInterval` (drives toolbar badge).
-   */
-  onIntervalChange(interval: BarsInterval): void {
-    this.selectedInterval.set(interval);
-    this.activeChartInterval.set(interval);
-  }
-
   /** Receives a crosshair date change from any chart and broadcasts it to all others
    *  via `crosshairDate` for synchronized hover lines in triple layout.
    */
@@ -631,10 +464,5 @@ export class SignalDetailComponent {
    */
   onCrosshairPriceChange(price: number | null): void {
     this.crosshairPrice.set(price);
-  }
-
-  /** Toggles price-axis between logarithmic and linear scale on all charts. */
-  onToggleLogScale(): void {
-    this.logScale.update(current => !current);
   }
 }

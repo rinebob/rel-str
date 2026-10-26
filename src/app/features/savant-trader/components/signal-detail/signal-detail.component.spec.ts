@@ -6,11 +6,12 @@ import { SignalDetailComponent } from './signal-detail.component';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { ChartToolbarComponent } from '../chart-toolbar/chart-toolbar.component';
 import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
-import type { FlexChartConfig } from '../../../shared/components/flex-chart/flex-chart.types';
+import type { FlexChartConfig, ChartRange } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ChartStore } from '../../stores/chart.store';
 import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { UiStateService, ChartLayout } from '../../../../core/services/ui-state.service';
+import { ChartToolbarStateService } from '../../services/chart-toolbar-state.service';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
 import { StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
@@ -64,7 +65,7 @@ class MockChartToolbarComponent {
   symbolIndex = input<number>(-1);
   symbolCount = input<number>(0);
   intervalChange = output<BarsInterval>();
-  rangeChange = output<'recent' | '6m' | '1y' | '5y' | 'all'>();
+  rangeChange = output<ChartRange>();
   zoomToggle = output<void>();
   layoutToggle = output<void>();
   fullscreenToggle = output<void>();
@@ -122,6 +123,7 @@ describe('SignalDetailComponent — log scale toggle', () => {
     await TestBed.configureTestingModule({
       imports: [SignalDetailComponent],
       providers: [
+        ChartToolbarStateService,
         { provide: ChartStore, useValue: mockChartStore },
         { provide: SymbolHistoryStore, useValue: mockHistoryStore },
         { provide: IndicatorSeriesStore, useValue: mockIndicatorStore },
@@ -235,6 +237,7 @@ const TB_RESPONSE: SymbolIndicatorSeriesResponse = {
 describe('SignalDetailComponent — Trigger Bands promotion (#932)', () => {
   let fixture: ComponentFixture<SignalDetailComponent>;
   let component: SignalDetailComponent;
+  let toolbarState: ChartToolbarStateService;
   let loadIfNeeded: jest.Mock;
 
   const mockChartStore = {
@@ -272,6 +275,7 @@ describe('SignalDetailComponent — Trigger Bands promotion (#932)', () => {
     await TestBed.configureTestingModule({
       imports: [SignalDetailComponent],
       providers: [
+        ChartToolbarStateService,
         { provide: ChartStore, useValue: mockChartStore },
         { provide: SymbolHistoryStore, useValue: { loadSignalHistory: jest.fn() } },
         { provide: IndicatorSeriesStore, useValue: mockIndicatorStore },
@@ -284,6 +288,7 @@ describe('SignalDetailComponent — Trigger Bands promotion (#932)', () => {
       })
       .compileComponents();
 
+    toolbarState = TestBed.inject(ChartToolbarStateService);
     fixture = TestBed.createComponent(SignalDetailComponent);
     component = fixture.componentRef.instance;
     fixture.componentRef.setInput('manualSymbol', 'QQQ');
@@ -314,7 +319,7 @@ describe('SignalDetailComponent — Trigger Bands promotion (#932)', () => {
   });
 
   it('fires the lean callable under its own filter args when the bands option is enabled', () => {
-    component.onToggleIndicator([ST_TRIGGER_BANDS_INDICATOR.id]);
+    toolbarState.applyIndicatorToggle([ST_TRIGGER_BANDS_INDICATOR.id]);
     fixture.detectChanges();
     expect(loadIfNeeded).toHaveBeenCalledWith(
       'QQQ',
@@ -326,7 +331,7 @@ describe('SignalDetailComponent — Trigger Bands promotion (#932)', () => {
   });
 
   it('injects band data onto daily and weekly configs; monthly carries no TB config', () => {
-    component.onToggleIndicator([ST_TRIGGER_BANDS_INDICATOR.id]);
+    toolbarState.applyIndicatorToggle([ST_TRIGGER_BANDS_INDICATOR.id]);
     fixture.detectChanges();
 
     const dailyTb = dailyConfig().indicators.find((i) => i.type === StIndicator.ST_TRIGGER_BANDS);
@@ -337,7 +342,7 @@ describe('SignalDetailComponent — Trigger Bands promotion (#932)', () => {
   });
 
   it('attaches dot markers only when the dots option is enabled — bands not required', () => {
-    component.onToggleIndicator([ST_TRIGGER_BANDS_DOTS_INDICATOR.id]);
+    toolbarState.applyIndicatorToggle([ST_TRIGGER_BANDS_DOTS_INDICATOR.id]);
     fixture.detectChanges();
 
     // Dots alone still fire the lean request (they ride the same response).
@@ -350,10 +355,98 @@ describe('SignalDetailComponent — Trigger Bands promotion (#932)', () => {
 
   it('hides both TB options when only monthly is in scope', () => {
     mockUiState.chartLayout.set(ChartLayout.SINGLE);
-    component.onIntervalChange(BarsInterval.MONTHLY);
+    toolbarState.setInterval(BarsInterval.MONTHLY);
     fixture.detectChanges();
     const optionIds = component.activeChartIndicatorOptions().map((o) => o.id);
     expect(optionIds).not.toContain(ST_TRIGGER_BANDS_INDICATOR.id);
     expect(optionIds).not.toContain(ST_TRIGGER_BANDS_DOTS_INDICATOR.id);
+  });
+});
+
+// =============================================================================
+// Hoisted toolbar state (#1232/#1255) — the merged page toolbar and the
+// detail component share the page-scoped ChartToolbarStateService; the
+// in-template toolbar is suppressible via the showToolbar input.
+// =============================================================================
+
+describe('SignalDetailComponent — hoisted toolbar state (#1255)', () => {
+  let fixture: ComponentFixture<SignalDetailComponent>;
+  let component: SignalDetailComponent;
+  let toolbarState: ChartToolbarStateService;
+
+  const mockChartStore = {
+    symbolDataVersion: signal('v1'),
+    dailyData: signal({ bars: [bar] }),
+    weeklyData: signal({ bars: [bar] }),
+    monthlyData: signal({ bars: [bar] }),
+    loading: signal(false),
+    error: signal(null),
+    clearCharts: jest.fn(),
+    loadCharts: jest.fn(),
+  };
+
+  const mockUiState = {
+    chartLayout: signal(ChartLayout.TRIPLE),
+    fullscreen: signal(false),
+    toggleChartLayout: jest.fn(),
+    toggleFullscreen: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    mockUiState.chartLayout.set(ChartLayout.TRIPLE);
+    await TestBed.configureTestingModule({
+      imports: [SignalDetailComponent],
+      providers: [
+        ChartToolbarStateService,
+        { provide: ChartStore, useValue: mockChartStore },
+        { provide: SymbolHistoryStore, useValue: { loadSignalHistory: jest.fn() } },
+        { provide: IndicatorSeriesStore, useValue: { responseFor: () => () => undefined, loadIfNeeded: jest.fn() } },
+        { provide: UiStateService, useValue: mockUiState },
+      ],
+    })
+      .overrideComponent(SignalDetailComponent, {
+        remove: { imports: [FlexChartComponent, ChartToolbarComponent, SymbolListActionsComponent] },
+        add: { imports: [MockFlexChartComponent, MockChartToolbarComponent, MockSymbolListActionsComponent] },
+      })
+      .compileComponents();
+
+    toolbarState = TestBed.inject(ChartToolbarStateService);
+    fixture = TestBed.createComponent(SignalDetailComponent);
+    component = fixture.componentRef.instance;
+    fixture.componentRef.setInput('manualSymbol', 'QQQ');
+    fixture.componentRef.setInput('listCatalog', []);
+    fixture.detectChanges();
+  });
+
+  it('renders its toolbar by default', () => {
+    expect(fixture.debugElement.query(By.directive(MockChartToolbarComponent))).not.toBeNull();
+  });
+
+  it('suppresses the in-template toolbar when showToolbar is false — charts still render', () => {
+    fixture.componentRef.setInput('showToolbar', false);
+    fixture.detectChanges();
+
+    expect(fixture.debugElement.query(By.directive(MockChartToolbarComponent))).toBeNull();
+    expect(fixture.debugElement.queryAll(By.directive(MockFlexChartComponent))).toHaveLength(3);
+  });
+
+  it('drives single-mode chart data from the shared service, not local state', () => {
+    mockUiState.chartLayout.set(ChartLayout.SINGLE);
+    toolbarState.setInterval(BarsInterval.WEEKLY);
+    fixture.detectChanges();
+
+    const configs = fixture.debugElement
+      .queryAll(By.directive(MockFlexChartComponent))
+      .map((el) => el.componentInstance.config());
+    // Single mode renders the active interval's chart — weekly dataset bound.
+    expect(component.activeChartData()).toBe(mockChartStore.weeklyData());
+    expect(configs).toHaveLength(1);
+  });
+
+  it('toolbar outputs mutate the shared service', () => {
+    const toolbar = fixture.debugElement.query(By.directive(MockChartToolbarComponent)).componentInstance as MockChartToolbarComponent;
+    toolbar.intervalChange.emit(BarsInterval.MONTHLY);
+    expect(toolbarState.selectedInterval()).toBe(BarsInterval.MONTHLY);
+    expect(toolbarState.activeChartInterval()).toBe(BarsInterval.MONTHLY);
   });
 });

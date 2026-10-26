@@ -1,5 +1,6 @@
 @if (showChart()) {
   <div class="signal-detail">
+    @if (showToolbar()) {
     <app-chart-toolbar
       [selectedInterval]="selectedInterval()"
       [selectedRange]="selectedRange()"
@@ -12,13 +13,13 @@
       [selectedIndicatorIds]="activeSelectedIndicatorIds()"
       [symbolIndex]="symbolIndex()"
       [symbolCount]="symbolCount()"
-      (intervalChange)="onIntervalChange($event)"
-      (rangeChange)="selectedRange.set($event)"
-      (zoomToggle)="showZoomToolbar.set(!showZoomToolbar())"
+      (intervalChange)="toolbarState.setInterval($event)"
+      (rangeChange)="toolbarState.setRange($event)"
+      (zoomToggle)="toolbarState.toggleZoomToolbar()"
       (layoutToggle)="uiStateService.toggleChartLayout()"
       (fullscreenToggle)="uiStateService.toggleFullscreen()"
-      (logScaleToggle)="onToggleLogScale()"
-      (indicatorToggle)="onToggleIndicator($event)"
+      (logScaleToggle)="toolbarState.toggleLogScale()"
+      (indicatorToggle)="toolbarState.applyIndicatorToggle($event)"
       (prevSymbol)="prevSymbol.emit()"
       (nextSymbol)="nextSymbol.emit()">
       <app-symbol-list-actions chartToolbarCenter
@@ -27,6 +28,7 @@
         (toggleList)="toggleList.emit($event)">
       </app-symbol-list-actions>
     </app-chart-toolbar>
+    }
 
     <!-- Chart Area -->
     <div class="chart-area">
@@ -39,7 +41,7 @@
         <!-- Triple chart layout: left (W top, M bottom) | right (D) -->
         <div class="triple-chart-grid">
           <div class="triple-left">
-            <div class="triple-chart-cell" [class.active-chart]="activeChartInterval() === BarsInterval.WEEKLY" (click)="setActiveChart(BarsInterval.WEEKLY)">
+            <div class="triple-chart-cell" [class.active-chart]="activeChartInterval() === BarsInterval.WEEKLY" (click)="toolbarState.setActiveChart(BarsInterval.WEEKLY)">
               <app-flex-chart
                 [chartData]="chartDataWeekly()"
                 [config]="chartConfigWeekly()"
@@ -50,7 +52,7 @@
                 height="100%">
               </app-flex-chart>
             </div>
-            <div class="triple-chart-cell" [class.active-chart]="activeChartInterval() === BarsInterval.MONTHLY" (click)="setActiveChart(BarsInterval.MONTHLY)">
+            <div class="triple-chart-cell" [class.active-chart]="activeChartInterval() === BarsInterval.MONTHLY" (click)="toolbarState.setActiveChart(BarsInterval.MONTHLY)">
               <app-flex-chart
                 [chartData]="chartDataMonthly()"
                 [config]="chartConfigMonthly()"
@@ -62,7 +64,7 @@
               </app-flex-chart>
             </div>
           </div>
-          <div class="triple-right" [class.active-chart]="activeChartInterval() === BarsInterval.DAILY" (click)="setActiveChart(BarsInterval.DAILY)">
+          <div class="triple-right" [class.active-chart]="activeChartInterval() === BarsInterval.DAILY" (click)="toolbarState.setActiveChart(BarsInterval.DAILY)">
             <app-flex-chart
               [chartData]="chartData()"
               [config]="chartConfigDaily()"
