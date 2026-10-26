@@ -26,6 +26,7 @@ module.exports = {
     '^@robinhood-mcp/utils$': '<rootDir>/shared/robinhood-mcp-utils.ts',
     '^@options-contract/contracts$': '<rootDir>/shared/options-contract-contracts.ts',
     '^@options/common$': '<rootDir>/shared/options-common.ts',
+    '^@options-replay/contracts$': '<rootDir>/shared/options-replay-contracts.ts',
     '^@common$': '<rootDir>/shared/common.ts',
     '^@options-strategy-engine/contracts$': '<rootDir>/shared/options-strategy-engine-contracts.ts',
     '^@options-strategy-engine/id$': '<rootDir>/shared/strategy-instance-id.ts',
