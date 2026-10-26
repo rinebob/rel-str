@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026-10-25]
+
+### Changed
+- [Scanner Chart View] 1232-1255_FE-REFACTOR-CHART-REVIEW: chartIntervalKey and ChartRange moved to canonical homes — base-indicators/barrel bridge export, flex-chart.types range type, toolbar literal unions replaced
+- [Scanner Chart View] 1232-1255_FE-IMPL-CHART-REVIEW: chart toolbar state hoisted to page-scoped ChartToolbarStateService — SignalDetailComponent aliases service signals, showToolbar input suppresses in-template toolbar for the future merged toolbar
+- [Scanner Chart View] 1232-1255_DOCS-CHART-REVIEW: topic PRD + FE/SHARED IMPL/TEST docs
+- [Scanner Chart View] 1232-1255_DOCS-CHART-REVIEW: #1255 CODE-REVIEW (PASS, convergence fixes folded) + #1269 UAT (Complete; identical-behavior user PASS) + CONTEXT.md terms
+
 ## [2026-10-23]
 
 ### Added

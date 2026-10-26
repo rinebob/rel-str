@@ -461,3 +461,13 @@ _Avoid_: diff, recommendation, plan
 
 A tracked-universe symbol the Robinhood scanner never returns even when explicitly scoped via `symbol ANY_OF` — delisted/acquired or unsupported. Surfaced in its own proposal bucket, separate from quality failures (verify before dropping).
 _Avoid_: invalid symbol, missing symbol
+
+## Scan Latest Run
+
+The most recent discovery-scan result for one Scan Recipe, persisted as a single doc per recipe (`st-scanner/latest-runs/items/{recipeId}`) and overwritten each time a discovery path completes. Carries the full matched row set plus run metadata (ranAt, matched count, truncation flag). Only discovery scans write it — a prune evaluation never replaces it. It is the read model for viewing scan output outside the Scanner page's session.
+_Avoid_: scan history (one layer deep, not a history), cached scan (ambiguous), proposal (that's the compare artifact)
+
+## Chart View
+
+The generic symbol-list chart viewer page at `trading/chart-view`, repurposed from the former chart-review page (`signals/charts`). Presents a list-source selector and symbol list in the left pane with three D/W/M Flex Charts in the detail pane. Decoupled from ST signal runs — any list source can feed the pane, and non-tracked symbols render via ephemeral RH OHLCV data.
+_Avoid_: chart review (the retired name), signal charts
