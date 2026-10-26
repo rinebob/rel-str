@@ -11,7 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { ChartLayout } from '../../../../core/services/ui-state.service';
-import { IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
+import { IndicatorOption, ChartRange } from '../../../shared/components/flex-chart/flex-chart.types';
 import { IndicatorMenuComponent } from '../indicator-menu/indicator-menu.component';
 import { LogScalePillComponent } from '../log-scale-pill/log-scale-pill.component';
 
@@ -30,7 +30,7 @@ export class ChartToolbarComponent {
   /** Currently selected chart interval (D/W/M). Controls which interval button appears active. */
   selectedInterval = input.required<BarsInterval>();
   /** Currently selected time-range preset. Controls which range button appears active. */
-  selectedRange = input.required<'recent' | '6m' | '1y' | '5y' | 'all'>();
+  selectedRange = input.required<ChartRange>();
   /** Whether the Syncfusion zoom/pan toolbar is currently visible. */
   showZoomToolbar = input.required<boolean>();
   /** Interval of the chart whose indicator menu badge is highlighted as active. */
@@ -54,7 +54,7 @@ export class ChartToolbarComponent {
   /** Emits the chosen interval when the user clicks a D/W/M button. */
   intervalChange = output<BarsInterval>();
   /** Emits the chosen range preset when the user clicks a range button. */
-  rangeChange = output<'recent' | '6m' | '1y' | '5y' | 'all'>();
+  rangeChange = output<ChartRange>();
   /** Emits when the user clicks the zoom/pan toolbar toggle button. */
   zoomToggle = output<void>();
   /** Emits when the user clicks the single/triple layout toggle button. */

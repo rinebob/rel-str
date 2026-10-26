@@ -7,6 +7,7 @@
  */
 import type { IndicatorConfig, IndicatorOption } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import { ChartIntervalKey, StIndicator } from '../../../../features/shared/components/flex-chart/flex-chart.types';
+import { BarsInterval } from '../../../../core/models/partner.types';
 import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../../features/shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
 import { ST_TRIGGER_BANDS_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trigger-bands.indicator';
@@ -16,6 +17,18 @@ import { ST_UPTICK_DOT_COLORS } from '@flex-chart/indicator-visuals';
 
 /** Single scatter/dot point used for signal dots, uptick dots, and HTF window markers. */
 export type ChartScatterPoint = { x: Date; y: number; color?: string; index?: number };
+
+/** Maps a `BarsInterval` to its corresponding `ChartIntervalKey` enum value —
+ *  used wherever the two enums must be bridged (config building, indicator
+ *  scope lookups). BarsInterval is D/W/M-only here; anything else falls
+ *  through to DAILY. */
+export function chartIntervalKey(interval: BarsInterval): ChartIntervalKey {
+  return interval === BarsInterval.WEEKLY
+    ? ChartIntervalKey.WEEKLY
+    : interval === BarsInterval.MONTHLY
+      ? ChartIntervalKey.MONTHLY
+      : ChartIntervalKey.DAILY;
+}
 
 // ---------------------------------------------------------------------------
 // Base configuration

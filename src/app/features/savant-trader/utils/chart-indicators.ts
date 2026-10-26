@@ -11,6 +11,7 @@ export type { ExtrasSignals } from './chart-indicators/extras-signals';
 export {
   buildBaseIndicators,
   buildConfigForId,
+  chartIntervalKey,
   addHtfZoneWindow,
   addSignalDots,
   addUptickDots,
