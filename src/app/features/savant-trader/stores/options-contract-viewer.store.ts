@@ -28,6 +28,13 @@ import {
   withCatalogMethods,
 } from './contract-catalog-feature';
 import {
+  PlottedContractsState,
+  initialPlottedState,
+  withPlottedComputed,
+  withAllDatesComputed,
+  withPlottedContracts,
+} from './plotted-contracts-feature';
+import {
   type ParsedObservation,
   parseObservations,
   paddedDateRange,
@@ -45,7 +52,7 @@ export type { ParsedObservation };
 // State
 // ---------------------------------------------------------------------------
 
-export interface OptionsContractViewerState extends ContractCatalogState {
+export interface OptionsContractViewerState extends ContractCatalogState, PlottedContractsState {
   occIdInput: string;
   loading: boolean;
   error: string | null;
@@ -72,6 +79,7 @@ export interface OptionsContractViewerState extends ContractCatalogState {
 
 const initialState: OptionsContractViewerState = {
   ...initialCatalogState,
+  ...initialPlottedState,
   occIdInput: '',
   loading: false,
   error: null,
@@ -154,6 +162,9 @@ export const OptionsContractViewerStore = signalStore(
         .map((b) => b.date!);
     }),
   })),
+
+  withPlottedComputed(),
+  withAllDatesComputed(),
 
   withCatalogMethods(),
 
@@ -350,4 +361,6 @@ export const OptionsContractViewerStore = signalStore(
     },
     };
   }),
+
+  withPlottedContracts(),
 );
