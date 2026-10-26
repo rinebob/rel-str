@@ -370,6 +370,11 @@ const scripts: VerifyScript[] = [
     needsAdc: true,
   },
   { name: 'options plotted-pairs parser', file: 'options-plotted-pairs-1262.ts' },
+  {
+    name: 'selection-replay contracts',
+    file: 'options-backtest-selection-replay-1275-contracts.ts',
+    needsAccount: false,
+  },
 ];
 
 function hasGhAuth(): boolean {

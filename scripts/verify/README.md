@@ -70,6 +70,7 @@ deliberately, on-demand.
 | #1209 — FE --mat-sys bridge | [design-system-mat-sys-bridge-1209.md](design-system-mat-sys-bridge-1209.md) | styles.scss real compile → dark --mat-sys-* set at :root (default) + exact pre-#1209 light literals under [data-theme=light] → emission order + color-scheme flips | `design-system-mat-sys-bridge-1209.ts` (no credentials) |
 | #1204 — SHARED theme token layer | [design-system-theme-tokens-1204.md](design-system-theme-tokens-1204.md) | `_tokens.scss` compile → full semantic vocabulary (surfaces/accent/direction/feedback) → :root light + [data-theme=dark] overrides → no color-mix → direction defaults → vendor parity in both consumer apps | `design-system-theme-tokens-1204.ts` (needs ../savant-ds checkout + npm install; ../av-proxy-api optional — SKIPPED when absent) |
 | #887 — FE updateEquityStopOrder primitive | (UAT doc: `docs/topics/219-portfolio/219-925-887-UAT-PORTFOLIO-portfolio-dashboard.md`) | real cancel→confirm-poll→place against a live stop; resolves wire questions (terminal order_id lookup, sync place state) | `portfolio-update-stop-887.ts <accountNumber> <orderId> <newStopPrice>` (needs local observation API on :3456 — `npm start`) |
+| #1275 — SHARED Selection Replay contracts | [options-backtest-selection-replay-1275-contracts.md](options-backtest-selection-replay-1275-contracts.md) | `@options-replay/contracts` alias resolution + pick-doc/row/run/list/payload fixture shapes | `options-backtest-selection-replay-1275-contracts.ts` (no credentials) |
 
 ## Run All
 
