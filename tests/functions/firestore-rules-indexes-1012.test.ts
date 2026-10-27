@@ -122,6 +122,16 @@ describe("firestore.rules — canonical st-* coverage (#1012)", () => {
     assert.match(block[0], /request\.auth\.uid == request\.resource\.data\.userId/);
   });
 
+  it("allows authed CRUD on st-scanner proposals + latest-runs anchors only (#1254)", () => {
+    const block = rules.match(/match \/st-scanner\/\{anchor\}\/items\/\{docId\} \{[\s\S]*?\n    \}/);
+    assert.ok(block, "no st-scanner block");
+    assert.match(block[0], /allow read: if request\.auth != null;/);
+    assert.match(
+      block[0],
+      /allow create, update, delete: if anchor in \['proposals', 'latest-runs'\] && request\.auth != null;/,
+    );
+  });
+
   it("keeps the portfolio get/list split on the renamed st-portfolio root", () => {
     const block = rules.match(/match \/st-portfolio\/\{anchor\} \{[\s\S]*?\n    \}/);
     assert.ok(block, "no st-portfolio block");

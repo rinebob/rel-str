@@ -14,8 +14,11 @@ import {
   isExpressionFilter,
   isScanTruncated,
   parseCurationProposal,
+  parseScanLatestRun,
   serializeCurationProposal,
+  serializeScanLatestRun,
   CurationProposal,
+  ScanLatestRun,
 } from './scanner-contracts';
 import type {
   PreviewScanResult,
@@ -184,6 +187,112 @@ describe('CurationProposal doc shape', () => {
     expect(() => parseCurationProposal({})).toThrow();
     expect(() =>
       parseCurationProposal({ ...serializeCurationProposal(proposal), universeSize: '925' }),
+    ).toThrow();
+  });
+});
+
+describe('ScanLatestRun doc shape (#1232/#1254)', () => {
+  const run: ScanLatestRun = {
+    recipeId: 'quality-large',
+    ranAt: '2026-10-26T14:00:00.000Z',
+    totalItems: 182,
+    truncated: false,
+    rows: [
+      {
+        ticker: 'XYZ',
+        instrument_id: 'abc-123',
+        instrument_type: 'EQUITY',
+        columns: { 'Return on equity': '0.02', Last: '42.10' },
+      },
+      {
+        ticker: 'ABC',
+        instrument_id: 'def-456',
+        instrument_type: 'ETF',
+        columns: {},
+      },
+    ],
+  };
+
+  it('serialize → parse round-trips every field', () => {
+    const wire = serializeScanLatestRun(run);
+    const parsed = parseScanLatestRun(
+      JSON.parse(JSON.stringify(wire)) as Record<string, unknown>,
+    );
+    expect(parsed).toEqual(run);
+  });
+
+  it('serialize output is plain Firestore-safe data (no undefined leaves)', () => {
+    const wire = serializeScanLatestRun(run);
+    // toStrictEqual (not toEqual) — catches undefined properties a JSON
+    // round-trip would silently drop.
+    expect(JSON.parse(JSON.stringify(wire))).toStrictEqual(wire);
+  });
+
+  it('a 200-row truncated run round-trips — parse has no size guard (TEST edge)', () => {
+    const full: ScanLatestRun = {
+      ...run,
+      truncated: true,
+      rows: Array.from({ length: 200 }, (_, i) => ({
+        ticker: `SYM${i}`,
+        instrument_id: `id-${i}`,
+        instrument_type: 'EQUITY',
+        columns: { Last: `${i}.00`, 'Return on equity': '0.02' },
+      })),
+    };
+    expect(parseScanLatestRun(serializeScanLatestRun(full))).toEqual(full);
+  });
+
+  it('empty rows round-trip — a zero-match scan is a valid latest run', () => {
+    const empty: ScanLatestRun = { ...run, totalItems: 0, rows: [] };
+    expect(parseScanLatestRun(serializeScanLatestRun(empty))).toEqual(empty);
+  });
+
+  it('parse tolerates extra fields (forward-compat)', () => {
+    const wire = { ...serializeScanLatestRun(run), futureField: { nested: 1 } };
+    expect(parseScanLatestRun(wire)).toEqual(run);
+  });
+
+  it('parse rejects missing/mistyped scalars', () => {
+    expect(() => parseScanLatestRun({})).toThrow();
+    expect(() =>
+      parseScanLatestRun({ ...serializeScanLatestRun(run), recipeId: 42 }),
+    ).toThrow();
+    expect(() =>
+      parseScanLatestRun({ ...serializeScanLatestRun(run), totalItems: '182' }),
+    ).toThrow();
+    expect(() =>
+      parseScanLatestRun({ ...serializeScanLatestRun(run), truncated: 'yes' }),
+    ).toThrow();
+    expect(() =>
+      parseScanLatestRun({ ...serializeScanLatestRun(run), ranAt: 172 }),
+    ).toThrow();
+  });
+
+  it('parse passes instrument_id/instrument_type through unchecked — documented asymmetry', () => {
+    // Per IMPL-SHARED: only ticker/columns are strict; the instrument_*
+    // fields are open-string wire fields that pass through like other
+    // consumers' posture (scanner-rows.util normalizes at read).
+    const wire = {
+      ...serializeScanLatestRun(run),
+      rows: [{ ticker: 'XYZ', columns: {} }],
+    };
+    const parsed = parseScanLatestRun(wire);
+    expect(parsed.rows[0].ticker).toBe('XYZ');
+    expect(parsed.rows[0].instrument_id).toBeUndefined();
+  });
+
+  it('parse rejects malformed rows', () => {
+    expect(() =>
+      parseScanLatestRun({ ...serializeScanLatestRun(run), rows: 'XYZ' }),
+    ).toThrow();
+    expect(() =>
+      parseScanLatestRun({ ...serializeScanLatestRun(run), rows: [{ columns: {} }] }),
+    ).toThrow();
+    expect(() =>
+      parseScanLatestRun({
+        ...serializeScanLatestRun(run),
+        rows: [{ ticker: 'XYZ', columns: { Last: 42 } }],
+      }),
     ).toThrow();
   });
 });

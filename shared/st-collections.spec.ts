@@ -17,6 +17,7 @@ import {
   ST_PORTFOLIO_ROOT,
   ST_POSITION_GROUPS_ROOT,
   ST_RUNS_ROOT,
+  ST_SCANNER_LATEST_RUNS_ANCHOR,
   ST_SCANNER_PROPOSALS_ANCHOR,
   ST_SCANNER_ROOT,
   ST_SIGNALS_ROOT,
@@ -31,6 +32,8 @@ import {
   stPaperTradingItemsPath,
   stPortfolioDocPath,
   stPortfolioItemsPath,
+  stScannerLatestRunDocPath,
+  stScannerLatestRunsPath,
   stScannerProposalDocPath,
   stScannerProposalsPath,
   stOptionsContractListDocId,
@@ -208,6 +211,22 @@ describe('st-scanner anchored paths', () => {
   it('stScannerProposalDocPath builds a doc path (even segments)', () => {
     expect(stScannerProposalDocPath('prop-1')).toBe('st-scanner/proposals/items/prop-1');
     expect(stScannerProposalDocPath('prop-1').split('/').length % 2).toBe(0);
+  });
+
+  it('exposes the latest-runs anchor (#1232/#1254)', () => {
+    expect(ST_SCANNER_LATEST_RUNS_ANCHOR).toBe('latest-runs');
+  });
+
+  it('stScannerLatestRunsPath builds the items collection path (odd segments)', () => {
+    expect(stScannerLatestRunsPath()).toBe('st-scanner/latest-runs/items');
+    expect(stScannerLatestRunsPath().split('/').length % 2).toBe(1);
+  });
+
+  it('stScannerLatestRunDocPath builds a recipeId doc path (even segments)', () => {
+    expect(stScannerLatestRunDocPath('quality-large')).toBe(
+      'st-scanner/latest-runs/items/quality-large',
+    );
+    expect(stScannerLatestRunDocPath('quality-large').split('/').length % 2).toBe(0);
   });
 });
 
