@@ -69,11 +69,11 @@ async function flush(): Promise<void> {
 }
 
 describe('plotted contracts feature', () => {
-  it('starts empty in position window, not multi-mode', () => {
+  it('starts empty in lifetime window, not multi-mode', () => {
     const { store } = setup();
     expect(store.plottedContracts()).toEqual({});
     expect(store.plottedLoadProgress()).toBeNull();
-    expect(store.displayWindow()).toBe('position');
+    expect(store.displayWindow()).toBe('lifetime');
     expect(store.hoveredContractId()).toBeNull();
     expect(store.isMultiMode()).toBe(false);
   });
@@ -159,6 +159,7 @@ describe('plotted contracts feature', () => {
     const { store } = setup(getHistorical);
     store.loadPlotted([entry(QQQ_PUT, '2026-06-15'), entry(QQQ_CALL)]);
     await flush();
+    store.setDisplayWindow('position');
 
     const rendered = store.renderedSeries();
     expect(rendered[QQQ_PUT].map((o) => o.date)).toEqual(['2026-06-15', '2026-06-20']);
@@ -235,5 +236,83 @@ describe('plotted contracts feature', () => {
     await flush();
 
     expect(store.allDates()).toEqual(['2026-06-01', '2026-06-10', '2026-06-19']);
+  });
+
+  it('allDates covers loading contracts — the chart emits their markers mid-fetch', async () => {
+    // Never flushed — the contract stays 'loading' but its marker endpoints
+    // (openDate + expiration) are already known.
+    const { store } = setup(jest.fn(() => of(contractResponse(QQQ_PUT, []))));
+    store.loadPlotted([entry(QQQ_PUT, '2026-06-01')]);
+
+    expect(store.plottedContracts()[QQQ_PUT].status).toBe('loading');
+    expect(store.allDates()).toEqual(['2026-06-01', '2026-06-19']);
+    await flush();
+  });
+
+  it('allDates contributes no marker endpoints for bare-ID contracts', async () => {
+    // Bare IDs emit no span marker — no openDate to anchor it — so only the
+    // rendered dates union.
+    const { store } = setup();
+    store.loadPlotted([entry(QQQ_PUT)]);
+    await flush();
+
+    expect(store.allDates()).toEqual(['2026-06-01', '2026-06-02']);
+  });
+
+  describe('chartFocusContractId', () => {
+    it('focusPlotted loads the contract into the single path and sets focus', async () => {
+      const { store } = setup();
+      store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+      await flush();
+
+      store.focusPlotted(QQQ_PUT);
+      await flush();
+
+      expect(store.chartFocusContractId()).toBe(QQQ_PUT);
+      expect(store.contractData()?.contractID).toBe(QQQ_PUT);
+      expect(store.plottedContracts()[QQQ_PUT].status).toBe('loaded');
+    });
+
+    it('a plain loadContract also becomes the focus', async () => {
+      const { store } = setup();
+      store.loadContract(QQQ_CALL);
+      await flush();
+
+      expect(store.chartFocusContractId()).toBe(QQQ_CALL);
+      expect(store.contractData()?.contractID).toBe(QQQ_CALL);
+    });
+
+    it('clearChartFocus returns the view to the plotted set', async () => {
+      const { store } = setup();
+      store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+      await flush();
+      store.focusPlotted(QQQ_PUT);
+      await flush();
+
+      store.clearChartFocus();
+      expect(store.chartFocusContractId()).toBeNull();
+    });
+
+    it('removePlotted clears focus when the focused contract is removed', async () => {
+      const { store } = setup();
+      store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+      await flush();
+      store.focusPlotted(QQQ_PUT);
+      await flush();
+
+      store.removePlotted(QQQ_PUT);
+      expect(store.chartFocusContractId()).toBeNull();
+    });
+
+    it('clearPlotted resets focus along with the set', async () => {
+      const { store } = setup();
+      store.loadPlotted([entry(QQQ_PUT)]);
+      await flush();
+      store.focusPlotted(QQQ_PUT);
+      await flush();
+
+      store.clearPlotted();
+      expect(store.chartFocusContractId()).toBeNull();
+    });
   });
 });

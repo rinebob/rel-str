@@ -9,6 +9,7 @@ import type {
   PlottedEntry,
 } from '@options-contract/contracts';
 import { type ParsedObservation, parseObservations } from '../utils/contract-observation.utils';
+import { unionLabels } from '../utils/chart-series.utils';
 
 export type DisplayWindow = 'position' | 'lifetime';
 export type PlottedStatus = 'loading' | 'loaded' | 'error';
@@ -27,13 +28,19 @@ export interface PlottedContractsState {
   plottedLoadProgress: { done: number; total: number } | null;
   displayWindow: DisplayWindow;
   hoveredContractId: string | null;
+  /** Chart view intent: the contract ID the chart should show instead of
+   *  the whole plotted set. Set by any contract load (chip drill-down and
+   *  the plain single-contract input take the same path); cleared by
+   *  clearChartFocus() to return to the set view. */
+  chartFocusContractId: string | null;
 }
 
 export const initialPlottedState: PlottedContractsState = {
   plottedContracts: {},
   plottedLoadProgress: null,
-  displayWindow: 'position',
+  displayWindow: 'lifetime',
   hoveredContractId: null,
+  chartFocusContractId: null,
 };
 
 const LOAD_CONCURRENCY = 6;
@@ -45,6 +52,7 @@ interface PlottedSignals {
   plottedLoadProgress: Signal<{ done: number; total: number } | null>;
   displayWindow: Signal<DisplayWindow>;
   hoveredContractId: Signal<string | null>;
+  chartFocusContractId: Signal<string | null>;
   renderedSeries: Signal<Record<string, ParsedObservation[]>>;
   contractLength: Signal<string | null>;
   loadContract(occId: string, length?: string | null): void;
@@ -95,17 +103,20 @@ export function withAllDatesComputed() {
       /** Sorted union of rendered dates plus marker endpoints (open date or
        *  first observation, and expiration) so the markers are never clipped. */
       allDates: computed((): string[] => {
-        const dates = new Set<string>();
-        for (const obs of Object.values(s.renderedSeries())) {
-          for (const o of obs) dates.add(o.date);
-        }
+        // Marker endpoints for every non-error contract with an entry date —
+        // loading entries already know their openDate/expiration, and the
+        // chart emits a span marker for them before the fetch lands. Bare-ID
+        // contracts emit no marker (no selection date to anchor it), and
+        // reversed spans (openDate > expiration) produce no marker either —
+        // both contribute no endpoints.
+        const rendered = Object.values(s.renderedSeries()).map((obs) => obs.map((o) => o.date));
+        const endpoints: string[] = [];
         for (const c of Object.values(s.plottedContracts())) {
-          if (c.status !== 'loaded') continue;
-          const markerStart = c.entry.openDate ?? c.data?.startDate;
-          if (markerStart) dates.add(markerStart);
-          dates.add(c.parsed.expiration);
+          if (c.status === 'error') continue;
+          if (!c.entry.openDate || c.entry.openDate > c.parsed.expiration) continue;
+          endpoints.push(c.entry.openDate, c.parsed.expiration);
         }
-        return [...dates].sort();
+        return unionLabels(...rendered, endpoints);
       }),
     };
   });
@@ -214,9 +225,11 @@ export function withPlottedContracts() {
         const next = { ...s.plottedContracts() };
         delete next[contractId];
         const hovered = s.hoveredContractId();
+        const focused = s.chartFocusContractId();
         patchState(store, {
           plottedContracts: next,
           hoveredContractId: hovered === contractId ? null : hovered,
+          chartFocusContractId: focused === contractId ? null : focused,
         });
       },
 
@@ -233,9 +246,16 @@ export function withPlottedContracts() {
       },
 
       /** Single-contract drill-down — pushes the contract through the existing
-       *  loadContract path so the lower panes get full data. */
+       *  loadContract path so the lower panes get full data. The focus flag
+       *  tells the page to render the focused contract instead of the set. */
       focusPlotted(contractId: string): void {
         s.loadContract(contractId, s.contractLength());
+        patchState(store, { chartFocusContractId: contractId });
+      },
+
+      /** Return to the plotted-set view (chips "back" affordance). */
+      clearChartFocus(): void {
+        patchState(store, { chartFocusContractId: null });
       },
     };
   });

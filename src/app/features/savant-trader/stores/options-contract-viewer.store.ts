@@ -185,7 +185,10 @@ export const OptionsContractViewerStore = signalStore(
         patchState(store, { error: 'Invalid OCC ID format', contractData: null, underlyingBars: [] });
         return;
       }
-      patchState(store, { loading: true, error: null, contractData: null, underlyingBars: [], currentSearchIndex: index });
+      // Any contract load becomes the chart's focus — chip drill-down and
+      // the plain single-contract input take the same "show this contract"
+      // path; clearChartFocus() returns the view to the plotted set.
+      patchState(store, { loading: true, error: null, contractData: null, underlyingBars: [], currentSearchIndex: index, chartFocusContractId: parsed.contractID });
       optionsContractService.getHistoricalOptionsContract$(parsed.symbol, parsed.contractID, length).subscribe({
         next: (data) => {
           patchState(store, { loading: false, contractData: data, occIdInput: occId });

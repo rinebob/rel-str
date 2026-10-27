@@ -20,6 +20,7 @@ import {
 
 import type { OHLCDatum } from '../../../shared/types/rs.interfaces';
 import type { Spread } from '@spread/contracts';
+import { MULTI_SERIES_PALETTE } from '../../utils/chart-series.utils';
 
 interface SpreadChartPoint {
   date: string;
@@ -31,10 +32,7 @@ interface UnderlyingPoint {
   close: number;
 }
 
-const COLORS = [
-  '#4285F4', '#EA4335', '#34A853', '#FBBC05', '#FF6D01',
-  '#46BDC6', '#9C27B0', '#F06292', '#3F51B5', '#00BCD4',
-];
+const COLORS = MULTI_SERIES_PALETTE;
 
 @Component({
   selector: 'app-spread-chart',

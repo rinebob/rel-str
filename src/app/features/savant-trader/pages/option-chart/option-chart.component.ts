@@ -25,7 +25,10 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
-import { OptionsContractChartComponent } from '../../components/options-contract-chart/options-contract-chart.component';
+import {
+  OptionsContractChartComponent,
+  type PlottedChartContract,
+} from '../../components/options-contract-chart/options-contract-chart.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { formatUtcDate } from '../../utils/utils';
 import {
@@ -36,6 +39,7 @@ import {
   type LengthGroup,
 } from '../../utils/contract-length.utils';
 import type { ContractCatalogEntry, LengthBucket } from '@options-contract/contracts';
+import { OptionType, type ParsedOccContractId } from '@options-contract/contracts';
 
 type SortField = 'type' | 'strike' | 'expiration' | 'contractLengthDays' | 'observationCount' | 'delta';
 interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
@@ -264,6 +268,80 @@ export class OptionChartComponent implements OnInit, OnDestroy {
         count,
       }));
   });
+
+  /** Short legend/chip label like "600C 2026-01-16". */
+  private plottedLabel(parsed: ParsedOccContractId | null, fallback = 'Mark'): string {
+    if (!parsed) return fallback;
+    const t = parsed.optionType === OptionType.CALL ? 'C' : 'P';
+    return `${parsed.strike}${t} ${parsed.expiration}`;
+  }
+
+  /** The chart shows the whole plotted set only when nothing is focused and
+   *  at least one non-error contract remains — the one predicate behind both
+   *  the series projection and the axis-label pick below. Loading contracts
+   *  count toward the set so the pane layout doesn't flicker mid-fetch. */
+  readonly showPlottedSet = computed(() =>
+    this.store.chartFocusContractId() == null &&
+    this.store.plottedList().some((c) => c.status !== 'error'),
+  );
+
+  /** Chart input — the plotted set, or the focused contract wrapped as a
+   *  1-element array for the single-contract view (chip drill-down and any
+   *  plain contract load set the store's focus flag). */
+  readonly plottedChartSeries = computed<PlottedChartContract[]>(() => {
+    if (this.showPlottedSet()) {
+      const rendered = this.store.renderedSeries();
+      return this.store.plottedList()
+        .filter((c) => c.status !== 'error')
+        .map((c) => ({
+          contractId: c.entry.contractId,
+          label: this.plottedLabel(c.parsed, c.entry.contractId),
+          strike: c.parsed.strike,
+          expiration: c.parsed.expiration,
+          openDate: c.entry.openDate,
+          points: rendered[c.entry.contractId] ?? [],
+        }));
+    }
+
+    const data = this.store.contractData();
+    if (!data) return [];
+    const parsed = this.store.parsedOccId();
+    // A focused contract keeps its plotted openDate so the span marker is
+    // identical between set view and drill-down.
+    const focusedId = this.store.chartFocusContractId();
+    const openDate = focusedId != null
+      ? (this.store.plottedContracts()[focusedId]?.entry.openDate ?? null)
+      : null;
+    // The display-window clip applies here too — a focused contract with an
+    // entry date clips the same way it does in the set.
+    const raw = this.store.observations();
+    const points = this.store.displayWindow() === 'position' && openDate
+      ? raw.filter((p) => p.date >= openDate)
+      : raw;
+    return [
+      {
+        contractId: parsed?.contractID ?? data.contractID,
+        label: this.plottedLabel(parsed, data.contractID),
+        strike: parsed?.strike ?? Number(data.strike),
+        expiration: parsed?.expiration ?? data.expiration,
+        openDate,
+        points,
+      },
+    ];
+  });
+
+  /** Whether any displayed contract has an entry date — gates the
+   *  Clip-to-entry button (the clip is a no-op without one). */
+  readonly hasEntryDates = computed(() =>
+    this.plottedChartSeries().some((c) => c.openDate != null),
+  );
+
+  /** Category axis — rendered dates only; the chart unions in the marker
+   *  endpoints itself. The set view uses the store's union across contracts,
+   *  the single/focused view uses the loaded contract's own dates. */
+  readonly chartAxisLabels = computed<string[]>(() =>
+    this.showPlottedSet() ? this.store.allDates() : this.store.xLabels(),
+  );
 
   /** Parse a YYYY-MM-DD expiration string into year/month/day parts. */
   private parseExpirationParts(exp: string): { yy: string; mm: string; dd: string } {

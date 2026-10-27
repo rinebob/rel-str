@@ -302,6 +302,16 @@
         >
           Full History
         </button>
+        @if (hasEntryDates()) {
+        <button
+          mat-stroked-button
+          class="header-btn"
+          (click)="store.setDisplayWindow(store.displayWindow() === 'position' ? 'lifetime' : 'position')"
+          matTooltip="Drop observations before each contract's entry date"
+        >
+          {{ store.displayWindow() === 'position' ? 'Full series' : 'Clip to entry' }}
+        </button>
+        }
 
         @if (catalogRows().length > 0) {
         <span class="header-sep">|</span>
@@ -401,10 +411,10 @@
       </div>
       }
 
-      @if (store.contractData() || store.underlyingBars().length > 0) {
+      @if (store.contractData() || store.underlyingBars().length > 0 || showPlottedSet()) {
       <app-options-contract-chart
-        [observations]="store.observations()"
-        [xLabels]="store.xLabels()"
+        [plottedSeries]="plottedChartSeries()"
+        [xLabels]="chartAxisLabels()"
         [underlyingBars]="store.underlyingBars()"
         [showUnderlying]="store.showUnderlying()"
         [showGreeks]="store.showGreeks()"
