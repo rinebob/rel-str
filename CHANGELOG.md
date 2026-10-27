@@ -23,6 +23,9 @@
 - [Scanner Chart View] 1232-1254_SHARED-IMPL-CHART-REVIEW: ScanLatestRun spec coverage — round-trip, drift rejection, 200-row truncated edge, forward-compat extras, path parity, rules allowlist pin
 - [Scanner Chart View] 1232-1254_SHARED-IMPL-CHART-REVIEW: latest-run verify script — 13 credential-free checks through real @st/scanner/@st/collections aliases, registered in run-all + README index
 - [Scanner Chart View] 1232-1254_DOCS-CHART-REVIEW: #1254 CODE-REVIEW (PASS, 2 convergent rounds) + #1290 UAT (Complete; S1–S5 PASS)
+- [Manual Order] 1177-1191_FE-IMPL-ORDER: Authenticated header "New Order" button — `newOrder` output on rs-header wired through CoreComponent → ManualOrderService.open() from any route
+- [Manual Order] 1177-1191_FE-IMPL-ORDER: Manual dialog STAGED-only re-resolve — symbol swaps in place (releaseTicket seed: created → discard, adopted → survives), same-symbol adoption keeps the option leg, stale-emit ghost guard + dual-key binding lookups
+- [Manual Order] 1177-1191_DOCS-ORDER: #1191 CODE-REVIEW (PASS, 3 convergent rounds) + #1230 UAT (Complete; S1–S9)
 
 ## [2026-10-25]
 
