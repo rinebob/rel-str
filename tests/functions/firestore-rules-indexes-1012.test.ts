@@ -71,6 +71,8 @@ describe("firestore.rules — canonical st-* coverage (#1012)", () => {
       "st-symbol-lists",
       "st-backtest-runs",
       "st-backtest-permutations",
+      "st-options-replay-runs",
+      "st-options-contract-lists",
     ];
     for (const root of expected) {
       assert.ok(hasMatch(`${root}/{`), `missing match block for /${root}/`);
@@ -87,6 +89,8 @@ describe("firestore.rules — canonical st-* coverage (#1012)", () => {
       /match \/st-signals\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
       /match \/st-paper-trading\/\{anchor\}\/items\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
       /match \/st-backtest-permutations\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
+      /match \/st-options-replay-runs\/\{runId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
+      /match \/st-options-contract-lists\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
     ];
     for (const pattern of readOnly) {
       assert.match(rules, pattern);
@@ -182,6 +186,11 @@ describe("firestore.indexes.json — canonical st-* coverage (#1012)", () => {
     assert.ok(
       hasIndex("st-backtest-permutations", ["runId", "completedAt:DESC"]),
       "missing st-backtest-permutations (runId,completedAt DESC)",
+    );
+    // selection-replay detail view: per-run contract lists by symbol (#1276).
+    assert.ok(
+      hasIndex("st-options-contract-lists", ["runId", "symbol"]),
+      "missing st-options-contract-lists (runId,symbol)",
     );
   });
 });

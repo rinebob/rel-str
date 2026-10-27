@@ -497,6 +497,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // st-options-replay-runs / st-options-contract-lists — Selection Replay
+    // (Topic #1238). Same policy as st-backtest-permutations: authed read,
+    // backend-only writes. No user-editable fields expected in v1 (run doc is
+    // cancelled via the callable, not a client write).
+    match /st-options-replay-runs/{runId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /st-options-contract-lists/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // st-paper-trading — renamed anchors (accounts/trades/stats/raw-quotes
     // items). All writes are server-side (ledger passes); FE is read-only,
     // including one level of nested subcollections for future kinds.

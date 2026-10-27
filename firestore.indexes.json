@@ -430,6 +430,15 @@
         { "fieldPath": "completedAt", "order": "DESCENDING" }
       ]
     }
+    ,
+    {
+      "collectionGroup": "st-options-contract-lists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "runId", "order": "ASCENDING" },
+        { "fieldPath": "symbol", "order": "ASCENDING" }
+      ]
+    }
   ],
   "fieldOverrides": [
     {
