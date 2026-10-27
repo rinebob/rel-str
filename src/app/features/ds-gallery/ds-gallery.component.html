@@ -29,6 +29,9 @@
           <input type="checkbox" [checked]="coverage()" (change)="coverage.set(!coverage())">
           Chrome
         </label>
+        <button type="button" class="accent-chip" [class.active]="appAccentPreview()"
+                title="Apply the current accent app-wide (writes --ds-accent/--mat-sys-primary on <html>) — clears when toggled off or when you leave /dev/ds"
+                (click)="toggleAppAccentPreview()">App</button>
       </div>
       <div class="dir-picker" role="group" aria-label="Up / long color">
         <span class="dir-label">Up</span>
@@ -41,6 +44,10 @@
           <input type="color" [value]="upCustom()"
                  (input)="upCustom.set($any($event.target).value); setUp('custom')">
         </label>
+        @if (upAdjacency().warn) {
+          <span class="adjacency-warn" role="status"
+                title="Accent hue is {{ upAdjacency().delta }}° from --ds-up — green-family accents can read as 'up' on direction badges. Check the Direction badges card.">⚠ adjacency</span>
+        }
       </div>
       <div class="dir-picker" role="group" aria-label="Down / short color">
         <span class="dir-label">Down</span>
@@ -85,6 +92,20 @@
       <button type="button" class="accent-chip" (click)="compareName.set(p.name); inspectColors()">Compare {{ p.name }}</button>
     }
     @if (storageError()) { <p role="status">{{ storageError() }}</p> }
+    <h2>Palette lock</h2>
+    <small>Final accent + up/down for token baking (#1211).</small>
+    <button type="button" class="accent-chip" (click)="lockPalette()">Lock current</button>
+    @if (lockedPalette(); as lock) {
+      <div class="palette-lock" role="status">
+        <span class="accent-dot" [style.background]="lock.accent"></span>accent {{ lock.accent }}<br>
+        <span class="accent-dot" [style.background]="lock.up"></span>up {{ lock.up }}<br>
+        <span class="accent-dot" [style.background]="lock.down"></span>down {{ lock.down }}<br>
+        {{ lock.dark ? 'dark' : 'light' }} mode · {{ lock.lockedAt | date:'yyyy-MM-dd HH:mm' }}
+      </div>
+      <button type="button" class="accent-chip" (click)="clearPaletteLock()">Clear lock</button>
+    } @else {
+      <p>No palette locked.</p>
+    }
   </aside>
   <div class="gallery-body">
     <details class="palette-inspector" (toggle)="inspectColors()">
@@ -222,6 +243,10 @@
                   <span class="pnl up">+12.4%</span>
                   <span class="pnl down">−8.1%</span>
                 </div>
+                <span class="demo-note">
+                  accent↔up Δhue {{ upAdjacency().delta }}° —
+                  {{ upAdjacency().warn ? 'inside adjacency band: verify LONG stays distinct from the accent' : 'clear of the adjacency band' }}
+                </span>
               }
 
               @case ('dense-table') {

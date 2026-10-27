@@ -15,6 +15,12 @@ describe('DsGalleryComponent', () => {
     fixture.detectChanges();
   });
 
+  afterEach(() => {
+    // App-preview specs set data-theme on <html> — never leak it to the
+    // next spec even when an assertion fails mid-test.
+    delete document.documentElement.dataset.theme;
+  });
+
   it('saves and restores palette choices and swatches through local storage', () => {
     component.setAccent('mint');
     component.setUp('neon');
@@ -134,14 +140,109 @@ describe('DsGalleryComponent', () => {
     expect(chip.classList.contains('active')).toBe(true);
   });
 
-  it('dark toggle flips [data-theme] on the host', () => {
+  it('dark toggle flips [data-theme] on the host — always explicit (dark|light)', () => {
+    // #1211 — the host never sits attributeless: 'light' must be emitted
+    // explicitly so the shipped [data-theme="light"] --mat-sys block and
+    // the host's own --ds-* light restate engage even while the app root
+    // carries data-theme="dark" (no app-state leak into the preview).
     const host: HTMLElement = fixture.nativeElement;
-    expect(host.getAttribute('data-theme')).toBeNull();
+    expect(host.getAttribute('data-theme')).toBe('light');
     component.toggleDark();
     fixture.detectChanges();
     expect(host.getAttribute('data-theme')).toBe('dark');
     component.toggleDark();
     fixture.detectChanges();
-    expect(host.getAttribute('data-theme')).toBeNull();
+    expect(host.getAttribute('data-theme')).toBe('light');
+  });
+
+  it('locks the selected palette and restores the lock after refresh', () => {
+    component.setAccent('mint');
+    component.setUp('neon');
+    component.setDown('coral');
+    component.dark.set(true);
+    fixture.detectChanges();
+    component.lockPalette();
+    const lock = component.lockedPalette()!;
+    expect(lock.accent).toBe('#00ff9d');
+    expect(lock.up).toBe('#00e676');
+    expect(lock.down).toBe('#ff7a5e');
+    expect(lock.dark).toBe(true);
+
+    const restored = TestBed.createComponent(DsGalleryComponent);
+    expect(restored.componentInstance.lockedPalette()).toEqual(lock);
+    restored.destroy();
+  });
+
+  it('clears the palette lock', () => {
+    component.lockPalette();
+    expect(component.lockedPalette()).not.toBeNull();
+    component.clearPaletteLock();
+    expect(component.lockedPalette()).toBeNull();
+    const restored = TestBed.createComponent(DsGalleryComponent);
+    expect(restored.componentInstance.lockedPalette()).toBeNull();
+    restored.destroy();
+  });
+
+  it('flags green-family accents adjacent to --ds-up (direction-badge check)', () => {
+    // Mint accent vs Neon up — both green-family, Δhue well under the band.
+    component.setAccent('mint');
+    component.setUp('neon');
+    fixture.detectChanges();
+    const adj = component.upAdjacency();
+    expect(adj.warn).toBe(true);
+    expect(adj.delta).toBeLessThan(50);
+
+    // Magenta is on the opposite side of the wheel — clear.
+    component.setAccent('magenta');
+    fixture.detectChanges();
+    expect(component.upAdjacency().warn).toBe(false);
+  });
+
+  it('computes circular hue distances', () => {
+    expect(DsGalleryComponent.hueOf('#00ff9d')).toBeCloseTo(157, 0);
+    expect(DsGalleryComponent.hueDistance('#ff0000', '#00ff00')).toBeCloseTo(120, 0);
+    // Wrap-around: 350° vs 10° is 20° apart, not 340°.
+    expect(DsGalleryComponent.hueDistance('#ff0040', '#ff4000')).toBeLessThan(60);
+  });
+
+  it('app-accent preview pushes --ds-accent onto <html> and cleans up', () => {
+    const el = document.documentElement;
+    el.dataset.theme = 'dark';
+    component.setAccent('cyan');
+    fixture.detectChanges();
+    component.toggleAppAccentPreview();
+    expect(component.appAccentPreview()).toBe(true);
+    expect(el.style.getPropertyValue('--ds-accent')).toBe('#22d3ee');
+    expect(el.style.getPropertyValue('--mat-sys-primary')).toBe('#22d3ee');
+    // data-theme is read, never written — only color custom properties.
+    expect(el.dataset.theme).toBe('dark');
+
+    component.toggleAppAccentPreview();
+    expect(component.appAccentPreview()).toBe(false);
+    expect(el.style.getPropertyValue('--ds-accent')).toBe('');
+    expect(el.style.getPropertyValue('--mat-sys-primary')).toBe('');
+    delete el.dataset.theme;
+  });
+
+  it('app-accent preview self-clears on destroy', () => {
+    const el = document.documentElement;
+    el.dataset.theme = 'dark';
+    component.setAccent('mint');
+    component.toggleAppAccentPreview();
+    expect(el.style.getPropertyValue('--ds-accent')).toBe('#00ff9d');
+    fixture.destroy();
+    expect(el.style.getPropertyValue('--ds-accent')).toBe('');
+  });
+
+  it('app-accent preview follows accent changes while on', () => {
+    const el = document.documentElement;
+    el.dataset.theme = 'dark';
+    component.setAccent('cyan');
+    component.toggleAppAccentPreview();
+    expect(el.style.getPropertyValue('--ds-accent')).toBe('#22d3ee');
+    component.setAccent('mint');
+    fixture.detectChanges();
+    expect(el.style.getPropertyValue('--ds-accent')).toBe('#00ff9d');
+    component.toggleAppAccentPreview();
   });
 });

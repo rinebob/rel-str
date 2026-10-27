@@ -10,12 +10,13 @@
   color: var(--mat-sys-on-surface);
 }
 
-// Dark demo palette — the app emits no dark --mat-sys-* theme (FE Phase 2
-// #1209 lands it), so the toggle re-declares the --mat-sys-* values the
-// demos read, scoped to this page. --ds-* values are NOT redeclared —
-// the shipped token layer's [data-theme="dark"] block applies directly.
-// Approximate M3 dark values for visual exercise only; when the real app
-// bridge lands, this block is replaced by it.
+// Dark demo palette — post-#1209 the app emits the same dark --mat-sys-*
+// bridge at :root, so under a dark app this block restates identical
+// values (harmless); it still earns its keep when the APP is light —
+// then it's the only dark --mat-sys-* source for the dark preview. The
+// full 31-key set mirrors src/styles.scss :root (relay pins parity).
+// --ds-* values are NOT redeclared — the shipped token layer's
+// [data-theme="dark"] block applies directly to this host.
 :host[data-theme='dark'] {
   // color-scheme flips UA defaults for the subtree — inherited text,
   // native control chrome, and placeholders all go dark-mode; explicit
@@ -24,25 +25,37 @@
   color: var(--mat-sys-on-surface);
   // Neutral grey ramp — deliberately hue-free; theme color lives in
   // accents (primary family) only, per #1161 direction.
+  --mat-sys-primary: #a3b8ff;
+  --mat-sys-on-primary: #1a237e;
+  --mat-sys-primary-container: #39448b;
+  --mat-sys-on-primary-container: #dae1ff;
+  --mat-sys-secondary: #4db6ac;
+  --mat-sys-on-secondary: #00382f;
+  --mat-sys-secondary-container: #00524a;
+  --mat-sys-on-secondary-container: #a7e8dc;
+  --mat-sys-tertiary: #f48fb1;
+  --mat-sys-on-tertiary: #6b0f3d;
+  --mat-sys-tertiary-container: #9c1d5a;
+  --mat-sys-on-tertiary-container: #ffd1e1;
+  --mat-sys-error: #ef9a9a;
+  --mat-sys-on-error: #5c1210;
+  --mat-sys-error-container: #7e2222;
+  --mat-sys-on-error-container: #ffd7d7;
   --mat-sys-surface: #131518;
   --mat-sys-on-surface: #e2e4e8;
   --mat-sys-on-surface-variant: #a8adb5;
-  --mat-sys-surface-container-low: #17191d;
   --mat-sys-surface-container: #1c1f24;
   --mat-sys-surface-container-high: #262a31;
   --mat-sys-surface-container-highest: #31363e;
   --mat-sys-outline: #84898f;
   --mat-sys-outline-variant: #3c4149;
-  --mat-sys-primary: #a3b8ff;
-  --mat-sys-on-primary: #1a237e;
-  --mat-sys-primary-container: #39448b;
-  --mat-sys-on-primary-container: #dae1ff;
-  --mat-sys-error: #ef9a9a;
-  --mat-sys-error-container: #7e2222;
-  --mat-sys-on-error-container: #ffd7d7;
+  --mat-sys-surface-container-low: #17191d;
   --mat-sys-success: #81c784;
+  --mat-sys-on-success: #0e3012;
   --mat-sys-success-container: #2c4a2e;
   --mat-sys-on-success-container: #c8e6c9;
+  --mat-sys-warning-container: #7a4a15;
+  --mat-sys-on-warning-container: #ffe0b2;
   // No --ds-* surface/color redeclares — the shipped token layer (#1204)
   // emits real dark values under [data-theme='dark']; this page previews
   // THOSE. (The accent-preview block below still overrides --ds-shadow-*,
@@ -69,6 +82,47 @@
   }
 }
 
+// Light preview restate (#1211) — the app emits dark --ds-* at :root, so
+// without this block a light preview under a dark app would inherit dark
+// tokens (the app-state leak the host-scoping AC forbids). Restates the
+// shipped light set verbatim from vendor/savant-ds/styles/_tokens.scss
+// :root — the relay pins parity so the two can't drift silently. The
+// --mat-sys half needs no restate: the global [data-theme="light"] block
+// in styles.scss already matches this host.
+:host[data-theme='light'] {
+  --ds-surface: #ffffff;
+  --ds-surface-raised: #f5f6f8;
+  --ds-surface-overlay: #eceef1;
+  --ds-surface-variant: #f5f6f8;
+  --ds-on-surface: #1a1d21;
+  --ds-on-surface-variant: #5b6470;
+  --ds-border-subtle: #d6dae1;
+  --ds-border-strong: #b9c0ca;
+  --ds-accent: #0891b2;
+  --ds-on-accent: #ffffff;
+  --ds-accent-container: #cffafe;
+  --ds-on-accent-container: #164e63;
+  --ds-accent-border: #0891b2;
+  --ds-accent-glow: rgba(8, 145, 178, 0.30);
+  --ds-up: #4caf50;
+  --ds-on-up-container: #1b5e20;
+  --ds-up-container: #c8e6c9;
+  --ds-down: #f44336;
+  --ds-on-down-container: #b71c1c;
+  --ds-down-container: #ffebee;
+  --ds-success: #4caf50;
+  --ds-on-success-container: #1b5e20;
+  --ds-success-container: #c8e6c9;
+  --ds-error: #f44336;
+  --ds-on-error-container: #b71c1c;
+  --ds-error-container: #ffebee;
+  --ds-warning: #fb8c00;
+  --ds-on-warning-container: #e65100;
+  --ds-warning-container: #fff3e0;
+  --ds-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --ds-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 // ── #1161 accent exploration — neutral ramps + swappable accent ──────
 // Surfaces stay hue-free grey; the theme is one accent var (--picker-accent,
 // bound on :host) whose derived colors compute live via color-mix — any hex
@@ -77,7 +131,9 @@
 
 // Dark accent — bright accent on near-black on-primary; container is a
 // deep tint of the accent over the neutral container, on-container a
-// light tint. Faint accent bloom rides the shadow tokens.
+// light tint. Faint accent bloom rides the shadow tokens. The --ds-accent
+// family binds too (#1211) — demos reading the shipped names preview the
+// picked accent, not just the --mat-sys bridge.
 :host[data-theme='dark']:not([data-accent='current']) {
   --mat-sys-primary: var(--picker-accent);
   --mat-sys-on-primary: #0a0f14;
@@ -89,22 +145,21 @@
   --mat-sys-tertiary: var(--picker-accent);
   --mat-sys-tertiary-container: var(--mat-sys-primary-container);
   --mat-sys-on-tertiary-container: var(--mat-sys-on-primary-container);
+  --ds-accent: var(--picker-accent);
+  --ds-on-accent: #0a0f14;
+  --ds-accent-container: color-mix(in srgb, var(--picker-accent) 22%, #14171c);
+  --ds-on-accent-container: color-mix(in srgb, var(--picker-accent) 80%, #ffffff);
+  --ds-accent-border: var(--picker-accent);
+  --ds-accent-glow: color-mix(in srgb, var(--picker-accent) 40%, transparent);
   --ds-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.6), 0 0 8px color-mix(in srgb, var(--picker-accent) 8%, transparent);
   --ds-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.7), 0 0 16px color-mix(in srgb, var(--picker-accent) 10%, transparent);
 }
 
-// Light accent — neutral light-grey ramp; primary darkened for AA on
-// white, containers pale tints of the accent.
-:host:not([data-theme='dark']):not([data-accent='current']) {
-  --mat-sys-surface: #fafbfc;
-  --mat-sys-on-surface: #16181b;
-  --mat-sys-on-surface-variant: #4a4f55;
-  --mat-sys-surface-container-low: #f0f2f4;
-  --mat-sys-surface-container: #e7eaed;
-  --mat-sys-surface-container-high: #dadde1;
-  --mat-sys-surface-container-highest: #ccd1d6;
-  --mat-sys-outline: #83898f;
-  --mat-sys-outline-variant: #c4c9ce;
+// Light accent — the neutral ramp comes from the shipped
+// [data-theme="light"] bridge (global, matches this host); only the
+// accent-derived colors re-derive here. Primary darkened for AA on
+// white, containers pale tints. --ds-accent binds too (#1211).
+:host[data-theme='light']:not([data-accent='current']) {
   --mat-sys-primary: color-mix(in srgb, var(--picker-accent) 55%, #001018);
   --mat-sys-on-primary: #ffffff;
   --mat-sys-primary-container: color-mix(in srgb, var(--picker-accent) 18%, #eef1f3);
@@ -112,6 +167,12 @@
   --mat-sys-secondary: color-mix(in srgb, var(--picker-accent) 45%, #4a4f55);
   --mat-sys-secondary-container: color-mix(in srgb, var(--picker-accent) 10%, #e7eaed);
   --mat-sys-on-secondary-container: color-mix(in srgb, var(--picker-accent) 45%, #16181b);
+  --ds-accent: color-mix(in srgb, var(--picker-accent) 55%, #001018);
+  --ds-on-accent: #ffffff;
+  --ds-accent-container: color-mix(in srgb, var(--picker-accent) 18%, #eef1f3);
+  --ds-on-accent-container: color-mix(in srgb, var(--picker-accent) 45%, #0a1216);
+  --ds-accent-border: color-mix(in srgb, var(--picker-accent) 55%, #001018);
+  --ds-accent-glow: color-mix(in srgb, var(--picker-accent) 30%, transparent);
 }
 
 :host[data-accent] {
@@ -125,7 +186,7 @@
   --mat-sys-on-error-container: var(--ds-down);
 }
 
-:host[data-accent]:not([data-theme='dark']) {
+:host[data-accent][data-theme='light'] {
   --mat-sys-on-success-container: color-mix(in srgb, var(--ds-up) 40%, #16181b);
   --mat-sys-on-error-container: color-mix(in srgb, var(--ds-down) 40%, #16181b);
 }
@@ -280,6 +341,16 @@
   cursor: pointer;
 }
 
+// #1211 — accent↔up adjacency flag (hue within 50° of --ds-up).
+.adjacency-warn {
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-warning, #fb8c00);
+  border: 1px solid currentColor;
+  border-radius: var(--ds-radius-sm);
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
 .gallery {
   @include ds.page-shell;
 }
@@ -337,6 +408,23 @@
   p {
     font-size: var(--ds-font-size-sm);
     color: var(--mat-sys-on-surface-variant);
+  }
+
+  .palette-lock {
+    font-size: var(--ds-font-size-sm);
+    font-family: monospace;
+    color: var(--mat-sys-on-surface);
+    border: 1px solid var(--mat-sys-primary);
+    border-radius: var(--ds-radius-sm);
+    padding: var(--ds-space-2);
+  }
+
+  .accent-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
   }
 }
 

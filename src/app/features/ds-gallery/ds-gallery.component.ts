@@ -9,20 +9,22 @@
  *
  * Demos are styled by the package itself — `ds.*` mixins via
  * `@use 'index' as ds` (the vendored includePaths), never copied
- * declarations. The dark toggle sets `data-theme="dark"` on the
- * gallery root — the same attribute the token layer's dark overrides
- * scope to.
+ * declarations. The host always emits an explicit `data-theme` —
+ * `dark` or `light`, never attributeless — so a light preview under a
+ * dark app can't inherit the app's dark tokens (#1211).
  */
 import {
   Component,
   ChangeDetectionStrategy,
   computed,
   CUSTOM_ELEMENTS_SCHEMA,
+  effect,
   ElementRef,
   inject,
+  OnDestroy,
   signal,
 } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 /** Demo body rendered inside a card — the template @switches on this. */
@@ -253,6 +255,27 @@ interface SavedPalette {
   colors: Record<string, string>;
 }
 
+/** #1211 palette lock — the final accent + direction hexes picked on the
+ *  page, persisted so the choice survives refresh and can be handed to
+ *  SHARED token baking (recorded on the issue/UAT). */
+interface PaletteLock {
+  accent: string;
+  up: string;
+  down: string;
+  dark: boolean;
+  lockedAt: string;
+}
+
+const STORAGE_ERR_MSG = 'Browser storage is unavailable. Changes remain in this page session.';
+
+/** Shipped accent (#1204 provisional values) — 'current' resolves to these
+ *  per preview mode so the adjacency check measures the real accent. */
+const SHIPPED_ACCENT = { light: '#0891b2', dark: '#22d3ee' } as const;
+
+/** Hue delta (degrees) below which an accent reads adjacent to --ds-up —
+ *  the direction-badge ambiguity band. 50° covers green↔teal pairs. */
+const UP_ADJACENCY_DEG = 50;
+
 const PALETTE_TOKENS = [
   ...COLOR_TOKENS,
   ...['primary', 'on-primary', 'primary-container', 'on-primary-container',
@@ -269,11 +292,11 @@ const PALETTE_TOKENS = [
 @Component({
   selector: 'app-ds-gallery',
   standalone: true,
-  imports: [MatIconModule, NgTemplateOutlet],
+  imports: [MatIconModule, NgTemplateOutlet, DatePipe],
   templateUrl: './ds-gallery.component.html',
   styleUrl: './ds-gallery.component.scss',
   host: {
-    '[attr.data-theme]': 'isDark() ? "dark" : null',
+    '[attr.data-theme]': 'isDark() ? "dark" : "light"',
     '[attr.data-accent]': 'accent()',
     '[attr.data-coverage]': 'coverage() ? "" : null',
     '[style.--picker-accent]': 'pickerAccent()',
@@ -286,8 +309,16 @@ const PALETTE_TOKENS = [
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DsGalleryComponent {
+export class DsGalleryComponent implements OnDestroy {
   private readonly host = inject(ElementRef<HTMLElement>);
+
+  constructor() {
+    // App-wide preview tracks the current accent live — switching presets
+    // or the custom picker re-derives and re-pushes without a re-toggle.
+    effect(() => {
+      if (this.appAccentPreview()) this.applyAppAccent();
+    });
+  }
 
   readonly entries = ENTRIES;
   readonly widgetEntries = WIDGET_ENTRIES;
@@ -328,6 +359,7 @@ export class DsGalleryComponent {
   readonly coverage = signal(false);
   readonly savedAccents = signal<string[]>(this.readSaved<string[]>('ds-gallery.swatches', []));
   readonly savedPalettes = signal<SavedPalette[]>(this.readSaved<SavedPalette[]>('ds-gallery.palettes', []));
+  readonly lockedPalette = signal<PaletteLock | null>(this.readSaved<PaletteLock | null>('ds-gallery.palette-lock', null));
   readonly paletteName = signal('');
   readonly compareName = signal('');
   readonly inspectedColors = signal<Record<string, string>>({});
@@ -349,7 +381,7 @@ export class DsGalleryComponent {
       localStorage.setItem(key, JSON.stringify(value));
       this.storageError.set('');
     } catch {
-      this.storageError.set('Browser storage is unavailable. Changes remain in this page session.');
+      this.storageError.set(STORAGE_ERR_MSG);
     }
   }
 
@@ -436,6 +468,129 @@ export class DsGalleryComponent {
     this.downAccent.set(a);
     const p = DOWN_ACCENTS.find((x) => x.id === a);
     if (p) this.downCustom.set(p.hex);
+  }
+
+  // ── Palette lock (#1211) — record the final accent + up/down choice ──
+  lockPalette(): void {
+    const lock: PaletteLock = {
+      accent: this.effectiveAccentHex(),
+      up: this.upHex()!,
+      down: this.downHex()!,
+      dark: this.dark(),
+      lockedAt: new Date().toISOString(),
+    };
+    this.lockedPalette.set(lock);
+    this.persist('ds-gallery.palette-lock', lock);
+  }
+
+  clearPaletteLock(): void {
+    this.lockedPalette.set(null);
+    try {
+      localStorage.removeItem('ds-gallery.palette-lock');
+    } catch {
+      this.storageError.set(STORAGE_ERR_MSG);
+    }
+  }
+
+  // ── Up↔accent adjacency (#1211) — green-family accents must stay
+  //    visually distinct from --ds-up on the direction-badge demo. ──
+  /** The accent actually in effect — 'current' resolves to the shipped
+   *  --ds-accent for the active preview mode. */
+  readonly effectiveAccentHex = computed(() =>
+    this.pickerAccent() ?? (this.isDark() ? SHIPPED_ACCENT.dark : SHIPPED_ACCENT.light));
+
+  /** Circular hue distance (degrees) between the active accent and
+   *  --ds-up; warn when inside the adjacency band. */
+  readonly upAdjacency = computed(() => {
+    const delta = DsGalleryComponent.hueDistance(this.effectiveAccentHex(), this.upHex()!);
+    return { delta: Math.round(delta), warn: delta < UP_ADJACENCY_DEG };
+  });
+
+  /** #rrggbb → hue in degrees [0,360). */
+  static hueOf(hex: string): number {
+    const n = parseInt(hex.slice(1), 16);
+    const r = ((n >> 16) & 0xff) / 255, g = ((n >> 8) & 0xff) / 255, b = (n & 0xff) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d === 0) return 0;
+    let h: number;
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    return (h * 60 + 360) % 360;
+  }
+
+  /** Smallest distance between two hues on the color wheel (0–180°). */
+  static hueDistance(aHex: string, bHex: string): number {
+    const d = Math.abs(DsGalleryComponent.hueOf(aHex) - DsGalleryComponent.hueOf(bHex)) % 360;
+    return d > 180 ? 360 - d : d;
+  }
+
+  // ── App-wide accent preview (#1211) — the ONE deliberate exception to
+  //    host scoping: pushes the derived accent family onto <html> as
+  //    inline custom properties so a candidate can be judged on real
+  //    pages. Clears on toggle-off and on destroy — never writes
+  //    data-theme, never touches the app theme service. ──
+  readonly appAccentPreview = signal(false);
+  private appliedKeys: string[] = [];
+
+  toggleAppAccentPreview(): void {
+    const next = !this.appAccentPreview();
+    this.appAccentPreview.set(next);
+    if (next) this.applyAppAccent(); else this.clearAppAccent();
+  }
+
+  private applyAppAccent(): void {
+    const el = document.documentElement;
+    const accent = this.effectiveAccentHex();
+    // Read at apply time — flipping the app theme while preview is on
+    // keeps the old mode's derivations until the accent is re-picked.
+    const dark = el.dataset.theme === 'dark';
+    const mix = (pct: number, base: string) => `color-mix(in srgb, ${accent} ${pct}%, ${base})`;
+    // Wider than the gallery's accent blocks on purpose: covers
+    // --mat-sys-tertiary* too so more of the real app chrome previews
+    // the accent. The gallery blocks additionally remap secondary*.
+    const vars: Record<string, string> = dark ? {
+      '--ds-accent': accent,
+      '--ds-on-accent': '#0a0f14',
+      '--ds-accent-container': mix(22, '#14171c'),
+      '--ds-on-accent-container': mix(80, '#ffffff'),
+      '--ds-accent-border': accent,
+      '--ds-accent-glow': mix(40, 'transparent'),
+      '--mat-sys-primary': accent,
+      '--mat-sys-on-primary': '#0a0f14',
+      '--mat-sys-primary-container': mix(22, '#14171c'),
+      '--mat-sys-on-primary-container': mix(80, '#ffffff'),
+      '--mat-sys-tertiary': accent,
+      '--mat-sys-tertiary-container': mix(22, '#14171c'),
+      '--mat-sys-on-tertiary-container': mix(80, '#ffffff'),
+    } : {
+      '--ds-accent': mix(55, '#001018'),
+      '--ds-on-accent': '#ffffff',
+      '--ds-accent-container': mix(18, '#eef1f3'),
+      '--ds-on-accent-container': mix(45, '#0a1216'),
+      '--ds-accent-border': mix(55, '#001018'),
+      '--ds-accent-glow': mix(30, 'transparent'),
+      '--mat-sys-primary': mix(55, '#001018'),
+      '--mat-sys-on-primary': '#ffffff',
+      '--mat-sys-primary-container': mix(18, '#eef1f3'),
+      '--mat-sys-on-primary-container': mix(45, '#0a1216'),
+      '--mat-sys-tertiary': mix(55, '#001018'),
+      '--mat-sys-tertiary-container': mix(18, '#eef1f3'),
+      '--mat-sys-on-tertiary-container': mix(45, '#0a1216'),
+    };
+    this.appliedKeys = Object.keys(vars);
+    for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
+  }
+
+  private clearAppAccent(): void {
+    const el = document.documentElement;
+    for (const k of this.appliedKeys) el.style.removeProperty(k);
+    this.appliedKeys = [];
+    this.appAccentPreview.set(false);
+  }
+
+  ngOnDestroy(): void {
+    this.clearAppAccent();
   }
   /** Live-resolved values for the dark-differing tokens (AC evidence —
    *  getComputedStyle shows what the theme actually emits). */
