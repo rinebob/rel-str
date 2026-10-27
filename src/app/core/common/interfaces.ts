@@ -21,6 +21,8 @@ export enum AppRoutes {
 	/** Run Dashboard — funnel root: pick a run (#660). */
 	RUN_DASHBOARD = 'signals/runs',
 	CHART_REVIEW = 'signals/charts',
+	/** Chart View — generic symbol-list chart viewer (#1232/#1256). */
+	CHART_VIEW = 'trading/chart-view',
 	SIGNAL_REVIEW = 'signals/review',
 	/** Signal Order — the live order ticket (#660). */
 	SIGNAL_ORDER = 'trading/live',

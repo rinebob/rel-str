@@ -20,7 +20,7 @@ export const NAV_SECTIONS: NavSection[] = [
         items: [
             { name: 'run-dashboard', text: 'Runs', href: 'signals/runs' },
             { name: 'signal-review', text: 'Signal Review', href: 'signals/review' },
-            { name: 'chart-review', text: 'Chart Review', href: 'signals/charts' },
+            { name: 'chart-view', text: 'Chart View', href: 'trading/chart-view' },
         ],
     },
     {
@@ -129,6 +129,7 @@ export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
     [AppRoutes.DECISION_BOARD]:               { title: 'Decision Board',             icon: 'view_kanban' },
     [AppRoutes.RUN_DASHBOARD]:                { title: 'Run Dashboard',              icon: 'view_list' },
     [AppRoutes.CHART_REVIEW]:                 { title: 'Chart Review',               icon: 'image_search' },
+    [AppRoutes.CHART_VIEW]:                   { title: 'Chart View',                 icon: 'candlestick_chart' },
     [AppRoutes.SIGNAL_REVIEW]:                { title: 'Signal Review',              icon: 'rate_review' },
     [AppRoutes.SIGNAL_ORDER]:                 { title: 'Signal Order',               icon: 'bolt' },
     [AppRoutes.RH_ACCOUNT_INQUIRY]:           { title: 'Account Inquiry',            icon: 'account_balance' },
