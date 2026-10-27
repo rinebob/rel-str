@@ -38,8 +38,25 @@ export function isLiveListFilter(
  * Union of every value a list-filter dropdown can emit — system list keys,
  * the 'ALL' sentinel, NO_MEMBERSHIP, and arbitrary user-list keys
  * (`string & {}` widens the union without losing literal autocomplete).
+ * Scan latest-run sources join as 'scan:{recipeId}' keys (#1232/#1256).
  */
 export type SymbolListFilter = 'ALL' | typeof NO_MEMBERSHIP | (string & {});
+
+/** Prefix marking a Scan Latest Run source in a filter/source key. */
+export const SCAN_SOURCE_PREFIX = 'scan:';
+
+/**
+ * True when a source key selects a Scan Latest Run rather than a symbol
+ * list. List keys can never collide — user list keys can't contain ':'.
+ */
+export function isScanSource(key: string): boolean {
+  return key.startsWith(SCAN_SOURCE_PREFIX);
+}
+
+/** Parse 'scan:{recipeId}' back to the recipe id; null for non-scan keys. */
+export function scanSourceRecipeId(key: string): string | null {
+  return isScanSource(key) ? key.slice(SCAN_SOURCE_PREFIX.length) : null;
+}
 
 /** Dimensions available for grouping the symbol list in the grouped review.
  *  NONE is a gallery-only flat-mode sentinel (#820), not a real dimension —

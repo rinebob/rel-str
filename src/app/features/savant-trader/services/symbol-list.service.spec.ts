@@ -49,6 +49,7 @@ import { Firestore, setDoc, updateDoc, getDoc, getDocs, deleteDoc, writeBatch } 
 import { Auth } from '@angular/fire/auth';
 import { SymbolListService } from './symbol-list.service';
 import { SYSTEM_LIST_DEFS, type SymbolListDef } from '../common/symbol-list-defs';
+import { isScanSource } from '../common/constants';
 
 /** Push a doc snapshot array through the subject and flush async migration. */
 async function emit(docs: { id: string; data: Record<string, unknown> }[]): Promise<void> {
@@ -427,6 +428,16 @@ describe('SymbolListService user-list CRUD', () => {
   it('createList suffixes a slug that case-collides with a system key', async () => {
     mockUserDocs([]);
     expect(await firstValueFrom(service.createList('Primary'))).toBe('primary-2');
+  });
+
+  it('createList can never mint a scan-source key — ":" slugs away (#1232)', async () => {
+    // The scan: prefix reserves a source namespace for scan latest runs;
+    // the slug regex ([^a-z0-9]+ → '-') guarantees user list keys can't
+    // collide with it — 'scan:quality' slugs to 'scan-quality'.
+    mockUserDocs([]);
+    const key = await firstValueFrom(service.createList('scan:quality-large'));
+    expect(key).toBe('scan-quality-large');
+    expect(isScanSource(key!)).toBe(false);
   });
 
   it('renameList writes only the label (updateDoc — rejects if the doc is gone)', async () => {
