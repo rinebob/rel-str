@@ -375,6 +375,11 @@ const scripts: VerifyScript[] = [
     file: 'options-backtest-selection-replay-1275-contracts.ts',
     needsAccount: false,
   },
+  {
+    name: 'selection-replay registry + collections',
+    file: 'options-backtest-selection-replay-1276-registry-collections.ts',
+    needsAccount: false,
+  },
 ];
 
 function hasGhAuth(): boolean {
