@@ -61,6 +61,13 @@ describe('RhSelectMenuComponent', () => {
     expect(component.activeLabel()).toBe('All');
   });
 
+  it('disabled input disables the trigger button (#1232/#1256 — placeholder dropdowns)', () => {
+    fixture.componentRef.setInput('disabled', true);
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(trigger.disabled).toBe(true);
+  });
+
   it('valueChange emits the option value, typed', () => {
     const picked: Filter[] = [];
     component.valueChange.subscribe((v) => picked.push(v));

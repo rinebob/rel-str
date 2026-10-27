@@ -1,0 +1,137 @@
+<div class="chart-view-toolbar">
+  <!-- Source selectors — scan is a disabled placeholder until the
+       latest-run cache lands (#1258); the list dropdown is live now. -->
+  <app-rh-select-menu
+    class="scan-menu"
+    label="Scan"
+    [options]="scanSentinelOptions"
+    value="—"
+    [disabled]="true">
+  </app-rh-select-menu>
+  <app-rh-select-menu
+    class="list-menu"
+    label="List"
+    [options]="listSentinelOptions"
+    [optionGroups]="listGroups()"
+    [value]="activeList()"
+    (valueChange)="listChange.emit($event)">
+  </app-rh-select-menu>
+
+  <!-- Indicator menu — bound to the page-scoped toolbar state. -->
+  <app-indicator-menu
+    [options]="toolbarState.activeChartIndicatorOptions()"
+    [selectedIds]="toolbarState.activeSelectedIndicatorIds()"
+    [activeChartBadge]="toolbarState.activeChartInterval() === BarsInterval.WEEKLY ? 'W' : toolbarState.activeChartInterval() === BarsInterval.MONTHLY ? 'M' : 'D'"
+    (toggle)="toolbarState.applyIndicatorToggle($event)">
+  </app-indicator-menu>
+
+  <span class="toolbar-spacer"></span>
+
+  <!-- Symbol identity -->
+  @if (symbol(); as sym) {
+    <span class="symbol-block">
+      <span class="symbol">{{ sym }}</span>
+      @if (companyName()) {
+        <span class="company-name">{{ companyName() }}</span>
+      }
+    </span>
+  }
+
+  <!-- Chart controls — same control set the embedded chart-toolbar had. -->
+  <span class="chart-controls">
+    <button type="button" mat-icon-button class="icon-btn" (click)="toolbarState.toggleZoomToolbar()"
+      [class.dim]="!toolbarState.showZoomToolbar()"
+      [matTooltip]="toolbarState.showZoomToolbar() ? 'Hide zoom toolbar' : 'Show zoom toolbar'">
+      <mat-icon>{{ toolbarState.showZoomToolbar() ? 'zoom_in' : 'zoom_out' }}</mat-icon>
+    </button>
+
+    @if (symbolCount() > 0) {
+      <span class="symbol-nav">
+        <button type="button" class="nav-btn" (click)="prevSymbol.emit()"
+          [disabled]="symbolIndex() <= 0" title="Previous symbol">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span class="nav-position">{{ symbolIndex() + 1 }}&nbsp;/&nbsp;{{ symbolCount() }}</span>
+        <button type="button" class="nav-btn" (click)="nextSymbol.emit()"
+          [disabled]="symbolIndex() >= symbolCount() - 1" title="Next symbol">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </span>
+    }
+
+    <span class="pill-group flat">
+      <button type="button" class="pill" [class.active]="toolbarState.selectedInterval() === BarsInterval.DAILY"
+        (click)="toolbarState.setInterval(BarsInterval.DAILY)">D</button>
+      <button type="button" class="pill" [class.active]="toolbarState.selectedInterval() === BarsInterval.WEEKLY"
+        (click)="toolbarState.setInterval(BarsInterval.WEEKLY)">W</button>
+      <button type="button" class="pill" [class.active]="toolbarState.selectedInterval() === BarsInterval.MONTHLY"
+        (click)="toolbarState.setInterval(BarsInterval.MONTHLY)">M</button>
+    </span>
+    <span class="pill-group flat">
+      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === 'recent'" (click)="toolbarState.setRange('recent')">Recent</button>
+      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === '6m'" (click)="toolbarState.setRange('6m')">6M</button>
+      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === '1y'" (click)="toolbarState.setRange('1y')">1Y</button>
+      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === '5y'" (click)="toolbarState.setRange('5y')">5Y</button>
+      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === 'all'" (click)="toolbarState.setRange('all')">All</button>
+    </span>
+
+    <button type="button" mat-icon-button class="icon-btn" (click)="uiStateService.toggleChartLayout()"
+      [matTooltip]="uiStateService.chartLayout() === ChartLayout.SINGLE ? 'Three-chart layout' : 'Single-chart layout'">
+      <mat-icon>{{ uiStateService.chartLayout() === ChartLayout.SINGLE ? 'grid_view' : 'crop_square' }}</mat-icon>
+    </button>
+    <button type="button" mat-icon-button class="icon-btn" (click)="uiStateService.toggleFullscreen()"
+      [matTooltip]="uiStateService.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+      <mat-icon>{{ uiStateService.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+    </button>
+
+    <app-log-scale-pill [logScale]="toolbarState.logScale()" (toggle)="toolbarState.toggleLogScale()" />
+  </span>
+
+  <!-- Filing chips — tracked symbols only (untracked have no lists). -->
+  @if (symbol(); as sym) {
+    @if (tracked()) {
+      <app-symbol-list-actions
+        [symbol]="sym"
+        [listCatalog]="listCatalog()"
+        (toggleList)="toggleList.emit($event)">
+      </app-symbol-list-actions>
+    }
+  }
+
+  <span class="toolbar-spacer"></span>
+
+  <!-- Right action group. -->
+  <div class="right-group">
+    <button type="button" class="trade-btn" [disabled]="!symbol()" (click)="trade.emit()" title="Trade">
+      Trade
+    </button>
+    <button type="button" class="pill-btn order-queue-btn"
+      [disabled]="orderCount() === 0"
+      (click)="goToOrder.emit()"
+      matTooltip="Go to signal order page">
+      <mat-icon>shopping_cart</mat-icon>
+      Order <span class="pill-count">{{ orderCount() }}</span>
+    </button>
+    <button type="button" class="pill-btn add-btn" [disabled]="!symbol()"
+      (click)="addToTracked.emit()" matTooltip="Add symbol to tracked universe">
+      Add
+    </button>
+    <!-- Scan-source toggle — inert until scan sources exist (#1258). -->
+    <button type="button" class="pill new-only-pill" disabled
+      matTooltip="Scan sources only — available once the latest-run cache lands">
+      New only
+    </button>
+
+    <div class="manual-symbol-input">
+      <input
+        #symbolInput
+        type="text"
+        placeholder="Symbol..."
+        (keydown.enter)="loadSymbol.emit(symbolInput.value); symbolInput.value = ''"
+        class="symbol-field">
+      <button mat-icon-button class="load-btn" (click)="loadSymbol.emit(symbolInput.value); symbolInput.value = ''" matTooltip="Load chart for symbol">
+        <mat-icon>trending_up</mat-icon>
+      </button>
+    </div>
+  </div>
+</div>

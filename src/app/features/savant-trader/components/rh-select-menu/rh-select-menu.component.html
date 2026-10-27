@@ -1,4 +1,4 @@
-<button mat-stroked-button [matMenuTriggerFor]="menu" class="rh-select-btn">
+<button mat-stroked-button [matMenuTriggerFor]="menu" [disabled]="disabled()" class="rh-select-btn">
   <span class="rh-select-label">{{ label() }}</span>
   <span class="rh-select-value">{{ activeLabel() }}</span>
   <mat-icon>arrow_drop_down</mat-icon>

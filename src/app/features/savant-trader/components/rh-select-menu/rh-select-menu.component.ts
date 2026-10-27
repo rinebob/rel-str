@@ -40,6 +40,9 @@ export class RhSelectMenuComponent<T = string> {
   optionGroups = input<RhSelectOptionGroup<T>[]>([]);
   /** Currently selected value — drives the active checkmark and trigger display. */
   value = input.required<T>();
+  /** Disables the trigger — placeholder dropdowns (e.g. the scan source
+   *  before its cache exists, #1232) render inert until they go live. */
+  disabled = input(false);
 
   /** Emits the newly selected value when the user picks an option. */
   valueChange = output<T>();
