@@ -12,6 +12,8 @@
 - [Scanner Chart View] 1232-1256_FE-IMPL-CHART-REVIEW: ChartViewComponent page — pane + detail (showToolbar=false), page-scoped toolbar state, select() funnel clearing manual state, advanceQueue idx guard, ungated Trade, Order pill, Add stub, company-name lookup; SignalListComponent dimmedSymbols viewed dimming
 - [Scanner Chart View] 1232-1256_FE-IMPL-CHART-REVIEW: AppRoutes.CHART_VIEW + lazy route + nav rename 'Chart Review' → 'Chart View' (legacy /signals/charts stays until #1260)
 - [Scanner Chart View] 1232-1256_DOCS-CHART-REVIEW: #1256 CODE-REVIEW (PASS, 2 fresh-eyes passes) + #1289 UAT (Complete; S1–S14 user PASS) + AGENTS.md jest.mock signal-input pitfall
+- [Option Contract Time-Series Viewer] 1243-1263_FE-IMPL-OPTIONS: Multi-series contract chart — union axis mark lines, entry→expiration strike markers, single-mode lower panes, lifetime-default clip + header-bar "Clip to entry", continuous Drop-mode underlying, focused drill-down
+- [Option Contract Time-Series Viewer] 1243-1263_DOCS-OPTIONS: #1263 CODE-REVIEW (PASS, 2 passes) + #1287 UAT (Complete; S1–S9 + spec-verified deferrals to #1264)
 
 ## [2026-10-25]
 
