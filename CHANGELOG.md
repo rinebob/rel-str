@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-10-27]
+
+### Added
+- [Savant Design System] 1024-1211_FE-IMPL-DESIGN-SYSTEM: /dev/ds palette lock — explicit dark|light host attr, lock persistence (ds-gallery.palette-lock), accent/up hue-adjacency warning, App-wide accent preview pushing derived --ds-accent/--mat-sys families onto `<html>` with self-cleanup
+- [Savant Design System] 1024-1211_SHARED-IMPL-DESIGN-SYSTEM: palette-lock verify relay — 19 credential-free checks incl. dart-sass compile, light-restate/mat-sys source-parity pins, no-leak guards; registered in run-all + README index
+- [Savant Design System] 1024-1211_DOCS-DESIGN-SYSTEM: #1211 CODE-REVIEW (PASS, 10 in-review fixes) + #1236 UAT (Complete; 7 scenarios PASS; locked palette --ds-accent #22d3ee / --ds-up #00e676 / --ds-down #ff3366)
+
 ## [2026-10-26]
 
 ### Added

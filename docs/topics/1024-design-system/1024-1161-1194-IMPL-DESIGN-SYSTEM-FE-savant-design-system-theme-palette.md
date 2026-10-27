@@ -63,7 +63,7 @@ Material chrome stays light.
 
 ## Phase 3 — `/dev/ds` explorer + palette lock
 
-The working explorer already exists (uncommitted): accent preset
+**Implemented (#1211).** The working explorer already exists (uncommitted): accent preset
 swatches, native color picker seeded from the active preset, up/down
 pickers binding `--ds-up`/`--ds-down` on the gallery host, saved accents
 + named palettes in `localStorage`, apply/compare, and the token
@@ -76,6 +76,20 @@ inspector. This phase:
   Purple rejected; Arcade Blue darkened; Neon Cyan / Neon Mint are the
   front-runners. Neon-green accents require the adjacent check against
   `--ds-up` on the direction-badge demo before locking.
+
+**Shipped (#1211):** explorer controls bind the shipped `--ds-*` names
+(accent picks drive the full `--ds-accent` family, not just `--mat-sys`);
+host `data-theme` is always explicit (`dark|light`) so a light preview
+under a dark app can't inherit dark tokens — the light `--ds-*` restate
+and the 31-key dark `--mat-sys` mirror are parity-pinned to the shipped
+sources by `scripts/verify/design-system-palette-lock-1211.ts` (19
+checks). Palette lock persists accent/up/down/mode to
+`ds-gallery.palette-lock`; the app-wide `App` accent preview is the one
+deliberate scoping exception (self-clearing). **Locked:**
+`--ds-accent` `#22d3ee` (cyan), `--ds-up` `#00e676` (neon), `--ds-down`
+`#ff3366` (neon) — recorded on the issue for SHARED baking; mint stays a
+saved plan-B. Accent↔up Δhue ≈ 37° inside the caution band — judged
+distinct on the direction-badge demo.
 
 ## Phase 4 — Literal sweep (inventory-driven)
 
