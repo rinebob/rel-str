@@ -146,6 +146,11 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
   },
   {
+    name: 'design-system palette lock',
+    file: 'design-system-palette-lock-1211.ts',
+    needsAccount: false,
+  },
+  {
     name: 'st-signals dual-write parity',
     file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
     cwd: 'functions',
