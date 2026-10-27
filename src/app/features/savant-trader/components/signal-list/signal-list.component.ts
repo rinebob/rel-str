@@ -15,6 +15,11 @@ import { SignalService } from '../../services/signal.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { SignalDirection, SignalTimeframe } from '../../common/constants';
 
+/** Shared empty set for the optional dimmedSymbols input — one shared
+ *  instance, never mutated by convention (ReadonlySet hides mutation
+ *  at the type level; a Set can't actually be frozen). */
+const EMPTY_SET: ReadonlySet<string> = new Set<string>();
+
 @Component({
   selector: 'app-signal-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -46,6 +51,11 @@ export class SignalListComponent {
 
   /** Symbols that were just added via the new-symbols dialog; shown with a NEW chip. */
   newSymbols = input<string[]>([]);
+
+  /** Symbols already viewed this session — rows render dimmed so triage
+   *  progress is visible (chart-view, #1232/#1256). Session-local; the
+   *  page's set resets on refresh. */
+  dimmedSymbols = input<ReadonlySet<string>>(EMPTY_SET);
 
   symbolSelected = output<string>();
 

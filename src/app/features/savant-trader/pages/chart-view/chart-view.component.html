@@ -1,0 +1,50 @@
+<div class="chart-view" [class.fullscreen]="uiStateService.fullscreen()">
+  <app-chart-view-toolbar
+    [activeList]="activeList()"
+    [listGroups]="symbolListStore.filterOptionGroups()"
+    [symbol]="activeSymbol()"
+    [companyName]="selectedSymbolName()"
+    [tracked]="isTrackedSymbol()"
+    [listCatalog]="symbolListStore.catalog()"
+    [symbolIndex]="selectedSymbolIndex()"
+    [symbolCount]="symbolCount()"
+    [orderCount]="orderCount()"
+    (listChange)="onListChange($event)"
+    (trade)="onTrade()"
+    (goToOrder)="goToOrder()"
+    (addToTracked)="onAddToTracked()"
+    (loadSymbol)="loadManualSymbol($event)"
+    (toggleList)="onToggleList($event)"
+    (prevSymbol)="onPrevSymbol()"
+    (nextSymbol)="onNextSymbol()">
+  </app-chart-view-toolbar>
+
+  <!-- Master-Detail Layout -->
+  <div class="master-detail-container" [class.sidebar-collapsed]="uiStateService.sidebarCollapsed()">
+    @if (uiStateService.sidebarCollapsed()) {
+      <div class="collapsed-sidebar">
+        <button mat-icon-button (click)="uiStateService.toggleSidebar()" matTooltip="Expand panel">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+    } @else {
+      <app-signal-list
+        class="signal-list-wrapper"
+        [selectedSymbol]="selectedSymbol()"
+        [manualSymbol]="manualSymbol()"
+        [symbols]="viewportSymbols()"
+        [dimmedSymbols]="viewedSymbols()"
+        (symbolSelected)="onSymbolSelected($event)">
+      </app-signal-list>
+    }
+    <!-- With showToolbar=false the detail's inner toolbar is hidden — the
+         nav/list inputs and outputs it would forward are dead here, so
+         only the chart-driving inputs are bound. -->
+    <app-signal-detail
+      class="detail-wrapper"
+      [manualSymbol]="activeSymbol()"
+      [listCatalog]="symbolListStore.catalog()"
+      [showToolbar]="false">
+    </app-signal-detail>
+  </div>
+</div>

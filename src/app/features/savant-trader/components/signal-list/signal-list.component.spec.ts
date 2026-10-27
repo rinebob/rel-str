@@ -75,4 +75,16 @@ describe('SignalListComponent', () => {
     expect(new Set(trackIds).size).toBe(2);
     expect(fixture.nativeElement.querySelectorAll('.signal-item').length).toBe(2);
   });
+
+  it('dimmedSymbols renders viewed rows with the .viewed class (#1232/#1256)', () => {
+    fixture.componentRef.setInput('symbols', ['AAPL', 'MSFT', 'TSLA']);
+    fixture.componentRef.setInput('dimmedSymbols', new Set(['MSFT']));
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('.signal-item');
+    expect(rows.length).toBe(3);
+    expect(rows[0].classList.contains('viewed')).toBe(false);
+    expect(rows[1].classList.contains('viewed')).toBe(true);
+    expect(rows[2].classList.contains('viewed')).toBe(false);
+  });
 });

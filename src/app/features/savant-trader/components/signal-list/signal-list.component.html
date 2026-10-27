@@ -21,6 +21,7 @@
         #listItem
         class="signal-item"
         [class.selected]="selectedSymbol() === item.symbol"
+        [class.viewed]="dimmedSymbols().has(item.symbol)"
         (click)="onSelect(item.symbol)">
         <mat-icon matListItemIcon
           [class]="'dir-' + (item.latestSignal ? item.latestSignal.direction : SignalDirection.LONG).toLowerCase()">
