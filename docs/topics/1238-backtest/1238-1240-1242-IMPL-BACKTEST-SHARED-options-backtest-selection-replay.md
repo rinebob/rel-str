@@ -189,9 +189,10 @@ export interface OptionsReplayPermutationPayload {
 ```typescript
 export const ST_OPTIONS_REPLAY_RUNS_ROOT = 'st-options-replay-runs';
 export const ST_OPTIONS_CONTRACT_LISTS_ROOT = 'st-options-contract-lists';
+export function stOptionsContractListDocId(runId: string, symbol: string): string; // 'or-…_QQQ'
 ```
 
-- Flat roots mirroring `st-backtest-*` naming. List doc id is deterministic: `{runId}_{symbol}`.
+- Flat roots mirroring `st-backtest-*` naming. List doc id is deterministic: `{runId}_{symbol}` — the builder uppercases the symbol, matching peer builders.
 
 ### 5. Firestore rules + indexes
 

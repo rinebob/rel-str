@@ -14,6 +14,11 @@
 - [Scanner Chart View] 1232-1256_DOCS-CHART-REVIEW: #1256 CODE-REVIEW (PASS, 2 fresh-eyes passes) + #1289 UAT (Complete; S1–S14 user PASS) + AGENTS.md jest.mock signal-input pitfall
 - [Option Contract Time-Series Viewer] 1243-1263_FE-IMPL-OPTIONS: Multi-series contract chart — union axis mark lines, entry→expiration strike markers, single-mode lower panes, lifetime-default clip + header-bar "Clip to entry", continuous Drop-mode underlying, focused drill-down
 - [Option Contract Time-Series Viewer] 1243-1263_DOCS-OPTIONS: #1263 CODE-REVIEW (PASS, 2 passes) + #1287 UAT (Complete; S1–S9 + spec-verified deferrals to #1264)
+- [Options Backtest] 1238-1276_SHARED-IMPL-BACKTEST: Replay template registry (csp-45-20, csp-30-30) + getReplayTemplate + st-options-* collection roots and deterministic list doc id
+- [Options Backtest] 1238-1276_CONFIG-CONFIG-BACKTEST: `@options-replay/templates` alias across root + functions tsconfig and jest mapper
+- [Options Backtest] 1238-1276_CONFIG-IMPL-BACKTEST: st-options-replay-runs / st-options-contract-lists rules (authed read, write-false) + (runId, symbol) composite index
+- [Options Backtest] 1238-1276_SHARED-IMPL-BACKTEST: registry+collections verify script — 7 credential-free alias-resolution checks, registered in run-all + README index
+- [Options Backtest] 1238-1276_DOCS-BACKTEST: #1276 CODE-REVIEW (PASS, convergence fixes folded) + #1291 UAT (Complete; 8 scenarios PASS) + IMPL-SHARED §4 doc-id builder note
 
 ## [2026-10-25]
 
