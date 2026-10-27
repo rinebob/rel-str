@@ -357,7 +357,22 @@ describe('GalleryTicketDialogComponent', () => {
       expect(el.querySelector('app-order-ticket')).toBeTruthy();
     });
 
+    // A real emit always follows the store write — seed the option
+    // ticket so the dialog's emit guard can verify the underlying
+    // (#1191 review).
+    const seedOptTicket = (status = OrderTicketStatus.STAGED) =>
+      tickets.update((m) => ({
+        ...m,
+        'opt-1': {
+          ...stagedTicket(),
+          id: 'opt-1',
+          instrumentType: InstrumentType.OPTION,
+          status,
+        } as OrderTicket,
+      }));
+
     it('an option staged emit binds the option ticket id and forwards {ticketId, created} to the host', () => {
+      seedOptTicket();
       fixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
       expect(fixture.componentInstance.optionTicketId()).toBe('opt-1');
       expect(seedOnStaged).toHaveBeenCalledWith({ ticketId: 'opt-1', created: true });
@@ -365,6 +380,7 @@ describe('GalleryTicketDialogComponent', () => {
     });
 
     it('shows the confirmation when the OPTION ticket is done even though the equity ticket is still STAGED', () => {
+      seedOptTicket();
       fixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
       tickets.set({
         't-1': stagedTicket(),
@@ -384,6 +400,7 @@ describe('GalleryTicketDialogComponent', () => {
     });
 
     it('closes when a bound option ticket is removed elsewhere', () => {
+      seedOptTicket();
       fixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
       tickets.set({ 't-1': stagedTicket() });
       fixture.detectChanges();
@@ -391,6 +408,7 @@ describe('GalleryTicketDialogComponent', () => {
     });
 
     it('FAILED on a bound leg outranks the other leg\'s done status — the error is not masked (#762 round 2)', () => {
+      seedOptTicket();
       fixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
       // Equity done + option failed → form, not the equity confirmation.
       tickets.set({
@@ -410,6 +428,7 @@ describe('GalleryTicketDialogComponent', () => {
     });
 
     it('stays open while the option ticket is STAGED or SUBMITTING', () => {
+      seedOptTicket();
       fixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
       tickets.set({
         't-1': stagedTicket(),
@@ -429,6 +448,7 @@ describe('GalleryTicketDialogComponent', () => {
     let manualFixture: ComponentFixture<GalleryTicketDialogComponent>;
     let manualOnStaged: jest.Mock;
     let manualStage: jest.Mock;
+    let manualRelease: jest.Mock;
     let seededSymbol: string | undefined;
 
     beforeEach(async () => {
@@ -437,6 +457,14 @@ describe('GalleryTicketDialogComponent', () => {
       TestBed.resetTestingModule();
       manualOnStaged = jest.fn();
       manualStage = jest.fn().mockResolvedValue(null);
+      // Faithful to the real seed: releasing a STAGED ticket drops it
+      // from the store map — specs observe post-release state, not just
+      // call args (#1191 review).
+      manualRelease = jest.fn((id: string) => {
+        const m = { ...tickets() };
+        if (m[id]?.status === OrderTicketStatus.STAGED) delete m[id];
+        tickets.set(m);
+      });
       seededSymbol = undefined;
       await TestBed.configureTestingModule({
         imports: [GalleryTicketDialogComponent],
@@ -453,6 +481,7 @@ describe('GalleryTicketDialogComponent', () => {
                 },
                 stageEquityTicket: manualStage,
                 onStaged: manualOnStaged,
+                releaseTicket: manualRelease,
               },
               tradingConfig: signal<TradingConfig | null>({
                 accountNumber: 'acct-1',
@@ -504,9 +533,26 @@ describe('GalleryTicketDialogComponent', () => {
       expect(manualFixture.componentInstance.ticket()).toBeNull();
     });
 
-    it('onOptionStaged forwards the emit to the manual seed so session ids reach the opener', () => {
+    it('onOptionStaged forwards the emit to the manual seed so session ids reach the opener', async () => {
+      manualStage.mockImplementation(async () => {
+        const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, 'man-1': t }));
+        return t;
+      });
       manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
       manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      // The emit follows the option ticket's store write — the dialog
+      // verifies the underlying before binding (#1191 review).
+      tickets.update((m) => ({
+        ...m,
+        'opt-1': {
+          ...stagedTicket(),
+          id: 'opt-1',
+          instrumentType: InstrumentType.OPTION,
+        } as OrderTicket,
+      }));
       manualFixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
       expect(manualOnStaged).toHaveBeenCalledWith({ ticketId: 'opt-1', created: true });
       expect(manualFixture.componentInstance.optionTicketId()).toBe('opt-1');
@@ -625,7 +671,41 @@ describe('GalleryTicketDialogComponent', () => {
       expect(opt.querySelector('[data-testid="order-side-toggle"]')).toBeTruthy();
     });
 
-    it('re-resolve is gated while a ticket is bound — no silent rebind or orphan (#1189 review)', async () => {
+    it('a STAGED binding keeps the entry row live — re-resolve swaps symbols (#1191)', async () => {
+      manualStage.mockImplementation(async (sym: string) => {
+        const id = `man-${sym}`;
+        const t = { ...stagedTicket(), id, symbol: sym, source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, [id]: t }));
+        return t;
+      });
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+      expect(manualFixture.componentInstance.ticket()?.id).toBe('man-AAPL');
+
+      // STAGED is session-scratch — the row stays editable, no lock hint.
+      const el = manualFixture.nativeElement as HTMLElement;
+      const input = el.querySelector('[data-testid="manual-symbol-input"]') as HTMLInputElement;
+      const btn = el.querySelector('[data-testid="manual-symbol-resolve"]') as HTMLButtonElement;
+      expect(input.disabled).toBe(false);
+      expect(btn.disabled).toBe(false);
+      expect(el.querySelector('[data-testid="manual-bound-hint"]')).toBeFalsy();
+
+      manualFixture.componentInstance.symbolInput.set('MSFT');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      expect(manualStage).toHaveBeenCalledWith('MSFT');
+      expect(manualFixture.componentInstance.ticket()?.id).toBe('man-MSFT');
+      expect(manualFixture.componentInstance.enteredSymbol()).toBe('MSFT');
+      // The previous STAGED binding released through the seed — the
+      // opener decides created→discard vs adopted→survives.
+      expect(manualRelease).toHaveBeenCalledWith('man-AAPL');
+    });
+
+    it('a non-STAGED binding still locks the entry row — submit/confirm own it', async () => {
       manualStage.mockImplementation(async () => {
         const t = { ...stagedTicket(), id: 'man-1', source: OrderSource.MANUAL };
         tickets.update((m) => ({ ...m, 'man-1': t }));
@@ -637,12 +717,17 @@ describe('GalleryTicketDialogComponent', () => {
       await manualFixture.componentInstance.resolveSymbol();
       manualFixture.detectChanges();
 
-      // Bound: the input + button disable and the resolve call no-ops.
+      // Ticket leaves STAGED mid-flight — the row locks and resolve no-ops.
+      tickets.update((m) => ({
+        ...m,
+        'man-1': { ...m['man-1'], status: OrderTicketStatus.SUBMITTING },
+      }));
+      manualFixture.detectChanges();
+
       const el = manualFixture.nativeElement as HTMLElement;
-      const input = el.querySelector('[data-testid="manual-symbol-input"]') as HTMLInputElement;
-      const btn = el.querySelector('[data-testid="manual-symbol-resolve"]') as HTMLButtonElement;
-      expect(input.disabled).toBe(true);
-      expect(btn.disabled).toBe(true);
+      expect(
+        (el.querySelector('[data-testid="manual-symbol-input"]') as HTMLInputElement).disabled,
+      ).toBe(true);
       expect(el.querySelector('[data-testid="manual-bound-hint"]')).toBeTruthy();
 
       manualStage.mockClear();
@@ -650,6 +735,137 @@ describe('GalleryTicketDialogComponent', () => {
       await manualFixture.componentInstance.resolveSymbol();
       expect(manualStage).not.toHaveBeenCalled();
       expect(manualFixture.componentInstance.ticket()?.id).toBe('man-1');
+    });
+
+    it('re-resolve to the SAME symbol adopts the same ticket — no release', async () => {
+      const t = { ...stagedTicket(), id: 'man-AAPL', symbol: 'AAPL', source: OrderSource.MANUAL };
+      tickets.update((m) => ({ ...m, 'man-AAPL': t }));
+      manualStage.mockResolvedValue(t); // service-side adopt returns the same ticket
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      await manualFixture.componentInstance.resolveSymbol();
+      expect(manualRelease).not.toHaveBeenCalled();
+      expect(manualFixture.componentInstance.ticket()?.id).toBe('man-AAPL');
+    });
+
+    it('same-symbol re-resolve keeps the bound option leg — adoption is not a swap (#1191 review)', async () => {
+      const t = { ...stagedTicket(), id: 'man-AAPL', symbol: 'AAPL', source: OrderSource.MANUAL };
+      tickets.update((m) => ({ ...m, 'man-AAPL': t }));
+      manualStage.mockResolvedValue(t);
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+      tickets.update((m) => ({
+        ...m,
+        'opt-1': {
+          ...stagedTicket(),
+          id: 'opt-1',
+          instrumentType: InstrumentType.OPTION,
+        } as OrderTicket,
+      }));
+      manualFixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
+
+      // Re-resolving the same symbol is pure adoption — the configured
+      // option leg must NOT be released or unbound.
+      await manualFixture.componentInstance.resolveSymbol();
+      expect(manualRelease).not.toHaveBeenCalled();
+      expect(manualFixture.componentInstance.optionTicketId()).toBe('opt-1');
+    });
+
+    it('a failed re-resolve keeps the previous binding — no release, no unbind', async () => {
+      manualStage.mockImplementation(async (sym: string) => {
+        if (sym === 'BAD') return null; // no quote / stage failure
+        const t = { ...stagedTicket(), id: `man-${sym}`, symbol: sym, source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, [`man-${sym}`]: t }));
+        return t;
+      });
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      manualFixture.componentInstance.symbolInput.set('BAD');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      expect(manualRelease).not.toHaveBeenCalled();
+      expect(manualFixture.componentInstance.ticket()?.id).toBe('man-AAPL');
+      expect(manualFixture.componentInstance.enteredSymbol()).toBe('AAPL');
+      expect(
+        manualFixture.nativeElement.querySelector('[data-testid="manual-symbol-error"]')
+          ?.textContent,
+      ).toContain('BAD');
+    });
+
+    it('re-resolve releases a bound STAGED option ticket alongside the equity one', async () => {
+      manualStage.mockImplementation(async (sym: string) => {
+        const t = { ...stagedTicket(), id: `man-${sym}`, symbol: sym, source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, [`man-${sym}`]: t }));
+        return t;
+      });
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+      tickets.update((m) => ({
+        ...m,
+        'opt-1': {
+          ...stagedTicket(),
+          id: 'opt-1',
+          instrumentType: InstrumentType.OPTION,
+        } as OrderTicket,
+      }));
+      manualFixture.componentInstance.onOptionStaged({ ticketId: 'opt-1', created: true });
+
+      manualFixture.componentInstance.symbolInput.set('MSFT');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      expect(manualRelease).toHaveBeenCalledWith('man-AAPL');
+      expect(manualRelease).toHaveBeenCalledWith('opt-1');
+      expect(manualFixture.componentInstance.optionTicketId()).toBeNull();
+    });
+
+    it('a stale option emit landing after a symbol swap binds nothing — the wrong-underlying ghost stays tracked for cleanup (#1191 review)', async () => {
+      manualStage.mockImplementation(async (sym: string) => {
+        const t = { ...stagedTicket(), id: `man-${sym}`, symbol: sym, source: OrderSource.MANUAL };
+        tickets.update((m) => ({ ...m, [`man-${sym}`]: t }));
+        return t;
+      });
+      manualFixture = TestBed.createComponent(GalleryTicketDialogComponent);
+      manualFixture.detectChanges();
+      manualFixture.componentInstance.symbolInput.set('AAPL');
+      await manualFixture.componentInstance.resolveSymbol();
+
+      // Swap to MSFT while an AAPL option stage was still in flight.
+      manualFixture.componentInstance.symbolInput.set('MSFT');
+      await manualFixture.componentInstance.resolveSymbol();
+      manualFixture.detectChanges();
+
+      // The in-flight AAPL write lands now — the emit must not bind it
+      // to the MSFT-bound dialog, but it still reaches onStaged so the
+      // opener tracks it for close cleanup.
+      tickets.update((m) => ({
+        ...m,
+        'opt-ghost': {
+          ...stagedTicket(),
+          id: 'opt-ghost',
+          symbol: 'AAPL',
+          instrumentType: InstrumentType.OPTION,
+        } as OrderTicket,
+      }));
+      manualFixture.componentInstance.onOptionStaged({ ticketId: 'opt-ghost', created: true });
+
+      expect(manualFixture.componentInstance.optionTicketId()).toBeNull();
+      expect(manualOnStaged).toHaveBeenCalledWith({ ticketId: 'opt-ghost', created: true });
     });
 
     it('a done manual ticket renders the confirmation panel via the store status', async () => {
@@ -725,11 +941,12 @@ describe('GalleryTicketDialogComponent', () => {
       expect(manualStage).toHaveBeenCalledTimes(1);
       expect(manualStage).toHaveBeenCalledWith('AAPL');
       const el = manualFixture.nativeElement as HTMLElement;
-      // Pre-filled, bound, and gated — the seeded symbol can't re-resolve.
+      // Pre-filled and bound — the entry row stays editable while the
+      // binding is STAGED (#1191: re-resolve is locked only mid-flight).
       expect(
         (el.querySelector('[data-testid="manual-symbol-input"]') as HTMLInputElement)
           .disabled,
-      ).toBe(true);
+      ).toBe(false);
       expect(el.querySelector('mat-tab-group')).toBeTruthy();
       expect(manualFixture.componentInstance.ticket()?.id).toBe('man-1');
     });

@@ -55,22 +55,21 @@
              type="text" placeholder="Ticker — AAPL, BRK.B…"
              aria-label="Ticker symbol"
              [value]="symbolInput()"
-             [disabled]="resolving() || !!ticket()"
+             [disabled]="resolving() || resolveLocked()"
              (input)="symbolInput.set($any($event.target).value)"
              (keydown.enter)="resolveSymbol(); $event.preventDefault()" />
       <button mat-stroked-button data-testid="manual-symbol-resolve"
-              [disabled]="resolving() || !!ticket() || !symbolInput().trim()"
+              [disabled]="resolving() || resolveLocked() || !symbolInput().trim()"
               (click)="resolveSymbol()">
         {{ resolving() ? 'Resolving…' : 'Resolve' }}
       </button>
     </div>
-    @if (ticket()) {
-      <!-- Re-resolve is gated while a ticket is bound — silently
-           rebinding would orphan the first STAGED ticket in the queue,
-           and a resolve during SUBMITTING would hide the real order's
-           confirmation (#1189 review). Close to order another symbol;
-           the session's staged ticket is discarded on close. -->
-      <p class="manual-hint" data-testid="manual-bound-hint">Close the dialog to order a different symbol.</p>
+    @if (resolveLocked()) {
+      <!-- The row locks only while a bound ticket ISN'T STAGED — a
+           resolve during SUBMITTING/confirmed would hide the real
+           order's outcome (#1189 review). A STAGED binding is scratch:
+           re-resolve releases it (#1191). -->
+      <p class="manual-hint" data-testid="manual-bound-hint">Order in flight — close to start a different symbol.</p>
     }
     @if (symbolError(); as err) {
       <div class="manual-symbol-error" data-testid="manual-symbol-error">{{ err }}</div>

@@ -29,6 +29,7 @@ import { SymbolListStore } from '../../stores/symbol-list.store';
 import { InstrumentType, OrderTicket, OrderTicketStatus, TradingConfig } from '../../services/order-ticket.types';
 import { orderTicketTerms } from '../../utils/signal-order-staging.util';
 import { normalizeUnderlyingSymbol } from '../../utils/manual-ticket-staging.util';
+import { stDocId } from '../../services/order-ticket-st-mapper';
 import { StSignalItem } from '../../services/types';
 import { OrderTicketComponent } from '../order-ticket/order-ticket.component';
 import { OptionOrderTicketComponent } from '../option-order-ticket/option-order-ticket.component';
@@ -71,6 +72,10 @@ export interface ManualOrderDialogSeed {
   /** Forwards stage/adopt emits so the opener tracks which tickets this
    *  session created (created → discard on close). */
   onStaged: (e: StagedTicketEvent) => void;
+  /** Re-resolve (#1191): release a previously bound STAGED ticket after
+   *  the new symbol stages — the opener decides created → discard vs
+   *  adopted → survives in the queue. */
+  releaseTicket: (ticketId: string) => void;
 }
 
 /** Dialog input — exactly one mode: a bound ticket (card mode) or the
@@ -157,12 +162,21 @@ export class GalleryTicketDialogComponent implements OnInit {
    *  ticket at open. */
   private readonly manualTicketId = signal<string | null>(null);
 
+  /** The tickets map is mixed-keyed (bare session ids vs hydrated
+   *  `liv_`/`pap_` doc ids) — a mid-dialog `loadTickets()` rehydrate
+   *  rekeys in-flight tickets, so every binding lookup probes both
+   *  spellings or it would read null while the ticket survives. */
+  private ticketById(id: string): OrderTicket | null {
+    const m = this.ticketStore.tickets();
+    return m[id] ?? m[stDocId(id)] ?? null;
+  }
+
   /** Reactive ticket lookup — reflects in-dialog edits and queue changes.
    *  Null in manual mode until the symbol-resolve flow stages a ticket. */
   readonly ticket = computed(
     (): OrderTicket | null => {
       const id = this.data.ticketId ?? this.manualTicketId();
-      return id ? (this.ticketStore.tickets()[id] ?? null) : null;
+      return id ? this.ticketById(id) : null;
     },
   );
   /** Equity/ETF tickets only — option tickets also carry `symbol` (the
@@ -211,7 +225,7 @@ export class GalleryTicketDialogComponent implements OnInit {
   readonly optionTicket = computed(
     (): OrderTicket | null => {
       const id = this.optionTicketId();
-      return id ? (this.ticketStore.tickets()[id] ?? null) : null;
+      return id ? this.ticketById(id) : null;
     },
   );
 
@@ -256,6 +270,17 @@ export class GalleryTicketDialogComponent implements OnInit {
    *  stage failure (the seed already snackbar'd the reason). */
   readonly symbolError = signal<string | null>(null);
 
+  /** Re-resolve lock (#1191): a bound ticket owns the entry row only
+   *  while it ISN'T STAGED — a resolve during SUBMITTING/done would hide
+   *  the real order's confirmation. A STAGED binding is session-scratch:
+   *  re-resolve releases it (created → discard, adopted → stays queued). */
+  readonly resolveLocked = computed(() => {
+    const t = this.ticket();
+    if (t && t.status !== OrderTicketStatus.STAGED) return true;
+    const o = this.optionTicket();
+    return !!o && o.status !== OrderTicketStatus.STAGED;
+  });
+
   /** Resolve the entered ticker: validate the charset before any work,
    *  then stage-or-adopt through the manual seed (the seed does its own
    *  quote fetch for sizing — a ticker RH can't price returns null).
@@ -266,7 +291,7 @@ export class GalleryTicketDialogComponent implements OnInit {
    *  cached price would pass anyway); `quote()` fills reactively. */
   async resolveSymbol(): Promise<void> {
     const manual = this.data.manual;
-    if (!manual || this.resolving() || this.ticket()) return;
+    if (!manual || this.resolving() || this.resolveLocked()) return;
     const sym = normalizeUnderlyingSymbol(this.symbolInput());
     if (!sym) {
       this.symbolError.set('Enter a valid ticker — letters, digits, dots, hyphens');
@@ -279,6 +304,23 @@ export class GalleryTicketDialogComponent implements OnInit {
       if (!staged) {
         this.symbolError.set(`${sym}: couldn't stage an order ticket`);
         return;
+      }
+      // Swap the previous binding (#1191): release the old STAGED
+      // tickets — the seed discards session-created ones and leaves
+      // adopted ones queued. A same-id result is adoption, not a swap —
+      // release nothing or the ticket we just bound (and its option
+      // leg, still valid for the same symbol) would discard itself. A
+      // null prev still releases a bound option ticket — it's stale
+      // state from a vanished equity binding, not a same-symbol adopt.
+      // Keep this block synchronous — an await inserted between the
+      // releases and the signal writes would expose the transiently-
+      // unbound optionTicketId to the close effect (#1191 review).
+      const prev = this.manualTicketId();
+      if (prev !== staged.id) {
+        if (prev) manual.releaseTicket(prev);
+        const prevOpt = this.optionTicketId();
+        if (prevOpt) manual.releaseTicket(prevOpt);
+        this.optionTicketId.set(null);
       }
       this.enteredSymbol.set(sym);
       this.manualTicketId.set(staged.id);
@@ -377,7 +419,16 @@ export class GalleryTicketDialogComponent implements OnInit {
    *  forward the emit so the host can track session-created tickets for
    *  discard-on-cancel (#964). */
   onOptionStaged(e: StagedTicketEvent): void {
-    this.optionTicketId.set(e.ticketId);
+    // A stale in-flight stage can emit AFTER a re-resolve swapped the
+    // underlying (#1191 review): bind only when the emitted ticket's
+    // underlying still matches the resolved symbol — the ghost still
+    // reaches `onStaged` so the opener tracks (and discards) it, but it
+    // never binds.
+    const t = this.ticketById(e.ticketId);
+    const expected = this.displaySymbol();
+    if (t && expected && t.symbol.toUpperCase() === expected.toUpperCase()) {
+      this.optionTicketId.set(e.ticketId);
+    }
     this.data.option?.onStaged(e);
     this.data.manual?.onStaged(e);
   }

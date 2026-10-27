@@ -101,6 +101,7 @@ describe('ManualOrderService', () => {
     tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
     stageTicketAndWait: jest.Mock;
     removeTicket: jest.Mock;
+    pendingDiscards: Set<string>;
     discardIfStaged: jest.Mock;
   };
   let priceServiceMock: {
@@ -159,11 +160,19 @@ describe('ManualOrderService', () => {
           return next;
         });
       }),
-      // Mirror the store's STAGED-only discard guard, dual-key probe and
-      // all — the map is mixed bare/liv_-keyed, same as production.
+      // Mirror the store's discard guard faithfully — dual-key probe
+      // (mixed bare/liv_ map), SUBMITTING queues a pending discard the
+      // submit drain resolves, STAGED removes outright (#1191 review).
+      pendingDiscards: new Set<string>(),
       discardIfStaged: jest.fn((id: string) => {
         const key = ticketStoreMock.tickets()[id] ? id : stDocId(id);
-        if (ticketStoreMock.tickets()[key]?.status === OrderTicketStatus.STAGED) {
+        const ticket = ticketStoreMock.tickets()[key];
+        if (ticket?.status === OrderTicketStatus.SUBMITTING) {
+          ticketStoreMock.pendingDiscards.add(key);
+          return;
+        }
+        ticketStoreMock.pendingDiscards.delete(key);
+        if (ticket?.status === OrderTicketStatus.STAGED) {
           ticketStoreMock.removeTicket(key);
         }
       }),
@@ -492,6 +501,36 @@ describe('ManualOrderService', () => {
       afterClosed$.next(null);
       expect(ticketStoreMock.discardIfStaged).toHaveBeenCalledTimes(1);
       expect(ticketStoreMock.removeTicket).toHaveBeenCalledWith(opt.id);
+    });
+  });
+
+  describe('releaseTicket (#1191 re-resolve)', () => {
+    it('a released session-created ticket is discarded now and retried at close', async () => {
+      await service.open();
+      priceServiceMock.prices.set({ AAPL: 100 });
+      const staged = await manualSeed().stageEquityTicket('AAPL');
+
+      manualSeed().releaseTicket(staged!.id);
+      expect(ticketStoreMock.removeTicket).toHaveBeenCalledWith(staged!.id);
+
+      afterClosed$.next(null);
+      // The id stays tracked — the close pass calls discardIfStaged
+      // again, which no-ops on the gone ticket but would retry a
+      // failed-delete resurrection (#1191 review).
+      expect(ticketStoreMock.discardIfStaged).toHaveBeenCalledTimes(2);
+      expect(ticketStoreMock.removeTicket).toHaveBeenCalledTimes(1);
+    });
+
+    it('a released ADOPTED ticket survives — it was pre-existing work', async () => {
+      const existing = makeManualEquity('AAPL');
+      seedTickets(existing);
+      await service.open();
+      const r = await manualSeed().stageEquityTicket('AAPL');
+      expect(r?.id).toBe(existing.id); // adopted, not freshly staged
+
+      manualSeed().releaseTicket(existing.id);
+      expect(ticketStoreMock.removeTicket).not.toHaveBeenCalled();
+      expect(ticketStoreMock.tickets()[existing.id]).toBeTruthy();
     });
   });
 });

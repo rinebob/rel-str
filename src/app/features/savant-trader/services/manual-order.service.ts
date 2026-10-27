@@ -121,6 +121,17 @@ export class ManualOrderService {
         track(e);
         if (e.created && !this._dialogOpen) this.ticketStore.discardIfStaged(e.ticketId);
       },
+      // Symbol re-resolve (#1191): the dialog releases the previous
+      // STAGED binding. A session-created ticket discards now — the
+      // user moved on; an adopted pre-existing one stays queued. The id
+      // STAYS in createdTicketIds — if the discard's delete fails and
+      // the ticket resurrects, the close pass still retries it (an
+      // untracked resurrection would orphan in the queue).
+      releaseTicket: (ticketId) => {
+        if (createdTicketIds.has(ticketId)) {
+          this.ticketStore.discardIfStaged(ticketId);
+        }
+      },
     };
 
     const data: GalleryTicketDialogData = { manual, tradingConfig: this.config };
