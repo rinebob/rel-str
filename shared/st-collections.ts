@@ -10,8 +10,10 @@
  * dual-write migration; consumers cut over per-task and the legacy constants
  * are removed when the old roots are retired (BE task #1013).
  *
- * Scope: only roots created or renamed by this reorg. Already-conforming
- * `st-` roots keep their own contract modules — `st-screenshots`
+ * Scope: roots created or renamed by this reorg, plus new `st-` flat
+ * roots from feature domains without a dedicated path module (e.g. the
+ * `st-options-*` Selection Replay roots, Topic #1238). Domains that own a
+ * contract/path module keep their roots there — `st-screenshots`
  * (@screenshot-capture/contracts), `st-swing-sets`/`st-swing-configs`
  * (swing-analysis services). Do not duplicate them here.
  *
@@ -28,6 +30,8 @@
  *                       st-portfolio/{kind-anchor}/items/{id}
  *                       st-scanner/{kind-anchor}/items/{id}
  *   backtest roots      st-backtest-runs/{runId}  st-backtest-permutations/{id}
+ *   replay roots        st-options-replay-runs/{runId}
+ *                       st-options-contract-lists/{runId}_{SYM}
  */
 
 import type { PaperTradingKind } from './paper-trading-ids';
@@ -75,6 +79,22 @@ export const ST_BACKTEST_RUNS_ROOT = 'st-backtest-runs';
 
 /** Backtest permutation results (was backtest-permutations). */
 export const ST_BACKTEST_PERMUTATIONS_ROOT = 'st-backtest-permutations';
+
+/** Selection-replay run headers (Topic #1238, Thread #1240). */
+export const ST_OPTIONS_REPLAY_RUNS_ROOT = 'st-options-replay-runs';
+
+/** Selection-replay contract lists — one doc per symbol per run. */
+export const ST_OPTIONS_CONTRACT_LISTS_ROOT = 'st-options-contract-lists';
+
+/**
+ * Contract-list doc id is deterministic: `{runId}_{symbol}` (symbol normalized
+ * to uppercase, matching peer builders). Lets the worker and readers construct
+ * the id without a lookup. Safe only because runIds are Firestore auto-ids,
+ * which never contain `_`.
+ */
+export function stOptionsContractListDocId(runId: string, symbol: string): string {
+  return `${runId}_${symbol.toUpperCase()}`;
+}
 
 // ── st-runs subcollections ─────────────────────────────────────────────────
 

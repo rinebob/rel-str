@@ -10,6 +10,8 @@ import {
   ST_CONFIG_ROOT,
   ST_CONFIG_STATUS_DOC,
   ST_JOBS_SUBCOLLECTION_NAME,
+  ST_OPTIONS_CONTRACT_LISTS_ROOT,
+  ST_OPTIONS_REPLAY_RUNS_ROOT,
   ST_ORDER_TICKETS_ROOT,
   ST_PAPER_TRADING_ROOT,
   ST_PORTFOLIO_ROOT,
@@ -31,6 +33,7 @@ import {
   stPortfolioItemsPath,
   stScannerProposalDocPath,
   stScannerProposalsPath,
+  stOptionsContractListDocId,
 } from './st-collections';
 import {
   PaperTradingKind,
@@ -52,6 +55,8 @@ const FLAT_ROOTS = [
   ST_SYMBOL_LISTS_ROOT,
   ST_BACKTEST_RUNS_ROOT,
   ST_BACKTEST_PERMUTATIONS_ROOT,
+  ST_OPTIONS_REPLAY_RUNS_ROOT,
+  ST_OPTIONS_CONTRACT_LISTS_ROOT,
 ] as const;
 
 const ANCHORED_ROOTS = [ST_PAPER_TRADING_ROOT, ST_PORTFOLIO_ROOT, ST_SCANNER_ROOT] as const;
@@ -68,6 +73,8 @@ describe('st-collections roots', () => {
     expect(ST_SYMBOL_LISTS_ROOT).toBe('st-symbol-lists');
     expect(ST_BACKTEST_RUNS_ROOT).toBe('st-backtest-runs');
     expect(ST_BACKTEST_PERMUTATIONS_ROOT).toBe('st-backtest-permutations');
+    expect(ST_OPTIONS_REPLAY_RUNS_ROOT).toBe('st-options-replay-runs');
+    expect(ST_OPTIONS_CONTRACT_LISTS_ROOT).toBe('st-options-contract-lists');
   });
 
   it('pins renamed singleton ids (legacy current → status; jobs subcollection)', () => {
@@ -201,5 +208,12 @@ describe('st-scanner anchored paths', () => {
   it('stScannerProposalDocPath builds a doc path (even segments)', () => {
     expect(stScannerProposalDocPath('prop-1')).toBe('st-scanner/proposals/items/prop-1');
     expect(stScannerProposalDocPath('prop-1').split('/').length % 2).toBe(0);
+  });
+});
+
+describe('st-options selection-replay doc ids', () => {
+  it('stOptionsContractListDocId builds {runId}_{symbol}', () => {
+    expect(stOptionsContractListDocId('or-abc123', 'QQQ')).toBe('or-abc123_QQQ');
+    expect(stOptionsContractListDocId('or-abc123', 'qqq')).toBe('or-abc123_QQQ');
   });
 });
