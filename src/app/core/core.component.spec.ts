@@ -11,6 +11,7 @@ import { AppRoutes, PageInfo } from './common/interfaces';
 import { PAGE_INFO } from './common/constants';
 import { PageIdentityService } from './services/page-identity.service';
 import { UiStateService } from './services/ui-state.service';
+import { ManualOrderService } from '../features/savant-trader/services/manual-order.service';
 
 describe('CoreComponent', () => {
   let component: CoreComponent;
@@ -41,6 +42,7 @@ describe('CoreComponent', () => {
           provide: AuthStore,
           useValue: { user: signal(null), isAuthenticated: signal(false), loading: signal(false), signOut: jest.fn() },
         },
+        { provide: ManualOrderService, useValue: { open: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compileComponents();
 
@@ -129,5 +131,13 @@ describe('CoreComponent', () => {
 
     expect(router.navigate).toHaveBeenCalledWith(['trading/live']);
     expect(closeSpy).toHaveBeenCalled();
+  });
+
+  it('header newOrder output opens the manual order dialog (#1191)', () => {
+    const header = fixture.debugElement.query(By.directive(HeaderComponent)).componentInstance as HeaderComponent;
+    const svc = TestBed.inject(ManualOrderService);
+
+    header.newOrder.emit();
+    expect(svc.open).toHaveBeenCalledTimes(1);
   });
 });

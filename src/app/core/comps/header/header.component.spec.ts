@@ -124,6 +124,10 @@ describe('HeaderComponent', () => {
       expect(buttons).toContain('Sign up');
     });
 
+    it('hides the New Order button — order entry is authenticated-only (#1191)', () => {
+      expect(el().querySelector('[data-testid="new-order-btn"]')).toBeNull();
+    });
+
     it('Login navigates to /login', () => {
       const login = Array.from(el().querySelectorAll<HTMLButtonElement>('button'))
         .find(b => b.textContent?.trim() === 'Login')!;
@@ -157,6 +161,17 @@ describe('HeaderComponent', () => {
         .find(b => b.textContent?.trim() === 'Logout')!;
       logout.click();
       expect(authStore.signOut).toHaveBeenCalled();
+    });
+
+    it('renders a New Order button that emits newOrder (#1191)', () => {
+      const btn = el().querySelector<HTMLButtonElement>('[data-testid="new-order-btn"]');
+      expect(btn).not.toBeNull();
+      expect(btn!.textContent).toContain('New Order');
+
+      const spy = jest.fn();
+      component.newOrder.subscribe(spy);
+      btn!.click();
+      expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -10,6 +10,7 @@ import { HeaderComponent } from './comps/header/header.component';
 import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.component';
 import { PageIdentityService } from './services/page-identity.service';
 import { UiStateService } from './services/ui-state.service';
+import { ManualOrderService } from '../features/savant-trader/services/manual-order.service';
 
 @Component({
     selector: 'rs-core',
@@ -24,6 +25,11 @@ export class CoreComponent {
 
     private readonly router = inject(Router);
     readonly ui = inject(UiStateService);
+
+    /** Deliberate core→feature seam (#1191): the header is global, the
+     *  order surface is feature-scoped. A second consumer would earn an
+     *  InjectionToken indirection; one call site doesn't. */
+    private readonly manualOrders = inject(ManualOrderService);
 
     /** Page identity for the fullscreen reveal chip (#854) — fullscreen
      *  unmounts rs-header, so the chip carries the only in-app identity. */
@@ -40,5 +46,9 @@ export class CoreComponent {
 	handleNavigation(navItem: NavItem) {
         this.router.navigate([navItem.href]);
         this.sidenav.close();
+	}
+
+	onNewOrder() {
+		void this.manualOrders.open();
 	}
 }

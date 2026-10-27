@@ -19,6 +19,9 @@ import { UiStateService } from '../../services/ui-state.service';
 export class HeaderComponent {
 
     openSidenav = output<void>();
+    /** New Order — CoreComponent wires this to ManualOrderService.open()
+     *  (#1191). The header stays presentation-thin: emit only. */
+    newOrder = output<void>();
 
     private readonly auth = inject(AuthStore);
     private readonly router = inject(Router);
@@ -36,7 +39,6 @@ export class HeaderComponent {
     readonly pageInfo = inject(PageIdentityService).pageInfo;
 
     handleMenuOpen() {
-        // console.log('nH hMO handle menu open called');
         this.openSidenav.emit();
     }
     

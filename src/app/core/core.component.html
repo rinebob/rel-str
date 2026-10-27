@@ -12,7 +12,7 @@
     <mat-drawer-content [style.--header-height]="ui.fullscreen() ? '0px' : 'var(--app-header-height)'">
 
         @if (!ui.fullscreen()) {
-          <rs-header (openSidenav)="handleOpenSidenav()" />
+          <rs-header (openSidenav)="handleOpenSidenav()" (newOrder)="onNewOrder()" />
         } @else {
           <button class="header-reveal" (click)="ui.toggleFullscreen()" aria-label="Show header" matTooltip="Show header">
             @if (pageInfo(); as info) {

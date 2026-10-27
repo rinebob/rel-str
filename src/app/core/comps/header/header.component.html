@@ -31,6 +31,11 @@
           <button mat-button (click)="onLogin()" [disabled]="loading()">Login</button>
           <button mat-raised-button color="primary" (click)="onSignup()" [disabled]="loading()">Sign up</button>
         } @else {
+          <button mat-stroked-button data-testid="new-order-btn"
+                  (click)="newOrder.emit()">
+            <mat-icon>add</mat-icon>
+            New Order
+          </button>
           <span class="user-label">{{ user()?.displayName || user()?.email }}</span>
           <button mat-raised-button color="primary" (click)="onSignOut()" [disabled]="loading()">Logout</button>
         }
