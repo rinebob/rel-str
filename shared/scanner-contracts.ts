@@ -15,6 +15,7 @@ import type {
   ScanEnumFilter,
   ScanExpressionFilter,
   ScanFilter,
+  ScanResultRow,
 } from '@robinhood-mcp/contracts';
 
 /**
@@ -169,4 +170,81 @@ export function parseCurationProposal(
     proposal.dropDetail = dd as Record<string, Record<string, string>>;
   }
   return proposal;
+}
+
+/**
+ * Scan Latest Run — one cached latest discovery result per recipe
+ * (CONTEXT.md). Written by the discovery paths only (runScan /
+ * launchRecipe); never by evaluateTracked. Doc id IS the recipeId —
+ * the cache is one layer deep by construction (#1232/#1254).
+ */
+export interface ScanLatestRun {
+  /** Recipe id — also the Firestore doc id. */
+  recipeId: string;
+  /** ISO-8601 run timestamp — the staleness signal for the scan source. */
+  ranAt: string;
+  /** Matching universe size from the wire (`total_items`). */
+  totalItems: number;
+  /** Results hit a scanner cap — more matches may exist beyond returned rows. */
+  truncated: boolean;
+  /** The full returned rows — symbol plus every recipe column value. */
+  rows: ScanResultRow[];
+}
+
+/**
+ * Firestore-ready serialization of a Scan Latest Run (rows are already
+ * plain data). `columns` keys come from recipe display names — a future
+ * recipe name containing a Firestore-illegal char (`.`, `__x__`) would
+ * throw at setDoc; #1257's write is warn-only so that failure is silent.
+ */
+export function serializeScanLatestRun(
+  run: ScanLatestRun,
+): Record<string, unknown> {
+  return {
+    recipeId: run.recipeId,
+    ranAt: run.ranAt,
+    totalItems: run.totalItems,
+    truncated: run.truncated,
+    rows: run.rows,
+  };
+}
+
+/** Parse a Firestore doc back into a Scan Latest Run; throws on shape drift. */
+export function parseScanLatestRun(
+  data: Record<string, unknown>,
+): ScanLatestRun {
+  if (
+    typeof data['recipeId'] !== 'string' ||
+    typeof data['ranAt'] !== 'string' ||
+    typeof data['totalItems'] !== 'number' ||
+    typeof data['truncated'] !== 'boolean'
+  ) {
+    throw new Error('ScanLatestRun: missing or mistyped scalar fields');
+  }
+  const rows = data['rows'];
+  if (!Array.isArray(rows)) {
+    throw new Error('ScanLatestRun: rows must be an array');
+  }
+  for (const row of rows) {
+    if (
+      !isPlainObject(row) ||
+      typeof row['ticker'] !== 'string' ||
+      !isPlainObject(row['columns']) ||
+      !Object.values(row['columns']).every((v) => typeof v === 'string')
+    ) {
+      throw new Error(
+        'ScanLatestRun: every row needs ticker: string and columns: Record<string, string>',
+      );
+    }
+  }
+  return {
+    recipeId: data['recipeId'],
+    ranAt: data['ranAt'],
+    totalItems: data['totalItems'],
+    truncated: data['truncated'],
+    // Per-row checks above guarantee ticker/columns; instrument_id /
+    // instrument_type pass through unchecked by design (open-string wire
+    // fields — consumers normalize at their own boundary).
+    rows: rows as ScanResultRow[],
+  };
 }

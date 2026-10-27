@@ -212,13 +212,13 @@ export function stPortfolioDocPath(kind: StPortfolioKind, id: string): string {
 export const ST_SCANNER_ROOT = 'st-scanner';
 
 /**
- * Record kinds housed under the `st-scanner` root. Only `proposals` exists
- * today — persisted curation proposals from scanner-vs-universe compares.
- * Named so IMPL-doc references and future kind-parameterized helpers have a
- * spelling to pin against; the current helpers are per-kind named functions
- * (arity-0) since a single kind needs no map/guard machinery.
+ * Record kinds housed under the `st-scanner` root: `proposals` (persisted
+ * curation proposals from scanner-vs-universe compares) and `latest-runs`
+ * (one cached latest discovery result per recipe, #1232/#1254). The helpers
+ * are per-kind named functions (arity-0) rather than kind-parameterized
+ * maps — a two-kind surface doesn't need guard machinery yet.
  */
-export type StScannerKind = 'proposals';
+export type StScannerKind = 'proposals' | 'latest-runs';
 
 /** Anchor doc name for curation proposals. */
 export const ST_SCANNER_PROPOSALS_ANCHOR = 'proposals';
@@ -231,4 +231,20 @@ export function stScannerProposalsPath(): string {
 /** Document path for a curation proposal (even segments). */
 export function stScannerProposalDocPath(id: string): string {
   return `${stScannerProposalsPath()}/${id}`;
+}
+
+/** Anchor doc name for scan latest-run cache docs. */
+export const ST_SCANNER_LATEST_RUNS_ANCHOR = 'latest-runs';
+
+/** Collection path for scan latest runs (odd segments). */
+export function stScannerLatestRunsPath(): string {
+  return `${ST_SCANNER_ROOT}/${ST_SCANNER_LATEST_RUNS_ANCHOR}/items`;
+}
+
+/**
+ * Document path for a recipe's latest run (even segments). Doc id IS the
+ * recipeId — setDoc overwrite keeps the cache exactly one doc per recipe.
+ */
+export function stScannerLatestRunDocPath(recipeId: string): string {
+  return `${stScannerLatestRunsPath()}/${recipeId}`;
 }

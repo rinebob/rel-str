@@ -599,12 +599,14 @@ service cloud.firestore {
     // RH Scanner — anchored root for scanner records (#1098).
     // - proposals/items: authed CRUD — curation proposals are written by
     //   the scanner page's compare engine (single-user app, same pattern
-    //   as analysis-slices under paper-trading). Other anchors (e.g.
-    //   future saved recipes) get read-only until their own task wires
-    //   write access.
+    //   as analysis-slices under paper-trading).
+    // - latest-runs/items: authed CRUD — per-recipe latest-run cache,
+    //   written by the discovery scan paths (#1232/#1254).
+    // Other anchors (e.g. future saved recipes) get read-only until their
+    // own task wires write access.
     match /st-scanner/{anchor}/items/{docId} {
       allow read: if request.auth != null;
-      allow create, update, delete: if anchor == 'proposals' && request.auth != null;
+      allow create, update, delete: if anchor in ['proposals', 'latest-runs'] && request.auth != null;
     }
 
     // Default deny for all other collections
