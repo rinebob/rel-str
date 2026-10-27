@@ -380,6 +380,11 @@ const scripts: VerifyScript[] = [
     file: 'options-backtest-selection-replay-1276-registry-collections.ts',
     needsAccount: false,
   },
+  {
+    name: 'scan latest-run contract + paths + rules',
+    file: 'scanner-chart-view-latest-run-1254.ts',
+    needsAccount: false,
+  },
 ];
 
 function hasGhAuth(): boolean {
