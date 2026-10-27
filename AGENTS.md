@@ -63,6 +63,13 @@ See `docs/dev-notes/IPV6-NODEJS-NETWORK-ISSUE.md` for full details.
   useValue: {} }`, `{ provide: Functions, useValue: {} }` — or mock the
   service that calls Firebase (preferred when init code calls methods).
 - `.devin/` is excluded from jest test discovery — don't put specs there.
+- **Spec-local mock components must use `@Input()`/`@Output()` decorators,
+  not signal `input()`/`output()`** — a component class whose fields call
+  the signal APIs silently breaks `jest.mock` hoisting under
+  jest-preset-angular: the mock factory never registers and the module
+  resolves to the real implementation (symptom: `mockResolvedValue` is
+  undefined on a "mocked" import). See `flex-chart-sandbox.component.spec.ts`
+  for the decorator convention.
 
 ## Firestore
 

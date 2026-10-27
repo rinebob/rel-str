@@ -7,6 +7,11 @@
 - [Options Backtest] 1238-1275_CONFIG-CONFIG-BACKTEST: `@options-replay/contracts` alias across root + functions tsconfig and jest mapper
 - [Options Backtest] 1238-1275_SHARED-IMPL-BACKTEST: contracts verify script — 18 credential-free checks through the real alias, registered in run-all + README index
 - [Options Backtest] 1238-1275_DOCS-BACKTEST: #1275 CODE-REVIEW (PASS, 2 convergence passes) + #1288 UAT (Complete; S1–S9 PASS) + Selection Replay PRD/IMPL/TEST/ADR thread docs + CONTEXT.md domain vocabulary
+- [Scanner Chart View] 1232-1256_FE-IMPL-CHART-REVIEW: scan-source key helpers (SCAN_SOURCE_PREFIX/isScanSource/scanSourceRecipeId) + ChartViewViewportService list-source derivation + ':'-collision pin
+- [Scanner Chart View] 1232-1256_FE-IMPL-CHART-REVIEW: RhSelectMenuComponent.disabled input + ChartViewToolbarComponent — merged review-header/detail toolbar (scan placeholder, list dropdown, indicators, chart controls, filing chips, Trade/Order/Add, New-only, manual input)
+- [Scanner Chart View] 1232-1256_FE-IMPL-CHART-REVIEW: ChartViewComponent page — pane + detail (showToolbar=false), page-scoped toolbar state, select() funnel clearing manual state, advanceQueue idx guard, ungated Trade, Order pill, Add stub, company-name lookup; SignalListComponent dimmedSymbols viewed dimming
+- [Scanner Chart View] 1232-1256_FE-IMPL-CHART-REVIEW: AppRoutes.CHART_VIEW + lazy route + nav rename 'Chart Review' → 'Chart View' (legacy /signals/charts stays until #1260)
+- [Scanner Chart View] 1232-1256_DOCS-CHART-REVIEW: #1256 CODE-REVIEW (PASS, 2 fresh-eyes passes) + #1289 UAT (Complete; S1–S14 user PASS) + AGENTS.md jest.mock signal-input pitfall
 
 ## [2026-10-25]
 
