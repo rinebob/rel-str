@@ -40,14 +40,15 @@ npx tsx scripts/verify/{script-name}.ts
 | #1000 | `data-pipeline-st-signals-dual-write-1000.ts` | st-signals ⇄ run-ids dual-write parity for a marketDate — expected occurrences, runIds union, status/direction, create-only provenance (read-only, needs ADC) | inline usage in script header |
 | #1001 | `data-pipeline-st-signals-backfill-1001.ts` | st-signals ⇄ legacy (signal-history + run-ids) backfill parity across ALL dates — missing/extra/mismatch per symbol (read-only, needs ADC) | inline usage in script header |
 | #1002 | `data-pipeline-st-order-tickets-1002.ts` | st-order-tickets canonical-shape audit — id prefix vs mode, origin/state/terms axes, state↔field coherence (read-only, needs ADC) | inline usage in script header |
-| #1003 | `data-pipeline-st-order-tickets-migration-1003.ts` | order-intents ⇄ st-order-tickets parity — counterpart exists per mappable legacy doc, refId/origin/state/terms/tracking preserved (read-only, needs ADC) | inline usage in script header |
+| ~~#1003~~ | ~~`data-pipeline-st-order-tickets-migration-1003.ts`~~ | retired in #1013 — legacy order-intents deleted | — |
 | #1004 | `data-pipeline-st-position-groups-1004.ts` | st-position-groups canonical-shape audit + cohorts ⇄ groups parity + bidirectional member back-stamps (read-only, needs ADC) | inline usage in script header |
-| #1006 | `data-pipeline-st-strategy-instances-1006.ts` | st-strategy-instances canonical-shape audit + legacy ⇄ canonical parity + daily-analysis carry-over + repo union-read seam (read-only, needs ADC) | [data-pipeline-st-strategy-instances-1006.md](data-pipeline-st-strategy-instances-1006.md) |
-| #1007 | `data-pipeline-collection-renames-1007.ts` | st-paper-trading/st-portfolio/st-backtest-* ⇄ legacy parity — soak-direction-aware severity (cutover FAIL on divergence; mirrored families WARN) (read-only, needs ADC) | inline usage in script header |
-| #1008 | `data-pipeline-config-lists-1008.ts` | st-config/st-symbol-lists ⇄ legacy parity — doc-id remap for status ('current'→'status'), direction-aware severity (read-only, needs ADC) | inline usage in script header |
-| #1009 | `data-pipeline-decisions-retirement-1009.ts` | review-list/occurrence-decisions retirement — no-BE-reference scan + TTL sweeper export + drain window (read-only, needs ADC; fresh-write WARN expected until #1017) | inline usage in script header |
+| ~~#1006~~ | ~~`data-pipeline-st-strategy-instances-1006.ts`~~ | retired in #1013 — legacy anchors deleted | — |
+| ~~#1007~~ | ~~`data-pipeline-collection-renames-1007.ts`~~ | retired in #1013 — renamed legacy roots deleted | — |
+| ~~#1008~~ | ~~`data-pipeline-config-lists-1008.ts`~~ | retired in #1013 — legacy config/list roots deleted | — |
+| ~~#1009~~ | ~~`data-pipeline-decisions-retirement-1009.ts`~~ | retired in #1013 — sweeper + collections deleted | — |
 | #1010 | `data-pipeline-run-jobs-ttl-1010.ts` | st-run jobs TTL — sweeper export + per-run createdAt-predicate check + eligible/retained census by root + foreign census (read-only, needs ADC; backlog WARN expected until purge-st-run-jobs-1010 --apply) | inline usage in script header |
-| #1011 | `data-pipeline-new-list-1011.ts` | NEW-list census — additive-only core invariant + dual-root universe/membership census + unlisted count (WARN → sweep-unlisted-to-new --apply) + NEW doc presence + list-root parity (read-only, needs ADC) | inline usage in script header |
+| ~~#1011~~ | ~~`data-pipeline-new-list-1011.ts`~~ | retired in #1013 — legacy list root deleted (dual-root census is single-root now) | — |
+| #1013 | `data-pipeline-legacy-roots-1013.ts` | legacy-roots inventory + legacy⇄canonical parity before archive+delete — FAIL lists doc ids that would be lost (read-only, needs ADC) | inline usage in script header |
 | #1073 | `paper-trading-analysis-1073-contracts.ts` | analysis contracts — path helpers, manifest⇄schema bijection, dataset-index + slice doc round-trip on real Firestore (writes+deletes two verify-1073-* probe docs, needs ADC) | [paper-trading-analysis-1073.md](paper-trading-analysis-1073.md) |
 | #1074 | `paper-trading-analysis-1074-csv-codec.ts` | CSV codec — serialize→parse round-trip on real live trades, manifest-order header, byte-identical determinism, no literal-marker cells (read-only) | [paper-trading-analysis-1074.md](paper-trading-analysis-1074.md) |
 | #1076 | `paper-trading-analysis-1076-dataset-writer.ts` | dataset writer + callable — validation, generating→ready/failed index lifecycle on real Firestore, real GCS upload + byte readback, enqueue seam (writes+deletes verify-1076-* probes, needs ADC) | [paper-trading-analysis-1076.md](paper-trading-analysis-1076.md) |
@@ -91,17 +92,17 @@ npx tsx scripts/verify/{script-name}.ts
 23. **#1000** — `data-pipeline-st-signals-dual-write-1000.ts` (st-signals ⇄ run-ids dual-write parity for a marketDate)
 24. **#1001** — `data-pipeline-st-signals-backfill-1001.ts` (st-signals ⇄ legacy backfill parity across all dates; run after `backfill-st-signals-1001.ts`)
 25. **#1002** — `data-pipeline-st-order-tickets-1002.ts` (st-order-tickets canonical-shape audit; empty until post-deploy emission)
-26. **#1003** — `data-pipeline-st-order-tickets-migration-1003.ts` (order-intents ⇄ canonical parity; run after `migrate-order-intents-1003.ts --apply` + during the mirror soak)
 27. **#1004** — `data-pipeline-st-position-groups-1004.ts` (st-position-groups shape + cohorts ⇄ groups parity + member back-stamps; run after `migrate-cohorts-1004.ts --apply` and after a post-deploy `paperSignalOrder` accept — verify-564 covers the live accept path)
 28. **#1073** — `paper-trading-analysis-1073-contracts.ts` (analysis contracts: anchor paths, manifest⇄schema, dataset + slice round-trip; writes then deletes verify-1073-* probes)
 29. **#1074** — `paper-trading-analysis-1074-csv-codec.ts` (CSV codec: serialize→parse round-trip + determinism on real trades; read-only)
 30. **#1076** — `paper-trading-analysis-1076-dataset-writer.ts` (writer + callable: validation, index-doc lifecycle, real GCS upload; enqueue check skips until functions deploy)
 31. **#1077** — `paper-trading-analysis-1077-live-snapshot.ts` (live snapshot dry-run: row-per-trade, cohorts, ind.*/strength.*/excursion on real prod; read-only)
 32. **#1079** — `paper-trading-analysis-dataset.ts` (consolidated relay: real-pass live dry-run + AMAT replay parity vs prototype CSV on frozen window; read-only — until the #1007 migration runs, its live leg reads the legacy trades path with a warn)
-33. **#1006** — `data-pipeline-st-strategy-instances-1006.ts` (st-strategy-instances shape + parity + daily-analysis carry-over + repo seam; run after `migrate-strategy-instances-1006.ts --apply` and the re-pointed deploy)
-34. **#1007** — `data-pipeline-collection-renames-1007.ts` (per-family legacy ⇄ canonical parity; run after `migrate-collection-renames-1007.ts --apply` and the mirror-trigger deploy)
-35. **#1008** — `data-pipeline-config-lists-1008.ts` (st-config + st-symbol-lists parity; run after `migrate-config-lists-1008.ts --apply` and the mirror-trigger deploy)
-36. **#1009** — `data-pipeline-decisions-retirement-1009.ts` (retired-collection BE-surface + TTL drain audit; no deploy dependency)
 37. **#1010** — `data-pipeline-run-jobs-ttl-1010.ts` (st-run jobs TTL census + sweeper/core audit; meaningful after the `cleanupStRunJobs` deploy; backlog WARN clears after `purge-st-run-jobs-1010.ts --apply`)
-38. **#1011** — `data-pipeline-new-list-1011.ts` (NEW-list census: additive-only core invariant, dual-root universe/membership, unlisted count, NEW doc presence, list-root parity; no deploy dependency — WARN lists any symbols to sweep)
 39. **#1141** — `rh-scanner-recipes-1098.ts` (every catalog recipe → live preview_scan: success + result/row shape, column-key WARN; needs local RH MCP session like 564/667 — fails without a token, that's env not script)
+
+<!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their
+target scripts (migrate-*, sweep-unlisted-to-new, qa-probe-1008) — the legacy roots they
+verified against were deleted. Replacement: `verify/data-pipeline-legacy-roots-1013.ts`
+(pre-delete inventory/parity) + `scripts/archive-legacy-roots-1013.ts` (archive+delete ops,
+dry-run default). -->

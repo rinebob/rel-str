@@ -51,16 +51,13 @@
   "include": [
     "src",
     "scripts/backtest-qqq-underlying.ts",
-    "scripts/migrate-cohorts-1004.ts",
-    "scripts/migrate-collection-renames-1007.ts",
-    "scripts/migrate-config-lists-1008.ts",
-    "scripts/qa-probe-1008.ts",
     "scripts/purge-st-run-jobs-1010.ts",
     "scripts/migrate-order-intents-1003.ts",
+    "scripts/backfill-st-paper-trading-1013.ts",
+    "scripts/archive-legacy-roots-1013.ts",
     "scripts/open-close-strategy-comparison.ts",
     "scripts/seed-options-strategy-instances.ts",
     "scripts/replay-missing-symbols.ts",
-    "scripts/sweep-unlisted-to-new.ts",
     "scripts/verify/*.ts"
   ]
 }
