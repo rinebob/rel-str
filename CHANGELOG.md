@@ -7,6 +7,7 @@
 - [Option Contract Time-Series Viewer] 1243-1264_DOCS-OPTIONS: #1264 CODE-REVIEW (PASS, 2 passes) + #1292 UAT (Complete, S1–S10 all PASS)
 - [Savant Design System] 1024-1213_FE-IMPL-DESIGN-SYSTEM: 10 `--theme-*` compat aliases re-pointed onto `--ds-*` (6 previously-undefined names — heatmaps/dashboard-v3/rs-chart-view silent drops fixed), 3 missing `--mat-sys` bridge keys per theme (background/surface-variant/warning)
 - [Savant Design System] 1024-1213_DOCS-DESIGN-SYSTEM: #1213 CODE-REVIEW (PASS, 2 rounds) + #1298 UAT (automated green; S1–S9 visual deferred to phase-level pass)
+- [Savant Design System] 1024-1214_DOCS-DESIGN-SYSTEM: #1214 CODE-REVIEW (PASS, 3 axes) + #1311 UAT (automated green; D1–D14 visual deferred to phase-level pass)
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Archive+delete op (atomic writes, validated delete gate, resumable), positional parity relay, raw-quotes backfill, 48-test legacy-roots pin spec
 - [ST Firestore Reorg] 984-1013_DOCS-DATA-PIPELINE: IMPL/TEST as-built sync, st-cloud-function README update, #1013 CODE-REVIEW (PASS, 1 round) + #1237 UAT (Complete, 8/8)
 - [ST Firestore Reorg] 984-1159_BE-IMPL-DATA-PIPELINE: st-runs-symbols-cutover-1159 pin spec — ingest jobs/run-ids split, writer dual refs, service path contracts, TTL membership
@@ -15,6 +16,11 @@
 
 ### Changed
 - [Savant Design System] 1024-1213_FE-IMPL-DESIGN-SYSTEM: Literal sweep — global/styles layer: `border1`/`rsButtonOne`/`customScrollbar` tokenized, `--mat-sys` blocks tagged exceptions + completed to 34 keys, never-defined vars fixed (paper-trade `.mono`, 5 MUI-style vars on sync-chart-view); inventory script `accent` whitelist
+- [Savant Design System] 1024-1214_FE-IMPL-DESIGN-SYSTEM: Literal sweep — option-chain + pct-change surfaces (grid/cells/dialogs → `var(--ds-*)`, dead mat-sys fallbacks dropped, swing-fixtures exception)
+- [Savant Design System] 1024-1214_FE-IMPL-DESIGN-SYSTEM: Literal sweep — order ticket, queue + trading surfaces (status chips → container pairs, direction → up/down, entity FPs noted, purple/ACR categorical hues tagged)
+- [Savant Design System] 1024-1214_FE-IMPL-DESIGN-SYSTEM: Literal sweep — analysis, gallery + signal views (status pills → tokens, histogram chart literals tagged)
+- [Savant Design System] 1024-1214_FE-IMPL-DESIGN-SYSTEM: Literal sweep — swing-analysis + strategy builder surfaces (dialogs, error banner, form validation → tokens)
+- [Savant Design System] 1024-1214_FE-IMPL-DESIGN-SYSTEM: Literal sweep — chart-config exception tags + inventory (canvas-rendered literals tagged; ST literal sites 366→114)
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Canonical-only data paths — order-intents/instances/symbol-lists fallbacks + dual-writes removed; dead constants swept
 - [ST Firestore Reorg] 984-1013_CONFIG-CONFIG-DATA-PIPELINE: Retired legacy rules ACLs (incl. portfolio/{anchor}) + 22 dead index entries
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Legacy-path scrubs in surviving scripts — migrate-1003 settle pass, -564 verifier routed paths, spec rewrites
