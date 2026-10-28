@@ -207,18 +207,20 @@
   color: var(--mat-sys-on-surface-variant);
 
   &.status-open {
-    background: rgba(100, 181, 246, 0.18);
-    color: #64b5f6;
+    background: var(--ds-accent-container);
+    color: var(--ds-on-accent-container);
   }
   &.status-pending {
-    background: rgba(255, 183, 77, 0.18);
-    color: #ffb74d;
+    background: var(--ds-warning-container);
+    color: var(--ds-on-warning-container);
   }
   &.status-closed {
-    background: rgba(129, 199, 132, 0.18);
-    color: #81c784;
+    background: var(--ds-success-container);
+    color: var(--ds-on-success-container);
   }
   &.status-assigned {
+    // literal-sweep exception #1214: 'assigned' purple — categorical
+    // status hue, no --ds token.
     background: rgba(186, 104, 200, 0.18);
     color: #ba68c8;
   }

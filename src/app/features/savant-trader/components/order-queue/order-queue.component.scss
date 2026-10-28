@@ -138,14 +138,16 @@
 
 // Status group dot colors
 .group-staged .group-dot { background: var(--mat-sys-tertiary); }
-.group-submitting .group-dot { background: #e65100; }
+.group-submitting .group-dot { background: var(--ds-warning); }
 .group-submitted .group-dot { background: var(--mat-sys-primary); }
-.group-queued .group-dot { background: #1565c0; }
+.group-queued .group-dot { background: var(--ds-accent); }
+// literal-sweep exception #1214: 'resting' purple — categorical status
+// hue, no --ds token.
 .group-resting .group-dot { background: #7b1fa2; }
-.group-filled .group-dot { background: #1b5e20; }
+.group-filled .group-dot { background: var(--ds-success); }
 .group-failed .group-dot { background: var(--mat-sys-error); }
 .group-cancelled .group-dot { background: var(--mat-sys-on-surface-variant); opacity: 0.4; }
-.group-cancel-pending .group-dot { background: #e65100; }
+.group-cancel-pending .group-dot { background: var(--ds-warning); }
 .group-expired .group-dot { background: var(--mat-sys-on-surface-variant); opacity: 0.4; }
 
 .queue-item {
@@ -298,7 +300,7 @@
         text-align: right;
         color: var(--mat-sys-on-surface-variant);
 
-        &.pct-pos { color: #2e7d32; }
+        &.pct-pos { color: var(--ds-up); }
         &.pct-neg { color: var(--mat-sys-error); }
       }
 
@@ -311,7 +313,7 @@
         width: 28px;
         text-align: center;
 
-        &.side-buy { background: #1b5e2033; color: #2e7d32; }
+        &.side-buy { background: var(--ds-up-container); color: var(--ds-on-up-container); }
         &.side-sell { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
       }
 

@@ -29,7 +29,7 @@ h2[mat-dialog-title] {
   .value {
     font-weight: 600;
 
-    &.buy { color: #2e7d32; }
+    &.buy { color: var(--ds-up); }
     &.sell { color: var(--mat-sys-error); }
   }
 }
@@ -75,8 +75,8 @@ mat-dialog-actions {
   font-style: normal;
   font-weight: 400;
   line-height: 1.4;
-  background: #fff3cd;
-  color: #856404;
+  background: var(--ds-warning-container);
+  color: var(--ds-on-warning-container);
 
   span { font-size: 12px; font-style: normal; font-weight: 400; }
 

@@ -26,6 +26,8 @@
   &:hover    { background: var(--mat-sys-surface-container-high); }
   &:disabled { opacity: 0.3; cursor: not-allowed; }
 
+  // literal-sweep exception #1214: 7-hue per-action identity ramp — a
+  // categorical palette, not semantic tokens; collapses if mapped.
   &.new.active {
     background: #43a04733;
     color: #43a047;

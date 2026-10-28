@@ -39,6 +39,8 @@
   &.review {
     &:hover:not(:disabled) { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); border-color: var(--mat-sys-tertiary); }
     &.active {
+      // literal-sweep exception #1214: review-pipeline purple —
+      // categorical identity hue, no --ds token.
       background: #7b1fa233;
       color: #7b1fa2;
       border-color: #7b1fa2;
@@ -46,11 +48,11 @@
   }
 
   &.order {
-    &:hover:not(:disabled) { background: #1b5e2033; color: #1b5e20; border-color: #2e7d32; }
+    &:hover:not(:disabled) { background: var(--ds-up-container); color: var(--ds-on-up-container); border-color: var(--ds-up); }
     &.active {
-      background: #1b5e2033;
-      color: #1b5e20;
-      border-color: #2e7d32;
+      background: var(--ds-up-container);
+      color: var(--ds-on-up-container);
+      border-color: var(--ds-up);
     }
   }
 }

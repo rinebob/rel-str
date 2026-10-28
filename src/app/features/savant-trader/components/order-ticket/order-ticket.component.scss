@@ -155,7 +155,7 @@
       padding: 2px 6px;
       border-radius: 3px;
 
-      &.buy { background: #1b5e2033; color: #2e7d32; }
+      &.buy { background: var(--ds-up-container); color: var(--ds-on-up-container); }
       &.sell { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
     }
 
@@ -170,14 +170,16 @@
       color: var(--mat-sys-on-surface-variant);
 
       &.status-staged, &.status-ready { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
-      &.status-submitting { background: #f57c0033; color: #e65100; }
+      &.status-submitting { background: var(--ds-warning-container); color: var(--ds-on-warning-container); }
       &.status-submitted { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
-      &.status-queued { background: #1565c033; color: #0d47a1; }
+      &.status-queued { background: var(--ds-accent-container); color: var(--ds-on-accent-container); }
+      // literal-sweep exception #1214: 'resting' purple — categorical
+      // status hue, no --ds token for it.
       &.status-resting { background: #7b1fa233; color: #6a1b9a; }
-      &.status-filled { background: #1b5e2033; color: #1b5e20; }
+      &.status-filled { background: var(--ds-success-container); color: var(--ds-on-success-container); }
       &.status-failed { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
       &.status-cancelled { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
-  &.status-paper { background: #00838f33; color: #006064; }
+      &.status-paper { background: var(--ds-accent-container); color: var(--ds-on-accent-container); }
     }
 
     .header-price {
@@ -506,6 +508,8 @@
 
 // ========================================
 // PROTECTED BY
+// literal-sweep exception #1214: hedge/spread-link purple — categorical
+// identity hue, no --ds token; revisit under #1162.
 // ========================================
 .protected-by-section {
   display: flex;

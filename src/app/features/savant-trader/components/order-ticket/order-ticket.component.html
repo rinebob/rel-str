@@ -53,6 +53,9 @@
           }
         </div>
 
+        <!-- literal-sweep note #1214: the &#9650;/&#9660; glyphs below are
+             HTML arrow entities, not color literals (inventory false
+             positives). -->
         @if (ticket()?.status === OrderTicketStatus.STAGED) {
           <div class="stop-loss-controls">
             <div class="form-row">

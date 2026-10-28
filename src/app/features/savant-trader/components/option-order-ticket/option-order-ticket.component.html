@@ -145,6 +145,8 @@
       <div class="form-row">
         <span class="field-label">Qty</span>
         <div class="stepper">
+          <!-- literal-sweep #1214: the &#9660;/&#9650; below are HTML arrow
+               entities, not color literals — inventory false positives. -->
           <button type="button" class="step-btn" (click)="qtyDown()">&#9660;</button>
           <input class="cf-input" data-testid="quantity-input" inputmode="numeric" pattern="[0-9]*"
             [value]="quantity()" (input)="onQuantityInput($event)" placeholder="1">

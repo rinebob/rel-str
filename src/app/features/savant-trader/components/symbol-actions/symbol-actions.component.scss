@@ -25,6 +25,8 @@
   &:hover  { background: var(--mat-sys-surface-container-high); }
   &:disabled { opacity: 0.3; cursor: not-allowed; }
 
+  // literal-sweep exception #1214: review-pipeline purple — categorical
+  // identity hue, no --ds token.
   &.review.active   { background: #7b1fa233; color: #7b1fa2; }
   // #1017 — Trade label button replaced the ACR icon set; text needs a
   // wider, padded pill rather than the 20px icon square.
@@ -34,8 +36,8 @@
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.02em;
-    color: #1b5e20;
+    color: var(--ds-up);
 
-    &:hover:not(:disabled) { background: #1b5e2033; }
+    &:hover:not(:disabled) { background: var(--ds-up-container); }
   }
 }
