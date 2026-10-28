@@ -21,6 +21,9 @@
 - [Savant Design System] 1024-1211_FE-IMPL-DESIGN-SYSTEM: /dev/ds palette lock — explicit dark|light host attr, lock persistence (ds-gallery.palette-lock), accent/up hue-adjacency warning, App-wide accent preview pushing derived --ds-accent/--mat-sys families onto `<html>` with self-cleanup
 - [Savant Design System] 1024-1211_SHARED-IMPL-DESIGN-SYSTEM: palette-lock verify relay — 19 credential-free checks incl. dart-sass compile, light-restate/mat-sys source-parity pins, no-leak guards; registered in run-all + README index
 - [Savant Design System] 1024-1211_DOCS-DESIGN-SYSTEM: #1211 CODE-REVIEW (PASS, 10 in-review fixes) + #1236 UAT (Complete; 7 scenarios PASS; locked palette --ds-accent #22d3ee / --ds-up #00e676 / --ds-down #ff3366)
+- [Scanner Chart View] 1232-1257_FE-IMPL-CHART-REVIEW: Latest-run cache write seam — ScannerService.saveLatestRun + launchRecipe/runScan call sites (warn-only, discovery-only)
+- [Scanner Chart View] 1232-1257_FE-IMPL-CHART-REVIEW: Latest-run cache spec coverage — write shape, warn-only, once-per-run and no-write pins
+- [Scanner Chart View] 1232-1257_DOCS-CHART-REVIEW: #1257 CODE-REVIEW (PASS, 2 rounds) + #1294 UAT (Complete incl. live Firestore write evidence)
 
 ## [2026-10-26]
 
