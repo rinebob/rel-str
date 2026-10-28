@@ -16,6 +16,8 @@
 - [Options Backtest] 1238-1281_BE-IMPL-BACKTEST: `optionsReplayStart` callable — validate → pending run doc → running-before-fanout → per-symbol task enqueue; ReplayStartDeps seam, boundary-coerced invalid-argument, fail-fast enqueue semantics
 - [Options Backtest] 1238-1281_BE-IMPL-BACKTEST: 8 deps-seamed unit tests (validation, fanout shape, effect ordering, failure path) — test:options-replay now globs the suite dir, 17/17
 - [Options Backtest] 1238-1281_DOCS-BACKTEST: #1281 CODE-REVIEW (PASS, 2 convergence fixes) + #1312 UAT (Complete; 8/8) + IMPL-BE §1/§5 as-built
+- [Options Backtest] 1238-1280_BE-IMPL-BACKTEST: `optionsReplayPermutation` worker + pure `mapPickDocToRows` — per-symbol pick-doc → contract-list rows with convergent `listOutcomes` close-out, 404/unknown-template permanent vs transient retry split, `resolveRunCloseOut` counter math; 21 new tests, 38/38 suite
+- [Options Backtest] 1238-1280_DOCS-BACKTEST: #1280 CODE-REVIEW (PASS, 3 convergence fixes) + #1318 UAT (Complete; 16/16) + IMPL-BE §2/§4 as-built
 
 ### Changed
 - [Savant Design System] 1024-1213_FE-IMPL-DESIGN-SYSTEM: Literal sweep — global/styles layer: `border1`/`rsButtonOne`/`customScrollbar` tokenized, `--mat-sys` blocks tagged exceptions + completed to 34 keys, never-defined vars fixed (paper-trade `.mono`, 5 MUI-style vars on sync-chart-view); inventory script `accent` whitelist

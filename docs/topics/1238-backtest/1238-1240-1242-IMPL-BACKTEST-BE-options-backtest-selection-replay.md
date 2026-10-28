@@ -57,6 +57,8 @@ Per-symbol pipeline:
 
 **Error semantics** (PRD): missing pick doc for the coordinate → list doc status `failed`, error names the coordinate; run keeps going for other symbols. Task retry semantics mirror `stBacktestPermutation` — a transient failure may retry; a completed list doc on retry is skipped (idempotent by `status === 'success'` check).
 
+- **As-built (#1280):** all effects sit behind `ReplayPermutationDeps` (TEST-BE seam 3) so `runReplayPermutation` is unit-tested with fakes. Three refinements vs the sketch: a pick-doc **404 resolves immediately** (`failed` doc + failed close-out, no retry — a missing doc can't materialize inside backoff), while transient errors still rethrow per the retry config; terminal list docs (`success` *or* `failed`) short-circuit re-execution but still **ensure close-out** — the run doc's `listOutcomes` map is written in the same transaction as the counter increment, so close-out is idempotent per symbol and a retry that died between terminal write and close-out self-heals (also eliminates the concurrent-duplicate double-count); and run close-out happens in a **Firestore transaction** whose counter/status math lives in the pure `resolveRunCloseOut` helper (last list flips `completed`, or `failed` iff every list failed). Unknown `templateId` on a payload is also permanent — it means the template was removed between enqueue and dispatch.
+
 ### 3. SA pick-doc proxy client (`functions/src/options-replay/pick-doc-client.ts`, new)
 
 - Thin wrapper on the existing `partner-proxy` ID-token machinery (same auth path as `partnerHistoricalOptions*` — HTTPS GET + `Authorization: Bearer <ID token>`).
@@ -79,6 +81,7 @@ mapPickDocToRows(
 - For each trading day: `doc.days[date]` entry passing `isPickDocPick` → `kind:'pick'` row (all day fields + `side`); miss entry (`status` present) → `kind:'no-selection'` with reason mapped (`no_match`→`'miss'`, `no_chain`→`'gap'`); absent key → `kind:'no-selection'`.
 - `repeatsPrevious`: set when the prior `pick` row shares `contractId` (resets across no-selection gaps).
 - Pure function — fully unit-testable with fixture docs + a synthetic calendar (TEST-BE seam #2). No Firestore, no network.
+- **As-built (#1280):** absent in-range keys emit a `no-selection` row **without** a reason (SA's contract is every trading day carries an entry, so an absent in-range key has no honest explanation); `out-of-range` is emitted for days outside `[firstDate, lastDate]` symmetrically, not just past `lastDate`.
 
 ### 5. Registration
 
