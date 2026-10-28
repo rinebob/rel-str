@@ -131,9 +131,8 @@ export function setCohort(db: Firestore, cohort: PaperCohort): Promise<void> {
   return setItem(db, PaperTradingKind.COHORT, cohort);
 }
 
-// Strategy instances live in the flat `st-strategy-instances` root (#1006) —
-// delegate to the engine repository, which union-reads the legacy
-// paper-trading/instances anchor during the FE-write soak window.
+// Strategy instances live in the flat `st-strategy-instances` root (#1006;
+// canonical-only since #1013, when the legacy instances anchor retired).
 export function getInstance(
   db: Firestore,
   instanceId: string,

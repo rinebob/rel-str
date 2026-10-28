@@ -8,10 +8,11 @@
  * materializes Collection/Document references.
  *
  * #1007 cutover: account/trade/stats/raw-quote read+write on
- * `st-paper-trading`. The other anchors stay on the legacy root —
- * `instances` is the FE-written anchor until #1014, `cohorts` drains to
- * `st-position-groups` (#1004), and `analysis-*` keeps its own rename
- * task. ST_KINDS is removed with the legacy root in #1013.
+ * `st-paper-trading`; #1013 retires the `instances` anchor (all instance
+ * reads now hit `st-strategy-instances` directly). Remaining legacy legs:
+ * `cohorts` (live repository path; drain is a later task) and
+ * `analysis-*` (#1160). ST_KINDS shrinks as each kind migrates and is
+ * deleted with the legacy root.
  */
 
 import type { CollectionReference, DocumentReference, Firestore } from 'firebase-admin/firestore';
@@ -28,7 +29,7 @@ const ST_KINDS: ReadonlySet<PaperTradingKind> = new Set([
 ]);
 
 /** Routed `items` collection path — the single place the kind→root
- *  decision lives; removed with the legacy root in #1013. */
+ *  decision lives; survives until the last legacy kind migrates. */
 function itemsPathFor(kind: PaperTradingKind): string {
   return ST_KINDS.has(kind)
     ? stPaperTradingItemsPath(kind)

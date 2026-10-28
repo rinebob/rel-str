@@ -28,7 +28,6 @@ import { db, FieldValue } from '../firebase-admin-init';
 import {
   DEFAULT_SYMBOL_LIST_NAME,
   ST_SYMBOLS_COLLECTION,
-  ST_SYMBOL_LISTS_COLLECTION,
   ST_SYMBOL_LISTS_ROOT,
   StSymbol,
 } from '../common/st-collections';
@@ -39,11 +38,7 @@ import { decodeSymbolAddedMessage, normalizeSource } from '../common/st-symbol-a
 const RUN_DEADLINE_MINUTES = 30;
 
 /** Add a symbol to the NEW inbox list (triaged by the user, not auto-filed).
- *  Dual-writes legacy + st-symbol-lists during the #1008 soak — the FE probes
- *  bare-name list docs on the legacy root until its #1014 re-point; the
- *  canonical leg lands immediately instead of waiting on the mirror.
- *  One batch — a half-applied add can't happen (canonical→legacy has no
- *  mirror to heal a legacy-leg failure). */
+ *  Writes st-symbol-lists only (#1008; legacy twin dropped in #1013). */
 export async function addSymbolToDefaultList(
   symbol: string,
   firestoreDb: Firestore = db,
@@ -52,11 +47,10 @@ export async function addSymbolToDefaultList(
     name: DEFAULT_SYMBOL_LIST_NAME,
     symbols: FieldValue.arrayUnion(symbol),
   };
-  const batch = firestoreDb.batch();
-  const opts = { merge: true };
-  batch.set(firestoreDb.collection(ST_SYMBOL_LISTS_COLLECTION).doc(DEFAULT_SYMBOL_LIST_NAME), payload, opts);
-  batch.set(firestoreDb.collection(ST_SYMBOL_LISTS_ROOT).doc(DEFAULT_SYMBOL_LIST_NAME), payload, opts);
-  await batch.commit();
+  await firestoreDb
+    .collection(ST_SYMBOL_LISTS_ROOT)
+    .doc(DEFAULT_SYMBOL_LIST_NAME)
+    .set(payload, { merge: true });
 }
 
 /** Trigger a single-symbol ST run for a newly onboarded symbol. */

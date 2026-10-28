@@ -8,8 +8,6 @@
 
 import type { CollectionReference, Firestore } from 'firebase-admin/firestore';
 import { db } from '../../firebase-admin-init';
-import { PaperTradingKind } from '@paper-trading/contracts';
-import { paperItemsRef } from '../collections';
 import { ST_STRATEGY_INSTANCES_ROOT } from '../../common/st-collections';
 import type { StMode } from '@st/types';
 import { ST_MODES } from '@st/types';
@@ -202,20 +200,12 @@ function normalizeInstance(id: string, data: unknown): StStrategyInstance | null
 export const STRATEGY_INSTANCE_DAILY_ANALYSIS_SUBCOLLECTION = 'daily-analysis';
 
 /**
- * Canonical instance collection (`st-strategy-instances`).
- * Reads union with the legacy `paper-trading/instances/items` anchor — the FE
- * Strategy Builder still writes there until #1014, so a UI-created doc in the
- * soak window must not go invisible to the engine. On an id collision the
- * doc with the newer `updatedAt` wins (FE stamps it on every write, so a
- * post-migration UI edit/pause shadows the migrated copy — otherwise the
- * engine would keep trading a stopped instance); a tie goes to canonical.
+ * Canonical instance collection (`st-strategy-instances`; legacy
+ * `paper-trading/instances/items` union read removed in #1013 — the anchor
+ * is empty and the FE writes canonical).
  */
 function instancesCollection(firestoreDb: Firestore = db): CollectionReference {
   return firestoreDb.collection(ST_STRATEGY_INSTANCES_ROOT);
-}
-
-function legacyInstancesCollection(firestoreDb: Firestore = db): CollectionReference {
-  return paperItemsRef(firestoreDb, PaperTradingKind.INSTANCE);
 }
 
 /** Document ref for `st-strategy-instances/{instanceId}` (#1006). */
@@ -246,43 +236,22 @@ function isRunnablePaperInstance(i: StStrategyInstance): boolean {
   return i.enabled !== false && i.mode === 'paper';
 }
 
-/** Millis for a normalized ISO timestamp; unparseable sorts oldest. */
-function tsMillis(iso: string): number {
-  const t = Date.parse(iso);
-  return Number.isNaN(t) ? 0 : t;
-}
-
 /**
- * Union read across canonical + legacy collections, deduped by id —
- * newest `updatedAt` wins (see `instancesCollection` for why; tie →
- * canonical). Lifecycle filtering happens AFTER the merge: a per-collection
- * `where` would exclude a twin whose newer copy moved out of the queried
- * state (e.g. user pauses via the UI → anchor PAUSED newer, canonical ACTIVE
- * stale) and the stale copy would win by default.
+ * Canonical read + lifecycle filter (#1013 — legacy anchor union removed).
  */
 async function listInstances(
   lifecycleStates: readonly LifecycleState[] | null,
   firestoreDb: Firestore,
 ): Promise<StStrategyInstance[]> {
-  const [canonical, legacy] = await Promise.all([
-    instancesCollection(firestoreDb).get(),
-    legacyInstancesCollection(firestoreDb).get(),
-  ]);
-  const byId = new Map<string, StStrategyInstance>();
-  for (const snap of [legacy, canonical]) {
-    for (const doc of snap.docs) {
-      const instance = normalizeInstance(doc.id, doc.data());
-      const prev = byId.get(doc.id);
-      if (instance && (!prev || tsMillis(instance.updatedAt) >= tsMillis(prev.updatedAt))) {
-        byId.set(doc.id, instance);
-      }
-    }
-  }
-  return [...byId.values()].filter(
-    (i) =>
-      isRunnablePaperInstance(i) &&
-      (lifecycleStates === null || lifecycleStates.includes(i.lifecycleState)),
-  );
+  const snap = await instancesCollection(firestoreDb).get();
+  return snap.docs
+    .map((doc) => normalizeInstance(doc.id, doc.data()))
+    .filter(
+      (i): i is StStrategyInstance =>
+        i != null &&
+        isRunnablePaperInstance(i) &&
+        (lifecycleStates === null || lifecycleStates.includes(i.lifecycleState)),
+    );
 }
 
 export async function listActiveInstances(
@@ -320,16 +289,6 @@ export async function getInstance(
   id: string,
   firestoreDb: Firestore = db,
 ): Promise<StStrategyInstance | null> {
-  const [canon, legacy] = await Promise.all([
-    strategyInstanceRef(id, firestoreDb).get(),
-    legacyInstancesCollection(firestoreDb).doc(id).get(),
-  ]);
-  // A malformed canonical doc falls back to its legacy twin rather than
-  // shadowing it (same behavior as the union read).
-  const c = canon.exists ? normalizeInstance(canon.id, canon.data()) : null;
-  const l = legacy.exists ? normalizeInstance(legacy.id, legacy.data()) : null;
-  if (!c || !l) {
-    return c ?? l;
-  }
-  return tsMillis(l.updatedAt) > tsMillis(c.updatedAt) ? l : c;
+  const canon = await strategyInstanceRef(id, firestoreDb).get();
+  return canon.exists ? normalizeInstance(canon.id, canon.data()) : null;
 }

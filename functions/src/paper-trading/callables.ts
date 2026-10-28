@@ -42,7 +42,7 @@ import {
 } from '@paper-trading/ids';
 import { db } from '../firebase-admin-init';
 import { getMarketDatePT, calendarDaysBetween } from '../common/pt-date-utils';
-import { ST_ORDER_INTENTS_COLLECTION, ST_ORDER_TICKETS_ROOT } from '../common/st-collections';
+import { ST_ORDER_TICKETS_ROOT } from '../common/st-collections';
 import { stSignalOccurrenceId, stTicketId } from '@st/ids';
 import { StOrderTicketWriter } from '../order-tickets/st-order-ticket-writer';
 import { StPositionGroupWriter } from '../position-groups/st-position-group-writer';
@@ -494,34 +494,22 @@ export function stTicketToOrderTicketDoc(t: StOrderTicket): OrderTicketDoc {
 }
 
 /**
- * Ticket lookup by refId — canonical-first with legacy fallback (#1003).
- * Correct at every point in the soak: pre-migration misses fall through
- * to `order-intents`; post-migration hits return the canonical doc.
+ * Ticket lookup by refId (#1003; #1013 — legacy `order-intents` fallback
+ * removed with the retired collection). refId collides with emitted
+ * pap_{tradeId} lifecycle tickets — order docs never carry
+ * terms.expression/expressionTemplate, lifecycle tickets always do.
  */
 export async function getTicketDoc(firestore: Firestore, refId: string): Promise<OrderTicketDoc | null> {
   const canon = await firestore
     .collection(ST_ORDER_TICKETS_ROOT)
     .where('refId', '==', refId)
     .get();
-  if (!canon.empty) {
-    // refId collides with emitted pap_{tradeId} lifecycle tickets during
-    // the soak — order docs never carry terms.expression/expressionTemplate,
-    // lifecycle tickets always do. If every hit is a lifecycle ticket the
-    // order doc lives in the legacy collection — fall through.
-    const docs = canon.docs.map((d) => d.data() as StOrderTicket);
-    const pick =
-      docs.find((t) => t.migratedFrom === 'order-intents')
-      ?? docs.find((t) => t.terms != null && t.terms.expression === undefined && t.terms.expressionTemplate === undefined);
-    if (pick) return stTicketToOrderTicketDoc(pick);
-  }
-  const byRef = await firestore
-    .collection(ST_ORDER_INTENTS_COLLECTION)
-    .where('refId', '==', refId)
-    .limit(1)
-    .get();
-  if (!byRef.empty) return byRef.docs[0].data() as OrderTicketDoc;
-  const byId = await firestore.doc(`${ST_ORDER_INTENTS_COLLECTION}/${refId}`).get();
-  return byId.exists ? (byId.data() as OrderTicketDoc) : null;
+  if (canon.empty) return null;
+  const docs = canon.docs.map((d) => d.data() as StOrderTicket);
+  const pick =
+    docs.find((t) => t.migratedFrom === 'order-intents')
+    ?? docs.find((t) => t.terms != null && t.terms.expression === undefined && t.terms.expressionTemplate === undefined);
+  return pick ? stTicketToOrderTicketDoc(pick) : null;
 }
 
 export async function resolveCohortId(firestore: Firestore, date: Date, symbol: string): Promise<string> {

@@ -1,15 +1,13 @@
 /**
  * @topic #984 — ST Firestore Reorg (task #1003)
  *
- * Legacy `savant-trader/data/order-intents` → `st-order-tickets` mapping,
- * shared by two consumers:
+ * Legacy `savant-trader/data/order-intents` → `st-order-tickets` mapping.
  *
- * 1. `orderIntentsMirror` (order-intents-mirror.ts) — the soak-period
- *    dual-write: every FE write to a legacy intent doc re-maps and merges
- *    into the canonical doc, so new writes hit both collections.
- * 2. `migrate-order-intents-1003.ts` — the one-shot backfill of the
- *    existing docs, using the same mapper plus the paper-trade settle
- *    pass (`paperTradeStateSettle`) the #999 mapper contract calls out.
+ * Sole remaining consumer: `migrate-order-intents-1003.ts` — the one-shot
+ * backfill of the existing docs, using the same mapper plus the
+ * paper-trade settle pass (`paperTradeStateSettle`) the #999 mapper
+ * contract calls out. (The soak-period dual-write trigger that shared
+ * this mapper was retired and undeployed in #1013.)
  *
  * Doctrine:
  * - `refId` is preserved verbatim — it is the RH idempotency key; losing
