@@ -1,19 +1,20 @@
 <div class="chart-view-toolbar">
-  <!-- Source selectors — scan is a disabled placeholder until the
-       latest-run cache lands (#1258); the list dropdown is live now. -->
+  <!-- Source selectors — the scan dropdown lists cached latest-run docs
+       (`—` clears back to ALL); the list dropdown is the triage catalog. -->
   <app-rh-select-menu
     class="scan-menu"
     label="Scan"
-    [options]="scanSentinelOptions"
-    value="—"
-    [disabled]="true">
+    [options]="scanMenuOptions()"
+    [value]="scanMenuValue()"
+    [disabled]="scanOptions().length === 0 && !scanActive()"
+    (valueChange)="onScanValueChange($event)">
   </app-rh-select-menu>
   <app-rh-select-menu
     class="list-menu"
     label="List"
     [options]="listSentinelOptions"
     [optionGroups]="listGroups()"
-    [value]="activeList()"
+    [value]="listMenuValue()"
     (valueChange)="listChange.emit($event)">
   </app-rh-select-menu>
 
@@ -116,10 +117,17 @@
       (click)="addToTracked.emit()" matTooltip="Add symbol to tracked universe">
       Add
     </button>
-    <!-- Scan-source toggle — inert until scan sources exist (#1258). -->
-    <button type="button" class="pill new-only-pill" disabled
-      matTooltip="Scan sources only — available once the latest-run cache lands">
+    <!-- Scan-source toggle — filters scan rows to symbols outside the
+         tracked universe (#1258); inert on list sources. Same affordance
+         as the log-scale pill: active state + aria-pressed + icon. -->
+    <button type="button" class="pill new-only-pill"
+      [class.active]="newOnly() && scanActive()"
+      [disabled]="!scanActive()"
+      [attr.aria-pressed]="newOnly() && scanActive()"
+      (click)="newOnlyChange.emit(!newOnly())"
+      matTooltip="Hide scan rows already in the tracked universe">
       New only
+      <mat-icon>fiber_new</mat-icon>
     </button>
 
     <div class="manual-symbol-input">
