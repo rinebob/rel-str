@@ -42,6 +42,7 @@ Mirrors `stBacktestStart`'s create+enqueue skeleton:
 - Enqueue one Cloud Task per symbol with `OptionsReplayPermutationPayload`; set run status `running`.
 - Return `{ runId }`.
 - **Idempotency:** a rerun is always a fresh `runId` — no dedupe (mirrors today's backtest semantics).
+- **As-built (#1281):** all effects sit behind `ReplayStartDeps` (createRun / markRunStatus / enqueue) so `startReplay` is unit-tested with fakes; the `onCall` wrapper injects production wiring. Three refinements vs the sketch: `running` is marked **before** fanout (a blind write after enqueue could regress a fast worker's `completed`), symbols are deduped (a duplicate would make two tasks race the same `{runId}_{symbol}` list doc and corrupt counters), and an enqueue failure marks the run `failed` + throws `internal` — a partial fanout can never reach `totalLists`, so failing fast beats a run stuck in `running`. `OPTIONS_REPLAY_TASK_QUEUE` is exported here as the contract for module 2.
 
 ### 2. `optionsReplayPermutation` task handler (`functions/src/options-replay/permutation.ts`, new)
 
@@ -81,14 +82,14 @@ mapPickDocToRows(
 
 ### 5. Registration
 
-- `functions/src/index.ts` (or the existing functions barrel where `stBacktestStart`/`stBacktestPermutation` are exported): export `optionsReplayStart` + `optionsReplayPermutation` with the same queue/timeout config pattern as the backtest permutation task.
+- `functions/src/index.ts`: export `optionsReplayStart` (done in #1281) + `optionsReplayPermutation` (#1280) with the same queue/timeout config pattern as the backtest permutation task.
 
 ## Seams / Testability
 
 - Pick-doc fetch behind `pick-doc-client.ts` — injectable fixture for tests; real SA wire isolated in one file.
 - `symbol-data` bar reads behind `data-loader` — fixture bars in unit tests.
 - Firestore writes behind the existing Firestore test harness pattern used by other task tests.
-- No scheduler, no queue wiring changes beyond registering the new task — same Cloud Tasks queue as `stBacktestPermutation` unless its task config shows a dedicated one (verify during implementation).
+- No scheduler, no queue wiring changes beyond registering the new task — each `onTaskDispatched` function is its own Cloud Tasks queue (queue name = function name), so `optionsReplayPermutation` gets a dedicated queue (`OPTIONS_REPLAY_TASK_QUEUE` in `start.ts`), not a shared one with `stBacktestPermutation`.
 
 ## Out of scope (re-stated)
 

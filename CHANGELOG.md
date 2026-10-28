@@ -13,6 +13,9 @@
 - [ST Firestore Reorg] 984-1159_BE-IMPL-DATA-PIPELINE: st-runs-symbols-cutover-1159 pin spec — ingest jobs/run-ids split, writer dual refs, service path contracts, TTL membership
 - [ST Firestore Reorg] 984-1159_BE-IMPL-DATA-PIPELINE: verbatim migrator (updateTime direction guard for post-deploy straggler re-runs) + parity relay with empty-legacy floors — 245 runs, 24,076 jobs, 926 symbols applied, 9/9 green
 - [ST Firestore Reorg] 984-1159_DOCS-DATA-PIPELINE: #1159 CODE-REVIEW (PASS, 1 round remediated) + #1310 UAT (Complete; relay caught overnight PDR drift → straggler re-sync) + as-built entries
+- [Options Backtest] 1238-1281_BE-IMPL-BACKTEST: `optionsReplayStart` callable — validate → pending run doc → running-before-fanout → per-symbol task enqueue; ReplayStartDeps seam, boundary-coerced invalid-argument, fail-fast enqueue semantics
+- [Options Backtest] 1238-1281_BE-IMPL-BACKTEST: 8 deps-seamed unit tests (validation, fanout shape, effect ordering, failure path) — test:options-replay now globs the suite dir, 17/17
+- [Options Backtest] 1238-1281_DOCS-BACKTEST: #1281 CODE-REVIEW (PASS, 2 convergence fixes) + #1312 UAT (Complete; 8/8) + IMPL-BE §1/§5 as-built
 
 ### Changed
 - [Savant Design System] 1024-1213_FE-IMPL-DESIGN-SYSTEM: Literal sweep — global/styles layer: `border1`/`rsButtonOne`/`customScrollbar` tokenized, `--mat-sys` blocks tagged exceptions + completed to 34 keys, never-defined vars fixed (paper-trade `.mono`, 5 MUI-style vars on sync-chart-view); inventory script `accent` whitelist
