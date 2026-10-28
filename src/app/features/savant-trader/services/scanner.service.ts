@@ -41,8 +41,8 @@ import { RobinhoodMcpClient } from '../../../core/robinhood-mcp/robinhood-mcp-cl
 import type { ScanRunResult, UniverseEvalResult } from '../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import type { CurationProposal, ScanLatestRun, ScanRecipe } from '@st/scanner';
 import type { PreviewScanResult } from '@robinhood-mcp/contracts';
-import { isScanTruncated, parseCurationProposal, serializeCurationProposal, serializeScanLatestRun } from '@st/scanner';
-import { stScannerLatestRunDocPath, stScannerProposalDocPath, stScannerProposalsPath } from '@st/collections';
+import { isScanTruncated, parseCurationProposal, parseScanLatestRun, serializeCurationProposal, serializeScanLatestRun } from '@st/scanner';
+import { stScannerLatestRunDocPath, stScannerLatestRunsPath, stScannerProposalDocPath, stScannerProposalsPath } from '@st/collections';
 import { requireUserId } from './firestore-helpers';
 
 /** A persisted proposal plus its Firestore doc id (history rows, openProposal). */
@@ -161,6 +161,27 @@ export class ScannerService {
           out.push({ id: d.id, proposal: parseCurationProposal(d.data()) });
         } catch {
           // drifted doc — skip rather than fail the whole history list
+        }
+      }
+      return out;
+    });
+  }
+
+  /** Latest-run cache docs — drifted docs are skipped, not fatal (#1258). */
+  async listLatestRuns(): Promise<ScanLatestRun[]> {
+    return this.authed(async () => {
+      const snap = await getDocs(
+        collection(this.firestore, stScannerLatestRunsPath()),
+      );
+      const out: ScanLatestRun[] = [];
+      for (const d of snap.docs) {
+        try {
+          const run = parseScanLatestRun(d.data());
+          // The doc id IS the recipeId by contract — a mismatched doc
+          // would be keyed under the wrong recipe and look uncached.
+          if (d.id === run.recipeId) out.push(run);
+        } catch {
+          // drifted doc — skip rather than fail the whole cache read
         }
       }
       return out;

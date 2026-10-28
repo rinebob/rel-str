@@ -36,6 +36,7 @@ import { RobinhoodMcpClient } from '../../../core/robinhood-mcp/robinhood-mcp-cl
 import type { CurationProposal, ScanRecipe } from '@st/scanner';
 import type { PreviewScanResult } from '@robinhood-mcp/contracts';
 import { stScannerLatestRunDocPath, stScannerProposalsPath } from '@st/collections';
+import { scanRow } from '../testing/scan-fixtures';
 
 const recipe = (over: Partial<ScanRecipe> = {}): ScanRecipe => ({
   id: 'quality-mid',
@@ -170,6 +171,41 @@ describe('ScannerService (#1139)', () => {
     (authState as jest.Mock).mockReturnValueOnce(of(null));
     await expect(service.saveProposal(proposal())).rejects.toThrow('Authentication required');
     expect(addDoc).not.toHaveBeenCalled();
+  });
+
+  it('listLatestRuns parses each doc and skips drifted ones (#1258)', async () => {
+    mockDocs.docs = [
+      {
+        id: 'quality-large',
+        data: () => ({
+          recipeId: 'quality-large',
+          ranAt: '2026-10-27T14:00:00.000Z',
+          totalItems: 1,
+          truncated: false,
+          rows: [scanRow('XYZ')],
+        }),
+      },
+      { id: 'drifted', data: () => ({ nope: true }) },
+      // Valid shape but doc id ≠ recipeId — keyed under the wrong recipe
+      // if admitted; contract says the doc id IS the recipeId.
+      {
+        id: 'stale-copy',
+        data: () => ({
+          recipeId: 'quality-large',
+          ranAt: '2026-10-26T14:00:00.000Z',
+          totalItems: 1,
+          truncated: false,
+          rows: [scanRow('OLD')],
+        }),
+      },
+    ];
+    const runs = await service.listLatestRuns();
+    expect(collection).toHaveBeenCalledWith(
+      expect.anything(),
+      'st-scanner/latest-runs/items',
+    );
+    expect(runs.map((r) => r.recipeId)).toEqual(['quality-large']);
+    expect(runs[0].rows[0].ticker).toBe('XYZ');
   });
 
   it('getProposal returns null for absent and shape-drifted docs', async () => {
