@@ -7,7 +7,7 @@
  */
 import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
-import { ST_RUNS_COLLECTION, ST_JOBS_SUBCOLLECTION } from './st-collections';
+import { ST_RUNS_ROOT, ST_JOBS_SUBCOLLECTION } from './st-collections';
 import { StJobStatus, StJob, StTriggeredBy } from './st-runs';
 import { SymbolJobPayload } from './st-shared-types';
 import { db, FieldValue } from '../firebase-admin-init';
@@ -32,7 +32,7 @@ export async function createJobAndEnqueue(
 ): Promise<void> {
   // Create job document
   const jobRef = db
-    .collection(ST_RUNS_COLLECTION)
+    .collection(ST_RUNS_ROOT)
     .doc(runId)
     .collection(ST_JOBS_SUBCOLLECTION)
     .doc(symbol);

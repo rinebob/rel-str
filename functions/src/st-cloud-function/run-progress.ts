@@ -11,7 +11,7 @@ import { db, FieldValue } from '../firebase-admin-init';
 import {
   ST_CONFIG_STATUS_DOC,
   stConfigDocPath,
-  ST_RUNS_COLLECTION,
+  ST_RUNS_ROOT,
   ST_JOBS_SUBCOLLECTION,
   ST_SCHEDULE_CRON,
 } from '../common/st-collections';
@@ -100,7 +100,7 @@ export class RunProgressTracker {
    */
   async markInProgress(): Promise<void> {
     const jobRef = db
-      .collection(ST_RUNS_COLLECTION)
+      .collection(ST_RUNS_ROOT)
       .doc(this.runId)
       .collection(ST_JOBS_SUBCOLLECTION)
       .doc(this.symbol);
@@ -125,7 +125,7 @@ export class RunProgressTracker {
     signalsGenerated = 0
   ): Promise<void> {
     const jobRef = db
-      .collection(ST_RUNS_COLLECTION)
+      .collection(ST_RUNS_ROOT)
       .doc(this.runId)
       .collection(ST_JOBS_SUBCOLLECTION)
       .doc(this.symbol);
@@ -152,7 +152,7 @@ export class RunProgressTracker {
     jobStatus: 'SUCCESS' | 'FAILED',
     signalsGenerated = 0
   ): Promise<void> {
-    const runRef = db.collection(ST_RUNS_COLLECTION).doc(this.runId);
+    const runRef = db.collection(ST_RUNS_ROOT).doc(this.runId);
 
     const updates: any = {
       processedCount: FieldValue.increment(1),
@@ -176,7 +176,7 @@ export class RunProgressTracker {
    * Check if all jobs are complete and update run and agent status.
    */
   private async checkRunCompletion(): Promise<void> {
-    const runRef = db.collection(ST_RUNS_COLLECTION).doc(this.runId);
+    const runRef = db.collection(ST_RUNS_ROOT).doc(this.runId);
     const statusRef = db.doc(stConfigDocPath(ST_CONFIG_STATUS_DOC));
 
     try {

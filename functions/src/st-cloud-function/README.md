@@ -63,12 +63,12 @@ stTriggerDaily (manual) / SDS consumer dispatch (automatic)
 
 | Collection | Doc ID | Purpose |
 |-----------|--------|---------|
-| `savant-trader/data/symbols` | `{symbol}` | Monitored symbols with `enabled`, overview, and last-signal fields |
+| `st-symbols` | `{symbol}` | Monitored symbols with `enabled`, overview, and last-signal fields (#1159 — canonical; `savant-trader/data/symbols` survives only as the subcollection host below until #1019) |
 | `savant-trader/data/symbols/{symbol}/run-ids` | `{runId}` | Per-run signal entries keyed by signal type |
 | `savant-trader/data/symbols/{symbol}/signal-history` | `{barDate}` | Canonical EOD signal entries keyed by signal type |
 | `st-signals` | `{SYM}_{barDate}_{signalType}` | Canonical signal occurrence docs (#984) — upserted dual-write; supersede run-ids/signal-history after cutover |
-| `savant-trader/data/runs` | PDR: `marketDate`; manual: `{marketDate}_manual_{ts}` | Run metadata and counters |
-| `savant-trader/data/runs/{runId}/jobs` | `{symbol}` | Per-symbol job status |
+| `st-runs` | PDR: `marketDate`; manual: `{marketDate}_manual_{ts}` | Run metadata and counters (#1159 — canonical; legacy `savant-trader/data/runs` archived+deleted at ship) |
+| `st-runs/{runId}/jobs` | `{symbol}` | Per-symbol job status (#1159) |
 | `st-config/status` | `status` | Agent status singleton (#1008 — canonical since #1013; the legacy `savant-trader/data/status` mirror + root were deleted) |
 | ~~`savant-trader/data/symbol-meta`~~ | `{symbol}` | ~~Symbol-level classification/tags~~ deleted in #1013 — was empty |
 | ~~`savant-trader/data/occurrence-decisions`~~ | `{symbol}_{marketDate}` | ~~Daily PACR review decisions~~ deleted in #1013 — ticket existence is the decision (#1009/#1017) |

@@ -10,7 +10,7 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
-import { ST_SYMBOLS_COLLECTION, StSymbol, StSymbolSource } from '../common/st-collections';
+import { ST_SYMBOLS_ROOT, StSymbol, StSymbolSource } from '../common/st-collections';
 import { callPartnerTrackedSymbols } from '../partner-proxy';
 
 /**
@@ -25,7 +25,7 @@ export const clearStSymbolsAdmin = onRequest(
     logger.info('st_clear_start');
 
     try {
-      const snapshot = await db.collection(ST_SYMBOLS_COLLECTION).get();
+      const snapshot = await db.collection(ST_SYMBOLS_ROOT).get();
       const batch = db.batch();
 
       for (const doc of snapshot.docs) {
@@ -91,7 +91,7 @@ export const seedAllSymbolsFromPartner = onRequest(
 
       // 2. Batch write all symbols to Firestore
       const batch = db.batch();
-      const collection = db.collection(ST_SYMBOLS_COLLECTION);
+      const collection = db.collection(ST_SYMBOLS_ROOT);
 
       for (let i = 0; i < validSymbols.length; i++) {
         const symbol = validSymbols[i].trim();
@@ -117,7 +117,7 @@ export const seedAllSymbolsFromPartner = onRequest(
         message: `Seeded ${validSymbols.length} symbols from partner universe`,
         count: validSymbols.length,
         firstFew: validSymbols.slice(0, 10),
-        collection: ST_SYMBOLS_COLLECTION,
+        collection: ST_SYMBOLS_ROOT,
       });
     } catch (error: any) {
       logger.error('st_seed_all_failed', { error: error?.message });

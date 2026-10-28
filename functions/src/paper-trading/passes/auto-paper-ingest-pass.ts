@@ -27,8 +27,9 @@ import {
   ST_CONFIG_ROOT,
   ST_JOBS_SUBCOLLECTION,
   ST_RUN_IDS_SUBCOLLECTION,
-  ST_RUNS_COLLECTION,
+  ST_RUNS_ROOT,
   ST_SYMBOLS_COLLECTION,
+  ST_SYMBOLS_ROOT,
   ST_SYMBOL_LISTS_ROOT,
   type AutoPaperConfig,
 } from '../../common/st-collections';
@@ -619,7 +620,7 @@ export function defaultAutoPaperIngestFillDeps(
     tickets: new StOrderTicketWriter(),
     listCandidates: async (runId) => {
       const snap = await db
-        .collection(ST_RUNS_COLLECTION)
+        .collection(ST_RUNS_ROOT)
         .doc(runId)
         .collection(ST_JOBS_SUBCOLLECTION)
         .where('createdOpportunity', '==', true)
@@ -656,7 +657,7 @@ export function defaultAutoPaperIngestFillDeps(
       return doc.exists ? signalEntriesFromDoc(doc.data() ?? {}) : {};
     },
     getSymbolMeta: async (symbol) => {
-      const doc = await db.collection(ST_SYMBOLS_COLLECTION).doc(symbol).get();
+      const doc = await db.collection(ST_SYMBOLS_ROOT).doc(symbol).get();
       const d = doc.data() ?? {};
       return { sector: d.sector, industry: d.industry, marketCapTier: d.marketCapTier };
     },

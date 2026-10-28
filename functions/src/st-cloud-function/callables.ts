@@ -13,9 +13,9 @@ import { normalizeMarketDate } from '../common/pt-date-utils';
 import {
   ST_CONFIG_STATUS_DOC,
   stConfigDocPath,
-  ST_RUNS_COLLECTION,
+  ST_RUNS_ROOT,
   ST_SCHEDULE_CRON,
-  ST_SYMBOLS_COLLECTION,
+  ST_SYMBOLS_ROOT,
 } from '../common/st-collections';
 import { StDailyRun, StStatus, StTriggeredBy } from '../common/st-runs';
 import { ST_ALLOWED_ORIGINS } from './cors';
@@ -151,7 +151,7 @@ export const stGetStatus = onCall<void, Promise<AgentStatusResponse>>(
   async () => {
     // Get actual enabled symbols from symbol-meta collection
     const symbolsSnapshot = await db
-      .collection(ST_SYMBOLS_COLLECTION)
+      .collection(ST_SYMBOLS_ROOT)
       .where('enabled', '==', true)
       .get();
     const symbolsMonitored = symbolsSnapshot.docs.map((d) => d.data().symbol as string);
@@ -198,7 +198,7 @@ export const stGetRunHistory = onCall<{ limit?: number }, Promise<RunHistoryResp
     const limit = request.data.limit ?? 20;
 
     const snapshot = await db
-      .collection(ST_RUNS_COLLECTION)
+      .collection(ST_RUNS_ROOT)
       .orderBy('startedAt', 'desc')
       .limit(limit)
       .get();

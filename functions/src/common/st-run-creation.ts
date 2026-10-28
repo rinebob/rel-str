@@ -6,7 +6,7 @@
  * do not pull in Cloud Tasks enqueueing code.
  */
 import { logger } from 'firebase-functions/v2';
-import { ST_RUNS_COLLECTION } from './st-collections';
+import { ST_RUNS_ROOT } from './st-collections';
 import {
   StRunStatus,
   StDailyRun,
@@ -56,7 +56,7 @@ export async function createDailyRun(
   const finalRunDate = runDate ?? getRunDatePT();
   const finalRunId = runId ?? generateRunId(finalRunDate, triggeredBy);
 
-  const runRef = db.collection(ST_RUNS_COLLECTION).doc(finalRunId);
+  const runRef = db.collection(ST_RUNS_ROOT).doc(finalRunId);
   const now = FieldValue.serverTimestamp();
 
   const runData: Omit<StDailyRun, 'id'> & { id: string } = {

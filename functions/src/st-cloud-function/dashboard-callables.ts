@@ -10,6 +10,7 @@ import { db } from '../firebase-admin-init';
 
 import {
   ST_SYMBOLS_COLLECTION,
+  ST_SYMBOLS_ROOT,
   ST_SIGNAL_HISTORY_SUBCOLLECTION,
   ST_RUN_IDS_SUBCOLLECTION,
   StSymbolProfile,
@@ -95,7 +96,7 @@ export const stGetSymbolsWithSignals = onCall<
       const batches: Promise<FirebaseFirestore.QuerySnapshot>[] = [];
       for (let i = 0; i < symbolArray.length; i += 30) {
         batches.push(
-          db.collection(ST_SYMBOLS_COLLECTION)
+          db.collection(ST_SYMBOLS_ROOT)
             .where('enabled', '==', true)
             .where('symbol', 'in', symbolArray.slice(i, i + 30))
             .get()
@@ -144,7 +145,7 @@ export const stGetSymbolsWithSignals = onCall<
 /**
  * Returns signal history for a single symbol, filtered by timeframe.
  * Used by the detail panel when a symbol row is selected.
- * Returns signals from the last `days` trading days (default 5).
+ * Returns signals from the last `days` trading days (default 14).
  */
 export const stGetSymbolSignalHistory = onCall<
   { symbol: string; timeframe: 'W' | 'D'; days?: number },

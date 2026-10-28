@@ -6,7 +6,7 @@
  * data sources independently.
  */
 import { db } from '../firebase-admin-init';
-import { ST_SYMBOLS_COLLECTION } from './st-collections';
+import { ST_SYMBOLS_ROOT } from './st-collections';
 
 /**
  * Load enabled symbols from Firestore.
@@ -14,7 +14,7 @@ import { ST_SYMBOLS_COLLECTION } from './st-collections';
  */
 export async function loadEnabledSymbols(requestedSymbols?: string[]): Promise<string[]> {
   const snapshot = await db
-    .collection(ST_SYMBOLS_COLLECTION)
+    .collection(ST_SYMBOLS_ROOT)
     .where('enabled', '==', true)
     .get();
 

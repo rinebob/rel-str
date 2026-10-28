@@ -1,7 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 
 import {
-  ST_RUNS_COLLECTION,
   ST_RUNS_ROOT,
   ST_JOBS_SUBCOLLECTION_NAME,
 } from './st-collections';
@@ -33,8 +32,11 @@ import {
  * reads the just-completed run — far inside the TTL window.
  */
 
-/** The only run roots whose `jobs` subcollections may be purged. */
-export const ST_RUN_JOB_ROOTS = [ST_RUNS_ROOT, ST_RUNS_COLLECTION] as const;
+/** The only run roots whose `jobs` subcollections may be purged.
+ *  #1159: the legacy `savant-trader/data/runs` leg was dropped — that root
+ *  is wholesale-deleted (manual step) at #1159 ship rather than
+ *  TTL-drained. */
+export const ST_RUN_JOB_ROOTS = [ST_RUNS_ROOT] as const;
 
 /** Maximum documents deleted in a single Firestore batch. */
 export const MAX_RUN_JOBS_BATCH_SIZE = 400;

@@ -12,7 +12,7 @@ import { db } from '../firebase-admin-init';
 import { callPartnerCompanyOverview } from '../partner-proxy';
 import { PartnerHttpError } from '../partner-infrastructure';
 import { PartnerCompanyOverviewResponse } from '../types/partner';
-import { ST_SYMBOLS_COLLECTION, StOverviewFields, StSymbol } from './st-collections';
+import { ST_SYMBOLS_ROOT, StOverviewFields, StSymbol } from './st-collections';
 import { isTimestamp } from './type-guards';
 
 /** Parse a string field to number — returns undefined for "None" or non-numeric. */
@@ -77,7 +77,7 @@ export async function fetchAndWriteSymbolOverview(
   options: { forceRefresh?: boolean } = {}
 ): Promise<StOverviewFields | undefined> {
   const { forceRefresh = false } = options;
-  const symbolRef = db.collection(ST_SYMBOLS_COLLECTION).doc(symbol);
+  const symbolRef = db.collection(ST_SYMBOLS_ROOT).doc(symbol);
 
   // Skip if still fresh and not forced
   if (!forceRefresh) {

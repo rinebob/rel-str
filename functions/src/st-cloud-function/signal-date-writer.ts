@@ -13,6 +13,7 @@ import { logger as defaultLogger } from 'firebase-functions/v2';
 import { db as defaultDb, FieldValue } from '../firebase-admin-init';
 import {
   ST_SYMBOLS_COLLECTION,
+  ST_SYMBOLS_ROOT,
   ST_RUN_IDS_SUBCOLLECTION,
   ST_SIGNAL_HISTORY_SUBCOLLECTION,
   ST_SIGNALS_ROOT,
@@ -47,6 +48,7 @@ export interface SignalDateWriterDeps {
 export class SignalDateWriter {
   private readonly symbol: string;
   private readonly symbolRef: FirebaseFirestore.DocumentReference;
+  private readonly legacySymbolRef: FirebaseFirestore.DocumentReference;
   private readonly db: FirebaseFirestore.Firestore;
   private readonly fv: SignalDateWriterFieldValue;
   private readonly log: SignalDateWriterLogger;
@@ -63,7 +65,11 @@ export class SignalDateWriter {
     this.db = deps.db ?? defaultDb;
     this.fv = deps.fieldValue ?? FieldValue;
     this.log = deps.logger ?? defaultLogger;
-    this.symbolRef = this.db.collection(ST_SYMBOLS_COLLECTION).doc(this.symbol);
+    // #1159 split: doc-level fields (gate dates) write to the canonical
+    // st-symbols doc; run-ids/signal-history subcollection writes stay on the
+    // legacy parent path until #1019 cuts their readers to st-signals.
+    this.symbolRef = this.db.collection(ST_SYMBOLS_ROOT).doc(this.symbol);
+    this.legacySymbolRef = this.db.collection(ST_SYMBOLS_COLLECTION).doc(this.symbol);
   }
 
   /**
@@ -78,7 +84,7 @@ export class SignalDateWriter {
    * during the dual-write window: an unusable entry (malformed id segments)
    * or a failed existence read is logged and skipped, and a wholesale
    * failure is logged without aborting the legacy commit — run-ids and
-   * signal-history remain the source of truth until reader cutover (#1013).
+   * signal-history remain the source of truth until reader cutover (#1019).
    *
    * Returns the number of entries persisted.
    */
@@ -126,7 +132,7 @@ export class SignalDateWriter {
   ): void {
     if (entries.length === 0) return;
 
-    const docRef = this.symbolRef.collection(ST_RUN_IDS_SUBCOLLECTION).doc(runId);
+    const docRef = this.legacySymbolRef.collection(ST_RUN_IDS_SUBCOLLECTION).doc(runId);
     const signalsUpdate: Record<string, any> = {};
     for (const entry of entries) {
       signalsUpdate[`signals.${entry.signalType}`] = entry;
@@ -166,7 +172,7 @@ export class SignalDateWriter {
     }
 
     for (const [barDate, dateEntries] of byBarDate) {
-      const docRef = this.symbolRef.collection(ST_SIGNAL_HISTORY_SUBCOLLECTION).doc(barDate);
+      const docRef = this.legacySymbolRef.collection(ST_SIGNAL_HISTORY_SUBCOLLECTION).doc(barDate);
       const signalsUpdate: Record<string, any> = {};
       for (const entry of dateEntries) {
         signalsUpdate[`signals.${entry.signalType}`] = { ...entry, sourceRunId: runId };

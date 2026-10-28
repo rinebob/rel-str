@@ -27,7 +27,7 @@ import { syncSymbolToSymbolData } from './symbol-data-backfill';
 import { db, FieldValue } from '../firebase-admin-init';
 import {
   DEFAULT_SYMBOL_LIST_NAME,
-  ST_SYMBOLS_COLLECTION,
+  ST_SYMBOLS_ROOT,
   ST_SYMBOL_LISTS_ROOT,
   StSymbol,
 } from '../common/st-collections';
@@ -134,7 +134,7 @@ export const processSymbolAdded = onMessagePublished(
 
           // Create/enable the symbol with the same doc shape as the seed path.
           // Preserve an existing createdAt so a redelivery cannot reset it.
-          const symbolDocRef = db.collection(ST_SYMBOLS_COLLECTION).doc(symbol);
+          const symbolDocRef = db.collection(ST_SYMBOLS_ROOT).doc(symbol);
           const existingSnap = await symbolDocRef.get();
           const existingData = existingSnap.data() as Partial<StSymbol> | undefined;
           const source = normalizeSource(body.source);

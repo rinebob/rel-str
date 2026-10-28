@@ -10,7 +10,7 @@ import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
 
 import { db } from '../firebase-admin-init';
-import { ST_SYMBOLS_COLLECTION } from '../common/st-collections';
+import { ST_SYMBOLS_ROOT } from '../common/st-collections';
 
 // ============================================================================
 // Constants
@@ -25,7 +25,7 @@ const OVERVIEW_TASK_QUEUE = 'stOverviewSyncSymbol';
 /** Load all enabled symbol IDs from symbol-meta. */
 async function loadEnabledSymbolIds(): Promise<string[]> {
   const snap = await db
-    .collection(ST_SYMBOLS_COLLECTION)
+    .collection(ST_SYMBOLS_ROOT)
     .where('enabled', '==', true)
     .get();
   return snap.docs.map((d) => (d.data().symbol as string) || d.id);
