@@ -107,7 +107,7 @@ import { SymbolListActionsComponent } from '../../components/symbol-list-actions
       text-align: center;
       text-transform: uppercase;
       padding: 3px 8px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
       background: transparent;
     }
@@ -134,13 +134,13 @@ import { SymbolListActionsComponent } from '../../components/symbol-list-actions
     }
     .nav-position {
       font-size: 0.8rem;
-      color: #666;
+      color: var(--ds-on-surface-variant);
       min-width: 56px;
     }
     .nav-filter {
       margin-left: 8px;
       padding: 4px 8px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
       font-size: 0.85rem;
     }

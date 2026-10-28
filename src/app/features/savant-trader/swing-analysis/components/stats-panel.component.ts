@@ -191,25 +191,25 @@ const STATS_MODE_INDEX: Record<StatsMode, 0 | 1 | 2> = { large: 0, small: 1, all
 .stats-toggle-btn:hover { background: var(--mat-sys-surface-container); }
 .stats-toggle-btn.active { background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); }
 .stats-panel-loading, .stats-panel-empty {
-  display: flex; align-items: center; gap: 8px; padding: 24px; color: #666;
+  display: flex; align-items: center; gap: 8px; padding: 24px; color: var(--ds-on-surface-variant);
 }
 .stats-panel-content { display: flex; flex-direction: column; gap: 16px; }
 .stats-direction {
-  border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px;
+  border: 1px solid var(--ds-border-subtle); border-radius: 4px; padding: 12px;
   display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
 }
-.stats-direction-up { border-left: 3px solid #4caf50; }
-.stats-direction-down { border-left: 3px solid #f44336; }
+.stats-direction-up { border-left: 3px solid var(--ds-up); }
+.stats-direction-down { border-left: 3px solid var(--ds-down); }
 .stats-direction-title { grid-column: 1 / -1; margin: 0 0 4px 0; font-size: 14px; }
 .stats-block { font-size: 12px; }
 .stats-block h4 { margin: 0 0 4px 0; font-size: 12px; font-weight: 600; }
 .stats-fields { display: grid; grid-template-columns: auto auto; gap: 2px 8px; margin: 0; }
 .stats-field { display: contents; }
-.stats-field-label { color: #666; }
+.stats-field-label { color: var(--ds-on-surface-variant); }
 .stats-field-value { margin: 0; font-variant-numeric: tabular-nums; }
 .stats-histogram { grid-column: 1 / -1; }
-.stats-histogram h5 { margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: #666; }
-.stats-histogram-empty { font-size: 12px; color: #999; padding: 8px; display: block; }
+.stats-histogram h5 { margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: var(--ds-on-surface-variant); }
+.stats-histogram-empty { font-size: 12px; color: var(--ds-on-surface-variant); padding: 8px; display: block; }
 `],
 })
 export class StatsPanelComponent implements OnChanges {
@@ -312,6 +312,8 @@ export class StatsPanelComponent implements OnChanges {
 
   // Syncfusion chart config
   readonly histogramXAxis = { valueType: 'Category' as const, labelIntersectAction: 'Rotate45' as const, majorGridLines: { width: 0 } };
+  // literal-sweep exception #1214: chart-lib config needs literal
+  // strings — canvas-rendered, var() can't resolve (#1164 concern).
   readonly histogramYAxis = { labelFormat: '{value}', minimum: 0, majorGridLines: { width: 0.5, color: '#e0e0e0' } };
   readonly histogramTooltip = { enable: true, format: '${point.x}: ${point.y}' };
   readonly histogramLegend = { visible: false };

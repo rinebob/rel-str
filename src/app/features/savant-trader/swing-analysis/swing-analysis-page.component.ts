@@ -191,7 +191,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
 
     .swing-analysis-header .subtitle {
       margin: 0 0 16px;
-      color: #666;
+      color: var(--ds-on-surface-variant);
       font-size: 0.9rem;
     }
     .swing-analysis-loading {
@@ -199,12 +199,12 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
       align-items: center;
       gap: 12px;
       padding: 16px;
-      color: #555;
+      color: var(--ds-on-surface-variant);
     }
     .swing-analysis-error {
       padding: 12px 16px;
-      background: #fee;
-      color: #c00;
+      background: var(--ds-error-container);
+      color: var(--ds-on-error-container);
       border-radius: 4px;
       margin-bottom: 12px;
     }

@@ -66,8 +66,8 @@
   letter-spacing: 0.3px;
 
   &.trigger-manual  { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
-  &.trigger-pdr     { background: #e3f2fd; color: #1565c0; }
-  &.trigger-nightly { background: #f3e5f5; color: #6a1b9a; }
+  &.trigger-pdr     { background: var(--ds-accent-container); color: var(--ds-on-accent-container); }
+  &.trigger-nightly { background: #f3e5f5; color: #6a1b9a; } // literal-sweep exception #1214: categorical trigger hue — no --ds token
 }
 
 .actions-cell {

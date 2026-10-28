@@ -288,7 +288,7 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #555;
+      color: var(--ds-on-surface-variant);
     }
     .available {
       display: flex;
@@ -300,7 +300,7 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #888;
+      color: var(--ds-on-surface-variant);
       margin-top: 4px;
     }
     .lib-row {
@@ -308,9 +308,9 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
       align-items: center;
       gap: 8px;
       padding: 2px 8px;
-      border: 1px solid #e4e4e4;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
-      background: #fafafa;
+      background: var(--ds-surface-raised);
     }
     .lib-name {
       font-size: 0.85rem;
@@ -319,7 +319,7 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
     .lib-summary {
       flex: 1;
       font-size: 0.75rem;
-      color: #777;
+      color: var(--ds-on-surface-variant);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -327,29 +327,30 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
     .lib-empty {
       padding: 4px 8px;
       font-size: 0.8rem;
-      color: #888;
+      color: var(--ds-on-surface-variant);
     }
     .dialog-error {
       padding: 8px 12px;
       font-size: 0.8rem;
-      color: #b3261e;
-      background: #fbeae9;
-      border: 1px solid #f0c6c3;
+      color: var(--ds-on-error-container);
+      background: var(--ds-error-container);
+      border: 1px solid var(--ds-error);
       border-radius: 4px;
     }
     .row-btn {
       font-size: 0.72rem;
       padding: 1px 6px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
-      background: #fff;
+      background: var(--ds-surface);
+      color: var(--ds-on-surface);
       cursor: pointer;
     }
     .row-btn:hover {
-      background: #f0f0f0;
+      background: var(--ds-surface-overlay);
     }
     .row-btn-danger {
-      color: #b3261e;
+      color: var(--ds-error);
     }
     .config-sections {
       display: flex;
@@ -360,14 +361,14 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
       width: 12px;
       height: 12px;
       border-radius: 2px;
-      border: 1px solid #999;
+      border: 1px solid var(--ds-border-strong);
       flex-shrink: 0;
     }
     .set-badge {
       font-size: 0.65rem;
       font-weight: 700;
-      color: #555;
-      border: 1px solid #ccc;
+      color: var(--ds-on-surface-variant);
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 3px;
       padding: 0 3px;
       flex-shrink: 0;
@@ -381,7 +382,7 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
       flex: 1;
       padding: 1px 6px;
       font-size: 0.8rem;
-      border: 1px solid #ccc;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
       min-width: 0;
     }
@@ -390,21 +391,21 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
       align-items: center;
       gap: 6px;
       padding: 3px 8px;
-      border: 1px solid #e4e4e4;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
-      background: #fafafa;
+      background: var(--ds-surface-raised);
       flex-wrap: wrap;
     }
     .active-row input.num {
       padding: 1px 4px;
       font-size: 0.78rem;
-      border: 1px solid #ccc;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
       width: 52px;
     }
     .active-row input[type="color"].swatch-input {
       padding: 0;
-      border: 1px solid #ccc;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
       width: 26px;
       height: 20px;
@@ -416,7 +417,7 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
       align-items: center;
       gap: 3px;
       font-size: 0.72rem;
-      color: #666;
+      color: var(--ds-on-surface-variant);
       white-space: nowrap;
     }
     .active-row.disabled input.num,
@@ -425,8 +426,8 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
       opacity: 0.45;
     }
     .save-btn {
-      border-color: #1976d2;
-      color: #1976d2;
+      border-color: var(--ds-accent);
+      color: var(--ds-accent);
       font-weight: 600;
     }
   `],

@@ -1,8 +1,8 @@
 /* @topic #137 — Strategy Builder UI */
 .strategy-form-dialog {
   .error-banner {
-    background: #c62828;
-    color: white;
+    background: var(--ds-error);
+    color: var(--ds-surface);
     padding: 8px 12px;
     border-radius: 4px;
     margin-bottom: 12px;
@@ -67,7 +67,7 @@
   .section-label {
     font-size: 13px;
     font-weight: 500;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--ds-on-surface-variant);
     margin-top: 4px;
     margin-bottom: 2px;
   }
@@ -77,7 +77,7 @@
   }
 
   .validation-error {
-    color: #c62828;
+    color: var(--ds-error);
     font-size: 12px;
     margin: 2px 0;
     flex-basis: 100%;
@@ -86,7 +86,7 @@
   .id-preview {
     margin-top: 4px;
     font-size: 12px;
-    color: rgba(0, 0, 0, 0.54);
+    color: var(--ds-on-surface-variant);
 
     .id-label {
       font-weight: 500;
