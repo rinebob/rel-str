@@ -138,6 +138,38 @@ describe('OptionsContractChartComponent', () => {
         { date: '2026-01-16', value: null },
       ]);
     });
+
+    it('dims every other mark/marker while one contract is highlighted', () => {
+      const a = contract({ points: [obs('2025-11-03', 10)] });
+      const b = contract({
+        contractId: 'QQQ260220P00580000', label: 'B', strike: 580, expiration: '2026-02-20',
+        openDate: '2025-11-04', points: [obs('2025-11-04', 5)],
+      });
+      setInputs([a, b], ['2025-11-03', '2025-11-04', '2026-01-16', '2026-02-20']);
+      fixture.componentRef.setInput('highlightedContractId', a.contractId);
+      fixture.detectChanges();
+
+      const marks = markSeries();
+      expect(marks[0].opacity).toBe(1);
+      expect(marks[0].width).toBe(3);
+      expect(marks[1].opacity).toBe(0.25);
+
+      const markers = markerSeries();
+      expect(markers.find((s) => s.name.endsWith(a.contractId))!.opacity).toBe(1);
+      expect(markers.find((s) => s.name.endsWith(b.contractId))!.opacity).toBe(0.25);
+    });
+
+    it('no highlight — every series at full weight', () => {
+      const a = contract({ points: [obs('2025-11-03', 10)] });
+      const b = contract({
+        contractId: 'QQQ260220P00580000', label: 'B', strike: 580, expiration: '2026-02-20',
+        openDate: '2025-11-04', points: [obs('2025-11-04', 5)],
+      });
+      setInputs([a, b], ['2025-11-03', '2025-11-04'], { showUnderlying: false });
+      fixture.detectChanges();
+
+      expect(markSeries().every((s) => s.opacity === 1 && s.width === 2)).toBe(true);
+    });
   });
 
   describe('span markers', () => {
@@ -301,6 +333,17 @@ describe('OptionsContractChartComponent', () => {
       const ranges = component.axisRanges()!;
       expect(ranges.underlying.min).toBeLessThanOrEqual(600);
       expect(ranges.underlying.max).toBeGreaterThanOrEqual(600);
+    });
+  });
+
+  describe('crosshair', () => {
+    it('floats free and shows its y-value on the opposed (right-edge) axis', () => {
+      expect(component.crosshair.snapToData).toBe(false);
+      expect(
+        (component.underlyingAxis() as { crosshairTooltip?: { enable: boolean } }).crosshairTooltip,
+      ).toEqual({ enable: true });
+      // Mark axis on the left carries no crosshair label.
+      expect('crosshairTooltip' in component.primaryYAxis()).toBe(false);
     });
   });
 });

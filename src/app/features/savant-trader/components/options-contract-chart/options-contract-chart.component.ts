@@ -79,6 +79,8 @@ export class OptionsContractChartComponent {
   showGreeks = input(true);
   showVolumeOI = input(false);
   padDays = input(0);
+  /** Contract id to emphasize — dims every other mark/marker series. */
+  highlightedContractId = input<string | null>(null);
 
   private readonly chart = viewChild<SfChartComponent>('chart');
   private readonly visibleRange = signal<{ min: number; max: number } | null>(null);
@@ -257,6 +259,8 @@ export class OptionsContractChartComponent {
   });
 
   // Axis configurations
+  // literal-sweep exception #1214: chart-lib config literals (grid/axis/
+  // crosshair colors) — canvas-rendered, var() can't resolve (#1164).
   readonly primaryXAxis = computed(() => {
     const count = this.axisLabels().length;
     const interval = count > 0 ? Math.max(1, Math.floor(count / 6)) : 1;
@@ -287,6 +291,7 @@ export class OptionsContractChartComponent {
     labelStyle: { size: '11px', color: '#ff9800' },
     rangePadding: 'None' as const,
     rowIndex: this.hasLowerPanes() ? 3 : 0,
+    crosshairTooltip: { enable: true },
   }));
 
   readonly axes = computed(() => [
@@ -318,7 +323,7 @@ export class OptionsContractChartComponent {
     toolbarItems: ['Zoom', 'ZoomIn', 'ZoomOut', 'Pan', 'Reset'] as const,
   };
 
-  readonly crosshair = { enable: true, lineType: 'Both' as const, lineColor: '#ccc', snapToData: true };
+  readonly crosshair = { enable: true, lineType: 'Both' as const, lineColor: '#ccc', snapToData: false };
   readonly tooltip = { enable: true, shared: true, format: '${point.x}: ${point.y}' };
   readonly legend = { visible: true, position: 'Bottom' as const, toggleVisibility: true };
   readonly chartBorder = { width: 0 };
@@ -336,6 +341,7 @@ export class OptionsContractChartComponent {
       showUnderlying: this.showUnderlying(),
       showGreeks: this.showGreeks(),
       showVolumeOI: this.showVolumeOI(),
+      highlightedContractId: this.highlightedContractId(),
     }),
   );
 

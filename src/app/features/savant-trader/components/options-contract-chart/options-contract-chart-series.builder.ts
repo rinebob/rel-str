@@ -52,6 +52,7 @@ export interface ChartSeriesSpec {
   width?: number;
   dashArray?: string;
   fill?: string;
+  opacity?: number;
   marker?: { visible: boolean; shape?: string; width?: number; height?: number; fill?: string };
   animation?: { enable: boolean };
   enableTooltip?: boolean;
@@ -61,6 +62,9 @@ export interface ChartSeriesSpec {
 // Colors — index 0 keeps the original single-contract mark blue; the rest
 // follow the shared multi-series palette so each contract's mark line and
 // span marker stay color-matched.
+// literal-sweep exception #1214: every literal in this file feeds
+// chart-library config objects — canvas-rendered, var() can't resolve.
+// Theme-aware chart colors are a #1164 concern.
 export const MARK_COLOR = '#1976d2';
 export const UNDERLYING_COLOR = '#ff9800';
 export const IV_COLOR = '#9c27b0';
@@ -74,7 +78,7 @@ export const OI_COLOR = '#66bb6a';
 // mark line and span marker stay color-matched.
 const PLOTTED_COLORS = [MARK_COLOR, ...MULTI_SERIES_PALETTE.slice(1)];
 
-const plottedColor = (index: number): string =>
+export const plottedSeriesColor = (index: number): string =>
   PLOTTED_COLORS[index % PLOTTED_COLORS.length];
 
 const NO_MARKER = { visible: false };
@@ -112,6 +116,9 @@ export interface SeriesBuildInput {
   showUnderlying: boolean;
   showGreeks: boolean;
   showVolumeOI: boolean;
+  /** Chip-pinned highlight — the highlighted contract keeps full weight
+   *  while every other mark/marker dims. Null = no emphasis. */
+  highlightedContractId?: string | null;
 }
 
 /** Full series collection — mark lines first so the category axis is
@@ -119,7 +126,10 @@ export interface SeriesBuildInput {
 export function buildSeriesCollection(input: SeriesBuildInput): ChartSeriesSpec[] {
   const series: ChartSeriesSpec[] = [];
 
+  const hi = input.highlightedContractId ?? null;
+
   input.contracts.forEach((c, i) => {
+    const dimmed = hi != null && c.contractId !== hi;
     series.push({
       role: 'mark',
       type: 'Line',
@@ -127,8 +137,9 @@ export function buildSeriesCollection(input: SeriesBuildInput): ChartSeriesSpec[
       dataSource: input.alignedMarks[i],
       xName: 'date',
       yName: 'value',
-      width: 2,
-      fill: plottedColor(i),
+      width: c.contractId === hi ? 3 : 2,
+      fill: plottedSeriesColor(i),
+      opacity: dimmed ? 0.25 : 1,
       marker: NO_MARKER,
       animation: NO_ANIMATION,
       emptyPointSettings: GAPS,
@@ -136,7 +147,7 @@ export function buildSeriesCollection(input: SeriesBuildInput): ChartSeriesSpec[
   });
 
   for (const span of input.markers) {
-    const color = plottedColor(span.index);
+    const color = plottedSeriesColor(span.index);
     series.push({
       role: 'marker',
       type: 'Line',
@@ -151,6 +162,7 @@ export function buildSeriesCollection(input: SeriesBuildInput): ChartSeriesSpec[
       width: 1.5,
       dashArray: '3,3',
       fill: color,
+      opacity: hi != null && span.contractId !== hi ? 0.25 : 1,
       marker: { visible: true, shape: 'Circle', width: 8, height: 8, fill: color },
       animation: NO_ANIMATION,
       enableTooltip: false,
