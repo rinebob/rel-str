@@ -65,7 +65,6 @@ export {
 export { backfillSymbolDataFromPairsAdmin } from './admin/backfill-symbol-data-from-pairs';
 export { backfillSymbolDataFromTradesAdmin } from './admin/backfill-symbol-data-from-trades';
 export { cleanupRsBackfillRuns } from './scheduled/cleanup-rs-backfill-runs';
-export { cleanupStOccurrenceDecisions } from './scheduled/cleanup-st-occurrence-decisions';
 export { cleanupStRunJobs } from './scheduled/cleanup-st-run-jobs';
 
 // ST (Savant Trader) exports - Event-driven daily scan architecture
@@ -177,22 +176,8 @@ export {
 // Screenshot capture — on-demand chart snapshot callable (#746 / #768)
 export { captureChartSnapshot } from './screenshot-capture/capture-chart';
 
-// #984 / #1003 — soak-period dual-write: legacy order-intents → st-order-tickets
-export { orderIntentsMirror } from './order-tickets/order-intents-mirror';
-
-// #984 / #1007 — rename soaks: FE-written legacy portfolio → st-portfolio;
-// canonical st-backtest-* → legacy backtest-* for stranded FE readers
-export { portfolioItemsMirror } from './portfolio/portfolio-mirror';
-export {
-  stBacktestRunsMirror,
-  stBacktestPermutationsMirror,
-} from './st-cloud-function/backtest/backtest-mirror';
-
-// #984 / #1008 — st-config + st-symbol-lists soaks: legacy → canonical for
-// FE-written config/list docs; st-config/status → legacy shadow for
-// rules-permitted readers + rollback during the soak
-export {
-  tradingConfigMirror,
-  symbolListsMirror,
-  stStatusMirror,
-} from './st-config/config-lists-mirror';
+// #984 / #1013 — the #1003/#1007/#1008 soak mirrors and the
+// occurrence-decisions sweeper were removed with their legacy roots:
+// every FE/BE reader and writer is on the canonical st-* paths, so the
+// mirrors' only remaining effect would be propagating deletions during
+// the archive+delete pass.
