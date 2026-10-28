@@ -15,9 +15,12 @@
  *   would cascade into st-*).
  *
  * Still-allowed roots (blocked by later tasks) are NOT scanned here:
- *   savant-trader/data/{runs,symbols} + run-ids/signal-history (#1159/#1019),
+ *   savant-trader/data/symbols + run-ids/signal-history (#1019 — the legacy
+ *   parent still hosts live subcollection reads/writes),
  *   paper-trading/{cohorts,analysis-*} (#1160), rh-agent-credentials (live
  *   auth, permanent), positions.
+ * #1159 added savant-trader/data/runs to the forbidden list (root deleted
+ * wholesale; jobs TTL now sweeps st-runs only).
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -58,6 +61,10 @@ const FORBIDDEN_COLLECTION_LITERALS = [
   `'savant-trader/data/symbol-lists'`,
   `'savant-trader/data/symbol-meta'`,
   `'savant-trader/data/trading-config'`,
+  // #1159 — runs root retired (migrated to st-runs). ST_RUNS_COLLECTION is
+  // not needle-able (substring of BACKTEST_RUNS_COLLECTION) but the
+  // constant is deleted — any re-add fails tsc, not just this pin.
+  `'savant-trader/data/runs'`,
   `'options-strategy-instances'`,
   `'options-strategy-positions'`,
   `'options-strategy-stats'`,

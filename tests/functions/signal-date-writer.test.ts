@@ -146,7 +146,10 @@ describe('SignalDateWriter st-signals dual-write (#1000)', () => {
     // Legacy writes still land in the same commit (dual-write).
     const paths = committedOps.flat().map((o) => o.path);
     assert.ok(paths.some((p) => p.includes('run-ids/run-1')), 'run-ids doc written');
-    assert.ok(paths.some((p) => p === 'savant-trader/data/symbols/ADPT'), 'gate-date update written');
+    // #1159: gate-date update lands on the canonical st-symbols doc;
+    // run-ids/signal-history writes stay on the legacy parent until #1019.
+    assert.ok(paths.some((p) => p === 'st-symbols/ADPT'), 'gate-date update written');
+    assert.ok(paths.some((p) => p === 'savant-trader/data/symbols/ADPT/run-ids/run-1'), 'run-ids stays on legacy parent');
   });
 
   it('appends runIds on re-detection; marketDate/sourceRunId unchanged', async () => {

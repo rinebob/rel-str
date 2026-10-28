@@ -36,8 +36,8 @@ const REPO_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const SRC_ROOT = join(REPO_ROOT, 'functions', 'src');
 
 describe('isStRunJobPath — census path classifier', () => {
-  it('accepts job docs under the live legacy runs root', () => {
-    assert.equal(isStRunJobPath('savant-trader/data/runs/r1/jobs/AAPL'), true);
+  it('rejects job docs under the retired legacy runs root (#1159)', () => {
+    assert.equal(isStRunJobPath('savant-trader/data/runs/r1/jobs/AAPL'), false);
   });
 
   it('accepts job docs under the canonical st-runs root', () => {
@@ -53,8 +53,8 @@ describe('isStRunJobPath — census path classifier', () => {
     assert.equal(isStRunJobPath('system/rs-backfill-runs/runs/r1/jobs/j1'), false);
   });
 
-  it('rejects other subcollections under the runs roots', () => {
-    assert.equal(isStRunJobPath('savant-trader/data/runs/r1/signals/AAPL'), false);
+  it('rejects other subcollections under the runs root', () => {
+    assert.equal(isStRunJobPath('st-runs/r1/signals/AAPL'), false);
     assert.equal(isStRunJobPath('st-runs/r1/notes/AAPL'), false);
   });
 
@@ -68,11 +68,10 @@ describe('isStRunJobPath — census path classifier', () => {
 });
 
 describe('ST_RUN_JOB_ROOTS', () => {
-  it('covers exactly the two ST run roots', () => {
-    assert.deepEqual([...ST_RUN_JOB_ROOTS].sort(), [
-      'savant-trader/data/runs',
-      'st-runs',
-    ]);
+  it('covers exactly the canonical st-runs root', () => {
+    // #1159: legacy savant-trader/data/runs leg dropped — that root is
+    // deleted wholesale rather than TTL-drained.
+    assert.deepEqual([...ST_RUN_JOB_ROOTS], ['st-runs']);
   });
 });
 
@@ -203,7 +202,7 @@ describe('purgeOldRunJobsForRoot', () => {
 });
 
 describe('purgeOldRunJobs — all roots', () => {
-  it('iterates both ST roots and shares the delete budget', async () => {
+  it('iterates only the canonical root and never touches foreign roots', async () => {
     const mk = (root: string, id: string) =>
       fakeRunDoc(root, id, [{ ref: { path: `${root}/${id}/jobs/A` } }]);
     const { firestore, state } = fakeFirestore(new Map([
@@ -213,7 +212,6 @@ describe('purgeOldRunJobs — all roots', () => {
     const res = await purgeOldRunJobs(
       firestore, { cutoff: CUTOFF, maxDelete: 1 });
     assert.equal(res.deleted, 1);
-    // canonical root first — budget exhausted there
     assert.deepEqual(state.deleted, ['st-runs/r1/jobs/A']);
     assert.equal(res.runsScanned, 1);
   });
