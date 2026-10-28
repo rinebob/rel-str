@@ -156,8 +156,8 @@
 
   .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
 
-  .positive { color: #2e7d32; }
-  .negative { color: #c62828; }
+  .positive { color: var(--ds-up); }
+  .negative { color: var(--ds-down); }
 
   .status-chip {
     border-radius: 10px;

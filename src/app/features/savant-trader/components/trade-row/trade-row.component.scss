@@ -43,7 +43,7 @@
 .col-direction {
   font-weight: 600;
 
-  &.dir-long  { color: #2e7d32; }
+  &.dir-long  { color: var(--ds-up); }
   &.dir-short { color: var(--mat-sys-error); }
 }
 

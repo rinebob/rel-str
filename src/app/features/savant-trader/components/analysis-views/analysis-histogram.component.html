@@ -23,6 +23,8 @@
     [legendSettings]="legendSettings()">
     <e-series-collection>
       @if (baselineActive()) {
+        <!-- literal-sweep exception #1214: e-series fill is a Syncfusion
+             chart input (canvas-rendered) — literal required. -->
         <e-series
           type="Column"
           [dataSource]="baselineData()"

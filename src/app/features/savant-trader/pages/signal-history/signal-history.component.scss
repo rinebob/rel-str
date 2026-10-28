@@ -122,9 +122,9 @@
     font-weight: 500;
 
     &.total    { font-weight: 600; color: var(--mat-sys-on-surface); }
-    &.long     { color: #4caf50; }
-    &.short    { color: #f44336; }
-    &.zone     { color: #2196f3; }
-    &.strength { color: #ff9800; }
+    &.long     { color: var(--ds-up); }
+    &.short    { color: var(--ds-down); }
+    &.zone     { color: var(--ds-accent); }
+    &.strength { color: var(--ds-warning); }
   }
 }

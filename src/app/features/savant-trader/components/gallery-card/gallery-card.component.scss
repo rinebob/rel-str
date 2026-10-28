@@ -3,36 +3,36 @@
   flex-direction: column;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--ds-border-subtle);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ds-surface-raised);
   min-height: 120px;
 
   &.buy {
-    border-top: 2px solid #4caf50;
+    border-top: 2px solid var(--ds-up);
   }
   &.sell {
-    border-top: 2px solid #f44336;
+    border-top: 2px solid var(--ds-down);
   }
 
   // Actioned cards (#755) — a lighter surface reads "parked" on the dark
   // page without dimming the card's contents (the exits stay readable).
   &.actioned {
     background: var(--mat-sys-surface-container);
-    border-color: rgba(255, 255, 255, 0.14);
+    border-color: var(--ds-border-subtle);
   }
 
   // Per-status left accent — the Actioned sub-sections carry the same
   // colors, so a card's category reads from the card itself too.
   &.status-failed {
-    border-left: 4px solid #f44336;
-    border-top-color: rgba(244, 67, 54, 0.5);
+    border-left: 4px solid var(--ds-error);
+    border-top-color: color-mix(in srgb, var(--ds-error) 50%, transparent);
   }
   &.status-settled {
-    border-left: 4px solid #81c784;
+    border-left: 4px solid var(--ds-success);
   }
   &.status-rejected {
-    border-left: 4px solid #ff8a80;
+    border-left: 4px solid var(--ds-error);
   }
 }
 
@@ -73,11 +73,11 @@
   white-space: nowrap;
 
   &.up {
-    color: #4caf50;
+    color: var(--ds-up);
   }
 
   &.down {
-    color: #f44336;
+    color: var(--ds-down);
   }
 }
 
@@ -124,12 +124,12 @@
   border-radius: 4px;
 
   &.buy {
-    color: #4caf50;
-    background: rgba(76, 175, 80, 0.15);
+    color: var(--ds-on-up-container);
+    background: var(--ds-up-container);
   }
   &.sell {
-    color: #f44336;
-    background: rgba(244, 67, 54, 0.15);
+    color: var(--ds-on-down-container);
+    background: var(--ds-down-container);
   }
 }
 
@@ -142,24 +142,24 @@
   text-transform: uppercase;
 
   &.status-submitting {
-    color: #ffb74d;
-    background: rgba(255, 183, 77, 0.15);
+    color: var(--ds-on-warning-container);
+    background: var(--ds-warning-container);
   }
   &.status-resting {
-    color: #64b5f6;
-    background: rgba(100, 181, 246, 0.15);
+    color: var(--ds-on-accent-container);
+    background: var(--ds-accent-container);
   }
   &.status-settled {
-    color: #81c784;
-    background: rgba(129, 199, 132, 0.15);
+    color: var(--ds-on-success-container);
+    background: var(--ds-success-container);
   }
   &.status-failed {
-    color: #e57373;
-    background: rgba(229, 115, 115, 0.15);
+    color: var(--ds-on-error-container);
+    background: var(--ds-error-container);
   }
   &.status-rejected {
-    color: #ff8a80;
-    background: rgba(255, 138, 128, 0.15);
+    color: var(--ds-on-error-container);
+    background: var(--ds-error-container);
   }
 }
 
@@ -227,20 +227,20 @@ app-gallery-card-chart {
 }
 
 .action-trade {
-  background: rgba(76, 175, 80, 0.18);
-  color: #81c784;
+  background: var(--ds-success-container);
+  color: var(--ds-on-success-container);
 
   &:hover:not(:disabled) {
-    background: rgba(76, 175, 80, 0.28);
+    background: color-mix(in srgb, var(--ds-success) 28%, var(--ds-surface-raised));
   }
 }
 
 .action-reject.active {
-  background: rgba(211, 47, 47, 0.2);
-  color: #ff8a80;
+  background: var(--ds-error-container);
+  color: var(--ds-on-error-container);
 
   &:hover:not(:disabled) {
-    background: rgba(211, 47, 47, 0.3);
+    background: color-mix(in srgb, var(--ds-error) 30%, var(--ds-surface-raised));
   }
 }
 
@@ -305,9 +305,11 @@ app-gallery-card-chart {
   font-weight: 700;
   padding: 1px 5px;
   border-radius: 3px;
-  background: rgba(33, 150, 243, 0.2);
-  color: #64b5f6;
+  background: var(--ds-accent-container);
+  color: var(--ds-on-accent-container);
 
+  // literal-sweep exception #1214: categorical weekly-vs-daily hue — no
+  // --ds token; revisiting under #1162 badge work.
   &.weekly {
     background: rgba(156, 39, 176, 0.2);
     color: #ba68c8;

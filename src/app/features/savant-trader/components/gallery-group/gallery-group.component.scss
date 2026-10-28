@@ -31,7 +31,7 @@
 
 .grp-dir {
   font-weight: 700;
-  &.long  { color: #2e7d32; }
+  &.long  { color: var(--ds-up); }
   &.short { color: var(--mat-sys-error); }
 }
 

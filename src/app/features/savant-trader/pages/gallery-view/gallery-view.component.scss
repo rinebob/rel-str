@@ -73,16 +73,16 @@
   color: var(--mat-sys-on-surface-variant);
 
   &.actioned-failed {
-    border-left-color: #f44336;
-    color: #ef9a9a;
+    border-left-color: var(--ds-error);
+    color: var(--ds-on-error-container);
   }
   &.actioned-settled {
-    border-left-color: #81c784;
-    color: #a5d6a7;
+    border-left-color: var(--ds-success);
+    color: var(--ds-on-success-container);
   }
   &.actioned-rejected {
-    border-left-color: #ff8a80;
-    color: #ffab91;
+    border-left-color: var(--ds-error);
+    color: var(--ds-on-error-container);
   }
 }
 

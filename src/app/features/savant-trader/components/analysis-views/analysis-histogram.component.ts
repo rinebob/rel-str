@@ -63,6 +63,8 @@ export class AnalysisHistogramComponent {
       : histogramBins(base, 'tradeRetPct', this.binWidth());
   });
 
+  // literal-sweep exception #1214: chart-lib config literals —
+  // canvas-rendered, var() can't resolve (#1164 concern).
   /** One point per bin, centered, carrying its win/loss fill. */
   protected readonly chartData = computed(() =>
     this.bins().map((b) => ({
