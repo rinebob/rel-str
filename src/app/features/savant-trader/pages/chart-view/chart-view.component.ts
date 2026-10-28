@@ -8,10 +8,14 @@
  * URL: /trading/chart-view  (#1232/#1256)
  *
  * Several selection/triage methods are deliberate ports of chart-review's
- * (the name cache, willLeaveActiveList, advanceQueue, nav). They're NOT
- * extracted into a shared helper: chart-review is deleted in #1260, so a
- * shared abstraction would lose its second consumer immediately. If #1260
- * slips and a third surface needs this logic, extract then.
+ * (the name cache, willLeaveActiveList, advanceQueue, nav). One deliberate
+ * divergence: chart-review let a selection dangle as a "detached chart"
+ * when the last symbol left the viewport — the viewport-escape guard here
+ * advances to the dropped symbol's neighbor or clears instead (#1258).
+ * These are NOT extracted into a shared helper: chart-review is deleted
+ * in #1260, so a shared abstraction would lose its second consumer
+ * immediately. If #1260 slips and a third surface needs this logic,
+ * extract then.
  */
 import {
   Component,
@@ -19,6 +23,7 @@ import {
   effect,
   signal,
   computed,
+  untracked,
   OnInit,
   OnDestroy,
   ChangeDetectionStrategy,
@@ -34,6 +39,7 @@ import { AppRoutes } from '../../../../core/common/interfaces';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 import { ST_SYMBOLS_ROOT } from '@st/collections';
 import { SymbolListStore } from '../../stores/symbol-list.store';
+import { LatestRunStore } from '../../stores/latest-run.store';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { NO_MEMBERSHIP, type SymbolListFilter } from '../../common/constants';
 import { TERMINAL_TICKET_STATUSES } from '../../services/order-ticket.types';
@@ -64,6 +70,7 @@ import { SignalDetailComponent } from '../../components/signal-detail/signal-det
 })
 export class ChartViewComponent implements OnInit, OnDestroy {
   readonly symbolListStore = inject(SymbolListStore);
+  readonly latestRunStore = inject(LatestRunStore);
   private readonly ticketStore = inject(OrderTicketStore);
   readonly viewportService = inject(ChartViewViewportService);
   readonly uiStateService = inject(UiStateService);
@@ -83,9 +90,15 @@ export class ChartViewComponent implements OnInit, OnDestroy {
    *  Session-local only; a page refresh resets it. */
   readonly viewedSymbols = signal<ReadonlySet<string>>(new Set<string>());
 
+  /** Last-seen viewport — bookkeeping for the escape guard below, which
+   *  needs the dropped symbol's prior index to advance to its neighbor.
+   *  Read/written untracked: it mirrors viewportSymbols, never drives it. */
+  private readonly prevViewport = signal<string[]>([]);
+
   /** Delegate viewport state from the viewport service. */
   readonly viewportSymbols = this.viewportService.viewportSymbols;
   readonly activeList = this.viewportService.activeList;
+  readonly newOnly = this.viewportService.newOnly;
 
   /** The symbol the detail pane and toolbar act on. */
   readonly activeSymbol = computed(() => this.selectedSymbol() ?? this.manualSymbol());
@@ -116,6 +129,14 @@ export class ChartViewComponent implements OnInit, OnDestroy {
     return !!symbol && this.symbolListStore.trackedSymbols().includes(symbol);
   });
 
+  /** Pane symbols outside the tracked universe — the list renders them
+   *  with a NEW chip so scan rows differentiate new vs tracked when the
+   *  New-only filter is off. Empty on list sources (all tracked). */
+  readonly untrackedPaneSymbols = computed(() => {
+    const tracked = new Set(this.symbolListStore.trackedSymbols());
+    return this.viewportSymbols().filter((s) => !tracked.has(s));
+  });
+
   /** Cache of symbol -> company name fetched from Firestore. */
   private readonly symbolNameCache = signal<Record<string, string | null>>({});
 
@@ -137,6 +158,28 @@ export class ChartViewComponent implements OnInit, OnDestroy {
       if (!this.selectedSymbol() && !this.manualSymbol()) {
         this.select(symbols[0]);
       }
+    });
+
+    /**
+     * Viewport-escape guard — a selection that leaves the viewport (the
+     * New-only toggle hiding a tracked symbol, a cache update shrinking
+     * the pane, a filing echo) advances to the survivor at the dropped
+     * symbol's index — the same neighbor-advance advanceQueue uses —
+     * or clears when there's nothing left (#1258).
+     */
+    effect(() => {
+      const symbols = this.viewportSymbols();
+      const selected = this.selectedSymbol();
+      const prev = untracked(this.prevViewport);
+      this.prevViewport.set(symbols); // untracked write — mirror bookkeeping, not a dependency
+      if (!selected || symbols.includes(selected)) return;
+      const idx = prev.indexOf(selected);
+      if (idx === -1 || symbols.length === 0) {
+        this.selectedSymbol.set(null);
+        return;
+      }
+      // Same survivor-index policy as advanceQueue below.
+      this.select(symbols[Math.min(idx, symbols.length - 1)]);
     });
 
     /**
@@ -163,11 +206,12 @@ export class ChartViewComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Load lists, the tracked universe, and the ticket queue. */
+  /** Load lists, the tracked universe, the ticket queue, and the latest-run cache. */
   ngOnInit(): void {
     this.symbolListStore.loadSymbolLists();
     this.symbolListStore.loadTrackedSymbols();
     this.ticketStore.loadTickets();
+    void this.latestRunStore.loadLatestRuns();
   }
 
   /** Leave fullscreen mode when the page is destroyed. */
@@ -226,8 +270,9 @@ export class ChartViewComponent implements OnInit, OnDestroy {
       // Clearing hands recovery to the auto-select effect. Note the effect
       // runs against the stale pre-echo viewport — when the last symbol is
       // filed out it may transiently re-select that symbol; post-echo the
-      // pane is empty and the selection dangles as a detached chart, which
-      // is the accepted behavior (parity with chart-review).
+      // pane is empty and the escape guard recovers (advances to the
+      // symbol's last-known neighbor, or clears if it was never paneed).
+      // (Divergence from chart-review's detached-chart parity — deliberate.)
       this.selectedSymbol.set(null);
       return;
     }
@@ -294,9 +339,9 @@ export class ChartViewComponent implements OnInit, OnDestroy {
     this.select(symbols[idx + 1]);
   }
 
-  /** Source selection — clears both selection paths so the new source
-   *  starts clean. */
-  onListChange(filter: SymbolListFilter): void {
+  /** Source selection — list or scan, one slot in the viewport service.
+   *  Clears both selection paths so the new source starts clean. */
+  onSourceChange(filter: SymbolListFilter): void {
     this.viewportService.setActiveSource(filter);
     this.manualSymbol.set(null);
     this.selectedSymbol.set(null);

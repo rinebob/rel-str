@@ -35,6 +35,7 @@ import { SignalDetailComponent } from '../../components/signal-detail/signal-det
 import { ChartViewViewportService } from '../../services/chart-view-viewport.service';
 import { ChartToolbarStateService } from '../../services/chart-toolbar-state.service';
 import { SymbolListStore } from '../../stores/symbol-list.store';
+import { LatestRunStore } from '../../stores/latest-run.store';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { ManualOrderService } from '../../services/manual-order.service';
 import { UiStateService, ChartLayout } from '../../../../core/services/ui-state.service';
@@ -49,7 +50,9 @@ import {
 } from '../../services/order-ticket.types';
 import type { SymbolListFilter } from '../../common/constants';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
-import type { RhSelectOptionGroup } from '../../components/rh-select-menu/rh-select-menu.component';
+import type { RhSelectOption, RhSelectOptionGroup } from '../../components/rh-select-menu/rh-select-menu.component';
+import type { ScanLatestRun } from '@st/scanner';
+import { scanRun } from '../../testing/scan-fixtures';
 
 // NOTE: mock children use @Input()/@Output() decorators, NOT signal
 // input()/output() — signal-based fields in a spec-local component class
@@ -58,6 +61,8 @@ import type { RhSelectOptionGroup } from '../../components/rh-select-menu/rh-sel
 @Component({ selector: 'app-chart-view-toolbar', standalone: true, template: '' })
 class MockToolbarComponent {
   @Input() activeList!: SymbolListFilter;
+  @Input() scanOptions: RhSelectOption<SymbolListFilter>[] = [];
+  @Input() newOnly = true;
   @Input() listGroups: RhSelectOptionGroup<SymbolListFilter>[] = [];
   @Input() symbol: string | null = null;
   @Input() companyName: string | null = null;
@@ -67,6 +72,8 @@ class MockToolbarComponent {
   @Input() symbolCount = 0;
   @Input() orderCount = 0;
   @Output() listChange = new EventEmitter<SymbolListFilter>();
+  @Output() scanChange = new EventEmitter<SymbolListFilter>();
+  @Output() newOnlyChange = new EventEmitter<boolean>();
   @Output() trade = new EventEmitter<void>();
   @Output() goToOrder = new EventEmitter<void>();
   @Output() addToTracked = new EventEmitter<void>();
@@ -127,6 +134,14 @@ describe('ChartViewComponent', () => {
     toggleSymbolInList: jest.fn(),
   };
   const ticketStore = { tickets, loadTickets: jest.fn() };
+  const latestRuns = signal(new Map<string, ScanLatestRun>());
+  const scanOptions = signal<RhSelectOption<SymbolListFilter>[]>([]);
+  const latestRunStore = {
+    latestRuns,
+    scanOptions,
+    rowsFor: jest.fn((recipeId: string) => latestRuns().get(recipeId)?.rows ?? []),
+    loadLatestRuns: jest.fn(),
+  };
   const manualOrderService = { open: jest.fn().mockResolvedValue(undefined) };
   const snackBar = { open: jest.fn() };
   const router = { navigate: jest.fn().mockResolvedValue(true) };
@@ -146,6 +161,8 @@ describe('ChartViewComponent', () => {
     ]);
     trackedSymbols.set(['AAPL', 'MSFT']);
     tickets.set({});
+    latestRuns.set(new Map());
+    scanOptions.set([]);
     uiState.fullscreen.set(false);
     (getDoc as jest.Mock).mockResolvedValue({
       exists: () => true,
@@ -157,6 +174,7 @@ describe('ChartViewComponent', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: SymbolListStore, useValue: symbolListStore },
+        { provide: LatestRunStore, useValue: latestRunStore },
         { provide: OrderTicketStore, useValue: ticketStore },
         { provide: ManualOrderService, useValue: manualOrderService },
         { provide: MatSnackBar, useValue: snackBar },
@@ -308,12 +326,14 @@ describe('ChartViewComponent', () => {
     expect(component.selectedSymbol()).toBe('AAPL');
     // An external snapshot shrinks PRIMARY before the file-out write —
     // the selected symbol is no longer in the viewport (idx === -1).
-    // Without the guard, advanceQueue would select(undefined).
+    // Without the guard, advanceQueue would select(undefined). Emitting
+    // before the next flush exercises the guard synchronously — if the
+    // escape effect ran first it would advance/clear the selection and
+    // the advanceQueue path would never be reached.
     listCatalog.set([
       { key: 'PRIMARY', label: 'Primary', order: 0, role: 'exclusive', hidden: false, symbols: ['MSFT'] },
       { key: 'SECONDARY', label: 'Secondary', order: 1, role: 'exclusive', hidden: false, symbols: [] },
     ]);
-    fixture.detectChanges();
     expect(component.viewportSymbols()).toEqual(['MSFT']);
     toolbar.toggleList.emit({ symbol: 'AAPL', listKey: 'SECONDARY' });
     fixture.detectChanges();
@@ -331,6 +351,84 @@ describe('ChartViewComponent', () => {
     toolbar.listChange.emit(NO_MEMBERSHIP);
     fixture.detectChanges();
     expect(component.manualSymbol()).toBeNull();
+    expect(component.selectedSymbol()).toBeNull();
+  });
+
+  it('ngOnInit warms the latest-run cache so the Scan dropdown has options (#1258)', () => {
+    expect(latestRunStore.loadLatestRuns).toHaveBeenCalled();
+  });
+
+  it('the Scan dropdown gets the store options; scanChange drives the single source slot (#1258)', () => {
+    const options: RhSelectOption<SymbolListFilter>[] = [
+      { value: 'scan:gainers', label: 'Gainers · ran 14:00' },
+    ];
+    scanOptions.set(options);
+    latestRuns.set(new Map([['gainers', scanRun('gainers', ['NEW1'])]]));
+    fixture.detectChanges();
+    expect(toolbar.scanOptions).toBe(options);
+    expect(toolbar.newOnly).toBe(true);
+
+    toolbar.scanChange.emit('scan:gainers');
+    fixture.detectChanges();
+    expect(component.activeList()).toBe('scan:gainers');
+    expect(component.viewportSymbols()).toEqual(['NEW1']);
+
+    // A list pick afterwards leaves exactly one active source.
+    toolbar.listChange.emit('PRIMARY');
+    fixture.detectChanges();
+    expect(component.activeList()).toBe('PRIMARY');
+  });
+
+  it('New-only hides tracked scan rows; hiding the selection advances to its dropped-index neighbor (#1258)', () => {
+    latestRuns.set(new Map([['gainers', scanRun('gainers', ['NEW1', 'NEW2', 'AAPL', 'NEW3'])]]));
+    toolbar.scanChange.emit('scan:gainers');
+    fixture.detectChanges();
+    // AAPL is tracked — New-only (default on) filters it; NEW1 auto-selects.
+    expect(component.viewportSymbols()).toEqual(['NEW1', 'NEW2', 'NEW3']);
+    expect(component.selectedSymbol()).toBe('NEW1');
+
+    // Toggle off → the tracked row appears at its scan-order slot; select it.
+    toolbar.newOnlyChange.emit(false);
+    fixture.detectChanges();
+    expect(component.viewportSymbols()).toEqual(['NEW1', 'NEW2', 'AAPL', 'NEW3']);
+    const list = fixture.debugElement.query(By.directive(MockSignalListComponent)).componentInstance;
+    list.symbolSelected.emit('AAPL');
+    fixture.detectChanges();
+    expect(component.selectedSymbol()).toBe('AAPL');
+
+    // Toggle back on → AAPL escapes at index 2; the guard advances to the
+    // survivor at that index (NEW3), not the pane head — advanceQueue
+    // semantics, keeping the user's place mid-pane.
+    toolbar.newOnlyChange.emit(true);
+    fixture.detectChanges();
+    expect(component.selectedSymbol()).toBe('NEW3');
+  });
+
+  it('untracked scan rows reach the list as NEW-chip symbols (#1258)', () => {
+    latestRuns.set(new Map([['gainers', scanRun('gainers', ['NEW1', 'AAPL', 'NEW2'])]]));
+    toolbar.scanChange.emit('scan:gainers');
+    toolbar.newOnlyChange.emit(false); // tracked row back in the pane
+    fixture.detectChanges();
+    const list = fixture.debugElement.query(By.directive(MockSignalListComponent)).componentInstance;
+    expect(list.newSymbols).toEqual(['NEW1', 'NEW2']);
+    // List sources have no untracked rows — no chips.
+    toolbar.listChange.emit('PRIMARY');
+    fixture.detectChanges();
+    expect(list.newSymbols).toEqual([]);
+  });
+
+  it('the escape guard clears the selection when the viewport empties (#1258)', () => {
+    latestRuns.set(new Map([['gainers', scanRun('gainers', ['NEW1'])]]));
+    toolbar.scanChange.emit('scan:gainers');
+    fixture.detectChanges();
+    expect(component.selectedSymbol()).toBe('NEW1');
+
+    // The cache doc shrinks to nothing (a fresher run, a stale page) —
+    // no survivor to advance to: clear, and auto-select stays out of an
+    // empty pane.
+    latestRuns.set(new Map([['gainers', scanRun('gainers', [])]]));
+    fixture.detectChanges();
+    expect(component.viewportSymbols()).toEqual([]);
     expect(component.selectedSymbol()).toBeNull();
   });
 });

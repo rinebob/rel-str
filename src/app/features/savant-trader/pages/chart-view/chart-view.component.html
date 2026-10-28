@@ -1,6 +1,8 @@
 <div class="chart-view" [class.fullscreen]="uiStateService.fullscreen()">
   <app-chart-view-toolbar
     [activeList]="activeList()"
+    [scanOptions]="latestRunStore.scanOptions()"
+    [newOnly]="newOnly()"
     [listGroups]="symbolListStore.filterOptionGroups()"
     [symbol]="activeSymbol()"
     [companyName]="selectedSymbolName()"
@@ -9,7 +11,9 @@
     [symbolIndex]="selectedSymbolIndex()"
     [symbolCount]="symbolCount()"
     [orderCount]="orderCount()"
-    (listChange)="onListChange($event)"
+    (listChange)="onSourceChange($event)"
+    (scanChange)="onSourceChange($event)"
+    (newOnlyChange)="viewportService.setNewOnly($event)"
     (trade)="onTrade()"
     (goToOrder)="goToOrder()"
     (addToTracked)="onAddToTracked()"
@@ -33,6 +37,7 @@
         [selectedSymbol]="selectedSymbol()"
         [manualSymbol]="manualSymbol()"
         [symbols]="viewportSymbols()"
+        [newSymbols]="untrackedPaneSymbols()"
         [dimmedSymbols]="viewedSymbols()"
         (symbolSelected)="onSymbolSelected($event)">
       </app-signal-list>
