@@ -58,6 +58,9 @@
 - [Manual Order] 1177-1191_DOCS-ORDER: #1191 CODE-REVIEW (PASS, 3 convergent rounds) + #1230 UAT (Complete; S1–S9)
 - [Options Backtest] 1238-1278_DOCS-BACKTEST: BE IMPL/TEST plans ship — IMPL-BE §3 records confirmed SA pick-doc seam (CellYearDoc wire, year-sharded requests, endpoint name pending av-proxy-api#225); TEST-BE mapper bullets cover miss entries
 - [Options Backtest] 1238-1278_DOCS-BACKTEST: #1278 CODE-REVIEW (PASS, 3 passes) + #1293 UAT (Complete; 8/8) + ADR-010 amendment + PRD/IMPL-SHARED wire reconcile
+- [Options Backtest] 1238-1279_BE-IMPL-BACKTEST: Pick-doc client — year-sharded fetch+merge per confirmed contract, injectable PickDocTransport seam, coordinate-named 404/malformed-400 error semantics, provisional SA#225 constants single-point
+- [Options Backtest] 1238-1279_BE-IMPL-BACKTEST: 9 transport-seamed unit tests (request shape, merge, every error branch) — registered as test:options-replay
+- [Options Backtest] 1238-1279_DOCS-BACKTEST: #1279 CODE-REVIEW (PASS, 1 convergence fix) + #1299 UAT (Complete; 9/9) + IMPL-BE §3 as-built note
 
 ### Changed
 - [Options Backtest] 1238-1278_SHARED-IMPL-BACKTEST: PickDocument reconciled to SA CellYearDoc — days carries PickDocDayEntry (pick | explicit miss), PickDocMiss/PickDocMissStatus/isPickDocPick added, updatedAt; NoSelectionReason maps SA statuses
