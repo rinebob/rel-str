@@ -100,6 +100,9 @@ export { stBacktestStart } from './st-cloud-function/backtest/backtest-orchestra
 export { stBacktestStrategies } from './st-cloud-function/backtest/backtest-strategies-callable';
 export { stBacktestPermutation } from './st-cloud-function/backtest/backtest-worker';
 
+// Options Replay — Selection Replay (Topic #1238, Thread #1240)
+export { optionsReplayStart } from './options-replay/start';
+
 // ST Company Overview Sync (Phase 1)
 export {
   stOverviewSyncWeekly,
