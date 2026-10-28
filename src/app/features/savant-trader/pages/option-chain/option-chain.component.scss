@@ -118,8 +118,8 @@
       font-variant-numeric: tabular-nums;
       color: var(--mat-sys-on-surface);
 
-      &.close-up { color: #0a7c2e; }
-      &.close-down { color: #b00; }
+      &.close-up { color: var(--ds-up); }
+      &.close-down { color: var(--ds-down); }
 
       .underlying-pct {
         font-weight: 500;
@@ -165,10 +165,10 @@
 
   .page-state {
     padding: 24px;
-    color: #666;
+    color: var(--ds-on-surface-variant);
 
     &.error {
-      color: #b3261e;
+      color: var(--ds-error);
     }
   }
 
@@ -205,7 +205,7 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #555;
+      color: var(--ds-on-surface-variant);
     }
 
     app-chain-grid {

@@ -76,8 +76,8 @@ export const POPUP_COPIED_MS = 1500;
       pointer-events: auto;
       min-width: 210px;
       padding: 8px 10px;
-      background: #263238;
-      color: #eceff1;
+      background: var(--ds-surface-overlay);
+      color: var(--ds-on-surface);
       border-radius: 4px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.35);
       font-size: 0.68rem;
@@ -102,11 +102,11 @@ export const POPUP_COPIED_MS = 1500;
       border: none;
       border-radius: 3px;
       background: transparent;
-      color: #b0bec5;
+      color: var(--ds-on-surface-variant);
       cursor: pointer;
       line-height: 0;
     }
-    .copy-btn:hover { color: #eceff1; background: rgba(255,255,255,0.08); }
+    .copy-btn:hover { color: var(--ds-on-surface); background: color-mix(in srgb, var(--ds-on-surface) 10%, transparent); }
     .copy-btn mat-icon { font-size: 14px; width: 14px; height: 14px; }
     .sr-only {
       position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;

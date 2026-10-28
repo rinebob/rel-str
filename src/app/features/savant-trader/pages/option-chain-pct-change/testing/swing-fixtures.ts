@@ -89,6 +89,7 @@ export function makeSwingAnalysisDocFixture(
       rightDepth: 5,
       allowZigZagOnOneBar: true,
       projectionPivots: true,
+      // literal-sweep exception #1214: chart-config fixture — literal required
       lineColor: '#000',
     },
     pivots: [],

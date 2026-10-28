@@ -90,7 +90,6 @@ const TARGET_VIEW_H = 180;
             class="zigzag-line"
             [attr.points]="polyline()"
             fill="none"
-            stroke="#9e9e9e"
             stroke-width="1"
           />
           @for (seg of segments(); track seg.swing.start.time + '-' + seg.swing.end.time) {
@@ -174,7 +173,6 @@ const TARGET_VIEW_H = 180;
               class="zigzag-line"
               [attr.points]="targetChart().polyline"
               fill="none"
-              stroke="#9e9e9e"
               stroke-width="1"
             />
             <!-- pivot hairlines + rotated date labels, colored high/low -->
@@ -313,15 +311,17 @@ const TARGET_VIEW_H = 180;
       .set-picker { display: flex; flex-direction: column; gap: 4px;
         font-size: 0.85rem; margin: 8px 0; }
       .set-picker select { max-width: 420px; padding: 4px 6px; font-size: 0.85rem; }
-      .zigzag-svg { display: block; width: 100%; height: 260px; background: #fafafa;
-        border: 1px solid #ddd; border-radius: 4px; }
+      .zigzag-svg { display: block; width: 100%; height: 260px;
+        background: var(--ds-surface-raised);
+        border: 1px solid var(--ds-border-subtle); border-radius: 4px; }
       .zigzag-svg.small { height: 180px; }
+      .zigzag-line { stroke: var(--ds-border-strong); }
       .swing-segment-visual {
-        stroke: #1976d2; stroke-width: 2.5; opacity: 0.7;
+        stroke: var(--ds-up); stroke-width: 2.5; opacity: 0.7;
         vector-effect: non-scaling-stroke; pointer-events: none;
       }
-      .swing-segment-visual.down { stroke: #c62828; }
-      .swing-segment-visual.selected { stroke: #ff9800; opacity: 1; }
+      .swing-segment-visual.down { stroke: var(--ds-down); }
+      .swing-segment-visual.selected { stroke: var(--ds-accent); opacity: 1; }
       .swing-segment-hit {
         stroke: transparent; stroke-width: 16; cursor: pointer;
         vector-effect: non-scaling-stroke;
@@ -330,20 +330,20 @@ const TARGET_VIEW_H = 180;
       .swing-segment-hit:focus-visible ~ .swing-segment-visual,
       .swing-segment-hit:hover ~ .swing-segment-visual { opacity: 1; }
       .target-segment {
-        stroke: #1976d2; stroke-width: 1.5; opacity: 0.6;
+        stroke: var(--ds-up); stroke-width: 1.5; opacity: 0.6;
         vector-effect: non-scaling-stroke; pointer-events: none;
       }
-      .target-segment.down { stroke: #c62828; }
-      .target-segment.picked { stroke: #ff9800; stroke-width: 3; opacity: 1; }
+      .target-segment.down { stroke: var(--ds-down); }
+      .target-segment.picked { stroke: var(--ds-accent); stroke-width: 3; opacity: 1; }
       .pivot-hairline {
-        stroke: #1976d2; stroke-width: 0.8; opacity: 0.35;
+        stroke: var(--ds-up); stroke-width: 0.8; opacity: 0.35;
         vector-effect: non-scaling-stroke; pointer-events: none;
       }
-      .pivot-hairline.high { stroke: #c62828; }
+      .pivot-hairline.high { stroke: var(--ds-down); }
       .pivot-label {
-        font-size: 9px; fill: #1976d2; opacity: 0.8; pointer-events: none;
+        font-size: 9px; fill: var(--ds-up); opacity: 0.8; pointer-events: none;
       }
-      .pivot-label.high { fill: #c62828; }
+      .pivot-label.high { fill: var(--ds-down); }
       .swing-list { list-style: none; margin: 10px 0 0; padding: 0;
         max-height: 140px; overflow-y: auto; }
       .swing-row {
@@ -351,11 +351,11 @@ const TARGET_VIEW_H = 180;
         padding: 4px 8px; border: none; background: none; text-align: left;
         font-size: 0.85rem; cursor: pointer; border-radius: 4px;
       }
-      .swing-row:hover, .swing-row.selected { background: #eef4fb; }
-      .swing-row .dir { color: #1976d2; font-weight: 600; }
-      .swing-row .dir.down { color: #c62828; }
+      .swing-row:hover, .swing-row.selected { background: var(--ds-accent-container); }
+      .swing-row .dir { color: var(--ds-up); font-weight: 600; }
+      .swing-row .dir.down { color: var(--ds-down); }
       .swing-row .mag { margin-left: auto; font-family: monospace; }
-      .swing-row .dur { color: #888; font-size: 0.75rem; }
+      .swing-row .dur { color: var(--ds-on-surface-variant); font-size: 0.75rem; }
       .run-builder {
         display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;
         margin-top: 8px;
@@ -364,22 +364,23 @@ const TARGET_VIEW_H = 180;
       .run-builder select { padding: 4px 6px; font-size: 0.85rem; }
       .target-group {
         display: flex; gap: 10px; flex-wrap: wrap;
-        border: 1px solid #ddd; border-radius: 4px; padding: 4px 8px;
+        border: 1px solid var(--ds-border-subtle); border-radius: 4px; padding: 4px 8px;
         margin: 0;
       }
-      .target-group legend { font-size: 0.72rem; color: #777; padding: 0 4px; }
+      .target-group legend { font-size: 0.72rem; color: var(--ds-on-surface-variant); padding: 0 4px; }
       .mini-btn {
         font-size: 0.7rem; padding: 0 6px; margin-left: 6px;
-        cursor: pointer; border: 1px solid #ccc; border-radius: 4px;
-        background: #fff;
+        cursor: pointer; border: 1px solid var(--ds-border-subtle); border-radius: 4px;
+        background: var(--ds-surface);
+        color: var(--ds-on-surface);
       }
       .mini-btn:disabled { opacity: 0.5; cursor: default; }
       .target-checkbox { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; }
-      .target-checkbox em { color: #666; font-size: 0.75rem; }
-      .extreme-value { color: #1976d2; font-style: normal;
+      .target-checkbox em { color: var(--ds-on-surface-variant); font-size: 0.75rem; }
+      .extreme-value { color: var(--ds-accent); font-style: normal;
         font-family: monospace; font-size: 0.75rem; }
       .add-run-btn { padding: 5px 14px; font-size: 0.85rem; cursor: pointer; }
-      .runs-count { margin-right: auto; font-size: 0.8rem; color: #666; }
+      .runs-count { margin-right: auto; font-size: 0.8rem; color: var(--ds-on-surface-variant); }
     `,
   ],
 })

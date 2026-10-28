@@ -143,26 +143,26 @@ function pointAnnots(verts: Vertex[]): { x: number; y: number; label: string }[]
   styles: [`
     :host {
       display: block;
-      --price-color: #1976d2;
-      --delta-color: #e65100;
+      --price-color: var(--ds-accent);
+      --delta-color: var(--ds-warning);
     }
     .mini-chart {
-      width: 240px; background: var(--mat-sys-surface, #fff);
-      border: 1px solid var(--mat-sys-outline-variant, #ddd);
+      width: 240px; background: var(--ds-surface);
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
       padding: 6px 8px; font-size: 10px;
-      color: var(--mat-sys-on-surface, #222);
+      color: var(--ds-on-surface);
     }
     .chart-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
     .type-badge {
       font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
-      background: var(--mat-sys-primary, var(--price-color)); color: #fff;
+      background: var(--price-color); color: var(--ds-on-accent);
     }
-    .type-badge.put { background: var(--mat-sys-error, #c62828); }
+    .type-badge.put { background: var(--ds-down); }
     .contract-id { font-weight: 600; font-size: 10px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .contract-detail { color: var(--mat-sys-on-surface-variant, #666); }
+    .contract-detail { color: var(--ds-on-surface-variant); }
     .chart-legend { margin-left: auto; display: flex; gap: 8px; }
-    .legend-item { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; color: var(--mat-sys-on-surface-variant, #666); }
+    .legend-item { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; color: var(--ds-on-surface-variant); }
     .swatch { width: 10px; height: 2px; display: inline-block; }
     .price-swatch { background: var(--price-color); }
     .delta-swatch { background: var(--delta-color); }

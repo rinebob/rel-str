@@ -358,7 +358,7 @@ import { take } from 'rxjs';
         align-items: center;
         justify-content: flex-end;
         padding: 0.5rem 1rem;
-        border-bottom: 1px solid #e0e0e0;
+        border-bottom: 1px solid var(--ds-border-subtle);
         flex-shrink: 0;
       }
       .header-actions {
@@ -371,14 +371,15 @@ import { take } from 'rxjs';
         align-items: center;
         gap: 0.35rem;
         font-size: 0.75rem;
-        color: #555;
+        color: var(--ds-on-surface-variant);
       }
       .contrast-picker select {
         padding: 0.15rem 0.35rem;
         font-size: 0.75rem;
-        border: 1px solid #ccc;
+        border: 1px solid var(--ds-border-subtle);
         border-radius: 4px;
-        background: #fff;
+        background: var(--ds-surface);
+        color: var(--ds-on-surface);
       }
       .page-body {
         display: flex;
@@ -392,7 +393,7 @@ import { take } from 'rxjs';
         width: 320px;
         flex-shrink: 0;
         padding: 0.25rem;
-        background: #f9f9f9;
+        background: var(--ds-surface-raised);
         border-radius: 6px;
         overflow-y: auto;
       }
@@ -421,13 +422,13 @@ import { take } from 'rxjs';
       .symbol-row label {
         font-size: 0.8rem;
         font-weight: 600;
-        color: #555;
+        color: var(--ds-on-surface-variant);
       }
       .symbol-row input[type="text"] {
         box-sizing: border-box;
         width: 100px;
         padding: 0.35rem 0.5rem;
-        border: 1px solid #ccc;
+        border: 1px solid var(--ds-border-subtle);
         border-radius: 4px;
         font-size: 0.85rem;
       }
@@ -455,7 +456,7 @@ import { take } from 'rxjs';
         margin-bottom: 0.25rem;
         font-size: 0.8rem;
         font-weight: 600;
-        color: #555;
+        color: var(--ds-on-surface-variant);
       }
       .form-group input[type="text"],
       .form-group input[type="date"],
@@ -463,7 +464,7 @@ import { take } from 'rxjs';
         box-sizing: border-box;
         width: 100%;
         padding: 0.35rem 0.5rem;
-        border: 1px solid #ccc;
+        border: 1px solid var(--ds-border-subtle);
         border-radius: 4px;
         font-size: 0.85rem;
       }
@@ -487,7 +488,7 @@ import { take } from 'rxjs';
            select instead of pushing Save/Delete out and scrolling. */
         min-width: 0;
         padding: 0.35rem 0.5rem;
-        border: 1px solid #ccc;
+        border: 1px solid var(--ds-border-subtle);
         border-radius: 4px;
         font-size: 0.85rem;
       }
@@ -506,8 +507,8 @@ import { take } from 'rxjs';
         padding: 0 8px;
       }
       .type-toggle button.active {
-        background: #1976d2;
-        color: white;
+        background: var(--ds-accent);
+        color: var(--ds-on-accent);
       }
       .panel-section {
         margin-bottom: 0.25rem;
@@ -525,7 +526,7 @@ import { take } from 'rxjs';
       }
       .panel-divider {
         border: none;
-        border-top: 1px solid #ddd;
+        border-top: 1px solid var(--ds-border-subtle);
         margin: 0.75rem 0;
       }
       .swing-frame {
@@ -547,7 +548,7 @@ import { take } from 'rxjs';
       .range-inputs input {
         flex: 1;
         padding: 0.35rem 0.5rem;
-        border: 1px solid #ccc;
+        border: 1px solid var(--ds-border-subtle);
         border-radius: 4px;
         font-size: 0.85rem;
       }
@@ -563,13 +564,13 @@ import { take } from 'rxjs';
       }
       .error {
         padding: 1rem;
-        color: #d32f2f;
-        background: #ffebee;
+        color: var(--ds-on-error-container);
+        background: var(--ds-error-container);
         border-radius: 4px;
         font-size: 0.85rem;
       }
       .run-date-error {
-        color: #c62828;
+        color: var(--ds-error);
         font-size: 0.8rem;
         margin: 0 0 4px;
       }
@@ -578,9 +579,10 @@ import { take } from 'rxjs';
         padding: 0 6px;
         margin-left: 6px;
         cursor: pointer;
-        border: 1px solid #ccc;
+        border: 1px solid var(--ds-border-subtle);
         border-radius: 4px;
-        background: #fff;
+        background: var(--ds-surface);
+        color: var(--ds-on-surface);
       }
     `,
   ],

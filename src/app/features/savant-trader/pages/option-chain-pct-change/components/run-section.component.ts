@@ -99,7 +99,7 @@ import type { SwingCompareRun } from '../utils/swing-compare.utils';
       /* Runs need to read as separate containers at a glance — heavy
          border, accent stripe, and a filled header band per run. */
       .run-section {
-        border: 1.5px solid #90a4ae;
+        border: 1.5px solid var(--ds-border-strong);
         border-radius: 6px;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
         overflow: hidden;
@@ -107,43 +107,44 @@ import type { SwingCompareRun } from '../utils/swing-compare.utils';
       .run-header {
         display: flex; align-items: center; justify-content: space-between;
         padding: 8px 12px;
-        background: #dde4ec;
-        border-left: 5px solid #607d8b;
+        background: var(--ds-surface-overlay);
+        border-left: 5px solid var(--ds-border-strong);
         font-size: 0.95rem; font-weight: 600;
         cursor: pointer;
         user-select: none;
         list-style: none;
       }
       .run-header::-webkit-details-marker { display: none; }
-      .run-section.call .run-header { border-left-color: #2e7d32; }
-      .run-section.put .run-header { border-left-color: #c62828; }
+      .run-section.call .run-header { border-left-color: var(--ds-up); }
+      .run-section.put .run-header { border-left-color: var(--ds-down); }
       .run-num { font-weight: 700; margin-right: 4px; }
       .run-header-actions {
         display: flex; align-items: center; gap: 8px; flex-shrink: 0;
       }
-      .grids-label { font-size: 0.72rem; font-weight: 400; color: #555; }
-      .expand-icon { font-size: 18px; width: 18px; height: 18px; transition: transform 0.15s; color: #555; }
+      .grids-label { font-size: 0.72rem; font-weight: 400; color: var(--ds-on-surface-variant); }
+      .expand-icon { font-size: 18px; width: 18px; height: 18px; transition: transform 0.15s; color: var(--ds-on-surface-variant); }
       .run-section[open] .expand-icon { transform: rotate(180deg); }
       .run-type {
         margin-left: 8px; padding: 1px 8px;
         font-size: 0.72rem; font-weight: 700;
         border-radius: 10px; text-transform: uppercase;
-        background: #607d8b; color: #fff;
+        background: var(--ds-on-surface-variant); color: var(--ds-surface);
       }
-      .run-section.call .run-type { background: #2e7d32; }
-      .run-section.put .run-type { background: #c62828; }
+      .run-section.call .run-type { background: var(--ds-up); color: var(--ds-surface); }
+      .run-section.put .run-type { background: var(--ds-down); }
       .remove-btn {
         border: none; background: transparent; cursor: pointer;
-        color: #999; font-size: 0.9rem; padding: 0 4px;
+        color: var(--ds-on-surface-variant); font-size: 0.9rem; padding: 0 4px;
       }
-      .remove-btn:hover { color: #c62828; }
-      .run-body { padding: 8px 10px; border-top: 1px solid #b0bec5; }
-      .run-placeholder { color: #999; font-size: 0.8rem; margin: 0; }
-      .run-error { color: #c62828; font-size: 0.8rem; margin: 0 0 4px; }
+      .remove-btn:hover { color: var(--ds-error); }
+      .run-body { padding: 8px 10px; border-top: 1px solid var(--ds-border-subtle); }
+      .run-placeholder { color: var(--ds-on-surface-variant); font-size: 0.8rem; margin: 0; }
+      .run-error { color: var(--ds-error); font-size: 0.8rem; margin: 0 0 4px; }
       .retry-btn {
         font-size: 0.7rem; padding: 0 6px; margin-left: 6px;
-        cursor: pointer; border: 1px solid #ccc; border-radius: 4px;
-        background: #fff;
+        cursor: pointer; border: 1px solid var(--ds-border-subtle); border-radius: 4px;
+        background: var(--ds-surface);
+        color: var(--ds-on-surface);
       }
     `,
   ],

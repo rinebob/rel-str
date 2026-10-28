@@ -172,7 +172,7 @@ interface ExpHeader {
     `
       :host {
         display: block;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--ds-border-subtle);
         border-radius: 4px;
         overflow: hidden;
         margin-bottom: 1rem;
@@ -181,8 +181,8 @@ interface ExpHeader {
         padding: 0.15rem 0.4rem;
         font-weight: 600;
         font-size: 0.75rem;
-        background: #f5f5f5;
-        border-bottom: 1px solid #e0e0e0;
+        background: var(--ds-surface-raised);
+        border-bottom: 1px solid var(--ds-border-subtle);
         position: sticky;
         top: 0;
         z-index: 1;
@@ -200,9 +200,9 @@ interface ExpHeader {
         letter-spacing: 0.04em;
         padding: 0 6px;
         border-radius: 8px;
-        background: #fff3e0;
-        color: #e65100;
-        border: 1px solid #ffcc80;
+        background: var(--ds-warning-container);
+        color: var(--ds-on-warning-container);
+        border: 1px solid var(--ds-warning);
         flex-shrink: 0;
       }
       .underlying-summary {
@@ -214,10 +214,10 @@ interface ExpHeader {
         font-weight: 600;
       }
       .underlying-pct.pos {
-        color: #0a7c2e;
+        color: var(--ds-up);
       }
       .underlying-pct.neg {
-        color: #b00;
+        color: var(--ds-down);
       }
       .grid-scroll {
         overflow-x: auto;
@@ -227,13 +227,13 @@ interface ExpHeader {
       .grid-body {
         display: grid;
         gap: 1px;
-        background: #e0e0e0;
+        background: var(--ds-border-subtle);
         min-width: max-content;
       }
       .grid-cell {
         padding: 1px 3px;
         font-size: 0.55rem;
-        background: #fff;
+        background: var(--ds-surface);
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -243,7 +243,7 @@ interface ExpHeader {
       }
       .header-cell {
         font-weight: 600;
-        background: #f5f5f5;
+        background: var(--ds-surface-raised);
         text-align: center;
         position: sticky;
         top: 0;
@@ -262,7 +262,7 @@ interface ExpHeader {
       }
       .row-header {
         font-weight: 600;
-        background: #f5f5f5;
+        background: var(--ds-surface-raised);
         text-align: right;
         justify-content: center;
         align-items: flex-end;
@@ -287,15 +287,15 @@ interface ExpHeader {
         opacity: 0.85;
       }
       .data-cell.top-gainer {
-        box-shadow: inset 0 0 0 2px #000;
+        box-shadow: inset 0 0 0 2px var(--ds-on-surface);
       }
       .data-cell.linked-cell {
-        box-shadow: inset 0 0 0 2px #1565c0;
+        box-shadow: inset 0 0 0 2px var(--ds-accent);
       }
       /* Both markers on one cell: outer blue ring + inner black ring —
          later shadows paint under earlier ones. */
       .data-cell.top-gainer.linked-cell {
-        box-shadow: inset 0 0 0 2px #1565c0, inset 0 0 0 4px #000;
+        box-shadow: inset 0 0 0 2px var(--ds-accent), inset 0 0 0 4px var(--ds-on-surface);
       }
       .chart-icon-btn {
         position: absolute;
@@ -311,7 +311,7 @@ interface ExpHeader {
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #444;
+        color: var(--ds-on-surface-variant);
       }
       .data-cell:hover .chart-icon-btn,
       .chart-icon-btn:focus-visible {
@@ -324,7 +324,7 @@ interface ExpHeader {
         line-height: 8px;
       }
       .empty-cell {
-        background: #fafafa;
+        background: var(--ds-surface-raised);
       }
       .pct-change {
         font-weight: 700;
@@ -341,7 +341,7 @@ interface ExpHeader {
       .no-data {
         padding: 1rem;
         text-align: center;
-        color: #999;
+        color: var(--ds-on-surface-variant);
         font-size: 0.8rem;
       }
     `,
