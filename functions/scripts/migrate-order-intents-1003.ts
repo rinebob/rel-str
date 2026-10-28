@@ -3,8 +3,8 @@
  * canonical `st-order-tickets` (task #1003, IMPL-BE §order-intents).
  *
  * Per legacy doc:
- *   - map via `legacyIntentToTicket` (shared with the soak mirror —
- *     same shape either way): source→origin.type, status:'paper'→
+ *   - map via `legacyIntentToTicket` (the soak mirror that shared this
+ *     mapper was retired in #1013): source→origin.type, status:'paper'→
  *     mode:'paper', refId/accountNumber/userId/lineage/tracking preserved
  *   - paper tickets settle their state from the linked trade
  *     (`trade.ticket.refId` → `paperTradeStateSettle`) per the #999
@@ -22,16 +22,16 @@
  *   --id      migrate a single legacy intent doc
  *
  * Requires Application Default Credentials (writes st-order-tickets).
- * Run OUTSIDE live-run windows — the orderIntentsMirror trigger keeps
- * canonical docs current for legacy writes, but a one-shot batch
- * shouldn't race the noon fill pass.
+ * Run OUTSIDE live-run windows — a one-shot batch shouldn't race the
+ * noon fill pass.
  */
 import { db } from '../src/firebase-admin-init';
 import {
-  ST_ORDER_INTENTS_COLLECTION,
   ST_ORDER_TICKETS_ROOT,
 } from '../src/common/st-collections';
-import { EQUITY_TRADE_DESC, PaperTradingKind, paperTradingItemsPath } from '@paper-trading/ids';
+import { EQUITY_TRADE_DESC } from '@paper-trading/ids';
+import { PaperTradingKind } from '@paper-trading/contracts';
+import { stPaperTradingItemsPath } from '../src/common/st-collections';
 import { stTicketId } from '@st/ids';
 import {
   deepEqual,
@@ -73,7 +73,9 @@ interface TradeRefIndex {
 async function loadTradeRefIndex(
   firestore: FirebaseFirestore.Firestore,
 ): Promise<TradeRefIndex> {
-  const snap = await firestore.collection(paperTradingItemsPath(PaperTradingKind.TRADE)).get();
+  // #1013 — settle pass reads canonical st-paper-trading trades (the
+  // legacy anchor is being retired).
+  const snap = await firestore.collection(stPaperTradingItemsPath(PaperTradingKind.TRADE)).get();
   const byRef = new Map<string, TradeSettle>();
   const seen = new Set<string>();
   for (const doc of snap.docs) {
@@ -116,7 +118,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const intentsCol = db.collection(ST_ORDER_INTENTS_COLLECTION);
+  // Legacy path literal — the collection is being retired in #1013; the
+  // constant was removed from st-collections.ts with the other dead roots.
+  const intentsCol = db.collection('savant-trader/data/order-intents');
   const ticketsCol = db.collection(ST_ORDER_TICKETS_ROOT);
 
   const intentSnap = onlyId

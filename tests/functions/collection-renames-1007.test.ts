@@ -1,16 +1,13 @@
 /**
- * @topic #984 — ST Firestore Reorg (task #1007)
+ * @topic #984 — ST Firestore Reorg (task #1007; mirror specs removed in #1013)
  *
- * Collection-rename coverage:
+ * Collection-routing coverage:
  * - collections.ts routes account/trade/stats/raw-quote to st-paper-trading
- *   while instance/cohort/analysis stay on the legacy root.
- * - portfolioItemsMirror copies FE-written legacy docs → st-portfolio
- *   (upsert + delete, unknown anchors skipped, wholesale set).
- * - stBacktest*Mirror shadows canonical writes → legacy backtest-* for
- *   stranded FE readers (merge-set preserves FE-owned fields, deletes
- *   propagate).
- * - Trigger-path literals pinned — a typoed path deploys and silently
- *   never fires.
+ *   while cohort/analysis (and the now-unread instances anchor) stay on the
+ *   legacy root.
+ * - The #1007 soak mirrors (portfolioItemsMirror, stBacktest*Mirror) were
+ *   undeployed and their sources deleted in #1013 — the source-scan pin in
+ *   legacy-roots-cleanup-1013.test.ts asserts they stay gone.
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,38 +18,25 @@ import {
   paperItemsRef,
   paperTradingDocPathFor,
 } from '../../functions/src/paper-trading/collections';
-import {
-  MIRROR_PORTFOLIO_ITEMS_PATH,
-  mirrorPortfolioItem,
-} from '../../functions/src/portfolio/portfolio-mirror';
-import {
-  MIRROR_ST_BACKTEST_PERMUTATIONS_PATH,
-  MIRROR_ST_BACKTEST_RUNS_PATH,
-  mirrorBacktestDoc,
-  LEGACY_BACKTEST_RUNS_ROOT,
-  LEGACY_BACKTEST_PERMUTATIONS_ROOT,
-} from '../../functions/src/st-cloud-function/backtest/backtest-mirror';
 
 // ── Fake Firestore — docs keyed by path; captures writes ────────────────────
 
 type FakeDoc = { exists: boolean; data: () => Record<string, unknown> | undefined };
 
-function fakeFirestore(initial: Record<string, Record<string, unknown>> = {}, opts: { failOn?: RegExp } = {}) {
+function fakeFirestore(initial: Record<string, Record<string, unknown>> = {}) {
   const store = new Map<string, Record<string, unknown>>(
     Object.entries(initial).map(([k, v]) => [k, { ...v }]),
   );
   const collectionCalls: string[] = [];
-  const deletes: string[] = [];
   const refFor = (path: string) => ({
     get: async (): Promise<FakeDoc> => {
       const d = store.get(path);
       return { exists: d !== undefined, data: () => d };
     },
     set: async (doc: Record<string, unknown>, setOpts?: { merge?: boolean }) => {
-      if (opts.failOn?.test(path)) throw new Error('injected write failure');
       store.set(path, setOpts?.merge === true ? { ...(store.get(path) ?? {}), ...doc } : { ...doc });
     },
-    delete: async () => { deletes.push(path); store.delete(path); },
+    delete: async () => { store.delete(path); },
   });
   const db = {
     doc: (path: string) => refFor(path),
@@ -61,18 +45,8 @@ function fakeFirestore(initial: Record<string, Record<string, unknown>> = {}, op
       return { doc: (id: string) => refFor(`${name}/${id}`) };
     },
   };
-  return { db, store, collectionCalls, deletes };
+  return { db, store, collectionCalls };
 }
-
-function recordingLogger() {
-  const warns: unknown[] = [];
-  const errors: unknown[] = [];
-  return { warns, errors, logger: { warn: (m: unknown) => { warns.push(m); }, error: (m: unknown) => { errors.push(m); } } };
-}
-
-const deps = (f: ReturnType<typeof fakeFirestore>, logger: { warn(m: unknown): void; error(m: unknown): void } = { warn() {}, error() {} }) =>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ({ db: f.db as any, logger: logger as any });
 
 // ── collections.ts routing ───────────────────────────────────────────────────
 
@@ -112,118 +86,4 @@ describe('paperItemsRef routing', () => {
       assert.deepEqual(f.collectionCalls, [expected]);
     });
   }
-});
-
-// ── mirror trigger paths — pinned literals (a typo deploys silently) ────────
-
-describe('mirror trigger paths', () => {
-  it('portfolio watches legacy anchored items (even segments)', () => {
-    assert.equal(MIRROR_PORTFOLIO_ITEMS_PATH, 'portfolio/{anchor}/items/{docId}');
-  });
-  it('backtest mirrors watch the canonical roots', () => {
-    assert.equal(MIRROR_ST_BACKTEST_RUNS_PATH, 'st-backtest-runs/{docId}');
-    assert.equal(MIRROR_ST_BACKTEST_PERMUTATIONS_PATH, 'st-backtest-permutations/{docId}');
-  });
-});
-
-// ── portfolioItemsMirror ─────────────────────────────────────────────────────
-
-describe('mirrorPortfolioItem', () => {
-  it('upserts a bucket doc into st-portfolio', async () => {
-    const f = fakeFirestore();
-    const res = await mirrorPortfolioItem(
-      deps(f), 'buckets', 'acct_main', { userId: 'u1', name: 'Core' },
-    );
-    assert.equal(res, 'upserted');
-    assert.deepEqual(f.store.get('st-portfolio/buckets/items/acct_main'), { userId: 'u1', name: 'Core' });
-  });
-
-  it('upserts an attribution doc into st-portfolio', async () => {
-    const f = fakeFirestore();
-    const res = await mirrorPortfolioItem(
-      deps(f), 'attributions', 'acct_inst1', { userId: 'u1', bucket: 'b1' },
-    );
-    assert.equal(res, 'upserted');
-    assert.deepEqual(f.store.get('st-portfolio/attributions/items/acct_inst1'), { userId: 'u1', bucket: 'b1' });
-  });
-
-  it('propagates deletes', async () => {
-    const f = fakeFirestore({ 'st-portfolio/buckets/items/b1': { userId: 'u1' } });
-    const res = await mirrorPortfolioItem(deps(f), 'buckets', 'b1', null);
-    assert.equal(res, 'deleted');
-    assert.ok(!f.store.has('st-portfolio/buckets/items/b1'));
-    assert.deepEqual(f.deletes, ['st-portfolio/buckets/items/b1']);
-  });
-
-  it('skips unknown anchors without writing', async () => {
-    const f = fakeFirestore();
-    const { warns, logger } = recordingLogger();
-    const res = await mirrorPortfolioItem(deps(f, logger), 'widgets', 'w1', { a: 1 });
-    assert.equal(res, 'skipped');
-    assert.equal(f.store.size, 0);
-    assert.equal(warns.length, 1);
-  });
-
-  it('wholesale set drops fields deleted on the legacy doc', async () => {
-    const f = fakeFirestore({ 'st-portfolio/buckets/items/b2': { userId: 'u1', stale: 'x' } });
-    const res = await mirrorPortfolioItem(deps(f), 'buckets', 'b2', { userId: 'u1' });
-    assert.equal(res, 'upserted');
-    assert.deepEqual(f.store.get('st-portfolio/buckets/items/b2'), { userId: 'u1' });
-  });
-
-  it('never throws — a write failure returns skipped + logs error', async () => {
-    const f = fakeFirestore({}, { failOn: /st-portfolio/ });
-    const { errors, logger } = recordingLogger();
-    const res = await mirrorPortfolioItem(deps(f, logger), 'buckets', 'b3', { a: 1 });
-    assert.equal(res, 'skipped');
-    assert.equal(errors.length, 1);
-  });
-});
-
-// ── backtest mirrors ─────────────────────────────────────────────────────────
-
-describe('mirrorBacktestDoc', () => {
-  it('shadows a run write onto backtest-runs', async () => {
-    const f = fakeFirestore();
-    const res = await mirrorBacktestDoc(
-      deps(f), LEGACY_BACKTEST_RUNS_ROOT, 'run-1', { status: 'running', pct: 40 },
-    );
-    assert.equal(res, 'upserted');
-    assert.deepEqual(f.store.get('backtest-runs/run-1'), { status: 'running', pct: 40 });
-  });
-
-  it('merge-set preserves FE-owned legacy fields (archived et al.)', async () => {
-    const f = fakeFirestore({ 'backtest-runs/run-1': { status: 'running', archived: true, qualityDesignation: 'gold' } });
-    const res = await mirrorBacktestDoc(
-      deps(f), LEGACY_BACKTEST_RUNS_ROOT, 'run-1', { status: 'completed', pct: 100 },
-    );
-    assert.equal(res, 'upserted');
-    assert.deepEqual(f.store.get('backtest-runs/run-1'), {
-      status: 'completed', pct: 100, archived: true, qualityDesignation: 'gold',
-    });
-  });
-
-  it('shadows a permutation write onto backtest-permutations', async () => {
-    const f = fakeFirestore();
-    const res = await mirrorBacktestDoc(
-      deps(f), LEGACY_BACKTEST_PERMUTATIONS_ROOT, 'perm-9', { status: 'success' },
-    );
-    assert.equal(res, 'upserted');
-    assert.deepEqual(f.store.get('backtest-permutations/perm-9'), { status: 'success' });
-  });
-
-  it('propagates deletes', async () => {
-    const f = fakeFirestore({ 'backtest-runs/run-2': { status: 'done' } });
-    const res = await mirrorBacktestDoc(deps(f), LEGACY_BACKTEST_RUNS_ROOT, 'run-2', null);
-    assert.equal(res, 'deleted');
-    assert.ok(!f.store.has('backtest-runs/run-2'));
-  });
-
-  it('never throws — a write failure returns skipped + logs error', async () => {
-    const f = fakeFirestore({}, { failOn: /backtest-runs/ });
-    const { errors, logger } = recordingLogger();
-    const res = await mirrorBacktestDoc(deps(f, logger), LEGACY_BACKTEST_RUNS_ROOT, 'r1', { a: 1 });
-    assert.equal(res, 'skipped');
-    assert.equal(errors.length, 1);
-  });
 });

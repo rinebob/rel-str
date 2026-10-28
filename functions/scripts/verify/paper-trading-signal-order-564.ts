@@ -28,9 +28,11 @@ import {
   PaperCohort,
   PaperTrade,
   PaperTradeStatus,
+  PaperTradingKind,
   SIGNAL_EXPRESSION_TEMPLATES,
 } from '../../../shared/paper-trading-contracts';
 import { buildAccountId } from '../../../shared/paper-trading-ids';
+import { paperItemsRef, paperTradingDocPathFor } from '../../src/paper-trading/collections';
 import { executeObservationTool } from '../../src/rh-agent-mcp/tools/robinhood-tool-executor';
 import {
   handleCancelPaperTrade,
@@ -46,7 +48,6 @@ import { stTicketId } from '../../../shared/st-ids';
 import type { StOrderTicket } from '../../../shared/st-order-tickets';
 import { getStorage } from 'firebase-admin/storage';
 import {
-  ST_ORDER_INTENTS_COLLECTION,
   ST_ORDER_TICKETS_ROOT,
   ST_POSITION_GROUPS_ROOT,
 } from '../../src/common/st-collections';
@@ -143,26 +144,25 @@ async function cleanup(
   for (const id of ticketIds) {
     await db.doc(`${ST_ORDER_TICKETS_ROOT}/${id}`).delete().catch(() => undefined);
   }
-  // Belt-and-suspenders: pre-#1003 runs seeded the legacy path instead.
-  await db.doc(`${ST_ORDER_INTENTS_COLLECTION}/${TICKET_ID}`).delete().catch(() => undefined);
+  // Legacy order-intents cleanup line removed in #1013 — collection retired.
   for (const id of cohortIds) {
-    await db.doc(`paper-trading/cohorts/items/${id}`).delete().catch(() => undefined);
+    await db.doc(paperTradingDocPathFor(PaperTradingKind.COHORT, id)).delete().catch(() => undefined);
   }
   for (const id of tradeIds) {
-    await db.doc(`paper-trading/trades/items/${id}`).delete().catch(() => undefined);
+    await db.doc(paperTradingDocPathFor(PaperTradingKind.TRADE, id)).delete().catch(() => undefined);
     // #1002 emission writes pap_{tradeId} tickets per action — drop them too
     // or the #1003 parity audit reports them as legacy-less canonical docs.
     await db.doc(`${ST_ORDER_TICKETS_ROOT}/pap_${id}`).delete().catch(() => undefined);
   }
   // belt-and-suspenders: any verify-564 leftovers
-  for (const anchor of ['cohorts', 'trades', 'accounts']) {
-    const snap = await db.collection(`paper-trading/${anchor}/items`).get();
+  for (const kind of [PaperTradingKind.COHORT, PaperTradingKind.TRADE, PaperTradingKind.ACCOUNT]) {
+    const snap = await paperItemsRef(db, kind).get();
     const b = db.batch();
     for (const d of snap.docs) if (d.id.includes(PREFIX)) b.delete(d.ref);
     await b.commit();
   }
   await db
-    .doc(`paper-trading/accounts/items/${buildAccountId(USER_ID)}`)
+    .doc(paperTradingDocPathFor(PaperTradingKind.ACCOUNT, buildAccountId(USER_ID)))
     .delete()
     .catch(() => undefined);
   // Screenshot lifecycle: the equity fill's capture (wired via
@@ -172,7 +172,7 @@ async function cleanup(
   for (const id of tradeIds) {
     const snap = await db
       .collection(ST_SCREENSHOTS_COLLECTION)
-      .where('carrier.docPath', '==', `paper-trading/trades/items/${id}`)
+      .where('carrier.docPath', '==', paperTradingDocPathFor(PaperTradingKind.TRADE, id))
       .get()
       .catch(() => null);
     for (const d of snap?.docs ?? []) {
@@ -238,7 +238,7 @@ async function main(): Promise<void> {
     check('ticket seeds carry sig origin',
       [res.equityTradeId, ...res.expressionTradeIds].every((id) => id.includes('-sig-')));
 
-    const eqTrade = (await db.doc(`paper-trading/trades/items/${res.equityTradeId}`).get()).data() as PaperTrade;
+    const eqTrade = (await db.doc(paperTradingDocPathFor(PaperTradingKind.TRADE, res.equityTradeId)).get()).data() as PaperTrade;
     check('equity trade: OPEN with entry fill at a real price',
       eqTrade.status === PaperTradeStatus.OPEN && eqTrade.fills.length === 1 && eqTrade.fills[0].price > 0);
     check('equity trade: share leg, sig provenance + cohort dim',
@@ -276,12 +276,12 @@ async function main(): Promise<void> {
       (
         await Promise.all(
           res.expressionTradeIds.map(
-            async (s) => (await db.doc(`paper-trading/trades/items/${s}`).get()).exists,
+            async (s) => (await db.doc(paperTradingDocPathFor(PaperTradingKind.TRADE, s)).get()).exists,
           ),
         )
       ).every((exists) => !exists));
 
-    const cohort = (await db.doc(`paper-trading/cohorts/items/${res.cohortId}`).get()).data() as PaperCohort;
+    const cohort = (await db.doc(paperTradingDocPathFor(PaperTradingKind.COHORT, res.cohortId)).get()).data() as PaperCohort;
     check('cohort: equity trade + template keys only (expressions are tickets)',
       cohort.signalId === SIGNAL_ID &&
       cohort.direction === TradeSide.LONG &&
@@ -317,7 +317,7 @@ async function main(): Promise<void> {
         memberTickets.every((t) => t?.origin?.positionGroupId === res.positionGroupId));
     }
 
-    const acct = (await db.doc(`paper-trading/accounts/items/${buildAccountId(USER_ID)}`).get()).data() as PaperAccount;
+    const acct = (await db.doc(paperTradingDocPathFor(PaperTradingKind.ACCOUNT, buildAccountId(USER_ID))).get()).data() as PaperAccount;
     check('account: debited by equity fill, openTradeCount 1',
       acct.cash === -eqTrade.fills[0].price && acct.openTradeCount === 1);
 
@@ -342,7 +342,7 @@ async function main(): Promise<void> {
     ).data() as StOrderTicket;
     check('cancel: ticket flipped to cancelled, no trade minted',
       cancelledTicket.state === 'cancelled' &&
-        !(await db.doc(`paper-trading/trades/items/${cancelSeed}`).get()).exists);
+        !(await db.doc(paperTradingDocPathFor(PaperTradingKind.TRADE, cancelSeed)).get()).exists);
     const liveSeeds = res.expressionTradeIds.slice(1);
 
     // ── 3. expression-fill pass — staged tickets mint contract-bearing trades ──

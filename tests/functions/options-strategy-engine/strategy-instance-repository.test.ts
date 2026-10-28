@@ -2,9 +2,9 @@
  * @topic #108 — Options Position Strategy Engine
  *
  * Unit tests for the Firestore-backed strategy instance repository.
- * #1006: reads re-pointed to `st-strategy-instances` (canonical) with a
- * union-read soak bridge over the legacy `paper-trading/instances/items`
- * anchor (FE Strategy Builder writes there until #1014).
+ * #1006: reads re-pointed to `st-strategy-instances` (canonical); the
+ * legacy `paper-trading/instances/items` union-read soak bridge was
+ * removed in #1013 after the FE write path cut over (#1014).
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -14,8 +14,6 @@ import {
   listRunnableInstances,
   getInstance,
 } from '../../../functions/src/options-strategy-engine/strategy-instance-repository';
-import { PaperTradingKind } from '../../../shared/paper-trading-contracts';
-import { paperTradingItemsPath } from '../../../shared/paper-trading-ids';
 import { ST_STRATEGY_INSTANCES_ROOT } from '../../../shared/st-collections';
 import { OptionType, PositionSpreadType, StrategyFrequency } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
@@ -23,7 +21,6 @@ import { ExitPolicy, LifecycleState } from '../../../shared/options-strategy-eng
 import type { StStrategyInstance } from '../../../shared/st-strategy-instances';
 
 const CANONICAL = ST_STRATEGY_INSTANCES_ROOT;
-const LEGACY = paperTradingItemsPath(PaperTradingKind.INSTANCE);
 
 type FakeDoc = { id: string; data(): unknown };
 type FakeSnapshot = { docs: FakeDoc[]; empty: boolean; size: number };
@@ -65,12 +62,6 @@ function makeInstance(overrides: Partial<StStrategyInstance> = {}): StStrategyIn
     updatedAt: '2025-08-16T00:00:00Z',
     ...overrides,
   };
-}
-
-/** Legacy `paper-trading/instances/items` doc — no mode/enabled stamped. */
-function makeLegacyInstance(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  const { mode: _mode, enabled: _enabled, ...rest } = makeInstance(overrides);
-  return { ...rest, kind: PaperTradingKind.INSTANCE };
 }
 
 function createFakeDoc(id: string, data: unknown): FakeDoc {
@@ -226,162 +217,6 @@ describe('strategy-instance-repository', () => {
     assert.ok(result);
     assert.equal(result!.createdAt, '2025-08-17T00:00:00.000Z');
     assert.equal(result!.updatedAt, '2025-08-17T00:00:00.000Z');
-  });
-
-  // ── #1006: canonical re-point + union-read soak bridge ─────────────────────
-
-  it('unions legacy paper-trading/instances docs into list reads', async () => {
-    const fakeDb = createFakeFirestore({
-      [CANONICAL]: [
-        createFakeDoc('canon-1', makeInstance({ id: 'canon-1' })),
-      ],
-      [LEGACY]: [
-        createFakeDoc('legacy-1', makeLegacyInstance({ id: 'legacy-1' })),
-      ],
-    }) as unknown as RepoDb;
-
-    const result = await listRunnableInstances(fakeDb);
-
-    assert.deepEqual(result.map((i) => i.id).sort(), ['canon-1', 'legacy-1']);
-  });
-
-  it('equal updatedAt on an id collision — canonical wins the tie', async () => {
-    const fakeDb = createFakeFirestore({
-      [CANONICAL]: [
-        createFakeDoc('dup-1', makeInstance({ id: 'dup-1', openTimePT: '13:00' })),
-      ],
-      [LEGACY]: [
-        createFakeDoc('dup-1', makeLegacyInstance({ id: 'dup-1', openTimePT: '09:30' })),
-      ],
-    }) as unknown as RepoDb;
-
-    const result = await listRunnableInstances(fakeDb);
-
-    assert.equal(result.length, 1);
-    assert.equal(result[0].openTimePT, '13:00');
-  });
-
-  it('newer legacy doc wins — a post-migration UI edit on the anchor must not be shadowed', async () => {
-    const fakeDb = createFakeFirestore({
-      [CANONICAL]: [
-        createFakeDoc('dup-1', makeInstance({ id: 'dup-1', openTimePT: '13:00' })),
-      ],
-      [LEGACY]: [
-        createFakeDoc('dup-1', makeLegacyInstance({
-          id: 'dup-1',
-          openTimePT: '09:30',
-          lifecycleState: LifecycleState.STOPPED,
-          updatedAt: '2025-08-20T00:00:00Z',
-        })),
-      ],
-    }) as unknown as RepoDb;
-
-    const result = await listRunnableInstances(fakeDb);
-
-    assert.equal(result.length, 1);
-    assert.equal(result[0].openTimePT, '09:30');
-    assert.equal(result[0].lifecycleState, LifecycleState.STOPPED);
-  });
-
-  it('newer canonical doc wins over a stale anchor copy', async () => {
-    const fakeDb = createFakeFirestore({
-      [CANONICAL]: [
-        createFakeDoc('dup-1', makeInstance({
-          id: 'dup-1',
-          openTimePT: '13:00',
-          updatedAt: '2025-08-20T00:00:00Z',
-        })),
-      ],
-      [LEGACY]: [
-        createFakeDoc('dup-1', makeLegacyInstance({ id: 'dup-1', openTimePT: '09:30' })),
-      ],
-    }) as unknown as RepoDb;
-
-    const result = await listRunnableInstances(fakeDb);
-
-    assert.equal(result.length, 1);
-    assert.equal(result[0].openTimePT, '13:00');
-  });
-
-  it('listActiveInstances drops an instance paused via the anchor — lifecycle filter applies post-merge', async () => {
-    // Soak window: user pauses in the UI → anchor doc is PAUSED+newer, the
-    // canonical copy stays ACTIVE+stale. A per-collection `where` would
-    // exclude the PAUSED anchor doc and return the stale ACTIVE copy — the
-    // engine would keep opening positions on a stopped instance.
-    const fakeDb = createFakeFirestore({
-      [CANONICAL]: [
-        createFakeDoc('dup-1', makeInstance({
-          id: 'dup-1',
-          lifecycleState: LifecycleState.ACTIVE,
-        })),
-      ],
-      [LEGACY]: [
-        createFakeDoc('dup-1', makeLegacyInstance({
-          id: 'dup-1',
-          lifecycleState: LifecycleState.PAUSED,
-          updatedAt: '2025-08-20T00:00:00Z',
-        })),
-      ],
-    }) as unknown as RepoDb;
-
-    assert.deepEqual((await listActiveInstances(fakeDb)).map((i) => i.id), []);
-    // The PAUSED twin is still manageable — existing positions keep settling.
-    assert.deepEqual(
-      (await listManageableInstances(fakeDb)).map((i) => i.id),
-      ['dup-1'],
-    );
-  });
-
-  it('getInstance honors newest-wins and falls back past a malformed canonical doc', async () => {
-    const shadowed = createFakeFirestore({
-      [CANONICAL]: [
-        createFakeDoc('dup-1', makeInstance({ id: 'dup-1', openTimePT: '13:00' })),
-      ],
-      [LEGACY]: [
-        createFakeDoc('dup-1', makeLegacyInstance({
-          id: 'dup-1',
-          openTimePT: '09:30',
-          updatedAt: '2025-08-20T00:00:00Z',
-        })),
-      ],
-    }) as unknown as RepoDb;
-
-    const newer = await getInstance('dup-1', shadowed);
-    assert.ok(newer);
-    assert.equal(newer!.openTimePT, '09:30');
-
-    const malformed = createFakeFirestore({
-      [CANONICAL]: [createFakeDoc('bad-1', { symbol: 'QQQM' })],
-      [LEGACY]: [createFakeDoc('bad-1', makeLegacyInstance({ id: 'bad-1' }))],
-    }) as unknown as RepoDb;
-
-    const fellBack = await getInstance('bad-1', malformed);
-    assert.ok(fellBack);
-    assert.equal(fellBack!.id, 'bad-1');
-  });
-
-  it('normalizes missing mode/enabled on legacy docs to paper/true', async () => {
-    const fakeDb = createFakeFirestore({
-      [LEGACY]: [createFakeDoc('legacy-1', makeLegacyInstance({ id: 'legacy-1' }))],
-    }) as unknown as RepoDb;
-
-    const result = await getInstance('legacy-1', fakeDb);
-
-    assert.ok(result);
-    assert.equal(result!.mode, 'paper');
-    assert.equal(result!.enabled, true);
-  });
-
-  it('getInstance falls back to the legacy collection for an unmigrated id', async () => {
-    const fakeDb = createFakeFirestore({
-      [CANONICAL]: [],
-      [LEGACY]: [createFakeDoc('legacy-1', makeLegacyInstance({ id: 'legacy-1' }))],
-    }) as unknown as RepoDb;
-
-    const result = await getInstance('legacy-1', fakeDb);
-
-    assert.ok(result);
-    assert.equal(result!.id, 'legacy-1');
   });
 
   it('enabled=false instances are excluded from every list read', async () => {
