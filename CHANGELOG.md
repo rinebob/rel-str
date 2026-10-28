@@ -48,6 +48,12 @@
 - [Manual Order] 1177-1191_FE-IMPL-ORDER: Authenticated header "New Order" button — `newOrder` output on rs-header wired through CoreComponent → ManualOrderService.open() from any route
 - [Manual Order] 1177-1191_FE-IMPL-ORDER: Manual dialog STAGED-only re-resolve — symbol swaps in place (releaseTicket seed: created → discard, adopted → survives), same-symbol adoption keeps the option leg, stale-emit ghost guard + dual-key binding lookups
 - [Manual Order] 1177-1191_DOCS-ORDER: #1191 CODE-REVIEW (PASS, 3 convergent rounds) + #1230 UAT (Complete; S1–S9)
+- [Options Backtest] 1238-1278_DOCS-BACKTEST: BE IMPL/TEST plans ship — IMPL-BE §3 records confirmed SA pick-doc seam (CellYearDoc wire, year-sharded requests, endpoint name pending av-proxy-api#225); TEST-BE mapper bullets cover miss entries
+- [Options Backtest] 1238-1278_DOCS-BACKTEST: #1278 CODE-REVIEW (PASS, 3 passes) + #1293 UAT (Complete; 8/8) + ADR-010 amendment + PRD/IMPL-SHARED wire reconcile
+
+### Changed
+- [Options Backtest] 1238-1278_SHARED-IMPL-BACKTEST: PickDocument reconciled to SA CellYearDoc — days carries PickDocDayEntry (pick | explicit miss), PickDocMiss/PickDocMissStatus/isPickDocPick added, updatedAt; NoSelectionReason maps SA statuses
+- [Options Backtest] 1238-1278_SHARED-IMPL-BACKTEST: #1275 verify script narrows day entries via isPickDocPick (union makes raw .contractId unsafe)
 
 ## [2026-10-25]
 

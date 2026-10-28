@@ -9,7 +9,7 @@
 **Type:** PRD  
 **Status:** Approved  
 **Created:** 2026-10-24  
-**Last Updated:** 2026-10-24  
+**Last Updated:** 2026-10-26  
 
 # PRD: Options Backtest — Selection Replay
 
@@ -38,7 +38,7 @@ flowchart LR
         D["Run dialog:<br/>template + symbol(s) + startDate"]
     end
     D -->|optionsReplayStart| W["Selection Replay worker<br/>(task per symbol)"]
-    PICK["SA Pick Document<br/>{symbol, type, Δ, dte-rule}"] -->|"days map (1 fetch, callable)"| W
+    PICK["SA Pick Document<br/>{symbol, type, Δ, dte-rule}"] -->|"days map (per-year fetch, partner endpoint)"| W
     W -->|Contract List rows<br/>+ no-selection markers| PERM["st-options-contract-lists<br/>{runId}_{symbol}"]
     RUN["st-options-replay-runs/{runId}"] --> UI
     UI["Backtest UI"] -->|reads| PERM
@@ -57,7 +57,7 @@ flowchart LR
 4. As a trader, I want each row to carry the pick's real entry-day data — contract, strike, expiration, actual delta, IV, mark, bid/ask — so that the list is reviewable without further fetches.
    - *Verify:* every selected row shows contractId, expiration, dte, strike, delta, iv, mark, bid, ask, volume, openInterest, and the day's underlyingClose; reopening the run needs zero upstream calls.
 5. As a trader, I want days where the pick doc reports a miss to appear as marked rows, so that gaps in the ladder are visible rather than hidden.
-   - *Verify:* a date absent from the pick doc's `days` produces a `no-selection` row; the table renders markers distinctly from picks; the doc's `missCount` reconciles with the marker count.
+   - *Verify:* a date whose `days` entry is a miss (`status: 'no_chain' | 'no_match'`) — or is absent — produces a `no-selection` row; the table renders markers distinctly from picks; the doc's `missCount` reconciles with the marker count.
 6. As a trader, I want the contract list persisted on the run, so that I can review it later without re-running.
    - *Verify:* the list survives across sessions; prior runs' lists remain intact when new runs execute.
 7. As a trader, I want a row action that opens a line chart of the contract's mark series, so that I can see its price behavior from entry to expiration.
@@ -85,7 +85,7 @@ flowchart LR
 - **Run contract** — a dedicated `optionsReplayStart` callable + per-symbol task worker (thin mirror of the backtest orchestrator shape): `templateId` + `symbol(s)` + `startDate`; no `endDate`, `initialCash`, `reportTier`, or config sweeps. Entry window = `startDate` → latest day covered by the pick doc.
 - **Collections (decided)** — dedicated, honest schemas: `st-options-replay-runs/{runId}` run headers + `st-options-contract-lists/{runId}_{symbol}` payloads (flat single-leg `ContractListRow`s). Reusing `st-backtest-*` with a `kind` union was rejected — wrong pipeline and a schema lie. The downstream analyzer is the existing analysis-dataset pipeline (Thread #1059): Phase 2's Result Sets are analysis datasets.
 - **Pick-doc transport (decided)** — SA callable endpoint (uniform partner-proxy auth/error semantics); cross-site GCS read rejected.
-- **Selection = pick-doc consumption** — one pick-doc fetch per (symbol, template coordinate) per run; days → rows 1:1; absent days → `no-selection` markers; `pickCount`/`missCount`/`firstDate`/`lastDate`/`gridVersion` recorded on the run. Pick docs are **direction-neutral** — they identify the contract only; the order side (STO for cash-secured puts) comes from the template and is stamped on each row. This is also what lets pick docs compose for multi-leg strategies later. ADR-010 records this decision and the rejected alternatives (local BS modeled selection + strike walk, daily chains, cross-sectional query, mark-series persistence).
+- **Selection = pick-doc consumption** — one pick-doc fetch per (symbol, template coordinate, **year**) per run (SA serves year shards; `startDate` filters client-side); days → rows 1:1; miss/absent days → `no-selection` markers; `pickCount`/`missCount`/`firstDate`/`lastDate`/`gridVersion` recorded on the run. Pick docs are **direction-neutral** — they identify the contract only; the order side (STO for cash-secured puts) comes from the template and is stamped on each row. This is also what lets pick docs compose for multi-leg strategies later. ADR-010 records this decision and the rejected alternatives (local BS modeled selection + strike walk, daily chains, cross-sectional query, mark-series persistence).
 - **Data sources** — pick docs from SA (transport/endpoint per SA's surface — likely GCS file or callable; blueprint pins it); Contract Series via the existing `getHistoricalOptionsContract` path for charting. Underlying closes arrive inside the pick doc itself. **No option-chain endpoint is called; no Firestore contract persistence.**
 - **Chart** — simple mark-series line chart in the backtest-dashboard style (not the multi-pane OptionsContractChartComponent), opened via explicit row action; loading/error/empty states required. Carousel/filmstrip viewer deferred to a future thread.
 - **Multi-leg** — pick docs compose per-leg (a put credit spread = matching a short-put doc + long-put doc); deferred to Thread #1270. This thread ships single-leg templates only (first family: cash-secured puts).

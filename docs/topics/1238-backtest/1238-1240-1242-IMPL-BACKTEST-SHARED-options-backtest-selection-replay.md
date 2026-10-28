@@ -9,7 +9,7 @@
 **Type:** IMPL  
 **Status:** Draft  
 **Created:** 2026-10-25  
-**Last Updated:** 2026-10-25  
+**Last Updated:** 2026-10-26  
 
 # Implementation Plan — SHARED: Selection Replay
 
@@ -71,6 +71,14 @@ export interface PickDocDay {
   openInterest: number;
 }
 
+export interface PickDocMiss {          // explicit miss — mirrors SA DayMiss
+  status: 'no_chain' | 'no_match';      // no_chain = data hole; no_match = grid miss
+  underlyingClose?: number;
+  reason?: string;
+}
+export type PickDocDayEntry = PickDocDay | PickDocMiss;
+export function isPickDocPick(e: PickDocDayEntry): e is PickDocDay { /* 'contractId' in e */ }
+
 export interface PickDocument extends PickDocCoordinate {
   symbol: string;
   gridVersion: number;
@@ -78,10 +86,11 @@ export interface PickDocument extends PickDocCoordinate {
   lastDate: string;
   pickCount: number;
   missCount: number;
-  days: Record<string, PickDocDay>;       // keyed by trading date
+  days: Record<string, PickDocDayEntry>; // keyed by trading date; picks OR explicit misses
+  updatedAt?: string;
 }
 
-/** Why a day produced no pick: 'miss' (grid miss), 'gap' (data hole), 'out-of-range' (past doc.lastDate). */
+/** Why a day produced no pick: 'miss' (SA no_match), 'gap' (SA no_chain), 'out-of-range' (past doc.lastDate). */
 export type NoSelectionReason = 'miss' | 'gap' | 'out-of-range';
 
 /** Pick row — extends PickDocDay verbatim so SA field changes propagate. */

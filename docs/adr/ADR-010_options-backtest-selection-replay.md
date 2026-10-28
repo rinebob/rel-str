@@ -53,3 +53,21 @@ Phase 1 UI: run dialog gains template + start date (no `initialCash`/`reportTier
 - **Multi-leg Templates (Thread #1270)**: matching pick docs across legs (e.g., short-put leg + long-put leg for a put credit spread) once single-leg review proves out.
 - **Carousel/filmstrip contract-series viewer** for browsing many contracts quickly.
 - If a pick-doc gap proves problematic (e.g., missing delta/DTE coordinates needed for a template), revisit whether SA can generate on-demand coordinates.
+
+## Amendment — 2026-10-26 (spike #1278)
+
+Wire contract confirmed against SA's shipped `CellYearDoc`
+(`av-proxy-api/shared/options/options-delta-picks.types.ts`; SPEC 213-215
+declares it the storage + wire contract). Two mechanics refinements vs the
+text above:
+
+- **Fetch unit is a year shard**, not a window: the partner endpoint serves
+  `options-delta-picks/{SYM}-{type}-{deltaPct}-{dte}/years/{YYYY}` — one call
+  per `(symbol, type, delta, dte, year)`. `startDate` filters `days`
+  client-side; a year-spanning run fetches per year and merges.
+- **Misses are explicit entries, not absent keys**: `days` values are
+  `DayPick | DayMiss` (`status: 'no_chain' | 'no_match'`). Consumers narrow
+  with `isPickDocPick`; misses map to `no-selection` rows with reasons
+  `no_match→'miss'`, `no_chain→'gap'`.
+- The endpoint itself is pending SA task av-proxy-api#225 (blocked by #223
+  materialization); auth = existing partner ID-token convention.
