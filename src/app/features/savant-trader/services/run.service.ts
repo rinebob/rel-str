@@ -17,7 +17,7 @@ import {
   type ManualRunRequest,
   type ManualRunResponse,
 } from './types';
-import { Collection } from '../../../core/common/constants';
+import { ST_RUNS_ROOT } from '@st/collections';
 
 @Injectable({
   providedIn: 'root',
@@ -31,7 +31,7 @@ export class RunService {
 
   private readonly adminHttpUrl = 'https://us-central1-rel-str.cloudfunctions.net/symbolDataSyncAdminHttp';
 
-  private readonly runsCollection = Collection.ST_RUNS;
+  private readonly runsCollection = ST_RUNS_ROOT;
 
   /**
    * Trigger symbol-data backfill via symbolDataSyncAdminHttp HTTPS endpoint.

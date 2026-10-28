@@ -32,7 +32,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
-import { Collection } from '../../../../core/common/constants';
+import { ST_SYMBOLS_ROOT } from '@st/collections';
 import { SymbolListStore } from '../../stores/symbol-list.store';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { NO_MEMBERSHIP, type SymbolListFilter } from '../../common/constants';
@@ -140,11 +140,10 @@ export class ChartViewComponent implements OnInit, OnDestroy {
     });
 
     /**
-     * Fetch the company name from the legacy `savant-trader/data/symbols`
-     * doc (Collection.ST_SYMBOLS — still the live symbol-doc path; the
-     * st-symbols root cutover is #1019) when the displayed symbol changes
-     * and it isn't cached. Untracked symbols resolve to null — the
-     * toolbar shows the ticker only.
+     * Fetch the company name from the canonical `st-symbols` doc
+     * (ST_SYMBOLS_ROOT — cut over in #1159) when the displayed symbol
+     * changes and it isn't cached. Untracked symbols resolve to null —
+     * the toolbar shows the ticker only.
      */
     effect(() => {
       const symbol = this.activeSymbol();
@@ -152,7 +151,7 @@ export class ChartViewComponent implements OnInit, OnDestroy {
       if (symbol in this.symbolNameCache()) return;
       this.symbolNameCache.update((c) => ({ ...c, [symbol]: null }));
       runInInjectionContext(this.injector, () =>
-        getDoc(doc(this.firestore, Collection.ST_SYMBOLS, symbol)),
+        getDoc(doc(this.firestore, ST_SYMBOLS_ROOT, symbol)),
       )
         .then((snap) => {
           const name: string | null = snap.exists() ? (snap.data()['name'] ?? null) : null;

@@ -74,7 +74,7 @@ function getOptionalSource(raw: Record<string, unknown>): StSymbolSource | undef
 }
 
 /**
- * Map a raw Firestore savant-trader/data/symbols doc into the client symbol profile shape.
+ * Map a raw Firestore st-symbols doc into the client symbol profile shape.
  * Timestamp fields are converted to ISO strings; missing fields are left undefined.
  */
 export function mapSymbolProfile(raw: Record<string, unknown>): StSymbolProfile {

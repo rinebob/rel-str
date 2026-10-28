@@ -46,12 +46,12 @@ describe('#1014 FE st-* path cutover', () => {
 
   it('members still consumed by #1019 keep their legacy spellings', () => {
     // ST_SYMBOLS stays until #1019 — signal.service run-ids/signal-history
-    // reads still target the legacy subcollections.
+    // reads still target the legacy subcollections. Doc-level reads moved
+    // to ST_SYMBOLS_ROOT in #1159.
     expect(Collection.ST_SYMBOLS).toBe('savant-trader/data/symbols');
-    // ST_RUNS stays until the BE populates st-runs — reverted in-place
-    // post-review: nothing writes st-runs today and no runs migration
-    // task exists yet (#984 blueprint gap).
-    expect(Collection.ST_RUNS).toBe('savant-trader/data/runs');
+    // ST_RUNS removed in #1159 — BE populated st-runs and every run read
+    // (run.service realtime stream + stGetRunHistory callable) cut over.
+    expect('ST_RUNS' in Collection).toBe(false);
   });
 
   it('canonical helpers resolve to the deployed st-* roots', () => {

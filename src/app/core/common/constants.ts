@@ -244,10 +244,6 @@ export enum Collection {
   /** @deprecated Use @st/collections ST_SYMBOLS_ROOT (#984); still bound by
    *  signal.service run-ids/signal-history reads — removed in #1019. */
   ST_SYMBOLS = 'savant-trader/data/symbols',
-  /** @deprecated Use @st/collections ST_RUNS_ROOT ('st-runs') once the BE
-   *  populates it — no runs migration task exists yet; nothing writes
-   *  st-runs today (#984 blueprint gap). */
-  ST_RUNS = 'savant-trader/data/runs',
   /** Screenshot-capture index — backend-written, FE read-only (#846). */
   ST_SCREENSHOTS = 'st-screenshots',
   SPREAD_RUNS = 'spread-runs',

@@ -39,7 +39,7 @@ import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { ManualOrderService } from '../../services/manual-order.service';
 import { UiStateService, ChartLayout } from '../../../../core/services/ui-state.service';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import { Collection } from '../../../../core/common/constants';
+import { ST_SYMBOLS_ROOT } from '@st/collections';
 import { NO_MEMBERSHIP } from '../../common/constants';
 import {
   InstrumentType,
@@ -264,7 +264,7 @@ describe('ChartViewComponent', () => {
     await new Promise<void>((r) => setTimeout(r, 0));
     fixture.detectChanges();
     // Pin the Firestore path contract — the mock accepts anything.
-    expect(doc).toHaveBeenCalledWith(expect.anything(), Collection.ST_SYMBOLS, 'AAPL');
+    expect(doc).toHaveBeenCalledWith(expect.anything(), ST_SYMBOLS_ROOT, 'AAPL');
     expect(getDoc).toHaveBeenCalled();
     expect(component.selectedSymbolName()).toBe('Apple Inc.');
   });

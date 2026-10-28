@@ -24,7 +24,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
-import { Collection } from '../../../../core/common/constants';
+import { ST_SYMBOLS_ROOT } from '@st/collections';
 import { TriageStore } from '../../stores/triage.store';
 import { GroupStore } from '../../stores/group.store';
 import { StStore } from '../../stores/st.store';
@@ -155,7 +155,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
       if (symbol in cache) return;
       this.symbolNameCache.update(c => ({ ...c, [symbol]: null }));
       runInInjectionContext(this.injector, () =>
-        getDoc(doc(this.firestore, Collection.ST_SYMBOLS, symbol))
+        getDoc(doc(this.firestore, ST_SYMBOLS_ROOT, symbol))
       ).then(snap => {
         const name: string | null = snap.exists() ? (snap.data()['name'] ?? null) : null;
         this.symbolNameCache.update(c => ({ ...c, [symbol]: name }));
@@ -212,7 +212,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.router.navigate(['/' + AppRoutes.SIGNAL_HISTORY]);
   }
 
-  /** Open a dialog to find symbols added to savant-trader/data/symbols in the last N days. */
+  /** Open a dialog to find symbols added to st-symbols in the last N days. */
   openNewSymbolsDialog(): void {
     this.newSymbolsDialog.open().subscribe((symbols) => {
       if (!symbols || symbols.length === 0) return;

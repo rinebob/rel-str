@@ -16,6 +16,7 @@ import {
 import { SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
 import { mapSymbolProfile } from '../utils/utils';
 import { Collection } from '../../../core/common/constants';
+import { ST_SYMBOLS_ROOT } from '@st/collections';
 
 function isSignalTimeframe(value: unknown): value is SignalTimeframe {
   return value === SignalTimeframe.DAILY || value === SignalTimeframe.WEEKLY;
@@ -128,7 +129,7 @@ export class SignalService {
    * Used for the "Show all symbols" toggle in grouped review.
    */
   getAllSymbols(): Observable<StSymbolProfile[]> {
-    const ref = collection(this.firestore, Collection.ST_SYMBOLS);
+    const ref = collection(this.firestore, ST_SYMBOLS_ROOT);
     const q = query(ref, where('enabled', '==', true));
     // Raw Firestore docs contain Timestamp fields; we map them to strings below.
     return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<Record<string, unknown>[]>).pipe(
@@ -137,7 +138,7 @@ export class SignalService {
   }
 
   /**
-   * Enabled symbols added to savant-trader/data/symbols within the last N days. Used by
+   * Enabled symbols added to st-symbols within the last N days. Used by
    * chart-review to surface newly tracked symbols for quick review.
    *
    * createdAt is stored as an ISO string, so the cutoff is also an ISO string.
@@ -146,7 +147,7 @@ export class SignalService {
    * client-side source filter is required.
    */
   getSymbolsAddedSince(daysAgo: number): Observable<StSymbolProfile[]> {
-    const ref = collection(this.firestore, Collection.ST_SYMBOLS);
+    const ref = collection(this.firestore, ST_SYMBOLS_ROOT);
     const cutoff = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
     const q = query(ref, where('enabled', '==', true), where('createdAt', '>=', cutoff));
     return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<Record<string, unknown>[]>).pipe(
@@ -160,7 +161,7 @@ export class SignalService {
    * manually added symbols that have not yet been backfilled/organized.
    */
   getUnbackfilledSymbols(excludedSymbols: string[]): Observable<StSymbolProfile[]> {
-    const ref = collection(this.firestore, Collection.ST_SYMBOLS);
+    const ref = collection(this.firestore, ST_SYMBOLS_ROOT);
     const q = query(ref, where('enabled', '==', true));
     const excluded = new Set(excludedSymbols.map((s) => s.toUpperCase()));
     return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<Record<string, unknown>[]>).pipe(
