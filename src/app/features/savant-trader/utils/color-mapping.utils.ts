@@ -78,6 +78,8 @@ export function pctChangeToCellColors(
   const { bg, intensity } = rampColor(pctChange, p5, p95, GREEN, RED);
   const dark = intensity >= DARK_CUTOFF;
   if (mode === 'adaptive') {
+    // literal-sweep exception #1214: programmatic contrast white — the
+    // 'dark' flag is ramp luminance, not theme; always literal #fff.
     return { bg, fg: dark ? '#fff' : 'inherit', shadow: 'none' };
   }
   return { bg, fg: 'inherit', shadow: dark ? HALO_SHADOW : 'none' };

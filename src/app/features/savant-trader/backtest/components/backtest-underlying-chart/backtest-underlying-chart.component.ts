@@ -36,6 +36,8 @@ export class BacktestUnderlyingChartComponent {
   readonly priceData = input.required<UnderlyingPricePoint[]>();
   readonly trades = input<BacktestTradeUi[] | undefined>(undefined);
 
+  // literal-sweep exception #1214: chart-series colors — canvas-rendered,
+  // var() can't resolve (#1164 concern).
   readonly longColor = '#22c55e';
   readonly shortColor = '#ef4444';
 

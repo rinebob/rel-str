@@ -6,7 +6,9 @@
  */
 
 /** Multi-series line palette — the canonical color cycle for charts that
- *  plot N series, so per-index colors stay consistent across components. */
+ *  plot N series, so per-index colors stay consistent across components.
+ *  literal-sweep exception #1214: chart-series categorical palette —
+ *  chart libs take literal strings, not var() refs. */
 export const MULTI_SERIES_PALETTE = [
   '#4285F4', '#EA4335', '#34A853', '#FBBC05', '#FF6D01',
   '#46BDC6', '#9C27B0', '#F06292', '#3F51B5', '#00BCD4',

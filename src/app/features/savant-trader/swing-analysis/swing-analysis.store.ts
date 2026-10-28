@@ -53,6 +53,8 @@ import type {
 
 /** Primary config — identifies larger swings. Matches the seeded 10/10/10
  *  swing set so the default view lines up with saved analyses. */
+// literal-sweep exception #1214: lineColor values feed indicator/chart
+// rendering — literal strings required, var() can't resolve (#1164).
 export const LARGE_CONFIG: ZigZagConfig = {
   devThreshold: 10,
   leftDepth: 10,

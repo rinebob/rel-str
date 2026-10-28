@@ -13,7 +13,7 @@
  * Series construction lives in options-contract-chart-series.builder.ts —
  * this file is signal wiring plus chart event handlers.
  */
-import { Component, input, computed, ChangeDetectionStrategy, viewChild, signal, effect } from '@angular/core';
+import { Component, input, output, computed, ChangeDetectionStrategy, viewChild, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   ChartModule,
@@ -81,6 +81,10 @@ export class OptionsContractChartComponent {
   padDays = input(0);
   /** Contract id to emphasize — dims every other mark/marker series. */
   highlightedContractId = input<string | null>(null);
+
+  /** Pointer over a mark line, span marker, or legend entry emits that
+   *  contract id; pointer anywhere else (or leaving the chart) emits null. */
+  seriesHovered = output<string | null>();
 
   private readonly chart = viewChild<SfChartComponent>('chart');
   private readonly visibleRange = signal<{ min: number; max: number } | null>(null);
@@ -344,6 +348,52 @@ export class OptionsContractChartComponent {
       highlightedContractId: this.highlightedContractId(),
     }),
   );
+
+  /** Series-collection index → contractId. Mark spec names are labels (not
+   *  ids) so marks map through plottedSeries; marker names carry the id via
+   *  MARKER_NAME_PREFIX; underlying/pane entries are not contracts. */
+  private readonly seriesContractIds = computed<(string | null)[]>(() => {
+    const idByLabel = new Map(this.plottedSeries().map((c) => [c.label, c.contractId]));
+    return this.seriesCollection().map((s) => {
+      if (s.role === 'mark') return idByLabel.get(s.name) ?? null;
+      if (s.role === 'marker') return s.name.slice(MARKER_NAME_PREFIX.length);
+      return null;
+    });
+  });
+
+  private lastHoverEmitted: string | null | undefined;
+
+  private emitHover(id: string | null): void {
+    if (id !== this.lastHoverEmitted) {
+      this.lastHoverEmitted = id;
+      this.seriesHovered.emit(id);
+    }
+  }
+
+  /** Syncfusion embeds the series index in rendered element ids —
+   *  `{chartId}_Series_{i}_…` and `{chartId}_chart_legend_g_{i}` for legend
+   *  items. Markers are legend-cancelled, so legend indices skip them and
+   *  line up 1:1 with the mark order (then underlying/panes → null). */
+  onChartMouseMove(event: { target?: string }): void {
+    const target = event.target ?? '';
+    const series = /_Series_(\d+)/.exec(target);
+    if (series) {
+      this.emitHover(this.seriesContractIds()[Number(series[1])] ?? null);
+      return;
+    }
+    // Legend items render ids for the group, text label, and shape glyph —
+    // all carry the same trailing legend index.
+    const legend = /_chart_legend_(?:g|text|shape(?:_marker)?)_(\d+)/.exec(target);
+    if (legend) {
+      this.emitHover(this.plottedSeries()[Number(legend[1])]?.contractId ?? null);
+      return;
+    }
+    this.emitHover(null);
+  }
+
+  onChartMouseLeave(): void {
+    this.emitHover(null);
+  }
 
   onAxisLabelRender(args: IAxisLabelRenderEventArgs): void {
     if (args.axis?.name === 'primaryXAxis' && args.text) {

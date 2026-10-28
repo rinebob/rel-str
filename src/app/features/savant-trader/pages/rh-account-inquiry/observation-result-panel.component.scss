@@ -44,6 +44,8 @@
 .json-output {
   flex: 1 1 auto;
   min-height: 0;
+  // literal-sweep exception #1214: deliberate dark-terminal readout —
+  // one-off non-themable surface.
   background: #263238;
   color: #aed581;
   padding: 8px;

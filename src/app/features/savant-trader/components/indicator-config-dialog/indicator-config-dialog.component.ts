@@ -20,6 +20,8 @@ export interface IndicatorConfigDialogData {
   pane: IndicatorPane;
 }
 
+// literal-sweep exception #1214: indicator color-picker swatches feed
+// chart rendering — literal strings required (#1164 concern).
 const INDICATOR_COLORS = ['#ff9800', '#2196f3', '#e91e63', '#4caf50', '#9c27b0'];
 
 @Component({

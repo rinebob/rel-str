@@ -235,6 +235,8 @@ export class SpreadChartComponent {
   ]);
   readonly legendSettings = { visible: true, position: 'Bottom', width: '100%', height: '60', textStyle: { size: '11px' } };
   readonly tooltipSettings = { enable: true, shared: true, format: '${series.name}: ${point.y}' };
+  // literal-sweep exception #1214: chart-lib config literals —
+  // canvas-rendered, var() can't resolve (#1164 concern).
   readonly crosshairSettings = { enable: true, lineType: 'Both', line: { color: '#999', width: 0.5 } };
   readonly zoomSettings = { enableMouseWheelZooming: true, enablePinchZooming: true, enableSelectionZooming: false };
   readonly chartArea = { border: { width: 0 } };
@@ -275,7 +277,7 @@ export class SpreadChartComponent {
         xName: 'date',
         yName: 'value',
         width: 1,
-        fill: '#666',
+        fill: '#666', // literal-sweep exception #1214: chart-series literal
         dashArray: '4,2',
         yAxisName: 'underlyingYAxis',
         marker: { visible: false },
