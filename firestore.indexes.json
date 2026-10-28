@@ -4,439 +4,462 @@
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "pair", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "exitDay", "order": "DESCENDING" }
+        {
+          "fieldPath": "pair",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "exitDay",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "pair", "order": "ASCENDING" },
-        { "fieldPath": "entryDay", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-symbols",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" },
-        { "fieldPath": "lastDailySignalDate", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-symbols",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" },
-        { "fieldPath": "lastWeeklySignalDate", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-symbols",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-symbols",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" },
-        { "fieldPath": "source", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "pair",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "entryDay",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "symbols",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" },
-        { "fieldPath": "lastDailySignalDate", "order": "ASCENDING" }
+        {
+          "fieldPath": "enabled",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastDailySignalDate",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "symbols",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" },
-        { "fieldPath": "lastWeeklySignalDate", "order": "ASCENDING" }
+        {
+          "fieldPath": "enabled",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastWeeklySignalDate",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "symbols",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "enabled",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "symbols",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" },
-        { "fieldPath": "source", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "enabled",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "signals",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "timeframe", "order": "ASCENDING" },
-        { "fieldPath": "marketDate", "order": "DESCENDING" }
+        {
+          "fieldPath": "timeframe",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "marketDate",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "signals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "timeframe", "order": "ASCENDING" },
-        { "fieldPath": "marketDate", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-triage-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "date", "order": "DESCENDING" },
-        { "fieldPath": "symbol", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-triage-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "date", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-symbol-meta",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "symbol", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "symbol-meta",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "symbol", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "runId", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "runId", "order": "ASCENDING" },
-        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "symbol", "order": "ASCENDING" },
-        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "marketDate", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "runId", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "runId", "order": "ASCENDING" },
-        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "symbol", "order": "ASCENDING" },
-        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "occurrence-decisions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "marketDate", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "rh-agent-symbol-lists",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "name", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "symbol-lists",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "name", "order": "ASCENDING" }
+        {
+          "fieldPath": "timeframe",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "marketDate",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "run-ids",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "runId", "order": "ASCENDING" },
-        { "fieldPath": "marketDate", "order": "DESCENDING" }
+        {
+          "fieldPath": "runId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "marketDate",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "signal-history",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "date", "order": "ASCENDING" },
-        { "fieldPath": "symbol", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "options-strategy-positions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "instanceId", "order": "ASCENDING" },
-        { "fieldPath": "openDate", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "options-strategy-positions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "instanceId", "order": "ASCENDING" }
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "symbol",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "source", "order": "ASCENDING" },
-        { "fieldPath": "strategyInstanceId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "source",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "strategyInstanceId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "accountNumber", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "accountNumber",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "accountNumber", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "accountNumber",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-signals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "marketDate", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "marketDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-signals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "symbol", "order": "ASCENDING" },
-        { "fieldPath": "barDate", "order": "DESCENDING" }
+        {
+          "fieldPath": "symbol",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "barDate",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-signals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "symbol", "order": "ASCENDING" },
-        { "fieldPath": "marketDate", "order": "ASCENDING" }
+        {
+          "fieldPath": "symbol",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "marketDate",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-signals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "timeframe", "order": "ASCENDING" },
-        { "fieldPath": "marketDate", "order": "DESCENDING" }
+        {
+          "fieldPath": "timeframe",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "marketDate",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-signals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "runIds", "arrayConfig": "CONTAINS" },
-        { "fieldPath": "marketDate", "order": "DESCENDING" }
+        {
+          "fieldPath": "runIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "marketDate",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-order-tickets",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "mode", "order": "ASCENDING" },
-        { "fieldPath": "state", "order": "ASCENDING" }
+        {
+          "fieldPath": "mode",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-order-tickets",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "mode", "order": "ASCENDING" },
-        { "fieldPath": "state", "order": "ASCENDING" },
-        { "fieldPath": "origin.positionGroupId", "order": "ASCENDING" }
+        {
+          "fieldPath": "mode",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "origin.positionGroupId",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-order-tickets",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "state", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-order-tickets",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "origin.runId", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "origin.runId",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-order-tickets",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "origin.signalId", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "origin.signalId",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-order-tickets",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "terms.symbol", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "terms.symbol",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-position-groups",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "positionGroupId", "order": "ASCENDING" },
-        { "fieldPath": "expiration", "order": "ASCENDING" },
-        { "fieldPath": "optionType", "order": "ASCENDING" },
-        { "fieldPath": "strike", "order": "ASCENDING" }
+        {
+          "fieldPath": "positionGroupId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiration",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "optionType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "strike",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "signalId", "order": "ASCENDING" },
-        { "fieldPath": "source", "order": "ASCENDING" }
+        {
+          "fieldPath": "signalId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-symbols",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "enabled",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-symbol-lists",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "name", "order": "ASCENDING" }
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "st-backtest-permutations",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "runId", "order": "ASCENDING" },
-        { "fieldPath": "completedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "runId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completedAt",
+          "order": "DESCENDING"
+        }
       ]
-    }
-    ,
+    },
     {
       "collectionGroup": "st-options-contract-lists",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "runId", "order": "ASCENDING" },
-        { "fieldPath": "symbol", "order": "ASCENDING" }
+        {
+          "fieldPath": "runId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "symbol",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],
@@ -445,7 +468,10 @@
       "collectionGroup": "run-ids",
       "fieldPath": "runId",
       "indexes": [
-        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
       ]
     }
   ]
