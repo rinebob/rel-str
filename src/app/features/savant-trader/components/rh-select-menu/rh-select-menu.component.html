@@ -4,7 +4,7 @@
   <mat-icon>arrow_drop_down</mat-icon>
 </button>
 
-<mat-menu #menu="matMenu">
+<mat-menu #menu="matMenu" class="rh-select-menu-panel">
   <ng-template #optionItem let-option>
     <button mat-menu-item [class.selected]="value() === option.value" (click)="valueChange.emit(option.value)" class="rh-dropdown-menu-item" [matTooltip]="option.description ?? ''" [matTooltipDisabled]="!option.description" matTooltipPosition="right">
       <span class="menu-label">{{ option.label }}</span>

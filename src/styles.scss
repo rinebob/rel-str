@@ -177,3 +177,10 @@ body {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+// The mat-menu default max-width (280px) clips longer option labels (scan
+// source labels carry `{title} · {ranAt} · {rows}/{total}`, #1258) — items
+// are already nowrap, so the panel must grow to fit them.
+.rh-select-menu-panel.mat-mdc-menu-panel {
+  max-width: min(480px, 90vw);
+}
