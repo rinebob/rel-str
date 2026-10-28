@@ -1,6 +1,8 @@
 /**
- * #1010 — one-shot purge of the st-runs jobs backlog (~185k docs under
- * `savant-trader/data/runs`; the ~1.24M collectionGroup figure is
+ * #1010 — one-shot purge of the st-runs jobs backlog (~185k docs, at
+ * the time under `savant-trader/data/runs`; #1159 swept `st-runs` only
+ * and the legacy root is wholesale-deleted at ship. The ~1.24M
+ * collectionGroup figure is
  * mostly foreign rs-backfill/rs-realtime/spread jobs, which are NEVER
  * touched — the per-run query scope makes that structurally
  * impossible).

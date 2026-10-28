@@ -29,7 +29,7 @@ import {
   getRunIdPT,
 } from '../src/common/pt-date-utils';
 import {
-  ST_SYMBOLS_COLLECTION,
+  ST_SYMBOLS_ROOT,
   StSymbol,
 } from '../src/common/st-collections';
 import { SYMBOL_DATA_COLLECTION } from '../src/webhooks/webhooks-config';
@@ -83,8 +83,8 @@ async function replaySymbol(symbol: string): Promise<{ ok: boolean; error?: stri
       `    backfilled: D=${result.dailyCount} W=${result.weeklyCount} M=${result.monthlyCount}`,
     );
 
-    // 2. Enable in savant-trader/data/symbols (preserve existing createdAt)
-    const symbolDocRef = db.collection(ST_SYMBOLS_COLLECTION).doc(symbol);
+    // 2. Enable in st-symbols (canonical since #1159; preserve createdAt)
+    const symbolDocRef = db.collection(ST_SYMBOLS_ROOT).doc(symbol);
     const existingSnap = await symbolDocRef.get();
     const existingData = existingSnap.data() as Partial<StSymbol> | undefined;
 
@@ -142,9 +142,9 @@ async function main() {
   console.log(`  SA reports ${saSymbols.size} tracked symbols\n`);
 
   // 2. Fetch our collections
-  console.log('Fetching RS savant-trader/data/symbols...');
-  const ourStSymbols = await getCollectionIds(ST_SYMBOLS_COLLECTION);
-  console.log(`  RS has ${ourStSymbols.size} symbols in savant-trader/data/symbols`);
+  console.log('Fetching RS st-symbols...');
+  const ourStSymbols = await getCollectionIds(ST_SYMBOLS_ROOT);
+  console.log(`  RS has ${ourStSymbols.size} symbols in st-symbols`);
 
   console.log('Fetching RS symbol-data...');
   const ourSymbolData = await getCollectionIds(SYMBOL_DATA_COLLECTION);
@@ -156,16 +156,16 @@ async function main() {
   const missingFromBoth = missingFromRhAgent.filter((s) => missingFromSymbolData.includes(s));
 
   console.log('=== Gap Report ===');
-  console.log(`  Missing from savant-trader/data/symbols: ${missingFromRhAgent.length}`);
+  console.log(`  Missing from st-symbols:              ${missingFromRhAgent.length}`);
   console.log(`  Missing from symbol-data:      ${missingFromSymbolData.length}`);
   console.log(`  Missing from both:             ${missingFromBoth.length}`);
 
   if (missingFromRhAgent.length > 0) {
-    console.log(`\n  Symbols missing from savant-trader/data/symbols:`);
+    console.log(`\n  Symbols missing from st-symbols:`);
     console.log(`  ${missingFromRhAgent.join(', ')}`);
   }
   if (missingFromSymbolData.length > 0 && missingFromSymbolData.length !== missingFromRhAgent.length) {
-    console.log(`\n  Symbols missing from symbol-data (but may exist in savant-trader/data/symbols):`);
+    console.log(`\n  Symbols missing from symbol-data (but may exist in st-symbols):`);
     const onlySymbolData = missingFromSymbolData.filter((s) => ourStSymbols.has(s));
     console.log(`  ${onlySymbolData.join(', ')}`);
   }

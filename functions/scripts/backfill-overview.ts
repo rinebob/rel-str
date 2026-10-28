@@ -27,7 +27,9 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getFunctions } from 'firebase-admin/functions';
 
-const COLLECTION = 'savant-trader/data/symbols';
+// Canonical symbol docs since #1159 (st-symbols); the legacy root only
+// hosts run-ids/signal-history subcollections.
+const COLLECTION = 'st-symbols';
 const OVERVIEW_QUEUE = 'stOverviewSyncSymbol';
 const SERVICE_ACCOUNT =
   process.env.IMPERSONATE_SERVICE_ACCOUNT ?? '145446780542-compute@developer.gserviceaccount.com';

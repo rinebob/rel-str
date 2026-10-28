@@ -37,6 +37,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db } from '../src/firebase-admin-init';
 import {
   ST_SYMBOLS_COLLECTION,
+  ST_SYMBOLS_ROOT,
   ST_RUN_IDS_SUBCOLLECTION,
   ST_SIGNAL_HISTORY_SUBCOLLECTION,
   ST_SIGNALS_ROOT,
@@ -468,7 +469,10 @@ async function main(): Promise<void> {
   if (onlySymbol) {
     symbols = [onlySymbol];
   } else {
-    const snap = await db.collection(ST_SYMBOLS_COLLECTION).get();
+    // Enumerate canonical docs — post-#1159 symbols may exist only in
+    // st-symbols (subcollection writes don't materialize the legacy
+    // parent doc, so a legacy enumeration would miss them).
+    const snap = await db.collection(ST_SYMBOLS_ROOT).get();
     symbols = snap.docs.map((d) => d.id);
   }
 

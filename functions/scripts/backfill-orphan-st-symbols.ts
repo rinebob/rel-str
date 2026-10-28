@@ -1,30 +1,32 @@
 /**
- * Backfill orphan savant-trader/data/symbols docs directly.
+ * Backfill orphan st-symbols docs directly.
  *
  * Orphan = doc has only { symbol, enabled } (no createdAt/source/etc).
  * For each orphan:
- *   1. Set source to StSymbolSource.MANUAL_ADD and createdAt in savant-trader/data/symbols
+ *   1. Set source to StSymbolSource.MANUAL_ADD and createdAt in st-symbols
  *   2. Trigger symbolDataSyncAdminHttp for D/W/M bars
  *   3. Trigger rhAgentOverviewSyncAdmin for company overview
  *
  * Usage (from functions/ dir):
- *   npx tsx scripts/backfill-orphan-savant-trader/data/symbols.ts [source]
+ *   npx tsx scripts/backfill-orphan-st-symbols.ts [source]
  *
  * Override source (defaults to StSymbolSource.MANUAL_ADD):
  *   $env:SOURCE="custom-backfill"
- *   npx tsx scripts/backfill-orphan-savant-trader/data/symbols.ts
+ *   npx tsx scripts/backfill-orphan-st-symbols.ts
  *
  * Dry-run (just list targets):
  *   $env:DRY_RUN="true"
- *   npx tsx scripts/backfill-orphan-savant-trader/data/symbols.ts
+ *   npx tsx scripts/backfill-orphan-st-symbols.ts
  */
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getFunctions } from 'firebase-admin/functions';
 import { execSync } from 'child_process';
-import { StSymbol, StSymbolSource } from '../src/common/st-collections';
+import { StSymbol, StSymbolSource, ST_SYMBOLS_ROOT } from '../src/common/st-collections';
 
-const COLLECTION = 'savant-trader/data/symbols';
+// Canonical since #1159 — the legacy savant-trader/data/symbols root only
+// hosts run-ids/signal-history subcollections now.
+const COLLECTION = ST_SYMBOLS_ROOT;
 // Source can be overridden via CLI arg or env var so this script is reusable.
 // Default to the canonical enum value so the frontend source filter works.
 const SOURCE = process.argv[2] || process.env.SOURCE || StSymbolSource.MANUAL_ADD;
@@ -129,7 +131,7 @@ async function main(): Promise<void> {
   console.log(`Enqueued ${orphans.length} overview sync tasks.`);
 
   // 4. Fallback enrichment: copy basic fields from symbol-data (bars sync writes
-  // name, type, marketOpen/Close etc.) into savant-trader/data/symbols so the UI has a
+  // name, type, marketOpen/Close etc.) into st-symbols so the UI has a
   // display name even when partner overview API doesn't know the symbol.
   console.log('Enriching from symbol-data fallback...');
   const fallbackData = await Promise.all(

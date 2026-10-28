@@ -30,8 +30,9 @@ import { db } from '../../src/firebase-admin-init';
 import {
   ST_JOBS_SUBCOLLECTION,
   ST_RUN_IDS_SUBCOLLECTION,
-  ST_RUNS_COLLECTION,
+  ST_RUNS_ROOT,
   ST_SYMBOLS_COLLECTION,
+  ST_SYMBOLS_ROOT,
   ST_SYMBOL_LISTS_ROOT,
 } from '../../src/common/st-collections';
 import { StRunStatus } from '../../src/common/st-runs';
@@ -54,7 +55,7 @@ async function findRunId(): Promise<string | undefined> {
   const argIdx = process.argv.indexOf('--runId');
   if (argIdx >= 0) return process.argv[argIdx + 1];
   const snap = await db
-    .collection(ST_RUNS_COLLECTION)
+    .collection(ST_RUNS_ROOT)
     .orderBy('completedAt', 'desc')
     .limit(10)
     .get();
@@ -70,7 +71,7 @@ async function main(): Promise<void> {
   if (!runId) throw new Error('no completed run found in last 10');
 
   const jobs = await db
-    .collection(ST_RUNS_COLLECTION)
+    .collection(ST_RUNS_ROOT)
     .doc(runId)
     .collection(ST_JOBS_SUBCOLLECTION)
     .where('createdOpportunity', '==', true)
@@ -102,7 +103,7 @@ async function main(): Promise<void> {
       .doc(runId)
       .get();
     const signals = doc.exists ? signalEntriesFromDoc(doc.data() ?? {}) : {};
-    const meta = (await db.collection(ST_SYMBOLS_COLLECTION).doc(symbol).get()).data() ?? {};
+    const meta = (await db.collection(ST_SYMBOLS_ROOT).doc(symbol).get()).data() ?? {};
     for (const [signalType, entry] of Object.entries(signals)) {
       if (!AUTO_PAPER_DEFAULT_SIGNAL_TYPES.includes(signalType)) continue;
       if (!isValidMarketDate(entry.barDate)) {

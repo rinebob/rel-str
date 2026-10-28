@@ -27,9 +27,10 @@
 
 import { db } from '../../src/firebase-admin-init';
 import {
-  ST_RUNS_COLLECTION,
+  ST_RUNS_ROOT,
   ST_JOBS_SUBCOLLECTION,
   ST_SYMBOLS_COLLECTION,
+  ST_SYMBOLS_ROOT,
   ST_RUN_IDS_SUBCOLLECTION,
   ST_SYMBOL_LISTS_ROOT,
 } from '../../src/common/st-collections';
@@ -55,13 +56,13 @@ function check(name: string, ok: boolean, detail = ''): void {
 async function findRunWithSignals(argRunId?: string): Promise<string | null> {
   if (argRunId) return argRunId;
   const snap = await db
-    .collection(ST_RUNS_COLLECTION)
+    .collection(ST_RUNS_ROOT)
     .orderBy('completedAt', 'desc')
     .limit(10)
     .get();
   for (const run of snap.docs) {
     const jobs = await db
-      .collection(ST_RUNS_COLLECTION)
+      .collection(ST_RUNS_ROOT)
       .doc(run.id)
       .collection(ST_JOBS_SUBCOLLECTION)
       .where('createdOpportunity', '==', true)
@@ -78,7 +79,7 @@ async function main(): Promise<void> {
   if (!runId) process.exit(1);
 
   const jobs = await db
-    .collection(ST_RUNS_COLLECTION)
+    .collection(ST_RUNS_ROOT)
     .doc(runId)
     .collection(ST_JOBS_SUBCOLLECTION)
     .where('createdOpportunity', '==', true)
@@ -114,8 +115,9 @@ async function main(): Promise<void> {
   check('entry.indicators is an object', typeof e.indicators === 'object' && e.indicators !== null,
     `${Object.keys(e.indicators ?? {}).length} keys`);
 
-  // Overview fields live on the symbols doc itself — sector is UPPERCASE.
-  const meta = await db.collection(ST_SYMBOLS_COLLECTION).doc(symbol).get();
+  // Overview fields live on the symbol doc itself (st-symbols since #1159)
+  // — sector is UPPERCASE.
+  const meta = await db.collection(ST_SYMBOLS_ROOT).doc(symbol).get();
   const m = meta.data() ?? {};
   check(`${symbol} symbols-doc sector`, typeof m.sector === 'string' && m.sector.length > 0, String(m.sector));
   check(`${symbol} symbols-doc industry`, typeof m.industry === 'string' && m.industry.length > 0, String(m.industry));
