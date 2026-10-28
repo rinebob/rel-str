@@ -11,6 +11,7 @@ import { OptionType } from './options-common';
 import { TradeSide } from './common';
 import {
   ContractListRow,
+  isPickDocPick,
   OPTIONS_CONTRACT_LIST_STATUSES,
   OPTIONS_REPLAY_RUN_STATUSES,
   OptionsContractListDoc,
@@ -20,8 +21,10 @@ import {
   OptionsReplayStartResponse,
   PickDocCoordinate,
   PickDocDay,
+  PickDocDayEntry,
   PickDocument,
   PickDocMeta,
+  PickDocMiss,
   ReplayTemplate,
 } from './options-replay-contracts';
 
@@ -83,8 +86,60 @@ describe('options-replay-contracts', () => {
         missCount: 3,
         days: { '2025-12-15': day },
       };
-      expect(doc.days['2025-12-15'].contractId).toBe('QQQ260130P00578000');
+      const entry = doc.days['2025-12-15'];
+      expect(isPickDocPick(entry)).toBe(true);
+      if (isPickDocPick(entry)) {
+        expect(entry.contractId).toBe('QQQ260130P00578000');
+      }
       expect(doc.pickCount + doc.missCount).toBe(67);
+    });
+
+    it('days map carries explicit miss entries alongside picks (SA CellYearDoc parity)', () => {
+      // Confirmed against av-proxy-api shared/options/options-delta-picks.types.ts:
+      // the wire doc embeds DayMiss entries — consumers must not assume
+      // every days entry is a pick.
+      const miss: PickDocMiss = { status: 'no_chain', underlyingClose: 617.8 };
+      const doc: PickDocument = {
+        symbol: 'QQQ',
+        type: OptionType.PUT,
+        targetDelta: -0.2,
+        expiry: { mode: 'nearestDte', dte: 45 },
+        gridVersion: 1,
+        firstDate: '2026-04-01',
+        lastDate: '2026-04-14',
+        pickCount: 1,
+        missCount: 1,
+        days: {
+          '2026-04-01': {
+            underlyingClose: 584.31,
+            contractId: 'QQQ260515P00565000',
+            expiration: '2026-05-15',
+            dte: 44,
+            strike: 565,
+            delta: -0.204,
+            iv: 0.198,
+            mark: 8.42,
+            bid: 8.3,
+            ask: 8.54,
+            volume: 412,
+            openInterest: 5210,
+          },
+          '2026-04-14': miss,
+        },
+        updatedAt: '2026-04-15T00:00:00Z',
+      };
+      const entries: PickDocDayEntry[] = Object.values(doc.days);
+      expect(entries.filter(isPickDocPick)).toHaveLength(1);
+      expect(doc.days['2026-04-14']).toEqual(miss);
+    });
+
+    it('isPickDocPick narrows on contractId presence — misses carry no pick fields', () => {
+      const miss: PickDocDayEntry = { status: 'no_match', reason: 'no expiration near target' };
+      if (isPickDocPick(miss)) {
+        throw new Error('miss should not narrow to pick');
+      }
+      // @ts-expect-error — contractId exists only on pick entries
+      expect(miss.contractId).toBeUndefined();
     });
   });
 

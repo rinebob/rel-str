@@ -51,7 +51,8 @@ export interface ReplayTemplate {
 // SA Pick Document (wire shape)
 // ==========================
 
-/** One trading day's pick inside a PickDocument. */
+/** One trading day's pick inside a PickDocument. Field-for-field identical to
+ *  SA's `DayPick` (av-proxy-api shared/options/options-delta-picks.types.ts). */
 export interface PickDocDay {
   underlyingClose: number;
   contractId: string;
@@ -67,7 +68,34 @@ export interface PickDocDay {
   openInterest: number;
 }
 
-/** SA pick doc — one grid cell: the coordinate plus symbol, grid metadata, and day map. */
+/** SA miss statuses — explicit no-pick entries inside the `days` map.
+ *  `no_chain` = no corpus chain for that date (self-repairs upstream when the
+ *  chain is later seeded); `no_match` = chain present but nothing selectable
+ *  for this cell. */
+export type PickDocMissStatus = 'no_chain' | 'no_match';
+
+/** An explicit miss entry — mirrors SA's `DayMiss`. `underlyingClose` is
+ *  present whenever an adjusted close exists for the date. */
+export interface PickDocMiss {
+  status: PickDocMissStatus;
+  underlyingClose?: number;
+  reason?: string;
+}
+
+/** One trading day's entry — a picked contract or an explicit miss. A pick
+ *  entry carries no `status` field; presence of `contractId` means pick. */
+export type PickDocDayEntry = PickDocDay | PickDocMiss;
+
+/** Narrow a day entry to a pick — `contractId` is present only on picks.
+ *  Mirrors SA's `isPickEntry` (null-safe, not just key presence). */
+export function isPickDocPick(entry: PickDocDayEntry): entry is PickDocDay {
+  return 'contractId' in entry && entry.contractId != null;
+}
+
+/** SA pick doc — one grid cell-year shard: the coordinate plus symbol, grid
+ *  metadata, and day map. Matches SA's `CellYearDoc` (the storage doc is the
+ *  wire contract; `updatedAt` is stamped by SA's materialization writer and
+ *  passed through by the endpoint). */
 export interface PickDocument extends PickDocCoordinate {
   symbol: string;
   gridVersion: number;
@@ -75,8 +103,12 @@ export interface PickDocument extends PickDocCoordinate {
   lastDate: string;
   pickCount: number;
   missCount: number;
-  /** Trading date → pick. Dates absent from the map are no-selection days. */
-  days: Record<string, PickDocDay>;
+  /** Trading date → pick or explicit miss. Every trading day in
+   *  [firstDate, lastDate] carries an entry; absent keys are treated as
+   *  no-selection defensively. */
+  days: Record<string, PickDocDayEntry>;
+  /** Server stamp — ISO string on the wire. */
+  updatedAt?: string;
 }
 
 // ==========================
@@ -84,9 +116,11 @@ export interface PickDocument extends PickDocCoordinate {
 // ==========================
 
 /**
- * Why a trading day produced no pick. 'miss' = SA grid miss (no contract met
- * the criteria); 'gap' = market data hole; 'out-of-range' = past the doc's
- * lastDate. Optional — writers populate when the cause is known.
+ * Why a trading day produced no pick. Maps SA day-entry statuses:
+ * 'miss' = SA `no_match` (chain existed, no contract met the criteria);
+ * 'gap' = SA `no_chain` (market data hole — self-repairs upstream);
+ * 'out-of-range' = past the doc's lastDate. Optional — writers populate when
+ * the cause is known.
  */
 export type NoSelectionReason = 'miss' | 'gap' | 'out-of-range';
 
