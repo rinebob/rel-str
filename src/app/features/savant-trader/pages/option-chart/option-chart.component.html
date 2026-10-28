@@ -491,6 +491,7 @@
         [showVolumeOI]="store.showVolumeOI()"
         [padDays]="store.chartPadDays()"
         [highlightedContractId]="store.hoveredContractId()"
+        (seriesHovered)="store.setHoveredContract($event)"
       ></app-options-contract-chart>
       }
 

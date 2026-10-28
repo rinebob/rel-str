@@ -15,6 +15,8 @@
   [border]="chartBorder"
   [chartArea]="chartArea"
   (axisLabelRender)="onAxisLabelRender($event)"
+  (chartMouseMove)="onChartMouseMove($event)"
+  (chartMouseLeave)="onChartMouseLeave()"
   (zoomComplete)="onZoomComplete($event)"
   (scrollEnd)="onScrollEnd()"
   (legendRender)="onLegendRender($event)"

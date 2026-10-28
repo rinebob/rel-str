@@ -20,6 +20,7 @@ import {
   ChartComponent as SfChartComponent,
   IZoomCompleteEventArgs,
   IAxisLabelRenderEventArgs,
+  IMouseEventArgs,
   LineSeriesService,
   ColumnSeriesService,
   CategoryService,
@@ -349,19 +350,30 @@ export class OptionsContractChartComponent {
     }),
   );
 
-  /** Series-collection index → contractId. Mark spec names are labels (not
-   *  ids) so marks map through plottedSeries; marker names carry the id via
-   *  MARKER_NAME_PREFIX; underlying/pane entries are not contracts. */
+  /** Series-collection index → contractId. Marks map by ordinal — the
+   *  builder pushes them in plottedSeries order, so the k-th mark spec is
+   *  the k-th contract (label-keyed lookup would collide on duplicate
+   *  labels). Marker names carry the id via MARKER_NAME_PREFIX;
+   *  underlying/pane entries are not contracts. */
   private readonly seriesContractIds = computed<(string | null)[]>(() => {
-    const idByLabel = new Map(this.plottedSeries().map((c) => [c.label, c.contractId]));
+    const contracts = this.plottedSeries();
+    let markIdx = 0;
     return this.seriesCollection().map((s) => {
-      if (s.role === 'mark') return idByLabel.get(s.name) ?? null;
+      if (s.role === 'mark') return contracts[markIdx++]?.contractId ?? null;
       if (s.role === 'marker') return s.name.slice(MARKER_NAME_PREFIX.length);
       return null;
     });
   });
 
-  private lastHoverEmitted: string | null | undefined;
+  private lastHoverEmitted: string | null = null;
+
+  /** A plotted-set change can strand the emitted id — clear it so a stale
+   *  highlight can't dim the whole new set until the next pointer event. */
+  readonly resetHoverOnSetChange = effect(() => {
+    this.plottedSeries();
+    this.lastHoverEmitted = null;
+    this.emitHover(null);
+  });
 
   private emitHover(id: string | null): void {
     if (id !== this.lastHoverEmitted) {
@@ -371,21 +383,21 @@ export class OptionsContractChartComponent {
   }
 
   /** Syncfusion embeds the series index in rendered element ids —
-   *  `{chartId}_Series_{i}_…` and `{chartId}_chart_legend_g_{i}` for legend
-   *  items. Markers are legend-cancelled, so legend indices skip them and
-   *  line up 1:1 with the mark order (then underlying/panes → null). */
-  onChartMouseMove(event: { target?: string }): void {
+   *  `{chartId}_Series_{i}_…` for series/points/symbols and
+   *  `{chartId}_chart_legend_{g|text|shape}_{i}` for legend items. Legend
+   *  indices are visibleSeries positions — the same domain as the series
+   *  collection — so cancelled markers still consume their slots (marks
+   *  are always 0..n-1 either way). */
+  onChartMouseMove(event: IMouseEventArgs): void {
     const target = event.target ?? '';
     const series = /_Series_(\d+)/.exec(target);
     if (series) {
       this.emitHover(this.seriesContractIds()[Number(series[1])] ?? null);
       return;
     }
-    // Legend items render ids for the group, text label, and shape glyph —
-    // all carry the same trailing legend index.
     const legend = /_chart_legend_(?:g|text|shape(?:_marker)?)_(\d+)/.exec(target);
     if (legend) {
-      this.emitHover(this.plottedSeries()[Number(legend[1])]?.contractId ?? null);
+      this.emitHover(this.seriesContractIds()[Number(legend[1])] ?? null);
       return;
     }
     this.emitHover(null);

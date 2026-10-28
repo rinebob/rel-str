@@ -346,4 +346,85 @@ describe('OptionsContractChartComponent', () => {
       expect('crosshairTooltip' in component.primaryYAxis()).toBe(false);
     });
   });
+
+  describe('series hover → contract id', () => {
+    const mouseOver = (target: string) =>
+      component.onChartMouseMove({ target } as Parameters<typeof component.onChartMouseMove>[0]);
+    const TWO_CONTRACT_LEGEND = {
+      // marks at g_0/g_1; cancelled markers consume g_2/g_3; underlying at g_4
+      a: 'chart_chart_legend_g_0',
+      b: 'chart_chart_legend_g_1',
+      underlying: 'chart_chart_legend_g_4',
+    };
+
+    const twoContracts = () => {
+      const a = contract({ points: [obs('2025-11-03', 10)] });
+      const b = contract({
+        contractId: 'QQQ260220P00580000', label: 'B', strike: 580, expiration: '2026-02-20',
+        openDate: '2025-11-04', points: [obs('2025-11-04', 5)],
+      });
+      setInputs([a, b], ['2025-11-03', '2025-11-04', '2026-01-16', '2026-02-20']);
+      fixture.detectChanges();
+      return { a, b };
+    };
+
+    it('hovering a mark series emits its contract id; empty target emits null', () => {
+      const { a, b } = twoContracts();
+      const emitted: (string | null)[] = [];
+      component.seriesHovered.subscribe((id) => emitted.push(id));
+
+      mouseOver('chart_Series_1_Point_3');
+      expect(emitted).toEqual([b.contractId]);
+
+      mouseOver('chart_Series_0');
+      expect(emitted).toEqual([b.contractId, a.contractId]);
+
+      mouseOver('chart_secondary_YAxis_3');
+      expect(emitted).toEqual([b.contractId, a.contractId, null]);
+    });
+
+    it('hovering a span marker emits its contract id — markers sit after the marks in the collection', () => {
+      const { b } = twoContracts();
+      const emitted: (string | null)[] = [];
+      component.seriesHovered.subscribe((id) => emitted.push(id));
+
+      // marks[0,1], then markers[2,3], then underlying — b's marker is index 3
+      mouseOver('chart_Series_3');
+      expect(emitted).toEqual([b.contractId]);
+    });
+
+    it('hovering a legend item emits the mark contract id; non-contract legend items emit null', () => {
+      const { a, b } = twoContracts();
+      const emitted: (string | null)[] = [];
+      component.seriesHovered.subscribe((id) => emitted.push(id));
+
+      mouseOver(TWO_CONTRACT_LEGEND.b);
+      expect(emitted).toEqual([b.contractId]);
+
+      // The text label and shape glyph carry the same trailing index —
+      // hovering any part of the legend item highlights the same contract.
+      mouseOver('chart_chart_legend_text_0');
+      expect(emitted).toEqual([b.contractId, a.contractId]);
+      mouseOver('chart_chart_legend_shape_0');
+      expect(emitted).toEqual([b.contractId, a.contractId]); // unchanged — deduped
+
+      // Legend indices are visibleSeries positions — cancelled markers keep
+      // their slots, so the underlying's real id is g_4, not g_2.
+      mouseOver(TWO_CONTRACT_LEGEND.underlying);
+      expect(emitted).toEqual([b.contractId, a.contractId, null]);
+    });
+
+    it('chart mouse leave emits null and repeated targets emit once', () => {
+      const { a } = twoContracts();
+      const emitted: (string | null)[] = [];
+      component.seriesHovered.subscribe((id) => emitted.push(id));
+
+      mouseOver('chart_Series_0');
+      mouseOver('chart_Series_0_Point_1');
+      expect(emitted).toEqual([a.contractId]);
+
+      component.onChartMouseLeave();
+      expect(emitted).toEqual([a.contractId, null]);
+    });
+  });
 });
