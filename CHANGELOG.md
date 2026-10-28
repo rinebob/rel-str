@@ -20,6 +20,13 @@
 - [Options Backtest] 1238-1281_DOCS-BACKTEST: #1281 CODE-REVIEW (PASS, 2 convergence fixes) + #1312 UAT (Complete; 8/8) + IMPL-BE §1/§5 as-built
 - [Options Backtest] 1238-1280_BE-IMPL-BACKTEST: `optionsReplayPermutation` worker + pure `mapPickDocToRows` — per-symbol pick-doc → contract-list rows with convergent `listOutcomes` close-out, 404/unknown-template permanent vs transient retry split, `resolveRunCloseOut` counter math; 21 new tests, 38/38 suite
 - [Options Backtest] 1238-1280_DOCS-BACKTEST: #1280 CODE-REVIEW (PASS, 3 convergence fixes) + #1318 UAT (Complete; 16/16) + IMPL-BE §2/§4 as-built
+- [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: LatestRunStore + ScannerService.listLatestRuns — latest-run cache into Map<recipeId, ScanLatestRun>, drift-skip + doc-id guard, catalog-joined scanOptions with ranAt + truncation cap
+- [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: scan:{recipeId} viewport source + New-only filter — cached rows→tickers (deduped), default-on tracked filter, lazy tracked-universe load, list sources unaffected
+- [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: Scan dropdown + New-only pill — '—' clear sentinel, ghost-scan escape, single active source slot, DS pill-toggle affordance
+- [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: Page wiring — loadLatestRuns on init, prevViewport escape guard (dropped-index neighbor advance), untracked rows get NEW chip
+
+### Fixed
+- [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: Select-menu panel widened (280px → min(480px, 90vw)) — long scan labels no longer clipped; all rh-select-menu surfaces benefit
 
 ### Changed
 - [Savant Design System] 1024-1213_FE-IMPL-DESIGN-SYSTEM: Literal sweep — global/styles layer: `border1`/`rsButtonOne`/`customScrollbar` tokenized, `--mat-sys` blocks tagged exceptions + completed to 34 keys, never-defined vars fixed (paper-trade `.mono`, 5 MUI-style vars on sync-chart-view); inventory script `accent` whitelist
