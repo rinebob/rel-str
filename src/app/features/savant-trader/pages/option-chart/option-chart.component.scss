@@ -418,13 +418,13 @@
   }
 }
 
-.panel-toggle {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 10;
-  background: var(--mat-sys-surface-container);
-  color: var(--mat-sys-on-surface);
+.panel-collapse {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.panel-expand {
+  flex: 0 0 auto;
+  color: var(--mat-sys-on-surface-variant);
 }
 
 .loading-section {
@@ -799,4 +799,150 @@
       opacity: 0.7;
     }
   }
+}
+
+/* Rejected-token notice under the pair-list input */
+.rejection-notice {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--mat-sys-error);
+  border-radius: 4px;
+  background: var(--mat-sys-error-container);
+  font-size: 11px;
+  max-height: 140px;
+  overflow-y: auto;
+
+  .rejection-title {
+    font-weight: 600;
+    color: var(--mat-sys-on-error-container);
+    margin-bottom: 4px;
+  }
+
+  .rejection-item {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 1px 0;
+  }
+
+  .rejection-raw {
+    font-family: monospace;
+    color: var(--mat-sys-on-error-container);
+    word-break: break-all;
+  }
+
+  .rejection-reason {
+    color: var(--mat-sys-on-error-container);
+    opacity: 0.75;
+    flex-shrink: 0;
+    margin-left: auto;
+    text-align: right;
+  }
+}
+
+/* Plotted-set chips strip above the chart */
+.plotted-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  flex-wrap: wrap;
+}
+
+.plotted-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.plotted-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container);
+  font-size: 11px;
+  color: var(--mat-sys-on-surface);
+  overflow: hidden;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high);
+  }
+
+  &.highlighted {
+    border-color: var(--mat-sys-primary);
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
+
+  &.error {
+    border-color: var(--mat-sys-error);
+    color: var(--mat-sys-error);
+  }
+
+  .chip-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px 3px 8px;
+    border: none;
+    background: transparent;
+    font-size: inherit;
+    font-family: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .chip-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .chip-label {
+    white-space: nowrap;
+  }
+
+  .chip-spinner {
+    flex-shrink: 0;
+  }
+
+  .chip-error-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: var(--mat-sys-error);
+  }
+
+  .chip-open-date {
+    font-size: 10px;
+    opacity: 0.65;
+  }
+
+  .chip-remove {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 14px;
+    line-height: 1;
+    padding: 3px 6px 3px 4px;
+    cursor: pointer;
+    opacity: 0.55;
+    align-self: stretch;
+
+    &:hover {
+      opacity: 1;
+      background: var(--mat-sys-surface-container-highest);
+    }
+  }
+}
+
+.plotted-progress {
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+  margin-left: auto;
 }

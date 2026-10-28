@@ -8,6 +8,8 @@
 import { Component, inject, computed, signal, viewChild, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -29,6 +31,14 @@ import {
   OptionsContractChartComponent,
   type PlottedChartContract,
 } from '../../components/options-contract-chart/options-contract-chart.component';
+import { plottedSeriesColor } from '../../components/options-contract-chart/options-contract-chart-series.builder';
+import {
+  parsePlottedEntries,
+  type RejectedEntry,
+  type RejectedReason,
+} from '../../utils/plotted-pairs.util';
+import type { PlottedContract } from '../../stores/plotted-contracts-feature';
+import { ConfirmDialogComponent } from '../option-chain-pct-change/components/confirm-dialog.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { formatUtcDate } from '../../utils/utils';
 import {
@@ -40,6 +50,10 @@ import {
 } from '../../utils/contract-length.utils';
 import type { ContractCatalogEntry, LengthBucket } from '@options-contract/contracts';
 import { OptionType, type ParsedOccContractId } from '@options-contract/contracts';
+
+/** Pasting more than this many contracts asks for confirmation first — the
+ *  chart stays usable but the fetch batch and line count get unwieldy. */
+const LARGE_LIST_WARN_THRESHOLD = 50;
 
 type SortField = 'type' | 'strike' | 'expiration' | 'contractLengthDays' | 'observationCount' | 'delta';
 interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
@@ -74,9 +88,13 @@ interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
 export class OptionChartComponent implements OnInit, OnDestroy {
   readonly store = inject(OptionsContractViewerStore);
   readonly uiStateService = inject(UiStateService);
+  private readonly dialog = inject(MatDialog);
   readonly chartRef = viewChild(OptionsContractChartComponent);
 
   occIdInput = '';
+
+  /** Tokens rejected by the last pair-list parse, shown as a notice. */
+  readonly rejectedEntries = signal<RejectedEntry[]>([]);
 
   /** Whether the left control panel is open. */
   controlPanelOpen = true;
@@ -474,16 +492,93 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.uiStateService.setFullscreen(false);
   }
 
-  onLoad(): void {
-    const id = this.occIdInput.trim().toUpperCase();
-    if (!id) return;
-    this.store.loadContract(id, this.store.contractLength());
+  /** Chips strip — every plotted contract in insertion order. */
+  readonly chipContracts = computed<PlottedContract[]>(() => this.store.plottedList());
+
+  /** Chip swatch index — position among non-error contracts, which is what
+   *  the chart's series palette indexes over. */
+  readonly chipColorIndex = computed(() => {
+    const map = new Map<string, number>();
+    this.store.plottedList()
+      .filter((c) => c.status !== 'error')
+      .forEach((c, i) => map.set(c.entry.contractId, i));
+    return map;
+  });
+
+  /** Chip swatch color — same palette entry as its chart series (errored
+   *  contracts have no series and fall back to the first palette color). */
+  chipColor(contract: PlottedContract): string {
+    return plottedSeriesColor(this.chipColorIndex().get(contract.entry.contractId) ?? 0);
   }
 
-  onKeyPress(event: KeyboardEvent): void {
-    if (event.key === 'Enter') {
-      this.onLoad();
+  /** Chip text — readable strike/type/expiry, same rule as the series label. */
+  chipLabel(contract: PlottedContract): string {
+    return this.plottedLabel(contract.parsed, contract.entry.contractId);
+  }
+
+  /** Chip hover/click emphasizes its line in the set view — visual only,
+   *  no refetch, every plotted series stays on the chart. Pointer leave or
+   *  focus loss clears the emphasis. Error chips have no line to light. */
+  onChipEnter(contract: PlottedContract): void {
+    if (contract.status !== 'error') {
+      this.store.setHoveredContract(contract.entry.contractId);
     }
+  }
+
+  onChipLeave(): void {
+    this.store.setHoveredContract(null);
+  }
+
+  onChipRemove(contract: PlottedContract): void {
+    this.store.removePlotted(contract.entry.contractId);
+  }
+
+  rejectionReasonLabel(reason: RejectedReason): string {
+    switch (reason) {
+      case 'invalid-contract':
+        return 'not a valid contract ID';
+      case 'invalid-date':
+        return 'invalid date (use YYYY-MM-DD)';
+      case 'wrong-underlying':
+        return `not a ${(this.symbol() || '').trim().toUpperCase()} contract`;
+    }
+  }
+
+  /** Load dispatch: a single bare OCC ID keeps the existing single-contract
+   *  view; anything else — dated pairs or a multi-line list — goes through
+   *  the plotted-set path. Rejected tokens are surfaced, valid entries still
+   *  load. */
+  async onLoad(): Promise<void> {
+    const text = this.occIdInput;
+    // Re-entrancy guard: a second click while the >50 confirm is open would
+    // stack another dialog and spawn a concurrent batch.
+    if (!text.trim() || this.dialog.openDialogs.length) return;
+
+    const { entries, rejected } = parsePlottedEntries(text, this.symbol());
+    this.rejectedEntries.set(rejected);
+    if (entries.length === 0) return;
+
+    if (entries.length === 1 && entries[0].openDate === null && rejected.length === 0) {
+      this.store.loadContract(entries[0].contractId, this.store.contractLength());
+      return;
+    }
+
+    if (entries.length > LARGE_LIST_WARN_THRESHOLD) {
+      const ok = await firstValueFrom(
+        this.dialog
+          .open(ConfirmDialogComponent, {
+            data: {
+              message: `This will load ${entries.length} option contracts — the chart may be slow and hard to read. Load all ${entries.length}?`,
+              confirmLabel: 'Load',
+              cancelLabel: 'Cancel',
+            },
+          })
+          .afterClosed(),
+      );
+      if (!ok) return;
+    }
+
+    await this.store.loadPlotted(entries);
   }
 
   /** Search for available contracts using the catalog endpoint with builder + catalog filters. */
@@ -506,7 +601,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     const id = entry.contractId.trim().toUpperCase();
     if (!id) return;
     this.occIdInput = id;
-    this.onLoad();
+    void this.onLoad();
   }
 
   /** Set contract length + bucket filter and re-query catalog. */

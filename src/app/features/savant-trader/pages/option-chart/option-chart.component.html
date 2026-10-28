@@ -8,6 +8,14 @@
     >
       <div class="panel-header">
         <span class="panel-title">Contract</span>
+        <button
+          mat-icon-button
+          class="panel-collapse"
+          (click)="controlPanelOpen = false"
+          matTooltip="Hide panel"
+        >
+          <mat-icon>chevron_left</mat-icon>
+        </button>
       </div>
 
       <!-- Builder Controls -->
@@ -187,14 +195,15 @@
         }
 
         <mat-form-field appearance="outline" class="panel-field">
-          <mat-label>OCC Contract ID</mat-label>
-          <input
+          <mat-label>OCC Contract ID(s)</mat-label>
+          <textarea
             matInput
+            rows="4"
             [(ngModel)]="occIdInput"
-            (keyup)="onKeyPress($event)"
-            placeholder="e.g. QQQ240719C00450000"
-            [disabled]="store.loading()"
-          />
+            placeholder="e.g. QQQ240719C00450000&#10;or one per line: 2026-06-10,QQQ260619P00470000"
+            [disabled]="store.loading() || !!store.plottedLoadProgress()"
+          ></textarea>
+          <mat-hint>One per line — bare ID or YYYY-MM-DD,ID</mat-hint>
         </mat-form-field>
 
         <button
@@ -202,10 +211,22 @@
           color="primary"
           class="panel-full"
           (click)="onLoad()"
-          [disabled]="store.loading() || !occIdInput.trim()"
+          [disabled]="store.loading() || !!store.plottedLoadProgress() || !occIdInput.trim()"
         >
           Load {{ contractLength() ? '(' + lengthLabel() + ')' : '' }}
         </button>
+
+        @if (rejectedEntries().length > 0) {
+        <div class="rejection-notice" role="alert">
+          <div class="rejection-title">{{ rejectedEntries().length }} entr{{ rejectedEntries().length === 1 ? 'y' : 'ies' }} skipped:</div>
+          @for (r of rejectedEntries(); track $index) {
+          <div class="rejection-item">
+            <span class="rejection-raw">{{ r.raw }}</span>
+            <span class="rejection-reason">{{ rejectionReasonLabel(r.reason) }}</span>
+          </div>
+          }
+        </div>
+        }
       </div>
 
       @if (store.contractData(); as data) {
@@ -259,16 +280,17 @@
     </mat-sidenav>
 
     <mat-sidenav-content class="chart-content">
-      <button
-        mat-icon-button
-        class="panel-toggle"
-        (click)="controlPanelOpen = !controlPanelOpen"
-        [matTooltip]="controlPanelOpen ? 'Hide panel' : 'Show panel'"
-      >
-        <mat-icon>{{ controlPanelOpen ? 'chevron_left' : 'chevron_right' }}</mat-icon>
-      </button>
-
       <div class="contract-header-bar">
+        @if (!controlPanelOpen) {
+        <button
+          mat-icon-button
+          class="panel-expand"
+          (click)="controlPanelOpen = true"
+          matTooltip="Show panel"
+        >
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+        }
         @if (store.contractData(); as data) {
         <span class="ch-id">{{ data.contractID }}</span>
         <span class="ch-sep">|</span>
@@ -396,6 +418,54 @@
         }
       </div>
 
+      @if (chipContracts().length > 0) {
+      <div class="plotted-chips-row">
+        <div class="plotted-chips">
+          @for (c of chipContracts(); track c.entry.contractId) {
+          <span
+            class="plotted-chip"
+            [class.highlighted]="store.hoveredContractId() === c.entry.contractId"
+            [class.error]="c.status === 'error'"
+          >
+            <button
+              type="button"
+              class="chip-main"
+              (mouseenter)="onChipEnter(c)"
+              (mouseleave)="onChipLeave()"
+              (focus)="onChipEnter(c)"
+              (blur)="onChipLeave()"
+              (click)="onChipEnter(c)"
+              [matTooltip]="c.status === 'error' ? (c.error ?? 'Load failed') : 'Highlights this line'"
+            >
+              @if (c.status !== 'error') {
+              <span class="chip-swatch" [style.background-color]="chipColor(c)"></span>
+              }
+              <span class="chip-label">{{ chipLabel(c) }}</span>
+              @if (c.status === 'loading') {
+              <mat-progress-spinner mode="indeterminate" diameter="12" class="chip-spinner"></mat-progress-spinner>
+              }
+              @if (c.status === 'error') {
+              <mat-icon class="chip-error-icon">error_outline</mat-icon>
+              }
+              @if (c.entry.openDate) {
+              <span class="chip-open-date">{{ c.entry.openDate }}</span>
+              }
+            </button>
+            <button
+              type="button"
+              class="chip-remove"
+              [attr.aria-label]="'Remove ' + c.entry.contractId"
+              (click)="onChipRemove(c)"
+            >×</button>
+          </span>
+          }
+        </div>
+        @if (store.plottedLoadProgress(); as progress) {
+        <span class="plotted-progress">Loaded {{ progress.done }} / {{ progress.total }}</span>
+        }
+      </div>
+      }
+
       @if (store.loading()) {
       <div class="loading-section">
         <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
@@ -420,6 +490,7 @@
         [showGreeks]="store.showGreeks()"
         [showVolumeOI]="store.showVolumeOI()"
         [padDays]="store.chartPadDays()"
+        [highlightedContractId]="store.hoveredContractId()"
       ></app-options-contract-chart>
       }
 

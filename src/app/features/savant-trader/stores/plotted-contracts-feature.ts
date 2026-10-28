@@ -159,6 +159,11 @@ export function withPlottedContracts() {
           toFetch.push(parsed);
         }
 
+        // A set load supersedes any focused single contract — otherwise the
+        // stale focus keeps the chart on the old contract while the new
+        // set's chips appear. Cleared unconditionally: Load always means
+        // "show this set", even when every entry was already plotted.
+        patchState(store, { chartFocusContractId: null });
         if (Object.keys(additions).length) {
           patchState(store, { plottedContracts: { ...s.plottedContracts(), ...additions } });
         }
