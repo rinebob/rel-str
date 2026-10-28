@@ -239,6 +239,9 @@ export const ScannerStore = signalStore(
         service.previewScanRaw(recipe).then(
           (result) => {
             if (recipeSeqs.get(recipe.id) !== seq) return;
+            // Latest-run cache — discovery path only (#1257). Warn-only
+            // inside the service, so a cache failure can't fail the launch.
+            void service.saveLatestRun(recipe.id, result);
             patchRun(recipe.id, {
               status: 'success',
               result,
@@ -345,6 +348,11 @@ export const ScannerStore = signalStore(
               throw new Error('tracked universe is empty');
             }
             const preview = { results: result.rows, total_items: result.totalItems };
+            // Latest-run cache — same discovery seam as launchRecipe;
+            // evaluateTracked deliberately never writes it (#1257).
+            // Caveat: runSeq/recipeSeqs are disjoint supersession domains
+            // (fine while runScan isn't wired next to the auto-run wave).
+            void service.saveLatestRun(recipe.id, preview);
             const rows = parseScanRows(preview);
             const compare = compareDiscovery(
               rows,

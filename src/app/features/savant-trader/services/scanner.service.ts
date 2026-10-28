@@ -9,6 +9,9 @@
  *   every scanner-covered symbol returns with its metric values) then the
  *   filtered pass (passers only). The store unions both `unevaluated`
  *   lists and hands both row sets to `comparePrune`.
+ * - Latest-run cache: discovery successes also persist to
+ *   `st-scanner/latest-runs/items/{recipeId}` — one doc per recipe,
+ *   warn-only so a cache failure can't fail the run (#1232/#1257).
  * - Proposals persist to `st-scanner/proposals/items` (anchored pattern,
  *   #1132); wire shape via the shared `serializeCurationProposal`,
  *   reads validated by `parseCurationProposal` — drift-tolerant on both
@@ -30,15 +33,16 @@ import {
   getDocs,
   orderBy,
   query,
+  setDoc,
 } from '@angular/fire/firestore';
 import { firstValueFrom } from 'rxjs';
 
 import { RobinhoodMcpClient } from '../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import type { ScanRunResult, UniverseEvalResult } from '../../../core/robinhood-mcp/robinhood-mcp-client.service';
-import type { CurationProposal, ScanRecipe } from '@st/scanner';
+import type { CurationProposal, ScanLatestRun, ScanRecipe } from '@st/scanner';
 import type { PreviewScanResult } from '@robinhood-mcp/contracts';
-import { parseCurationProposal, serializeCurationProposal } from '@st/scanner';
-import { stScannerProposalDocPath, stScannerProposalsPath } from '@st/collections';
+import { isScanTruncated, parseCurationProposal, serializeCurationProposal, serializeScanLatestRun } from '@st/scanner';
+import { stScannerLatestRunDocPath, stScannerProposalDocPath, stScannerProposalsPath } from '@st/collections';
 import { requireUserId } from './firestore-helpers';
 
 /** A persisted proposal plus its Firestore doc id (history rows, openProposal). */
@@ -93,6 +97,40 @@ export class ScannerService {
       (done, total) => onProgress?.(total + done, total * 2),
     );
     return { coverage, matched };
+  }
+
+  // ── latest-run cache ───────────────────────────────────────────────────
+
+  /**
+   * Cache a discovery result as the recipe's latest run — one doc per
+   * recipeId (deterministic id → setDoc overwrite, #1232/#1257). Wired
+   * into the discovery paths only; evaluateTracked never calls it.
+   *
+   * Fire-and-forget by design: a cache failure warns, never fails the
+   * run — the scan result the user sees is unaffected either way.
+   */
+  async saveLatestRun(recipeId: string, result: PreviewScanResult): Promise<void> {
+    try {
+      const run: ScanLatestRun = {
+        recipeId,
+        ranAt: new Date().toISOString(),
+        totalItems: result.total_items,
+        truncated: isScanTruncated(result),
+        rows: result.results,
+      };
+      await this.authed(() =>
+        setDoc(
+          doc(this.firestore, stScannerLatestRunDocPath(recipeId)),
+          serializeScanLatestRun(run),
+        ),
+      );
+    } catch (e) {
+      // Warn-only — the cache must never fail a scan (construction is
+      // inside the try so even a malformed result can't reject a `void`
+      // call). serialize passes `columns` keys through unvalidated, so a
+      // recipe display name with a Firestore-illegal char lands here too.
+      console.warn('[ScannerService] saveLatestRun failed — run unaffected', e);
+    }
   }
 
   // ── proposals ──────────────────────────────────────────────────────────
