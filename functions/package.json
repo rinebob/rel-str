@@ -34,6 +34,7 @@
     "test:st-position-groups": "tsx --test ../tests/functions/position-groups/st-position-group-writer.test.ts ../tests/functions/position-groups/live-position-join.test.ts ../tests/functions/position-groups/cohort-mapper.test.ts",
     "test:st-run-completion": "tsx --test ../tests/functions/st-run-completion.test.ts",
     "test:st-signals": "tsx --test ../tests/functions/signal-entries-from-doc.test.ts ../tests/functions/signal-date-writer.test.ts ../tests/functions/st-signals-backfill-1001.test.ts",
+    "test:options-replay": "tsx --test ../tests/functions/options-replay/pick-doc-client.test.ts",
     "probe:rh-agent-mcp-auth": "tsx src/rh-agent-mcp/diagnostics/run-local-oauth-bootstrap.ts",
     "probe:rh-agent-mcp-tool": "tsx src/rh-agent-mcp/diagnostics/run-tool-observation.ts",
     "serve:observation": "tsx src/rh-agent-mcp/local-api/start-observation-api.ts",
