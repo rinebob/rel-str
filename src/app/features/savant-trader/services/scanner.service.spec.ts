@@ -14,6 +14,7 @@ jest.mock('@angular/fire/firestore', () => ({
   doc: jest.fn((_fs: unknown, path: string) => ({ path })),
   getDoc: jest.fn(() => Promise.resolve(mockGetDoc)),
   getDocs: jest.fn(() => Promise.resolve(mockDocs)),
+  setDoc: jest.fn(() => Promise.resolve()),
   orderBy: jest.fn((field: string, dir: string) => ({ orderBy: [field, dir] })),
   query: jest.fn((ref: unknown, ...constraints: unknown[]) => ({ ref, constraints })),
 }));
@@ -25,7 +26,7 @@ jest.mock('@angular/fire/auth', () => ({
 
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
-import { addDoc, collection, Firestore, orderBy, query } from '@angular/fire/firestore';
+import { addDoc, collection, doc, Firestore, orderBy, query, setDoc } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 
 import { authState } from '@angular/fire/auth';
@@ -33,7 +34,8 @@ import { authState } from '@angular/fire/auth';
 import { ScannerService } from './scanner.service';
 import { RobinhoodMcpClient } from '../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import type { CurationProposal, ScanRecipe } from '@st/scanner';
-import { stScannerProposalsPath } from '@st/collections';
+import type { PreviewScanResult } from '@robinhood-mcp/contracts';
+import { stScannerLatestRunDocPath, stScannerProposalsPath } from '@st/collections';
 
 const recipe = (over: Partial<ScanRecipe> = {}): ScanRecipe => ({
   id: 'quality-mid',
@@ -182,5 +184,89 @@ describe('ScannerService (#1139)', () => {
     mockGetDoc.data = () => proposal();
     const found = await service.getProposal('good');
     expect(found?.proposal.dropCandidates).toEqual(['DROP']);
+  });
+
+  it('saveLatestRun writes the serialized run to the deterministic recipeId doc (#1257)', async () => {
+    const result: PreviewScanResult = {
+      results: [
+        { ticker: 'NEWCO', instrument_id: 'i-NEWCO', instrument_type: 'EQUITY', columns: { ROE: '0.3' } },
+      ],
+      total_items: 1,
+    };
+    await service.saveLatestRun('quality-mid', result);
+    expect(doc).toHaveBeenCalledWith(
+      expect.anything(),
+      stScannerLatestRunDocPath('quality-mid'),
+    );
+    expect(setDoc).toHaveBeenCalledTimes(1);
+    // Two args only — no options object; a `{merge: true}` regression
+    // would resurrect stale fields on a schema change.
+    expect((setDoc as jest.Mock).mock.calls[0]).toHaveLength(2);
+    const written = (setDoc as jest.Mock).mock.calls[0][1];
+    expect(written['recipeId']).toBe('quality-mid');
+    expect(written['totalItems']).toBe(1);
+    expect(written['truncated']).toBe(false);
+    expect(written['rows']).toEqual(result.results);
+    expect(Number.isNaN(Date.parse(written['ranAt']))).toBe(false);
+  });
+
+  it('saveLatestRun populates truncated via isScanTruncated (#1257)', async () => {
+    // total_items > results.length → the wire count says more rows exist
+    // than were returned.
+    const result: PreviewScanResult = {
+      results: [{ ticker: 'A', instrument_id: 'i-A', instrument_type: 'EQUITY', columns: {} }],
+      total_items: 250,
+    };
+    await service.saveLatestRun('quality-mid', result);
+    expect(setDoc).toHaveBeenCalledTimes(1);
+    expect((setDoc as jest.Mock).mock.calls[0][1]['truncated']).toBe(true);
+  });
+
+  it('saveLatestRun warns and resolves on write failure — never fails the run (#1257)', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      (setDoc as jest.Mock).mockRejectedValueOnce(new Error('PERMISSION_DENIED'));
+      await expect(
+        service.saveLatestRun('quality-mid', { results: [], total_items: 0 }),
+      ).resolves.toBeUndefined();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('[ScannerService]'),
+        expect.anything(),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('saveLatestRun warns without writing when the result is malformed — construction sits inside the guard (#1257)', async () => {
+    // {} lacks .results — isScanTruncated/record construction must throw
+    // inside the try so the voided call-site promise can never reject.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(
+        service.saveLatestRun('quality-mid', {} as PreviewScanResult),
+      ).resolves.toBeUndefined();
+      expect(setDoc).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('[ScannerService]'),
+        expect.anything(),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('saveLatestRun warns without writing when unauthenticated (#1257)', async () => {
+    (authState as jest.Mock).mockReturnValueOnce(of(null));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(
+        service.saveLatestRun('quality-mid', { results: [], total_items: 0 }),
+      ).resolves.toBeUndefined();
+      expect(setDoc).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

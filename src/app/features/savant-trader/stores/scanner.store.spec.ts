@@ -32,6 +32,7 @@ describe('ScannerStore (#1139)', () => {
     previewScanRaw: jest.Mock;
     evaluateTracked: jest.Mock;
     saveProposal: jest.Mock;
+    saveLatestRun: jest.Mock;
     listProposals: jest.Mock;
     getProposal: jest.Mock;
   };
@@ -43,6 +44,7 @@ describe('ScannerStore (#1139)', () => {
       previewScanRaw: jest.fn(),
       evaluateTracked: jest.fn(),
       saveProposal: jest.fn(() => Promise.resolve('prop-1')),
+      saveLatestRun: jest.fn(() => Promise.resolve()),
       listProposals: jest.fn(() => Promise.resolve([])),
       getProposal: jest.fn(() => Promise.resolve(null)),
     };
@@ -89,6 +91,46 @@ describe('ScannerStore (#1139)', () => {
     expect(store.matchedCount()).toBe(2);
     expect(store.runKind()).toBe('scan');
     expect(store.running()).toBe(false);
+  });
+
+  it('runScan success caches the latest run via the preview adapter (#1257)', async () => {
+    const result = {
+      totalItems: 2,
+      rows: [wireRow('KEEP', { ROE: '0.2' }), wireRow('NEWCO', { ROE: '0.3' })],
+      filtersApplied: [],
+    };
+    service.runScan.mockResolvedValue(result);
+    await store.runScan();
+    // Same adapter shape the store already builds for parseScanRows —
+    // saveLatestRun takes wire-shaped PreviewScanResult.
+    expect(service.saveLatestRun).toHaveBeenCalledWith(
+      store.activeRecipe()!.id,
+      { results: result.rows, total_items: result.totalItems },
+    );
+    expect(service.saveLatestRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshRecipe success caches the wire result on the discovery path (#1257)', async () => {
+    const recipe = SCANNER_RECIPES[0];
+    const wire: PreviewScanResult = {
+      results: [wireRow('NEWCO', { ROE: '0.3' })],
+      total_items: 1,
+    };
+    service.previewScanRaw.mockResolvedValue(wire);
+    store.refreshRecipe(recipe.id);
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(service.saveLatestRun).toHaveBeenCalledWith(recipe.id, wire);
+    expect(service.saveLatestRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('evaluateTracked never writes the latest-run cache (#1257)', async () => {
+    store.selectRecipe('quality-mid');
+    service.evaluateTracked.mockResolvedValue({
+      coverage: { rows: [wireRow('KEEP')], unevaluated: [], filtersApplied: [] },
+      matched: { rows: [wireRow('KEEP', { ROE: '0.2' })], unevaluated: [], filtersApplied: [] },
+    });
+    await store.evaluateTracked();
+    expect(service.saveLatestRun).not.toHaveBeenCalled();
   });
 
   it('runScan merges the response echo over the static columnLookup', async () => {
@@ -214,6 +256,9 @@ describe('ScannerStore (#1139)', () => {
     await slow;
     expect(store.compare()).toBe(newer); // stale result dropped
     expect(store.rows().some((r) => r.symbol === 'STALE')).toBe(false);
+    // Stale scan can't write the latest-run cache — it drops at the
+    // token guard before the write fires (#1257).
+    expect(service.saveLatestRun).not.toHaveBeenCalled();
   });
 
   it('evaluateTracked errors on an empty tracked universe', async () => {
@@ -233,6 +278,8 @@ describe('ScannerStore (#1139)', () => {
     expect(store.error()?.category).toBe(ToolExecutionErrorCategory.AUTH);
     expect(store.requiresReauth()).toBe(true);
     expect(store.running()).toBe(false);
+    // A failed run must not cache a nonexistent result (#1257).
+    expect(service.saveLatestRun).not.toHaveBeenCalled();
   });
 
   it('openProposal prefers the cached list entry, else fetches by id', async () => {
@@ -371,6 +418,9 @@ describe('ScannerStore (#1139)', () => {
     await store.runScan();
     expect(store.error()?.message).toContain('empty');
     expect(service.saveProposal).not.toHaveBeenCalled();
+    // The write sits after the empty-universe throw — a refused run
+    // can't cache a phantom result either (#1257).
+    expect(service.saveLatestRun).not.toHaveBeenCalled();
     expect(store.compare()).toBeNull();
   });
 
@@ -453,6 +503,7 @@ describe('ScannerStore run-all machinery (#1198)', () => {
     previewScanRaw: jest.Mock;
     evaluateTracked: jest.Mock;
     saveProposal: jest.Mock;
+    saveLatestRun: jest.Mock;
     listProposals: jest.Mock;
     getProposal: jest.Mock;
   };
@@ -476,6 +527,7 @@ describe('ScannerStore run-all machinery (#1198)', () => {
       previewScanRaw: jest.fn(),
       evaluateTracked: jest.fn(),
       saveProposal: jest.fn(() => Promise.resolve('prop-1')),
+      saveLatestRun: jest.fn(() => Promise.resolve()),
       listProposals: jest.fn(() => Promise.resolve([])),
       getProposal: jest.fn(() => Promise.resolve(null)),
     };
@@ -571,6 +623,8 @@ describe('ScannerStore run-all machinery (#1198)', () => {
     // The single-run error channel is untouched — run-all failures are
     // per-recipe, not page errors.
     expect(store.error()).toBeNull();
+    // The failed recipe doesn't cache — every other recipe writes once (#1257).
+    expect(service.saveLatestRun).toHaveBeenCalledTimes(SCANNER_RECIPES.length - 1);
   });
 
   it('an auth-shaped failure sets errorKind auth and flips authFailed', async () => {
@@ -590,6 +644,8 @@ describe('ScannerStore run-all machinery (#1198)', () => {
     await jest.advanceTimersByTimeAsync(0);
     expect(store.runs()[recipeIds()[0]].errorKind).toBe('other');
     expect(store.authFailed()).toBe(true); // other entries still auth
+    // No success landed anywhere — nothing may reach the cache (#1257).
+    expect(service.saveLatestRun).not.toHaveBeenCalled();
   });
 
   it('a non-AUTH RobinhoodMcpError is not auth — the category, not the type, decides', async () => {
@@ -741,6 +797,15 @@ describe('ScannerStore run-all machinery (#1198)', () => {
     await jest.advanceTimersByTimeAsync(0);
     expect(store.runs()[id].result?.results[0].ticker).toBe('FRESH');
     expect(store.runs()[id].status).toBe('success');
+    // Stale completion can't write the cache either — only the
+    // superseding launch's result reached saveLatestRun (#1257).
+    expect(service.saveLatestRun).toHaveBeenCalledTimes(1);
+    expect(service.saveLatestRun).toHaveBeenCalledWith(
+      id,
+      expect.objectContaining({
+        results: [expect.objectContaining({ ticker: 'FRESH' })],
+      }),
+    );
   });
 
   it('run state persists in the root store — entries survive across page lifetimes', async () => {
