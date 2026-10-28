@@ -9,12 +9,18 @@
 - [Savant Design System] 1024-1213_DOCS-DESIGN-SYSTEM: #1213 CODE-REVIEW (PASS, 2 rounds) + #1298 UAT (automated green; S1–S9 visual deferred to phase-level pass)
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Archive+delete op (atomic writes, validated delete gate, resumable), positional parity relay, raw-quotes backfill, 48-test legacy-roots pin spec
 - [ST Firestore Reorg] 984-1013_DOCS-DATA-PIPELINE: IMPL/TEST as-built sync, st-cloud-function README update, #1013 CODE-REVIEW (PASS, 1 round) + #1237 UAT (Complete, 8/8)
+- [ST Firestore Reorg] 984-1159_BE-IMPL-DATA-PIPELINE: st-runs-symbols-cutover-1159 pin spec — ingest jobs/run-ids split, writer dual refs, service path contracts, TTL membership
+- [ST Firestore Reorg] 984-1159_BE-IMPL-DATA-PIPELINE: verbatim migrator (updateTime direction guard for post-deploy straggler re-runs) + parity relay with empty-legacy floors — 245 runs, 24,076 jobs, 926 symbols applied, 9/9 green
+- [ST Firestore Reorg] 984-1159_DOCS-DATA-PIPELINE: #1159 CODE-REVIEW (PASS, 1 round remediated) + #1310 UAT (Complete; relay caught overnight PDR drift → straggler re-sync) + as-built entries
 
 ### Changed
 - [Savant Design System] 1024-1213_FE-IMPL-DESIGN-SYSTEM: Literal sweep — global/styles layer: `border1`/`rsButtonOne`/`customScrollbar` tokenized, `--mat-sys` blocks tagged exceptions + completed to 34 keys, never-defined vars fixed (paper-trade `.mono`, 5 MUI-style vars on sync-chart-view); inventory script `accent` whitelist
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Canonical-only data paths — order-intents/instances/symbol-lists fallbacks + dual-writes removed; dead constants swept
 - [ST Firestore Reorg] 984-1013_CONFIG-CONFIG-DATA-PIPELINE: Retired legacy rules ACLs (incl. portfolio/{anchor}) + 22 dead index entries
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Legacy-path scrubs in surviving scripts — migrate-1003 settle pass, -564 verifier routed paths, spec rewrites
+- [ST Firestore Reorg] 984-1159_BE-IMPL-DATA-PIPELINE: doc-level Firestore traffic cut to st-runs/st-symbols — run create/enqueue/progress/TTL/callables, symbol-doc reads/writes, SignalDateWriter ref split (subcollections stay legacy until #1019)
+- [ST Firestore Reorg] 984-1159_FE-IMPL-DATA-PIPELINE: FE doc reads repointed — run.service→st-runs; signal.service/chart-review/chart-view→st-symbols; Collection.ST_RUNS retired
+- [ST Firestore Reorg] 984-1159_BE-CHORE-DATA-PIPELINE: ops/verify scripts repointed off frozen legacy roots (916/918 meta legs, replay-missing, backfills, 1013 relay labels)
 
 ### Removed
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Soak mirrors + occurrence-decision sweeper (8 functions undeployed; 26 legacy roots, ~317k docs, archived + deleted)

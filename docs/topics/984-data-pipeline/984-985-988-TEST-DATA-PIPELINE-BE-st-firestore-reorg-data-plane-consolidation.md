@@ -29,6 +29,19 @@
   script), plus the mirror/sweeper file deletions. Parity gate: `scripts/verify/
   data-pipeline-legacy-roots-1013.ts` FAILs if any legacy doc id/refId lacks canonical
   coverage — archive+delete must not run against a FAIL.
+- st-runs/st-symbols cutover (#1159): `signal-date-writer.test.ts` pins the
+  split — gate fields → `st-symbols`, run-ids/signal-history stay on the legacy
+  parent; `run-jobs-ttl-1010.test.ts` pins `ST_RUN_JOB_ROOTS == ['st-runs']`;
+  `legacy-roots-cleanup-1013.test.ts` adds the `'savant-trader/data/runs'`
+  literal needle; FE `st-path-cutover-1014.spec.ts` pins `Collection.ST_RUNS`
+  removed + `ST_SYMBOLS` still legacy-bound;
+  `st-runs-symbols-cutover-1159.test.ts` pins the split boundary — auto-paper
+  jobs off st-runs + run-ids off the legacy parent, the writer's two refs,
+  and `ST_RUN_JOB_ROOTS == ['st-runs']`. Parity gate:
+  `scripts/verify/data-pipeline-st-runs-symbols-1159.ts` — verbatim field-diff
+  on run docs + jobs + symbol docs, with empty-legacy floors so a
+  zero-evidence run FAILs rather than passing vacuously (green 9/9
+  as-built, re-verified post-review).
 
 ## Integration boundaries
 

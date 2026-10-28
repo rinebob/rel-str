@@ -10,7 +10,7 @@
 **Area:** BE  
 **Status:** Draft  
 **Created:** 2026-10-14  
-**Last Updated:** 2026-10-23  
+**Last Updated:** 2026-10-28  
 
 # IMPL — Data Plane Consolidation: BE (functions)
 
@@ -78,6 +78,19 @@ All writer/reader changes on the functions side, executed in phases that preserv
    `paper-trading/{accounts,trades,stats,raw-quotes}` items, `rh-agent-*` (except
    `rh-agent-credentials` — live auth). Still live — NOT retired: `savant-trader/data/{runs,symbols}`
    + subcollections (#1159/#1019), `paper-trading/cohorts`, `paper-trading/analysis-*` (#1160).)*
+   *(As-built #1159: doc-level traffic cut to `st-runs`/`st-symbols` — run create/
+   enqueue/progress/TTL/callables repointed; `SignalDateWriter` split so gate
+   fields write `st-symbols` while `run-ids`/`signal-history` stays on the legacy
+   parent until #1019 cuts readers to `st-signals`. `migrate-st-runs-symbols-1159.ts`
+   copied 244 runs + 23,150 jobs → `st-runs` and 926 symbol docs → `st-symbols`
+   verbatim (no subcollections); relay `verify/data-pipeline-st-runs-symbols-1159.ts`
+   green 9/9. Review round: `stageCopy` gained an updateTime direction guard —
+   post-deploy straggler re-runs SKIP canonical-newer docs (post-cutover drift)
+   instead of overwriting live state; relay legs gained empty-legacy floors so
+   a zero-evidence run fails rather than passing vacuously; the 916/918 meta
+   legs + replay/backfill ops scripts were repointed off the frozen root.
+   `savant-trader/data/runs` archive+delete pending at ship;
+   `savant-trader/data/symbols` retained as subcollection host until #1019.)*
 
 ## Dependencies
 
