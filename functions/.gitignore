@@ -20,3 +20,5 @@ scheduler.log
 # Backtest local output
 backtest-*.txt
 backtest-*.json
+# Ops-script archives + dumps (#1013 legacy-roots archive lives here)
+scripts/output/
