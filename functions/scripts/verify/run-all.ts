@@ -44,6 +44,7 @@ const scripts = [
   'data-pipeline-st-position-groups-1004.ts',
   'data-pipeline-run-jobs-ttl-1010.ts',
   'data-pipeline-legacy-roots-1013.ts',
+  'data-pipeline-st-runs-symbols-1159.ts',
   'paper-trading-analysis-1073-contracts.ts',
   'paper-trading-analysis-1074-csv-codec.ts',
   'paper-trading-analysis-1076-dataset-writer.ts',

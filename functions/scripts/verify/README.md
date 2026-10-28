@@ -49,6 +49,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #1010 | `data-pipeline-run-jobs-ttl-1010.ts` | st-run jobs TTL — sweeper export + per-run createdAt-predicate check + eligible/retained census by root + foreign census (read-only, needs ADC; backlog WARN expected until purge-st-run-jobs-1010 --apply) | inline usage in script header |
 | ~~#1011~~ | ~~`data-pipeline-new-list-1011.ts`~~ | retired in #1013 — legacy list root deleted (dual-root census is single-root now) | — |
 | #1013 | `data-pipeline-legacy-roots-1013.ts` | legacy-roots inventory + legacy⇄canonical parity before archive+delete — FAIL lists doc ids that would be lost (read-only, needs ADC) | inline usage in script header |
+| #1159 | `data-pipeline-st-runs-symbols-1159.ts` | st-runs/st-symbols ⇄ legacy runs/symbols verbatim parity (run docs + jobs + symbol docs field-diff; legacy subcollection counts as context; blocked-root inventory) — run after `migrate-st-runs-symbols-1159.ts --apply` (read-only, needs ADC) | inline usage in script header |
 | #1073 | `paper-trading-analysis-1073-contracts.ts` | analysis contracts — path helpers, manifest⇄schema bijection, dataset-index + slice doc round-trip on real Firestore (writes+deletes two verify-1073-* probe docs, needs ADC) | [paper-trading-analysis-1073.md](paper-trading-analysis-1073.md) |
 | #1074 | `paper-trading-analysis-1074-csv-codec.ts` | CSV codec — serialize→parse round-trip on real live trades, manifest-order header, byte-identical determinism, no literal-marker cells (read-only) | [paper-trading-analysis-1074.md](paper-trading-analysis-1074.md) |
 | #1076 | `paper-trading-analysis-1076-dataset-writer.ts` | dataset writer + callable — validation, generating→ready/failed index lifecycle on real Firestore, real GCS upload + byte readback, enqueue seam (writes+deletes verify-1076-* probes, needs ADC) | [paper-trading-analysis-1076.md](paper-trading-analysis-1076.md) |
@@ -99,6 +100,7 @@ npx tsx scripts/verify/{script-name}.ts
 31. **#1077** — `paper-trading-analysis-1077-live-snapshot.ts` (live snapshot dry-run: row-per-trade, cohorts, ind.*/strength.*/excursion on real prod; read-only)
 32. **#1079** — `paper-trading-analysis-dataset.ts` (consolidated relay: real-pass live dry-run + AMAT replay parity vs prototype CSV on frozen window; read-only — until the #1007 migration runs, its live leg reads the legacy trades path with a warn)
 37. **#1010** — `data-pipeline-run-jobs-ttl-1010.ts` (st-run jobs TTL census + sweeper/core audit; meaningful after the `cleanupStRunJobs` deploy; backlog WARN clears after `purge-st-run-jobs-1010.ts --apply`)
+38. **#1159** — `data-pipeline-st-runs-symbols-1159.ts` (st-runs/st-symbols ⇄ legacy verbatim parity; run after `migrate-st-runs-symbols-1159.ts --apply` — FAILs on missing/diffing docs or a blocked root gone empty)
 39. **#1141** — `rh-scanner-recipes-1098.ts` (every catalog recipe → live preview_scan: success + result/row shape, column-key WARN; needs local RH MCP session like 564/667 — fails without a token, that's env not script)
 
 <!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their

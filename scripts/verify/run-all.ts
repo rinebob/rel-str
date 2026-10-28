@@ -185,6 +185,13 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'st-runs/st-symbols ⇄ legacy parity',
+    file: 'verify/data-pipeline-st-runs-symbols-1159.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
   { name: 'paper-trading trade-exits contracts', file: 'paper-trading-contracts-665.ts', needsAccount: false },
   {
     name: 'swing config library',
