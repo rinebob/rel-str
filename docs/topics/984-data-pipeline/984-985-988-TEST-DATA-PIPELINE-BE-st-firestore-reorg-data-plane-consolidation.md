@@ -10,7 +10,7 @@
 **Area:** BE  
 **Status:** Draft  
 **Created:** 2026-10-14  
-**Last Updated:** 2026-10-14  
+**Last Updated:** 2026-10-23  
 
 # TEST — BE (functions)
 
@@ -23,6 +23,12 @@
 - jobs TTL: docs older than 7d deleted, newer preserved.
 - NEW backfill: additive-only (existing memberships untouched).
 - Migration scripts: 77 intents → tickets preserving `refId`/state/lineage; cohort→group `memberTradeIds` carried.
+- Legacy-roots retirement (#1013): `tests/functions/legacy-roots-cleanup-1013.test.ts` —
+  source-scan pin asserting every retired collection literal + mirror/trigger identifier
+  is absent from `functions/src` (a stray reference fails the suite, not the delete
+  script), plus the mirror/sweeper file deletions. Parity gate: `scripts/verify/
+  data-pipeline-legacy-roots-1013.ts` FAILs if any legacy doc id/refId lacks canonical
+  coverage — archive+delete must not run against a FAIL.
 
 ## Integration boundaries
 

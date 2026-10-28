@@ -10,7 +10,7 @@
 **Area:** BE  
 **Status:** Draft  
 **Created:** 2026-10-14  
-**Last Updated:** 2026-10-14  
+**Last Updated:** 2026-10-23  
 
 # IMPL — Data Plane Consolidation: BE (functions)
 
@@ -66,6 +66,18 @@ All writer/reader changes on the functions side, executed in phases that preserv
 2. NEW-list backfill: additive — zero-membership tracked symbols → `{uid}_NEW`.
 3. Security rules + `firestore.indexes.json` for new paths (st-signals by marketDate/status; tickets by mode/state/origin refs; trades by positionGroupId).
 4. Legacy deletion (final phase, after diffs): `savant-trader/data/*`, `rh-agent-*`, `options-strategy-*`.
+   *(As-built #1013: soak mirrors + sweeper removed and undeployed — `orderIntentsMirror`,
+   `portfolioItemsMirror`, `stBacktest{Runs,Permutations}Mirror`, `tradingConfigMirror`,
+   `symbolListsMirror`, `stStatusMirror`, `cleanupStOccurrenceDecisions`; legacy fallbacks
+   dropped from `getTicketDoc`, `addSymbolToDefaultList`, `strategy-instance-repository`,
+   `position-repository`; retired ACLs + index entries removed; parity relay
+   `verify/data-pipeline-legacy-roots-1013.ts` + archive/delete op
+   `scripts/archive-legacy-roots-1013.ts` (dry-run default). Retired: `order-intents`,
+   `review-list`, `status`, `symbol-lists`, `trading-config`, `occurrence-decisions`,
+   `symbol-meta`, `options-strategy-*`, `portfolio` items, `backtest-*`,
+   `paper-trading/{accounts,trades,stats,raw-quotes}` items, `rh-agent-*` (except
+   `rh-agent-credentials` — live auth). Still live — NOT retired: `savant-trader/data/{runs,symbols}`
+   + subcollections (#1159/#1019), `paper-trading/cohorts`, `paper-trading/analysis-*` (#1160).)*
 
 ## Dependencies
 

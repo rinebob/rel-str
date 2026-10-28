@@ -1,5 +1,20 @@
 # Changelog
 
+## [2026-10-28]
+
+### Added
+- [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Archive+delete op (atomic writes, validated delete gate, resumable), positional parity relay, raw-quotes backfill, 48-test legacy-roots pin spec
+- [ST Firestore Reorg] 984-1013_DOCS-DATA-PIPELINE: IMPL/TEST as-built sync, st-cloud-function README update, #1013 CODE-REVIEW (PASS, 1 round) + #1237 UAT (Complete, 8/8)
+
+### Changed
+- [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Canonical-only data paths — order-intents/instances/symbol-lists fallbacks + dual-writes removed; dead constants swept
+- [ST Firestore Reorg] 984-1013_CONFIG-CONFIG-DATA-PIPELINE: Retired legacy rules ACLs (incl. portfolio/{anchor}) + 22 dead index entries
+- [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Legacy-path scrubs in surviving scripts — migrate-1003 settle pass, -564 verifier routed paths, spec rewrites
+
+### Removed
+- [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Soak mirrors + occurrence-decision sweeper (8 functions undeployed; 26 legacy roots, ~317k docs, archived + deleted)
+- [ST Firestore Reorg] 984-1013_BE-CHORE-DATA-PIPELINE: Obsolete migration/parity scripts + specs unwired and deleted
+
 ## [2026-10-27]
 
 ### Added
