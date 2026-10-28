@@ -16,6 +16,7 @@
 import { OptionType } from '@options/common';
 import { TradeSide } from '@common';
 import {
+  isPickDocPick,
   OPTIONS_CONTRACT_LIST_STATUSES,
   OPTIONS_REPLAY_RUN_STATUSES,
 } from '@options-replay/contracts';
@@ -83,7 +84,9 @@ const doc: PickDocument = {
   missCount: 3,
   days: { '2025-12-15': day },
 };
-check('pick-doc day contractId', doc.days['2025-12-15'].contractId, 'QQQ260130P00578000');
+const dayEntry = doc.days['2025-12-15'];
+check('pick-doc day narrows to pick', isPickDocPick(dayEntry), true);
+check('pick-doc day contractId', isPickDocPick(dayEntry) ? dayEntry.contractId : null, 'QQQ260130P00578000');
 check('pick-doc day field count', Object.keys(day).length, 12);
 check('pick-doc meta fields', [doc.gridVersion, doc.pickCount, doc.missCount], [3, 64, 3]);
 
