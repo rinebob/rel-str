@@ -21,7 +21,7 @@ function scan(directory) {
         const value = match[0];
         const token = value.startsWith('var(');
         const colorContext = /color|background|border|fill|stroke|shadow|palette|gradient|rgba|hsla|#[\da-f]/i.test(line);
-        if (token && !colorContext && !/surface|primary|secondary|tertiary|error|success|warning|outline|ds-up|ds-down/.test(value)) continue;
+        if (token && !colorContext && !/surface|primary|secondary|tertiary|error|success|warning|outline|accent|ds-up|ds-down/.test(value)) continue;
         sites.push({ file: file.replaceAll('\\', '/'), line: index + 1, value,
           kind: token ? 'token-reference' : value.startsWith('#') ? 'literal' : 'expression',
           area: /chart|indicator|series|heatmap/.test(file) ? 'chart-indicator-review' : /order|ticket|position|signal/.test(file) ? 'trading-semantic-review' : 'app-chrome-review',

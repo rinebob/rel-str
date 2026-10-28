@@ -21,20 +21,20 @@
         height: 100%;
         text-align: center;
         padding: 2rem;
-        background: var(--background-paper);
+        background: var(--ds-surface-raised);
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
         p {
             font-size: 1.2rem;
-            color: var(--text-primary);
+            color: var(--ds-on-surface);
             margin: 0;
         }
     }
 
     .error-state {
         p {
-            color: var(--error-main);
+            color: var(--ds-error);
         }
     }
 
@@ -53,7 +53,7 @@
         .chart-one-container {
             width: 100%;
             margin-bottom: 1rem;
-            background: var(--background-paper);
+            background: var(--ds-surface-raised);
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             padding: 0.75rem;
@@ -87,18 +87,18 @@
                     .e-title {
                         font-size: 1rem;
                         font-weight: 500;
-                        fill: var(--text-primary) !important;
+                        fill: var(--ds-on-surface) !important;
                     }
                     
                     // Axis labels
                     .e-axis-title, .e-axis-label {
                         font-size: 0.8rem !important;
-                        fill: var(--text-secondary) !important;
+                        fill: var(--ds-on-surface-variant) !important;
                     }
                     
                     // Grid lines
                     .e-axis-line, .e-major-grid-line, .e-minor-grid-line {
-                        stroke: var(--divider-color) !important;
+                        stroke: var(--ds-border-subtle) !important;
                         opacity: 0.3;
                     }
                 }
@@ -143,7 +143,7 @@
             
             .chart-item {
                 flex: 0 0 380px; // Fixed width for each chart with flex-basis
-                background: var(--background-paper);
+                background: var(--ds-surface-raised);
                 border-radius: 8px;
                 box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
                 padding: 0.75rem;
@@ -166,7 +166,7 @@
                             .e-title {
                                 font-size: 0.9rem !important;
                                 font-weight: 500 !important;
-                                fill: var(--text-primary) !important;
+                                fill: var(--ds-on-surface) !important;
                             }
                             
                             // Legend
@@ -175,7 +175,7 @@
                                 
                                 .e-legend-text {
                                     font-size: 0.75rem !important;
-                                    fill: var(--text-secondary) !important;
+                                    fill: var(--ds-on-surface-variant) !important;
                                 }
                                 
                                 .e-series-icon {
@@ -187,12 +187,12 @@
                             // Axis labels
                             .e-axis-title, .e-axis-label {
                                 font-size: 0.7rem !important;
-                                fill: var(--text-secondary) !important;
+                                fill: var(--ds-on-surface-variant) !important;
                             }
                             
                             // Grid lines
                             .e-axis-line, .e-major-grid-line, .e-minor-grid-line {
-                                stroke: var(--divider-color) !important;
+                                stroke: var(--ds-border-subtle) !important;
                                 opacity: 0.2;
                             }
                             

@@ -1,13 +1,29 @@
-$axis-label-fallback: #888;
-
+// Legacy --theme-* aliases re-pointed at the --ds-* layer (#1213 literal
+// sweep). Consumers migrate to the --ds-* names directly in the
+// feature-area sweeps (#1214+). Several of these vars were referenced by
+// consumers but NEVER defined — they silently used light-tuned fallbacks
+// (heatmaps) or dropped the declaration entirely (dashboard-v3's
+// var(--theme-primary) buttons); defining them here fixes real dark-mode
+// bugs, not just tokenization. No [data-theme] override block is needed:
+// --ds-* tokens already carry both theme sets via the tokens emission.
+// Caveat: var() inside --theme-* resolves once at <html>, so these
+// aliases follow only the APP theme — a subtree-scoped [data-theme]
+// flip (e.g. a future embedded preview) won't re-resolve them. Nothing
+// consumes --theme-* inside such a subtree today.
+// Token-role notes: scrollbar thumb uses --ds-border-strong (dark #3d434c
+// is subtle by design — hover lifts to on-surface-variant); --theme-primary
+// maps Material's "primary" role onto the DS accent family.
 :root {
-    --theme-surface: #fff;
-    --theme-on-surface: #222;
+    --theme-surface: var(--ds-surface);
+    --theme-on-surface: var(--ds-on-surface);
+    --theme-surface-alt: var(--ds-surface-raised);
+    --theme-surface-hover: var(--ds-surface-overlay);
+    --theme-border-subtle: var(--ds-border-subtle);
+    --theme-outline: var(--ds-border-strong);
+    --theme-primary: var(--ds-accent);
+    --theme-on-primary: var(--ds-on-accent);
+    --theme-scrollbar-thumb: var(--ds-border-strong);
+    --theme-scrollbar-thumb-hover: var(--ds-on-surface-variant);
     --heatmap-cell-height: 30px;
     --heatmap-cell-width: 60px;
-}
-
-[data-theme="dark"] {
-    --theme-surface: #222;
-    --theme-on-surface: #fff;
 }

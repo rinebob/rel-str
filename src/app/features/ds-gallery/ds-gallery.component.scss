@@ -14,7 +14,9 @@
 // bridge at :root, so under a dark app this block restates identical
 // values (harmless); it still earns its keep when the APP is light —
 // then it's the only dark --mat-sys-* source for the dark preview. The
-// full 31-key set mirrors src/styles.scss :root (relay pins parity).
+// full key set mirrors src/styles.scss :root (relay pins parity).
+// (literal-sweep exception #1213 — definition-layer mirror, same class
+// as the styles.scss :root block it tracks.)
 // --ds-* values are NOT redeclared — the shipped token layer's
 // [data-theme="dark"] block applies directly to this host.
 :host[data-theme='dark'] {
@@ -42,6 +44,8 @@
   --mat-sys-error-container: #7e2222;
   --mat-sys-on-error-container: #ffd7d7;
   --mat-sys-surface: #131518;
+  --mat-sys-background: #131518;
+  --mat-sys-surface-variant: #44474e;
   --mat-sys-on-surface: #e2e4e8;
   --mat-sys-on-surface-variant: #a8adb5;
   --mat-sys-surface-container: #1c1f24;
@@ -54,6 +58,7 @@
   --mat-sys-on-success: #0e3012;
   --mat-sys-success-container: #2c4a2e;
   --mat-sys-on-success-container: #c8e6c9;
+  --mat-sys-warning: #ffb74d;
   --mat-sys-warning-container: #7a4a15;
   --mat-sys-on-warning-container: #ffe0b2;
   // No --ds-* surface/color redeclares — the shipped token layer (#1204)

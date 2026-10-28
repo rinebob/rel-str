@@ -25,7 +25,7 @@
 ////////////// BORDER //////////////////////
 
 
-@mixin border1($color: black, $radius: 4px) {
+@mixin border1($color: var(--ds-border-strong), $radius: 4px) {
     border-radius: $radius;
     border: 1px solid $color;
 }
@@ -36,10 +36,13 @@
 
 ////////////////// ELEMENTS ///////////////////
 
+// neutral-button fill: border-subtle is the closest DS token to the old
+// lightgrey (#d3d3d3 → #d6dae1 light / #2a2f36 dark); a dedicated button
+// token is a later design-system decision.
 @mixin rsButtonOne() {
-    background-color: lightgrey;
+    background-color: var(--ds-border-subtle);
     border-radius: 4px;
-    color: black;
+    color: var(--ds-on-surface);
     font: 400 14px/20px Arial;
     text-decoration: none;
     text-transform: uppercase;
@@ -82,16 +85,16 @@
     background: var(--theme-surface);
   }
   &::-webkit-scrollbar-thumb {
-    background: var(--theme-scrollbar-thumb, #bbb);
+    background: var(--theme-scrollbar-thumb);
     border-radius: rem(8);
     border: rem(2) solid var(--theme-surface);
   }
   &::-webkit-scrollbar-thumb:hover {
-    background: var(--theme-scrollbar-thumb-hover, #888);
+    background: var(--theme-scrollbar-thumb-hover);
   }
   // Firefox
   scrollbar-width: thin;
-  scrollbar-color: var(--theme-scrollbar-thumb, #bbb) var(--theme-surface);
+  scrollbar-color: var(--theme-scrollbar-thumb) var(--theme-surface);
 }
 
 

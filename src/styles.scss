@@ -17,6 +17,11 @@
 // grey ramp keyed to the ds-gallery demo dark set; accents keep the
 // indigo/pink/teal family. --mat-sys survives purely as the Material
 // bridge until #1163 removes it — legibility, not polish.
+// literal-sweep (#1213) exception: this block and the [data-theme="light"]
+// block below are the --mat-sys DEFINITION layer — the hex literals are
+// the bridge values themselves, not consumer literals, so they are
+// documented exceptions rather than var(--ds-*) conversions. They retire
+// wholesale when #1163 removes the bridge.
 :root {
   --app-header-height: 48px;
   color-scheme: dark;
@@ -37,6 +42,8 @@
   --mat-sys-error-container: #7e2222;
   --mat-sys-on-error-container: #ffd7d7;
   --mat-sys-surface: #131518;
+  --mat-sys-background: #131518;
+  --mat-sys-surface-variant: #44474e;
   --mat-sys-on-surface: #e2e4e8;
   --mat-sys-on-surface-variant: #a8adb5;
   --mat-sys-surface-container: #1c1f24;
@@ -49,6 +56,7 @@
   --mat-sys-on-success: #0e3012;
   --mat-sys-success-container: #2c4a2e;
   --mat-sys-on-success-container: #c8e6c9;
+  --mat-sys-warning: #ffb74d;
   --mat-sys-warning-container: #7a4a15;
   --mat-sys-on-warning-container: #ffe0b2;
 }
@@ -56,6 +64,7 @@
 // Light theme — the exact pre-#1209 values, re-applied when the
 // bootstrap/ThemeService sets data-theme="light". Source order decides
 // (equal specificity with :root), so this block must follow it.
+// (literal-sweep exception — same definition-layer rationale as :root above.)
 [data-theme="light"] {
   color-scheme: light;
   --mat-sys-primary: #3f51b5;
@@ -75,6 +84,8 @@
   --mat-sys-error-container: #ffebee;
   --mat-sys-on-error-container: #b71c1c;
   --mat-sys-surface: #ffffff;
+  --mat-sys-background: #ffffff;
+  --mat-sys-surface-variant: #e0e3e8;
   --mat-sys-on-surface: #000000;
   --mat-sys-on-surface-variant: #444746;
   --mat-sys-surface-container: #f3f6fc;
@@ -90,6 +101,7 @@
   // every var(--mat-sys-success-container) declaration silently drops.
   --mat-sys-success-container: #c8e6c9;
   --mat-sys-on-success-container: #1b5e20;
+  --mat-sys-warning: #fb8c00;
   --mat-sys-warning-container: #fff3e0;
   --mat-sys-on-warning-container: #e65100;
 }
