@@ -191,6 +191,10 @@ export interface OptionsReplayRun {
   totalLists: number;
   completedLists: number;
   failedLists: number;
+  /** Per-symbol outcome recorded in the same transaction as the counter
+   *  increment — makes list close-out idempotent (a redelivery or a retry
+   *  after a lost ack never double-counts). BE bookkeeping; FE may ignore. */
+  listOutcomes?: Record<string, 'success' | 'failed'>;
   /** ISO timestamps — BE writes FieldValue server-side. */
   createdAt: string;
   updatedAt: string;

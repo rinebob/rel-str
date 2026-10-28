@@ -89,8 +89,9 @@ export const ST_OPTIONS_CONTRACT_LISTS_ROOT = 'st-options-contract-lists';
 /**
  * Contract-list doc id is deterministic: `{runId}_{symbol}` (symbol normalized
  * to uppercase, matching peer builders). Lets the worker and readers construct
- * the id without a lookup. Safe only because runIds are Firestore auto-ids,
- * which never contain `_`.
+ * the id without a lookup. Never parse it back — runIds themselves contain
+ * `_` (`{date}_{dow}_{time}_{trigger}_{rand}`); both halves are only ever
+ * reassembled from the payload/run doc, not split out of the doc id.
  */
 export function stOptionsContractListDocId(runId: string, symbol: string): string {
   return `${runId}_${symbol.toUpperCase()}`;
