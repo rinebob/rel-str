@@ -1917,4 +1917,89 @@ describe('RobinhoodMcpClient', () => {
       expect(out.unevaluated).toEqual([]);
     });
   });
+
+  // ===========================================================================
+  // getEquityHistoricals (#1259 — ephemeral charts for untracked symbols)
+  // ===========================================================================
+
+  describe('getEquityHistoricals', () => {
+    const bar = (over: Partial<Record<string, unknown>> = {}) => ({
+      begins_at: '2026-10-27T00:00:00Z',
+      open_price: '120.5',
+      close_price: '121.0',
+      high_price: '122.3',
+      low_price: '119.8',
+      volume: 412300,
+      session: 'reg',
+      ...over,
+    });
+    const histPayload = {
+      data: {
+        results: [
+          {
+            symbol: 'LAMR',
+            interval: 'day',
+            bounds: 'regular',
+            bars: [bar(), bar({ begins_at: '2026-10-28T00:00:00Z', interpolated: true })],
+          },
+        ],
+      },
+      guide: 'usage notes',
+    };
+
+    it('calls get_equity_historicals with symbols, start_time, interval, bounds + adjustment_type', async () => {
+      mockResolve({ success: true, parsed: histPayload, redacted: {}, tool: 'get_equity_historicals' });
+
+      await client.getEquityHistoricals(['LAMR'], 'day', '2016-10-28T00:00:00Z');
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('get_equity_historicals', {
+        args: {
+          symbols: ['LAMR'],
+          start_time: '2016-10-28T00:00:00Z',
+          interval: 'day',
+          bounds: 'regular',
+          adjustment_type: 'split',
+        },
+      });
+    });
+
+    it('passes end_time through when provided', async () => {
+      mockResolve({ success: true, parsed: histPayload, redacted: {}, tool: 'get_equity_historicals' });
+
+      await client.getEquityHistoricals(['A', 'B'], 'week', '2016-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+
+      expect(mcp.executeTool).toHaveBeenCalledWith(
+        'get_equity_historicals',
+        expect.objectContaining({ args: expect.objectContaining({ end_time: '2026-01-01T00:00:00Z' }) }),
+      );
+    });
+
+    it('returns the parsed data.results payload — bars preserved incl. interpolated', async () => {
+      mockResolve({ success: true, parsed: histPayload, redacted: {}, tool: 'get_equity_historicals' });
+
+      const out = await client.getEquityHistoricals(['LAMR'], 'day', '2016-10-28T00:00:00Z');
+
+      expect(out.data.results).toHaveLength(1);
+      expect(out.data.results[0].symbol).toBe('LAMR');
+      expect(out.data.results[0].bars).toHaveLength(2);
+      expect(out.data.results[0].bars[1].interpolated).toBe(true);
+      expect(out.guide).toBe('usage notes');
+    });
+
+    it('throws RobinhoodMcpError when the tool call fails', async () => {
+      mockFailure('upstream down');
+
+      await expect(
+        client.getEquityHistoricals(['LAMR'], 'day', '2016-10-28T00:00:00Z'),
+      ).rejects.toThrow('upstream down');
+    });
+
+    it('throws when the payload is missing data.results', async () => {
+      mockResolve({ success: true, parsed: { data: {} }, redacted: {}, tool: 'get_equity_historicals' });
+
+      await expect(
+        client.getEquityHistoricals(['LAMR'], 'day', '2016-10-28T00:00:00Z'),
+      ).rejects.toThrow(RobinhoodMcpError);
+    });
+  });
 });

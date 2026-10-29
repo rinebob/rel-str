@@ -37,6 +37,8 @@ import {
 } from './types/robinhood-mcp.types';
 import {
   ToolExecutionErrorCategory,
+  type EquityHistoricalInterval,
+  type EquityHistoricalsResult,
   type PreviewScanResponse,
   type PreviewScanResult,
   type ScanAppliedFilter,
@@ -637,6 +639,57 @@ export class RobinhoodMcpClient {
       }
     });
     return { rows, unevaluated, filtersApplied };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Equity historicals (#1259 — ephemeral charts for untracked symbols)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch OHLCV bars for one or more symbols (≤10) over an RFC3339 range at a
+   * native interval. Returns the wire payload — callers own string→number
+   * coercion and interval slicing (RhChartService builds ChartDatasets).
+   */
+  async getEquityHistoricals(
+    symbols: string[],
+    interval: EquityHistoricalInterval,
+    startTime: string,
+    endTime?: string,
+  ): Promise<EquityHistoricalsResult> {
+    return this.run(this.equityHistoricalsSpec(symbols, interval, startTime, endTime));
+  }
+
+  equityHistoricalsSpec(
+    symbols: string[],
+    interval: EquityHistoricalInterval,
+    startTime: string,
+    endTime?: string,
+  ): ToolSpec<EquityHistoricalsResult> {
+    return {
+      tool: 'get_equity_historicals',
+      args: {
+        symbols,
+        start_time: startTime,
+        interval,
+        bounds: 'regular',
+        adjustment_type: 'split',
+        ...(endTime ? { end_time: endTime } : {}),
+      },
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_equity_historicals', result.category);
+        }
+        const parsed = result.parsed as Partial<EquityHistoricalsResult> | undefined;
+        if (!parsed || !Array.isArray(parsed.data?.results)) {
+          throw new RobinhoodMcpError(
+            'get_equity_historicals response missing data.results shape',
+            'get_equity_historicals',
+            ToolExecutionErrorCategory.MCP,
+          );
+        }
+        return parsed as EquityHistoricalsResult;
+      },
+    };
   }
 
   // ---------------------------------------------------------------------------
