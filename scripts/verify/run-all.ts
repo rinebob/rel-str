@@ -397,6 +397,14 @@ const scripts: VerifyScript[] = [
     file: 'scanner-chart-view-latest-run-1254.ts',
     needsAccount: false,
   },
+  {
+    name: 'get_equity_historicals contract parity (offline)',
+    file: 'savant-trader-scanner-row-actions-1304-contracts.ts',
+    needsAccount: false,
+  },
+  // Live stage intentionally unregistered — needs the RH MCP executor at
+  // 127.0.0.1:3456; run scripts/verify/savant-trader-scanner-row-actions-1304-live.ts
+  // directly (same convention as run-drift-check.ts for #682).
 ];
 
 function hasGhAuth(): boolean {
