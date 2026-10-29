@@ -3,8 +3,8 @@
 
 :host {
     @include global.flexboxLayout(row, flex-start, center);
-    background-color: #222;
-    color: #fff;
+    background-color: var(--ds-surface-overlay);
+    color: var(--ds-on-surface);
     height: var(--app-header-height);
     
     //////////////// CONTAINERS
@@ -24,8 +24,8 @@
                 align-items: center;
                 padding: 6px 10px;
                 border-radius: 14px;
-                background: rgba(255, 255, 255, 0.12);
-                color: #fff;
+                background: color-mix(in srgb, var(--ds-on-surface) 12%, transparent);
+                color: var(--ds-on-surface);
                 font-size: 0.875rem;
                 line-height: 1;
                 margin-right: 10px;

@@ -9,14 +9,16 @@
     
         ::ng-deep {
             .mat-drawer-shown {
-                background-color: rgba(0,0,0, 0.6);
+                // literal-sweep exception #1217: drawer scrim must dim content in
+            // both themes — achromatic overlay, not a theme surface.
+            background-color: rgba(0,0,0, 0.6);
             }
         }
         
         mat-sidenav,
         mat-drawer {
             @include global.flexboxLayout(column, flex-start, flex-start);
-            background-color: white;
+            background-color: var(--ds-surface);
             height: 100%;
             width: 350px;
         }
@@ -44,7 +46,7 @@
             border-radius: 0 0 8px 8px;
             background: var(--mat-sys-surface-container-high);
             color: var(--mat-sys-on-surface);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+            box-shadow: var(--ds-shadow-1);
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;

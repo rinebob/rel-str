@@ -82,19 +82,19 @@
   // Webkit browsers
   &::-webkit-scrollbar {
     width: rem(12);
-    background: var(--theme-surface);
+    background: var(--ds-surface);
   }
   &::-webkit-scrollbar-thumb {
-    background: var(--theme-scrollbar-thumb);
+    background: var(--ds-border-strong);
     border-radius: rem(8);
-    border: rem(2) solid var(--theme-surface);
+    border: rem(2) solid var(--ds-surface);
   }
   &::-webkit-scrollbar-thumb:hover {
-    background: var(--theme-scrollbar-thumb-hover);
+    background: var(--ds-on-surface-variant);
   }
   // Firefox
   scrollbar-width: thin;
-  scrollbar-color: var(--theme-scrollbar-thumb) var(--theme-surface);
+  scrollbar-color: var(--ds-border-strong) var(--ds-surface);
 }
 
 
