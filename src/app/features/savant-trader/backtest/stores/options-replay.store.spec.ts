@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subject, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 
 import { OptionsReplayStore } from './options-replay.store';
 import { OptionsReplayRunsService } from '../services/options-replay-runs.service';
@@ -48,6 +48,7 @@ describe('OptionsReplayStore', () => {
     const serviceStub = {
       watchRuns: jest.fn(() => runsSubject.asObservable()),
       watchContractLists: jest.fn(() => listsSubject.asObservable()),
+      startReplay: jest.fn(() => of({ runId: 'new-run-1' })),
     };
 
     await TestBed.configureTestingModule({
@@ -113,6 +114,32 @@ describe('OptionsReplayStore', () => {
     store.selectRun(null);
     expect(store.contractLists()).toEqual([]);
     expect(store.selectedRun()).toBeNull();
+  });
+
+  it('startReplay calls the service, selects the new run, and streams its lists', async () => {
+    const store = await setup();
+    store.loadRuns();
+    runsSubject.next([makeRun()]);
+
+    store.startReplay({ templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-02' });
+
+    const service = TestBed.inject(OptionsReplayRunsService);
+    expect(service.startReplay).toHaveBeenCalledWith({ templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-02' });
+    expect(store.selectedRunId()).toBe('new-run-1');
+    expect(service.watchContractLists).toHaveBeenCalledWith('new-run-1');
+    expect(snackBar.open).toHaveBeenCalledWith(expect.stringContaining('new-run-1'), 'Dismiss', { duration: 30000 });
+  });
+
+  it('startReplay failure snack-bars and leaves selection untouched', async () => {
+    const store = await setup();
+    const service = TestBed.inject(OptionsReplayRunsService);
+    (service.startReplay as jest.Mock).mockReturnValue(throwError(() => new Error('unavailable')));
+
+    store.selectRun('existing-run');
+    store.startReplay({ templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-02' });
+
+    expect(store.selectedRunId()).toBe('existing-run');
+    expect(snackBar.open).toHaveBeenCalledWith(expect.stringContaining('Failed to start replay'), 'Dismiss', { duration: 30000 });
   });
 
   it('stream errors snack-bar and stop the streaming flag', async () => {

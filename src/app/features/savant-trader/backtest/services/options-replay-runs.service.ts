@@ -1,16 +1,18 @@
 /**
  * Options Replay runs service.
  *
- * Realtime Firestore listeners for `st-options-replay-runs` and
- * `st-options-contract-lists` — same watch pattern as
- * `backtest-run.service.ts`. The `optionsReplayStart` callable wiring
- * lands with the run-dialog task (#1284).
+ * Wraps the `optionsReplayStart` callable plus realtime Firestore
+ * listeners for `st-options-replay-runs` and
+ * `st-options-contract-lists` — same pattern as
+ * `backtest-run.service.ts`.
  */
 
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Firestore, collection, collectionData, query, where, orderBy, limit } from '@angular/fire/firestore';
 import { Observable, from, map } from 'rxjs';
 
+import type { OptionsReplayStartRequest, OptionsReplayStartResponse } from '@options-replay/contracts';
 import type { OptionsContractListUi, OptionsReplayRunUi } from '../common/options-replay.types';
 import { convertOptionsContractListDoc, convertOptionsReplayRunDoc } from './options-replay-firestore-converter';
 import { ST_OPTIONS_REPLAY_RUNS_ROOT, ST_OPTIONS_CONTRACT_LISTS_ROOT } from '@st/collections';
@@ -19,11 +21,25 @@ import { ST_OPTIONS_REPLAY_RUNS_ROOT, ST_OPTIONS_CONTRACT_LISTS_ROOT } from '@st
   providedIn: 'root',
 })
 export class OptionsReplayRunsService {
+  private readonly functions = inject(Functions);
   private readonly firestore = inject(Firestore);
   private readonly injector = inject(EnvironmentInjector);
 
   private readonly runsCollection = ST_OPTIONS_REPLAY_RUNS_ROOT;
   private readonly listsCollection = ST_OPTIONS_CONTRACT_LISTS_ROOT;
+
+  /**
+   * Start a new selection replay run.
+   */
+  startReplay(request: OptionsReplayStartRequest): Observable<OptionsReplayStartResponse> {
+    return from(runInInjectionContext(this.injector, () => {
+      const callable = httpsCallable<OptionsReplayStartRequest, OptionsReplayStartResponse>(
+        this.functions,
+        'optionsReplayStart'
+      );
+      return callable(request);
+    })).pipe(map((result) => result.data));
+  }
 
   /**
    * Watch recent replay runs in realtime (createdAt desc).

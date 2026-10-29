@@ -12,6 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of, catchError, Subscription, Observable } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
+import type { OptionsReplayStartRequest } from '@options-replay/contracts';
 import type { OptionsContractListUi, OptionsReplayRunUi } from '../common/options-replay.types';
 import { OptionsReplayRunsService } from '../services/options-replay-runs.service';
 
@@ -131,6 +132,33 @@ export const OptionsReplayStore = signalStore(
       selectRun(runId: string | null): void {
         patchState(state, { selectedRunId: runId });
         loadContractLists(runId);
+      },
+
+      /** Start a new replay run; on success select it so the detail panel shows progress. */
+      startReplay(request: OptionsReplayStartRequest): void {
+        patchState(state, { isLoading: true });
+
+        runsService
+          .startReplay(request)
+          .pipe(
+            catchError((err: unknown) => {
+              // eslint-disable-next-line no-console
+              console.error('[OptionsReplayStore] startReplay failed', err);
+              const message = buildReplayErrorMessage(err);
+              snackBar.open(`Failed to start replay: ${message}`, 'Dismiss', { duration: 30000 });
+              patchState(state, { isLoading: false });
+              return of(null);
+            }),
+            takeUntilDestroyed(destroyRef)
+          )
+          .subscribe((response) => {
+            patchState(state, { isLoading: false });
+            if (response) {
+              snackBar.open(`Replay started: ${response.runId}`, 'Dismiss', { duration: 30000 });
+              patchState(state, { selectedRunId: response.runId });
+              loadContractLists(response.runId);
+            }
+          });
       },
     };
   })
