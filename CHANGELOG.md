@@ -7,6 +7,10 @@
 - [Options Backtest] 1238-1284_FE-IMPL-BACKTEST: `options-replay-new-run-dialog` — ReactiveForms template picker bound to `REPLAY_TEMPLATES` (name + description per option, `mat-select-trigger` name-only), free-text symbols (deviation: `trackedSymbols` would over-constrain), `marketDateValidator` for impossible dates; 7 specs
 - [Options Backtest] 1238-1284_FE-IMPL-BACKTEST: "New Replay" button entry point in the replay section header — sim dialog/controls untouched
 - [Options Backtest] 1238-1284_DOCS-BACKTEST: #1284 CODE-REVIEW (PASS, 0 findings; pass-2 mat-select-trigger fix) + #1324 UAT (Complete; 16/16) + IMPL-FE §2 as-built
+- [Options Backtest] 1238-1285_FE-IMPL-BACKTEST: `options-replay-contract-list-table` — pure presentational over `ContractListRow[]`, entryDate-sorted, all pick columns + merged bid/ask, `no-selection` marker rows in place with reason labels, `↻ repeat` badge on `repeatsPrevious` rows, `pickDocMeta` coverage header; 8 specs
+- [Options Backtest] 1238-1285_FE-IMPL-BACKTEST: `options-replay-contract-series-dialog` — lazy `getHistoricalOptionsContract$(symbol, contractId)` fetch (exact contract, no client persistence), loading → inline-SVG mark polyline / single-obs dot / empty / error naming the contractId; 6 specs
+- [Options Backtest] 1238-1285_FE-IMPL-BACKTEST: Run-detail integration — collapsed-by-default row-count toggle per symbol card, inspect → series dialog `{symbol, contractId, entryDate}`; `MatDialogModule` omitted from host imports (element-injector shadowing); 2 specs
+- [Options Backtest] 1238-1285_DOCS-BACKTEST: #1285 CODE-REVIEW (PASS, 2 passes, 0 unresolved) + #1327 UAT (Complete; 19/19) + IMPL-FE §4 as-built
 
 ## [2026-10-28]
 
