@@ -42,7 +42,13 @@
               @if (newSymbols().includes(item.symbol)) {
                 <span class="new-chip">NEW</span>
               }
+              @if (item.detail) {
+                <span class="row-detail">{{ item.detail }}</span>
+              }
             </div>
+            @if (item.name) {
+              <div class="row-name">{{ item.name }}</div>
+            }
             @if (item.recentSignals.length > 0) {
               <div class="signal-trail">
                 @for (s of item.recentSignals; track s.barDate + '-' + s.timeframe + '-' + s.signalType) {

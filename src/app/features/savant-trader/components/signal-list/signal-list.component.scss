@@ -272,6 +272,14 @@
           min-width: 80px;
         }
 
+        .row-detail {
+          margin-left: auto;
+          flex-shrink: 0;
+          font-size: 10px;
+          font-variant-numeric: tabular-nums;
+          color: var(--mat-sys-on-surface-variant);
+        }
+
         .badge.type {
           font-size: 9px;
           padding: 1px 4px;
@@ -291,7 +299,8 @@
         }
       }
 
-      .signal-line-2 {
+      .signal-line-2,
+      .row-name {
         font-size: 10px;
         color: var(--mat-sys-on-surface-variant);
         white-space: nowrap;

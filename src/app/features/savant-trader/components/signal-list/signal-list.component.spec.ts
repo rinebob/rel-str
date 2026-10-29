@@ -87,4 +87,18 @@ describe('SignalListComponent', () => {
     expect(rows[1].classList.contains('viewed')).toBe(true);
     expect(rows[2].classList.contains('viewed')).toBe(false);
   });
+
+  it('rowMeta renders company name + detail; unresolvable rows stay ticker-only (#1313)', () => {
+    fixture.componentRef.setInput('symbols', ['ACME', 'WIDGET']);
+    fixture.componentRef.setInput('rowMeta', {
+      ACME: { name: 'Acme Corp', detail: 'Range pos: 97.5%' },
+    });
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('.signal-item');
+    expect(rows[0].querySelector('.row-name')?.textContent.trim()).toBe('Acme Corp');
+    expect(rows[0].querySelector('.row-detail')?.textContent.trim()).toBe('Range pos: 97.5%');
+    expect(rows[1].querySelector('.row-name')).toBeNull();
+    expect(rows[1].querySelector('.row-detail')).toBeNull();
+  });
 });

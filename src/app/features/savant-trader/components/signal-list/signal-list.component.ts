@@ -14,11 +14,24 @@ import { StSignalItem } from '../../services/types';
 import { SignalService } from '../../services/signal.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { SignalDirection, SignalTimeframe } from '../../common/constants';
+import type { ScanRowMeta } from '../../utils/scanner-rows.util';
 
 /** Shared empty set for the optional dimmedSymbols input — one shared
  *  instance, never mutated by convention (ReadonlySet hides mutation
  *  at the type level; a Set can't actually be frozen). */
 const EMPTY_SET: ReadonlySet<string> = new Set<string>();
+
+/** One pane row — the manual-history branch and the symbol branch share
+ *  this shape so strictTemplates sees `name`/`detail` on every item. */
+interface SignalListRow {
+  trackId: string;
+  symbol: string;
+  latestSignal: StSignalItem | null;
+  recentSignals: StSignalItem[];
+  isHistoryRow: boolean;
+  name?: string;
+  detail?: string;
+}
 
 @Component({
   selector: 'app-signal-list',
@@ -57,6 +70,11 @@ export class SignalListComponent {
    *  page's set resets on refresh. */
   dimmedSymbols = input<ReadonlySet<string>>(EMPTY_SET);
 
+  /** Per-symbol display extras (#1313): company name under the ticker and
+   *  a right-aligned detail value on line 1. Symbols without an entry
+   *  render ticker-only. */
+  rowMeta = input<Readonly<Record<string, ScanRowMeta>>>({});
+
   symbolSelected = output<string>();
 
   /** Signal history cache keyed by symbol â€” reactive so items() computed re-runs on load */
@@ -67,7 +85,7 @@ export class SignalListComponent {
 
   private listItems = viewChildren('listItem', { read: ElementRef });
 
-  items = computed(() => {
+  items = computed((): SignalListRow[] => {
     const cache = this.signalHistoryCache();
     const manual = this.manualSymbol();
     const filter = this.timeframeFilter();
@@ -82,6 +100,7 @@ export class SignalListComponent {
       }));
     }
     const viewportSymbols = this.symbols();
+    const meta = this.rowMeta();
     return viewportSymbols.map(symbol => {
       const signals = cache[symbol] ?? [];
       return {
@@ -90,6 +109,8 @@ export class SignalListComponent {
         latestSignal: signals[0] ?? null,
         recentSignals: signals.slice(0, 3),
         isHistoryRow: false,
+        name: meta[symbol]?.name,
+        detail: meta[symbol]?.detail,
       };
     });
   });
