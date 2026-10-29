@@ -7,8 +7,8 @@
   @include mixins.flexboxLayout(row, flex-start, center);
   gap: mixins.rem(12);
   padding: mixins.rem(8);
-  background: var(--theme-surface);
-  color: var(--theme-on-surface);
+  background: var(--ds-surface);
+  color: var(--ds-on-surface);
 
   .row {
     @include mixins.flexboxLayout(column, flex-start, flex-start);
@@ -22,10 +22,10 @@
   input[type='text'] {
     min-width: mixins.rem(320);
     padding: mixins.rem(8) mixins.rem(12);
-    border: 1px solid #ccc;
+    border: 1px solid var(--ds-border-subtle);
     border-radius: mixins.rem(4);
-    background: var(--theme-surface);
-    color: var(--theme-on-surface);
+    background: var(--ds-surface);
+    color: var(--ds-on-surface);
   }
 
   .actions {
@@ -41,7 +41,7 @@
     font-size: mixins.rem(12);
 
     &.error {
-      color: #b00020;
+      color: var(--ds-error);
     }
   }
 }

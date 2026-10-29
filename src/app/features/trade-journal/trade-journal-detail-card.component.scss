@@ -76,14 +76,14 @@
 .tj-screenshot {
   @include mixins.border1();
   border-style: dashed;
-  border-color: rgba(0, 0, 0, 0.2);
+  border-color: var(--ds-border-subtle);
   border-radius: mixins.rem(4);
   flex: 1;
   min-height: mixins.rem(160);
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: color-mix(in srgb, var(--ds-on-surface) 3%, transparent);
 }
 
 .tj-screenshot-placeholder {
@@ -119,9 +119,9 @@
 }
 
 .tj-meta-positive {
-  color: #2e7d32;
+  color: var(--ds-up);
 }
 
 .tj-meta-negative {
-  color: #c62828;
+  color: var(--ds-down);
 }

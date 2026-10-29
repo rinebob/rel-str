@@ -31,7 +31,7 @@
 .rs-chart-view__pair-label {
   @include mixins.flexboxLayout(row, flex-start, baseline);
   gap: mixins.rem(8);
-  color: var(--theme-on-surface);
+  color: var(--ds-on-surface);
 }
 
 .rs-chart-view__symbol {
@@ -85,7 +85,7 @@
 
 .rs-chart-view__chart-loading-text {
   font-size: mixins.rem(24);
-  color: var(--theme-on-surface);
+  color: var(--ds-on-surface);
   opacity: 0.8;
 }
 
@@ -94,7 +94,7 @@
   gap: mixins.rem(16);
   padding: mixins.rem(2) mixins.rem(8) 0;
   font-size: mixins.rem(12);
-  color: var(--theme-on-surface);
+  color: var(--ds-on-surface);
   opacity: 0.9;
 }
 
@@ -129,6 +129,9 @@
   border-radius: 9999px;
 }
 
+// literal-sweep exception #1217: legend swatch hues mirror the
+  // chart-series identity colors consumed by the chart lib as literals
+  // — categorical data identity, not theme tokens.
 .rs-chart-view__legend-swatch--price {
   background: linear-gradient(135deg, #2e7d32, #1565c0);
 }
@@ -177,13 +180,13 @@
   padding: mixins.rem(2) mixins.rem(8);
   font-size: mixins.rem(12);
   border-radius: mixins.rem(4);
-  border: 1px solid var(--theme-border-subtle, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--ds-border-subtle);
   background-color: transparent;
-  color: var(--theme-on-surface);
+  color: var(--ds-on-surface);
   cursor: pointer;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.06);
+    background-color: color-mix(in srgb, var(--ds-on-surface) 6%, transparent);
   }
 }
 
@@ -258,7 +261,7 @@
   @include mixins.flexboxLayout(row, center, baseline);
   gap: mixins.rem(6);
   padding: mixins.rem(4) 0;
-  color: var(--theme-on-surface);
+  color: var(--ds-on-surface);
   font-size: mixins.rem(12);
   text-align: center;
   width: 100%;
@@ -276,7 +279,7 @@
   width: mixins.rem(72);
   height: mixins.rem(12);
   border-radius: mixins.rem(999);
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ds-on-surface) 4%, transparent), color-mix(in srgb, var(--ds-on-surface) 16%, transparent), color-mix(in srgb, var(--ds-on-surface) 4%, transparent));
   background-size: 200% 100%;
   animation: rs-chart-view-skeleton 1.4s ease-in-out infinite;
 }

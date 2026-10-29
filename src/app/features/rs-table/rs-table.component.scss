@@ -6,34 +6,34 @@
   margin: rem(24) 0;
   .e-grid {
     border-radius: rem(8);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    background: var(--theme-surface);
-    color: var(--theme-on-surface);
+    box-shadow: var(--ds-shadow-1);
+    background: var(--ds-surface);
+    color: var(--ds-on-surface);
     font-size: rem(14);
   }
   .rs-mat-table {
     table-layout: fixed;
     width: 100%;
     border-radius: rem(8);
-    background: var(--theme-surface);
-    color: var(--theme-on-surface);
+    background: var(--ds-surface);
+    color: var(--ds-on-surface);
   }
   .rs-table-scroll {
     max-height: rem(640); // 40rem;
     overflow-y: auto;
     @include customScrollbar;
-    background: var(--theme-surface);
+    background: var(--ds-surface);
     position: relative;
 
     .rs-table-footer {
       position: sticky;
       bottom: 0;
       width: 100%;
-      background: var(--theme-surface);
-      color: var(--theme-on-surface);
+      background: var(--ds-surface);
+      color: var(--ds-on-surface);
       text-align: center;
       padding: rem(8) 0;
-      border-top: 1px solid var(--theme-on-surface);
+      border-top: 1px solid var(--ds-on-surface);
       z-index: 11;
       font-weight: 500;
       @include flexboxLayout(row, center, center);
@@ -41,7 +41,7 @@
 
     .rs-bold {
       font-weight: 700;
-      color: var(--theme-on-surface);
+      color: var(--ds-on-surface);
     }
     .mat-table, .rs-mat-table-body {
       width: 100%;
@@ -56,17 +56,17 @@
     thead,
     thead tr,
     thead th {
-      background: var(--theme-surface);
-      background-color: var(--theme-surface);
+      background: var(--ds-surface);
+      background-color: var(--ds-surface);
       z-index: 10;
-      box-shadow: 0 2px 6px 0 rgba(0,0,0,0.08);
+      box-shadow: var(--ds-shadow-1);
     }
   }
   .rs-mat-table-body {
     table-layout: fixed;
     width: 100%;
-    background: var(--theme-surface);
-    color: var(--theme-on-surface);
+    background: var(--ds-surface);
+    color: var(--ds-on-surface);
     .mdc-data-table__cell,
     .mdc-data-table__header-cell {
       text-align: center !important;

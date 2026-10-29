@@ -63,7 +63,7 @@
 }
 
 .tj-row:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+  background-color: color-mix(in srgb, var(--ds-on-surface) 4%, transparent);
 }
 
 .tj-empty {
@@ -79,7 +79,7 @@
 .tj-detail-placeholder {
   margin: auto;
   font-size: 0.9rem;
-  color: #666;
+  color: var(--ds-on-surface-variant);
 }
 
 .tj-detail-placeholder--empty {

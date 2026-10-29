@@ -7,7 +7,7 @@
 }
 
 .tj-row-selected {
-  background-color: rgba(0, 0, 0, 0.04);
+  background-color: color-mix(in srgb, var(--ds-on-surface) 4%, transparent);
 }
 
 .tj-empty {

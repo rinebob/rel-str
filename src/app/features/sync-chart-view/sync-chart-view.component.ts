@@ -125,7 +125,7 @@ export class SyncChartViewComponent {
         return targetData.map(d => ({
             date: d.x instanceof Date ? d.x : new Date(d.x),
             rank: d.rank,
-            rsColor: d.rsColor || '#ddd',
+            rsColor: d.rsColor || '#ddd', // literal-sweep exception #1217: chart-datum fallback — data color
         }));
     }
 }

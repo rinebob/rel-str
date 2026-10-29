@@ -61,9 +61,9 @@
     height: var(--heatmap-cell-height);
     padding: 0 0.5rem;
     font-size: 0.75rem;
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
-    border-right: 1px solid #000;
+    border-top: 1px solid var(--ds-border-strong);
+    border-left: 1px solid var(--ds-border-strong);
+    border-right: 1px solid var(--ds-border-strong);
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -73,14 +73,14 @@
 
   &__matrix-label--header {
     font-weight: 600;
-    background-color: #f5f5f5;
+    background-color: var(--ds-surface-raised);
     cursor: pointer;
     position: sticky;
     top: 0;
     z-index: 3;
 
     &:hover {
-      background-color: #d3d3d3;
+      background-color: var(--ds-surface-overlay);
     }
   }
 
@@ -91,7 +91,7 @@
 
   // Match bottom border of left band with last data row
   &__matrix-label:last-child {
-    border-bottom: 1px solid #000;
+    border-bottom: 1px solid var(--ds-border-strong);
   }
 
   &__matrix-middle {
@@ -120,15 +120,15 @@
     // Match width behavior of the underlying heatmap cells
     flex: 0 0 calc(var(--heatmap-cell-width) * var(--span, 1));
     width: calc(var(--heatmap-cell-width) * var(--span, 1));
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
-    border-bottom: 1px solid #000;
+    border-top: 1px solid var(--ds-border-strong);
+    border-left: 1px solid var(--ds-border-strong);
+    border-bottom: 1px solid var(--ds-border-strong);
     box-sizing: border-box;
-    background-color: #f5f5f5;
+    background-color: var(--ds-surface-raised);
   }
 
   &__month-band-cell--alt {
-    background-color: #e0e0e0;
+    background-color: var(--ds-surface-overlay);
   }
 
   &__month-band-cell:first-child {
@@ -156,15 +156,15 @@
 
   // Add bottom border only on the last row of center matrix cells
   &__matrix-row:last-child .heatmap-view__matrix-cell {
-    border-bottom: 1px solid #000;
+    border-bottom: 1px solid var(--ds-border-strong);
   }
 
   &__matrix-cell {
     width: var(--heatmap-cell-width);
     height: var(--heatmap-cell-height);
     flex: 0 0 var(--heatmap-cell-width); // prevent flexbox from shrinking the width
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
+    border-top: 1px solid var(--ds-border-strong);
+    border-left: 1px solid var(--ds-border-strong);
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -181,7 +181,7 @@
     border-top: 0;
     cursor: pointer; // make it obvious headers are clickable for sorting
     &:hover {
-      background-color: #d3d3d3;
+      background-color: var(--ds-surface-overlay);
     }
   }
 
@@ -205,12 +205,12 @@
   // Sorted column highlighting
   &__matrix-cell--sorted {
     // Emphasize the active header cell only with background shading
-    background-color: #d0d0ff; // slightly stronger highlight
+    background-color: var(--ds-accent-container); // slightly stronger highlight
   }
 
   // Sorted state for the left label header (pair label column).
   &__matrix-label--sorted {
-    background-color: #d0d0ff;
+    background-color: var(--ds-accent-container);
   }
 
   &__matrix-sort-indicator {
@@ -231,18 +231,18 @@
     justify-content: center;
     gap: 0.25rem;
     height: var(--heatmap-cell-height);
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
+    border-top: 1px solid var(--ds-border-strong);
+    border-left: 1px solid var(--ds-border-strong);
     box-sizing: border-box;
   }
 
   // Match bottom border of right band with last data row
   &__matrix-actions:last-child {
-    border-bottom: 1px solid #000;
+    border-bottom: 1px solid var(--ds-border-strong);
   }
 
   &__matrix-actions--header {
-    background-color: #f5f5f5;
+    background-color: var(--ds-surface-raised);
     height: calc(var(--heatmap-month-band-height) + var(--heatmap-cell-height));
     position: sticky;
     top: 0;
@@ -252,8 +252,8 @@
   &__matrix-action-button {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
-    border: 1px solid #000;
-    background-color: #fff;
+    border: 1px solid var(--ds-border-strong);
+    background-color: var(--ds-surface);
     cursor: pointer;
   }
 

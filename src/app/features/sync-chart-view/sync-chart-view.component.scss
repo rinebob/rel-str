@@ -23,7 +23,7 @@
         padding: 2rem;
         background: var(--ds-surface-raised);
         border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--ds-shadow-1);
 
         p {
             font-size: 1.2rem;
@@ -55,7 +55,7 @@
             margin-bottom: 1rem;
             background: var(--ds-surface-raised);
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--ds-shadow-1);
             padding: 0.75rem;
             
             rs-chart {
@@ -121,19 +121,19 @@
             
             // Scrollbar styling - always visible but subtle
             scrollbar-width: thin; // Firefox
-            scrollbar-color: rgba(0, 0, 0, 0.2) transparent; // For Firefox
+            scrollbar-color: color-mix(in srgb, var(--ds-on-surface) 20%, transparent) transparent; // For Firefox
             
             &::-webkit-scrollbar {
                 height: 6px;
             }
             
             &::-webkit-scrollbar-thumb {
-                background-color: rgba(0, 0, 0, 0.2);
+                background-color: color-mix(in srgb, var(--ds-on-surface) 20%, transparent);
                 border-radius: 3px;
                 transition: background-color 0.2s;
                 
                 &:hover {
-                    background-color: rgba(0, 0, 0, 0.3);
+                    background-color: color-mix(in srgb, var(--ds-on-surface) 30%, transparent);
                 }
             }
             
@@ -145,7 +145,7 @@
                 flex: 0 0 380px; // Fixed width for each chart with flex-basis
                 background: var(--ds-surface-raised);
                 border-radius: 8px;
-                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+                box-shadow: var(--ds-shadow-2);
                 padding: 0.75rem;
                 margin: 0 0.5rem 1rem; // Add bottom margin for scrollbar
                 box-sizing: border-box;
