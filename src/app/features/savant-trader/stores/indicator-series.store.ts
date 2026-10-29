@@ -50,7 +50,9 @@ function cacheKey(
 ): string {
   return [
     callableName,
-    symbol,
+    // Normalize so a caller's raw input ('aapl', ' aapl ') keys identically
+    // to the store-normalized symbol that wrote the entry (#1259).
+    symbol.trim().toUpperCase(),
     version,
     intervals.slice().sort().join(','),
     indicators.slice().sort().join(','),
@@ -90,7 +92,8 @@ export const IndicatorSeriesStore = signalStore(
       ],
     ): void {
       const callableName = 'stGetSymbolIndicatorSeriesV2';
-      const key = cacheKey(callableName, symbol, version, intervals, indicators, strategies);
+      const sym = symbol.trim().toUpperCase();
+      const key = cacheKey(callableName, sym, version, intervals, indicators, strategies);
 
       if (state.cache()[key] !== undefined) return;
       if (state.loading()[key]) return;
@@ -101,7 +104,7 @@ export const IndicatorSeriesStore = signalStore(
       });
 
       const request: GetIndicatorSeriesRequest = {
-        symbol,
+        symbol: sym,
         intervals,
         indicators,
         strategies,
@@ -124,7 +127,7 @@ export const IndicatorSeriesStore = signalStore(
           },
           error: (err: unknown) => {
             const message = err instanceof Error ? err.message : String(err);
-            console.error(`[IndicatorSeriesStore] Failed to load indicators for ${symbol}:`, err);
+            console.error(`[IndicatorSeriesStore] Failed to load indicators for ${sym}:`, err);
             patchState(state, {
               loading: { ...state.loading(), [key]: false },
               error: { ...state.error(), [key]: message },
@@ -135,7 +138,8 @@ export const IndicatorSeriesStore = signalStore(
 
     /** Clear the cache for a symbol, or the entire cache if no symbol is provided. */
     clearCache(symbol?: string): void {
-      if (!symbol) {
+      const sym = symbol?.trim().toUpperCase();
+      if (!sym) {
         patchState(state, { cache: {}, loading: {}, error: {} });
         return;
       }
@@ -144,7 +148,7 @@ export const IndicatorSeriesStore = signalStore(
       const error = { ...state.error() };
       for (const key of Object.keys(cache)) {
         // Key layout: callable|symbol|version|intervals|indicators|strategies.
-        if (key.split('|')[1] === symbol) {
+        if (key.split('|')[1] === sym) {
           delete cache[key];
           delete loading[key];
           delete error[key];

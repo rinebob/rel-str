@@ -34,6 +34,8 @@ import { of } from 'rxjs';
 
 import { FlexChartSandboxComponent } from './flex-chart-sandbox.component';
 import { ChartStore } from '../../stores/chart.store';
+import { RhChartService } from '../../services/rh-chart.service';
+import { SymbolListStore } from '../../stores/symbol-list.store';
 import { ChartService } from '../../services/chart.service';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
@@ -165,6 +167,10 @@ async function setup(bars: PriceBar[] = makeBars()): Promise<Setup> {
     providers: [
       { provide: ChartService, useValue: chartService },
       { provide: IndicatorSeriesStore, useValue: mockIndicatorStore },
+      // #1259 — ChartStore's tracked/untracked fork consults these; keep the
+      // sandbox on the symbol-data path (suite symbols tracked, RH never consulted).
+      { provide: RhChartService, useValue: { loadBars$: jest.fn() } },
+      { provide: SymbolListStore, useValue: { trackedSymbols: () => ['QQQ', 'MSFT'], trackedStatus: () => 'ready' } },
       ChartStore,
     ],
   });

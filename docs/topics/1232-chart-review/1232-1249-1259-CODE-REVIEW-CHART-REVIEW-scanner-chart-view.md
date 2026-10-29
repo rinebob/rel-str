@@ -91,3 +91,23 @@ round-1 dispositions so only **new** findings surfaced.
 - `untracked` regression spec proven non-vacuous (fails `runs` 1→2 without the fix)
 - `tsc --noEmit`: 2 errors in `scripts/bulk-swing-sweep.ts` + `indicator-config-dialog.component.ts` — both **unmodified pre-existing HEAD files outside the changeset**
 - New specs: +4 store (whitespace guard, effect-race regression, +2) / +2 rh-chart (sort, warn) — 23 #1259 specs total
+
+---
+
+# Round 3 — scoped delta check — 2026-10-28
+
+Single-axis pass over the round-2 remediation delta only (untracked wrap,
+cacheKey normalization, guard reorder, warn, new specs) — not a full
+re-review. Result: **DELTA CLEAN** except one trivial duplicated comment
+(removed). All callers of `loadIfNeeded`/`responseFor`/`clearCache` traced —
+the key normalization is internally consistent for every consumer and fixes
+latent cross-caller case mismatches rather than introducing one.
+Focused rerun post-cleanup: 48/48.
+
+**Build note:** `ng build` bundle generation succeeds (all #1259 code
+compiles under AOT) but the build exits 1 on a **pre-existing HEAD issue**:
+`ds-gallery.component.scss` (28.76 kB compiled) exceeds the 25 kB
+`anyComponentStyle` error budget — committed by #1217's literal sweep
+(`1fc7b73f`), untouched by this task. Blocks nothing in the changeset but
+will block QA/ship verification until #1217 slims the file or the budget
+is raised.

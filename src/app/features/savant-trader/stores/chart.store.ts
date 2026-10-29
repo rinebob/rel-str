@@ -137,11 +137,6 @@ export const ChartStore = signalStore(
       // trackedSymbols become effect dependencies and the universe resolving
       // mid-flight would cancel + refire the request (possibly on the other
       // arm).
-      // untracked: the fork is a point-in-time read. Host pages call
-      // loadCharts inside effects() — without this, trackedStatus/
-      // trackedSymbols become effect dependencies and the universe resolving
-      // mid-flight would cancel + refire the request (possibly on the other
-      // arm).
       const tracked = untracked(
         () =>
           symbolListStore.trackedStatus() !== 'ready' ||
