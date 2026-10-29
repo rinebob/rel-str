@@ -1,0 +1,49 @@
+<div class="replay-detail">
+  <header class="run-header">
+    <div class="header-row">
+      <mat-icon class="status-icon" [style.color]="statusColorName()" [matTooltip]="run().status">
+        {{ statusIconName() }}
+      </mat-icon>
+      <span class="run-id">{{ formattedRunId() }}</span>
+      <span class="status-label">{{ run().status }}</span>
+    </div>
+    <div class="header-meta">
+      <span class="meta-item" [matTooltip]="run().templateId">{{ templateName() }}</span>
+      <span class="meta-item" [matTooltip]="run().symbols.join(', ')">{{ run().symbols.join(', ') }}</span>
+      <span class="meta-item">from {{ run().startDate }}</span>
+      <span class="meta-item">{{ progressText() }}</span>
+    </div>
+    @if (run().error) {
+      <div class="run-error">{{ run().error }}</div>
+    }
+  </header>
+
+  <div class="symbol-grid">
+    @for (view of symbolViews(); track view.symbol) {
+      <div class="symbol-card" [class.failed]="view.statusLabel === 'failed'">
+        <div class="symbol-card-header">
+          <mat-icon
+            class="status-icon"
+            [style.color]="view.statusColorName"
+            [matTooltip]="view.statusLabel">
+            {{ view.statusIconName }}
+          </mat-icon>
+          <span class="symbol-name">{{ view.symbol }}</span>
+          <span class="symbol-status">{{ view.statusLabel }}</span>
+        </div>
+        <div class="symbol-card-body">
+          @if (view.rowCount !== null) {
+            <span class="row-count">{{ view.rowCount }} rows</span>
+          }
+          @if (view.error) {
+            <div class="symbol-error" [matTooltip]="view.error">{{ view.error }}</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  @if (isLoadingLists() && contractLists().length === 0) {
+    <div class="loading-note">Loading contract lists…</div>
+  }
+</div>
