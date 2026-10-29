@@ -67,14 +67,14 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
       padding: 4px 8px 4px 0; font-size: 0.85rem; white-space: nowrap;
       border-radius: 4px;
     }
-    .tree-row:hover { background: var(--mat-sys-surface-variant, #f5f5f5); }
+    .tree-row:hover { background: var(--mat-sys-surface-variant); }
     /* Depth guides — vertical line at each ancestor indent so parentage
        reads at depth 2-3. */
     .tree-row::before {
       content: ''; position: absolute; top: 0; bottom: 0; left: 0;
       width: calc(var(--guides, 0) * 1px);
       background-image: repeating-linear-gradient(to right,
-        var(--mat-sys-outline-variant, #ddd) 0 1px, transparent 1px 20px);
+        var(--mat-sys-outline-variant) 0 1px, transparent 1px 20px);
       /* Ancestor caret center = 20*depth + 12 (24px box). A 1px line
          centered there starts at 11.5px into each 20px period. */
       background-position: 11.5px 0;
@@ -95,24 +95,26 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
       display: inline-flex; align-items: center; justify-content: center;
     }
     .caret-spacer { width: 24px; flex: none; }
-    .num { color: var(--mat-sys-on-surface-variant, #888); font-variant-numeric: tabular-nums; flex: none; }
+    .num { color: var(--mat-sys-on-surface-variant); font-variant-numeric: tabular-nums; flex: none; }
     .title {
       flex: 1; min-width: 0; color: inherit; text-decoration: none;
       overflow: hidden; text-overflow: ellipsis;
     }
-    .title:hover { text-decoration: underline; color: var(--mat-sys-primary, #1565c0); }
+    .title:hover { text-decoration: underline; color: var(--mat-sys-primary); }
     .row-meta { display: flex; align-items: center; gap: 4px; flex: none; }
     .type-badge {
       font-size: 0.65rem; padding: 1px 5px; border-radius: 8px;
-      background: var(--mat-sys-surface-container-high, #eceff1);
-      color: var(--mat-sys-on-surface-variant, #546e7a); text-transform: uppercase;
+      background: var(--mat-sys-surface-container-high);
+      color: var(--mat-sys-on-surface-variant); text-transform: uppercase;
     }
     .chip {
       font-size: 0.65rem; padding: 1px 6px; border-radius: 8px;
-      background: var(--mat-sys-surface-container-high, #eceff1);
-      color: var(--mat-sys-on-surface-variant, #546e7a);
+      background: var(--mat-sys-surface-container-high);
+      color: var(--mat-sys-on-surface-variant);
     }
-    /* Stage chips color-coded by lifecycle position (data-stage = ordinal). */
+    /* Stage chips color-coded by lifecycle position (data-stage = ordinal).
+       literal-sweep exception #1217: stage-identity hues are a
+       categorical palette by contract, not theme tokens. */
     .chip.stage[data-stage="1"] { background: #ede7f6; color: #5e35b1; }
     .chip.stage[data-stage="2"] { background: #e8eaf6; color: #3949ab; }
     .chip.stage[data-stage="3"] { background: #e1f5fe; color: #0277bd; }
@@ -121,11 +123,11 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
     .chip.stage[data-stage="6"] { background: #fff8e1; color: #ef6c00; }
     .chip.stage[data-stage="7"] { background: #fff3e0; color: #e65100; }
     .chip.stage[data-stage="8"] { background: #e8f5e9; color: #2e7d32; }
-    .chip.status { background: #fff8e1; color: #8d6e00; }
+    .chip.status { background: var(--ds-warning-container); color: var(--ds-on-warning-container); }
     .chip.tag {
       background: transparent;
-      color: var(--mat-sys-on-surface-variant, #888);
-      box-shadow: inset 0 0 0 1px var(--mat-sys-outline-variant, #ddd);
+      color: var(--mat-sys-on-surface-variant);
+      box-shadow: inset 0 0 0 1px var(--mat-sys-outline-variant);
     }
   `],
 })

@@ -94,34 +94,34 @@ import { calculateAlignmentMetrics, calculateRowAlignments } from '../heatmap-ch
       min-width: 60px;
       font-size: 0.875rem;
       font-weight: 500;
-      color: #666;
+      color: var(--ds-on-surface-variant);
     }
     
     .cells-container {
       position: relative;
       height: 100%;
       flex: 1;
-      border: 1px solid #e0e0e0;
+      border: 1px solid var(--ds-border-subtle);
     }
     
     .heatmap-cell {
       position: absolute;
       top: 0;
       height: 100%;
-      border-right: 1px solid rgba(255, 255, 255, 0.2);
+      border-right: 1px solid color-mix(in srgb, var(--ds-on-surface) 20%, transparent);
       cursor: pointer;
       transition: opacity 0.2s;
     }
     
     .heatmap-cell:hover {
       opacity: 0.8;
-      border: 1px solid rgba(0, 0, 0, 0.3);
+      border: 1px solid color-mix(in srgb, var(--ds-on-surface) 35%, transparent);
     }
     
     .no-data {
       padding: 2rem;
       text-align: center;
-      color: #999;
+      color: var(--ds-on-surface-variant);
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush

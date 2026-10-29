@@ -108,7 +108,7 @@ import { HeatmapChartHeatmapComponent } from './components/heatmap-chart-heatmap
     }
     
     .error-message {
-      color: #ff0000;
+      color: var(--ds-error);
     }
     
     .view-header {
@@ -117,7 +117,7 @@ import { HeatmapChartHeatmapComponent } from './components/heatmap-chart-heatmap
       align-items: center;
       margin-bottom: 1rem;
       padding-bottom: 1rem;
-      border-bottom: 1px solid #ccc;
+      border-bottom: 1px solid var(--ds-border-subtle);
       flex-shrink: 0;
     }
     
@@ -134,8 +134,8 @@ import { HeatmapChartHeatmapComponent } from './components/heatmap-chart-heatmap
     
     .interval-badge {
       padding: 0.25rem 0.5rem;
-      background: #007bff;
-      color: white;
+      background: var(--ds-accent);
+      color: var(--ds-on-accent);
       border-radius: 0.25rem;
       font-size: 0.875rem;
     }
@@ -153,15 +153,15 @@ import { HeatmapChartHeatmapComponent } from './components/heatmap-chart-heatmap
     
     .timeframe-selector button {
       padding: 0.5rem 1rem;
-      border: 1px solid #ccc;
-      background: white;
+      border: 1px solid var(--ds-border-subtle);
+      background: var(--ds-surface);
       cursor: pointer;
     }
     
     .timeframe-selector button.active {
-      background: #007bff;
-      color: white;
-      border-color: #007bff;
+      background: var(--ds-accent);
+      color: var(--ds-on-accent);
+      border-color: var(--ds-accent);
     }
     
     .list-navigator {
@@ -172,8 +172,8 @@ import { HeatmapChartHeatmapComponent } from './components/heatmap-chart-heatmap
     
     .list-navigator button {
       padding: 0.5rem 1rem;
-      border: 1px solid #ccc;
-      background: white;
+      border: 1px solid var(--ds-border-subtle);
+      background: var(--ds-surface);
       cursor: pointer;
     }
     
@@ -191,14 +191,14 @@ import { HeatmapChartHeatmapComponent } from './components/heatmap-chart-heatmap
       flex: 1 1 auto;
       min-height: 300px;
       margin-bottom: 1rem;
-      border: 1px solid #e0e0e0;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
       overflow: hidden;
     }
     
     .heatmap-container {
       flex: 0 0 200px;
-      border: 1px solid #e0e0e0;
+      border: 1px solid var(--ds-border-subtle);
       border-radius: 4px;
       overflow-y: auto;
       overflow-x: hidden;

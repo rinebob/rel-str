@@ -209,6 +209,8 @@ export class HeatmapChartDataService {
    * This will be replaced with dashboard-v3 dynamic coloring in the component.
    */
   private getColorForRsValue(rsValue: number): string {
+    // literal-sweep exception #1217: RS threshold ramp — categorical
+    // heatmap data colors consumed as literals, not theme tokens.
     if (rsValue >= 2.0) return '#00ff00';
     if (rsValue >= 1.0) return '#7fff00';
     if (rsValue >= 0.0) return '#ffff00';

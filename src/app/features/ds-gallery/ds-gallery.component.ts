@@ -12,6 +12,11 @@
  * declarations. The host always emits an explicit `data-theme` —
  * `dark` or `light`, never attributeless — so a light preview under a
  * dark app can't inherit the app's dark tokens (#1211).
+ *
+ * literal-sweep exception #1217: hex literals in this file are palette-
+ * definition data — accent/direction preset values displayed on swatches
+ * and pushed into CSS custom props, i.e. the values ARE the demo. They
+ * cannot consume the --ds-* tokens they exist to preview.
  */
 import {
   Component,

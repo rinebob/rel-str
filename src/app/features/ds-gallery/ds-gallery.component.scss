@@ -94,6 +94,8 @@
 // :root — the relay pins parity so the two can't drift silently. The
 // --mat-sys half needs no restate: the global [data-theme="light"] block
 // in styles.scss already matches this host.
+// (literal-sweep exception #1217 — definition-layer mirror, same class
+// as the dark block above: restated token VALUES, not consumers.)
 :host[data-theme='light'] {
   --ds-surface: #ffffff;
   --ds-surface-raised: #f5f6f8;
@@ -133,6 +135,9 @@
 // bound on :host) whose derived colors compute live via color-mix — any hex
 // works, presets and the free picker alike. Direction accents --ds-up/down
 // are untouched — order/chart semantics are frozen.
+// (literal-sweep exception #1217 — the hexes below are accent-derivation
+// endpoints + neutral-ramp endpoints the demo exists to preview; the
+// literals ARE the demo, same definition-layer class as the mirrors.)
 
 // Dark accent — bright accent on near-black on-primary; container is a
 // deep tint of the accent over the neutral container, on-container a
@@ -334,6 +339,8 @@
 }
 
 .dir-dot.dir-custom {
+  // literal-sweep exception #1217: hue-wheel art — the literal rainbow
+  // is the free-picker affordance itself, not a themable surface color.
   background: conic-gradient(#f44336, #ffc24d, #00ff9d, #22d3ee, #b18bff, #f44336);
   position: relative;
   overflow: hidden;
@@ -349,7 +356,7 @@
 // #1211 — accent↔up adjacency flag (hue within 50° of --ds-up).
 .adjacency-warn {
   font-size: var(--ds-font-size-sm);
-  color: var(--ds-warning, #fb8c00);
+  color: var(--ds-warning);
   border: 1px solid currentColor;
   border-radius: var(--ds-radius-sm);
   padding: 0 6px;

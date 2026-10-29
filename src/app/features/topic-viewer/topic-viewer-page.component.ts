@@ -115,25 +115,25 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
     .page { display: flex; flex-direction: column; gap: 8px; padding: 12px; height: 100%; box-sizing: border-box; }
     .header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .repo-picker { width: 180px; }
-    .dim { color: var(--mat-sys-on-surface-variant, #888); font-size: 0.8rem; }
+    .dim { color: var(--mat-sys-on-surface-variant); font-size: 0.8rem; }
     .banner {
       display: flex; align-items: center; gap: 8px;
       padding: 8px 12px; border-radius: 6px; font-size: 0.85rem;
     }
     .banner mat-icon { font-size: 18px; width: 18px; height: 18px; flex: none; }
-    .banner.error { background: var(--mat-sys-error-container, #ffebee); color: var(--mat-sys-on-error-container, #b71c1c); }
-    .banner.warn { background: #fff8e1; color: #8d6e00; }
+    .banner.error { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+    .banner.warn { background: var(--ds-warning-container); color: var(--ds-on-warning-container); }
     .panes { display: flex; gap: 16px; flex: 1; min-height: 0; }
     .topics {
       flex: 0 0 430px; min-width: 360px; overflow-y: auto;
-      border-right: 1px solid var(--mat-sys-outline-variant, #eee); padding-right: 8px;
+      border-right: 1px solid var(--mat-sys-outline-variant); padding-right: 8px;
     }
     .section-name {
       font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--mat-sys-on-surface-variant, #777);
+      color: var(--mat-sys-on-surface-variant);
       margin: 14px 0 4px; padding-bottom: 3px;
-      border-bottom: 1px solid var(--mat-sys-outline-variant, #eee);
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
     }
     .topic-row {
       display: flex; align-items: center; gap: 6px; width: 100%;
@@ -141,21 +141,23 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
       font: inherit; font-size: 0.85rem; text-align: left; cursor: pointer;
       color: var(--mat-sys-on-surface, inherit);
     }
-    .topic-row:hover { background: var(--mat-sys-surface-variant, #f5f5f5); }
+    .topic-row:hover { background: var(--mat-sys-surface-variant); }
     .topic-row.selected {
-      background: var(--mat-sys-secondary-container, #e3f2fd);
+      background: var(--mat-sys-secondary-container);
       color: var(--mat-sys-on-secondary-container, inherit);
     }
     .topic-row.closed { opacity: 0.55; font-style: italic; }
-    .num { color: var(--mat-sys-on-surface-variant, #888); font-variant-numeric: tabular-nums; flex: none; }
+    .num { color: var(--mat-sys-on-surface-variant); font-variant-numeric: tabular-nums; flex: none; }
     .t-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
     /* Stage indicator — a dot, not a chip: keeps the title unblocked while
        preserving the lifecycle signal (same stage-ordinal key, mid-tone
        solid palette vs the tree's pale-bg/dark-text chips). */
     .stage-dot {
       width: 9px; height: 9px; border-radius: 50%; flex: none;
-      background: var(--mat-sys-outline, #9e9e9e);
+      background: var(--mat-sys-outline);
     }
+    /* literal-sweep exception #1217: stage-identity dot hues —
+       categorical palette by contract, not theme tokens. */
     .stage-dot[data-stage="1"] { background: #7e57c2; }
     .stage-dot[data-stage="2"] { background: #5c6bc0; }
     .stage-dot[data-stage="3"] { background: #039be5; }
@@ -168,17 +170,17 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
     .tree-head {
       display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
       margin-bottom: 8px; padding-bottom: 6px;
-      border-bottom: 1px solid var(--mat-sys-outline-variant, #eee);
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
     }
     .tree-topic {
       font-size: 1rem; font-weight: 600; color: var(--mat-sys-on-surface, inherit);
       text-decoration: none;
     }
-    .tree-topic:hover { color: var(--mat-sys-primary, #1565c0); text-decoration: underline; }
+    .tree-topic:hover { color: var(--mat-sys-primary); text-decoration: underline; }
     .tree-actions { display: flex; gap: 4px; }
     .empty {
       display: flex; align-items: center; justify-content: center; gap: 8px;
-      color: var(--mat-sys-on-surface-variant, #999); font-size: 0.9rem; padding: 32px 8px;
+      color: var(--mat-sys-on-surface-variant); font-size: 0.9rem; padding: 32px 8px;
     }
     .empty mat-icon { font-size: 22px; width: 22px; height: 22px; opacity: 0.6; }
     .sr-only {

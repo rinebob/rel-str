@@ -43,6 +43,8 @@ import { autoscaleYAxisForRange } from '../../shared/utils/chart.util';
           (scrollEnd)="onScrollEnd($event)">
           
           <e-series-collection>
+            <!-- literal-sweep exception #1217: candle up/down fills —
+                 Syncfusion series hues, consumed as literals. -->
             <e-series
               [dataSource]="data.bars"
               type="Candle"
