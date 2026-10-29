@@ -37,7 +37,7 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--mat-sys-on-surface-variant, #666);
+  color: var(--mat-sys-on-surface-variant);
 }
 
 .spread-list-summary {
@@ -52,12 +52,12 @@
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 11px;
-  background: var(--mat-sys-surface-container, #f0f0f0);
-  color: var(--mat-sys-on-surface-variant, #666);
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface-variant);
 
-  &.loaded { background: var(--mat-sys-primary-container, #d3e3fd); color: var(--mat-sys-on-primary-container, #061e74); }
-  &.loading { background: var(--mat-sys-tertiary-container, #ffd9e4); color: var(--mat-sys-on-tertiary-container, #4a1942); }
-  &.error { background: var(--mat-sys-error-container, #f9dedc); color: var(--mat-sys-on-error-container, #410e0b); }
+  &.loaded { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+  &.loading { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+  &.error { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
   &.pending { opacity: 0.6; }
 }
 
@@ -85,7 +85,7 @@
 
 .page-indicator {
   font-size: 13px;
-  color: var(--mat-sys-on-surface-variant, #666);
+  color: var(--mat-sys-on-surface-variant);
   min-width: 60px;
   text-align: center;
 }

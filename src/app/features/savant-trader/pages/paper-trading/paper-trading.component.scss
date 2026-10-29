@@ -146,7 +146,7 @@
     // mixin's container tint.
     position: sticky;
     top: 0;
-    background: var(--mat-sys-surface, #fff);
+    background: var(--mat-sys-surface);
     white-space: nowrap;
 
     &.sortable {

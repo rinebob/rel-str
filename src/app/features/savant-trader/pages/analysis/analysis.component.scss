@@ -48,7 +48,7 @@
 .error-banner {
   padding: 8px 12px;
   border-radius: 4px;
-  background: rgba(244, 67, 54, 0.12);
+  background: color-mix(in srgb, var(--ds-error) 12%, transparent);
   color: var(--mat-sys-error);
 }
 
@@ -205,7 +205,7 @@
   display: inline-flex;
   gap: 2px;
   margin-left: auto;
-  border: 1px solid var(--mat-sys-outline-variant, #444);
+  border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 6px;
   padding: 2px;
 }
@@ -221,7 +221,7 @@
   color: inherit;
   opacity: 0.7;
   &.active {
-    background: var(--mat-sys-secondary-container, rgba(33, 150, 243, 0.2));
+    background: var(--mat-sys-secondary-container);
     opacity: 1;
   }
 }
@@ -252,7 +252,7 @@
     font-weight: 600;
     opacity: 0.7;
     padding: 4px 0 8px;
-    border-bottom: 1px solid var(--mat-sys-outline-variant, #333);
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
     margin-bottom: 8px;
   }
 }

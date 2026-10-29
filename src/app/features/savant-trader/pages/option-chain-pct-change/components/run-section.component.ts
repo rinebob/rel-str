@@ -101,7 +101,7 @@ import type { SwingCompareRun } from '../utils/swing-compare.utils';
       .run-section {
         border: 1.5px solid var(--ds-border-strong);
         border-radius: 6px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        box-shadow: var(--ds-shadow-1);
         overflow: hidden;
       }
       .run-header {

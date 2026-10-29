@@ -79,7 +79,7 @@ export const POPUP_COPIED_MS = 1500;
       background: var(--ds-surface-overlay);
       color: var(--ds-on-surface);
       border-radius: 4px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+      box-shadow: var(--ds-shadow-2);
       font-size: 0.68rem;
       line-height: 1.3;
     }

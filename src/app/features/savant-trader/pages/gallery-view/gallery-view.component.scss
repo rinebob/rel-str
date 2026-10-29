@@ -38,7 +38,7 @@
   gap: 10px;
   margin: 0 16px 12px;
   padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--ds-border-subtle);
   border-radius: 6px;
   background: var(--mat-sys-surface-container-high);
   font-size: 14px;
@@ -91,7 +91,7 @@
   font-weight: 700;
   padding: 1px 7px;
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--ds-on-surface) 10%, transparent);
 }
 
 .gallery-empty {

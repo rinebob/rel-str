@@ -49,7 +49,7 @@
       visibility: visible !important;
       opacity: 1 !important;
 
-      mat-icon { font-size: 16px; width: 16px; height: 16px; color: white; display: flex; }
+      mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--ds-on-accent); display: flex; }
 
       &.trade {
         // #1017 — Trade label pill replaced the ACR icon set.

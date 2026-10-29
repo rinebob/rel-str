@@ -75,7 +75,7 @@ app-flex-chart {
     color: var(--ds-on-surface);
     border: 1px solid var(--ds-border-strong);
     border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--ds-shadow-2);
   }
 }
 

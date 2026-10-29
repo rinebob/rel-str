@@ -88,10 +88,10 @@ interface BandRow {
       min-width: 190px;
       max-height: 320px;
       overflow: auto;
-      background: var(--mat-sys-surface, #fff);
-      border: 1px solid var(--mat-sys-outline-variant, #ccc);
+      background: var(--mat-sys-surface);
+      border: 1px solid var(--mat-sys-outline-variant);
       border-radius: 6px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      box-shadow: var(--ds-shadow-2);
       padding: 6px;
       font-size: 11px;
     }
@@ -99,18 +99,18 @@ interface BandRow {
       display: flex;
       gap: 6px;
       padding: 2px 4px 6px;
-      border-bottom: 1px solid var(--mat-sys-outline-variant, #eee);
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
       margin-bottom: 4px;
     }
     .picker-actions button {
-      border: 1px solid var(--mat-sys-outline-variant, #ccc);
+      border: 1px solid var(--mat-sys-outline-variant);
       border-radius: 4px;
-      background: var(--mat-sys-surface-container-high, #f5f5f5);
+      background: var(--mat-sys-surface-container-high);
       font-size: 10px;
       padding: 1px 8px;
       cursor: pointer;
     }
-    .picker-actions button:hover { background: var(--mat-sys-surface-container-highest, #eaeaea); }
+    .picker-actions button:hover { background: var(--mat-sys-surface-container-highest); }
     .picker-item {
       display: flex;
       align-items: center;
@@ -120,9 +120,9 @@ interface BandRow {
       white-space: nowrap;
       border-radius: 3px;
     }
-    .picker-item:hover { background: var(--mat-sys-surface-container-high, #f2f5f8); }
+    .picker-item:hover { background: var(--mat-sys-surface-container-high); }
     .picker-band-label { font-weight: 600; }
-    .picker-divider { border-top: 1px solid var(--mat-sys-outline-variant, #ddd); margin: 4px 0; }
+    .picker-divider { border-top: 1px solid var(--mat-sys-outline-variant); margin: 4px 0; }
     .picker-date { font-variant-numeric: tabular-nums; }
     .picker-meta { opacity: 0.55; font-size: 9.5px; margin-left: auto; }
   `],

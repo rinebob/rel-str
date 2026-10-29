@@ -149,7 +149,7 @@ function pointAnnots(verts: Vertex[]): { x: number; y: number; label: string }[]
     .mini-chart {
       width: 240px; background: var(--ds-surface);
       border: 1px solid var(--ds-border-subtle);
-      border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      border-radius: 6px; box-shadow: var(--ds-shadow-1);
       padding: 6px 8px; font-size: 10px;
       color: var(--ds-on-surface);
     }
@@ -167,8 +167,8 @@ function pointAnnots(verts: Vertex[]): { x: number; y: number; label: string }[]
     .price-swatch { background: var(--price-color); }
     .delta-swatch { background: var(--delta-color); }
     .chart-svg { display: block; width: 100%; height: auto; }
-    .axis-tick { font-size: 7px; fill: var(--mat-sys-on-surface-variant, #888); }
-    .tick-guide { stroke: var(--mat-sys-outline-variant, #eee); stroke-width: 0.5; }
+    .axis-tick { font-size: 7px; fill: var(--mat-sys-on-surface-variant); }
+    .tick-guide { stroke: var(--mat-sys-outline-variant); stroke-width: 0.5; }
     .price-line { stroke: var(--price-color); stroke-width: 1.5; }
     .delta-line { stroke: var(--delta-color); stroke-width: 1; }
     .price-dot { fill: var(--price-color); }
@@ -176,8 +176,8 @@ function pointAnnots(verts: Vertex[]): { x: number; y: number; label: string }[]
     .value-annotation { font-size: 7px; font-weight: 600; }
     .price-annot { fill: var(--price-color); }
     .delta-annot { fill: var(--delta-color); }
-    .chart-dates { display: flex; justify-content: space-between; font-size: 8px; color: var(--mat-sys-on-surface-variant, #888); padding: 0 34px; }
-    .chart-empty { padding: 20px 0; text-align: center; color: var(--mat-sys-on-surface-variant, #888); font-size: 11px; }
+    .chart-dates { display: flex; justify-content: space-between; font-size: 8px; color: var(--mat-sys-on-surface-variant); padding: 0 34px; }
+    .chart-empty { padding: 20px 0; text-align: center; color: var(--mat-sys-on-surface-variant); font-size: 11px; }
   `],
 })
 export class ContractMiniChartComponent {

@@ -193,7 +193,7 @@ app-gallery-card-chart {
   gap: 4px;
   margin-top: auto;
   padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid var(--ds-border-subtle);
 }
 
 // Action-button idiom (symbol-actions): 20px ghost chips — transparent,
@@ -311,7 +311,7 @@ app-gallery-card-chart {
   // literal-sweep exception #1214: categorical weekly-vs-daily hue — no
   // --ds token; revisiting under #1162 badge work.
   &.weekly {
-    background: rgba(156, 39, 176, 0.2);
+    background: rgba(156, 39, 176, 0.2) /* literal-sweep exception #1217: 'weekly' purple — categorical badge hue, no --ds token */;
     color: #ba68c8;
   }
 }

@@ -150,8 +150,8 @@
 .grid-cell.month-alt { background-color: var(--ds-surface-raised); }
 // |delta| odd-tenths band — inset overlay so it composes over the
 // chg gradient instead of replacing it.
-.data-cell.delta-shaded { box-shadow: inset 0 0 0 100px rgba(0,0,0,0.08); }
-.data-cell.delta-shaded.top-gainer { box-shadow: inset 0 0 0 100px rgba(0,0,0,0.08), inset 0 0 0 2px var(--ds-on-surface); }
+.data-cell.delta-shaded { box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--ds-on-surface) 8%, transparent); }
+.data-cell.delta-shaded.top-gainer { box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--ds-on-surface) 8%, transparent), inset 0 0 0 2px var(--ds-on-surface); }
 .no-data {
   @include vl.state-block;
   font-size: 0.8rem;
