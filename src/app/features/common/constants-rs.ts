@@ -322,6 +322,8 @@ export const AAPL_CHART_CONFIG: RsChartConfig = {
         crosshair: {
             enable: true,
             lineType: 'Vertical',
+            // literal-sweep exception #1217: Syncfusion widget chrome — crosshair
+            // line skin is third-party config, not a --ds-* role.
             line: { width: 1, color: '#757575' }
         },
         legend: MAIN_RS_CHART_LEGEND_CONFIG,

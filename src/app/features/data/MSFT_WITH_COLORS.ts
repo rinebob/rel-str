@@ -1,5 +1,8 @@
 import { MockCandleWithRSColor } from "../shared/types/rs.interfaces";
 
+// literal-sweep exception #1217: per-candle rsColor data literals —
+// mock chart-series data consumed by the chart lib as hex values, not
+// theme tokens.
 export const MSFT_WITH_COLORS: MockCandleWithRSColor[] = [
         {
         "x": "2020-04-01T13:30:00.000Z",

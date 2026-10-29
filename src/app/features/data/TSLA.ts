@@ -1,5 +1,8 @@
 import { StockDatum, StockData, BaselineTargetRankDatum } from "../shared/types/rs.interfaces";
 
+// literal-sweep exception #1217: per-candle rsColor data literals —
+// mock chart-series data consumed by the chart lib as hex values, not
+// theme tokens.
 export const TSLA: StockDatum[] = [
     // {"07/05/23": 282.48},
     // {"07/06/23": 276.54},

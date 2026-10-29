@@ -762,6 +762,8 @@ function prepareChartDataFromLive(ohlc: OHLCDatum[], rsSeries: RsSeriesPoint[]):
     const prevClose = typeof prev?.close === 'number' ? prev.close : bar.open ?? bar.close;
     const close = bar.close;
     const isUp = typeof close === 'number' && typeof prevClose === 'number' && close >= prevClose;
+    // literal-sweep exception #1217: rsColor is a per-datum chart-series
+    // color consumed by the chart lib as a literal — data, not chrome.
     const rsColor = isUp ? '#2e7d32' : '#c62828';
 
     const dateKey = bar.date || toYmd(x);
@@ -796,7 +798,9 @@ function prepareThresholdFilteredRsFromSeries(rsSeries: RsSeriesPoint[]): RsPane
     .map((r) => {
       const rsRaw = r.value;
       const rank = typeof r.norm === 'number' ? r.norm : undefined;
-      let rsColor = '#dddddd';
+      // literal-sweep exception #1217: rsColor is a per-datum chart-series
+        // color consumed by the chart lib as a literal — data, not chrome.
+        let rsColor = '#dddddd';
       if (typeof rsRaw === 'number') {
         if (rsRaw >= RS_OPEN_LONG_THRESHOLD) {
           rsColor = '#00ff00';

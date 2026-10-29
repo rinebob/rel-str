@@ -48,6 +48,8 @@ export function generateHalfWarmHalfCoolColorArray(midpoints: number) {
 // With the existing index calculation (metric >= 0.5 ? 1 : 0 for 2 colors),
 // any value < 0.5 maps to index 0 (red), and >= 0.5 maps to index 1 (blue).
 export function generateTwoColorWarmCoolArray(): string[] {
+    // literal-sweep exception #1217: heatmap ramp endpoints — categorical
+    // data colors consumed as literals, not theme tokens.
     return [
         '#d7191c', // cold/down red for lower half of values
         '#2c7bb6', // warm/up blue for upper half of values

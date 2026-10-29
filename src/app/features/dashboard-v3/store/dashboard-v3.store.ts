@@ -197,7 +197,9 @@ export const DashboardV3Store = signalStore(
 
       const allBuckets = Array.from(bucketSet.values()).sort((a, b) => String(a ?? '').localeCompare(String(b ?? '')));
       const colors = heatmapPaletteStore.getSelectedPaletteColors();
-      const placeholderColor = '#cccccc';
+      // literal-sweep exception #1217: heatmap placeholder-cell fill —
+                // a per-datum chart color consumed as a literal, not theme chrome.
+                const placeholderColor = '#cccccc';
 
       for (const pair of pairs) {
         const byBucket = new Map<string, BaselineTargetRankDatum>();
@@ -337,6 +339,8 @@ export const DashboardV3Store = signalStore(
                 const colors = heatmapPaletteStore.getSelectedPaletteColors();
                 const thresholds = thresholdsStore.getConfig();
                 const mode = store.heatmapMode();
+                // literal-sweep exception #1217: heatmap fallback-cell fill —
+                // per-datum chart color consumed as a literal.
                 const fallbackColor = '#cccccc';
                 const ranks: Record<string, BaselineTargetRankDatum[]> = {};
 

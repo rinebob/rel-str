@@ -201,6 +201,8 @@ export function withStockListV2Feature() {
 
                 // Second pass: align each pair to the union-of-dates, inserting placeholders where missing
                 const colors = rsCalcsStore.heatmapColors();
+                // literal-sweep exception #1217: heatmap placeholder-cell fill —
+                // a per-datum chart color consumed as a literal, not theme chrome.
                 const placeholderColor = '#cccccc';
                 for (const pair of pairs) {
                     const byBucket = new Map<string, BaselineTargetRankDatum>();
@@ -254,6 +256,8 @@ export function withStockListV2Feature() {
                     const sb = b !== undefined ? String(b) : '';
                     return sa.localeCompare(sb);
                 });
+                // literal-sweep exception #1217: heatmap placeholder-cell fill —
+                // a per-datum chart color consumed as a literal, not theme chrome.
                 const placeholderColor = '#cccccc';
                 for (const pair of pairs) {
                     const byDate = new Map<string, BaselineTargetRankDatum>();

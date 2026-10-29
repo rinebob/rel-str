@@ -1,3 +1,6 @@
+// literal-sweep exception #1217: every literal here is a heatmap
+// palette ramp (ColorBrewer-class diverging/sequential scales) —
+// categorical data colors by contract, not theme tokens.
 export interface DiscreteLnsPalette {
   readonly id: string;
   readonly label: string;

@@ -223,7 +223,7 @@ export function withHeatmapViewStore() {
               if (raw == null) {
                 return {
                   value: 0,
-                  color: '#e0e0e0',
+                  color: '#e0e0e0', // literal-sweep exception #1217: no-data cell fill — heatmap data color
                   date,
                 } satisfies HeatmapMatrixCellVM;
               }
@@ -232,12 +232,12 @@ export function withHeatmapViewStore() {
               if (!Number.isFinite(v)) {
                 return {
                   value: 0,
-                  color: '#e0e0e0',
+                  color: '#e0e0e0', // literal-sweep exception #1217: no-data cell fill — heatmap data color
                   date,
                 } satisfies HeatmapMatrixCellVM;
               }
 
-              let color = '#ffffff';
+              let color = '#ffffff'; // literal-sweep exception #1217: heatmap base cell fill — data color
               if (Array.isArray(heatmapColors) && heatmapColors.length > 0) {
                 const clamped = Math.max(0, Math.min(1, v));
                 const idx = Math.min(
