@@ -1,0 +1,48 @@
+<h2 mat-dialog-title>New Selection Replay</h2>
+
+<mat-dialog-content>
+  <div class="replay-form" [formGroup]="form">
+    <mat-form-field appearance="outline" class="field-full">
+      <mat-label>Template</mat-label>
+      <mat-select formControlName="templateId">
+        <mat-select-trigger>{{ selectedTemplateName() }}</mat-select-trigger>
+        @for (template of templates; track template.id) {
+          <mat-option [value]="template.id">
+            <div class="template-option">
+              <span class="template-name">{{ template.name }}</span>
+              <span class="template-description">{{ template.description }}</span>
+            </div>
+          </mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <div class="row-fields">
+      <mat-form-field appearance="outline" class="field-half">
+        <mat-label>Symbols</mat-label>
+        <input matInput formControlName="symbolsText" placeholder="e.g. QQQ, SPY" />
+        @if (form.controls.symbolsText.hasError('required') && form.controls.symbolsText.touched) {
+          <mat-error>At least one symbol is required</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="field-half">
+        <mat-label>Start date</mat-label>
+        <input matInput type="date" formControlName="startDate" />
+        @if (form.controls.startDate.hasError('required') && form.controls.startDate.touched) {
+          <mat-error>Start date is required</mat-error>
+        }
+        @if (form.controls.startDate.hasError('marketDate') && form.controls.startDate.touched) {
+          <mat-error>Must be a real date (YYYY-MM-DD)</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <p class="form-note">Replays the template's daily contract selection across the symbol's trading days, starting on this date.</p>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-raised-button color="primary" type="button" [disabled]="form.invalid" (click)="submit()">Start Replay</button>
+</mat-dialog-actions>
