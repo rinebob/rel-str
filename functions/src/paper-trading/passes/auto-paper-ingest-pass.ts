@@ -26,9 +26,8 @@ import {
   AUTO_PAPER_CONFIG_DOC,
   ST_CONFIG_ROOT,
   ST_JOBS_SUBCOLLECTION,
-  ST_RUN_IDS_SUBCOLLECTION,
   ST_RUNS_ROOT,
-  ST_SYMBOLS_COLLECTION,
+  ST_SIGNALS_ROOT,
   ST_SYMBOLS_ROOT,
   ST_SYMBOL_LISTS_ROOT,
   type AutoPaperConfig,
@@ -39,9 +38,9 @@ import type { AutoPaperIngestPayload } from '../../common/st-shared-types';
 import {
   StSignalDirection,
   StSignalType,
-  signalEntriesFromDoc,
   type StSignalEntry,
 } from '../../st-cloud-function/signals';
+import { normalizeStSignalDirection, type StSignal } from '@st/signals';
 import { createLogger } from '../engine/logging';
 import {
   buildAccountId,
@@ -144,7 +143,9 @@ export interface AutoPaperIngestFillDeps {
   listCandidates(runId: string): Promise<string[]>;
   /** Member symbols of a user-scoped symbol-list key. */
   listMembers(listKey: string, ownerUid?: string): Promise<string[]>;
-  /** Signal entries on `symbols/{sym}/run-ids/{runId}` (both shapes). */
+  /** Signal occurrences the run (re)detected for the symbol, keyed by
+   *  signalType — the st-signals read (#1019) that supersedes
+   *  `symbols/{sym}/run-ids/{runId}`. */
   getSignals(symbol: string, runId: string): Promise<Record<string, StSignalEntry>>;
   /** Overview stamps — live on the `symbols/{sym}` doc. */
   getSymbolMeta(
@@ -648,13 +649,45 @@ export function defaultAutoPaperIngestFillDeps(
       return ((snap.docs[0]?.data()?.symbols ?? []) as string[]);
     },
     getSignals: async (symbol, runId) => {
-      const doc = await db
-        .collection(ST_SYMBOLS_COLLECTION)
-        .doc(symbol)
-        .collection(ST_RUN_IDS_SUBCOLLECTION)
-        .doc(runId)
+      // Canonical occurrences the run (re)detected for this symbol (#1019 —
+      // supersedes the run-ids/{runId} doc read).
+      const snap = await db
+        .collection(ST_SIGNALS_ROOT)
+        .where('symbol', '==', symbol)
+        .where('runIds', 'array-contains', runId)
         .get();
-      return doc.exists ? signalEntriesFromDoc(doc.data() ?? {}) : {};
+      const out: Record<string, StSignalEntry> = {};
+      // Sort by barDate asc so the per-signalType collapse below resolves
+      // deterministically to the most recent bar — legacy's last-commit
+      // ordering was racy; ascending gives last-wins = newest occurrence.
+      const docs = [...snap.docs].sort((a, b) =>
+        String(a.data().barDate ?? '').localeCompare(String(b.data().barDate ?? '')),
+      );
+      for (const doc of docs) {
+        const d = doc.data() as StSignal;
+        // Direction must map back to the legacy uppercase enum — the fill
+        // path compares `=== StSignalDirection.SHORT`. An unmapped side is
+        // skipped, never guessed.
+        const normalized = normalizeStSignalDirection(d.direction);
+        const direction =
+          normalized === TradeSide.LONG ? StSignalDirection.LONG
+          : normalized === TradeSide.SHORT ? StSignalDirection.SHORT
+          : null;
+        if (!direction) {
+          logger.warn(`auto-paper ${doc.id}: unmappable direction '${d.direction}' — skipping`);
+          continue;
+        }
+        out[d.signalType] = {
+          signalType: d.signalType,
+          timeframe: d.timeframe,
+          direction,
+          status: d.status,
+          barDate: d.barDate,
+          marketDate: d.marketDate,
+          indicators: d.indicators ?? {},
+        };
+      }
+      return out;
     },
     getSymbolMeta: async (symbol) => {
       const doc = await db.collection(ST_SYMBOLS_ROOT).doc(symbol).get();

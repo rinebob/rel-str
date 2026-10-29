@@ -9,17 +9,11 @@ import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
 
 import {
-  ST_SYMBOLS_COLLECTION,
   ST_SYMBOLS_ROOT,
-  ST_SIGNAL_HISTORY_SUBCOLLECTION,
-  ST_RUN_IDS_SUBCOLLECTION,
+  ST_SIGNALS_ROOT,
   StSymbolProfile,
 } from '../common/st-collections';
-import {
-  StRunIdDoc,
-  StSignalEntry,
-  signalEntriesFromDoc,
-} from './signals';
+import type { StSignal } from '@st/signals';
 
 // Response types
 
@@ -30,7 +24,7 @@ interface SymbolsWithSignalsResponse {
 
 /** Flat signal item returned by the symbol signal history callable. */
 interface SignalItem {
-  /** Document ID of the signal-date subcollection doc (barDate). */
+  /** st-signals occurrence doc id ({SYM}_{barDate}_{signalType}). */
   id: string;
   symbol: string;
   barDate: string;
@@ -52,9 +46,10 @@ interface SymbolSignalHistoryResponse {
 
 /**
  * Primary review page query — run-centric path.
- * Returns enabled symbol-meta docs that have a signal doc under run-ids/{runId}.
- * Queries the run-ids subcollection via collection group filtered by runId.
- * Includes all company overview fields for grouping/sorting in the UI.
+ * Returns enabled symbol docs that have an st-signals occurrence carrying
+ * runId in runIds[] (the set the legacy run-ids collection-group query
+ * produced — #1019). Includes all company overview fields for
+ * grouping/sorting in the UI.
  */
 export const stGetSymbolsWithSignals = onCall<
   { runId: string; timeframe: 'W' | 'D' },
@@ -72,17 +67,17 @@ export const stGetSymbolsWithSignals = onCall<
         throw new Error('runId and timeframe are required');
       }
 
-      // Query all run-ids/{runId} docs across all symbols via collection group.
-      // Each doc that exists for this runId means that symbol had signals on this run.
+      // Canonical run-centric lookup (#1019): every st-signals occurrence the
+      // run (re)detected carries runId in runIds[] — the distinct symbols are
+      // the set the legacy run-ids collection-group query produced.
       const runIdSnapshot = await db
-        .collectionGroup(ST_RUN_IDS_SUBCOLLECTION)
-        .where('runId', '==', runId)
+        .collection(ST_SIGNALS_ROOT)
+        .where('runIds', 'array-contains', runId)
         .get();
 
-      // Extract symbol names from the matched run-id docs
       const symbolsWithSignals = new Set(
         runIdSnapshot.docs
-          .map((doc) => (doc.data() as StRunIdDoc).symbol)
+          .map((doc) => (doc.data() as StSignal).symbol)
           .filter(Boolean)
       );
 
@@ -143,8 +138,9 @@ export const stGetSymbolsWithSignals = onCall<
 );
 
 /**
- * Returns signal history for a single symbol, filtered by timeframe.
- * Used by the detail panel when a symbol row is selected.
+ * Returns signal history for a single symbol from st-signals (#1019 —
+ * includes INTERIM occurrences the legacy signal-history path never
+ * carried). Used by the detail panel when a symbol row is selected.
  * Returns signals from the last `days` trading days (default 14).
  */
 export const stGetSymbolSignalHistory = onCall<
@@ -163,31 +159,28 @@ export const stGetSymbolSignalHistory = onCall<
         throw new Error('symbol and timeframe are required');
       }
 
+      // Canonical flat occurrences (#1019) — supersedes the nightly-only
+      // signal-history subcollection read and adds INTERIM coverage.
       const snapshot = await db
-        .collection(ST_SYMBOLS_COLLECTION)
-        .doc(symbol)
-        .collection(ST_SIGNAL_HISTORY_SUBCOLLECTION)
+        .collection(ST_SIGNALS_ROOT)
+        .where('symbol', '==', symbol)
         .get();
 
       const signals: SignalItem[] = [];
       for (const doc of snapshot.docs) {
-        const d = doc.data();
-        // Prod signal docs carry flattened `signals.{type}` top-level
-        // fields, not a nested map — normalize via the shared reader (#931).
-        for (const entry of Object.values(signalEntriesFromDoc(d)) as (StSignalEntry & { sourceRunId: string })[]) {
-          signals.push({
-            id: doc.id,
-            symbol: d.symbol,
-            barDate: entry.barDate,
-            marketDate: entry.marketDate,
-            runId: entry.sourceRunId,
-            timeframe: entry.timeframe,
-            direction: entry.direction as string,
-            signalType: entry.signalType as string,
-            status: entry.status,
-            indicators: entry.indicators || {},
-          });
-        }
+        const d = doc.data() as StSignal;
+        signals.push({
+          id: doc.id,
+          symbol: d.symbol,
+          barDate: d.barDate,
+          marketDate: d.marketDate,
+          runId: d.sourceRunId,
+          timeframe: d.timeframe,
+          direction: String(d.direction ?? '').toUpperCase(),
+          signalType: d.signalType,
+          status: d.status,
+          indicators: d.indicators || {},
+        });
       }
       signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
 
