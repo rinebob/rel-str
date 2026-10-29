@@ -74,6 +74,9 @@ export interface ChartPalette {
   colorRemap: Record<string, string>;
 }
 
+// literal-sweep exception #1216: chart-surface palettes are consumed by
+// the chart lib as literals — the chart has its own chrome vocabulary
+// (#1164 chart-layout concern), deliberately not UI theme tokens.
 export const CHART_PALETTES: Record<ChartAppearance, ChartPalette> = {
   dark: {
     background: '#131722',

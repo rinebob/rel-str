@@ -14,6 +14,11 @@
  * DIFFERENT ±3 color table — it predates the callable-path ±4 table and is
  * a real FE inconsistency. Only the ±4 table (converter + V2 + captures)
  * lives here; unifying V1's local table is a separate FE decision.
+ *
+ * literal-sweep exception #1216: every literal in this file is a canonical
+ * chart-series / signal identity hue consumed by the chart lib (and the
+ * screenshot assembler) as literals — categorical palette by contract,
+ * not theme tokens.
  */
 
 // ── Trend bands (main pane candle overlays) ────────────────────────────────
