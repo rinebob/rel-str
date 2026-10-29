@@ -5,6 +5,9 @@ export const STOCK_LIST_INITIALIZER: RelStrStockList = {name: '', baseline: '', 
 
 export const BASELINE_EQUITY_SYMBOLS = ['SPY', 'QQQ'];
 
+// literal-sweep exception #1216: MA series identity palette — chart-lib
+// series colors consumed as literals (amber/blue/violet are deliberate
+// per-series identity hues, not theme colors).
 export const DEFAULT_MAIN_MA_CONFIGS: MaConfig[] = [
     { id: MainMaId.MA1, enabled: true, type: MaType.EMA, length: 10, color: '#ffb300' },
     { id: MainMaId.MA2, enabled: true, type: MaType.EMA, length: 20, color: '#1e88e5' },
@@ -332,6 +335,8 @@ export const AAPL_CHART_CONFIG: RsChartConfig = {
         crosshair: {
             enable: true,
             lineType: 'Vertical',
+            // literal-sweep exception #1216: Syncfusion crosshair color —
+            // chart-config literal, not a theme token.
             line: { width: 1, color: '#757575' }
         },
         legend: MAIN_RS_CHART_LEGEND_CONFIG,

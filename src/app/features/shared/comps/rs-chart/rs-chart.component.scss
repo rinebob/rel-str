@@ -38,7 +38,9 @@
             height: 100% !important;
         }
         
-        // Style the scrollbar
+        // literal-sweep exception #1216: Syncfusion scrollbar skin —
+        // third-party widget chrome; grey ramp is a deliberate widget
+        // visual, not a theme surface (#1216 scope: third-party styles).
         .e-scrollbar {
             height: 12px !important;
             

@@ -60,6 +60,8 @@ export const RSI_INDICATOR: IndicatorOption = {
     { key: 'period', label: 'Period', default: 14, min: 2, max: 100 },
   ],
   defaultOptions: {
+    // literal-sweep exception #1216: overbought/oversold reference-line
+    // colors — consumed by the chart lib as literals.
     referenceLines: [
       { value: 70, color: '#ef5350', dashArray: '4,3', label: 'Overbought' },
       { value: 30, color: '#26a69a', dashArray: '4,3', label: 'Oversold' },

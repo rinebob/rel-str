@@ -41,7 +41,7 @@
  * - Colors: gradient from red (-3) through neutral (0) to green (+3)
  */
 
-import { ST_ZONE_NEUTRAL_REFLINE } from '@flex-chart/indicator-visuals';
+import { ST_ZONE_NEUTRAL_REFLINE, ST_ZONE_FALLBACK_COLOR } from '@flex-chart/indicator-visuals';
 import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
 
@@ -194,6 +194,8 @@ export const calculateStZone: IndicatorCalculator = (bars, params) => {
     else if (zoneMinusTwo) zone = -2;
     else if (zoneMinusThree) zone = -3;
 
+    // literal-sweep exception #1216: categorical zone-identity ramp —
+    // per-zone hues consumed by the chart lib as literals.
     const ZONE_COLORS: Record<number, string> = {
       3: '#2196f3',   // blue
       2: '#4caf50',   // green
@@ -204,7 +206,7 @@ export const calculateStZone: IndicatorCalculator = (bars, params) => {
       [-3]: '#ffeb3b', // yellow
     };
 
-    return { x: b.x, y: zone, color: ZONE_COLORS[zone] || '#9e9e9e' };
+    return { x: b.x, y: zone, color: ZONE_COLORS[zone] || ST_ZONE_FALLBACK_COLOR };
   }).filter((p): p is { x: Date; y: number; color: string } => p !== null);
 
   return result;

@@ -67,6 +67,8 @@ export const MACD_INDICATOR: IndicatorOption = {
     { key: 'signalPeriod', label: 'Signal Period', default: 9, min: 2, max: 50 },
   ],
   defaultOptions: {
+    // literal-sweep exception #1216: chart-series + reference-line
+    // colors — consumed by the chart lib as literals.
     color2: '#e91e63',
     referenceLines: [
       { value: 0, color: '#9e9e9e', dashArray: '2,2' },

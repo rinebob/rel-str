@@ -36,6 +36,8 @@ const DEFAULTS = {
   line1RightDepth: 2,
   line2LeftDepth: 5,
   line2RightDepth: 2,
+  // literal-sweep exception #1216: line-1/line-2 identity hues —
+  // deliberate categorical pairs (see #955), consumed as literals.
   line1HighColor: '#FF8CFF',
   line1LowColor: '#8CF5FF',
   // Orange/green — deliberately outside line 1's magenta/cyan family so the

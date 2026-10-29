@@ -133,6 +133,8 @@ export const DEFAULT_CONFIG: ZigZagConfig = {
   rightDepth: 5,
   allowZigZagOnOneBar: true,
   projectionPivots: true,
+  // literal-sweep exception #1216: zigzag series identity hue —
+  // consumed by the chart lib as a literal.
   lineColor: '#1976d2',
 };
 

@@ -192,6 +192,8 @@ export const calculateStTrendBandWidth: IndicatorCalculator = (bars, params) => 
     result.push({
       x:     bars[i].x,
       y,
+      // literal-sweep exception #1216: setup-state dot hues — chart-lib
+      // point colors consumed as literals.
       color: validSetup[i] ? '#2196f3' : '#ffc107',
     });
   }
@@ -227,6 +229,8 @@ export function computeBandWidthDots(
   const dots: BandWidthDotPoint[] = [];
   for (let i = 0; i < bars.length; i++) {
     if (validSetup[i]) {
+      // literal-sweep exception #1216: setup-dot hue — chart-lib point
+      // color consumed as a literal.
       dots.push({ x: bars[i].x, y: bars[i].low * 0.995, color: '#4caf50' });
     }
   }
