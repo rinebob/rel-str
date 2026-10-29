@@ -56,6 +56,15 @@
   <section class="replay-content">
     <header class="replay-header">
       <h2 class="replay-title">Selection Replay</h2>
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        class="new-replay-button"
+        [disabled]="replayStore.isLoading()"
+        (click)="openNewReplayDialog()">
+        New Replay
+      </button>
     </header>
 
     <div class="dashboard-body">

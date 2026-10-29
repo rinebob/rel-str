@@ -6,6 +6,7 @@
  */
 import { Component, computed, inject, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 
 import { BacktestRunStore } from '../../stores/backtest-run.store';
@@ -18,7 +19,9 @@ import { BacktestPermutationDetailComponent } from '../../components/backtest-pe
 import { BacktestNewRunDialogComponent } from '../../components/backtest-new-run-dialog/backtest-new-run-dialog.component';
 import { OptionsReplayRunListComponent } from '../../components/options-replay-run-list/options-replay-run-list.component';
 import { OptionsReplayRunDetailComponent } from '../../components/options-replay-run-detail/options-replay-run-detail.component';
+import { OptionsReplayNewRunDialogComponent } from '../../components/options-replay-new-run-dialog/options-replay-new-run-dialog.component';
 import { UiStateService } from '../../../../../core/services/ui-state.service';
+import type { OptionsReplayStartRequest } from '@options-replay/contracts';
 import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequest } from '../../common/backtest.types';
 
 @Component({
@@ -26,6 +29,7 @@ import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequ
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
+    MatButtonModule,
     MatDialogModule,
     BacktestRunControlComponent,
     BacktestRunListComponent,
@@ -72,6 +76,22 @@ export class BacktestDashboardComponent implements OnDestroy {
     ref.afterClosed().subscribe((request) => {
       if (request) {
         this.runStore.startRun(request);
+      }
+    });
+  }
+
+  openNewReplayDialog(): void {
+    const ref = this.dialog.open<OptionsReplayNewRunDialogComponent, void, OptionsReplayStartRequest | undefined>(
+      OptionsReplayNewRunDialogComponent,
+      {
+        width: '560px',
+        maxWidth: '90vw',
+      }
+    );
+
+    ref.afterClosed().subscribe((request) => {
+      if (request) {
+        this.replayStore.startReplay(request);
       }
     });
   }

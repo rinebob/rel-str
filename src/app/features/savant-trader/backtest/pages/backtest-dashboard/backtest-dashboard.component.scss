@@ -94,11 +94,18 @@
   flex-shrink: 0;
   padding: 10px 16px;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
   .replay-title {
     margin: 0;
     font-size: 13px;
     font-weight: 600;
     color: var(--mat-sys-on-surface);
+  }
+
+  .new-replay-button {
+    font-size: 12px;
   }
 }
