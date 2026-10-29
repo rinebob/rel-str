@@ -229,9 +229,10 @@
         }
       </div>
 
-      @if (store.contractData(); as data) {
+      @if (store.contractData() || showPlottedSet()) {
       <div class="metadata-section">
-        <!-- Data Quality Flags -->
+        <!-- Data Quality Flags — single-contract only -->
+        @if (store.contractData(); as data) {
         <div class="quality-flags">
           <span class="quality-label">Quality</span>
           <mat-chip-set>
@@ -246,24 +247,27 @@
             </mat-chip>
           </mat-chip-set>
         </div>
+        }
 
-        <!-- Toggle Controls -->
+        <!-- Toggle Controls — Greeks/Volume-OI panes are single-contract only -->
         <div class="toggle-row">
           <mat-slide-toggle [checked]="store.showUnderlying()" (change)="store.toggleUnderlying()">
             Underlying
           </mat-slide-toggle>
+          @if (store.contractData()) {
           <mat-slide-toggle [checked]="store.showGreeks()" (change)="store.toggleGreeks()">
             Greeks
           </mat-slide-toggle>
           <mat-slide-toggle [checked]="store.showVolumeOI()" (change)="store.toggleVolumeOI()">
             Volume / OI
           </mat-slide-toggle>
+          }
         </div>
 
         <!-- Chart padding controls -->
         <div class="pad-row">
-          <button mat-stroked-button (click)="store.addPadDays(20)" [disabled]="!store.contractData()">+20d</button>
-          <button mat-stroked-button (click)="store.addPadDays(50)" [disabled]="!store.contractData()">+50d</button>
+          <button mat-stroked-button (click)="store.addPadDays(20)" [disabled]="!store.contractData() && !showPlottedSet()">+20d</button>
+          <button mat-stroked-button (click)="store.addPadDays(50)" [disabled]="!store.contractData() && !showPlottedSet()">+50d</button>
           @if (store.chartPadDays() > 0) {
           <button mat-stroked-button (click)="store.resetPadDays()">Reset</button>
           }
@@ -459,6 +463,19 @@
             >×</button>
           </span>
           }
+          @if (store.underlyingBars().length > 0) {
+          <span class="plotted-chip underlying-chip" [class.off]="!store.showUnderlying()">
+            <button
+              type="button"
+              class="chip-main"
+              (click)="store.toggleUnderlying()"
+              [matTooltip]="store.showUnderlying() ? 'Hide underlying' : 'Show underlying'"
+            >
+              <span class="chip-swatch" [style.background-color]="underlyingColor"></span>
+              <span class="chip-label">{{ symbol() }}</span>
+            </button>
+          </span>
+          }
         </div>
         @if (store.plottedLoadProgress(); as progress) {
         <span class="plotted-progress">Loaded {{ progress.done }} / {{ progress.total }}</span>
@@ -489,7 +506,6 @@
         [showUnderlying]="store.showUnderlying()"
         [showGreeks]="store.showGreeks()"
         [showVolumeOI]="store.showVolumeOI()"
-        [padDays]="store.chartPadDays()"
         [highlightedContractId]="store.hoveredContractId()"
         (seriesHovered)="store.setHoveredContract($event)"
       ></app-options-contract-chart>

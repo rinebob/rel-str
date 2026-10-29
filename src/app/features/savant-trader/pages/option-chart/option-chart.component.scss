@@ -882,6 +882,10 @@
     color: var(--mat-sys-error);
   }
 
+  &.underlying-chip.off {
+    opacity: 0.55;
+  }
+
   .chip-main {
     display: inline-flex;
     align-items: center;
@@ -896,8 +900,8 @@
   }
 
   .chip-swatch {
-    width: 10px;
-    height: 10px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     flex-shrink: 0;
   }

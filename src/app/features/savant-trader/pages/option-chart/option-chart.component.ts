@@ -31,7 +31,7 @@ import {
   OptionsContractChartComponent,
   type PlottedChartContract,
 } from '../../components/options-contract-chart/options-contract-chart.component';
-import { plottedSeriesColor } from '../../components/options-contract-chart/options-contract-chart-series.builder';
+import { plottedSeriesColor, UNDERLYING_COLOR } from '../../components/options-contract-chart/options-contract-chart-series.builder';
 import {
   parsePlottedEntries,
   type RejectedEntry,
@@ -41,6 +41,7 @@ import type { PlottedContract } from '../../stores/plotted-contracts-feature';
 import { ConfirmDialogComponent } from '../option-chain-pct-change/components/confirm-dialog.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { formatUtcDate } from '../../utils/utils';
+import { padDateLabels } from '../../utils/chart-series.utils';
 import {
   groupLengthBuckets,
   getLengthLabel,
@@ -355,10 +356,14 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   );
 
   /** Category axis — rendered dates only; the chart unions in the marker
-   *  endpoints itself. The set view uses the store's union across contracts,
-   *  the single/focused view uses the loaded contract's own dates. */
+   *  endpoints itself. The set view uses the store's union across contracts
+   *  extended by chartPadDays (the +Nd buttons pad the label domain — same
+   *  mechanism padObservations uses for the single-contract axis), the
+   *  single/focused view uses the loaded contract's already-padded dates. */
   readonly chartAxisLabels = computed<string[]>(() =>
-    this.showPlottedSet() ? this.store.allDates() : this.store.xLabels(),
+    this.showPlottedSet()
+      ? padDateLabels(this.store.allDates(), this.store.chartPadDays())
+      : this.store.xLabels(),
   );
 
   /** Parse a YYYY-MM-DD expiration string into year/month/day parts. */
@@ -510,6 +515,9 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   chipColor(contract: PlottedContract): string {
     return plottedSeriesColor(this.chipColorIndex().get(contract.entry.contractId) ?? 0);
   }
+
+  /** Underlying chip swatch — same literal the builder paints the overlay. */
+  readonly underlyingColor = UNDERLYING_COLOR;
 
   /** Chip text — readable strike/type/expiry, same rule as the series label. */
   chipLabel(contract: PlottedContract): string {

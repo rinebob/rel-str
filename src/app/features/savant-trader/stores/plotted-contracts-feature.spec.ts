@@ -105,6 +105,32 @@ describe('plotted contracts feature', () => {
     expect(Object.keys(store.plottedContracts())).toHaveLength(2);
   });
 
+  it('removes contracts absent from the new list without refetching kept ones', async () => {
+    const { store, optionsService } = setup();
+    store.loadPlotted([entry(QQQ_PUT, '2026-06-15'), entry(QQQ_CALL)]);
+    await flush();
+
+    store.loadPlotted([entry(QQQ_PUT, '2026-06-15')]);
+    await flush();
+
+    expect(Object.keys(store.plottedContracts())).toEqual([QQQ_PUT]);
+    expect(store.plottedContracts()[QQQ_PUT].status).toBe('loaded');
+    expect(optionsService.getHistoricalOptionsContract$).toHaveBeenCalledTimes(2);
+    expect(store.isMultiMode()).toBe(false);
+  });
+
+  it('clears a hovered contract removed by the new list', async () => {
+    const { store } = setup();
+    store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+    await flush();
+    store.setHoveredContract(QQQ_CALL);
+
+    store.loadPlotted([entry(QQQ_PUT)]);
+    await flush();
+
+    expect(store.hoveredContractId()).toBeNull();
+  });
+
   it('keeps successfully loaded contracts when others fail', async () => {
     const getHistorical = jest.fn((_s: string, cid: string) =>
       cid === QQQ_CALL

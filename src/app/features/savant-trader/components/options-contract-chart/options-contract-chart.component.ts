@@ -13,7 +13,7 @@
  * Series construction lives in options-contract-chart-series.builder.ts —
  * this file is signal wiring plus chart event handlers.
  */
-import { Component, input, output, computed, ChangeDetectionStrategy, viewChild, signal, effect } from '@angular/core';
+import { Component, input, output, computed, ChangeDetectionStrategy, viewChild, signal, effect, inject, ElementRef, NgZone, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   ChartModule,
@@ -69,7 +69,7 @@ export type { PlottedChartContract, ChartSeriesSpec };
   styleUrl: './options-contract-chart.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class OptionsContractChartComponent {
+export class OptionsContractChartComponent implements OnDestroy {
   /** One entry per plotted contract; a 1-element array is the single-contract case. */
   plottedSeries = input<PlottedChartContract[]>([]);
   /** Category axis labels — the rendered dates. The chart unions in marker
@@ -79,7 +79,6 @@ export class OptionsContractChartComponent {
   showUnderlying = input(true);
   showGreeks = input(true);
   showVolumeOI = input(false);
-  padDays = input(0);
   /** Contract id to emphasize — dims every other mark/marker series. */
   highlightedContractId = input<string | null>(null);
 
@@ -89,6 +88,13 @@ export class OptionsContractChartComponent {
 
   private readonly chart = viewChild<SfChartComponent>('chart');
   private readonly visibleRange = signal<{ min: number; max: number } | null>(null);
+
+  private readonly el = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly zone = inject(NgZone);
+  private resizeObserver: ResizeObserver | null = null;
+  private pendingResizeRaf: number | null = null;
+  private lastObservedWidth = 0;
+  private lastObservedHeight = 0;
 
   /** Lower panes only exist for the single-contract view. */
   readonly hasLowerPanes = computed(() => {
@@ -197,20 +203,13 @@ export class OptionsContractChartComponent {
     };
   });
 
-  // Reset visible range when the dataset or padding changes.
+  // Reset visible range when the dataset changes. Pad days arrive as real
+  // trailing/leading categories in xLabels (padDateLabels), so the visible
+  // window is always the full domain.
   readonly initVisibleRange = effect(() => {
     const labels = this.axisLabels();
-    const pad = this.padDays();
-    const hasPoints = this.plottedSeries().some((c) => c.points.length > 0);
-    if (labels.length > 0) {
-      this.visibleRange.set(
-        hasPoints
-          ? { min: -pad, max: labels.length - 1 + pad }
-          : { min: 0, max: labels.length - 1 },
-      );
-    } else {
-      this.visibleRange.set(null);
-    }
+    this.plottedSeries(); // tracked — a set swap with identical labels still resets zoom
+    this.visibleRange.set(labels.length > 0 ? { min: 0, max: labels.length - 1 } : null);
 
     // Reset the chart's internal zoom/scroll state so the X-axis
     // redraws fully instead of retaining the previous zoom position.
@@ -330,7 +329,10 @@ export class OptionsContractChartComponent {
 
   readonly crosshair = { enable: true, lineType: 'Both' as const, lineColor: '#ccc', snapToData: false };
   readonly tooltip = { enable: true, shared: true, format: '${point.x}: ${point.y}' };
-  readonly legend = { visible: true, position: 'Bottom' as const, toggleVisibility: true };
+  /** Legend off — the chips row is the series roster (marks + underlying
+   *  chip); a second one at the bottom duplicated it. The legendRender
+   *  marker-cancel + legend-id hover parsing stay so re-enabling is a flag. */
+  readonly legend = { visible: false, position: 'Bottom' as const, toggleVisibility: true };
   readonly chartBorder = { width: 0 };
   readonly chartArea = { border: { width: 0 } };
 
@@ -405,6 +407,34 @@ export class OptionsContractChartComponent {
 
   onChartMouseLeave(): void {
     this.emitHover(null);
+  }
+
+  constructor() {
+    // Syncfusion measures the container once at render — layout shifts
+    // (sidenav toggle, chips/metadata rows appearing) leave the SVG at a
+    // stale width that overflows the container's right edge. Re-measure on
+    // host resize. Dedupe on measured size + rAF-throttle so consecutive
+    // resize events don't trigger repeated refreshes (same pattern as
+    // flex-chart's container watcher).
+    this.zone.runOutsideAngular(() => {
+      this.resizeObserver = new ResizeObserver(() => {
+        const { clientWidth, clientHeight } = this.el.nativeElement;
+        if (clientWidth === this.lastObservedWidth && clientHeight === this.lastObservedHeight) return;
+        this.lastObservedWidth = clientWidth;
+        this.lastObservedHeight = clientHeight;
+        if (this.pendingResizeRaf) cancelAnimationFrame(this.pendingResizeRaf);
+        this.pendingResizeRaf = requestAnimationFrame(() => {
+          this.pendingResizeRaf = null;
+          this.chart()?.refresh();
+        });
+      });
+      this.resizeObserver.observe(this.el.nativeElement);
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.pendingResizeRaf) cancelAnimationFrame(this.pendingResizeRaf);
+    this.resizeObserver?.disconnect();
   }
 
   onAxisLabelRender(args: IAxisLabelRenderEventArgs): void {

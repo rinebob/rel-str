@@ -38,6 +38,24 @@ export function unionLabels(...sets: readonly (readonly string[])[]): string[] {
   return [...out].sort();
 }
 
+/** Extend a sorted label axis by `padDays` calendar days on both ends —
+ *  the label-domain counterpart of padObservations: empty categories before
+ *  the first date and after the last so the chart shows margin beyond the
+ *  data. Input must be sorted ascending. */
+export function padDateLabels(labels: readonly string[], padDays: number): string[] {
+  if (padDays <= 0 || labels.length === 0) return [...labels];
+  const day = 24 * 60 * 60 * 1000;
+  const t = (d: string) => new Date(`${d}T00:00:00.000Z`).getTime();
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  const first = t(labels[0]);
+  const last = t(labels[labels.length - 1]);
+  return [
+    ...Array.from({ length: padDays }, (_, i) => iso(first - (padDays - i) * day)),
+    ...labels,
+    ...Array.from({ length: padDays }, (_, i) => iso(last + (i + 1) * day)),
+  ];
+}
+
 /** Min/max across a window of category indexes. `valuesAt` yields the
  *  candidate numbers at each index so single fields and multi-series
  *  unions share one scan. Returns null when the window holds no values so

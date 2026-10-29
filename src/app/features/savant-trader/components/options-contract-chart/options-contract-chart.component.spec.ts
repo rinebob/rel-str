@@ -57,7 +57,6 @@ describe('OptionsContractChartComponent', () => {
     fixture.componentRef.setInput('showUnderlying', extras['showUnderlying'] ?? true);
     fixture.componentRef.setInput('showGreeks', extras['showGreeks'] ?? true);
     fixture.componentRef.setInput('showVolumeOI', extras['showVolumeOI'] ?? true);
-    fixture.componentRef.setInput('padDays', extras['padDays'] ?? 0);
   };
 
   beforeEach(async () => {

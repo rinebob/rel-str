@@ -126,30 +126,30 @@ export function withPlottedContracts() {
   return withMethods((store, optionsContractService = inject(OptionsContractService)) => {
     const s = asPlotted(store);
     return {
-      /** Fetch every unique entry into the plotted set with bounded concurrency.
-       *  Already-plotted contracts are not refetched; their openDate merges to
-       *  the earliest supplied. Per-contract failures land as status 'error'
-       *  without affecting the rest. */
+      /** Replace the plotted set with the parsed entries — the input list is
+       *  authoritative: contracts absent from it are removed, kept contracts
+       *  retain their loaded data and merge to the earliest supplied openDate,
+       *  previously-errored entries are re-queued. Per-contract failures land
+       *  as status 'error' without affecting the rest. */
       async loadPlotted(entries: PlottedEntry[]): Promise<void> {
-        const additions: Record<string, PlottedContract> = {};
+        const next: Record<string, PlottedContract> = {};
         const toFetch: ParsedOccContractId[] = [];
 
         for (const e of entries) {
           const parsed = OptionsContractService.parseOccId(e.contractId);
           if (!parsed) continue;
-          const existing = s.plottedContracts()[parsed.contractID] ?? additions[parsed.contractID];
-          // Entries that failed last time are re-queued rather than skipped;
-          // anything already loading/loaded just merges the earliest openDate.
+          const existing = s.plottedContracts()[parsed.contractID] ?? next[parsed.contractID];
+          // Kept contract — preserve the loaded record (no refetch), merging
+          // the earliest openDate when this entry supplies an earlier one.
+          // Entries that failed last time are re-queued rather than skipped.
           if (existing && existing.status !== 'error') {
-            if (e.openDate && (!existing.entry.openDate || e.openDate < existing.entry.openDate)) {
-              additions[parsed.contractID] = {
-                ...existing,
-                entry: { ...existing.entry, openDate: e.openDate },
-              };
-            }
+            next[parsed.contractID] =
+              e.openDate && (!existing.entry.openDate || e.openDate < existing.entry.openDate)
+                ? { ...existing, entry: { ...existing.entry, openDate: e.openDate } }
+                : existing;
             continue;
           }
-          additions[parsed.contractID] = {
+          next[parsed.contractID] = {
             entry: { contractId: parsed.contractID, openDate: e.openDate },
             parsed,
             status: 'loading',
@@ -162,11 +162,14 @@ export function withPlottedContracts() {
         // A set load supersedes any focused single contract — otherwise the
         // stale focus keeps the chart on the old contract while the new
         // set's chips appear. Cleared unconditionally: Load always means
-        // "show this set", even when every entry was already plotted.
-        patchState(store, { chartFocusContractId: null });
-        if (Object.keys(additions).length) {
-          patchState(store, { plottedContracts: { ...s.plottedContracts(), ...additions } });
-        }
+        // "show this set", even when every entry was already plotted. A
+        // hovered contract that's no longer in the set clears too.
+        const hovered = s.hoveredContractId();
+        patchState(store, {
+          chartFocusContractId: null,
+          plottedContracts: next,
+          hoveredContractId: hovered && !next[hovered] ? null : hovered,
+        });
         if (!toFetch.length) return;
 
         patchState(store, { plottedLoadProgress: { done: 0, total: toFetch.length } });

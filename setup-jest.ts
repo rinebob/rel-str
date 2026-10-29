@@ -32,6 +32,18 @@ if (typeof globalThis.IntersectionObserver === 'undefined') {
   (globalThis as any).IntersectionObserver = IntersectionObserverStub;
 }
 
+// jsdom lacks ResizeObserver — chart components that watch container size
+// (flex-chart, options-contract-chart) would throw at construction. No-op
+// stub; specs needing callback control still save/restore and override.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  class ResizeObserverStub {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  (globalThis as any).ResizeObserver = ResizeObserverStub;
+}
+
 // Jasmine compatibility shim — jest-preset-angular 17.0.0 transformer doesn't
 // expose `jasmine` as a global, but 22 spec files across the repo use
 // `jasmine.createSpy()` and `jasmine.createSpyObj()`. Map the common jasmine
