@@ -1,0 +1,85 @@
+.title-contract {
+  font-family: monospace;
+  font-size: 15px;
+}
+
+.title-meta {
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.series-content {
+  min-width: 480px;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 200px;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 13px;
+
+  &.error {
+    color: var(--mat-sys-error);
+  }
+
+  mat-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .error-detail {
+    font-size: 11px;
+    color: var(--mat-sys-on-surface-variant);
+    max-width: 440px;
+    text-align: center;
+    word-break: break-word;
+  }
+}
+
+.mark-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+
+  .axis-tick {
+    font-size: 10px;
+    fill: var(--mat-sys-on-surface-variant);
+  }
+
+  .tick-guide {
+    stroke: var(--mat-sys-outline-variant);
+    stroke-width: 0.5;
+  }
+
+  .mark-line {
+    stroke: var(--ds-accent, var(--mat-sys-primary));
+    stroke-width: 1.5;
+  }
+
+  .mark-dot {
+    fill: var(--ds-accent, var(--mat-sys-primary));
+  }
+}
+
+.chart-dates {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--mat-sys-on-surface-variant);
+  padding: 0 48px;
+
+  .series-count {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}

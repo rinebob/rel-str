@@ -1,0 +1,54 @@
+<h2 mat-dialog-title>
+  <span class="title-contract">{{ data.contractId }}</span>
+  <span class="title-meta">{{ data.symbol }} · entered {{ data.entryDate }}</span>
+</h2>
+
+<mat-dialog-content class="series-content">
+  @switch (state()) {
+    @case ('loading') {
+      <div class="state-block">
+        <mat-spinner diameter="32"></mat-spinner>
+        <span>Loading mark series…</span>
+      </div>
+    }
+    @case ('error') {
+      <div class="state-block error">
+        <mat-icon>error_outline</mat-icon>
+        <span>Failed to load series for {{ data.contractId }}</span>
+        @if (errorMessage()) {
+          <span class="error-detail">{{ errorMessage() }}</span>
+        }
+      </div>
+    }
+    @case ('empty') {
+      <div class="state-block">
+        <mat-icon>show_chart</mat-icon>
+        <span>No mark series for {{ data.contractId }}</span>
+      </div>
+    }
+    @case ('loaded') {
+      <svg [attr.viewBox]="'0 0 ' + W + ' ' + H" class="mark-chart" role="img"
+           [attr.aria-label]="'Mark series for ' + data.contractId">
+        @for (t of ticks(); track $index) {
+          <text class="axis-tick" x="4" [attr.y]="t.y + 3">{{ t.label }}</text>
+          <line class="tick-guide" [attr.x1]="PAD_X" [attr.y1]="t.y"
+                [attr.x2]="PAD_X + PLOT_W" [attr.y2]="t.y" />
+        }
+        @if (series().length > 1) {
+          <polyline class="mark-line" fill="none" [attr.points]="markPoints()" />
+        } @else {
+          <circle class="mark-dot" [attr.cx]="PAD_X + PLOT_W / 2" [attr.cy]="singleDotY()" r="3" />
+        }
+      </svg>
+      <div class="chart-dates">
+        <span>{{ series()[0]?.date }}</span>
+        <span class="series-count">{{ series().length }} observations · mark</span>
+        <span>{{ series()[series().length - 1]?.date }}</span>
+      </div>
+    }
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Close</button>
+</mat-dialog-actions>
