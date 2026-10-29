@@ -1,0 +1,106 @@
+.contract-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coverage-header {
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.empty-note {
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.table-scroll {
+  overflow: auto;
+  max-height: 420px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 6px;
+}
+
+.rows-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    padding: 5px 8px;
+    background: var(--mat-sys-surface-container);
+    font-weight: 600;
+    color: var(--mat-sys-on-surface-variant);
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  td {
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    vertical-align: middle;
+  }
+
+  .num {
+    text-align: right;
+  }
+}
+
+.pick-row:hover {
+  background: var(--mat-sys-surface-container-low);
+}
+
+.entry-date {
+  font-variant-numeric: tabular-nums;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.contract-id {
+  font-family: monospace;
+  font-size: 10px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.repeat-badge {
+  margin-left: 6px;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  vertical-align: middle;
+}
+
+.marker-row {
+  .marker-cell {
+    color: var(--mat-sys-on-surface-variant);
+    font-style: italic;
+    background: var(--mat-sys-surface-container-lowest);
+  }
+}
+
+.action-cell {
+  width: 32px;
+  text-align: right;
+
+  .inspect-button {
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    padding: 0;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+}

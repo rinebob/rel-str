@@ -1,0 +1,71 @@
+<div class="contract-list">
+  @if (coverageText()) {
+    <div class="coverage-header">{{ coverageText() }}</div>
+  }
+
+  @if (tableRows().length === 0) {
+    <div class="empty-note">No rows</div>
+  } @else {
+    <div class="table-scroll">
+      <table class="rows-table">
+        <thead>
+          <tr>
+            <th>Entry</th>
+            <th>Contract</th>
+            <th>Side</th>
+            <th>Exp (DTE)</th>
+            <th class="num">Strike</th>
+            <th class="num">Δ</th>
+            <th class="num">IV</th>
+            <th class="num">Mark</th>
+            <th class="num">Bid / Ask</th>
+            <th class="num">Vol</th>
+            <th class="num">OI</th>
+            <th class="num">Und. Close</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of tableRows(); track row.entryDate) {
+            @if (row.kind === 'pick' && row.pick) {
+              <tr class="pick-row">
+                <td class="entry-date">{{ row.entryDate }}</td>
+                <td class="contract-id" [matTooltip]="row.pick.contractId">
+                  {{ row.pick.contractId }}
+                  @if (row.pick.repeatsPrevious) {
+                    <span class="repeat-badge" matTooltip="Same contract as the prior trading day — still a distinct position entry">↻ repeat</span>
+                  }
+                </td>
+                <td>{{ sideLabel(row.pick.side) }}</td>
+                <td>{{ row.pick.expiration }} ({{ row.pick.dte }})</td>
+                <td class="num">{{ row.pick.strike | number:'1.2-2' }}</td>
+                <td class="num">{{ row.pick.delta | number:'1.2-2' }}</td>
+                <td class="num">{{ row.pick.iv | percent:'1.0-1' }}</td>
+                <td class="num">{{ row.pick.mark | number:'1.2-2' }}</td>
+                <td class="num">{{ row.pick.bid | number:'1.2-2' }} / {{ row.pick.ask | number:'1.2-2' }}</td>
+                <td class="num">{{ row.pick.volume }}</td>
+                <td class="num">{{ row.pick.openInterest }}</td>
+                <td class="num">{{ row.pick.underlyingClose | number:'1.2-2' }}</td>
+                <td class="action-cell">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="inspect-button"
+                    matTooltip="Inspect contract mark series"
+                    (click)="inspect.emit(row.pick)">
+                    <mat-icon>show_chart</mat-icon>
+                  </button>
+                </td>
+              </tr>
+            } @else {
+              <tr class="marker-row">
+                <td class="entry-date">{{ row.entryDate }}</td>
+                <td class="marker-cell" colspan="12">{{ row.markerLabel }}</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
