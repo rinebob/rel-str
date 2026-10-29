@@ -3,6 +3,7 @@
 ## [2026-10-28]
 
 ### Added
+- [Option Contract Time-Series Viewer] 1243-1321_FE-UIFIX-OPTIONS: Post-ship polish — Underlying toggle + pad buttons restored in plotted mode, ResizeObserver→refresh for stale-width overflow, `padDateLabels` makes +20d/+50d extend the axis, `loadPlotted` replace semantics (edited list is authoritative), legend removed for an underlying chip + larger swatches
 - [Option Contract Time-Series Viewer] 1243-1265_FE-IMPL-OPTIONS: Connected chip↔series hover — `seriesHovered` output maps Syncfusion mark/marker/legend element ids to the contract id (mark-ordinal + series-index keyed, label-collision safe), page wires it to `hoveredContractId` so chart hover lights the chip; deduped emits, stale-hover reset, no refetch
 - [Option Contract Time-Series Viewer] 1243-1265_DOCS-OPTIONS: #1265 CODE-REVIEW (PASS, 3 axes, mapping fixes remediated) + #1315 UAT (Complete; H1–H8) + Topic as-built
 - [Option Contract Time-Series Viewer] 1243-1264_FE-IMPL-OPTIONS: Multi-pair paste input (bare OCC IDs + `YYYY-MM-DD,<id>` pairs), rejection surfacing with reasons, >50 confirm dialog + `Loaded X/Y` progress, plotted-set chips (swatch/label/open-date/remove), crosshair un-pinned + right-edge underlying-price label, chip-hover series highlight, panel collapse inside header
