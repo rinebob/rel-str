@@ -84,9 +84,27 @@
   flex-direction: column;
   gap: 4px;
 
-  .row-count {
+  .row-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
     color: var(--mat-sys-on-surface-variant);
     font-size: 11px;
+    align-self: flex-start;
+
+    .toggle-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover {
+      color: var(--mat-sys-on-surface);
+    }
   }
 
   .symbol-error {

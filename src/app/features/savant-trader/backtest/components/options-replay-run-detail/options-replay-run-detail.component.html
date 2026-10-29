@@ -33,10 +33,25 @@
         </div>
         <div class="symbol-card-body">
           @if (view.rowCount !== null) {
-            <span class="row-count">{{ view.rowCount }} rows</span>
+            <button
+              type="button"
+              class="row-toggle"
+              [attr.aria-expanded]="expandedSymbols().has(view.symbol)"
+              (click)="toggleExpanded(view.symbol)">
+              <mat-icon class="toggle-icon">
+                {{ expandedSymbols().has(view.symbol) ? 'expand_less' : 'expand_more' }}
+              </mat-icon>
+              {{ view.rowCount }} rows
+            </button>
           }
           @if (view.error) {
             <div class="symbol-error" [matTooltip]="view.error">{{ view.error }}</div>
+          }
+          @if (expandedSymbols().has(view.symbol) && view.list) {
+            <app-options-replay-contract-list-table
+              [rows]="view.list.rows"
+              [pickDocMeta]="view.list.pickDocMeta"
+              (inspect)="openSeriesDialog(view.symbol, $event)" />
           }
         </div>
       </div>
