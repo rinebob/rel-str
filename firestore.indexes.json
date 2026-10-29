@@ -269,6 +269,20 @@
       ]
     },
     {
+      "collectionGroup": "st-signals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "symbol",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "runIds",
+          "arrayConfig": "CONTAINS"
+        }
+      ]
+    },
+    {
       "collectionGroup": "st-order-tickets",
       "queryScope": "COLLECTION",
       "fields": [
