@@ -14,9 +14,9 @@
     "Third-party Material/Syncfusion adapters"
   ],
   "summary": {
-    "sites": 4128,
-    "files": 204,
-    "literals": 2211
+    "sites": 4132,
+    "files": 205,
+    "literals": 2131
   },
   "sites": [
     {
@@ -14092,6 +14092,30 @@
       "source": "border: 1px solid var(--mat-sys-outline-variant);"
     },
     {
+      "file": "src/app/features/dev-screenshot/dev-screenshot.component.scss",
+      "line": 177,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/dev-screenshot/dev-screenshot.component.scss",
+      "line": 179,
+      "value": "transparent",
+      "kind": "expression",
+      "area": "app-chrome-review",
+      "source": "background: transparent;"
+    },
+    {
+      "file": "src/app/features/dev-screenshot/dev-screenshot.component.scss",
+      "line": 187,
+      "value": "var(--mat-sys-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-surface-variant);"
+    },
+    {
       "file": "src/app/features/ds-gallery/ds-gallery.component.html",
       "line": 96,
       "value": "#1211",
@@ -16790,26 +16814,26 @@
     {
       "file": "src/app/features/portfolio-dashboard/components/account-summary.component.scss",
       "line": 19,
-      "value": "rgba(0, 0, 0, 0.54)",
-      "kind": "expression",
+      "value": "var(--ds-on-surface-variant)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "color: rgba(0, 0, 0, 0.54);"
+      "source": "color: var(--ds-on-surface-variant);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/components/account-summary.component.scss",
       "line": 36,
-      "value": "rgba(0, 0, 0, 0.54)",
-      "kind": "expression",
+      "value": "var(--ds-on-surface-variant)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "color: rgba(0, 0, 0, 0.54);"
+      "source": "color: var(--ds-on-surface-variant);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/components/account-summary.component.scss",
       "line": 44,
-      "value": "#721c24",
-      "kind": "literal",
+      "value": "var(--ds-error)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "color: #721c24;"
+      "source": "color: var(--ds-error);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/components/account-switcher.component.ts",
@@ -16996,68 +17020,84 @@
       "source": "color: var(--mat-sys-error);"
     },
     {
+      "file": "src/app/features/portfolio-dashboard/components/stop-loss-dialog/stop-loss-dialog.component.scss",
+      "line": 29,
+      "value": "var(--ds-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--ds-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/portfolio-dashboard/components/stop-loss-dialog/stop-loss-dialog.component.scss",
+      "line": 34,
+      "value": "var(--ds-error)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--ds-error);"
+    },
+    {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 6,
-      "value": "rgba(255, 255, 255, 0.1)",
-      "kind": "expression",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border: 1px solid rgba(255, 255, 255, 0.1);"
+      "source": "border: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 8,
-      "value": "rgba(255, 255, 255, 0.03)",
-      "kind": "expression",
+      "value": "var(--ds-surface-raised)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: rgba(255, 255, 255, 0.03);"
+      "source": "background: var(--ds-surface-raised);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 12,
-      "value": "#4caf50",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-top: 2px solid #4caf50;"
+      "source": "border-top: 2px solid var(--ds-up);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 15,
-      "value": "#f44336",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-top: 2px solid #f44336;"
+      "source": "border-top: 2px solid var(--ds-down);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 53,
-      "value": "#4caf50",
-      "kind": "literal",
+      "value": "var(--ds-on-up-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #4caf50;"
+      "source": "color: var(--ds-on-up-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 54,
-      "value": "rgba(76, 175, 80, 0.15)",
-      "kind": "expression",
+      "value": "var(--ds-up-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: rgba(76, 175, 80, 0.15);"
+      "source": "background: var(--ds-up-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 57,
-      "value": "#f44336",
-      "kind": "literal",
+      "value": "var(--ds-on-down-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #f44336;"
+      "source": "color: var(--ds-on-down-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 58,
-      "value": "rgba(244, 67, 54, 0.15)",
-      "kind": "expression",
+      "value": "var(--ds-down-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: rgba(244, 67, 54, 0.15);"
+      "source": "background: var(--ds-down-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
@@ -17070,18 +17110,18 @@
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 75,
-      "value": "#4caf50",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "&.pnl.up { color: #4caf50; }"
+      "source": "&.pnl.up { color: var(--ds-up); }"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 76,
-      "value": "#f44336",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "&.pnl.down { color: #f44336; }"
+      "source": "&.pnl.down { color: var(--ds-down); }"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
@@ -17094,18 +17134,18 @@
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 93,
-      "value": "#4caf50",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "&.up { color: #4caf50; }"
+      "source": "&.up { color: var(--ds-up); }"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 94,
-      "value": "#f44336",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "&.down { color: #f44336; }"
+      "source": "&.down { color: var(--ds-down); }"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
@@ -17198,34 +17238,34 @@
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 130,
-      "value": "#81c784",
-      "kind": "literal",
+      "value": "var(--ds-on-success-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #81c784;"
+      "source": "color: var(--ds-on-success-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 131,
-      "value": "rgba(129, 199, 132, 0.15)",
-      "kind": "expression",
+      "value": "var(--ds-success-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: rgba(129, 199, 132, 0.15);"
+      "source": "background: var(--ds-success-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 134,
-      "value": "#ff8a80",
-      "kind": "literal",
+      "value": "var(--ds-on-error-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #ff8a80;"
+      "source": "color: var(--ds-on-error-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 135,
-      "value": "rgba(255, 138, 128, 0.15)",
-      "kind": "expression",
+      "value": "var(--ds-error-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: rgba(255, 138, 128, 0.15);"
+      "source": "background: var(--ds-error-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
@@ -17246,10 +17286,10 @@
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 160,
-      "value": "rgba(255, 255, 255, 0.07)",
-      "kind": "expression",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-top: 1px solid rgba(255, 255, 255, 0.07);"
+      "source": "border-top: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
@@ -17278,50 +17318,50 @@
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 192,
-      "value": "rgba(244, 67, 54, 0.14)",
-      "kind": "expression",
+      "value": "var(--ds-error-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: rgba(244, 67, 54, 0.14);"
+      "source": "background: var(--ds-error-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 193,
-      "value": "#e57373",
-      "kind": "literal",
+      "value": "var(--ds-on-error-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #e57373;"
+      "source": "color: var(--ds-on-error-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 196,
-      "value": "rgba(244, 67, 54, 0.24)",
+      "value": "color-mix(in srgb, var(--ds-error-container) 80%, var(--ds-error))",
       "kind": "expression",
       "area": "trading-semantic-review",
-      "source": "background: rgba(244, 67, 54, 0.24);"
+      "source": "background: color-mix(in srgb, var(--ds-error-container) 80%, var(--ds-error));"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 201,
-      "value": "rgba(255, 183, 77, 0.14)",
-      "kind": "expression",
+      "value": "var(--ds-warning-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: rgba(255, 183, 77, 0.14);"
+      "source": "background: var(--ds-warning-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 202,
-      "value": "#ffb74d",
-      "kind": "literal",
+      "value": "var(--ds-on-warning-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #ffb74d;"
+      "source": "color: var(--ds-on-warning-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card/position-card.component.scss",
       "line": 205,
-      "value": "rgba(255, 183, 77, 0.24)",
+      "value": "color-mix(in srgb, var(--ds-warning-container) 80%, var(--ds-warning))",
       "kind": "expression",
       "area": "trading-semantic-review",
-      "source": "background: rgba(255, 183, 77, 0.24);"
+      "source": "background: color-mix(in srgb, var(--ds-warning-container) 80%, var(--ds-warning));"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-card-chart/position-card-chart.component.scss",
@@ -17438,58 +17478,58 @@
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-gallery-group/position-gallery-group.component.scss",
       "line": 26,
-      "value": "#2e7d32",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "&.long  { color: #2e7d32; }"
+      "source": "&.long  { color: var(--ds-up); }"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/components/position-gallery-group/position-gallery-group.component.scss",
       "line": 27,
-      "value": "var(--mat-sys-error)",
+      "value": "var(--ds-down)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "&.short { color: var(--mat-sys-error); }"
+      "source": "&.short { color: var(--ds-down); }"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-header.component.scss",
       "line": 10,
-      "value": "rgba(255, 255, 255, 0.08)",
-      "kind": "expression",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "border-bottom: 1px solid rgba(255, 255, 255, 0.08);"
+      "source": "border-bottom: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-header.component.scss",
       "line": 39,
-      "value": "#4caf50",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": ".pg-pos { color: #4caf50; }"
+      "source": ".pg-pos { color: var(--ds-up); }"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-header.component.scss",
       "line": 40,
-      "value": "#ef5350",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": ".pg-neg { color: #ef5350; }"
+      "source": ".pg-neg { color: var(--ds-down); }"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-header.component.scss",
       "line": 41,
-      "value": "#ffa726",
-      "kind": "literal",
+      "value": "var(--ds-warning)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": ".pg-warn { color: #ffa726; }"
+      "source": ".pg-warn { color: var(--ds-warning); }"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-header.component.scss",
       "line": 71,
-      "value": "rgba(255, 255, 255, 0.16)",
-      "kind": "expression",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "border: 1px solid rgba(255, 255, 255, 0.16);"
+      "source": "border: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-header.component.scss",
@@ -17502,42 +17542,50 @@
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-header.component.scss",
       "line": 84,
-      "value": "rgba(255, 255, 255, 0.14)",
+      "value": "color-mix(in srgb, var(--ds-on-surface) 14%, transparent)",
       "kind": "expression",
       "area": "app-chrome-review",
-      "source": "background: rgba(255, 255, 255, 0.14);"
+      "source": "background: color-mix(in srgb, var(--ds-on-surface) 14%, transparent);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-header.component.scss",
       "line": 85,
-      "value": "rgba(255, 255, 255, 0.4)",
-      "kind": "expression",
+      "value": "var(--ds-border-strong)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "border-color: rgba(255, 255, 255, 0.4);"
+      "source": "border-color: var(--ds-border-strong);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-view.component.scss",
       "line": 49,
-      "value": "#ef9a9a",
-      "kind": "literal",
+      "value": "var(--ds-error)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "color: #ef9a9a;"
+      "source": "color: var(--ds-error);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-view.component.scss",
       "line": 58,
-      "value": "rgba(255, 193, 7, 0.35)",
-      "kind": "expression",
+      "value": "var(--ds-warning)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "border: 1px solid rgba(255, 193, 7, 0.35);"
+      "source": "border: 1px solid var(--ds-warning);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-view.component.scss",
       "line": 60,
-      "value": "#ffd54f",
-      "kind": "literal",
+      "value": "var(--ds-warning-container)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "color: #ffd54f;"
+      "source": "background: var(--ds-warning-container);"
+    },
+    {
+      "file": "src/app/features/portfolio-dashboard/pages/portfolio-gallery/portfolio-gallery-view.component.scss",
+      "line": 61,
+      "value": "var(--ds-on-warning-container)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--ds-on-warning-container);"
     },
     {
       "file": "src/app/features/portfolio-dashboard/portfolio-dashboard.component.html",
@@ -17582,242 +17630,242 @@
     {
       "file": "src/app/features/positions-view/closed-grid/closed-grid.component.scss",
       "line": 29,
-      "value": "#999999",
-      "kind": "literal",
+      "value": "var(--ds-border-strong)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border: 1px solid #999999;"
+      "source": "border: 1px solid var(--ds-border-strong);"
     },
     {
       "file": "src/app/features/positions-view/closed-grid/closed-grid.component.scss",
       "line": 40,
-      "value": "#666666",
-      "kind": "literal",
+      "value": "var(--ds-border-strong)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border: 1px solid #666666;"
+      "source": "border: 1px solid var(--ds-border-strong);"
     },
     {
       "file": "src/app/features/positions-view/closed-grid/closed-grid.component.scss",
       "line": 41,
-      "value": "#f7f7f7",
-      "kind": "literal",
+      "value": "var(--ds-surface-raised)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-color: #f7f7f7;"
+      "source": "background-color: var(--ds-surface-raised);"
     },
     {
       "file": "src/app/features/positions-view/closed-grid/closed-grid.component.scss",
       "line": 42,
-      "value": "#444444",
-      "kind": "literal",
+      "value": "var(--ds-on-surface-variant)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #444444;"
+      "source": "color: var(--ds-on-surface-variant);"
     },
     {
       "file": "src/app/features/positions-view/closed-grid/closed-grid.component.scss",
       "line": 48,
-      "value": "#1976d2",
-      "kind": "literal",
+      "value": "var(--ds-accent)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-color: #1976d2;"
+      "source": "background-color: var(--ds-accent);"
     },
     {
       "file": "src/app/features/positions-view/closed-grid/closed-grid.component.scss",
       "line": 49,
-      "value": "#ffffff",
-      "kind": "literal",
+      "value": "var(--ds-on-accent)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #ffffff;"
+      "source": "color: var(--ds-on-accent);"
     },
     {
       "file": "src/app/features/positions-view/closed-grid/closed-grid.component.scss",
       "line": 62,
-      "value": "#e0e0e0",
-      "kind": "literal",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-bottom: 1px solid #e0e0e0;"
+      "source": "border-bottom: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/positions-view/closed-grid/closed-grid.component.scss",
       "line": 99,
-      "value": "#2e7d32",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #2e7d32;"
+      "source": "color: var(--ds-up);"
     },
     {
       "file": "src/app/features/positions-view/closed-grid/closed-grid.component.scss",
       "line": 103,
-      "value": "#c62828",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #c62828;"
+      "source": "color: var(--ds-down);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
       "line": 13,
-      "value": "#e0e0e0",
-      "kind": "literal",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border: 1px solid #e0e0e0;"
+      "source": "border: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
       "line": 14,
-      "value": "var(--theme-surface)",
+      "value": "var(--ds-surface)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: var(--theme-surface);"
+      "source": "background: var(--ds-surface);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
       "line": 19,
-      "value": "#1c6a3a",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-color: #1c6a3a;"
+      "source": "border-color: var(--ds-up);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
       "line": 20,
-      "value": "#c7f3dd",
-      "kind": "literal",
+      "value": "var(--ds-up-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: linear-gradient(90deg, #c7f3dd, #e5fbf0);"
-    },
-    {
-      "file": "src/app/features/positions-view/open-card/open-card.component.scss",
-      "line": 20,
-      "value": "#e5fbf0",
-      "kind": "literal",
-      "area": "trading-semantic-review",
-      "source": "background: linear-gradient(90deg, #c7f3dd, #e5fbf0);"
+      "source": "background: var(--ds-up-container);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
       "line": 24,
-      "value": "#c22323",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-color: #c22323;"
+      "source": "border-color: var(--ds-down);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
       "line": 25,
-      "value": "#ffd5d5",
-      "kind": "literal",
+      "value": "var(--ds-down-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: linear-gradient(90deg, #ffd5d5, #ffe9e9);"
-    },
-    {
-      "file": "src/app/features/positions-view/open-card/open-card.component.scss",
-      "line": 25,
-      "value": "#ffe9e9",
-      "kind": "literal",
-      "area": "trading-semantic-review",
-      "source": "background: linear-gradient(90deg, #ffd5d5, #ffe9e9);"
+      "source": "background: var(--ds-down-container);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
       "line": 56,
-      "value": "#eef2ff",
-      "kind": "literal",
+      "value": "var(--ds-accent-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-color: #eef2ff;"
+      "source": "background-color: var(--ds-accent-container);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
-      "line": 60,
-      "value": "#e0f7ea",
-      "kind": "literal",
+      "line": 57,
+      "value": "var(--ds-on-accent-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-color: #e0f7ea;"
+      "source": "color: var(--ds-on-accent-container);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
-      "line": 88,
-      "value": "#f0f0f0",
-      "kind": "literal",
+      "line": 61,
+      "value": "var(--ds-surface-overlay)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #f0f0f0;"
+      "source": "background-color: var(--ds-surface-overlay);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
-      "line": 98,
-      "value": "#333",
-      "kind": "literal",
+      "line": 62,
+      "value": "var(--ds-on-surface)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #333;"
+      "source": "color: var(--ds-on-surface);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
-      "line": 119,
-      "value": "#f5f5f5",
-      "kind": "literal",
+      "line": 90,
+      "value": "var(--ds-surface-raised)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-color: #f5f5f5;"
+      "source": "background: var(--ds-surface-raised);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
-      "line": 120,
-      "value": "#333",
-      "kind": "literal",
+      "line": 100,
+      "value": "var(--ds-on-surface)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #333;"
+      "source": "background: var(--ds-on-surface);"
     },
     {
       "file": "src/app/features/positions-view/open-card/open-card.component.scss",
       "line": 121,
-      "value": "#d0d0d0",
-      "kind": "literal",
+      "value": "var(--ds-surface-raised)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-color: #d0d0d0;"
+      "source": "background-color: var(--ds-surface-raised);"
+    },
+    {
+      "file": "src/app/features/positions-view/open-card/open-card.component.scss",
+      "line": 122,
+      "value": "var(--ds-on-surface)",
+      "kind": "token-reference",
+      "area": "trading-semantic-review",
+      "source": "color: var(--ds-on-surface);"
+    },
+    {
+      "file": "src/app/features/positions-view/open-card/open-card.component.scss",
+      "line": 123,
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
+      "area": "trading-semantic-review",
+      "source": "border-color: var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/positions-view/open-card/percent-bar/percent-bar.component.scss",
       "line": 12,
-      "value": "#f0f0f0",
-      "kind": "literal",
+      "value": "var(--ds-surface-raised)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #f0f0f0;"
+      "source": "background: var(--ds-surface-raised);"
     },
     {
       "file": "src/app/features/positions-view/open-card/percent-bar/percent-bar.component.scss",
       "line": 23,
-      "value": "#333",
-      "kind": "literal",
+      "value": "var(--ds-on-surface)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #333;"
+      "source": "background: var(--ds-on-surface);"
     },
     {
       "file": "src/app/features/positions-view/open-card/percent-bar/percent-bar.component.scss",
       "line": 35,
-      "value": "#3ba46a",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #3ba46a;"
+      "source": "background: var(--ds-up);"
     },
     {
       "file": "src/app/features/positions-view/open-card/percent-bar/percent-bar.component.scss",
       "line": 44,
-      "value": "#c22323",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #c22323;"
+      "source": "background: var(--ds-down);"
     },
     {
       "file": "src/app/features/positions-view/open-grid/open-grid.component.scss",
       "line": 34,
-      "value": "#4b5563",
-      "kind": "literal",
+      "value": "var(--ds-on-surface-variant)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #4b5563;"
+      "source": "color: var(--ds-on-surface-variant);"
     },
     {
       "file": "src/app/features/positions-view/open-grid/open-grid.component.scss",
       "line": 40,
-      "value": "#d1d5db",
-      "kind": "literal",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border: 1px solid #d1d5db;"
+      "source": "border: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/positions-view/open-grid/open-grid.component.scss",
@@ -17830,266 +17878,250 @@
     {
       "file": "src/app/features/positions-view/open-grid/open-grid.component.scss",
       "line": 44,
-      "value": "#4b5563",
-      "kind": "literal",
+      "value": "var(--ds-on-surface-variant)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #4b5563;"
+      "source": "color: var(--ds-on-surface-variant);"
     },
     {
       "file": "src/app/features/positions-view/open-grid/open-grid.component.scss",
       "line": 50,
-      "value": "#111827",
-      "kind": "literal",
+      "value": "var(--ds-on-surface)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #111827;"
+      "source": "background: var(--ds-on-surface);"
     },
     {
       "file": "src/app/features/positions-view/open-grid/open-grid.component.scss",
       "line": 51,
-      "value": "#ffffff",
-      "kind": "literal",
+      "value": "var(--ds-surface)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #ffffff;"
+      "source": "color: var(--ds-surface);"
     },
     {
       "file": "src/app/features/positions-view/open-grid/open-grid.component.scss",
       "line": 52,
-      "value": "#111827",
-      "kind": "literal",
+      "value": "var(--ds-on-surface)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-color: #111827;"
+      "source": "border-color: var(--ds-on-surface);"
     },
     {
       "file": "src/app/features/positions-view/open-grid/open-grid.component.scss",
       "line": 56,
-      "value": "#f3f4f6",
-      "kind": "literal",
+      "value": "var(--ds-surface-raised)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #f3f4f6;"
+      "source": "background: var(--ds-surface-raised);"
     },
     {
       "file": "src/app/features/positions-view/open-summary/open-summary.component.scss",
       "line": 12,
-      "value": "#e5e7eb",
-      "kind": "literal",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border: 1px solid #e5e7eb;"
+      "source": "border: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/positions-view/open-summary/open-summary.component.scss",
       "line": 13,
-      "value": "var(--theme-surface)",
+      "value": "var(--ds-surface)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: var(--theme-surface);"
+      "source": "background: var(--ds-surface);"
     },
     {
       "file": "src/app/features/positions-view/open-summary/open-summary.component.scss",
       "line": 33,
-      "value": "#1c6a3a",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #1c6a3a;"
+      "source": "color: var(--ds-up);"
     },
     {
       "file": "src/app/features/positions-view/open-summary/open-summary.component.scss",
       "line": 37,
-      "value": "#8a1f1f",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #8a1f1f;"
+      "source": "color: var(--ds-down);"
     },
     {
       "file": "src/app/features/positions-view/open-summary-card/open-summary-card.component.scss",
       "line": 28,
-      "value": "#1c6a3a",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #1c6a3a;"
+      "source": "color: var(--ds-up);"
     },
     {
       "file": "src/app/features/positions-view/open-summary-card/open-summary-card.component.scss",
       "line": 32,
-      "value": "#8a1f1f",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #8a1f1f;"
+      "source": "color: var(--ds-down);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 62,
-      "value": "#555",
-      "kind": "literal",
+      "value": "var(--ds-on-surface-variant)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #555;"
+      "source": "color: var(--ds-on-surface-variant);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 105,
-      "value": "#e0e0e0",
-      "kind": "literal",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border: 1px solid #e0e0e0;"
+      "source": "border: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 108,
-      "value": "#c7f3dd",
-      "kind": "literal",
+      "value": "var(--ds-up-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-image: linear-gradient(90deg, #c7f3dd, #e5fbf0);"
-    },
-    {
-      "file": "src/app/features/positions-view/positions-view.component.scss",
-      "line": 108,
-      "value": "#e5fbf0",
-      "kind": "literal",
-      "area": "trading-semantic-review",
-      "source": "background-image: linear-gradient(90deg, #c7f3dd, #e5fbf0);"
+      "source": "background: var(--ds-up-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 109,
-      "value": "#1e8f4b",
-      "kind": "literal",
+      "value": "var(--ds-up)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-color: #1e8f4b;"
+      "source": "border-color: var(--ds-up);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 110,
-      "value": "#0e3820",
-      "kind": "literal",
+      "value": "var(--ds-on-up-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #0e3820;"
+      "source": "color: var(--ds-on-up-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 114,
-      "value": "#ffd5d5",
-      "kind": "literal",
+      "value": "var(--ds-down-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-image: linear-gradient(90deg, #ffd5d5, #ffe9e9);"
-    },
-    {
-      "file": "src/app/features/positions-view/positions-view.component.scss",
-      "line": 114,
-      "value": "#ffe9e9",
-      "kind": "literal",
-      "area": "trading-semantic-review",
-      "source": "background-image: linear-gradient(90deg, #ffd5d5, #ffe9e9);"
+      "source": "background: var(--ds-down-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 115,
-      "value": "#c22323",
-      "kind": "literal",
+      "value": "var(--ds-down)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border-color: #c22323;"
+      "source": "border-color: var(--ds-down);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 116,
-      "value": "#5b1111",
-      "kind": "literal",
+      "value": "var(--ds-on-down-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #5b1111;"
+      "source": "color: var(--ds-on-down-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 148,
-      "value": "#e0f7ea",
-      "kind": "literal",
+      "value": "var(--ds-up-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-color: #e0f7ea;"
+      "source": "background-color: var(--ds-up-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 149,
-      "value": "#1f6b3a",
-      "kind": "literal",
+      "value": "var(--ds-on-up-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #1f6b3a;"
+      "source": "color: var(--ds-on-up-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 153,
-      "value": "#ffe1e1",
-      "kind": "literal",
+      "value": "var(--ds-down-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-color: #ffe1e1;"
+      "source": "background-color: var(--ds-down-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 154,
-      "value": "#8a1f1f",
-      "kind": "literal",
+      "value": "var(--ds-on-down-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #8a1f1f;"
+      "source": "color: var(--ds-on-down-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 166,
-      "value": "#def8e7",
-      "kind": "literal",
+      "value": "var(--ds-up-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-color: #def8e7;"
+      "source": "background-color: var(--ds-up-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 167,
-      "value": "#1c6a3a",
-      "kind": "literal",
+      "value": "var(--ds-on-up-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #1c6a3a;"
+      "source": "color: var(--ds-on-up-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 171,
-      "value": "#ffe0e0",
-      "kind": "literal",
+      "value": "var(--ds-down-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background-color: #ffe0e0;"
+      "source": "background-color: var(--ds-down-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 172,
-      "value": "#8a1f1f",
-      "kind": "literal",
+      "value": "var(--ds-on-down-container)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #8a1f1f;"
+      "source": "color: var(--ds-on-down-container);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 193,
-      "value": "#ccc",
-      "kind": "literal",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "border: 1px solid #ccc;"
+      "source": "border: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 194,
-      "value": "#fafafa",
-      "kind": "literal",
+      "value": "var(--ds-surface-raised)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #fafafa;"
+      "source": "background: var(--ds-surface-raised);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 199,
-      "value": "#f0f0f0",
-      "kind": "literal",
+      "value": "var(--ds-surface-overlay)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "background: #f0f0f0;"
+      "source": "background: var(--ds-surface-overlay);"
     },
     {
       "file": "src/app/features/positions-view/positions-view.component.scss",
       "line": 204,
-      "value": "#999",
-      "kind": "literal",
+      "value": "var(--ds-on-surface-variant)",
+      "kind": "token-reference",
       "area": "trading-semantic-review",
-      "source": "color: #999;"
+      "source": "color: var(--ds-on-surface-variant);"
     },
     {
       "file": "src/app/features/rs-chart-view/rs-chart-view.component.scss",
@@ -19341,7 +19373,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/analysis-views/analysis-histogram.component.html",
-      "line": 31,
+      "line": 33,
       "value": "#9e9e9e",
       "kind": "literal",
       "area": "app-chrome-review",
@@ -20965,7 +20997,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 271,
+      "line": 276,
       "value": "#e0e0e0",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -20973,7 +21005,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 278,
+      "line": 283,
       "value": "#e0e0e0",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -20981,7 +21013,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 289,
+      "line": 294,
       "value": "#ff9800",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -20989,7 +21021,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 291,
+      "line": 296,
       "value": "#ff9800",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -20997,7 +21029,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 326,
+      "line": 331,
       "value": "#ccc",
       "kind": "literal",
       "area": "chart-indicator-review",
