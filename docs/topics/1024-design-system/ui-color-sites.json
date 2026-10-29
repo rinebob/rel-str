@@ -14,9 +14,9 @@
     "Third-party Material/Syncfusion adapters"
   ],
   "summary": {
-    "sites": 4132,
-    "files": 205,
-    "literals": 2131
+    "sites": 4166,
+    "files": 208,
+    "literals": 2127
   },
   "sites": [
     {
@@ -19140,8 +19140,184 @@
       "source": "readonly shortColor = '#ef4444';"
     },
     {
-      "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
-      "line": 16,
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-new-run-dialog/options-replay-new-run-dialog.component.scss",
+      "line": 35,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-new-run-dialog/options-replay-new-run-dialog.component.scss",
+      "line": 43,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 25,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 37,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 44,
+      "value": "var(--mat-sys-error)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-error);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 54,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 59,
+      "value": "var(--mat-sys-error)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border-color: var(--mat-sys-error);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 75,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 88,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 94,
+      "value": "var(--mat-sys-error)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-error);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 108,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 20,
+      "value": "var(--mat-sys-surface-container)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-surface-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 21,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 26,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border-bottom: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 31,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border-bottom: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 39,
+      "value": "var(--mat-sys-surface-container-high)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-surface-container-high);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 43,
+      "value": "var(--mat-sys-secondary-container)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-secondary-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 70,
+      "value": "var(--mat-sys-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 79,
+      "value": "var(--mat-sys-primary)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-primary);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 83,
+      "value": "var(--mat-sys-error)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-error);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 92,
+      "value": "var(--mat-sys-error-container)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-error-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 93,
+      "value": "var(--mat-sys-on-error-container)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-error-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-list/options-replay-run-list.component.scss",
+      "line": 106,
       "value": "var(--mat-sys-on-surface-variant)",
       "kind": "token-reference",
       "area": "app-chrome-review",
@@ -19149,7 +19325,15 @@
     },
     {
       "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
-      "line": 27,
+      "line": 17,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
+      "line": 28,
       "value": "var(--mat-sys-surface-container)",
       "kind": "token-reference",
       "area": "app-chrome-review",
@@ -19157,7 +19341,7 @@
     },
     {
       "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
-      "line": 28,
+      "line": 29,
       "value": "var(--mat-sys-outline-variant)",
       "kind": "token-reference",
       "area": "app-chrome-review",
@@ -19165,7 +19349,7 @@
     },
     {
       "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
-      "line": 34,
+      "line": 35,
       "value": "var(--mat-sys-outline-variant)",
       "kind": "token-reference",
       "area": "app-chrome-review",
@@ -19173,7 +19357,7 @@
     },
     {
       "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
-      "line": 56,
+      "line": 57,
       "value": "var(--mat-sys-outline-variant)",
       "kind": "token-reference",
       "area": "app-chrome-review",
@@ -19181,7 +19365,7 @@
     },
     {
       "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
-      "line": 57,
+      "line": 58,
       "value": "var(--mat-sys-surface)",
       "kind": "token-reference",
       "area": "app-chrome-review",
@@ -19189,11 +19373,43 @@
     },
     {
       "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
-      "line": 64,
+      "line": 65,
       "value": "var(--mat-sys-outline-variant)",
       "kind": "token-reference",
       "area": "app-chrome-review",
       "source": "border-bottom: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
+      "line": 87,
+      "value": "var(--mat-sys-surface-container)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-surface-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
+      "line": 88,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
+      "line": 96,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border-bottom: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component.scss",
+      "line": 105,
+      "value": "var(--mat-sys-on-surface)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface);"
     },
     {
       "file": "src/app/features/savant-trader/backtest/utils/backtest.utils.ts",
@@ -19513,7 +19729,7 @@
       "value": "#1258",
       "kind": "literal",
       "area": "chart-indicator-review",
-      "source": "tracked universe (#1258); inert on list sources. -->"
+      "source": "tracked universe (#1258); inert on list sources. Same affordance"
     },
     {
       "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
@@ -19565,7 +19781,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
-      "line": 101,
+      "line": 104,
       "value": "var(--mat-sys-outline)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
@@ -19573,7 +19789,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
-      "line": 103,
+      "line": 106,
       "value": "var(--mat-sys-surface)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
@@ -19581,7 +19797,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
-      "line": 104,
+      "line": 107,
       "value": "var(--mat-sys-on-surface-variant)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
@@ -19589,23 +19805,15 @@
     },
     {
       "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
-      "line": 118,
-      "value": "var(--mat-sys-outline)",
+      "line": 116,
+      "value": "var(--mat-sys-surface-container-high)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "border: 1px solid var(--mat-sys-outline);"
+      "source": "background: var(--mat-sys-surface-container-high);"
     },
     {
       "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
-      "line": 120,
-      "value": "var(--mat-sys-surface)",
-      "kind": "token-reference",
-      "area": "chart-indicator-review",
-      "source": "background: var(--mat-sys-surface);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
-      "line": 121,
+      "line": 117,
       "value": "var(--mat-sys-on-surface)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
@@ -19613,7 +19821,63 @@
     },
     {
       "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
-      "line": 127,
+      "line": 120,
+      "value": "var(--mat-sys-primary-container)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "background: var(--mat-sys-primary-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
+      "line": 121,
+      "value": "var(--mat-sys-on-primary-container)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "color: var(--mat-sys-on-primary-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
+      "line": 122,
+      "value": "var(--mat-sys-primary)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "border-color: var(--mat-sys-primary);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
+      "line": 123,
+      "value": "var(--mat-sys-primary)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "box-shadow: 0 0 0 1px var(--mat-sys-primary);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
+      "line": 137,
+      "value": "var(--mat-sys-outline)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "border: 1px solid var(--mat-sys-outline);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
+      "line": 139,
+      "value": "var(--mat-sys-surface)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "background: var(--mat-sys-surface);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
+      "line": 140,
+      "value": "var(--mat-sys-on-surface)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "color: var(--mat-sys-on-surface);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
+      "line": 146,
       "value": "var(--mat-sys-primary)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
@@ -19621,7 +19885,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/chart-view-toolbar/chart-view-toolbar.component.scss",
-      "line": 128,
+      "line": 147,
       "value": "var(--mat-sys-on-surface-variant)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
@@ -20997,7 +21261,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 276,
+      "line": 275,
       "value": "#e0e0e0",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -21005,7 +21269,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 283,
+      "line": 282,
       "value": "#e0e0e0",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -21013,7 +21277,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 294,
+      "line": 293,
       "value": "#ff9800",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -21021,7 +21285,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 296,
+      "line": 295,
       "value": "#ff9800",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -21029,7 +21293,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/options-contract-chart/options-contract-chart.component.ts",
-      "line": 331,
+      "line": 330,
       "value": "#ccc",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -23589,7 +23853,15 @@
     },
     {
       "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 279,
+      "line": 280,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "trading-semantic-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
+      "line": 287,
       "value": "var(--mat-sys-primary-container)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
@@ -23597,7 +23869,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 280,
+      "line": 288,
       "value": "var(--mat-sys-primary)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
@@ -23605,7 +23877,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 283,
+      "line": 291,
       "value": "var(--mat-sys-success-container, #c8e6c9)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
@@ -23613,63 +23885,15 @@
     },
     {
       "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 284,
+      "line": 292,
       "value": "var(--mat-sys-success, #2e7d32)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
       "source": "color: var(--mat-sys-success, #2e7d32);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 288,
-      "value": "var(--mat-sys-error-container)",
-      "kind": "token-reference",
-      "area": "trading-semantic-review",
-      "source": "background: var(--mat-sys-error-container);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 289,
-      "value": "var(--mat-sys-error)",
-      "kind": "token-reference",
-      "area": "trading-semantic-review",
-      "source": "color: var(--mat-sys-error);"
     },
     {
       "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
       "line": 296,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "trading-semantic-review",
-      "source": "color: var(--mat-sys-on-surface-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 316,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "trading-semantic-review",
-      "source": "color: var(--mat-sys-on-surface-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 329,
-      "value": "var(--mat-sys-success-container, #c8e6c9)",
-      "kind": "token-reference",
-      "area": "trading-semantic-review",
-      "source": "background: var(--mat-sys-success-container, #c8e6c9);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 330,
-      "value": "var(--mat-sys-success, #2e7d32)",
-      "kind": "token-reference",
-      "area": "trading-semantic-review",
-      "source": "color: var(--mat-sys-success, #2e7d32);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 334,
       "value": "var(--mat-sys-error-container)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
@@ -23677,7 +23901,7 @@
     },
     {
       "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 335,
+      "line": 297,
       "value": "var(--mat-sys-error)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
@@ -23685,7 +23909,55 @@
     },
     {
       "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
-      "line": 347,
+      "line": 305,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "trading-semantic-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
+      "line": 325,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "trading-semantic-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
+      "line": 338,
+      "value": "var(--mat-sys-success-container, #c8e6c9)",
+      "kind": "token-reference",
+      "area": "trading-semantic-review",
+      "source": "background: var(--mat-sys-success-container, #c8e6c9);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
+      "line": 339,
+      "value": "var(--mat-sys-success, #2e7d32)",
+      "kind": "token-reference",
+      "area": "trading-semantic-review",
+      "source": "color: var(--mat-sys-success, #2e7d32);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
+      "line": 343,
+      "value": "var(--mat-sys-error-container)",
+      "kind": "token-reference",
+      "area": "trading-semantic-review",
+      "source": "background: var(--mat-sys-error-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
+      "line": 344,
+      "value": "var(--mat-sys-error)",
+      "kind": "token-reference",
+      "area": "trading-semantic-review",
+      "source": "color: var(--mat-sys-error);"
+    },
+    {
+      "file": "src/app/features/savant-trader/components/signal-list/signal-list.component.scss",
+      "line": 356,
       "value": "var(--mat-sys-on-surface-variant)",
       "kind": "token-reference",
       "area": "trading-semantic-review",
@@ -27517,7 +27789,7 @@
     },
     {
       "file": "src/app/features/savant-trader/pages/option-chart/option-chart.component.scss",
-      "line": 891,
+      "line": 895,
       "value": "transparent",
       "kind": "expression",
       "area": "chart-indicator-review",
@@ -27525,7 +27797,7 @@
     },
     {
       "file": "src/app/features/savant-trader/pages/option-chart/option-chart.component.scss",
-      "line": 917,
+      "line": 921,
       "value": "var(--mat-sys-error)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
@@ -27533,7 +27805,7 @@
     },
     {
       "file": "src/app/features/savant-trader/pages/option-chart/option-chart.component.scss",
-      "line": 927,
+      "line": 931,
       "value": "transparent",
       "kind": "expression",
       "area": "chart-indicator-review",
@@ -27541,7 +27813,7 @@
     },
     {
       "file": "src/app/features/savant-trader/pages/option-chart/option-chart.component.scss",
-      "line": 938,
+      "line": 942,
       "value": "var(--mat-sys-surface-container-highest)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
@@ -27549,7 +27821,7 @@
     },
     {
       "file": "src/app/features/savant-trader/pages/option-chart/option-chart.component.scss",
-      "line": 945,
+      "line": 949,
       "value": "var(--mat-sys-on-surface-variant)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
@@ -29558,78 +29830,78 @@
     {
       "file": "src/app/features/shared/components/flex-chart/components/chart-sync-overlay.component.scss",
       "line": 15,
-      "value": "var(--fc-crosshair-line, #000000)",
+      "value": "var(--fc-crosshair-line)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "background: var(--fc-crosshair-line, #000000);"
+      "source": "background: var(--fc-crosshair-line);"
     },
     {
       "file": "src/app/features/shared/components/flex-chart/flex-chart.component.scss",
       "line": 14,
-      "value": "var(--fc-bg, transparent)",
+      "value": "var(--fc-bg)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "background: var(--fc-bg, transparent);"
+      "source": "background: var(--fc-bg);"
     },
     {
       "file": "src/app/features/shared/components/flex-chart/flex-chart.component.scss",
       "line": 21,
-      "value": "var(--fc-no-data-text, var(--mat-sys-on-surface-variant)",
+      "value": "var(--fc-no-data-text)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "color: var(--fc-no-data-text, var(--mat-sys-on-surface-variant));"
+      "source": "color: var(--fc-no-data-text);"
     },
     {
       "file": "src/app/features/shared/components/flex-chart/flex-chart.component.scss",
       "line": 29,
-      "value": "var(--fc-crosshair-label-bg, rgba(0, 0, 0, 0.75)",
+      "value": "var(--fc-crosshair-label-bg)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "background: var(--fc-crosshair-label-bg, rgba(0, 0, 0, 0.75));"
+      "source": "background: var(--fc-crosshair-label-bg);"
     },
     {
       "file": "src/app/features/shared/components/flex-chart/flex-chart.component.scss",
       "line": 30,
-      "value": "var(--fc-crosshair-label-text, #fff)",
+      "value": "var(--fc-crosshair-label-text)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "color: var(--fc-crosshair-label-text, #fff);"
+      "source": "color: var(--fc-crosshair-label-text);"
     },
     {
       "file": "src/app/features/shared/components/flex-chart/flex-chart.component.scss",
       "line": 44,
-      "value": "var(--fc-crosshair-label-bg, rgba(0, 0, 0, 0.75)",
+      "value": "var(--fc-crosshair-label-bg)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "background: var(--fc-crosshair-label-bg, rgba(0, 0, 0, 0.75));"
+      "source": "background: var(--fc-crosshair-label-bg);"
     },
     {
       "file": "src/app/features/shared/components/flex-chart/flex-chart.component.scss",
       "line": 45,
-      "value": "var(--fc-crosshair-label-text, #fff)",
+      "value": "var(--fc-crosshair-label-text)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "color: var(--fc-crosshair-label-text, #fff);"
+      "source": "color: var(--fc-crosshair-label-text);"
     },
     {
       "file": "src/app/features/shared/components/flex-chart/flex-chart.component.scss",
       "line": 60,
-      "value": "var(--fc-crosshair-line, #000000)",
+      "value": "var(--fc-crosshair-line)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "background: var(--fc-crosshair-line, #000000);"
+      "source": "background: var(--fc-crosshair-line);"
     },
     {
       "file": "src/app/features/shared/components/flex-chart/flex-chart.component.scss",
       "line": 68,
-      "value": "var(--fc-log-axis-label, #9e9e9e)",
+      "value": "var(--fc-log-axis-label)",
       "kind": "token-reference",
       "area": "chart-indicator-review",
-      "source": "color: var(--fc-log-axis-label, #9e9e9e);"
+      "source": "color: var(--fc-log-axis-label);"
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/macd.indicator.ts",
-      "line": 70,
+      "line": 72,
       "value": "#e91e63",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29637,7 +29909,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/macd.indicator.ts",
-      "line": 72,
+      "line": 74,
       "value": "#9e9e9e",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29645,7 +29917,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/rsi.indicator.ts",
-      "line": 64,
+      "line": 66,
       "value": "#ef5350",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29653,7 +29925,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/rsi.indicator.ts",
-      "line": 65,
+      "line": 67,
       "value": "#26a69a",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29661,7 +29933,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-anchored-vwap.indicator.ts",
-      "line": 39,
+      "line": 41,
       "value": "#FF8CFF",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29669,7 +29941,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-anchored-vwap.indicator.ts",
-      "line": 40,
+      "line": 42,
       "value": "#8CF5FF",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29677,7 +29949,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-anchored-vwap.indicator.ts",
-      "line": 43,
+      "line": 45,
       "value": "#FFA500",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29685,7 +29957,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-anchored-vwap.indicator.ts",
-      "line": 44,
+      "line": 46,
       "value": "#00C853",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29693,7 +29965,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-trend-band-width.indicator.ts",
-      "line": 195,
+      "line": 197,
       "value": "#2196f3",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29701,7 +29973,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-trend-band-width.indicator.ts",
-      "line": 195,
+      "line": 197,
       "value": "#ffc107",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29709,7 +29981,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-trend-band-width.indicator.ts",
-      "line": 230,
+      "line": 234,
       "value": "#4caf50",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29717,7 +29989,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-zigzag.types.ts",
-      "line": 136,
+      "line": 138,
       "value": "#1976d2",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29725,7 +29997,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-zone.indicator.ts",
-      "line": 198,
+      "line": 200,
       "value": "#2196f3",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29733,7 +30005,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-zone.indicator.ts",
-      "line": 199,
+      "line": 201,
       "value": "#4caf50",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29741,7 +30013,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-zone.indicator.ts",
-      "line": 200,
+      "line": 202,
       "value": "#9e9e9e",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29749,7 +30021,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-zone.indicator.ts",
-      "line": 201,
+      "line": 203,
       "value": "#9e9e9e",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29757,7 +30029,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-zone.indicator.ts",
-      "line": 202,
+      "line": 204,
       "value": "#f44336",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29765,7 +30037,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-zone.indicator.ts",
-      "line": 203,
+      "line": 205,
       "value": "#e91e63",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29773,7 +30045,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-zone.indicator.ts",
-      "line": 204,
+      "line": 206,
       "value": "#ffeb3b",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29781,7 +30053,7 @@
     },
     {
       "file": "src/app/features/shared/components/flex-chart/indicators/st-zone.indicator.ts",
-      "line": 207,
+      "line": 209,
       "value": "#9e9e9e",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29790,54 +30062,54 @@
     {
       "file": "src/app/features/shared/components/interval-toggle/interval-toggle.component.scss",
       "line": 11,
-      "value": "#ccc",
-      "kind": "literal",
+      "value": "var(--ds-border-subtle)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "border: 1px solid #ccc;"
+      "source": "border: 1px solid var(--ds-border-subtle);"
     },
     {
       "file": "src/app/features/shared/components/interval-toggle/interval-toggle.component.scss",
       "line": 12,
-      "value": "var(--theme-surface)",
+      "value": "var(--ds-surface)",
       "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "background-color: var(--theme-surface);"
+      "source": "background-color: var(--ds-surface);"
     },
     {
       "file": "src/app/features/shared/components/interval-toggle/interval-toggle.component.scss",
       "line": 13,
-      "value": "var(--theme-on-surface)",
+      "value": "var(--ds-on-surface)",
       "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "color: var(--theme-on-surface);"
+      "source": "color: var(--ds-on-surface);"
     },
     {
       "file": "src/app/features/shared/components/interval-toggle/interval-toggle.component.scss",
       "line": 21,
-      "value": "#3f51b5",
-      "kind": "literal",
+      "value": "var(--ds-accent)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "background-color: #3f51b5 !important;"
+      "source": "background-color: var(--ds-accent) !important;"
     },
     {
       "file": "src/app/features/shared/components/interval-toggle/interval-toggle.component.scss",
       "line": 22,
-      "value": "#3f51b5",
-      "kind": "literal",
+      "value": "var(--ds-accent)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "border-color: #3f51b5 !important;"
+      "source": "border-color: var(--ds-accent) !important;"
     },
     {
       "file": "src/app/features/shared/components/interval-toggle/interval-toggle.component.scss",
       "line": 23,
-      "value": "#ffffff",
-      "kind": "literal",
+      "value": "var(--ds-on-accent)",
+      "kind": "token-reference",
       "area": "app-chrome-review",
-      "source": "color: #ffffff !important;"
+      "source": "color: var(--ds-on-accent) !important;"
     },
     {
       "file": "src/app/features/shared/comps/rs-chart/rs-chart.component.scss",
-      "line": 46,
+      "line": 48,
       "value": "#d8d8d8",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29845,7 +30117,7 @@
     },
     {
       "file": "src/app/features/shared/comps/rs-chart/rs-chart.component.scss",
-      "line": 50,
+      "line": 52,
       "value": "#b3b3b3",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29853,7 +30125,7 @@
     },
     {
       "file": "src/app/features/shared/comps/rs-chart/rs-chart.component.scss",
-      "line": 54,
+      "line": 56,
       "value": "#a6a6a6",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29861,7 +30133,7 @@
     },
     {
       "file": "src/app/features/shared/comps/rs-chart/rs-chart.component.scss",
-      "line": 58,
+      "line": 60,
       "value": "#8c8c8c",
       "kind": "literal",
       "area": "chart-indicator-review",
@@ -29869,7 +30141,7 @@
     },
     {
       "file": "src/app/features/shared/constants/rs.constants.ts",
-      "line": 9,
+      "line": 12,
       "value": "#ffb300",
       "kind": "literal",
       "area": "app-chrome-review",
@@ -29877,7 +30149,7 @@
     },
     {
       "file": "src/app/features/shared/constants/rs.constants.ts",
-      "line": 10,
+      "line": 13,
       "value": "#1e88e5",
       "kind": "literal",
       "area": "app-chrome-review",
@@ -29885,7 +30157,7 @@
     },
     {
       "file": "src/app/features/shared/constants/rs.constants.ts",
-      "line": 11,
+      "line": 14,
       "value": "#8e24aa",
       "kind": "literal",
       "area": "app-chrome-review",
@@ -29893,7 +30165,7 @@
     },
     {
       "file": "src/app/features/shared/constants/rs.constants.ts",
-      "line": 335,
+      "line": 340,
       "value": "#757575",
       "kind": "literal",
       "area": "app-chrome-review",
