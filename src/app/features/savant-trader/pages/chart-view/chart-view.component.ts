@@ -41,7 +41,9 @@ import { ST_SYMBOLS_ROOT } from '@st/collections';
 import { SymbolListStore } from '../../stores/symbol-list.store';
 import { LatestRunStore } from '../../stores/latest-run.store';
 import { OrderTicketStore } from '../../stores/order-ticket.store';
-import { NO_MEMBERSHIP, type SymbolListFilter } from '../../common/constants';
+import { NO_MEMBERSHIP, scanSourceRecipeId, type SymbolListFilter } from '../../common/constants';
+import { scannerRecipeById } from '../../scanner/scanner-recipes';
+import { scanPaneMeta, type ScanRowMeta } from '../../utils/scanner-rows.util';
 import { TERMINAL_TICKET_STATUSES } from '../../services/order-ticket.types';
 import { ChartViewViewportService } from '../../services/chart-view-viewport.service';
 import { ChartToolbarStateService } from '../../services/chart-toolbar-state.service';
@@ -140,6 +142,35 @@ export class ChartViewComponent implements OnInit, OnDestroy {
   /** Cache of symbol -> company name fetched from Firestore. */
   private readonly symbolNameCache = signal<Record<string, string | null>>({});
 
+  /** Scan-row extras for the active scan source — memoized apart from
+   *  the merge so selection/name-cache churn doesn't reformat every row
+   *  in the run (scanPaneMeta is O(rows × displayCell), #1313). */
+  private readonly paneScanMeta = computed(() => {
+    const recipeId = scanSourceRecipeId(this.activeList());
+    if (!recipeId) return null;
+    return scanPaneMeta(
+      this.latestRunStore.latestRuns().get(recipeId),
+      scannerRecipeById(recipeId),
+    );
+  });
+
+  /** Per-pane-row extras (#1313): the wire 'Name' column wins, then the
+   *  st-symbols profile name (`profilesBySymbol` — the store's
+   *  session-cached bulk read, no per-row fetch); the recipe's ranked
+   *  column rides as the detail on scan sources. Symbols that resolve
+   *  nothing stay ticker-only. */
+  readonly paneRowMeta = computed(() => {
+    const scanMeta = this.paneScanMeta();
+    const profiles = this.symbolListStore.profilesBySymbol();
+    const meta: Record<string, ScanRowMeta> = {};
+    for (const sym of this.viewportSymbols()) {
+      const m = scanMeta?.get(sym);
+      const name = m?.name ?? profiles.get(sym.toUpperCase())?.name;
+      if (name || m?.detail) meta[sym] = { name, detail: m?.detail };
+    }
+    return meta;
+  });
+
   /** Company name for the currently displayed symbol. */
   readonly selectedSymbolName = computed(() => {
     const symbol = this.activeSymbol();
@@ -212,6 +243,8 @@ export class ChartViewComponent implements OnInit, OnDestroy {
     this.symbolListStore.loadTrackedSymbols();
     this.ticketStore.loadTickets();
     void this.latestRunStore.loadLatestRuns();
+    // Pane names ride the store's session-cached profiles index (#1313).
+    void this.symbolListStore.loadProfiles();
   }
 
   /** Leave fullscreen mode when the page is destroyed. */

@@ -52,7 +52,8 @@ import type { SymbolListFilter } from '../../common/constants';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
 import type { RhSelectOption, RhSelectOptionGroup } from '../../components/rh-select-menu/rh-select-menu.component';
 import type { ScanLatestRun } from '@st/scanner';
-import { scanRun } from '../../testing/scan-fixtures';
+import { scanRow, scanRun } from '../../testing/scan-fixtures';
+import type { ScanRowMeta } from '../../utils/scanner-rows.util';
 
 // NOTE: mock children use @Input()/@Output() decorators, NOT signal
 // input()/output() — signal-based fields in a spec-local component class
@@ -90,6 +91,7 @@ class MockSignalListComponent {
   @Input() symbols: string[] = [];
   @Input() newSymbols: string[] = [];
   @Input() dimmedSymbols: ReadonlySet<string> = new Set();
+  @Input() rowMeta: Record<string, ScanRowMeta> = {};
   @Output() symbolSelected = new EventEmitter<string>();
 }
 
@@ -120,6 +122,7 @@ describe('ChartViewComponent', () => {
     { key: 'SECONDARY', label: 'Secondary', order: 1, role: 'exclusive', hidden: false, symbols: [] },
   ]);
   const trackedSymbols = signal<string[]>(['AAPL', 'MSFT']);
+  const profilesBySymbol = signal(new Map<string, { name?: string }>());
   const tickets = signal<Record<string, EquityOrderTicket>>({});
 
   const symbolListStore = {
@@ -128,9 +131,11 @@ describe('ChartViewComponent', () => {
     symbolLists: () => Object.fromEntries(listCatalog().map((d) => [d.key, d.symbols])),
     untriagedSymbols: signal<string[]>([]),
     trackedSymbols,
+    profilesBySymbol,
     filterOptionGroups: signal<RhSelectOptionGroup<SymbolListFilter>[]>([]),
     loadSymbolLists: jest.fn(),
     loadTrackedSymbols: jest.fn().mockResolvedValue([]),
+    loadProfiles: jest.fn().mockResolvedValue([]),
     toggleSymbolInList: jest.fn(),
   };
   const ticketStore = { tickets, loadTickets: jest.fn() };
@@ -161,6 +166,7 @@ describe('ChartViewComponent', () => {
     ]);
     trackedSymbols.set(['AAPL', 'MSFT']);
     tickets.set({});
+    profilesBySymbol.set(new Map());
     latestRuns.set(new Map());
     scanOptions.set([]);
     uiState.fullscreen.set(false);
@@ -430,5 +436,47 @@ describe('ChartViewComponent', () => {
     fixture.detectChanges();
     expect(component.viewportSymbols()).toEqual([]);
     expect(component.selectedSymbol()).toBeNull();
+  });
+
+  it('paneRowMeta — scan rows: wire Name beats st-symbols; the profile map fills gaps; sort column is the detail (#1313)', () => {
+    latestRuns.set(
+      new Map([
+        [
+          'near-52w-high',
+          scanRun('near-52w-high', [
+            scanRow('ACME', { Name: 'Acme Corp', 'Range pos': '0.975' }),
+            scanRow('WIDGET', { 'Range pos': '0.951' }),
+            scanRow('GHOST'),
+          ]),
+        ],
+      ]),
+    );
+    profilesBySymbol.set(
+      new Map([
+        // The scan's own 'Name' wins over the st-symbols profile name.
+        ['ACME', { name: 'Acme Industries LLC' }],
+        ['WIDGET', { name: 'Widget Inc' }],
+      ]),
+    );
+    toolbar.scanChange.emit('scan:near-52w-high');
+    fixture.detectChanges();
+
+    expect(component.paneRowMeta()).toEqual({
+      ACME: { name: 'Acme Corp', detail: 'Range pos: 97.5%' },
+      WIDGET: { name: 'Widget Inc', detail: 'Range pos: 95.1%' },
+      // GHOST — nothing resolvable anywhere: no entry (ticker-only row).
+    });
+
+    const list = fixture.debugElement.query(By.directive(MockSignalListComponent)).componentInstance;
+    expect(list.rowMeta['ACME'].name).toBe('Acme Corp');
+  });
+
+  it('paneRowMeta — list sources resolve st-symbols names only, no detail (#1313)', () => {
+    profilesBySymbol.set(new Map([['AAPL', { name: 'Apple Inc.' }]]));
+    toolbar.listChange.emit('PRIMARY');
+    fixture.detectChanges();
+
+    expect(component.paneRowMeta()).toEqual({ AAPL: { name: 'Apple Inc.' } });
+    expect(symbolListStore.loadProfiles).toHaveBeenCalled();
   });
 });

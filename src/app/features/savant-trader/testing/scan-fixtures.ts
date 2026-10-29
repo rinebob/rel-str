@@ -6,22 +6,25 @@
 import type { ScanLatestRun } from '@st/scanner';
 import type { ScanResultRow } from '@robinhood-mcp/contracts';
 
-export const scanRow = (ticker: string): ScanResultRow => ({
+export const scanRow = (
+  ticker: string,
+  columns: Record<string, string> = {},
+): ScanResultRow => ({
   ticker,
   instrument_id: `i-${ticker}`,
   instrument_type: 'EQUITY',
-  columns: {},
+  columns,
 });
 
 export const scanRun = (
   recipeId: string,
-  tickers: string[],
+  rows: (string | ScanResultRow)[],
   overrides: Partial<Pick<ScanLatestRun, 'ranAt' | 'totalItems' | 'truncated'>> = {},
 ): ScanLatestRun => ({
   recipeId,
   ranAt: '2026-10-27T14:00:00.000Z',
-  totalItems: tickers.length,
+  totalItems: rows.length,
   truncated: false,
-  rows: tickers.map(scanRow),
+  rows: rows.map((r) => (typeof r === 'string' ? scanRow(r) : r)),
   ...overrides,
 });

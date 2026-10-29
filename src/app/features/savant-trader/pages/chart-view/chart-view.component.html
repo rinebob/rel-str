@@ -39,6 +39,7 @@
         [symbols]="viewportSymbols()"
         [newSymbols]="untrackedPaneSymbols()"
         [dimmedSymbols]="viewedSymbols()"
+        [rowMeta]="paneRowMeta()"
         (symbolSelected)="onSymbolSelected($event)">
       </app-signal-list>
     }
