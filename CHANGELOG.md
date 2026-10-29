@@ -3,6 +3,9 @@
 ## [2026-10-28]
 
 ### Added
+- [RH Scanner] 1098-1304_SHARED-IMPL-SAVANT-TRADER: `get_equity_historicals` wire contract in `@robinhood-mcp/contracts` — `symbols[]`+`start_time` request, `data.results[] → bars[]` response, 18-value `EquityHistoricalInterval` union, honest required/optional fielding vs all 11 captures, `guide?`/`interpolated?` conditional fields
+- [RH Scanner] 1098-1304_SHARED-IMPL-SAVANT-TRADER: Contract verification — offline capture-parity script (bidirectional `Record<keyof>` key diffs, run-all registered) + live executor probe (unregistered per #682 convention) + task guide + index row
+- [RH Scanner] 1098-1304_DOCS-SAVANT-TRADER: #1304 CODE-REVIEW (PASS after remediation, 3 axes, 2 passes) + #1314 UAT (Complete, S1–S4) + thread planning docs (PRD/IMPL/TEST, ADR-011) + Untracked Symbol term
 - [Option Contract Time-Series Viewer] 1243-1321_FE-UIFIX-OPTIONS: Post-ship polish — Underlying toggle + pad buttons restored in plotted mode, ResizeObserver→refresh for stale-width overflow, `padDateLabels` makes +20d/+50d extend the axis, `loadPlotted` replace semantics (edited list is authoritative), legend removed for an underlying chip + larger swatches
 - [Option Contract Time-Series Viewer] 1243-1265_FE-IMPL-OPTIONS: Connected chip↔series hover — `seriesHovered` output maps Syncfusion mark/marker/legend element ids to the contract id (mark-ordinal + series-index keyed, label-collision safe), page wires it to `hoveredContractId` so chart hover lights the chip; deduped emits, stale-hover reset, no refetch
 - [Option Contract Time-Series Viewer] 1243-1265_DOCS-OPTIONS: #1265 CODE-REVIEW (PASS, 3 axes, mapping fixes remediated) + #1315 UAT (Complete; H1–H8) + Topic as-built

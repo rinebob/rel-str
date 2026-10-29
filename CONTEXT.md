@@ -452,6 +452,11 @@ _Avoid_: observation (that's raw inputs), ledger entry
 The upstream-owned set of symbols ST's data pipeline syncs and scans — ~925 names fetched via `partnerListTrackedSymbolsV2` and cached at `app/trackedSymbolsCache`. Read-only from ST; membership changes happen upstream (adds arrive via `partner-symbol-added` Pub/Sub → backfill → `rh-agent-symbols` enable). Distinct from user symbol lists, which are locally writable triage buckets layered on top.
 _Avoid_: watchlist, symbol list, tracked list (ambiguous without "universe")
 
+## Untracked Symbol
+
+A symbol returned by a scan (or entered manually) that is absent from the Tracked Symbol Universe — the scanner badges it "new". Untracked symbols have no synced `symbol-data` bars and no list memberships; they can still be filed into triage lists (membership ≠ tracking — universe enrollment stays upstream, ADR-011) and chart via on-demand RH historicals.
+_Avoid_: unknown symbol, foreign symbol
+
 ## Scan Recipe
 
 A named, code-versioned `preview_scan` bundle — filter set (unit-corrected expression filters, optional `symbol` scope), result columns, and sort — surfaced as a menu item on the Scanner page. Encodes the scanner field-guide corrections (fraction thresholds, ANY_OF/IN_LIST scoping); users pick recipes, never raw filters.
