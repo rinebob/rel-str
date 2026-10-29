@@ -155,6 +155,10 @@ describe("firestore.indexes.json — canonical st-* coverage (#1012)", () => {
     assert.ok(hasIndex("st-signals", ["timeframe", "marketDate:DESC"]), "missing st-signals (timeframe,marketDate DESC)");
     // Mirrors the legacy `run-ids` collectionGroup (runId,marketDate).
     assert.ok(hasIndex("st-signals", ["runIds:CONTAINS", "marketDate:DESC"]), "missing st-signals (runIds contains,marketDate DESC)");
+    // #1019 — the reader cut's per-symbol run-scoped lookup
+    // (symbol == X AND runIds contains runId): signal.service
+    // getSymbolSignalsForRun + auto-paper getSignals.
+    assert.ok(hasIndex("st-signals", ["symbol", "runIds:CONTAINS"]), "missing st-signals (symbol,runIds contains)");
   });
 
   it("indexes st-order-tickets by mode/state/origin refs", () => {

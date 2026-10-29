@@ -1,12 +1,16 @@
 /**
  * @topic #984 — ST Firestore Reorg
  *
- * Unit tests for SignalDateWriter's canonical `st-signals` dual-write
- * (task #1000): one upserted occurrence doc per {symbol, barDate,
- * signalType}, minted via stSignalOccurrenceId, alongside the legacy
- * run-ids / signal-history / gate-date writes — runIds arrayUnion on
- * re-detection, status from barStatus (already resolved upstream),
- * marketDate + sourceRunId written on create only.
+ * Unit tests for SignalDateWriter's canonical `st-signals` writes
+ * (tasks #1000/#1019): one upserted occurrence doc per {symbol, barDate,
+ * signalType}, minted via stSignalOccurrenceId, alongside the st-symbols
+ * gate-date update — runIds arrayUnion on re-detection, status from
+ * barStatus (already resolved upstream), marketDate + sourceRunId written
+ * on create only.
+ *
+ * #1019 cut the legacy run-ids/signal-history legs — st-signals is now the
+ * SOLE signal record, so the write is fail-hard: a malformed entry or a
+ * failed existence read rejects persistBarDate before the batch commits.
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -111,20 +115,16 @@ const DAILY_LONG: StSignalEntry = {
 const OCC_ID = 'ADPT_2026-10-14_D_ST_TREND_RIDER_V1_LONG';
 const OCC_PATH = `st-signals/${OCC_ID}`;
 
-function writerFor(db: WriterDb, errors?: string[]) {
-  return new SignalDateWriter('ADPT', {
-    db,
-    fieldValue: FV,
-    logger: errors ? { error: (m: string) => errors.push(m) } : undefined,
-  });
+function writerFor(db: WriterDb) {
+  return new SignalDateWriter('ADPT', { db, fieldValue: FV });
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-describe('SignalDateWriter st-signals dual-write (#1000)', () => {
-  it('creates the occurrence doc on first detection alongside legacy writes', async () => {
+describe('SignalDateWriter st-signals writes (#1000/#1019)', () => {
+  it('creates the occurrence doc + gate-date update — no legacy writes', async () => {
     const { db, stored, committedOps } = createFakeDb();
-    await writerFor(db).persistBarDate('run-1', '2026-10-14T16:00:00Z', '2026-10-14', [DAILY_LONG]);
+    await writerFor(db).persistBarDate('run-1', '2026-10-14', [DAILY_LONG]);
 
     const doc = stored(OCC_PATH) as StSignal & Record<string, unknown>;
     assert.ok(doc, 'st-signals occurrence doc exists');
@@ -143,20 +143,17 @@ describe('SignalDateWriter st-signals dual-write (#1000)', () => {
     assert.equal(doc.createdAt, NOW);
     assert.equal(doc.updatedAt, NOW);
 
-    // Legacy writes still land in the same commit (dual-write).
     const paths = committedOps.flat().map((o) => o.path);
-    assert.ok(paths.some((p) => p.includes('run-ids/run-1')), 'run-ids doc written');
-    // #1159: gate-date update lands on the canonical st-symbols doc;
-    // run-ids/signal-history writes stay on the legacy parent until #1019.
-    assert.ok(paths.some((p) => p === 'st-symbols/ADPT'), 'gate-date update written');
-    assert.ok(paths.some((p) => p === 'savant-trader/data/symbols/ADPT/run-ids/run-1'), 'run-ids stays on legacy parent');
+    assert.ok(paths.some((p) => p === 'st-symbols/ADPT'), 'gate-date update written to st-symbols');
+    // #1019: the legacy parent must not appear in any write.
+    assert.ok(!paths.some((p) => p.startsWith('savant-trader/')), 'no legacy-path writes');
   });
 
   it('appends runIds on re-detection; marketDate/sourceRunId unchanged', async () => {
     const { db, stored } = createFakeDb();
     const w = writerFor(db);
-    await w.persistBarDate('run-1', '2026-10-14T16:00:00Z', '2026-10-14', [DAILY_LONG]);
-    await w.persistBarDate('run-2', '2026-10-15T16:00:00Z', '2026-10-15', [DAILY_LONG]);
+    await w.persistBarDate('run-1', '2026-10-14', [DAILY_LONG]);
+    await w.persistBarDate('run-2', '2026-10-15', [DAILY_LONG]);
 
     const doc = stored(OCC_PATH) as StSignal;
     assert.deepEqual(doc.runIds, ['run-1', 'run-2']);
@@ -167,18 +164,18 @@ describe('SignalDateWriter st-signals dual-write (#1000)', () => {
   it('arrayUnion dedupes a same-runId rewrite', async () => {
     const { db, stored } = createFakeDb();
     const w = writerFor(db);
-    await w.persistBarDate('run-1', '2026-10-14T16:00:00Z', '2026-10-14', [DAILY_LONG]);
-    await w.persistBarDate('run-1', '2026-10-14T16:00:00Z', '2026-10-14', [DAILY_LONG]);
+    await w.persistBarDate('run-1', '2026-10-14', [DAILY_LONG]);
+    await w.persistBarDate('run-1', '2026-10-14', [DAILY_LONG]);
     assert.deepEqual((stored(OCC_PATH) as StSignal).runIds, ['run-1']);
   });
 
   it('nightly CONFIRMED entry upgrades status while create-only fields hold', async () => {
     const { db, stored } = createFakeDb();
     const w = writerFor(db);
-    await w.persistBarDate('run-1', '2026-10-14T16:00:00Z', '2026-10-14', [DAILY_LONG]);
-    await w.persistBarDate('run-nightly', '2026-10-15T01:00:00Z', '2026-10-14', [
+    await w.persistBarDate('run-1', '2026-10-14', [DAILY_LONG]);
+    await w.persistBarDate('run-nightly', '2026-10-14', [
       { ...DAILY_LONG, status: 'CONFIRMED' },
-    ], 'nightly');
+    ]);
 
     const doc = stored(OCC_PATH) as StSignal;
     assert.equal(doc.status, 'CONFIRMED', 'INTERIM → CONFIRMED on bar close');
@@ -188,7 +185,7 @@ describe('SignalDateWriter st-signals dual-write (#1000)', () => {
 
   it('normalizes legacy LONG/SHORT direction to TradeSide', async () => {
     const { db, stored } = createFakeDb();
-    await writerFor(db).persistBarDate('run-1', '2026-10-14T16:00:00Z', '2026-10-14', [
+    await writerFor(db).persistBarDate('run-1', '2026-10-14', [
       { ...DAILY_LONG, signalType: 'D_ST_TREND_RIDER_V1_SHORT', direction: StSignalDirection.SHORT },
     ]);
     const doc = stored('st-signals/ADPT_2026-10-14_D_ST_TREND_RIDER_V1_SHORT') as StSignal;
@@ -197,7 +194,7 @@ describe('SignalDateWriter st-signals dual-write (#1000)', () => {
 
   it('mints separate docs per signalType for one barDate', async () => {
     const { db, stored } = createFakeDb();
-    await writerFor(db).persistBarDate('run-1', '2026-10-14T16:00:00Z', '2026-10-14', [
+    await writerFor(db).persistBarDate('run-1', '2026-10-14', [
       DAILY_LONG,
       { ...DAILY_LONG, signalType: 'D_ST_TREND_RIDER_V1_SHORT', direction: StSignalDirection.SHORT },
     ]);
@@ -205,27 +202,21 @@ describe('SignalDateWriter st-signals dual-write (#1000)', () => {
     assert.ok(stored('st-signals/ADPT_2026-10-14_D_ST_TREND_RIDER_V1_SHORT'));
   });
 
-  it('fail-soft: a malformed entry is logged and skipped — legacy writes still commit', async () => {
+  it('fail-hard: a malformed entry rejects — nothing commits', async () => {
     const { db, stored, committedOps } = createFakeDb();
-    const errors: string[] = [];
     // A corrupt upstream bar date reaches the id builder's validation throw.
     const bad = { ...DAILY_LONG, signalType: 'D_ST_TREND_RIDER_V1_SHORT', barDate: 'garbageXXX' };
-    await writerFor(db, errors).persistBarDate('run-1', '2026-10-14T16:00:00Z', '2026-10-14', [
-      DAILY_LONG,
-      bad,
-    ]);
+    await assert.rejects(
+      writerFor(db).persistBarDate('run-1', '2026-10-14', [DAILY_LONG, bad]),
+      /barDate|garbage/i,
+    );
 
-    assert.ok(stored(OCC_PATH), 'good entry still wrote its occurrence doc');
-    assert.ok(!stored('st-signals/ADPT_garbageXXX_D_ST_TREND_RIDER_V1_SHORT'), 'bad entry skipped');
-    const paths = committedOps.flat().map((o) => o.path);
-    assert.ok(paths.some((p) => p.includes('run-ids/run-1')), 'legacy run-ids write still committed');
-    assert.equal(errors.length, 1, 'skip was logged');
-    assert.match(errors[0], /unwritable occurrence/);
+    assert.ok(!stored(OCC_PATH), 'no partial write — the batch never committed');
+    assert.equal(committedOps.length, 0, 'commit() never ran');
   });
 
-  it('fail-soft: a failed existence read logs without aborting the batch', async () => {
+  it('fail-hard: a failed existence read rejects — nothing commits', async () => {
     const { db, stored, committedOps } = createFakeDb();
-    const errors: string[] = [];
     // Make every st-signals get() fail — simulates a transient Firestore error.
     const origCollection = db.collection;
     (db as any).collection = (path: string) => {
@@ -234,11 +225,9 @@ describe('SignalDateWriter st-signals dual-write (#1000)', () => {
         ? { doc: (id: string) => { const ref = col.doc(id); return { ...ref, get: async () => { throw new Error('transient'); } }; } }
         : col;
     };
-    await writerFor(db, errors).persistBarDate('run-1', '2026-10-14T16:00:00Z', '2026-10-14', [DAILY_LONG]);
+    await assert.rejects(writerFor(db).persistBarDate('run-1', '2026-10-14', [DAILY_LONG]), /transient/);
 
-    assert.ok(!stored(OCC_PATH), 'occurrence skipped on read failure');
-    const paths = committedOps.flat().map((o) => o.path);
-    assert.ok(paths.some((p) => p.includes('run-ids/run-1')), 'legacy run-ids write still committed');
-    assert.equal(errors.length, 1);
+    assert.ok(!stored(OCC_PATH), 'no write on read failure');
+    assert.equal(committedOps.length, 0, 'commit() never ran');
   });
 });
