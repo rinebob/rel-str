@@ -1,0 +1,63 @@
+<div class="run-table-container">
+  @if (viewRuns().length > 0) {
+    <table class="run-table">
+      <thead>
+        <tr>
+          <th class="col-status"></th>
+          <th class="col-run-id">Run ID</th>
+          <th class="col-created">Created</th>
+          <th class="col-template">Template</th>
+          <th class="col-symbols">Symbols</th>
+          <th class="col-progress">Progress</th>
+          <th class="col-failed">Failed</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (run of viewRuns(); track run.runId) {
+          <tr
+            class="run-row"
+            [class.selected]="selectedRunId() === run.runId"
+            (click)="onSelect(run)">
+            <td class="col-status">
+              <mat-icon
+                class="status-icon"
+                [style.color]="run.statusColorName"
+                [matTooltip]="run.status">
+                {{ run.statusIconName }}
+              </mat-icon>
+            </td>
+            <td class="col-run-id">{{ run.formattedRunId }}</td>
+            <td class="col-created">{{ run.formattedCreated }}</td>
+            <td class="col-template">{{ run.templateName }}</td>
+            <td class="col-symbols" [matTooltip]="run.symbolsText">{{ run.symbolsText }}</td>
+            <td class="col-progress">
+              <div class="progress-with-bar">
+                <span>{{ run.progressText }}</span>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill completed" [style.width.%]="run.progressCompletedPercent"></div>
+                  <div class="progress-bar-fill failed" [style.width.%]="run.progressFailedPercent"></div>
+                </div>
+              </div>
+            </td>
+            <td class="col-failed">
+              @if (run.failedLists > 0) {
+                <span class="failed-badge">{{ run.failedLists }}</span>
+              } @else {
+                —
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <div class="empty-state">
+      <mat-icon>inbox</mat-icon>
+      @if (isLoading()) {
+        <p>Loading replay runs…</p>
+      } @else {
+        <p>No selection replay runs yet</p>
+      }
+    </div>
+  }
+</div>
