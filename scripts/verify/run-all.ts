@@ -186,6 +186,13 @@ const scripts: VerifyScript[] = [
     needsAdc: true,
   },
   {
+    name: 'st-signals reader equivalence',
+    file: 'verify/data-pipeline-st-signals-readers-1019.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
+  {
     name: 'st-runs/st-symbols ⇄ legacy parity',
     file: 'verify/data-pipeline-st-runs-symbols-1159.ts',
     cwd: 'functions',

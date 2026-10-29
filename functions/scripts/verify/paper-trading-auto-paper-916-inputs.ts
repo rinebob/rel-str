@@ -6,9 +6,9 @@
  *
  *   1. Finds a recent COMPLETED run with signal-producing jobs
  *      (`createdOpportunity == true`).
- *   2. Reads that symbol's `run-ids/{runId}` doc — entries are stored as
- *      literal flattened `signals.{signalType}` top-level fields; confirms
- *      each carries direction/status/barDate/marketDate/indicators.
+ *   2. Reads that symbol's st-signals occurrences carrying the runId
+ *      (canonical read since #1019); confirms each carries
+ *      direction/status/barDate/marketDate/indicators.
  *   3. Reads `symbols/{SYMBOL}` — confirms sector/industry/marketCapTier
  *      are populated (the slice dims the ingest denormalizes); checks a
  *      user-scoped `st-symbol-lists/{uid}_PRIMARY` doc exists (was savant-trader/data/symbol-lists pre-#1008).
@@ -29,9 +29,8 @@ import { db } from '../../src/firebase-admin-init';
 import {
   ST_RUNS_ROOT,
   ST_JOBS_SUBCOLLECTION,
-  ST_SYMBOLS_COLLECTION,
+  ST_SIGNALS_ROOT,
   ST_SYMBOLS_ROOT,
-  ST_RUN_IDS_SUBCOLLECTION,
   ST_SYMBOL_LISTS_ROOT,
 } from '../../src/common/st-collections';
 import {
@@ -45,7 +44,7 @@ import {
   statsScopeIndustry,
   statsScopeCapTier,
 } from '../../../shared/paper-trading-ids';
-import { signalEntriesFromDoc, type StSignalEntry } from '../../src/st-cloud-function/signals';
+import { type StSignal } from '@st/signals';
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = ''): void {
@@ -89,26 +88,22 @@ async function main(): Promise<void> {
   if (jobs.empty) process.exit(1);
   const symbol = jobs.docs[0].id;
 
-  const runIdDoc = await db
-    .collection(ST_SYMBOLS_COLLECTION)
-    .doc(symbol)
-    .collection(ST_RUN_IDS_SUBCOLLECTION)
-    .doc(runId)
+  // st-signals occurrences carrying runId — mirrors the ingest's
+  // canonical getSignals read (#1019).
+  const snap = await db
+    .collection(ST_SIGNALS_ROOT)
+    .where('symbol', '==', symbol)
+    .where('runIds', 'array-contains', runId)
     .get();
-  check(`run-ids doc exists for ${symbol}`, runIdDoc.exists);
-  if (!runIdDoc.exists) process.exit(1);
+  check(`st-signals occurrences exist for ${symbol}@${runId}`, !snap.empty, `${snap.size} docs`);
+  if (snap.empty) process.exit(1);
 
-  // Prod run-ids docs store entries as literal flattened top-level keys
-  // ('signals.D_ST_...'), not a nested `signals` map — the canonical
-  // read boundary tolerates both observed shapes (#931).
-  const data = runIdDoc.data() ?? {};
-  const entries: StSignalEntry[] = Object.values(signalEntriesFromDoc(data));
-  check('signals entries non-empty (flattened keys)', entries.length > 0, `${entries.length} entries`);
-  if (entries.length === 0) process.exit(1);
+  const entries = snap.docs.map((d) => d.data() as StSignal);
+  check('signal occurrences non-empty', entries.length > 0, `${entries.length} occurrences`);
 
   const e = entries.find((x) => x.signalType?.startsWith('D_ST_TREND_RIDER')) ?? entries[0];
   check('entry.signalType', typeof e.signalType === 'string', e.signalType);
-  check('entry.direction LONG|SHORT', e.direction === 'LONG' || e.direction === 'SHORT', String(e.direction));
+  check('entry.direction long|short', e.direction === 'long' || e.direction === 'short', String(e.direction));
   check('entry.status INTERIM|CONFIRMED', e.status === 'INTERIM' || e.status === 'CONFIRMED', String(e.status));
   check('entry.barDate YYYY-MM-DD', /^\d{4}-\d{2}-\d{2}$/.test(e.barDate), e.barDate);
   check('entry.marketDate', typeof e.marketDate === 'string' && e.marketDate.length === 10, e.marketDate);

@@ -10,8 +10,8 @@
  *   3. List gate — intersects candidates with the PRIMARY symbol-list
  *      (the configured capture scope; `key == 'PRIMARY'` first-match,
  *      same fallback the pass uses without ownerUid).
- *   4. Per admitted candidate: run-ids signals (flattened+nested reader),
- *      filtered to the default allowlist; symbol-doc meta
+ *   4. Per admitted candidate: st-signals occurrences carrying the runId
+ *      (canonical read since #1019), filtered to the default allowlist; symbol-doc meta
  *      (sector/industry/capTier); deterministic barDate-keyed tradeId +
  *      signalId; getTrade dedupe check.
  *   5. Prints the would-be trades — quote and fill are the only steps
@@ -29,9 +29,8 @@
 import { db } from '../../src/firebase-admin-init';
 import {
   ST_JOBS_SUBCOLLECTION,
-  ST_RUN_IDS_SUBCOLLECTION,
   ST_RUNS_ROOT,
-  ST_SYMBOLS_COLLECTION,
+  ST_SIGNALS_ROOT,
   ST_SYMBOLS_ROOT,
   ST_SYMBOL_LISTS_ROOT,
 } from '../../src/common/st-collections';
@@ -40,7 +39,9 @@ import { isValidMarketDate } from '../../src/common/pt-date-utils';
 import {
   AUTO_PAPER_DEFAULT_SIGNAL_TYPES,
 } from '../../src/paper-trading/passes/auto-paper-ingest-pass';
-import { signalEntriesFromDoc } from '../../src/st-cloud-function/signals';
+import { TradeSide } from '@common';
+import { normalizeStSignalDirection, type StSignal } from '@st/signals';
+import { StSignalDirection, type StSignalEntry } from '../../src/st-cloud-function/signals';
 import {
   buildTradeId,
   signalDedupeKey,
@@ -96,13 +97,35 @@ async function main(): Promise<void> {
   let workItems = 0;
   let deduped = 0;
   for (const symbol of admitted.slice(0, 10)) {
-    const doc = await db
-      .collection(ST_SYMBOLS_COLLECTION)
-      .doc(symbol)
-      .collection(ST_RUN_IDS_SUBCOLLECTION)
-      .doc(runId)
+    // st-signals occurrences carrying runId — mirrors the ingest's
+    // canonical getSignals read (#1019).
+    const snap = await db
+      .collection(ST_SIGNALS_ROOT)
+      .where('symbol', '==', symbol)
+      .where('runIds', 'array-contains', runId)
       .get();
-    const signals = doc.exists ? signalEntriesFromDoc(doc.data() ?? {}) : {};
+    const signals: Record<string, StSignalEntry> = {};
+    // Same deterministic collapse as the pass: barDate asc, last-wins.
+    const docs = [...snap.docs].sort((a, b) =>
+      String(a.data().barDate ?? '').localeCompare(String(b.data().barDate ?? '')),
+    );
+    for (const doc of docs) {
+      const d = doc.data() as StSignal;
+      const dir = normalizeStSignalDirection(d.direction);
+      if (!dir) {
+        console.log(`  ${symbol} ${doc.id}: unmappable direction '${d.direction}' — skipped (matches deployed warn)`);
+        continue;
+      }
+      signals[d.signalType] = {
+        signalType: d.signalType,
+        timeframe: d.timeframe,
+        direction: dir === TradeSide.LONG ? StSignalDirection.LONG : StSignalDirection.SHORT,
+        status: d.status,
+        barDate: d.barDate,
+        marketDate: d.marketDate,
+        indicators: d.indicators ?? {},
+      };
+    }
     const meta = (await db.collection(ST_SYMBOLS_ROOT).doc(symbol).get()).data() ?? {};
     for (const [signalType, entry] of Object.entries(signals)) {
       if (!AUTO_PAPER_DEFAULT_SIGNAL_TYPES.includes(signalType)) continue;
