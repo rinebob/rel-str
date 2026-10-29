@@ -4,20 +4,27 @@
  * Shared chart state for the Savant Trader chart views.
  *
  * Responsibilities:
- * - Load D/W/M chart data via ChartService.
+ * - Load D/W/M chart data: tracked symbols via ChartService (symbol-data),
+ *   untracked via RhChartService (ephemeral RH equity bars, #1259), with a
+ *   symbol-data-empty → RH fallback for tracked symbols.
  * - Track loading/error state and the symbol-data bars version.
- * - Trigger the indicator-series callable once the version is known.
+ * - Trigger the indicator-series callable once the version is known —
+ *   the RH path always yields version '', so indicators never load for
+ *   untracked symbols.
  *
  * Consumers (SignalDetailComponent, QuickChartsComponent) bind to this store
  * and keep their own chart config / UI-specific state.
  */
-import { inject, DestroyRef } from '@angular/core';
+import { inject, DestroyRef, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subscription } from 'rxjs';
+import { Subscription, of } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { type ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
 import { ChartService } from '../services/chart.service';
+import { RhChartService } from '../services/rh-chart.service';
 import { IndicatorSeriesStore } from './indicator-series.store';
+import { SymbolListStore } from './symbol-list.store';
 import {
   ChartInterval,
   IndicatorFamily,
@@ -86,7 +93,9 @@ export const ChartStore = signalStore(
   withMethods((
     state,
     chartService = inject(ChartService),
+    rhChartService = inject(RhChartService),
     indicatorStore = inject(IndicatorSeriesStore),
+    symbolListStore = inject(SymbolListStore),
     destroyRef = inject(DestroyRef),
   ) => {
     // Only one bars request may be in flight — rapid symbol switches must
@@ -100,10 +109,13 @@ export const ChartStore = signalStore(
      * state or pile up datasets.
      */
     loadCharts(symbol: string): void {
-      if (!symbol) return;
+      // Normalize before the emptiness guard — a whitespace-only input must
+      // not slip through and fire calls for ''.
+      const sym = symbol?.trim().toUpperCase() ?? '';
+      if (!sym) return;
       barsSub?.unsubscribe();
       patchState(state, {
-        selectedSymbol: symbol,
+        selectedSymbol: sym,
         loading: true,
         error: null,
         // Blank the version while the new symbol's bars are in flight —
@@ -112,8 +124,36 @@ export const ChartStore = signalStore(
         symbolDataVersion: '',
       });
 
-      barsSub = chartService
-        .loadBars$(symbol)
+      // #1259 — fork on tracked membership. Untracked symbols chart from
+      // ephemeral RH equity bars (version stays '', so the `if (version)`
+      // guard below never asks for indicator series that don't exist for
+      // them). A tracked symbol whose symbol-data is empty (just-onboarded,
+      // pre-backfill, or a failed fetch) falls back to the same RH path.
+      // The fork only applies once the universe is 'ready' — pages that
+      // never call loadTrackedSymbols (QuickCharts, galleries) keep
+      // pre-fork behavior: symbol-data first, then the version-'' fallback.
+      // untracked: the fork is a point-in-time read. Host pages call
+      // loadCharts inside effects() — without this, trackedStatus/
+      // trackedSymbols become effect dependencies and the universe resolving
+      // mid-flight would cancel + refire the request (possibly on the other
+      // arm).
+      // untracked: the fork is a point-in-time read. Host pages call
+      // loadCharts inside effects() — without this, trackedStatus/
+      // trackedSymbols become effect dependencies and the universe resolving
+      // mid-flight would cancel + refire the request (possibly on the other
+      // arm).
+      const tracked = untracked(
+        () =>
+          symbolListStore.trackedStatus() !== 'ready' ||
+          symbolListStore.trackedSymbols().includes(sym),
+      );
+      const bars$ = tracked
+        ? chartService.loadBars$(sym).pipe(
+            switchMap((r) => (r.version === '' ? rhChartService.loadBars$(sym) : of(r))),
+          )
+        : rhChartService.loadBars$(sym);
+
+      barsSub = bars$
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result) => {
@@ -128,7 +168,7 @@ export const ChartStore = signalStore(
             });
             if (version) {
               indicatorStore.loadIfNeeded(
-                symbol,
+                sym,
                 version,
                 DEFAULT_CHART_INTERVALS,
                 DEFAULT_CHART_INDICATORS,
