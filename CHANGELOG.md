@@ -81,6 +81,13 @@
 - [ST Firestore Reorg] 984-1159_BE-IMPL-DATA-PIPELINE: doc-level Firestore traffic cut to st-runs/st-symbols — run create/enqueue/progress/TTL/callables, symbol-doc reads/writes, SignalDateWriter ref split (subcollections stay legacy until #1019)
 - [ST Firestore Reorg] 984-1159_FE-IMPL-DATA-PIPELINE: FE doc reads repointed — run.service→st-runs; signal.service/chart-review/chart-view→st-symbols; Collection.ST_RUNS retired
 - [ST Firestore Reorg] 984-1159_BE-CHORE-DATA-PIPELINE: ops/verify scripts repointed off frozen legacy roots (916/918 meta legs, replay-missing, backfills, 1013 relay labels)
+- [ST Firestore Reorg] 984-1019_BE-IMPL-DATA-PIPELINE: signal writer sole-writes st-signals + st-symbols, fail-hard — run-ids/signal-history batch legs removed; dead runStartedAt/triggeredBy params dropped
+- [ST Firestore Reorg] 984-1019_BE-IMPL-DATA-PIPELINE: BE readers → st-signals — dashboard callables (runIds array-contains, flat history) + auto-paper getSignals (canonical direction normalize+warn, deterministic signalType collapse)
+- [ST Firestore Reorg] 984-1019_FE-IMPL-DATA-PIPELINE: FE signal readers → st-signals — run-scoped + history queries, strict canonical mapper, Collection.ST_SYMBOLS retired; INTERIM coverage lands
+- [ST Firestore Reorg] 984-1019_CONFIG-CONFIG-DATA-PIPELINE: (symbol ASC, runIds CONTAINS) composite index; legacy savant-trader/data rules blocks removed → deny-by-default
+- [ST Firestore Reorg] 984-1019_BE-IMPL-DATA-PIPELINE: pins — sole-write/fail-hard writer semantics, zero-legacy-reference boundary scan, composite index
+- [ST Firestore Reorg] 984-1019_BE-CHORE-DATA-PIPELINE: readers-1019 relay (A/B/C pre-delete gate + evidence floors, registered all four places); 916/918 verifies repointed to st-signals
+- [ST Firestore Reorg] 984-1019_DOCS-DATA-PIPELINE: #1019 CODE-REVIEW (PASS, 2 rounds, minors remediated) + #1319 UAT (Complete; S1–S4 green, S5 ship runbook)
 
 ### Removed
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Soak mirrors + occurrence-decision sweeper (8 functions undeployed; 26 legacy roots, ~317k docs, archived + deleted)
