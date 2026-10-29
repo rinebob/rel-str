@@ -168,3 +168,89 @@ export interface PreviewScanResponse {
 
 /** Row cap disclosed for scanner result display. */
 export const PREVIEW_SCAN_ROW_CAP = 200;
+
+// --- Equity historicals (get_equity_historicals) wire contracts ------------
+//
+// Verified against the live tool schema and captures in
+// docs/topics/657-rh-mcp/captures/ro-eq-hist-*.json + err-hist-*.json.
+// Note: this tool does NOT take Robinhood's classic `symbol`/`span` args —
+// it takes a `symbols` array + RFC3339 time range, and returns
+// `data.results[]` keyed per symbol (not a `historicals` array).
+
+/**
+ * Fixed bar intervals — the full set the server accepts (no aggregation of
+ * intermediates; request the next-finer interval and aggregate client-side).
+ * 1-minute bar is 'minute', not '1minute'.
+ */
+export type EquityHistoricalInterval =
+  | '15second' | '30second' | 'minute' | '5minute' | '10minute' | '30minute'
+  | 'hour' | '4hour'
+  | 'day' | 'week' | 'month' | '3month' | '6month' | 'year'
+  | '5year' | '10year' | '20year' | '50year';
+
+/**
+ * Request args. `symbols` (≤10) and `start_time` are required;
+ * `end_time` defaults to now when omitted.
+ * The scanner popup sends `interval: 'day'` — when interval is omitted the
+ * server auto-selects one targeting ~2,500 bars across the range.
+ */
+export interface EquityHistoricalsRequest {
+  /** One or more symbols, uppercase, ≤10 per call. */
+  symbols: string[];
+  /** RFC3339 UTC, e.g. '2026-01-01T00:00:00Z'. Required. */
+  start_time: string;
+  /** RFC3339 UTC. Optional — defaults to current time. */
+  end_time?: string;
+  /**
+   * Fixed interval set (see EquityHistoricalInterval). Explicit intervals are
+   * capped at ~5,000 upstream bars — the call is rejected pre-upstream when
+   * the range would exceed it (ro-eq-hist-02 note; the cap does not apply
+   * when interval is auto-selected).
+   */
+  interval?: EquityHistoricalInterval;
+  /** Session bounds; 'regular' (RTH) is the default. */
+  bounds?: 'regular' | 'extended' | 'trading' | '24_5' | '24_7' | 'hyper_trading';
+  /**
+   * Corporate-action adjustment. 'split' is the default (right for
+   * backtesting). 'all' (split + dividend) requires interval ≥ day —
+   * captured 400 on interval=minute (ro-eq-hist-11). NOTE: the tool's
+   * own schema description claims 'all' is "intraday only" — the live
+   * captures contradict that; the captures are correct.
+   */
+  adjustment_type?: 'none' | 'split' | 'all';
+}
+
+/** One OHLCV bar — prices arrive as strings, FE owns numeric coercion. */
+export interface EquityHistoricalBar {
+  /** ISO-8601 timestamp — day bars carry 'YYYY-MM-DDT00:00:00Z'. */
+  begins_at: string;
+  open_price: string;
+  close_price: string;
+  high_price: string;
+  low_price: string;
+  volume: number;
+  /** Session tag observed: 'reg' | 'pre' | 'post' | 'overnight'. */
+  session: string;
+  /** True ⇒ server-synthesized gap-fill bar carrying no new information. */
+  interpolated?: boolean;
+}
+
+/**
+ * Per-symbol entry inside `data.results`. All four fields are present on
+ * every success capture — `interval` is the value the server used (echoes
+ * the request or its auto-selection), so it stays `string`, not the
+ * request union.
+ */
+export interface EquityHistoricalsSymbolResult {
+  symbol: string;
+  interval: string;
+  bounds: string;
+  bars: EquityHistoricalBar[];
+}
+
+/** Top-level parsed payload: { data: { results[] }, guide }. */
+export interface EquityHistoricalsResult {
+  data: { results: EquityHistoricalsSymbolResult[] };
+  /** Server-authored usage notes (present on every success capture). */
+  guide?: string;
+}
