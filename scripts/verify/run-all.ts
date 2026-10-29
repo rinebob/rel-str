@@ -150,20 +150,10 @@ const scripts: VerifyScript[] = [
     file: 'design-system-palette-lock-1211.ts',
     needsAccount: false,
   },
-  {
-    name: 'st-signals dual-write parity',
-    file: 'verify/data-pipeline-st-signals-dual-write-1000.ts',
-    cwd: 'functions',
-    needsAccount: false,
-    needsAdc: true,
-  },
-  {
-    name: 'st-signals backfill parity',
-    file: 'verify/data-pipeline-st-signals-backfill-1001.ts',
-    cwd: 'functions',
-    needsAccount: false,
-    needsAdc: true,
-  },
+  // Retired post-delete (#1019 ship): 1000 dual-write, 1001 backfill,
+  // 1019 reader-equivalence, 1159 runs/symbols parity — all read the
+  // deleted savant-trader/data/symbols evidence and would pass vacuously
+  // or fail by design.
   {
     name: 'st-order-tickets canonical shape',
     file: 'verify/data-pipeline-st-order-tickets-1002.ts',
@@ -181,20 +171,6 @@ const scripts: VerifyScript[] = [
   {
     name: 'legacy roots inventory + parity',
     file: 'verify/data-pipeline-legacy-roots-1013.ts',
-    cwd: 'functions',
-    needsAccount: false,
-    needsAdc: true,
-  },
-  {
-    name: 'st-signals reader equivalence',
-    file: 'verify/data-pipeline-st-signals-readers-1019.ts',
-    cwd: 'functions',
-    needsAccount: false,
-    needsAdc: true,
-  },
-  {
-    name: 'st-runs/st-symbols ⇄ legacy parity',
-    file: 'verify/data-pipeline-st-runs-symbols-1159.ts',
     cwd: 'functions',
     needsAccount: false,
     needsAdc: true,

@@ -154,7 +154,7 @@ service cloud.firestore {
     // Retired in #1159/#1019: savant-trader/data/runs (deleted at #1159 ship)
     // and savant-trader/data/symbols incl. run-ids/signal-history/signal-dates/
     // signals subcollections (readers cut to st-signals + st-symbols; root
-    // deleted at #1019 ship). Deny-by-default.
+    // archived + deleted post-deploy). Deny-by-default.
 
     // RH Agent — production API collections (not legacy/migration)
     //

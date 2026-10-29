@@ -1,4 +1,9 @@
 /**
+ * RETIRED — the legacy savant-trader/data/symbols evidence this relay
+ * verified against was archived + deleted at #1019 ship (see
+ * functions/scripts/output/legacy-archive-1013/). Unregistered from
+ * run-all; kept for reference.
+ *
  * Parity relay — #1159 legacy runs/symbols → st-runs/st-symbols cutover.
  *
  * Read-only verification that the canonical roots carry full coverage of

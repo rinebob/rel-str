@@ -33,66 +33,6 @@
       ]
     },
     {
-      "collectionGroup": "symbols",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "enabled",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "lastDailySignalDate",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "symbols",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "enabled",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "lastWeeklySignalDate",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "symbols",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "enabled",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "symbols",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "enabled",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "source",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "signals",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
@@ -117,34 +57,6 @@
         {
           "fieldPath": "marketDate",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "run-ids",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        {
-          "fieldPath": "runId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "marketDate",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "signal-history",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        {
-          "fieldPath": "date",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "symbol",
-          "order": "ASCENDING"
         }
       ]
     },

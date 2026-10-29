@@ -1,4 +1,9 @@
 /**
+ * RETIRED — the legacy savant-trader/data/symbols evidence this relay
+ * verified against was archived + deleted at #1019 ship (see
+ * functions/scripts/output/legacy-archive-1013/). Unregistered from
+ * run-all; kept for reference.
+ *
  * Read-only backfill parity audit for #1001 — verifies that every legacy
  * signal occurrence (signal-history CONFIRMED + run-ids detections) has a
  * canonical `st-signals/{SYM}_{barDate}_{signalType}` doc, across ALL dates

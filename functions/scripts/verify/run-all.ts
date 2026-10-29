@@ -38,14 +38,14 @@ const scripts = [
   'screenshot-capture-826-lifecycle.ts',
   'indicator-lib-876-engine.ts',
   'indicator-lib-877-callable.ts',
-  'data-pipeline-st-signals-dual-write-1000.ts',
-  'data-pipeline-st-signals-backfill-1001.ts',
+  // Retired post-delete (#1019 ship): 1000 dual-write, 1001 backfill,
+  // 1019 reader-equivalence, 1159 runs/symbols parity — all read the
+  // deleted savant-trader/data/symbols evidence and would pass vacuously
+  // or fail by design.
   'data-pipeline-st-order-tickets-1002.ts',
   'data-pipeline-st-position-groups-1004.ts',
   'data-pipeline-run-jobs-ttl-1010.ts',
   'data-pipeline-legacy-roots-1013.ts',
-  'data-pipeline-st-signals-readers-1019.ts',
-  'data-pipeline-st-runs-symbols-1159.ts',
   'paper-trading-analysis-1073-contracts.ts',
   'paper-trading-analysis-1074-csv-codec.ts',
   'paper-trading-analysis-1076-dataset-writer.ts',

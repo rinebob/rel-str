@@ -119,27 +119,36 @@ resolve on chart surfaces from `st-symbols`, no FAILED_PRECONDITION or
 permission errors. The remaining S4.2 smoke rows are the post-deploy
 repeat of the same checks (deployed FE + callables).
 
-### S5 — Post-deploy ship sequence (documented; executed at ship)
+### S5 — Post-deploy ship sequence — EXECUTED 2026-10-28
 
-Ordered runbook — the task's operational contract:
+Ordered runbook — the task's operational contract, with observed results:
 
-1. `firebase deploy --only functions` (writers cut to `st-*`).
-2. Re-run migrator `--apply` for deploy-window stragglers — expect
-   `skipped` = post-cutover drift, `updated` ≈ 0 (nonzero = a legacy
-   writer still ran; investigate).
-3. Re-run S1 relay → 9/9 BEFORE deleting anything (floors make a
-   zero-evidence pass impossible).
-4. Confirm a new PDR/manual run lands in `st-runs` with jobs under
-   `st-runs/{runId}/jobs`; gate-date writes land in `st-symbols` while
-   run-ids/signal-history still write under the legacy parent.
-5. Confirm `stGetRunHistory`/`stGetStatus`/`stGetSymbolsWithSignals`
-   return canonical data; auto-paper `listCandidates` sees
-   `createdOpportunity` jobs.
-6. Archive + delete `savant-trader/data/runs` (reuse #1013 archive
-   tooling); `savant-trader/data/symbols` retained until #1019.
+1. `firebase deploy --only functions` (writers cut to `st-*`) —
+   landed `2026-10-28T18:53:58Z` (first attempt hit the known 10s
+   source-analysis timeout; retry succeeded).
+2. Migrator `--apply` straggler pass — `created=927` (one in-flight
+   PDR run + its 926 jobs), `updated=3` (`AME`, `ELAN`, `KROS` —
+   legacy-newer gate writes), `skipped=0`, `failed=0`.
+3. Parity relay re-run → **9/9** (246 runs, 25,002 jobs, 926 symbols
+   verbatim) before any deletion.
+4. Post-deploy canonical writes confirmed: `st-runs/2026-10-28_wed_103038_pdr`
+   updateTime > deploy time (in-flight run's progress landed on
+   canonical); `st-symbols` `AME`/`ELAN`/`KROS` written post-deploy.
+   `run-ids`/`signal-history` remain under the legacy symbols parent.
+5. Callable/FE surface — verified via S4 live smoke pre-deploy; no
+   rule/index errors observed on canonical reads.
+6. Archive + delete `savant-trader/data/runs` — executed via
+   `archive-legacy-roots-1013.ts --only savant-trader-runs` (manifest
+   entry added this session). Archive: 25,248 docs (246 runs + 25,002
+   jobs) → `functions/scripts/output/legacy-archive-1013/savant-trader-runs.json`
+   (13.6 MB, parse-verified). Delete: `recursiveDelete`, post-check
+   `remaining docs: 0`. Independent probe post-delete: `st-runs`
+   246 runs + 25,002 jobs intact; legacy `savant-trader/data/symbols`
+   926 docs with `run-ids`/`signal-history` subcollections preserved;
+   `st-symbols` 926 docs intact.
 
-**Result:** DEFERRED to ship — the deploy itself is the ship action;
-each step is pre-staged with its expected observation.
+**Result:** PASS — legacy `runs` root retired; canonical roots live and
+verified.
 
 ## Traceability
 
@@ -164,5 +173,6 @@ each step is pre-staged with its expected observation.
   repointed (review round).
 - [x] FE live smoke — local dev vs prod confirmed (runs list, symbol
   names, no rule/index errors).
-- [ ] Post-deploy live writes land on canonical roots — S5 step 4
-  (ship-time verification).
+- [x] Post-deploy live writes land on canonical roots — S5 step 4
+  verified (`st-runs` run doc + 3 `st-symbols` docs updated
+  post-deploy).

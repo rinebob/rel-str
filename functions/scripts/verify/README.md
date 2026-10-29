@@ -37,8 +37,8 @@ npx tsx scripts/verify/{script-name}.ts
 | #720 | `paper-trading-signal-settlement-720.ts` | expired signal option legs settle — worthless / intrinsic | [paper-trading-signal-settlement-720.md](../../../scripts/verify/paper-trading-signal-settlement-720.md) |
 | #983 | `paper-trading-eod-close-983.ts` | signal-trade marks[date] vs SDS official close (read-only drift report) | inline usage in script header |
 | #983 | `sds-consumer-dispatch.ts` | replay the nightly settlement chain on demand — enqueues `{consumer, marketDate}` onto `sdsConsumerDispatch` (QA re-dispatch path; writes via the normal chain) | inline usage in script header |
-| #1000 | `data-pipeline-st-signals-dual-write-1000.ts` | st-signals ⇄ run-ids dual-write parity for a marketDate — expected occurrences, runIds union, status/direction, create-only provenance (read-only, needs ADC) | inline usage in script header |
-| #1001 | `data-pipeline-st-signals-backfill-1001.ts` | st-signals ⇄ legacy (signal-history + run-ids) backfill parity across ALL dates — missing/extra/mismatch per symbol (read-only, needs ADC) | inline usage in script header |
+| ~~#1000~~ | ~~`data-pipeline-st-signals-dual-write-1000.ts`~~ | retired at #1019 ship — legacy symbols parent archived + deleted | — |
+| ~~#1001~~ | ~~`data-pipeline-st-signals-backfill-1001.ts`~~ | retired at #1019 ship — legacy symbols parent archived + deleted | — |
 | #1002 | `data-pipeline-st-order-tickets-1002.ts` | st-order-tickets canonical-shape audit — id prefix vs mode, origin/state/terms axes, state↔field coherence (read-only, needs ADC) | inline usage in script header |
 | ~~#1003~~ | ~~`data-pipeline-st-order-tickets-migration-1003.ts`~~ | retired in #1013 — legacy order-intents deleted | — |
 | #1004 | `data-pipeline-st-position-groups-1004.ts` | st-position-groups canonical-shape audit + cohorts ⇄ groups parity + bidirectional member back-stamps (read-only, needs ADC) | inline usage in script header |
@@ -49,8 +49,8 @@ npx tsx scripts/verify/{script-name}.ts
 | #1010 | `data-pipeline-run-jobs-ttl-1010.ts` | st-run jobs TTL — sweeper export + per-run createdAt-predicate check + eligible/retained census by root + foreign census (read-only, needs ADC; backlog WARN expected until purge-st-run-jobs-1010 --apply) | inline usage in script header |
 | ~~#1011~~ | ~~`data-pipeline-new-list-1011.ts`~~ | retired in #1013 — legacy list root deleted (dual-root census is single-root now) | — |
 | #1013 | `data-pipeline-legacy-roots-1013.ts` | legacy-roots inventory + legacy⇄canonical parity before archive+delete — FAIL lists doc ids that would be lost (read-only, needs ADC) | inline usage in script header |
-| #1019 | `data-pipeline-st-signals-readers-1019.ts` | st-signals ⇄ legacy reader equivalence — run-scoped symbol set + per-symbol entry sets + signal-history coverage (any status; canonical INTERIM extras are the new coverage). Pre-delete gate — fails by design once the legacy symbols parent is deleted (read-only, needs ADC) | inline usage in script header |
-| #1159 | `data-pipeline-st-runs-symbols-1159.ts` | st-runs/st-symbols ⇄ legacy runs/symbols verbatim parity (run docs + jobs + symbol docs field-diff; legacy subcollection counts as context; blocked-root inventory) — run after `migrate-st-runs-symbols-1159.ts --apply` (read-only, needs ADC) | inline usage in script header |
+| ~~#1019~~ | ~~`data-pipeline-st-signals-readers-1019.ts`~~ | retired at #1019 ship — served its pre-delete gate; legacy symbols parent deleted | — |
+| ~~#1159~~ | ~~`data-pipeline-st-runs-symbols-1159.ts`~~ | retired at #1019 ship — legacy runs + symbols parents deleted | — |
 | #1073 | `paper-trading-analysis-1073-contracts.ts` | analysis contracts — path helpers, manifest⇄schema bijection, dataset-index + slice doc round-trip on real Firestore (writes+deletes two verify-1073-* probe docs, needs ADC) | [paper-trading-analysis-1073.md](paper-trading-analysis-1073.md) |
 | #1074 | `paper-trading-analysis-1074-csv-codec.ts` | CSV codec — serialize→parse round-trip on real live trades, manifest-order header, byte-identical determinism, no literal-marker cells (read-only) | [paper-trading-analysis-1074.md](paper-trading-analysis-1074.md) |
 | #1076 | `paper-trading-analysis-1076-dataset-writer.ts` | dataset writer + callable — validation, generating→ready/failed index lifecycle on real Firestore, real GCS upload + byte readback, enqueue seam (writes+deletes verify-1076-* probes, needs ADC) | [paper-trading-analysis-1076.md](paper-trading-analysis-1076.md) |
@@ -91,8 +91,6 @@ npx tsx scripts/verify/{script-name}.ts
 20. **#848** — `screenshot-capture-826-lifecycle.ts` (lifecycle intake: carrier ledger + index + dedup, real Firestore + bucket)
 21. **#876** — `indicator-lib-876-engine.ts` (trigger bands engine)
 22. **#877** — `indicator-lib-877-callable.ts` (trigger bands in the indicator series)
-23. **#1000** — `data-pipeline-st-signals-dual-write-1000.ts` (st-signals ⇄ run-ids dual-write parity for a marketDate)
-24. **#1001** — `data-pipeline-st-signals-backfill-1001.ts` (st-signals ⇄ legacy backfill parity across all dates; run after `backfill-st-signals-1001.ts`)
 25. **#1002** — `data-pipeline-st-order-tickets-1002.ts` (st-order-tickets canonical-shape audit; empty until post-deploy emission)
 27. **#1004** — `data-pipeline-st-position-groups-1004.ts` (st-position-groups shape + cohorts ⇄ groups parity + member back-stamps; run after `migrate-cohorts-1004.ts --apply` and after a post-deploy `paperSignalOrder` accept — verify-564 covers the live accept path)
 28. **#1073** — `paper-trading-analysis-1073-contracts.ts` (analysis contracts: anchor paths, manifest⇄schema, dataset + slice round-trip; writes then deletes verify-1073-* probes)
@@ -101,8 +99,6 @@ npx tsx scripts/verify/{script-name}.ts
 31. **#1077** — `paper-trading-analysis-1077-live-snapshot.ts` (live snapshot dry-run: row-per-trade, cohorts, ind.*/strength.*/excursion on real prod; read-only)
 32. **#1079** — `paper-trading-analysis-dataset.ts` (consolidated relay: real-pass live dry-run + AMAT replay parity vs prototype CSV on frozen window; read-only — until the #1007 migration runs, its live leg reads the legacy trades path with a warn)
 37. **#1010** — `data-pipeline-run-jobs-ttl-1010.ts` (st-run jobs TTL census + sweeper/core audit; meaningful after the `cleanupStRunJobs` deploy; backlog WARN clears after `purge-st-run-jobs-1010.ts --apply`)
-38. **#1159** — `data-pipeline-st-runs-symbols-1159.ts` (st-runs/st-symbols ⇄ legacy verbatim parity; run after `migrate-st-runs-symbols-1159.ts --apply` — FAILs on missing/diffing docs or a blocked root gone empty)
-39. **#1019** — `data-pipeline-st-signals-readers-1019.ts` (st-signals ⇄ legacy reader equivalence: run-scoped symbol set, entry sets, history coverage — pre-delete gate for the legacy symbols parent)
 40. **#1141** — `rh-scanner-recipes-1098.ts` (every catalog recipe → live preview_scan: success + result/row shape, column-key WARN; needs local RH MCP session like 564/667 — fails without a token, that's env not script)
 
 <!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their
@@ -110,3 +106,8 @@ target scripts (migrate-*, sweep-unlisted-to-new, qa-probe-1008) — the legacy 
 verified against were deleted. Replacement: `verify/data-pipeline-legacy-roots-1013.ts`
 (pre-delete inventory/parity) + `scripts/archive-legacy-roots-1013.ts` (archive+delete ops,
 dry-run default). -->
+
+<!-- #1019 ship retired the #1000/#1001/#1019/#1159 parity relays — their legacy evidence
+(savant-trader/data/symbols incl. run-ids + signal-history) was archived to
+functions/scripts/output/legacy-archive-1013/savant-trader-symbols.json and deleted.
+Scripts kept on disk for reference; unregistered from run-all. -->

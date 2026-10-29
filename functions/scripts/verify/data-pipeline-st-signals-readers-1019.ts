@@ -1,4 +1,9 @@
 /**
+ * RETIRED — the legacy savant-trader/data/symbols evidence this relay
+ * verified against was archived + deleted at #1019 ship (see
+ * functions/scripts/output/legacy-archive-1013/). Unregistered from
+ * run-all; kept for reference.
+ *
  * Read-only reader-equivalence relay for #1019 — proves the canonical
  * st-signals read paths return what the legacy run-ids / signal-history
  * reads returned, before the legacy parent is archived+deleted.

@@ -74,6 +74,8 @@ const RETIRED: { name: string; path: string }[] = [
   { name: 'rh-agent-symbol-lists', path: 'rh-agent-symbol-lists' },
   { name: 'rh-agent-status', path: 'rh-agent-status' },
   { name: 'rh-agent-symbol-meta', path: 'rh-agent-symbol-meta' },
+  { name: 'savant-trader-runs', path: 'savant-trader/data/runs' },
+  { name: 'savant-trader-symbols', path: 'savant-trader/data/symbols' },
 ];
 
 const ARCHIVE_DIR = join(dirname(fileURLToPath(import.meta.url)), 'output', 'legacy-archive-1013');

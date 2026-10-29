@@ -16,6 +16,9 @@
 - [Scanner Chart View] 1232-1259_FE-IMPL-CHART-REVIEW: `ChartStore.loadCharts` tracked/untracked fork — `untracked()` point-in-time read on `trackedStatus` (late-resolving universe can't re-fire mid-flight), symbol normalization, `version==''` → RH fallback for empty tracked symbol-data, empty-universe pre-fork behavior for QuickCharts/galleries; 6+ fork specs
 - [Scanner Chart View] 1232-1259_DOCS-CHART-REVIEW: #1259 CODE-REVIEW (PASS, 2 passes, 0 unresolved) + #1330 UAT (Complete; 19/19) + IMPL-FE as-built
 
+### Removed
+- [ST Firestore Reorg] 984-1019_BE-CHORE-DATA-PIPELINE: `savant-trader/data/symbols` archived (33,282 docs → `functions/scripts/output/legacy-archive-1013/savant-trader-symbols.json`) + deleted — last legacy root under `savant-trader/data` retired; dead `symbols`/`run-ids`/`signal-history` index entries dropped; legacy-reading relays (1000/1001/1019/1159) unregistered + marked retired
+
 ## [2026-10-28]
 
 ### Added
