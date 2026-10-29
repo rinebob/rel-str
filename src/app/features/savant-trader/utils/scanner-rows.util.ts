@@ -12,6 +12,7 @@ import type {
   PreviewScanResult,
   ScanAppliedFilter,
   ScanColumn,
+  ScanResultRow,
 } from '@robinhood-mcp/contracts';
 
 export interface ScanRow {
@@ -27,6 +28,23 @@ export interface ScanRow {
   tracked: boolean;
 }
 
+/** Wire ScanResultRow → ScanRow — the cached latest-run and the live
+ *  preview result carry the same row shape; the pane enriches from the
+ *  cached form (#1313). Precondition: `r.ticker` is a string (guaranteed
+ *  on both real paths — `parseScanLatestRun` validates cached docs and
+ *  `parseScanRows` guards before calling). */
+export function wireRowToScanRow(r: ScanResultRow): ScanRow {
+  return {
+    symbol: r.ticker.trim(),
+    name: r.columns?.['Name'] ?? '',
+    instrumentId:
+      typeof r.instrument_id === 'string' ? r.instrument_id : '',
+    instrumentType: typeof r.instrument_type === 'string' ? r.instrument_type : '',
+    values: r.columns ?? {},
+    tracked: false,
+  };
+}
+
 /** Capture-verified shape — rows missing a ticker are dropped. */
 export function parseScanRows(result: PreviewScanResult): ScanRow[] {
   const rows: ScanRow[] = [];
@@ -34,15 +52,7 @@ export function parseScanRows(result: PreviewScanResult): ScanRow[] {
     if (!r || typeof r !== 'object') continue;
     const symbol = typeof r.ticker === 'string' ? r.ticker.trim() : '';
     if (!symbol) continue;
-    rows.push({
-      symbol,
-      name: r.columns?.['Name'] ?? '',
-      instrumentId:
-        typeof r.instrument_id === 'string' ? r.instrument_id : '',
-      instrumentType: typeof r.instrument_type === 'string' ? r.instrument_type : '',
-      values: r.columns ?? {},
-      tracked: false,
-    });
+    rows.push(wireRowToScanRow(r));
   }
   return rows;
 }
@@ -66,6 +76,24 @@ export function scanRunRows(
  *  must all key identically or a case-variant drifts them apart. */
 export function normScanSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();
+}
+
+/** Page-level All/New/Tracked filter (#1305) — 'new' = symbol absent
+ *  from the tracked universe, 'tracked' = member, 'all' passes. Page
+ *  state only (view concern); membership keys on `normScanSymbol` like
+ *  every other tracked-axis check. */
+export type ScannerSymbolFilter = 'all' | 'new' | 'tracked';
+
+/** Row-level predicate shared by the page rail and the recipe table so
+ *  both surfaces filter on identical membership semantics. `trackedNorm`
+ *  must already be normalized via `normScanSymbol`. */
+export function rowPassesSymbolFilter(
+  row: ScanRow,
+  filter: ScannerSymbolFilter,
+  trackedNorm: ReadonlySet<string>,
+): boolean {
+  if (filter === 'all') return true;
+  return trackedNorm.has(normScanSymbol(row.symbol)) === (filter === 'tracked');
 }
 
 /** First-wins dedupe on the normalized ticker — protects
@@ -283,4 +311,55 @@ export function percentColumn(
 ): number | null {
   const n = numericColumn(row, displayName, lookup);
   return n === null ? null : n * 100;
+}
+
+/** Pane-row extras beyond the ticker (#1313): company name + the recipe's
+ *  ranked column value. Both optional — a row with neither renders
+ *  ticker-only. */
+export interface ScanRowMeta {
+  /** Wire 'Name' column value, when the scan returned one. */
+  name?: string;
+  /** `{sort column}: {formatted value}` — the recipe's ranked metric. */
+  detail?: string;
+}
+
+/**
+ * Per-ticker pane metadata for a cached latest run: company name from the
+ * wire 'Name' column (the scan returns it even when the recipe didn't
+ * request it) and the recipe's sort-column value formatted via
+ * displayCell (columnLookup canonicalization + percentColumns rescale,
+ * magnitude-aware numerics). Cached runs carry wire rows without the
+ * filters_applied echo, so only the static recipe lookup applies —
+ * the dynamic echo layer can't beat it anyway (mergeLookup semantics).
+ * A '—' cell (missing/blank value) yields no detail.
+ */
+export function scanPaneMeta(
+  run: { rows: readonly ScanResultRow[] } | undefined,
+  recipe:
+    | {
+        sort?: { column: string };
+        columnLookup?: ReadonlyMap<string, string>;
+        percentColumns?: readonly string[];
+      }
+    | undefined,
+): Map<string, ScanRowMeta> {
+  const meta = new Map<string, ScanRowMeta>();
+  const sortColumn = recipe?.sort?.column;
+  for (const r of run?.rows ?? []) {
+    const row = wireRowToScanRow(r);
+    if (!row.symbol) continue;
+    const name = row.name.trim() || undefined;
+    const cell = sortColumn
+      ? displayCell(row, sortColumn, recipe?.columnLookup, recipe?.percentColumns)
+      : '—';
+    // Keyed by the RAW ticker — the pane's symbol list is built from
+    // r.ticker verbatim (runTickers), so meta must match that key exactly.
+    // First-wins on duplicates to match the pane's Set dedupe.
+    if (meta.has(r.ticker)) continue;
+    meta.set(r.ticker, {
+      name,
+      detail: cell === '—' ? undefined : `${sortColumn}: ${cell}`,
+    });
+  }
+  return meta;
 }

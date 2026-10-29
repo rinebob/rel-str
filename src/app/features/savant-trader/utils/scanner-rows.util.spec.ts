@@ -5,7 +5,11 @@
  * dep-prev-scan-01.json (docs/topics/657-rh-mcp/captures) — every column
  * value is stringified, even numerics.
  */
-import type { PreviewScanResult, ScanColumn } from '@robinhood-mcp/contracts';
+import type {
+  PreviewScanResult,
+  ScanColumn,
+  ScanResultRow,
+} from '@robinhood-mcp/contracts';
 import {
   buildColumnLookup,
   canonicalColumnName,
@@ -13,6 +17,8 @@ import {
   numericColumn,
   parseScanRows,
   percentColumn,
+  scanPaneMeta,
+  wireRowToScanRow,
   type ScanRow,
 } from './scanner-rows.util';
 
@@ -274,5 +280,94 @@ describe('columnLookup / canonicalColumnName (#1136)', () => {
       [{ display_name: 'ROE', expression: 'roe(period="1d")' }],
     );
     expect(canonicalColumnName(lookup, 'ROE')).toBe('Return on equity');
+  });
+});
+
+describe('wireRowToScanRow (#1313)', () => {
+  it('adapts a cached wire row to the ScanRow shape — Name column lifted to name', () => {
+    expect(wireRowToScanRow(CAPTURE.results[0])).toEqual({
+      symbol: 'BRK.A',
+      name: 'Berkshire Hathaway Inc Class A',
+      instrumentId: '28356967-fa97-4e30-9b0b-2bc0cc975e95',
+      instrumentType: 'EQUITY',
+      values: CAPTURE.results[0].columns,
+      tracked: false,
+    });
+  });
+});
+
+describe('scanPaneMeta (#1313)', () => {
+  const run: { rows: ScanResultRow[] } = {
+    rows: [
+      {
+        ticker: 'ACME',
+        instrument_id: 'i1',
+        instrument_type: 'EQUITY',
+        columns: { Name: 'Acme Corp', 'Range pos': '0.975' },
+      },
+      {
+        ticker: 'WIDGET',
+        instrument_id: 'i2',
+        instrument_type: 'EQUITY',
+        columns: { 'Range pos': '0.951' },
+      },
+    ],
+  };
+  const recipe = {
+    sort: { column: 'Range pos'},
+    percentColumns: ['Range pos'],
+  };
+
+  it('name comes from the wire Name column; missing Name leaves name undefined', () => {
+    const meta = scanPaneMeta(run, recipe);
+    expect(meta.get('ACME')).toEqual({ name: 'Acme Corp', detail: 'Range pos: 97.5%' });
+    expect(meta.get('WIDGET')).toEqual({ name: undefined, detail: 'Range pos: 95.1%' });
+  });
+
+  it('resolves the sort column through columnLookup canonicalization', () => {
+    const qRun = {
+      ...run,
+      rows: [
+        {
+          ticker: 'ACME',
+          instrument_id: 'i1',
+          instrument_type: 'EQUITY',
+          columns: { Name: 'Acme Corp', 'Return on equity': '0.149' },
+        },
+      ],
+    };
+    const meta = scanPaneMeta(qRun, {
+      sort: { column: 'ROE'},
+      columnLookup: new Map([['ROE', 'Return on equity']]),
+      percentColumns: ['ROE'],
+    });
+    expect(meta.get('ACME')?.detail).toBe('ROE: 14.9%');
+  });
+
+  it('a missing/blank sort-column cell produces no detail', () => {
+    const meta = scanPaneMeta(
+      { ...run, rows: [{ ticker: 'ACME', instrument_id: 'i1', instrument_type: 'EQUITY', columns: { Name: 'Acme Corp' } }] },
+      recipe,
+    );
+    expect(meta.get('ACME')).toEqual({ name: 'Acme Corp', detail: undefined });
+  });
+
+  it('no run → empty map; no recipe → names only (ghost recipeId)', () => {
+    expect(scanPaneMeta(undefined, recipe).size).toBe(0);
+    const meta = scanPaneMeta(run, undefined);
+    expect(meta.get('ACME')).toEqual({ name: 'Acme Corp', detail: undefined });
+  });
+
+  it('duplicate tickers are first-wins — matching the pane Set dedupe', () => {
+    const meta = scanPaneMeta(
+      {
+        rows: [
+          { ticker: 'ACME', instrument_id: 'i1', instrument_type: 'EQUITY', columns: { 'Range pos': '0.975' } },
+          { ticker: 'ACME', instrument_id: 'i1', instrument_type: 'EQUITY', columns: { 'Range pos': '0.10' } },
+        ],
+      },
+      recipe,
+    );
+    expect(meta.get('ACME')?.detail).toBe('Range pos: 97.5%');
   });
 });
