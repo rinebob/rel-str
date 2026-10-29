@@ -40,6 +40,10 @@
 - [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: scan:{recipeId} viewport source + New-only filter — cached rows→tickers (deduped), default-on tracked filter, lazy tracked-universe load, list sources unaffected
 - [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: Scan dropdown + New-only pill — '—' clear sentinel, ghost-scan escape, single active source slot, DS pill-toggle affordance
 - [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: Page wiring — loadLatestRuns on init, prevViewport escape guard (dropped-index neighbor advance), untracked rows get NEW chip
+- [Scanner Chart View] 1232-1313_FE-CHORE-CHART-REVIEW: Scan-row metadata helpers — `wireRowToScanRow` extracted (reused by `parseScanRows`), `scanPaneMeta` maps wire rows → `{name, detail}` (raw-ticker keys, first-wins dedupe, `sort.column` via `displayCell`/`columnLookup`), `ScanRowMeta` shared type
+- [Scanner Chart View] 1232-1313_FE-CHORE-CHART-REVIEW: Signal-list `rowMeta` input — `SignalListRow` common row type (fixes strictTemplates union access), company name on muted line 2, right-aligned `{col}: {val}` detail on line 1, `.row-name` merged into `.signal-line-2` styles
+- [Scanner Chart View] 1232-1313_FE-CHORE-CHART-REVIEW: Pane meta wiring — `paneScanMeta`/`paneRowMeta` computed split (scan formatting isolated from selection churn), precedence wire `Name` → `profilesBySymbol` → ticker-only, `loadProfiles` on init (session-cached bulk read, no per-row storm), `[rowMeta]` binding; list-source rows get names too
+- [Scanner Chart View] 1232-1313_DOCS-CHART-REVIEW: #1313 CODE-REVIEW (PASS, 2 rounds — profilesBySymbol duplication + strictTemplates union break remediated) + #1322 UAT (Complete, S1–S6) + IMPL-FE §C1
 
 ### Fixed
 - [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: Select-menu panel widened (280px → min(480px, 90vw)) — long scan labels no longer clipped; all rh-select-menu surfaces benefit

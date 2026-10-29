@@ -143,6 +143,7 @@ Delete `ChartReviewComponent`, `ReviewHeaderComponent`, the `signals/charts` rou
 **Phase 2 — Scan source** *(blocked by SHARED S1)*
 - **F3 — Cache write seam.** `ScannerService.saveLatestRun` + the two call sites.
 - **F4 — Scan source enabled.** `LatestRunStore`, scan dropdown live, `scan:` source resolution, **New only** toggle.
+- **C1 — Pane enrichment (post-#1258 QA, CHORE #1313).** Row name + ranked-column detail on pane rows: wire `Name` column → `st-symbols` name map (one `getAllSymbols` read) → ticker-only degrade; detail = recipe `sort.column` via `displayCell`. `SignalListComponent.rowMeta` input carries both.
 
 **Phase 3 — Ephemeral charts + retirement**
 - **F5 — RH charts for untracked symbols.** `getEquityHistoricals` + `RhChartService` + `ChartStore` fork.
