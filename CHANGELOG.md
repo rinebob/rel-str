@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026-10-29]
+
+### Added
+- [Options Backtest] 1238-1284_FE-IMPL-BACKTEST: `optionsReplayStart` callable wiring — `OptionsReplayRunsService.startReplay` (httpsCallable + runInInjectionContext) + `OptionsReplayStore.startReplay` (success selects the new runId → detail panel streams list docs; failure snack-bars, selection untouched)
+- [Options Backtest] 1238-1284_FE-IMPL-BACKTEST: `options-replay-new-run-dialog` — ReactiveForms template picker bound to `REPLAY_TEMPLATES` (name + description per option, `mat-select-trigger` name-only), free-text symbols (deviation: `trackedSymbols` would over-constrain), `marketDateValidator` for impossible dates; 7 specs
+- [Options Backtest] 1238-1284_FE-IMPL-BACKTEST: "New Replay" button entry point in the replay section header — sim dialog/controls untouched
+- [Options Backtest] 1238-1284_DOCS-BACKTEST: #1284 CODE-REVIEW (PASS, 0 findings; pass-2 mat-select-trigger fix) + #1324 UAT (Complete; 16/16) + IMPL-FE §2 as-built
+
 ## [2026-10-28]
 
 ### Added

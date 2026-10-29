@@ -41,6 +41,7 @@ flowchart LR
 
 - The run dialog gains a **replay mode** (or a separate "New Selection Replay" entry point — impl decision, prefer separate button to keep the sim dialog untouched): template dropdown bound to `REPLAY_TEMPLATES`, symbols multi-select, startDate — submits `optionsReplayStart`, navigates to run detail.
 - Template dropdown shows `name` + `description`; no server fetch needed (registry is shared code).
+- **As-built (#1284):** separate **"New Replay"** button in the replay section header (sim dialog untouched per the preference). `OptionsReplayNewRunDialogComponent` — ReactiveForms `FormGroup`, `mat-select` bound to `REPLAY_TEMPLATES` rendering `name` + `description` per option. **Deviation:** symbols is a free-text field (comma/space-separated, same convention as the sim dialog's `symbolsText`) rather than a bounded multi-select — `SymbolListStore.trackedSymbols` would wrongly constrain input to the tracked universe when SA pick docs can cover any symbol. startDate is a native `type="date"` input + `marketDateValidator` (rejects impossible dates, mirrors the callable's `isValidMarketDate`; the callable re-validates anyway). `OptionsReplayRunsService.startReplay` wraps the `optionsReplayStart` callable; `OptionsReplayStore.startReplay` mirrors `startRun` — success snack-bars and `selectRun`s the new runId, which is the "navigates to run detail" AC (the detail panel + lists stream open on the selected run).
 
 ### 3. Contract-list table (`contract-list-table.component`)
 
