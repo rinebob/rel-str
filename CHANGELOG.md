@@ -28,6 +28,7 @@
 - [Savant Design System] 1024-1214_DOCS-DESIGN-SYSTEM: #1214 CODE-REVIEW (PASS, 3 axes) + #1311 UAT (automated green; D1–D14 visual deferred to phase-level pass)
 - [Savant Design System] 1024-1215_DOCS-DESIGN-SYSTEM: #1215 CODE-REVIEW (PASS, 3 axes + convergence round; 2 majors remediated) + #1317 UAT (automated green; D1–D6 visual deferred to phase-level pass)
 - [Savant Design System] 1024-1216_DOCS-DESIGN-SYSTEM: #1216 CODE-REVIEW (PASS, 3 axes; 4 minors remediated) + #1323 UAT (automated green; D1–D3 visual deferred to phase-level pass)
+- [Savant Design System] 1024-1217_DOCS-DESIGN-SYSTEM: #1217 CODE-REVIEW (PASS, 3 axes; all minors resolved in-implementation) + #1328 UAT (automated green; D1–D5 visual deferred to phase-level pass)
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Archive+delete op (atomic writes, validated delete gate, resumable), positional parity relay, raw-quotes backfill, 48-test legacy-roots pin spec
 - [ST Firestore Reorg] 984-1013_DOCS-DATA-PIPELINE: IMPL/TEST as-built sync, st-cloud-function README update, #1013 CODE-REVIEW (PASS, 1 round) + #1237 UAT (Complete, 8/8)
 - [ST Firestore Reorg] 984-1159_BE-IMPL-DATA-PIPELINE: st-runs-symbols-cutover-1159 pin spec — ingest jobs/run-ids split, writer dual refs, service path contracts, TTL membership
@@ -67,6 +68,13 @@
 - [Savant Design System] 1024-1216_FE-IMPL-DESIGN-SYSTEM: Literal sweep — shared chart-config exception tags (6 indicators, rs.constants palette/crosshair, rs-chart Syncfusion scrollbar) + st-zone fallback → canonical ST_ZONE_FALLBACK_COLOR
 - [Savant Design System] 1024-1216_SHARED-IMPL-DESIGN-SYSTEM: Literal sweep — exception tags on repo-root chart contracts (indicator-visuals canonical hues, flex-chart-theme CHART_PALETTES — #1164 domain)
 - [Savant Design System] 1024-1216_FE-CHORE-DESIGN-SYSTEM: ui-color-sites inventory regen — shared literal sites → 28 tagged + 4 entity FPs
+- [Savant Design System] 1024-1217_FE-IMPL-DESIGN-SYSTEM: Literal sweep — core surfaces (header/login/signup/sidenav/core + signup inline debug styles → `var(--ds-*)`)
+- [Savant Design System] 1024-1217_FE-IMPL-DESIGN-SYSTEM: Literal sweep — dashboards v1–v3 + heatmap grids (#000/black matrix hairlines → `border-strong` — visible delta; interval buttons → accent cyan)
+- [Savant Design System] 1024-1217_FE-IMPL-DESIGN-SYSTEM: Literal sweep — feature surfaces (decision-board/tj chips → direction+status container pairs, heatmap-view, rs-table, rs-chart-view, symbol-input, sync-chart, trade-journal)
+- [Savant Design System] 1024-1217_FE-IMPL-DESIGN-SYSTEM: Literal sweep — heatmap-chart + topic-viewer + ds-gallery (Syncfusion series + stage palettes + definition mirrors tagged)
+- [Savant Design System] 1024-1217_FE-IMPL-DESIGN-SYSTEM: Literal sweep — data/chart contract tags (features/data rsColor fields, store placeholders, heatmap ramps, color-utils, base palettes)
+- [Savant Design System] 1024-1217_FE-IMPL-DESIGN-SYSTEM: Literal sweep — savant-trader residuals (~72 dead mat-sys fallbacks, rgba shadows → shadow tokens/color-mix, whites → on-accent)
+- [Savant Design System] 1024-1217_FE-CHORE-DESIGN-SYSTEM: ui-color-sites inventory regen — 2042 sites; swept scope resolves to tagged exceptions + documented FPs
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Canonical-only data paths — order-intents/instances/symbol-lists fallbacks + dual-writes removed; dead constants swept
 - [ST Firestore Reorg] 984-1013_CONFIG-CONFIG-DATA-PIPELINE: Retired legacy rules ACLs (incl. portfolio/{anchor}) + 22 dead index entries
 - [ST Firestore Reorg] 984-1013_BE-IMPL-DATA-PIPELINE: Legacy-path scrubs in surviving scripts — migrate-1003 settle pass, -564 verifier routed paths, spec rewrites
