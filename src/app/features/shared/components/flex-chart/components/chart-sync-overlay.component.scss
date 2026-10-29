@@ -12,7 +12,7 @@
 .crosshair-sync-line-h {
   display: none;
   position: absolute;
-  background: var(--fc-crosshair-line, #000000);
+  background: var(--fc-crosshair-line);
   pointer-events: none;
   z-index: 10;
 }
