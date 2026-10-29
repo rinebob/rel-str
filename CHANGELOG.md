@@ -11,6 +11,10 @@
 - [Options Backtest] 1238-1285_FE-IMPL-BACKTEST: `options-replay-contract-series-dialog` — lazy `getHistoricalOptionsContract$(symbol, contractId)` fetch (exact contract, no client persistence), loading → inline-SVG mark polyline / single-obs dot / empty / error naming the contractId; 6 specs
 - [Options Backtest] 1238-1285_FE-IMPL-BACKTEST: Run-detail integration — collapsed-by-default row-count toggle per symbol card, inspect → series dialog `{symbol, contractId, entryDate}`; `MatDialogModule` omitted from host imports (element-injector shadowing); 2 specs
 - [Options Backtest] 1238-1285_DOCS-BACKTEST: #1285 CODE-REVIEW (PASS, 2 passes, 0 unresolved) + #1327 UAT (Complete; 19/19) + IMPL-FE §4 as-built
+- [Scanner Chart View] 1232-1259_FE-IMPL-CHART-REVIEW: `RobinhoodMcpClient.getEquityHistoricals` — `get_equity_historicals` ToolSpec (bounds regular, split-adjusted, `end_time?`), wire payload passes verbatim; 5 specs
+- [Scanner Chart View] 1232-1259_FE-IMPL-CHART-REVIEW: `RhChartService` — day/week/month forkJoin over ~10y → exact `ChartService.loadBars$` shape with `version:''` (indicators cleanly skipped); `equityWireBarToOhlc` keeps interpolated bars; 6 specs
+- [Scanner Chart View] 1232-1259_FE-IMPL-CHART-REVIEW: `ChartStore.loadCharts` tracked/untracked fork — `untracked()` point-in-time read on `trackedStatus` (late-resolving universe can't re-fire mid-flight), symbol normalization, `version==''` → RH fallback for empty tracked symbol-data, empty-universe pre-fork behavior for QuickCharts/galleries; 6+ fork specs
+- [Scanner Chart View] 1232-1259_DOCS-CHART-REVIEW: #1259 CODE-REVIEW (PASS, 2 passes, 0 unresolved) + #1330 UAT (Complete; 19/19) + IMPL-FE as-built
 
 ## [2026-10-28]
 

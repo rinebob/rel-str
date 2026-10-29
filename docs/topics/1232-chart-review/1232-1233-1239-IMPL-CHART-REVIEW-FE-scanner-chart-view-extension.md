@@ -122,6 +122,7 @@ Reads the cache — `getDocs` on `st-scanner/latest-runs/items`, `parseScanLates
   - **untracked** → new `RhChartService.loadBars$(symbol)` — three calls (day/week/month, ~10y spans), same `{daily, weekly, monthly, version: ''}` shape; `version=''` means `indicatorStore.loadIfNeeded` is skipped by the existing `if (version)` guard — indicators cleanly absent
   - Optional resilience: empty `symbol-data` result for a tracked symbol falls back to the RH path (covers just-onboarded pre-backfill symbols)
 - Interpolated bars (`interpolated: true`) are gap-fill syntheses — keep them (charts tolerate gaps poorly) but it's a one-line decision if they render badly.
+- *As-built (#1259):* the client returns the wire `EquityHistoricalsResult` unchanged (parse validates `data.results` only); wire→`OhlcBar` mapping lives in `RhChartService`/`equityWireBarToOhlc` so `session`/`interpolated` wire fields survive to the service boundary. The tracked fork triggers the RH fallback on `version === ''` (the exact "no usable symbol-data" signal), and an EMPTY tracked universe takes the symbol-data path first — pages that never call `loadTrackedSymbols` (QuickCharts, galleries) keep pre-fork behavior.
 
 ### Routing & nav
 
