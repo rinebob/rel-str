@@ -49,7 +49,7 @@ export const stProcessSymbol = onTaskDispatched<SymbolJobPayload>(
     timeoutSeconds: 60,
   },
   async (req) => {
-    const { runId, symbol, marketDate, runStartedAt, triggeredBy } = req.data;
+    const { runId, symbol, marketDate, triggeredBy } = req.data;
     const startTime = Date.now();
     const progress = new RunProgressTracker(runId, symbol);
 
@@ -124,9 +124,7 @@ export const stProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         symbol,
         runId,
         marketDate,
-        runStartedAt,
         results,
-        triggeredBy,
         barStatusByTimeframe,
       );
 

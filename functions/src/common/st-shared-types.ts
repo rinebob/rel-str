@@ -14,8 +14,8 @@ export interface SymbolJobPayload {
   runId: string;
   symbol: string;
   marketDate: string;    // YYYY-MM-DD
-  runStartedAt: string;  // ISO timestamp — when the run started; written to run-ids docs for distinguishability
-  triggeredBy?: StTriggeredBy;  // Source of the run; 'nightly' enables signal-history writes
+  runStartedAt: string;  // ISO timestamp — when the run started; recorded on the run/job docs
+  triggeredBy?: StTriggeredBy;  // Source of the run (nightly / pdr / manual)
 }
 
 /**

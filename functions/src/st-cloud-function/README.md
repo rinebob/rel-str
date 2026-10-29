@@ -8,7 +8,7 @@ Event-driven daily scan that:
 1. Triggers on `partner-data-ready` Pub/Sub (`runType: "intraday-snapshot"`)
 2. Fetches a bulk intraday snapshot from SavantAPI for all monitored symbols
 3. Enqueues one Cloud Tasks job per symbol for parallel analysis
-4. Each worker reads historical OHLCV bars from `symbol-data/{symbol}` subcollections, injects the intraday snapshot as an in-memory partial bar, executes the selected ST trend-rider strategy, and persists signal entries under `savant-trader/data/symbols/{symbol}/run-ids`, `savant-trader/data/symbols/{symbol}/signal-history`, and the canonical `st-signals` occurrence docs (#984 dual-write)
+4. Each worker reads historical OHLCV bars from `symbol-data/{symbol}` subcollections, injects the intraday snapshot as an in-memory partial bar, executes the selected ST trend-rider strategy, and persists signal entries to the canonical `st-signals` occurrence docs (#984; the legacy run-ids/signal-history writes were retired in #1019)
 5. Signals appear in the Angular dashboard for grouped review and triage
 
 The retired Claude bridge and executor prototypes are preserved in archive documents. Direct MCP execution is not yet implemented.
@@ -34,7 +34,7 @@ stTriggerDaily (manual) / SDS consumer dispatch (automatic)
             +- executeStrategy('st-trend-rider')  // ST Trend Rider
             �      +- compute V1/V2 zone signals
             �      +- return LONG/SHORT signals
-            +- persistSignals()  [savant-trader/data/symbols/{symbol}/run-ids/{runId}, savant-trader/data/symbols/{symbol}/signal-history/{barDate}, st-signals/{SYM}_{barDate}_{type}]
+            +- persistSignals()  [st-signals/{SYM}_{barDate}_{type} — sole signal record since #1019]
                         �
                         ?
             Angular Dashboard (grouped review / triage)
@@ -54,7 +54,7 @@ stTriggerDaily (manual) / SDS consumer dispatch (automatic)
 | `worker.ts` | `stProcessSymbol` | Cloud Tasks worker: reads bars, executes strategy, persists signals |
 | `callables.ts` | `stManualRun` | HTTPS callable for dashboard "Run Now" button |
 | `dashboard-callables.ts` | `stGetStatus`, `stGetRunHistory`, `stGetSymbolsWithSignals` | Dashboard status, run history, and grouped-review symbol query |
-| `signal-date-writer.ts` | `SignalDateWriter` | Persists signal entries under `savant-trader/data/symbols/{symbol}/run-ids` + `signal-history` and dual-writes canonical `st-signals` occurrence docs (#984) |
+| `signal-date-writer.ts` | `SignalDateWriter` | Persists canonical `st-signals` occurrence docs + `st-symbols` gate fields (#984; legacy subcollection writes retired #1019) |
 | `overview-sync-orchestrator.ts` / `overview-sync-worker.ts` | `stOverviewSync`, `stOverviewSyncSymbol` | Enqueues company-overview backfill tasks |
 | `seed-admin.ts` | `clearStSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
 | `strategies/` | `base-strategy`, `signal-detection`, `st-trend-rider.strategy` | Strategy adapter, signal state machine, and concrete trend-rider strategy |
@@ -63,10 +63,10 @@ stTriggerDaily (manual) / SDS consumer dispatch (automatic)
 
 | Collection | Doc ID | Purpose |
 |-----------|--------|---------|
-| `st-symbols` | `{symbol}` | Monitored symbols with `enabled`, overview, and last-signal fields (#1159 — canonical; `savant-trader/data/symbols` survives only as the subcollection host below until #1019) |
-| `savant-trader/data/symbols/{symbol}/run-ids` | `{runId}` | Per-run signal entries keyed by signal type |
-| `savant-trader/data/symbols/{symbol}/signal-history` | `{barDate}` | Canonical EOD signal entries keyed by signal type |
-| `st-signals` | `{SYM}_{barDate}_{signalType}` | Canonical signal occurrence docs (#984) — upserted dual-write; supersede run-ids/signal-history after cutover |
+| `st-symbols` | `{symbol}` | Monitored symbols with `enabled`, overview, and last-signal fields (#1159 — canonical) |
+| ~~`savant-trader/data/symbols/{symbol}/run-ids`~~ | `{runId}` | ~~Per-run signal entries~~ retired in #1019 — superseded by `runIds[]` on st-signals |
+| ~~`savant-trader/data/symbols/{symbol}/signal-history`~~ | `{barDate}` | ~~EOD signal entries~~ retired in #1019 — superseded by st-signals |
+| `st-signals` | `{SYM}_{barDate}_{signalType}` | Canonical signal occurrence docs (#984) — sole signal record since #1019 |
 | `st-runs` | PDR: `marketDate`; manual: `{marketDate}_manual_{ts}` | Run metadata and counters (#1159 — canonical; legacy `savant-trader/data/runs` archived+deleted at ship) |
 | `st-runs/{runId}/jobs` | `{symbol}` | Per-symbol job status (#1159) |
 | `st-config/status` | `status` | Agent status singleton (#1008 — canonical since #1013; the legacy `savant-trader/data/status` mirror + root were deleted) |

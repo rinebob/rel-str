@@ -52,12 +52,12 @@ export type { StPaperTradingPathKind, StScannerKind } from '@st/collections';
 export const ST_SCHEDULE_CRON = '0 1 * * 2-6';
 
 /**
- * Legacy symbol collection — after #1159 this root is retained ONLY as the
- * parent path for run-ids/signal-history subcollection reads/writes, which
- * stay live until #1019 cuts their readers to st-signals. Doc-level traffic
- * (symbol profile, gate fields, overview) lives on ST_SYMBOLS_ROOT.
- * @deprecated Doc-level use is retired in #1159; the root itself retires
- * in #1019.
+ * Legacy symbol collection — RETIRED. After #1019 no deployed code reads or
+ * writes it: signal readers moved to st-signals and the writer's
+ * run-ids/signal-history legs were removed. Retained only so historical
+ * backfill/verify scripts that enumerate the legacy subcollections still
+ * compile; the root itself is archived+deleted at #1019 ship.
+ * @deprecated No live path may use this constant.
  */
 export const ST_SYMBOLS_COLLECTION = 'savant-trader/data/symbols';
 
@@ -82,11 +82,11 @@ export enum StSymbolSource {
 export const ST_JOBS_SUBCOLLECTION = ST_JOBS_SUBCOLLECTION_NAME;
 
 /**
- * Run-ids subcollection under each LEGACY symbol doc — still written and
- * read live until #1019 cuts readers to st-signals (#1159 keeps these on
- * the legacy parent path deliberately).
+ * Run-ids subcollection under each LEGACY symbol doc — RETIRED in #1019
+ * (readers moved to st-signals runIds[]; writer legs removed). Retained only
+ * for historical backfill/verify scripts that read the frozen archive.
  * @deprecated Superseded by runIds[] on st-signals occurrence docs (#984);
- * retires with the legacy symbols root in #1019.
+ * no live path may use this constant.
  */
 export const ST_RUN_IDS_SUBCOLLECTION = 'run-ids';
 
@@ -94,7 +94,7 @@ export const ST_RUN_IDS_SUBCOLLECTION = 'run-ids';
  * Signal-history subcollection under each LEGACY symbol doc — same
  * disposition as ST_RUN_IDS_SUBCOLLECTION.
  * @deprecated Superseded by flat st-signals occurrence docs (#984);
- * retires with the legacy symbols root in #1019.
+ * no live path may use this constant.
  */
 export const ST_SIGNAL_HISTORY_SUBCOLLECTION = 'signal-history';
 
@@ -130,8 +130,7 @@ export interface AutoPaperConfig {
 /**
  * Symbol document — canonical home is st-symbols/{SYMBOL} since #1159
  * (config fields coexist with SA company overview + signal gate fields).
- * The legacy savant-trader/data/symbols parent still hosts the
- * run-ids/signal-history subcollections until #1019.
+ * The legacy savant-trader/data/symbols parent is fully retired in #1019.
  */
 export interface StSymbol {
   symbol: string;

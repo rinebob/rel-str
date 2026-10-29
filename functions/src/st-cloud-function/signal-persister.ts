@@ -2,9 +2,9 @@
  * Signal Persister
  *
  * Converts strategy outputs into signal entries and persists them to the
- * run-ids and signal-history subcollections via SignalDateWriter. This is a
- * pure persistence concern extracted from the worker so it can be tested
- * independently.
+ * canonical st-signals occurrence docs (+ st-symbols gate fields) via
+ * SignalDateWriter. This is a pure persistence concern extracted from the
+ * worker so it can be tested independently.
  */
 import { logger } from 'firebase-functions/v2';
 import { SignalDateWriter } from './signal-date-writer';
@@ -25,17 +25,13 @@ export interface SignalPersistenceResult {
  * @param symbol Symbol ticker.
  * @param runId Run ID.
  * @param marketDate YYYY-MM-DD run date.
- * @param runStartedAt ISO run start timestamp.
  * @param results Strategy outputs.
- * @param triggeredBy Optional trigger source ('manual' | 'pdr' | 'nightly').
  */
 export async function persistSymbolSignals(
   symbol: string,
   runId: string,
   marketDate: string,
-  runStartedAt: string,
   results: StrategyOutput[],
-  triggeredBy?: string,
   barStatusByTimeframe?: Record<'D' | 'W' | 'M', -1 | 0 | 1 | undefined>,
 ): Promise<SignalPersistenceResult> {
   const fired = results.filter(r => r.action);
@@ -51,7 +47,7 @@ export async function persistSymbolSignals(
   const writer = new SignalDateWriter(symbol);
   const barDatePromises: Promise<number>[] = [];
   for (const [, dateEntries] of byBarDate) {
-    barDatePromises.push(writer.persistBarDate(runId, runStartedAt, marketDate, dateEntries, triggeredBy as any));
+    barDatePromises.push(writer.persistBarDate(runId, marketDate, dateEntries));
   }
 
   const counts = await Promise.all(barDatePromises);
@@ -69,7 +65,7 @@ export async function persistSymbolSignals(
 }
 
 /**
- * Build a signal entry for the run-ids and signal-history maps.
+ * Build a signal entry for the canonical st-signals occurrence upsert.
  *
  * barStatus → status delegates to stSignalStatusFromBarStatus (@st/signals).
  *
