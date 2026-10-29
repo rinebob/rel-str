@@ -52,4 +52,29 @@
       }
     </div>
   </section>
+
+  <section class="replay-content">
+    <header class="replay-header">
+      <h2 class="replay-title">Selection Replay</h2>
+    </header>
+
+    <div class="dashboard-body">
+      <div class="run-list-wrapper">
+        <app-options-replay-run-list
+          [runs]="replayStore.runs()"
+          [selectedRunId]="replayStore.selectedRunId()"
+          [isLoading]="replayStore.isLoading()"
+          (selectRun)="replayStore.selectRun($event)" />
+      </div>
+
+      @if (replayStore.selectedRun()) {
+        <div class="detail-panel">
+          <app-options-replay-run-detail
+            [run]="replayStore.selectedRun()!"
+            [contractLists]="replayStore.contractLists()"
+            [isLoadingLists]="replayStore.listsStreaming()" />
+        </div>
+      }
+    </div>
+  </section>
 </div>

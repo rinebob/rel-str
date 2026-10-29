@@ -10,11 +10,14 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 
 import { BacktestRunStore } from '../../stores/backtest-run.store';
 import { BacktestUiStore } from '../../stores/backtest-ui.store';
+import { OptionsReplayStore } from '../../stores/options-replay.store';
 import { BacktestRunControlComponent } from '../../components/backtest-run-control/backtest-run-control.component';
 import { BacktestRunListComponent } from '../../components/backtest-run-list/backtest-run-list.component';
 import { BacktestRunSummaryComponent } from '../../components/backtest-run-summary/backtest-run-summary.component';
 import { BacktestPermutationDetailComponent } from '../../components/backtest-permutation-detail/backtest-permutation-detail.component';
 import { BacktestNewRunDialogComponent } from '../../components/backtest-new-run-dialog/backtest-new-run-dialog.component';
+import { OptionsReplayRunListComponent } from '../../components/options-replay-run-list/options-replay-run-list.component';
+import { OptionsReplayRunDetailComponent } from '../../components/options-replay-run-detail/options-replay-run-detail.component';
 import { UiStateService } from '../../../../../core/services/ui-state.service';
 import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequest } from '../../common/backtest.types';
 
@@ -28,6 +31,8 @@ import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequ
     BacktestRunListComponent,
     BacktestRunSummaryComponent,
     BacktestPermutationDetailComponent,
+    OptionsReplayRunListComponent,
+    OptionsReplayRunDetailComponent,
   ],
   templateUrl: './backtest-dashboard.component.html',
   styleUrl: './backtest-dashboard.component.scss',
@@ -35,6 +40,7 @@ import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequ
 export class BacktestDashboardComponent implements OnDestroy {
   readonly runStore = inject(BacktestRunStore);
   readonly uiStore = inject(BacktestUiStore);
+  readonly replayStore = inject(OptionsReplayStore);
   private readonly dialog = inject(MatDialog);
   private readonly uiStateService = inject(UiStateService);
 
@@ -46,6 +52,7 @@ export class BacktestDashboardComponent implements OnDestroy {
   constructor() {
     this.runStore.loadRuns();
     this.runStore.loadStrategies();
+    this.replayStore.loadRuns();
   }
 
   ngOnDestroy(): void {

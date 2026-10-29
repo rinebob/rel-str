@@ -4,6 +4,7 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  gap: 16px;
   height: calc(100vh - var(--header-height, 48px));
 }
 
@@ -68,5 +69,36 @@
     flex: 1;
     min-height: 0;
     overflow: auto;
+  }
+
+  app-options-replay-run-detail {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+}
+
+// Selection Replay section — own runs list + detail, separate from sim runs.
+.replay-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.replay-header {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+  .replay-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mat-sys-on-surface);
   }
 }
