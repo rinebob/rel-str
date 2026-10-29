@@ -22,6 +22,8 @@
 - [Options Backtest] 1238-1281_DOCS-BACKTEST: #1281 CODE-REVIEW (PASS, 2 convergence fixes) + #1312 UAT (Complete; 8/8) + IMPL-BE §1/§5 as-built
 - [Options Backtest] 1238-1280_BE-IMPL-BACKTEST: `optionsReplayPermutation` worker + pure `mapPickDocToRows` — per-symbol pick-doc → contract-list rows with convergent `listOutcomes` close-out, 404/unknown-template permanent vs transient retry split, `resolveRunCloseOut` counter math; 21 new tests, 38/38 suite
 - [Options Backtest] 1238-1280_DOCS-BACKTEST: #1280 CODE-REVIEW (PASS, 3 convergence fixes) + #1318 UAT (Complete; 16/16) + IMPL-BE §2/§4 as-built
+- [Options Backtest] 1238-1283_FE-IMPL-BACKTEST: Selection Replay FE surface — `OptionsReplayRunsService` + dedicated `OptionsReplayStore`, runs list (template name from `REPLAY_TEMPLATES`, progress bar, failed badge), run-detail shell with per-symbol status cards, additive dashboard section (sim untouched); 22 specs, 21/21 green
+- [Options Backtest] 1238-1283_DOCS-BACKTEST: #1283 CODE-REVIEW (PASS) + #1320 UAT (Complete; 15/15) + FE blueprint docs first commit + IMPL-FE as-built
 - [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: LatestRunStore + ScannerService.listLatestRuns — latest-run cache into Map<recipeId, ScanLatestRun>, drift-skip + doc-id guard, catalog-joined scanOptions with ranAt + truncation cap
 - [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: scan:{recipeId} viewport source + New-only filter — cached rows→tickers (deduped), default-on tracked filter, lazy tracked-universe load, list sources unaffected
 - [Scanner Chart View] 1232-1258_FE-IMPL-CHART-REVIEW: Scan dropdown + New-only pill — '—' clear sentinel, ghost-scan escape, single active source slot, DS pill-toggle affordance
