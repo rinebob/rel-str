@@ -46,7 +46,7 @@
 }
 
 .pg-error {
-  color: #ef9a9a;
+  color: var(--ds-error);
 }
 
 .pg-partial-error {
@@ -55,9 +55,10 @@
   gap: 8px;
   padding: 8px 12px;
   margin-bottom: 10px;
-  border: 1px solid rgba(255, 193, 7, 0.35);
+  border: 1px solid var(--ds-warning);
   border-radius: 8px;
-  color: #ffd54f;
+  background: var(--ds-warning-container);
+  color: var(--ds-on-warning-container);
   font-size: 12px;
 
   mat-icon {

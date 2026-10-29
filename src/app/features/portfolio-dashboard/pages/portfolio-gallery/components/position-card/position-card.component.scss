@@ -3,16 +3,16 @@
   flex-direction: column;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--ds-border-subtle);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ds-surface-raised);
   min-height: 120px;
 
   &.long {
-    border-top: 2px solid #4caf50;
+    border-top: 2px solid var(--ds-up);
   }
   &.short {
-    border-top: 2px solid #f44336;
+    border-top: 2px solid var(--ds-down);
   }
 }
 
@@ -50,12 +50,12 @@
   border-radius: 4px;
 
   &.long {
-    color: #4caf50;
-    background: rgba(76, 175, 80, 0.15);
+    color: var(--ds-on-up-container);
+    background: var(--ds-up-container);
   }
   &.short {
-    color: #f44336;
-    background: rgba(244, 67, 54, 0.15);
+    color: var(--ds-on-down-container);
+    background: var(--ds-down-container);
   }
 }
 
@@ -72,8 +72,8 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 
-  &.pnl.up { color: #4caf50; }
-  &.pnl.down { color: #f44336; }
+  &.pnl.up { color: var(--ds-up); }
+  &.pnl.down { color: var(--ds-down); }
   &.bucket { font-weight: 600; }
 }
 
@@ -90,8 +90,8 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 
-  &.up { color: #4caf50; }
-  &.down { color: #f44336; }
+  &.up { color: var(--ds-up); }
+  &.down { color: var(--ds-down); }
 }
 
 .meta-sep {
@@ -127,12 +127,12 @@
   font-variant-numeric: tabular-nums;
 
   &.protected {
-    color: #81c784;
-    background: rgba(129, 199, 132, 0.15);
+    color: var(--ds-on-success-container);
+    background: var(--ds-success-container);
   }
   &.unprotected {
-    color: #ff8a80;
-    background: rgba(255, 138, 128, 0.15);
+    color: var(--ds-on-error-container);
+    background: var(--ds-error-container);
   }
 }
 
@@ -157,7 +157,7 @@
   gap: 4px;
   margin-top: auto;
   padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid var(--ds-border-subtle);
 }
 
 .action-btn {
@@ -189,19 +189,19 @@
 }
 
 .action-close {
-  background: rgba(244, 67, 54, 0.14);
-  color: #e57373;
+  background: var(--ds-error-container);
+  color: var(--ds-on-error-container);
 
   &:hover:not(:disabled) {
-    background: rgba(244, 67, 54, 0.24);
+    background: color-mix(in srgb, var(--ds-error-container) 80%, var(--ds-error));
   }
 }
 
 .action-stop {
-  background: rgba(255, 183, 77, 0.14);
-  color: #ffb74d;
+  background: var(--ds-warning-container);
+  color: var(--ds-on-warning-container);
 
   &:hover:not(:disabled) {
-    background: rgba(255, 183, 77, 0.24);
+    background: color-mix(in srgb, var(--ds-warning-container) 80%, var(--ds-warning));
   }
 }

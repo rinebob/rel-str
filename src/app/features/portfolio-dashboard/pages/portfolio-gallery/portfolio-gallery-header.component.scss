@@ -7,7 +7,7 @@
   flex-direction: column;
   gap: 4px;
   padding: 4px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--ds-border-subtle);
 }
 
 .pg-summary-strip {
@@ -36,9 +36,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-.pg-pos { color: #4caf50; }
-.pg-neg { color: #ef5350; }
-.pg-warn { color: #ffa726; }
+.pg-pos { color: var(--ds-up); }
+.pg-neg { color: var(--ds-down); }
+.pg-warn { color: var(--ds-warning); }
 
 .pg-toolbar {
   display: flex;
@@ -68,7 +68,7 @@
   gap: 2px;
 
   button {
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border: 1px solid var(--ds-border-subtle);
     background: transparent;
     color: inherit;
     font-size: 11px;
@@ -81,8 +81,8 @@
     &:only-child { border-radius: 10px; }
 
     &.active {
-      background: rgba(255, 255, 255, 0.14);
-      border-color: rgba(255, 255, 255, 0.4);
+      background: color-mix(in srgb, var(--ds-on-surface) 14%, transparent);
+      border-color: var(--ds-border-strong);
     }
   }
 }

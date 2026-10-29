@@ -23,8 +23,8 @@
 
 .grp-dir {
   font-weight: 700;
-  &.long  { color: #2e7d32; }
-  &.short { color: var(--mat-sys-error); }
+  &.long  { color: var(--ds-up); }
+  &.short { color: var(--ds-down); }
 }
 
 .position-grid {
