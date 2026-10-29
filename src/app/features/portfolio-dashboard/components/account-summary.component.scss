@@ -16,7 +16,7 @@
 
 .pd-summary-label {
   font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.54);
+  color: var(--ds-on-surface-variant);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -33,7 +33,7 @@
   align-items: center;
   gap: 8px;
   padding: 16px;
-  color: rgba(0, 0, 0, 0.54);
+  color: var(--ds-on-surface-variant);
 }
 
 .pd-section-loading mat-progress-spinner {
@@ -41,7 +41,7 @@
 }
 
 .pd-section-error {
-  color: #721c24;
+  color: var(--ds-error);
 }
 
 .pd-section-error-icon {
