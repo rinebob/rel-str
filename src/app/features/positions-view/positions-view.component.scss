@@ -59,7 +59,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #555;
+  color: var(--ds-on-surface-variant);
 }
 
 .pv-row {
@@ -102,18 +102,18 @@
   justify-content: space-between;
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--ds-border-subtle);
 
   &--profit {
-    background-image: linear-gradient(90deg, #c7f3dd, #e5fbf0);
-    border-color: #1e8f4b;
-    color: #0e3820;
+    background: var(--ds-up-container);
+    border-color: var(--ds-up);
+    color: var(--ds-on-up-container);
   }
 
   &--loss {
-    background-image: linear-gradient(90deg, #ffd5d5, #ffe9e9);
-    border-color: #c22323;
-    color: #5b1111;
+    background: var(--ds-down-container);
+    border-color: var(--ds-down);
+    color: var(--ds-on-down-container);
   }
 }
 
@@ -145,13 +145,13 @@
   text-transform: uppercase;
 
   &--long {
-    background-color: #e0f7ea;
-    color: #1f6b3a;
+    background-color: var(--ds-up-container);
+    color: var(--ds-on-up-container);
   }
 
   &--short {
-    background-color: #ffe1e1;
-    color: #8a1f1f;
+    background-color: var(--ds-down-container);
+    color: var(--ds-on-down-container);
   }
 }
 
@@ -163,13 +163,13 @@
   letter-spacing: 0.04em;
 
   &--gain {
-    background-color: #def8e7;
-    color: #1c6a3a;
+    background-color: var(--ds-up-container);
+    color: var(--ds-on-up-container);
   }
 
   &--loss {
-    background-color: #ffe0e0;
-    color: #8a1f1f;
+    background-color: var(--ds-down-container);
+    color: var(--ds-on-down-container);
   }
 }
 
@@ -190,16 +190,16 @@
   align-self: flex-start;
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid #ccc;
-  background: #fafafa;
+  border: 1px solid var(--ds-border-subtle);
+  background: var(--ds-surface-raised);
   font-size: 0.8125rem;
   cursor: pointer;
 
   &:hover {
-    background: #f0f0f0;
+    background: var(--ds-surface-overlay);
   }
 }
 
 .muted {
-  color: #999;
+  color: var(--ds-on-surface-variant);
 }

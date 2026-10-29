@@ -10,19 +10,19 @@
   box-sizing: border-box;
   padding: mixins.rem(16);
   border-radius: mixins.rem(12);
-  border: 1px solid #e0e0e0;
-  background: var(--theme-surface);
+  border: 1px solid var(--ds-border-subtle);
+  background: var(--ds-surface);
   gap: mixins.rem(12);
 }
 
 .pv-open-card--long {
-  border-color: #1c6a3a;
-  background: linear-gradient(90deg, #c7f3dd, #e5fbf0);
+  border-color: var(--ds-up);
+  background: var(--ds-up-container);
 }
 
 .pv-open-card--short {
-  border-color: #c22323;
-  background: linear-gradient(90deg, #ffd5d5, #ffe9e9);
+  border-color: var(--ds-down);
+  background: var(--ds-down-container);
 }
 
 .pv-open-card--profit {
@@ -53,11 +53,13 @@
 }
 
 .pv-open-card__badge--side {
-  background-color: #eef2ff;
+  background-color: var(--ds-accent-container);
+  color: var(--ds-on-accent-container);
 }
 
 .pv-open-card__badge--status {
-  background-color: #e0f7ea;
+  background-color: var(--ds-surface-overlay);
+  color: var(--ds-on-surface);
 }
 
 .pv-open-card__metrics {
@@ -85,7 +87,7 @@
   position: relative;
   height: mixins.rem(6);
   border-radius: mixins.rem(999);
-  background: #f0f0f0;
+  background: var(--ds-surface-raised);
 }
 
 .pv-open-card__pnl-marker {
@@ -95,7 +97,7 @@
   bottom: 0;
   width: mixins.rem(2);
   border-radius: mixins.rem(2);
-  background: #333;
+  background: var(--ds-on-surface);
 }
 
 .pv-open-card__pnl-labels {
@@ -116,8 +118,8 @@
   border-radius: mixins.rem(8);
   padding: mixins.rem(4) mixins.rem(10);
   font-size: 0.75rem;
-  background-color: #f5f5f5;
-  color: #333;
-  border-color: #d0d0d0;
+  background-color: var(--ds-surface-raised);
+  color: var(--ds-on-surface);
+  border-color: var(--ds-border-subtle);
   white-space: nowrap;
 }

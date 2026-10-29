@@ -31,29 +31,29 @@
 .pv-open-grid__filter-label {
   font-size: 1rem;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--ds-on-surface-variant);
 }
 
 .chip {
   padding: mixins.rem(6) mixins.rem(14);
   border-radius: mixins.rem(8);
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--ds-border-subtle);
   font-size: 0.875rem;
   font-weight: 500;
   background: transparent;
-  color: #4b5563;
+  color: var(--ds-on-surface-variant);
   cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .chip--active {
-  background: #111827;
-  color: #ffffff;
-  border-color: #111827;
+  background: var(--ds-on-surface);
+  color: var(--ds-surface);
+  border-color: var(--ds-on-surface);
 }
 
 .chip:not(.chip--active):hover {
-  background: #f3f4f6;
+  background: var(--ds-surface-raised);
 }
 
 .pv-open-grid__cards {

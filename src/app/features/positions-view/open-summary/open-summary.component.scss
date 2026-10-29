@@ -9,8 +9,8 @@
   gap: mixins.rem(24);
   padding: mixins.rem(16) mixins.rem(24);
   border-radius: mixins.rem(12);
-  border: 1px solid #e5e7eb;
-  background: var(--theme-surface);
+  border: 1px solid var(--ds-border-subtle);
+  background: var(--ds-surface);
 }
 
 .pv-open-summary__label {
@@ -30,9 +30,9 @@
 }
 
 .profit {
-  color: #1c6a3a;
+  color: var(--ds-up);
 }
 
 .loss {
-  color: #8a1f1f;
+  color: var(--ds-down);
 }

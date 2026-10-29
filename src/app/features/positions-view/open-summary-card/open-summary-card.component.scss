@@ -25,9 +25,9 @@
 }
 
 .profit {
-  color: #1c6a3a;
+  color: var(--ds-up);
 }
 
 .loss {
-  color: #8a1f1f;
+  color: var(--ds-down);
 }

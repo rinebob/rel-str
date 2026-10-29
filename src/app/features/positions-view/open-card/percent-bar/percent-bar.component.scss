@@ -9,7 +9,7 @@
   position: relative;
   height: mixins.rem(6);
   border-radius: mixins.rem(999);
-  background: #f0f0f0;
+  background: var(--ds-surface-raised);
   overflow: hidden;
 }
 
@@ -20,7 +20,7 @@
   bottom: 0;
   width: mixins.rem(2);
   border-radius: mixins.rem(2);
-  background: #333;
+  background: var(--ds-on-surface);
   opacity: 0.6;
 }
 
@@ -32,7 +32,7 @@
   width: 50%;
   min-width: mixins.rem(12);
   transform-origin: left center;
-  background: #3ba46a;
+  background: var(--ds-up);
   border-radius: mixins.rem(999);
 }
 
@@ -41,7 +41,7 @@
   right: 50%;
   width: 50%;
   transform-origin: right center;
-  background: #c22323;
+  background: var(--ds-down);
 }
 
 .pv-percent-bar__labels {
