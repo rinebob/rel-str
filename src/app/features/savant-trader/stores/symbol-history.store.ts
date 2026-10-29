@@ -76,7 +76,8 @@ export const SymbolHistoryStore = signalStore(
 
   withMethods((state, signalService = inject(SignalService), barRead = inject(LocalBarReadService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
     /**
-     * Load signals for a symbol from a specific run (run-ids/{runId}).
+     * Load signals for a symbol from a specific run (st-signals occurrences
+     * carrying runId — #1019).
      * Used by signal review - shows only signals from the active run.
      * Cache key: `${symbol}::${runId}` to avoid conflicts with all-history cache.
      */
@@ -116,7 +117,7 @@ export const SymbolHistoryStore = signalStore(
 
     /**
      * Load signal history for a symbol into the cache.
-     * Reads all signals (W + D) directly from the Firestore subcollection.
+     * Reads all st-signals occurrences (W + D, INTERIM + CONFIRMED — #1019).
      * If the symbol is already cached, this is a no-op.
      */
     loadSignalHistory(symbol: string): void {

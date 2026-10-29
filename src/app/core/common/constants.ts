@@ -241,9 +241,6 @@ export enum Collection {
   APP = 'app',
   POSITIONS = 'positions',
   SYMBOL_DATA = 'symbol-data',
-  /** @deprecated Use @st/collections ST_SYMBOLS_ROOT (#984); still bound by
-   *  signal.service run-ids/signal-history reads — removed in #1019. */
-  ST_SYMBOLS = 'savant-trader/data/symbols',
   /** Screenshot-capture index — backend-written, FE read-only (#846). */
   ST_SCREENSHOTS = 'st-screenshots',
   SPREAD_RUNS = 'spread-runs',

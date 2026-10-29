@@ -6,7 +6,7 @@
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Firestore, collection, collectionData, query, where, doc, getDoc, getDocs, orderBy, DocumentData } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, query, where, getDocs, orderBy, DocumentData } from '@angular/fire/firestore';
 import { Observable, from, of, map, take } from 'rxjs';
 
 import {
@@ -15,15 +15,14 @@ import {
 } from './types';
 import { SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
 import { mapSymbolProfile } from '../utils/utils';
-import { Collection } from '../../../core/common/constants';
-import { ST_SYMBOLS_ROOT } from '@st/collections';
+import { ST_SIGNALS_ROOT, ST_SYMBOLS_ROOT } from '@st/collections';
 
 function isSignalTimeframe(value: unknown): value is SignalTimeframe {
   return value === SignalTimeframe.DAILY || value === SignalTimeframe.WEEKLY;
 }
 
-function isSignalDirection(value: unknown): value is SignalDirection {
-  return value === SignalDirection.LONG || value === SignalDirection.SHORT;
+function isSignalStatus(value: unknown): value is SignalStatus {
+  return value === SignalStatus.INTERIM || value === SignalStatus.CONFIRMED;
 }
 
 function isIndicatorRecord(value: unknown): value is Record<string, number | string | null> {
@@ -33,75 +32,64 @@ function isIndicatorRecord(value: unknown): value is Record<string, number | str
   );
 }
 
-interface SignalEntryContext {
-  id: string;
-  symbol: string;
-  runId: string;
-  /** Canonical market date for all signals in the source document. */
-  marketDate: string;
-  status: SignalStatus;
-}
-
-function collectSignalEntries(data: DocumentData): Record<string, unknown>[] {
-  const entries: Record<string, unknown>[] = [];
-
-  const signals = data['signals'];
-  if (signals && typeof signals === 'object') {
-    for (const value of Object.values(signals as Record<string, unknown>)) {
-      if (value && typeof value === 'object') {
-        entries.push(value as Record<string, unknown>);
-      }
-    }
+/**
+ * Map a canonical st-signals occurrence doc to StSignalItem (#1019).
+ * Deliberately stricter than the legacy entry parser (which skipped
+ * malformed entries): a malformed doc in the sole signal record is a
+ * writer bug and fails the read loudly rather than hiding a signal.
+ */
+function stSignalDocToItem(docId: string, d: DocumentData, runId: string): StSignalItem {
+  const barDate = d['barDate'];
+  const signalType = d['signalType'];
+  if (typeof barDate !== 'string' || barDate.length === 0) {
+    throw new Error(`[SignalService] st-signals doc ${docId} has invalid "barDate"`);
+  }
+  if (typeof signalType !== 'string' || signalType.length === 0) {
+    throw new Error(`[SignalService] st-signals doc ${docId} has invalid "signalType"`);
   }
 
-  for (const [key, value] of Object.entries(data)) {
-    if (key.startsWith('signals.') && value && typeof value === 'object') {
-      entries.push(value as Record<string, unknown>);
-    }
+  const symbol = d['symbol'];
+  if (typeof symbol !== 'string' || symbol.length === 0) {
+    throw new Error(`[SignalService] st-signals doc ${docId} has invalid "symbol"`);
   }
 
-  return entries;
-}
+  const marketDate = d['marketDate'];
+  if (typeof marketDate !== 'string' || marketDate.length === 0) {
+    throw new Error(`[SignalService] st-signals doc ${docId} has invalid "marketDate"`);
+  }
 
-function parseSignalEntry(raw: unknown, ctx: SignalEntryContext): StSignalItem | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const e = raw as Record<string, unknown>;
-  const signalType = e['signalType'];
-  const barDate = e['barDate'];
-  if (typeof signalType !== 'string' || typeof barDate !== 'string') return null;
-
-  const timeframe = e['timeframe'];
+  const timeframe = d['timeframe'];
   if (!isSignalTimeframe(timeframe)) {
-    throw new Error(`[SignalService] Signal entry has invalid "timeframe": ${String(timeframe)}`);
+    throw new Error(`[SignalService] st-signals doc ${docId} has invalid "timeframe": ${String(timeframe)}`);
   }
 
-  const direction = e['direction'];
-  if (!isSignalDirection(direction)) {
-    throw new Error(`[SignalService] Signal entry has invalid "direction": ${String(direction)}`);
+  // Canonical direction is the lowercase TradeSide; the FE enum is uppercase.
+  const direction = String(d['direction'] ?? '').toUpperCase();
+  if (direction !== SignalDirection.LONG && direction !== SignalDirection.SHORT) {
+    throw new Error(`[SignalService] st-signals doc ${docId} has invalid "direction": ${String(d['direction'])}`);
   }
 
-  const indicators = e['indicators'];
+  const status = d['status'];
+  if (!isSignalStatus(status)) {
+    throw new Error(`[SignalService] st-signals doc ${docId} has invalid "status": ${String(status)}`);
+  }
+
+  const indicators = d['indicators'];
   if (!isIndicatorRecord(indicators)) {
-    throw new Error(`[SignalService] Signal entry has invalid "indicators"`);
-  }
-
-  const close = e['close'];
-  if (close !== undefined && typeof close !== 'number') {
-    throw new Error(`[SignalService] Signal entry has invalid "close": ${String(close)}`);
+    throw new Error(`[SignalService] st-signals doc ${docId} has invalid "indicators"`);
   }
 
   return {
-    id: ctx.id,
-    symbol: ctx.symbol,
+    id: barDate,
+    symbol,
     barDate,
-    marketDate: ctx.marketDate,
-    runId: ctx.runId,
+    marketDate,
+    runId,
     timeframe,
     direction,
     signalType,
-    status: ctx.status,
+    status,
     indicators,
-    closePrice: close,
   };
 }
 
@@ -174,34 +162,17 @@ export class SignalService {
   }
 
   /**
-   * Signals for a specific run from savant-trader/data/symbols/{symbol}/run-ids/{runId}.
+   * Signals a specific run (re)detected for a symbol — st-signals occurrences
+   * with runId in runIds[] (#1019; supersedes the run-ids/{runId} doc).
    * Used by grouped review to show only the signals produced by the active run.
+   * Carries the canonical status (INTERIM until the nightly confirm).
    */
   getSymbolSignalsForRun(symbol: string, runId: string): Observable<StSignalItem[]> {
-    const runDocRef = doc(this.firestore, Collection.ST_SYMBOLS, symbol, 'run-ids', runId);
-    return from(runInInjectionContext(this.injector, () => getDoc(runDocRef))).pipe(
-      map((snap) => {
-        if (!snap.exists()) return [];
-        const d = snap.data();
-        const signals: StSignalItem[] = [];
-        const marketDate = d['marketDate'];
-        if (typeof marketDate !== 'string' || marketDate.length === 0) {
-          throw new Error(`[SignalService] Run doc ${runId} for ${symbol} is missing marketDate`);
-        }
-
-        for (const entry of collectSignalEntries(d)) {
-          const barDate = entry['barDate'];
-          if (typeof barDate !== 'string' || barDate.length === 0) continue;
-          const signal = parseSignalEntry(entry, {
-            id: barDate,
-            symbol,
-            runId,
-            marketDate,
-            status: SignalStatus.INTERIM,
-          });
-          if (signal) signals.push(signal);
-        }
-
+    const ref = collection(this.firestore, ST_SIGNALS_ROOT);
+    const q = query(ref, where('symbol', '==', symbol), where('runIds', 'array-contains', runId));
+    return from(runInInjectionContext(this.injector, () => getDocs(q))).pipe(
+      map((snapshot) => {
+        const signals = snapshot.docs.map((docSnap) => stSignalDocToItem(docSnap.id, docSnap.data(), runId));
         signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
         return signals;
       })
@@ -225,46 +196,24 @@ export class SignalService {
   }
 
   /**
-   * Per-symbol signal history from the canonical signal-history subcollection.
-   * Reads directly from Firestore: savant-trader/data/symbols/{symbol}/signal-history/*
-   * Returns all signals sorted by barDate desc.
+   * Per-symbol signal history from canonical st-signals (#1019 — supersedes
+   * the nightly-only signal-history subcollection; INTERIM occurrences are
+   * now included with their real status). Returns all signals sorted by
+   * barDate desc.
    */
   getSymbolSignalHistoryFromHistory(symbol: string): Observable<StSignalItem[]> {
-    const symbolDocRef = doc(this.firestore, Collection.ST_SYMBOLS, symbol);
-    const signalHistoryRef = collection(symbolDocRef, 'signal-history');
-
-    const recentQuery = query(signalHistoryRef, orderBy('date', 'desc'));
+    const ref = collection(this.firestore, ST_SIGNALS_ROOT);
+    const recentQuery = query(ref, where('symbol', '==', symbol), orderBy('barDate', 'desc'));
     return from(runInInjectionContext(this.injector, () => getDocs(recentQuery))).pipe(
       map((snapshot) => {
-        const signals: StSignalItem[] = [];
-        for (const docSnap of snapshot.docs) {
+        const signals = snapshot.docs.map((docSnap) => {
           const d = docSnap.data();
-
-          for (const entry of collectSignalEntries(d)) {
-            const barDate = entry['barDate'];
-            if (typeof barDate !== 'string' || barDate.length === 0) continue;
-            const runId = typeof entry['sourceRunId'] === 'string'
-              ? entry['sourceRunId']
-              : typeof entry['runId'] === 'string'
-                ? entry['runId']
-                : undefined;
-            if (typeof runId !== 'string' || runId.length === 0) {
-              throw new Error(`[SignalService] Signal entry in doc ${docSnap.id} for ${symbol} is missing runId`);
-            }
-            const marketDate = entry['marketDate'];
-            if (typeof marketDate !== 'string' || marketDate.length === 0) {
-              throw new Error(`[SignalService] Signal entry in doc ${docSnap.id} for ${symbol} is missing marketDate`);
-            }
-            const signal = parseSignalEntry(entry, {
-              id: docSnap.id,
-              symbol,
-              runId,
-              marketDate,
-              status: SignalStatus.CONFIRMED,
-            });
-            if (signal) signals.push(signal);
+          const sourceRunId = d['sourceRunId'];
+          if (typeof sourceRunId !== 'string' || sourceRunId.length === 0) {
+            throw new Error(`[SignalService] st-signals doc ${docSnap.id} for ${symbol} is missing sourceRunId`);
           }
-        }
+          return stSignalDocToItem(docSnap.id, d, sourceRunId);
+        });
         signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
         return signals;
       })

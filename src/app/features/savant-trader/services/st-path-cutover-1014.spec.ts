@@ -39,19 +39,14 @@ describe('#1014 FE st-* path cutover', () => {
       // #1017 — occurrence-decisions removed entirely (service, store,
       // constant, ACR workflow); ticket existence is the decision.
       'ST_OCCURRENCE_DECISIONS',
+      // #1019 — signal readers cut to st-signals; the legacy symbols parent
+      // (run-ids/signal-history host) is fully retired.
+      'ST_SYMBOLS',
+      // #1159 — run doc reads moved to st-runs.
+      'ST_RUNS',
     ]) {
       expect(member in Collection).toBe(false);
     }
-  });
-
-  it('members still consumed by #1019 keep their legacy spellings', () => {
-    // ST_SYMBOLS stays until #1019 — signal.service run-ids/signal-history
-    // reads still target the legacy subcollections. Doc-level reads moved
-    // to ST_SYMBOLS_ROOT in #1159.
-    expect(Collection.ST_SYMBOLS).toBe('savant-trader/data/symbols');
-    // ST_RUNS removed in #1159 — BE populated st-runs and every run read
-    // (run.service realtime stream + stGetRunHistory callable) cut over.
-    expect('ST_RUNS' in Collection).toBe(false);
   });
 
   it('canonical helpers resolve to the deployed st-* roots', () => {
@@ -79,7 +74,8 @@ describe('#1014 FE st-* path cutover', () => {
     // match the quote-prefix requirement.
     const APP_ROOT = join(__dirname, '..', '..', '..');
     const ALLOWLIST = new Set([
-      // Retained members pinned above — deferred to #1017–#1019.
+      // Retained members pinned above (none for savant-trader/data/ post-#1019,
+      // but the constants file itself may document retired spellings).
       'core/common/constants.ts',
       // This spec's own expectations.
       'features/savant-trader/services/st-path-cutover-1014.spec.ts',
