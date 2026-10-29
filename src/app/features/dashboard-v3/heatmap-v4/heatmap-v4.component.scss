@@ -4,13 +4,13 @@
 :host {
     --heatmap-first-col-width: 100px;
     --heatmap-cell-height: 30px; // match cdk-virtual-scroll-viewport [itemSize]
-    --heatmap-header-bg: var(--theme-surface, #f5f5f5);
-    --heatmap-header-week-alt-bg: var(--theme-surface-alt, #ececec);
-    --heatmap-header-text: var(--theme-on-surface, #222);
-    --heatmap-week-separator: var(--theme-outline, #000);
-    --heatmap-month-bg: var(--theme-surface, #f5f5f5);
-    --heatmap-month-alt-bg: var(--theme-surface-alt, #efefef);
-    --heatmap-month-text: var(--theme-on-surface, #222);
+    --heatmap-header-bg: var(--ds-surface);
+    --heatmap-header-week-alt-bg: var(--ds-surface-raised);
+    --heatmap-header-text: var(--ds-on-surface);
+    --heatmap-week-separator: var(--ds-border-strong);
+    --heatmap-month-bg: var(--ds-surface);
+    --heatmap-month-alt-bg: var(--ds-surface-raised);
+    --heatmap-month-text: var(--ds-on-surface);
     --heatmap-month-band-height: calc(var(--heatmap-cell-height) * 0.66);
     /* Fixed data cell width for v3; used by header/body cells and month band sizing */
     --heatmap-cell-width: 60px;
@@ -35,7 +35,7 @@
     height: 100%;
     width: calc(100% - var(--heatmap-trailing-space));
     position: relative;
-    border: 1px solid black;
+    border: 1px solid var(--ds-border-strong);
     border-top: 0; // eliminate visible top line that looks like a gap
     margin-top: 0; // ensure no extra spacing above header
     margin-right: var(--heatmap-trailing-space); // outside breathing room on the right
@@ -76,8 +76,8 @@
     display: flex;
     flex-direction: column;
     background: var(--heatmap-header-bg);
-    border-top: 1px solid black; // restore visible top edge for header
-    border-bottom: 1px solid black;
+    border-top: 1px solid var(--ds-border-strong); // restore visible top edge for header
+    border-bottom: 1px solid var(--ds-border-strong);
     
     // Prevent any visible header scrollbar track on WebKit
     &::-webkit-scrollbar { height: 0; width: 0; }
@@ -88,7 +88,7 @@
         
         .corner-cell {
             height: var(--heatmap-month-band-height);
-            border-bottom: 1px solid black;
+            border-bottom: 1px solid var(--ds-border-strong);
             background: var(--heatmap-header-bg);
             box-sizing: border-box;
             
@@ -96,12 +96,12 @@
                 width: var(--heatmap-first-col-width);
                 min-width: var(--heatmap-first-col-width);
                 // overlay separator to avoid affecting layout width
-                box-shadow: inset -1px 0 0 black; 
+                box-shadow: inset -1px 0 0 var(--ds-border-strong); 
             }
             &.sticky-right { 
                 width: var(--heatmap-buttons-width);
                 min-width: var(--heatmap-buttons-width);
-                border-left: 1px solid black; 
+                border-left: 1px solid var(--ds-border-strong); 
             }
         }
 
@@ -119,8 +119,8 @@
                 min-width: var(--heatmap-cell-width);
                 width: calc(var(--heatmap-cell-width) * var(--span, 1));
                 // draw separators without affecting layout width
-                box-shadow: inset -1px 0 0 black;
-                border-bottom: 1px solid black; // horizontal rule is fine here
+                box-shadow: inset -1px 0 0 var(--ds-border-strong);
+                border-bottom: 1px solid var(--ds-border-strong); // horizontal rule is fine here
                 box-sizing: border-box;
                 color: var(--heatmap-month-text);
                 background: var(--heatmap-month-bg);
@@ -166,14 +166,14 @@
                 width: var(--heatmap-first-col-width);
                 min-width: var(--heatmap-first-col-width);
                 // overlay separator to avoid affecting layout width
-                box-shadow: inset -1px 0 0 black;
+                box-shadow: inset -1px 0 0 var(--ds-border-strong);
                 border-bottom: none; // Handled by container
             }
 
             &.sticky-right {
                 width: var(--heatmap-buttons-width);
                 min-width: var(--heatmap-buttons-width);
-                border-left: 1px solid black;
+                border-left: 1px solid var(--ds-border-strong);
                 border-bottom: none;
                 padding: 0; // Reset padding for buttons header
             }
@@ -215,7 +215,7 @@
                     top: calc(-1 * var(--heatmap-month-band-height));
                     bottom: 0;
                     width: 1px; // reduced thickness
-                    background: black;
+                    background: var(--ds-border-strong);
                     pointer-events: none;
                 }
                 &.year-start::before {
@@ -225,10 +225,10 @@
                     top: calc(-1 * var(--heatmap-month-band-height));
                     bottom: 0;
                     width: 2px; // reduced thickness
-                    background: black;
+                    background: var(--ds-border-strong);
                     pointer-events: none;
                 }
-                &.sorted { background: color-mix(in srgb, var(--heatmap-header-bg) 80%, black); }
+                &.sorted { background: color-mix(in srgb, var(--heatmap-header-bg) 80%, black) /* literal-sweep exception #1217: darken endpoint — must be achromatic black, not a theme hue */; }
 
                 .heatmap-date {
                     font-size: 12px;
@@ -246,7 +246,7 @@
                     top: 0;
                     bottom: 0;
                     width: 1px;
-                    background: black;
+                    background: var(--ds-border-strong);
                     pointer-events: none;
                 }
 
@@ -296,7 +296,7 @@
         @include global.flexboxLayout(row, flex-start, stretch);
         height: var(--heatmap-cell-height);
         width: max-content; // Ensure it doesn't wrap, and don't clamp to viewport width
-        border-bottom: 1px solid black; // draw row separator on the row to avoid double-height from cell borders
+        border-bottom: 1px solid var(--ds-border-strong); // draw row separator on the row to avoid double-height from cell borders
 
         .heatmap-cell {
             @include global.heatmapCell();
@@ -309,16 +309,16 @@
                 width: var(--heatmap-first-col-width);
                 min-width: var(--heatmap-first-col-width);
                 // overlay separator to avoid affecting layout width
-                box-shadow: inset -1px 0 0 black;
-                background: var(--theme-surface, #fff);
-                color: var(--theme-on-surface, #222);
+                box-shadow: inset -1px 0 0 var(--ds-border-strong);
+                background: var(--ds-surface);
+                color: var(--ds-on-surface);
             }
 
             &.sticky-right {
                 width: var(--heatmap-buttons-width);
                 min-width: var(--heatmap-buttons-width);
-                border-left: 1px solid black;
-                background: var(--theme-surface, #fff);
+                border-left: 1px solid var(--ds-border-strong);
+                background: var(--ds-surface);
                 padding: 0;
             }
         }
@@ -357,7 +357,7 @@
                     top: 0;
                     bottom: 0;
                     width: 1px; // reduced thickness to match header
-                    background: black;
+                    background: var(--ds-border-strong);
                     pointer-events: none;
                 }
                 &.year-start::before {
@@ -367,11 +367,11 @@
                     top: 0;
                     bottom: 0;
                     width: 2px; // reduced thickness to match header
-                    background: black;
+                    background: var(--ds-border-strong);
                     pointer-events: none;
                 }
                 &.sorted-col { filter: brightness(0.9); }
-                &.placeholder { background: repeating-linear-gradient(45deg, #eee, #eee 10px, #ddd 10px, #ddd 20px) !important; color: transparent; }
+                &.placeholder { background: repeating-linear-gradient(45deg, var(--ds-surface-raised), var(--ds-surface-raised) 10px, var(--ds-surface-overlay) 10px, var(--ds-surface-overlay) 20px) !important; color: transparent; }
 
                 .heatmap-text {
                     font-size: 13px;
@@ -386,7 +386,7 @@
                     top: 0;
                     bottom: 0;
                     width: 1px;
-                    background: black;
+                    background: var(--ds-border-strong);
                     pointer-events: none;
                 }
             }
@@ -404,12 +404,12 @@
                 flex: 1;
                 font-size: 11px;
                 cursor: pointer;
-                background: var(--theme-surface, #fff);
-                border-right: 1px solid black;
+                background: var(--ds-surface);
+                border-right: 1px solid var(--ds-border-strong);
                 border-bottom: none;
 
                 &:last-child { border-right: none; }
-                &:hover { background: var(--theme-surface-hover, #eee); }
+                &:hover { background: var(--ds-surface-overlay); }
             }
         }
     }

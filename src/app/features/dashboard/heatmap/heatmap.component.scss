@@ -26,7 +26,7 @@
 
         .buttons-column-container {
             @include global.flexboxLayout(column, flex-end, center);
-            border-right: 1px solid black;
+            border-right: 1px solid var(--ds-border-strong);
             
             .buttons-row-container {
                 @include global.flexboxLayout();
@@ -38,16 +38,16 @@
 
     .header-cell {
         @include global.heatmapCell();
-        border-left: 1px solid black;
-        border-top: 1px solid black;
-        border-bottom: 1px solid black;
+        border-left: 1px solid var(--ds-border-strong);
+        border-top: 1px solid var(--ds-border-strong);
+        border-bottom: 1px solid var(--ds-border-strong);
     }
 
     .heatmap-cell {
         @include global.heatmapCell();
-        // border: 1px solid black;
-        border-left: 1px solid black;
-        border-bottom: 1px solid black;
+        // border: 1px solid var(--ds-border-strong);
+        border-left: 1px solid var(--ds-border-strong);
+        border-bottom: 1px solid var(--ds-border-strong);
 
         &.first {
             width: 100px;
@@ -56,7 +56,7 @@
 
     .button-cell {
         @include global.heatmapCell();
-        // border: 1px solid black;
+        // border: 1px solid var(--ds-border-strong);
         cursor: pointer;
     }
     
@@ -86,20 +86,20 @@
             
     //         .row {
     //             @include global.flexboxLayout(row, flex-end, center);
-    //             border-top: 1px solid black;
+    //             border-top: 1px solid var(--ds-border-strong);
     //             display: flex;
     //             justify-content: flex-end;
     //             align-items: center;
 
     //             &:last-of-type {
-    //                 border-bottom: 1px solid black;
+    //                 border-bottom: 1px solid var(--ds-border-strong);
     //             }
     //         }
     //     }
         
     //     .row-buttons-container {
     //         @include global.flexboxLayout(row, flex-start, flex-start);
-    //         border-left: 1px solid black;
+    //         border-left: 1px solid var(--ds-border-strong);
             
     //         .buttons-column {
     //             @include global.flexboxLayout(column, space-evenly, center);
@@ -121,7 +121,7 @@
     //     width: 50px;
         
     //     &:not(:first-of-type) {
-    //         border-left: 1px solid black;
+    //         border-left: 1px solid var(--ds-border-strong);
 
     //     }
 
@@ -135,12 +135,12 @@
     //     @include global.flexboxLayout(row, center, center);
     //     height: 50px;
     //     width: 100px;
-    //     border-top: 1px solid black;
-    //     border-left: 1px solid black;
-    //     border-right: 1px solid black;
+    //     border-top: 1px solid var(--ds-border-strong);
+    //     border-left: 1px solid var(--ds-border-strong);
+    //     border-right: 1px solid var(--ds-border-strong);
 
     //     &:last-of-type {
-    //         border-bottom: 1px solid black;
+    //         border-bottom: 1px solid var(--ds-border-strong);
     //     }
     // }
 
@@ -151,20 +151,20 @@
 
     // .button-cell {
     //     @include global.flexboxLayout(row, center, center);
-    //     border-top: 1px solid black;
-    //     border-right: 1px solid black;
+    //     border-top: 1px solid var(--ds-border-strong);
+    //     border-right: 1px solid var(--ds-border-strong);
     //     cursor: pointer;
     //     height: 50px;
     //     width: 50px;
 
     //     &:last-of-type {
-    //         border-bottom: 1px solid black;
+    //         border-bottom: 1px solid var(--ds-border-strong);
     //     }
     // }
 
     // .color-cell {
     //     @include global.flexboxLayout(row, center, center);
-    //     border: 1px solid black;
+    //     border: 1px solid var(--ds-border-strong);
     //     height: 50px;
     //     width: 50px;
     //     text-align: center;

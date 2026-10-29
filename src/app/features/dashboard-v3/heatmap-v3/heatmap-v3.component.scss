@@ -3,13 +3,13 @@
 
 :host {
     --heatmap-first-col-width: 100px;
-    --heatmap-header-bg: var(--theme-surface, #f5f5f5);
-    --heatmap-header-week-alt-bg: var(--theme-surface-alt, #ececec);
-    --heatmap-header-text: var(--theme-on-surface, #222);
-    --heatmap-week-separator: var(--theme-outline, #000);
-    --heatmap-month-bg: var(--theme-surface, #f5f5f5);
-    --heatmap-month-alt-bg: var(--theme-surface-alt, #efefef);
-    --heatmap-month-text: var(--theme-on-surface, #222);
+    --heatmap-header-bg: var(--ds-surface);
+    --heatmap-header-week-alt-bg: var(--ds-surface-raised);
+    --heatmap-header-text: var(--ds-on-surface);
+    --heatmap-week-separator: var(--ds-border-strong);
+    --heatmap-month-bg: var(--ds-surface);
+    --heatmap-month-alt-bg: var(--ds-surface-raised);
+    --heatmap-month-text: var(--ds-on-surface);
     --heatmap-month-band-height: calc(var(--heatmap-cell-height) * 0.66);
 
     .heatmap-viewport {
@@ -39,10 +39,10 @@
 
             .heatmap-row .header-cell.first {
                 @include global.heatmapCell();
-                border-left: 1px solid black;
-                border-top: 1px solid black;
-                border-bottom: 1px solid black;
-                border-right: 1px solid black;
+                border-left: 1px solid var(--ds-border-strong);
+                border-top: 1px solid var(--ds-border-strong);
+                border-bottom: 1px solid var(--ds-border-strong);
+                border-right: 1px solid var(--ds-border-strong);
                 width: var(--heatmap-first-col-width);
                 box-sizing: border-box;
                 height: calc(var(--heatmap-month-band-height) + var(--heatmap-cell-height));
@@ -73,9 +73,9 @@
                     height: var(--heatmap-month-band-height);
                     min-width: var(--heatmap-cell-width);
                     width: calc(var(--heatmap-cell-width) * var(--span, 1));
-                    border-left: 1px solid black;
-                    border-top: 1px solid black;
-                    border-bottom: 1px solid black;
+                    border-left: 1px solid var(--ds-border-strong);
+                    border-top: 1px solid var(--ds-border-strong);
+                    border-bottom: 1px solid var(--ds-border-strong);
                     box-sizing: border-box;
                     color: var(--heatmap-month-text);
                     background: var(--heatmap-month-bg);
@@ -107,7 +107,7 @@
 
         .buttons-column-container {
             @include global.flexboxLayout(column, flex-start, center);
-            border-right: 1px solid black;
+            border-right: 1px solid var(--ds-border-strong);
 
             .buttons-column-viewport {
                 height: 600px;
@@ -128,9 +128,9 @@
                     @include global.heatmapCell();
                     height: 100%;
                     box-sizing: border-box;
-                    border-top: 1px solid black;
+                    border-top: 1px solid var(--ds-border-strong);
                     background: var(--heatmap-header-bg);
-                    &:first-child { border-left: 1px solid black; border-right: none; }
+                    &:first-child { border-left: 1px solid var(--ds-border-strong); border-right: none; }
                     &:last-child { border-left: none; border-right: 0; }
                 }
             }
@@ -142,9 +142,9 @@
                     height: 100%;
                     box-sizing: border-box;
                     background: var(--heatmap-header-bg);
-                    border-bottom: 1px solid black;
+                    border-bottom: 1px solid var(--ds-border-strong);
                     border-top: none;
-                    &:first-child { border-left: 1px solid black; border-right: none; }
+                    &:first-child { border-left: 1px solid var(--ds-border-strong); border-right: none; }
                     &:last-child { border-left: none; border-right: 0; }
                 }
             }
@@ -154,9 +154,9 @@
 
     .header-cell {
         @include global.heatmapCell();
-        border-left: 1px solid black;
-        border-top: 1px solid black;
-        border-bottom: 1px solid black;
+        border-left: 1px solid var(--ds-border-strong);
+        border-top: 1px solid var(--ds-border-strong);
+        border-bottom: 1px solid var(--ds-border-strong);
         box-sizing: border-box;
         color: var(--heatmap-header-text);
         background: var(--heatmap-header-bg);
@@ -166,20 +166,20 @@
         &.week-alt { background: var(--heatmap-header-week-alt-bg); }
         &.week-start { border-left: 2px solid var(--heatmap-week-separator); }
         &.sorted {
-            border-bottom: 2px solid var(--theme-primary, #007bff);
-            box-shadow: 0 2px 0 var(--theme-primary, #007bff);
+            border-bottom: 2px solid var(--ds-accent);
+            box-shadow: 0 2px 0 var(--ds-accent);
         }
     }
 
     .heatmap-cell {
         @include global.heatmapCell();
-        border-left: 1px solid black;
-        border-bottom: 1px solid black;
+        border-left: 1px solid var(--ds-border-strong);
+        border-bottom: 1px solid var(--ds-border-strong);
         box-sizing: border-box;
 
         &.first {
             width: var(--heatmap-first-col-width);
-            border-right: 1px solid black;
+            border-right: 1px solid var(--ds-border-strong);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -187,7 +187,7 @@
 
         &.week-start { border-left: 2px solid var(--heatmap-week-separator); }
         &.sorted-col {
-            outline: 2px solid var(--theme-primary, #007bff);
+            outline: 2px solid var(--ds-accent);
             outline-offset: -1px;
         }
     }
