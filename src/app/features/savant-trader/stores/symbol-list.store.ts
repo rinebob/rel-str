@@ -50,6 +50,10 @@ export interface SymbolListState extends SymbolProfilesState {
   activeListFilter: SymbolListFilter;
   /** Tracked-symbols universe — the complement base for untriaged. Lazy. */
   trackedSymbols: string[];
+  /** Tracked-universe readiness (#1305) — consumers that render
+   *  membership-derived numbers (scanner filter/badges) must distinguish
+   *  'loading' and 'error' from a legitimately-empty universe. */
+  trackedStatus: 'idle' | 'loading' | 'ready' | 'error';
 }
 
 const initialState: SymbolListState = {
@@ -57,6 +61,7 @@ const initialState: SymbolListState = {
   symbolListsLoading: false,
   activeListFilter: SYSTEM_LIST_KEYS.PRIMARY,
   trackedSymbols: [],
+  trackedStatus: 'idle',
   ...symbolProfilesInitialState,
 };
 
@@ -225,23 +230,30 @@ export const SymbolListStore = signalStore(
       if (state.trackedSymbols().length > 0) {
         return Promise.resolve(state.trackedSymbols());
       }
-      trackedInFlight ??= new Promise<string[]>((resolve) => {
-        relStrDbV2
-          .getTrackedSymbols$()
-          .pipe(takeUntilDestroyed(destroyRef))
-          .subscribe({
-            next: (companies) => {
-              const symbols = normalizeTrackedSymbols(companies);
-              patchState(state, { trackedSymbols: symbols });
-              resolve(symbols);
-            },
-            error: (err: unknown) => {
-              console.error('[SymbolListStore] getTrackedSymbols$ failed', err);
-              trackedInFlight = null; // allow a later call to retry
-              resolve([]);
-            },
-          });
-      });
+      if (!trackedInFlight) {
+        patchState(state, { trackedStatus: 'loading' });
+        trackedInFlight = new Promise<string[]>((resolve) => {
+          relStrDbV2
+            .getTrackedSymbols$()
+            .pipe(takeUntilDestroyed(destroyRef))
+            .subscribe({
+              next: (companies) => {
+                const symbols = normalizeTrackedSymbols(companies);
+                patchState(state, {
+                  trackedSymbols: symbols,
+                  trackedStatus: 'ready',
+                });
+                resolve(symbols);
+              },
+              error: (err: unknown) => {
+                console.error('[SymbolListStore] getTrackedSymbols$ failed', err);
+                patchState(state, { trackedStatus: 'error' });
+                trackedInFlight = null; // allow a later call to retry
+                resolve([]);
+              },
+            });
+        });
+      }
       return trackedInFlight;
     },
 
