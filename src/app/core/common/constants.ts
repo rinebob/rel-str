@@ -198,6 +198,8 @@ export enum CallableName {
   GET_OPTIONS_CONTRACT_INDEX = 'getOptionsContractIndex',
   /** Options contract viewer: query contract catalog with metadata, filters, pagination */
   QUERY_CONTRACT_CATALOG = 'queryContractCatalog',
+  /** Option group generator: contract availability for a symbol + axis bounds */
+  QUERY_CONTRACT_AVAILABILITY = 'queryContractAvailability',
   /** Options chain snapshot: fetch full chain snapshot for a symbol+date */
   GET_HISTORICAL_OPTIONS_CHAIN = 'getHistoricalOptionsChain',
   /** Spread viewer: submit a batch of spreads for time series loading */
