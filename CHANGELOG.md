@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-11-06]
+
+### Removed
+- [Scanner Chart View] 1232-1260_FE-IMPL-CHART-REVIEW: chart-review page retired — `signals/charts` redirects to `trading/chart-view`; `AppRoutes.CHART_REVIEW`/`PAGE_INFO`/`ViewportMode` removed; chart-review page, review-header, new-symbols-dialog + sole-consumer services deleted; TriageStore viewport state dropped
+
+### Changed
+- [Scanner Chart View] 1232-1260_FE-CHORE-CHART-REVIEW: stale chart-review reference sweep — comments, ds-gallery `seenIn` provenance, `goToReview`→`goToChartView` dead-chain rename
+- [Scanner Chart View] 1232-1260_FE-CHORE-CHART-REVIEW: design-system verify relays updated for retired components (1114: 33/33, 1171: 104/104 — was ENOENT crash in run-all)
+
+### Added
+- [Scanner Chart View] 1232-1260_DOCS-CHART-REVIEW: #1260 CODE-REVIEW (PASS) + #1342 UAT (Complete; 9/9) + IMPL-FE as-built
+
 ## [2026-10-29]
 
 ### Added

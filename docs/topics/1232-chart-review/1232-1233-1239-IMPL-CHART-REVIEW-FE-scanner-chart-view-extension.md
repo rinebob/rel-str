@@ -135,6 +135,8 @@ Reads the cache — `getDocs` on `st-scanner/latest-runs/items`, `parseScanLates
 
 Delete `ChartReviewComponent`, `ReviewHeaderComponent`, the `signals/charts` route → redirect, `AppRoutes.CHART_REVIEW`, old nav entry. `RunMetricsStripComponent`/`SignalReviewFacade`/`NewSymbolsDialogService`/`ChartReviewViewportService` lose their chart-review consumer — delete only if no other consumers (verify per item). `TriageStore`'s viewport fields may lose their last reader — flag, don't delete store-level state shared elsewhere.
 
+**As-built (#1260):** deleted `pages/chart-review/`, `components/review-header/`, `components/new-symbols-dialog/`, `chart-review-viewport.service`(+spec), `new-symbols-dialog.service` — all sole-consumed by the page. `signals/charts` redirects to `trading/chart-view`; `AppRoutes.CHART_REVIEW` + `PAGE_INFO` entry + `ViewportMode` type removed; `goToReview` repoints to `CHART_VIEW`. **Kept:** `RunMetricsStripComponent` (dashboard + signal-review), `SignalReviewFacade` (facade/group.store/staging.util), TriageStore `reviewFlags` core — only `viewportMode`/`activeViewportList` + setters deleted (sole readers were the retired files). Nav was already `Chart View` since #1256. No `chart-review.component.spec.ts` existed. Pass 2 repo-wide sweep: dropped the deleted scss from `design-system-foundation-migration-1171.ts` (was an ENOENT crash in run-all) and refreshed stale `chart-review` comments in facade/gallery/viewport services; comments in `chart-view.component.ts` kept as design-history.
+
 ## Phases & tasks
 
 **Phase 1 — Page shell + merged toolbar**
