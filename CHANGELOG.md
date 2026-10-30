@@ -31,6 +31,9 @@
 - [Option Contract Time-Series Viewer] 1243-1337_FE-IMPL-OPTIONS: OCC generator utils — `toAvailabilityQuery` (explicit list > range, BOTH/strikeStep:0 omitted, symbol normalize), `refineContracts` (all axes AND + alive-across-range), `toPairLines` (deterministic `date,id`/bare emission); `rs-optgen:{SYMBOL}` versioned per-symbol settings blob (sanitized load, openDate unpersistable, wrapped storage); 31 specs
 - [Option Contract Time-Series Viewer] 1243-1329_DOCS-OPTIONS: OCC string generator thread planning — PRD + FE/BE IMPL + FE/BE TEST docs
 - [Option Contract Time-Series Viewer] 1243-1337_DOCS-OPTIONS: #1337 CODE-REVIEW (PASS, 2 passes, review majors fixed in-gate) + #1341 UAT (Complete; 10/10) + changelog
+- [Option Contract Time-Series Viewer] 1243-1338_FE-IMPL-OPTIONS: `ContractAvailabilityService` — `queryContractAvailability` callable seam mirroring the catalog consumer (symbol normalize, empty → throwError); `CallableName.QUERY_CONTRACT_AVAILABILITY` (callable export lands with #1336)
+- [Option Contract Time-Series Viewer] 1243-1338_FE-IMPL-OPTIONS: `OptionGroupGeneratorStore` — page-scoped signal store owning query→fetch→refine→emit→persist; `filtered` computed, runSeq+symbol stale guards (symbol-switch/clear-mid-fetch/overlapping runs), `hasRun` marker, openDate toggle-link incl. persisted restore, `applyRange` trimmed-copy bound validation; 20 specs
+- [Option Contract Time-Series Viewer] 1243-1338_DOCS-OPTIONS: #1338 CODE-REVIEW (PASS, majors fixed in-gate) + #1344 UAT (Complete; 10/10) + IMPL-FE §FE-2 as-built filename + changelog
 
 ### Removed
 - [ST Firestore Reorg] 984-1019_BE-CHORE-DATA-PIPELINE: `savant-trader/data/symbols` archived (33,282 docs → `functions/scripts/output/legacy-archive-1013/savant-trader-symbols.json`) + deleted — last legacy root under `savant-trader/data` retired; dead `symbols`/`run-ids`/`signal-history` index entries dropped; legacy-reading relays (1000/1001/1019/1159) unregistered + marked retired

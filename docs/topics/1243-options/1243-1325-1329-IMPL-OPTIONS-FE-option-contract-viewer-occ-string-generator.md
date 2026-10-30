@@ -53,7 +53,7 @@ output → store refine state.
   hitting the new proxy route (same HttpClient/function-URL pattern as the
   catalog consumer). Stubbed in specs — no Firebase dependency in unit tests.
 
-**`stores/option-group-generator-feature.ts`** — signal store, scoped to the
+**`stores/option-group-generator.store.ts`** — signal store, scoped to the
 options-chart page (provided at page level):
 
 - State: `query` (axis params), `refine`, `records` (raw response),
