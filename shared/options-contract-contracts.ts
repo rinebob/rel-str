@@ -285,3 +285,65 @@ export interface GetHistoricalOptionsChainResponse {
   timestamp: string;
   processingTimeMs: number;
 }
+
+// ==========================
+// Contract Availability (partnerContractAvailabilityV1)
+// ==========================
+
+/** Latest observation snapshot — absent on backfilled expired contracts. */
+export interface ContractAvailabilityLatestSnapshot {
+  mark?: string;
+  iv?: string;
+  delta?: string;
+  volume?: string;
+  openInterest?: string;
+}
+
+/** One contract entry in the availability response. */
+export interface ContractAvailabilityEntry {
+  contractId: string; // OCC-format id
+  expiration: string; // YYYY-MM-DD
+  strike: number;
+  type: 'call' | 'put';
+  /** First trading day with data — the proxy for listing date. */
+  firstObserved: string;
+  firstObservedDow?: string;
+  lastObserved: string;
+  lastObservedDow?: string;
+  observationCount?: number;
+  expectedObservationCount?: number;
+  contractLengthDays?: number;
+  contractLengthBucket?: string;
+  latest?: ContractAvailabilityLatestSnapshot;
+  latestDelta?: number;
+  latestIv?: number;
+}
+
+/** Request params for the availability endpoint (GET query). */
+export interface ContractAvailabilityRequest {
+  symbol: string;
+  expirationGte?: string;
+  expirationLte?: string;
+  /** Explicit list — overrides expirationGte/Lte server-side. */
+  expirations?: string[];
+  strikeGte?: number;
+  strikeLte?: number;
+  /** Strike must be an exact multiple of the step, within bounds. */
+  strikeStep?: number;
+  type?: 'C' | 'P' | 'call' | 'put';
+  firstObservedGte?: string;
+  firstObservedLte?: string;
+}
+
+/** Response shape for the availability endpoint. */
+export interface ContractAvailabilityResponse {
+  ok: boolean;
+  symbol: string;
+  count: number;
+  /** True at the 2000-contract cap — deterministic sort. */
+  truncated: boolean;
+  contracts: ContractAvailabilityEntry[];
+  /** Symbol-level corpus dates — the chart's valid x-axis domain. */
+  corpusDates?: string[];
+  corpusDateCount?: number;
+}
