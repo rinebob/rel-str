@@ -20,8 +20,7 @@ const targets = {
   filter: join(COMPONENTS, 'signal-filter-pills', 'signal-filter-pills.component.scss'),
   signalHeader: join(COMPONENTS, 'signal-review-header', 'signal-review-header.component.scss'),
   signalHeaderHtml: join(COMPONENTS, 'signal-review-header', 'signal-review-header.component.html'),
-  reviewHeader: join(COMPONENTS, 'review-header', 'review-header.component.scss'),
-  reviewHeaderHtml: join(COMPONENTS, 'review-header', 'review-header.component.html'),
+  // review-header checks were dropped when the component was retired (#1260).
   table: join(COMPONENTS, 'signal-table', 'signal-table.component.scss'),
   tableHtml: join(COMPONENTS, 'signal-table', 'signal-table.component.html'),
 } as const;
@@ -46,15 +45,12 @@ const hasInclude = (source: string, mixin: string) =>
 const filter = text(targets.filter);
 const signalHeader = text(targets.signalHeader);
 const signalHeaderHtml = text(targets.signalHeaderHtml);
-const reviewHeader = text(targets.reviewHeader);
-const reviewHeaderHtml = text(targets.reviewHeaderHtml);
 const table = text(targets.table);
 const tableHtml = text(targets.tableHtml);
 
 for (const [label, source] of [
   ['signal-filter-pills', filter],
   ['signal-review-header', signalHeader],
-  ['review-header', reviewHeader],
   ['signal-table', table],
 ] as const) {
   check(
@@ -67,18 +63,6 @@ for (const mixin of ['pill-toggle']) check(`signal-filter-pills uses ${mixin}`, 
 for (const mixin of ['toolbar-row', 'pill-btn', 'badge']) {
   check(`signal-review-header uses ${mixin}`, hasInclude(signalHeader, mixin));
 }
-for (const mixin of ['toolbar-row', 'icon-btn', 'pill-btn']) {
-  check(`review-header uses ${mixin}`, hasInclude(reviewHeader, mixin));
-}
-const executableReviewHeader = stripComments(reviewHeader);
-for (const [name, pattern] of [
-  ['header-filter', /\.header-filter\b/],
-  ['strategy-toggles', /\.strategy-toggles\b/],
-  ['header-decisions', /\.header-decisions\b/],
-  ['badge', /\.badge\b/],
-] as const) {
-  check(`review-header omits dead selector ${name}`, !pattern.test(executableReviewHeader));
-}
 for (const mixin of ['badge', 'dir-edge']) check(`signal-table uses ${mixin}`, hasInclude(table, mixin));
 
 for (const [name, source, pattern] of [
@@ -87,8 +71,6 @@ for (const [name, source, pattern] of [
   ['signal header long badge', signalHeaderHtml, /class="badge dir-long"/],
   ['signal header short badge', signalHeaderHtml, /class="badge dir-short"/],
   ['signal total emphasis', signalHeaderHtml, /class="pill-btn emph"/],
-  ['review header icon buttons', reviewHeaderHtml, /class="(?:back-btn icon-btn|icon-btn back-btn)"/],
-  ['review header order pill', reviewHeaderHtml, /class="(?:stage-accepted-btn pill-btn|pill-btn stage-accepted-btn)"/],
   ['signal table direction badge', tableHtml, /class="badge"/],
   ['signal table long edge', tableHtml, /class\.dir-edge-long/],
   ['signal table short edge', tableHtml, /class\.dir-edge-short/],
@@ -96,7 +78,7 @@ for (const [name, source, pattern] of [
   check(name, pattern.test(source));
 }
 
-check('review/accept pill variants remain local', /&\.review\b/.test(signalHeader) && /&\.accept\b/.test(signalHeader));
+check('review/order pill variants remain local', /&\.review\b/.test(signalHeader) && /&\.order\b/.test(signalHeader));
 
 const retiredDirectionLiterals = [
   ['#4caf50', /#4caf50/i],
@@ -106,7 +88,6 @@ const retiredDirectionLiterals = [
 for (const [label, source] of [
   ['signal-filter-pills', filter],
   ['signal-review-header', signalHeader],
-  ['review-header', reviewHeader],
   ['signal-table', table],
 ] as const) {
   const executable = stripComments(source);
@@ -127,7 +108,7 @@ check(
 
 try {
   const sass: typeof import('sass') = createRequire(join(ROOT, 'package.json'))('sass');
-  for (const path of [targets.filter, targets.signalHeader, targets.reviewHeader, targets.table]) {
+  for (const path of [targets.filter, targets.signalHeader, targets.table]) {
     const css = sass.compile(path, { loadPaths: [PACKAGE_STYLES] }).css;
     check(`${path.split(/[\\/]/).at(-2)} SCSS compiles`, css.length > 100);
   }

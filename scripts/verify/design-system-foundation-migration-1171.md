@@ -9,7 +9,7 @@ hand-rolled duplicates of the foundation mixins onto `savant-ds` via the
 | Mixin | Consumers |
 |---|---|
 | `error-banner` | paper-trading, strategy-builder, options-strategy-dashboard |
-| `state-block` | those three + analysis, analysis-scatter, analysis-histogram, triage-report (`.error-state`), flex-chart (`.no-data`), order-queue, chart-review, chain-grid (`.no-data`), backtest-run-list, backtest-run-summary, backtest-permutation-detail, signal-review (`.error-state`), run-history-panel, heatmap-view (`__empty` — previously unstyled) |
+| `state-block` | those three + analysis, analysis-scatter, analysis-histogram, triage-report (`.error-state`), flex-chart (`.no-data`), order-queue, chart-review (retired #1260 — dropped from checks), chain-grid (`.no-data`), backtest-run-list, backtest-run-summary, backtest-permutation-detail, signal-review (`.error-state`), run-history-panel, heatmap-view (`__empty` — previously unstyled) |
 | `stat-strip` | order.component (`.scoreboard`), allocation-bucket-detail-dialog (`.stats-strip`, `.pos-stats`), allocation-buckets-table (`.expand-stats`) — the latter two also re-marked to canonical `sb-item`/`sb-label`/`sb-value`/`sb-sep` |
 | `dense-table` | paper-trading `.trades-table`, strategy-builder `.instances-table`, options-strategy-dashboard `.positions-table` — plain `<table>`s, direct adoption. `trades-table` keeps `border-collapse: separate` + th-level sticky; `instances-table` keeps its 24px dense-row override on `tbody td` |
 | spinner dedupe | run-metrics-strip local `@keyframes spin` removed — global in `src/styles.scss` is the single source |

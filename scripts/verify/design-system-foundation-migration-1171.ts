@@ -32,10 +32,9 @@ const FILES = {
   analysis: join(ST, 'pages', 'analysis', 'analysis.component.scss'),
   scatter: join(ST, 'components', 'analysis-views', 'analysis-scatter.component.scss'),
   histogram: join(ST, 'components', 'analysis-views', 'analysis-histogram.component.scss'),
-  triage: join(ST, 'pages', 'signal-action-report', 'triage-report.component.scss'),
   flexChart: join(FEATURES, 'shared', 'components', 'flex-chart', 'flex-chart.component.scss'),
   orderQueue: join(ST, 'components', 'order-queue', 'order-queue.component.scss'),
-  chartReview: join(ST, 'pages', 'chart-review', 'chart-review.component.scss'),
+  // chart-review scss was checked here until the page was retired (#1260).
   chainGrid: join(ST, 'pages', 'option-chain', 'components', 'chain-grid.component.scss'),
   runList: join(ST, 'backtest', 'components', 'backtest-run-list', 'backtest-run-list.component.scss'),
   runSummary: join(ST, 'backtest', 'components', 'backtest-run-summary', 'backtest-run-summary.component.scss'),
@@ -79,7 +78,7 @@ const exec: Record<keyof typeof FILES, string> = Object.fromEntries(
 const errorBannerFiles = ['paperTrading', 'strategyBuilder', 'optionsDash'] as const;
 const stateBlockFiles = [
   'paperTrading', 'strategyBuilder', 'optionsDash', 'analysis', 'scatter', 'histogram',
-  'triage', 'flexChart', 'orderQueue', 'chartReview', 'chainGrid', 'runList',
+  'flexChart', 'orderQueue', 'chainGrid', 'runList',
   'runSummary', 'permDetail', 'signalReview', 'runHistory', 'heatmap',
 ] as const;
 const statStripFiles = ['order', 'allocDetailScss', 'bucketsScss'] as const;
