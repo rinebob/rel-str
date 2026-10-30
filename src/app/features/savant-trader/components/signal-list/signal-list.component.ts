@@ -1,7 +1,7 @@
 /**
  * Signal List Component
  *
- * Master list panel for the review interface.
+ * Symbol list panel shared by the signal-review and chart-view sidebars.
  */
 import { Component, inject, ChangeDetectionStrategy, output, input, viewChildren, ElementRef, effect, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -62,7 +62,7 @@ export class SignalListComponent {
   /** Viewport symbols â€” the parent-computed list of symbols to display in the sidebar. */
   symbols = input<string[]>([]);
 
-  /** Symbols that were just added via the new-symbols dialog; shown with a NEW chip. */
+  /** Symbols not yet in the tracked universe; shown with a NEW chip. */
   newSymbols = input<string[]>([]);
 
   /** Symbols already viewed this session — rows render dimmed so triage

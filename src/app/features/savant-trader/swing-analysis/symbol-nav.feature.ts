@@ -3,7 +3,7 @@
  * across the tracked-symbols universe, optionally narrowed to a watchlist.
  * State fragments (`navFilter`) live on the main store; the tracked-symbols
  * universe is owned by SymbolListStore and read through the `lists` input —
- * one canonical universe for nav, chart-review browse, and export.
+ * one canonical universe for nav, chart-view browse, and export.
  * This file owns the nav computeds and methods so the store file stays
  * under the size guideline.
  *

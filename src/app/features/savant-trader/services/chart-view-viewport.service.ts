@@ -2,8 +2,8 @@
  * Chart View Viewport Service
  *
  * List/scan source selection for the chart-view page — the lean counterpart
- * to ChartReviewViewportService: same cross-store derivation minus
- * TriageStore (chart-view has no run/review coupling, #1232/#1256).
+ * to the retired ChartReviewViewportService: same cross-store derivation
+ * minus TriageStore (chart-view has no run/review coupling, #1232/#1256).
  */
 import { Injectable, inject, computed, signal } from '@angular/core';
 
@@ -97,6 +97,4 @@ export class ChartViewViewportService {
     }
     this.newOnly.set(value);
   }
-
-
 }

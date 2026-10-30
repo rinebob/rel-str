@@ -127,7 +127,7 @@ export class SignalService {
 
   /**
    * Enabled symbols added to st-symbols within the last N days. Used by
-   * chart-review to surface newly tracked symbols for quick review.
+   * chart-view to surface newly tracked symbols for quick review.
    *
    * createdAt is stored as an ISO string, so the cutoff is also an ISO string.
    *
