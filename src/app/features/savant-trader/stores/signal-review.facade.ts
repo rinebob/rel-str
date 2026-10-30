@@ -165,7 +165,7 @@ export class SignalReviewFacade {
 
     // Named lists short-circuit before the profiles fetch; NO_MEMBERSHIP
     // uses the canonical unlisted universe (tracked symbols in zero lists)
-    // — the same set the nav and chart-review browse mode show.
+    // — the same set the nav and chart-view browse mode show.
     const named = listName === NO_MEMBERSHIP ? null : (this.symbolLists()[listName] ?? []);
     if (named && named.length === 0) {
       this.snackBar.open(`${label} is empty`, 'Dismiss', { duration: 3000 });
@@ -449,7 +449,7 @@ export class SignalReviewFacade {
         dialogTicketId = staged.id;
       } else {
         // No run signals → the manual ticket path, seeded with the symbol
-        // (chart-review browse symbols have no signal provenance to stage
+        // (chart-view browse symbols have no signal provenance to stage
         // from; #1017).
         if (!tradeSignals.length) {
           await this.manualOrderService.open(sym);
@@ -522,8 +522,8 @@ export class SignalReviewFacade {
     this.router.navigate(['/' + AppRoutes.RUN_DASHBOARD]);
   }
 
-  goToReview(): void {
-    this.router.navigate(['/' + AppRoutes.CHART_REVIEW]);
+  goToChartView(): void {
+    this.router.navigate(['/' + AppRoutes.CHART_VIEW]);
   }
 
   /** Navigate to the signal order page. */

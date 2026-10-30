@@ -39,15 +39,6 @@ describe('TriageStore', () => {
     });
   });
 
-  describe('markGroupForReview', () => {
-    it('flags all symbols in memory', () => {
-      store.markGroupForReview(['AAPL', 'MSFT', 'GOOG']);
-      expect(store.reviewFlags()['AAPL']).toBe(true);
-      expect(store.reviewFlags()['MSFT']).toBe(true);
-      expect(store.reviewFlags()['GOOG']).toBe(true);
-    });
-  });
-
   describe('clearReviewFlags', () => {
     beforeEach(() => {
       store.markForReview('AAPL');

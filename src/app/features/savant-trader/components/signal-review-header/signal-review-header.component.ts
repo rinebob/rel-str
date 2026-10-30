@@ -70,7 +70,7 @@ export class SignalReviewHeaderComponent {
   isActionableRun = input(true);
 
   back = output<void>();
-  goToReview = output<void>();
+  goToChartView = output<void>();
   goToOrder = output<void>();
   dimensionChange = output<string>();
   listFilterChange = output<SymbolListFilter>();

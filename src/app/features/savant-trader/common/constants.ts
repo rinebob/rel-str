@@ -125,6 +125,3 @@ export enum RunStatusFilter {
   FAILED  = 'failed',
   PARTIAL = 'partial',
 }
-
-/** Viewport mode for the chart-review sidebar. */
-export type ViewportMode = 'signals' | 'browse';

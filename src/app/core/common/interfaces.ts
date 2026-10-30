@@ -20,7 +20,6 @@ export enum AppRoutes {
 	DECISION_BOARD = 'decision-board',
 	/** Run Dashboard — funnel root: pick a run (#660). */
 	RUN_DASHBOARD = 'signals/runs',
-	CHART_REVIEW = 'signals/charts',
 	/** Chart View — generic symbol-list chart viewer (#1232/#1256). */
 	CHART_VIEW = 'trading/chart-view',
 	SIGNAL_REVIEW = 'signals/review',

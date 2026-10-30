@@ -20,7 +20,6 @@ describe('core-routes — canonical journey paths (#699)', () => {
     ['portfolio/allocation', 'Portfolio Allocation'],
     ['signals/runs', 'Run Dashboard'],
     ['signals/review', 'Signal Review'],
-    ['signals/charts', 'Chart Review'],
     ['trading/chart-view', 'Chart View'],
     ['trading/live', 'Signal Order'],
     ['trading/paper', 'Paper Trading'],
@@ -60,6 +59,8 @@ describe('core-routes — canonical journey paths (#699)', () => {
   it.each([
     ['signals', 'signals/runs'],
     ['options', 'options/chain'],
+    // #1260 — retired chart-review surface; keeps bookmarks working.
+    ['signals/charts', 'trading/chart-view'],
   ])('%s redirects to %s', (from, to) => {
     const route = routeByPath(from);
     expect(route?.redirectTo).toBe(to);
@@ -134,7 +135,6 @@ describe('core-routes — canonical journey paths (#699)', () => {
       PORTFOLIO_ALLOCATION: 'portfolio/allocation',
       RUN_DASHBOARD: 'signals/runs',
       SIGNAL_REVIEW: 'signals/review',
-      CHART_REVIEW: 'signals/charts',
       CHART_VIEW: 'trading/chart-view',
       SIGNAL_ORDER: 'trading/live',
       PAPER_TRADING: 'trading/paper',

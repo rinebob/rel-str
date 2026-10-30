@@ -1,8 +1,8 @@
 /**
  * Savant Trader Triage Store
  *
- * In-memory source of truth for ephemeral screening UI state across all
- * Savant Trader pages: Grouped Review, Review, and Order.
+ * In-memory source of truth for ephemeral screening UI state across the
+ * Savant Trader Signal Review and Grouped Review pages.
  *
  * #1016 — review-list persistence was removed (TriageService and the
  * savant-trader/data/review-list collection are gone). The persistence
@@ -22,8 +22,6 @@ import {
   patchState,
 } from '@ngrx/signals';
 
-import { ViewportMode, type SymbolListFilter } from '../common/constants';
-
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -31,19 +29,10 @@ import { ViewportMode, type SymbolListFilter } from '../common/constants';
 export interface TriageState {
   /** Per-symbol review flag — "I want to look at this symbol's chart." Independent of ACR. */
   reviewFlags: Record<string, boolean>;
-  /** Viewport mode: 'signals' = show only review-flagged symbols, 'browse' = show all list symbols. */
-  viewportMode: ViewportMode;
-  /** Currently selected list for viewport filtering. */
-  activeViewportList: SymbolListFilter;
 }
 
 const initialState: TriageState = {
   reviewFlags: {},
-  // #1016 — 'signals' mode filtered on persisted review flags; with
-  // review-list removed the flagged queue stays empty, so the page
-  // opens on 'browse' until the review surfaces are repurposed.
-  viewportMode: 'browse',
-  activeViewportList: 'ALL',
 };
 
 // ---------------------------------------------------------------------------
@@ -56,13 +45,6 @@ export const TriageStore = signalStore(
   withState(initialState),
 
   withComputed((state) => ({
-    /** Symbols flagged for review — feeds the Review page sidebar. */
-    reviewSymbols: computed((): string[] =>
-      Object.entries(state.reviewFlags())
-        .filter(([_, flagged]) => flagged)
-        .map(([symbol]) => symbol)
-    ),
-
     /** Count of symbols flagged for review. */
     reviewCount: computed((): number =>
       Object.values(state.reviewFlags()).filter(Boolean).length
@@ -97,30 +79,11 @@ export const TriageStore = signalStore(
       patchState(state, { reviewFlags: nextFlags });
     },
 
-    /** Flag multiple symbols for review — session-local only (#1016). */
-    markGroupForReview(symbols: string[]): void {
-      const flags = { ...state.reviewFlags() };
-      for (const s of symbols) { flags[s.toUpperCase()] = true; }
-      patchState(state, { reviewFlags: flags });
-    },
-
     /** Run-switch hook — no-op since #1017 dropped the ephemeral
      *  CONSIDER/WATCH screening statuses. Review flags are dateless and
      *  survive run switches. Kept so setActiveRun's call stays at the seam. */
     resetForRun(): void {
       // #1017 — nothing ephemeral remains to reset.
-    },
-
-    // --- Viewport methods ---
-
-    /** Set the viewport mode (signals or browse). */
-    setViewportMode(mode: ViewportMode): void {
-      patchState(state, { viewportMode: mode });
-    },
-
-    /** Set the active list filter for viewport. */
-    setActiveViewportList(listName: SymbolListFilter): void {
-      patchState(state, { activeViewportList: listName });
     },
   }))
 );

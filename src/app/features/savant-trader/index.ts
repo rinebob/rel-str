@@ -75,7 +75,7 @@ export { SymbolSignalHistoryComponent } from './components/symbol-signal-history
 export { SymbolActionsComponent } from './components/symbol-actions/symbol-actions.component';
 export { SymbolListActionsComponent } from './components/symbol-list-actions/symbol-list-actions.component';
 export { QuickChartsPanelComponent } from './components/quick-charts-panel/quick-charts-panel.component';
-export { ReviewHeaderComponent } from './components/review-header/review-header.component';
+
 export { TradeRowComponent, TradeRow } from './components/trade-row/trade-row.component';
 export { OrderQueueComponent } from './components/order-queue/order-queue.component';
 export { OrderTicketComponent } from './components/order-ticket/order-ticket.component';
@@ -88,7 +88,7 @@ export { RunHistoryPanelComponent } from './components/run-history-panel/run-his
 
 export { DashboardComponent } from './pages/run-dashboard/dashboard.component';
 export { SignalReviewComponent } from './pages/signal-review/signal-review.component';
-export { ChartReviewComponent } from './pages/chart-review/chart-review.component';
+
 export { OrderComponent } from './pages/signal-order/order.component';
 export { ObservationDashboardComponent } from './pages/rh-account-inquiry/observation-dashboard.component';
 export { OptionChartComponent } from './pages/option-chart/option-chart.component';

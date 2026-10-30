@@ -141,11 +141,10 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.DashboardComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.CHART_REVIEW,
-                title: PAGE_INFO[AppRoutes.CHART_REVIEW].title,
-                loadComponent: () => import('../features/savant-trader/pages/chart-review/chart-review.component')
-                .then(mod => mod.ChartReviewComponent),
-                canActivate: [authGuard],
+            // #1260 — retired chart-review surface; bookmarks/links keep
+            // working through the canonical chart-view page.
+            {path: 'signals/charts',
+                redirectTo: AppRoutes.CHART_VIEW, pathMatch: 'full',
             },
             {path: AppRoutes.CHART_VIEW,
                 title: PAGE_INFO[AppRoutes.CHART_VIEW].title,

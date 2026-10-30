@@ -139,9 +139,9 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.goBack();
   }
 
-  /** Navigate to the review page if there are REVIEW symbols. */
-  goToReview(): void {
-    this.facade.goToReview();
+  /** Navigate to the chart-view page. */
+  goToChartView(): void {
+    this.facade.goToChartView();
   }
 
   /** Navigate to signal order page. */
