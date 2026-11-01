@@ -18,24 +18,42 @@
     </mat-form-field>
 
     <div class="row-fields">
-      <mat-form-field appearance="outline" class="field-half">
+      <mat-form-field appearance="outline" class="field-symbols">
         <mat-label>Symbols</mat-label>
-        <input matInput formControlName="symbolsText" placeholder="e.g. QQQ, SPY" />
+        <input matInput formControlName="symbolsText" placeholder="QQQ, SPY" />
         @if (form.controls.symbolsText.hasError('required') && form.controls.symbolsText.touched) {
           <mat-error>At least one symbol is required</mat-error>
         }
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="field-half">
-        <mat-label>Start date</mat-label>
-        <input matInput type="date" formControlName="startDate" />
-        @if (form.controls.startDate.hasError('required') && form.controls.startDate.touched) {
-          <mat-error>Start date is required</mat-error>
-        }
-        @if (form.controls.startDate.hasError('marketDate') && form.controls.startDate.touched) {
-          <mat-error>Must be a real date (YYYY-MM-DD)</mat-error>
-        }
-      </mat-form-field>
+      <div class="date-fields">
+        <mat-form-field appearance="outline" class="field-year">
+          <mat-label>Year</mat-label>
+          <mat-select formControlName="startYear">
+            @for (y of years; track y) {
+              <mat-option [value]="y">{{ y }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-month">
+          <mat-label>Month</mat-label>
+          <mat-select formControlName="startMonth">
+            @for (m of months; track m.value) {
+              <mat-option [value]="m.value">{{ m.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-day">
+          <mat-label>Day</mat-label>
+          <mat-select formControlName="startDay">
+            @for (d of dayOptions(); track d) {
+              <mat-option [value]="d">{{ d }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
     </div>
 
     <p class="form-note">Replays the template's daily contract selection across the symbol's trading days, starting on this date.</p>

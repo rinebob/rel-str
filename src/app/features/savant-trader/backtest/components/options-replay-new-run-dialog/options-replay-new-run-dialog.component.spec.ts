@@ -54,7 +54,9 @@ describe('OptionsReplayNewRunDialogComponent', () => {
     component.form.setValue({
       templateId: 'csp-30-30',
       symbolsText: 'spy, qqq  amat',
-      startDate: '2026-01-05',
+      startYear: 2026,
+      startMonth: 1,
+      startDay: 5,
     });
 
     component.submit();
@@ -66,18 +68,87 @@ describe('OptionsReplayNewRunDialogComponent', () => {
     });
   });
 
-  it('rejects an impossible date (2026-02-30)', async () => {
+  it('defaults the start date to 2026-01-01 (earliest grid coverage)', async () => {
     const { component } = await setup();
-    // Native date inputs reject impossible dates before the control sees
-    // them — drive the validator directly for coverage.
-    component.form.controls.startDate.setValue('2026-02-30');
-    expect(component.form.controls.startDate.hasError('marketDate')).toBe(true);
+
+    expect(component.form.controls.startYear.value).toBe(2026);
+    expect(component.form.controls.startMonth.value).toBe(1);
+    expect(component.form.controls.startDay.value).toBe(1);
   });
 
-  it('rejects a malformed date string', async () => {
+  it('emits a zero-padded YYYY-MM-DD startDate from the Y/M/D selects', async () => {
     const { component } = await setup();
-    component.form.controls.startDate.setValue('not-a-date');
-    expect(component.form.controls.startDate.hasError('marketDate')).toBe(true);
+    component.form.patchValue({ startYear: 2025, startMonth: 3, startDay: 7 });
+
+    component.submit();
+
+    expect(dialogRef.close).toHaveBeenCalledWith(
+      expect.objectContaining({ startDate: '2025-03-07' }),
+    );
+  });
+
+  it('day dropdown tracks the month length — Feb 2026 offers 28 days', async () => {
+    const { component } = await setup();
+    component.form.patchValue({ startYear: 2026, startMonth: 2 });
+
+    expect(component.dayOptions()).toHaveLength(28);
+  });
+
+  it('day dropdown honors leap years — Feb 2024 offers 29 days', async () => {
+    const { component } = await setup();
+    component.form.patchValue({ startYear: 2024, startMonth: 2 });
+
+    expect(component.dayOptions()).toHaveLength(29);
+  });
+
+  it('clamps the day when the month shrinks — Jan 31 → Feb → 28', async () => {
+    const { component } = await setup();
+    component.form.setValue({
+      templateId: 'csp-45-20',
+      symbolsText: 'QQQ',
+      startYear: 2026,
+      startMonth: 1,
+      startDay: 31,
+    });
+
+    component.form.controls.startMonth.setValue(2);
+
+    expect(component.form.controls.startDay.value).toBe(28);
+  });
+
+  it('clamps the day when the year loses a leap day — Feb 29 2024 → 2025 → 28', async () => {
+    const { component } = await setup();
+    component.form.setValue({
+      templateId: 'csp-45-20',
+      symbolsText: 'QQQ',
+      startYear: 2024,
+      startMonth: 2,
+      startDay: 29,
+    });
+
+    component.form.controls.startYear.setValue(2025);
+
+    expect(component.form.controls.startDay.value).toBe(28);
+  });
+
+  it('clamps even on a programmatic setValue — {month: 2, day: 31} cannot persist Feb 31', async () => {
+    const { component } = await setup();
+    component.form.setValue({
+      templateId: 'csp-45-20',
+      symbolsText: 'QQQ',
+      startYear: 2026,
+      startMonth: 2,
+      startDay: 31,
+    });
+
+    expect(component.form.controls.startDay.value).toBe(28);
+  });
+
+  it('floors the year select at 2026 — no dead picks before grid coverage', async () => {
+    const { component } = await setup();
+
+    expect(component.years).toContain(2026);
+    expect(Math.min(...component.years)).toBe(2026);
   });
 
   it('does not close when symbols parse to nothing', async () => {
@@ -85,7 +156,9 @@ describe('OptionsReplayNewRunDialogComponent', () => {
     component.form.setValue({
       templateId: 'csp-45-20',
       symbolsText: ' , , ',
-      startDate: '2026-01-05',
+      startYear: 2026,
+      startMonth: 1,
+      startDay: 5,
     });
     // symbolsText passes `required` (non-empty string) but parses to zero
     component.form.controls.symbolsText.markAsTouched();
