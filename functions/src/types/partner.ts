@@ -40,6 +40,7 @@ export enum PartnerEndpointPath {
   HISTORICAL_OPTIONS_CONTRACT_V2 = 'partnerHistoricalOptionsContractV2',
   LIST_CONTRACTS_V2 = 'partnerListContractsV2',
   CONTRACT_CATALOG_V2 = 'partnerContractCatalogV2',
+  CONTRACT_AVAILABILITY_V1 = 'partnerContractAvailabilityV1',
   SPREAD_TIME_SERIES = 'partnerSpreadTimeSeries',
   REALTIME_OPTIONS = 'partnerRealtimeOptions',
 }
@@ -84,6 +85,10 @@ export type {
   ContractLatestSnapshot,
   ContractCatalogEntry,
   ContractCatalogResponse,
+  ContractAvailabilityEntry,
+  ContractAvailabilityRequest,
+  ContractAvailabilityResponse,
+  ContractAvailabilityLatestSnapshot,
   ContractSummaryResponse,
   QueryContractCatalogRequest,
   HistoricalOptionContract,

@@ -3,7 +3,7 @@ import * as logger from 'firebase-functions/logger';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
-import { callPartnerHistoricalOptionsContractV2, callPartnerListContractsV2, callPartnerContractCatalogV2, callPartnerHistoricalOptions } from './options-contract-proxy';
+import { callPartnerHistoricalOptionsContractV2, callPartnerListContractsV2, callPartnerContractCatalogV2, callPartnerContractAvailabilityV1, callPartnerHistoricalOptions } from './options-contract-proxy';
 import { PartnerHttpError, partnerHttpErrorToCallableCode } from './partner-infrastructure';
 import { ST_ALLOWED_ORIGINS } from './st-cloud-function/cors';
 import type {
@@ -17,6 +17,8 @@ import type {
   StrikeIndexEntry,
   QueryContractCatalogRequest,
   ContractCatalogResponse,
+  ContractAvailabilityRequest,
+  ContractAvailabilityResponse,
   ContractSummaryResponse,
   ContractCatalogEntry,
   GetHistoricalOptionsChainRequest,
@@ -331,6 +333,79 @@ export const queryContractCatalog = onCall(
         stack: e instanceof Error ? e.stack : undefined,
         error: e,
       });
+      throw e;
+    }
+  },
+);
+
+/**
+ * queryContractAvailability — Query the Savant Partner Contract
+ * Availability V1 endpoint: which option contracts exist for a symbol
+ * within axis bounds (expiry range or explicit list, strike bounds +
+ * step, type, first-observed window), each with first/last observed
+ * dates. Used by the OCC group generator drawer.
+ *
+ * Thin pass-through — SA's response (contracts, truncated flag,
+ * corpusDates) is returned verbatim; all refine logic is client-side.
+ * Local validation (symbol, inverted ranges) runs in the proxy before
+ * the upstream call and surfaces as 'invalid-argument'.
+ */
+export const queryContractAvailability = onCall(
+  { region: 'us-central1', cors: ST_ALLOWED_ORIGINS },
+  async (req): Promise<ContractAvailabilityResponse> => {
+    const data = (req.data || {}) as ContractAvailabilityRequest;
+    const sym = String(data.symbol || '').trim().toUpperCase();
+
+    const params: ContractAvailabilityRequest = {
+      symbol: sym,
+      expirationGte: data.expirationGte,
+      expirationLte: data.expirationLte,
+      expirations: data.expirations,
+      strikeGte: data.strikeGte,
+      strikeLte: data.strikeLte,
+      strikeStep: data.strikeStep,
+      type: data.type,
+      firstObservedGte: data.firstObservedGte,
+      firstObservedLte: data.firstObservedLte,
+    };
+
+    logger.info('queryContractAvailability', {
+      symbol: sym || null,
+      expirationGte: params.expirationGte ?? null,
+      expirationLte: params.expirationLte ?? null,
+      expirations: params.expirations ?? null,
+      strikeGte: params.strikeGte ?? null,
+      strikeLte: params.strikeLte ?? null,
+      strikeStep: params.strikeStep ?? null,
+      type: params.type ?? null,
+      firstObservedGte: params.firstObservedGte ?? null,
+      firstObservedLte: params.firstObservedLte ?? null,
+    });
+
+    try {
+      const result = await callPartnerContractAvailabilityV1(params);
+
+      logger.info('queryContractAvailability_response', {
+        symbol: result.symbol,
+        contractCount: result.count,
+        truncated: result.truncated,
+      });
+
+      return result;
+    } catch (e: unknown) {
+      logger.error('queryContractAvailability_error', {
+        symbol: sym || null,
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+        error: e,
+      });
+      // Surface the upstream status as a real callable code so the FE can
+      // distinguish BAD_REQUEST / upstream 4xx-5xx from a generic failure.
+      if (e instanceof PartnerHttpError) {
+        const code = partnerHttpErrorToCallableCode(e);
+        const suffix = e.partnerCode ? ` code=${e.partnerCode}` : '';
+        throw new HttpsError(code, `partner ${e.status}${suffix}: ${e.message}`);
+      }
       throw e;
     }
   },

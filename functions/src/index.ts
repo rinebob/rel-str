@@ -112,7 +112,7 @@ export {
 export { stOverviewSyncSymbol } from './st-cloud-function/overview-sync-worker';
 
 // Options contract viewer callables
-export { getHistoricalOptionsContract, listOptionsContracts, getOptionsContractIndex, queryContractCatalog, getHistoricalOptionsChain } from './options-contract.callables';
+export { getHistoricalOptionsContract, listOptionsContracts, getOptionsContractIndex, queryContractCatalog, queryContractAvailability, getHistoricalOptionsChain } from './options-contract.callables';
 
 // SDS — PDR-triggered symbol data sync (replaces symbolDataSyncNightly)
 export { symbolDataSync } from './symbol-data-sync/sds';

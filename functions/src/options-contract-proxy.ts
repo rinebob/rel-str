@@ -1,7 +1,7 @@
 import * as logger from "firebase-functions/logger";
 import { PartnerEndpointPath, PartnerHistoricalOptionsResponse, PartnerHistoricalOptionsContractV2Response, PartnerListContractsV2Response, ContractCatalogResponse, ContractSummaryResponse } from './types/partner';
 import { parseOccContractId } from '@options-contract/contracts';
-import type { QueryContractCatalogRequest } from '@options-contract/contracts';
+import type { QueryContractCatalogRequest, ContractAvailabilityRequest, ContractAvailabilityResponse } from '@options-contract/contracts';
 import { PARTNER_AUDIENCE, CALLER_SA, PartnerHttpError, extractPartnerCode, generateIdTokenWithEmail, fetchWithRetry } from './partner-infrastructure';
 
 // ==========================
@@ -35,6 +35,16 @@ const PARTNER_CONTRACT_CATALOG_V2_URL =
 
 const PARTNER_CONTRACT_CATALOG_V2_AUDIENCE =
   process.env.PARTNER_CONTRACT_CATALOG_V2_AUDIENCE || PARTNER_CONTRACT_CATALOG_V2_URL;
+
+const PARTNER_CONTRACT_AVAILABILITY_V1_URL =
+  process.env.PARTNER_CONTRACT_AVAILABILITY_V1_URL ||
+  `${PARTNER_AUDIENCE.replace(/\/$/, '')}/${PartnerEndpointPath.CONTRACT_AVAILABILITY_V1}`;
+
+// NB: SA's availability function checks `aud` against the BASE host, not the
+// function URL (function-URL aud → 403 'audience mismatch'; verified 2026-10-31
+// — catalog V2 uses the URL pattern, availability deviates).
+const PARTNER_CONTRACT_AVAILABILITY_V1_AUDIENCE =
+  process.env.PARTNER_CONTRACT_AVAILABILITY_V1_AUDIENCE || PARTNER_AUDIENCE;
 
 // ==========================
 // Deprecated helpers (scheduled for removal once partnerListContractsV2 is broken in)
@@ -552,6 +562,113 @@ export async function callPartnerContractCatalogV2(
       hasMore: !!catalog.nextPageToken,
     });
   }
+
+  return parsed;
+}
+
+/** Throw the SA 400 shape locally for request validation failures. */
+function badRequest(message: string): PartnerHttpError {
+  return new PartnerHttpError(`partnerContractAvailabilityV1 BAD_REQUEST: ${message}`, 400, 'BAD_REQUEST');
+}
+
+/**
+ * Call Savant Partner Contract Availability V1 endpoint — which contracts
+ * exist for a symbol within the axis bounds, each with its first/last
+ * observed dates. Thin pass-through: SA's response body is returned
+ * verbatim; all refine logic is client-side.
+ */
+export async function callPartnerContractAvailabilityV1(
+  params: ContractAvailabilityRequest,
+): Promise<ContractAvailabilityResponse> {
+  const symbol = String(params.symbol || '').trim().toUpperCase();
+  if (!symbol) throw badRequest('symbol is required');
+  if (params.expirationGte != null && params.expirationLte != null
+    && params.expirationGte > params.expirationLte) {
+    throw badRequest('expirationGte exceeds expirationLte');
+  }
+  if (params.strikeGte != null && params.strikeLte != null
+    && params.strikeGte > params.strikeLte) {
+    throw badRequest('strikeGte exceeds strikeLte');
+  }
+  if (params.firstObservedGte != null && params.firstObservedLte != null
+    && params.firstObservedGte > params.firstObservedLte) {
+    throw badRequest('firstObservedGte exceeds firstObservedLte');
+  }
+
+  const startedAt = Date.now();
+  const audience = PARTNER_CONTRACT_AVAILABILITY_V1_AUDIENCE;
+  const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
+
+  const search = new URLSearchParams();
+  search.set('symbol', symbol);
+  if (params.expirationGte) search.set('expirationGte', params.expirationGte);
+  if (params.expirationLte) search.set('expirationLte', params.expirationLte);
+  if (Array.isArray(params.expirations) && params.expirations.length > 0) {
+    search.set('expirations', params.expirations.join(','));
+  }
+  if (params.strikeGte != null) search.set('strikeGte', String(params.strikeGte));
+  if (params.strikeLte != null) search.set('strikeLte', String(params.strikeLte));
+  if (params.strikeStep != null) search.set('strikeStep', String(params.strikeStep));
+  if (params.type) search.set('type', params.type);
+  if (params.firstObservedGte) search.set('firstObservedGte', params.firstObservedGte);
+  if (params.firstObservedLte) search.set('firstObservedLte', params.firstObservedLte);
+
+  const url = `${PARTNER_CONTRACT_AVAILABILITY_V1_URL}?${search.toString()}`;
+
+  logger.info('partnerContractAvailabilityV1_request', {
+    symbol,
+    expirationGte: params.expirationGte ?? null,
+    expirationLte: params.expirationLte ?? null,
+    expirations: params.expirations ?? null,
+    strikeGte: params.strikeGte ?? null,
+    strikeLte: params.strikeLte ?? null,
+    strikeStep: params.strikeStep ?? null,
+    type: params.type ?? null,
+    firstObservedGte: params.firstObservedGte ?? null,
+    firstObservedLte: params.firstObservedLte ?? null,
+    url,
+    audience,
+  });
+
+  const resp = await fetchWithRetry(url, { Authorization: `Bearer ${idToken}` });
+  const text = await resp.text();
+
+  if (!resp.ok) {
+    logger.error('partnerContractAvailabilityV1_upstream_error', {
+      symbol,
+      status: resp.status,
+      url,
+      audience,
+      callerSa: CALLER_SA,
+      snippet: typeof text === 'string' ? text.slice(0, 500) : undefined,
+    });
+    throw new PartnerHttpError(
+      `partnerContractAvailabilityV1 upstream ${resp.status}: ${text}`,
+      resp.status,
+      extractPartnerCode(text),
+    );
+  }
+
+  let parsed: ContractAvailabilityResponse;
+  try {
+    parsed = JSON.parse(text) as ContractAvailabilityResponse;
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    logger.error('partnerContractAvailabilityV1_parse_error', {
+      symbol,
+      message,
+      snippet: text.slice(0, 500),
+    });
+    throw e;
+  }
+
+  logger.info('partnerContractAvailabilityV1_response', {
+    symbol: parsed.symbol,
+    contractCount: parsed.count,
+    truncated: parsed.truncated,
+    corpusDateCount: parsed.corpusDateCount ?? null,
+    durationMs: Date.now() - startedAt,
+  });
 
   return parsed;
 }
