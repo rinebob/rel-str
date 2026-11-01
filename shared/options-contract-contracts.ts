@@ -340,7 +340,7 @@ export interface ContractAvailabilityResponse {
   ok: boolean;
   symbol: string;
   count: number;
-  /** True at the 2000-contract cap — deterministic sort. */
+  /** True at the 2000-contract cap OR when SA's read ceiling stops the scan — more matches may exist either way. */
   truncated: boolean;
   contracts: ContractAvailabilityEntry[];
   /** Symbol-level corpus dates — the chart's valid x-axis domain. */
