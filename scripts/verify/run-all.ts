@@ -366,6 +366,12 @@ const scripts: VerifyScript[] = [
   },
   { name: 'options plotted-pairs parser', file: 'options-plotted-pairs-1262.ts' },
   {
+    name: 'contract availability proxy (live SA)',
+    file: 'options-contract-availability-1336.ts',
+    needsAccount: false,
+    needsAdc: true,
+  },
+  {
     name: 'selection-replay contracts',
     file: 'options-backtest-selection-replay-1275-contracts.ts',
     needsAccount: false,
