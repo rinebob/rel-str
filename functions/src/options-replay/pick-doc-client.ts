@@ -6,17 +6,19 @@
  * partner-proxy ID-token machinery — same auth path as
  * `partnerHistoricalOptions*` (generateIdTokenWithEmail + fetchWithRetry).
  *
- * Confirmed contract (spike #1278): the endpoint serves one year shard per
- * call — `options-delta-picks/{SYM}-{type}-{deltaPct}-{dte}/years/{YYYY}` —
- * for params (symbol, type, delta, dte, year); off-grid params → 400; a
- * missing shard → 404. `startDate` is NOT a request param: it selects which
- * year shards to fetch; the caller filters `days` against its own window.
- *
- * OPEN SEAM (av-proxy-api#225): the endpoint is not implemented yet — the
- * function name (`partnerOptionsDeltaPicks` below), whether the delta param
- * is `deltaPct` or signed `delta`, and whether the response wraps the doc in
- * an `{ok}` envelope are all provisional. All three are single-point edits
- * when #225 lands.
+ * Confirmed contract (av-proxy-api options-delta-picks discovery doc):
+ * the endpoint serves one year shard per call —
+ * `partnerOptionsDeltaPicksV1?symbol=&type=&delta=&dte=&year=` — the
+ * delta param is the magnitude ×100 (`delta=20` → the -0.20 put cell);
+ * off-grid params → 400 BAD_REQUEST; a missing year shard → 404
+ * NOT_FOUND (skipped as a coverage gap); a symbol outside the
+ * options-enabled universe → 404 OPTIONS_NOT_ENABLED (propagates — a
+ * symbol-level failure, not a gap). Success wraps the cell-year doc in
+ * `{ok: true, …}`; a 200 lacking `ok:true` + a `days` map is a malformed
+ * response → 502.
+ * `startDate` is NOT a request param: it selects which year shards to
+ * fetch; the caller filters `days` against its own window. Coverage
+ * starts 2026-01-01 — earlier years will never have shards.
  */
 
 import * as logger from 'firebase-functions/logger';
@@ -35,9 +37,9 @@ import {
 // URL + audience constants
 // ==========================
 
-/** Provisional endpoint path — confirm against av-proxy-api#225 when the
- *  endpoint ships (name is undecided there). */
-const PICK_DOC_ENDPOINT_PATH = 'partnerOptionsDeltaPicks';
+/** Deployed endpoint path — per SA's discovery doc (name confirmed
+ *  `partnerOptionsDeltaPicksV1` at ship). */
+const PICK_DOC_ENDPOINT_PATH = 'partnerOptionsDeltaPicksV1';
 
 const PARTNER_PICK_DOC_URL =
   process.env.PARTNER_PICK_DOC_URL ||
@@ -95,7 +97,8 @@ export interface FetchPickDocInput {
 /**
  * Fetch and merge the pick doc for a coordinate over `[startDate, endDate?]`.
  * One shard request per calendar year in the span; a 404 shard is skipped
- * (the year simply has no materialized data), while any other failure
+ * (the year simply has no materialized data) — except OPTIONS_NOT_ENABLED,
+ * a symbol-level failure that propagates — and any non-404 failure
  * propagates. If no shard exists at all, throws a PartnerHttpError naming
  * the coordinate — the caller marks the list doc `failed`.
  */
@@ -105,13 +108,17 @@ export async function fetchPickDoc(
 ): Promise<PickDocument> {
   const symbol = input.symbol.trim().toUpperCase();
   const cellId = pickDocCellId(symbol, input.coordinate);
-  const firstYear = Number(input.startDate.slice(0, 4));
-  const lastYear = Number((input.endDate ?? new Date().toISOString().slice(0, 10)).slice(0, 4));
   // A malformed date must not fall through to the all-404 path — that error
   // means "pick doc missing", which would misattribute a bad input upstream.
-  if (!Number.isFinite(firstYear) || !Number.isFinite(lastYear)) {
+  // The regex pins a strict YYYY-MM-DD shape: `Number('20266-…'.slice(0,4))`
+  // would silently accept a 5-digit year.
+  const DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
+  const endDate = input.endDate ?? new Date().toISOString().slice(0, 10);
+  const firstYear = Number(input.startDate.slice(0, 4));
+  const lastYear = Number(endDate.slice(0, 4));
+  if (!DATE_SHAPE.test(input.startDate) || !DATE_SHAPE.test(endDate) || firstYear > lastYear) {
     throw new PartnerHttpError(
-      `pick doc fetch failed for ${cellId}: invalid date window [${input.startDate}, ${input.endDate}]`,
+      `pick doc fetch failed for ${cellId}: invalid date window [${input.startDate}, ${endDate}]`,
       400,
     );
   }
@@ -129,7 +136,20 @@ export async function fetchPickDoc(
     } catch (e) {
       // A missing year shard is a coverage gap, not a fetch failure — a run
       // window may legitimately span a year the symbol wasn't materialized.
-      if (e instanceof PartnerHttpError && e.status === 404) continue;
+      // OPTIONS_NOT_ENABLED is a symbol-level 404: the symbol isn't in the
+      // options-enabled universe — propagate so the list doc fails honestly.
+      if (
+        e instanceof PartnerHttpError &&
+        e.status === 404 &&
+        e.partnerCode !== 'OPTIONS_NOT_ENABLED'
+      ) {
+        logger.warn('partnerPickDoc_shard_skipped', {
+          symbol,
+          year,
+          partnerCode: e.partnerCode,
+        });
+        continue;
+      }
       throw e;
     }
   }
@@ -168,15 +188,15 @@ function mergeYearShards(shards: PickDocument[]): PickDocument {
 // ==========================
 
 /** Partner-endpoint transport — HTTPS GET + ID token, same conventions as
- *  `callPartnerHistoricalOptions`. Provisional param spelling: deltaPct;
- *  response assumed to be the raw CellYearDoc JSON (envelope TBD at #225). */
+ *  `callPartnerHistoricalOptions`. Confirmed wire shape (SA discovery doc):
+ *  `delta` = magnitude ×100; success wraps the cell doc in `{ok:true,…}`. */
 export const partnerPickDocTransport: PickDocTransport = async (req) => {
   const idToken = await generateIdTokenWithEmail(PARTNER_PICK_DOC_AUDIENCE, CALLER_SA);
 
   const search = new URLSearchParams();
   search.set('symbol', req.symbol);
   search.set('type', req.type);
-  search.set('deltaPct', String(req.deltaPct));
+  search.set('delta', String(req.deltaPct));
   search.set('dte', String(req.dte));
   search.set('year', String(req.year));
 
@@ -202,15 +222,26 @@ export const partnerPickDocTransport: PickDocTransport = async (req) => {
       snippet: typeof text === 'string' ? text.slice(0, 500) : undefined,
     });
     throw new PartnerHttpError(
-      `partnerPickDoc upstream ${resp.status}: ${text}`,
+      `partnerPickDoc upstream ${resp.status}: ${text.slice(0, 500)}`,
       resp.status,
       extractPartnerCode(text),
     );
   }
 
   try {
-    return JSON.parse(text) as PickDocument;
+    const body = JSON.parse(text) as { ok?: boolean } & Partial<PickDocument>;
+    if (body.ok !== true || body.days == null) {
+      throw new PartnerHttpError(
+        `partnerPickDoc malformed 200 (ok=${String(body.ok)}): ${text.slice(0, 200)}`,
+        502,
+        extractPartnerCode(text),
+      );
+    }
+    // Success envelope: { ok: true, ...cellYearDocFields } — strip ok.
+    const { ok: _ok, ...doc } = body;
+    return doc as PickDocument;
   } catch (e: unknown) {
+    if (e instanceof PartnerHttpError) throw e;
     const message = e instanceof Error ? e.message : String(e);
     throw new PartnerHttpError(`partnerPickDoc invalid JSON: ${message}`, 502);
   }

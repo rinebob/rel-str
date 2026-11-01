@@ -2,16 +2,20 @@
  * Unit tests for the SA pick-doc client (task #1279) — transport-injectable:
  * the fake transport captures PickDocShardRequest objects and returns fixture
  * year shards, so the request shape is asserted without touching the real
- * SA wire (endpoint pending av-proxy-api#225 — TEST-BE seam 1).
+ * SA wire (TEST-BE seam 1). The production `partnerPickDocTransport` is
+ * exercised separately below with globalThis.fetch stubbed — the first
+ * fetch call is the IAM generateIdToken exchange, the second is the
+ * partnerOptionsDeltaPicksV1 upstream call.
  */
 
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 
 import { OptionType } from '../../../shared/options-common.ts';
 import { PartnerHttpError } from '../../../functions/src/partner-infrastructure.ts';
 import {
   fetchPickDoc,
+  partnerPickDocTransport,
   pickDocCellId,
   pickDocDeltaPct,
   type PickDocShardRequest,
@@ -177,6 +181,49 @@ describe('fetchPickDoc — error semantics', () => {
     );
   });
 
+  it('propagates OPTIONS_NOT_ENABLED (symbol-level 404) — not a coverage gap', async () => {
+    // A symbol outside the options-enabled universe must fail the fetch
+    // honestly, not be skipped like a missing year shard.
+    const { transport, calls } = fakeTransport(
+      new Map([[2026, new PartnerHttpError('symbol not enabled', 404, 'OPTIONS_NOT_ENABLED')]]),
+    );
+    await assert.rejects(
+      () =>
+        fetchPickDoc(
+          { symbol: 'ZZZZ', coordinate: PUT_45_20, startDate: '2026-01-05', endDate: '2026-03-31' },
+          transport,
+        ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.equal(e.partnerCode, 'OPTIONS_NOT_ENABLED');
+        return true;
+      },
+    );
+    assert.equal(calls.length, 1); // fails on the first shard — no sweep
+  });
+
+  it('aborts mid-sweep on OPTIONS_NOT_ENABLED — partial coverage never ships', async () => {
+    const { transport, calls } = fakeTransport(
+      new Map<number, PickDocument | PartnerHttpError>([
+        [2025, makeShard({ days: { '2025-06-03': makeDay('QQQ250718P00500000') } })],
+        [2026, new PartnerHttpError('symbol not enabled', 404, 'OPTIONS_NOT_ENABLED')],
+      ]),
+    );
+    await assert.rejects(
+      () =>
+        fetchPickDoc(
+          { symbol: 'QQQ', coordinate: PUT_45_20, startDate: '2025-01-05', endDate: '2026-03-31' },
+          transport,
+        ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.equal(e.partnerCode, 'OPTIONS_NOT_ENABLED');
+        return true;
+      },
+    );
+    assert.equal(calls.length, 2); // fetched 2025, aborted at 2026
+  });
+
   it('propagates non-404 failures (off-grid 400 surfaces immediately)', async () => {
     const { transport } = fakeTransport(
       new Map([[2026, new PartnerHttpError('off-grid delta', 400)]]),
@@ -190,6 +237,187 @@ describe('fetchPickDoc — error semantics', () => {
       (e: unknown) => {
         assert.ok(e instanceof PartnerHttpError);
         assert.equal(e.status, 400);
+        return true;
+      },
+    );
+  });
+
+  it('rejects an inverted window (startYear > endYear) as a 400', async () => {
+    const { transport, calls } = fakeTransport(new Map());
+    await assert.rejects(
+      () =>
+        fetchPickDoc(
+          { symbol: 'QQQ', coordinate: PUT_45_20, startDate: '2027-01-05', endDate: '2026-03-31' },
+          transport,
+        ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.equal(e.status, 400);
+        return true;
+      },
+    );
+    assert.equal(calls.length, 0);
+  });
+
+  it('rejects a 5-digit year as malformed — Number(slice) leniency must not pass', async () => {
+    const { transport } = fakeTransport(new Map());
+    await assert.rejects(
+      () =>
+        fetchPickDoc(
+          { symbol: 'QQQ', coordinate: PUT_45_20, startDate: '20266-01-01', endDate: '2027-01-01' },
+          transport,
+        ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.equal(e.status, 400);
+        return true;
+      },
+    );
+  });
+});
+
+describe('fetchPickDoc — merge metadata', () => {
+  it('maxes gridVersion, takes the latest updatedAt, sums missCount', async () => {
+    const shards = new Map<number, PickDocument>([
+      [2025, makeShard({ gridVersion: 3, updatedAt: '2025-12-31T00:00:00Z', missCount: 4, firstDate: '2025-01-02', lastDate: '2025-12-31', days: { '2025-06-03': makeDay('QQQ250718P00500000') } })],
+      [2026, makeShard({ gridVersion: 2, updatedAt: '2026-10-23T00:00:00Z', missCount: 7, firstDate: '2026-01-02', lastDate: '2026-03-31', days: { '2026-01-05': makeDay('QQQ260515P00565000') } })],
+    ]);
+    const { transport } = fakeTransport(shards);
+    const doc = await fetchPickDoc(
+      { symbol: 'QQQ', coordinate: PUT_45_20, startDate: '2025-01-05', endDate: '2026-03-31' },
+      transport,
+    );
+    assert.equal(doc.gridVersion, 3);
+    assert.equal(doc.updatedAt, '2026-10-23T00:00:00Z');
+    assert.equal(doc.missCount, 11);
+    assert.equal(doc.pickCount, 2);
+  });
+});
+
+// ==========================
+// partnerPickDocTransport — the wire contract (fetch stubbed)
+// ==========================
+
+describe('partnerPickDocTransport — wire contract', () => {
+  let originalFetch: typeof globalThis.fetch;
+  let fetchCalls: { url: string; options: RequestInit }[];
+
+  beforeEach(() => {
+    fetchCalls = [];
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function mockFetch(upstream: Response) {
+    return async (url: string | URL | Request, options?: RequestInit) => {
+      const u = String(url);
+      fetchCalls.push({ url: u, options: options ?? {} });
+      if (u.includes('generateIdToken')) {
+        return new Response(JSON.stringify({ token: 'mock-token' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return upstream;
+    };
+  }
+
+  function jsonResponse(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  function upstreamCall() {
+    const call = fetchCalls.find((c) => c.url.includes('partnerOptionsDeltaPicksV1'));
+    assert.ok(call, 'expected an upstream call');
+    return call;
+  }
+
+  const REQ: PickDocShardRequest = { symbol: 'QQQ', type: OptionType.PUT, deltaPct: 20, dte: 45, year: 2026 };
+
+  it('GETs partnerOptionsDeltaPicksV1 with the documented param names', async () => {
+    const shard = makeShard({ days: { '2026-01-05': makeDay('QQQ260515P00565000') } });
+    globalThis.fetch = mockFetch(jsonResponse({ ok: true, ...shard }));
+
+    await partnerPickDocTransport(REQ);
+
+    const call = upstreamCall();
+    assert.ok(call.url.includes('partnerOptionsDeltaPicksV1'), `url: ${call.url}`);
+    for (const param of ['symbol=QQQ', 'type=put', 'delta=20', 'dte=45', 'year=2026']) {
+      assert.ok(call.url.includes(param), `missing ${param} in ${call.url}`);
+    }
+    const auth = (call.options.headers as Record<string, string>)?.Authorization;
+    assert.equal(auth, 'Bearer mock-token');
+  });
+
+  it('unwraps the {ok:true,…} envelope — returns the doc without ok', async () => {
+    const shard = makeShard({ days: { '2026-01-05': makeDay('QQQ260515P00565000') } });
+    globalThis.fetch = mockFetch(jsonResponse({ ok: true, ...shard }));
+
+    const doc = await partnerPickDocTransport(REQ);
+
+    assert.equal(doc.symbol, 'QQQ');
+    assert.equal('ok' in doc, false);
+    assert.deepEqual(Object.keys(doc.days), ['2026-01-05']);
+  });
+
+  it('rejects ok:false on a 200 as a 502 with the partner code', async () => {
+    globalThis.fetch = mockFetch(
+      jsonResponse({ ok: false, error: 'broken', code: 'INTERNAL_ERROR' }),
+    );
+    await assert.rejects(
+      () => partnerPickDocTransport(REQ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.equal(e.status, 502);
+        assert.equal(e.partnerCode, 'INTERNAL_ERROR');
+        return true;
+      },
+    );
+  });
+
+  it('rejects a 200 lacking ok:true — a malformed success is not a doc', async () => {
+    const shard = makeShard({ days: { '2026-01-05': makeDay('QQQ260515P00565000') } });
+    globalThis.fetch = mockFetch(jsonResponse(shard)); // no `ok` field
+    await assert.rejects(
+      () => partnerPickDocTransport(REQ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.equal(e.status, 502);
+        return true;
+      },
+    );
+  });
+
+  it('rejects invalid JSON on a 200 as a 502', async () => {
+    globalThis.fetch = mockFetch(
+      new Response('<html>oops</html>', { status: 200 }),
+    );
+    await assert.rejects(
+      () => partnerPickDocTransport(REQ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.equal(e.status, 502);
+        return true;
+      },
+    );
+  });
+
+  it('extracts the partner code from an upstream 404 error body', async () => {
+    globalThis.fetch = mockFetch(
+      jsonResponse({ ok: false, error: 'symbol not enabled', code: 'OPTIONS_NOT_ENABLED' }, 404),
+    );
+    await assert.rejects(
+      () => partnerPickDocTransport(REQ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.equal(e.status, 404);
+        assert.equal(e.partnerCode, 'OPTIONS_NOT_ENABLED');
         return true;
       },
     );
