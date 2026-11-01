@@ -8,9 +8,9 @@
 **Domain:** OPTIONS  
 **Type:** TEST  
 **Area:** BE  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-28  
-**Last Updated:** 2026-10-28  
+**Last Updated:** 2026-10-31  
 
 # Test Plan — BE: Partner Contract Availability Proxy
 

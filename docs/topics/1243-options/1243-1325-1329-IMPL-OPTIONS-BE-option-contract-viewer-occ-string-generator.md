@@ -8,9 +8,9 @@
 **Domain:** OPTIONS  
 **Type:** IMPL  
 **Area:** BE  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-28  
-**Last Updated:** 2026-10-28  
+**Last Updated:** 2026-10-31  
 
 # Implementation Plan — BE: Partner Contract Availability Proxy
 
@@ -84,11 +84,15 @@ export interface ContractAvailabilityResponse {
 
 ### Proxy route (`functions/src/options-contract-proxy.ts`)
 
-- Add `AVAILABILITY_V1 = 'partnerContractAvailabilityV1'` to
+- Add `CONTRACT_AVAILABILITY_V1 = 'partnerContractAvailabilityV1'` to
   `PartnerEndpointPath` in `functions/src/types/partner.ts`.
 - New route mirroring the catalog-V2 handler shape:
-  - `PARTNER_CONTRACT_AVAILABILITY_V1_URL` / `..._AUDIENCE` env vars with the
-    same `PARTNER_AUDIENCE` fallback pattern (lines ~32-37).
+  - `PARTNER_CONTRACT_AVAILABILITY_V1_URL` / `..._AUDIENCE` env vars.
+    **As-built deviation:** SA's availability function checks `aud` against
+    the BASE host, not the function URL (function-URL aud → 403
+    'audience mismatch'; verified live 2026-10-31). The default audience is
+    therefore `PARTNER_AUDIENCE` itself — `_URL` still derives from it +
+    path like catalog.
   - Same OIDC token acquisition + Bearer header as the catalog handler.
   - Query-param pass-through: accept the `ContractAvailabilityRequest`
     fields, serialize to the SA param names verbatim (`expirations` array →
@@ -96,6 +100,25 @@ export interface ContractAvailabilityResponse {
   - Validation before upstream call: `symbol` required; reject inverted
     ranges (`Gte > Lte`) with the same 400 shape SA uses
     (`{ ok: false, error, code: 'BAD_REQUEST' }`).
+
+### SA contract notes (from the deployed discovery doc)
+
+Authoritative contract: `av-proxy-api/docs/partner/options-data/
+contract-availability-discovery.md` (status: deployed, 2026-10-31).
+
+- `expirations` accepts at most **30** dates per request — SA returns
+  `BAD_REQUEST` over that. The proxy passes the list verbatim; callers
+  (FE drawer) are responsible for keeping explicit lists within the cap.
+- `truncated` is **dual-source**: the 2,000-contract cap OR SA's
+  25,000 scanned-document read ceiling (hardening committed, deploy
+  pending — expect `truncated` to increase after it ships).
+- Wide unfiltered queries are the slow path (tens of seconds; SA
+  function timeout is 60s) — keep ranges narrow for interactive use.
+- **Doc-vs-reality on `aud`:** the discovery doc says the ID token's
+  audience is "the deployed endpoint URL", but empirically the function
+  URL as `aud` returns 403 while the base host succeeds (verified live
+  2026-10-31). `EXPECTED_GOOGLE_AUDIENCE` is presumably configured to
+  the base host. Implementation follows observed behavior.
   - Upstream non-200 → pass through status + error body (the catalog
     handler's `upstream_error` log + passthrough pattern).
   - Success → return SA's body verbatim (types above); log a

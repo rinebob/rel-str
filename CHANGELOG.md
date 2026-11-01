@@ -12,6 +12,14 @@
 ### Added
 - [Scanner Chart View] 1232-1260_DOCS-CHART-REVIEW: #1260 CODE-REVIEW (PASS) + #1342 UAT (Complete; 9/9) + IMPL-FE as-built
 
+## [2026-10-31]
+
+### Added
+- [Option Contract Time-Series Viewer] 1243-1336_SHARED-DOCS-OPTIONS: `ContractAvailabilityResponse.truncated` comment corrected for SA read-ceiling semantics (dual-source: 2000-cap OR 25k scanned-doc ceiling, per SA discovery doc)
+- [Option Contract Time-Series Viewer] 1243-1336_BE-IMPL-OPTIONS: `queryContractAvailability` callable + `callPartnerContractAvailabilityV1` proxy route — OIDC + Bearer to SA's `partnerContractAvailabilityV1` (base-host `aud`; function-URL `aud` 403s), verbatim param pass-through incl. `expirations[]` comma-join, pre-upstream BAD_REQUEST validation, unreshaped response, `OPTIONS_NOT_ENABLED` → `failed-precondition`
+- [Option Contract Time-Series Viewer] 1243-1336_BE-IMPL-OPTIONS: 15 route-level specs (mocked OIDC/`globalThis.fetch` seam) + 16-check live-SA verify script + run-all/README registration
+- [Option Contract Time-Series Viewer] 1243-1336_DOCS-OPTIONS: #1336 CODE-REVIEW (PASS, 0 majors; 6 nits fixed in-gate) + #1350 UAT (Complete; 16/16 live route + 8/8 callable-seam) + IMPL/TEST as-built updates
+
 ## [2026-10-29]
 
 ### Added
