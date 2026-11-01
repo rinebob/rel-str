@@ -12,6 +12,15 @@
 ### Added
 - [Scanner Chart View] 1232-1260_DOCS-CHART-REVIEW: #1260 CODE-REVIEW (PASS) + #1342 UAT (Complete; 9/9) + IMPL-FE as-built
 
+## [2026-11-01]
+
+### Fixed
+- [Options Backtest] 1238-1240_BE-FIX-BACKTEST: pick-doc client aligned to SA's `partnerOptionsDeltaPicksV1` contract — `delta` param, `{ok:true}` envelope with strict malformed-200 rejection, `OPTIONS_NOT_ENABLED` propagation, shard-skip logging, strict window validation
+
+### Added
+- [Options Backtest] 1238-1351_FE-IMPL-BACKTEST: New Replay Y/M/D start-date selects — impossible dates unconstructable, 2026 coverage floor, 200px symbols field, default 2026-01-01
+- [Options Backtest] 1238-1351_DOCS-BACKTEST: #1351 CODE-REVIEW (PASS, 2 passes) + #1355 UAT (Complete) + IMPL-FE as-built
+
 ## [2026-10-31]
 
 ### Added

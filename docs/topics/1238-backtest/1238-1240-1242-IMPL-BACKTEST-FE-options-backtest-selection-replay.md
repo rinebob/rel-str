@@ -9,7 +9,7 @@
 **Type:** IMPL  
 **Status:** Draft  
 **Created:** 2026-10-25  
-**Last Updated:** 2026-10-25  
+**Last Updated:** 2026-11-01  
 
 # Implementation Plan — FE: Selection Replay
 
@@ -36,6 +36,8 @@ flowchart LR
 - Runs list columns: runId/date, template name, symbols, status, progress (`completedLists/totalLists`), failed count.
 - Run detail: one tab/section per symbol's list doc; coverage header from `pickDocMeta` (pick/miss counts, date range, gridVersion, coordinate).
 - **As-built (#1283):** dedicated `OptionsReplayStore` signalStore (not a feature in `BacktestRunStore` — different data model) behind `OptionsReplayRunsService` watchers; contract-list query is `where runId == X orderBy symbol` against the #1277 composite index. Section mounted as a second `<section>` on `backtest-dashboard` (sim section untouched); the detail is a **shell** — run header + one status card per run symbol (a symbol whose doc isn't written yet renders `pending` so the grid is complete from enqueue onward). The per-symbol coverage header stays with #1285 where its AC lives; template names resolve from `REPLAY_TEMPLATES` with `templateId` fallback for retired ids; `optionsReplayStart` wiring waits for #1284's dialog. Reuses `getBacktestStatusVisuals` (covers `success`) + `formatBacktestRunId`/`formatBacktestTimestamp`.
+
+- **As-built (#1351):** the native `type="date"` startDate was replaced with three **Y/M/D `mat-select`s** — impossible dates are unconstructable because the day list is `daysInMonth(year, month)` (leap-aware) and a month/year change clamps the day value; `marketDateValidator` deleted. Default start: **2026-01-01** and the year select is **floored at 2026** (`EARLIEST_COVERAGE_YEAR`) — earlier years can never have shards. Symbols field narrowed to a fixed 200px (~16 chars); the three date selects flex into the freed space. Payload unchanged — `startDate` still emits `YYYY-MM-DD`.
 
 ### 2. Template picker (run dialog)
 
