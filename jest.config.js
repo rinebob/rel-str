@@ -28,6 +28,8 @@ module.exports = {
     '^@options/common$': '<rootDir>/shared/options-common.ts',
     '^@options-replay/contracts$': '<rootDir>/shared/options-replay-contracts.ts',
     '^@options-replay/templates$': '<rootDir>/shared/options-replay-templates.ts',
+    '^@options-analysis/contracts$': '<rootDir>/shared/options-analysis-contracts.ts',
+    '^@options-analysis/registry$': '<rootDir>/shared/options-analysis-registry.ts',
     '^@common$': '<rootDir>/shared/common.ts',
     '^@options-strategy-engine/contracts$': '<rootDir>/shared/options-strategy-engine-contracts.ts',
     '^@options-strategy-engine/id$': '<rootDir>/shared/strategy-instance-id.ts',
