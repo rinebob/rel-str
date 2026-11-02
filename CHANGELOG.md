@@ -12,6 +12,15 @@
 ### Added
 - [Scanner Chart View] 1232-1260_DOCS-CHART-REVIEW: #1260 CODE-REVIEW (PASS) + #1342 UAT (Complete; 9/9) + IMPL-FE as-built
 
+## [2026-11-02]
+
+### Added
+- [Options Backtest] 1238-1367_SHARED-IMPL-BACKTEST: Exit-strategy registry (6 provisional seeds) + analysis result contracts — discriminated unions on `kind`/`outcome`, `{list}_{exit}` result docs
+- [Options Backtest] 1238-1367_CONFIG-CONFIG-BACKTEST: `@options-analysis/*` path aliases (tsconfig ×2 + jest moduleNameMapper)
+- [Options Backtest] 1238-1367_SHARED-IMPL-BACKTEST: #1367 verify script + run-all registration (18 checks, no credentials)
+- [Options Backtest] 1238-1367_DOCS-BACKTEST: #1367 code-review (PASS) + UAT (Complete) + blueprint doc as-built updates
+- [Options Backtest] 1238-1357_DOCS-BACKTEST: Thread #1266 PRD + FE IMPL/TEST + BE TEST plan docs
+
 ## [2026-11-01]
 
 ### Fixed

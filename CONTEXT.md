@@ -509,5 +509,10 @@ _Avoid_: IV index (implies an exchange product like VIX), realized vol
 
 ## Result Set
 
-A saved performance-analysis output produced by applying a named exit rule (e.g., "limit exit at 50% of premium") to every contract in a Contract List, computed over each contract's Contract Series. Many Result Sets can share one Contract List; comparing them across exit parameters is the analysis goal. Deferred to the exit-analysis Thread — Phase 2 of the options-backtest work.
+A saved performance-analysis output produced by evaluating an exit strategy over every contract in a Contract List — computed over each contract's Contract Series and persisted as one result doc per (Contract List × exitId) under `st-options-analysis-results`. The analyzer evaluates the whole Exit Registry over a Contract List (the exit-event matrix): each `(contract, exitId)` pair produces an independent trade record (`exit`/`expired`/`error`) plus a per-exit-type aggregate. Many Result Sets can share one Contract List; comparing them across exit types is the analysis goal.
 _Avoid_: report (that's the rendered artifact), experiment
+
+## Exit Registry
+
+The code-curated catalog of exit strategies (`shared/options-analysis-registry.ts`) — each entry is an `exitId` + evaluator `kind` + params (e.g., target-90, stop-200, dte-21, expiry). Every registered strategy is evaluated independently over each contract's full series through expiry; one strategy firing never truncates another's scan. Versioned via `EXIT_REGISTRY_VERSION` so result docs record which rule set produced them.
+_Avoid_: rules engine (implies a runtime DSL — entries are code, not data)
