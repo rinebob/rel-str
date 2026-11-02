@@ -382,6 +382,11 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
   },
   {
+    name: 'backtest-analytics registry + contracts',
+    file: 'options-backtest-analytics-1367-registry-contracts.ts',
+    needsAccount: false,
+  },
+  {
     name: 'scan latest-run contract + paths + rules',
     file: 'scanner-chart-view-latest-run-1254.ts',
     needsAccount: false,
