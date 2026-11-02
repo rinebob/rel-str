@@ -237,3 +237,13 @@ export interface OptionsReplayPermutationPayload {
   templateId: string;
   startDate: string;
 }
+
+/** optionsReplayRetry — re-runs failed per-symbol list docs in place
+ *  (Thread #1266, task #1369). */
+export interface OptionsReplayRetryRequest {
+  runId: string;
+}
+
+export interface OptionsReplayRetryResponse {
+  retriedSymbols: string[];
+}
