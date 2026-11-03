@@ -35,6 +35,9 @@
 - [Options Backtest] 1238-1369_BE-IMPL-BACKTEST: optionsReplayRetry callable — transactional failed-outcome claim, partial-enqueue restore, whole-map writes
 - [Options Backtest] 1238-1369_BE-BUG-BACKTEST: whole-map listOutcomes write in worker close-out (dotted-symbol safe)
 - [Options Backtest] 1238-1369_DOCS-BACKTEST: #1369 code-review (PASS, 2 rounds) + UAT (Complete)
+- [Options Backtest] 1238-1370_BE-IMPL-BACKTEST: optionsAnalysisStart callable — success-gated analysis enqueue on dedicated queue
+- [Options Backtest] 1238-1370_BE-BUG-BACKTEST: retry resetListDoc transactional guard + failRun no-restore no-write + shouldResetForRetry
+- [Options Backtest] 1238-1370_DOCS-BACKTEST: #1370 code-review (PASS, 2 rounds) + UAT (Complete) + IMPL-BE worker status-recheck
 
 ## [2026-11-01]
 

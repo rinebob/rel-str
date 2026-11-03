@@ -45,14 +45,14 @@ flowchart LR
 ### 2. `functions/src/options-analysis/start.ts` — `optionsAnalysisStart` (new)
 
 - Request `{contractListDocId}` (shape `{runId}_{symbol}` — validate it exists, `status === 'success'`; non-success → `failed-precondition`).
-- Enqueue `OptionsAnalysisTaskPayload` on a dedicated `options-analysis` Cloud Task queue; respond with `analysisId = contractListDocId`.
+- Enqueue `OptionsAnalysisTaskPayload` on a dedicated Cloud Task queue — named `optionsReplayAnalysis` after the §3 worker function it feeds (queue names = `onTaskDispatched` export names); respond with `analysisId = contractListDocId`.
 - Idempotent: re-invocation enqueues a fresh task that overwrites the same `{listDocId}_{exitId}` docs for the current `EXIT_REGISTRY_VERSION`.
 
 ### 3. `functions/src/options-analysis/worker.ts` — `optionsReplayAnalysis` (new, onTaskDispatched)
 
 Per task (`contractListDocId`):
 
-1. Load list doc; collect pick rows (`contractId` present) — markers skipped.
+1. Load list doc; collect pick rows (`contractId` present) — markers skipped. **Status re-check required (#1370 review):** re-validate `status === 'success'` at run time — a doc enqueued while `success` can be reset to `pending`/`running` by a later `optionsReplayRetry` before the task dispatches. Missing/`undefined` `rows` is a reset-in-progress, NOT a valid empty analysis — treat as retryable (throw → Cloud Task retry), never write zero-count result docs over good ones. A genuinely empty `success` list (all markers) still writes empty result docs per TEST-BE.
 2. **Series fetch** — for each pick row, `callPartnerHistoricalOptionsContractV2(contractId)` from `functions/src/options-contract-proxy.ts`. Bounded concurrency (10) via a simple p-limit-style pool. Per-contract fetch failure → `outcome:'error'` record, never aborts the analysis.
 3. **Evaluate** — for each row × each `EXIT_STRATEGIES` rule, walk the series day-by-day from pick-date through expiry:
    - Evaluator functions keyed by `kind` — pure, non-terminating-friendly: each rule scans independently; when it fires, record `{exitDate, exitPrice}` and stop *that rule's* scan (its position is closed); other rules continue.
