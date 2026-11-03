@@ -39,6 +39,8 @@
 - [Option Contract Time-Series Viewer] 1243-1360_FE-IMPL-OPTIONS: multi-vertex strike-span markers — one series per contract, dot per pick day, span earliest pick → expiration
 - [Option Contract Time-Series Viewer] 1243-1360_FE-IMPL-OPTIONS: focused-view wiring — chip strip mirrors displayed series, foreign-focus chip synthesis, immediate swap on load intent (#1382)
 - [Option Contract Time-Series Viewer] 1243-1360_DOCS-OPTIONS: #1360 code review (PASS, 2 gate rounds) + #1379 UAT (Complete; S0–S10 + negatives) + #1382 QA bugfix notes
+- [Options Backtest] 1238-1371_BE-IMPL-BACKTEST: pure per-kind exit evaluators — independent scans, internal expiry clip, EPS boundary tolerance
+- [Options Backtest] 1238-1371_DOCS-BACKTEST: #1371 code-review (PASS, 2 rounds) + UAT (Complete) + IMPL/TEST annotations
 - [Options Backtest] 1238-1369_BE-IMPL-BACKTEST: optionsReplayRetry callable — transactional failed-outcome claim, partial-enqueue restore, whole-map writes
 - [Options Backtest] 1238-1369_BE-BUG-BACKTEST: whole-map listOutcomes write in worker close-out (dotted-symbol safe)
 - [Options Backtest] 1238-1369_DOCS-BACKTEST: #1369 code-review (PASS, 2 rounds) + UAT (Complete)

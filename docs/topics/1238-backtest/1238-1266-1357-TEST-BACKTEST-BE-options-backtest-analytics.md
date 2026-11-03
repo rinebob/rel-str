@@ -46,7 +46,8 @@
 - `hold-to-expiry`: never fires.
 - **Non-termination property:** a series where target-50 fills day 5 still produces complete dte-21 and expiry scans (verifies per-rule independence — PRD story 6).
 - MAE/MFE per rule window: worst/best mark + date over entry→exit only (not beyond the exit — PRD story 8).
-- Expiry outcome: `expiredItm` from last-bar mark/strike vs underlying close; `assignmentDistancePct` math; missing underlying-close field → defined fallback or error record (depends on the IMPL's flagged verification).
+- Post-expiry clip: bars past `expiration` produce no exits and no excursion (added #1371 review round 1 — the evaluator clips internally).
+- Expiry outcome (worker #1372 — not the pure evaluators): `expiredItm` from last-bar mark/strike vs underlying close; `assignmentDistancePct` math; missing underlying-close field → defined fallback or error record (depends on the IMPL's flagged verification).
 
 ### Aggregator
 - hitRatePct, avgDaysToExit, avgPremiumCapturedPct, worstMae, p50/p90 computed over synthetic record sets; empty-set and all-error edge cases → defined (no NaN).

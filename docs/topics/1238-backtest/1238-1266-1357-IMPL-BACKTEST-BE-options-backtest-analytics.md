@@ -68,7 +68,7 @@ Per task (`contractListDocId`):
 
 ### 4. Registry evaluators (`functions/src/options-analysis/exit-evaluators.ts`, new)
 
-Pure functions: `(series: DayBar[], entryMark: number, rule: ExitStrategyDef) => ExitScanResult` — fires → `{fired:true,date,price,dayIndex}`; else `{fired:false}`. Hold-window MAE/MFE computed in the same walk. Unit-testable without network.
+Pure functions: `(series: ExitScanBar[], entryMark: number, rule: ExitStrategyDef, expiration: string) => ExitScanResult` — fires → `{fired:true,exitDate,exitPrice,dayIndex}`; else `{fired:false}`. Hold-window MAE/MFE computed in the same walk (entry mark included in the window). Unit-testable without network. **Deviation from the 3-param sketch:** `dte-time` needs the contract's expiration to compute remaining DTE and neither the series nor the rule carries it — the pick row does (`PickDocDay.expiration`), so the worker passes it as a 4th arg. Worker preconditions: series date-ascending, `series[0]` is the pick-day bar, marks finite (parse wire strings; drop non-numeric observations). The evaluator clips the scan at `expiration` internally — post-expiry tail bars produce no exits and no excursion. Handoff: `dayIndex` is a bar index, not calendar `daysHeld` (derive via `calendarDaysBetween` pickDate→exitDate); empty-series excursion returns `{entryMark, ''}` — worker substitutes `pickDate` for `''` or writes the error record. The 'expired' outcome check must use clip semantics (expiry date present among live bars), not `series.at(-1)` — a post-expiry tail makes the raw last bar misleading. MAE/MFE convention is short-premium (adverse = mark up); a long-premium template (#1270+) will need `side` fed into excursion direction.
 
 ### 5. Reuse from legacy sim (adapted)
 
