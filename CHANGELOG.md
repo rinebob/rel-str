@@ -27,6 +27,11 @@
 - [Options Backtest] 1238-1368_CONFIG-IMPL-BACKTEST: analysis-results rules (authed-read/deny-write) + composite indexes; rules-test anchored regexes + one-block uniqueness guard
 - [Options Backtest] 1238-1368_SHARED-IMPL-BACKTEST: #1368 verify script + registration; 1367 script routed through canonical builder
 - [Options Backtest] 1238-1368_DOCS-BACKTEST: #1368 code-review (PASS, 2 rounds) + UAT (Complete) + IMPL-BE merge-write note
+- [Option Contract Time-Series Viewer] 1243-1360_SHARED-IMPL-OPTIONS: `PlottedEntry.markerDates` — every pick day a contract was selected on (one dot per pick); `openDate` = earliest
+- [Option Contract Time-Series Viewer] 1243-1360_FE-IMPL-OPTIONS: marker fold + decoupled underlying window — parser unions `markerDates`, context-clamped bar fetches via `underlyingBarsRange`, `plotted-window.utils` canonical helpers, `underlying-bars-feature` extraction; focus claims on intent / releases on error (#1382)
+- [Option Contract Time-Series Viewer] 1243-1360_FE-IMPL-OPTIONS: multi-vertex strike-span markers — one series per contract, dot per pick day, span earliest pick → expiration
+- [Option Contract Time-Series Viewer] 1243-1360_FE-IMPL-OPTIONS: focused-view wiring — chip strip mirrors displayed series, foreign-focus chip synthesis, immediate swap on load intent (#1382)
+- [Option Contract Time-Series Viewer] 1243-1360_DOCS-OPTIONS: #1360 code review (PASS, 2 gate rounds) + #1379 UAT (Complete; S0–S10 + negatives) + #1382 QA bugfix notes
 
 ## [2026-11-01]
 
