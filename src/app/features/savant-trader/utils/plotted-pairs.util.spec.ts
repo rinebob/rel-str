@@ -14,7 +14,9 @@ describe('parsePlottedEntries', () => {
   it('parses a comma-separated (date, contractId) pair', () => {
     const { entries, rejected } = parsePlottedEntries(`2026-06-15,${QQQ_PUT}`, 'QQQ');
     expect(rejected).toEqual([]);
-    expect(entries).toEqual([{ contractId: QQQ_PUT, openDate: '2026-06-15' }]);
+    expect(entries).toEqual([
+      { contractId: QQQ_PUT, openDate: '2026-06-15', markerDates: ['2026-06-15'] },
+    ]);
   });
 
   it('accepts whitespace and tab separators so spreadsheet columns paste in', () => {
@@ -24,15 +26,15 @@ describe('parsePlottedEntries', () => {
     );
     expect(rejected).toEqual([]);
     expect(entries).toEqual([
-      { contractId: QQQ_PUT, openDate: '2026-06-15' },
-      { contractId: QQQ_CALL, openDate: '2026-06-16' },
+      { contractId: QQQ_PUT, openDate: '2026-06-15', markerDates: ['2026-06-15'] },
+      { contractId: QQQ_CALL, openDate: '2026-06-16', markerDates: ['2026-06-16'] },
     ]);
   });
 
   it('accepts a bare contract ID with null openDate', () => {
     const { entries, rejected } = parsePlottedEntries(QQQ_PUT, 'QQQ');
     expect(rejected).toEqual([]);
-    expect(entries).toEqual([{ contractId: QQQ_PUT, openDate: null }]);
+    expect(entries).toEqual([{ contractId: QQQ_PUT, openDate: null, markerDates: [] }]);
   });
 
   it('skips blank lines without rejecting them', () => {
@@ -94,7 +96,37 @@ describe('parsePlottedEntries', () => {
       `2026-06-16,${QQQ_PUT}\n2026-06-15,${QQQ_PUT}\n${QQQ_PUT}`,
       'QQQ',
     );
-    expect(entries).toEqual([{ contractId: QQQ_PUT, openDate: '2026-06-15' }]);
+    expect(entries).toEqual([
+      { contractId: QQQ_PUT, openDate: '2026-06-15', markerDates: ['2026-06-15', '2026-06-16'] },
+    ]);
+  });
+
+  it('unions every supplied date into markerDates for a repeated contract', () => {
+    const { entries } = parsePlottedEntries(
+      `2026-06-17,${QQQ_PUT}\n2026-06-15,${QQQ_PUT}\n2026-06-16,${QQQ_PUT}`,
+      'QQQ',
+    );
+    expect(entries).toEqual([
+      { contractId: QQQ_PUT, openDate: '2026-06-15', markerDates: ['2026-06-15', '2026-06-16', '2026-06-17'] },
+    ]);
+  });
+
+  it('does not duplicate a repeated date in markerDates', () => {
+    const { entries } = parsePlottedEntries(
+      `2026-06-15,${QQQ_PUT}\n2026-06-15,${QQQ_PUT}`,
+      'QQQ',
+    );
+    expect(entries[0].markerDates).toEqual(['2026-06-15']);
+  });
+
+  it('a single-date entry still carries its markerDates', () => {
+    const { entries } = parsePlottedEntries(`2026-06-15,${QQQ_PUT}`, 'QQQ');
+    expect(entries[0].markerDates).toEqual(['2026-06-15']);
+  });
+
+  it('a bare ID carries an empty markerDates list', () => {
+    const { entries } = parsePlottedEntries(QQQ_PUT, 'QQQ');
+    expect(entries[0].markerDates).toEqual([]);
   });
 
   it('returns empty result for empty input', () => {

@@ -10,6 +10,12 @@ import type {
 } from '@options-contract/contracts';
 import { type ParsedObservation, parseObservations } from '../utils/contract-observation.utils';
 import { unionLabels } from '../utils/chart-series.utils';
+import {
+  UNDERLYING_CONTEXT_SESSIONS,
+  earliestPickDate,
+  markerDatesOf,
+} from './plotted-window.utils';
+import type { OHLCDatum } from '../../shared/types/rs.interfaces';
 
 export type DisplayWindow = 'position' | 'lifetime';
 export type PlottedStatus = 'loading' | 'loaded' | 'error';
@@ -55,7 +61,11 @@ interface PlottedSignals {
   chartFocusContractId: Signal<string | null>;
   renderedSeries: Signal<Record<string, ParsedObservation[]>>;
   contractLength: Signal<string | null>;
+  underlyingBars: Signal<OHLCDatum[]>;
   loadContract(occId: string, length?: string | null): void;
+  /** Underlying-bars feature: refetches the set's context window when the
+   *  last requested range no longer covers it (no-op otherwise). */
+  ensureContextCoverage(): void;
 }
 
 const asPlotted = (s: unknown): PlottedSignals => s as PlottedSignals;
@@ -99,24 +109,57 @@ export function withPlottedComputed() {
 export function withAllDatesComputed() {
   return withComputed((state) => {
     const s = asPlotted(state);
+    /** The slice of loaded underlying bars that belongs on the axis —
+     *  [50 sessions before the earliest pick day, last bar]. Null when no
+     *  contract carries marker dates (bare-ID sets get no context prefix)
+     *  or no bars are loaded. Derived from marker dates, not rendered
+     *  points, so clip-to-entry can never shrink it. */
+    const underlyingWindow = computed((): { from: string; to: string } | null => {
+      const earliest = earliestPickDate(s.plottedContracts());
+      if (earliest == null) return null;
+      const barDates = s
+        .underlyingBars()
+        .map((b) => b.date)
+        .filter((d): d is string => !!d)
+        .sort();
+      if (!barDates.length) return null;
+      const prior = barDates.filter((d) => d < earliest);
+      const from =
+        prior.length > UNDERLYING_CONTEXT_SESSIONS
+          ? prior[prior.length - UNDERLYING_CONTEXT_SESSIONS]
+          : (prior[0] ?? barDates[0]);
+      return { from, to: barDates[barDates.length - 1] };
+    });
+    /** Loaded bar dates inside the context window — empty when no dated
+     *  contract is plotted. The focused-view axis unions these the same way
+     *  the set view does, so drill-down keeps the prefix. */
+    const underlyingWindowDates = computed((): string[] => {
+      const win = underlyingWindow();
+      if (!win) return [];
+      return s
+        .underlyingBars()
+        .map((b) => b.date)
+        .filter((d): d is string => !!d && d >= win.from && d <= win.to);
+    });
     return {
-      /** Sorted union of rendered dates plus marker endpoints (open date or
-       *  first observation, and expiration) so the markers are never clipped. */
+      underlyingWindow,
+      underlyingWindowDates,
+
+      /** Sorted union of rendered dates, marker vertices (every pick day +
+       *  expiration), and the underlying window's bar dates — the chart's
+       *  category domain. The underlying contribution is what makes the
+       *  underlying overlay clip-invariant: contract clipping filters
+       *  rendered points but can never remove bar dates from the axis. */
       allDates: computed((): string[] => {
-        // Marker endpoints for every non-error contract with an entry date —
-        // loading entries already know their openDate/expiration, and the
-        // chart emits a span marker for them before the fetch lands. Bare-ID
-        // contracts emit no marker (no selection date to anchor it), and
-        // reversed spans (openDate > expiration) produce no marker either —
-        // both contribute no endpoints.
         const rendered = Object.values(s.renderedSeries()).map((obs) => obs.map((o) => o.date));
         const endpoints: string[] = [];
         for (const c of Object.values(s.plottedContracts())) {
           if (c.status === 'error') continue;
-          if (!c.entry.openDate || c.entry.openDate > c.parsed.expiration) continue;
-          endpoints.push(c.entry.openDate, c.parsed.expiration);
+          const picks = markerDatesOf(c.entry).filter((d) => d <= c.parsed.expiration);
+          if (!picks.length) continue;
+          endpoints.push(...picks, c.parsed.expiration);
         }
-        return unionLabels(...rendered, endpoints);
+        return unionLabels(...rendered, endpoints, underlyingWindowDates());
       }),
     };
   });
@@ -125,12 +168,14 @@ export function withAllDatesComputed() {
 export function withPlottedContracts() {
   return withMethods((store, optionsContractService = inject(OptionsContractService)) => {
     const s = asPlotted(store);
+
     return {
       /** Replace the plotted set with the parsed entries — the input list is
        *  authoritative: contracts absent from it are removed, kept contracts
-       *  retain their loaded data and merge to the earliest supplied openDate,
-       *  previously-errored entries are re-queued. Per-contract failures land
-       *  as status 'error' without affecting the rest. */
+       *  retain their loaded data but take the new list's pick days (openDate
+       *  = earliest), previously-errored entries are re-queued.
+       *  Per-contract failures land as status 'error' without affecting the
+       *  rest. */
       async loadPlotted(entries: PlottedEntry[]): Promise<void> {
         const next: Record<string, PlottedContract> = {};
         const toFetch: ParsedOccContractId[] = [];
@@ -138,25 +183,36 @@ export function withPlottedContracts() {
         for (const e of entries) {
           const parsed = OptionsContractService.parseOccId(e.contractId);
           if (!parsed) continue;
-          const existing = s.plottedContracts()[parsed.contractID] ?? next[parsed.contractID];
-          // Kept contract — preserve the loaded record (no refetch), merging
-          // the earliest openDate when this entry supplies an earlier one.
-          // Entries that failed last time are re-queued rather than skipped.
-          if (existing && existing.status !== 'error') {
-            next[parsed.contractID] =
-              e.openDate && (!existing.entry.openDate || e.openDate < existing.entry.openDate)
-                ? { ...existing, entry: { ...existing.entry, openDate: e.openDate } }
-                : existing;
-            continue;
+          const id = parsed.contractID;
+          const dates = markerDatesOf(e);
+          const incoming = next[id];
+          const prior = s.plottedContracts()[id];
+          if (incoming) {
+            // The same list supplied this contract twice — union within the
+            // call (the parser would normally emit one entry).
+            const merged = [...new Set([...markerDatesOf(incoming.entry), ...dates])].sort();
+            next[id] = {
+              ...incoming,
+              entry: { ...incoming.entry, openDate: merged[0] ?? null, markerDates: merged },
+            };
+          } else if (prior && prior.status !== 'error') {
+            // Kept contract — preserve the loaded record (no refetch), but the
+            // new list's pick days are authoritative: dates it no longer
+            // claims drop off the span marker. Errored entries re-queue.
+            next[id] = {
+              ...prior,
+              entry: { ...prior.entry, openDate: dates[0] ?? null, markerDates: dates },
+            };
+          } else {
+            next[id] = {
+              entry: { contractId: id, openDate: dates[0] ?? null, markerDates: dates },
+              parsed,
+              status: 'loading',
+              data: null,
+              error: null,
+            };
+            toFetch.push(parsed);
           }
-          next[parsed.contractID] = {
-            entry: { contractId: parsed.contractID, openDate: e.openDate },
-            parsed,
-            status: 'loading',
-            data: null,
-            error: null,
-          };
-          toFetch.push(parsed);
         }
 
         // A set load supersedes any focused single contract — otherwise the
@@ -170,6 +226,11 @@ export function withPlottedContracts() {
           plottedContracts: next,
           hoveredContractId: hovered && !next[hovered] ? null : hovered,
         });
+
+        // Dated loads prepend ~50 sessions of underlying context (see
+        // underlyingWindow). Widen the bar fetch only when the last
+        // requested range doesn't already cover it.
+        s.ensureContextCoverage();
         if (!toFetch.length) return;
 
         patchState(store, { plottedLoadProgress: { done: 0, total: toFetch.length } });
@@ -239,6 +300,9 @@ export function withPlottedContracts() {
           hoveredContractId: hovered === contractId ? null : hovered,
           chartFocusContractId: focused === contractId ? null : focused,
         });
+        // Removing the focused chip returns to the set — restore the window
+        // the drill-down narrowed (harmless no-op when nothing narrowed).
+        s.ensureContextCoverage();
       },
 
       clearPlotted(): void {
@@ -255,15 +319,18 @@ export function withPlottedContracts() {
 
       /** Single-contract drill-down — pushes the contract through the existing
        *  loadContract path so the lower panes get full data. The focus flag
-       *  tells the page to render the focused contract instead of the set. */
+       *  (set inside loadContract) tells the page to render the focused
+       *  contract instead of the set. */
       focusPlotted(contractId: string): void {
         s.loadContract(contractId, s.contractLength());
-        patchState(store, { chartFocusContractId: contractId });
       },
 
       /** Return to the plotted-set view (chips "back" affordance). */
       clearChartFocus(): void {
         patchState(store, { chartFocusContractId: null });
+        // Returning to the set restores the wide context window when a
+        // narrower or foreign-symbol range replaced the bars.
+        s.ensureContextCoverage();
       },
     };
   });

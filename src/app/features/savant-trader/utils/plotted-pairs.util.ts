@@ -25,9 +25,10 @@ function isValidIsoDate(s: string): boolean {
 /**
  * Parse pasted plotted-pair input: one entry per line, `YYYY-MM-DD,OCCID`
  * (comma, space, or tab separated — a spreadsheet's two columns paste in
- * directly), or a bare OCC ID. Dedupes on contractId, keeping the earliest
- * supplied open date. `symbol` is the page's underlying — contracts on a
- * different underlying are rejected.
+ * directly), or a bare OCC ID. Dedupes on contractId: `openDate` keeps the
+ * earliest supplied date and `markerDates` unions every supplied date (each
+ * pick day draws its own dot on the span marker). `symbol` is the page's
+ * underlying — contracts on a different underlying are rejected.
  */
 export function parsePlottedEntries(text: string, symbol: string): ParsedPlottedInput {
   const expected = String(symbol || '').trim().toUpperCase();
@@ -64,11 +65,21 @@ export function parsePlottedEntries(text: string, symbol: string): ParsedPlotted
 
     const existing = entries.get(parsed.contractID);
     if (!existing) {
-      entries.set(parsed.contractID, { contractId: parsed.contractID, openDate });
-    } else if (openDate && (!existing.openDate || openDate < existing.openDate)) {
-      existing.openDate = openDate;
+      entries.set(parsed.contractID, {
+        contractId: parsed.contractID,
+        openDate,
+        markerDates: openDate ? [openDate] : [],
+      });
+    } else if (openDate) {
+      if (!existing.markerDates!.includes(openDate)) {
+        existing.markerDates!.push(openDate);
+      }
+      if (!existing.openDate || openDate < existing.openDate) {
+        existing.openDate = openDate;
+      }
     }
   }
 
+  for (const e of entries.values()) e.markerDates!.sort();
   return { entries: [...entries.values()], rejected };
 }

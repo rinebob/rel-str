@@ -14,14 +14,7 @@ import {
 } from '@ngrx/signals';
 
 import { OptionsContractService } from '../services/options-contract.service';
-import { LocalBarReadService } from '../../../core/services/local-bar-read.service';
-import { getMarketDatePT, daysAgoPT } from '../../../core/common/pt-date-utils';
-import type { OhlcBar } from '../../../core/models/market-data.types';
-import type { OHLCDatum } from '../../shared/types/rs.interfaces';
-import type {
-  PartnerHistoricalOptionsContractV2Response,
-  ContractCatalogEntry,
-} from '../../../core/models/partner.types';
+import type { PartnerHistoricalOptionsContractV2Response } from '../../../core/models/partner.types';
 import {
   ContractCatalogState,
   initialCatalogState,
@@ -35,6 +28,11 @@ import {
   withPlottedContracts,
 } from './plotted-contracts-feature';
 import {
+  UnderlyingBarsState,
+  initialUnderlyingBarsState,
+  withUnderlyingBars,
+} from './underlying-bars-feature';
+import {
   type ParsedObservation,
   parseObservations,
   paddedDateRange,
@@ -44,7 +42,6 @@ import {
   countNaNIV,
   countZeroVolume,
 } from '../utils/contract-observation.utils';
-import { toOHLCDatum } from '../utils/ohlc-datum.utils';
 
 export type { ParsedObservation };
 
@@ -52,13 +49,14 @@ export type { ParsedObservation };
 // State
 // ---------------------------------------------------------------------------
 
-export interface OptionsContractViewerState extends ContractCatalogState, PlottedContractsState {
+export interface OptionsContractViewerState
+  extends ContractCatalogState,
+    PlottedContractsState,
+    UnderlyingBarsState {
   occIdInput: string;
   loading: boolean;
   error: string | null;
   contractData: PartnerHistoricalOptionsContractV2Response | null;
-  underlyingBars: OHLCDatum[];
-  underlyingLoading: boolean;
   showUnderlying: boolean;
   showGreeks: boolean;
   showVolumeOI: boolean;
@@ -72,7 +70,6 @@ export interface OptionsContractViewerState extends ContractCatalogState, Plotte
   selectedStrike: number | null;
   indexLoading: boolean;
   indexError: string | null;
-  chartPadDays: number;
   currentSearchIndex: number;
   contractLength: string | null;
 }
@@ -80,12 +77,11 @@ export interface OptionsContractViewerState extends ContractCatalogState, Plotte
 const initialState: OptionsContractViewerState = {
   ...initialCatalogState,
   ...initialPlottedState,
+  ...initialUnderlyingBarsState,
   occIdInput: '',
   loading: false,
   error: null,
   contractData: null,
-  underlyingBars: [],
-  underlyingLoading: false,
   showUnderlying: true,
   showGreeks: true,
   showVolumeOI: true,
@@ -99,7 +95,6 @@ const initialState: OptionsContractViewerState = {
   selectedStrike: null,
   indexLoading: false,
   indexError: null,
-  chartPadDays: 0,
   currentSearchIndex: -1,
   contractLength: null,
 };
@@ -168,35 +163,50 @@ export const OptionsContractViewerStore = signalStore(
 
   withCatalogMethods(),
 
-  withMethods((store, optionsContractService = inject(OptionsContractService), localBarReadService = inject(LocalBarReadService)) => {
-    /** Fetch underlying bars from local Firestore and update store loading state. */
-    function fetchUnderlyingBars(symbol: string, from: string, to: string): void {
-      patchState(store, { underlyingLoading: true });
-      localBarReadService.getDailyBarsForRange$(symbol, from, to).subscribe({
-        next: (bars) => patchState(store, { underlyingBars: toOHLCDatum(bars), underlyingLoading: false }),
-        error: () => patchState(store, { underlyingBars: [], underlyingLoading: false }),
-      });
-    }
+  withUnderlyingBars(),
 
+  withMethods((store, optionsContractService = inject(OptionsContractService)) => {
     /** Shared contract-loading pipeline used by loadContract and navigateContract. */
     function loadContractInternal(occId: string, length: string | null | undefined, index: number): void {
       const parsed = OptionsContractService.parseOccId(occId);
       if (!parsed) {
-        patchState(store, { error: 'Invalid OCC ID format', contractData: null, underlyingBars: [] });
+        // A failed load changes nothing about the displayed view — the
+        // plotted set or previously focused contract stays rendered; only
+        // the error surfaces.
+        patchState(store, { error: 'Invalid OCC ID format' });
         return;
       }
-      // Any contract load becomes the chart's focus — chip drill-down and
-      // the plain single-contract input take the same "show this contract"
-      // path; clearChartFocus() returns the view to the plotted set.
-      patchState(store, { loading: true, error: null, contractData: null, underlyingBars: [], currentSearchIndex: index, chartFocusContractId: parsed.contractID });
+      // Focus is claimed on INTENT — the pane and chips switch to this
+      // contract's loading state immediately rather than lingering on the
+      // old view — and released on error so a failed fetch can't dead-end
+      // the display on an empty focused pane with the set stranded behind.
+      // contractData clears for the same reason: during the fetch the pane
+      // shows the loading spinner, not the prior contract's stale line.
+      patchState(store, { loading: true, error: null, contractData: null, currentSearchIndex: index, chartFocusContractId: parsed.contractID });
       optionsContractService.getHistoricalOptionsContract$(parsed.symbol, parsed.contractID, length).subscribe({
         next: (data) => {
           patchState(store, { loading: false, contractData: data, occIdInput: occId });
           const range = paddedDateRange(data.startDate, data.endDate, store.chartPadDays());
-          fetchUnderlyingBars(data.symbol, range.from, range.to);
+          // A dated plotted set's pick days widen the fetch to the context
+          // window on both edges — chip drill-down never narrows the
+          // underlying away from the set's prefix or tail.
+          store.loadUnderlyingBarsForRange(data.symbol, range.from, range.to);
         },
         error: (err: Error) => {
-          patchState(store, { loading: false, error: err?.message ?? 'Failed to load contract' });
+          // Release focus only while it still points at THIS contract — a
+          // newer load may have claimed it in the meantime. Releasing lands
+          // the view back on the plotted set (or the empty single view);
+          // the set itself is untouched so the error can't strand it.
+          const focus = store.chartFocusContractId();
+          patchState(store, {
+            loading: false,
+            error: err?.message ?? 'Failed to load contract',
+            chartFocusContractId: focus === parsed.contractID ? null : focus,
+          });
+          // The contract load failed — pre-existing bars stay. Refetch the
+          // set's own context only when the last range no longer covers it
+          // (a narrower or foreign-symbol range replaced the bars).
+          store.ensureContextCoverage();
         },
       });
     }
@@ -208,25 +218,6 @@ export const OptionsContractViewerStore = signalStore(
 
     setContractLength(value: string | null): void {
       patchState(store, { contractLength: value });
-    },
-
-    /** Fetch underlying bars for a symbol without needing a loaded contract. */
-    loadUnderlyingBars(symbol: string): void {
-      const sym = String(symbol || '').trim().toUpperCase();
-      if (!sym) return;
-      // Use PT to match backend bar dates (UTC would cause off-by-one at boundaries)
-      const to = getMarketDatePT();
-      const from = daysAgoPT(730);
-      fetchUnderlyingBars(sym, from, to);
-    },
-
-    /** Fetch full underlying history for a symbol (10 years). */
-    loadUnderlyingBarsFullHistory(symbol: string): void {
-      const sym = String(symbol || '').trim().toUpperCase();
-      if (!sym) return;
-      const to = getMarketDatePT();
-      const from = daysAgoPT(3650);
-      fetchUnderlyingBars(sym, from, to);
     },
 
     loadContract(occId: string, length?: string | null): void {
@@ -332,24 +323,6 @@ export const OptionsContractViewerStore = signalStore(
           filteredExpirations: [...store.expirations()],
         });
       }
-    },
-
-    addPadDays(days: number): void {
-      const newPad = store.chartPadDays() + days;
-      patchState(store, { chartPadDays: newPad });
-
-      const data = store.contractData();
-      if (!data) return;
-      const range = paddedDateRange(data.startDate, data.endDate, newPad);
-      fetchUnderlyingBars(data.symbol, range.from, range.to);
-    },
-
-    resetPadDays(): void {
-      patchState(store, { chartPadDays: 0 });
-
-      const data = store.contractData();
-      if (!data) return;
-      fetchUnderlyingBars(data.symbol, data.startDate, data.endDate);
     },
 
     navigateCatalogContract(direction: 1 | -1): void {
