@@ -20,6 +20,10 @@
 - [Options Backtest] 1238-1367_SHARED-IMPL-BACKTEST: #1367 verify script + run-all registration (18 checks, no credentials)
 - [Options Backtest] 1238-1367_DOCS-BACKTEST: #1367 code-review (PASS) + UAT (Complete) + blueprint doc as-built updates
 - [Options Backtest] 1238-1357_DOCS-BACKTEST: Thread #1266 PRD + FE IMPL/TEST + BE TEST plan docs
+- [Options Backtest] 1238-1368_SHARED-IMPL-BACKTEST: `st-options-analysis-results` root + `{list}_{exit}` doc-key builder
+- [Options Backtest] 1238-1368_CONFIG-IMPL-BACKTEST: analysis-results rules (authed-read/deny-write) + composite indexes; rules-test anchored regexes + one-block uniqueness guard
+- [Options Backtest] 1238-1368_SHARED-IMPL-BACKTEST: #1368 verify script + registration; 1367 script routed through canonical builder
+- [Options Backtest] 1238-1368_DOCS-BACKTEST: #1368 code-review (PASS, 2 rounds) + UAT (Complete) + IMPL-BE merge-write note
 
 ## [2026-11-01]
 
