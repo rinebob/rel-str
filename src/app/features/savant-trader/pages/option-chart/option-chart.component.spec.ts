@@ -8,7 +8,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { of, throwError } from 'rxjs';
+import { of, throwError, delay } from 'rxjs';
 
 import { OptionChartComponent } from './option-chart.component';
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
@@ -16,9 +16,16 @@ import { OptionsContractService } from '../../services/options-contract.service'
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import { plottedSeriesColor } from '../../components/options-contract-chart/options-contract-chart-series.builder';
 import type { PartnerHistoricalOptionsContractV2Response } from '../../../../core/models/partner.types';
+import type { OhlcBar } from '../../../../core/models/market-data.types';
 
 const QQQ_PUT = 'QQQ260619P00470000';
 const QQQ_CALL = 'QQQ260619C00475000';
+
+const bar = (d: string, c = 100): OhlcBar => ({ d, o: c, h: c, l: c, c, v: 0 });
+const days = (start: string, n: number): OhlcBar[] =>
+  Array.from({ length: n }, (_, i) =>
+    bar(new Date(Date.parse(`${start}T00:00:00Z`) + i * 86400000).toISOString().slice(0, 10)),
+  );
 
 function contractResponse(
   contractID: string,
@@ -38,12 +45,12 @@ function contractResponse(
   };
 }
 
-function setup(getHistorical?: jest.Mock, dialogResult = true): Setup {
+function setup(getHistorical?: jest.Mock, dialogResult = true, bars: OhlcBar[] = []): Setup {
   const optionsService = {
     getHistoricalOptionsContract$:
       getHistorical ?? jest.fn((_s: string, cid: string) => of(contractResponse(cid, ['2026-06-01', '2026-06-10']))),
   };
-  const barService = { getDailyBarsForRange$: jest.fn(() => of([])) };
+  const barService = { getDailyBarsForRange$: jest.fn(() => of(bars)) };
   const dialog = {
     open: jest.fn(() => ({ afterClosed: () => of(dialogResult) })),
     openDialogs: [] as unknown[],
@@ -61,13 +68,14 @@ function setup(getHistorical?: jest.Mock, dialogResult = true): Setup {
   const store = TestBed.inject(OptionsContractViewerStore);
   // Instantiated outside a view — ngOnInit never runs; specs only read computeds.
   const component = TestBed.runInInjectionContext(() => new OptionChartComponent());
-  return { store, component, dialog };
+  return { store, component, dialog, barService };
 }
 
 interface Setup {
   store: InstanceType<typeof OptionsContractViewerStore>;
   component: OptionChartComponent;
   dialog: { open: jest.Mock };
+  barService: { getDailyBarsForRange$: jest.Mock };
 }
 
 async function flush(): Promise<void> {
@@ -159,6 +167,51 @@ describe('OptionChartComponent — chart projection', () => {
     // Focused view uses the contract's own axis — the chart unions the
     // marker endpoints (openDate + expiration) into it internally.
     expect(component.chartAxisLabels()).toEqual(['2026-06-01', '2026-06-10']);
+  });
+
+  it('passes every pick day through as markerDates for the span-marker vertices', async () => {
+    const { store, component } = setup();
+    await store.loadPlotted([
+      { contractId: QQQ_PUT, openDate: '2026-06-01', markerDates: ['2026-06-01', '2026-06-05', '2026-06-10'] },
+      { contractId: QQQ_CALL, openDate: null },
+    ]);
+
+    const series = component.plottedChartSeries();
+    expect(series[0].markerDates).toEqual(['2026-06-01', '2026-06-05', '2026-06-10']);
+    expect(series[1].markerDates).toEqual([]);
+  });
+
+  it('the focused contract keeps its pick days for the drill-down marker', async () => {
+    const { store, component } = setup();
+    await store.loadPlotted([
+      { contractId: QQQ_PUT, openDate: '2026-06-01', markerDates: ['2026-06-01', '2026-06-05'] },
+      { contractId: QQQ_CALL, openDate: null },
+    ]);
+
+    store.focusPlotted(QQQ_PUT);
+    await flush();
+
+    expect(component.plottedChartSeries()[0].markerDates).toEqual(['2026-06-01', '2026-06-05']);
+  });
+
+  it('the focused axis unions the underlying context window', async () => {
+    const { store, component } = setup(undefined, true, days('2026-03-20', 90));
+    store.loadUnderlyingBars('QQQ');
+    await flush();
+    await store.loadPlotted([
+      { contractId: QQQ_PUT, openDate: '2026-06-05', markerDates: ['2026-06-05'] },
+      { contractId: QQQ_CALL, openDate: null },
+    ]);
+
+    store.focusPlotted(QQQ_PUT);
+    await flush();
+
+    // 77 bar-sessions precede the 06-05 pick → the window opens 50 sessions
+    // back at 04-16 and the axis runs to the last bar (06-17), unioning the
+    // contract's own observations — the prefix survives drill-down.
+    const labels = component.chartAxisLabels();
+    expect(labels[0]).toBe('2026-04-16');
+    expect(labels[labels.length - 1]).toBe('2026-06-17');
   });
 
   it('clearChartFocus returns the projection to the whole set', async () => {
@@ -349,6 +402,72 @@ describe('OptionChartComponent — chart projection', () => {
       const errChip = component.chipContracts().find((c) => c.status === 'error')!;
       component.onChipEnter(errChip);
       expect(store.hoveredContractId()).toBeNull();
+    });
+
+    it('focused view mirrors the chart — only the focused contract gets a chip', async () => {
+      const { store, component } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: null },
+        { contractId: QQQ_CALL, openDate: null },
+      ]);
+      store.focusPlotted(QQQ_CALL);
+      await flush();
+
+      const chips = component.chipContracts();
+      expect(chips).toHaveLength(1);
+      expect(chips[0].entry.contractId).toBe(QQQ_CALL);
+      // A focused contract is series 0 of its single-series render — the
+      // swatch indexes the displayed list, not the hidden set.
+      expect(component.chipColor(chips[0])).toBe(plottedSeriesColor(0));
+    });
+
+    it('a focused contract outside the set synthesizes its chip from contractData', async () => {
+      const { store, component } = setup();
+      await store.loadPlotted([{ contractId: QQQ_PUT, openDate: null }]);
+      store.loadContract(QQQ_CALL); // foreign focus — not a plotted member
+      await flush();
+
+      const chips = component.chipContracts();
+      expect(chips).toHaveLength(1);
+      expect(chips[0].entry.contractId).toBe(QQQ_CALL);
+      expect(chips[0].status).toBe('loaded');
+      expect(chips[0].data?.contractID).toBe(QQQ_CALL);
+      expect(component.chipColor(chips[0])).toBe(plottedSeriesColor(0));
+    });
+
+    it('clearing focus puts the set chips back', async () => {
+      const { store, component } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: null },
+        { contractId: QQQ_CALL, openDate: null },
+      ]);
+      store.focusPlotted(QQQ_CALL);
+      await flush();
+      expect(component.chipContracts()).toHaveLength(1);
+
+      store.clearChartFocus();
+      expect(component.chipContracts()).toHaveLength(2);
+    });
+
+    it('the chip swaps to the incoming contract on load intent — not on data arrival', async () => {
+      const FOREIGN = 'QQQ260619C00480000';
+      const getHistorical = jest.fn((_s: string, cid: string) =>
+        of(contractResponse(cid, ['2026-06-01', '2026-06-10'])).pipe(delay(0)),
+      );
+      const { store, component } = setup(getHistorical);
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: null },
+        { contractId: QQQ_CALL, openDate: null },
+      ]);
+
+      store.loadContract(FOREIGN); // claims focus before data arrives
+      const chips = component.chipContracts();
+      expect(chips).toHaveLength(1);
+      expect(chips[0].entry.contractId).toBe(FOREIGN);
+      expect(chips[0].status).toBe('loading');
+
+      await flush();
+      expect(component.chipContracts()[0].status).toBe('loaded');
     });
 
     it('chip remove drops the contract from the set', async () => {

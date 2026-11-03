@@ -41,7 +41,7 @@ import type { PlottedContract } from '../../stores/plotted-contracts-feature';
 import { ConfirmDialogComponent } from '../option-chain-pct-change/components/confirm-dialog.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { formatUtcDate } from '../../utils/utils';
-import { padDateLabels } from '../../utils/chart-series.utils';
+import { padDateLabels, unionLabels } from '../../utils/chart-series.utils';
 import {
   groupLengthBuckets,
   getLengthLabel,
@@ -50,7 +50,7 @@ import {
   type LengthGroup,
 } from '../../utils/contract-length.utils';
 import type { ContractCatalogEntry, LengthBucket } from '@options-contract/contracts';
-import { OptionType, type ParsedOccContractId } from '@options-contract/contracts';
+import { OptionType, parseOccContractId, type ParsedOccContractId } from '@options-contract/contracts';
 
 /** Pasting more than this many contracts asks for confirmation first — the
  *  chart stays usable but the fetch batch and line count get unwieldy. */
@@ -318,6 +318,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
           strike: c.parsed.strike,
           expiration: c.parsed.expiration,
           openDate: c.entry.openDate,
+          markerDates: c.entry.markerDates ?? [],
           points: rendered[c.entry.contractId] ?? [],
         }));
     }
@@ -328,9 +329,10 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     // A focused contract keeps its plotted openDate so the span marker is
     // identical between set view and drill-down.
     const focusedId = this.store.chartFocusContractId();
-    const openDate = focusedId != null
-      ? (this.store.plottedContracts()[focusedId]?.entry.openDate ?? null)
+    const focusedEntry = focusedId != null
+      ? this.store.plottedContracts()[focusedId]?.entry
       : null;
+    const openDate = focusedEntry?.openDate ?? null;
     // The display-window clip applies here too — a focused contract with an
     // entry date clips the same way it does in the set.
     const raw = this.store.observations();
@@ -344,6 +346,9 @@ export class OptionChartComponent implements OnInit, OnDestroy {
         strike: parsed?.strike ?? Number(data.strike),
         expiration: parsed?.expiration ?? data.expiration,
         openDate,
+        // A focused contract keeps every pick day — the drill-down marker is
+        // identical to the set view's (dots at each selection date).
+        markerDates: focusedEntry?.markerDates ?? [],
         points,
       },
     ];
@@ -359,11 +364,13 @@ export class OptionChartComponent implements OnInit, OnDestroy {
    *  endpoints itself. The set view uses the store's union across contracts
    *  extended by chartPadDays (the +Nd buttons pad the label domain — same
    *  mechanism padObservations uses for the single-contract axis), the
-   *  single/focused view uses the loaded contract's already-padded dates. */
+   *  single/focused view unions the loaded contract's already-padded dates
+   *  with the underlying context window so a plotted contract's drill-down
+   *  keeps the pick-day prefix. Bare loads have no window — no union. */
   readonly chartAxisLabels = computed<string[]>(() =>
     this.showPlottedSet()
       ? padDateLabels(this.store.allDates(), this.store.chartPadDays())
-      : this.store.xLabels(),
+      : unionLabels(this.store.xLabels(), this.store.underlyingWindowDates()),
   );
 
   /** Parse a YYYY-MM-DD expiration string into year/month/day parts. */
@@ -497,14 +504,30 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.uiStateService.setFullscreen(false);
   }
 
-  /** Chips strip — every plotted contract in insertion order. */
-  readonly chipContracts = computed<PlottedContract[]>(() => this.store.plottedList());
+  /** Chips strip — mirrors the chart: every plotted contract in set view, or
+   *  just the focused contract while it owns the pane. A focused contract
+   *  outside the set (catalog row / single-id load) synthesizes a chip from
+   *  the loaded contractData so the strip never advertises contracts that
+   *  aren't on screen — hover-dim only makes sense against displayed lines. */
+  readonly chipContracts = computed<PlottedContract[]>(() => {
+    const focused = this.store.chartFocusContractId();
+    if (focused == null) return this.store.plottedList();
+    const inSet = this.store.plottedContracts()[focused];
+    if (inSet) return [inSet];
+    const parsed = parseOccContractId(focused);
+    if (!parsed) return [];
+    const data = this.store.contractData();
+    // contractData clears at load intent and only fills on success — its
+    // presence marks the focused contract's own fetch as resolved.
+    return [{ entry: { contractId: focused, openDate: null }, parsed, status: data ? 'loaded' : 'loading', data, error: null }];
+  });
 
-  /** Chip swatch index — position among non-error contracts, which is what
-   *  the chart's series palette indexes over. */
+  /** Chip swatch index — position among non-error DISPLAYED contracts, which
+   *  is what the chart's series palette indexes over (a focused contract is
+   *  always series 0 of its single-series render). */
   readonly chipColorIndex = computed(() => {
     const map = new Map<string, number>();
-    this.store.plottedList()
+    this.chipContracts()
       .filter((c) => c.status !== 'error')
       .forEach((c, i) => map.set(c.entry.contractId, i));
     return map;
