@@ -34,6 +34,7 @@ import {
 
 import type { OHLCDatum } from '../../../shared/types/rs.interfaces';
 import type { ParsedObservation } from '../../utils/contract-observation.utils';
+import type { StudyRange } from '../../utils/option-group-generator.utils';
 import { formatUtcDate } from '../../utils/utils';
 import { alignSeriesToLabels, minMaxInRange } from '../../utils/chart-series.utils';
 import {
@@ -85,6 +86,10 @@ export class OptionsContractChartComponent implements OnDestroy {
   /** Pointer over a mark line, span marker, or legend entry emits that
    *  contract id; pointer anywhere else (or leaving the chart) emits null. */
   seriesHovered = output<string | null>();
+
+  /** Study-range brush result — emitted by the brush overlay (FE-4);
+   *  routed by the page into the generator store's alive-range bound. */
+  studyRange = output<StudyRange | null>();
 
   private readonly chart = viewChild<SfChartComponent>('chart');
   private readonly visibleRange = signal<{ min: number; max: number } | null>(null);

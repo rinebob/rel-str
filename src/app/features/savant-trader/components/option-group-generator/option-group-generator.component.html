@@ -1,0 +1,244 @@
+﻿<div class="gen-panel">
+  <div class="gen-header">
+    <span class="gen-title">Group Generator</span>
+    <span class="gen-symbol">{{ store.symbol() || '—' }}</span>
+    <button mat-icon-button class="gen-close" (click)="close.emit()" matTooltip="Close panel" aria-label="Close generator panel">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+
+  <!-- Query axes — what gets fetched -->
+  <div class="gen-section">
+    <div class="gen-section-title">Query</div>
+
+    <div class="gen-row">
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Strike From</mat-label>
+        <input matInput type="number" [ngModel]="store.query().strikeGte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('query', 'strikeGte', $event)" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Strike To</mat-label>
+        <input matInput type="number" [ngModel]="store.query().strikeLte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('query', 'strikeLte', $event)" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Step</mat-label>
+        <input matInput type="number" [ngModel]="store.query().strikeStep ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('query', 'strikeStep', $event)" />
+      </mat-form-field>
+    </div>
+
+    <div class="gen-row">
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Exp From</mat-label>
+        <input matInput [matDatepicker]="qExpGtePicker" [ngModel]="queryExpGteDate()" (dateChange)="onAxisDate('query', 'expirationGte', $event.value)" />
+        <mat-datepicker-toggle matSuffix [for]="qExpGtePicker"></mat-datepicker-toggle>
+        <mat-datepicker #qExpGtePicker></mat-datepicker>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Exp To</mat-label>
+        <input matInput [matDatepicker]="qExpLtePicker" [ngModel]="queryExpLteDate()" (dateChange)="onAxisDate('query', 'expirationLte', $event.value)" />
+        <mat-datepicker-toggle matSuffix [for]="qExpLtePicker"></mat-datepicker-toggle>
+        <mat-datepicker #qExpLtePicker></mat-datepicker>
+      </mat-form-field>
+    </div>
+
+    <mat-form-field appearance="outline" class="gen-field gen-field-full">
+      <mat-label>Expirations (list overrides range)</mat-label>
+      <input matInput [ngModel]="queryExpiryText()" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisExpiries('query', $event)" placeholder="2026-06-19, 2026-07-17" />
+    </mat-form-field>
+
+    <mat-button-toggle-group
+      class="gen-type-toggle"
+      [ngModel]="store.query().type"
+      (ngModelChange)="onQueryType($event)"
+    >
+      <mat-button-toggle value="C">Calls</mat-button-toggle>
+      <mat-button-toggle value="P">Puts</mat-button-toggle>
+      <mat-button-toggle value="BOTH">Both</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <div class="gen-actions">
+      <button
+        mat-flat-button
+        color="primary"
+        class="gen-run"
+        (click)="onRun()"
+        [disabled]="store.status() === 'loading' || !store.symbol()"
+      >
+        Run
+      </button>
+      <button mat-stroked-button (click)="onClear()" matTooltip="Reset axes, results, and saved settings">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Preview — what came back / survived refine -->
+  <div class="gen-section">
+    @if (store.status() === 'loading') {
+    <div class="gen-status" role="status">
+      <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
+      <span>Querying availability...</span>
+    </div>
+    } @else if (store.status() === 'error') {
+    <div class="gen-error" role="alert">
+      <span class="gen-error-text">{{ store.error() }}</span>
+      <button mat-stroked-button class="gen-retry" (click)="onRun()">Retry</button>
+    </div>
+    } @else if (emptyMessage(); as msg) {
+    <div class="gen-empty">{{ msg }}</div>
+    } @else {
+    <div class="gen-count">
+      {{ store.filtered().length }} contract{{ store.filtered().length === 1 ? '' : 's' }}
+      @if (store.filtered().length !== store.records().length) {
+      <span class="gen-count-of">of {{ store.records().length }}</span>
+      }
+      <button type="button" class="gen-lines-toggle" (click)="showLines.set(!showLines())">
+        {{ showLines() ? 'hide lines' : 'view lines' }}
+      </button>
+      <button
+        mat-icon-button
+        class="gen-lines-copy"
+        (click)="onCopyLines()"
+        matTooltip="Copy send lines"
+        aria-label="Copy send lines"
+      >
+        <mat-icon>content_copy</mat-icon>
+      </button>
+    </div>
+    @if (store.truncated()) {
+    <div class="gen-truncated">Truncated — endpoint returned first {{ store.records().length }} availability rows; narrow filters to refine</div>
+    }
+    <div class="gen-table-wrap">
+      <table class="gen-table">
+        <thead>
+          <tr>
+            <th>Contract</th>
+            <th>Exp</th>
+            <th class="num">Strike</th>
+            <th>T</th>
+            <th>First</th>
+            <th>Last</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of store.filtered(); track c.contractId) {
+          <tr>
+            <td class="mono">{{ c.contractId }}</td>
+            <td class="mono">{{ c.expiration }}</td>
+            <td class="num">{{ c.strike }}</td>
+            <td>
+              <span class="gen-type-badge" [class.call]="c.type === 'call'" [class.put]="c.type === 'put'">
+                {{ c.type === 'call' ? 'C' : 'P' }}
+              </span>
+            </td>
+            <td class="mono">{{ c.firstObserved }}</td>
+            <td class="mono">{{ c.lastObserved }}</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (showLines()) {
+    <pre class="gen-lines">{{ sendLines().join('\n') }}</pre>
+    }
+    }
+  </div>
+
+  <!-- Refine — client-side narrowing, never refetches -->
+  <div class="gen-section">
+    <div class="gen-section-title">Refine <span class="gen-section-hint">(no refetch)</span></div>
+
+    <div class="gen-row">
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Strike Min</mat-label>
+        <input matInput type="number" [ngModel]="store.refine().strikeGte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('refine', 'strikeGte', $event)" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Strike Max</mat-label>
+        <input matInput type="number" [ngModel]="store.refine().strikeLte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('refine', 'strikeLte', $event)" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Step</mat-label>
+        <input matInput type="number" [ngModel]="store.refine().strikeStep ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('refine', 'strikeStep', $event)" />
+      </mat-form-field>
+    </div>
+
+    <div class="gen-row">
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Exp Min</mat-label>
+        <input matInput [matDatepicker]="rExpGtePicker" [ngModel]="refineExpGteDate()" (dateChange)="onAxisDate('refine', 'expirationGte', $event.value)" />
+        <mat-datepicker-toggle matSuffix [for]="rExpGtePicker"></mat-datepicker-toggle>
+        <mat-datepicker #rExpGtePicker></mat-datepicker>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="gen-field">
+        <mat-label>Exp Max</mat-label>
+        <input matInput [matDatepicker]="rExpLtePicker" [ngModel]="refineExpLteDate()" (dateChange)="onAxisDate('refine', 'expirationLte', $event.value)" />
+        <mat-datepicker-toggle matSuffix [for]="rExpLtePicker"></mat-datepicker-toggle>
+        <mat-datepicker #rExpLtePicker></mat-datepicker>
+      </mat-form-field>
+    </div>
+
+    <mat-form-field appearance="outline" class="gen-field gen-field-full">
+      <mat-label>Expirations</mat-label>
+      <input matInput [ngModel]="refineExpiryText()" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisExpiries('refine', $event)" placeholder="comma-separated" />
+    </mat-form-field>
+
+    <mat-button-toggle-group
+      class="gen-type-toggle"
+      [ngModel]="store.refine().type ?? 'ALL'"
+      (ngModelChange)="onRefineType($event)"
+    >
+      <mat-button-toggle value="ALL">All</mat-button-toggle>
+      <mat-button-toggle value="call">Calls</mat-button-toggle>
+      <mat-button-toggle value="put">Puts</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    @if (store.refine().aliveRange; as range) {
+    <div class="gen-alive-range">
+      <span class="gen-alive-label">Alive across</span>
+      <span class="mono">{{ range.start }} → {{ range.end }}</span>
+      <button mat-icon-button class="gen-alive-clear" (click)="store.applyRange(null)" matTooltip="Clear range bound" aria-label="Clear range bound">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    }
+  </div>
+
+  <!-- Open date -->
+  <div class="gen-section">
+    <div class="gen-section-title">Open Date</div>
+    <mat-form-field appearance="outline" class="gen-field gen-field-full">
+      <mat-label>Open date</mat-label>
+      <input
+        matInput
+        [matDatepicker]="openDatePicker"
+        [ngModel]="openDateDate()"
+        (dateChange)="onOpenDateChange($event.value)"
+      />
+      <mat-datepicker-toggle matSuffix [for]="openDatePicker"></mat-datepicker-toggle>
+      <mat-datepicker #openDatePicker></mat-datepicker>
+    </mat-form-field>
+    <mat-slide-toggle
+      [checked]="store.useRangeAsOpenDate()"
+      (change)="store.setUseRangeAsOpenDate($event.checked)"
+    >
+      Use study-range start as open date
+    </mat-slide-toggle>
+  </div>
+
+  <!-- Send -->
+  <div class="gen-footer">
+    <button
+      mat-flat-button
+      color="primary"
+      class="gen-send"
+      (click)="onSend()"
+      [disabled]="store.filtered().length === 0"
+    >
+      Send {{ store.filtered().length }} to chart
+    </button>
+    @if (store.filtered().length === 0) {
+    <div class="gen-send-hint">Run and refine to a non-empty set first</div>
+    }
+  </div>
+</div>

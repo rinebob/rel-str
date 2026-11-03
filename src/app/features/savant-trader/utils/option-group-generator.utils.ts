@@ -110,7 +110,8 @@ export function refineContracts(
 }
 
 /** True when both range bounds are set and the lower exceeds the upper —
- *  the form's reject condition (endpoint 400s inverted ranges). */
+ *  used by applyRange/persisted-settings sanitize (endpoint 400s inverted
+ *  ranges); axis inputs currently rely on the endpoint's own rejection. */
 export function isInvertedRange(gte: string | undefined, lte: string | undefined): boolean {
   return gte !== undefined && lte !== undefined && gte > lte;
 }
