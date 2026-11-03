@@ -371,6 +371,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // st-options-analysis-results — Backtest Analytics (Topic #1238,
+    // Thread #1266). Backend-written by the analyzer worker; same policy
+    // as contract-lists: authed read, deny client writes.
+    match /st-options-analysis-results/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // st-paper-trading — renamed anchors (accounts/trades/stats/raw-quotes
     // items). All writes are server-side (ledger passes); FE is read-only,
     // including one level of nested subcollections for future kinds.

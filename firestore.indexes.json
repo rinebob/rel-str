@@ -387,6 +387,34 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "st-options-analysis-results",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "contractListDocId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "exitId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "st-options-analysis-results",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "runId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "exitId",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

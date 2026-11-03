@@ -73,6 +73,7 @@ describe("firestore.rules — canonical st-* coverage (#1012)", () => {
       "st-backtest-permutations",
       "st-options-replay-runs",
       "st-options-contract-lists",
+      "st-options-analysis-results",
     ];
     for (const root of expected) {
       assert.ok(hasMatch(`${root}/{`), `missing match block for /${root}/`);
@@ -83,21 +84,57 @@ describe("firestore.rules — canonical st-* coverage (#1012)", () => {
   });
 
   it("keeps backend-written roots read-only for clients", () => {
-    // st-signals / st-runs(+jobs) / st-paper-trading / st-backtest-permutations
-    // deny all client writes.
+    // Backend-written roots deny all client writes. The `\s*\}` anchor
+    // pins the block's closing brace — an appended write leg inside the
+    // block would otherwise slip past the pattern.
     const readOnly = [
-      /match \/st-signals\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
-      /match \/st-paper-trading\/\{anchor\}\/items\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
-      /match \/st-backtest-permutations\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
-      /match \/st-options-replay-runs\/\{runId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
-      /match \/st-options-contract-lists\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;/,
+      /match \/st-signals\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;\s*\}/,
+      /match \/st-backtest-permutations\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;\s*\}/,
+      /match \/st-options-replay-runs\/\{runId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;\s*\}/,
+      /match \/st-options-contract-lists\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;\s*\}/,
+      /match \/st-options-analysis-results\/\{docId\}\s*\{\s*allow read: if request\.auth != null;\s*allow write: if false;\s*\}/,
     ];
     for (const pattern of readOnly) {
       assert.match(rules, pattern);
     }
+    // Existence alone is not enough — Firestore ORs allows across matching
+    // blocks, so a second block for the same path could grant writes while
+    // the pristine first block still satisfies the regexes above. Pin each
+    // read-only root to exactly one match block.
+    const readOnlyRoots = [
+      "st-signals",
+      "st-backtest-permutations",
+      "st-options-replay-runs",
+      "st-options-contract-lists",
+      "st-options-analysis-results",
+    ];
+    for (const root of readOnlyRoots) {
+      const occurrences = rules.split(`match /${root}/`).length - 1;
+      assert.equal(occurrences, 1, `expected exactly one match block for ${root}, found ${occurrences}`);
+    }
     // st-runs exposes the jobs subcollection read-only as well.
     assert.ok(hasMatch("st-runs/{runId}"), "missing st-runs match block");
     assert.match(rules, /match \/st-runs\/[\s\S]*?match \/jobs\/\{jobId\}/);
+  });
+
+  it("grants analysis-anchor FE writes parity with the retired legacy block (#1158)", () => {
+    // st-paper-trading: authed read on all anchors; analysis-slices gets
+    // full CRUD (user-written saved views), analysis-datasets update +
+    // delete only (create stays server-side — the callable mints index
+    // docs). Every other anchor remains deny-write by default.
+    const block = rules.match(/match \/st-paper-trading\/\{anchor\}\/items\/\{docId\} \{[\s\S]*?\n    \}/);
+    assert.ok(block, "no st-paper-trading items block");
+    assert.match(block[0], /allow read: if request\.auth != null;/);
+    assert.match(block[0], /allow create: if\s*\(?anchor == 'analysis-slices' && request\.auth != null\)?;/);
+    assert.match(block[0], /allow update: if[\s\S]*?anchor == 'analysis-slices'[\s\S]*?anchor == 'analysis-datasets'/);
+    assert.match(block[0], /allow delete: if[\s\S]*?anchor == 'analysis-slices'[\s\S]*?anchor == 'analysis-datasets'/);
+    // #1158 parity-fix: FE dataset delete removes chunk docs client-side —
+    // delete is granted on analysis-datasets/chunks only (the legacy block
+    // denied all sub-doc writes, so chunked datasets were undeletable).
+    assert.match(block[0], /anchor == 'analysis-datasets' && sub == 'chunks'/);
+    // No unconditional write leg — non-analysis anchors stay server-only.
+    assert.ok(!/allow write: if true|allow (create|update|delete): if request\.auth != null;\s*$/m.test(block[0]),
+      "st-paper-trading has an unanchored write grant");
   });
 
   it("scopes user-owned roots by userId on create and update", () => {
@@ -205,6 +242,16 @@ describe("firestore.indexes.json — canonical st-* coverage (#1012)", () => {
     assert.ok(
       hasIndex("st-options-contract-lists", ["runId", "symbol"]),
       "missing st-options-contract-lists (runId,symbol)",
+    );
+    // backtest analytics (#1368): all exit results for a contract list, and
+    // one exit type across a run's symbols.
+    assert.ok(
+      hasIndex("st-options-analysis-results", ["contractListDocId", "exitId"]),
+      "missing st-options-analysis-results (contractListDocId,exitId)",
+    );
+    assert.ok(
+      hasIndex("st-options-analysis-results", ["runId", "exitId"]),
+      "missing st-options-analysis-results (runId,exitId)",
     );
   });
 });
