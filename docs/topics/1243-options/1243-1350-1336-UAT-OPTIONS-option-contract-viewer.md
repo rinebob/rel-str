@@ -71,7 +71,7 @@ Callable error payloads arrive as `{ error: { status, message } }`
 | 6 | `expirations` >30 → `invalid-argument` | `.run` with 31 distinct dates | `invalid-argument` + `BAD_REQUEST` (SA-side cap per discovery doc) | **PASS** — SA: `"at most 30 dates are accepted per request"` → `partner 400 code=BAD_REQUEST`. NOTE: first run used 9 unique dates duplicated 31× and SA accepted it — SA dedupes before counting. |
 | 7 | Empty successful result | `.run` strike band 99999–99999.5 | `ok=true`, `contracts=[]`, `count=0` | **PASS** — `count=0` |
 | 8 | FE drawer e2e (Run → view lines → send) | `npm start`, `/options/chart`, open drawer, Run | count row + view lines + send emits `date,id` | DEFERRED — joint item on QA #1349 (#1339's surface); requires deployed callable |
-| 9 | Post-deploy smoke | After `firebase deploy --only functions`, repeat scenario 2 against prod callable | identical shape | SHIP-TIME — recorded here so it is not lost |
+| 9 | Post-deploy smoke | After `firebase deploy --only functions`, repeat scenario 2 against prod callable | identical shape | **PASS** — deployed via detached-worktree of `bc6f1fd5` (2026-10-31); `us-central1-rel-str.cloudfunctions.net/queryContractAvailability` → `ok:true count=1222 truncated=false corpusDateCount=1966`, all entries in-band (QQQ calls, strikes 500–502) |
 
 ## Traceability
 
