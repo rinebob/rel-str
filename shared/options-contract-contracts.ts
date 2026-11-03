@@ -30,11 +30,15 @@ export interface HistoricalOptionsContractV2Observation {
 }
 
 /** A (openDate, contractId) pair from a Contract List row or pasted input.
- *  `openDate` is the position entry date used for the span marker and
- *  clip-to-entry; `null` for bare IDs pasted without a date. */
+ *  `openDate` is the earliest position entry date — the span marker's start
+ *  and the clip-to-entry bound; `null` for bare IDs pasted without a date.
+ *  `markerDates` carries every entry date the contract was selected on (one
+ *  dot per pick day on the span marker); absent/empty for bare IDs or
+ *  producers that only know the single openDate. */
 export interface PlottedEntry {
   contractId: string;
   openDate: string | null;
+  markerDates?: string[];
 }
 
 /** Response shape for partnerHistoricalOptionsContractV2 endpoint. */
