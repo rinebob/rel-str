@@ -111,6 +111,7 @@
   --ds-on-accent-container: #164e63;
   --ds-accent-border: #0891b2;
   --ds-accent-glow: rgba(8, 145, 178, 0.30);
+  --ds-accent-text: #0e7490;
   --ds-up: #4caf50;
   --ds-on-up-container: #1b5e20;
   --ds-up-container: #c8e6c9;
@@ -128,6 +129,12 @@
   --ds-warning-container: #fff3e0;
   --ds-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
   --ds-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --ds-state-hover: rgba(26, 29, 33, 0.06);
+  --ds-state-active: rgba(26, 29, 33, 0.10);
+  --ds-scrim: rgba(0, 0, 0, 0.32);
+  --ds-disabled-bg: rgba(26, 29, 33, 0.12);
+  --ds-disabled-fg: rgba(26, 29, 33, 0.38);
+  --ds-selection: rgba(8, 145, 178, 0.25);
 }
 
 // ── #1161 accent exploration — neutral ramps + swappable accent ──────
@@ -161,6 +168,7 @@
   --ds-on-accent-container: color-mix(in srgb, var(--picker-accent) 80%, #ffffff);
   --ds-accent-border: var(--picker-accent);
   --ds-accent-glow: color-mix(in srgb, var(--picker-accent) 40%, transparent);
+  --ds-accent-text: var(--picker-accent);
   --ds-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.6), 0 0 8px color-mix(in srgb, var(--picker-accent) 8%, transparent);
   --ds-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.7), 0 0 16px color-mix(in srgb, var(--picker-accent) 10%, transparent);
 }
@@ -183,6 +191,7 @@
   --ds-on-accent-container: color-mix(in srgb, var(--picker-accent) 45%, #0a1216);
   --ds-accent-border: color-mix(in srgb, var(--picker-accent) 55%, #001018);
   --ds-accent-glow: color-mix(in srgb, var(--picker-accent) 30%, transparent);
+  --ds-accent-text: color-mix(in srgb, var(--picker-accent) 40%, #001018);
 }
 
 :host[data-accent] {
@@ -815,6 +824,10 @@
   padding: var(--ds-space-1) var(--ds-space-2);
   background: var(--mat-sys-surface-container);
   font-size: var(--ds-font-size-sm);
+}
+
+.ds-btn {
+  @include ds.ds-btn;
 }
 
 .edge-card {

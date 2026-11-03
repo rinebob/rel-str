@@ -81,12 +81,12 @@ describe('DsGalleryComponent', () => {
     }
   });
 
-  it('renders the Widgets section — 9 demo cards, one per mixin kind', () => {
-    expect(component.widgetEntries.length).toBe(9);
+  it('renders the Widgets section — 10 demo cards, one per mixin kind', () => {
+    expect(component.widgetEntries.length).toBe(10);
     const kinds = component.widgetEntries.map((e) => e.kind);
     for (const k of [
       'pill-toggle', 'pill-btn', 'badge', 'icon-btn', 'toolbar-row',
-      'nav-stepper', 'field-input', 'toggle-chip', 'dir-edge',
+      'nav-stepper', 'field-input', 'toggle-chip', 'dir-edge', 'ds-btn',
     ]) {
       expect(kinds).toContain(k);
     }

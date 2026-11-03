@@ -31,6 +31,7 @@ import {
 } from '@angular/core';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
+import { ACCENTS, type AccentId, deriveAccentFamily } from '../../shared/utils/ds-accents';
 
 /** Demo body rendered inside a card — the template @switches on this. */
 export type DsDemoKind =
@@ -54,7 +55,8 @@ export type DsDemoKind =
   | 'nav-stepper'
   | 'field-input'
   | 'toggle-chip'
-  | 'dir-edge';
+  | 'dir-edge'
+  | 'ds-btn';
 
 export interface DsGalleryEntry {
   kind: DsDemoKind;
@@ -215,23 +217,19 @@ const WIDGET_ENTRIES: readonly DsGalleryEntry[] = [
     blurb: 'Companion marker — .dir-edge-long/.dir-edge-short 3px left accent on any element: table rows, cards, list items. dense-table stays unmodified.',
     seenIn: ['signal-table tr.long/tr.short'],
   },
+  {
+    kind: 'ds-btn',
+    title: 'Page button',
+    blurb: 'Page-level button hierarchy — ghost text (default), .outline stroked, .fill accent CTA, .danger destructive, .small compact 26px. mat-button/stroked/flat/raised replacement (#1348).',
+    seenIn: ['mat-button/stroked/flat/raised across pages — migration target'],
+  },
 ];
 
 /** Accent presets for #1161 Theme & Palette — one swappable accent over a
  *  neutral grey ramp; derived colors compute live via color-mix, so any
  *  accent (incl. the free color picker) works. Direction accents
- *  --ds-up/--ds-down are NOT candidates — they stay. */
-export const ACCENTS = [
-  { id: 'cyan', label: 'Cyan', hex: '#22d3ee' },
-  { id: 'mint', label: 'Mint', hex: '#00ff9d' },
-  { id: 'acid', label: 'Acid', hex: '#7cff00' },
-  { id: 'blue', label: 'Blue', hex: '#4f9fff' },
-  { id: 'violet', label: 'Violet', hex: '#b18bff' },
-  { id: 'magenta', label: 'Magenta', hex: '#ff5fd0' },
-  { id: 'amber', label: 'Amber', hex: '#ffc24d' },
-] as const;
-
-export type AccentId = (typeof ACCENTS)[number]['id'] | 'current' | 'custom';
+ *  --ds-up/--ds-down are NOT candidates — they stay.
+ *  ACCENTS/AccentId live in shared/utils/ds-accents (zoo shares them). */
 
 /** Direction colors — #1161 makes up/long and down/short themed tokens
  *  like the accent. Presets cover classic-to-neon; 'custom' free-picks. */
@@ -550,38 +548,25 @@ export class DsGalleryComponent implements OnDestroy {
     // Read at apply time — flipping the app theme while preview is on
     // keeps the old mode's derivations until the accent is re-picked.
     const dark = el.dataset.theme === 'dark';
-    const mix = (pct: number, base: string) => `color-mix(in srgb, ${accent} ${pct}%, ${base})`;
+    const fam = deriveAccentFamily(accent, dark);
     // Wider than the gallery's accent blocks on purpose: covers
     // --mat-sys-tertiary* too so more of the real app chrome previews
     // the accent. The gallery blocks additionally remap secondary*.
-    const vars: Record<string, string> = dark ? {
-      '--ds-accent': accent,
-      '--ds-on-accent': '#0a0f14',
-      '--ds-accent-container': mix(22, '#14171c'),
-      '--ds-on-accent-container': mix(80, '#ffffff'),
-      '--ds-accent-border': accent,
-      '--ds-accent-glow': mix(40, 'transparent'),
-      '--mat-sys-primary': accent,
-      '--mat-sys-on-primary': '#0a0f14',
-      '--mat-sys-primary-container': mix(22, '#14171c'),
-      '--mat-sys-on-primary-container': mix(80, '#ffffff'),
-      '--mat-sys-tertiary': accent,
-      '--mat-sys-tertiary-container': mix(22, '#14171c'),
-      '--mat-sys-on-tertiary-container': mix(80, '#ffffff'),
-    } : {
-      '--ds-accent': mix(55, '#001018'),
-      '--ds-on-accent': '#ffffff',
-      '--ds-accent-container': mix(18, '#eef1f3'),
-      '--ds-on-accent-container': mix(45, '#0a1216'),
-      '--ds-accent-border': mix(55, '#001018'),
-      '--ds-accent-glow': mix(30, 'transparent'),
-      '--mat-sys-primary': mix(55, '#001018'),
-      '--mat-sys-on-primary': '#ffffff',
-      '--mat-sys-primary-container': mix(18, '#eef1f3'),
-      '--mat-sys-on-primary-container': mix(45, '#0a1216'),
-      '--mat-sys-tertiary': mix(55, '#001018'),
-      '--mat-sys-tertiary-container': mix(18, '#eef1f3'),
-      '--mat-sys-on-tertiary-container': mix(45, '#0a1216'),
+    const vars: Record<string, string> = {
+      '--ds-accent': fam.accent,
+      '--ds-on-accent': fam.onAccent,
+      '--ds-accent-container': fam.accentContainer,
+      '--ds-on-accent-container': fam.onAccentContainer,
+      '--ds-accent-border': fam.accentBorder,
+      '--ds-accent-glow': fam.accentGlow,
+      '--ds-accent-text': fam.accentText,
+      '--mat-sys-primary': fam.accent,
+      '--mat-sys-on-primary': fam.onAccent,
+      '--mat-sys-primary-container': fam.accentContainer,
+      '--mat-sys-on-primary-container': fam.onAccentContainer,
+      '--mat-sys-tertiary': fam.accent,
+      '--mat-sys-tertiary-container': fam.accentContainer,
+      '--mat-sys-on-tertiary-container': fam.onAccentContainer,
     };
     this.appliedKeys = Object.keys(vars);
     for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
