@@ -105,6 +105,9 @@ export { optionsReplayStart } from './options-replay/start';
 export { optionsReplayPermutation } from './options-replay/permutation';
 export { optionsReplayRetry } from './options-replay/retry';
 
+// Options Analysis — Backtest Analytics (Topic #1238, Thread #1266)
+export { optionsAnalysisStart } from './options-analysis/start';
+
 // ST Company Overview Sync (Phase 1)
 export {
   stOverviewSyncWeekly,
