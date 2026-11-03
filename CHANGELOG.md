@@ -15,6 +15,9 @@
 ## [2026-11-02]
 
 ### Added
+- [Savant Design System] 1024-1347_FE-IMPL-DESIGN-SYSTEM: Element archetype inventory scanner + sites artifact
+- [Savant Design System] 1024-1347_DOCS-DOCS-DESIGN-SYSTEM: De-materify disposition matrix + phase order
+- [Savant Design System] 1024-1347_DOCS-DOCS-DESIGN-SYSTEM: #1347 code review + UAT + changelog
 - [Options Backtest] 1238-1367_SHARED-IMPL-BACKTEST: Exit-strategy registry (6 provisional seeds) + analysis result contracts — discriminated unions on `kind`/`outcome`, `{list}_{exit}` result docs
 - [Options Backtest] 1238-1367_CONFIG-CONFIG-BACKTEST: `@options-analysis/*` path aliases (tsconfig ×2 + jest moduleNameMapper)
 - [Options Backtest] 1238-1367_SHARED-IMPL-BACKTEST: #1367 verify script + run-all registration (18 checks, no credentials)
