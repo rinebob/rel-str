@@ -188,6 +188,63 @@ describe('OptionsContractChartComponent', () => {
       expect(markers[0].marker?.visible).toBe(true);
     });
 
+    it('draws one vertex per pick day plus expiration — a repeated contract marks every entry', () => {
+      const a = contract({
+        markerDates: ['2025-11-03', '2025-11-05', '2025-11-07'],
+        points: [obs('2025-11-03', 10)],
+      });
+      setInputs([a], ['2025-11-03', '2025-11-05', '2025-11-07', '2026-01-16']);
+      fixture.detectChanges();
+
+      const markers = markerSeries();
+      expect(markers.length).toBe(1);
+      expect(markers[0].dataSource).toEqual([
+        { date: '2025-11-03', value: 600 },
+        { date: '2025-11-05', value: 600 },
+        { date: '2025-11-07', value: 600 },
+        { date: '2026-01-16', value: 600 },
+      ]);
+    });
+
+    it('unions every pick day into the axis even when absent from xLabels', () => {
+      const a = contract({
+        markerDates: ['2025-11-03', '2025-11-05'],
+        points: [obs('2025-11-03', 10)],
+      });
+      setInputs([a], ['2025-11-03']);
+      fixture.detectChanges();
+
+      expect(component.axisLabels()).toEqual(['2025-11-03', '2025-11-05', '2026-01-16']);
+    });
+
+    it('drops pick days past expiration but keeps the earlier ones', () => {
+      const a = contract({
+        markerDates: ['2025-11-03', '2026-03-01'],
+        points: [obs('2025-11-03', 10)],
+      });
+      setInputs([a], ['2025-11-03', '2026-01-16']);
+      fixture.detectChanges();
+
+      const markers = markerSeries();
+      expect(markers.length).toBe(1);
+      expect(markers[0].dataSource).toEqual([
+        { date: '2025-11-03', value: 600 },
+        { date: '2026-01-16', value: 600 },
+      ]);
+    });
+
+    it('emits no marker when every pick day is past expiration', () => {
+      const a = contract({
+        markerDates: ['2026-02-01', '2026-03-01'],
+        points: [obs('2025-11-03', 10)],
+      });
+      setInputs([a], ['2025-11-03']);
+      fixture.detectChanges();
+
+      expect(markerSeries().length).toBe(0);
+      expect(markSeries().length).toBe(1);
+    });
+
     it('emits no marker when openDate is absent (bare ID — no selection date)', () => {
       const a = contract({
         openDate: null,

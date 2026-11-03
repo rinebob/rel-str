@@ -102,7 +102,8 @@ export class OptionsContractChartComponent implements OnDestroy {
     return s.length === 1 && s[0].points.length > 0;
   });
 
-  /** Strike-span markers: openDate (or first observation) → expiration at strike. */
+  /** Strike-span markers: earliest pick day → expiration at strike, a dot
+   *  per pick day (computeMarkerSpans). */
   readonly markerSpans = computed(() => computeMarkerSpans(this.plottedSeries()));
 
   /** The real category axis — rendered dates unioned with marker endpoints

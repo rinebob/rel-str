@@ -19,6 +19,10 @@ export interface PlottedChartContract {
   strike: number;
   expiration: string;
   openDate: string | null;
+  /** Every day this contract was selected — each gets a dot on the span
+   *  marker. Falls back to [openDate] when the producer only knows the
+   *  single entry date; empty/absent = no marker. */
+  markerDates?: string[];
   points: ParsedObservation[];
 }
 
@@ -30,8 +34,11 @@ export interface ChartPoint {
 export interface SpanMarker {
   contractId: string;
   index: number;
+  /** Earliest pick day — the span's left edge. */
   start: string;
   end: string;
+  /** Every in-span pick day — each becomes a marker vertex/dot. */
+  pickDates: string[];
   strike: number;
 }
 
@@ -85,16 +92,28 @@ const NO_MARKER = { visible: false };
 const NO_ANIMATION = { enable: false };
 const GAPS = { mode: 'Gap' };
 
-/** Strike-span markers: openDate → expiration at the contract's strike.
- *  The left dot marks the day the contract was selected — never the start
- *  of its trading history — so a contract with no entry date gets no
- *  marker, and a reversed span (openDate > expiration) is skipped. */
+/** Strike-span markers: earliest pick day → expiration at the contract's
+ *  strike, with a vertex (dot) at every pick day. The left edge marks the
+ *  day the contract was first selected — never the start of its trading
+ *  history — so a contract with no entry dates gets no marker, pick days
+ *  past expiration are dropped, and a contract whose pick days all fall
+ *  after expiration gets no marker at all (fully reversed span). */
 export function computeMarkerSpans(contracts: readonly PlottedChartContract[]): SpanMarker[] {
   return contracts
     .map((c, index): SpanMarker | null => {
-      const start = c.openDate;
-      if (!start || !c.expiration || start > c.expiration) return null;
-      return { contractId: c.contractId, index, start, end: c.expiration, strike: c.strike };
+      if (!c.expiration) return null;
+      const pickDates = (c.markerDates?.length ? c.markerDates : c.openDate ? [c.openDate] : [])
+        .filter((d) => d <= c.expiration)
+        .sort();
+      if (!pickDates.length) return null;
+      return {
+        contractId: c.contractId,
+        index,
+        start: pickDates[0],
+        end: c.expiration,
+        pickDates,
+        strike: c.strike,
+      };
     })
     .filter((s): s is SpanMarker => s != null);
 }
@@ -104,7 +123,7 @@ export function computeMarkerSpans(contracts: readonly PlottedChartContract[]): 
  *  their dates aren't observation dates. The chart owns this invariant;
  *  callers only supply the rendered-date labels. */
 export function unionAxisLabels(labels: readonly string[], spans: readonly SpanMarker[]): string[] {
-  const endpoints = spans.flatMap((s) => [s.start, s.end]);
+  const endpoints = spans.flatMap((s) => [...s.pickDates, s.end]);
   return unionLabels(labels, endpoints);
 }
 
@@ -152,10 +171,11 @@ export function buildSeriesCollection(input: SeriesBuildInput): ChartSeriesSpec[
       role: 'marker',
       type: 'Line',
       name: `${MARKER_NAME_PREFIX}${span.contractId}`,
-      dataSource: [
-        { date: span.start, value: span.strike },
-        { date: span.end, value: span.strike },
-      ],
+      // One vertex per pick day plus expiration — all at strike, so the
+      // dashed line reads as a single span and every selection day dots.
+      dataSource: [...new Set([...span.pickDates, span.end])]
+        .sort()
+        .map((date) => ({ date, value: span.strike })),
       xName: 'date',
       yName: 'value',
       yAxisName: 'underlyingAxis',
