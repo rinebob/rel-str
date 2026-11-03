@@ -18,6 +18,7 @@ import { describe, it } from 'node:test';
 
 import {
   runReplayRetry,
+  shouldResetForRetry,
 } from '../../../functions/src/options-replay/retry';
 import type {
   ReplayRetryDeps,
@@ -96,6 +97,21 @@ function makeDeps(
     },
   };
 }
+
+// ==========================
+// Reset predicate (#1370 review — the safety-critical guard inside the
+// resetListDoc transaction, extracted for direct coverage)
+// ==========================
+
+describe('shouldResetForRetry', () => {
+  it('resets failed, pending, and missing docs only', () => {
+    assert.equal(shouldResetForRetry('failed'), true);
+    assert.equal(shouldResetForRetry('pending'), true);
+    assert.equal(shouldResetForRetry(undefined), true);
+    assert.equal(shouldResetForRetry('success'), false);
+    assert.equal(shouldResetForRetry('running'), false);
+  });
+});
 
 // ==========================
 // Happy path — mixed run

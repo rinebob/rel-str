@@ -97,6 +97,13 @@ const RETRY_NOOP_STATUSES: ReadonlySet<OptionsReplayRunStatus> = new Set([
   'cancelled',
 ]);
 
+/** Whether a list doc may still be reset by a retry — only `failed` /
+ *  `pending` / missing. Exported for unit coverage of the safety-critical
+ *  predicate inside the `resetListDoc` transaction (#1370 review). */
+export function shouldResetForRetry(status: OptionsContractListStatus | undefined): boolean {
+  return status !== 'success' && status !== 'running';
+}
+
 export async function runReplayRetry(
   input: OptionsReplayRetryRequest | undefined,
   deps: ReplayRetryDeps = prodReplayRetryDeps,
@@ -158,10 +165,20 @@ const prodReplayRetryDeps: ReplayRetryDeps = {
   },
 
   async resetListDoc(docId) {
-    await db
-      .collection(ST_OPTIONS_CONTRACT_LISTS_ROOT)
-      .doc(docId)
-      .set(
+    // Transactional guard: a concurrent retry that read the run doc before
+    // the winning claim can reach here AFTER the winning task already
+    // re-succeeded — resetting a fresh 'success' doc back to 'pending'
+    // would delete `rows` under a recorded success, and resetting under a
+    // mid-flight 'running' worker is a pointless write (TN-M1, #1370
+    // review). Only reset while the doc is still failed/pending (or
+    // missing — set-merge creates a stub the worker fills).
+    const docRef = db.collection(ST_OPTIONS_CONTRACT_LISTS_ROOT).doc(docId);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+      const status = snap.data()?.status as OptionsContractListStatus | undefined;
+      if (!shouldResetForRetry(status)) return;
+      tx.set(
+        docRef,
         {
           status: 'pending' satisfies OptionsContractListStatus,
           rows: FieldValue.delete(),
@@ -171,6 +188,7 @@ const prodReplayRetryDeps: ReplayRetryDeps = {
         },
         { merge: true },
       );
+    });
   },
 
   async resetRunForRetry(runId, symbols) {
@@ -219,10 +237,10 @@ const prodReplayRetryDeps: ReplayRetryDeps = {
       // (a task that did land may have closed out in the meantime).
       const listOutcomes = { ...(d.listOutcomes ?? {}) };
       const restored = unEnqueuedSymbols.filter((s) => listOutcomes[s] === undefined);
-      // Nothing restored and the run already reached a terminal status
-      // (a stale task closed everything out): don't regress it to
-      // 'failed' — leave counters and status untouched.
-      if (restored.length === 0 && (d.status === 'completed' || d.status === 'failed')) return;
+      // Nothing to restore means every un-enqueued symbol already has an
+      // outcome — the run is converging on its own; stamping 'failed'
+      // here would only lie about a healthy 'running' run.
+      if (restored.length === 0) return;
       for (const s of restored) listOutcomes[s] = 'failed';
       tx.update(runRef, {
         listOutcomes,
