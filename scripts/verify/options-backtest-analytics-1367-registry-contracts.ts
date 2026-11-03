@@ -33,6 +33,10 @@ import type {
   OptionsAnalysisTaskPayload,
 } from '@options-analysis/contracts';
 import type { OptionsReplayRetryRequest } from '@options-replay/contracts';
+import {
+  ST_OPTIONS_ANALYSIS_RESULTS_ROOT,
+  stOptionsAnalysisResultDocId,
+} from '@st/collections';
 
 let failures = 0;
 
@@ -64,12 +68,12 @@ check(
 
 // --- Doc-key composition → valid Firestore path ---
 // st-options-analysis-results/{listDocId}_{exitId} — doc id must be a single
-// path segment (no '/').
+// path segment (no '/'). Composed via the canonical builder (#1368).
 
 const listDocId = 'run-abc_QQQ';
 for (const e of EXIT_STRATEGIES) {
-  const docId = `${listDocId}_${e.exitId}`;
-  const path = `st-options-analysis-results/${docId}`;
+  const docId = stOptionsAnalysisResultDocId(listDocId, e.exitId);
+  const path = `${ST_OPTIONS_ANALYSIS_RESULTS_ROOT}/${docId}`;
   check(
     `doc path valid: ${docId}`,
     path.split('/').length === 2 && docId.length > 0 && !docId.includes('/'),

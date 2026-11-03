@@ -38,5 +38,6 @@ None — read-only, no side effects.
   `shared/options-analysis-registry.ts` plus a bump of
   `EXIT_REGISTRY_VERSION`.
 - Doc-key validity is verified structurally (no `/` inside the doc id); the
-  collection itself lands in #1368 (`st-options-analysis-results` constant +
-  rules + indexes) with its own verify script.
+  collection landed in #1368 — see
+  `options-backtest-analytics-1368.md` for the root/builder/rules/indexes
+  verification.

@@ -387,6 +387,11 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
   },
   {
+    name: 'backtest-analytics results collection',
+    file: 'options-backtest-analytics-1368-results-collection.ts',
+    needsAccount: false,
+  },
+  {
     name: 'scan latest-run contract + paths + rules',
     file: 'scanner-chart-view-latest-run-1254.ts',
     needsAccount: false,
