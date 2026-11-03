@@ -399,6 +399,47 @@
     margin-left: auto;
     flex: 0 0 auto;
   }
+
+  .header-spacer {
+    flex: 1 1 auto;
+  }
+
+  .generator-toggle {
+    flex: 0 0 auto;
+    /* M3 icon-button sizing is token-driven: state-layer sizes the button
+       + padding; icon-size sizes the glyph font — but .mat-icon keeps a
+       fixed 24px box, so it must be sized to match the glyph. */
+    --mat-icon-button-state-layer-size: 26px;
+    --mat-icon-button-touch-target-size: 26px;
+    --mat-icon-button-icon-size: 16px;
+    /* inline-flex centers the glyph without relying on baseline math. */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mat-sys-on-surface-variant);
+
+    .mat-icon {
+      /* The material-icons class pins font-size:24px on the element — the
+         icon-size token only sets the BUTTON's font-size, so the glyph
+         must be shrunk here or it clips inside the smaller box. */
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      line-height: 16px;
+    }
+
+    &.active-toggle {
+      color: var(--mat-sys-primary);
+    }
+  }
+}
+
+/* Right group-generator drawer — narrower than the left control panel,
+   same surface/border treatment, mirrored side. */
+.generator-panel {
+  width: 340px;
+  background: var(--mat-sys-surface-container);
+  border-left: 1px solid var(--mat-sys-outline-variant);
 }
 
 .chart-content {

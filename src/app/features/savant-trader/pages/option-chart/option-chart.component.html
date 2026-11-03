@@ -420,6 +420,19 @@
 
         <span class="display-filter-count">{{ displayedRows().length }} shown / {{ catalogTotal() }} total{{ hasMorePages() ? ' …' : '' }}</span>
         }
+
+        <span class="header-spacer"></span>
+        <button
+          mat-icon-button
+          class="generator-toggle"
+          [class.active-toggle]="generatorOpen"
+          (click)="generatorOpen = !generatorOpen"
+          matTooltip="Contract group generator"
+          aria-label="Contract group generator"
+          [attr.aria-pressed]="generatorOpen"
+        >
+          <mat-icon>tune</mat-icon>
+        </button>
       </div>
 
       @if (chipContracts().length > 0) {
@@ -508,6 +521,7 @@
         [showVolumeOI]="store.showVolumeOI()"
         [highlightedContractId]="store.hoveredContractId()"
         (seriesHovered)="store.setHoveredContract($event)"
+        (studyRange)="onStudyRange($event)"
       ></app-options-contract-chart>
       }
 
@@ -535,5 +549,17 @@
       </div>
       }
     </mat-sidenav-content>
+
+    <mat-sidenav
+      position="end"
+      mode="side"
+      [(opened)]="generatorOpen"
+      class="generator-panel"
+    >
+      <app-option-group-generator
+        (send)="onGeneratorSend($event)"
+        (close)="generatorOpen = false"
+      ></app-option-group-generator>
+    </mat-sidenav>
   </mat-sidenav-container>
 </div>

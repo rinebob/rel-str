@@ -51,6 +51,9 @@ import {
 } from '../../utils/contract-length.utils';
 import type { ContractCatalogEntry, LengthBucket } from '@options-contract/contracts';
 import { OptionType, parseOccContractId, type ParsedOccContractId } from '@options-contract/contracts';
+import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
+import { OptionGroupGeneratorComponent } from '../../components/option-group-generator/option-group-generator.component';
+import type { StudyRange } from '../../utils/option-group-generator.utils';
 
 /** Pasting more than this many contracts asks for confirmation first — the
  *  chart stays usable but the fetch batch and line count get unwieldy. */
@@ -81,13 +84,18 @@ interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
     MatDatepickerModule,
     MatNativeDateModule,
     OptionsContractChartComponent,
+    OptionGroupGeneratorComponent,
   ],
+  // Page-scoped — one generator instance shared by this page and its
+  // right drawer; dies with the page, never root-provided.
+  providers: [OptionGroupGeneratorStore],
   templateUrl: './option-chart.component.html',
   styleUrl: './option-chart.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OptionChartComponent implements OnInit, OnDestroy {
   readonly store = inject(OptionsContractViewerStore);
+  readonly genStore = inject(OptionGroupGeneratorStore);
   readonly uiStateService = inject(UiStateService);
   private readonly dialog = inject(MatDialog);
   readonly chartRef = viewChild(OptionsContractChartComponent);
@@ -99,6 +107,9 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   /** Whether the left control panel is open. */
   controlPanelOpen = true;
+
+  /** Whether the right group-generator drawer is open. */
+  generatorOpen = false;
 
   // Builder fields (signals so computed/derived state reacts)
   symbol = signal('QQQ');
@@ -397,6 +408,8 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.store.clearCatalog();
     this.store.clearCatalogFilters();
     this.store.setCatalogBuilder({ symbol: value, type: this.catalogType() });
+    // The generator keeps per-symbol settings — swap its blob over too.
+    this.genStore.setSymbol(value);
     const sym = value.trim().toUpperCase();
     if (sym) {
       this.store.loadContractIndex(sym);
@@ -493,6 +506,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const sym = this.symbol().trim().toUpperCase();
     this.store.setCatalogBuilder({ symbol: sym, type: this.catalogType() });
+    this.genStore.setSymbol(sym);
     if (sym) {
       this.store.loadContractIndex(sym);
       this.store.loadCatalogSummary(sym);
@@ -610,6 +624,19 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     }
 
     await this.store.loadPlotted(entries);
+  }
+
+  /** Drawer handoff — emitted pair lines go through the same textarea +
+   *  loadPlotted path as a paste, so replace semantics stay identical. */
+  onGeneratorSend(lines: string[]): void {
+    this.occIdInput = lines.join('\n');
+    void this.onLoad();
+  }
+
+  /** Chart brush (#1340) → generator alive-range bound. Declared now so the
+   *  page route exists when the brush emission lands. */
+  onStudyRange(range: StudyRange | null): void {
+    this.genStore.applyRange(range);
   }
 
   /** Search for available contracts using the catalog endpoint with builder + catalog filters. */
