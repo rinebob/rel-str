@@ -103,6 +103,7 @@ export { stBacktestPermutation } from './st-cloud-function/backtest/backtest-wor
 // Options Replay — Selection Replay (Topic #1238, Thread #1240)
 export { optionsReplayStart } from './options-replay/start';
 export { optionsReplayPermutation } from './options-replay/permutation';
+export { optionsReplayRetry } from './options-replay/retry';
 
 // ST Company Overview Sync (Phase 1)
 export {
