@@ -272,6 +272,12 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.DsGalleryComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.DS_ELEMENTS,
+                title: PAGE_INFO[AppRoutes.DS_ELEMENTS].title,
+                loadComponent: () => import('../features/ds-elements/ds-elements.component')
+                .then(mod => mod.DsElementsComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.TOPIC_VIEWER,
                 title: PAGE_INFO[AppRoutes.TOPIC_VIEWER].title,
                 loadComponent: () => import('../features/topic-viewer/topic-viewer-page.component')

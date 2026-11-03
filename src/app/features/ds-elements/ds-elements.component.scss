@@ -1,0 +1,385 @@
+// /dev/ds-elements (#1348) — page chrome on ds tokens; DS-widget
+// specimens use the package mixins directly (same rule as ds-gallery:
+// prove the package renders, never copy declarations). Material
+// specimens keep their own styles — that's the point of the zoo.
+@use 'index' as ds;
+
+:host {
+  @include ds.page-host;
+  background: var(--ds-surface);
+  color: var(--ds-on-surface);
+
+  ::selection { background: var(--ds-selection); }
+}
+
+// ── Theme isolation (#1348) — host always carries an explicit
+// data-theme; these blocks restate the token layers for the subtree so
+// the zoo previews dark|light regardless of the app's current theme.
+// --mat-sys dark set mirrors ds-gallery (same literal-sweep exception
+// class #1217 — definition-layer mirror of styles.scss :root).
+:host[data-theme='dark'] {
+  color-scheme: dark;
+
+  --mat-sys-primary: #a3b8ff;
+  --mat-sys-on-primary: #1a237e;
+  --mat-sys-primary-container: #39448b;
+  --mat-sys-on-primary-container: #dae1ff;
+  --mat-sys-secondary: #4db6ac;
+  --mat-sys-on-secondary: #00382f;
+  --mat-sys-secondary-container: #00524a;
+  --mat-sys-on-secondary-container: #a7e8dc;
+  --mat-sys-tertiary: #f48fb1;
+  --mat-sys-on-tertiary: #6b0f3d;
+  --mat-sys-tertiary-container: #9c1d5a;
+  --mat-sys-on-tertiary-container: #ffd1e1;
+  --mat-sys-error: #ef9a9a;
+  --mat-sys-on-error: #5c1210;
+  --mat-sys-error-container: #7e2222;
+  --mat-sys-on-error-container: #ffd7d7;
+  --mat-sys-surface: #131518;
+  --mat-sys-background: #131518;
+  --mat-sys-surface-variant: #44474e;
+  --mat-sys-on-surface: #e2e4e8;
+  --mat-sys-on-surface-variant: #a8adb5;
+  --mat-sys-surface-container: #1c1f24;
+  --mat-sys-surface-container-high: #262a31;
+  --mat-sys-surface-container-highest: #31363e;
+  --mat-sys-outline: #84898f;
+  --mat-sys-outline-variant: #3c4149;
+  --mat-sys-surface-container-low: #17191d;
+  --mat-sys-success: #81c784;
+  --mat-sys-on-success: #0e3012;
+  --mat-sys-success-container: #2c4a2e;
+  --mat-sys-on-success-container: #c8e6c9;
+  --mat-sys-warning: #ffb74d;
+  --mat-sys-warning-container: #7a4a15;
+  --mat-sys-on-warning-container: #ffe0b2;
+}
+
+// Light — the app emits dark --ds-* at :root; this restates the shipped
+// light set verbatim from vendor/savant-ds/styles/_tokens.scss :root
+// (literal-sweep exception #1217 — definition-layer mirror, same class
+// as ds-gallery's). The --mat-sys half needs no restate: the global
+// [data-theme="light"] block in styles.scss already matches this host.
+:host[data-theme='light'] {
+  --ds-surface: #ffffff;
+  --ds-surface-raised: #f5f6f8;
+  --ds-surface-overlay: #eceef1;
+  --ds-surface-variant: #f5f6f8;
+  --ds-on-surface: #1a1d21;
+  --ds-on-surface-variant: #5b6470;
+  --ds-border-subtle: #d6dae1;
+  --ds-border-strong: #b9c0ca;
+  --ds-accent: #0891b2;
+  --ds-on-accent: #ffffff;
+  --ds-accent-container: #cffafe;
+  --ds-on-accent-container: #164e63;
+  --ds-accent-border: #0891b2;
+  --ds-accent-glow: rgba(8, 145, 178, 0.30);
+  --ds-up: #4caf50;
+  --ds-on-up-container: #1b5e20;
+  --ds-up-container: #c8e6c9;
+  --ds-down: #f44336;
+  --ds-on-down-container: #b71c1c;
+  --ds-down-container: #ffebee;
+  --ds-success: #4caf50;
+  --ds-on-success-container: #1b5e20;
+  --ds-success-container: #c8e6c9;
+  --ds-error: #f44336;
+  --ds-on-error-container: #b71c1c;
+  --ds-error-container: #ffebee;
+  --ds-warning: #fb8c00;
+  --ds-on-warning-container: #e65100;
+  --ds-warning-container: #fff3e0;
+  --ds-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --ds-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --ds-accent-text: #0e7490;
+  --ds-state-hover: rgba(26, 29, 33, 0.06);
+  --ds-state-active: rgba(26, 29, 33, 0.10);
+  --ds-scrim: rgba(0, 0, 0, 0.32);
+  --ds-disabled-bg: rgba(26, 29, 33, 0.12);
+  --ds-disabled-fg: rgba(26, 29, 33, 0.38);
+  --ds-selection: rgba(8, 145, 178, 0.25);
+}
+
+.zoo {
+  @include ds.page-shell;
+
+  .zoo-header {
+    @include ds.header-bar;
+    gap: 12px;
+
+    .zoo-title { font-weight: 600; }
+    .zoo-meta { color: var(--ds-on-surface-variant); font-size: 12px; }
+    .zoo-note { margin-left: auto; color: var(--ds-on-surface-variant); font-size: 11px; font-style: italic; }
+
+    .zoo-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--ds-space-2);
+
+      .accent-pick { height: 28px; font-size: 12px; }
+      .icon-btn { @include ds.icon-btn; }
+    }
+  }
+}
+
+// Single scroll region — content-column is a one-per-shell layout
+// contract (flex:1 + min-height:0 + overflow:hidden); applying it to
+// each .family clips every section to a sliver.
+.zoo-body {
+  @include ds.content-column;
+  overflow-y: auto;
+  padding: var(--ds-space-3);
+}
+
+.family {
+  display: block;
+  margin-bottom: var(--ds-space-6);
+
+  .family-title { margin: 0; font-size: 15px; font-weight: 600; }
+  .family-blurb { margin: 4px 0 10px; font-size: 12px; color: var(--ds-on-surface-variant); }
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 8px;
+  background: var(--ds-surface-raised);
+  overflow: hidden;
+
+  > .card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--ds-border-subtle);
+
+    .card-name { font-weight: 600; font-size: 13px; }
+    .card-count { color: var(--ds-on-surface-variant); font-size: 12px; margin-left: auto; }
+    .plan-chip {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 2px 7px;
+      border-radius: 9px;
+      border: 1px solid var(--ds-border-strong);
+      color: var(--ds-on-surface-variant);
+
+      &[data-plan='REPLACE'] { color: var(--ds-on-accent-container); background: var(--ds-accent-container); border-color: transparent; }
+      &[data-plan='ADOPT']   { color: var(--ds-on-up-container); background: var(--ds-up-container); border-color: transparent; }
+      &[data-plan='NEW']     { color: var(--ds-on-warning-container); background: var(--ds-warning-container); border-color: transparent; }
+      &[data-plan='KEEP']    { color: var(--ds-on-surface-variant); }
+      &[data-plan='DROP']    { color: var(--ds-on-surface-variant); border-style: dashed; }
+      &[data-plan='DECISION']{ color: var(--ds-on-error-container); background: var(--ds-error-container); border-color: transparent; }
+    }
+  }
+
+  .card-plan {
+    padding: 4px 12px 0;
+    font-size: 11px;
+    color: var(--ds-on-surface-variant);
+  }
+
+  // NOW | DS TODAY | TARGET — one row per archetype so old-vs-new
+  // reads left-to-right. DS-family cards: col 1 shows the widget in
+  // use; cols 2–3 note its baseline status.
+  .panes {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .pane {
+    padding: 12px;
+    min-height: 72px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    border-left: 1px dashed var(--ds-border-subtle);
+
+    &:first-child { border-left: none; }
+
+    // Inline specimens must not stretch to pane width — the container's
+    // own surface should hug its contents (pill-toggle, chips, etc.).
+    > .pill-group,
+    .demo-stack > .pill-group,
+    > .dse-tip,
+    > .dse-toast,
+    > .demo-stepper,
+    > .icon-btn,
+    > .badge { align-self: flex-start; }
+  }
+
+  .pane-label {
+    display: block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--ds-on-surface-variant);
+    opacity: 0.8;
+    margin-bottom: 2px;
+  }
+
+  .pane-note {
+    color: var(--ds-on-surface-variant);
+    font-size: 12px;
+    font-style: italic;
+  }
+
+  .zoo-foot {
+    padding: 6px 12px;
+    border-top: 1px solid var(--ds-border-subtle);
+    font-size: 10.5px;
+    color: var(--ds-on-surface-variant);
+
+    .seen-label { opacity: 0.7; margin-right: 4px; }
+  }
+}
+
+// ── specimen helpers ──────────────────────────────────────────
+.demo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.demo-stack { display: flex; flex-direction: column; gap: 10px; }
+.demo-pbar { width: 140px; }
+.tab-pad { padding: 10px 4px; margin: 0; }
+.dim { color: var(--ds-on-surface-variant); font-size: 12px; }
+.native-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ds-on-surface); }
+.mock-tag { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-on-surface-variant); border: 1px dashed var(--ds-border-subtle); border-radius: 4px; padding: 1px 6px; margin-bottom: 6px; }
+
+// generic "local" button/input — representative of page-rolled styles
+.btn-local {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  background: var(--ds-accent);
+  color: var(--ds-on-accent);
+  cursor: pointer;
+
+  &.alt { background: var(--ds-surface-overlay); color: var(--ds-on-surface); border: 1px solid var(--ds-border-subtle); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.in-local {
+  padding: 8px 10px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 6px;
+  background: var(--ds-surface);
+  color: var(--ds-on-surface);
+}
+
+.dlg-mock {
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 8px;
+  background: var(--ds-surface-overlay);
+  padding: 10px 14px;
+
+  mat-dialog-title { display: block; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  mat-dialog-content { display: block; font-size: 13px; }
+  mat-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+}
+
+.sidenav-mock {
+  display: flex;
+  height: 90px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 11px;
+  text-align: center;
+
+  .sidenav-mock-drawer {
+    width: 34%;
+    background: var(--ds-surface-overlay);
+    border-right: 1px solid var(--ds-border-subtle);
+    display: grid;
+    place-items: center;
+  }
+  .sidenav-mock-content {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    padding: 4px;
+  }
+}
+
+.toolbar-spacer-flex { flex: 1; }
+
+.virt {
+  height: 96px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 6px;
+
+  .virt-row { height: 24px; line-height: 24px; padding: 0 8px; border-bottom: 1px solid var(--ds-border-subtle); font-size: 12px; }
+}
+
+.code-block {
+  background: var(--ds-surface-overlay);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 6px;
+  padding: 8px 10px;
+  code { font-size: 11.5px; }
+}
+
+// ── DS-widget specimens — package mixins, scoped per demo ─────
+.demo-toolbar { @include ds.toolbar-row; }
+.demo-stepper { @include ds.nav-stepper; }
+.demo-field   { @include ds.field-input; }
+.demo-table   { @include ds.dense-table; }
+
+// mat-table NOW specimen — plain wrapper only. Deliberately NOT
+// .demo-table: that class carries dense-table and would contaminate
+// the real mat-table the pane exists to show.
+.demo-table-wrap { min-width: 0; }
+
+// @default guard — an unhandled SpecimenKind renders loud, not empty.
+.specimen-missing {
+  color: var(--ds-error);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+// Specimen-scoped ds-* styling — ds-* classes must only pick up mixin
+// chrome inside specimen panes (NOW specimens must not inherit it).
+// Deliberately a separate top-level .pane block from .card .pane above:
+// that one owns layout, this one owns the mixin-application boundary.
+.pane {
+  .ds-btn           { @include ds.ds-btn; }
+  .dse-field        { @include ds.ds-field; }
+  .dse-check        { @include ds.ds-check; }
+  .dse-radio        { @include ds.ds-radio; }
+  .dse-switch       { @include ds.ds-switch; }
+  .dse-select       { @include ds.ds-select; }
+  .dse-combobox     { @include ds.ds-combobox; }
+  .dse-date         { @include ds.ds-date; }
+  .dse-dialog       { @include ds.ds-dialog; }
+  .dse-menu         { @include ds.ds-menu; }
+  .dse-tip          { @include ds.ds-tooltip; }
+  .dse-toast        { @include ds.ds-toast; }
+  .dse-table        { @include ds.ds-table; }
+  .dse-spinner      { @include ds.ds-spinner; }
+  .dse-progress     { @include ds.ds-progress; }
+  .dse-acc          { @include ds.ds-accordion; }
+  .dse-tabs         { @include ds.ds-tabs; }
+  .dse-card         { @include ds.ds-card; }
+  .pill-group       { @include ds.pill-toggle; }
+  .pill-btn         { @include ds.pill-btn; }
+  .badge            { @include ds.badge; }
+  .icon-btn         { @include ds.icon-btn; }
+  .chip             { @include ds.toggle-chip; }
+  .edge-row         { @include ds.dir-edge; }
+
+  .edge-row {
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: var(--ds-surface);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+}

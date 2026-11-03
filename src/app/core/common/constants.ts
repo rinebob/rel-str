@@ -63,6 +63,7 @@ export const NAV_SECTIONS: NavSection[] = [
                     { name: 'dev-gallery', text: 'Gallery (Dev)', href: 'dev/gallery' },
                     { name: 'dev-screenshot', text: 'Screenshot (Dev)', href: 'dev/screenshot' },
                     { name: 'ds-gallery', text: 'DS Gallery (Dev)', href: 'dev/ds' },
+                    { name: 'ds-elements', text: 'DS Elements (Dev)', href: 'dev/ds-elements' },
                 ],
             },
         ],
@@ -152,6 +153,7 @@ export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
     [AppRoutes.DEV_GALLERY]:                  { title: 'Gallery (Dev)',              icon: 'photo_library' },
     [AppRoutes.SCREENSHOT_DEV]:               { title: 'Screenshot (Dev)',           icon: 'screenshot_monitor' },
     [AppRoutes.DS_GALLERY]:                   { title: 'DS Gallery (Dev)',           icon: 'style' },
+    [AppRoutes.DS_ELEMENTS]:                  { title: 'DS Elements (Dev)',          icon: 'widgets' },
     [AppRoutes.TOPIC_VIEWER]:                 { title: 'Topic Viewer',               icon: 'account_tree' },
 };
 

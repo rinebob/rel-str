@@ -93,6 +93,7 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
     'dev/gallery',
     'dev/screenshot',
     'dev/ds',
+    'dev/ds-elements',
   ])('nav carries exactly one entry for %s', (href) => {
     const hits = NAV_SECTIONS.flatMap((s) =>
       s.items.flatMap((i) => i.children ?? [i]),
@@ -132,6 +133,7 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
       'dev/gallery',
       'dev/screenshot',
       'dev/ds',
+      'dev/ds-elements',
     ]);
     // The trigger itself is not a nav destination.
     expect(dev?.href).toBe('');

@@ -78,6 +78,7 @@ describe('SidenavMenuComponent', () => {
         'Gallery (Dev)',
         'Screenshot (Dev)',
         'DS Gallery (Dev)',
+        'DS Elements (Dev)',
       ]);
     });
 

@@ -54,6 +54,8 @@ export enum AppRoutes {
 	SCREENSHOT_DEV = 'dev/screenshot',
 	/** Design-system element gallery — one card per savant-ds element group with provenance (#1024/#1041). */
 	DS_GALLERY = 'dev/ds',
+	/** Live element zoo — one specimen per archetype in use app-wide; de-materify testbed (#1024/#1348). */
+	DS_ELEMENTS = 'dev/ds-elements',
 	/** Topic Viewer: read-only GitHub issue-lifecycle tree (#619). */
 	TOPIC_VIEWER = 'tools/topic-viewer',
 }

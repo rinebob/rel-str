@@ -1,0 +1,661 @@
+<!-- /dev/ds-elements — element zoo (#1348). One live specimen per
+     archetype in ui-element-sites.json, grouped by family, labeled with
+     count + disposition + source surfaces. De-materify testbed: each
+     #1163 phase replaces its family here first. -->
+<div class="zoo">
+  <header class="zoo-header">
+    <span class="zoo-title">Element Zoo — live inventory</span>
+    <span class="zoo-meta">{{ cardCount }} specimens · {{ archetypeCount }} archetypes · {{ totalUsages }} usages</span>
+    <span class="zoo-note">real Material components — this is what the app ships today</span>
+    <div class="zoo-controls">
+      <select class="in-local accent-pick" aria-label="Accent preset" [value]="accent()" (change)="setAccent($any($event.target).value)">
+        <option value="current">App accent</option>
+        @for (a of accents; track a.id) {
+          <option [value]="a.id">{{ a.label }}</option>
+        }
+      </select>
+      <button type="button" class="icon-btn" (click)="toggleDark()" [title]="dark() ? 'Switch to light' : 'Switch to dark'">
+        <mat-icon>{{ dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+    </div>
+  </header>
+
+  <main class="zoo-body">
+    @for (fam of families; track fam.title) {
+    <section class="family">
+      <h2 class="family-title">{{ fam.title }}</h2>
+      <p class="family-blurb">{{ fam.blurb }}</p>
+
+      <div class="card-grid">
+        @for (item of fam.items; track item.kind) {
+          <article class="card">
+            <header class="card-head">
+              <span class="card-name">{{ item.name }}</span>
+              <span class="card-count">{{ item.count }}×</span>
+              <span class="plan-chip" [attr.data-plan]="item.plan">{{ item.plan }}</span>
+            </header>
+            <div class="card-plan">{{ item.planNote }}</div>
+
+            <div class="panes">
+              <div class="pane">
+                <span class="pane-label">NOW</span>
+                <ng-container *ngTemplateOutlet="specimenBody; context: { kind: item.kind }" />
+              </div>
+              <div class="pane">
+                <span class="pane-label">DS TODAY{{ item.ds?.label ? ' · ' + item.ds?.label : '' }}</span>
+                @if (item.ds?.kind) {
+                  <ng-container *ngTemplateOutlet="specimenBody; context: { kind: item.ds!.kind }" />
+                } @else {
+                  <span class="pane-note">{{ item.ds?.note ?? '—' }}</span>
+                }
+              </div>
+              <div class="pane">
+                <span class="pane-label">TARGET{{ item.target?.label ? ' · ' + item.target?.label : '' }}</span>
+                @if (item.target?.kind) {
+                  <ng-container *ngTemplateOutlet="specimenBody; context: { kind: item.target!.kind }" />
+                } @else {
+                  <span class="pane-note">{{ item.target?.note ?? '—' }}</span>
+                }
+              </div>
+
+              <ng-template #specimenBody let-kind="kind">
+                @switch (kind) {
+
+                <!-- ── Buttons ─────────────────────────────── -->
+                @case ('mat-button') {
+                  <div class="demo-row">
+                    <button mat-button>Login</button>
+                    <button mat-button color="primary">Primary</button>
+                    <button mat-button disabled>Disabled</button>
+                  </div>
+                }
+                @case ('mat-stroked-button') {
+                  <div class="demo-row">
+                    <button mat-stroked-button><mat-icon>add</mat-icon> New Order</button>
+                    <button mat-stroked-button color="primary">Stroked primary</button>
+                  </div>
+                }
+                @case ('mat-flat-button') {
+                  <div class="demo-row">
+                    <button mat-flat-button color="primary">Save</button>
+                    <button mat-flat-button color="warn">Delete</button>
+                  </div>
+                }
+                @case ('mat-raised-button') {
+                  <div class="demo-row">
+                    <button mat-raised-button color="primary">Sign up</button>
+                    <button mat-raised-button color="accent">Accent</button>
+                  </div>
+                }
+                @case ('mat-icon-button') {
+                  <div class="demo-row">
+                    <button mat-icon-button matTooltip="Refresh"><mat-icon>refresh</mat-icon></button>
+                    <button mat-icon-button><mat-icon>settings</mat-icon></button>
+                    <button mat-icon-button disabled><mat-icon>block</mat-icon></button>
+                  </div>
+                }
+                @case ('mat-button-toggle') {
+                  <div class="demo-row">
+                    <mat-button-toggle-group [(ngModel)]="matToggleSel">
+                      <mat-button-toggle value="ALL">ALL</mat-button-toggle>
+                      <mat-button-toggle value="LONG">LONG</mat-button-toggle>
+                      <mat-button-toggle value="SHORT">SHORT</mat-button-toggle>
+                    </mat-button-toggle-group>
+                  </div>
+                }
+                @case ('native-button') {
+                  <div class="demo-row">
+                    <button class="btn-local">Local .btn</button>
+                    <button class="btn-local alt">.btn.alt</button>
+                    <button class="btn-local" disabled>disabled</button>
+                  </div>
+                }
+
+                <!-- ── Forms ─────────────────────────────── -->
+                @case ('mat-form-field') {
+                  <div class="demo-row wrap">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Strike Min</mat-label>
+                      <input matInput type="number" placeholder="472.5" />
+                    </mat-form-field>
+                    <mat-form-field appearance="fill">
+                      <mat-label>Fill variant</mat-label>
+                      <input matInput placeholder="value" />
+                    </mat-form-field>
+                  </div>
+                }
+                @case ('mat-form-field-parts') {
+                  <div class="demo-row wrap">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Strike</mat-label>
+                      <input matInput type="number" placeholder="472.5" />
+                      <mat-icon matSuffix>expand_more</mat-icon>
+                      <mat-hint>min allowed</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Required</mat-label>
+                      <input matInput [formControl]="reqCtrl" />
+                      <mat-error>Required</mat-error>
+                    </mat-form-field>
+                  </div>
+                }
+                @case ('mat-select') {
+                  <div class="demo-row">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Symbol</mat-label>
+                      <mat-select [(ngModel)]="selectVal">
+                        <mat-option value="a">MSFT</mat-option>
+                        <mat-option value="b">NVDA</mat-option>
+                        <mat-option value="c">TSLA</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                }
+                @case ('mat-checkbox') {
+                  <div class="demo-row">
+                    <mat-checkbox [(ngModel)]="checkVal">Include expired</mat-checkbox>
+                    <mat-checkbox [checked]="false">Unchecked</mat-checkbox>
+                  </div>
+                }
+                @case ('mat-radio') {
+                  <div class="demo-row">
+                    <mat-radio-group [(ngModel)]="radioVal">
+                      <mat-radio-button value="a">Call</mat-radio-button>
+                      <mat-radio-button value="b">Put</mat-radio-button>
+                    </mat-radio-group>
+                  </div>
+                }
+                @case ('mat-slide-toggle') {
+                  <div class="demo-row">
+                    <mat-slide-toggle [(ngModel)]="slideVal">Live updates</mat-slide-toggle>
+                  </div>
+                }
+                @case ('mat-datepicker') {
+                  <div class="demo-row">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Entry date</mat-label>
+                      <input matInput [matDatepicker]="dp" />
+                      <mat-datepicker-toggle matIconSuffix [for]="dp"></mat-datepicker-toggle>
+                      <mat-datepicker #dp></mat-datepicker>
+                    </mat-form-field>
+                  </div>
+                }
+                @case ('mat-autocomplete') {
+                  <div class="demo-row">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Symbol</mat-label>
+                      <input matInput [matAutocomplete]="auto" [(ngModel)]="autocompleteVal" />
+                      <mat-autocomplete #auto>
+                        @for (o of acOptions; track o) {
+                          <mat-option [value]="o">{{ o }}</mat-option>
+                        }
+                      </mat-autocomplete>
+                    </mat-form-field>
+                  </div>
+                }
+                @case ('native-input') {
+                  <div class="demo-row wrap">
+                    <input class="in-local" type="number" placeholder="strike" />
+                    <input class="in-local" placeholder="free text" />
+                  </div>
+                }
+                @case ('native-input-checkbox') {
+                  <div class="demo-stack">
+                    <label class="native-check"><input type="checkbox" checked /> Include expired</label>
+                    <label class="native-check"><input type="checkbox" /> Unchecked</label>
+                  </div>
+                }
+                @case ('native-input-date') {
+                  <div class="demo-row">
+                    <input class="in-local" type="date" value="2026-06-19" />
+                  </div>
+                }
+                @case ('native-input-radio') {
+                  <div class="demo-row">
+                    <label class="native-check"><input type="radio" name="n-r" checked /> Call</label>
+                    <label class="native-check"><input type="radio" name="n-r" /> Put</label>
+                  </div>
+                }
+                @case ('native-input-file') {
+                  <div class="demo-row">
+                    <input type="file" />
+                  </div>
+                }
+                @case ('native-select') {
+                  <div class="demo-row">
+                    <select class="in-local" [(ngModel)]="nativeSelectVal">
+                      <option value="x">Weekly</option>
+                      <option value="y">Monthly</option>
+                    </select>
+                  </div>
+                }
+                @case ('native-textarea') {
+                  <div class="demo-row">
+                    <textarea class="in-local" rows="2" placeholder="notes"></textarea>
+                  </div>
+                }
+
+                <!-- ── Overlays ────────────────────────────── -->
+                @case ('mat-dialog') {
+                  <!-- renders the mat-dialog DOM shape as custom elements -->
+                  <div class="dlg-mock">
+                    <span class="mock-tag">DOM shape — not a live MatDialog</span>
+                    <mat-dialog-title>Close position</mat-dialog-title>
+                    <mat-dialog-content>
+                      <p>Confirm closing 2× MSFT calls — P&L $412.</p>
+                    </mat-dialog-content>
+                    <mat-dialog-actions align="end">
+                      <button mat-button>Cancel</button>
+                      <button mat-flat-button color="primary">Confirm</button>
+                    </mat-dialog-actions>
+                  </div>
+                }
+                @case ('mat-tooltip') {
+                  <div class="demo-row">
+                    <button mat-button matTooltip="Short string tooltip">Hover me</button>
+                    <button mat-icon-button matTooltip="Icon tooltip"><mat-icon>info</mat-icon></button>
+                  </div>
+                }
+                @case ('mat-menu') {
+                  <div class="demo-row">
+                    <button mat-button [matMenuTriggerFor]="m">Actions <mat-icon>arrow_drop_down</mat-icon></button>
+                    <mat-menu #m>
+                      <button mat-menu-item>Close position</button>
+                      <button mat-menu-item>Roll</button>
+                      <button mat-menu-item disabled>Disabled</button>
+                    </mat-menu>
+                  </div>
+                }
+                @case ('mat-snackbar') {
+                  <div class="demo-row">
+                    <button mat-stroked-button (click)="fireSnack()">Fire snackbar</button>
+                  </div>
+                }
+
+                <!-- ── Data display ────────────────────────── -->
+                @case ('mat-table') {
+                  <div class="demo-table-wrap">
+                    <table mat-table [dataSource]="tableRows" matSort>
+                      <ng-container matColumnDef="symbol">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Symbol</th>
+                        <td mat-cell *matCellDef="let r">{{ r.symbol }}</td>
+                      </ng-container>
+                      <ng-container matColumnDef="side">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Side</th>
+                        <td mat-cell *matCellDef="let r">{{ r.side }}</td>
+                      </ng-container>
+                      <ng-container matColumnDef="pnl">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>P&L</th>
+                        <td mat-cell *matCellDef="let r">{{ r.pnl }}</td>
+                      </ng-container>
+                      <tr mat-header-row *matHeaderRowDef="cols"></tr>
+                      <tr mat-row *matRowDef="let r; columns: cols"></tr>
+                    </table>
+                    <mat-paginator [length]="3" [pageSize]="10" [showFirstLastButtons]="false"></mat-paginator>
+                  </div>
+                }
+                @case ('mat-chip') {
+                  <div class="demo-row">
+                    <mat-chip-set>
+                      <mat-chip>MSFT</mat-chip>
+                      <mat-chip color="accent" highlighted>NVDA</mat-chip>
+                      <mat-chip-option>TSLA</mat-chip-option>
+                    </mat-chip-set>
+                  </div>
+                }
+                @case ('mat-spinner') {
+                  <div class="demo-row">
+                    <mat-spinner [diameter]="28"></mat-spinner>
+                    <mat-progress-bar mode="indeterminate" class="demo-pbar"></mat-progress-bar>
+                    <mat-progress-bar mode="determinate" [value]="62" class="demo-pbar"></mat-progress-bar>
+                  </div>
+                }
+                @case ('mat-icon') {
+                  <div class="demo-row">
+                    <mat-icon>trending_up</mat-icon>
+                    <mat-icon>trending_down</mat-icon>
+                    <mat-icon>refresh</mat-icon>
+                    <mat-icon>close</mat-icon>
+                    <mat-icon>settings</mat-icon>
+                    <mat-icon>warning</mat-icon>
+                  </div>
+                }
+
+                <!-- ── Layout ──────────────────────────────── -->
+                @case ('mat-expansion') {
+                  <mat-accordion>
+                    <mat-expansion-panel>
+                      <mat-expansion-panel-header><mat-panel-title>Open positions</mat-panel-title></mat-expansion-panel-header>
+                      <p>Panel body — cards/rows inside.</p>
+                    </mat-expansion-panel>
+                    <mat-expansion-panel>
+                      <mat-expansion-panel-header><mat-panel-title>Closed</mat-panel-title></mat-expansion-panel-header>
+                      <p>Second panel.</p>
+                    </mat-expansion-panel>
+                  </mat-accordion>
+                }
+                @case ('mat-tab') {
+                  <mat-tab-group>
+                    <mat-tab label="Open"><p class="tab-pad">Tab body</p></mat-tab>
+                    <mat-tab label="Closed"><p class="tab-pad">Second tab</p></mat-tab>
+                    <mat-tab label="Summary"><p class="tab-pad">Third</p></mat-tab>
+                  </mat-tab-group>
+                }
+                @case ('mat-card') {
+                  <mat-card>
+                    <mat-card-header>
+                      <mat-card-title>Position card</mat-card-title>
+                      <mat-card-subtitle>MSFT · 2 calls</mat-card-subtitle>
+                    </mat-card-header>
+                    <mat-card-content><p>Card body content.</p></mat-card-content>
+                    <mat-card-actions><button mat-button>Action</button></mat-card-actions>
+                  </mat-card>
+                }
+                @case ('mat-sidenav') {
+                  <div class="sidenav-mock">
+                    <span class="mock-tag">DOM shape — not a live MatSidenav</span>
+                    <div class="sidenav-mock-drawer">drawer<br>(mat-sidenav)</div>
+                    <div class="sidenav-mock-content">mat-sidenav-content<br><span class="dim">— the app shell; every page lives inside this</span></div>
+                  </div>
+                }
+                @case ('mat-toolbar') {
+                  <mat-toolbar>
+                    <span>Toolbar</span>
+                    <span class="toolbar-spacer-flex"></span>
+                    <button mat-icon-button><mat-icon>more_vert</mat-icon></button>
+                  </mat-toolbar>
+                }
+                @case ('mat-list') {
+                  <mat-nav-list>
+                    <a mat-list-item>Item one</a>
+                    <a mat-list-item>Item two</a>
+                  </mat-nav-list>
+                }
+
+                <!-- ── CDK / syncfusion ────────────────────── -->
+                @case ('cdk-virtual-scroll') {
+                  <cdk-virtual-scroll-viewport itemSize="24" class="virt">
+                    <div *cdkVirtualFor="let r of virtItems" class="virt-row">{{ r }}</div>
+                  </cdk-virtual-scroll-viewport>
+                }
+                @case ('cdk-overlay') {
+                  <span class="dim">CDK overlay/portal — behavioral primitive backing mat-menu, dialogs, tooltips. No visual of its own.</span>
+                }
+                @case ('syncfusion') {
+                  <div class="code-block">
+                    <code>&lt;ejs-chart [primaryXAxis]&gt;<br>&nbsp;&nbsp;&lt;e-series bearFillColor="#ef5350"&gt;</code>
+                  </div>
+                  <span class="dim">Live charts: /rs-chart · /heatmap-chart/:baseline/:symbol · /sync-chart</span>
+                }
+
+                <!-- ── DS widgets ──────────────────────────── -->
+                @case ('ds-pill-toggle') {
+                  <div class="demo-stack">
+                    <div class="pill-group">
+                      <button type="button" class="pill" [class.active]="pillSel() === 0" (click)="pillSel.set(0)">ALL</button>
+                      <button type="button" class="pill long" [class.active]="pillSel() === 1" (click)="pillSel.set(1)">LONG</button>
+                      <button type="button" class="pill short" [class.active]="pillSel() === 2" (click)="pillSel.set(2)">SHORT</button>
+                    </div>
+                    <div class="pill-group flat">
+                      @for (iv of ['1D', '1W', '1M']; track iv; let i = $index) {
+                        <button type="button" class="pill" [class.active]="intervalSel() === i" (click)="intervalSel.set(i)">{{ iv }}</button>
+                      }
+                    </div>
+                  </div>
+                }
+                @case ('ds-pill-btn') {
+                  <div class="demo-row">
+                    <button type="button" class="pill-btn"><mat-icon>refresh</mat-icon> refresh <span class="pill-count">12</span></button>
+                    <span class="pill-btn emph">signals <span class="pill-count">4</span></span>
+                    <button type="button" class="pill-btn small">small</button>
+                  </div>
+                }
+                @case ('ds-badge') {
+                  <div class="demo-row">
+                    <span class="badge dir-long">LONG</span>
+                    <span class="badge dir-short">SHORT</span>
+                    <span class="badge type">RS_RISE</span>
+                    <span class="badge tf">W</span>
+                    <span class="badge count">42</span>
+                  </div>
+                }
+                @case ('ds-icon-btn') {
+                  <div class="demo-row">
+                    <button type="button" class="icon-btn"><mat-icon>refresh</mat-icon></button>
+                    <button type="button" class="icon-btn"><mat-icon>zoom_in</mat-icon></button>
+                    <button type="button" class="icon-btn dim"><mat-icon>zoom_out</mat-icon></button>
+                    <button type="button" class="icon-btn" disabled><mat-icon>settings</mat-icon></button>
+                  </div>
+                }
+                @case ('ds-toolbar-row') {
+                  <div class="demo-toolbar">
+                    <span class="title">AAPL</span>
+                    <button type="button" class="icon-btn"><mat-icon>refresh</mat-icon></button>
+                    <div class="pill-group flat">
+                      <button type="button" class="pill active">1D</button>
+                      <button type="button" class="pill">1W</button>
+                    </div>
+                    <span class="toolbar-spacer"></span>
+                    <span class="badge dir-long">LONG</span>
+                  </div>
+                }
+                @case ('ds-nav-stepper') {
+                  <div class="demo-row">
+                    <div class="demo-stepper">
+                      <button type="button" class="nav-btn" disabled><mat-icon>chevron_left</mat-icon></button>
+                      <span class="nav-position">3 / 12</span>
+                      <button type="button" class="nav-btn"><mat-icon>chevron_right</mat-icon></button>
+                    </div>
+                  </div>
+                }
+                @case ('ds-field-input') {
+                  <div class="demo-row">
+                    <div class="demo-field">
+                      <mat-icon class="icon">search</mat-icon>
+                      <input [value]="fieldValue()" (input)="fieldValue.set($any($event.target).value)" placeholder="Filter" />
+                      <button type="button" class="clear" (click)="fieldValue.set('')"><mat-icon>close</mat-icon></button>
+                    </div>
+                  </div>
+                }
+                @case ('ds-toggle-chip') {
+                  <div class="demo-row">
+                    @for (c of ['Swing', 'Momentum', 'Reversal']; track c; let i = $index) {
+                      <button type="button" class="chip" [class.active]="chipSel().has(i)" (click)="toggleChip(i)">{{ c }}</button>
+                    }
+                  </div>
+                }
+                @case ('ds-dir-edge') {
+                  <div class="demo-stack">
+                    <div class="edge-row dir-edge-long"><span class="badge dir-long">LONG</span> AAPL — table-row accent</div>
+                    <div class="edge-row dir-edge-short"><span class="badge dir-short">SHORT</span> TSLA — table-row accent</div>
+                  </div>
+                }
+                @case ('ds-btn') {
+                  <div class="demo-stack">
+                    <div class="demo-row">
+                      <button type="button" class="ds-btn">ghost</button>
+                      <button type="button" class="ds-btn outline">outline</button>
+                      <button type="button" class="ds-btn fill">fill CTA</button>
+                      <button type="button" class="ds-btn danger">danger</button>
+                    </div>
+                    <div class="demo-row">
+                      <button type="button" class="ds-btn"><mat-icon>add</mat-icon> with icon</button>
+                      <button type="button" class="ds-btn small">small</button>
+                      <button type="button" class="ds-btn" disabled>disabled</button>
+                      <button type="button" class="ds-btn fill" disabled>disabled fill</button>
+                    </div>
+                  </div>
+                }
+                @case ('ds-field') {
+                  <label class="dse-field">
+                    <span class="field-label">Strike Min</span>
+                    <input class="field-input" type="number" placeholder="472.5" />
+                    <span class="field-hint">optional</span>
+                  </label>
+                  <label class="dse-field">
+                    <span class="field-label">Notes (textarea)</span>
+                    <textarea class="field-input" rows="2" placeholder="free text"></textarea>
+                  </label>
+                }
+                @case ('ds-check') {
+                  <div class="demo-stack">
+                    <label class="dse-check"><input type="checkbox" checked /> Include expired</label>
+                    <label class="dse-check"><input type="checkbox" /> Unchecked</label>
+                    <label class="dse-check"><input type="checkbox" disabled /> Disabled</label>
+                  </div>
+                }
+                @case ('ds-radio') {
+                  <div class="demo-row">
+                    <label class="dse-radio"><input type="radio" name="dse-r" checked /> Call</label>
+                    <label class="dse-radio"><input type="radio" name="dse-r" /> Put</label>
+                  </div>
+                }
+                @case ('ds-switch') {
+                  <div class="demo-stack">
+                    <label class="dse-switch"><input type="checkbox" class="switch-input" checked /> Live updates</label>
+                    <label class="dse-switch"><input type="checkbox" class="switch-input" /> Off</label>
+                  </div>
+                }
+                @case ('ds-select') {
+                  <label class="dse-select">
+                    <select class="field-input" [(ngModel)]="dsSelectVal">
+                      <option value="x">Weekly</option>
+                      <option value="y">Monthly</option>
+                    </select>
+                  </label>
+                }
+                @case ('ds-combobox') {
+                  <div class="dse-combobox">
+                    <input class="field-input" role="combobox" aria-expanded="true" aria-controls="dse-combo-list"
+                           aria-activedescendant="dse-combo-opt-1"
+                           [value]="comboVal()" (input)="comboVal.set($any($event.target).value)" placeholder="Symbol" />
+                    <div class="combo-panel" id="dse-combo-list" role="listbox">
+                      @for (o of acOptions; track o; let i = $index) {
+                        <div class="combo-option" role="option" id="dse-combo-opt-{{ i }}" [class.selected]="i === 1" [attr.aria-selected]="i === 1">{{ o }}</div>
+                      }
+                    </div>
+                  </div>
+                }
+                @case ('ds-date') {
+                  <input type="date" class="dse-date" value="2026-06-19" />
+                }
+                @case ('ds-dialog') {
+                  <div class="dse-dialog" role="dialog" aria-modal="true" aria-labelledby="dse-dlg-title">
+                    <div class="title" id="dse-dlg-title"><mat-icon>swap_vert</mat-icon> Close position</div>
+                    <div class="content">Confirm closing 2× MSFT calls — P&L $412.</div>
+                    <div class="actions">
+                      <button type="button" class="ds-btn">Cancel</button>
+                      <button type="button" class="ds-btn fill">Confirm</button>
+                    </div>
+                  </div>
+                }
+                @case ('ds-menu') {
+                  <div class="dse-menu" role="menu">
+                    <button type="button" class="menu-item" role="menuitem"><mat-icon>close</mat-icon> Close position</button>
+                    <button type="button" class="menu-item" role="menuitem"><mat-icon>autorenew</mat-icon> Roll</button>
+                    <hr class="menu-sep" />
+                    <button type="button" class="menu-item" role="menuitem" disabled>Disabled</button>
+                    <button type="button" class="menu-item danger" role="menuitem"><mat-icon>delete</mat-icon> Delete</button>
+                  </div>
+                }
+                @case ('ds-tooltip') {
+                  <div class="demo-row">
+                    <span class="dse-tip">Short string tooltip</span>
+                    <span class="pane-note">(renders anchored via CDK overlay in real use)</span>
+                  </div>
+                }
+                @case ('ds-toast') {
+                  <div class="dse-toast" role="status">
+                    Saved 3 signals <button type="button" class="action">Undo</button>
+                  </div>
+                }
+                @case ('ds-table') {
+                  <div class="dse-table">
+                    <table>
+                      <thead>
+                        <tr><th class="sortable asc" aria-sort="ascending" tabindex="0">Symbol</th><th>Side</th><th class="num sortable" tabindex="0">P&amp;L</th></tr>
+                      </thead>
+                      <tbody>
+                        <tr><td>MSFT</td><td>LONG</td><td class="num">+412</td></tr>
+                        <tr><td>NVDA</td><td>SHORT</td><td class="num">−88</td></tr>
+                        <tr><td>TSLA</td><td>LONG</td><td class="num">+150</td></tr>
+                      </tbody>
+                    </table>
+                    <div class="pager">
+                      <span class="pager-info">1–3 of 3</span>
+                      <button type="button" class="icon-btn" disabled><mat-icon>chevron_left</mat-icon></button>
+                      <button type="button" class="icon-btn" disabled><mat-icon>chevron_right</mat-icon></button>
+                    </div>
+                  </div>
+                }
+                @case ('ds-spinner') {
+                  <div class="demo-row">
+                    <span class="dse-spinner"></span>
+                    <span class="dse-spinner small"></span>
+                    <span class="dse-progress demo-pbar"><span class="fill" style="width:62%"></span></span>
+                    <span class="dse-progress indeterminate demo-pbar"><span class="fill"></span></span>
+                  </div>
+                }
+                @case ('ds-accordion') {
+                  <div class="dse-acc">
+                    <div class="ds-panel open">
+                      <button type="button" class="acc-head" aria-expanded="true" aria-controls="dse-acc-b1" id="dse-acc-h1"><span>Open positions</span><mat-icon class="chev">expand_more</mat-icon></button>
+                      <div class="acc-body" role="region" id="dse-acc-b1" aria-labelledby="dse-acc-h1">Panel body — cards/rows inside.</div>
+                    </div>
+                    <div class="ds-panel">
+                      <button type="button" class="acc-head" aria-expanded="false" aria-controls="dse-acc-b2" id="dse-acc-h2"><span>Closed</span><mat-icon class="chev">expand_more</mat-icon></button>
+                      <div class="acc-body" role="region" id="dse-acc-b2" aria-labelledby="dse-acc-h2">Second panel.</div>
+                    </div>
+                  </div>
+                }
+                @case ('ds-tabs') {
+                  <div class="dse-tabs">
+                    <div class="tab-bar" role="tablist">
+                      <button type="button" class="tab active" role="tab" aria-selected="true" aria-controls="dse-tab-panel" id="dse-tab-open">Open</button>
+                      <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="dse-tab-panel">Closed</button>
+                      <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="dse-tab-panel">Summary</button>
+                    </div>
+                    <div class="tab-body" role="tabpanel" id="dse-tab-panel" aria-labelledby="dse-tab-open">Active tab body.</div>
+                  </div>
+                }
+                @case ('ds-card') {
+                  <div class="dse-card">
+                    <div class="card-head"><span class="card-title">Position card</span><span class="card-sub">MSFT · 2 calls</span></div>
+                    <div class="card-body">Card body content.</div>
+                    <div class="card-foot"><button type="button" class="ds-btn small">Action</button></div>
+                  </div>
+                }
+                @case ('ds-dense-table') {
+                  <table class="demo-table">
+                    <thead>
+                      <tr><th>Symbol</th><th class="num">Qty</th><th class="num">P&amp;L</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>QQQM</td><td class="num">100</td><td class="num">+12.40</td></tr>
+                      <tr><td>AAPL</td><td class="num">50</td><td class="num">−3.20</td></tr>
+                    </tbody>
+                  </table>
+                }
+                @case ('rh-select-menu') {
+                  <div class="demo-row">
+                    <app-rh-select-menu label="Symbol" [options]="rhOptions" [value]="rhSelectVal()" (valueChange)="rhSelectVal.set($event)" />
+                  </div>
+                }
+
+                @default {
+                  <span class="specimen-missing">UNHANDLED specimen kind: {{ kind }}</span>
+                }
+                }
+              </ng-template>
+            </div>
+
+            <footer class="zoo-foot">
+              <span class="seen-label">seen in:</span> {{ item.seenIn.join(' · ') }}
+            </footer>
+          </article>
+        }
+      </div>
+    </section>
+  }
+  </main>
+</div>
