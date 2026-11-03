@@ -10,6 +10,7 @@ import {
   ST_CONFIG_ROOT,
   ST_CONFIG_STATUS_DOC,
   ST_JOBS_SUBCOLLECTION_NAME,
+  ST_OPTIONS_ANALYSIS_RESULTS_ROOT,
   ST_OPTIONS_CONTRACT_LISTS_ROOT,
   ST_OPTIONS_REPLAY_RUNS_ROOT,
   ST_ORDER_TICKETS_ROOT,
@@ -37,6 +38,7 @@ import {
   stScannerProposalDocPath,
   stScannerProposalsPath,
   stOptionsContractListDocId,
+  stOptionsAnalysisResultDocId,
 } from './st-collections';
 import {
   PaperTradingKind,
@@ -60,6 +62,7 @@ const FLAT_ROOTS = [
   ST_BACKTEST_PERMUTATIONS_ROOT,
   ST_OPTIONS_REPLAY_RUNS_ROOT,
   ST_OPTIONS_CONTRACT_LISTS_ROOT,
+  ST_OPTIONS_ANALYSIS_RESULTS_ROOT,
 ] as const;
 
 const ANCHORED_ROOTS = [ST_PAPER_TRADING_ROOT, ST_PORTFOLIO_ROOT, ST_SCANNER_ROOT] as const;
@@ -78,6 +81,7 @@ describe('st-collections roots', () => {
     expect(ST_BACKTEST_PERMUTATIONS_ROOT).toBe('st-backtest-permutations');
     expect(ST_OPTIONS_REPLAY_RUNS_ROOT).toBe('st-options-replay-runs');
     expect(ST_OPTIONS_CONTRACT_LISTS_ROOT).toBe('st-options-contract-lists');
+    expect(ST_OPTIONS_ANALYSIS_RESULTS_ROOT).toBe('st-options-analysis-results');
   });
 
   it('pins renamed singleton ids (legacy current → status; jobs subcollection)', () => {
@@ -234,5 +238,18 @@ describe('st-options selection-replay doc ids', () => {
   it('stOptionsContractListDocId builds {runId}_{symbol}', () => {
     expect(stOptionsContractListDocId('or-abc123', 'QQQ')).toBe('or-abc123_QQQ');
     expect(stOptionsContractListDocId('or-abc123', 'qqq')).toBe('or-abc123_QQQ');
+  });
+});
+
+describe('st-options analysis-result doc ids (#1368)', () => {
+  it('stOptionsAnalysisResultDocId builds {contractListDocId}_{exitId}', () => {
+    expect(stOptionsAnalysisResultDocId('or-abc123_QQQ', 'target-90')).toBe(
+      'or-abc123_QQQ_target-90',
+    );
+  });
+
+  it('composes a single-segment doc id (no path separators)', () => {
+    const docId = stOptionsAnalysisResultDocId('or-abc123_QQQ', 'expiry');
+    expect(docId.includes('/')).toBe(false);
   });
 });

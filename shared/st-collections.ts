@@ -32,6 +32,7 @@
  *   backtest roots      st-backtest-runs/{runId}  st-backtest-permutations/{id}
  *   replay roots        st-options-replay-runs/{runId}
  *                       st-options-contract-lists/{runId}_{SYM}
+ *   analysis roots      st-options-analysis-results/{contractListDocId}_{exitId}
  */
 
 import type { PaperTradingKind } from './paper-trading-ids';
@@ -97,6 +98,25 @@ export function stOptionsContractListDocId(runId: string, symbol: string): strin
   return `${runId}_${symbol.toUpperCase()}`;
 }
 
+/** Backtest-analytics result docs — one doc per (contract list × exit
+ *  strategy), `AnalysisResultDoc` shape (Topic #1238, Thread #1266).
+ *  The `st-options-*` family is deliberately flat (replay-runs,
+ *  contract-lists, analysis-results) — composite doc ids, not the
+ *  anchored pattern; revisit if a fourth record kind appears. */
+export const ST_OPTIONS_ANALYSIS_RESULTS_ROOT = 'st-options-analysis-results';
+
+/**
+ * Analysis-result doc id is deterministic: `{contractListDocId}_{exitId}`.
+ * Single home for the doc-key format — the analyzer worker writes it and
+ * readers construct it without a lookup. `exitId` is registry-guarded to
+ * `/^[a-z0-9][a-z0-9-]*$/` (no `_`, no `/`), so the suffix is unambiguous — but never
+ * parse it back; both halves are only ever reassembled from the task
+ * payload, not split out of the doc id.
+ */
+export function stOptionsAnalysisResultDocId(contractListDocId: string, exitId: string): string {
+  return `${contractListDocId}_${exitId}`;
+}
+
 // ── st-runs subcollections ─────────────────────────────────────────────────
 
 /** Jobs subcollection name under a run doc — single source; functions barrel re-exports. */
@@ -135,6 +155,8 @@ export enum StPaperTradingKind {
   TRADE = 'trade',
   STATS = 'stats',
   RAW_QUOTE = 'raw-quote',
+  ANALYSIS_DATASET = 'analysis-dataset',
+  ANALYSIS_SLICE = 'analysis-slice',
 }
 
 /**
@@ -151,6 +173,8 @@ const ST_PAPER_TRADING_ANCHORS: Record<StPaperTradingKind, string> = {
   [StPaperTradingKind.TRADE]: 'trades',
   [StPaperTradingKind.STATS]: 'stats',
   [StPaperTradingKind.RAW_QUOTE]: 'raw-quotes',
+  [StPaperTradingKind.ANALYSIS_DATASET]: 'analysis-datasets',
+  [StPaperTradingKind.ANALYSIS_SLICE]: 'analysis-slices',
 };
 
 function stPaperTradingAnchor(kind: StPaperTradingPathKind): string {
