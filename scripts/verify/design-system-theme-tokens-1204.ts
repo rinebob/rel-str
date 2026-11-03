@@ -7,7 +7,7 @@
  *     vendored includePaths — the same path the app build uses). The
  *     compiler is resolved through the package's own package.json — the
  *     version its verify pins, not an ambient hoisted copy.
- *  2. The :root block emits EXACTLY the 47-token contract (set-equality
+ *  2. The :root block emits EXACTLY the 54-token contract (set-equality
  *     both directions, boundary-exact name matching — a longer sibling
  *     like --ds-surface-raised can't satisfy --ds-surface).
  *  3. Emission model: light set under `:root`, dark overrides under
@@ -77,7 +77,7 @@ try {
 // a declaration (same guard as the package's verify.mjs).
 const css = cssRaw.replace(/\/\*[\s\S]*?\*\//g, '');
 
-// ── 2. The :root block emits exactly the 47-token contract ────────────────
+// ── 2. The :root block emits exactly the 54-token contract ────────────────
 //
 // REQUIRED is the hand-pinned name contract (mirrors TOKENS in the
 // package's scripts/verify.mjs). Boundary-exact declaration matching —
@@ -105,6 +105,10 @@ const REQUIRED = [
   '--ds-font-weight-regular', '--ds-font-weight-medium', '--ds-font-weight-bold',
   '--ds-row-height', '--ds-field-height',
   '--ds-radius-sm', '--ds-radius-md', '--ds-shadow-1', '--ds-shadow-2',
+  // interactive/state layer + text-role accent (#1348 element library)
+  '--ds-state-hover', '--ds-state-active', '--ds-scrim',
+  '--ds-disabled-bg', '--ds-disabled-fg', '--ds-selection',
+  '--ds-accent-text',
 ];
 
 // Selector → declaration map over the WHOLE sheet (mirrors verify.mjs's

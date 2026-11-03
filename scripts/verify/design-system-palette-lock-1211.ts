@@ -98,11 +98,11 @@ function decls(block: string): Map<string, string> {
 }
 
 /** Selector → declaration-block map; dart-sass strips attr-selector quotes. */
-function blocksFor(selector: string): string[] {
+function blocksFor(selector: string, cssText = css): string[] {
   const out: string[] = [];
   const re = new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`, 'g');
   let m: RegExpExecArray | null;
-  while ((m = re.exec(css))) out.push(m[1]);
+  while ((m = re.exec(cssText))) out.push(m[1]);
   return out;
 }
 
@@ -122,14 +122,16 @@ check('dark accent block derives the full --ds-accent family',
     && decls(darkAccentBlock).has('--ds-accent-container')
     && decls(darkAccentBlock).has('--ds-on-accent-container')
     && decls(darkAccentBlock).has('--ds-accent-border')
-    && decls(darkAccentBlock).has('--ds-accent-glow'));
+    && decls(darkAccentBlock).has('--ds-accent-glow')
+    && decls(darkAccentBlock).has('--ds-accent-text'));
 check('light accent block derives the full --ds-accent family',
   decls(lightAccentBlock).has('--ds-accent')
     && decls(lightAccentBlock).has('--ds-on-accent')
     && decls(lightAccentBlock).has('--ds-accent-container')
     && decls(lightAccentBlock).has('--ds-on-accent-container')
     && decls(lightAccentBlock).has('--ds-accent-border')
-    && decls(lightAccentBlock).has('--ds-accent-glow'));
+    && decls(lightAccentBlock).has('--ds-accent-glow')
+    && decls(lightAccentBlock).has('--ds-accent-text'));
 check('up/down pickers bind --ds-up/--ds-down on the host',
   /\[style\.--ds-up\]/.test(GALLERY_TS) && /\[style\.--ds-down\]/.test(GALLERY_TS));
 
@@ -176,6 +178,36 @@ const appDarkMatSysCount = [...appDark.keys()].filter((k) => k.startsWith('--mat
 check(`dark preview mirrors the app :root --mat-sys bridge (all ${appDarkMatSysCount} keys)`,
   darkMisses.length === 0,
   darkMisses.slice(0, 4).map(([k, v]) => `${k}: want ${v}, got ${galleryDarkDecls.get(k)}`).join(', '));
+
+// ── 5b. ds-elements zoo carries the same restates — same drift surface ───
+// The element zoo (#1348) duplicates the light --ds-* and dark --mat-sys
+// restate blocks for its own preview subtree. Pin them against the same
+// sources so a post-bake token edit can't leave the zoo silently stale.
+
+const ELEMENTS_SCSS = path.join(ROOT, 'src', 'app', 'features', 'ds-elements', 'ds-elements.component.scss');
+let elementsCssRaw = '';
+try {
+  const sass = require2('sass') as { compile(f: string, o: { loadPaths: string[] }): { css: string } };
+  ({ css: elementsCssRaw } = sass.compile(ELEMENTS_SCSS, { loadPaths: [DS_STYLES] }));
+  check('elements zoo scss compiles through vendored includePaths', elementsCssRaw.length > 0);
+} catch (err) {
+  check('elements zoo scss compiles through vendored includePaths', false, String(err).slice(0, 200));
+}
+const elementsCss = elementsCssRaw.replace(/\/\*[\s\S]*?\*\//g, '');
+
+const elLightDecls = decls(blocksFor(":host[data-theme=light]", elementsCss).join('\n'));
+const elLightMisses = [...tokensDark.keys()].filter(
+  (k) => elLightDecls.get(k) !== tokensRoot.get(k));
+check('zoo light preview restates every dark-differing --ds-* literal verbatim',
+  elLightMisses.length === 0,
+  elLightMisses.slice(0, 4).map((k) => `${k}: want ${tokensRoot.get(k)}, got ${elLightDecls.get(k)}`).join(', '));
+
+const elDarkDecls = decls(blocksFor(":host[data-theme=dark]", elementsCss).join('\n'));
+const elDarkMisses = [...appDark.entries()].filter(
+  ([k, v]) => k.startsWith('--mat-sys') && elDarkDecls.get(k) !== v);
+check(`zoo dark preview mirrors the app :root --mat-sys bridge (all ${appDarkMatSysCount} keys)`,
+  elDarkMisses.length === 0,
+  elDarkMisses.slice(0, 4).map(([k, v]) => `${k}: want ${v}, got ${elDarkDecls.get(k)}`).join(', '));
 
 // ── 6. Palette lock ──────────────────────────────────────────────────────
 

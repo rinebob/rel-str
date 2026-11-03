@@ -38,6 +38,7 @@ const MIXINS = [
   'field-input',
   'toggle-chip',
   'dir-edge',
+  'ds-btn',
 ] as const;
 
 let checks = 0;
@@ -109,7 +110,7 @@ if (existsSync(packageWidgets) && existsSync(packageIndex)) {
   const executableWidgets = stripComments(text(packageWidgets));
   const foundMixins = [...executableWidgets.matchAll(/@mixin\s+([\w-]+)/g)].map((m) => m[1]);
   check(
-    'widget partial exports exactly the nine contracted mixins',
+    'widget partial exports exactly the ten contracted mixins',
     foundMixins.sort().join(',') === [...MIXINS].sort().join(','),
     foundMixins.join(','),
   );
