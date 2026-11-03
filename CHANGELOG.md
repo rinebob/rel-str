@@ -18,6 +18,14 @@
 - [Option Contract Time-Series Viewer] 1243-1339_FE-IMPL-OPTIONS: Option group generator drawer component — query form (strike/expiry/C-P-BOTH), preview table + state surfaces, refine without refetch, open-date link toggle, send → `date,id` pair lines; `studyRange` seam declared (#1340 emits)
 - [Option Contract Time-Series Viewer] 1243-1339_FE-IMPL-OPTIONS: Generator drawer page wiring — right `mat-sidenav` + `tune` toggle, per-symbol `rs-optgen:{SYMBOL}` swap, send → textarea → `loadPlotted` replace; `onStudyRange` → alive-range bound
 - [Option Contract Time-Series Viewer] 1243-1339_DOCS-OPTIONS: #1349 UAT (PASS; 17/17 — spec seam 73 tests + manual round-trip against deployed callable) + code review + #1336 post-deploy smoke
+- [Savant Design System] 1024-1348_FE-IMPL-DESIGN-SYSTEM: dev/ds-elements live element zoo & de-materify testbed — 49 specimens / 54 archetypes / 10 families, NOW|DS TODAY|TARGET panes, ARIA contracts, theme + accent demos
+- [Savant Design System] 1024-1348_FE-IMPL-DESIGN-SYSTEM: ds-btn card in DS gallery (10 cards) + shared ds-accents util incl. --ds-accent-text derivation
+- [Savant Design System] 1024-1348_SHARED-CHORE-DESIGN-SYSTEM: vendored savant-ds element-mixin library sync (_forms + _layout partials, 12 state tokens; byte-identical to canonical)
+
+### Changed
+- [Savant Design System] 1024-1348_CONFIG-CONFIG-DESIGN-SYSTEM: anyComponentStyle budget 40/50kB for DS showcase pages
+- [Savant Design System] 1024-1348_BE-CHORE-DESIGN-SYSTEM: DS verify relays extended (1204: 53/53, 1211: 22/22 incl. zoo restates, 1112 ds-btn)
+- [Savant Design System] 1024-1348_DOCS-DOCS-DESIGN-SYSTEM: #1348 code-review (PASS, 2 rounds) + #1385 UAT (Complete; user visual PASS) + inventory mixin list + changelog
 
 ## [2026-11-02]
 

@@ -14,9 +14,9 @@
     "Third-party Material/Syncfusion adapters"
   ],
   "summary": {
-    "sites": 4239,
+    "sites": 4233,
     "files": 208,
-    "literals": 2042
+    "literals": 2038
   },
   "sites": [
     {
@@ -194,6 +194,14 @@
       "kind": "expression",
       "area": "app-chrome-review",
       "source": "background: transparent;"
+    },
+    {
+      "file": "src/app/core/comps/sidenav-menu/sidenav-menu.component.scss",
+      "line": 57,
+      "value": "var(--ds-surface-overlay)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background-color: var(--ds-surface-overlay);"
     },
     {
       "file": "src/app/core/comps/sidenav-menu/sidenav-menu.component.scss",
@@ -386,6 +394,62 @@
       "kind": "literal",
       "area": "app-chrome-review",
       "source": "line: { width: 1, color: '#757575' }"
+    },
+    {
+      "file": "src/app/features/dashboard/heatmap/heatmap.component.scss",
+      "line": 29,
+      "value": "var(--ds-border-strong)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "border-right: 1px solid var(--ds-border-strong);"
+    },
+    {
+      "file": "src/app/features/dashboard/heatmap/heatmap.component.scss",
+      "line": 41,
+      "value": "var(--ds-border-strong)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "border-left: 1px solid var(--ds-border-strong);"
+    },
+    {
+      "file": "src/app/features/dashboard/heatmap/heatmap.component.scss",
+      "line": 42,
+      "value": "var(--ds-border-strong)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "border-top: 1px solid var(--ds-border-strong);"
+    },
+    {
+      "file": "src/app/features/dashboard/heatmap/heatmap.component.scss",
+      "line": 43,
+      "value": "var(--ds-border-strong)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "border-bottom: 1px solid var(--ds-border-strong);"
+    },
+    {
+      "file": "src/app/features/dashboard/heatmap/heatmap.component.scss",
+      "line": 49,
+      "value": "var(--ds-border-strong)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "border-left: 1px solid var(--ds-border-strong);"
+    },
+    {
+      "file": "src/app/features/dashboard/heatmap/heatmap.component.scss",
+      "line": 50,
+      "value": "var(--ds-border-strong)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "border-bottom: 1px solid var(--ds-border-strong);"
+    },
+    {
+      "file": "src/app/features/dashboard/select-stock-panel/stock-list-selector/stock-list-selector.component.scss",
+      "line": 57,
+      "value": "var(--ds-surface-overlay)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background-color: var(--ds-surface-overlay);"
     },
     {
       "file": "src/app/features/dashboard-v2/dashboard-v2.component.scss",
@@ -778,6 +842,14 @@
       "kind": "token-reference",
       "area": "chart-indicator-review",
       "source": "outline: 2px solid var(--ds-accent);"
+    },
+    {
+      "file": "src/app/features/dashboard-v2/select-stock-panel/stock-list-selector/stock-list-selector.component.scss",
+      "line": 51,
+      "value": "var(--ds-surface-overlay)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background-color: var(--ds-surface-overlay);"
     },
     {
       "file": "src/app/features/dashboard-v3/dashboard-v3.component.scss",
@@ -16733,35 +16805,19 @@
     },
     {
       "file": "src/app/features/heatmap-chart/components/heatmap-chart-chart.component.ts",
-      "line": 56,
+      "line": 58,
       "value": "#ef5350",
       "kind": "literal",
       "area": "chart-indicator-review",
-      "source": "bearFillColor=\"#ef5350\" // literal-sweep exception #1217: candle down-fill — Syncfusion series hue"
+      "source": "bearFillColor=\"#ef5350\""
     },
     {
       "file": "src/app/features/heatmap-chart/components/heatmap-chart-chart.component.ts",
-      "line": 56,
-      "value": "#1217",
-      "kind": "literal",
-      "area": "chart-indicator-review",
-      "source": "bearFillColor=\"#ef5350\" // literal-sweep exception #1217: candle down-fill — Syncfusion series hue"
-    },
-    {
-      "file": "src/app/features/heatmap-chart/components/heatmap-chart-chart.component.ts",
-      "line": 57,
+      "line": 59,
       "value": "#26a69a",
       "kind": "literal",
       "area": "chart-indicator-review",
-      "source": "bullFillColor=\"#26a69a\" // literal-sweep exception #1217: candle up-fill — Syncfusion series hue>"
-    },
-    {
-      "file": "src/app/features/heatmap-chart/components/heatmap-chart-chart.component.ts",
-      "line": 57,
-      "value": "#1217",
-      "kind": "literal",
-      "area": "chart-indicator-review",
-      "source": "bullFillColor=\"#26a69a\" // literal-sweep exception #1217: candle up-fill — Syncfusion series hue>"
+      "source": "bullFillColor=\"#26a69a\">"
     },
     {
       "file": "src/app/features/heatmap-chart/components/heatmap-chart-heatmap.component.ts",
@@ -19708,6 +19764,190 @@
       "source": "readonly shortColor = '#ef4444';"
     },
     {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 9,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 14,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 20,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 36,
+      "value": "var(--mat-sys-surface-container)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-surface-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 38,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 39,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border-bottom: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 44,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "border-bottom: 1px solid var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 54,
+      "value": "var(--mat-sys-surface-container-low)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-surface-container-low);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 59,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 77,
+      "value": "var(--mat-sys-secondary-container)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-secondary-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 78,
+      "value": "var(--mat-sys-on-secondary-container)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-secondary-container);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 84,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-list-table/options-replay-contract-list-table.component.scss",
+      "line": 86,
+      "value": "var(--mat-sys-surface-container-lowest)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "background: var(--mat-sys-surface-container-lowest);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 10,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 28,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 32,
+      "value": "var(--mat-sys-error)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "color: var(--mat-sys-error);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 43,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 57,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "fill: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 61,
+      "value": "var(--mat-sys-outline-variant)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "stroke: var(--mat-sys-outline-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 66,
+      "value": "var(--ds-accent, var(--mat-sys-primary)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "stroke: var(--ds-accent, var(--mat-sys-primary));"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 71,
+      "value": "var(--ds-accent, var(--mat-sys-primary)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "fill: var(--ds-accent, var(--mat-sys-primary));"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 79,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-contract-series-dialog/options-replay-contract-series-dialog.component.scss",
+      "line": 83,
+      "value": "var(--mat-sys-on-surface-variant)",
+      "kind": "token-reference",
+      "area": "chart-indicator-review",
+      "source": "color: var(--mat-sys-on-surface-variant);"
+    },
+    {
       "file": "src/app/features/savant-trader/backtest/components/options-replay-new-run-dialog/options-replay-new-run-dialog.component.scss",
       "line": 35,
       "value": "var(--mat-sys-on-surface-variant)",
@@ -19773,7 +20013,7 @@
     },
     {
       "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
-      "line": 88,
+      "line": 95,
       "value": "var(--mat-sys-on-surface-variant)",
       "kind": "token-reference",
       "area": "app-chrome-review",
@@ -19781,7 +20021,15 @@
     },
     {
       "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
-      "line": 94,
+      "line": 106,
+      "value": "var(--mat-sys-on-surface)",
+      "kind": "token-reference",
+      "area": "app-chrome-review",
+      "source": "color: var(--mat-sys-on-surface);"
+    },
+    {
+      "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
+      "line": 112,
       "value": "var(--mat-sys-error)",
       "kind": "token-reference",
       "area": "app-chrome-review",
@@ -19789,7 +20037,7 @@
     },
     {
       "file": "src/app/features/savant-trader/backtest/components/options-replay-run-detail/options-replay-run-detail.component.scss",
-      "line": 108,
+      "line": 126,
       "value": "var(--mat-sys-on-surface-variant)",
       "kind": "token-reference",
       "area": "app-chrome-review",
@@ -21354,142 +21602,6 @@
       "kind": "token-reference",
       "area": "app-chrome-review",
       "source": "outline: 2px solid var(--mat-sys-primary);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 7,
-      "value": "var(--mat-sys-surface-container)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "background: var(--mat-sys-surface-container);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 16,
-      "value": "transparent",
-      "kind": "expression",
-      "area": "app-chrome-review",
-      "source": "background: transparent;"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 17,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-on-surface-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 22,
-      "value": "var(--mat-sys-surface-container-high)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "background: var(--mat-sys-surface-container-high);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 26,
-      "value": "var(--mat-sys-primary-container)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "background: var(--mat-sys-primary-container);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 27,
-      "value": "var(--mat-sys-primary)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-primary);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 28,
-      "value": "var(--mat-sys-outline-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "outline: 1px solid var(--mat-sys-outline-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 44,
-      "value": "var(--mat-sys-error)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-error);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 49,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-on-surface-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 67,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-on-surface-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 68,
-      "value": "var(--mat-sys-outline-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "border-bottom: 1px solid var(--mat-sys-outline-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 79,
-      "value": "transparent",
-      "kind": "expression",
-      "area": "app-chrome-review",
-      "source": "background: transparent;"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 80,
-      "value": "var(--mat-sys-on-surface)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-on-surface);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 86,
-      "value": "var(--mat-sys-surface-container-highest)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "background: var(--mat-sys-surface-container-highest);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 90,
-      "value": "var(--mat-sys-primary-container)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "background: var(--mat-sys-primary-container);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 100,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-on-surface-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/new-symbols-dialog/new-symbols-dialog.component.scss",
-      "line": 104,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-on-surface-variant);"
     },
     {
       "file": "src/app/features/savant-trader/components/option-order-ticket/option-order-ticket.component.html",
@@ -23322,126 +23434,6 @@
       "kind": "token-reference",
       "area": "chart-indicator-review",
       "source": "color: var(--mat-sys-on-surface-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.html",
-      "line": 54,
-      "value": "#1016",
-      "kind": "literal",
-      "area": "app-chrome-review",
-      "source": "matTooltip=\"View mode toggle disabled — flag queue removed (#1016)\">"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 52,
-      "value": "var(--ds-on-accent)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--ds-on-accent); display: flex; }"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 61,
-      "value": "var(--ds-surface)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--ds-surface);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 62,
-      "value": "var(--mat-sys-success)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "background-color: var(--mat-sys-success);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 80,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-on-surface-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 87,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": ".reason { white-space: nowrap; color: var(--mat-sys-on-surface-variant); flex-shrink: 0; }"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 107,
-      "value": "var(--mat-sys-outline)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "border-color: var(--mat-sys-outline);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 109,
-      "value": "var(--mat-sys-surface)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "background: var(--mat-sys-surface);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 110,
-      "value": "var(--mat-sys-on-surface)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-on-surface);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 135,
-      "value": "var(--mat-sys-outline)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "border: 1px solid var(--mat-sys-outline);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 137,
-      "value": "var(--mat-sys-surface)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "background: var(--mat-sys-surface);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 138,
-      "value": "var(--mat-sys-on-surface)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "color: var(--mat-sys-on-surface);"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 144,
-      "value": "var(--mat-sys-primary)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "&:focus { border-color: var(--mat-sys-primary); }"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.scss",
-      "line": 145,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "app-chrome-review",
-      "source": "&::placeholder { color: var(--mat-sys-on-surface-variant); font-weight: 400; }"
-    },
-    {
-      "file": "src/app/features/savant-trader/components/review-header/review-header.component.ts",
-      "line": 40,
-      "value": "#1016",
-      "kind": "literal",
-      "area": "app-chrome-review",
-      "source": "viewportMode = input<ViewportMode>('browse'); // #1016 — 'signals' mode disabled"
     },
     {
       "file": "src/app/features/savant-trader/components/rh-select-menu/rh-select-menu.component.scss",
@@ -25738,46 +25730,6 @@
       "kind": "token-reference",
       "area": "app-chrome-review",
       "source": "color: var(--mat-sys-error);"
-    },
-    {
-      "file": "src/app/features/savant-trader/pages/chart-review/chart-review.component.scss",
-      "line": 26,
-      "value": "var(--mat-sys-on-surface-variant)",
-      "kind": "token-reference",
-      "area": "chart-indicator-review",
-      "source": "color: var(--mat-sys-on-surface-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/pages/chart-review/chart-review.component.scss",
-      "line": 39,
-      "value": "var(--mat-sys-outline-variant)",
-      "kind": "token-reference",
-      "area": "chart-indicator-review",
-      "source": "background: var(--mat-sys-outline-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/pages/chart-review/chart-review.component.scss",
-      "line": 55,
-      "value": "var(--mat-sys-surface-container)",
-      "kind": "token-reference",
-      "area": "chart-indicator-review",
-      "source": "background: var(--mat-sys-surface-container);"
-    },
-    {
-      "file": "src/app/features/savant-trader/pages/chart-review/chart-review.component.scss",
-      "line": 56,
-      "value": "var(--mat-sys-outline-variant)",
-      "kind": "token-reference",
-      "area": "chart-indicator-review",
-      "source": "border-right: 1px solid var(--mat-sys-outline-variant);"
-    },
-    {
-      "file": "src/app/features/savant-trader/pages/chart-review/chart-review.component.scss",
-      "line": 66,
-      "value": "var(--mat-sys-surface-container)",
-      "kind": "token-reference",
-      "area": "chart-indicator-review",
-      "source": "background: var(--mat-sys-surface-container);"
     },
     {
       "file": "src/app/features/savant-trader/pages/chart-view/chart-view.component.scss",
@@ -28877,7 +28829,7 @@
     },
     {
       "file": "src/app/features/savant-trader/pages/scanner/scanner-recipe-table.component.html",
-      "line": 54,
+      "line": 50,
       "value": "#1199",
       "kind": "literal",
       "area": "app-chrome-review",
@@ -31541,7 +31493,7 @@
     },
     {
       "file": "src/app/features/utils/color-utils.ts",
-      "line": 52,
+      "line": 54,
       "value": "#d7191c",
       "kind": "literal",
       "area": "app-chrome-review",
@@ -31549,7 +31501,7 @@
     },
     {
       "file": "src/app/features/utils/color-utils.ts",
-      "line": 53,
+      "line": 55,
       "value": "#2c7bb6",
       "kind": "literal",
       "area": "app-chrome-review",

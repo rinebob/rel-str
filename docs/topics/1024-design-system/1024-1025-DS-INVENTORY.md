@@ -47,6 +47,15 @@ Source of truth: `C:\aa\projects\savant-ds\styles\` (package). ST consumes via
 | `field-input` | `savant-ds/styles/_widgets.scss` | 1 surveyed header | Live #1108; gallery #1111; migration #1114 |
 | `toggle-chip` | `savant-ds/styles/_widgets.scss` | 1 surveyed header | Live #1108; gallery #1111; migration #1114 |
 | `dir-edge` | `savant-ds/styles/_widgets.scss` | 1 surveyed table | Live #1108; gallery #1111; migration #1114 |
+| `ds-btn` | `savant-ds/styles/_widgets.scss` | page-level button hierarchy (ghost/outline/fill/danger/small) | Live #1348; zoo `/dev/ds-elements`; migrations pending (#1163 phase A) |
+| `ds-input-chrome` | `savant-ds/styles/_forms.scss` | shared input/select/textarea chrome | Live #1348 — renamed from `ds-field-input` to dodge the `field-input` widget collision |
+| `ds-field` | `savant-ds/styles/_forms.scss` | label + control + hint/error field shell | Live #1348; zoo |
+| `ds-check` / `ds-radio` / `ds-switch` | `savant-ds/styles/_forms.scss` | styled native checkbox/radio/switch | Live #1348; zoo |
+| `ds-select` / `ds-combobox` / `ds-date` | `savant-ds/styles/_forms.scss` | styled select + combobox + date input | Live #1348; zoo |
+| `ds-dialog` / `ds-menu` / `ds-tooltip` / `ds-toast` | `savant-ds/styles/_dialog.scss`, `_feedback.scss` | overlay shells replacing mat-dialog/menu/tooltip/snackbar | Live #1348; zoo |
+| `ds-table` | `savant-ds/styles/_data-display.scss` | full table — wraps `dense-table` + sort headers + pager | Live #1348; zoo |
+| `ds-spinner` / `ds-progress` | `savant-ds/styles/_feedback.scss` | spinner + determinate/indeterminate progress; mixin-scoped keyframes | Live #1348; zoo |
+| `ds-card` / `ds-accordion` / `ds-tabs` | `savant-ds/styles/_layout.scss` | card shell, accordion, tab bar | Live #1348; zoo |
 | Direction-accent tokens (`--ds-up`/`--ds-down`; `vl.$up`/`vl.$down`) | `_tokens.scss`; `src/app/features/portfolio-dashboard/styles/_pd-visual-language.scss` | 6 call sites | Live #1035/#1040 |
 
 ## Thread infrastructure
@@ -54,7 +63,8 @@ Source of truth: `C:\aa\projects\savant-ds\styles\` (package). ST consumes via
 | Item | Source file(s) | Status |
 |---|---|---|
 | `_pd-visual-language` delegation shim | `src/app/features/portfolio-dashboard/styles/_pd-visual-language.scss` | Live #1040 — `@forward 'index'`; keeps `bounded-tab-group`/`tab-scroll-pane` PD-local |
-| `/dev/ds` element gallery | `src/app/features/ds-gallery/` (route in `src/app/core/core-routes.ts`, `AppRoutes.DS_GALLERY`) | Live #1041/#1111 — 12 foundation + 9 widget cards, `seen in:` provenance, host-scoped dark toggle |
+| `/dev/ds` element gallery | `src/app/features/ds-gallery/` (route in `src/app/core/core-routes.ts`, `AppRoutes.DS_GALLERY`) | Live #1041/#1111 — 12 foundation + 10 widget cards, `seen in:` provenance, host-scoped dark toggle |
+| `/dev/ds-elements` element zoo | `src/app/features/ds-elements/` (route `dev/ds-elements`, `AppRoutes.DS_ELEMENTS`) | #1348 — NOW/DS-TODAY/TARGET specimen panes per inventory archetype; migration testbed |
 | ST vendored consumption | `vendor/savant-ds/`, `package.json` `file:vendor/savant-ds` + `sync:ds`, `angular.json` includePaths, `scripts/sync-savant-ds.ts` | Live #1071 — original vendoring (App Hosting can't resolve sibling `file:../`) |
 | SA vendored consumption | `av-proxy-api/vendor/savant-ds/`, `av-proxy-api/angular.json` includePaths, `av-proxy-api/scripts/sync-savant-ds.mjs` | Live #1042 |
 | `--mat-sys-*` bridge (SA) | `av-proxy-api/src/styles.scss` | Live #1042 — SA's prebuilt indigo-pink emits no `--mat-sys-*`; bridge maps the 6 the DS reads onto SA palette vars |
