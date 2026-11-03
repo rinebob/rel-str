@@ -245,8 +245,12 @@ const prodReplayPermutationDeps: ReplayPermutationDeps = {
         { completedLists: d.completedLists ?? 0, failedLists: d.failedLists ?? 0, totalLists: d.totalLists ?? 0 },
         outcome,
       );
+      // Whole-map write (not `listOutcomes.${symbol}` dot-path): a symbol
+      // containing '.' would split into a nested path while readers treat
+      // listOutcomes as a flat map — the idempotence guard above would
+      // then miss and double-count. Inside the tx this is safe.
       const update: Record<string, unknown> = {
-        [`listOutcomes.${symbol}`]: outcome,
+        listOutcomes: { ...(d.listOutcomes ?? {}), [symbol]: outcome },
         completedLists: r.completedLists,
         failedLists: r.failedLists,
         updatedAt: FieldValue.serverTimestamp(),
