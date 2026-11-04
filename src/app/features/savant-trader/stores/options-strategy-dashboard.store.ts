@@ -14,7 +14,8 @@ import {
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, finalize, of, Subscription } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+
 
 import { OptionsStrategyService } from '../services/options-strategy.service';
 import type {
@@ -89,7 +90,7 @@ export const OptionsStrategyDashboardStore = signalStore(
     (
       state,
       service = inject(OptionsStrategyService),
-      snackBar = inject(MatSnackBar),
+      snackBar = inject(DsToastService),
       destroyRef = inject(DestroyRef),
     ) => {
       // Track in-flight subscriptions so we can cancel before starting new ones.

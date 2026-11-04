@@ -13,7 +13,8 @@
 import { computed, effect, inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, of, firstValueFrom } from 'rxjs';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../../shared/ds/ds-dialog';
+
 import { GroupStore } from './group.store';
 import { TriageStore } from './triage.store';
 import { SymbolListStore } from './symbol-list.store';
@@ -39,7 +40,8 @@ import {
 import { AppRoutes } from '../../../core/common/interfaces';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+
 import {
   GroupDimension,
   SymbolListFilter,
@@ -66,8 +68,8 @@ export class SignalReviewFacade {
   private readonly stagingStore = inject(OrderTicketStore);
   private readonly manualOrderService = inject(ManualOrderService);
   private readonly tradingConfigService = inject(TradingConfigService);
-  private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(DsDialogService);
+  private readonly snackBar = inject(DsToastService);
 
   /** Grouped, filtered rows. */
   readonly groups = computed(() => this.groupStore.groups());

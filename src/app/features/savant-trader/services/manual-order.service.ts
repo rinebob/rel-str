@@ -13,8 +13,10 @@
  * service — same decoupling rule as the gallery's OptionTabSeed.
  */
 import { Injectable, inject } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsDialogService } from '../../../shared/ds/ds-dialog';
+
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+
 
 import { OrderTicketStore } from '../stores/order-ticket.store';
 import { TradingConfigService } from './trading-config.service';
@@ -53,11 +55,11 @@ export interface ManualStageResult {
 
 @Injectable({ providedIn: 'root' })
 export class ManualOrderService {
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly priceService = inject(EquityPriceService);
   private readonly configService = inject(TradingConfigService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly snackBar = inject(DsToastService);
 
   /** Trading config — warmed lazily by open(), read by the dialog. */
   readonly config = this.configService.config;
@@ -139,7 +141,7 @@ export class ManualOrderService {
     try {
       // Lazy-load the dialog — a static import of the component closes a
       // metadata cycle (dialog → OrderTicketComponent → this service)
-      // that NG0919s at open time (#1017 wiring). MatDialog is a runtime
+      // that NG0919s at open time (#1017 wiring). DsDialogService is a runtime
       // load anyway, so the async boundary costs nothing.
       const { GalleryTicketDialogComponent } = await import(
         '../components/gallery-ticket-dialog/gallery-ticket-dialog.component'

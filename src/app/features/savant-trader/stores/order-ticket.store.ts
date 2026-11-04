@@ -34,7 +34,7 @@ import {
   withHooks,
   patchState,
 } from '@ngrx/signals';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { firstValueFrom, from } from 'rxjs';
 
 import { OrderTicketService } from '../services/order-ticket.service';
@@ -120,7 +120,7 @@ export const OrderTicketStore = signalStore(
     ticketService = inject(OrderTicketService),
     orderExecution = inject(OrderExecutionService),
     attrService = inject(PositionAttributionService),
-    snackBar = inject(MatSnackBar),
+    snackBar = inject(DsToastService),
     destroyRef = inject(DestroyRef),
   ) => ({
 
@@ -527,7 +527,7 @@ export const OrderTicketStore = signalStore(
     store,
     ticketService = inject(OrderTicketService),
     paperTrading = inject(PaperTradingService),
-    snackBar = inject(MatSnackBar),
+    snackBar = inject(DsToastService),
   ) => ({
 
     /** Pessimistic variant of {@link stageTicket} — the local ticket lands

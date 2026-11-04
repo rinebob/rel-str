@@ -10,8 +10,7 @@
  * nav row's tracked-only autocomplete, not here.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule } from '@angular/material/dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 
 import { SwingAnalysisStore, SWING_PRESETS } from '../swing-analysis.store';
 import type { SwingConfigDoc } from '../swing-analysis.types';
@@ -34,11 +33,11 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
 @Component({
   selector: 'app-swing-settings-dialog',
   standalone: true,
-  imports: [MatDialogModule, MatButtonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-<h2 mat-dialog-title>Swing settings</h2>
-<mat-dialog-content class="settings-content">
+<h2 class="title">Swing settings</h2>
+<div class="content" class="settings-content">
   @if (error()) {
     <div class="dialog-error" data-testid="dialog-error">{{ error() }}</div>
   }
@@ -268,10 +267,10 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
     </div>
   }
   </section>
-</mat-dialog-content>
-<mat-dialog-actions align="end">
-  <button mat-button mat-dialog-close>Close</button>
-</mat-dialog-actions>
+</div>
+<div class="actions">
+  <button class="ds-btn" (click)="ref.close()">Close</button>
+</div>
   `,
   styles: [`
     .settings-content {
@@ -434,6 +433,7 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
 })
 export class SwingSettingsDialogComponent implements OnDestroy {
   readonly store = inject(SwingAnalysisStore);
+  protected readonly ref = inject(DsDialogRef<SwingSettingsDialogComponent>);
 
   readonly configs = this.store.configs;
   readonly configLibrary = this.store.configLibrary;

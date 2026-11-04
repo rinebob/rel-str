@@ -13,11 +13,11 @@
  * panel's toggle is driven by `statsSets`.
  */
 import { ChangeDetectionStrategy, Component, computed, HostBinding, inject, OnDestroy, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { DsDialogService } from '../../../shared/ds/ds-dialog';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 
 import { SwingAnalysisStore } from './swing-analysis.store';
 import { SwingTableComponent } from './components/swing-table.component';
@@ -74,18 +74,15 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
   selector: 'app-swing-analysis-page',
   standalone: true,
   imports: [
-    MatButtonModule,
+    
     MatIconModule,
     MatProgressSpinnerModule,
-    MatTooltipModule,
-    MatDialogModule,
     FlexChartComponent,
     SwingTableComponent,
     StatsPanelComponent,
     SymbolNavComponent,
     CompanyInfoStripComponent,
-    LogScalePillComponent,
-  ],
+    LogScalePillComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="swing-analysis-page">
@@ -103,19 +100,17 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
         testId="log-pill"
         (toggle)="toggleLogScale()"
       />
-      <button
-        mat-icon-button
-        data-testid="settings-btn"
-        matTooltip="Swing settings"
-        (click)="openSettings()"
-      >
+      <button class="icon-btn"
+ 
+ data-testid="settings-btn" title="Swing settings"
+ (click)="openSettings()"
+ >
         <mat-icon>settings</mat-icon>
       </button>
-      <button
-        mat-icon-button
-        (click)="ui.toggleFullscreen()"
-        [matTooltip]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
-      >
+      <button class="icon-btn"
+ 
+ (click)="ui.toggleFullscreen()" [title]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
+ >
         <mat-icon>{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
       </button>
     </div>
@@ -223,7 +218,7 @@ export class SwingAnalysisPageComponent implements OnDestroy {
   readonly store = inject(SwingAnalysisStore);
   readonly lists = inject(SymbolListStore);
   readonly ui = inject(UiStateService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
 
   /** Reflects global fullscreen state on the host so CSS can claim the
    *  full viewport height when the app header is hidden. */

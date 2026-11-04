@@ -22,7 +22,8 @@
  * consolidated every full-set reader onto the card field).
  */
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+
 
 import { GroupStore } from './group.store';
 import { OrderTicketStore } from './order-ticket.store';
@@ -67,7 +68,7 @@ export class GalleryCardActionsService {
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly priceService = inject(EquityPriceService);
   private readonly configService = inject(TradingConfigService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly snackBar = inject(DsToastService);
 
   /** Trading config — warmed on page enter, read by ticket staging and
    *  the ticket dialog. Lives on TradingConfigService (#1177) so every

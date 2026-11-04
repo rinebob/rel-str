@@ -14,7 +14,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { catchError, finalize, of, Subscription, switchMap } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 
 import { AnalysisService } from '../services/analysis.service';
 import {
@@ -166,7 +166,7 @@ export const AnalysisStore = signalStore(
     (
       state,
       service = inject(AnalysisService),
-      snackBar = inject(MatSnackBar),
+      snackBar = inject(DsToastService),
     ) => {
       let datasetsSub: Subscription | null = null;
       let rowsSub: Subscription | null = null;

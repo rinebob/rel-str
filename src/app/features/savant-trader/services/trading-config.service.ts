@@ -16,7 +16,7 @@ import {
   getDoc,
   setDoc,
 } from '@angular/fire/firestore';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { Observable, firstValueFrom, from } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
@@ -31,7 +31,7 @@ export class TradingConfigService {
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
   private readonly mcpService = inject(RobinhoodMcpObservationService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly snackBar = inject(DsToastService);
 
   /** Cached trading config — shared by every order-staging surface (the
    *  gallery card actions and the manual order dialog, #1177) so they all

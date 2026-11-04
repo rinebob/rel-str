@@ -28,10 +28,10 @@ const DASH = '—';
   styles: [`
     .company-info {
       display: flex; flex-wrap: wrap; align-items: baseline;
-      gap: 4px 14px; font-size: 12px; color: var(--mat-sys-on-surface-variant, #888);
+      gap: 4px 14px; font-size: 12px; color: var(--mat-sys-on-surface-variant);
       min-width: 0;
     }
-    .ci-name { font-weight: 600; color: var(--mat-sys-on-surface, #ddd); }
+    .ci-name { font-weight: 600; color: var(--mat-sys-on-surface); }
     .ci-field { white-space: nowrap; }
     .ci-label { opacity: 0.65; margin-right: 2px; }
   `],

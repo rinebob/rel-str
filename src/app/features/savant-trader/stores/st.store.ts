@@ -13,7 +13,8 @@ import {
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of, catchError, finalize, map, retry, Subscription, timer } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+
 
 import {
   type StStatus,
@@ -61,7 +62,7 @@ export const StStore = signalStore(
   })),
 
   // Methods
-  withMethods((state, runService = inject(RunService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => {
+  withMethods((state, runService = inject(RunService), snackBar = inject(DsToastService), destroyRef = inject(DestroyRef)) => {
     let runsSubscription: Subscription | null = null;
 
     return {

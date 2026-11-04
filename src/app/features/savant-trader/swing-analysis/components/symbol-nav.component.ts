@@ -5,9 +5,8 @@
  * the symbol-picker autocomplete.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatAutocomplete, MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 
 import { SwingAnalysisStore } from '../swing-analysis.store';
@@ -16,17 +15,16 @@ import { SymbolListActionsComponent } from '../../components/symbol-list-actions
 @Component({
   selector: 'app-symbol-nav',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatTooltipModule, MatAutocompleteModule, SymbolListActionsComponent],
+  imports: [ MatIconModule, MatAutocompleteModule, SymbolListActionsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="symbol-nav">
-  <button
-    mat-icon-button
-    data-testid="nav-prev"
-    matTooltip="Previous symbol"
-    [disabled]="!navEnabled()"
-    (click)="store.prevSymbol()"
-  >
+  <button class="icon-btn"
+ 
+ data-testid="nav-prev" title="Previous symbol"
+ [disabled]="!navEnabled()"
+ (click)="store.prevSymbol()"
+ >
     <mat-icon>navigate_before</mat-icon>
   </button>
   <!-- Permanent tracked-only picker — TICKER — Name options, matches both. -->
@@ -54,20 +52,18 @@ import { SymbolListActionsComponent } from '../../components/symbol-list-actions
       </mat-option>
     }
   </mat-autocomplete>
-  <button
-    mat-icon-button
-    data-testid="nav-next"
-    matTooltip="Next symbol"
-    [disabled]="!navEnabled()"
-    (click)="store.nextSymbol()"
-  >
+  <button class="icon-btn"
+ 
+ data-testid="nav-next" title="Next symbol"
+ [disabled]="!navEnabled()"
+ (click)="store.nextSymbol()"
+ >
     <mat-icon>navigate_next</mat-icon>
   </button>
   <span class="nav-position" data-testid="nav-position">{{ store.navPosition() }}</span>
   <select
     class="nav-filter"
-    data-testid="nav-filter"
-    matTooltip="Nav sequence"
+    data-testid="nav-filter" title="Nav sequence"
     (change)="onFilter($event)"
   >
     <option value="ALL" [attr.selected]="store.navFilter() === 'ALL' ? '' : null">
@@ -111,7 +107,7 @@ import { SymbolListActionsComponent } from '../../components/symbol-list-actions
       border-radius: 4px;
       background: transparent;
     }
-    .nav-picker:focus { outline: none; border-color: var(--mat-sys-primary, #1976d2); }
+    .nav-picker:focus { outline: none; border-color: var(--mat-sys-primary); }
     .nav-opt-sym { font-weight: 600; flex-shrink: 0; }
     .nav-picker-name { opacity: 0.65; }
     /* Panel renders in the overlay — must pierce encapsulation. Wide

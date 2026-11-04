@@ -23,7 +23,8 @@ import {
   withMethods,
   patchState,
 } from '@ngrx/signals';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+
 import { firstValueFrom, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -148,7 +149,7 @@ export const SymbolListStore = signalStore(
     state,
     listService = inject(SymbolListService),
     relStrDbV2 = inject(RelStrDbV2Service),
-    snackBar = inject(MatSnackBar),
+    snackBar = inject(DsToastService),
     destroyRef = inject(DestroyRef),
   ) => {
     /** Dedupes concurrent tracked-universe loads — one callable round-trip. */
@@ -227,32 +228,44 @@ export const SymbolListStore = signalStore(
      * symbols so callers can await availability.
      */
     loadTrackedSymbols(): Promise<string[]> {
-      if (state.trackedSymbols().length > 0) {
+      if (state.trackedStatus() === 'ready') {
         return Promise.resolve(state.trackedSymbols());
       }
       if (!trackedInFlight) {
         patchState(state, { trackedStatus: 'loading' });
-        trackedInFlight = new Promise<string[]>((resolve) => {
-          relStrDbV2
-            .getTrackedSymbols$()
-            .pipe(takeUntilDestroyed(destroyRef))
-            .subscribe({
-              next: (companies) => {
-                const symbols = normalizeTrackedSymbols(companies);
-                patchState(state, {
-                  trackedSymbols: symbols,
-                  trackedStatus: 'ready',
-                });
-                resolve(symbols);
-              },
-              error: (err: unknown) => {
-                console.error('[SymbolListStore] getTrackedSymbols$ failed', err);
-                patchState(state, { trackedStatus: 'error' });
-                trackedInFlight = null; // allow a later call to retry
-                resolve([]);
-              },
-            });
+        // Resolve is captured then the promise stored BEFORE subscribing —
+        // a synchronous error inside the executor would otherwise see the
+        // `trackedInFlight = null` retry-reset clobbered by the assignment.
+        let done!: (symbols: string[]) => void;
+        const pending = new Promise<string[]>((resolve) => {
+          done = resolve;
         });
+        trackedInFlight = pending;
+        relStrDbV2
+          .getTrackedSymbols$()
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe({
+            next: (companies) => {
+              const symbols = normalizeTrackedSymbols(companies);
+              patchState(state, {
+                trackedSymbols: symbols,
+                trackedStatus: 'ready',
+              });
+              done(symbols);
+            },
+            error: (err: unknown) => {
+              console.error('[SymbolListStore] getTrackedSymbols$ failed', err);
+              patchState(state, { trackedStatus: 'error' });
+              snackBar.open(
+                'Failed to load tracked symbols — list filters and badges may be stale',
+                'Dismiss',
+                { duration: 5000 },
+              );
+              trackedInFlight = null; // allow a later call to retry
+              done([]);
+            },
+          });
+        return pending; // a sync error may already have nulled trackedInFlight
       }
       return trackedInFlight;
     },

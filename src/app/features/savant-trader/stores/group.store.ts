@@ -21,7 +21,8 @@ import {
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+
 
 import {
   type StSymbolProfile,
@@ -128,7 +129,7 @@ export const GroupStore = signalStore(
   withMethods((
     state,
     signalService = inject(SignalService),
-    snackBar = inject(MatSnackBar),
+    snackBar = inject(DsToastService),
     destroyRef = inject(DestroyRef),
     triageStore = inject(TriageStore),
     symbolListStore = inject(SymbolListStore),
