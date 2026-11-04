@@ -338,6 +338,17 @@
           {{ store.displayWindow() === 'position' ? 'Full series' : 'Clip to entry' }}
         </button>
         }
+        <button
+          mat-stroked-button
+          class="header-btn"
+          [class.active-toggle]="brushArmed()"
+          (click)="brushArmed.set(!brushArmed())"
+          matTooltip="Drag across the chart to bound the generator alive range (Esc to cancel)"
+          aria-label="Select study range"
+          [attr.aria-pressed]="brushArmed()"
+        >
+          Select range
+        </button>
 
         @if (catalogRows().length > 0) {
         <span class="header-sep">|</span>
@@ -520,6 +531,9 @@
         [showGreeks]="store.showGreeks()"
         [showVolumeOI]="store.showVolumeOI()"
         [highlightedContractId]="store.hoveredContractId()"
+        [(brushArmed)]="brushArmed"
+        [brushCorpus]="genStore.corpusDates()"
+        [activeStudyRange]="genStore.refine().aliveRange ?? null"
         (seriesHovered)="store.setHoveredContract($event)"
         (studyRange)="onStudyRange($event)"
       ></app-options-contract-chart>

@@ -111,6 +111,9 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   /** Whether the right group-generator drawer is open. */
   generatorOpen = false;
 
+  /** Arms the study-range brush on the contract chart; Esc disarms. */
+  readonly brushArmed = signal(false);
+
   // Builder fields (signals so computed/derived state reacts)
   symbol = signal('QQQ');
   readonly expiration = this.store.selectedExpiration;
