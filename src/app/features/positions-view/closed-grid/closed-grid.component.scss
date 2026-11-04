@@ -31,8 +31,7 @@
   overflow: visible;
 }
 
-.pv-closed-grid__filters-toggle .mat-button-toggle,
-.pv-closed-grid__filters-toggle .mat-mdc-button-toggle {
+.pv-closed-grid__filters-toggle .pill {
   flex: 0 0 auto;
   border-radius: mixins.rem(16);
   padding-inline: mixins.rem(10);
@@ -43,8 +42,7 @@
   opacity: 0.7;
 }
 
-.pv-closed-grid__filters-toggle .mat-button-toggle-checked,
-.pv-closed-grid__filters-toggle .mat-mdc-button-toggle-checked {
+.pv-closed-grid__filters-toggle .pill.active {
   background-color: var(--ds-accent);
   color: var(--ds-on-accent);
   opacity: 1;

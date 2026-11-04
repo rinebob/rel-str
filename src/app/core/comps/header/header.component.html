@@ -1,6 +1,6 @@
 <nav class="header-container">
 
-    <button mat-icon-button class="menu-button" (click)="handleMenuOpen()" aria-label="Open navigation menu">
+    <button class="menu-button icon-btn" (click)="handleMenuOpen()" aria-label="Open navigation menu">
         
         <mat-icon>menu</mat-icon>
     
@@ -17,27 +17,27 @@
 
     <div class="nav-buttons-container">
 
-        <button mat-icon-button class="theme-toggle" (click)="theme.toggle()"
-                [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+        <button class="theme-toggle icon-btn" (click)="theme.toggle()"
+ [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
             <mat-icon>{{ theme.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
         </button>
 
-        <button mat-icon-button class="fullscreen-toggle" (click)="uiState.toggleFullscreen()" aria-label="Enter fullscreen">
+        <button class="fullscreen-toggle icon-btn" (click)="uiState.toggleFullscreen()" aria-label="Enter fullscreen">
             <mat-icon>fullscreen</mat-icon>
         </button>
 
         <!-- Auth-aware section -->
         @if (!isAuthenticated()) {
-          <button mat-button (click)="onLogin()" [disabled]="loading()">Login</button>
-          <button mat-raised-button color="primary" (click)="onSignup()" [disabled]="loading()">Sign up</button>
+          <button class="auth-btn ds-btn" (click)="onLogin()" [disabled]="loading()">Login</button>
+          <button class="auth-btn auth-btn--primary ds-btn fill" (click)="onSignup()" [disabled]="loading()">Sign up</button>
         } @else {
-          <button mat-stroked-button data-testid="new-order-btn"
-                  (click)="newOrder.emit()">
+          <button class="ds-btn outline" data-testid="new-order-btn"
+ (click)="newOrder.emit()">
             <mat-icon>add</mat-icon>
             New Order
           </button>
           <span class="user-label">{{ user()?.displayName || user()?.email }}</span>
-          <button mat-raised-button color="primary" (click)="onSignOut()" [disabled]="loading()">Logout</button>
+          <button class="auth-btn auth-btn--primary ds-btn fill" (click)="onSignOut()" [disabled]="loading()">Logout</button>
         }
     </div>
     

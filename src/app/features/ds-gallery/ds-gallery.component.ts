@@ -308,7 +308,7 @@ const PALETTE_TOKENS = [
   },
   // The dialog demo renders Material's DOM shape (mat-dialog-content,
   // mat-dialog-actions) as bare custom elements — the mixin's selectors
-  // style them without needing the MatDialog directives/DialogRef DI.
+  // style them without needing the DsDialogService directives/DialogRef DI.
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

@@ -74,6 +74,17 @@
                     opacity: 0.6;
                 }
             }
+
+            .nav-submenu-host {
+                position: relative;
+            }
+
+            .nav-submenu {
+                position: absolute;
+                top: 0;
+                left: calc(100% + 4px);
+                z-index: 200;
+            }
         }
     }
 }

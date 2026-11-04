@@ -27,6 +27,9 @@
         mat-drawer-content {
             height: 100%;
             overflow: hidden;
+            // Page canvas — prebuilt indigo-pink pins this to #fafafa via
+            // --mat-sidenav-content-background-color; must track theme.
+            background-color: var(--ds-surface);
         }
     
         // Fullscreen reveal chip (#854) — page identity + exit affordance.

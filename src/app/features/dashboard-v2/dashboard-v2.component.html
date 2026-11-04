@@ -11,20 +11,20 @@
                 
                 <div class="buttons-container">
                     <div class="interval-buttons">
-                        <button mat-button 
-                                class="interval-button" 
-                                [class.active]="selectedInterval() === timeframe.DAILY"
-                                (click)="setInterval(timeframe.DAILY)">D</button>
-                        <button mat-button 
-                                class="interval-button" 
-                                [class.active]="selectedInterval() === timeframe.WEEKLY"
-                                (click)="setInterval(timeframe.WEEKLY)">W</button>
-                        <button mat-button 
-                                class="interval-button" 
-                                [class.active]="selectedInterval() === timeframe.MONTHLY"
-                                (click)="setInterval(timeframe.MONTHLY)">M</button>
+                        <button 
+ class="interval-button ds-btn" 
+ [class.active]="selectedInterval() === timeframe.DAILY"
+ (click)="setInterval(timeframe.DAILY)">D</button>
+                        <button 
+ class="interval-button ds-btn" 
+ [class.active]="selectedInterval() === timeframe.WEEKLY"
+ (click)="setInterval(timeframe.WEEKLY)">W</button>
+                        <button 
+ class="interval-button ds-btn" 
+ [class.active]="selectedInterval() === timeframe.MONTHLY"
+ (click)="setInterval(timeframe.MONTHLY)">M</button>
                     </div>
-                    <button mat-button class="task-button" (click)="handleSortFilter()">Sort/Filter</button>
+                    <button class="task-button ds-btn" (click)="handleSortFilter()">Sort/Filter</button>
                 </div>
 
             </div>

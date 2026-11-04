@@ -3,17 +3,12 @@
     <!-- Anchor element for custom main-chart tooltip. Positioned near the
          cursor using screen coordinates from chartMouseMove. Only active when
          this instance is the main chart. -->
-    @if (isMain()) {
+    @if (isMain() && mainTooltipText(); as tip) {
         <div
-            #mainTooltip="matTooltip"
-            matTooltip
-            matTooltipPosition="right"
-            [matTooltipDisabled]="!mainTooltipText()"
-            [matTooltipClass]="'rs-chart-main-tooltip'"
-            class="chart-tooltip-anchor"
+            class="dse-tip chart-tooltip-anchor"
             [style.left.px]="mainTooltipX() ?? 0"
             [style.top.px]="mainTooltipY() ?? 0"
-        ></div>
+        >{{ tip }}</div>
     }
 
     <ejs-chart #chart

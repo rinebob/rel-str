@@ -5,29 +5,29 @@
 
     <div class="form-container" [formGroup]="listForm">
 
-        <mat-form-field>
-            <mat-label>List name</mat-label>
+        <label class="dse-field">
+            <span class="field-label">List name</span>
             
-            <input matInput
+            <input
                    type="text"
-                   class="list-form-control"
+                   class="field-input list-form-control"
                    placeholder="Enter name of list"
                    formControlName="nameControl"
             >
 
-        </mat-form-field>
+        </label>
 
-        <mat-form-field>
-            <mat-label>Baseline ticker</mat-label>
+        <label class="dse-field">
+            <span class="field-label">Baseline ticker</span>
             
-            <input matInput
+            <input
                    type="text"
-                   class="list-form-control"
+                   class="field-input list-form-control"
                    placeholder="Enter baseline ticker symbol"
                    formControlName="baselineControl"
             >
 
-        </mat-form-field>
+        </label>
 
     </div>
 
@@ -35,11 +35,11 @@
 
     <div class="buttons-container">
                 
-        <button mat-flat-button class="crud-button" (click)="handleSaveList()">
+        <button class="crud-button ds-btn fill" (click)="handleSaveList()">
             <p class="button-text">save</p>
         </button>
         
-        <button mat-flat-button class="crud-button" (click)="handleCancel()">
+        <button class="crud-button ds-btn fill" (click)="handleCancel()">
             <p class="button-text">cancel</p>
         </button>
 

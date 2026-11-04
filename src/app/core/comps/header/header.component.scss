@@ -18,6 +18,12 @@
             @include global.flexboxLayout(row, flex-end, center);
             margin: 0 20px 0 auto;
 
+            // Auth buttons (#1333 F2) — ghost = surface text,
+            // primary CTA = ds-btn fill (accent + on-accent).
+            .auth-btn:not(.fill) {
+                color: var(--ds-on-surface);
+            }
+
             // auth area tweaks
             .user-label {
                 display: inline-flex;

@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026-11-03]
+
+### Changed
+- [Savant Design System] 1024-1163_FE-IMPL-DESIGN-SYSTEM: (checkpoint) de-materify foundation — global `.dse-*` primitive emission in styles.scss; new `shared/ds/` overlay transport: `DsDialogService`/`DsDialogRef`/`DS_DIALOG_DATA` + `DsToastService`/`DsToastComponent` on CDK overlay + focus trap
+- [Savant Design System] 1024-1163_FE-IMPL-DESIGN-SYSTEM: (checkpoint) de-materify portfolio-dashboard — buttons→ds-btn, account-switcher→pill-group (change-guard fix), bulk/radio menus→ds-menu/dse-radio, 8 dialogs→DsDialogService, snackbar→DsToastService, form-fields→dse-field, specs updated
+- [Savant Design System] 1024-1163_FE-IMPL-DESIGN-SYSTEM: (checkpoint) de-materify savant-trader/components — rh-select-menu/indicator-menu/slice-menu → in-component ds-menu panels; 7 dialogs → DsDialogService; form controls → dse-field/check/switch; datepickers → native `.dse-date` (ISO end-to-end, spread-builder trading-day allow-list enforced handler-side); tooltips → title=/dse-tip
+- [Savant Design System] 1024-1163_FE-IMPL-DESIGN-SYSTEM: (checkpoint) de-materify savant-trader/pages — analysis pilot page fully converted (+ dark-mode token colors, scroll-region fix); option-chart/option-chain/flex-chart datepickers → `.dse-date`; spread-chart/scanner menus → ds-menu panels; pct-change dialogs → DsDialogService; store snackbars → DsToastService
+- [Savant Design System] 1024-1163_FE-IMPL-DESIGN-SYSTEM: (checkpoint) de-materify savant-trader/backtest — new-run/report/contract-series dialogs → DsDialogService; run controls/list/summary buttons→ds-btn, tooltips→title=; backtest-run.store snackbar→DsToastService
+- [Savant Design System] 1024-1163_FE-IMPL-DESIGN-SYSTEM: (checkpoint) de-materify savant-trader infra — 8 stores/facades + 2 services snackbar→DsToastService; swing-settings dialog→DsDialogRef; swing-analysis-page MatDialog→DsDialogService
+- [Savant Design System] 1024-1163_FE-IMPL-DESIGN-SYSTEM: (checkpoint) de-materify shell + remaining features — sidenav fly-outs → in-component ds-menu; header/dashboard-v2/v3/dash buttons+toggles; positions-view, rs-chart-view, trade-journal, topic-viewer, decision-board, signal-list, symbols-manager, select-stock, shared components; ds-gallery + specs updated
+
 ## [2026-11-06]
 
 ### Removed

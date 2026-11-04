@@ -63,53 +63,67 @@
 
         <div class="buttons-container">
             <div class="interval-buttons">
-                <button mat-button 
-                        class="interval-button" 
-                        [class.active]="selectedInterval() === timeframe.DAILY"
-                        (click)="setInterval(timeframe.DAILY)">D</button>
-                <button mat-button 
-                        class="interval-button" 
-                        [class.active]="selectedInterval() === timeframe.WEEKLY"
-                        (click)="setInterval(timeframe.WEEKLY)">W</button>
-                <button mat-button 
-                        class="interval-button" 
-                        [class.active]="selectedInterval() === timeframe.MONTHLY"
-                        (click)="setInterval(timeframe.MONTHLY)">M</button>
+                <button 
+ class="interval-button ds-btn" 
+ [class.active]="selectedInterval() === timeframe.DAILY"
+ (click)="setInterval(timeframe.DAILY)">D</button>
+                <button 
+ class="interval-button ds-btn" 
+ [class.active]="selectedInterval() === timeframe.WEEKLY"
+ (click)="setInterval(timeframe.WEEKLY)">W</button>
+                <button 
+ class="interval-button ds-btn" 
+ [class.active]="selectedInterval() === timeframe.MONTHLY"
+ (click)="setInterval(timeframe.MONTHLY)">M</button>
             </div>
 
             <div class="mode-selector">
-                <mat-button-toggle-group
-                    [value]="heatmapMode()"
-                    (change)="onModeChange($event.value)">
-                    <mat-button-toggle value="gradient">Gradient</mat-button-toggle>
-                    <mat-button-toggle value="lns3">3-Zone</mat-button-toggle>
-                </mat-button-toggle-group>
+                <div
+                    class="pill-group" role="radiogroup" aria-label="Heatmap mode">
+                    <button type="button" class="pill" role="radio"
+                        [attr.aria-checked]="heatmapMode() === 'gradient'"
+                        [class.active]="heatmapMode() === 'gradient'"
+                        (click)="onModeChange('gradient')">Gradient</button>
+                    <button type="button" class="pill" role="radio"
+                        [attr.aria-checked]="heatmapMode() === 'lns3'"
+                        [class.active]="heatmapMode() === 'lns3'"
+                        (click)="onModeChange('lns3')">3-Zone</button>
+                </div>
             </div>
 
             <div class="rsma-selector">
-                <mat-button-toggle-group
-                    [value]="rsmaWindow()"
-                    (change)="onRsmaWindowChange($event.value)">
-                    <mat-button-toggle [value]="5">RSMA 5</mat-button-toggle>
-                    <mat-button-toggle [value]="10">RSMA 10</mat-button-toggle>
-                    <mat-button-toggle [value]="30">RSMA 30</mat-button-toggle>
-                </mat-button-toggle-group>
+                <div
+                    class="pill-group" role="radiogroup" aria-label="RSMA window">
+                    <button type="button" class="pill" role="radio"
+                        [attr.aria-checked]="rsmaWindow() === 5"
+                        [class.active]="rsmaWindow() === 5"
+                        (click)="onRsmaWindowChange(5)">RSMA 5</button>
+                    <button type="button" class="pill" role="radio"
+                        [attr.aria-checked]="rsmaWindow() === 10"
+                        [class.active]="rsmaWindow() === 10"
+                        (click)="onRsmaWindowChange(10)">RSMA 10</button>
+                    <button type="button" class="pill" role="radio"
+                        [attr.aria-checked]="rsmaWindow() === 30"
+                        [class.active]="rsmaWindow() === 30"
+                        (click)="onRsmaWindowChange(30)">RSMA 30</button>
+                </div>
             </div>
 
             <div class="palette-selector">
-                <mat-button-toggle-group
-                    class="palette-toggle-group"
-                    [value]="selectedPaletteId()"
-                    (change)="onPaletteChange($event.value)">
+                <div
+                    class="pill-group palette-toggle-group" role="radiogroup" aria-label="Palette">
                     @for (p of palettes(); track p.id) {
-                        <mat-button-toggle class="palette-toggle" [value]="p.id">
+                        <button type="button" class="pill palette-toggle" role="radio"
+                            [attr.aria-checked]="selectedPaletteId() === p.id"
+                            [class.active]="selectedPaletteId() === p.id"
+                            (click)="onPaletteChange(p.id)">
                             {{ p.label }}
-                        </mat-button-toggle>
+                        </button>
                     }
-                </mat-button-toggle-group>
+                </div>
             </div>
 
-            <button mat-button class="task-button" (click)="handleSortFilter()">Sort/Filter</button>
+            <button class="task-button ds-btn" (click)="handleSortFilter()">Sort/Filter</button>
         </div>
 
     </div>

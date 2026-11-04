@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, Inject, inject } from '@angular/core';
 
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { DS_DIALOG_DATA } from '../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../shared/ds/ds-dialog';
+
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -67,11 +68,9 @@ export interface NewTradeDialogData extends ExistingTradeFilePaths {
   standalone: true,
   imports: [
     ReactiveFormsModule,
-    MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatButtonModule,
     MatCheckboxModule,
     MatIconModule,
     MatDatepickerModule,
@@ -82,9 +81,9 @@ export interface NewTradeDialogData extends ExistingTradeFilePaths {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewTradeDialogComponent {
-  private readonly dialogRef = inject(MatDialogRef<NewTradeDialogComponent, NewTradeDialogResult | undefined>);
+  private readonly dialogRef = inject(DsDialogRef<NewTradeDialogComponent, NewTradeDialogResult | undefined>);
   private readonly fb = inject(FormBuilder);
-  constructor(@Inject(MAT_DIALOG_DATA) public readonly data: NewTradeDialogData | null) {}
+  constructor(@Inject(DS_DIALOG_DATA) public readonly data: NewTradeDialogData | null) {}
 
   readonly DialogMode = DialogMode;
 

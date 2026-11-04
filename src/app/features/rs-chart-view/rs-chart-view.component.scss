@@ -160,13 +160,8 @@
   @include mixins.flexboxLayout(row, flex-start, center);
   font-size: mixins.rem(12);
 
-  ::ng-deep .mat-button-toggle-button {
-    padding: mixins.rem(1) mixins.rem(8);
-    line-height: 1;
-  }
-
-  ::ng-deep .mat-button-toggle-label-content {
-    padding: 0 mixins.rem(6);
+  .pill {
+    padding: mixins.rem(1) mixins.rem(14);
     line-height: 1.1;
   }
 }

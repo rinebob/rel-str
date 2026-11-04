@@ -1,28 +1,28 @@
 <div class="interval-toggle">
-  <button
-    mat-button
-    type="button"
-    [class.interval-toggle__button--active]="value() === Interval.DAILY"
-    (click)="onSelect(Interval.DAILY)"
-  >
+  <button class="ds-btn"
+ 
+ type="button"
+ [class.interval-toggle__button--active]="value() === Interval.DAILY"
+ (click)="onSelect(Interval.DAILY)"
+ >
     D
   </button>
 
-  <button
-    mat-button
-    type="button"
-    [class.interval-toggle__button--active]="value() === Interval.WEEKLY"
-    (click)="onSelect(Interval.WEEKLY)"
-  >
+  <button class="ds-btn"
+ 
+ type="button"
+ [class.interval-toggle__button--active]="value() === Interval.WEEKLY"
+ (click)="onSelect(Interval.WEEKLY)"
+ >
     W
   </button>
 
-  <button
-    mat-button
-    type="button"
-    [class.interval-toggle__button--active]="value() === Interval.MONTHLY"
-    (click)="onSelect(Interval.MONTHLY)"
-  >
+  <button class="ds-btn"
+ 
+ type="button"
+ [class.interval-toggle__button--active]="value() === Interval.MONTHLY"
+ (click)="onSelect(Interval.MONTHLY)"
+ >
     M
   </button>
 </div>

@@ -2,13 +2,13 @@ import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@a
 
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../shared/ds/ds-dialog';
+
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { TradeJournalListItem } from './trade-journal.types';
@@ -23,13 +23,11 @@ import { TradeJournalStore } from './trade-journal.store';
   imports: [
     MatSidenavModule,
     MatToolbarModule,
-    MatButtonModule,
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
     MatCheckboxModule,
-    MatDialogModule,
     MatDatepickerModule,
     MatNativeDateModule,
     TradeJournalDetailCardComponent,
@@ -40,7 +38,7 @@ import { TradeJournalStore } from './trade-journal.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TradeJournalViewComponent {
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
   private readonly store = inject(TradeJournalStore);
   readonly trades = signal<TradeJournalListItem[]>(this.store.trades());
 

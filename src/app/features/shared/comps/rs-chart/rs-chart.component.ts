@@ -16,7 +16,7 @@ import {
     TooltipService,
     ZoomService,
 } from '@syncfusion/ej2-angular-charts';
-import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
+
 
 import { CandleWithRSColor, MaSeriesPoint, MainMaId, OHLCDatum, RsChartConfig, RsPaneDatum, Timeframe } from '../../../shared/types/rs.interfaces';
 import { DEFAULT_MAIN_MA_CONFIGS, MAIN_CHART_INITIAL_DAYS, SMALL_CHART_INITIAL_DAYS } from '../../../shared/constants/rs.constants';
@@ -25,7 +25,7 @@ import { isSameDay, toDate, toTimestamp } from '../../utils/date.util';
 
 @Component({
     selector: 'rs-chart',
-    imports: [ChartModule, MatTooltipModule],
+    imports: [ChartModule],
     providers: [
         CandleSeriesService,
         ColumnSeriesService,
@@ -45,7 +45,7 @@ import { isSameDay, toDate, toTimestamp } from '../../utils/date.util';
 export class RsChartComponent {
     chart = viewChild<SfChartComponent>('chart');
     container = viewChild<ElementRef<HTMLDivElement>>('container');
-    mainTooltip = viewChild<MatTooltip>('mainTooltip');
+
 
     // Signal inputs with default values
     id = input(`chart-${Math.random().toString(36).substr(2, 9)}`);
@@ -456,12 +456,6 @@ export class RsChartComponent {
             this.mainTooltipX.set(null);
             this.mainTooltipY.set(null);
         }
-
-        const tooltipRef = this.mainTooltip();
-        if (tooltipRef) {
-            tooltipRef.message = tooltip;
-            tooltipRef.show();
-        }
     }
 
     // Hide the custom main-chart tooltip when the mouse leaves the chart
@@ -477,11 +471,6 @@ export class RsChartComponent {
         this.mainTooltipText.set(null);
         this.mainTooltipX.set(null);
         this.mainTooltipY.set(null);
-
-        const tooltipRef = this.mainTooltip();
-        if (tooltipRef) {
-            tooltipRef.hide();
-        }
     }
 
     public onTooltipRender(args: ITooltipRenderEventArgs): void {

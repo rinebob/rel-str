@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, EventEmitter, input, output } from 
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { TradeJournalListItem } from './trade-journal.types';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 /**
@@ -12,7 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 @Component({
   selector: 'app-trade-journal-detail-card',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, MatCardModule, MatIconModule],
   templateUrl: './trade-journal-detail-card.component.html',
   styleUrls: ['./trade-journal-detail-card.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -412,7 +412,7 @@ describe('StopLossFormComponent', () => {
       fixture.detectChanges();
 
       const el = fixture.nativeElement as HTMLElement;
-      const btn = el.querySelector('button[color="warn"]') as HTMLButtonElement;
+      const btn = el.querySelector('button.ds-btn.danger') as HTMLButtonElement;
       expect(btn.disabled).toBe(true);
     });
 
@@ -424,8 +424,25 @@ describe('StopLossFormComponent', () => {
       fixture.detectChanges();
 
       const el = fixture.nativeElement as HTMLElement;
-      const btn = el.querySelector('button[color="warn"]') as HTMLButtonElement;
+      const btn = el.querySelector('button.ds-btn.danger') as HTMLButtonElement;
       expect(btn.disabled).toBe(false);
+    });
+
+    it('renders the default submit label and honors submitLabel input (#888)', () => {
+      fixture.componentRef.setInput('symbol', 'AAPL');
+      fixture.componentRef.setInput('quantity', '100');
+      fixture.componentRef.setInput('referencePrice', 150);
+      fixture.componentRef.setInput('accountNumber', 'acc-1');
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const btn = el.querySelector('button.ds-btn.danger') as HTMLButtonElement;
+      expect(btn.textContent).toContain('Submit Stop Loss');
+
+      fixture.componentRef.setInput('submitLabel', 'Update Stop');
+      fixture.detectChanges();
+      expect(btn.textContent).toContain('Update Stop');
+      expect(btn.textContent).not.toContain('Submit Stop Loss');
     });
   });
 
@@ -501,7 +518,7 @@ describe('StopLossFormComponent', () => {
       inputs.forEach((input) => {
         expect((input as HTMLInputElement).disabled).toBe(true);
       });
-      const btn = el.querySelector('button[color="warn"]') as HTMLButtonElement;
+      const btn = el.querySelector('button.ds-btn.danger') as HTMLButtonElement;
       expect(btn.disabled).toBe(true);
     });
 

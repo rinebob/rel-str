@@ -1,4 +1,4 @@
-<h2 mat-dialog-title>
+<h2 class="title">
   @if (data?.mode === DialogMode.EDIT) {
     Edit Trade
   } @else {
@@ -6,66 +6,66 @@
   }
 </h2>
 
-<mat-dialog-content class="nt-content" [formGroup]="form">
+<div class="content" class="nt-content" [formGroup]="form">
   <section class="nt-section nt-section--core" aria-label="Core trade details">
     <div class="nt-row">
-      <mat-form-field appearance="outline" class="nt-field nt-field--symbol">
-        <mat-label>Symbol</mat-label>
-        <input matInput formControlName="symbol" (input)="onSymbolInput($event)" />
-      </mat-form-field>
+      <label class="dse-field nt-field nt-field--symbol">
+        <span class="field-label">Symbol</span>
+        <input class="field-input" formControlName="symbol" (input)="onSymbolInput($event)" />
+      </label>
 
-      <mat-form-field appearance="outline" class="nt-field nt-field--direction">
-        <mat-label>Direction</mat-label>
+      <label class="dse-field nt-field nt-field--direction">
+        <span class="field-label">Direction</span>
         <mat-select formControlName="direction">
           <mat-option value="LONG">Long</mat-option>
           <mat-option value="SHORT">Short</mat-option>
         </mat-select>
-      </mat-form-field>
+      </label>
 
-      <mat-form-field appearance="outline" class="nt-field nt-field--status">
-        <mat-label>Status</mat-label>
+      <label class="dse-field nt-field nt-field--status">
+        <span class="field-label">Status</span>
         <mat-select formControlName="status">
           <mat-option value="OPEN">Open</mat-option>
           <mat-option value="CLOSED">Closed</mat-option>
         </mat-select>
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="nt-field nt-field--price">
-        <mat-label>Entry price</mat-label>
-        <input matInput type="number" formControlName="entryPrice" />
-      </mat-form-field>
+      </label>
+      <label class="dse-field nt-field nt-field--price">
+        <span class="field-label">Entry price</span>
+        <input class="field-input" type="number" formControlName="entryPrice" />
+      </label>
     </div>
 
     <div class="nt-row">
-      <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
-        <mat-label>Entry date</mat-label>
-        <input matInput [matDatepicker]="entryDatePicker" formControlName="entryDate" />
+      <label class="dse-field nt-field nt-field--datetime">
+        <span class="field-label">Entry date</span>
+        <input class="field-input" [matDatepicker]="entryDatePicker" formControlName="entryDate" />
         <mat-datepicker-toggle matSuffix [for]="entryDatePicker"></mat-datepicker-toggle>
         <mat-datepicker #entryDatePicker></mat-datepicker>
-      </mat-form-field>
+      </label>
 
-      <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
-        <mat-label>Entry time</mat-label>
-        <input matInput type="time" formControlName="entryTime" />
-      </mat-form-field>
+      <label class="dse-field nt-field nt-field--datetime">
+        <span class="field-label">Entry time</span>
+        <input class="field-input" type="time" formControlName="entryTime" />
+      </label>
     </div>
 
     <div class="nt-row">
-      <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
-        <mat-label>Exit date</mat-label>
-        <input matInput [matDatepicker]="exitDatePicker" formControlName="exitDate" />
+      <label class="dse-field nt-field nt-field--datetime">
+        <span class="field-label">Exit date</span>
+        <input class="field-input" [matDatepicker]="exitDatePicker" formControlName="exitDate" />
         <mat-datepicker-toggle matSuffix [for]="exitDatePicker"></mat-datepicker-toggle>
         <mat-datepicker #exitDatePicker></mat-datepicker>
-      </mat-form-field>
+      </label>
 
-      <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
-        <mat-label>Exit time</mat-label>
-        <input matInput type="time" formControlName="exitTime" />
-      </mat-form-field>
+      <label class="dse-field nt-field nt-field--datetime">
+        <span class="field-label">Exit time</span>
+        <input class="field-input" type="time" formControlName="exitTime" />
+      </label>
 
-      <mat-form-field appearance="outline" class="nt-field nt-field--price">
-        <mat-label>Exit price</mat-label>
-        <input matInput type="number" formControlName="exitPrice" />
-      </mat-form-field>
+      <label class="dse-field nt-field nt-field--price">
+        <span class="field-label">Exit price</span>
+        <input class="field-input" type="number" formControlName="exitPrice" />
+      </label>
     </div>
   </section>
 
@@ -143,7 +143,7 @@
             @for (path of existingBrokerCsvPaths; track path) {
               <li class="nt-file-list__item">
                 <span>{{ fileNameFromPath(path) }}</span>
-                <button mat-icon-button type="button" (click)="removeExistingBrokerPath(path)">
+                <button class="icon-btn" type="button" (click)="removeExistingBrokerPath(path)">
                   <mat-icon>delete</mat-icon>
                 </button>
               </li>
@@ -165,7 +165,7 @@
             @for (path of existingIndicatorCsvPaths; track path) {
               <li class="nt-file-list__item">
                 <span>{{ fileNameFromPath(path) }}</span>
-                <button mat-icon-button type="button" (click)="removeExistingIndicatorPath(path)">
+                <button class="icon-btn" type="button" (click)="removeExistingIndicatorPath(path)">
                   <mat-icon>delete</mat-icon>
                 </button>
               </li>
@@ -187,7 +187,7 @@
             @for (path of existingScreenshotPaths; track path) {
               <li class="nt-file-list__item">
                 <span>{{ fileNameFromPath(path) }}</span>
-                <button mat-icon-button type="button" (click)="removeExistingScreenshotPath(path)">
+                <button class="icon-btn" type="button" (click)="removeExistingScreenshotPath(path)">
                   <mat-icon>delete</mat-icon>
                 </button>
               </li>
@@ -202,9 +202,9 @@
       </div>
     </div>
   </section>
-</mat-dialog-content>
+</div>
 
-<mat-dialog-actions align="end">
-  <button mat-button (click)="close()">Cancel</button>
-  <button mat-raised-button color="primary" (click)="save()">Save trade</button>
-</mat-dialog-actions>
+<div class="actions" align="end">
+  <button class="ds-btn" (click)="close()">Cancel</button>
+  <button class="ds-btn fill" (click)="save()">Save trade</button>
+</div>

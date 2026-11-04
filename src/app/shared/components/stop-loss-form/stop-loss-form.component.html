@@ -37,9 +37,9 @@
       <span class="sl-hint">Stops execute during regular hours only</span>
     </div>
   }
-  <button mat-flat-button color="warn" (click)="onPlace()" [disabled]="!canPlace() || disabled()">
+  <button class="ds-btn danger" (click)="onPlace()" [disabled]="!canPlace() || disabled()">
     <mat-icon>shield</mat-icon>
-    Submit Stop Loss
+    {{ submitLabel() }}
   </button>
 
   @if (canPlace()) {

@@ -1,7 +1,6 @@
 import { UpperCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, signal, inject, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,15 +15,15 @@ import { FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT, STOCK_LIST_INITIALIZER } fr
 import { SymbolPickerComponent } from '../symbol-picker/symbol-picker.component';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 import { resolveExistingRanksData } from '../../../utils/rs-calc-utils';
-import { MatDialogRef } from '@angular/material/dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
+
 import { SelectStockDialogComponent } from '../../../select-stock/select-stock-dialog.component';
 
 @Component({
     selector: 'rs-stock-list-form-v2',
     imports: [
-        MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule, ReactiveFormsModule, UpperCasePipe,
-        SymbolPickerComponent,
-    ],
+         MatIconModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule, ReactiveFormsModule, UpperCasePipe,
+        SymbolPickerComponent],
     templateUrl: './stock-list-form.component.html',
     styleUrl: './stock-list-form.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -36,7 +35,7 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
     formDataWithSymbols = signal<RelStrStockList>(STOCK_LIST_INITIALIZER);
     filteredSymbols = signal<Company[]>([]);
     private readonly auth = inject(Auth);
-    private readonly dialogRef = inject(MatDialogRef<SelectStockDialogComponent>, { optional: true });
+    private readonly dialogRef = inject(DsDialogRef<SelectStockDialogComponent>, { optional: true });
     readonly symbolPicker = viewChild(SymbolPickerComponent);
     
     nameControl = new FormControl('');

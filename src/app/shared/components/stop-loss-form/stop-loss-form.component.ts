@@ -22,7 +22,7 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
 
 import {
@@ -43,7 +43,7 @@ export interface StopLossSubmit {
 @Component({
   selector: 'app-stop-loss-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, MatIconModule],
   templateUrl: './stop-loss-form.component.html',
   styleUrl: './stop-loss-form.component.scss',
 })
@@ -77,6 +77,9 @@ export class StopLossFormComponent {
 
   /** Market session bucket for the stop order. */
   readonly marketHours = model<'regular_hours' | 'extended_hours' | 'all_day_hours'>('regular_hours');
+
+  /** Submit button label — "Update Stop" in the dialog's update mode (#888). */
+  readonly submitLabel = input('Submit Stop Loss');
 
   /** Emitted when the user clicks "Submit Stop Loss". Parent handles actual placement. */
   readonly placeStopLoss = output<StopLossSubmit>();

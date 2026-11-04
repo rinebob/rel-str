@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -11,7 +10,7 @@ import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.componen
 
 @Component({
     selector: 'rs-stock-list-selector',
-    imports: [MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule],
+    imports: [ MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule],
     templateUrl: './stock-list-selector.component.html',
     styleUrl: './stock-list-selector.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

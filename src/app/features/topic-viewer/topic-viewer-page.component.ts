@@ -9,7 +9,7 @@
  */
 
 import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -23,31 +23,30 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
 @Component({
   selector: 'app-topic-viewer-page',
   imports: [
-    MatButtonModule, MatCheckboxModule, MatFormFieldModule, MatIconModule,
+     MatCheckboxModule, MatFormFieldModule, MatIconModule,
     MatProgressSpinnerModule, MatSelectModule,
-    TopicViewerTreeComponent,
-  ],
+    TopicViewerTreeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page" data-testid="topic-viewer-page">
       <header class="header">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="repo-picker">
+        <label class="dse-field repo-picker">
           <mat-select [value]="store.selectedRepoIndex()" aria-label="Repository"
             data-testid="repo-picker" (selectionChange)="store.selectRepo($event.value)">
             @for (r of store.repos(); track r.repo; let i = $index) {
               <mat-option [value]="i">{{ r.label }}</mat-option>
             }
           </mat-select>
-        </mat-form-field>
-        <button mat-stroked-button type="button" data-testid="refresh"
-          [disabled]="store.loading()" (click)="store.refresh()">
+        </label>
+        <button class="ds-btn outline" type="button" data-testid="refresh"
+ [disabled]="store.loading()" (click)="store.refresh()">
           @if (store.loading()) { <mat-spinner diameter="16" /> } Refresh
         </button>
         @if (store.fetchedAt(); as at) {
           <span class="dim" data-testid="fetched-at">as of {{ at }}</span>
         }
-        <mat-checkbox [checked]="store.showClosed()" data-testid="show-closed"
-          (change)="store.setShowClosed($event.checked)">Show closed</mat-checkbox>
+        <label class="dse-check"><input type="checkbox" [checked]="store.showClosed()" data-testid="show-closed"
+          (change)="store.setShowClosed($event.target.checked)">Show closed</label>
       </header>
 
       @if (store.error(); as err) {
@@ -96,8 +95,8 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
                 data-testid="tree-topic-link"
               >#{{ sel.number }} {{ sel.title }}</a>
               <div class="tree-actions">
-                <button mat-button type="button" data-testid="expand-all" (click)="store.expandAll()">Expand all</button>
-                <button mat-button type="button" data-testid="collapse-all" (click)="store.collapseAll()">Collapse all</button>
+                <button class="ds-btn" type="button" data-testid="expand-all" (click)="store.expandAll()">Expand all</button>
+                <button class="ds-btn" type="button" data-testid="collapse-all" (click)="store.collapseAll()">Collapse all</button>
               </div>
             </div>
             <app-topic-viewer-tree />

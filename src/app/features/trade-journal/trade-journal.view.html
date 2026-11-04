@@ -1,38 +1,38 @@
 <div class="tj-root">
   <mat-toolbar color="primary" class="tj-toolbar">
     <span class="tj-spacer"></span>
-    <button mat-stroked-button color="accent" (click)="openNewTrade()">
+    <button class="ds-btn outline" (click)="openNewTrade()">
       <mat-icon>add</mat-icon>
       <span>New trade</span>
     </button>
   </mat-toolbar>
 
   <section class="tj-filters" aria-label="Trade filters">
-    <mat-form-field appearance="outline" class="tj-filter-field tj-filter-field--symbol">
-      <mat-label>Symbol</mat-label>
-      <input matInput placeholder="Search symbol" />
-    </mat-form-field>
+    <label class="dse-field tj-filter-field tj-filter-field--symbol">
+      <span class="field-label">Symbol</span>
+      <input class="field-input" placeholder="Search symbol" />
+    </label>
 
-    <mat-form-field appearance="outline" class="tj-filter-field tj-filter-field--status">
-      <mat-label>Status</mat-label>
+    <label class="dse-field tj-filter-field tj-filter-field--status">
+      <span class="field-label">Status</span>
       <mat-select>
         <mat-option value="">All</mat-option>
         <mat-option value="OPEN">Open</mat-option>
         <mat-option value="CLOSED">Closed</mat-option>
         <mat-option value="CANCELED">Canceled</mat-option>
       </mat-select>
-    </mat-form-field>
+    </label>
 
-    <mat-form-field appearance="outline" class="tj-filter-field tj-filter-field--direction">
-      <mat-label>Direction</mat-label>
+    <label class="dse-field tj-filter-field tj-filter-field--direction">
+      <span class="field-label">Direction</span>
       <mat-select>
         <mat-option value="">Any</mat-option>
         <mat-option value="LONG">Long</mat-option>
         <mat-option value="SHORT">Short</mat-option>
       </mat-select>
-    </mat-form-field>
+    </label>
 
-    <mat-checkbox class="tj-filter-checkbox">Include newsletter candidates only</mat-checkbox>
+    <label class="dse-check"><input type="checkbox" class="tj-filter-checkbox">Include newsletter candidates only</label>
   </section>
 
   <section class="tj-main" aria-label="Trade list and details">
@@ -49,7 +49,7 @@
         <mat-toolbar color="primary" class="tj-detail-toolbar">
           <span>Trade details</span>
           <span class="tj-spacer"></span>
-          <button mat-stroked-button color="accent" (click)="openNewTrade()">
+          <button class="ds-btn outline" (click)="openNewTrade()">
             <mat-icon>add</mat-icon>
             <span>New trade</span>
           </button>

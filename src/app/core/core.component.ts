@@ -1,9 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, ViewChild } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 
 import { NavItem } from './common/interfaces';
 import { HeaderComponent } from './comps/header/header.component';
@@ -14,7 +13,7 @@ import { ManualOrderService } from '../features/savant-trader/services/manual-or
 
 @Component({
     selector: 'rs-core',
-    imports: [RouterOutlet, MatButtonModule, MatIconModule, MatSidenavModule, MatTooltipModule, HeaderComponent, SidenavMenuComponent],
+    imports: [RouterOutlet, MatIconModule, MatSidenavModule, HeaderComponent, SidenavMenuComponent],
     templateUrl: './core.component.html',
     styleUrls: ['./core.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush

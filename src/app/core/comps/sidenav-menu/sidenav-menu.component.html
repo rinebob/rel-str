@@ -1,7 +1,7 @@
 
 <div class="logo-container">
 
-    <button type="button" mat-icon-button class="menu-button" (click)="handleCloseSidenav()" aria-label="Close navigation menu">
+    <button type="button" class="menu-button icon-btn" (click)="handleCloseSidenav()" aria-label="Close navigation menu">
 
         <mat-icon>close</mat-icon>
 
@@ -25,20 +25,26 @@
 
                 @if (item.children?.length) {
 
+                    <div class="nav-submenu-host">
+
                     <button type="button" class="nav-menu-item nav-submenu-trigger"
-                                   [matMenuTriggerFor]="submenu"
+                                   aria-haspopup="menu"
+                                   [attr.aria-expanded]="openSubmenu() === item.name"
+                                   (click)="toggleSubmenu(item.name, $event)"
                     >
 
                         {{item.text}}
 
                     </button>
 
-                    <mat-menu #submenu="matMenu">
+                    @if (openSubmenu() === item.name) {
+
+                    <div class="dse-menu nav-submenu" role="menu" (click)="$event.stopPropagation()">
 
                         @for (child of item.children; track child.name) {
 
-                            <button type="button" mat-menu-item
-                                           (click)="handleNavigation(child)"
+                            <button type="button" class="menu-item" role="menuitem"
+                                           (click)="handleNavigation(child); openSubmenu.set(null)"
                             >
 
                                 {{child.text}}
@@ -47,7 +53,11 @@
 
                         }
 
-                    </mat-menu>
+                    </div>
+
+                    }
+
+                    </div>
 
                 } @else {
 

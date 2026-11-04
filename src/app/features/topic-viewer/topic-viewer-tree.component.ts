@@ -6,7 +6,7 @@
  */
 
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
 
 import type { LifecycleNode } from '@lifecycle/contracts';
@@ -19,7 +19,7 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
 
 @Component({
   selector: 'app-topic-viewer-tree',
-  imports: [MatButtonModule, MatIconModule],
+  imports: [ MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @for (row of store.treeRows(); track row.node.number) {
@@ -29,12 +29,12 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
         [attr.data-testid]="'tree-node-' + row.node.number"
       >
         @if (expandable().has(row.node.number)) {
-          <button mat-icon-button type="button" class="caret"
-            [attr.data-testid]="'caret-' + row.node.number"
-            [attr.aria-expanded]="isExpanded(row.node.number)"
-            [attr.aria-label]="(isExpanded(row.node.number) ? 'Collapse ' : 'Expand ') + '#' + row.node.number"
-            (click)="store.toggleExpanded(row.node.number)"
-          ><mat-icon>{{ isExpanded(row.node.number) ? 'expand_more' : 'chevron_right' }}</mat-icon></button>
+          <button type="button" class="caret icon-btn"
+ [attr.data-testid]="'caret-' + row.node.number"
+ [attr.aria-expanded]="isExpanded(row.node.number)"
+ [attr.aria-label]="(isExpanded(row.node.number) ? 'Collapse ' : 'Expand ') + '#' + row.node.number"
+ (click)="store.toggleExpanded(row.node.number)"
+ ><mat-icon>{{ isExpanded(row.node.number) ? 'expand_more' : 'chevron_right' }}</mat-icon></button>
         } @else {
           <span class="caret-spacer"></span>
         }
@@ -81,14 +81,10 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
       pointer-events: none;
     }
     .tree-row.closed { opacity: 0.55; font-style: italic; }
-    /* mat-icon-button's internal padding would off-center the glyph —
-       force the 24px box to truly center its icon on the guide line.
-       The 48px Material touch-target would also overflow ~8px into
-       adjacent rows and swallow their clicks, so it's disabled. */
+    /* Force the 24px box to truly center its icon on the guide line. */
     .caret {
       width: 24px; height: 24px; flex: none; padding: 0;
       display: inline-flex; align-items: center; justify-content: center;
-      --mat-icon-button-touch-target-display: none;
     }
     .caret mat-icon {
       font-size: 18px; width: 18px; height: 18px; line-height: 18px;

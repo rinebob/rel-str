@@ -24,25 +24,36 @@
         </div>
 
         <div class="rs-chart-view__header-right">
-          <mat-button-toggle-group
-            class="rs-chart-view__timeframe-toggle"
-            [value]="chartStore.timeframe()"
-            (change)="onTimeframeChange($event.value)"
+          <div
+            class="pill-group rs-chart-view__timeframe-toggle"
+            role="radiogroup"
             aria-label="Timeframe"
           >
-            <mat-button-toggle [value]="Timeframe.DAILY">
+            <button type="button" class="pill" role="radio"
+              [attr.aria-checked]="chartStore.timeframe() === Timeframe.DAILY"
+              [class.active]="chartStore.timeframe() === Timeframe.DAILY"
+              (click)="onTimeframeChange(Timeframe.DAILY)">
               Daily
-            </mat-button-toggle>
-            <mat-button-toggle [value]="Timeframe.WEEKLY">
+            </button>
+            <button type="button" class="pill" role="radio"
+              [attr.aria-checked]="chartStore.timeframe() === Timeframe.WEEKLY"
+              [class.active]="chartStore.timeframe() === Timeframe.WEEKLY"
+              (click)="onTimeframeChange(Timeframe.WEEKLY)">
               Weekly
-            </mat-button-toggle>
-            <mat-button-toggle [value]="Timeframe.MONTHLY">
+            </button>
+            <button type="button" class="pill" role="radio"
+              [attr.aria-checked]="chartStore.timeframe() === Timeframe.MONTHLY"
+              [class.active]="chartStore.timeframe() === Timeframe.MONTHLY"
+              (click)="onTimeframeChange(Timeframe.MONTHLY)">
               Monthly
-            </mat-button-toggle>
-            <mat-button-toggle [value]="Timeframe.TWO_DAY">
+            </button>
+            <button type="button" class="pill" role="radio"
+              [attr.aria-checked]="chartStore.timeframe() === Timeframe.TWO_DAY"
+              [class.active]="chartStore.timeframe() === Timeframe.TWO_DAY"
+              (click)="onTimeframeChange(Timeframe.TWO_DAY)">
               2-Day
-            </mat-button-toggle>
-          </mat-button-toggle-group>
+            </button>
+          </div>
 
           <button
             type="button"

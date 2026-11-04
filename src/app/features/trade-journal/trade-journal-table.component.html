@@ -50,10 +50,10 @@
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef>Actions</th>
       <td mat-cell *matCellDef="let row">
-        <button mat-icon-button color="primary" (click)="onEditClick($event, row)" aria-label="Edit trade">
+        <button class="icon-btn" (click)="onEditClick($event, row)" aria-label="Edit trade">
           <mat-icon>edit</mat-icon>
         </button>
-        <button mat-icon-button color="warn" (click)="onDeleteClick($event, row)" aria-label="Delete trade">
+        <button class="icon-btn danger" (click)="onDeleteClick($event, row)" aria-label="Delete trade">
           <mat-icon>delete</mat-icon>
         </button>
       </td>

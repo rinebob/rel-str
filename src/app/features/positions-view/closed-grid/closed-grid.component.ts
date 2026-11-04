@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { PositionsStore } from '../positions.store';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { PositionDoc } from '../../../core/models/fe-position.types';
@@ -10,7 +9,7 @@ import { PositionDoc } from '../../../core/models/fe-position.types';
 @Component({
   selector: 'app-pv-closed-grid',
   standalone: true,
-  imports: [CommonModule, MatTableModule, MatPaginatorModule, MatButtonToggleModule, MatSortModule],
+  imports: [CommonModule, MatTableModule, MatPaginatorModule, MatSortModule],
   templateUrl: './closed-grid.component.html',
   styleUrls: ['./closed-grid.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

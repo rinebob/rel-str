@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
 import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
 import { PositionDoc, PositionDirection } from '../../../core/models/fe-position.types';
 import { TruncPipe } from '../../decision-board/truncate.pipe';
 import { PvPercentBarComponent } from './percent-bar/percent-bar.component';
@@ -9,7 +8,7 @@ import { PvPercentBarComponent } from './percent-bar/percent-bar.component';
 @Component({
   selector: 'app-pv-open-card',
   standalone: true,
-  imports: [MatCardModule, MatButtonModule, TruncPipe, PvPercentBarComponent],
+  imports: [MatCardModule, TruncPipe, PvPercentBarComponent],
   templateUrl: './open-card.component.html',
   styleUrls: ['./open-card.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

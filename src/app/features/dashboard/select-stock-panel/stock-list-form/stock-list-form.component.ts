@@ -1,7 +1,6 @@
 import { UpperCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -18,9 +17,8 @@ import { resolveExistingRanksData } from '../../../utils/rs-calc-utils';
 @Component({
     selector: 'rs-stock-list-form',
     imports: [
-        MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule, UpperCasePipe,
-        SymbolPickerComponent,
-    ],
+         MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule, UpperCasePipe,
+        SymbolPickerComponent],
     templateUrl: './stock-list-form.component.html',
     styleUrl: './stock-list-form.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

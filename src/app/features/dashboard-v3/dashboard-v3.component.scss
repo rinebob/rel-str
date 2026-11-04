@@ -131,7 +131,7 @@
                 .mode-selector {
                     @include global.flexboxLayout(row, center, center);
 
-                    mat-button-toggle-group {
+                    .pill-group {
                         @include global.flexboxLayout(row, center, center);
                         height: 36px !important;
                         align-items: center !important;
@@ -142,7 +142,7 @@
                 .rsma-selector {
                     @include global.flexboxLayout(row, center, center);
 
-                    mat-button-toggle-group {
+                    .pill-group {
                         @include global.flexboxLayout(row, center, center);
                         height: 36px !important;
                         align-items: center !important;
@@ -181,14 +181,10 @@
                             border-color: var(--ds-border-strong);
                         }
 
-                        &.mat-button-toggle-checked {
+                        &.active {
                             background-color: var(--ds-accent);
                             color: var(--ds-on-accent);
                             border-color: var(--ds-accent);
-                        }
-
-                        &:not(:last-child) {
-                            margin-right: 0.25rem;
                         }
                     }
                 }

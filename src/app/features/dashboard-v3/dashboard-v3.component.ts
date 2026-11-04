@@ -1,6 +1,4 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, computed } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatChipsModule } from '@angular/material/chips';
 
 import { HeatmapV3Component } from './heatmap-v3/heatmap-v3.component';
@@ -18,11 +16,9 @@ import { HeatmapV4Component } from './heatmap-v4/heatmap-v4.component';
     selector: 'rs-dashboard-v3',
     standalone: true,
     imports: [
-        MatButtonToggleModule,
+        
         HeatmapV4Component,
-        MatButtonModule,
-        MatChipsModule,
-    ],
+        MatChipsModule],
     templateUrl: './dashboard-v3.component.html',
     styleUrl: './dashboard-v3.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

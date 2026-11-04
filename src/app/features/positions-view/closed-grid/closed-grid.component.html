@@ -1,19 +1,18 @@
 <section class="pv-closed-grid" aria-label="Closed positions">
   <div class="pv-closed-grid__filters">
     <span class="pv-closed-grid__filters-label">Range:</span>
-    <mat-button-toggle-group
-      class="pv-closed-grid__filters-toggle"
-      name="range"
+    <div
+      class="pill-group pv-closed-grid__filters-toggle"
+      role="radiogroup"
       aria-label="Closed range quick filters"
-      [value]="selectedRangeDays()"
     >
-      <mat-button-toggle [value]="30" (click)="setRangeDays(30)">30D</mat-button-toggle>
-      <mat-button-toggle [value]="90" (click)="setRangeDays(90)">90D</mat-button-toggle>
-      <mat-button-toggle [value]="180" (click)="setRangeDays(180)">180D</mat-button-toggle>
-      <mat-button-toggle [value]="365" (click)="setRangeDays(365)">1Y</mat-button-toggle>
-      <mat-button-toggle [value]="365 * 2" (click)="setRangeDays(365 * 2)">2Y</mat-button-toggle>
-      <mat-button-toggle [value]="null" (click)="setRangeDays(null)">All</mat-button-toggle>
-    </mat-button-toggle-group>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="selectedRangeDays() === 30" [class.active]="selectedRangeDays() === 30" (click)="setRangeDays(30)">30D</button>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="selectedRangeDays() === 90" [class.active]="selectedRangeDays() === 90" (click)="setRangeDays(90)">90D</button>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="selectedRangeDays() === 180" [class.active]="selectedRangeDays() === 180" (click)="setRangeDays(180)">180D</button>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="selectedRangeDays() === 365" [class.active]="selectedRangeDays() === 365" (click)="setRangeDays(365)">1Y</button>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="selectedRangeDays() === 365 * 2" [class.active]="selectedRangeDays() === 365 * 2" (click)="setRangeDays(365 * 2)">2Y</button>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="selectedRangeDays() == null" [class.active]="selectedRangeDays() == null" (click)="setRangeDays(null)">All</button>
+    </div>
   </div>
 
   <table
