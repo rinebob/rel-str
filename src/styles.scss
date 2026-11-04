@@ -7,6 +7,7 @@
 // stays purely as the Material bridge until #1163 removes it (#1209 adds
 // its dark half).
 @use 'tokens';
+@use 'index' as savant-ds;
 @import '../node_modules/@syncfusion/ej2-angular-base/styles/material.css';
 
 // Material 3 system variables are not emitted by the prebuilt indigo-pink theme,
@@ -141,25 +142,13 @@ body {
 
 
 // ── Shared dropdown menu items (indicator-menu, signal-review header, rh-select-menu) ────────
-// Mat-menu content is teleported into the CDK overlay portal, which lives outside the
-// component's shadow DOM. That means view-encapsulated styles in a component's SCSS
-// cannot target these items, so the shared styles for .rh-dropdown-menu-item must stay
-// in this global stylesheet. Keep these rules in sync with rh-select-menu.component.html.
-.rh-dropdown-menu-item.mat-mdc-menu-item {
+// .rh-dropdown-menu-item is a shared class used inside .dse-menu panels
+// across several components — keep these rules global.
+.rh-dropdown-menu-item.menu-item {
   min-width: 180px;
-  font-family: Roboto, "Helvetica Neue", sans-serif !important;
   justify-content: flex-start;
   text-align: left;
-
-  .mat-mdc-menu-item-text {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 400;
-    font-family: inherit;
-    white-space: nowrap;
-  }
+  white-space: nowrap;
 
   &.selected .menu-label {
     color: var(--mat-sys-primary);
@@ -178,9 +167,41 @@ body {
   to { transform: rotate(360deg); }
 }
 
-// The mat-menu default max-width (280px) clips longer option labels (scan
-// source labels carry `{title} · {ranAt} · {rows}/{total}`, #1258) — items
-// are already nowrap, so the panel must grow to fit them.
-.rh-select-menu-panel.mat-mdc-menu-panel {
+// Long option labels (scan source labels carry `{title} · {ranAt} ·
+// {rows}/{total}`, #1258) — items are already nowrap, so the panel must
+// grow to fit them.
+.dse-menu.rh-select-menu-panel {
   max-width: min(480px, 90vw);
 }
+
+// ── Savant DS primitive classes (#1163) ────────────────────────────────
+// DS chrome emitted globally — these classes are design contracts consumed
+// by class name across ~100 components; a single emission avoids
+// duplicating identical mixin output into every scoped stylesheet.
+// `.badge`/`.chip` keep bespoke meanings in a few components, so the
+// badge/toggle-chip mixins are emitted under the `.dse-` namespace only.
+.ds-btn { @include savant-ds.ds-btn; }
+.icon-btn { @include savant-ds.icon-btn; }
+// warn-color icon buttons — ds-btn's .danger is scoped to ds-btn only.
+.icon-btn.danger { color: var(--ds-error); }
+.pill-group { @include savant-ds.pill-toggle; }
+.pill-btn { @include savant-ds.pill-btn; }
+.dse-badge { @include savant-ds.badge; }
+.dse-chip { @include savant-ds.toggle-chip; }
+.dse-field { @include savant-ds.ds-field; }
+.dse-check { @include savant-ds.ds-check; }
+.dse-radio { @include savant-ds.ds-radio; }
+.dse-switch { @include savant-ds.ds-switch; }
+.dse-select { @include savant-ds.ds-select; }
+.dse-combobox { @include savant-ds.ds-combobox; }
+.dse-date { @include savant-ds.ds-date; }
+.dse-dialog { @include savant-ds.ds-dialog; }
+.dse-menu { @include savant-ds.ds-menu; }
+.dse-tip { @include savant-ds.ds-tooltip; }
+.dse-toast { @include savant-ds.ds-toast; }
+.dse-table { @include savant-ds.ds-table; }
+.dse-spinner { @include savant-ds.ds-spinner; }
+.dse-progress { @include savant-ds.ds-progress; }
+.dse-acc { @include savant-ds.ds-accordion; }
+.dse-tabs { @include savant-ds.ds-tabs; }
+.dse-card { @include savant-ds.ds-card; }
