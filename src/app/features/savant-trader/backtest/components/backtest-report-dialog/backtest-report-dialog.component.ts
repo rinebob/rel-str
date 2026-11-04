@@ -6,8 +6,8 @@
  */
 import { Component, inject, ChangeDetectionStrategy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../../shared/ds/ds-dialog';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 
@@ -27,19 +27,17 @@ export interface BacktestReportDialogData {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatDialogModule,
-    MatButtonModule,
     MatIconModule,
     MatTabsModule,
     BacktestEquityCurveComponent,
     BacktestTradeTableComponent,
-    BacktestUnderlyingChartComponent,
-  ],
+    BacktestUnderlyingChartComponent],
   templateUrl: './backtest-report-dialog.component.html',
   styleUrl: './backtest-report-dialog.component.scss',
 })
 export class BacktestReportDialogComponent {
-  readonly data: BacktestReportDialogData = inject(MAT_DIALOG_DATA);
+  readonly data: BacktestReportDialogData = inject(DS_DIALOG_DATA);
+  protected readonly ref = inject(DsDialogRef<BacktestReportDialogComponent>);
 
   readonly permutation = computed(() => this.data.permutation);
 

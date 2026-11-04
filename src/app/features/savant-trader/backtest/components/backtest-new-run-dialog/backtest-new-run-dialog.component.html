@@ -1,47 +1,47 @@
-<h2 mat-dialog-title>New Backtest</h2>
+<h2 class="title">New Backtest</h2>
 
-<mat-dialog-content>
+<div class="content">
   <div class="new-run-form">
     <div [formGroup]="mainForm">
       <div class="row-fields">
-        <mat-form-field appearance="outline" class="field-half">
-          <mat-label>Strategy</mat-label>
+        <label class="dse-field field-half">
+          <span class="field-label">Strategy</span>
           <mat-select formControlName="strategyId" (selectionChange)="onStrategyChange($event.value)">
             @for (strategy of data.strategies; track strategy.id) {
               <mat-option [value]="strategy.id">{{ strategy.name }}</mat-option>
             }
           </mat-select>
-        </mat-form-field>
+        </label>
 
-        <mat-form-field appearance="outline" class="field-half">
-          <mat-label>Symbols</mat-label>
-          <input matInput formControlName="symbolsText" placeholder="e.g. QQQ, SPY" />
-        </mat-form-field>
+        <label class="dse-field field-half">
+          <span class="field-label">Symbols</span>
+          <input class="field-input" formControlName="symbolsText" placeholder="e.g. QQQ, SPY" />
+        </label>
       </div>
 
       <div class="row-fields">
-        <mat-form-field appearance="outline" class="field-third">
-          <mat-label>Initial Cash</mat-label>
-          <input matInput type="number" formControlName="initialCash" min="0" />
-        </mat-form-field>
+        <label class="dse-field field-third">
+          <span class="field-label">Initial Cash</span>
+          <input class="field-input" type="number" formControlName="initialCash" min="0" />
+        </label>
 
-        <mat-form-field appearance="outline" class="field-third">
-          <mat-label>Run Type</mat-label>
+        <label class="dse-field field-third">
+          <span class="field-label">Run Type</span>
           <mat-select formControlName="runType">
             @for (type of runTypes; track type) {
               <mat-option [value]="type">{{ type }}</mat-option>
             }
           </mat-select>
-        </mat-form-field>
+        </label>
 
-        <mat-form-field appearance="outline" class="field-third">
-          <mat-label>Report Tier</mat-label>
+        <label class="dse-field field-third">
+          <span class="field-label">Report Tier</span>
           <mat-select formControlName="reportTier">
             @for (tier of reportTiers; track tier) {
               <mat-option [value]="tier">{{ tier }}</mat-option>
             }
           </mat-select>
-        </mat-form-field>
+        </label>
       </div>
     </div>
 
@@ -52,48 +52,45 @@
         @for (entry of configSchemaEntries(); track entry.key) {
           @if (entry.field.type === 'boolean') {
             <div class="boolean-field">
-              <mat-checkbox [formControlName]="entry.key">{{ entry.key }}</mat-checkbox>
+              <label class="dse-check"><input type="checkbox" [formControlName]="entry.key">{{ entry.key }}</label>
             </div>
           } @else if (entry.field.enum && entry.field.enum.length > 0) {
-            <mat-form-field appearance="outline" class="field-third" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
-              <mat-label>{{ entry.key }}</mat-label>
+            <label class="dse-field field-third" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
+              <span class="field-label">{{ entry.key }}</span>
               <mat-select [formControlName]="entry.key">
                 @for (option of entry.field.enum; track option) {
                   <mat-option [value]="option">{{ option }}</mat-option>
                 }
               </mat-select>
-            </mat-form-field>
+            </label>
           } @else if (entry.field.type === 'integer' || entry.field.type === 'number') {
-            <mat-form-field appearance="outline" class="field-quarter" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
-              <mat-label>{{ entry.key }}</mat-label>
-              <input
-                matInput
+            <label class="dse-field field-quarter" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
+              <span class="field-label">{{ entry.key }}</span>
+              <input class="field-input"
                 type="number"
                 [formControlName]="entry.key"
                 [attr.step]="entry.field.step ?? 'any'" />
               @if (isPercentField(entry.key)) {
-                <span matTextSuffix>%</span>
+                <span class="field-affix">%</span>
               }
-            </mat-form-field>
+            </label>
           } @else {
-            <mat-form-field appearance="outline" class="field-half" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
-              <mat-label>{{ entry.key }}</mat-label>
-              <input matInput [formControlName]="entry.key" />
-            </mat-form-field>
+            <label class="dse-field field-half" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
+              <span class="field-label">{{ entry.key }}</span>
+              <input class="field-input" [formControlName]="entry.key" />
+            </label>
           }
         }
       </div>
     }
   </div>
-</mat-dialog-content>
+</div>
 
-<mat-dialog-actions align="end">
-  <button mat-button (click)="cancel()">Cancel</button>
-  <button
-    mat-raised-button
-    color="primary"
-    (click)="submit()"
-    [disabled]="mainForm.invalid || configForm.invalid">
+<div class="actions" align="end">
+  <button class="ds-btn" (click)="cancel()">Cancel</button>
+  <button class="ds-btn fill"
+ (click)="submit()"
+ [disabled]="mainForm.invalid || configForm.invalid">
     Start
   </button>
-</mat-dialog-actions>
+</div>

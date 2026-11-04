@@ -1,21 +1,18 @@
 <div class="run-control-card">
   <div class="run-control-primary">
     <button
-      class="run-now-btn"
-      mat-raised-button
-      color="primary"
-      [disabled]="isLoading()"
-      (click)="newRun.emit()">
+ class="run-now-btn ds-btn fill"
+ [disabled]="isLoading()"
+ (click)="newRun.emit()">
       <mat-icon>add</mat-icon>
       New Backtest
     </button>
 
     <button
-      class="refresh-btn"
-      mat-icon-button
-      disabled
-      matTooltip="Runs update automatically via the realtime listener"
-      (click)="refresh.emit()">
+ class="refresh-btn icon-btn"
+ 
+ disabled title="Runs update automatically via the realtime listener"
+ (click)="refresh.emit()">
       <mat-icon>refresh</mat-icon>
     </button>
 
@@ -97,8 +94,7 @@
         </select>
         <button
           type="button"
-          class="sort-direction-btn"
-          matTooltip="Toggle sort direction"
+          class="sort-direction-btn" title="Toggle sort direction"
           (click)="toggleSortDirection()">
           <mat-icon>{{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
         </button>

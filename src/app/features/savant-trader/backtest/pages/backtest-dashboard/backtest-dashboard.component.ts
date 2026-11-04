@@ -6,8 +6,8 @@
  */
 import { Component, computed, inject, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../../../../shared/ds/ds-dialog';
+
 
 import { BacktestRunStore } from '../../stores/backtest-run.store';
 import { BacktestUiStore } from '../../stores/backtest-ui.store';
@@ -29,15 +29,12 @@ import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequ
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatButtonModule,
-    MatDialogModule,
     BacktestRunControlComponent,
     BacktestRunListComponent,
     BacktestRunSummaryComponent,
     BacktestPermutationDetailComponent,
     OptionsReplayRunListComponent,
-    OptionsReplayRunDetailComponent,
-  ],
+    OptionsReplayRunDetailComponent],
   templateUrl: './backtest-dashboard.component.html',
   styleUrl: './backtest-dashboard.component.scss',
 })
@@ -45,7 +42,7 @@ export class BacktestDashboardComponent implements OnDestroy {
   readonly runStore = inject(BacktestRunStore);
   readonly uiStore = inject(BacktestUiStore);
   readonly replayStore = inject(OptionsReplayStore);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
   private readonly uiStateService = inject(UiStateService);
 
   readonly selectedPermutation = computed((): BacktestPermutationUi | null => {
@@ -53,9 +50,15 @@ export class BacktestDashboardComponent implements OnDestroy {
     return id ? this.runStore.permutations().find((p) => p.permutationId === id) ?? null : null;
   });
 
+  /** Sim-engine section hidden — Selection Replay is the live pipeline;
+   *  kept (not deleted) while the sim's analytics are evaluated for reuse. */
+  protected readonly showSimRuns = false;
+
   constructor() {
-    this.runStore.loadRuns();
-    this.runStore.loadStrategies();
+    if (this.showSimRuns) {
+      this.runStore.loadRuns();
+      this.runStore.loadStrategies();
+    }
     this.replayStore.loadRuns();
   }
 

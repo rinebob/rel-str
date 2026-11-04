@@ -23,8 +23,7 @@
             <td class="col-status">
               <mat-icon
                 class="status-icon"
-                [style.color]="run.statusColorName"
-                [matTooltip]="run.status">
+                [style.color]="run.statusColorName" [title]="run.status">
                 {{ run.statusIconName }}
               </mat-icon>
             </td>
@@ -58,8 +57,7 @@
         <button
           type="button"
           class="empty-cta"
-          disabled
-          matTooltip="Start-new-run flow is coming in Phase 5">
+          disabled title="Start-new-run flow is coming in Phase 5">
           Start your first backtest
         </button>
       }

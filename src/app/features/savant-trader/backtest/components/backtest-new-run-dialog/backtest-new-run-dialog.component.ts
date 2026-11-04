@@ -8,9 +8,10 @@ import { Component, ChangeDetectionStrategy, DestroyRef, computed, inject, signa
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { DsDialogRef } from '../../../../../shared/ds/ds-dialog';
+import { DS_DIALOG_DATA } from '../../../../../shared/ds/ds-dialog';
+
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -32,24 +33,21 @@ import {
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    MatButtonModule,
     MatCheckboxModule,
-    MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule,
-  ],
+    MatSelectModule],
   providers: [BacktestNewRunFormBuilder],
   templateUrl: './backtest-new-run-dialog.component.html',
   styleUrl: './backtest-new-run-dialog.component.scss',
 })
 export class BacktestNewRunDialogComponent {
-  private readonly dialogRef = inject<MatDialogRef<BacktestNewRunDialogComponent, StartBacktestRequest | undefined>>(
-    MatDialogRef
+  private readonly dialogRef = inject<DsDialogRef<BacktestNewRunDialogComponent, StartBacktestRequest | undefined>>(
+    DsDialogRef
   );
   private readonly formBuilder = inject(BacktestNewRunFormBuilder);
   private readonly destroyRef = inject(DestroyRef);
-  readonly data: BacktestNewRunDialogData = inject(MAT_DIALOG_DATA);
+  readonly data: BacktestNewRunDialogData = inject(DS_DIALOG_DATA);
 
   readonly runTypes: BacktestRunType[] = ['allData', 'expandingWindow'];
   readonly reportTiers: BacktestReportTier[] = ['summary', 'full'];

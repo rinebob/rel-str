@@ -9,7 +9,7 @@ import { inject, computed, DestroyRef } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of, catchError, Subscription, Observable } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
 
 import type { BacktestPermutationUi, BacktestRunUi, BacktestStrategyMetadata, StartBacktestRequest } from '../common/backtest.types';
 import { BacktestRunService } from '../services/backtest-run.service';
@@ -70,7 +70,7 @@ export const BacktestRunStore = signalStore(
     ),
   })),
 
-  withMethods((state, runService = inject(BacktestRunService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => {
+  withMethods((state, runService = inject(BacktestRunService), snackBar = inject(DsToastService), destroyRef = inject(DestroyRef)) => {
     let runsSubscription: Subscription | null = null;
     let permutationsSubscription: Subscription | null = null;
 

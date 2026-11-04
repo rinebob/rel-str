@@ -1,8 +1,5 @@
 <div class="backtest-dashboard">
-  <header class="backtest-header">
-    <p class="subtitle">Run, inspect, and manage Savant Trader strategy backtests.</p>
-  </header>
-
+  @if (showSimRuns) {
   <section class="backtest-content">
     <app-backtest-run-control
       [isLoading]="runStore.isLoading()"
@@ -52,17 +49,16 @@
       }
     </div>
   </section>
+  }
 
   <section class="replay-content">
     <header class="replay-header">
       <h2 class="replay-title">Selection Replay</h2>
       <button
-        mat-raised-button
-        color="primary"
-        type="button"
-        class="new-replay-button"
-        [disabled]="replayStore.isLoading()"
-        (click)="openNewReplayDialog()">
+ type="button"
+ class="new-replay-button ds-btn fill"
+ [disabled]="replayStore.isLoading()"
+ (click)="openNewReplayDialog()">
         New Replay
       </button>
     </header>
@@ -70,10 +66,11 @@
     <div class="dashboard-body">
       <div class="run-list-wrapper">
         <app-options-replay-run-list
-          [runs]="replayStore.runs()"
+          [rows]="replayStore.filteredRows()"
           [selectedRunId]="replayStore.selectedRunId()"
+          [selectedSymbol]="replayStore.selectedSymbol()"
           [isLoading]="replayStore.isLoading()"
-          (selectRun)="replayStore.selectRun($event)" />
+          (selectRow)="replayStore.selectRow($event)" />
       </div>
 
       @if (replayStore.selectedRun()) {
@@ -81,7 +78,8 @@
           <app-options-replay-run-detail
             [run]="replayStore.selectedRun()!"
             [contractLists]="replayStore.contractLists()"
-            [isLoadingLists]="replayStore.listsStreaming()" />
+            [isLoadingLists]="replayStore.listsStreaming()"
+            [selectedSymbol]="replayStore.selectedSymbol()" />
         </div>
       }
     </div>

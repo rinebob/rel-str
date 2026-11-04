@@ -6,13 +6,13 @@
         <span class="run-strategy">{{ r.strategyId }}</span>
       </div>
       <div class="run-actions">
-        <button type="button" class="icon-btn" disabled matTooltip="Clone run (Phase 5)">
+        <button type="button" class="icon-btn" disabled title="Clone run (Phase 5)">
           <mat-icon>content_copy</mat-icon>
         </button>
-        <button type="button" class="icon-btn" disabled matTooltip="Archive run (Phase 5)">
+        <button type="button" class="icon-btn" disabled title="Archive run (Phase 5)">
           <mat-icon>archive</mat-icon>
         </button>
-        <button type="button" class="icon-btn" disabled matTooltip="Cancel run (Phase 5)">
+        <button type="button" class="icon-btn" disabled title="Cancel run (Phase 5)">
           <mat-icon>cancel</mat-icon>
         </button>
       </div>
@@ -84,8 +84,7 @@
                 <td class="col-status">
                   <mat-icon
                     class="status-icon"
-                    [style.color]="p.statusColorName"
-                    [matTooltip]="p.status">
+                    [style.color]="p.statusColorName" [title]="p.status">
                     {{ p.statusIconName }}
                   </mat-icon>
                   <span>{{ p.status }}</span>

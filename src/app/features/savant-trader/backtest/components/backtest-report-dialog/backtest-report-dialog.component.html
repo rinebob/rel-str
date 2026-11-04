@@ -8,7 +8,7 @@
       <span class="status-badge" [class]="permutation().status">{{ permutation().status }}</span>
       <span class="tier-badge">{{ effectiveReportTier() }}</span>
     </div>
-    <button mat-icon-button mat-dialog-close aria-label="Close report">
+    <button class="icon-btn" (click)="ref.close()" aria-label="Close report">
       <mat-icon>close</mat-icon>
     </button>
   </header>

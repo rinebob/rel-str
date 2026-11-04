@@ -7,8 +7,8 @@
 import { Component, inject, input, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+
+import { DsDialogService } from '../../../../../shared/ds/ds-dialog';
 
 import type { BacktestPermutationUi, BacktestReportTier } from '../../common/backtest.types';
 import { BacktestReportDialogComponent } from '../backtest-report-dialog/backtest-report-dialog.component';
@@ -21,18 +21,15 @@ import { BacktestTradeTableComponent } from '../backtest-trade-table/backtest-tr
   imports: [
     CommonModule,
     MatIconModule,
-    MatButtonModule,
-    MatDialogModule,
     BacktestEquityCurveComponent,
-    BacktestTradeTableComponent,
-  ],
+    BacktestTradeTableComponent],
   templateUrl: './backtest-permutation-detail.component.html',
   styleUrl: './backtest-permutation-detail.component.scss',
 })
 export class BacktestPermutationDetailComponent {
   readonly permutation = input<BacktestPermutationUi | null>(null);
   readonly reportTier = input<BacktestReportTier | undefined>(undefined);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
 
   openFullReport(): void {
     const permutation = this.permutation();
