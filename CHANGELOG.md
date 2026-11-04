@@ -21,6 +21,12 @@
 - [Savant Design System] 1024-1348_FE-IMPL-DESIGN-SYSTEM: dev/ds-elements live element zoo & de-materify testbed — 49 specimens / 54 archetypes / 10 families, NOW|DS TODAY|TARGET panes, ARIA contracts, theme + accent demos
 - [Savant Design System] 1024-1348_FE-IMPL-DESIGN-SYSTEM: ds-btn card in DS gallery (10 cards) + shared ds-accents util incl. --ds-accent-text derivation
 - [Savant Design System] 1024-1348_SHARED-CHORE-DESIGN-SYSTEM: vendored savant-ds element-mixin library sync (_forms + _layout partials, 12 state tokens; byte-identical to canonical)
+- [Option Contract Time-Series Viewer] 1243-1340_FE-IMPL-OPTIONS: Study-range brush overlay — armed capture layer + live-snap drag rect (px→category→date), corpusDates/axis-label edge snapping, `(studyRange)` emit, active-bound band, zero axis mutation
+- [Option Contract Time-Series Viewer] 1243-1340_FE-IMPL-OPTIONS: Option-chart page wiring — Select range toggle + `brushArmed`/`brushCorpus`/`activeStudyRange` bindings → generator alive-range bound
+- [Option Contract Time-Series Viewer] 1243-1340_DOCS-OPTIONS: #1387 UAT (PASS; 12/12 user-verified) + code review (PASS, 2 rounds)
+
+### Fixed
+- [Option Contract Time-Series Viewer] 1243-1340_FE-UIFIX-OPTIONS: generator alive-range × icon-button touch-target alignment — M3 state-layer/icon-size tokens replace the width+line-height hack
 
 ### Changed
 - [Savant Design System] 1024-1348_CONFIG-CONFIG-DESIGN-SYSTEM: anyComponentStyle budget 40/50kB for DS showcase pages
