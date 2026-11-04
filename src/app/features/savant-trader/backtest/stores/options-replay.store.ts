@@ -10,19 +10,35 @@ import { inject, computed, DestroyRef } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of, catchError, Subscription, Observable } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
 
 import type { OptionsReplayStartRequest } from '@options-replay/contracts';
-import type { OptionsContractListUi, OptionsReplayRunUi } from '../common/options-replay.types';
+import type {
+  OptionsContractListUi,
+  OptionsReplayRunUi,
+  ReplayListRow,
+  ReplaySelection,
+  ReplaySortBy,
+  ReplaySortDirection,
+  ReplayStatusFilter,
+} from '../common/options-replay.types';
 import { OptionsReplayRunsService } from '../services/options-replay-runs.service';
 
 export interface OptionsReplayState {
   runs: OptionsReplayRunUi[];
-  selectedRunId: string | null;
+  /** One selection object — runId always set, symbol only for row-level
+   *  selection. selectedRunId/selectedSymbol derive from it so the pair
+   *  can never drift apart. */
+  selection: ReplaySelection | null;
   contractLists: OptionsContractListUi[];
   isLoading: boolean;
   runsStreaming: boolean;
   listsStreaming: boolean;
+  statusFilter: ReplayStatusFilter;
+  templateFilter: string;
+  symbolSearch: string;
+  sortBy: ReplaySortBy;
+  sortDirection: ReplaySortDirection;
 }
 
 function buildReplayErrorMessage(err: unknown): string {
@@ -39,29 +55,104 @@ function buildReplayErrorMessage(err: unknown): string {
 
 const initialState: OptionsReplayState = {
   runs: [],
-  selectedRunId: null,
+  selection: null,
   contractLists: [],
   isLoading: false,
   runsStreaming: false,
   listsStreaming: false,
+  statusFilter: 'all',
+  templateFilter: 'all',
+  symbolSearch: '',
+  sortBy: 'createdAt',
+  sortDirection: 'desc',
 };
 
 export const OptionsReplayStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 
-  withComputed((state) => ({
-    /** The currently selected run, if any. */
-    selectedRun: computed(() => {
-      const id = state.selectedRunId();
-      return id ? state.runs().find((r) => r.runId === id) ?? null : null;
-    }),
+  withComputed((state) => {
+    /** One list row per (runId, symbol) — a run's symbol set fans out into
+     *  rows; symbol status comes from listOutcomes with 'pending' when the
+     *  run doc hasn't recorded an outcome for that symbol. Local computed so
+     *  filteredRows can chain off it (same-block computeds aren't on state). */
+    const runRows = computed((): ReplayListRow[] => {
+      return state.runs().flatMap((run) =>
+        run.symbols.map((symbol) => ({
+          runId: run.runId,
+          symbol,
+          templateId: run.templateId,
+          startDate: run.startDate,
+          createdAtIso: run.createdAtIso,
+          runStatus: run.status,
+          symbolStatus: run.listOutcomes?.[symbol] ?? 'pending',
+          completedLists: run.completedLists,
+          failedLists: run.failedLists,
+          totalLists: run.totalLists,
+        }))
+      );
+    });
 
-    /** The most recent run (Firestore query is ordered createdAt desc). */
-    latestRun: computed(() => state.runs()[0] ?? null),
-  })),
+    return {
+      /** Selected run id / symbol — derived views of the single selection
+       *  object (see OptionsReplayState.selection). */
+      selectedRunId: computed(() => state.selection()?.runId ?? null),
+      selectedSymbol: computed(() => state.selection()?.symbol ?? null),
 
-  withMethods((state, runsService = inject(OptionsReplayRunsService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => {
+      /** The currently selected run, if any. */
+      selectedRun: computed(() => {
+        const id = state.selection()?.runId;
+        return id ? state.runs().find((r) => r.runId === id) ?? null : null;
+      }),
+
+      /** The most recent run (Firestore query is ordered createdAt desc). */
+      latestRun: computed(() => state.runs()[0] ?? null),
+
+      runRows,
+
+      /** runRows filtered by symbol status, template, and symbol search
+       *  (case-insensitive substring), then sorted. */
+      filteredRows: computed((): ReplayListRow[] => {
+        const status = state.statusFilter();
+        const template = state.templateFilter();
+        const symbolSearch = state.symbolSearch().trim().toUpperCase();
+        const sortBy = state.sortBy();
+        const sortDirection = state.sortDirection();
+
+        const filtered = runRows().filter((row) => {
+          if (status !== 'all' && row.symbolStatus !== status) return false;
+          if (template !== 'all' && row.templateId !== template) return false;
+          if (symbolSearch && !row.symbol.toUpperCase().includes(symbolSearch)) return false;
+          return true;
+        });
+
+        return filtered.sort((a, b) => {
+          let cmp = 0;
+          if (sortBy === 'createdAt') {
+            // ISO strings compare lexicographically — also NaN-proof for
+            // sparse docs whose createdAtIso is ''.
+            cmp = a.createdAtIso.localeCompare(b.createdAtIso);
+          } else if (sortBy === 'startDate') {
+            cmp = a.startDate.localeCompare(b.startDate);
+          } else if (sortBy === 'symbol') {
+            cmp = a.symbol.localeCompare(b.symbol);
+          }
+          return sortDirection === 'asc' ? cmp : -cmp;
+        });
+      }),
+
+      /** True when any non-default filter is active. */
+      hasActiveFilters: computed(() => {
+        return (
+          state.statusFilter() !== 'all' ||
+          state.templateFilter() !== 'all' ||
+          state.symbolSearch().trim().length > 0
+        );
+      }),
+    };
+  }),
+
+  withMethods((state, runsService = inject(OptionsReplayRunsService), snackBar = inject(DsToastService), destroyRef = inject(DestroyRef)) => {
     let runsSubscription: Subscription | null = null;
     let listsSubscription: Subscription | null = null;
 
@@ -109,9 +200,16 @@ export const OptionsReplayStore = signalStore(
         'contract lists',
         runsService.watchContractLists(runId),
         (contractLists) => patchState(state, { contractLists }),
-        { listsStreaming: true },
+        // Clear up front — otherwise the new run's cards briefly join
+        // against the previous run's lists until the first snapshot.
+        { contractLists: [], listsStreaming: true },
         { listsStreaming: false }
       );
+    }
+
+    function applyRunSelection(runId: string | null): void {
+      patchState(state, { selection: runId ? { runId, symbol: null } : null });
+      loadContractLists(runId);
     }
 
     return {
@@ -130,8 +228,39 @@ export const OptionsReplayStore = signalStore(
 
       /** Select a run for the detail panel and start streaming its contract lists. */
       selectRun(runId: string | null): void {
-        patchState(state, { selectedRunId: runId });
-        loadContractLists(runId);
+        applyRunSelection(runId);
+      },
+
+      /** Select a (runId, symbol) row — the detail panel auto-expands that
+       *  symbol's contract-list card. Same-run symbol hops keep the
+       *  existing list stream unless it died on an earlier error. */
+      selectRow(selection: ReplaySelection): void {
+        const streamDead = !listsSubscription || listsSubscription.closed;
+        const isNewRun = state.selection()?.runId !== selection.runId;
+        patchState(state, { selection });
+        if (isNewRun || streamDead) loadContractLists(selection.runId);
+      },
+
+      setStatusFilter(filter: ReplayStatusFilter): void {
+        patchState(state, { statusFilter: filter });
+      },
+      setTemplateFilter(filter: string): void {
+        patchState(state, { templateFilter: filter });
+      },
+      setSymbolSearch(search: string): void {
+        patchState(state, { symbolSearch: search });
+      },
+      setSortBy(sortBy: ReplaySortBy): void {
+        patchState(state, { sortBy });
+      },
+      setSortDirection(direction: ReplaySortDirection): void {
+        patchState(state, { sortDirection: direction });
+      },
+      toggleSortDirection(): void {
+        patchState(state, { sortDirection: state.sortDirection() === 'asc' ? 'desc' : 'asc' });
+      },
+      resetFilters(): void {
+        patchState(state, { statusFilter: 'all', templateFilter: 'all', symbolSearch: '' });
       },
 
       /** Start a new replay run; on success select it so the detail panel shows progress. */
@@ -155,8 +284,7 @@ export const OptionsReplayStore = signalStore(
             patchState(state, { isLoading: false });
             if (response) {
               snackBar.open(`Replay started: ${response.runId}`, 'Dismiss', { duration: 30000 });
-              patchState(state, { selectedRunId: response.runId });
-              loadContractLists(response.runId);
+              applyRunSelection(response.runId);
             }
           });
       },

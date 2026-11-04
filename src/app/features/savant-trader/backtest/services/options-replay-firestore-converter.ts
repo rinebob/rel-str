@@ -23,6 +23,14 @@ function toIso(ts: TimestampLike): string | undefined {
 }
 
 export function convertOptionsReplayRunDoc(id: string, data: Record<string, unknown>): OptionsReplayRunUi {
+  // symbols are uppercased below — normalize outcome keys the same way so
+  // the runRows join (listOutcomes[symbol]) is casing-insensitive.
+  const listOutcomes = data['listOutcomes'] && typeof data['listOutcomes'] === 'object'
+    ? Object.fromEntries(
+        Object.entries(data['listOutcomes'] as Record<string, 'success' | 'failed'>)
+          .map(([symbol, outcome]) => [symbol.toUpperCase(), outcome])
+      )
+    : undefined;
   return {
     runId: id,
     templateId: String(data['templateId'] ?? ''),
@@ -32,6 +40,7 @@ export function convertOptionsReplayRunDoc(id: string, data: Record<string, unkn
     totalLists: Number(data['totalLists'] ?? 0),
     completedLists: Number(data['completedLists'] ?? 0),
     failedLists: Number(data['failedLists'] ?? 0),
+    listOutcomes,
     createdAtIso: toIso(data['createdAt'] as TimestampLike) ?? '',
     updatedAtIso: toIso(data['updatedAt'] as TimestampLike),
     completedAtIso: toIso(data['completedAt'] as TimestampLike),

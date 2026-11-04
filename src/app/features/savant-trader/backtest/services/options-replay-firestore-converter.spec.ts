@@ -38,6 +38,26 @@ describe('options-replay-firestore-converter', () => {
       expect(ui.totalLists).toBe(0);
       expect(ui.createdAtIso).toBe('');
     });
+
+    it('maps listOutcomes when present', () => {
+      const ui = convertOptionsReplayRunDoc('run-1', {
+        listOutcomes: { SPY: 'success', QQQ: 'failed' },
+      });
+      expect(ui.listOutcomes).toEqual({ SPY: 'success', QQQ: 'failed' });
+    });
+
+    it('listOutcomes is undefined on legacy docs without it', () => {
+      const ui = convertOptionsReplayRunDoc('run-2', {});
+      expect(ui.listOutcomes).toBeUndefined();
+    });
+
+    it('normalizes listOutcomes keys to match uppercased symbols', () => {
+      const ui = convertOptionsReplayRunDoc('run-1', {
+        symbols: ['spy'],
+        listOutcomes: { spy: 'success' },
+      });
+      expect(ui.listOutcomes).toEqual({ SPY: 'success' });
+    });
   });
 
   describe('convertOptionsContractListDoc', () => {
