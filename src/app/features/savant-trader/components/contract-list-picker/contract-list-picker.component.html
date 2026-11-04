@@ -1,0 +1,21 @@
+<h2 class="title">Contract list</h2>
+<div class="content">
+  @if (store.activeList(); as list) {
+    <p class="provenance">
+      {{ list.templateId }} · {{ list.symbol }} · {{ list.generatedAtIso | date: 'yyyy-MM-dd' }}
+      @if (list.pickDocMeta) {
+        · {{ list.pickDocMeta.pickCount }} picks · {{ list.pickDocMeta.missCount }} misses
+        · {{ list.pickDocMeta.firstDate }} → {{ list.pickDocMeta.lastDate }}
+      }
+    </p>
+    <p class="readout">
+      {{ store.selectedRows().length }} rows selected → {{ store.uniqueCount() }} unique contracts
+    </p>
+  }
+</div>
+<div class="actions" align="end">
+  <button class="ds-btn outline" (click)="dialogRef.close()">Close</button>
+  <button class="ds-btn fill" [disabled]="!canSend()" (click)="send()">
+    Send {{ store.selectedRows().length }} rows to chart
+  </button>
+</div>

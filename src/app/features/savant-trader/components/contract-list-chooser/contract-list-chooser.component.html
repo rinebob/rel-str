@@ -1,0 +1,38 @@
+<h2 class="title">Contract lists</h2>
+<div class="content">
+  <div class="chooser-toolbar">
+    <button type="button" class="pill" role="switch"
+      [class.active]="showAll()"
+      [attr.aria-checked]="showAll()"
+      aria-label="Show lists for all symbols"
+      (click)="showAll.set(!showAll())"
+    >
+      All symbols
+    </button>
+  </div>
+
+  @if (visibleLists().length === 0) {
+    <p class="chooser-empty">No contract lists found.</p>
+  }
+
+  <ul class="chooser-list">
+    @for (l of visibleLists(); track l.listId) {
+      <li>
+        <button type="button" class="chooser-row" (click)="select(l)">
+          <span class="row-main">{{ l.templateId }} · {{ l.symbol }}</span>
+          <span class="row-sub">
+            {{ l.generatedAtIso | date: 'yyyy-MM-dd' }}
+            @if (l.pickDocMeta) {
+              · {{ l.pickDocMeta.pickCount }} picks · {{ l.pickDocMeta.missCount }} misses
+              · {{ l.pickDocMeta.firstDate }} → {{ l.pickDocMeta.lastDate }}
+            }
+          </span>
+          <span class="row-id" title="list id — use as ?list={{l.listId}}">{{ l.listId }}</span>
+        </button>
+      </li>
+    }
+  </ul>
+</div>
+<div class="actions" align="end">
+  <button class="ds-btn outline" (click)="ref.close()">Cancel</button>
+</div>
