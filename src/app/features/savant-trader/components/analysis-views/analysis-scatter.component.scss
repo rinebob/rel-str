@@ -1,10 +1,15 @@
 @use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+@use 'index' as ds;
+
+.dse-select { @include ds.ds-select; }
+.dse-check { @include ds.ds-check; }
 
 :host {
   display: flex;
   flex-direction: column;
   min-height: 0;
   flex: 1;
+  color: var(--ds-on-surface);
 }
 
 .scatter-controls {
@@ -13,9 +18,9 @@
   gap: 12px;
   padding: 8px 12px;
   flex-wrap: wrap;
-  mat-select {
-    width: 170px;
-    font-size: 0.8rem;
+  .dse-select {
+    width: 190px;
+    select { font-size: 0.8rem; }
   }
 }
 

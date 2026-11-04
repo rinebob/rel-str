@@ -158,7 +158,7 @@ describe('OptionGroupGeneratorComponent', () => {
 
   it('type toggle writes C/P/BOTH to the query', async () => {
     const { fixture, store, el } = await setup();
-    const calls = el.querySelector<HTMLElement>('mat-button-toggle[value="C"] button')!;
+    const calls = el.querySelector<HTMLElement>('.gen-type-toggle .pill')!;
     calls.click();
     fixture.detectChanges();
 
@@ -167,12 +167,12 @@ describe('OptionGroupGeneratorComponent', () => {
 
   it('refine type toggle clears the bound on ALL', async () => {
     const { fixture, store, el } = await setup();
-    const refineGroup = el.querySelectorAll<HTMLElement>('mat-button-toggle-group')[1];
-    refineGroup.querySelector<HTMLElement>('mat-button-toggle[value="put"] button')!.click();
+    const refineGroup = el.querySelectorAll<HTMLElement>('.gen-type-toggle')[1];
+    refineGroup.querySelectorAll<HTMLElement>('.pill')[2]!.click();
     fixture.detectChanges();
     expect(store.refine().type).toBe('put');
 
-    refineGroup.querySelector<HTMLElement>('mat-button-toggle[value="ALL"] button')!.click();
+    refineGroup.querySelectorAll<HTMLElement>('.pill')[0]!.click();
     fixture.detectChanges();
     expect(store.refine().type).toBeUndefined();
   });

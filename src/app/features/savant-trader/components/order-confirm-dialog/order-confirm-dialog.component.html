@@ -1,9 +1,9 @@
-<h2 mat-dialog-title>
+<h2 class="title">
   <mat-icon>{{ isPaper() ? 'science' : 'warning_amber' }}</mat-icon>
   {{ isPaper() ? 'Confirm Paper Order' : 'Confirm Order' }}
 </h2>
 
-<mat-dialog-content>
+<div class="content">
   <div class="confirm-summary">
     @if (optionContract(); as opt) {
       <div class="confirm-row">
@@ -95,12 +95,12 @@
       }
     </div>
   }
-</mat-dialog-content>
+</div>
 
-<mat-dialog-actions align="end">
-  <button mat-button (click)="onCancel()">Cancel</button>
-  <button mat-flat-button color="primary" (click)="onConfirm()" [disabled]="isBlocked()">
+<div class="actions" align="end">
+  <button class="ds-btn" (click)="onCancel()">Cancel</button>
+  <button class="ds-btn fill" (click)="onConfirm()" [disabled]="isBlocked()">
     <mat-icon>{{ isPaper() ? 'science' : 'send' }}</mat-icon>
     {{ isPaper() ? 'Accept as Paper' : 'Submit Order' }}
   </button>
-</mat-dialog-actions>
+</div>

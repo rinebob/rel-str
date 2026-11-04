@@ -8,7 +8,6 @@
 import { Component, ChangeDetectionStrategy, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   SYSTEM_LIST_KEYS,
   USER_LIST_ORDER_START,
@@ -29,7 +28,7 @@ const SYSTEM_LIST_ICONS: Record<string, string> = {
 @Component({
   selector: 'app-symbol-list-actions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule],
   templateUrl: './symbol-list-actions.component.html',
   styleUrl: './symbol-list-actions.component.scss',
 })

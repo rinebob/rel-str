@@ -11,8 +11,6 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSelectModule } from '@angular/material/select';
 import {
   ChartModule,
   ColumnSeriesService,
@@ -31,7 +29,7 @@ const WIDTH_OPTIONS = [1, 2.5, 5, 10];
 @Component({
   selector: 'app-analysis-histogram',
   standalone: true,
-  imports: [ChartModule, FormsModule, MatCheckboxModule, MatSelectModule],
+  imports: [ChartModule, FormsModule],
   providers: [ColumnSeriesService, LegendService, StripLineService, TooltipService],
   templateUrl: './analysis-histogram.component.html',
   styleUrl: './analysis-histogram.component.scss',

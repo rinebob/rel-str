@@ -6,8 +6,9 @@
  */
 import { Component, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
+
 import { MatIconModule } from '@angular/material/icon';
 
 import { OrderTicket, InstrumentType } from '../../services/order-ticket.types';
@@ -26,15 +27,15 @@ export interface OrderConfirmDialogData {
 @Component({
   selector: 'app-order-confirm-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatDialogModule, MatIconModule],
+  imports: [CommonModule, MatIconModule],
   templateUrl: './order-confirm-dialog.component.html',
   styleUrl: './order-confirm-dialog.component.scss',
 })
 export class OrderConfirmDialogComponent {
-  private readonly dialogRef = inject(MatDialogRef<OrderConfirmDialogComponent, boolean>);
+  private readonly dialogRef = inject(DsDialogRef<OrderConfirmDialogComponent, boolean>);
 
-  /** The ticket data injected via MAT_DIALOG_DATA. */
-  readonly data = inject(MAT_DIALOG_DATA) as OrderConfirmDialogData;
+  /** The ticket data injected via DS_DIALOG_DATA. */
+  readonly data = inject(DS_DIALOG_DATA) as OrderConfirmDialogData;
 
   /** The ticket to confirm. */
   readonly ticket = computed(() => this.data.ticket);

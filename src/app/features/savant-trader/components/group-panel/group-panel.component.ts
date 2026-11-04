@@ -8,7 +8,7 @@ import { Component, ChangeDetectionStrategy, computed, input, output } from '@an
 import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 import { SymbolGroup, SymbolRow } from '../../stores/group.store';
 import { SignalDirection } from '../../common/constants';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
@@ -22,9 +22,7 @@ import { SymbolRowComponent } from '../symbol-row/symbol-row.component';
     CommonModule,
     MatExpansionModule,
     MatIconModule,
-    MatTooltipModule,
-    SymbolRowComponent,
-  ],
+    SymbolRowComponent],
   templateUrl: './group-panel.component.html',
   styleUrl: './group-panel.component.scss',
 })

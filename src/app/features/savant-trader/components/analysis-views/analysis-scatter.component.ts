@@ -12,8 +12,6 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSelectModule } from '@angular/material/select';
 import {
   ChartModule,
   LegendService,
@@ -37,7 +35,7 @@ const MAX_COLOR_GROUPS = 12;
 @Component({
   selector: 'app-analysis-scatter',
   standalone: true,
-  imports: [ChartModule, FormsModule, MatCheckboxModule, MatSelectModule],
+  imports: [ChartModule, FormsModule],
   providers: [ScatterSeriesService, LegendService, TooltipService],
   templateUrl: './analysis-scatter.component.html',
   styleUrl: './analysis-scatter.component.scss',

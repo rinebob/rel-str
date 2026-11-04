@@ -21,11 +21,12 @@ import {
   untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
+
 import { firstValueFrom } from 'rxjs';
 
 import { OrderTicketStore } from '../../stores/order-ticket.store';
@@ -73,11 +74,8 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatButtonModule,
     MatIconModule,
-    MatTooltipModule,
-    StopLossFormComponent,
-  ],
+    StopLossFormComponent],
   templateUrl: './order-ticket.component.html',
   styleUrl: './order-ticket.component.scss',
 })
@@ -85,8 +83,8 @@ export class OrderTicketComponent {
   private readonly stagingStore = inject(OrderTicketStore);
   private readonly orderExecution = inject(OrderExecutionService);
   private readonly allocStore = inject(AllocationStore);
-  private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(DsDialogService);
+  private readonly snackBar = inject(DsToastService);
   private readonly manualOrders = inject(ManualOrderService);
 
   /** The selected ticket to configure. */

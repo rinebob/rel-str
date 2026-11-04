@@ -2,7 +2,7 @@
   <div class="gen-header">
     <span class="gen-title">Group Generator</span>
     <span class="gen-symbol">{{ store.symbol() || '—' }}</span>
-    <button mat-icon-button class="gen-close" (click)="close.emit()" matTooltip="Close panel" aria-label="Close generator panel">
+    <button class="gen-close icon-btn" (click)="close.emit()" title="Close panel" aria-label="Close generator panel">
       <mat-icon>chevron_right</mat-icon>
     </button>
   </div>
@@ -12,61 +12,54 @@
     <div class="gen-section-title">Query</div>
 
     <div class="gen-row">
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Strike From</mat-label>
-        <input matInput type="number" [ngModel]="store.query().strikeGte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('query', 'strikeGte', $event)" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Strike To</mat-label>
-        <input matInput type="number" [ngModel]="store.query().strikeLte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('query', 'strikeLte', $event)" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Step</mat-label>
-        <input matInput type="number" [ngModel]="store.query().strikeStep ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('query', 'strikeStep', $event)" />
-      </mat-form-field>
+      <label class="dse-field gen-field">
+        <span class="field-label">Strike From</span>
+        <input class="field-input" type="number" [ngModel]="store.query().strikeGte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('query', 'strikeGte', $event)" />
+      </label>
+      <label class="dse-field gen-field">
+        <span class="field-label">Strike To</span>
+        <input class="field-input" type="number" [ngModel]="store.query().strikeLte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('query', 'strikeLte', $event)" />
+      </label>
+      <label class="dse-field gen-field">
+        <span class="field-label">Step</span>
+        <input class="field-input" type="number" [ngModel]="store.query().strikeStep ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('query', 'strikeStep', $event)" />
+      </label>
     </div>
 
     <div class="gen-row">
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Exp From</mat-label>
-        <input matInput [matDatepicker]="qExpGtePicker" [ngModel]="queryExpGteDate()" (dateChange)="onAxisDate('query', 'expirationGte', $event.value)" />
-        <mat-datepicker-toggle matSuffix [for]="qExpGtePicker"></mat-datepicker-toggle>
-        <mat-datepicker #qExpGtePicker></mat-datepicker>
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Exp To</mat-label>
-        <input matInput [matDatepicker]="qExpLtePicker" [ngModel]="queryExpLteDate()" (dateChange)="onAxisDate('query', 'expirationLte', $event.value)" />
-        <mat-datepicker-toggle matSuffix [for]="qExpLtePicker"></mat-datepicker-toggle>
-        <mat-datepicker #qExpLtePicker></mat-datepicker>
-      </mat-form-field>
+      <label class="dse-field gen-field">
+        <span class="field-label">Exp From</span>
+        <input type="date" class="dse-date" [ngModel]="store.query().expirationGte" (change)="onAxisDate('query', 'expirationGte', $event.target.value)" />
+      </label>
+      <label class="dse-field gen-field">
+        <span class="field-label">Exp To</span>
+        <input type="date" class="dse-date" [ngModel]="store.query().expirationLte" (change)="onAxisDate('query', 'expirationLte', $event.target.value)" />
+      </label>
     </div>
 
-    <mat-form-field appearance="outline" class="gen-field gen-field-full">
-      <mat-label>Expirations (list overrides range)</mat-label>
-      <input matInput [ngModel]="queryExpiryText()" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisExpiries('query', $event)" placeholder="2026-06-19, 2026-07-17" />
-    </mat-form-field>
+    <label class="dse-field gen-field gen-field-full">
+      <span class="field-label">Expirations (list overrides range)</span>
+      <input class="field-input" [ngModel]="queryExpiryText()" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisExpiries('query', $event)" placeholder="2026-06-19, 2026-07-17" />
+    </label>
 
-    <mat-button-toggle-group
-      class="gen-type-toggle"
-      [ngModel]="store.query().type"
-      (ngModelChange)="onQueryType($event)"
+    <div
+      class="pill-group gen-type-toggle"
+      role="radiogroup" aria-label="Query type"
     >
-      <mat-button-toggle value="C">Calls</mat-button-toggle>
-      <mat-button-toggle value="P">Puts</mat-button-toggle>
-      <mat-button-toggle value="BOTH">Both</mat-button-toggle>
-    </mat-button-toggle-group>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="store.query().type === 'C'" [class.active]="store.query().type === 'C'" (click)="onQueryType('C')">Calls</button>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="store.query().type === 'P'" [class.active]="store.query().type === 'P'" (click)="onQueryType('P')">Puts</button>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="store.query().type === 'BOTH'" [class.active]="store.query().type === 'BOTH'" (click)="onQueryType('BOTH')">Both</button>
+    </div>
 
     <div class="gen-actions">
       <button
-        mat-flat-button
-        color="primary"
-        class="gen-run"
-        (click)="onRun()"
-        [disabled]="store.status() === 'loading' || !store.symbol()"
-      >
+ class="gen-run ds-btn fill"
+ (click)="onRun()"
+ [disabled]="store.status() === 'loading' || !store.symbol()"
+ >
         Run
       </button>
-      <button mat-stroked-button (click)="onClear()" matTooltip="Reset axes, results, and saved settings">
+      <button class="ds-btn outline" (click)="onClear()" title="Reset axes, results, and saved settings">
         Clear
       </button>
     </div>
@@ -82,7 +75,7 @@
     } @else if (store.status() === 'error') {
     <div class="gen-error" role="alert">
       <span class="gen-error-text">{{ store.error() }}</span>
-      <button mat-stroked-button class="gen-retry" (click)="onRun()">Retry</button>
+      <button class="gen-retry ds-btn outline" (click)="onRun()">Retry</button>
     </div>
     } @else if (emptyMessage(); as msg) {
     <div class="gen-empty">{{ msg }}</div>
@@ -96,12 +89,11 @@
         {{ showLines() ? 'hide lines' : 'view lines' }}
       </button>
       <button
-        mat-icon-button
-        class="gen-lines-copy"
-        (click)="onCopyLines()"
-        matTooltip="Copy send lines"
-        aria-label="Copy send lines"
-      >
+ 
+ class="gen-lines-copy icon-btn"
+ (click)="onCopyLines()" title="Copy send lines"
+ aria-label="Copy send lines"
+ >
         <mat-icon>content_copy</mat-icon>
       </button>
     </div>
@@ -149,55 +141,50 @@
     <div class="gen-section-title">Refine <span class="gen-section-hint">(no refetch)</span></div>
 
     <div class="gen-row">
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Strike Min</mat-label>
-        <input matInput type="number" [ngModel]="store.refine().strikeGte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('refine', 'strikeGte', $event)" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Strike Max</mat-label>
-        <input matInput type="number" [ngModel]="store.refine().strikeLte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('refine', 'strikeLte', $event)" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Step</mat-label>
-        <input matInput type="number" [ngModel]="store.refine().strikeStep ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('refine', 'strikeStep', $event)" />
-      </mat-form-field>
+      <label class="dse-field gen-field">
+        <span class="field-label">Strike Min</span>
+        <input class="field-input" type="number" [ngModel]="store.refine().strikeGte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('refine', 'strikeGte', $event)" />
+      </label>
+      <label class="dse-field gen-field">
+        <span class="field-label">Strike Max</span>
+        <input class="field-input" type="number" [ngModel]="store.refine().strikeLte ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('refine', 'strikeLte', $event)" />
+      </label>
+      <label class="dse-field gen-field">
+        <span class="field-label">Step</span>
+        <input class="field-input" type="number" [ngModel]="store.refine().strikeStep ?? null" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisNum('refine', 'strikeStep', $event)" />
+      </label>
     </div>
 
     <div class="gen-row">
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Exp Min</mat-label>
-        <input matInput [matDatepicker]="rExpGtePicker" [ngModel]="refineExpGteDate()" (dateChange)="onAxisDate('refine', 'expirationGte', $event.value)" />
-        <mat-datepicker-toggle matSuffix [for]="rExpGtePicker"></mat-datepicker-toggle>
-        <mat-datepicker #rExpGtePicker></mat-datepicker>
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="gen-field">
-        <mat-label>Exp Max</mat-label>
-        <input matInput [matDatepicker]="rExpLtePicker" [ngModel]="refineExpLteDate()" (dateChange)="onAxisDate('refine', 'expirationLte', $event.value)" />
-        <mat-datepicker-toggle matSuffix [for]="rExpLtePicker"></mat-datepicker-toggle>
-        <mat-datepicker #rExpLtePicker></mat-datepicker>
-      </mat-form-field>
+      <label class="dse-field gen-field">
+        <span class="field-label">Exp Min</span>
+        <input type="date" class="dse-date" [ngModel]="store.refine().expirationGte" (change)="onAxisDate('refine', 'expirationGte', $event.target.value)" />
+      </label>
+      <label class="dse-field gen-field">
+        <span class="field-label">Exp Max</span>
+        <input type="date" class="dse-date" [ngModel]="store.refine().expirationLte" (dateChange)="onAxisDate('refine', 'expirationLte', $event.target.value)" />
+      </label>
     </div>
 
-    <mat-form-field appearance="outline" class="gen-field gen-field-full">
-      <mat-label>Expirations</mat-label>
-      <input matInput [ngModel]="refineExpiryText()" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisExpiries('refine', $event)" placeholder="comma-separated" />
-    </mat-form-field>
+    <label class="dse-field gen-field gen-field-full">
+      <span class="field-label">Expirations</span>
+      <input class="field-input" [ngModel]="refineExpiryText()" [ngModelOptions]="blurOpts" (ngModelChange)="onAxisExpiries('refine', $event)" placeholder="comma-separated" />
+    </label>
 
-    <mat-button-toggle-group
-      class="gen-type-toggle"
-      [ngModel]="store.refine().type ?? 'ALL'"
-      (ngModelChange)="onRefineType($event)"
+    <div
+      class="pill-group gen-type-toggle"
+      role="radiogroup" aria-label="Refine type"
     >
-      <mat-button-toggle value="ALL">All</mat-button-toggle>
-      <mat-button-toggle value="call">Calls</mat-button-toggle>
-      <mat-button-toggle value="put">Puts</mat-button-toggle>
-    </mat-button-toggle-group>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="(store.refine().type ?? 'ALL') === 'ALL'" [class.active]="(store.refine().type ?? 'ALL') === 'ALL'" (click)="onRefineType('ALL')">All</button>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="(store.refine().type ?? 'ALL') === 'call'" [class.active]="(store.refine().type ?? 'ALL') === 'call'" (click)="onRefineType('call')">Calls</button>
+      <button type="button" class="pill" role="radio" [attr.aria-checked]="(store.refine().type ?? 'ALL') === 'put'" [class.active]="(store.refine().type ?? 'ALL') === 'put'" (click)="onRefineType('put')">Puts</button>
+    </div>
 
     @if (store.refine().aliveRange; as range) {
     <div class="gen-alive-range">
       <span class="gen-alive-label">Alive across</span>
       <span class="mono">{{ range.start }} → {{ range.end }}</span>
-      <button mat-icon-button class="gen-alive-clear" (click)="store.applyRange(null)" matTooltip="Clear range bound" aria-label="Clear range bound">
+      <button class="gen-alive-clear icon-btn" (click)="store.applyRange(null)" title="Clear range bound" aria-label="Clear range bound">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -207,34 +194,28 @@
   <!-- Open date -->
   <div class="gen-section">
     <div class="gen-section-title">Open Date</div>
-    <mat-form-field appearance="outline" class="gen-field gen-field-full">
-      <mat-label>Open date</mat-label>
-      <input
-        matInput
-        [matDatepicker]="openDatePicker"
-        [ngModel]="openDateDate()"
-        (dateChange)="onOpenDateChange($event.value)"
+    <label class="dse-field gen-field gen-field-full">
+      <span class="field-label">Open date</span>
+      <input type="date" class="dse-date"
+        [ngModel]="store.openDate()"
+        (change)="onOpenDateChange($event.target.value)"
       />
-      <mat-datepicker-toggle matSuffix [for]="openDatePicker"></mat-datepicker-toggle>
-      <mat-datepicker #openDatePicker></mat-datepicker>
-    </mat-form-field>
-    <mat-slide-toggle
+    </label>
+    <label class="dse-switch"><input type="checkbox" class="switch-input"
       [checked]="store.useRangeAsOpenDate()"
-      (change)="store.setUseRangeAsOpenDate($event.checked)"
+      (change)="store.setUseRangeAsOpenDate($event.target.checked)"
     >
       Use study-range start as open date
-    </mat-slide-toggle>
+    </label>
   </div>
 
   <!-- Send -->
   <div class="gen-footer">
     <button
-      mat-flat-button
-      color="primary"
-      class="gen-send"
-      (click)="onSend()"
-      [disabled]="store.filtered().length === 0"
-    >
+ class="gen-send ds-btn fill"
+ (click)="onSend()"
+ [disabled]="store.filtered().length === 0"
+ >
       Send {{ store.filtered().length }} to chart
     </button>
     @if (store.filtered().length === 0) {

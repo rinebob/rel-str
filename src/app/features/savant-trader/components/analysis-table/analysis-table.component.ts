@@ -21,9 +21,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
 
 import {
   ANALYSIS_COLUMNS,
@@ -45,12 +43,12 @@ export interface AnalysisSortToggle {
   selector: 'app-analysis-table',
   standalone: true,
   imports: [
-    MatCheckboxModule,
-    MatIconModule,
-    MatMenuModule,
-  ],
+    MatIconModule],
   templateUrl: './analysis-table.component.html',
   styleUrl: './analysis-table.component.scss',
+  host: {
+    '(document:click)': 'closeMenus()',
+  },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AnalysisTableComponent {
@@ -70,6 +68,29 @@ export class AnalysisTableComponent {
   sortToggled = output<AnalysisSortToggle>();
   filtersChanged = output<SliceFilter[]>();
   includeOpenRowsChanged = output<boolean>();
+
+  // ── ds-menu dropdowns (#1348 pilot — signal-driven, document-click
+  //  dismiss; one open at a time) ─────────────────────────────────────
+
+  protected readonly colMenuOpen = signal(false);
+  protected readonly openFilterKey = signal<string | null>(null);
+
+  protected toggleColMenu(ev: Event): void {
+    ev.stopPropagation();
+    this.openFilterKey.set(null);
+    this.colMenuOpen.update((v) => !v);
+  }
+
+  protected toggleFilterMenu(col: AnalysisColumnDef, ev: Event): void {
+    ev.stopPropagation();
+    this.colMenuOpen.set(false);
+    this.openFilterKey.update((k) => (k === col.key ? null : col.key));
+  }
+
+  protected closeMenus(): void {
+    this.colMenuOpen.set(false);
+    this.openFilterKey.set(null);
+  }
 
   // ── columns ──────────────────────────────────────────────────────────
 

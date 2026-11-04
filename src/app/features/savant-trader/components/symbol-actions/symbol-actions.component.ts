@@ -6,13 +6,13 @@
 import { Component, ChangeDetectionStrategy, booleanAttribute, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 import { SymbolRow } from '../../stores/group.store';
 
 @Component({
   selector: 'app-symbol-actions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule],
   templateUrl: './symbol-actions.component.html',
   styleUrl: './symbol-actions.component.scss',
 })

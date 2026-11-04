@@ -7,10 +7,10 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
+import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
 
 import type { IndicatorConfig, IndicatorPane, IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
 
@@ -27,28 +27,28 @@ const INDICATOR_COLORS = ['#ff9800', '#2196f3', '#e91e63', '#4caf50', '#9c27b0']
 @Component({
   selector: 'app-indicator-config-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule],
   template: `
-    <h2 mat-dialog-title>Configure {{ data.indicator.label }}</h2>
-    <mat-dialog-content>
+    <h2 class="title">Configure {{ data.indicator.label }}</h2>
+    <div class="content">
       @for (param of data.indicator.params; track param.key) {
-        <mat-form-field appearance="outline" class="param-field">
-          <mat-label>{{ param.label }}</mat-label>
-          <input matInput type="number"
+        <label class="dse-field param-field">
+          <span class="field-label">{{ param.label }}</span>
+          <input class="field-input" type="number"
             [(ngModel)]="paramValues[param.key]"
             [min]="param.min"
             [max]="param.max">
-          <mat-hint>{{ param.min }}–{{ param.max }}</mat-hint>
-        </mat-form-field>
+          <span class="field-hint">{{ param.min }}–{{ param.max }}</span>
+        </label>
       }
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>Cancel</button>
-      <button mat-flat-button color="primary" (click)="onConfirm()">Add Indicator</button>
-    </mat-dialog-actions>
+    </div>
+    <div class="actions" align="end">
+      <button class="ds-btn" (click)="dialogRef.close()">Cancel</button>
+      <button class="ds-btn fill" (click)="onConfirm()">Add Indicator</button>
+    </div>
   `,
   styles: [`
-    mat-dialog-content {
+    .content {
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -62,8 +62,8 @@ const INDICATOR_COLORS = ['#ff9800', '#2196f3', '#e91e63', '#4caf50', '#9c27b0']
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class IndicatorConfigDialogComponent {
-  readonly dialogRef = inject(MatDialogRef<IndicatorConfigDialogComponent>);
-  readonly data: IndicatorConfigDialogData = inject(MAT_DIALOG_DATA);
+  readonly dialogRef = inject(DsDialogRef<IndicatorConfigDialogComponent>);
+  readonly data: IndicatorConfigDialogData = inject(DS_DIALOG_DATA);
 
   paramValues: Record<string, number> = {};
 

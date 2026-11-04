@@ -11,16 +11,11 @@
 import { Component, inject, computed, signal, output, effect, untracked, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
+
+
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import {
@@ -42,35 +37,14 @@ function parseExpiryList(text: string): string[] {
   return text.split(/[\s,;]+/).filter((d) => d !== '');
 }
 
-/** 'YYYY-MM-DD' → local-midnight Date for the datepicker display
- *  (matches the page's `queryExpGteDate` convention). */
-function isoToDate(iso: string | null | undefined): Date | null {
-  return iso ? new Date(iso + 'T00:00:00') : null;
-}
-
-/** Picked Date → 'YYYY-MM-DD' store form (same shape as the page's
- *  `onExpGteChange`). */
-function dateToIso(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
 @Component({
   selector: 'app-option-group-generator',
   standalone: true,
   imports: [
     CommonModule,
     FormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
     MatIconModule,
-    MatButtonToggleModule,
-    MatSlideToggleModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-  ],
+    MatProgressSpinnerModule],
   templateUrl: './option-group-generator.component.html',
   styleUrl: './option-group-generator.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -135,9 +109,9 @@ export class OptionGroupGeneratorComponent {
   onAxisDate(
     scope: 'query' | 'refine',
     field: 'expirationGte' | 'expirationLte' | 'firstObservedGte' | 'firstObservedLte',
-    value: Date | null,
+    value: string,
   ): void {
-    const patch = { [field]: value ? dateToIso(value) : undefined };
+    const patch = { [field]: value || undefined };
     if (scope === 'query') this.store.setQuery(patch as Partial<GeneratorQueryState>);
     else this.store.setRefine(patch as Partial<GeneratorRefineState>);
   }
@@ -158,17 +132,8 @@ export class OptionGroupGeneratorComponent {
     this.store.setRefine({ type: value === 'ALL' ? undefined : value });
   }
 
-  /** Datepicker display projections — computed, NOT a template-called
-   *  method: a fresh Date identity every CD pass keeps ngModel permanently
-   *  dirty (infinite CD loop). Matches the page's queryExpGteDate pattern. */
-  readonly queryExpGteDate = computed(() => isoToDate(this.store.query().expirationGte));
-  readonly queryExpLteDate = computed(() => isoToDate(this.store.query().expirationLte));
-  readonly refineExpGteDate = computed(() => isoToDate(this.store.refine().expirationGte));
-  readonly refineExpLteDate = computed(() => isoToDate(this.store.refine().expirationLte));
-  readonly openDateDate = computed(() => isoToDate(this.store.openDate()));
-
-  onOpenDateChange(date: Date | null): void {
-    this.store.setOpenDate(date ? dateToIso(date) : null);
+  onOpenDateChange(value: string): void {
+    this.store.setOpenDate(value || null);
   }
 
   onRun(): void {

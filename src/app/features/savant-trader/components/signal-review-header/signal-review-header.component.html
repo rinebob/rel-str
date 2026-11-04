@@ -1,5 +1,5 @@
 <div class="gr-header">
-  <button mat-icon-button class="back-btn" (click)="back.emit()" matTooltip="Back">
+  <button class="back-btn icon-btn" (click)="back.emit()" title="Back">
     <mat-icon>arrow_back</mat-icon>
   </button>
 
@@ -23,8 +23,7 @@
     (directionChange)="directionFilterChange.emit($event)">
   </app-signal-filter-pills>
 
-  <span class="pill-btn emph"
-    matTooltip="Signals matching the current timeframe / direction / list filters">
+  <span class="pill-btn emph" title="Signals matching the current timeframe / direction / list filters">
     <mat-icon>notifications</mat-icon>
     Signals <span class="pill-count">{{ filteredSignalCount() }}</span>
   </span>
@@ -37,30 +36,26 @@
     <button type="button" class="pill-btn review"
       [class.active]="reviewCount() > 0"
       disabled
-      (click)="goToChartView.emit()"
-      matTooltip="Review symbols">
+      (click)="goToChartView.emit()" title="Review symbols">
       <mat-icon>visibility</mat-icon>
       Review <span class="pill-count">{{ reviewCount() }}</span>
     </button>
     <button type="button" class="pill-btn order"
       [class.active]="orderCount() > 0"
       [disabled]="orderCount() === 0 || !isActionableRun()"
-      (click)="goToOrder.emit()"
-      matTooltip="Go to signal order page">
+      (click)="goToOrder.emit()" title="Go to signal order page">
       <mat-icon>shopping_cart</mat-icon>
       Order <span class="pill-count">{{ orderCount() }}</span>
     </button>
     <a class="pill-btn"
-      [routerLink]="'/' + appRoutes.RH_ACCOUNT_INQUIRY"
-      matTooltip="Open observation dashboard">
+      [routerLink]="'/' + appRoutes.RH_ACCOUNT_INQUIRY" title="Open observation dashboard">
       <mat-icon>query_stats</mat-icon>
       Observation
     </a>
     <!-- #1016 — clears review flags; disabled with the flag feature. -->
     <button type="button" class="pill-btn small"
       disabled
-      (click)="clearReviewFlags.emit()"
-      matTooltip="Clear review flags">
+      (click)="clearReviewFlags.emit()" title="Clear review flags">
       <mat-icon>playlist_remove</mat-icon>
     </button>
   </div>
@@ -80,36 +75,31 @@
     (valueChange)="listFilterChange.emit($event)">
   </app-rh-select-menu>
 
-  <button mat-icon-button
-    [disabled]="activeListFilter() === 'ALL'"
-    (click)="exportList.emit()"
-    matTooltip="Export selected list">
+  <button class="icon-btn" 
+ [disabled]="activeListFilter() === 'ALL'"
+ (click)="exportList.emit()" title="Export selected list">
     <mat-icon>download</mat-icon>
   </button>
 
-  <button mat-icon-button (click)="prev.emit()"
-    [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) <= 0"
-    matTooltip="Previous symbol">
+  <button class="icon-btn" (click)="prev.emit()"
+ [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) <= 0" title="Previous symbol">
     <mat-icon>chevron_left</mat-icon>
   </button>
-  <button mat-icon-button (click)="next.emit()"
-    [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) >= flatSymbols().length - 1"
-    matTooltip="Next symbol">
+  <button class="icon-btn" (click)="next.emit()"
+ [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) >= flatSymbols().length - 1" title="Next symbol">
     <mat-icon>chevron_right</mat-icon>
   </button>
 
-  <button mat-icon-button (click)="toggleExpandAll.emit()"
-    [matTooltip]="allExpanded() ? 'Collapse all' : 'Expand all'">
+  <button class="icon-btn" (click)="toggleExpandAll.emit()" [title]="allExpanded() ? 'Collapse all' : 'Expand all'">
     <mat-icon>{{ allExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
   </button>
 
-  <button mat-icon-button (click)="refresh.emit()" matTooltip="Refresh"
-    [disabled]="loading()">
+  <button class="icon-btn" (click)="refresh.emit()" title="Refresh"
+ [disabled]="loading()">
     <mat-icon>refresh</mat-icon>
   </button>
 
-  <button mat-icon-button (click)="toggleFullscreen.emit()"
-    [matTooltip]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+  <button class="icon-btn" (click)="toggleFullscreen.emit()" [title]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
     <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
   </button>
 </div>

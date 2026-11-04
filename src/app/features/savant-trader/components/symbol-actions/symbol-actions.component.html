@@ -4,16 +4,14 @@
   <button type="button" class="action-btn review"
     [class.active]="row().isReviewed"
     disabled
-    (click)="markForReview.emit(row().profile.symbol)"
-    matTooltip="Review">
+    (click)="markForReview.emit(row().profile.symbol)" title="Review">
     <mat-icon>bookmark_border</mat-icon>
   </button>
   <!-- #1017 — the ACR icon set became a single Trade action: stage the
        symbol's signal-sourced ticket and open the order dialog. -->
   <button type="button" class="action-btn trade"
     [disabled]="disabled()"
-    (click)="trade.emit(row().profile.symbol)"
-    matTooltip="Trade">
+    (click)="trade.emit(row().profile.symbol)" title="Trade">
     Trade
   </button>
 </div>

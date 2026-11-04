@@ -26,11 +26,12 @@ import {
   untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
+
 import { firstValueFrom } from 'rxjs';
 
 import { OptionType, buildOccContractId } from '@options-contract/contracts';
@@ -97,7 +98,7 @@ type OptionTimeInForce = 'gfd' | 'gtc';
   selector: 'app-option-order-ticket',
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [OptionCollateralPreview],
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule],
   templateUrl: './option-order-ticket.component.html',
   styleUrl: './option-order-ticket.component.scss',
 })
@@ -109,8 +110,8 @@ export class OptionOrderTicketComponent {
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly portfolio = inject(PortfolioService);
   private readonly allocStore = inject(AllocationStore);
-  private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(DsDialogService);
+  private readonly snackBar = inject(DsToastService);
 
   /** Set when the component is destroyed — a stage that resolves
    *  post-destroy must discard its persisted ticket rather than emit

@@ -8,62 +8,62 @@
 import { Component, inject, signal, ChangeDetectionStrategy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
+
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatButtonModule } from '@angular/material/button';
-
 import { TradingConfig, AccountInfo } from '../../services/order-ticket.types';
 import { TradingConfigService } from '../../services/trading-config.service';
 
 @Component({
   selector: 'app-trading-config-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   template: `
-    <h2 mat-dialog-title>Trading Settings</h2>
-    <mat-dialog-content>
+    <h2 class="title">Trading Settings</h2>
+    <div class="content">
       @if (accountsLoading()) {
         <p class="loading-text">Loading accounts…</p>
       } @else {
         <div class="config-form">
-          <mat-form-field appearance="outline" class="field-sm">
-            <mat-label>Account</mat-label>
-            <mat-select [(ngModel)]="form.accountNumber">
+          <label class="dse-field field-sm">
+            <span class="field-label">Account</span>
+            <select class="field-input" [(ngModel)]="form.accountNumber">
               @for (acct of accounts(); track acct.accountNumber) {
-                <mat-option [value]="acct.accountNumber">
+                <option [ngValue]="acct.accountNumber">
                   {{ acct.accountNumber }} ({{ acct.accountType }})
-                </mat-option>
+                </option>
               }
-            </mat-select>
-          </mat-form-field>
+            </select>
+          </label>
 
           <div class="form-row">
-            <mat-form-field appearance="outline" class="field-sm">
-              <mat-label>Default $ / Trade</mat-label>
-              <input matInput type="number" [(ngModel)]="form.defaultDollarAmount" placeholder="100" />
-            </mat-form-field>
+            <label class="dse-field field-sm">
+              <span class="field-label">Default $ / Trade</span>
+              <input class="field-input" type="number" [(ngModel)]="form.defaultDollarAmount" placeholder="100" />
+            </label>
 
-            <mat-form-field appearance="outline" class="field-sm">
-              <mat-label>Max Units</mat-label>
-              <input matInput type="number" [(ngModel)]="form.maxUnits" placeholder="200" />
-            </mat-form-field>
+            <label class="dse-field field-sm">
+              <span class="field-label">Max Units</span>
+              <input class="field-input" type="number" [(ngModel)]="form.maxUnits" placeholder="200" />
+            </label>
           </div>
 
           <div class="form-row">
-            <mat-form-field appearance="outline" class="field-sm">
-              <mat-label>Max Allocation %</mat-label>
-              <input matInput type="number" [(ngModel)]="form.maxAllocationPercent" placeholder="80" />
-            </mat-form-field>
+            <label class="dse-field field-sm">
+              <span class="field-label">Max Allocation %</span>
+              <input class="field-input" type="number" [(ngModel)]="form.maxAllocationPercent" placeholder="80" />
+            </label>
           </div>
         </div>
       }
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button (click)="cancel()">Cancel</button>
-      <button mat-flat-button color="primary" (click)="save()" [disabled]="accountsLoading()">Save</button>
-    </mat-dialog-actions>
+    </div>
+    <div class="actions" align="end">
+      <button class="ds-btn" (click)="cancel()">Cancel</button>
+      <button class="ds-btn fill" (click)="save()" [disabled]="accountsLoading()">Save</button>
+    </div>
   `,
   styles: [`
     .config-form { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
@@ -72,7 +72,7 @@ import { TradingConfigService } from '../../services/trading-config.service';
       flex: 1 1 180px;
       min-width: 140px;
       font-size: 13px;
-      ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+
       ::ng-deep .mat-mdc-form-field-flex { min-height: 40px; height: 40px; }
       ::ng-deep .mat-mdc-form-field-infix { min-height: 28px; padding-top: 8px; padding-bottom: 8px; }
       ::ng-deep .mat-mdc-floating-label { font-size: 13px; }
@@ -84,8 +84,8 @@ import { TradingConfigService } from '../../services/trading-config.service';
 })
 export class TradingConfigDialogComponent implements OnInit {
   private readonly configService = inject(TradingConfigService);
-  private readonly dialogRef = inject(MatDialogRef<TradingConfigDialogComponent>);
-  readonly data = inject(MAT_DIALOG_DATA, { optional: true }) as TradingConfig | null;
+  private readonly dialogRef = inject(DsDialogRef<TradingConfigDialogComponent>);
+  readonly data = inject(DS_DIALOG_DATA, { optional: true }) as TradingConfig | null;
 
   readonly accounts = signal<AccountInfo[]>([]);
   readonly accountsLoading = signal(true);

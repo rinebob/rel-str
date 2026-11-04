@@ -1,4 +1,4 @@
-<h2 mat-dialog-title class="dialog-title-row">
+<h2 class="title dialog-title-row">
   <span class="dialog-title-text">Order ticket</span>
   <span class="dialog-subtitle" data-testid="dialog-subtitle">
     <span class="underlying-identity" data-testid="underlying-identity">
@@ -30,7 +30,7 @@
   </span>
 </h2>
 
-<mat-dialog-content>
+<div class="content">
   @if (confirmation(); as done) {
     <!-- Post-submit confirmation (#762): the dialog stays open on a
          terminal status so the order's landing is explicit — terms, the
@@ -58,9 +58,9 @@
              [disabled]="resolving() || resolveLocked()"
              (input)="symbolInput.set($any($event.target).value)"
              (keydown.enter)="resolveSymbol(); $event.preventDefault()" />
-      <button mat-stroked-button data-testid="manual-symbol-resolve"
-              [disabled]="resolving() || resolveLocked() || !symbolInput().trim()"
-              (click)="resolveSymbol()">
+      <button class="ds-btn outline" data-testid="manual-symbol-resolve"
+ [disabled]="resolving() || resolveLocked() || !symbolInput().trim()"
+ (click)="resolveSymbol()">
         {{ resolving() ? 'Resolving…' : 'Resolve' }}
       </button>
     </div>
@@ -128,13 +128,13 @@
       [tradingConfig]="tradingConfig()">
     </app-order-ticket>
   }
-</mat-dialog-content>
+</div>
 
-<mat-dialog-actions align="end">
+<div class="actions" align="end">
   @if (confirmation()) {
-    <button mat-stroked-button (click)="onViewOrder()">View order</button>
-    <button mat-button (click)="onDone()">Done</button>
+    <button class="ds-btn outline" (click)="onViewOrder()">View order</button>
+    <button class="ds-btn" (click)="onDone()">Done</button>
   } @else {
-    <button mat-button mat-dialog-close>Close</button>
+    <button class="ds-btn" (click)="dialogRef.close()">Close</button>
   }
-</mat-dialog-actions>
+</div>

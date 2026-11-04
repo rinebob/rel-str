@@ -5,7 +5,7 @@
       <mat-icon>pan_tool</mat-icon>
       <p>Select an order from the queue</p>
       <p class="hint">Click a row on the left to configure and submit an order.</p>
-      <button mat-stroked-button (click)="onNewManualOrder()">
+      <button class="ds-btn outline" (click)="onNewManualOrder()">
         <mat-icon>add</mat-icon>
         New manual order
       </button>
@@ -96,19 +96,19 @@
 
         <div class="stop-loss-ticket-actions">
           @if (ticket()?.status === OrderTicketStatus.STAGED) {
-            <button mat-flat-button color="warn" (click)="onSubmitStopLossTicket()" [disabled]="!canSubmitStopLossTicket()">
+            <button class="ds-btn danger" (click)="onSubmitStopLossTicket()" [disabled]="!canSubmitStopLossTicket()">
               <mat-icon>shield</mat-icon>
               Submit Stop Loss
             </button>
           }
           @if (canRequeue()) {
-            <button mat-stroked-button color="primary" (click)="onRequeue()">
+            <button class="ds-btn outline" (click)="onRequeue()">
               <mat-icon>replay</mat-icon>
               Requeue to Staged
             </button>
           }
           @if (ticket()?.status === OrderTicketStatus.FAILED && ticket()?.result?.orderId) {
-            <button mat-stroked-button color="primary" (click)="onReconcile()">
+            <button class="ds-btn outline" (click)="onReconcile()">
               <mat-icon>sync</mat-icon>
               Refresh from Broker
             </button>
@@ -120,14 +120,14 @@
             </div>
           }
           @if (isSubmitted()) {
-            <button mat-stroked-button color="primary" (click)="onReconcile()">
+            <button class="ds-btn outline" (click)="onReconcile()">
               <mat-icon>sync</mat-icon>
               Refresh from Broker
             </button>
             @if (isCancelling()) {
               <ng-container *ngTemplateOutlet="cancelPending" />
             } @else if (ticket()?.result?.orderId) {
-              <button mat-stroked-button color="warn" (click)="onCancel()">
+              <button class="ds-btn outline danger" (click)="onCancel()">
                 <mat-icon>cancel</mat-icon>
                 Cancel Stop Loss
               </button>
@@ -262,7 +262,7 @@
 
           <!-- 9. Bucket (optional — seeds position attribution at fill) -->
           <div class="form-row">
-            <span class="field-label" matTooltip="Optional — seeds the position's allocation bucket on fill">Bucket</span>
+            <span class="field-label" title="Optional — seeds the position's allocation bucket on fill">Bucket</span>
             <select class="cf-input bucket-select" data-testid="bucket-select"
               (change)="onBucketChange($event)">
               <option value="" [selected]="!selectedBucketId()">Unassigned</option>
@@ -314,7 +314,7 @@
         <div class="fractional-warning">
           <mat-icon>info</mat-icon>
           <span>Fractional position — stop-loss orders are unavailable for fractional shares.</span>
-          <button mat-stroked-button color="warn" (click)="onCloseFractionalShare()">
+          <button class="ds-btn outline danger" (click)="onCloseFractionalShare()">
             Close fractional share
           </button>
         </div>
@@ -381,7 +381,7 @@
       <!-- Contextual action buttons -->
       <div class="action-section">
         @if (isEditable()) {
-          <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="!hasAccount()">
+          <button class="ds-btn fill" (click)="onSubmit()" [disabled]="!hasAccount()">
             <mat-icon>send</mat-icon>
             Submit Order
           </button>
@@ -389,12 +389,12 @@
 
         @if (canAcceptAsPaper()) {
           <button
-            mat-stroked-button
-            class="paper-btn"
-            data-testid="accept-as-paper-btn"
-            (click)="onAcceptAsPaper()"
-            [disabled]="acceptingPaper()"
-          >
+ 
+ class="paper-btn ds-btn outline"
+ data-testid="accept-as-paper-btn"
+ (click)="onAcceptAsPaper()"
+ [disabled]="acceptingPaper()"
+ >
             <mat-icon>science</mat-icon>
             {{ acceptingPaper() ? 'Accepting…' : 'Accept as Paper' }}
           </button>
@@ -403,25 +403,25 @@
         @if (canRequeue()) {
           <!-- A terminal RH order burned its refId — Requeue mints a fresh
                one and returns the ticket to staged (#717). -->
-          <button mat-stroked-button color="primary" (click)="onRequeue()">
+          <button class="ds-btn outline" (click)="onRequeue()">
             <mat-icon>replay</mat-icon>
             Requeue to Staged
           </button>
         }
 
         @if (isSubmitted()) {
-          <button mat-stroked-button color="primary" (click)="onReconcile()">
+          <button class="ds-btn outline" (click)="onReconcile()">
             <mat-icon>sync</mat-icon>
             Refresh from Broker
           </button>
           @if (isCancelling()) {
             <ng-container *ngTemplateOutlet="cancelPending" />
           } @else {
-            <button mat-stroked-button color="primary" (click)="onModify()">
+            <button class="ds-btn outline" (click)="onModify()">
               <mat-icon>edit</mat-icon>
               Modify
             </button>
-            <button mat-stroked-button color="warn" (click)="onCancel()">
+            <button class="ds-btn outline danger" (click)="onCancel()">
               <mat-icon>cancel</mat-icon>
               Cancel
             </button>
@@ -433,7 +433,7 @@
             <mat-icon>hourglass_empty</mat-icon>
             <span>Submitting…</span>
           </div>
-          <button mat-stroked-button color="primary" (click)="onReconcile()">
+          <button class="ds-btn outline" (click)="onReconcile()">
             <mat-icon>sync</mat-icon>
             Refresh from Broker
           </button>
@@ -442,7 +442,7 @@
         @if (showStopLossCancelPending()) {
           <ng-container *ngTemplateOutlet="cancelPending" />
         } @else if (isStopLossSubmitted()) {
-          <button mat-stroked-button color="warn" (click)="onCancelStopLoss()">
+          <button class="ds-btn outline danger" (click)="onCancelStopLoss()">
             <mat-icon>cancel</mat-icon>
             Cancel Stop Loss
           </button>

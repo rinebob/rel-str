@@ -20,9 +20,6 @@ import {
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatButtonModule } from '@angular/material/button';
-import { MatTooltipModule } from '@angular/material/tooltip';
-
 import {
   OrderTicket,
   OrderTicketStatus,
@@ -48,7 +45,7 @@ interface StagedAggregate {
 @Component({
   selector: 'app-order-queue',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatCheckboxModule, MatButtonModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule, MatCheckboxModule],
   templateUrl: './order-queue.component.html',
   styleUrl: './order-queue.component.scss',
 })
@@ -414,7 +411,7 @@ export class OrderQueueComponent {
   /** Row click handler. */
   onRowClick(ticket: OrderTicket, event: Event): void {
     // Don't select when clicking the checkbox
-    if ((event.target as HTMLElement).closest('mat-checkbox')) return;
+    if ((event.target as HTMLElement).closest('.dse-check')) return;
     this.ticketSelected.emit(ticket.id);
   }
 

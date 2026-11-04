@@ -6,8 +6,8 @@
 import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 
@@ -17,28 +17,25 @@ import { MatInputModule } from '@angular/material/input';
   imports: [
     CommonModule,
     FormsModule,
-    MatButtonModule,
-    MatDialogModule,
     MatFormFieldModule,
-    MatInputModule,
-  ],
+    MatInputModule],
   template: `
-    <h2 mat-dialog-title>Save Spread List</h2>
-    <mat-dialog-content>
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>List Name</mat-label>
-        <input matInput [value]="name()" (input)="name.set($any($event.target).value)" (keyup.enter)="onSave()" autofocus>
-      </mat-form-field>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button (click)="onCancel()">Cancel</button>
-      <button mat-flat-button color="primary" (click)="onSave()" [disabled]="!name().trim()">Save</button>
-    </mat-dialog-actions>
+    <h2 class="title">Save Spread List</h2>
+    <div class="content">
+      <label class="dse-field full-width">
+        <span class="field-label">List Name</span>
+        <input class="field-input" [value]="name()" (input)="name.set($any($event.target).value)" (keyup.enter)="onSave()" autofocus>
+      </label>
+    </div>
+    <div class="actions" align="end">
+      <button class="ds-btn" (click)="onCancel()">Cancel</button>
+      <button class="ds-btn fill" (click)="onSave()" [disabled]="!name().trim()">Save</button>
+    </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SaveListDialogComponent {
-  private readonly dialogRef = inject(MatDialogRef<SaveListDialogComponent>);
+  private readonly dialogRef = inject(DsDialogRef<SaveListDialogComponent>);
   name = signal('');
 
   onSave(): void {

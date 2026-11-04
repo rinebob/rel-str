@@ -1,12 +1,19 @@
-<button mat-stroked-button [matMenuTriggerFor]="menu" [disabled]="disabled()" class="rh-select-btn">
+<span class="ms-menu-host">
+<button [disabled]="disabled()" class="rh-select-btn ds-btn outline"
+        aria-haspopup="listbox" [attr.aria-expanded]="menuOpen()"
+        (click)="toggleMenu($event)">
   <span class="rh-select-label">{{ label() }}</span>
   <span class="rh-select-value">{{ activeLabel() }}</span>
   <mat-icon>arrow_drop_down</mat-icon>
 </button>
 
-<mat-menu #menu="matMenu" class="rh-select-menu-panel">
+@if (menuOpen()) {
+<div class="dse-menu rh-select-menu-panel" role="listbox" (click)="$event.stopPropagation()">
   <ng-template #optionItem let-option>
-    <button mat-menu-item [class.selected]="value() === option.value" (click)="valueChange.emit(option.value)" class="rh-dropdown-menu-item" [matTooltip]="option.description ?? ''" [matTooltipDisabled]="!option.description" matTooltipPosition="right">
+    <button class="menu-item rh-dropdown-menu-item" role="option"
+      [class.selected]="value() === option.value"
+      [attr.aria-selected]="value() === option.value"
+      (click)="select(option.value)" [title]="option.description ?? ''">
       <span class="menu-label">{{ option.label }}</span>
       @if (option.badges) {
         @for (badge of option.badges; track badge) {
@@ -22,9 +29,11 @@
     <ng-container *ngTemplateOutlet="optionItem; context: { $implicit: opt }"></ng-container>
   }
   @for (group of optionGroups(); track group.label) {
-    <button mat-menu-item disabled class="rh-menu-group-header">{{ group.label }}</button>
+    <div class="rh-menu-group-header">{{ group.label }}</div>
     @for (opt of group.options; track opt.value) {
       <ng-container *ngTemplateOutlet="optionItem; context: { $implicit: opt }"></ng-container>
     }
   }
-</mat-menu>
+</div>
+}
+</span>

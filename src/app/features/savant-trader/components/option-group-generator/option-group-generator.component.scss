@@ -78,15 +78,10 @@
 .gen-type-toggle {
   height: 28px;
 
-  ::ng-deep .mat-button-toggle {
-    height: 28px;
-    min-height: 28px;
-
-    .mat-button-toggle-label-content {
-      font-size: 10px;
-      padding: 0 8px;
-      line-height: 26px;
-    }
+  .pill {
+    font-size: 10px;
+    padding: 0 8px;
+    line-height: 22px;
   }
 }
 
@@ -166,15 +161,14 @@
 }
 
 .gen-lines-copy {
-  --mat-icon-button-state-layer-size: 22px;
-  --mat-icon-button-touch-target-size: 22px;
-  --mat-icon-button-icon-size: 13px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--mat-sys-on-surface-variant);
 
-  .mat-icon {
+  .mat-icon, mat-icon {
     font-size: 13px;
     width: 13px;
     height: 13px;

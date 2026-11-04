@@ -5,9 +5,8 @@
  * pipeline actions, group/list selectors, and view controls.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { SymbolListFilter, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
@@ -17,24 +16,20 @@ import { RhSelectMenuComponent, RhSelectOption, RhSelectOptionGroup } from '../r
 const DIMENSION_OPTIONS: RhSelectOption[] = [
   { value: GroupDimension.SECTOR,          label: 'Sector' },
   { value: GroupDimension.INDUSTRY,        label: 'Industry' },
-  { value: GroupDimension.MARKET_CAP_TIER, label: 'Market Cap' },
-];
+  { value: GroupDimension.MARKET_CAP_TIER, label: 'Market Cap' }];
 
 const SENTINEL: RhSelectOption<SymbolListFilter>[] = [
-  { value: 'ALL', label: 'All' },
-];
+  { value: 'ALL', label: 'All' }];
 
 @Component({
   selector: 'app-signal-review-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    MatButtonModule,
+    
     MatIconModule,
-    MatTooltipModule,
     RouterLink,
     SignalFilterPillsComponent,
-    RhSelectMenuComponent,
-  ],
+    RhSelectMenuComponent],
   templateUrl: './signal-review-header.component.html',
   styleUrl: './signal-review-header.component.scss',
 })

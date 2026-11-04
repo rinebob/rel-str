@@ -57,7 +57,7 @@
         } @else if (chainsError(); as chainErr) {
           <span class="inline-error" data-testid="chains-error">
             {{ chainErr }}
-            <button type="button" class="step-btn retry-btn" (click)="retryChains()" matTooltip="Retry">↻</button>
+            <button type="button" class="step-btn retry-btn" (click)="retryChains()" title="Retry">↻</button>
           </span>
         } @else {
           <select class="cf-input exp-select" data-testid="expiration-select"
@@ -78,7 +78,7 @@
         } @else if (instrumentsError(); as instrErr) {
           <span class="inline-error" data-testid="instruments-error">
             {{ instrErr }}
-            <button type="button" class="step-btn retry-btn" (click)="retryInstruments()" matTooltip="Retry">↻</button>
+            <button type="button" class="step-btn retry-btn" (click)="retryInstruments()" title="Retry">↻</button>
           </span>
         } @else {
           <select class="cf-input strike-select" data-testid="strike-select"
@@ -100,7 +100,7 @@
 
       <!-- Paste -->
       <div class="form-row">
-        <span class="field-label" matTooltip="Paste an OCC contract id, e.g. AAPL   251016C00150000">Paste</span>
+        <span class="field-label" title="Paste an OCC contract id, e.g. AAPL   251016C00150000">Paste</span>
         <input class="cf-input paste-input" data-testid="paste-input"
           [value]="pasteText()" (input)="onPasteInput($event)"
           placeholder="AAPL   251016C00150000">
@@ -195,7 +195,7 @@
 
       <!-- Bucket (optional — seeds position attribution at fill) -->
       <div class="form-row">
-        <span class="field-label" matTooltip="Optional — seeds the position's allocation bucket on fill">Bucket</span>
+        <span class="field-label" title="Optional — seeds the position's allocation bucket on fill">Bucket</span>
         <select class="cf-input bucket-select" data-testid="bucket-select"
           (change)="onBucketChange($event)">
           <option value="" [selected]="!selectedBucketId()">Unassigned</option>
@@ -232,8 +232,8 @@
           <span>Submitting…</span>
         </div>
       } @else {
-        <button mat-flat-button color="primary" data-testid="submit-btn"
-          (click)="onSubmit()" [disabled]="!canSubmit()">
+        <button class="ds-btn fill" data-testid="submit-btn"
+ (click)="onSubmit()" [disabled]="!canSubmit()">
           <mat-icon>send</mat-icon>
           Submit Order
         </button>

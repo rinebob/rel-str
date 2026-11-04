@@ -1,8 +1,17 @@
+@use 'index' as ds;
+
+.dse-check { @include ds.ds-check; }
+.dse-menu { @include ds.ds-menu; }
+.icon-btn { @include ds.icon-btn; }
+
 :host {
   display: flex;
   flex-direction: column;
   min-height: 0;
   flex: 1;
+  // Host carries the base text color — the table is bespoke markup
+  // (not ds-table), so inherited color must come from a --ds token.
+  color: var(--ds-on-surface);
 }
 
 .table-toolbar {
@@ -36,7 +45,8 @@
   gap: 4px;
   padding: 2px 6px 2px 10px;
   border-radius: 12px;
-  background: var(--mat-sys-secondary-container);
+  background: var(--ds-accent-container);
+  color: var(--ds-on-accent-container);
   font-size: 0.78rem;
   .chip-x {
     border: none;
@@ -46,6 +56,7 @@
     line-height: 1;
     padding: 0 2px;
     opacity: 0.7;
+    color: inherit;
   }
 }
 
@@ -53,19 +64,24 @@
   border: none;
   background: none;
   cursor: pointer;
-  color: var(--mat-sys-primary);
+  color: var(--ds-accent-text);
   font-size: 0.8rem;
   padding: 2px 6px;
 }
 
-.col-picker-btn {
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 2px;
+.menu-anchor {
+  position: relative;
   display: inline-flex;
-  opacity: 0.7;
-  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.col-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  min-width: 200px;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .provisional-banner {
@@ -74,14 +90,15 @@
   border-radius: 4px;
   font-size: 0.8rem;
   background: color-mix(in srgb, var(--ds-warning) 15%, transparent);
-  border: 1px solid var(--mat-sys-outline-variant);
+  color: var(--ds-on-surface);
+  border: 1px solid var(--ds-border-subtle);
 }
 
 .table-scroll {
   overflow: auto;
   flex: 1;
   min-height: 0;
-  border: 1px solid var(--mat-sys-outline-variant);
+  border: 1px solid var(--ds-border-subtle);
   border-radius: 4px;
 }
 
@@ -101,7 +118,7 @@
     padding: 4px 10px;
     text-align: left;
     white-space: nowrap;
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    border-bottom: 1px solid var(--ds-border-subtle);
   }
 
   td {
@@ -115,7 +132,7 @@
     position: sticky;
     top: 0;
     z-index: 3;
-    background: var(--mat-sys-surface-container);
+    background: var(--ds-surface-raised);
     font-weight: 600;
     font-size: 0.78rem;
   }
@@ -131,13 +148,13 @@
     color: inherit;
     mat-icon { font-size: 14px; width: 14px; height: 14px; }
     &:hover { opacity: 1; }
-    &.filter-active { opacity: 1; color: var(--mat-sys-primary); }
+    &.filter-active { opacity: 1; color: var(--ds-accent-text); }
   }
 
   th.sortable {
     cursor: pointer;
     user-select: none;
-    &:hover { background: var(--mat-sys-surface-container-high); }
+    &:hover { background: var(--ds-state-hover); }
   }
 
   .sort-icon {
@@ -180,13 +197,22 @@
   }
 }
 
-// Per-column filter popup — lazy mat-menu content.
+// Per-column filter popup — ds-menu panel anchored inside the sticky
+// header cell (left:0 opens rightward; the scroll container clips an
+// over-edge panel — pilot limitation, mat-menu overlayed on <body>).
 .filter-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 10px 12px;
   min-width: 180px;
+  font-weight: 400;
+  text-transform: none;
+  cursor: default;
 
   .filter-panel-title {
     font-size: 0.75rem;
@@ -199,17 +225,16 @@
   .in-filter-list {
     display: flex;
     flex-direction: column;
+    gap: 2px;
     max-height: 240px;
     overflow-y: auto;
     font-size: 0.8rem;
   }
 
   .bound {
+    @include ds.ds-input-chrome;
+    height: 30px;
     font-size: 0.8rem;
-    background: transparent;
-    border: 1px solid var(--mat-sys-outline-variant);
-    border-radius: 3px;
-    color: inherit;
     padding: 3px 6px;
   }
 }

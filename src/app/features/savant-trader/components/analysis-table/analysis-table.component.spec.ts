@@ -5,8 +5,6 @@
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { By } from '@angular/platform-browser';
-import { MatMenuTrigger } from '@angular/material/menu';
 
 import { AnalysisTableComponent } from './analysis-table.component';
 import { PaperTradeStatus } from '@paper-trading/contracts';
@@ -168,12 +166,12 @@ describe('AnalysisTableComponent', () => {
     // filterable cols among PRESENT: tradeId, symbol, signalType, direction,
     // entryDate, exitDate, tradeRetPct, realizedPnl, status, analysisCohort, ind.zoneV2
     expect(btns.length).toBe(11);
-    const symBtn = fixture.debugElement
-      .queryAll(By.directive(MatMenuTrigger))
-      .find((de) => de.nativeElement.getAttribute('aria-label') === 'Filter Symbol')!;
-    symBtn.injector.get(MatMenuTrigger).openMenu();
+    const symBtn = Array.from(
+      els('.col-filter-btn') as unknown as HTMLElement[],
+    ).find((b) => b.getAttribute('aria-label') === 'Filter Symbol')!;
+    symBtn.click();
     fixture.detectChanges();
-    const panel = document.querySelector('.filter-panel')!;
+    const panel = fixture.nativeElement.querySelector('.filter-panel')!;
     expect(panel.textContent).toContain('Symbol');
     expect(panel.querySelector('.in-filter-list')).not.toBeNull();
   });

@@ -6,17 +6,17 @@
  */
 import { Component, ChangeDetectionStrategy, DestroyRef, inject, input, output, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
 import { IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
 
 @Component({
   selector: 'app-indicator-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatMenuModule],
+  imports: [CommonModule, MatIconModule],
   templateUrl: './indicator-menu.component.html',
   styleUrl: './indicator-menu.component.scss',
+  host: { '(document:click)': 'menuOpen.set(false)' },
 })
 export class IndicatorMenuComponent {
   private readonly destroyRef = inject(DestroyRef);
@@ -30,6 +30,15 @@ export class IndicatorMenuComponent {
 
   /** Emits the batch of toggled IDs after the debounce window closes. */
   toggle = output<string[]>();
+
+  /** ds-menu dropdown open state — items toggle without closing. */
+  readonly menuOpen = signal(false);
+
+  /** Trigger click — toggle the dropdown panel. */
+  toggleMenu(event: Event): void {
+    event.stopPropagation();
+    this.menuOpen.update((v) => !v);
+  }
 
   /** Accumulator for the current debounce batch — collects distinct IDs touched within the window. */
   private pendingIds = new Set<string>();

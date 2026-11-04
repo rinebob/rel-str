@@ -1,7 +1,7 @@
 /**
  * Gallery Ticket Dialog
  *
- * MatDialog host for the shared OrderTicketComponent (#743/#759) plus the
+ * DsDialogService host for the shared OrderTicketComponent (#743/#759) plus the
  * OptionOrderTicketComponent (#963) under a Stock/Option tab group (#964).
  * Card mode: the gallery card's Trade button stages a quantity ticket and
  * opens it here for editing/submission. Manual mode (#1177/#1189): a
@@ -15,8 +15,8 @@
  * get discarded on close.
  */
 import { Component, ChangeDetectionStrategy, computed, effect, inject, OnInit, Signal, signal } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
+import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { Router } from '@angular/router';
@@ -138,24 +138,21 @@ const CONFIRMATION_MESSAGES: Partial<Record<OrderTicketStatus, string>> = {
   imports: [
     CurrencyPipe,
     DecimalPipe,
-    MatDialogModule,
-    MatButtonModule,
     MatIconModule,
     MatTabsModule,
     OrderTicketComponent,
-    OptionOrderTicketComponent,
-  ],
+    OptionOrderTicketComponent],
   templateUrl: './gallery-ticket-dialog.component.html',
   styleUrl: './gallery-ticket-dialog.component.scss',
 })
 export class GalleryTicketDialogComponent implements OnInit {
-  private readonly dialogRef = inject(MatDialogRef<GalleryTicketDialogComponent>);
+  protected readonly dialogRef = inject(DsDialogRef<GalleryTicketDialogComponent>);
   private readonly ticketStore = inject(OrderTicketStore);
   private readonly priceService = inject(EquityPriceService);
   private readonly lists = inject(SymbolListStore);
   private readonly router = inject(Router);
 
-  readonly data = inject(MAT_DIALOG_DATA) as GalleryTicketDialogData;
+  readonly data = inject(DS_DIALOG_DATA) as GalleryTicketDialogData;
 
   /** The manually staged ticket's id — set by `resolveSymbol` once the
    *  seed stage lands (#1177/#1189). Writable because manual mode has no

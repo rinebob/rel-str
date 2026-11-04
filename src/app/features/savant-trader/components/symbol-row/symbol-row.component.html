@@ -16,7 +16,7 @@
 
         <div class="symbol-signals-today">
           @for (sig of row().signals; track sig.barDate + '-' + sig.timeframe + '-' + sig.signalType) {
-            <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" matTooltip="{{ sig.signalType }}">
+            <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" title="{{ sig.signalType }}">
               {{ sig.direction }}
             </span>
           }
@@ -29,8 +29,7 @@
 
         <button type="button" class="quick-charts-btn"
           [class.active]="isChartActive()"
-          (click)="viewQuickCharts.emit(row().profile.symbol); $event.stopPropagation()"
-          matTooltip="View quick charts">
+          (click)="viewQuickCharts.emit(row().profile.symbol); $event.stopPropagation()" title="View quick charts">
           <mat-icon>bar_chart</mat-icon>
           Charts
         </button>

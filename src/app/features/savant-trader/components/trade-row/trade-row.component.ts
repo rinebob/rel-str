@@ -7,9 +7,8 @@
 import { Component, inject, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { SignalDirection } from '../../services/types';
 import { SignalTimeframe } from '../../common/constants';
 
@@ -27,7 +26,7 @@ export interface TradeRow {
 @Component({
   selector: 'app-trade-row',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatSlideToggleModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule, MatSlideToggleModule],
   templateUrl: './trade-row.component.html',
   styleUrl: './trade-row.component.scss',
 })

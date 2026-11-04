@@ -7,15 +7,13 @@
 import { Component, ChangeDetectionStrategy, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { StRun } from '../../services/st.service';
 import { getRunStatusColor, getRunStatusIcon } from '../../utils/utils';
 
 @Component({
   selector: 'app-run-history-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule],
   templateUrl: './run-history-panel.component.html',
   styleUrl: './run-history-panel.component.scss',
 })

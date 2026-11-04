@@ -1,0 +1,55 @@
+@use 'index' as ds;
+
+.ds-btn { @include ds.ds-btn; }
+.dse-select { @include ds.ds-select; }
+.dse-spinner { @include ds.ds-spinner; }
+.field-input { @include ds.ds-input-chrome; }
+
+:host { display: block; }
+.workbench-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 0.82rem;
+  color: var(--ds-on-surface);
+  border-bottom: 1px solid var(--ds-border-subtle);
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.save-slice-form {
+  display: inline-flex; align-items: center; gap: 6px;
+  .slice-name { width: 130px; }
+  .slice-note-input { width: 160px; }
+}
+.tools-right {
+  // margin-left:auto (not a flex-grow spacer) so the cluster stays
+  // right-aligned even when it wraps onto a second line at narrow
+  // widths — a collapsed spacer left the picker flush-left.
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.skip-note {
+  font-size: 0.78rem; font-style: italic;
+  color: var(--ds-error);
+}
+.compare-select {
+  min-width: 200px;
+  select { font-size: 0.8rem; }
+}
+.compare-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 6px 2px 10px; border-radius: 12px;
+  background: var(--ds-accent-container);
+  color: var(--ds-on-accent-container);
+  font-size: 0.78rem;
+  .chip-x {
+    border: none; background: none; cursor: pointer;
+    font-size: 0.95rem; line-height: 1; padding: 0 2px; opacity: 0.7;
+    color: inherit;
+  }
+}

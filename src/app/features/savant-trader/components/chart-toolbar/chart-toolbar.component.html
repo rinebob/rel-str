@@ -7,9 +7,8 @@
     (toggle)="indicatorToggle.emit($event)">
   </app-indicator-menu>
 
-  <button type="button" mat-icon-button class="icon-btn" (click)="zoomToggle.emit()"
-    [class.dim]="!showZoomToolbar()"
-    [matTooltip]="showZoomToolbar() ? 'Hide zoom toolbar' : 'Show zoom toolbar'">
+  <button type="button" class="icon-btn" (click)="zoomToggle.emit()"
+ [class.dim]="!showZoomToolbar()" [title]="showZoomToolbar() ? 'Hide zoom toolbar' : 'Show zoom toolbar'">
     <mat-icon>{{ showZoomToolbar() ? 'zoom_in' : 'zoom_out' }}</mat-icon>
   </button>
 
@@ -51,12 +50,10 @@
     <button type="button" class="pill" [class.active]="selectedRange() === 'all'" (click)="rangeChange.emit('all')">All</button>
   </span>
 
-  <button type="button" mat-icon-button class="icon-btn" (click)="layoutToggle.emit()"
-    [matTooltip]="layout() === ChartLayout.SINGLE ? 'Three-chart layout' : 'Single-chart layout'">
+  <button type="button" class="icon-btn" (click)="layoutToggle.emit()" [title]="layout() === ChartLayout.SINGLE ? 'Three-chart layout' : 'Single-chart layout'">
     <mat-icon>{{ layout() === ChartLayout.SINGLE ? 'grid_view' : 'crop_square' }}</mat-icon>
   </button>
-  <button type="button" mat-icon-button class="icon-btn" (click)="fullscreenToggle.emit()"
-    [matTooltip]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+  <button type="button" class="icon-btn" (click)="fullscreenToggle.emit()" [title]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
     <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
   </button>
 

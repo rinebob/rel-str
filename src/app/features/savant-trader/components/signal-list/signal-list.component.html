@@ -4,13 +4,13 @@
     <span class="panel-count">{{ items().length }}</span>
     @if (manualSymbol()) {
       <div class="tf-filter">
-        <button mat-button class="tf-btn" [class.active]="timeframeFilter() === 'all'" (click)="timeframeFilter.set('all')">All</button>
-        <button mat-button class="tf-btn" [class.active]="timeframeFilter() === SignalTimeframe.DAILY" (click)="timeframeFilter.set(SignalTimeframe.DAILY)">D</button>
-        <button mat-button class="tf-btn" [class.active]="timeframeFilter() === SignalTimeframe.WEEKLY" (click)="timeframeFilter.set(SignalTimeframe.WEEKLY)">W</button>
+        <button class="tf-btn ds-btn" [class.active]="timeframeFilter() === 'all'" (click)="timeframeFilter.set('all')">All</button>
+        <button class="tf-btn ds-btn" [class.active]="timeframeFilter() === SignalTimeframe.DAILY" (click)="timeframeFilter.set(SignalTimeframe.DAILY)">D</button>
+        <button class="tf-btn ds-btn" [class.active]="timeframeFilter() === SignalTimeframe.WEEKLY" (click)="timeframeFilter.set(SignalTimeframe.WEEKLY)">W</button>
       </div>
     }
     <span class="header-spacer"></span>
-    <button mat-icon-button class="collapse-btn" (click)="uiStateService.toggleSidebar()" matTooltip="Collapse panel">
+    <button class="collapse-btn icon-btn" (click)="uiStateService.toggleSidebar()" title="Collapse panel">
       <mat-icon>chevron_left</mat-icon>
     </button>
   </div>

@@ -7,9 +7,8 @@
  * Bulk-selection actions land here in #758.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
+
 import { SymbolListFilter, SignalTimeframe, SignalDirection, GroupDimension, CardChartTimeframe, DEFAULT_CARD_CHART_TIMEFRAME } from '../../common/constants';
 import { formatTimestampPT } from '../../utils/utils';
 import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
@@ -26,13 +25,12 @@ const DIMENSION_OPTIONS: RhSelectOption<GroupDimension>[] = [
   { value: GroupDimension.SECTOR,          label: 'Sector' },
   { value: GroupDimension.INDUSTRY,        label: 'Industry' },
   { value: GroupDimension.MARKET_CAP_TIER, label: 'Market Cap' },
-  { value: GroupDimension.NONE,            label: 'None' },
-];
+  { value: GroupDimension.NONE,            label: 'None' }];
 
 @Component({
   selector: 'app-gallery-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatTooltipModule, MatIconModule, MatButtonModule, SignalFilterPillsComponent, RhSelectMenuComponent],
+  imports: [ MatIconModule, SignalFilterPillsComponent, RhSelectMenuComponent],
   templateUrl: './gallery-header.component.html',
   styleUrl: './gallery-header.component.scss',
 })

@@ -8,7 +8,7 @@ import { Component, ChangeDetectionStrategy, computed, input, output } from '@an
 import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 import { MatBadgeModule } from '@angular/material/badge';
 import { SymbolRow } from '../../stores/group.store';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
@@ -25,13 +25,11 @@ import { ScrollIntoViewDirective } from '../../directives/scroll-into-view.direc
     CommonModule,
     MatExpansionModule,
     MatIconModule,
-    MatTooltipModule,
     MatBadgeModule,
     SymbolActionsComponent,
     SymbolListActionsComponent,
     SymbolSignalHistoryComponent,
-    ScrollIntoViewDirective,
-  ],
+    ScrollIntoViewDirective],
   templateUrl: './symbol-row.component.html',
   styleUrl: './symbol-row.component.scss',
 })

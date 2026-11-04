@@ -3,8 +3,7 @@
   class="log-scale-pill"
   [class.active]="logScale()"
   [attr.aria-pressed]="logScale()"
-  [attr.data-testid]="testId()"
-  [matTooltip]="logScale() ? 'Log Y-axis on' : 'Log Y-axis off'"
+  [attr.data-testid]="testId()" [title]="logScale() ? 'Log Y-axis on' : 'Log Y-axis off'"
   (click)="toggle.emit()"
 >
   <span class="pill-label">Log Y-axis</span>

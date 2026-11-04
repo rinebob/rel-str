@@ -20,8 +20,7 @@
             [class.expanded]="expandedRunId() === run.id"
             (click)="toggleExpand(run)">
             <td class="col-status">
-              <mat-icon class="status-icon" [style.color]="getRunStatusColor(run.status)"
-                [matTooltip]="run.status">
+              <mat-icon class="status-icon" [style.color]="getRunStatusColor(run.status)" [title]="run.status">
                 {{ getRunStatusIcon(run.status) }}
               </mat-icon>
             </td>
@@ -39,8 +38,7 @@
             <td class="col-duration">{{ formatDuration(run) }}</td>
             <td class="col-actions">
               <div class="actions-cell">
-                <button class="review-btn"
-                  matTooltip="Review signals from this run"
+                <button class="review-btn" title="Review signals from this run"
                   (click)="reviewSignals(run, $event)">
                   <mat-icon>manage_search</mat-icon>
                 </button>
@@ -62,8 +60,8 @@
                       <span class="detail-item"><span class="detail-key">Summary</span><span class="detail-val">{{ run.summary }}</span></span>
                     }
                   </div>
-                  <button mat-stroked-button class="review-signals-btn"
-                    (click)="reviewSignals(run, $event)">
+                  <button class="review-signals-btn ds-btn outline"
+ (click)="reviewSignals(run, $event)">
                     <mat-icon>manage_search</mat-icon>
                     Review Signals
                   </button>

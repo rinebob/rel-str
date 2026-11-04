@@ -13,9 +13,8 @@
         }
       </span>
 
-      <button type="button" mat-icon-button class="icon-btn expand-all-btn"
-        (click)="onExpandAll($event)"
-        [matTooltip]="expanded() ? 'Collapse all' : 'Expand all'">
+      <button type="button" class="icon-btn expand-all-btn"
+ (click)="onExpandAll($event)" [title]="expanded() ? 'Collapse all' : 'Expand all'">
         <mat-icon>{{ expanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
       </button>
     </mat-panel-title>

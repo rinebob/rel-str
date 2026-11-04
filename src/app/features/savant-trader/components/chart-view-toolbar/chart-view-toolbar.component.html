@@ -40,9 +40,8 @@
 
   <!-- Chart controls — same control set the embedded chart-toolbar had. -->
   <span class="chart-controls">
-    <button type="button" mat-icon-button class="icon-btn" (click)="toolbarState.toggleZoomToolbar()"
-      [class.dim]="!toolbarState.showZoomToolbar()"
-      [matTooltip]="toolbarState.showZoomToolbar() ? 'Hide zoom toolbar' : 'Show zoom toolbar'">
+    <button type="button" class="icon-btn" (click)="toolbarState.toggleZoomToolbar()"
+ [class.dim]="!toolbarState.showZoomToolbar()" [title]="toolbarState.showZoomToolbar() ? 'Hide zoom toolbar' : 'Show zoom toolbar'">
       <mat-icon>{{ toolbarState.showZoomToolbar() ? 'zoom_in' : 'zoom_out' }}</mat-icon>
     </button>
 
@@ -76,12 +75,10 @@
       <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === 'all'" (click)="toolbarState.setRange('all')">All</button>
     </span>
 
-    <button type="button" mat-icon-button class="icon-btn" (click)="uiStateService.toggleChartLayout()"
-      [matTooltip]="uiStateService.chartLayout() === ChartLayout.SINGLE ? 'Three-chart layout' : 'Single-chart layout'">
+    <button type="button" class="icon-btn" (click)="uiStateService.toggleChartLayout()" [title]="uiStateService.chartLayout() === ChartLayout.SINGLE ? 'Three-chart layout' : 'Single-chart layout'">
       <mat-icon>{{ uiStateService.chartLayout() === ChartLayout.SINGLE ? 'grid_view' : 'crop_square' }}</mat-icon>
     </button>
-    <button type="button" mat-icon-button class="icon-btn" (click)="uiStateService.toggleFullscreen()"
-      [matTooltip]="uiStateService.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+    <button type="button" class="icon-btn" (click)="uiStateService.toggleFullscreen()" [title]="uiStateService.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
       <mat-icon>{{ uiStateService.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
     </button>
 
@@ -108,13 +105,12 @@
     </button>
     <button type="button" class="pill-btn order-queue-btn"
       [disabled]="orderCount() === 0"
-      (click)="goToOrder.emit()"
-      matTooltip="Go to signal order page">
+      (click)="goToOrder.emit()" title="Go to signal order page">
       <mat-icon>shopping_cart</mat-icon>
       Order <span class="pill-count">{{ orderCount() }}</span>
     </button>
     <button type="button" class="pill-btn add-btn" [disabled]="!symbol()"
-      (click)="addToTracked.emit()" matTooltip="Add symbol to tracked universe">
+      (click)="addToTracked.emit()" title="Add symbol to tracked universe">
       Add
     </button>
     <!-- Scan-source toggle — filters scan rows to symbols outside the
@@ -124,8 +120,7 @@
       [class.active]="newOnly() && scanActive()"
       [disabled]="!scanActive()"
       [attr.aria-pressed]="newOnly() && scanActive()"
-      (click)="newOnlyChange.emit(!newOnly())"
-      matTooltip="Hide scan rows already in the tracked universe">
+      (click)="newOnlyChange.emit(!newOnly())" title="Hide scan rows already in the tracked universe">
       New only
       <mat-icon>fiber_new</mat-icon>
     </button>
@@ -137,7 +132,7 @@
         placeholder="Symbol..."
         (keydown.enter)="loadSymbol.emit(symbolInput.value); symbolInput.value = ''"
         class="symbol-field">
-      <button mat-icon-button class="load-btn" (click)="loadSymbol.emit(symbolInput.value); symbolInput.value = ''" matTooltip="Load chart for symbol">
+      <button class="load-btn icon-btn" (click)="loadSymbol.emit(symbolInput.value); symbolInput.value = ''" title="Load chart for symbol">
         <mat-icon>trending_up</mat-icon>
       </button>
     </div>

@@ -1,5 +1,5 @@
-<h2 mat-dialog-title>{{ copy.title }}</h2>
-<mat-dialog-content>
+<h2 class="title">{{ copy.title }}</h2>
+<div class="content">
   <dl class="trade-summary">
     <div class="summary-row"><dt>Trade</dt><dd class="mono">{{ data.trade.id }}</dd></div>
     <div class="summary-row"><dt>Symbol</dt><dd>{{ data.trade.symbol }}</dd></div>
@@ -17,14 +17,14 @@
     </div>
   </dl>
   <p class="action-note">{{ copy.note }}</p>
-</mat-dialog-content>
-<mat-dialog-actions align="end">
-  <button mat-button data-testid="dismiss" (click)="dismiss()" [disabled]="busy()">Dismiss</button>
-  <button mat-flat-button color="warn" data-testid="confirm-action" (click)="confirm()" [disabled]="busy()">
+</div>
+<div class="actions" align="end">
+  <button class="ds-btn" data-testid="dismiss" (click)="dismiss()" [disabled]="busy()">Dismiss</button>
+  <button class="ds-btn danger" data-testid="confirm-action" (click)="confirm()" [disabled]="busy()">
     @if (busy()) {
       <mat-spinner diameter="18"></mat-spinner>
     } @else {
       {{ copy.verb }}
     }
   </button>
-</mat-dialog-actions>
+</div>

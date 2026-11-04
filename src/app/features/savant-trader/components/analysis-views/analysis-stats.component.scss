@@ -2,6 +2,7 @@
   display: block;
   overflow: auto;
   padding: 12px;
+  color: var(--ds-on-surface);
 }
 
 .stats-grid {
@@ -21,7 +22,7 @@
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    opacity: 0.6;
+    color: var(--ds-on-surface-variant);
   }
   .stat-value {
     font-size: 1rem;
@@ -38,7 +39,7 @@
     text-align: left;
     border-bottom: 1px solid var(--mat-sys-outline-variant);
   }
-  th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
+  th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-on-surface-variant); }
 }
 
 .positive { color: var(--ds-up); }

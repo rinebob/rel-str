@@ -9,9 +9,8 @@
  */
 import { Component, ChangeDetectionStrategy, computed, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { ChartLayout, UiStateService } from '../../../../core/services/ui-state.service';
@@ -24,29 +23,24 @@ import { isScanSource, type SymbolListFilter } from '../../common/constants';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
 
 const LIST_SENTINEL: RhSelectOption<SymbolListFilter>[] = [
-  { value: 'ALL', label: 'All' },
-];
+  { value: 'ALL', label: 'All' }];
 
 /** The clear-scan option value — shown in the Scan trigger whenever no
  *  scan source is active; picking it routes back to ALL (#1258). */
 const SCAN_CLEAR: SymbolListFilter = '—';
 const SCAN_SENTINEL: RhSelectOption<SymbolListFilter>[] = [
-  { value: SCAN_CLEAR, label: SCAN_CLEAR },
-];
+  { value: SCAN_CLEAR, label: SCAN_CLEAR }];
 
 @Component({
   selector: 'app-chart-view-toolbar',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatButtonModule,
     MatIconModule,
-    MatTooltipModule,
     RhSelectMenuComponent,
     IndicatorMenuComponent,
     LogScalePillComponent,
-    SymbolListActionsComponent,
-  ],
+    SymbolListActionsComponent],
   templateUrl: './chart-view-toolbar.component.html',
   styleUrl: './chart-view-toolbar.component.scss',
 })

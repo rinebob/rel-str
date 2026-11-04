@@ -4,7 +4,6 @@
  * used by the library (no dataset open → nothing to filter).
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatMenuModule } from '@angular/material/menu';
 import type { AnalysisSlice } from '@paper-trading/analysis';
 import { PaperTradingKind } from '@paper-trading/contracts';
 import { SliceMenuComponent } from './slice-menu.component';
@@ -31,7 +30,7 @@ describe('SliceMenuComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SliceMenuComponent, MatMenuModule],
+      imports: [SliceMenuComponent],
     }).compileComponents();
     fixture = TestBed.createComponent(SliceMenuComponent);
     component = fixture.componentInstance;
@@ -39,15 +38,20 @@ describe('SliceMenuComponent', () => {
     fixture.detectChanges();
   });
 
+  // The ds-menu dropdown renders inside the component DOM (no CDK
+  // overlay) — query the fixture element, not document.
+  function el<T extends Element>(sel: string): T | null {
+    return fixture.nativeElement.querySelector(sel);
+  }
+
   function openMenu(): void {
-    (fixture.nativeElement.querySelector('.slice-btn') as HTMLButtonElement).click();
+    el<HTMLButtonElement>('.slice-btn')!.click();
     fixture.detectChanges();
   }
 
   it('shows an empty-state when no slices exist', () => {
     openMenu();
-    const body = document.querySelector('.slice-empty');
-    expect(body?.textContent).toContain('No saved slices');
+    expect(el('.slice-empty')?.textContent).toContain('No saved slices');
   });
 
   it('lists each slice with its filter count', () => {
@@ -56,7 +60,7 @@ describe('SliceMenuComponent', () => {
       slice('s2', 'ZoneV2=4'),
     ]);
     openMenu();
-    const items = document.querySelectorAll('.slice-item');
+    const items = fixture.nativeElement.querySelectorAll('.slice-item');
     expect(items.length).toBe(2);
     expect(items[0].textContent).toContain('Long winners');
     expect(items[0].textContent).toContain('3');
@@ -69,9 +73,7 @@ describe('SliceMenuComponent', () => {
     const spy = jest.fn();
     component.applied.subscribe(spy);
     openMenu();
-    document
-      .querySelector<HTMLButtonElement>('.slice-item .slice-apply')!
-      .click();
+    el<HTMLButtonElement>('.slice-item .slice-apply')!.click();
     expect(spy).toHaveBeenCalledWith(s);
   });
 
@@ -80,9 +82,7 @@ describe('SliceMenuComponent', () => {
     const spy = jest.fn();
     component.deleted.subscribe(spy);
     openMenu();
-    document
-      .querySelector<HTMLButtonElement>('.slice-item .slice-delete')!
-      .click();
+    el<HTMLButtonElement>('.slice-item .slice-delete')!.click();
     expect(spy).toHaveBeenCalledWith('s1');
   });
 
@@ -90,8 +90,8 @@ describe('SliceMenuComponent', () => {
     fixture.componentRef.setInput('slices', [slice('s1', 'Longs')]);
     fixture.componentRef.setInput('canApply', false);
     openMenu();
-    expect(document.querySelector('.slice-item .slice-apply')).toBeNull();
-    expect(document.querySelector('.slice-item .slice-name')?.textContent).toContain('Longs');
-    expect(document.querySelector('.slice-item .slice-delete')).not.toBeNull();
+    expect(el('.slice-item .slice-apply')).toBeNull();
+    expect(el('.slice-item .slice-name')?.textContent).toContain('Longs');
+    expect(el('.slice-item .slice-delete')).not.toBeNull();
   });
 });

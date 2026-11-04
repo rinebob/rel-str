@@ -1,16 +1,14 @@
 /**
  * RH Select Menu
  *
- * Generic single-select dropdown built on mat-stroked-button + mat-menu.
- * Renders a compact trigger button showing a label and the active selection,
- * with a checkbox-style menu matching the shared rh-dropdown-menu-item style.
+ * Generic single-select dropdown built on ds-btn + ds-menu (signal-driven
+ * panel inside the component DOM). Renders a compact trigger button showing
+ * a label and the active selection.
  */
-import { Component, ChangeDetectionStrategy, computed, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, input, output, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 export interface RhSelectOption<T = string> {
   value: T;
@@ -27,9 +25,10 @@ export interface RhSelectOptionGroup<T = string> {
 @Component({
   selector: 'app-rh-select-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, MatButtonModule, MatIconModule, MatMenuModule, MatTooltipModule],
+  imports: [NgTemplateOutlet, MatIconModule],
   templateUrl: './rh-select-menu.component.html',
   styleUrl: './rh-select-menu.component.scss',
+  host: { '(document:click)': 'menuOpen.set(false)' },
 })
 export class RhSelectMenuComponent<T = string> {
   /** Short label shown above the active value on the trigger button (e.g. 'Group', 'List'). */
@@ -50,8 +49,22 @@ export class RhSelectMenuComponent<T = string> {
   readonly activeLabel = computed(() => {
     const all = [
       ...this.options(),
-      ...this.optionGroups().flatMap((g) => g.options),
-    ];
+      ...this.optionGroups().flatMap((g) => g.options)];
     return all.find((o) => o.value === this.value())?.label;
   });
+
+  /** ds-menu dropdown open state — selection closes the panel. */
+  readonly menuOpen = signal(false);
+
+  /** Trigger click — toggle the dropdown panel. */
+  toggleMenu(event: Event): void {
+    event.stopPropagation();
+    this.menuOpen.update((v) => !v);
+  }
+
+  /** Option click — emit the new value and close the panel. */
+  select(value: T): void {
+    this.menuOpen.set(false);
+    this.valueChange.emit(value);
+  }
 }

@@ -19,8 +19,9 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+
+import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { PaperTradingStore } from '../../stores/paper-trading.store';
@@ -51,18 +52,15 @@ const COPY: Record<PaperTradeAction, { title: string; verb: string; note: string
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatProgressSpinnerModule,
-  ],
+    MatProgressSpinnerModule],
   templateUrl: './paper-trade-action-dialog.component.html',
   styleUrl: './paper-trade-action-dialog.component.scss',
 })
 export class PaperTradeActionDialogComponent {
-  private readonly dialogRef = inject(MatDialogRef<PaperTradeActionDialogComponent>);
+  private readonly dialogRef = inject(DsDialogRef<PaperTradeActionDialogComponent>);
   private readonly store = inject(PaperTradingStore);
 
-  readonly data = inject(MAT_DIALOG_DATA) as PaperTradeActionDialogData;
+  readonly data = inject(DS_DIALOG_DATA) as PaperTradeActionDialogData;
   readonly copy = COPY[this.data.action];
 
   /** True once the user confirms — gates the settle-close effect. */

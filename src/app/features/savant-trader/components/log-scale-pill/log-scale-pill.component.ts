@@ -8,13 +8,12 @@
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-log-scale-pill',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, MatTooltipModule],
+  imports: [MatIconModule],
   templateUrl: './log-scale-pill.component.html',
   styleUrl: './log-scale-pill.component.scss',
 })

@@ -1,12 +1,12 @@
 <div class="gallery-header">
   @if (marketDate()) {
-    <span class="run-date" matTooltip="Market date of the viewed run">{{ marketDate() }}</span>
+    <span class="run-date" title="Market date of the viewed run">{{ marketDate() }}</span>
   }
   @let completedAt = runCompletedAt();
   @if (completedAt) {
-    <span class="run-time" matTooltip="When the viewed run completed — data refresh time">{{ formatTimestampPT(completedAt) }} PT</span>
+    <span class="run-time" title="When the viewed run completed — data refresh time">{{ formatTimestampPT(completedAt) }} PT</span>
   }
-  <span class="card-count" matTooltip="Visible cards / total cards for this run">
+  <span class="card-count" title="Visible cards / total cards for this run">
     {{ cardCount() }}<span class="card-count-total"> / {{ totalCardCount() }}</span>
   </span>
 
@@ -20,8 +20,7 @@
   <div class="header-spacer"></div>
 
   <!-- Global chart interval — independent of the signal-timeframe filter. -->
-  <div class="gh-chart-toggle" role="group" aria-label="Chart timeframe"
-       matTooltip="Chart interval for all cards">
+  <div class="gh-chart-toggle" role="group" aria-label="Chart timeframe" title="Chart interval for all cards">
     <span class="gh-chart-label">Chart</span>
     <div class="gh-chart-pills">
       <button type="button" [class.active]="chartTimeframe() === SignalTimeframe.DAILY"
@@ -46,15 +45,13 @@
     (valueChange)="listFilterChange.emit($event)">
   </app-rh-select-menu>
 
-  <button mat-icon-button
-    [disabled]="refreshing()"
-    matTooltip="Refresh — switch to the newest run or reload signals"
-    (click)="refresh.emit()">
+  <button class="icon-btn" 
+ [disabled]="refreshing()" title="Refresh — switch to the newest run or reload signals"
+ (click)="refresh.emit()">
     <mat-icon>refresh</mat-icon>
   </button>
-  <button mat-icon-button
-    [matTooltip]="allGroupsExpanded() ? 'Collapse all groups' : 'Expand all groups'"
-    (click)="expandAllToggle.emit()">
+  <button class="icon-btn" [title]="allGroupsExpanded() ? 'Collapse all groups' : 'Expand all groups'"
+ (click)="expandAllToggle.emit()">
     <mat-icon>{{ allGroupsExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
   </button>
 </div>

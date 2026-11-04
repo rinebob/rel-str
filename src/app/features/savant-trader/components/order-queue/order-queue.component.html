@@ -15,8 +15,7 @@
       @if (hasChecked()) {
         @if (paperSendCount() > 0) {
           <button type="button" class="batch-link paper" (click)="sendCheckedToPaper()"
-            [disabled]="sendingToPaper()"
-            matTooltip="Convert checked staged orders to paper trading">
+            [disabled]="sendingToPaper()" title="Convert checked staged orders to paper trading">
             <mat-icon>science</mat-icon>
             {{ sendingToPaper() ? 'Sending…' : 'Send ' + paperSendCount() + ' to paper' }}
           </button>
@@ -48,8 +47,7 @@
           <span class="group-count">{{ group.tickets.length }}</span>
           @if (group.status.includes(TicketStatus.STAGED)) {
             @if (stagedAggregate().buy.dollars > 0 || stagedAggregate().sell.dollars > 0) {
-              <span class="staged-agg"
-                matTooltip="Staged totals — shares · units (notional ÷ default) · dollars, split by side">
+              <span class="staged-agg" title="Staged totals — shares · units (notional ÷ default) · dollars, split by side">
                 {{ stagedAggregate().buy.shares }} sh · {{ stagedAggregate().buy.units }}u ·
                 {{ stagedAggregate().buy.dollars | currency:'USD':'symbol':'1.0-0' }}
                 @if (stagedAggregate().sell.dollars > 0) {
@@ -75,12 +73,12 @@
                  actions target staged orders. Non-staged rows keep a
                  same-width spacer so the columns stay aligned. -->
             @if (ticket.status === TicketStatus.STAGED) {
-              <mat-checkbox
+              <label class="dse-check"><input type="checkbox"
                 class="item-check"
                 [checked]="isChecked(ticket.id)"
-                (change)="toggleCheck(ticket.id, $event.checked)"
+                (change)="toggleCheck(ticket.id, $event.target.checked)"
                 (click)="$event.stopPropagation()">
-              </mat-checkbox>
+              </label>
             } @else {
               <span class="item-check-spacer"></span>
             }
@@ -89,13 +87,13 @@
             }
             <div class="item-main">
               <div class="item-line-1">
-                <span class="item-symbol" [matTooltip]="symbolFor(ticket)">{{ symbolFor(ticket) }}</span>
+                <span class="item-symbol" [title]="symbolFor(ticket)">{{ symbolFor(ticket) }}</span>
                 <!-- Everything after the symbol is a fixed-width column;
                      the symbol flexes, so the columns anchor at the same
                      right-side offsets on every row. -->
                 <span class="item-anchor">
                   @if (anchorFor(ticket); as anchor) {
-                    <span [matTooltip]="anchor.label">{{ anchor.price | currency:'USD':'symbol':(anchor.price >= 1000 ? '1.0-0' : '1.2-2') }}</span>
+                    <span [title]="anchor.label">{{ anchor.price | currency:'USD':'symbol':(anchor.price >= 1000 ? '1.0-0' : '1.2-2') }}</span>
                   }
                 </span>
                 <span class="item-price">
@@ -125,8 +123,7 @@
                     {{ isDefaultEstimate(ticket) ? '~' : '' }}{{ units }}u
                   }
                 </span>
-                <span class="item-dollars" [class.estimated]="isDefaultEstimate(ticket)"
-                  [matTooltip]="isDefaultEstimate(ticket) ? 'Estimated from configured default dollar amount' : null">
+                <span class="item-dollars" [class.estimated]="isDefaultEstimate(ticket)" [title]="isDefaultEstimate(ticket) ? 'Estimated from configured default dollar amount' : null">
                   @if (dollarsFor(ticket); as dollars) {
                     {{ isDefaultEstimate(ticket) ? '~' : '' }}{{ dollars | currency:'USD':'symbol':'1.0-0' }}
                   }
@@ -151,8 +148,7 @@
                     </button>
                     <button
                       type="button"
-                      class="dismiss-btn"
-                      matTooltip="Remove from queue"
+                      class="dismiss-btn" title="Remove from queue"
                       (click)="removeTickets.emit([ticket.id]); $event.stopPropagation()">
                       <mat-icon>close</mat-icon>
                     </button>

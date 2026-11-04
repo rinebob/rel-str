@@ -5,9 +5,8 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 import {
   RunTriggerFilter,
@@ -20,10 +19,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatButtonModule,
-    MatIconModule,
-    MatTooltipModule,
-  ],
+    MatIconModule],
   templateUrl: './run-control-card.component.html',
   styleUrl: './run-control-card.component.scss',
 })

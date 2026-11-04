@@ -1,24 +1,32 @@
 <div class="scatter-controls">
-  <mat-select [ngModel]="xKey()" (ngModelChange)="setX($event)" aria-label="X axis column">
-    @for (c of numericCols(); track c.key) {
-      <mat-option [value]="c.key">x: {{ c.label }}</mat-option>
-    }
-  </mat-select>
-  <mat-select [ngModel]="yKey()" (ngModelChange)="setY($event)" aria-label="Y axis column">
-    @for (c of numericCols(); track c.key) {
-      <mat-option [value]="c.key">y: {{ c.label }}</mat-option>
-    }
-  </mat-select>
-  <mat-select [ngModel]="colorKey()" (ngModelChange)="setColor($event)" aria-label="Color column">
-    <mat-option value="">color: none</mat-option>
-    @for (c of colorCols(); track c.key) {
-      <mat-option [value]="c.key">color: {{ c.label }}</mat-option>
-    }
-  </mat-select>
+  <label class="dse-select">
+    <select class="field-input" [ngModel]="xKey()" (ngModelChange)="setX($event)" aria-label="X axis column">
+      @for (c of numericCols(); track c.key) {
+        <option [value]="c.key">x: {{ c.label }}</option>
+      }
+    </select>
+  </label>
+  <label class="dse-select">
+    <select class="field-input" [ngModel]="yKey()" (ngModelChange)="setY($event)" aria-label="Y axis column">
+      @for (c of numericCols(); track c.key) {
+        <option [value]="c.key">y: {{ c.label }}</option>
+      }
+    </select>
+  </label>
+  <label class="dse-select">
+    <select class="field-input" [ngModel]="colorKey()" (ngModelChange)="setColor($event)" aria-label="Color column">
+      <option value="">color: none</option>
+      @for (c of colorCols(); track c.key) {
+        <option [value]="c.key">color: {{ c.label }}</option>
+      }
+    </select>
+  </label>
   @if (discreteX()) {
-    <mat-checkbox [checked]="jitter()" (change)="setJitter($event.checked)">
+    <label class="dse-check">
+      <input type="checkbox" [checked]="jitter()"
+             (change)="setJitter($any($event.target).checked)" />
       jitter x
-    </mat-checkbox>
+    </label>
   }
 </div>
 

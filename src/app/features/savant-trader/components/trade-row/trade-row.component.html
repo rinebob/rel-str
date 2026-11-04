@@ -1,10 +1,10 @@
 <div class="trade-row" [class.disabled]="!row().enabled">
   <span class="col-go">
-    <mat-slide-toggle
+    <label class="dse-switch"><input type="checkbox" class="switch-input"
       [checked]="row().enabled"
       [disabled]="!isActionableRun()"
       (change)="toggleEnabled.emit(row().symbol)">
-    </mat-slide-toggle>
+    </label>
   </span>
   <span class="col-symbol">{{ row().symbol }}</span>
   <span class="col-direction dir-{{ row().direction.toLowerCase() }}">{{ row().direction }}</span>
@@ -33,10 +33,9 @@
   </span>
   <span class="col-total">${{ row().enabled ? row().positionSize : 0 }}</span>
   <span class="col-actions">
-    <button type="button" mat-icon-button
-      [disabled]="!isActionableRun()"
-      (click)="remove.emit(row().symbol)"
-      matTooltip="Move back to Review">
+    <button class="icon-btn" type="button" 
+ [disabled]="!isActionableRun()"
+ (click)="remove.emit(row().symbol)" title="Move back to Review">
       <mat-icon>undo</mat-icon>
     </button>
   </span>

@@ -7,16 +7,14 @@
 import { Component, inject, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 import { MatInputModule } from '@angular/material/input';
-import { MatMenuModule } from '@angular/material/menu';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -99,20 +97,14 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
   imports: [
     CommonModule,
     FormsModule,
-    MatButtonModule,
-    MatDialogModule,
     MatFormFieldModule,
     MatSelectModule,
     MatIconModule,
     MatChipsModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
     MatInputModule,
-    MatMenuModule,
     MatTableModule,
     MatProgressSpinnerModule,
-    MatAutocompleteModule,
-  ],
+    MatAutocompleteModule],
   templateUrl: './spread-builder-dialog.component.html',
   styleUrl: './spread-builder-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -120,16 +112,15 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
 export class SpreadBuilderDialogComponent {
   readonly store = inject(SpreadViewerStore);
   readonly optionsContractService = inject(OptionsContractService);
-  readonly dialogRef = inject(MatDialogRef<SpreadBuilderDialogComponent>);
-  private readonly dialog = inject(MatDialog);
+  readonly dialogRef = inject(DsDialogRef<SpreadBuilderDialogComponent>);
+  private readonly dialog = inject(DsDialogService);
 
   readonly spreadTypes = [
     { value: SpreadType.VERTICAL, label: 'Vertical' },
     { value: SpreadType.STRADDLE, label: 'Straddle' },
     { value: SpreadType.STRANGLE, label: 'Strangle' },
     { value: SpreadType.IRON_CONDOR, label: 'Iron Condor' },
-    { value: SpreadType.CUSTOM, label: 'Custom' },
-  ];
+    { value: SpreadType.CUSTOM, label: 'Custom' }];
 
   selectedType = signal<SpreadType>(SpreadType.VERTICAL);
   selectedOptionType = signal<OptionType>(OptionType.CALL);
@@ -390,15 +381,14 @@ export class SpreadBuilderDialogComponent {
     this.endDate.set(date ? date.toISOString().split('T')[0] : null);
   }
 
-  /** Filter for entry date picker — only allow dates with underlying bars. */
-  entryDateFilter(date: Date | null): boolean {
-    if (!date) return false;
-    const iso = date.toISOString().split('T')[0];
-    return this.availableEntryDates().includes(iso);
-  }
-
-  onEntryDateChange(date: Date | null): void {
-    this.store.setEntryDate(date ? date.toISOString().split('T')[0] : null);
+  onEntryDateChange(value: string): void {
+    // Native date inputs can't filter arbitrary days — enforce the
+    // trading-day set the mat-datepicker filter used to provide.
+    if (value && this.availableEntryDates().length > 0 &&
+        !this.availableEntryDates().includes(value)) {
+      return;
+    }
+    this.store.setEntryDate(value || null);
   }
 
   onStrikeDistanceChange(value: number | null): void {
@@ -432,14 +422,12 @@ export class SpreadBuilderDialogComponent {
     this.store.advanceEntryDate(offset);
   }
 
-  onChartStartDateChange(date: Date | null): void {
-    const start = date ? date.toISOString().split('T')[0] : null;
-    this.store.setChartDateRange(start, this.store.chartDateRange().end);
+  onChartStartDateChange(value: string): void {
+    this.store.setChartDateRange(value || null, this.store.chartDateRange().end);
   }
 
-  onChartEndDateChange(date: Date | null): void {
-    const end = date ? date.toISOString().split('T')[0] : null;
-    this.store.setChartDateRange(this.store.chartDateRange().start, end);
+  onChartEndDateChange(value: string): void {
+    this.store.setChartDateRange(this.store.chartDateRange().start, value || null);
   }
 
   onStrikeRangeMinChange(value: number | null): void {

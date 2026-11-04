@@ -1,10 +1,15 @@
 @use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+@use 'index' as ds;
+
+.dse-select { @include ds.ds-select; }
+.dse-check { @include ds.ds-check; }
 
 :host {
   display: flex;
   flex-direction: column;
   min-height: 0;
   flex: 1;
+  color: var(--ds-on-surface);
 }
 
 .histogram-controls {
@@ -16,9 +21,9 @@
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    opacity: 0.6;
+    color: var(--ds-on-surface-variant);
   }
-  .width-select { width: 90px; font-size: 0.8rem; }
+  .width-select { width: 100px; select { font-size: 0.8rem; } }
 }
 
 ejs-chart {

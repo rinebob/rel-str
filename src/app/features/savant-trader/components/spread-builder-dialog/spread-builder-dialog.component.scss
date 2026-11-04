@@ -232,21 +232,19 @@
   }
 
   // Button density
-  .mat-mdc-button,
-  .mat-mdc-unelevated-button,
-  .mat-mdc-outlined-button {
+  .ds-btn {
     height: 32px;
     line-height: 32px;
     padding: 0 12px;
     font-size: 13px;
   }
 
-  .mat-mdc-icon-button {
+  .icon-btn {
     width: 32px;
     height: 32px;
     line-height: 32px;
 
-    .mat-icon {
+    mat-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;

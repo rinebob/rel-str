@@ -1,15 +1,19 @@
 <div class="histogram-controls">
   <span class="control-label">Bin width</span>
-  <mat-select class="width-select" [ngModel]="binWidth()" (ngModelChange)="setBinWidth($event)"
-              aria-label="Histogram bin width">
-    @for (w of widthOptions; track w) {
-      <mat-option [value]="w">{{ w }}%</mat-option>
-    }
-  </mat-select>
+  <label class="dse-select width-select">
+    <select class="field-input" [ngModel]="binWidth()" (ngModelChange)="setBinWidth($event)"
+            aria-label="Histogram bin width">
+      @for (w of widthOptions; track w) {
+        <option [value]="w">{{ w }}%</option>
+      }
+    </select>
+  </label>
   @if (baselineRows()) {
-    <mat-checkbox [checked]="showBaseline()" (change)="setShowBaseline($event.checked)">
+    <label class="dse-check">
+      <input type="checkbox" [checked]="showBaseline()"
+             (change)="setShowBaseline($any($event.target).checked)" />
       overlay {{ baselineLabel() }}
-    </mat-checkbox>
+    </label>
   }
 </div>
 

@@ -18,25 +18,32 @@
 
   <span class="toolbar-spacer"></span>
 
-  <mat-checkbox
-    class="include-open"
-    [checked]="includeOpenRows()"
-    (change)="includeOpenRowsChanged.emit($event.checked)">
+  <label class="dse-check include-open">
+    <input type="checkbox"
+           [checked]="includeOpenRows()"
+           (change)="includeOpenRowsChanged.emit($any($event.target).checked)" />
     Include open/excluded@if (hiddenRowCount() > 0) { ({{ hiddenRowCount() }}) }
-  </mat-checkbox>
+  </label>
 
-  <button type="button" class="col-picker-btn" [matMenuTriggerFor]="colMenu"
-          title="Show/hide columns" aria-label="Choose columns">
-    <mat-icon>view_column</mat-icon>
-  </button>
-  <mat-menu #colMenu="matMenu">
-    @for (c of columnDefs(); track c.key) {
-      <button mat-menu-item (click)="$event.stopPropagation(); toggleHidden(c.key)">
-        <mat-icon>{{ isHidden(c.key) ? 'check_box_outline_blank' : 'check_box' }}</mat-icon>
-        {{ c.label }}
-      </button>
+  <span class="menu-anchor">
+    <button type="button" class="icon-btn col-picker-btn" (click)="toggleColMenu($event)"
+            aria-haspopup="menu" [attr.aria-expanded]="colMenuOpen()"
+            title="Show/hide columns" aria-label="Choose columns">
+      <mat-icon>view_column</mat-icon>
+    </button>
+    @if (colMenuOpen()) {
+      <div class="dse-menu col-menu" role="menu" (click)="$event.stopPropagation()">
+        @for (c of columnDefs(); track c.key) {
+          <button type="button" class="menu-item" role="menuitemcheckbox"
+                  [attr.aria-checked]="!isHidden(c.key)"
+                  (click)="$event.stopPropagation(); toggleHidden(c.key)">
+            <mat-icon>{{ isHidden(c.key) ? 'check_box_outline_blank' : 'check_box' }}</mat-icon>
+            {{ c.label }}
+          </button>
+        }
+      </div>
     }
-  </mat-menu>
+  </span>
 </div>
 
 @if (includeOpenRows()) {
@@ -66,14 +73,51 @@
             @if (col.filterable) {
               <button type="button" class="col-filter-btn"
                       [class.filter-active]="hasFilter(col)"
-                      [matMenuTriggerFor]="colFilterMenu"
-                      [matMenuTriggerData]="{ col: col }"
-                      (click)="$event.stopPropagation()"
+                      aria-haspopup="menu"
+                      [attr.aria-expanded]="openFilterKey() === col.key"
+                      (click)="toggleFilterMenu(col, $event)"
                       (keydown)="$event.stopPropagation()"
                       [attr.aria-label]="'Filter ' + col.label"
                       title="Filter column">
                 <mat-icon>filter_list</mat-icon>
               </button>
+              @if (openFilterKey() === col.key) {
+                <div class="dse-menu filter-panel"
+                     (click)="$event.stopPropagation()"
+                     (keydown)="$event.stopPropagation()">
+                  <div class="filter-panel-title">{{ col.label }}</div>
+                  @if (col.kind === 'enum' || col.kind === 'string') {
+                    <div class="in-filter-list" role="group" [attr.aria-label]="'Filter ' + col.label">
+                      @for (opt of optionsFor(col); track opt) {
+                        <label class="dse-check">
+                          <input type="checkbox"
+                                 [checked]="inValues(col).includes(opt)"
+                                 (change)="toggleInValue(col, opt, $any($event.target).checked)" />
+                          {{ opt }}
+                        </label>
+                      }
+                    </div>
+                  } @else if (col.kind === 'number') {
+                    <input class="bound" type="number" placeholder="min"
+                           [value]="rangeValue(col, 'min')"
+                           (change)="setRangeFilter(col, 'min', $any($event.target).value)"
+                           [attr.aria-label]="col.label + ' min'" />
+                    <input class="bound" type="number" placeholder="max"
+                           [value]="rangeValue(col, 'max')"
+                           (change)="setRangeFilter(col, 'max', $any($event.target).value)"
+                           [attr.aria-label]="col.label + ' max'" />
+                  } @else {
+                    <input class="bound" type="date"
+                           [value]="rangeValue(col, 'from')"
+                           (change)="setDateFilter(col, 'from', $any($event.target).value)"
+                           [attr.aria-label]="col.label + ' from'" />
+                    <input class="bound" type="date"
+                           [value]="rangeValue(col, 'to')"
+                           (change)="setDateFilter(col, 'to', $any($event.target).value)"
+                           [attr.aria-label]="col.label + ' to'" />
+                  }
+                </div>
+              }
             }
           </th>
         }
@@ -96,41 +140,3 @@
     </tbody>
   </table>
 </div>
-
-<mat-menu #colFilterMenu="matMenu" class="col-filter-menu">
-  <ng-template matMenuContent let-col="col">
-    <div class="filter-panel"
-         (click)="$event.stopPropagation()"
-         (keydown)="$event.stopPropagation()">
-      <div class="filter-panel-title">{{ col.label }}</div>
-      @if (col.kind === 'enum' || col.kind === 'string') {
-        <div class="in-filter-list" role="group" [attr.aria-label]="'Filter ' + col.label">
-          @for (opt of optionsFor(col); track opt) {
-            <mat-checkbox [checked]="inValues(col).includes(opt)"
-                          (change)="toggleInValue(col, opt, $event.checked)">
-              {{ opt }}
-            </mat-checkbox>
-          }
-        </div>
-      } @else if (col.kind === 'number') {
-        <input class="bound" type="number" placeholder="min"
-               [value]="rangeValue(col, 'min')"
-               (change)="setRangeFilter(col, 'min', $any($event.target).value)"
-               [attr.aria-label]="col.label + ' min'" />
-        <input class="bound" type="number" placeholder="max"
-               [value]="rangeValue(col, 'max')"
-               (change)="setRangeFilter(col, 'max', $any($event.target).value)"
-               [attr.aria-label]="col.label + ' max'" />
-      } @else {
-        <input class="bound" type="date"
-               [value]="rangeValue(col, 'from')"
-               (change)="setDateFilter(col, 'from', $any($event.target).value)"
-               [attr.aria-label]="col.label + ' from'" />
-        <input class="bound" type="date"
-               [value]="rangeValue(col, 'to')"
-               (change)="setDateFilter(col, 'to', $any($event.target).value)"
-               [attr.aria-label]="col.label + ' to'" />
-      }
-    </div>
-  </ng-template>
-</mat-menu>
