@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-11-04]
+
+### Added
+- [Options Backtest] 1238-1373_FE-IMPL-BACKTEST: runRows + filteredRows — per-symbol replay rows, listOutcomes status surface, atomic selection, filter/sort store groundwork for #1374
+- [Options Backtest] 1238-1373_FE-IMPL-BACKTEST: run list renders per-symbol rows + detail auto-expands selected symbol's contract list
+- [Options Backtest] 1238-1373_DOCS-BACKTEST: #1373 code-review (PASS, 2 rounds) + UAT (Complete)
+
 ## [2026-11-03]
 
 ### Changed
