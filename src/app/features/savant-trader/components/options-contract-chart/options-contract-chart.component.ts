@@ -13,7 +13,7 @@
  * Series construction lives in options-contract-chart-series.builder.ts —
  * this file is signal wiring plus chart event handlers.
  */
-import { Component, input, output, computed, ChangeDetectionStrategy, viewChild, signal, effect, inject, ElementRef, NgZone, OnDestroy } from '@angular/core';
+import { Component, input, output, model, computed, ChangeDetectionStrategy, viewChild, signal, effect, inject, ElementRef, NgZone, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   ChartModule,
@@ -37,6 +37,13 @@ import type { ParsedObservation } from '../../utils/contract-observation.utils';
 import type { StudyRange } from '../../utils/option-group-generator.utils';
 import { formatUtcDate } from '../../utils/utils';
 import { alignSeriesToLabels, minMaxInRange } from '../../utils/chart-series.utils';
+import type { SfChartInstance, SfChartAxisRect } from '../../../shared/components/flex-chart/services/chart-instance.types';
+import {
+  categoryIndexToPx,
+  nearestIndexByDate,
+  resolveBrushRange,
+  type AxisSpace,
+} from './options-contract-chart-brush.utils';
 import {
   MARKER_NAME_PREFIX,
   LOWER_PANE_AXES,
@@ -83,13 +90,22 @@ export class OptionsContractChartComponent implements OnDestroy {
   /** Contract id to emphasize — dims every other mark/marker series. */
   highlightedContractId = input<string | null>(null);
 
+  /** Arm/disarm the study-range brush — two-way bound by the page; Esc
+   *  disarms through the model. */
+  brushArmed = model(false);
+  /** Snapping domain — the drawer's corpusDates; axis labels when empty. */
+  brushCorpus = input<string[]>([]);
+  /** Active refine bound — renders as a faint band until it clears. */
+  activeStudyRange = input<StudyRange | null>(null);
+
   /** Pointer over a mark line, span marker, or legend entry emits that
    *  contract id; pointer anywhere else (or leaving the chart) emits null. */
   seriesHovered = output<string | null>();
 
   /** Study-range brush result — emitted by the brush overlay (FE-4);
-   *  routed by the page into the generator store's alive-range bound. */
-  studyRange = output<StudyRange | null>();
+   *  routed by the page into the generator store's alive-range bound.
+   *  Clearing is the drawer's clear-bound path, not a brush emission. */
+  studyRange = output<StudyRange>();
 
   private readonly chart = viewChild<SfChartComponent>('chart');
   private readonly visibleRange = signal<{ min: number; max: number } | null>(null);
@@ -233,6 +249,7 @@ export class OptionsContractChartComponent implements OnDestroy {
       }
       chart.animateSeries = false;
       chart.refresh();
+      this.axisTick.update((t) => t + 1); // relayout may shift the plot rect
     }
   });
 
@@ -266,6 +283,7 @@ export class OptionsContractChartComponent implements OnDestroy {
 
     chart.animateSeries = false;
     chart.dataBind();
+    this.axisTick.update((t) => t + 1); // label-width changes can shift the plot rect
   });
 
   // Axis configurations
@@ -397,6 +415,8 @@ export class OptionsContractChartComponent implements OnDestroy {
    *  collection — so cancelled markers still consume their slots (marks
    *  are always 0..n-1 either way). */
   onChartMouseMove(event: IMouseEventArgs): void {
+    // Armed brush: mouse semantics are drag, not hover.
+    if (this.brushArmed()) return;
     const target = event.target ?? '';
     const series = /_Series_(\d+)/.exec(target);
     if (series) {
@@ -413,6 +433,163 @@ export class OptionsContractChartComponent implements OnDestroy {
 
   onChartMouseLeave(): void {
     this.emitHover(null);
+  }
+
+  // ── Study-range brush (FE-4) ───────────────────────────────────────
+  // An armed capture layer sits over the chart; drags resolve px →
+  // category index → axis label → nearest corpus date. The overlay is
+  // decorative — the axis is never mutated (no selectionMode, no
+  // visibleRange writes).
+
+  private readonly brushDrag = signal<{ startPx: number; currentPx: number } | null>(null);
+
+  /** Bumped whenever the axis may have re-measured (zoom, scroll,
+   *  resize) — `axisCollections[0].rect` is a plain mutable property, so
+   *  computeds need this signal to track it. */
+  private readonly axisTick = signal(0);
+
+  /** Axis geometry from the primary category axis — null until the chart
+   *  reports its plot rect (also null in spec stubs without one). */
+  private axisSpace(): AxisSpace | null {
+    this.axisTick(); // track — the underlying rect is mutable
+    const chart = this.chart() as (SfChartComponent & SfChartInstance) | undefined;
+    const axis = chart?.axisCollections?.[0];
+    const rect = axis?.rect;
+    const vr = axis?.visibleRange;
+    // The SDK seeds rect as Rect(undefined, undefined, 0, 0) pre-layout —
+    // bail rather than emit a degenerate range from a NaN/zero-width space.
+    if (!rect || !vr || !Number.isFinite(rect.x) || !Number.isFinite(rect.width) || rect.width <= 0) {
+      return null;
+    }
+    // The X-axis rect is the label strip BELOW the plot (height ≈ 0), not
+    // the plot itself — vertical extent comes from the plot column's
+    // seriesClipRect (what Syncfusion's own X-mode zoom rect uses), with
+    // the primary Y-axis rect as fallback before the layout panel fills.
+    const clip =
+      (chart as { chartAxisLayoutPanel?: { seriesClipRect?: SfChartAxisRect } })
+        ?.chartAxisLayoutPanel?.seriesClipRect ?? chart?.primaryYAxis?.rect;
+    return {
+      x: rect.x,
+      y: clip?.y ?? 0,
+      width: rect.width,
+      height: clip?.height ?? 0,
+      min: vr.min,
+      delta: vr.delta ?? vr.max - vr.min,
+    };
+  }
+
+  /** The in-flight drag as a plot-height rect. Once the gesture spans
+   *  ≥2px the edges live-snap to the resolved {start,end} — the rect
+   *  previews exactly what mouseup emits, at the same slot-center
+   *  geometry the applied band uses. Sub-2px gestures track raw px.
+   *  Disarming mid-drag drops the gesture so a re-arm always starts
+   *  fresh (single active gesture). */
+  readonly dragRect = computed(() => {
+    if (!this.brushArmed()) return null;
+    const d = this.brushDrag();
+    const space = this.axisSpace();
+    if (!d || !space) return null;
+    const clamp = (px: number) => Math.min(space.x + space.width, Math.max(space.x, px));
+    let left = clamp(Math.min(d.startPx, d.currentPx));
+    let right = clamp(Math.max(d.startPx, d.currentPx));
+    // Live snap — resolve() + nearestIndexByDate mirror brushUpAt's emit
+    // and brushBand's positioning, so the band lands where the rect is.
+    if (right - left >= 2) {
+      const labels = this.axisLabels();
+      const range = resolveBrushRange(d.startPx, d.currentPx, space, labels, this.brushCorpus());
+      if (range) {
+        const s = nearestIndexByDate(range.start, labels);
+        const e = nearestIndexByDate(range.end, labels);
+        if (s >= 0 && e >= 0) {
+          left = clamp(categoryIndexToPx(Math.min(s, e), space));
+          right = clamp(categoryIndexToPx(Math.max(s, e), space));
+        }
+      }
+    }
+    return { left, width: Math.max(0, right - left), top: space.y, height: space.height };
+  });
+
+  /** The active refine bound as a faint band, positioned at the bound
+   *  dates' nearest axis categories; recomputes on zoom/pan via
+   *  visibleRange. */
+  readonly brushBand = computed(() => {
+    this.visibleRange();
+    const range = this.activeStudyRange();
+    const space = this.axisSpace();
+    if (!range || !space) return null;
+    const labels = this.axisLabels();
+    // A bound fully outside the rendered domain would clamp onto an edge
+    // category and paint a band where it isn't — suppress instead.
+    if (!labels.length || range.end < labels[0] || range.start > labels[labels.length - 1]) return null;
+    const s = nearestIndexByDate(range.start, labels);
+    const e = nearestIndexByDate(range.end, labels);
+    if (s < 0 || e < 0) return null;
+    // Fully off-screen (both edges past one end of the plot) → nothing
+    // visible; partially off-screen → paint only the visible portion.
+    const x0 = space.x, x1 = space.x + space.width;
+    const lo = categoryIndexToPx(Math.min(s, e), space);
+    const hi = categoryIndexToPx(Math.max(s, e), space);
+    if (hi < x0 || lo > x1) return null;
+    const left = Math.min(x1, Math.max(x0, lo));
+    const right = Math.min(x1, Math.max(x0, hi));
+    // Min 1px so a same-day bound stays visible as a sliver.
+    return { left, width: Math.max(1, right - left), top: space.y, height: space.height };
+  });
+
+  /** px within the chart for a capture-layer mouse event. */
+  pxFromEvent(event: MouseEvent): number {
+    const host = event.currentTarget as HTMLElement;
+    return event.clientX - host.getBoundingClientRect().left;
+  }
+
+  /** Gesture start — ignored unless the left button is down and the
+   *  chart has reported its axis geometry. */
+  brushDownAt(px: number, button = 0): void {
+    // Left button only — a right-click while armed must not commit a
+    // gesture (its mouseup would emit a same-day bound).
+    if (button !== 0 || !this.axisSpace()) return;
+    this.brushDrag.set({ startPx: px, currentPx: px });
+  }
+
+  /** Track the drag edge — no-op outside a gesture. */
+  brushMoveTo(px: number): void {
+    const d = this.brushDrag();
+    if (d) this.brushDrag.set({ ...d, currentPx: px });
+  }
+
+  /** Gesture end — snap both edges and emit; clicks (<2px) emit nothing.
+   *  Non-left-button releases are ignored so a right-mouseup can't end a
+   *  left-drag early and emit a partial span. */
+  brushUpAt(px: number, button = 0): void {
+    if (button !== 0) return;
+    const d = this.brushDrag();
+    const space = this.axisSpace();
+    this.brushDrag.set(null);
+    // Sub-2px gestures are clicks, not selections — don't silently apply
+    // an accidental same-day bound.
+    if (!d || !space || Math.abs(px - d.startPx) < 2) return;
+    const range = resolveBrushRange(d.startPx, px, space, this.axisLabels(), this.brushCorpus());
+    if (range) this.studyRange.emit(range);
+  }
+
+  /** Disarm mid-drag drops the gesture so a re-arm starts fresh —
+   *  prevents a stray mouseup emitting from a stale start px. Arming
+   *  also clears any frozen hover highlight (mouse = drag, not hover). */
+  readonly clearDragOnDisarm = effect(() => {
+    if (this.brushArmed()) this.emitHover(null);
+    else this.brushDrag.set(null);
+  });
+
+  /** Pointer left the chart mid-drag — drop the gesture, keep armed. */
+  brushCancel(): void {
+    this.brushDrag.set(null);
+  }
+
+  /** Esc cancels an in-flight drag and disarms. */
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    this.brushDrag.set(null);
+    if (this.brushArmed()) this.brushArmed.set(false);
   }
 
   constructor() {
@@ -432,6 +609,9 @@ export class OptionsContractChartComponent implements OnDestroy {
         this.pendingResizeRaf = requestAnimationFrame(() => {
           this.pendingResizeRaf = null;
           this.chart()?.refresh();
+          // The axis rect lands with the refreshed paint — bump next
+          // frame so brush computeds re-read the new geometry.
+          requestAnimationFrame(() => this.axisTick.update((t) => t + 1));
         });
       });
       this.resizeObserver.observe(this.el.nativeElement);
@@ -460,6 +640,7 @@ export class OptionsContractChartComponent implements OnDestroy {
     const range = event.currentVisibleRange;
     if (range?.min != null && range?.max != null) {
       this.visibleRange.set({ min: range.min, max: range.max });
+      this.axisTick.update((t) => t + 1);
     }
   }
 
@@ -467,6 +648,7 @@ export class OptionsContractChartComponent implements OnDestroy {
     const visibleRange = this.chart()?.axisCollections?.[0]?.visibleRange;
     if (visibleRange?.min != null && visibleRange?.max != null) {
       this.visibleRange.set({ min: visibleRange.min, max: visibleRange.max });
+      this.axisTick.update((t) => t + 1);
     }
   }
 

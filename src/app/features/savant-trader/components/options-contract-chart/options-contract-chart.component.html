@@ -1,24 +1,56 @@
-<ejs-chart
-  #chart
-  width="100%"
-  [height]="chartHeight"
-  [primaryXAxis]="primaryXAxis()"
-  [primaryYAxis]="primaryYAxis()"
-  [axes]="axes()"
-  [rows]="rows()"
-  [series]="seriesCollection()"
-  [zoomSettings]="zoomSettings"
-  [crosshair]="crosshair"
-  [tooltip]="tooltip"
-  [legendSettings]="legend"
-  background="transparent"
-  [border]="chartBorder"
-  [chartArea]="chartArea"
-  (axisLabelRender)="onAxisLabelRender($event)"
-  (chartMouseMove)="onChartMouseMove($event)"
-  (chartMouseLeave)="onChartMouseLeave()"
-  (zoomComplete)="onZoomComplete($event)"
-  (scrollEnd)="onScrollEnd()"
-  (legendRender)="onLegendRender($event)"
->
-</ejs-chart>
+<div class="chart-wrap">
+  <ejs-chart
+    #chart
+    width="100%"
+    [height]="chartHeight"
+    [primaryXAxis]="primaryXAxis()"
+    [primaryYAxis]="primaryYAxis()"
+    [axes]="axes()"
+    [rows]="rows()"
+    [series]="seriesCollection()"
+    [zoomSettings]="zoomSettings"
+    [crosshair]="crosshair"
+    [tooltip]="tooltip"
+    [legendSettings]="legend"
+    background="transparent"
+    [border]="chartBorder"
+    [chartArea]="chartArea"
+    (axisLabelRender)="onAxisLabelRender($event)"
+    (chartMouseMove)="onChartMouseMove($event)"
+    (chartMouseLeave)="onChartMouseLeave()"
+    (zoomComplete)="onZoomComplete($event)"
+    (scrollEnd)="onScrollEnd()"
+    (legendRender)="onLegendRender($event)"
+  >
+  </ejs-chart>
+
+  @if (brushBand(); as band) {
+    <div
+      class="brush-band"
+      [style.left.px]="band.left"
+      [style.top.px]="band.top"
+      [style.width.px]="band.width"
+      [style.height.px]="band.height"
+    ></div>
+  }
+
+  @if (brushArmed()) {
+    <div
+      class="brush-capture"
+      (mousedown)="brushDownAt(pxFromEvent($event), $event.button)"
+      (mousemove)="brushMoveTo(pxFromEvent($event))"
+      (mouseup)="brushUpAt(pxFromEvent($event), $event.button)"
+      (mouseleave)="brushCancel()"
+    ></div>
+  }
+
+  @if (dragRect(); as r) {
+    <div
+      class="brush-rect"
+      [style.left.px]="r.left"
+      [style.top.px]="r.top"
+      [style.width.px]="r.width"
+      [style.height.px]="r.height"
+    ></div>
+  }
+</div>

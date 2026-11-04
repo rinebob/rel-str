@@ -6,8 +6,42 @@
   overflow: hidden;
 }
 
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
 ejs-chart {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+/* Study-range brush (FE-4) — overlays are decorative; the axis is never
+   mutated. The capture layer only exists while armed, so unarmed hover
+   reaches the chart untouched. */
+.brush-capture {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.brush-rect {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+  border: 1px dashed var(--mat-sys-primary);
+}
+
+.brush-band {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--mat-sys-primary) 35%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--mat-sys-primary) 35%, transparent);
 }

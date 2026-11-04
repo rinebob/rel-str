@@ -36,8 +36,18 @@ const bar = (date: string, close: number): OHLCDatum => ({
 @Component({ selector: 'ejs-chart', standalone: true, template: '' })
 class EjsChartStub {
   primaryXAxis: Record<string, unknown> = {};
-  primaryYAxis: Record<string, unknown> = {};
-  axisCollections: { name?: string; minimum?: number; maximum?: number; visibleRange?: { min: number; max: number } }[] = [];
+  primaryYAxis: Record<string, unknown> = { rect: { x: 60, y: 20, width: 40, height: 300 } };
+  /** Real Syncfusion populates this after layout — the X-axis rect itself
+   *  is the label strip (height 0), so brush overlays take their vertical
+   *  extent from seriesClipRect. */
+  chartAxisLayoutPanel: { seriesClipRect?: { x: number; y: number; width: number; height: number } } = {};
+  axisCollections: {
+    name?: string;
+    minimum?: number;
+    maximum?: number;
+    visibleRange?: { min: number; max: number; delta?: number };
+    rect?: { x: number; y: number; width: number; height: number };
+  }[] = [];
   animateSeries = false;
   refresh(): void {}
   dataBind(): void {}
@@ -480,6 +490,276 @@ describe('OptionsContractChartComponent', () => {
       expect(emitted).toEqual([a.contractId]);
 
       component.onChartMouseLeave();
+      expect(emitted).toEqual([a.contractId, null]);
+    });
+  });
+
+  describe('study-range brush (FE-4)', () => {
+    const LABELS = ['2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04', '2026-06-05'];
+    // Matches the real SDK contract: the X-axis rect is the label strip
+    // (height 0, y at plot bottom); the plot column lives in seriesClipRect.
+    const AXIS_SPACE = {
+      rect: { x: 100, y: 320, width: 800, height: 0 },
+      visibleRange: { min: 0, max: 10, delta: 10 },
+    };
+    const CLIP_RECT = { x: 100, y: 20, width: 800, height: 300 };
+
+    const chartEl = () =>
+      fixture.debugElement.query((d) => d.componentInstance instanceof EjsChartStub)
+        .componentInstance as EjsChartStub;
+
+    const setupBrush = (corpus: string[] = []) => {
+      setInputs([], LABELS, {});
+      fixture.componentRef.setInput('brushArmed', true);
+      fixture.componentRef.setInput('brushCorpus', corpus);
+      fixture.detectChanges();
+      const stub = chartEl();
+      stub.axisCollections = [{ ...AXIS_SPACE }];
+      stub.chartAxisLayoutPanel = { seriesClipRect: { ...CLIP_RECT } };
+      fixture.detectChanges();
+      return stub;
+    };
+
+    it('renders the capture layer only while armed', () => {
+      setInputs([], LABELS, {});
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.brush-capture')).toBeNull();
+
+      fixture.componentRef.setInput('brushArmed', true);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.brush-capture')).not.toBeNull();
+    });
+
+    it('a drag emits a snapped, ordered studyRange', () => {
+      setupBrush();
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(340);
+      component.brushMoveTo(180);
+      component.brushUpAt(180);
+
+      expect(emitted).toEqual([{ start: '2026-06-02', end: '2026-06-04' }]);
+    });
+
+    it('the drag rect live-snaps its edges to the resolved dates', () => {
+      setupBrush();
+      component.brushDownAt(150); // raw edge — sits mid-slot
+      component.brushMoveTo(330); // raw edge — sits mid-slot
+      fixture.detectChanges();
+
+      const rect = fixture.nativeElement.querySelector('.brush-rect') as HTMLElement;
+      expect(rect).not.toBeNull();
+      // Snapped: 150 → idx 1 (06-02) → 180px; 330 → idx 3 (06-04) → 340px.
+      expect(rect.style.left).toBe('180px');
+      expect(rect.style.width).toBe('160px');
+    });
+
+    it('snaps edges to corpusDates when the drawer has fetched', () => {
+      setupBrush(['2026-06-02', '2026-06-04']);
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(180); // ~06-02
+      component.brushUpAt(500);   // idx 5 → 06-06 out of domain → clamps to 06-05 → corpus 06-04
+
+      expect(emitted).toEqual([{ start: '2026-06-02', end: '2026-06-04' }]);
+    });
+
+    it('clamps a drag that leaves the plot area to the axis domain', () => {
+      setupBrush();
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(-400);
+      component.brushUpAt(9999);
+
+      expect(emitted).toEqual([{ start: '2026-06-01', end: '2026-06-05' }]);
+    });
+
+    it('Esc disarms and cancels a mid-drag without emitting', () => {
+      setupBrush();
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(200);
+      component.onEscapeKey();
+      fixture.detectChanges();
+
+      expect(emitted).toEqual([]);
+      expect(component.brushArmed()).toBe(false);
+      // mid-drag rect is gone
+      expect(fixture.nativeElement.querySelector('.brush-rect')).toBeNull();
+    });
+
+    it('mouseleave mid-drag cancels without emitting', () => {
+      setupBrush();
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(200);
+      component.brushCancel();
+
+      expect(emitted).toEqual([]);
+    });
+
+    it('suppresses connected-hover emission while armed', () => {
+      const a = contract({ points: [obs('2026-06-01', 10)] });
+      setInputs([a], LABELS);
+      fixture.componentRef.setInput('brushArmed', true);
+      fixture.detectChanges();
+      const emitted: (string | null)[] = [];
+      component.seriesHovered.subscribe((id) => emitted.push(id));
+
+      // Without the armed guard this target resolves contract a's id —
+      // the spec would emit it, so [] proves suppression, not an empty map.
+      component.onChartMouseMove({ target: 'chart_Series_0' } as Parameters<typeof component.onChartMouseMove>[0]);
+      expect(emitted).toEqual([]);
+    });
+
+    it('the active refine bound renders as a band; clearing hides it', () => {
+      setupBrush();
+      fixture.componentRef.setInput('activeStudyRange', { start: '2026-06-02', end: '2026-06-04' });
+      fixture.detectChanges();
+
+      const band = fixture.nativeElement.querySelector('.brush-band') as HTMLElement;
+      expect(band).not.toBeNull();
+      // 06-02 → idx 1 → px 180; 06-04 → idx 3 → px 340; width 160.
+      // Vertical extent comes from seriesClipRect, NOT the X-axis rect
+      // (which is the label strip below the plot on a real chart).
+      expect(band.style.left).toBe('180px');
+      expect(band.style.width).toBe('160px');
+      expect(band.style.top).toBe('20px');
+      expect(band.style.height).toBe('300px');
+
+      fixture.componentRef.setInput('activeStudyRange', null);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.brush-band')).toBeNull();
+    });
+
+    it('never mutates the axis config', () => {
+      const stub = setupBrush();
+      component.brushDownAt(180);
+      component.brushUpAt(340);
+
+      expect(stub.primaryXAxis['selectionMode']).toBeUndefined();
+      expect(stub.primaryXAxis['minimum']).toBeUndefined();
+      expect(stub.primaryXAxis['maximum']).toBeUndefined();
+    });
+
+    it('disarm mid-drag drops the gesture; re-arm is a single fresh gesture', () => {
+      setupBrush();
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(180);
+      component.brushMoveTo(340);
+      fixture.componentRef.setInput('brushArmed', false);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.brush-rect')).toBeNull();
+
+      // Re-arm — a stray mouseup must not emit from the stale start px
+      fixture.componentRef.setInput('brushArmed', true);
+      fixture.detectChanges();
+      component.brushUpAt(500);
+      expect(emitted).toEqual([]);
+
+      // The next gesture emits exactly once from its own endpoints
+      component.brushDownAt(180);
+      component.brushUpAt(500);
+      expect(emitted).toEqual([{ start: '2026-06-02', end: '2026-06-05' }]);
+    });
+
+    it('armed while the chart has no axis yet — drag is a no-op, not an error', () => {
+      setInputs([], LABELS, {});
+      fixture.componentRef.setInput('brushArmed', true);
+      fixture.detectChanges();
+      chartEl().axisCollections = [];
+      fixture.detectChanges();
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(200);
+      component.brushMoveTo(400);
+      component.brushUpAt(400);
+
+      expect(emitted).toEqual([]);
+      expect(fixture.nativeElement.querySelector('.brush-rect')).toBeNull();
+    });
+
+    it('an axis with no labels emits nothing — applyRange never sees undefined', () => {
+      setInputs([], [], {});
+      fixture.componentRef.setInput('brushArmed', true);
+      fixture.detectChanges();
+      chartEl().axisCollections = [{ ...AXIS_SPACE }];
+      fixture.detectChanges();
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(180);
+      component.brushUpAt(340);
+
+      expect(emitted).toEqual([]);
+    });
+
+    it('a non-left-button mousedown starts no gesture', () => {
+      setupBrush();
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(180, 2); // right button
+      component.brushMoveTo(340);
+      component.brushUpAt(340);
+
+      expect(emitted).toEqual([]);
+    });
+
+    it('a sub-2px drag is a click, not a selection — nothing emits', () => {
+      setupBrush();
+      const emitted: ({ start: string; end: string } | null)[] = [];
+      component.studyRange.subscribe((r) => emitted.push(r));
+
+      component.brushDownAt(200);
+      component.brushUpAt(200.5);
+
+      expect(emitted).toEqual([]);
+    });
+
+    it('the band tracks axis geometry across a scroll/zoom', () => {
+      const stub = setupBrush();
+      fixture.componentRef.setInput('activeStudyRange', { start: '2026-06-02', end: '2026-06-04' });
+      fixture.detectChanges();
+      const band = () => fixture.nativeElement.querySelector('.brush-band') as HTMLElement;
+      expect(band().style.left).toBe('180px');
+
+      // Plot area shifts (resize) — scrollEnd refreshes the tracked geometry
+      stub.axisCollections = [{
+        rect: { x: 50, y: 20, width: 800, height: 300 },
+        visibleRange: { min: 0, max: 10, delta: 10 },
+      }];
+      component.onScrollEnd();
+      fixture.detectChanges();
+      expect(band().style.left).toBe('130px'); // 50 + (1/10)*800
+    });
+
+    it('a bound fully outside the rendered domain paints no band', () => {
+      setupBrush();
+      fixture.componentRef.setInput('activeStudyRange', { start: '2020-01-01', end: '2020-02-01' });
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.brush-band')).toBeNull();
+    });
+
+    it('arming clears a frozen hover highlight', () => {
+      const a = contract({ points: [obs('2026-06-01', 10)] });
+      setInputs([a], LABELS);
+      fixture.detectChanges();
+      const emitted: (string | null)[] = [];
+      component.seriesHovered.subscribe((id) => emitted.push(id));
+      component.onChartMouseMove({ target: 'chart_Series_0' } as Parameters<typeof component.onChartMouseMove>[0]);
+      expect(emitted).toEqual([a.contractId]);
+
+      fixture.componentRef.setInput('brushArmed', true);
+      fixture.detectChanges();
       expect(emitted).toEqual([a.contractId, null]);
     });
   });
