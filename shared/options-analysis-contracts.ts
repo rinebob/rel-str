@@ -76,7 +76,8 @@ export interface AnalysisExitTrade extends AnalysisTradeBase {
 export interface AnalysisExpiredTrade extends AnalysisTradeBase {
   outcome: 'expired';
   /** True when the contract expired in-the-money — put: close < strike;
-   *  call: close > strike (option type parsed from `contractId`). For a
+   *  call: close > strike (option type from the SA response `type` field —
+   *  the worker writes an 'error' record when it's missing/unusable). For a
    *  short template this means assignment (a loss); for BTO, a gain —
    *  interpretation depends on the template's side. */
   expiredItm: boolean;
@@ -125,8 +126,9 @@ export interface ExitTypeAggregate {
   hitRatePct?: number;
   /** Mean daysHeld over exited records; absent when nothing exited. */
   avgDaysToExit?: number;
-  /** Mean (entryMark − exitPrice)/entryMark × 100 over exited records;
-   *  absent when nothing exited. */
+  /** Mean (entryMark − exitPrice)/entryMark × 100 over exited records
+   *  with entryMark > 0; absent when nothing exited (or no exited record
+   *  has a positive entryMark). */
   avgPremiumCapturedPct?: number;
   /** Max mae.value over non-error records; absent when all errored. */
   worstMae?: number;

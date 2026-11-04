@@ -21,6 +21,9 @@
 - [Savant Design System] 1024-1348_FE-IMPL-DESIGN-SYSTEM: dev/ds-elements live element zoo & de-materify testbed — 49 specimens / 54 archetypes / 10 families, NOW|DS TODAY|TARGET panes, ARIA contracts, theme + accent demos
 - [Savant Design System] 1024-1348_FE-IMPL-DESIGN-SYSTEM: ds-btn card in DS gallery (10 cards) + shared ds-accents util incl. --ds-accent-text derivation
 - [Savant Design System] 1024-1348_SHARED-CHORE-DESIGN-SYSTEM: vendored savant-ds element-mixin library sync (_forms + _layout partials, 12 state tokens; byte-identical to canonical)
+- [Options Backtest] 1238-1372_BE-REFACTOR-BACKTEST: forEachWithConcurrency promoted to common/async-utils — worker pool dedup, no backward dep
+- [Options Backtest] 1238-1372_BE-IMPL-BACKTEST: optionsReplayAnalysis analyzer worker — status re-check, batch-fetch, per-exit eval, batch writes, aggregates
+- [Options Backtest] 1238-1372_DOCS-BACKTEST: #1372 code-review (PASS) + UAT (Complete) + IMPL-BE as-built + contract-comment ratification
 - [Option Contract Time-Series Viewer] 1243-1340_FE-IMPL-OPTIONS: Study-range brush overlay — armed capture layer + live-snap drag rect (px→category→date), corpusDates/axis-label edge snapping, `(studyRange)` emit, active-bound band, zero axis mutation
 - [Option Contract Time-Series Viewer] 1243-1340_FE-IMPL-OPTIONS: Option-chart page wiring — Select range toggle + `brushArmed`/`brushCorpus`/`activeStudyRange` bindings → generator alive-range bound
 - [Option Contract Time-Series Viewer] 1243-1340_DOCS-OPTIONS: #1387 UAT (PASS; 12/12 user-verified) + code review (PASS, 2 rounds)
