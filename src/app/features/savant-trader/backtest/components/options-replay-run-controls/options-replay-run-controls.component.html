@@ -1,0 +1,84 @@
+<div class="run-control-card">
+  <div class="run-control-primary">
+    <button
+      type="button"
+      class="run-now-btn ds-btn fill"
+      [disabled]="isLoading()"
+      (click)="newReplay.emit()">
+      <span class="dse-icon" aria-hidden="true">add</span>
+      New Replay
+    </button>
+
+    @if (isLoading()) {
+      <span class="dse-spinner" style="--spinner-size: 20px" role="progressbar" aria-label="Loading"></span>
+    }
+  </div>
+
+  <div class="run-control-filters">
+    <div class="filter-group">
+      <span class="filter-label">Status</span>
+      <div class="pill-group status-pills" role="group" aria-label="Status filter">
+        @for (option of statusOptions; track option.value) {
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="statusFilter() === option.value"
+            [attr.aria-pressed]="statusFilter() === option.value"
+            (click)="onStatus(option.value)">
+            {{ option.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Template</span>
+      <select #templateSelect class="filter-select template-select" aria-label="Filter by template" [value]="templateFilter()" (change)="onTemplate(templateSelect.value)">
+        <option value="all">All</option>
+        @for (template of templateOptions; track template.id) {
+          <option [value]="template.id">{{ template.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Symbol</span>
+      <input
+        #symbolInput
+        type="text"
+        class="filter-input symbol-input"
+        aria-label="Filter by symbol"
+        placeholder="e.g. SPY"
+        [value]="symbolSearch()"
+        (input)="onSymbolSearch(symbolInput.value)" />
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Sort</span>
+      <div class="sort-control">
+        <select #sortSelect class="filter-select sort-select" aria-label="Sort field" [value]="sortBy()" (change)="onSortBy(sortSelect.value)">
+          @for (option of sortOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+        <button
+          type="button"
+          class="sort-direction-btn" title="Toggle sort direction" aria-label="Toggle sort direction"
+          (click)="toggleSortDirection()">
+          <span class="dse-icon" aria-hidden="true">{{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+        </button>
+      </div>
+    </div>
+
+    @if (hasActiveFilters()) {
+      <div class="filter-group">
+        <button
+          type="button"
+          class="pill-btn clear-filters-btn"
+          (click)="resetFilters.emit()">
+          Clear filters
+        </button>
+      </div>
+    }
+  </div>
+</div>
