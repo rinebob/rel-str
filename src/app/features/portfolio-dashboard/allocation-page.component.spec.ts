@@ -287,7 +287,7 @@ describe('AllocationPageComponent', () => {
   it('switching the account pill re-scopes all subtabs to the new account (#778)', async () => {
     await setup();
     const toggle = fixture.nativeElement.querySelector(`[data-testid="acct-toggle-${ACCT_B}"]`) as HTMLElement;
-    toggle.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
     await flush();
     fixture.detectChanges();

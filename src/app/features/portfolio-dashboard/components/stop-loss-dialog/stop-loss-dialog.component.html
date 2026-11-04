@@ -1,17 +1,39 @@
-<h2 mat-dialog-title>
+<h2 class="title">
   <mat-icon>shield</mat-icon>
-  Add Stop Loss — {{ symbol() }}
+  {{ isUpdate ? 'Update Stop Loss' : 'Add Stop Loss' }} — {{ symbol }}
 </h2>
 
-<mat-dialog-content>
+<div class="content">
   @switch (state()) {
+    @case ('picking') {
+      <div class="status-section">
+        <p>Multiple stops protect {{ symbol }}. Pick the one to replace:</p>
+        @for (order of candidates; track order.orderId) {
+          <button
+ type="button"
+ 
+ class="candidate-row ds-btn outline"
+ (click)="selectCandidate(order)"
+ >
+            <span class="candidate-main">Stop {{ order.stopPrice }}</span>
+            <span class="candidate-meta">
+              qty {{ order.quantity }} · {{ order.state }} · {{ order.createdAt?.slice(0, 10) }}
+            </span>
+          </button>
+        }
+      </div>
+    }
+
     @case ('editing') {
       <app-stop-loss-form
-        [symbol]="symbol()"
-        [quantity]="quantity()"
-        [referencePrice]="currentPrice()"
-        [accountNumber]="accountNumber()"
-        [disabled]="state() !== 'editing'"
+        [symbol]="symbol"
+        [quantity]="quantity"
+        [referencePrice]="currentPrice"
+        [accountNumber]="accountNumber"
+        [initialStopPrice]="isUpdate ? (targetOrder()?.stopPrice ?? null) : null"
+        [submitLabel]="isUpdate ? 'Update Stop' : 'Submit Stop Loss'"
+        [(timeInForce)]="formTimeInForce"
+        [(marketHours)]="formMarketHours"
         (placeStopLoss)="onSubmit($event)"
       />
     }
@@ -26,7 +48,7 @@
     @case ('success') {
       <div class="status-section success">
         <mat-icon>check_circle</mat-icon>
-        <h3>Stop Loss Placed</h3>
+        <h3>{{ isUpdate ? 'Stop Loss Updated' : 'Stop Loss Placed' }}</h3>
         <div class="result-row">
           <span class="label">Order ID</span>
           <span class="value">{{ result()?.result?.orderId ?? '—' }}</span>
@@ -45,35 +67,44 @@
     @case ('error') {
       <div class="status-section error">
         <mat-icon>error</mat-icon>
-        <h3>Stop Loss Failed</h3>
+        <h3>{{ isUpdate ? 'Update Failed' : 'Stop Loss Failed' }}</h3>
+        @if (unprotectedWarning()) {
+          <p class="error-message unprotected-warning">
+            The previous stop was cancelled — this position is currently
+            unprotected. Retry places the replacement without re-cancelling.
+          </p>
+        }
         <p class="error-message">{{ error() }}</p>
       </div>
     }
   }
-</mat-dialog-content>
+</div>
 
-<mat-dialog-actions align="end">
+<div class="actions" align="end">
   @switch (state()) {
+    @case ('picking') {
+      <button class="ds-btn outline" (click)="onCancel()">Cancel</button>
+    }
     @case ('editing') {
-      <button mat-stroked-button (click)="onCancel()">Cancel</button>
+      <button class="ds-btn outline" (click)="onCancel()">Cancel</button>
     }
     @case ('submitting') {
-      <button mat-stroked-button disabled>Submitting...</button>
+      <button class="ds-btn outline" disabled>Submitting...</button>
     }
     @case ('success') {
-      <button mat-flat-button color="primary" (click)="onDone()">
+      <button class="ds-btn fill" (click)="onDone()">
         <mat-icon>done</mat-icon>
         Done
       </button>
     }
     @case ('error') {
-      <button mat-stroked-button (click)="onCancel()">Cancel</button>
+      <button class="ds-btn outline" (click)="onCancel()">Cancel</button>
       @if (canRetry()) {
-        <button mat-flat-button color="primary" (click)="onRetry()">
+        <button class="ds-btn fill" (click)="onRetry()">
           <mat-icon>refresh</mat-icon>
           Retry
         </button>
       }
     }
   }
-</mat-dialog-actions>
+</div>

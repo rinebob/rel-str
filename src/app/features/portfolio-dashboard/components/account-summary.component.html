@@ -8,7 +8,7 @@
     <div class="pd-section-error" aria-live="polite" aria-atomic="true">
       <mat-icon class="pd-section-error-icon">error</mat-icon>
       <span class="pd-section-error-text">{{ err }}</span>
-      <button type="button" mat-stroked-button class="pd-section-retry" (click)="retry.emit()">Retry</button>
+      <button type="button" class="pd-section-retry ds-btn outline" (click)="retry.emit()">Retry</button>
     </div>
   } @else if (snapshot(); as snap) {
     <div class="pd-summary-grid">

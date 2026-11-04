@@ -13,11 +13,11 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../shared/ds/ds-dialog';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 
 import { AllocationStore } from './allocation.store';
 import { fmtDollars } from './allocation.types';
@@ -32,7 +32,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
 
 @Component({
   selector: 'app-allocation-page',
-  imports: [RouterLink, MatButtonModule, MatIconModule, MatTabsModule, MatTooltipModule, DatePipe,
+  imports: [RouterLink, MatIconModule, MatTabsModule, DatePipe,
     AccountSwitcherComponent, AllocationBucketsTableComponent, AllocationPositionsTableComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -68,8 +68,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
                 <span class="sb-value">{{ fmt(hdr.cash) }}</span>
                 @if (hdr.cashDiverged) {
                   <span class="diverged" data-testid="cash-diverged"
-                    tabindex="0" role="img" aria-label="Cash divergence warning — broker vs derived mismatch"
-                    matTooltip="Broker cash {{ fmt(hdr.cash) }} vs derived {{ fmt(hdr.derivedCash) }} — positions snapshot may be stale"
+                    tabindex="0" role="img" aria-label="Cash divergence warning — broker vs derived mismatch" title="Broker cash {{ fmt(hdr.cash) }} vs derived {{ fmt(hdr.derivedCash) }} — positions snapshot may be stale"
                   >⚠</span>
                 }
               </span>
@@ -86,17 +85,16 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
         }
         <div class="bar-actions">
           @if (accounts.length) {
-            <button mat-stroked-button type="button" data-testid="create-bucket-btn"
-              (click)="openCreate()"
-            ><mat-icon>add</mat-icon> New bucket</button>
+            <button class="ds-btn outline" type="button" data-testid="create-bucket-btn"
+ (click)="openCreate()"
+ ><mat-icon>add</mat-icon> New bucket</button>
           }
-          <a mat-stroked-button [routerLink]="portfolioRoute" data-testid="back-to-portfolio">Portfolio</a>
-          <button mat-icon-button type="button" data-testid="refresh-btn"
-            [disabled]="store.selectedAllocation().loading"
-            (click)="onRefresh()"
-            aria-label="Refresh allocations"
-            matTooltip="Reload account data"
-          ><mat-icon>refresh</mat-icon></button>
+          <a class="ds-btn outline" [routerLink]="portfolioRoute" data-testid="back-to-portfolio">Portfolio</a>
+          <button class="icon-btn" type="button" data-testid="refresh-btn"
+ [disabled]="store.selectedAllocation().loading"
+ (click)="onRefresh()"
+ aria-label="Refresh allocations" title="Reload account data"
+ ><mat-icon>refresh</mat-icon></button>
         </div>
       </header>
 
@@ -162,7 +160,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
 })
 export class AllocationPageComponent implements OnInit {
   protected readonly store = inject(AllocationStore);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
 
   /** Same `allocationRoute` convention as the dashboard (#776). */
   readonly portfolioRoute = '/' + AppRoutes.PORTFOLIO_DASHBOARD;

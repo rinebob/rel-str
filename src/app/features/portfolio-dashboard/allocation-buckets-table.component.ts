@@ -17,10 +17,9 @@
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
+
+import { DsDialogService } from '../../shared/ds/ds-dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AllocationStore } from './allocation.store';
 import {
@@ -39,16 +38,15 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
 
 @Component({
   selector: 'app-allocation-buckets-table',
-  // NB: no MatDialogModule here — its providers:[MatDialog] would shadow
+  // NB: no  here — its providers:[DsDialogService] would shadow
   // test mocks; the dialog component itself imports what it needs.
-  imports: [MatButtonModule, MatIconModule, MatTooltipModule, NgTemplateOutlet],
+  imports: [ MatIconModule, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="buckets-pane">
       @if (overTarget(); as total) {
         <div class="warn-banner" data-testid="target-over-100" tabindex="0"
-          role="note" aria-label="Bucket targets exceed 100 percent of account cash"
-          matTooltip="Targets are advisory — assignments never block"
+          role="note" aria-label="Bucket targets exceed 100 percent of account cash" title="Targets are advisory — assignments never block"
         >Targets sum to {{ total }}% of account cash — over 100%.</div>
       }
 
@@ -114,22 +112,19 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
           <td>{{ row.bucket.status }}</td>
           <td class="actions">
             @if (row.bucket.status === BucketStatus.ACTIVE) {
-              <button mat-icon-button type="button" [attr.data-testid]="'edit-' + row.bucket.id"
-                matTooltip="Edit name / target" aria-label="Edit bucket"
-                (click)="openEdit(row)">
+              <button class="icon-btn" type="button" [attr.data-testid]="'edit-' + row.bucket.id" title="Edit name / target" aria-label="Edit bucket"
+ (click)="openEdit(row)">
                 <mat-icon>edit</mat-icon>
               </button>
-              <button mat-icon-button type="button" [attr.data-testid]="'retire-' + row.bucket.id"
-                matTooltip="Retire — keeps history, blocks new attributions"
-                aria-label="Retire bucket"
-                (click)="openRetire(row)">
+              <button class="icon-btn" type="button" [attr.data-testid]="'retire-' + row.bucket.id" title="Retire — keeps history, blocks new attributions"
+ aria-label="Retire bucket"
+ (click)="openRetire(row)">
                 <mat-icon>archive</mat-icon>
               </button>
             }
-            <button mat-icon-button type="button" [attr.data-testid]="'delete-' + row.bucket.id"
-              matTooltip="Delete — contents return to Unassigned"
-              aria-label="Delete bucket"
-              (click)="openDelete(row)">
+            <button class="icon-btn" type="button" [attr.data-testid]="'delete-' + row.bucket.id" title="Delete — contents return to Unassigned"
+ aria-label="Delete bucket"
+ (click)="openDelete(row)">
               <mat-icon>delete</mat-icon>
             </button>
           </td>
@@ -193,7 +188,7 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
 export class AllocationBucketsTableComponent {
   protected readonly store = inject(AllocationStore);
   protected readonly BucketStatus = BucketStatus;
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
 
   /** Main table: active buckets, Unassigned, Cash pinned last. Retired
    *  buckets are not rendered anywhere — the retired section was removed

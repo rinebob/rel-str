@@ -42,7 +42,7 @@
       <div class="pg-state pg-error">
         <mat-icon>error_outline</mat-icon>
         <p>{{ facade.loadError() }}</p>
-        <button mat-stroked-button (click)="facade.refresh()">Retry</button>
+        <button class="ds-btn outline" (click)="facade.refresh()">Retry</button>
       </div>
     } @else if (facade.noPositions()) {
       <div class="pg-state">

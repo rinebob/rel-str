@@ -1,35 +1,35 @@
-<h2 mat-dialog-title>
+<h2 class="title">
   <mat-icon>sell</mat-icon>
   Close Position — {{ symbol() }}
 </h2>
 
-<mat-dialog-content>
+<div class="content">
   @switch (state()) {
     @case ('editing') {
       <div class="form-section">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Symbol</mat-label>
-          <input matInput [value]="symbol()" readonly>
-        </mat-form-field>
+        <label class="dse-field">
+          <span class="field-label">Symbol</span>
+          <input class="field-input" [value]="symbol()" readonly>
+        </label>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Quantity (max {{ positionQuantity() }})</mat-label>
-          <input matInput type="number" [value]="quantity()" (input)="quantity.set($any($event.target).value)">
-        </mat-form-field>
+        <label class="dse-field">
+          <span class="field-label">Quantity (max {{ positionQuantity() }})</span>
+          <input class="field-input" type="number" [value]="quantity()" (input)="quantity.set($any($event.target).value)">
+        </label>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Order Type</mat-label>
+        <label class="dse-field">
+          <span class="field-label">Order Type</span>
           <mat-select [value]="orderType()" (selectionChange)="onOrderTypeChange($event.value)">
             <mat-option value="market">Market</mat-option>
             <mat-option value="limit">Limit</mat-option>
           </mat-select>
-        </mat-form-field>
+        </label>
 
         @if (isLimit()) {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Limit Price</mat-label>
-            <input matInput type="number" [value]="limitPrice()" (input)="limitPrice.set($any($event.target).value)">
-          </mat-form-field>
+          <label class="dse-field">
+            <span class="field-label">Limit Price</span>
+            <input class="field-input" type="number" [value]="limitPrice()" (input)="limitPrice.set($any($event.target).value)">
+          </label>
         }
       </div>
     }
@@ -72,34 +72,34 @@
       </div>
     }
   }
-</mat-dialog-content>
+</div>
 
-<mat-dialog-actions align="end">
+<div class="actions" align="end">
   @switch (state()) {
     @case ('editing') {
-      <button mat-stroked-button (click)="onCancel()">Cancel</button>
-      <button mat-flat-button color="warn" (click)="onSubmit()" [disabled]="!canSubmit()">
+      <button class="ds-btn outline" (click)="onCancel()">Cancel</button>
+      <button class="ds-btn danger" (click)="onSubmit()" [disabled]="!canSubmit()">
         <mat-icon>send</mat-icon>
         Submit
       </button>
     }
     @case ('submitting') {
-      <button mat-stroked-button disabled>Submitting...</button>
+      <button class="ds-btn outline" disabled>Submitting...</button>
     }
     @case ('success') {
-      <button mat-flat-button color="primary" (click)="onDone()">
+      <button class="ds-btn fill" (click)="onDone()">
         <mat-icon>done</mat-icon>
         Done
       </button>
     }
     @case ('error') {
-      <button mat-stroked-button (click)="onCancel()">Cancel</button>
+      <button class="ds-btn outline" (click)="onCancel()">Cancel</button>
       @if (canRetry()) {
-        <button mat-flat-button color="primary" (click)="onRetry()">
+        <button class="ds-btn fill" (click)="onRetry()">
           <mat-icon>refresh</mat-icon>
           Retry
         </button>
       }
     }
   }
-</mat-dialog-actions>
+</div>

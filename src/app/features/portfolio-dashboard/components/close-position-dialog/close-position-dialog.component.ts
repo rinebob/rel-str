@@ -8,11 +8,12 @@
  */
 import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
+
 import { MatIconModule } from '@angular/material/icon';
 
 import { OrderExecutionService, ExecutionResult } from '../../../savant-trader/services/order-execution.service';
@@ -33,20 +34,17 @@ type DialogState = 'editing' | 'submitting' | 'success' | 'error';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatDialogModule,
-    MatIconModule,
-  ],
+    MatIconModule],
   templateUrl: './close-position-dialog.component.html',
   styleUrl: './close-position-dialog.component.scss',
 })
 export class ClosePositionDialogComponent {
-  private readonly dialogRef = inject(MatDialogRef<ClosePositionDialogComponent, boolean>);
+  private readonly dialogRef = inject(DsDialogRef<ClosePositionDialogComponent, boolean>);
   private readonly orderExecution = inject(OrderExecutionService);
-  private readonly data = inject(MAT_DIALOG_DATA) as ClosePositionDialogData;
+  private readonly data = inject(DS_DIALOG_DATA) as ClosePositionDialogData;
 
   readonly symbol = computed(() => this.data.position.symbol);
   readonly positionQuantity = computed(() => this.data.position.quantity ?? 0);

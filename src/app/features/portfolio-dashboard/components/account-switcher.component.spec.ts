@@ -73,7 +73,7 @@ describe('AccountSwitcherComponent', () => {
     const emitted: number[] = [];
     fixture.componentInstance.selectionChange.subscribe((i: number) => emitted.push(i));
 
-    pill('222').querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    pill('222').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
 
     expect(emitted).toEqual([1]);
@@ -84,7 +84,7 @@ describe('AccountSwitcherComponent', () => {
     const emitted: number[] = [];
     fixture.componentInstance.selectionChange.subscribe((i: number) => emitted.push(i));
 
-    pill('111').querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    pill('111').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
 
     expect(emitted).toEqual([]);

@@ -11,8 +11,9 @@
  * dead-end). The caller gets `true` on success, `undefined` on cancel.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
+import { DS_DIALOG_DATA } from '../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../shared/ds/ds-dialog';
+
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -34,11 +35,11 @@ export interface BucketDialogResult {
 
 @Component({
   selector: 'app-allocation-bucket-dialog',
-  imports: [MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule],
+  imports: [ MatFormFieldModule, MatInputModule, MatProgressSpinnerModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title>{{ title() }}</h2>
-    <mat-dialog-content>
+    <h2 class="title">{{ title() }}</h2>
+    <div class="content">
       @if (data.mode === 'retire') {
         <p>
           Retire bucket <b>{{ data.bucket?.name }}</b>? Retired buckets keep
@@ -52,55 +53,55 @@ export interface BucketDialogResult {
           bucket remains — no history row, no stats.
         </p>
       } @else {
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Bucket name</mat-label>
-          <input matInput data-testid="bucket-name-input"
+        <label class="dse-field">
+          <span class="field-label">Bucket name</span>
+          <input class="field-input" data-testid="bucket-name-input"
             [value]="name()" (input)="name.set($any($event.target).value)"
             placeholder="e.g. Theta wheel"
           />
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Target %</mat-label>
-          <input matInput type="number" min="0" max="100" step="0.5"
+        </label>
+        <label class="dse-field">
+          <span class="field-label">Target %</span>
+          <input class="field-input" type="number" min="0" max="100" step="0.5"
             data-testid="bucket-pct-input"
             [value]="pct()" (input)="pct.set($any($event.target).valueAsNumber)"
           />
-          <mat-hint>Percent of account cash basis — warn-not-block over 100% total</mat-hint>
-        </mat-form-field>
+          <span class="field-hint">Percent of account cash basis — warn-not-block over 100% total</span>
+        </label>
       }
       @if (error(); as err) {
         <div class="dialog-error" data-testid="dialog-error" role="alert">{{ err }}</div>
       }
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-stroked-button type="button" data-testid="dialog-cancel"
-        [disabled]="pending()" (click)="ref.close(undefined)"
-      >Cancel</button>
+    </div>
+    <div class="actions" align="end">
+      <button class="ds-btn outline" type="button" data-testid="dialog-cancel"
+ [disabled]="pending()" (click)="ref.close(undefined)"
+ >Cancel</button>
       @if (data.mode === 'retire' || data.mode === 'delete') {
-        <button mat-flat-button color="warn" type="button" data-testid="dialog-confirm"
-          [disabled]="pending()"
-          (click)="data.mode === 'retire' ? confirmRetire() : confirmDelete()"
-        >
+        <button class="ds-btn danger" type="button" data-testid="dialog-confirm"
+ [disabled]="pending()"
+ (click)="data.mode === 'retire' ? confirmRetire() : confirmDelete()"
+ >
           @if (pending()) { <mat-spinner diameter="18" /> }
           {{ data.mode === 'retire' ? 'Retire' : 'Delete' }}
         </button>
       } @else {
-        <button mat-flat-button color="primary" type="button" data-testid="dialog-save"
-          [disabled]="!valid() || pending()"
-          (click)="save()"
-        >
+        <button class="ds-btn fill" type="button" data-testid="dialog-save"
+ [disabled]="!valid() || pending()"
+ (click)="save()"
+ >
           @if (pending()) { <mat-spinner diameter="18" /> }
           {{ data.mode === 'create' ? 'Create' : 'Save' }}
         </button>
       }
-    </mat-dialog-actions>
+    </div>
   `,
   styleUrl: './allocation-bucket-dialog.component.scss',
 })
 export class AllocationBucketDialogComponent {
-  protected readonly data = inject<BucketDialogData>(MAT_DIALOG_DATA);
+  protected readonly data = inject<BucketDialogData>(DS_DIALOG_DATA);
   protected readonly ref = inject(
-    MatDialogRef<AllocationBucketDialogComponent, true | undefined>,
+    DsDialogRef<AllocationBucketDialogComponent, true | undefined>,
   );
   private readonly store = inject(AllocationStore);
 

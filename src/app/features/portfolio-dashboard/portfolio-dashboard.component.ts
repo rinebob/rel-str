@@ -13,14 +13,16 @@
  * (loadAccounts → loadPhase1 → loadPhase2) with concurrency guard.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ComponentType } from '@angular/cdk/portal';
 import { RouterLink } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../shared/ds/ds-dialog';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../shared/ds/ds-toast.service';
+
 import { MatTabsModule } from '@angular/material/tabs';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 
 import { AppRoutes } from '../../core/common/interfaces';
 import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
@@ -47,26 +49,23 @@ import { orderMark } from './utils/order-mark.util';
   standalone: true,
   imports: [
     RouterLink,
-    MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatTabsModule,
-    MatTooltipModule,
     AccountSummaryComponent,
     AccountSwitcherComponent,
     EquityPositionsTableComponent,
     OptionPositionsTableComponent,
     OpenOrdersTableComponent,
-    OrderHistoryTableComponent,
-  ],
+    OrderHistoryTableComponent],
   templateUrl: './portfolio-dashboard.component.html',
   styleUrl: './portfolio-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PortfolioDashboardComponent implements OnInit {
   readonly store = inject(PortfolioDashboardStore);
-  private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(DsDialogService);
+  private readonly snackBar = inject(DsToastService);
   private readonly orderExecution = inject(OrderExecutionService);
 
   readonly summary = this.store.aggregateSummary;
@@ -81,6 +80,9 @@ export class PortfolioDashboardComponent implements OnInit {
   readonly openOrders = this.store.openOrders;
   readonly orderHistory = this.store.orderHistory;
   readonly protectedSymbols = this.store.stopLossProtectedSymbols;
+  /** Live equity stops eligible for Update Stop, grouped by symbol (#888). */
+  readonly updatableStops = this.store.updatableStops;
+  readonly updatableSymbols = computed(() => new Set(this.updatableStops().keys()));
   /** Whether the selected account is agent-enabled (controls action button visibility). */
   readonly agenticAllowed = computed(() => this.selectedAccount()?.agenticAllowed ?? false);
 
@@ -147,14 +149,7 @@ export class PortfolioDashboardComponent implements OnInit {
       currentPrice: position.currentPrice ?? 0,
       accountNumber: account.accountNumber,
     };
-    this.dialog
-      .open(ClosePositionDialogComponent, { data })
-      .afterClosed()
-      .subscribe((result) => {
-        if (result === true) {
-          this.store.refresh().catch(() => {});
-        }
-      });
+    this.openThenRefresh(ClosePositionDialogComponent, data);
   }
 
   onAddStopLoss(position: EquityPositionWithPnL): void {
@@ -165,8 +160,29 @@ export class PortfolioDashboardComponent implements OnInit {
       currentPrice: position.currentPrice ?? 0,
       accountNumber: account.accountNumber,
     };
+    this.openThenRefresh(StopLossDialogComponent, data);
+  }
+
+  /** Update Stop — opens the same dialog in update mode with the symbol's
+   *  live protective stops as replacement candidates (#888). */
+  onUpdateStop(position: EquityPositionWithPnL): void {
+    const account = this.selectedAccount();
+    const candidates = this.updatableStops().get(position.symbol);
+    if (!account || !candidates?.length) return;
+    const data: StopLossDialogData = {
+      position,
+      currentPrice: position.currentPrice ?? 0,
+      accountNumber: account.accountNumber,
+      update: { candidates },
+    };
+    this.openThenRefresh(StopLossDialogComponent, data);
+  }
+
+  /** Open a dialog that reports mutation via close(true) — refresh the
+   *  dashboard so position/order state reconciles with the broker. */
+  private openThenRefresh<T>(component: ComponentType<T>, data: unknown): void {
     this.dialog
-      .open(StopLossDialogComponent, { data })
+      .open(component, { data })
       .afterClosed()
       .subscribe((result) => {
         if (result === true) {

@@ -7,13 +7,11 @@
  * accounts (manual-only path). Rows carrying linkKey move as a group.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
+
+
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../shared/ds/ds-dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AllocationStore } from './allocation.store';
 import {
@@ -25,38 +23,47 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
 
 @Component({
   selector: 'app-allocation-positions-table',
-  imports: [MatButtonModule, MatButtonToggleModule, MatCheckboxModule, MatIconModule, MatMenuModule, MatTooltipModule],
+  imports: [ MatCheckboxModule, MatIconModule],
+  host: { '(document:click)': 'bulkMenuOpen.set(false)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="positions-pane">
       <div class="pane-toolbar">
-        <mat-button-toggle-group class="filter" [value]="filter()" aria-label="Position filter">
-          <mat-button-toggle value="all" data-testid="filter-all"
+        <div class="pill-group filter" role="radiogroup" aria-label="Position filter">
+          <button type="button" class="pill" role="radio" data-testid="filter-all"
+            [attr.aria-checked]="filter() === 'all'"
+            [class.active]="filter() === 'all'"
             (click)="filter.set('all')"
-          >All</mat-button-toggle>
-          <mat-button-toggle value="unassigned" data-testid="filter-unassigned"
+          >All</button>
+          <button type="button" class="pill" role="radio" data-testid="filter-unassigned"
+            [attr.aria-checked]="filter() === 'unassigned'"
+            [class.active]="filter() === 'unassigned'"
             (click)="filter.set('unassigned')"
-          >Unassigned ({{ unassignedCount() }})</mat-button-toggle>
-        </mat-button-toggle-group>
+          >Unassigned ({{ unassignedCount() }})</button>
+        </div>
 
         @if (selection().size > 0) {
           <span class="selection-bar" data-testid="selection-bar">
             {{ selection().size }} selected
-            <button mat-stroked-button type="button" data-testid="bulk-actions"
-              [disabled]="bulkPending()" [matMenuTriggerFor]="bulkMenu"
-            >Actions</button>
+            <span class="ms-menu-host">
+            <button class="ds-btn outline" type="button" data-testid="bulk-actions"
+ [disabled]="bulkPending()" aria-haspopup="menu" [attr.aria-expanded]="bulkMenuOpen()"
+ (click)="toggleBulkMenu($event)"
+ >Actions</button>
+            @if (bulkMenuOpen()) {
+            <div class="dse-menu bulk-menu" role="menu" (click)="$event.stopPropagation()">
+              <button class="menu-item" role="menuitem" type="button" data-testid="bulk-assign"
+                (click)="bulkMenuOpen.set(false); openBulkAssign()"
+              >Assign to bucket…</button>
+              <button class="menu-item" role="menuitem" type="button" data-testid="bulk-unassign"
+                (click)="bulkMenuOpen.set(false); bulkUnassign()"
+              >Unassign</button>
+            </div>
+            }
+            </span>
           </span>
         }
       </div>
-
-      <mat-menu #bulkMenu="matMenu">
-        <button mat-menu-item type="button" data-testid="bulk-assign"
-          (click)="openBulkAssign()"
-        >Assign to bucket…</button>
-        <button mat-menu-item type="button" data-testid="bulk-unassign"
-          (click)="bulkUnassign()"
-        >Unassign</button>
-      </mat-menu>
 
       @if (bulkError(); as err) {
         <div class="bulk-error" data-testid="bulk-error" role="alert">{{ err }}</div>
@@ -67,10 +74,10 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
         <thead>
           <tr>
             <th class="chk">
-              <mat-checkbox data-testid="select-all"
+              <label class="dse-check"><input type="checkbox" data-testid="select-all"
                 [checked]="allSelected()" [indeterminate]="someSelected()"
-                (change)="toggleAll($event.checked)" aria-label="Select all"
-              />
+                (change)="toggleAll($event.target.checked)" aria-label="Select all"
+              ></label>
             </th>
             <th>Instrument</th><th class="num">Market value</th><th>Bucket</th><th></th>
           </tr>
@@ -79,27 +86,26 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
           @for (row of rows(); track row.position.instrumentId) {
             <tr [attr.data-testid]="'position-row-' + row.position.instrumentId">
               <td class="chk">
-                <mat-checkbox [attr.data-testid]="'select-' + row.position.instrumentId"
+                <label class="dse-check"><input type="checkbox" [attr.data-testid]="'select-' + row.position.instrumentId"
                   [checked]="selection().has(row.position.instrumentId)"
-                  (change)="toggle(row.position.instrumentId, $event.checked)"
+                  (change)="toggle(row.position.instrumentId, $event.target.checked)"
                   [attr.aria-label]="'Select ' + row.position.instrumentId"
-                />
+                ></label>
               </td>
               <td>{{ row.position.instrumentId }}</td>
               <td class="num">{{ fmt(row.position.marketValue) }}</td>
               <td [class.dim]="row.bucketId === null">
                 {{ row.bucketName }}
                 @if (row.linkKey) {
-                  <mat-icon class="link-icon" data-testid="link-icon"
-                    matTooltip="Linked multi-leg order — moves as a group"
+                  <mat-icon class="link-icon" data-testid="link-icon" title="Linked multi-leg order — moves as a group"
                   >link</mat-icon>
                 }
               </td>
               <td class="actions">
-                <button mat-stroked-button type="button"
-                  [attr.data-testid]="'assign-' + row.position.instrumentId"
-                  (click)="openAssign(row)"
-                >{{ row.bucketId === null ? 'Assign' : 'Move' }}</button>
+                <button class="ds-btn outline" type="button"
+ [attr.data-testid]="'assign-' + row.position.instrumentId"
+ (click)="openAssign(row)"
+ >{{ row.bucketId === null ? 'Assign' : 'Move' }}</button>
               </td>
             </tr>
           } @empty {
@@ -116,7 +122,7 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
 })
 export class AllocationPositionsTableComponent {
   protected readonly store = inject(AllocationStore);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
 
   readonly filter = signal<'all' | 'unassigned'>('all');
 
@@ -143,6 +149,9 @@ export class AllocationPositionsTableComponent {
   readonly selection = signal(new Set<string>());
   readonly bulkPending = signal(false);
   readonly bulkError = signal<string | null>(null);
+
+  /** ds-menu dropdown — bulk actions panel open state. */
+  readonly bulkMenuOpen = signal(false);
 
   readonly allSelected = computed(() => {
     const rows = this.rows();
@@ -190,6 +199,12 @@ export class AllocationPositionsTableComponent {
         currentBucketId: row.bucketId,
       } satisfies AssignDialogData,
     });
+  }
+
+  /** ds-menu trigger — toggle the bulk actions panel. */
+  toggleBulkMenu(event: Event): void {
+    event.stopPropagation();
+    this.bulkMenuOpen.update((v) => !v);
   }
 
   openBulkAssign(): void {

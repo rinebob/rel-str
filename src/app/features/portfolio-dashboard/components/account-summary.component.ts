@@ -6,7 +6,7 @@
  * empty states.
  */
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
@@ -15,7 +15,7 @@ import { PortfolioSnapshot } from '../../../core/robinhood-mcp/types/robinhood-m
 @Component({
   selector: 'app-account-summary',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [ MatIconModule, MatProgressSpinnerModule],
   templateUrl: './account-summary.component.html',
   styleUrl: './account-summary.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

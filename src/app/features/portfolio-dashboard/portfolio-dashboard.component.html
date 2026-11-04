@@ -45,26 +45,24 @@
 
     <div class="bar-actions">
       <button
-        type="button"
-        mat-icon-button
-        class="pd-privacy"
-        (click)="toggleAmounts()"
-        [attr.aria-pressed]="showAmounts()"
-        aria-label="Toggle dollar amount visibility"
-        [matTooltip]="showAmounts() ? 'Hide dollar amounts' : 'Show dollar amounts'"
-      >
+ type="button"
+ 
+ class="pd-privacy icon-btn"
+ (click)="toggleAmounts()"
+ [attr.aria-pressed]="showAmounts()"
+ aria-label="Toggle dollar amount visibility" [title]="showAmounts() ? 'Hide dollar amounts' : 'Show dollar amounts'"
+ >
         <mat-icon>{{ showAmounts() ? 'visibility' : 'visibility_off' }}</mat-icon>
       </button>
-      <a mat-stroked-button class="pd-alloc-link" [routerLink]="allocationRoute">Allocations</a>
+      <a class="pd-alloc-link ds-btn outline" [routerLink]="allocationRoute">Allocations</a>
       <button
-        type="button"
-        mat-icon-button
-        class="pd-refresh"
-        (click)="onRefresh()"
-        [disabled]="globalLoading()"
-        aria-label="Refresh dashboard"
-        matTooltip="Refresh all data"
-      >
+ type="button"
+ 
+ class="pd-refresh icon-btn"
+ (click)="onRefresh()"
+ [disabled]="globalLoading()"
+ aria-label="Refresh dashboard" title="Refresh all data"
+ >
         <mat-icon>refresh</mat-icon>
       </button>
     </div>
@@ -85,7 +83,7 @@
       <div class="pd-error-banner" aria-live="polite" aria-atomic="true">
         <mat-icon aria-hidden="true">error</mat-icon>
         <span class="error-text">{{ error }}</span>
-        <button type="button" mat-stroked-button (click)="onRefresh()" [disabled]="globalLoading()">Retry</button>
+        <button class="ds-btn outline" type="button" (click)="onRefresh()" [disabled]="globalLoading()">Retry</button>
       </div>
     }
 
@@ -112,10 +110,12 @@
                 [loading]="sel.equityPositions.loading"
                 [error]="sel.equityPositions.error"
                 [protectedSymbols]="protectedSymbols()"
+                [updatableSymbols]="updatableSymbols()"
                 [agenticAllowed]="agenticAllowed()"
                 (retry)="onRetrySection('equityPositions')"
                 (closePosition)="onClosePosition($event)"
                 (addStopLoss)="onAddStopLoss($event)"
+                (updateStopLoss)="onUpdateStop($event)"
               />
             </div>
           </mat-tab>

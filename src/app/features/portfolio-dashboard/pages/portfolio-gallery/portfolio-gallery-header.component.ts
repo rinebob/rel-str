@@ -7,9 +7,7 @@
  * signal timeframe; the D/W pill is chart context only.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
 
 import {
   SymbolListFilter,
@@ -32,13 +30,12 @@ const DIMENSION_OPTIONS: RhSelectOption<PositionGroupDimension>[] = [
   { value: PositionGroupDimension.SECTOR,   label: 'Sector' },
   { value: PositionGroupDimension.INDUSTRY, label: 'Industry' },
   { value: PositionGroupDimension.CAP_TIER, label: 'Market Cap' },
-  { value: PositionGroupDimension.NONE,     label: 'None' },
-];
+  { value: PositionGroupDimension.NONE,     label: 'None' }];
 
 @Component({
   selector: 'app-portfolio-gallery-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatTooltipModule, MatIconModule, MatButtonModule, RhSelectMenuComponent],
+  imports: [ MatIconModule, RhSelectMenuComponent],
   templateUrl: './portfolio-gallery-header.component.html',
   styleUrl: './portfolio-gallery-header.component.scss',
 })

@@ -3,8 +3,7 @@
  * mutations (order cancel, etc.). Returns true (confirm) or false (dismiss).
  */
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../shared/ds/ds-dialog';
 
 export interface ConfirmDialogData {
   title?: string;
@@ -16,23 +15,24 @@ export interface ConfirmDialogData {
 @Component({
   selector: 'app-pd-confirm-dialog',
   standalone: true,
-  imports: [MatButtonModule, MatDialogModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title>{{ data.title ?? 'Confirm' }}</h2>
-    <mat-dialog-content>
+    <h2 class="title">{{ data.title ?? 'Confirm' }}</h2>
+    <div class="content">
       <p>{{ data.message }}</p>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-stroked-button [mat-dialog-close]="false">
+    </div>
+    <div class="actions">
+      <button class="ds-btn outline" (click)="ref.close(false)">
         {{ data.cancelLabel ?? 'Back' }}
       </button>
-      <button mat-flat-button [mat-dialog-close]="true" cdkFocusInitial>
+      <button class="ds-btn fill" (click)="ref.close(true)" cdkFocusInitial>
         {{ data.confirmLabel ?? 'Confirm' }}
       </button>
-    </mat-dialog-actions>
+    </div>
   `,
 })
 export class ConfirmDialogComponent {
-  readonly data = inject(MAT_DIALOG_DATA) as ConfirmDialogData;
+  readonly data = inject(DS_DIALOG_DATA) as ConfirmDialogData;
+  protected readonly ref = inject(DsDialogRef<ConfirmDialogComponent, boolean>);
 }

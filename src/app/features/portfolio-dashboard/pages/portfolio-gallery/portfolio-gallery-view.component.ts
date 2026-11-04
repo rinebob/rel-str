@@ -10,7 +10,6 @@
  */
 import { ChangeDetectionStrategy, Component, effect, inject, OnInit } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { PortfolioGalleryFacade } from './portfolio-gallery.facade';
@@ -25,12 +24,10 @@ import { scheduleIdle, cancelIdle } from '../../../shared/utils/schedule-idle.ut
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatIconModule,
-    MatButtonModule,
     MatProgressSpinnerModule,
     PortfolioGalleryHeaderComponent,
     PositionCardComponent,
-    PositionGalleryGroupComponent,
-  ],
+    PositionGalleryGroupComponent],
   templateUrl: './portfolio-gallery-view.component.html',
   styleUrl: './portfolio-gallery-view.component.scss',
 })

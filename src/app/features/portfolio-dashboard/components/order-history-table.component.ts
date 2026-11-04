@@ -5,7 +5,6 @@
  * No actions column — terminal orders are immutable.
  */
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
@@ -26,7 +25,7 @@ type SortKey =
 @Component({
   selector: 'app-order-history-table',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [ MatIconModule, MatProgressSpinnerModule],
   templateUrl: './order-history-table.component.html',
   styleUrl: './order-history-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

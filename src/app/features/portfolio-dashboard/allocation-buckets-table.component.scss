@@ -60,12 +60,12 @@
 }
 
 /* Dense row-action buttons — 28px icon buttons. */
-.actions button[mat-icon-button] {
-  --mat-icon-button-state-layer-size: 28px;
+.actions .icon-btn {
   width: 28px;
   height: 28px;
   padding: 0;
-  --mat-icon-button-icon-size: 16px;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
 }
 
 .neg {

@@ -8,8 +8,9 @@
  * closes only on success, stays open with the error inline on failure.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
+import { DS_DIALOG_DATA } from '../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../shared/ds/ds-dialog';
+
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
 import { FormsModule } from '@angular/forms';
@@ -35,20 +36,25 @@ const UNASSIGNED = '__unassigned__';
 
 @Component({
   selector: 'app-allocation-assign-dialog',
-  imports: [MatDialogModule, MatButtonModule, MatProgressSpinnerModule, MatRadioModule, FormsModule],
+  imports: [ MatProgressSpinnerModule, MatRadioModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title>{{ title() }}</h2>
-    <mat-dialog-content>
-      <mat-radio-group [(ngModel)]="selected" class="picker"
-        aria-label="Assign to bucket">
+    <h2 class="title">{{ title() }}</h2>
+    <div class="content">
+      <div class="picker" role="radiogroup" aria-label="Assign to bucket">
         @for (b of data.buckets; track b.id) {
-          <mat-radio-button [value]="b.id" [attr.data-testid]="'pick-' + b.id"
-          >{{ b.name }} <span class="dim">({{ b.targetPct }}%)</span></mat-radio-button>
+          <label class="dse-radio" [attr.data-testid]="'pick-' + b.id">
+            <input type="radio" name="bucket-pick" [value]="b.id"
+              [(ngModel)]="selected" />
+            {{ b.name }} <span class="dim">({{ b.targetPct }}%)</span>
+          </label>
         }
-        <mat-radio-button [value]="UNASSIGNED" data-testid="pick-unassigned"
-        >Unassigned</mat-radio-button>
-      </mat-radio-group>
+        <label class="dse-radio" data-testid="pick-unassigned">
+          <input type="radio" name="bucket-pick" [value]="UNASSIGNED"
+            [(ngModel)]="selected" />
+          Unassigned
+        </label>
+      </div>
 
       @if (hasLinked()) {
         <p class="link-note" data-testid="link-note">
@@ -58,25 +64,25 @@ const UNASSIGNED = '__unassigned__';
       @if (error(); as err) {
         <div class="dialog-error" data-testid="dialog-error" role="alert">{{ err }}</div>
       }
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-stroked-button type="button" data-testid="dialog-cancel"
-        [disabled]="pending()" (click)="ref.close(undefined)"
-      >Cancel</button>
-      <button mat-flat-button color="primary" type="button" data-testid="dialog-save"
-        [disabled]="pending() || selected === current" (click)="save()"
-      >
+    </div>
+    <div class="actions" align="end">
+      <button class="ds-btn outline" type="button" data-testid="dialog-cancel"
+ [disabled]="pending()" (click)="ref.close(undefined)"
+ >Cancel</button>
+      <button class="ds-btn fill" type="button" data-testid="dialog-save"
+ [disabled]="pending() || selected === current" (click)="save()"
+ >
         @if (pending()) { <mat-spinner diameter="18" /> }
         {{ selected === UNASSIGNED ? 'Unassign' : (data.currentBucketId ? 'Move' : 'Assign') }}
       </button>
-    </mat-dialog-actions>
+    </div>
   `,
   styleUrl: './allocation-assign-dialog.component.scss',
 })
 export class AllocationAssignDialogComponent {
-  protected readonly data = inject<AssignDialogData>(MAT_DIALOG_DATA);
+  protected readonly data = inject<AssignDialogData>(DS_DIALOG_DATA);
   protected readonly ref = inject(
-    MatDialogRef<AllocationAssignDialogComponent, true | undefined>,
+    DsDialogRef<AllocationAssignDialogComponent, true | undefined>,
   );
   protected readonly UNASSIGNED = UNASSIGNED;
   private readonly store = inject(AllocationStore);

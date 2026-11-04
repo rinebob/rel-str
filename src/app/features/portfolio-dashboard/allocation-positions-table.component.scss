@@ -23,7 +23,6 @@
 }
 
 .pane-toolbar .filter {
-  --mat-button-toggle-height: 24px;
   font-size: 0.75rem;
 }
 
@@ -33,6 +32,17 @@
   gap: 10px;
   font-size: 0.85rem;
   color: var(--mat-sys-on-surface-variant);
+}
+
+.ms-menu-host {
+  position: relative;
+}
+
+.bulk-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
 }
 
 .bulk-error {
@@ -69,9 +79,8 @@
 
 /* Dense action buttons — the 24px outlined convention (≈⅔ of the 36px
    default) used by the dashboard's row actions. */
-.actions button[mat-stroked-button],
-.selection-bar button[mat-stroked-button] {
-  --mat-button-outlined-container-height: 24px;
+.actions .ds-btn.outline,
+.selection-bar .ds-btn.outline {
   height: 24px;
   min-width: 0;
   padding: 0 6px;

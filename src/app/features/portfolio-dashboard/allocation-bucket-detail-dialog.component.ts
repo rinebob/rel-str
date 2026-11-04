@@ -13,12 +13,12 @@
  */
 import { LowerCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
+import { DS_DIALOG_DATA } from '../../shared/ds/ds-dialog';
+import { DsDialogRef } from '../../shared/ds/ds-dialog';
+
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AllocationStore } from './allocation.store';
 import { fmtDollars, fmtQty as fmtQtyShared, positionPnl, type PositionRow } from './allocation.types';
@@ -32,11 +32,11 @@ export interface BucketDetailDialogData {
 
 @Component({
   selector: 'app-allocation-bucket-detail-dialog',
-  imports: [LowerCasePipe, MatDialogModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatSelectModule, MatTooltipModule],
+  imports: [LowerCasePipe, MatFormFieldModule, MatIconModule, MatSelectModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title class="title-row">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="bucket-picker">
+    <h2 class="title title-row">
+      <label class="dse-field bucket-picker">
         <mat-select [value]="viewingId()" (selectionChange)="switchBucket($event.value)"
           data-testid="bucket-switcher" aria-label="Viewed bucket">
           @for (b of buckets(); track b.id) {
@@ -45,7 +45,7 @@ export interface BucketDetailDialogData {
             </mat-option>
           }
         </mat-select>
-      </mat-form-field>
+      </label>
       @if (detail(); as d) {
         <span class="meta dim">
           target {{ d.bucket.targetPct }}% · {{ d.bucket.status }}
@@ -53,7 +53,7 @@ export interface BucketDetailDialogData {
       }
     </h2>
 
-    <mat-dialog-content>
+    <div class="content">
       @if (detail(); as d) {
         <div class="stats-strip" data-testid="stats-strip">
           <span class="sb-item"><span class="sb-label">Exposure</span> <span class="sb-value">{{ fmt(d.stats.exposure) }}</span></span>
@@ -71,10 +71,10 @@ export interface BucketDetailDialogData {
 
         <div class="carousel" data-testid="position-carousel">
           @if (shown(); as pos) {
-            <button mat-icon-button type="button" data-testid="carousel-prev"
-              [disabled]="shownIdx() <= 0" aria-label="Previous position"
-              (click)="idx.set(shownIdx() - 1)"
-            ><mat-icon>chevron_left</mat-icon></button>
+            <button class="icon-btn" type="button" data-testid="carousel-prev"
+ [disabled]="shownIdx() <= 0" aria-label="Previous position"
+ (click)="idx.set(shownIdx() - 1)"
+ ><mat-icon>chevron_left</mat-icon></button>
             <div class="pos-card">
               <div class="pos-head">
                 <b>{{ pos.position.instrumentId }}</b>
@@ -99,8 +99,8 @@ export interface BucketDetailDialogData {
                 Trade chart — spec TBD
               </div>
             </div>
-            <button mat-icon-button type="button" data-testid="carousel-next"
-              [disabled]="shownIdx() >= d.positions.length - 1" aria-label="Next position"
+            <button class="icon-btn" type="button" data-testid="carousel-next"
+ [disabled]="shownIdx() >= d.positions.length - 1" aria-label="Next position"
               (click)="idx.set(shownIdx() + 1)"
             ><mat-icon>chevron_right</mat-icon></button>
           } @else {
@@ -123,17 +123,17 @@ export interface BucketDetailDialogData {
           This bucket no longer exists — it may have been deleted.
         </div>
       }
-    </mat-dialog-content>
+    </div>
 
-    <mat-dialog-actions align="end">
-      <button mat-stroked-button type="button" data-testid="dialog-close" (click)="ref.close()">Close</button>
-    </mat-dialog-actions>
+    <div class="actions" align="end">
+      <button class="ds-btn outline" type="button" data-testid="dialog-close" (click)="ref.close()">Close</button>
+    </div>
   `,
   styleUrl: './allocation-bucket-detail-dialog.component.scss',
 })
 export class AllocationBucketDetailDialogComponent {
-  protected readonly data = inject<BucketDetailDialogData>(MAT_DIALOG_DATA);
-  protected readonly ref = inject(MatDialogRef<AllocationBucketDetailDialogComponent>);
+  protected readonly data = inject<BucketDetailDialogData>(DS_DIALOG_DATA);
+  protected readonly ref = inject(DsDialogRef<AllocationBucketDetailDialogComponent>);
   protected readonly store = inject(AllocationStore);
 
   /** The bucket currently being viewed — switchable in place. */
