@@ -1,30 +1,34 @@
 /**
  * Options Replay Run List Component
  *
- * Runs table for the Selection Replay section — status, run ID, created
- * timestamp, template name (resolved from the shared REPLAY_TEMPLATES
- * registry), symbols, and list progress with a failed-count badge.
+ * Per-symbol rows table for the Selection Replay section — one row per
+ * (runId, symbol) derived upstream by OptionsReplayStore.runRows /
+ * filteredRows. Shows symbol-level status (from the run's listOutcomes),
+ * run ID, created timestamp, template name (resolved from the shared
+ * REPLAY_TEMPLATES registry), and run-level progress context with a
+ * failed badge. Row click emits the (runId, symbol) pair.
  */
 import { Component, input, output, ChangeDetectionStrategy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import type { OptionsReplayRunUi } from '../../common/options-replay.types';
+import type { ReplayListRow, ReplaySelection } from '../../common/options-replay.types';
 import { getReplayTemplate } from '@options-replay/templates';
 import { getBacktestStatusVisuals, formatBacktestTimestamp, formatBacktestRunId } from '../../utils/backtest.utils';
 
-/** View model that pre-computes all display values for the run list row. */
-export interface OptionsReplayRunListRow extends OptionsReplayRunUi {
+/** View model that pre-computes all display values for a per-symbol row. */
+export interface OptionsReplaySymbolListRow extends ReplayListRow {
   formattedRunId: string;
   formattedCreated: string;
+  startDateText: string;
   templateName: string;
-  symbolsText: string;
-  statusColorName: string;
-  statusIconName: string;
+  symbolStatusColorName: string;
+  symbolStatusIconName: string;
   progressText: string;
   progressCompletedPercent: number;
   progressFailedPercent: number;
+  isSelected: boolean;
 }
 
 @Component({
@@ -35,46 +39,51 @@ export interface OptionsReplayRunListRow extends OptionsReplayRunUi {
   styleUrl: './options-replay-run-list.component.scss',
 })
 export class OptionsReplayRunListComponent {
-  readonly runs = input<OptionsReplayRunUi[]>([]);
+  /** Derived per-symbol rows — store-side runRows/filteredRows. */
+  readonly rows = input<ReplayListRow[]>([]);
   readonly selectedRunId = input<string | null>(null);
+  readonly selectedSymbol = input<string | null>(null);
   readonly isLoading = input<boolean>(false);
 
-  readonly selectRun = output<string>();
+  readonly selectRow = output<ReplaySelection>();
 
-  readonly viewRuns = computed((): OptionsReplayRunListRow[] => {
-    return this.runs().map((run) => ({
-      ...run,
-      formattedRunId: formatBacktestRunId(run.runId),
-      formattedCreated: formatBacktestTimestamp(run.createdAtIso),
-      templateName: getReplayTemplate(run.templateId)?.name ?? run.templateId,
-      symbolsText: run.symbols.join(', '),
-      statusColorName: getBacktestStatusVisuals(run.status).color,
-      statusIconName: getBacktestStatusVisuals(run.status).icon,
-      progressText: this.buildProgressText(run),
-      progressCompletedPercent: this.buildProgressCompletedPercent(run),
-      progressFailedPercent: this.buildProgressFailedPercent(run),
+  readonly viewRows = computed((): OptionsReplaySymbolListRow[] => {
+    const selRunId = this.selectedRunId();
+    const selSymbol = this.selectedSymbol();
+    return this.rows().map((row) => ({
+      ...row,
+      formattedRunId: formatBacktestRunId(row.runId),
+      formattedCreated: formatBacktestTimestamp(row.createdAtIso),
+      startDateText: row.startDate || '—',
+      templateName: getReplayTemplate(row.templateId)?.name ?? row.templateId,
+      symbolStatusColorName: getBacktestStatusVisuals(row.symbolStatus).color,
+      symbolStatusIconName: getBacktestStatusVisuals(row.symbolStatus).icon,
+      progressText: this.buildProgressText(row),
+      progressCompletedPercent: this.buildProgressCompletedPercent(row),
+      progressFailedPercent: this.buildProgressFailedPercent(row),
+      isSelected: selRunId === row.runId && selSymbol === row.symbol,
     }));
   });
 
-  onSelect(row: OptionsReplayRunListRow): void {
-    this.selectRun.emit(row.runId);
+  onSelect(row: ReplayListRow): void {
+    this.selectRow.emit({ runId: row.runId, symbol: row.symbol });
   }
 
-  private buildProgressText(run: OptionsReplayRunUi): string {
-    const total = run.totalLists || 0;
+  private buildProgressText(row: ReplayListRow): string {
+    const total = row.totalLists || 0;
     if (total === 0) return '—';
-    return `${run.completedLists || 0} / ${total}`;
+    return `${row.completedLists || 0} / ${total}`;
   }
 
-  private buildProgressCompletedPercent(run: OptionsReplayRunUi): number {
-    const total = run.totalLists || 0;
+  private buildProgressCompletedPercent(row: ReplayListRow): number {
+    const total = row.totalLists || 0;
     if (total === 0) return 0;
-    return Math.round(((run.completedLists || 0) / total) * 100);
+    return Math.round(((row.completedLists || 0) / total) * 100);
   }
 
-  private buildProgressFailedPercent(run: OptionsReplayRunUi): number {
-    const total = run.totalLists || 0;
+  private buildProgressFailedPercent(row: ReplayListRow): number {
+    const total = row.totalLists || 0;
     if (total === 0) return 0;
-    return Math.round(((run.failedLists || 0) / total) * 100);
+    return Math.round(((row.failedLists || 0) / total) * 100);
   }
 }

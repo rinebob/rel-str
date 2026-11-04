@@ -7,7 +7,7 @@
  * (coverage header from pickDocMeta, marker rows, repeat badges);
  * a row's inspect action opens the contract-series dialog.
  */
-import { Component, input, ChangeDetectionStrategy, computed, inject, signal } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy, computed, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -47,10 +47,29 @@ export class OptionsReplayRunDetailComponent {
   readonly run = input.required<OptionsReplayRunUi>();
   readonly contractLists = input<OptionsContractListUi[]>([]);
   readonly isLoadingLists = input<boolean>(false);
+  /** Symbol selected in the run list — its card auto-expands so the detail
+   *  surfaces that symbol's contract list. */
+  readonly selectedSymbol = input<string | null>(null);
 
   /** Symbols whose row table is expanded — collapsed by default since
    *  a run can carry hundreds of rows per symbol. */
   readonly expandedSymbols = signal<ReadonlySet<string>>(new Set());
+
+  constructor() {
+    let lastRunId: string | null = null;
+    effect(() => {
+      // Expansion is keyed by symbol only — reset it on a run switch so a
+      // prior run's expanded cards don't leak into the new run's view.
+      const runId = this.run().runId;
+      const symbol = this.selectedSymbol();
+      if (runId !== lastRunId) {
+        lastRunId = runId;
+        this.expandedSymbols.set(symbol ? new Set([symbol]) : new Set());
+      } else if (symbol) {
+        this.expandedSymbols.update((set) => new Set(set).add(symbol));
+      }
+    });
+  }
 
   toggleExpanded(symbol: string): void {
     this.expandedSymbols.update((set) => {

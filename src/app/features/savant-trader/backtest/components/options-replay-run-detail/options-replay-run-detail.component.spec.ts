@@ -127,6 +127,24 @@ describe('OptionsReplayRunDetailComponent', () => {
     expect(component.expandedSymbols().has('SPY')).toBe(false);
   });
 
+  it('auto-expands the selectedSymbol card so its contract list is visible', async () => {
+    const { component, fixture } = await setup(makeRun(), [
+      makeList({ rows: [makePickRow()] }),
+      makeList({ listId: 'run-1_QQQ', symbol: 'QQQ', rows: [makePickRow()] }),
+    ]);
+
+    expect(fixture.nativeElement.querySelector('app-options-replay-contract-list-table')).toBeNull();
+
+    fixture.componentRef.setInput('selectedSymbol', 'QQQ');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.expandedSymbols().has('QQQ')).toBe(true);
+    expect(component.expandedSymbols().has('SPY')).toBe(false);
+    expect(fixture.nativeElement.querySelectorAll('app-options-replay-contract-list-table').length).toBe(1);
+  });
+
   it('opens the series dialog with the row contractId + symbol + entryDate', async () => {
     dialogStub.open.mockClear();
     const { component } = await setup();
