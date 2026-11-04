@@ -80,30 +80,8 @@ const REALTIME_TASKS_ENABLED = process.env.RS_REALTIME_TASKS_ENABLED === 'true';
  * - Series writes are keyed by logical day and phase, enabling idempotent upserts.
  */
 
-/**
- * Run a Promise-producing worker for each item with at most `limit` active workers.
- * Throttles IO-bound work (partner API + Firestore) to keep the function responsive.
- *
- * @param items The items to process
- * @param limit Maximum concurrency (>= 1)
- * @param worker Async worker invoked per item (t, idx)
- */
-export async function forEachWithConcurrency<T>(items: T[], limit: number, worker: (t: T, idx: number) => Promise<void>): Promise<void> {
-  let i = 0;
-  const starters = Array.from({ length: Math.min(limit, items.length) }, () => Promise.resolve());
-  await Promise.all(
-    starters.map(async () => {
-      while (i < items.length) {
-        const idx = i++;
-        try {
-          await worker(items[idx], idx);
-        } catch {
-          // errors are handled at call sites
-        }
-      }
-    })
-  );
-}
+import { forEachWithConcurrency } from '../common/async-utils';
+export { forEachWithConcurrency };
 
 // Compute the timezone offset (in minutes) between UTC and a given IANA zone at a specific UTC date.
 function getTzOffsetMinutesAt(utcDate: Date, timeZone: string): number {
