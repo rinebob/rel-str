@@ -6,6 +6,8 @@
 - [Options Backtest] 1238-1373_FE-IMPL-BACKTEST: runRows + filteredRows — per-symbol replay rows, listOutcomes status surface, atomic selection, filter/sort store groundwork for #1374
 - [Options Backtest] 1238-1373_FE-IMPL-BACKTEST: run list renders per-symbol rows + detail auto-expands selected symbol's contract list
 - [Options Backtest] 1238-1373_DOCS-BACKTEST: #1373 code-review (PASS, 2 rounds) + UAT (Complete)
+- [Options Backtest] 1238-1374_FE-IMPL-BACKTEST: options-replay-run-controls toolbar — status/template/symbol filters + sort wired to filteredRows; Clear filters pill; New Replay moved into the strip
+- [Options Backtest] 1238-1374_DOCS-BACKTEST: #1374 code-review (PASS, 2 rounds) + UAT (Complete, #1394)
 
 ## [2026-11-03]
 
