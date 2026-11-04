@@ -471,6 +471,42 @@
   width: 340px;
   background: var(--mat-sys-surface-container);
   border-left: 1px solid var(--mat-sys-outline-variant);
+
+  .list-section {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+    .list-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .list-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .list-session {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .list-active {
+      font-size: 10px;
+      color: var(--mat-sys-on-surface-variant);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
 }
 
 .chart-content {

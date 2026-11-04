@@ -9,7 +9,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { of, throwError, delay } from 'rxjs';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 
 import { OptionChartComponent } from './option-chart.component';
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
@@ -78,6 +78,7 @@ function setup(getHistorical?: jest.Mock, dialogResult = true, bars: OhlcBar[] =
       ContractListSessionStore,
       { provide: ContractListService, useValue: { getList$: jest.fn(() => of(null)), recentLists$: jest.fn(() => of([])) } },
       { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+      { provide: Router, useValue: { navigate: jest.fn() } },
       { provide: ContractAvailabilityService, useValue: { queryContractAvailability$: jest.fn() } },
       { provide: OptionsContractService, useValue: optionsService },
       { provide: LocalBarReadService, useValue: barService },

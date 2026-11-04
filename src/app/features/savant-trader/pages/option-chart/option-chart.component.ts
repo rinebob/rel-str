@@ -8,7 +8,7 @@
 import { Component, inject, computed, signal, viewChild, OnInit, OnDestroy, DestroyRef, Injector, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom, distinctUntilChanged, map, take } from 'rxjs';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
@@ -52,9 +52,15 @@ import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.s
 import { OptionGroupGeneratorComponent } from '../../components/option-group-generator/option-group-generator.component';
 import type { StudyRange } from '../../utils/option-group-generator.utils';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
-import type { OptionsReplayRunUi } from '../../backtest/common/options-replay.types';
+import type {
+  OptionsContractListUi,
+  OptionsReplayRunUi,
+} from '../../backtest/common/options-replay.types';
 import type { ContractListPickRow } from '@options-replay/contracts';
-import { ContractListSessionStore } from '../../stores/contract-list-session.store';
+import {
+  ContractListSessionStore,
+  contractListDocError,
+} from '../../stores/contract-list-session.store';
 import { ContractListService } from '../../services/contract-list.service';
 import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
 import { ContractListPickerComponent } from '../../components/contract-list-picker/contract-list-picker.component';
@@ -100,6 +106,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   readonly listStore = inject(ContractListSessionStore);
   private readonly listService = inject(ContractListService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   /** Dialogs resolving page-scoped stores (the list session) must open on
    *  this element injector — without it DsDialogService uses the root injector. */
@@ -128,6 +135,19 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   /** Contract-list session errors (?list= / chooser) — named, never silent. */
   readonly listError = signal<string | null>(null);
+
+  /** Rendered list error — the page-level error wins; a store-level
+   *  failure (e.g. a stale persisted docId failing restore) still
+   *  surfaces instead of leaving a silent empty session. */
+  readonly listErrorText = computed(
+    () => this.listError() ?? this.listStore.error(),
+  );
+
+  /** Ordering guard for `onContractListDocId` — two sequential `?list=`
+   *  links resolve their fetches out of order; only the latest applies
+   *  (the store's loadSeq can't help — every loadListDoc is a legit
+   *  fresh apply). */
+  private listDocReqSeq = 0;
 
   // Builder fields (signals so computed/derived state reacts)
   symbol = signal('QQQ');
@@ -428,6 +448,10 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     // The generator + list session keep per-symbol state — swap both blobs.
     this.genStore.setSymbol(value);
     this.listStore.setSymbol(value);
+    // A symbol swap starts a new session — a stale page-level error must
+    // not follow it (it would also mask a fresh restore failure via
+    // listErrorText's precedence).
+    this.listError.set(null);
     const sym = value.trim().toUpperCase();
     if (sym) {
       this.store.loadContractIndex(sym);
@@ -537,14 +561,24 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     });
     // `?list={docId}` deep-link — distinctUntilChanged on the param so
     // unrelated query emissions can't retrigger a load (option-chain
-    // pattern); an absent param never fires.
+    // pattern); an absent param never fires. The param is consumed once
+    // and cleared — left in the URL it would re-fire the load (and
+    // reopen the picker) on every refresh. replaceUrl keeps the
+    // consumed link out of history; the cleared emission is a no-op.
     this.route.queryParamMap
       .pipe(
-        map((params) => params.get('list')?.trim() ?? ''),
+        map((params) => params.get('list')),
         distinctUntilChanged(),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((docId) => {
+      .subscribe((raw) => {
+        if (raw == null) return;
+        void this.router.navigate([], {
+          queryParams: { list: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+        const docId = raw.trim();
         if (docId) void this.onContractListDocId(docId);
       });
   }
@@ -677,27 +711,55 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     void this.onLoad();
   }
 
-  /** `?list=` / chooser entry — read the doc for its symbol (cross-symbol
-   *  lists switch the page first), load the session, open the picker.
-   *  Missing/failed docs name their error; the chart is never touched. */
+  /** `?list=` entry — one read for the symbol check, then the shared
+   *  doc tail. Missing/failed docs name their error; the chart is
+   *  never touched. A superseded request applies nothing — two quick
+   *  `?list=` links resolve out of order, latest wins. */
   async onContractListDocId(docId: string): Promise<void> {
+    const seq = ++this.listDocReqSeq;
     this.listError.set(null);
     let doc;
     try {
       doc = await firstValueFrom(this.listService.getList$(docId));
-    } catch {
-      this.listError.set(`Contract list "${docId}" failed to load`);
+    } catch (err) {
+      if (seq === this.listDocReqSeq) {
+        this.listError.set(
+          `Contract list "${docId}" failed to load: ${(err as Error)?.message ?? 'unknown error'}`,
+        );
+      }
       return;
     }
-    if (!doc) {
-      this.listError.set(`Contract list "${docId}" not found`);
+    if (seq !== this.listDocReqSeq) return;
+    const docErr = contractListDocError(doc, docId);
+    if (docErr || !doc) {
+      this.listError.set(docErr ?? `Contract list "${docId}" not found`);
+      return;
+    }
+    this.onContractListDoc(doc);
+  }
+
+  /** Shared tail — a doc that fails shape validation names its error
+   *  without a cross-symbol switch (a failed SPY list must not yank a
+   *  QQQ page through a catalog/underlying reload). Then cross-symbol
+   *  lists switch the page first, and `loadListDoc` applies the doc
+   *  that's already in hand (no second read: `?list=` read once above;
+   *  the chooser's row IS the doc). A ready session opens the picker;
+   *  a rejected doc names its error. */
+  onContractListDoc(doc: OptionsContractListUi): void {
+    // Any doc handoff (chooser row, resolved deep link) is the user's
+    // latest intent — invalidate a still-in-flight ?list= fetch and
+    // clear any stale page error a previous attempt left behind.
+    this.listDocReqSeq++;
+    this.listError.set(null);
+    const docErr = contractListDocError(doc, doc.listId);
+    if (docErr) {
+      this.listError.set(docErr);
       return;
     }
     const sym = doc.symbol.trim().toUpperCase();
     if (sym && sym !== this.symbol().trim().toUpperCase()) {
       this.onSymbolChange(sym);
     }
-    // The doc is already in hand — loadListDoc skips a second read.
     this.listStore.loadListDoc(doc);
     if (this.listStore.status() === 'ready') {
       this.openListPicker();
@@ -706,8 +768,8 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** "Contract lists…" button — recent-doc chooser; a selection runs the
-   *  same handler as `?list=`. */
+  /** "Lists…" button — recent-doc chooser; the selected row's doc is
+   *  already converted, so the same tail loads it with no refetch. */
   openListChooser(): void {
     this.dialog
       .open(ContractListChooserComponent, {
@@ -716,13 +778,14 @@ export class OptionChartComponent implements OnInit, OnDestroy {
         data: { symbol: this.symbol() },
       })
       .afterClosed()
-      .subscribe((listId?: string) => {
-        if (listId) void this.onContractListDocId(listId);
+      .subscribe((list?: OptionsContractListUi) => {
+        if (list) this.onContractListDoc(list);
       });
   }
 
-  /** Session → picker dialog — returns emitted lines on Send. */
-  private openListPicker(): void {
+  /** Session → picker dialog — returns emitted lines on Send. Reopening
+   *  uses the same session store, so selection/cursor are preserved. */
+  openListPicker(): void {
     this.dialog
       .open(ContractListPickerComponent, {
         width: '85vw',

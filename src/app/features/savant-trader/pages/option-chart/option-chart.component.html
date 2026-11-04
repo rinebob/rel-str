@@ -218,22 +218,6 @@
         </div>
         }
 
-        <button
-          class="panel-full ds-btn"
-          (click)="openListChooser()"
-          [disabled]="store.loading() || !!store.plottedLoadProgress()"
-          aria-label="Choose a contract list"
-        >
-          Contract lists…
-        </button>
-        @if (listError()) {
-        <div class="search-error">
-          <mat-chip-set>
-            <mat-chip color="warn" highlighted>{{ listError() }}</mat-chip>
-          </mat-chip-set>
-        </div>
-        }
-
         <label class="dse-field panel-field">
           <span class="field-label">OCC Contract ID(s)</span>
           <textarea class="field-input"
@@ -575,6 +559,16 @@
       </div>
       }
 
+      <!-- List-session errors live here, not in the drawer — a failed
+           ?list= deep link must name its error even with the panel shut. -->
+      @if (listErrorText()) {
+      <div class="error-section">
+        <mat-chip-set>
+          <mat-chip color="warn" highlighted>{{ listErrorText() }}</mat-chip>
+        </mat-chip-set>
+      </div>
+      }
+
       @if (store.contractData() || store.underlyingBars().length > 0 || showPlottedSet()) {
       <app-options-contract-chart
         [plottedSeries]="plottedChartSeries()"
@@ -621,6 +615,25 @@
       [(opened)]="generatorOpen"
       class="generator-panel"
     >
+      <div class="list-section">
+        <div class="list-section-head">
+          <span class="list-section-label">Contract list</span>
+          <button
+            class="ds-btn outline"
+            (click)="openListChooser()"
+            [disabled]="store.loading() || !!store.plottedLoadProgress()"
+            aria-label="Choose a contract list"
+          >Lists…</button>
+        </div>
+        @if (listStore.activeList(); as list) {
+        <div class="list-session">
+          <span class="list-active mono">
+            {{ list.templateId }} · {{ listStore.selectedRows().length }}/{{ listStore.pickRows().length }} rows
+          </span>
+          <button class="ds-btn outline" (click)="openListPicker()">Open picker</button>
+        </div>
+        }
+      </div>
       <app-option-group-generator
         (send)="onGeneratorSend($event)"
         (close)="generatorOpen = false"
