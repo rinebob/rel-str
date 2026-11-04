@@ -8,6 +8,10 @@
 - [Options Backtest] 1238-1373_DOCS-BACKTEST: #1373 code-review (PASS, 2 rounds) + UAT (Complete)
 - [Options Backtest] 1238-1374_FE-IMPL-BACKTEST: options-replay-run-controls toolbar — status/template/symbol filters + sort wired to filteredRows; Clear filters pill; New Replay moved into the strip
 - [Options Backtest] 1238-1374_DOCS-BACKTEST: #1374 code-review (PASS, 2 rounds) + UAT (Complete, #1394)
+- [Option Contract Time-Series Viewer] 1243-1361_FE-IMPL-OPTIONS: contract-list session engine — ContractListService reads, page-scoped session store (selection/cursor/chunks/rs-optlist persist), emit + settings utils
+- [Option Contract Time-Series Viewer] 1243-1361_FE-IMPL-OPTIONS: contract-list chooser + picker dialogs — recent-doc chooser (doc ids on rows, no refetch) + picker shell (provenance, counts, Send)
+- [Option Contract Time-Series Viewer] 1243-1361_FE-IMPL-OPTIONS: ?list= deep-link + page wiring — consume/clear param, seq-guarded ordering, named errors visible with drawer shut, send→textarea→loadPlotted
+- [Option Contract Time-Series Viewer] 1243-1361_DOCS-OPTIONS: #1361 thread docs — PRD/IMPL/TEST + code-review (PASS, 3 rounds) + UAT (Complete, #1393)
 
 ## [2026-11-03]
 
