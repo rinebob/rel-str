@@ -53,6 +53,15 @@ function buildReplayErrorMessage(err: unknown): string {
   return String(err ?? 'Unknown error');
 }
 
+/** Filter defaults — single source for initialState and resetFilters;
+ *  hasActiveFilters compares against the two 'all' fields and checks
+ *  symbolSearch emptiness directly (sort is not a filter). */
+const DEFAULT_REPLAY_FILTERS = {
+  statusFilter: 'all',
+  templateFilter: 'all',
+  symbolSearch: '',
+} as const;
+
 const initialState: OptionsReplayState = {
   runs: [],
   selection: null,
@@ -60,9 +69,7 @@ const initialState: OptionsReplayState = {
   isLoading: false,
   runsStreaming: false,
   listsStreaming: false,
-  statusFilter: 'all',
-  templateFilter: 'all',
-  symbolSearch: '',
+  ...DEFAULT_REPLAY_FILTERS,
   sortBy: 'createdAt',
   sortDirection: 'desc',
 };
@@ -144,15 +151,15 @@ export const OptionsReplayStore = signalStore(
       /** True when any non-default filter is active. */
       hasActiveFilters: computed(() => {
         return (
-          state.statusFilter() !== 'all' ||
-          state.templateFilter() !== 'all' ||
+          state.statusFilter() !== DEFAULT_REPLAY_FILTERS.statusFilter ||
+          state.templateFilter() !== DEFAULT_REPLAY_FILTERS.templateFilter ||
           state.symbolSearch().trim().length > 0
         );
       }),
     };
   }),
 
-  withMethods((state, runsService = inject(OptionsReplayRunsService), snackBar = inject(DsToastService), destroyRef = inject(DestroyRef)) => {
+  withMethods((state, runsService = inject(OptionsReplayRunsService), toast = inject(DsToastService), destroyRef = inject(DestroyRef)) => {
     let runsSubscription: Subscription | null = null;
     let listsSubscription: Subscription | null = null;
 
@@ -170,7 +177,7 @@ export const OptionsReplayStore = signalStore(
           // eslint-disable-next-line no-console
           console.error(`[OptionsReplayStore] Failed to stream ${label}`, err);
           const message = buildReplayErrorMessage(err);
-          snackBar.open(`Failed to stream ${label}: ${message}`, 'Dismiss', { duration: 30000 });
+          toast.open(`Failed to stream ${label}: ${message}`, 'Dismiss', { duration: 30000 });
           return of<T[]>([]);
         }),
         takeUntilDestroyed(destroyRef),
@@ -256,11 +263,8 @@ export const OptionsReplayStore = signalStore(
       setSortDirection(direction: ReplaySortDirection): void {
         patchState(state, { sortDirection: direction });
       },
-      toggleSortDirection(): void {
-        patchState(state, { sortDirection: state.sortDirection() === 'asc' ? 'desc' : 'asc' });
-      },
       resetFilters(): void {
-        patchState(state, { statusFilter: 'all', templateFilter: 'all', symbolSearch: '' });
+        patchState(state, { ...DEFAULT_REPLAY_FILTERS });
       },
 
       /** Start a new replay run; on success select it so the detail panel shows progress. */
@@ -274,7 +278,7 @@ export const OptionsReplayStore = signalStore(
               // eslint-disable-next-line no-console
               console.error('[OptionsReplayStore] startReplay failed', err);
               const message = buildReplayErrorMessage(err);
-              snackBar.open(`Failed to start replay: ${message}`, 'Dismiss', { duration: 30000 });
+              toast.open(`Failed to start replay: ${message}`, 'Dismiss', { duration: 30000 });
               patchState(state, { isLoading: false });
               return of(null);
             }),
@@ -283,7 +287,7 @@ export const OptionsReplayStore = signalStore(
           .subscribe((response) => {
             patchState(state, { isLoading: false });
             if (response) {
-              snackBar.open(`Replay started: ${response.runId}`, 'Dismiss', { duration: 30000 });
+              toast.open(`Replay started: ${response.runId}`, 'Dismiss', { duration: 30000 });
               applyRunSelection(response.runId);
             }
           });

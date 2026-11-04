@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
 import { Subject, of, throwError } from 'rxjs';
 
 import { OptionsReplayStore } from './options-replay.store';
@@ -38,12 +38,12 @@ function makeList(overrides: Partial<OptionsContractListUi> = {}): OptionsContra
 describe('OptionsReplayStore', () => {
   let runsSubject: Subject<OptionsReplayRunUi[]>;
   let listsSubject: Subject<OptionsContractListUi[]>;
-  let snackBar: { open: jest.Mock };
+  let toast: { open: jest.Mock };
 
   async function setup() {
     runsSubject = new Subject();
     listsSubject = new Subject();
-    snackBar = { open: jest.fn() };
+    toast = { open: jest.fn() };
 
     const serviceStub = {
       watchRuns: jest.fn(() => runsSubject.asObservable()),
@@ -56,7 +56,7 @@ describe('OptionsReplayStore', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         { provide: OptionsReplayRunsService, useValue: serviceStub },
-        { provide: MatSnackBar, useValue: snackBar },
+        { provide: DsToastService, useValue: toast },
       ],
     }).compileComponents();
 
@@ -127,7 +127,7 @@ describe('OptionsReplayStore', () => {
     expect(service.startReplay).toHaveBeenCalledWith({ templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-02' });
     expect(store.selectedRunId()).toBe('new-run-1');
     expect(service.watchContractLists).toHaveBeenCalledWith('new-run-1');
-    expect(snackBar.open).toHaveBeenCalledWith(expect.stringContaining('new-run-1'), 'Dismiss', { duration: 30000 });
+    expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('new-run-1'), 'Dismiss', { duration: 30000 });
   });
 
   it('startReplay failure snack-bars and leaves selection untouched', async () => {
@@ -139,7 +139,7 @@ describe('OptionsReplayStore', () => {
     store.startReplay({ templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-02' });
 
     expect(store.selectedRunId()).toBe('existing-run');
-    expect(snackBar.open).toHaveBeenCalledWith(expect.stringContaining('Failed to start replay'), 'Dismiss', { duration: 30000 });
+    expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Failed to start replay'), 'Dismiss', { duration: 30000 });
   });
 
   it('stream errors snack-bar and stop the streaming flag', async () => {
@@ -148,7 +148,7 @@ describe('OptionsReplayStore', () => {
     (service.watchRuns as jest.Mock).mockReturnValue(throwError(() => new Error('denied')));
 
     store.loadRuns();
-    expect(snackBar.open).toHaveBeenCalled();
+    expect(toast.open).toHaveBeenCalled();
     expect(store.runsStreaming()).toBe(false);
   });
 
@@ -329,7 +329,7 @@ describe('OptionsReplayStore', () => {
       store.setSortDirection('asc');
       expect(store.filteredRows().map((r) => r.symbol)).toEqual(['IWM', 'QQQ', 'SPY']);
 
-      store.toggleSortDirection();
+      store.setSortDirection('desc');
       expect(store.filteredRows().map((r) => r.symbol)).toEqual(['SPY', 'QQQ', 'IWM']);
     });
 
@@ -343,6 +343,13 @@ describe('OptionsReplayStore', () => {
       store.resetFilters();
       expect(store.hasActiveFilters()).toBe(false);
       expect(store.filteredRows().length).toBe(3);
+    });
+
+    it('sort changes do not count as active filters', async () => {
+      const store = await seededStore();
+      store.setSortBy('symbol');
+      store.setSortDirection('asc');
+      expect(store.hasActiveFilters()).toBe(false);
     });
   });
 
