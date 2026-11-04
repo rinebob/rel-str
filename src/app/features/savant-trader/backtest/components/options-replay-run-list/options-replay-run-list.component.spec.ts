@@ -136,4 +136,12 @@ describe('OptionsReplayRunListComponent', () => {
     const { fixture } = await setup([]);
     expect(fixture.nativeElement.textContent).toContain('No selection replay runs yet');
   });
+
+  it('reads as a filter miss when rows are empty under active filters', async () => {
+    const { fixture } = await setup([]);
+    fixture.componentRef.setInput('hasActiveFilters', true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('No rows match the current filters');
+    expect(fixture.nativeElement.textContent).not.toContain('No selection replay runs yet');
+  });
 });

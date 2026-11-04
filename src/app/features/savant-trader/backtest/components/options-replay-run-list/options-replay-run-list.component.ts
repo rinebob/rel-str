@@ -44,6 +44,9 @@ export class OptionsReplayRunListComponent {
   readonly selectedRunId = input<string | null>(null);
   readonly selectedSymbol = input<string | null>(null);
   readonly isLoading = input<boolean>(false);
+  /** True when the store's filters are narrowing the row set — the empty
+   *  state then reads as a filter miss, not an empty surface. */
+  readonly hasActiveFilters = input<boolean>(false);
 
   readonly selectRow = output<ReplaySelection>();
 

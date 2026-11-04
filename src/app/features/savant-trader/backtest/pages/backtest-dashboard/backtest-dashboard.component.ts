@@ -18,6 +18,7 @@ import { BacktestRunSummaryComponent } from '../../components/backtest-run-summa
 import { BacktestPermutationDetailComponent } from '../../components/backtest-permutation-detail/backtest-permutation-detail.component';
 import { BacktestNewRunDialogComponent } from '../../components/backtest-new-run-dialog/backtest-new-run-dialog.component';
 import { OptionsReplayRunListComponent } from '../../components/options-replay-run-list/options-replay-run-list.component';
+import { OptionsReplayRunControlsComponent } from '../../components/options-replay-run-controls/options-replay-run-controls.component';
 import { OptionsReplayRunDetailComponent } from '../../components/options-replay-run-detail/options-replay-run-detail.component';
 import { OptionsReplayNewRunDialogComponent } from '../../components/options-replay-new-run-dialog/options-replay-new-run-dialog.component';
 import { UiStateService } from '../../../../../core/services/ui-state.service';
@@ -34,6 +35,7 @@ import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequ
     BacktestRunSummaryComponent,
     BacktestPermutationDetailComponent,
     OptionsReplayRunListComponent,
+    OptionsReplayRunControlsComponent,
     OptionsReplayRunDetailComponent],
   templateUrl: './backtest-dashboard.component.html',
   styleUrl: './backtest-dashboard.component.scss',

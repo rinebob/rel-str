@@ -54,14 +54,23 @@
   <section class="replay-content">
     <header class="replay-header">
       <h2 class="replay-title">Selection Replay</h2>
-      <button
- type="button"
- class="new-replay-button ds-btn fill"
- [disabled]="replayStore.isLoading()"
- (click)="openNewReplayDialog()">
-        New Replay
-      </button>
     </header>
+
+    <app-options-replay-run-controls
+      [isLoading]="replayStore.isLoading()"
+      [hasActiveFilters]="replayStore.hasActiveFilters()"
+      [statusFilter]="replayStore.statusFilter()"
+      [templateFilter]="replayStore.templateFilter()"
+      [symbolSearch]="replayStore.symbolSearch()"
+      [sortBy]="replayStore.sortBy()"
+      [sortDirection]="replayStore.sortDirection()"
+      (newReplay)="openNewReplayDialog()"
+      (statusFilterChange)="replayStore.setStatusFilter($event)"
+      (templateFilterChange)="replayStore.setTemplateFilter($event)"
+      (symbolSearchChange)="replayStore.setSymbolSearch($event)"
+      (sortByChange)="replayStore.setSortBy($event)"
+      (sortDirectionChange)="replayStore.setSortDirection($event)"
+      (resetFilters)="replayStore.resetFilters()" />
 
     <div class="dashboard-body">
       <div class="run-list-wrapper">
@@ -70,6 +79,7 @@
           [selectedRunId]="replayStore.selectedRunId()"
           [selectedSymbol]="replayStore.selectedSymbol()"
           [isLoading]="replayStore.isLoading()"
+          [hasActiveFilters]="replayStore.hasActiveFilters()"
           (selectRow)="replayStore.selectRow($event)" />
       </div>
 

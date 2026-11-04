@@ -56,6 +56,8 @@
       <mat-icon>inbox</mat-icon>
       @if (isLoading()) {
         <p>Loading replay runs…</p>
+      } @else if (hasActiveFilters()) {
+        <p>No rows match the current filters</p>
       } @else {
         <p>No selection replay runs yet</p>
       }
