@@ -12,12 +12,12 @@
  */
 import { Component, ChangeDetectionStrategy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { RouterLink } from '@angular/router';
 
 import { PaperTradingStore } from '../../stores/paper-trading.store';
@@ -76,19 +76,17 @@ function toTradeGroup(key: string, trades: PaperTrade[]): TradeGroup {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatSelectModule,
     MatFormFieldModule,
-    RouterLink,
-  ],
+    RouterLink],
   templateUrl: './paper-trading.component.html',
   styleUrl: './paper-trading.component.scss',
 })
 export class PaperTradingComponent implements OnInit {
   readonly store = inject(PaperTradingStore);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
   protected readonly appRoutes = AppRoutes;
 
   /** Group-by dimension for the trades table. */
@@ -285,7 +283,7 @@ export class PaperTradingComponent implements OnInit {
 
   /** Row action → confirm dialog. The dialog owns the mutation + spinner;
    *  the row just opens it. One dialog at a time — suppressed while ANY
-   *  dialog is open (app-wide `MatDialog.openDialogs`, deliberately
+   *  dialog is open (app-wide `DsDialogService.openDialogs`, deliberately
    *  conservative: stacking a second confirm serves no use case). */
   openActionDialog(trade: PaperTrade, action: PaperTradeAction): void {
     if (this.dialog.openDialogs.length > 0) return;

@@ -1,8 +1,8 @@
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
+
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { UiStateService } from '../../../../core/services/ui-state.service';
@@ -31,13 +31,13 @@ import {
 @Component({
   selector: 'app-observation-dashboard',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, RouterLink, ObservationToolFormComponent, ObservationResultPanelComponent],
+  imports: [CommonModule, MatIconModule, RouterLink, ObservationToolFormComponent, ObservationResultPanelComponent],
   templateUrl: './observation-dashboard.component.html',
   styleUrl: './observation-dashboard.component.scss',
 })
 export class ObservationDashboardComponent implements OnInit, OnDestroy {
   private readonly observationService = inject(RobinhoodMcpObservationService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly snackBar = inject(DsToastService);
   readonly uiStateService = inject(UiStateService);
   protected readonly appRoutes = AppRoutes;
 

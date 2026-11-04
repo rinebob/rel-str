@@ -8,14 +8,18 @@
  */
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { of } from 'rxjs';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 
 import { OptionChartComponent } from './option-chart.component';
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
+import { ContractListSessionStore } from '../../stores/contract-list-session.store';
+import { ContractListService } from '../../services/contract-list.service';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
+import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import type { PartnerHistoricalOptionsContractV2Response } from '../../../../core/models/partner.types';
 
@@ -49,7 +53,12 @@ function setup(): Setup {
   TestBed.configureTestingModule({
     providers: [
       provideZonelessChangeDetection(),
+      // Page-scoped in the real component — provided here so the manually
+      // instantiated class resolves its store injects.
       OptionGroupGeneratorStore,
+      ContractListSessionStore,
+      { provide: ContractListService, useValue: { getList$: jest.fn(() => of(null)), recentLists$: jest.fn(() => of([])) } },
+      { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
       {
         provide: OptionsContractService,
         useValue: {
@@ -59,8 +68,12 @@ function setup(): Setup {
         },
       },
       { provide: ContractAvailabilityService, useValue: { queryContractAvailability$: jest.fn() } },
+      {
+        provide: OptionsReplayRunsService,
+        useValue: { watchRuns: jest.fn(() => of([])), watchContractLists: jest.fn(() => of([])) },
+      },
       { provide: LocalBarReadService, useValue: { getDailyBarsForRange$: jest.fn(() => of([])) } },
-      { provide: MatDialog, useValue: { open: jest.fn(), openDialogs: [] } },
+      { provide: DsDialogService, useValue: { open: jest.fn(() => ({ afterClosed: () => of(undefined) })), openDialogs: [] } },
     ],
   });
 
@@ -132,5 +145,16 @@ describe('OptionChartComponent — generator wiring', () => {
 
     component.onStudyRange(null);
     expect(genStore.refine().aliveRange).toBeUndefined();
+  });
+
+  it('the header × clears the alive-range bound and disarms the brush', () => {
+    const { genStore, component } = setup();
+    genStore.applyRange({ start: '2026-05-01', end: '2026-06-01' });
+    component.brushArmed.set(true);
+
+    component.clearStudyRange();
+
+    expect(genStore.refine().aliveRange).toBeUndefined();
+    expect(component.brushArmed()).toBe(false);
   });
 });

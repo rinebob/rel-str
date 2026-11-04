@@ -8,7 +8,6 @@
 
 import { Component, ChangeDetectionStrategy, inject, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
@@ -54,20 +53,17 @@ export function toChartPoints(
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatSelectModule,
     MatFormFieldModule,
     RouterLink,
-    ChartModule,
-  ],
+    ChartModule],
   providers: [
     LineSeriesService,
     DateTimeService,
     TooltipService,
-    LegendService,
-  ],
+    LegendService],
   templateUrl: './options-strategy-dashboard.component.html',
   styleUrl: './options-strategy-dashboard.component.scss',
 })

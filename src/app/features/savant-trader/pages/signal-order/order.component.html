@@ -1,7 +1,7 @@
 <div class="signal-order-page">
   <!-- Header -->
   <div class="order-header">
-    <button mat-icon-button class="back-btn" (click)="goBack()" matTooltip="Back to signal gallery">
+    <button class="back-btn icon-btn" (click)="goBack()" title="Back to signal gallery">
       <mat-icon>arrow_back</mat-icon>
     </button>
 
@@ -36,33 +36,32 @@
         <span class="sb-label">Cash</span>
         <span class="sb-value">{{ availableCash() | currency:'USD':'symbol':'1.2-2' }}</span>
         @if (restingLimitBuyNotional() > 0) {
-          <span class="sb-sub" [matTooltip]="'Held by resting limit buys'">−{{ restingLimitBuyNotional() | currency:'USD':'symbol':'1.0-0' }}</span>
+          <span class="sb-sub" [title]="'Held by resting limit buys'">−{{ restingLimitBuyNotional() | currency:'USD':'symbol':'1.0-0' }}</span>
         }
       </span>
     </div>
 
     <div class="header-spacer"></div>
 
-    <a mat-stroked-button class="paper-dash-link" [routerLink]="['/' + appRoutes.PAPER_TRADING]" matTooltip="Paper trading dashboard">
+    <a class="paper-dash-link ds-btn outline" [routerLink]="['/' + appRoutes.PAPER_TRADING]" title="Paper trading dashboard">
       <mat-icon>science</mat-icon>
       Paper Trading
     </a>
 
-    <button mat-stroked-button class="manual-order-btn" (click)="onNewManualOrder()">
+    <button class="manual-order-btn ds-btn outline" (click)="onNewManualOrder()">
       <mat-icon>add</mat-icon>
       New manual order
     </button>
 
-    <button mat-icon-button (click)="onOpenConfig()" matTooltip="Trading settings">
+    <button class="icon-btn" (click)="onOpenConfig()" title="Trading settings">
       <mat-icon>settings</mat-icon>
     </button>
 
     <button
-      mat-icon-button
-      class="reauth-btn"
-      (click)="onReauth()"
-      [disabled]="reauthing()"
-      [matTooltip]="reauthing() ? 'Re-authenticating Robinhood…' : 'Re-authenticate Robinhood'">
+ 
+ class="reauth-btn icon-btn"
+ (click)="onReauth()"
+ [disabled]="reauthing()" [title]="reauthing() ? 'Re-authenticating Robinhood…' : 'Re-authenticate Robinhood'">
       <mat-icon [class.spinning]="reauthing()">sync_lock</mat-icon>
     </button>
   </div>

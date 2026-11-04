@@ -28,14 +28,6 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatIconModule } from '@angular/material/icon';
 import { Subscription } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 
@@ -68,28 +60,16 @@ const barRangeValidator: ValidatorFn = (
   const toC = g.get('barTo');
   // Disabled (live origin) — the stale replay dates must not block submit.
   if (!fromC || !toC || fromC.disabled || toC.disabled) return null;
-  const from = fromC.value as Date | null;
-  const to = toC.value as Date | null;
-  return from && to && from.getTime() > to.getTime()
-    ? { barRange: true }
-    : null;
+  const from = fromC.value as string | null;
+  const to = toC.value as string | null;
+  // ISO 'yyyy-MM-dd' strings compare correctly as strings.
+  return from && to && from > to ? { barRange: true } : null;
 };
 
 @Component({
   selector: 'app-analysis-run-config',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    MatButtonModule,
-    MatButtonToggleModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-    MatIconModule,
-  ],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './analysis-run-config.component.html',
   styleUrl: './analysis-run-config.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -113,10 +93,12 @@ export class AnalysisRunConfigComponent implements OnDestroy {
         nonNullable: true,
         validators: [Validators.required, exitRuleValidator],
       }),
-      barFrom: new FormControl<Date | null>(new Date(2023, 0, 1), {
+      barFrom: new FormControl<string>('2023-01-01', {
+        nonNullable: true,
         validators: [Validators.required],
       }),
-      barTo: new FormControl<Date | null>(new Date(), {
+      barTo: new FormControl<string>(toIsoDate(new Date()), {
+        nonNullable: true,
         validators: [Validators.required],
       }),
       tags: new FormControl('', { nonNullable: true }),
@@ -180,8 +162,8 @@ export class AnalysisRunConfigComponent implements OnDestroy {
             signalTypes: v.signalTypes,
             exitRule: v.exitRule.trim(),
             barRange: {
-              from: toIsoDate(v.barFrom as Date),
-              to: toIsoDate(v.barTo as Date),
+              from: v.barFrom,
+              to: v.barTo,
             },
             entryConvention: 'signal-bar-close',
           };
@@ -204,8 +186,8 @@ export class AnalysisRunConfigComponent implements OnDestroy {
     this.form.reset({
       origin,
       exitRule: 'trailing-8',
-      barFrom: new Date(2023, 0, 1),
-      barTo: new Date(),
+      barFrom: '2023-01-01',
+      barTo: toIsoDate(new Date()),
       signalTypes: [],
       symbols: '',
       tags: '',

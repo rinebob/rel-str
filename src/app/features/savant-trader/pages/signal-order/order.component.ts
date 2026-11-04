@@ -19,11 +19,12 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
+
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { firstValueFrom } from 'rxjs';
@@ -48,7 +49,7 @@ import { requeueTicketPatch } from '../../utils/signal-order-staging.util';
 @Component({
   selector: 'app-signal-order',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, RouterLink, OrderQueueComponent, OrderTicketComponent],
+  imports: [CommonModule, MatIconModule, RouterLink, OrderQueueComponent, OrderTicketComponent],
   templateUrl: './order.component.html',
   styleUrl: './order.component.scss',
 })
@@ -62,8 +63,8 @@ export class OrderComponent implements OnInit, OnDestroy {
   private readonly priceService = inject(EquityPriceService);
   private readonly portfolioService = inject(PortfolioService);
   private readonly mcpService = inject(RobinhoodMcpObservationService);
-  private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(DsDialogService);
+  private readonly snackBar = inject(DsToastService);
   private readonly manualOrders = inject(ManualOrderService);
 
   /** Currently selected ticket id. */

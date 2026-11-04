@@ -1,5 +1,5 @@
 /**
- * @topic #1098 — RH Scanner | @task #1199
+ * @topic #1098 — RH Scanner | @task #1199, #1305
  *
  * Scanner page — the auto-run overview (#1183), rail + detail layout
  * (winner of the ?variant= prototype: the rail IS the morning scoreboard
@@ -23,9 +23,9 @@ import {
   type OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
 
 import {
   idleRun,
@@ -35,7 +35,10 @@ import {
 import { SymbolListStore } from '../../stores/symbol-list.store';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import type { ScannerRecipe } from '../../scanner/scanner-recipes';
-import { normScanSymbol } from '../../utils/scanner-rows.util';
+import {
+  normSymbolSet,
+  type ScannerSymbolFilter,
+} from '../../utils/scanner-rows.util';
 import { baselineSortedRows } from '../../utils/scanner-sort.util';
 import { ScannerRecipeTableComponent } from './scanner-recipe-table.component';
 
@@ -50,6 +53,10 @@ interface RailEntry {
   recipe: ScannerRecipe;
   run: RecipeRunState;
   count: string;
+  /** Tooltip on the count — qualifies a filtered count against the
+   *  (possibly wire-capped) universe total so '45 / 900' doesn't read
+   *  as "45 tracked hits exist anywhere in the scan". */
+  countTitle: string | null;
   tickers: string;
 }
 
@@ -58,10 +65,8 @@ interface RailEntry {
   standalone: true,
   imports: [
     CommonModule,
-    MatButtonModule,
     MatIconModule,
-    ScannerRecipeTableComponent,
-  ],
+    ScannerRecipeTableComponent],
   templateUrl: './scanner.component.html',
   styleUrl: './scanner.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -70,7 +75,7 @@ export class ScannerComponent implements OnInit, OnDestroy {
   protected readonly store = inject(ScannerStore);
   private readonly symbolLists = inject(SymbolListStore);
   private readonly mcp = inject(RobinhoodMcpObservationService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly snackBar = inject(DsToastService);
 
   protected readonly reauthing = signal(false);
 
@@ -80,10 +85,32 @@ export class ScannerComponent implements OnInit, OnDestroy {
     () => new Set(this.symbolLists.trackedSymbols()),
   );
 
-  /** Normalized tracked set for the rail's shared sort resolver. */
-  private readonly trackedNorm = computed<ReadonlySet<string>>(
-    () => new Set(Array.from(this.tracked(), normScanSymbol)),
+  /** Normalized tracked set — the rail's sort resolver AND the page
+   *  filter's membership check both key on it (one spelling via
+   *  normSymbolSet). */
+  private readonly trackedNorm = computed<ReadonlySet<string>>(() =>
+    normSymbolSet(this.tracked()),
   );
+
+  /** Tracked-universe readiness — the New/Tracked pills stay disabled
+   *  until the universe resolves ('loading'/'idle'), and stay disabled
+   *  on 'error': a filtered count against an absent set is silently
+   *  wrong, so the filter refuses rather than lies (#1305 review M1). */
+  protected readonly trackedReady = computed(
+    () => this.symbolLists.trackedStatus() === 'ready',
+  );
+
+  /** Page-wide All/New/Tracked filter (#1305) — view state, not store
+   *  state: no persistence, applies to rail counts/tickers and the
+   *  detail table alike. */
+  protected readonly symbolFilter = signal<ScannerSymbolFilter>('all');
+  protected readonly symbolFilterOptions: ReadonlyArray<{
+    value: ScannerSymbolFilter;
+    label: string;
+  }> = [
+    { value: 'all', label: 'All' },
+    { value: 'new', label: 'New' },
+    { value: 'tracked', label: 'Tracked' }];
 
   /** Rail selection — null falls through to the first catalog recipe so
    *  the detail pane always has a target on first paint. */
@@ -98,30 +125,53 @@ export class ScannerComponent implements OnInit, OnDestroy {
    *  Count follows the stale-render policy: a retained result keeps
    *  showing `N / M` through loading; error flags 'err' (the failure is
    *  the state — last-known tickers still render alongside it). */
-  protected readonly railEntries = computed<RailEntry[]>(() =>
-    this.store.recipes().map((recipe) => {
+  protected readonly railEntries = computed<RailEntry[]>(() => {
+    const tracked = this.trackedNorm();
+    const filter = this.symbolFilter();
+    const filterReady = filter === 'all' || this.trackedReady();
+    return this.store.recipes().map((recipe) => {
       // Same `?? idleRun()` fallback the store's own launchRecipe uses —
       // a recipe id without a runs entry degrades to queued, not a crash.
       const run = this.store.runs()[recipe.id] ?? idleRun();
-      const rows = baselineSortedRows(recipe, run.result, this.trackedNorm());
+      // Page filter rides the shared pipeline before the count +
+      // top-ticker slice — 'new' shows only untracked rows (0 / M when
+      // a recipe has none).
+      const rows = baselineSortedRows(
+        recipe,
+        run.result,
+        tracked,
+        filter,
+      );
       // Baseline sort is shared with the detail table (scanner-sort.util)
       // — rail top tickers are exactly the table's seeded top rows.
       let count: string;
+      let countTitle: string | null = null;
       if (run.status === 'error') count = 'err';
-      else if (run.result)
+      else if (run.result && !filterReady) {
+        count = '…';
+        countTitle = 'Waiting for the tracked-symbol universe';
+      } else if (run.result) {
         count = `${rows.length} / ${run.result.total_items}`;
-      else count = run.status === 'loading' ? '…' : '—';
+        if (filter !== 'all')
+          countTitle = `${rows.length} of ${run.result.total_items} scan hits match the ${filter} filter`;
+      } else count = run.status === 'loading' ? '…' : '—';
       return {
         recipe,
         run,
         count,
-        tickers: rows
-          .slice(0, 4)
-          .map((r) => r.symbol)
-          .join(' · '),
+        countTitle,
+        // Masked alongside count when the universe isn't ready — a
+        // non-'all' filter can't be selected then, but don't leak a
+        // ticker list computed against an absent set.
+        tickers: filterReady
+          ? rows
+              .slice(0, 4)
+              .map((r) => r.symbol)
+              .join(' · ')
+          : '',
       };
-    }),
-  );
+    });
+  });
 
   /** The entry the detail pane renders — the selected recipe. */
   protected readonly selectedEntry = computed<RailEntry | null>(

@@ -90,12 +90,23 @@
   text-align: center;
 }
 
+.ms-menu-host {
+  position: relative;
+}
+
+.lists-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+}
+
 .list-menu-row {
   display: flex;
   align-items: center;
   gap: 4px;
 
-  button[mat-menu-item] {
+  .menu-item {
     flex: 1;
   }
 }

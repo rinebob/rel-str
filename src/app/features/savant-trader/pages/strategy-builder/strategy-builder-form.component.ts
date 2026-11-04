@@ -7,20 +7,20 @@
 import { Component, ChangeDetectionStrategy, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
+import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
+
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatButtonModule } from '@angular/material/button';
-
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
-import { PaperTradingStore } from '../../stores/paper-trading.store';
 import type { InstanceInput } from '../../services/strategy-builder.service';
 import {
+  DEFAULT_TRAILING_STOP_KEY,
   isGoverningEligiblePct,
   NONE_VARIANT_KEY,
   TERMINAL_VARIANT_FAMILIES,
-  type ExitVariantParams,
+  type VariantFamily,
 } from '@paper-trading/contracts';
 import { PositionSpreadType, StrategyFrequency, OptionType } from '@options/common';
 import { TradeSide } from '@common';
@@ -37,8 +37,6 @@ import { generateInstanceId } from '@options-strategy-engine/id';
  *  patterns (functions/src/paper-trading/exits/registry.ts). The key is
  *  param-encoded: initial-stop-{pct}, trailing-{pct}, time-{days}d,
  *  limit-sd{sigma}. */
-type VariantFamily = ExitVariantParams['type'];
-
 const VARIANT_FAMILY_LABELS: Record<VariantFamily, string> = {
   'initial-stop': 'Initial stop',
   'trailing-stop': 'Trailing stop',
@@ -46,11 +44,16 @@ const VARIANT_FAMILY_LABELS: Record<VariantFamily, string> = {
   'limit-stddev': 'StdDev level',
 };
 
+// NOTE: [min]/[max] on a number input are REAL Angular validators
+// (MinValidator/MaxValidator ship with the forms module) — bounds here
+// must be contract-expressive (0,100), or the input silently rejects
+// values the BE would govern. Degenerate pcts get the visible group
+// 'range' error from variantParamValid, not an invisible control error.
 const VARIANT_PARAM_META: Record<VariantFamily, { label: string; min: number; max: number; step: number }> = {
-  'initial-stop': { label: 'Stop %', min: 1, max: 99, step: 1 },
-  'trailing-stop': { label: 'Trailing %', min: 1, max: 99, step: 1 },
-  'time-stop': { label: 'Days', min: 1, max: 365, step: 1 },
-  'limit-stddev': { label: 'σ multiplier', min: 0.5, max: 10, step: 0.5 },
+  'initial-stop': { label: 'Stop %', min: 0, max: 100, step: 1 },
+  'trailing-stop': { label: 'Trailing %', min: 0, max: 100, step: 1 },
+  'time-stop': { label: 'Days', min: 0, max: 365, step: 1 },
+  'limit-stddev': { label: 'σ multiplier', min: 0, max: 10, step: 0.5 },
 };
 
 /** family+param → variantKey — the inverse of the BE's parseVariantKey. */
@@ -79,26 +82,28 @@ export function parseVariantKey(key: string): { family: VariantFamily; param: nu
   return null;
 }
 
-/** Group validator: a non-'none' family requires a positive finite param,
- *  and time-stop requires an integer (BE regex is `\d+d`). */
+/** Governing default — the shared contract's canonical key, parsed
+ *  once. `!`: the contract guarantees its own default is in the grammar. */
+const DEFAULT_GOV = parseVariantKey(DEFAULT_TRAILING_STOP_KEY)!;
+
+/** Group validator: a set family requires a finite param inside the
+ *  shared governing-eligibility bound — the same gate the BE applies
+ *  (trailing-0 fires instantly, trailing-100+ never protects). The
+ *  contract bound is the sole eligibility check so the form can express
+ *  anything the BE would govern; the serialize-then-re-parse guard
+ *  catches what the pct bound can't (e.g. sub-1e-6 values whose keys
+ *  serialize to exponential notation neither side can read). */
 function variantParamValid(group: FormGroup): ValidationErrors | null {
   const family = group.get('variantFamily')?.value;
-  if (!family || family === 'none') return null;
+  if (!family || family === NONE_VARIANT_KEY) return null;
   const param = group.get('variantParam')?.value;
   if (param == null || !Number.isFinite(param)) {
     return { variantParam: 'required' };
   }
-  if (family === 'time-stop' && !Number.isInteger(param)) {
-    return { variantParam: 'integer' };
-  }
-  const meta = VARIANT_PARAM_META[family as VariantFamily];
-  // The key suffix is pct×100 — the shared bound rejects degenerate stops
-  // (trailing-0 fires instantly, trailing-100+ never protects).
   if (
     !TERMINAL_VARIANT_FAMILIES.includes(family) ||
-    param < meta.min ||
-    param > meta.max ||
-    !isGoverningEligiblePct(param / 100)
+    !isGoverningEligiblePct(param / 100) ||
+    !parseVariantKey(variantKeyFor(family, param))
   ) {
     return { variantParam: 'range' };
   }
@@ -111,21 +116,17 @@ function variantParamValid(group: FormGroup): ValidationErrors | null {
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule,
-    MatButtonModule,
-  ],
+    MatSelectModule],
   templateUrl: './strategy-builder-form.component.html',
   styleUrl: './strategy-builder-form.component.scss',
 })
 export class StrategyBuilderFormComponent {
   readonly store = inject(StrategyBuilderStore);
-  readonly paperStore = inject(PaperTradingStore);
   private readonly fb = inject(FormBuilder);
-  private readonly dialogRef = inject(MatDialogRef<StrategyBuilderFormComponent>);
-  private readonly data = inject<{ instance: StrategyInstanceConfig | null }>(MAT_DIALOG_DATA);
+  private readonly dialogRef = inject(DsDialogRef<StrategyBuilderFormComponent>);
+  private readonly data = inject<{ instance: StrategyInstanceConfig | null }>(DS_DIALOG_DATA);
 
   protected readonly spreadTypes = Object.values(PositionSpreadType);
   protected readonly frequencies = Object.values(StrategyFrequency);
@@ -166,11 +167,12 @@ export class StrategyBuilderFormComponent {
     trailingStopPct: [null as number | null],
     rollDteThreshold: [null as number | null],
     rollTargetDelta: [null as number | null],
-    /** Paper-ledger exit variant: family from the registry + param value
-     *  combine into the governingVariant key on save. US4 — only terminal
-     *  (trailing-stop) families are offered; 'none' is not selectable. */
-    variantFamily: ['trailing-stop' as 'none' | VariantFamily, [Validators.required]],
-    variantParam: [8 as number | null],
+    /** Paper-ledger exit variant: family + param combine into the
+     *  governingVariant key on save. US4 — only terminal (trailing-stop)
+     *  families are offered; 'none' is not selectable. Defaults derive
+     *  from the shared DEFAULT_TRAILING_STOP_KEY. */
+    variantFamily: [DEFAULT_GOV.family as 'none' | VariantFamily, [Validators.required]],
+    variantParam: [DEFAULT_GOV.param as number | null],
   }, { validators: [dteMaxGreaterThanMin, variantParamValid] });
 
   /** Selected exit policies (multi-select). Defaults to HOLD_TO_EXPIRATION. */
@@ -228,8 +230,6 @@ export class StrategyBuilderFormComponent {
     if (instance) {
       this.prefillFromInstance(instance);
     }
-    this.paperStore.loadExitVariants();
-
     // Normalize symbol to uppercase on every change.
     this.form.controls.symbol.valueChanges.subscribe((val) => {
       if (val && val !== val.toUpperCase()) {
@@ -273,8 +273,8 @@ export class StrategyBuilderFormComponent {
         ? parsed
         : null;
     this.form.patchValue({
-      variantFamily: eligible?.family ?? 'trailing-stop',
-      variantParam: eligible?.param ?? 8,
+      variantFamily: eligible?.family ?? DEFAULT_GOV.family,
+      variantParam: eligible?.param ?? DEFAULT_GOV.param,
     });
     const policies = instance.exitPolicies.map((p) => p.policy);
     this.selectedExitPolicies.set(policies);
@@ -338,28 +338,22 @@ export class StrategyBuilderFormComponent {
 
   // ── Governing variant (#568) ────────────────────────────────────────────────
 
-  /** Families available in the registry — options sourced via
-   *  listExitVariants, filtered to TERMINAL families we have param
-   *  metadata for (US4: only governing-eligible families are selectable;
-   *  a non-terminal registry type or one without meta would render a
-   *  dead-end save). */
-  readonly variantFamilies = computed<VariantFamily[]>(() => {
-    const families = new Set<VariantFamily>();
-    for (const cfg of this.paperStore.exitVariants()) {
-      const type = cfg.params.type;
-      if (type in VARIANT_PARAM_META && TERMINAL_VARIANT_FAMILIES.includes(type)) {
-        families.add(type);
-      }
-    }
-    return [...families];
-  });
+  /** Families the select offers — contract-defined terminal families we
+   *  have param metadata for (US4). Not sourced from the loaded registry:
+   *  an unloaded or empty registry must not blank the select while the
+   *  trailing-8 default still saves. */
+  readonly variantFamilies: VariantFamily[] = (
+    Object.keys(VARIANT_PARAM_META) as VariantFamily[]
+  ).filter((f) => TERMINAL_VARIANT_FAMILIES.includes(f));
 
   readonly familyLabels = VARIANT_FAMILY_LABELS;
 
   /** Param input metadata for the selected family (null when 'none'). */
   variantParamMeta() {
     const family = this.form.value.variantFamily as 'none' | VariantFamily | null;
-    return family && family !== 'none' ? VARIANT_PARAM_META[family] : null;
+    return family && family !== NONE_VARIANT_KEY && Object.hasOwn(VARIANT_PARAM_META, family)
+      ? VARIANT_PARAM_META[family]
+      : null;
   }
 
   /** The derived variantKey for the form's family+param, or 'none'. */

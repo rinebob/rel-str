@@ -5,26 +5,23 @@
  * historical time-series, and plot it on a dedicated chart with underlying
  * price overlay, Greeks, and volume/OI panes.
  */
-import { Component, inject, computed, signal, viewChild, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, computed, signal, viewChild, OnInit, OnDestroy, DestroyRef, Injector, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
-import { MatDialog } from '@angular/material/dialog';
+import { ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { firstValueFrom, distinctUntilChanged, map, take } from 'rxjs';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSelectModule } from '@angular/material/select';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
+
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
 import {
@@ -54,6 +51,13 @@ import { OptionType, parseOccContractId, type ParsedOccContractId } from '@optio
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import { OptionGroupGeneratorComponent } from '../../components/option-group-generator/option-group-generator.component';
 import type { StudyRange } from '../../utils/option-group-generator.utils';
+import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
+import type { OptionsReplayRunUi } from '../../backtest/common/options-replay.types';
+import type { ContractListPickRow } from '@options-replay/contracts';
+import { ContractListSessionStore } from '../../stores/contract-list-session.store';
+import { ContractListService } from '../../services/contract-list.service';
+import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
+import { ContractListPickerComponent } from '../../components/contract-list-picker/contract-list-picker.component';
 
 /** Pasting more than this many contracts asks for confirmation first — the
  *  chart stays usable but the fetch batch and line count get unwieldy. */
@@ -70,34 +74,36 @@ interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
     FormsModule,
     MatFormFieldModule,
     MatInputModule,
-    MatButtonModule,
     MatIconModule,
     MatSidenavModule,
     MatSlideToggleModule,
     MatProgressSpinnerModule,
     MatChipsModule,
-    MatTooltipModule,
-    MatButtonToggleModule,
     MatSelectModule,
-    MatMenuModule,
-    MatCheckboxModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
     OptionsContractChartComponent,
-    OptionGroupGeneratorComponent,
-  ],
-  // Page-scoped — one generator instance shared by this page and its
-  // right drawer; dies with the page, never root-provided.
-  providers: [OptionGroupGeneratorStore],
+    OptionGroupGeneratorComponent],
+  // Page-scoped — one generator instance + one list session shared by
+  // this page, its drawer, and dialogs it opens; dies with the page,
+  // never root-provided.
+  providers: [OptionGroupGeneratorStore, ContractListSessionStore],
   templateUrl: './option-chart.component.html',
   styleUrl: './option-chart.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:click)': 'closeMenus()' },
 })
 export class OptionChartComponent implements OnInit, OnDestroy {
   readonly store = inject(OptionsContractViewerStore);
   readonly genStore = inject(OptionGroupGeneratorStore);
   readonly uiStateService = inject(UiStateService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
+  private readonly replayService = inject(OptionsReplayRunsService);
+  readonly listStore = inject(ContractListSessionStore);
+  private readonly listService = inject(ContractListService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
+  /** Dialogs resolving page-scoped stores (the list session) must open on
+   *  this element injector — without it DsDialogService uses the root injector. */
+  private readonly injector = inject(Injector);
   readonly chartRef = viewChild(OptionsContractChartComponent);
 
   occIdInput = '';
@@ -113,6 +119,15 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   /** Arms the study-range brush on the contract chart; Esc disarms. */
   readonly brushArmed = signal(false);
+
+  /** Selection-replay dropdown state — pick a run, plot its default slice. */
+  readonly replayRuns = signal<OptionsReplayRunUi[]>([]);
+  selectedReplayRunId: string | null = null;
+  readonly replayLoading = signal(false);
+  readonly replayError = signal<string | null>(null);
+
+  /** Contract-list session errors (?list= / chooser) — named, never silent. */
+  readonly listError = signal<string | null>(null);
 
   // Builder fields (signals so computed/derived state reacts)
   symbol = signal('QQQ');
@@ -137,19 +152,18 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   /** Backend query multi-select length buckets (comma-separated in request). */
   selectedQueryLengthBuckets = signal<Set<string>>(new Set());
 
+  /** ds-menu dropdowns — one open at a time, closed by document click. */
+  readonly openMenu = signal<'queryLen' | 'exp' | 'len' | null>(null);
+
   /** Backend query expiration range (from/to). */
   queryExpGte = signal<string | null>(null);
   queryExpLte = signal<string | null>(null);
 
-  /** Date object for the Exp From datepicker (null when empty). */
-  readonly queryExpGteDate = computed(() => this.queryExpGte() ? new Date(this.queryExpGte()! + 'T00:00:00') : null);
-  readonly queryExpLteDate = computed(() => this.queryExpLte() ? new Date(this.queryExpLte()! + 'T00:00:00') : null);
-
-  onExpGteChange(date: Date | null): void {
-    this.queryExpGte.set(date ? date.toISOString().split('T')[0] : null);
+  onExpGteChange(value: string): void {
+    this.queryExpGte.set(value || null);
   }
-  onExpLteChange(date: Date | null): void {
-    this.queryExpLte.set(date ? date.toISOString().split('T')[0] : null);
+  onExpLteChange(value: string): void {
+    this.queryExpLte.set(value || null);
   }
 
   readonly strike = this.store.selectedStrike;
@@ -411,8 +425,9 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.store.clearCatalog();
     this.store.clearCatalogFilters();
     this.store.setCatalogBuilder({ symbol: value, type: this.catalogType() });
-    // The generator keeps per-symbol settings — swap its blob over too.
+    // The generator + list session keep per-symbol state — swap both blobs.
     this.genStore.setSymbol(value);
+    this.listStore.setSymbol(value);
     const sym = value.trim().toUpperCase();
     if (sym) {
       this.store.loadContractIndex(sym);
@@ -510,11 +525,28 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     const sym = this.symbol().trim().toUpperCase();
     this.store.setCatalogBuilder({ symbol: sym, type: this.catalogType() });
     this.genStore.setSymbol(sym);
+    this.listStore.setSymbol(sym);
     if (sym) {
       this.store.loadContractIndex(sym);
       this.store.loadCatalogSummary(sym);
       this.store.loadUnderlyingBars(sym);
     }
+    this.replayService.watchRuns(20).pipe(take(1)).subscribe({
+      next: (runs) => this.replayRuns.set(runs.filter((r) => r.status === 'completed')),
+      error: () => this.replayError.set('Could not load replay runs'),
+    });
+    // `?list={docId}` deep-link — distinctUntilChanged on the param so
+    // unrelated query emissions can't retrigger a load (option-chain
+    // pattern); an absent param never fires.
+    this.route.queryParamMap
+      .pipe(
+        map((params) => params.get('list')?.trim() ?? ''),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((docId) => {
+        if (docId) void this.onContractListDocId(docId);
+      });
   }
 
   ngOnDestroy(): void {
@@ -632,14 +664,126 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   /** Drawer handoff — emitted pair lines go through the same textarea +
    *  loadPlotted path as a paste, so replace semantics stay identical. */
   onGeneratorSend(lines: string[]): void {
+    this.emitLinesToChart(lines);
+  }
+
+  /** Picker handoff — same emit path as the generator send. */
+  onListSend(lines: string[]): void {
+    this.emitLinesToChart(lines);
+  }
+
+  private emitLinesToChart(lines: string[]): void {
     this.occIdInput = lines.join('\n');
     void this.onLoad();
+  }
+
+  /** `?list=` / chooser entry — read the doc for its symbol (cross-symbol
+   *  lists switch the page first), load the session, open the picker.
+   *  Missing/failed docs name their error; the chart is never touched. */
+  async onContractListDocId(docId: string): Promise<void> {
+    this.listError.set(null);
+    let doc;
+    try {
+      doc = await firstValueFrom(this.listService.getList$(docId));
+    } catch {
+      this.listError.set(`Contract list "${docId}" failed to load`);
+      return;
+    }
+    if (!doc) {
+      this.listError.set(`Contract list "${docId}" not found`);
+      return;
+    }
+    const sym = doc.symbol.trim().toUpperCase();
+    if (sym && sym !== this.symbol().trim().toUpperCase()) {
+      this.onSymbolChange(sym);
+    }
+    // The doc is already in hand — loadListDoc skips a second read.
+    this.listStore.loadListDoc(doc);
+    if (this.listStore.status() === 'ready') {
+      this.openListPicker();
+    } else if (this.listStore.status() === 'error') {
+      this.listError.set(this.listStore.error());
+    }
+  }
+
+  /** "Contract lists…" button — recent-doc chooser; a selection runs the
+   *  same handler as `?list=`. */
+  openListChooser(): void {
+    this.dialog
+      .open(ContractListChooserComponent, {
+        width: '560px',
+        injector: this.injector,
+        data: { symbol: this.symbol() },
+      })
+      .afterClosed()
+      .subscribe((listId?: string) => {
+        if (listId) void this.onContractListDocId(listId);
+      });
+  }
+
+  /** Session → picker dialog — returns emitted lines on Send. */
+  private openListPicker(): void {
+    this.dialog
+      .open(ContractListPickerComponent, {
+        width: '85vw',
+        maxWidth: '85vw',
+        height: '85vh',
+        injector: this.injector,
+      })
+      .afterClosed()
+      .subscribe((lines?: string[]) => {
+        if (lines?.length) this.onListSend(lines);
+      });
   }
 
   /** Chart brush (#1340) → generator alive-range bound. Declared now so the
    *  page route exists when the brush emission lands. */
   onStudyRange(range: StudyRange | null): void {
     this.genStore.applyRange(range);
+  }
+
+  /** Header-button × — clears the alive-range bound (chart band + drawer
+   *  row go away, persisted blob updates) and disarms the brush. */
+  clearStudyRange(): void {
+    this.brushArmed.set(false);
+    this.genStore.applyRange(null);
+  }
+
+  /** Dropdown label — template + window + symbols covered. */
+  replayLabel(run: OptionsReplayRunUi): string {
+    return `${run.templateId} · ${run.startDate} · ${run.symbols.join(', ')}`;
+  }
+
+  /** Replay pick → default slice = first 10 Wednesday pick rows of the
+   *  current symbol's list, emitted as `date,id` lines through the same
+   *  loadPlotted path as a paste. The filter/paging dialog is a later
+   *  step — this just plots. */
+  async onReplaySelected(runId: string): Promise<void> {
+    this.replayLoading.set(true);
+    this.replayError.set(null);
+    try {
+      const lists = await firstValueFrom(
+        this.replayService.watchContractLists(runId).pipe(take(1)),
+      );
+      const sym = this.symbol().trim().toUpperCase();
+      const list = lists.find((l) => l.symbol === sym && l.status === 'success');
+      if (!list) {
+        this.replayError.set(`No ${sym} contract list in this run`);
+        return;
+      }
+      const picks = list.rows
+        .filter((r): r is ContractListPickRow => r.kind === 'pick')
+        .filter((r) => new Date(`${r.entryDate}T00:00:00Z`).getUTCDay() === 3)
+        .slice(0, 10);
+      if (picks.length === 0) {
+        this.replayError.set('No Wednesday picks in this list');
+        return;
+      }
+      this.occIdInput = picks.map((r) => `${r.entryDate},${r.contractId}`).join('\n');
+      await this.onLoad();
+    } finally {
+      this.replayLoading.set(false);
+    }
   }
 
   /** Search for available contracts using the catalog endpoint with builder + catalog filters. */
@@ -670,6 +814,17 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.store.setContractLength(value);
     this.store.setCatalogFilter('contractLengthBucket', value);
     this.onQueryCatalog();
+  }
+
+  /** ds-menu dropdown — toggle open state (one menu at a time). */
+  toggleMenu(key: 'queryLen' | 'exp' | 'len', event: Event): void {
+    event.stopPropagation();
+    this.openMenu.update((k) => (k === key ? null : key));
+  }
+
+  /** Close any open ds-menu — wired to document click on the host. */
+  closeMenus(): void {
+    this.openMenu.set(null);
   }
 
   /** Toggle a length bucket in the backend query multi-select. */

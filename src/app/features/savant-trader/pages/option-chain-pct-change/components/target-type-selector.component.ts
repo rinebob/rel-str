@@ -15,7 +15,7 @@
  * only patched with committed rows).
  */
 import { ChangeDetectionStrategy, Component, effect, inject, signal, untracked } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatExpansionModule } from '@angular/material/expansion';
 
@@ -32,20 +32,20 @@ function parsePositiveNumber(event: Event): number | null {
 @Component({
   selector: 'app-target-type-selector',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatExpansionModule],
+  imports: [ MatIconModule, MatExpansionModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="target-type-selector">
       <!-- Segmented button group -->
       <div class="segmented-group">
         @for (opt of targetTypeOptions; track opt.value) {
-          <button
-            type="button"
-            mat-stroked-button
-            [class.active]="store.targetType() === opt.value"
-            [attr.data-testid]="'target-type-btn-' + opt.value"
-            (click)="store.setTargetType(opt.value)"
-          >
+          <button class="ds-btn outline"
+ type="button"
+ 
+ [class.active]="store.targetType() === opt.value"
+ [attr.data-testid]="'target-type-btn-' + opt.value"
+ (click)="store.setTargetType(opt.value)"
+ >
             {{ opt.label }}
           </button>
         }
@@ -55,22 +55,22 @@ function parsePositiveNumber(event: Event): number | null {
       @if (store.targetType() === 'pct-change') {
         <div class="sub-mode">
           <div class="mode-toggle" data-testid="pct-mode-toggle">
-            <button
-              type="button"
-              mat-stroked-button
-              [class.active]="store.pctMode() === 'list'"
-              data-testid="pct-mode-list"
-              (click)="store.setPctMode('list')"
-            >
+            <button class="ds-btn outline"
+ type="button"
+ 
+ [class.active]="store.pctMode() === 'list'"
+ data-testid="pct-mode-list"
+ (click)="store.setPctMode('list')"
+ >
               List
             </button>
-            <button
-              type="button"
-              mat-stroked-button
-              [class.active]="store.pctMode() === 'gradation'"
-              data-testid="pct-mode-gradation"
-              (click)="store.setPctMode('gradation')"
-            >
+            <button class="ds-btn outline"
+ type="button"
+ 
+ [class.active]="store.pctMode() === 'gradation'"
+ data-testid="pct-mode-gradation"
+ (click)="store.setPctMode('gradation')"
+ >
               Gradation
             </button>
           </div>
@@ -122,12 +122,12 @@ function parsePositiveNumber(event: Event): number | null {
             </div>
           }
 
-          <button
-            type="button"
-            mat-stroked-button
-            data-testid="pct-resolve-btn"
-            (click)="resolvePctChange()"
-          >
+          <button class="ds-btn outline"
+ type="button"
+ 
+ data-testid="pct-resolve-btn"
+ (click)="resolvePctChange()"
+ >
             Resolve
           </button>
         </div>
@@ -137,22 +137,22 @@ function parsePositiveNumber(event: Event): number | null {
       @if (store.targetType() === 'user-dates') {
         <div class="sub-mode">
           <div class="mode-toggle" data-testid="user-dates-mode-toggle">
-            <button
-              type="button"
-              mat-stroked-button
-              [class.active]="store.userDatesMode() === 'manual'"
-              data-testid="user-dates-mode-manual"
-              (click)="store.setUserDatesMode('manual')"
-            >
+            <button class="ds-btn outline"
+ type="button"
+ 
+ [class.active]="store.userDatesMode() === 'manual'"
+ data-testid="user-dates-mode-manual"
+ (click)="store.setUserDatesMode('manual')"
+ >
               Manual
             </button>
-            <button
-              type="button"
-              mat-stroked-button
-              [class.active]="store.userDatesMode() === 'interval'"
-              data-testid="user-dates-mode-interval"
-              (click)="store.setUserDatesMode('interval')"
-            >
+            <button class="ds-btn outline"
+ type="button"
+ 
+ [class.active]="store.userDatesMode() === 'interval'"
+ data-testid="user-dates-mode-interval"
+ (click)="store.setUserDatesMode('interval')"
+ >
               Interval
             </button>
           </div>
@@ -164,12 +164,12 @@ function parsePositiveNumber(event: Event): number | null {
                 type="date"
                 data-testid="manual-date-input"
               />
-              <button
-                type="button"
-                mat-stroked-button
-                data-testid="manual-add-btn"
-                (click)="addManualDate(newDate)"
-              >
+              <button class="ds-btn outline"
+ type="button"
+ 
+ data-testid="manual-add-btn"
+ (click)="addManualDate(newDate)"
+ >
                 Add
               </button>
             </div>
@@ -194,12 +194,12 @@ function parsePositiveNumber(event: Event): number | null {
                 (change)="onIntervalDaysInput($event)"
               />
             </div>
-            <button
-              type="button"
-              mat-stroked-button
-              data-testid="interval-generate-btn"
-              (click)="generateInterval()"
-            >
+            <button class="ds-btn outline"
+ type="button"
+ 
+ data-testid="interval-generate-btn"
+ (click)="generateInterval()"
+ >
               Generate
             </button>
           }
@@ -221,12 +221,12 @@ function parsePositiveNumber(event: Event): number | null {
           </mat-expansion-panel-header>
           <div class="target-dates-list">
             <div class="target-dates-actions">
-              <button
-                type="button"
-                mat-stroked-button
-                data-testid="clear-target-dates"
-                (click)="clearTargetDates()"
-              >
+              <button class="ds-btn outline"
+ type="button"
+ 
+ data-testid="clear-target-dates"
+ (click)="clearTargetDates()"
+ >
                 Clear All
               </button>
             </div>
@@ -238,13 +238,13 @@ function parsePositiveNumber(event: Event): number | null {
                   [attr.data-testid]="'target-date-input-' + $index"
                   (change)="onTargetDateInput($index, $event)"
                 />
-                <button
-                  type="button"
-                  mat-icon-button
-                  [attr.data-testid]="'remove-target-date-' + $index"
-                  (click)="removeTargetDate($index)"
-                  aria-label="Remove target date"
-                >
+                <button class="icon-btn"
+ type="button"
+ 
+ [attr.data-testid]="'remove-target-date-' + $index"
+ (click)="removeTargetDate($index)"
+ aria-label="Remove target date"
+ >
                   <mat-icon>close</mat-icon>
                 </button>
               </div>

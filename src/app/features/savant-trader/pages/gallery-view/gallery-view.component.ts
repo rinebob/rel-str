@@ -12,7 +12,8 @@
  * intentionally card-type-agnostic per ADR-009.
  */
 import { ChangeDetectionStrategy, Component, effect, inject, OnInit } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+
 import { GalleryFacade } from '../../stores/gallery.facade';
 import { GalleryCardActionsService } from '../../stores/gallery-card-actions.service';
 import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
@@ -34,7 +35,7 @@ export class GalleryViewComponent implements OnInit {
   readonly facade = inject(GalleryFacade);
   readonly actions = inject(GalleryCardActionsService);
   private readonly cardCharts = inject(GalleryCardChartStore);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
 
   constructor() {
     // #756 — warm per-symbol daily bars on idle after first paint so the

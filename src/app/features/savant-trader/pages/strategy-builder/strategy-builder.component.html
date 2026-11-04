@@ -1,6 +1,6 @@
 <div class="strategy-builder">
   <div class="builder-header">
-    <button mat-flat-button color="primary" (click)="createNew()" class="create-btn">
+    <button (click)="createNew()" class="create-btn ds-btn fill">
       Create New Strategy
     </button>
   </div>
@@ -51,16 +51,16 @@
             </td>
             <td>{{ exitPolicyNames(instance) }}</td>
             <td class="actions-cell">
-              <button mat-icon-button (click)="edit(instance)" matTooltip="Edit" class="action-btn edit-btn">
+              <button (click)="edit(instance)" title="Edit" class="action-btn edit-btn icon-btn">
                 <mat-icon>edit</mat-icon>
               </button>
-              <button mat-icon-button (click)="toggleLifecycle(instance)" matTooltip="Toggle Lifecycle" class="action-btn toggle-lifecycle-btn">
+              <button (click)="toggleLifecycle(instance)" title="Toggle Lifecycle" class="action-btn toggle-lifecycle-btn icon-btn">
                 <mat-icon>power_settings_new</mat-icon>
               </button>
-              <button mat-icon-button (click)="delete(instance)" matTooltip="Delete" class="action-btn delete-btn">
+              <button (click)="delete(instance)" title="Delete" class="action-btn delete-btn icon-btn">
                 <mat-icon>delete</mat-icon>
               </button>
-              <button mat-icon-button (click)="viewInDashboard(instance)" matTooltip="View in Dashboard" class="action-btn view-dashboard-btn">
+              <button (click)="viewInDashboard(instance)" title="View in Dashboard" class="action-btn view-dashboard-btn icon-btn">
                 <mat-icon>visibility</mat-icon>
               </button>
             </td>

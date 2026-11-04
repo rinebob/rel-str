@@ -1,4 +1,4 @@
-/* @topic #1098 — RH Scanner | @task #1199 */
+/* @topic #1098 — RH Scanner | @task #1199, #1305 */
 @use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
 
 :host {
@@ -29,6 +29,10 @@
   align-items: baseline;
   gap: var(--ds-space-4);
   flex-shrink: 0;
+}
+
+.pill-group {
+  @include vl.pill-toggle;
 }
 
 .last-refresh {

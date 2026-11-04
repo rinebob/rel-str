@@ -22,11 +22,8 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import {
-  MAT_DIALOG_DATA,
-  MatDialogModule,
-} from '@angular/material/dialog';
+
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../../shared/ds/ds-dialog';
 import { OptionType } from '@options-contract/contracts';
 import { OptionChainPctChangeStore } from '../option-chain-pct-change.store';
 import type { SwingAnalysisDoc } from '../../../swing-analysis/swing-analysis.types';
@@ -57,11 +54,11 @@ const TARGET_VIEW_H = 180;
 @Component({
   selector: 'app-frame-swing-dialog',
   standalone: true,
-  imports: [MatButtonModule, MatDialogModule],
+  imports: [ ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title>Swing Compare — {{ data.sets[0]?.symbol }}</h2>
-    <mat-dialog-content>
+    <h2 class="title">Swing Compare — {{ data.sets[0]?.symbol }}</h2>
+    <div class="content">
       <label class="set-picker">
         Baseline Set
         <select
@@ -299,15 +296,15 @@ const TARGET_VIEW_H = 180;
           </button>
         </div>
       }
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
+    </div>
+    <div class="actions" align="end">
       <span class="runs-count">Runs: {{ store.runs().length }}</span>
-      <button mat-stroked-button [mat-dialog-close]>Done</button>
-    </mat-dialog-actions>
+      <button class="ds-btn outline" (click)="ref.close()">Done</button>
+    </div>
   `,
   styles: [
     `
-      mat-dialog-content { min-width: 0; }
+      .content { min-width: 0; }
       .set-picker { display: flex; flex-direction: column; gap: 4px;
         font-size: 0.85rem; margin: 8px 0; }
       .set-picker select { max-width: 420px; padding: 4px 6px; font-size: 0.85rem; }
@@ -381,11 +378,11 @@ const TARGET_VIEW_H = 180;
         font-family: monospace; font-size: 0.75rem; }
       .add-run-btn { padding: 5px 14px; font-size: 0.85rem; cursor: pointer; }
       .runs-count { margin-right: auto; font-size: 0.8rem; color: var(--ds-on-surface-variant); }
-    `,
-  ],
+    `],
 })
 export class FrameSwingPickerDialogComponent {
-  readonly data = inject(MAT_DIALOG_DATA) as FrameSwingDialogData;
+  readonly data = inject(DS_DIALOG_DATA) as FrameSwingDialogData;
+  protected readonly ref = inject(DsDialogRef<FrameSwingPickerDialogComponent>);
   protected readonly store = inject(OptionChainPctChangeStore);
 
   readonly viewW = VIEW_W;

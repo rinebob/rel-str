@@ -53,7 +53,7 @@
     <div class="error-state">
       <mat-icon>error_outline</mat-icon>
       <p>{{ facade.symbolsError() }}</p>
-      <button mat-button (click)="facade.refreshSymbols()">Retry</button>
+      <button class="ds-btn" (click)="facade.refreshSymbols()">Retry</button>
     </div>
   } @else {
     <div class="gr-body">

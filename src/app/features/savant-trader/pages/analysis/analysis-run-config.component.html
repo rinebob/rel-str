@@ -1,10 +1,16 @@
 <!-- @topic #553 — Paper Trading Infra | @task #1082 -->
 <form class="run-config" [formGroup]="form" (ngSubmit)="submit()">
   <div class="origin-row">
-    <mat-button-toggle-group formControlName="origin" aria-label="Dataset origin">
-      <mat-button-toggle value="replay">Replay</mat-button-toggle>
-      <mat-button-toggle value="live">Live snapshot</mat-button-toggle>
-    </mat-button-toggle-group>
+    <div class="pill-group" role="radiogroup" aria-label="Dataset origin">
+      <button type="button" class="pill" role="radio"
+              [class.active]="origin() === 'replay'"
+              [attr.aria-checked]="origin() === 'replay'"
+              (click)="form.controls.origin.setValue('replay')">Replay</button>
+      <button type="button" class="pill" role="radio"
+              [class.active]="origin() === 'live'"
+              [attr.aria-checked]="origin() === 'live'"
+              (click)="form.controls.origin.setValue('live')">Live snapshot</button>
+    </div>
     <span class="origin-hint">
       {{ origin() === 'replay'
         ? 'Re-run historical signals through an exit rule into an analysis dataset.'
@@ -14,54 +20,49 @@
 
   @if (origin() === 'replay') {
     <div class="params-grid">
-      <mat-form-field appearance="outline">
-        <mat-label>Symbols</mat-label>
-        <input matInput formControlName="symbols"
+      <label class="dse-field">
+        <span class="field-label">Symbols</span>
+        <input class="field-input" formControlName="symbols"
                placeholder="AMAT, NVDA — empty = all" />
-        <mat-hint>Comma-separated; empty includes every symbol</mat-hint>
-      </mat-form-field>
+        <span class="field-hint">Comma-separated; empty includes every symbol</span>
+      </label>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Signal types</mat-label>
-        <mat-select formControlName="signalTypes" multiple>
+      <label class="dse-field">
+        <span class="field-label">Signal types</span>
+        <select class="field-input" formControlName="signalTypes" multiple size="4">
           @for (t of signalTypeOptions; track t) {
-            <mat-option [value]="t">{{ t }}</mat-option>
+            <option [value]="t">{{ t }}</option>
           }
-        </mat-select>
-        <mat-hint>Empty = all signal types</mat-hint>
-      </mat-form-field>
+        </select>
+        <span class="field-hint">Empty = all signal types</span>
+      </label>
 
-      <mat-form-field appearance="outline" class="exit-rule-field">
-        <mat-label>Exit rule</mat-label>
-        <input matInput formControlName="exitRule" placeholder="trailing-8" />
+      <label class="dse-field exit-rule-field"
+             [class.invalid]="form.controls.exitRule.invalid && form.controls.exitRule.touched">
+        <span class="field-label">Exit rule</span>
+        <input class="field-input" formControlName="exitRule" placeholder="trailing-8" />
         @if (form.controls.exitRule.invalid) {
-          <mat-hint class="exit-grammar-hint">
-            Registry grammar: trailing-{{ '{' }}pct{{ '}' }}, initial-stop-{{ '{' }}pct{{ '}' }}, time-{{ '{' }}N{{ '}' }}d
-          </mat-hint>
+          <span class="field-hint" [class.error]="form.controls.exitRule.touched">
+            @if (form.controls.exitRule.hasError('required')) {
+              Exit rule is required
+            } @else {
+              Not a registry key — use trailing-{{ '{' }}pct{{ '}' }}, initial-stop-{{ '{' }}pct{{ '}' }}, or time-{{ '{' }}N{{ '}' }}d
+            }
+          </span>
         } @else {
-          <mat-hint>e.g. trailing-8, initial-stop-10, time-30d</mat-hint>
+          <span class="field-hint">e.g. trailing-8, initial-stop-10, time-30d</span>
         }
-        @if (form.controls.exitRule.hasError('required')) {
-          <mat-error>Exit rule is required</mat-error>
-        }
-        @if (form.controls.exitRule.hasError('exitRule')) {
-          <mat-error>Not a registry key — use trailing-{{ '{' }}pct{{ '}' }}, initial-stop-{{ '{' }}pct{{ '}' }}, or time-{{ '{' }}N{{ '}' }}d</mat-error>
-        }
-      </mat-form-field>
+      </label>
 
       <div class="bar-range">
-        <mat-form-field appearance="outline">
-          <mat-label>Bars from</mat-label>
-          <input matInput [matDatepicker]="fromPicker" formControlName="barFrom" />
-          <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
-          <mat-datepicker #fromPicker></mat-datepicker>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Bars to</mat-label>
-          <input matInput [matDatepicker]="toPicker" formControlName="barTo" />
-          <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
-          <mat-datepicker #toPicker></mat-datepicker>
-        </mat-form-field>
+        <label class="dse-field">
+          <span class="field-label">Bars from</span>
+          <input type="date" class="field-input" formControlName="barFrom" />
+        </label>
+        <label class="dse-field">
+          <span class="field-label">Bars to</span>
+          <input type="date" class="field-input" formControlName="barTo" />
+        </label>
       </div>
       @if (form.hasError('barRange')) {
         <div class="bar-range-error" role="alert">Start date must be on or before end date</div>
@@ -70,22 +71,22 @@
   }
 
   <div class="meta-grid">
-    <mat-form-field appearance="outline">
-      <mat-label>Tags</mat-label>
-      <input matInput formControlName="tags" placeholder="amat, v2-longs" />
-      <mat-hint>Comma-separated</mat-hint>
-    </mat-form-field>
-    <mat-form-field appearance="outline">
-      <mat-label>Notes</mat-label>
-      <textarea matInput formControlName="notes" rows="2"
+    <label class="dse-field">
+      <span class="field-label">Tags</span>
+      <input class="field-input" formControlName="tags" placeholder="amat, v2-longs" />
+      <span class="field-hint">Comma-separated</span>
+    </label>
+    <label class="dse-field">
+      <span class="field-label">Notes</span>
+      <textarea class="field-input" formControlName="notes" rows="2"
                 placeholder="What question does this dataset answer?"></textarea>
-    </mat-form-field>
+    </label>
   </div>
 
   <div class="form-actions">
-    <button mat-flat-button color="primary" type="submit" [disabled]="busy">
+    <button class="ds-btn fill" type="submit" [disabled]="busy">
       @if (busy) { Generating… } @else { Generate dataset }
     </button>
-    <button mat-button type="button" (click)="cancel()">Cancel</button>
+    <button class="ds-btn" type="button" (click)="cancel()">Cancel</button>
   </div>
 </form>

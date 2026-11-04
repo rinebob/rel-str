@@ -8,16 +8,14 @@
 import { Component, inject, signal, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatDialog } from '@angular/material/dialog';
+
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+
 
 import { SpreadViewerStore } from '../../stores/spread-viewer.store';
 import { SpreadChartComponent } from '../../components/spread-chart/spread-chart.component';
@@ -32,28 +30,27 @@ import { SpreadStatus } from '@spread/contracts';
   imports: [
     CommonModule,
     FormsModule,
-    MatButtonModule,
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
     MatSlideToggleModule,
-    MatButtonToggleModule,
     MatProgressSpinnerModule,
-    MatTooltipModule,
-    MatMenuModule,
-    SpreadChartComponent,
-  ],
+    SpreadChartComponent],
   templateUrl: './spread-chart-page.component.html',
   styleUrl: './spread-chart-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:click)': 'listsMenuOpen.set(false)' },
 })
 export class SpreadChartPageComponent implements OnInit, OnDestroy {
   readonly store = inject(SpreadViewerStore);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
   private readonly uiStateService = inject(UiStateService);
 
   symbolInput = signal('QQQ');
   readonly SpreadStatus = SpreadStatus;
+
+  /** ds-menu dropdown — My Lists panel open state. */
+  readonly listsMenuOpen = signal(false);
 
   ngOnInit(): void {
     const sym = this.symbolInput().trim().toUpperCase();
@@ -130,6 +127,13 @@ export class SpreadChartPageComponent implements OnInit, OnDestroy {
 
   onDeleteList(listId: string): void {
     this.store.deleteNamedList(listId);
+  }
+
+  /** ds-menu trigger — toggle the My Lists panel; refresh on open. */
+  toggleListsMenu(event: Event): void {
+    event.stopPropagation();
+    this.listsMenuOpen.update((v) => !v);
+    if (this.listsMenuOpen()) this.onListsMenuOpen();
   }
 
   onListsMenuOpen(): void {

@@ -163,12 +163,12 @@ describe('AnalysisComponent', () => {
   it('loads the library on init and renders one card per dataset', () => {
     fixture.detectChanges();
     expect(storeMock.loadDatasets).toHaveBeenCalledTimes(1);
-    expect(els('mat-card')).toHaveLength(3);
+    expect(els('.dataset-card')).toHaveLength(3);
   });
 
   it('provenance is visible at a glance — origin badge, status chip, params, scope, rowCount, timestamp', () => {
     fixture.detectChanges();
-    const cards = els('mat-card');
+    const cards = els('.dataset-card');
     const ready = cards[0];
     expect(ready.querySelector('.origin-badge')?.textContent).toContain('replay');
     expect(ready.querySelector('.status-chip')?.textContent).toContain('ready');
@@ -185,7 +185,7 @@ describe('AnalysisComponent', () => {
 
   it('empty scope renders as all-symbols / all-types', () => {
     fixture.detectChanges();
-    const liveCard = els('mat-card')[2];
+    const liveCard = els('.dataset-card')[2];
     expect(liveCard.textContent).toContain('all symbols');
     expect(liveCard.textContent).toContain('all signal types');
   });
@@ -198,11 +198,11 @@ describe('AnalysisComponent', () => {
     input.value = 'amat';
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    expect(els('mat-card')).toHaveLength(1);
+    expect(els('.dataset-card')).toHaveLength(1);
     input.value = 'zzz';
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    expect(els('mat-card')).toHaveLength(0);
+    expect(els('.dataset-card')).toHaveLength(0);
     expect(el('.empty-state')?.textContent).toContain('zzz');
   });
 
@@ -210,10 +210,10 @@ describe('AnalysisComponent', () => {
 
   it('a generating entry renders the pending chip and disables Open', () => {
     fixture.detectChanges();
-    const genCard = els('mat-card')[1];
+    const genCard = els('.dataset-card')[1];
     expect(genCard.querySelector('.status-chip')?.textContent).toContain('generating');
-    expect(genCard.querySelector('mat-spinner')).toBeTruthy();
-    const openBtn = genCard.querySelector('mat-card-actions button') as HTMLButtonElement;
+    expect(genCard.querySelector('.dse-spinner')).toBeTruthy();
+    const openBtn = genCard.querySelector('.card-foot button') as HTMLButtonElement;
     expect(openBtn.disabled).toBe(true);
   });
 
@@ -252,8 +252,8 @@ describe('AnalysisComponent', () => {
 
   it('Open loads a ready dataset into the workbench', () => {
     fixture.detectChanges();
-    const openBtn = els('mat-card')[0].querySelector(
-      'mat-card-actions button',
+    const openBtn = els('.dataset-card')[0].querySelector(
+      '.card-foot button',
     ) as HTMLButtonElement;
     expect(openBtn.disabled).toBe(false);
     openBtn.click();
@@ -265,7 +265,7 @@ describe('AnalysisComponent', () => {
     expect(el('app-analysis-table')).toBeNull();
     storeMock.activeDataset.set(READY);
     fixture.detectChanges();
-    const banner = els('mat-card')[0].querySelector('.open-banner');
+    const banner = els('.dataset-card')[0].querySelector('.open-banner');
     expect(banner?.textContent).toContain('Open in workbench');
     expect(el('app-analysis-table')).not.toBeNull();
   });
@@ -287,7 +287,7 @@ describe('AnalysisComponent', () => {
 
   it('edit → save writes parsed tags + notes via updateTagsNotes', () => {
     fixture.detectChanges();
-    const card = els('mat-card')[0];
+    const card = els('.dataset-card')[0];
     (card.querySelectorAll('button')[1] as HTMLButtonElement).click(); // Tags / notes
     fixture.detectChanges();
     const tagsInput = card.querySelector('.edit-tags input') as HTMLInputElement;
@@ -303,7 +303,7 @@ describe('AnalysisComponent', () => {
 
   it('saving empty notes passes null — explicit clear', () => {
     fixture.detectChanges();
-    const card = els('mat-card')[0];
+    const card = els('.dataset-card')[0];
     (card.querySelectorAll('button')[1] as HTMLButtonElement).click();
     fixture.detectChanges();
     (card.querySelector('.edit-actions button') as HTMLButtonElement).click();
@@ -314,9 +314,9 @@ describe('AnalysisComponent', () => {
 
   it('delete requires confirmation — first click asks, confirm deletes', () => {
     fixture.detectChanges();
-    const card = els('mat-card')[0];
+    const card = els('.dataset-card')[0];
     const del = card.querySelector(
-      'mat-card-actions button[color="warn"], mat-card-actions button:last-child',
+      '.card-foot .ds-btn.danger',
     ) as HTMLButtonElement;
     del.click();
     fixture.detectChanges();
@@ -331,7 +331,7 @@ describe('AnalysisComponent', () => {
 
   it('Keep cancels the pending delete', () => {
     fixture.detectChanges();
-    const card = els('mat-card')[0];
+    const card = els('.dataset-card')[0];
     Array.from(card.querySelectorAll('button'))
       .find((b) => b.textContent?.includes('Delete'))!
       .click();
@@ -395,7 +395,7 @@ describe('AnalysisComponent', () => {
   }
 
   function clickViewBtn(name: string): void {
-    Array.from(els('.view-btn'))
+    Array.from(els('.tab'))
       .find((b) => b.textContent?.trim() === name)!
       .click();
     fixture.detectChanges();
@@ -420,7 +420,7 @@ describe('AnalysisComponent', () => {
       { column: 'ind.zoneV2', op: 'range', value: { min: 4, max: 4 } },
     ]);
     fixture.detectChanges();
-    const saveBtn = Array.from(els('.tool-btn')).find((b) =>
+    const saveBtn = Array.from(els('.ds-btn')).find((b) =>
       b.textContent?.includes('Save slice'),
     ) as HTMLButtonElement;
     expect(saveBtn.disabled).toBe(false);
@@ -430,7 +430,7 @@ describe('AnalysisComponent', () => {
     nameInput.value = 'ZoneV2=4';
     nameInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    Array.from(els('.save-slice-form .tool-btn'))
+    Array.from(els('.save-slice-form .ds-btn'))
       .find((b) => b.textContent?.trim() === 'Save')!
       .click();
     expect(storeMock.saveSlice).toHaveBeenCalledWith('ZoneV2=4', undefined);
@@ -438,7 +438,7 @@ describe('AnalysisComponent', () => {
 
   it('save slice is disabled with no active filters', () => {
     openWorkbench();
-    const saveBtn = Array.from(els('.tool-btn')).find((b) =>
+    const saveBtn = Array.from(els('.ds-btn')).find((b) =>
       b.textContent?.includes('Save slice'),
     ) as HTMLButtonElement;
     expect(saveBtn.disabled).toBe(true);
@@ -455,7 +455,9 @@ describe('AnalysisComponent', () => {
       '.workbench-tools app-slice-menu .slice-btn',
     ) as HTMLButtonElement).click();
     fixture.detectChanges();
-    (document.querySelector('.slice-item .slice-apply') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector(
+      '.slice-item .slice-apply',
+    ) as HTMLButtonElement).click();
     expect(storeMock.applySlice).toHaveBeenCalledWith(slice);
   });
 
@@ -467,7 +469,9 @@ describe('AnalysisComponent', () => {
       '.workbench-tools app-slice-menu .slice-btn',
     ) as HTMLButtonElement).click();
     fixture.detectChanges();
-    (document.querySelector('.slice-item .slice-delete') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector(
+      '.slice-item .slice-delete',
+    ) as HTMLButtonElement).click();
     expect(storeMock.deleteSlice).toHaveBeenCalledWith('s-Longs');
   });
 

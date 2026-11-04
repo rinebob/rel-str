@@ -8,7 +8,7 @@
  */
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../../../shared/ds/ds-toast.service';
 
 import type { ChainCell } from '../utils/chain.utils';
 import { parseNumOrNull } from '../../../utils/contract-observation.utils';
@@ -133,7 +133,7 @@ export const POPUP_COPIED_MS = 1500;
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChainCellPopupComponent {
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly snackBar = inject(DsToastService);
   private readonly el = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly cell = input.required<ChainCell>();

@@ -2,26 +2,22 @@
 <div class="dashboard-content">
   <div class="dashboard-header">
     <div class="header-actions">
-      <button mat-stroked-button class="review-latest-btn" (click)="goToGallery()"
-        matTooltip="Review signals from the latest run">
+      <button class="review-latest-btn ds-btn outline" (click)="goToGallery()" title="Review signals from the latest run">
         <mat-icon>account_tree</mat-icon>
         Review Latest Signals
       </button>
-      <a mat-stroked-button [routerLink]="'/' + appRoutes.RH_ACCOUNT_INQUIRY"
-        matTooltip="Open Robinhood MCP observation dashboard">
+      <a class="ds-btn outline" [routerLink]="'/' + appRoutes.RH_ACCOUNT_INQUIRY" title="Open Robinhood MCP observation dashboard">
         <mat-icon>query_stats</mat-icon>
         Observation
       </a>
-      <button mat-icon-button (click)="triggerOverviewSync()" [disabled]="isSyncingOverview()"
-        matTooltip="Sync company overview data">
+      <button class="icon-btn" (click)="triggerOverviewSync()" [disabled]="isSyncingOverview()" title="Sync company overview data">
         @if (isSyncingOverview()) {
           <mat-spinner diameter="18"></mat-spinner>
         } @else {
           <mat-icon>business</mat-icon>
         }
       </button>
-      <button mat-icon-button (click)="store.triggerBarsBackfill()"
-        matTooltip="Backfill symbol-data with full D/W/M history">
+      <button class="icon-btn" (click)="store.triggerBarsBackfill()" title="Backfill symbol-data with full D/W/M history">
         <mat-icon>download</mat-icon>
       </button>
     </div>

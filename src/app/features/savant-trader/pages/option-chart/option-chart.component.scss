@@ -94,25 +94,16 @@
   .type-toggle {
     height: 32px;
 
-    ::ng-deep .mat-button-toggle {
-      height: 32px;
-      min-height: 32px;
-
-      .mat-button-toggle-button {
-        min-height: 32px;
-      }
-
-      .mat-button-toggle-label-content {
-        font-size: 11px;
-        padding: 0 8px;
-        line-height: 30px;
-      }
+    .pill {
+      font-size: 11px;
+      padding: 0 8px;
+      line-height: 26px;
     }
   }
 
   /* Dense buttons */
-  .mat-mdc-unelevated-button,
-  .mat-mdc-outlined-button {
+  .ds-btn.outline,
+  .ds-btn.fill {
     min-height: 32px;
     font-size: 11px;
     padding: 0 10px;
@@ -280,6 +271,46 @@
       background: var(--mat-sys-primary-container);
       color: var(--mat-sys-on-primary-container);
       border-color: var(--mat-sys-primary);
+    }
+  }
+
+  .range-btn-wrap {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+
+    .header-btn {
+      margin-left: 4px;
+    }
+
+    .range-clear {
+      position: absolute;
+      top: -7px;
+      right: -7px;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid var(--mat-sys-outline-variant);
+      background: var(--mat-sys-surface-container-high);
+      color: var(--mat-sys-on-surface-variant);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 2;
+
+      mat-icon {
+        font-size: 11px;
+        width: 11px;
+        height: 11px;
+        line-height: 11px;
+      }
+
+      &:hover {
+        background: var(--mat-sys-error-container);
+        color: var(--mat-sys-on-error-container);
+      }
     }
   }
 
@@ -757,8 +788,16 @@
   }
 }
 
-/* Multi-select menu (mat-menu) */
-::ng-deep .multi-select-menu {
+/* Multi-select ds-menu panels — positioned under their trigger host. */
+.ms-menu-host {
+  position: relative;
+}
+
+.multi-select-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
   max-width: 320px;
 
   .multi-select-header {
@@ -823,15 +862,6 @@
     width: 100%;
     padding: 2px 8px;
     font-size: 11px;
-
-    ::ng-deep .mdc-form-field {
-      font-size: 11px;
-    }
-
-    ::ng-deep .mdc-checkbox {
-      --mdc-checkbox-selected-icon-color: var(--mat-sys-primary);
-      --mdc-checkbox-unselected-icon-color: var(--mat-sys-on-surface-variant);
-    }
 
     .opt-count {
       margin-left: auto;

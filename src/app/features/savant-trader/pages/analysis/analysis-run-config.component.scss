@@ -1,11 +1,25 @@
+@use 'index' as ds;
+
+.dse-field { @include ds.ds-field; }
+.pill-group { @include ds.pill-toggle; }
+.ds-btn { @include ds.ds-btn; }
+
+.dse-field .field-hint.error { color: var(--ds-error); }
+.dse-field select.field-input[multiple] {
+  height: auto;
+  min-height: 84px;
+  padding: var(--ds-space-2);
+}
+
 .run-config {
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 16px;
-  border: 1px solid var(--mat-sys-outline-variant);
+  border: 1px solid var(--ds-border-subtle);
   border-radius: 8px;
-  background: var(--mat-sys-surface-container);
+  background: var(--ds-surface-raised);
+  color: var(--ds-on-surface);
 }
 
 .origin-row {
@@ -17,7 +31,7 @@
 
 .origin-hint {
   font-size: 0.85rem;
-  opacity: 0.75;
+  color: var(--ds-on-surface-variant);
 }
 
 .params-grid {
@@ -30,17 +44,13 @@
   display: flex;
   gap: 12px;
 
-  mat-form-field {
+  .dse-field {
     flex: 1;
   }
 }
 
-.bar-range-error,
-.exit-grammar-hint {
-  color: var(--mat-sys-error);
-}
-
 .bar-range-error {
+  color: var(--ds-error);
   font-size: 0.8rem;
   grid-column: 1 / -1;
 }

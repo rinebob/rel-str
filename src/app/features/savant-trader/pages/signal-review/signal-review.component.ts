@@ -12,7 +12,6 @@ import {
   OnDestroy,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
@@ -28,14 +27,13 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
   selector: 'app-signal-review',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    MatButtonModule,
+    
     MatIconModule,
     MatProgressSpinnerModule,
     SignalReviewHeaderComponent,
     GroupPanelComponent,
     QuickChartsPanelComponent,
-    RunMetricsStripComponent,
-  ],
+    RunMetricsStripComponent],
   templateUrl: './signal-review.component.html',
   styleUrl: './signal-review.component.scss',
 })

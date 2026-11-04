@@ -10,11 +10,11 @@
  * Follows the existing options-strategy-dashboard.component pattern.
  */
 import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, OnInit, OnDestroy, HostListener } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+
 import { MatExpansionModule } from '@angular/material/expansion';
 
 import { UiStateService } from '../../../../core/services/ui-state.service';
@@ -37,16 +37,14 @@ import { take } from 'rxjs';
   selector: 'app-option-chain-pct-change',
   standalone: true,
   imports: [
-    MatButtonModule,
+    
     MatIconModule,
-    MatTooltipModule,
     MatProgressSpinnerModule,
     MatExpansionModule,
     PctChangeGridComponent,
     RouterLink,
     SwingCompareComponent,
-    TargetTypeSelectorComponent,
-  ],
+    TargetTypeSelectorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="pct-change-page" [class.fullscreen]="ui.fullscreen()">
@@ -60,11 +58,10 @@ import { take } from 'rxjs';
               <option value="halo">Halo</option>
             </select>
           </label>
-          <button
-            mat-icon-button
-            (click)="ui.toggleFullscreen()"
-            [matTooltip]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
-          >
+          <button class="icon-btn"
+ 
+ (click)="ui.toggleFullscreen()" [title]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
+ >
             <mat-icon>{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
           </button>
         </div>
@@ -75,13 +72,12 @@ import { take } from 'rxjs';
           <div class="panel-toolbar">
             <span class="sidebar-title">Swing compare</span>
             <button
-              type="button"
-              mat-icon-button
-              class="panel-collapse-btn"
-              (click)="panelCollapsed.set(!panelCollapsed())"
-              [matTooltip]="panelCollapsed() ? 'Expand panel' : 'Collapse panel'"
-              aria-label="Toggle input panel"
-            >
+ type="button"
+ 
+ class="panel-collapse-btn icon-btn"
+ (click)="panelCollapsed.set(!panelCollapsed())" [title]="panelCollapsed() ? 'Expand panel' : 'Collapse panel'"
+ aria-label="Toggle input panel"
+ >
               <mat-icon>{{ panelCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
             </button>
           </div>
@@ -116,12 +112,12 @@ import { take } from 'rxjs';
                     {{ frame.magnitudePercent.toFixed(1) }}%)
                   </span>
                 }
-                <button
-                  type="button"
-                  mat-stroked-button
-                  data-testid="pick-frame-btn"
-                  (click)="openFrameDialog()"
-                >
+                <button class="ds-btn outline"
+ type="button"
+ 
+ data-testid="pick-frame-btn"
+ (click)="openFrameDialog()"
+ >
                   Pick frame swing
                 </button>
               </div>
@@ -229,20 +225,20 @@ import { take } from 'rxjs';
                     <option [value]="cfg.id">{{ cfg.id }}</option>
                   }
                 </select>
-                <button
-                  type="button"
-                  mat-stroked-button
-                  (click)="saveConfig()"
-                  [disabled]="!store.canRun()"
-                >
+                <button class="ds-btn outline"
+ type="button"
+ 
+ (click)="saveConfig()"
+ [disabled]="!store.canRun()"
+ >
                   Save
                 </button>
-                <button
-                  type="button"
-                  mat-stroked-button
-                  (click)="deleteConfig()"
-                  [disabled]="!store.selectedConfigId()"
-                >
+                <button class="ds-btn outline"
+ type="button"
+ 
+ (click)="deleteConfig()"
+ [disabled]="!store.selectedConfigId()"
+ >
                   Delete
                 </button>
               </div>
@@ -261,20 +257,20 @@ import { take } from 'rxjs';
             <div class="form-group">
               <label>Type</label>
               <div class="type-toggle">
-                <button
-                  type="button"
-                  mat-stroked-button
-                  [class.active]="store.type() === optionTypeCall"
-                  (click)="store.setType(optionTypeCall)"
-                >
+                <button class="ds-btn outline"
+ type="button"
+ 
+ [class.active]="store.type() === optionTypeCall"
+ (click)="store.setType(optionTypeCall)"
+ >
                   Calls
                 </button>
-                <button
-                  type="button"
-                  mat-stroked-button
-                  [class.active]="store.type() === optionTypePut"
-                  (click)="store.setType(optionTypePut)"
-                >
+                <button class="ds-btn outline"
+ type="button"
+ 
+ [class.active]="store.type() === optionTypePut"
+ (click)="store.setType(optionTypePut)"
+ >
                   Puts
                 </button>
               </div>
@@ -294,15 +290,15 @@ import { take } from 'rxjs';
             </mat-expansion-panel>
 
             <div class="actions">
-              <button
-                type="button"
-                mat-stroked-button
-                [disabled]="!store.canRun() || store.loading()"
-                (click)="store.runAnalysis()"
-              >
+              <button class="ds-btn outline"
+ type="button"
+ 
+ [disabled]="!store.canRun() || store.loading()"
+ (click)="store.runAnalysis()"
+ >
                 Run Analysis
               </button>
-              <button type="button" mat-stroked-button (click)="store.reset()">
+              <button class="ds-btn outline" type="button" (click)="store.reset()">
                 Reset
               </button>
             </div>
@@ -584,13 +580,12 @@ import { take } from 'rxjs';
         background: var(--ds-surface);
         color: var(--ds-on-surface);
       }
-    `,
-  ],
+    `],
 })
 export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   readonly store = inject(OptionChainPctChangeStore);
   readonly ui = inject(UiStateService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
   /** Whether the left input panel is collapsed to a slim rail. */
   readonly panelCollapsed = signal(false);
   /** Cell-text contrast mode — adaptive white text, brighter ramp

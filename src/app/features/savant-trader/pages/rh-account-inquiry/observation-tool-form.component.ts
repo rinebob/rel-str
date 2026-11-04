@@ -1,7 +1,6 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatCardModule } from '@angular/material/card';
@@ -41,14 +40,12 @@ const TOOL_CATEGORY_ORDER = [
   imports: [
     CommonModule,
     FormsModule,
-    MatButtonModule,
     MatInputModule,
     MatFormFieldModule,
     MatCardModule,
     MatProgressSpinnerModule,
     MatCheckboxModule,
-    RhSelectMenuComponent,
-  ],
+    RhSelectMenuComponent],
   templateUrl: './observation-tool-form.component.html',
   styleUrl: './observation-tool-form.component.scss',
 })

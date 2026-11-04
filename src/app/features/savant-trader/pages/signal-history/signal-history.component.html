@@ -1,7 +1,7 @@
 <div class="signal-history">
   <!-- Header -->
   <div class="history-header">
-    <button mat-icon-button (click)="goBack()" matTooltip="Back to dashboard">
+    <button class="icon-btn" (click)="goBack()" title="Back to dashboard">
       <mat-icon>arrow_back</mat-icon>
     </button>
     <div class="symbol-input">
@@ -12,7 +12,7 @@
         (keydown)="onSymbolKeydown($event)"
         placeholder="Symbol..."
         class="symbol-field">
-      <button mat-raised-button color="primary" (click)="loadSignals()" [disabled]="loading()">
+      <button class="ds-btn fill" (click)="loadSignals()" [disabled]="loading()">
         <mat-icon>search</mat-icon>
         Generate
       </button>

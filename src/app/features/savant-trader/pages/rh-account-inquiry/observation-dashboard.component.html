@@ -1,7 +1,7 @@
 <div class="observation-dashboard" [class.fullscreen]="uiStateService.fullscreen()">
   <div class="page-header">
     <span class="subtitle">Local-only tool explorer. No data is persisted to cloud.</span>
-    <a mat-stroked-button [routerLink]="'/' + appRoutes.RUN_DASHBOARD" matTooltip="Back to run dashboard">
+    <a class="ds-btn outline" [routerLink]="'/' + appRoutes.RUN_DASHBOARD" title="Back to run dashboard">
       <mat-icon>arrow_back</mat-icon>
       Run Dashboard
     </a>

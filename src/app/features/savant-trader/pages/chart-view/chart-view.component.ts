@@ -30,10 +30,9 @@ import {
   EnvironmentInjector,
   runInInjectionContext,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
 import { Router } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
@@ -60,13 +59,11 @@ import { SignalDetailComponent } from '../../components/signal-detail/signal-det
   // detail charts; dies with the page (#1232/#1255).
   providers: [ChartToolbarStateService],
   imports: [
-    MatButtonModule,
+    
     MatIconModule,
-    MatTooltipModule,
     ChartViewToolbarComponent,
     SignalListComponent,
-    SignalDetailComponent,
-  ],
+    SignalDetailComponent],
   templateUrl: './chart-view.component.html',
   styleUrl: './chart-view.component.scss',
 })
@@ -78,7 +75,7 @@ export class ChartViewComponent implements OnInit, OnDestroy {
   readonly uiStateService = inject(UiStateService);
   private readonly router = inject(Router);
   private readonly manualOrderService = inject(ManualOrderService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly snackBar = inject(DsToastService);
   private readonly firestore = inject(Firestore);
   private readonly injector = inject(EnvironmentInjector);
 

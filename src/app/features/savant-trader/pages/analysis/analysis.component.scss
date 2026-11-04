@@ -1,4 +1,12 @@
 @use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+@use 'index' as ds;
+
+.ds-btn     { @include ds.ds-btn; }
+.dse-field  { @include ds.ds-field; }
+.dse-card   { @include ds.ds-card; }
+.dse-tabs   { @include ds.ds-tabs; }
+.dse-spinner { @include ds.ds-spinner; }
+.icon-btn   { @include ds.icon-btn; }
 
 .analysis-page {
   padding: 16px;
@@ -7,7 +15,9 @@
   gap: 16px;
   height: calc(100vh - var(--header-height, 48px));
   box-sizing: border-box;
-  overflow: hidden;
+  // Page scrolls when stacked sections (run-config + grid + workbench)
+  // exceed the viewport — children also manage their own scroll regions.
+  overflow-y: auto;
 }
 
 .page-header {
@@ -19,13 +29,14 @@
 
   h2 {
     margin: 0;
+    color: var(--ds-on-surface);
   }
 }
 
 .page-subtitle {
   margin: 2px 0 0;
   font-size: 0.85rem;
-  opacity: 0.7;
+  color: var(--ds-on-surface-variant);
   max-width: 60ch;
 }
 
@@ -45,11 +56,29 @@
   min-width: 260px;
 }
 
+.search-wrap {
+  position: relative;
+  display: block;
+
+  .field-input { width: 100%; padding-right: 32px; }
+  .search-icon {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--ds-on-surface-variant);
+    pointer-events: none;
+  }
+}
+
 .error-banner {
   padding: 8px 12px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--ds-error) 12%, transparent);
-  color: var(--mat-sys-error);
+  color: var(--ds-error);
 }
 
 .loading-container {
@@ -58,7 +87,7 @@
   justify-content: center;
   gap: 12px;
   padding: 48px 0;
-  opacity: 0.8;
+  color: var(--ds-on-surface-variant);
 }
 
 .empty-state {
@@ -185,14 +214,18 @@
   margin-top: 20px;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 280px;
   flex: 1;
+  // Fallback scroll region — the view child (table/stats/chart) normally
+  // self-scrolls inside this box; if it can't bound, the workbench does.
+  overflow-y: auto;
 }
 
 .workbench-header {
   display: flex;
   align-items: center;
   gap: 12px;
+  color: var(--ds-on-surface);
   h3 {
     margin: 0 0 4px;
     font-size: 1rem;
@@ -202,38 +235,8 @@
 }
 
 .view-switch {
-  display: inline-flex;
-  gap: 2px;
   margin-left: auto;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 6px;
-  padding: 2px;
-}
-
-.view-btn {
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 3px 10px;
-  font-size: 0.75rem;
   text-transform: capitalize;
-  border-radius: 4px;
-  color: inherit;
-  opacity: 0.7;
-  &.active {
-    background: var(--mat-sys-secondary-container);
-    opacity: 1;
-  }
-}
-
-.close-workbench {
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 4px;
-  display: inline-flex;
-  opacity: 0.7;
-  &:hover { opacity: 1; }
 }
 
 .compare-grid {
@@ -250,9 +253,9 @@
   .compare-label {
     font-size: 0.78rem;
     font-weight: 600;
-    opacity: 0.7;
+    color: var(--ds-on-surface-variant);
     padding: 4px 0 8px;
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    border-bottom: 1px solid var(--ds-border-subtle);
     margin-bottom: 8px;
   }
 }
@@ -289,7 +292,7 @@
 }
 
 .error-line {
-  color: var(--mat-sys-error);
+  color: var(--ds-error);
   font-size: 0.8rem;
   margin-top: 6px;
 }

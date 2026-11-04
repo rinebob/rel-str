@@ -1,7 +1,7 @@
 import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
+
 import { formatResultValue } from './observation-dashboard.model';
 import type { CallHistoryEntry } from './observation-dashboard.model';
 import type {
@@ -13,7 +13,7 @@ import type {
 @Component({
   selector: 'app-observation-result-panel',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule],
+  imports: [CommonModule, MatCardModule],
   templateUrl: './observation-result-panel.component.html',
   styleUrl: './observation-result-panel.component.scss',
 })

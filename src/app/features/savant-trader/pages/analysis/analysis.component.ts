@@ -20,12 +20,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { AnalysisStore } from '../../stores/analysis.store';
 import { AppRoutes } from '../../../../core/common/interfaces';
@@ -58,20 +53,14 @@ type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
   imports: [
     CommonModule,
     RouterLink,
-    MatButtonModule,
     MatIconModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
     AnalysisRunConfigComponent,
     AnalysisTableComponent,
     AnalysisStatsComponent,
     AnalysisHistogramComponent,
     AnalysisScatterComponent,
     SliceMenuComponent,
-    WorkbenchToolsComponent,
-  ],
+    WorkbenchToolsComponent],
   templateUrl: './analysis.component.html',
   styleUrl: './analysis.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

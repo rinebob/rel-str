@@ -15,11 +15,10 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
+
 
 import { StStore } from '../../stores/st.store';
 import { DashboardStore } from '../../stores/dashboard.store';
@@ -29,7 +28,8 @@ import { OverviewService } from '../../services/overview.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { Router, RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
+
 import { getScheduleDescription, formatTimestampPT, formatTimePt, getNextPdrWindowPt, getNextNightlyPt, todayDate } from '../../utils/utils';
 import { RunStatusBarComponent } from '../../components/run-status-bar/run-status-bar.component';
 import { RunHistoryPanelComponent } from '../../components/run-history-panel/run-history-panel.component';
@@ -41,17 +41,13 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule,
-    MatTooltipModule,
     RouterLink,
     RunStatusBarComponent,
     RunHistoryPanelComponent,
     RunControlCardComponent,
-    RunMetricsStripComponent,
-  ],
+    RunMetricsStripComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
   providers: [DashboardStore],
@@ -65,7 +61,7 @@ export class DashboardComponent implements OnDestroy {
   private readonly router = inject(Router);
   protected readonly appRoutes = AppRoutes;
   private readonly overviewService = inject(OverviewService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly snackBar = inject(DsToastService);
 
   readonly isSyncingOverview = signal(false);
   readonly scheduleSummary = computed(() => {

@@ -87,21 +87,6 @@
       font-variant-numeric: tabular-nums;
     }
 
-    // Rendered-but-invisible matDatepicker anchor — the picker overlay
-    // positions from this element's rect (display:none would anchor at
-    // viewport 0,0). Zero-size at the control's left edge, uninteractive.
-    .date-anchor {
-      position: absolute;
-      left: 0;
-      bottom: 0;
-      width: 0;
-      height: 0;
-      padding: 0;
-      border: 0;
-      opacity: 0;
-      pointer-events: none;
-    }
-
     .date-error {
       font-size: 10px;
       color: var(--mat-sys-error);

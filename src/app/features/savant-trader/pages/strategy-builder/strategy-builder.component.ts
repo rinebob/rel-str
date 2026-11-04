@@ -5,11 +5,10 @@
  */
 import { Component, ChangeDetectionStrategy, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
+
 import { MatIconModule } from '@angular/material/icon';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
@@ -22,13 +21,13 @@ import { StrategyBuilderFormComponent } from './strategy-builder-form.component'
   selector: 'app-strategy-builder',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule, MatProgressSpinnerModule],
   templateUrl: './strategy-builder.component.html',
   styleUrl: './strategy-builder.component.scss',
 })
 export class StrategyBuilderComponent implements OnInit {
   readonly store = inject(StrategyBuilderStore);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
   private readonly router = inject(Router);
   protected readonly appRoutes = AppRoutes;
   protected readonly lifecycleState = LifecycleState;

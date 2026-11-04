@@ -17,25 +17,14 @@
       }
       <div class="date-control">
         <input
-          type="text"
-          class="date-input" data-testid="date-input"
+          type="date"
+          class="dse-date date-input" data-testid="date-input"
           aria-label="Session date (YYYY-MM-DD)"
-          placeholder="YYYY-MM-DD"
           [value]="store.dateInput()"
           (input)="dateError.set(null)"
           (keydown.enter)="onDateCommitEvent($event)"
+          (change)="onDateCommitEvent($event)"
         />
-        <!-- Zero-size but RENDERED anchor input carries the matDatepicker
-             association — the picker refuses to open without one, and the
-             overlay positions from this element's rect, so it must not be
-             display:none. The visible input stays a plain YYYY-MM-DD box:
-             a matDatepicker input would reformat display through the
-             locale adapter and parse ISO text as UTC midnight (off-by-one
-             in US timezones). -->
-        <input type="text" class="date-anchor" aria-hidden="true" tabindex="-1" readonly
-               [matDatepicker]="sessionPicker" (dateChange)="onPickedDate($event.value)" />
-        <mat-datepicker-toggle [for]="sessionPicker"></mat-datepicker-toggle>
-        <mat-datepicker #sessionPicker></mat-datepicker>
       </div>
       @if (dateError(); as err) {
         <span class="date-error" role="alert" data-testid="date-error">{{ err }}</span>

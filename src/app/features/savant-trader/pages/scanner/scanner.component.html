@@ -1,16 +1,36 @@
-<!-- @topic #1098 — RH Scanner | @task #1199 -->
+<!-- @topic #1098 — RH Scanner | @task #1199, #1305 -->
 <div class="scanner-page">
   <div class="content-column">
     <header class="scanner-header">
-      <button
-        mat-flat-button
-        color="primary"
-        data-testid="run-all"
-        [disabled]="store.runsLoading()"
-        (click)="store.runAllRecipes()"
-      >
+      <button class="ds-btn fill"
+ data-testid="run-all"
+ [disabled]="store.runsLoading()"
+ (click)="store.runAllRecipes()"
+ >
         Run all
       </button>
+      <!-- All/New/Tracked page filter (#1305) — same pill-toggle idiom
+           as the chart toolbar; applies to rail + table together. -->
+      <div class="pill-group" role="group" aria-label="Symbol filter" data-testid="symbol-filter"
+           [attr.title]="
+             !trackedReady()
+               ? 'New/Tracked filtering needs the tracked-symbol universe (loading or unavailable)'
+               : null
+           ">
+        @for (o of symbolFilterOptions; track o.value) {
+          <button
+            type="button"
+            class="pill"
+            [class.active]="symbolFilter() === o.value"
+            [attr.aria-pressed]="symbolFilter() === o.value"
+            [attr.data-testid]="'filter-' + o.value"
+            [disabled]="o.value !== 'all' && !trackedReady()"
+            (click)="symbolFilter.set(o.value)"
+          >
+            {{ o.label }}
+          </button>
+        }
+      </div>
       @if (lastRefresh(); as t) {
         <span class="last-refresh">Last refresh {{ t | date: 'h:mm a' }}</span>
       }
@@ -23,12 +43,10 @@
           Robinhood session expired — re-authorize in the popup window, then
           run the scans again.
         </span>
-        <button
-          mat-flat-button
-          color="primary"
-          [disabled]="reauthing()"
-          (click)="onReauth()"
-        >
+        <button class="ds-btn fill"
+ [disabled]="reauthing()"
+ (click)="onReauth()"
+ >
           {{ reauthing() ? 'Authorizing…' : 'Re-authorize' }}
         </button>
       </div>
@@ -39,7 +57,7 @@
       <div class="error-banner">
         <mat-icon>error_outline</mat-icon>
         <span class="error-text">{{ err.message }}</span>
-        <button mat-icon-button aria-label="Dismiss error" (click)="store.clearError()">
+        <button class="icon-btn" aria-label="Dismiss error" (click)="store.clearError()">
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -59,7 +77,7 @@
             <span class="rail-top">
               <span class="dot status-{{ e.run.status }}"></span>
               <span class="rail-name">{{ e.recipe.title }}</span>
-              <span class="rail-count">{{ e.count }}</span>
+              <span class="rail-count" [attr.title]="e.countTitle">{{ e.count }}</span>
             </span>
             @if (e.tickers) {
               <span class="rail-tickers">{{ e.tickers }}</span>
@@ -77,12 +95,10 @@
             <div class="detail-error">
               <strong>{{ sel.recipe.title }}</strong>
               <span>Scan failed — the rest of the board is unaffected.</span>
-              <button
-                mat-button
-                color="primary"
-                data-testid="retry-selected"
-                (click)="store.refreshRecipe(sel.recipe.id)"
-              >
+              <button class="ds-btn"
+ data-testid="retry-selected"
+ (click)="store.refreshRecipe(sel.recipe.id)"
+ >
                 Retry
               </button>
             </div>
@@ -91,6 +107,7 @@
               [recipe]="sel.recipe"
               [run]="sel.run"
               [tracked]="tracked()"
+              [symbolFilter]="symbolFilter()"
               (refresh)="store.refreshRecipe(sel.recipe.id)"
             />
           }

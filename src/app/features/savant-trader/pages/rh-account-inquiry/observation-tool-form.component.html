@@ -55,44 +55,41 @@
         @for (prop of argProperties(); track prop.name) {
           @switch (prop.type) {
             @case ('string[]') {
-              <mat-form-field appearance="outline" class="arg-input">
-                <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
-                <input
-                  matInput
+              <label class="dse-field arg-input">
+                <span class="field-label">{{ prop.name }}{{ prop.required ? ' *' : '' }}</span>
+                <input class="field-input"
                   [value]="formatArray(argValues()[prop.name])"
                   (input)="updateArgValue(prop.name, parseArray($any($event.target).value))"
                   [placeholder]="'Comma-separated values'" />
-              </mat-form-field>
+              </label>
             }
             @case ('boolean') {
               <div class="arg-boolean">
-                <mat-checkbox
+                <label class="dse-check"><input type="checkbox"
                   [checked]="argValues()[prop.name] === true"
-                  (change)="updateArgValue(prop.name, $event.checked)">
+                  (change)="updateArgValue(prop.name, $event.target.checked)">
                   {{ prop.name }}{{ prop.required ? ' *' : '' }}
-                </mat-checkbox>
+                </label>
               </div>
             }
             @case ('number') {
-              <mat-form-field appearance="outline" class="arg-input">
-                <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
-                <input
-                  matInput
+              <label class="dse-field arg-input">
+                <span class="field-label">{{ prop.name }}{{ prop.required ? ' *' : '' }}</span>
+                <input class="field-input"
                   type="number"
                   [value]="argValues()[prop.name]"
                   (input)="updateArgValue(prop.name, parseNumber($any($event.target).value))" />
-              </mat-form-field>
+              </label>
             }
             @case ('json') {
-              <mat-form-field appearance="outline" class="arg-input arg-input-json">
-                <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
-                <textarea
-                  matInput
+              <label class="dse-field arg-input arg-input-json">
+                <span class="field-label">{{ prop.name }}{{ prop.required ? ' *' : '' }}</span>
+                <textarea class="field-input"
                   rows="4"
                   [value]="argValues()[prop.name]"
                   (input)="updateArgValue(prop.name, $any($event.target).value)"
                   placeholder='JSON — e.g. [{"key":"value"}] or {"key":"value"}'></textarea>
-              </mat-form-field>
+              </label>
             }
             @default {
               @if (prop.isAccountNumber && accounts().length > 0) {
@@ -112,22 +109,20 @@
                   (valueChange)="updateArgValue(prop.name, $event)">
                 </app-rh-select-menu>
               } @else if (prop.format === 'date' || prop.format === 'date-time') {
-                <mat-form-field appearance="outline" class="arg-input">
-                  <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
-                  <input
-                    matInput
+                <label class="dse-field arg-input">
+                  <span class="field-label">{{ prop.name }}{{ prop.required ? ' *' : '' }}</span>
+                  <input class="field-input"
                     type="date"
                     [value]="argValues()[prop.name]"
                     (input)="updateArgValue(prop.name, parseDate($any($event.target).value))" />
-                </mat-form-field>
+                </label>
               } @else {
-                <mat-form-field appearance="outline" class="arg-input">
-                  <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
-                  <input
-                    matInput
+                <label class="dse-field arg-input">
+                  <span class="field-label">{{ prop.name }}{{ prop.required ? ' *' : '' }}</span>
+                  <input class="field-input"
                     [value]="argValues()[prop.name]"
                     (input)="updateArgValue(prop.name, $any($event.target).value)" />
-                </mat-form-field>
+                </label>
               }
             }
           }
@@ -142,10 +137,10 @@
             This is a <strong>financial mutation</strong> that can move money or change orders.
             Type the tool name <code>{{ selectedToolName() }}</code> below and click Confirm to proceed.
           </p>
-          <mat-form-field appearance="outline" class="confirmation-input">
-            <mat-label>Confirm tool name</mat-label>
-            <input matInput [value]="confirmationText()" (input)="confirmationText.set($any($event.target).value)" />
-          </mat-form-field>
+          <label class="dse-field confirmation-input">
+            <span class="field-label">Confirm tool name</span>
+            <input class="field-input" [value]="confirmationText()" (input)="confirmationText.set($any($event.target).value)" />
+          </label>
         } @else if (selectedTool()?.simulation) {
           <p class="confirmation-warning">
             This is a <strong>simulation</strong> (dry-run). No real order will be placed.
@@ -161,11 +156,11 @@
   </mat-card-content>
 
   <div class="bottom-actions">
-    <mat-form-field appearance="outline" class="redact-field">
-      <mat-label>Extra redaction fields</mat-label>
-      <input matInput [ngModel]="extraRedactFields()" (ngModelChange)="extraRedactFieldsChanged.emit($event)" placeholder="e.g. portfolio_value, buying_power" />
-    </mat-form-field>
-    <button mat-raised-button color="primary" (click)="onExecute()" [disabled]="loading() || !canExecute()">
+    <label class="dse-field redact-field">
+      <span class="field-label">Extra redaction fields</span>
+      <input class="field-input" [ngModel]="extraRedactFields()" (ngModelChange)="extraRedactFieldsChanged.emit($event)" placeholder="e.g. portfolio_value, buying_power" />
+    </label>
+    <button class="ds-btn fill" (click)="onExecute()" [disabled]="loading() || !canExecute()">
       @if (loading()) {
         <mat-spinner diameter="20"></mat-spinner>
       } @else if (needsConfirmation() && confirmationState() === 'idle') {

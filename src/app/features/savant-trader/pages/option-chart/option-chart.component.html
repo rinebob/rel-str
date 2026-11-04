@@ -9,80 +9,77 @@
       <div class="panel-header">
         <span class="panel-title">Contract</span>
         <button
-          mat-icon-button
-          class="panel-collapse"
-          (click)="controlPanelOpen = false"
-          matTooltip="Hide panel"
-        >
+ 
+ class="panel-collapse icon-btn"
+ (click)="controlPanelOpen = false" title="Hide panel"
+ >
           <mat-icon>chevron_left</mat-icon>
         </button>
       </div>
 
       <!-- Builder Controls -->
       <div class="builder-section">
-        <mat-form-field appearance="outline" class="panel-field">
-          <mat-label>Symbol</mat-label>
-          <input
-            matInput
+        <label class="dse-field panel-field">
+          <span class="field-label">Symbol</span>
+          <input class="field-input"
             [ngModel]="symbol()"
             (ngModelChange)="onSymbolChange($event)"
             placeholder="QQQ"
           />
-        </mat-form-field>
+        </label>
 
-        <div class="query-length-row">
-          <button mat-stroked-button [matMenuTriggerFor]="queryLenMenu" class="query-len-btn">
+        <div class="query-length-row ms-menu-host">
+          <button class="query-len-btn ds-btn outline"
+                  aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'queryLen'"
+                  (click)="toggleMenu('queryLen', $event)">
             {{ queryLenLabel() }} <mat-icon>arrow_drop_down</mat-icon>
           </button>
-          <mat-menu #queryLenMenu="matMenu" class="multi-select-menu">
-            <div class="multi-select-header" (click)="$event.stopPropagation()">
+          @if (openMenu() === 'queryLen') {
+          <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
+            <div class="multi-select-header">
               <button class="multi-select-clear" (click)="clearQueryLengthBuckets()">Clear</button>
             </div>
             <div class="multi-select-scroll">
               @for (group of availableLengthGroups(); track group.name) {
               <div class="multi-select-group-header">
-                <button class="multi-select-group-toggle" (click)="$event.stopPropagation(); toggleQueryLengthGroup(group.name)">
+                <button class="multi-select-group-toggle" (click)="toggleQueryLengthGroup(group.name)">
                   {{ group.name }}
                 </button>
               </div>
               @for (opt of group.options; track opt.value) {
-              <mat-checkbox
-                [checked]="selectedQueryLengthBuckets().has(opt.value)"
-                (click)="$event.stopPropagation(); toggleQueryLengthBucket(opt.value)"
-                class="multi-select-item"
-              >
+              <label class="dse-check multi-select-item">
+                <input type="checkbox"
+                  [checked]="selectedQueryLengthBuckets().has(opt.value)"
+                  (change)="toggleQueryLengthBucket(opt.value)" />
                 {{ opt.label }} ({{ opt.count }})
-              </mat-checkbox>
+              </label>
               }
               }
             </div>
-          </mat-menu>
+          </div>
+          }
         </div>
 
         <div class="exp-range-row">
-          <mat-form-field appearance="outline" class="panel-field exp-range-field">
-            <mat-label>Exp From</mat-label>
-            <input matInput [matDatepicker]="expGtePicker" [ngModel]="queryExpGteDate()" (dateChange)="onExpGteChange($event.value)" />
-            <mat-datepicker-toggle matSuffix [for]="expGtePicker"></mat-datepicker-toggle>
-            <mat-datepicker #expGtePicker></mat-datepicker>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="panel-field exp-range-field">
-            <mat-label>Exp To</mat-label>
-            <input matInput [matDatepicker]="expLtePicker" [ngModel]="queryExpLteDate()" (dateChange)="onExpLteChange($event.value)" />
-            <mat-datepicker-toggle matSuffix [for]="expLtePicker"></mat-datepicker-toggle>
-            <mat-datepicker #expLtePicker></mat-datepicker>
-          </mat-form-field>
+          <label class="dse-field panel-field exp-range-field">
+            <span class="field-label">Exp From</span>
+            <input type="date" class="dse-date" [ngModel]="queryExpGte()" (change)="onExpGteChange($event.target.value)" />
+          </label>
+          <label class="dse-field panel-field exp-range-field">
+            <span class="field-label">Exp To</span>
+            <input type="date" class="dse-date" [ngModel]="queryExpLte()" (change)="onExpLteChange($event.target.value)" />
+          </label>
         </div>
       </div>
 
       <!-- Contract Search + Catalog -->
       <div class="search-section">
         <button
-          mat-stroked-button
-          class="panel-full"
-          (click)="onQueryCatalog()"
-          [disabled]="!canSearch()"
-        >
+ 
+ class="panel-full ds-btn outline"
+ (click)="onQueryCatalog()"
+ [disabled]="!canSearch()"
+ >
           <mat-icon>search</mat-icon>
           Search Catalog
         </button>
@@ -174,14 +171,14 @@
         <div class="catalog-pagination">
           <span class="page-info">{{ displayedRows().length }} shown / {{ catalogTotal() }} total{{ hasMorePages() ? ' (loading…)' : '' }}</span>
           @if (store.catalogPageToken()) {
-          <button mat-stroked-button (click)="onLoadMore()" [disabled]="store.catalogLoading()">
+          <button class="ds-btn outline" (click)="onLoadMore()" [disabled]="store.catalogLoading()">
             @if (store.catalogLoading() && !store.catalogLoadAllProgress()) {
             <mat-progress-spinner mode="indeterminate" diameter="16" class="load-more-spinner"></mat-progress-spinner>
             } @else {
             Load More
             }
           </button>
-          <button mat-stroked-button (click)="onLoadAll()" [disabled]="store.catalogLoading()">
+          <button class="ds-btn outline" (click)="onLoadAll()" [disabled]="store.catalogLoading()">
             @if (store.catalogLoadAllProgress(); as progress) {
             <mat-progress-spinner mode="indeterminate" diameter="16" class="load-more-spinner"></mat-progress-spinner>
             <span>{{ progress }}</span>
@@ -194,25 +191,65 @@
         </div>
         }
 
-        <mat-form-field appearance="outline" class="panel-field">
-          <mat-label>OCC Contract ID(s)</mat-label>
-          <textarea
-            matInput
+        <label class="dse-field panel-field">
+          <span class="field-label">Selection replay</span>
+          <mat-select
+            [(ngModel)]="selectedReplayRunId"
+            (selectionChange)="onReplaySelected($event.value)"
+            [disabled]="replayLoading() || store.loading() || !!store.plottedLoadProgress()"
+          >
+            @for (r of replayRuns(); track r.runId) {
+            <mat-option [value]="r.runId">{{ replayLabel(r) }}</mat-option>
+            }
+          </mat-select>
+          <span class="field-hint">Plots first 10 Wednesday picks for {{ symbol() }}</span>
+        </label>
+        @if (replayLoading()) {
+        <div class="search-loading">
+          <mat-progress-spinner mode="indeterminate" diameter="16"></mat-progress-spinner>
+          <span>Loading replay…</span>
+        </div>
+        }
+        @if (replayError()) {
+        <div class="search-error">
+          <mat-chip-set>
+            <mat-chip color="warn" highlighted>{{ replayError() }}</mat-chip>
+          </mat-chip-set>
+        </div>
+        }
+
+        <button
+          class="panel-full ds-btn"
+          (click)="openListChooser()"
+          [disabled]="store.loading() || !!store.plottedLoadProgress()"
+          aria-label="Choose a contract list"
+        >
+          Contract lists…
+        </button>
+        @if (listError()) {
+        <div class="search-error">
+          <mat-chip-set>
+            <mat-chip color="warn" highlighted>{{ listError() }}</mat-chip>
+          </mat-chip-set>
+        </div>
+        }
+
+        <label class="dse-field panel-field">
+          <span class="field-label">OCC Contract ID(s)</span>
+          <textarea class="field-input"
             rows="4"
             [(ngModel)]="occIdInput"
             placeholder="e.g. QQQ240719C00450000&#10;or one per line: 2026-06-10,QQQ260619P00470000"
             [disabled]="store.loading() || !!store.plottedLoadProgress()"
           ></textarea>
-          <mat-hint>One per line — bare ID or YYYY-MM-DD,ID</mat-hint>
-        </mat-form-field>
+          <span class="field-hint">One per line — bare ID or YYYY-MM-DD,ID</span>
+        </label>
 
         <button
-          mat-flat-button
-          color="primary"
-          class="panel-full"
-          (click)="onLoad()"
-          [disabled]="store.loading() || !!store.plottedLoadProgress() || !occIdInput.trim()"
-        >
+ class="panel-full ds-btn fill"
+ (click)="onLoad()"
+ [disabled]="store.loading() || !!store.plottedLoadProgress() || !occIdInput.trim()"
+ >
           Load {{ contractLength() ? '(' + lengthLabel() + ')' : '' }}
         </button>
 
@@ -251,25 +288,25 @@
 
         <!-- Toggle Controls — Greeks/Volume-OI panes are single-contract only -->
         <div class="toggle-row">
-          <mat-slide-toggle [checked]="store.showUnderlying()" (change)="store.toggleUnderlying()">
+          <label class="dse-switch"><input type="checkbox" class="switch-input" [checked]="store.showUnderlying()" (change)="store.toggleUnderlying()">
             Underlying
-          </mat-slide-toggle>
+          </label>
           @if (store.contractData()) {
-          <mat-slide-toggle [checked]="store.showGreeks()" (change)="store.toggleGreeks()">
+          <label class="dse-switch"><input type="checkbox" class="switch-input" [checked]="store.showGreeks()" (change)="store.toggleGreeks()">
             Greeks
-          </mat-slide-toggle>
-          <mat-slide-toggle [checked]="store.showVolumeOI()" (change)="store.toggleVolumeOI()">
+          </label>
+          <label class="dse-switch"><input type="checkbox" class="switch-input" [checked]="store.showVolumeOI()" (change)="store.toggleVolumeOI()">
             Volume / OI
-          </mat-slide-toggle>
+          </label>
           }
         </div>
 
         <!-- Chart padding controls -->
         <div class="pad-row">
-          <button mat-stroked-button (click)="store.addPadDays(20)" [disabled]="!store.contractData() && !showPlottedSet()">+20d</button>
-          <button mat-stroked-button (click)="store.addPadDays(50)" [disabled]="!store.contractData() && !showPlottedSet()">+50d</button>
+          <button class="ds-btn outline" (click)="store.addPadDays(20)" [disabled]="!store.contractData() && !showPlottedSet()">+20d</button>
+          <button class="ds-btn outline" (click)="store.addPadDays(50)" [disabled]="!store.contractData() && !showPlottedSet()">+50d</button>
           @if (store.chartPadDays() > 0) {
-          <button mat-stroked-button (click)="store.resetPadDays()">Reset</button>
+          <button class="ds-btn outline" (click)="store.resetPadDays()">Reset</button>
           }
         </div>
       </div>
@@ -287,11 +324,10 @@
       <div class="contract-header-bar">
         @if (!controlPanelOpen) {
         <button
-          mat-icon-button
-          class="panel-expand"
-          (click)="controlPanelOpen = true"
-          matTooltip="Show panel"
-        >
+ 
+ class="panel-expand icon-btn"
+ (click)="controlPanelOpen = true" title="Show panel"
+ >
           <mat-icon>chevron_right</mat-icon>
         </button>
         }
@@ -314,41 +350,51 @@
         <span class="ch-type">UNDERLYING</span>
         }
         <button
-          mat-stroked-button
-          class="header-btn"
-          (click)="chartFilterActive() ? onClearChartFilter() : onFilterToChart()"
-        >
+ 
+ class="header-btn ds-btn outline"
+ (click)="chartFilterActive() ? onClearChartFilter() : onFilterToChart()"
+ >
           {{ chartFilterActive() ? 'Clear Filter' : 'Filter to Chart' }}
         </button>
         <button
-          mat-stroked-button
-          class="header-btn"
-          (click)="store.loadUnderlyingBarsFullHistory(symbol())"
-          [disabled]="store.underlyingLoading()"
-        >
+ 
+ class="header-btn ds-btn outline"
+ (click)="store.loadUnderlyingBarsFullHistory(symbol())"
+ [disabled]="store.underlyingLoading()"
+ >
           Full History
         </button>
         @if (hasEntryDates()) {
         <button
-          mat-stroked-button
-          class="header-btn"
-          (click)="store.setDisplayWindow(store.displayWindow() === 'position' ? 'lifetime' : 'position')"
-          matTooltip="Drop observations before each contract's entry date"
-        >
+ 
+ class="header-btn ds-btn outline"
+ (click)="store.setDisplayWindow(store.displayWindow() === 'position' ? 'lifetime' : 'position')" title="Drop observations before each contract's entry date"
+ >
           {{ store.displayWindow() === 'position' ? 'Full series' : 'Clip to entry' }}
         </button>
         }
-        <button
-          mat-stroked-button
-          class="header-btn"
-          [class.active-toggle]="brushArmed()"
-          (click)="brushArmed.set(!brushArmed())"
-          matTooltip="Drag across the chart to bound the generator alive range (Esc to cancel)"
-          aria-label="Select study range"
-          [attr.aria-pressed]="brushArmed()"
-        >
-          Select range
-        </button>
+        <div class="range-btn-wrap">
+          <button
+
+ class="header-btn ds-btn outline"
+ [class.active-toggle]="brushArmed()"
+ (click)="brushArmed.set(!brushArmed())" title="Drag across the chart to bound the generator alive range (Esc to cancel)"
+ aria-label="Select study range"
+ [attr.aria-pressed]="brushArmed()"
+ >
+            Select range
+          </button>
+          @if (brushArmed() || genStore.refine().aliveRange) {
+          <button
+            class="range-clear icon-btn"
+            (click)="clearStudyRange(); $event.stopPropagation()"
+            title="Clear the study-range bound"
+            aria-label="Clear study range"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+          }
+        </div>
 
         @if (catalogRows().length > 0) {
         <span class="header-sep">|</span>
@@ -358,52 +404,62 @@
           <button class="filter-pill" [class.active]="displayType() === 'put'" (click)="displayType.set('put')">Put</button>
         </div>
 
-        <button mat-stroked-button [matMenuTriggerFor]="expMenu" class="filter-dropdown-btn">
+        <span class="ms-menu-host">
+        <button class="filter-dropdown-btn ds-btn outline"
+                aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'exp'"
+                (click)="toggleMenu('exp', $event)">
           {{ expFilterLabel() }} <mat-icon>arrow_drop_down</mat-icon>
         </button>
-        <mat-menu #expMenu="matMenu" class="multi-select-menu">
-          <div class="multi-select-header" (click)="$event.stopPropagation()">
+        @if (openMenu() === 'exp') {
+        <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
+          <div class="multi-select-header">
             <button class="multi-select-clear" (click)="clearSelectedExpirations()">Clear</button>
           </div>
           <div class="multi-select-scroll">
             @for (opt of chartExpirationOptions(); track opt.value) {
-            <mat-checkbox
-              [checked]="selectedExpirations().has(opt.value)"
-              (click)="$event.stopPropagation(); toggleExpiration(opt.value)"
-              class="multi-select-item"
-            >
+            <label class="dse-check multi-select-item">
+              <input type="checkbox"
+                [checked]="selectedExpirations().has(opt.value)"
+                (change)="toggleExpiration(opt.value)" />
               {{ opt.label }} <span class="opt-count">{{ opt.count }}</span>
-            </mat-checkbox>
+            </label>
             }
           </div>
-        </mat-menu>
+        </div>
+        }
+        </span>
 
-        <button mat-stroked-button [matMenuTriggerFor]="lenMenu" class="filter-dropdown-btn">
+        <span class="ms-menu-host">
+        <button class="filter-dropdown-btn ds-btn outline"
+                aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'len'"
+                (click)="toggleMenu('len', $event)">
           {{ lenFilterLabel() }} <mat-icon>arrow_drop_down</mat-icon>
         </button>
-        <mat-menu #lenMenu="matMenu" class="multi-select-menu">
-          <div class="multi-select-header" (click)="$event.stopPropagation()">
+        @if (openMenu() === 'len') {
+        <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
+          <div class="multi-select-header">
             <button class="multi-select-clear" (click)="clearSelectedLengthBuckets()">Clear</button>
           </div>
           <div class="multi-select-scroll">
             @for (group of availableLengthGroups(); track group.name) {
             <div class="multi-select-group-header">
-              <button class="multi-select-group-toggle" (click)="$event.stopPropagation(); toggleLengthGroup(group.name)">
+              <button class="multi-select-group-toggle" (click)="toggleLengthGroup(group.name)">
                 {{ group.name }}
               </button>
             </div>
             @for (opt of group.options; track opt.value) {
-            <mat-checkbox
-              [checked]="selectedLengthBuckets().has(opt.value)"
-              (click)="$event.stopPropagation(); toggleLengthBucket(opt.value)"
-              class="multi-select-item"
-            >
+            <label class="dse-check multi-select-item">
+              <input type="checkbox"
+                [checked]="selectedLengthBuckets().has(opt.value)"
+                (change)="toggleLengthBucket(opt.value)" />
               {{ opt.label }} ({{ opt.count }})
-            </mat-checkbox>
+            </label>
             }
             }
           </div>
-        </mat-menu>
+        </div>
+        }
+        </span>
 
         <div class="strike-range-row">
           <input
@@ -424,7 +480,7 @@
         </div>
 
         @if (displayFilterActive()) {
-        <button mat-icon-button class="display-filter-clear" (click)="onClearAllDisplayFilters()" matTooltip="Clear all display filters">
+        <button class="display-filter-clear icon-btn" (click)="onClearAllDisplayFilters()" title="Clear all display filters">
           <mat-icon>close</mat-icon>
         </button>
         }
@@ -434,14 +490,13 @@
 
         <span class="header-spacer"></span>
         <button
-          mat-icon-button
-          class="generator-toggle"
-          [class.active-toggle]="generatorOpen"
-          (click)="generatorOpen = !generatorOpen"
-          matTooltip="Contract group generator"
-          aria-label="Contract group generator"
-          [attr.aria-pressed]="generatorOpen"
-        >
+ 
+ class="generator-toggle icon-btn"
+ [class.active-toggle]="generatorOpen"
+ (click)="generatorOpen = !generatorOpen" title="Contract group generator"
+ aria-label="Contract group generator"
+ [attr.aria-pressed]="generatorOpen"
+ >
           <mat-icon>tune</mat-icon>
         </button>
       </div>
@@ -462,8 +517,7 @@
               (mouseleave)="onChipLeave()"
               (focus)="onChipEnter(c)"
               (blur)="onChipLeave()"
-              (click)="onChipEnter(c)"
-              [matTooltip]="c.status === 'error' ? (c.error ?? 'Load failed') : 'Highlights this line'"
+              (click)="onChipEnter(c)" [title]="c.status === 'error' ? (c.error ?? 'Load failed') : 'Highlights this line'"
             >
               @if (c.status !== 'error') {
               <span class="chip-swatch" [style.background-color]="chipColor(c)"></span>
@@ -492,8 +546,7 @@
             <button
               type="button"
               class="chip-main"
-              (click)="store.toggleUnderlying()"
-              [matTooltip]="store.showUnderlying() ? 'Hide underlying' : 'Show underlying'"
+              (click)="store.toggleUnderlying()" [title]="store.showUnderlying() ? 'Hide underlying' : 'Show underlying'"
             >
               <span class="chip-swatch" [style.background-color]="underlyingColor"></span>
               <span class="chip-label">{{ symbol() }}</span>
@@ -541,23 +594,21 @@
 
       @if (store.catalogResults().length > 0) {
       <div class="contract-nav">
-        <button
-          mat-icon-button
-          (click)="onPrevContract()"
-          [disabled]="!canGoPrev()"
-          matTooltip="Previous contract"
-        >
+        <button class="icon-btn"
+ 
+ (click)="onPrevContract()"
+ [disabled]="!canGoPrev()" title="Previous contract"
+ >
           <mat-icon>chevron_left</mat-icon>
         </button>
         <span class="nav-position">
           {{ store.currentSearchIndex() + 1 }} / {{ store.catalogResults().length }}
         </span>
-        <button
-          mat-icon-button
-          (click)="onNextContract()"
-          [disabled]="!canGoNext()"
-          matTooltip="Next contract"
-        >
+        <button class="icon-btn"
+ 
+ (click)="onNextContract()"
+ [disabled]="!canGoNext()" title="Next contract"
+ >
           <mat-icon>chevron_right</mat-icon>
         </button>
       </div>

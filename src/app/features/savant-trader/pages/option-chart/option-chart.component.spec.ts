@@ -1,24 +1,32 @@
-﻿/// <reference types="jest" />
+/// <reference types="jest" />
 /**
- * Store â†’ chart projection tests for OptionChartComponent. The component is
- * instantiated but never rendered â€” the specs exercise plottedChartSeries and
+ * Store → chart projection tests for OptionChartComponent. The component is
+ * instantiated but never rendered — the specs exercise plottedChartSeries and
  * chartAxisLabels (the wiring between OptionsContractViewerStore and
  * OptionsContractChartComponent) with the real store and mocked services.
  */
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { of, throwError, delay } from 'rxjs';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 
 import { OptionChartComponent } from './option-chart.component';
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
+import { ContractListSessionStore } from '../../stores/contract-list-session.store';
+import { ContractListService } from '../../services/contract-list.service';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import { plottedSeriesColor } from '../../components/options-contract-chart/options-contract-chart-series.builder';
 import type { PartnerHistoricalOptionsContractV2Response } from '../../../../core/models/partner.types';
 import type { OhlcBar } from '../../../../core/models/market-data.types';
+import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
+import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
+import type { ContractListRow } from '@options-replay/contracts';
+import { TradeSide } from '@common';
+
 const QQQ_PUT = 'QQQ260619P00470000';
 const QQQ_CALL = 'QQQ260619C00475000';
 
@@ -46,12 +54,16 @@ function contractResponse(
   };
 }
 
-function setup(getHistorical?: jest.Mock, dialogResult = true, bars: OhlcBar[] = []): Setup {
+function setup(getHistorical?: jest.Mock, dialogResult = true, bars: OhlcBar[] = [], replayLists: OptionsContractListUi[] = []): Setup {
   const optionsService = {
     getHistoricalOptionsContract$:
       getHistorical ?? jest.fn((_s: string, cid: string) => of(contractResponse(cid, ['2026-06-01', '2026-06-10']))),
   };
   const barService = { getDailyBarsForRange$: jest.fn(() => of(bars)) };
+  const replayService = {
+    watchRuns: jest.fn(() => of([])),
+    watchContractLists: jest.fn(() => of(replayLists)),
+  };
   const dialog = {
     open: jest.fn(() => ({ afterClosed: () => of(dialogResult) })),
     openDialogs: [] as unknown[],
@@ -60,18 +72,22 @@ function setup(getHistorical?: jest.Mock, dialogResult = true, bars: OhlcBar[] =
   TestBed.configureTestingModule({
     providers: [
       provideZonelessChangeDetection(),
-      // Page-scoped in the real component â€” provided here so the manually
-      // instantiated class resolves its genStore inject.
+      // Page-scoped in the real component — provided here so the manually
+      // instantiated class resolves its store injects.
       OptionGroupGeneratorStore,
+      ContractListSessionStore,
+      { provide: ContractListService, useValue: { getList$: jest.fn(() => of(null)), recentLists$: jest.fn(() => of([])) } },
+      { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
       { provide: ContractAvailabilityService, useValue: { queryContractAvailability$: jest.fn() } },
       { provide: OptionsContractService, useValue: optionsService },
       { provide: LocalBarReadService, useValue: barService },
-      { provide: MatDialog, useValue: dialog },
+      { provide: DsDialogService, useValue: dialog },
+      { provide: OptionsReplayRunsService, useValue: replayService },
     ],
   });
 
   const store = TestBed.inject(OptionsContractViewerStore);
-  // Instantiated outside a view â€” ngOnInit never runs; specs only read computeds.
+  // Instantiated outside a view — ngOnInit never runs; specs only read computeds.
   const component = TestBed.runInInjectionContext(() => new OptionChartComponent());
   return { store, component, dialog, barService };
 }
@@ -87,7 +103,7 @@ async function flush(): Promise<void> {
   await new Promise<void>((r) => setTimeout(r, 0));
 }
 
-describe('OptionChartComponent â€” chart projection', () => {
+describe('OptionChartComponent — chart projection', () => {
   it('returns no series when nothing is loaded', () => {
     const { component } = setup();
     expect(component.plottedChartSeries()).toEqual([]);
@@ -109,7 +125,7 @@ describe('OptionChartComponent â€” chart projection', () => {
     expect(series[0].points.map((p) => p.date)).toEqual(['2026-06-01', '2026-06-10']);
   });
 
-  it('single-contract axis carries the rendered dates â€” the chart unions marker endpoints itself', async () => {
+  it('single-contract axis carries the rendered dates — the chart unions marker endpoints itself', async () => {
     const { store, component } = setup();
     store.loadContract(QQQ_PUT);
     await flush();
@@ -147,7 +163,7 @@ describe('OptionChartComponent â€” chart projection', () => {
       { contractId: QQQ_PUT, openDate: null },
       { contractId: QQQ_CALL, openDate: null },
     ]);
-    // Not flushed â€” both still 'loading'.
+    // Not flushed — both still 'loading'.
     expect(component.plottedChartSeries()).toHaveLength(2);
     expect(component.plottedChartSeries()[0].points).toEqual([]);
     await flush();
@@ -169,7 +185,7 @@ describe('OptionChartComponent â€” chart projection', () => {
     expect(series[0].openDate).toBe('2026-06-05');
     // Drill-down shows the full fetched series, not the clipped window.
     expect(series[0].points.map((p) => p.date)).toEqual(['2026-06-01', '2026-06-10']);
-    // Focused view uses the contract's own axis â€” the chart unions the
+    // Focused view uses the contract's own axis — the chart unions the
     // marker endpoints (openDate + expiration) into it internally.
     expect(component.chartAxisLabels()).toEqual(['2026-06-01', '2026-06-10']);
   });
@@ -211,9 +227,9 @@ describe('OptionChartComponent â€” chart projection', () => {
     store.focusPlotted(QQQ_PUT);
     await flush();
 
-    // 77 bar-sessions precede the 06-05 pick â†’ the window opens 50 sessions
+    // 77 bar-sessions precede the 06-05 pick → the window opens 50 sessions
     // back at 04-16 and the axis runs to the last bar (06-17), unioning the
-    // contract's own observations â€” the prefix survives drill-down.
+    // contract's own observations — the prefix survives drill-down.
     const labels = component.chartAxisLabels();
     expect(labels[0]).toBe('2026-04-16');
     expect(labels[labels.length - 1]).toBe('2026-06-17');
@@ -248,7 +264,7 @@ describe('OptionChartComponent â€” chart projection', () => {
     const series = component.plottedChartSeries();
     expect(series).toHaveLength(1);
     expect(series[0].contractId).toBe('QQQ260717C00500000');
-    // The set itself is untouched â€” clearing focus returns to it.
+    // The set itself is untouched — clearing focus returns to it.
     store.clearChartFocus();
     expect(component.plottedChartSeries()).toHaveLength(2);
   });
@@ -316,7 +332,7 @@ describe('OptionChartComponent â€” chart projection', () => {
 
     it('more than 50 entries confirms before loading', async () => {
       const { store, component, dialog } = setup(undefined, true);
-      // Distinct strikes â€” dedupe would otherwise collapse the list to one.
+      // Distinct strikes — dedupe would otherwise collapse the list to one.
       const ids = Array.from(
         { length: 51 },
         (_, i) => `QQQ260619P00${String(470 + i).padStart(5, '0')}0`,
@@ -349,7 +365,7 @@ describe('OptionChartComponent â€” chart projection', () => {
       component.occIdInput = QQQ_PUT;
       await component.onLoad();
       await flush();
-      // loadContract sets the focus flag â€” the set load must clear it or the
+      // loadContract sets the focus flag — the set load must clear it or the
       // chart keeps showing the old contract under the new chips.
       expect(store.chartFocusContractId()).toBe(QQQ_PUT);
 
@@ -385,7 +401,7 @@ describe('OptionChartComponent â€” chart projection', () => {
 
       component.onChipEnter(component.chipContracts()[0]);
       expect(store.hoveredContractId()).toBe(QQQ_PUT);
-      // Emphasis is visual only â€” every plotted contract stays rendered.
+      // Emphasis is visual only — every plotted contract stays rendered.
       expect(component.plottedChartSeries()).toHaveLength(2);
 
       component.onChipLeave();
@@ -409,7 +425,7 @@ describe('OptionChartComponent â€” chart projection', () => {
       expect(store.hoveredContractId()).toBeNull();
     });
 
-    it('focused view mirrors the chart â€” only the focused contract gets a chip', async () => {
+    it('focused view mirrors the chart — only the focused contract gets a chip', async () => {
       const { store, component } = setup();
       await store.loadPlotted([
         { contractId: QQQ_PUT, openDate: null },
@@ -421,7 +437,7 @@ describe('OptionChartComponent â€” chart projection', () => {
       const chips = component.chipContracts();
       expect(chips).toHaveLength(1);
       expect(chips[0].entry.contractId).toBe(QQQ_CALL);
-      // A focused contract is series 0 of its single-series render â€” the
+      // A focused contract is series 0 of its single-series render — the
       // swatch indexes the displayed list, not the hidden set.
       expect(component.chipColor(chips[0])).toBe(plottedSeriesColor(0));
     });
@@ -429,7 +445,7 @@ describe('OptionChartComponent â€” chart projection', () => {
     it('a focused contract outside the set synthesizes its chip from contractData', async () => {
       const { store, component } = setup();
       await store.loadPlotted([{ contractId: QQQ_PUT, openDate: null }]);
-      store.loadContract(QQQ_CALL); // foreign focus â€” not a plotted member
+      store.loadContract(QQQ_CALL); // foreign focus — not a plotted member
       await flush();
 
       const chips = component.chipContracts();
@@ -454,7 +470,7 @@ describe('OptionChartComponent â€” chart projection', () => {
       expect(component.chipContracts()).toHaveLength(2);
     });
 
-    it('the chip swaps to the incoming contract on load intent â€” not on data arrival', async () => {
+    it('the chip swaps to the incoming contract on load intent — not on data arrival', async () => {
       const FOREIGN = 'QQQ260619C00480000';
       const getHistorical = jest.fn((_s: string, cid: string) =>
         of(contractResponse(cid, ['2026-06-01', '2026-06-10'])).pipe(delay(0)),
@@ -486,5 +502,74 @@ describe('OptionChartComponent â€” chart projection', () => {
       expect(store.plottedContracts()[QQQ_PUT]).toBeUndefined();
       expect(store.plottedContracts()[QQQ_CALL]).toBeTruthy();
     });
+  });
+});
+
+describe('OptionChartComponent — selection replay dropdown', () => {
+  const pickRow = (entryDate: string, contractId: string): ContractListRow => ({
+    kind: 'pick',
+    entryDate,
+    contractId,
+    expiration: '2026-06-19',
+    dte: 18,
+    strike: 470,
+    delta: -0.2,
+    iv: 0.25,
+    mark: 1.5,
+    bid: 1.4,
+    ask: 1.6,
+    volume: 10,
+    openInterest: 100,
+    underlyingClose: 500,
+    side: TradeSide.SHORT,
+    repeatsPrevious: false,
+  });
+
+  const listFor = (symbol: string, rows: ContractListRow[]): OptionsContractListUi => ({
+    listId: `run1_${symbol}`,
+    runId: 'run1',
+    symbol,
+    templateId: 'csp-45-20',
+    status: 'success',
+    rows,
+  });
+
+  const WEDNESDAYS = [
+    '2026-06-03', '2026-06-10', '2026-06-17', '2026-06-24',
+    '2026-07-01', '2026-07-08', '2026-07-15', '2026-07-22',
+    '2026-07-29', '2026-08-05', '2026-08-12', '2026-08-19',
+  ];
+
+  it('plots the first 10 Wednesday pick rows on replay selection', async () => {
+    const rows: ContractListRow[] = [
+      pickRow('2026-06-01', 'QQQ260619P00470000'), // Monday — excluded
+      pickRow('2026-06-02', 'QQQ260619P00470000'), // Tuesday — excluded
+      ...WEDNESDAYS.map((d, i) => pickRow(d, `QQQ260619P00${470 + i}000`)),
+      { kind: 'no-selection', entryDate: '2026-08-26', reason: 'miss' },
+    ];
+    const { store, component } = setup(undefined, true, [], [listFor('QQQ', rows)]);
+
+    await component.onReplaySelected('run1');
+
+    const plotted = store.plottedList();
+    expect(plotted).toHaveLength(10);
+    expect(plotted.map((p) => p.entry.openDate)).toEqual(WEDNESDAYS.slice(0, 10));
+    expect(plotted.every((p) => p.entry.markerDates?.length === 1)).toBe(true);
+    expect(component.replayError()).toBeNull();
+  });
+
+  it('errors when the run has no list for the current symbol', async () => {
+    const { store, component } = setup(undefined, true, [], [listFor('SPY', [])]);
+    await component.onReplaySelected('run1');
+    expect(component.replayError()).toContain('QQQ');
+    expect(store.plottedList()).toHaveLength(0);
+  });
+
+  it('errors when the list has no Wednesday picks', async () => {
+    const rows = [pickRow('2026-06-01', 'QQQ260619P00470000')]; // Monday only
+    const { store, component } = setup(undefined, true, [], [listFor('QQQ', rows)]);
+    await component.onReplaySelected('run1');
+    expect(component.replayError()).toContain('Wednesday');
+    expect(store.plottedList()).toHaveLength(0);
   });
 });

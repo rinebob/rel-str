@@ -16,8 +16,6 @@ import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { distinctUntilChanged, map } from 'rxjs';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 
 import { OptionChainStore } from './option-chain.store';
 import { ChainGridComponent } from './components/chain-grid.component';
@@ -36,7 +34,7 @@ type SideLayout = 'call' | 'put' | 'both';
 @Component({
   selector: 'app-option-chain',
   standalone: true,
-  imports: [ChainGridComponent, ColumnPickerComponent, DecimalPipe, MatDatepickerModule, MatNativeDateModule],
+  imports: [ChainGridComponent, ColumnPickerComponent, DecimalPipe],
   templateUrl: './option-chain.component.html',
   styleUrl: './option-chain.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -214,13 +212,7 @@ export class OptionChainComponent implements OnInit, OnDestroy {
     this.store.loadChain();
   }
 
-  /** Datepicker commit — the native adapter hands us a local-midnight
-   *  Date; format its LOCAL parts (toISOString would shift back a day). */
-  onPickedDate(d: Date | null): void {
-    if (!d || isNaN(d.getTime())) return;
-    const p = (n: number) => String(n).padStart(2, '0');
-    this.onDateCommit(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
-  }
+
 
   toggleOrientation(side: 'call' | 'put'): void {
     const s = side === 'call' ? this.callOrientation : this.putOrientation;

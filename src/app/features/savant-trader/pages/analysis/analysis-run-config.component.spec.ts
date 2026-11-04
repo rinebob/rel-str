@@ -40,8 +40,8 @@ describe('AnalysisRunConfigComponent', () => {
   });
 
   it('blocks submit on inverted bar range', () => {
-    component.form.controls.barFrom.setValue(new Date(2026, 5, 1));
-    component.form.controls.barTo.setValue(new Date(2025, 0, 1));
+    component.form.controls.barFrom.setValue('2026-06-01');
+    component.form.controls.barTo.setValue('2025-01-01');
     component.submit();
     expect(emitted).toEqual([]);
     expect(component.form.hasError('barRange')).toBe(true);
@@ -56,8 +56,8 @@ describe('AnalysisRunConfigComponent', () => {
   });
 
   it('a stale inverted bar range cannot block a live snapshot — disabled controls skip the group validator', () => {
-    component.form.controls.barFrom.setValue(new Date(2026, 5, 1));
-    component.form.controls.barTo.setValue(new Date(2025, 0, 1));
+    component.form.controls.barFrom.setValue('2026-06-01');
+    component.form.controls.barTo.setValue('2025-01-01');
     component.form.controls.origin.setValue('live');
     component.submit();
     expect(emitted.length).toBe(1);
@@ -70,8 +70,8 @@ describe('AnalysisRunConfigComponent', () => {
       symbols: 'amat, NVDA ,amat',
       signalTypes: [SIGNAL_TYPES[0]],
       exitRule: 'time-30d',
-      barFrom: new Date(2024, 0, 15),
-      barTo: new Date(2026, 9, 20),
+      barFrom: '2024-01-15',
+      barTo: '2026-10-20',
       tags: 'replay, oct',
       notes: 'thesis check',
     });
@@ -137,7 +137,7 @@ describe('AnalysisRunConfigComponent', () => {
   });
 
   it('busy input disables the submit button', () => {
-    component.busy = true;
+    fixture.componentRef.setInput('busy', true);
     fixture.detectChanges();
     const btn: HTMLButtonElement = fixture.nativeElement.querySelector(
       'button[type="submit"]',

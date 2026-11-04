@@ -10,23 +10,25 @@
           paper ledger. Open a ready dataset to load it into the workbench.
         </p>
       </div>
-      <mat-form-field appearance="outline" class="search-field">
-        <mat-label>Search datasets</mat-label>
-        <input matInput [value]="search()" (input)="search.set($any($event.target).value)"
-               placeholder="symbol, name, or tag" />
-        <mat-icon matSuffix>search</mat-icon>
-      </mat-form-field>
+      <label class="dse-field search-field">
+        <span class="field-label">Search datasets</span>
+        <span class="search-wrap">
+          <input class="field-input" [value]="search()" (input)="search.set($any($event.target).value)"
+                 placeholder="symbol, name, or tag" />
+          <mat-icon class="search-icon">search</mat-icon>
+        </span>
+      </label>
     </div>
     <div class="header-actions">
       <app-slice-menu
         [slices]="store.slices()"
         [canApply]="false"
         (deleted)="store.deleteSlice($event)" />
-      <button mat-stroked-button (click)="showRunConfig.set(!showRunConfig())">
+      <button type="button" class="ds-btn outline" (click)="showRunConfig.set(!showRunConfig())">
         <mat-icon>{{ showRunConfig() ? 'close' : 'add' }}</mat-icon>
         New dataset
       </button>
-      <a mat-stroked-button [routerLink]="'/' + appRoutes.PAPER_TRADING">
+      <a class="ds-btn outline" [routerLink]="'/' + appRoutes.PAPER_TRADING">
         Paper
       </a>
     </div>
@@ -45,7 +47,7 @@
 
   @if (store.isLoadingDatasets() && store.datasets().length === 0) {
     <div class="loading-container">
-      <mat-spinner diameter="48"></mat-spinner>
+      <span class="dse-spinner"></span>
       <span>Loading datasets…</span>
     </div>
   } @else if (filteredDatasets().length === 0) {
@@ -59,14 +61,14 @@
   } @else {
     <div class="dataset-grid">
       @for (ds of filteredDatasets(); track ds.id) {
-        <mat-card class="dataset-card" [class.generating]="ds.status === 'generating'">
-          <mat-card-header>
+        <div class="dse-card dataset-card" [class.generating]="ds.status === 'generating'">
+          <div class="card-head">
             <div class="card-header-row">
               <span class="origin-badge" [class.origin-replay]="ds.origin === 'replay'"
                     [class.origin-live]="ds.origin === 'live'">{{ ds.origin }}</span>
               <span class="status-chip" [class]="statusClass(ds.status)">
                 @if (ds.status === 'generating') {
-                  <mat-spinner diameter="12"></mat-spinner>
+                  <span class="dse-spinner small"></span>
                 }
                 {{ ds.status }}
               </span>
@@ -75,8 +77,8 @@
             <div class="card-title">
               {{ scopeLabel(ds) }} · <span class="title-rule">{{ ds.exitRule }}</span>
             </div>
-          </mat-card-header>
-          <mat-card-content>
+          </div>
+          <div class="card-body">
             <div class="param-line">
               <span class="line-label">Params</span>
               <span class="param">{{ ds.exitRule }}</span>
@@ -113,43 +115,43 @@
             }
             @if (editingId() === ds.id) {
               <div class="meta-edit">
-                <mat-form-field appearance="outline" class="edit-tags">
-                  <mat-label>Tags</mat-label>
-                  <input matInput [value]="editTags()"
+                <label class="dse-field edit-tags">
+                  <span class="field-label">Tags</span>
+                  <input class="field-input" [value]="editTags()"
                          (input)="editTags.set($any($event.target).value)" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" class="edit-notes">
-                  <mat-label>Notes</mat-label>
-                  <textarea matInput rows="2" [value]="editNotes()"
+                </label>
+                <label class="dse-field edit-notes">
+                  <span class="field-label">Notes</span>
+                  <textarea class="field-input" rows="2" [value]="editNotes()"
                             (input)="editNotes.set($any($event.target).value)"></textarea>
-                </mat-form-field>
+                </label>
                 <div class="edit-actions">
-                  <button mat-button color="primary" (click)="saveMeta(ds)">Save</button>
-                  <button mat-button (click)="cancelEdit()">Cancel</button>
+                  <button type="button" class="ds-btn small fill" (click)="saveMeta(ds)">Save</button>
+                  <button type="button" class="ds-btn small" (click)="cancelEdit()">Cancel</button>
                 </div>
               </div>
             }
-          </mat-card-content>
-          <mat-card-actions>
-            <button mat-button color="primary" [disabled]="ds.status !== 'ready'"
+          </div>
+          <div class="card-foot">
+            <button type="button" class="ds-btn small fill" [disabled]="ds.status !== 'ready'"
                     (click)="store.openDataset(ds)">
               <mat-icon>folder_open</mat-icon> Open
             </button>
-            <button mat-button (click)="startEdit(ds)">
+            <button type="button" class="ds-btn small" (click)="startEdit(ds)">
               <mat-icon>edit</mat-icon> Tags / notes
             </button>
             @if (confirmDeleteId() === ds.id) {
-              <button mat-button color="warn" (click)="confirmDelete(ds)">
+              <button type="button" class="ds-btn small danger" (click)="confirmDelete(ds)">
                 Confirm delete
               </button>
-              <button mat-button (click)="cancelDelete()">Keep</button>
+              <button type="button" class="ds-btn small" (click)="cancelDelete()">Keep</button>
             } @else {
-              <button mat-button color="warn" (click)="requestDelete(ds)">
+              <button type="button" class="ds-btn small danger" (click)="requestDelete(ds)">
                 <mat-icon>delete</mat-icon> Delete
               </button>
             }
-          </mat-card-actions>
-        </mat-card>
+          </div>
+        </div>
       }
     </div>
   }
@@ -161,15 +163,17 @@
           {{ scopeLabel(active) }} · {{ active.exitRule }}
           <span class="card-id">{{ active.id }}</span>
         </h3>
-        <div class="view-switch" role="tablist">
-          @for (v of workbenchViews; track v) {
-            <button type="button" class="view-btn" role="tab"
-                    [class.active]="workbenchView() === v"
-                    [attr.aria-selected]="workbenchView() === v"
-                    (click)="workbenchView.set(v)">{{ v }}</button>
-          }
+        <div class="dse-tabs view-switch">
+          <div class="tab-bar" role="tablist">
+            @for (v of workbenchViews; track v) {
+              <button type="button" class="tab" role="tab"
+                      [class.active]="workbenchView() === v"
+                      [attr.aria-selected]="workbenchView() === v"
+                      (click)="workbenchView.set(v)">{{ v }}</button>
+            }
+          </div>
         </div>
-        <button type="button" class="close-workbench" (click)="store.closeDataset()"
+        <button type="button" class="icon-btn close-workbench" (click)="store.closeDataset()"
                 aria-label="Close dataset" title="Close dataset">
           <mat-icon>close</mat-icon>
         </button>
@@ -189,7 +193,7 @@
         (compareSelected)="store.loadCompareDataset($event)"
         (compareCleared)="store.clearCompare()" />
       @if (store.isLoadingRows()) {
-        <div class="loading-rows"><mat-spinner diameter="32"></mat-spinner></div>
+        <div class="loading-rows"><span class="dse-spinner"></span></div>
       } @else if (workbenchView() === 'table') {
         <app-analysis-table
           [rows]="store.sortedRows()"

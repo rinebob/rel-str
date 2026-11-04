@@ -4,11 +4,11 @@
       @if (resultSuccess(); as success) {
         <div class="result-success">
           <div class="result-header">
-            <button mat-button (click)="onToggleRaw()">
+            <button class="ds-btn" (click)="onToggleRaw()">
               {{ showRaw() ? 'Show redacted' : 'Show raw' }}
             </button>
             @if (history().length > 0) {
-              <button mat-button (click)="onToggleHistory()">
+              <button class="ds-btn" (click)="onToggleHistory()">
                 {{ showHistory() ? 'Hide history' : 'Show history' }}
               </button>
             }
@@ -18,11 +18,11 @@
             <div class="history-section">
               <div class="history-header">
                 <span class="history-title">Call history</span>
-                <button mat-button (click)="onClearHistory()">Clear history</button>
+                <button class="ds-btn" (click)="onClearHistory()">Clear history</button>
               </div>
               @for (entry of history(); track entry.timestamp) {
                 <div class="history-entry">
-                  <button mat-button (click)="onLoadHistoryEntry(entry)">
+                  <button class="ds-btn" (click)="onLoadHistoryEntry(entry)">
                     {{ entry.timestamp | date:'short' }} — {{ entry.tool }}
                   </button>
                 </div>

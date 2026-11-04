@@ -27,7 +27,7 @@
   <div class="master-detail-container" [class.sidebar-collapsed]="uiStateService.sidebarCollapsed()">
     @if (uiStateService.sidebarCollapsed()) {
       <div class="collapsed-sidebar">
-        <button mat-icon-button (click)="uiStateService.toggleSidebar()" matTooltip="Expand panel">
+        <button class="icon-btn" (click)="uiStateService.toggleSidebar()" title="Expand panel">
           <mat-icon>chevron_right</mat-icon>
         </button>
       </div>
