@@ -6,12 +6,11 @@
  */
 import { Component, ChangeDetectionStrategy, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-run-status-bar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './run-status-bar.component.html',
   styleUrl: './run-status-bar.component.scss',
 })

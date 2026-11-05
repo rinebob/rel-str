@@ -1,12 +1,12 @@
 <div class="run-control-card">
   <div class="run-control-primary">
     <button class="run-now-btn ds-btn fill" [disabled]="isRunning()" (click)="runNow.emit()">
-      <mat-icon>play_arrow</mat-icon>
+      <span class="dse-icon">play_arrow</span>
       {{ isRunning() ? 'Running…' : 'Run Now' }}
     </button>
 
     <button class="refresh-btn icon-btn" title="Refresh runs" (click)="refresh.emit()">
-      <mat-icon>refresh</mat-icon>
+      <span class="dse-icon">refresh</span>
     </button>
   </div>
 

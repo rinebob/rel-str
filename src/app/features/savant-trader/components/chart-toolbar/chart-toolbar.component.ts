@@ -7,7 +7,6 @@
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { ChartLayout } from '../../../../core/services/ui-state.service';
 import { IndicatorOption, ChartRange } from '../../../shared/components/flex-chart/flex-chart.types';
@@ -17,7 +16,7 @@ import { LogScalePillComponent } from '../log-scale-pill/log-scale-pill.componen
 @Component({
   selector: 'app-chart-toolbar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, IndicatorMenuComponent, LogScalePillComponent],
+  imports: [CommonModule, IndicatorMenuComponent, LogScalePillComponent],
   templateUrl: './chart-toolbar.component.html',
   styleUrl: './chart-toolbar.component.scss',
 })

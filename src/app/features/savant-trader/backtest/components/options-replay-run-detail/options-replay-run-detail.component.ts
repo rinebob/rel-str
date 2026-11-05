@@ -9,9 +9,7 @@
  */
 import { Component, input, ChangeDetectionStrategy, computed, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { DsDialogService } from '../../../../../shared/ds/ds-dialog';
 
 import type { ContractListPickRow } from '@options-replay/contracts';
 import type { OptionsContractListUi, OptionsReplayRunUi } from '../../common/options-replay.types';
@@ -37,12 +35,12 @@ export interface OptionsReplaySymbolView {
 @Component({
   selector: 'app-options-replay-run-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatTooltipModule, OptionsReplayContractListTableComponent],
+  imports: [CommonModule, OptionsReplayContractListTableComponent],
   templateUrl: './options-replay-run-detail.component.html',
   styleUrl: './options-replay-run-detail.component.scss',
 })
 export class OptionsReplayRunDetailComponent {
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(DsDialogService);
 
   readonly run = input.required<OptionsReplayRunUi>();
   readonly contractLists = input<OptionsContractListUi[]>([]);

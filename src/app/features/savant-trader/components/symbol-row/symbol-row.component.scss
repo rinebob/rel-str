@@ -6,6 +6,24 @@
   &.symbol-selected { outline: 2px solid var(--mat-sys-primary); outline-offset: -1px; }
 }
 
+.symbol-head-row {
+  display: flex;
+  align-items: center;
+
+  .acc-head {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.symbol-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding-right: 8px;
+}
+
 .symbol-header {
   min-height: 52px !important;
   align-items: flex-start !important;
@@ -107,7 +125,7 @@
   white-space: nowrap;
   transition: background 0.15s, color 0.15s;
 
-  mat-icon { font-size: 12px; width: 12px; height: 12px; }
+  .dse-icon { font-size: 12px; width: 12px; height: 12px; }
 
   &:hover {
     background: var(--mat-sys-surface-container-high);

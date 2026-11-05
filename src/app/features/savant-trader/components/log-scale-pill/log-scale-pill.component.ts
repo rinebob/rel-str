@@ -7,13 +7,12 @@
  * former inline copies stay in sync.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-log-scale-pill',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule],
+  imports: [],
   templateUrl: './log-scale-pill.component.html',
   styleUrl: './log-scale-pill.component.scss',
 })

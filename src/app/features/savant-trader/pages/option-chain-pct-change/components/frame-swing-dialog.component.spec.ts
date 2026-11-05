@@ -5,15 +5,11 @@
  * Everything commits to the store; Done just closes.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../../shared/ds/ds-dialog';
 import { By } from '@angular/platform-browser';
 import { Firestore } from '@angular/fire/firestore';
 import { of } from 'rxjs';
 import { signal } from '@angular/core';
-import {
-  MAT_DIALOG_DATA,
-  MatDialogClose,
-  MatDialogRef,
-} from '@angular/material/dialog';
 
 import { FrameSwingPickerDialogComponent } from './frame-swing-dialog.component';
 import { OptionChainPctChangeStore } from '../option-chain-pct-change.store';
@@ -90,8 +86,8 @@ describe('FrameSwingPickerDialogComponent', () => {
     await TestBed.configureTestingModule({
       imports: [FrameSwingPickerDialogComponent],
       providers: [
-        { provide: MAT_DIALOG_DATA, useValue: { sets, selectedSetId, selectedSwing } },
-        { provide: MatDialogRef, useValue: { close: closeSpy } },
+        { provide: DS_DIALOG_DATA, useValue: { sets, selectedSetId, selectedSwing } },
+        { provide: DsDialogRef, useValue: { close: closeSpy } },
         {
           provide: OptionsContractService,
           useValue: { getHistoricalOptionsChain$: jest.fn(() => of({ ok: true, data: { data: [] } })) },
@@ -304,7 +300,7 @@ describe('FrameSwingPickerDialogComponent', () => {
 
     const footer = fixture.debugElement.query(By.css('.runs-count'));
     expect(footer.nativeElement.textContent).toContain('Runs: 1');
-    const done = fixture.debugElement.query(By.directive(MatDialogClose));
-    expect(done.nativeElement.textContent).toContain('Done');
+    const done = fixture.nativeElement.querySelector('.actions button.ds-btn');
+    expect(done?.textContent).toContain('Done');
   });
 });

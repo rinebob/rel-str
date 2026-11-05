@@ -4,12 +4,9 @@
  * A single symbol expansion panel inside a group: ticker, signal badges,
  * company meta, trade and list action buttons, and signal history body.
  */
-import { Component, ChangeDetectionStrategy, computed, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, input, linkedSignal, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatIconModule } from '@angular/material/icon';
 
-import { MatBadgeModule } from '@angular/material/badge';
 import { SymbolRow } from '../../stores/group.store';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
 import { tierLabel } from '../../utils/utils';
@@ -23,9 +20,6 @@ import { ScrollIntoViewDirective } from '../../directives/scroll-into-view.direc
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatExpansionModule,
-    MatIconModule,
-    MatBadgeModule,
     SymbolActionsComponent,
     SymbolListActionsComponent,
     SymbolSignalHistoryComponent,
@@ -44,6 +38,18 @@ export class SymbolRowComponent {
 
   /** Expose helper to template. */
   readonly tierLabel = tierLabel;
+
+  /** Local open state — re-seeds when the parent's expand-all input
+   *  flips, then self-manages (dse-acc contract: consumer toggles). */
+  readonly open = linkedSignal(() => this.expanded());
+
+  /** mat-expansion's (opened) fired only on expand — emit select on
+   *  the same edge, never on collapse. */
+  onToggle(): void {
+    const next = !this.open();
+    this.open.set(next);
+    if (next) this.select.emit();
+  }
 
   select = output<void>();
   viewQuickCharts = output<string>();

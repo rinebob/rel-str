@@ -1,7 +1,7 @@
 <div class="symbol-signal-history">
   @let signals = row().signals;
   @if (row().signalsLoading || signals === undefined) {
-    <mat-spinner diameter="16"></mat-spinner>
+    <span class="dse-spinner small" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
   } @else if (signals.length === 0) {
     <span class="no-signals">No signal history found</span>
   } @else {

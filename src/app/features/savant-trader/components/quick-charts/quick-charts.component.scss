@@ -26,7 +26,7 @@
   gap: 8px;
   color: var(--mat-sys-on-surface-variant);
 
-  mat-icon {
+  .dse-icon {
     font-size: 32px;
     width: 32px;
     height: 32px;
@@ -46,7 +46,7 @@
   opacity: 0.7;
 }
 
-.qc-error mat-icon { color: var(--mat-sys-error); opacity: 0.7; }
+.qc-error .dse-icon { color: var(--mat-sys-error); opacity: 0.7; }
 .qc-error p { color: var(--mat-sys-error); opacity: 0.8; font-size: 11px; }
 
 // ─── Stacked chart cells ──────────────────────────────────────────────────────

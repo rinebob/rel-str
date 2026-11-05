@@ -29,7 +29,7 @@
     line-height: 24px;
     padding: 0 8px;
 
-    mat-icon {
+    .dse-icon {
       font-size: 14px;
       width: 14px;
       height: 14px;
@@ -67,7 +67,7 @@
     align-items: center;
     justify-content: center;
 
-    mat-icon {
+    .dse-icon {
       font-size: 16px;
       width: 16px;
       height: 16px;
@@ -87,7 +87,7 @@
     color: var(--mat-sys-on-surface-variant);
     margin-right: 6px;
 
-    mat-icon {
+    .dse-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;
@@ -198,7 +198,7 @@
     border-radius: 4px;
     gap: 4px;
 
-    mat-icon {
+    .dse-icon {
       font-size: 48px;
       width: 48px;
       height: 48px;
@@ -290,7 +290,7 @@
   gap: 16px;
   color: var(--mat-sys-on-surface-variant);
 
-  mat-icon {
+  .dse-icon {
     font-size: 48px;
     width: 48px;
     height: 48px;

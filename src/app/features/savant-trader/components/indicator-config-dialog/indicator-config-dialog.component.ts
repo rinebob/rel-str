@@ -9,8 +9,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 
 import type { IndicatorConfig, IndicatorPane, IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
 
@@ -27,7 +25,7 @@ const INDICATOR_COLORS = ['#ff9800', '#2196f3', '#e91e63', '#4caf50', '#9c27b0']
 @Component({
   selector: 'app-indicator-config-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule],
+  imports: [CommonModule, FormsModule,],
   template: `
     <h2 class="title">Configure {{ data.indicator.label }}</h2>
     <div class="content">
@@ -70,7 +68,7 @@ export class IndicatorConfigDialogComponent {
   /** Initialize parameter values from the indicator's defaults. */
   constructor() {
     for (const param of this.data.indicator.params) {
-      this.paramValues[param.key] = param.default;
+      this.paramValues[param.key] = param.default as number;
     }
   }
 

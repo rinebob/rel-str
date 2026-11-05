@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+
 import { Subject, of, throwError } from 'rxjs';
 
 import { OptionsReplayContractSeriesDialogComponent, ContractSeriesDialogData } from './options-replay-contract-series-dialog.component';
@@ -35,7 +36,8 @@ describe('OptionsReplayContractSeriesDialogComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         { provide: OptionsContractService, useValue: service },
-        { provide: MAT_DIALOG_DATA, useValue: DATA },
+        { provide: DS_DIALOG_DATA, useValue: DATA },
+        { provide: DsDialogRef, useValue: { close: jest.fn() } },
       ],
     }).compileComponents();
 
@@ -56,7 +58,7 @@ describe('OptionsReplayContractSeriesDialogComponent', () => {
     const fixture = await setup(service);
 
     expect(fixture.componentInstance.state()).toBe('loading');
-    expect(fixture.nativeElement.querySelector('mat-spinner')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.dse-spinner')).toBeTruthy();
 
     subject.next(makeResponse(['4.00', '4.50', '4.85', '4.20']));
     fixture.detectChanges();

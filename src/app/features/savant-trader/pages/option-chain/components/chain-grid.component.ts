@@ -13,7 +13,6 @@
  */
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { Overlay, OverlayModule, type ConnectedPosition } from '@angular/cdk/overlay';
-import { MatIconModule } from '@angular/material/icon';
 
 import { nearestStrikeIndex, type ChainCell, type ChainGridModel } from '../utils/chain.utils';
 import { OptionType } from '@options-contract/contracts';
@@ -46,7 +45,7 @@ interface CellView {
 @Component({
   selector: 'app-chain-grid',
   standalone: true,
-  imports: [OverlayModule, MatIconModule, ChainCellPopupComponent],
+  imports: [OverlayModule, ChainCellPopupComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chain-grid.component.html',
   styleUrl: './chain-grid.component.scss',

@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideZonelessChangeDetection, computed, signal } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
+
 import { of } from 'rxjs';
 
 import { OptionOrderTicketComponent } from './option-order-ticket.component';
@@ -136,8 +138,8 @@ describe('OptionOrderTicketComponent', () => {
         { provide: OrderTicketStore, useValue: store },
         { provide: PortfolioService, useValue: portfolio },
         { provide: AllocationStore, useValue: allocStore },
-        { provide: MatDialog, useValue: dialog },
-        { provide: MatSnackBar, useValue: snackBar },
+        { provide: DsDialogService, useValue: dialog },
+        { provide: DsToastService, useValue: snackBar },
       ],
     }).compileComponents();
 

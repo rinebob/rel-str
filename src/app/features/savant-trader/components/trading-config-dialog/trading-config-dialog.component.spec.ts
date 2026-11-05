@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 import { TradingConfigDialogComponent } from './trading-config-dialog.component';
 import { TradingConfigService } from '../../services/trading-config.service';
@@ -16,8 +16,8 @@ describe('TradingConfigDialogComponent', () => {
         { provide: TradingConfigService, useValue: { getAccounts: jasmine.createSpy('getAccounts').and.returnValue(Promise.resolve([
           { accountNumber: 'agentic-account', accountType: 'cash', agenticAllowed: true },
         ])) } },
-        { provide: MatDialogRef, useValue: { close: jasmine.createSpy('close') } },
-        { provide: MAT_DIALOG_DATA, useValue: null },
+        { provide: DsDialogRef, useValue: { close: jasmine.createSpy('close') } },
+        { provide: DS_DIALOG_DATA, useValue: null },
       ],
     }).compileComponents();
 

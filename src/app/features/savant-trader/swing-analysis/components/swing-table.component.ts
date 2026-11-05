@@ -27,8 +27,6 @@
  */
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, Input, OnChanges, signal, SimpleChanges } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import type { Swing } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
 import { buildTreeSwings, type TreeSwingRow } from './swing-tree.utils';
@@ -62,17 +60,17 @@ type ViewTreeRow = TreeSwingRow & {
 @Component({
   selector: 'app-swing-table',
   standalone: true,
-  imports: [NgTemplateOutlet, MatIconModule, MatProgressSpinnerModule],
+  imports: [NgTemplateOutlet],
   template: `
 <div class="swing-table-section">
   @if (isLoading()) {
     <div class="swing-table-loading" aria-live="polite">
-      <mat-progress-spinner diameter="24" mode="indeterminate" />
+      <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
       <span>Loading swings…</span>
     </div>
   } @else if (errorMessage(); as err) {
     <div class="swing-table-error" aria-live="polite">
-      <mat-icon aria-hidden="true">error</mat-icon>
+      <span class="dse-icon" aria-hidden="true">error</span>
       <span>{{ err }}</span>
     </div>
   } @else if (hasSwings()) {
@@ -145,16 +143,16 @@ type ViewTreeRow = TreeSwingRow & {
           @if (isTreeMode()) {
             <th class="expander-col" aria-label="expand"></th>
           }
-          <th class="sortable" (click)="onSort('index')"># @if (sortIcon('index')) { <mat-icon>{{ sortIcon('index') }}</mat-icon> }</th>
-          <th class="sortable" (click)="onSort('direction')">Direction @if (sortIcon('direction')) { <mat-icon>{{ sortIcon('direction') }}</mat-icon> }</th>
-          <th class="sortable" (click)="onSort('startDate')">Start Date @if (sortIcon('startDate')) { <mat-icon>{{ sortIcon('startDate') }}</mat-icon> }</th>
-          <th class="sortable" (click)="onSort('endDate')">End Date @if (sortIcon('endDate')) { <mat-icon>{{ sortIcon('endDate') }}</mat-icon> }</th>
-          <th class="sortable" (click)="onSort('duration')">Duration @if (sortIcon('duration')) { <mat-icon>{{ sortIcon('duration') }}</mat-icon> }</th>
-          <th class="sortable" (click)="onSort('magnitudePercent')">Magnitude % @if (sortIcon('magnitudePercent')) { <mat-icon>{{ sortIcon('magnitudePercent') }}</mat-icon> }</th>
-          <th class="sortable" (click)="onSort('magnitudeAbsolute')">Magnitude $ @if (sortIcon('magnitudeAbsolute')) { <mat-icon>{{ sortIcon('magnitudeAbsolute') }}</mat-icon> }</th>
-          <th class="sortable" (click)="onSort('startPrice')">Start Price @if (sortIcon('startPrice')) { <mat-icon>{{ sortIcon('startPrice') }}</mat-icon> }</th>
-          <th class="sortable" (click)="onSort('endPrice')">End Price @if (sortIcon('endPrice')) { <mat-icon>{{ sortIcon('endPrice') }}</mat-icon> }</th>
-          <th class="sortable" (click)="onSort('volume')">Volume @if (sortIcon('volume')) { <mat-icon>{{ sortIcon('volume') }}</mat-icon> }</th>
+          <th class="sortable" (click)="onSort('index')"># @if (sortIcon('index')) { <span class="dse-icon">{{ sortIcon('index') }}</span> }</th>
+          <th class="sortable" (click)="onSort('direction')">Direction @if (sortIcon('direction')) { <span class="dse-icon">{{ sortIcon('direction') }}</span> }</th>
+          <th class="sortable" (click)="onSort('startDate')">Start Date @if (sortIcon('startDate')) { <span class="dse-icon">{{ sortIcon('startDate') }}</span> }</th>
+          <th class="sortable" (click)="onSort('endDate')">End Date @if (sortIcon('endDate')) { <span class="dse-icon">{{ sortIcon('endDate') }}</span> }</th>
+          <th class="sortable" (click)="onSort('duration')">Duration @if (sortIcon('duration')) { <span class="dse-icon">{{ sortIcon('duration') }}</span> }</th>
+          <th class="sortable" (click)="onSort('magnitudePercent')">Magnitude % @if (sortIcon('magnitudePercent')) { <span class="dse-icon">{{ sortIcon('magnitudePercent') }}</span> }</th>
+          <th class="sortable" (click)="onSort('magnitudeAbsolute')">Magnitude $ @if (sortIcon('magnitudeAbsolute')) { <span class="dse-icon">{{ sortIcon('magnitudeAbsolute') }}</span> }</th>
+          <th class="sortable" (click)="onSort('startPrice')">Start Price @if (sortIcon('startPrice')) { <span class="dse-icon">{{ sortIcon('startPrice') }}</span> }</th>
+          <th class="sortable" (click)="onSort('endPrice')">End Price @if (sortIcon('endPrice')) { <span class="dse-icon">{{ sortIcon('endPrice') }}</span> }</th>
+          <th class="sortable" (click)="onSort('volume')">Volume @if (sortIcon('volume')) { <span class="dse-icon">{{ sortIcon('volume') }}</span> }</th>
         </tr>
       </thead>
       <tbody>
@@ -174,7 +172,7 @@ type ViewTreeRow = TreeSwingRow & {
                     [attr.aria-expanded]="!isCollapsed(row)"
                     (click)="toggleRow(row)"
                   >
-                    <mat-icon>{{ isCollapsed(row) ? 'chevron_right' : 'expand_more' }}</mat-icon>
+                    <span class="dse-icon">{{ isCollapsed(row) ? 'chevron_right' : 'expand_more' }}</span>
                   </button>
                 }
               </td>
@@ -203,12 +201,12 @@ type ViewTreeRow = TreeSwingRow & {
     </table>
   } @else if (hasData()) {
     <div class="swing-table-empty" aria-live="polite">
-      <mat-icon aria-hidden="true">filter_alt_off</mat-icon>
+      <span class="dse-icon" aria-hidden="true">filter_alt_off</span>
       <span>No swings match the current filters</span>
     </div>
   } @else {
     <div class="swing-table-empty" aria-live="polite">
-      <mat-icon aria-hidden="true">show_chart</mat-icon>
+      <span class="dse-icon" aria-hidden="true">show_chart</span>
       <span>No swings — enter a symbol to compute pivots</span>
     </div>
   }
@@ -226,13 +224,13 @@ type ViewTreeRow = TreeSwingRow & {
     .swing-table th { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); color: var(--mat-sys-on-surface-variant); font-weight: 600; white-space: nowrap; }
     .swing-table th.sortable { cursor: pointer; user-select: none; }
     .swing-table th.sortable:hover { color: var(--mat-sys-on-surface); }
-    .swing-table th.sortable mat-icon { font-size: 14px; width: 14px; height: 14px; vertical-align: middle; }
+    .swing-table th.sortable .dse-icon { font-size: 14px; width: 14px; height: 14px; vertical-align: middle; }
     .swing-table th.expander-col { width: 32px; padding: 8px 4px; }
     .swing-table td { padding: 8px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .swing-table td.expander-cell { width: 32px; padding: 4px; }
     .swing-table td.child-index { color: var(--mat-sys-on-surface-variant); }
     .expander-btn { display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent; cursor: pointer; padding: 0; color: var(--mat-sys-on-surface-variant); }
-    .expander-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .expander-btn .dse-icon { font-size: 18px; width: 18px; height: 18px; }
     .swing-table tbody tr:hover { background: var(--mat-sys-surface-container); }
     .swing-table tbody tr.projected { font-style: italic; color: var(--mat-sys-on-surface-variant); border-left: 3px dashed var(--mat-sys-outline-variant); }
     .swing-table tbody tr.child-row { background: var(--mat-sys-surface-container-low); font-size: 12px; }
@@ -242,7 +240,7 @@ type ViewTreeRow = TreeSwingRow & {
     .swing-table .direction-badge.up { color: var(--mat-sys-success); }
     .swing-table .direction-badge.down { color: var(--mat-sys-error); }
     .swing-table-loading, .swing-table-error, .swing-table-empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--mat-sys-on-surface-variant); }
-    .swing-table-loading mat-icon, .swing-table-error mat-icon, .swing-table-empty mat-icon { font-size: 24px; width: 24px; height: 24px; }
+    .swing-table-loading .dse-icon, .swing-table-error .dse-icon, .swing-table-empty .dse-icon { font-size: 24px; width: 24px; height: 24px; }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

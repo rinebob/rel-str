@@ -8,7 +8,6 @@
  */
 import { Component, ChangeDetectionStrategy, booleanAttribute, computed, inject, input, output } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { GalleryCardChartComponent } from '../gallery-card-chart/gallery-card-chart.component';
@@ -55,7 +54,7 @@ export type GalleryCardAction =
 @Component({
   selector: 'app-gallery-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, MatIconModule, RouterLink, GalleryCardChartComponent],
+  imports: [DecimalPipe, RouterLink, GalleryCardChartComponent],
   templateUrl: './gallery-card.component.html',
   styleUrl: './gallery-card.component.scss',
 })

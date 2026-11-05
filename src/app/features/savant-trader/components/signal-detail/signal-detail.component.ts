@@ -13,10 +13,7 @@
  */
 import { Component, inject, ChangeDetectionStrategy, output, computed, signal, input, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
 
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { ChartStore } from '../../stores/chart.store';
 import {
@@ -72,7 +69,7 @@ const ALL_BARS_MAX = 99999;          /** Sentinel passed to visibleBars to show 
 @Component({
   selector: 'app-signal-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule, FlexChartComponent, ChartToolbarComponent, SymbolListActionsComponent],
+  imports: [CommonModule, FlexChartComponent, ChartToolbarComponent, SymbolListActionsComponent],
   templateUrl: './signal-detail.component.html',
   styleUrl: './signal-detail.component.scss',
 })

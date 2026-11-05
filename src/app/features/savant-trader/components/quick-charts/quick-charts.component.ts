@@ -16,8 +16,6 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { ChartStore } from '../../stores/chart.store';
@@ -62,7 +60,7 @@ const CHART_LOAD_DEBOUNCE_MS = 250;
 @Component({
   selector: 'app-quick-charts',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatProgressSpinnerModule, FlexChartComponent],
+  imports: [CommonModule, FlexChartComponent],
   templateUrl: './quick-charts.component.html',
   styleUrl: './quick-charts.component.scss',
 })

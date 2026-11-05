@@ -29,7 +29,7 @@
     <button type="button" class="icon-btn col-picker-btn" (click)="toggleColMenu($event)"
             aria-haspopup="menu" [attr.aria-expanded]="colMenuOpen()"
             title="Show/hide columns" aria-label="Choose columns">
-      <mat-icon>view_column</mat-icon>
+      <span class="dse-icon">view_column</span>
     </button>
     @if (colMenuOpen()) {
       <div class="dse-menu col-menu" role="menu" (click)="$event.stopPropagation()">
@@ -37,7 +37,7 @@
           <button type="button" class="menu-item" role="menuitemcheckbox"
                   [attr.aria-checked]="!isHidden(c.key)"
                   (click)="$event.stopPropagation(); toggleHidden(c.key)">
-            <mat-icon>{{ isHidden(c.key) ? 'check_box_outline_blank' : 'check_box' }}</mat-icon>
+            <span class="dse-icon">{{ isHidden(c.key) ? 'check_box_outline_blank' : 'check_box' }}</span>
             {{ c.label }}
           </button>
         }
@@ -67,7 +67,7 @@
               [attr.aria-sort]="sortAria(col)">
             {{ col.label }}
             @let icon = sortIcon(col);
-            @if (icon) { <mat-icon class="sort-icon">{{ icon }}</mat-icon> }
+            @if (icon) { <span class="dse-icon sort-icon">{{ icon }}</span> }
             @let rank = sortRank(col);
             @if (rank !== null) { <span class="sort-rank">{{ rank }}</span> }
             @if (col.filterable) {
@@ -79,7 +79,7 @@
                       (keydown)="$event.stopPropagation()"
                       [attr.aria-label]="'Filter ' + col.label"
                       title="Filter column">
-                <mat-icon>filter_list</mat-icon>
+                <span class="dse-icon">filter_list</span>
               </button>
               @if (openFilterKey() === col.key) {
                 <div class="dse-menu filter-panel"

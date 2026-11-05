@@ -19,7 +19,6 @@ import {
   signal,
 } from '@angular/core';
 import { OptionChainPctChangeStore, type SeriesScope } from '../option-chain-pct-change.store';
-import { MatIconModule } from '@angular/material/icon';
 import { OptionType } from '@options-contract/contracts';
 import { PctChangeGridComponent } from './pct-change-grid.component';
 import { buildGrids } from '../utils/pct-change.utils';
@@ -29,7 +28,7 @@ import type { SwingCompareRun } from '../utils/swing-compare.utils';
 @Component({
   selector: 'app-run-section',
   standalone: true,
-  imports: [PctChangeGridComponent, MatIconModule],
+  imports: [PctChangeGridComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- details IS the run container — the summary is the header row, so
@@ -50,7 +49,7 @@ import type { SwingCompareRun } from '../utils/swing-compare.utils';
         </span>
         <span class="run-header-actions">
           <span class="grids-label">grids ({{ run().targetDates.length }})</span>
-          <mat-icon class="expand-icon">expand_more</mat-icon>
+          <span class="dse-icon expand-icon">expand_more</span>
           <button
             type="button"
             class="remove-btn"

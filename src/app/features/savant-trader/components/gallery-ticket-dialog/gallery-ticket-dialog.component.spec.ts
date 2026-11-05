@@ -4,10 +4,12 @@
  * stays open until the user dismisses it (#762).
  */
 import { signal } from '@angular/core';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
+import { DS_DIALOG_DATA, DsDialogRef, DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
+
 import { Router } from '@angular/router';
 
 import { GalleryTicketDialogComponent } from './gallery-ticket-dialog.component';
@@ -117,7 +119,7 @@ describe('GalleryTicketDialogComponent', () => {
       providers: [
         provideNoopAnimations(),
         {
-          provide: MAT_DIALOG_DATA,
+          provide: DS_DIALOG_DATA,
           useValue: {
             ticketId: 't-1',
             // The dialog reads config through data, not the facade (#755).
@@ -131,7 +133,7 @@ describe('GalleryTicketDialogComponent', () => {
             option: optionSeed({ onStaged: seedOnStaged }),
           },
         },
-        { provide: MatDialogRef, useValue: dialogRefMock },
+        { provide: DsDialogRef, useValue: dialogRefMock },
         { provide: OrderTicketStore, useValue: { tickets } },
         { provide: EquityPriceService, useValue: priceServiceMock },
         {
@@ -163,8 +165,8 @@ describe('GalleryTicketDialogComponent', () => {
             bucketDetail: jest.fn().mockReturnValue(undefined),
           },
         },
-        { provide: MatDialog, useValue: { open: jest.fn() } },
-        { provide: MatSnackBar, useValue: { open: jest.fn() } },
+        { provide: DsDialogService, useValue: { open: jest.fn() } },
+        { provide: DsToastService, useValue: { open: jest.fn() } },
         { provide: Router, useValue: routerMock },
       ],
     }).compileComponents();
@@ -208,7 +210,7 @@ describe('GalleryTicketDialogComponent', () => {
     tickets.set({ 't-1': { ...stagedTicket(), status: OrderTicketStatus.RESTING } });
     fixture.detectChanges();
     const done = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('mat-dialog-actions button'),
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.actions button'),
     ).find((b) => b.textContent?.trim() === 'Done');
     done?.click();
     expect(dialogRefMock.close).toHaveBeenCalled();
@@ -218,7 +220,7 @@ describe('GalleryTicketDialogComponent', () => {
     tickets.set({ 't-1': { ...stagedTicket(), status: OrderTicketStatus.SUBMITTED } });
     fixture.detectChanges();
     const viewOrder = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('mat-dialog-actions button'),
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.actions button'),
     ).find((b) => b.textContent?.trim() === 'View order');
     viewOrder?.click();
     expect(routerMock.navigate).toHaveBeenCalledWith(
@@ -311,7 +313,7 @@ describe('GalleryTicketDialogComponent', () => {
   describe('option tab (#964)', () => {
     it('renders Stock and Option tabs — the equity ticket mounts on Stock by default', () => {
       const el = fixture.nativeElement as HTMLElement;
-      const labels = Array.from(el.querySelectorAll('.mat-mdc-tab')).map((t) => t.textContent?.trim());
+      const labels = Array.from(el.querySelectorAll('.tab')).map((t) => t.textContent?.trim());
       expect(labels).toEqual(['Stock', 'Option']);
       expect(el.querySelector('app-order-ticket')).toBeTruthy();
       // Lazy tab — the option ticket is not instantiated (no chain call)
@@ -322,7 +324,7 @@ describe('GalleryTicketDialogComponent', () => {
 
     it('activating the Option tab mounts the ticket and starts chain loading', async () => {
       const el = fixture.nativeElement as HTMLElement;
-      const tab = el.querySelectorAll<HTMLElement>('.mat-mdc-tab')[1];
+      const tab = el.querySelectorAll<HTMLElement>('.tab')[1];
       tab.click();
       fixture.detectChanges();
       await fixture.whenStable();
@@ -335,7 +337,7 @@ describe('GalleryTicketDialogComponent', () => {
 
     it('switching tabs preserves both panes — the option ticket is not remounted', async () => {
       const el = fixture.nativeElement as HTMLElement;
-      const tabs = () => el.querySelectorAll<HTMLElement>('.mat-mdc-tab');
+      const tabs = () => el.querySelectorAll<HTMLElement>('.tab');
       tabs()[1].click();
       fixture.detectChanges();
       await fixture.whenStable();
@@ -471,7 +473,7 @@ describe('GalleryTicketDialogComponent', () => {
         providers: [
           provideNoopAnimations(),
           {
-            provide: MAT_DIALOG_DATA,
+            provide: DS_DIALOG_DATA,
             useValue: {
               manual: {
                 // Read at createComponent time — a spec seeds it by
@@ -490,7 +492,7 @@ describe('GalleryTicketDialogComponent', () => {
               }),
             },
           },
-          { provide: MatDialogRef, useValue: dialogRefMock },
+          { provide: DsDialogRef, useValue: dialogRefMock },
           { provide: OrderTicketStore, useValue: { tickets } },
           { provide: EquityPriceService, useValue: priceServiceMock },
           {
@@ -517,8 +519,8 @@ describe('GalleryTicketDialogComponent', () => {
               bucketDetail: jest.fn().mockReturnValue(undefined),
             },
           },
-          { provide: MatDialog, useValue: { open: jest.fn() } },
-          { provide: MatSnackBar, useValue: { open: jest.fn() } },
+          { provide: DsDialogService, useValue: { open: jest.fn() } },
+          { provide: DsToastService, useValue: { open: jest.fn() } },
           { provide: Router, useValue: routerMock },
         ],
       }).compileComponents();
@@ -565,7 +567,7 @@ describe('GalleryTicketDialogComponent', () => {
       expect(el.querySelector('[data-testid="manual-symbol-input"]')).toBeTruthy();
       expect(el.querySelector('[data-testid="manual-symbol-resolve"]')).toBeTruthy();
       expect(el.querySelector('[data-testid="manual-hint"]')).toBeTruthy();
-      expect(el.querySelector('mat-tab-group')).toBeFalsy();
+      expect(el.querySelector('.dse-tabs')).toBeFalsy();
       expect(el.querySelector('app-order-ticket')).toBeFalsy();
     });
 
@@ -588,12 +590,14 @@ describe('GalleryTicketDialogComponent', () => {
       expect(priceServiceMock.fetchPrices).toHaveBeenCalledWith(['AAPL']);
       expect(manualStage).toHaveBeenCalledWith('AAPL');
       const el = manualFixture.nativeElement as HTMLElement;
-      expect(el.querySelector('mat-tab-group')).toBeTruthy();
+      expect(el.querySelector('.dse-tabs')).toBeTruthy();
       expect(el.querySelector('app-order-ticket')).toBeTruthy();
       expect(manualFixture.componentInstance.ticket()?.id).toBe('man-1');
       // Both tabs render in manual mode — no card seed required (#1189).
-      expect(el.querySelectorAll('mat-tab-body').length).toBe(2);
-      expect(el.querySelectorAll('.mdc-tab').length).toBe(2);
+      // The Option pane lazy-mounts on first visit, so only the Stock
+      // tab-body exists until that tab is activated.
+      expect(el.querySelectorAll('.tab').length).toBe(2);
+      expect(el.querySelectorAll('.tab-body').length).toBe(1);
       expect(manualFixture.componentInstance.displaySymbol()).toBe('AAPL');
     });
 
@@ -608,7 +612,7 @@ describe('GalleryTicketDialogComponent', () => {
       expect(priceServiceMock.fetchPrices).not.toHaveBeenCalled();
       const el = manualFixture.nativeElement as HTMLElement;
       expect(el.querySelector('[data-testid="manual-symbol-error"]')).toBeTruthy();
-      expect(el.querySelector('mat-tab-group')).toBeFalsy();
+      expect(el.querySelector('.dse-tabs')).toBeFalsy();
     });
 
     it('an unresolvable ticker (seed returns null) shows an inline error and binds nothing', async () => {
@@ -624,7 +628,7 @@ describe('GalleryTicketDialogComponent', () => {
       const el = manualFixture.nativeElement as HTMLElement;
       expect(el.querySelector('[data-testid="manual-symbol-error"]')?.textContent).toContain('ZZZZ');
       expect(manualFixture.componentInstance.enteredSymbol()).toBeNull();
-      expect(el.querySelector('mat-tab-group')).toBeFalsy();
+      expect(el.querySelector('.dse-tabs')).toBeFalsy();
     });
 
     it('view order navigates to the portfolio dashboard in manual mode', () => {
@@ -658,7 +662,7 @@ describe('GalleryTicketDialogComponent', () => {
       // the resolved symbol with empty provenance. Manual mode renders
       // the full contract form with the BTO/STO toggle (#1190) — the
       // #1189 placeholder is gone.
-      const tabs = manualFixture.nativeElement.querySelectorAll('.mdc-tab');
+      const tabs = manualFixture.nativeElement.querySelectorAll('.tab');
       (tabs[1] as HTMLElement).click();
       manualFixture.detectChanges();
       await manualFixture.whenStable();
@@ -947,7 +951,7 @@ describe('GalleryTicketDialogComponent', () => {
         (el.querySelector('[data-testid="manual-symbol-input"]') as HTMLInputElement)
           .disabled,
       ).toBe(false);
-      expect(el.querySelector('mat-tab-group')).toBeTruthy();
+      expect(el.querySelector('.dse-tabs')).toBeTruthy();
       expect(manualFixture.componentInstance.ticket()?.id).toBe('man-1');
     });
 
@@ -971,7 +975,7 @@ describe('GalleryTicketDialogComponent', () => {
 
       const el = manualFixture.nativeElement as HTMLElement;
       expect(manualFixture.componentInstance.enteredSymbol()).toBeNull();
-      expect(el.querySelector('mat-tab-group')).toBeFalsy();
+      expect(el.querySelector('.dse-tabs')).toBeFalsy();
       expect(
         (el.querySelector('[data-testid="manual-symbol-input"]') as HTMLInputElement)
           .disabled,

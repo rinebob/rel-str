@@ -1,6 +1,6 @@
 <div class="status-row">
   <div class="status-chip">
-    <mat-icon>schedule</mat-icon>
+    <span class="dse-icon">schedule</span>
     <span class="status-label">Last Run:</span>
     <span class="status-value">
       {{ lastRunAt() ? (lastRunAt() | date: 'short') : 'Never' }}
@@ -12,12 +12,12 @@
     }
   </div>
   <div class="status-chip">
-    <mat-icon>{{ triggeredBy() === 'manual' ? 'touch_app' : 'schedule' }}</mat-icon>
+    <span class="dse-icon">{{ triggeredBy() === 'manual' ? 'touch_app' : 'schedule' }}</span>
     <span class="status-label">Triggered By:</span>
     <span class="status-value">{{ triggeredBy() ?? '—' }}</span>
   </div>
   <div class="status-chip">
-    <mat-icon>repeat</mat-icon>
+    <span class="dse-icon">repeat</span>
     <span class="status-label">Schedule:</span>
     <span class="status-value">{{ scheduleDescription() ?? '—' }}</span>
   </div>

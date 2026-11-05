@@ -16,8 +16,6 @@
  */
 import { ChangeDetectionStrategy, Component, effect, inject, signal, untracked } from '@angular/core';
 
-import { MatIconModule } from '@angular/material/icon';
-import { MatExpansionModule } from '@angular/material/expansion';
 
 import { OptionChainPctChangeStore } from '../option-chain-pct-change.store';
 import { generateIntervalDates } from '../utils/pct-change-config.utils';
@@ -32,7 +30,7 @@ function parsePositiveNumber(event: Event): number | null {
 @Component({
   selector: 'app-target-type-selector',
   standalone: true,
-  imports: [ MatIconModule, MatExpansionModule],
+  imports: [ ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="target-type-selector">
@@ -210,15 +208,15 @@ function parsePositiveNumber(event: Event): number | null {
            dates are visible the moment they arrive (auto-expands on new
            input), and collapsible once reviewed. -->
       @if (targetDates().length > 0) {
-        <mat-expansion-panel
-          class="dates-panel"
-          [expanded]="datesExpanded()"
-          (opened)="datesExpanded.set(true)"
-          (closed)="datesExpanded.set(false)"
-        >
-          <mat-expansion-panel-header>
-            <mat-panel-title>Dates ({{ targetDates().length }})</mat-panel-title>
-          </mat-expansion-panel-header>
+        <div class="ds-panel dates-panel" [class.open]="datesExpanded()">
+          <button type="button" class="acc-head"
+            [attr.aria-expanded]="datesExpanded()"
+            aria-controls="tt-dates-body"
+            (click)="datesExpanded.set(!datesExpanded())">
+            <span>Dates ({{ targetDates().length }})</span>
+            <span class="dse-icon chev" aria-hidden="true">expand_more</span>
+          </button>
+          <div class="acc-body" role="region" id="tt-dates-body">
           <div class="target-dates-list">
             <div class="target-dates-actions">
               <button class="ds-btn outline"
@@ -245,12 +243,13 @@ function parsePositiveNumber(event: Event): number | null {
  (click)="removeTargetDate($index)"
  aria-label="Remove target date"
  >
-                  <mat-icon>close</mat-icon>
+                  <span class="dse-icon">close</span>
                 </button>
               </div>
             }
           </div>
-        </mat-expansion-panel>
+          </div>
+        </div>
       }
     </div>
   `,
@@ -337,13 +336,12 @@ function parsePositiveNumber(event: Event): number | null {
       border-radius: 4px;
     }
 
-    .dates-panel mat-expansion-panel-header {
+    .dates-panel .acc-head {
       padding: 0 8px;
-      --mat-expansion-header-collapsed-state-height: 36px;
-      --mat-expansion-header-expanded-state-height: 36px;
+      min-height: 36px;
     }
 
-    .dates-panel ::ng-deep .mat-expansion-panel-body {
+    .dates-panel .acc-body {
       padding: 0 8px 8px;
     }
 
@@ -354,7 +352,7 @@ function parsePositiveNumber(event: Event): number | null {
     }
 
     .target-dates-actions button {
-      --mdc-outlined-button-container-height: 24px;
+      height: 24px;
       padding: 0 8px;
       font-size: 0.75rem;
     }

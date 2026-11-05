@@ -14,11 +14,9 @@
  * or removed elsewhere); the caller decides whether still-STAGED tickets
  * get discarded on close.
  */
-import { Component, ChangeDetectionStrategy, computed, effect, inject, OnInit, Signal, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, effect, inject, OnInit, Signal, signal, WritableSignal } from '@angular/core';
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTabsModule } from '@angular/material/tabs';
 import { Router } from '@angular/router';
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { AppRoutes } from '../../../../core/common/interfaces';
@@ -138,8 +136,6 @@ const CONFIRMATION_MESSAGES: Partial<Record<OrderTicketStatus, string>> = {
   imports: [
     CurrencyPipe,
     DecimalPipe,
-    MatIconModule,
-    MatTabsModule,
     OrderTicketComponent,
     OptionOrderTicketComponent],
   templateUrl: './gallery-ticket-dialog.component.html',
@@ -266,6 +262,48 @@ export class GalleryTicketDialogComponent implements OnInit {
   /** Inline resolve error — invalid ticker, no quote, or a seed-side
    *  stage failure (the seed already snackbar'd the reason). */
   readonly symbolError = signal<string | null>(null);
+
+  /** Active tab in the manual-entry group: 0 Stock, 1 Option. */
+  readonly manualTab = signal(0);
+  /** Active tab in the seeded-option group: 0 Stock, 1 Option. */
+  readonly optionTab = signal(0);
+  /** Lazy-mount flags — once visited the option pane stays in the DOM
+   *  (hidden) so its form state survives tab switches (#964). */
+  readonly optionVisited = signal(false);
+  readonly seededOptionVisited = signal(false);
+
+  selectManualTab(index: number): void {
+    this.manualTab.set(index);
+    if (index === 1) this.optionVisited.set(true);
+  }
+
+  selectOptionTab(index: number): void {
+    this.optionTab.set(index);
+    if (index === 1) this.seededOptionVisited.set(true);
+  }
+
+  /** WAI-ARIA tabs keyboard nav: arrows move + activate, Home/End jump.
+   *  Activating the Option tab through the matching select* so the
+   *  lazy-mount flag flips too. */
+  onTabKeydown(event: KeyboardEvent, activeTab: WritableSignal<number>): void {
+    const tabs = Array.from(
+      (event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.tab'),
+    );
+    const count = tabs.length;
+    if (count === 0) return;
+    let next: number | null = null;
+    switch (event.key) {
+      case 'ArrowRight': next = (activeTab() + 1) % count; break;
+      case 'ArrowLeft':  next = (activeTab() - 1 + count) % count; break;
+      case 'Home':       next = 0; break;
+      case 'End':        next = count - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    if (activeTab === this.manualTab) this.selectManualTab(next);
+    else this.selectOptionTab(next);
+    tabs[next]?.focus();
+  }
 
   /** Re-resolve lock (#1191): a bound ticket owns the entry row only
    *  while it ISN'T STAGED — a resolve during SUBMITTING/done would hide

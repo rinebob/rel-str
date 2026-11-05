@@ -30,10 +30,10 @@
             @if (row.kind === 'pick' && row.pick) {
               <tr class="pick-row">
                 <td class="entry-date">{{ row.entryDate }}</td>
-                <td class="contract-id" [matTooltip]="row.pick.contractId">
+                <td class="contract-id" [title]="row.pick.contractId">
                   {{ row.pick.contractId }}
                   @if (row.pick.repeatsPrevious) {
-                    <span class="repeat-badge" matTooltip="Same contract as the prior trading day — still a distinct position entry">↻ repeat</span>
+                    <span class="repeat-badge" title="Same contract as the prior trading day — still a distinct position entry">↻ repeat</span>
                   }
                 </td>
                 <td>{{ sideLabel(row.pick.side) }}</td>
@@ -48,12 +48,11 @@
                 <td class="num">{{ row.pick.underlyingClose | number:'1.2-2' }}</td>
                 <td class="action-cell">
                   <button
-                    mat-icon-button
-                    type="button"
-                    class="inspect-button"
-                    matTooltip="Inspect contract mark series"
-                    (click)="inspect.emit(row.pick)">
-                    <mat-icon>show_chart</mat-icon>
+ 
+ type="button"
+ class="inspect-button icon-btn" title="Inspect contract mark series"
+ (click)="inspect.emit(row.pick)">
+                    <span class="dse-icon">show_chart</span>
                   </button>
                 </td>
               </tr>

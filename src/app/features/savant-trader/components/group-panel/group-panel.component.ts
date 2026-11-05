@@ -4,10 +4,8 @@
  * A single mat-expansion-panel for a group (sector, industry, market cap tier).
  * Renders the group header and a list of symbol rows.
  */
-import { Component, ChangeDetectionStrategy, computed, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, input, linkedSignal, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatIconModule } from '@angular/material/icon';
 
 import { SymbolGroup, SymbolRow } from '../../stores/group.store';
 import { SignalDirection } from '../../common/constants';
@@ -20,8 +18,6 @@ import { SymbolRowComponent } from '../symbol-row/symbol-row.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatExpansionModule,
-    MatIconModule,
     SymbolRowComponent],
   templateUrl: './group-panel.component.html',
   styleUrl: './group-panel.component.scss',
@@ -55,8 +51,20 @@ export class GroupPanelComponent {
   rowTrade = output<string>();
   rowToggleList = output<{ symbol: string; listKey: string }>();
 
+  /** Local open state — re-seeds when the parent flips the expanded
+   *  input (expand-all path), then self-manages (dse-acc contract). */
+  readonly open = linkedSignal(() => this.expanded());
+
+  /** mat-expansion's (opened) fired only on expand — emit on the same
+   *  edge so the parent's map update matches the old behavior. */
+  onToggle(): void {
+    const next = !this.open();
+    this.open.set(next);
+    if (next) this.opened.emit();
+  }
+
   onExpandAll(event: Event): void {
     event.stopPropagation();
-    this.expandAll.emit({ group: this.group(), expand: !this.expanded() });
+    this.expandAll.emit({ group: this.group(), expand: !this.open() });
   }
 }

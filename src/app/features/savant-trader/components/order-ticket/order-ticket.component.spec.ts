@@ -1,7 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
+
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
 
@@ -126,8 +128,8 @@ describe('OrderTicketComponent', () => {
         { provide: OrderExecutionService, useValue: orderExecution },
         { provide: PaperTradingService, useValue: paperTrading },
         { provide: AllocationStore, useValue: allocStore },
-        { provide: MatDialog, useValue: dialog },
-        { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
+        { provide: DsDialogService, useValue: dialog },
+        { provide: DsToastService, useValue: { open: jasmine.createSpy('open') } },
         { provide: ManualOrderService, useValue: { open: jest.fn() } },
       ],
     }).compileComponents();
@@ -515,8 +517,8 @@ describe('OrderTicketComponent — accept as paper', () => {
         { provide: OrderExecutionService, useValue: orderExec },
         { provide: PaperTradingService, useValue: {} },
         { provide: AllocationStore, useValue: { byAccount: signal({}), ensureAccount: jest.fn(), bucketDetail: jest.fn(() => null) } },
-        { provide: MatDialog, useValue: dialog },
-        { provide: MatSnackBar, useValue: snackBar },
+        { provide: DsDialogService, useValue: dialog },
+        { provide: DsToastService, useValue: snackBar },
         { provide: ManualOrderService, useValue: { open: jest.fn() } },
       ],
     }).compileComponents();

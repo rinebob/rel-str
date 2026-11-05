@@ -23,7 +23,7 @@
     <!-- Ticket error (submit failures revert to STAGED with the error attached) -->
     @if (ticketError(); as err) {
       <div class="error-section">
-        <mat-icon>error_outline</mat-icon>
+        <span class="dse-icon">error_outline</span>
         <div class="error-details">
           <p class="error-message">{{ err.message }}</p>
           @if (err.retryable) {
@@ -215,7 +215,7 @@
     <!-- Fatfinger block -->
     @if (fatfingerExceeded()) {
       <div class="error-section" data-testid="fatfinger-block">
-        <mat-icon>error_outline</mat-icon>
+        <span class="dse-icon">error_outline</span>
         <div class="error-details">
           <p class="error-message">
             Premium exceeds {{ maxPremiumPct() }}% of available cash
@@ -228,13 +228,13 @@
     <div class="action-section">
       @if (isSubmitting()) {
         <div class="submitting-indicator">
-          <mat-icon>hourglass_empty</mat-icon>
+          <span class="dse-icon">hourglass_empty</span>
           <span>Submitting…</span>
         </div>
       } @else {
         <button class="ds-btn fill" data-testid="submit-btn"
  (click)="onSubmit()" [disabled]="!canSubmit()">
-          <mat-icon>send</mat-icon>
+          <span class="dse-icon">send</span>
           Submit Order
         </button>
       }

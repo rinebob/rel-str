@@ -11,9 +11,7 @@
  */
 import { Component, input, output, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 import { TradeSide } from '@common';
 import type { ContractListPickRow, NoSelectionReason } from '@options-replay/contracts';
 import type { ContractListRow, PickDocMeta } from '../../common/options-replay.types';
@@ -39,7 +37,7 @@ function sideLabel(side: TradeSide): string {
 @Component({
   selector: 'app-options-replay-contract-list-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule],
   templateUrl: './options-replay-contract-list-table.component.html',
   styleUrl: './options-replay-contract-list-table.component.scss',
 })

@@ -8,7 +8,6 @@
 import { Component, ChangeDetectionStrategy, computed, input, output, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
 
 export interface RhSelectOption<T = string> {
   value: T;
@@ -25,7 +24,7 @@ export interface RhSelectOptionGroup<T = string> {
 @Component({
   selector: 'app-rh-select-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, MatIconModule],
+  imports: [NgTemplateOutlet],
   templateUrl: './rh-select-menu.component.html',
   styleUrl: './rh-select-menu.component.scss',
   host: { '(document:click)': 'menuOpen.set(false)' },

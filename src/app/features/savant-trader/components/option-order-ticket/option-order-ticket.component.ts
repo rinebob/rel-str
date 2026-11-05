@@ -26,7 +26,6 @@ import {
   untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 
@@ -98,7 +97,7 @@ type OptionTimeInForce = 'gfd' | 'gtc';
   selector: 'app-option-order-ticket',
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [OptionCollateralPreview],
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './option-order-ticket.component.html',
   styleUrl: './option-order-ticket.component.scss',
 })

@@ -91,7 +91,7 @@
   transition: background 0.1s;
   flex-shrink: 0;
 
-  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  .dse-icon { font-size: 16px; width: 16px; height: 16px; }
 
   &:hover { background: var(--mat-sys-surface-container-high); }
 }
@@ -155,7 +155,7 @@
   align-items: center;
   gap: 4px;
 
-  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  .dse-icon { font-size: 14px; width: 14px; height: 14px; }
 }
 
 .empty-state {

@@ -4,7 +4,6 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 
 import { StRun } from '../../services/st.service';
 import { getRunStatusColor, getRunStatusIcon, todayDate } from '../../utils/utils';
@@ -12,7 +11,7 @@ import { getRunStatusColor, getRunStatusIcon, todayDate } from '../../utils/util
 @Component({
   selector: 'app-run-metrics-strip',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './run-metrics-strip.component.html',
   styleUrl: './run-metrics-strip.component.scss',
 })

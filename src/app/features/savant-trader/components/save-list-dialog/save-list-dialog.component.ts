@@ -8,17 +8,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 
 @Component({
   selector: 'app-save-list-dialog',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
-    MatFormFieldModule,
-    MatInputModule],
+    FormsModule,],
   template: `
     <h2 class="title">Save Spread List</h2>
     <div class="content">

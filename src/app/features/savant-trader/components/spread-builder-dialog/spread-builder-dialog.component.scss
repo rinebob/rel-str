@@ -95,8 +95,8 @@
     white-space: nowrap;
   }
 
-  .mat-mdc-cell,
-  .mat-mdc-header-cell {
+  td,
+  th {
     &:first-of-type {
       padding-left: 8px;
     }
@@ -194,41 +194,22 @@
 // ── Density overrides (scoped to this dialog only) ───────────────────────────
 
 .spread-builder-dialog {
-  // Material form field density
-  --mat-form-field-container-vertical-padding: 4px;
-  --mat-form-field-container-height: 40px;
+  // DS field density
+  .dse-field {
+    --ds-field-height: 40px;
 
-  .list-select-field {
-    .mat-mdc-form-field {
-      margin-bottom: 0;
+    .field-label,
+    .field-input {
+      font-size: 13px;
     }
   }
 
-  .mat-mdc-form-field-subscript-wrapper {
-    display: none;
-  }
-
-  .mat-mdc-form-field .mat-mdc-form-field-infix {
-    min-height: 40px;
-    padding-top: 8px;
-    padding-bottom: 8px;
-  }
-
-  .mat-mdc-form-field .mat-mdc-floating-label {
+  .dse-select {
     font-size: 13px;
-  }
 
-  .mat-mdc-form-field .mat-mdc-form-field-input-control {
-    font-size: 13px;
-  }
-
-  .mat-mdc-select .mat-mdc-select-trigger {
-    font-size: 13px;
-  }
-
-  .mat-mdc-option {
-    min-height: 36px;
-    font-size: 13px;
+    option {
+      font-size: 13px;
+    }
   }
 
   // Button density
@@ -244,43 +225,46 @@
     height: 32px;
     line-height: 32px;
 
-    mat-icon {
+    .dse-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;
     }
   }
 
-  // Table density (for future catalog + built-spreads tables)
-  .mat-mdc-table .mat-mdc-header-row {
+  // Table density (catalog + built-spreads tables)
+  thead tr {
     height: 36px;
   }
 
-  .mat-mdc-table .mat-mdc-row {
+  tbody tr {
     height: 32px;
   }
 
-  .mat-mdc-table .mat-mdc-cell,
-  .mat-mdc-table .mat-mdc-header-cell {
+  td,
+  th {
     padding: 4px 8px;
     font-size: 12px;
   }
 
-  // Chip density
-  .mat-mdc-chip {
+  // Debit/Credit badge
+  .doc-badge {
+    display: inline-flex;
+    align-items: center;
     height: 24px;
+    padding: 0 10px;
+    border-radius: 8px;
     font-size: 12px;
-  }
+    font-weight: 500;
 
-  // Dialog title density
-  .mat-mdc-dialog-title {
-    font-size: 16px;
-    padding: 8px 16px;
-  }
+    &.debit {
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-on-primary-container);
+    }
 
-  // Dialog actions density
-  .mat-mdc-dialog-actions {
-    padding: 4px 16px 8px;
-    min-height: 44px;
+    &.credit {
+      border: 1px solid var(--mat-sys-primary);
+      color: var(--mat-sys-primary);
+    }
   }
 }

@@ -48,10 +48,10 @@
   <button class="icon-btn" 
  [disabled]="refreshing()" title="Refresh — switch to the newest run or reload signals"
  (click)="refresh.emit()">
-    <mat-icon>refresh</mat-icon>
+    <span class="dse-icon">refresh</span>
   </button>
   <button class="icon-btn" [title]="allGroupsExpanded() ? 'Collapse all groups' : 'Expand all groups'"
  (click)="expandAllToggle.emit()">
-    <mat-icon>{{ allGroupsExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+    <span class="dse-icon">{{ allGroupsExpanded() ? 'unfold_less' : 'unfold_more' }}</span>
   </button>
 </div>

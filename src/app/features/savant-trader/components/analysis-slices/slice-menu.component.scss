@@ -10,7 +10,7 @@
   font-size: 0.82rem; color: var(--ds-on-surface-variant); padding: 4px 8px;
 }
 .slice-btn:hover { color: var(--ds-on-surface); }
-.slice-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+.slice-btn .dse-icon { font-size: 18px; width: 18px; height: 18px; }
 
 .dse-menu { @include ds.ds-menu; }
 
@@ -45,4 +45,4 @@
   opacity: 0.5; display: inline-flex; padding: 2px;
 }
 .slice-delete:hover { opacity: 1; }
-.slice-delete mat-icon { font-size: 16px; width: 16px; height: 16px; }
+.slice-delete .dse-icon { font-size: 16px; width: 16px; height: 16px; }

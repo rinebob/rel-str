@@ -146,7 +146,7 @@
     vertical-align: middle;
     opacity: 0.5;
     color: inherit;
-    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .dse-icon { font-size: 14px; width: 14px; height: 14px; }
     &:hover { opacity: 1; }
     &.filter-active { opacity: 1; color: var(--ds-accent-text); }
   }

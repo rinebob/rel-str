@@ -22,7 +22,6 @@ import { CommonModule } from '@angular/common';
 
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { PaperTradingStore } from '../../stores/paper-trading.store';
 import type { PaperTrade } from '@paper-trading/contracts';
@@ -52,7 +51,7 @@ const COPY: Record<PaperTradeAction, { title: string; verb: string; note: string
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatProgressSpinnerModule],
+    ],
   templateUrl: './paper-trade-action-dialog.component.html',
   styleUrl: './paper-trade-action-dialog.component.scss',
 })

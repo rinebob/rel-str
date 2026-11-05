@@ -219,7 +219,7 @@ describe('ChartViewToolbarComponent', () => {
     component.listChange.subscribe((v) => picked.push(v));
     (el().querySelector('app-rh-select-menu.list-menu button') as HTMLButtonElement).click();
     fixture.detectChanges();
-    const item = Array.from(document.querySelectorAll<HTMLElement>('.mat-mdc-menu-item'))
+    const item = Array.from(document.querySelectorAll<HTMLElement>('.menu-item'))
       .find((i) => i.textContent?.includes('Primary'));
     item?.click();
     expect(picked).toEqual(['PRIMARY']);

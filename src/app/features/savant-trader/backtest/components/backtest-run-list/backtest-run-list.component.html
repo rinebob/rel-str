@@ -21,11 +21,11 @@
             [class.selected]="selectedRunId() === run.runId"
             (click)="onSelect(run)">
             <td class="col-status">
-              <mat-icon
-                class="status-icon"
+              <span
+                class="dse-icon status-icon"
                 [style.color]="run.statusColorName" [title]="run.status">
                 {{ run.statusIconName }}
-              </mat-icon>
+              </span>
             </td>
             <td class="col-run-id">{{ run.formattedRunId }}</td>
             <td class="col-created">{{ run.formattedCreated }}</td>
@@ -49,7 +49,7 @@
     </table>
   } @else {
     <div class="empty-state">
-      <mat-icon>inbox</mat-icon>
+      <span class="dse-icon">inbox</span>
       @if (hasActiveFilters()) {
         <p>No runs match the current filters</p>
       } @else {

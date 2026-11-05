@@ -21,7 +21,6 @@ import {
   untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 
@@ -74,7 +73,6 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatIconModule,
     StopLossFormComponent],
   templateUrl: './order-ticket.component.html',
   styleUrl: './order-ticket.component.scss',

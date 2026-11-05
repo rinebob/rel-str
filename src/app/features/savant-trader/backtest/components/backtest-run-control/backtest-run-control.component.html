@@ -4,7 +4,7 @@
  class="run-now-btn ds-btn fill"
  [disabled]="isLoading()"
  (click)="newRun.emit()">
-      <mat-icon>add</mat-icon>
+      <span class="dse-icon">add</span>
       New Backtest
     </button>
 
@@ -13,11 +13,11 @@
  
  disabled title="Runs update automatically via the realtime listener"
  (click)="refresh.emit()">
-      <mat-icon>refresh</mat-icon>
+      <span class="dse-icon">refresh</span>
     </button>
 
     @if (isLoading()) {
-      <mat-spinner diameter="20" />
+      <span class="dse-spinner" style="--spinner-size: 20px" role="progressbar" aria-label="Loading"></span>
     }
   </div>
 
@@ -96,7 +96,7 @@
           type="button"
           class="sort-direction-btn" title="Toggle sort direction"
           (click)="toggleSortDirection()">
-          <mat-icon>{{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+          <span class="dse-icon">{{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
         </button>
       </div>
     </div>

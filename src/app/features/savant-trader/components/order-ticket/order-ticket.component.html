@@ -2,11 +2,11 @@
   @if (!ticket()) {
     <!-- No selection -->
     <div class="no-selection">
-      <mat-icon>pan_tool</mat-icon>
+      <span class="dse-icon">pan_tool</span>
       <p>Select an order from the queue</p>
       <p class="hint">Click a row on the left to configure and submit an order.</p>
       <button class="ds-btn outline" (click)="onNewManualOrder()">
-        <mat-icon>add</mat-icon>
+        <span class="dse-icon">add</span>
         New manual order
       </button>
     </div>
@@ -79,7 +79,7 @@
 
         @if (ticketError()) {
           <div class="error-section">
-            <mat-icon>error_outline</mat-icon>
+            <span class="dse-icon">error_outline</span>
             <div class="error-details">
               <p class="error-message">{{ ticketError()?.message }}</p>
               @if (ticketError()?.code) {
@@ -97,38 +97,38 @@
         <div class="stop-loss-ticket-actions">
           @if (ticket()?.status === OrderTicketStatus.STAGED) {
             <button class="ds-btn danger" (click)="onSubmitStopLossTicket()" [disabled]="!canSubmitStopLossTicket()">
-              <mat-icon>shield</mat-icon>
+              <span class="dse-icon">shield</span>
               Submit Stop Loss
             </button>
           }
           @if (canRequeue()) {
             <button class="ds-btn outline" (click)="onRequeue()">
-              <mat-icon>replay</mat-icon>
+              <span class="dse-icon">replay</span>
               Requeue to Staged
             </button>
           }
           @if (ticket()?.status === OrderTicketStatus.FAILED && ticket()?.result?.orderId) {
             <button class="ds-btn outline" (click)="onReconcile()">
-              <mat-icon>sync</mat-icon>
+              <span class="dse-icon">sync</span>
               Refresh from Broker
             </button>
           }
           @if (isSubmitting()) {
             <div class="submitting-indicator">
-              <mat-icon>hourglass_empty</mat-icon>
+              <span class="dse-icon">hourglass_empty</span>
               <span>Submitting stop loss…</span>
             </div>
           }
           @if (isSubmitted()) {
             <button class="ds-btn outline" (click)="onReconcile()">
-              <mat-icon>sync</mat-icon>
+              <span class="dse-icon">sync</span>
               Refresh from Broker
             </button>
             @if (isCancelling()) {
               <ng-container *ngTemplateOutlet="cancelPending" />
             } @else if (ticket()?.result?.orderId) {
               <button class="ds-btn outline danger" (click)="onCancel()">
-                <mat-icon>cancel</mat-icon>
+                <span class="dse-icon">cancel</span>
                 Cancel Stop Loss
               </button>
             } @else {
@@ -160,7 +160,7 @@
       <!-- Error display -->
       @if (ticketError()) {
         <div class="error-section">
-          <mat-icon>error_outline</mat-icon>
+          <span class="dse-icon">error_outline</span>
           <div class="error-details">
             <p class="error-message">{{ ticketError()?.message }}</p>
             @if (ticketError()?.code) {
@@ -312,7 +312,7 @@
 
       @if (isEntryFilled() && isFractionalEntry()) {
         <div class="fractional-warning">
-          <mat-icon>info</mat-icon>
+          <span class="dse-icon">info</span>
           <span>Fractional position — stop-loss orders are unavailable for fractional shares.</span>
           <button class="ds-btn outline danger" (click)="onCloseFractionalShare()">
             Close fractional share
@@ -382,7 +382,7 @@
       <div class="action-section">
         @if (isEditable()) {
           <button class="ds-btn fill" (click)="onSubmit()" [disabled]="!hasAccount()">
-            <mat-icon>send</mat-icon>
+            <span class="dse-icon">send</span>
             Submit Order
           </button>
         }
@@ -395,7 +395,7 @@
  (click)="onAcceptAsPaper()"
  [disabled]="acceptingPaper()"
  >
-            <mat-icon>science</mat-icon>
+            <span class="dse-icon">science</span>
             {{ acceptingPaper() ? 'Accepting…' : 'Accept as Paper' }}
           </button>
         }
@@ -404,25 +404,25 @@
           <!-- A terminal RH order burned its refId — Requeue mints a fresh
                one and returns the ticket to staged (#717). -->
           <button class="ds-btn outline" (click)="onRequeue()">
-            <mat-icon>replay</mat-icon>
+            <span class="dse-icon">replay</span>
             Requeue to Staged
           </button>
         }
 
         @if (isSubmitted()) {
           <button class="ds-btn outline" (click)="onReconcile()">
-            <mat-icon>sync</mat-icon>
+            <span class="dse-icon">sync</span>
             Refresh from Broker
           </button>
           @if (isCancelling()) {
             <ng-container *ngTemplateOutlet="cancelPending" />
           } @else {
             <button class="ds-btn outline" (click)="onModify()">
-              <mat-icon>edit</mat-icon>
+              <span class="dse-icon">edit</span>
               Modify
             </button>
             <button class="ds-btn outline danger" (click)="onCancel()">
-              <mat-icon>cancel</mat-icon>
+              <span class="dse-icon">cancel</span>
               Cancel
             </button>
           }
@@ -430,11 +430,11 @@
 
         @if (isSubmitting()) {
           <div class="submitting-indicator">
-            <mat-icon>hourglass_empty</mat-icon>
+            <span class="dse-icon">hourglass_empty</span>
             <span>Submitting…</span>
           </div>
           <button class="ds-btn outline" (click)="onReconcile()">
-            <mat-icon>sync</mat-icon>
+            <span class="dse-icon">sync</span>
             Refresh from Broker
           </button>
         }
@@ -443,14 +443,14 @@
           <ng-container *ngTemplateOutlet="cancelPending" />
         } @else if (isStopLossSubmitted()) {
           <button class="ds-btn outline danger" (click)="onCancelStopLoss()">
-            <mat-icon>cancel</mat-icon>
+            <span class="dse-icon">cancel</span>
             Cancel Stop Loss
           </button>
         }
 
         @if (isStopLossSubmitting()) {
           <div class="submitting-indicator">
-            <mat-icon>hourglass_empty</mat-icon>
+            <span class="dse-icon">hourglass_empty</span>
             <span>Stop loss submitting…</span>
           </div>
         }
@@ -463,7 +463,7 @@
 <!-- Shared indicator — cancel accepted at the broker, awaiting terminal. -->
 <ng-template #cancelPending>
   <div class="submitting-indicator">
-    <mat-icon>hourglass_empty</mat-icon>
+    <span class="dse-icon">hourglass_empty</span>
     <span>Cancellation pending…</span>
   </div>
 </ng-template>

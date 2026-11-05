@@ -9,7 +9,6 @@ import { CommonModule } from '@angular/common';
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 
-import { MatIconModule } from '@angular/material/icon';
 
 import { OrderTicket, InstrumentType } from '../../services/order-ticket.types';
 import { GuardrailWarning } from '../../utils/order-guardrails.util';
@@ -27,7 +26,7 @@ export interface OrderConfirmDialogData {
 @Component({
   selector: 'app-order-confirm-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './order-confirm-dialog.component.html',
   styleUrl: './order-confirm-dialog.component.scss',
 })

@@ -21,7 +21,6 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 
 import {
   ANALYSIS_COLUMNS,
@@ -42,8 +41,7 @@ export interface AnalysisSortToggle {
 @Component({
   selector: 'app-analysis-table',
   standalone: true,
-  imports: [
-    MatIconModule],
+  imports: [],
   templateUrl: './analysis-table.component.html',
   styleUrl: './analysis-table.component.scss',
   host: {

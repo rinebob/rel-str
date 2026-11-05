@@ -6,11 +6,11 @@
       <div class="row-fields">
         <label class="dse-field field-half">
           <span class="field-label">Strategy</span>
-          <mat-select formControlName="strategyId" (selectionChange)="onStrategyChange($event.value)">
+          <select class="dse-select" formControlName="strategyId" (change)="onStrategyChange($any($event.target).value)">
             @for (strategy of data.strategies; track strategy.id) {
-              <mat-option [value]="strategy.id">{{ strategy.name }}</mat-option>
+              <option [value]="strategy.id">{{ strategy.name }}</option>
             }
-          </mat-select>
+          </select>
         </label>
 
         <label class="dse-field field-half">
@@ -27,20 +27,20 @@
 
         <label class="dse-field field-third">
           <span class="field-label">Run Type</span>
-          <mat-select formControlName="runType">
+          <select class="dse-select" formControlName="runType">
             @for (type of runTypes; track type) {
-              <mat-option [value]="type">{{ type }}</mat-option>
+              <option [value]="type">{{ type }}</option>
             }
-          </mat-select>
+          </select>
         </label>
 
         <label class="dse-field field-third">
           <span class="field-label">Report Tier</span>
-          <mat-select formControlName="reportTier">
+          <select class="dse-select" formControlName="reportTier">
             @for (tier of reportTiers; track tier) {
-              <mat-option [value]="tier">{{ tier }}</mat-option>
+              <option [value]="tier">{{ tier }}</option>
             }
-          </mat-select>
+          </select>
         </label>
       </div>
     </div>
@@ -57,11 +57,11 @@
           } @else if (entry.field.enum && entry.field.enum.length > 0) {
             <label class="dse-field field-third" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
               <span class="field-label">{{ entry.key }}</span>
-              <mat-select [formControlName]="entry.key">
+              <select class="dse-select" [formControlName]="entry.key">
                 @for (option of entry.field.enum; track option) {
-                  <mat-option [value]="option">{{ option }}</mat-option>
+                  <option [value]="option">{{ option }}</option>
                 }
-              </mat-select>
+              </select>
             </label>
           } @else if (entry.field.type === 'integer' || entry.field.type === 'number') {
             <label class="dse-field field-quarter" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">

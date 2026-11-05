@@ -2,7 +2,7 @@
 <button class="toolbar-menu-btn ds-btn outline"
         aria-haspopup="menu" [attr.aria-expanded]="menuOpen()"
         (click)="toggleMenu($event)">
-  <mat-icon>add_chart</mat-icon>
+  <span class="dse-icon">add_chart</span>
   Indicators
   <span class="active-chart-badge">{{ activeChartBadge() }}</span>
 </button>
@@ -13,7 +13,7 @@
             [attr.aria-checked]="isSelected(option.id)"
             (click)="onToggle(option.id)">
       <span class="menu-checkbox" [class.checked]="isSelected(option.id)">
-        <mat-icon>{{ isSelected(option.id) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+        <span class="dse-icon">{{ isSelected(option.id) ? 'check_box' : 'check_box_outline_blank' }}</span>
       </span>
       <span class="menu-label">{{ option.label }}</span>
     </button>

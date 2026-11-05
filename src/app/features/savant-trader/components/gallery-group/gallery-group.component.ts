@@ -7,8 +7,7 @@
  * GroupPanelComponent shape, but the panel body renders GalleryCards instead
  * of symbol rows.
  */
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { MatExpansionModule } from '@angular/material/expansion';
+import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, output } from '@angular/core';
 import { SignalTimeframe } from '../../common/constants';
 import { GalleryGroup } from '../../utils/gallery-cards.util';
 import { GalleryCardAction, GalleryCardComponent } from '../gallery-card/gallery-card.component';
@@ -16,7 +15,7 @@ import { GalleryCardAction, GalleryCardComponent } from '../gallery-card/gallery
 @Component({
   selector: 'app-gallery-group',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatExpansionModule, GalleryCardComponent],
+  imports: [GalleryCardComponent],
   templateUrl: './gallery-group.component.html',
   styleUrl: './gallery-group.component.scss',
 })
@@ -25,6 +24,16 @@ export class GalleryGroupComponent {
   /** Expansion state — owned by GalleryUiStore so expand-all can drive it. */
   readonly expanded = input.required<boolean>();
   readonly expandedChange = output<boolean>();
+
+  /** Local open state — re-seeds when the store-owned input flips
+   *  (expand-all), then self-manages between writes (dse-acc contract). */
+  readonly open = linkedSignal(() => this.expanded());
+
+  onToggle(): void {
+    const next = !this.open();
+    this.open.set(next);
+    this.expandedChange.emit(next);
+  }
 
   /** Card decision-button state, forwarded to each card (#755). */
   readonly actionsDisabled = input.required<boolean>();

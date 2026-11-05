@@ -6,7 +6,6 @@
  */
 import { Component, input, output, ChangeDetectionStrategy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 
 
 import type { BacktestRunUi } from '../../common/backtest.types';
@@ -27,7 +26,7 @@ export interface BacktestRunListRow extends BacktestRunUi {
 @Component({
   selector: 'app-backtest-run-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './backtest-run-list.component.html',
   styleUrl: './backtest-run-list.component.scss',
 })

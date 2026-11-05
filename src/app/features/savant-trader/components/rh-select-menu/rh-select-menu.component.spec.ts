@@ -6,7 +6,6 @@
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { MatMenuModule } from '@angular/material/menu';
 
 import {
   RhSelectMenuComponent,
@@ -28,7 +27,7 @@ describe('RhSelectMenuComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [RhSelectMenuComponent, MatMenuModule],
+      imports: [RhSelectMenuComponent],
       providers: [provideZonelessChangeDetection()],
     });
     fixture = TestBed.createComponent(RhSelectMenuComponent<Filter>);
@@ -41,18 +40,22 @@ describe('RhSelectMenuComponent', () => {
   });
 
   function openMenu(): HTMLElement[] {
-    fixture.nativeElement.querySelector('button').click();
-    fixture.detectChanges();
-    return Array.from(document.querySelectorAll<HTMLElement>('.mat-mdc-menu-item'));
+    if (!component.menuOpen()) {
+      fixture.nativeElement.querySelector('button').click();
+      fixture.detectChanges();
+    }
+    return Array.from(
+      document.querySelectorAll<HTMLElement>('.dse-menu .menu-item, .dse-menu .rh-menu-group-header'),
+    );
   }
 
   it('renders the flat sentinel before group headers in the open menu', () => {
     const items = openMenu();
     const texts = items.map((el) => el.textContent?.trim());
     expect(texts).toEqual(['All', 'Triage', 'Primary', 'My lists', 'Custom']);
-    // Group headers are disabled, options are clickable.
-    expect(items[1].hasAttribute('disabled')).toBe(true);
-    expect(items[2].hasAttribute('disabled')).toBe(false);
+    // Group headers are presentational, options are buttons.
+    expect(items[1].classList.contains('rh-menu-group-header')).toBe(true);
+    expect(items[2].tagName).toBe('BUTTON');
   });
 
   it('activeLabel resolves from flat and grouped options', () => {

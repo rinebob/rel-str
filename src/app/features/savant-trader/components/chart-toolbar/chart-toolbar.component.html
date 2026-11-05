@@ -9,7 +9,7 @@
 
   <button type="button" class="icon-btn" (click)="zoomToggle.emit()"
  [class.dim]="!showZoomToolbar()" [title]="showZoomToolbar() ? 'Hide zoom toolbar' : 'Show zoom toolbar'">
-    <mat-icon>{{ showZoomToolbar() ? 'zoom_in' : 'zoom_out' }}</mat-icon>
+    <span class="dse-icon">{{ showZoomToolbar() ? 'zoom_in' : 'zoom_out' }}</span>
   </button>
 
   <!-- Spacer -->
@@ -20,12 +20,12 @@
     <span class="symbol-nav">
       <button type="button" class="nav-btn" (click)="prevSymbol.emit()"
         [disabled]="symbolIndex() <= 0" title="Previous symbol">
-        <mat-icon>chevron_left</mat-icon>
+        <span class="dse-icon">chevron_left</span>
       </button>
       <span class="nav-position">{{ symbolIndex() + 1 }}&nbsp;/&nbsp;{{ symbolCount() }}</span>
       <button type="button" class="nav-btn" (click)="nextSymbol.emit()"
         [disabled]="symbolIndex() >= symbolCount() - 1" title="Next symbol">
-        <mat-icon>chevron_right</mat-icon>
+        <span class="dse-icon">chevron_right</span>
       </button>
     </span>
   }
@@ -51,10 +51,10 @@
   </span>
 
   <button type="button" class="icon-btn" (click)="layoutToggle.emit()" [title]="layout() === ChartLayout.SINGLE ? 'Three-chart layout' : 'Single-chart layout'">
-    <mat-icon>{{ layout() === ChartLayout.SINGLE ? 'grid_view' : 'crop_square' }}</mat-icon>
+    <span class="dse-icon">{{ layout() === ChartLayout.SINGLE ? 'grid_view' : 'crop_square' }}</span>
   </button>
   <button type="button" class="icon-btn" (click)="fullscreenToggle.emit()" [title]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
-    <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+    <span class="dse-icon">{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</span>
   </button>
 
   <app-log-scale-pill [logScale]="logScale()" (toggle)="logScaleToggle.emit()" />

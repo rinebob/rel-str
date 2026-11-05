@@ -7,7 +7,6 @@
  * Bulk-selection actions land here in #758.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 
 import { SymbolListFilter, SignalTimeframe, SignalDirection, GroupDimension, CardChartTimeframe, DEFAULT_CARD_CHART_TIMEFRAME } from '../../common/constants';
 import { formatTimestampPT } from '../../utils/utils';
@@ -30,7 +29,7 @@ const DIMENSION_OPTIONS: RhSelectOption<GroupDimension>[] = [
 @Component({
   selector: 'app-gallery-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ MatIconModule, SignalFilterPillsComponent, RhSelectMenuComponent],
+  imports: [ SignalFilterPillsComponent, RhSelectMenuComponent],
   templateUrl: './gallery-header.component.html',
   styleUrl: './gallery-header.component.scss',
 })

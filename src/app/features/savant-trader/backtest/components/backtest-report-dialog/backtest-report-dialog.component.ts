@@ -4,12 +4,10 @@
  * Full-screen dialog that lays out a single permutation's performance report,
  * equity curve, underlying price + trade markers, and trade list in one view.
  */
-import { Component, inject, ChangeDetectionStrategy, computed } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DS_DIALOG_DATA, DsDialogRef } from '../../../../../shared/ds/ds-dialog';
 
-import { MatIconModule } from '@angular/material/icon';
-import { MatTabsModule } from '@angular/material/tabs';
 
 import type { BacktestPermutationUi, BacktestReportTier } from '../../common/backtest.types';
 import { buildBacktestMetricEntries } from '../../utils/backtest.utils';
@@ -27,8 +25,6 @@ export interface BacktestReportDialogData {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatIconModule,
-    MatTabsModule,
     BacktestEquityCurveComponent,
     BacktestTradeTableComponent,
     BacktestUnderlyingChartComponent],
@@ -55,4 +51,27 @@ export class BacktestReportDialogComponent {
   });
 
   readonly metricEntries = computed(() => buildBacktestMetricEntries(this.permutation()));
+
+  /** Active tab: 0 Report, 1 Equity Curve, 2 Trades, 3 Underlying. */
+  readonly reportTab = signal(0);
+
+  /** WAI-ARIA tabs keyboard nav: arrows move + activate, Home/End jump. */
+  onTabKeydown(event: KeyboardEvent): void {
+    const tabs = Array.from(
+      (event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.tab'),
+    );
+    const count = tabs.length;
+    if (count === 0) return;
+    let next: number | null = null;
+    switch (event.key) {
+      case 'ArrowRight': next = (this.reportTab() + 1) % count; break;
+      case 'ArrowLeft':  next = (this.reportTab() - 1 + count) % count; break;
+      case 'Home':       next = 0; break;
+      case 'End':        next = count - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    this.reportTab.set(next);
+    tabs[next]?.focus();
+  }
 }

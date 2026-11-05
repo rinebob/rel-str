@@ -36,7 +36,7 @@
     height: 20px;
     line-height: 20px;
 
-    mat-icon {
+    .dse-icon {
       font-size: 14px;
       width: 14px;
       height: 14px;
@@ -120,7 +120,7 @@
     align-items: center;
     justify-content: center;
 
-    mat-icon {
+    .dse-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;
@@ -146,7 +146,7 @@
     padding: 0 8px;
     border-radius: 4px;
 
-    mat-icon {
+    .dse-icon {
       font-size: 14px;
       width: 14px;
       height: 14px;
@@ -181,7 +181,7 @@
     color: var(--mat-sys-on-surface-variant);
     margin-right: 6px;
 
-    mat-icon {
+    .dse-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;
@@ -204,6 +204,14 @@
   padding: 4px;
 
   .signal-item {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
     cursor: pointer;
     border-radius: 4px;
     margin-bottom: 2px;
@@ -212,6 +220,11 @@
     padding: 6px 10px !important;
     transition: background-color 0.15s ease;
     position: relative;
+
+    .item-icon {
+      flex: 0 0 auto;
+      margin-top: 2px;
+    }
 
     &:hover {
       background: var(--mat-sys-surface-container-high);
@@ -228,7 +241,7 @@
       opacity: 0.45;
     }
 
-    mat-icon {
+    .dse-icon {
       font-size: 16px;
       width: 16px;
       height: 16px;

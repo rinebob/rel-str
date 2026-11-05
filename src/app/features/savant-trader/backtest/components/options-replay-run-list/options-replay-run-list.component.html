@@ -20,11 +20,11 @@
             [class.selected]="row.isSelected"
             (click)="onSelect(row)">
             <td class="col-status">
-              <mat-icon
-                class="status-icon"
-                [style.color]="row.symbolStatusColorName" [matTooltip]="row.symbolStatus">
+              <span
+                class="dse-icon status-icon" aria-hidden="true"
+                [style.color]="row.symbolStatusColorName" [title]="row.symbolStatus">
                 {{ row.symbolStatusIconName }}
-              </mat-icon>
+              </span>
             </td>
             <td class="col-symbol">{{ row.symbol }}</td>
             <td class="col-run-id">{{ row.formattedRunId }}</td>
@@ -62,7 +62,7 @@
     </table>
   } @else {
     <div class="empty-state">
-      <mat-icon>inbox</mat-icon>
+      <span class="dse-icon" aria-hidden="true">inbox</span>
       @if (isLoading()) {
         <p>Loading replay runs…</p>
       } @else if (hasActiveFilters()) {

@@ -38,10 +38,10 @@
   color: var(--mat-sys-on-surface-variant);
 }
 
-mat-dialog-actions {
+.actions {
   gap: var(--ds-space-2);
 
-  button mat-spinner {
+  button .dse-spinner {
     display: inline-block;
   }
 }

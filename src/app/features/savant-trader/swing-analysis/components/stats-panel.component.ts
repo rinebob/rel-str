@@ -16,7 +16,6 @@
  * private signals via `OnChanges` so `computed()` reactivity works.
  */
 import { ChangeDetectionStrategy, Component, computed, Input, OnChanges, signal, SimpleChanges } from '@angular/core';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import {
   ChartModule,
   ColumnSeriesService,
@@ -44,7 +43,7 @@ const STATS_MODE_INDEX: Record<StatsMode, 0 | 1 | 2> = { large: 0, small: 1, all
 @Component({
   selector: 'app-stats-panel',
   standalone: true,
-  imports: [ChartModule, MatProgressSpinnerModule],
+  imports: [ChartModule],
   providers: [ColumnSeriesService, CategoryService, TooltipService, LegendService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -79,7 +78,7 @@ const STATS_MODE_INDEX: Record<StatsMode, 0 | 1 | 2> = { large: 0, small: 1, all
   }
   @if (isLoading()) {
     <div class="stats-panel-loading" aria-live="polite">
-      <mat-progress-spinner diameter="24" mode="indeterminate" />
+      <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
       <span>Computing stats…</span>
     </div>
   } @else if (!activeStats() || !hasSwings()) {

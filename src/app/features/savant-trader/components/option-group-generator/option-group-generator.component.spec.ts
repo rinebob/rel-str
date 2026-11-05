@@ -103,10 +103,10 @@ async function flush(fixture: ComponentFixture<OptionGroupGeneratorComponent>): 
   fixture.detectChanges();
 }
 
-/** Text/number fields commit on blur (updateOn:'blur'); datepicker inputs
- *  parse on 'change'. Dispatch input → change → blur to cover both. */
+/** Text/number fields commit on blur (updateOn:'blur'); native date
+ *  inputs parse on 'change'. Dispatch input → change → blur to cover both. */
 function setInput(el: HTMLElement, label: string, value: string): void {
-  const fields = Array.from(el.querySelectorAll('mat-form-field'));
+  const fields = Array.from(el.querySelectorAll('.dse-field'));
   const field = fields.find((f) => f.textContent?.includes(label));
   const input = field?.querySelector('input');
   if (!input) throw new Error(`no input for label "${label}"`);
@@ -303,26 +303,28 @@ describe('OptionGroupGeneratorComponent', () => {
     await flush(fixture);
 
     expect(store.openDate()).toBe('2026-01-05');
-    // The derived date is displayed (locale-formatted by the datepicker).
-    const openDateField = Array.from(el.querySelectorAll('mat-form-field'))
+    // The derived date is displayed as ISO in the native date input.
+    const openDateField = Array.from(el.querySelectorAll('.dse-field'))
       .find((f) => f.textContent?.includes('Open date'));
-    expect(openDateField?.querySelector('input')?.value).toBe('1/5/2026');
+    expect(openDateField?.querySelector('input')?.value).toBe('2026-01-05');
   });
 
-  it('date projections return stable Date instances across CD passes', async () => {
-    // Regression: a fresh Date per pass keeps ngModel permanently dirty —
-    // infinite change-detection loop on page init with persisted dates.
-    const { fixture, component, store } = await setup();
+  it('date inputs render ISO store values across CD passes', async () => {
+    // Regression guard for the old Date-projection bug: values are ISO
+    // strings end-to-end, so repeated CD passes must render identically.
+    const { fixture, el, store } = await setup();
     store.setQuery({ expirationGte: '2026-06-01' });
     store.applyRange({ start: '2026-01-05', end: '2026-03-20' });
     store.setUseRangeAsOpenDate(true);
     fixture.detectChanges();
     fixture.detectChanges();
 
-    expect(component.queryExpGteDate()).toBe(component.queryExpGteDate());
-    expect(component.refineExpGteDate()).toBe(component.refineExpGteDate());
-    expect(component.openDateDate()).toBe(component.openDateDate());
-    expect(component.queryExpGteDate()!.toISOString().startsWith('2026-06-01')).toBe(true);
+    const expField = Array.from(el.querySelectorAll('.dse-field'))
+      .find((f) => f.textContent?.includes('Exp From'));
+    expect(expField?.querySelector('input')?.value).toBe('2026-06-01');
+    const openField = Array.from(el.querySelectorAll('.dse-field'))
+      .find((f) => f.textContent?.includes('Open date'));
+    expect(openField?.querySelector('input')?.value).toBe('2026-01-05');
   });
 
   it('Send emits date,id pair lines for the filtered set', async () => {

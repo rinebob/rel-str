@@ -10,14 +10,6 @@ import { FormsModule } from '@angular/forms';
 
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
-import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatInputModule } from '@angular/material/input';
-import { MatTableModule } from '@angular/material/table';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
 
 import { SpreadViewerStore } from '../../stores/spread-viewer.store';
 import { OptionsContractService } from '../../services/options-contract.service';
@@ -97,14 +89,8 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
   imports: [
     CommonModule,
     FormsModule,
-    MatFormFieldModule,
-    MatSelectModule,
-    MatIconModule,
-    MatChipsModule,
-    MatInputModule,
-    MatTableModule,
-    MatProgressSpinnerModule,
-    MatAutocompleteModule],
+
+    ],
   templateUrl: './spread-builder-dialog.component.html',
   styleUrl: './spread-builder-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -194,7 +180,6 @@ export class SpreadBuilderDialogComponent {
   // Working buffer table
   readonly spreads = computed(() => this.store.spreads());
   readonly displayedColumns = ['type', 'expiration', 'legs', 'entryDate', 'dte', 'debitCredit', 'status', 'actions'];
-
 
   /** Available expirations from the contract index. */
   readonly expirations = computed(() => {
@@ -440,8 +425,8 @@ export class SpreadBuilderDialogComponent {
     this.store.setStrikeRange(this.store.strikeRange().min, max);
   }
 
-  onLengthBucketsChange(values: string[]): void {
-    this.store.setLengthBuckets(new Set(values));
+  onLengthBucketsChange(el: HTMLSelectElement): void {
+    this.store.setLengthBuckets(new Set(Array.from(el.selectedOptions).map((o) => o.value)));
   }
 
   onAddToList(): void {

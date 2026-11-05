@@ -13,8 +13,6 @@
  */
 import { Component, input, output, ChangeDetectionStrategy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 import type { ReplayListRow, ReplaySelection } from '../../common/options-replay.types';
 import { getReplayTemplate } from '@options-replay/templates';
@@ -42,7 +40,7 @@ export interface OptionsReplaySymbolListRow extends ReplayListRow {
 @Component({
   selector: 'app-options-replay-run-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule],
   templateUrl: './options-replay-run-list.component.html',
   styleUrl: './options-replay-run-list.component.scss',
 })

@@ -1,19 +1,19 @@
-<h2 mat-dialog-title>
+<h2 class="title">
   <span class="title-contract">{{ data.contractId }}</span>
   <span class="title-meta">{{ data.symbol }} · entered {{ data.entryDate }}</span>
 </h2>
 
-<mat-dialog-content class="series-content">
+<div class="content series-content">
   @switch (state()) {
     @case ('loading') {
       <div class="state-block">
-        <mat-spinner diameter="32"></mat-spinner>
+        <span class="dse-spinner" style="--spinner-size: 32px" role="progressbar" aria-label="Loading"></span>
         <span>Loading mark series…</span>
       </div>
     }
     @case ('error') {
       <div class="state-block error">
-        <mat-icon>error_outline</mat-icon>
+        <span class="dse-icon">error_outline</span>
         <span>Failed to load series for {{ data.contractId }}</span>
         @if (errorMessage()) {
           <span class="error-detail">{{ errorMessage() }}</span>
@@ -22,7 +22,7 @@
     }
     @case ('empty') {
       <div class="state-block">
-        <mat-icon>show_chart</mat-icon>
+        <span class="dse-icon">show_chart</span>
         <span>No mark series for {{ data.contractId }}</span>
       </div>
     }
@@ -47,8 +47,8 @@
       </div>
     }
   }
-</mat-dialog-content>
+</div>
 
-<mat-dialog-actions align="end">
-  <button mat-button mat-dialog-close>Close</button>
-</mat-dialog-actions>
+<div class="actions" align="end">
+  <button class="ds-btn" (click)="ref.close()">Close</button>
+</div>

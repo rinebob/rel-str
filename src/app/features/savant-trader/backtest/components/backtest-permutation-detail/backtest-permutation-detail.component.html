@@ -8,7 +8,7 @@
       <div class="header-actions">
         <span class="status-badge" [class]="p.status">{{ p.status }}</span>
         <button class="ds-btn outline" type="button" (click)="openFullReport()">
-          <mat-icon>open_in_full</mat-icon>
+          <span class="dse-icon">open_in_full</span>
           <span>Full report</span>
         </button>
       </div>
@@ -110,7 +110,7 @@
 
     @if (p.error) {
       <section class="error-panel">
-        <mat-icon>error</mat-icon>
+        <span class="dse-icon">error</span>
         <span>{{ p.error }}</span>
       </section>
     }
@@ -151,7 +151,7 @@
   </div>
 } @else {
   <div class="empty-state">
-    <mat-icon>bar_chart</mat-icon>
+    <span class="dse-icon">bar_chart</span>
     <p>Select a permutation to view details.</p>
   </div>
 }

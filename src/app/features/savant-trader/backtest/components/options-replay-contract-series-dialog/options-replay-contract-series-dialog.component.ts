@@ -10,10 +10,8 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../../shared/ds/ds-dialog';
 
 import { OptionsContractService } from '../../../services/options-contract.service';
 
@@ -41,13 +39,14 @@ type FetchState = 'loading' | 'loaded' | 'empty' | 'error';
 @Component({
   selector: 'app-options-replay-contract-series-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatDialogModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule],
   templateUrl: './options-replay-contract-series-dialog.component.html',
   styleUrl: './options-replay-contract-series-dialog.component.scss',
 })
 export class OptionsReplayContractSeriesDialogComponent {
   private readonly optionsContractService = inject(OptionsContractService);
-  readonly data = inject<ContractSeriesDialogData>(MAT_DIALOG_DATA);
+  readonly data = inject<ContractSeriesDialogData>(DS_DIALOG_DATA);
+  protected readonly ref = inject(DsDialogRef<OptionsReplayContractSeriesDialogComponent>);
 
   readonly state = signal<FetchState>('loading');
   readonly errorMessage = signal<string>('');

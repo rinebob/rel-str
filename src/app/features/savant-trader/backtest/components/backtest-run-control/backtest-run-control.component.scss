@@ -22,8 +22,8 @@
   font-weight: 600;
   height: 32px;
 
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
-  mat-spinner { flex-shrink: 0; }
+  .dse-icon { font-size: 18px; width: 18px; height: 18px; }
+  .dse-spinner { flex-shrink: 0; }
 }
 
 .refresh-btn {
@@ -123,7 +123,7 @@
   color: var(--mat-sys-on-surface-variant);
   cursor: pointer;
 
-  mat-icon {
+  .dse-icon {
     font-size: 16px;
     width: 16px;
     height: 16px;

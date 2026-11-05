@@ -1,6 +1,6 @@
 <div class="gr-header">
   <button class="back-btn icon-btn" (click)="back.emit()" title="Back">
-    <mat-icon>arrow_back</mat-icon>
+    <span class="dse-icon">arrow_back</span>
   </button>
 
   <div class="signal-counts">
@@ -24,7 +24,7 @@
   </app-signal-filter-pills>
 
   <span class="pill-btn emph" title="Signals matching the current timeframe / direction / list filters">
-    <mat-icon>notifications</mat-icon>
+    <span class="dse-icon">notifications</span>
     Signals <span class="pill-count">{{ filteredSignalCount() }}</span>
   </span>
 
@@ -37,26 +37,26 @@
       [class.active]="reviewCount() > 0"
       disabled
       (click)="goToChartView.emit()" title="Review symbols">
-      <mat-icon>visibility</mat-icon>
+      <span class="dse-icon">visibility</span>
       Review <span class="pill-count">{{ reviewCount() }}</span>
     </button>
     <button type="button" class="pill-btn order"
       [class.active]="orderCount() > 0"
       [disabled]="orderCount() === 0 || !isActionableRun()"
       (click)="goToOrder.emit()" title="Go to signal order page">
-      <mat-icon>shopping_cart</mat-icon>
+      <span class="dse-icon">shopping_cart</span>
       Order <span class="pill-count">{{ orderCount() }}</span>
     </button>
     <a class="pill-btn"
       [routerLink]="'/' + appRoutes.RH_ACCOUNT_INQUIRY" title="Open observation dashboard">
-      <mat-icon>query_stats</mat-icon>
+      <span class="dse-icon">query_stats</span>
       Observation
     </a>
     <!-- #1016 — clears review flags; disabled with the flag feature. -->
     <button type="button" class="pill-btn small"
       disabled
       (click)="clearReviewFlags.emit()" title="Clear review flags">
-      <mat-icon>playlist_remove</mat-icon>
+      <span class="dse-icon">playlist_remove</span>
     </button>
   </div>
 
@@ -78,28 +78,28 @@
   <button class="icon-btn" 
  [disabled]="activeListFilter() === 'ALL'"
  (click)="exportList.emit()" title="Export selected list">
-    <mat-icon>download</mat-icon>
+    <span class="dse-icon">download</span>
   </button>
 
   <button class="icon-btn" (click)="prev.emit()"
  [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) <= 0" title="Previous symbol">
-    <mat-icon>chevron_left</mat-icon>
+    <span class="dse-icon">chevron_left</span>
   </button>
   <button class="icon-btn" (click)="next.emit()"
  [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) >= flatSymbols().length - 1" title="Next symbol">
-    <mat-icon>chevron_right</mat-icon>
+    <span class="dse-icon">chevron_right</span>
   </button>
 
   <button class="icon-btn" (click)="toggleExpandAll.emit()" [title]="allExpanded() ? 'Collapse all' : 'Expand all'">
-    <mat-icon>{{ allExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+    <span class="dse-icon">{{ allExpanded() ? 'unfold_less' : 'unfold_more' }}</span>
   </button>
 
   <button class="icon-btn" (click)="refresh.emit()" title="Refresh"
  [disabled]="loading()">
-    <mat-icon>refresh</mat-icon>
+    <span class="dse-icon">refresh</span>
   </button>
 
   <button class="icon-btn" (click)="toggleFullscreen.emit()" [title]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
-    <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+    <span class="dse-icon">{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</span>
   </button>
 </div>

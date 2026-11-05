@@ -1,10 +1,9 @@
-<mat-expansion-panel
-  class="gallery-group"
-  [expanded]="expanded()"
-  (opened)="expandedChange.emit(true)"
-  (closed)="expandedChange.emit(false)">
-  <mat-expansion-panel-header class="group-header">
-    <mat-panel-title class="group-title">
+<div class="ds-panel gallery-group" [class.open]="open()">
+  <button type="button" class="acc-head group-header"
+    [attr.aria-expanded]="open()"
+    [attr.aria-controls]="'gg-body-' + group().label"
+    (click)="onToggle()">
+    <span class="group-title">
       <span class="group-label">{{ group().label }}</span>
       <span class="group-summary">
         {{ group().cards.length }} signals
@@ -21,15 +20,18 @@
           <span class="grp-dir short">↓ {{ shortCount() }}</span>
         }
       </span>
-    </mat-panel-title>
-  </mat-expansion-panel-header>
-  <div class="gallery-grid">
-    @for (card of group().cards; track card.key) {
-      <app-gallery-card
-        [card]="card"
-        [actionsDisabled]="actionsDisabled()"
-        [actionBusy]="busyKeys().has(card.key)"
-        (action)="cardAction.emit($event)" />
-    }
+    </span>
+    <span class="dse-icon chev" aria-hidden="true">expand_more</span>
+  </button>
+  <div class="acc-body" role="region" [id]="'gg-body-' + group().label">
+    <div class="gallery-grid">
+      @for (card of group().cards; track card.key) {
+        <app-gallery-card
+          [card]="card"
+          [actionsDisabled]="actionsDisabled()"
+          [actionBusy]="busyKeys().has(card.key)"
+          (action)="cardAction.emit($event)" />
+      }
+    </div>
   </div>
-</mat-expansion-panel>
+</div>

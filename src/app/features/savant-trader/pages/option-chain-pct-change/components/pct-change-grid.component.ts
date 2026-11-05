@@ -11,7 +11,6 @@
  */
 import { Component, input, computed, inject, signal, effect, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
 import { CdkConnectedOverlay, Overlay, type ConnectedPosition } from '@angular/cdk/overlay';
-import { MatIconModule } from '@angular/material/icon';
 
 import type { PctChangeGrid, PctChangeCell } from '../utils/pct-change.utils';
 import { cellKey, CONTRACT_CHART_PANE_CLASS, MIN_CELL_PRICE } from '../utils/pct-change.utils';
@@ -59,7 +58,7 @@ interface ExpHeader {
 @Component({
   selector: 'app-pct-change-grid',
   standalone: true,
-  imports: [CdkConnectedOverlay, MatIconModule, ContractMiniChartComponent],
+  imports: [CdkConnectedOverlay, ContractMiniChartComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="grid-header">
@@ -128,7 +127,7 @@ interface ExpHeader {
                       class="chart-icon-btn"
                       aria-label="Show contract price/delta chart"
                     >
-                      <mat-icon>show_chart</mat-icon>
+                      <span class="dse-icon">show_chart</span>
                     </button>
                   }
                 </div>
@@ -317,7 +316,7 @@ interface ExpHeader {
       .chart-icon-btn:focus-visible {
         opacity: 1;
       }
-      .chart-icon-btn mat-icon {
+      .chart-icon-btn .dse-icon {
         font-size: 8px;
         width: 8px;
         height: 8px;

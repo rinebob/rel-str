@@ -79,12 +79,11 @@
 .report-tabs {
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 
-  ::ng-deep .mat-mdc-tab-body-wrapper {
+  .tab-body {
     flex: 1;
-  }
-
-  ::ng-deep .mat-mdc-tab-body-content {
+    min-height: 0;
     overflow: auto;
   }
 }

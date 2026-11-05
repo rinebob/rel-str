@@ -20,9 +20,9 @@
             [class.expanded]="expandedRunId() === run.id"
             (click)="toggleExpand(run)">
             <td class="col-status">
-              <mat-icon class="status-icon" [style.color]="getRunStatusColor(run.status)" [title]="run.status">
+              <span class="dse-icon status-icon" [style.color]="getRunStatusColor(run.status)" [title]="run.status">
                 {{ getRunStatusIcon(run.status) }}
-              </mat-icon>
+              </span>
             </td>
             <td class="col-date">{{ formatTime(run.startedAt) }}</td>
             <td class="col-market-date">{{ run.marketDate ?? '—' }}</td>
@@ -40,7 +40,7 @@
               <div class="actions-cell">
                 <button class="review-btn" title="Review signals from this run"
                   (click)="reviewSignals(run, $event)">
-                  <mat-icon>manage_search</mat-icon>
+                  <span class="dse-icon">manage_search</span>
                 </button>
                 <span class="expand-icon">{{ expandedRunId() === run.id ? 'expand_less' : 'expand_more' }}</span>
               </div>
@@ -62,7 +62,7 @@
                   </div>
                   <button class="review-signals-btn ds-btn outline"
  (click)="reviewSignals(run, $event)">
-                    <mat-icon>manage_search</mat-icon>
+                    <span class="dse-icon">manage_search</span>
                     Review Signals
                   </button>
                 </div>
@@ -74,7 +74,7 @@
     </table>
   } @else {
     <div class="empty-state">
-      <mat-icon>inbox</mat-icon>
+      <span class="dse-icon">inbox</span>
       <p>No runs match the current filters</p>
     </div>
   }

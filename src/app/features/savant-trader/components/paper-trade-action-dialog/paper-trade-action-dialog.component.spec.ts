@@ -1,14 +1,14 @@
 /**
  * PaperTradeActionDialogComponent spec (#671) — the confirm surface for
- * close/cancel on the paper-trading dashboard. Store + MatDialogRef are
+ * close/cancel on the paper-trading dashboard. Store + DsDialogRef are
  * stubbed at the boundary; the dialog renders the trade summary, calls
  * the matching store action on confirm, spins while `actingIds` holds
  * the trade, and closes with `true` when the action settles.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 import {
   PaperTradeActionDialogComponent,
@@ -62,8 +62,8 @@ describe('PaperTradeActionDialogComponent (#671)', () => {
           provideZonelessChangeDetection(),
           provideNoopAnimations(),
           { provide: PaperTradingStore, useValue: storeMock },
-          { provide: MatDialogRef, useValue: dialogRef },
-          { provide: MAT_DIALOG_DATA, useValue: data },
+          { provide: DsDialogRef, useValue: dialogRef },
+          { provide: DS_DIALOG_DATA, useValue: data },
         ],
       })
       .compileComponents();
@@ -109,7 +109,7 @@ describe('PaperTradeActionDialogComponent (#671)', () => {
     actingIds.set(new Set(['pt-1']));
     await render('close');
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('mat-spinner')).toBeTruthy();
+    expect(el.querySelector('.dse-spinner')).toBeTruthy();
     expect(
       el.querySelector<HTMLButtonElement>('[data-testid="confirm-action"]')!.disabled,
     ).toBe(true);

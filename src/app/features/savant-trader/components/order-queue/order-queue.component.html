@@ -16,12 +16,12 @@
         @if (paperSendCount() > 0) {
           <button type="button" class="batch-link paper" (click)="sendCheckedToPaper()"
             [disabled]="sendingToPaper()" title="Convert checked staged orders to paper trading">
-            <mat-icon>science</mat-icon>
+            <span class="dse-icon">science</span>
             {{ sendingToPaper() ? 'Sending…' : 'Send ' + paperSendCount() + ' to paper' }}
           </button>
         }
         <button type="button" class="batch-link remove" (click)="removeChecked()">
-          <mat-icon>delete_outline</mat-icon>
+          <span class="dse-icon">delete_outline</span>
           Remove selected
         </button>
       }
@@ -31,7 +31,7 @@
   <!-- Empty state -->
   @if (totalCount() === 0) {
     <div class="empty-state">
-      <mat-icon>inbox</mat-icon>
+      <span class="dse-icon">inbox</span>
       <p>No staged orders</p>
       <p class="hint">Accept signals from the signal review to see them here.</p>
     </div>
@@ -59,9 +59,9 @@
               </span>
             }
           }
-          <mat-icon class="group-chevron" [class.collapsed]="isGroupCollapsed(group.label)">
+          <span class="dse-icon group-chevron" [class.collapsed]="isGroupCollapsed(group.label)">
             {{ isGroupCollapsed(group.label) ? 'expand_more' : 'expand_less' }}
-          </mat-icon>
+          </span>
         </div>
         @if (!isGroupCollapsed(group.label)) {
         @for (ticket of group.tickets; track ticket.id) {
@@ -144,13 +144,13 @@
                       type="button"
                       class="requeue-btn"
                       (click)="requeueTicket.emit(ticket.id); $event.stopPropagation()">
-                      <mat-icon>replay</mat-icon>Requeue
+                      <span class="dse-icon">replay</span>Requeue
                     </button>
                     <button
                       type="button"
                       class="dismiss-btn" title="Remove from queue"
                       (click)="removeTickets.emit([ticket.id]); $event.stopPropagation()">
-                      <mat-icon>close</mat-icon>
+                      <span class="dse-icon">close</span>
                     </button>
                   }
                 </div>

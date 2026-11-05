@@ -64,7 +64,7 @@
        [routerLink]="['/' + ORDER_ROUTE]"
        [queryParams]="{ ticket: t.id }"
        [attr.aria-label]="'View order for ' + card().symbol"
-       title="View order progress">{{ ticketLine() }} <mat-icon>open_in_new</mat-icon></a>
+       title="View order progress">{{ ticketLine() }} <span class="dse-icon">open_in_new</span></a>
   }
 
   <ul class="occurrences">
@@ -119,7 +119,7 @@
        rel="noopener"
        [attr.aria-label]="'Open option chain for ' + card().symbol"
        title="Open option chain in a new tab">
-      Option chain <mat-icon>open_in_new</mat-icon>
+      Option chain <span class="dse-icon">open_in_new</span>
     </a>
   </div>
 

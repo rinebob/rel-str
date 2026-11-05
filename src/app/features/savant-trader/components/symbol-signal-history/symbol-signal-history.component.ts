@@ -6,14 +6,13 @@
  */
 import { Component, ChangeDetectionStrategy, computed, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SymbolRow } from '../../stores/group.store';
 import { SignalStatus } from '../../common/constants';
 
 @Component({
   selector: 'app-symbol-signal-history',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatProgressSpinnerModule],
+  imports: [CommonModule],
   templateUrl: './symbol-signal-history.component.html',
   styleUrl: './symbol-signal-history.component.scss',
 })

@@ -4,16 +4,16 @@
   <!-- Top Bar: Named list controls -->
   <div class="dialog-top-bar">
     <label class="dse-field list-select-field">
-      <mat-select
-        [value]="selectedListId()"
-        (openedChange)="onListsMenuOpen()"
-        (selectionChange)="onListSelected($event.value)"
+      <select class="dse-select"
+        [value]="selectedListId() ?? ''"
+        (focus)="onListsMenuOpen()"
+        (change)="onListSelected($any($event.target).value)"
       >
-        <mat-option [value]="null">Unsaved</mat-option>
+        <option value="">Unsaved</option>
         @for (list of namedLists(); track list.id) {
-          <mat-option [value]="list.id">{{ list.name }}</mat-option>
+          <option [value]="list.id">{{ list.name }}</option>
         }
-      </mat-select>
+      </select>
     </label>
 
     <button class="ds-btn outline" (click)="onNewList()">New</button>
@@ -29,7 +29,7 @@
   </div>
 
   <!-- Three-column layout -->
-  <div class="content" class="builder-content">
+  <div class="content builder-content">
     @if (contractIndexStatus() === 'loading') {
       <p class="loading-text">Loading contract index…</p>
     }
@@ -53,11 +53,11 @@
         <div class="filter-row date-filter">
           <label class="dse-field half-width">
             <span class="field-label">Start</span>
-            <input type="date" class="dse-date" (change)="onChartStartDateChange($event.target.value)">
+            <input type="date" class="dse-date" (change)="onChartStartDateChange($any($event.target).value)">
           </label>
           <label class="dse-field half-width">
             <span class="field-label">End</span>
-            <input type="date" class="dse-date" (change)="onChartEndDateChange($event.target.value)">
+            <input type="date" class="dse-date" (change)="onChartEndDateChange($any($event.target).value)">
           </label>
         </div>
 
@@ -65,34 +65,34 @@
         <div class="filter-row">
           <label class="dse-field half-width">
             <span class="field-label">Min Strike</span>
-            <input class="field-input" type="number" [value]="store.strikeRange().min?.toString() ?? ''" (input)="onStrikeRangeMinChange(+$event.target.value)">
+            <input class="field-input" type="number" [value]="store.strikeRange().min?.toString() ?? ''" (input)="onStrikeRangeMinChange(+$any($event.target).value)">
           </label>
           <label class="dse-field half-width">
             <span class="field-label">Max Strike</span>
-            <input class="field-input" type="number" [value]="store.strikeRange().max?.toString() ?? ''" (input)="onStrikeRangeMaxChange(+$event.target.value)">
+            <input class="field-input" type="number" [value]="store.strikeRange().max?.toString() ?? ''" (input)="onStrikeRangeMaxChange(+$any($event.target).value)">
           </label>
         </div>
 
         <!-- Length bucket multi-select (first selected used for query) -->
         <label class="dse-field full-width">
           <span class="field-label">Length Buckets</span>
-          <mat-select [value]="selectedLengthBucketValues()" multiple (selectionChange)="onLengthBucketsChange($event.value)">
+          <select class="dse-select" multiple (change)="onLengthBucketsChange($any($event.target))">
             @for (group of lengthBucketGroups(); track group.name) {
-              <mat-optgroup [label]="group.name">
+              <optgroup [label]="group.name">
                 @for (bucket of group.options; track bucket.value) {
-                  <mat-option [value]="bucket.value">{{ bucket.label }}</mat-option>
+                  <option [value]="bucket.value" [selected]="selectedLengthBucketValues().includes(bucket.value)">{{ bucket.label }}</option>
                 }
-              </mat-optgroup>
+              </optgroup>
             }
-          </mat-select>
+          </select>
         </label>
 
         <!-- Search button -->
         <button (click)="onSearchCatalog()" [disabled]="catalogLoading()" class="search-button ds-btn outline">
           @if (catalogLoading()) {
-            <mat-spinner diameter="16" class="inline-spinner"></mat-spinner>
+            <span class="dse-spinner small inline-spinner" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
           } @else {
-            <mat-icon>search</mat-icon>
+            <span class="dse-icon">search</span>
           }
           Search Catalog
         </button>
@@ -107,40 +107,30 @@
 
         <!-- Catalog table -->
         @if (catalogResults().length > 0) {
-          <div class="table-scroll catalog-table-scroll">
-            <table mat-table [dataSource]="catalogResults()" class="catalog-table">
-              <ng-container matColumnDef="type">
-                <th mat-header-cell *matHeaderCellDef>Type</th>
-                <td mat-cell *matCellDef="let entry">{{ entry.type }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="strike">
-                <th mat-header-cell *matHeaderCellDef>Strike</th>
-                <td mat-cell *matCellDef="let entry">{{ entry.strike }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="expiration">
-                <th mat-header-cell *matHeaderCellDef>Exp</th>
-                <td mat-cell *matCellDef="let entry">{{ entry.expiration }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="contractLengthBucket">
-                <th mat-header-cell *matHeaderCellDef>Length</th>
-                <td mat-cell *matCellDef="let entry">{{ entry.contractLengthBucket }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="firstObserved">
-                <th mat-header-cell *matHeaderCellDef>First Obs</th>
-                <td mat-cell *matCellDef="let entry">{{ formatFirstObserved(entry.firstObserved) }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="observationCount">
-                <th mat-header-cell *matHeaderCellDef>Obs</th>
-                <td mat-cell *matCellDef="let entry">{{ entry.observationCount }}</td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="catalogColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: catalogColumns;" (click)="onCatalogRowClick(row)" class="clickable-row"></tr>
+          <div class="table-scroll catalog-table-scroll dse-table">
+            <table class="catalog-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Strike</th>
+                  <th>Exp</th>
+                  <th>Length</th>
+                  <th>First Obs</th>
+                  <th>Obs</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of catalogResults(); track $index) {
+                  <tr (click)="onCatalogRowClick(entry)" class="clickable-row">
+                    <td>{{ entry.type }}</td>
+                    <td>{{ entry.strike }}</td>
+                    <td>{{ entry.expiration }}</td>
+                    <td>{{ entry.contractLengthBucket }}</td>
+                    <td>{{ formatFirstObserved(entry.firstObserved) }}</td>
+                    <td>{{ entry.observationCount }}</td>
+                  </tr>
+                }
+              </tbody>
             </table>
           </div>
         }
@@ -153,28 +143,28 @@
         <!-- Spread type selector -->
         <label class="dse-field full-width">
           <span class="field-label">Spread Type</span>
-          <mat-select [value]="selectedType()" (selectionChange)="onTypeChange($event.value)">
+          <select class="dse-select" [value]="selectedType()" (change)="onTypeChange($any($event.target).value)">
             @for (st of spreadTypes; track st.value) {
-              <mat-option [value]="st.value">{{ st.label }}</mat-option>
+              <option [value]="st.value">{{ st.label }}</option>
             }
-          </mat-select>
+          </select>
         </label>
 
         <!-- Option type selector (vertical only) -->
         @if (showOptionTypeSelector()) {
           <label class="dse-field half-width">
             <span class="field-label">Option Type</span>
-            <mat-select [value]="selectedOptionType()" (selectionChange)="selectedOptionType.set($event.value)">
-              <mat-option [value]="'call'">Call</mat-option>
-              <mat-option [value]="'put'">Put</mat-option>
-            </mat-select>
+            <select class="dse-select" [value]="selectedOptionType()" (change)="selectedOptionType.set($any($event.target).value)">
+              <option value="call">Call</option>
+              <option value="put">Put</option>
+            </select>
           </label>
         }
 
         <!-- Entry date picker with trading-day filter -->
         <label class="dse-field half-width">
           <span class="field-label">Entry Date</span>
-          <input type="date" class="dse-date" [value]="entryDate()" (change)="onEntryDateChange($event.target.value)">
+          <input type="date" class="dse-date" [value]="entryDate()" (change)="onEntryDateChange($any($event.target).value)">
         </label>
 
         <!-- Underlying price display -->
@@ -188,18 +178,18 @@
         <!-- Expiration selector -->
         <label class="dse-field half-width">
           <span class="field-label">Expiration</span>
-          <mat-select [value]="selectedExpiration()" (selectionChange)="onExpirationChange($event.value)" [disabled]="contractIndexStatus() !== 'loaded'">
+          <select class="dse-select" [value]="selectedExpiration()" (change)="onExpirationChange($any($event.target).value)" [disabled]="contractIndexStatus() !== 'loaded'">
             @for (exp of expirations(); track exp) {
-              <mat-option [value]="exp">{{ exp }}</mat-option>
+              <option [value]="exp">{{ exp }}</option>
             }
-          </mat-select>
+          </select>
         </label>
 
         <!-- Strike distance (parametric) -->
         @if (showStrikeDistance()) {
           <label class="dse-field half-width">
             <span class="field-label">Strike Distance</span>
-            <input class="field-input" type="number" [value]="strikeDistance() ?? ''" (input)="onStrikeDistanceChange(+$event.target.value)">
+            <input class="field-input" type="number" [value]="strikeDistance() ?? ''" (input)="onStrikeDistanceChange(+$any($event.target).value)">
           </label>
         }
 
@@ -209,15 +199,15 @@
             @for (label of strikeLabels(); track $index) {
               <label class="dse-field half-width">
                 <span class="field-label">{{ label }}</span>
-                <mat-select
+                <select class="dse-select"
                   [value]="selectedStrikes()[$index]"
-                  (selectionChange)="onStrikeChange($index, $event.value)"
+                  (change)="onStrikeChange($index, +$any($event.target).value)"
                   [disabled]="!selectedExpiration()"
                 >
                   @for (strike of availableStrikes(); track strike) {
-                    <mat-option [value]="strike">{{ strike }}</mat-option>
+                    <option [value]="strike">{{ strike }}</option>
                   }
-                </mat-select>
+                </select>
               </label>
             }
           </div>
@@ -237,44 +227,42 @@
               <div class="custom-leg-row">
                 <label class="dse-field leg-field">
                   <span class="field-label">Type</span>
-                  <mat-select [value]="leg.optionType" (selectionChange)="updateCustomLeg($index, 'optionType', $event.value)">
-                    <mat-option [value]="'call'">Call</mat-option>
-                    <mat-option [value]="'put'">Put</mat-option>
-                  </mat-select>
+                  <select class="dse-select" [value]="leg.optionType" (change)="updateCustomLeg($index, 'optionType', $any($event.target).value)">
+                    <option value="call">Call</option>
+                    <option value="put">Put</option>
+                  </select>
                 </label>
                 <label class="dse-field leg-field">
                   <span class="field-label">Strike</span>
-                  <input class="field-input" type="number" [value]="leg.strike" (input)="updateCustomLeg($index, 'strike', +$event.target.value)">
+                  <input class="field-input" type="number" [value]="leg.strike" (input)="updateCustomLeg($index, 'strike', +$any($event.target).value)">
                 </label>
                 <label class="dse-field leg-field">
                   <span class="field-label">Expiration</span>
-                  <input class="field-input" [value]="leg.expiration" (input)="updateCustomLeg($index, 'expiration', $event.target.value)">
+                  <input class="field-input" [value]="leg.expiration" (input)="updateCustomLeg($index, 'expiration', $any($event.target).value)">
                 </label>
                 <label class="dse-field leg-field">
                   <span class="field-label">Direction</span>
-                  <mat-select [value]="leg.direction" (selectionChange)="updateCustomLeg($index, 'direction', $event.value)">
-                    <mat-option [value]="'long'">Long</mat-option>
-                    <mat-option [value]="'short'">Short</mat-option>
-                  </mat-select>
+                  <select class="dse-select" [value]="leg.direction" (change)="updateCustomLeg($index, 'direction', $any($event.target).value)">
+                    <option value="long">Long</option>
+                    <option value="short">Short</option>
+                  </select>
                 </label>
                 <button class="icon-btn danger" (click)="removeCustomLeg($index)">
-                  <mat-icon>remove_circle_outline</mat-icon>
+                  <span class="dse-icon">remove_circle_outline</span>
                 </button>
               </div>
             }
             <button class="ds-btn outline" (click)="addCustomLeg()">
-              <mat-icon>add</mat-icon> Add Leg
+              <span class="dse-icon">add</span> Add Leg
             </button>
           </div>
         }
 
         <!-- Debit/Credit badge -->
         @if (debitOrCredit(); as doc) {
-          <mat-chip-set>
-            <mat-chip [highlighted]="doc === 'debit'" [color]="doc === 'debit' ? 'primary' : 'accent'">
-              {{ doc === 'debit' ? 'Debit' : 'Credit' }}
-            </mat-chip>
-          </mat-chip-set>
+          <span class="doc-badge" [class.debit]="doc === 'debit'" [class.credit]="doc === 'credit'">
+            {{ doc === 'debit' ? 'Debit' : 'Credit' }}
+          </span>
         }
 
         <!-- Add to List -->
@@ -293,57 +281,41 @@
         @if (spreads().length === 0) {
           <p class="col-placeholder">No spreads added yet</p>
         } @else {
-          <div class="table-scroll">
-            <table mat-table [dataSource]="spreads()" class="spreads-table">
-              <ng-container matColumnDef="type">
-                <th mat-header-cell *matHeaderCellDef>Type</th>
-                <td mat-cell *matCellDef="let spread">{{ spread.spreadType }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="expiration">
-                <th mat-header-cell *matHeaderCellDef>Exp</th>
-                <td mat-cell *matCellDef="let spread">{{ spread.legs[0]?.expiration ?? '-' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="legs">
-                <th mat-header-cell *matHeaderCellDef>Legs</th>
-                <td mat-cell *matCellDef="let spread">{{ formatLegs(spread) }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="entryDate">
-                <th mat-header-cell *matHeaderCellDef>Entry</th>
-                <td mat-cell *matCellDef="let spread">{{ spread.entryDate ?? '-' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="dte">
-                <th mat-header-cell *matHeaderCellDef>DTE</th>
-                <td mat-cell *matCellDef="let spread">{{ formatDte(spread) }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="debitCredit">
-                <th mat-header-cell *matHeaderCellDef>D/C</th>
-                <td mat-cell *matCellDef="let spread">{{ spread.debitOrCredit ? (spread.debitOrCredit === 'debit' ? 'D' : 'C') : '-' }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef>Status</th>
-                <td mat-cell *matCellDef="let spread">{{ formatStatus(spread) }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef></th>
-                <td mat-cell *matCellDef="let spread">
-                  <button class="icon-btn" (click)="cloneSpread(spread)" title="Clone">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                  <button class="icon-btn danger" (click)="deleteSpread(spread.id)" title="Delete">
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          <div class="table-scroll dse-table">
+            <table class="spreads-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Exp</th>
+                  <th>Legs</th>
+                  <th>Entry</th>
+                  <th>DTE</th>
+                  <th>D/C</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (spread of spreads(); track spread.id) {
+                  <tr>
+                    <td>{{ spread.spreadType }}</td>
+                    <td>{{ spread.legs[0]?.expiration ?? '-' }}</td>
+                    <td>{{ formatLegs(spread) }}</td>
+                    <td>{{ spread.entryDate ?? '-' }}</td>
+                    <td>{{ formatDte(spread) }}</td>
+                    <td>{{ spread.debitOrCredit ? (spread.debitOrCredit === 'debit' ? 'D' : 'C') : '-' }}</td>
+                    <td>{{ formatStatus(spread) }}</td>
+                    <td>
+                      <button class="icon-btn" (click)="cloneSpread(spread)" title="Clone">
+                        <span class="dse-icon">content_copy</span>
+                      </button>
+                      <button class="icon-btn danger" (click)="deleteSpread(spread.id)" title="Delete">
+                        <span class="dse-icon">delete</span>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
             </table>
           </div>
         }

@@ -125,7 +125,7 @@ describe('GalleryGroupComponent', () => {
     const emitted: boolean[] = [];
     fixture.componentInstance.expandedChange.subscribe((v: boolean) => emitted.push(v));
 
-    const header = (fixture.nativeElement as HTMLElement).querySelector('.mat-expansion-panel-header') as HTMLElement;
+    const header = (fixture.nativeElement as HTMLElement).querySelector('.acc-head') as HTMLElement;
     header.click();
     fixture.detectChanges();
 

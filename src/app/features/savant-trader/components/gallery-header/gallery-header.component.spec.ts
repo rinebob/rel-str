@@ -96,7 +96,7 @@ describe('GalleryHeaderComponent', () => {
     let count = 0;
     fixture.componentInstance.refresh.subscribe(() => count++);
 
-    const btn: HTMLButtonElement = fixture.nativeElement.querySelector('button[matTooltip^="Refresh"]');
+    const btn: HTMLButtonElement = fixture.nativeElement.querySelector('button[title^="Refresh"]');
     btn.click();
     expect(count).toBe(1);
 

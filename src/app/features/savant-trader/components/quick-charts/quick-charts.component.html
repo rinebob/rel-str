@@ -3,7 +3,7 @@
   <!-- Empty state -->
   @if (!symbol()) {
     <div class="qc-empty">
-      <mat-icon>bar_chart</mat-icon>
+      <span class="dse-icon">bar_chart</span>
       <p>Click symbol to view charts</p>
     </div>
   }
@@ -11,7 +11,7 @@
   <!-- Loading -->
   @if (symbol() && chartStore.loading()) {
     <div class="qc-loading">
-      <mat-spinner diameter="24"></mat-spinner>
+      <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
       <span>Loading {{ symbol() }}…</span>
     </div>
   }
@@ -19,7 +19,7 @@
   <!-- Error -->
   @if (symbol() && chartStore.error() && !chartStore.loading()) {
     <div class="qc-error">
-      <mat-icon>error_outline</mat-icon>
+      <span class="dse-icon">error_outline</span>
       <p>{{ chartStore.error() }}</p>
     </div>
   }

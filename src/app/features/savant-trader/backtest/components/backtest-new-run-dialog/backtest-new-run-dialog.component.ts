@@ -8,13 +8,9 @@ import { Component, ChangeDetectionStrategy, DestroyRef, computed, inject, signa
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { DsDialogRef } from '../../../../../shared/ds/ds-dialog';
 import { DS_DIALOG_DATA } from '../../../../../shared/ds/ds-dialog';
 
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 
 import type {
   BacktestReportTier,
@@ -32,11 +28,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
-    MatCheckboxModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule],
+    ReactiveFormsModule],
   providers: [BacktestNewRunFormBuilder],
   templateUrl: './backtest-new-run-dialog.component.html',
   styleUrl: './backtest-new-run-dialog.component.scss',

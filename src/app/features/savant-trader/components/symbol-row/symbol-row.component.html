@@ -1,80 +1,89 @@
-<mat-expansion-panel
-  class="symbol-panel"
+<div
+  class="ds-panel symbol-panel"
+  [class.open]="open()"
   [attr.data-symbol]="row().profile.symbol"
   [appScrollIntoView]="row().profile.symbol"
   [class.active-chart]="isChartActive()"
   [class.symbol-selected]="isSelected()"
-  [class.has-signal]="row().hasSignal"
-  [expanded]="expanded()"
-  (opened)="select.emit()">
+  [class.has-signal]="row().hasSignal">
 
-  <mat-expansion-panel-header class="symbol-header">
-    <div class="symbol-header-content">
+  <div class="symbol-head-row">
+    <button type="button" class="acc-head symbol-header"
+      [attr.aria-expanded]="open()"
+      [attr.aria-controls]="'sr-body-' + row().profile.symbol"
+      (click)="onToggle()">
+      <div class="symbol-header-content">
 
-      <div class="symbol-row-main">
-        <span class="symbol-ticker">{{ row().profile.symbol }}</span>
+        <div class="symbol-row-main">
+          <span class="symbol-ticker">{{ row().profile.symbol }}</span>
 
-        <div class="symbol-signals-today">
-          @for (sig of row().signals; track sig.barDate + '-' + sig.timeframe + '-' + sig.signalType) {
-            <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" title="{{ sig.signalType }}">
-              {{ sig.direction }}
-            </span>
+          <div class="symbol-signals-today">
+            @for (sig of row().signals; track sig.barDate + '-' + sig.timeframe + '-' + sig.signalType) {
+              <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" title="{{ sig.signalType }}">
+                {{ sig.direction }}
+              </span>
+            }
+            @if (row().hasSignal && !row().signals?.length) {
+              <span class="badge sig-pending">signal</span>
+            }
+          </div>
+        </div>
+
+        <div class="symbol-row-meta">
+          @if (row().profile.name) {
+            <span class="symbol-name">{{ row().profile.name }}</span>
           }
-          @if (row().hasSignal && !row().signals?.length) {
-            <span class="badge sig-pending">signal</span>
+          @if (row().profile.sector) {
+            <span class="meta-field">{{ row().profile.sector }}</span>
+          }
+          @if (row().profile.exchange) {
+            <span class="meta-sep">·</span>
+            <span class="meta-field">{{ row().profile.exchange }}</span>
+          }
+          @if (row().profile.marketCapTier) {
+            <span class="meta-sep">·</span>
+            <span class="badge tier tier-{{ row().profile.marketCapTier }}">{{ tierLabel(row().profile.marketCapTier) }}</span>
+          }
+          @if (row().profile.beta != null) {
+            <span class="meta-sep">·</span>
+            <span class="meta-field">β {{ row().profile.beta | number:'1.2-2' }}</span>
+          }
+          @if (row().profile.peRatio != null) {
+            <span class="meta-sep">·</span>
+            <span class="meta-field">P/E {{ row().profile.peRatio | number:'1.1-1' }}</span>
           }
         </div>
 
-        <div class="symbol-spacer"></div>
-
-        <button type="button" class="quick-charts-btn"
-          [class.active]="isChartActive()"
-          (click)="viewQuickCharts.emit(row().profile.symbol); $event.stopPropagation()" title="View quick charts">
-          <mat-icon>bar_chart</mat-icon>
-          Charts
-        </button>
-
-        <app-symbol-actions
-          [row]="row()"
-          [disabled]="!isActionableRun()"
-          (markForReview)="markForReview.emit($event)"
-          (trade)="trade.emit($event)">
-        </app-symbol-actions>
-
-        <app-symbol-list-actions
-          [symbol]="row().profile.symbol"
-          [listCatalog]="listCatalog()"
-          (toggleList)="toggleList.emit($event)">
-        </app-symbol-list-actions>
       </div>
+      <span class="dse-icon chev" aria-hidden="true">expand_more</span>
+    </button>
 
-      <div class="symbol-row-meta">
-        @if (row().profile.name) {
-          <span class="symbol-name">{{ row().profile.name }}</span>
-        }
-        @if (row().profile.sector) {
-          <span class="meta-field">{{ row().profile.sector }}</span>
-        }
-        @if (row().profile.exchange) {
-          <span class="meta-sep">·</span>
-          <span class="meta-field">{{ row().profile.exchange }}</span>
-        }
-        @if (row().profile.marketCapTier) {
-          <span class="meta-sep">·</span>
-          <span class="badge tier tier-{{ row().profile.marketCapTier }}">{{ tierLabel(row().profile.marketCapTier) }}</span>
-        }
-        @if (row().profile.beta != null) {
-          <span class="meta-sep">·</span>
-          <span class="meta-field">β {{ row().profile.beta | number:'1.2-2' }}</span>
-        }
-        @if (row().profile.peRatio != null) {
-          <span class="meta-sep">·</span>
-          <span class="meta-field">P/E {{ row().profile.peRatio | number:'1.1-1' }}</span>
-        }
-      </div>
+    <div class="symbol-head-actions">
+      <div class="symbol-spacer"></div>
 
+      <button type="button" class="quick-charts-btn"
+        [class.active]="isChartActive()"
+        (click)="viewQuickCharts.emit(row().profile.symbol); $event.stopPropagation()" title="View quick charts">
+        <span class="dse-icon">bar_chart</span>
+        Charts
+      </button>
+
+      <app-symbol-actions
+        [row]="row()"
+        [disabled]="!isActionableRun()"
+        (markForReview)="markForReview.emit($event)"
+        (trade)="trade.emit($event)">
+      </app-symbol-actions>
+
+      <app-symbol-list-actions
+        [symbol]="row().profile.symbol"
+        [listCatalog]="listCatalog()"
+        (toggleList)="toggleList.emit($event)">
+      </app-symbol-list-actions>
     </div>
-  </mat-expansion-panel-header>
+  </div>
 
-  <app-symbol-signal-history [row]="row()"></app-symbol-signal-history>
-</mat-expansion-panel>
+  <div class="acc-body" role="region" [id]="'sr-body-' + row().profile.symbol">
+    <app-symbol-signal-history [row]="row()"></app-symbol-signal-history>
+  </div>
+</div>

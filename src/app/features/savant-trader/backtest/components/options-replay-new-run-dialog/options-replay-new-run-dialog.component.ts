@@ -13,11 +13,8 @@ import { Component, ChangeDetectionStrategy, DestroyRef, inject } from '@angular
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+
+import { DsDialogRef } from '../../../../../shared/ds/ds-dialog';
 
 import type { OptionsReplayStartRequest } from '@options-replay/contracts';
 import { REPLAY_TEMPLATES } from '@options-replay/templates';
@@ -62,18 +59,13 @@ function parseSymbols(symbolsText: string): string[] {
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-  ],
+    ],
   templateUrl: './options-replay-new-run-dialog.component.html',
   styleUrl: './options-replay-new-run-dialog.component.scss',
 })
 export class OptionsReplayNewRunDialogComponent {
-  private readonly dialogRef = inject<MatDialogRef<OptionsReplayNewRunDialogComponent, OptionsReplayStartRequest | undefined>>(
-    MatDialogRef
+  private readonly dialogRef = inject<DsDialogRef<OptionsReplayNewRunDialogComponent, OptionsReplayStartRequest | undefined>>(
+    DsDialogRef
   );
 
   readonly templates = REPLAY_TEMPLATES;

@@ -1,15 +1,15 @@
 <div class="replay-detail">
   <header class="run-header">
     <div class="header-row">
-      <mat-icon class="status-icon" [style.color]="statusColorName()" [matTooltip]="run().status">
+      <span class="dse-icon status-icon" [style.color]="statusColorName()" [title]="run().status">
         {{ statusIconName() }}
-      </mat-icon>
+      </span>
       <span class="run-id">{{ formattedRunId() }}</span>
       <span class="status-label">{{ run().status }}</span>
     </div>
     <div class="header-meta">
-      <span class="meta-item" [matTooltip]="run().templateId">{{ templateName() }}</span>
-      <span class="meta-item" [matTooltip]="run().symbols.join(', ')">{{ run().symbols.join(', ') }}</span>
+      <span class="meta-item" [title]="run().templateId">{{ templateName() }}</span>
+      <span class="meta-item" [title]="run().symbols.join(', ')">{{ run().symbols.join(', ') }}</span>
       <span class="meta-item">from {{ run().startDate }}</span>
       <span class="meta-item">{{ progressText() }}</span>
     </div>
@@ -22,12 +22,11 @@
     @for (view of symbolViews(); track view.symbol) {
       <div class="symbol-card" [class.failed]="view.statusLabel === 'failed'">
         <div class="symbol-card-header">
-          <mat-icon
-            class="status-icon"
-            [style.color]="view.statusColorName"
-            [matTooltip]="view.statusLabel">
+          <span
+            class="dse-icon status-icon"
+            [style.color]="view.statusColorName" [title]="view.statusLabel">
             {{ view.statusIconName }}
-          </mat-icon>
+          </span>
           <span class="symbol-name">{{ view.symbol }}</span>
           <span class="symbol-status">{{ view.statusLabel }}</span>
         </div>
@@ -38,14 +37,14 @@
               class="row-toggle"
               [attr.aria-expanded]="expandedSymbols().has(view.symbol)"
               (click)="toggleExpanded(view.symbol)">
-              <mat-icon class="toggle-icon">
+              <span class="dse-icon toggle-icon">
                 {{ expandedSymbols().has(view.symbol) ? 'expand_less' : 'expand_more' }}
-              </mat-icon>
+              </span>
               {{ view.rowCount }} rows
             </button>
           }
           @if (view.error) {
-            <div class="symbol-error" [matTooltip]="view.error">{{ view.error }}</div>
+            <div class="symbol-error" [title]="view.error">{{ view.error }}</div>
           }
           @if (expandedSymbols().has(view.symbol) && view.list) {
             <app-options-replay-contract-list-table

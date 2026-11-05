@@ -11,16 +11,13 @@ import { FormsModule } from '@angular/forms';
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { TradingConfig, AccountInfo } from '../../services/order-ticket.types';
 import { TradingConfigService } from '../../services/trading-config.service';
 
 @Component({
   selector: 'app-trading-config-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <h2 class="title">Trading Settings</h2>
     <div class="content">
@@ -73,10 +70,9 @@ import { TradingConfigService } from '../../services/trading-config.service';
       min-width: 140px;
       font-size: 13px;
 
-      ::ng-deep .mat-mdc-form-field-flex { min-height: 40px; height: 40px; }
-      ::ng-deep .mat-mdc-form-field-infix { min-height: 28px; padding-top: 8px; padding-bottom: 8px; }
-      ::ng-deep .mat-mdc-floating-label { font-size: 13px; }
-      ::ng-deep .mat-mdc-input-element { font-size: 13px; }
+      --ds-field-height: 40px;
+      .field-label { font-size: 13px; }
+      .field-input { font-size: 13px; }
     }
     .loading-text { padding: 16px 0; color: var(--mat-sys-on-surface-variant); font-size: 13px; }
   `],

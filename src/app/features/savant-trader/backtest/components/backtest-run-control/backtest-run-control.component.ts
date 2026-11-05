@@ -7,8 +7,6 @@
 import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import type {
   BacktestDateFilter,
@@ -25,7 +23,7 @@ interface StrategyOption {
 @Component({
   selector: 'app-backtest-run-control',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule],
   templateUrl: './backtest-run-control.component.html',
   styleUrl: './backtest-run-control.component.scss',
 })

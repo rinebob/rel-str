@@ -3,7 +3,7 @@
     <span class="gen-title">Group Generator</span>
     <span class="gen-symbol">{{ store.symbol() || '—' }}</span>
     <button class="gen-close icon-btn" (click)="close.emit()" title="Close panel" aria-label="Close generator panel">
-      <mat-icon>chevron_right</mat-icon>
+      <span class="dse-icon">chevron_right</span>
     </button>
   </div>
 
@@ -29,11 +29,11 @@
     <div class="gen-row">
       <label class="dse-field gen-field">
         <span class="field-label">Exp From</span>
-        <input type="date" class="dse-date" [ngModel]="store.query().expirationGte" (change)="onAxisDate('query', 'expirationGte', $event.target.value)" />
+        <input type="date" class="dse-date" [value]="store.query().expirationGte ?? ''" (change)="onAxisDate('query', 'expirationGte', $any($event.target).value)" />
       </label>
       <label class="dse-field gen-field">
         <span class="field-label">Exp To</span>
-        <input type="date" class="dse-date" [ngModel]="store.query().expirationLte" (change)="onAxisDate('query', 'expirationLte', $event.target.value)" />
+        <input type="date" class="dse-date" [value]="store.query().expirationLte ?? ''" (change)="onAxisDate('query', 'expirationLte', $any($event.target).value)" />
       </label>
     </div>
 
@@ -69,7 +69,7 @@
   <div class="gen-section">
     @if (store.status() === 'loading') {
     <div class="gen-status" role="status">
-      <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
+      <span class="dse-spinner" style="--spinner-size: 20px" role="progressbar" aria-label="Loading"></span>
       <span>Querying availability...</span>
     </div>
     } @else if (store.status() === 'error') {
@@ -94,7 +94,7 @@
  (click)="onCopyLines()" title="Copy send lines"
  aria-label="Copy send lines"
  >
-        <mat-icon>content_copy</mat-icon>
+        <span class="dse-icon">content_copy</span>
       </button>
     </div>
     @if (store.truncated()) {
@@ -158,11 +158,11 @@
     <div class="gen-row">
       <label class="dse-field gen-field">
         <span class="field-label">Exp Min</span>
-        <input type="date" class="dse-date" [ngModel]="store.refine().expirationGte" (change)="onAxisDate('refine', 'expirationGte', $event.target.value)" />
+        <input type="date" class="dse-date" [value]="store.refine().expirationGte ?? ''" (change)="onAxisDate('refine', 'expirationGte', $any($event.target).value)" />
       </label>
       <label class="dse-field gen-field">
         <span class="field-label">Exp Max</span>
-        <input type="date" class="dse-date" [ngModel]="store.refine().expirationLte" (dateChange)="onAxisDate('refine', 'expirationLte', $event.target.value)" />
+        <input type="date" class="dse-date" [value]="store.refine().expirationLte ?? ''" (change)="onAxisDate('refine', 'expirationLte', $any($event.target).value)" />
       </label>
     </div>
 
@@ -185,7 +185,7 @@
       <span class="gen-alive-label">Alive across</span>
       <span class="mono">{{ range.start }} → {{ range.end }}</span>
       <button class="gen-alive-clear icon-btn" (click)="store.applyRange(null)" title="Clear range bound" aria-label="Clear range bound">
-        <mat-icon>close</mat-icon>
+        <span class="dse-icon">close</span>
       </button>
     </div>
     }
@@ -197,8 +197,8 @@
     <label class="dse-field gen-field gen-field-full">
       <span class="field-label">Open date</span>
       <input type="date" class="dse-date"
-        [ngModel]="store.openDate()"
-        (change)="onOpenDateChange($event.target.value)"
+        [value]="store.openDate() ?? ''"
+        (change)="onOpenDateChange($any($event.target).value)"
       />
     </label>
     <label class="dse-switch"><input type="checkbox" class="switch-input"

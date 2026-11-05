@@ -7,7 +7,6 @@
  * delayed-close grace that lets the pointer travel icon → popup.
  */
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input, signal } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { DsToastService } from '../../../../../shared/ds/ds-toast.service';
 
 import type { ChainCell } from '../utils/chain.utils';
@@ -44,7 +43,7 @@ export const POPUP_COPIED_MS = 1500;
 @Component({
   selector: 'app-chain-cell-popup',
   standalone: true,
-  imports: [MatIconModule],
+  imports: [],
   template: `
     <div class="chain-cell-popup">
       <div class="popup-id-row">
@@ -56,7 +55,7 @@ export const POPUP_COPIED_MS = 1500;
           [title]="copied() ? 'Copied' : 'Copy contract id'"
           (click)="copyId()"
         >
-          <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+          <span class="dse-icon">{{ copied() ? 'check' : 'content_copy' }}</span>
         </button>
         <span class="sr-only" role="status">{{ copied() ? 'Contract id copied' : '' }}</span>
       </div>
@@ -107,7 +106,7 @@ export const POPUP_COPIED_MS = 1500;
       line-height: 0;
     }
     .copy-btn:hover { color: var(--ds-on-surface); background: color-mix(in srgb, var(--ds-on-surface) 10%, transparent); }
-    .copy-btn mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .copy-btn .dse-icon { font-size: 14px; width: 14px; height: 14px; }
     .sr-only {
       position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
       overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;

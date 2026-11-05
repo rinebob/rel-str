@@ -6,7 +6,6 @@
  */
 import { Component, inject, input, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 
 import { DsDialogService } from '../../../../../shared/ds/ds-dialog';
 
@@ -20,7 +19,6 @@ import { BacktestTradeTableComponent } from '../backtest-trade-table/backtest-tr
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatIconModule,
     BacktestEquityCurveComponent,
     BacktestTradeTableComponent],
   templateUrl: './backtest-permutation-detail.component.html',

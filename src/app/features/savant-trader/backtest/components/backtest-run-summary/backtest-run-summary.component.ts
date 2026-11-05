@@ -6,7 +6,6 @@
  */
 import { Component, input, output, ChangeDetectionStrategy, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 
 import type { BacktestPermutationUi, BacktestRunUi } from '../../common/backtest.types';
 import { computeRunAggregates, type RunAggregateMetrics } from '../../utils/backtest-aggregate.utils';
@@ -23,7 +22,7 @@ export interface SummaryPermutationRow extends BacktestPermutationUi {
 @Component({
   selector: 'app-backtest-run-summary',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, BacktestEquityCurveComponent],
+  imports: [CommonModule, BacktestEquityCurveComponent],
   templateUrl: './backtest-run-summary.component.html',
   styleUrl: './backtest-run-summary.component.scss',
 })

@@ -7,13 +7,12 @@
 import { Component, ChangeDetectionStrategy, DestroyRef, inject, input, output, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
 import { IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
 
 @Component({
   selector: 'app-indicator-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './indicator-menu.component.html',
   styleUrl: './indicator-menu.component.scss',
   host: { '(document:click)': 'menuOpen.set(false)' },

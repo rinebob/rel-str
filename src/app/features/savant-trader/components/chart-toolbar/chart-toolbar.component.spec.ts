@@ -46,7 +46,7 @@ describe('ChartToolbarComponent', () => {
 
     const btn = fixture.debugElement.query(By.css('.log-scale-pill'));
     expect(btn.nativeElement.getAttribute('aria-pressed')).toBe('false');
-    expect(btn.nativeElement.querySelector('mat-icon')!.textContent!.trim()).toBe('power_off');
+    expect(btn.nativeElement.querySelector('.dse-icon')!.textContent!.trim()).toBe('power_off');
     expect(btn.nativeElement.classList.contains('active')).toBe(false);
   });
 

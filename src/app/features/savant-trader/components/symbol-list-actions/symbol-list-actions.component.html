@@ -6,7 +6,7 @@
       [class.active]="isInList(list)"
       [attr.aria-label]="'Toggle ' + list.label"
       (click)="toggleList.emit({ symbol: symbol(), listKey: list.key })" [title]="list.label">
-      <mat-icon>{{ iconName(list) }}</mat-icon>
+      <span class="dse-icon">{{ iconName(list) }}</span>
     </button>
   }
 </div>

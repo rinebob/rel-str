@@ -16,19 +16,18 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import type { AnalysisSlice } from '@paper-trading/analysis';
 
 @Component({
   selector: 'app-slice-menu',
   standalone: true,
-  imports: [MatIconModule],
+  imports: [],
   template: `
     <span class="menu-anchor">
       <button type="button" class="slice-btn" (click)="toggle($event)"
               aria-haspopup="menu" [attr.aria-expanded]="open()"
               aria-label="Saved slices" title="Saved slices">
-        <mat-icon>bookmark</mat-icon>
+        <span class="dse-icon">bookmark</span>
         Slices
         @if (slices().length > 0) { ({{ slices().length }}) }
       </button>
@@ -57,7 +56,7 @@ import type { AnalysisSlice } from '@paper-trading/analysis';
               <button type="button" class="slice-delete"
                       (click)="$event.stopPropagation(); deleted.emit(s.id)"
                       [attr.aria-label]="'Delete slice ' + s.name" title="Delete slice">
-                <mat-icon>delete_outline</mat-icon>
+                <span class="dse-icon">delete_outline</span>
               </button>
             </div>
           }

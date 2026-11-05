@@ -7,13 +7,13 @@
       </div>
       <div class="run-actions">
         <button type="button" class="icon-btn" disabled title="Clone run (Phase 5)">
-          <mat-icon>content_copy</mat-icon>
+          <span class="dse-icon">content_copy</span>
         </button>
         <button type="button" class="icon-btn" disabled title="Archive run (Phase 5)">
-          <mat-icon>archive</mat-icon>
+          <span class="dse-icon">archive</span>
         </button>
         <button type="button" class="icon-btn" disabled title="Cancel run (Phase 5)">
-          <mat-icon>cancel</mat-icon>
+          <span class="dse-icon">cancel</span>
         </button>
       </div>
     </header>
@@ -82,11 +82,11 @@
                 (click)="onSelectPermutation(p)">
                 <td class="col-symbol">{{ p.symbol }}</td>
                 <td class="col-status">
-                  <mat-icon
-                    class="status-icon"
+                  <span
+                    class="dse-icon status-icon"
                     [style.color]="p.statusColorName" [title]="p.status">
                     {{ p.statusIconName }}
-                  </mat-icon>
+                  </span>
                   <span>{{ p.status }}</span>
                 </td>
                 <td class="col-return" [class.positive]="p.totalReturnPct >= 0" [class.negative]="p.totalReturnPct < 0">
@@ -104,7 +104,7 @@
   </div>
 } @else {
   <div class="empty-state">
-    <mat-icon>analytics</mat-icon>
+    <span class="dse-icon">analytics</span>
     <p>Select a run to view the summary and permutations.</p>
   </div>
 }

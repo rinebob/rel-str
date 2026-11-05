@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { DsDialogService } from '../../../../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MatDialog } from '@angular/material/dialog';
 
 import { OptionsReplayRunDetailComponent } from './options-replay-run-detail.component';
 import { TradeSide } from '@common';
@@ -63,7 +63,7 @@ describe('OptionsReplayRunDetailComponent', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
-        { provide: MatDialog, useValue: dialogStub },
+        { provide: DsDialogService, useValue: dialogStub },
       ],
     }).compileComponents();
 

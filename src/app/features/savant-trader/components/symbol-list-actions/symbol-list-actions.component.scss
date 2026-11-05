@@ -21,7 +21,7 @@
   color: var(--mat-sys-on-surface-variant);
   flex-shrink: 0;
 
-  mat-icon { font-size: 12px; width: 12px; height: 12px; }
+  .dse-icon { font-size: 12px; width: 12px; height: 12px; }
 
   &:hover    { background: var(--mat-sys-surface-container-high); }
   &:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -32,37 +32,37 @@
     background: #43a04733;
     color: #43a047;
     border-radius: 50%;
-    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .dse-icon { font-size: 14px; width: 14px; height: 14px; }
   }
   &.primary.active {
     background: #1976d233;
     color: #1976d2;
     border-radius: 50%;
-    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .dse-icon { font-size: 14px; width: 14px; height: 14px; }
   }
   &.secondary.active {
     background: #7b1fa233;
     color: #7b1fa2;
     border-radius: 50%;
-    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .dse-icon { font-size: 14px; width: 14px; height: 14px; }
   }
   &.neutral.active {
     background: #61616133;
     color: #616161;
     border-radius: 50%;
-    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .dse-icon { font-size: 14px; width: 14px; height: 14px; }
   }
   &.avoid.active {
     background: #f57c0033;
     color: #f57c00;
     border-radius: 50%;
-    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .dse-icon { font-size: 14px; width: 14px; height: 14px; }
   }
   &.hide.active {
     background: #d32f2f33;
     color: #d32f2f;
     border-radius: 50%;
-    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .dse-icon { font-size: 14px; width: 14px; height: 14px; }
   }
   &.monitor.active { background: #00695c33; color: #00695c; }
 }

@@ -5,7 +5,6 @@
  * pipeline actions, group/list selectors, and view controls.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
@@ -25,8 +24,6 @@ const SENTINEL: RhSelectOption<SymbolListFilter>[] = [
   selector: 'app-signal-review-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    
-    MatIconModule,
     RouterLink,
     SignalFilterPillsComponent,
     RhSelectMenuComponent],

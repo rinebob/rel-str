@@ -22,7 +22,7 @@
   <button class="ds-btn" data-testid="dismiss" (click)="dismiss()" [disabled]="busy()">Dismiss</button>
   <button class="ds-btn danger" data-testid="confirm-action" (click)="confirm()" [disabled]="busy()">
     @if (busy()) {
-      <mat-spinner diameter="18"></mat-spinner>
+      <span class="dse-spinner" style="--spinner-size: 18px" role="progressbar" aria-label="Loading"></span>
     } @else {
       {{ copy.verb }}
     }

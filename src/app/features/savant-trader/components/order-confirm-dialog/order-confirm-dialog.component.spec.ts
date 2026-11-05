@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 import { OrderConfirmDialogComponent } from './order-confirm-dialog.component';
 import {
@@ -66,8 +66,8 @@ describe('OrderConfirmDialogComponent', () => {
       imports: [OrderConfirmDialogComponent],
       providers: [
         provideZonelessChangeDetection(),
-        { provide: MAT_DIALOG_DATA, useValue: { ticket } },
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: DS_DIALOG_DATA, useValue: { ticket } },
+        { provide: DsDialogRef, useValue: dialogRef },
       ],
     }).compileComponents();
 

@@ -11,22 +11,23 @@
     }
     <span class="header-spacer"></span>
     <button class="collapse-btn icon-btn" (click)="uiStateService.toggleSidebar()" title="Collapse panel">
-      <mat-icon>chevron_left</mat-icon>
+      <span class="dse-icon">chevron_left</span>
     </button>
   </div>
 
-  <mat-list class="signal-list">
+  <div class="signal-list" role="listbox" aria-label="Signals">
     @for (item of items(); track item.trackId) {
-      <mat-list-item
+      <button type="button"
         #listItem
-        class="signal-item"
+        class="signal-item" role="option"
         [class.selected]="selectedSymbol() === item.symbol"
         [class.viewed]="dimmedSymbols().has(item.symbol)"
+        [attr.aria-selected]="selectedSymbol() === item.symbol"
         (click)="onSelect(item.symbol)">
-        <mat-icon matListItemIcon
+        <span class="dse-icon item-icon"
           [class]="'dir-' + (item.latestSignal ? item.latestSignal.direction : SignalDirection.LONG).toLowerCase()">
           {{ item.latestSignal && item.latestSignal.direction === SignalDirection.SHORT ? 'arrow_downward' : 'arrow_upward' }}
-        </mat-icon>
+        </span>
         <div class="signal-main">
           @if (item.isHistoryRow && item.latestSignal) {
             <div class="signal-line-1">
@@ -61,11 +62,11 @@
             }
           }
         </div>
-      </mat-list-item>
+      </button>
     } @empty {
       <div class="empty-list">
         <p>Enter a symbol above to review</p>
       </div>
     }
-  </mat-list>
+  </div>
 </div>

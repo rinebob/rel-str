@@ -18,8 +18,6 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import {
   OrderTicket,
   OrderTicketStatus,
@@ -45,7 +43,7 @@ interface StagedAggregate {
 @Component({
   selector: 'app-order-queue',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatCheckboxModule],
+  imports: [CommonModule],
   templateUrl: './order-queue.component.html',
   styleUrl: './order-queue.component.scss',
 })

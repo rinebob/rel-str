@@ -1,7 +1,7 @@
 // Tight chrome — the order tickets need the room, so the dialog's own
-// padding is slimmed (title 16px, content 8px) and the Material 65vh
-// content cap is lifted; the overlay's maxHeight config bounds growth.
-h2[mat-dialog-title] {
+// padding is slimmed (title 16px, content 8px); the overlay's
+// maxHeight config bounds growth.
+h2.title {
   padding: 12px 16px 6px;
 }
 
@@ -16,13 +16,13 @@ h2[mat-dialog-title] {
   }
 }
 
-mat-dialog-content {
+.content {
   min-width: 480px;
   max-height: none;
   padding: 8px 16px 12px;
 }
 
-mat-dialog-actions {
+.actions {
   min-height: 0;
   padding: 0 16px 10px;
 }

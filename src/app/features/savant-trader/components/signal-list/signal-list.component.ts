@@ -5,8 +5,6 @@
  */
 import { Component, inject, ChangeDetectionStrategy, output, input, viewChildren, ElementRef, effect, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatListModule } from '@angular/material/list';
-import { MatIconModule } from '@angular/material/icon';
 
 import { StSignalItem } from '../../services/types';
 import { SignalService } from '../../services/signal.service';
@@ -35,9 +33,7 @@ interface SignalListRow {
   selector: 'app-signal-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
-    MatListModule,
-    MatIconModule],
+    CommonModule],
   templateUrl: './signal-list.component.html',
   styleUrl: './signal-list.component.scss',
 })

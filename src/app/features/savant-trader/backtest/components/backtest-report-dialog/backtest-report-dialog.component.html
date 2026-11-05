@@ -9,13 +9,28 @@
       <span class="tier-badge">{{ effectiveReportTier() }}</span>
     </div>
     <button class="icon-btn" (click)="ref.close()" aria-label="Close report">
-      <mat-icon>close</mat-icon>
+      <span class="dse-icon">close</span>
     </button>
   </header>
 
-  <mat-tab-group class="report-tabs" animationDuration="0ms" mat-stretch-tabs="false">
-    <mat-tab label="Report">
-      <div class="tab-content">
+  <div class="dse-tabs report-tabs">
+    <div class="tab-bar" role="tablist" aria-label="Report sections" (keydown)="onTabKeydown($event)">
+      <button type="button" class="tab" role="tab" id="rpt-tab-0"
+        [class.active]="reportTab() === 0" [attr.aria-selected]="reportTab() === 0"
+        aria-controls="rpt-panel-0" (click)="reportTab.set(0)">Report</button>
+      <button type="button" class="tab" role="tab" id="rpt-tab-1"
+        [class.active]="reportTab() === 1" [attr.aria-selected]="reportTab() === 1"
+        aria-controls="rpt-panel-1" (click)="reportTab.set(1)">Equity Curve</button>
+      <button type="button" class="tab" role="tab" id="rpt-tab-2"
+        [class.active]="reportTab() === 2" [attr.aria-selected]="reportTab() === 2"
+        aria-controls="rpt-panel-2" (click)="reportTab.set(2)">Trades</button>
+      <button type="button" class="tab" role="tab" id="rpt-tab-3"
+        [class.active]="reportTab() === 3" [attr.aria-selected]="reportTab() === 3"
+        aria-controls="rpt-panel-3" (click)="reportTab.set(3)">Underlying</button>
+    </div>
+
+    @if (reportTab() === 0) {
+    <div class="tab-body tab-content" role="tabpanel" id="rpt-panel-0" aria-labelledby="rpt-tab-0">
         <section class="metrics-section">
           <h4>Performance Report</h4>
           <div class="metrics-grid">
@@ -27,21 +42,21 @@
             }
           </div>
         </section>
-      </div>
-    </mat-tab>
+    </div>
+    }
 
-    <mat-tab label="Equity Curve">
-      <div class="tab-content chart-tab">
+    @if (reportTab() === 1) {
+    <div class="tab-body tab-content chart-tab" role="tabpanel" id="rpt-panel-1" aria-labelledby="rpt-tab-1">
         @if (equityChartData().length) {
           <app-backtest-equity-curve [dataSource]="equityChartData()" seriesName="Equity" [lineWidth]="2"></app-backtest-equity-curve>
         } @else {
           <p class="empty-hint">Equity curve data is not available yet.</p>
         }
-      </div>
-    </mat-tab>
+    </div>
+    }
 
-    <mat-tab label="Trades">
-      <div class="tab-content">
+    @if (reportTab() === 2) {
+    <div class="tab-body tab-content" role="tabpanel" id="rpt-panel-2" aria-labelledby="rpt-tab-2">
         @if (permutation().trades?.length) {
           <app-backtest-trade-table [trades]="permutation().trades"></app-backtest-trade-table>
         } @else {
@@ -53,11 +68,11 @@
             <p class="empty-hint">Trades will appear once the run completes.</p>
           }
         }
-      </div>
-    </mat-tab>
+    </div>
+    }
 
-    <mat-tab label="Underlying">
-      <div class="tab-content chart-tab">
+    @if (reportTab() === 3) {
+    <div class="tab-body tab-content chart-tab" role="tabpanel" id="rpt-panel-3" aria-labelledby="rpt-tab-3">
         @if (underlyingChartData().length) {
           <app-backtest-underlying-chart [priceData]="underlyingChartData()" [trades]="permutation().trades"></app-backtest-underlying-chart>
         } @else {
@@ -69,7 +84,7 @@
             <p class="empty-hint">Underlying price and trade markers will appear once the run completes.</p>
           }
         }
-      </div>
-    </mat-tab>
-  </mat-tab-group>
+    </div>
+    }
+  </div>
 </div>

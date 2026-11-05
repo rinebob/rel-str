@@ -4,10 +4,8 @@
  * store's symbol-nav feature slice; this component owns the bindings and
  * the symbol-picker autocomplete.
  */
-import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
-import { MatIconModule } from '@angular/material/icon';
-import { MatAutocomplete, MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 
 import { SwingAnalysisStore } from '../swing-analysis.store';
 import { SymbolListStore } from '../../stores/symbol-list.store';
@@ -15,7 +13,7 @@ import { SymbolListActionsComponent } from '../../components/symbol-list-actions
 @Component({
   selector: 'app-symbol-nav',
   standalone: true,
-  imports: [ MatIconModule, MatAutocompleteModule, SymbolListActionsComponent],
+  imports: [ SymbolListActionsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="symbol-nav">
@@ -25,40 +23,54 @@ import { SymbolListActionsComponent } from '../../components/symbol-list-actions
  [disabled]="!navEnabled()"
  (click)="store.prevSymbol()"
  >
-    <mat-icon>navigate_before</mat-icon>
+    <span class="dse-icon">navigate_before</span>
   </button>
   <!-- Permanent tracked-only picker — TICKER — Name options, matches both. -->
-  <input
-    class="nav-picker"
-    data-testid="nav-picker"
-    type="text"
-    [matAutocomplete]="ac"
-    [disabled]="lists.trackedSymbols().length === 0"
-    [value]="pickerText()"
-    (input)="onPickerInput($event)"
-    (keydown.enter)="onPickerEnter($event)"
-    (keydown.escape)="onPickerEscape($event)"
-    (blur)="onPickerBlur($event)"
-    autocomplete="off"
-    spellcheck="false"
-  />
-  <mat-autocomplete #ac="matAutocomplete" class="nav-picker-panel" (optionSelected)="onPick($event)">
-    @for (o of filteredOptions(); track o.symbol) {
-      <mat-option [value]="o.symbol" [attr.data-testid]="'nav-opt-' + o.symbol">
-        <span class="nav-opt-sym">{{ o.symbol }}</span>
-        @if (o.name) {
-          <span class="nav-picker-name">— {{ o.name }}</span>
+  <div class="dse-combobox nav-picker-combo">
+    <input
+      class="nav-picker"
+      data-testid="nav-picker"
+      type="text"
+      role="combobox"
+      [attr.aria-expanded]="panelOpen()"
+      aria-controls="nav-picker-panel"
+      [attr.aria-activedescendant]="activeIndex() >= 0 ? 'nav-opt-' + filteredOptions()[activeIndex()].symbol : null"
+      [disabled]="lists.trackedSymbols().length === 0"
+      [value]="pickerText()"
+      (input)="onPickerInput($event)"
+      (keydown)="onPickerKeydown($event)"
+      (blur)="onPickerBlur($event)"
+      autocomplete="off"
+      spellcheck="false"
+    />
+    @if (panelOpen() && filteredOptions().length > 0) {
+      <div class="combo-panel nav-picker-panel" id="nav-picker-panel" role="listbox">
+        @for (o of filteredOptions(); track o.symbol; let i = $index) {
+          <div class="combo-option"
+            role="option"
+            [id]="'nav-opt-' + o.symbol"
+            [class.active]="i === activeIndex()"
+            [class.selected]="o.symbol === store.symbol()"
+            [attr.aria-selected]="o.symbol === store.symbol()"
+            [attr.data-testid]="'nav-opt-' + o.symbol"
+            (mousedown)="onPickOption(o.symbol); $event.preventDefault()"
+          >
+            <span class="nav-opt-sym">{{ o.symbol }}</span>
+            @if (o.name) {
+              <span class="nav-picker-name">— {{ o.name }}</span>
+            }
+          </div>
         }
-      </mat-option>
+      </div>
     }
-  </mat-autocomplete>
+  </div>
   <button class="icon-btn"
  
  data-testid="nav-next" title="Next symbol"
  [disabled]="!navEnabled()"
  (click)="store.nextSymbol()"
  >
-    <mat-icon>navigate_next</mat-icon>
+    <span class="dse-icon">navigate_next</span>
   </button>
   <span class="nav-position" data-testid="nav-position">{{ store.navPosition() }}</span>
   <select
@@ -108,22 +120,22 @@ import { SymbolListActionsComponent } from '../../components/symbol-list-actions
       background: transparent;
     }
     .nav-picker:focus { outline: none; border-color: var(--mat-sys-primary); }
+    .nav-picker-combo { position: relative; }
     .nav-opt-sym { font-weight: 600; flex-shrink: 0; }
     .nav-picker-name { opacity: 0.65; }
-    /* Panel renders in the overlay — must pierce encapsulation. Wide
-       enough for 'TICKER — Company Name'; the name ellipsizes past
+    /* Wide enough for 'TICKER — Company Name'; the name ellipsizes past
        max-width rather than pushing the panel wider. */
-    ::ng-deep .nav-picker-panel {
+    .nav-picker-panel {
       min-width: 320px;
       max-width: 480px;
     }
-    ::ng-deep .nav-picker-panel .mat-mdc-option .mdc-list-item__primary-text {
+    .nav-picker-panel .combo-option {
       display: flex;
       gap: 8px;
       white-space: nowrap;
       overflow: hidden;
     }
-    ::ng-deep .nav-picker-panel .nav-picker-name {
+    .nav-picker-panel .nav-picker-name {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -167,7 +179,10 @@ export class SymbolNavComponent {
     );
   });
 
-  private readonly ac = viewChild<MatAutocomplete>('ac');
+  /** Combobox panel state — open while the picker is focused and has options. */
+  protected readonly panelOpen = signal(false);
+  /** Keyboard-highlighted option index (-1 = none). */
+  protected readonly activeIndex = signal(-1);
 
   constructor() {
     // Populate the filter select + chips — the store no-ops when the
@@ -184,30 +199,51 @@ export class SymbolNavComponent {
 
   onPickerInput(event: Event): void {
     this.query.set((event.target as HTMLInputElement).value);
+    this.panelOpen.set(true);
+    this.activeIndex.set(-1);
   }
 
-  onPick(event: MatAutocompleteSelectedEvent): void {
+  onPickOption(symbol: string): void {
     // Option values are tracked symbols by construction. The subsequent
     // blur rewrites the input to the committed symbol.
-    this.commitTracked(String(event.option.value ?? ''));
+    this.commitTracked(symbol);
     this.query.set(null);
+    this.panelOpen.set(false);
+    this.activeIndex.set(-1);
   }
 
-  /** Enter commits an exact tracked ticker, or the single remaining
-   *  filtered option (a substring that uniquely matches a name is treated
-   *  as intent); anything else reverts to the current symbol. When the
-   *  panel has a keyboard-highlighted option, optionSelected owns Enter —
-   *  a deliberate highlight beats the raw query text. */
-  onPickerEnter(event: Event): void {
-    const ac = this.ac();
-    if (ac?.isOpen && ac.options.some((o) => o.active)) return;
+  /** Unified key handling — arrows move the highlight, Enter commits it
+   *  (or the query intent), Escape reverts. A deliberate highlight beats
+   *  the raw query text, matching the old autocomplete's precedence. */
+  onPickerKeydown(event: Event): void {
+    const key = (event as KeyboardEvent).key;
+    const options = this.filteredOptions();
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      event.preventDefault();
+      this.panelOpen.set(true);
+      const delta = key === 'ArrowDown' ? 1 : -1;
+      const next = this.activeIndex() + delta;
+      this.activeIndex.set(Math.max(-1, Math.min(options.length - 1, next)));
+      return;
+    }
+    if (key === 'Escape') {
+      this.revertPicker(event.target as HTMLInputElement);
+      this.panelOpen.set(false);
+      (event.target as HTMLInputElement).blur();
+      return;
+    }
+    if (key !== 'Enter') return;
+    if (this.panelOpen() && this.activeIndex() >= 0 && options[this.activeIndex()]) {
+      this.onPickOption(options[this.activeIndex()].symbol);
+      this.revertPicker(event.target as HTMLInputElement);
+      return;
+    }
     const q = (this.query() ?? '').trim().toUpperCase();
     if (q && this.lists.trackedSymbols().includes(q)) {
       this.commitTracked(q);
       this.revertPicker(event.target as HTMLInputElement);
       return;
     }
-    const options = this.filteredOptions();
     if (options.length === 1) {
       this.commitTracked(options[0].symbol);
       this.revertPicker(event.target as HTMLInputElement);
@@ -216,12 +252,9 @@ export class SymbolNavComponent {
     this.revertPicker(event.target as HTMLInputElement);
   }
 
-  onPickerEscape(event: Event): void {
-    this.revertPicker(event.target as HTMLInputElement);
-    (event.target as HTMLInputElement).blur();
-  }
-
   onPickerBlur(event: Event): void {
+    this.panelOpen.set(false);
+    this.activeIndex.set(-1);
     this.revertPicker(event.target as HTMLInputElement);
   }
 

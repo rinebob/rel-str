@@ -55,7 +55,7 @@
     align-items: center;
     gap: 4px;
 
-    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .dse-icon { font-size: 14px; width: 14px; height: 14px; }
 
     &:hover { text-decoration: underline; }
     &:disabled { color: var(--mat-sys-on-surface-variant); cursor: not-allowed; opacity: 0.5; }
@@ -217,7 +217,7 @@
     cursor: pointer;
     flex-shrink: 0;
 
-    mat-icon {
+    .dse-icon {
       font-size: 12px;
       width: 12px;
       height: 12px;
@@ -241,7 +241,7 @@
     cursor: pointer;
     flex-shrink: 0;
 
-    mat-icon {
+    .dse-icon {
       font-size: 14px;
       width: 14px;
       height: 14px;

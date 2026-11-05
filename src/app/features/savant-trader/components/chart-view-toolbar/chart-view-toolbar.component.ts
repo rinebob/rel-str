@@ -10,7 +10,6 @@
 import { Component, ChangeDetectionStrategy, computed, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
 
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { ChartLayout, UiStateService } from '../../../../core/services/ui-state.service';
@@ -36,7 +35,6 @@ const SCAN_SENTINEL: RhSelectOption<SymbolListFilter>[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatIconModule,
     RhSelectMenuComponent,
     IndicatorMenuComponent,
     LogScalePillComponent,

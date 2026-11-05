@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { DsDialogRef } from '../../../../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MatDialogRef } from '@angular/material/dialog';
 
 import { OptionsReplayNewRunDialogComponent } from './options-replay-new-run-dialog.component';
 import { REPLAY_TEMPLATES } from '@options-replay/templates';
@@ -16,7 +16,7 @@ describe('OptionsReplayNewRunDialogComponent', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: DsDialogRef, useValue: dialogRef },
       ],
     }).compileComponents();
 
@@ -35,12 +35,8 @@ describe('OptionsReplayNewRunDialogComponent', () => {
   it('renders each template with name + description', async () => {
     const { fixture } = await setup();
     // Open the mat-select panel
-    const select: HTMLElement = fixture.nativeElement.querySelector('mat-select');
-    select.click();
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    const options = document.querySelectorAll('mat-option');
+    const select = fixture.nativeElement.querySelector('select[formControlName="templateId"]') as HTMLSelectElement;
+    const options = select.querySelectorAll('option');
     expect(options.length).toBe(REPLAY_TEMPLATES.length);
     for (const t of REPLAY_TEMPLATES) {
       const opt = Array.from(options).find((o) => o.textContent?.includes(t.name));

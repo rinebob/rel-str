@@ -6,7 +6,6 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
 
 import {
   RunTriggerFilter,
@@ -18,8 +17,7 @@ import {
   selector: 'app-run-control-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
-    MatIconModule],
+    CommonModule],
   templateUrl: './run-control-card.component.html',
   styleUrl: './run-control-card.component.scss',
 })

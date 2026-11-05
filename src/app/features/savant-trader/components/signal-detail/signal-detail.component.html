@@ -34,7 +34,7 @@
     <div class="chart-area">
       @if (chartLoading()) {
         <div class="chart-loading">
-          <mat-spinner diameter="32"></mat-spinner>
+          <span class="dse-spinner" style="--spinner-size: 32px" role="progressbar" aria-label="Loading"></span>
           <span>Loading chart data...</span>
         </div>
       } @else if (uiStateService.chartLayout() === ChartLayout.TRIPLE) {
@@ -87,7 +87,7 @@
   </div>
 } @else {
   <div class="detail-empty">
-    <mat-icon>search</mat-icon>
+    <span class="dse-icon">search</span>
     <p>Enter a symbol to view charts</p>
   </div>
 }

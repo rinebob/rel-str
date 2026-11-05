@@ -13,9 +13,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 
-import { MatIconModule } from '@angular/material/icon';
 
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import {
@@ -43,8 +41,7 @@ function parseExpiryList(text: string): string[] {
   imports: [
     CommonModule,
     FormsModule,
-    MatIconModule,
-    MatProgressSpinnerModule],
+    ],
   templateUrl: './option-group-generator.component.html',
   styleUrl: './option-group-generator.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

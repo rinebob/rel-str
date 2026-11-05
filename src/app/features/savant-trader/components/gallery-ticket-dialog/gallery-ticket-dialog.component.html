@@ -36,7 +36,7 @@
          terminal status so the order's landing is explicit — terms, the
          broker/paper outcome, and a path to the live-order page. -->
     <div class="confirm-panel" data-testid="order-confirmation">
-      <mat-icon class="confirm-icon">{{ confirmationIcon() }}</mat-icon>
+      <span class="dse-icon confirm-icon">{{ confirmationIcon() }}</span>
       <div class="confirm-text">
         <div class="confirm-headline">{{ confirmationMessage() }}</div>
         <div class="confirm-terms">{{ done.symbol }} · {{ confirmationTerms() }}</div>
@@ -75,42 +75,59 @@
       <div class="manual-symbol-error" data-testid="manual-symbol-error">{{ err }}</div>
     }
     @if (enteredSymbol(); as sym) {
-      <mat-tab-group mat-stretch-tabs="false" preserveContent>
-        <mat-tab label="Stock">
+      <div class="dse-tabs">
+        <div class="tab-bar" role="tablist" aria-label="Order type" (keydown)="onTabKeydown($event, manualTab)">
+          <button type="button" class="tab" role="tab" id="mt-tab-0"
+            [class.active]="manualTab() === 0" [attr.aria-selected]="manualTab() === 0"
+            aria-controls="mt-panel-0" (click)="selectManualTab(0)">Stock</button>
+          <button type="button" class="tab" role="tab" id="mt-tab-1"
+            [class.active]="manualTab() === 1" [attr.aria-selected]="manualTab() === 1"
+            aria-controls="mt-panel-1" (click)="selectManualTab(1)">Option</button>
+        </div>
+        <div class="tab-body" role="tabpanel" id="mt-panel-0" aria-labelledby="mt-tab-0" [hidden]="manualTab() !== 0">
           <app-order-ticket
             [ticket]="ticket()"
             [price]="price()"
             [tradingConfig]="tradingConfig()">
           </app-order-ticket>
-        </mat-tab>
-        <mat-tab label="Option">
-          <ng-template matTabContent>
+        </div>
+        <!-- Lazy-mount on first visit, then keep alive — the option
+             ticket's form state dies if its DOM is destroyed. -->
+        @if (optionVisited()) {
+        <div class="tab-body" role="tabpanel" id="mt-panel-1" aria-labelledby="mt-tab-1" [hidden]="manualTab() !== 1">
             <app-option-order-ticket
               [symbol]="sym"
               [runId]="''"
               [tradingConfig]="tradingConfig()"
               (staged)="onOptionStaged($event)">
             </app-option-order-ticket>
-          </ng-template>
-        </mat-tab>
-      </mat-tab-group>
+        </div>
+        }
+      </div>
     } @else {
       <p class="manual-hint" data-testid="manual-hint">Enter a ticker to stage a stock or option order.</p>
     }
   } @else if (data.option) {
-    <!-- preserveContent keeps the lazy Option pane alive across tab
-         switches — without it a deactivated lazy tab destroys its
-         content and wipes the form state (#964 review). -->
-    <mat-tab-group mat-stretch-tabs="false" preserveContent>
-      <mat-tab label="Stock">
+    <!-- Same lazy-mount-then-keep-alive pattern as the manual group —
+         the option ticket's form state dies if its DOM is destroyed. -->
+    <div class="dse-tabs">
+      <div class="tab-bar" role="tablist" aria-label="Order type" (keydown)="onTabKeydown($event, optionTab)">
+        <button type="button" class="tab" role="tab" id="ot-tab-0"
+          [class.active]="optionTab() === 0" [attr.aria-selected]="optionTab() === 0"
+          aria-controls="ot-panel-0" (click)="selectOptionTab(0)">Stock</button>
+        <button type="button" class="tab" role="tab" id="ot-tab-1"
+          [class.active]="optionTab() === 1" [attr.aria-selected]="optionTab() === 1"
+          aria-controls="ot-panel-1" (click)="selectOptionTab(1)">Option</button>
+      </div>
+      <div class="tab-body" role="tabpanel" id="ot-panel-0" aria-labelledby="ot-tab-0" [hidden]="optionTab() !== 0">
         <app-order-ticket
           [ticket]="ticket()"
           [price]="price()"
           [tradingConfig]="tradingConfig()">
         </app-order-ticket>
-      </mat-tab>
-      <mat-tab label="Option">
-        <ng-template matTabContent>
+      </div>
+      @if (seededOptionVisited()) {
+      <div class="tab-body" role="tabpanel" id="ot-panel-1" aria-labelledby="ot-tab-1" [hidden]="optionTab() !== 1">
           <app-option-order-ticket
             [symbol]="data.option.symbol"
             [signals]="data.option.signals"
@@ -118,9 +135,9 @@
             [tradingConfig]="tradingConfig()"
             (staged)="onOptionStaged($event)">
           </app-option-order-ticket>
-        </ng-template>
-      </mat-tab>
-    </mat-tab-group>
+      </div>
+      }
+    </div>
   } @else {
     <app-order-ticket
       [ticket]="ticket()"

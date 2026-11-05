@@ -1,7 +1,8 @@
 /// <reference types="jest" />
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../../../shared/ds/ds-toast.service';
 
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { ChainCellPopupComponent, POPUP_COPIED_MS } from './chain-cell-popup.component';
 import { parseOptionPaste } from '../../../utils/option-contract.util';
 import type { ChainCell } from '../utils/chain.utils';
@@ -67,7 +68,7 @@ function mockClipboard(writeText = jest.fn().mockResolvedValue(undefined)): jest
 async function render(c: ChainCell) {
   await TestBed.configureTestingModule({
     imports: [ChainCellPopupComponent],
-    providers: [{ provide: MatSnackBar, useValue: { open: jest.fn() } }],
+    providers: [{ provide: DsToastService, useValue: { open: jest.fn() } }],
   }).compileComponents();
   const fixture = TestBed.createComponent(ChainCellPopupComponent);
   fixture.componentRef.setInput('cell', c);
@@ -142,12 +143,12 @@ describe('ChainCellPopupComponent', () => {
       await Promise.resolve();
       fixture.detectChanges();
       expect(writeText).toHaveBeenCalledWith('QQQ261016C00600000');
-      expect(btn!.querySelector('mat-icon')?.textContent?.trim()).toBe('check');
+      expect(btn!.querySelector('.dse-icon')?.textContent?.trim()).toBe('check');
 
       // Copied state reverts after the feedback window.
       jest.advanceTimersByTime(POPUP_COPIED_MS);
       fixture.detectChanges();
-      expect(btn!.querySelector('mat-icon')?.textContent?.trim()).toBe('content_copy');
+      expect(btn!.querySelector('.dse-icon')?.textContent?.trim()).toBe('content_copy');
     } finally {
       jest.useRealTimers();
     }
@@ -162,13 +163,13 @@ describe('ChainCellPopupComponent', () => {
     await Promise.resolve();
     await Promise.resolve();
     fixture.detectChanges();
-    expect(btn.querySelector('mat-icon')?.textContent?.trim()).toBe('check');
+    expect(btn.querySelector('.dse-icon')?.textContent?.trim()).toBe('check');
 
     // Icon-A → icon-B hop reuses this instance — cell B must not
     // inherit cell A's "copied" state (#965 review).
     fixture.componentRef.setInput('cell', cell({ contractID: 'QQQ261016C00610000' }));
     fixture.detectChanges();
-    expect(btn.querySelector('mat-icon')?.textContent?.trim()).toBe('content_copy');
+    expect(btn.querySelector('.dse-icon')?.textContent?.trim()).toBe('content_copy');
   });
 
   // AC2 — the copied payload is the raw OCC id; the Option tab's paste
@@ -191,8 +192,8 @@ describe('ChainCellPopupComponent', () => {
     btn.click();
     await fixture.whenStable();
     fixture.detectChanges();
-    expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalled();
+    expect(TestBed.inject(DsToastService).open).toHaveBeenCalled();
     // Icon does not claim success on failure.
-    expect(btn.querySelector('mat-icon')?.textContent?.trim()).toBe('content_copy');
+    expect(btn.querySelector('.dse-icon')?.textContent?.trim()).toBe('content_copy');
   });
 });

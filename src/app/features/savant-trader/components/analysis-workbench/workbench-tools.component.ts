@@ -14,7 +14,6 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import type {
   AnalysisDatasetDoc,
   AnalysisSlice,
@@ -25,7 +24,6 @@ import { SliceMenuComponent } from '../analysis-slices/slice-menu.component';
   selector: 'app-workbench-tools',
   standalone: true,
   imports: [
-    MatIconModule,
     SliceMenuComponent],
   template: `
     <div class="workbench-tools">
@@ -33,7 +31,7 @@ import { SliceMenuComponent } from '../analysis-slices/slice-menu.component';
         <button type="button" class="ds-btn small tool-btn" (click)="savingSlice.set(true)"
                 [disabled]="!canSave()"
                 title="Save the active filter chain as a named slice">
-          <mat-icon>bookmark_add</mat-icon> Save slice
+          <span class="dse-icon">bookmark_add</span> Save slice
         </button>
       } @else {
         <span class="save-slice-form">

@@ -5,7 +5,6 @@
  */
 import { Component, ChangeDetectionStrategy, input, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { QuickChartsComponent } from '../quick-charts/quick-charts.component';
 import { LogScalePillComponent } from '../log-scale-pill/log-scale-pill.component';
 import { StSymbolProfile } from '../../services/types';
@@ -13,7 +12,7 @@ import { StSymbolProfile } from '../../services/types';
 @Component({
   selector: 'app-quick-charts-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, QuickChartsComponent, LogScalePillComponent],
+  imports: [CommonModule, QuickChartsComponent, LogScalePillComponent],
   templateUrl: './quick-charts-panel.component.html',
   styleUrl: './quick-charts-panel.component.scss',
 })

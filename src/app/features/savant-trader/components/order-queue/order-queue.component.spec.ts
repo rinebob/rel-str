@@ -305,7 +305,7 @@ describe('OrderQueueComponent', () => {
       let emitted = false;
       component.ticketSelected.subscribe(() => (emitted = true));
 
-      const checkbox = fixture.nativeElement.querySelector('mat-checkbox');
+      const checkbox = fixture.nativeElement.querySelector('input[type="checkbox"]');
       checkbox.click();
       fixture.detectChanges();
 
@@ -397,9 +397,9 @@ describe('OrderQueueComponent', () => {
 
       const rows = fixture.nativeElement.querySelectorAll('.queue-item');
       expect(rows.length).toBe(3);
-      expect(rows[0].querySelector('mat-checkbox')).toBeTruthy();
-      expect(rows[1].querySelector('mat-checkbox')).toBeFalsy();
-      expect(rows[2].querySelector('mat-checkbox')).toBeFalsy();
+      expect(rows[0].querySelector('input[type="checkbox"]')).toBeTruthy();
+      expect(rows[1].querySelector('input[type="checkbox"]')).toBeFalsy();
+      expect(rows[2].querySelector('input[type="checkbox"]')).toBeFalsy();
     });
 
     it('emits sendTicketsToPaper with the checked staged ids and clears them', () => {
@@ -538,7 +538,7 @@ describe('OrderQueueComponent', () => {
       const rows = fixture.nativeElement.querySelectorAll('.queue-item');
       expect(rows[0].querySelector('.requeue-btn')).toBeTruthy();
       expect(rows[0].querySelector('.dismiss-btn')).toBeTruthy();
-      expect(rows[0].querySelector('mat-checkbox')).toBeFalsy();
+      expect(rows[0].querySelector('input[type="checkbox"]')).toBeFalsy();
       expect(rows[1].querySelector('.requeue-btn')).toBeTruthy();
       expect(rows[1].querySelector('.dismiss-btn')).toBeTruthy();
     });
