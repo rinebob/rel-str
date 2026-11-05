@@ -13,6 +13,7 @@ import { of, catchError, Subscription, Observable } from 'rxjs';
 import { DsToastService } from '../../../../shared/ds/ds-toast.service';
 
 import type { OptionsReplayStartRequest } from '@options-replay/contracts';
+import type { AnalysisResultDoc } from '@options-analysis/contracts';
 import type {
   OptionsContractListUi,
   OptionsReplayRunUi,
@@ -23,6 +24,7 @@ import type {
   ReplayStatusFilter,
 } from '../common/options-replay.types';
 import { OptionsReplayRunsService } from '../services/options-replay-runs.service';
+import { OptionsAnalysisRunsService } from '../services/options-analysis-runs.service';
 
 export interface OptionsReplayState {
   runs: OptionsReplayRunUi[];
@@ -44,6 +46,12 @@ export interface OptionsReplayState {
    *  snapshot proves the retry landed (status 'running' or failed
    *  outcomes gone). */
   retryingRunIds: ReadonlySet<string>;
+  /** Analysis result docs for the selected run — drives the
+   *  Analyze → View Results flip on each contract-list card. */
+  analysisResults: AnalysisResultDoc[];
+  /** Contract lists with an in-flight optionsAnalysisStart call — the
+   *  results listener prunes the flag once a doc for that list exists. */
+  analyzingListIds: ReadonlySet<string>;
 }
 
 function buildReplayErrorMessage(err: unknown): string {
@@ -78,6 +86,8 @@ const initialState: OptionsReplayState = {
   sortBy: 'createdAt',
   sortDirection: 'desc',
   retryingRunIds: new Set<string>(),
+  analysisResults: [],
+  analyzingListIds: new Set<string>(),
 };
 
 export const OptionsReplayStore = signalStore(
@@ -154,6 +164,19 @@ export const OptionsReplayStore = signalStore(
         });
       }),
 
+      /** Contract-list docIds carrying ≥1 SUCCESS analysis result doc —
+       *  flips the card's Analyze button to View Results. Failed docs are
+       *  excluded on purpose: a failed analysis has nothing to view, and
+       *  leaving Analyze enabled keeps the card's only re-run affordance
+       *  (the callable is idempotent). */
+      analysisReadyListIds: computed(() =>
+        new Set(
+          state.analysisResults()
+            .filter((d) => d.status === 'success')
+            .map((d) => d.contractListDocId)
+        )
+      ),
+
       /** True when any non-default filter is active. */
       hasActiveFilters: computed(() => {
         return (
@@ -165,9 +188,10 @@ export const OptionsReplayStore = signalStore(
     };
   }),
 
-  withMethods((state, runsService = inject(OptionsReplayRunsService), toast = inject(DsToastService), destroyRef = inject(DestroyRef)) => {
+  withMethods((state, runsService = inject(OptionsReplayRunsService), analysisService = inject(OptionsAnalysisRunsService), toast = inject(DsToastService), destroyRef = inject(DestroyRef)) => {
     let runsSubscription: Subscription | null = null;
     let listsSubscription: Subscription | null = null;
+    let resultsSubscription: Subscription | null = null;
 
     function watchStream<T>(
       label: string,
@@ -201,11 +225,18 @@ export const OptionsReplayStore = signalStore(
       });
     }
 
-    function loadContractLists(runId: string | null): void {
+    function loadRunStreams(runId: string | null): void {
       listsSubscription?.unsubscribe();
       listsSubscription = null;
+      resultsSubscription?.unsubscribe();
+      resultsSubscription = null;
       if (!runId) {
-        patchState(state, { contractLists: [], listsStreaming: false });
+        patchState(state, {
+          contractLists: [],
+          listsStreaming: false,
+          analysisResults: [],
+          analyzingListIds: new Set<string>(),
+        });
         return;
       }
 
@@ -218,11 +249,33 @@ export const OptionsReplayStore = signalStore(
         { contractLists: [], listsStreaming: true },
         { listsStreaming: false }
       );
+
+      resultsSubscription = watchStream(
+        'analysis results',
+        analysisService.watchResultDocs(runId),
+        (analysisResults) => {
+          // A delivered doc proves the analysis call landed — prune its
+          // in-flight flag so the card's action can flip to View Results.
+          const analyzing = state.analyzingListIds();
+          if (analyzing.size === 0) {
+            patchState(state, { analysisResults });
+            return;
+          }
+          const docIds = new Set(analysisResults.map((d) => d.contractListDocId));
+          const next = new Set([...analyzing].filter((id) => !docIds.has(id)));
+          patchState(state, next.size === analyzing.size ? { analysisResults } : { analysisResults, analyzingListIds: next });
+        },
+        // Same run-scoped reset — stale docs from the previous run must
+        // not mark its cards ready; in-flight flags belong to the old
+        // run's stream and never resolve from the new one.
+        { analysisResults: [], analyzingListIds: new Set<string>() },
+        {}
+      );
     }
 
     function applyRunSelection(runId: string | null): void {
       patchState(state, { selection: runId ? { runId, symbol: null } : null });
-      loadContractLists(runId);
+      loadRunStreams(runId);
     }
 
     return {
@@ -239,11 +292,6 @@ export const OptionsReplayStore = signalStore(
               patchState(state, { runs });
               return;
             }
-            // Snapshot is post-retry truth: once the retried run's failed
-            // outcomes are gone (or the run vanished), the in-flight guard
-            // has nothing left to protect — prune it. A run that still
-            // shows failed outcomes keeps its flag, which closes the
-            // re-click gap between callable response and this snapshot.
             // Snapshot is post-retry truth: the retry tx flips
             // status→'running' in the same commit that deletes the failed
             // outcomes, so either signal proves the retry landed even if
@@ -270,7 +318,8 @@ export const OptionsReplayStore = signalStore(
         );
       },
 
-      /** Select a run for the detail panel and start streaming its contract lists. */
+      /** Select a run for the detail panel and start streaming its
+       *  contract lists + analysis result docs. */
       selectRun(runId: string | null): void {
         applyRunSelection(runId);
       },
@@ -279,10 +328,15 @@ export const OptionsReplayStore = signalStore(
        *  symbol's contract-list card. Same-run symbol hops keep the
        *  existing list stream unless it died on an earlier error. */
       selectRow(selection: ReplaySelection): void {
-        const streamDead = !listsSubscription || listsSubscription.closed;
+        // Both run-scoped streams restart together — a dead results stream
+        // with a live lists stream must still trigger the restart or the
+        // cards silently lose View Results updates for the session.
+        const streamDead =
+          !listsSubscription || listsSubscription.closed ||
+          !resultsSubscription || resultsSubscription.closed;
         const isNewRun = state.selection()?.runId !== selection.runId;
         patchState(state, { selection });
-        if (isNewRun || streamDead) loadContractLists(selection.runId);
+        if (isNewRun || streamDead) loadRunStreams(selection.runId);
       },
 
       setStatusFilter(filter: ReplayStatusFilter): void {
@@ -372,6 +426,39 @@ export const OptionsReplayStore = signalStore(
                   : 'Nothing to retry — no failed symbols',
                 'Dismiss', { duration: 30000 }
               );
+            }
+          });
+      },
+
+      /** Kick off analysis of one contract list. The callable is
+       *  idempotent (re-invocation re-enqueues and overwrites the same
+       *  result docs), so the flag only covers the callable → first-doc
+       *  window — the results stream prunes it once a doc for the list
+       *  exists, which flips the card's action to View Results. */
+      startAnalysis(contractListDocId: string): void {
+        if (state.analyzingListIds().has(contractListDocId)) return;
+        patchState(state, {
+          analyzingListIds: new Set(state.analyzingListIds()).add(contractListDocId),
+        });
+
+        analysisService
+          .startAnalysis(contractListDocId)
+          .pipe(
+            catchError((err: unknown) => {
+              // eslint-disable-next-line no-console
+              console.error('[OptionsReplayStore] startAnalysis failed', err);
+              const message = buildReplayErrorMessage(err);
+              toast.open(`Analysis failed to start: ${message}`, 'Dismiss', { duration: 30000 });
+              const next = new Set(state.analyzingListIds());
+              next.delete(contractListDocId);
+              patchState(state, { analyzingListIds: next });
+              return of(null);
+            }),
+            takeUntilDestroyed(destroyRef)
+          )
+          .subscribe((response) => {
+            if (response) {
+              toast.open(`Analysis started: ${contractListDocId}`, 'Dismiss', { duration: 30000 });
             }
           });
       },

@@ -6,7 +6,9 @@ import { Subject, of, throwError } from 'rxjs';
 
 import { OptionsReplayStore } from './options-replay.store';
 import { OptionsReplayRunsService } from '../services/options-replay-runs.service';
+import { OptionsAnalysisRunsService } from '../services/options-analysis-runs.service';
 import type { OptionsContractListUi, OptionsReplayRunUi } from '../common/options-replay.types';
+import type { AnalysisResultDoc } from '@options-analysis/contracts';
 
 function makeRun(overrides: Partial<OptionsReplayRunUi> = {}): OptionsReplayRunUi {
   return {
@@ -35,14 +37,32 @@ function makeList(overrides: Partial<OptionsContractListUi> = {}): OptionsContra
   };
 }
 
+function makeResultDoc(overrides: Partial<AnalysisResultDoc> = {}): AnalysisResultDoc {
+  return {
+    contractListDocId: 'run-1_SPY',
+    runId: 'run-1',
+    symbol: 'SPY',
+    templateId: 'csp-45-20',
+    exitId: 'exit-1',
+    registryVersion: 1,
+    status: 'success',
+    trades: [],
+    aggregate: { exitId: 'exit-1', contractCount: 0, exitedCount: 0, expiredCount: 0, errorCount: 0 },
+    generatedAt: '2026-11-05T00:00:00Z',
+    ...overrides,
+  };
+}
+
 describe('OptionsReplayStore', () => {
   let runsSubject: Subject<OptionsReplayRunUi[]>;
   let listsSubject: Subject<OptionsContractListUi[]>;
+  let resultsSubject: Subject<AnalysisResultDoc[]>;
   let toast: { open: jest.Mock };
 
   async function setup() {
     runsSubject = new Subject();
     listsSubject = new Subject();
+    resultsSubject = new Subject();
     toast = { open: jest.fn() };
 
     const serviceStub = {
@@ -52,11 +72,17 @@ describe('OptionsReplayStore', () => {
       retryRun: jest.fn(() => of({ retriedSymbols: ['SPY'] })),
     };
 
+    const analysisStub = {
+      watchResultDocs: jest.fn(() => resultsSubject.asObservable()),
+      startAnalysis: jest.fn(() => of({ analysisId: 'run-1_SPY' })),
+    };
+
     await TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         { provide: OptionsReplayRunsService, useValue: serviceStub },
+        { provide: OptionsAnalysisRunsService, useValue: analysisStub },
         { provide: DsToastService, useValue: toast },
       ],
     }).compileComponents();
@@ -541,6 +567,144 @@ describe('OptionsReplayStore', () => {
 
       expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Retry failed'), 'Dismiss', { duration: 30000 });
       expect(store.retryingRunIds().has('run-1')).toBe(false);
+    });
+  });
+
+  describe('analysis results stream', () => {
+    it('streams result docs for the selected run', async () => {
+      const store = await setup();
+      store.selectRun('run-1');
+
+      const service = TestBed.inject(OptionsAnalysisRunsService);
+      expect(service.watchResultDocs).toHaveBeenCalledWith('run-1');
+
+      resultsSubject.next([makeResultDoc()]);
+      expect(store.analysisResults().length).toBe(1);
+      expect(store.analysisReadyListIds().has('run-1_SPY')).toBe(true);
+    });
+
+    it('marks ready only on SUCCESS docs — a failed doc keeps Analyze enabled', async () => {
+      const store = await setup();
+      store.selectRun('run-1');
+
+      resultsSubject.next([makeResultDoc({ status: 'failed', error: 'series fetch failed' })]);
+      expect(store.analysisResults().length).toBe(1);
+      expect(store.analysisReadyListIds().has('run-1_SPY')).toBe(false);
+
+      resultsSubject.next([makeResultDoc({ status: 'success' })]);
+      expect(store.analysisReadyListIds().has('run-1_SPY')).toBe(true);
+    });
+
+    it('clears result docs when the selection is cleared', async () => {
+      const store = await setup();
+      store.selectRun('run-1');
+      resultsSubject.next([makeResultDoc()]);
+
+      store.selectRun(null);
+      expect(store.analysisResults()).toEqual([]);
+      expect(store.analysisReadyListIds().size).toBe(0);
+    });
+
+    it('restarts the stream on a run switch and clears stale docs up front', async () => {
+      const store = await setup();
+      store.selectRun('run-1');
+      resultsSubject.next([makeResultDoc()]);
+      expect(store.analysisResults().length).toBe(1);
+
+      store.selectRun('run-2');
+      const service = TestBed.inject(OptionsAnalysisRunsService);
+      expect(service.watchResultDocs).toHaveBeenCalledWith('run-2');
+      expect(store.analysisResults()).toEqual([]);
+    });
+  });
+
+  describe('startAnalysis', () => {
+    it('calls the callable and toasts success', async () => {
+      const store = await setup();
+      store.selectRun('run-1');
+
+      store.startAnalysis('run-1_SPY');
+
+      const service = TestBed.inject(OptionsAnalysisRunsService);
+      expect(service.startAnalysis).toHaveBeenCalledWith('run-1_SPY');
+      expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Analysis started'), 'Dismiss', { duration: 30000 });
+    });
+
+    it('holds the in-flight flag until a result doc for that list lands', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsAnalysisRunsService);
+      const pending = new Subject<{ analysisId: string }>();
+      (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
+      store.selectRun('run-1');
+
+      store.startAnalysis('run-1_SPY');
+      pending.next({ analysisId: 'run-1_SPY' });
+      expect(store.analyzingListIds().has('run-1_SPY')).toBe(true);
+
+      // The callable resolves before the worker writes — the flag holds
+      // until the stream proves analysis output exists for this list.
+      resultsSubject.next([makeResultDoc()]);
+      expect(store.analyzingListIds().has('run-1_SPY')).toBe(false);
+    });
+
+    it('guards a duplicate click while a call for the same list is in flight', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsAnalysisRunsService);
+      const pending = new Subject<{ analysisId: string }>();
+      (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
+      store.selectRun('run-1');
+
+      store.startAnalysis('run-1_SPY');
+      store.startAnalysis('run-1_SPY');
+
+      expect(service.startAnalysis).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the flag when a doc lands for a different list', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsAnalysisRunsService);
+      const pending = new Subject<{ analysisId: string }>();
+      (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
+      store.selectRun('run-1');
+
+      store.startAnalysis('run-1_SPY');
+      pending.next({ analysisId: 'run-1_SPY' });
+
+      // A doc for another list is progress elsewhere — not this flag's
+      // completion signal.
+      resultsSubject.next([makeResultDoc({ contractListDocId: 'run-1_QQQ', symbol: 'QQQ' })]);
+      expect(store.analyzingListIds().has('run-1_SPY')).toBe(true);
+
+      resultsSubject.next([makeResultDoc({ contractListDocId: 'run-1_QQQ', symbol: 'QQQ' }), makeResultDoc()]);
+      expect(store.analyzingListIds().has('run-1_SPY')).toBe(false);
+    });
+
+    it('prunes the flag when the list docs for that list all vanish', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsAnalysisRunsService);
+      const pending = new Subject<{ analysisId: string }>();
+      (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
+      store.selectRun('run-1');
+
+      store.startAnalysis('run-1_SPY');
+      pending.next({ analysisId: 'run-1_SPY' });
+      expect(store.analyzingListIds().has('run-1_SPY')).toBe(true);
+
+      // Selection cleared → stream torn down → nothing left to protect.
+      store.selectRun(null);
+      expect(store.analyzingListIds().has('run-1_SPY')).toBe(false);
+    });
+
+    it('toasts the failure and clears the flag on error', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsAnalysisRunsService);
+      (service.startAnalysis as jest.Mock).mockReturnValue(throwError(() => new Error('failed-precondition')));
+      store.selectRun('run-1');
+
+      store.startAnalysis('run-1_SPY');
+
+      expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Analysis failed to start'), 'Dismiss', { duration: 30000 });
+      expect(store.analyzingListIds().has('run-1_SPY')).toBe(false);
     });
   });
 });
