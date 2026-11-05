@@ -49,6 +49,7 @@ describe('OptionsReplayStore', () => {
       watchRuns: jest.fn(() => runsSubject.asObservable()),
       watchContractLists: jest.fn(() => listsSubject.asObservable()),
       startReplay: jest.fn(() => of({ runId: 'new-run-1' })),
+      retryRun: jest.fn(() => of({ retriedSymbols: ['SPY'] })),
     };
 
     await TestBed.configureTestingModule({
@@ -191,6 +192,17 @@ describe('OptionsReplayStore', () => {
       ]);
 
       expect(store.runRows().find((r) => r.symbol === 'QQQ')?.symbolStatus).toBe('pending');
+    });
+
+    it('flips a failed row back to pending when the post-retry snapshot drops the outcome', async () => {
+      const store = await setup();
+      store.loadRuns();
+      runsSubject.next([makeRun({ listOutcomes: { SPY: 'failed' } })]);
+      expect(store.runRows()[0].symbolStatus).toBe('failed');
+
+      // The retry tx deletes the failed entry outright — AC3's mechanism.
+      runsSubject.next([makeRun({ status: 'running', listOutcomes: {} })]);
+      expect(store.runRows()[0].symbolStatus).toBe('pending');
     });
 
     it('legacy runs with no listOutcomes produce pending rows without crashing', async () => {
@@ -416,6 +428,119 @@ describe('OptionsReplayStore', () => {
 
       store.selectRun('run-1');
       expect(store.selectedSymbol()).toBeNull();
+    });
+  });
+
+  describe('retryRun', () => {
+    it('calls optionsReplayRetry with the runId and toasts the retried count', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+
+      store.retryRun('run-1');
+
+      expect(service.retryRun).toHaveBeenCalledWith('run-1');
+      expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('SPY'), 'Dismiss', { duration: 30000 });
+    });
+
+    it('marks the run retrying for the in-flight window and ignores a second click', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      const pending = new Subject<{ retriedSymbols: string[] }>();
+      (service.retryRun as jest.Mock).mockReturnValue(pending.asObservable());
+
+      store.retryRun('run-1');
+      expect(store.retryingRunIds().has('run-1')).toBe(true);
+
+      store.retryRun('run-1');
+      expect(service.retryRun).toHaveBeenCalledTimes(1);
+
+      // The flag is per-run — a different run's retry is not blocked.
+      store.retryRun('run-2');
+      expect(service.retryRun).toHaveBeenCalledTimes(2);
+      expect(service.retryRun).toHaveBeenLastCalledWith('run-2');
+    });
+
+    it('holds the in-flight flag after a real retry until the runs snapshot shows the failed outcomes gone', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      const pending = new Subject<{ retriedSymbols: string[] }>();
+      (service.retryRun as jest.Mock).mockReturnValue(pending.asObservable());
+      store.loadRuns();
+      runsSubject.next([makeRun({ status: 'failed', listOutcomes: { SPY: 'failed' } })]);
+
+      store.retryRun('run-1');
+      pending.next({ retriedSymbols: ['SPY'] });
+      // Response settled but the doc snapshot hasn't caught up — the
+      // flag closes the re-click gap.
+      expect(store.retryingRunIds().has('run-1')).toBe(true);
+
+      // A stale pre-retry snapshot (failed outcome still present) keeps it.
+      runsSubject.next([makeRun({ status: 'failed', listOutcomes: { SPY: 'failed' } })]);
+      expect(store.retryingRunIds().has('run-1')).toBe(true);
+
+      // Post-retry snapshot — the BE deleted the failed outcome; prune.
+      runsSubject.next([makeRun({ status: 'running', listOutcomes: {} })]);
+      expect(store.retryingRunIds().has('run-1')).toBe(false);
+    });
+
+    it('clears the flag on a running snapshot even if a fast re-failure coalesces a failed outcome into it', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      const pending = new Subject<{ retriedSymbols: string[] }>();
+      (service.retryRun as jest.Mock).mockReturnValue(pending.asObservable());
+      store.loadRuns();
+      runsSubject.next([makeRun({ status: 'failed', listOutcomes: { SPY: 'failed' } })]);
+
+      store.retryRun('run-1');
+      pending.next({ retriedSymbols: ['SPY'] });
+      expect(store.retryingRunIds().has('run-1')).toBe(true);
+
+      // A retried symbol that re-fails fast can land 'failed' back into
+      // listOutcomes inside the same delivery as the post-tx 'running'
+      // flip — the zero-failed predicate alone would strand the flag
+      // forever. Status 'running' proves the retry landed.
+      runsSubject.next([makeRun({ status: 'running', listOutcomes: { SPY: 'failed' } })]);
+      expect(store.retryingRunIds().has('run-1')).toBe(false);
+    });
+
+    it('prunes the flag when the run drops out of the snapshot', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      const pending = new Subject<{ retriedSymbols: string[] }>();
+      (service.retryRun as jest.Mock).mockReturnValue(pending.asObservable());
+      store.loadRuns();
+      runsSubject.next([makeRun({ status: 'failed', listOutcomes: { SPY: 'failed' } })]);
+
+      store.retryRun('run-1');
+      pending.next({ retriedSymbols: ['SPY'] });
+      expect(store.retryingRunIds().has('run-1')).toBe(true);
+
+      // Deleted doc / evicted from the top-50 window — nothing left to
+      // protect; holding would leak a dead disable forever.
+      runsSubject.next([]);
+      expect(store.retryingRunIds().has('run-1')).toBe(false);
+    });
+
+    it('reports nothing-to-retry when the callable returns an empty symbol list', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      (service.retryRun as jest.Mock).mockReturnValue(of({ retriedSymbols: [] }));
+
+      store.retryRun('run-1');
+
+      expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Nothing to retry'), 'Dismiss', { duration: 30000 });
+      expect(store.retryingRunIds().has('run-1')).toBe(false);
+    });
+
+    it('toasts the failure and clears the in-flight flag on error', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      (service.retryRun as jest.Mock).mockReturnValue(throwError(() => new Error('unavailable')));
+
+      store.retryRun('run-1');
+
+      expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Retry failed'), 'Dismiss', { duration: 30000 });
+      expect(store.retryingRunIds().has('run-1')).toBe(false);
     });
   });
 });

@@ -1,8 +1,8 @@
 /**
  * Options Replay runs service.
  *
- * Wraps the `optionsReplayStart` callable plus realtime Firestore
- * listeners for `st-options-replay-runs` and
+ * Wraps the `optionsReplayStart` / `optionsReplayRetry` callables plus
+ * realtime Firestore listeners for `st-options-replay-runs` and
  * `st-options-contract-lists` — same pattern as
  * `backtest-run.service.ts`.
  */
@@ -12,7 +12,12 @@ import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Firestore, collection, collectionData, query, where, orderBy, limit } from '@angular/fire/firestore';
 import { Observable, from, map } from 'rxjs';
 
-import type { OptionsReplayStartRequest, OptionsReplayStartResponse } from '@options-replay/contracts';
+import type {
+  OptionsReplayStartRequest,
+  OptionsReplayStartResponse,
+  OptionsReplayRetryRequest,
+  OptionsReplayRetryResponse,
+} from '@options-replay/contracts';
 import type { OptionsContractListUi, OptionsReplayRunUi } from '../common/options-replay.types';
 import { convertOptionsContractListDoc, convertOptionsReplayRunDoc } from './options-replay-firestore-converter';
 import { ST_OPTIONS_REPLAY_RUNS_ROOT, ST_OPTIONS_CONTRACT_LISTS_ROOT } from '@st/collections';
@@ -38,6 +43,22 @@ export class OptionsReplayRunsService {
         'optionsReplayStart'
       );
       return callable(request);
+    })).pipe(map((result) => result.data));
+  }
+
+  /**
+   * Re-run the failed per-symbol list docs of an existing run. The BE
+   * no-ops on pending/running/cancelled runs and on runs with nothing
+   * failed, returning `{ retriedSymbols: [] }`. Throws for
+   * missing/unknown runs and enqueue failures.
+   */
+  retryRun(runId: string): Observable<OptionsReplayRetryResponse> {
+    return from(runInInjectionContext(this.injector, () => {
+      const callable = httpsCallable<OptionsReplayRetryRequest, OptionsReplayRetryResponse>(
+        this.functions,
+        'optionsReplayRetry'
+      );
+      return callable({ runId });
     })).pipe(map((result) => result.data));
   }
 

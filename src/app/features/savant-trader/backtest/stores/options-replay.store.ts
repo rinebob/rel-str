@@ -39,6 +39,11 @@ export interface OptionsReplayState {
   symbolSearch: string;
   sortBy: ReplaySortBy;
   sortDirection: ReplaySortDirection;
+  /** Runs with an in-flight optionsReplayRetry call — guards the rerun
+   *  action's double-click window; the runs listener prunes it once the
+   *  snapshot proves the retry landed (status 'running' or failed
+   *  outcomes gone). */
+  retryingRunIds: ReadonlySet<string>;
 }
 
 function buildReplayErrorMessage(err: unknown): string {
@@ -72,6 +77,7 @@ const initialState: OptionsReplayState = {
   ...DEFAULT_REPLAY_FILTERS,
   sortBy: 'createdAt',
   sortDirection: 'desc',
+  retryingRunIds: new Set<string>(),
 };
 
 export const OptionsReplayStore = signalStore(
@@ -227,7 +233,38 @@ export const OptionsReplayStore = signalStore(
         runsSubscription = watchStream(
           'replay runs',
           runsService.watchRuns(50),
-          (runs) => patchState(state, { runs }),
+          (runs) => {
+            const retrying = state.retryingRunIds();
+            if (retrying.size === 0) {
+              patchState(state, { runs });
+              return;
+            }
+            // Snapshot is post-retry truth: once the retried run's failed
+            // outcomes are gone (or the run vanished), the in-flight guard
+            // has nothing left to protect — prune it. A run that still
+            // shows failed outcomes keeps its flag, which closes the
+            // re-click gap between callable response and this snapshot.
+            // Snapshot is post-retry truth: the retry tx flips
+            // status→'running' in the same commit that deletes the failed
+            // outcomes, so either signal proves the retry landed even if
+            // Firestore coalescing skipped the clean post-tx state — e.g.
+            // a retried symbol re-failing fast would otherwise leave every
+            // delivered snapshot with a failed outcome and strand the flag
+            // forever. A run absent from the snapshot has nothing left to
+            // protect. A run still 'completed'/'failed' WITH a failed
+            // outcome keeps the flag — that closes the re-click gap while
+            // the stale pre-retry doc is still streaming.
+            const byId = new Map(runs.map((r) => [r.runId, r] as const));
+            const next = new Set(retrying);
+            for (const id of retrying) {
+              const run = byId.get(id);
+              const hasFailedOutcome = run
+                ? Object.values(run.listOutcomes ?? {}).some((s) => s === 'failed')
+                : false;
+              if (!run || run.status === 'running' || !hasFailedOutcome) next.delete(id);
+            }
+            patchState(state, next.size === retrying.size ? { runs } : { runs, retryingRunIds: next });
+          },
           { isLoading: true, runsStreaming: true },
           { isLoading: false, runsStreaming: false }
         );
@@ -289,6 +326,52 @@ export const OptionsReplayStore = signalStore(
             if (response) {
               toast.open(`Replay started: ${response.runId}`, 'Dismiss', { duration: 30000 });
               applyRunSelection(response.runId);
+            }
+          });
+      },
+
+      /** Re-run a run's failed symbol list docs. The BE is already
+       *  idempotent (no-ops on pending/running/cancelled and on empty
+       *  failed sets), so the local flag only covers the callable's
+       *  in-flight window plus the snapshot lag — the run listener prunes
+       *  it once the doc's failed outcomes are gone, which also flips the
+       *  doc back to 'running' and hides the row's rerun button. */
+      retryRun(runId: string): void {
+        if (state.retryingRunIds().has(runId)) return;
+        patchState(state, {
+          retryingRunIds: new Set(state.retryingRunIds()).add(runId),
+        });
+
+        runsService
+          .retryRun(runId)
+          .pipe(
+            catchError((err: unknown) => {
+              // eslint-disable-next-line no-console
+              console.error('[OptionsReplayStore] retryRun failed', err);
+              const message = buildReplayErrorMessage(err);
+              toast.open(`Retry failed: ${message}`, 'Dismiss', { duration: 30000 });
+              return of(null);
+            }),
+            takeUntilDestroyed(destroyRef)
+          )
+          .subscribe((response) => {
+            // Clear here only when no doc change is coming — a call error
+            // or a no-op response. On a real retry the flag holds until
+            // the runs snapshot confirms the post-retry state, closing
+            // the re-click gap (see loadRuns' prune above).
+            if (!response || response.retriedSymbols.length === 0) {
+              const next = new Set(state.retryingRunIds());
+              next.delete(runId);
+              patchState(state, { retryingRunIds: next });
+            }
+            if (response) {
+              const retried = response.retriedSymbols;
+              toast.open(
+                retried.length > 0
+                  ? `Retrying ${retried.length} failed symbol${retried.length === 1 ? '' : 's'}: ${retried.join(', ')}`
+                  : 'Nothing to retry — no failed symbols',
+                'Dismiss', { duration: 30000 }
+              );
             }
           });
       },
