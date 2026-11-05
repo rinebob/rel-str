@@ -20,6 +20,7 @@ import { ST_STRATEGY_INSTANCES_ROOT } from '@st/collections';
 import type { StStrategyInstance } from '@st/strategy-instances';
 import { LifecycleState } from '@options-strategy-engine/contracts';
 import { buildAccountId } from '@paper-trading/ids';
+import { NONE_VARIANT_KEY } from '@paper-trading/contracts';
 import { generateInstanceId } from '../../../../../shared/strategy-instance-id';
 
 /** Instance payload the form produces — StStrategyInstance minus the fields
@@ -92,7 +93,7 @@ export class StrategyBuilderService {
       mode: 'paper',
       enabled: true,
       paperAccountId: buildAccountId(uid),
-      governingVariant: config.governingVariant ?? 'none',
+      governingVariant: config.governingVariant ?? NONE_VARIANT_KEY,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
