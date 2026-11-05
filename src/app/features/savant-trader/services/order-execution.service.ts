@@ -64,6 +64,13 @@ export interface UpdateStopResult extends ExecutionResult {
  */
 const REF_ID_CONFLICT_PATTERN = 'reference id must be unique';
 
+/** True when the error is the RH 409 "Reference ID must be unique" — an
+ *  earlier attempt with this refId was registered broker-side. Callers must
+ *  reconcile (or re-place with a FRESH refId), never retry the same ticket. */
+export function isRefIdConflictError(error: OrderTicketError | undefined): boolean {
+  return !!error?.message.toLowerCase().includes(REF_ID_CONFLICT_PATTERN);
+}
+
 /** Message for the PLACEMENT_UNCONFIRMED failure (see codes below). */
 const PLACEMENT_UNCONFIRMED_MESSAGE = 'placement unconfirmed — no order id in response';
 
@@ -79,6 +86,24 @@ const PLACEMENT_UNCONFIRMED_MESSAGE = 'placement unconfirmed — no order id in 
  */
 export const PLACEMENT_UNCONFIRMED_CODE = 'PLACEMENT_UNCONFIRMED';
 export const PLACEMENT_DEAD_CODE = 'PLACEMENT_DEAD';
+
+/**
+ * Interpret a bare `ExecutionResult` from a submitEquityOrder re-place as an
+ * update-mode place-phase failure — the same classification the update loop
+ * applies at its terminal return. A ref-id conflict or unconfirmed ack means
+ * the replacement likely registered broker-side (unprotected:false →
+ * reconcile, never re-place); anything else leaves the position unprotected
+ * so the caller keeps retry + warning live.
+ */
+export function asUpdatePlaceFailure(res: ExecutionResult): UpdateStopResult {
+  return {
+    ...res,
+    phase: 'place',
+    unprotected: !(
+      isRefIdConflictError(res.error) || res.error?.code === PLACEMENT_UNCONFIRMED_CODE
+    ),
+  };
+}
 
 /**
  * Dead states that can carry fills — `cancelled` and
@@ -579,7 +604,7 @@ export class OrderExecutionService {
     // replacement stop exists even though we never saw its confirmation. Do not
     // report the position as unprotected; the caller must reconcile orders
     // rather than place a duplicate.
-    const refIdConflict = lastError?.message.toLowerCase().includes(REF_ID_CONFLICT_PATTERN);
+    const refIdConflict = isRefIdConflictError(lastError);
     return {
       success: false,
       phase: 'place',
