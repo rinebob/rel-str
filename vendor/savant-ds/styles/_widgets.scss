@@ -104,7 +104,7 @@
   text-decoration: none;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 
-  mat-icon { font-size: 11px; width: 11px; height: 11px; }
+  .dse-icon { font-size: 11px; width: 11px; height: 11px; }
 
   &:hover:not(:disabled) {
     background: var(--mat-sys-surface-container-high);
@@ -215,7 +215,7 @@
   cursor: pointer;
   transition: background 0.12s;
 
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  .dse-icon { font-size: 18px; width: 18px; height: 18px; }
 
   &:hover:not(:disabled) { background: var(--mat-sys-surface-container-highest); }
 
@@ -267,7 +267,7 @@
     justify-content: center;
     transition: background 0.12s;
 
-    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .dse-icon { font-size: 18px; width: 18px; height: 18px; }
 
     &:hover:not(:disabled) { background: var(--mat-sys-surface-container-highest); }
     &:disabled { opacity: 0.35; cursor: default; }
@@ -285,7 +285,7 @@
 }
 
 /// Compact labeled/filter input — `.header-filter { @include ds.field-input; }`
-/// with `.icon` (mat-icon) and `.clear` (18px button) children around a
+/// with `.icon` (.dse-icon) and `.clear` (18px button) children around a
 /// bare `<input>`. The filter-input pattern generalized; `<select>`
 /// styling is deliberately out of scope (deferred thread).
 @mixin field-input() {
@@ -337,7 +337,7 @@
     align-items: center;
     justify-content: center;
 
-    mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    .dse-icon { font-size: 12px; width: 12px; height: 12px; }
 
     &:hover { background: var(--mat-sys-surface-container-highest); }
   }
@@ -379,7 +379,7 @@
 
 /// Page-level button hierarchy — `.ds-btn` (#1163 phase A / #1348).
 /// Replaces the six button archetypes the app ships today (mat-button,
-/// mat-stroked/flat/raised, mat-icon-button→icon-btn, native buttons).
+/// mat-stroked/flat/raised, .dse-icon-button→icon-btn, native buttons).
 /// Apply at the element: `<button class="ds-btn">`. Variants:
 ///   (none)    ghost/text — mat-button role (Login, dialog Cancel)
 ///   .outline  stroked — mat-stroked-button role (New Order)
@@ -413,7 +413,7 @@
   text-decoration: none;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 
-  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  .dse-icon { font-size: 16px; width: 16px; height: 16px; }
 
   &:hover:not(:disabled) {
     background: var(--ds-accent-container);
@@ -469,6 +469,6 @@
     padding: 0 var(--ds-space-2);
     font-size: 11px;
 
-    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .dse-icon { font-size: 14px; width: 14px; height: 14px; }
   }
 }

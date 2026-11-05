@@ -23,7 +23,6 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
 
 import {
   stopPriceFromPercent,
@@ -43,7 +42,7 @@ export interface StopLossSubmit {
 @Component({
   selector: 'app-stop-loss-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './stop-loss-form.component.html',
   styleUrl: './stop-loss-form.component.scss',
 })

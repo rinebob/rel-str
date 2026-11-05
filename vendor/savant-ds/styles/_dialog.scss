@@ -13,26 +13,20 @@
 
 /// Compact dialog chrome — order-confirm-dialog convention (task #781).
 /// Apply inside `:host`. Emits: 16px title row with a small tertiary
-/// icon, a flex-column content body, dense form fields (spread-builder
-/// density tokens), 32px action buttons with 16px icons, a `.dim`
-/// muted-text utility, and a tokenized `.dialog-error` block. Per-dialog
-/// min-width stays with the component — dialogs legitimately differ.
-/// Secondary actions should be `mat-stroked-button`, the primary stays
-/// `mat-flat-button` (both get the 32px row height).
+/// icon, a flex-column content body, dense `.dse-field` fields,
+/// 32px action buttons with 16px icons, a `.dim` muted-text utility,
+/// and a tokenized `.dialog-error` block. Per-dialog min-width stays
+/// with the component — dialogs legitimately differ.
+/// Secondary actions should be `ds-btn outline`, the primary stays
+/// `ds-btn fill` (both get the 32px row height).
 @mixin dialog-chrome() {
-  // Spread-builder density convention — on :host so the custom props
-  // cascade into any mat-form-field rendered by a child component.
-  // Dynamic subscript sizing stays a per-field template attribute.
-  --mat-form-field-container-vertical-padding: var(--ds-space-1);
-  --mat-form-field-container-height: var(--ds-field-height);
-
-  h2[mat-dialog-title] {
+  h2.title {
     display: flex;
     align-items: center;
     gap: var(--ds-space-2);
     font-size: var(--ds-font-size-lg);
 
-    mat-icon {
+    .dse-icon {
       font-size: 20px;
       width: 20px;
       height: 20px;
@@ -40,14 +34,14 @@
     }
   }
 
-  mat-dialog-content {
+  .content {
     display: flex;
     flex-direction: column;
     gap: var(--ds-space-2);
 
     // Full-width fields are the dialog norm; pickers living in the title
     // row (bucket-detail switcher) are deliberately excluded.
-    mat-form-field {
+    .dse-field {
       width: 100%;
     }
   }
@@ -64,20 +58,20 @@
     color: var(--mat-sys-on-error-container);
   }
 
-  mat-dialog-actions button {
+  .actions button {
     display: inline-flex;
     align-items: center;
     gap: var(--ds-space-1);
     height: var(--ds-row-height);
     font-size: var(--ds-font-size-sm);
 
-    mat-icon {
+    .dse-icon {
       font-size: 16px;
       width: 16px;
       height: 16px;
     }
 
-    mat-spinner {
+    .dse-spinner {
       display: inline-block;
       margin-right: 6px;
     }
@@ -97,17 +91,17 @@
     gap: var(--ds-space-2);
     padding: var(--ds-space-5) 0;
 
-    mat-icon {
+    .dse-icon {
       font-size: 48px;
       width: 48px;
       height: 48px;
     }
 
-    &.success mat-icon {
+    &.success .dse-icon {
       color: var(--ds-up);
     }
 
-    &.error mat-icon {
+    &.error .dse-icon {
       color: var(--ds-error);
     }
 
@@ -165,7 +159,7 @@
     color: var(--ds-accent-text);
     border-bottom: 1px solid var(--ds-border-subtle);
 
-    mat-icon {
+    .dse-icon {
       font-size: 20px;
       width: 20px;
       height: 20px;
@@ -193,7 +187,7 @@
 
 /// Dropdown menu — `.ds-menu` panel of `.menu-item` children
 /// (#1163 phase B). Item supports `:disabled`, `.danger`, and a
-/// `mat-icon` leading slot. Separators are `.menu-sep` hr elements.
+/// `.dse-icon` leading slot. Separators are `.menu-sep` hr elements.
 /// ARIA contract: role="menu" on the panel, role="menuitem" on items;
 /// roving tabindex or aria-activedescendant for keyboard navigation.
 @mixin ds-menu() {
@@ -221,7 +215,7 @@
     text-align: left;
     cursor: pointer;
 
-    mat-icon {
+    .dse-icon {
       font-size: 16px;
       width: 16px;
       height: 16px;
@@ -235,13 +229,13 @@
       outline-offset: -2px;
     }
 
-    &.danger { color: var(--ds-error); mat-icon { color: var(--ds-error); } }
+    &.danger { color: var(--ds-error); .dse-icon { color: var(--ds-error); } }
 
     &:disabled {
       color: var(--ds-disabled-fg);
       cursor: not-allowed;
 
-      mat-icon { color: var(--ds-disabled-fg); }
+      .dse-icon { color: var(--ds-disabled-fg); }
     }
   }
 

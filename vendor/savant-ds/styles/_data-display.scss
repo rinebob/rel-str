@@ -24,11 +24,11 @@
   thead {
     position: sticky;
     top: 0;
-    // Must exceed the z-index:1 MDC puts on `.mdc-button__label`/`.mat-icon`
+    // Must exceed the z-index:1 MDC puts on `.mdc-button__label`/`..dse-icon`
     // inside stroked/text buttons — `.mdc-button` roots are
     // `position:relative; z-index:auto` (no stacking context), so cell
     // buttons' internals compete directly with this header and win ties
-    // on DOM order. (mat-icon-button self-contains: its root is z-index:0.)
+    // on DOM order. (.dse-icon-button self-contains: its root is z-index:0.)
     z-index: 2;
     background: var(--mat-sys-surface-container);
 
@@ -103,7 +103,7 @@
   gap: var(--ds-space-2);
   color: var(--mat-sys-on-surface-variant);
 
-  mat-icon {
+  .dse-icon {
     font-size: 36px;
     width: 36px;
     height: 36px;

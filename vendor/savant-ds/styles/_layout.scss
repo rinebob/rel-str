@@ -56,7 +56,7 @@
 
 /// Accordion — `.ds-acc` stack of `.ds-panel` children. Each panel:
 /// `<div class="ds-panel"><button class="acc-head"><span>Title</span>
-/// <mat-icon class="chev">expand_more</mat-icon></button>
+/// <.dse-icon class="chev">expand_more</.dse-icon></button>
 /// <div class="acc-body">…</div></div>`
 /// `.open` on .ds-panel shows .acc-body + rotates .chev; body is
 /// display:none by default (expansion is consumer-toggled).

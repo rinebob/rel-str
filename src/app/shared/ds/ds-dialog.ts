@@ -45,6 +45,11 @@ export class DsDialogRef<C = unknown, R = any> {
   afterClosed(): Observable<R | undefined> {
     return this.closed$.asObservable();
   }
+
+  /** Mirrors MatDialogRef.updateSize — restyles the overlay pane. */
+  updateSize(width?: string, height?: string): void {
+    this.overlayRef.updateSize({ width, height });
+  }
 }
 
 /** Options accepted by {@link DsDialogService.open} — the subset of
@@ -145,5 +150,10 @@ export class DsDialogService {
     });
 
     return ref;
+  }
+
+  /** Closes every open dialog — mirrors `MatDialog.closeAll`. */
+  closeAll(): void {
+    for (const ref of [...this._openDialogs]) ref.close();
   }
 }
