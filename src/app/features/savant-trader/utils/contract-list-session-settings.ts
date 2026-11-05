@@ -17,6 +17,10 @@ export const LIST_SESSION_PREFIX = 'rs-optlist:';
 export const LIST_SESSION_VERSION = 1;
 export const DEFAULT_CHUNK_SIZE = 10;
 
+/** Chunk-size choices offered by both chunk UI surfaces (picker tab,
+ *  page mini-controls) — kept next to the default so they can't drift. */
+export const CHUNK_SIZE_OPTIONS = [5, 10, 20, 50] as const;
+
 export interface ListSessionSettings {
   version: number;
   /** Doc id of the symbol's active list — `null` = no session. */

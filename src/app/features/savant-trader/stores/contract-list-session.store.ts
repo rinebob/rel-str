@@ -130,6 +130,12 @@ export const ContractListSessionStore = signalStore(
         unique: new Set(cur.map((r) => r.contractId)).size,
       };
     }),
+    /** Step-bound predicates — both stepper surfaces disable on these
+     *  instead of re-deriving the clamp bounds in template expressions. */
+    canStepPrev: computed(() => clamp(chunkCursor(), chunks().length) > 0),
+    canStepNext: computed(
+      () => clamp(chunkCursor(), chunks().length) < chunks().length - 1,
+    ),
   })),
 
   withMethods((store, svc = inject(ContractListService)) => {
@@ -164,6 +170,25 @@ export const ContractListSessionStore = signalStore(
 
     const pickDates = (): Set<string> =>
       new Set(store.pickRows().map((r) => r.entryDate));
+
+    /** Single cursor primitive — step/jump/share the clamp + persist. */
+    const moveCursorTo = (i: number): void => {
+      patchState(store, { chunkCursor: clamp(Math.floor(i), store.chunks().length) });
+      persist();
+    };
+
+    /** Single emit primitives — lines + lastEmitted in one patch. */
+    const emitCurrentChunk = (): string[] => {
+      const lines = toPairLines(store.currentChunk());
+      patchState(store, { lastEmitted: lines });
+      return lines;
+    };
+
+    const emitSelected = (): string[] => {
+      const lines = toPairLines(store.selectedRows());
+      patchState(store, { lastEmitted: lines });
+      return lines;
+    };
 
     /** `wipePersisted` is only set on restore-initiated loads — it
      *  rewrites the stale blob (empty session, docId:null) that led to
@@ -344,21 +369,6 @@ export const ContractListSessionStore = signalStore(
         );
       },
 
-      /** Cursor step — clamps at both ends (no wrap). */
-      step(dir: number): void {
-        if (!Number.isFinite(dir)) return;
-        patchState(store, {
-          chunkCursor: clamp(store.chunkCursor() + Math.sign(dir), store.chunks().length),
-        });
-        persist();
-      },
-
-      setChunk(i: number): void {
-        if (!Number.isFinite(i)) return;
-        patchState(store, { chunkCursor: clamp(Math.floor(i), store.chunks().length) });
-        persist();
-      },
-
       setChunkSize(n: number): void {
         if (!Number.isFinite(n)) return;
         const size = Math.max(1, Math.floor(n));
@@ -379,16 +389,33 @@ export const ContractListSessionStore = signalStore(
       /** `date,id` lines for the checked rows — the page writes these
        *  into the pairs textarea and calls the existing load path. */
       sendSelected(): string[] {
-        const lines = toPairLines(store.selectedRows());
-        patchState(store, { lastEmitted: lines });
-        return lines;
+        return emitSelected();
       },
 
-      /** `date,id` lines for the current chunk — stepper live-drive. */
-      sendChunk(): string[] {
-        const lines = toPairLines(store.currentChunk());
-        patchState(store, { lastEmitted: lines });
-        return lines;
+      /** Select every pick day then emit — the All action's
+       *  select-then-emit ordering lives here once, not at each
+       *  All-button call site. */
+      sendAll(): string[] {
+        setSelection(pickDates());
+        return emitSelected();
+      },
+
+      /** Step the cursor then emit the chunk it lands on. The ordering
+       *  contract — cursor must move before `currentChunk` is read —
+       *  lives here once rather than at every UI call site. The public
+       *  API deliberately exposes no silent cursor move — every move
+       *  emits, so the timeline/cursor can't diverge from the chart. */
+      sendSteppedChunk(dir: number): string[] {
+        if (!Number.isFinite(dir)) return [];
+        moveCursorTo(store.chunkCursor() + Math.sign(dir));
+        return emitCurrentChunk();
+      },
+
+      /** Jump the cursor to a chunk index then emit that chunk. */
+      sendChunkAt(i: number): string[] {
+        if (!Number.isFinite(i)) return [];
+        moveCursorTo(i);
+        return emitCurrentChunk();
       },
 
       /** Drop the session and the symbol's persisted blob. */

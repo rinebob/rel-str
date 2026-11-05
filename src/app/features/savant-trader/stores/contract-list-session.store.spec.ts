@@ -305,16 +305,16 @@ describe('ContractListSessionStore', () => {
       expect(store.chunks()).toHaveLength(2);
       const info = store.chunkInfo();
       expect(info).toEqual({ index: 0, total: 2, days: 10, unique: 6 });
-      store.setChunk(1);
+      store.sendChunkAt(1);
       expect(store.chunkInfo()).toEqual({ index: 1, total: 2, days: 5, unique: 5 });
     });
 
-    it('step clamps at both ends (no wrap)', () => {
+    it('stepping clamps at both ends (no wrap)', () => {
       expect(store.chunkCursor()).toBe(0);
-      store.step(-1);
+      store.sendSteppedChunk(-1);
       expect(store.chunkCursor()).toBe(0);
-      store.step(1);
-      store.step(1);
+      store.sendSteppedChunk(1);
+      store.sendSteppedChunk(1);
       expect(store.chunkCursor()).toBe(1);
     });
 
@@ -327,16 +327,16 @@ describe('ContractListSessionStore', () => {
 
     it('setChunkSize repartitions and clamps the cursor', () => {
       store.setChunkSize(3);
-      store.setChunk(4);
+      store.sendChunkAt(4);
       expect(store.chunkCursor()).toBe(4);
       store.setChunkSize(10);
       expect(store.chunkCursor()).toBe(1);
     });
 
     it('non-finite chunk input is ignored rather than corrupting the cursor', () => {
-      store.setChunk(1);
-      store.step(NaN);
-      store.setChunk(NaN);
+      store.sendChunkAt(1);
+      store.sendSteppedChunk(NaN);
+      store.sendChunkAt(NaN);
       store.setChunkSize(NaN);
       expect(store.chunkCursor()).toBe(1);
       expect(store.chunkInfo().index).toBe(1);
@@ -344,7 +344,7 @@ describe('ContractListSessionStore', () => {
 
     it('addChunkToSelection unions the current chunk into the selection', () => {
       store.selectNone();
-      store.setChunk(1);
+      store.sendChunkAt(1);
       store.addChunkToSelection();
       expect(store.selectedRows().map((r) => r.entryDate)).toEqual([
         '2026-06-11',
@@ -353,6 +353,37 @@ describe('ContractListSessionStore', () => {
         '2026-06-14',
         '2026-06-15',
       ]);
+    });
+
+    it('canStepPrev/canStepNext report the clamp bounds', () => {
+      expect(store.canStepPrev()).toBe(false);
+      expect(store.canStepNext()).toBe(true);
+      store.sendChunkAt(1);
+      expect(store.canStepPrev()).toBe(true);
+      expect(store.canStepNext()).toBe(false);
+    });
+
+    it('sendSteppedChunk moves the cursor then emits the landed chunk', () => {
+      const lines = store.sendSteppedChunk(1);
+      expect(store.chunkCursor()).toBe(1);
+      expect(lines).toHaveLength(5);
+      expect(lines[0]).toBe('2026-06-11,FFF260619C00500000');
+      expect(store.lastEmitted()).toEqual(lines);
+    });
+
+    it('sendSteppedChunk clamps — stepping past the end re-emits the last chunk', () => {
+      const lines = store.sendSteppedChunk(5);
+      expect(store.chunkCursor()).toBe(1);
+      expect(lines).toHaveLength(5);
+      expect(store.sendSteppedChunk(NaN)).toEqual([]);
+    });
+
+    it('sendChunkAt jumps the cursor then emits that chunk', () => {
+      const lines = store.sendChunkAt(1);
+      expect(store.chunkCursor()).toBe(1);
+      expect(lines).toHaveLength(5);
+      expect(lines[0]).toBe('2026-06-11,FFF260619C00500000');
+      expect(store.sendChunkAt(NaN)).toEqual([]);
     });
   });
 
@@ -372,11 +403,12 @@ describe('ContractListSessionStore', () => {
       expect(store.lastEmitted()).toEqual(lines);
     });
 
-    it('sendChunk emits only the current chunk', () => {
-      store.setChunk(1);
-      const lines = store.sendChunk();
-      expect(lines).toHaveLength(5);
-      expect(lines[0]).toBe('2026-06-11,FFF260619C00500000');
+    it('sendAll selects every pick day then emits them', () => {
+      store.selectNone();
+      const lines = store.sendAll();
+      expect(store.selection().size).toBe(15);
+      expect(lines).toHaveLength(15);
+      expect(store.lastEmitted()).toEqual(lines);
     });
 
     it('emittedLines previews the selection payload', () => {
@@ -406,7 +438,7 @@ describe('ContractListSessionStore', () => {
       store.toggleRow('2026-06-02', true);
       store.toggleRow('2026-06-09', true);
       store.setChunkSize(5);
-      store.setChunk(1);
+      store.sendChunkAt(1);
 
       const blob = JSON.parse(localStorage.getItem(`${LIST_SESSION_PREFIX}QQQ`)!);
       expect(blob.version).toBe(LIST_SESSION_VERSION);
