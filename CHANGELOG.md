@@ -20,6 +20,9 @@
 - [Options Backtest] 1238-1376_FE-IMPL-BACKTEST: analysis-results route /options/strategy/backtest/analysis/:listDocId + shell page (real surface is #1377)
 - [Options Backtest] 1238-1376_FE-IMPL-BACKTEST: Analyze / View Results card action — enabled iff list success, Analyzing… in flight, View Results on ready
 - [Options Backtest] 1238-1376_DOCS-BACKTEST: #1376 code-review (PASS, 2 rounds) + UAT (Complete, #1406)
+- [Option Contract Time-Series Viewer] 1243-1363_FE-IMPL-OPTIONS: contract-list session chunk emit protocol — sendSteppedChunk/sendChunkAt/sendAll over shared primitives; canStep* computeds; no silent cursor moves
+- [Option Contract Time-Series Viewer] 1243-1363_FE-IMPL-OPTIONS: picker Chunks tab (◀▶ live-drive, click-jump timeline, add-chunk, size select) + page mini-controls strip
+- [Option Contract Time-Series Viewer] 1243-1363_DOCS-OPTIONS: #1363 code-review (PASS, 3 rounds) + UAT (Complete, #1417) + changelog
 
 ### Removed
 - [Paper Trading Infra] 553-672_FE-IMPL-PAPER-TRADING: dead FE exit-variant registry reads — listExitVariants$/loadExitVariants/exitVariants (zero consumers post-#668 select)

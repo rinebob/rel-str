@@ -73,8 +73,8 @@ animation, or private state shape. Fixture list docs mirror
 - `⇄ repeat` badge on `repeatsPrevious` rows.
 - Lines preview equals emit output for the selection; Copy writes
   clipboard.
-- Stepper `▶` calls `sendChunk` with the next chunk's rows (live-drive);
-  `Add chunk` checks the chunk's rows.
+- Stepper `▶` calls `sendSteppedChunk` and emits the landed chunk's
+  rows (live-drive); `Add chunk` checks the chunk's rows.
 - Mini-controls render only with an active session; each button calls
   the matching store method; `i/n` reflects cursor.
 - `?list=` nav: doc loads, picker auto-opens; cross-symbol doc → page
