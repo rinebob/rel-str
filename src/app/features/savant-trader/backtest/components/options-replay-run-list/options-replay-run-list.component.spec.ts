@@ -144,4 +144,81 @@ describe('OptionsReplayRunListComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('No rows match the current filters');
     expect(fixture.nativeElement.textContent).not.toContain('No selection replay runs yet');
   });
+
+  describe('rerun action', () => {
+    it('renders the rerun button only on failed symbol rows', async () => {
+      const { fixture } = await setup([
+        makeRow({ symbol: 'SPY', symbolStatus: 'failed' }),
+        makeRow({ symbol: 'QQQ', symbolStatus: 'success' }),
+        makeRow({ symbol: 'IWM', symbolStatus: 'pending' }),
+      ]);
+
+      const rows = fixture.nativeElement.querySelectorAll('tr.run-row');
+      expect(rows[0].querySelector('.rerun-btn')).toBeTruthy();
+      expect(rows[1].querySelector('.rerun-btn')).toBeNull();
+      expect(rows[2].querySelector('.rerun-btn')).toBeNull();
+    });
+
+    it('emits the runId on rerun click without triggering row selection', async () => {
+      const { component, fixture } = await setup([
+        makeRow({ runId: 'run-failed', symbolStatus: 'failed', runStatus: 'failed' }),
+      ]);
+      const reruns: string[] = [];
+      const selections: ReplaySelection[] = [];
+      component.rerun.subscribe((id) => reruns.push(id));
+      component.selectRow.subscribe((sel) => selections.push(sel));
+
+      (fixture.nativeElement.querySelector('.rerun-btn') as HTMLButtonElement).click();
+
+      expect(reruns).toEqual(['run-failed']);
+      expect(selections).toEqual([]);
+    });
+
+    it('disables the action while the run is pending, running, or cancelled', async () => {
+      const { fixture } = await setup([
+        makeRow({ symbol: 'SPY', symbolStatus: 'failed', runStatus: 'running' }),
+        makeRow({ symbol: 'QQQ', symbolStatus: 'failed', runStatus: 'pending' }),
+        makeRow({ symbol: 'AMAT', symbolStatus: 'failed', runStatus: 'cancelled' }),
+        makeRow({ symbol: 'IWM', symbolStatus: 'failed', runStatus: 'failed' }),
+        // Partial failure converges to 'completed' — the dominant
+        // real-world retry case must stay enabled.
+        makeRow({ symbol: 'NVDA', symbolStatus: 'failed', runStatus: 'completed' }),
+      ]);
+
+      const rows = fixture.nativeElement.querySelectorAll('tr.run-row');
+      expect((rows[0].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(true);
+      expect((rows[1].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(true);
+      // The BE refuses to resurrect a cancelled run — no dead button.
+      expect((rows[2].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(true);
+      expect((rows[3].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(false);
+      expect((rows[4].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('disables every failed row of a run while its retry is in flight', async () => {
+      const { fixture } = await setup([
+        makeRow({ runId: 'run-retrying', symbol: 'SPY', symbolStatus: 'failed', runStatus: 'completed' }),
+        makeRow({ runId: 'run-retrying', symbol: 'QQQ', symbolStatus: 'failed', runStatus: 'completed' }),
+      ]);
+      fixture.componentRef.setInput('retryingRunIds', new Set(['run-retrying']));
+      fixture.detectChanges();
+
+      // Retry is run-scoped — one click retries all failed symbols, so
+      // every row of the run disables together.
+      const buttons = fixture.nativeElement.querySelectorAll('.rerun-btn') as NodeListOf<HTMLButtonElement>;
+      expect(buttons.length).toBe(2);
+      expect(buttons[0].disabled).toBe(true);
+      expect(buttons[1].disabled).toBe(true);
+    });
+
+    it('disables the action while a retry is already in flight for the run', async () => {
+      const { fixture } = await setup([
+        makeRow({ runId: 'run-retrying', symbolStatus: 'failed', runStatus: 'failed' }),
+      ]);
+      fixture.componentRef.setInput('retryingRunIds', new Set(['run-retrying']));
+      fixture.detectChanges();
+
+      const btn = fixture.nativeElement.querySelector('.rerun-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+  });
 });

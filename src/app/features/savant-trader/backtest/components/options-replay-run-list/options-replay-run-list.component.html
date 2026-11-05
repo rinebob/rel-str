@@ -41,8 +41,17 @@
               </div>
             </td>
             <td class="col-failed">
-              @if (row.symbolStatus === 'failed') {
+              @if (row.showRerun) {
                 <span class="failed-badge">failed</span>
+                <button
+                  type="button"
+                  class="rerun-btn icon-btn"
+                  title="Re-run failed symbols"
+                  aria-label="Re-run failed symbols"
+                  [disabled]="row.rerunDisabled"
+                  (click)="onRerun(row, $event)">
+                  <span class="dse-icon" aria-hidden="true">replay</span>
+                </button>
               } @else {
                 —
               }

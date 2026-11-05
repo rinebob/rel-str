@@ -80,7 +80,9 @@
           [selectedSymbol]="replayStore.selectedSymbol()"
           [isLoading]="replayStore.isLoading()"
           [hasActiveFilters]="replayStore.hasActiveFilters()"
-          (selectRow)="replayStore.selectRow($event)" />
+          [retryingRunIds]="replayStore.retryingRunIds()"
+          (selectRow)="replayStore.selectRow($event)"
+          (rerun)="replayStore.retryRun($event)" />
       </div>
 
       @if (replayStore.selectedRun()) {
