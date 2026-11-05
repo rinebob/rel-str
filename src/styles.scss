@@ -193,7 +193,41 @@ body {
 .dse-check { @include savant-ds.ds-check; }
 .dse-radio { @include savant-ds.ds-radio; }
 .dse-switch { @include savant-ds.ds-switch; }
-.dse-select { @include savant-ds.ds-select; }
+// Wrapper form: <label class="dse-select"><select> — mixin styles the
+// select child + draws the chevron on the wrapper.
+.dse-select:not(select) { @include savant-ds.ds-select; }
+// Element form: <select class="dse-select"> — the canonical app usage.
+// The wrapper mixin's child selectors don't fire here, so emit the input
+// chrome directly and draw the chevron as a background glyph.
+select.dse-select {
+  @include savant-ds.ds-input-chrome;
+  appearance: none;
+  padding-right: calc(var(--ds-space-4) + var(--ds-space-2));
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' viewBox='0 0 9 9'%3E%3Cpath d='M1.5 3l3 3 3-3' fill='none' stroke='%237d8a99' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--ds-space-3) center;
+}
+// Compact toolbar variant — dense filter/toolbar rows (was the local
+// 24px select pattern in backtest/order-ticket/picker toolbars).
+select.dse-select.compact {
+  height: 28px;
+  font-size: 11px;
+}
+
+select.dse-select[multiple] {
+  height: auto;
+  min-height: calc(var(--ds-field-height) * 2);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  background-image: none;
+  cursor: default;
+
+  option { padding: 2px 4px; }
+  option:checked {
+    background: var(--ds-accent-container);
+    color: var(--ds-on-accent-container);
+  }
+}
 .dse-combobox { @include savant-ds.ds-combobox; }
 .dse-date { @include savant-ds.ds-date; }
 .dse-dialog { @include savant-ds.ds-dialog; }

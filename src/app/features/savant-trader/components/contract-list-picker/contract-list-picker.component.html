@@ -22,6 +22,9 @@
         <button type="button" class="tab" role="tab" id="picker-tab-rows"
           [class.active]="activeTab() === 'rows'" [attr.aria-selected]="activeTab() === 'rows'"
           aria-controls="picker-panel-rows" (click)="activeTab.set('rows')">Rows</button>
+        <button type="button" class="tab" role="tab" id="picker-tab-chunks"
+          [class.active]="activeTab() === 'chunks'" [attr.aria-selected]="activeTab() === 'chunks'"
+          aria-controls="picker-panel-chunks" (click)="activeTab.set('chunks')">Chunks</button>
         <button type="button" class="tab" role="tab" id="picker-tab-lines"
           [class.active]="activeTab() === 'lines'" [attr.aria-selected]="activeTab() === 'lines'"
           aria-controls="picker-panel-lines" (click)="activeTab.set('lines')">Lines</button>
@@ -36,7 +39,7 @@
             <span class="sep"></span>
             <label class="op">
               Stride
-              <select class="stride-select" [ngModel]="strideK()" (ngModelChange)="strideK.set(+$event)">
+              <select class="stride-select dse-select compact" [ngModel]="strideK()" (ngModelChange)="strideK.set(+$event)">
                 @for (k of strideOptions; track k) { <option [value]="k">{{ k }}</option> }
               </select>
             </label>
@@ -105,6 +108,53 @@
               </tbody>
             </table>
           </div>
+        </div>
+      } @else if (activeTab() === 'chunks') {
+        <div class="tab-body" role="tabpanel" id="picker-panel-chunks" aria-labelledby="picker-tab-chunks">
+          <div class="toolbar chunk-toolbar">
+            <button type="button" class="ds-btn outline small chunk-prev"
+              [disabled]="!store.canStepPrev()"
+              aria-label="Previous chunk" (click)="stepChunk(-1)">
+              <span class="dse-icon">chevron_left</span>
+            </button>
+            <span class="chunk-info">
+              chunk {{ store.chunkInfo().index + 1 }}/{{ store.chunkInfo().total }}
+              · {{ store.chunkInfo().days }} days · {{ store.chunkInfo().unique }} unique
+            </span>
+            <button type="button" class="ds-btn outline small chunk-next"
+              [disabled]="!store.canStepNext()"
+              aria-label="Next chunk" (click)="stepChunk(1)">
+              <span class="dse-icon">chevron_right</span>
+            </button>
+            <span class="sep"></span>
+            <label class="op">
+              Size
+              <select class="chunk-size dse-select compact" [ngModel]="store.chunkSize()" (ngModelChange)="onChunkSize(+$event)">
+                @for (n of chunkSizeOptions; track n) { <option [value]="n">{{ n }}</option> }
+              </select>
+            </label>
+            <span class="sep"></span>
+            <button type="button" class="ds-btn outline small chunk-add" (click)="addChunk()">Add chunk to selection</button>
+          </div>
+          <p class="chunk-hint">Stepping plots the current chunk on the chart behind the dialog — each step replaces the set.</p>
+
+          @if (timeline(); as tl) {
+            <div class="timeline" role="group" aria-label="Chunk timeline">
+              <div class="timeline-track"></div>
+              @if (tl.chunkSpan; as span) {
+                <div class="timeline-chunk" [style.left.%]="span.left" [style.width.%]="span.width"></div>
+              }
+              @for (t of tl.ticks; track t.date) {
+                <button type="button" class="timeline-tick" [class.in-chunk]="t.inChunk"
+                  [style.left.%]="t.pct" [title]="t.date" [attr.aria-label]="'Jump to ' + t.date"
+                  (click)="jumpToChunk(t.chunkIdx)"></button>
+              }
+            </div>
+            <div class="timeline-labels">
+              <span>{{ tl.lo }}</span>
+              <span>{{ tl.hi }}</span>
+            </div>
+          }
         </div>
       } @else {
         <div class="tab-body" role="tabpanel" id="picker-panel-lines" aria-labelledby="picker-tab-lines">

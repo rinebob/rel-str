@@ -53,6 +53,7 @@ import {
   ContractListSessionStore,
   contractListDocError,
 } from '../../stores/contract-list-session.store';
+import { ListMiniControlsComponent } from '../../components/contract-list-mini-controls/contract-list-mini-controls.component';
 import { ContractListService } from '../../services/contract-list.service';
 import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
 import { ContractListPickerComponent, type ContractListPickerData } from '../../components/contract-list-picker/contract-list-picker.component';
@@ -71,7 +72,8 @@ interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
     CommonModule,
     FormsModule,
     OptionsContractChartComponent,
-    OptionGroupGeneratorComponent],
+    OptionGroupGeneratorComponent,
+    ListMiniControlsComponent],
   // Page-scoped — one generator instance + one list session shared by
   // this page, its drawer, and dialogs it opens; dies with the page,
   // never root-provided.
@@ -132,7 +134,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
    *  on `lastEmitted` was the planned seam but deadlocks the zoneless
    *  scheduler while Zone.js is still loaded (NG0914 state), so the
    *  callback is explicit: emitters call store.send* then this. */
-  private readonly emitSessionLines = (lines: string[]): void => {
+  readonly emitSessionLines = (lines: string[]): void => {
     if (lines.length) this.onListSend(lines);
   };
 

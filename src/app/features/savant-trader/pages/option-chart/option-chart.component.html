@@ -480,6 +480,11 @@
         </button>
       </div>
 
+      <app-list-mini-controls
+        (send)="emitSessionLines($event)"
+        (openPicker)="openListPicker()"
+      ></app-list-mini-controls>
+
       @if (chipContracts().length > 0) {
       <div class="plotted-chips-row">
         <div class="plotted-chips">

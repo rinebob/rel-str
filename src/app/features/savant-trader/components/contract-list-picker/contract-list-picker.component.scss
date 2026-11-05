@@ -76,7 +76,6 @@
     opacity: 0.85;
   }
 
-  select,
   input {
     font: inherit;
     font-size: 0.8rem;
@@ -184,4 +183,69 @@
   padding: 24px 12px;
   text-align: center;
   opacity: 0.65;
+}
+
+.chunk-info {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chunk-hint {
+  margin: 8px 0 14px;
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+
+.timeline {
+  position: relative;
+  height: 34px;
+  margin: 6px 4px 0;
+
+  .timeline-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 16px;
+    height: 2px;
+    background: var(--ds-border-subtle);
+  }
+
+  .timeline-chunk {
+    position: absolute;
+    top: 11px;
+    height: 12px;
+    border-radius: 6px;
+    background: var(--ds-accent-container);
+    pointer-events: none;
+  }
+
+  .timeline-tick {
+    position: absolute;
+    top: 10px;
+    width: 8px;
+    height: 14px;
+    margin-left: -4px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: var(--ds-border-strong);
+    cursor: pointer;
+
+    &.in-chunk {
+      background: var(--ds-accent);
+    }
+
+    &:hover {
+      background: var(--ds-accent);
+    }
+  }
+}
+
+.timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  opacity: 0.6;
+  margin-top: 2px;
 }

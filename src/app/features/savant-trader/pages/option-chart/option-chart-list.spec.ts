@@ -539,3 +539,60 @@ describe('OptionChartComponent — contract-list session wiring', () => {
     expect(listStore.symbol()).toBe('SPY');
   });
 });
+
+describe('OptionChartComponent — chunk mini-controls', () => {
+  beforeEach(() => localStorage.clear());
+
+  /** 25 picks → 3 chunks at the default size 10 (10/10/5). */
+  const manyRows = (): ContractListRow[] =>
+    Array.from({ length: 25 }, (_, i) =>
+      pickRow(
+        `2026-06-${String(i + 1).padStart(2, '0')}`,
+        `QQQ260619P${String(48000 + i).padStart(8, '0')}`,
+      ),
+    );
+
+  const loadMany = (listStore: InstanceType<typeof ContractListSessionStore>): ContractListRow[] => {
+    const rows = manyRows();
+    listStore.setSymbol('QQQ');
+    listStore.loadListDoc(listDoc({ rows }));
+    return rows;
+  };
+
+  /** The strip's control behavior lives in
+   *  contract-list-mini-controls.component.spec.ts; these pin the page
+   *  seam: the child's `send` output lands in the textarea through the
+   *  same emit path the picker's onSend uses. */
+  it('mini-control send lines land in the textarea through the loadPlotted path', async () => {
+    const { component, store } = setup();
+    component.ngOnInit();
+
+    component.emitSessionLines([`2026-06-10,${QQQ_PUT}`]);
+    await flush();
+
+    expect(component.occIdInput).toBe(`2026-06-10,${QQQ_PUT}`);
+    expect(store.plottedContracts()[QQQ_PUT]?.entry.openDate).toBe('2026-06-10');
+  });
+
+  it('closing and reopening the picker preserves chunk cursor and selection', () => {
+    const { component, listStore, dialog } = setup();
+    component.ngOnInit();
+    loadMany(listStore);
+    component.openListPicker();
+
+    listStore.sendChunkAt(1);
+    listStore.selectAll();
+    (dialog.openDialogs.at(-1) as MockDialogRef).close();
+    dialog.open.mockClear();
+
+    component.openListPicker();
+
+    expect(dialog.open).toHaveBeenCalledWith(
+      ContractListPickerComponent,
+      expect.objectContaining({ injector: expect.anything() }),
+    );
+    // Same page-scoped store — nothing to restore, the state never left.
+    expect(listStore.chunkCursor()).toBe(1);
+    expect(listStore.selection().size).toBe(25);
+  });
+});

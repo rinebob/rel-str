@@ -8,7 +8,9 @@
  * `store.emittedLines()` exactly. Send calls `store.sendSelected()` and
  * forwards the lines through the page's `onSend` callback — the dialog
  * stays open while the textarea + loadPlotted path runs behind it.
- * FE-4 (#1363) inserts the stepper tab between Rows and Lines.
+ * The Chunks tab (#1363) sits between Rows and Lines — a stepper that
+ * live-drives the chart chunk-by-chunk, a click-to-jump timeline over
+ * the doc window, and add-chunk accumulation into the selection.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -16,10 +18,18 @@ import { FormsModule } from '@angular/forms';
 import { DS_DIALOG_DATA, DsDialogRef } from '../../../../shared/ds/ds-dialog';
 
 import type { NoSelectionReason } from '@options-replay/contracts';
-import { DAYS } from '../../../shared/utils/date.util';
+import { DAYS, daysBetween } from '../../../shared/utils/date.util';
 import { ContractListSessionStore } from '../../stores/contract-list-session.store';
+import { CHUNK_SIZE_OPTIONS } from '../../utils/contract-list-session-settings';
 
-type PickerTab = 'rows' | 'lines';
+type PickerTab = 'rows' | 'chunks' | 'lines';
+
+interface TimelineTick {
+  date: string;
+  pct: number;
+  inChunk: boolean;
+  chunkIdx: number;
+}
 
 /** Dialog-data contract — the page injects the emit callback so Send
  *  can plot without closing. */
@@ -53,6 +63,48 @@ export class ContractListPickerComponent {
 
   readonly activeTab = signal<PickerTab>('rows');
 
+  readonly chunkSizeOptions = CHUNK_SIZE_OPTIONS;
+
+  /** Timeline over the doc window: one tick per pick day, positioned by
+   *  calendar distance between first/last. Ticks derive from `chunks()`
+   *  so each tick's chunk binding IS the store's partition — no
+   *  restated `floor(i / chunkSize)` rule to drift. `pickDocMeta` is
+   *  required by doc validation, so no silent row-derived fallback. */
+  readonly timeline = computed(() => {
+    const meta = this.store.activeList()?.pickDocMeta;
+    if (!meta || this.store.pickRows().length === 0) return null;
+    const { firstDate: lo, lastDate: hi } = meta;
+    const span = Math.max(1, daysBetween(lo, hi));
+    const pct = (d: string) =>
+      Math.min(100, Math.max(0, (daysBetween(lo, d) / span) * 100));
+    const curIdx = this.store.chunkInfo().index;
+    const cur = this.store.currentChunk();
+    let chunkSpan: { left: number; width: number } | null = null;
+    if (cur.length) {
+      const rawLeft = pct(cur[0].entryDate);
+      // Single-day chunks still get a visible sliver; clamping `left`
+      // (not `width`) keeps a doc-end sliver visible — clamping the
+      // width alone collapses it to zero when left hits 100%.
+      const width = Math.max(0.5, pct(cur[cur.length - 1].entryDate) - rawLeft);
+      chunkSpan = { left: Math.min(rawLeft, 100 - width), width };
+    }
+    return {
+      lo,
+      hi,
+      ticks: this.store.chunks().flatMap((chunk, chunkIdx) =>
+        chunk.map(
+          (r): TimelineTick => ({
+            date: r.entryDate,
+            pct: pct(r.entryDate),
+            inChunk: chunkIdx === curIdx,
+            chunkIdx,
+          }),
+        ),
+      ),
+      chunkSpan,
+    };
+  });
+
   // One-shot toolbar params — control values, not feature state (the
   // selection they produce lives in the store).
   readonly strideK = signal(2);
@@ -70,6 +122,26 @@ export class ContractListPickerComponent {
     if (!this.canSend()) return;
     const lines = this.store.sendSelected();
     this.data?.onSend?.(lines);
+  }
+
+  /** Chunk stepper — stepping live-drives the chart through the same
+   *  emit path as Send (sendSteppedChunk → onSend → loadPlotted,
+   *  replace semantics), so ◀▶ flips the plotted set while the dialog
+   *  stays up. */
+  stepChunk(dir: number): void {
+    this.data?.onSend?.(this.store.sendSteppedChunk(dir));
+  }
+
+  jumpToChunk(i: number): void {
+    this.data?.onSend?.(this.store.sendChunkAt(i));
+  }
+
+  addChunk(): void {
+    this.store.addChunkToSelection();
+  }
+
+  onChunkSize(n: number): void {
+    this.store.setChunkSize(n);
   }
 
   async copy(): Promise<void> {

@@ -1,5 +1,6 @@
 /**
- * ContractListPickerComponent specs (#1362 — rows tab + lines preview).
+ * ContractListPickerComponent specs (#1362 — rows tab + lines preview;
+ * #1363 — chunks tab: stepper live-drive, timeline, add-chunk).
  *
  * The full picker over the page-scoped session store: provenance header,
  * rows tab (checkboxes, toolbar ops, no-selection markers, repeat badges),
@@ -400,5 +401,108 @@ describe('ContractListPickerComponent', () => {
     const fixture = await render();
 
     expect(ctrl(fixture, '.empty-state').textContent).toContain('No active list');
+  });
+
+  describe('chunks tab', () => {
+    /** 12 picks at size 10 → chunk 1 = first 10 days (9 unique: BBB repeats),
+     *  chunk 2 = last 2 days. */
+    it('renders the stepper readout with i/n, days, and unique counts', async () => {
+      await setup();
+      const fixture = await render();
+      fixture.componentInstance.activeTab.set('chunks');
+      fixture.detectChanges();
+
+      const info = ctrl(fixture, '.chunk-info').textContent!;
+      expect(info).toContain('1/2');
+      expect(info).toContain('10 days');
+      expect(info).toContain('9 unique');
+    });
+
+    it('disables ◀ on the first chunk; ▶ steps the cursor and live-drives through onSend', async () => {
+      await setup();
+      dialogData = { onSend: jest.fn() };
+      const fixture = await render();
+      fixture.componentInstance.activeTab.set('chunks');
+      fixture.detectChanges();
+
+      const prev = ctrl(fixture, '.chunk-prev') as HTMLButtonElement;
+      const next = ctrl(fixture, '.chunk-next') as HTMLButtonElement;
+      expect(prev.disabled).toBe(true);
+      expect(next.disabled).toBe(false);
+
+      next.dispatchEvent(new Event('click'));
+      fixture.detectChanges();
+
+      expect(store.chunkCursor()).toBe(1);
+      // Literal chunk-2 lines — not the SUT's own currentChunk() output.
+      expect(dialogData.onSend).toHaveBeenCalledWith([
+        '2026-06-12,CCC7',
+        '2026-06-13,CCC8',
+      ]);
+      expect(ctrl(fixture, '.chunk-info').textContent).toContain('2/2');
+      expect(next.disabled).toBe(true);
+    });
+
+    it('renders a timeline tick per pick day and highlights the current chunk span', async () => {
+      await setup();
+      const fixture = await render();
+      fixture.componentInstance.activeTab.set('chunks');
+      fixture.detectChanges();
+
+      const ticks = el(fixture).querySelectorAll('.timeline-tick');
+      expect(ticks).toHaveLength(12); // picks only — the no-selection marker is not a tick
+      expect(el(fixture).querySelectorAll('.timeline-tick.in-chunk')).toHaveLength(10);
+      expect(el(fixture).querySelector('.timeline-chunk')).not.toBeNull();
+    });
+
+    it('clicking a timeline tick jumps the cursor to that chunk and emits it', async () => {
+      await setup();
+      dialogData = { onSend: jest.fn() };
+      const fixture = await render();
+      fixture.componentInstance.activeTab.set('chunks');
+      fixture.detectChanges();
+
+      const ticks = el(fixture).querySelectorAll<HTMLButtonElement>('.timeline-tick');
+      ticks[11].dispatchEvent(new Event('click')); // last pick day → chunk 2
+      fixture.detectChanges();
+
+      expect(store.chunkCursor()).toBe(1);
+      expect(dialogData.onSend).toHaveBeenCalledWith([
+        '2026-06-12,CCC7',
+        '2026-06-13,CCC8',
+      ]);
+    });
+
+    it('Add chunk to selection unions the chunk days without disturbing others', async () => {
+      await setup();
+      const fixture = await render();
+      fixture.componentInstance.activeTab.set('chunks');
+      fixture.detectChanges();
+
+      // Pre-check a day outside chunk 1 — accumulation must keep it.
+      store.selectNone();
+      store.toggleRow('2026-06-13', true);
+      ctrl(fixture, '.chunk-add').dispatchEvent(new Event('click'));
+
+      expect(store.selection().size).toBe(11); // chunk 1's 10 days + 06-13
+      expect(store.selection().has('2026-06-13')).toBe(true);
+      expect(store.chunkCursor()).toBe(0); // selection add does not move the cursor
+    });
+
+    it('the size stepper repartitions the list', async () => {
+      await setup();
+      const fixture = await render();
+      fixture.componentInstance.activeTab.set('chunks');
+      fixture.detectChanges();
+
+      const sel = ctrl(fixture, '.chunk-size') as HTMLSelectElement;
+      sel.value = '50';
+      sel.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      expect(store.chunkSize()).toBe(50);
+      expect(store.chunks().length).toBe(1);
+      expect(ctrl(fixture, '.chunk-info').textContent).toContain('1/1');
+    });
   });
 });
