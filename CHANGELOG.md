@@ -12,6 +12,11 @@
 - [Option Contract Time-Series Viewer] 1243-1361_FE-IMPL-OPTIONS: contract-list chooser + picker dialogs — recent-doc chooser (doc ids on rows, no refetch) + picker shell (provenance, counts, Send)
 - [Option Contract Time-Series Viewer] 1243-1361_FE-IMPL-OPTIONS: ?list= deep-link + page wiring — consume/clear param, seq-guarded ordering, named errors visible with drawer shut, send→textarea→loadPlotted
 - [Option Contract Time-Series Viewer] 1243-1361_DOCS-OPTIONS: #1361 thread docs — PRD/IMPL/TEST + code-review (PASS, 3 rounds) + UAT (Complete, #1393)
+- [Portfolio Dashboard] 219-888_FE-IMPL-PORTFOLIO: place-failure classifiers — isRefIdConflictError + asUpdatePlaceFailure for the update-stop retry contract
+- [Portfolio Dashboard] 219-888_FE-IMPL-PORTFOLIO: updatable-stop eligibility (excludes stop-limit incl. limit+stopPrice) + store updatableStops-by-symbol
+- [Portfolio Dashboard] 219-888_FE-IMPL-PORTFOLIO: Update Stop action on protected updatable equity rows
+- [Portfolio Dashboard] 219-888_FE-IMPL-PORTFOLIO: update-mode dialog + dashboard wiring specs (retry matrix, eligibility, candidate resolution)
+- [Portfolio Dashboard] 219-888_DOCS-PORTFOLIO: #888 code-review (PASS, 3 passes) + UAT (Complete, #1316)
 
 ## [2026-11-03]
 
