@@ -6,7 +6,7 @@
   }
 </h2>
 
-<div class="content" class="nt-content" [formGroup]="form">
+<div class="content nt-content" [formGroup]="form">
   <section class="nt-section nt-section--core" aria-label="Core trade details">
     <div class="nt-row">
       <label class="dse-field nt-field nt-field--symbol">
@@ -16,18 +16,18 @@
 
       <label class="dse-field nt-field nt-field--direction">
         <span class="field-label">Direction</span>
-        <mat-select formControlName="direction">
-          <mat-option value="LONG">Long</mat-option>
-          <mat-option value="SHORT">Short</mat-option>
-        </mat-select>
+        <select class="dse-select" formControlName="direction">
+          <option value="LONG">Long</option>
+          <option value="SHORT">Short</option>
+        </select>
       </label>
 
       <label class="dse-field nt-field nt-field--status">
         <span class="field-label">Status</span>
-        <mat-select formControlName="status">
-          <mat-option value="OPEN">Open</mat-option>
-          <mat-option value="CLOSED">Closed</mat-option>
-        </mat-select>
+        <select class="dse-select" formControlName="status">
+          <option value="OPEN">Open</option>
+          <option value="CLOSED">Closed</option>
+        </select>
       </label>
       <label class="dse-field nt-field nt-field--price">
         <span class="field-label">Entry price</span>
@@ -38,9 +38,7 @@
     <div class="nt-row">
       <label class="dse-field nt-field nt-field--datetime">
         <span class="field-label">Entry date</span>
-        <input class="field-input" [matDatepicker]="entryDatePicker" formControlName="entryDate" />
-        <mat-datepicker-toggle matSuffix [for]="entryDatePicker"></mat-datepicker-toggle>
-        <mat-datepicker #entryDatePicker></mat-datepicker>
+        <input class="dse-date" type="date" formControlName="entryDate" />
       </label>
 
       <label class="dse-field nt-field nt-field--datetime">
@@ -52,9 +50,7 @@
     <div class="nt-row">
       <label class="dse-field nt-field nt-field--datetime">
         <span class="field-label">Exit date</span>
-        <input class="field-input" [matDatepicker]="exitDatePicker" formControlName="exitDate" />
-        <mat-datepicker-toggle matSuffix [for]="exitDatePicker"></mat-datepicker-toggle>
-        <mat-datepicker #exitDatePicker></mat-datepicker>
+        <input class="dse-date" type="date" formControlName="exitDate" />
       </label>
 
       <label class="dse-field nt-field nt-field--datetime">
@@ -81,7 +77,7 @@
         (drop)="onBrokerCsvDrop($event)"
       >
         <h3 class="nt-section-title">Broker trade CSV</h3>
-        <mat-icon>upload_file</mat-icon>
+        <span class="dse-icon">upload_file</span>
         <input
           #brokerFileInput
           type="file"
@@ -101,7 +97,7 @@
         (drop)="onIndicatorCsvDrop($event)"
       >
         <h3 class="nt-section-title">Indicator CSVs</h3>
-        <mat-icon>upload_file</mat-icon>
+        <span class="dse-icon">upload_file</span>
         <input
           #indicatorFileInput
           type="file"
@@ -121,7 +117,7 @@
         (drop)="onScreenshotsDrop($event)"
       >
         <h3 class="nt-section-title">Screenshots</h3>
-        <mat-icon>image</mat-icon>
+        <span class="dse-icon">image</span>
         <input
           #screenshotFileInput
           type="file"
@@ -144,7 +140,7 @@
               <li class="nt-file-list__item">
                 <span>{{ fileNameFromPath(path) }}</span>
                 <button class="icon-btn" type="button" (click)="removeExistingBrokerPath(path)">
-                  <mat-icon>delete</mat-icon>
+                  <span class="dse-icon">delete</span>
                 </button>
               </li>
             }
@@ -166,7 +162,7 @@
               <li class="nt-file-list__item">
                 <span>{{ fileNameFromPath(path) }}</span>
                 <button class="icon-btn" type="button" (click)="removeExistingIndicatorPath(path)">
-                  <mat-icon>delete</mat-icon>
+                  <span class="dse-icon">delete</span>
                 </button>
               </li>
             }
@@ -188,7 +184,7 @@
               <li class="nt-file-list__item">
                 <span>{{ fileNameFromPath(path) }}</span>
                 <button class="icon-btn" type="button" (click)="removeExistingScreenshotPath(path)">
-                  <mat-icon>delete</mat-icon>
+                  <span class="dse-icon">delete</span>
                 </button>
               </li>
             }

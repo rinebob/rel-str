@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, inject, ViewChild } from '@angular/core';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { ChartSignal, MainMaId, MaType, Timeframe } from '../shared/types/rs.interfaces';
 import { RsChartComponent } from '../shared/comps/rs-chart/rs-chart.component';
@@ -15,7 +14,7 @@ import { RsChartStore } from '../store/rs-chart.store';
 @Component({
     selector: 'rs-rs-chart-view',
     standalone: true,
-    imports: [ MatProgressSpinnerModule, RsChartComponent],
+    imports: [ RsChartComponent],
     templateUrl: './rs-chart-view.component.html',
     styleUrls: ['./rs-chart-view.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,

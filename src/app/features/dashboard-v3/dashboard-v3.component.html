@@ -1,16 +1,17 @@
 <div class="dashboard-container">
 
     <div class="baseline-chip-row">
-        <mat-chip-listbox class="baseline-chip-list" [multiple]="false">
+        <div class="pill-group baseline-chip-list" role="radiogroup" aria-label="Baseline">
             @for (b of dashboardV3Store.baselines(); track b.id) {
-                <mat-chip-option
-                    class="baseline-chip"
-                    [selected]="selectedBaseline()?.id === b.id"
+                <button type="button"
+                    class="pill baseline-chip" role="radio"
+                    [attr.aria-checked]="selectedBaseline()?.id === b.id"
+                    [class.active]="selectedBaseline()?.id === b.id"
                     (click)="onBaselineChipClick(b.id)">
                     {{ b.id }}
-                </mat-chip-option>
+                </button>
             }
-        </mat-chip-listbox>
+        </div>
     </div>
 
     <div class="header-container">

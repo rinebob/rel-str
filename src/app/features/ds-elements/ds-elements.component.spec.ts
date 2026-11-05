@@ -123,7 +123,7 @@ describe('DsElementsComponent — /dev/ds-elements zoo (#1348)', () => {
     expect(el.querySelector('table[mat-table]')).toBeTruthy();
     expect(el.querySelector('mat-expansion-panel')).toBeTruthy();
     expect(el.querySelector('mat-tab-group')).toBeTruthy();
-    expect(el.querySelector('mat-checkbox')).toBeTruthy();
+    expect(el.querySelector('input[type="checkbox"]')).toBeTruthy();
     expect(el.querySelector('button[mat-button]')).toBeTruthy();
   });
 
@@ -142,7 +142,7 @@ describe('DsElementsComponent — /dev/ds-elements zoo (#1348)', () => {
     expect(el.querySelector('.pill-group .pill')).toBeTruthy();
     expect(el.querySelector('.pill-btn .pill-count')).toBeTruthy();
     expect(el.querySelector('.badge.dir-long')).toBeTruthy();
-    expect(el.querySelector('.icon-btn mat-icon')).toBeTruthy();
+    expect(el.querySelector('.icon-btn .dse-icon')).toBeTruthy();
     expect(el.querySelector('.demo-toolbar .toolbar-spacer')).toBeTruthy();
     expect(el.querySelector('.dir-edge-long')).toBeTruthy();
     expect(el.querySelector('.chip')).toBeTruthy();

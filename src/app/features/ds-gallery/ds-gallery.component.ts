@@ -30,7 +30,6 @@ import {
   signal,
 } from '@angular/core';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { ACCENTS, type AccentId, deriveAccentFamily } from '../../shared/utils/ds-accents';
 
 /** Demo body rendered inside a card — the template @switches on this. */
@@ -295,7 +294,7 @@ const PALETTE_TOKENS = [
 @Component({
   selector: 'app-ds-gallery',
   standalone: true,
-  imports: [MatIconModule, NgTemplateOutlet, DatePipe],
+  imports: [NgTemplateOutlet, DatePipe],
   templateUrl: './ds-gallery.component.html',
   styleUrl: './ds-gallery.component.scss',
   host: {

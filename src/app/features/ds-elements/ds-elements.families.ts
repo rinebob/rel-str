@@ -182,11 +182,11 @@ export const FAMILIES: readonly Family[] = [
   },
   {
     title: 'Icons',
-    blurb: '495 usages — every surface. D2 separates the Material Icons FONT (keep) from the <mat-icon> element + MatIconModule (goes with Material).',
+    blurb: '495 usages — every surface. D2 separates the Material Icons FONT (keep) from the <span class="dse-icon"> element + MatIconModule (goes with Material).',
     items: [
       { kind: 'mat-icon', name: 'mat-icon element + MatIconModule', count: 495, archetypes: ['mat-icon'],
         plan: 'DECISION', planNote: 'D2: keep font — replace element/module', seenIn: ['order-ticket — 138 files, everywhere'],
-        target: { note: 'D2 — keep glyph font (deliberate exception); <mat-icon> element retires with Material' } },
+        target: { note: 'D2 — keep glyph font (deliberate exception); <span class="dse-icon"> element retires with Material' } },
     ],
   },
   {

@@ -1,8 +1,11 @@
+<div class="dash-layout">
 
+    <div class="drawer-backdrop" [class.open]="selectStockOpen()" (click)="handleCloseSelectStockPanel()"></div>
 
-<mat-drawer-container [hasBackdrop]="true">
-
-    <mat-drawer #selectStock mode="over" position="end">
+    <aside class="dash-drawer" [class.open]="selectStockOpen()"
+           role="dialog" aria-modal="true" aria-label="Select stock"
+           cdkTrapFocusAutoCapture [cdkTrapFocus]="selectStockOpen()"
+           [attr.aria-hidden]="!selectStockOpen()">
 
         <rs-select-stock-panel />
 
@@ -12,9 +15,9 @@
 
         </div>
 
-    </mat-drawer>
+    </aside>
 
-    <mat-drawer-content>
+    <div class="dash-content">
 
             <!-- FOR DEVELOPMENT ONLY -->
         <!-- <rs-select-stock-panel /> -->
@@ -29,28 +32,25 @@
                     <p class="header-text">Baseline symbol: {{rsAppStore.selectedStockList().baseline}}</p>
 
                 </div>
-                
+
                 <div class="buttons-container">
-    
+
                     <button class="task-button ds-btn fill" (click)="handleSelectStock()">Select stock / list</button>
                     <button class="task-button ds-btn fill" (click)="handleChangeTimeframe()">Timeframe</button>
                     <button class="task-button ds-btn fill" (click)="handleSortFilter()">Sort / filter</button>
-            
+
                 </div>
 
             </div>
-        
+
             <div class="heatmap-container">
-        
+
                 <rs-heatmap />
-                
+
             </div>
 
         </div>
 
-    </mat-drawer-content>
+    </div>
 
-</mat-drawer-container>
-
-
-
+</div>

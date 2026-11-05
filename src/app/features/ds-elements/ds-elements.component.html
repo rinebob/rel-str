@@ -15,7 +15,7 @@
         }
       </select>
       <button type="button" class="icon-btn" (click)="toggleDark()" [title]="dark() ? 'Switch to light' : 'Switch to dark'">
-        <mat-icon>{{ dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        <span class="dse-icon">{{ dark() ? 'light_mode' : 'dark_mode' }}</span>
       </button>
     </div>
   </header>
@@ -71,7 +71,7 @@
                 }
                 @case ('mat-stroked-button') {
                   <div class="demo-row">
-                    <button mat-stroked-button><mat-icon>add</mat-icon> New Order</button>
+                    <button mat-stroked-button><span class="dse-icon">add</span> New Order</button>
                     <button mat-stroked-button color="primary">Stroked primary</button>
                   </div>
                 }
@@ -89,9 +89,9 @@
                 }
                 @case ('mat-icon-button') {
                   <div class="demo-row">
-                    <button mat-icon-button matTooltip="Refresh"><mat-icon>refresh</mat-icon></button>
-                    <button mat-icon-button><mat-icon>settings</mat-icon></button>
-                    <button mat-icon-button disabled><mat-icon>block</mat-icon></button>
+                    <button mat-icon-button matTooltip="Refresh"><span class="dse-icon">refresh</span></button>
+                    <button mat-icon-button><span class="dse-icon">settings</span></button>
+                    <button mat-icon-button disabled><span class="dse-icon">block</span></button>
                   </div>
                 }
                 @case ('mat-button-toggle') {
@@ -129,7 +129,7 @@
                     <mat-form-field appearance="outline">
                       <mat-label>Strike</mat-label>
                       <input matInput type="number" placeholder="472.5" />
-                      <mat-icon matSuffix>expand_more</mat-icon>
+                      <span class="dse-icon" matSuffix>expand_more</span>
                       <mat-hint>min allowed</mat-hint>
                     </mat-form-field>
                     <mat-form-field appearance="outline">
@@ -253,12 +253,12 @@
                 @case ('mat-tooltip') {
                   <div class="demo-row">
                     <button mat-button matTooltip="Short string tooltip">Hover me</button>
-                    <button mat-icon-button matTooltip="Icon tooltip"><mat-icon>info</mat-icon></button>
+                    <button mat-icon-button matTooltip="Icon tooltip"><span class="dse-icon">info</span></button>
                   </div>
                 }
                 @case ('mat-menu') {
                   <div class="demo-row">
-                    <button mat-button [matMenuTriggerFor]="m">Actions <mat-icon>arrow_drop_down</mat-icon></button>
+                    <button mat-button [matMenuTriggerFor]="m">Actions <span class="dse-icon">arrow_drop_down</span></button>
                     <mat-menu #m>
                       <button mat-menu-item>Close position</button>
                       <button mat-menu-item>Roll</button>
@@ -305,19 +305,19 @@
                 }
                 @case ('mat-spinner') {
                   <div class="demo-row">
-                    <mat-spinner [diameter]="28"></mat-spinner>
-                    <mat-progress-bar mode="indeterminate" class="demo-pbar"></mat-progress-bar>
-                    <mat-progress-bar mode="determinate" [value]="62" class="demo-pbar"></mat-progress-bar>
+                    <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
+                    <div class="dse-progress indeterminate" role="progressbar"><div class="fill"></div></div>
+                    <div class="dse-progress" role="progressbar" aria-label="Progress"><div class="fill"></div></div>
                   </div>
                 }
                 @case ('mat-icon') {
                   <div class="demo-row">
-                    <mat-icon>trending_up</mat-icon>
-                    <mat-icon>trending_down</mat-icon>
-                    <mat-icon>refresh</mat-icon>
-                    <mat-icon>close</mat-icon>
-                    <mat-icon>settings</mat-icon>
-                    <mat-icon>warning</mat-icon>
+                    <span class="dse-icon">trending_up</span>
+                    <span class="dse-icon">trending_down</span>
+                    <span class="dse-icon">refresh</span>
+                    <span class="dse-icon">close</span>
+                    <span class="dse-icon">settings</span>
+                    <span class="dse-icon">warning</span>
                   </div>
                 }
 
@@ -362,7 +362,7 @@
                   <mat-toolbar>
                     <span>Toolbar</span>
                     <span class="toolbar-spacer-flex"></span>
-                    <button mat-icon-button><mat-icon>more_vert</mat-icon></button>
+                    <button mat-icon-button><span class="dse-icon">more_vert</span></button>
                   </mat-toolbar>
                 }
                 @case ('mat-list') {
@@ -405,7 +405,7 @@
                 }
                 @case ('ds-pill-btn') {
                   <div class="demo-row">
-                    <button type="button" class="pill-btn"><mat-icon>refresh</mat-icon> refresh <span class="pill-count">12</span></button>
+                    <button type="button" class="pill-btn"><span class="dse-icon">refresh</span> refresh <span class="pill-count">12</span></button>
                     <span class="pill-btn emph">signals <span class="pill-count">4</span></span>
                     <button type="button" class="pill-btn small">small</button>
                   </div>
@@ -421,16 +421,16 @@
                 }
                 @case ('ds-icon-btn') {
                   <div class="demo-row">
-                    <button type="button" class="icon-btn"><mat-icon>refresh</mat-icon></button>
-                    <button type="button" class="icon-btn"><mat-icon>zoom_in</mat-icon></button>
-                    <button type="button" class="icon-btn dim"><mat-icon>zoom_out</mat-icon></button>
-                    <button type="button" class="icon-btn" disabled><mat-icon>settings</mat-icon></button>
+                    <button type="button" class="icon-btn"><span class="dse-icon">refresh</span></button>
+                    <button type="button" class="icon-btn"><span class="dse-icon">zoom_in</span></button>
+                    <button type="button" class="icon-btn dim"><span class="dse-icon">zoom_out</span></button>
+                    <button type="button" class="icon-btn" disabled><span class="dse-icon">settings</span></button>
                   </div>
                 }
                 @case ('ds-toolbar-row') {
                   <div class="demo-toolbar">
                     <span class="title">AAPL</span>
-                    <button type="button" class="icon-btn"><mat-icon>refresh</mat-icon></button>
+                    <button type="button" class="icon-btn"><span class="dse-icon">refresh</span></button>
                     <div class="pill-group flat">
                       <button type="button" class="pill active">1D</button>
                       <button type="button" class="pill">1W</button>
@@ -442,18 +442,18 @@
                 @case ('ds-nav-stepper') {
                   <div class="demo-row">
                     <div class="demo-stepper">
-                      <button type="button" class="nav-btn" disabled><mat-icon>chevron_left</mat-icon></button>
+                      <button type="button" class="nav-btn" disabled><span class="dse-icon">chevron_left</span></button>
                       <span class="nav-position">3 / 12</span>
-                      <button type="button" class="nav-btn"><mat-icon>chevron_right</mat-icon></button>
+                      <button type="button" class="nav-btn"><span class="dse-icon">chevron_right</span></button>
                     </div>
                   </div>
                 }
                 @case ('ds-field-input') {
                   <div class="demo-row">
                     <div class="demo-field">
-                      <mat-icon class="icon">search</mat-icon>
+                      <span class="dse-icon icon">search</span>
                       <input [value]="fieldValue()" (input)="fieldValue.set($any($event.target).value)" placeholder="Filter" />
-                      <button type="button" class="clear" (click)="fieldValue.set('')"><mat-icon>close</mat-icon></button>
+                      <button type="button" class="clear" (click)="fieldValue.set('')"><span class="dse-icon">close</span></button>
                     </div>
                   </div>
                 }
@@ -479,7 +479,7 @@
                       <button type="button" class="ds-btn danger">danger</button>
                     </div>
                     <div class="demo-row">
-                      <button type="button" class="ds-btn"><mat-icon>add</mat-icon> with icon</button>
+                      <button type="button" class="ds-btn"><span class="dse-icon">add</span> with icon</button>
                       <button type="button" class="ds-btn small">small</button>
                       <button type="button" class="ds-btn" disabled>disabled</button>
                       <button type="button" class="ds-btn fill" disabled>disabled fill</button>
@@ -541,7 +541,7 @@
                 }
                 @case ('ds-dialog') {
                   <div class="dse-dialog" role="dialog" aria-modal="true" aria-labelledby="dse-dlg-title">
-                    <div class="title" id="dse-dlg-title"><mat-icon>swap_vert</mat-icon> Close position</div>
+                    <div class="title" id="dse-dlg-title"><span class="dse-icon">swap_vert</span> Close position</div>
                     <div class="content">Confirm closing 2× MSFT calls — P&L $412.</div>
                     <div class="actions">
                       <button type="button" class="ds-btn">Cancel</button>
@@ -551,11 +551,11 @@
                 }
                 @case ('ds-menu') {
                   <div class="dse-menu" role="menu">
-                    <button type="button" class="menu-item" role="menuitem"><mat-icon>close</mat-icon> Close position</button>
-                    <button type="button" class="menu-item" role="menuitem"><mat-icon>autorenew</mat-icon> Roll</button>
+                    <button type="button" class="menu-item" role="menuitem"><span class="dse-icon">close</span> Close position</button>
+                    <button type="button" class="menu-item" role="menuitem"><span class="dse-icon">autorenew</span> Roll</button>
                     <hr class="menu-sep" />
                     <button type="button" class="menu-item" role="menuitem" disabled>Disabled</button>
-                    <button type="button" class="menu-item danger" role="menuitem"><mat-icon>delete</mat-icon> Delete</button>
+                    <button type="button" class="menu-item danger" role="menuitem"><span class="dse-icon">delete</span> Delete</button>
                   </div>
                 }
                 @case ('ds-tooltip') {
@@ -583,8 +583,8 @@
                     </table>
                     <div class="pager">
                       <span class="pager-info">1–3 of 3</span>
-                      <button type="button" class="icon-btn" disabled><mat-icon>chevron_left</mat-icon></button>
-                      <button type="button" class="icon-btn" disabled><mat-icon>chevron_right</mat-icon></button>
+                      <button type="button" class="icon-btn" disabled><span class="dse-icon">chevron_left</span></button>
+                      <button type="button" class="icon-btn" disabled><span class="dse-icon">chevron_right</span></button>
                     </div>
                   </div>
                 }
@@ -599,11 +599,11 @@
                 @case ('ds-accordion') {
                   <div class="dse-acc">
                     <div class="ds-panel open">
-                      <button type="button" class="acc-head" aria-expanded="true" aria-controls="dse-acc-b1" id="dse-acc-h1"><span>Open positions</span><mat-icon class="chev">expand_more</mat-icon></button>
+                      <button type="button" class="acc-head" aria-expanded="true" aria-controls="dse-acc-b1" id="dse-acc-h1"><span>Open positions</span><span class="dse-icon chev">expand_more</span></button>
                       <div class="acc-body" role="region" id="dse-acc-b1" aria-labelledby="dse-acc-h1">Panel body — cards/rows inside.</div>
                     </div>
                     <div class="ds-panel">
-                      <button type="button" class="acc-head" aria-expanded="false" aria-controls="dse-acc-b2" id="dse-acc-h2"><span>Closed</span><mat-icon class="chev">expand_more</mat-icon></button>
+                      <button type="button" class="acc-head" aria-expanded="false" aria-controls="dse-acc-b2" id="dse-acc-h2"><span>Closed</span><span class="dse-icon chev">expand_more</span></button>
                       <div class="acc-body" role="region" id="dse-acc-b2" aria-labelledby="dse-acc-h2">Second panel.</div>
                     </div>
                   </div>

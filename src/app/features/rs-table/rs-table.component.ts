@@ -1,6 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatTableModule } from '@angular/material/table';
+
 import { HttpClient } from '@angular/common/http';
 import { forkJoin, of, type Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -18,7 +18,7 @@ export const RS_TABLE_COLUMNS: ReadonlyArray<RsTableColumn> = ['date','qqqValue'
 @Component({
   selector: 'rs-table',
   standalone: true,
-  imports: [CommonModule, MatTableModule],
+  imports: [CommonModule],
   // NOTE: HttpClient must be provided at the app root (main.ts) via provideHttpClient()
   templateUrl: './rs-table.component.html',
   styleUrls: ['./rs-table.component.scss'],

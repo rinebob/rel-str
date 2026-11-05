@@ -1,13 +1,11 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatTableModule } from '@angular/material/table';
-import { MatIconModule } from '@angular/material/icon';
 import { TradeJournalListItem } from './trade-journal.types';
 
 @Component({
   selector: 'app-trade-journal-table',
   standalone: true,
-  imports: [CommonModule, MatTableModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './trade-journal-table.component.html',
   styleUrls: ['./trade-journal-table.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -34,28 +34,6 @@
   color: var(--ds-on-surface-variant);
 }
 
-.chip {
-  padding: mixins.rem(6) mixins.rem(14);
-  border-radius: mixins.rem(8);
-  border: 1px solid var(--ds-border-subtle);
-  font-size: 0.875rem;
-  font-weight: 500;
-  background: transparent;
-  color: var(--ds-on-surface-variant);
-  cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
-}
-
-.chip--active {
-  background: var(--ds-on-surface);
-  color: var(--ds-surface);
-  border-color: var(--ds-on-surface);
-}
-
-.chip:not(.chip--active):hover {
-  background: var(--ds-surface-raised);
-}
-
 .pv-open-grid__cards {
   @include mixins.flexboxLayout(row, flex-start, stretch);
   flex-wrap: wrap;

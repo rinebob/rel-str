@@ -54,16 +54,12 @@
   width: mixins.rem(128); // 8rem
 }
 
-// Compact Material form fields within this dialog
+// Compact DS fields within this dialog
 .nt-content {
-  .mat-mdc-form-field {
-    // Reduce vertical padding
-    .mat-mdc-text-field-wrapper {
-      padding-top: mixins.rem(4);
-      padding-bottom: mixins.rem(4);
-    }
+  .dse-field {
+    --ds-field-height: #{mixins.rem(32)};
 
-    .mat-mdc-form-field-infix {
+    .field-input {
       padding-top: mixins.rem(2);
       padding-bottom: mixins.rem(2);
     }

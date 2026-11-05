@@ -13,11 +13,6 @@
         margin: 0 20px;
     }
 
-    mat-drawer-content {
-        height: 100vh;
-    }
-    
-    
     .dashboard-container {
         @include global.flexboxLayout(column, flex-start, center);
         height: 100%;
@@ -41,16 +36,14 @@
                 padding-inline: 0.5rem;
                 min-width: auto;
 
-                // Selected state: blue background, white text, keep checkmark.
-                // Target via aria-selected so it works regardless of internal
-                // Material classes and stays consistent on hover.
-                &[aria-selected='true'] {
-                    background-color: var(--ds-accent) !important;
-                    color: var(--ds-on-accent) !important;
+                // Selected state: accent background, on-accent text.
+                &.active {
+                    background-color: var(--ds-accent);
+                    color: var(--ds-on-accent);
 
                     &:hover {
-                        background-color: var(--ds-accent) !important;
-                        color: var(--ds-on-accent) !important;
+                        background-color: var(--ds-accent);
+                        color: var(--ds-on-accent);
                     }
                 }
             }

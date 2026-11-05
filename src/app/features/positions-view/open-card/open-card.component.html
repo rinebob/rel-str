@@ -4,7 +4,7 @@
   @let closedPnl = pos.netPnL ?? 0;
   @let cardPnl = isOpen ? openPnl : closedPnl;
 
-  <mat-card
+  <article
     class="pv-open-card"
     [class.pv-open-card--profit]="cardPnl > 0"
     [class.pv-open-card--loss]="cardPnl < 0"
@@ -88,5 +88,5 @@
       </div>
       <button type="button" class="pv-open-card__details ds-btn outline">View Details</button>
     </footer>
-  </mat-card>
+  </article>
 }

@@ -10,11 +10,6 @@
 
 import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
 
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
 
 import { stageOrdinal } from '@lifecycle/tree';
 import { TopicViewerStore } from './topic-viewer.store';
@@ -23,24 +18,22 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
 @Component({
   selector: 'app-topic-viewer-page',
   imports: [
-     MatCheckboxModule, MatFormFieldModule, MatIconModule,
-    MatProgressSpinnerModule, MatSelectModule,
     TopicViewerTreeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page" data-testid="topic-viewer-page">
       <header class="header">
         <label class="dse-field repo-picker">
-          <mat-select [value]="store.selectedRepoIndex()" aria-label="Repository"
-            data-testid="repo-picker" (selectionChange)="store.selectRepo($event.value)">
+          <select class="dse-select" [value]="store.selectedRepoIndex()" aria-label="Repository"
+            data-testid="repo-picker" (change)="store.selectRepo(+$any($event.target).value)">
             @for (r of store.repos(); track r.repo; let i = $index) {
-              <mat-option [value]="i">{{ r.label }}</mat-option>
+              <option [value]="i">{{ r.label }}</option>
             }
-          </mat-select>
+          </select>
         </label>
         <button class="ds-btn outline" type="button" data-testid="refresh"
  [disabled]="store.loading()" (click)="store.refresh()">
-          @if (store.loading()) { <mat-spinner diameter="16" /> } Refresh
+          @if (store.loading()) { <span class="dse-spinner small" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span> } Refresh
         </button>
         @if (store.fetchedAt(); as at) {
           <span class="dim" data-testid="fetched-at">as of {{ at }}</span>
@@ -51,12 +44,12 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
 
       @if (store.error(); as err) {
         <div class="banner error" role="alert" data-testid="error-banner">
-          <mat-icon>error_outline</mat-icon><span>{{ err }}</span>
+          <span class="dse-icon">error_outline</span><span>{{ err }}</span>
         </div>
       }
       @if (store.groupingWarning(); as warn) {
         <div class="banner warn" role="status" data-testid="grouping-warning">
-          <mat-icon>warning_amber</mat-icon><span>{{ warn }}</span>
+          <span class="dse-icon">warning_amber</span><span>{{ warn }}</span>
         </div>
       }
 
@@ -102,7 +95,7 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
             <app-topic-viewer-tree />
           } @else {
             <div class="empty" data-testid="tree-empty">
-              <mat-icon>account_tree</mat-icon>
+              <span class="dse-icon">account_tree</span>
               <span>Select a Topic to view its lifecycle tree</span>
             </div>
           }
@@ -119,7 +112,7 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
       display: flex; align-items: center; gap: 8px;
       padding: 8px 12px; border-radius: 6px; font-size: 0.85rem;
     }
-    .banner mat-icon { font-size: 18px; width: 18px; height: 18px; flex: none; }
+    .banner .dse-icon { font-size: 18px; width: 18px; height: 18px; flex: none; }
     .banner.error { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
     .banner.warn { background: var(--ds-warning-container); color: var(--ds-on-warning-container); }
     .panes { display: flex; gap: 16px; flex: 1; min-height: 0; }
@@ -181,7 +174,7 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
       display: flex; align-items: center; justify-content: center; gap: 8px;
       color: var(--mat-sys-on-surface-variant); font-size: 0.9rem; padding: 32px 8px;
     }
-    .empty mat-icon { font-size: 22px; width: 22px; height: 22px; opacity: 0.6; }
+    .empty .dse-icon { font-size: 22px; width: 22px; height: 22px; opacity: 0.6; }
     .sr-only {
       position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
       overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;

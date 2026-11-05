@@ -1,15 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { PositionsStore } from '../positions.store';
-import { MatSortModule, Sort } from '@angular/material/sort';
 import { PositionDoc } from '../../../core/models/fe-position.types';
 
 @Component({
   selector: 'app-pv-closed-grid',
   standalone: true,
-  imports: [CommonModule, MatTableModule, MatPaginatorModule, MatSortModule],
+  imports: [CommonModule],
   templateUrl: './closed-grid.component.html',
   styleUrls: ['./closed-grid.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -88,6 +85,14 @@ export class PvClosedGridComponent {
     });
   });
 
+  readonly pagerInfo = computed(() => {
+    const total = this.totalCount();
+    if (total === 0) return '0 of 0';
+    const start = this.pageIndex() * this.pageSize() + 1;
+    const end = Math.min((this.pageIndex() + 1) * this.pageSize(), total);
+    return `${start}–${end} of ${total}`;
+  });
+
   readonly hasPrev = computed(() => this.pageIndex() > 0);
   readonly hasNext = computed(() => {
     const index = this.pageIndex();
@@ -121,12 +126,18 @@ export class PvClosedGridComponent {
     this.store.setClosedPage(this.pageIndex() + 1);
   }
 
-  onPage(event: PageEvent): void {
-    this.store.setClosedPagination(event.pageIndex, event.pageSize);
+  onPageSizeChange(size: number): void {
+    this.store.setClosedPagination(0, size);
   }
 
-  onSortChange(sort: Sort): void {
-    this.sortActive.set(sort.active || '');
-    this.sortDirection.set(sort.direction || '');
+  /** Same-column click cycles asc → desc → unsorted (Material parity). */
+  onSortClick(column: string): void {
+    if (this.sortActive() === column) {
+      this.sortDirection.set(this.sortDirection() === 'asc' ? 'desc' : this.sortDirection() === 'desc' ? '' : 'asc');
+      if (this.sortDirection() === '') this.sortActive.set('');
+      return;
+    }
+    this.sortActive.set(column);
+    this.sortDirection.set('asc');
   }
 }

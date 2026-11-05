@@ -1,6 +1,6 @@
 @if (trade(); as t) {
-  <mat-card class="tj-card">
-    <mat-card-header class="tj-card-header">
+  <article class="dse-card tj-card">
+    <header class="card-head tj-card-header">
       <div class="tj-card-header-main">
         <div class="tj-card-symbol">
           {{ t.symbol }}
@@ -36,11 +36,11 @@
  aria-label="Edit trade"
  (click)="onEditClick()"
  >
-        <mat-icon>edit</mat-icon>
+        <span class="dse-icon">edit</span>
       </button>
-    </mat-card-header>
+    </header>
 
-    <mat-card-content class="tj-card-body">
+    <div class="card-body tj-card-body">
       <div class="tj-card-body-left">
         <div class="tj-screenshot">
           @if (t.screenshotUrl) {
@@ -100,6 +100,6 @@
           </span>
         </div>
       </div>
-    </mat-card-content>
-  </mat-card>
+    </div>
+  </article>
 }

@@ -66,15 +66,6 @@
   font-weight: 600;
 }
 
-// Always show sort arrows, but make inactive ones subtle
-:host ::ng-deep .pv-closed-grid__table th .mat-sort-header-arrow {
-  opacity: 0.5 !important; // ensure arrow is visible even when not sorted
-}
-
-:host ::ng-deep .pv-closed-grid__table th.mat-sort-header-sorted .mat-sort-header-arrow {
-  opacity: 1 !important;
-}
-
 .pv-closed-grid__table td:nth-child(4),
 .pv-closed-grid__table td:nth-child(5),
 .pv-closed-grid__table td:nth-child(6),

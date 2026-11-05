@@ -4,20 +4,6 @@
 :host {
   display: block;
   margin: rem(24) 0;
-  .e-grid {
-    border-radius: rem(8);
-    box-shadow: var(--ds-shadow-1);
-    background: var(--ds-surface);
-    color: var(--ds-on-surface);
-    font-size: rem(14);
-  }
-  .rs-mat-table {
-    table-layout: fixed;
-    width: 100%;
-    border-radius: rem(8);
-    background: var(--ds-surface);
-    color: var(--ds-on-surface);
-  }
   .rs-table-scroll {
     max-height: rem(640); // 40rem;
     overflow-y: auto;
@@ -43,34 +29,30 @@
       font-weight: 700;
       color: var(--ds-on-surface);
     }
-    .mat-table, .rs-mat-table-body {
+    .rs-table-body {
       width: 100%;
       table-layout: fixed;
       min-width: 100%;
     }
-    // Robust sticky header background fix
-    .mat-header-row,
-    .mat-header-cell,
-    th.mat-header-cell,
-    .mat-table-sticky,
-    thead,
-    thead tr,
+    // Sticky header — opaque background so scrolled rows don't bleed through
     thead th {
+      position: sticky;
+      top: 0;
       background: var(--ds-surface);
-      background-color: var(--ds-surface);
       z-index: 10;
       box-shadow: var(--ds-shadow-1);
+      text-align: center;
+      vertical-align: middle;
     }
   }
-  .rs-mat-table-body {
+  .rs-table-body {
     table-layout: fixed;
     width: 100%;
     background: var(--ds-surface);
     color: var(--ds-on-surface);
-    .mdc-data-table__cell,
-    .mdc-data-table__header-cell {
-      text-align: center !important;
-      vertical-align: middle !important;
+    td {
+      text-align: center;
+      vertical-align: middle;
     }
   }
 }

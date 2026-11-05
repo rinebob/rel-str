@@ -35,20 +35,30 @@
             <label class="dse-field symbol-autocomplete-field">
                 <span class="field-label">Add symbol</span>
                 
-                <input class="field-input"
-                       type="text"
-                       [matAutocomplete]="symbolAuto"
-                       [formControl]="symbolSearchControl"
-                       placeholder="Search symbols to add"
-                >
+                <div class="dse-combobox">
+                    <input class="field-input"
+                           type="text"
+                           role="combobox"
+                           [attr.aria-expanded]="comboOpen() && filteredSymbols().length > 0"
+                           aria-controls="symbol-combo-panel"
+                           [formControl]="symbolSearchControl"
+                           placeholder="Search symbols to add"
+                           (focus)="comboOpen.set(true)"
+                           (blur)="comboOpen.set(false)"
+                    >
 
-                <mat-autocomplete #symbolAuto="matAutocomplete" (optionSelected)="handleSymbolSelectedFromAutocomplete($event.option.value)">
-                    @for (symbol of filteredSymbols(); track symbol.symbol) {
-                        <mat-option [value]="symbol">
-                            {{ symbol.symbol }}  {{ symbol.company }}
-                        </mat-option>
+                    @if (comboOpen() && filteredSymbols().length > 0) {
+                        <div class="combo-panel" id="symbol-combo-panel" role="listbox">
+                            @for (symbol of filteredSymbols(); track symbol.symbol) {
+                                <div class="combo-option"
+                                     role="option"
+                                     (mousedown)="handleSymbolSelectedFromAutocomplete(symbol); $event.preventDefault()">
+                                    {{ symbol.symbol }}  {{ symbol.company }}
+                                </div>
+                            }
+                        </div>
                     }
-                </mat-autocomplete>
+                </div>
 
             </label>
         </div>

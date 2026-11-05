@@ -1,11 +1,11 @@
 <div class="tj-root">
-  <mat-toolbar color="primary" class="tj-toolbar">
+  <header class="tj-toolbar">
     <span class="tj-spacer"></span>
     <button class="ds-btn outline" (click)="openNewTrade()">
-      <mat-icon>add</mat-icon>
+      <span class="dse-icon">add</span>
       <span>New trade</span>
     </button>
-  </mat-toolbar>
+  </header>
 
   <section class="tj-filters" aria-label="Trade filters">
     <label class="dse-field tj-filter-field tj-filter-field--symbol">
@@ -15,21 +15,21 @@
 
     <label class="dse-field tj-filter-field tj-filter-field--status">
       <span class="field-label">Status</span>
-      <mat-select>
-        <mat-option value="">All</mat-option>
-        <mat-option value="OPEN">Open</mat-option>
-        <mat-option value="CLOSED">Closed</mat-option>
-        <mat-option value="CANCELED">Canceled</mat-option>
-      </mat-select>
+      <select class="dse-select">
+        <option value="">All</option>
+        <option value="OPEN">Open</option>
+        <option value="CLOSED">Closed</option>
+        <option value="CANCELED">Canceled</option>
+      </select>
     </label>
 
     <label class="dse-field tj-filter-field tj-filter-field--direction">
       <span class="field-label">Direction</span>
-      <mat-select>
-        <mat-option value="">Any</mat-option>
-        <mat-option value="LONG">Long</mat-option>
-        <mat-option value="SHORT">Short</mat-option>
-      </mat-select>
+      <select class="dse-select">
+        <option value="">Any</option>
+        <option value="LONG">Long</option>
+        <option value="SHORT">Short</option>
+      </select>
     </label>
 
     <label class="dse-check"><input type="checkbox" class="tj-filter-checkbox">Include newsletter candidates only</label>
@@ -46,14 +46,14 @@
 
     @if (selectedTradeId()) {
       <aside class="tj-detail">
-        <mat-toolbar color="primary" class="tj-detail-toolbar">
+        <header class="tj-detail-toolbar">
           <span>Trade details</span>
           <span class="tj-spacer"></span>
           <button class="ds-btn outline" (click)="openNewTrade()">
-            <mat-icon>add</mat-icon>
+            <span class="dse-icon">add</span>
             <span>New trade</span>
           </button>
-        </mat-toolbar>
+        </header>
         <div class="tj-detail-body">
           @if (selectedTrade(); as trade) {
             <app-trade-journal-detail-card
@@ -69,9 +69,9 @@
       </aside>
     } @else {
       <aside class="tj-detail tj-detail--empty">
-        <mat-toolbar color="primary" class="tj-detail-toolbar">
+        <header class="tj-detail-toolbar">
           <span>Trade details</span>
-        </mat-toolbar>
+        </header>
         <div class="tj-detail-body">
           <div class="tj-detail-placeholder tj-detail-placeholder--empty">
             Select a trade from the table to view details.

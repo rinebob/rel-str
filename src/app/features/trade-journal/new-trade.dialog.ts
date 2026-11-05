@@ -4,13 +4,6 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { DS_DIALOG_DATA } from '../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../shared/ds/ds-dialog';
 
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatIconModule } from '@angular/material/icon';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 
 export enum DialogMode {
   CREATE = 'create',
@@ -49,6 +42,18 @@ export interface ExistingTradeFilePaths {
   screenshotPaths?: string[];
 }
 
+/** Normalize a Date or ISO-ish string to `yyyy-MM-dd` for native date inputs. */
+function toIsoDate(value: string | Date | null | undefined): string {
+  if (value == null || value === '') return '';
+  if (value instanceof Date) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return value.slice(0, 10);
+}
+
 export interface NewTradeDialogData extends ExistingTradeFilePaths {
   mode: DialogMode;
   tradeId?: string;
@@ -67,14 +72,7 @@ export interface NewTradeDialogData extends ExistingTradeFilePaths {
   selector: 'app-new-trade-dialog',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatCheckboxModule,
-    MatIconModule,
-    MatDatepickerModule,
-    MatNativeDateModule
+    ReactiveFormsModule
 ],
   templateUrl: './new-trade.dialog.html',
   styleUrls: ['./new-trade.dialog.scss'],
@@ -92,10 +90,10 @@ export class NewTradeDialogComponent {
     direction: [this.data?.direction ?? 'LONG', [Validators.required]],
     status: [this.data?.status ?? 'OPEN', [Validators.required]],
     entryPrice: [this.data?.entryPrice ?? null, [Validators.required]],
-    entryDate: [this.data?.entryDate ?? '', [Validators.required]],
+    entryDate: [toIsoDate(this.data?.entryDate) ?? '', [Validators.required]],
     entryTime: [this.data?.entryTime ?? '', [Validators.required]],
     exitPrice: [this.data?.exitPrice ?? null],
-    exitDate: [this.data?.exitDate ?? ''],
+    exitDate: [toIsoDate(this.data?.exitDate) ?? ''],
     exitTime: [this.data?.exitTime ?? ''],
   });
 

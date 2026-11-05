@@ -86,11 +86,7 @@
       <div class="rs-chart-view__main-chart">
         @if (chartStore.loading()) {
           <div class="rs-chart-view__chart-loading">
-            <mat-progress-spinner
-              mode="indeterminate"
-              [diameter]="32"
-              color="primary"
-            ></mat-progress-spinner>
+            <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
             <span class="rs-chart-view__chart-loading-text">
               Loading main chart · RS data · OHLC
             </span>
@@ -230,11 +226,7 @@
     } @else {
       <div class="rs-chart-view__main-chart">
         <div class="rs-chart-view__chart-loading">
-          <mat-progress-spinner
-            mode="indeterminate"
-            [diameter]="64"
-            color="primary"
-          ></mat-progress-spinner>
+          <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
           <span class="rs-chart-view__chart-loading-text">
             Loading charts · RS data · OHLC
           </span>
@@ -257,11 +249,7 @@
           <div
             class="rs-chart-view__chart-loading rs-chart-view__chart-loading--small"
           >
-            <mat-progress-spinner
-              mode="indeterminate"
-              [diameter]="40"
-              color="primary"
-            ></mat-progress-spinner>
+            <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
           </div>
         </div>
       }

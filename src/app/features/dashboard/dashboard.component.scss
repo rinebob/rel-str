@@ -4,14 +4,59 @@
 :host {
 
     /////////////////// CONTAINERS ///////////////////
-    
+
+    .dash-layout {
+        position: relative;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 900;
+        background-color: rgba(0,0,0, 0.6);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+
+        &.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    }
+
+    .dash-drawer {
+        @include global.flexboxLayout(column, flex-start, stretch);
+        position: fixed;
+        top: 0;
+        right: 0;
+        z-index: 1000;
+        height: 100%;
+        min-width: 320px;
+        overflow-y: auto;
+        background-color: var(--ds-surface);
+        transform: translateX(100%);
+        visibility: hidden;
+        transition: transform 0.25s ease, visibility 0s 0.25s;
+
+        &.open {
+            transform: translateX(0);
+            visibility: visible;
+            transition: transform 0.25s ease, visibility 0s 0s;
+            box-shadow: var(--ds-shadow-2, -8px 0 24px rgba(0,0,0,0.24));
+        }
+    }
+
     .close-button-container {
         @include global.flexboxLayout(row, flex-end, center);
         margin: 0 20px;
     }
 
-    mat-drawer-content {
+    .dash-content {
         height: 100vh;
+        overflow: auto;
     }
     
     

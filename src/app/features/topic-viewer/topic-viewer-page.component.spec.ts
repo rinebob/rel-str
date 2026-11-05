@@ -12,7 +12,6 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
-import { MatSelect } from '@angular/material/select';
 
 import { TopicViewerPageComponent } from './topic-viewer-page.component';
 import { TopicViewerStore } from './topic-viewer.store';
@@ -186,10 +185,12 @@ describe('TopicViewerPageComponent', () => {
   it('repo picker change calls selectRepo', async () => {
     response.set(RESPONSE);
     await setup();
-    fixture.debugElement.query(By.directive(MatSelect))
-      .componentInstance.selectionChange.emit({ value: 1 });
+    // The mock repo list has one entry — picking it forwards index 0.
+    const sel = fixture.nativeElement.querySelector('select.dse-select') as HTMLSelectElement;
+    sel.selectedIndex = 0;
+    sel.dispatchEvent(new Event('change'));
     await fixture.whenStable();
-    expect(selectRepo).toHaveBeenCalledWith(1);
+    expect(selectRepo).toHaveBeenCalledWith(0);
   });
 
   it('refresh button disables while loading', async () => {
@@ -204,9 +205,7 @@ describe('TopicViewerPageComponent', () => {
     response.set(RESPONSE);
     await setup();
     const cb = fixture.nativeElement.querySelector('[data-testid="show-closed"]') as HTMLElement;
-    cb.dispatchEvent(new Event('change')); // MatCheckbox re-emits on the host
-    // mat-checkbox (change) fires on the inner input — trigger via click
-    (cb.querySelector('input') ?? cb).click();
+    (cb.tagName === 'INPUT' ? cb : cb.querySelector('input')!).click();
     fixture.detectChanges();
     expect(setShowClosed).toHaveBeenCalled();
   });

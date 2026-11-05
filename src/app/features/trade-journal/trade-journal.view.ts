@@ -1,16 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@angular/core';
 
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { DsDialogService } from '../../shared/ds/ds-dialog';
 
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 import { TradeJournalListItem } from './trade-journal.types';
 import { TradeJournalDetailCardComponent } from './trade-journal-detail-card.component';
 import { TradeJournalTableComponent } from './trade-journal-table.component';
@@ -21,15 +12,6 @@ import { TradeJournalStore } from './trade-journal.store';
   selector: 'app-trade-journal-view',
   standalone: true,
   imports: [
-    MatSidenavModule,
-    MatToolbarModule,
-    MatIconModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatCheckboxModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
     TradeJournalDetailCardComponent,
     TradeJournalTableComponent
 ],

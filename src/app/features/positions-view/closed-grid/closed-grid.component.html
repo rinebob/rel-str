@@ -15,86 +15,90 @@
     </div>
   </div>
 
-  <table
-    mat-table
-    [dataSource]="sortedPositions()"
-    matSort
-    [matSortActive]="sortActive()"
-    [matSortDirection]="sortDirection()"
-    (matSortChange)="onSortChange($event)"
-    class="pv-closed-grid__table"
-  >
-    <ng-container matColumnDef="baseline">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header>Baseline</th>
-      <td mat-cell *matCellDef="let pos">{{ pos.baseline }}</td>
-    </ng-container>
+  <div class="dse-table pv-closed-grid__table-wrap">
+    <table class="pv-closed-grid__table">
+      <thead>
+        <tr>
+          <th class="sortable" tabindex="0" role="button"
+            [class.asc]="sortActive() === 'baseline' && sortDirection() === 'asc'"
+            [class.desc]="sortActive() === 'baseline' && sortDirection() === 'desc'"
+            [attr.aria-sort]="sortActive() === 'baseline' ? (sortDirection() === 'desc' ? 'descending' : 'ascending') : null"
+            (click)="onSortClick('baseline')" (keydown.enter)="onSortClick('baseline')">Baseline</th>
+          <th class="sortable" tabindex="0" role="button"
+            [class.asc]="sortActive() === 'symbol' && sortDirection() === 'asc'"
+            [class.desc]="sortActive() === 'symbol' && sortDirection() === 'desc'"
+            [attr.aria-sort]="sortActive() === 'symbol' ? (sortDirection() === 'desc' ? 'descending' : 'ascending') : null"
+            (click)="onSortClick('symbol')" (keydown.enter)="onSortClick('symbol')">Target</th>
+          <th class="sortable" tabindex="0" role="button"
+            [class.asc]="sortActive() === 'direction' && sortDirection() === 'asc'"
+            [class.desc]="sortActive() === 'direction' && sortDirection() === 'desc'"
+            [attr.aria-sort]="sortActive() === 'direction' ? (sortDirection() === 'desc' ? 'descending' : 'ascending') : null"
+            (click)="onSortClick('direction')" (keydown.enter)="onSortClick('direction')">Side</th>
+          <th>Entry</th>
+          <th>Exit</th>
+          <th class="sortable" tabindex="0" role="button"
+            [class.asc]="sortActive() === 'netPnL' && sortDirection() === 'asc'"
+            [class.desc]="sortActive() === 'netPnL' && sortDirection() === 'desc'"
+            [attr.aria-sort]="sortActive() === 'netPnL' ? (sortDirection() === 'desc' ? 'descending' : 'ascending') : null"
+            (click)="onSortClick('netPnL')" (keydown.enter)="onSortClick('netPnL')">PNL</th>
+          <th class="sortable" tabindex="0" role="button"
+            [class.asc]="sortActive() === 'percentReturn' && sortDirection() === 'asc'"
+            [class.desc]="sortActive() === 'percentReturn' && sortDirection() === 'desc'"
+            [attr.aria-sort]="sortActive() === 'percentReturn' ? (sortDirection() === 'desc' ? 'descending' : 'ascending') : null"
+            (click)="onSortClick('percentReturn')" (keydown.enter)="onSortClick('percentReturn')">% Return</th>
+          <th class="sortable" tabindex="0" role="button"
+            [class.asc]="sortActive() === 'entryDay' && sortDirection() === 'asc'"
+            [class.desc]="sortActive() === 'entryDay' && sortDirection() === 'desc'"
+            [attr.aria-sort]="sortActive() === 'entryDay' ? (sortDirection() === 'desc' ? 'descending' : 'ascending') : null"
+            (click)="onSortClick('entryDay')" (keydown.enter)="onSortClick('entryDay')">Opened</th>
+          <th class="sortable" tabindex="0" role="button"
+            [class.asc]="sortActive() === 'exitDay' && sortDirection() === 'asc'"
+            [class.desc]="sortActive() === 'exitDay' && sortDirection() === 'desc'"
+            [attr.aria-sort]="sortActive() === 'exitDay' ? (sortDirection() === 'desc' ? 'descending' : 'ascending') : null"
+            (click)="onSortClick('exitDay')" (keydown.enter)="onSortClick('exitDay')">Closed</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (pos of sortedPositions(); track $index) {
+          <tr>
+            <td>{{ pos.baseline }}</td>
+            <td>{{ pos.symbol }}</td>
+            <td>{{ pos.direction }}</td>
+            <td class="pv-closed-grid__cell-num">{{ pos.entryPrice | number: '1.2-2' }}</td>
+            <td class="pv-closed-grid__cell-num">{{ pos.exitPrice | number: '1.2-2' }}</td>
+            <td
+              class="pv-closed-grid__cell-num pv-closed-grid__cell-pnl"
+              [class.pv-closed-grid__cell-pnl--positive]="(pos.netPnL ?? 0) > 0"
+              [class.pv-closed-grid__cell-pnl--negative]="(pos.netPnL ?? 0) < 0"
+            >
+              {{ pos.netPnL | number: '1.2-2' }}
+            </td>
+            <td
+              class="pv-closed-grid__cell-num pv-closed-grid__cell-pct"
+              [class.pv-closed-grid__cell-pnl--positive]="(pos.percentReturn ?? 0) > 0"
+              [class.pv-closed-grid__cell-pnl--negative]="(pos.percentReturn ?? 0) < 0"
+            >
+              {{ pos.percentReturn | number: '1.2-2' }}
+            </td>
+            <td>{{ pos.entryDay }}</td>
+            <td>{{ pos.exitDay }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
 
-    <ng-container matColumnDef="symbol">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header>Target</th>
-      <td mat-cell *matCellDef="let pos">{{ pos.symbol }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="direction">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header>Side</th>
-      <td mat-cell *matCellDef="let pos">{{ pos.direction }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="entryPrice">
-      <th mat-header-cell *matHeaderCellDef>Entry</th>
-      <td mat-cell *matCellDef="let pos" class="pv-closed-grid__cell-num">{{ pos.entryPrice | number: '1.2-2' }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="exitPrice">
-      <th mat-header-cell *matHeaderCellDef>Exit</th>
-      <td mat-cell *matCellDef="let pos" class="pv-closed-grid__cell-num">{{ pos.exitPrice | number: '1.2-2' }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="netPnL">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header>PNL</th>
-      <td
-        mat-cell
-        *matCellDef="let pos"
-        class="pv-closed-grid__cell-num pv-closed-grid__cell-pnl"
-        [class.pv-closed-grid__cell-pnl--positive]="(pos.netPnL ?? 0) > 0"
-        [class.pv-closed-grid__cell-pnl--negative]="(pos.netPnL ?? 0) < 0"
-      >
-        {{ pos.netPnL | number: '1.2-2' }}
-      </td>
-    </ng-container>
-
-    <ng-container matColumnDef="percentReturn">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header>% Return</th>
-      <td
-        mat-cell
-        *matCellDef="let pos"
-        class="pv-closed-grid__cell-num pv-closed-grid__cell-pct"
-        [class.pv-closed-grid__cell-pnl--positive]="(pos.percentReturn ?? 0) > 0"
-        [class.pv-closed-grid__cell-pnl--negative]="(pos.percentReturn ?? 0) < 0"
-      >
-        {{ pos.percentReturn | number: '1.2-2' }}
-      </td>
-    </ng-container>
-
-    <ng-container matColumnDef="entryDay">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header>Opened</th>
-      <td mat-cell *matCellDef="let pos">{{ pos.entryDay }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="exitDay">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header>Closed</th>
-      <td mat-cell *matCellDef="let pos">{{ pos.exitDay }}</td>
-    </ng-container>
-
-    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-  </table>
-
-  <mat-paginator
-    class="pv-closed-grid__pagination"
-    [length]="totalCount()"
-    [pageIndex]="pageIndex()"
-    [pageSize]="pageSize()"
-    [pageSizeOptions]="[25, 50, 100]"
-    (page)="onPage($event)">
-  </mat-paginator>
+    <div class="pager pv-closed-grid__pagination">
+      <span class="pager-info">{{ pagerInfo() }}</span>
+      <select class="dse-select" [value]="pageSize()" aria-label="Rows per page"
+        (change)="onPageSizeChange(+$any($event.target).value)">
+        <option [value]="25">25</option>
+        <option [value]="50">50</option>
+        <option [value]="100">100</option>
+      </select>
+      <button type="button" class="icon-btn" aria-label="Previous page"
+        [disabled]="!hasPrev()" (click)="prevPage()">‹</button>
+      <button type="button" class="icon-btn" aria-label="Next page"
+        [disabled]="!hasNext()" (click)="nextPage()">›</button>
+    </div>
+  </div>
 </section>

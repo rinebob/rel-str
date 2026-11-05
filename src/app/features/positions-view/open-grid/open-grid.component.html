@@ -3,133 +3,112 @@
     <div class="pv-open-grid__filters">
       <div class="pv-open-grid__filter-group">
         <span class="pv-open-grid__filter-label">Interval</span>
-        <mat-chip-listbox class="chip-group" aria-label="Interval filter">
-          <mat-chip-option
-            [selected]="intervalFilter() === IntervalFilter.ALL"
-            (click)="setIntervalFilter(IntervalFilter.ALL)"
-            class="chip"
-          >
-            All
-          </mat-chip-option>
-          <mat-chip-option
-            [selected]="intervalFilter() === IntervalFilter.DAILY"
-            (click)="setIntervalFilter(IntervalFilter.DAILY)"
-            class="chip"
-          >
-            Daily
-          </mat-chip-option>
-          <mat-chip-option
-            [selected]="intervalFilter() === IntervalFilter.WEEKLY"
-            (click)="setIntervalFilter(IntervalFilter.WEEKLY)"
-            class="chip"
-          >
-            Weekly
-          </mat-chip-option>
-          <mat-chip-option
-            [selected]="intervalFilter() === IntervalFilter.MONTHLY"
-            (click)="setIntervalFilter(IntervalFilter.MONTHLY)"
-            class="chip"
-          >
-            Monthly
-          </mat-chip-option>
-        </mat-chip-listbox>
+        <div class="pill-group chip-group" role="radiogroup" aria-label="Interval filter">
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="intervalFilter() === IntervalFilter.ALL"
+            [class.active]="intervalFilter() === IntervalFilter.ALL"
+            (click)="setIntervalFilter(IntervalFilter.ALL)">All</button>
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="intervalFilter() === IntervalFilter.DAILY"
+            [class.active]="intervalFilter() === IntervalFilter.DAILY"
+            (click)="setIntervalFilter(IntervalFilter.DAILY)">Daily</button>
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="intervalFilter() === IntervalFilter.WEEKLY"
+            [class.active]="intervalFilter() === IntervalFilter.WEEKLY"
+            (click)="setIntervalFilter(IntervalFilter.WEEKLY)">Weekly</button>
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="intervalFilter() === IntervalFilter.MONTHLY"
+            [class.active]="intervalFilter() === IntervalFilter.MONTHLY"
+            (click)="setIntervalFilter(IntervalFilter.MONTHLY)">Monthly</button>
+        </div>
       </div>
       <div class="pv-open-grid__filter-group">
         <span class="pv-open-grid__filter-label">Direction</span>
-        <mat-chip-listbox class="chip-group" aria-label="Direction filter">
-          <mat-chip-option
-            [selected]="sideFilter() === SideFilter.ALL"
-            (click)="setSideFilter(SideFilter.ALL)"
-            class="chip"
-          >
-            All
-          </mat-chip-option>
-          <mat-chip-option
-            [selected]="sideFilter() === SideFilter.LONG"
-            (click)="setSideFilter(SideFilter.LONG)"
-            class="chip"
-          >
-            Long
-          </mat-chip-option>
-          <mat-chip-option
-            [selected]="sideFilter() === SideFilter.SHORT"
-            (click)="setSideFilter(SideFilter.SHORT)"
-            class="chip"
-          >
-            Short
-          </mat-chip-option>
-        </mat-chip-listbox>
+        <div class="pill-group chip-group" role="radiogroup" aria-label="Direction filter">
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="sideFilter() === SideFilter.ALL"
+            [class.active]="sideFilter() === SideFilter.ALL"
+            (click)="setSideFilter(SideFilter.ALL)">All</button>
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="sideFilter() === SideFilter.LONG"
+            [class.active]="sideFilter() === SideFilter.LONG"
+            (click)="setSideFilter(SideFilter.LONG)">Long</button>
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="sideFilter() === SideFilter.SHORT"
+            [class.active]="sideFilter() === SideFilter.SHORT"
+            (click)="setSideFilter(SideFilter.SHORT)">Short</button>
+        </div>
       </div>
       <div class="pv-open-grid__filter-group">
         <span class="pv-open-grid__filter-label">W/L</span>
-        <mat-chip-listbox class="chip-group" aria-label="Result filter">
-          <mat-chip-option
-            [selected]="resultFilter() === ResultFilter.ALL"
-            (click)="setResultFilter(ResultFilter.ALL)"
-            class="chip"
-          >
-            All
-          </mat-chip-option>
-          <mat-chip-option
-            [selected]="resultFilter() === ResultFilter.WINNERS"
-            (click)="setResultFilter(ResultFilter.WINNERS)"
-            class="chip"
-          >
-            Winners
-          </mat-chip-option>
-          <mat-chip-option
-            [selected]="resultFilter() === ResultFilter.LOSERS"
-            (click)="setResultFilter(ResultFilter.LOSERS)"
-            class="chip"
-          >
-            Losers
-          </mat-chip-option>
-        </mat-chip-listbox>
+        <div class="pill-group chip-group" role="radiogroup" aria-label="Result filter">
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="resultFilter() === ResultFilter.ALL"
+            [class.active]="resultFilter() === ResultFilter.ALL"
+            (click)="setResultFilter(ResultFilter.ALL)">All</button>
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="resultFilter() === ResultFilter.WINNERS"
+            [class.active]="resultFilter() === ResultFilter.WINNERS"
+            (click)="setResultFilter(ResultFilter.WINNERS)">Winners</button>
+          <button type="button" class="pill" role="radio"
+            [attr.aria-checked]="resultFilter() === ResultFilter.LOSERS"
+            [class.active]="resultFilter() === ResultFilter.LOSERS"
+            (click)="setResultFilter(ResultFilter.LOSERS)">Losers</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <mat-accordion class="pv-open-grid__accordion">
+  <div class="dse-acc pv-open-grid__accordion">
     @if (monthlyOpen().length > 0) {
-      <mat-expansion-panel [expanded]="true">
-        <mat-expansion-panel-header>
+      <div class="ds-panel" [class.open]="panelOpen()['monthly']">
+        <button type="button" class="acc-head" (click)="togglePanel('monthly')"
+          [attr.aria-expanded]="panelOpen()['monthly']" aria-controls="pv-monthly-body">
           <span>Monthly ({{ monthlyOpen().length }})</span>
-        </mat-expansion-panel-header>
-
-        <div class="pv-open-grid__cards">
-          @for (pos of monthlyOpen(); track pos.positionId) {
-            <app-pv-open-card [position]="pos"></app-pv-open-card>
-          }
+          <span class="dse-icon chev">expand_more</span>
+        </button>
+        <div class="acc-body" id="pv-monthly-body" role="region">
+          <div class="pv-open-grid__cards">
+            @for (pos of monthlyOpen(); track pos.positionId) {
+              <app-pv-open-card [position]="pos"></app-pv-open-card>
+            }
+          </div>
         </div>
-      </mat-expansion-panel>
+      </div>
     }
 
     @if (weeklyOpen().length > 0) {
-      <mat-expansion-panel [expanded]="true">
-        <mat-expansion-panel-header>
+      <div class="ds-panel" [class.open]="panelOpen()['weekly']">
+        <button type="button" class="acc-head" (click)="togglePanel('weekly')"
+          [attr.aria-expanded]="panelOpen()['weekly']" aria-controls="pv-weekly-body">
           <span>Weekly ({{ weeklyOpen().length }})</span>
-        </mat-expansion-panel-header>
-
-        <div class="pv-open-grid__cards">
-          @for (pos of weeklyOpen(); track pos.positionId) {
-            <app-pv-open-card [position]="pos"></app-pv-open-card>
-          }
+          <span class="dse-icon chev">expand_more</span>
+        </button>
+        <div class="acc-body" id="pv-weekly-body" role="region">
+          <div class="pv-open-grid__cards">
+            @for (pos of weeklyOpen(); track pos.positionId) {
+              <app-pv-open-card [position]="pos"></app-pv-open-card>
+            }
+          </div>
         </div>
-      </mat-expansion-panel>
+      </div>
     }
 
     @if (dailyOpen().length > 0) {
-      <mat-expansion-panel [expanded]="true">
-        <mat-expansion-panel-header>
+      <div class="ds-panel" [class.open]="panelOpen()['daily']">
+        <button type="button" class="acc-head" (click)="togglePanel('daily')"
+          [attr.aria-expanded]="panelOpen()['daily']" aria-controls="pv-daily-body">
           <span>Daily ({{ dailyOpen().length }})</span>
-        </mat-expansion-panel-header>
-
-        <div class="pv-open-grid__cards">
-          @for (pos of dailyOpen(); track pos.positionId) {
-            <app-pv-open-card [position]="pos"></app-pv-open-card>
-          }
+          <span class="dse-icon chev">expand_more</span>
+        </button>
+        <div class="acc-body" id="pv-daily-body" role="region">
+          <div class="pv-open-grid__cards">
+            @for (pos of dailyOpen(); track pos.positionId) {
+              <app-pv-open-card [position]="pos"></app-pv-open-card>
+            }
+          </div>
         </div>
-      </mat-expansion-panel>
+      </div>
     }
-  </mat-accordion>
+  </div>
 </section>

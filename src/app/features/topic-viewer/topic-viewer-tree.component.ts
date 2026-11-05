@@ -7,7 +7,6 @@
 
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 
-import { MatIconModule } from '@angular/material/icon';
 
 import type { LifecycleNode } from '@lifecycle/contracts';
 import { stageOrdinal } from '@lifecycle/tree';
@@ -19,7 +18,7 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
 
 @Component({
   selector: 'app-topic-viewer-tree',
-  imports: [ MatIconModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @for (row of store.treeRows(); track row.node.number) {
@@ -34,7 +33,7 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
  [attr.aria-expanded]="isExpanded(row.node.number)"
  [attr.aria-label]="(isExpanded(row.node.number) ? 'Collapse ' : 'Expand ') + '#' + row.node.number"
  (click)="store.toggleExpanded(row.node.number)"
- ><mat-icon>{{ isExpanded(row.node.number) ? 'expand_more' : 'chevron_right' }}</mat-icon></button>
+ ><span class="dse-icon">{{ isExpanded(row.node.number) ? 'expand_more' : 'chevron_right' }}</span></button>
         } @else {
           <span class="caret-spacer"></span>
         }
@@ -86,7 +85,7 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
       width: 24px; height: 24px; flex: none; padding: 0;
       display: inline-flex; align-items: center; justify-content: center;
     }
-    .caret mat-icon {
+    .caret .dse-icon {
       font-size: 18px; width: 18px; height: 18px; line-height: 18px;
       display: inline-flex; align-items: center; justify-content: center;
     }

@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, computed } from '@angular/core';
-import { MatChipsModule } from '@angular/material/chips';
 
 import { HeatmapV3Component } from './heatmap-v3/heatmap-v3.component';
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
@@ -18,7 +17,7 @@ import { HeatmapV4Component } from './heatmap-v4/heatmap-v4.component';
     imports: [
         
         HeatmapV4Component,
-        MatChipsModule],
+        ],
     templateUrl: './dashboard-v3.component.html',
     styleUrl: './dashboard-v3.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

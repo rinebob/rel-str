@@ -1,7 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
-import { MatChipsModule } from '@angular/material/chips';
-import { MatExpansionModule } from '@angular/material/expansion';
 import { PositionsStore, PositionsResultFilter, PositionsSideFilter, PositionsIntervalFilter } from '../positions.store';
 import { PvOpenCardComponent } from '../open-card/open-card.component';
 import { PositionDirection } from '../../../core/models/fe-position.types';
@@ -10,7 +8,7 @@ import { BarsInterval } from '../../../core/models/partner.types';
 @Component({
   selector: 'app-pv-open-grid',
   standalone: true,
-  imports: [MatChipsModule, MatExpansionModule, PvOpenCardComponent],
+  imports: [PvOpenCardComponent],
   templateUrl: './open-grid.component.html',
   styleUrls: ['./open-grid.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -38,6 +36,13 @@ export class PvOpenGridComponent {
       return 0;
     }),
   );
+
+  /** Accordion panel open state — all groups start expanded. */
+  readonly panelOpen = signal<Record<string, boolean>>({ monthly: true, weekly: true, daily: true });
+
+  togglePanel(key: string): void {
+    this.panelOpen.update((p) => ({ ...p, [key]: !p[key] }));
+  }
 
   readonly monthlyOpen = computed(() =>
     this.sortedFiltered().filter((p) => p.interval === BarsInterval.MONTHLY),

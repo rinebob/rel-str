@@ -9,7 +9,6 @@ import { RsDataService } from '../services/rs-data.service';
 import { RsDataStore } from '../store/rs-data.store';
 import { AuthStore } from '../../core/auth/auth.store';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatButtonToggleChange } from '@angular/material/button-toggle';
 
 @Component({
     selector: 'rs-dashboard-v2',
@@ -122,7 +121,7 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
         }
     }
     
-    handleIntervalChange(event: MatButtonToggleChange) {
+    handleIntervalChange(event: { value: string }) {
         // Keep this for backward compatibility, but use setInterval instead
         this.setInterval(event.value as Timeframe);
     }

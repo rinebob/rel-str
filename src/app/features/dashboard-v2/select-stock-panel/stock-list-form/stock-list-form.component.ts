@@ -1,10 +1,6 @@
 import { UpperCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, signal, inject, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { combineLatest } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -22,7 +18,7 @@ import { SelectStockDialogComponent } from '../../../select-stock/select-stock-d
 @Component({
     selector: 'rs-stock-list-form-v2',
     imports: [
-         MatIconModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule, ReactiveFormsModule, UpperCasePipe,
+         ReactiveFormsModule, UpperCasePipe,
         SymbolPickerComponent],
     templateUrl: './stock-list-form.component.html',
     styleUrl: './stock-list-form.component.scss',
@@ -34,6 +30,7 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
     localSymbolsSelection = signal<Company[]>([]);
     formDataWithSymbols = signal<RelStrStockList>(STOCK_LIST_INITIALIZER);
     filteredSymbols = signal<Company[]>([]);
+    readonly comboOpen = signal(false);
     private readonly auth = inject(Auth);
     private readonly dialogRef = inject(DsDialogRef<SelectStockDialogComponent>, { optional: true });
     readonly symbolPicker = viewChild(SymbolPickerComponent);

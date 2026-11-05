@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from '@angular/core';
-import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
+import { ChangeDetectionStrategy, Component, HostListener, inject, OnInit, signal } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 
 import { MOCK_STOCK_LISTS } from '../shared/constants/rs.constants';
 import { HeatmapComponent } from './heatmap/heatmap.component';
@@ -16,14 +16,14 @@ import { RsDataStore } from '../store/rs-data.store';
 
 @Component({
     selector: 'rs-dashboard',
-    imports: [HeatmapComponent, MatSidenavModule, SelectStockPanelComponent],
+    imports: [HeatmapComponent, SelectStockPanelComponent, CdkTrapFocus],
     templateUrl: './dashboard.component.html',
     styleUrl: './dashboard.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardComponent extends RelStrBaseComponent implements OnInit {
 
-    @ViewChild('selectStock', { static: false }) selectStockPanel!: MatDrawer;
+    readonly selectStockOpen = signal(false);
 
     rSDbSvc = inject(RelStrDbService)
     private readonly rsDataSvc = inject(RsDataService);
@@ -101,8 +101,7 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
     }
 
     handleSelectStock() {
-        // console.log('d hSS open select stock panel: ', this.selectStockPanel);
-        this.selectStockPanel.open();
+        this.selectStockOpen.set(true);
     }
     
     handleChangeTimeframe() {
@@ -114,7 +113,11 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
     }
     
     handleCloseSelectStockPanel() {
-        // console.log('d hCSSP close select stock panel');
-        this.selectStockPanel.close();
+        this.selectStockOpen.set(false);
+    }
+
+    @HostListener('document:keydown.escape')
+    onEscape() {
+        this.handleCloseSelectStockPanel();
     }
 }

@@ -21,6 +21,13 @@
 .tj-detail-toolbar {
   display: flex;
   align-items: center;
+  gap: mixins.rem(8);
+  padding: mixins.rem(8) mixins.rem(16);
+  background: var(--mat-sys-surface-container-high);
+  border-bottom: 1px solid var(--ds-border-subtle);
+  color: var(--ds-on-surface);
+  min-height: mixins.rem(40);
+  flex-shrink: 0;
 }
 
 .tj-spacer {
