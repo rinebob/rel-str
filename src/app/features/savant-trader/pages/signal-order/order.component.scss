@@ -105,7 +105,7 @@
   gap: 12px;
   color: var(--mat-sys-on-surface-variant);
 
-  mat-icon {
+  .dse-icon {
     font-size: 48px;
     width: 48px;
     height: 48px;
@@ -125,7 +125,7 @@
 }
 
 .error-state {
-  mat-icon {
+  .dse-icon {
     color: var(--mat-sys-error);
   }
 }

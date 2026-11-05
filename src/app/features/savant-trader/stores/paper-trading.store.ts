@@ -15,7 +15,8 @@ import {
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, defer, finalize, Observable, of, Subscription } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+
 
 import { PaperTradingService } from '../services/paper-trading.service';
 import type {
@@ -177,7 +178,7 @@ export const PaperTradingStore = signalStore(
     (
       state,
       service = inject(PaperTradingService),
-      snackBar = inject(MatSnackBar),
+      snackBar = inject(DsToastService),
       destroyRef = inject(DestroyRef),
     ) => {
       let tradesSub: Subscription | null = null;

@@ -1,10 +1,9 @@
 <div class="option-chart-page" [class.fullscreen]="uiStateService.fullscreen()">
-  <mat-sidenav-container class="sidenav-container">
-    <mat-sidenav
-      [(opened)]="controlPanelOpen"
-      mode="side"
-      class="control-panel"
-      [disableClose]="false"
+  <div class="sidenav-container side-layout">
+    <aside
+      class="control-panel side-panel"
+      [class.open]="controlPanelOpen"
+      [attr.aria-hidden]="!controlPanelOpen"
     >
       <div class="panel-header">
         <span class="panel-title">Contract</span>
@@ -13,7 +12,7 @@
  class="panel-collapse icon-btn"
  (click)="controlPanelOpen = false" title="Hide panel"
  >
-          <mat-icon>chevron_left</mat-icon>
+          <span class="dse-icon">chevron_left</span>
         </button>
       </div>
 
@@ -32,7 +31,7 @@
           <button class="query-len-btn ds-btn outline"
                   aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'queryLen'"
                   (click)="toggleMenu('queryLen', $event)">
-            {{ queryLenLabel() }} <mat-icon>arrow_drop_down</mat-icon>
+            {{ queryLenLabel() }} <span class="dse-icon">arrow_drop_down</span>
           </button>
           @if (openMenu() === 'queryLen') {
           <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
@@ -63,11 +62,11 @@
         <div class="exp-range-row">
           <label class="dse-field panel-field exp-range-field">
             <span class="field-label">Exp From</span>
-            <input type="date" class="dse-date" [ngModel]="queryExpGte()" (change)="onExpGteChange($event.target.value)" />
+            <input type="date" class="dse-date" [ngModel]="queryExpGte()" (change)="onExpGteChange($any($event.target).value)" />
           </label>
           <label class="dse-field panel-field exp-range-field">
             <span class="field-label">Exp To</span>
-            <input type="date" class="dse-date" [ngModel]="queryExpLte()" (change)="onExpLteChange($event.target.value)" />
+            <input type="date" class="dse-date" [ngModel]="queryExpLte()" (change)="onExpLteChange($any($event.target).value)" />
           </label>
         </div>
       </div>
@@ -80,22 +79,20 @@
  (click)="onQueryCatalog()"
  [disabled]="!canSearch()"
  >
-          <mat-icon>search</mat-icon>
+          <span class="dse-icon">search</span>
           Search Catalog
         </button>
 
         @if (store.catalogLoading() && catalogRows().length === 0) {
         <div class="search-loading">
-          <mat-progress-spinner mode="indeterminate" diameter="24"></mat-progress-spinner>
+          <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
           <span>Searching...</span>
         </div>
         }
 
         @if (store.catalogError()) {
         <div class="search-error">
-          <mat-chip-set>
-            <mat-chip color="warn" highlighted>{{ store.catalogError() }}</mat-chip>
-          </mat-chip-set>
+          <span class="flag-chip err">{{ store.catalogError() }}</span>
         </div>
         }
 
@@ -173,14 +170,14 @@
           @if (store.catalogPageToken()) {
           <button class="ds-btn outline" (click)="onLoadMore()" [disabled]="store.catalogLoading()">
             @if (store.catalogLoading() && !store.catalogLoadAllProgress()) {
-            <mat-progress-spinner mode="indeterminate" diameter="16" class="load-more-spinner"></mat-progress-spinner>
+            <span class="dse-spinner small load-more-spinner" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
             } @else {
             Load More
             }
           </button>
           <button class="ds-btn outline" (click)="onLoadAll()" [disabled]="store.catalogLoading()">
             @if (store.catalogLoadAllProgress(); as progress) {
-            <mat-progress-spinner mode="indeterminate" diameter="16" class="load-more-spinner"></mat-progress-spinner>
+            <span class="dse-spinner small load-more-spinner" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
             <span>{{ progress }}</span>
             } @else {
             Load All
@@ -193,28 +190,26 @@
 
         <label class="dse-field panel-field">
           <span class="field-label">Selection replay</span>
-          <mat-select
+          <select class="dse-select"
             [(ngModel)]="selectedReplayRunId"
-            (selectionChange)="onReplaySelected($event.value)"
+            (change)="onReplaySelected($any($event.target).value)"
             [disabled]="replayLoading() || store.loading() || !!store.plottedLoadProgress()"
           >
             @for (r of replayRuns(); track r.runId) {
-            <mat-option [value]="r.runId">{{ replayLabel(r) }}</mat-option>
+            <option [value]="r.runId">{{ replayLabel(r) }}</option>
             }
-          </mat-select>
+          </select>
           <span class="field-hint">Plots first 10 Wednesday picks for {{ symbol() }}</span>
         </label>
         @if (replayLoading()) {
         <div class="search-loading">
-          <mat-progress-spinner mode="indeterminate" diameter="16"></mat-progress-spinner>
+          <span class="dse-spinner small" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
           <span>Loading replay…</span>
         </div>
         }
         @if (replayError()) {
         <div class="search-error">
-          <mat-chip-set>
-            <mat-chip color="warn" highlighted>{{ replayError() }}</mat-chip>
-          </mat-chip-set>
+          <span class="flag-chip err">{{ replayError() }}</span>
         </div>
         }
 
@@ -256,17 +251,17 @@
         @if (store.contractData(); as data) {
         <div class="quality-flags">
           <span class="quality-label">Quality</span>
-          <mat-chip-set>
-            <mat-chip [color]="store.dataQuality().gaps > 0 ? 'warn' : 'default'" [highlighted]="store.dataQuality().gaps > 0">
+          <div class="flag-row">
+            <span class="flag-chip" [class.err]="store.dataQuality().gaps > 0">
               Gaps: {{ store.dataQuality().gaps }}
-            </mat-chip>
-            <mat-chip [color]="store.dataQuality().nanIV > 0 ? 'warn' : 'default'" [highlighted]="store.dataQuality().nanIV > 0">
+            </span>
+            <span class="flag-chip" [class.err]="store.dataQuality().nanIV > 0">
               NaN IV: {{ store.dataQuality().nanIV }}
-            </mat-chip>
-            <mat-chip [color]="store.dataQuality().zeroVolume > 0 ? 'accent' : 'default'" [highlighted]="store.dataQuality().zeroVolume > 0">
+            </span>
+            <span class="flag-chip" [class.accent]="store.dataQuality().zeroVolume > 0">
               Zero Vol: {{ store.dataQuality().zeroVolume }}
-            </mat-chip>
-          </mat-chip-set>
+            </span>
+          </div>
         </div>
         }
 
@@ -298,13 +293,13 @@
 
       @if (store.underlyingLoading()) {
       <div class="underlying-loading">
-        <mat-progress-spinner mode="indeterminate" diameter="24"></mat-progress-spinner>
+        <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
         <span>Loading underlying...</span>
       </div>
       }
-    </mat-sidenav>
+    </aside>
 
-    <mat-sidenav-content class="chart-content">
+    <div class="chart-content">
       <div class="contract-header-bar">
         @if (!controlPanelOpen) {
         <button
@@ -312,7 +307,7 @@
  class="panel-expand icon-btn"
  (click)="controlPanelOpen = true" title="Show panel"
  >
-          <mat-icon>chevron_right</mat-icon>
+          <span class="dse-icon">chevron_right</span>
         </button>
         }
         @if (store.contractData(); as data) {
@@ -375,7 +370,7 @@
             title="Clear the study-range bound"
             aria-label="Clear study range"
           >
-            <mat-icon>close</mat-icon>
+            <span class="dse-icon">close</span>
           </button>
           }
         </div>
@@ -392,7 +387,7 @@
         <button class="filter-dropdown-btn ds-btn outline"
                 aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'exp'"
                 (click)="toggleMenu('exp', $event)">
-          {{ expFilterLabel() }} <mat-icon>arrow_drop_down</mat-icon>
+          {{ expFilterLabel() }} <span class="dse-icon">arrow_drop_down</span>
         </button>
         @if (openMenu() === 'exp') {
         <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
@@ -417,7 +412,7 @@
         <button class="filter-dropdown-btn ds-btn outline"
                 aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'len'"
                 (click)="toggleMenu('len', $event)">
-          {{ lenFilterLabel() }} <mat-icon>arrow_drop_down</mat-icon>
+          {{ lenFilterLabel() }} <span class="dse-icon">arrow_drop_down</span>
         </button>
         @if (openMenu() === 'len') {
         <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
@@ -465,7 +460,7 @@
 
         @if (displayFilterActive()) {
         <button class="display-filter-clear icon-btn" (click)="onClearAllDisplayFilters()" title="Clear all display filters">
-          <mat-icon>close</mat-icon>
+          <span class="dse-icon">close</span>
         </button>
         }
 
@@ -481,7 +476,7 @@
  aria-label="Contract group generator"
  [attr.aria-pressed]="generatorOpen"
  >
-          <mat-icon>tune</mat-icon>
+          <span class="dse-icon">tune</span>
         </button>
       </div>
 
@@ -508,10 +503,10 @@
               }
               <span class="chip-label">{{ chipLabel(c) }}</span>
               @if (c.status === 'loading') {
-              <mat-progress-spinner mode="indeterminate" diameter="12" class="chip-spinner"></mat-progress-spinner>
+              <span class="dse-spinner small chip-spinner" style="--spinner-size: 12px" role="progressbar" aria-label="Loading"></span>
               }
               @if (c.status === 'error') {
-              <mat-icon class="chip-error-icon">error_outline</mat-icon>
+              <span class="dse-icon chip-error-icon">error_outline</span>
               }
               @if (c.entry.openDate) {
               <span class="chip-open-date">{{ c.entry.openDate }}</span>
@@ -546,16 +541,14 @@
 
       @if (store.loading()) {
       <div class="loading-section">
-        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+        <span class="dse-spinner" style="--spinner-size: 40px" role="progressbar" aria-label="Loading"></span>
         <span>Loading contract data...</span>
       </div>
       }
 
       @if (store.error()) {
       <div class="error-section">
-        <mat-chip-set>
-          <mat-chip color="warn" highlighted>{{ store.error() }}</mat-chip>
-        </mat-chip-set>
+        <span class="flag-chip err">{{ store.error() }}</span>
       </div>
       }
 
@@ -563,9 +556,7 @@
            ?list= deep link must name its error even with the panel shut. -->
       @if (listErrorText()) {
       <div class="error-section">
-        <mat-chip-set>
-          <mat-chip color="warn" highlighted>{{ listErrorText() }}</mat-chip>
-        </mat-chip-set>
+        <span class="flag-chip err">{{ listErrorText() }}</span>
       </div>
       }
 
@@ -593,7 +584,7 @@
  (click)="onPrevContract()"
  [disabled]="!canGoPrev()" title="Previous contract"
  >
-          <mat-icon>chevron_left</mat-icon>
+          <span class="dse-icon">chevron_left</span>
         </button>
         <span class="nav-position">
           {{ store.currentSearchIndex() + 1 }} / {{ store.catalogResults().length }}
@@ -603,17 +594,16 @@
  (click)="onNextContract()"
  [disabled]="!canGoNext()" title="Next contract"
  >
-          <mat-icon>chevron_right</mat-icon>
+          <span class="dse-icon">chevron_right</span>
         </button>
       </div>
       }
-    </mat-sidenav-content>
+    </div>
 
-    <mat-sidenav
-      position="end"
-      mode="side"
-      [(opened)]="generatorOpen"
-      class="generator-panel"
+    <aside
+      class="generator-panel side-panel"
+      [class.open]="generatorOpen"
+      [attr.aria-hidden]="!generatorOpen"
     >
       <div class="list-section">
         <div class="list-section-head">
@@ -638,6 +628,6 @@
         (send)="onGeneratorSend($event)"
         (close)="generatorOpen = false"
       ></app-option-group-generator>
-    </mat-sidenav>
-  </mat-sidenav-container>
+    </aside>
+  </div>
 </div>

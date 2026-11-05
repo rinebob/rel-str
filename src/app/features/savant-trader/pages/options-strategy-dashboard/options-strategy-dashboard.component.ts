@@ -8,10 +8,6 @@
 
 import { Component, ChangeDetectionStrategy, inject, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { RouterLink } from '@angular/router';
 import {
   ChartModule,
@@ -53,10 +49,6 @@ export function toChartPoints(
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatSelectModule,
-    MatFormFieldModule,
     RouterLink,
     ChartModule],
   providers: [

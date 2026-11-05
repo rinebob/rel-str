@@ -2,7 +2,7 @@
   <!-- Header -->
   <div class="history-header">
     <button class="icon-btn" (click)="goBack()" title="Back to dashboard">
-      <mat-icon>arrow_back</mat-icon>
+      <span class="dse-icon">arrow_back</span>
     </button>
     <div class="symbol-input">
       <input
@@ -13,7 +13,7 @@
         placeholder="Symbol..."
         class="symbol-field">
       <button class="ds-btn fill" (click)="loadSignals()" [disabled]="loading()">
-        <mat-icon>search</mat-icon>
+        <span class="dse-icon">search</span>
         Generate
       </button>
     </div>
@@ -26,7 +26,7 @@
   <!-- Loading -->
   @if (loading()) {
     <div class="loading-overlay">
-      <mat-spinner diameter="32"></mat-spinner>
+      <span class="dse-spinner" style="--spinner-size: 32px" role="progressbar" aria-label="Loading"></span>
       <span>Generating signals for {{ symbolInput() }}...</span>
     </div>
   }

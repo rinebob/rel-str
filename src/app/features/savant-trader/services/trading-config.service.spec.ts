@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { of, firstValueFrom } from 'rxjs';
 
 import { TradingConfigService } from './trading-config.service';
@@ -52,7 +53,7 @@ describe('TradingConfigService', () => {
           useValue: {},
         },
         { provide: RobinhoodMcpObservationService, useValue: mcpService },
-        { provide: MatSnackBar, useValue: snackBarMock },
+        { provide: DsToastService, useValue: snackBarMock },
         TradingConfigService,
       ],
     });

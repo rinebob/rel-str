@@ -9,8 +9,9 @@
  * re-entry.
  */
 import { computed, signal, Signal } from '@angular/core';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { TestBed } from '@angular/core/testing';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { of } from 'rxjs';
 
 import { GalleryCardActionsService } from './gallery-card-actions.service';
@@ -240,7 +241,7 @@ describe('GalleryCardActionsService', () => {
         { provide: OrderTicketStore, useValue: ticketStoreMock },
         { provide: EquityPriceService, useValue: priceServiceMock },
         { provide: TradingConfigService, useValue: configServiceMock },
-        { provide: MatSnackBar, useValue: snackBarMock },
+        { provide: DsToastService, useValue: snackBarMock },
       ],
     });
     actions = TestBed.inject(GalleryCardActionsService);

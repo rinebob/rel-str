@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { NEVER, of, throwError, Subject, from } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
@@ -108,7 +109,7 @@ describe('OrderTicketStore', () => {
         { provide: OrderTicketService, useValue: ticketService },
         { provide: OrderExecutionService, useValue: orderExecution },
         { provide: PaperTradingService, useValue: paperTrading },
-        { provide: MatSnackBar, useValue: snackBar },
+        { provide: DsToastService, useValue: snackBar },
         { provide: PositionAttributionService, useValue: attrService },
         OrderTicketStore,
       ],

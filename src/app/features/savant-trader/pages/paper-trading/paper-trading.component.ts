@@ -13,10 +13,6 @@
 import { Component, ChangeDetectionStrategy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { RouterLink } from '@angular/router';
 
@@ -76,10 +72,6 @@ function toTradeGroup(key: string, trades: PaperTrade[]): TradeGroup {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatSelectModule,
-    MatFormFieldModule,
     RouterLink],
   templateUrl: './paper-trading.component.html',
   styleUrl: './paper-trading.component.scss',
@@ -225,7 +217,7 @@ export class PaperTradingComponent implements OnInit {
     this.sorts.set(list);
   }
 
-  /** Header indicator: mat-icon name for the active column, '' otherwise
+  /** Header indicator: .dse-icon name for the active column, '' otherwise
    *  (same convention as swing-table's sortIcon). */
   sortIcon(key: SortKey): string {
     const s = this.sorts().find((x) => x.key === key);

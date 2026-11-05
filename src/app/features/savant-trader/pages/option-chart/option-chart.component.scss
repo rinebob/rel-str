@@ -7,22 +7,19 @@
   }
 }
 
-.sidenav-container {
+.side-layout {
+  display: flex;
   height: 100%;
   width: 100%;
   overflow: hidden;
+}
 
-  ::ng-deep .mat-sidenav-content {
-    overflow-x: hidden;
-  }
-
-  ::ng-deep .mat-sidenav {
-    overflow-x: hidden;
-  }
-
-  ::ng-deep .mat-drawer-inner-container {
-    overflow-x: hidden;
-  }
+/* Side panels: fixed width, hidden via negative margin — same approach
+   a plain aside panel is used, so the chart reflows on toggle. */
+.side-panel {
+  flex: 0 0 auto;
+  overflow-x: hidden;
+  transition: margin-left 0.25s ease, margin-right 0.25s ease;
 }
 
 .control-panel {
@@ -36,6 +33,10 @@
   gap: 6px;
   overflow-y: auto;
   overflow-x: hidden;
+
+  &:not(.open) {
+    margin-left: -312px;
+  }
 
   .panel-header {
     display: flex;
@@ -51,42 +52,17 @@
     color: var(--mat-sys-on-surface-variant);
   }
 
-  /* Dense Material form fields */
-  ::ng-deep .mat-mdc-form-field {
-    --mdc-outlined-text-field-container-shape: 4px;
+  /* Dense DS fields */
+  .dse-field {
+    --ds-field-height: 36px;
 
-    .mat-mdc-text-field-wrapper {
-      min-height: 36px;
-    }
-
-    .mat-mdc-form-field-infix {
-      min-height: 28px;
-      padding-top: 8px;
-      padding-bottom: 4px;
-      display: flex;
-      align-items: center;
-    }
-
-    .mat-mdc-floating-label {
+    .field-label {
       font-size: 11px;
-
-      &:not(.mdc-floating-label--float-above) {
-        top: 50% !important;
-        transform: translateY(-50%) !important;
-      }
-    }
-
-    .mat-mdc-form-field-flex {
-      align-items: center;
-    }
-
-    .mat-mdc-form-field-subscript-wrapper {
-      display: none;
     }
   }
 
-  /* Dense select panel */
-  ::ng-deep .mat-mdc-select {
+  /* Dense select */
+  .dse-select {
     font-size: 12px;
   }
 
@@ -109,15 +85,9 @@
     padding: 0 10px;
   }
 
-  /* Dense slide toggles */
-  mat-slide-toggle {
-    ::ng-deep .mdc-form-field {
-      font-size: 11px;
-    }
-    ::ng-deep .mdc-switch {
-      --mdc-switch-selected-track-height: 16px;
-      --mdc-switch-unselected-track-height: 16px;
-    }
+  /* Dense switches */
+  .dse-switch {
+    font-size: 11px;
   }
 }
 
@@ -138,7 +108,7 @@
   justify-content: space-between;
   height: 40px;
 
-  mat-icon {
+  .dse-icon {
     margin-left: auto;
   }
 }
@@ -150,14 +120,6 @@
   .exp-range-field {
     flex: 1;
     min-width: 0;
-
-    ::ng-deep .mat-mdc-form-field-icon-suffix {
-      .mat-datepicker-toggle-default-icon {
-        width: 16px;
-        height: 16px;
-        font-size: 16px;
-      }
-    }
   }
 }
 
@@ -194,7 +156,7 @@
     gap: 4px;
     align-items: flex-start;
 
-    mat-slide-toggle {
+    .dse-switch {
       font-size: 11px;
     }
   }
@@ -300,7 +262,7 @@
       cursor: pointer;
       z-index: 2;
 
-      mat-icon {
+      .dse-icon {
         font-size: 11px;
         width: 11px;
         height: 11px;
@@ -362,7 +324,7 @@
     align-items: center;
     gap: 2px;
 
-    mat-icon {
+    .dse-icon {
       font-size: 14px;
       width: 14px;
       height: 14px;
@@ -417,7 +379,7 @@
     line-height: 24px;
     flex: 0 0 auto;
 
-    .mat-icon {
+    .dse-icon {
       font-size: 14px;
       width: 14px;
       height: 14px;
@@ -438,18 +400,17 @@
   .generator-toggle {
     flex: 0 0 auto;
     /* M3 icon-button sizing is token-driven: state-layer sizes the button
-       + padding; icon-size sizes the glyph font — but .mat-icon keeps a
+       + padding; icon-size sizes the glyph font — but .dse-icon keeps a
        fixed 24px box, so it must be sized to match the glyph. */
-    --mat-icon-button-state-layer-size: 26px;
-    --mat-icon-button-touch-target-size: 26px;
-    --mat-icon-button-icon-size: 16px;
+    width: 26px;
+    height: 26px;
     /* inline-flex centers the glyph without relying on baseline math. */
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: var(--mat-sys-on-surface-variant);
 
-    .mat-icon {
+    .dse-icon {
       /* The material-icons class pins font-size:24px on the element — the
          icon-size token only sets the BUTTON's font-size, so the glyph
          must be shrunk here or it clips inside the smaller box. */
@@ -471,6 +432,10 @@
   width: 340px;
   background: var(--mat-sys-surface-container);
   border-left: 1px solid var(--mat-sys-outline-variant);
+
+  &:not(.open) {
+    margin-right: -340px;
+  }
 
   .list-section {
     padding: 8px 10px;
@@ -609,7 +574,7 @@
     height: 24px;
     line-height: 24px;
 
-    .mat-icon {
+    .dse-icon {
       font-size: 14px;
       width: 14px;
       height: 14px;
@@ -730,41 +695,20 @@
   }
 }
 
-/* Dense dropdown overlay panel — shared by expiration, strike, length selects */
-::ng-deep .dense-select-panel {
-  .mat-mdc-optgroup-label {
+/* Dense native-select dropdown — shared by expiration, strike, length selects */
+.dse-select {
+  optgroup {
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--mat-sys-on-surface-variant);
-    min-height: 34px;
-    line-height: 34px;
-    padding: 0 8px;
   }
 
-  .mat-mdc-option {
-    min-height: 34px;
+  option {
     font-size: 12px;
     color: var(--mat-sys-on-surface-variant);
-    padding: 0 8px;
-
-    &:hover {
-      background: var(--mat-sys-surface-container-high);
-    }
-
-    &.mdc-list-item--selected,
-    &.mat-mdc-option-active {
-      background: var(--mat-sys-primary-container);
-      color: var(--mat-sys-on-primary-container);
-    }
-
-    .opt-count {
-      margin-left: auto;
-      font-size: 10px;
-      color: var(--mat-sys-on-surface-variant);
-      opacity: 0.7;
-    }
+    padding: 4px 8px;
   }
 }
 
@@ -778,6 +722,34 @@
 
 .search-error {
   flex: 0 0 auto;
+}
+
+.flag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.flag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--mat-sys-outline);
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+
+  &.err {
+    background: var(--mat-sys-error-container);
+    border-color: var(--mat-sys-error);
+    color: var(--mat-sys-error);
+  }
+
+  &.accent {
+    background: var(--mat-sys-primary-container);
+    border-color: var(--mat-sys-primary);
+    color: var(--mat-sys-on-primary-container);
+  }
 }
 
 .contract-type-badge {

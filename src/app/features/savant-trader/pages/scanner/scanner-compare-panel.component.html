@@ -1,7 +1,7 @@
 <!-- @topic #1098 — RH Scanner | @task #1141 -->
 @if (readOnly()) {
   <div class="panel-head">
-    <mat-icon>history</mat-icon>
+    <span class="dse-icon">history</span>
     <span class="panel-title">
       {{ title() }}<span class="read-only-tag">saved proposal — read-only</span>
     </span>
@@ -11,7 +11,7 @@
  aria-label="Close proposal"
  (click)="closed.emit()"
  >
-      <mat-icon>close</mat-icon>
+      <span class="dse-icon">close</span>
     </button>
   </div>
   @if (meta()) {
@@ -33,7 +33,7 @@
         [attr.aria-controls]="uid + '-' + s.key"
         (click)="toggle(s.key)"
       >
-        <mat-icon class="chev">{{ isExpanded(s.key) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+        <span class="dse-icon chev">{{ isExpanded(s.key) ? 'expand_more' : 'chevron_right' }}</span>
         <span class="bucket-label">{{ s.label }}</span>
         <span class="badge count">{{ s.symbols.length }}</span>
       </button>

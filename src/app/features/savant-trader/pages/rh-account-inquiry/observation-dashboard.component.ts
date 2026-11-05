@@ -1,6 +1,5 @@
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { DsToastService } from '../../../../shared/ds/ds-toast.service';
 
 import { RouterLink } from '@angular/router';
@@ -31,7 +30,7 @@ import {
 @Component({
   selector: 'app-observation-dashboard',
   standalone: true,
-  imports: [CommonModule, MatIconModule, RouterLink, ObservationToolFormComponent, ObservationResultPanelComponent],
+  imports: [CommonModule, RouterLink, ObservationToolFormComponent, ObservationResultPanelComponent],
   templateUrl: './observation-dashboard.component.html',
   styleUrl: './observation-dashboard.component.scss',
 })

@@ -2,8 +2,6 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, ParamMap } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { signal } from '@angular/core';
-import { By } from '@angular/platform-browser';
-import { MatDatepicker, MatDatepickerInput } from '@angular/material/datepicker';
 
 import { OptionChainComponent } from './option-chain.component';
 import { OptionChainStore } from './option-chain.store';
@@ -788,11 +786,9 @@ describe('OptionChainComponent', () => {
     const fixture = await render();
     const el: HTMLElement = fixture.nativeElement;
     mockStore.loadChain.mockClear();
-    const input = el.querySelector<HTMLInputElement>('[data-testid="date-input"]')!;
-
-    input.value = '09/20/2026';
-    input.dispatchEvent(new Event('input'));
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    // input[type=date] clamps non-ISO text to '' in the DOM — exercise the
+    // commit gate directly; it still owns the no-fetch + error message.
+    fixture.componentInstance.onDateCommit('09/20/2026');
     fixture.detectChanges();
 
     expect(mockStore.loadChain).not.toHaveBeenCalled();
@@ -816,12 +812,8 @@ describe('OptionChainComponent', () => {
     const fixture = await render();
     const el: HTMLElement = fixture.nativeElement;
     mockStore.loadChain.mockClear();
-    const input = el.querySelector<HTMLInputElement>('[data-testid="date-input"]')!;
-
     // Date.parse normalizes '2026-02-31' to Mar 3 — must round-trip check.
-    input.value = '2026-02-31';
-    input.dispatchEvent(new Event('input'));
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.componentInstance.onDateCommit('2026-02-31');
     fixture.detectChanges();
 
     expect(mockStore.loadChain).not.toHaveBeenCalled();
@@ -836,27 +828,26 @@ describe('OptionChainComponent', () => {
     expect(mockStore.loadToday).toHaveBeenCalled();
   });
 
-  it('datepicker selection commits the picked date as YYYY-MM-DD', async () => {
+  it('date-input change commits the picked date as YYYY-MM-DD', async () => {
     const fixture = await render();
     mockStore.loadChain.mockClear();
-    // NativeDateAdapter produces local-midnight Dates — the handler must
-    // format local Y/M/D, not toISOString (which shifts back a day in PT).
-    fixture.componentInstance.onPickedDate(new Date(2026, 8, 20));
+    // Native type=date inputs emit ISO strings — no Date conversion needed.
+    fixture.componentInstance.onDateCommit('2026-09-20');
     expect(mockStore.setDateInput).toHaveBeenCalledWith('2026-09-20');
     expect(mockStore.loadChain).toHaveBeenCalled();
   });
 
-  it('anchor input carries MatDatepickerInput bound to the session picker', async () => {
+  it('date-input change event commits through the DOM binding', async () => {
     const fixture = await render();
-    // The picker refuses to open without an associated input — if the
-    // association breaks, the calendar silently stops working and no
-    // method-level spec would notice.
-    const dir = fixture.debugElement.query(By.directive(MatDatepickerInput));
-    expect(dir).toBeTruthy();
-    expect(dir.nativeElement.classList.contains('date-anchor')).toBe(true);
-    const picker = fixture.debugElement.query(By.directive(MatDatepicker));
-    expect(dir.injector.get(MatDatepickerInput)._datepicker)
-      .toBe(picker.componentInstance);
+    mockStore.loadChain.mockClear();
+    // The commit must flow through the template (change) binding — if it
+    // breaks, the box silently stops loading and no unit spec would notice.
+    const input = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLInputElement>('[data-testid="date-input"]')!;
+    input.value = '2026-09-20';
+    input.dispatchEvent(new Event('change'));
+    expect(mockStore.setDateInput).toHaveBeenCalledWith('2026-09-20');
+    expect(mockStore.loadChain).toHaveBeenCalled();
   });
 
   it('date input displays the store-pinned resolved session date', async () => {

@@ -13,14 +13,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom, distinctUntilChanged, map, take } from 'rxjs';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatSelectModule } from '@angular/material/select';
 
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
@@ -78,14 +70,6 @@ interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
   imports: [
     CommonModule,
     FormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatIconModule,
-    MatSidenavModule,
-    MatSlideToggleModule,
-    MatProgressSpinnerModule,
-    MatChipsModule,
-    MatSelectModule,
     OptionsContractChartComponent,
     OptionGroupGeneratorComponent],
   // Page-scoped — one generator instance + one list session shared by

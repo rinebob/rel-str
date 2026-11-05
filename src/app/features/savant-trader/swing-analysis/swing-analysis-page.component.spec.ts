@@ -25,8 +25,9 @@ jest.mock('@angular/fire/auth', () => ({
 }));
 
 import { Component, Input, computed, signal } from '@angular/core';
+import { DsDialogService } from '../../../shared/ds/ds-dialog';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatDialog } from '@angular/material/dialog';
+
 import { By } from '@angular/platform-browser';
 import { of, Subject, Observable, throwError } from 'rxjs';
 
@@ -261,7 +262,7 @@ async function setupPage(
 
 describe('SwingAnalysisPageComponent', () => {
   afterEach(() => {
-    try { TestBed.inject(MatDialog).closeAll(); } catch { /* TestBed already torn down */ }
+    try { TestBed.inject(DsDialogService).closeAll(); } catch { /* TestBed already torn down */ }
     TestBed.resetTestingModule();
   });
 
@@ -1089,8 +1090,8 @@ describe('SwingAnalysisPageComponent — symbol picker', () => {
   function picker(fixture: ComponentFixture<SwingAnalysisPageComponent>): HTMLInputElement {
     return fixture.nativeElement.querySelector('[data-testid="nav-picker"]');
   }
-  function overlayOptions(): HTMLElement[] {
-    return Array.from(document.querySelectorAll('mat-option')) as HTMLElement[];
+  function overlayOptions(fixture: ComponentFixture<SwingAnalysisPageComponent>): HTMLElement[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('.combo-option')) as HTMLElement[];
   }
   async function openAndType(fixture: ComponentFixture<SwingAnalysisPageComponent>, text: string): Promise<void> {
     const input = picker(fixture);
@@ -1112,7 +1113,7 @@ describe('SwingAnalysisPageComponent — symbol picker', () => {
     const { fixture } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
     fixture.detectChanges();
     await openAndType(fixture, 'tesla');
-    const opts = overlayOptions();
+    const opts = overlayOptions(fixture);
     expect(opts.length).toBe(1);
     expect(opts[0].textContent).toContain('TSLA');
     expect(opts[0].textContent).toContain('Tesla Inc.');
@@ -1122,7 +1123,7 @@ describe('SwingAnalysisPageComponent — symbol picker', () => {
     const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
     fixture.detectChanges();
     await openAndType(fixture, 'tesla');
-    (overlayOptions()[0] as HTMLElement).click();
+    overlayOptions(fixture)[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     fixture.detectChanges();
     expect(store.symbol()).toBe('TSLA');
     expect(picker(fixture).value).toBe('TSLA');

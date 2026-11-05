@@ -1,4 +1,5 @@
 import { provideRouter } from '@angular/router';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { FrameSwingPickerDialogComponent } from './components/frame-swing-dialog.component';
 import {
@@ -27,7 +28,7 @@ jest.mock('@angular/fire/firestore', () => ({
 
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
+
 import { Subject } from 'rxjs';
 
 import { OptionChainPctChangeComponent } from './option-chain-pct-change.component';
@@ -47,10 +48,10 @@ import type { OhlcBar } from '../../../../core/models/market-data.types';
 import { of, throwError } from 'rxjs';
 import { toNum } from './utils/pct-change.utils';
 
-/** Mock MatDialog that returns a configurable afterClosed() stream.
+/** Mock DsDialogService that returns a configurable afterClosed() stream.
  *  The subject is `unknown` — different dialogs close with different
  *  payload types (boolean for confirm, Swing for the frame picker). */
-function mockDialog(): MatDialog & { _afterClosed$: Subject<unknown> } {
+function mockDialog(): DsDialogService & { _afterClosed$: Subject<unknown> } {
   const afterClosed$ = new Subject<unknown>();
   const dialog = {
     open: jest.fn(() => ({
@@ -58,7 +59,7 @@ function mockDialog(): MatDialog & { _afterClosed$: Subject<unknown> } {
     })),
     _afterClosed$: afterClosed$,
   };
-  return dialog as unknown as MatDialog & { _afterClosed$: Subject<unknown> };
+  return dialog as unknown as DsDialogService & { _afterClosed$: Subject<unknown> };
 }
 
 type Store = InstanceType<typeof OptionChainPctChangeStore>;
@@ -133,7 +134,7 @@ function setupComponent(
   fixture: import('@angular/core/testing').ComponentFixture<OptionChainPctChangeComponent>;
   component: OptionChainPctChangeComponent;
   store: Store;
-  dialog: MatDialog & { _afterClosed$: Subject<unknown> };
+  dialog: DsDialogService & { _afterClosed$: Subject<unknown> };
 } {
   const dialog = mockDialog();
   if (dialogResult !== null) {
@@ -148,7 +149,7 @@ function setupComponent(
       { provide: SwingAnalysisService, useValue: swingService },
       { provide: SymbolHistoryStore, useValue: { signalHistoryCache: signal({}), loadSignalHistory: () => {} } },
       { provide: Firestore, useValue: {} },
-      { provide: MatDialog, useValue: dialog },
+      { provide: DsDialogService, useValue: dialog },
       provideRouter([]),
       OptionChainPctChangeStore,
     ],
@@ -234,7 +235,7 @@ describe('OptionChainPctChangeComponent', () => {
     expect(entry).not.toBeNull();
     expect(btn).not.toBeNull();
     // Top-level — the button is no longer inside an expansion panel.
-    expect(btn.closest('mat-expansion-panel')).toBeNull();
+    expect(btn.closest('.ds-panel')).toBeNull();
 
     // The "Swing compare" title sits in the toolbar, left of the collapse
     // chevron; the results-side title/hint are gone.
@@ -267,7 +268,7 @@ describe('OptionChainPctChangeComponent', () => {
   it('filters panel is top-level and expanded by default — usable by both manual and swing-compare runs', () => {
     const { fixture } = setupComponent();
     const deltaMin = fixture.nativeElement.querySelectorAll('.range-inputs input')[4] as HTMLInputElement;
-    const filtersPanel = deltaMin.closest('mat-expansion-panel') as HTMLElement;
+    const filtersPanel = deltaMin.closest('.ds-panel') as HTMLElement;
     expect(filtersPanel).not.toBeNull();
     // NOT inside the manual panel — the filters' own top-level expando.
     expect(filtersPanel.getAttribute('data-testid')).not.toBe('manual-panel');
@@ -373,7 +374,7 @@ describe('OptionChainPctChangeComponent', () => {
         { provide: SwingAnalysisService, useValue: { loadSavedAnalyses: () => of([]) } },
         { provide: SymbolHistoryStore, useValue: { signalHistoryCache: signal({}), loadSignalHistory: () => {} } },
         { provide: Firestore, useValue: {} },
-        { provide: MatDialog, useValue: mockDialog() },
+        { provide: DsDialogService, useValue: mockDialog() },
         provideRouter([]),
         OptionChainPctChangeStore,
       ],
@@ -573,7 +574,7 @@ describe('OptionChainPctChangeComponent', () => {
         '2024-02-15',
       );
       const foreignPane = document.createElement('div');
-      foreignPane.className = 'cdk-overlay-pane mat-select-panel';
+      foreignPane.className = 'cdk-overlay-pane .combo-panel';
       document.body.appendChild(foreignPane);
       foreignPane.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       expect(store.selectedCell()).toBeNull();

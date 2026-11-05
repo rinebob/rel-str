@@ -31,9 +31,9 @@ jest.mock('@angular/fire/functions', () => ({
 }));
 
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { of, Observable, Subject, throwError } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { SymbolListStore } from './symbol-list.store';
 import { SymbolListService } from '../services/symbol-list.service';
@@ -94,7 +94,7 @@ function setup(tracked: string[] = []): Setup {
       { provide: SymbolListService, useValue: listService },
       { provide: RelStrDbV2Service, useValue: db },
       { provide: SignalService, useValue: { getAllSymbols: jest.fn(() => of([])) } },
-      { provide: MatSnackBar, useValue: snackBar },
+      { provide: DsToastService, useValue: snackBar },
       SymbolListStore,
     ],
   });
@@ -152,6 +152,57 @@ describe('SymbolListStore catalog', () => {
 
     expect(listStore.untriagedSymbols()).toEqual(['BBB', 'CCC']);
     expect(listStore.unlistedSymbols()).toEqual(['BBB', 'CCC']); // compat alias
+  });
+});
+
+// =============================================================================
+// loadTrackedSymbols — trackedStatus producer transitions (#1305 review F2)
+// =============================================================================
+
+describe('SymbolListStore.loadTrackedSymbols trackedStatus', () => {
+  it('idle → loading → ready; resolves normalized symbols; second call is cached', async () => {
+    const { listStore, db } = setup();
+    const subj = new Subject<{ symbol: string; company: string }[]>();
+    db.getTrackedSymbols$.mockReturnValue(subj.asObservable());
+
+    expect(listStore.trackedStatus()).toBe('idle');
+    const p = listStore.loadTrackedSymbols();
+    expect(listStore.trackedStatus()).toBe('loading');
+
+    subj.next([{ symbol: 'aapl', company: 'Apple Inc' }]);
+    subj.complete();
+    await expect(p).resolves.toEqual(['AAPL']);
+    expect(listStore.trackedStatus()).toBe('ready');
+    expect(listStore.trackedSymbols()).toEqual(['AAPL']);
+
+    await listStore.loadTrackedSymbols(); // 'ready' short-circuits — no refetch
+    expect(db.getTrackedSymbols$).toHaveBeenCalledTimes(1);
+  });
+
+  it('a legitimately empty universe still lands ready and does not refire', async () => {
+    const { listStore, db } = setup(); // getTrackedSymbols$ → of([])
+    await listStore.loadTrackedSymbols();
+    expect(listStore.trackedStatus()).toBe('ready');
+    expect(listStore.trackedSymbols()).toEqual([]);
+
+    await listStore.loadTrackedSymbols();
+    expect(db.getTrackedSymbols$).toHaveBeenCalledTimes(1);
+  });
+
+  it('observable failure → error status + snackbar, and a later call retries', async () => {
+    const { listStore, db, snackBar } = setup();
+    db.getTrackedSymbols$
+      .mockReturnValueOnce(throwError(() => new Error('denied')))
+      .mockReturnValue(of([{ symbol: 'MSFT', company: 'Microsoft' }]));
+
+    await expect(listStore.loadTrackedSymbols()).resolves.toEqual([]);
+    expect(listStore.trackedStatus()).toBe('error');
+    expect(snackBar.open).toHaveBeenCalled();
+    expect(listStore.trackedSymbols()).toEqual([]); // universe stays absent
+
+    await expect(listStore.loadTrackedSymbols()).resolves.toEqual(['MSFT']);
+    expect(listStore.trackedStatus()).toBe('ready');
+    expect(db.getTrackedSymbols$).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -6,9 +6,11 @@
  * card/run context.
  */
 import { computed, signal, Signal } from '@angular/core';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+import { DsDialogService } from '../../../shared/ds/ds-dialog';
 import { TestBed } from '@angular/core/testing';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
+
 import { Subject } from 'rxjs';
 
 import { ManualOrderService } from './manual-order.service';
@@ -193,8 +195,8 @@ describe('ManualOrderService', () => {
         { provide: OrderTicketStore, useValue: ticketStoreMock },
         { provide: EquityPriceService, useValue: priceServiceMock },
         { provide: TradingConfigService, useValue: configServiceMock },
-        { provide: MatDialog, useValue: dialogMock },
-        { provide: MatSnackBar, useValue: snackBarMock },
+        { provide: DsDialogService, useValue: dialogMock },
+        { provide: DsToastService, useValue: snackBarMock },
       ],
     });
     service = TestBed.inject(ManualOrderService);
@@ -248,7 +250,7 @@ describe('ManualOrderService', () => {
       expect(dialogMock.open).toHaveBeenCalledTimes(1);
     });
 
-    it('releases the open slot when MatDialog.open throws', async () => {
+    it('releases the open slot when DsDialogService.open throws', async () => {
       dialogMock.open.mockImplementationOnce(() => { throw new Error('no overlay'); });
       await expect(service.open()).rejects.toThrow('no overlay');
       // Slot released — a subsequent open works again (no silent wedge).

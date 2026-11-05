@@ -20,12 +20,12 @@
     <div class="header-actions">
       <label class="dse-field scope-select">
         <span class="field-label">Strategy</span>
-        <mat-select [value]="store.selectedInstanceId()" (selectionChange)="store.selectInstance($event.value)">
-          <mat-option [value]="null">All Strategies (Combined)</mat-option>
+        <select class="dse-select" [value]="store.selectedInstanceId()" (change)="store.selectInstance($any($event.target).value)">
+          <option [value]="null">All Strategies (Combined)</option>
           @for (instance of store.availableInstances(); track instance) {
-            <mat-option [value]="instance">{{ instance }}</mat-option>
+            <option [value]="instance">{{ instance }}</option>
           }
-        </mat-select>
+        </select>
       </label>
       <a [routerLink]="'/' + appRoutes.STRATEGY_BUILDER" class="manage-strategies-btn ds-btn fill">
         Manage Strategies
@@ -34,12 +34,12 @@
   </div>
 
   @if (store.error()) {
-    <div class="error-banner" role="alert"><mat-icon aria-hidden="true">error</mat-icon><span class="error-text">{{ store.error() }}</span></div>
+    <div class="error-banner" role="alert"><span class="dse-icon" aria-hidden="true">error</span><span class="error-text">{{ store.error() }}</span></div>
   }
 
   @if (store.isLoading()) {
     <div class="loading-container">
-      <mat-spinner diameter="40"></mat-spinner>
+      <span class="dse-spinner" style="--spinner-size: 40px" role="progressbar" aria-label="Loading"></span>
     </div>
   } @else if (store.isEmpty()) {
     <div class="empty-state">

@@ -2,7 +2,7 @@
   <!-- Header -->
   <div class="order-header">
     <button class="back-btn icon-btn" (click)="goBack()" title="Back to signal gallery">
-      <mat-icon>arrow_back</mat-icon>
+      <span class="dse-icon">arrow_back</span>
     </button>
 
     <!-- Scoreboard -->
@@ -44,17 +44,17 @@
     <div class="header-spacer"></div>
 
     <a class="paper-dash-link ds-btn outline" [routerLink]="['/' + appRoutes.PAPER_TRADING]" title="Paper trading dashboard">
-      <mat-icon>science</mat-icon>
+      <span class="dse-icon">science</span>
       Paper Trading
     </a>
 
     <button class="manual-order-btn ds-btn outline" (click)="onNewManualOrder()">
-      <mat-icon>add</mat-icon>
+      <span class="dse-icon">add</span>
       New manual order
     </button>
 
     <button class="icon-btn" (click)="onOpenConfig()" title="Trading settings">
-      <mat-icon>settings</mat-icon>
+      <span class="dse-icon">settings</span>
     </button>
 
     <button
@@ -62,7 +62,7 @@
  class="reauth-btn icon-btn"
  (click)="onReauth()"
  [disabled]="reauthing()" [title]="reauthing() ? 'Re-authenticating Robinhood…' : 'Re-authenticate Robinhood'">
-      <mat-icon [class.spinning]="reauthing()">sync_lock</mat-icon>
+      <span class="dse-icon" [class.spinning]="reauthing()">sync_lock</span>
     </button>
   </div>
 
@@ -87,12 +87,12 @@
     <div class="ticket-wrapper">
       @if (loading()) {
         <div class="loading-state">
-          <mat-icon>hourglass_empty</mat-icon>
+          <span class="dse-icon">hourglass_empty</span>
           <p>Loading tickets…</p>
         </div>
       } @else if (error()) {
         <div class="error-state">
-          <mat-icon>error_outline</mat-icon>
+          <span class="dse-icon">error_outline</span>
           <p>Failed to load orders</p>
           <p class="hint">{{ error() }}</p>
         </div>

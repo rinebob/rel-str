@@ -15,8 +15,9 @@ jest.mock('@angular/fire/auth', () => ({
 }));
 
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { of, Subject, throwError } from 'rxjs';
 
 import { PaperTradingStore } from './paper-trading.store';
@@ -215,7 +216,7 @@ describe('PaperTradingStore', () => {
   // ── errors ──────────────────────────────────────────────────────────────
 
   it('unauthenticated errors surface the auth message', async () => {
-    const snackBar = TestBed.inject(MatSnackBar);
+    const snackBar = TestBed.inject(DsToastService);
     const snackSpy = jest.spyOn(snackBar, 'open');
     mockService.listPaperTrades$.mockReturnValue(
       throwError(() => Object.assign(new Error('nope'), { code: 'unauthenticated' })),
@@ -388,7 +389,7 @@ describe('PaperTradingStore', () => {
     });
 
     it('close failure surfaces the callable message; flag clears; no reload; row unchanged', async () => {
-      const snackBar = TestBed.inject(MatSnackBar);
+      const snackBar = TestBed.inject(DsToastService);
       const snackSpy = jest.spyOn(snackBar, 'open');
       store.loadTrades();
       await new Promise<void>((r) => setTimeout(r, 0));
@@ -448,7 +449,7 @@ describe('PaperTradingStore', () => {
     });
 
     it('cancel failure surfaces the error and leaves the flag clear', async () => {
-      const snackSpy = jest.spyOn(TestBed.inject(MatSnackBar), 'open');
+      const snackSpy = jest.spyOn(TestBed.inject(DsToastService), 'open');
       mockService.cancelPaperTrade$.mockReturnValue(
         throwError(() => new Error('cancelPaperTrade failed: not pending')),
       );

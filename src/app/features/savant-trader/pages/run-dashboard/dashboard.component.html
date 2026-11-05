@@ -3,22 +3,22 @@
   <div class="dashboard-header">
     <div class="header-actions">
       <button class="review-latest-btn ds-btn outline" (click)="goToGallery()" title="Review signals from the latest run">
-        <mat-icon>account_tree</mat-icon>
+        <span class="dse-icon">account_tree</span>
         Review Latest Signals
       </button>
       <a class="ds-btn outline" [routerLink]="'/' + appRoutes.RH_ACCOUNT_INQUIRY" title="Open Robinhood MCP observation dashboard">
-        <mat-icon>query_stats</mat-icon>
+        <span class="dse-icon">query_stats</span>
         Observation
       </a>
       <button class="icon-btn" (click)="triggerOverviewSync()" [disabled]="isSyncingOverview()" title="Sync company overview data">
         @if (isSyncingOverview()) {
-          <mat-spinner diameter="18"></mat-spinner>
+          <span class="dse-spinner" style="--spinner-size: 18px" role="progressbar" aria-label="Loading"></span>
         } @else {
-          <mat-icon>business</mat-icon>
+          <span class="dse-icon">business</span>
         }
       </button>
       <button class="icon-btn" (click)="store.triggerBarsBackfill()" title="Backfill symbol-data with full D/W/M history">
-        <mat-icon>download</mat-icon>
+        <span class="dse-icon">download</span>
       </button>
     </div>
   </div>

@@ -38,7 +38,7 @@
 
     @if (store.authFailed() || store.requiresReauth()) {
       <div class="error-banner reauth-banner">
-        <mat-icon>vpn_key</mat-icon>
+        <span class="dse-icon">vpn_key</span>
         <span class="error-text">
           Robinhood session expired — re-authorize in the popup window, then
           run the scans again.
@@ -55,10 +55,10 @@
            machinery is retained for a later surface) — kept as the dismiss
            channel if that surface returns. -->
       <div class="error-banner">
-        <mat-icon>error_outline</mat-icon>
+        <span class="dse-icon">error_outline</span>
         <span class="error-text">{{ err.message }}</span>
         <button class="icon-btn" aria-label="Dismiss error" (click)="store.clearError()">
-          <mat-icon>close</mat-icon>
+          <span class="dse-icon">close</span>
         </button>
       </div>
     }

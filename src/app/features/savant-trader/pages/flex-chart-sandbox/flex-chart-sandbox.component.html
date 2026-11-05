@@ -204,7 +204,7 @@
   </div>
 
   @if (dataMode() === 'real' && chartStore.loading()) {
-    <mat-progress-spinner [diameter]="36" />
+    <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
   }
   @if (dataMode() === 'real' && chartStore.error(); as err) {
     <p class="error">{{ err }}</p>

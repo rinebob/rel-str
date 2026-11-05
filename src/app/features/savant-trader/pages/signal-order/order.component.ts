@@ -19,7 +19,6 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 
@@ -49,7 +48,7 @@ import { requeueTicketPatch } from '../../utils/signal-order-staging.util';
 @Component({
   selector: 'app-signal-order',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, RouterLink, OrderQueueComponent, OrderTicketComponent],
+  imports: [CommonModule, RouterLink, OrderQueueComponent, OrderTicketComponent],
   templateUrl: './order.component.html',
   styleUrl: './order.component.scss',
 })

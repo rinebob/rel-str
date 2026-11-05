@@ -8,11 +8,12 @@
  * its public boundary.
  */
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { of, Subject, throwError } from 'rxjs';
 
 import { AnalysisStore } from './analysis.store';
 import { AnalysisService } from '../services/analysis.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { PaperTradingKind, PaperTradeStatus } from '@paper-trading/contracts';
 import type {
   AnalysisDatasetDoc,
@@ -163,7 +164,7 @@ describe('AnalysisStore', () => {
       providers: [
         AnalysisStore,
         { provide: AnalysisService, useValue: svc },
-        { provide: MatSnackBar, useValue: { open: jest.fn() } },
+        { provide: DsToastService, useValue: { open: jest.fn() } },
       ],
     });
     store = TestBed.inject(AnalysisStore);
@@ -349,7 +350,7 @@ describe('AnalysisStore', () => {
       { column: 'signalType', op: 'in', value: ['D_ST_TREND_RIDER_V2_LONG'] },
     ]);
     expect(store.skippedSliceColumns()).toEqual(['ind.zoneV2']);
-    const snack = TestBed.inject(MatSnackBar);
+    const snack = TestBed.inject(DsToastService);
     expect(snack.open).toHaveBeenCalledWith(
       expect.stringContaining('ind.zoneV2'),
       expect.anything(),

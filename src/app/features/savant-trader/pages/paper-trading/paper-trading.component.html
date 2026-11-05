@@ -43,32 +43,32 @@
     <div class="header-actions">
       <label class="dse-field group-select">
         <span class="field-label">Status</span>
-        <mat-select
+        <select class="dse-select"
           data-testid="status-filter"
           [value]="store.tradeFilters().status ?? 'ALL'"
-          (selectionChange)="onStatusFilter($event.value)"
+          (change)="onStatusFilter($any($event.target).value)"
         >
           @for (s of STATUS_OPTIONS; track s) {
-            <mat-option [value]="s">{{ s === 'ALL' ? 'All' : s }}</mat-option>
+            <option [value]="s">{{ s === 'ALL' ? 'All' : s }}</option>
           }
-        </mat-select>
+        </select>
       </label>
       <label class="dse-field group-select">
         <span class="field-label">Group by</span>
-        <mat-select [value]="groupBy()" (selectionChange)="groupBy.set($event.value)">
-          <mat-option value="all">All trades</mat-option>
-          <mat-option value="instance">Strategy instance</mat-option>
-          <mat-option value="cohort">Signal cohort</mat-option>
-          <mat-option value="variant">Exit variant</mat-option>
-          <mat-option value="expression">Expression</mat-option>
-          <mat-option value="symbol">Symbol</mat-option>
-          <mat-option value="signalType">Signal Type</mat-option>
-          <mat-option value="direction">Direction</mat-option>
-          <mat-option value="sector">Sector</mat-option>
-          <mat-option value="industry">Industry</mat-option>
-          <mat-option value="capTier">Cap Tier</mat-option>
-          <mat-option value="signalStatus">Signal Status</mat-option>
-        </mat-select>
+        <select class="dse-select" [value]="groupBy()" (change)="groupBy.set($any($event.target).value)">
+          <option value="all">All trades</option>
+          <option value="instance">Strategy instance</option>
+          <option value="cohort">Signal cohort</option>
+          <option value="variant">Exit variant</option>
+          <option value="expression">Expression</option>
+          <option value="symbol">Symbol</option>
+          <option value="signalType">Signal Type</option>
+          <option value="direction">Direction</option>
+          <option value="sector">Sector</option>
+          <option value="industry">Industry</option>
+          <option value="capTier">Cap Tier</option>
+          <option value="signalStatus">Signal Status</option>
+        </select>
       </label>
       <a [routerLink]="'/' + appRoutes.TRADE_ANALYSIS"
  class="analysis-link ds-btn outline">
@@ -82,7 +82,7 @@
 
   @if (store.error()) {
     <div class="error-banner" role="alert">
-      <mat-icon aria-hidden="true">error</mat-icon>
+      <span class="dse-icon" aria-hidden="true">error</span>
       <span class="error-text">{{ store.error() }}</span>
       <!-- Retry reloads the list (clears the error when the load
            succeeds — the right affordance for a failed LOAD). ✕ dismisses
@@ -90,14 +90,14 @@
            retried from its row, not from the banner. -->
       <button class="ds-btn outline" type="button" (click)="store.loadAll()">Retry</button>
       <button class="icon-btn" aria-label="Dismiss error" data-testid="dismiss-error" (click)="store.clearError()">
-        <mat-icon>close</mat-icon>
+        <span class="dse-icon">close</span>
       </button>
     </div>
   }
 
   @if (store.isLoading()) {
     <div class="loading-container">
-      <mat-spinner diameter="40"></mat-spinner>
+      <span class="dse-spinner" style="--spinner-size: 40px" role="progressbar" aria-label="Loading"></span>
     </div>
   } @else if (store.isEmpty()) {
     <div class="empty-state">
@@ -110,7 +110,7 @@
             <h2 class="section-title">
               @if (groupBy() === 'cohort') {
                 <button class="cohort-toggle ds-btn" (click)="toggleCohort(group.key)">
-                  <mat-icon>{{ selectedCohort() === group.key ? 'expand_less' : 'expand_more' }}</mat-icon>
+                  <span class="dse-icon">{{ selectedCohort() === group.key ? 'expand_less' : 'expand_more' }}</span>
                   Cohort {{ group.key }}
                 </button>
               } @else if (dimLabel()) {
@@ -141,7 +141,7 @@
                         [attr.aria-sort]="sortAria(col.key)">
                       {{ col.label }}
                       @let icon = sortIcon(col.key);
-                      @if (icon) { <mat-icon class="sort-icon">{{ icon }}</mat-icon> }
+                      @if (icon) { <span class="dse-icon sort-icon">{{ icon }}</span> }
                       @let rank = sortRank(col.key);
                       @if (rank !== null) { <span class="sort-rank">{{ rank }}</span> }
                     </th>
@@ -170,7 +170,7 @@
                     </td>
                     <td class="actions-col">
                       @if (store.actingIds().has(trade.id)) {
-                        <mat-spinner diameter="18"></mat-spinner>
+                        <span class="dse-spinner" style="--spinner-size: 18px" role="progressbar" aria-label="Loading"></span>
                       } @else if (ROW_ACTIONS[trade.status]; as rowAction) {
                         <button class="icon-btn"
  
@@ -178,7 +178,7 @@
  [title]="rowAction.title"
  (click)="openActionDialog(trade, rowAction.action)"
  >
-                          <mat-icon>{{ rowAction.icon }}</mat-icon>
+                          <span class="dse-icon">{{ rowAction.icon }}</span>
                         </button>
                       }
                     </td>

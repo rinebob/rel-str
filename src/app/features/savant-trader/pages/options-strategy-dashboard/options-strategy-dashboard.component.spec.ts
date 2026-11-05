@@ -22,7 +22,6 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { signal, ɵresolveComponentResources } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { By } from '@angular/platform-browser';
-import { MatSelect } from '@angular/material/select';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 
@@ -172,7 +171,7 @@ describe('OptionsStrategyDashboardComponent', () => {
 
   it('shows loading spinner when isLoading is true', async () => {
     await configureWithStore({ isLoading: true });
-    const spinner = fixture.nativeElement.querySelector('mat-spinner');
+    const spinner = fixture.nativeElement.querySelector('.dse-spinner');
     expect(spinner).toBeTruthy();
   });
 
@@ -245,8 +244,9 @@ describe('OptionsStrategyDashboardComponent', () => {
       selectedInstanceId: null,
       availableInstances: ['QQQM-WHEEL'],
     });
-    const select = fixture.debugElement.query(By.directive(MatSelect)).componentInstance as MatSelect;
-    select.selectionChange.emit({ value: 'QQQM-WHEEL', source: select });
+    const select = fixture.nativeElement.querySelector('select.dse-select') as HTMLSelectElement;
+    select.value = 'QQQM-WHEEL';
+    select.dispatchEvent(new Event('change'));
     expect(mockStore.selectInstance).toHaveBeenCalledWith('QQQM-WHEEL');
   });
 

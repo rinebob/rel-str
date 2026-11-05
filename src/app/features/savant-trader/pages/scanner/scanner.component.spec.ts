@@ -359,7 +359,7 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
 
   it('the single-run surface is gone — picker, Run/Evaluate, compare, history', () => {
     fixture.detectChanges();
-    expect(el('mat-select')).toBeNull();
+    expect(el('select.dse-select')).toBeNull();
     expect(el('app-scanner-compare-panel')).toBeNull();
     expect(el('.history')).toBeNull();
     const labels = els('button').map((b) => b.textContent!.trim());

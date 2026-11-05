@@ -1,8 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { MatDialog } from '@angular/material/dialog';
 
 import { PaperTradingComponent } from './paper-trading.component';
 import { PaperTradeActionDialogComponent } from '../../components/paper-trade-action-dialog/paper-trade-action-dialog.component';
@@ -151,7 +151,7 @@ describe('PaperTradingComponent', () => {
         provideZonelessChangeDetection(),
         provideRouter([]),
         { provide: PaperTradingStore, useValue: storeMock },
-        { provide: MatDialog, useValue: dialogMock },
+        { provide: DsDialogService, useValue: dialogMock },
       ],
     }).compileComponents();
 
@@ -461,7 +461,7 @@ describe('PaperTradingComponent', () => {
 
     const row = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')]
       .find((r: Element) => r.textContent!.includes('pt-aapl-sig-x-eq')) as HTMLElement;
-    expect(row.querySelector('mat-spinner')).toBeTruthy();
+    expect(row.querySelector('.dse-spinner')).toBeTruthy();
     expect(row.querySelector('[data-testid="close-trade"]')).toBeNull();
   });
 
@@ -492,12 +492,10 @@ describe('PaperTradingComponent', () => {
   it('the status filter select drives setTradeFilters — CANCELLED is an entry', () => {
     fixture.detectChanges();
 
-    // The option must actually render in the overlay, not just exist in
-    // STATUS_OPTIONS — click the select and read the overlay panel.
-    (fixture.nativeElement.querySelector('[data-testid="status-filter"]') as HTMLElement).click();
-    fixture.detectChanges();
-    const optionText = Array.from(document.querySelectorAll('.cdk-overlay-container mat-option'))
-      .map((o) => o.textContent!.trim());
+    // The option must actually render in the native select's option list,
+    // not just exist in STATUS_OPTIONS.
+    const sel = fixture.nativeElement.querySelector('[data-testid="status-filter"]') as HTMLSelectElement;
+    const optionText = Array.from(sel.querySelectorAll('option')).map((o) => o.textContent!.trim());
     expect(optionText).toContain('CANCELLED');
 
     component.onStatusFilter(PaperTradeStatus.CANCELLED);
@@ -509,7 +507,7 @@ describe('PaperTradingComponent', () => {
 
   it('a second click while a dialog is open does not stack another', () => {
     fixture.detectChanges();
-    dialogMock.openDialogs = [{}]; // one open — the guard consults MatDialog.openDialogs
+    dialogMock.openDialogs = [{}]; // one open — the guard consults DsDialogService.openDialogs
     const openRow = [...fixture.nativeElement.querySelectorAll('.table-section tbody tr')]
       .find((r: Element) => r.textContent!.includes('pt-aapl-sig-x-eq')) as HTMLElement;
     openRow.querySelector<HTMLElement>('[data-testid="close-trade"]')!.click();

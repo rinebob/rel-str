@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
+
 import { of, throwError, from } from 'rxjs';
 import { TradeSide } from '@common';
 
@@ -122,8 +124,8 @@ describe('OrderComponent', () => {
         // OrderTicketComponent injects AllocationStore for the bucket
         // picker — stub it so the real store's Firestore deps stay out.
         { provide: AllocationStore, useValue: { byAccount: signal({}), ensureAccount: jest.fn(), bucketDetail: jest.fn(() => null) } },
-        { provide: MatDialog, useValue: { open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(false) }) } },
-        { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
+        { provide: DsDialogService, useValue: { open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(false) }) } },
+        { provide: DsToastService, useValue: { open: jasmine.createSpy('open') } },
       ],
     }).compileComponents();
 
@@ -674,7 +676,7 @@ describe('OrderComponent', () => {
       component.onRemoveTickets(['1']);
 
       expect(storeMock.removeTicket).not.toHaveBeenCalled();
-      expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalled();
+      expect(TestBed.inject(DsToastService).open).toHaveBeenCalled();
     });
   });
 
@@ -684,7 +686,7 @@ describe('OrderComponent', () => {
 
     beforeEach(() => {
       priceMock = TestBed.inject(EquityPriceService) as any;
-      snack = TestBed.inject(MatSnackBar);
+      snack = TestBed.inject(DsToastService);
       storeMock.sendTicketToPaper.mockReset();
       storeMock.sendTicketToPaper.mockResolvedValue({ cohortId: 'c1', expressionTradeIds: ['e1'] });
       priceMock.prices.set({});

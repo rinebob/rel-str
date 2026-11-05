@@ -33,20 +33,20 @@
           <span class="ran-at">{{ ranAt | date: 'h:mm a' }}</span>
         }
         <button
-          mat-icon-button
-          class="refresh-btn"
-          [disabled]="run().status === 'loading'"
-          [attr.aria-label]="'Refresh ' + recipe().title"
-          (click)="refresh.emit()"
-        >
-          <mat-icon>refresh</mat-icon>
+ 
+ class="refresh-btn icon-btn"
+ [disabled]="run().status === 'loading'"
+ [attr.aria-label]="'Refresh ' + recipe().title"
+ (click)="refresh.emit()"
+ >
+          <span class="dse-icon">refresh</span>
         </button>
       </div>
     </header>
 
     @if ((run().status === 'loading' || run().status === 'idle') && !run().result) {
       <div class="table-loading" role="status">
-        <mat-spinner diameter="18"></mat-spinner>
+        <span class="dse-spinner" style="--spinner-size: 18px" role="progressbar" aria-label="Loading"></span>
         <span>{{ run().status === 'idle' ? 'Queued…' : 'Running…' }}</span>
       </div>
     } @else if (sortedRows().length > 0) {

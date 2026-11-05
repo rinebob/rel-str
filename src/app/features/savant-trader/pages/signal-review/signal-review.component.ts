@@ -12,8 +12,6 @@ import {
   OnDestroy,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { GroupDimension, SymbolListFilter } from '../../common/constants';
 import { SymbolGroup } from '../../stores/group.store';
@@ -27,9 +25,6 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
   selector: 'app-signal-review',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    
-    MatIconModule,
-    MatProgressSpinnerModule,
     SignalReviewHeaderComponent,
     GroupPanelComponent,
     QuickChartsPanelComponent,

@@ -10,9 +10,6 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractContro
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
 import type { InstanceInput } from '../../services/strategy-builder.service';
 import {
@@ -116,9 +113,7 @@ function variantParamValid(group: FormGroup): ValidationErrors | null {
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule],
+    ],
   templateUrl: './strategy-builder-form.component.html',
   styleUrl: './strategy-builder-form.component.scss',
 })
@@ -190,6 +185,11 @@ export class StrategyBuilderFormComponent {
   onExitPoliciesChange(policies: ExitPolicy[]): void {
     this.selectedExitPolicies.set(policies);
     this.exitPolicyError.set(this.validateExitPolicies(policies));
+  }
+
+  /** DOM adapter — native select reports selected options, not values. */
+  onExitPoliciesSelect(el: HTMLSelectElement): void {
+    this.onExitPoliciesChange(Array.from(el.selectedOptions).map((o) => o.value as ExitPolicy));
   }
 
   /** Check for incompatible exit policy combinations. */

@@ -20,7 +20,6 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
 
 import { AnalysisStore } from '../../stores/analysis.store';
 import { AppRoutes } from '../../../../core/common/interfaces';
@@ -53,7 +52,6 @@ type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
   imports: [
     CommonModule,
     RouterLink,
-    MatIconModule,
     AnalysisRunConfigComponent,
     AnalysisTableComponent,
     AnalysisStatsComponent,

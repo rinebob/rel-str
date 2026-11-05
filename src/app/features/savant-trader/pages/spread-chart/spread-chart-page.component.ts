@@ -8,11 +8,6 @@
 import { Component, inject, signal, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 
@@ -30,11 +25,6 @@ import { SpreadStatus } from '@spread/contracts';
   imports: [
     CommonModule,
     FormsModule,
-    MatIconModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSlideToggleModule,
-    MatProgressSpinnerModule,
     SpreadChartComponent],
   templateUrl: './spread-chart-page.component.html',
   styleUrl: './spread-chart-page.component.scss',

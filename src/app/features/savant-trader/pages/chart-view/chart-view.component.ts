@@ -31,7 +31,6 @@ import {
   runInInjectionContext,
 } from '@angular/core';
 
-import { MatIconModule } from '@angular/material/icon';
 import { DsToastService } from '../../../../shared/ds/ds-toast.service';
 import { Router } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
@@ -59,8 +58,6 @@ import { SignalDetailComponent } from '../../components/signal-detail/signal-det
   // detail charts; dies with the page (#1232/#1255).
   providers: [ChartToolbarStateService],
   imports: [
-    
-    MatIconModule,
     ChartViewToolbarComponent,
     SignalListComponent,
     SignalDetailComponent],

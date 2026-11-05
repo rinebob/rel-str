@@ -17,7 +17,6 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
 
 /** Normalized bucket payload — live CompareResult and persisted
  *  CurationProposal both map onto this (proposal: unevaluated absent,
@@ -42,7 +41,7 @@ interface BucketSection {
 @Component({
   selector: 'app-scanner-compare-panel',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule],
   templateUrl: './scanner-compare-panel.component.html',
   styleUrl: './scanner-compare-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

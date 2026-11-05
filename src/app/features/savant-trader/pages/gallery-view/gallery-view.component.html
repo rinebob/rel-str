@@ -54,16 +54,18 @@
         </div>
       }
       @let expandedMap = facade.expandedGroups();
-      @for (group of facade.groups(); track group.key) {
-        <app-gallery-group
-          [group]="group"
-          [expanded]="expandedMap[group.key] ?? false"
-          [actionsDisabled]="!actions.isActionableRun()"
-          [busyKeys]="actions.busyCardKeys()"
-          (expandedChange)="facade.setGroupExpanded(group.key, $event)"
-          (cardAction)="onCardAction($event)">
-        </app-gallery-group>
-      }
+      <div class="dse-acc">
+        @for (group of facade.groups(); track group.key) {
+          <app-gallery-group
+            [group]="group"
+            [expanded]="expandedMap[group.key] ?? false"
+            [actionsDisabled]="!actions.isActionableRun()"
+            [busyKeys]="actions.busyCardKeys()"
+            (expandedChange)="facade.setGroupExpanded(group.key, $event)"
+            (cardAction)="onCardAction($event)">
+          </app-gallery-group>
+        }
+      </div>
       @if (facade.actionedCards().length) {
         <!-- Actioned section (#755): settled/failed/rejected
              cards park below the actionable grid — a labeled section,

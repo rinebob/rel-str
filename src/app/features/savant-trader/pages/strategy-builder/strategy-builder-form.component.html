@@ -12,11 +12,11 @@
       <div class="form-row">
         <label class="dse-field field-sm">
           <span class="field-label">Spread Type</span>
-          <mat-select formControlName="spreadType">
+          <select class="dse-select" formControlName="spreadType">
             @for (st of spreadTypes; track st) {
-              <mat-option [value]="st">{{ st }}</mat-option>
+              <option [value]="st">{{ st }}</option>
             }
-          </mat-select>
+          </select>
         </label>
 
         <label class="dse-field field-sm">
@@ -26,11 +26,11 @@
 
         <label class="dse-field field-sm">
           <span class="field-label">Frequency</span>
-          <mat-select formControlName="frequency">
+          <select class="dse-select" formControlName="frequency">
             @for (freq of frequencies; track freq) {
-              <mat-option [value]="freq">{{ freq }}</mat-option>
+              <option [value]="freq">{{ freq }}</option>
             }
-          </mat-select>
+          </select>
         </label>
 
         <label class="dse-field field-sm">
@@ -65,11 +65,11 @@
       <div class="form-row">
         <label class="dse-field field-sm" data-testid="exit-policy-select">
           <span class="field-label">Exit Policies</span>
-          <mat-select [value]="selectedExitPolicies()" (selectionChange)="onExitPoliciesChange($event.value)" multiple>
+          <select class="dse-select" multiple (change)="onExitPoliciesSelect($any($event.target))">
             @for (policy of exitPolicies; track policy) {
-              <mat-option [value]="policy">{{ policy }}</mat-option>
+              <option [value]="policy" [selected]="isPolicySelected(policy)">{{ policy }}</option>
             }
-          </mat-select>
+          </select>
         </label>
       </div>
 
@@ -118,11 +118,11 @@
       <div class="form-row">
         <label class="dse-field field-sm" data-testid="governing-variant-select">
           <span class="field-label">Governing Variant</span>
-          <mat-select formControlName="variantFamily">
+          <select class="dse-select" formControlName="variantFamily">
             @for (family of variantFamilies; track family) {
-              <mat-option [value]="family">{{ familyLabels[family] }}</mat-option>
+              <option [value]="family">{{ familyLabels[family] }}</option>
             }
-          </mat-select>
+          </select>
         </label>
         @if (variantParamMeta(); as meta) {
           <label class="dse-field field-sm" data-testid="variant-param-input">

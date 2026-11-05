@@ -3,10 +3,11 @@
  * and empty states, driven by a stubbed GalleryFacade.
  */
 import { signal } from '@angular/core';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { ComponentFixture, DeferBlockBehavior, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
-import { MatDialog } from '@angular/material/dialog';
+
 import { of } from 'rxjs';
 
 import { GalleryViewComponent } from './gallery-view.component';
@@ -181,7 +182,7 @@ describe('GalleryViewComponent', () => {
         { provide: GalleryFacade, useValue: facadeMock },
         { provide: GalleryCardActionsService, useValue: actionsMock },
         { provide: GalleryCardChartStore, useValue: chartStoreMock },
-        { provide: MatDialog, useValue: dialogMock },
+        { provide: DsDialogService, useValue: dialogMock },
       ],
       // Card chart cells are @defer (on viewport) — jsdom has no
       // IntersectionObserver; keep them in placeholder for page specs.

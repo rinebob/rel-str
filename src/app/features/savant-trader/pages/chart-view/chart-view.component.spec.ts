@@ -15,6 +15,7 @@ jest.mock('@angular/fire/firestore', () => ({
 }));
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../../shared/ds/ds-toast.service';
 import {
   Component,
   EventEmitter,
@@ -25,7 +26,7 @@ import {
 } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { Router } from '@angular/router';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 
 import { ChartViewComponent } from './chart-view.component';
@@ -183,7 +184,7 @@ describe('ChartViewComponent', () => {
         { provide: LatestRunStore, useValue: latestRunStore },
         { provide: OrderTicketStore, useValue: ticketStore },
         { provide: ManualOrderService, useValue: manualOrderService },
-        { provide: MatSnackBar, useValue: snackBar },
+        { provide: DsToastService, useValue: snackBar },
         { provide: Router, useValue: router },
         { provide: UiStateService, useValue: uiState },
         { provide: Firestore, useValue: {} },

@@ -29,7 +29,6 @@ jest.mock('@angular/fire/auth', () => ({
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { MatDatepicker, MatDatepickerInput } from '@angular/material/datepicker';
 import { of } from 'rxjs';
 
 import { FlexChartSandboxComponent } from './flex-chart-sandbox.component';
@@ -642,40 +641,19 @@ describe('Anchored VWAP param controls (#872)', () => {
     expect(chart.config).not.toBe(before);
   });
 
-  it('the datepicker commits historyStart as a local YYYY-MM-DD string', async () => {
-    const { fixture, chart } = await setup();
-    enableAvwap(fixture);
-    // NativeDateAdapter produces local-midnight Dates — format local Y/M/D,
-    // not toISOString (which shifts back a day in western timezones).
-    fixture.componentInstance.onAvwapHistoryDate(new Date(2026, 8, 20));
-    fixture.detectChanges();
-    expect(avwapConfig(chart)!.params['historyStart']).toBe('2026-09-20');
-  });
-
-  it('typing an ISO date into the text input sets historyStart; the clear button unsets it', async () => {
+  it('typing an ISO date into the date input sets historyStart; the clear button unsets it', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
     setInput(fixture, 'avwap-historyStart', '2025-06-15');
     expect(avwapConfig(chart)!.params['historyStart']).toBe('2025-06-15');
-    // The picker's anchor tracks the typed date — reopening shows it, not a stale day.
-    const anchorInput = fixture.debugElement.query(By.directive(MatDatepickerInput)).injector.get(MatDatepickerInput);
-    expect(anchorInput.value).toEqual(new Date(2025, 5, 15));
+    // The input reflects the stored override — reopening shows it, not a stale day.
+    const anchorInput = fixture.nativeElement.querySelector('[data-testid="avwap-historyStart"]') as HTMLInputElement;
+    expect(anchorInput.value).toBe('2025-06-15');
 
     fixture.nativeElement.querySelector('[data-testid="avwap-history-clear"]').click();
     fixture.detectChanges();
     expect(avwapConfig(chart)!.params['historyStart']).toBe('');
-    expect(anchorInput.value).toBeNull();
-  });
-
-  it('the hidden anchor input is bound to the mat-datepicker', async () => {
-    const { fixture } = await setup();
-    enableAvwap(fixture);
-    // The picker refuses to open without an associated input — if the
-    // association breaks, the calendar silently stops working.
-    const dir = fixture.debugElement.query(By.directive(MatDatepickerInput));
-    expect(dir).toBeTruthy();
-    const picker = fixture.debugElement.query(By.directive(MatDatepicker));
-    expect(dir.injector.get(MatDatepickerInput)._datepicker).toBe(picker.componentInstance);
+    expect(anchorInput.value).toBe('');
   });
 
   it('overrides survive an enable→disable→enable round-trip and never leak into other indicators', async () => {

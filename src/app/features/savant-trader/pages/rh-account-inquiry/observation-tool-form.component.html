@@ -1,5 +1,5 @@
-<mat-card class="tool-card">
-  <mat-card-content>
+<article class="dse-card tool-card">
+  <div class="card-body">
     <app-rh-select-menu
       class="tool-select"
       label="Tool"
@@ -153,7 +153,7 @@
         }
       </div>
     }
-  </mat-card-content>
+  </div>
 
   <div class="bottom-actions">
     <label class="dse-field redact-field">
@@ -162,7 +162,7 @@
     </label>
     <button class="ds-btn fill" (click)="onExecute()" [disabled]="loading() || !canExecute()">
       @if (loading()) {
-        <mat-spinner diameter="20"></mat-spinner>
+        <span class="dse-spinner" style="--spinner-size: 20px" role="progressbar" aria-label="Loading"></span>
       } @else if (needsConfirmation() && confirmationState() === 'idle') {
         <span>Confirm</span>
       } @else {
@@ -170,4 +170,4 @@
       }
     </button>
   </div>
-</mat-card>
+</article>

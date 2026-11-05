@@ -26,10 +26,11 @@ jest.mock('@angular/fire/functions', () => ({
 }));
 
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { ApplicationRef } from '@angular/core';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { of } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 
 import { SwingAnalysisStore, LARGE_CONFIG } from './swing-analysis.store';
 import { ChartService } from '../services/chart.service';
@@ -126,7 +127,7 @@ function setupNav(
       { provide: RelStrDbV2Service, useValue: db },
       { provide: SymbolListService, useValue: listService },
       { provide: SignalService, useValue: { getAllSymbols: jest.fn(() => of([])) } },
-      { provide: MatSnackBar, useValue: { open: jest.fn() } },
+      { provide: DsToastService, useValue: { open: jest.fn() } },
       SwingAnalysisStore,
       SymbolListStore,
     ],

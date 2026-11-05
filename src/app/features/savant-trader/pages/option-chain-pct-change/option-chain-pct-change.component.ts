@@ -10,12 +10,9 @@
  * Follows the existing options-strategy-dashboard.component pattern.
  */
 import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, OnInit, OnDestroy, HostListener } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 
-import { MatExpansionModule } from '@angular/material/expansion';
 
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { OptionChainPctChangeStore } from './option-chain-pct-change.store';
@@ -37,10 +34,6 @@ import { take } from 'rxjs';
   selector: 'app-option-chain-pct-change',
   standalone: true,
   imports: [
-    
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatExpansionModule,
     PctChangeGridComponent,
     RouterLink,
     SwingCompareComponent,
@@ -62,7 +55,7 @@ import { take } from 'rxjs';
  
  (click)="ui.toggleFullscreen()" [title]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
  >
-            <mat-icon>{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+            <span class="dse-icon">{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</span>
           </button>
         </div>
       </div>
@@ -78,7 +71,7 @@ import { take } from 'rxjs';
  (click)="panelCollapsed.set(!panelCollapsed())" [title]="panelCollapsed() ? 'Expand panel' : 'Collapse panel'"
  aria-label="Toggle input panel"
  >
-              <mat-icon>{{ panelCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+              <span class="dse-icon">{{ panelCollapsed() ? 'chevron_right' : 'chevron_left' }}</span>
             </button>
           </div>
           <!-- Swing compare — the primary run builder. Top of the sidebar,
@@ -129,16 +122,17 @@ import { take } from 'rxjs';
           <!-- Filters — top-level and expanded by default: they apply to
                BOTH run sources (manual runs and swing-compare grids), so
                they can't live inside the collapsed manual panel. -->
-          <mat-expansion-panel
-            class="panel-section"
-            [expanded]="filtersExpanded()"
-            (opened)="filtersExpanded.set(true)"
-            (closed)="filtersExpanded.set(false)"
-          >
-            <mat-expansion-panel-header>
-              <mat-panel-title>Filters</mat-panel-title>
-            </mat-expansion-panel-header>
+          <div class="dse-acc">
+          <div class="ds-panel panel-section" [class.open]="filtersExpanded()">
+            <button type="button" class="acc-head"
+              [attr.aria-expanded]="filtersExpanded()"
+              aria-controls="ocpc-filters-body"
+              (click)="filtersExpanded.set(!filtersExpanded())">
+              <span>Filters</span>
+              <span class="dse-icon chev" aria-hidden="true">expand_more</span>
+            </button>
 
+            <div class="acc-body" role="region" id="ocpc-filters-body">
             <div class="form-group">
               <label>Duration Range (days)</label>
               <div class="range-inputs">
@@ -197,21 +191,21 @@ import { take } from 'rxjs';
                 />
               </div>
             </div>
-          </mat-expansion-panel>
+            </div>
+          </div>
 
           <!-- Manual grid controls — secondary path now that the dialog
                owns run building; collapsed by default. -->
-          <mat-expansion-panel
-            class="panel-section"
-            data-testid="manual-panel"
-            [expanded]="manualExpanded()"
-            (opened)="manualExpanded.set(true)"
-            (closed)="manualExpanded.set(false)"
-          >
-            <mat-expansion-panel-header>
-              <mat-panel-title>Manual run</mat-panel-title>
-            </mat-expansion-panel-header>
+          <div class="ds-panel panel-section" data-testid="manual-panel" [class.open]="manualExpanded()">
+            <button type="button" class="acc-head"
+              [attr.aria-expanded]="manualExpanded()"
+              aria-controls="ocpc-manual-body"
+              (click)="manualExpanded.set(!manualExpanded())">
+              <span>Manual run</span>
+              <span class="dse-icon chev" aria-hidden="true">expand_more</span>
+            </button>
 
+            <div class="acc-body" role="region" id="ocpc-manual-body">
             <div class="form-group config-section">
               <label for="configSelect">Saved Config</label>
               <div class="config-controls">
@@ -276,18 +270,19 @@ import { take } from 'rxjs';
               </div>
             </div>
 
-            <mat-expansion-panel
-              class="panel-section"
-              [expanded]="targetDatesExpanded()"
-              (opened)="targetDatesExpanded.set(true)"
-              (closed)="targetDatesExpanded.set(false)"
-            >
-              <mat-expansion-panel-header>
-                <mat-panel-title>Target Dates</mat-panel-title>
-              </mat-expansion-panel-header>
+            <div class="ds-panel panel-section" [class.open]="targetDatesExpanded()">
+              <button type="button" class="acc-head"
+                [attr.aria-expanded]="targetDatesExpanded()"
+                aria-controls="ocpc-target-body"
+                (click)="targetDatesExpanded.set(!targetDatesExpanded())">
+                <span>Target Dates</span>
+                <span class="dse-icon chev" aria-hidden="true">expand_more</span>
+              </button>
 
-              <app-target-type-selector />
-            </mat-expansion-panel>
+              <div class="acc-body" role="region" id="ocpc-target-body">
+                <app-target-type-selector />
+              </div>
+            </div>
 
             <div class="actions">
               <button class="ds-btn outline"
@@ -302,12 +297,14 @@ import { take } from 'rxjs';
                 Reset
               </button>
             </div>
-          </mat-expansion-panel>
+            </div>
+          </div>
+          </div>
         </div>
 
         <div class="results-panel">
           @if (store.loading()) {
-            <mat-spinner />
+            <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
           } @else if (store.error()) {
             <div class="error">{{ store.error() }}</div>
           } @else if (store.hasResults() || store.failedTargetDates().length > 0) {
@@ -429,7 +426,8 @@ import { take } from 'rxjs';
         font-size: 0.85rem;
       }
       .panel-collapse-btn {
-        --mdc-icon-button-state-layer-size: 28px;
+        width: 28px;
+        height: 28px;
       }
       .input-panel.collapsed {
         width: 36px;
@@ -498,8 +496,8 @@ import { take } from 'rxjs';
       }
       .type-toggle button {
         flex: 1;
-        /* ~33% shorter than the default 40px outlined-button height */
-        --mdc-outlined-button-container-height: 27px;
+        /* ~33% shorter than the default 40px button height */
+        height: 27px;
         padding: 0 8px;
       }
       .type-toggle button.active {
@@ -509,13 +507,12 @@ import { take } from 'rxjs';
       .panel-section {
         margin-bottom: 0.25rem;
       }
-      .panel-section ::ng-deep .mat-expansion-panel-body {
+      .panel-section .acc-body {
         padding: 0 0.75rem 0.75rem;
       }
-      .panel-section mat-expansion-panel-header {
+      .panel-section .acc-head {
         padding: 0 0.75rem;
-        --mat-expansion-header-collapsed-state-height: 40px;
-        --mat-expansion-header-expanded-state-height: 40px;
+        min-height: 40px;
       }
       .swing-compare-entry {
         padding: 0.25rem 0.5rem 0;

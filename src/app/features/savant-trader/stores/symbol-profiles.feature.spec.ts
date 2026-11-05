@@ -6,9 +6,9 @@
  */
 
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { of, throwError } from 'rxjs';
-import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { SymbolListStore } from './symbol-list.store';
 import { SymbolListService } from '../services/symbol-list.service';
@@ -41,7 +41,7 @@ function setupProfiles(profiles: StSymbolProfile[] = [], getAllSymbols?: jest.Mo
       { provide: SignalService, useValue: signalService },
       { provide: SymbolListService, useValue: listService },
       { provide: RelStrDbV2Service, useValue: db },
-      { provide: MatSnackBar, useValue: { open: jest.fn() } },
+      { provide: DsToastService, useValue: { open: jest.fn() } },
       SymbolListStore,
     ],
   });

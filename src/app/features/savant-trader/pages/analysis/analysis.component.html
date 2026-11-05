@@ -15,7 +15,7 @@
         <span class="search-wrap">
           <input class="field-input" [value]="search()" (input)="search.set($any($event.target).value)"
                  placeholder="symbol, name, or tag" />
-          <mat-icon class="search-icon">search</mat-icon>
+          <span class="dse-icon search-icon">search</span>
         </span>
       </label>
     </div>
@@ -25,7 +25,7 @@
         [canApply]="false"
         (deleted)="store.deleteSlice($event)" />
       <button type="button" class="ds-btn outline" (click)="showRunConfig.set(!showRunConfig())">
-        <mat-icon>{{ showRunConfig() ? 'close' : 'add' }}</mat-icon>
+        <span class="dse-icon">{{ showRunConfig() ? 'close' : 'add' }}</span>
         New dataset
       </button>
       <a class="ds-btn outline" [routerLink]="'/' + appRoutes.PAPER_TRADING">
@@ -135,10 +135,10 @@
           <div class="card-foot">
             <button type="button" class="ds-btn small fill" [disabled]="ds.status !== 'ready'"
                     (click)="store.openDataset(ds)">
-              <mat-icon>folder_open</mat-icon> Open
+              <span class="dse-icon">folder_open</span> Open
             </button>
             <button type="button" class="ds-btn small" (click)="startEdit(ds)">
-              <mat-icon>edit</mat-icon> Tags / notes
+              <span class="dse-icon">edit</span> Tags / notes
             </button>
             @if (confirmDeleteId() === ds.id) {
               <button type="button" class="ds-btn small danger" (click)="confirmDelete(ds)">
@@ -147,7 +147,7 @@
               <button type="button" class="ds-btn small" (click)="cancelDelete()">Keep</button>
             } @else {
               <button type="button" class="ds-btn small danger" (click)="requestDelete(ds)">
-                <mat-icon>delete</mat-icon> Delete
+                <span class="dse-icon">delete</span> Delete
               </button>
             }
           </div>
@@ -175,7 +175,7 @@
         </div>
         <button type="button" class="icon-btn close-workbench" (click)="store.closeDataset()"
                 aria-label="Close dataset" title="Close dataset">
-          <mat-icon>close</mat-icon>
+          <span class="dse-icon">close</span>
         </button>
       </div>
       <app-workbench-tools

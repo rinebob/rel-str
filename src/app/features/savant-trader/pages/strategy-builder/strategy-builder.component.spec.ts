@@ -13,12 +13,12 @@ jest.mock('@angular/fire/firestore', () => ({
 }));
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { signal, ɵresolveComponentResources } from '@angular/core';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { Router } from '@angular/router';
-import { MatDialog } from '@angular/material/dialog';
 
 import { StrategyBuilderComponent } from './strategy-builder.component';
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
@@ -118,7 +118,7 @@ describe('StrategyBuilderComponent', () => {
         provideNoopAnimations(),
         { provide: StrategyBuilderStore, useValue: mockStore },
         { provide: Router, useValue: mockRouter },
-        { provide: MatDialog, useValue: mockDialog },
+        { provide: DsDialogService, useValue: mockDialog },
       ],
     }).compileComponents();
 
@@ -143,7 +143,7 @@ describe('StrategyBuilderComponent', () => {
 
   it('shows loading spinner when isLoading is true', async () => {
     await configureWithStore({ isLoading: true });
-    const spinner = fixture.nativeElement.querySelector('mat-spinner');
+    const spinner = fixture.nativeElement.querySelector('.dse-spinner');
     expect(spinner).toBeTruthy();
   });
 

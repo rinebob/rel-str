@@ -1,11 +1,6 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatCardModule } from '@angular/material/card';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import type { RobinhoodToolDefinition } from '@robinhood-mcp/contracts';
 import type { AccountInfo, ToolArgProperty } from './observation-dashboard.model';
 import {
@@ -40,11 +35,6 @@ const TOOL_CATEGORY_ORDER = [
   imports: [
     CommonModule,
     FormsModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatCardModule,
-    MatProgressSpinnerModule,
-    MatCheckboxModule,
     RhSelectMenuComponent],
   templateUrl: './observation-tool-form.component.html',
   styleUrl: './observation-tool-form.component.scss',

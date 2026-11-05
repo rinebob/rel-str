@@ -191,7 +191,7 @@
   padding: 0 4px;
   min-width: 0;
 
-  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  .dse-icon { font-size: 20px; width: 20px; height: 20px; }
 }
 
 // ── #671 — status chip + row actions ────────────────────────────────────────
@@ -246,7 +246,7 @@
     align-items: center;
     justify-content: center;
 
-    mat-icon {
+    .dse-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;

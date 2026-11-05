@@ -47,20 +47,20 @@
 
   @if (facade.pageInitializing()) {
     <div class="loading-overlay">
-      <mat-spinner diameter="32"></mat-spinner>
+      <span class="dse-spinner" style="--spinner-size: 32px" role="progressbar" aria-label="Loading"></span>
     </div>
   } @else if (facade.symbolsError()) {
     <div class="error-state">
-      <mat-icon>error_outline</mat-icon>
+      <span class="dse-icon">error_outline</span>
       <p>{{ facade.symbolsError() }}</p>
       <button class="ds-btn" (click)="facade.refreshSymbols()">Retry</button>
     </div>
   } @else {
     <div class="gr-body">
-      <div class="groups-panel has-charts">
+      <div class="groups-panel has-charts dse-acc">
         @if (facade.groups().length === 0) {
           <div class="empty-state">
-            <mat-icon>inbox</mat-icon>
+            <span class="dse-icon">inbox</span>
             <p>No signals found for this date</p>
             <p class="hint">Run the agent or select a different date</p>
           </div>

@@ -15,8 +15,6 @@
 import { ChangeDetectionStrategy, Component, computed, HostBinding, inject, OnDestroy, signal } from '@angular/core';
 import { DsDialogService } from '../../../shared/ds/ds-dialog';
 
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 
 import { SwingAnalysisStore } from './swing-analysis.store';
@@ -74,9 +72,6 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
   selector: 'app-swing-analysis-page',
   standalone: true,
   imports: [
-    
-    MatIconModule,
-    MatProgressSpinnerModule,
     FlexChartComponent,
     SwingTableComponent,
     StatsPanelComponent,
@@ -105,13 +100,13 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
  data-testid="settings-btn" title="Swing settings"
  (click)="openSettings()"
  >
-        <mat-icon>settings</mat-icon>
+        <span class="dse-icon">settings</span>
       </button>
       <button class="icon-btn"
  
  (click)="ui.toggleFullscreen()" [title]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
  >
-        <mat-icon>{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+        <span class="dse-icon">{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</span>
       </button>
     </div>
   </header>
@@ -121,7 +116,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
 
   @if (loading()) {
     <div class="swing-analysis-loading" data-testid="loading-indicator" aria-live="polite">
-      <mat-progress-spinner diameter="32" mode="indeterminate" />
+      <span class="dse-spinner" style="--spinner-size: 32px" role="progressbar" aria-label="Loading"></span>
       <span>Loading bars…</span>
     </div>
   }

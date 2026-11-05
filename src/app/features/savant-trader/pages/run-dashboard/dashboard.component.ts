@@ -15,8 +15,6 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 
 
@@ -41,8 +39,6 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
     RouterLink,
     RunStatusBarComponent,
     RunHistoryPanelComponent,

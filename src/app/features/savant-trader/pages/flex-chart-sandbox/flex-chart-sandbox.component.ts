@@ -26,9 +26,6 @@ import {
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 
 import { UiStateService } from '../../../../core/services/ui-state.service';
 
@@ -54,7 +51,6 @@ import type {
   IndicatorParamDef,
   PriceBar,
 } from '../../../shared/components/flex-chart/flex-chart.types';
-import { formatLocalDate } from '../../utils/utils';
 import { parseIsoDateLocal } from '../../../shared/utils/date.util';
 import { ChartIntervalKey, StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
@@ -114,7 +110,7 @@ const INTERVAL_TO_BARS: Record<ChartIntervalKey, BarsInterval> = {
 @Component({
   selector: 'app-flex-chart-sandbox',
   standalone: true,
-  imports: [CommonModule, MatProgressSpinnerModule, MatDatepickerModule, MatNativeDateModule, FlexChartComponent],
+  imports: [CommonModule, FlexChartComponent],
   templateUrl: './flex-chart-sandbox.component.html',
   styleUrl: './flex-chart-sandbox.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -545,13 +541,6 @@ export class FlexChartSandboxComponent implements OnDestroy {
     } else {
       this.setParamOverride(optionId, p.key, raw === '' ? undefined : raw);
     }
-  }
-
-  /** Datepicker commit — formatLocalDate gives local Y/M/D. NativeDateAdapter
-   *  produces local-midnight Dates; toISOString would shift back a day in US
-   *  timezones. */
-  onAvwapHistoryDate(d: Date | null): void {
-    this.setParamOverride(this.avwapIndicatorId, 'historyStart', d && Number.isFinite(d.getTime()) ? formatLocalDate(d) : undefined);
   }
 
   clearAvwapHistory(): void {

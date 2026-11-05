@@ -4,7 +4,7 @@
  * Component tests for StrategyBuilderFormComponent (dialog version).
  * Verifies field rendering, validation, ID preview, edit pre-fill, and
  * save dispatch. The store is mocked; the dialog is tested via
- * MAT_DIALOG_DATA injection.
+ * DS_DIALOG_DATA injection.
  */
 
 jest.mock('@angular/fire/auth', () => ({
@@ -15,16 +15,15 @@ jest.mock('@angular/fire/firestore', () => ({
 }));
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { signal, ɵresolveComponentResources } from '@angular/core';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 
-import { StrategyBuilderFormComponent } from './strategy-builder-form.component';
+
+import { StrategyBuilderFormComponent, parseVariantKey } from './strategy-builder-form.component';
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
-import { PaperTradingStore } from '../../stores/paper-trading.store';
-import { type ExitVariantConfig } from '@paper-trading/contracts';
 import { OptionType, PositionSpreadType, StrategyFrequency } from '@options/common';
 import { TradeSide } from '@common';
 import {
@@ -101,33 +100,16 @@ function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): Strategy
   };
 }
 
-// ── Paper-trading store stub — the variant registry selector ────────────────
-
-const VARIANTS: ExitVariantConfig[] = [
-  { key: 'initial-stop-10', label: 'Initial stop — 10%', params: { type: 'initial-stop', pct: 10 } },
-  { key: 'trailing-20', label: 'Trailing stop — 20%', params: { type: 'trailing-stop', pct: 20 } },
-  { key: 'time-30d', label: 'Time stop — 30d', params: { type: 'time-stop', days: 30 } },
-];
-
-function createMockPaperStore() {
-  return {
-    exitVariants: signal<ExitVariantConfig[]>(VARIANTS),
-    loadExitVariants: jest.fn(),
-  };
-}
-
 // ── Test setup ───────────────────────────────────────────────────────────────
 
 describe('StrategyBuilderFormComponent', () => {
   let fixture: ComponentFixture<StrategyBuilderFormComponent>;
   let component: StrategyBuilderFormComponent;
   let mockStore: ReturnType<typeof createMockStore>;
-  let mockPaperStore: ReturnType<typeof createMockPaperStore>;
   let mockDialogRef: { close: jest.Mock };
 
   async function configureWithStore(storeOverrides: Record<string, any> = {}, dialogData: { instance: StrategyInstanceConfig | null } = { instance: null }) {
     mockStore = createMockStore(storeOverrides);
-    mockPaperStore = createMockPaperStore();
     mockDialogRef = { close: jest.fn() };
 
     await TestBed.configureTestingModule({
@@ -135,9 +117,8 @@ describe('StrategyBuilderFormComponent', () => {
       providers: [
         provideNoopAnimations(),
         { provide: StrategyBuilderStore, useValue: mockStore },
-        { provide: PaperTradingStore, useValue: mockPaperStore },
-        { provide: MatDialogRef, useValue: mockDialogRef },
-        { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        { provide: DsDialogRef, useValue: mockDialogRef },
+        { provide: DS_DIALOG_DATA, useValue: dialogData },
       ],
     }).compileComponents();
 
@@ -156,14 +137,14 @@ describe('StrategyBuilderFormComponent', () => {
   it('renders spread type dropdown', async () => {
     await configureWithStore();
     const native = fixture.nativeElement as HTMLElement;
-    expect(native.querySelector('mat-select[formControlName="spreadType"]')).toBeTruthy();
+    expect(native.querySelector('select[formControlName="spreadType"]')).toBeTruthy();
   });
 
   it('renders symbol, frequency, and open time inputs', async () => {
     await configureWithStore();
     const native = fixture.nativeElement as HTMLElement;
     expect(native.querySelector('input[formControlName="symbol"]')).toBeTruthy();
-    expect(native.querySelector('mat-select[formControlName="frequency"]')).toBeTruthy();
+    expect(native.querySelector('select[formControlName="frequency"]')).toBeTruthy();
     expect(native.querySelector('input[formControlName="openTimePT"]')).toBeTruthy();
   });
 
@@ -463,18 +444,19 @@ describe('StrategyBuilderFormComponent', () => {
 
   // ── Governing variant selector (#568) ─────────────────────────────────────
 
-  it('loads the exit-variant registry and renders the family select', async () => {
+  it('renders the family select with terminal families only — no registry dependency', async () => {
     await configureWithStore();
-    expect(mockPaperStore.loadExitVariants).toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('[data-testid="governing-variant-select"]')).toBeTruthy();
     // US4: only terminal (trailing-stop) families are offered — 'none' and
     // non-terminal families are not selectable for new instances.
-    expect(component.variantFamilies()).toEqual(['trailing-stop']);
+    expect(component.variantFamilies).toEqual(['trailing-stop']);
   });
 
   it('family+param derive the governingVariant key on save', async () => {
     await configureWithStore();
     expect(component.form.controls.variantFamily.value).toBe('trailing-stop');
+    // TEST doc: param default 8 → key 'trailing-8'.
+    expect(component.form.controls.variantParam.value).toBe(8);
     // Param input is always rendered — the only selectable family needs one.
     expect(fixture.nativeElement.querySelector('[data-testid="variant-param-input"]')).toBeTruthy();
 
@@ -500,15 +482,17 @@ describe('StrategyBuilderFormComponent', () => {
     );
   });
 
-  it('rejects a non-integer time-stop param — visible error, save disabled', async () => {
+  it('rejects a patched-in non-terminal family — visible error, save disabled', async () => {
     await configureWithStore();
     component.form.patchValue({ variantFamily: 'time-stop', variantParam: 1.5 });
     fixture.detectChanges();
-    expect(component.form.errors?.['variantParam']).toBe('integer');
+    // Non-terminal families are rejected outright (range) — the family
+    // gate short-circuits before any param check.
+    expect(component.form.errors?.['variantParam']).toBe('range');
     expect(component.form.invalid).toBe(true);
     // The error surfaces in the DOM — no silent dead-end.
     const err = fixture.nativeElement.querySelector('[data-testid="variant-param-error"]');
-    expect(err?.textContent).toContain('whole number of days');
+    expect(err?.textContent).toContain('Out of range');
     const saveBtn = fixture.nativeElement.querySelector('[data-testid="save-btn"]') as HTMLButtonElement;
     expect(saveBtn.disabled).toBe(true);
   });
@@ -520,6 +504,15 @@ describe('StrategyBuilderFormComponent', () => {
     expect(component.form.errors?.['variantParam']).toBe('required');
     expect(fixture.nativeElement.querySelector('[data-testid="variant-param-error"]')?.textContent)
       .toContain('required');
+  });
+
+  it('rejects a sub-1e-6 param whose key serializes unparseable', async () => {
+    await configureWithStore();
+    component.form.patchValue({ variantFamily: 'trailing-stop', variantParam: 1e-7 });
+    fixture.detectChanges();
+    // 'trailing-1e-7' matches no grammar pattern — the serialize-then-
+    // re-parse guard catches what the pct bound alone can't (R2).
+    expect(component.form.errors?.['variantParam']).toBe('range');
   });
 
   it('rejects a degenerate trailing pct with a range error (shared bound)', async () => {
@@ -541,7 +534,7 @@ describe('StrategyBuilderFormComponent', () => {
     component.form.patchValue({ variantFamily: 'none' });
     fixture.detectChanges();
     expect(component.form.errors?.['variantParam'] ?? null).toBeNull();
-    expect((component as any).governingVariantKey()).toBe('none');
+    expect(component['governingVariantKey']()).toBe('none');
   });
 
   it('every family derives a registry-parseable key', async () => {
@@ -549,12 +542,16 @@ describe('StrategyBuilderFormComponent', () => {
     const cases: [string, number, string][] = [
       ['initial-stop', 10, 'initial-stop-10'],
       ['trailing-stop', 20, 'trailing-20'],
+      ['trailing-stop', 8.5, 'trailing-8.5'],
       ['time-stop', 30, 'time-30d'],
       ['limit-stddev', 2.5, 'limit-sd2.5'],
     ];
     for (const [family, param, key] of cases) {
       component.form.patchValue({ variantFamily: family, variantParam: param });
-      expect((component as any).governingVariantKey()).toBe(key);
+      expect(component['governingVariantKey']()).toBe(key);
+      // Round-trip: the emitted key must parse back to the same family+param —
+      // exponential-notation params (<1e-6) break this silently (R2 finding).
+      expect(parseVariantKey(key)).toEqual({ family, param });
     }
   });
 
@@ -566,7 +563,7 @@ describe('StrategyBuilderFormComponent', () => {
     expect(component.form.controls.variantParam.value).toBe(15);
   });
 
-  it.each(['time-30d', 'custom-legacy-key', 'none'])(
+  it.each(['time-30d', 'custom-legacy-key', 'none', 'trailing-150'])(
     'stored ineligible variant %s coerces to the trailing-8 default (BE resolver parity)',
     async (stored) => {
       const instance = makeInstance();
@@ -576,4 +573,34 @@ describe('StrategyBuilderFormComponent', () => {
       expect(component.form.controls.variantParam.value).toBe(8);
     },
   );
+
+  it.each(['trailing-0.5', 'trailing-99.5'])(
+    'stored BE-eligible variant %s prefills AND stays saveable — no validator wedge',
+    async (stored) => {
+      const instance = makeInstance();
+      instance.governingVariant = stored;
+      await configureWithStore({}, { instance });
+      // Regression (#672 review): the eligibility gate is the shared
+      // contract bound alone — a key the BE would govern must not open
+      // the editor in an unsaveable state. Assert the real gate
+      // (form.valid), not just the group-error channel — control-level
+      // min/max validators re-created this wedge invisibly in R2.
+      expect(component.form.controls.variantFamily.value).toBe('trailing-stop');
+      expect(component.form.controls.variantParam.value).toBe(
+        Number(stored.split('-')[1]),
+      );
+      expect(component.form.controls.variantParam.errors).toBeNull();
+      expect(component.form.valid).toBe(true);
+    },
+  );
+
+  it('parseVariantKey tolerates non-string input (schema-free Firestore)', () => {
+    expect(parseVariantKey(undefined as unknown as string)).toBeNull();
+    expect(parseVariantKey(8 as unknown as string)).toBeNull();
+    expect(parseVariantKey('trailing-8.5')).toEqual({
+      family: 'trailing-stop',
+      param: 8.5,
+    });
+    expect(parseVariantKey('none')).toBeNull();
+  });
 });

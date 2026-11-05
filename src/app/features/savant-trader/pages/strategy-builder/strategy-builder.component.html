@@ -6,12 +6,12 @@
   </div>
 
   @if (store.error()) {
-    <div class="error-banner" role="alert"><mat-icon aria-hidden="true">error</mat-icon><span class="error-text">{{ store.error() }}</span></div>
+    <div class="error-banner" role="alert"><span class="dse-icon" aria-hidden="true">error</span><span class="error-text">{{ store.error() }}</span></div>
   }
 
   @if (store.isLoading()) {
     <div class="loading-container">
-      <mat-spinner diameter="40"></mat-spinner>
+      <span class="dse-spinner" style="--spinner-size: 40px" role="progressbar" aria-label="Loading"></span>
     </div>
   } @else if (store.instances().length === 0) {
     <div class="empty-state">
@@ -52,16 +52,16 @@
             <td>{{ exitPolicyNames(instance) }}</td>
             <td class="actions-cell">
               <button (click)="edit(instance)" title="Edit" class="action-btn edit-btn icon-btn">
-                <mat-icon>edit</mat-icon>
+                <span class="dse-icon">edit</span>
               </button>
               <button (click)="toggleLifecycle(instance)" title="Toggle Lifecycle" class="action-btn toggle-lifecycle-btn icon-btn">
-                <mat-icon>power_settings_new</mat-icon>
+                <span class="dse-icon">power_settings_new</span>
               </button>
               <button (click)="delete(instance)" title="Delete" class="action-btn delete-btn icon-btn">
-                <mat-icon>delete</mat-icon>
+                <span class="dse-icon">delete</span>
               </button>
               <button (click)="viewInDashboard(instance)" title="View in Dashboard" class="action-btn view-dashboard-btn icon-btn">
-                <mat-icon>visibility</mat-icon>
+                <span class="dse-icon">visibility</span>
               </button>
             </td>
           </tr>

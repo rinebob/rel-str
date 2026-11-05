@@ -1,11 +1,13 @@
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
+import { DsDialogService } from '../../../shared/ds/ds-dialog';
 import { signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router } from '@angular/router';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { of, Subject, Observable } from 'rxjs';
 
-import { MatDialog } from '@angular/material/dialog';
+
 
 import { SignalReviewFacade } from './signal-review.facade';
 import { buildSignalOrderTickets } from '../utils/signal-order-staging.util';
@@ -230,7 +232,7 @@ describe('SignalReviewFacade', () => {
         { provide: GroupStore, useValue: groupStoreMock },
         { provide: TriageStore, useValue: triageStoreMock },
         { provide: ManualOrderService, useValue: manualOrderMock },
-        { provide: MatDialog, useValue: dialogMock },
+        { provide: DsDialogService, useValue: dialogMock },
         { provide: SymbolListStore, useValue: symbolListStoreMock },
         { provide: SymbolHistoryStore, useValue: { signalHistoryCache: signal({}) } },
         { provide: StStore, useValue: agentStoreMock },
@@ -241,7 +243,7 @@ describe('SignalReviewFacade', () => {
         { provide: UiStateService, useValue: { setFullscreen: jest.fn(), fullscreen: signal(false) } },
         { provide: ScrollTargetService, useValue: {} },
         { provide: Router, useValue: routerMock },
-        { provide: MatSnackBar, useValue: snackBarMock },
+        { provide: DsToastService, useValue: snackBarMock },
       ],
     });
 

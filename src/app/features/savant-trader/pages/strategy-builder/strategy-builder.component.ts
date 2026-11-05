@@ -6,9 +6,7 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { MatIconModule } from '@angular/material/icon';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
@@ -21,7 +19,7 @@ import { StrategyBuilderFormComponent } from './strategy-builder-form.component'
   selector: 'app-strategy-builder',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule],
   templateUrl: './strategy-builder.component.html',
   styleUrl: './strategy-builder.component.scss',
 })

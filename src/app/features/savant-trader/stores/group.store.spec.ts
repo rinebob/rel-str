@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../../shared/ds/ds-toast.service';
 import { provideZonelessChangeDetection, signal, computed } from '@angular/core';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { of, Subject } from 'rxjs';
 
 import { GroupStore } from './group.store';
@@ -45,7 +46,7 @@ describe('GroupStore', () => {
             getAllSymbols: jest.fn().mockReturnValue(of([])),
           },
         },
-        { provide: MatSnackBar, useValue: { open: jest.fn() } },
+        { provide: DsToastService, useValue: { open: jest.fn() } },
         {
           provide: TriageStore,
           useValue: {
@@ -174,7 +175,7 @@ describe('GroupStore', () => {
     beforeEach(() => {
       signalService = TestBed.inject(SignalService) as unknown as typeof signalService;
       historyStore = TestBed.inject(SymbolHistoryStore) as unknown as typeof historyStore;
-      snackBar = TestBed.inject(MatSnackBar) as unknown as typeof snackBar;
+      snackBar = TestBed.inject(DsToastService) as unknown as typeof snackBar;
       pending = [];
       signalService.getSymbolsWithSignals.mockImplementation(() => {
         const s = new Subject<unknown[]>();

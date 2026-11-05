@@ -1,6 +1,6 @@
 @if (result()) {
-  <mat-card class="result-card">
-    <mat-card-content class="result-content">
+  <article class="dse-card result-card">
+    <div class="card-body result-content">
       @if (resultSuccess(); as success) {
         <div class="result-success">
           <div class="result-header">
@@ -37,8 +37,8 @@
           <p><strong>Category:</strong> {{ error.category }}</p>
         </div>
       }
-    </mat-card-content>
-  </mat-card>
+    </div>
+  </article>
 } @else {
   <div class="empty-result">
     <p>Select a tool and click Execute to see results.</p>
