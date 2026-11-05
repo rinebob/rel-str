@@ -7,14 +7,16 @@
  * (coverage header from pickDocMeta, marker rows, repeat badges);
  * a row's inspect action opens the contract-series dialog.
  */
-import { Component, input, ChangeDetectionStrategy, computed, inject, signal, effect } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy, computed, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { DsDialogService } from '../../../../../shared/ds/ds-dialog';
 
 import type { ContractListPickRow } from '@options-replay/contracts';
 import type { OptionsContractListUi, OptionsReplayRunUi } from '../../common/options-replay.types';
 import { getReplayTemplate } from '@options-replay/templates';
 import { getBacktestStatusVisuals, formatBacktestRunId } from '../../utils/backtest.utils';
+import { AppRoutes } from '../../../../../core/common/interfaces';
 import { OptionsReplayContractListTableComponent } from '../options-replay-contract-list-table/options-replay-contract-list-table.component';
 import {
   OptionsReplayContractSeriesDialogComponent,
@@ -30,17 +32,27 @@ export interface OptionsReplaySymbolView {
   statusIconName: string;
   rowCount: number | null;
   error?: string;
+  /** Analysis action state — drives the card's Analyze → View Results flip. */
+  canAnalyze: boolean;
+  hasResults: boolean;
+  analyzing: boolean;
+  /** '/options/strategy/backtest/analysis/{listDocId}' — null when no doc. */
+  analysisLink: string | null;
 }
 
 @Component({
   selector: 'app-options-replay-run-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, OptionsReplayContractListTableComponent],
+  imports: [CommonModule, OptionsReplayContractListTableComponent, RouterLink],
   templateUrl: './options-replay-run-detail.component.html',
   styleUrl: './options-replay-run-detail.component.scss',
 })
 export class OptionsReplayRunDetailComponent {
   private readonly dialog = inject(DsDialogService);
+
+  /** Route template for a list's analysis-results page — the card swaps
+   *  the `:listDocId` segment for its own docId. */
+  readonly analysisPath = AppRoutes.STRATEGY_BACKTEST_ANALYSIS;
 
   readonly run = input.required<OptionsReplayRunUi>();
   readonly contractLists = input<OptionsContractListUi[]>([]);
@@ -48,6 +60,13 @@ export class OptionsReplayRunDetailComponent {
   /** Symbol selected in the run list — its card auto-expands so the detail
    *  surfaces that symbol's contract list. */
   readonly selectedSymbol = input<string | null>(null);
+  /** List docIds with ≥1 analysis result doc — flips Analyze to View Results. */
+  readonly analysisReadyListIds = input<ReadonlySet<string>>(new Set());
+  /** List docIds with an in-flight optionsAnalysisStart call. */
+  readonly analyzingListIds = input<ReadonlySet<string>>(new Set());
+
+  /** Emitted when the card's Analyze action is clicked — the list docId. */
+  readonly analyze = output<string>();
 
   /** Symbols whose row table is expanded — collapsed by default since
    *  a run can carry hundreds of rows per symbol. */
@@ -112,10 +131,13 @@ export class OptionsReplayRunDetailComponent {
    *  shows 'pending' so the grid is complete from enqueue onward. */
   readonly symbolViews = computed((): OptionsReplaySymbolView[] => {
     const bySymbol = new Map(this.contractLists().map((l) => [l.symbol, l]));
+    const ready = this.analysisReadyListIds();
+    const analyzing = this.analyzingListIds();
     return this.run().symbols.map((symbol) => {
       const list = bySymbol.get(symbol) ?? null;
       const status = list?.status ?? 'pending';
       const visuals = getBacktestStatusVisuals(status);
+      const listId = list?.listId ?? '';
       return {
         symbol,
         list,
@@ -124,6 +146,10 @@ export class OptionsReplayRunDetailComponent {
         statusIconName: visuals.icon,
         rowCount: list ? list.rows.length : null,
         error: list?.error,
+        canAnalyze: status === 'success',
+        hasResults: list ? ready.has(listId) : false,
+        analyzing: list ? analyzing.has(listId) : false,
+        analysisLink: list ? `/${this.analysisPath.replace(':listDocId', listId)}` : null,
       };
     });
   });

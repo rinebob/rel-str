@@ -29,6 +29,24 @@
           </span>
           <span class="symbol-name">{{ view.symbol }}</span>
           <span class="symbol-status">{{ view.statusLabel }}</span>
+          @if (view.list) {
+            @if (view.hasResults) {
+              <a
+                class="analysis-btn"
+                [routerLink]="view.analysisLink">
+                View Results
+              </a>
+            } @else {
+              <button
+                type="button"
+                class="analysis-btn"
+                [disabled]="!view.canAnalyze || view.analyzing"
+                [title]="view.analyzing ? 'Analysis in progress' : view.canAnalyze ? 'Analyze this contract list' : 'Analyze is available once the list succeeds'"
+                (click)="analyze.emit(view.list.listId)">
+                {{ view.analyzing ? 'Analyzing…' : 'Analyze' }}
+              </button>
+            }
+          }
         </div>
         <div class="symbol-card-body">
           @if (view.rowCount !== null) {

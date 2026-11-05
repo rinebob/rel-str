@@ -91,7 +91,10 @@
             [run]="replayStore.selectedRun()!"
             [contractLists]="replayStore.contractLists()"
             [isLoadingLists]="replayStore.listsStreaming()"
-            [selectedSymbol]="replayStore.selectedSymbol()" />
+            [selectedSymbol]="replayStore.selectedSymbol()"
+            [analysisReadyListIds]="replayStore.analysisReadyListIds()"
+            [analyzingListIds]="replayStore.analyzingListIds()"
+            (analyze)="replayStore.startAnalysis($event)" />
         </div>
       }
     </div>

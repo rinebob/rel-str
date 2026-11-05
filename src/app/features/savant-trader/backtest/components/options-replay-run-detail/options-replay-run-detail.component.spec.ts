@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { DsDialogService } from '../../../../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
 
 import { OptionsReplayRunDetailComponent } from './options-replay-run-detail.component';
 import { TradeSide } from '@common';
@@ -63,6 +64,7 @@ describe('OptionsReplayRunDetailComponent', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
+        provideRouter([]),
         { provide: DsDialogService, useValue: dialogStub },
       ],
     }).compileComponents();
@@ -156,6 +158,63 @@ describe('OptionsReplayRunDetailComponent', () => {
       symbol: 'SPY',
       contractId: 'SPY260220P00550000',
       entryDate: '2026-01-05',
+    });
+  });
+
+  describe('Analyze / View Results', () => {
+    function analysisBtn(fixture: { nativeElement: HTMLElement }): HTMLButtonElement | null {
+      return fixture.nativeElement.querySelector('.analysis-btn');
+    }
+
+    it('renders an enabled Analyze button on a success card and emits the listDocId', async () => {
+      const { component, fixture } = await setup(makeRun(), [makeList()]);
+      let emitted: string | null = null;
+      component.analyze.subscribe((id: string) => (emitted = id));
+
+      const btn = analysisBtn(fixture);
+      expect(btn).toBeTruthy();
+      expect(btn!.disabled).toBe(false);
+      expect(btn!.textContent).toContain('Analyze');
+
+      btn!.click();
+      fixture.detectChanges();
+      expect(emitted).toBe('run-1_SPY');
+    });
+
+    it('disables Analyze on pending and failed cards', async () => {
+      const { fixture } = await setup(makeRun(), [
+        makeList({ status: 'failed', listId: 'run-1_SPY' }),
+      ]);
+      const buttons: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('.analysis-btn');
+      // SPY card has a failed doc → disabled button. QQQ has no doc → no button.
+      expect(buttons.length).toBe(1);
+      expect(buttons[0].disabled).toBe(true);
+    });
+
+    it('renders no analysis action when the card has no list doc', async () => {
+      const { fixture } = await setup(makeRun(), []);
+      expect(fixture.nativeElement.querySelectorAll('.analysis-btn').length).toBe(0);
+    });
+
+    it('disables the button while its list analysis is in flight', async () => {
+      const { fixture } = await setup(makeRun(), [makeList()]);
+      fixture.componentRef.setInput('analyzingListIds', new Set(['run-1_SPY']));
+      fixture.detectChanges();
+
+      const btn = analysisBtn(fixture);
+      expect(btn!.disabled).toBe(true);
+      expect(btn!.textContent).toContain('Analyzing');
+    });
+
+    it('renders View Results link when result docs exist for the list', async () => {
+      const { fixture } = await setup(makeRun(), [makeList()]);
+      fixture.componentRef.setInput('analysisReadyListIds', new Set(['run-1_SPY']));
+      fixture.detectChanges();
+
+      const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector('a.analysis-btn');
+      expect(link).toBeTruthy();
+      expect(link!.textContent).toContain('View Results');
+      expect(link!.getAttribute('href')).toBe('/options/strategy/backtest/analysis/run-1_SPY');
     });
   });
 });

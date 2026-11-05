@@ -76,6 +76,26 @@
     font-size: 11px;
     text-transform: capitalize;
   }
+
+  .analysis-btn {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 4px;
+    padding: 2px 8px;
+    background: none;
+    color: var(--mat-sys-primary);
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:disabled {
+      color: var(--mat-sys-on-surface-variant);
+      cursor: default;
+      opacity: 0.6;
+    }
+  }
 }
 
 .symbol-card-body {
