@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-11-05]
+
+### Added
+- [Options Backtest] 1238-1375_FE-IMPL-BACKTEST: rerun action on failed Selection Replay rows — optionsReplayRetry wiring, snapshot-gated in-flight flag, run-scoped disable semantics
+- [Options Backtest] 1238-1375_DOCS-BACKTEST: #1375 code-review (PASS, 2 rounds) + UAT (Complete, #1398)
+
 ## [2026-11-04]
 
 ### Added
