@@ -1,8 +1,7 @@
 /**
  * Signal-based store for the paper trade dashboard. Holds the account,
- * the trades list (with the active filter request), exit variants,
- * and loading/error state. Mirrors the OptionsStrategyDashboardStore
- * pattern.
+ * the trades list (with the active filter request), and loading/error
+ * state. Mirrors the OptionsStrategyDashboardStore pattern.
  */
 
 import { computed, inject, DestroyRef } from '@angular/core';
@@ -20,7 +19,6 @@ import { DsToastService } from '../../../shared/ds/ds-toast.service';
 
 import { PaperTradingService } from '../services/paper-trading.service';
 import type {
-  ExitVariantConfig,
   ListPaperTradesRequest,
   PaperAccount,
   PaperTrade,
@@ -56,7 +54,6 @@ export interface PaperTradingState {
   tradeFilters: ListPaperTradesRequest;
   trades: PaperTrade[];
   account: PaperAccount | null;
-  exitVariants: ExitVariantConfig[];
   isLoadingTrades: boolean;
   isLoadingAccount: boolean;
   /** Per-tradeId in-flight exit actions (close/cancel) — one action at a
@@ -69,7 +66,6 @@ const initialState: PaperTradingState = {
   tradeFilters: {},
   trades: [],
   account: null,
-  exitVariants: [],
   isLoadingTrades: false,
   isLoadingAccount: false,
   actingTradeIds: [],
@@ -183,7 +179,6 @@ export const PaperTradingStore = signalStore(
     ) => {
       let tradesSub: Subscription | null = null;
       let accountSub: Subscription | null = null;
-      let variantsSub: Subscription | null = null;
 
       /** Error → error signal + snackbar. Every load/action funnels
        *  through this so messaging stays uniform. */
@@ -285,24 +280,6 @@ export const PaperTradingStore = signalStore(
             )
             .subscribe({
               next: (res) => patchState(state, { account: res.account }),
-            });
-        },
-
-        /** Load the exit-variant registry for the variant selector.
-         *  Registry is static per deploy — no dedicated loading flag. */
-        loadExitVariants(): void {
-          variantsSub?.unsubscribe();
-          variantsSub = service
-            .listExitVariants$()
-            .pipe(
-              catchError((err) => {
-                reportError(err, 'Failed to load exit variants');
-                return of({ variants: [] });
-              }),
-              takeUntilDestroyed(destroyRef),
-            )
-            .subscribe({
-              next: (res) => patchState(state, { exitVariants: res.variants }),
             });
         },
 

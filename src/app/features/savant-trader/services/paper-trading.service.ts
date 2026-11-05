@@ -14,7 +14,6 @@ import type {
   ClosePaperTradeRequest,
   ClosePaperTradeResponse,
   GetPaperAccountResponse,
-  ListExitVariantsResponse,
   ListPaperTradesRequest,
   ListPaperTradesResponse,
   PaperSignalOrderRequest,
@@ -57,11 +56,6 @@ export class PaperTradingService {
   /** Fetch the caller's paper account (null when none exists yet). */
   getPaperAccount$(): Observable<GetPaperAccountResponse> {
     return this.call(CallableName.GET_PAPER_ACCOUNT, {});
-  }
-
-  /** Fetch the exit-variant registry configs for the variant selector. */
-  listExitVariants$(): Observable<ListExitVariantsResponse> {
-    return this.call(CallableName.LIST_EXIT_VARIANTS, {});
   }
 
   /**

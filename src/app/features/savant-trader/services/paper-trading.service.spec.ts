@@ -59,13 +59,10 @@ describe('PaperTradingService', () => {
     expect(mockCallable).toHaveBeenCalledWith({});
   });
 
-  it('getPaperAccount$/listExitVariants$ send {}', async () => {
+  it('getPaperAccount$ sends {}', async () => {
     await lastValueFrom(service.getPaperAccount$());
     expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.GET_PAPER_ACCOUNT);
     expect(mockCallable).toHaveBeenCalledWith({});
-
-    await lastValueFrom(service.listExitVariants$());
-    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.LIST_EXIT_VARIANTS);
   });
 
   it('closePaperTrade$/cancelPaperTrade$ send {tradeId} to the right callables', async () => {

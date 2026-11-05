@@ -101,7 +101,6 @@ describe('PaperTradingStore', () => {
   let mockService: {
     listPaperTrades$: jest.Mock;
     getPaperAccount$: jest.Mock;
-    listExitVariants$: jest.Mock;
     closePaperTrade$: jest.Mock;
     cancelPaperTrade$: jest.Mock;
   };
@@ -110,7 +109,6 @@ describe('PaperTradingStore', () => {
     mockService = {
       listPaperTrades$: jest.fn().mockReturnValue(of({ trades: [] })),
       getPaperAccount$: jest.fn().mockReturnValue(of({ account: ACCOUNT })),
-      listExitVariants$: jest.fn().mockReturnValue(of({ variants: [] })),
       closePaperTrade$: jest.fn(),
       cancelPaperTrade$: jest.fn(),
     };
@@ -191,7 +189,7 @@ describe('PaperTradingStore', () => {
     expect(store.availableVariantKeys()).toEqual(['time-9d', 'trailing-20']);
   });
 
-  // ── account / variants ────────────────────────────────────────────────────
+  // ── account ───────────────────────────────────────────────────────────────
 
   it('loadAccount stores the account; missing account → null', async () => {
     store.loadAccount();
@@ -202,15 +200,6 @@ describe('PaperTradingStore', () => {
     store.loadAccount();
     await new Promise<void>((r) => setTimeout(r, 0));
     expect(store.account()).toBeNull();
-  });
-
-  it('loadExitVariants stores the registry list', async () => {
-    mockService.listExitVariants$.mockReturnValue(of({
-      variants: [{ key: 'trailing-20', label: 'Trailing 20%', params: { type: 'trailing-stop', pct: 20 } }],
-    }));
-    store.loadExitVariants();
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(store.exitVariants().map((v) => v.key)).toEqual(['trailing-20']);
   });
 
   // ── errors ──────────────────────────────────────────────────────────────
@@ -333,14 +322,6 @@ describe('PaperTradingStore', () => {
     expect(store.tradesByCohort().get('none')?.map((t) => t.id)).toEqual(['t-1']);
     expect(store.tradesByInstance().get('none')?.map((t) => t.id)).toEqual(['t-1']);
     expect(store.tradesByExpression().get('none')?.map((t) => t.id)).toEqual(['t-1']);
-  });
-
-  it('loadExitVariants error patches error state', async () => {
-    mockService.listExitVariants$.mockReturnValue(throwError(() => new Error('boom')));
-    store.loadExitVariants();
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(store.error()).toBe('Failed to load exit variants');
-    expect(store.exitVariants()).toEqual([]);
   });
 
   // ── close / cancel actions (#670) ─────────────────────────────────────
