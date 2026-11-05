@@ -23,6 +23,8 @@
 - [Option Contract Time-Series Viewer] 1243-1363_FE-IMPL-OPTIONS: contract-list session chunk emit protocol — sendSteppedChunk/sendChunkAt/sendAll over shared primitives; canStep* computeds; no silent cursor moves
 - [Option Contract Time-Series Viewer] 1243-1363_FE-IMPL-OPTIONS: picker Chunks tab (◀▶ live-drive, click-jump timeline, add-chunk, size select) + page mini-controls strip
 - [Option Contract Time-Series Viewer] 1243-1363_DOCS-OPTIONS: #1363 code-review (PASS, 3 rounds) + UAT (Complete, #1417) + changelog
+- [On-demand Screenshot Capture] 746-801_FE-IMPL-SCREENSHOT: /dev/screenshot utilities — SPEC_PRESETS (quick-look + order-placed/order-filled/position-closed sims), per-path Copy + GCS-console result actions, lifecycle event select + refId wired into CaptureChartSpec; dev-page chrome — DS-class form sweep, actions row for Store-to-GCS, applied-preset persistence
+- [On-demand Screenshot Capture] 746-801_DOCS-SCREENSHOT: #801 code-review (PASS, 2 rounds) + UAT (Complete, #1416) + changelog
 
 ### Removed
 - [Paper Trading Infra] 553-672_FE-IMPL-PAPER-TRADING: dead FE exit-variant registry reads — listExitVariants$/loadExitVariants/exitVariants (zero consumers post-#668 select)
