@@ -5,6 +5,9 @@
 ### Added
 - [Options Backtest] 1238-1375_FE-IMPL-BACKTEST: rerun action on failed Selection Replay rows — optionsReplayRetry wiring, snapshot-gated in-flight flag, run-scoped disable semantics
 - [Options Backtest] 1238-1375_DOCS-BACKTEST: #1375 code-review (PASS, 2 rounds) + UAT (Complete, #1398)
+- [Option Contract Time-Series Viewer] 1243-1362_FE-IMPL-OPTIONS: contract-list picker dialog + page wiring — rows tab (toolbar ops, no-selection markers, repeat badges), lines preview + Copy; onSend stay-open send; loadConfirmOpen guard, pickerRef dedupe, closeAll on destroy
+- [Option Contract Time-Series Viewer] 1243-1362_FE-IMPL-OPTIONS: session-store non-finite input guards + lastEmitted reset on doc apply
+- [Option Contract Time-Series Viewer] 1243-1362_DOCS-OPTIONS: #1362 code-review (PASS, 2 rounds) + UAT (Complete, #1399) + changelog
 
 ## [2026-11-04]
 
