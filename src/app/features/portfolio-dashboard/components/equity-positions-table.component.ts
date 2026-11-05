@@ -42,12 +42,16 @@ export class EquityPositionsTableComponent {
   readonly error = input<string | null>(null);
   /** Symbols with active stop-loss protection — disables the Add Stop button. */
   readonly protectedSymbols = input<Set<string>>(new Set());
+  /** Symbols whose protective stop can be updated — swaps Add Stop for Update Stop. */
+  readonly updatableSymbols = input<Set<string>>(new Set());
   /** Whether the selected account is agent-enabled (controls action button visibility). */
   readonly agenticAllowed = input(true);
   readonly retry = output<void>();
   readonly closePosition = output<EquityPositionWithPnL>();
   /** Emits the position when the user clicks Add Stop. */
   readonly addStopLoss = output<EquityPositionWithPnL>();
+  /** Emits the position when the user clicks Update Stop. */
+  readonly updateStopLoss = output<EquityPositionWithPnL>();
 
   /** Open positions only — closed rows are out of scope for this table. */
   readonly visiblePositions = computed(() => this.positions().filter((p) => !p.closed));

@@ -272,6 +272,45 @@ describe('EquityPositionsTableComponent', () => {
     expect(spy).toHaveBeenCalledWith(pos);
   });
 
+  it('shows enabled Update Stop action on protected positions with an updatable stop', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', quantity: 100, closed: false })]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>(['AAPL']));
+    fixture.componentRef.setInput('updatableSymbols', new Set<string>(['AAPL']));
+    fixture.detectChanges();
+
+    const updateBtn = fixture.nativeElement.querySelector('.pd-update-stop-action');
+    expect(updateBtn).toBeTruthy();
+    expect(updateBtn.textContent).toContain('Update Stop');
+    expect(updateBtn.disabled).toBe(false);
+    expect(fixture.nativeElement.querySelector('.pd-add-stop-action')).toBeNull();
+  });
+
+  it('emits updateStopLoss with the position when Update Stop clicked', () => {
+    const pos = makePosition({ symbol: 'AAPL', quantity: 100, closed: false });
+    fixture.componentRef.setInput('positions', [pos]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>(['AAPL']));
+    fixture.componentRef.setInput('updatableSymbols', new Set<string>(['AAPL']));
+    fixture.detectChanges();
+
+    const spy = jasmine.createSpy('updateStopLoss');
+    component.updateStopLoss.subscribe(spy);
+
+    fixture.nativeElement.querySelector('.pd-update-stop-action').click();
+    expect(spy).toHaveBeenCalledWith(pos);
+  });
+
+  it('keeps the disabled Add Stop fallback when protected but the stop is not updatable', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', quantity: 100, closed: false })]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>(['AAPL']));
+    fixture.componentRef.setInput('updatableSymbols', new Set<string>());
+    fixture.detectChanges();
+
+    const addStopBtn = fixture.nativeElement.querySelector('.pd-add-stop-action');
+    expect(addStopBtn).toBeTruthy();
+    expect(addStopBtn.disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('.pd-update-stop-action')).toBeNull();
+  });
+
   it('does not show Close or Add Stop actions when account is not agent-enabled', () => {
     fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', quantity: 100, closed: false })]);
     fixture.componentRef.setInput('protectedSymbols', new Set<string>());

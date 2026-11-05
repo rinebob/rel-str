@@ -102,6 +102,15 @@
                         >
                           Add Stop
                         </button>
+                      } @else if (updatableSymbols().has(pos.symbol)) {
+                        <button
+                          type="button"
+                          mat-stroked-button
+                          class="pd-update-stop-action"
+                          (click)="updateStopLoss.emit(pos)"
+                        >
+                          Update Stop
+                        </button>
                       } @else {
                         <span matTooltip="Stop-loss already protecting this position">
                           <button
