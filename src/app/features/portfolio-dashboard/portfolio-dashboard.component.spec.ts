@@ -1,9 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsToastService } from '../../shared/ds/ds-toast.service';
+import { DsDialogService } from '../../shared/ds/ds-dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { signal, computed } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+
+
 import { of } from 'rxjs';
 
 import { PortfolioDashboardComponent } from './portfolio-dashboard.component';
@@ -18,6 +20,7 @@ import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types'
 import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
 import { StopLossDialogComponent, StopLossDialogData } from './components/stop-loss-dialog/stop-loss-dialog.component';
 import { OrderExecutionService } from '../savant-trader/services/order-execution.service';
+import { updatableStopsBySymbol } from './utils/portfolio-pnl.util';
 
 function makeEquityPosition(overrides: Partial<EquityPositionWithPnL> = {}): EquityPositionWithPnL {
   return {
@@ -114,6 +117,9 @@ function makeStoreMock(overrides: Partial<{
     openOrders: computed(() => openOrders()),
     orderHistory: computed(() => orderHistory()),
     stopLossProtectedSymbols: computed(() => protectedSymbols()),
+    // Mirrors the store's computed — exercises the real updatableStopsBySymbol
+    // derivation against mock openOrders/equityPositions.
+    updatableStops: computed(() => updatableStopsBySymbol(openOrders(), equityPositions())),
     showOrderHistory,
     loadAccounts: jasmine.createSpy('loadAccounts').and.returnValue(Promise.resolve()),
     loadPhase1: jasmine.createSpy('loadPhase1').and.returnValue(Promise.resolve()),
@@ -170,8 +176,8 @@ describe('PortfolioDashboardComponent', () => {
         provideNoopAnimations(),
         provideRouter([]),
         { provide: PortfolioDashboardStore, useValue: store },
-        { provide: MatDialog, useValue: dialog },
-        { provide: MatSnackBar, useValue: snack },
+        { provide: DsDialogService, useValue: dialog },
+        { provide: DsToastService, useValue: snack },
         {
           provide: OrderExecutionService,
           useValue: execSvc,
@@ -208,7 +214,7 @@ describe('PortfolioDashboardComponent', () => {
 
     const column = fixture.nativeElement.querySelector('.pd-content');
     expect(column).toBeTruthy();
-    expect(column.querySelector('mat-tab-group')).toBeTruthy();
+    expect(column.querySelector('.dse-tabs')).toBeTruthy();
   });
 
   it('puts the account pill switcher in the header bar (#778)', () => {
@@ -389,11 +395,11 @@ describe('PortfolioDashboardComponent', () => {
     store._setAccounts([makeAccountState('Account A', '111')]);
     store._setLoading(true);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('mat-tab-group')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.dse-tabs')).toBeNull();
 
     store._setLoading(false);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('mat-tab-group')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.dse-tabs')).toBeTruthy();
   });
 
   it('formats null currency as dash when amounts are revealed', () => {
@@ -614,6 +620,80 @@ describe('PortfolioDashboardComponent', () => {
     component.onAddStopLoss(pos);
 
     expect(store.refresh).not.toHaveBeenCalled();
+  });
+
+  it('derives updatableSymbols from live equity sell stops on held positions', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    store._setOpenOrders([
+      makeBrokerOrder({ orderId: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'stop_market', stopPrice: 160, state: 'queued' }),
+      makeBrokerOrder({ orderId: 'stop-2', symbol: 'MSFT', side: 'sell', type: 'stop_market', stopPrice: 400, state: 'queued' }),
+      makeBrokerOrder({ orderId: 'lim-1', symbol: 'AAPL', side: 'buy', type: 'limit', state: 'queued' }),
+    ]);
+    fixture.detectChanges();
+
+    expect(component.updatableSymbols()).toEqual(new Set(['AAPL']));
+  });
+
+  it('excludes stop_limit orders from updatableSymbols', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    store._setOpenOrders([
+      makeBrokerOrder({ orderId: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'stop_limit', stopPrice: 160, price: 159, state: 'queued' }),
+    ]);
+    fixture.detectChanges();
+
+    expect(component.updatableSymbols().size).toBe(0);
+  });
+
+  it('opens StopLossDialogComponent in update mode with the matching stops as candidates', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    const aaplStop = makeBrokerOrder({ orderId: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'stop_market', stopPrice: 160, state: 'queued' });
+    const msftStop = makeBrokerOrder({ orderId: 'stop-2', symbol: 'MSFT', side: 'sell', type: 'stop_market', stopPrice: 400, state: 'queued' });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    store._setOpenOrders([aaplStop, msftStop]);
+    fixture.detectChanges();
+
+    component.onUpdateStop(pos);
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const args = dialog.open.calls.mostRecent().args;
+    expect(args[0]).toBe(StopLossDialogComponent);
+    const data = args[1]?.data as StopLossDialogData;
+    expect(data.position.symbol).toBe('AAPL');
+    expect(data.accountNumber).toBe('123456');
+    expect(data.update).toBeTruthy();
+    expect(data.update!.candidates).toEqual([aaplStop]);
+  });
+
+  it('calls store.refresh() after update-stop dialog dismisses with success', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    store._setOpenOrders([
+      makeBrokerOrder({ orderId: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'stop_market', stopPrice: 160, state: 'queued' }),
+    ]);
+    fixture.detectChanges();
+
+    store.refresh.calls.reset();
+    component.onUpdateStop(pos);
+
+    expect(store.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open the dialog when no updatable stop exists for the symbol', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    store._setOpenOrders([]);
+    fixture.detectChanges();
+
+    component.onUpdateStop(pos);
+
+    expect(dialog.open).not.toHaveBeenCalled();
   });
 
   it('cancels an equity order via OrderExecutionService after confirmation', async () => {
