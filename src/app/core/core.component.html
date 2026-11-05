@@ -1,30 +1,34 @@
+<div class="shell-layout">
 
-<mat-drawer-container [hasBackdrop]="true">
+    <div class="drawer-backdrop" [class.open]="sidenavOpen()" (click)="handleCloseSidenav()"></div>
 
-    <mat-drawer #sidenav mode="over" position="start">
+    <aside class="shell-drawer" [class.open]="sidenavOpen()"
+           role="dialog" aria-modal="true" aria-label="Site navigation"
+           cdkTrapFocusAutoCapture [cdkTrapFocus]="sidenavOpen()"
+           [attr.aria-hidden]="!sidenavOpen()">
 
         <rs-sidenav-menu (closeSidenav)="handleCloseSidenav()"
                          (navigate)="handleNavigation($event)"
         />
 
-    </mat-drawer>
+    </aside>
 
-    <mat-drawer-content [style.--header-height]="ui.fullscreen() ? '0px' : 'var(--app-header-height)'">
+    <div class="shell-content" [style.--header-height]="ui.fullscreen() ? '0px' : 'var(--app-header-height)'">
 
         @if (!ui.fullscreen()) {
           <rs-header (openSidenav)="handleOpenSidenav()" (newOrder)="onNewOrder()" />
         } @else {
           <button class="header-reveal" (click)="ui.toggleFullscreen()" aria-label="Show header" title="Show header">
             @if (pageInfo(); as info) {
-              <mat-icon class="reveal-icon" aria-hidden="true">{{ info.icon }}</mat-icon>
+              <span class="dse-icon reveal-icon" aria-hidden="true">{{ info.icon }}</span>
               <span class="reveal-title">{{ info.title }}</span>
             }
-            <mat-icon>fullscreen_exit</mat-icon>
+            <span class="dse-icon">fullscreen_exit</span>
           </button>
         }
 
         <router-outlet></router-outlet>
 
-    </mat-drawer-content>
+    </div>
 
-</mat-drawer-container>
+</div>

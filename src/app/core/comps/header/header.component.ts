@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { Router } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
 import { AuthStore } from '../../auth/auth.store';
 import { AppRoutes } from '../../common/interfaces';
 import { PageIdentityService } from '../../services/page-identity.service';
@@ -9,7 +8,7 @@ import { UiStateService } from '../../services/ui-state.service';
 
 @Component({
     selector: 'rs-header',
-    imports: [MatIconModule],
+    imports: [],
     templateUrl: './header.component.html',
     styleUrl: './header.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

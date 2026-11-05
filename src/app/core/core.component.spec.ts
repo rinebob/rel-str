@@ -70,7 +70,7 @@ describe('CoreComponent', () => {
     expect(el().querySelector('rs-header')).toBeNull();
     const reveal = el().querySelector<HTMLButtonElement>('.header-reveal');
     expect(reveal).not.toBeNull();
-    expect(reveal!.querySelector('mat-icon')?.textContent?.trim()).toBe('fullscreen_exit');
+    expect(reveal!.querySelector('.dse-icon')?.textContent?.trim()).toBe('fullscreen_exit');
   });
 
   it('reveal chip carries the resolved page identity while fullscreen (#854)', () => {
@@ -89,7 +89,7 @@ describe('CoreComponent', () => {
 
     const reveal = el().querySelector<HTMLElement>('.header-reveal')!;
     expect(reveal.querySelector('.reveal-title')).toBeNull();
-    expect(reveal.querySelector('mat-icon')?.textContent?.trim()).toBe('fullscreen_exit');
+    expect(reveal.querySelector('.dse-icon')?.textContent?.trim()).toBe('fullscreen_exit');
   });
 
   it('clicking the reveal chevron exits fullscreen and restores the header', () => {
@@ -105,7 +105,7 @@ describe('CoreComponent', () => {
   });
 
   it('binds --header-height to the app header height, or 0px in fullscreen', () => {
-    const content = () => el().querySelector<HTMLElement>('mat-drawer-content')!;
+    const content = () => el().querySelector<HTMLElement>('.shell-content')!;
 
     expect(content().style.getPropertyValue('--header-height')).toBe('var(--app-header-height)');
 
@@ -116,21 +116,22 @@ describe('CoreComponent', () => {
 
   it('header openSidenav output opens the sidenav drawer', () => {
     const header = fixture.debugElement.query(By.directive(HeaderComponent)).componentInstance as HeaderComponent;
-    const spy = jest.spyOn(component.sidenav, 'open');
 
     header.openSidenav.emit();
-    expect(spy).toHaveBeenCalled();
+    fixture.detectChanges();
+    expect(component.sidenavOpen()).toBe(true);
   });
 
   it('sidenav navigate output routes to item.href and closes the drawer (#740)', () => {
     const menu = fixture.debugElement.query(By.directive(SidenavMenuComponent)).componentInstance as SidenavMenuComponent;
     const router = TestBed.inject(Router);
-    const closeSpy = jest.spyOn(component.sidenav, 'close');
+    component.handleOpenSidenav();
+    fixture.detectChanges();
 
     menu.navigate.emit({ name: 'x', text: 'X', href: 'trading/live' });
 
     expect(router.navigate).toHaveBeenCalledWith(['trading/live']);
-    expect(closeSpy).toHaveBeenCalled();
+    expect(component.sidenavOpen()).toBe(false);
   });
 
   it('header newOrder output opens the manual order dialog (#1191)', () => {

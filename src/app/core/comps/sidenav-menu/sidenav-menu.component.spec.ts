@@ -71,7 +71,7 @@ describe('SidenavMenuComponent', () => {
       await fixture.whenStable();
 
       const menuItems = Array.from(
-        document.querySelectorAll<HTMLElement>('.mat-mdc-menu-panel .mat-mdc-menu-item'),
+        document.querySelectorAll<HTMLElement>('.dse-menu .menu-item'),
       ).map((n) => n.textContent?.trim());
       expect(menuItems).toEqual([
         'Flex Chart Sandbox',
@@ -94,7 +94,7 @@ describe('SidenavMenuComponent', () => {
       await fixture.whenStable();
 
       document
-        .querySelector<HTMLElement>('.mat-mdc-menu-panel .mat-mdc-menu-item')!
+        .querySelector<HTMLElement>('.dse-menu .menu-item')!
         .click();
       fixture.detectChanges();
 

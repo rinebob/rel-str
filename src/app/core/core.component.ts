@@ -1,7 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { Router, RouterOutlet } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 
 
 import { NavItem } from './common/interfaces';
@@ -13,14 +12,13 @@ import { ManualOrderService } from '../features/savant-trader/services/manual-or
 
 @Component({
     selector: 'rs-core',
-    imports: [RouterOutlet, MatIconModule, MatSidenavModule, HeaderComponent, SidenavMenuComponent],
+    imports: [RouterOutlet, HeaderComponent, SidenavMenuComponent, CdkTrapFocus],
     templateUrl: './core.component.html',
     styleUrls: ['./core.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CoreComponent {
-	//TODO: convert to signal ViewChild
-	@ViewChild('sidenav', { static: false }) sidenav!: MatSidenav;
+	readonly sidenavOpen = signal(false);
 
     private readonly router = inject(Router);
     readonly ui = inject(UiStateService);
@@ -35,16 +33,21 @@ export class CoreComponent {
     readonly pageInfo = inject(PageIdentityService).pageInfo;
 
 	handleOpenSidenav() {
-		this.sidenav.open();
+		this.sidenavOpen.set(true);
 	}
 
 	handleCloseSidenav() {
-		this.sidenav.close();
+		this.sidenavOpen.set(false);
+	}
+
+	@HostListener('document:keydown.escape')
+	onEscape() {
+		this.handleCloseSidenav();
 	}
 
 	handleNavigation(navItem: NavItem) {
         this.router.navigate([navItem.href]);
-        this.sidenav.close();
+        this.handleCloseSidenav();
 	}
 
 	onNewOrder() {

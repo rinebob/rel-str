@@ -72,7 +72,7 @@ describe('HeaderComponent', () => {
   });
 
   it('does not render a symbols/topnav button', () => {
-    const icons = Array.from(el().querySelectorAll('mat-icon')).map(i => i.textContent?.trim());
+    const icons = Array.from(el().querySelectorAll('.dse-icon')).map(i => i.textContent?.trim());
     expect(icons).not.toContain('symbols');
   });
 
@@ -109,11 +109,11 @@ describe('HeaderComponent', () => {
     it('shows light_mode under dark and dark_mode under light', () => {
       themeSvc.set('dark');
       fixture.detectChanges();
-      expect(el().querySelector('.theme-toggle mat-icon')?.textContent?.trim()).toBe('light_mode');
+      expect(el().querySelector('.theme-toggle .dse-icon')?.textContent?.trim()).toBe('light_mode');
 
       themeSvc.set('light');
       fixture.detectChanges();
-      expect(el().querySelector('.theme-toggle mat-icon')?.textContent?.trim()).toBe('dark_mode');
+      expect(el().querySelector('.theme-toggle .dse-icon')?.textContent?.trim()).toBe('dark_mode');
     });
   });
 
@@ -213,7 +213,7 @@ describe('HeaderComponent — page identity zone (#853)', () => {
   const el = () => fixture.nativeElement as HTMLElement;
   const zone = () => el().querySelector('.page-identity');
   const zoneTitle = () => zone()?.querySelector('.page-title')?.textContent?.trim();
-  const zoneIcon = () => zone()?.querySelector('mat-icon')?.textContent?.trim();
+  const zoneIcon = () => zone()?.querySelector('.dse-icon')?.textContent?.trim();
   const expectInfo = (route: AppRoutes) => {
     expect(zoneTitle()).toBe(PAGE_INFO[route].title);
     expect(zoneIcon()).toBe(PAGE_INFO[route].icon);

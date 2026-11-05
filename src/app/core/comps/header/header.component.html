@@ -2,7 +2,7 @@
 
     <button class="menu-button icon-btn" (click)="handleMenuOpen()" aria-label="Open navigation menu">
         
-        <mat-icon>menu</mat-icon>
+        <span class="dse-icon">menu</span>
     
     </button>
     
@@ -10,7 +10,7 @@
 
     @if (pageInfo(); as info) {
         <div class="page-identity">
-            <mat-icon class="page-icon" aria-hidden="true">{{ info.icon }}</mat-icon>
+            <span class="dse-icon page-icon" aria-hidden="true">{{ info.icon }}</span>
             <h1 class="page-title">{{ info.title }}</h1>
         </div>
     }
@@ -19,11 +19,11 @@
 
         <button class="theme-toggle icon-btn" (click)="theme.toggle()"
  [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
-            <mat-icon>{{ theme.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+            <span class="dse-icon">{{ theme.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</span>
         </button>
 
         <button class="fullscreen-toggle icon-btn" (click)="uiState.toggleFullscreen()" aria-label="Enter fullscreen">
-            <mat-icon>fullscreen</mat-icon>
+            <span class="dse-icon">fullscreen</span>
         </button>
 
         <!-- Auth-aware section -->
@@ -33,7 +33,7 @@
         } @else {
           <button class="ds-btn outline" data-testid="new-order-btn"
  (click)="newOrder.emit()">
-            <mat-icon>add</mat-icon>
+            <span class="dse-icon">add</span>
             New Order
           </button>
           <span class="user-label">{{ user()?.displayName || user()?.email }}</span>

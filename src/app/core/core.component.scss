@@ -2,66 +2,88 @@
 @use '../styles/variables-global';
 
 :host {
-    mat-sidenav-container,
-    mat-drawer-container {
+    .shell-layout {
+        position: relative;
         height: 100%;
         width: 100%;
-    
-        ::ng-deep {
-            .mat-drawer-shown {
-                // literal-sweep exception #1217: drawer scrim must dim content in
-            // both themes — achromatic overlay, not a theme surface.
-            background-color: rgba(0,0,0, 0.6);
-            }
-        }
-        
-        mat-sidenav,
-        mat-drawer {
-            @include global.flexboxLayout(column, flex-start, flex-start);
-            background-color: var(--ds-surface);
-            height: 100%;
-            width: 350px;
-        }
-        
-        mat-sidenav-content,
-        mat-drawer-content {
-            height: 100%;
-            overflow: hidden;
-            // Page canvas — prebuilt indigo-pink pins this to #fafafa via
-            // --mat-sidenav-content-background-color; must track theme.
-            background-color: var(--ds-surface);
-        }
-    
-        // Fullscreen reveal chip (#854) — page identity + exit affordance.
-        // rs-header is unmounted in fullscreen, so this chip is the only
-        // in-app "where am I" on fullscreen pages (signal-order, option-chain…).
-        .header-reveal {
-            position: fixed;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
-            border: none;
-            border-radius: 0 0 8px 8px;
-            background: var(--mat-sys-surface-container-high);
-            color: var(--mat-sys-on-surface);
-            box-shadow: var(--ds-shadow-1);
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            line-height: 20px;
+        overflow: hidden;
+    }
 
-            mat-icon {
-                font-size: 18px;
-                width: 18px;
-                height: 18px;
-            }
+    // literal-sweep exception #1217: drawer scrim must dim content in
+    // both themes — achromatic overlay, not a theme surface.
+    .drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 900;
+        background-color: rgba(0,0,0, 0.6);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+
+        &.open {
+            opacity: 1;
+            pointer-events: auto;
         }
     }
-    
-    
+
+    .shell-drawer {
+        @include global.flexboxLayout(column, flex-start, stretch);
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1000;
+        height: 100%;
+        width: 350px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background-color: var(--ds-surface);
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform 0.25s ease, visibility 0s 0.25s;
+        box-shadow: none;
+
+        &.open {
+            transform: translateX(0);
+            visibility: visible;
+            transition: transform 0.25s ease, visibility 0s 0s;
+            box-shadow: var(--ds-shadow-2, 0 8px 24px rgba(0,0,0,0.24));
+        }
+    }
+
+    .shell-content {
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background-color: var(--ds-surface);
+    }
+
+    // Fullscreen reveal chip (#854) — page identity + exit affordance.
+    // rs-header is unmounted in fullscreen, so this chip is the only
+    // in-app "where am I" on fullscreen pages (signal-order, option-chain…).
+    .header-reveal {
+        position: fixed;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border: none;
+        border-radius: 0 0 8px 8px;
+        background: var(--mat-sys-surface-container-high);
+        color: var(--mat-sys-on-surface);
+        box-shadow: var(--ds-shadow-1);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 20px;
+
+        .dse-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+        }
+    }
 }

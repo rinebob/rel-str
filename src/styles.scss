@@ -113,16 +113,17 @@ body {
 }
 
 // ── Grouped Review: signal symbol panel prominence ───────────────────────────
-mat-expansion-panel.symbol-panel.has-signal {
-  --mat-expansion-panel-container-background-color: color-mix(in srgb, var(--mat-sys-primary) 8%, var(--mat-sys-surface));
+.ds-panel.symbol-panel.has-signal {
+  background: color-mix(in srgb, var(--mat-sys-primary) 8%, var(--mat-sys-surface));
   border-left: 3px solid var(--mat-sys-primary) !important;
 }
-mat-expansion-panel.symbol-panel.has-signal .symbol-ticker {
+.ds-panel.symbol-panel.has-signal .symbol-ticker {
   color: var(--mat-sys-primary);
   font-size: 14px !important;
   font-weight: 800 !important;
 }
-.backtest-report-dialog .mat-mdc-dialog-surface {
+// ds-dialog pane carries panelClass on the overlay host itself.
+.dse-dialog.backtest-report-dialog {
   max-width: 95vw;
   max-height: 90vh;
   width: 95vw;
@@ -205,3 +206,27 @@ body {
 .dse-acc { @include savant-ds.ds-accordion; }
 .dse-tabs { @include savant-ds.ds-tabs; }
 .dse-card { @include savant-ds.ds-card; }
+
+// mat-icon's replacement (#1163 phase H): the Google "Material Icons"
+// ligature webfont loaded in index.html renders the icon name as the
+// glyph on any element — the component was only chrome around this CSS.
+// Same rules mat-icon emitted (24px default, antialiased, liga on).
+.dse-icon {
+  font-family: 'Material Icons', 'Material Icons Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga';
+  user-select: none;
+  flex-shrink: 0;
+}
