@@ -15,6 +15,11 @@
 - [Option Contract Time-Series Viewer] 1243-1362_DOCS-OPTIONS: #1362 code-review (PASS, 2 rounds) + UAT (Complete, #1399) + changelog
 - [Paper Trading Infra] 553-672_FE-IMPL-PAPER-TRADING: shared NONE_VARIANT_KEY for InstanceInput 'none' fallback — matches the form-side swap in ff3b3d49
 - [Paper Trading Infra] 553-672_DOCS-PAPER-TRADING: #672 code-review (PASS, 3 rounds) + UAT (Complete, #1235) + IMPL/TEST as-built records
+- [Options Backtest] 1238-1376_FE-IMPL-BACKTEST: OptionsAnalysisRunsService — optionsAnalysisStart callable + run-scoped st-options-analysis-results stream (fail-safe doc converter)
+- [Options Backtest] 1238-1376_FE-IMPL-BACKTEST: replay store analysis state — success-only ready set, snapshot-gated analyzing flag, dual run streams, run-switch reset
+- [Options Backtest] 1238-1376_FE-IMPL-BACKTEST: analysis-results route /options/strategy/backtest/analysis/:listDocId + shell page (real surface is #1377)
+- [Options Backtest] 1238-1376_FE-IMPL-BACKTEST: Analyze / View Results card action — enabled iff list success, Analyzing… in flight, View Results on ready
+- [Options Backtest] 1238-1376_DOCS-BACKTEST: #1376 code-review (PASS, 2 rounds) + UAT (Complete, #1406)
 
 ### Removed
 - [Paper Trading Infra] 553-672_FE-IMPL-PAPER-TRADING: dead FE exit-variant registry reads — listExitVariants$/loadExitVariants/exitVariants (zero consumers post-#668 select)
