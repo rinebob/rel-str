@@ -1,10 +1,187 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .provenance {
   font-size: 0.85rem;
   opacity: 0.75;
-  margin: 0 0 12px;
+  margin: 0 0 6px;
 }
 
 .readout {
   font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.state {
+  padding: 32px 12px;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.error-state {
+  color: var(--ds-error);
+}
+
+.loading-state,
+.empty-state {
+  opacity: 0.7;
+}
+
+.picker-tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+
+  .tab-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding-top: 8px;
+  }
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+
+  .sep {
+    width: 1px;
+    height: 18px;
+    background: var(--ds-border-subtle);
+    margin: 0 4px;
+  }
+
+  .op {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    opacity: 0.85;
+  }
+
+  select,
+  input {
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 3px 6px;
+    border: 1px solid var(--ds-border-strong);
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+  }
+
+  .random-input {
+    width: 56px;
+  }
+
+  .text-filter {
+    width: 150px;
+  }
+}
+
+.table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.rows-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+
+  th,
+  td {
+    padding: 4px 8px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    background: var(--ds-surface);
+    border-bottom: 1px solid var(--ds-border-strong);
+    font-weight: 600;
+    z-index: 1;
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .entry-date {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .contract-id {
+    font-family: monospace;
+    font-size: 0.78rem;
+  }
+
+  tr.selected td {
+    background: var(--ds-selection);
+  }
+
+  .repeat-badge {
+    margin-left: 6px;
+    padding: 1px 5px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    background: var(--ds-accent-container);
+    color: var(--ds-on-accent-container);
+  }
+
+  .no-selection-row td {
+    opacity: 0.45;
+    font-style: italic;
+  }
+}
+
+.lines-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.lines-preview {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   margin: 0;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 4px;
+  background: var(--ds-surface-raised);
+  white-space: pre;
+}
+
+.empty-note {
+  padding: 24px 12px;
+  text-align: center;
+  opacity: 0.65;
 }

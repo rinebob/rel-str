@@ -11,7 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom, distinctUntilChanged, map, take } from 'rxjs';
-import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+import { DsDialogRef, DsDialogService } from '../../../../shared/ds/ds-dialog';
 
 
 
@@ -55,7 +55,7 @@ import {
 } from '../../stores/contract-list-session.store';
 import { ContractListService } from '../../services/contract-list.service';
 import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
-import { ContractListPickerComponent } from '../../components/contract-list-picker/contract-list-picker.component';
+import { ContractListPickerComponent, type ContractListPickerData } from '../../components/contract-list-picker/contract-list-picker.component';
 
 /** Pasting more than this many contracts asks for confirmation first — the
  *  chart stays usable but the fetch batch and line count get unwieldy. */
@@ -126,6 +126,15 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   readonly listErrorText = computed(
     () => this.listError() ?? this.listStore.error(),
   );
+
+  /** Picker emit → chart handoff — injected into the dialog via
+   *  DS_DIALOG_DATA so Send can plot without closing. A root `effect`
+   *  on `lastEmitted` was the planned seam but deadlocks the zoneless
+   *  scheduler while Zone.js is still loaded (NG0914 state), so the
+   *  callback is explicit: emitters call store.send* then this. */
+  private readonly emitSessionLines = (lines: string[]): void => {
+    if (lines.length) this.onListSend(lines);
+  };
 
   /** Ordering guard for `onContractListDocId` — two sequential `?list=`
    *  links resolve their fetches out of order; only the latest applies
@@ -569,6 +578,11 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.uiStateService.setFullscreen(false);
+    // DsDialogService is root-scoped — overlays outlive the route. A
+    // picker left open over the next page would keep its `onSend`
+    // callback alive against this destroyed component (and the root
+    // viewer store); every dialog open at destroy is page-owned.
+    this.dialog.closeAll();
   }
 
   /** Chips strip — mirrors the chart: every plotted contract in set view, or
@@ -642,6 +656,12 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Re-entrancy flag for the >50 confirm — the only dialog that must
+   *  block a second load. Scoped narrower than `openDialogs.length`: the
+   *  contract-list picker stays open while it emits, so an any-dialog
+   *  check would dead-end every send. */
+  private loadConfirmOpen = false;
+
   /** Load dispatch: a single bare OCC ID keeps the existing single-contract
    *  view; anything else — dated pairs or a multi-line list — goes through
    *  the plotted-set path. Rejected tokens are surfaced, valid entries still
@@ -650,7 +670,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     const text = this.occIdInput;
     // Re-entrancy guard: a second click while the >50 confirm is open would
     // stack another dialog and spawn a concurrent batch.
-    if (!text.trim() || this.dialog.openDialogs.length) return;
+    if (!text.trim() || this.loadConfirmOpen) return;
 
     const { entries, rejected } = parsePlottedEntries(text, this.symbol());
     this.rejectedEntries.set(rejected);
@@ -662,18 +682,23 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     }
 
     if (entries.length > LARGE_LIST_WARN_THRESHOLD) {
-      const ok = await firstValueFrom(
-        this.dialog
-          .open(ConfirmDialogComponent, {
-            data: {
-              message: `This will load ${entries.length} option contracts — the chart may be slow and hard to read. Load all ${entries.length}?`,
-              confirmLabel: 'Load',
-              cancelLabel: 'Cancel',
-            },
-          })
-          .afterClosed(),
-      );
-      if (!ok) return;
+      this.loadConfirmOpen = true;
+      try {
+        const ok = await firstValueFrom(
+          this.dialog
+            .open(ConfirmDialogComponent, {
+              data: {
+                message: `This will load ${entries.length} option contracts — the chart may be slow and hard to read. Load all ${entries.length}?`,
+                confirmLabel: 'Load',
+                cancelLabel: 'Cancel',
+              },
+            })
+            .afterClosed(),
+        );
+        if (!ok) return;
+      } finally {
+        this.loadConfirmOpen = false;
+      }
     }
 
     await this.store.loadPlotted(entries);
@@ -691,6 +716,10 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   }
 
   private emitLinesToChart(lines: string[]): void {
+    // Bail before touching the textarea — writing first and letting
+    // onLoad's guard drop the load would leave the field disagreeing
+    // with the plotted set with no signal why.
+    if (this.loadConfirmOpen) return;
     this.occIdInput = lines.join('\n');
     void this.onLoad();
   }
@@ -767,20 +796,25 @@ export class OptionChartComponent implements OnInit, OnDestroy {
       });
   }
 
-  /** Session → picker dialog — returns emitted lines on Send. Reopening
-   *  uses the same session store, so selection/cursor are preserved. */
+  /** Live picker ref — a `?list=` doc applying while the picker is
+   *  open must not stack a second dialog; the open one already tracks
+   *  the store, so the new selection/chunk state shows through. */
+  private pickerRef: DsDialogRef<ContractListPickerComponent> | null = null;
+
+  /** Session → picker dialog. Send emits through the `onSend` data
+   *  callback and the dialog stays open; reopening uses the same
+   *  session store, so selection/cursor are preserved. */
   openListPicker(): void {
-    this.dialog
-      .open(ContractListPickerComponent, {
-        width: '85vw',
-        maxWidth: '85vw',
-        height: '85vh',
-        injector: this.injector,
-      })
-      .afterClosed()
-      .subscribe((lines?: string[]) => {
-        if (lines?.length) this.onListSend(lines);
-      });
+    if (this.pickerRef) return;
+    const ref = this.dialog.open(ContractListPickerComponent, {
+      width: '85vw',
+      maxWidth: '85vw',
+      height: '85vh',
+      injector: this.injector,
+      data: { onSend: this.emitSessionLines } satisfies ContractListPickerData,
+    });
+    this.pickerRef = ref;
+    ref.afterClosed().subscribe(() => (this.pickerRef = null));
   }
 
   /** Chart brush (#1340) → generator alive-range bound. Declared now so the

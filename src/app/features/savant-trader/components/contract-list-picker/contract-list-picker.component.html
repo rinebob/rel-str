@@ -1,21 +1,134 @@
 <h2 class="title">Contract list</h2>
 <div class="content">
-  @if (store.activeList(); as list) {
+  @if (store.status() === 'loading') {
+    <div class="state loading-state">Loading list…</div>
+  } @else if (store.status() === 'error') {
+    <div class="state error-state">{{ store.error() }}</div>
+  } @else if (store.activeList(); as list) {
     <p class="provenance">
-      {{ list.templateId }} · {{ list.symbol }} · {{ list.generatedAtIso | date: 'yyyy-MM-dd' }}
+      {{ list.templateId }} · {{ list.symbol }} · {{ list.generatedAtIso | date: 'yyyy-MM-dd':'UTC' }}
       @if (list.pickDocMeta) {
         · {{ list.pickDocMeta.pickCount }} picks · {{ list.pickDocMeta.missCount }} misses
         · {{ list.pickDocMeta.firstDate }} → {{ list.pickDocMeta.lastDate }}
+        · grid v{{ list.pickDocMeta.gridVersion }}
       }
     </p>
     <p class="readout">
       {{ store.selectedRows().length }} rows selected → {{ store.uniqueCount() }} unique contracts
     </p>
+
+    <div class="dse-tabs picker-tabs">
+      <div class="tab-bar" role="tablist" aria-label="Picker sections" (keydown)="onTabKeydown($event)">
+        <button type="button" class="tab" role="tab" id="picker-tab-rows"
+          [class.active]="activeTab() === 'rows'" [attr.aria-selected]="activeTab() === 'rows'"
+          aria-controls="picker-panel-rows" (click)="activeTab.set('rows')">Rows</button>
+        <button type="button" class="tab" role="tab" id="picker-tab-lines"
+          [class.active]="activeTab() === 'lines'" [attr.aria-selected]="activeTab() === 'lines'"
+          aria-controls="picker-panel-lines" (click)="activeTab.set('lines')">Lines</button>
+      </div>
+
+      @if (activeTab() === 'rows') {
+        <div class="tab-body" role="tabpanel" id="picker-panel-rows" aria-labelledby="picker-tab-rows">
+          <div class="toolbar">
+            <button type="button" class="ds-btn outline small" (click)="store.selectAll()">All</button>
+            <button type="button" class="ds-btn outline small" (click)="store.selectNone()">None</button>
+            <button type="button" class="ds-btn outline small" (click)="store.invertSelection()">Invert</button>
+            <span class="sep"></span>
+            <label class="op">
+              Stride
+              <select class="stride-select" [ngModel]="strideK()" (ngModelChange)="strideK.set(+$event)">
+                @for (k of strideOptions; track k) { <option [value]="k">{{ k }}</option> }
+              </select>
+            </label>
+            <button type="button" class="ds-btn outline small stride-apply" (click)="applyStride()">Select</button>
+            <label class="op">
+              Random
+              <input type="number" class="random-input" min="1" [ngModel]="randomN()" (ngModelChange)="randomN.set(+$event)">
+            </label>
+            <button type="button" class="ds-btn outline small random-apply" [disabled]="randomN() < 1" (click)="applyRandom()">Pick</button>
+            <span class="sep"></span>
+            <input type="date" class="range-from" aria-label="From date" [ngModel]="rangeFrom()" (ngModelChange)="rangeFrom.set($event)">
+            <input type="date" class="range-to" aria-label="To date" [ngModel]="rangeTo()" (ngModelChange)="rangeTo.set($event)">
+            <button type="button" class="ds-btn outline small range-apply" [disabled]="!rangeFrom() || !rangeTo()" (click)="applyRange()">Range</button>
+            <input type="text" class="text-filter" placeholder="Contract contains…" aria-label="Contract filter"
+              [ngModel]="filterText()" (ngModelChange)="filterText.set($event)" (keydown.enter)="applyFilter()">
+            <button type="button" class="ds-btn outline small filter-apply" [disabled]="!filterText().trim()" (click)="applyFilter()">Filter</button>
+          </div>
+
+          <div class="table-scroll">
+            <table class="rows-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Entry</th>
+                  <th>Contract</th>
+                  <th class="num">Strike</th>
+                  <th>Expiry</th>
+                  <th class="num">Δ</th>
+                  <th class="num">IV</th>
+                  <th class="num">Mark</th>
+                  <th class="num">Und. Close</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of rows(); track row.entryDate) {
+                  @if (row.kind === 'pick') {
+                    <tr class="pick-row" [class.selected]="store.selection().has(row.entryDate)">
+                      <td>
+                        <input type="checkbox" [checked]="store.selection().has(row.entryDate)"
+                          [attr.aria-label]="'Select ' + row.entryDate" (change)="onToggle(row.entryDate, $event)">
+                      </td>
+                      <td class="entry-date">{{ row.entryDate }}</td>
+                      <td class="contract-id" [title]="row.contractId">
+                        {{ row.contractId }}
+                        @if (row.repeatsPrevious) {
+                          <span class="repeat-badge" title="Same contract as the prior trading day — still a distinct position entry">↻ repeat</span>
+                        }
+                      </td>
+                      <td class="num">{{ row.strike | number:'1.2-2' }}</td>
+                      <td>{{ row.expiration }} {{ dow(row.expiration) }}</td>
+                      <td class="num">{{ row.delta | number:'1.2-2' }}</td>
+                      <td class="num">{{ row.iv | percent:'1.0-1' }}</td>
+                      <td class="num">{{ row.mark | number:'1.2-2' }}</td>
+                      <td class="num">{{ row.underlyingClose | number:'1.2-2' }}</td>
+                    </tr>
+                  } @else {
+                    <tr class="no-selection-row">
+                      <td>
+                        <input type="checkbox" disabled [attr.aria-label]="'No pick on ' + row.entryDate">
+                      </td>
+                      <td class="entry-date">{{ row.entryDate }}</td>
+                      <td class="marker-cell" colspan="7">{{ noSelectionLabel(row.reason) }}</td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      } @else {
+        <div class="tab-body" role="tabpanel" id="picker-panel-lines" aria-labelledby="picker-tab-lines">
+          <div class="lines-toolbar">
+            <span>{{ store.emittedLines().length }} lines</span>
+            <button type="button" class="ds-btn outline small copy-btn" [disabled]="!canSend()" (click)="copy()">
+              {{ copied() ? 'Copied' : 'Copy' }}
+            </button>
+          </div>
+          @if (linesText()) {
+            <pre class="lines-preview">{{ linesText() }}</pre>
+          } @else {
+            <div class="empty-note">No rows selected — check rows on the Rows tab.</div>
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="state empty-state">No active list — pick one from Lists… in the drawer.</div>
   }
 </div>
 <div class="actions" align="end">
-  <button class="ds-btn outline" (click)="dialogRef.close()">Close</button>
-  <button class="ds-btn fill" [disabled]="!canSend()" (click)="send()">
+  <button type="button" class="ds-btn outline" (click)="dialogRef.close()">Close</button>
+  <button type="button" class="ds-btn fill send-btn" [disabled]="!canSend()" (click)="send()">
     Send {{ store.selectedRows().length }} rows to chart
   </button>
 </div>

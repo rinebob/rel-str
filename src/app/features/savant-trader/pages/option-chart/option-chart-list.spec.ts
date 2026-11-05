@@ -11,7 +11,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap, type ParamMap } from '@angular/router';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
-import { BehaviorSubject, from, of } from 'rxjs';
+import { BehaviorSubject, from, of, Subject, type Observable } from 'rxjs';
 
 import { TradeSide } from '@common';
 import { OptionType } from '@options/common';
@@ -90,13 +90,41 @@ interface Setup {
   listStore: InstanceType<typeof ContractListSessionStore>;
   component: OptionChartComponent;
   getList$: jest.Mock;
-  dialog: { open: jest.Mock; openDialogs: unknown[] };
+  dialog: { open: jest.Mock; closeAll: jest.Mock; openDialogs: unknown[] };
   params$: BehaviorSubject<ParamMap>;
+}
+
+interface MockDialogRef {
+  afterClosed(): Observable<unknown>;
+  close(result?: unknown): void;
 }
 
 function setup(): Setup {
   const getList$ = jest.fn();
-  const dialog = { open: jest.fn(() => ({ afterClosed: () => of(undefined) })), openDialogs: [] as unknown[] };
+  // The mock models DsDialogService faithfully: refs enter openDialogs on
+  // open; afterClosed emits once when close() runs and the ref leaves
+  // openDialogs. An open dialog must NOT block onLoad (the picker stays
+  // open while it sends); closeAll mirrors the service's close-everything.
+  const dialog = {
+    open: jest.fn((): MockDialogRef => {
+      const closed$ = new Subject<unknown>();
+      const ref: MockDialogRef = {
+        afterClosed: () => closed$.asObservable(),
+        close: () => {
+          const i = dialog.openDialogs.indexOf(ref);
+          if (i >= 0) dialog.openDialogs.splice(i, 1);
+          closed$.next(undefined);
+          closed$.complete();
+        },
+      };
+      dialog.openDialogs.push(ref);
+      return ref;
+    }),
+    closeAll: jest.fn(() => {
+      for (const ref of [...dialog.openDialogs]) (ref as MockDialogRef).close();
+    }),
+    openDialogs: [] as unknown[],
+  };
   const params$ = new BehaviorSubject<ParamMap>(convertToParamMap({}));
 
   TestBed.configureTestingModule({
@@ -417,6 +445,30 @@ describe('OptionChartComponent — contract-list session wiring', () => {
     expect(store.plottedContracts()['QQQ260619P00480000']?.entry.openDate).toBe('2026-06-11');
   });
 
+  it('the picker dialog receives an onSend callback that drives the load path', async () => {
+    const { component, store, listStore, dialog } = setup();
+    component.ngOnInit();
+    listStore.setSymbol('QQQ');
+    listStore.loadListDoc(listDoc());
+
+    component.openListPicker();
+    const config = dialog.open.mock.calls.at(-1)![1] as {
+      data?: { onSend?: (lines: string[]) => void };
+    };
+    expect(config.data?.onSend).toBeInstanceOf(Function);
+    // The picker is still open — openDialogs must not block the load
+    // (the >50-confirm guard is scoped to the confirm, not any dialog).
+    expect(dialog.openDialogs.length).toBe(1);
+
+    // The dialog calls sendSelected() then onSend(lines) — the emit the
+    // store produced is what the page writes into the textarea.
+    config.data!.onSend!(listStore.sendSelected());
+    await flush();
+
+    expect(component.occIdInput).toBe(`2026-06-10,${QQQ_PUT}`);
+    expect(store.plottedContracts()[QQQ_PUT]?.entry.openDate).toBe('2026-06-10');
+  });
+
   it('openListPicker reopens the picker on the page injector (selection preserved)', async () => {
     const { component, listStore, getList$, dialog, params$ } = setup();
     getList$.mockReturnValue(of(listDoc()));
@@ -424,6 +476,9 @@ describe('OptionChartComponent — contract-list session wiring', () => {
     params$.next(convertToParamMap({ list: 'run-1_QQQ' }));
     await flush();
     await flush();
+    // Close the ?list=-opened picker first — reopening is a close→open
+    // cycle (a live picker dedupes, it doesn't stack).
+    (dialog.openDialogs.at(-1) as MockDialogRef).close();
     dialog.open.mockClear();
 
     component.openListPicker();
@@ -435,6 +490,45 @@ describe('OptionChartComponent — contract-list session wiring', () => {
     // Same session — no reload, selection intact.
     expect(listStore.activeList()?.listId).toBe('run-1_QQQ');
     expect(getList$).toHaveBeenCalledTimes(1);
+  });
+
+  it('a second openListPicker while one is open does not stack another dialog', () => {
+    const { component, dialog } = setup();
+    component.ngOnInit();
+
+    component.openListPicker();
+    component.openListPicker();
+
+    expect(dialog.openDialogs.length).toBe(1);
+    expect(
+      dialog.open.mock.calls.filter(([c]) => c === ContractListPickerComponent),
+    ).toHaveLength(1);
+  });
+
+  it('closing the picker frees openListPicker to reopen it', () => {
+    const { component, dialog } = setup();
+    component.ngOnInit();
+
+    component.openListPicker();
+    (dialog.open.mock.results.at(-1)!.value as MockDialogRef).close();
+    component.openListPicker();
+
+    expect(dialog.openDialogs.length).toBe(1);
+    expect(
+      dialog.open.mock.calls.filter(([c]) => c === ContractListPickerComponent),
+    ).toHaveLength(2);
+  });
+
+  it('ngOnDestroy closes every open dialog — the picker cannot outlive the page', () => {
+    const { component, dialog } = setup();
+    component.ngOnInit();
+    component.openListPicker();
+    expect(dialog.openDialogs.length).toBe(1);
+
+    component.ngOnDestroy();
+
+    expect(dialog.closeAll).toHaveBeenCalled();
+    expect(dialog.openDialogs.length).toBe(0);
   });
 
   it('symbol change swaps the session to that symbol', () => {
