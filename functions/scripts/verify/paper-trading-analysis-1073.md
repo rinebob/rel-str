@@ -5,15 +5,15 @@
 Proves the #1059 analysis contracts work against real Firestore:
 
 - **Path helpers** — `analysisDatasetsPath()` →
-  `paper-trading/analysis-datasets/items`, `analysisSlicesPath()` →
-  `paper-trading/analysis-slices/items`, `analysisDatasetGcsPath(id)` →
-  `analysis-datasets/{id}.csv`.
+  `st-paper-trading/analysis-datasets/items`, `analysisSlicesPath()` →
+  `st-paper-trading/analysis-slices/items` (canonical since #1158),
+  `analysisDatasetGcsPath(id)` → `analysis-datasets/{id}.csv`.
 - **Manifest ⇄ schema bijection** — every `ANALYSIS_COLUMNS` key is a
   `TradeAnalysisRow` key and vice versa (46 columns; runtime echo of the
   jest pin in `shared/analysis-dataset-contracts.spec.ts`).
 - **Dataset-index round-trip** — writes a probe `AnalysisDatasetDoc`
   (`status: 'generating'`, `barRange`, `tags`, `gcsPath`) to the real
-  `paper-trading/analysis-datasets/items` collection, reads it back
+  `st-paper-trading/analysis-datasets/items` collection, reads it back
   field-by-field.
 - **Slice round-trip** — writes a probe `AnalysisSlice` with all three
   `SliceFilter` ops (`in`, `range`, `dateRange`) and confirms they
@@ -41,7 +41,7 @@ npx tsx scripts/verify/paper-trading-analysis-1073-contracts.ts
 
 ### Side effects
 
-Writes two docs under `paper-trading/analysis-{datasets,slices}/items`
+Writes two docs under `st-paper-trading/analysis-{datasets,slices}/items`
 named `verify-1073-*` and deletes them before exit. Safe to re-run —
 `set` overwrites, and cleanup is idempotent.
 

@@ -11,9 +11,10 @@ npx tsx scripts/verify/paper-trading-analysis-1076-dataset-writer.ts
 ```
 
 Requires ADC (`gcloud auth application-default login`). The script writes
-two `verify-1076-*` probe docs under `paper-trading/analysis-datasets/items`
-plus one GCS object (`analysis-datasets/verify-1076-ok.csv`) and deletes
-all of them in cleanup (`.finally` — probes are removed even on crash).
+two `verify-1076-*` probe docs under `st-paper-trading/analysis-datasets/items`
+(canonical since #1158) plus one GCS object (`analysis-datasets/verify-1076-ok.csv`)
+and deletes all of them — including the probe's `chunks` subcollection — in
+cleanup (`.finally` — probes are removed even on crash).
 
 ## Checks
 

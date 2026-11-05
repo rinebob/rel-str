@@ -3,7 +3,7 @@
  *
  * Proves the anchored collection paths and doc shapes round-trip through
  * real Firestore (admin SDK): writes a probe AnalysisDatasetDoc and a
- * probe AnalysisSlice under paper-trading/analysis-{datasets,slices}/items,
+ * probe AnalysisSlice under st-paper-trading/analysis-{datasets,slices}/items,
  * reads them back field-by-field, then deletes both. Also asserts the
  * manifest ⇄ row-schema bijection at runtime (belt over the jest pin).
  *
@@ -81,8 +81,8 @@ async function main(): Promise<void> {
   console.log('verify-1073: analysis contracts → real Firestore round-trip\n');
 
   // Path helpers
-  check('datasets path', analysisDatasetsPath() === 'paper-trading/analysis-datasets/items', analysisDatasetsPath());
-  check('slices path', analysisSlicesPath() === 'paper-trading/analysis-slices/items', analysisSlicesPath());
+  check('datasets path', analysisDatasetsPath() === 'st-paper-trading/analysis-datasets/items', analysisDatasetsPath());
+  check('slices path', analysisSlicesPath() === 'st-paper-trading/analysis-slices/items', analysisSlicesPath());
   check('gcs path', analysisDatasetGcsPath('x') === 'analysis-datasets/x.csv');
 
   // Manifest ⇄ schema bijection (runtime echo of the jest pin)

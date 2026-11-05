@@ -144,12 +144,16 @@ async function docStatus(id: string): Promise<AnalysisDatasetDoc | null> {
 }
 
 async function cleanup(): Promise<void> {
-  for (const id of [PROBE_OK, PROBE_FAIL]) {
-    await db.collection(analysisDatasetsPath()).doc(id).delete().catch(() => {});
+  for (const id of [PROBE_OK, PROBE_FAIL, 'verify-1076-enqueue']) {
+    const ref = db.collection(analysisDatasetsPath()).doc(id);
+    const chunks = await ref.collection('chunks').get().catch(() => null);
+    for (const c of chunks?.docs ?? []) {
+      await c.ref.delete().catch(() => {});
+    }
+    await ref.delete().catch(() => {});
   }
   const bucket = getStorage().bucket(BUCKET);
   await bucket.file(analysisDatasetGcsPath(PROBE_OK)).delete().catch(() => {});
-  await db.collection(analysisDatasetsPath()).doc('verify-1076-enqueue').delete().catch(() => {});
 }
 
 async function main(): Promise<void> {

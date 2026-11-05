@@ -175,6 +175,15 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
     needsAdc: true,
   },
+  // Pre-delete gate for #1158 — fails by design once the legacy
+  // paper-trading analysis anchors are deleted (retire at that point).
+  {
+    name: 'analysis anchors legacy ⇄ st- parity',
+    file: 'verify/data-pipeline-analysis-anchors-1158.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
   { name: 'paper-trading trade-exits contracts', file: 'paper-trading-contracts-665.ts', needsAccount: false },
   {
     name: 'swing config library',

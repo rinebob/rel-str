@@ -52,6 +52,9 @@ const scripts = [
   'paper-trading-analysis-1077-live-snapshot.ts',
   'paper-trading-analysis-dataset.ts',
   'rh-scanner-recipes-1098.ts',
+  // Pre-delete gate for #1158 — fails by design once the legacy
+  // paper-trading analysis anchors are deleted (retire at that point).
+  'data-pipeline-analysis-anchors-1158.ts',
 ];
 
 let passed = 0;

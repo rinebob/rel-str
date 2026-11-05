@@ -43,6 +43,8 @@ import {
 } from '@st/collections';
 import {
   PaperTradingKind,
+  analysisDatasetsPath,
+  analysisSlicesPath,
   paperTradingItemsPath,
 } from '@paper-trading/ids';
 import {
@@ -112,6 +114,10 @@ check('paper accounts items', stPaperTradingItemsPath(StPaperTradingKind.ACCOUNT
 check('paper trades items', stPaperTradingItemsPath(StPaperTradingKind.TRADE), 'st-paper-trading/trades/items');
 check('paper stats items', stPaperTradingItemsPath(StPaperTradingKind.STATS), 'st-paper-trading/stats/items');
 check('paper raw-quotes items', stPaperTradingItemsPath(StPaperTradingKind.RAW_QUOTE), 'st-paper-trading/raw-quotes/items');
+check('paper analysis-datasets items', stPaperTradingItemsPath(StPaperTradingKind.ANALYSIS_DATASET), 'st-paper-trading/analysis-datasets/items');
+check('paper analysis-slices items', stPaperTradingItemsPath(StPaperTradingKind.ANALYSIS_SLICE), 'st-paper-trading/analysis-slices/items');
+check('analysisDatasetsPath canonical', analysisDatasetsPath(), 'st-paper-trading/analysis-datasets/items');
+check('analysisSlicesPath canonical', analysisSlicesPath(), 'st-paper-trading/analysis-slices/items');
 check(
   'paper trade doc path',
   stPaperTradingDocPath(StPaperTradingKind.TRADE, 'ADPT-260927-sig-EQ-01'),
@@ -121,7 +127,7 @@ for (const kind of Object.values(StPaperTradingKind)) {
   check(`paper ${kind} items odd segments`, stPaperTradingItemsPath(kind).split('/').length % 2, 1);
   check(`paper ${kind} doc even segments`, stPaperTradingDocPath(kind, 'x').split('/').length % 2, 0);
 }
-check('paper kinds exclude instances/cohorts', Object.values(StPaperTradingKind).sort(), ['account', 'raw-quote', 'stats', 'trade']);
+check('paper kinds exclude instances/cohorts', Object.values(StPaperTradingKind).sort(), ['account', 'analysis-dataset', 'analysis-slice', 'raw-quote', 'stats', 'trade']);
 check('legacy PaperTradingKind accepted', stPaperTradingItemsPath(PaperTradingKind.TRADE), 'st-paper-trading/trades/items');
 for (const moved of [PaperTradingKind.INSTANCE, PaperTradingKind.COHORT]) {
   check(
