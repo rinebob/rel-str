@@ -84,13 +84,40 @@
   select offers `trailing-stop` only; the `'none'` mat-option is removed.
 - `trailing-stop` param default **8** (pct); `VARIANT_PARAM_META` gains a
   `max` and `variantParamValid` enforces the shared eligibility bound
-  (`isGoverningEligibleParams`, SHARED §4) so `trailing-0`/`trailing-150`
+  (`isGoverningEligiblePct`, SHARED §4) so `trailing-0`/`trailing-150`
   can't be created or round-tripped.
 - Editing an instance whose stored key is non-terminal, unparseable, or
   degenerate prefills the trailing-8 default (matching the BE resolver's
   warn-and-default at launch).
 - `parseVariantKey` tolerates non-string input (Firestore is schema-free)
   and returns null — 'none' is not a family.
+
+**As built (#672):** landed under commit `7f78fefb` during the #668
+ship (US4 bundle) — `variantFamilies()` filters the loaded variant
+registry by `TERMINAL_VARIANT_FAMILIES`, `variantParam` defaults 8,
+`isGoverningEligiblePct` enforced in `variantParamValid` (range
+error), edit-mode coercion to trailing-8 for non-terminal/unparseable/
+degenerate stored keys. `trailing-8.5` decimal pin added under #672.
+
+**As remediated (#672 review, 2 rounds):** `variantParamValid` dropped
+the FE-invented `VARIANT_PARAM_META` [1,99] bound —
+`isGoverningEligiblePct` is the sole group-level eligibility gate
+(a stored BE-legal `trailing-0.5`/`trailing-99.5` prefilled into an
+unsaveable editor — prefill≠validator predicates). Round 2 caught the
+bound surviving as *control-level* validators: Angular installs real
+`min`/`max` validators on `input[type=number][min|max]` — meta bounds
+are now contract-expressive (0–100) so the attribute validators can
+never reject a contract-eligible pct, and the validator gains a
+serialize-then-re-parse round-trip guard (sub-1e-6 params serialize
+to exponential notation neither side can read). `variantFamilies` is a
+plain field derived from `VARIANT_PARAM_META` ∩ `TERMINAL_VARIANT_FAMILIES`
+— no registry dependency, so an unloaded/empty registry can't blank the
+select while the default still saves. `NONE_VARIANT_KEY` replaces
+`'none'` literals and `DEFAULT_TRAILING_STOP_KEY` derives the form/prefill
+defaults; shared `VariantFamily` type imported; dead `integer` error
+branch, `PaperTradingStore` inject, `loadExitVariants` call, and the
+entire FE registry pipeline (`loadExitVariants`/`exitVariants`/
+`listExitVariants$` — zero consumers) removed.
 
 ## 4. Status display
 

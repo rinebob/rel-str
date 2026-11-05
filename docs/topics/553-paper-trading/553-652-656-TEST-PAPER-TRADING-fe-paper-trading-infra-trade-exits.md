@@ -50,7 +50,9 @@ Jest 30 + jest-preset-angular; async tests flush with a macrotask boundary
 - `initial-stop`/`time-stop`/`limit-stddev`/`none` not selectable for new
   configs.
 - Out-of-range params (`0`, `150`) fail validation with a `range` error;
-  the input binds `[min]`/`[max]` from `VARIANT_PARAM_META`.
+  the input binds `[min]`/`[max]` from `VARIANT_PARAM_META` (bounds are
+  contract-expressive — the visible `range` message comes from the group
+  validator; a param whose key can't round-trip also fails `range`).
 - Editing an instance whose stored key is non-terminal, unparseable, or
   degenerate (`time-30d`, `custom-legacy-key`, `none`, `trailing-150`)
   prefills the `trailing-stop`/8 default — BE resolver parity.

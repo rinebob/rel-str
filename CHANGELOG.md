@@ -13,6 +13,11 @@
 - [Option Contract Time-Series Viewer] 1243-1362_FE-IMPL-OPTIONS: contract-list picker dialog + page wiring — rows tab (toolbar ops, no-selection markers, repeat badges), lines preview + Copy; onSend stay-open send; loadConfirmOpen guard, pickerRef dedupe, closeAll on destroy
 - [Option Contract Time-Series Viewer] 1243-1362_FE-IMPL-OPTIONS: session-store non-finite input guards + lastEmitted reset on doc apply
 - [Option Contract Time-Series Viewer] 1243-1362_DOCS-OPTIONS: #1362 code-review (PASS, 2 rounds) + UAT (Complete, #1399) + changelog
+- [Paper Trading Infra] 553-672_FE-IMPL-PAPER-TRADING: shared NONE_VARIANT_KEY for InstanceInput 'none' fallback — matches the form-side swap in ff3b3d49
+- [Paper Trading Infra] 553-672_DOCS-PAPER-TRADING: #672 code-review (PASS, 3 rounds) + UAT (Complete, #1235) + IMPL/TEST as-built records
+
+### Removed
+- [Paper Trading Infra] 553-672_FE-IMPL-PAPER-TRADING: dead FE exit-variant registry reads — listExitVariants$/loadExitVariants/exitVariants (zero consumers post-#668 select)
 
 ## [2026-11-04]
 
