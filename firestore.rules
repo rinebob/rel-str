@@ -207,28 +207,17 @@ service cloud.firestore {
     // - instances anchor retired in #1013 (canonical home is
     //   st-strategy-instances); the wildcard below still covers it but no
     //   leg grants writes.
-    // - analysis-* anchors migrated to st-paper-trading in #1158 — the
-    //   grants below stay until the legacy docs are archived + deleted at
-    //   #1158 ship (cohorts remains the only live legacy anchor).
-    // - analysis-slices/items: authed CRUD — saved analysis views are
-    //   user-written from the workbench (#1059/#1073).
-    // - analysis-datasets/items: authed update + delete — the workbench
-    //   edits tags/notes and deletes datasets (#1059/#1081); create stays
-    //   server-side (the generateTradeDataset callable mints index docs).
-    // - all other anchors (accounts/trades/cohorts/stats/raw-quotes):
+    // - analysis-* anchors migrated to st-paper-trading in #1158 and the
+    //   legacy docs were archived + deleted at #1158 ship — their write
+    //   legs are retired with them (cohorts remains the only live legacy
+    //   anchor).
+    // - all anchors (accounts/trades/cohorts/stats/raw-quotes):
     //   authenticated read for the single-user app; writes are
     //   server-side (admin SDK bypasses rules — ledger passes and the
     //   dataset generator own all writes).
     match /paper-trading/{anchor}/items/{docId} {
       allow read: if request.auth != null;
-      allow create: if
-        (anchor == 'analysis-slices' && request.auth != null);
-      allow update: if
-        (anchor == 'analysis-slices' && request.auth != null) ||
-        (anchor == 'analysis-datasets' && request.auth != null);
-      allow delete: if
-        (anchor == 'analysis-slices' && request.auth != null) ||
-        (anchor == 'analysis-datasets' && request.auth != null);
+      allow write: if false;
       match /{sub}/{subDocId} {
         allow read: if request.auth != null;
         allow write: if false;

@@ -41,7 +41,9 @@ const scripts = [
   // Retired post-delete (#1019 ship): 1000 dual-write, 1001 backfill,
   // 1019 reader-equivalence, 1159 runs/symbols parity — all read the
   // deleted savant-trader/data/symbols evidence and would pass vacuously
-  // or fail by design.
+  // or fail by design. (#1158 ship): analysis-anchors parity — read the
+  // deleted paper-trading analysis anchors evidence and would fail by
+  // design.
   'data-pipeline-st-order-tickets-1002.ts',
   'data-pipeline-st-position-groups-1004.ts',
   'data-pipeline-run-jobs-ttl-1010.ts',
@@ -52,9 +54,6 @@ const scripts = [
   'paper-trading-analysis-1077-live-snapshot.ts',
   'paper-trading-analysis-dataset.ts',
   'rh-scanner-recipes-1098.ts',
-  // Pre-delete gate for #1158 — fails by design once the legacy
-  // paper-trading analysis anchors are deleted (retire at that point).
-  'data-pipeline-analysis-anchors-1158.ts',
 ];
 
 let passed = 0;

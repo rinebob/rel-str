@@ -153,7 +153,9 @@ const scripts: VerifyScript[] = [
   // Retired post-delete (#1019 ship): 1000 dual-write, 1001 backfill,
   // 1019 reader-equivalence, 1159 runs/symbols parity — all read the
   // deleted savant-trader/data/symbols evidence and would pass vacuously
-  // or fail by design.
+  // or fail by design. (#1158 ship): analysis-anchors parity — read the
+  // deleted paper-trading analysis anchors evidence and would fail by
+  // design.
   {
     name: 'st-order-tickets canonical shape',
     file: 'verify/data-pipeline-st-order-tickets-1002.ts',
@@ -171,15 +173,6 @@ const scripts: VerifyScript[] = [
   {
     name: 'legacy roots inventory + parity',
     file: 'verify/data-pipeline-legacy-roots-1013.ts',
-    cwd: 'functions',
-    needsAccount: false,
-    needsAdc: true,
-  },
-  // Pre-delete gate for #1158 — fails by design once the legacy
-  // paper-trading analysis anchors are deleted (retire at that point).
-  {
-    name: 'analysis anchors legacy ⇄ st- parity',
-    file: 'verify/data-pipeline-analysis-anchors-1158.ts',
     cwd: 'functions',
     needsAccount: false,
     needsAdc: true,

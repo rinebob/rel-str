@@ -66,6 +66,8 @@ const RETIRED: { name: string; path: string }[] = [
   { name: 'paper-trading-trades-items', path: 'paper-trading/trades/items' },
   { name: 'paper-trading-stats-items', path: 'paper-trading/stats/items' },
   { name: 'paper-trading-raw-quotes-items', path: 'paper-trading/raw-quotes/items' },
+  { name: 'paper-trading-analysis-datasets-items', path: 'paper-trading/analysis-datasets/items' },
+  { name: 'paper-trading-analysis-slices-items', path: 'paper-trading/analysis-slices/items' },
   { name: 'rh-agent-runs', path: 'rh-agent-runs' },
   { name: 'rh-agent-opportunities', path: 'rh-agent-opportunities' },
   { name: 'rh-agent-symbols', path: 'rh-agent-symbols' },
