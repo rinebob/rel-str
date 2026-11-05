@@ -1,0 +1,23 @@
+.analysis-results {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.page-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+
+  h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .list-id {
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 12px;
+  }
+}

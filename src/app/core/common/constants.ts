@@ -134,6 +134,7 @@ export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
     [AppRoutes.SIGNAL_ORDER]:                 { title: 'Signal Order',               icon: 'bolt' },
     [AppRoutes.RH_ACCOUNT_INQUIRY]:           { title: 'Account Inquiry',            icon: 'account_balance' },
     [AppRoutes.STRATEGY_BACKTEST]:            { title: 'Strategy Backtest',          icon: 'science' },
+    [AppRoutes.STRATEGY_BACKTEST_ANALYSIS]:   { title: 'Analysis Results',           icon: 'analytics' },
     [AppRoutes.SIGNAL_HISTORY]:               { title: 'Signal History',             icon: 'manage_history' },
     [AppRoutes.OPTION_CHART]:                 { title: 'Option Chart',               icon: 'stacked_line_chart' },
     [AppRoutes.SPREAD_CHART]:                 { title: 'Spread Chart',               icon: 'show_chart' },

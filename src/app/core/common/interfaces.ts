@@ -27,6 +27,8 @@ export enum AppRoutes {
 	SIGNAL_ORDER = 'trading/live',
 	RH_ACCOUNT_INQUIRY = 'tools/account',
 	STRATEGY_BACKTEST = 'options/strategy/backtest',
+	/** Backtest analysis results — a contract list's exit-matrix page (#1238/#1376). */
+	STRATEGY_BACKTEST_ANALYSIS = 'options/strategy/backtest/analysis/:listDocId',
 	SIGNAL_HISTORY = 'signal-history',
 	OPTION_CHART = 'options/chart',
 	SPREAD_CHART = 'options/spread-chart',

@@ -182,6 +182,12 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.BacktestDashboardComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.STRATEGY_BACKTEST_ANALYSIS,
+                title: PAGE_INFO[AppRoutes.STRATEGY_BACKTEST_ANALYSIS].title,
+                loadComponent: () => import('../features/savant-trader/backtest/pages/backtest-analysis-results/backtest-analysis-results.component')
+                .then(mod => mod.BacktestAnalysisResultsComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.SIGNAL_HISTORY,
                 title: PAGE_INFO[AppRoutes.SIGNAL_HISTORY].title,
                 loadComponent: () => import('../features/savant-trader/pages/signal-history/signal-history.component')
