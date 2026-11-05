@@ -216,6 +216,7 @@ export const ContractListSessionStore = signalStore(
         chunkCursor: clamp(restore?.cursor ?? 0, chunkCount),
         status: 'ready',
         error: null,
+        lastEmitted: [],
       });
       if (store.symbol() === symbol) persist();
     };
@@ -299,6 +300,7 @@ export const ContractListSessionStore = signalStore(
 
       /** Every k-th pick day starting at the first (k>=1; stride 1 = all). */
       selectStride(k: number): void {
+        if (!Number.isFinite(k)) return;
         const step = Math.max(1, Math.floor(k));
         setSelection(
           store.pickRows()
@@ -310,6 +312,7 @@ export const ContractListSessionStore = signalStore(
       /** N unique pick days sampled without replacement — injectable rng
        *  keeps the seam deterministic in specs. */
       randomPick(n: number, rng: () => number = Math.random): void {
+        if (!Number.isFinite(n)) return;
         const pool = store.pickRows().map((r) => r.entryDate);
         const picked: string[] = [];
         // Snapshot the bound — splice drains pool mid-loop.
@@ -343,6 +346,7 @@ export const ContractListSessionStore = signalStore(
 
       /** Cursor step — clamps at both ends (no wrap). */
       step(dir: number): void {
+        if (!Number.isFinite(dir)) return;
         patchState(store, {
           chunkCursor: clamp(store.chunkCursor() + Math.sign(dir), store.chunks().length),
         });
@@ -350,11 +354,13 @@ export const ContractListSessionStore = signalStore(
       },
 
       setChunk(i: number): void {
+        if (!Number.isFinite(i)) return;
         patchState(store, { chunkCursor: clamp(Math.floor(i), store.chunks().length) });
         persist();
       },
 
       setChunkSize(n: number): void {
+        if (!Number.isFinite(n)) return;
         const size = Math.max(1, Math.floor(n));
         const count = Math.ceil(store.pickRows().length / size);
         patchState(store, {

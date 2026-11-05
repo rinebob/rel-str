@@ -283,6 +283,14 @@ describe('ContractListSessionStore', () => {
         '2026-06-05',
       ]);
     });
+
+    it('non-finite toolbar input is ignored rather than wiping the selection', () => {
+      store.selectAll();
+      store.selectStride(NaN);
+      expect(store.selection().size).toBe(15);
+      store.randomPick(NaN);
+      expect(store.selection().size).toBe(15);
+    });
   });
 
   describe('chunks', () => {
@@ -323,6 +331,15 @@ describe('ContractListSessionStore', () => {
       expect(store.chunkCursor()).toBe(4);
       store.setChunkSize(10);
       expect(store.chunkCursor()).toBe(1);
+    });
+
+    it('non-finite chunk input is ignored rather than corrupting the cursor', () => {
+      store.setChunk(1);
+      store.step(NaN);
+      store.setChunk(NaN);
+      store.setChunkSize(NaN);
+      expect(store.chunkCursor()).toBe(1);
+      expect(store.chunkInfo().index).toBe(1);
     });
 
     it('addChunkToSelection unions the current chunk into the selection', () => {
@@ -367,6 +384,14 @@ describe('ContractListSessionStore', () => {
       expect(store.emittedLines()).toEqual([]);
       store.toggleRow('2026-06-01', true);
       expect(store.emittedLines()).toEqual(['2026-06-01,AAA260619C00500000']);
+    });
+
+    it('a fresh list apply clears lastEmitted — no stale emit leaks across docs', async () => {
+      store.sendSelected();
+      expect(store.lastEmitted().length).toBeGreaterThan(0);
+      getList$.mockReturnValue(of(listDoc(fifteenRows())));
+      await store.loadList('run-1_QQQ');
+      expect(store.lastEmitted()).toEqual([]);
     });
   });
 
