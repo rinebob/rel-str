@@ -19,8 +19,10 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
+import { environment } from '../../../environments/environment';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { ScreenshotService } from './screenshot.service';
+import { COPIED_FLASH_MS, gcsConsoleUrl, SPEC_PRESETS } from './dev-screenshot.utils';
 import { sliceSvgRight } from './svg-slice.util';
 import {
   CAPTURE_AXIS_GUTTER_WIDTH,
@@ -65,6 +67,7 @@ export class DevScreenshotComponent implements OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly events = Object.values(CaptureEvent);
+  readonly presets = SPEC_PRESETS;
 
   // ── Form state ───────────────────────────────────────────────────────
   readonly symbol = signal('GOOG');
@@ -83,6 +86,56 @@ export class DevScreenshotComponent implements OnDestroy {
   readonly submitting = signal(false);
   readonly result = signal<CaptureChartResult | null>(null);
   readonly error = signal<string | null>(null);
+  /** Storage path that just landed on the clipboard — flashes "Copied" on
+   *  that row's button. */
+  readonly copiedPath = signal<string | null>(null);
+  private copiedTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // ── #801: result actions + spec presets ──────────────────────────────
+  consoleUrl(path: string): string {
+    return gcsConsoleUrl(environment.firebase.storageBucket, environment.firebase.projectId, path);
+  }
+
+  /** Fill the whole spec form from a saved preset — the lifecycle sims are
+   *  one select away from a stored capture that matches the auto-capture
+   *  naming. */
+  applyPreset(ev: Event): void {
+    const key = (ev.target as HTMLSelectElement).value;
+    const p = this.presets.find((x) => x.key === key);
+    if (!p) return;
+    this.symbol.set(p.symbol);
+    this.event.set(p.event);
+    this.intervalDaily.set(p.intervalDaily);
+    this.intervalWeekly.set(p.intervalWeekly);
+    this.widthInput.set('');
+    this.heightInput.set('');
+    this.visibleBarsInput.set(p.visibleBars);
+    this.refIdInput.set(p.refId);
+    this.storeArtifacts.set(p.store);
+  }
+
+  /** The select keeps showing the applied preset — but `change` can't
+   *  refire on the same value, so the mousedown that reopens the dropdown
+   *  clears it first, letting the same preset be re-picked. */
+  onPresetMousedown(ev: MouseEvent): void {
+    (ev.target as HTMLSelectElement).value = '';
+  }
+
+  /** Copy a stored artifact's GCS path — clipboard failure is non-fatal on
+   *  a dev page; the row just doesn't flash. */
+  async copyPath(path: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(path);
+    } catch {
+      return; // dev page — no clipboard permission, nothing to show
+    }
+    this.copiedPath.set(path);
+    if (this.copiedTimer !== null) clearTimeout(this.copiedTimer);
+    this.copiedTimer = setTimeout(() => {
+      this.copiedTimer = null;
+      this.copiedPath.set(null);
+    }, COPIED_FLASH_MS);
+  }
 
   // ── Playground (#771) ────────────────────────────────────────────────
   /** Card-size variants — the same captured SVG at native scale in
@@ -195,6 +248,7 @@ export class DevScreenshotComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.ui.setFullscreen(false);
+    if (this.copiedTimer !== null) clearTimeout(this.copiedTimer);
   }
 
   onInput(sig: { set(v: string): void }, event: Event): void {

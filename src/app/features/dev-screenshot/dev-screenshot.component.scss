@@ -11,13 +11,8 @@
   color: var(--mat-sys-on-surface);
 }
 
-.subtitle {
-  margin: 4px 0 16px;
-  opacity: 0.7;
-  font-size: 13px;
-}
-
 .spec-form {
+  margin-top: 16px;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -26,21 +21,7 @@
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 8px;
 
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 12px;
-    opacity: 0.9;
-  }
-
-  input,
-  select {
-    padding: 6px 8px;
-    border: 1px solid var(--mat-sys-outline);
-    border-radius: 4px;
-    background: var(--mat-sys-surface);
-    color: inherit;
+  .dse-field {
     min-width: 110px;
   }
 
@@ -55,26 +36,15 @@
       font-size: 11px;
       opacity: 0.7;
     }
-
-    label {
-      flex-direction: row;
-      align-items: center;
-      gap: 6px;
-    }
   }
 
-  #capture-submit {
-    padding: 7px 18px;
-    border: none;
-    border-radius: 4px;
-    background: var(--mat-sys-primary);
-    color: var(--mat-sys-on-primary);
-    cursor: pointer;
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
+  // Store-to-GCS is a submit-time toggle — it lives with the action, not
+  // in the field row. Pushed to the row's right edge.
+  .form-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
   }
 }
 
@@ -162,5 +132,30 @@
     font-size: 11px;
     opacity: 0.65;
     word-break: break-all;
+    list-style: none;
+
+    .path-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 2px 0;
+    }
+
+    .copy-path,
+    .console-link {
+      padding: 2px 8px;
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 4px;
+      background: transparent;
+      color: inherit;
+      font-size: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+
+      &:hover {
+        background: var(--mat-sys-surface-variant);
+      }
+    }
   }
 }

@@ -12,6 +12,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { of, Subject, throwError } from 'rxjs';
 
 import { DevScreenshotComponent } from './dev-screenshot.component';
+import { COPIED_FLASH_MS } from './dev-screenshot.utils';
 import { ScreenshotService } from './screenshot.service';
 import {
   CaptureChartResult,
@@ -70,6 +71,14 @@ describe('DevScreenshotComponent', () => {
   function submit(): void {
     (fixture.nativeElement.querySelector('form') as HTMLFormElement)
       .dispatchEvent(new Event('submit'));
+    fixture.detectChanges();
+  }
+
+  async function mountResult(): Promise<void> {
+    mount();
+    setInput('#symbol', 'GOOG');
+    submit();
+    await fixture.whenStable();
     fixture.detectChanges();
   }
 
@@ -208,14 +217,6 @@ describe('DevScreenshotComponent', () => {
   });
 
   describe('layout playground + zoom (#771)', () => {
-    async function mountResult(): Promise<void> {
-      mount();
-      setInput('#symbol', 'GOOG');
-      submit();
-      await fixture.whenStable();
-      fixture.detectChanges();
-    }
-
     it('renders 3-5 layout variants of the same capture per artifact', async () => {
       await mountResult();
       const artifacts = fixture.nativeElement.querySelectorAll('.artifact');
@@ -397,6 +398,142 @@ describe('DevScreenshotComponent', () => {
       expect(lastSpec()).toMatchObject({ intervals: [ChartInterval.WEEKLY], visibleBars: 15 });
       expect(weekly.textContent).toContain('zoomed-weekly');
       expect(daily.textContent).not.toContain('zoomed');
+    });
+  });
+
+  describe('utilities (#801)', () => {
+    it('offers at least two saved spec presets', () => {
+      mount();
+      const options = fixture.nativeElement.querySelectorAll('#preset option') as NodeListOf<HTMLOptionElement>;
+      // Placeholder + >= 2 real presets.
+      expect(options.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('applies a preset to the form and submits the preset spec', () => {
+      mount();
+      const select = fixture.nativeElement.querySelector('#preset') as HTMLSelectElement;
+      select.value = 'order-placed-sim';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      submit();
+
+      expect(submittedSpec()).toMatchObject({
+        event: CaptureEvent.ORDER_PLACED,
+        refId: 'ord-sim-001',
+        renderOnly: false,
+      });
+      // The preset also paints the visible form fields.
+      expect((fixture.nativeElement.querySelector('#ref-id') as HTMLInputElement).value)
+        .toBe('ord-sim-001');
+    });
+
+    it('keeps the applied preset displayed; mousedown clears it so the same preset re-fires change', () => {
+      mount();
+      const select = fixture.nativeElement.querySelector('#preset') as HTMLSelectElement;
+      select.value = 'order-placed-sim';
+      select.dispatchEvent(new Event('change'));
+
+      expect(select.value).toBe('order-placed-sim');
+
+      select.dispatchEvent(new MouseEvent('mousedown'));
+      expect(select.value).toBe('');
+
+      // User edits a field, then re-picks the same preset — change
+      // refires and the preset value overwrites the edit.
+      setInput('#ref-id', 'edited');
+      select.value = 'order-placed-sim';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect((fixture.nativeElement.querySelector('#ref-id') as HTMLInputElement).value)
+        .toBe('ord-sim-001');
+    });
+
+    it('event selector covers every CaptureEvent value', () => {
+      mount();
+      const options = Array.from(fixture.nativeElement.querySelectorAll('#event option') as NodeListOf<HTMLOptionElement>);
+      expect(options.map((o) => o.value).sort())
+        .toEqual([...Object.values(CaptureEvent)].sort());
+    });
+
+    it('selecting a lifecycle event submits it with the refId', () => {
+      mount();
+      setInput('#symbol', 'GOOG');
+      const select = fixture.nativeElement.querySelector('#event') as HTMLSelectElement;
+      select.value = CaptureEvent.POSITION_CLOSED;
+      select.dispatchEvent(new Event('change'));
+      setInput('#ref-id', 'pos-99');
+      fixture.detectChanges();
+      submit();
+
+      expect(submittedSpec()).toMatchObject({
+        event: CaptureEvent.POSITION_CLOSED,
+        refId: 'pos-99',
+      });
+    });
+
+    it('exposes copy-path and console-link actions on each stored path', async () => {
+      await mountResult();
+      const rows = fixture.nativeElement.querySelectorAll('.path-row') as NodeListOf<HTMLElement>;
+      // 2 artifacts × svg + png = 4 stored paths.
+      expect(rows.length).toBe(4);
+
+      const first = rows[0];
+      const link = first.querySelector('a.console-link') as HTMLAnchorElement;
+      expect(link.href).toContain('console.cloud.google.com/storage/browser/_details/rel-str.appspot.com/st-trade-screenshots/GOOG/x-daily.svg');
+      expect(link.target).toBe('_blank');
+      expect(first.querySelector('.copy-path')).toBeTruthy();
+    });
+
+    it('copy writes the storage path to the clipboard and flashes feedback', async () => {
+      const writeText = jest.fn().mockResolvedValue(undefined);
+      const origClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      await mountResult();
+
+      const btn = fixture.nativeElement.querySelector('.path-row .copy-path') as HTMLButtonElement;
+      jest.useFakeTimers();
+      try {
+        btn.click();
+        await Promise.resolve(); // flush the clipboard microtask — NOT whenStable (hangs under fake timers)
+        await Promise.resolve();
+        fixture.detectChanges();
+
+        expect(writeText).toHaveBeenCalledWith('st-trade-screenshots/GOOG/x-daily.svg');
+        expect(btn.textContent).toContain('Copied');
+
+        jest.advanceTimersByTime(COPIED_FLASH_MS);
+        fixture.detectChanges();
+        expect(btn.textContent).not.toContain('Copied');
+      } finally {
+        jest.useRealTimers();
+        if (origClipboard) Object.defineProperty(navigator, 'clipboard', origClipboard);
+        else delete (navigator as { clipboard?: unknown }).clipboard;
+      }
+    });
+
+    it('a rejected clipboard write leaves the button unchanged', async () => {
+      const writeText = jest.fn().mockRejectedValue(new Error('denied'));
+      const origClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      await mountResult();
+
+      const btn = fixture.nativeElement.querySelector('.path-row .copy-path') as HTMLButtonElement;
+      // Fake timers — zone.js's unhandled-rejection check is a macrotask that
+      // false-positives on native await rejections under jsdom; the rejection
+      // IS handled by copyPath's try/catch.
+      jest.useFakeTimers();
+      try {
+        btn.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        fixture.detectChanges();
+
+        expect(btn.textContent).not.toContain('Copied');
+      } finally {
+        jest.useRealTimers();
+        if (origClipboard) Object.defineProperty(navigator, 'clipboard', origClipboard);
+        else delete (navigator as { clipboard?: unknown }).clipboard;
+      }
     });
   });
 
