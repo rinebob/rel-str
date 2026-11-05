@@ -129,11 +129,15 @@ describe('st-paper-trading anchored paths', () => {
     expect(stPaperTradingItemsPath(StPaperTradingKind.TRADE)).toBe('st-paper-trading/trades/items');
     expect(stPaperTradingItemsPath(StPaperTradingKind.STATS)).toBe('st-paper-trading/stats/items');
     expect(stPaperTradingItemsPath(StPaperTradingKind.RAW_QUOTE)).toBe('st-paper-trading/raw-quotes/items');
+    expect(stPaperTradingItemsPath(StPaperTradingKind.ANALYSIS_DATASET)).toBe('st-paper-trading/analysis-datasets/items');
+    expect(stPaperTradingItemsPath(StPaperTradingKind.ANALYSIS_SLICE)).toBe('st-paper-trading/analysis-slices/items');
   });
 
   it('carries exactly the migrated kind set (instances/cohorts moved out)', () => {
     expect(Object.values(StPaperTradingKind).sort()).toEqual([
       'account',
+      'analysis-dataset',
+      'analysis-slice',
       'raw-quote',
       'stats',
       'trade',

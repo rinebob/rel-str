@@ -9,6 +9,10 @@
  *
  *   paper-trading/{anchor}/items/{docId}
  *
+ * Since #1158 the analysis-* helpers in this module are the exception —
+ * `analysisDatasetsPath()`/`analysisSlicesPath()` resolve canonical
+ * `st-paper-trading` anchors, not the retired legacy root.
+ *
  * ID formats:
  *   account  acct-{userId}
  *   trade    YYMMDD-{origin}-{SYMBOL}-{desc}        origin: st|sig|man
@@ -22,6 +26,7 @@
 
 import { formatDelta, formatDte, formatYYMMDD } from './id-format';
 import { TradeSide } from './common';
+import { stPaperTradingItemsPath, StPaperTradingKind } from './st-collections';
 
 /** Root collection for all paper-trading records. */
 export const PAPER_TRADING_ROOT = 'paper-trading';
@@ -198,14 +203,14 @@ export function statsScopeSignalStatus(status: string): string {
 
 // ── Analysis datasets (Thread #1059) ─────────────────────────────────────────
 
-/** `paper-trading/analysis-datasets/items` — dataset index collection. */
+/** `st-paper-trading/analysis-datasets/items` — dataset index collection. */
 export function analysisDatasetsPath(): string {
-  return paperTradingItemsPath(PaperTradingKind.ANALYSIS_DATASET);
+  return stPaperTradingItemsPath(StPaperTradingKind.ANALYSIS_DATASET);
 }
 
-/** `paper-trading/analysis-slices/items` — saved slice collection. */
+/** `st-paper-trading/analysis-slices/items` — saved slice collection. */
 export function analysisSlicesPath(): string {
-  return paperTradingItemsPath(PaperTradingKind.ANALYSIS_SLICE);
+  return stPaperTradingItemsPath(StPaperTradingKind.ANALYSIS_SLICE);
 }
 
 /** GCS object path for a dataset's CSV payload: `analysis-datasets/{id}.csv`. */

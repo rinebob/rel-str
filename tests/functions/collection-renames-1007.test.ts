@@ -2,9 +2,9 @@
  * @topic #984 — ST Firestore Reorg (task #1007; mirror specs removed in #1013)
  *
  * Collection-routing coverage:
- * - collections.ts routes account/trade/stats/raw-quote to st-paper-trading
- *   while cohort/analysis (and the now-unread instances anchor) stay on the
- *   legacy root.
+ * - collections.ts routes account/trade/stats/raw-quote/analysis-* to
+ *   st-paper-trading while cohorts (and the now-unread instances anchor)
+ *   stay on the legacy root — analysis anchors cut over in #1158.
  * - The #1007 soak mirrors (portfolioItemsMirror, stBacktest*Mirror) were
  *   undeployed and their sources deleted in #1013 — the source-scan pin in
  *   legacy-roots-cleanup-1013.test.ts asserts they stay gone.
@@ -62,8 +62,8 @@ describe('path strings through the seam', () => {
     [PaperTradingKind.RAW_QUOTE, 'st-paper-trading/raw-quotes/items/rq-1'],
     [PaperTradingKind.INSTANCE, 'paper-trading/instances/items/i-1'],
     [PaperTradingKind.COHORT, 'paper-trading/cohorts/items/cohort-1'],
-    [PaperTradingKind.ANALYSIS_DATASET, 'paper-trading/analysis-datasets/items/ds-1'],
-    [PaperTradingKind.ANALYSIS_SLICE, 'paper-trading/analysis-slices/items/s-1'],
+    [PaperTradingKind.ANALYSIS_DATASET, 'st-paper-trading/analysis-datasets/items/ds-1'],
+    [PaperTradingKind.ANALYSIS_SLICE, 'st-paper-trading/analysis-slices/items/s-1'],
   ] as const) {
     it(`${kind} → ${expected}`, async () => {
       const id = expected.split('/').pop()!;

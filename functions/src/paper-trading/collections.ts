@@ -9,10 +9,12 @@
  *
  * #1007 cutover: account/trade/stats/raw-quote read+write on
  * `st-paper-trading`; #1013 retires the `instances` anchor (all instance
- * reads now hit `st-strategy-instances` directly). Remaining legacy legs:
- * `cohorts` (live repository path; drain is a later task) and
- * `analysis-*` (#1160). ST_KINDS shrinks as each kind migrates and is
- * deleted with the legacy root.
+ * reads now hit `st-strategy-instances` directly); #1158 cut the
+ * `analysis-*` anchors (shared helpers now resolve st- paths, so the
+ * direct `analysisDatasetsPath`/`analysisSlicesPath` callers are already
+ * canonical — ST_KINDS covers any routed-ref caller). Remaining legacy
+ * leg: `cohorts` (live repository path; drain is a later task). ST_KINDS
+ * shrinks as each kind migrates and is deleted with the legacy root.
  */
 
 import type { CollectionReference, DocumentReference, Firestore } from 'firebase-admin/firestore';
@@ -20,12 +22,14 @@ import { PaperTradingKind } from '@paper-trading/contracts';
 import { paperTradingItemsPath } from '@paper-trading/ids';
 import { stPaperTradingItemsPath } from '../common/st-collections';
 
-/** Kinds cut over to `st-paper-trading` in #1007. */
+/** Kinds cut over to `st-paper-trading` (#1007 + analysis-* in #1158). */
 const ST_KINDS: ReadonlySet<PaperTradingKind> = new Set([
   PaperTradingKind.ACCOUNT,
   PaperTradingKind.TRADE,
   PaperTradingKind.STATS,
   PaperTradingKind.RAW_QUOTE,
+  PaperTradingKind.ANALYSIS_DATASET,
+  PaperTradingKind.ANALYSIS_SLICE,
 ]);
 
 /** Routed `items` collection path — the single place the kind→root

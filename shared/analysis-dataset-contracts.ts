@@ -253,7 +253,7 @@ export type AnalysisDatasetOrigin = 'live' | 'replay';
 export type AnalysisDatasetStatus = 'generating' | 'ready' | 'failed';
 
 /**
- * Index doc at `paper-trading/analysis-datasets/items/{id}` — the FE
+ * Index doc at `st-paper-trading/analysis-datasets/items/{id}` — the FE
  * dataset library lists these; the CSV payload lives in GCS at
  * `gcsPath`. `status` transitions `generating` → `ready` | `failed`.
  */
@@ -297,7 +297,7 @@ export type SliceFilter =
   | { column: keyof TradeAnalysisRow & string; op: 'range'; value: { min?: number; max?: number } }
   | { column: keyof TradeAnalysisRow & string; op: 'dateRange'; value: { from?: string; to?: string } };
 
-/** Saved named view at `paper-trading/analysis-slices/items/{id}`. */
+/** Saved named view at `st-paper-trading/analysis-slices/items/{id}`. */
 export interface AnalysisSlice extends PaperTradingDocBase {
   kind: PaperTradingKind.ANALYSIS_SLICE;
   name: string;

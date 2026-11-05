@@ -26,9 +26,12 @@ import {
   analysisDatasetGcsPath,
   analysisDatasetsPath,
   analysisSlicesPath,
-  paperTradingDocPath,
   PaperTradingKind,
 } from './paper-trading-ids';
+import {
+  stPaperTradingDocPath,
+  StPaperTradingKind,
+} from './st-collections';
 
 /** A row with every key populated — used to pin manifest ⇄ schema bijection. */
 const FULL_ROW: TradeAnalysisRow = {
@@ -107,22 +110,22 @@ const SPARSE_ROW: TradeAnalysisRow = {
   givebackRatio: null,
 };
 
-describe('anchor paths (paper-trading/analysis-*/items)', () => {
+describe('anchor paths (st-paper-trading/analysis-*/items)', () => {
   it('analysisDatasetsPath resolves the datasets items collection', () => {
-    expect(analysisDatasetsPath()).toBe('paper-trading/analysis-datasets/items');
+    expect(analysisDatasetsPath()).toBe('st-paper-trading/analysis-datasets/items');
   });
 
   it('analysisSlicesPath resolves the slices items collection', () => {
-    expect(analysisSlicesPath()).toBe('paper-trading/analysis-slices/items');
+    expect(analysisSlicesPath()).toBe('st-paper-trading/analysis-slices/items');
   });
 
   it('doc paths are even-segment under the same anchors', () => {
     expect(
-      paperTradingDocPath(PaperTradingKind.ANALYSIS_DATASET, 'ds-1'),
-    ).toBe('paper-trading/analysis-datasets/items/ds-1');
+      stPaperTradingDocPath(StPaperTradingKind.ANALYSIS_DATASET, 'ds-1'),
+    ).toBe('st-paper-trading/analysis-datasets/items/ds-1');
     expect(
-      paperTradingDocPath(PaperTradingKind.ANALYSIS_SLICE, 'slice-1'),
-    ).toBe('paper-trading/analysis-slices/items/slice-1');
+      stPaperTradingDocPath(StPaperTradingKind.ANALYSIS_SLICE, 'slice-1'),
+    ).toBe('st-paper-trading/analysis-slices/items/slice-1');
   });
 
   it('analysisDatasetGcsPath resolves analysis-datasets/{id}.csv', () => {
