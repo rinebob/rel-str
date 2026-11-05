@@ -148,6 +148,45 @@ export function computeProtectedSymbols(
 }
 
 // ---------------------------------------------------------------------------
+// isUpdatableStopOrder / updatableStopsBySymbol (#888)
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether an order can be replaced by `updateEquityStopOrder` — a live
+ * protective equity stop that is NOT stop-limit (the replacement ticket is
+ * always stop-market; updating a stop-limit would silently downgrade it) and
+ * not an option order (the primitive is equity-only). Stop-limits arrive as
+ * explicit `stop_limit` OR as `type: 'limit'` carrying a `stopPrice` — a
+ * limit-typed order with a stop trigger is the stop-limit shape regardless
+ * of whether the limit `price` field happens to be populated.
+ */
+export function isUpdatableStopOrder(order: BrokerOrder): boolean {
+  if (order.instrumentType !== 'equity') return false;
+  if (order.type === 'stop_limit') return false;
+  if (order.type === 'limit' && order.stopPrice != null) return false;
+  return isProtectiveStopOrder(order);
+}
+
+/**
+ * Group updatable stops by symbol for the Update Stop picker and the batch
+ * ratchet — only symbols with a held long position (sell stops don't protect
+ * shorts; same long-only rule as `isStopLossProtecting`).
+ */
+export function updatableStopsBySymbol(
+  orders: BrokerOrder[],
+  positions: Pick<EquityPosition, 'symbol' | 'quantity'>[],
+): Map<string, BrokerOrder[]> {
+  const grouped = new Map<string, BrokerOrder[]>();
+  for (const order of orders) {
+    if (!isUpdatableStopOrder(order) || !isStopLossProtecting(order, positions)) continue;
+    const list = grouped.get(order.symbol!);
+    if (list) list.push(order);
+    else grouped.set(order.symbol!, [order]);
+  }
+  return grouped;
+}
+
+// ---------------------------------------------------------------------------
 // computeEntryDates
 // ---------------------------------------------------------------------------
 

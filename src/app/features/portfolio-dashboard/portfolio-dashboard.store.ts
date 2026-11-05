@@ -29,7 +29,7 @@ import {
   OptionQuote,
   BrokerOrder,
 } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
-import { computePnL, computeProtectedSymbols, computeEntryDates } from './utils/portfolio-pnl.util';
+import { computePnL, computeProtectedSymbols, computeEntryDates, updatableStopsBySymbol } from './utils/portfolio-pnl.util';
 import {
   LIVE_ORDER_STATES,
   TERMINAL_ORDER_STATES,
@@ -204,6 +204,19 @@ export const PortfolioDashboardStore = signalStore(
       const orders = acct.equityOrders.data ?? [];
       const positions = acct.equityPositions.data ?? [];
       return computeProtectedSymbols(orders, positions);
+    }),
+
+    /** Live equity stops eligible for Update Stop, grouped by symbol (#888).
+     *  Sibling of stopLossProtectedSymbols — drives the positions-table
+     *  action; also built to serve the Open Orders Update action (#889)
+     *  and the batch ratchet (#890). */
+    updatableStops: computed((): Map<string, BrokerOrder[]> => {
+      const acct = state.accounts()[state.selectedAccountIndex()];
+      if (!acct) return new Map();
+      return updatableStopsBySymbol(
+        acct.equityOrders.data ?? [],
+        acct.equityPositions.data ?? [],
+      );
     }),
   })),
 

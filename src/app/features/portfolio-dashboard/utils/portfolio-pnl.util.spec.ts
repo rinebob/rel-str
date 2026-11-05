@@ -3,6 +3,8 @@ import {
   isStopLossProtecting,
   computeProtectedSymbols,
   computeEntryDates,
+  isUpdatableStopOrder,
+  updatableStopsBySymbol,
 } from './portfolio-pnl.util';
 import { BrokerOrder, EquityPosition } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 
@@ -490,5 +492,91 @@ describe('computeEntryDates', () => {
     const result = computeEntryDates(orders);
 
     expect(result.size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isUpdatableStopOrder / updatableStopsBySymbol (#888)
+// ---------------------------------------------------------------------------
+
+describe('isUpdatableStopOrder', () => {
+  it('is true for a live stop_market sell', () => {
+    expect(isUpdatableStopOrder(makeOrder({ type: 'stop_market' }))).toBe(true);
+  });
+
+  it('is true for a market-typed sell carrying a stopPrice', () => {
+    expect(isUpdatableStopOrder(makeOrder({ type: 'market', stopPrice: 150 }))).toBe(true);
+  });
+
+  it('is false for stop_limit — updating would silently downgrade it to stop-market', () => {
+    expect(isUpdatableStopOrder(makeOrder({ type: 'stop_limit' }))).toBe(false);
+  });
+
+  it('is false for a limit-typed order carrying a stopPrice — RH returns stop-limits that way', () => {
+    expect(
+      isUpdatableStopOrder(makeOrder({ type: 'limit', price: 144, stopPrice: 145 })),
+    ).toBe(false);
+    expect(
+      isUpdatableStopOrder(makeOrder({ type: 'limit', stopPrice: 145 })),
+    ).toBe(false);
+  });
+
+  it('is false for an option order — updateEquityStopOrder is equity-only', () => {
+    expect(isUpdatableStopOrder(makeOrder({ instrumentType: 'option' }))).toBe(false);
+  });
+
+  it('is false for a buy-side stop, a terminal stop, and a plain sell with no stopPrice', () => {
+    expect(isUpdatableStopOrder(makeOrder({ side: 'buy' }))).toBe(false);
+    expect(isUpdatableStopOrder(makeOrder({ state: 'cancelled' }))).toBe(false);
+    expect(isUpdatableStopOrder(makeOrder({ type: 'limit', stopPrice: null }))).toBe(false);
+  });
+});
+
+describe('updatableStopsBySymbol', () => {
+  it('groups updatable stops under their symbol, preserving order', () => {
+    const a1 = makeOrder({ orderId: 'a1', symbol: 'AAPL' });
+    const a2 = makeOrder({ orderId: 'a2', symbol: 'AAPL' });
+    const m1 = makeOrder({ orderId: 'm1', symbol: 'MSFT' });
+    const positions = [makePosition({ symbol: 'AAPL' }), makePosition({ symbol: 'MSFT' })];
+
+    const result = updatableStopsBySymbol([a1, m1, a2], positions);
+
+    expect(result.get('AAPL')).toEqual([a1, a2]);
+    expect(result.get('MSFT')).toEqual([m1]);
+    expect(result.size).toBe(2);
+  });
+
+  it('excludes stops whose symbol has no held position', () => {
+    const orders = [
+      makeOrder({ orderId: 'a1', symbol: 'AAPL' }),
+      makeOrder({ orderId: 'z1', symbol: 'ZZZZ' }),
+    ];
+
+    const result = updatableStopsBySymbol(orders, [makePosition({ symbol: 'AAPL' })]);
+
+    expect(result.has('ZZZZ')).toBe(false);
+    expect(result.get('AAPL')?.length).toBe(1);
+  });
+
+  it('excludes zero-quantity positions and stop_limit/option orders from every group', () => {
+    const orders = [
+      makeOrder({ orderId: 'a1', symbol: 'AAPL' }),
+      makeOrder({ orderId: 'a2', symbol: 'AAPL', type: 'stop_limit' }),
+      makeOrder({ orderId: 'a3', symbol: 'AAPL', instrumentType: 'option' }),
+      makeOrder({ orderId: 'q1', symbol: 'QQQ' }),
+    ];
+    const positions = [makePosition({ symbol: 'AAPL' }), makePosition({ symbol: 'QQQ', quantity: 0 })];
+
+    const result = updatableStopsBySymbol(orders, positions);
+
+    expect(result.get('AAPL')?.map((o) => o.orderId)).toEqual(['a1']);
+    expect(result.has('QQQ')).toBe(false);
+  });
+
+  it('returns an empty map when nothing qualifies', () => {
+    expect(updatableStopsBySymbol([], [makePosition()])).toEqual(new Map());
+    expect(
+      updatableStopsBySymbol([makeOrder({ type: 'stop_limit' })], [makePosition()]),
+    ).toEqual(new Map());
   });
 });
