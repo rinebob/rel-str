@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../shared/ds/ds-dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 
 import {
   ModifyOrderDialogComponent,
@@ -30,7 +30,11 @@ function makeOrder(overrides: Partial<BrokerOrder> = {}): BrokerOrder {
 function createComponent(data: ModifyOrderDialogData) {
   TestBed.configureTestingModule({
     imports: [ModifyOrderDialogComponent],
-    providers: [provideNoopAnimations(), { provide: MAT_DIALOG_DATA, useValue: data }],
+    providers: [
+      provideNoopAnimations(),
+      { provide: DS_DIALOG_DATA, useValue: data },
+      { provide: DsDialogRef, useValue: { close: jest.fn() } },
+    ],
   });
   const fixture = TestBed.createComponent(ModifyOrderDialogComponent);
   return fixture;

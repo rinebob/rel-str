@@ -4,9 +4,10 @@
  * and per-row assign action live here. The dialog owns writes.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsDialogService } from '../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MatDialog } from '@angular/material/dialog';
+
 import { of } from 'rxjs';
 
 import { AllocationPositionsTableComponent } from './allocation-positions-table.component';
@@ -67,7 +68,7 @@ describe('AllocationPositionsTableComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         { provide: AllocationStore, useValue: store },
-        { provide: MatDialog, useValue: dialog },
+        { provide: DsDialogService, useValue: dialog },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(AllocationPositionsTableComponent);
@@ -159,7 +160,7 @@ describe('AllocationPositionsTableComponent', () => {
 
   function checkRow(id: string) {
     (fixture.nativeElement
-      .querySelector(`[data-testid="select-${id}"] input`) as HTMLInputElement).click();
+      .querySelector(`input[data-testid="select-${id}"]`) as HTMLInputElement).click();
     fixture.detectChanges();
   }
 
@@ -180,7 +181,7 @@ describe('AllocationPositionsTableComponent', () => {
     ]);
     (fixture.nativeElement.querySelector('[data-testid="filter-unassigned"]') as HTMLElement).click();
     fixture.detectChanges();
-    fixture.nativeElement.querySelector('[data-testid="select-all"] input').click();
+    fixture.nativeElement.querySelector('input[data-testid="select-all"]').click();
     fixture.detectChanges();
     // 2 visible unassigned rows selected — AAPL (hidden) is not.
     expect(fixture.nativeElement.querySelector('[data-testid="selection-bar"]').textContent)

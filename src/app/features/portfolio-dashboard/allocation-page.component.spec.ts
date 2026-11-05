@@ -6,13 +6,12 @@
  * selected account; account switch re-scopes subtabs.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsDialogService } from '../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
-import { MatDialog } from '@angular/material/dialog';
-import { MatTabGroup } from '@angular/material/tabs';
 import { By } from '@angular/platform-browser';
 import { AllocationPageComponent } from './allocation-page.component';
 import { AllocationBucketDialogComponent } from './allocation-bucket-dialog.component';
@@ -133,7 +132,7 @@ describe('AllocationPageComponent', () => {
         provideNoopAnimations(),
         provideRouter([]),
         { provide: AllocationStore, useValue: store },
-        { provide: MatDialog, useValue: dialog },
+        { provide: DsDialogService, useValue: dialog },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(AllocationPageComponent);
@@ -193,9 +192,8 @@ describe('AllocationPageComponent', () => {
 
   it('keeps exactly one Buckets|Positions tab group with instant switching (#779)', async () => {
     await setup();
-    const groups = fixture.debugElement.queryAll(By.directive(MatTabGroup));
+    const groups = fixture.nativeElement.querySelectorAll('.dse-tabs');
     expect(groups.length).toBe(1);
-    expect((groups[0].componentInstance as MatTabGroup).animationDuration).toBe('0ms');
   });
 
   it('carries the bounded shell chain that owns page scrolling (#779)', async () => {
@@ -207,13 +205,9 @@ describe('AllocationPageComponent', () => {
     const tabs = content!.querySelector('[data-testid="subtabs"]') as HTMLElement;
     expect(tabs).toBeTruthy();
     expect(tabs.classList.contains('alloc-tabs')).toBe(true);
-    // The bound is only real if the injected styles pierce into Material's
-    // tab DOM — an encapsulated descendant rule can't reach the wrapper
-    // (the dashboard's pre-#779 copy was dead code). Pin the critical link.
-    const styles = Array.from(document.head.querySelectorAll('style'))
-      .map((s) => s.textContent ?? '')
-      .join('\n');
-    expect(styles).toContain('.mat-mdc-tab-body-wrapper');
+    // The bounded chain: .alloc-tabs (.dse-tabs) must contain a .tab-body
+    // for the flex bound to act on — without it the mixin is dead code.
+    expect(tabs.querySelector('.tab-body')).toBeTruthy();
   });
 
   it('shows a true empty state once a successful load returns zero accounts (#779)', async () => {
@@ -276,7 +270,7 @@ describe('AllocationPageComponent', () => {
       .closest('[role="tab"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
     const rows = fixture.nativeElement
-      .querySelector('.mat-mdc-tab-body-active')
+      .querySelector('.tab-body:not([hidden])')
       .querySelectorAll('[data-testid^="position-row-"]');
     expect(rows.length).toBe(2);
     expect(rows[0].textContent).toContain('AAPL');
@@ -295,7 +289,7 @@ describe('AllocationPageComponent', () => {
     // The account strip lives in the page header (#789) — one instance
     // for the selected account, not a tab body per account.
     expect(fixture.nativeElement.querySelector('[data-testid="account-header"]').textContent).toContain('5,000');
-    const active = () => fixture.nativeElement.querySelector('.mat-mdc-tab-body-active') as HTMLElement;
+    const active = () => fixture.nativeElement.querySelector('.tab-body:not([hidden])') as HTMLElement;
     const bRows = active().querySelectorAll('[data-testid^="bucket-row-"]');
     expect(bRows[0].textContent).toContain('Income');
     (fixture.nativeElement.querySelector('[data-testid="subtab-positions"]') as HTMLElement)

@@ -9,9 +9,10 @@
  * with the right data.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DsDialogService } from '../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MatDialog } from '@angular/material/dialog';
+
 import { of } from 'rxjs';
 
 import { AllocationBucketsTableComponent } from './allocation-buckets-table.component';
@@ -77,7 +78,7 @@ describe('AllocationBucketsTableComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         { provide: AllocationStore, useValue: store },
-        { provide: MatDialog, useValue: dialog },
+        { provide: DsDialogService, useValue: dialog },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(AllocationBucketsTableComponent);

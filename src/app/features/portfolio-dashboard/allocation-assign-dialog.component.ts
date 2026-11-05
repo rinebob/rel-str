@@ -11,8 +11,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { DS_DIALOG_DATA } from '../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../shared/ds/ds-dialog';
 
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatRadioModule } from '@angular/material/radio';
 import { FormsModule } from '@angular/forms';
 
 import { AllocationStore } from './allocation.store';
@@ -36,7 +34,7 @@ const UNASSIGNED = '__unassigned__';
 
 @Component({
   selector: 'app-allocation-assign-dialog',
-  imports: [ MatProgressSpinnerModule, MatRadioModule, FormsModule],
+  imports: [ FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 class="title">{{ title() }}</h2>
@@ -72,7 +70,7 @@ const UNASSIGNED = '__unassigned__';
       <button class="ds-btn fill" type="button" data-testid="dialog-save"
  [disabled]="pending() || selected === current" (click)="save()"
  >
-        @if (pending()) { <mat-spinner diameter="18" /> }
+        @if (pending()) { <span class="dse-spinner" style="--spinner-size: 18px" role="progressbar" aria-label="Loading"></span> }
         {{ selected === UNASSIGNED ? 'Unassign' : (data.currentBucketId ? 'Move' : 'Assign') }}
       </button>
     </div>

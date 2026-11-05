@@ -16,9 +16,6 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { DS_DIALOG_DATA } from '../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../shared/ds/ds-dialog';
 
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 
 import { AllocationStore } from './allocation.store';
 import { fmtDollars, fmtQty as fmtQtyShared, positionPnl, type PositionRow } from './allocation.types';
@@ -32,19 +29,19 @@ export interface BucketDetailDialogData {
 
 @Component({
   selector: 'app-allocation-bucket-detail-dialog',
-  imports: [LowerCasePipe, MatFormFieldModule, MatIconModule, MatSelectModule],
+  imports: [LowerCasePipe, ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 class="title title-row">
       <label class="dse-field bucket-picker">
-        <mat-select [value]="viewingId()" (selectionChange)="switchBucket($event.value)"
+        <select class="dse-select" [value]="viewingId()" (change)="switchBucket($any($event.target).value)"
           data-testid="bucket-switcher" aria-label="Viewed bucket">
           @for (b of buckets(); track b.id) {
-            <mat-option [value]="b.id">
+            <option [value]="b.id">
               {{ b.name }}@if (b.status !== 'ACTIVE') { ({{ b.status | lowercase }}) }
-            </mat-option>
+            </option>
           }
-        </mat-select>
+        </select>
       </label>
       @if (detail(); as d) {
         <span class="meta dim">
@@ -74,7 +71,7 @@ export interface BucketDetailDialogData {
             <button class="icon-btn" type="button" data-testid="carousel-prev"
  [disabled]="shownIdx() <= 0" aria-label="Previous position"
  (click)="idx.set(shownIdx() - 1)"
- ><mat-icon>chevron_left</mat-icon></button>
+ ><span class="dse-icon">chevron_left</span></button>
             <div class="pos-card">
               <div class="pos-head">
                 <b>{{ pos.position.instrumentId }}</b>
@@ -102,7 +99,7 @@ export interface BucketDetailDialogData {
             <button class="icon-btn" type="button" data-testid="carousel-next"
  [disabled]="shownIdx() >= d.positions.length - 1" aria-label="Next position"
               (click)="idx.set(shownIdx() + 1)"
-            ><mat-icon>chevron_right</mat-icon></button>
+            ><span class="dse-icon">chevron_right</span></button>
           } @else {
             <div class="empty">
               <div class="dim">No positions in this bucket</div>

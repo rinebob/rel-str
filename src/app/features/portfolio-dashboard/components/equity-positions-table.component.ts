@@ -8,10 +8,7 @@
  * concern from the open-positions view.
  */
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
+
 
 import { EquityPositionWithPnL } from '../portfolio-dashboard.types';
 import { compareSortable, SortDirection } from '../utils/table-sort.util';
@@ -31,7 +28,7 @@ type SortKey =
 @Component({
   selector: 'app-equity-positions-table',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule],
+  imports: [],
   templateUrl: './equity-positions-table.component.html',
   styleUrl: './equity-positions-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

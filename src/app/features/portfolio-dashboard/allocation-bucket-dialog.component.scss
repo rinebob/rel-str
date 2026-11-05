@@ -3,7 +3,7 @@
 :host {
   @include vl.dialog-chrome;
 
-  mat-dialog-content {
+  .content {
     min-width: 320px;
   }
 }

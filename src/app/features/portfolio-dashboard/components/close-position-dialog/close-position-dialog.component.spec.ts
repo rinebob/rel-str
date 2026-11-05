@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+
 
 import { ClosePositionDialogComponent } from './close-position-dialog.component';
 import { OrderExecutionService } from '../../../savant-trader/services/order-execution.service';
@@ -29,8 +30,8 @@ describe('ClosePositionDialogComponent', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
-        { provide: MAT_DIALOG_DATA, useValue: { position, currentPrice: 155, accountNumber: 'acc-1' } },
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: DS_DIALOG_DATA, useValue: { position, currentPrice: 155, accountNumber: 'acc-1' } },
+        { provide: DsDialogRef, useValue: dialogRef },
         { provide: OrderExecutionService, useValue: orderExecution },
       ],
     }).compileComponents();

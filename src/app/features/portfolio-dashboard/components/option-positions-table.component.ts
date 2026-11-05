@@ -5,8 +5,6 @@
  * Current Price, PnL, PnL%.
  */
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { OptionPositionWithPnL } from '../portfolio-dashboard.types';
 import { compareSortable, SortDirection } from '../utils/table-sort.util';
@@ -28,7 +26,7 @@ type SortKey =
 @Component({
   selector: 'app-option-positions-table',
   standalone: true,
-  imports: [ MatIconModule, MatProgressSpinnerModule],
+  imports: [],
   templateUrl: './option-positions-table.component.html',
   styleUrl: './option-positions-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

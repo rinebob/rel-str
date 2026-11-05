@@ -14,9 +14,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { DS_DIALOG_DATA } from '../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../shared/ds/ds-dialog';
 
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { AllocationStore } from './allocation.store';
 import type { AllocationBucket } from '@portfolio-allocation/contracts';
@@ -35,7 +32,7 @@ export interface BucketDialogResult {
 
 @Component({
   selector: 'app-allocation-bucket-dialog',
-  imports: [ MatFormFieldModule, MatInputModule, MatProgressSpinnerModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 class="title">{{ title() }}</h2>
@@ -82,7 +79,7 @@ export interface BucketDialogResult {
  [disabled]="pending()"
  (click)="data.mode === 'retire' ? confirmRetire() : confirmDelete()"
  >
-          @if (pending()) { <mat-spinner diameter="18" /> }
+          @if (pending()) { <span class="dse-spinner" style="--spinner-size: 18px" role="progressbar" aria-label="Loading"></span> }
           {{ data.mode === 'retire' ? 'Retire' : 'Delete' }}
         </button>
       } @else {
@@ -90,7 +87,7 @@ export interface BucketDialogResult {
  [disabled]="!valid() || pending()"
  (click)="save()"
  >
-          @if (pending()) { <mat-spinner diameter="18" /> }
+          @if (pending()) { <span class="dse-spinner" style="--spinner-size: 18px" role="progressbar" aria-label="Loading"></span> }
           {{ data.mode === 'create' ? 'Create' : 'Save' }}
         </button>
       }

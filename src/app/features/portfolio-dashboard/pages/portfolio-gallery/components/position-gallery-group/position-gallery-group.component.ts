@@ -7,8 +7,7 @@
  * for that group. Mirrors GalleryGroupComponent, minus the signal-only
  * D/W occurrence counts.
  */
-import { ChangeDetectionStrategy, Component, booleanAttribute, computed, input, output } from '@angular/core';
-import { MatExpansionModule } from '@angular/material/expansion';
+import { ChangeDetectionStrategy, Component, booleanAttribute, computed, input, linkedSignal, output } from '@angular/core';
 
 import { PositionCardGroup } from '../../utils/position-cards.util';
 import { PositionCardAction, PositionCardComponent } from '../position-card/position-card.component';
@@ -16,7 +15,7 @@ import { PositionCardAction, PositionCardComponent } from '../position-card/posi
 @Component({
   selector: 'app-position-gallery-group',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatExpansionModule, PositionCardComponent],
+  imports: [PositionCardComponent],
   templateUrl: './position-gallery-group.component.html',
   styleUrl: './position-gallery-group.component.scss',
 })
@@ -26,6 +25,16 @@ export class PositionGalleryGroupComponent {
    *  drive it. */
   readonly expanded = input.required<boolean>();
   readonly expandedChange = output<boolean>();
+
+  /** Local open state — re-seeds when the store-owned input flips
+   *  (expand-all), then self-manages between writes (dse-acc contract). */
+  readonly open = linkedSignal(() => this.expanded());
+
+  onToggle(): void {
+    const next = !this.open();
+    this.open.set(next);
+    this.expandedChange.emit(next);
+  }
 
   /** Page-level disable (refresh in flight), forwarded to each card. */
   readonly actionsDisabled = input(false, { transform: booleanAttribute });

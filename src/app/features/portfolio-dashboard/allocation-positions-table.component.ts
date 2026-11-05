@@ -9,9 +9,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
 
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { DsDialogService } from '../../shared/ds/ds-dialog';
-import { MatIconModule } from '@angular/material/icon';
 
 import { AllocationStore } from './allocation.store';
 import {
@@ -23,7 +21,7 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
 
 @Component({
   selector: 'app-allocation-positions-table',
-  imports: [ MatCheckboxModule, MatIconModule],
+  imports: [],
   host: { '(document:click)': 'bulkMenuOpen.set(false)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -97,8 +95,8 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
               <td [class.dim]="row.bucketId === null">
                 {{ row.bucketName }}
                 @if (row.linkKey) {
-                  <mat-icon class="link-icon" data-testid="link-icon" title="Linked multi-leg order — moves as a group"
-                  >link</mat-icon>
+                  <span class="dse-icon link-icon" data-testid="link-icon" title="Linked multi-leg order — moves as a group"
+                  >link</span>
                 }
               </td>
               <td class="actions">

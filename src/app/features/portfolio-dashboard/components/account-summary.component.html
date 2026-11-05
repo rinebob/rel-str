@@ -1,12 +1,12 @@
 <div class="pd-account-summary">
   @if (loading()) {
     <div class="pd-section-loading" aria-live="polite" aria-atomic="true">
-      <mat-progress-spinner diameter="24" mode="indeterminate" aria-label="Loading account summary" />
+      <span class="dse-spinner" role="progressbar" aria-label="Loading account summary"></span>
       <span>Loading…</span>
     </div>
   } @else if (error(); as err) {
     <div class="pd-section-error" aria-live="polite" aria-atomic="true">
-      <mat-icon class="pd-section-error-icon">error</mat-icon>
+      <span class="dse-icon pd-section-error-icon">error</span>
       <span class="pd-section-error-text">{{ err }}</span>
       <button type="button" class="pd-section-retry ds-btn outline" (click)="retry.emit()">Retry</button>
     </div>
@@ -37,7 +37,7 @@
     </div>
   } @else {
     <div class="pd-section-empty" aria-live="polite">
-      <mat-icon aria-hidden="true">account_balance</mat-icon>
+      <span class="dse-icon" aria-hidden="true">account_balance</span>
       <span>No portfolio data</span>
     </div>
   }

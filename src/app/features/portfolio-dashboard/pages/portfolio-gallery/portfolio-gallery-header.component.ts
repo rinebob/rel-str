@@ -7,7 +7,6 @@
  * signal timeframe; the D/W pill is chart context only.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 
 import {
   SymbolListFilter,
@@ -35,7 +34,7 @@ const DIMENSION_OPTIONS: RhSelectOption<PositionGroupDimension>[] = [
 @Component({
   selector: 'app-portfolio-gallery-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ MatIconModule, RhSelectMenuComponent],
+  imports: [ RhSelectMenuComponent],
   templateUrl: './portfolio-gallery-header.component.html',
   styleUrl: './portfolio-gallery-header.component.scss',
 })

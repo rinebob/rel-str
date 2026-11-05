@@ -52,7 +52,7 @@
  [attr.aria-pressed]="showAmounts()"
  aria-label="Toggle dollar amount visibility" [title]="showAmounts() ? 'Hide dollar amounts' : 'Show dollar amounts'"
  >
-        <mat-icon>{{ showAmounts() ? 'visibility' : 'visibility_off' }}</mat-icon>
+        <span class="dse-icon">{{ showAmounts() ? 'visibility' : 'visibility_off' }}</span>
       </button>
       <a class="pd-alloc-link ds-btn outline" [routerLink]="allocationRoute">Allocations</a>
       <button
@@ -63,7 +63,7 @@
  [disabled]="globalLoading()"
  aria-label="Refresh dashboard" title="Refresh all data"
  >
-        <mat-icon>refresh</mat-icon>
+        <span class="dse-icon">refresh</span>
       </button>
     </div>
   </header>
@@ -73,7 +73,7 @@
     <!-- Global loading spinner -->
     @if (globalLoading()) {
       <div class="pd-global-loading" aria-live="polite" aria-atomic="true">
-        <mat-progress-spinner diameter="32" mode="indeterminate" aria-label="Loading portfolio dashboard" />
+        <span class="dse-spinner" style="--spinner-size: 32px" role="progressbar" aria-label="Loading portfolio dashboard"></span>
         <span>Loading…</span>
       </div>
     }
@@ -81,7 +81,7 @@
     <!-- Error banner -->
     @if (loadError(); as error) {
       <div class="pd-error-banner" aria-live="polite" aria-atomic="true">
-        <mat-icon aria-hidden="true">error</mat-icon>
+        <span class="dse-icon" aria-hidden="true">error</span>
         <span class="error-text">{{ error }}</span>
         <button class="ds-btn outline" type="button" (click)="onRefresh()" [disabled]="globalLoading()">Retry</button>
       </div>
@@ -90,21 +90,44 @@
     <!-- No accounts empty state -->
     @if (!hasAccounts() && !globalLoading() && !loadError()) {
       <div class="pd-empty" aria-live="polite" aria-atomic="true">
-        <mat-icon aria-hidden="true">account_balance</mat-icon>
+        <span class="dse-icon" aria-hidden="true">account_balance</span>
         <p>No Robinhood accounts available.</p>
       </div>
     }
 
     @if (hasAccounts() && !globalLoading()) {
       @if (selectedAccount(); as sel) {
-        <mat-tab-group
-          class="pd-tabs"
-          [selectedIndex]="selectedSection()"
-          (selectedTabChange)="selectedSection.set($event.index)"
-          animationDuration="0ms"
-        >
-          <mat-tab label="Equities">
-            <div class="pd-tab-content">
+        <div class="dse-tabs pd-tabs">
+          <div class="tab-bar" role="tablist" aria-label="Portfolio sections" (keydown)="onTabKeydown($event)">
+            <button type="button" class="tab" role="tab" id="pd-tab-0"
+              [class.active]="selectedSection() === 0"
+              [attr.aria-selected]="selectedSection() === 0"
+              aria-controls="pd-panel-0"
+              (click)="selectedSection.set(0)">Equities</button>
+            <button type="button" class="tab" role="tab" id="pd-tab-1"
+              [class.active]="selectedSection() === 1"
+              [attr.aria-selected]="selectedSection() === 1"
+              aria-controls="pd-panel-1"
+              (click)="selectedSection.set(1)">Options</button>
+            <button type="button" class="tab" role="tab" id="pd-tab-2"
+              [class.active]="selectedSection() === 2"
+              [attr.aria-selected]="selectedSection() === 2"
+              aria-controls="pd-panel-2"
+              (click)="selectedSection.set(2)">Orders</button>
+            <button type="button" class="tab" role="tab" id="pd-tab-3"
+              [class.active]="selectedSection() === 3"
+              [attr.aria-selected]="selectedSection() === 3"
+              aria-controls="pd-panel-3"
+              (click)="selectedSection.set(3)">History</button>
+            <button type="button" class="tab" role="tab" id="pd-tab-4"
+              [class.active]="selectedSection() === 4"
+              [attr.aria-selected]="selectedSection() === 4"
+              aria-controls="pd-panel-4"
+              (click)="selectedSection.set(4)">Account</button>
+          </div>
+
+          @if (selectedSection() === 0) {
+          <div class="tab-body pd-tab-content" role="tabpanel" id="pd-panel-0" aria-labelledby="pd-tab-0">
               <app-equity-positions-table
                 [positions]="equityPositions()"
                 [loading]="sel.equityPositions.loading"
@@ -117,22 +140,22 @@
                 (addStopLoss)="onAddStopLoss($event)"
                 (updateStopLoss)="onUpdateStop($event)"
               />
-            </div>
-          </mat-tab>
+          </div>
+          }
 
-          <mat-tab label="Options">
-            <div class="pd-tab-content">
+          @if (selectedSection() === 1) {
+          <div class="tab-body pd-tab-content" role="tabpanel" id="pd-panel-1" aria-labelledby="pd-tab-1">
               <app-option-positions-table
                 [positions]="optionPositions()"
                 [loading]="sel.optionPositions.loading"
                 [error]="sel.optionPositions.error"
                 (retry)="onRetrySection('optionPositions')"
               />
-            </div>
-          </mat-tab>
+          </div>
+          }
 
-          <mat-tab label="Orders">
-            <div class="pd-tab-content">
+          @if (selectedSection() === 2) {
+          <div class="tab-body pd-tab-content" role="tabpanel" id="pd-panel-2" aria-labelledby="pd-tab-2">
               <app-open-orders-table
                 [orders]="openOrders()"
                 [agenticAllowed]="agenticAllowed()"
@@ -145,31 +168,31 @@
                 (modifyOrder)="onModifyOrder($event)"
                 (cancelSelected)="onCancelSelected($event)"
               />
-            </div>
-          </mat-tab>
+          </div>
+          }
 
-          <mat-tab label="History">
-            <div class="pd-tab-content">
+          @if (selectedSection() === 3) {
+          <div class="tab-body pd-tab-content" role="tabpanel" id="pd-panel-3" aria-labelledby="pd-tab-3">
               <app-order-history-table
                 [orders]="orderHistory()"
                 [loading]="ordersLoading()"
                 [error]="ordersError()"
                 (retry)="onRetrySection('orders')"
               />
-            </div>
-          </mat-tab>
+          </div>
+          }
 
-          <mat-tab label="Account">
-            <div class="pd-tab-content">
+          @if (selectedSection() === 4) {
+          <div class="tab-body pd-tab-content" role="tabpanel" id="pd-panel-4" aria-labelledby="pd-tab-4">
               <app-account-summary
                 [snapshot]="sel.portfolio.data"
                 [loading]="sel.portfolio.loading"
                 [error]="sel.portfolio.error"
                 (retry)="onRetrySection('portfolio')"
               />
-            </div>
-          </mat-tab>
-        </mat-tab-group>
+          </div>
+          }
+        </div>
       } @else {
         <p class="pd-tab-placeholder">No account selected.</p>
       }

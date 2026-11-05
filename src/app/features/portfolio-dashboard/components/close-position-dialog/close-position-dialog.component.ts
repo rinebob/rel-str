@@ -8,13 +8,9 @@
  */
 import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 
-import { MatIconModule } from '@angular/material/icon';
 
 import { OrderExecutionService, ExecutionResult } from '../../../savant-trader/services/order-execution.service';
 import { EquityOrderTicket } from '../../../savant-trader/services/order-ticket.types';
@@ -33,11 +29,7 @@ type DialogState = 'editing' | 'submitting' | 'success' | 'error';
   selector: 'app-close-position-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatIconModule],
+    CommonModule],
   templateUrl: './close-position-dialog.component.html',
   styleUrl: './close-position-dialog.component.scss',
 })

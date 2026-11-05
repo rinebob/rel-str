@@ -6,8 +6,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DS_DIALOG_DATA, DsDialogRef } from '../../../shared/ds/ds-dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 
 import { BrokerOrder } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 
@@ -20,7 +18,7 @@ export interface ModifyOrderDialogData {
 @Component({
   selector: 'app-pd-modify-order-dialog',
   standalone: true,
-  imports: [FormsModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule,],
   template: `
     <h2 class="title">Modify {{ data.order.symbol }} order</h2>
     <div class="content">
@@ -50,7 +48,7 @@ export interface ModifyOrderDialogData {
       <button class="ds-btn fill"
  
  [disabled]="!valid()"
- (click)="ref.close(price())"
+ (click)="ref.close(price() ?? undefined)"
  cdkFocusInitial
  data-testid="modify-confirm"
  >

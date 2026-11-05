@@ -19,7 +19,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { NgTemplateOutlet } from '@angular/common';
 
 import { DsDialogService } from '../../shared/ds/ds-dialog';
-import { MatIconModule } from '@angular/material/icon';
 
 import { AllocationStore } from './allocation.store';
 import {
@@ -40,7 +39,7 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
   selector: 'app-allocation-buckets-table',
   // NB: no  here — its providers:[DsDialogService] would shadow
   // test mocks; the dialog component itself imports what it needs.
-  imports: [ MatIconModule, NgTemplateOutlet],
+  imports: [ NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="buckets-pane">
@@ -114,18 +113,18 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
             @if (row.bucket.status === BucketStatus.ACTIVE) {
               <button class="icon-btn" type="button" [attr.data-testid]="'edit-' + row.bucket.id" title="Edit name / target" aria-label="Edit bucket"
  (click)="openEdit(row)">
-                <mat-icon>edit</mat-icon>
+                <span class="dse-icon">edit</span>
               </button>
               <button class="icon-btn" type="button" [attr.data-testid]="'retire-' + row.bucket.id" title="Retire — keeps history, blocks new attributions"
  aria-label="Retire bucket"
  (click)="openRetire(row)">
-                <mat-icon>archive</mat-icon>
+                <span class="dse-icon">archive</span>
               </button>
             }
             <button class="icon-btn" type="button" [attr.data-testid]="'delete-' + row.bucket.id" title="Delete — contents return to Unassigned"
  aria-label="Delete bucket"
  (click)="openDelete(row)">
-              <mat-icon>delete</mat-icon>
+              <span class="dse-icon">delete</span>
             </button>
           </td>
         } @else {

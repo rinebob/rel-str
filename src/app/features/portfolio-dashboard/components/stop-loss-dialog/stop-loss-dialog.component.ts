@@ -18,7 +18,6 @@ import { CommonModule } from '@angular/common';
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 
-import { MatIconModule } from '@angular/material/icon';
 
 import {
   OrderExecutionService,
@@ -59,7 +58,6 @@ type DialogState = 'picking' | 'editing' | 'submitting' | 'success' | 'error';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatIconModule,
     StopLossFormComponent],
   templateUrl: './stop-loss-dialog.component.html',
   styleUrl: './stop-loss-dialog.component.scss',

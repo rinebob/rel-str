@@ -17,12 +17,7 @@ import { ComponentType } from '@angular/cdk/portal';
 import { RouterLink } from '@angular/router';
 import { DsDialogService } from '../../shared/ds/ds-dialog';
 
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DsToastService } from '../../shared/ds/ds-toast.service';
-
-import { MatTabsModule } from '@angular/material/tabs';
-
 
 import { AppRoutes } from '../../core/common/interfaces';
 import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
@@ -49,9 +44,6 @@ import { orderMark } from './utils/order-mark.util';
   standalone: true,
   imports: [
     RouterLink,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatTabsModule,
     AccountSummaryComponent,
     AccountSwitcherComponent,
     EquityPositionsTableComponent,

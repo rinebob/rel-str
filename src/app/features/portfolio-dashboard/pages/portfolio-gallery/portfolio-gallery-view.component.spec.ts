@@ -221,7 +221,7 @@ describe('PortfolioGalleryViewComponent', () => {
 
   it('hides the expand-all button while expandos are dormant — even grouped', () => {
     const expandIcon = () =>
-      [...fixture.nativeElement.querySelectorAll('mat-icon')].find(
+      [...fixture.nativeElement.querySelectorAll('.dse-icon')].find(
         (i) => i.textContent?.trim() === 'unfold_more' || i.textContent?.trim() === 'unfold_less',
       );
     stub.ungrouped.set(false);

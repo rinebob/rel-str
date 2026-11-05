@@ -5,7 +5,7 @@
   @include vl.dialog-chrome;
   @include vl.dialog-status;
 
-  mat-dialog-content {
+  .content {
     min-width: 360px;
   }
 }

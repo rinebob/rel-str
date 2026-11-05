@@ -4,9 +4,9 @@
  * stays open with an inline error on failure.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 import {
   AllocationBucketDialogComponent,
@@ -49,8 +49,8 @@ describe('AllocationBucketDialogComponent', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
-        { provide: MAT_DIALOG_DATA, useValue: data },
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: DS_DIALOG_DATA, useValue: data },
+        { provide: DsDialogRef, useValue: dialogRef },
         { provide: AllocationStore, useValue: store },
       ],
     }).compileComponents();

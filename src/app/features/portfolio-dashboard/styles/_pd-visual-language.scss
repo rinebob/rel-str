@@ -17,9 +17,9 @@
 //   vl.dense-table / state-block / stat-strip              ← _data-display.scss
 //
 // Still local — intentionally PD-domain, NOT graduated in #1052:
-// bounded-tab-group + tab-scroll-pane are Material-coupled (::ng-deep
-// into mat-mdc-tab DOM, --mat-tab-container-height) and only serve the
-// two PD page shells. They stay here while Material is being exited.
+// bounded-tab-group + tab-scroll-pane only serve the two PD page shells.
+// (#1163 phase F: retargeted from mat-mdc-tab DOM to the .dse-tabs
+// contract — the mixins now emit plain flex sizing, no ::ng-deep.)
 @forward 'index';
 
 // P&L / direction accents — reads of the savant-ds tokens (emitted
@@ -29,31 +29,26 @@
 $up: var(--ds-up);
 $down: var(--ds-down);
 
-/// Bounded tab chain — apply to the `mat-tab-group` host class inside a
-/// content column. `flex:1; min-height:0` lets the group shrink inside the
-/// column; the ::ng-deep wrapper rule makes the bound explicit inside
-/// Material's tab DOM — an encapsulated descendant selector can't reach it
-/// (the dashboard's pre-#779 copy of that rule was dead code). With the
-/// wrapper bounded, the active body's overflow-y:auto — and any
-/// `tab-scroll-pane` inside it — gets a definite height and scrolls.
-/// (#1052: stays PD-local — Material-coupled, two call sites.)
+/// Bounded tab chain — apply to the `.dse-tabs` container inside a
+/// content column. `flex:1; min-height:0` lets it shrink inside the
+/// column; the `.tab-body` child bound gives the pane a definite height
+/// so `tab-scroll-pane` inside it scrolls instead of the page.
+/// (#1163 F: retargeted from mat-tab-group DOM to the .dse-tabs contract.)
 @mixin bounded-tab-group() {
   flex: 1;
   min-height: 0;
 
-  // Dense tab row — 2/3 of Material's 48px default (#779 QA feedback).
-  --mat-tab-container-height: 32px;
-
-  ::ng-deep .mat-mdc-tab-body-wrapper {
+  .tab-body {
     flex: 1;
     min-height: 0;
   }
 }
 
 /// Inner scroll region inside a bounded tab body.
-/// (#1052: stays PD-local — Material-coupled, two call sites.)
+/// (#1163 F: flex sizing replaces height:100% — the body is a flex child.)
 @mixin tab-scroll-pane() {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   box-sizing: border-box;
   overflow-y: auto;
 }

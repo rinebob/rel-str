@@ -74,18 +74,18 @@ describe('PositionGalleryGroupComponent', () => {
 
   it('toggles on panel-header clicks and emits expandedChange', () => {
     const el = render();
-    const panel = el.querySelector('mat-expansion-panel')!;
-    const header = el.querySelector<HTMLElement>('.mat-expansion-panel-header')!;
+    const panel = el.querySelector('.ds-panel')!;
+    const header = el.querySelector<HTMLElement>('.acc-head')!;
     const events: boolean[] = [];
     fixture.componentInstance.expandedChange.subscribe((v) => events.push(v));
 
     header.click();
     fixture.detectChanges();
-    expect(panel.classList.contains('mat-expanded')).toBe(true);
+    expect(panel.classList.contains('open')).toBe(true);
 
     header.click();
     fixture.detectChanges();
-    expect(panel.classList.contains('mat-expanded')).toBe(false);
+    expect(panel.classList.contains('open')).toBe(false);
     expect(events).toEqual([true, false]);
   });
 

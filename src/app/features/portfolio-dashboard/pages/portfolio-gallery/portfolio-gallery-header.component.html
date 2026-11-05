@@ -71,13 +71,13 @@
     <button class="icon-btn" 
  [disabled]="refreshing()" title="Refresh positions, orders, and quotes"
  (click)="refresh.emit()">
-      <mat-icon>refresh</mat-icon>
+      <span class="dse-icon">refresh</span>
     </button>
     @if (expandAllVisible() && groupDimension() !== PositionGroupDimension.NONE) {
       <button class="icon-btn" 
  [disabled]="expandAllDisabled()" [title]="allGroupsExpanded() ? 'Collapse all groups' : 'Expand all groups'"
  (click)="expandAllToggle.emit()">
-        <mat-icon>{{ allGroupsExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+        <span class="dse-icon">{{ allGroupsExpanded() ? 'unfold_less' : 'unfold_more' }}</span>
       </button>
     }
   </div>

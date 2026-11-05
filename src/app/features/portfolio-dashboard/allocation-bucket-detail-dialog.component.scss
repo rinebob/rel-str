@@ -4,7 +4,7 @@
   @include vl.dialog-chrome;
 
   // h2-qualified — a bare class loses specificity to the mixin's
-  // h2[mat-dialog-title] and never applies.
+  // h2.title rule and never applies.
   h2.title-row {
     gap: 12px;
   }
@@ -19,7 +19,7 @@
     font-size: 12px;
   }
 
-  mat-dialog-content {
+  .content {
     min-width: 420px;
   }
 

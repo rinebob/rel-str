@@ -1,5 +1,5 @@
 <h2 class="title">
-  <mat-icon>sell</mat-icon>
+  <span class="dse-icon">sell</span>
   Close Position — {{ symbol() }}
 </h2>
 
@@ -19,10 +19,10 @@
 
         <label class="dse-field">
           <span class="field-label">Order Type</span>
-          <mat-select [value]="orderType()" (selectionChange)="onOrderTypeChange($event.value)">
-            <mat-option value="market">Market</mat-option>
-            <mat-option value="limit">Limit</mat-option>
-          </mat-select>
+          <select class="dse-select" [value]="orderType()" (change)="onOrderTypeChange($any($event.target).value)">
+            <option value="market">Market</option>
+            <option value="limit">Limit</option>
+          </select>
         </label>
 
         @if (isLimit()) {
@@ -36,14 +36,14 @@
 
     @case ('submitting') {
       <div class="status-section">
-        <mat-icon class="spinner">progress_activity</mat-icon>
+        <span class="dse-icon spinner">progress_activity</span>
         <p>Submitting order...</p>
       </div>
     }
 
     @case ('success') {
       <div class="status-section success">
-        <mat-icon>check_circle</mat-icon>
+        <span class="dse-icon">check_circle</span>
         <h3>Order Filled</h3>
         <div class="result-row">
           <span class="label">Order ID</span>
@@ -66,7 +66,7 @@
 
     @case ('error') {
       <div class="status-section error">
-        <mat-icon>error</mat-icon>
+        <span class="dse-icon">error</span>
         <h3>Order Failed</h3>
         <p class="error-message">{{ error() }}</p>
       </div>
@@ -79,7 +79,7 @@
     @case ('editing') {
       <button class="ds-btn outline" (click)="onCancel()">Cancel</button>
       <button class="ds-btn danger" (click)="onSubmit()" [disabled]="!canSubmit()">
-        <mat-icon>send</mat-icon>
+        <span class="dse-icon">send</span>
         Submit
       </button>
     }
@@ -88,7 +88,7 @@
     }
     @case ('success') {
       <button class="ds-btn fill" (click)="onDone()">
-        <mat-icon>done</mat-icon>
+        <span class="dse-icon">done</span>
         Done
       </button>
     }
@@ -96,7 +96,7 @@
       <button class="ds-btn outline" (click)="onCancel()">Cancel</button>
       @if (canRetry()) {
         <button class="ds-btn fill" (click)="onRetry()">
-          <mat-icon>refresh</mat-icon>
+          <span class="dse-icon">refresh</span>
           Retry
         </button>
       }

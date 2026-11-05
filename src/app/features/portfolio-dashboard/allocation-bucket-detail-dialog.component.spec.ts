@@ -7,9 +7,9 @@
  * elsewhere update the open dialog.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DS_DIALOG_DATA, DsDialogRef } from '../../shared/ds/ds-dialog';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 import {
   AllocationBucketDetailDialogComponent,
@@ -89,10 +89,10 @@ describe('AllocationBucketDetailDialogComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         {
-          provide: MAT_DIALOG_DATA,
+          provide: DS_DIALOG_DATA,
           useValue: { accountNumber: ACCT, bucketId } satisfies BucketDetailDialogData,
         },
-        { provide: MatDialogRef, useValue: { close: jest.fn() } },
+        { provide: DsDialogRef, useValue: { close: jest.fn() } },
         { provide: AllocationStore, useValue: mockedStore },
       ],
     }).compileComponents();

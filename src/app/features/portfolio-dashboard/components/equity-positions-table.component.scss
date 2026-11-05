@@ -86,7 +86,6 @@ th[aria-sort='descending'] .pd-sort-icon {
 .pd-actions .pd-close-action,
 .pd-actions .pd-add-stop-action,
 .pd-actions .pd-update-stop-action {
-  --mat-button-outlined-container-height: 24px;
   height: 24px;
   min-width: 0;
   padding: 0 6px;
@@ -118,7 +117,7 @@ th[aria-sort='descending'] .pd-sort-icon {
   font-size: 0.9rem;
 }
 
-.pd-section-empty mat-icon {
+.pd-section-empty .dse-icon {
   font-size: 24px;
   width: 24px;
   height: 24px;

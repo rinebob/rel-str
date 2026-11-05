@@ -5,8 +5,6 @@
  * No actions column — terminal orders are immutable.
  */
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { BrokerOrder } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { compareSortable, SortDirection } from '../utils/table-sort.util';
@@ -25,7 +23,7 @@ type SortKey =
 @Component({
   selector: 'app-order-history-table',
   standalone: true,
-  imports: [ MatIconModule, MatProgressSpinnerModule],
+  imports: [],
   templateUrl: './order-history-table.component.html',
   styleUrl: './order-history-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

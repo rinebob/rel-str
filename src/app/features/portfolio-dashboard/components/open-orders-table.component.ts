@@ -12,8 +12,6 @@
  * per-row Modify is intentionally one-at-a-time.
  */
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import {
   BrokerOrder,
@@ -39,7 +37,7 @@ type SortKey =
 @Component({
   selector: 'app-open-orders-table',
   standalone: true,
-  imports: [ MatIconModule, MatProgressSpinnerModule],
+  imports: [],
   templateUrl: './open-orders-table.component.html',
   styleUrl: './open-orders-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

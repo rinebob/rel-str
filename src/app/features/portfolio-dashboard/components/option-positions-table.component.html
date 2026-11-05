@@ -1,12 +1,12 @@
 <div class="pd-section">
   @if (loading()) {
     <div class="pd-section-loading" aria-live="polite" aria-atomic="true">
-      <mat-progress-spinner diameter="24" mode="indeterminate" aria-label="Loading option positions" />
+      <span class="dse-spinner" role="progressbar" aria-label="Loading option positions"></span>
       <span>Loading…</span>
     </div>
   } @else if (error(); as err) {
     <div class="pd-section-error" aria-live="polite" aria-atomic="true">
-      <mat-icon class="pd-section-error-icon" aria-hidden="true">error</mat-icon>
+      <span class="dse-icon pd-section-error-icon" aria-hidden="true">error</span>
       <span class="pd-section-error-text">{{ err }}</span>
       <button type="button" class="pd-section-retry ds-btn outline" (click)="retry.emit()">Retry</button>
     </div>
@@ -17,57 +17,57 @@
           <tr>
             <th scope="col" [attr.aria-sort]="ariaSort('underlying')">
               <button type="button" class="pd-sort" (click)="setSort('underlying')">
-                Underlying <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('underlying') }}</mat-icon>
+                Underlying <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('underlying') }}</span>
               </button>
             </th>
             <th scope="col" [attr.aria-sort]="ariaSort('type')">
               <button type="button" class="pd-sort" (click)="setSort('type')">
-                Type <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('type') }}</mat-icon>
+                Type <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('type') }}</span>
               </button>
             </th>
             <th scope="col" class="num" [attr.aria-sort]="ariaSort('strike')">
               <button type="button" class="pd-sort" (click)="setSort('strike')">
-                Strike <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('strike') }}</mat-icon>
+                Strike <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('strike') }}</span>
               </button>
             </th>
             <th scope="col" [attr.aria-sort]="ariaSort('expiration')">
               <button type="button" class="pd-sort" (click)="setSort('expiration')">
-                Expiration <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('expiration') }}</mat-icon>
+                Expiration <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('expiration') }}</span>
               </button>
             </th>
             <th scope="col" class="num" [attr.aria-sort]="ariaSort('quantity')">
               <button type="button" class="pd-sort" (click)="setSort('quantity')">
-                Qty <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('quantity') }}</mat-icon>
+                Qty <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('quantity') }}</span>
               </button>
             </th>
             <th scope="col" class="num" [attr.aria-sort]="ariaSort('avgCost')">
               <button type="button" class="pd-sort" (click)="setSort('avgCost')">
-                Avg Cost <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('avgCost') }}</mat-icon>
+                Avg Cost <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('avgCost') }}</span>
               </button>
             </th>
             <th scope="col" class="num" [attr.aria-sort]="ariaSort('costBasis')">
               <button type="button" class="pd-sort" (click)="setSort('costBasis')">
-                Cost Basis <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('costBasis') }}</mat-icon>
+                Cost Basis <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('costBasis') }}</span>
               </button>
             </th>
             <th scope="col" class="num" [attr.aria-sort]="ariaSort('currentPrice')">
               <button type="button" class="pd-sort" (click)="setSort('currentPrice')">
-                Current <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('currentPrice') }}</mat-icon>
+                Current <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('currentPrice') }}</span>
               </button>
             </th>
             <th scope="col" class="num" [attr.aria-sort]="ariaSort('value')">
               <button type="button" class="pd-sort" (click)="setSort('value')">
-                Value <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('value') }}</mat-icon>
+                Value <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('value') }}</span>
               </button>
             </th>
             <th scope="col" class="num" [attr.aria-sort]="ariaSort('pnl')">
               <button type="button" class="pd-sort" (click)="setSort('pnl')">
-                PnL <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('pnl') }}</mat-icon>
+                PnL <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('pnl') }}</span>
               </button>
             </th>
             <th scope="col" class="num" [attr.aria-sort]="ariaSort('pnlPercent')">
               <button type="button" class="pd-sort" (click)="setSort('pnlPercent')">
-                PnL% <mat-icon class="pd-sort-icon" aria-hidden="true">{{ sortIcon('pnlPercent') }}</mat-icon>
+                PnL% <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('pnlPercent') }}</span>
               </button>
             </th>
           </tr>
@@ -112,7 +112,7 @@
     </div>
   } @else {
     <div class="pd-section-empty" aria-live="polite">
-      <mat-icon aria-hidden="true">inbox</mat-icon>
+      <span class="dse-icon" aria-hidden="true">inbox</span>
       <span>No option positions</span>
     </div>
   }

@@ -9,8 +9,6 @@
  * one card per held position, no triage state.
  */
 import { ChangeDetectionStrategy, Component, effect, inject, OnInit } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { PortfolioGalleryFacade } from './portfolio-gallery.facade';
 import { GalleryCardChartStore } from '../../../savant-trader/stores/gallery-card-chart.store';
@@ -23,8 +21,6 @@ import { scheduleIdle, cancelIdle } from '../../../shared/utils/schedule-idle.ut
   selector: 'app-portfolio-gallery-view',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    MatIconModule,
-    MatProgressSpinnerModule,
     PortfolioGalleryHeaderComponent,
     PositionCardComponent,
     PositionGalleryGroupComponent],

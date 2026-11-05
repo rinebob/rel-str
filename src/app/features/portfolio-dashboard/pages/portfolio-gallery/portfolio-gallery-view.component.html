@@ -23,49 +23,51 @@
   <div class="pg-body">
     @for (err of facade.partialErrors(); track err) {
       <div class="pg-partial-error" data-testid="partial-error">
-        <mat-icon>warning_amber</mat-icon>
+        <span class="dse-icon">warning_amber</span>
         <span>{{ err }}</span>
       </div>
     }
     @if (facade.noAgenticAccount()) {
       <div class="pg-state pg-error">
-        <mat-icon>account_balance_wallet</mat-icon>
+        <span class="dse-icon">account_balance_wallet</span>
         <p>No agentic-enabled account found.</p>
         <p class="pg-state-sub">This page renders live positions for agentic accounts only.</p>
       </div>
     } @else if (facade.initialLoading()) {
       <div class="pg-state">
-        <mat-progress-spinner diameter="36" mode="indeterminate" aria-label="Loading positions" />
+        <span class="dse-spinner" style="--spinner-size: 36px" role="progressbar" aria-label="Loading positions"></span>
         <p>Loading positions…</p>
       </div>
     } @else if (facade.loadError()) {
       <div class="pg-state pg-error">
-        <mat-icon>error_outline</mat-icon>
+        <span class="dse-icon">error_outline</span>
         <p>{{ facade.loadError() }}</p>
         <button class="ds-btn outline" (click)="facade.refresh()">Retry</button>
       </div>
     } @else if (facade.noPositions()) {
       <div class="pg-state">
-        <mat-icon>inbox</mat-icon>
+        <span class="dse-icon">inbox</span>
         <p>No live positions</p>
         <p class="pg-state-sub">Positions you hold will appear here as cards.</p>
       </div>
     } @else if (facade.allFilteredOut()) {
       <div class="pg-state">
-        <mat-icon>filter_list_off</mat-icon>
+        <span class="dse-icon">filter_list_off</span>
         <p>No positions match the current filters</p>
       </div>
     } @else {
       <div class="pg-groups" data-testid="position-grid">
         @if (useExpandos && !facade.ungrouped()) {
           @let expandedMap = facade.expandedGroups();
-          @for (group of facade.groups(); track group.key) {
-            <app-position-gallery-group
-              [group]="group"
-              [expanded]="expandedMap[group.key] ?? false"
-              [actionsDisabled]="facade.refreshing()"
-              (expandedChange)="facade.setGroupExpanded(group.key, $event)" />
-          }
+          <div class="dse-acc">
+            @for (group of facade.groups(); track group.key) {
+              <app-position-gallery-group
+                [group]="group"
+                [expanded]="expandedMap[group.key] ?? false"
+                [actionsDisabled]="facade.refreshing()"
+                (expandedChange)="facade.setGroupExpanded(group.key, $event)" />
+            }
+          </div>
         } @else {
           <div class="pg-grid">
             @for (card of facade.orderedCards(); track card.key) {

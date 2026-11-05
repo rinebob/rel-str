@@ -7,15 +7,13 @@
  */
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { PortfolioSnapshot } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 
 @Component({
   selector: 'app-account-summary',
   standalone: true,
-  imports: [ MatIconModule, MatProgressSpinnerModule],
+  imports: [],
   templateUrl: './account-summary.component.html',
   styleUrl: './account-summary.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
