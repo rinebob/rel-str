@@ -2,7 +2,12 @@
 
 ## [2026-11-05]
 
+### Changed
+- [ST Firestore Reorg] 984-1158_SHARED-IMPL-DATA-PIPELINE: analysis helpers → st-paper-trading anchors — FE+BE cutover via single shared seam; rules legs incl. analysis-datasets/chunks delete (fixes prod deleteDataset$ PERMISSION_DENIED); covers BE twin #1160
+
 ### Added
+- [ST Firestore Reorg] 984-1158_BE-CHORE-DATA-PIPELINE: analysis-anchor migration (applied: 4 datasets + 4 chunks + 3 slices verbatim) + parity relay + verify registration — --no-create straggler mode, updateTime direction guards
+- [ST Firestore Reorg] 984-1158_DOCS-DATA-PIPELINE: #1158 code-review (PASS, 2 rounds) + UAT (Complete, #1343)
 - [Options Backtest] 1238-1375_FE-IMPL-BACKTEST: rerun action on failed Selection Replay rows — optionsReplayRetry wiring, snapshot-gated in-flight flag, run-scoped disable semantics
 - [Options Backtest] 1238-1375_DOCS-BACKTEST: #1375 code-review (PASS, 2 rounds) + UAT (Complete, #1398)
 - [Option Contract Time-Series Viewer] 1243-1362_FE-IMPL-OPTIONS: contract-list picker dialog + page wiring — rows tab (toolbar ops, no-selection markers, repeat badges), lines preview + Copy; onSend stay-open send; loadConfirmOpen guard, pickerRef dedupe, closeAll on destroy
