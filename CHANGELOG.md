@@ -28,6 +28,10 @@
 - [Portfolio Dashboard] 219-1408_FE-IMPL-PORTFOLIO: per-account gated load + serial prefetch waterfall — selected-account-first paint, unified orders registry (join/dedupe/trailing reconcile), loadEpoch stale-mark guard, retryable transport failures; absorbs #1397 silent reconcile
 - [Portfolio Dashboard] 219-1408_FE-IMPL-PORTFOLIO: dashboard wiring — initialLoad on init, ensure-loaded selectAccount, Orders/History tab on-demand kick, silent reconcile after mutations
 - [Portfolio Dashboard] 219-1408_DOCS-PORTFOLIO: thread #1403 PRD/IMPL/TEST + #1408 code-review (PASS, 2 rounds) + UAT (Complete, #1418) + changelog
+- [Options Backtest] 1238-1377_FE-IMPL-BACKTEST: list-scoped analysis-results stream (contractListDocId where) + extracted result-doc converter — invalid/absent status fails safe to 'failed'
+- [Options Backtest] 1238-1377_FE-IMPL-BACKTEST: AnalysisResultsStore — page-scoped list stream, registry-ordered aggregates, orphan-gated event rows, stale flags, analyzedAt
+- [Options Backtest] 1238-1377_FE-IMPL-BACKTEST: analysis results page — aggregate matrix (hit/avg days/avg premium/counts/worst MAE), distinct outcome rows, filter chips, stale chips, PT 'Analyzed' stamp
+- [Options Backtest] 1238-1377_DOCS-BACKTEST: #1377 code-review (PASS, 2 rounds) + UAT (Complete, #1425) + changelog
 
 ### Removed
 - [Paper Trading Infra] 553-672_FE-IMPL-PAPER-TRADING: dead FE exit-variant registry reads — listExitVariants$/loadExitVariants/exitVariants (zero consumers post-#668 select)
