@@ -10,7 +10,7 @@
 **Area:** FE  
 **Status:** Draft  
 **Created:** 2026-11-01  
-**Last Updated:** 2026-11-01  
+**Last Updated:** 2026-11-05  
 
 # Implementation Plan — FE: Selected Contract List Picker
 
@@ -41,8 +41,8 @@ flowchart LR
     FS[(st-options-contract-lists)] -->|ContractListService| SS
     SS --> D[Picker dialog<br/>tab1 rows · tab2 stepper · tab3 lines]
     SS --> M[Mini-controls<br/>◀ i/n ▶ size All picker]
-    D -->|selected rows| E[toPairLines util]
-    M -->|chunk rows| E
+    D -->|Send: selected rows| E[toPairLines util]
+    M -->|All: selected rows| E
     E --> TA[textarea] --> LP[loadPlotted<br/>markerDates union]
     LP --> CH[Chart<br/>span + per-day dots · +50 prefix]
 ```
@@ -166,9 +166,9 @@ management is independent of contract series):
 - Chunks = sequential groups of X pick **days** (row-count partition —
   marched through time; unique-contract count varies, shown per chunk:
   `chunk i/n · 10 days · 7 unique`).
-- Stepping `◀ ▶` **live-drives** the chart — each step sends that chunk's
-  rows through the same emit path (replace). "Add chunk to selection"
-  checks its rows into the persistent selection.
+- Stepping `◀ ▶` moves the cursor — **navigation only, no emit** (see
+  Sync model below). "Add chunk to selection" unions its days into the
+  persistent selection.
 - Timeline strip: horizontal date domain (firstDate→lastDate), one tick
   per pick day, current chunk's span highlighted, click-to-jump; custom
   div/SVG strip (no Syncfusion dependency — it's a selector, not a chart).
@@ -180,6 +180,29 @@ session is active):
 - Pure dumb surface — every control calls an existing store method; zero
   local selection logic.
 
+## Sync model (#1419)
+
+**`selection` is the single source of truth; the chart only ever plots
+`selection`, and only on an explicit Send.** Chosen over (a) syncing
+selection to each chunk emit and (b) a plotted-vs-pending two-state UI:
+
+- The dialog covers the chart — emitting behind it was invisible anyway.
+- Chunk stepping is workspace iteration; it mutates nothing but the
+  cursor. Selection ops (checks, Add-chunk, toolbar ops) mutate
+  `selection`. No emit path exists outside `sendSelected`/`sendAll`, so
+  plotted == last-sent-selection by construction — the divergence that
+  produced this bug cannot re-form.
+- Picker `Send` = `sendSelected` + close + `onSend` (close first — the
+  >50-confirm/load path must open on a clean page, and a thrown send
+  can't strand the picker). `Close`/×/backdrop = close without emitting
+  (abort). Mini-controls `◀ ▶` = cursor only; `All` = `selectAll` +
+  emit (the strip's one emit action — select-only would be invisible
+  with no dialog open).
+- `lastEmitted` records the **attempted** handoff, not a committed
+  plot — the page can still drop the load (cancelled >50 confirm,
+  pending-confirm bail). It's observability-only; nothing UI-visible
+  reads it. The chart's source of truth remains the textarea.
+
 ## Boundaries / risks
 
 - **Emit seam is the only textarea coupling** — lines write into the
@@ -189,9 +212,9 @@ session is active):
 - **`rs-optlist` restore vs `?list=` nav** — a restored session re-reads
   the doc (regenerable, fresher); stale docId → status failed state,
   never silent empty.
-- **Dialog over chart + live-drive** — the stepper sends while the
-  dialog is open; chart updates behind the modal (modal v1 accepted;
-  non-modal is a deferred upgrade).
+- **Dialog covers chart** — resolved by the #1419 sync model: nothing
+  emits while the dialog is open, so there's nothing to see behind it
+  anyway (supersedes the earlier live-drive decision).
 - **`options-replay-firestore-converter` reuse** — lives under the
   backtest feature dir; if importing across feature dirs is awkward, the
   list-doc converter is ~20 lines duplicated with a shared-types anchor

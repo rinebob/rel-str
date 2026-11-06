@@ -32,6 +32,8 @@
 - [Options Backtest] 1238-1377_FE-IMPL-BACKTEST: AnalysisResultsStore — page-scoped list stream, registry-ordered aggregates, orphan-gated event rows, stale flags, analyzedAt
 - [Options Backtest] 1238-1377_FE-IMPL-BACKTEST: analysis results page — aggregate matrix (hit/avg days/avg premium/counts/worst MAE), distinct outcome rows, filter chips, stale chips, PT 'Analyzed' stamp
 - [Options Backtest] 1238-1377_DOCS-BACKTEST: #1377 code-review (PASS, 2 rounds) + UAT (Complete, #1425) + changelog
+- [Option Contract Time-Series Viewer] 1243-1419_FE-BUG-OPTIONS: picker selection is the single emit source — chunk nav cursor-only, Send plots+closes, confirm-cancel no longer drifts the textarea
+- [Option Contract Time-Series Viewer] 1243-1419_DOCS-OPTIONS: #1419 code-review (PASS, 2 rounds) + UAT (Complete, #1426) + changelog
 
 ### Removed
 - [Paper Trading Infra] 553-672_FE-IMPL-PAPER-TRADING: dead FE exit-variant registry reads — listExitVariants$/loadExitVariants/exitVariants (zero consumers post-#668 select)

@@ -73,16 +73,17 @@ animation, or private state shape. Fixture list docs mirror
 - `⇄ repeat` badge on `repeatsPrevious` rows.
 - Lines preview equals emit output for the selection; Copy writes
   clipboard.
-- Stepper `▶` calls `sendSteppedChunk` and emits the landed chunk's
-  rows (live-drive); `Add chunk` checks the chunk's rows.
+- Stepper `▶` moves the cursor without emitting (#1419 — navigation
+  only); `Add chunk` checks the chunk's rows into the selection.
 - Mini-controls render only with an active session; each button calls
-  the matching store method; `i/n` reflects cursor.
+  the matching store method; `i/n` reflects cursor; only `All` emits.
 - `?list=` nav: doc loads, picker auto-opens; cross-symbol doc → page
   symbol switch fires first; missing doc → named error, chart untouched.
 - Chooser: lists recent docs, filters to current symbol, toggle widens,
   select → loadList + open.
-- `Send` writes emitted lines into the pairs input and calls the
-  existing load path (spy on the page handler).
+- `Send` writes emitted lines into the pairs input, calls the existing
+  load path (spy on the page handler), then closes the dialog (#1419);
+  `Close` closes without emitting.
 
 ## E2E journeys (QA)
 
@@ -91,10 +92,11 @@ animation, or private state shape. Fixture list docs mirror
    contract, underlying starts ~50 sessions before earliest marker.
 2. Chooser path: open chooser, filter/switch symbol, load, pick rows,
    send — same end state.
-3. Filmstrip: stepper through chunks — chart replaces per step; Add
-   chunk accumulates; final Send emits union.
-4. Mini-controls: close dialog, page via `◀ ▶`, resize chunks, `All`,
-   reopen picker — cursor and selection preserved.
+3. Chunk accumulate: stepper + timeline navigate chunks — chart does
+   not move while the dialog is open; Add chunk unions each chunk's
+   days; Send plots the accumulated set and closes (#1419).
+4. Mini-controls: close dialog, page via `◀ ▶`, resize chunks — no
+   emit until `All`; reopen picker — cursor and selection preserved.
 5. Clip invariant: dated set loaded → toggle clip-to-entry → contract
    marks clip, **underlying unchanged** (regression for the reported
    issue).
