@@ -12,6 +12,8 @@
 - [Options Backtest] 1238-1430_FE-IMPL-BACKTEST: singular contractList store + one-row-per-run surfaces + cross-symbol replay select
 - [Options Backtest] 1238-1430_DOCS-BACKTEST: #1430 code-review (PASS, 3 rounds) + UAT (Complete, #1435) + ADR-010 amendment
 - [Portfolio Allocation] 576-1433_DOCS-PORTFOLIO: #1433 code-review (PASS, 2 rounds) + UAT (Complete, #1436) + changelog
+- [Option Contract Time-Series Viewer] 1243-1420_FE-IMPL-OPTIONS: timeline selection shading + chunk-toggle — ticks mirror selection, click toggles chunk + jumps cursor; empty default, mint cursor band, remove-chunk + gating
+- [Option Contract Time-Series Viewer] 1243-1420_DOCS-OPTIONS: #1420 code-review (PASS, 2 rounds) + UAT (Complete, #1438) + changelog
 
 ### Removed
 - [Options Backtest] 1238-1430_CONFIG-BACKTEST: st-options-contract-lists (runId,symbol) composite index — single-symbol runs read by direct doc id

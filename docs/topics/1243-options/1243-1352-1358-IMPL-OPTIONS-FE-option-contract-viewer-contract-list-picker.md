@@ -110,12 +110,15 @@ management is independent of contract series):
 - State: `activeList`, `selection: Set<string>` (rowKey = entryDate —
   unique per row, survives sorts), `chunkSize` (default 10),
   `chunkCursor` (index), `status`, `error`.
-- Methods: `loadList(docId)` (fetch → rows → default-select first 10 →
-  cursor 0), `selectAll/none/invert/stride(k)/random(n)/dateRange(from,to)
+- Methods: `loadList(docId)` (fetch → rows → EMPTY selection →
+  cursor 0 — a fresh workspace, nothing pre-checked; restored sessions
+  keep their saved keys), `selectAll/none/invert/stride(k)/random(n)/dateRange(from,to)
   /contains(text)` (ops over pick rows only; `no-selection` rows are
   unselectable), `step(dir)` / `setChunk(i)` / `setChunkSize(n)`,
-  `addChunkToSelection()`, `sendSelected()` / `sendChunk()` — both
-  produce `ContractListPickRow[]` → emit util.
+  `addChunkToSelection()` / `removeChunkFromSelection()` /
+  `toggleChunkAt(i)` (chunk tri-state toggle + cursor jump, one atomic
+  patch), `sendSelected()` / `sendAll()` — both produce `string[]`
+  `entryDate,id` lines → emit util.
 - Computed: `pickRows` (rows filtered to kind='pick'),
   `selectedRows`, `uniqueCount` (distinct contractIds in selection),
   `chunks` (partition by pick days), `currentChunk`, `chunkInfo`
@@ -170,8 +173,25 @@ management is independent of contract series):
   Sync model below). "Add chunk to selection" unions its days into the
   persistent selection.
 - Timeline strip: horizontal date domain (firstDate→lastDate), one tick
-  per pick day, current chunk's span highlighted, click-to-jump; custom
-  div/SVG strip (no Syncfusion dependency — it's a selector, not a chart).
+  per pick day, current chunk's span highlighted; custom div/SVG strip
+  (no Syncfusion dependency — it's a selector, not a chart).
+- Timeline selection shading + chunk-toggle (#1420): ticks carry a
+  `selected` class when their day ∈ `selection` (solid accent — accent
+  is reserved for checked state only). The cursor is a FILLED mint
+  band (#00ff9d, the ds-accents 'mint' id — off the accent family, so
+  viewing ≠ selected can never blur; a mint app accent is a documented
+  collision, not a broken one).
+  A tick click = `toggleChunkAt(chunkIdx)` — tri-state chunk toggle
+  (full → clear; partial/empty → fill) and the cursor jump in ONE
+  patch+persist (the saved blob can't hold a new selection under a
+  stale cursor); nothing emits. Chunk-granular by UAT
+  decision: every click is a visible ~N-day change; day-level edits
+  stay on the Rows tab. `aria-pressed` reports the chunk's fully-
+  selected state (the toggle's target), `.selected` shades per-day.
+- Fresh loads open with an EMPTY selection (#1420 UAT): the picker is
+  a workspace — nothing is checked until the user selects, so Send can
+  never fire a payload the user didn't choose. Restored sessions still
+  re-apply their saved `selectionKeys`.
 
 **Mini-controls strip** (page toolbar / chips row, visible only when a
 session is active):

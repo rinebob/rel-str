@@ -66,7 +66,8 @@ animation, or private state shape. Fixture list docs mirror
 
 ## Component specs
 
-- Dialog opens populated; first-10 rows checked on load.
+- Dialog opens populated; selection starts EMPTY (fresh workspace —
+  nothing is checked until the user selects).
 - Checkbox toggles update selection + readout (`N rows → M unique`).
 - Toolbar ops check the expected rows after each op.
 - `no-selection` rows render greyed/disabled with reason.
@@ -87,7 +88,7 @@ animation, or private state shape. Fixture list docs mirror
 
 ## E2E journeys (QA)
 
-1. Replay send → chart: `?list=` lands, dialog open, first-10 → Send →
+1. Replay send → chart: `?list=` lands, dialog open, select rows → Send →
    `date,id` lines in textarea, marks + per-day dots + one span per
    contract, underlying starts ~50 sessions before earliest marker.
 2. Chooser path: open chooser, filter/switch symbol, load, pick rows,
@@ -95,6 +96,14 @@ animation, or private state shape. Fixture list docs mirror
 3. Chunk accumulate: stepper + timeline navigate chunks — chart does
    not move while the dialog is open; Add chunk unions each chunk's
    days; Send plots the accumulated set and closes (#1419).
+3a. Timeline selection parity + chunk-toggle (#1420): every selected
+   day renders a solid tick — a stride/random/range selection lights
+   up the matching ticks across all chunks, not just the cursor's.
+   The cursor is a filled mint band (distinct from selection).
+   Clicking a tick toggles its WHOLE chunk (partial → fill, full →
+   clear) AND jumps the cursor there; the Rows checks and Lines
+   preview mirror every toggle. Fresh loads open with nothing
+   selected. Still no emit — Send is the only plot path.
 4. Mini-controls: close dialog, page via `◀ ▶`, resize chunks — no
    emit until `All`; reopen picker — cursor and selection preserved.
 5. Clip invariant: dated set loaded → toggle clip-to-entry → contract
