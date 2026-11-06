@@ -11,12 +11,14 @@
 - [Options Backtest] 1238-1430_BE-CHORE-BACKTEST: live single-symbol audit + verify scripts re-pinned to runId keying
 - [Options Backtest] 1238-1430_FE-IMPL-BACKTEST: singular contractList store + one-row-per-run surfaces + cross-symbol replay select
 - [Options Backtest] 1238-1430_DOCS-BACKTEST: #1430 code-review (PASS, 3 rounds) + UAT (Complete, #1435) + ADR-010 amendment
+- [Portfolio Allocation] 576-1433_DOCS-PORTFOLIO: #1433 code-review (PASS, 2 rounds) + UAT (Complete, #1436) + changelog
 
 ### Removed
 - [Options Backtest] 1238-1430_CONFIG-BACKTEST: st-options-contract-lists (runId,symbol) composite index — single-symbol runs read by direct doc id
 
 ### Fixed
 - [Paper Trading Infra] 553-1247_BE-BUG-PAPER-TRADING: open-pass ladder cadence — all-status cadence gate replaces `existing_position` serial skip; same-day idempotency; pre-order deterministic-ID check; cap warn+drop normalization; gates + ticket-staging extracted
+- [Portfolio Allocation] 576-1433_FE-BUG-PORTFOLIO: allocation watch streams self-heal — retry({count,delay,resetOnSuccess}) bounded backoff (5s/15s/45s) re-subscribes dead listeners; per-stream error slots + selectedError keep MCP load errors unmaskable
 
 ## [2026-11-05]
 
