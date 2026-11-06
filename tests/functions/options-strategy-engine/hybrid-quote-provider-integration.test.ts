@@ -138,7 +138,8 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       CURRENT_PRICE,
       {
         readDailyAnalysis: async () => simulation,
-        listOpenPositions: async () => [],
+        listInstancePositions: async () => [],
+        getPosition: async () => null,
         createPosition: async (position, legs, rawQuote) => {
           const created: Position = {
             ...position,
@@ -224,7 +225,7 @@ describe('hybrid quote provider integration — selection → open → mark', ()
     assert.equal(markResults[0].update.unrealizedPnl, expectedPnl);
   });
 
-  it('skips open pass when an existing position is found', async () => {
+  it('skips open pass when a position was already opened that day', async () => {
     const simulation: OvernightDeltaSimulation = {
       baseUnderlyingPrice: 100,
       baseContractID: 'SPY250817P00100000',
@@ -243,7 +244,7 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       status: PositionStatus.OPEN,
       premiumCollected: 70,
       capitalRequired: 10000,
-      openDate: '2025-08-14',
+      openDate: NEXT_DAY,
       currentValue: 65,
       currentValueAsOf: '2025-08-14T22:00:00Z',
       unrealizedPnl: 5,
@@ -256,7 +257,7 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       CURRENT_PRICE,
       {
         readDailyAnalysis: async () => simulation,
-        listOpenPositions: async () => [existingPosition],
+        listInstancePositions: async () => [existingPosition],
         createPosition: async () => { throw new Error('Should not create position'); },
         writeOpenPassResult: async () => {},
       },
@@ -264,8 +265,9 @@ describe('hybrid quote provider integration — selection → open → mark', ()
 
     assert.ok(result);
     assert.equal(result!.skipped, true);
-    assert.equal(result!.skipReason, 'existing_position');
-    assert.equal(result!.positionId, null);
+    assert.equal(result!.skipReason, 'already_opened_today');
+    // The skip result now carries the blocking leg's id (telemetry).
+    assert.equal(result!.positionId, 'SPY-WHEEL-INT-2025-08-14');
   });
 
   it('records data-quality error when quote provider throws for missing close.price', async () => {
@@ -482,7 +484,7 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       CURRENT_PRICE,
       {
         readDailyAnalysis: async () => null,
-        listOpenPositions: async () => [],
+        listInstancePositions: async () => [],
         createPosition: async () => { throw new Error('Should not create position'); },
         writeOpenPassResult: async () => {},
       },
@@ -511,7 +513,7 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       105, // +5% move
       {
         readDailyAnalysis: async () => simulation,
-        listOpenPositions: async () => [],
+        listInstancePositions: async () => [],
         createPosition: async () => { throw new Error('Should not create position'); },
         writeOpenPassResult: async () => {},
       },

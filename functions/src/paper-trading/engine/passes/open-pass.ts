@@ -5,8 +5,10 @@
  *
  * Reads the prior night's `daily-analysis/latest` document, looks up the
  * current underlying price, selects the nearest grid point from the overnight
- * delta simulation, records the actual overnight move, and opens a position
- * if no existing open position is found for the same strategy instance.
+ * delta simulation, records the actual overnight move, and opens one new
+ * position per cadence period (daily or weekly). Prior open positions do not
+ * block the ladder (#1247); an optional `maxOpenPositions` config bounds
+ * concurrent positions per instance.
  */
 
 import type {
@@ -19,19 +21,24 @@ import { TradeSide } from '@common';
 import { db } from '../../../firebase-admin-init';
 import { strategyInstanceDailyAnalysisRef } from '../strategy-instance-repository';
 import { LATEST_DAILY_ANALYSIS_DOC_ID } from '../pricing/overnight-simulation-writer';
+import { evaluateOpenGates } from './open-pass-gates';
+import type { OpenGateSkipReason } from './open-pass-gates';
+import { stageOpenTicket } from './open-pass-tickets';
+import type {
+  OpenPassInstanceConfig,
+  OpenPassTicketEmitter,
+} from './open-pass-tickets';
 import {
   buildLegId,
   buildPositionId,
-  listOpenPositions,
+  getPosition,
+  listPositionsByInstance,
   createPosition,
 } from '../position-repository';
 import { incrementStatsOnOpen } from '../stats-repository';
 import type { Position, PositionLeg, RawQuote } from '../types';
 import { PositionStatus } from '../types';
 import { createLogger } from '../logging';
-import { buildAccountId } from '@paper-trading/ids';
-import type { StMode } from '@st/types';
-import type { StOrderTicketEmitter } from '../../../order-tickets/st-order-ticket-writer';
 
 const logger = createLogger('OpenPass');
 
@@ -45,7 +52,7 @@ export interface OpenPassResult {
   nearestGridPoint: OvernightDeltaGridPoint;
   positionId: string | null;
   skipped: boolean;
-  skipReason: 'existing_position' | 'max_overnight_move_exceeded' | null;
+  skipReason: OpenGateSkipReason | 'max_overnight_move_exceeded' | null;
   recordedAt: string;
 }
 
@@ -87,7 +94,14 @@ async function stubBrokerageOrderPlacer(
 
 export interface OpenPassDependencies {
   readDailyAnalysis?: DailyAnalysisReader;
-  listOpenPositions?: (instanceId: string) => Promise<Position[]>;
+  /** All positions for the instance (any status), newest first — the
+   *  cadence gate counts every openDate, not just still-open legs. */
+  listInstancePositions?: (instanceId: string) => Promise<Position[]>;
+  /** Pre-order deterministic-ID check — the cadence gate's list read can
+   *  go stale between gate evaluation and order placement (concurrent
+   *  invocation); a doc read just before ordering narrows the window to
+   *  the ledger's transactional `already exists` throw. */
+  getPosition?: (positionId: string) => Promise<Position | null>;
   placeBrokerageOrder?: BrokerageOrderPlacer;
   createPosition?: (
     position: Omit<Position, 'id'>,
@@ -104,7 +118,7 @@ export interface OpenPassDependencies {
    * `filled` on success or `failed` on a thrown execution error. Optional —
    * absent dep keeps pre-#1002 behavior for tests/callers not yet wired.
    */
-  tickets?: Pick<StOrderTicketEmitter, 'emit' | 'markFilled' | 'markFailed'>;
+  tickets?: OpenPassTicketEmitter;
 }
 
 // ── Default readers/writers ─────────────────────────────────────────────────
@@ -170,13 +184,15 @@ function buildOpenPassResult(
 export async function runOpenPass(
   instanceId: string,
   date: string,
-  config: StrategyInstanceConfig & { mode?: StMode; paperAccountId?: string },
+  config: OpenPassInstanceConfig,
   currentUnderlyingPrice: number,
   deps: OpenPassDependencies = {},
 ): Promise<OpenPassResult | null> {
   const readDailyAnalysis =
     deps.readDailyAnalysis ?? createDefaultDailyAnalysisReader();
-  const listOpen = deps.listOpenPositions ?? listOpenPositions;
+  const listPositions =
+    deps.listInstancePositions ?? listPositionsByInstance;
+  const getPositionById = deps.getPosition ?? getPosition;
   const placeOrder = deps.placeBrokerageOrder ?? stubBrokerageOrderPlacer;
   const create = deps.createPosition ?? createPosition;
   const writeResult =
@@ -200,21 +216,26 @@ export async function runOpenPass(
     currentUnderlyingPrice,
   );
 
-  // 4. Check for existing open positions
-  const openPositions = await listOpen(instanceId);
-  if (openPositions.length > 0) {
+  // 4. Cadence + cap gates (#1247) — pure evaluation over the
+  //    instance's positions; prior open positions do NOT block the
+  //    ladder. Gate semantics live in open-pass-gates.ts.
+  const positions = await listPositions(instanceId);
+  const gate = evaluateOpenGates(positions, config, date);
+  if (gate) {
     const result = buildOpenPassResult(
       simulation,
       currentUnderlyingPrice,
       actualMovePct,
       nearestGridPoint,
-      null,
+      gate.blockingPositionId,
       true,
-      'existing_position',
+      gate.reason,
     );
     await writeResult(instanceId, date, result);
     logger.info(
-      `Skipped ${instanceId}/${date}: existing open position found`,
+      gate.reason === 'max_open_positions'
+        ? `Skipped ${instanceId}/${date}: ${gate.openCount} open position(s) at cap ${config.maxOpenPositions}`
+        : `Skipped ${instanceId}/${date}: ${gate.reason}`,
     );
     return result;
   }
@@ -249,7 +270,7 @@ export async function runOpenPass(
     );
   }
 
-  // 7. Create position
+  // 7. Build the position, leg, and raw-quote records
   const mark = nearestGridPoint.mark;
   const premiumCollected =
     config.side === TradeSide.SHORT ? mark * 100 : 0;
@@ -290,43 +311,38 @@ export async function runOpenPass(
     },
   };
 
-  // 7. Place brokerage order BEFORE creating the position in Firestore.
+  // 8. Place brokerage order BEFORE creating the position in Firestore.
   //    If the order fails, no position is created.
   const positionId = buildPositionId(config, date);
 
-  // Canonical program ticket (#984/#1002) — staged before execution;
-  // idSeed = positionId so a re-fired pass re-emits the same doc. The
-  // contract detail lives on the position doc sharing that id — ticket
-  // terms carry the strategy-level terms (underlying/side/quantity), not
-  // legs (RH optionId is a live-ordering identity the paper sim lacks).
-  // Fail-soft: an emit failure must never block the open.
-  let ticketId: string | null = null;
-  if (deps.tickets) {
-    try {
-      ticketId = await deps.tickets.emit({
-        mode: config.mode === 'live' ? 'live' : 'paper',
-        idSeed: positionId,
-        origin: { type: 'program', instanceId },
-        auto: true,
-        terms: {
-          symbol: config.symbol,
-          side: config.side === TradeSide.SHORT ? 'sell' : 'buy',
-          instrument: 'option',
-          quantity: 1,
-          orderType: 'market',
-          timeInForce: 'gfd',
-          marketHours: 'regular_hours',
-        },
-        accountTarget: config.paperAccountId ?? buildAccountId(config.userId),
-        userId: config.userId,
-        now: new Date().toISOString(),
-      });
-    } catch (err) {
-      logger.warn(
-        `st_open_pass_ticket_emit ${instanceId}/${date}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+  // Deterministic-ID backstop (#1247) — the cadence gate's list read can
+  //    go stale before we get here (a concurrent invocation that already
+  //    created today's leg). Re-check before ordering so the loser skips
+  //    cleanly instead of placing a duplicate brokerage order; the
+  //    ledger's transactional `already exists` throw covers the residual
+  //    window between this read and createPosition.
+  if (await getPositionById(positionId)) {
+    const result = buildOpenPassResult(
+      simulation,
+      currentUnderlyingPrice,
+      actualMovePct,
+      nearestGridPoint,
+      positionId,
+      true,
+      'already_opened_today',
+    );
+    await writeResult(instanceId, date, result);
+    logger.info(`Skipped ${instanceId}/${date}: already_opened_today`);
+    return result;
   }
+
+  const ticketId = await stageOpenTicket(
+    deps.tickets,
+    config,
+    positionId,
+    instanceId,
+    date,
+  );
 
   let order: { orderId: string; fillPrice: number };
   let created: Position;
@@ -356,10 +372,10 @@ export async function runOpenPass(
     );
   }
 
-  // 8. Incrementally update stats (premium + open count) for per-instance + ALL
+  // 9. Incrementally update stats (premium + open count) for per-instance + ALL
   await incrementStatsOnOpen(instanceId, premiumCollected);
 
-  // 9. Write result and return
+  // 10. Write result and return
   const result = buildOpenPassResult(
     simulation,
     currentUnderlyingPrice,

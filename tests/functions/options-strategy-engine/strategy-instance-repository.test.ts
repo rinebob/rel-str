@@ -244,6 +244,43 @@ describe('strategy-instance-repository', () => {
     assert.deepEqual((await listActiveInstances(fakeDb)).map((i) => i.id), ['paper-1']);
   });
 
+  it('drops a malformed maxOpenPositions instead of rejecting the doc (#1247 r1)', async () => {
+    // The field is console-edited — a garbage value must warn+drop
+    // (uncapped) rather than silently pass through or kill the whole
+    // instance's mark/settlement management.
+    const fakeDb = createFakeFirestore({
+      [CANONICAL]: [
+        createFakeDoc('bad-cap', makeInstance({
+          id: 'bad-cap',
+          maxOpenPositions: 'five' as unknown as number,
+        })),
+        createFakeDoc('neg-cap', makeInstance({
+          id: 'neg-cap',
+          maxOpenPositions: -2,
+        })),
+        createFakeDoc('frac-cap', makeInstance({
+          id: 'frac-cap',
+          maxOpenPositions: 1.5,
+        })),
+        createFakeDoc('zero-cap', makeInstance({
+          id: 'zero-cap',
+          maxOpenPositions: 0,
+        })),
+        createFakeDoc('good-cap', makeInstance({
+          id: 'good-cap',
+          maxOpenPositions: 3,
+        })),
+      ],
+    }) as unknown as RepoDb;
+
+    assert.equal((await getInstance('bad-cap', fakeDb))!.maxOpenPositions, undefined);
+    assert.equal((await getInstance('neg-cap', fakeDb))!.maxOpenPositions, undefined);
+    assert.equal((await getInstance('frac-cap', fakeDb))!.maxOpenPositions, undefined);
+    // 0 stays — the contract documents it as explicit uncapped.
+    assert.equal((await getInstance('zero-cap', fakeDb))!.maxOpenPositions, 0);
+    assert.equal((await getInstance('good-cap', fakeDb))!.maxOpenPositions, 3);
+  });
+
   it('getInstance returns a doc regardless of enabled/mode — it is a config read, not a firing surface', async () => {
     const fakeDb = createFakeFirestore({
       [CANONICAL]: [

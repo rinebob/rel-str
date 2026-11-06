@@ -184,9 +184,29 @@ function normalizeInstance(id: string, data: unknown): StStrategyInstance | null
   // The anchor-era `kind` discriminator doesn't exist on the canonical shape —
   // strip it so every caller sees a uniform StStrategyInstance.
   const { kind: _kind, ...config } = raw;
+
+  // `maxOpenPositions` (#1247) is console-edited — the highest-typo-rate
+  // path. A malformed value must not silently mean "uncapped" without a
+  // trace, and must not reject the doc either (that would disable marks
+  // and settlement for every open leg). Warn + drop: treat as uncapped.
+  // `0` is valid — the contract documents it as explicit uncapped.
+  const rawMaxOpen = raw.maxOpenPositions;
+  const maxOpenPositions =
+    typeof rawMaxOpen === 'number' &&
+    Number.isInteger(rawMaxOpen) &&
+    rawMaxOpen >= 0
+      ? rawMaxOpen
+      : undefined;
+  if (rawMaxOpen !== undefined && maxOpenPositions === undefined) {
+    log.warn(
+      `Instance ${id}: invalid maxOpenPositions ${String(rawMaxOpen)} — treating as uncapped`,
+    );
+  }
+
   return {
     ...(config as unknown as StrategyInstanceConfig),
     id,
+    maxOpenPositions,
     mode: (raw.mode as StMode | undefined) ?? 'paper',
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : true,
     createdAt: normalizeTimestamp(raw.createdAt),

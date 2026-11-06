@@ -75,7 +75,7 @@ describe('runOpenPass', () => {
   it('returns null when no daily-analysis exists', async () => {
     const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
       readDailyAnalysis: async () => null,
-      listOpenPositions: async () => [],
+      listInstancePositions: async () => [],
       createPosition: async () => ({}) as Position,
       writeOpenPassResult: async () => {},
     });
@@ -83,26 +83,286 @@ describe('runOpenPass', () => {
     assert.equal(result, null);
   });
 
-  it('skips when an existing open position is found', async () => {
+  it('opens a new position while a prior-day position remains open (daily ladder, #1247)', async () => {
+    const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
+      readDailyAnalysis: async () => makeSimulation(),
+      listInstancePositions: async () => [
+        {
+          id: 'inst-1-2025-08-14',
+          instanceId: 'inst-1',
+          openDate: '2025-08-14',
+          status: PositionStatus.OPEN,
+        } as Position,
+      ],
+      getPosition: async () => null,
+      createPosition: async (position) =>
+        ({ id: 'inst-1-2025-08-15', ...position }) as Position,
+      writeOpenPassResult: async () => {},
+    });
+
+    assert.ok(result);
+    assert.equal(result.skipped, false);
+    assert.equal(result.skipReason, null);
+    assert.equal(result.positionId, 'inst-1-2025-08-15');
+  });
+
+  it('skips when a position was already opened today (same-day retry)', async () => {
     const written: OpenPassResult[] = [];
     const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
       readDailyAnalysis: async () => makeSimulation(),
-      listOpenPositions: async () => [
-        { id: 'inst-1-2025-08-14', instanceId: 'inst-1' } as Position,
+      listInstancePositions: async () => [
+        {
+          id: 'inst-1-2025-08-15',
+          instanceId: 'inst-1',
+          openDate: '2025-08-15',
+          status: PositionStatus.OPEN,
+        } as Position,
       ],
-      createPosition: async () => ({}) as Position,
-      writeOpenPassResult: async (_iid, _date, r) => { written.push(r); },
+      createPosition: async () => {
+        throw new Error('should not create position');
+      },
+      writeOpenPassResult: async (_iid, _date, r) => {
+        written.push(r);
+      },
     });
 
     assert.ok(result);
     assert.equal(result.skipped, true);
-    assert.equal(result.skipReason, 'existing_position');
-    assert.equal(result.positionId, null);
+    assert.equal(result.skipReason, 'already_opened_today');
+    // The skip result carries the blocking leg's id — a same-day retry
+    // must not erase the opened position's id from the latest-doc record.
+    assert.equal(result.positionId, 'inst-1-2025-08-15');
     assert.equal(result.contractID, 'SPY250817P00100000');
     assert.equal(result.baseUnderlyingPrice, 100);
     assert.equal(result.currentUnderlyingPrice, 101);
     assert.equal(written.length, 1);
     assert.equal(written[0].skipped, true);
+  });
+
+  it('skips when open positions reach maxOpenPositions', async () => {
+    const result = await runOpenPass(
+      'inst-1',
+      '2025-08-15',
+      makeConfig({ maxOpenPositions: 1 }),
+      101,
+      {
+        readDailyAnalysis: async () => makeSimulation(),
+        listInstancePositions: async () => [
+          {
+            id: 'inst-1-2025-08-14',
+            instanceId: 'inst-1',
+            openDate: '2025-08-14',
+            status: PositionStatus.OPEN,
+          } as Position,
+        ],
+        createPosition: async () => {
+          throw new Error('should not create position');
+        },
+        writeOpenPassResult: async () => {},
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result.skipped, true);
+    assert.equal(result.skipReason, 'max_open_positions');
+    assert.equal(result.positionId, null);
+  });
+
+  it('opens when open count is below maxOpenPositions', async () => {
+    const result = await runOpenPass(
+      'inst-1',
+      '2025-08-15',
+      makeConfig({ maxOpenPositions: 2 }),
+      101,
+      {
+        readDailyAnalysis: async () => makeSimulation(),
+        listInstancePositions: async () => [
+          {
+            id: 'inst-1-2025-08-14',
+            instanceId: 'inst-1',
+            openDate: '2025-08-14',
+            status: PositionStatus.OPEN,
+          } as Position,
+        ],
+        getPosition: async () => null,
+        createPosition: async (position) =>
+          ({ id: 'inst-1-2025-08-15', ...position }) as Position,
+        writeOpenPassResult: async () => {},
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result.skipped, false);
+    assert.equal(result.positionId, 'inst-1-2025-08-15');
+  });
+
+  it('closed positions do not count toward maxOpenPositions (#1247 r1)', async () => {
+    const result = await runOpenPass(
+      'inst-1',
+      '2025-08-15',
+      makeConfig({ maxOpenPositions: 1 }),
+      101,
+      {
+        readDailyAnalysis: async () => makeSimulation(),
+        listInstancePositions: async () => [
+          {
+            id: 'inst-1-2025-08-10',
+            instanceId: 'inst-1',
+            openDate: '2025-08-10',
+            status: PositionStatus.CLOSED,
+          } as Position,
+        ],
+        getPosition: async () => null,
+        createPosition: async (position) =>
+          ({ id: 'inst-1-2025-08-15', ...position }) as Position,
+        writeOpenPassResult: async () => {},
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result.skipped, false);
+    assert.equal(result.positionId, 'inst-1-2025-08-15');
+  });
+
+  it('weekly instance skips when a position opened within the last 7 days', async () => {
+    const result = await runOpenPass(
+      'inst-1',
+      '2025-08-15',
+      makeConfig({ frequency: StrategyFrequency.WEEKLY }),
+      101,
+      {
+        readDailyAnalysis: async () => makeSimulation(),
+        listInstancePositions: async () => [
+          {
+            id: 'inst-1-2025-08-11',
+            instanceId: 'inst-1',
+            openDate: '2025-08-11',
+            status: PositionStatus.OPEN,
+          } as Position,
+        ],
+        createPosition: async () => {
+          throw new Error('should not create position');
+        },
+        writeOpenPassResult: async () => {},
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result.skipped, true);
+    assert.equal(result.skipReason, 'already_opened_in_period');
+  });
+
+  it('weekly instance skips when the in-period leg already closed (#1247 r1)', async () => {
+    // A leg that opened Monday and expired/assigned by Thursday still
+    // consumed the week's cadence slot — cadence anchors to openDate
+    // across ALL positions, not just survivors.
+    const result = await runOpenPass(
+      'inst-1',
+      '2025-08-15',
+      makeConfig({ frequency: StrategyFrequency.WEEKLY }),
+      101,
+      {
+        readDailyAnalysis: async () => makeSimulation(),
+        listInstancePositions: async () => [
+          {
+            id: 'inst-1-2025-08-11',
+            instanceId: 'inst-1',
+            openDate: '2025-08-11',
+            status: PositionStatus.EXPIRED_WORTHLESS,
+          } as Position,
+        ],
+        createPosition: async () => {
+          throw new Error('should not create position');
+        },
+        writeOpenPassResult: async () => {},
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result.skipped, true);
+    assert.equal(result.skipReason, 'already_opened_in_period');
+    assert.equal(result.positionId, 'inst-1-2025-08-11');
+  });
+
+  it('a same-day closed leg still blocks a retry cleanly (#1247 r1)', async () => {
+    // Without the all-positions cadence read, a same-day early close is
+    // invisible to the gate and the retry would collide at createPosition.
+    const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
+      readDailyAnalysis: async () => makeSimulation(),
+      listInstancePositions: async () => [
+        {
+          id: 'inst-1-2025-08-15',
+          instanceId: 'inst-1',
+          openDate: '2025-08-15',
+          status: PositionStatus.CLOSED,
+        } as Position,
+      ],
+      createPosition: async () => {
+        throw new Error('should not create position');
+      },
+      writeOpenPassResult: async () => {},
+    });
+
+    assert.ok(result);
+    assert.equal(result.skipped, true);
+    assert.equal(result.skipReason, 'already_opened_today');
+    assert.equal(result.positionId, 'inst-1-2025-08-15');
+  });
+
+  it('skips cleanly when the position doc already exists before ordering (#1247 r1)', async () => {
+    // Concurrent-invocation backstop: the cadence list read went stale —
+    // the deterministic-ID check must fire BEFORE the brokerage order.
+    const calls: string[] = [];
+    const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
+      readDailyAnalysis: async () => makeSimulation(),
+      listInstancePositions: async () => [],
+      getPosition: async (id) => {
+        calls.push(`getPosition:${id}`);
+        return { id } as Position;
+      },
+      placeBrokerageOrder: async () => {
+        calls.push('placeOrder');
+        return { orderId: 'x', fillPrice: 0.5 };
+      },
+      createPosition: async () => {
+        throw new Error('should not create position');
+      },
+      writeOpenPassResult: async () => {},
+    });
+
+    assert.ok(result);
+    assert.equal(result.skipped, true);
+    assert.equal(result.skipReason, 'already_opened_today');
+    assert.equal(result.positionId, '250815-SPY-CSP-030-5-D-1200');
+    assert.deepEqual(calls, ['getPosition:250815-SPY-CSP-030-5-D-1200']);
+  });
+
+  it('weekly instance opens when the last open was 7 days ago', async () => {
+    const result = await runOpenPass(
+      'inst-1',
+      '2025-08-15',
+      makeConfig({ frequency: StrategyFrequency.WEEKLY }),
+      101,
+      {
+        readDailyAnalysis: async () => makeSimulation(),
+        listInstancePositions: async () => [
+          {
+            id: 'inst-1-2025-08-08',
+            instanceId: 'inst-1',
+            openDate: '2025-08-08',
+            status: PositionStatus.OPEN,
+          } as Position,
+        ],
+        getPosition: async () => null,
+        createPosition: async (position) =>
+          ({ id: 'inst-1-2025-08-15', ...position }) as Position,
+        writeOpenPassResult: async () => {},
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result.skipped, false);
+    assert.equal(result.positionId, 'inst-1-2025-08-15');
   });
 
   it('skips when maxOvernightMovePct is exceeded', async () => {
@@ -113,7 +373,7 @@ describe('runOpenPass', () => {
       103,
       {
         readDailyAnalysis: async () => makeSimulation(),
-        listOpenPositions: async () => [],
+        listInstancePositions: async () => [],
         createPosition: async () => ({}) as Position,
         writeOpenPassResult: async () => {},
       },
@@ -131,7 +391,8 @@ describe('runOpenPass', () => {
 
     const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
       readDailyAnalysis: async () => makeSimulation(),
-      listOpenPositions: async () => [],
+      listInstancePositions: async () => [],
+      getPosition: async () => null,
       createPosition: async (position, legs, rawQuote) => {
         createdPositions.push({ position, legs, rawQuote });
         return { id: 'inst-1-2025-08-15', ...position } as Position;
@@ -186,7 +447,8 @@ describe('runOpenPass', () => {
       105,
       {
         readDailyAnalysis: async () => makeSimulation(),
-        listOpenPositions: async () => [],
+        listInstancePositions: async () => [],
+        getPosition: async () => null,
         createPosition: async (position) => ({ id: 'inst-1-2025-08-15', ...position } as Position),
         writeOpenPassResult: async () => {},
       },
@@ -201,7 +463,8 @@ describe('runOpenPass', () => {
   it('selects nearest grid point correctly for a price below base', async () => {
     const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 98.5, {
       readDailyAnalysis: async () => makeSimulation(),
-      listOpenPositions: async () => [],
+      listInstancePositions: async () => [],
+      getPosition: async () => null,
       createPosition: async (position) => ({ id: 'inst-1-2025-08-15', ...position } as Position),
       writeOpenPassResult: async () => {},
     });
@@ -251,7 +514,8 @@ const ticketDeps = (calls: string[]) => {
     spy,
     deps: {
       readDailyAnalysis: async () => makeSimulation(),
-      listOpenPositions: async () => [],
+      listInstancePositions: async () => [],
+      getPosition: async () => null,
       createPosition: async (position: Omit<Position, 'id'>) =>
         ({ id: 'inst-1-2025-08-15', ...position }) as Position,
       writeOpenPassResult: async () => {},
@@ -297,16 +561,23 @@ describe('runOpenPass — st-order-tickets emission (#1002)', () => {
     assert.equal(spy.fills[0].id, 'liv_250815-SPY-CSP-030-5-D-1200');
   });
 
-  it('emits nothing on a skip (existing position)', async () => {
+  it('emits nothing on a same-day retry skip (already opened today)', async () => {
     const calls: string[] = [];
     const spy = spyTickets(calls);
     const result = await runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
       readDailyAnalysis: async () => makeSimulation(),
-      listOpenPositions: async () => [{ id: 'existing' } as Position],
+      listInstancePositions: async () => [
+        {
+          id: 'existing',
+          openDate: '2025-08-15',
+          status: PositionStatus.OPEN,
+        } as Position,
+      ],
       writeOpenPassResult: async () => {},
       tickets: spy.dep,
     });
     assert.equal(result?.skipped, true);
+    assert.equal(result?.skipReason, 'already_opened_today');
     assert.equal(spy.emits.length, 0);
   });
 
@@ -316,7 +587,8 @@ describe('runOpenPass — st-order-tickets emission (#1002)', () => {
     await assert.rejects(
       runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
         readDailyAnalysis: async () => makeSimulation(),
-        listOpenPositions: async () => [],
+        listInstancePositions: async () => [],
+        getPosition: async () => null,
         placeBrokerageOrder: async () => {
           throw new Error('broker down');
         },
@@ -337,7 +609,8 @@ describe('runOpenPass — st-order-tickets emission (#1002)', () => {
     await assert.rejects(
       runOpenPass('inst-1', '2025-08-15', makeConfig(), 101, {
         readDailyAnalysis: async () => makeSimulation(),
-        listOpenPositions: async () => [],
+        listInstancePositions: async () => [],
+        getPosition: async () => null,
         createPosition: async () => {
           throw new Error('firestore write failed');
         },
