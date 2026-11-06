@@ -1536,6 +1536,7 @@ describe('OptionOrderTicketComponent', () => {
           snapshot: null, positions: [], fills: [],
           buckets: [bucket('Growth'), bucket('Income')],
           attributions: [], asOf: null, loading: false, error: null,
+          bucketsError: null, attributionsError: null,
         },
       });
       await render();

@@ -78,6 +78,7 @@ describe('AllocationBucketDetailDialogComponent', () => {
     const alloc: AccountAllocation = {
       snapshot: null, positions: [], fills: [], buckets,
       attributions: [], asOf: null, loading: false, error: null,
+      bucketsError: null, attributionsError: null,
     };
     mockedStore = {
       bucketDetail: jest.fn((_acct: string, id: string) => details().get(id) ?? null),

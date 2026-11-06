@@ -137,7 +137,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
             <div class="tab-body alloc-tab-content" role="tabpanel" id="alloc-panel-0" aria-labelledby="alloc-tab-0">
                 @if (store.selectedAllocation().loading) {
                   <div class="alloc-state" data-testid="buckets-loading"><p>Loading…</p></div>
-                } @else if (store.selectedAllocation().error; as err) {
+                } @else if (store.selectedError(); as err) {
                   <div class="alloc-error" data-testid="account-error" role="alert">
                     <span class="dse-icon" aria-hidden="true">error</span>
                     <span class="error-text">{{ err }}</span>
@@ -151,7 +151,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
             <div class="tab-body alloc-tab-content" role="tabpanel" id="alloc-panel-1" aria-labelledby="alloc-tab-1">
                 @if (store.selectedAllocation().loading) {
                   <div class="alloc-state" data-testid="positions-loading"><p>Loading…</p></div>
-                } @else if (store.selectedAllocation().error; as err) {
+                } @else if (store.selectedError(); as err) {
                   <div class="alloc-error" data-testid="account-error" role="alert">
                     <span class="dse-icon" aria-hidden="true">error</span>
                     <span class="error-text">{{ err }}</span>

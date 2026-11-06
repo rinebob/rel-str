@@ -27,7 +27,13 @@ export interface AccountAllocation {
   /** ISO timestamp of the last MCP fetch — the as-of label (PRD). */
   asOf: string | null;
   loading: boolean;
+  /** MCP load failure — loadAccount's own slot. */
   error: string | null;
+  /** Watch-stream failures — one slot per stream so a live stream can't
+   *  mask a dead sibling or an MCP error. Patched on each failure
+   *  (visible during retry backoff), cleared by the next emission (#1433). */
+  bucketsError: string | null;
+  attributionsError: string | null;
 }
 
 export type BucketRowKind = 'bucket' | 'cash' | 'unassigned';

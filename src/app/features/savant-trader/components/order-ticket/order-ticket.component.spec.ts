@@ -82,6 +82,7 @@ describe('OrderTicketComponent', () => {
     return {
       snapshot: null, positions: [], fills: [], buckets,
       attributions: [], asOf: null, loading: false, error: null,
+      bucketsError: null, attributionsError: null,
     };
   }
 

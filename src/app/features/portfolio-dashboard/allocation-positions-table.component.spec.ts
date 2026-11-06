@@ -45,6 +45,7 @@ function mockStore(rows: PositionRow[], buckets: AllocationBucket[], attrs: Posi
     selectedAllocation: signal<AccountAllocation>({
       snapshot: null, positions: [], fills: [], buckets, attributions: attrs,
       asOf: null, loading: false, error: null,
+      bucketsError: null, attributionsError: null,
     }),
     selectedAccount: signal<AccountInfo | null>({
       accountNumber: ACCT, accountName: 'A', accountType: 'margin', agenticAllowed: true,

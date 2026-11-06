@@ -9,7 +9,7 @@
  */
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { of, Subject } from 'rxjs';
+import { defer, of, Subject } from 'rxjs';
 
 import { AllocationStore } from './allocation.store';
 import { AllocationDataService } from './allocation-data.service';
@@ -95,11 +95,17 @@ interface Mocks {
   attrs: jest.Mocked<Partial<PositionAttributionService>>;
   bucketStreams: Map<string, Subject<AllocationBucket[]>>;
   attrStreams: Map<string, Subject<PositionAttribution[]>>;
+  /** Subscribe counts per account — each resubscribe (incl. retry's)
+   *  yields a fresh Subject, like a fresh Firestore listener. */
+  bucketSubCount: Map<string, number>;
+  attrSubCount: Map<string, number>;
 }
 
 function buildMocks(): Mocks {
   const bucketStreams = new Map<string, Subject<AllocationBucket[]>>();
   const attrStreams = new Map<string, Subject<PositionAttribution[]>>();
+  const bucketSubCount = new Map<string, number>();
+  const attrSubCount = new Map<string, number>();
   const data = {
     listAccounts: jest.fn(async (): Promise<AccountInfo[]> => [account(ACCT_A), account(ACCT_B, false)]),
     getSnapshot: jest.fn(async (acct: string): Promise<PortfolioSnapshot> => snapshot(acct === ACCT_A ? 10000 : 5000, acct === ACCT_A ? 4000 : 1000)),
@@ -110,25 +116,28 @@ function buildMocks(): Mocks {
       ? [fill('AAPL', 'buy', 10, 80), fill('AAPL', 'sell', 10, 95), fill('MSFT', 'buy', 10, 190)]
       : [fill('TSLA', 'buy', 2, 125)]),
   };
+  // defer: every subscription (initial attach AND each retry resubscribe)
+  // gets a fresh Subject — matches collectionSnapshots' per-subscribe
+  // listener. A plain Subject would replay its terminal error to every
+  // resubscriber and make recovery untestable.
+  const streamMock = <T>(streams: Map<string, Subject<T>>, counts: Map<string, number>) =>
+    jest.fn((acct: string) => defer(() => {
+      const s = new Subject<T>();
+      streams.set(acct, s);
+      counts.set(acct, (counts.get(acct) ?? 0) + 1);
+      return s;
+    }));
   const buckets = {
-    watchBuckets$: jest.fn((acct: string) => {
-      const s = new Subject<AllocationBucket[]>();
-      bucketStreams.set(acct, s);
-      return s.asObservable();
-    }),
+    watchBuckets$: streamMock(bucketStreams, bucketSubCount),
   };
   const attrs = {
-    watchAttributions$: jest.fn((acct: string) => {
-      const s = new Subject<PositionAttribution[]>();
-      attrStreams.set(acct, s);
-      return s.asObservable();
-    }),
+    watchAttributions$: streamMock(attrStreams, attrSubCount),
     attribute$: jest.fn(() => of(void 0)),
     unassign$: jest.fn(() => of(void 0)),
     attributeMany$: jest.fn(() => of(void 0)),
     unassignMany$: jest.fn(() => of(void 0)),
   };
-  return { data, buckets, attrs, bucketStreams, attrStreams };
+  return { data, buckets, attrs, bucketStreams, attrStreams, bucketSubCount, attrSubCount };
 }
 
 async function setup(mocks: Mocks) {
@@ -158,6 +167,10 @@ function emitA(mocks: Mocks, buckets: AllocationBucket[], attrs: PositionAttribu
 // ===========================================================================
 
 describe('AllocationStore', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('loadAccounts surfaces ALL accounts — non-agentic included, unfiltered', async () => {
     const { store } = await setup(buildMocks());
     expect(store.accounts().map((a) => a.accountNumber)).toEqual([ACCT_A, ACCT_B]);
@@ -417,19 +430,137 @@ describe('AllocationStore', () => {
     expect(store.selectedAccount()?.accountNumber).toBe(ACCT_A);
   });
 
-  it('an errored stream re-attaches on next selectAccount', async () => {
+  it('a terminally-dead stream re-attaches on next selectAccount', async () => {
     const { store, mocks } = await setup(buildMocks());
     await flush();
-    mocks.attrStreams.get(ACCT_A)?.error(new Error('stream died'));
-    expect(store.selectedAllocation().error).toBe('stream died');
-    // Switch to B and back — the dead attribution sub is cleared and
-    // watchAttributions$ is called again for ACCT_A.
+    jest.useFakeTimers();
+
+    // Exhaust the retry budget — the sub is cleared, error stays latched.
+    for (let i = 0; i < 4; i++) {
+      mocks.attrStreams.get(ACCT_A)?.error(new Error('stream died'));
+      jest.advanceTimersByTime(60_000);
+    }
+    expect(store.selectedError()).toBe('stream died');
+
+    // Switch to B and back — the dead attribution sub re-attaches.
     await store.selectAccount(1);
     await store.selectAccount(0);
-    // Called for ACCT_A twice — initial attach + re-attach after error.
-    const acctACalls = (mocks.attrs.watchAttributions$ as jest.Mock).mock.calls.filter((c) => c[0] === ACCT_A);
-    expect(acctACalls).toHaveLength(2);
-    expect(mocks.attrs.watchAttributions$).toHaveBeenLastCalledWith(ACCT_A);
+    // Initial attach + 3 retries + manual re-attach = 5 subscriptions.
+    expect(mocks.attrSubCount.get(ACCT_A)).toBe(5);
+  });
+
+  describe('stream error recovery (#1433)', () => {
+    const attrSubs = (mocks: Mocks) => mocks.attrSubCount.get(ACCT_A) ?? 0;
+
+    it('auto re-attaches a dead watch stream after backoff — no manual action needed', async () => {
+      const { store, mocks } = await setup(buildMocks());
+      await flush();
+      jest.useFakeTimers();
+
+      mocks.attrStreams.get(ACCT_A)?.error(new Error('permission-denied'));
+      expect(store.selectedError()).toBe('permission-denied');
+      expect(attrSubs(mocks)).toBe(1); // initial attach only
+
+      jest.advanceTimersByTime(5_000);
+      expect(attrSubs(mocks)).toBe(2);
+      // The store listens on the fresh subject the defer produced.
+      expect(mocks.attrStreams.get(ACCT_A)).toBeTruthy();
+    });
+
+    it('a recovered stream clears the latched error on its next emission', async () => {
+      const { store, mocks } = await setup(buildMocks());
+      await flush();
+      jest.useFakeTimers();
+
+      mocks.attrStreams.get(ACCT_A)?.error(new Error('permission-denied'));
+      expect(store.selectedError()).toBe('permission-denied');
+
+      jest.advanceTimersByTime(5_000);
+      mocks.attrStreams.get(ACCT_A)?.next([]);
+      expect(store.selectedError()).toBeNull();
+    });
+
+    it('retries are bounded — a permanently failing stream stops re-attaching', async () => {
+      const { store, mocks } = await setup(buildMocks());
+      await flush();
+      jest.useFakeTimers();
+
+      // Initial attach + 3 backoff retries = 4 subscribe attempts total,
+      // then the stream stays dead until manual action.
+      for (let i = 0; i < 4; i++) {
+        mocks.attrStreams.get(ACCT_A)?.error(new Error(`denied-${i}`));
+        jest.advanceTimersByTime(60_000); // covers the longest delay
+      }
+      expect(attrSubs(mocks)).toBe(4);
+      jest.advanceTimersByTime(120_000);
+      expect(attrSubs(mocks)).toBe(4);
+      expect(store.selectedError()).toBe('denied-3');
+    });
+
+    it('a healthy emission on the recovered stream resets the retry budget', async () => {
+      const { store, mocks } = await setup(buildMocks());
+      await flush();
+      jest.useFakeTimers();
+
+      mocks.attrStreams.get(ACCT_A)?.error(new Error('denied'));
+      jest.advanceTimersByTime(5_000); // retry 1 → re-attached
+      expect(attrSubs(mocks)).toBe(2);
+      mocks.attrStreams.get(ACCT_A)?.next([]);
+      expect(store.selectedError()).toBeNull();
+
+      // A later failure starts a fresh bounded cycle — 3 more attempts.
+      for (let i = 0; i < 3; i++) {
+        mocks.attrStreams.get(ACCT_A)?.error(new Error(`denied-${i}`));
+        jest.advanceTimersByTime(60_000);
+      }
+      expect(attrSubs(mocks)).toBe(5); // 1 initial + 1 + 3
+    });
+
+    it('a stream emission does NOT clear an MCP load error — error sources stay distinct', async () => {
+      const mocks = buildMocks();
+      mocks.data.getPositions.mockRejectedValueOnce(new Error('mcp down'));
+      const { store } = await setup(mocks);
+      await flush();
+      expect(store.selectedError()).toBe('mcp down');
+
+      // The streams keep emitting (they're independent of the MCP load) —
+      // that must not mask a real load failure.
+      emitA(mocks, [bucket(ACCT_A, 'Wheel')], []);
+      expect(store.selectedError()).toBe('mcp down');
+    });
+
+    it('a stream error latched BEFORE an MCP failure cannot be cleared by a later emission', async () => {
+      const { store, mocks } = await setup(buildMocks());
+      await flush();
+      jest.useFakeTimers();
+
+      mocks.attrStreams.get(ACCT_A)?.error(new Error('permission-denied'));
+      jest.advanceTimersByTime(5_000); // resubscribed, awaiting data
+
+      // The MCP load overwrites the banner — a subsequent stream
+      // emission must not clear the newer load error.
+      mocks.data.getPositions.mockRejectedValueOnce(new Error('mcp down'));
+      await store.refresh();
+      expect(store.selectedError()).toBe('mcp down');
+
+      mocks.attrStreams.get(ACCT_A)?.next([]);
+      expect(store.selectedError()).toBe('mcp down');
+    });
+
+    it('a recovering stream cannot mask its dead sibling — error slots are per-stream', async () => {
+      const { store, mocks } = await setup(buildMocks());
+      await flush();
+      jest.useFakeTimers();
+
+      mocks.bucketStreams.get(ACCT_A)?.error(new Error('buckets denied'));
+      mocks.attrStreams.get(ACCT_A)?.error(new Error('attrs denied'));
+      expect(store.selectedError()).toBe('buckets denied');
+
+      // Both retry; buckets recovers first — the attr banner must stay.
+      jest.advanceTimersByTime(5_000);
+      mocks.bucketStreams.get(ACCT_A)?.next([]);
+      expect(store.selectedError()).toBe('attrs denied');
+    });
   });
 
   it('dangling bucketId (attribution to a missing bucket) folds into Unassigned', async () => {

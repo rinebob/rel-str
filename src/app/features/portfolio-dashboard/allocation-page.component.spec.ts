@@ -103,7 +103,9 @@ function mockStore() {
     selectedAllocation: signal({
       snapshot: null, positions: [], fills: [], buckets: [], attributions: [],
       asOf: '2026-09-26T12:00:00Z', loading: false, error: null,
+      bucketsError: null, attributionsError: null,
     }),
+    selectedError: signal<string | null>(null),
     loadAccounts: jest.fn(async () => undefined),
     selectAccount,
     refresh: jest.fn(async () => undefined),

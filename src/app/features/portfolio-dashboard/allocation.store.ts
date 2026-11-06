@@ -20,7 +20,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom, Subscription } from 'rxjs';
+import { firstValueFrom, Observable, retry, Subscription, timer } from 'rxjs';
 
 import type { AccountInfo } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 import type { AllocationBucket, BucketStats, PositionAttribution } from '@portfolio-allocation/contracts';
@@ -61,6 +61,7 @@ function emptyAllocation(): AccountAllocation {
     snapshot: null, positions: [], fills: [],
     buckets: [], attributions: [],
     asOf: null, loading: false, error: null,
+    bucketsError: null, attributionsError: null,
   };
 }
 
@@ -75,6 +76,9 @@ const initialState: AllocationState = {
 function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
+/** Backoff (ms) between watch-stream resubscribes — see wireStream. */
+const STREAM_RETRY_DELAYS_MS = [5_000, 15_000, 45_000];
 
 /** Stats for the Unassigned pseudo-row: every position/fill instrument
  *  with no attribution doc — OR an attribution pointing at a bucket that
@@ -239,12 +243,23 @@ export const AllocationStore = signalStore(
     }),
   })),
 
+  withComputed((store) => ({
+    /** Banner error for the selected account — MCP load failure first,
+     *  then per-stream slots. Each watch stream owns its own field, so a
+     *  healthy stream can't mask a dead sibling or a load error (#1433). */
+    selectedError: computed((): string | null => {
+      const alloc = store.selectedAllocation();
+      return alloc.error ?? alloc.bucketsError ?? alloc.attributionsError;
+    }),
+  })),
+
   withMethods((store) => {
     const data = inject(AllocationDataService);
     const bucketService = inject(AllocationBucketService);
     const attrService = inject(PositionAttributionService);
     const destroyRef = inject(DestroyRef);
-    const subscriptions = new Map<string, { buckets?: Subscription; attrs?: Subscription }>();
+
+    const subscriptions = new Map<string, { buckets?: Subscription; attributions?: Subscription }>();
 
     function slice(acct: string): AccountAllocation {
       return store.byAccount()[acct] ?? emptyAllocation();
@@ -256,30 +271,53 @@ export const AllocationStore = signalStore(
       });
     }
 
-    /** Attach the two watch streams once per account. */
+    /** Wire one watch stream with bounded-backoff self-heal (#1433): a
+     *  transient auth/token blip kills the Firestore listener once, so
+     *  retry resubscribes (each resubscribe = a fresh listener) and
+     *  resetOnSuccess restores the budget once data flows again. The
+     *  stream owns its slice error slot — patched on every failure (the
+     *  banner stays visible during backoff), cleared by the next
+     *  emission. When retries exhaust the error propagates, the sub is
+     *  marked dead, and the error stays latched until the next manual
+     *  attach (selectAccount/refresh). */
+    function wireStream<K extends 'buckets' | 'attributions'>(
+      accountNumber: string,
+      kind: K,
+      src$: Observable<AccountAllocation[K]>,
+    ): Subscription {
+      const patchStreamError = (msg: string | null): void =>
+        patchAccount(accountNumber, kind === 'buckets' ? { bucketsError: msg } : { attributionsError: msg });
+      return src$.pipe(
+        retry({
+          count: STREAM_RETRY_DELAYS_MS.length,
+          resetOnSuccess: true,
+          delay: (err, retryCount) => {
+            patchStreamError(errMessage(err));
+            return timer(STREAM_RETRY_DELAYS_MS[retryCount - 1]);
+          },
+        }),
+        takeUntilDestroyed(destroyRef),
+      ).subscribe({
+        next: (items) =>
+          patchAccount(accountNumber, { [kind]: items, [`${kind}Error`]: null } as Partial<AccountAllocation>),
+        error: (err: unknown) => {
+          patchStreamError(errMessage(err));
+          const subs = subscriptions.get(accountNumber);
+          if (subs) subs[kind] = undefined;
+        },
+      });
+    }
+
+    /** Attach the two watch streams once per account; re-subscribes any
+     *  stream whose sub was cleared by a terminal (retries-exhausted)
+     *  error. A stream still inside its retry backoff keeps its live
+     *  sub, so a manual attach doesn't double-subscribe — the pending
+     *  retry still fires on schedule. */
     function attachStreams(accountNumber: string): void {
       const subs = subscriptions.get(accountNumber) ?? {};
-      if (subs.buckets && subs.attrs) return;
-      subs.buckets ??= bucketService.watchBuckets$(accountNumber)
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({
-          next: (buckets) => patchAccount(accountNumber, { buckets }),
-          error: (err: unknown) => {
-            patchAccount(accountNumber, { error: errMessage(err) });
-            // Clear the dead sub — the next attachStreams (selectAccount/
-            // refresh) re-subscribes instead of leaving the stream dead.
-            subs.buckets = undefined;
-          },
-        });
-      subs.attrs ??= attrService.watchAttributions$(accountNumber)
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({
-          next: (attributions) => patchAccount(accountNumber, { attributions }),
-          error: (err: unknown) => {
-            patchAccount(accountNumber, { error: errMessage(err) });
-            subs.attrs = undefined;
-          },
-        });
+      if (subs.buckets && subs.attributions) return;
+      subs.buckets ??= wireStream(accountNumber, 'buckets', bucketService.watchBuckets$(accountNumber));
+      subs.attributions ??= wireStream(accountNumber, 'attributions', attrService.watchAttributions$(accountNumber));
       subscriptions.set(accountNumber, subs);
     }
 
