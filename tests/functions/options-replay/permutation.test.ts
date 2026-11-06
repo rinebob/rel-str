@@ -10,7 +10,7 @@ import { describe, it } from 'node:test';
 
 import {
   runReplayPermutation,
-  resolveRunCloseOut,
+  resolveCloseOutStatus,
 } from '../../../functions/src/options-replay/permutation';
 import type {
   ReplayPermutationDeps,
@@ -57,10 +57,10 @@ function pickDoc(): PickDocument {
 function makeDeps(overrides: Partial<ReplayPermutationDeps> = {}): {
   deps: ReplayPermutationDeps;
   writes: { docId: string; fields: ContractListWrite }[];
-  closeOuts: { runId: string; symbol: string; outcome: string }[];
+  closeOuts: { runId: string; outcome: string }[];
 } {
   const writes: { docId: string; fields: ContractListWrite }[] = [];
-  const closeOuts: { runId: string; symbol: string; outcome: string }[] = [];
+  const closeOuts: { runId: string; outcome: string }[] = [];
   const deps: ReplayPermutationDeps = {
     resolveTemplate: (id) =>
       id === 'csp-45-20'
@@ -72,8 +72,8 @@ function makeDeps(overrides: Partial<ReplayPermutationDeps> = {}): {
     },
     loadTradingDays: async () => ['2026-01-05', '2026-01-06', '2026-01-07'],
     fetchPickDoc: async () => pickDoc(),
-    closeOutList: async (runId, symbol, outcome) => {
-      closeOuts.push({ runId, symbol, outcome });
+    closeOutRun: async (runId, outcome) => {
+      closeOuts.push({ runId, outcome });
     },
     ...overrides,
   };
@@ -87,7 +87,8 @@ describe('runReplayPermutation', () => {
     const env = makeDeps();
     await runReplayPermutation(PAYLOAD, env.deps, true);
 
-    const docId = 'run-1_SPY';
+    // Under single-symbol runs (#1430) the list doc id IS the runId.
+    const docId = 'run-1';
     assert.equal(env.writes.length, 2);
     assert.equal(env.writes[0].docId, docId);
     assert.equal(env.writes[0].fields.status, 'running');
@@ -101,7 +102,7 @@ describe('runReplayPermutation', () => {
     assert.equal(final.pickDocMeta?.pickCount, 1);
     assert.equal(final.pickDocMeta?.firstDate, '2026-01-05');
     assert.equal(final.pickDocMeta?.lastDate, '2026-01-07');
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', symbol: 'SPY', outcome: 'success' }]);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'success' }]);
   });
 
   it('fetches the pick doc for [startDate, latest trading day]', async () => {
@@ -124,14 +125,14 @@ describe('runReplayPermutation', () => {
     // No re-fetch/re-write, but the idempotent close-out runs — a prior
     // attempt may have written the doc and died before close-out.
     assert.equal(env.writes.length, 0);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', symbol: 'SPY', outcome: 'success' }]);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'success' }]);
   });
 
   it('short-circuits a failed doc — ensures close-out with the failed outcome', async () => {
     const env = makeDeps({ getListDoc: async () => ({ status: 'failed' }) });
     await runReplayPermutation(PAYLOAD, env.deps, true);
     assert.equal(env.writes.length, 0);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', symbol: 'SPY', outcome: 'failed' }]);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
   });
 
   it('missing pick doc (404) → failed doc + failed close-out, no retry', async () => {
@@ -146,7 +147,7 @@ describe('runReplayPermutation', () => {
     const failed = env.writes.find((w) => w.fields.status === 'failed');
     assert.ok(failed);
     assert.match(String(failed.fields.error), /SPY-put-20-45/);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', symbol: 'SPY', outcome: 'failed' }]);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
   });
 
   it('transient error before final attempt → rethrows for task retry, no failed write', async () => {
@@ -168,7 +169,7 @@ describe('runReplayPermutation', () => {
     });
     await assert.rejects(runReplayPermutation(PAYLOAD, env.deps, true), /502/);
     assert.equal(env.writes.filter((w) => w.fields.status === 'failed').length, 1);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', symbol: 'SPY', outcome: 'failed' }]);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
   });
 
   it('no trading days → retriable error (bars may lag)', async () => {
@@ -182,28 +183,34 @@ describe('runReplayPermutation', () => {
     const failed = env.writes.find((w) => w.fields.status === 'failed');
     assert.ok(failed);
     assert.match(String(failed.fields.error), /templateId/);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', symbol: 'SPY', outcome: 'failed' }]);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
   });
 });
 
-describe('resolveRunCloseOut', () => {
-  it('increments the right counter and stays open below totalLists', () => {
-    const r = resolveRunCloseOut({ completedLists: 1, failedLists: 0, totalLists: 3 }, 'success');
-    assert.deepEqual(r, { completedLists: 2, failedLists: 0, done: false });
+describe('resolveCloseOutStatus — run status for a terminal list outcome (#1430)', () => {
+  it('maps list outcome → run status: success→completed, failed→failed', () => {
+    assert.equal(resolveCloseOutStatus('running', 'success'), 'completed');
+    assert.equal(resolveCloseOutStatus('running', 'failed'), 'failed');
+    assert.equal(resolveCloseOutStatus('pending', 'success'), 'completed');
+    assert.equal(resolveCloseOutStatus('pending', 'failed'), 'failed');
   });
 
-  it('flips completed when all lists succeed', () => {
-    const r = resolveRunCloseOut({ completedLists: 2, failedLists: 0, totalLists: 3 }, 'success');
-    assert.deepEqual(r, { completedLists: 3, failedLists: 0, done: true, status: 'completed' });
+  it('terminal-skip — an already-terminal run is never regressed', () => {
+    // completed stays completed even on a late 'failed' outcome; failed
+    // stays failed even on a late 'success' (lost-ack enqueue edge).
+    assert.equal(resolveCloseOutStatus('completed', 'success'), null);
+    assert.equal(resolveCloseOutStatus('completed', 'failed'), null);
+    assert.equal(resolveCloseOutStatus('failed', 'success'), null);
+    assert.equal(resolveCloseOutStatus('failed', 'failed'), null);
   });
 
-  it('completes (not fails) with partial failures', () => {
-    const r = resolveRunCloseOut({ completedLists: 2, failedLists: 0, totalLists: 3 }, 'failed');
-    assert.deepEqual(r, { completedLists: 2, failedLists: 1, done: true, status: 'completed' });
-  });
-
-  it('fails only when every list failed', () => {
-    const r = resolveRunCloseOut({ completedLists: 0, failedLists: 2, totalLists: 3 }, 'failed');
-    assert.deepEqual(r, { completedLists: 0, failedLists: 3, done: true, status: 'failed' });
+  it('cancelled and missing-doc runs are skipped — no resurrection, no NOT_FOUND', () => {
+    // 'cancelled' is unreachable today, but a late worker must never
+    // resurrect it; a missing run doc (deleted mid-flight) must not die
+    // on tx.update — skip quietly instead of burning task retries.
+    assert.equal(resolveCloseOutStatus('cancelled', 'success'), null);
+    assert.equal(resolveCloseOutStatus('cancelled', 'failed'), null);
+    assert.equal(resolveCloseOutStatus(undefined, 'success'), null);
+    assert.equal(resolveCloseOutStatus(undefined, 'failed'), null);
   });
 });

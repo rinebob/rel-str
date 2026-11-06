@@ -1,41 +1,38 @@
 /**
- * `optionsReplayRetry` callable (Topic #1238, Thread #1266, task #1369).
+ * `optionsReplayRetry` callable (Topic #1238, Thread #1266, task #1369;
+ * single-symbol runs #1430).
  *
- * Re-runs the failed per-symbol list docs of an existing run in place:
- * each failed list doc resets to `pending` (rows/pickDocMeta/error/
- * generatedAt deleted), the run's `listOutcomes` entries for those
- * symbols are removed with `failedLists` decremented and status back to
- * `running` (stale `error`/`completedAt` cleared),
- * and one `OptionsReplayPermutationPayload` per failed symbol is
- * re-enqueued on the replay queue. Success docs are never touched — the
- * worker's terminal skip keeps them intact if a payload ever lands.
+ * Re-runs a failed run in place: the contract-list doc (docId = runId)
+ * resets to `pending` (rows/pickDocMeta/error/generatedAt deleted), the
+ * run flips back to `running` (stale `error`/`completedAt` cleared), and
+ * one `OptionsReplayPermutationPayload` re-enqueues on the replay queue.
  *
- * No-ops: run `pending`/`running` (in-flight — PRD story 4) or
- * `cancelled` (don't resurrect a cancelled run), and a run with no
- * failed lists. Both return `{retriedSymbols: []}`.
+ * Only a `failed` run may retry — every other status is a no-op returning
+ * `{retriedSymbol: null}`: `pending`/`running` are in-flight (don't
+ * double-enqueue), `cancelled` must not be resurrected, `completed` has
+ * nothing to retry.
  *
- * Ordering matters: resets land BEFORE enqueue — an early-dispatching
- * worker must never see a still-`failed` doc (its terminal skip would
- * record the failure again instead of re-running).
+ * Ordering matters: the list-doc reset lands BEFORE enqueue — an
+ * early-dispatching worker must never see a still-`failed` doc (its
+ * terminal skip would re-record the failure instead of re-running).
  *
- * Concurrency: `resetRunForRetry` is transactional — it re-reads the run
- * doc and only deletes outcome entries still `=== 'failed'`, decrementing
- * `failedLists` by the count actually removed. A concurrent second call
- * sees the entries already gone, resets nothing, and returns
- * `{retriedSymbols: []}` — no double-decrement, no double-enqueue.
+ * Concurrency: `claimRetry` is ONE transaction over the 1:1 pair — it
+ * re-reads the run doc, asserts `failed`, resets the list doc (guarded
+ * — a `success`/`running` list is never regressed), and flips the run
+ * `failed` → `running` atomically. A concurrent second call sees
+ * `running`, claims nothing, and returns `{retriedSymbol: null}` — no
+ * double-enqueue, and no window where a losing retry can touch the
+ * list doc (the old split-transaction shape let a loser reset it).
  *
- * Partial fanout: enqueues run via allSettled; symbols whose enqueue
- * rejected get their `listOutcomes` entries restored to `'failed'` by
- * `failRun` (otherwise they'd sit `pending` with no recorded outcome —
- * invisible to a later retry). A stale pre-reset delivery that sneaks in
- * during the reset window can resolve a symbol without the new task —
- * convergent, just slightly over-reported in `retriedSymbols`.
+ * Enqueue failure: `failRun` restores `failed` (+ error) — but only while
+ * the run is still `running` from the reset, so it can't regress a run
+ * that resolved on its own.
  *
- * Residual: a process kill between `resetRunForRetry` commit and an
- * enqueue RPC never transmitting leaves that symbol outcome-deleted,
- * doc `pending`, no task — and retry no-ops on `running` (same accepted
- * posture as `optionsReplayStart`'s partial fanout; a stale-`running`
- * sweeper is the real fix, out of scope here).
+ * Residual: a process kill between `claimRetry` commit and an
+ * enqueue RPC never transmitting leaves the run `running` with no task —
+ * and retry no-ops on `running` (same accepted posture as
+ * `optionsReplayStart`; a stale-`running` sweeper is the real fix, out
+ * of scope here).
  *
  * All Firestore + task-queue effects sit behind `ReplayRetryDeps`
  * (TEST-BE seam); the callable wires production deps below.
@@ -64,42 +61,31 @@ import { OPTIONS_REPLAY_TASK_QUEUE } from './start';
 /** Slice of the run doc the retry decision needs. */
 export type ReplayRetryRunView = Pick<
   OptionsReplayRun,
-  'status' | 'templateId' | 'startDate' | 'listOutcomes'
+  'status' | 'templateId' | 'startDate' | 'symbol'
 >;
 
 /** Injectable effects — tests substitute fakes; the callable uses the
  *  production wiring below. */
 export interface ReplayRetryDeps {
   getRun: (runId: string) => Promise<ReplayRetryRunView | undefined>;
-  /** Reset one failed list doc to `pending` — rows/pickDocMeta/error
-   *  (and generatedAt) deleted so the worker rewrites a clean doc. */
-  resetListDoc: (docId: string) => Promise<void>;
-  /** One transactional run-doc update: remove `listOutcomes.{symbol}` for
-   *  each symbol still `=== 'failed'` at read time, decrement
-   *  `failedLists` by the count actually removed, status → 'running',
-   *  stale `error`/`completedAt` cleared. Returns the symbols actually
-   *  reset (empty when a concurrent retry already claimed them). */
-  resetRunForRetry: (runId: string, symbols: string[]) => Promise<string[]>;
-  /** Re-enqueue one per-symbol permutation payload. */
+  /** ONE transaction over the 1:1 pair — asserts the run is still
+   *  `failed`, resets its list doc to `pending` (skipped for a
+   *  `success`/`running` list), and flips the run `failed` → `running`
+   *  with stale `error`/`completedAt` cleared. Returns false when the
+   *  run is not currently `failed` (concurrent retry already claimed
+   *  it, or a status flip landed between getRun and the tx). */
+  claimRetry: (runId: string) => Promise<boolean>;
+  /** Re-enqueue the permutation payload. */
   enqueue: (payload: OptionsReplayPermutationPayload) => Promise<void>;
-  /** Partial-fanout fallback — mark the run failed and restore
-   *  `listOutcomes.{symbol}: 'failed'` (+ `failedLists` increment) for
-   *  symbols whose enqueue never landed, or they'd sit `pending` with no
-   *  outcome — invisible to a later retry. */
-  failRun: (runId: string, error: string, unEnqueuedSymbols: string[]) => Promise<void>;
+  /** Enqueue-failure fallback — restore `failed` + error while the run
+   *  is still `running` from the claim, or it sits `running` with no
+   *  task and retry can't reach it. */
+  failRun: (runId: string, error: string) => Promise<void>;
 }
-
-/** Run statuses where a retry is a no-op — in-flight runs must not
- *  double-enqueue, and a cancelled run must not be resurrected. */
-const RETRY_NOOP_STATUSES: ReadonlySet<OptionsReplayRunStatus> = new Set([
-  'pending',
-  'running',
-  'cancelled',
-]);
 
 /** Whether a list doc may still be reset by a retry — only `failed` /
  *  `pending` / missing. Exported for unit coverage of the safety-critical
- *  predicate inside the `resetListDoc` transaction (#1370 review). */
+ *  predicate inside the `claimRetry` transaction (#1370 review). */
 export function shouldResetForRetry(status: OptionsContractListStatus | undefined): boolean {
   return status !== 'success' && status !== 'running';
 }
@@ -117,44 +103,37 @@ export async function runReplayRetry(
   if (!run) {
     throw new HttpsError('not-found', `No replay run '${runId}'`);
   }
-  if (RETRY_NOOP_STATUSES.has(run.status)) {
-    return { retriedSymbols: [] };
+  // Only a failed run has something to retry.
+  if (run.status !== 'failed') {
+    return { retriedSymbol: null };
+  }
+  // A pre-migration legacy run (symbols[], no scalar `symbol`) can't
+  // carry a single-symbol payload — no-op rather than enqueue
+  // `symbol: undefined`. Migration deletes those docs.
+  if (typeof run.symbol !== 'string' || run.symbol.length === 0) {
+    return { retriedSymbol: null };
   }
 
-  const outcomes = run.listOutcomes ?? {};
-  const failedSymbols = Object.keys(outcomes)
-    .filter((s) => outcomes[s] === 'failed')
-    .sort();
-  if (failedSymbols.length === 0) {
-    return { retriedSymbols: [] };
+  // One atomic claim: list reset + run flip land in the same tx —
+  // a worker can never see a `failed` list after a claimed retry, and
+  // a losing concurrent retry mutates nothing.
+  const claimed = await deps.claimRetry(runId);
+  if (!claimed) {
+    // A concurrent retry claimed the run between our read and the
+    // transaction — its own enqueue covers it.
+    return { retriedSymbol: null };
   }
 
-  // Reset before enqueue — see header note on ordering.
-  await Promise.all(
-    failedSymbols.map((symbol) => deps.resetListDoc(stOptionsContractListDocId(runId, symbol))),
-  );
-  const resetSymbols = await deps.resetRunForRetry(runId, failedSymbols);
-  if (resetSymbols.length === 0) {
-    // A concurrent retry claimed the outcomes between our read and the
-    // transaction — its own enqueue covers them.
-    return { retriedSymbols: [] };
+  try {
+    await deps.enqueue({ runId, symbol: run.symbol, templateId: run.templateId, startDate: run.startDate });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    await deps.failRun(runId, message);
+    throw new HttpsError('internal', `Failed to re-enqueue replay task: ${message}`);
   }
 
-  const results = await Promise.allSettled(
-    resetSymbols.map((symbol) =>
-      deps.enqueue({ runId, symbol, templateId: run.templateId, startDate: run.startDate }),
-    ),
-  );
-  const unEnqueued = resetSymbols.filter((_, i) => results[i].status === 'rejected');
-  if (unEnqueued.length > 0) {
-    const first = (results.find((r) => r.status === 'rejected') as PromiseRejectedResult).reason;
-    const message = first instanceof Error ? first.message : String(first);
-    await deps.failRun(runId, message, unEnqueued);
-    throw new HttpsError('internal', `Failed to re-enqueue replay tasks: ${message}`);
-  }
-
-  logger.info('options_replay_retry', { runId, retried: resetSymbols.length });
-  return { retriedSymbols: resetSymbols };
+  logger.info('options_replay_retry', { runId, symbol: run.symbol });
+  return { retriedSymbol: run.symbol };
 }
 
 /** Production wiring — Firestore run/list docs + the replay task queue. */
@@ -164,60 +143,57 @@ const prodReplayRetryDeps: ReplayRetryDeps = {
     return snap.exists ? (snap.data() as ReplayRetryRunView) : undefined;
   },
 
-  async resetListDoc(docId) {
-    // Transactional guard: a concurrent retry that read the run doc before
-    // the winning claim can reach here AFTER the winning task already
-    // re-succeeded — resetting a fresh 'success' doc back to 'pending'
-    // would delete `rows` under a recorded success, and resetting under a
-    // mid-flight 'running' worker is a pointless write (TN-M1, #1370
-    // review). Only reset while the doc is still failed/pending (or
-    // missing — set-merge creates a stub the worker fills).
-    const docRef = db.collection(ST_OPTIONS_CONTRACT_LISTS_ROOT).doc(docId);
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(docRef);
-      const status = snap.data()?.status as OptionsContractListStatus | undefined;
-      if (!shouldResetForRetry(status)) return;
-      tx.set(
-        docRef,
-        {
-          status: 'pending' satisfies OptionsContractListStatus,
-          rows: FieldValue.delete(),
-          pickDocMeta: FieldValue.delete(),
-          error: FieldValue.delete(),
-          generatedAt: FieldValue.delete(),
-        },
-        { merge: true },
-      );
-    });
-  },
-
-  async resetRunForRetry(runId, symbols) {
+  async claimRetry(runId) {
+    // One transaction over the 1:1 pair — the old split (reset list,
+    // then claim run) let a losing concurrent retry reset a doc the
+    // winner's worker had already re-succeeded (TN-3, #1430 review).
+    // Asserting the run's `failed` inside the same tx that mutates both
+    // docs removes the interleaving entirely.
     const runRef = db.collection(ST_OPTIONS_REPLAY_RUNS_ROOT).doc(runId);
+    const listRef = db
+      .collection(ST_OPTIONS_CONTRACT_LISTS_ROOT)
+      .doc(stOptionsContractListDocId(runId));
     return db.runTransaction(async (tx) => {
-      const snap = await tx.get(runRef);
-      const d = (snap.data() ?? {}) as {
-        status?: OptionsReplayRunStatus;
-        listOutcomes?: Record<string, string>;
-      };
-      // Re-check inside the tx: a status flip to a no-op status between
-      // getRun and here must not be resurrected back to 'running'.
-      if (d.status && RETRY_NOOP_STATUSES.has(d.status)) return [];
-      const stillFailed = symbols.filter((s) => d.listOutcomes?.[s] === 'failed');
-      if (stillFailed.length === 0) return [];
-      // Whole-map write (not `listOutcomes.{symbol}` dot-paths): dot in a
-      // symbol like BRK.B would split into a nested path, while readers
-      // treat listOutcomes as a flat map — see permutation.ts closeOutList.
-      const listOutcomes = { ...(d.listOutcomes ?? {}) };
-      for (const s of stillFailed) delete listOutcomes[s];
+      const [runSnap, listSnap] = await Promise.all([tx.get(runRef), tx.get(listRef)]);
+      const status = runSnap.data()?.status as OptionsReplayRunStatus | undefined;
+      // Re-check inside the tx: anything but 'failed' means a concurrent
+      // claim or status flip already resolved it.
+      if (status !== 'failed') return false;
+
+      // List-doc guard (TN-M1, #1370 review): only reset while the doc
+      // is still failed/pending (or missing — set-merge creates a stub
+      // the worker fills). A 'success'/'running' list must not be
+      // regressed — resetting 'success' would delete `rows` under a
+      // recorded success.
+      const listStatus = listSnap.data()?.status as OptionsContractListStatus | undefined;
+      if (shouldResetForRetry(listStatus)) {
+        // Stamp the identity fields off the run doc — a MISSING list doc
+        // (the enqueue-died-at-start case) otherwise persists as a bare
+        // {status:'pending'} stub if the re-enqueue then fails, which the
+        // live audit correctly FAILs as a field disagreement.
+        const run = runSnap.data() as ReplayRetryRunView;
+        tx.set(
+          listRef,
+          {
+            runId,
+            symbol: run.symbol,
+            templateId: run.templateId,
+            status: 'pending' satisfies OptionsContractListStatus,
+            rows: FieldValue.delete(),
+            pickDocMeta: FieldValue.delete(),
+            error: FieldValue.delete(),
+            generatedAt: FieldValue.delete(),
+          },
+          { merge: true },
+        );
+      }
       tx.update(runRef, {
-        listOutcomes,
         status: 'running' satisfies OptionsReplayRunStatus,
-        failedLists: FieldValue.increment(-stillFailed.length),
         completedAt: FieldValue.delete(),
         error: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       });
-      return stillFailed;
+      return true;
     });
   },
 
@@ -225,28 +201,18 @@ const prodReplayRetryDeps: ReplayRetryDeps = {
     await getFunctions().taskQueue(OPTIONS_REPLAY_TASK_QUEUE).enqueue(payload);
   },
 
-  async failRun(runId, error, unEnqueuedSymbols) {
+  async failRun(runId, error) {
     const runRef = db.collection(ST_OPTIONS_REPLAY_RUNS_ROOT).doc(runId);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(runRef);
-      const d = (snap.data() ?? {}) as {
-        status?: OptionsReplayRunStatus;
-        listOutcomes?: Record<string, string>;
-      };
-      // Restore 'failed' only for symbols that haven't already re-resolved
-      // (a task that did land may have closed out in the meantime).
-      const listOutcomes = { ...(d.listOutcomes ?? {}) };
-      const restored = unEnqueuedSymbols.filter((s) => listOutcomes[s] === undefined);
-      // Nothing to restore means every un-enqueued symbol already has an
-      // outcome — the run is converging on its own; stamping 'failed'
-      // here would only lie about a healthy 'running' run.
-      if (restored.length === 0) return;
-      for (const s of restored) listOutcomes[s] = 'failed';
+      // Restore 'failed' only while the post-reset 'running' state is still
+      // there — a terminal status means the run already resolved (a stale
+      // delivery could have closed it out) and must not be regressed.
+      if (snap.data()?.status !== 'running') return;
       tx.update(runRef, {
-        listOutcomes,
         status: 'failed' satisfies OptionsReplayRunStatus,
-        failedLists: FieldValue.increment(restored.length),
         error,
+        completedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
     });

@@ -1,15 +1,19 @@
 /**
- * `optionsReplayPermutation` task handler (Topic #1238, task #1280).
+ * `optionsReplayPermutation` task handler (Topic #1238, task #1280;
+ * single-symbol runs #1430).
  *
- * Per-symbol pipeline mirroring `stBacktestPermutation`'s shape: mark the
+ * Per-run pipeline mirroring `stBacktestPermutation`'s shape: mark the
  * list doc running → load the symbol's trading-day calendar → fetch the SA
  * pick doc over [startDate, latestBar] → map rows → write the list doc with
- * pickDocMeta → close out the run counters (last list flips the run).
+ * pickDocMeta → close out the RUN directly. Runs are single-symbol and
+ * the list doc's docId IS the runId — the terminal list outcome writes
+ * the run's terminal status ('success' → 'completed'); there are no
+ * counters or sibling lists to aggregate.
  *
  * Error semantics (PRD / IMPL-BE §2): a missing pick doc (404) is a
  * deterministic miss — the list is marked `failed` naming the coordinate
  * and the task does NOT retry; transient errors rethrow for Cloud Tasks
- * retry until the final attempt. An already-`success` list doc
+ * retry until the final attempt. An already-`success`/`failed` list doc
  * short-circuits (idempotent retry).
  *
  * All effects sit behind `ReplayPermutationDeps` (TEST-BE seam 3); the
@@ -57,11 +61,29 @@ export interface ReplayPermutationDeps {
   /** Sorted trading days `>= startDate`, up to the latest cached bar. */
   loadTradingDays: (symbol: string, startDate: string) => Promise<string[]>;
   fetchPickDoc: (input: FetchPickDocInput) => Promise<PickDocument>;
-  /** Record the symbol's outcome on the run — idempotent per symbol: the
-   *  run doc's `listOutcomes` map is written in the same transaction as the
-   *  counter increment, so a repeat call is a no-op. Safe to invoke on
-   *  every terminal status sighting (convergent, not just on first). */
-  closeOutList: (runId: string, symbol: string, outcome: 'success' | 'failed') => Promise<void>;
+  /** Record the run's terminal outcome — under single-symbol runs the
+   *  list's outcome IS the run's status ('success' → 'completed'). The
+   *  production write skips already-terminal runs, so it's safe to invoke
+   *  on every terminal status sighting (convergent, not just on first). */
+  closeOutRun: (runId: string, outcome: 'success' | 'failed') => Promise<void>;
+}
+
+/** Pure close-out decision — the run's next status for a terminal list
+ *  outcome, or null when the run is already terminal (a redelivery or a
+ *  late close-out after a lost ack must not regress it). Exported for
+ *  unit coverage — the mapping was previously inline in the untested
+ *  prod transaction body (#1430 review). */
+export function resolveCloseOutStatus(
+  existing: OptionsReplayRunStatus | undefined,
+  outcome: 'success' | 'failed',
+): OptionsReplayRunStatus | null {
+  // Terminal + missing-doc skip: 'completed'/'failed' must not regress;
+  // 'cancelled' is unreachable today but the guard belongs here (a late
+  // worker must never resurrect it); undefined means the run doc is gone
+  // (e.g. migration deleted it mid-flight) — tx.update would reject
+  // NOT_FOUND and burn task retries, so skip quietly.
+  if (existing !== 'pending' && existing !== 'running') return null;
+  return outcome === 'success' ? 'completed' : 'failed';
 }
 
 // ==========================
@@ -74,16 +96,16 @@ export async function runReplayPermutation(
   isFinalAttempt: boolean,
 ): Promise<void> {
   const { runId, symbol, templateId, startDate } = payload;
-  const docId = stOptionsContractListDocId(runId, symbol);
+  const docId = stOptionsContractListDocId(runId);
   const startTime = Date.now();
 
   const existing = await deps.getListDoc(docId);
   if (existing?.status === 'success' || existing?.status === 'failed') {
-    // Terminal doc — ensure the run counted this outcome. A previous attempt
-    // may have written the doc but died before/during close-out (or the
-    // transaction's ack was lost); closeOutList is idempotent per symbol.
+    // Terminal doc — ensure the run recorded this outcome. A previous
+    // attempt may have written the doc but died before/during close-out
+    // (or the transaction's ack was lost); closeOutRun skips terminal runs.
     logger.info('options_replay_worker_skip_terminal', { runId, symbol, status: existing.status });
-    await deps.closeOutList(runId, symbol, existing.status);
+    await deps.closeOutRun(runId, existing.status);
     return;
   }
 
@@ -125,7 +147,7 @@ export async function runReplayPermutation(
       },
       generatedAt: FieldValue.serverTimestamp(),
     });
-    await deps.closeOutList(runId, symbol, 'success');
+    await deps.closeOutRun(runId, 'success');
 
     logger.info('options_replay_worker_complete', {
       runId, symbol, templateId,
@@ -146,7 +168,7 @@ export async function runReplayPermutation(
         error: message,
         generatedAt: FieldValue.serverTimestamp(),
       });
-      await deps.closeOutList(runId, symbol, 'failed');
+      await deps.closeOutRun(runId, 'failed');
     }
     if (permanent) return;
 
@@ -173,34 +195,7 @@ async function failPermanently(
     error,
     generatedAt: FieldValue.serverTimestamp(),
   });
-  await deps.closeOutList(runId, fields.symbol, 'failed');
-}
-
-// ==========================
-// Run close-out math (pure)
-// ==========================
-
-export interface RunCloseOutResult {
-  completedLists: number;
-  failedLists: number;
-  done: boolean;
-  status?: OptionsReplayRunStatus;
-}
-
-/** Counter math for the run doc — the last list to resolve flips the run:
- *  `completed` unless every list failed (partial failure still completes). */
-export function resolveRunCloseOut(
-  current: { completedLists: number; failedLists: number; totalLists: number },
-  outcome: 'success' | 'failed',
-): RunCloseOutResult {
-  const completedLists = current.completedLists + (outcome === 'success' ? 1 : 0);
-  const failedLists = current.failedLists + (outcome === 'failed' ? 1 : 0);
-  const done = completedLists + failedLists >= current.totalLists;
-  const result: RunCloseOutResult = { completedLists, failedLists, done };
-  if (done) {
-    result.status = failedLists === current.totalLists ? 'failed' : 'completed';
-  }
-  return result;
+  await deps.closeOutRun(runId, 'failed');
 }
 
 // ==========================
@@ -228,38 +223,20 @@ const prodReplayPermutationDeps: ReplayPermutationDeps = {
     return fetchPickDoc(input);
   },
 
-  async closeOutList(runId, symbol, outcome) {
+  async closeOutRun(runId, outcome) {
     const runRef = db.collection(ST_OPTIONS_REPLAY_RUNS_ROOT).doc(runId);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(runRef);
-      const d = (snap.data() ?? {}) as {
-        completedLists?: number;
-        failedLists?: number;
-        totalLists?: number;
-        listOutcomes?: Record<string, 'success' | 'failed'>;
-      };
-      // Already counted — a redelivery or a retry after a lost ack must not
-      // double-count. This also converges the terminal-doc/lost-closeout case.
-      if (d.listOutcomes?.[symbol]) return;
-      const r = resolveRunCloseOut(
-        { completedLists: d.completedLists ?? 0, failedLists: d.failedLists ?? 0, totalLists: d.totalLists ?? 0 },
-        outcome,
-      );
-      // Whole-map write (not `listOutcomes.${symbol}` dot-path): a symbol
-      // containing '.' would split into a nested path while readers treat
-      // listOutcomes as a flat map — the idempotence guard above would
-      // then miss and double-count. Inside the tx this is safe.
-      const update: Record<string, unknown> = {
-        listOutcomes: { ...(d.listOutcomes ?? {}), [symbol]: outcome },
-        completedLists: r.completedLists,
-        failedLists: r.failedLists,
+      const status = snap.data()?.status as OptionsReplayRunStatus | undefined;
+      // Already terminal — a redelivery or a late close-out after a lost
+      // ack must not regress the run.
+      const next = resolveCloseOutStatus(status, outcome);
+      if (!next) return;
+      tx.update(runRef, {
+        status: next,
+        completedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
-      };
-      if (r.done && r.status) {
-        update.status = r.status;
-        update.completedAt = FieldValue.serverTimestamp();
-      }
-      tx.update(runRef, update);
+      });
     });
   },
 };
