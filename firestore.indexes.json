@@ -375,20 +375,6 @@
       ]
     },
     {
-      "collectionGroup": "st-options-contract-lists",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "runId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "symbol",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "st-options-analysis-results",
       "queryScope": "COLLECTION",
       "fields": [

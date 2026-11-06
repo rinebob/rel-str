@@ -238,11 +238,9 @@ describe("firestore.indexes.json — canonical st-* coverage (#1012)", () => {
       hasIndex("st-backtest-permutations", ["runId", "completedAt:DESC"]),
       "missing st-backtest-permutations (runId,completedAt DESC)",
     );
-    // selection-replay detail view: per-run contract lists by symbol (#1276).
-    assert.ok(
-      hasIndex("st-options-contract-lists", ["runId", "symbol"]),
-      "missing st-options-contract-lists (runId,symbol)",
-    );
+    // selection-replay contract lists need NO composite index under
+    // single-symbol runs (#1430): listDocId IS the runId — the FE reads the
+    // doc directly (the old where(runId)+orderBy(symbol) query was deleted).
     // backtest analytics (#1368): all exit results for a contract list, and
     // one exit type across a run's symbols.
     assert.ok(
