@@ -24,6 +24,7 @@ import { ContractListSessionStore } from '../../stores/contract-list-session.sto
 import { ContractListService } from '../../services/contract-list.service';
 import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
 import { ContractListPickerComponent } from '../../components/contract-list-picker/contract-list-picker.component';
+import { ConfirmDialogComponent } from '../option-chain-pct-change/components/confirm-dialog.component';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
@@ -103,8 +104,9 @@ function setup(): Setup {
   const getList$ = jest.fn();
   // The mock models DsDialogService faithfully: refs enter openDialogs on
   // open; afterClosed emits once when close() runs and the ref leaves
-  // openDialogs. An open dialog must NOT block onLoad (the picker stays
-  // open while it sends); closeAll mirrors the service's close-everything.
+  // openDialogs. An open dialog must NOT block onLoad (sends can arrive
+  // while a dialog is still registered open); closeAll mirrors the
+  // service's close-everything.
   const dialog = {
     open: jest.fn((): MockDialogRef => {
       const closed$ = new Subject<unknown>();
@@ -460,8 +462,8 @@ describe('OptionChartComponent — contract-list session wiring', () => {
     // (the >50-confirm guard is scoped to the confirm, not any dialog).
     expect(dialog.openDialogs.length).toBe(1);
 
-    // The dialog calls sendSelected() then onSend(lines) — the emit the
-    // store produced is what the page writes into the textarea.
+    // The dialog calls sendSelected() → close() → onSend(lines) — the
+    // emit the store produced is what the page writes into the textarea.
     config.data!.onSend!(listStore.sendSelected());
     await flush();
 
@@ -574,13 +576,54 @@ describe('OptionChartComponent — chunk mini-controls', () => {
     expect(store.plottedContracts()[QQQ_PUT]?.entry.openDate).toBe('2026-06-10');
   });
 
+  /** >50 sends go through the confirm — and the sent lines only land in
+   *  the textarea on approval (#1419): a cancelled send must not leave
+   *  the field disagreeing with the plotted set. */
+  it('a cancelled >50 send leaves the textarea untouched and loads nothing', async () => {
+    const { component, store, dialog } = setup();
+    component.ngOnInit();
+    component.occIdInput = `2026-06-01,${QQQ_PUT}`;
+    const loadSpy = jest.spyOn(store, 'loadPlotted');
+    const lines = Array.from(
+      { length: 60 },
+      (_, i) => `2026-06-01,QQQ260619P${String(48000 + i).padStart(8, '0')}`,
+    );
+    dialog.open.mockReturnValueOnce({ afterClosed: () => of(false) });
+
+    component.emitSessionLines(lines);
+    await flush();
+    await flush();
+
+    expect(dialog.open).toHaveBeenCalledWith(ConfirmDialogComponent, expect.anything());
+    expect(component.occIdInput).toBe(`2026-06-01,${QQQ_PUT}`);
+    expect(loadSpy).not.toHaveBeenCalled();
+  });
+
+  it('an approved >50 send writes the lines and loads the set', async () => {
+    const { component, store, dialog } = setup();
+    component.ngOnInit();
+    const loadSpy = jest.spyOn(store, 'loadPlotted').mockResolvedValue(undefined);
+    const lines = Array.from(
+      { length: 60 },
+      (_, i) => `2026-06-01,QQQ260619P${String(48000 + i).padStart(8, '0')}`,
+    );
+    dialog.open.mockReturnValueOnce({ afterClosed: () => of(true) });
+
+    component.emitSessionLines(lines);
+    await flush();
+    await flush();
+
+    expect(component.occIdInput).toBe(lines.join('\n'));
+    expect(loadSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('closing and reopening the picker preserves chunk cursor and selection', () => {
     const { component, listStore, dialog } = setup();
     component.ngOnInit();
     loadMany(listStore);
     component.openListPicker();
 
-    listStore.sendChunkAt(1);
+    listStore.setChunk(1);
     listStore.selectAll();
     (dialog.openDialogs.at(-1) as MockDialogRef).close();
     dialog.open.mockClear();

@@ -5,12 +5,14 @@
  * a provenance header, a rows tab (per-row checkboxes, toolbar ops —
  * all/none/invert/stride/random/range/filter — disabled no-selection
  * markers, ↻ repeat badges), and a lines preview that mirrors
- * `store.emittedLines()` exactly. Send calls `store.sendSelected()` and
- * forwards the lines through the page's `onSend` callback — the dialog
- * stays open while the textarea + loadPlotted path runs behind it.
- * The Chunks tab (#1363) sits between Rows and Lines — a stepper that
- * live-drives the chart chunk-by-chunk, a click-to-jump timeline over
- * the doc window, and add-chunk accumulation into the selection.
+ * `store.emittedLines()` exactly. Send calls `store.sendSelected()`,
+ * forwards the lines through the page's `onSend` callback, and closes
+ * — the chart only plots once the dialog is out of the way (#1419).
+ * The Chunks tab (#1363) sits between Rows and Lines — a stepper and
+ * click-to-jump timeline over the doc window, and add-chunk
+ * accumulation into the selection. Nothing here emits — chunking is
+ * workspace navigation; `selection` is the only thing that ever
+ * reaches the chart.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -31,8 +33,8 @@ interface TimelineTick {
   chunkIdx: number;
 }
 
-/** Dialog-data contract — the page injects the emit callback so Send
- *  can plot without closing. */
+/** Dialog-data contract — the page injects the emit callback Send
+ *  forwards the plotted lines through. */
 export interface ContractListPickerData {
   onSend?: (lines: string[]) => void;
 }
@@ -47,9 +49,10 @@ export interface ContractListPickerData {
 })
 export class ContractListPickerComponent {
   protected readonly dialogRef = inject(DsDialogRef<ContractListPickerComponent>);
-  /** Emit callback injected by the page — Send stays open, so the handoff
-   *  is an explicit call rather than a close-result. Optional: the dialog
-   *  still emits to `lastEmitted` when no callback is wired (tests). */
+  /** Emit callback injected by the page — an explicit call rather than
+   *  an `afterClosed` result keeps the emit synchronous and off the
+   *  zoneless-effect seam (NG0914). Optional: the dialog still emits to
+   *  `lastEmitted` when no callback is wired (tests). */
   private readonly data = inject<ContractListPickerData>(DS_DIALOG_DATA, {
     optional: true,
   });
@@ -115,25 +118,24 @@ export class ContractListPickerComponent {
   readonly filterText = signal('');
   readonly copied = signal(false);
 
-  /** Emit the selection — `sendSelected` records `lastEmitted` and
-   *  returns the lines; the page's `onSend` callback writes the textarea
-   *  + loadPlotted. The dialog stays open. */
+  /** Emit the selection, close, then hand the lines to the page —
+   *  `onSend` runs the >50-confirm/load path and must open on a clean
+   *  page, not nested inside this dialog; closing first also means a
+   *  thrown send can't strand the picker open (#1419). */
   send(): void {
     if (!this.canSend()) return;
     const lines = this.store.sendSelected();
+    this.dialogRef.close();
     this.data?.onSend?.(lines);
   }
 
-  /** Chunk stepper — stepping live-drives the chart through the same
-   *  emit path as Send (sendSteppedChunk → onSend → loadPlotted,
-   *  replace semantics), so ◀▶ flips the plotted set while the dialog
-   *  stays up. */
+  /** Chunk stepper — cursor navigation only, never emits (#1419). */
   stepChunk(dir: number): void {
-    this.data?.onSend?.(this.store.sendSteppedChunk(dir));
+    this.store.step(dir);
   }
 
   jumpToChunk(i: number): void {
-    this.data?.onSend?.(this.store.sendChunkAt(i));
+    this.store.setChunk(i);
   }
 
   addChunk(): void {

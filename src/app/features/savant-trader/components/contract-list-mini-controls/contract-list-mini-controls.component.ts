@@ -2,9 +2,11 @@
  * Contract-list chunk mini-controls (#1363) — the page-level strip over
  * the plotted-chips row, rendered only while a contract-list session is
  * active. A dumb surface: every control calls an existing
- * ContractListSessionStore method and routes emitted lines through the
- * `send` output — the page writes them into the pairs textarea and calls
- * the existing loadPlotted path (same seam as the picker's `onSend`).
+ * ContractListSessionStore method — stepping is cursor navigation
+ * (#1419); only the All action emits, routing the lines through the
+ * `send` output — the page writes them into the pairs textarea and
+ * calls the existing loadPlotted path (same seam as the picker's
+ * `onSend`).
  */
 import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -29,9 +31,9 @@ export class ListMiniControlsComponent {
   /** Reopen the picker dialog — the page owns the dialog ref/dedupe. */
   readonly openPicker = output<void>();
 
-  /** ◀▶ live-drive — the store owns the step-then-emit ordering. */
+  /** ◀▶ moves the chunk cursor — navigation only, never emits (#1419). */
   step(dir: number): void {
-    this.send.emit(this.store.sendSteppedChunk(dir));
+    this.store.step(dir);
   }
 
   /** "All" on this surface means select every pick AND plot them —

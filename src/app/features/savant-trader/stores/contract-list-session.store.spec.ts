@@ -305,16 +305,16 @@ describe('ContractListSessionStore', () => {
       expect(store.chunks()).toHaveLength(2);
       const info = store.chunkInfo();
       expect(info).toEqual({ index: 0, total: 2, days: 10, unique: 6 });
-      store.sendChunkAt(1);
+      store.setChunk(1);
       expect(store.chunkInfo()).toEqual({ index: 1, total: 2, days: 5, unique: 5 });
     });
 
     it('stepping clamps at both ends (no wrap)', () => {
       expect(store.chunkCursor()).toBe(0);
-      store.sendSteppedChunk(-1);
+      store.step(-1);
       expect(store.chunkCursor()).toBe(0);
-      store.sendSteppedChunk(1);
-      store.sendSteppedChunk(1);
+      store.step(1);
+      store.step(1);
       expect(store.chunkCursor()).toBe(1);
     });
 
@@ -327,16 +327,16 @@ describe('ContractListSessionStore', () => {
 
     it('setChunkSize repartitions and clamps the cursor', () => {
       store.setChunkSize(3);
-      store.sendChunkAt(4);
+      store.setChunk(4);
       expect(store.chunkCursor()).toBe(4);
       store.setChunkSize(10);
       expect(store.chunkCursor()).toBe(1);
     });
 
     it('non-finite chunk input is ignored rather than corrupting the cursor', () => {
-      store.sendChunkAt(1);
-      store.sendSteppedChunk(NaN);
-      store.sendChunkAt(NaN);
+      store.setChunk(1);
+      store.step(NaN);
+      store.setChunk(NaN);
       store.setChunkSize(NaN);
       expect(store.chunkCursor()).toBe(1);
       expect(store.chunkInfo().index).toBe(1);
@@ -344,7 +344,7 @@ describe('ContractListSessionStore', () => {
 
     it('addChunkToSelection unions the current chunk into the selection', () => {
       store.selectNone();
-      store.sendChunkAt(1);
+      store.setChunk(1);
       store.addChunkToSelection();
       expect(store.selectedRows().map((r) => r.entryDate)).toEqual([
         '2026-06-11',
@@ -358,32 +358,31 @@ describe('ContractListSessionStore', () => {
     it('canStepPrev/canStepNext report the clamp bounds', () => {
       expect(store.canStepPrev()).toBe(false);
       expect(store.canStepNext()).toBe(true);
-      store.sendChunkAt(1);
+      store.setChunk(1);
       expect(store.canStepPrev()).toBe(true);
       expect(store.canStepNext()).toBe(false);
     });
 
-    it('sendSteppedChunk moves the cursor then emits the landed chunk', () => {
-      const lines = store.sendSteppedChunk(1);
+    /** #1419: cursor moves are workspace navigation — the only emit is
+     *  an explicit send* call, so stepping can never diverge the chart
+     *  from the selection. */
+    it('step moves the cursor without emitting', () => {
+      store.step(1);
       expect(store.chunkCursor()).toBe(1);
-      expect(lines).toHaveLength(5);
-      expect(lines[0]).toBe('2026-06-11,FFF260619C00500000');
-      expect(store.lastEmitted()).toEqual(lines);
+      expect(store.lastEmitted()).toEqual([]);
+      expect(store.selection().size).toBe(10); // untouched — the first-10 default
     });
 
-    it('sendSteppedChunk clamps — stepping past the end re-emits the last chunk', () => {
-      const lines = store.sendSteppedChunk(5);
+    it('step clamps at the end — no wrap, no emit', () => {
+      store.step(5);
       expect(store.chunkCursor()).toBe(1);
-      expect(lines).toHaveLength(5);
-      expect(store.sendSteppedChunk(NaN)).toEqual([]);
+      expect(store.lastEmitted()).toEqual([]);
     });
 
-    it('sendChunkAt jumps the cursor then emits that chunk', () => {
-      const lines = store.sendChunkAt(1);
+    it('setChunk jumps the cursor without emitting', () => {
+      store.setChunk(1);
       expect(store.chunkCursor()).toBe(1);
-      expect(lines).toHaveLength(5);
-      expect(lines[0]).toBe('2026-06-11,FFF260619C00500000');
-      expect(store.sendChunkAt(NaN)).toEqual([]);
+      expect(store.lastEmitted()).toEqual([]);
     });
   });
 
@@ -438,7 +437,7 @@ describe('ContractListSessionStore', () => {
       store.toggleRow('2026-06-02', true);
       store.toggleRow('2026-06-09', true);
       store.setChunkSize(5);
-      store.sendChunkAt(1);
+      store.setChunk(1);
 
       const blob = JSON.parse(localStorage.getItem(`${LIST_SESSION_PREFIX}QQQ`)!);
       expect(blob.version).toBe(LIST_SESSION_VERSION);

@@ -130,10 +130,11 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   );
 
   /** Picker emit → chart handoff — injected into the dialog via
-   *  DS_DIALOG_DATA so Send can plot without closing. A root `effect`
-   *  on `lastEmitted` was the planned seam but deadlocks the zoneless
-   *  scheduler while Zone.js is still loaded (NG0914 state), so the
-   *  callback is explicit: emitters call store.send* then this. */
+   *  DS_DIALOG_DATA so Send can plot through the page's load path. A
+   *  root `effect` on `lastEmitted` was the planned seam but deadlocks
+   *  the zoneless scheduler while Zone.js is still loaded (NG0914
+   *  state), so the callback is explicit: emitters call store.send*
+   *  then this. */
   readonly emitSessionLines = (lines: string[]): void => {
     if (lines.length) this.onListSend(lines);
   };
@@ -659,17 +660,20 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   }
 
   /** Re-entrancy flag for the >50 confirm — the only dialog that must
-   *  block a second load. Scoped narrower than `openDialogs.length`: the
-   *  contract-list picker stays open while it emits, so an any-dialog
-   *  check would dead-end every send. */
+   *  block a second load. Scoped narrower than `openDialogs.length`:
+   *  sends legitimately arrive while another dialog (chooser, a picker
+   *  mid-close) is still registered open — an any-dialog check would
+   *  dead-end them. */
   private loadConfirmOpen = false;
 
   /** Load dispatch: a single bare OCC ID keeps the existing single-contract
    *  view; anything else — dated pairs or a multi-line list — goes through
    *  the plotted-set path. Rejected tokens are surfaced, valid entries still
-   *  load. */
-  async onLoad(): Promise<void> {
-    const text = this.occIdInput;
+   *  load. `sentLines` is the programmatic-send variant (picker/generator):
+   *  the textarea write is deferred past the >50 confirm so a cancelled
+   *  send can't leave the field disagreeing with the plotted set. */
+  async onLoad(sentLines?: string): Promise<void> {
+    const text = sentLines ?? this.occIdInput;
     // Re-entrancy guard: a second click while the >50 confirm is open would
     // stack another dialog and spawn a concurrent batch.
     if (!text.trim() || this.loadConfirmOpen) return;
@@ -679,6 +683,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     if (entries.length === 0) return;
 
     if (entries.length === 1 && entries[0].openDate === null && rejected.length === 0) {
+      if (sentLines !== undefined) this.occIdInput = text;
       this.store.loadContract(entries[0].contractId, this.store.contractLength());
       return;
     }
@@ -703,6 +708,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
       }
     }
 
+    if (sentLines !== undefined) this.occIdInput = text;
     await this.store.loadPlotted(entries);
   }
 
@@ -718,12 +724,10 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   }
 
   private emitLinesToChart(lines: string[]): void {
-    // Bail before touching the textarea — writing first and letting
-    // onLoad's guard drop the load would leave the field disagreeing
-    // with the plotted set with no signal why.
+    // Bail before dispatch — a pending >50 confirm drops the send
+    // rather than queueing a load the user hasn't approved.
     if (this.loadConfirmOpen) return;
-    this.occIdInput = lines.join('\n');
-    void this.onLoad();
+    void this.onLoad(lines.join('\n'));
   }
 
   /** `?list=` entry — one read for the symbol check, then the shared
@@ -804,8 +808,8 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   private pickerRef: DsDialogRef<ContractListPickerComponent> | null = null;
 
   /** Session → picker dialog. Send emits through the `onSend` data
-   *  callback and the dialog stays open; reopening uses the same
-   *  session store, so selection/cursor are preserved. */
+   *  callback then closes (#1419); reopening uses the same session
+   *  store, so selection/cursor are preserved. */
   openListPicker(): void {
     if (this.pickerRef) return;
     const ref = this.dialog.open(ContractListPickerComponent, {

@@ -41,7 +41,9 @@ export interface ContractListSessionState {
   chunkCursor: number;
   status: ListSessionStatus;
   error: string | null;
-  /** Last emitted `date,id` lines (Send-to-chart handoff). */
+  /** Last send's `date,id` lines — observability only. Records the
+   *  attempted handoff, not a committed plot: the page can still drop
+   *  the load (cancelled >50 confirm, pending-confirm bail). */
   lastEmitted: string[];
 }
 
@@ -177,13 +179,7 @@ export const ContractListSessionStore = signalStore(
       persist();
     };
 
-    /** Single emit primitives — lines + lastEmitted in one patch. */
-    const emitCurrentChunk = (): string[] => {
-      const lines = toPairLines(store.currentChunk());
-      patchState(store, { lastEmitted: lines });
-      return lines;
-    };
-
+    /** Single emit primitive — lines + lastEmitted in one patch. */
     const emitSelected = (): string[] => {
       const lines = toPairLines(store.selectedRows());
       patchState(store, { lastEmitted: lines });
@@ -387,7 +383,10 @@ export const ContractListSessionStore = signalStore(
       },
 
       /** `date,id` lines for the checked rows — the page writes these
-       *  into the pairs textarea and calls the existing load path. */
+       *  into the pairs textarea and calls the existing load path.
+       *  #1419: the ONLY emit path is an explicit send — `selection` is
+       *  the single source, so what's plotted always equals what's
+       *  checked; cursor moves below never emit. */
       sendSelected(): string[] {
         return emitSelected();
       },
@@ -400,22 +399,20 @@ export const ContractListSessionStore = signalStore(
         return emitSelected();
       },
 
-      /** Step the cursor then emit the chunk it lands on. The ordering
-       *  contract — cursor must move before `currentChunk` is read —
-       *  lives here once rather than at every UI call site. The public
-       *  API deliberately exposes no silent cursor move — every move
-       *  emits, so the timeline/cursor can't diverge from the chart. */
-      sendSteppedChunk(dir: number): string[] {
-        if (!Number.isFinite(dir)) return [];
+      /** Move the chunk cursor — navigation only, never emits and does
+       *  not touch `selection` (Add chunk is the selection op; Send
+       *  applies it). The #1363 move-then-emit protocol was replaced by
+       *  the #1419 model: stepping in the dialog would plot behind an
+       *  overlay that covers the chart. */
+      step(dir: number): void {
+        if (!Number.isFinite(dir)) return;
         moveCursorTo(store.chunkCursor() + Math.sign(dir));
-        return emitCurrentChunk();
       },
 
-      /** Jump the cursor to a chunk index then emit that chunk. */
-      sendChunkAt(i: number): string[] {
-        if (!Number.isFinite(i)) return [];
+      /** Jump the chunk cursor to an index — navigation only. */
+      setChunk(i: number): void {
+        if (!Number.isFinite(i)) return;
         moveCursorTo(i);
-        return emitCurrentChunk();
       },
 
       /** Drop the session and the symbol's persisted blob. */

@@ -1,9 +1,9 @@
 /**
- * ListMiniControlsComponent specs (#1363) — the page-level chunk strip.
- * Rendered harness over the real session store: the strip exists only
- * while a session is active; every control delegates to a store method
- * and routes emitted lines through the `send` output for the page's
- * loadPlotted path.
+ * ListMiniControlsComponent specs (#1363; #1419 — step is navigation
+ * only, All is the strip's one emit action). Rendered harness over the
+ * real session store: the strip exists only while a session is active;
+ * every control delegates to a store method; emits route through the
+ * `send` output for the page's loadPlotted path.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
@@ -104,7 +104,7 @@ describe('ListMiniControlsComponent', () => {
     expect(btn(fixture, 'Next chunk').disabled).toBe(false);
   });
 
-  it('▶ steps the cursor, updates i/n, and emits the landed chunk', () => {
+  it('▶ steps the cursor and updates i/n without emitting (#1419)', () => {
     setup();
     const fixture = render();
     const sent: string[][] = [];
@@ -116,8 +116,8 @@ describe('ListMiniControlsComponent', () => {
     expect(store.chunkCursor()).toBe(1);
     expect(el(fixture).querySelector('.mini-info')!.textContent).toContain('chunk 2/2');
     expect(btn(fixture, 'Next chunk').disabled).toBe(true);
-    const picks = rows() as ContractListPickRow[];
-    expect(sent).toEqual([picks.slice(10).map(lineOf)]);
+    expect(sent).toEqual([]);
+    expect(store.lastEmitted()).toEqual([]);
   });
 
   it('All selects every pick and emits the full set', () => {

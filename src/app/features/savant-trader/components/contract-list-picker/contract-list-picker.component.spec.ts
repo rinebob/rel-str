@@ -1,12 +1,13 @@
 /**
  * ContractListPickerComponent specs (#1362 — rows tab + lines preview;
- * #1363 — chunks tab: stepper live-drive, timeline, add-chunk).
+ * #1363 — chunks tab: stepper navigation, timeline, add-chunk; #1419 —
+ * emit-on-Send only: Send emits + closes, chunk ops never emit).
  *
  * The full picker over the page-scoped session store: provenance header,
  * rows tab (checkboxes, toolbar ops, no-selection markers, repeat badges),
  * and a lines preview that mirrors `store.emittedLines()` exactly. Send
- * emits through `store.sendSelected()` + the page's `onSend` callback —
- * the dialog stays open; `lastEmitted` records the emit for observability.
+ * emits through `store.sendSelected()` + the page's `onSend` callback,
+ * then closes the dialog.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
@@ -341,28 +342,36 @@ describe('ContractListPickerComponent', () => {
     expect(marker.textContent).toContain(label);
   });
 
-  it('Send emits through the store and keeps the dialog open', async () => {
+  it('Send emits through the store then closes the dialog (#1419)', async () => {
     await setup();
     const fixture = await render();
 
     fixture.componentInstance.send();
     fixture.detectChanges();
 
-    expect(close).not.toHaveBeenCalled();
     expect(store.lastEmitted()).toEqual(store.emittedLines());
     expect(store.lastEmitted().length).toBe(10);
+    expect(close).toHaveBeenCalled();
   });
 
-  it('Send forwards the emitted lines to the page onSend callback', async () => {
+  it('Send closes first, then forwards the emitted lines to onSend (#1419 ordering)', async () => {
     await setup();
-    const onSend = jest.fn();
+    const order: string[] = [];
+    const onSend = jest.fn(() => { order.push('send'); });
+    close.mockImplementation(() => { order.push('close'); });
     dialogData = { onSend };
     const fixture = await render();
 
     fixture.componentInstance.send();
 
+    // The >50-confirm/load path must open on a clean page — onSend can
+    // open a second dialog, so the picker detaches first.
+    expect(order).toEqual(['close', 'send']);
     expect(onSend).toHaveBeenCalledWith(store.emittedLines());
-    expect(close).not.toHaveBeenCalled();
+    // Literal pin — not just the SUT's own emittedLines() back.
+    expect(onSend).toHaveBeenCalledWith(
+      expect.arrayContaining(['2026-06-01,AAA']),
+    );
   });
 
   it('Send is disabled on an empty selection', async () => {
@@ -376,6 +385,7 @@ describe('ContractListPickerComponent', () => {
     expect(sendBtn.disabled).toBe(true);
     fixture.componentInstance.send();
     expect(store.lastEmitted()).toEqual([]);
+    expect(close).not.toHaveBeenCalled();
   });
 
   it('renders a distinct error state', async () => {
@@ -418,7 +428,7 @@ describe('ContractListPickerComponent', () => {
       expect(info).toContain('9 unique');
     });
 
-    it('disables ◀ on the first chunk; ▶ steps the cursor and live-drives through onSend', async () => {
+    it('disables ◀ on the first chunk; ▶ steps the cursor without emitting (#1419)', async () => {
       await setup();
       dialogData = { onSend: jest.fn() };
       const fixture = await render();
@@ -434,11 +444,9 @@ describe('ContractListPickerComponent', () => {
       fixture.detectChanges();
 
       expect(store.chunkCursor()).toBe(1);
-      // Literal chunk-2 lines — not the SUT's own currentChunk() output.
-      expect(dialogData.onSend).toHaveBeenCalledWith([
-        '2026-06-12,CCC7',
-        '2026-06-13,CCC8',
-      ]);
+      // Navigation only — nothing reaches the chart or the emit log.
+      expect(dialogData.onSend).not.toHaveBeenCalled();
+      expect(store.lastEmitted()).toEqual([]);
       expect(ctrl(fixture, '.chunk-info').textContent).toContain('2/2');
       expect(next.disabled).toBe(true);
     });
@@ -455,7 +463,7 @@ describe('ContractListPickerComponent', () => {
       expect(el(fixture).querySelector('.timeline-chunk')).not.toBeNull();
     });
 
-    it('clicking a timeline tick jumps the cursor to that chunk and emits it', async () => {
+    it('clicking a timeline tick jumps the cursor to that chunk without emitting (#1419)', async () => {
       await setup();
       dialogData = { onSend: jest.fn() };
       const fixture = await render();
@@ -467,10 +475,8 @@ describe('ContractListPickerComponent', () => {
       fixture.detectChanges();
 
       expect(store.chunkCursor()).toBe(1);
-      expect(dialogData.onSend).toHaveBeenCalledWith([
-        '2026-06-12,CCC7',
-        '2026-06-13,CCC8',
-      ]);
+      expect(dialogData.onSend).not.toHaveBeenCalled();
+      expect(store.lastEmitted()).toEqual([]);
     });
 
     it('Add chunk to selection unions the chunk days without disturbing others', async () => {
