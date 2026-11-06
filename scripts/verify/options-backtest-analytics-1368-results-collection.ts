@@ -51,8 +51,8 @@ check('builder reachable via alias', typeof stOptionsAnalysisResultDocId, 'funct
 // options-analysis-registry.spec.ts owns that invariant — this proves the
 // composition end-to-end through the builder).
 
-const listDocId = stOptionsContractListDocId('or-2026-11-02_tue_1200_manual_x9', 'qqq');
-check('list doc id uppercases symbol', listDocId, 'or-2026-11-02_tue_1200_manual_x9_QQQ');
+const listDocId = stOptionsContractListDocId('or-2026-11-02_tue_1200_manual_x9_QQQ');
+check('list doc id IS the runId (#1430)', listDocId, 'or-2026-11-02_tue_1200_manual_x9_QQQ');
 
 for (const e of EXIT_STRATEGIES) {
   const docId = stOptionsAnalysisResultDocId(listDocId, e.exitId);

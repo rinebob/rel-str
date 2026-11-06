@@ -108,18 +108,15 @@ check('marker row keys (order-independent)', Object.keys(markerRow).sort(), ['en
 // ── Run + list doc ─────────────────────────────────────────────────────────
 
 const run: OptionsReplayRun = {
-  runId: 'or-verify-1275',
+  runId: 'or-verify-1275_QQQ',
   templateId: template.id,
-  symbols: ['QQQ'],
+  symbol: 'QQQ',
   startDate: '2026-01-05',
   status: 'running',
-  totalLists: 1,
-  completedLists: 0,
-  failedLists: 0,
   createdAt: '2026-10-25T00:00:00Z',
   updatedAt: '2026-10-25T00:05:00Z',
 };
-check('run progress fields', [run.totalLists, run.completedLists, run.failedLists], [1, 0, 0]);
+check('run is single-symbol (#1430)', run.symbol, 'QQQ');
 check('run status vocabulary', OPTIONS_REPLAY_RUN_STATUSES.includes(run.status), true);
 
 const listDoc: OptionsContractListDoc = {

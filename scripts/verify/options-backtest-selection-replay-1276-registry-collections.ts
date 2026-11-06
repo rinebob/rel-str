@@ -53,7 +53,7 @@ check('getReplayTemplate hit side', getReplayTemplate('csp-45-20')?.side, TradeS
 check('getReplayTemplate miss', getReplayTemplate('nope'), undefined);
 check('replay runs root', ST_OPTIONS_REPLAY_RUNS_ROOT, 'st-options-replay-runs');
 check('contract lists root', ST_OPTIONS_CONTRACT_LISTS_ROOT, 'st-options-contract-lists');
-check('list doc id', stOptionsContractListDocId('or-abc', 'qqq'), 'or-abc_QQQ');
+check('list doc id IS the runId (#1430)', stOptionsContractListDocId('or-abc_QQQ'), 'or-abc_QQQ');
 
 if (failures === 0) {
   console.log('=== ALL CHECKS PASSED ===');
