@@ -68,9 +68,6 @@ const partition = <T>(rows: T[], size: number): T[][] => {
 const clamp = (i: number, len: number): number =>
   len === 0 ? 0 : Math.min(Math.max(0, i), len - 1);
 
-/** Default checked set on a fresh list — the first N pick days. */
-const FIRST_PICKS_DEFAULT = 10;
-
 export interface ListChunkInfo {
   /** 0-based chunk index. */
   index: number;
@@ -137,6 +134,17 @@ export const ContractListSessionStore = signalStore(
     canStepPrev: computed(() => clamp(chunkCursor(), chunks().length) > 0),
     canStepNext: computed(
       () => clamp(chunkCursor(), chunks().length) < chunks().length - 1,
+    ),
+  })),
+
+  // Third block so these read `currentChunk` instead of re-deriving the
+  // clamp twice — the Add/Remove buttons disable on these.
+  withComputed(({ currentChunk, selection }) => ({
+    canAddChunk: computed(() =>
+      currentChunk().some((r) => !selection().has(r.entryDate)),
+    ),
+    canRemoveChunk: computed(() =>
+      currentChunk().some((r) => selection().has(r.entryDate)),
     ),
   })),
 
@@ -228,10 +236,12 @@ export const ContractListSessionStore = signalStore(
       const chunkCount = Math.ceil(dates.length / size);
       patchState(store, {
         activeList: doc,
+        // Fresh lists open EMPTY (#1420 UAT) — the picker is a workspace:
+        // nothing is checked until the user selects, so Send can never
+        // fire a payload the user didn't choose. Restored sessions keep
+        // their saved selectionKeys.
         selection: new Set(
-          restore
-            ? restore.selectionKeys.filter((k) => dateSet.has(k))
-            : dates.slice(0, FIRST_PICKS_DEFAULT),
+          restore ? restore.selectionKeys.filter((k) => dateSet.has(k)) : [],
         ),
         chunkSize: size,
         chunkCursor: clamp(restore?.cursor ?? 0, chunkCount),
@@ -285,7 +295,7 @@ export const ContractListSessionStore = signalStore(
       /** Fetch a list doc into the session. Missing / non-success /
        *  unmetas / empty docs each land on a named error — the chart is
        *  never touched (send* is the only emit path). `restore` applies
-       *  saved keys/cursor/chunkSize instead of the first-10 default. */
+       *  saved keys/cursor/chunkSize; a fresh load selects nothing. */
       loadList: doLoadList,
 
       /** Load an already-read doc (the page reads once for its symbol
@@ -304,6 +314,30 @@ export const ContractListSessionStore = signalStore(
         if (selected) next.add(entryDate);
         else next.delete(entryDate);
         setSelection(next);
+      },
+
+      /** Toggle ALL pick days of a chunk AND move the cursor to it —
+       *  the timeline tick's selection op (#1420): chunk-granular so
+       *  every click is a visible ~N-day change, and ONE patchState +
+       *  persist so the saved blob can never hold a new selection under
+       *  a stale cursor. Tri-state like a group checkbox: fully selected
+       *  → clear the chunk; partially/empty → fill it. Day-level
+       *  granularity stays on the Rows tab. Never emits. */
+      toggleChunkAt(chunkIdx: number): void {
+        const list = store.chunks();
+        const chunk = Number.isFinite(chunkIdx) ? list[chunkIdx] : undefined;
+        if (!chunk?.length) return;
+        const next = new Set(store.selection());
+        const allSelected = chunk.every((r) => next.has(r.entryDate));
+        for (const r of chunk) {
+          if (allSelected) next.delete(r.entryDate);
+          else next.add(r.entryDate);
+        }
+        patchState(store, {
+          selection: next,
+          chunkCursor: clamp(chunkIdx, list.length),
+        });
+        persist();
       },
 
       selectAll(): void {
@@ -380,6 +414,15 @@ export const ContractListSessionStore = signalStore(
        *  accumulates, doesn't replace. */
       addChunkToSelection(): void {
         setSelection(new Set([...store.selection(), ...store.currentChunk().map((r) => r.entryDate)]));
+      },
+
+      /** Uncheck every pick day of the CURRENT chunk — the symmetric
+       *  partner of addChunkToSelection (the Remove button / chunk-level
+       *  clear). Days outside the chunk are untouched. Never emits. */
+      removeChunkFromSelection(): void {
+        const next = new Set(store.selection());
+        for (const r of store.currentChunk()) next.delete(r.entryDate);
+        setSelection(next);
       },
 
       /** `date,id` lines for the checked rows — the page writes these

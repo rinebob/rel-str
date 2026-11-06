@@ -134,9 +134,10 @@
               </select>
             </label>
             <span class="sep"></span>
-            <button type="button" class="ds-btn outline small chunk-add" (click)="addChunk()">Add chunk to selection</button>
+            <button type="button" class="ds-btn outline small chunk-add" [disabled]="!store.canAddChunk()" (click)="addChunk()">Add chunk</button>
+            <button type="button" class="ds-btn outline small chunk-remove" [disabled]="!store.canRemoveChunk()" (click)="removeChunk()">Remove chunk</button>
           </div>
-          <p class="chunk-hint">Stepping navigates chunks — use Add chunk to check its days into the selection, then Send to plot.</p>
+          <p class="chunk-hint">Solid ticks are selected days — click a tick to select/clear its chunk. The mint band is the chunk you're viewing. Send plots.</p>
 
           @if (timeline(); as tl) {
             <div class="timeline" role="group" aria-label="Chunk timeline">
@@ -146,8 +147,11 @@
               }
               @for (t of tl.ticks; track t.date) {
                 <button type="button" class="timeline-tick" [class.in-chunk]="t.inChunk"
-                  [style.left.%]="t.pct" [title]="t.date" [attr.aria-label]="'Jump to ' + t.date"
-                  (click)="jumpToChunk(t.chunkIdx)"></button>
+                  [class.selected]="t.selected" [style.left.%]="t.pct"
+                  [title]="t.date + ' — chunk ' + (t.chunkIdx + 1) + (t.selected ? ' — selected' : '')"
+                  [attr.aria-label]="(t.chunkSelected ? 'Deselect' : 'Select') + ' chunk ' + (t.chunkIdx + 1) + ' (' + t.date + ')'"
+                  [attr.aria-pressed]="t.chunkSelected"
+                  (click)="onTickClick(t)"></button>
               }
             </div>
             <div class="timeline-labels">

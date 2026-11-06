@@ -464,6 +464,8 @@ describe('OptionChartComponent — contract-list session wiring', () => {
 
     // The dialog calls sendSelected() → close() → onSend(lines) — the
     // emit the store produced is what the page writes into the textarea.
+    // (Empty default: select first so the send carries a line.)
+    listStore.selectAll();
     config.data!.onSend!(listStore.sendSelected());
     await flush();
 

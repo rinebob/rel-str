@@ -9,10 +9,11 @@
  * forwards the lines through the page's `onSend` callback, and closes
  * — the chart only plots once the dialog is out of the way (#1419).
  * The Chunks tab (#1363) sits between Rows and Lines — a stepper and
- * click-to-jump timeline over the doc window, and add-chunk
- * accumulation into the selection. Nothing here emits — chunking is
- * workspace navigation; `selection` is the only thing that ever
- * reaches the chart.
+ * click-to-toggle timeline over the doc window, and add-chunk
+ * accumulation into the selection. Ticks shade by selection state and
+ * a click toggles its chunk + jumps the cursor (#1420). Nothing here
+ * emits — chunking is workspace navigation; `selection` is the only
+ * thing that ever reaches the chart.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -30,6 +31,13 @@ interface TimelineTick {
   date: string;
   pct: number;
   inChunk: boolean;
+  /** True when the day is in the selection — ticks shade by selection
+   *  state (#1420), not just cursor position. */
+  selected: boolean;
+  /** True when EVERY day of the tick's chunk is selected — the click
+   *  toggles the whole chunk, so aria-pressed reports the toggle's
+   *  target state, not this day's (#1420 chunk-granular model). */
+  chunkSelected: boolean;
   chunkIdx: number;
 }
 
@@ -82,6 +90,7 @@ export class ContractListPickerComponent {
       Math.min(100, Math.max(0, (daysBetween(lo, d) / span) * 100));
     const curIdx = this.store.chunkInfo().index;
     const cur = this.store.currentChunk();
+    const sel = this.store.selection();
     let chunkSpan: { left: number; width: number } | null = null;
     if (cur.length) {
       const rawLeft = pct(cur[0].entryDate);
@@ -94,16 +103,19 @@ export class ContractListPickerComponent {
     return {
       lo,
       hi,
-      ticks: this.store.chunks().flatMap((chunk, chunkIdx) =>
-        chunk.map(
+      ticks: this.store.chunks().flatMap((chunk, chunkIdx) => {
+        const allSelected = chunk.every((r) => sel.has(r.entryDate));
+        return chunk.map(
           (r): TimelineTick => ({
             date: r.entryDate,
             pct: pct(r.entryDate),
             inChunk: chunkIdx === curIdx,
+            selected: sel.has(r.entryDate),
+            chunkSelected: allSelected,
             chunkIdx,
           }),
-        ),
-      ),
+        );
+      }),
       chunkSpan,
     };
   });
@@ -134,12 +146,20 @@ export class ContractListPickerComponent {
     this.store.step(dir);
   }
 
-  jumpToChunk(i: number): void {
-    this.store.setChunk(i);
+  /** Timeline tick click (#1420) — one store call toggles the chunk AND
+   *  lands the cursor on it (a single patch+persist, so the saved blob
+   *  can't hold a new selection under a stale cursor). Never emits.
+   *  Day-level edits live on the Rows tab. */
+  onTickClick(t: TimelineTick): void {
+    this.store.toggleChunkAt(t.chunkIdx);
   }
 
   addChunk(): void {
     this.store.addChunkToSelection();
+  }
+
+  removeChunk(): void {
+    this.store.removeChunkFromSelection();
   }
 
   onChunkSize(n: number): void {

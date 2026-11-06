@@ -103,7 +103,7 @@ describe('ContractListSessionStore', () => {
   describe('loadList', () => {
     beforeEach(setup);
 
-    it('loads the doc, default-selects the first 10 pick rows, cursor 0', async () => {
+    it('loads the doc with an empty selection — a fresh workspace, cursor 0', async () => {
       getList$.mockReturnValue(of(listDoc(fifteenRows())));
       store.setSymbol('QQQ');
       await store.loadList('run-1_QQQ');
@@ -111,12 +111,9 @@ describe('ContractListSessionStore', () => {
       expect(store.status()).toBe('ready');
       expect(store.activeList()?.listId).toBe('run-1_QQQ');
       expect(store.pickRows()).toHaveLength(15);
-      expect(store.selection().size).toBe(10);
+      // Empty default (#1420 UAT): nothing is checked until the user selects.
+      expect(store.selection().size).toBe(0);
       expect(store.chunkCursor()).toBe(0);
-      // First 10 pick days selected.
-      expect(store.selectedRows().map((r) => r.entryDate)).toEqual(
-        Array.from({ length: 10 }, (_, i) => `2026-06-${String(i + 1).padStart(2, '0')}`),
-      );
     });
 
     it('names the error for a missing doc and leaves the chart untouched (no list)', async () => {
@@ -207,7 +204,7 @@ describe('ContractListSessionStore', () => {
       expect(getList$).not.toHaveBeenCalled();
       expect(store.status()).toBe('ready');
       expect(store.activeList()?.listId).toBe('run-1_QQQ');
-      expect(store.selection().size).toBe(10);
+      expect(store.selection().size).toBe(0); // empty default
     });
 
     it('loadListDoc names the error for a wrong-symbol doc', () => {
@@ -244,6 +241,37 @@ describe('ContractListSessionStore', () => {
       store.toggleRow('2026-06-16', true);
       expect(store.selection().has('2026-06-16')).toBe(false);
       expect(store.selection().size).toBe(0);
+    });
+
+    /** #1420 — the timeline tick's selection primitive: chunk-granular
+     *  (every click is a visible N-day change); day-level edits stay on
+     *  toggleRow / the Rows tab. Tri-state like a group checkbox, and the
+     *  cursor jump is part of the same atomic patch. */
+    it('toggleChunkAt fills an unselected chunk, lands the cursor, then clears when full', () => {
+      // 15 picks at size 10 → chunk 0 = 10 days, chunk 1 = 5 days.
+      store.toggleChunkAt(1);
+      expect(store.selection().size).toBe(5);
+      expect(store.selection().has('2026-06-11')).toBe(true);
+      expect(store.selection().has('2026-06-15')).toBe(true);
+      expect(store.selection().has('2026-06-01')).toBe(false); // chunk 0 untouched
+      expect(store.chunkCursor()).toBe(1); // cursor jump rides the same patch
+
+      store.toggleChunkAt(1); // fully selected → clear the whole chunk
+      expect(store.selection().size).toBe(0);
+      expect(store.chunkCursor()).toBe(1);
+    });
+
+    it('toggleChunkAt on a partially-selected chunk fills it first (tri-state)', () => {
+      store.toggleRow('2026-06-01', true);
+      store.toggleChunkAt(0); // partial → fill all 10, not clear the one
+      expect(store.selection().size).toBe(10);
+    });
+
+    it('toggleChunkAt ignores out-of-range indexes and never emits', () => {
+      store.toggleChunkAt(9);
+      store.toggleChunkAt(-1);
+      expect(store.selection().size).toBe(0);
+      expect(store.lastEmitted()).toEqual([]);
     });
 
     it('stride k keeps every k-th pick day', () => {
@@ -355,6 +383,28 @@ describe('ContractListSessionStore', () => {
       ]);
     });
 
+    it('removeChunkFromSelection clears only the current chunk\'s days', () => {
+      store.selectAll(); // 15
+      store.setChunk(1); // chunk 1 = the last 5 days
+      store.removeChunkFromSelection();
+      expect(store.selection().size).toBe(10);
+      expect(store.selection().has('2026-06-11')).toBe(false);
+      expect(store.selection().has('2026-06-01')).toBe(true); // chunk 0 kept
+    });
+
+    it('canAddChunk/canRemoveChunk track the current chunk\'s selection state', () => {
+      // Empty selection: Add enabled, Remove disabled.
+      expect(store.canAddChunk()).toBe(true);
+      expect(store.canRemoveChunk()).toBe(false);
+      store.addChunkToSelection(); // chunk 0 = 10 days, all now selected
+      expect(store.canAddChunk()).toBe(false);
+      expect(store.canRemoveChunk()).toBe(true);
+      // A partial chunk still counts both ways.
+      store.toggleRow('2026-06-01', false);
+      expect(store.canAddChunk()).toBe(true);
+      expect(store.canRemoveChunk()).toBe(true);
+    });
+
     it('canStepPrev/canStepNext report the clamp bounds', () => {
       expect(store.canStepPrev()).toBe(false);
       expect(store.canStepNext()).toBe(true);
@@ -370,7 +420,7 @@ describe('ContractListSessionStore', () => {
       store.step(1);
       expect(store.chunkCursor()).toBe(1);
       expect(store.lastEmitted()).toEqual([]);
-      expect(store.selection().size).toBe(10); // untouched — the first-10 default
+      expect(store.selection().size).toBe(0); // untouched — cursor moves, selection doesn't
     });
 
     it('step clamps at the end — no wrap, no emit', () => {
@@ -395,8 +445,9 @@ describe('ContractListSessionStore', () => {
     });
 
     it('sendSelected emits entryDate,id lines in order, duplicates preserved', () => {
+      store.selectAll();
       const lines = store.sendSelected();
-      expect(lines).toHaveLength(10);
+      expect(lines).toHaveLength(15);
       expect(lines[0]).toBe('2026-06-01,AAA260619C00500000');
       expect(lines[2]).toBe('2026-06-03,AAA260619C00500000');
       expect(store.lastEmitted()).toEqual(lines);
@@ -418,6 +469,7 @@ describe('ContractListSessionStore', () => {
     });
 
     it('a fresh list apply clears lastEmitted — no stale emit leaks across docs', async () => {
+      store.selectAll();
       store.sendSelected();
       expect(store.lastEmitted().length).toBeGreaterThan(0);
       getList$.mockReturnValue(of(listDoc(fifteenRows())));
@@ -512,7 +564,8 @@ describe('ContractListSessionStore', () => {
       getList$.mockReturnValue(of(listDoc(fifteenRows())));
       store.setSymbol('QQQ');
       await store.loadList('run-1_QQQ');
-      store.toggleRow('2026-06-01', false); // QQQ: drop one from default-10
+      store.selectAll();
+      store.toggleRow('2026-06-01', false); // QQQ: drop one from the full set
 
       store.setSymbol('SPY'); // SPY: no blob → empty session
       await new Promise<void>((r) => setTimeout(r, 0));
@@ -522,7 +575,7 @@ describe('ContractListSessionStore', () => {
       getList$.mockReturnValue(of(listDoc(fifteenRows())));
       store.setSymbol('QQQ'); // back → restored
       await new Promise<void>((r) => setTimeout(r, 0));
-      expect(store.selection().size).toBe(9);
+      expect(store.selection().size).toBe(14);
       expect(store.selection().has('2026-06-01')).toBe(false);
     });
   });

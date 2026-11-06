@@ -213,10 +213,18 @@
 
   .timeline-chunk {
     position: absolute;
-    top: 11px;
-    height: 12px;
+    top: 4px;
+    height: 26px;
     border-radius: 6px;
-    background: var(--ds-accent-container);
+    // Cursor ≠ selection (#1420): the band is a SOLID mint region
+    // marking which chunk is being viewed — mint (#00ff9d, the ds-accents
+    // 'mint' id) is off the accent family, so accent stays reserved for
+    // selected days and the two states can't blur (except under a mint
+    // app accent — a documented collision, not a broken one). Ticks
+    // render after it, so they paint on top of the fill. The literal
+    // pins ds-accents.ts 'mint' — a --ds-mint token for one consumer
+    // would be speculative generality.
+    background: #00ff9d;
     pointer-events: none;
   }
 
@@ -232,12 +240,16 @@
     background: var(--ds-border-strong);
     cursor: pointer;
 
-    &.in-chunk {
+    // Layering (#1420): solid mint band = the cursor's chunk; accent =
+    // a selected day — accent appears ONLY on checked state, so hover
+    // brightens instead of reusing accent (a hovered tick must not read
+    // as selected, and the click is chunk-granular anyway).
+    &.selected {
       background: var(--ds-accent);
     }
 
     &:hover {
-      background: var(--ds-accent);
+      filter: brightness(1.4);
     }
   }
 }

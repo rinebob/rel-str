@@ -1,7 +1,9 @@
 /**
  * ContractListPickerComponent specs (#1362 — rows tab + lines preview;
  * #1363 — chunks tab: stepper navigation, timeline, add-chunk; #1419 —
- * emit-on-Send only: Send emits + closes, chunk ops never emit).
+ * emit-on-Send only: Send emits + closes, chunk ops never emit; #1420 —
+ * timeline selection shading, chunk-granular click-toggle, empty
+ * default, remove-chunk, Add/Remove gating).
  *
  * The full picker over the page-scoped session store: provenance header,
  * rows tab (checkboxes, toolbar ops, no-selection markers, repeat badges),
@@ -135,12 +137,12 @@ describe('ContractListPickerComponent', () => {
     expect(text).toContain('grid v3');
   });
 
-  it('opens with the first 10 pick rows checked (marker row excluded)', async () => {
+  it('opens with nothing checked — a fresh workspace (#1420 UAT: empty default)', async () => {
     await setup();
     const fixture = await render();
 
-    expect(checked(fixture)).toBe(10);
-    expect(store.selectedRows()).toHaveLength(10);
+    expect(checked(fixture)).toBe(0);
+    expect(store.selectedRows()).toHaveLength(0);
   });
 
   it('a checkbox toggle updates the store selection and the live readout', async () => {
@@ -150,13 +152,13 @@ describe('ContractListPickerComponent', () => {
     const box = el(fixture).querySelector<HTMLInputElement>(
       '.pick-row input[type=checkbox]',
     )!;
-    box.checked = false;
+    box.checked = true;
     box.dispatchEvent(new Event('change'));
     fixture.detectChanges();
 
-    expect(store.selectedRows()).toHaveLength(9);
-    expect(ctrl(fixture, '.readout').textContent).toContain('9 rows selected');
-    expect(ctrl(fixture, '.readout').textContent).toContain('8 unique contracts');
+    expect(store.selectedRows()).toHaveLength(1);
+    expect(ctrl(fixture, '.readout').textContent).toContain('1 rows selected');
+    expect(ctrl(fixture, '.readout').textContent).toContain('1 unique contracts');
   });
 
   it('the readout counts distinct contract ids (two BBB picks → 1 unique)', async () => {
@@ -346,11 +348,12 @@ describe('ContractListPickerComponent', () => {
     await setup();
     const fixture = await render();
 
+    store.selectAll();
     fixture.componentInstance.send();
     fixture.detectChanges();
 
     expect(store.lastEmitted()).toEqual(store.emittedLines());
-    expect(store.lastEmitted().length).toBe(10);
+    expect(store.lastEmitted().length).toBe(12);
     expect(close).toHaveBeenCalled();
   });
 
@@ -362,6 +365,7 @@ describe('ContractListPickerComponent', () => {
     dialogData = { onSend };
     const fixture = await render();
 
+    store.selectAll();
     fixture.componentInstance.send();
 
     // The >50-confirm/load path must open on a clean page — onSend can
@@ -463,7 +467,30 @@ describe('ContractListPickerComponent', () => {
       expect(el(fixture).querySelector('.timeline-chunk')).not.toBeNull();
     });
 
-    it('clicking a timeline tick jumps the cursor to that chunk without emitting (#1419)', async () => {
+    /** #1420 — ticks shade by selection membership, not just chunk. */
+    it('shades selected days on the timeline — stride selections light up too', async () => {
+      await setup();
+      const fixture = await render();
+      fixture.componentInstance.activeTab.set('chunks');
+      fixture.detectChanges();
+
+      // Empty default — no tick is selected on open.
+      expect(el(fixture).querySelectorAll('.timeline-tick.selected')).toHaveLength(0);
+
+      // A stride-5 selection (indices 0/5/10) scatters checks across
+      // both chunks — the timeline must reflect it (the S4 gap that
+      // motivated #1420). Index 10 is in chunk 2, outside the cursor.
+      store.selectStride(5);
+      fixture.detectChanges();
+      const selected = el(fixture).querySelectorAll('.timeline-tick.selected');
+      expect(selected).toHaveLength(3);
+      // Selected days in chunk 2 (outside the cursor's chunk 1) shade too.
+      expect(
+        el(fixture).querySelectorAll('.timeline-tick.selected:not(.in-chunk)').length,
+      ).toBe(1);
+    });
+
+    it('clicking a tick toggles its whole chunk and jumps the cursor — never emits (#1419/#1420)', async () => {
       await setup();
       dialogData = { onSend: jest.fn() };
       const fixture = await render();
@@ -471,12 +498,46 @@ describe('ContractListPickerComponent', () => {
       fixture.detectChanges();
 
       const ticks = el(fixture).querySelectorAll<HTMLButtonElement>('.timeline-tick');
-      ticks[11].dispatchEvent(new Event('click')); // last pick day → chunk 2
-      fixture.detectChanges();
 
+      // Any tick → click selects ALL 10 days of chunk 1 (the cursor is
+      // already there — no jump needed).
+      ticks[0].dispatchEvent(new Event('click'));
+      fixture.detectChanges();
+      expect(store.selection().size).toBe(10);
+      expect(ticks[0].classList.contains('selected')).toBe(true);
+      expect(ticks[9].classList.contains('selected')).toBe(true);
+
+      // Click again → the fully-selected chunk clears.
+      ticks[0].dispatchEvent(new Event('click'));
+      fixture.detectChanges();
+      expect(store.selection().size).toBe(0);
+
+      // A chunk-2 tick → click fills its 2 days AND jumps the cursor.
+      ticks[11].dispatchEvent(new Event('click'));
+      fixture.detectChanges();
+      expect(store.selection().size).toBe(2);
+      expect(store.selection().has('2026-06-13')).toBe(true);
       expect(store.chunkCursor()).toBe(1);
+
+      // Chunk toggling is a selection op only — nothing reaches the emit log.
       expect(dialogData.onSend).not.toHaveBeenCalled();
       expect(store.lastEmitted()).toEqual([]);
+    });
+
+    it('a timeline toggle mirrors into the Rows checks and readout (spec AC)', async () => {
+      await setup();
+      const fixture = await render();
+      fixture.componentInstance.activeTab.set('chunks');
+      fixture.detectChanges();
+
+      el(fixture).querySelectorAll<HTMLButtonElement>('.timeline-tick')[0]
+        .dispatchEvent(new Event('click')); // chunk 1 → all 10 days
+
+      fixture.componentInstance.activeTab.set('rows');
+      fixture.detectChanges();
+
+      expect(checked(fixture)).toBe(10);
+      expect(ctrl(fixture, '.readout').textContent).toContain('10 rows selected');
     });
 
     it('Add chunk to selection unions the chunk days without disturbing others', async () => {
@@ -493,6 +554,31 @@ describe('ContractListPickerComponent', () => {
       expect(store.selection().size).toBe(11); // chunk 1's 10 days + 06-13
       expect(store.selection().has('2026-06-13')).toBe(true);
       expect(store.chunkCursor()).toBe(0); // selection add does not move the cursor
+    });
+
+    it('Remove chunk clears the current chunk only; both buttons disable on state', async () => {
+      await setup();
+      const fixture = await render();
+      fixture.componentInstance.activeTab.set('chunks');
+      fixture.detectChanges();
+
+      const addBtn = ctrl(fixture, '.chunk-add') as HTMLButtonElement;
+      const removeBtn = ctrl(fixture, '.chunk-remove') as HTMLButtonElement;
+      // Empty selection: Remove disabled, Add enabled.
+      expect(addBtn.disabled).toBe(false);
+      expect(removeBtn.disabled).toBe(true);
+
+      // Select a day outside the chunk — Remove must leave it alone.
+      store.toggleRow('2026-06-13', true);
+      addBtn.dispatchEvent(new Event('click'));
+      fixture.detectChanges();
+      expect(removeBtn.disabled).toBe(false);
+
+      removeBtn.dispatchEvent(new Event('click'));
+      fixture.detectChanges();
+
+      expect(store.selection().size).toBe(1);
+      expect(store.selection().has('2026-06-13')).toBe(true);
     });
 
     it('the size stepper repartitions the list', async () => {
