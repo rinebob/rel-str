@@ -1,5 +1,15 @@
 # Changelog
 
+## [2026-11-06]
+
+### Added
+- [Paper Trading Infra] 553-1247_SHARED-BUG-PAPER-TRADING: `maxOpenPositions` optional concurrent-position bound on StrategyInstanceConfig — absent/0 = uncapped
+- [Paper Trading Infra] 553-1247_BE-CHORE-PAPER-TRADING: live verify `paper-trading-engine-open-1247.ts` — 15 checks, scratch-scoped prod ACs 1-4 + run-all/README registration
+- [Paper Trading Infra] 553-1247_DOCS-PAPER-TRADING: #1247 code-review (PASS, 3 rounds) + UAT (Complete, #1429) + changelog
+
+### Fixed
+- [Paper Trading Infra] 553-1247_BE-BUG-PAPER-TRADING: open-pass ladder cadence — all-status cadence gate replaces `existing_position` serial skip; same-day idempotency; pre-order deterministic-ID check; cap warn+drop normalization; gates + ticket-staging extracted
+
 ## [2026-11-05]
 
 ### Changed
