@@ -25,6 +25,9 @@
 - [Option Contract Time-Series Viewer] 1243-1363_DOCS-OPTIONS: #1363 code-review (PASS, 3 rounds) + UAT (Complete, #1417) + changelog
 - [On-demand Screenshot Capture] 746-801_FE-IMPL-SCREENSHOT: /dev/screenshot utilities — SPEC_PRESETS (quick-look + order-placed/order-filled/position-closed sims), per-path Copy + GCS-console result actions, lifecycle event select + refId wired into CaptureChartSpec; dev-page chrome — DS-class form sweep, actions row for Store-to-GCS, applied-preset persistence
 - [On-demand Screenshot Capture] 746-801_DOCS-SCREENSHOT: #801 code-review (PASS, 2 rounds) + UAT (Complete, #1416) + changelog
+- [Portfolio Dashboard] 219-1408_FE-IMPL-PORTFOLIO: per-account gated load + serial prefetch waterfall — selected-account-first paint, unified orders registry (join/dedupe/trailing reconcile), loadEpoch stale-mark guard, retryable transport failures; absorbs #1397 silent reconcile
+- [Portfolio Dashboard] 219-1408_FE-IMPL-PORTFOLIO: dashboard wiring — initialLoad on init, ensure-loaded selectAccount, Orders/History tab on-demand kick, silent reconcile after mutations
+- [Portfolio Dashboard] 219-1408_DOCS-PORTFOLIO: thread #1403 PRD/IMPL/TEST + #1408 code-review (PASS, 2 rounds) + UAT (Complete, #1418) + changelog
 
 ### Removed
 - [Paper Trading Infra] 553-672_FE-IMPL-PAPER-TRADING: dead FE exit-variant registry reads — listExitVariants$/loadExitVariants/exitVariants (zero consumers post-#668 select)
