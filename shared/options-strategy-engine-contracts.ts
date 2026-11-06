@@ -209,6 +209,9 @@ export interface StrategyInstanceConfig {
   overnightGridRangePct?: number;
   overnightGridStepPct?: number;
   maxOvernightMovePct?: number | null;
+  /** Optional bound on simultaneous open positions per instance (#1247).
+   *  Absent/0 means uncapped — the default daily ladder. */
+  maxOpenPositions?: number;
   createdAt: string;
   updatedAt: string;
 }
