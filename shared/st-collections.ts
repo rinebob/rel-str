@@ -84,18 +84,18 @@ export const ST_BACKTEST_PERMUTATIONS_ROOT = 'st-backtest-permutations';
 /** Selection-replay run headers (Topic #1238, Thread #1240). */
 export const ST_OPTIONS_REPLAY_RUNS_ROOT = 'st-options-replay-runs';
 
-/** Selection-replay contract lists — one doc per symbol per run. */
+/** Selection-replay contract lists — one doc per run (single-symbol runs, #1430). */
 export const ST_OPTIONS_CONTRACT_LISTS_ROOT = 'st-options-contract-lists';
 
 /**
- * Contract-list doc id is deterministic: `{runId}_{symbol}` (symbol normalized
- * to uppercase, matching peer builders). Lets the worker and readers construct
- * the id without a lookup. Never parse it back — runIds themselves contain
- * `_` (`{date}_{dow}_{time}_{trigger}_{rand}`); both halves are only ever
- * reassembled from the payload/run doc, not split out of the doc id.
+ * Contract-list doc id IS the runId — a replay run and its contract list
+ * are 1:1 by construction (single-symbol runs, #1430), so no composite key
+ * is needed. Kept as a named seam so the "listDocId = runId" contract has
+ * one home; analysis result docs build on it as `{runId}_{exitId}`.
+ * runIds themselves contain `_` — never parse them.
  */
-export function stOptionsContractListDocId(runId: string, symbol: string): string {
-  return `${runId}_${symbol.toUpperCase()}`;
+export function stOptionsContractListDocId(runId: string): string {
+  return runId;
 }
 
 /** Backtest-analytics result docs — one doc per (contract list × exit

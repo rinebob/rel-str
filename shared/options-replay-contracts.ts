@@ -1,10 +1,11 @@
 /**
  * Shared contracts for Selection Replay (Topic #1238, Thread #1240).
  *
- * A selection replay applies a named template to symbols + a start date,
- * fetches the SA Pick Document for the template's coordinate, and persists a
- * per-symbol Contract List — one row per trading day, either a pick or an
- * explicit no-selection marker. Pure types; importable by both the Angular
+ * A selection replay run is ONE (template, symbol, startDate) selection —
+ * submitting N symbols creates N independent runs (#1430). A run fetches
+ * the SA Pick Document for the template's coordinate and persists a
+ * Contract List — one row per trading day, either a pick or an explicit
+ * no-selection marker. Pure types; importable by both the Angular
  * frontend and Firebase functions.
  *
  * Timestamps are ISO strings at the shared layer (BE writers stamp
@@ -181,20 +182,21 @@ export const OPTIONS_CONTRACT_LIST_STATUSES: readonly OptionsContractListStatus[
   'failed',
 ];
 
-/** Run header — st-options-replay-runs/{runId}. */
+/**
+ * Run header — st-options-replay-runs/{runId}. A run is ONE (template,
+ * symbol, startDate) selection: submitting N symbols to
+ * `optionsReplayStart` creates N independent run docs — the multi-symbol
+ * input is convenience fanout, not a batch (no grouping field, #1430).
+ * The runId embeds the symbol (`{runIdPT}_{rand}_{SYMBOL}`), and the run's
+ * status IS its contract list's status — the worker's terminal list
+ * outcome writes the run's terminal status directly.
+ */
 export interface OptionsReplayRun {
   runId: string;
   templateId: string;
-  symbols: string[];
+  symbol: string;
   startDate: string;
   status: OptionsReplayRunStatus;
-  totalLists: number;
-  completedLists: number;
-  failedLists: number;
-  /** Per-symbol outcome recorded in the same transaction as the counter
-   *  increment — makes list close-out idempotent (a redelivery or a retry
-   *  after a lost ack never double-counts). BE bookkeeping; FE may ignore. */
-  listOutcomes?: Record<string, 'success' | 'failed'>;
   /** ISO timestamps — BE writes FieldValue server-side. */
   createdAt: string;
   updatedAt: string;
@@ -202,7 +204,8 @@ export interface OptionsReplayRun {
   error?: string;
 }
 
-/** Per-symbol payload — st-options-contract-lists/{runId}_{symbol}. */
+/** Contract list — st-options-contract-lists/{runId} (docId IS the runId;
+ *  run and list are 1:1 by construction). */
 export interface OptionsContractListDoc {
   runId: string;
   symbol: string;
@@ -226,11 +229,12 @@ export interface OptionsReplayStartRequest {
   startDate: string; // YYYY-MM-DD
 }
 
+/** One runId per submitted symbol — each is an independent run doc. */
 export interface OptionsReplayStartResponse {
-  runId: string;
+  runIds: string[];
 }
 
-/** Cloud Task payload — one per symbol per run. */
+/** Cloud Task payload — one per run (each run is a single symbol, #1430). */
 export interface OptionsReplayPermutationPayload {
   runId: string;
   symbol: string;
@@ -238,12 +242,14 @@ export interface OptionsReplayPermutationPayload {
   startDate: string;
 }
 
-/** optionsReplayRetry — re-runs failed per-symbol list docs in place
- *  (Thread #1266, task #1369). */
+/** optionsReplayRetry — re-runs a failed single-symbol run in place
+ *  (Thread #1266, task #1369; single-symbol model #1430). */
 export interface OptionsReplayRetryRequest {
   runId: string;
 }
 
 export interface OptionsReplayRetryResponse {
-  retriedSymbols: string[];
+  /** The retried run's symbol, or `null` when the call was a no-op
+   *  (run not `failed`). */
+  retriedSymbol: string | null;
 }

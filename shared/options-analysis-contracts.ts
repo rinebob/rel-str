@@ -158,7 +158,7 @@ export const ANALYSIS_RESULT_STATUSES: readonly AnalysisResultStatus[] = [
  * never branch on doc completeness.
  */
 export interface AnalysisResultDoc {
-  /** '{runId}_{symbol}' — source contract list doc. */
+  /** The runId — list doc ids are 1:1 with runs (single-symbol runs, #1430). */
   contractListDocId: string;
   runId: string;
   symbol: string;
@@ -180,7 +180,7 @@ export interface AnalysisResultDoc {
 
 /** optionsAnalysisStart — kicks off analysis of one contract list. */
 export interface OptionsAnalysisStartRequest {
-  /** '{runId}_{symbol}'. */
+  /** The list doc id — equal to the runId under single-symbol runs (#1430). */
   contractListDocId: string;
 }
 

@@ -218,20 +218,17 @@ describe('options-replay-contracts', () => {
   });
 
   describe('OptionsReplayRun', () => {
-    it('accepts a run doc with progress counters', () => {
+    it('accepts a single-symbol run doc — a run IS one (template, symbol) selection', () => {
       const run: OptionsReplayRun = {
-        runId: 'or-abc123',
+        runId: 'or-abc123_SPY',
         templateId: 'csp-45-20',
-        symbols: ['SPY', 'QQQ'],
+        symbol: 'SPY',
         startDate: '2026-01-05',
         status: 'running',
-        totalLists: 2,
-        completedLists: 1,
-        failedLists: 0,
         createdAt: '2026-10-25T00:00:00Z',
         updatedAt: '2026-10-25T00:05:00Z',
       };
-      expect(run.totalLists).toBe(2);
+      expect(run.symbol).toBe('SPY');
       expect(run.completedAt).toBeUndefined();
     });
 
@@ -281,9 +278,9 @@ describe('options-replay-contracts', () => {
         symbols: ['SPY'],
         startDate: '2026-01-05',
       };
-      const res: OptionsReplayStartResponse = { runId: 'or-abc123' };
+      const res: OptionsReplayStartResponse = { runIds: ['or-abc123_SPY'] };
       expect(req.symbols).toHaveLength(1);
-      expect(res.runId).toBe('or-abc123');
+      expect(res.runIds).toHaveLength(1);
     });
 
     it('OptionsReplayPermutationPayload carries runId, symbol, templateId, startDate', () => {

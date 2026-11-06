@@ -239,9 +239,8 @@ describe('st-scanner anchored paths', () => {
 });
 
 describe('st-options selection-replay doc ids', () => {
-  it('stOptionsContractListDocId builds {runId}_{symbol}', () => {
-    expect(stOptionsContractListDocId('or-abc123', 'QQQ')).toBe('or-abc123_QQQ');
-    expect(stOptionsContractListDocId('or-abc123', 'qqq')).toBe('or-abc123_QQQ');
+  it('stOptionsContractListDocId IS the runId — run and list are 1:1 (#1430)', () => {
+    expect(stOptionsContractListDocId('or-abc123_SPY')).toBe('or-abc123_SPY');
   });
 });
 

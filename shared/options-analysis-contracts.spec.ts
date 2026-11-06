@@ -145,13 +145,14 @@ describe('options-analysis-contracts', () => {
       const res: OptionsAnalysisStartResponse = { analysisId: req.contractListDocId };
       const task: OptionsAnalysisTaskPayload = {
         contractListDocId: req.contractListDocId,
-        runId: 'run-1',
+        runId: 'run-1_QQQ',
         symbol: 'QQQ',
         templateId: 'csp-45-20',
         registryVersion: 1,
       };
       expect(res.analysisId).toBe(task.contractListDocId);
-      expect(task.contractListDocId).toBe(`${task.runId}_${task.symbol}`);
+      // listDocId IS the runId under single-symbol runs (#1430).
+      expect(task.contractListDocId).toBe(task.runId);
     });
   });
 });
