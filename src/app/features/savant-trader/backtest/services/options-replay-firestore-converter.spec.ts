@@ -4,27 +4,21 @@ const ts = (iso: string) => ({ toDate: () => new Date(iso) });
 
 describe('options-replay-firestore-converter', () => {
   describe('convertOptionsReplayRunDoc', () => {
-    it('maps a full run doc', () => {
-      const ui = convertOptionsReplayRunDoc('run-1', {
+    it('maps a full single-symbol run doc (#1430)', () => {
+      const ui = convertOptionsReplayRunDoc('run-1_SPY', {
         templateId: 'csp-45-20',
-        symbols: ['spy', 'qqq'],
+        symbol: 'spy',
         startDate: '2026-01-02',
         status: 'running',
-        totalLists: 2,
-        completedLists: 1,
-        failedLists: 0,
         createdAt: ts('2026-10-28T15:00:00Z'),
         updatedAt: '2026-10-28T15:05:00Z',
       });
 
-      expect(ui.runId).toBe('run-1');
+      expect(ui.runId).toBe('run-1_SPY');
       expect(ui.templateId).toBe('csp-45-20');
-      expect(ui.symbols).toEqual(['SPY', 'QQQ']);
+      expect(ui.symbol).toBe('SPY');
       expect(ui.startDate).toBe('2026-01-02');
       expect(ui.status).toBe('running');
-      expect(ui.totalLists).toBe(2);
-      expect(ui.completedLists).toBe(1);
-      expect(ui.failedLists).toBe(0);
       expect(ui.createdAtIso).toBe('2026-10-28T15:00:00.000Z');
       expect(ui.updatedAtIso).toBe('2026-10-28T15:05:00Z');
       expect(ui.completedAtIso).toBeUndefined();
@@ -32,31 +26,10 @@ describe('options-replay-firestore-converter', () => {
     });
 
     it('fills defaults for a sparse doc', () => {
-      const ui = convertOptionsReplayRunDoc('run-2', {});
+      const ui = convertOptionsReplayRunDoc('run-2_QQQ', {});
       expect(ui.status).toBe('pending');
-      expect(ui.symbols).toEqual([]);
-      expect(ui.totalLists).toBe(0);
+      expect(ui.symbol).toBe('');
       expect(ui.createdAtIso).toBe('');
-    });
-
-    it('maps listOutcomes when present', () => {
-      const ui = convertOptionsReplayRunDoc('run-1', {
-        listOutcomes: { SPY: 'success', QQQ: 'failed' },
-      });
-      expect(ui.listOutcomes).toEqual({ SPY: 'success', QQQ: 'failed' });
-    });
-
-    it('listOutcomes is undefined on legacy docs without it', () => {
-      const ui = convertOptionsReplayRunDoc('run-2', {});
-      expect(ui.listOutcomes).toBeUndefined();
-    });
-
-    it('normalizes listOutcomes keys to match uppercased symbols', () => {
-      const ui = convertOptionsReplayRunDoc('run-1', {
-        symbols: ['spy'],
-        listOutcomes: { spy: 'success' },
-      });
-      expect(ui.listOutcomes).toEqual({ SPY: 'success' });
     });
   });
 

@@ -12,14 +12,11 @@ import type { AnalysisResultDoc } from '@options-analysis/contracts';
 
 function makeRun(overrides: Partial<OptionsReplayRunUi> = {}): OptionsReplayRunUi {
   return {
-    runId: 'run-1',
+    runId: 'run-1_SPY',
     templateId: 'csp-45-20',
-    symbols: ['SPY'],
+    symbol: 'SPY',
     startDate: '2026-01-02',
     status: 'running',
-    totalLists: 1,
-    completedLists: 0,
-    failedLists: 0,
     createdAtIso: '2026-10-28T15:00:00Z',
     ...overrides,
   };
@@ -27,8 +24,9 @@ function makeRun(overrides: Partial<OptionsReplayRunUi> = {}): OptionsReplayRunU
 
 function makeList(overrides: Partial<OptionsContractListUi> = {}): OptionsContractListUi {
   return {
+    // Under single-symbol runs (#1430) the list doc id IS the runId.
     listId: 'run-1_SPY',
-    runId: 'run-1',
+    runId: 'run-1_SPY',
     symbol: 'SPY',
     templateId: 'csp-45-20',
     status: 'success',
@@ -40,7 +38,7 @@ function makeList(overrides: Partial<OptionsContractListUi> = {}): OptionsContra
 function makeResultDoc(overrides: Partial<AnalysisResultDoc> = {}): AnalysisResultDoc {
   return {
     contractListDocId: 'run-1_SPY',
-    runId: 'run-1',
+    runId: 'run-1_SPY',
     symbol: 'SPY',
     templateId: 'csp-45-20',
     exitId: 'exit-1',
@@ -55,7 +53,7 @@ function makeResultDoc(overrides: Partial<AnalysisResultDoc> = {}): AnalysisResu
 
 describe('OptionsReplayStore', () => {
   let runsSubject: Subject<OptionsReplayRunUi[]>;
-  let listsSubject: Subject<OptionsContractListUi[]>;
+  let listsSubject: Subject<OptionsContractListUi | null>;
   let resultsSubject: Subject<AnalysisResultDoc[]>;
   let toast: { open: jest.Mock };
 
@@ -67,9 +65,9 @@ describe('OptionsReplayStore', () => {
 
     const serviceStub = {
       watchRuns: jest.fn(() => runsSubject.asObservable()),
-      watchContractLists: jest.fn(() => listsSubject.asObservable()),
-      startReplay: jest.fn(() => of({ runId: 'new-run-1' })),
-      retryRun: jest.fn(() => of({ retriedSymbols: ['SPY'] })),
+      watchContractList: jest.fn(() => listsSubject.asObservable()),
+      startReplay: jest.fn(() => of({ runIds: ['new-run-1_SPY'] })),
+      retryRun: jest.fn(() => of({ retriedSymbol: 'SPY' })),
     };
 
     const analysisStub = {
@@ -96,7 +94,7 @@ describe('OptionsReplayStore', () => {
 
     runsSubject.next([makeRun()]);
     expect(store.runs().length).toBe(1);
-    expect(store.runs()[0].runId).toBe('run-1');
+    expect(store.runs()[0].runId).toBe('run-1_SPY');
     expect(store.runsStreaming()).toBe(false);
   });
 
@@ -105,9 +103,8 @@ describe('OptionsReplayStore', () => {
     store.loadRuns();
 
     runsSubject.next([makeRun({ status: 'running' })]);
-    runsSubject.next([makeRun({ status: 'completed', completedLists: 1 })]);
+    runsSubject.next([makeRun({ status: 'completed' })]);
     expect(store.runs()[0].status).toBe('completed');
-    expect(store.runs()[0].completedLists).toBe(1);
   });
 
   it('loadRuns is idempotent — one service subscription', async () => {
@@ -122,28 +119,28 @@ describe('OptionsReplayStore', () => {
     store.loadRuns();
     runsSubject.next([makeRun()]);
 
-    store.selectRun('run-1');
+    store.selectRun('run-1_SPY');
     const service = TestBed.inject(OptionsReplayRunsService);
-    expect(service.watchContractLists).toHaveBeenCalledWith('run-1');
+    expect(service.watchContractList).toHaveBeenCalledWith('run-1_SPY');
 
-    listsSubject.next([makeList()]);
-    expect(store.contractLists().length).toBe(1);
-    expect(store.contractLists()[0].symbol).toBe('SPY');
+    listsSubject.next(makeList());
+    expect(store.contractList()).toBeTruthy();
+    expect(store.contractList()?.symbol).toBe('SPY');
     expect(store.listsStreaming()).toBe(false);
-    expect(store.selectedRun()?.runId).toBe('run-1');
+    expect(store.selectedRun()?.runId).toBe('run-1_SPY');
   });
 
   it('selectRun(null) clears lists and stops streaming', async () => {
     const store = await setup();
-    store.selectRun('run-1');
-    listsSubject.next([makeList()]);
+    store.selectRun('run-1_SPY');
+    listsSubject.next(makeList());
 
     store.selectRun(null);
-    expect(store.contractLists()).toEqual([]);
+    expect(store.contractList()).toBeNull();
     expect(store.selectedRun()).toBeNull();
   });
 
-  it('startReplay calls the service, selects the new run, and streams its lists', async () => {
+  it('startReplay calls the service, selects the first new run, and streams its lists', async () => {
     const store = await setup();
     store.loadRuns();
     runsSubject.next([makeRun()]);
@@ -152,9 +149,9 @@ describe('OptionsReplayStore', () => {
 
     const service = TestBed.inject(OptionsReplayRunsService);
     expect(service.startReplay).toHaveBeenCalledWith({ templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-02' });
-    expect(store.selectedRunId()).toBe('new-run-1');
-    expect(service.watchContractLists).toHaveBeenCalledWith('new-run-1');
-    expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('new-run-1'), 'Dismiss', { duration: 30000 });
+    expect(store.selectedRunId()).toBe('new-run-1_SPY');
+    expect(service.watchContractList).toHaveBeenCalledWith('new-run-1_SPY');
+    expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('1 run'), 'Dismiss', { duration: 30000 });
   });
 
   it('startReplay failure snack-bars and leaves selection untouched', async () => {
@@ -180,68 +177,45 @@ describe('OptionsReplayStore', () => {
   });
 
   describe('runRows', () => {
-    it('derives one row per run.symbols entry — a multi-symbol run produces N rows', async () => {
-      const store = await setup();
-      store.loadRuns();
-      runsSubject.next([makeRun({ symbols: ['SPY', 'QQQ', 'IWM'] })]);
-
-      const rows = store.runRows();
-      expect(rows.length).toBe(3);
-      expect(rows.map((r) => r.symbol)).toEqual(['SPY', 'QQQ', 'IWM']);
-      expect(rows.every((r) => r.runId === 'run-1')).toBe(true);
-    });
-
-    it('a single-symbol run produces exactly one row', async () => {
-      const store = await setup();
-      store.loadRuns();
-      runsSubject.next([makeRun({ symbols: ['SPY'] })]);
-      expect(store.runRows().length).toBe(1);
-    });
-
-    it('derives symbolStatus from listOutcomes', async () => {
+    it('derives exactly one row per run — a run IS one symbol (#1430)', async () => {
       const store = await setup();
       store.loadRuns();
       runsSubject.next([
-        makeRun({ symbols: ['SPY', 'QQQ'], listOutcomes: { SPY: 'success', QQQ: 'failed' } }),
+        makeRun({ runId: 'run-a_SPY', symbol: 'SPY' }),
+        makeRun({ runId: 'run-b_QQQ', symbol: 'QQQ' }),
       ]);
-
-      const rows = store.runRows();
-      expect(rows.find((r) => r.symbol === 'SPY')?.symbolStatus).toBe('success');
-      expect(rows.find((r) => r.symbol === 'QQQ')?.symbolStatus).toBe('failed');
-    });
-
-    it('missing symbol entry in listOutcomes derives pending', async () => {
-      const store = await setup();
-      store.loadRuns();
-      runsSubject.next([
-        makeRun({ symbols: ['SPY', 'QQQ'], listOutcomes: { SPY: 'success' } }),
-      ]);
-
-      expect(store.runRows().find((r) => r.symbol === 'QQQ')?.symbolStatus).toBe('pending');
-    });
-
-    it('flips a failed row back to pending when the post-retry snapshot drops the outcome', async () => {
-      const store = await setup();
-      store.loadRuns();
-      runsSubject.next([makeRun({ listOutcomes: { SPY: 'failed' } })]);
-      expect(store.runRows()[0].symbolStatus).toBe('failed');
-
-      // The retry tx deletes the failed entry outright — AC3's mechanism.
-      runsSubject.next([makeRun({ status: 'running', listOutcomes: {} })]);
-      expect(store.runRows()[0].symbolStatus).toBe('pending');
-    });
-
-    it('legacy runs with no listOutcomes produce pending rows without crashing', async () => {
-      const store = await setup();
-      store.loadRuns();
-      runsSubject.next([makeRun({ symbols: ['SPY', 'QQQ'] })]);
 
       const rows = store.runRows();
       expect(rows.length).toBe(2);
-      expect(rows.every((r) => r.symbolStatus === 'pending')).toBe(true);
+      expect(rows.map((r) => [r.runId, r.symbol])).toEqual([
+        ['run-a_SPY', 'SPY'],
+        ['run-b_QQQ', 'QQQ'],
+      ]);
     });
 
-    it('carries run-level fields onto each row', async () => {
+    it('maps the run status onto the row — completed presents as success', async () => {
+      const store = await setup();
+      store.loadRuns();
+      runsSubject.next([
+        makeRun({ runId: 'run-a_SPY', symbol: 'SPY', status: 'completed' }),
+        makeRun({ runId: 'run-b_QQQ', symbol: 'QQQ', status: 'failed' }),
+        makeRun({ runId: 'run-c_IWM', symbol: 'IWM', status: 'running' }),
+      ]);
+
+      const rows = store.runRows();
+      expect(rows.find((r) => r.symbol === 'SPY')?.status).toBe('success');
+      expect(rows.find((r) => r.symbol === 'QQQ')?.status).toBe('failed');
+      expect(rows.find((r) => r.symbol === 'IWM')?.status).toBe('running');
+    });
+
+    it('a pending run produces a pending row — no outcomes map exists to consult', async () => {
+      const store = await setup();
+      store.loadRuns();
+      runsSubject.next([makeRun({ status: 'pending' })]);
+      expect(store.runRows()[0].status).toBe('pending');
+    });
+
+    it('carries run-level fields onto the row', async () => {
       const store = await setup();
       store.loadRuns();
       runsSubject.next([
@@ -250,10 +224,6 @@ describe('OptionsReplayStore', () => {
           startDate: '2026-01-02',
           status: 'running',
           createdAtIso: '2026-10-28T15:00:00Z',
-          completedLists: 1,
-          failedLists: 0,
-          totalLists: 2,
-          symbols: ['SPY'],
         }),
       ]);
 
@@ -261,9 +231,7 @@ describe('OptionsReplayStore', () => {
       expect(row.templateId).toBe('csp-45-20');
       expect(row.startDate).toBe('2026-01-02');
       expect(row.createdAtIso).toBe('2026-10-28T15:00:00Z');
-      expect(row.runStatus).toBe('running');
-      expect(row.completedLists).toBe(1);
-      expect(row.totalLists).toBe(2);
+      expect(row.status).toBe('running');
     });
   });
 
@@ -273,27 +241,28 @@ describe('OptionsReplayStore', () => {
       store.loadRuns();
       runsSubject.next([
         makeRun({
-          runId: 'run-a',
-          symbols: ['SPY'],
+          runId: 'run-a_SPY',
+          symbol: 'SPY',
           templateId: 'csp-45-20',
           startDate: '2026-01-02',
           createdAtIso: '2026-10-28T15:00:00Z',
-          listOutcomes: { SPY: 'success' },
+          status: 'completed',
         }),
         makeRun({
-          runId: 'run-b',
-          symbols: ['QQQ'],
+          runId: 'run-b_QQQ',
+          symbol: 'QQQ',
           templateId: 'csp-30-15',
           startDate: '2026-02-01',
           createdAtIso: '2026-10-27T15:00:00Z',
-          listOutcomes: { QQQ: 'failed' },
+          status: 'failed',
         }),
         makeRun({
-          runId: 'run-c',
-          symbols: ['IWM'],
+          runId: 'run-c_IWM',
+          symbol: 'IWM',
           templateId: 'csp-45-20',
           startDate: '2026-03-01',
           createdAtIso: '2026-10-26T15:00:00Z',
+          status: 'pending',
         }),
       ]);
       return store;
@@ -306,10 +275,10 @@ describe('OptionsReplayStore', () => {
 
     it('default sort is createdAt descending', async () => {
       const store = await seededStore();
-      expect(store.filteredRows().map((r) => r.runId)).toEqual(['run-a', 'run-b', 'run-c']);
+      expect(store.filteredRows().map((r) => r.runId)).toEqual(['run-a_SPY', 'run-b_QQQ', 'run-c_IWM']);
     });
 
-    it('status filter matches symbolStatus, not run status', async () => {
+    it('status filter matches the row status', async () => {
       const store = await seededStore();
       store.setStatusFilter('failed');
       expect(store.filteredRows().map((r) => r.symbol)).toEqual(['QQQ']);
@@ -348,7 +317,7 @@ describe('OptionsReplayStore', () => {
       const store = await seededStore();
       store.setSortBy('createdAt');
       store.setSortDirection('asc');
-      expect(store.filteredRows().map((r) => r.runId)).toEqual(['run-c', 'run-b', 'run-a']);
+      expect(store.filteredRows().map((r) => r.runId)).toEqual(['run-c_IWM', 'run-b_QQQ', 'run-a_SPY']);
     });
 
     it('sorts by startDate in both directions', async () => {
@@ -392,170 +361,169 @@ describe('OptionsReplayStore', () => {
   });
 
   describe('selectRow', () => {
-    it('sets selectedRunId + selectedSymbol and streams the run\'s contract lists', async () => {
+    it('sets selectedRunId and streams the run\'s contract list', async () => {
       const store = await setup();
       store.loadRuns();
-      runsSubject.next([makeRun({ symbols: ['SPY', 'QQQ'] })]);
+      runsSubject.next([makeRun()]);
 
-      store.selectRow({ runId: 'run-1', symbol: 'QQQ' });
-      expect(store.selectedRunId()).toBe('run-1');
-      expect(store.selectedSymbol()).toBe('QQQ');
-      expect(TestBed.inject(OptionsReplayRunsService).watchContractLists).toHaveBeenCalledWith('run-1');
+      store.selectRow('run-1_SPY');
+      expect(store.selectedRunId()).toBe('run-1_SPY');
+      expect(TestBed.inject(OptionsReplayRunsService).watchContractList).toHaveBeenCalledWith('run-1_SPY');
 
-      listsSubject.next([makeList({ symbol: 'QQQ', listId: 'run-1_QQQ' })]);
-      expect(store.contractLists()[0].symbol).toBe('QQQ');
+      listsSubject.next(makeList());
+      expect(store.contractList()?.symbol).toBe('SPY');
     });
 
-    it('same-run symbol hop keeps the existing list stream', async () => {
+    it('a same-run reselect keeps the existing list stream', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
 
-      store.selectRow({ runId: 'run-1', symbol: 'SPY' });
-      store.selectRow({ runId: 'run-1', symbol: 'QQQ' });
+      store.selectRow('run-1_SPY');
+      store.selectRow('run-1_SPY');
 
-      expect(service.watchContractLists).toHaveBeenCalledTimes(1);
-      expect(store.selectedSymbol()).toBe('QQQ');
+      expect(service.watchContractList).toHaveBeenCalledTimes(1);
+      expect(store.selectedRunId()).toBe('run-1_SPY');
     });
 
-    it('cross-run selection restreams that run\'s contract lists', async () => {
+    it('cross-run selection restreams that run\'s contract list', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
 
-      store.selectRow({ runId: 'run-1', symbol: 'SPY' });
-      store.selectRow({ runId: 'run-2', symbol: 'IWM' });
+      store.selectRow('run-1_SPY');
+      store.selectRow('run-2_QQQ');
 
-      expect(service.watchContractLists).toHaveBeenCalledTimes(2);
-      expect(service.watchContractLists).toHaveBeenLastCalledWith('run-2');
-      expect(store.selectedRunId()).toBe('run-2');
-      expect(store.selectedSymbol()).toBe('IWM');
+      expect(service.watchContractList).toHaveBeenCalledTimes(2);
+      expect(service.watchContractList).toHaveBeenLastCalledWith('run-2_QQQ');
+      expect(store.selectedRunId()).toBe('run-2_QQQ');
     });
 
-    it('same-run hop restreams when the list stream died on an error', async () => {
+    it('a same-run reselect restreams when the list stream died on an error', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
 
-      store.selectRow({ runId: 'run-1', symbol: 'SPY' });
-      expect(service.watchContractLists).toHaveBeenCalledTimes(1);
+      store.selectRow('run-1_SPY');
+      expect(service.watchContractList).toHaveBeenCalledTimes(1);
 
       // watchStream's catchError swallows the error into of([]) → the
       // subscription completes → .closed — a same-run reselect must restream.
       listsSubject.error(new Error('denied'));
 
-      store.selectRow({ runId: 'run-1', symbol: 'QQQ' });
-      expect(service.watchContractLists).toHaveBeenCalledTimes(2);
-      expect(service.watchContractLists).toHaveBeenLastCalledWith('run-1');
-      expect(store.selectedSymbol()).toBe('QQQ');
+      store.selectRow('run-1_SPY');
+      expect(service.watchContractList).toHaveBeenCalledTimes(2);
+      expect(service.watchContractList).toHaveBeenLastCalledWith('run-1_SPY');
     });
 
-    it('selectRun clears selectedSymbol', async () => {
+    it('selectRun sets the selection to the runId', async () => {
       const store = await setup();
-      store.selectRow({ runId: 'run-1', symbol: 'SPY' });
-      expect(store.selectedSymbol()).toBe('SPY');
+      store.selectRow('run-1_SPY');
+      expect(store.selectedRunId()).toBe('run-1_SPY');
 
-      store.selectRun('run-1');
-      expect(store.selectedSymbol()).toBeNull();
+      store.selectRun('run-2_QQQ');
+      expect(store.selectedRunId()).toBe('run-2_QQQ');
     });
   });
 
   describe('retryRun', () => {
-    it('calls optionsReplayRetry with the runId and toasts the retried count', async () => {
+    it('calls optionsReplayRetry with the runId and toasts the retried symbol', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
 
-      store.retryRun('run-1');
+      store.retryRun('run-1_SPY');
 
-      expect(service.retryRun).toHaveBeenCalledWith('run-1');
+      expect(service.retryRun).toHaveBeenCalledWith('run-1_SPY');
       expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('SPY'), 'Dismiss', { duration: 30000 });
     });
 
     it('marks the run retrying for the in-flight window and ignores a second click', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
-      const pending = new Subject<{ retriedSymbols: string[] }>();
+      const pending = new Subject<{ retriedSymbol: string | null }>();
       (service.retryRun as jest.Mock).mockReturnValue(pending.asObservable());
 
-      store.retryRun('run-1');
-      expect(store.retryingRunIds().has('run-1')).toBe(true);
+      store.retryRun('run-1_SPY');
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(true);
 
-      store.retryRun('run-1');
+      store.retryRun('run-1_SPY');
       expect(service.retryRun).toHaveBeenCalledTimes(1);
 
       // The flag is per-run — a different run's retry is not blocked.
-      store.retryRun('run-2');
+      store.retryRun('run-2_QQQ');
       expect(service.retryRun).toHaveBeenCalledTimes(2);
-      expect(service.retryRun).toHaveBeenLastCalledWith('run-2');
+      expect(service.retryRun).toHaveBeenLastCalledWith('run-2_QQQ');
     });
 
-    it('holds the in-flight flag after a real retry until the runs snapshot shows the failed outcomes gone', async () => {
+    it('holds the in-flight flag after a real retry until the snapshot fingerprint changes', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
-      const pending = new Subject<{ retriedSymbols: string[] }>();
+      const pending = new Subject<{ retriedSymbol: string | null }>();
       (service.retryRun as jest.Mock).mockReturnValue(pending.asObservable());
       store.loadRuns();
-      runsSubject.next([makeRun({ status: 'failed', listOutcomes: { SPY: 'failed' } })]);
+      runsSubject.next([makeRun({ status: 'failed', updatedAtIso: '2026-10-28T15:00:00Z' })]);
 
-      store.retryRun('run-1');
-      pending.next({ retriedSymbols: ['SPY'] });
+      store.retryRun('run-1_SPY');
+      pending.next({ retriedSymbol: 'SPY' });
       // Response settled but the doc snapshot hasn't caught up — the
       // flag closes the re-click gap.
-      expect(store.retryingRunIds().has('run-1')).toBe(true);
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(true);
 
-      // A stale pre-retry snapshot (failed outcome still present) keeps it.
-      runsSubject.next([makeRun({ status: 'failed', listOutcomes: { SPY: 'failed' } })]);
-      expect(store.retryingRunIds().has('run-1')).toBe(true);
+      // A stale pre-retry snapshot (same status + updatedAt fingerprint)
+      // keeps it.
+      runsSubject.next([makeRun({ status: 'failed', updatedAtIso: '2026-10-28T15:00:00Z' })]);
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(true);
 
-      // Post-retry snapshot — the BE deleted the failed outcome; prune.
-      runsSubject.next([makeRun({ status: 'running', listOutcomes: {} })]);
-      expect(store.retryingRunIds().has('run-1')).toBe(false);
+      // Post-retry snapshot — the retry tx flipped status + re-stamped
+      // updatedAt; the fingerprint changed → prune.
+      runsSubject.next([makeRun({ status: 'running', updatedAtIso: '2026-10-28T15:01:00Z' })]);
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(false);
     });
 
-    it('clears the flag on a running snapshot even if a fast re-failure coalesces a failed outcome into it', async () => {
+    it('clears the flag when a fast re-failure coalesces into the post-retry snapshot', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
-      const pending = new Subject<{ retriedSymbols: string[] }>();
+      const pending = new Subject<{ retriedSymbol: string | null }>();
       (service.retryRun as jest.Mock).mockReturnValue(pending.asObservable());
       store.loadRuns();
-      runsSubject.next([makeRun({ status: 'failed', listOutcomes: { SPY: 'failed' } })]);
+      runsSubject.next([makeRun({ status: 'failed', updatedAtIso: '2026-10-28T15:00:00Z' })]);
 
-      store.retryRun('run-1');
-      pending.next({ retriedSymbols: ['SPY'] });
-      expect(store.retryingRunIds().has('run-1')).toBe(true);
+      store.retryRun('run-1_SPY');
+      pending.next({ retriedSymbol: 'SPY' });
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(true);
 
-      // A retried symbol that re-fails fast can land 'failed' back into
-      // listOutcomes inside the same delivery as the post-tx 'running'
-      // flip — the zero-failed predicate alone would strand the flag
-      // forever. Status 'running' proves the retry landed.
-      runsSubject.next([makeRun({ status: 'running', listOutcomes: { SPY: 'failed' } })]);
-      expect(store.retryingRunIds().has('run-1')).toBe(false);
+      // A retried run that re-fails before the 'running' snapshot is
+      // delivered lands 'failed' + a NEW updatedAt — the fingerprint
+      // differs from the pre-retry doc, so the flag still prunes and the
+      // rerun button re-enables (the run is retryable again).
+      runsSubject.next([makeRun({ status: 'failed', updatedAtIso: '2026-10-28T15:02:00Z' })]);
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(false);
     });
 
     it('prunes the flag when the run drops out of the snapshot', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
-      const pending = new Subject<{ retriedSymbols: string[] }>();
+      const pending = new Subject<{ retriedSymbol: string | null }>();
       (service.retryRun as jest.Mock).mockReturnValue(pending.asObservable());
       store.loadRuns();
-      runsSubject.next([makeRun({ status: 'failed', listOutcomes: { SPY: 'failed' } })]);
+      runsSubject.next([makeRun({ status: 'failed' })]);
 
-      store.retryRun('run-1');
-      pending.next({ retriedSymbols: ['SPY'] });
-      expect(store.retryingRunIds().has('run-1')).toBe(true);
+      store.retryRun('run-1_SPY');
+      pending.next({ retriedSymbol: 'SPY' });
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(true);
 
       // Deleted doc / evicted from the top-50 window — nothing left to
       // protect; holding would leak a dead disable forever.
       runsSubject.next([]);
-      expect(store.retryingRunIds().has('run-1')).toBe(false);
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(false);
     });
 
-    it('reports nothing-to-retry when the callable returns an empty symbol list', async () => {
+    it('reports nothing-to-retry when the callable returns a null retriedSymbol', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
-      (service.retryRun as jest.Mock).mockReturnValue(of({ retriedSymbols: [] }));
+      (service.retryRun as jest.Mock).mockReturnValue(of({ retriedSymbol: null }));
 
-      store.retryRun('run-1');
+      store.retryRun('run-1_SPY');
 
       expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Nothing to retry'), 'Dismiss', { duration: 30000 });
-      expect(store.retryingRunIds().has('run-1')).toBe(false);
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(false);
     });
 
     it('toasts the failure and clears the in-flight flag on error', async () => {
@@ -563,20 +531,20 @@ describe('OptionsReplayStore', () => {
       const service = TestBed.inject(OptionsReplayRunsService);
       (service.retryRun as jest.Mock).mockReturnValue(throwError(() => new Error('unavailable')));
 
-      store.retryRun('run-1');
+      store.retryRun('run-1_SPY');
 
       expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Retry failed'), 'Dismiss', { duration: 30000 });
-      expect(store.retryingRunIds().has('run-1')).toBe(false);
+      expect(store.retryingRunIds().has('run-1_SPY')).toBe(false);
     });
   });
 
   describe('analysis results stream', () => {
     it('streams result docs for the selected run', async () => {
       const store = await setup();
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
 
       const service = TestBed.inject(OptionsAnalysisRunsService);
-      expect(service.watchResultDocs).toHaveBeenCalledWith('run-1');
+      expect(service.watchResultDocs).toHaveBeenCalledWith('run-1_SPY');
 
       resultsSubject.next([makeResultDoc()]);
       expect(store.analysisResults().length).toBe(1);
@@ -585,7 +553,7 @@ describe('OptionsReplayStore', () => {
 
     it('marks ready only on SUCCESS docs — a failed doc keeps Analyze enabled', async () => {
       const store = await setup();
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
 
       resultsSubject.next([makeResultDoc({ status: 'failed', error: 'series fetch failed' })]);
       expect(store.analysisResults().length).toBe(1);
@@ -597,7 +565,7 @@ describe('OptionsReplayStore', () => {
 
     it('clears result docs when the selection is cleared', async () => {
       const store = await setup();
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
       resultsSubject.next([makeResultDoc()]);
 
       store.selectRun(null);
@@ -607,13 +575,13 @@ describe('OptionsReplayStore', () => {
 
     it('restarts the stream on a run switch and clears stale docs up front', async () => {
       const store = await setup();
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
       resultsSubject.next([makeResultDoc()]);
       expect(store.analysisResults().length).toBe(1);
 
-      store.selectRun('run-2');
+      store.selectRun('run-2_QQQ');
       const service = TestBed.inject(OptionsAnalysisRunsService);
-      expect(service.watchResultDocs).toHaveBeenCalledWith('run-2');
+      expect(service.watchResultDocs).toHaveBeenCalledWith('run-2_QQQ');
       expect(store.analysisResults()).toEqual([]);
     });
   });
@@ -621,7 +589,7 @@ describe('OptionsReplayStore', () => {
   describe('startAnalysis', () => {
     it('calls the callable and toasts success', async () => {
       const store = await setup();
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
 
       store.startAnalysis('run-1_SPY');
 
@@ -635,7 +603,7 @@ describe('OptionsReplayStore', () => {
       const service = TestBed.inject(OptionsAnalysisRunsService);
       const pending = new Subject<{ analysisId: string }>();
       (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
 
       store.startAnalysis('run-1_SPY');
       pending.next({ analysisId: 'run-1_SPY' });
@@ -652,7 +620,7 @@ describe('OptionsReplayStore', () => {
       const service = TestBed.inject(OptionsAnalysisRunsService);
       const pending = new Subject<{ analysisId: string }>();
       (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
 
       store.startAnalysis('run-1_SPY');
       store.startAnalysis('run-1_SPY');
@@ -665,17 +633,17 @@ describe('OptionsReplayStore', () => {
       const service = TestBed.inject(OptionsAnalysisRunsService);
       const pending = new Subject<{ analysisId: string }>();
       (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
 
       store.startAnalysis('run-1_SPY');
       pending.next({ analysisId: 'run-1_SPY' });
 
       // A doc for another list is progress elsewhere — not this flag's
       // completion signal.
-      resultsSubject.next([makeResultDoc({ contractListDocId: 'run-1_QQQ', symbol: 'QQQ' })]);
+      resultsSubject.next([makeResultDoc({ contractListDocId: 'run-2_QQQ', symbol: 'QQQ' })]);
       expect(store.analyzingListIds().has('run-1_SPY')).toBe(true);
 
-      resultsSubject.next([makeResultDoc({ contractListDocId: 'run-1_QQQ', symbol: 'QQQ' }), makeResultDoc()]);
+      resultsSubject.next([makeResultDoc({ contractListDocId: 'run-2_QQQ', symbol: 'QQQ' }), makeResultDoc()]);
       expect(store.analyzingListIds().has('run-1_SPY')).toBe(false);
     });
 
@@ -684,7 +652,7 @@ describe('OptionsReplayStore', () => {
       const service = TestBed.inject(OptionsAnalysisRunsService);
       const pending = new Subject<{ analysisId: string }>();
       (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
 
       store.startAnalysis('run-1_SPY');
       pending.next({ analysisId: 'run-1_SPY' });
@@ -699,7 +667,7 @@ describe('OptionsReplayStore', () => {
       const store = await setup();
       const service = TestBed.inject(OptionsAnalysisRunsService);
       (service.startAnalysis as jest.Mock).mockReturnValue(throwError(() => new Error('failed-precondition')));
-      store.selectRun('run-1');
+      store.selectRun('run-1_SPY');
 
       store.startAnalysis('run-1_SPY');
 

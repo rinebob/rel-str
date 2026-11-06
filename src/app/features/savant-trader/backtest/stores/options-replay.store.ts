@@ -2,7 +2,7 @@
  * Options Replay Store
  *
  * NgRx SignalStore for the Selection Replay surface — replay runs,
- * the selected run, and its per-symbol contract lists, all realtime.
+ * the selected run, and its contract list (1:1 per run, #1430), all realtime.
  * Deliberately separate from BacktestRunStore: the replay namespace is
  * a different data model (pick-doc selections, not sim trades).
  */
@@ -28,11 +28,10 @@ import { OptionsAnalysisRunsService } from '../services/options-analysis-runs.se
 
 export interface OptionsReplayState {
   runs: OptionsReplayRunUi[];
-  /** One selection object — runId always set, symbol only for row-level
-   *  selection. selectedRunId/selectedSymbol derive from it so the pair
-   *  can never drift apart. */
+  /** Selected runId — a row IS a run (#1430); the symbol is always
+   *  derivable from the run doc, so selection carries no symbol join. */
   selection: ReplaySelection | null;
-  contractLists: OptionsContractListUi[];
+  contractList: OptionsContractListUi | null;
   isLoading: boolean;
   runsStreaming: boolean;
   listsStreaming: boolean;
@@ -41,11 +40,13 @@ export interface OptionsReplayState {
   symbolSearch: string;
   sortBy: ReplaySortBy;
   sortDirection: ReplaySortDirection;
-  /** Runs with an in-flight optionsReplayRetry call — guards the rerun
-   *  action's double-click window; the runs listener prunes it once the
-   *  snapshot proves the retry landed (status 'running' or failed
-   *  outcomes gone). */
-  retryingRunIds: ReadonlySet<string>;
+  /** Runs with an in-flight optionsReplayRetry call — runId → the
+   *  pre-retry fingerprint `${status}|${updatedAtIso}` of the run doc.
+   *  The runs listener prunes an entry once a snapshot shows a different
+   *  fingerprint (or drops the run): that proves the retry landed while
+   *  distinguishing a stale pre-retry 'failed' doc from a post-retry
+   *  re-failure (which carries a fresh updatedAt). */
+  retryingRuns: ReadonlyMap<string, string>;
   /** Analysis result docs for the selected run — drives the
    *  Analyze → View Results flip on each contract-list card. */
   analysisResults: AnalysisResultDoc[];
@@ -78,14 +79,14 @@ const DEFAULT_REPLAY_FILTERS = {
 const initialState: OptionsReplayState = {
   runs: [],
   selection: null,
-  contractLists: [],
+  contractList: null,
   isLoading: false,
   runsStreaming: false,
   listsStreaming: false,
   ...DEFAULT_REPLAY_FILTERS,
   sortBy: 'createdAt',
   sortDirection: 'desc',
-  retryingRunIds: new Set<string>(),
+  retryingRuns: new Map<string, string>(),
   analysisResults: [],
   analyzingListIds: new Set<string>(),
 };
@@ -95,36 +96,28 @@ export const OptionsReplayStore = signalStore(
   withState(initialState),
 
   withComputed((state) => {
-    /** One list row per (runId, symbol) — a run's symbol set fans out into
-     *  rows; symbol status comes from listOutcomes with 'pending' when the
-     *  run doc hasn't recorded an outcome for that symbol. Local computed so
-     *  filteredRows can chain off it (same-block computeds aren't on state). */
+    /** One list row per run — runs are single-symbol (#1430) so a row IS
+     *  a run; 'completed' maps to 'success' (the contract-list vocabulary
+     *  the row presents). Local computed so filteredRows can chain off it
+     *  (same-block computeds aren't on state). */
     const runRows = computed((): ReplayListRow[] => {
-      return state.runs().flatMap((run) =>
-        run.symbols.map((symbol) => ({
-          runId: run.runId,
-          symbol,
-          templateId: run.templateId,
-          startDate: run.startDate,
-          createdAtIso: run.createdAtIso,
-          runStatus: run.status,
-          symbolStatus: run.listOutcomes?.[symbol] ?? 'pending',
-          completedLists: run.completedLists,
-          failedLists: run.failedLists,
-          totalLists: run.totalLists,
-        }))
-      );
+      return state.runs().map((run) => ({
+        runId: run.runId,
+        symbol: run.symbol,
+        templateId: run.templateId,
+        startDate: run.startDate,
+        createdAtIso: run.createdAtIso,
+        status: run.status === 'completed' ? 'success' : run.status,
+      }));
     });
 
     return {
-      /** Selected run id / symbol — derived views of the single selection
-       *  object (see OptionsReplayState.selection). */
-      selectedRunId: computed(() => state.selection()?.runId ?? null),
-      selectedSymbol: computed(() => state.selection()?.symbol ?? null),
+      /** Selected run id — the selection value itself. */
+      selectedRunId: computed(() => state.selection()),
 
       /** The currently selected run, if any. */
       selectedRun: computed(() => {
-        const id = state.selection()?.runId;
+        const id = state.selection();
         return id ? state.runs().find((r) => r.runId === id) ?? null : null;
       }),
 
@@ -133,7 +126,7 @@ export const OptionsReplayStore = signalStore(
 
       runRows,
 
-      /** runRows filtered by symbol status, template, and symbol search
+      /** runRows filtered by row status, template, and symbol search
        *  (case-insensitive substring), then sorted. */
       filteredRows: computed((): ReplayListRow[] => {
         const status = state.statusFilter();
@@ -143,7 +136,7 @@ export const OptionsReplayStore = signalStore(
         const sortDirection = state.sortDirection();
 
         const filtered = runRows().filter((row) => {
-          if (status !== 'all' && row.symbolStatus !== status) return false;
+          if (status !== 'all' && row.status !== status) return false;
           if (template !== 'all' && row.templateId !== template) return false;
           if (symbolSearch && !row.symbol.toUpperCase().includes(symbolSearch)) return false;
           return true;
@@ -163,6 +156,10 @@ export const OptionsReplayStore = signalStore(
           return sortDirection === 'asc' ? cmp : -cmp;
         });
       }),
+
+      /** RunIds with an in-flight retry — the public Set view of the
+       *  internal fingerprint map (component contract unchanged). */
+      retryingRunIds: computed(() => new Set(state.retryingRuns().keys())),
 
       /** Contract-list docIds carrying ≥1 SUCCESS analysis result doc —
        *  flips the card's Analyze button to View Results. Failed docs are
@@ -195,8 +192,9 @@ export const OptionsReplayStore = signalStore(
 
     function watchStream<T>(
       label: string,
-      source: Observable<T[]>,
-      onValue: (value: T[]) => void,
+      source: Observable<T>,
+      onValue: (value: T) => void,
+      fallback: T,
       startPatch: Partial<OptionsReplayState>,
       stopPatch: Partial<OptionsReplayState>
     ): Subscription {
@@ -208,11 +206,11 @@ export const OptionsReplayStore = signalStore(
           console.error(`[OptionsReplayStore] Failed to stream ${label}`, err);
           const message = buildReplayErrorMessage(err);
           toast.open(`Failed to stream ${label}: ${message}`, 'Dismiss', { duration: 30000 });
-          return of<T[]>([]);
+          return of<T>(fallback);
         }),
         takeUntilDestroyed(destroyRef),
       ).subscribe({
-        next: (value: T[]) => {
+        next: (value: T) => {
           onValue(value);
           patchState(state, stopPatch);
         },
@@ -232,7 +230,7 @@ export const OptionsReplayStore = signalStore(
       resultsSubscription = null;
       if (!runId) {
         patchState(state, {
-          contractLists: [],
+          contractList: null,
           listsStreaming: false,
           analysisResults: [],
           analyzingListIds: new Set<string>(),
@@ -241,12 +239,13 @@ export const OptionsReplayStore = signalStore(
       }
 
       listsSubscription = watchStream(
-        'contract lists',
-        runsService.watchContractLists(runId),
-        (contractLists) => patchState(state, { contractLists }),
-        // Clear up front — otherwise the new run's cards briefly join
-        // against the previous run's lists until the first snapshot.
-        { contractLists: [], listsStreaming: true },
+        'contract list',
+        runsService.watchContractList(runId),
+        (contractList) => patchState(state, { contractList }),
+        null,
+        // Clear up front — otherwise the new run's card briefly reads
+        // the previous run's list until the first snapshot.
+        { contractList: null, listsStreaming: true },
         { listsStreaming: false }
       );
 
@@ -268,13 +267,14 @@ export const OptionsReplayStore = signalStore(
         // Same run-scoped reset — stale docs from the previous run must
         // not mark its cards ready; in-flight flags belong to the old
         // run's stream and never resolve from the new one.
+        [],
         { analysisResults: [], analyzingListIds: new Set<string>() },
         {}
       );
     }
 
     function applyRunSelection(runId: string | null): void {
-      patchState(state, { selection: runId ? { runId, symbol: null } : null });
+      patchState(state, { selection: runId });
       loadRunStreams(runId);
     }
 
@@ -287,32 +287,29 @@ export const OptionsReplayStore = signalStore(
           'replay runs',
           runsService.watchRuns(50),
           (runs) => {
-            const retrying = state.retryingRunIds();
+            const retrying = state.retryingRuns();
             if (retrying.size === 0) {
               patchState(state, { runs });
               return;
             }
-            // Snapshot is post-retry truth: the retry tx flips
-            // status→'running' in the same commit that deletes the failed
-            // outcomes, so either signal proves the retry landed even if
-            // Firestore coalescing skipped the clean post-tx state — e.g.
-            // a retried symbol re-failing fast would otherwise leave every
-            // delivered snapshot with a failed outcome and strand the flag
-            // forever. A run absent from the snapshot has nothing left to
-            // protect. A run still 'completed'/'failed' WITH a failed
-            // outcome keeps the flag — that closes the re-click gap while
-            // the stale pre-retry doc is still streaming.
+            // Snapshot is post-retry truth when the run's fingerprint
+            // changed — the retry tx flips status→'running' and stamps a
+            // fresh updatedAt, so ANY fingerprint change proves the retry
+            // landed: a still-'failed' re-failure carries a new updatedAt
+            // and prunes, while a stale pre-retry snapshot keeps the old
+            // fingerprint and holds the flag (closing the re-click gap).
+            // A run absent from the snapshot has nothing left to protect.
             const byId = new Map(runs.map((r) => [r.runId, r] as const));
-            const next = new Set(retrying);
-            for (const id of retrying) {
+            const next = new Map(retrying);
+            for (const [id, fingerprint] of retrying) {
               const run = byId.get(id);
-              const hasFailedOutcome = run
-                ? Object.values(run.listOutcomes ?? {}).some((s) => s === 'failed')
-                : false;
-              if (!run || run.status === 'running' || !hasFailedOutcome) next.delete(id);
+              if (!run || `${run.status}|${run.updatedAtIso ?? ''}` !== fingerprint) {
+                next.delete(id);
+              }
             }
-            patchState(state, next.size === retrying.size ? { runs } : { runs, retryingRunIds: next });
+            patchState(state, next.size === retrying.size ? { runs } : { runs, retryingRuns: next });
           },
+          [],
           { isLoading: true, runsStreaming: true },
           { isLoading: false, runsStreaming: false }
         );
@@ -324,19 +321,19 @@ export const OptionsReplayStore = signalStore(
         applyRunSelection(runId);
       },
 
-      /** Select a (runId, symbol) row — the detail panel auto-expands that
-       *  symbol's contract-list card. Same-run symbol hops keep the
-       *  existing list stream unless it died on an earlier error. */
-      selectRow(selection: ReplaySelection): void {
+      /** Select a run row — the detail panel shows its contract-list
+       *  card. A re-click on the same run keeps the existing streams
+       *  unless they died on an earlier error. */
+      selectRow(runId: string): void {
         // Both run-scoped streams restart together — a dead results stream
         // with a live lists stream must still trigger the restart or the
-        // cards silently lose View Results updates for the session.
+        // card silently loses View Results updates for the session.
         const streamDead =
           !listsSubscription || listsSubscription.closed ||
           !resultsSubscription || resultsSubscription.closed;
-        const isNewRun = state.selection()?.runId !== selection.runId;
-        patchState(state, { selection });
-        if (isNewRun || streamDead) loadRunStreams(selection.runId);
+        const isNewRun = state.selection() !== runId;
+        patchState(state, { selection: runId });
+        if (isNewRun || streamDead) loadRunStreams(runId);
       },
 
       setStatusFilter(filter: ReplayStatusFilter): void {
@@ -378,22 +375,27 @@ export const OptionsReplayStore = signalStore(
           .subscribe((response) => {
             patchState(state, { isLoading: false });
             if (response) {
-              toast.open(`Replay started: ${response.runId}`, 'Dismiss', { duration: 30000 });
-              applyRunSelection(response.runId);
+              const count = response.runIds.length;
+              toast.open(
+                `Replay started: ${count} run${count === 1 ? '' : 's'}`,
+                'Dismiss', { duration: 30000 }
+              );
+              if (count > 0) applyRunSelection(response.runIds[0]);
             }
           });
       },
 
-      /** Re-run a run's failed symbol list docs. The BE is already
-       *  idempotent (no-ops on pending/running/cancelled and on empty
-       *  failed sets), so the local flag only covers the callable's
-       *  in-flight window plus the snapshot lag — the run listener prunes
-       *  it once the doc's failed outcomes are gone, which also flips the
-       *  doc back to 'running' and hides the row's rerun button. */
+      /** Re-run a failed run's contract list. The BE is already
+       *  idempotent (no-ops on anything but 'failed'), so the local flag
+       *  only covers the callable's in-flight window plus the snapshot
+       *  lag — the run listener prunes it once the doc's fingerprint
+       *  proves the retry landed. */
       retryRun(runId: string): void {
-        if (state.retryingRunIds().has(runId)) return;
+        if (state.retryingRuns().has(runId)) return;
+        const run = state.runs().find((r) => r.runId === runId);
+        const fingerprint = `${run?.status ?? ''}|${run?.updatedAtIso ?? ''}`;
         patchState(state, {
-          retryingRunIds: new Set(state.retryingRunIds()).add(runId),
+          retryingRuns: new Map(state.retryingRuns()).set(runId, fingerprint),
         });
 
         runsService
@@ -413,17 +415,16 @@ export const OptionsReplayStore = signalStore(
             // or a no-op response. On a real retry the flag holds until
             // the runs snapshot confirms the post-retry state, closing
             // the re-click gap (see loadRuns' prune above).
-            if (!response || response.retriedSymbols.length === 0) {
-              const next = new Set(state.retryingRunIds());
+            if (!response || response.retriedSymbol === null) {
+              const next = new Map(state.retryingRuns());
               next.delete(runId);
-              patchState(state, { retryingRunIds: next });
+              patchState(state, { retryingRuns: next });
             }
             if (response) {
-              const retried = response.retriedSymbols;
               toast.open(
-                retried.length > 0
-                  ? `Retrying ${retried.length} failed symbol${retried.length === 1 ? '' : 's'}: ${retried.join(', ')}`
-                  : 'Nothing to retry — no failed symbols',
+                response.retriedSymbol !== null
+                  ? `Retrying failed run for ${response.retriedSymbol}`
+                  : 'Nothing to retry — the run is not failed',
                 'Dismiss', { duration: 30000 }
               );
             }

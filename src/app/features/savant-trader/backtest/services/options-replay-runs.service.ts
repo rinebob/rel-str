@@ -9,7 +9,7 @@
 
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Firestore, collection, collectionData, query, where, orderBy, limit } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, doc, docData, query, orderBy, limit } from '@angular/fire/firestore';
 import { Observable, from, map } from 'rxjs';
 
 import type {
@@ -47,10 +47,10 @@ export class OptionsReplayRunsService {
   }
 
   /**
-   * Re-run the failed per-symbol list docs of an existing run. The BE
-   * no-ops on pending/running/cancelled runs and on runs with nothing
-   * failed, returning `{ retriedSymbols: [] }`. Throws for
-   * missing/unknown runs and enqueue failures.
+   * Re-run a failed single-symbol run in place. The BE no-ops on
+   * pending/running/cancelled/completed runs, returning
+   * `{ retriedSymbol: null }`. Throws for missing/unknown runs and
+   * enqueue failures.
    */
   retryRun(runId: string): Observable<OptionsReplayRetryResponse> {
     return from(runInInjectionContext(this.injector, () => {
@@ -78,17 +78,16 @@ export class OptionsReplayRunsService {
   }
 
   /**
-   * Watch all contract-list docs for a given run in realtime (symbol asc).
+   * Watch the run's contract-list doc in realtime. Runs are single-symbol
+   * (#1430) so docId IS the runId — a direct doc read, no query/index.
+   * Emits null while the doc doesn't exist (worker hasn't written yet).
    */
-  watchContractLists(runId: string): Observable<OptionsContractListUi[]> {
+  watchContractList(runId: string): Observable<OptionsContractListUi | null> {
     return from(runInInjectionContext(this.injector, () => {
-      const listsRef = collection(this.firestore, this.listsCollection);
-      const listsQuery = query(listsRef, where('runId', '==', runId), orderBy('symbol'));
-      return collectionData(listsQuery, { idField: 'listId' }) as Observable<Record<string, unknown>[]>;
+      const listRef = doc(this.firestore, this.listsCollection, runId);
+      return docData(listRef, { idField: 'listId' }) as Observable<Record<string, unknown> | undefined>;
     })).pipe(
-      map((docs) =>
-        docs.map((d) => convertOptionsContractListDoc(String(d['listId'] ?? d['id']), d))
-      )
+      map((d) => (d ? convertOptionsContractListDoc(String(d['listId'] ?? runId), d) : null))
     );
   }
 }

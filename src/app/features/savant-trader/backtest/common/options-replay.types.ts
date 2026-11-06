@@ -10,7 +10,6 @@
 import type {
   ContractListRow,
   OptionsContractListStatus,
-  OptionsReplayRun,
   OptionsReplayRunStatus,
   PickDocMeta,
 } from '@options-replay/contracts';
@@ -18,26 +17,23 @@ import type { BacktestSortDirection } from './backtest.types';
 
 export type { ContractListRow, OptionsContractListStatus, OptionsReplayRunStatus, PickDocMeta };
 
-/** Run header — UI view of `st-options-replay-runs/{runId}`. */
+/** Run header — UI view of `st-options-replay-runs/{runId}`. A run is ONE
+ *  (template, symbol, startDate) selection (#1430) — its status IS its
+ *  contract list's status. */
 export interface OptionsReplayRunUi {
   runId: string;
   templateId: string;
-  symbols: string[];
+  symbol: string;
   startDate: string;
   status: OptionsReplayRunStatus;
-  totalLists: number;
-  completedLists: number;
-  failedLists: number;
-  /** Per-symbol list outcome stamped by the worker. Absent on legacy runs —
-   *  absent entries derive as 'pending'. */
-  listOutcomes?: OptionsReplayRun['listOutcomes'];
   createdAtIso: string;
   updatedAtIso?: string;
   completedAtIso?: string;
   error?: string;
 }
 
-/** Per-symbol contract list — UI view of `st-options-contract-lists/{runId}_{symbol}`. */
+/** Per-run contract list — UI view of `st-options-contract-lists/{runId}`
+ *  (listId IS the runId under single-symbol runs). */
 export interface OptionsContractListUi {
   listId: string;
   runId: string;
@@ -55,33 +51,25 @@ export interface OptionsContractListUi {
 // Run-list rows + filters
 // ==========================
 
-/** Symbol-level outcome for a run-list row — the listOutcomes vocabulary
- *  plus 'pending' when the run doc hasn't recorded an outcome yet. */
-export type ReplaySymbolStatus = 'pending' | 'success' | 'failed';
+/** Row status vocabulary — the run's status with 'completed' mapped
+ *  to 'success' (the contract-list vocabulary the row presents). */
+export type ReplayRowStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
 
-/** One row per (runId, symbol) — the unit the replay run list renders. */
+/** One row per run — runs are single-symbol (#1430), so a row IS a run. */
 export interface ReplayListRow {
   runId: string;
   symbol: string;
   templateId: string;
   startDate: string;
   createdAtIso: string;
-  runStatus: OptionsReplayRunStatus;
-  symbolStatus: ReplaySymbolStatus;
-  /** Run-level progress counters carried onto each row for display. */
-  completedLists: number;
-  failedLists: number;
-  totalLists: number;
+  status: ReplayRowStatus;
 }
 
-/** Selection state — a run always carries its runId; the symbol is present
- *  only for row-level selection (run-level selection stores null). */
-export interface ReplaySelection {
-  runId: string;
-  symbol: string | null;
-}
+/** Selection state — a row IS a run (#1430), so selection is just its
+ *  runId; the symbol is always derivable from the run doc. */
+export type ReplaySelection = string;
 
-/** Status filter composes on the row's symbolStatus, not the run status. */
-export type ReplayStatusFilter = 'all' | ReplaySymbolStatus;
+/** Status filter composes on the row's mapped status. */
+export type ReplayStatusFilter = 'all' | ReplayRowStatus;
 export type ReplaySortBy = 'createdAt' | 'startDate' | 'symbol';
 export type ReplaySortDirection = BacktestSortDirection;
