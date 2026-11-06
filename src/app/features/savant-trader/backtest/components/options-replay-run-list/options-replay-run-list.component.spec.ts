@@ -7,16 +7,12 @@ import type { ReplayListRow, ReplaySelection } from '../../common/options-replay
 
 function makeRow(overrides: Partial<ReplayListRow> = {}): ReplayListRow {
   return {
-    runId: '2026-10-28_wed_150000_manual_ab1c',
+    runId: '2026-10-28_wed_150000_manual_ab1c_SPY',
     symbol: 'SPY',
     templateId: 'csp-45-20',
     startDate: '2026-01-02',
     createdAtIso: '2026-10-28T15:00:00Z',
-    runStatus: 'running',
-    symbolStatus: 'success',
-    completedLists: 1,
-    failedLists: 0,
-    totalLists: 2,
+    status: 'success',
     ...overrides,
   };
 }
@@ -33,11 +29,11 @@ describe('OptionsReplayRunListComponent', () => {
     return { fixture, component: fixture.componentInstance };
   }
 
-  it('renders one row per derived (runId, symbol) row', async () => {
+  it('renders one row per run — a run IS one symbol (#1430)', async () => {
     const { component, fixture } = await setup([
       makeRow({ symbol: 'SPY' }),
-      makeRow({ symbol: 'QQQ', symbolStatus: 'pending' }),
-      makeRow({ runId: 'run-b', symbol: 'IWM', symbolStatus: 'failed' }),
+      makeRow({ runId: 'run-b_QQQ', symbol: 'QQQ', status: 'pending' }),
+      makeRow({ runId: 'run-c_IWM', symbol: 'IWM', status: 'failed' }),
     ]);
 
     expect(component.viewRows().length).toBe(3);
@@ -50,14 +46,12 @@ describe('OptionsReplayRunListComponent', () => {
     expect(el.textContent).toContain('IWM');
   });
 
-  it('renders template name, start date, and progress context from the run', async () => {
+  it('renders template name and start date from the run', async () => {
     const { component, fixture } = await setup();
     const row = component.viewRows()[0];
 
     expect(row.templateName).toBe('45DTE 20Δ put (CSP)');
     expect(row.startDateText).toBe('2026-01-02');
-    expect(row.progressText).toBe('1 / 2');
-    expect(row.progressCompletedPercent).toBe(50);
 
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('45DTE 20Δ put (CSP)');
@@ -69,48 +63,47 @@ describe('OptionsReplayRunListComponent', () => {
     expect(component.viewRows()[0].templateName).toBe('retired-x');
   });
 
-  it('maps symbolStatus to icon/color visuals', async () => {
+  it('maps row status to icon/color visuals', async () => {
     const { component } = await setup([
-      makeRow({ symbol: 'SPY', symbolStatus: 'success' }),
-      makeRow({ symbol: 'QQQ', symbolStatus: 'failed' }),
-      makeRow({ symbol: 'IWM', symbolStatus: 'pending' }),
+      makeRow({ symbol: 'SPY', status: 'success' }),
+      makeRow({ symbol: 'QQQ', status: 'failed' }),
+      makeRow({ symbol: 'IWM', status: 'pending' }),
     ]);
     const rows = component.viewRows();
-    expect(rows[0].symbolStatusIconName).toBe('check_circle');
-    expect(rows[1].symbolStatusIconName).toBe('error');
-    expect(rows[2].symbolStatusIconName).toBe('schedule');
+    expect(rows[0].statusIconName).toBe('check_circle');
+    expect(rows[1].statusIconName).toBe('error');
+    expect(rows[2].statusIconName).toBe('schedule');
   });
 
   it('shows a failed badge only on failed rows', async () => {
     const { fixture } = await setup([
-      makeRow({ symbol: 'SPY', symbolStatus: 'success' }),
-      makeRow({ symbol: 'QQQ', symbolStatus: 'failed' }),
+      makeRow({ symbol: 'SPY', status: 'success' }),
+      makeRow({ symbol: 'QQQ', status: 'failed' }),
     ]);
     const badges = fixture.nativeElement.querySelectorAll('.failed-badge');
     expect(badges.length).toBe(1);
     expect(badges[0].textContent.trim()).toBe('failed');
   });
 
-  it('emits the (runId, symbol) pair on row click', async () => {
+  it('emits the runId on row click', async () => {
     const { component, fixture } = await setup([
       makeRow({ symbol: 'SPY' }),
-      makeRow({ symbol: 'QQQ' }),
+      makeRow({ runId: '2026-10-28_wed_150000_manual_zx9q_QQQ', symbol: 'QQQ' }),
     ]);
     const emitted: ReplaySelection[] = [];
     component.selectRow.subscribe((sel) => emitted.push(sel));
 
     const rows = fixture.nativeElement.querySelectorAll('tr.run-row');
     (rows[1] as HTMLElement).click();
-    expect(emitted).toEqual([{ runId: '2026-10-28_wed_150000_manual_ab1c', symbol: 'QQQ' }]);
+    expect(emitted).toEqual(['2026-10-28_wed_150000_manual_zx9q_QQQ']);
   });
 
-  it('marks the selected row by the composite runId + symbol key', async () => {
+  it('marks the selected row by runId — the symbol is implied (#1430)', async () => {
     const { component, fixture } = await setup([
       makeRow({ symbol: 'SPY' }),
-      makeRow({ symbol: 'QQQ' }),
+      makeRow({ runId: '2026-10-28_wed_150000_manual_zx9q_QQQ', symbol: 'QQQ' }),
     ]);
-    fixture.componentRef.setInput('selectedRunId', '2026-10-28_wed_150000_manual_ab1c');
-    fixture.componentRef.setInput('selectedSymbol', 'QQQ');
+    fixture.componentRef.setInput('selectedRunId', '2026-10-28_wed_150000_manual_zx9q_QQQ');
     fixture.detectChanges();
 
     const rows = fixture.nativeElement.querySelectorAll('tr.run-row');
@@ -118,18 +111,13 @@ describe('OptionsReplayRunListComponent', () => {
     expect(rows[1].classList.contains('selected')).toBe(true);
   });
 
-  it('does not mark a row selected when only the runId matches', async () => {
+  it('marks no row selected when the selectedRunId matches none', async () => {
     const { fixture } = await setup([makeRow({ symbol: 'SPY' })]);
-    fixture.componentRef.setInput('selectedRunId', '2026-10-28_wed_150000_manual_ab1c');
+    fixture.componentRef.setInput('selectedRunId', 'run-other_QQQ');
     fixture.detectChanges();
 
     const row = fixture.nativeElement.querySelector('tr.run-row');
     expect(row.classList.contains('selected')).toBe(false);
-  });
-
-  it('progress text is a dash when totalLists is zero', async () => {
-    const { component } = await setup([makeRow({ totalLists: 0, completedLists: 0 })]);
-    expect(component.viewRows()[0].progressText).toBe('—');
   });
 
   it('renders the empty state when there are no rows', async () => {
@@ -148,9 +136,9 @@ describe('OptionsReplayRunListComponent', () => {
   describe('rerun action', () => {
     it('renders the rerun button only on failed symbol rows', async () => {
       const { fixture } = await setup([
-        makeRow({ symbol: 'SPY', symbolStatus: 'failed' }),
-        makeRow({ symbol: 'QQQ', symbolStatus: 'success' }),
-        makeRow({ symbol: 'IWM', symbolStatus: 'pending' }),
+        makeRow({ symbol: 'SPY', status: 'failed' }),
+        makeRow({ symbol: 'QQQ', status: 'success' }),
+        makeRow({ symbol: 'IWM', status: 'pending' }),
       ]);
 
       const rows = fixture.nativeElement.querySelectorAll('tr.run-row');
@@ -161,7 +149,7 @@ describe('OptionsReplayRunListComponent', () => {
 
     it('emits the runId on rerun click without triggering row selection', async () => {
       const { component, fixture } = await setup([
-        makeRow({ runId: 'run-failed', symbolStatus: 'failed', runStatus: 'failed' }),
+        makeRow({ runId: 'run-failed', status: 'failed' }),
       ]);
       const reruns: string[] = [];
       const selections: ReplaySelection[] = [];
@@ -174,45 +162,33 @@ describe('OptionsReplayRunListComponent', () => {
       expect(selections).toEqual([]);
     });
 
-    it('disables the action while the run is pending, running, or cancelled', async () => {
+    it('a failed row\'s action is enabled unless its retry is in flight', async () => {
+      // Under single-symbol runs the row status IS the run status — the
+      // old pending/running/cancelled disable branches were unreachable
+      // (a `failed` row can't also be pending) and were removed (#1430 r1).
       const { fixture } = await setup([
-        makeRow({ symbol: 'SPY', symbolStatus: 'failed', runStatus: 'running' }),
-        makeRow({ symbol: 'QQQ', symbolStatus: 'failed', runStatus: 'pending' }),
-        makeRow({ symbol: 'AMAT', symbolStatus: 'failed', runStatus: 'cancelled' }),
-        makeRow({ symbol: 'IWM', symbolStatus: 'failed', runStatus: 'failed' }),
-        // Partial failure converges to 'completed' — the dominant
-        // real-world retry case must stay enabled.
-        makeRow({ symbol: 'NVDA', symbolStatus: 'failed', runStatus: 'completed' }),
+        makeRow({ symbol: 'SPY', status: 'failed' }),
       ]);
 
-      const rows = fixture.nativeElement.querySelectorAll('tr.run-row');
-      expect((rows[0].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(true);
-      expect((rows[1].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(true);
-      // The BE refuses to resurrect a cancelled run — no dead button.
-      expect((rows[2].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(true);
-      expect((rows[3].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(false);
-      expect((rows[4].querySelector('.rerun-btn') as HTMLButtonElement).disabled).toBe(false);
+      const btn = fixture.nativeElement.querySelector('.rerun-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
     });
 
-    it('disables every failed row of a run while its retry is in flight', async () => {
+    it('disables the failed row while its retry is in flight', async () => {
       const { fixture } = await setup([
-        makeRow({ runId: 'run-retrying', symbol: 'SPY', symbolStatus: 'failed', runStatus: 'completed' }),
-        makeRow({ runId: 'run-retrying', symbol: 'QQQ', symbolStatus: 'failed', runStatus: 'completed' }),
+        makeRow({ runId: 'run-retrying', symbol: 'SPY', status: 'failed' }),
       ]);
       fixture.componentRef.setInput('retryingRunIds', new Set(['run-retrying']));
       fixture.detectChanges();
 
-      // Retry is run-scoped — one click retries all failed symbols, so
-      // every row of the run disables together.
       const buttons = fixture.nativeElement.querySelectorAll('.rerun-btn') as NodeListOf<HTMLButtonElement>;
-      expect(buttons.length).toBe(2);
+      expect(buttons.length).toBe(1);
       expect(buttons[0].disabled).toBe(true);
-      expect(buttons[1].disabled).toBe(true);
     });
 
     it('disables the action while a retry is already in flight for the run', async () => {
       const { fixture } = await setup([
-        makeRow({ runId: 'run-retrying', symbolStatus: 'failed', runStatus: 'failed' }),
+        makeRow({ runId: 'run-retrying', status: 'failed' }),
       ]);
       fixture.componentRef.setInput('retryingRunIds', new Set(['run-retrying']));
       fixture.detectChanges();

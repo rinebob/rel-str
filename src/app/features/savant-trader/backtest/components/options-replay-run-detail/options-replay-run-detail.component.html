@@ -9,26 +9,25 @@
     </div>
     <div class="header-meta">
       <span class="meta-item" [title]="run().templateId">{{ templateName() }}</span>
-      <span class="meta-item" [title]="run().symbols.join(', ')">{{ run().symbols.join(', ') }}</span>
+      <span class="meta-item">{{ run().symbol }}</span>
       <span class="meta-item">from {{ run().startDate }}</span>
-      <span class="meta-item">{{ progressText() }}</span>
     </div>
     @if (run().error) {
       <div class="run-error">{{ run().error }}</div>
     }
   </header>
 
-  <div class="symbol-grid">
-    @for (view of symbolViews(); track view.symbol) {
-      <div class="symbol-card" [class.failed]="view.statusLabel === 'failed'">
-        <div class="symbol-card-header">
+  <div class="list-card-wrap">
+    @if (listView(); as view) {
+      <div class="list-card" [class.failed]="view.statusLabel === 'failed'">
+        <div class="list-card-header">
           <span
             class="dse-icon status-icon"
             [style.color]="view.statusColorName" [title]="view.statusLabel">
             {{ view.statusIconName }}
           </span>
-          <span class="symbol-name">{{ view.symbol }}</span>
-          <span class="symbol-status">{{ view.statusLabel }}</span>
+          <span class="list-symbol">{{ view.symbol }}</span>
+          <span class="list-status">{{ view.statusLabel }}</span>
           @if (view.list) {
             @if (view.hasResults) {
               <a
@@ -48,23 +47,23 @@
             }
           }
         </div>
-        <div class="symbol-card-body">
+        <div class="list-card-body">
           @if (view.rowCount !== null) {
             <button
               type="button"
               class="row-toggle"
-              [attr.aria-expanded]="expandedSymbols().has(view.symbol)"
-              (click)="toggleExpanded(view.symbol)">
+              [attr.aria-expanded]="expanded()"
+              (click)="toggleExpanded()">
               <span class="dse-icon toggle-icon">
-                {{ expandedSymbols().has(view.symbol) ? 'expand_less' : 'expand_more' }}
+                {{ expanded() ? 'expand_less' : 'expand_more' }}
               </span>
               {{ view.rowCount }} rows
             </button>
           }
           @if (view.error) {
-            <div class="symbol-error" [title]="view.error">{{ view.error }}</div>
+            <div class="list-error" [title]="view.error">{{ view.error }}</div>
           }
-          @if (expandedSymbols().has(view.symbol) && view.list) {
+          @if (expanded() && view.list) {
             <app-options-replay-contract-list-table
               [rows]="view.list.rows"
               [pickDocMeta]="view.list.pickDocMeta"
@@ -75,7 +74,7 @@
     }
   </div>
 
-  @if (isLoadingLists() && contractLists().length === 0) {
-    <div class="loading-note">Loading contract lists…</div>
+  @if (isLoadingLists() && !contractList()) {
+    <div class="loading-note">Loading contract list…</div>
   }
 </div>

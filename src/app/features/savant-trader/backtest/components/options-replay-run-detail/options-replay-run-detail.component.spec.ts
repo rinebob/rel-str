@@ -10,14 +10,11 @@ import type { OptionsContractListUi, OptionsReplayRunUi } from '../../common/opt
 
 function makeRun(overrides: Partial<OptionsReplayRunUi> = {}): OptionsReplayRunUi {
   return {
-    runId: 'run-1',
+    runId: 'run-1_SPY',
     templateId: 'csp-45-20',
-    symbols: ['SPY', 'QQQ'],
+    symbol: 'SPY',
     startDate: '2026-01-02',
     status: 'running',
-    totalLists: 2,
-    completedLists: 1,
-    failedLists: 0,
     createdAtIso: '2026-10-28T15:00:00Z',
     ...overrides,
   };
@@ -47,7 +44,7 @@ function makePickRow() {
 function makeList(overrides: Partial<OptionsContractListUi> = {}): OptionsContractListUi {
   return {
     listId: 'run-1_SPY',
-    runId: 'run-1',
+    runId: 'run-1_SPY',
     symbol: 'SPY',
     templateId: 'csp-45-20',
     status: 'success',
@@ -59,7 +56,7 @@ function makeList(overrides: Partial<OptionsContractListUi> = {}): OptionsContra
 describe('OptionsReplayRunDetailComponent', () => {
   const dialogStub = { open: jest.fn() };
 
-  async function setup(run = makeRun(), lists: OptionsContractListUi[] = []) {
+  async function setup(run = makeRun(), list: OptionsContractListUi | null = null) {
     await TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -71,80 +68,77 @@ describe('OptionsReplayRunDetailComponent', () => {
 
     const fixture = TestBed.createComponent(OptionsReplayRunDetailComponent);
     fixture.componentRef.setInput('run', run);
-    fixture.componentRef.setInput('contractLists', lists);
+    fixture.componentRef.setInput('contractList', list);
     fixture.detectChanges();
     return { fixture, component: fixture.componentInstance };
   }
 
-  it('renders the run header with resolved template name and progress', async () => {
+  it('renders the run header with resolved template name and the run\'s symbol', async () => {
     const { component, fixture } = await setup();
     expect(component.templateName()).toBe('45DTE 20Δ put (CSP)');
-    expect(component.progressText()).toBe('1 / 2 lists');
 
     const text: string = fixture.nativeElement.textContent;
     expect(text).toContain('45DTE 20Δ put (CSP)');
-    expect(text).toContain('SPY, QQQ');
+    expect(text).toContain('SPY');
     expect(text).toContain('from 2026-01-02');
   });
 
-  it('builds one symbol card per run symbol — missing doc shows pending', async () => {
-    const { component } = await setup(makeRun(), [makeList()]);
-    const views = component.symbolViews();
+  it('builds exactly one list card for the run — missing doc shows pending', async () => {
+    const { component } = await setup(makeRun());
+    const view = component.listView();
 
-    expect(views.length).toBe(2);
-    expect(views[0].symbol).toBe('SPY');
-    expect(views[0].statusLabel).toBe('success');
-    expect(views[0].rowCount).toBe(0);
-    expect(views[1].symbol).toBe('QQQ');
-    expect(views[1].statusLabel).toBe('pending');
-    expect(views[1].rowCount).toBeNull();
+    expect(view).not.toBeNull();
+    expect(view!.symbol).toBe('SPY');
+    expect(view!.statusLabel).toBe('pending');
+    expect(view!.rowCount).toBeNull();
   });
 
-  it('surfaces a failed list error on its symbol card', async () => {
-    const lists = [makeList({ status: 'failed', error: 'pick doc not found for SPY-put-20-45' })];
-    const { component, fixture } = await setup(makeRun(), lists);
+  it('surfaces a failed list error on the card', async () => {
+    const list = makeList({ status: 'failed', error: 'pick doc not found for SPY-put-20-45' });
+    const { component, fixture } = await setup(makeRun(), list);
 
-    expect(component.symbolViews()[0].statusLabel).toBe('failed');
-    expect(component.symbolViews()[0].error).toContain('SPY-put-20-45');
+    expect(component.listView()!.statusLabel).toBe('failed');
+    expect(component.listView()!.error).toContain('SPY-put-20-45');
     expect(fixture.nativeElement.textContent).toContain('pick doc not found');
   });
 
-  it('renders a symbol card per symbol in the template', async () => {
-    const { fixture } = await setup(makeRun(), [makeList()]);
-    expect(fixture.nativeElement.querySelectorAll('.symbol-card').length).toBe(2);
-    expect(fixture.nativeElement.querySelectorAll('.symbol-card.failed').length).toBe(0);
+  it('renders the run\'s single list card in the template', async () => {
+    const { fixture } = await setup(makeRun(), makeList());
+    expect(fixture.nativeElement.querySelectorAll('.list-card').length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('.list-card.failed').length).toBe(0);
   });
 
-  it('keeps the row table collapsed until the row-count toggle is clicked', async () => {
-    const { component, fixture } = await setup(makeRun(), [makeList({ rows: [makePickRow()] })]);
-    expect(fixture.nativeElement.querySelector('app-options-replay-contract-list-table')).toBeNull();
-
-    fixture.nativeElement.querySelector('.row-toggle').click();
+  it('expands the row table on run select — the toggle collapses/re-expands', async () => {
+    const { component, fixture } = await setup(makeRun(), makeList({ rows: [makePickRow()] }));
+    await fixture.whenStable();
     fixture.detectChanges();
-    expect(component.expandedSymbols().has('SPY')).toBe(true);
+    // Selecting a run IS intent to see its list — the card mounts expanded.
+    expect(component.expanded()).toBe(true);
     expect(fixture.nativeElement.querySelector('app-options-replay-contract-list-table')).toBeTruthy();
 
     fixture.nativeElement.querySelector('.row-toggle').click();
     fixture.detectChanges();
-    expect(component.expandedSymbols().has('SPY')).toBe(false);
-  });
-
-  it('auto-expands the selectedSymbol card so its contract list is visible', async () => {
-    const { component, fixture } = await setup(makeRun(), [
-      makeList({ rows: [makePickRow()] }),
-      makeList({ listId: 'run-1_QQQ', symbol: 'QQQ', rows: [makePickRow()] }),
-    ]);
-
+    expect(component.expanded()).toBe(false);
     expect(fixture.nativeElement.querySelector('app-options-replay-contract-list-table')).toBeNull();
 
-    fixture.componentRef.setInput('selectedSymbol', 'QQQ');
+    fixture.nativeElement.querySelector('.row-toggle').click();
+    fixture.detectChanges();
+    expect(component.expanded()).toBe(true);
+  });
+
+  it('re-expands on a run switch — a manual collapse does not leak across runs', async () => {
+    const { component, fixture } = await setup(makeRun(), makeList({ rows: [makePickRow()] }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    component.toggleExpanded();
+    expect(component.expanded()).toBe(false);
+
+    fixture.componentRef.setInput('run', makeRun({ runId: 'run-2_QQQ', symbol: 'QQQ' }));
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(component.expandedSymbols().has('QQQ')).toBe(true);
-    expect(component.expandedSymbols().has('SPY')).toBe(false);
-    expect(fixture.nativeElement.querySelectorAll('app-options-replay-contract-list-table').length).toBe(1);
+    expect(component.expanded()).toBe(true);
   });
 
   it('opens the series dialog with the row contractId + symbol + entryDate', async () => {
@@ -167,7 +161,7 @@ describe('OptionsReplayRunDetailComponent', () => {
     }
 
     it('renders an enabled Analyze button on a success card and emits the listDocId', async () => {
-      const { component, fixture } = await setup(makeRun(), [makeList()]);
+      const { component, fixture } = await setup(makeRun(), makeList());
       let emitted: string | null = null;
       component.analyze.subscribe((id: string) => (emitted = id));
 
@@ -181,23 +175,20 @@ describe('OptionsReplayRunDetailComponent', () => {
       expect(emitted).toBe('run-1_SPY');
     });
 
-    it('disables Analyze on pending and failed cards', async () => {
-      const { fixture } = await setup(makeRun(), [
-        makeList({ status: 'failed', listId: 'run-1_SPY' }),
-      ]);
+    it('disables Analyze on a failed card', async () => {
+      const { fixture } = await setup(makeRun(), makeList({ status: 'failed' }));
       const buttons: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('.analysis-btn');
-      // SPY card has a failed doc → disabled button. QQQ has no doc → no button.
       expect(buttons.length).toBe(1);
       expect(buttons[0].disabled).toBe(true);
     });
 
     it('renders no analysis action when the card has no list doc', async () => {
-      const { fixture } = await setup(makeRun(), []);
+      const { fixture } = await setup(makeRun());
       expect(fixture.nativeElement.querySelectorAll('.analysis-btn').length).toBe(0);
     });
 
     it('disables the button while its list analysis is in flight', async () => {
-      const { fixture } = await setup(makeRun(), [makeList()]);
+      const { fixture } = await setup(makeRun(), makeList());
       fixture.componentRef.setInput('analyzingListIds', new Set(['run-1_SPY']));
       fixture.detectChanges();
 
@@ -207,7 +198,7 @@ describe('OptionsReplayRunDetailComponent', () => {
     });
 
     it('renders View Results link when result docs exist for the list', async () => {
-      const { fixture } = await setup(makeRun(), [makeList()]);
+      const { fixture } = await setup(makeRun(), makeList());
       fixture.componentRef.setInput('analysisReadyListIds', new Set(['run-1_SPY']));
       fixture.detectChanges();
 

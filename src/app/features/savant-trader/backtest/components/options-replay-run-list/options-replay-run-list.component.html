@@ -9,12 +9,11 @@
           <th class="col-created">Created</th>
           <th class="col-template">Template</th>
           <th class="col-start-date">Start Date</th>
-          <th class="col-progress">Progress</th>
           <th class="col-failed">Failed</th>
         </tr>
       </thead>
       <tbody>
-        @for (row of viewRows(); track row.runId + '_' + row.symbol) {
+        @for (row of viewRows(); track row.runId) {
           <tr
             class="run-row"
             [class.selected]="row.isSelected"
@@ -22,8 +21,8 @@
             <td class="col-status">
               <span
                 class="dse-icon status-icon" aria-hidden="true"
-                [style.color]="row.symbolStatusColorName" [title]="row.symbolStatus">
-                {{ row.symbolStatusIconName }}
+                [style.color]="row.statusColorName" [title]="row.status">
+                {{ row.statusIconName }}
               </span>
             </td>
             <td class="col-symbol">{{ row.symbol }}</td>
@@ -31,23 +30,14 @@
             <td class="col-created">{{ row.formattedCreated }}</td>
             <td class="col-template">{{ row.templateName }}</td>
             <td class="col-start-date">{{ row.startDateText }}</td>
-            <td class="col-progress">
-              <div class="progress-with-bar">
-                <span>{{ row.progressText }}</span>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill completed" [style.width.%]="row.progressCompletedPercent"></div>
-                  <div class="progress-bar-fill failed" [style.width.%]="row.progressFailedPercent"></div>
-                </div>
-              </div>
-            </td>
             <td class="col-failed">
               @if (row.showRerun) {
                 <span class="failed-badge">failed</span>
                 <button
                   type="button"
                   class="rerun-btn icon-btn"
-                  title="Re-run failed symbols"
-                  aria-label="Re-run failed symbols"
+                  title="Re-run this failed run"
+                  aria-label="Re-run this failed run"
                   [disabled]="row.rerunDisabled"
                   (click)="onRerun(row, $event)">
                   <span class="dse-icon" aria-hidden="true">replay</span>

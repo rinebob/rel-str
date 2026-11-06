@@ -45,8 +45,8 @@ describe('OptionsReplayRunControlsComponent', () => {
     component.statusFilterChange.subscribe(spy);
 
     const pills = el.querySelectorAll<HTMLButtonElement>('.status-pills .pill-btn');
-    // All / Pending / Success / Failed — click 'Failed'
-    pills[3].click();
+    // All / Pending / Running / Success / Failed / Cancelled — click 'Failed'
+    pills[4].click();
     expect(spy).toHaveBeenCalledWith('failed');
   });
 

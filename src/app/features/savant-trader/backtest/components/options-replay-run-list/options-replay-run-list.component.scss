@@ -57,33 +57,6 @@
   text-overflow: ellipsis;
 }
 
-.progress-with-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 90px;
-}
-
-.progress-bar-bg {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--mat-sys-surface-variant);
-  overflow: hidden;
-  display: flex;
-}
-
-.progress-bar-fill {
-  height: 100%;
-
-  &.completed {
-    background: var(--mat-sys-primary);
-  }
-
-  &.failed {
-    background: var(--mat-sys-error);
-  }
-}
-
 .failed-badge {
   display: inline-block;
   min-width: 20px;

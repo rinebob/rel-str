@@ -77,7 +77,6 @@
         <app-options-replay-run-list
           [rows]="replayStore.filteredRows()"
           [selectedRunId]="replayStore.selectedRunId()"
-          [selectedSymbol]="replayStore.selectedSymbol()"
           [isLoading]="replayStore.isLoading()"
           [hasActiveFilters]="replayStore.hasActiveFilters()"
           [retryingRunIds]="replayStore.retryingRunIds()"
@@ -89,9 +88,8 @@
         <div class="detail-panel">
           <app-options-replay-run-detail
             [run]="replayStore.selectedRun()!"
-            [contractLists]="replayStore.contractLists()"
+            [contractList]="replayStore.contractList()"
             [isLoadingLists]="replayStore.listsStreaming()"
-            [selectedSymbol]="replayStore.selectedSymbol()"
             [analysisReadyListIds]="replayStore.analysisReadyListIds()"
             [analyzingListIds]="replayStore.analyzingListIds()"
             (analyze)="replayStore.startAnalysis($event)" />

@@ -47,8 +47,10 @@ export class OptionsReplayRunControlsComponent {
   readonly statusOptions: { label: string; value: ReplayStatusFilter }[] = [
     { label: 'All', value: 'all' },
     { label: 'Pending', value: 'pending' },
+    { label: 'Running', value: 'running' },
     { label: 'Success', value: 'success' },
     { label: 'Failed', value: 'failed' },
+    { label: 'Cancelled', value: 'cancelled' },
   ];
 
   /** Template options come straight from the seeded shared registry —

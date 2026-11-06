@@ -1,15 +1,14 @@
 /**
  * Options Replay Run List Component
  *
- * Per-symbol rows table for the Selection Replay section — one row per
- * (runId, symbol) derived upstream by OptionsReplayStore.runRows /
- * filteredRows. Shows symbol-level status (from the run's listOutcomes),
- * run ID, created timestamp, template name (resolved from the shared
- * REPLAY_TEMPLATES registry), and run-level progress context with a
- * failed badge. Row click emits the (runId, symbol) pair. Failed-symbol
- * rows get a run-scoped rerun action (`rerun` output) that re-queues all
- * of the run's failed symbols via `optionsReplayRetry`; `retryingRunIds`
- * disables it while a retry is in flight.
+ * Per-run rows table for the Selection Replay section — one row per run
+ * doc (runs are single-symbol, #1430) derived upstream by
+ * OptionsReplayStore.runRows / filteredRows. Shows the run's status
+ * ('completed' presented as 'success'), run ID, created timestamp, and
+ * template name (resolved from the shared REPLAY_TEMPLATES registry).
+ * Row click emits the runId. Failed rows get a rerun action (`rerun`
+ * output) that re-queues the run via `optionsReplayRetry`;
+ * `retryingRunIds` disables it while a retry is in flight.
  */
 import { Component, input, output, ChangeDetectionStrategy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -18,22 +17,19 @@ import type { ReplayListRow, ReplaySelection } from '../../common/options-replay
 import { getReplayTemplate } from '@options-replay/templates';
 import { getBacktestStatusVisuals, formatBacktestTimestamp, formatBacktestRunId } from '../../utils/backtest.utils';
 
-/** View model that pre-computes all display values for a per-symbol row. */
-export interface OptionsReplaySymbolListRow extends ReplayListRow {
+/** View model that pre-computes all display values for a run row. */
+export interface OptionsReplayRunRow extends ReplayListRow {
   formattedRunId: string;
   formattedCreated: string;
   startDateText: string;
   templateName: string;
-  symbolStatusColorName: string;
-  symbolStatusIconName: string;
-  progressText: string;
-  progressCompletedPercent: number;
-  progressFailedPercent: number;
+  statusColorName: string;
+  statusIconName: string;
   isSelected: boolean;
-  /** symbolStatus === 'failed' — the rerun affordance exists only there. */
+  /** status === 'failed' — the rerun affordance exists only there. */
   showRerun: boolean;
-  /** In-flight run (pending/running), cancelled (BE won't resurrect), or
-   *  a retry already dispatched. */
+  /** A retry already dispatched — the BE only retries `failed` runs, so
+   *  the in-flight flag is the only disable that can apply here. */
   rerunDisabled: boolean;
 }
 
@@ -45,10 +41,9 @@ export interface OptionsReplaySymbolListRow extends ReplayListRow {
   styleUrl: './options-replay-run-list.component.scss',
 })
 export class OptionsReplayRunListComponent {
-  /** Derived per-symbol rows — store-side runRows/filteredRows. */
+  /** Derived run rows — store-side runRows/filteredRows. */
   readonly rows = input<ReplayListRow[]>([]);
   readonly selectedRunId = input<string | null>(null);
-  readonly selectedSymbol = input<string | null>(null);
   readonly isLoading = input<boolean>(false);
   /** True when the store's filters are narrowing the row set — the empty
    *  state then reads as a filter miss, not an empty surface. */
@@ -59,12 +54,11 @@ export class OptionsReplayRunListComponent {
   readonly retryingRunIds = input<ReadonlySet<string>>(new Set());
 
   readonly selectRow = output<ReplaySelection>();
-  /** Re-run the run's failed symbol list docs — emits runId. */
+  /** Re-run a failed run — emits runId. */
   readonly rerun = output<string>();
 
-  readonly viewRows = computed((): OptionsReplaySymbolListRow[] => {
+  readonly viewRows = computed((): OptionsReplayRunRow[] => {
     const selRunId = this.selectedRunId();
-    const selSymbol = this.selectedSymbol();
     const retrying = this.retryingRunIds();
     return this.rows().map((row) => ({
       ...row,
@@ -72,23 +66,16 @@ export class OptionsReplayRunListComponent {
       formattedCreated: formatBacktestTimestamp(row.createdAtIso),
       startDateText: row.startDate || '—',
       templateName: getReplayTemplate(row.templateId)?.name ?? row.templateId,
-      symbolStatusColorName: getBacktestStatusVisuals(row.symbolStatus).color,
-      symbolStatusIconName: getBacktestStatusVisuals(row.symbolStatus).icon,
-      progressText: this.buildProgressText(row),
-      progressCompletedPercent: this.buildProgressCompletedPercent(row),
-      progressFailedPercent: this.buildProgressFailedPercent(row),
-      isSelected: selRunId === row.runId && selSymbol === row.symbol,
-      showRerun: row.symbolStatus === 'failed',
-      rerunDisabled:
-        row.runStatus === 'pending' ||
-        row.runStatus === 'running' ||
-        row.runStatus === 'cancelled' ||
-        retrying.has(row.runId),
+      statusColorName: getBacktestStatusVisuals(row.status).color,
+      statusIconName: getBacktestStatusVisuals(row.status).icon,
+      isSelected: selRunId === row.runId,
+      showRerun: row.status === 'failed',
+      rerunDisabled: retrying.has(row.runId),
     }));
   });
 
   onSelect(row: ReplayListRow): void {
-    this.selectRow.emit({ runId: row.runId, symbol: row.symbol });
+    this.selectRow.emit(row.runId);
   }
 
   /** Row action — the button lives inside the clickable row, so swallow
@@ -96,23 +83,5 @@ export class OptionsReplayRunListComponent {
   onRerun(row: ReplayListRow, event: Event): void {
     event.stopPropagation();
     this.rerun.emit(row.runId);
-  }
-
-  private buildProgressText(row: ReplayListRow): string {
-    const total = row.totalLists || 0;
-    if (total === 0) return '—';
-    return `${row.completedLists || 0} / ${total}`;
-  }
-
-  private buildProgressCompletedPercent(row: ReplayListRow): number {
-    const total = row.totalLists || 0;
-    if (total === 0) return 0;
-    return Math.round(((row.completedLists || 0) / total) * 100);
-  }
-
-  private buildProgressFailedPercent(row: ReplayListRow): number {
-    const total = row.totalLists || 0;
-    if (total === 0) return 0;
-    return Math.round(((row.failedLists || 0) / total) * 100);
   }
 }

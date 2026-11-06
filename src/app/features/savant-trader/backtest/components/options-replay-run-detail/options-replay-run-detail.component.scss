@@ -44,13 +44,13 @@
   color: var(--mat-sys-error);
 }
 
-.symbol-grid {
+.list-card-wrap {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.symbol-card {
+.list-card {
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 8px;
   padding: 8px 10px;
@@ -60,17 +60,17 @@
   }
 }
 
-.symbol-card-header {
+.list-card-header {
   display: flex;
   align-items: center;
   gap: 8px;
 
-  .symbol-name {
+  .list-symbol {
     font-weight: 600;
     font-size: 13px;
   }
 
-  .symbol-status {
+  .list-status {
     margin-left: auto;
     color: var(--mat-sys-on-surface-variant);
     font-size: 11px;
@@ -98,7 +98,7 @@
   }
 }
 
-.symbol-card-body {
+.list-card-body {
   margin-top: 4px;
   display: flex;
   flex-direction: column;
@@ -127,7 +127,7 @@
     }
   }
 
-  .symbol-error {
+  .list-error {
     font-size: 11px;
     color: var(--mat-sys-error);
     white-space: nowrap;

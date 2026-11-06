@@ -1,11 +1,12 @@
 /**
  * Options Replay Run Detail Component
  *
- * Shell for a selected replay run — run header (template, symbols,
- * startDate, status, progress) plus one status card per symbol's
- * contract-list doc. Success docs expand into the contract-list table
- * (coverage header from pickDocMeta, marker rows, repeat badges);
- * a row's inspect action opens the contract-series dialog.
+ * Shell for a selected replay run — run header (template, symbol,
+ * startDate, status) plus the run's contract-list card. Success docs
+ * expand into the contract-list table (coverage header from pickDocMeta,
+ * marker rows, repeat badges); a row's inspect action opens the
+ * contract-series dialog. Runs are single-symbol (#1430) — the card grid
+ * carries exactly one card.
  */
 import { Component, input, output, ChangeDetectionStrategy, computed, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -23,8 +24,9 @@ import {
   ContractSeriesDialogData,
 } from '../options-replay-contract-series-dialog/options-replay-contract-series-dialog.component';
 
-/** Per-symbol view model — the list doc resolved against the run's symbol set. */
-export interface OptionsReplaySymbolView {
+/** Card view model — the run's contract list (or a pending placeholder
+ *  until the worker writes the doc). */
+export interface OptionsReplayListView {
   symbol: string;
   list: OptionsContractListUi | null;
   statusLabel: string;
@@ -55,11 +57,8 @@ export class OptionsReplayRunDetailComponent {
   readonly analysisPath = AppRoutes.STRATEGY_BACKTEST_ANALYSIS;
 
   readonly run = input.required<OptionsReplayRunUi>();
-  readonly contractLists = input<OptionsContractListUi[]>([]);
+  readonly contractList = input<OptionsContractListUi | null>(null);
   readonly isLoadingLists = input<boolean>(false);
-  /** Symbol selected in the run list — its card auto-expands so the detail
-   *  surfaces that symbol's contract list. */
-  readonly selectedSymbol = input<string | null>(null);
   /** List docIds with ≥1 analysis result doc — flips Analyze to View Results. */
   readonly analysisReadyListIds = input<ReadonlySet<string>>(new Set());
   /** List docIds with an in-flight optionsAnalysisStart call. */
@@ -68,36 +67,24 @@ export class OptionsReplayRunDetailComponent {
   /** Emitted when the card's Analyze action is clicked — the list docId. */
   readonly analyze = output<string>();
 
-  /** Symbols whose row table is expanded — collapsed by default since
-   *  a run can carry hundreds of rows per symbol. */
-  readonly expandedSymbols = signal<ReadonlySet<string>>(new Set());
+  /** Whether the card's row table is expanded — a run can carry hundreds
+   *  of rows. Expands on run select (a click on the run is intent to see
+   *  its list); the toggle collapses. */
+  readonly expanded = signal<boolean>(false);
 
   constructor() {
     let lastRunId: string | null = null;
     effect(() => {
-      // Expansion is keyed by symbol only — reset it on a run switch so a
-      // prior run's expanded cards don't leak into the new run's view.
       const runId = this.run().runId;
-      const symbol = this.selectedSymbol();
       if (runId !== lastRunId) {
         lastRunId = runId;
-        this.expandedSymbols.set(symbol ? new Set([symbol]) : new Set());
-      } else if (symbol) {
-        this.expandedSymbols.update((set) => new Set(set).add(symbol));
+        this.expanded.set(true);
       }
     });
   }
 
-  toggleExpanded(symbol: string): void {
-    this.expandedSymbols.update((set) => {
-      const next = new Set(set);
-      if (next.has(symbol)) {
-        next.delete(symbol);
-      } else {
-        next.add(symbol);
-      }
-      return next;
-    });
+  toggleExpanded(): void {
+    this.expanded.update((v) => !v);
   }
 
   /** Row inspect action → lazily-fetched contract-series dialog. */
@@ -121,36 +108,30 @@ export class OptionsReplayRunDetailComponent {
   readonly statusIconName = computed(() => getBacktestStatusVisuals(this.run().status).icon);
   readonly statusColorName = computed(() => getBacktestStatusVisuals(this.run().status).color);
 
-  readonly progressText = computed(() => {
-    const run = this.run();
-    if (!run.totalLists) return '—';
-    return `${run.completedLists} / ${run.totalLists} lists`;
-  });
-
-  /** One view per run symbol — a symbol whose doc hasn't been written yet
-   *  shows 'pending' so the grid is complete from enqueue onward. */
-  readonly symbolViews = computed((): OptionsReplaySymbolView[] => {
-    const bySymbol = new Map(this.contractLists().map((l) => [l.symbol, l]));
+  /** The run's contract-list card — the list doc is keyed at docId ==
+   *  runId; it may not exist yet (worker hasn't written), in which case
+   *  the card shows 'pending'. Null only on a sparse run doc (no symbol). */
+  readonly listView = computed((): OptionsReplayListView | null => {
+    const symbol = this.run().symbol;
+    if (!symbol) return null;
+    const list = this.contractList();
     const ready = this.analysisReadyListIds();
     const analyzing = this.analyzingListIds();
-    return this.run().symbols.map((symbol) => {
-      const list = bySymbol.get(symbol) ?? null;
-      const status = list?.status ?? 'pending';
-      const visuals = getBacktestStatusVisuals(status);
-      const listId = list?.listId ?? '';
-      return {
-        symbol,
-        list,
-        statusLabel: status,
-        statusColorName: visuals.color,
-        statusIconName: visuals.icon,
-        rowCount: list ? list.rows.length : null,
-        error: list?.error,
-        canAnalyze: status === 'success',
-        hasResults: list ? ready.has(listId) : false,
-        analyzing: list ? analyzing.has(listId) : false,
-        analysisLink: list ? `/${this.analysisPath.replace(':listDocId', listId)}` : null,
-      };
-    });
+    const status = list?.status ?? 'pending';
+    const visuals = getBacktestStatusVisuals(status);
+    const listId = list?.listId ?? '';
+    return {
+      symbol,
+      list,
+      statusLabel: status,
+      statusColorName: visuals.color,
+      statusIconName: visuals.icon,
+      rowCount: list ? list.rows.length : null,
+      error: list?.error,
+      canAnalyze: status === 'success',
+      hasResults: list ? ready.has(listId) : false,
+      analyzing: list ? analyzing.has(listId) : false,
+      analysisLink: list ? `/${this.analysisPath.replace(':listDocId', listId)}` : null,
+    };
   });
 }
