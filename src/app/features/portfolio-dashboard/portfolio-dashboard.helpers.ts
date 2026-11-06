@@ -64,32 +64,6 @@ export function collectOptionInstrumentIds(acct: AccountState): string[] {
   return Array.from(ids);
 }
 
-/** Collect unique equity symbols across all accounts. */
-export function collectAllEquitySymbols(accounts: AccountState[]): string[] {
-  const symbols = new Set<string>();
-  for (const acct of accounts) {
-    if (acct.equityPositions.data) {
-      for (const p of acct.equityPositions.data) {
-        if (p.symbol) symbols.add(p.symbol);
-      }
-    }
-  }
-  return Array.from(symbols);
-}
-
-/** Collect unique option instrument IDs across all accounts. */
-export function collectAllOptionInstrumentIds(accounts: AccountState[]): string[] {
-  const ids = new Set<string>();
-  for (const acct of accounts) {
-    if (acct.optionPositions.data) {
-      for (const p of acct.optionPositions.data) {
-        if (p.instrumentId) ids.add(p.instrumentId);
-      }
-    }
-  }
-  return Array.from(ids);
-}
-
 /** Sum PnL across an account's equity and option positions. */
 export function computeAccountPnL(acct: AccountState): number {
   let total = 0;

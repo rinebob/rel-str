@@ -40,7 +40,6 @@ describe('PortfolioDashboardStore selectors', () => {
     portfolio?: ReturnType<typeof makePortfolio>;
   }) {
     client.getAccounts.and.returnValue(resolve([makeAccount()]));
-    await store.loadAccounts();
     batchAnswers(client, {
       get_portfolio: fulfilled(opts.portfolio ?? makePortfolio()),
       get_equity_positions: fulfilled(opts.equityPositions ?? []),
@@ -48,10 +47,9 @@ describe('PortfolioDashboardStore selectors', () => {
       get_equity_orders: fulfilled(opts.equityOrders ?? []),
       get_option_orders: fulfilled(opts.optionOrders ?? []),
     });
-    await store.loadPhase1();
     client.getEquityQuotes.and.returnValue(resolve(opts.equityQuotes ?? new Map()));
     client.getOptionQuotes.and.returnValue(resolve(opts.optionQuotes ?? new Map()));
-    await store.loadPhase2();
+    await store.initialLoad();
   }
 
   // ── aggregateSummary ───────────────────────────────────────────────────────
@@ -73,10 +71,9 @@ describe('PortfolioDashboardStore selectors', () => {
         get_equity_orders: fulfilled([]),
         get_option_orders: fulfilled([]),
       });
-      await store.loadPhase1();
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
-      await store.loadPhase2();
+      await store.initialLoad();
 
       const summary = store.aggregateSummary();
       expect(summary.totalValue).toBe(150000);
@@ -97,15 +94,18 @@ describe('PortfolioDashboardStore selectors', () => {
 
     it('returns cash/buyingPower independently when totalValue is null', async () => {
       client.getAccounts.and.returnValue(resolve([makeAccount()]));
-      await store.loadAccounts();
       batchAnswers(client, {
         get_portfolio: fulfilled(makePortfolio({
           totalValue: null, cash: 5000, buyingPower: 10000, equityValue: null,
         })),
         get_equity_positions: fulfilled([]),
         get_option_positions: fulfilled([]),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
       });
-      await store.loadPhase1();
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+      await store.initialLoad();
 
       const summary = store.aggregateSummary();
       expect(summary.totalValue).toBeNull();

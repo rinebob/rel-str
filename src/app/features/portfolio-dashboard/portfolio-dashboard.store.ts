@@ -5,10 +5,17 @@
  * independent loading/error. Computed selectors join positions with quotes
  * for PnL, filter orders by state, and compute stop-loss protection.
  *
+ * Loading (#1408): one prioritized path — accounts → selected account's
+ * visible sections (globalLoading releases at first paint) → serial
+ * prefetch waterfall of every remaining section. selectAccount joins an
+ * in-flight wave or fetches on demand; reconcileOrders refetches orders
+ * silently with in-flight + trailing dedupe.
+ *
  * Error policy: loadAccounts rethrows (caller decides how to surface a total
- * account-load failure). loadPhase1/loadPhase2 swallow per-section errors into
- * SectionData.error so partial dashboard data remains visible. refresh()
- * catches top-level failures, sets loadError, and ensures globalLoading is false.
+ * account-load failure). Section fetches swallow per-section errors into
+ * SectionData.error so partial dashboard data remains visible. refresh()/
+ * initialLoad() catch top-level failures, set loadError, and clear
+ * globalLoading.
  */
 
 import { computed, inject } from '@angular/core';
@@ -44,8 +51,6 @@ import {
   SectionName,
 } from './portfolio-dashboard.types';
 import {
-  collectAllEquitySymbols,
-  collectAllOptionInstrumentIds,
   collectEquitySymbols,
   collectOptionInstrumentIds,
   computeAccountPnL,
@@ -222,7 +227,10 @@ export const PortfolioDashboardStore = signalStore(
 
   withMethods((store) => {
     const client = inject(RobinhoodMcpClient);
-    let refreshing = false;
+    let loadInFlight = false;
+    // Bumped by loadAccounts — a fetch that started before the bump must not
+    // mark its group loaded, or a refresh leaves pre-refresh data marked fresh.
+    let loadEpoch = 0;
 
     /**
      * Re-resolves the account index at patch time — a refresh can rebuild the
@@ -273,6 +281,8 @@ export const PortfolioDashboardStore = signalStore(
     }
 
     async function loadAccounts(): Promise<void> {
+      loadEpoch++;
+      loadedGroups.clear();
       const accounts = await client.getAccounts();
       // Sort the primary agentic account to the first tab.
       const sorted = [...accounts].sort((a, b) => {
@@ -290,123 +300,221 @@ export const PortfolioDashboardStore = signalStore(
       });
     }
 
-    async function loadPhase1(): Promise<void> {
-      const accounts = store.accounts();
-      patchState(store, {
-        accounts: accounts.map((a) => ({
-          ...a,
-          portfolio: loadingSection(a.portfolio),
-          equityPositions: loadingSection(a.equityPositions),
-          optionPositions: loadingSection(a.optionPositions),
-        })),
-      });
+    // ── Waterfall load (#1408) ─────────────────────────────────────────────
+    // Per-account load groups: 'core' = portfolio + positions + quotes (the
+    // default tab's visible sections), 'orders' = equity + option orders.
+    // loadedGroups tracks what's already fetched so ensure* calls are cheap
+    // no-ops on revisit; loadAccounts rebuilds account state and clears it.
+    // A group is marked loaded only when its fetch ran to completion — a
+    // transport failure leaves it unmarked so the next ensure retries, and
+    // the epoch guard keeps a pre-refresh in-flight fetch from marking a
+    // group loaded on post-refresh state.
 
-      await Promise.all(accounts.map(async (acct) => {
-        // One /batch request per account — a failed item lands on its own
-        // section; a transport failure rejects every spec the same way.
-        let results: [
-          PromiseSettledResult<PortfolioSnapshot>,
-          PromiseSettledResult<EquityPosition[]>,
-          PromiseSettledResult<OptionPosition[]>,
-        ];
-        try {
-          results = await client.executeBatch([
-            client.portfolioSpec(acct.accountNumber),
-            client.equityPositionsSpec(acct.accountNumber),
-            client.optionPositionsSpec(acct.accountNumber, false),
-          ]);
-        } catch (err) {
-          const failed: PromiseSettledResult<never> = { status: 'rejected', reason: err };
-          results = [failed, failed, failed];
-        }
-        const [portfolioR, equityR, optionR] = results;
-        patchAccount(acct.accountNumber, (a) => ({
-          ...a,
-          portfolio: portfolioR.status === 'fulfilled'
-            ? dataSection(portfolioR.value)
-            : errorSection(a.portfolio, errMessage(portfolioR.reason)),
-          equityPositions: equityR.status === 'fulfilled'
-            ? dataSection(equityR.value)
-            : errorSection(a.equityPositions, errMessage(equityR.reason)),
-          optionPositions: optionR.status === 'fulfilled'
-            ? dataSection(optionR.value)
-            : errorSection(a.optionPositions, errMessage(optionR.reason)),
-        }));
+    const loadedGroups = new Set<string>();
+    const coreInFlight = new Map<string, Promise<void>>();
+
+    /** portfolio + both position sections for one account (one /batch), then
+     *  that account's quotes — quotes need the positions that just landed.
+     *  Returns false when the batch transport itself failed (sections get
+     *  their errors; the group stays unmarked so a later ensure retries). */
+    async function fetchCore(accountNumber: string): Promise<boolean> {
+      patchAccount(accountNumber, (a) => ({
+        ...a,
+        portfolio: loadingSection(a.portfolio),
+        equityPositions: loadingSection(a.equityPositions),
+        optionPositions: loadingSection(a.optionPositions),
       }));
+
+      let results: [
+        PromiseSettledResult<PortfolioSnapshot>,
+        PromiseSettledResult<EquityPosition[]>,
+        PromiseSettledResult<OptionPosition[]>,
+      ];
+      try {
+        results = await client.executeBatch([
+          client.portfolioSpec(accountNumber),
+          client.equityPositionsSpec(accountNumber),
+          client.optionPositionsSpec(accountNumber, false),
+        ]);
+      } catch (err) {
+        patchAccount(accountNumber, (a) => ({
+          ...a,
+          portfolio: errorSection(a.portfolio, errMessage(err)),
+          equityPositions: errorSection(a.equityPositions, errMessage(err)),
+          optionPositions: errorSection(a.optionPositions, errMessage(err)),
+        }));
+        return false;
+      }
+      const [portfolioR, equityR, optionR] = results;
+      patchAccount(accountNumber, (a) => ({
+        ...a,
+        portfolio: portfolioR.status === 'fulfilled'
+          ? dataSection(portfolioR.value)
+          : errorSection(a.portfolio, errMessage(portfolioR.reason)),
+        equityPositions: equityR.status === 'fulfilled'
+          ? dataSection(equityR.value)
+          : errorSection(a.equityPositions, errMessage(equityR.reason)),
+        optionPositions: optionR.status === 'fulfilled'
+          ? dataSection(optionR.value)
+          : errorSection(a.optionPositions, errMessage(optionR.reason)),
+      }));
+
+      const acct = store.accounts().find((a) => a.accountNumber === accountNumber);
+      if (!acct) return false;
+      patchAccount(accountNumber, (a) => ({
+        ...a,
+        equityQuotes: loadingSection(a.equityQuotes),
+        optionQuotes: loadingSection(a.optionQuotes),
+      }));
+      const [equityQ, optionQ] = await Promise.allSettled([
+        client.getEquityQuotes(collectEquitySymbols(acct)),
+        client.getOptionQuotes(collectOptionInstrumentIds(acct)),
+      ]);
+      patchAccount(accountNumber, (a) => ({
+        ...a,
+        equityQuotes: equityQ.status === 'fulfilled'
+          ? dataSection(equityQ.value)
+          : errorSection(a.equityQuotes, errMessage(equityQ.reason)),
+        optionQuotes: optionQ.status === 'fulfilled'
+          ? dataSection(optionQ.value)
+          : errorSection(a.optionQuotes, errMessage(optionQ.reason)),
+      }));
+      return true;
     }
 
-    async function loadPhase2(): Promise<void> {
-      const accounts = store.accounts();
-      const equitySymbols = collectAllEquitySymbols(accounts);
-      const optionInstrumentIds = collectAllOptionInstrumentIds(accounts);
+    /** Load an account's core sections if not already loaded/in-flight —
+     *  callers share the in-flight promise instead of double-fetching. */
+    function ensureCore(accountNumber: string): Promise<void> {
+      if (loadedGroups.has(`${accountNumber}:core`)) return Promise.resolve();
+      const existing = coreInFlight.get(accountNumber);
+      if (existing) return existing;
+      const epoch = loadEpoch;
+      const p = fetchCore(accountNumber)
+        .then((ok) => {
+          if (ok && loadEpoch === epoch) loadedGroups.add(`${accountNumber}:core`);
+        })
+        .finally(() => coreInFlight.delete(accountNumber));
+      coreInFlight.set(accountNumber, p);
+      return p;
+    }
 
-      patchState(store, {
-        accounts: accounts.map((a) => ({
+    // Orders bookkeeping — one in-flight orders fetch per account. Joiners
+    // share the leader's promise (never a concurrent duplicate); a caller
+    // that needs a post-mutation snapshot flags ordersAgain so the leader
+    // runs one trailing pass. Shared by prefetch (markLoading → section
+    // spinners) and reconcile (silent) (#1397 + #1408).
+    const ordersInFlight = new Map<string, Promise<void>>();
+    const ordersAgain = new Set<string>();
+    // A queued rerun runs with the requester's spinner intent — a silent
+    // reconcile's trailing pass stays silent even behind a spinner-marked
+    // leader.
+    const rerunMarkLoading = new Map<string, boolean>();
+
+    /** Returns false on a full batch transport failure — the group then
+     *  stays unmarked so a later ensure retries. */
+    async function fetchOrders(accountNumber: string, markLoading: boolean): Promise<boolean> {
+      if (markLoading) {
+        patchAccount(accountNumber, (a) => ({
           ...a,
-          equityQuotes: loadingSection(a.equityQuotes),
-          optionQuotes: loadingSection(a.optionQuotes),
           equityOrders: loadingSection(a.equityOrders),
           optionOrders: loadingSection(a.optionOrders),
-        })),
-      });
-
-      // Fetch quotes once — equity and option in parallel; copy the Map per
-      // account so retrySection is independent.
-      const [equityQ, optionQ] = await Promise.allSettled([
-        client.getEquityQuotes(equitySymbols),
-        client.getOptionQuotes(optionInstrumentIds),
-      ]);
-      const equityQuotes = equityQ.status === 'fulfilled' ? equityQ.value : null;
-      const equityQuotesError = equityQ.status === 'rejected' ? errMessage(equityQ.reason) : null;
-      const optionQuotes = optionQ.status === 'fulfilled' ? optionQ.value : null;
-      const optionQuotesError = optionQ.status === 'rejected' ? errMessage(optionQ.reason) : null;
-
-      patchState(store, {
-        accounts: store.accounts().map((a) => ({
-          ...a,
-          equityQuotes: equityQuotes
-            ? dataSection(new Map(equityQuotes))
-            : errorSection(a.equityQuotes, equityQuotesError ?? 'Quote fetch failed'),
-          optionQuotes: optionQuotes
-            ? dataSection(new Map(optionQuotes))
-            : errorSection(a.optionQuotes, optionQuotesError ?? 'Quote fetch failed'),
-        })),
-      });
-
-      // Fetch orders per account — one /batch request each, per-item errors.
-      await Promise.all(accounts.map(async (acct) => {
-        applyOrdersResults(acct.accountNumber, await runOrdersBatch(acct.accountNumber));
-      }));
+        }));
+      }
+      const results = await runOrdersBatch(accountNumber);
+      applyOrdersResults(accountNumber, results);
+      return results.some((r) => r.status === 'fulfilled');
     }
 
-    async function refresh(): Promise<void> {
-      if (refreshing) return;
-      refreshing = true;
+    function requestOrders(accountNumber: string, markLoading: boolean): Promise<void> {
+      const existing = ordersInFlight.get(accountNumber);
+      if (existing) {
+        ordersAgain.add(accountNumber);
+        rerunMarkLoading.set(accountNumber, markLoading);
+        return existing;
+      }
+      const epoch = loadEpoch;
+      const p = (async () => {
+        try {
+          do {
+            ordersAgain.delete(accountNumber);
+            const loading = rerunMarkLoading.get(accountNumber) ?? markLoading;
+            rerunMarkLoading.delete(accountNumber);
+            if (!(await fetchOrders(accountNumber, loading))) break;
+          } while (ordersAgain.has(accountNumber));
+          if (loadEpoch === epoch) loadedGroups.add(`${accountNumber}:orders`);
+        } finally {
+          ordersInFlight.delete(accountNumber);
+          ordersAgain.delete(accountNumber);
+          rerunMarkLoading.delete(accountNumber);
+        }
+      })();
+      ordersInFlight.set(accountNumber, p);
+      return p;
+    }
+
+    /** Orders for an account — no-ops when loaded, joins the in-flight fetch
+     *  (a tab select during prefetch must not double-fetch), kicks a fresh
+     *  one with section spinners otherwise. */
+    function ensureOrders(accountNumber: string): Promise<void> {
+      if (loadedGroups.has(`${accountNumber}:orders`)) return Promise.resolve();
+      return ordersInFlight.get(accountNumber) ?? requestOrders(accountNumber, true);
+    }
+
+    /** Serial prefetch: the selected account first (its orders — core
+     *  already landed in the gated first wave), then each remaining
+     *  account's core + orders. Runs under no global flag — every step is
+     *  an ensure*, so a tab select mid-wave just joins. */
+    async function prefetchWaterfall(): Promise<void> {
+      const accts = store.accounts();
+      const sel = accts[store.selectedAccountIndex()]?.accountNumber;
+      const ordered = sel
+        ? [sel, ...accts.map((a) => a.accountNumber).filter((n) => n !== sel)]
+        : accts.map((a) => a.accountNumber);
+      for (const accountNumber of ordered) {
+        await Promise.all([ensureCore(accountNumber), ensureOrders(accountNumber)]);
+      }
+    }
+
+    /** The one load path: accounts → selected account's visible sections
+     *  (globalLoading releases at first paint) → silent waterfall for the
+     *  rest. Shared by initialLoad and refresh — loadAccounts clears
+     *  loadedGroups, so refresh() re-fetches everything through the same
+     *  prioritized path. */
+    async function runDashboardLoad(): Promise<void> {
+      if (loadInFlight) return;
+      loadInFlight = true;
       patchState(store, { loadError: null, globalLoading: true });
       try {
         await loadAccounts();
-        await loadPhase1();
-        await loadPhase2();
+        const sel = store.accounts()[store.selectedAccountIndex()];
+        if (sel) await ensureCore(sel.accountNumber);
+        patchState(store, { globalLoading: false });
+        await prefetchWaterfall();
       } catch (err) {
         patchState(store, { loadError: errMessage(err) });
       } finally {
         patchState(store, { globalLoading: false });
-        refreshing = false;
+        loadInFlight = false;
       }
+    }
+
+    async function refresh(): Promise<void> {
+      await runDashboardLoad();
+    }
+
+    async function initialLoad(): Promise<void> {
+      await runDashboardLoad();
     }
 
     async function retrySection(accountIndex: number, section: SectionName): Promise<void> {
       const acct = store.accounts()[accountIndex];
       if (!acct) return;
 
-      // 'orders' is a combined retry for both equityOrders and optionOrders.
+      // 'orders' is a combined retry for both equityOrders and optionOrders —
+      // routed through the shared registry so it dedupes against an
+      // in-flight prefetch and marks the group loaded on success.
       if (section === 'orders') {
-        patchAccount(acct.accountNumber, (a) => ({
-          ...a,
-          equityOrders: loadingSection(a.equityOrders),
-          optionOrders: loadingSection(a.optionOrders),
-        }));
-        applyOrdersResults(acct.accountNumber, await runOrdersBatch(acct.accountNumber));
+        await requestOrders(acct.accountNumber, true);
         return;
       }
 
@@ -456,14 +564,44 @@ export const PortfolioDashboardStore = signalStore(
       }
     }
 
+    /** Refetch equity+option orders WITHOUT touching section loading flags.
+     *  Used after a dialog-driven mutation where the dashboard must stay
+     *  fully interactive while the (slow) broker call resolves — data/error
+     *  patch in silently on settle. Shares the orders in-flight registry
+     *  with prefetch: overlapping calls collapse into the in-flight run
+     *  plus at most one trailing refetch, so rapid sequential mutations
+     *  can't stack a queue of slow RH round-trips (#1397, #1408). */
+    async function reconcileOrders(accountIndex: number): Promise<void> {
+      const acct = store.accounts()[accountIndex];
+      if (!acct) return;
+      await requestOrders(acct.accountNumber, false);
+    }
+
     return {
       loadAccounts,
-      loadPhase1,
-      loadPhase2,
       refresh,
+      initialLoad,
       retrySection,
-      selectAccount(index: number): void {
+      reconcileOrders,
+      /** Ensure an account's orders sections are loaded — joins the
+       *  in-flight fetch or kicks one with section spinners. Called when
+       *  the Orders/History tab activates before the prefetch wave
+       *  reaches it (#1408). */
+      ensureAccountOrders(accountIndex: number): Promise<void> {
+        const acct = store.accounts()[accountIndex];
+        return acct ? ensureOrders(acct.accountNumber) : Promise.resolve();
+      },
+      /** Switch accounts — ensures the target's sections are loaded (joins
+       *  an in-flight prefetch or starts the fetch on demand). Errors land
+       *  on the sections, so this never rejects. */
+      async selectAccount(index: number): Promise<void> {
         patchState(store, { selectedAccountIndex: index });
+        const acct = store.accounts()[index];
+        if (!acct) return;
+        await Promise.all([
+          ensureCore(acct.accountNumber),
+          ensureOrders(acct.accountNumber),
+        ]);
       },
       toggleOrderHistory(): void {
         patchState(store, { showOrderHistory: !store.showOrderHistory() });
