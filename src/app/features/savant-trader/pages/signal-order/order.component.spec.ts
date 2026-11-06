@@ -376,6 +376,19 @@ describe('OrderComponent', () => {
       expect(stopRow!.status).toBe(OrderTicketStatus.RESTING);
     });
 
+    it('does not fabricate fill data on an active stop row (#1018 r1)', () => {
+      // isActiveStopLoss only admits non-terminal orders — o.price is the
+      // limit price and lastTransactionAt the last update time; stamping
+      // either as fillPrice/filledAt renders a bogus "Fill" row.
+      component.rhOrders.set({ 'rh-stop-1': { ...makeStopOrder('rh-stop-1', 'AAPL'), price: '92.00', state: 'confirmed' } });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const stopRow = component.allTickets().find((t) => t.id === 'rh-stop-rh-stop-1');
+      expect(stopRow!.result?.fillPrice).toBeUndefined();
+      expect(stopRow!.result?.filledAt).toBeUndefined();
+    });
+
     it('filters out non-signal local tickets (only SIGNAL_PIPELINE tickets are shown)', () => {
       const signalTicket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
       signalTicket.source = OrderSource.SIGNAL_PIPELINE;
@@ -551,6 +564,42 @@ describe('OrderComponent', () => {
       const merged = component.allTickets().find((t) => t.id === '1');
       expect(merged?.status).toBe(OrderTicketStatus.CANCELLED);
       expect(merged?.terminalAt).toBe(terminalAt);
+    });
+
+    it('does not fabricate fill data on a working RH merge — price is the limit, not a fill (#1018 r2)', () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
+      ticket.result = { orderId: 'rh-1', state: 'confirmed' };
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrders.set({
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'limit', state: 'confirmed',
+                  trigger: 'immediate', price: '92.00', quantity: '10',
+                  lastTransactionAt: '2026-11-05T10:00:00Z' },
+      });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const merged = component.allTickets().find((t) => t.id === '1');
+      expect(merged?.result?.fillPrice).toBeUndefined();
+      expect(merged?.result?.filledAt).toBeUndefined();
+    });
+
+    it('carries the broker fill on a FILLED merge — price, cumulative qty, transaction time (#1018 r2)', () => {
+      const filledAt = new Date().toISOString();
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
+      ticket.result = { orderId: 'rh-1', state: 'confirmed' };
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrders.set({
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'limit', state: 'filled',
+                  trigger: 'immediate', price: '91.85', quantity: '10',
+                  cumulativeQuantity: '10', lastTransactionAt: filledAt },
+      });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const merged = component.allTickets().find((t) => t.id === '1');
+      expect(merged?.result?.fillPrice).toBe('91.85');
+      expect(merged?.result?.filledQuantity).toBe('10');
+      expect(merged?.result?.filledAt).toBe(filledAt);
     });
   });
 

@@ -258,12 +258,13 @@ export function toStTicketPatch(
         const fillPrice = result?.fillPrice ? Number(result.fillPrice) : NaN;
         const fillQty = result?.filledQuantity ? Number(result.filledQuantity) : NaN;
         if (Number.isFinite(fillPrice) || Number.isFinite(fillQty)) {
-          // StTicketFillSummary.filledAt is schema-required — stamp it
-          // from the write time (best available at the patch boundary).
+          // StTicketFillSummary.filledAt is schema-required — prefer the
+          // caller's timestamp when present (a hydrated fill keeps its
+          // canonical time); otherwise stamp it from the write time.
           out['fillSummary'] = {
             ...(Number.isFinite(fillPrice) ? { averagePrice: fillPrice } : {}),
             ...(Number.isFinite(fillQty) ? { filledQty: fillQty } : {}),
-            filledAt: writeAtIso,
+            filledAt: result?.filledAt || writeAtIso,
           };
         }
         break;
@@ -391,6 +392,7 @@ export function fromStOrderTicket(doc: StOrderTicket): OrderTicket {
               ? {
                   fillPrice: String(doc.fillSummary.averagePrice),
                   filledQuantity: String(doc.fillSummary.filledQty),
+                  filledAt: doc.fillSummary.filledAt,
                 }
               : {}),
           },

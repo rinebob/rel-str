@@ -625,8 +625,21 @@ export class OrderComponent implements OnInit, OnDestroy {
         ...ticket.result,
         orderId: rhOrder.id,
         state: rhOrder.state,
-        fillPrice: rhOrder.price ?? ticket.result?.fillPrice,
-        filledQuantity: rhOrder.cumulativeQuantity ?? rhOrder.quantity ?? ticket.result?.filledQuantity,
+        // fillPrice/filledAt are gated on FILLED — rhOrder.price is the
+        // *limit* price and lastTransactionAt the last update time on a
+        // working order; stamping either fabricates a Fill row (#1018 r2).
+        // cumulativeQuantity stays — it's real partial-fill data.
+        fillPrice: terminal === OrderTicketStatus.FILLED
+          ? (rhOrder.price ?? ticket.result?.fillPrice)
+          : ticket.result?.fillPrice,
+        filledQuantity: rhOrder.cumulativeQuantity
+          ?? (terminal === OrderTicketStatus.FILLED ? rhOrder.quantity : undefined)
+          ?? ticket.result?.filledQuantity,
+        // A fill merge carries the broker's transaction time — display-only
+        // (this path never writes the doc).
+        filledAt: terminal === OrderTicketStatus.FILLED
+          ? (rhOrder.lastTransactionAt ?? ticket.result?.filledAt)
+          : ticket.result?.filledAt,
         brokerOrder: rhOrder,
       },
     };
@@ -694,8 +707,12 @@ export class OrderComponent implements OnInit, OnDestroy {
       result: {
         orderId: o.id,
         state: o.state,
-        filledQuantity: o.cumulativeQuantity ?? o.quantity,
+        filledQuantity: o.cumulativeQuantity,
         brokerOrder: o,
+        // No fillPrice/filledAt — isActiveStopLoss only admits
+        // non-terminal orders, so nothing here is a fill. o.price would be
+        // the *limit* price and lastTransactionAt the last update time —
+        // stamping either as fill data fabricates a Fill row (#1018 r1).
       },
       createdAt: o.createdAt ?? new Date().toISOString(),
       updatedAt: o.lastTransactionAt ?? new Date().toISOString(),

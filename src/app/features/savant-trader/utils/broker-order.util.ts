@@ -90,6 +90,10 @@ const TERMINAL_STATES = new Set([
   'rejected',
   'voided',
   'partially_filled_rest_cancelled',
+  // TIF-expired is terminal too (#1018 r2) — without it an expired stop
+  // still counts as active: it "protects" the position, suppresses the
+  // stop-placement UI, and an expired limit buy holds notional.
+  'expired',
 ]);
 
 /**

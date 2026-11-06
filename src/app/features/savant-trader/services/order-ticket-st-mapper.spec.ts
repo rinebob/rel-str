@@ -280,6 +280,14 @@ describe('toStTicketPatch', () => {
     expect(filled['fillSummary']).toEqual({ averagePrice: 150.25, filledQty: 10, filledAt: 'now' });
   });
 
+  it('prefers result.filledAt over the write time when the caller carries it', () => {
+    const filled = toStTicketPatch(
+      { result: { fillPrice: '150.25', filledQuantity: '10', filledAt: '2026-10-20T16:05:00Z' } },
+      'now',
+    );
+    expect(filled['fillSummary']).toEqual({ averagePrice: 150.25, filledQty: 10, filledAt: '2026-10-20T16:05:00Z' });
+  });
+
   it('clears brokerOrderId AND fillSummary when result is deleted', () => {
     const cleared = toStTicketPatch({ result: undefined }, 'now');
     expect((cleared['brokerOrderId'] as { _methodName: string })._methodName).toBe('deleteField');
@@ -350,6 +358,7 @@ describe('fromStOrderTicket', () => {
       state: 'confirmed', // tracking.lastSeenState — the broker's word, not the local lifecycle
       fillPrice: '150.25',
       filledQuantity: '10',
+      filledAt: '2026-10-20T16:05:00Z',
     });
     expect(t.error).toEqual({ message: 'insufficient buying power', code: 'broker_reject', retryable: false });
     expect(t.signalContext).toEqual({

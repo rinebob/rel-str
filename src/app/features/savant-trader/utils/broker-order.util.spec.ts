@@ -141,6 +141,10 @@ describe('broker-order.util', () => {
       expect(isActiveStopLoss({ ...stopOrder, state: 'filled' }, 'AAPL')).toBe(false);
     });
 
+    it('returns false for an expired stop order — TIF expiry is terminal (#1018 r2)', () => {
+      expect(isActiveStopLoss({ ...stopOrder, state: 'expired' }, 'AAPL')).toBe(false);
+    });
+
     it('returns false for a different symbol', () => {
       expect(isActiveStopLoss(stopOrder, 'MSFT')).toBe(false);
     });
@@ -260,6 +264,7 @@ describe('broker-order.util', () => {
         market: snap({ type: 'market', price: null }),
         filled: snap({ state: 'filled' }),
         cancelled: snap({ state: 'cancelled' }),
+        expired: snap({ state: 'expired' }),
       };
       expect(restingLimitBuyNotional(orders)).toBe(0);
     });

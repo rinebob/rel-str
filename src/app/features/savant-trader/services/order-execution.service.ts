@@ -832,8 +832,13 @@ export class OrderExecutionService {
       ? {
           orderId: brokerOrder.id,
           state: brokerOrder.state,
-          fillPrice: brokerOrder.price ?? undefined,
+          // `price` is the limit price on a working order — only a filled
+          // order may claim it as a fill price (#1018 r2).
+          fillPrice: brokerOrder.state === 'filled' ? brokerOrder.price ?? undefined : undefined,
           filledQuantity: brokerOrder.cumulativeQuantity,
+          // last_transaction_at on a non-filled order is its creation time
+          // — only stamp filledAt when the order actually filled (#1018 r1).
+          filledAt: brokerOrder.state === 'filled' ? brokerOrder.lastTransactionAt : undefined,
           brokerOrder,
         }
       : this.mapOrderRecord(this.unwrapOrderRecord(parsed));
@@ -858,6 +863,8 @@ export class OrderExecutionService {
       state: order?.['state'] as string | undefined,
       fillPrice: order?.['average_price'] as string | undefined,
       filledQuantity: (order?.['cumulative_quantity'] ?? order?.['processed_quantity'] ?? order?.['filled_quantity']) as string | undefined,
+      // See parseEquityPlaceResult — only a filled order has a fill time.
+      filledAt: order?.['state'] === 'filled' ? order['last_transaction_at'] as string | undefined : undefined,
     };
   }
 

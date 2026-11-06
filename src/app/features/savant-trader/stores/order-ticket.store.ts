@@ -475,6 +475,7 @@ export const OrderTicketStore = signalStore(
                   ...ticket.result,
                   fillPrice: String(fillSummary.averagePrice),
                   filledQuantity: String(fillSummary.filledQty),
+                  filledAt: fillSummary.filledAt,
                 },
               }
             : {}),

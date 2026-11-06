@@ -157,6 +157,8 @@ export interface OrderTicketResult {
   state?: string;
   fillPrice?: string;
   filledQuantity?: string;
+  /** ISO timestamp the fill was recorded (canonical fillSummary.filledAt). */
+  filledAt?: string;
   brokerOrder?: BrokerOrderSnapshot;
 }
 
