@@ -145,6 +145,13 @@ Always include the **next `/proj` slash command** in task summaries so the user
 doesn't have to hunt for it. Examples: `/proj review 261 336`, `/proj ship 261 336`,
 `/proj implement 261 337`.
 
+### Never show naked issue numbers
+
+Every issue reference must carry its title — `#1321` alone means nothing to
+the user. Always write `#1321 — Post-ship polish: plotted-set controls…` or
+`"Post-ship polish" (#1321)`. Applies to summaries, tables, hierarchies,
+questions, and commit/issue commentary.
+
 ### Hierarchy display convention
 
 When the user asks for a Topic/issue layout or "final state", render an
@@ -157,6 +164,15 @@ Thread-level docs that accumulate one section per task (e.g., the Topic UAT
 doc) insert the **newest task section at the TOP**, directly under the
 Results log / intro block — not appended at the bottom. Older sections get
 pushed down; never reorder or rewrite existing content.
+
+### UAT docs — always include route + entry point
+
+Every UAT document must contain a **"Getting to the feature"** section
+stating the exact **route** (e.g., `/portfolio-dashboard`), the **entry
+point / navigation path** (which nav link or button reaches it), and the
+**surface** the tester should land on — before any test scenarios. A
+tester must be able to open the app and reach the feature without knowing
+it exists.
 
 ### Doc header convention (non-negotiable)
 
@@ -185,6 +201,13 @@ Canonical field order for threaded docs:
 ```
 
 Full spec: `.devin/skills/proj/REFERENCE.md` → "Doc header template".
+
+### Feature-state convention
+
+Multi-step feature data lifecycles (fetch → refine → emit → persist) live in
+a **dedicated signal store/feature** — never component-local signals. The
+component is a dumb view; the page coordinates between stores. (User
+directive, 2026-10-28 — "please never do B.")
 
 ### Scope discipline
 
