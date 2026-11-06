@@ -2,5 +2,145 @@
   <header class="page-header">
     <h1>Analysis Results</h1>
     <span class="list-id">{{ listDocId() }}</span>
+    @if (subject()) {
+      <span class="subject">{{ subject() }}</span>
+    }
+    @if (analyzedAt()) {
+      <span class="analyzed-at">Analyzed {{ analyzedAt() }}</span>
+    }
   </header>
+
+  @if (!listDocId()) {
+    <div class="state-note">No analysis list in this route.</div>
+  } @else if (store.loading()) {
+    <div class="state-note">Loading analysis results…</div>
+  } @else if (store.streamError(); as err) {
+    <div class="state-note error">Failed to load analysis results: {{ err }}</div>
+  } @else if (store.empty()) {
+    <div class="state-note">No analysis results for this list yet — run Analyze from the run detail. If analysis was just started, results appear here when it finishes.</div>
+  } @else {
+    @if (store.failedRows().length > 0) {
+      <div class="failed-banner" role="alert">
+        @for (row of store.failedRows(); track row.exitId) {
+          <span class="failed-item">Analysis failed for <strong>{{ row.label }}</strong>{{ row.error ? ': ' + row.error : '' }}</span>
+        }
+      </div>
+    }
+
+    <section class="agg-section">
+      <h2>Exit-type aggregates</h2>
+      <div class="table-scroll">
+        <table class="rows-table agg-table">
+          <thead>
+            <tr>
+              <th>Exit strategy</th>
+              <th class="num">Hit rate</th>
+              <th class="num">Avg days</th>
+              <th class="num">Avg premium</th>
+              <th class="num">Exited</th>
+              <th class="num">Expired</th>
+              <th class="num">Errors</th>
+              <th class="num">Worst MAE</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of store.aggregateRows(); track row.exitId) {
+              <tr [class.row-failed]="row.status === 'failed'" [class.row-stale]="row.stale">
+                <td class="exit-label">
+                  {{ row.label }}
+                  @if (row.stale) {
+                    <span class="stale-chip" title="Written under an older exit registry — re-run Analyze to refresh">stale</span>
+                  }
+                </td>
+                @if (row.aggregate; as agg) {
+                  <td class="num">{{ agg.hitRatePct !== undefined ? (agg.hitRatePct | number:'1.1-1') + '%' : '—' }}</td>
+                  <td class="num">{{ agg.avgDaysToExit !== undefined ? (agg.avgDaysToExit | number:'1.1-1') : '—' }}</td>
+                  <td class="num">{{ agg.avgPremiumCapturedPct !== undefined ? (agg.avgPremiumCapturedPct | number:'1.1-1') + '%' : '—' }}</td>
+                  <td class="num">{{ agg.exitedCount }}</td>
+                  <td class="num">{{ agg.expiredCount }}</td>
+                  <td class="num">{{ agg.errorCount }}</td>
+                  <td class="num">{{ agg.worstMae !== undefined ? (agg.worstMae | number:'1.2-2') : '—' }}</td>
+                } @else {
+                  <td class="num">—</td><td class="num">—</td><td class="num">—</td>
+                  <td class="num">—</td><td class="num">—</td><td class="num">—</td>
+                  <td class="num">—</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="events-section">
+      <h2>Contract events</h2>
+      <div class="exit-filter" role="group" aria-label="Filter events by exit type">
+        <button
+          type="button"
+          class="chip"
+          [class.active]="store.exitFilter() === 'all'"
+          (click)="store.setExitFilter('all')"
+        >All</button>
+        @for (row of store.aggregateRows(); track row.exitId) {
+          @if (row.status !== 'missing') {
+            <button
+              type="button"
+              class="chip"
+              [class.active]="store.exitFilter() === row.exitId"
+              (click)="store.setExitFilter(row.exitId)"
+            >{{ row.label }}</button>
+          }
+        }
+      </div>
+      <div class="table-scroll">
+        <table class="rows-table event-table">
+          <thead>
+            <tr>
+              <th>Pick date</th>
+              <th>Contract</th>
+              <th>Exit rule</th>
+              <th class="num">Entry mark</th>
+              <th>Outcome</th>
+              <th class="num">Days</th>
+              <th class="num">MAE</th>
+              <th class="num">MFE</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of store.eventRows(); track row.key) {
+              <tr>
+                <td>{{ row.record.pickDate }}</td>
+                <td class="contract-id" [title]="row.record.contractId">{{ row.record.contractId }}</td>
+                <td>
+                  {{ row.exitLabel }}
+                  @if (row.stale) {
+                    <span class="stale-chip" title="Written under an older exit registry — re-run Analyze to refresh">stale</span>
+                  }
+                </td>
+                <td class="num">{{ row.record.entryMark | number:'1.2-2' }}</td>
+                <td class="outcome-{{ row.record.outcome }}">{{ outcomeText(row.record) }}</td>
+                @if (row.record.outcome === 'error') {
+                  <!-- Error records carry placeholder daysHeld + entry-day excursions. -->
+                  <td class="num">—</td>
+                  <td class="num">—</td><td class="num">—</td>
+                } @else {
+                  <td class="num">{{ row.record.daysHeld }}</td>
+                  <td class="num excursion">
+                    <span>{{ row.record.mae.value | number:'1.2-2' }}</span>
+                    <span class="exc-date">{{ row.record.mae.date }}</span>
+                  </td>
+                  <td class="num excursion">
+                    <span>{{ row.record.mfe.value | number:'1.2-2' }}</span>
+                    <span class="exc-date">{{ row.record.mfe.date }}</span>
+                  </td>
+                }
+              </tr>
+            } @empty {
+              <tr><td colspan="8" class="state-note">No contract events for this filter.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
 </div>
