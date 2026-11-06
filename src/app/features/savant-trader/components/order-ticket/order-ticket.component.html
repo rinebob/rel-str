@@ -45,6 +45,18 @@
             <span>Time in force</span>
             <strong>{{ ticket()?.timeInForce | uppercase }}</strong>
           </div>
+          @if (ticket()?.result?.fillPrice) {
+            <div class="stop-loss-detail-row">
+              <span>Fill</span>
+              <strong>
+                {{ ticket()?.result?.filledQuantity ?? ticket()?.quantity }} @
+                {{ ticket()?.result?.fillPrice | currency:'USD':'symbol':'1.2-2' }}
+                @if (ticket()?.result?.filledAt) {
+                  <span class="conf-sub">· {{ ticket()?.result?.filledAt | date:'short' }}</span>
+                }
+              </strong>
+            </div>
+          }
           @if (ticket()?.result?.orderId) {
             <div class="stop-loss-detail-row">
               <span>Broker order ID</span>
@@ -87,8 +99,12 @@
               }
               @if (ticket()?.status === OrderTicketStatus.FAILED) {
                 <p class="error-hint">Requeue moves the stop-loss back to staged so it can be resubmitted.</p>
-              } @else {
+              } @else if (isEditable()) {
                 <p class="error-hint">This stop-loss can be retried after correcting the issue.</p>
+              } @else if (isSubmitted()) {
+                <p class="error-hint">Recorded at last broker sync — Refresh from Broker re-checks the order.</p>
+              } @else {
+                <p class="error-hint">Recorded at last broker sync.</p>
               }
             </div>
           </div>
@@ -170,8 +186,12 @@
               <p class="error-hint">Requeue moves the order back to staged so it can be edited and resubmitted.</p>
             } @else if (isRetryable()) {
               <p class="error-hint">This error is retryable. You can retry the order.</p>
-            } @else {
+            } @else if (isEditable()) {
               <p class="error-hint">This error is not retryable. Edit the order and try again.</p>
+            } @else if (isSubmitted()) {
+              <p class="error-hint">Recorded at last broker sync — Refresh from Broker re-checks the order.</p>
+            } @else {
+              <p class="error-hint">Recorded at last broker sync.</p>
             }
           </div>
         </div>
@@ -288,6 +308,9 @@
               <span class="conf-value">
                 {{ entryConfirmation()?.filledQuantity ?? entryConfirmation()?.quantity }}
                 @ {{ entryConfirmation()?.fillPrice | currency:'USD':'symbol':'1.2-2' }}
+                @if (entryConfirmation()?.filledAt) {
+                  <span class="conf-sub">· {{ entryConfirmation()?.filledAt | date:'short' }}</span>
+                }
               </span>
             </div>
           }

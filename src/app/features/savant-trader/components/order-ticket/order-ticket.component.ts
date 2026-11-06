@@ -351,8 +351,9 @@ export class OrderTicketComponent {
       result: {
         orderId: rhStop.id,
         state: rhStop.state,
-        fillPrice: rhStop.price ?? undefined,
-        filledQuantity: rhStop.cumulativeQuantity ?? rhStop.quantity,
+        // No fillPrice — rhStop.price is the *limit* price and
+        // findActiveStopLoss only admits non-terminal orders (#1018 r2).
+        filledQuantity: rhStop.cumulativeQuantity,
         brokerOrder: rhStop,
       },
       createdAt: rhStop.createdAt ?? new Date().toISOString(),
@@ -416,6 +417,7 @@ export class OrderTicketComponent {
       quantity: i.quantity ?? this.quantity(),
       fillPrice: i.result?.fillPrice ?? null,
       filledQuantity: i.result?.filledQuantity ?? null,
+      filledAt: i.result?.filledAt ?? null,
       orderId: i.result?.orderId ?? null,
       timeInForce: i.timeInForce,
       limitPrice: 'limitPrice' in i ? i.limitPrice ?? null : null,

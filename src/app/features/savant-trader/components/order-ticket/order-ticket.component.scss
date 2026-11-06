@@ -159,29 +159,6 @@
       &.sell { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
     }
 
-    .status-badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 3px;
-      text-transform: uppercase;
-      font-weight: 600;
-      flex-shrink: 0;
-      background: var(--mat-sys-surface-container-highest);
-      color: var(--mat-sys-on-surface-variant);
-
-      &.status-staged, &.status-ready { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
-      &.status-submitting { background: var(--ds-warning-container); color: var(--ds-on-warning-container); }
-      &.status-submitted { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
-      &.status-queued { background: var(--ds-accent-container); color: var(--ds-on-accent-container); }
-      // literal-sweep exception #1214: 'resting' purple — categorical
-      // status hue, no --ds token for it.
-      &.status-resting { background: #7b1fa233; color: #6a1b9a; }
-      &.status-filled { background: var(--ds-success-container); color: var(--ds-on-success-container); }
-      &.status-failed { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
-      &.status-cancelled { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
-      &.status-paper { background: var(--ds-accent-container); color: var(--ds-on-accent-container); }
-    }
-
     .header-price {
       display: inline-flex;
       align-items: center;
@@ -214,6 +191,32 @@
       opacity: 0.7;
     }
   }
+}
+
+// Status pill — top-level so BOTH headers use it (.ticket-header and
+// .stop-loss-ticket-header render the same markup; #1018 r1).
+.status-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  font-weight: 600;
+  flex-shrink: 0;
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface-variant);
+
+  &.status-staged, &.status-ready { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+  &.status-submitting { background: var(--ds-warning-container); color: var(--ds-on-warning-container); }
+  &.status-submitted { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
+  &.status-queued { background: var(--ds-accent-container); color: var(--ds-on-accent-container); }
+  // literal-sweep exception #1214: 'resting' purple — categorical
+  // status hue, no --ds token for it.
+  &.status-resting { background: #7b1fa233; color: #6a1b9a; }
+  &.status-filled { background: var(--ds-success-container); color: var(--ds-on-success-container); }
+  &.status-failed { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+  &.status-cancelled, &.status-expired { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
+  &.status-cancel_pending { background: var(--ds-warning-container); color: var(--ds-on-warning-container); }
+  &.status-paper { background: var(--ds-accent-container); color: var(--ds-on-accent-container); }
 }
 
 // ========================================
@@ -461,6 +464,13 @@
   color: var(--mat-sys-on-surface-variant);
   opacity: 0.7;
   margin-left: 4px;
+}
+
+// Muted inline detail — used inside .conf-value and the stop-loss
+// detail rows, so it lives at top level (#1018 r1).
+.conf-sub {
+  font-weight: 400;
+  color: var(--mat-sys-on-surface-variant);
 }
 
 // ========================================

@@ -780,6 +780,68 @@ describe('OrderTicketComponent — accept as paper', () => {
     expect(el.textContent).toContain('Cancellation pending');
     // Refresh stays available — the broker decides when pending resolves.
     expect(buttons.some((t) => t?.includes('Refresh from Broker'))).toBe(true);
+    // The badge gets its own styling hook — pending-cancel is not
+    // visually identical to a plain submitted ticket (#1018).
+    expect(el.querySelector('.status-badge')?.className).toContain('status-cancel_pending');
+  });
+
+  it('shows the fill timestamp on the detail Fill row (#1018)', () => {
+    mount(signalTicket({
+      status: OrderTicketStatus.FILLED,
+      result: { orderId: 'rh-9', fillPrice: '150.25', filledQuantity: '10', filledAt: '2026-10-20T16:05:00Z' },
+    }));
+
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('.conf-row') as NodeListOf<HTMLElement>,
+    );
+    const fillRow = rows.find((r) => r.textContent?.includes('Fill'));
+    expect(fillRow?.textContent).toContain('10 @ $150.25');
+    // The timestamp renders — the exact locale format is the date pipe's
+    // business; assert the date+time pattern survives.
+    expect(fillRow?.textContent).toMatch(/·.*\d{1,2}:\d{2}\s*(AM|PM)/);
+  });
+
+  it('shows the stop-loss ticket\'s own fill on its detail rows (#1018)', () => {
+    mount(makeTicket('sl-1', 'AAPL', {
+      sourceRef: { type: 'stop_loss', id: 'sl-1' },
+      orderType: 'stop_loss',
+      status: OrderTicketStatus.FILLED,
+      quantity: '10',
+      result: { orderId: 'rh-sl', fillPrice: '92.00', filledQuantity: '10', filledAt: '2026-10-21T14:00:00Z' },
+    }));
+
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('.stop-loss-detail-row') as NodeListOf<HTMLElement>,
+    );
+    const fillRow = rows.find((r) => r.textContent?.includes('Fill'));
+    expect(fillRow?.textContent).toContain('10 @ $92.00');
+  });
+
+  it('shows no Fill row on a resting stop-loss — a limit price is not a fill (#1018 r1)', () => {
+    mount(makeTicket('sl-1', 'AAPL', {
+      sourceRef: { type: 'stop_loss', id: 'sl-1' },
+      orderType: 'stop_limit',
+      status: OrderTicketStatus.RESTING,
+      quantity: '10',
+      result: { orderId: 'rh-sl', state: 'confirmed', filledQuantity: '10' },
+    }));
+
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('.stop-loss-detail-row') as NodeListOf<HTMLElement>,
+    );
+    expect(rows.some((r) => r.textContent?.includes('Fill'))).toBe(false);
+  });
+
+  it('does not tell the user to edit a non-editable ticket on a bookkeeping lastError (#1018)', () => {
+    mount(signalTicket({
+      status: OrderTicketStatus.SUBMITTED,
+      result: { orderId: 'rh-9', state: 'confirmed' },
+      error: { message: 'cancel rejected at broker', code: 'cancel_reject', retryable: false },
+    }));
+
+    const hint = fixture.nativeElement.querySelector('.error-hint') as HTMLElement | null;
+    expect(hint?.textContent).not.toContain('Edit the order');
+    expect(hint?.textContent).toContain('Recorded at last broker sync');
   });
 
   it('onModify cancels at RH then reverts to STAGED with a FRESH refId (#717)', async () => {
