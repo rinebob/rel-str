@@ -17,30 +17,7 @@ import type {
   OptionsAnalysisStartResponse,
 } from '@options-analysis/contracts';
 import { ST_OPTIONS_ANALYSIS_RESULTS_ROOT } from '@st/collections';
-
-/** Firestore doc → AnalysisResultDoc — defaults guard sparse/partial
- *  snapshots; mirrors convertOptionsContractListDoc. */
-function convertAnalysisResultDoc(d: Record<string, unknown>): AnalysisResultDoc {
-  const exitId = String(d['exitId'] ?? '');
-  return {
-    contractListDocId: String(d['contractListDocId'] ?? ''),
-    runId: String(d['runId'] ?? ''),
-    symbol: String(d['symbol'] ?? ''),
-    templateId: String(d['templateId'] ?? ''),
-    exitId,
-    registryVersion: Number(d['registryVersion'] ?? 0),
-    // A missing status must NOT default to 'success' — that would flip the
-    // card to a dead-end View Results and remove its only re-run affordance.
-    // 'failed' fails safe: the card keeps Analyze enabled for a silent retry.
-    status: (d['status'] as AnalysisResultDoc['status']) ?? 'failed',
-    trades: Array.isArray(d['trades']) ? (d['trades'] as AnalysisResultDoc['trades']) : [],
-    aggregate: (d['aggregate'] as AnalysisResultDoc['aggregate']) ?? {
-      exitId, contractCount: 0, exitedCount: 0, expiredCount: 0, errorCount: 0,
-    },
-    generatedAt: String(d['generatedAt'] ?? ''),
-    error: typeof d['error'] === 'string' ? d['error'] : undefined,
-  };
-}
+import { convertAnalysisResultDoc } from './options-analysis-firestore-converter';
 
 @Injectable({
   providedIn: 'root',
@@ -75,6 +52,23 @@ export class OptionsAnalysisRunsService {
     return from(runInInjectionContext(this.injector, () => {
       const resultsRef = collection(this.firestore, this.resultsCollection);
       const resultsQuery = query(resultsRef, where('runId', '==', runId));
+      return collectionData(resultsQuery) as Observable<Record<string, unknown>[]>;
+    })).pipe(
+      map((docs) => docs.map((d) => convertAnalysisResultDoc(d)))
+    );
+  }
+
+  /**
+   * Watch the result docs for ONE contract list — the results-page query
+   * (`{listDocId}_{exitId}` docs, one per exit type). Registry ordering is
+   * applied client-side; the single-field `==` predicate rides the
+   * automatic index — the declared (contractListDocId, exitId) composite
+   * serves ordered/multi-field shapes.
+   */
+  watchListResultDocs(contractListDocId: string): Observable<AnalysisResultDoc[]> {
+    return from(runInInjectionContext(this.injector, () => {
+      const resultsRef = collection(this.firestore, this.resultsCollection);
+      const resultsQuery = query(resultsRef, where('contractListDocId', '==', contractListDocId));
       return collectionData(resultsQuery) as Observable<Record<string, unknown>[]>;
     })).pipe(
       map((docs) => docs.map((d) => convertAnalysisResultDoc(d)))

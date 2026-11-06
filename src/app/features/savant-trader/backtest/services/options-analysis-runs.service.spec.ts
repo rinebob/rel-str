@@ -62,4 +62,12 @@ describe('OptionsAnalysisRunsService', () => {
     expect(whereMock).toHaveBeenCalledTimes(1);
     expect(whereMock).toHaveBeenCalledWith('runId', '==', 'run-1');
   });
+
+  it('queries st-options-analysis-results by contractListDocId for the results page', async () => {
+    await firstValueFrom(service.watchListResultDocs('run-1_SPY'));
+
+    expect(collectionMock).toHaveBeenCalledWith(expect.anything(), ST_OPTIONS_ANALYSIS_RESULTS_ROOT);
+    expect(whereMock).toHaveBeenCalledTimes(1);
+    expect(whereMock).toHaveBeenCalledWith('contractListDocId', '==', 'run-1_SPY');
+  });
 });
