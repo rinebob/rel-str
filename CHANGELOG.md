@@ -6,6 +6,9 @@
 - [ST Firestore Reorg] 984-1158_SHARED-IMPL-DATA-PIPELINE: analysis helpers → st-paper-trading anchors — FE+BE cutover via single shared seam; rules legs incl. analysis-datasets/chunks delete (fixes prod deleteDataset$ PERMISSION_DENIED); covers BE twin #1160
 
 ### Added
+- [ST Firestore Reorg] 984-1018_FE-IMPL-DATA-PIPELINE: canonical fill/error plumbing — filledAt round-trip, filled-gated last_transaction_at capture, fill-fabrication sweep + TERMINAL_STATES += 'expired'
+- [ST Firestore Reorg] 984-1018_FE-IMPL-DATA-PIPELINE: ticket detail UX — Fill row w/ timestamp (main + stop-loss), cancel_pending/expired badges, error hints gated on available actions
+- [ST Firestore Reorg] 984-1018_DOCS-DATA-PIPELINE: #1018 code-review (PASS, 2 rounds) + UAT (Complete, #1424)
 - [ST Firestore Reorg] 984-1158_BE-CHORE-DATA-PIPELINE: analysis-anchor migration (applied: 4 datasets + 4 chunks + 3 slices verbatim) + parity relay + verify registration — --no-create straggler mode, updateTime direction guards
 - [ST Firestore Reorg] 984-1158_DOCS-DATA-PIPELINE: #1158 code-review (PASS, 2 rounds) + UAT (Complete, #1343)
 - [Options Backtest] 1238-1375_FE-IMPL-BACKTEST: rerun action on failed Selection Replay rows — optionsReplayRetry wiring, snapshot-gated in-flight flag, run-scoped disable semantics
