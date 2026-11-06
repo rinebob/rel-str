@@ -58,6 +58,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #1077 | `paper-trading-analysis-1077-live-snapshot.ts` | live snapshot dry-run — every trade → one row, cohort split, ind.*/strength.*/excursion sanity on real prod (read-only, no writes) | [paper-trading-analysis-1077.md](paper-trading-analysis-1077.md) |
 | #1079 | `paper-trading-analysis-dataset.ts` | consolidated relay — live dry-run via the real pass (collector writeDataset) + AMAT replay parity vs checked-in prototype CSV on a frozen bar window + full-history baseline (read-only, needs ADC) | [paper-trading-analysis-dataset.md](paper-trading-analysis-dataset.md) |
 | #724 | `paper-trading-engine-settlement-724.ts` | engine settlement retries missed nights + weekend-expiry walk-back | [paper-trading-engine-settlement-724.md](../../../scripts/verify/paper-trading-engine-settlement-724.md) |
+| #1247 | `paper-trading-engine-open-1247.ts` | open-pass ladder — new leg per cadence despite prior opens; same-day idempotent; maxOpenPositions cap; stats/ALL restored | [paper-trading-engine-open-1247.md](../../../scripts/verify/paper-trading-engine-open-1247.md) |
 | #669 | `paper-trading-trade-exits-669.ts` | composed exit seam — prod seeding audit + governingVariant resolution + seed guards + cancel/close guards | [paper-trading-trade-exits-669.md](../../../scripts/verify/paper-trading-trade-exits-669.md) |
 | #766 | `screenshot-capture-766-render.ts` | render model → SVG (fixture render + structural checks + browser artifact) | [screenshot-capture-766.md](screenshot-capture-766.md) |
 | #767 | `screenshot-capture-767-assemble.ts` | symbol-data bars → indicator series → render model → SVG (real-data end-to-end) | [screenshot-capture-767.md](screenshot-capture-767.md) |
@@ -83,6 +84,7 @@ npx tsx scripts/verify/{script-name}.ts
 12. **#720** — `paper-trading-signal-settlement-720.ts` (signal-trade settlement)
 13. **#724** — `paper-trading-engine-settlement-724.ts` (engine missed-night + weekend-expiry parity)
 13b. **#983** — `paper-trading-eod-close-983.ts` (post-nightly: marks = official close)
+13c. **#1247** — `paper-trading-engine-open-1247.ts` (open-pass ladder cadence + cap)
 14. **#669** — `paper-trading-trade-exits-669.ts` (composed exit seam + prod audit)
 15. **#766** — `screenshot-capture-766-render.ts` (render model → SVG)
 16. **#767** — `screenshot-capture-767-assemble.ts` (data assembly → model → SVG)

@@ -29,6 +29,7 @@ const scripts = [
   'paper-trading-signal-marks-676.ts',
   'paper-trading-signal-settlement-720.ts',
   'paper-trading-engine-settlement-724.ts',
+  'paper-trading-engine-open-1247.ts',
   'paper-trading-trade-exits-669.ts',
   'screenshot-capture-766-render.ts',
   'screenshot-capture-767-assemble.ts',
