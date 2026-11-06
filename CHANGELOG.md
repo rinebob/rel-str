@@ -6,6 +6,14 @@
 - [Paper Trading Infra] 553-1247_SHARED-BUG-PAPER-TRADING: `maxOpenPositions` optional concurrent-position bound on StrategyInstanceConfig — absent/0 = uncapped
 - [Paper Trading Infra] 553-1247_BE-CHORE-PAPER-TRADING: live verify `paper-trading-engine-open-1247.ts` — 15 checks, scratch-scoped prod ACs 1-4 + run-all/README registration
 - [Paper Trading Infra] 553-1247_DOCS-PAPER-TRADING: #1247 code-review (PASS, 3 rounds) + UAT (Complete, #1429) + changelog
+- [Options Backtest] 1238-1430_SHARED-IMPL-BACKTEST: single-symbol run model — scalar symbol, runId-keyed list + result ids
+- [Options Backtest] 1238-1430_BE-IMPL-BACKTEST: per-symbol run docs + atomic claimRetry + worker close-out (success→completed, terminal-skip)
+- [Options Backtest] 1238-1430_BE-CHORE-BACKTEST: live single-symbol audit + verify scripts re-pinned to runId keying
+- [Options Backtest] 1238-1430_FE-IMPL-BACKTEST: singular contractList store + one-row-per-run surfaces + cross-symbol replay select
+- [Options Backtest] 1238-1430_DOCS-BACKTEST: #1430 code-review (PASS, 3 rounds) + UAT (Complete, #1435) + ADR-010 amendment
+
+### Removed
+- [Options Backtest] 1238-1430_CONFIG-BACKTEST: st-options-contract-lists (runId,symbol) composite index — single-symbol runs read by direct doc id
 
 ### Fixed
 - [Paper Trading Infra] 553-1247_BE-BUG-PAPER-TRADING: open-pass ladder cadence — all-status cadence gate replaces `existing_position` serial skip; same-day idempotency; pre-order deterministic-ID check; cap warn+drop normalization; gates + ticket-staging extracted

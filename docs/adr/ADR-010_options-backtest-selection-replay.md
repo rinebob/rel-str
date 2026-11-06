@@ -71,3 +71,24 @@ text above:
   `no_match→'miss'`, `no_chain→'gap'`.
 - The endpoint itself is pending SA task av-proxy-api#225 (blocked by #223
   materialization); auth = existing partner ID-token convention.
+
+## Amendment — 2026-11-06 (task #1430)
+
+**Runs are single-symbol.** The original model made `symbols[]` a
+convenience field on one run envelope (`totalLists`/`completedLists`/
+`failedLists` counters + a `listOutcomes` map tracked N list docs per
+run). User feedback: a multi-symbol submission IS N runs triggered at
+once — a run is always one `(template, symbol, startDate)` selection.
+Supersedes the `{runId}_{symbol}` list-key language in the Decision:
+
+- `optionsReplayStart` creates **one run doc per symbol** — no batch
+  linkage, no shared envelope. A run's status IS its contract list's
+  status; the counters and `listOutcomes` map are gone.
+- `runId` embeds the symbol (`{runIdPT}_{rand}_{SYMBOL}`) for
+  log/debug readability; `st-options-contract-lists/{docId}` keys at
+  `docId == runId` (run and list are 1:1 by construction).
+- Analysis results key off the runId: `st-options-analysis-results/
+  {runId}_{exitId}` — the `{contractListDocId}_{exitId}` composition is
+  unchanged, the field's value is now the runId.
+- Pre-#1430 multi-symbol docs across all three collections are throwaway
+  data, deleted by the post-deploy migration.
