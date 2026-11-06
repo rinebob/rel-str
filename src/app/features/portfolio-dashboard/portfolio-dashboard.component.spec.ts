@@ -122,12 +122,13 @@ function makeStoreMock(overrides: Partial<{
     updatableStops: computed(() => updatableStopsBySymbol(openOrders(), equityPositions())),
     showOrderHistory,
     loadAccounts: jasmine.createSpy('loadAccounts').and.returnValue(Promise.resolve()),
-    loadPhase1: jasmine.createSpy('loadPhase1').and.returnValue(Promise.resolve()),
-    loadPhase2: jasmine.createSpy('loadPhase2').and.returnValue(Promise.resolve()),
     refresh: jasmine.createSpy('refresh').and.returnValue(Promise.resolve()),
-    selectAccount: jasmine.createSpy('selectAccount'),
+    initialLoad: jasmine.createSpy('initialLoad').and.returnValue(Promise.resolve()),
+    selectAccount: jasmine.createSpy('selectAccount').and.returnValue(Promise.resolve()),
     toggleOrderHistory: jasmine.createSpy('toggleOrderHistory'),
     retrySection: jasmine.createSpy('retrySection').and.returnValue(Promise.resolve()),
+    reconcileOrders: jasmine.createSpy('reconcileOrders').and.returnValue(Promise.resolve()),
+    ensureAccountOrders: jasmine.createSpy('ensureAccountOrders').and.returnValue(Promise.resolve()),
     _setAccounts: (a: AccountState[]) => accounts.set(a),
     _setSummary: (s: AggregateSummary) => summary.set(s),
     _setLoading: (l: boolean) => globalLoading.set(l),
@@ -271,11 +272,12 @@ describe('PortfolioDashboardComponent', () => {
     expect(localStorage.getItem('pd-show-amounts')).toBe('1');
   });
 
-  it('calls store.refresh() on init', async () => {
+  it('calls store.initialLoad() on init', async () => {
     fixture.detectChanges(); // triggers ngOnInit
     await fixture.whenStable();
 
-    expect(store.refresh).toHaveBeenCalledTimes(1);
+    expect(store.initialLoad).toHaveBeenCalledTimes(1);
+    expect(store.refresh).not.toHaveBeenCalled();
   });
 
   it('renders empty state when no accounts, not loading, no error', () => {
@@ -360,7 +362,7 @@ describe('PortfolioDashboardComponent', () => {
     const button = fixture.nativeElement.querySelector('.pd-refresh');
     button.click();
 
-    expect(store.refresh).toHaveBeenCalledTimes(2); // once on init, once on click
+    expect(store.refresh).toHaveBeenCalledTimes(1); // init uses initialLoad — this click is refresh #1
   });
 
   it('calls store.selectAccount() on account switcher select', () => {
@@ -436,15 +438,27 @@ describe('PortfolioDashboardComponent', () => {
     expect(pnlValue.classList.contains('pd-negative')).toBe(true);
   });
 
-  it('does not call loadPhase1 or loadPhase2 directly on init', async () => {
+  it('runs initialLoad on init — not the granular load methods', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    // The component should use refresh(), not call load methods directly
     expect(store.loadAccounts).not.toHaveBeenCalled();
-    expect(store.loadPhase1).not.toHaveBeenCalled();
-    expect(store.loadPhase2).not.toHaveBeenCalled();
-    expect(store.refresh).toHaveBeenCalledTimes(1);
+    expect(store.refresh).not.toHaveBeenCalled();
+    expect(store.initialLoad).toHaveBeenCalledTimes(1);
+  });
+
+  it('kicks ensureAccountOrders when the Orders tab activates', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    component.selectSection(2);
+    expect(store.ensureAccountOrders).toHaveBeenCalledWith(0);
+    component.selectSection(3);
+    expect(store.ensureAccountOrders).toHaveBeenCalledTimes(2);
+    // Non-orders tabs read the already-loaded core group — no kick.
+    store.ensureAccountOrders.calls.reset();
+    component.selectSection(0);
+    expect(store.ensureAccountOrders).not.toHaveBeenCalled();
   });
 
   // --- Task #287 wiring tests ---
@@ -597,19 +611,23 @@ describe('PortfolioDashboardComponent', () => {
     expect(data.accountNumber).toBe('123456');
   });
 
-  it('calls store.refresh() after stop-loss dialog dismisses with success', () => {
+  it('reconciles orders silently after stop-loss dialog dismisses with success — no full refresh', () => {
     const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
     store._setAccounts([makeAccountState('Account A', '123456')]);
     store._setEquityPositions([pos]);
     fixture.detectChanges();
 
     store.refresh.calls.reset();
+    store.reconcileOrders.calls.reset();
     component.onAddStopLoss(pos);
 
-    expect(store.refresh).toHaveBeenCalledTimes(1);
+    expect(store.reconcileOrders).toHaveBeenCalledTimes(1);
+    expect(store.reconcileOrders).toHaveBeenCalledWith(0);
+    expect(store.refresh).not.toHaveBeenCalled();
+    expect(store.retrySection).not.toHaveBeenCalled();
   });
 
-  it('does not call store.refresh() when stop-loss dialog dismissed without success', () => {
+  it('does nothing when the stop-loss dialog dismisses without a submission', () => {
     const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
     store._setAccounts([makeAccountState('Account A', '123456')]);
     store._setEquityPositions([pos]);
@@ -617,9 +635,12 @@ describe('PortfolioDashboardComponent', () => {
 
     dialog.open.and.returnValue({ afterClosed: () => of(false) });
     store.refresh.calls.reset();
+    store.reconcileOrders.calls.reset();
     component.onAddStopLoss(pos);
 
     expect(store.refresh).not.toHaveBeenCalled();
+    expect(store.retrySection).not.toHaveBeenCalled();
+    expect(store.reconcileOrders).not.toHaveBeenCalled();
   });
 
   it('derives updatableSymbols from live equity sell stops on held positions', () => {
@@ -669,7 +690,7 @@ describe('PortfolioDashboardComponent', () => {
     expect(data.update!.candidates).toEqual([aaplStop]);
   });
 
-  it('calls store.refresh() after update-stop dialog dismisses with success', () => {
+  it('reconciles orders silently after update-stop dialog dismisses with success — no full refresh', () => {
     const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
     store._setAccounts([makeAccountState('Account A', '123456')]);
     store._setEquityPositions([pos]);
@@ -679,9 +700,13 @@ describe('PortfolioDashboardComponent', () => {
     fixture.detectChanges();
 
     store.refresh.calls.reset();
+    store.reconcileOrders.calls.reset();
     component.onUpdateStop(pos);
 
-    expect(store.refresh).toHaveBeenCalledTimes(1);
+    expect(store.reconcileOrders).toHaveBeenCalledTimes(1);
+    expect(store.reconcileOrders).toHaveBeenCalledWith(0);
+    expect(store.refresh).not.toHaveBeenCalled();
+    expect(store.retrySection).not.toHaveBeenCalled();
   });
 
   it('does not open the dialog when no updatable stop exists for the symbol', () => {

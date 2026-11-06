@@ -103,27 +103,27 @@
               [class.active]="selectedSection() === 0"
               [attr.aria-selected]="selectedSection() === 0"
               aria-controls="pd-panel-0"
-              (click)="selectedSection.set(0)">Equities</button>
+              (click)="selectSection(0)">Equities</button>
             <button type="button" class="tab" role="tab" id="pd-tab-1"
               [class.active]="selectedSection() === 1"
               [attr.aria-selected]="selectedSection() === 1"
               aria-controls="pd-panel-1"
-              (click)="selectedSection.set(1)">Options</button>
+              (click)="selectSection(1)">Options</button>
             <button type="button" class="tab" role="tab" id="pd-tab-2"
               [class.active]="selectedSection() === 2"
               [attr.aria-selected]="selectedSection() === 2"
               aria-controls="pd-panel-2"
-              (click)="selectedSection.set(2)">Orders</button>
+              (click)="selectSection(2)">Orders</button>
             <button type="button" class="tab" role="tab" id="pd-tab-3"
               [class.active]="selectedSection() === 3"
               [attr.aria-selected]="selectedSection() === 3"
               aria-controls="pd-panel-3"
-              (click)="selectedSection.set(3)">History</button>
+              (click)="selectSection(3)">History</button>
             <button type="button" class="tab" role="tab" id="pd-tab-4"
               [class.active]="selectedSection() === 4"
               [attr.aria-selected]="selectedSection() === 4"
               aria-controls="pd-panel-4"
-              (click)="selectedSection.set(4)">Account</button>
+              (click)="selectSection(4)">Account</button>
           </div>
 
           @if (selectedSection() === 0) {

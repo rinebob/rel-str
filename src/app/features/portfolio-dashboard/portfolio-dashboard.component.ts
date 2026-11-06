@@ -9,8 +9,8 @@
  * - Per-tab section components: AccountSummary, EquityPositionsTable,
  *   OptionPositionsTable, OpenOrdersTable, OrderHistoryTable
  *
- * On init: calls store.refresh() which handles the full load sequence
- * (loadAccounts → loadPhase1 → loadPhase2) with concurrency guard.
+ * On init: calls store.initialLoad() — selected account's visible sections
+ * gate the UI, everything else prefetches silently behind it (#1408).
  */
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ComponentType } from '@angular/cdk/portal';
@@ -105,8 +105,8 @@ export class PortfolioDashboardComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.store.refresh().catch(() => {
-      // refresh() catches and sets loadError; this prevents unhandled rejection.
+    this.store.initialLoad().catch(() => {
+      // initialLoad() catches and sets loadError; this prevents unhandled rejection.
     });
   }
 
@@ -115,7 +115,40 @@ export class PortfolioDashboardComponent implements OnInit {
   }
 
   onAccountSelect(index: number): void {
-    this.store.selectAccount(index);
+    this.store.selectAccount(index).catch(() => {});
+  }
+
+  /** Section tabs that read the orders group — Orders + History. Keep in
+   *  sync with the tab-bar order in the template. */
+  private readonly ordersTabs = new Set([2, 3]);
+
+  /** Orders + History tabs read the orders group — kick its fetch if the
+   *  prefetch wave hasn't reached it yet (#1408 on-demand activation). */
+  selectSection(n: number): void {
+    this.selectedSection.set(n);
+    if (this.ordersTabs.has(n)) {
+      this.store.ensureAccountOrders(this.selectedAccountIndex()).catch(() => {});
+    }
+  }
+
+  /** WAI-ARIA tabs keyboard nav: arrows move + activate, Home/End jump. */
+  onTabKeydown(event: KeyboardEvent): void {
+    const tabs = Array.from(
+      (event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.tab'),
+    );
+    const count = tabs.length;
+    if (count === 0) return;
+    let next: number | null = null;
+    switch (event.key) {
+      case 'ArrowRight': next = (this.selectedSection() + 1) % count; break;
+      case 'ArrowLeft':  next = (this.selectedSection() - 1 + count) % count; break;
+      case 'Home':       next = 0; break;
+      case 'End':        next = count - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    this.selectSection(next);
+    tabs[next]?.focus();
   }
 
   toggleAmounts(): void {
@@ -152,7 +185,7 @@ export class PortfolioDashboardComponent implements OnInit {
       currentPrice: position.currentPrice ?? 0,
       accountNumber: account.accountNumber,
     };
-    this.openThenRefresh(StopLossDialogComponent, data);
+    this.openThenRefresh(StopLossDialogComponent, data, 'orders');
   }
 
   /** Update Stop — opens the same dialog in update mode with the symbol's
@@ -167,19 +200,29 @@ export class PortfolioDashboardComponent implements OnInit {
       accountNumber: account.accountNumber,
       update: { candidates },
     };
-    this.openThenRefresh(StopLossDialogComponent, data);
+    this.openThenRefresh(StopLossDialogComponent, data, 'orders');
   }
 
-  /** Open a dialog that reports mutation via close(true) — refresh the
-   *  dashboard so position/order state reconciles with the broker. */
-  private openThenRefresh<T>(component: ComponentType<T>, data: unknown): void {
+  /** Open a dialog that reports mutation via close(true) — reconcile store
+   *  state with the broker. 'all' (default) runs the full dashboard refresh;
+   *  'orders' silently refetches only the orders batch in the background —
+   *  no loading flags, no spinners — so the dashboard stays fully
+   *  interactive while the slow RH call resolves (#1397). */
+  private openThenRefresh<T>(
+    component: ComponentType<T>,
+    data: unknown,
+    scope: 'all' | 'orders' = 'all',
+  ): void {
     this.dialog
       .open(component, { data })
       .afterClosed()
       .subscribe((result) => {
-        if (result === true) {
-          this.store.refresh().catch(() => {});
+        if (result !== true) return;
+        if (scope === 'orders') {
+          this.store.reconcileOrders(this.selectedAccountIndex()).catch(() => {});
+          return;
         }
+        this.store.refresh().catch(() => {});
       });
   }
 
