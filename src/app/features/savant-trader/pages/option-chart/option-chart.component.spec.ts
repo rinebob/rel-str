@@ -58,11 +58,13 @@ function setup(getHistorical?: jest.Mock, dialogResult = true, bars: OhlcBar[] =
   const optionsService = {
     getHistoricalOptionsContract$:
       getHistorical ?? jest.fn((_s: string, cid: string) => of(contractResponse(cid, ['2026-06-01', '2026-06-10']))),
+    getContractIndex$: jest.fn(() => of({ expirations: [], strikes: [] })),
+    getContractCatalogSummary$: jest.fn(() => of(null)),
   };
   const barService = { getDailyBarsForRange$: jest.fn(() => of(bars)) };
   const replayService = {
     watchRuns: jest.fn(() => of([])),
-    watchContractLists: jest.fn(() => of(replayLists)),
+    watchContractList: jest.fn(() => of(replayLists[0] ?? null)),
   };
   const dialog = {
     open: jest.fn(() => ({ afterClosed: () => of(dialogResult) })),
@@ -526,9 +528,11 @@ describe('OptionChartComponent — selection replay dropdown', () => {
     repeatsPrevious: false,
   });
 
+  // Under single-symbol runs (#1430) listId IS the runId and the id ends
+  // with `_{SYMBOL}` — fixtures model the real keying.
   const listFor = (symbol: string, rows: ContractListRow[]): OptionsContractListUi => ({
     listId: `run1_${symbol}`,
-    runId: 'run1',
+    runId: `run1_${symbol}`,
     symbol,
     templateId: 'csp-45-20',
     status: 'success',
@@ -550,7 +554,7 @@ describe('OptionChartComponent — selection replay dropdown', () => {
     ];
     const { store, component } = setup(undefined, true, [], [listFor('QQQ', rows)]);
 
-    await component.onReplaySelected('run1');
+    await component.onReplaySelected('run1_QQQ');
 
     const plotted = store.plottedList();
     expect(plotted).toHaveLength(10);
@@ -559,18 +563,42 @@ describe('OptionChartComponent — selection replay dropdown', () => {
     expect(component.replayError()).toBeNull();
   });
 
-  it('errors when the run has no list for the current symbol', async () => {
-    const { store, component } = setup(undefined, true, [], [listFor('SPY', [])]);
-    await component.onReplaySelected('run1');
-    expect(component.replayError()).toContain('QQQ');
+  it('switches the page symbol to the run\'s symbol and plots (#1430)', async () => {
+    const rows = WEDNESDAYS.slice(0, 2).map((d, i) => pickRow(d, `SPY260619P00${580 + i}000`));
+    const { store, component } = setup(undefined, true, [], [listFor('SPY', rows)]);
+    expect(component.symbol()).toBe('QQQ'); // fixture default
+    await component.onReplaySelected('run1_SPY');
+    expect(component.symbol()).toBe('SPY');
+    expect(component.replayError()).toBeNull();
+    expect(store.plottedList()).toHaveLength(2);
+  });
+
+  it('errors when the run has no successful list', async () => {
+    const { store, component } = setup(undefined, true, [], [
+      { ...listFor('SPY', []), status: 'failed' },
+    ]);
+    await component.onReplaySelected('run1_SPY');
+    expect(component.replayError()).toContain('successful');
+    expect(component.symbol()).toBe('QQQ'); // never switched
     expect(store.plottedList()).toHaveLength(0);
   });
 
   it('errors when the list has no Wednesday picks', async () => {
     const rows = [pickRow('2026-06-01', 'QQQ260619P00470000')]; // Monday only
     const { store, component } = setup(undefined, true, [], [listFor('QQQ', rows)]);
-    await component.onReplaySelected('run1');
+    await component.onReplaySelected('run1_QQQ');
     expect(component.replayError()).toContain('Wednesday');
+    expect(store.plottedList()).toHaveLength(0);
+  });
+
+  it('a cross-symbol run that errors does NOT switch the page symbol (#1430 R3)', async () => {
+    // SPY list with only non-Wednesday picks — the page must stay on QQQ:
+    // the symbol switch happens only after every bail path passes.
+    const rows = [pickRow('2026-06-01', 'SPY260619P00580000')]; // Monday only
+    const { store, component } = setup(undefined, true, [], [listFor('SPY', rows)]);
+    await component.onReplaySelected('run1_SPY');
+    expect(component.replayError()).toContain('Wednesday');
+    expect(component.symbol()).toBe('QQQ');
     expect(store.plottedList()).toHaveLength(0);
   });
 });

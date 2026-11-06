@@ -199,7 +199,7 @@
             <option [value]="r.runId">{{ replayLabel(r) }}</option>
             }
           </select>
-          <span class="field-hint">Plots first 10 Wednesday picks for {{ symbol() }}</span>
+          <span class="field-hint">Plots first 10 Wednesday picks — switches to the run's symbol</span>
         </label>
         @if (replayLoading()) {
         <div class="search-loading">

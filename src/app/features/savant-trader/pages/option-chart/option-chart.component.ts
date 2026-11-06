@@ -836,9 +836,9 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.genStore.applyRange(null);
   }
 
-  /** Dropdown label — template + window + symbols covered. */
+  /** Dropdown label — template + window + the run's symbol. */
   replayLabel(run: OptionsReplayRunUi): string {
-    return `${run.templateId} · ${run.startDate} · ${run.symbols.join(', ')}`;
+    return `${run.templateId} · ${run.startDate} · ${run.symbol}`;
   }
 
   /** Replay pick → default slice = first 10 Wednesday pick rows of the
@@ -849,13 +849,11 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.replayLoading.set(true);
     this.replayError.set(null);
     try {
-      const lists = await firstValueFrom(
-        this.replayService.watchContractLists(runId).pipe(take(1)),
+      const list = await firstValueFrom(
+        this.replayService.watchContractList(runId).pipe(take(1)),
       );
-      const sym = this.symbol().trim().toUpperCase();
-      const list = lists.find((l) => l.symbol === sym && l.status === 'success');
-      if (!list) {
-        this.replayError.set(`No ${sym} contract list in this run`);
+      if (list?.status !== 'success') {
+        this.replayError.set('No successful contract list in this run');
         return;
       }
       const picks = list.rows
@@ -866,8 +864,21 @@ export class OptionChartComponent implements OnInit, OnDestroy {
         this.replayError.set('No Wednesday picks in this list');
         return;
       }
+      // Single-symbol runs (#1430): a run is exactly one list, often NOT
+      // the page symbol — selecting it is intent to view that symbol, so
+      // switch pages like onContractListDoc does. Only after every bail
+      // path — an errored selection must not yank the page underneath
+      // the user (the error names the run, not a symbol switch).
+      const sym = list.symbol.trim().toUpperCase();
+      if (sym && sym !== this.symbol().trim().toUpperCase()) {
+        this.onSymbolChange(sym);
+      }
       this.occIdInput = picks.map((r) => `${r.entryDate},${r.contractId}`).join('\n');
       await this.onLoad();
+    } catch (e: unknown) {
+      // A dead stream (rules/offline) must not fail silently — the
+      // loading flag clears in finally either way.
+      this.replayError.set(e instanceof Error ? e.message : 'Failed to load this run');
     } finally {
       this.replayLoading.set(false);
     }
