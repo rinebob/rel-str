@@ -12,17 +12,20 @@ import { PAGE_INFO } from './common/constants';
 import { PageIdentityService } from './services/page-identity.service';
 import { UiStateService } from './services/ui-state.service';
 import { ManualOrderService } from '../features/savant-trader/services/manual-order.service';
+import { RobinhoodMcpClient } from './robinhood-mcp/robinhood-mcp-client.service';
 
 describe('CoreComponent', () => {
   let component: CoreComponent;
   let fixture: ComponentFixture<CoreComponent>;
   let ui: UiStateService;
   let pageInfoStub: WritableSignal<PageInfo | undefined>;
+  let isAuthedStub: WritableSignal<boolean>;
 
   const el = () => fixture.nativeElement as HTMLElement;
 
   beforeEach(async () => {
     pageInfoStub = signal<PageInfo | undefined>(undefined);
+    isAuthedStub = signal(false);
 
     await TestBed.configureTestingModule({
       imports: [CoreComponent],
@@ -40,7 +43,11 @@ describe('CoreComponent', () => {
         },
         {
           provide: AuthStore,
-          useValue: { user: signal(null), isAuthenticated: signal(false), loading: signal(false), signOut: jest.fn() },
+          useValue: { user: signal(null), isAuthenticated: isAuthedStub, loading: signal(false), signOut: jest.fn() },
+        },
+        {
+          provide: RobinhoodMcpClient,
+          useValue: { getAccounts: jest.fn().mockResolvedValue([]), invalidateAccounts: jest.fn() },
         },
         { provide: ManualOrderService, useValue: { open: jest.fn().mockResolvedValue(undefined) } },
       ],
@@ -140,5 +147,35 @@ describe('CoreComponent', () => {
 
     header.newOrder.emit();
     expect(svc.open).toHaveBeenCalledTimes(1);
+  });
+
+  it('warms the get_accounts session cache once authenticated (#1409)', () => {
+    const rh = TestBed.inject(RobinhoodMcpClient);
+    expect(rh.getAccounts).not.toHaveBeenCalled();
+
+    isAuthedStub.set(true);
+    fixture.detectChanges();
+
+    expect(rh.getAccounts).toHaveBeenCalledTimes(1);
+  });
+
+  it('sign-out invalidates the cache and a later sign-in re-warms (#1409 review)', () => {
+    const rh = TestBed.inject(RobinhoodMcpClient);
+
+    isAuthedStub.set(true);
+    fixture.detectChanges();
+    expect(rh.getAccounts).toHaveBeenCalledTimes(1);
+
+    // The effect's initial unauthed run already invalidated once (a
+    // no-op on an empty cache) — count transitions from here.
+    (rh.invalidateAccounts as jest.Mock).mockClear();
+
+    isAuthedStub.set(false);
+    fixture.detectChanges();
+    expect(rh.invalidateAccounts).toHaveBeenCalledTimes(1);
+
+    isAuthedStub.set(true);
+    fixture.detectChanges();
+    expect(rh.getAccounts).toHaveBeenCalledTimes(2);
   });
 });

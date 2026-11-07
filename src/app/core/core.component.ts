@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, effect, inject, signal } from '@angular/core';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { Router, RouterOutlet } from '@angular/router';
 
@@ -8,6 +8,8 @@ import { HeaderComponent } from './comps/header/header.component';
 import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.component';
 import { PageIdentityService } from './services/page-identity.service';
 import { UiStateService } from './services/ui-state.service';
+import { AuthStore } from './auth/auth.store';
+import { RobinhoodMcpClient } from './robinhood-mcp/robinhood-mcp-client.service';
 import { ManualOrderService } from '../features/savant-trader/services/manual-order.service';
 
 @Component({
@@ -31,6 +33,24 @@ export class CoreComponent {
     /** Page identity for the fullscreen reveal chip (#854) — fullscreen
      *  unmounts rs-header, so the chip carries the only in-app identity. */
     readonly pageInfo = inject(PageIdentityService).pageInfo;
+
+    private readonly authStore = inject(AuthStore);
+    private readonly rh = inject(RobinhoodMcpClient);
+
+    constructor() {
+        // Warm the get_accounts session cache once signed in (#1409) —
+        // best-effort: the client clears a rejected cache entry, so a
+        // pre-auth or transient failure just leaves the dashboard's own
+        // call to populate it. Sign-out is the session boundary: drop
+        // the cache so a different user's sign-in can't inherit it.
+        effect(() => {
+            if (this.authStore.isAuthenticated()) {
+                void this.rh.getAccounts().catch(() => {});
+            } else {
+                this.rh.invalidateAccounts();
+            }
+        });
+    }
 
 	handleOpenSidenav() {
 		this.sidenavOpen.set(true);
