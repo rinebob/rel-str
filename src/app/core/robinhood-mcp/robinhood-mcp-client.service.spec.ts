@@ -210,6 +210,74 @@ describe('RobinhoodMcpClient', () => {
   });
 
   // ===========================================================================
+  // getAccounts session cache (#1409)
+  // ===========================================================================
+
+  describe('getAccounts session cache (#1409)', () => {
+    const accountsPayload: ToolExecutionResult = {
+      success: true,
+      parsed: {
+        data: {
+          accounts: [
+            { account_number: '111222333', type: 'brokerage', agentic_allowed: true },
+          ],
+        },
+      },
+      redacted: {},
+      tool: 'get_accounts',
+    };
+
+    it('concurrent callers share one wire call', async () => {
+      let resolveTool!: (r: ToolExecutionResult) => void;
+      mcp.executeTool.and.callFake(
+        () => new Promise<ToolExecutionResult>((r) => { resolveTool = r; }),
+      );
+
+      const p1 = client.getAccounts();
+      const p2 = client.getAccounts();
+      resolveTool(accountsPayload);
+      const [a1, a2] = await Promise.all([p1, p2]);
+
+      expect(mcp.executeTool).toHaveBeenCalledTimes(1);
+      expect(a2).toBe(a1);
+    });
+
+    it('serves subsequent calls from cache — no second wire call', async () => {
+      mockResolve(accountsPayload);
+
+      await client.getAccounts();
+      const again = await client.getAccounts();
+
+      expect(mcp.executeTool).toHaveBeenCalledTimes(1);
+      expect(again.length).toBe(1);
+      expect(again[0].accountNumber).toBe('111222333');
+    });
+
+    it('clears the cache on failure — the next call retries', async () => {
+      mockFailure('Auth failed', ToolExecutionErrorCategory.AUTH);
+      await expect(client.getAccounts()).rejects.toBeInstanceOf(RobinhoodMcpError);
+
+      mockResolve(accountsPayload);
+      const accounts = await client.getAccounts();
+
+      expect(mcp.executeTool).toHaveBeenCalledTimes(2);
+      expect(accounts.length).toBe(1);
+    });
+
+    it('invalidateAccounts drops a resolved entry — the next call refetches', async () => {
+      mockResolve(accountsPayload);
+      await client.getAccounts();
+      expect(mcp.executeTool).toHaveBeenCalledTimes(1);
+
+      client.invalidateAccounts();
+      const accounts = await client.getAccounts();
+
+      expect(mcp.executeTool).toHaveBeenCalledTimes(2);
+      expect(accounts[0].accountNumber).toBe('111222333');
+    });
+  });
+
+  // ===========================================================================
   // getPortfolio
   // ===========================================================================
 

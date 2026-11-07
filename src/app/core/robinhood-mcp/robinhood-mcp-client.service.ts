@@ -102,7 +102,30 @@ export class RobinhoodMcpClient {
   // Accounts
   // ---------------------------------------------------------------------------
 
-  async getAccounts(): Promise<AccountInfo[]> {
+  /** Session cache (#1409) — `AccountInfo` is stable identity data, so
+   *  the first call wins and concurrent callers share the in-flight
+   *  promise. A rejection clears the slot so the next call retries —
+   *  a bootstrap warm fired before auth resolves can't poison the
+   *  session. */
+  private accountsPromise: Promise<AccountInfo[]> | null = null;
+
+  getAccounts(): Promise<AccountInfo[]> {
+    this.accountsPromise ??= this.fetchAccounts().catch((err) => {
+      this.accountsPromise = null;
+      throw err;
+    });
+    return this.accountsPromise;
+  }
+
+  /** Drop the cached account list — called on sign-out (#1409 review):
+   *  the SPA session outlives a user switch, so a resolved entry would
+   *  otherwise serve the previous user's accounts to the next sign-in.
+   *  An in-flight fetch is simply detached — its callers still settle. */
+  invalidateAccounts(): void {
+    this.accountsPromise = null;
+  }
+
+  private async fetchAccounts(): Promise<AccountInfo[]> {
     const result = await this.mcp.executeTool('get_accounts', {});
     if (!result.success) {
       throw new RobinhoodMcpError(result.error, 'get_accounts', result.category);
