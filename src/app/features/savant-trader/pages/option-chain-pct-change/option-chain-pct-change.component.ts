@@ -22,7 +22,7 @@ import { SwingCompareComponent } from './components/swing-compare.component';
 import { FrameSwingPickerDialogComponent } from './components/frame-swing-dialog.component';
 import { TargetTypeSelectorComponent } from './components/target-type-selector.component';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import { ConfirmDialogComponent } from './components/confirm-dialog.component';
+import { ConfirmDialogComponent } from '../../../../shared/ds/confirm-dialog.component';
 import { toNum, CONTRACT_CHART_PANE_CLASS } from './utils/pct-change.utils';
 import { toUtcDateString } from './utils/swing-compare.utils';
 import type { Swing } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
@@ -703,7 +703,7 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
     if (!id) return;
     this.dialog
       .open(ConfirmDialogComponent, {
-        data: { message: 'Delete this saved configuration?', confirmLabel: 'Delete' },
+        data: { message: 'Delete this saved configuration?', confirmLabel: 'Delete', cancelLabel: 'Cancel' },
       })
       .afterClosed()
       .pipe(take(1))

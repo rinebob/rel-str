@@ -33,7 +33,7 @@ import { OptionPositionsTableComponent } from './components/option-positions-tab
 import { OpenOrdersTableComponent } from './components/open-orders-table.component';
 import { OrderHistoryTableComponent } from './components/order-history-table.component';
 import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
-import { ConfirmDialogComponent } from './components/confirm-dialog.component';
+import { ConfirmDialogComponent } from '../../shared/ds/confirm-dialog.component';
 import { ModifyOrderDialogComponent } from './components/modify-order-dialog.component';
 import { StopLossDialogComponent, StopLossDialogData } from './components/stop-loss-dialog/stop-loss-dialog.component';
 import { EquityPositionWithPnL } from './portfolio-dashboard.types';

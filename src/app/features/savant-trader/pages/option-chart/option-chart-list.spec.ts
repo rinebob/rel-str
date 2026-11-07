@@ -24,7 +24,7 @@ import { ContractListSessionStore } from '../../stores/contract-list-session.sto
 import { ContractListService } from '../../services/contract-list.service';
 import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
 import { ContractListPickerComponent } from '../../components/contract-list-picker/contract-list-picker.component';
-import { ConfirmDialogComponent } from '../option-chain-pct-change/components/confirm-dialog.component';
+import { ConfirmDialogComponent } from '../../../../shared/ds/confirm-dialog.component';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';

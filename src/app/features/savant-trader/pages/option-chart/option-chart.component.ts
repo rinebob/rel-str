@@ -27,7 +27,7 @@ import {
   type RejectedReason,
 } from '../../utils/plotted-pairs.util';
 import type { PlottedContract } from '../../stores/plotted-contracts-feature';
-import { ConfirmDialogComponent } from '../option-chain-pct-change/components/confirm-dialog.component';
+import { ConfirmDialogComponent } from '../../../../shared/ds/confirm-dialog.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { formatUtcDate } from '../../utils/utils';
 import { padDateLabels, unionLabels } from '../../utils/chart-series.utils';

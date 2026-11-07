@@ -1,9 +1,11 @@
 /**
- * ConfirmDialogComponent — generic yes/no confirmation for dashboard
- * mutations (order cancel, etc.). Returns true (confirm) or false (dismiss).
+ * ConfirmDialogComponent — generic yes/no confirmation opened through
+ * DsDialogService. Returns true (confirm) or false (dismiss).
+ * Canonical home for the confirm-dialog pattern (was duplicated per
+ * feature — consolidated under shared/ds for task #1439).
  */
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { DS_DIALOG_DATA, DsDialogRef } from '../../../shared/ds/ds-dialog';
+import { DS_DIALOG_DATA, DsDialogRef } from './ds-dialog';
 
 export interface ConfirmDialogData {
   title?: string;
@@ -13,7 +15,7 @@ export interface ConfirmDialogData {
 }
 
 @Component({
-  selector: 'app-pd-confirm-dialog',
+  selector: 'app-ds-confirm-dialog',
   standalone: true,
   imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
