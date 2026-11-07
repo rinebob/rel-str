@@ -253,3 +253,20 @@ export interface OptionsReplayRetryResponse {
    *  (run not `failed`). */
   retriedSymbol: string | null;
 }
+
+/** optionsReplayDelete — cascade-deletes a run, its 1:1 contract list
+ *  (docId == runId), and every analysis-result doc keyed off it
+ *  (`contractListDocId == runId`). Idempotent: missing docs count as
+ *  already-deleted, not errors (task #1439). */
+export interface OptionsReplayDeleteRequest {
+  runId: string;
+}
+
+export interface OptionsReplayDeleteResponse {
+  /** True when the run doc existed and was deleted. */
+  deletedRun: boolean;
+  /** Contract-list docs deleted (0 or 1 — the model is 1:1). */
+  deletedLists: number;
+  /** st-options-analysis-results docs deleted. */
+  deletedResults: number;
+}
