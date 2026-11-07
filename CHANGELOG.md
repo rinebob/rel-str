@@ -17,6 +17,8 @@
 - [Options Backtest] 1238-1439_FE-IMPL-BACKTEST: run-list delete action — named confirm dialog, `deletingRunIds` in-flight set, selection/detail clear, orphan-aware toasts
 - [Options Backtest] 1238-1439_DOCS-BACKTEST: #1439 code-review (PASS, 2 rounds) + UAT (Complete, #1442) + changelog
 - [Portfolio Allocation] 576-1433_DOCS-PORTFOLIO: #1433 code-review (PASS, 2 rounds) + UAT (Complete, #1436) + changelog
+- [Portfolio Allocation] 576-1441_FE-BUG-PORTFOLIO: allocation chrome parity — shared primary-first account sort across both pickers + masked-by-default header stats with shared `pd-show-amounts` eye-toggle (divergence tooltip masked too)
+- [Portfolio Allocation] 576-1441_DOCS-PORTFOLIO: #1441 code-review (PASS, 1 round) + UAT (Complete, #1443) + changelog
 - [Option Contract Time-Series Viewer] 1243-1420_FE-IMPL-OPTIONS: timeline selection shading + chunk-toggle — ticks mirror selection, click toggles chunk + jumps cursor; empty default, mint cursor band, remove-chunk + gating
 - [Portfolio Dashboard] 219-1409_FE-IMPL-PORTFOLIO: get_accounts session cache on RobinhoodMcpClient — single-flight promise, rejection-clear retry, invalidateAccounts() sign-out hook
 - [Portfolio Dashboard] 219-1409_FE-IMPL-PORTFOLIO: auth-gated bootstrap warm in CoreComponent — one early get_accounts post-login; sign-out invalidates so a user switch can't inherit stale accounts
