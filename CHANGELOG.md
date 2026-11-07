@@ -11,6 +11,11 @@
 - [Options Backtest] 1238-1430_BE-CHORE-BACKTEST: live single-symbol audit + verify scripts re-pinned to runId keying
 - [Options Backtest] 1238-1430_FE-IMPL-BACKTEST: singular contractList store + one-row-per-run surfaces + cross-symbol replay select
 - [Options Backtest] 1238-1430_DOCS-BACKTEST: #1430 code-review (PASS, 3 rounds) + UAT (Complete, #1435) + ADR-010 amendment
+- [Options Backtest] 1238-1439_SHARED-IMPL-BACKTEST: `optionsReplayDelete` request/response contracts — deletion-count response shape
+- [Options Backtest] 1238-1439_BE-IMPL-BACKTEST: `optionsReplayDelete` callable — auth-guarded idempotent batch cascade over run + 1:1 contract-list + analysis-result docs; QA driver script
+- [Options Backtest] 1238-1439_FE-REFACTOR-BACKTEST: `ConfirmDialogComponent` canonicalized under `shared/ds` — two feature-local copies removed, 4 consumers migrated
+- [Options Backtest] 1238-1439_FE-IMPL-BACKTEST: run-list delete action — named confirm dialog, `deletingRunIds` in-flight set, selection/detail clear, orphan-aware toasts
+- [Options Backtest] 1238-1439_DOCS-BACKTEST: #1439 code-review (PASS, 2 rounds) + UAT (Complete, #1442) + changelog
 - [Portfolio Allocation] 576-1433_DOCS-PORTFOLIO: #1433 code-review (PASS, 2 rounds) + UAT (Complete, #1436) + changelog
 - [Option Contract Time-Series Viewer] 1243-1420_FE-IMPL-OPTIONS: timeline selection shading + chunk-toggle — ticks mirror selection, click toggles chunk + jumps cursor; empty default, mint cursor band, remove-chunk + gating
 - [Portfolio Dashboard] 219-1409_FE-IMPL-PORTFOLIO: get_accounts session cache on RobinhoodMcpClient — single-flight promise, rejection-clear retry, invalidateAccounts() sign-out hook
