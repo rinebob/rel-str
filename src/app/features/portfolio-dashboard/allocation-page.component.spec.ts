@@ -141,7 +141,11 @@ describe('AllocationPageComponent', () => {
     fixture.detectChanges();
   }
 
-  afterEach(() => TestBed.resetTestingModule());
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    // showAmounts persists via localStorage — reset so each test starts masked.
+    localStorage.removeItem('pd-show-amounts');
+  });
 
   it('loads accounts on init', async () => {
     await setup();
@@ -237,11 +241,55 @@ describe('AllocationPageComponent', () => {
   });
 
   it('account header shows value / allocated / cash remainder', async () => {
+    localStorage.setItem('pd-show-amounts', '1'); // amounts opt-in (#1441)
     await setup();
     const hdr = fixture.nativeElement.querySelector('[data-testid="account-header"]');
     expect(hdr.textContent).toContain('10,000');
     expect(hdr.textContent).toContain('3,500');
     expect(hdr.textContent).toContain('4,000');
+  });
+
+  describe('amount privacy (#1441)', () => {
+    it('masks dollar amounts by default like the portfolio page', async () => {
+      await setup();
+      const hdr = fixture.nativeElement.querySelector('[data-testid="account-header"]');
+      expect(hdr.textContent).toContain('•••');
+      expect(hdr.textContent).not.toContain('10,000');
+      expect(hdr.textContent).not.toContain('3,500');
+      expect(hdr.textContent).not.toContain('4,000');
+      expect(hdr.textContent).not.toContain('500');
+    });
+
+    it('reveals amounts via the eye toggle and persists the choice', async () => {
+      await setup();
+      (fixture.nativeElement.querySelector('.pd-privacy') as HTMLElement).click();
+      fixture.detectChanges();
+      const hdr = fixture.nativeElement.querySelector('[data-testid="account-header"]');
+      expect(hdr.textContent).toContain('10,000');
+      expect(hdr.textContent).toContain('4,000');
+      expect(localStorage.getItem('pd-show-amounts')).toBe('1');
+
+      // Toggling back re-masks and persists.
+      (fixture.nativeElement.querySelector('.pd-privacy') as HTMLElement).click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="account-header"]').textContent).toContain('•••');
+      expect(localStorage.getItem('pd-show-amounts')).toBe('0');
+    });
+
+    it('respects a prior opt-in from the portfolio page', async () => {
+      localStorage.setItem('pd-show-amounts', '1');
+      await setup();
+      const hdr = fixture.nativeElement.querySelector('[data-testid="account-header"]');
+      expect(hdr.textContent).toContain('10,000');
+    });
+
+    it('masks the cash-divergence tooltip amounts', async () => {
+      await setup();
+      const warn = fixture.nativeElement.querySelector('[data-testid="cash-diverged"]');
+      expect(warn.getAttribute('title')).toContain('•••');
+      expect(warn.getAttribute('title')).not.toContain('4,000');
+      expect(warn.getAttribute('title')).not.toContain('6,500');
+    });
   });
 
   it('surfaces the cash-divergence warning when actual vs derived differ', async () => {
@@ -281,6 +329,7 @@ describe('AllocationPageComponent', () => {
   });
 
   it('switching the account pill re-scopes all subtabs to the new account (#778)', async () => {
+    localStorage.setItem('pd-show-amounts', '1'); // amounts opt-in (#1441)
     await setup();
     const toggle = fixture.nativeElement.querySelector(`[data-testid="acct-toggle-${ACCT_B}"]`) as HTMLElement;
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));

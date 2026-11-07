@@ -178,6 +178,17 @@ describe('AllocationStore', () => {
     expect(store.selectedAccount()?.accountNumber).toBe(ACCT_A);
   });
 
+  it('loadAccounts sorts the primary agentic account to the first tab, matching the portfolio page (#1441)', async () => {
+    const mocks = buildMocks();
+    mocks.data.listAccounts = jest.fn(async (): Promise<AccountInfo[]> => [
+      account(ACCT_A),
+      account('677616245'),
+      account(ACCT_B, false),
+    ]);
+    const { store } = await setup(mocks);
+    expect(store.accounts().map((a) => a.accountNumber)).toEqual(['677616245', ACCT_A, ACCT_B]);
+  });
+
   it('loadAccounts defaults selection to the first agentic account, not index 0', async () => {
     const mocks = buildMocks();
     mocks.data.listAccounts = jest.fn(async (): Promise<AccountInfo[]> => [

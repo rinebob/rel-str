@@ -55,11 +55,9 @@ import {
   collectOptionInstrumentIds,
   computeAccountPnL,
   createAccountState,
+  sortAccountsPrimaryFirst,
   updateAccount,
 } from './portfolio-dashboard.helpers';
-
-/** Primary agentic account number — sorted to the first tab in the dashboard. */
-const PRIMARY_AGENTIC_ACCOUNT_NUMBER = '677616245';
 
 const initialState: DashboardState = {
   accounts: [],
@@ -284,12 +282,9 @@ export const PortfolioDashboardStore = signalStore(
       loadEpoch++;
       loadedGroups.clear();
       const accounts = await client.getAccounts();
-      // Sort the primary agentic account to the first tab.
-      const sorted = [...accounts].sort((a, b) => {
-        if (a.accountNumber === PRIMARY_AGENTIC_ACCOUNT_NUMBER) return -1;
-        if (b.accountNumber === PRIMARY_AGENTIC_ACCOUNT_NUMBER) return 1;
-        return 0;
-      });
+      // Sort the primary agentic account to the first tab — shared with
+      // the allocation page so both pickers show the same order (#1441).
+      const sorted = sortAccountsPrimaryFirst(accounts);
       // Default to the first agentic account — the primary-agentic sort puts
       // it at index 0 when present, but a list without it shouldn't land on
       // a non-agentic account (#778 QA).

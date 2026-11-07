@@ -15,9 +15,8 @@ import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { DsDialogService } from '../../shared/ds/ds-dialog';
 
-
-
 import { AllocationStore } from './allocation.store';
+import { PD_SHOW_AMOUNTS_KEY } from './portfolio-dashboard.helpers';
 import { fmtDollars } from './allocation.types';
 import { AppRoutes } from '../../core/common/interfaces';
 import { AccountSwitcherComponent } from './components/account-switcher.component';
@@ -53,27 +52,27 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
             <div class="account-header" data-testid="account-header">
               <span class="sb-item">
                 <span class="sb-label">Value</span>
-                <span class="sb-value">{{ fmt(hdr.accountValue) }}</span>
+                <span class="sb-value">{{ masked(hdr.accountValue) }}</span>
               </span>
               <span class="sb-sep">|</span>
               <span class="sb-item">
                 <span class="sb-label">Allocated</span>
-                <span class="sb-value">{{ fmt(hdr.allocated) }}</span>
+                <span class="sb-value">{{ masked(hdr.allocated) }}</span>
               </span>
               <span class="sb-sep">|</span>
               <span class="sb-item">
                 <span class="sb-label">Cash</span>
-                <span class="sb-value">{{ fmt(hdr.cash) }}</span>
+                <span class="sb-value">{{ masked(hdr.cash) }}</span>
                 @if (hdr.cashDiverged) {
                   <span class="diverged" data-testid="cash-diverged"
-                    tabindex="0" role="img" aria-label="Cash divergence warning — broker vs derived mismatch" title="Broker cash {{ fmt(hdr.cash) }} vs derived {{ fmt(hdr.derivedCash) }} — positions snapshot may be stale"
+                    tabindex="0" role="img" aria-label="Cash divergence warning — broker vs derived mismatch" title="Broker cash {{ masked(hdr.cash) }} vs derived {{ masked(hdr.derivedCash) }} — positions snapshot may be stale"
                   >⚠</span>
                 }
               </span>
               <span class="sb-sep">|</span>
               <span class="sb-item">
                 <span class="sb-label">Unassigned</span>
-                <span class="sb-value">{{ fmt(hdr.unassignedExposure) }}</span>
+                <span class="sb-value">{{ masked(hdr.unassignedExposure) }}</span>
               </span>
               @if (hdr.asOf) {
                 <span class="as-of" data-testid="as-of">as of {{ hdr.asOf | date:'short' }}</span>
@@ -82,6 +81,15 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
           }
         }
         <div class="bar-actions">
+          <button
+ type="button"
+ class="pd-privacy icon-btn"
+ (click)="toggleAmounts()"
+ [attr.aria-pressed]="showAmounts()"
+ aria-label="Toggle dollar amount visibility" [title]="showAmounts() ? 'Hide dollar amounts' : 'Show dollar amounts'"
+ >
+            <span class="dse-icon">{{ showAmounts() ? 'visibility' : 'visibility_off' }}</span>
+          </button>
           @if (accounts.length) {
             <button class="ds-btn outline" type="button" data-testid="create-bucket-btn"
  (click)="openCreate()"
@@ -228,5 +236,19 @@ export class AllocationPageComponent implements OnInit {
     }
   }
 
-  readonly fmt = fmtDollars;
+  /** Header dollar totals are hidden until the user opts in — same
+   *  treatment as the portfolio dashboard scoreboard, sharing its
+   *  localStorage key so one opt-in covers both pages (#1441). */
+  readonly showAmounts = signal(localStorage.getItem(PD_SHOW_AMOUNTS_KEY) === '1');
+
+  toggleAmounts(): void {
+    const next = !this.showAmounts();
+    this.showAmounts.set(next);
+    localStorage.setItem(PD_SHOW_AMOUNTS_KEY, next ? '1' : '0');
+  }
+
+  /** Header display — masked until the user opts in via toggleAmounts. */
+  masked(value: number | null | undefined): string {
+    return this.showAmounts() ? fmtDollars(value) : '•••';
+  }
 }

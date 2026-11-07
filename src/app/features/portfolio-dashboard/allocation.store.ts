@@ -38,6 +38,7 @@ import {
 import { AllocationDataService } from './allocation-data.service';
 import { AllocationBucketService } from './allocation-bucket.service';
 import { PositionAttributionService } from './position-attribution.service';
+import { sortAccountsPrimaryFirst } from './portfolio-dashboard.helpers';
 import type {
   AccountAllocation,
   AccountHeader,
@@ -349,7 +350,9 @@ export const AllocationStore = signalStore(
         accountsLoading = true;
         patchState(store, { loadError: null });
         try {
-          const accounts = await data.listAccounts();
+          // Primary-agentic-first tab order — same ordering rule as the
+          // portfolio dashboard so the two pickers match (#1441).
+          const accounts = sortAccountsPrimaryFirst(await data.listAccounts());
           // Preserve the previously selected account across page revisits —
           // resolve by accountNumber, not index, since RH order can shift.
           const prevSelected = store.accounts()[store.selectedAccountIndex()]?.accountNumber;

@@ -25,6 +25,7 @@ import { ExecutionResult, OrderExecutionService } from '../savant-trader/service
 import { buildModifyOrderTicket } from '../savant-trader/utils/modify-order-ticket.util';
 
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
+import { PD_SHOW_AMOUNTS_KEY } from './portfolio-dashboard.helpers';
 import { SectionName } from './portfolio-dashboard.types';
 import { AccountSummaryComponent } from './components/account-summary.component';
 import { AccountSwitcherComponent } from './components/account-switcher.component';
@@ -82,7 +83,7 @@ export class PortfolioDashboardComponent implements OnInit {
 
   /** Dollar totals in the header scoreboard are hidden until the user opts
    *  in — holdings tables are unaffected. Persisted per-browser. */
-  readonly showAmounts = signal(localStorage.getItem('pd-show-amounts') === '1');
+  readonly showAmounts = signal(localStorage.getItem(PD_SHOW_AMOUNTS_KEY) === '1');
 
   /** Active section tab: 0 Equities, 1 Options, 2 Orders, 3 History, 4 Account. */
   readonly selectedSection = signal(0);
@@ -154,7 +155,7 @@ export class PortfolioDashboardComponent implements OnInit {
   toggleAmounts(): void {
     const next = !this.showAmounts();
     this.showAmounts.set(next);
-    localStorage.setItem('pd-show-amounts', next ? '1' : '0');
+    localStorage.setItem(PD_SHOW_AMOUNTS_KEY, next ? '1' : '0');
   }
 
   /** Scoreboard display — masked until the user opts in via toggleAmounts. */
