@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-11-07]
+
+### Changed
+- [Misc Fixes] 300-1448_FE-IMPL-SAVANT-TRADER: header avatar — initials circle replaces the name/email label in the same right-cluster slot, ds-menu dropdown (Account → /portfolio, Logout), accent text+border, standalone Logout removed, even 10px spacing across the cluster
+- [Misc Fixes] 300-1448_DOCS-SAVANT-TRADER: #1448 code-review (PASS, 1 round) + UAT (Complete, #1449) + changelog
+
 ## [2026-11-06]
 
 ### Added
