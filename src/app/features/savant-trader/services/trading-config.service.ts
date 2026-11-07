@@ -22,7 +22,7 @@ import { map, switchMap, take } from 'rxjs/operators';
 
 import { stConfigDocPath } from '@st/collections';
 import { requireUserId } from './firestore-helpers';
-import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
+import { RobinhoodMcpClient } from '../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import { TradingConfig, AccountInfo } from './order-ticket.types';
 
 @Injectable({ providedIn: 'root' })
@@ -30,7 +30,7 @@ export class TradingConfigService {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
-  private readonly mcpService = inject(RobinhoodMcpObservationService);
+  private readonly rhClient = inject(RobinhoodMcpClient);
   private readonly snackBar = inject(DsToastService);
 
   /** Cached trading config — shared by every order-staging surface (the
@@ -140,36 +140,10 @@ export class TradingConfigService {
     );
   }
 
-  /** Fetch agentic-allowed accounts from the Robinhood MCP. */
+  /** Fetch agentic-allowed accounts — rides the client's session cache
+   *  (#1409) so the dialog never re-issues get_accounts in a session. */
   async getAccounts(): Promise<AccountInfo[]> {
-    const result = await this.mcpService.executeTool('get_accounts', {});
-    if (!result.success) {
-      throw new Error(result.error);
-    }
-    const accounts = this.extractAccounts(result.parsed);
-    return accounts
-      .filter((a) => a['agentic_allowed'] === true)
-      .map((a) => ({
-        accountNumber: a['account_number'] as string,
-        accountType: a['type'] as string,
-        agenticAllowed: a['agentic_allowed'] as boolean,
-      }));
-  }
-
-  /** Extract the accounts array from the MCP response, handling multiple shapes. */
-  private extractAccounts(parsed: unknown): Array<Record<string, unknown>> {
-    if (Array.isArray(parsed)) return parsed as Array<Record<string, unknown>>;
-    if (parsed === null || typeof parsed !== 'object') return [];
-    const record = parsed as Record<string, unknown>;
-    // Shape: { data: { accounts: [...] } }
-    const data = record['data'];
-    if (data !== null && typeof data === 'object' && Array.isArray((data as Record<string, unknown>)['accounts'])) {
-      return (data as Record<string, unknown>)['accounts'] as Array<Record<string, unknown>>;
-    }
-    // Shape: { accounts: [...] }
-    if (Array.isArray(record['accounts'])) {
-      return record['accounts'] as Array<Record<string, unknown>>;
-    }
-    return [];
+    const accounts = await this.rhClient.getAccounts();
+    return accounts.filter((a) => a.agenticAllowed);
   }
 }
