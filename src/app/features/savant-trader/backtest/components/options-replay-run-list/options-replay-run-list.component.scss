@@ -69,11 +69,11 @@
   text-align: center;
 }
 
-.rerun-btn {
+.rerun-btn,
+.delete-btn {
   margin-left: 6px;
   width: 26px;
   height: 26px;
-  color: var(--ds-error);
   vertical-align: middle;
 
   .dse-icon {
@@ -81,6 +81,14 @@
     width: 16px;
     height: 16px;
   }
+}
+
+.rerun-btn {
+  color: var(--ds-error);
+}
+
+.delete-btn {
+  color: var(--mat-sys-on-surface-variant);
 }
 
 .empty-state {

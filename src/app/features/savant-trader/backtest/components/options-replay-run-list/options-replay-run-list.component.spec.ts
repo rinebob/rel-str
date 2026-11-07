@@ -197,4 +197,43 @@ describe('OptionsReplayRunListComponent', () => {
       expect(btn.disabled).toBe(true);
     });
   });
+
+  describe('delete action', () => {
+    it('renders a delete button on every row regardless of status (#1439)', async () => {
+      const { fixture } = await setup([
+        makeRow({ symbol: 'SPY', status: 'success' }),
+        makeRow({ runId: 'run-b_QQQ', symbol: 'QQQ', status: 'failed' }),
+        makeRow({ runId: 'run-c_IWM', symbol: 'IWM', status: 'pending' }),
+      ]);
+
+      const buttons = fixture.nativeElement.querySelectorAll('.delete-btn');
+      expect(buttons.length).toBe(3);
+    });
+
+    it('emits the runId on delete click without triggering row selection', async () => {
+      const { component, fixture } = await setup([
+        makeRow({ runId: 'run-del', status: 'failed' }),
+      ]);
+      const deletes: string[] = [];
+      const selections: ReplaySelection[] = [];
+      component.deleteRun.subscribe((id) => deletes.push(id));
+      component.selectRow.subscribe((sel) => selections.push(sel));
+
+      (fixture.nativeElement.querySelector('.delete-btn') as HTMLButtonElement).click();
+
+      expect(deletes).toEqual(['run-del']);
+      expect(selections).toEqual([]);
+    });
+
+    it('disables the row\'s delete while its delete is in flight', async () => {
+      const { fixture } = await setup([
+        makeRow({ runId: 'run-deleting', status: 'failed' }),
+      ]);
+      fixture.componentRef.setInput('deletingRunIds', new Set(['run-deleting']));
+      fixture.detectChanges();
+
+      const btn = fixture.nativeElement.querySelector('.delete-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+  });
 });

@@ -80,8 +80,10 @@
           [isLoading]="replayStore.isLoading()"
           [hasActiveFilters]="replayStore.hasActiveFilters()"
           [retryingRunIds]="replayStore.retryingRunIds()"
+          [deletingRunIds]="replayStore.deletingRunIds()"
           (selectRow)="replayStore.selectRow($event)"
-          (rerun)="replayStore.retryRun($event)" />
+          (rerun)="replayStore.retryRun($event)"
+          (deleteRun)="confirmDeleteReplayRun($event)" />
       </div>
 
       @if (replayStore.selectedRun()) {

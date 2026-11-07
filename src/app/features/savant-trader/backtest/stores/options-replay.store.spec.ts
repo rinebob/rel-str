@@ -68,6 +68,7 @@ describe('OptionsReplayStore', () => {
       watchContractList: jest.fn(() => listsSubject.asObservable()),
       startReplay: jest.fn(() => of({ runIds: ['new-run-1_SPY'] })),
       retryRun: jest.fn(() => of({ retriedSymbol: 'SPY' })),
+      deleteRun: jest.fn(() => of({ deletedRun: true, deletedLists: 1, deletedResults: 6 })),
     };
 
     const analysisStub = {
@@ -535,6 +536,103 @@ describe('OptionsReplayStore', () => {
 
       expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Retry failed'), 'Dismiss', { duration: 30000 });
       expect(store.retryingRunIds().has('run-1_SPY')).toBe(false);
+    });
+  });
+
+  describe('deleteRun', () => {
+    it('calls optionsReplayDelete with the runId and toasts the deleted symbol', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      store.loadRuns();
+      runsSubject.next([makeRun({ runId: 'run-1_SPY', symbol: 'SPY' })]);
+
+      store.deleteRun('run-1_SPY');
+
+      expect(service.deleteRun).toHaveBeenCalledWith('run-1_SPY');
+      expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Deleted run for SPY'), 'Dismiss', { duration: 30000 });
+    });
+
+    it('marks the run deleting in-flight and ignores a second click', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      const pending = new Subject<{ deletedRun: boolean; deletedLists: number; deletedResults: number }>();
+      (service.deleteRun as jest.Mock).mockReturnValue(pending.asObservable());
+
+      store.deleteRun('run-1_SPY');
+      expect(store.deletingRunIds().has('run-1_SPY')).toBe(true);
+
+      store.deleteRun('run-1_SPY');
+      expect(service.deleteRun).toHaveBeenCalledTimes(1);
+
+      // The flag is per-run — a different run's delete is not blocked.
+      store.deleteRun('run-2_QQQ');
+      expect(service.deleteRun).toHaveBeenCalledTimes(2);
+      expect(service.deleteRun).toHaveBeenLastCalledWith('run-2_QQQ');
+    });
+
+    it('holds the flag after the response until the run leaves the snapshot', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      const pending = new Subject<{ deletedRun: boolean; deletedLists: number; deletedResults: number }>();
+      (service.deleteRun as jest.Mock).mockReturnValue(pending.asObservable());
+      store.loadRuns();
+      runsSubject.next([makeRun({ runId: 'run-1_SPY' })]);
+
+      store.deleteRun('run-1_SPY');
+      pending.next({ deletedRun: true, deletedLists: 1, deletedResults: 6 });
+      // Response settled but the doc snapshot hasn't caught up — the
+      // flag closes the re-click gap.
+      expect(store.deletingRunIds().has('run-1_SPY')).toBe(true);
+
+      // A stale snapshot still containing the run keeps the flag.
+      runsSubject.next([makeRun({ runId: 'run-1_SPY' })]);
+      expect(store.deletingRunIds().has('run-1_SPY')).toBe(true);
+
+      // The doc is gone → nothing left to disable → prune.
+      runsSubject.next([]);
+      expect(store.deletingRunIds().has('run-1_SPY')).toBe(false);
+    });
+
+    it('clears the selection when the selected run is deleted', async () => {
+      const store = await setup();
+      store.selectRow('run-1_SPY');
+      listsSubject.next(makeList());
+      expect(store.selectedRunId()).toBe('run-1_SPY');
+
+      store.deleteRun('run-1_SPY');
+
+      expect(store.selectedRunId()).toBeNull();
+      expect(store.contractList()).toBeNull();
+    });
+
+    it('keeps the selection when a different run is deleted', async () => {
+      const store = await setup();
+      store.selectRow('run-1_SPY');
+
+      store.deleteRun('run-2_QQQ');
+
+      expect(store.selectedRunId()).toBe('run-1_SPY');
+    });
+
+    it('reports nothing-to-delete when the callable found no docs', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      (service.deleteRun as jest.Mock).mockReturnValue(of({ deletedRun: false, deletedLists: 0, deletedResults: 0 }));
+
+      store.deleteRun('run-1_SPY');
+
+      expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Nothing to delete'), 'Dismiss', { duration: 30000 });
+    });
+
+    it('toasts the failure and clears the in-flight flag on error', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      (service.deleteRun as jest.Mock).mockReturnValue(throwError(() => new Error('unavailable')));
+
+      store.deleteRun('run-1_SPY');
+
+      expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Delete failed'), 'Dismiss', { duration: 30000 });
+      expect(store.deletingRunIds().has('run-1_SPY')).toBe(false);
     });
   });
 

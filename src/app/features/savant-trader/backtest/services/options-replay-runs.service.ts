@@ -1,7 +1,8 @@
 /**
  * Options Replay runs service.
  *
- * Wraps the `optionsReplayStart` / `optionsReplayRetry` callables plus
+ * Wraps the `optionsReplayStart` / `optionsReplayRetry` /
+ * `optionsReplayDelete` callables plus
  * realtime Firestore listeners for `st-options-replay-runs` and
  * `st-options-contract-lists` — same pattern as
  * `backtest-run.service.ts`.
@@ -17,6 +18,8 @@ import type {
   OptionsReplayStartResponse,
   OptionsReplayRetryRequest,
   OptionsReplayRetryResponse,
+  OptionsReplayDeleteRequest,
+  OptionsReplayDeleteResponse,
 } from '@options-replay/contracts';
 import type { OptionsContractListUi, OptionsReplayRunUi } from '../common/options-replay.types';
 import { convertOptionsContractListDoc, convertOptionsReplayRunDoc } from './options-replay-firestore-converter';
@@ -57,6 +60,21 @@ export class OptionsReplayRunsService {
       const callable = httpsCallable<OptionsReplayRetryRequest, OptionsReplayRetryResponse>(
         this.functions,
         'optionsReplayRetry'
+      );
+      return callable({ runId });
+    })).pipe(map((result) => result.data));
+  }
+
+  /**
+   * Cascade-delete a run: the run doc, its 1:1 contract list, and every
+   * analysis-result doc keyed off it. Idempotent — missing pieces count
+   * as already-deleted (task #1439).
+   */
+  deleteRun(runId: string): Observable<OptionsReplayDeleteResponse> {
+    return from(runInInjectionContext(this.injector, () => {
+      const callable = httpsCallable<OptionsReplayDeleteRequest, OptionsReplayDeleteResponse>(
+        this.functions,
+        'optionsReplayDelete'
       );
       return callable({ runId });
     })).pipe(map((result) => result.data));

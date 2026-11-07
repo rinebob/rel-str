@@ -8,7 +8,10 @@
  * template name (resolved from the shared REPLAY_TEMPLATES registry).
  * Row click emits the runId. Failed rows get a rerun action (`rerun`
  * output) that re-queues the run via `optionsReplayRetry`;
- * `retryingRunIds` disables it while a retry is in flight.
+ * `retryingRunIds` disables it while a retry is in flight. Every row
+ * gets a delete action (`deleteRun` output, #1439) — the parent
+ * confirms, then `optionsReplayDelete` cascades run + list + results;
+ * `deletingRunIds` disables it while a delete is in flight.
  */
 import { Component, input, output, ChangeDetectionStrategy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -31,6 +34,9 @@ export interface OptionsReplayRunRow extends ReplayListRow {
   /** A retry already dispatched — the BE only retries `failed` runs, so
    *  the in-flight flag is the only disable that can apply here. */
   rerunDisabled: boolean;
+  /** A delete already dispatched — holds until the run leaves the
+   *  snapshot (or the call errors). */
+  deleteDisabled: boolean;
 }
 
 @Component({
@@ -52,14 +58,21 @@ export class OptionsReplayRunListComponent {
    *  disabled until the store clears the flag (or the run doc flips
    *  back to running and hides it outright). */
   readonly retryingRunIds = input<ReadonlySet<string>>(new Set());
+  /** Runs with an in-flight delete — the row's delete action stays
+   *  disabled until the run doc leaves the snapshot (#1439). */
+  readonly deletingRunIds = input<ReadonlySet<string>>(new Set());
 
   readonly selectRow = output<ReplaySelection>();
   /** Re-run a failed run — emits runId. */
   readonly rerun = output<string>();
+  /** Delete a run (cascade run + list + results) — emits runId; the
+   *  parent confirms before calling the store (#1439). */
+  readonly deleteRun = output<string>();
 
   readonly viewRows = computed((): OptionsReplayRunRow[] => {
     const selRunId = this.selectedRunId();
     const retrying = this.retryingRunIds();
+    const deleting = this.deletingRunIds();
     return this.rows().map((row) => ({
       ...row,
       formattedRunId: formatBacktestRunId(row.runId),
@@ -71,6 +84,7 @@ export class OptionsReplayRunListComponent {
       isSelected: selRunId === row.runId,
       showRerun: row.status === 'failed',
       rerunDisabled: retrying.has(row.runId),
+      deleteDisabled: deleting.has(row.runId),
     }));
   });
 
@@ -83,5 +97,13 @@ export class OptionsReplayRunListComponent {
   onRerun(row: ReplayListRow, event: Event): void {
     event.stopPropagation();
     this.rerun.emit(row.runId);
+  }
+
+  /** Row action — the button lives inside the clickable row, so swallow
+   *  the click or it would also select the row. Confirmation happens
+   *  upstream (dashboard), keeping this component a dumb view. */
+  onDelete(row: ReplayListRow, event: Event): void {
+    event.stopPropagation();
+    this.deleteRun.emit(row.runId);
   }
 }

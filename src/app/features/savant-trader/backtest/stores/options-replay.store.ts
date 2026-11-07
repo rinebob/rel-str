@@ -47,6 +47,10 @@ export interface OptionsReplayState {
    *  distinguishing a stale pre-retry 'failed' doc from a post-retry
    *  re-failure (which carries a fresh updatedAt). */
   retryingRuns: ReadonlyMap<string, string>;
+  /** RunIds with an in-flight optionsReplayDelete call. The flag holds
+   *  until the runs snapshot drops the doc (same snapshot-lag posture
+   *  as retryingRuns) — a run still in the snapshot can be re-clicked. */
+  deletingRunIds: ReadonlySet<string>;
   /** Analysis result docs for the selected run — drives the
    *  Analyze → View Results flip on each contract-list card. */
   analysisResults: AnalysisResultDoc[];
@@ -87,6 +91,7 @@ const initialState: OptionsReplayState = {
   sortBy: 'createdAt',
   sortDirection: 'desc',
   retryingRuns: new Map<string, string>(),
+  deletingRunIds: new Set<string>(),
   analysisResults: [],
   analyzingListIds: new Set<string>(),
 };
@@ -288,7 +293,8 @@ export const OptionsReplayStore = signalStore(
           runsService.watchRuns(50),
           (runs) => {
             const retrying = state.retryingRuns();
-            if (retrying.size === 0) {
+            const deleting = state.deletingRunIds();
+            if (retrying.size === 0 && deleting.size === 0) {
               patchState(state, { runs });
               return;
             }
@@ -298,16 +304,25 @@ export const OptionsReplayStore = signalStore(
             // landed: a still-'failed' re-failure carries a new updatedAt
             // and prunes, while a stale pre-retry snapshot keeps the old
             // fingerprint and holds the flag (closing the re-click gap).
-            // A run absent from the snapshot has nothing left to protect.
+            // A run absent from the snapshot has nothing left to protect
+            // — which is also the delete prune: the doc is gone.
             const byId = new Map(runs.map((r) => [r.runId, r] as const));
-            const next = new Map(retrying);
-            for (const [id, fingerprint] of retrying) {
-              const run = byId.get(id);
-              if (!run || `${run.status}|${run.updatedAtIso ?? ''}` !== fingerprint) {
-                next.delete(id);
+            const patch: Partial<OptionsReplayState> = { runs };
+            if (retrying.size > 0) {
+              const next = new Map(retrying);
+              for (const [id, fingerprint] of retrying) {
+                const run = byId.get(id);
+                if (!run || `${run.status}|${run.updatedAtIso ?? ''}` !== fingerprint) {
+                  next.delete(id);
+                }
               }
+              if (next.size !== retrying.size) patch.retryingRuns = next;
             }
-            patchState(state, next.size === retrying.size ? { runs } : { runs, retryingRuns: next });
+            if (deleting.size > 0) {
+              const next = new Set([...deleting].filter((id) => byId.has(id)));
+              if (next.size !== deleting.size) patch.deletingRunIds = next;
+            }
+            patchState(state, patch);
           },
           [],
           { isLoading: true, runsStreaming: true },
@@ -428,6 +443,49 @@ export const OptionsReplayStore = signalStore(
                 'Dismiss', { duration: 30000 }
               );
             }
+          });
+      },
+
+      /** Cascade-delete a run + its contract list + analysis results.
+       *  The callable is idempotent (missing docs count as deleted), so
+       *  the flag only covers the call → snapshot window: it clears on
+       *  error here, or when the runs listener sees the doc gone. When
+       *  the response confirms deletion, a selected run's selection
+       *  clears so the detail card never renders a deleted run. */
+      deleteRun(runId: string): void {
+        if (state.deletingRunIds().has(runId)) return;
+        const symbol = state.runs().find((r) => r.runId === runId)?.symbol;
+        patchState(state, {
+          deletingRunIds: new Set(state.deletingRunIds()).add(runId),
+        });
+
+        runsService
+          .deleteRun(runId)
+          .pipe(
+            catchError((err: unknown) => {
+              // eslint-disable-next-line no-console
+              console.error('[OptionsReplayStore] deleteRun failed', err);
+              const message = buildReplayErrorMessage(err);
+              toast.open(`Delete failed: ${message}`, 'Dismiss', { duration: 30000 });
+              const next = new Set(state.deletingRunIds());
+              next.delete(runId);
+              patchState(state, { deletingRunIds: next });
+              return of(null);
+            }),
+            takeUntilDestroyed(destroyRef)
+          )
+          .subscribe((response) => {
+            if (!response) return;
+            if (state.selection() === runId) applyRunSelection(null);
+            const cleaned = response.deletedLists + response.deletedResults;
+            toast.open(
+              response.deletedRun
+                ? `Deleted run${symbol ? ` for ${symbol}` : ''}`
+                : cleaned > 0
+                  ? `Removed ${cleaned} leftover doc${cleaned === 1 ? '' : 's'} — the run was already gone`
+                  : 'Nothing to delete — the run is already gone',
+              'Dismiss', { duration: 30000 }
+            );
           });
       },
 

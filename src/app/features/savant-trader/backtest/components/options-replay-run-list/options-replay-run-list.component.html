@@ -9,7 +9,7 @@
           <th class="col-created">Created</th>
           <th class="col-template">Template</th>
           <th class="col-start-date">Start Date</th>
-          <th class="col-failed">Failed</th>
+          <th class="col-actions">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -30,7 +30,7 @@
             <td class="col-created">{{ row.formattedCreated }}</td>
             <td class="col-template">{{ row.templateName }}</td>
             <td class="col-start-date">{{ row.startDateText }}</td>
-            <td class="col-failed">
+            <td class="col-actions">
               @if (row.showRerun) {
                 <span class="failed-badge">failed</span>
                 <button
@@ -42,9 +42,16 @@
                   (click)="onRerun(row, $event)">
                   <span class="dse-icon" aria-hidden="true">replay</span>
                 </button>
-              } @else {
-                —
               }
+              <button
+                type="button"
+                class="delete-btn icon-btn"
+                title="Delete this run (removes its contract list and analysis results)"
+                aria-label="Delete this run"
+                [disabled]="row.deleteDisabled"
+                (click)="onDelete(row, $event)">
+                <span class="dse-icon" aria-hidden="true">delete</span>
+              </button>
             </td>
           </tr>
         }

@@ -21,9 +21,11 @@ import { OptionsReplayRunListComponent } from '../../components/options-replay-r
 import { OptionsReplayRunControlsComponent } from '../../components/options-replay-run-controls/options-replay-run-controls.component';
 import { OptionsReplayRunDetailComponent } from '../../components/options-replay-run-detail/options-replay-run-detail.component';
 import { OptionsReplayNewRunDialogComponent } from '../../components/options-replay-new-run-dialog/options-replay-new-run-dialog.component';
+import { ConfirmDialogComponent } from '../../../../../shared/ds/confirm-dialog.component';
 import { UiStateService } from '../../../../../core/services/ui-state.service';
 import type { OptionsReplayStartRequest } from '@options-replay/contracts';
 import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequest } from '../../common/backtest.types';
+import { formatBacktestRunId } from '../../utils/backtest.utils';
 
 @Component({
   selector: 'app-backtest-dashboard',
@@ -99,5 +101,23 @@ export class BacktestDashboardComponent implements OnDestroy {
         this.replayStore.startReplay(request);
       }
     });
+  }
+
+  /** Row delete action — confirm first; the cascade (run + contract
+   *  list + analysis results) is irreversible (#1439). */
+  confirmDeleteReplayRun(runId: string): void {
+    const run = this.replayStore.runs().find((r) => r.runId === runId);
+    const label = run ? `${run.symbol} run ${formatBacktestRunId(runId)}` : `run ${formatBacktestRunId(runId)}`;
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          message: `Delete ${label}? This removes the run, its contract list, and any analysis results.`,
+          confirmLabel: 'Delete',
+        },
+      })
+      .afterClosed()
+      .subscribe((confirmed: boolean) => {
+        if (confirmed) this.replayStore.deleteRun(runId);
+      });
   }
 }
