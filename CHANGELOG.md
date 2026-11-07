@@ -13,6 +13,10 @@
 - [Options Backtest] 1238-1430_DOCS-BACKTEST: #1430 code-review (PASS, 3 rounds) + UAT (Complete, #1435) + ADR-010 amendment
 - [Portfolio Allocation] 576-1433_DOCS-PORTFOLIO: #1433 code-review (PASS, 2 rounds) + UAT (Complete, #1436) + changelog
 - [Option Contract Time-Series Viewer] 1243-1420_FE-IMPL-OPTIONS: timeline selection shading + chunk-toggle — ticks mirror selection, click toggles chunk + jumps cursor; empty default, mint cursor band, remove-chunk + gating
+- [Portfolio Dashboard] 219-1409_FE-IMPL-PORTFOLIO: get_accounts session cache on RobinhoodMcpClient — single-flight promise, rejection-clear retry, invalidateAccounts() sign-out hook
+- [Portfolio Dashboard] 219-1409_FE-IMPL-PORTFOLIO: auth-gated bootstrap warm in CoreComponent — one early get_accounts post-login; sign-out invalidates so a user switch can't inherit stale accounts
+- [Portfolio Dashboard] 219-1409_FE-REFACTOR-PORTFOLIO: trading-config accounts delegated to the client cache — last direct executeTool('get_accounts') call site removed (~30 lines duplicated parsing)
+- [Portfolio Dashboard] 219-1409_DOCS-PORTFOLIO: #1409 code-review (PASS, 2 rounds) + UAT (Complete, #1434) + changelog
 - [Option Contract Time-Series Viewer] 1243-1420_DOCS-OPTIONS: #1420 code-review (PASS, 2 rounds) + UAT (Complete, #1438) + changelog
 
 ### Removed
