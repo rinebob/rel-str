@@ -104,6 +104,7 @@ export { stBacktestPermutation } from './st-cloud-function/backtest/backtest-wor
 export { optionsReplayStart } from './options-replay/start';
 export { optionsReplayPermutation } from './options-replay/permutation';
 export { optionsReplayRetry } from './options-replay/retry';
+export { optionsReplayDelete } from './options-replay/delete';
 
 // Options Analysis — Backtest Analytics (Topic #1238, Thread #1266)
 export { optionsAnalysisStart } from './options-analysis/start';
