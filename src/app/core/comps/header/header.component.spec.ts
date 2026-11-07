@@ -149,18 +149,90 @@ describe('HeaderComponent', () => {
       fixture.detectChanges();
     });
 
-    it('shows the user label and Logout', () => {
-      expect(el().querySelector('.user-label')?.textContent?.trim()).toBe('Pat');
+    it('shows the user avatar; the standalone Logout button is gone (#1448)', () => {
+      expect(el().querySelector('.user-avatar')?.textContent?.trim()).toBe('PA');
       const buttons = Array.from(el().querySelectorAll('button')).map(b => b.textContent?.trim());
-      expect(buttons).toContain('Logout');
+      expect(buttons).not.toContain('Logout');
       expect(buttons).not.toContain('Login');
     });
 
-    it('Logout calls authStore.signOut', () => {
-      const logout = Array.from(el().querySelectorAll<HTMLButtonElement>('button'))
-        .find(b => b.textContent?.trim() === 'Logout')!;
-      logout.click();
-      expect(authStore.signOut).toHaveBeenCalled();
+    // #1448 — the name label becomes an avatar circle with initials.
+    describe('avatar initials (#1448)', () => {
+      it('first+last word initials for a multi-word displayName', () => {
+        user.set({ displayName: 'Bob Smith', email: 'b@x.com' } as User);
+        fixture.detectChanges();
+        expect(el().querySelector('.user-avatar')?.textContent?.trim()).toBe('BS');
+      });
+
+      it('first two letters for a single-word displayName', () => {
+        user.set({ displayName: 'Pat', email: 'pat@x.com' } as User);
+        fixture.detectChanges();
+        expect(el().querySelector('.user-avatar')?.textContent?.trim()).toBe('PA');
+      });
+
+      it('falls back to the first two email chars when displayName is missing', () => {
+        user.set({ displayName: null, email: 'pat@x.com' } as unknown as User);
+        fixture.detectChanges();
+        expect(el().querySelector('.user-avatar')?.textContent?.trim()).toBe('PA');
+      });
+
+      it('the plain .user-label span is gone — avatar replaces it in place', () => {
+        expect(el().querySelector('.user-label')).toBeNull();
+        expect(el().querySelector('.user-avatar')).not.toBeNull();
+      });
+    });
+
+    // #1448 — the avatar is a menu trigger: Account → portfolio, Logout → signOut.
+    describe('avatar menu (#1448)', () => {
+      const openMenu = () => {
+        el().querySelector<HTMLButtonElement>('.user-avatar')!.click();
+        fixture.detectChanges();
+      };
+
+      it('click opens a menu with Account + Logout items', () => {
+        expect(el().querySelector('.avatar-menu')).toBeNull();
+        openMenu();
+        const items = Array.from(el().querySelectorAll('.avatar-menu .menu-item'))
+          .map((b) => b.textContent?.trim());
+        expect(items).toEqual(['account_circleAccount', 'logoutLogout']);
+      });
+
+      it('Account navigates to the portfolio dashboard', () => {
+        openMenu();
+        const account = Array.from(el().querySelectorAll<HTMLButtonElement>('.avatar-menu .menu-item'))
+          .find((b) => b.textContent?.includes('Account'))!;
+        account.click();
+        expect(router.navigate).toHaveBeenCalledWith(['/portfolio']);
+      });
+
+      it('menu Logout calls signOut', () => {
+        openMenu();
+        const logout = Array.from(el().querySelectorAll<HTMLButtonElement>('.avatar-menu .menu-item'))
+          .find((b) => b.textContent?.includes('Logout'))!;
+        logout.click();
+        expect(authStore.signOut).toHaveBeenCalled();
+      });
+
+      it('selecting an item closes the menu', () => {
+        openMenu();
+        el().querySelector<HTMLButtonElement>('.avatar-menu .menu-item')!.click();
+        fixture.detectChanges();
+        expect(el().querySelector('.avatar-menu')).toBeNull();
+      });
+
+      it('a document click outside the menu dismisses it', () => {
+        openMenu();
+        document.body.click();
+        fixture.detectChanges();
+        expect(el().querySelector('.avatar-menu')).toBeNull();
+      });
+
+      it('a second trigger click toggles the menu closed', () => {
+        openMenu();
+        el().querySelector<HTMLButtonElement>('.user-avatar')!.click();
+        fixture.detectChanges();
+        expect(el().querySelector('.avatar-menu')).toBeNull();
+      });
     });
 
     it('renders a New Order button that emits newOrder (#1191)', () => {
