@@ -10,7 +10,7 @@
 **Area:** FE  
 **Status:** Draft  
 **Created:** 2026-11-01  
-**Last Updated:** 2026-11-05  
+**Last Updated:** 2026-11-07  
 
 # Implementation Plan — FE: Selected Contract List Picker
 
@@ -27,11 +27,12 @@ data lifecycle: doc-derived vs query-derived); the two share only the
 emit-to-textarea util.
 
 Three surfaces drive the same session: the **picker dialog** (full
-editor), the **chart mini-controls** (dumb strip calling identical store
-methods), and the **`?list=` navigation handler** (auto-opens the
+editor), ~~the **chart mini-controls**~~ (removed #1402-D2 — the
+picker's reopen button is the only page-level surface), and the
+**`?list=` navigation handler** (auto-opens the
 dialog). Session persists per symbol (`rs-optlist:{SYMBOL}` versioned
-blob — `{docId, chunkSize, cursor, selectionKeys}`), mirroring the
-`rs-optgen` pattern.
+blob — `{docId, chunkSize, cursor, selectionKeys, dowDays, cadence}`),
+mirroring the `rs-optgen` pattern.
 
 ```mermaid
 flowchart LR
@@ -40,9 +41,7 @@ flowchart LR
     H --> SS[contract-list-session store]
     FS[(st-options-contract-lists)] -->|ContractListService| SS
     SS --> D[Picker dialog<br/>tab1 rows · tab2 stepper · tab3 lines]
-    SS --> M[Mini-controls<br/>◀ i/n ▶ size All picker]
     D -->|Send: selected rows| E[toPairLines util]
-    M -->|All: selected rows| E
     E --> TA[textarea] --> LP[loadPlotted<br/>markerDates union]
     LP --> CH[Chart<br/>span + per-day dots · +50 prefix]
 ```
@@ -114,18 +113,20 @@ management is independent of contract series):
   cursor 0 — a fresh workspace, nothing pre-checked; restored sessions
   keep their saved keys), `selectAll/none/invert/stride(k)/random(n)/dateRange(from,to)
   /contains(text)` (ops over pick rows only; `no-selection` rows are
-  unselectable), `step(dir)` / `setChunk(i)` / `setChunkSize(n)`,
+  unselectable), `step(dir)` / `setChunkSize(n)` (only cursor primitive —
+  `setChunk` was spec-only dead code, removed #1402),
   `addChunkToSelection()` / `removeChunkFromSelection()` /
   `toggleChunkAt(i)` (chunk tri-state toggle + cursor jump, one atomic
-  patch), `sendSelected()` / `sendAll()` — both produce `string[]`
+  patch), `sendSelected()` — produces `string[]`
   `entryDate,id` lines → emit util.
 - Computed: `pickRows` (rows filtered to kind='pick'),
   `selectedRows`, `uniqueCount` (distinct contractIds in selection),
   `chunks` (partition by pick days), `currentChunk`, `chunkInfo`
-  (`i/n · days · unique`), `emittedLines` (preview = send payload).
-- Persistence: `rs-optlist:{SYMBOL}` versioned blob
-  `{version, docId, chunkSize, cursor, selectionKeys}` — save on mutation;
-  restore on symbol set (same swap hook the generator uses).
+  (`i/n · startDate/endDate · days · unique`), `emittedLines`
+  (preview = send payload).
+- Persistence: `rs-optlist:{SYMBOL}` versioned blob `{version, docId,
+  chunkSize, cursor, selectionKeys, dowDays, cadence}` — save on
+  mutation; restore on symbol set (same swap hook the generator uses).
 
 **Shared emit util** (`utils/contract-list-emit.util.ts`):
 - `toPairLines(rows: ContractListPickRow[]): string` — `entryDate,id`
@@ -160,8 +161,9 @@ management is independent of contract series):
   for current selection (same payload Send produces, duplicates
   included) + Copy button.
 - **Footer:** `Send N rows to chart` — emits via session store → textarea
-  + `loadPlotted`; dialog stays open (stepping live-drives too —
-  consistent control surface; close is user-initiated).
+  + `loadPlotted`. ~~dialog stays open~~ — #1419 made Send close-first:
+  the dialog closes, the chart receives the payload, and reopening
+  resumes the session (see Sync model below).
 
 ## Task FE-4 — Stepper + timeline + mini-controls
 
@@ -194,7 +196,8 @@ management is independent of contract series):
   re-apply their saved `selectionKeys`.
 
 **Mini-controls strip** (page toolbar / chips row, visible only when a
-session is active):
+session is active) — **removed in #1402-D2**; kept here as the
+historical plan:
 - `◀ chunk i/n ▶` · `size` (5/10/20/50 stepper) · `All` · `picker`
   (reopen dialog — same store, cursor preserved).
 - Pure dumb surface — every control calls an existing store method; zero
@@ -209,19 +212,65 @@ selection to each chunk emit and (b) a plotted-vs-pending two-state UI:
 - The dialog covers the chart — emitting behind it was invisible anyway.
 - Chunk stepping is workspace iteration; it mutates nothing but the
   cursor. Selection ops (checks, Add-chunk, toolbar ops) mutate
-  `selection`. No emit path exists outside `sendSelected`/`sendAll`, so
+  `selection`. No emit path exists outside `sendSelected`, so
   plotted == last-sent-selection by construction — the divergence that
   produced this bug cannot re-form.
 - Picker `Send` = `sendSelected` + close + `onSend` (close first — the
   >50-confirm/load path must open on a clean page, and a thrown send
   can't strand the picker). `Close`/×/backdrop = close without emitting
-  (abort). Mini-controls `◀ ▶` = cursor only; `All` = `selectAll` +
-  emit (the strip's one emit action — select-only would be invisible
-  with no dialog open).
+  (abort). ~~Mini-controls `◀ ▶` / `All`~~ — the strip was removed in
+  #1402-D2; picker Send is now the only emit surface (the model holds:
+  nothing emits but an explicit Send).
 - `lastEmitted` records the **attempted** handoff, not a committed
   plot — the page can still drop the load (cancelled >50 confirm,
   pending-confirm bail). It's observability-only; nothing UI-visible
   reads it. The chart's source of truth remains the textarea.
+
+## UX batch (#1402)
+
+**A — Range UX:** the typed `rangeFrom`/`rangeTo` date inputs are gone.
+The picker's Range button reads the chart-brush bound from
+`OptionGroupGeneratorStore.refine().aliveRange` — same page-scoped
+injector as the session store, so the generator's bound IS the brush.
+Click → `selectDateRange(start, end)` replace-selects inclusive pick
+rows. No bound → button disabled, title explains "Brush a range on the
+chart (Select range) first"; the bound renders read-only in the button
+label (`Range 2026-06-02 → 2026-06-05`). Mini-chart swiper: deferred.
+
+**B — Week shading:** `[class.week-alt]` on every rows-table row by
+calendar-week parity (`floor(daysBetween('1970-01-05' epoch-Monday,
+entryDate)/7) % 2` — bands are Mon–Sun blocks, self-computed per row);
+`tr.week-alt:not(.selected) td` paints `--ds-surface-raised` — the
+`:not(.selected)` guard is structural, so a checked row keeps its
+selection paint on either stripe regardless of rule order.
+Token-driven — both themes. (Shipped first as month parity; UAT
+feedback switched the cadence to weekly.)
+
+**C — DOW preset + cadence:** five weekday toggles (Mo–Fr, getUTCDay
+1–5) + cadence select + `Days` apply. **Selection preset** semantics
+(UAT decision): `applyDowPreset()` replace-selects like every sibling
+toolbar op, so manual toggles compose on top afterwards. Cadences
+anchor on the FIRST pick row — biweekly = alternating 7-day blocks
+(`floor(daysBetween(anchor, d)/7)` — anchor-relative, not epoch weeks:
+an epoch boundary would split the anchor's own calendar week for
+multi-weekday sets), monthly = same week-of-month block (`ceil(day/7)`)
+— so the cadence grid stays stable as toggles change. Empty weekday
+set → apply is a no-op (never a wipe) and the button is disabled.
+`dowDays` + `cadence` ride the `rs-optlist:{SYMBOL}` blob as additive
+fields — tolerant reads default old blobs (no version bump). All date
+math is UTC, so weekday/week indexes can't shift with the viewer's TZ.
+
+**D — Chunk dates + strip removal:** `ListChunkInfo` gains
+`startDate`/`endDate` — first/last pick date of the CURRENT chunk (a
+partial tail chunk reports its own last pick, not the doc's). Chunk
+readout: `chunk i/n · start → end · days · unique`. The page-level
+`ListMiniControlsComponent` is deleted outright (files + page usage +
+spec); reopen lives on the page's Picker entry point, and `sendAll` is
+gone — dialog Send is the only emit surface. `step` survives as the
+only nav primitive (`setChunk` had zero production callers — removed
+per AC D2; `clear()` went with it). `docId` is state, not derived from
+`activeList`, so a pref write after a failed explicit load can't
+clobber the preserved blob pointer (#1402 review).
 
 ## Boundaries / risks
 

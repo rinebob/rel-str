@@ -3,6 +3,8 @@
 ## [2026-11-07]
 
 ### Added
+- [Option Contract Time-Series Viewer] 1243-1402_FE-IMPL-OPTIONS: picker UX batch — brush-bound Range button, week shading, DOW/cadence preset, chunk dates, mini-controls removal, header-bar picker button, full PickDocDay columns
+- [Option Contract Time-Series Viewer] 1243-1402_DOCS-OPTIONS: #1402 code-review (PASS, 2 rounds) + UAT (Complete, #1445) + changelog
 - [Portfolio Dashboard] 219-1413_FE-IMPL-PORTFOLIO: Peak Since Entry derivation — per-symbol paginated fills walk (round-batched, cursor-aware) + day-bar get_equity_historicals in the store's positionPeaks section; never gates first paint, peaks land after positions
 - [Portfolio Dashboard] 219-1413_DOCS-PORTFOLIO: #1413 code-review (PASS, 2 rounds) + UAT (Complete, #1446) + changelog
 

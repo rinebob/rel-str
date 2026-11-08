@@ -10,7 +10,7 @@
 **Area:** FE  
 **Status:** Draft  
 **Created:** 2026-11-01  
-**Last Updated:** 2026-11-01  
+**Last Updated:** 2026-11-07  
 
 # Test Plan — FE: Selected Contract List Picker
 
@@ -31,9 +31,9 @@ animation, or private state shape. Fixture list docs mirror
 - `computeMarkerSpans` / `unionAxisLabels` / `buildSeriesCollection` —
   already pure; extend existing specs for multi-vertex markers.
 - `loadPlotted` — existing feature spec extends to markerDates union.
-- Picker dialog + mini-controls — TestBed specs over a stubbed session
-  store (method spies), asserting store calls and rendered state, not
-  chart pixels.
+- Picker dialog — TestBed specs over a stubbed session store (method
+  spies), asserting store calls and rendered state, not chart pixels.
+  (The mini-controls strip was removed in #1402 — see UX batch below.)
 
 ## Unit targets
 
@@ -55,9 +55,12 @@ animation, or private state shape. Fixture list docs mirror
 - **Session ops:** all/none/invert; stride k over days (unique readout);
   random N (bounded, deterministic with seeded fixture); date-range;
   text filter; ops compose with manual toggles; `no-selection` rows
-  never selectable.
+  never selectable. DOW preset (#1402): weekly union of checked days;
+  biweekly alternating 7-day blocks anchored on first pick; monthly same
+  week-of-month block; replace semantics; empty set → no-op.
 - **Chunking:** partition by pick days; remainder chunk; cursor
-  clamp/wrap at ends; `i/n · days · unique` info correct per chunk;
+  clamp/wrap at ends; `i/n · start→end · days · unique` info correct
+  per chunk — a partial tail chunk reports its own last pick (#1402);
   add-chunk accumulates into selection.
 - **Persistence:** `rs-optlist:{SYMBOL}` blob round-trip; version guard;
   symbol swap loads that symbol's blob; stale docId → failed status.
@@ -76,8 +79,16 @@ animation, or private state shape. Fixture list docs mirror
   clipboard.
 - Stepper `▶` moves the cursor without emitting (#1419 — navigation
   only); `Add chunk` checks the chunk's rows into the selection.
-- Mini-controls render only with an active session; each button calls
-  the matching store method; `i/n` reflects cursor; only `All` emits.
+- ~~Mini-controls render only with an active session~~ — strip removed
+  in #1402-D2; the page's Picker entry point reopens the dialog and
+  dialog Send is the only emit surface.
+- Chart-range apply (#1402): bound brush → `Range start → end` button
+  selects inclusive pick rows; unbound → disabled with explain-title;
+  no `input[type=date]` remains. Month banding (#1402): alternate
+  `entryDate` months carry `.month-alt` — including no-selection rows.
+- DOW preset (#1402): five toggles Mo–Fr render `on`/`aria-pressed`
+  from `store.dowDays`; Days apply disabled when nothing checked;
+  cadence select drives `store.cadence`.
 - `?list=` nav: doc loads, picker auto-opens; cross-symbol doc → page
   symbol switch fires first; missing doc → named error, chart untouched.
 - Chooser: lists recent docs, filters to current symbol, toggle widens,
@@ -104,8 +115,9 @@ animation, or private state shape. Fixture list docs mirror
    clear) AND jumps the cursor there; the Rows checks and Lines
    preview mirror every toggle. Fresh loads open with nothing
    selected. Still no emit — Send is the only plot path.
-4. Mini-controls: close dialog, page via `◀ ▶`, resize chunks — no
-   emit until `All`; reopen picker — cursor and selection preserved.
+4. ~~Mini-controls: close dialog, page via `◀ ▶`~~ — superseded
+   (#1402-D2): the page offers only the Picker entry point; reopen
+   preserves cursor and selection; no page-level emit exists.
 5. Clip invariant: dated set loaded → toggle clip-to-entry → contract
    marks clip, **underlying unchanged** (regression for the reported
    issue).
