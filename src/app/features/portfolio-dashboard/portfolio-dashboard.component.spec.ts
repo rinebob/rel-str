@@ -70,6 +70,7 @@ function makeAccountState(name: string, number: string, overrides: Partial<Accou
     optionQuotes: { ...empty },
     equityOrders: { ...empty },
     optionOrders: { ...empty },
+    positionPeaks: { ...empty },
     ...overrides,
   };
 }

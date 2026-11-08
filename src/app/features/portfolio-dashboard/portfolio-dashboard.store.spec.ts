@@ -3,9 +3,11 @@ import { TestBed } from '@angular/core/testing';
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
 import {
   MockClient,
+  MockPeakService,
   MockToolSpec,
   batchAnswers,
   createMockClient,
+  createMockPeakService,
   fulfilled,
   makeAccount,
   makeEquityPosition,
@@ -22,11 +24,13 @@ import {
 describe('PortfolioDashboardStore', () => {
   let store: InstanceType<typeof PortfolioDashboardStore>;
   let client: MockClient;
+  let peaks: MockPeakService;
 
   beforeEach(() => {
     TestBed.resetTestingModule();
     client = createMockClient();
-    store = setupStore(client);
+    peaks = createMockPeakService();
+    store = setupStore(client, peaks);
   });
 
   // ── Initial state ──────────────────────────────────────────────────────────
@@ -366,6 +370,80 @@ describe('PortfolioDashboardStore', () => {
       // 2 accounts × (core batch + orders batch)
       expect(client.executeBatch).toHaveBeenCalledTimes(4);
       expect(store.globalLoading()).toBe(false);
+    });
+
+    // ── positionPeaks derivation kick (#1413) ────────────────────────────
+
+    it('derives positionPeaks per account once equity positions land', async () => {
+      const peak = { symbol: 'QQQ', entryDate: '2026-01-01T10:00:00Z', lastFillDate: '2026-01-01T10:00:00Z', lifetime: { price: 120, date: '2026-02-01T00:00:00Z' }, sinceLastFill: { price: 120, date: '2026-02-01T00:00:00Z' } };
+      peaks.derivePeaks.and.returnValue(resolve({ QQQ: peak }));
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      stubAll();
+
+      await store.initialLoad();
+      await flush();
+
+      const acct = store.accounts()[0];
+      expect(peaks.derivePeaks).toHaveBeenCalledWith('111', acct.equityPositions.data);
+      expect(acct.positionPeaks.data).toEqual({ QQQ: peak });
+      expect(acct.positionPeaks.error).toBeNull();
+    });
+
+    it('a derivePeaks failure lands on the peaks section only', async () => {
+      peaks.derivePeaks.and.returnValue(reject('historicals down'));
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      stubAll();
+
+      await store.initialLoad();
+      await flush();
+
+      const acct = store.accounts()[0];
+      expect(acct.positionPeaks.error).toBe('historicals down');
+      expect(acct.equityPositions.data?.length).toBe(1); // core unaffected
+    });
+
+    it('a refresh during an in-flight derive queues a rerun — peaks still populate', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      stubAll();
+
+      // Hang the first derivation; resolve on demand.
+      let releaseFirst!: () => void;
+      const gate = new Promise<Record<string, never>>((r) => (releaseFirst = () => r({})));
+      let calls = 0;
+      peaks.derivePeaks.and.callFake(() => (++calls === 1 ? gate : resolve({ QQQ: null as never })));
+
+      await store.initialLoad();
+      await flush();
+      expect(peaks.derivePeaks).toHaveBeenCalledTimes(1);
+
+      // Refresh while the derive is still running — the new fetchCore's
+      // kick must not be swallowed by the stale in-flight promise.
+      const refresh = store.refresh();
+      await flush();
+      releaseFirst();
+      await refresh;
+      await flush();
+
+      expect(peaks.derivePeaks).toHaveBeenCalledTimes(2);
+      expect(store.accounts()[0].positionPeaks.data).toEqual({ QQQ: null });
+    });
+
+    it('skips peaks derivation when equity positions failed', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: rejected('positions down'),
+        get_option_positions: fulfilled([]),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
+      });
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+
+      await store.initialLoad();
+      await flush();
+
+      expect(peaks.derivePeaks).not.toHaveBeenCalled();
     });
 
     it("selectAccount fetches an unloaded account's sections on demand, once", async () => {

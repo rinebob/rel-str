@@ -12,6 +12,7 @@ import {
   OptionQuote,
   BrokerOrder,
 } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
+import { PositionPeak } from './utils/position-peak.util';
 
 /** Generic per-section wrapper with independent loading/error state. */
 export interface SectionData<T> {
@@ -34,6 +35,10 @@ export interface AccountState {
   optionQuotes: SectionData<Map<string, OptionQuote>>;
   equityOrders: SectionData<BrokerOrder[]>;
   optionOrders: SectionData<BrokerOrder[]>;
+  /** Peak Since Entry per symbol (#1413) — derived from paginated fills +
+   *  day-bar historicals; surfacing data, not gating. A missing key means
+   *  not-yet-derived; entryDate null means underivable → UI renders '—'. */
+  positionPeaks: SectionData<Record<string, PositionPeak>>;
 }
 
 /** Top-level dashboard state. */

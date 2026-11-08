@@ -37,6 +37,7 @@ import {
   BrokerOrder,
 } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { computePnL, computeProtectedSymbols, computeEntryDates, updatableStopsBySymbol } from './utils/portfolio-pnl.util';
+import { PositionPeakService } from './services/position-peak.service';
 import {
   LIVE_ORDER_STATES,
   TERMINAL_ORDER_STATES,
@@ -225,6 +226,7 @@ export const PortfolioDashboardStore = signalStore(
 
   withMethods((store) => {
     const client = inject(RobinhoodMcpClient);
+    const peakService = inject(PositionPeakService);
     let loadInFlight = false;
     // Bumped by loadAccounts — a fetch that started before the bump must not
     // mark its group loaded, or a refresh leaves pre-refresh data marked fresh.
@@ -356,6 +358,12 @@ export const PortfolioDashboardStore = signalStore(
 
       const acct = store.accounts().find((a) => a.accountNumber === accountNumber);
       if (!acct) return false;
+
+      // Peak Since Entry derivation (#1413) rides the positions that just
+      // landed — kicked, never awaited, so the core group isn't gated on
+      // the fills walk + historicals.
+      if (equityR.status === 'fulfilled') void ensurePeaks(accountNumber);
+
       patchAccount(accountNumber, (a) => ({
         ...a,
         equityQuotes: loadingSection(a.equityQuotes),
@@ -390,6 +398,63 @@ export const PortfolioDashboardStore = signalStore(
         })
         .finally(() => coreInFlight.delete(accountNumber));
       coreInFlight.set(accountNumber, p);
+      return p;
+    }
+
+    // Peaks bookkeeping — one in-flight derivation per account. Re-derives
+    // on every core refetch: a positions reload is exactly when fills may
+    // have changed, and the walk early-exits on the first zero-crossing.
+    // Joiners flag peaksAgain — a kick that lands mid-derive (e.g. a
+    // refresh's fetchCore while the previous derive still runs) queues a
+    // trailing pass with the fresh positions, same pattern as ordersAgain.
+    const peaksInFlight = new Map<string, Promise<void>>();
+    const peaksAgain = new Set<string>();
+
+    /** Derive + patch positionPeaks for one account — joiners share the
+     *  in-flight run AND queue a rerun (the joined run may hold stale
+     *  positions). Loading flag marks the section without gating the
+     *  group; errors land on the section, never reject upward. */
+    function ensurePeaks(accountNumber: string): Promise<void> {
+      const existing = peaksInFlight.get(accountNumber);
+      if (existing) {
+        peaksAgain.add(accountNumber);
+        return existing;
+      }
+      const p = (async () => {
+        try {
+          do {
+            peaksAgain.delete(accountNumber);
+            const epoch = loadEpoch;
+            const positions =
+              store.accounts().find((a) => a.accountNumber === accountNumber)
+                ?.equityPositions.data ?? [];
+            patchAccount(accountNumber, (a) => ({
+              ...a,
+              positionPeaks: loadingSection(a.positionPeaks),
+            }));
+            try {
+              const peaks = await peakService.derivePeaks(accountNumber, positions);
+              if (loadEpoch === epoch) {
+                patchAccount(accountNumber, (a) => ({
+                  ...a,
+                  positionPeaks: dataSection(peaks),
+                }));
+              }
+            } catch (err) {
+              if (loadEpoch === epoch) {
+                patchAccount(accountNumber, (a) => ({
+                  ...a,
+                  positionPeaks: errorSection(a.positionPeaks, errMessage(err)),
+                }));
+              }
+            }
+          } while (peaksAgain.has(accountNumber));
+        } finally {
+          peaksInFlight.delete(accountNumber);
+          peaksAgain.delete(accountNumber);
+        }
+      })();
+      peaksInFlight.set(accountNumber, p);
       return p;
     }
 

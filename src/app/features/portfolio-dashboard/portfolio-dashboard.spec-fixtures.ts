@@ -7,6 +7,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
 import { RobinhoodMcpClient } from '../../core/robinhood-mcp/robinhood-mcp-client.service';
+import { PositionPeakService } from './services/position-peak.service';
 import {
   AccountInfo,
   PortfolioSnapshot,
@@ -153,12 +154,26 @@ export function createMockClient(): MockClient {
   };
 }
 
-export function setupStore(clientMock: MockClient): InstanceType<typeof PortfolioDashboardStore> {
+export interface MockPeakService {
+  derivePeaks: jasmine.Spy;
+}
+
+export function createMockPeakService(): MockPeakService {
+  return {
+    derivePeaks: jasmine.createSpy('derivePeaks').and.returnValue(Promise.resolve({})),
+  };
+}
+
+export function setupStore(
+  clientMock: MockClient,
+  peakService: MockPeakService = createMockPeakService(),
+): InstanceType<typeof PortfolioDashboardStore> {
   TestBed.configureTestingModule({
     providers: [
       provideZonelessChangeDetection(),
       PortfolioDashboardStore,
       { provide: RobinhoodMcpClient, useValue: clientMock },
+      { provide: PositionPeakService, useValue: peakService },
     ],
   });
   return TestBed.inject(PortfolioDashboardStore);
