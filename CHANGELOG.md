@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-11-08]
+
+### Added
+- [Trading Indicator Library] 261-932_FE-IMPL-INDICATOR-LIB: TB local sandbox port — client-side Trigger Bands engine/ATR/dots producing the callable's IntervalData shape; TB local toggle computes bands+dots with no request on synthetic, monthly, and TWO_DAY bars
+
+### Changed
+- [Trading Indicator Library] 261-932_BE-IMPL-INDICATOR-LIB: Trigger Bands expansion-gated arming + breakout-only envelope dots — state arms only after band expansion since the last breakout; dots emit on breakout bars only, anchored to the band ∓ 1.5×ATR; Pine export gated + na-safe warm-up
+- [Trading Indicator Library] 261-932_DOCS-INDICATOR-LIB: #932 code-review (PASS, rounds 5-6) + UAT (Complete, #939) + changelog
+
 ## [2026-11-07]
 
 ### Added

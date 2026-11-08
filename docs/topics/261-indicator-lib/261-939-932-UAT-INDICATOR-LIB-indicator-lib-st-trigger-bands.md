@@ -8,9 +8,9 @@
 **Task:** #932  
 **Domain:** INDICATOR-LIB  
 **Type:** UAT  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-10-09  
-**Last Updated:** 2026-10-09  
+**Last Updated:** 2026-11-08  
 
 # UAT — Trigger Bands prod promotion (#932)
 
@@ -28,7 +28,14 @@ request (daily+weekly, bands + dots only) under its own
 `IndicatorSeriesStore` cache key — the default indicator response is never
 refetched or invalidated. Bands render as state-colored step lines
 (neutral / pullback / breakout per the Pine vocabulary); dots render as a
-scatter overlay via `addChartExtras`. The contract cleanup removed the dead
+scatter overlay via `addChartExtras` — **breakout events only**: one dot
+per breakout bar, anchored outside the band envelope (long below the lower
+band, short above the upper). Pullback warnings show as band colour, not
+dots. Pullback-state arming is expansion-gated: an episode may only arm
+once the band has expanded since the last breakout (a flat bar right after
+a breakout is not a fresh setup — evolved in sandbox review, applied via
+the `TB local` port and ported back to the engine).
+The contract cleanup removed the dead
 `signals.triggerBands` slot end-to-end, the shared
 `TRIGGER_BANDS_SIGNAL_TYPES` consts pin the BE↔FE wire vocabulary, and the
 light theme remaps the neutral band's white to grey (`#ffffff → #9e9e9e`).
@@ -46,9 +53,9 @@ overlay), and the sandbox gates the lean request off on monthly.
   silently renders nothing in scenario 2/3, a functions deploy is the first
   suspect; `firebase deploy --only functions`).
 - A signed-in user; the app is auth-guarded.
-- A symbol with recent Trigger Bands activity — **AAPL** produced 2,958
-  daily / 583 weekly dot markers in the #877 callable verification and is a
-  good default.
+- A symbol with recent Trigger Bands activity — **AAPL** produced 375
+  daily / 66 weekly breakout dots in the #877 callable verification
+  (post-gate) and is a good default.
 - Chrome/Edge DevTools (Network tab + device theme toggle for the
   light/dark checks).
 
@@ -93,11 +100,21 @@ overlay), and the sandbox gates the lean request off on monthly.
 - **Steps:** Uncheck `ST Trigger Bands`; check `ST Trigger Bands Signals`
   alone.
 - **Expected:** no second request is needed if scenario 2 already cached
-  the lean response (same key); pullback/breakout dots render below (long)
-  / above (short) bars, blue `#2962ff` and yellow `#ffeb3b` per the Pine
-  cross-side vocabulary. Bands do **not** draw.
+  the lean response (same key); **breakout dots only** render — one per
+  breakout bar, sitting just below the lower band (long, blue `#2962ff`) /
+  just above the upper band (short, yellow `#ffeb3b`). Pullback warnings
+  show as band colour, not dots. Bands do **not** draw.
 - **Evidence:** spec asserts dots render with bands off; live check.
 - **Result:**
+
+> **Deploy caveat (2026-10-10):** the deployed callable still emits the
+> **previous** dot contract (dots on every armed-state bar, anchored to bar
+> extremes) and the old ungated state machine. The new contract —
+> breakout-only dots, envelope-anchored, expansion-gated arming — is
+> verified by the 876/877 scripts (20/20, 21/21) and previewable via
+> scenario 11, but scenarios 2–3 on the prod surface show the old dot
+> behavior until `firebase deploy --only functions` lands. Mark those
+> results accordingly.
 
 ### 4. Toggle off removes the series
 
@@ -167,6 +184,33 @@ overlay), and the sandbox gates the lean request off on monthly.
   on the lean path only).
 - **Result:**
 
+### 11. `TB local` — new contract preview (pre-deploy parity check)
+
+- **Start:** `dev/flex-chart` sandbox, real symbol (e.g. AAPL) loaded.
+- **Steps:**
+  1. Enable `ST Trigger Bands` + `TB dots` — note the dot density and
+     placement (this is the deployed contract: dots on every armed-state
+     bar, floating off the wicks).
+  2. Check **TB local** — the same pipeline now runs the ported backend
+     engine client-side: no network request, and the new contract renders.
+  3. Toggle `TB local` off/on a few times on the same bars to compare.
+  4. Try monthly + TWO_DAY intervals with `TB local` on — the local path
+     computes dots there too (the lean request never reaches them).
+  5. Switch data mode to synthetic with `TB local` on — TB stays
+     available (local computation works on synthetic bars).
+- **Expected (TB local ON):** dramatically fewer dots — **breakout bars
+  only**; each dot hugs the outside of the envelope (long just below the
+  lower band, short just above the upper band) instead of floating off
+  the wick. No dots resume immediately after a breakout (expansion-gated
+  arming). Band colors are unchanged — pullbacks still paint yellow/blue.
+- **Expected (TB local OFF):** unchanged deployed behavior — dense
+  armed-state dots, wick-anchored.
+- **Evidence:** the port is a verified mirror of the backend engine
+  (`trigger-bands-local.spec.ts` 10/10 incl. a 16-bar short fixture and
+  the ATR recursion); engine parity is asserted by the shared canonical
+  vectors. Live check is visual comparison only.
+- **Result:**
+
 ## Traceability
 
 | Acceptance criterion | Scenario(s) |
@@ -184,6 +228,13 @@ overlay), and the sandbox gates the lean request off on monthly.
 
 ## Automated evidence (executed this session)
 
+- **Post-delta contract (2026-10-10):** `indicator-lib-876-engine.ts`
+  **20/20** (incl. no-re-arm-after-breakout invariants) ·
+  `indicator-lib-877-callable.ts` **21/21** (dot counts = breakout
+  counts: 375 D / 66 W / 16 M on AAPL; envelope anchoring asserted) ·
+  `tsx --test tests/functions/st-trigger-bands{,-series}.test.ts`
+  **38/38** · jest `trigger-bands-local.spec.ts` **10/10** · full jest
+  **303 suites / 5,331 tests** · `npm run build` (functions) clean.
 - Focused suites on the final tree: **9 suites / 106 tests green**
   (`signal-detail`, `flex-chart-sandbox`, `indicator-converters`,
   `trigger-bands-chart`, `indicator-series.store`, `chart.store`,
@@ -201,16 +252,17 @@ overlay), and the sandbox gates the lean request off on monthly.
 
 | # | Scenario | Result | Evidence |
 |---|----------|--------|----------|
-| 1 | Menu entries present, opt-in unchecked | | |
-| 2 | Bands lean request + D/W step lines | | |
-| 3 | Dots independent toggle | | |
-| 4 | Toggle off removes series | | |
-| 5 | Monthly excludes TB | | |
-| 6 | Symbol switch — no stale-key fetch | | |
-| 7 | Sandbox regression (real/synthetic/monthly) | | |
-| 8 | Light theme grey neutral band | | |
-| 9 | Dark theme unchanged | | |
-| 10 | Signal-detail regression smoke | | |
+| 1 | Menu entries present, opt-in unchecked | **PASS** (user, 2026-10-10 post-deploy) | both entries present, unchecked by default |
+| 2 | Bands lean request + D/W step lines | **PASS** (user, 2026-10-10 post-deploy) | step lines on daily + weekly; nothing on monthly |
+| 3 | Dots independent toggle | **PASS** (user, 2026-10-10 post-deploy) | sparse breakout-only dots hugging the envelope — matches `TB local` exactly |
+| 4 | Toggle off removes series | **PASS** (user, 2026-10-10 post-deploy) | |
+| 5 | Monthly excludes TB | **PASS** (user, 2026-10-10 post-deploy) | entries absent on monthly view |
+| 6 | Symbol switch — no stale-key fetch | **PASS** (user, 2026-10-10 post-deploy) | |
+| 7 | Sandbox regression (real/synthetic/monthly) | **PASS** (user, 2026-10-10) | exercised as part of scenario 11 — real mode works, monthly gate holds |
+| 8 | Light theme grey neutral band | **PASS** (user, 2026-10-10 post-deploy) | neutral band visible grey on light |
+| 9 | Dark theme unchanged | **PASS** (user, 2026-10-10) | observed during scenario 11 |
+| 10 | Signal-detail regression smoke | **PASS** (user, 2026-10-10 post-deploy) | |
+| 11 | `TB local` new-contract preview (breakout-only, envelope, gate) | **PASS** (user, 2026-10-10) | "these are even better signals than v1/v2 dots — 1–2 bars earlier" — breakout-only dots, envelope-anchored, no post-breakout re-arm streaks, monthly/2D/synthetic all compute |
 
 ## Regression / smoke
 

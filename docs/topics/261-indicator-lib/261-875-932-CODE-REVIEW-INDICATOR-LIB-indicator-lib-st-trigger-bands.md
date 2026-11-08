@@ -12,9 +12,9 @@
 **Type:** Code Review  
 **Status:** Complete  
 **Created:** 2026-10-09  
-**Last Updated:** 2026-10-09  
+**Last Updated:** 2026-11-08  
 
-## Verdict: **PASS** (rounds 2–3 remediated in-loop)
+## Verdict: **PASS** (rounds 2–3 and 5 remediated in-loop)
 
 Standards **PASS** · Spec **PASS** · Thermo-nuclear **PASS** — after two in-loop remediation rounds. Round 1 produced two major findings (dead staleness check on an unreachable path; boundary-cast workaround in the BE filter). The round-3 re-review of the remediated patch found one more major (stale `symbolDataVersion` window on symbol switch → wasted callable + transient cross-symbol injection) plus four minors — all fixed and re-verified before this verdict. Three parallel review sub-agents ran against the scoped diff each round (`.devin/tmp/932-review*.diff`, ~1,700 lines across 24 files); the working tree carries ~100 unrelated modified files from other threads (#934 sandbox settings, order-ticket/screenshot work, paper trading), which were excluded.
 
@@ -72,6 +72,40 @@ Standards **PASS** · Spec **PASS** · Thermo-nuclear **PASS** — after two in-
 | 20 | nit | `warnIfStaleSeries` re-fires on every indicator computed while data is stale | Advisory — pre-existing pattern, acceptable noise |
 
 **Round 4 — delta re-review (no new findings).** Scoped to the round-3 remediation delta (~40 lines: `chart.store.ts` version-blank + spec, sandbox monthly gate, three comment blocks). All five `symbolDataVersion` consumers guard `!version → undefined`; `clearCharts`/error branch already blanked it; `next` re-sets before the internal fetch — ordering correct. The binding's response `computed` additionally gates on `enabled`, so sandbox monthly is now no-fetch *and* no-lookup while the config branch already rendered nothing there. Cosmetic note: a same-symbol `loadCharts` refresh now blanks indicators during the refetch gap (previously the stale version kept the cached response visible) — more honest, reappears on cache-hit. Converged: review loop closed.
+
+### Round 5 — delta re-review (post-review algorithm changes)
+
+**Verdict: PASS** — all findings remediated in-loop. Scoped diff `.devin/tmp/932-r5-review.diff` (~739 lines): expansion-gated arming in the engine + Pine + 876 reference; breakout-only envelope-anchored dots in `generateTriggerBandsDotMarkers`; the `trigger-bands-local` dev port; sandbox `TB local` wiring + TWO_DAY/MONTHLY `triggerBandsDots`; verify scripts; UAT doc updates. Three parallel axes (Standards / Spec / Thermo-nuclear). #932 was already at `7_QA` — this round is a re-verdict on the delta, not a stage transition.
+
+| # | Axis | Severity | Finding | Disposition |
+|---|------|----------|---------|-------------|
+| 21 | thermo | major | `tests/functions/st-trigger-bands{,-series}.test.ts` (tsx suite, separate from the jest run) still asserted the pre-gate contract — 9 failures: armed states without prior expansion, pullback dots, wick-anchored placement | **Fixed.** Hand-worked vectors recomputed under the gate; GOLDEN (no expansion → zero breakouts) now pins "pauses flag but never arm"; new `pb`/`mb` canonical fixtures exercise arm→breakout→no-instant-re-arm both directions; dot tests → breakout-only + band-envelope anchoring. 35/35 green |
+| 22 | standards + spec + thermo | minor | Pine warm-up diverged from the TS engine: `ta.highest`/`ta.lowest` produce real values before the 3-bar window fills, so the new gate could latch an expansion on bars where TS emits null bands; `na` could also propagate into the latch carries | **Fixed.** Bands forced `na` until `bar_index >= length - 1` (engine parity, incl. plotted warm-up nulls); `not na()`/`nz(…, false)` guards on flags, breakouts, and latch carries so early bars are bool-false like the engine |
+| 23 | standards | minor | `trigger-bands-local.ts` duplicated `LENGTH`/`DOT_ATR_MULT`/result interface without explaining why the canonical definitions can't be shared (rel-str-coding-guidelines requires the justification) | **Fixed.** Comment documents the canonical constants live in `functions/` (unreachable from the app build) and must stay in sync |
+| 24 | standards + thermo | minor | `trigger-bands-local.spec.ts` header still said the arming rule "intentionally diverges" — stale after the gate was approved; also the envelope test never exercised the short branch (canonical pins shorts inert) and nothing ran >14 bars (ATR recursion uncovered) | **Fixed.** Header corrected to "approved backend contract"; new 16-bar short-mirror fixture pins `SHORT_BREAKOUT` dot above the upper band and covers the Wilder recursion |
+| 25 | spec | info | "Local TB computes on the displayed bars" — `localTbData` runs on full `chartData().bars` | Deliberate, documented in the component comment — the state machine must see the callable's path, not the window's |
+| 26 | spec | info | "Since the last breakout" is per-side; a long breakout doesn't reset `shortExpanded` | Consistent across all four implementations; per-side is the natural reading |
+| 27 | spec | minor | 877 "no re-arm on the bar after a breakout" only checks index i+1 | Accepted — the 876 reference cross-checks full gate semantics on all 1,845 bars; the i+1 assertion is a smoke pin, not the contract |
+| 28 | standards | minor | `localTb` signal lives in the sandbox component (guidelines §4 prefers stores) | Waived — session-scoped dev toggle matching the sandbox's existing toggle pattern; extracting a store for a dev-only flag is disproportionate |
+| 29 | thermo | minor | No executable BE↔FE parity check for the local port | Deferred — both suites now share the same canonical fixture/vectors (implicit parity); a cross-boundary import test is fragile (angular `PriceBar` types into the tsx suite). Revisit if the port survives long-term |
+
+Verification: `tsx --test tests/functions/st-trigger-bands{,-series}.test.ts` **35/35** · jest `trigger-bands-local.spec.ts` **10/10** · jest full suite **303/303 suites, 5,331/5,331 green** (the round-3 unrelated failures were other-session WIP, since resolved) · 876 engine **20/20** · 877 callable **21/21** (dot counts now equal breakout counts: 375 D / 66 W / 16 M) · `npm run build` clean. Pine updated but not executed — TradingView parity still needs a manual load.
+
+### Round 6 — re-review of the Round 5 remediation
+
+**Verdict: PASS** — all findings remediated in-loop. Scoped diff `.devin/tmp/932-r6-review.diff` (~310 lines of tracked changes; the r5 FE spec/port edits are untracked files, reviewed directly). Three parallel axes.
+
+| # | Axis | Severity | Finding | Disposition |
+|---|------|----------|---------|-------------|
+| 30 | all three | minor | Pine flag comparisons `not na(upper) and upper <= upper[1]` evaluated `true and na` → **na** on the first completed band window (bar 2) — the engine emits `false` there | **Fixed.** Flag assignments now `nz(upper <= upper[1], false)` / `nz(lower >= lower[1], false)` — bool-false through the whole warm-up like `cmp` |
+| 31 | standards | nit | Test title claimed post-breakout re-arming coverage its fixture never reaches (no breakout in the sequence) | **Fixed.** Retitled to describe initial arming + hold; CANONICAL covers real post-breakout re-arming |
+| 32 | thermo | minor | `pullbackState` carry branch (`state[t-1]` fallback) never exercised — every armed assertion sat on a flagged bar | **Resolved by discovery, not fixture.** Attempting to build a carry-through-non-pullback fixture proved the case unreachable: an expansion bar while armed is *always* a breakout (only the current bar can lift the band → cross fires; the preceding pause satisfies `up2>=up1`). Replaced with a stronger pin: "an expansion bar while armed is always a breakout" per side — armed state can never outlive a rising/falling band |
+| 33 | thermo | minor | Dot-anchor test only asserted `y < p.lower` — wick-anchoring or a wrong multiplier would still pass | **Fixed.** `computeATR` exported from `indicator-computation.ts`; new test asserts `y = p.lower − 1.5·ATR` / `p.upper + 1.5·ATR` to 1e-9 and explicitly excludes the old wick anchor |
+| 34 | thermo | nit | `ta.crossover`/`crossunder` na-operand behavior unverifiable by inspection | Non-issue on analysis — on the only bars where the cross operand is na, `nz(upper[2] >= upper[1], false)` is already false → `false and na` = false. Left as TradingView-verify caveat |
+
+Note on r5 scope: the round-5 diff also missed untracked files (`trigger-bands-local.{ts,spec.ts}` are new/untracked — `git diff` can't see them); r6 agents reviewed them directly. Worth remembering at commit time that they won't appear in `git diff` listings.
+
+Verification: `tsx --test tests/functions/st-trigger-bands{,-series}.test.ts` **38/38** · functions build clean · local spec 10/10 (unchanged) · Pine still needs a TradingView load for visual parity.
 
 **Ship-planning advisory (Standards A1):** the #934 contamination is wider than the sandbox spec block — `sandbox-settings` imports, `stored` seeding, `paramOverrides`, auto-save effect, `resetSettings`, and the Reset button are interleaved through `flex-chart-sandbox.component.{ts,html}` plus two untracked files (`sandbox-settings.ts`, `sandbox-settings.spec.ts`). The component's `import './sandbox-settings'` breaks the build if that file is excluded. At ship time either include all five #934 files deliberately or do edit surgery on the field initializers — a spec-block-only hunk split will not compile.
 
