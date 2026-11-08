@@ -40,6 +40,27 @@ function code(e: unknown): string | undefined {
 
 const RUN_ID = 'or-2026-11-02_tue_1200_manual_x9_SPY';
 
+function request(data: unknown) {
+  return { data, auth: { uid: 'u1' } } as Parameters<typeof runReplayRetry>[0];
+}
+
+/** auth:undefined — a JS default parameter can't express this (passing
+ *  undefined re-triggers the default), so the unauthenticated fixture
+ *  gets its own helper. */
+function unauthRequest(data: unknown) {
+  return { data, auth: undefined } as Parameters<typeof runReplayRetry>[0];
+}
+
+describe('runReplayRetry — auth guard (#1437)', () => {
+  it('unauthenticated → unauthenticated, before getRun runs', async () => {
+    const { deps, enqueued, order } = makeDeps();
+    const err = await runReplayRetry(unauthRequest({ runId: RUN_ID }), deps).catch((e) => e);
+    assert.equal(code(err), 'unauthenticated');
+    assert.equal(order.length, 0);
+    assert.equal(enqueued.length, 0);
+  });
+});
+
 function runView(overrides: Partial<ReplayRetryRunView> = {}): ReplayRetryRunView {
   return {
     status: 'failed',
@@ -114,7 +135,7 @@ describe('shouldResetForRetry', () => {
 describe('runReplayRetry — failed run', () => {
   it('claims the run atomically (list reset + run flip in one tx) and re-enqueues one payload', async () => {
     const { deps, claims, enqueued, order } = makeDeps();
-    const res = await runReplayRetry({ runId: RUN_ID }, deps);
+    const res = await runReplayRetry(request({ runId: RUN_ID }), deps);
 
     assert.equal(res.retriedSymbol, 'SPY');
     assert.deepEqual(claims, [RUN_ID]);
@@ -141,7 +162,7 @@ describe('runReplayRetry — no-op paths', () => {
   for (const status of ['pending', 'running', 'cancelled', 'completed'] as const) {
     it(`no-ops while run status is '${status}'`, async () => {
       const { deps, claims, enqueued } = makeDeps(runView({ status }));
-      const res = await runReplayRetry({ runId: RUN_ID }, deps);
+      const res = await runReplayRetry(request({ runId: RUN_ID }), deps);
       assert.equal(res.retriedSymbol, null);
       assert.equal(claims.length, 0);
       assert.equal(enqueued.length, 0);
@@ -154,7 +175,7 @@ describe('runReplayRetry — no-op paths', () => {
     const legacy = { ...runView() } as Partial<ReplayRetryRunView>;
     delete legacy.symbol;
     const { deps, claims, enqueued } = makeDeps(legacy as ReplayRetryRunView);
-    const res = await runReplayRetry({ runId: RUN_ID }, deps);
+    const res = await runReplayRetry(request({ runId: RUN_ID }), deps);
     assert.equal(res.retriedSymbol, null);
     assert.equal(claims.length, 0);
     assert.equal(enqueued.length, 0);
@@ -162,7 +183,7 @@ describe('runReplayRetry — no-op paths', () => {
 
   it('no-ops when the transaction does not claim the run (concurrent retry won)', async () => {
     const { deps, enqueued } = makeDeps(runView(), { claimed: false });
-    const res = await runReplayRetry({ runId: RUN_ID }, deps);
+    const res = await runReplayRetry(request({ runId: RUN_ID }), deps);
     assert.equal(res.retriedSymbol, null);
     assert.equal(enqueued.length, 0);
   });
@@ -176,7 +197,7 @@ describe('runReplayRetry — validation', () => {
   it('missing run doc → not-found', async () => {
     const { deps } = makeDeps(null);
     await assert.rejects(
-      runReplayRetry({ runId: RUN_ID }, deps),
+      runReplayRetry(request({ runId: RUN_ID }), deps),
       (e: unknown) => code(e) === 'not-found',
     );
   });
@@ -185,7 +206,7 @@ describe('runReplayRetry — validation', () => {
     it(`invalid input ${JSON.stringify(bad)} → invalid-argument`, async () => {
       const { deps } = makeDeps();
       await assert.rejects(
-        runReplayRetry(bad as never, deps),
+        runReplayRetry(request(bad), deps),
         (e: unknown) => code(e) === 'invalid-argument',
       );
     });
@@ -203,7 +224,7 @@ describe('runReplayRetry — enqueue failure', () => {
       throw new Error('queue exploded');
     };
     await assert.rejects(
-      runReplayRetry({ runId: RUN_ID }, deps),
+      runReplayRetry(request({ runId: RUN_ID }), deps),
       (e: unknown) => code(e) === 'internal',
     );
     assert.equal(failures.length, 1);

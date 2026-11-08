@@ -39,6 +39,7 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import type { CallableRequest } from 'firebase-functions/v2/https';
 import { getFunctions } from 'firebase-admin/functions';
 import * as logger from 'firebase-functions/logger';
 
@@ -91,9 +92,14 @@ export function shouldResetForRetry(status: OptionsContractListStatus | undefine
 }
 
 export async function runReplayRetry(
-  input: OptionsReplayRetryRequest | undefined,
+  request: CallableRequest<OptionsReplayRetryRequest>,
   deps: ReplayRetryDeps = prodReplayRetryDeps,
 ): Promise<OptionsReplayRetryResponse> {
+  // Auth guard (#1437) — a public-invoker callable must reject anonymous
+  // calls before any validation or deps; every effect of the call is
+  // billed work.
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const input = request.data;
   const runId = typeof input?.runId === 'string' ? input.runId.trim() : '';
   if (!runId) {
     throw new HttpsError('invalid-argument', 'runId is required');
@@ -221,5 +227,5 @@ const prodReplayRetryDeps: ReplayRetryDeps = {
 
 export const optionsReplayRetry = onCall<OptionsReplayRetryRequest, Promise<OptionsReplayRetryResponse>>(
   { cors: true, memory: '256MiB', invoker: 'public', timeoutSeconds: 300 },
-  async (request) => runReplayRetry(request.data),
+  async (request) => runReplayRetry(request),
 );

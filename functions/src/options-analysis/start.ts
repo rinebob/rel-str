@@ -26,6 +26,7 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import type { CallableRequest } from 'firebase-functions/v2/https';
 import { getFunctions } from 'firebase-admin/functions';
 import * as logger from 'firebase-functions/logger';
 
@@ -61,9 +62,14 @@ export interface AnalysisStartDeps {
 }
 
 export async function runAnalysisStart(
-  input: OptionsAnalysisStartRequest | undefined,
+  request: CallableRequest<OptionsAnalysisStartRequest>,
   deps: AnalysisStartDeps = prodAnalysisStartDeps,
 ): Promise<OptionsAnalysisStartResponse> {
+  // Auth guard (#1437) — a public-invoker callable must reject anonymous
+  // calls before any validation or deps; every effect of the call is
+  // billed work.
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const input = request.data;
   const contractListDocId =
     typeof input?.contractListDocId === 'string' ? input.contractListDocId.trim() : '';
   if (!contractListDocId) {
@@ -108,5 +114,5 @@ const prodAnalysisStartDeps: AnalysisStartDeps = {
 
 export const optionsAnalysisStart = onCall<OptionsAnalysisStartRequest, Promise<OptionsAnalysisStartResponse>>(
   { cors: true, memory: '256MiB', invoker: 'public', timeoutSeconds: 60 },
-  async (request) => runAnalysisStart(request.data),
+  async (request) => runAnalysisStart(request),
 );

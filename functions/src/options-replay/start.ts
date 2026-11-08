@@ -29,6 +29,7 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import type { CallableRequest } from 'firebase-functions/v2/https';
 import { getFunctions } from 'firebase-admin/functions';
 import * as logger from 'firebase-functions/logger';
 
@@ -66,9 +67,14 @@ export interface ReplayStartDeps {
 }
 
 export async function startReplay(
-  input: OptionsReplayStartRequest | undefined,
+  request: CallableRequest<OptionsReplayStartRequest>,
   deps: ReplayStartDeps = prodReplayStartDeps,
 ): Promise<OptionsReplayStartResponse> {
+  // Auth guard (#1437) — a public-invoker callable must reject anonymous
+  // calls before any validation or deps; every effect of the call is
+  // billed work.
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const input = request.data;
   // Runtime types aren't guaranteed at the callable boundary — a malformed
   // payload must surface invalid-argument, not a TypeError-as-internal.
   const templateId = String(input?.templateId ?? '').trim();
@@ -168,5 +174,5 @@ const prodReplayStartDeps: ReplayStartDeps = {
 
 export const optionsReplayStart = onCall<OptionsReplayStartRequest, Promise<OptionsReplayStartResponse>>(
   { cors: true, memory: '256MiB', invoker: 'public' },
-  async (request) => startReplay(request.data),
+  async (request) => startReplay(request),
 );

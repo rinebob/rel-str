@@ -37,6 +37,27 @@ function code(e: unknown): string | undefined {
 
 const DOC_ID = 'or-2026-11-02_tue_1200_manual_x9_QQQ';
 
+function request(data: unknown) {
+  return { data, auth: { uid: 'u1' } } as Parameters<typeof runAnalysisStart>[0];
+}
+
+/** auth:undefined — a JS default parameter can't express this (passing
+ *  undefined re-triggers the default), so the unauthenticated fixture
+ *  gets its own helper. */
+function unauthRequest(data: unknown) {
+  return { data, auth: undefined } as Parameters<typeof runAnalysisStart>[0];
+}
+
+describe('runAnalysisStart — auth guard (#1437)', () => {
+  it('unauthenticated → unauthenticated, before getListDoc runs', async () => {
+    const { deps, enqueued, listReads } = makeDeps();
+    const err = await runAnalysisStart(unauthRequest({ contractListDocId: DOC_ID }), deps).catch((e) => e);
+    assert.equal(code(err), 'unauthenticated');
+    assert.equal(listReads.length, 0);
+    assert.equal(enqueued.length, 0);
+  });
+});
+
 function listView(overrides: Partial<AnalysisStartListView> = {}): AnalysisStartListView {
   return {
     runId: 'or-2026-11-02_tue_1200_manual_x9',
@@ -51,12 +72,15 @@ function listView(overrides: Partial<AnalysisStartListView> = {}): AnalysisStart
 function makeDeps(
   doc: AnalysisStartListView | null = listView(),
   opts: { enqueueFails?: boolean } = {},
-): { deps: AnalysisStartDeps; enqueued: OptionsAnalysisTaskPayload[] } {
+): { deps: AnalysisStartDeps; enqueued: OptionsAnalysisTaskPayload[]; listReads: number[] } {
   const enqueued: OptionsAnalysisTaskPayload[] = [];
+  const listReads: number[] = [];
   return {
     enqueued,
+    listReads,
     deps: {
       async getListDoc() {
+        listReads.push(1);
         return doc ?? undefined;
       },
       async enqueue(payload) {
@@ -74,7 +98,7 @@ function makeDeps(
 describe('runAnalysisStart — success path', () => {
   it('enqueues one analysis task carrying all five payload fields', async () => {
     const { deps, enqueued } = makeDeps();
-    const res = await runAnalysisStart({ contractListDocId: DOC_ID }, deps);
+    const res = await runAnalysisStart(request({ contractListDocId: DOC_ID }), deps);
     assert.equal(enqueued.length, 1);
     assert.deepEqual(enqueued[0], {
       contractListDocId: DOC_ID,
@@ -90,15 +114,15 @@ describe('runAnalysisStart — success path', () => {
     const { deps, enqueued } = makeDeps(
       listView({ runId: 'other-run', symbol: 'SPY' }),
     );
-    await runAnalysisStart({ contractListDocId: 'unrelated-id' }, deps);
+    await runAnalysisStart(request({ contractListDocId: 'unrelated-id' }), deps);
     assert.equal(enqueued[0].runId, 'other-run');
     assert.equal(enqueued[0].symbol, 'SPY');
   });
 
   it('re-invocation enqueues a fresh task (idempotent overwrite)', async () => {
     const { deps, enqueued } = makeDeps();
-    await runAnalysisStart({ contractListDocId: DOC_ID }, deps);
-    await runAnalysisStart({ contractListDocId: DOC_ID }, deps);
+    await runAnalysisStart(request({ contractListDocId: DOC_ID }), deps);
+    await runAnalysisStart(request({ contractListDocId: DOC_ID }), deps);
     assert.equal(enqueued.length, 2);
     assert.deepEqual(enqueued[0], enqueued[1]);
   });
@@ -108,7 +132,7 @@ describe('runAnalysisStart — failed-precondition', () => {
   it('missing doc → failed-precondition, zero enqueues', async () => {
     const { deps, enqueued } = makeDeps(null);
     await assert.rejects(
-      runAnalysisStart({ contractListDocId: 'nope' }, deps),
+      runAnalysisStart(request({ contractListDocId: 'nope' }), deps),
       (e) => code(e) === 'failed-precondition',
     );
     assert.equal(enqueued.length, 0);
@@ -118,7 +142,7 @@ describe('runAnalysisStart — failed-precondition', () => {
     it(`status '${status}' → failed-precondition, zero enqueues`, async () => {
       const { deps, enqueued } = makeDeps(listView({ status }));
       await assert.rejects(
-        runAnalysisStart({ contractListDocId: DOC_ID }, deps),
+        runAnalysisStart(request({ contractListDocId: DOC_ID }), deps),
         (e) => code(e) === 'failed-precondition',
       );
       assert.equal(enqueued.length, 0);
@@ -138,8 +162,7 @@ describe('runAnalysisStart — validation', () => {
     it(`${label} → invalid-argument`, async () => {
       const { deps, enqueued } = makeDeps();
       await assert.rejects(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        runAnalysisStart(input as any, deps),
+        runAnalysisStart(request(input), deps),
         (e) => code(e) === 'invalid-argument',
       );
       assert.equal(enqueued.length, 0);
@@ -151,7 +174,7 @@ describe('runAnalysisStart — enqueue failure', () => {
   it('surfaces internal and preserves the cause message', async () => {
     const { deps } = makeDeps(listView(), { enqueueFails: true });
     await assert.rejects(
-      runAnalysisStart({ contractListDocId: DOC_ID }, deps),
+      runAnalysisStart(request({ contractListDocId: DOC_ID }), deps),
       (e) =>
         code(e) === 'internal' &&
         (e as Error).message.includes('queue unavailable'),

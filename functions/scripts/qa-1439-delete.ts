@@ -13,7 +13,7 @@
  * `Authorization: Bearer <idToken>`.
  *
  * Usage (from functions/):
- *   npx tsx ../.devin/tmp/qa-1439-delete.ts
+ *   npx tsx scripts/qa-1439-delete.ts
  */
 
 import { initializeApp } from 'firebase-admin/app';
@@ -128,11 +128,13 @@ async function main(): Promise<void> {
 
   // ---------- S2: failed run → delete → run+list gone ----------
   console.log('\n=== S2: failed run (ZZZZZ) → authed delete ===');
+  // Auth token required post-#1437 — the start/analysis callables gained
+  // the same request.auth?.uid guard as delete.
   const s2start = await callFn('optionsReplayStart', {
     templateId: 'csp-45-20',
     symbols: ['ZZZZZ'],
     startDate: '2026-01-01',
-  });
+  }, idToken);
   const runIds = (s2start.data?.['runIds'] as string[]) ?? [];
   check('start returned one runId', runIds.length === 1, JSON.stringify(s2start.data ?? s2start.error));
   const failRunId = runIds[0];
@@ -156,14 +158,14 @@ async function main(): Promise<void> {
     templateId: 'csp-45-20',
     symbols: ['SPY'],
     startDate: '2026-01-01',
-  });
+  }, idToken);
   const s3ids = (s3start.data?.['runIds'] as string[]) ?? [];
   check('start returned one runId', s3ids.length === 1);
   const spyRunId = s3ids[0];
   const s3status = await waitForRunStatus(spyRunId, ['failed', 'completed']);
   check('SPY run completed', s3status === 'completed', `status=${s3status}`);
 
-  const s3ana = await callFn('optionsAnalysisStart', { contractListDocId: spyRunId });
+  const s3ana = await callFn('optionsAnalysisStart', { contractListDocId: spyRunId }, idToken);
   check('analysis accepted', !s3ana.error, JSON.stringify(s3ana.error ?? s3ana.data));
   // Wait for the 6 result docs.
   const deadline = Date.now() + 300_000;

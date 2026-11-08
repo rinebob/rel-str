@@ -68,15 +68,43 @@ function runIdEndsWithSymbol(runId: string, symbol: string): boolean {
   return runId.endsWith(`_${symbol}`);
 }
 
+/** HttpsError.code is the FunctionsErrorCode string — read the property
+ *  instead of importing firebase-functions (resolution walks up from this
+ *  file, which has no functions/node_modules path). */
+function code(e: unknown): string | undefined {
+  return (e as { code?: string }).code;
+}
+
+function request(data: unknown) {
+  return { data, auth: { uid: 'u1' } } as Parameters<typeof startReplay>[0];
+}
+
+/** auth:undefined — a JS default parameter can't express this (passing
+ *  undefined re-triggers the default), so the unauthenticated fixture
+ *  gets its own helper. */
+function unauthRequest(data: unknown) {
+  return { data, auth: undefined } as Parameters<typeof startReplay>[0];
+}
+
 // ==========================
 // Tests
 // ==========================
+
+describe('startReplay — auth guard (#1437)', () => {
+  it('unauthenticated → unauthenticated, before any validation or deps', async () => {
+    const { deps, runs, enqueued } = makeDeps();
+    const err = await startReplay(unauthRequest(VALID), deps).catch((e) => e);
+    assert.equal(code(err), 'unauthenticated');
+    assert.equal(runs.size, 0);
+    assert.equal(enqueued.length, 0);
+  });
+});
 
 describe('startReplay', () => {
   it('creates one independent run doc per symbol, enqueues one task each', async () => {
     const { deps, runs, enqueued } = makeDeps();
 
-    const resp = await startReplay(VALID, deps);
+    const resp = await startReplay(request(VALID), deps);
 
     assert.equal(runs.size, 2);
     assert.equal(resp.runIds.length, 2);
@@ -108,7 +136,7 @@ describe('startReplay', () => {
   it('creates each run running BEFORE its own enqueue — a fast worker cannot regress it', async () => {
     const { deps, order } = makeDeps();
 
-    await startReplay({ ...VALID, symbols: ['SPY'] }, deps);
+    await startReplay(request({ ...VALID, symbols: ['SPY'] }), deps);
 
     // Born running — there is no blind post-create status write to guard.
     assert.deepEqual(order, [
@@ -124,7 +152,7 @@ describe('startReplay', () => {
       if (p.symbol === 'QQQ') throw new Error('queue down');
     };
 
-    const resp = await startReplay({ ...VALID, symbols: ['SPY', 'QQQ', 'IWM'] }, deps);
+    const resp = await startReplay(request({ ...VALID, symbols: ['SPY', 'QQQ', 'IWM'] }), deps);
 
     // All three run docs exist; the callable does NOT throw.
     assert.equal(resp.runIds.length, 3);
@@ -145,8 +173,8 @@ describe('startReplay', () => {
   it('rejects an unknown templateId with invalid-argument and no side effects', async () => {
     const { deps, runs, enqueued } = makeDeps();
     await assert.rejects(
-      startReplay({ ...VALID, templateId: 'nope' }, deps),
-      (e) => (e as { code?: string }).code === 'invalid-argument',
+      startReplay(request({ ...VALID, templateId: 'nope' }), deps),
+      (e) => code(e) === 'invalid-argument',
     );
     assert.equal(runs.size, 0);
     assert.equal(enqueued.length, 0);
@@ -155,8 +183,8 @@ describe('startReplay', () => {
   it('rejects a missing templateId with invalid-argument', async () => {
     const { deps, runs } = makeDeps();
     await assert.rejects(
-      startReplay({ ...VALID, templateId: '' }, deps),
-      (e) => (e as { code?: string }).code === 'invalid-argument',
+      startReplay(request({ ...VALID, templateId: '' }), deps),
+      (e) => code(e) === 'invalid-argument',
     );
     assert.equal(runs.size, 0);
   });
@@ -164,8 +192,8 @@ describe('startReplay', () => {
   it('rejects empty symbols with invalid-argument and no side effects', async () => {
     const { deps, runs, enqueued } = makeDeps();
     await assert.rejects(
-      startReplay({ ...VALID, symbols: [' ', ''] }, deps),
-      (e) => (e as { code?: string }).code === 'invalid-argument',
+      startReplay(request({ ...VALID, symbols: [' ', ''] }), deps),
+      (e) => code(e) === 'invalid-argument',
     );
     assert.equal(runs.size, 0);
     assert.equal(enqueued.length, 0);
@@ -177,31 +205,31 @@ describe('startReplay', () => {
     // rejects mid-fanout, failing the callable for ALL symbols.
     for (const symbols of [['SPY/QQQ'], ['SPY', 'BAD/'], ['BRK\\B'], ['$SPY'], ['TOOLONGTICKERXX']]) {
       await assert.rejects(
-        startReplay({ ...VALID, symbols }, deps),
-        (e) => (e as { code?: string }).code === 'invalid-argument',
+        startReplay(request({ ...VALID, symbols }), deps),
+        (e) => code(e) === 'invalid-argument',
         `expected invalid-argument for ${JSON.stringify(symbols)}`,
       );
     }
     assert.equal(runs.size, 0);
     assert.equal(enqueued.length, 0);
     // The legal suffix alphabet still passes.
-    const resp = await startReplay({ ...VALID, symbols: ['BRK.B', 'BF-B'] }, deps);
+    const resp = await startReplay(request({ ...VALID, symbols: ['BRK.B', 'BF-B'] }), deps);
     assert.equal(resp.runIds.length, 2);
   });
 
   it('rejects non-request-shaped input with invalid-argument, not internal', async () => {
     const { deps, runs } = makeDeps();
     await assert.rejects(
-      startReplay(undefined, deps),
-      (e) => (e as { code?: string }).code === 'invalid-argument',
+      startReplay(request(undefined), deps),
+      (e) => code(e) === 'invalid-argument',
     );
     await assert.rejects(
-      startReplay({ ...VALID, symbols: 'SPY' as unknown as string[] }, deps),
-      (e) => (e as { code?: string }).code === 'invalid-argument',
+      startReplay(request({ ...VALID, symbols: 'SPY' as unknown as string[] }), deps),
+      (e) => code(e) === 'invalid-argument',
     );
     await assert.rejects(
-      startReplay({ ...VALID, templateId: 42 as unknown as string }, deps),
-      (e) => (e as { code?: string }).code === 'invalid-argument',
+      startReplay(request({ ...VALID, templateId: 42 as unknown as string }), deps),
+      (e) => code(e) === 'invalid-argument',
     );
     assert.equal(runs.size, 0);
   });
@@ -210,8 +238,8 @@ describe('startReplay', () => {
     const { deps, runs } = makeDeps();
     for (const startDate of ['not-a-date', '2026-13-45', '2026-02-30']) {
       await assert.rejects(
-        startReplay({ ...VALID, startDate }, deps),
-        (e) => (e as { code?: string }).code === 'invalid-argument',
+        startReplay(request({ ...VALID, startDate }), deps),
+        (e) => code(e) === 'invalid-argument',
         `expected invalid-argument for ${startDate}`,
       );
     }
@@ -220,7 +248,7 @@ describe('startReplay', () => {
 
   it('normalizes and dedupes symbols — one run doc per distinct symbol', async () => {
     const { deps, runs, enqueued } = makeDeps();
-    const resp = await startReplay({ ...VALID, symbols: [' spy ', 'SPY', 'qqq'] }, deps);
+    const resp = await startReplay(request({ ...VALID, symbols: [' spy ', 'SPY', 'qqq'] }), deps);
     assert.equal(runs.size, 2);
     assert.equal(resp.runIds.length, 2);
     assert.equal(enqueued.length, 2);
