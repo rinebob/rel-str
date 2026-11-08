@@ -192,6 +192,21 @@ export interface BrokerOrder {
   executions?: BrokerOrderExecution[];
 }
 
+/** Query filters for get_equity_orders — all optional; `cursor` pages
+ *  deeper than the first window (#1413 fills walk). */
+export interface EquityOrderQuery {
+  state?: OrderState;
+  orderId?: string;
+  symbol?: string;
+  cursor?: string;
+}
+
+/** One page of equity orders + the pagination cursor (null = last page). */
+export interface EquityOrdersPage {
+  orders: BrokerOrder[];
+  next: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // PnL Trade History
 // ---------------------------------------------------------------------------

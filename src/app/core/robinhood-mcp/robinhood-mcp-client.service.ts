@@ -28,6 +28,8 @@ import {
   BrokerOrder,
   BrokerOrderExecution,
   BrokerOrderLeg,
+  EquityOrderQuery,
+  EquityOrdersPage,
   OrderState,
   OrderType,
   PnlTrade,
@@ -420,18 +422,16 @@ export class RobinhoodMcpClient {
 
   async getEquityOrders(
     accountNumber: string,
-    opts?: { state?: OrderState; orderId?: string },
+    opts?: EquityOrderQuery,
   ): Promise<BrokerOrder[]> {
     return this.run(this.equityOrdersSpec(accountNumber, opts));
   }
 
   equityOrdersSpec(
     accountNumber: string,
-    opts?: { state?: OrderState; orderId?: string },
+    opts?: EquityOrderQuery,
   ): ToolSpec<BrokerOrder[]> {
-    const args: Record<string, unknown> = { account_number: accountNumber };
-    if (opts?.state) args['state'] = opts.state;
-    if (opts?.orderId) args['order_id'] = opts.orderId;
+    const args = this.equityOrdersArgs(accountNumber, opts);
 
     return {
       tool: 'get_equity_orders',
@@ -445,6 +445,51 @@ export class RobinhoodMcpClient {
         return this.normalizeOrders(raw, accountNumber, 'equity');
       },
     };
+  }
+
+  /**
+   * One page of equity orders plus the `next` cursor — for callers that
+   * need to walk deeper than the first page (peak-since-entry fills,
+   * #1413). `symbol` filters server-side so a per-symbol walk stays small.
+   */
+  async getEquityOrdersPage(
+    accountNumber: string,
+    opts?: EquityOrderQuery,
+  ): Promise<EquityOrdersPage> {
+    return this.run(this.equityOrdersPageSpec(accountNumber, opts));
+  }
+
+  equityOrdersPageSpec(
+    accountNumber: string,
+    opts?: EquityOrderQuery,
+  ): ToolSpec<EquityOrdersPage> {
+    const args = this.equityOrdersArgs(accountNumber, opts);
+
+    return {
+      tool: 'get_equity_orders',
+      args,
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_equity_orders', result.category);
+        }
+
+        const raw = this.extractList(result.parsed, 'orders');
+        const next = this.extractNested(result.parsed, 'data')['next'];
+        return {
+          orders: this.normalizeOrders(raw, accountNumber, 'equity'),
+          next: typeof next === 'string' && next ? next : null,
+        };
+      },
+    };
+  }
+
+  private equityOrdersArgs(accountNumber: string, opts?: EquityOrderQuery): Record<string, unknown> {
+    const args: Record<string, unknown> = { account_number: accountNumber };
+    if (opts?.state) args['state'] = opts.state;
+    if (opts?.orderId) args['order_id'] = opts.orderId;
+    if (opts?.symbol) args['symbol'] = opts.symbol;
+    if (opts?.cursor) args['cursor'] = opts.cursor;
+    return args;
   }
 
   async getOptionOrders(accountNumber: string, opts?: { state?: OrderState }): Promise<BrokerOrder[]> {

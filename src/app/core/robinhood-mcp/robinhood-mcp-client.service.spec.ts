@@ -865,6 +865,55 @@ describe('RobinhoodMcpClient', () => {
       expect(mcp.executeTool).toHaveBeenCalledWith('get_equity_orders', { args: { account_number: '123456789', order_id: 'order-abc' } });
     });
 
+    it('passes symbol and cursor filters when provided (#1413 fills walk)', async () => {
+      mockResolve({
+        success: true,
+        parsed: { data: { orders: [], next: 'CURSOR2' } },
+        redacted: {},
+        tool: 'get_equity_orders',
+      });
+
+      const page = await client.getEquityOrdersPage('123456789', {
+        symbol: 'QQQ',
+        cursor: 'CURSOR1',
+      });
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('get_equity_orders', {
+        args: { account_number: '123456789', symbol: 'QQQ', cursor: 'CURSOR1' },
+      });
+      expect(page.next).toBe('CURSOR2');
+    });
+
+    it('getEquityOrdersPage surfaces orders + null next when the page is last', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            orders: [
+              {
+                id: 'o-1',
+                side: 'buy',
+                type: 'market',
+                state: 'filled',
+                symbol: 'QQQ',
+                quantity: '10',
+                created_at: '2026-01-15T10:00:00Z',
+              },
+            ],
+            next: null,
+          },
+        },
+        redacted: {},
+        tool: 'get_equity_orders',
+      });
+
+      const page = await client.getEquityOrdersPage('123456789', { symbol: 'QQQ' });
+
+      expect(page.orders).toHaveLength(1);
+      expect(page.orders[0].orderId).toBe('o-1');
+      expect(page.next).toBeNull();
+    });
+
     it('normalizes partially_filled_rest_cancelled instead of collapsing to unknown', async () => {
       // RH terminal state when a partially-filled order's remainder is
       // cancelled — the update-stop confirmation relies on seeing it verbatim.
