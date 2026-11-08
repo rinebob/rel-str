@@ -68,6 +68,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #848 | `screenshot-capture-826-lifecycle.ts` | lifecycle intake end-to-end — seeded carrier → capture → `capturedEvents` manifest + `st-screenshots` index → dedup no-op | [screenshot-capture-826.md](screenshot-capture-826.md) |
 | #1141 | `rh-scanner-recipes-1098.ts` | every SCANNER_RECIPES recipe → live `preview_scan` — result/row-shape tripwire + column-key coverage WARN (read-only, needs local RH MCP session) | inline usage in script header |
 | #1430 | `options-replay-single-symbol-1430.ts` | single-symbol run model audit — runs (scalar symbol, no counters), list keyed at docId == runId, results keyed `{runId}_{exitId}`; legacy multi-symbol docs WARN as migration candidates (read-only, needs ADC) | [options-backtest-selection-replay-1430-single-symbol.md](../../../scripts/verify/options-backtest-selection-replay-1430-single-symbol.md) |
+| #1437 | `options-auth-guard-1437.ts` | auth-boundary probe — anonymous/garbage-token → 401 UNAUTHENTICATED, minted token → INVALID_ARGUMENT; all four options callables (post-#1437 deploy) | [options-auth-guard-1437.md](options-auth-guard-1437.md) |
 
 ## Order across tasks
 
@@ -105,6 +106,7 @@ npx tsx scripts/verify/{script-name}.ts
 37. **#1010** — `data-pipeline-run-jobs-ttl-1010.ts` (st-run jobs TTL census + sweeper/core audit; meaningful after the `cleanupStRunJobs` deploy; backlog WARN clears after `purge-st-run-jobs-1010.ts --apply`)
 40. **#1141** — `rh-scanner-recipes-1098.ts` (every catalog recipe → live preview_scan: success + result/row shape, column-key WARN; needs local RH MCP session like 564/667 — fails without a token, that's env not script)
 41. **#1430** — `options-replay-single-symbol-1430.ts` (single-symbol run model audit across the three st-options collections; meaningful after a post-deploy submission — empty runs report EMPTY and pass; legacy multi-symbol docs WARN until the migration deletes them)
+42. **#1437** — `options-auth-guard-1437.ts` (live auth-boundary probe on the four options callables; FAILs until the #1437 deploy lands — run post-deploy, needs service-account impersonation for token mint)
 
 <!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their
 target scripts (migrate-*, sweep-unlisted-to-new, qa-probe-1008) — the legacy roots they

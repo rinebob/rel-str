@@ -56,6 +56,7 @@ const scripts = [
   'paper-trading-analysis-dataset.ts',
   'rh-scanner-recipes-1098.ts',
   'options-replay-single-symbol-1430.ts',
+  'options-auth-guard-1437.ts',
 ];
 
 let passed = 0;
