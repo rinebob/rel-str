@@ -127,10 +127,13 @@ export function computeProtectedSymbols(
   orders: BrokerOrder[],
   positions: EquityPosition[],
 ): Set<string> {
-  // Build a Set of symbols with non-zero open positions.
+  // Build a Set of symbols with open LONG positions — a sell stop resting
+  // on a shorted symbol is not protection (same rule isStopLossProtecting
+  // enforces); marking shorts protected would disable Add Stop on a row the
+  // #1414 Stop column rightly flags UNPROTECTED.
   const openSymbols = new Set<string>();
   for (const p of positions) {
-    if (p.quantity !== null && p.quantity !== 0) {
+    if (p.quantity !== null && p.quantity > 0) {
       openSymbols.add(p.symbol);
     }
   }
@@ -182,6 +185,28 @@ export function updatableStopsBySymbol(
     const list = grouped.get(order.symbol!);
     if (list) list.push(order);
     else grouped.set(order.symbol!, [order]);
+  }
+  return grouped;
+}
+
+/**
+ * The display stop order per symbol (#1414) — every live protective stop on
+ * a held long (stop-limit included; updatability is a separate question the
+ * `updatableStops` sibling answers). When a symbol has a stop ladder, the
+ * highest stopPrice wins — it triggers first, so it IS the effective
+ * protection level the table should quote.
+ */
+export function protectiveStopsBySymbol(
+  orders: BrokerOrder[],
+  positions: Pick<EquityPosition, 'symbol' | 'quantity'>[],
+): Map<string, BrokerOrder> {
+  const grouped = new Map<string, BrokerOrder>();
+  for (const order of orders) {
+    if (!isStopLossProtecting(order, positions)) continue;
+    const prev = grouped.get(order.symbol!);
+    if (!prev || (order.stopPrice ?? -Infinity) > (prev.stopPrice ?? -Infinity)) {
+      grouped.set(order.symbol!, order);
+    }
   }
   return grouped;
 }

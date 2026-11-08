@@ -5,6 +5,7 @@ import {
   computeEntryDates,
   isUpdatableStopOrder,
   updatableStopsBySymbol,
+  protectiveStopsBySymbol,
 } from './portfolio-pnl.util';
 import { BrokerOrder, EquityPosition } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 
@@ -578,5 +579,82 @@ describe('updatableStopsBySymbol', () => {
     expect(
       updatableStopsBySymbol([makeOrder({ type: 'stop_limit' })], [makePosition()]),
     ).toEqual(new Map());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// protectiveStopsBySymbol (#1414) — display stop order per symbol
+// ---------------------------------------------------------------------------
+
+describe('protectiveStopsBySymbol', () => {
+  it('maps the live stop order under its symbol — stop_market and stop_limit both', () => {
+    const orders = [
+      makeOrder({ orderId: 'sm', type: 'stop_market', symbol: 'AAPL', stopPrice: 145 }),
+      makeOrder({ orderId: 'sl', type: 'stop_limit', symbol: 'NVDA', stopPrice: 88 }),
+    ];
+    const positions = [
+      makePosition({ symbol: 'AAPL' }),
+      makePosition({ symbol: 'NVDA', quantity: 25 }),
+    ];
+
+    const result = protectiveStopsBySymbol(orders, positions);
+
+    expect(result.get('AAPL')?.orderId).toBe('sm');
+    expect(result.get('NVDA')?.orderId).toBe('sl');
+  });
+
+  it('includes market-typed sells carrying a stopPrice (RH stop order shape)', () => {
+    const orders = [
+      makeOrder({ orderId: 'm', type: 'market', symbol: 'AAPL', stopPrice: 145 }),
+    ];
+
+    const result = protectiveStopsBySymbol(orders, [makePosition()]);
+
+    expect(result.get('AAPL')?.orderId).toBe('m');
+  });
+
+  it('picks the highest stopPrice when a symbol has multiple stops — the first to trigger', () => {
+    const orders = [
+      makeOrder({ orderId: 'low', type: 'stop_market', symbol: 'AAPL', stopPrice: 140 }),
+      makeOrder({ orderId: 'high', type: 'stop_limit', symbol: 'AAPL', stopPrice: 148 }),
+      makeOrder({ orderId: 'mid', type: 'stop_market', symbol: 'AAPL', stopPrice: 145 }),
+    ];
+
+    const result = protectiveStopsBySymbol(orders, [makePosition()]);
+
+    expect(result.get('AAPL')?.orderId).toBe('high');
+  });
+
+  it('excludes terminal stops, buy-side stops, and symbols with no long position', () => {
+    const orders = [
+      makeOrder({ orderId: 'term', symbol: 'AAPL', state: 'cancelled' }),
+      makeOrder({ orderId: 'buy', symbol: 'MSFT', side: 'buy' }),
+      makeOrder({ orderId: 'noPos', symbol: 'TSLA' }),
+      makeOrder({ orderId: 'short', symbol: 'AMD' }),
+    ];
+    const positions = [
+      makePosition({ symbol: 'AAPL' }),
+      makePosition({ symbol: 'MSFT' }),
+      makePosition({ symbol: 'AMD', quantity: -50 }),
+    ];
+
+    const result = protectiveStopsBySymbol(orders, positions);
+
+    expect(result.size).toBe(0);
+  });
+
+  it('returns an empty map for empty input', () => {
+    expect(protectiveStopsBySymbol([], []).size).toBe(0);
+  });
+});
+
+describe('computeProtectedSymbols — long-only rule (#1414)', () => {
+  it('does not mark a shorted symbol protected by a sell stop — the row stays actionable', () => {
+    const orders = [
+      makeOrder({ orderId: '1', type: 'stop_market', side: 'sell', symbol: 'AMD' }),
+    ];
+    const positions = [makePosition({ symbol: 'AMD', quantity: -50 })];
+
+    expect(computeProtectedSymbols(orders, positions).size).toBe(0);
   });
 });
