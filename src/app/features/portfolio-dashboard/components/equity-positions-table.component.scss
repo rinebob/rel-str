@@ -20,6 +20,14 @@
 
 .pd-table {
   @include vl.dense-table;
+
+  // 13 columns (#1414) — nowrap keeps cells at intrinsic width so the
+  // wrap scrolls horizontally instead of squeezing until headers wrap
+  // and the Actions column clips at the right edge.
+  th,
+  td {
+    white-space: nowrap;
+  }
 }
 
 .pd-sort {
@@ -75,6 +83,34 @@ th[aria-sort='descending'] .pd-sort-icon {
 .pd-pnl.pd-negative,
 .pd-negative {
   color: vl.$down;
+}
+
+// Two-line cells (#1414) — paired metrics stack in one column so the
+// table stays inside the 1100px content column (no horizontal scroll).
+.pd-two {
+  line-height: 1.2;
+}
+
+.pd-sub {
+  display: block;
+  font-size: 0.68rem;
+}
+
+.pd-sub-neutral {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// UNPROTECTED marker (#1414) — loud enough to catch the eye scanning the
+// Stop column, quiet enough not to dominate a mostly-protected table.
+.pd-unprotected {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--mat-sys-error);
+  border-radius: 3px;
+  color: var(--mat-sys-error);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .pd-actions {

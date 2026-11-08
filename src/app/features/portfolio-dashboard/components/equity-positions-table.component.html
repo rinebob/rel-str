@@ -52,12 +52,17 @@
             </th>
             <th scope="col" class="num" [attr.aria-sort]="ariaSort('pnl')">
               <button type="button" class="pd-sort" (click)="setSort('pnl')">
-                PnL <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('pnl') }}</span>
+                PnL / % <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('pnl') }}</span>
               </button>
             </th>
-            <th scope="col" class="num" [attr.aria-sort]="ariaSort('pnlPercent')">
-              <button type="button" class="pd-sort" (click)="setSort('pnlPercent')">
-                PnL% <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('pnlPercent') }}</span>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('stop')">
+              <button type="button" class="pd-sort" (click)="setSort('stop')">
+                Stop / Dist <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('stop') }}</span>
+              </button>
+            </th>
+            <th scope="col" class="num" [attr.aria-sort]="ariaSort('peak')">
+              <button type="button" class="pd-sort" (click)="setSort('peak')">
+                Peak / Retr% <span class="dse-icon pd-sort-icon" aria-hidden="true">{{ sortIcon('peak') }}</span>
               </button>
             </th>
             @if (agenticAllowed()) {
@@ -75,11 +80,27 @@
               <td class="num">{{ formatCurrency(costBasis(pos)) }}</td>
               <td class="num">{{ formatCurrency(pos.currentPrice) }}</td>
               <td class="num">{{ formatCurrency(currentValue(pos)) }}</td>
-              <td class="pd-pnl num" [class.pd-positive]="pos.pnl != null && pos.pnl >= 0" [class.pd-negative]="pos.pnl != null && pos.pnl < 0">
+              <td class="pd-pnl pd-two num" [class.pd-positive]="pos.pnl != null && pos.pnl >= 0" [class.pd-negative]="pos.pnl != null && pos.pnl < 0">
                 {{ formatPnl(pos.pnl) }}
+                <span class="pd-sub">{{ formatPnlPercent(pos.pnlPercent) }}</span>
               </td>
-              <td class="num" [class.pd-positive]="pos.pnlPercent != null && pos.pnlPercent >= 0" [class.pd-negative]="pos.pnlPercent != null && pos.pnlPercent < 0">
-                {{ formatPnlPercent(pos.pnlPercent) }}
+              <td class="pd-two num">
+                @if (stopFor(pos); as stop) {
+                  <span [title]="stopTooltip(stop)">{{ formatCurrency(stop.stopPrice) }}</span>
+                  <span class="pd-sub pd-sub-neutral">{{ formatDist(stopDist(pos)) }}</span>
+                } @else {
+                  <span class="pd-unprotected">UNPROTECTED</span>
+                }
+              </td>
+              <td class="pd-two num">
+                @if (peakPending(pos)) {
+                  <span>…</span><span class="pd-sub">…</span>
+                } @else if (peakFor(pos)?.lifetime; as pk) {
+                  <span [title]="'peak ' + formatDate(pk.date)">{{ formatCurrency(pk.price) }}</span>
+                  <span class="pd-sub" [class.pd-negative]="retraced(pos) != null && retraced(pos)! > 0" [class.pd-positive]="retraced(pos) != null && retraced(pos)! < 0">{{ formatRetraced(retraced(pos)) }}</span>
+                } @else {
+                  <span>—</span><span class="pd-sub">—</span>
+                }
               </td>
               @if (agenticAllowed()) {
                 <td>
@@ -137,12 +158,12 @@
             <td class="num">{{ formatCurrency(totalCostBasis()) }}</td>
             <td></td>
             <td class="num">{{ formatCurrency(totalValue()) }}</td>
-            <td class="num" [class.pd-positive]="totalPnL() != null && totalPnL()! >= 0" [class.pd-negative]="totalPnL() != null && totalPnL()! < 0">
+            <td class="pd-two num" [class.pd-positive]="totalPnL() != null && totalPnL()! >= 0" [class.pd-negative]="totalPnL() != null && totalPnL()! < 0">
               {{ formatPnl(totalPnL()) }}
+              <span class="pd-sub">{{ formatPnlPercent(avgPnlPercent()) }}</span>
             </td>
-            <td class="num" [class.pd-positive]="avgPnlPercent() != null && avgPnlPercent()! >= 0" [class.pd-negative]="avgPnlPercent() != null && avgPnlPercent()! < 0">
-              {{ formatPnlPercent(avgPnlPercent()) }}
-            </td>
+            <td></td>
+            <td></td>
             @if (agenticAllowed()) {
               <td></td>
             }

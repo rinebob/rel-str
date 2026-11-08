@@ -2,7 +2,7 @@
  * EquityPositionsTableComponent — table of equity positions with PnL.
  *
  * Columns: Symbol, Quantity, Avg Cost, Entry, Cost Basis, Current Price,
- * Value, PnL, PnL%.
+ * Value, PnL, PnL%, Stop, Dist, Peak, Retr% (#1414).
  * Shows loading, error with retry, and empty states. Closed positions
  * (quantity === 0) are filtered out — realized-P&L history is a separate
  * concern from the open-positions view.
@@ -11,6 +11,8 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 
 
 import { EquityPositionWithPnL } from '../portfolio-dashboard.types';
+import { BrokerOrder } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
+import { PositionPeak } from '../utils/position-peak.util';
 import { compareSortable, SortDirection } from '../utils/table-sort.util';
 
 /** Sortable column keys — Actions is intentionally excluded. */
@@ -23,7 +25,8 @@ type SortKey =
   | 'currentPrice'
   | 'value'
   | 'pnl'
-  | 'pnlPercent';
+  | 'stop'
+  | 'peak';
 
 @Component({
   selector: 'app-equity-positions-table',
@@ -41,6 +44,15 @@ export class EquityPositionsTableComponent {
   readonly protectedSymbols = input<Set<string>>(new Set());
   /** Symbols whose protective stop can be updated — swaps Add Stop for Update Stop. */
   readonly updatableSymbols = input<Set<string>>(new Set());
+  /** Display stop order per symbol (#1414) — the Stop column's source;
+   *  reconciles with Open Orders (same live order). */
+  readonly stopOrders = input<Map<string, BrokerOrder>>(new Map());
+  /** Peak Since Entry per symbol (#1414) — missing key = still deriving;
+   *  `lifetime: null` = underivable → '—'. */
+  readonly positionPeaks = input<Record<string, PositionPeak>>({});
+  /** Non-null when the peaks derive failed — cells render '—' instead of
+   *  spinning '…' forever (review pass 2). */
+  readonly peaksError = input<string | null>(null);
   /** Whether the selected account is agent-enabled (controls action button visibility). */
   readonly agenticAllowed = input(true);
   readonly retry = output<void>();
@@ -97,7 +109,8 @@ export class EquityPositionsTableComponent {
       case 'currentPrice': return p.currentPrice;
       case 'value': return this.currentValue(p);
       case 'pnl': return p.pnl;
-      case 'pnlPercent': return p.pnlPercent;
+      case 'stop': return this.stopFor(p)?.stopPrice ?? null;
+      case 'peak': return this.peakFor(p)?.lifetime?.price ?? null;
     }
   }
 
@@ -150,6 +163,58 @@ export class EquityPositionsTableComponent {
   currentValue(pos: EquityPositionWithPnL): number | null {
     if (pos.currentPrice == null || pos.quantity == null) return null;
     return pos.currentPrice * Math.abs(pos.quantity);
+  }
+
+  // ── Stop surfacing (#1414) ─────────────────────────────────────────────
+
+  /** The live protective stop for a row's symbol, if any. */
+  stopFor(pos: EquityPositionWithPnL): BrokerOrder | undefined {
+    return this.stopOrders().get(pos.symbol);
+  }
+
+  /** Distance current→stop: negative dollars = stop sits below price. */
+  stopDist(pos: EquityPositionWithPnL): { dollars: number; percent: number } | null {
+    const stop = this.stopFor(pos)?.stopPrice;
+    const cur = pos.currentPrice;
+    if (stop == null || cur == null || cur === 0) return null;
+    return { dollars: stop - cur, percent: ((stop - cur) / cur) * 100 };
+  }
+
+  formatDist(d: { dollars: number; percent: number } | null): string {
+    if (!d) return '—';
+    return `${this.currencyFormatter.format(d.dollars)} (${d.percent.toFixed(1)}%)`;
+  }
+
+  /** Stop-cell tooltip: type · qty · TIF · age (IMPL 219-1403-1405 Phase 3). */
+  stopTooltip(order: BrokerOrder): string {
+    const type = order.type?.replace(/_/g, '-') ?? 'stop';
+    const qty = order.quantity ?? '—';
+    const tif = order.timeInForce?.toUpperCase() ?? '—';
+    return `${type} · qty ${qty} · ${tif} · since ${this.formatDate(order.createdAt)}`;
+  }
+
+  /** Peak Since Entry record — undefined while the derive is still running. */
+  peakFor(pos: EquityPositionWithPnL): PositionPeak | undefined {
+    return this.positionPeaks()[pos.symbol];
+  }
+
+  /** True while the symbol's peak is still being derived — and the derive
+   *  hasn't failed (a failure settles to '—', not a perpetual '…'). */
+  peakPending(pos: EquityPositionWithPnL): boolean {
+    return this.peaksError() === null && this.peakFor(pos) === undefined;
+  }
+
+  /** % pulled back from the peak — positive = drawdown, negative = new high. */
+  retraced(pos: EquityPositionWithPnL): number | null {
+    const peak = this.peakFor(pos)?.lifetime?.price;
+    const cur = pos.currentPrice;
+    if (peak == null || peak === 0 || cur == null) return null;
+    return ((peak - cur) / peak) * 100;
+  }
+
+  formatRetraced(value: number | null): string {
+    if (value == null) return '—';
+    return value.toFixed(1) + '%';
   }
 
   /** Sum of cost basis across visible positions. */

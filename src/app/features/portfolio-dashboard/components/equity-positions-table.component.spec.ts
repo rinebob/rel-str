@@ -3,6 +3,8 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
 import { EquityPositionsTableComponent } from './equity-positions-table.component';
 import { EquityPositionWithPnL } from '../portfolio-dashboard.types';
+import { BrokerOrder } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
+import { PositionPeak } from '../utils/position-peak.util';
 
 function makePosition(overrides: Partial<EquityPositionWithPnL> = {}): EquityPositionWithPnL {
   return {
@@ -15,6 +17,37 @@ function makePosition(overrides: Partial<EquityPositionWithPnL> = {}): EquityPos
     pnlPercent: 16.67,
     closed: false,
     entryDate: null,
+    ...overrides,
+  };
+}
+
+function makeStopOrder(overrides: Partial<BrokerOrder> = {}): BrokerOrder {
+  return {
+    orderId: 'stop-1',
+    accountNumber: '123456789',
+    instrumentType: 'equity',
+    symbol: 'AAPL',
+    side: 'sell',
+    type: 'stop_market',
+    state: 'confirmed',
+    quantity: 100,
+    cumulativeQuantity: 0,
+    price: null,
+    stopPrice: 160.00,
+    averageFillPrice: null,
+    createdAt: '2026-01-15T10:00:00Z',
+    timeInForce: 'gtc',
+    ...overrides,
+  };
+}
+
+function makePeak(overrides: Partial<PositionPeak> = {}): PositionPeak {
+  return {
+    symbol: 'AAPL',
+    entryDate: '2026-01-15T10:00:00Z',
+    lastFillDate: '2026-01-15T10:00:00Z',
+    lifetime: { price: 190.00, date: '2026-02-01T00:00:00Z' },
+    sinceLastFill: { price: 190.00, date: '2026-02-01T00:00:00Z' },
     ...overrides,
   };
 }
@@ -136,7 +169,7 @@ describe('EquityPositionsTableComponent', () => {
     fixture.detectChanges();
 
     const headers = fixture.nativeElement.querySelectorAll('.pd-sort');
-    const pnlHeader = headers[headers.length - 2]; // PnL, before PnL%
+    const pnlHeader = headers[7]; // PnL — stop columns trail PnL% (#1414)
     pnlHeader.click();
     fixture.detectChanges();
 
@@ -170,7 +203,7 @@ describe('EquityPositionsTableComponent', () => {
     fixture.detectChanges();
 
     const headers = fixture.nativeElement.querySelectorAll('.pd-sort');
-    const pnlHeader = headers[headers.length - 2];
+    const pnlHeader = headers[7]; // PnL
     pnlHeader.click(); // asc
     fixture.detectChanges();
 
@@ -325,10 +358,128 @@ describe('EquityPositionsTableComponent', () => {
     fixture.componentRef.setInput('positions', [makePosition()]);
     fixture.detectChanges();
 
-    // Quantity, Avg Cost, Cost Basis, Current Price, Value, PnL, PnL%
-    expect(fixture.nativeElement.querySelectorAll('thead th.num').length).toBe(7);
+    // Quantity, Avg Cost, Cost Basis, Current Price, Value, PnL/%,
+    // Stop/Dist, Peak/Retr% — paired metrics stack two-line (#1414)
+    expect(fixture.nativeElement.querySelectorAll('thead th.num').length).toBe(8);
     expect(
       fixture.nativeElement.querySelectorAll('tbody tr:first-child td.num').length,
-    ).toBe(7);
+    ).toBe(8);
+  });
+
+  // ── Stop surfacing (#1414) ──────────────────────────────────────────────
+
+  it('shows the live stop price, distance, and tooltip on a protected row', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', currentPrice: 175 })]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>(['AAPL']));
+    fixture.componentRef.setInput('stopOrders', new Map([['AAPL', makeStopOrder({ stopPrice: 160 })]]));
+    fixture.detectChanges();
+
+    const cells = fixture.nativeElement.querySelectorAll('tbody tr:first-child td');
+    const stopCell = cells[8];
+    expect(stopCell.textContent).toContain('$160.00');
+    const tip = stopCell.querySelector('[title]');
+    expect(tip?.getAttribute('title')).toContain('stop-market');
+    expect(tip?.getAttribute('title')).toContain('qty 100');
+    expect(tip?.getAttribute('title')).toContain('GTC');
+    expect(tip?.getAttribute('title')).toContain('2026-01-15');
+
+    // Dist rides the second line of the same cell: 160 − 175 = −$15 (−8.6%)
+    expect(stopCell.textContent).toContain('-$15.00');
+    expect(stopCell.textContent).toContain('-8.6%');
+  });
+
+  it('renders the UNPROTECTED marker in the Stop column when no live stop', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL' })]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>());
+    fixture.componentRef.setInput('stopOrders', new Map());
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.pd-unprotected');
+    expect(marker).toBeTruthy();
+    expect(marker.textContent.trim()).toBe('UNPROTECTED');
+  });
+
+  it('shows a stop-limit stop price but keeps it out of Update eligibility', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL' })]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>(['AAPL']));
+    fixture.componentRef.setInput('updatableSymbols', new Set<string>()); // stop_limit → not updatable
+    fixture.componentRef.setInput(
+      'stopOrders',
+      new Map([['AAPL', makeStopOrder({ type: 'stop_limit', stopPrice: 165 })]]),
+    );
+    fixture.detectChanges();
+
+    const cells = fixture.nativeElement.querySelectorAll('tbody tr:first-child td');
+    expect(cells[8].textContent).toContain('$165.00');
+    expect(cells[8].querySelector('[title]')?.getAttribute('title')).toContain('stop-limit');
+    expect(fixture.nativeElement.querySelector('.pd-update-stop-action')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.pd-unprotected')).toBeNull();
+  });
+
+  it('renders the peak price and retraced% for a derived peak', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', currentPrice: 171 })]);
+    fixture.componentRef.setInput('positionPeaks', { AAPL: makePeak() });
+    fixture.detectChanges();
+
+    const cells = fixture.nativeElement.querySelectorAll('tbody tr:first-child td');
+    const peakCell = cells[9];
+    expect(peakCell.textContent).toContain('$190.00');
+    expect(peakCell.querySelector('[title]')?.getAttribute('title')).toContain('2026-02-01');
+    // retraced rides the second line: (190 − 171) / 190 = 10.0%
+    expect(peakCell.textContent).toContain('10.0%');
+  });
+
+  it('renders — for underivable peaks and … while derivation is pending', () => {
+    fixture.componentRef.setInput('positions', [
+      makePosition({ symbol: 'AAPL' }),
+      makePosition({ symbol: 'GPRO' }),
+      makePosition({ symbol: 'PEND' }),
+    ]);
+    fixture.componentRef.setInput('positionPeaks', {
+      AAPL: makePeak({ lifetime: null, entryDate: null }),
+      GPRO: makePeak({ lifetime: null, entryDate: null }),
+      // PEND key absent — derive still running
+    });
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    const cell = (r: number, c: number) => rows[r].querySelectorAll('td')[c].textContent.trim();
+    expect(cell(0, 9)).toBe('——');
+    expect(cell(1, 9)).toBe('——');
+    expect(cell(2, 9)).toBe('……');
+  });
+
+  it('renders — instead of spinning … forever when the peaks derive fails', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL' })]);
+    fixture.componentRef.setInput('positionPeaks', {});
+    fixture.componentRef.setInput('peaksError', 'historicals down');
+    fixture.detectChanges();
+
+    const cells = fixture.nativeElement.querySelectorAll('tbody tr:first-child td');
+    expect(cells[9].textContent.trim()).toBe('——');
+  });
+
+  it('sorts by stop price when the Stop header is clicked', () => {
+    fixture.componentRef.setInput('positions', [
+      makePosition({ symbol: 'AAPL' }),
+      makePosition({ symbol: 'MSFT' }),
+    ]);
+    fixture.componentRef.setInput('stopOrders', new Map([
+      ['AAPL', makeStopOrder({ stopPrice: 160 })],
+      ['MSFT', makeStopOrder({ symbol: 'MSFT', stopPrice: 300 })],
+    ]));
+    fixture.detectChanges();
+
+    const headers = fixture.nativeElement.querySelectorAll('.pd-sort');
+    headers[8].click(); // Stop/Dist — after PnL
+    fixture.detectChanges();
+
+    let symbols = [...fixture.nativeElement.querySelectorAll('tbody .pd-symbol')].map((el) => el.textContent.trim());
+    expect(symbols).toEqual(['AAPL', 'MSFT']);
+
+    headers[8].click();
+    fixture.detectChanges();
+    symbols = [...fixture.nativeElement.querySelectorAll('tbody .pd-symbol')].map((el) => el.textContent.trim());
+    expect(symbols).toEqual(['MSFT', 'AAPL']);
   });
 });
