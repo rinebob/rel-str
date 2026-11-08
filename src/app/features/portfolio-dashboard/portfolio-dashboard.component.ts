@@ -76,6 +76,9 @@ export class PortfolioDashboardComponent implements OnInit {
   /** Live equity stops eligible for Update Stop, grouped by symbol (#888). */
   readonly updatableStops = this.store.updatableStops;
   readonly updatableSymbols = computed(() => new Set(this.updatableStops().keys()));
+  /** Display stop order per symbol — drives the positions-table Stop
+   *  column (#1414); includes stop-limits (shown, not updatable). */
+  readonly protectiveStops = this.store.protectiveStops;
   /** Whether the selected account is agent-enabled (controls action button visibility). */
   readonly agenticAllowed = computed(() => this.selectedAccount()?.agenticAllowed ?? false);
 

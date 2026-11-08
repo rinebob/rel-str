@@ -36,7 +36,7 @@ import {
   OptionQuote,
   BrokerOrder,
 } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
-import { computePnL, computeProtectedSymbols, computeEntryDates, updatableStopsBySymbol } from './utils/portfolio-pnl.util';
+import { computePnL, computeProtectedSymbols, computeEntryDates, updatableStopsBySymbol, protectiveStopsBySymbol } from './utils/portfolio-pnl.util';
 import { PositionPeakService } from './services/position-peak.service';
 import {
   LIVE_ORDER_STATES,
@@ -208,6 +208,18 @@ export const PortfolioDashboardStore = signalStore(
       const orders = acct.equityOrders.data ?? [];
       const positions = acct.equityPositions.data ?? [];
       return computeProtectedSymbols(orders, positions);
+    }),
+
+    /** The display stop order per symbol (#1414) — every live protective
+     *  stop on a held long, stop-limit included. What the positions-table
+     *  Stop column quotes; reconciles with Open Orders (same live order). */
+    protectiveStops: computed((): Map<string, BrokerOrder> => {
+      const acct = state.accounts()[state.selectedAccountIndex()];
+      if (!acct) return new Map();
+      return protectiveStopsBySymbol(
+        acct.equityOrders.data ?? [],
+        acct.equityPositions.data ?? [],
+      );
     }),
 
     /** Live equity stops eligible for Update Stop, grouped by symbol (#888).

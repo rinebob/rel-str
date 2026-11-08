@@ -20,7 +20,7 @@ import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types'
 import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
 import { StopLossDialogComponent, StopLossDialogData } from './components/stop-loss-dialog/stop-loss-dialog.component';
 import { OrderExecutionService } from '../savant-trader/services/order-execution.service';
-import { updatableStopsBySymbol } from './utils/portfolio-pnl.util';
+import { updatableStopsBySymbol, protectiveStopsBySymbol } from './utils/portfolio-pnl.util';
 
 function makeEquityPosition(overrides: Partial<EquityPositionWithPnL> = {}): EquityPositionWithPnL {
   return {
@@ -121,6 +121,7 @@ function makeStoreMock(overrides: Partial<{
     // Mirrors the store's computed — exercises the real updatableStopsBySymbol
     // derivation against mock openOrders/equityPositions.
     updatableStops: computed(() => updatableStopsBySymbol(openOrders(), equityPositions())),
+    protectiveStops: computed(() => protectiveStopsBySymbol(openOrders(), equityPositions())),
     showOrderHistory,
     loadAccounts: jasmine.createSpy('loadAccounts').and.returnValue(Promise.resolve()),
     refresh: jasmine.createSpy('refresh').and.returnValue(Promise.resolve()),

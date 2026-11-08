@@ -321,4 +321,39 @@ describe('PortfolioDashboardStore selectors', () => {
       expect(protectedSymbols.size).toBe(0);
     });
   });
+
+  // ── protectiveStops (#1414) ────────────────────────────────────────────────
+
+  describe('protectiveStops', () => {
+    it('maps the display stop order per symbol — stop_limit included', async () => {
+      await loadSingleAccount({
+        equityPositions: [
+          makeEquityPosition({ symbol: 'AAPL', quantity: 100 }),
+          makeEquityPosition({ symbol: 'NVDA', quantity: 25 }),
+        ],
+        equityOrders: [
+          makeOrder({ orderId: 'sm', type: 'stop_market', side: 'sell', symbol: 'AAPL', state: 'confirmed', stopPrice: 145 }),
+          makeOrder({ orderId: 'sl', type: 'stop_limit', side: 'sell', symbol: 'NVDA', state: 'confirmed', stopPrice: 88 }),
+          makeOrder({ orderId: 'lim', type: 'limit', side: 'sell', symbol: 'AAPL', state: 'confirmed', stopPrice: null }),
+        ],
+      });
+
+      const stops = store.protectiveStops();
+      expect(stops.get('AAPL')?.orderId).toBe('sm');
+      expect(stops.get('NVDA')?.orderId).toBe('sl');
+      expect(stops.size).toBe(2);
+    });
+
+    it('picks the highest stopPrice in a stop ladder — the first to trigger', async () => {
+      await loadSingleAccount({
+        equityPositions: [makeEquityPosition({ symbol: 'AAPL', quantity: 100 })],
+        equityOrders: [
+          makeOrder({ orderId: 'low', type: 'stop_market', side: 'sell', symbol: 'AAPL', state: 'confirmed', stopPrice: 140 }),
+          makeOrder({ orderId: 'high', type: 'stop_market', side: 'sell', symbol: 'AAPL', state: 'confirmed', stopPrice: 148 }),
+        ],
+      });
+
+      expect(store.protectiveStops().get('AAPL')?.orderId).toBe('high');
+    });
+  });
 });
