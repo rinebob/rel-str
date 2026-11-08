@@ -267,6 +267,17 @@ describe('ContractListSessionStore', () => {
       expect(store.selection().size).toBe(10);
     });
 
+    it('chunkInfo reports the current chunk start/end pick dates — actual last day on a partial chunk (#1402)', () => {
+      // 15 picks at size 10 → chunk 0 spans 06-01→06-10, chunk 1 is the
+      // partial 06-11→06-15 (its own last pick, not the doc's lastDate).
+      expect(store.chunkInfo().startDate).toBe('2026-06-01');
+      expect(store.chunkInfo().endDate).toBe('2026-06-10');
+
+      store.step(1);
+      expect(store.chunkInfo().startDate).toBe('2026-06-11');
+      expect(store.chunkInfo().endDate).toBe('2026-06-15');
+    });
+
     it('toggleChunkAt ignores out-of-range indexes and never emits', () => {
       store.toggleChunkAt(9);
       store.toggleChunkAt(-1);
@@ -332,9 +343,9 @@ describe('ContractListSessionStore', () => {
     it('partitions pick rows into chunkSize groups with i/n · days · unique info', () => {
       expect(store.chunks()).toHaveLength(2);
       const info = store.chunkInfo();
-      expect(info).toEqual({ index: 0, total: 2, days: 10, unique: 6 });
-      store.setChunk(1);
-      expect(store.chunkInfo()).toEqual({ index: 1, total: 2, days: 5, unique: 5 });
+      expect(info).toEqual({ index: 0, total: 2, days: 10, unique: 6, startDate: '2026-06-01', endDate: '2026-06-10' });
+      store.step(1);
+      expect(store.chunkInfo()).toEqual({ index: 1, total: 2, days: 5, unique: 5, startDate: '2026-06-11', endDate: '2026-06-15' });
     });
 
     it('stepping clamps at both ends (no wrap)', () => {
@@ -355,16 +366,15 @@ describe('ContractListSessionStore', () => {
 
     it('setChunkSize repartitions and clamps the cursor', () => {
       store.setChunkSize(3);
-      store.setChunk(4);
+      for (let i = 0; i < 4; i++) store.step(1);
       expect(store.chunkCursor()).toBe(4);
       store.setChunkSize(10);
       expect(store.chunkCursor()).toBe(1);
     });
 
     it('non-finite chunk input is ignored rather than corrupting the cursor', () => {
-      store.setChunk(1);
+      store.step(1);
       store.step(NaN);
-      store.setChunk(NaN);
       store.setChunkSize(NaN);
       expect(store.chunkCursor()).toBe(1);
       expect(store.chunkInfo().index).toBe(1);
@@ -372,7 +382,7 @@ describe('ContractListSessionStore', () => {
 
     it('addChunkToSelection unions the current chunk into the selection', () => {
       store.selectNone();
-      store.setChunk(1);
+      store.step(1);
       store.addChunkToSelection();
       expect(store.selectedRows().map((r) => r.entryDate)).toEqual([
         '2026-06-11',
@@ -385,7 +395,7 @@ describe('ContractListSessionStore', () => {
 
     it('removeChunkFromSelection clears only the current chunk\'s days', () => {
       store.selectAll(); // 15
-      store.setChunk(1); // chunk 1 = the last 5 days
+      store.step(1); // chunk 1 = the last 5 days
       store.removeChunkFromSelection();
       expect(store.selection().size).toBe(10);
       expect(store.selection().has('2026-06-11')).toBe(false);
@@ -408,7 +418,7 @@ describe('ContractListSessionStore', () => {
     it('canStepPrev/canStepNext report the clamp bounds', () => {
       expect(store.canStepPrev()).toBe(false);
       expect(store.canStepNext()).toBe(true);
-      store.setChunk(1);
+      store.step(1);
       expect(store.canStepPrev()).toBe(true);
       expect(store.canStepNext()).toBe(false);
     });
@@ -429,11 +439,6 @@ describe('ContractListSessionStore', () => {
       expect(store.lastEmitted()).toEqual([]);
     });
 
-    it('setChunk jumps the cursor without emitting', () => {
-      store.setChunk(1);
-      expect(store.chunkCursor()).toBe(1);
-      expect(store.lastEmitted()).toEqual([]);
-    });
   });
 
   describe('emit', () => {
@@ -450,14 +455,6 @@ describe('ContractListSessionStore', () => {
       expect(lines).toHaveLength(15);
       expect(lines[0]).toBe('2026-06-01,AAA260619C00500000');
       expect(lines[2]).toBe('2026-06-03,AAA260619C00500000');
-      expect(store.lastEmitted()).toEqual(lines);
-    });
-
-    it('sendAll selects every pick day then emits them', () => {
-      store.selectNone();
-      const lines = store.sendAll();
-      expect(store.selection().size).toBe(15);
-      expect(lines).toHaveLength(15);
       expect(store.lastEmitted()).toEqual(lines);
     });
 
@@ -478,6 +475,148 @@ describe('ContractListSessionStore', () => {
     });
   });
 
+  describe('DOW/cadence preset (#1402)', () => {
+    // Two-month pick fixture — 2026-06-01 is a Monday; July Mondays are
+    // 07-06/07-13. Weeks-of-month are ceil(day/7) blocks anchored on the
+    // first pick row.
+    const twoMonthRows = (): ContractListRow[] =>
+      ['2026-06-01', '2026-06-03', '2026-06-08', '2026-06-15', '2026-07-01', '2026-07-06', '2026-07-13']
+        .map((d) => pick(d, `AAA${d.replace(/-/g, '')}C00500000`));
+
+    beforeEach(async () => {
+      setup();
+      getList$.mockReturnValue(of(listDoc(fifteenRows())));
+      store.setSymbol('QQQ');
+      await store.loadList('run-1_QQQ');
+    });
+
+    it('weekly cadence selects every pick row on the checked weekdays', () => {
+      store.setDowDays([1]); // Mondays
+      store.setCadence('weekly');
+      store.applyDowPreset();
+      expect([...store.selection()].sort()).toEqual(['2026-06-01', '2026-06-08', '2026-06-15']);
+    });
+
+    it('multi-weekday selection unions the checked days', () => {
+      store.setDowDays([1, 5]); // Mon + Fri (2026-06-05, 06-12 are Fridays)
+      store.applyDowPreset();
+      expect([...store.selection()].sort()).toEqual([
+        '2026-06-01', '2026-06-05', '2026-06-08', '2026-06-12', '2026-06-15',
+      ]);
+    });
+
+    it('biweekly selects alternating 7-day blocks anchored on the first pick row', () => {
+      store.setDowDays([1]);
+      store.setCadence('biweekly');
+      store.applyDowPreset();
+      // 06-08 is the next block → skipped; 06-15 shares the anchor parity.
+      expect([...store.selection()].sort()).toEqual(['2026-06-01', '2026-06-15']);
+    });
+
+    it('biweekly keeps the anchor\'s own calendar week for multi-weekday sets (#1402 review)', () => {
+      store.setDowDays([1, 5]); // Mon + Fri, anchor week of Mon 06-01
+      store.setCadence('biweekly');
+      store.applyDowPreset();
+      // Block 0 = 06-01…06-07 → Mon 06-01 + Fri 06-05; block 1 skipped;
+      // block 2 → Mon 06-15. Epoch-week parity would wrongly drop 06-05
+      // (the Thursday boundary splits the anchor's Mon–Sun week).
+      expect([...store.selection()].sort()).toEqual(['2026-06-01', '2026-06-05', '2026-06-15']);
+    });
+
+    it('biweekly anchors on a non-Monday first pick row — blocks start at the anchor', async () => {
+      // Anchor Wed 06-03 → blocks 06-03…09, 06-10…16, 06-17…23. Fridays
+      // land in blocks 0 and 2 → kept; the middle Friday drops.
+      getList$.mockReturnValue(
+        of(
+          listDoc([
+            pick('2026-06-03', 'AAA260619C00500000'),
+            pick('2026-06-05', 'BBB260619C00500000'),
+            pick('2026-06-10', 'CCC260619C00500000'),
+            pick('2026-06-12', 'DDD260619C00500000'),
+            pick('2026-06-17', 'EEE260619C00500000'),
+            pick('2026-06-19', 'FFF260619C00500000'),
+          ]),
+        ),
+      );
+      await store.loadList('wed-anchor');
+      store.setDowDays([5]);
+      store.setCadence('biweekly');
+      store.applyDowPreset();
+      expect([...store.selection()].sort()).toEqual(['2026-06-05', '2026-06-19']);
+    });
+
+    it('monthly selects the same week-of-month as the first pick row', async () => {
+      getList$.mockReturnValue(of(listDoc(twoMonthRows())));
+      await store.loadList('two-month');
+      store.setDowDays([1]);
+      store.setCadence('monthly');
+      store.applyDowPreset();
+      // Anchor = week 1 (06-01); Mondays in week-1 blocks of both months.
+      expect([...store.selection()].sort()).toEqual(['2026-06-01', '2026-07-06']);
+    });
+
+    it('applies as a replace, composing like every other toolbar op', () => {
+      store.selectAll();
+      store.setDowDays([5]); // Fridays
+      store.applyDowPreset();
+      expect([...store.selection()].sort()).toEqual(['2026-06-05', '2026-06-12']);
+      store.toggleRow('2026-06-02', true); // manual adds still compose
+      expect(store.selection().has('2026-06-02')).toBe(true);
+      expect(store.selection().size).toBe(3);
+    });
+
+    it('no weekdays checked → apply is a no-op, not a wipe', () => {
+      store.selectAll();
+      store.setDowDays([]);
+      store.applyDowPreset();
+      expect(store.selection().size).toBe(15);
+    });
+
+    it('a pref write after an explicit load failure preserves the whole saved session (#1402 review)', () => {
+      // Explicit-failure contract: the blob keeps pointing at the last
+      // good session — docId, selection keys, and cursor. Deriving docId
+      // from activeList on persist() would silently null it on the next
+      // pref write — it must ride state; selection/cursor must likewise
+      // survive emptySession() so the write restores the saved values.
+      store.selectAll();
+      store.step(1);
+      store.loadListDoc(listDoc([], { status: 'failed', listId: 'bad-doc' }));
+      expect(store.status()).toBe('error');
+      store.setDowDays([1]);
+      const blob = JSON.parse(localStorage.getItem(`${LIST_SESSION_PREFIX}QQQ`)!);
+      expect(blob.docId).toBe('run-1_QQQ');
+      expect(blob.selectionKeys).toHaveLength(15);
+      expect(blob.cursor).toBe(1);
+      expect(blob.dowDays).toEqual([1]);
+    });
+
+    it('a failed load leaves the weekday toggles alone (prefs ≠ session)', () => {
+      store.setDowDays([1, 3]);
+      store.setCadence('monthly');
+      store.loadListDoc(listDoc([], { status: 'failed', listId: 'bad-doc' }));
+      expect(store.status()).toBe('error');
+      expect(store.dowDays()).toEqual([1, 3]);
+      expect(store.cadence()).toBe('monthly');
+    });
+
+    it('DOW prefs ride the persisted blob and restore on setSymbol', async () => {
+      store.setDowDays([1, 3]);
+      store.setCadence('monthly');
+
+      const blob = JSON.parse(localStorage.getItem(`${LIST_SESSION_PREFIX}QQQ`)!);
+      expect(blob.dowDays).toEqual([1, 3]);
+      expect(blob.cadence).toBe('monthly');
+
+      TestBed.resetTestingModule();
+      setup();
+      getList$.mockReturnValue(of(listDoc(fifteenRows())));
+      store.setSymbol('QQQ');
+      await new Promise<void>((r) => setTimeout(r, 0));
+      expect(store.dowDays()).toEqual([1, 3]);
+      expect(store.cadence()).toBe('monthly');
+    });
+  });
+
   describe('persistence', () => {
     beforeEach(setup);
 
@@ -489,7 +628,7 @@ describe('ContractListSessionStore', () => {
       store.toggleRow('2026-06-02', true);
       store.toggleRow('2026-06-09', true);
       store.setChunkSize(5);
-      store.setChunk(1);
+      store.step(1);
 
       const blob = JSON.parse(localStorage.getItem(`${LIST_SESSION_PREFIX}QQQ`)!);
       expect(blob.version).toBe(LIST_SESSION_VERSION);
@@ -518,6 +657,8 @@ describe('ContractListSessionStore', () => {
         chunkSize: 10,
         cursor: 0,
         selectionKeys: ['2026-06-01'],
+        dowDays: [],
+        cadence: 'weekly',
       });
       getList$.mockReturnValue(of(null));
 
@@ -535,6 +676,8 @@ describe('ContractListSessionStore', () => {
         chunkSize: 10,
         cursor: 0,
         selectionKeys: [],
+        dowDays: [],
+        cadence: 'weekly',
       });
       getList$.mockReturnValue(of(listDoc([], { status: 'failed', listId: 'bad-doc' })));
 

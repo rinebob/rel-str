@@ -28,6 +28,8 @@ describe('contract-list-session-settings', () => {
       chunkSize: 20,
       cursor: 2,
       selectionKeys: ['2026-06-10', '2026-06-11'],
+      dowDays: [1, 3],
+      cadence: 'monthly',
     });
 
     expect(readListSession('QQQ')).toEqual({
@@ -36,6 +38,8 @@ describe('contract-list-session-settings', () => {
       chunkSize: 20,
       cursor: 2,
       selectionKeys: ['2026-06-10', '2026-06-11'],
+      dowDays: [1, 3],
+      cadence: 'monthly',
     });
     // Symbols are independent blobs.
     expect(readListSession('SPY')).toEqual(defaultListSessionSettings());
@@ -63,6 +67,8 @@ describe('contract-list-session-settings', () => {
         chunkSize: 'big',
         cursor: -3,
         selectionKeys: ['2026-06-10', 7, null],
+        dowDays: [1, 7, 'x', 3.5, 2, 2],
+        cadence: 'yearly',
       }),
     );
 
@@ -71,6 +77,10 @@ describe('contract-list-session-settings', () => {
     expect(s.chunkSize).toBe(defaultListSessionSettings().chunkSize);
     expect(s.cursor).toBe(0);
     expect(s.selectionKeys).toEqual(['2026-06-10']);
+    // Out-of-range/non-integer weekdays drop; dupes collapse; unknown
+    // cadence falls back to weekly.
+    expect(s.dowDays).toEqual([1, 2]);
+    expect(s.cadence).toBe('weekly');
   });
 
   it('clear removes the blob', () => {

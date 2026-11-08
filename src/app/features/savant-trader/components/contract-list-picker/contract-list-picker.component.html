@@ -50,12 +50,33 @@
             </label>
             <button type="button" class="ds-btn outline small random-apply" [disabled]="randomN() < 1" (click)="applyRandom()">Pick</button>
             <span class="sep"></span>
-            <input type="date" class="range-from" aria-label="From date" [ngModel]="rangeFrom()" (ngModelChange)="rangeFrom.set($event)">
-            <input type="date" class="range-to" aria-label="To date" [ngModel]="rangeTo()" (ngModelChange)="rangeTo.set($event)">
-            <button type="button" class="ds-btn outline small range-apply" [disabled]="!rangeFrom() || !rangeTo()" (click)="applyRange()">Range</button>
+            @let bound = chartRange();
+            <button type="button" class="ds-btn outline small range-apply"
+              [disabled]="!bound"
+              [title]="bound ? 'Select pick days inside the chart-brush range' : 'Brush a range on the chart (Select range) first'"
+              (click)="applyChartRange()">
+              Range{{ bound ? ' ' + bound.start + ' → ' + bound.end : '' }}
+            </button>
             <input type="text" class="text-filter" placeholder="Contract contains…" aria-label="Contract filter"
               [ngModel]="filterText()" (ngModelChange)="filterText.set($event)" (keydown.enter)="applyFilter()">
             <button type="button" class="ds-btn outline small filter-apply" [disabled]="!filterText().trim()" (click)="applyFilter()">Filter</button>
+            <span class="sep"></span>
+            <span class="dow-group" role="group" aria-label="Weekday selection preset">
+              @for (d of dowToggles; track d.dow) {
+                <button type="button" class="dow-toggle" [class.on]="store.dowDays().includes(d.dow)"
+                  [attr.aria-pressed]="store.dowDays().includes(d.dow)"
+                  [title]="'Toggle ' + d.label + ' in the weekday preset'"
+                  (click)="toggleDow(d.dow)">{{ d.label }}</button>
+              }
+              <select class="cadence-select dse-select compact" aria-label="Cadence"
+                [ngModel]="store.cadence()" (ngModelChange)="setCadence($event)">
+                @for (c of cadenceOptions; track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+              </select>
+              <button type="button" class="ds-btn outline small dow-apply"
+                [disabled]="store.dowDays().length === 0"
+                title="Replace the selection with pick days matching the checked weekdays at the chosen cadence"
+                (click)="applyDowPreset()">Days</button>
+            </span>
           </div>
 
           <div class="table-scroll">
@@ -64,44 +85,56 @@
                 <tr>
                   <th></th>
                   <th>Entry</th>
-                  <th>Contract</th>
-                  <th class="num">Strike</th>
-                  <th>Expiry</th>
+                  <th>DOW</th>
+                  <th class="num">Und. Close</th>
                   <th class="num">Δ</th>
                   <th class="num">IV</th>
+                  <th>Contract</th>
                   <th class="num">Mark</th>
-                  <th class="num">Und. Close</th>
+                  <th class="num">Strike</th>
+                  <th>Expiry</th>
+                  <th class="num">DTE</th>
+                  <th class="num">Bid</th>
+                  <th class="num">Ask</th>
+                  <th class="num">Vol</th>
+                  <th class="num">OI</th>
                 </tr>
               </thead>
               <tbody>
                 @for (row of rows(); track row.entryDate) {
                   @if (row.kind === 'pick') {
-                    <tr class="pick-row" [class.selected]="store.selection().has(row.entryDate)">
+                    <tr class="pick-row" [class.selected]="store.selection().has(row.entryDate)" [class.week-alt]="weekParity().get(row.entryDate)">
                       <td>
                         <input type="checkbox" [checked]="store.selection().has(row.entryDate)"
                           [attr.aria-label]="'Select ' + row.entryDate" (change)="onToggle(row.entryDate, $event)">
                       </td>
                       <td class="entry-date">{{ row.entryDate }}</td>
+                      <td class="dow-cell">{{ dow(row.entryDate) }}</td>
+                      <td class="num">{{ row.underlyingClose | number:'1.2-2' }}</td>
+                      <td class="num">{{ row.delta | number:'1.2-2' }}</td>
+                      <td class="num">{{ row.iv | percent:'1.0-1' }}</td>
                       <td class="contract-id" [title]="row.contractId">
                         {{ row.contractId }}
                         @if (row.repeatsPrevious) {
                           <span class="repeat-badge" title="Same contract as the prior trading day — still a distinct position entry">↻ repeat</span>
                         }
                       </td>
-                      <td class="num">{{ row.strike | number:'1.2-2' }}</td>
-                      <td>{{ row.expiration }} {{ dow(row.expiration) }}</td>
-                      <td class="num">{{ row.delta | number:'1.2-2' }}</td>
-                      <td class="num">{{ row.iv | percent:'1.0-1' }}</td>
                       <td class="num">{{ row.mark | number:'1.2-2' }}</td>
-                      <td class="num">{{ row.underlyingClose | number:'1.2-2' }}</td>
+                      <td class="num">{{ row.strike | number:'1.2-2' }}</td>
+                      <td>{{ row.expiration }}</td>
+                      <td class="num">{{ row.dte }}</td>
+                      <td class="num">{{ row.bid | number:'1.2-2' }}</td>
+                      <td class="num">{{ row.ask | number:'1.2-2' }}</td>
+                      <td class="num">{{ row.volume }}</td>
+                      <td class="num">{{ row.openInterest }}</td>
                     </tr>
                   } @else {
-                    <tr class="no-selection-row">
+                    <tr class="no-selection-row" [class.week-alt]="weekParity().get(row.entryDate)">
                       <td>
                         <input type="checkbox" disabled [attr.aria-label]="'No pick on ' + row.entryDate">
                       </td>
                       <td class="entry-date">{{ row.entryDate }}</td>
-                      <td class="marker-cell" colspan="7">{{ noSelectionLabel(row.reason) }}</td>
+                      <td class="marker-cell" colspan="13">{{ noSelectionLabel(row.reason) }}</td>
                     </tr>
                   }
                 }
@@ -119,6 +152,9 @@
             </button>
             <span class="chunk-info">
               chunk {{ store.chunkInfo().index + 1 }}/{{ store.chunkInfo().total }}
+              @if (store.chunkInfo().startDate) {
+                · {{ store.chunkInfo().startDate }} → {{ store.chunkInfo().endDate }}
+              }
               · {{ store.chunkInfo().days }} days · {{ store.chunkInfo().unique }} unique
             </span>
             <button type="button" class="ds-btn outline small chunk-next"

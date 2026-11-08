@@ -53,7 +53,6 @@ import {
   ContractListSessionStore,
   contractListDocError,
 } from '../../stores/contract-list-session.store';
-import { ListMiniControlsComponent } from '../../components/contract-list-mini-controls/contract-list-mini-controls.component';
 import { ContractListService } from '../../services/contract-list.service';
 import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
 import { ContractListPickerComponent, type ContractListPickerData } from '../../components/contract-list-picker/contract-list-picker.component';
@@ -72,8 +71,7 @@ interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
     CommonModule,
     FormsModule,
     OptionsContractChartComponent,
-    OptionGroupGeneratorComponent,
-    ListMiniControlsComponent],
+    OptionGroupGeneratorComponent],
   // Page-scoped — one generator instance + one list session shared by
   // this page, its drawer, and dialogs it opens; dies with the page,
   // never root-provided.

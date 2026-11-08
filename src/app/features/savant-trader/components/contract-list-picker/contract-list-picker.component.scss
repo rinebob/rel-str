@@ -93,6 +93,35 @@
   .text-filter {
     width: 150px;
   }
+
+  // DOW preset (#1402) — compact two-letter toggles; `.on` paints the
+  // same accent as a checked row so "checked day" reads consistently.
+  .dow-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .dow-toggle {
+    font: inherit;
+    font-size: 0.72rem;
+    padding: 2px 5px;
+    border: 1px solid var(--ds-border-strong);
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.75;
+    cursor: pointer;
+
+    &.on {
+      background: var(--ds-selection);
+      opacity: 1;
+    }
+
+    &:hover {
+      filter: brightness(1.2);
+    }
+  }
 }
 
 .table-scroll {
@@ -136,6 +165,14 @@
     font-size: 0.78rem;
   }
 
+  // Week banding (#1402) — alternate calendar weeks take the raised
+  // surface so week boundaries read at a glance. `:not(.selected)` is
+  // structural, not source-order: the band can never win over
+  // selection paint no matter where these rules end up.
+  tr.week-alt:not(.selected) td {
+    background: var(--ds-surface-raised);
+  }
+
   tr.selected td {
     background: var(--ds-selection);
   }
@@ -176,7 +213,6 @@
   border: 1px solid var(--ds-border-subtle);
   border-radius: 4px;
   background: var(--ds-surface-raised);
-  white-space: pre;
 }
 
 .empty-note {

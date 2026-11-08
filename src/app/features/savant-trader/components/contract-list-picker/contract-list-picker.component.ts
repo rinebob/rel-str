@@ -23,7 +23,12 @@ import { DS_DIALOG_DATA, DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import type { NoSelectionReason } from '@options-replay/contracts';
 import { DAYS, daysBetween } from '../../../shared/utils/date.util';
 import { ContractListSessionStore } from '../../stores/contract-list-session.store';
-import { CHUNK_SIZE_OPTIONS } from '../../utils/contract-list-session-settings';
+import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
+import {
+  CHUNK_SIZE_OPTIONS,
+  DOW_CADENCES,
+  type DowCadence,
+} from '../../utils/contract-list-session-settings';
 
 type PickerTab = 'rows' | 'chunks' | 'lines';
 
@@ -66,11 +71,34 @@ export class ContractListPickerComponent {
   });
   /** The page-scoped session — resolved from the opener's injector. */
   readonly store = inject(ContractListSessionStore);
+  /** Page-scoped generator store — same injector path; the chart-brush
+   *  bound lives here (`refine().aliveRange`), so the picker's Apply
+   *  range op is a read of the page's existing brush state (#1402 —
+   *  no typed date inputs). Optional: a picker opened off the option-
+   *  chart injector degrades to the unbound-Range empty state instead
+   *  of NG0201 at construction (same precedent as DS_DIALOG_DATA).
+   *  Note the lifecycle coupling: genStore.clear() and symbol swaps
+   *  wipe `aliveRange`, which disables this op — deliberate: a cleared
+   *  or foreign-symbol brush shouldn't drive this list's selection. */
+  private readonly genStore = inject(OptionGroupGeneratorStore, { optional: true });
 
   readonly canSend = computed(() => this.store.selectedRows().length > 0);
   /** Exact emit output for the current selection — the Lines tab body. */
   readonly linesText = computed(() => this.store.emittedLines().join('\n'));
   readonly rows = computed(() => this.store.activeList()?.rows ?? []);
+
+  /** Week-parity map for row banding (#1402): 1970-01-05 is a Monday,
+   *  so `floor(daysBetween / 7)` is the calendar-week index — parity
+   *  alternates every Mon–Sun block and each row's band is
+   *  self-computed (no ordering dependence). Marker rows share the
+   *  band of their week. */
+  readonly weekParity = computed(() => {
+    const map = new Map<string, boolean>();
+    for (const r of this.rows()) {
+      map.set(r.entryDate, Math.floor(daysBetween('1970-01-05', r.entryDate) / 7) % 2 === 1);
+    }
+    return map;
+  });
 
   readonly activeTab = signal<PickerTab>('rows');
 
@@ -122,12 +150,29 @@ export class ContractListPickerComponent {
 
   // One-shot toolbar params — control values, not feature state (the
   // selection they produce lives in the store).
+  /** The chart-brush bound, if one is set — drives the Apply-range op
+   *  and its read-only bound label (#1402). */
+  readonly chartRange = computed(() => this.genStore?.refine().aliveRange ?? null);
+
   readonly strideK = signal(2);
   readonly strideOptions = [2, 3, 5, 10, 20];
   readonly randomN = signal(10);
-  readonly rangeFrom = signal('');
-  readonly rangeTo = signal('');
   readonly filterText = signal('');
+
+  /** DOW preset controls (#1402) — the checked days and cadence live in
+   *  the store (persisted); these are only the fixed option lists. */
+  readonly dowToggles = [
+    { dow: 1, label: 'Mo' },
+    { dow: 2, label: 'Tu' },
+    { dow: 3, label: 'We' },
+    { dow: 4, label: 'Th' },
+    { dow: 5, label: 'Fr' },
+  ] as const;
+  readonly cadenceOptions: { value: DowCadence; label: string }[] = [
+    { value: 'weekly', label: 'Every wk' },
+    { value: 'biweekly', label: 'Every 2 wk' },
+    { value: 'monthly', label: 'Every mo' },
+  ];
   readonly copied = signal(false);
 
   /** Emit the selection, close, then hand the lines to the page —
@@ -186,14 +231,36 @@ export class ContractListPickerComponent {
     this.store.randomPick(this.randomN());
   }
 
-  applyRange(): void {
-    if (!this.rangeFrom() || !this.rangeTo()) return;
-    this.store.selectDateRange(this.rangeFrom(), this.rangeTo());
+  /** Apply the chart-brush bound as the selection range (#1402) — the
+   *  typed date inputs are gone; the bound is what the user brushed on
+   *  the underlying chart. Disabled (with a hint) when nothing is
+   *  bound. */
+  applyChartRange(): void {
+    const r = this.chartRange();
+    if (r) this.store.selectDateRange(r.start, r.end);
   }
 
   applyFilter(): void {
     const text = this.filterText().trim();
     if (text) this.store.selectContains(text);
+  }
+
+  /** Toggle one weekday in the persisted preset (#1402). */
+  toggleDow(dow: number): void {
+    const cur = this.store.dowDays();
+    this.store.setDowDays(
+      cur.includes(dow) ? cur.filter((d) => d !== dow) : [...cur, dow],
+    );
+  }
+
+  setCadence(value: string): void {
+    if ((DOW_CADENCES as readonly string[]).includes(value)) {
+      this.store.setCadence(value as DowCadence);
+    }
+  }
+
+  applyDowPreset(): void {
+    this.store.applyDowPreset();
   }
 
   onToggle(entryDate: string, event: Event): void {

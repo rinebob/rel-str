@@ -21,7 +21,9 @@ import type { ContractListNoSelectionRow, ContractListPickRow, ContractListRow }
 import { OptionType } from '@options/common';
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
 import { ContractListService } from '../../services/contract-list.service';
+import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { ContractListSessionStore } from '../../stores/contract-list-session.store';
+import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import { ContractListPickerComponent, type ContractListPickerData } from './contract-list-picker.component';
 
 const pick = (
@@ -100,6 +102,8 @@ describe('ContractListPickerComponent', () => {
         provideZonelessChangeDetection(),
         ContractListSessionStore,
         { provide: ContractListService, useValue: { getList$ } },
+        OptionGroupGeneratorStore,
+        { provide: ContractAvailabilityService, useValue: { queryContractAvailability$: jest.fn() } },
         { provide: DsDialogRef, useValue: { close } },
         { provide: DS_DIALOG_DATA, useFactory: () => dialogData },
       ],
@@ -123,6 +127,77 @@ describe('ContractListPickerComponent', () => {
     el(fixture).querySelectorAll<HTMLInputElement>('.rows-table input[type=checkbox]:checked').length;
   const ctrl = (fixture: ComponentFixture<ContractListPickerComponent>, sel: string) =>
     el(fixture).querySelector<HTMLElement>(sel)!;
+
+  it('Apply range selects the chart-brush bound, not typed inputs (#1402)', async () => {
+    await setup();
+    const genStore = TestBed.inject(OptionGroupGeneratorStore);
+    genStore.applyRange({ start: '2026-06-05', end: '2026-06-10' });
+    const fixture = await render();
+
+    const btn = ctrl(fixture, '.range-apply');
+    expect(btn.textContent).toContain('2026-06-05');
+    expect((btn as HTMLButtonElement).disabled).toBe(false);
+    // The typed date inputs are gone — the bound is read-only text.
+    expect(el(fixture).querySelectorAll('input[type=date]').length).toBe(0);
+
+    btn.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    const sel = store.selection();
+    expect(sel.has('2026-06-05')).toBe(true);
+    expect(sel.has('2026-06-10')).toBe(true);
+    expect(sel.has('2026-06-04')).toBe(false);
+    expect(sel.has('2026-06-11')).toBe(false);
+  });
+
+  it('Apply range is disabled and explains itself when no chart range is bound (#1402)', async () => {
+    await setup();
+    const fixture = await render();
+
+    const btn = ctrl(fixture, '.range-apply') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute('title')).toContain('chart');
+  });
+
+  it('alternates week shading across a Mon–Sun boundary, markers included (#1402)', async () => {
+    const rows = [
+      pick('2026-06-29', 'AAA'), // Mon, week N
+      noSel('2026-06-30'),       // Tue, week N
+      pick('2026-07-06', 'BBB'), // Mon, week N+1
+      pick('2026-07-07', 'CCC'), // Tue, week N+1
+    ];
+    await setup(listDoc({
+      rows,
+      pickDocMeta: { ...listDoc().pickDocMeta!, pickCount: 3, missCount: 1, firstDate: '2026-06-29', lastDate: '2026-07-07' },
+    }));
+    const fixture = await render();
+
+    const trs = el(fixture).querySelectorAll<HTMLElement>('.rows-table tbody tr');
+    const alt = (i: number) => trs[i].classList.contains('week-alt');
+    // Same week → same band; the week boundary flips the stripe and the
+    // marker row shares the band of its week (relational — parity of
+    // week N itself is irrelevant).
+    expect(alt(1)).toBe(alt(0));
+    expect(alt(2)).toBe(!alt(0));
+    expect(alt(3)).toBe(alt(2));
+  });
+
+  it('lays out the full column set — DOW beside the entry date, liquidity tail (#1402)', async () => {
+    await setup();
+    const fixture = await render();
+
+    const headers = Array.from(el(fixture).querySelectorAll<HTMLElement>('.rows-table thead th')).map(
+      (th) => th.textContent?.trim(),
+    );
+    expect(headers).toEqual([
+      '', 'Entry', 'DOW', 'Und. Close', 'Δ', 'IV', 'Contract', 'Mark',
+      'Strike', 'Expiry', 'DTE', 'Bid', 'Ask', 'Vol', 'OI',
+    ]);
+
+    // Entry-date weekday cell — the default fixture starts Mon 2026-06-01.
+    const firstRow = el(fixture).querySelector<HTMLElement>('.rows-table tbody tr.pick-row')!;
+    expect(firstRow.querySelector('.dow-cell')!.textContent?.trim()).toBe('Mon');
+  });
 
   it('renders the provenance line from the active doc', async () => {
     await setup();
@@ -229,17 +304,12 @@ describe('ContractListPickerComponent', () => {
     expect(store.selectedRows()).toHaveLength(3);
   });
 
-  it('date range selects the inclusive pick rows in [from, to]', async () => {
+  it('chart-range apply selects the inclusive pick rows in [start, end] (#1402)', async () => {
     await setup();
+    TestBed.inject(OptionGroupGeneratorStore)
+      .applyRange({ start: '2026-06-02', end: '2026-06-05' });
     const fixture = await render();
 
-    const from = ctrl(fixture, '.range-from') as HTMLInputElement;
-    const to = ctrl(fixture, '.range-to') as HTMLInputElement;
-    from.value = '2026-06-02';
-    to.value = '2026-06-05';
-    from.dispatchEvent(new Event('input'));
-    to.dispatchEvent(new Event('input'));
-    fixture.detectChanges();
     ctrl(fixture, '.range-apply').dispatchEvent(new Event('click'));
     fixture.detectChanges();
 
@@ -247,6 +317,50 @@ describe('ContractListPickerComponent', () => {
     expect(store.selectedRows().map((r) => r.entryDate)).toEqual([
       '2026-06-02', '2026-06-04', '2026-06-05',
     ]);
+  });
+
+  it('DOW toggles + Days apply a weekday preset; off-days disabled (#1402)', async () => {
+    await setup();
+    const fixture = await render();
+
+    const apply = ctrl(fixture, '.dow-apply') as HTMLButtonElement;
+    expect(apply.disabled).toBe(true); // nothing checked → no wipe
+
+    const toggles = Array.from(el(fixture).querySelectorAll('.dow-toggle')) as HTMLButtonElement[];
+    expect(toggles.map((t) => t.textContent?.trim())).toEqual(['Mo', 'Tu', 'We', 'Th', 'Fr']);
+
+    toggles[0].click(); // Mo
+    fixture.detectChanges();
+    expect(store.dowDays()).toEqual([1]);
+    expect(toggles[0].classList.contains('on')).toBe(true);
+    expect(toggles[0].getAttribute('aria-pressed')).toBe('true');
+    expect(apply.disabled).toBe(false);
+
+    apply.click();
+    fixture.detectChanges();
+    // Mondays in the fixture: 06-01 + 06-08.
+    expect([...store.selection()].sort()).toEqual(['2026-06-01', '2026-06-08']);
+  });
+
+  it('cadence select drives store.cadence (#1402)', async () => {
+    await setup();
+    const fixture = await render();
+
+    const sel = ctrl(fixture, '.cadence-select') as HTMLSelectElement;
+    sel.value = 'monthly';
+    sel.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(store.cadence()).toBe('monthly');
+
+    // A value outside the union is ignored — the store can't be
+    // poisoned through the control. (jsdom collapses a non-existent
+    // option to '', so pin the literal through the component seam too.)
+    sel.value = 'yearly';
+    sel.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(store.cadence()).toBe('monthly');
+    fixture.componentInstance.setCadence('yearly');
+    expect(store.cadence()).toBe('monthly');
   });
 
   it('text filter selects rows whose contractId contains the text', async () => {
@@ -428,6 +542,9 @@ describe('ContractListPickerComponent', () => {
 
       const info = ctrl(fixture, '.chunk-info').textContent!;
       expect(info).toContain('1/2');
+      // Chunk 0 = the first 10 pick rows (06-03 is a marker, skipped) —
+      // the rendered start/end come from the rows, not the doc (#1402).
+      expect(info).toContain('2026-06-01 → 2026-06-11');
       expect(info).toContain('10 days');
       expect(info).toContain('9 unique');
     });

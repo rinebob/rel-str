@@ -375,6 +375,16 @@
           }
         </div>
 
+        @if (listStore.activeList()) {
+        <button
+          type="button"
+          class="ds-btn outline header-btn picker-reopen"
+          (click)="openListPicker()"
+        >
+          Picker — {{ listStore.selectedRows().length }}/{{ listStore.pickRows().length }} selected
+        </button>
+        }
+
         @if (catalogRows().length > 0) {
         <span class="header-sep">|</span>
         <div class="filter-pill-group">
@@ -479,11 +489,6 @@
           <span class="dse-icon">tune</span>
         </button>
       </div>
-
-      <app-list-mini-controls
-        (send)="emitSessionLines($event)"
-        (openPicker)="openListPicker()"
-      ></app-list-mini-controls>
 
       @if (chipContracts().length > 0) {
       <div class="plotted-chips-row">

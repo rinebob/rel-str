@@ -386,6 +386,8 @@ describe('OptionChartComponent — contract-list session wiring', () => {
       chunkSize: 10,
       cursor: 0,
       selectionKeys: [],
+      dowDays: [],
+      cadence: 'weekly',
     });
     getList$.mockReturnValue(of(null));
     component.ngOnInit();
@@ -544,7 +546,7 @@ describe('OptionChartComponent — contract-list session wiring', () => {
   });
 });
 
-describe('OptionChartComponent — chunk mini-controls', () => {
+describe('OptionChartComponent — session emit seam', () => {
   beforeEach(() => localStorage.clear());
 
   /** 25 picks → 3 chunks at the default size 10 (10/10/5). */
@@ -563,11 +565,10 @@ describe('OptionChartComponent — chunk mini-controls', () => {
     return rows;
   };
 
-  /** The strip's control behavior lives in
-   *  contract-list-mini-controls.component.spec.ts; these pin the page
-   *  seam: the child's `send` output lands in the textarea through the
-   *  same emit path the picker's onSend uses. */
-  it('mini-control send lines land in the textarea through the loadPlotted path', async () => {
+  /** emitSessionLines is the picker's onSend seam (#1363 strip removed
+   *  in #1402 — the seam survives; only the strip is gone): sent lines
+   *  land in the textarea through the same loadPlotted path. */
+  it('send lines land in the textarea through the loadPlotted path', async () => {
     const { component, store } = setup();
     component.ngOnInit();
 
@@ -625,7 +626,7 @@ describe('OptionChartComponent — chunk mini-controls', () => {
     loadMany(listStore);
     component.openListPicker();
 
-    listStore.setChunk(1);
+    listStore.step(1);
     listStore.selectAll();
     (dialog.openDialogs.at(-1) as MockDialogRef).close();
     dialog.open.mockClear();

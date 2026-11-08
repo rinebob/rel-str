@@ -18,12 +18,13 @@ import { firstValueFrom } from 'rxjs';
 
 import type { OptionsContractListUi } from '../backtest/common/options-replay.types';
 import { ContractListService } from '../services/contract-list.service';
+import { daysBetween } from '../../shared/utils/date.util';
 import { pickRowsOf, toPairLines } from '../utils/contract-list-emit.util';
 import {
   DEFAULT_CHUNK_SIZE,
   LIST_SESSION_VERSION,
+  type DowCadence,
   type ListSessionSettings,
-  clearListSession,
   readListSession,
   saveListSession,
 } from '../utils/contract-list-session-settings';
@@ -33,6 +34,11 @@ export type ListSessionStatus = 'idle' | 'loading' | 'ready' | 'error';
 export interface ContractListSessionState {
   /** Normalized uppercase symbol this session is scoped to. */
   symbol: string;
+  /** The persisted blob's docId — state, not derived from `activeList`,
+   *  so a pref write after a failed load can't clobber a preserved
+   *  session pointer (explicit-load failures keep the blob's docId by
+   *  design; only restore-failures null it via `fail(wipe=true)`). */
+  docId: string | null;
   activeList: OptionsContractListUi | null;
   /** Selected row keys — entryDates of pick rows. */
   selection: ReadonlySet<string>;
@@ -45,10 +51,15 @@ export interface ContractListSessionState {
    *  attempted handoff, not a committed plot: the page can still drop
    *  the load (cancelled >50 confirm, pending-confirm bail). */
   lastEmitted: string[];
+  /** Checked weekdays for the DOW preset — getUTCDay values 1–5 (#1402). */
+  dowDays: number[];
+  /** Cadence for the DOW preset (#1402). */
+  cadence: DowCadence;
 }
 
 const initialState: ContractListSessionState = {
   symbol: '',
+  docId: null,
   activeList: null,
   selection: new Set<string>(),
   chunkSize: DEFAULT_CHUNK_SIZE,
@@ -56,7 +67,24 @@ const initialState: ContractListSessionState = {
   status: 'idle',
   error: null,
   lastEmitted: [],
+  dowDays: [],
+  cadence: 'weekly',
 };
+
+// ---- DOW/cadence date math (#1402) -------------------------------------
+// entryDates are 'YYYY-MM-DD' — parse as UTC so the weekday/week-of-month
+// can't shift with the viewer's timezone.
+
+const utcMs = (entryDate: string): number =>
+  Date.UTC(+entryDate.slice(0, 4), +entryDate.slice(5, 7) - 1, +entryDate.slice(8, 10));
+
+/** getUTCDay of an entryDate — 0=Sun … 6=Sat; pick rows are trading
+ *  days so only 1–5 occur in practice. */
+const dowOf = (entryDate: string): number => new Date(utcMs(entryDate)).getUTCDay();
+
+/** Week-of-month block — days 1–7 = 1, 8–14 = 2, … Same-week-of-month
+ *  monthly cadence holds this index constant (#1402 decision). */
+const weekOfMonth = (entryDate: string): number => Math.ceil(+entryDate.slice(8, 10) / 7);
 
 /** Sequential groups of `size` pick rows — each row is one pick day. */
 const partition = <T>(rows: T[], size: number): T[][] => {
@@ -77,6 +105,10 @@ export interface ListChunkInfo {
   days: number;
   /** Distinct contractIds in the current chunk. */
   unique: number;
+  /** First/last pick dates of the current chunk — a partial last chunk
+   *  reports its own last pick, not the doc's lastDate (#1402). */
+  startDate: string | null;
+  endDate: string | null;
 }
 
 /** Named-error validation for a list doc — every unusable shape maps to
@@ -127,6 +159,8 @@ export const ContractListSessionStore = signalStore(
         total: list.length,
         days: new Set(cur.map((r) => r.entryDate)).size,
         unique: new Set(cur.map((r) => r.contractId)).size,
+        startDate: cur[0]?.entryDate ?? null,
+        endDate: cur[cur.length - 1]?.entryDate ?? null,
       };
     }),
     /** Step-bound predicates — both stepper surfaces disable on these
@@ -157,10 +191,12 @@ export const ContractListSessionStore = signalStore(
       if (!store.symbol()) return;
       saveListSession(store.symbol(), {
         version: LIST_SESSION_VERSION,
-        docId: store.activeList()?.listId ?? null,
+        docId: store.docId(),
         chunkSize: store.chunkSize(),
         cursor: store.chunkCursor(),
         selectionKeys: [...store.selection()],
+        dowDays: store.dowDays(),
+        cadence: store.cadence(),
       });
     };
 
@@ -171,6 +207,9 @@ export const ContractListSessionStore = signalStore(
       status: 'idle',
       error: null,
       lastEmitted: [],
+      // dowDays/cadence deliberately absent — like chunkSize they are
+      // prefs, not session data: a failed load must not uncheck the
+      // user's toggles. setSymbol resets them from the saved blob.
     });
 
     const setSelection = (keys: Iterable<string>): void => {
@@ -200,7 +239,22 @@ export const ContractListSessionStore = signalStore(
      *  load leaves the blob alone: a bad `?list=` link must not erase
      *  a prior session's saved docId/selection/cursor. */
     const fail = (message: string, wipePersisted: boolean): void => {
-      patchState(store, { ...emptySession(), status: 'error', error: message });
+      patchState(store, {
+        ...emptySession(),
+        // docId survives unless this is a restore-initiated wipe — an
+        // explicit failure must not sever the blob's session pointer
+        // (the "explicit failure leaves the blob alone" contract only
+        // works because persist() writes state.docId, not activeList).
+        // selection/chunkCursor are preserved too: the next pref write
+        // persists them back, so the blob keeps the whole prior session.
+        // Inert while activeList is null — applyList resets both on the
+        // next successful load.
+        ...(wipePersisted
+          ? { docId: null }
+          : { selection: store.selection(), chunkCursor: store.chunkCursor() }),
+        status: 'error',
+        error: message,
+      });
       if (wipePersisted) persist();
     };
 
@@ -236,6 +290,7 @@ export const ContractListSessionStore = signalStore(
       const chunkCount = Math.ceil(dates.length / size);
       patchState(store, {
         activeList: doc,
+        docId: doc.listId,
         // Fresh lists open EMPTY (#1420 UAT) — the picker is a workspace:
         // nothing is checked until the user selects, so Send can never
         // fire a payload the user didn't choose. Restored sessions keep
@@ -282,20 +337,30 @@ export const ContractListSessionStore = signalStore(
         if (sym === store.symbol()) return;
         loadSeq++;
         const saved = readListSession(sym);
+        // emptySession() first, then the saved blob's prefs — dowDays/
+        // cadence aren't session data, so they come from `saved`
+        // (tolerant read → defaults on a missing blob), not from the
+        // empty-session patch (#1402).
         patchState(store, {
-          symbol: sym,
-          chunkSize: saved.chunkSize,
           ...emptySession(),
+          symbol: sym,
+          docId: saved.docId,
+          chunkSize: saved.chunkSize,
+          dowDays: saved.dowDays,
+          cadence: saved.cadence,
         });
         if (saved.docId) {
           void doLoadList(saved.docId, saved);
         }
       },
 
-      /** Fetch a list doc into the session. Missing / non-success /
-       *  unmetas / empty docs each land on a named error — the chart is
-       *  never touched (send* is the only emit path). `restore` applies
-       *  saved keys/cursor/chunkSize; a fresh load selects nothing. */
+      /** Fetch a list doc into the session by id — the fetch-by-id entry
+       *  point (specs exercise doLoadList through it; production loads go
+       *  through `loadListDoc` after the page's pre-read). Missing /
+       *  non-success / unmetas / empty docs each land on a named error —
+       *  the chart is never touched (send* is the only emit path).
+       *  `restore` applies saved keys/cursor/chunkSize; a fresh load
+       *  selects nothing. */
       loadList: doLoadList,
 
       /** Load an already-read doc (the page reads once for its symbol
@@ -373,7 +438,9 @@ export const ContractListSessionStore = signalStore(
         // Snapshot the bound — splice drains pool mid-loop.
         const count = Math.min(Math.max(0, Math.floor(n)), pool.length);
         for (let i = 0; i < count; i++) {
-          picked.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
+          // Clamp — an injected rng() === 1 must not splice undefined.
+          const i0 = Math.min(Math.floor(rng() * pool.length), pool.length - 1);
+          picked.push(pool.splice(i0, 1)[0]);
         }
         setSelection(picked);
       },
@@ -395,6 +462,57 @@ export const ContractListSessionStore = signalStore(
         setSelection(
           store.pickRows()
             .filter((r) => r.contractId.toLowerCase().includes(needle))
+            .map((r) => r.entryDate),
+        );
+      },
+
+      /** DOW preset prefs — persisted, but they don't touch the
+       *  selection until `applyDowPreset` runs (#1402). */
+      setDowDays(days: number[]): void {
+        const clean = [
+          ...new Set(days.filter((d) => Number.isInteger(d) && d >= 1 && d <= 5)),
+        ].sort((a, b) => a - b);
+        patchState(store, { dowDays: clean });
+        persist();
+      },
+
+      setCadence(c: DowCadence): void {
+        patchState(store, { cadence: c });
+        persist();
+      },
+
+      /** Replace the selection with pick rows matching the checked
+       *  weekdays at the current cadence — same replace semantics as
+       *  the other toolbar ops, so manual toggles compose on top
+       *  afterwards (#1402). Cadences: weekly = every matching weekday;
+       *  biweekly = alternating 7-day blocks starting at the first pick
+       *  row (a Mon–Sun week when the anchor is a Monday); monthly =
+       *  the same week-of-month block (ceil(day/7)). Both anchors
+       *  derive from the first pick row, not the checked days, so the
+       *  cadence grid is stable as toggles change. Empty weekday set
+       *  is a no-op, not a wipe. */
+      applyDowPreset(): void {
+        const dows = new Set(store.dowDays());
+        const rows = store.pickRows();
+        const anchor = rows[0]?.entryDate;
+        if (dows.size === 0 || !anchor) return;
+        const anchorWom = weekOfMonth(anchor);
+        const cadence = store.cadence();
+        setSelection(
+          rows
+            .filter((r) => {
+              if (!dows.has(dowOf(r.entryDate))) return false;
+              if (cadence === 'biweekly') {
+                // Anchor-relative blocks — NOT epoch weeks: an epoch-
+                // anchored boundary (Thursday) splits the anchor's own
+                // calendar week for multi-weekday sets (#1402 review).
+                return Math.floor(daysBetween(anchor, r.entryDate) / 7) % 2 === 0;
+              }
+              if (cadence === 'monthly') {
+                return weekOfMonth(r.entryDate) === anchorWom;
+              }
+              return true;
+            })
             .map((r) => r.entryDate),
         );
       },
@@ -434,14 +552,6 @@ export const ContractListSessionStore = signalStore(
         return emitSelected();
       },
 
-      /** Select every pick day then emit — the All action's
-       *  select-then-emit ordering lives here once, not at each
-       *  All-button call site. */
-      sendAll(): string[] {
-        setSelection(pickDates());
-        return emitSelected();
-      },
-
       /** Move the chunk cursor — navigation only, never emits and does
        *  not touch `selection` (Add chunk is the selection op; Send
        *  applies it). The #1363 move-then-emit protocol was replaced by
@@ -452,18 +562,6 @@ export const ContractListSessionStore = signalStore(
         moveCursorTo(store.chunkCursor() + Math.sign(dir));
       },
 
-      /** Jump the chunk cursor to an index — navigation only. */
-      setChunk(i: number): void {
-        if (!Number.isFinite(i)) return;
-        moveCursorTo(i);
-      },
-
-      /** Drop the session and the symbol's persisted blob. */
-      clear(): void {
-        loadSeq++;
-        clearListSession(store.symbol());
-        patchState(store, { ...emptySession(), chunkSize: DEFAULT_CHUNK_SIZE });
-      },
     };
   }),
 );

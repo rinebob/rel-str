@@ -18,8 +18,16 @@ export const LIST_SESSION_VERSION = 1;
 export const DEFAULT_CHUNK_SIZE = 10;
 
 /** Chunk-size choices offered by both chunk UI surfaces (picker tab,
- *  page mini-controls) — kept next to the default so they can't drift. */
+ *  picker chunk tab) — kept next to the default so they can't drift. */
 export const CHUNK_SIZE_OPTIONS = [5, 10, 20, 50] as const;
+
+/** Weekday-cadence choices for the DOW selection preset (#1402):
+ *  `weekly` = every matching weekday; `biweekly` = alternating 7-day
+ *  blocks starting at the first pick row; `monthly` = the same
+ *  week-of-month block (ceil(day/7)) as the first pick row. */
+export type DowCadence = 'weekly' | 'biweekly' | 'monthly';
+
+export const DOW_CADENCES: readonly DowCadence[] = ['weekly', 'biweekly', 'monthly'];
 
 export interface ListSessionSettings {
   version: number;
@@ -30,6 +38,10 @@ export interface ListSessionSettings {
   cursor: number;
   /** Selected row keys (entryDates). */
   selectionKeys: string[];
+  /** Checked weekdays for the DOW preset — getUTCDay values 1–5. */
+  dowDays: number[];
+  /** Cadence for the DOW preset. */
+  cadence: DowCadence;
 }
 
 export function defaultListSessionSettings(): ListSessionSettings {
@@ -39,6 +51,8 @@ export function defaultListSessionSettings(): ListSessionSettings {
     chunkSize: DEFAULT_CHUNK_SIZE,
     cursor: 0,
     selectionKeys: [],
+    dowDays: [],
+    cadence: 'weekly',
   };
 }
 
@@ -54,6 +68,14 @@ const cursor = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : undefined;
 const strList = (v: unknown): string[] | undefined =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : undefined;
+const dowDays = (v: unknown): number[] | undefined =>
+  Array.isArray(v)
+    ? [...new Set(v.filter((x): x is number => Number.isInteger(x) && x >= 1 && x <= 5))].sort(
+        (a, b) => a - b,
+      )
+    : undefined;
+const cadence = (v: unknown): DowCadence | undefined =>
+  DOW_CADENCES.includes(v as DowCadence) ? (v as DowCadence) : undefined;
 
 /** Parse + validate a stored blob. Never throws — unusable → defaults. */
 export function loadListSessionSettings(raw: string | null): ListSessionSettings {
@@ -72,6 +94,8 @@ export function loadListSessionSettings(raw: string | null): ListSessionSettings
     chunkSize: chunkSize(blob['chunkSize']) ?? defaults.chunkSize,
     cursor: cursor(blob['cursor']) ?? defaults.cursor,
     selectionKeys: strList(blob['selectionKeys']) ?? defaults.selectionKeys,
+    dowDays: dowDays(blob['dowDays']) ?? defaults.dowDays,
+    cadence: cadence(blob['cadence']) ?? defaults.cadence,
   };
 }
 
