@@ -74,12 +74,22 @@
       />
       Log Y
     </label>
+    <label class="field"
+      title="Compute Trigger Bands client-side (dev port) — no callable request; works on synthetic bars and monthly/2D">
+      <input
+        type="checkbox"
+        data-testid="tb-local-toggle"
+        [checked]="localTb()"
+        (change)="onLocalTbToggle($event)"
+      />
+      TB local
+    </label>
     <label class="field">
       <input
         type="checkbox"
         data-testid="tb-dots-toggle"
         [checked]="triggerBandsDots()"
-        [disabled]="dataMode() === 'synthetic' || !enabledIndicators().has(tbIndicatorId)"
+        [disabled]="(dataMode() === 'synthetic' && !localTb()) || !enabledIndicators().has(tbIndicatorId)"
         (change)="onTriggerBandsDotsToggle($event)"
       />
       TB dots
@@ -103,7 +113,7 @@
               type="checkbox"
               [attr.data-testid]="'ind-' + o.id"
               [checked]="enabledIndicators().has(o.id)"
-              [disabled]="dataMode() === 'synthetic' && callableOnlyOptionIds.has(o.id)"
+              [disabled]="dataMode() === 'synthetic' && callableOnlyOptionIds.has(o.id) && !(localTb() && o.id === tbIndicatorId)"
               (change)="toggleIndicator(o.id, $event)"
             />
             {{ o.label }}

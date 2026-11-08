@@ -86,6 +86,7 @@ import {
   type SandboxDataMode,
   type SandboxSettings,
 } from './sandbox-settings';
+import { computeTriggerBandsIntervalData } from './trigger-bands-local';
 
 /** Sentinel — clamped to the loaded bar count, so "all of history". */
 const SHOW_ALL_BARS = 1_000_000;
@@ -147,6 +148,11 @@ export class FlexChartSandboxComponent implements OnDestroy {
    *  to check the dots themselves. On prod surfaces the dots are a separate
    *  menu option (ST Trigger Bands Signals); here they stay a debug toggle. */
   readonly triggerBandsDots = signal(this.stored.triggerBandsDots);
+  /** Dev toggle: compute Trigger Bands client-side from the loaded bars via
+   *  the local port (./trigger-bands-local) — no callable request, works in
+   *  synthetic mode and on monthly/TWO_DAY where the lean request can't go.
+   *  Not persisted: a session-scoped iteration aid, not a sandbox setting. */
+  readonly localTb = signal(false);
   readonly tbIndicatorId = ST_TRIGGER_BANDS_INDICATOR.id;
   readonly debugState = signal<ChartDebugSnapshot>({ viewport: null, axis: null, logTicks: [] });
 
@@ -279,9 +285,11 @@ export class FlexChartSandboxComponent implements OnDestroy {
 
   /** Opt-in gate for the lean request — real mode + a drawn interval only
    *  (generated bars have no backend response to draw from; the lean request
-   *  is daily+weekly only, so monthly would fetch data nothing renders). */
+   *  is daily+weekly only, so monthly would fetch data nothing renders).
+   *  Off while `localTb` computes client-side. */
   private readonly triggerBandsEnabled = computed(
     () =>
+      !this.localTb() &&
       this.dataMode() !== 'synthetic' &&
       (this.interval() === ChartIntervalKey.DAILY ||
         this.interval() === ChartIntervalKey.WEEKLY) &&
@@ -303,6 +311,13 @@ export class FlexChartSandboxComponent implements OnDestroy {
   private readonly tbDaily = computed(() => this.triggerBandsResponse()?.intervals?.daily);
   private readonly tbWeekly = computed(() => this.triggerBandsResponse()?.intervals?.weekly);
 
+  /** Client-side TB data (dev iteration path) — computed on the full bar
+   *  history so the state machine sees the same path the callable does;
+   *  off-window points are dropped by the existing date-mapped injection. */
+  private readonly localTbData = computed(() =>
+    this.localTb() ? computeTriggerBandsIntervalData(this.chartData()?.bars ?? []) : undefined,
+  );
+
   /** Backend signal dots / Trend Rider dots, converted by the shared helper. */
   private readonly extras = createExtrasSignals(this.dailyIntervalData, this.weeklyIntervalData);
 
@@ -311,14 +326,17 @@ export class FlexChartSandboxComponent implements OnDestroy {
     const interval = this.interval();
     const has = (id: string) => enabled.has(id);
     // Trigger Bands merge: bands ride on the config's triggerBandData; the
-    // pullback/breakout dots come from the same lean response. Monthly is not
-    // in the lean request, so the toggle draws nothing on M.
+    // pullback/breakout dots come from the same source (lean response, or
+    // the client-side port when `localTb` is on — which also works on
+    // monthly/TWO_DAY and synthetic bars where the request can't go).
     const tbData = has(ST_TRIGGER_BANDS_INDICATOR.id)
-      ? interval === ChartIntervalKey.DAILY
-        ? this.tbDaily()
-        : interval === ChartIntervalKey.WEEKLY
-          ? this.tbWeekly()
-          : undefined
+      ? this.localTb()
+        ? this.localTbData()
+        : interval === ChartIntervalKey.DAILY
+          ? this.tbDaily()
+          : interval === ChartIntervalKey.WEEKLY
+            ? this.tbWeekly()
+            : undefined
       : undefined;
     const tbDots = tbData && this.triggerBandsDots() ? convertTriggerBandsDotMarkers(tbData) : undefined;
     const overrides = this.paramOverrides();
@@ -353,8 +371,11 @@ export class FlexChartSandboxComponent implements OnDestroy {
                 // computed locally on the aggregated bars.
                 uptickDotsV1: has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.twoDayUptickDotsV1() : undefined,
                 uptickDotsV2: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.twoDayUptickDotsV2() : undefined,
+                triggerBandsDots: tbDots,
               })
-            : base;
+            : interval === ChartIntervalKey.MONTHLY
+              ? addChartExtras(base, { triggerBandsDots: tbDots })
+              : base;
     return {
       indicators,
       showCrosshair: true,
@@ -497,6 +518,10 @@ export class FlexChartSandboxComponent implements OnDestroy {
 
   onTriggerBandsDotsToggle(event: Event): void {
     this.triggerBandsDots.set((event.target as HTMLInputElement).checked);
+  }
+
+  onLocalTbToggle(event: Event): void {
+    this.localTb.set((event.target as HTMLInputElement).checked);
   }
 
   toggleIndicator(id: string, event: Event): void {
