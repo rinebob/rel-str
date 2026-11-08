@@ -2,6 +2,10 @@
 
 ## [2026-11-07]
 
+### Added
+- [Portfolio Dashboard] 219-1413_FE-IMPL-PORTFOLIO: Peak Since Entry derivation — per-symbol paginated fills walk (round-batched, cursor-aware) + day-bar get_equity_historicals in the store's positionPeaks section; never gates first paint, peaks land after positions
+- [Portfolio Dashboard] 219-1413_DOCS-PORTFOLIO: #1413 code-review (PASS, 2 rounds) + UAT (Complete, #1446) + changelog
+
 ### Changed
 - [Misc Fixes] 300-1448_FE-IMPL-SAVANT-TRADER: header avatar — initials circle replaces the name/email label in the same right-cluster slot, ds-menu dropdown (Account → /portfolio, Logout), accent text+border, standalone Logout removed, even 10px spacing across the cluster
 - [Misc Fixes] 300-1448_DOCS-SAVANT-TRADER: #1448 code-review (PASS, 1 round) + UAT (Complete, #1449) + changelog
