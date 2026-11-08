@@ -7,6 +7,8 @@
 - [Option Contract Time-Series Viewer] 1243-1402_DOCS-OPTIONS: #1402 code-review (PASS, 2 rounds) + UAT (Complete, #1445) + changelog
 - [Portfolio Dashboard] 219-1413_FE-IMPL-PORTFOLIO: Peak Since Entry derivation — per-symbol paginated fills walk (round-batched, cursor-aware) + day-bar get_equity_historicals in the store's positionPeaks section; never gates first paint, peaks land after positions
 - [Portfolio Dashboard] 219-1413_DOCS-PORTFOLIO: #1413 code-review (PASS, 2 rounds) + UAT (Complete, #1446) + changelog
+- [Portfolio Dashboard] 219-1414_FE-IMPL-PORTFOLIO: positions-table stop surfacing — Stop/Dist + Peak/Retr% two-line columns, UNPROTECTED marker, type·qty·TIF·age tooltip; protectiveStopsBySymbol derivation + computeProtectedSymbols long-only fix
+- [Portfolio Dashboard] 219-1414_DOCS-PORTFOLIO: #1414 code-review (PASS, 2 rounds) + UAT (Complete, #1450) + changelog
 
 ### Changed
 - [Misc Fixes] 300-1448_FE-IMPL-SAVANT-TRADER: header avatar — initials circle replaces the name/email label in the same right-cluster slot, ds-menu dropdown (Account → /portfolio, Logout), accent text+border, standalone Logout removed, even 10px spacing across the cluster
