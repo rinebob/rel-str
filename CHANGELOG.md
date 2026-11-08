@@ -6,6 +6,11 @@
 - [Misc Fixes] 300-1448_FE-IMPL-SAVANT-TRADER: header avatar — initials circle replaces the name/email label in the same right-cluster slot, ds-menu dropdown (Account → /portfolio, Logout), accent text+border, standalone Logout removed, even 10px spacing across the cluster
 - [Misc Fixes] 300-1448_DOCS-SAVANT-TRADER: #1448 code-review (PASS, 1 round) + UAT (Complete, #1449) + changelog
 
+### Fixed
+- [Options Backtest] 1238-1437_BE-BUG-BACKTEST: optionsReplayStart/optionsReplayRetry/optionsAnalysisStart now reject unauthenticated calls — request.auth?.uid guard as the first statement of each testable core (public-invoker callables were accepting anonymous billed work)
+- [Options Backtest] 1238-1437_BE-CHORE-BACKTEST: options-auth-guard-1437 live auth-boundary probe + README/run-all registration
+- [Options Backtest] 1238-1437_DOCS-BACKTEST: #1437 code-review (PASS, 2 rounds) + UAT (Complete, #1447) + changelog
+
 ## [2026-11-06]
 
 ### Added
