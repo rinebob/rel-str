@@ -32,16 +32,28 @@ method rbDonchianChannels(series float src_open, series float src_high, series f
 
     // upper = ta.highest(high, length)
     // lower = ta.lowest(low, length)
-    upper = ta.highest(highToUse, length)
-    lower = ta.lowest(lowToUse, length)
+    // Bands are na until the window fills (engine parity: TS emits nulls
+    // for the first length-1 bars, so no flags/expansions can fire early).
+    upper = bar_index >= length - 1 ? ta.highest(highToUse, length) : float(na)
+    lower = bar_index >= length - 1 ? ta.lowest(lowToUse, length) : float(na)
     midpoint = math.avg(upper, lower)
 
     // // Pullbacks and breakouts
+    // Arming is expansion-gated (engine parity): a pause may only ARM once
+    // the band has expanded since the last breakout — the flat bar right
+    // after a breakout is not a fresh setup. The flag still fires either
+    // way; the gate only decides which episodes can resolve into a breakout.
+    // Warm-up: bands are na until the window fills, and on the FIRST
+    // completed window the [1] band is still na — so every band
+    // comparison is wrapped in nz() to keep flags/states bool-false
+    // during warm-up exactly like the engine's null comparisons.
     series bool longPullback = false
     series bool longPullbackState = false
-    longPullback := upper <= upper[1]
-    longBreakout = upper[2] >= upper[1] and ta.crossover(bodyHigh, upper[1]) and longPullbackState[1] == true
-    longPullbackState := longPullback ? true : longBreakout ? false : longPullbackState[1]
+    series bool longExpanded = false
+    longPullback := nz(upper <= upper[1], false)
+    longBreakout = nz(upper[2] >= upper[1], false) and ta.crossover(bodyHigh, upper[1]) and nz(longPullbackState[1], false)
+    longExpanded := longBreakout ? false : nz(upper > upper[1], false) ? true : nz(longExpanded[1], false)
+    longPullbackState := longBreakout ? false : longPullback and longExpanded ? true : nz(longPullbackState[1], false)
 
 
 
@@ -54,9 +66,11 @@ method rbDonchianChannels(series float src_open, series float src_high, series f
 
     series bool shortPullback = false
     series bool shortPullbackState = false
-    shortPullback := lower >= lower[1]
-    shortBreakout = lower[2] <= lower[1] and ta.crossunder(bodyLow, lower[1]) and shortPullbackState[1] == true
-    shortPullbackState := shortPullback ? true : shortBreakout ? false : shortPullbackState[1]
+    series bool shortExpanded = false
+    shortPullback := nz(lower >= lower[1], false)
+    shortBreakout = nz(lower[2] <= lower[1], false) and ta.crossunder(bodyLow, lower[1]) and nz(shortPullbackState[1], false)
+    shortExpanded := shortBreakout ? false : nz(lower < lower[1], false) ? true : nz(shortExpanded[1], false)
+    shortPullbackState := shortBreakout ? false : shortPullback and shortExpanded ? true : nz(shortPullbackState[1], false)
 
     // series bool shortRetrace = false
     // series bool shortRetraceState = false

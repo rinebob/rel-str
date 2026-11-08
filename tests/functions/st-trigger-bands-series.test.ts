@@ -12,6 +12,7 @@ import {
   ChartInterval,
   IndicatorFamily,
   StrategyFamily,
+  computeATR,
   computeIndicatorSeries,
   computeSymbolIndicatorSeries,
 } from '../../functions/src/st-cloud-function/indicator-computation';
@@ -44,8 +45,30 @@ function waveBars(n: number): OhlcBar[] {
 }
 
 // Engine golden fixture (see st-trigger-bands.test.ts): bodies [10,11,12,11,10,9,12]
-//   long pullback t3,t4,t5 · long breakout t6 · short pullback t3,t6 · short breakout t4
+//   long pullback flags t3..t5 (never armed — no prior expansion), no breakouts;
+//   short pullback flags t3,t6, short state arms at t6 (band fell at t4/t5).
 const GOLDEN = flatBars([10, 11, 12, 11, 10, 9, 12]);
+
+/** Bars with body low pinned at 10 (open=10, close=bodyHigh) — lower band
+ *  stays flat so the short side never expands; mirrors the engine CANONICAL.
+ *  upper = [-,-,14,14,15,15,18,18,19,19] · long breakout at t6 only. */
+function pbBars(bodyHighs: number[]): OhlcBar[] {
+  return bodyHighs.map((bh, i) => ({
+    d: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10),
+    o: 10, h: bh + 1, l: 9, c: bh, v: 1000,
+  }));
+}
+const CANONICAL = pbBars([12, 13, 14, 13, 15, 13, 18, 16, 19, 17]);
+
+/** Mirror of pbBars — body high pinned at 20, body low varies. Short
+ *  breakout at t6 only. */
+function mbBars(bodyLows: number[]): OhlcBar[] {
+  return bodyLows.map((bl, i) => ({
+    d: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10),
+    o: 20, h: 21, l: bl - 1, c: bl, v: 1000,
+  }));
+}
+const CANONICAL_SHORT = mbBars([18, 17, 16, 17, 15, 17, 12, 14, 11, 13]);
 
 const compute = (daily: OhlcBar[], weekly = daily, monthly = daily) =>
   computeSymbolIndicatorSeries('TEST', daily, weekly, monthly);
@@ -77,11 +100,11 @@ describe('indicators.triggerBands', () => {
     assert.deepEqual(pts.map((p) => p.upper), [null, null, 12, 12, 12, 11, 12]);
     assert.deepEqual(pts.map((p) => p.lower), [null, null, 10, 11, 10, 9, 9]);
     assert.deepEqual(pts.map((p) => p.longPullback), [false, false, false, true, true, true, false]);
-    assert.deepEqual(pts.map((p) => p.longPullbackState), [false, false, false, true, true, true, false]);
-    assert.deepEqual(pts.map((p) => p.longBreakout), [false, false, false, false, false, false, true]);
+    assert.deepEqual(pts.map((p) => p.longPullbackState), [false, false, false, false, false, false, false]);
+    assert.deepEqual(pts.map((p) => p.longBreakout), [false, false, false, false, false, false, false]);
     assert.deepEqual(pts.map((p) => p.shortPullback), [false, false, false, true, false, false, true]);
-    assert.deepEqual(pts.map((p) => p.shortPullbackState), [false, false, false, true, false, false, true]);
-    assert.deepEqual(pts.map((p) => p.shortBreakout), [false, false, false, false, true, false, false]);
+    assert.deepEqual(pts.map((p) => p.shortPullbackState), [false, false, false, false, false, false, true]);
+    assert.deepEqual(pts.map((p) => p.shortBreakout), [false, false, false, false, false, false, false]);
   });
 
   it('maps non-finite bands to null', () => {
@@ -111,40 +134,64 @@ describe('indicators.triggerBands', () => {
 // ─── Dot markers ──────────────────────────────────────────────────────────
 
 describe('dotMarkers.triggerBands', () => {
-  const dots = () => compute(GOLDEN).intervals.daily!.dotMarkers!.triggerBands!;
-  const of = (signalType: string) => dots().filter((m) => m.signalType === signalType);
+  const dots = (bars = CANONICAL) => compute(bars).intervals.daily!.dotMarkers!.triggerBands!;
+  const of = (signalType: string, bars = CANONICAL) => dots(bars).filter((m) => m.signalType === signalType);
 
-  it('emits a dot per breakout bar and per ARMED pullback bar (state stays lit until breakout), tagged version TB', () => {
-    // Golden fixture: long pullback state t3-t5 (clears on the t6 breakout) →
-    // dots on all three bars; short state t3 and t6 (t4 breakout cleared it).
-    assert.equal(dots().length, 1 + 1 + 3 + 2);
+  it('emits a dot per breakout bar only — pullback warnings are band colors, tagged version TB', () => {
+    // CANONICAL: one long breakout at t6; the pullback flags produce NO dots.
+    assert.equal(dots().length, 1);
     assert.ok(dots().every((m) => m.version === 'TB'));
     assert.deepEqual(of('TRIGGER_BANDS_LONG_BREAKOUT').map((m) => m.index), [6]);
-    assert.deepEqual(of('TRIGGER_BANDS_SHORT_BREAKOUT').map((m) => m.index), [4]);
-    assert.deepEqual(of('TRIGGER_BANDS_LONG_PULLBACK').map((m) => m.index), [3, 4, 5]);
-    assert.deepEqual(of('TRIGGER_BANDS_SHORT_PULLBACK').map((m) => m.index), [3, 6]);
+    assert.deepEqual(of('TRIGGER_BANDS_LONG_PULLBACK'), []);
+    // Mirror fixture: one short breakout at t6.
+    assert.deepEqual(of('TRIGGER_BANDS_SHORT_BREAKOUT', CANONICAL_SHORT).map((m) => m.index), [6]);
+    assert.deepEqual(of('TRIGGER_BANDS_SHORT_PULLBACK', CANONICAL_SHORT), []);
   });
 
-  it('long dots sit below the bar low and short dots above the bar high', () => {
+  it('long dots sit below the lower band and short dots above the upper band', () => {
+    const pts = compute(CANONICAL).intervals.daily!.indicators.triggerBands!;
     for (const m of dots()) {
-      const bar = GOLDEN[m.index];
-      if (m.direction === 'long') assert.ok(m.y < bar.l, `${m.signalType}@${m.index} y=${m.y}`);
-      else assert.ok(m.y > bar.h, `${m.signalType}@${m.index} y=${m.y}`);
+      const p = pts[m.index];
+      if (m.direction === 'long') assert.ok(m.y < p.lower!, `${m.signalType}@${m.index} y=${m.y}`);
+      else assert.ok(m.y > p.upper!, `${m.signalType}@${m.index} y=${m.y}`);
+    }
+    const spts = compute(CANONICAL_SHORT).intervals.daily!.indicators.triggerBands!;
+    for (const m of dots(CANONICAL_SHORT)) {
+      assert.ok(m.direction === 'short' && m.y > spts[m.index].upper!, `${m.signalType}@${m.index}`);
+    }
+  });
+
+  it('pins the exact anchor: y = band ∓ 1.5×ATR (not wick-anchored)', () => {
+    const atr = computeATR(CANONICAL);
+    const pts = compute(CANONICAL).intervals.daily!.indicators.triggerBands!;
+    for (const m of dots()) {
+      const expected = pts[m.index].lower! - 1.5 * atr[m.index];
+      assert.ok(Math.abs(m.y - expected) < 1e-9, `y=${m.y} expected≈${expected}`);
+      // The old wick anchor (bar.l - offset) would land ~1pt lower — excluded.
+      assert.notEqual(m.y, CANONICAL[m.index].l - 1.5 * atr[m.index]);
+    }
+    const satr = computeATR(CANONICAL_SHORT);
+    const spts = compute(CANONICAL_SHORT).intervals.daily!.indicators.triggerBands!;
+    for (const m of dots(CANONICAL_SHORT)) {
+      const expected = spts[m.index].upper! + 1.5 * satr[m.index];
+      assert.ok(Math.abs(m.y - expected) < 1e-9, `y=${m.y} expected≈${expected}`);
     }
   });
 
   it('direction follows the side, d follows the bar date', () => {
-    for (const m of of('TRIGGER_BANDS_LONG_BREAKOUT').concat(of('TRIGGER_BANDS_LONG_PULLBACK'))) {
+    for (const m of dots()) {
       assert.equal(m.direction, 'long');
-      assert.equal(m.d, GOLDEN[m.index].d);
+      assert.equal(m.d, CANONICAL[m.index].d);
     }
-    for (const m of of('TRIGGER_BANDS_SHORT_BREAKOUT').concat(of('TRIGGER_BANDS_SHORT_PULLBACK'))) {
+    for (const m of dots(CANONICAL_SHORT)) {
       assert.equal(m.direction, 'short');
+      assert.equal(m.d, CANONICAL_SHORT[m.index].d);
     }
   });
 
-  it('is empty for fewer than 3 bars', () => {
+  it('is empty for fewer than 3 bars, or when no breakout fired (GOLDEN)', () => {
     assert.deepEqual(compute(flatBars([10, 11])).intervals.daily!.dotMarkers!.triggerBands, []);
+    assert.deepEqual(compute(GOLDEN).intervals.daily!.dotMarkers!.triggerBands, []);
   });
 });
 

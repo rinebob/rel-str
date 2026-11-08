@@ -26,7 +26,9 @@ function check(label: string, condition: boolean): void {
   console.log(`  ${condition ? 'PASS' : 'FAIL'} ${label}`);
 }
 
-/** Naive reference: recomputes every flag straight from the PRD definitions. */
+/** Naive reference: recomputes every flag straight from the PRD definitions
+ *  plus the expansion-gated arming rule — a pullback episode may only arm
+ *  once the band has expanded since the last breakout. */
 function reference(bars: OHLCV[]) {
   const n = bars.length;
   const bh = bars.map((b) => Math.max(b.open, b.close));
@@ -35,6 +37,8 @@ function reference(bars: OHLCV[]) {
   const lo = (t: number) => (t >= 2 ? Math.min(bl[t], bl[t - 1], bl[t - 2]) : undefined);
   const lPull: boolean[] = [], lState: boolean[] = [], lBrk: boolean[] = [];
   const sPull: boolean[] = [], sState: boolean[] = [], sBrk: boolean[] = [];
+  let lExp = false;
+  let sExp = false;
   for (let t = 0; t < n; t++) {
     const [u, u1, u2] = [up(t), up(t - 1), up(t - 2)];
     const [l, l1, l2] = [lo(t), lo(t - 1), lo(t - 2)];
@@ -42,12 +46,16 @@ function reference(bars: OHLCV[]) {
     lBrk[t] =
       u1 !== undefined && u2 !== undefined && u2 >= u1 &&
       bh[t] > u1 && bh[t - 1] <= u2 && !!lState[t - 1];
-    lState[t] = lPull[t] ? true : lBrk[t] ? false : !!lState[t - 1];
+    if (lBrk[t]) lExp = false;
+    else if (u !== undefined && u1 !== undefined && u > u1) lExp = true;
+    lState[t] = lBrk[t] ? false : lPull[t] && lExp ? true : !!lState[t - 1];
     sPull[t] = l !== undefined && l1 !== undefined && l >= l1;
     sBrk[t] =
       l1 !== undefined && l2 !== undefined && l2 <= l1 &&
       bl[t] < l1 && bl[t - 1] >= l2 && !!sState[t - 1];
-    sState[t] = sPull[t] ? true : sBrk[t] ? false : !!sState[t - 1];
+    if (sBrk[t]) sExp = false;
+    else if (l !== undefined && l1 !== undefined && l < l1) sExp = true;
+    sState[t] = sBrk[t] ? false : sPull[t] && sExp ? true : !!sState[t - 1];
   }
   return { lPull, lState, lBrk, sPull, sState, sBrk };
 }
@@ -93,6 +101,10 @@ async function main(): Promise<void> {
   check('every breakout follows an armed state (long)', r.longBreakout.every((b, i) => !b || (i > 0 && r.longPullbackState[i - 1])));
   check('every breakout follows an armed state (short)', r.shortBreakout.every((b, i) => !b || (i > 0 && r.shortPullbackState[i - 1])));
   check('state is off on a breakout bar', r.longBreakout.every((b, i) => !b || !r.longPullbackState[i]) && r.shortBreakout.every((b, i) => !b || !r.shortPullbackState[i]));
+  // The expansion gate: a pause cannot arm the bar after a breakout — the
+  // state only re-arms once the band expands again.
+  check('no re-arm on the bar after a breakout (long)', r.longBreakout.every((b, i) => !b || i + 1 >= n || !r.longPullbackState[i + 1]));
+  check('no re-arm on the bar after a breakout (short)', r.shortBreakout.every((b, i) => !b || i + 1 >= n || !r.shortPullbackState[i + 1]));
 
   console.log('\nCounts');
   console.log(`  bars ${n} | long pullback ${count(r.longPullback)} breakout ${count(r.longBreakout)} | short pullback ${count(r.shortPullback)} breakout ${count(r.shortBreakout)}`);

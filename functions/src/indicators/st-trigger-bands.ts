@@ -3,8 +3,14 @@
  *
  * Donchian channels over candle BODIES (length 3) plus a per-side
  * pullback / breakout state machine. A pullback (the band on one side stops
- * expanding) arms a setup; a breakout (the body crosses the prior band) is
- * the entry trigger. Ported from rb-st-trigger-bands.pine.
+ * expanding) can arm a setup; a breakout (the body crosses the prior band)
+ * is the entry trigger. Ported from rb-st-trigger-bands.pine.
+ *
+ * Arming is expansion-gated: a pause may only arm the state once the band
+ * has expanded since the last breakout — the very next flat bar after a
+ * breakout is not a fresh setup. A pause still flags (and colours the band)
+ * either way; the gate only decides which episodes can resolve into a
+ * breakout.
  *
  * All computation is pure math on OHLCV arrays. No external dependencies.
  */
@@ -60,6 +66,12 @@ export function computeStTriggerBands(bars: OHLCV[]): StTriggerBandsResult {
     a !== null && b !== null && op(a, b);
   const at = (arr: (number | null)[], i: number): number | null => (i >= 0 ? arr[i] : null);
 
+  // Expansion latches for the arming gate — reset on each side's breakout,
+  // set when the band next expands (the breakout bar's own expansion does
+  // not count: the reset is checked first).
+  let longExpanded = false;
+  let shortExpanded = false;
+
   for (let t = 0; t < n; t++) {
     const up = upper[t];
     const up1 = at(upper, t - 1);
@@ -74,10 +86,12 @@ export function computeStTriggerBands(bars: OHLCV[]): StTriggerBandsResult {
       cmp(bodyHigh[t], up1, (x, y) => x > y) &&
       t > 0 && cmp(bodyHigh[t - 1], up2, (x, y) => x <= y);
     longBreakout[t] = cmp(up2, up1, (x, y) => x >= y) && crossUp && t > 0 && longPullbackState[t - 1];
-    longPullbackState[t] = longPullback[t]
-      ? true
-      : longBreakout[t]
-        ? false
+    if (longBreakout[t]) longExpanded = false;
+    else if (cmp(up, up1, (x, y) => x > y)) longExpanded = true;
+    longPullbackState[t] = longBreakout[t]
+      ? false
+      : longPullback[t] && longExpanded
+        ? true
         : t > 0 && longPullbackState[t - 1];
 
     shortPullback[t] = cmp(lo, lo1, (x, y) => x >= y);
@@ -86,10 +100,12 @@ export function computeStTriggerBands(bars: OHLCV[]): StTriggerBandsResult {
       cmp(bodyLow[t], lo1, (x, y) => x < y) &&
       t > 0 && cmp(bodyLow[t - 1], lo2, (x, y) => x >= y);
     shortBreakout[t] = cmp(lo2, lo1, (x, y) => x <= y) && crossDn && t > 0 && shortPullbackState[t - 1];
-    shortPullbackState[t] = shortPullback[t]
-      ? true
-      : shortBreakout[t]
-        ? false
+    if (shortBreakout[t]) shortExpanded = false;
+    else if (cmp(lo, lo1, (x, y) => x < y)) shortExpanded = true;
+    shortPullbackState[t] = shortBreakout[t]
+      ? false
+      : shortPullback[t] && shortExpanded
+        ? true
         : t > 0 && shortPullbackState[t - 1];
   }
 

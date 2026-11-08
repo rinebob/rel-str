@@ -3,8 +3,9 @@
  * (body-based Donchian bands, length 3, with pullback / breakout state).
  *
  * Expected values are hand-worked literals derived from the Pine
- * definitions in the PRD (#863), not recomputed with the implementation's
- * own formulas.
+ * definitions in the PRD (#863) plus the expansion-gated arming rule —
+ * a pullback episode may only arm once the band has expanded since the
+ * last breakout — not recomputed with the implementation's own formulas.
  */
 
 import assert from 'node:assert/strict';
@@ -33,11 +34,21 @@ const F = false;
 
 // Golden fixture: bodies [10, 11, 12, 11, 10, 9, 12].
 //   upper = [-, -, 12, 12, 12, 11, 12]   lower = [-, -, 10, 11, 10, 9, 9]
-// Long: pullback t3..t5 (upper not rising), state on t3..t5, breakout t6
-//   (upper 11→12 after a flat/falling bar, body 12 > prior upper 11).
-// Short: pullback t3 and t6 (lower not falling); breakout t4 (lower 11→10
-//   after rising, body 10 < prior lower 11, state armed by t3's pullback).
+// Long pullback flags t3..t5 — but the band never expanded first, so under
+// the arming gate the long state NEVER arms and no long breakout fires.
+// Short pullback flags t3 and t6; the lower band expands (falls) at t4/t5,
+// so the t6 pause is the first bar able to arm the short state.
 const GOLDEN = flat([10, 11, 12, 11, 10, 9, 12]);
+
+/** Bars with the body low pinned at 10 (open=10, close=bodyHigh) — the
+ *  lower band stays flat so the short side never expands and stays inert. */
+const pb = (bodyHighs: number[]): OHLCV[] => bodyHighs.map((bh) => bar(10, bh));
+
+// Canonical gated fixture — bodyHighs [12,13,14,13,15,13,18,16,19,17]:
+//   upper = [-, -, 14, 14, 15, 15, 18, 18, 19, 19]   lower = [-, -, 10 ×8]
+//   t3 pause can't arm (no expansion yet), t4 expands, t5 pause arms,
+//   t6 breakout, t7 pause can't re-arm, t8 expands, t9 pause arms again.
+const CANONICAL = pb([12, 13, 14, 13, 15, 13, 18, 16, 19, 17]);
 
 describe('computeStTriggerBands', () => {
   describe('shape and warm-up', () => {
@@ -99,12 +110,16 @@ describe('computeStTriggerBands', () => {
       assert.deepEqual(r.longPullback, [F, F, F, T, T, T, F]);
     });
 
-    it('pullback state latches on pullback and clears on breakout', () => {
-      assert.deepEqual(r.longPullbackState, [F, F, F, T, T, T, F]);
+    it('pauses flag but never arm while the band has not expanded (GOLDEN)', () => {
+      assert.deepEqual(r.longPullbackState, [F, F, F, F, F, F, F]);
     });
 
-    it('breakout fires on the first rising bar after an armed pullback', () => {
-      assert.deepEqual(r.longBreakout, [F, F, F, F, F, F, T]);
+    it('a pause after an expansion arms; the breakout clears the state and the next pause cannot re-arm', () => {
+      const c = computeStTriggerBands(CANONICAL);
+      assert.deepEqual(c.upper, [null, null, 14, 14, 15, 15, 18, 18, 19, 19]);
+      assert.deepEqual(c.longPullback, [F, F, F, T, F, T, F, T, F, T]);
+      assert.deepEqual(c.longPullbackState, [F, F, F, F, F, T, F, F, F, T]);
+      assert.deepEqual(c.longBreakout, [F, F, F, F, F, F, T, F, F, F]);
     });
 
     it('no breakout without a prior pullback (band rising from the start)', () => {
@@ -114,25 +129,35 @@ describe('computeStTriggerBands', () => {
     });
 
     it('a body equal to the prior upper band is not a breakout', () => {
-      // bodies [10,11,12,11,10,12]: upper = [-,-,12,12,12,12]; state armed at
-      // t3/t4; body 12 at t5 equals the prior upper 12 → no cross.
-      const eq = computeStTriggerBands(flat([10, 11, 12, 11, 10, 12]));
+      // pb [12,13,14,15,13,15]: upper = [-,-,14,15,15,15]; expansion at t3,
+      // pause arms at t4; body 15 at t5 equals the prior upper → no cross.
+      const eq = computeStTriggerBands(pb([12, 13, 14, 15, 13, 15]));
       assert.deepEqual(eq.longBreakout, [F, F, F, F, F, F]);
-      assert.deepEqual(eq.longPullback, [F, F, F, T, T, T]);
-      assert.deepEqual(eq.longPullbackState, [F, F, F, T, T, T]);
+      assert.deepEqual(eq.longPullback, [F, F, F, F, T, T]);
+      assert.deepEqual(eq.longPullbackState, [F, F, F, F, T, T]);
     });
 
-    it('breakout re-arms only after a new pullback', () => {
+    it('an expansion bar while armed is always a breakout — the state never survives a rising band', () => {
+      // pb [12,13,14,15,10,9,14,15,13]: upper = [-,-,14,15,15,15,14,15,15]
+      //   expansion t3 → pause arms t4, holds t5/t6; t7 the band RISES on
+      //   body 15 > prior upper 14 — up2(15)>=up1(14) + cross + armed ⇒
+      //   breakout. The state resets; the t8 pause can't re-arm yet.
+      const carry = computeStTriggerBands(pb([12, 13, 14, 15, 10, 9, 14, 15, 13]));
+      assert.deepEqual(carry.longPullback, [F, F, F, F, T, T, T, F, T]);
+      assert.deepEqual(carry.longPullbackState, [F, F, F, F, T, T, T, F, F]);
+      assert.deepEqual(carry.longBreakout, [F, F, F, F, F, F, F, T, F]);
+    });
+
+    it('the state arms on the first pause after the band has expanded and holds through later pauses', () => {
       // bodies [12,11,10,11,12,13,12,11,13]
       //   upper = [-,-,12,11,12,13,13,13,13]
-      //   t3: pullback (11<=12) arms; t4: upper 11→12 rises → breakout, disarm
-      //   t5: upper rises again (13>12) but state off → no breakout
-      //   t6: upper 13<=13 pullback re-arms; t7: pullback; t8: body 13 vs
-      //   prior upper 13 is not greater → no breakout
+      //   t3 pause can't arm (nothing expanded yet); t4/t5 are expansions;
+      //   t6 pause arms (expansion seen), t7 holds; t8 body 13 vs prior
+      //   upper 13 is not greater → no breakout, state stays armed.
       const re = computeStTriggerBands(flat([12, 11, 10, 11, 12, 13, 12, 11, 13]));
       assert.deepEqual(re.upper, [null, null, 12, 11, 12, 13, 13, 13, 13]);
-      assert.deepEqual(re.longBreakout, [F, F, F, F, T, F, F, F, F]);
-      assert.deepEqual(re.longPullbackState, [F, F, F, T, F, F, T, T, T]);
+      assert.deepEqual(re.longBreakout, [F, F, F, F, F, F, F, F, F]);
+      assert.deepEqual(re.longPullbackState, [F, F, F, F, F, F, T, T, T]);
     });
   });
 
@@ -143,18 +168,41 @@ describe('computeStTriggerBands', () => {
       assert.deepEqual(r.shortPullback, [F, F, F, T, F, F, T]);
     });
 
-    it('pullback state latches and clears on breakout', () => {
-      assert.deepEqual(r.shortPullbackState, [F, F, F, T, F, F, T]);
+    it('the first arming pause is the one after the band expanded (GOLDEN)', () => {
+      // lower falls at t4/t5 (short expansion) → the t6 pause is the first
+      // bar able to arm; t3's pause predates any expansion and can't arm.
+      assert.deepEqual(r.shortPullbackState, [F, F, F, F, F, F, T]);
     });
 
-    it('breakout fires on the first falling bar after an armed pullback', () => {
-      assert.deepEqual(r.shortBreakout, [F, F, F, F, T, F, F]);
+    it('breakout fires on the first falling bar after an armed pullback (mirror fixture)', () => {
+      // Mirror of CANONICAL: body lows [18,17,16,17,15,17,12,14,11,13],
+      // body highs pinned at 20 so the long side stays inert.
+      //   lower = [-,-,16,16,15,15,12,12,11,11]
+      //   t5 pause arms (expansion at t4), t6 crossunder = breakout,
+      //   t7 pause can't re-arm, t8 expands, t9 pause arms.
+      const mb = (bodyLows: number[]): OHLCV[] => bodyLows.map((bl) => bar(20, bl));
+      const m = computeStTriggerBands(mb([18, 17, 16, 17, 15, 17, 12, 14, 11, 13]));
+      assert.deepEqual(m.shortPullbackState, [F, F, F, F, F, T, F, F, F, T]);
+      assert.deepEqual(m.shortBreakout, [F, F, F, F, F, F, T, F, F, F]);
     });
 
     it('no breakout without a prior pullback (band falling from the start)', () => {
       const falling = computeStTriggerBands(flat([13, 13, 12, 11, 10]));
       assert.deepEqual(falling.shortPullback, [F, F, F, F, F]);
       assert.deepEqual(falling.shortBreakout, [F, F, F, F, F]);
+    });
+
+    it('an expansion bar while armed is always a breakout — the state never survives a falling band', () => {
+      // Mirror of the long case: bodyLows [18,17,16,15,20,21,16,15,17],
+      // bodyHighs pinned at 20. lower = [-,-,16,15,15,15,16,15,15]
+      //   expansion t3 → pause arms t4, holds t5/t6; t7 the band FALLS on
+      //   body 15 < prior lower 16 — lo2(15)<=lo1(16) + cross + armed ⇒
+      //   breakout. The state resets; the t8 pause can't re-arm yet.
+      const mb = (bodyLows: number[]): OHLCV[] => bodyLows.map((bl) => bar(20, bl));
+      const carry = computeStTriggerBands(mb([18, 17, 16, 15, 20, 21, 16, 15, 17]));
+      assert.deepEqual(carry.shortPullback, [F, F, F, F, T, T, T, F, T]);
+      assert.deepEqual(carry.shortPullbackState, [F, F, F, F, T, T, T, F, F]);
+      assert.deepEqual(carry.shortBreakout, [F, F, F, F, F, F, F, T, F]);
     });
   });
 
@@ -200,8 +248,9 @@ describe('computeStTriggerBands', () => {
     });
 
     it('long and short flags are independent on the same bar', () => {
-      // Golden t6: long breakout and short pullback both fire.
-      const r = computeStTriggerBands(GOLDEN);
+      // Canonical t6: long breakout fires while the flat lower band keeps
+      // its (unarmed) short pullback flag lit.
+      const r = computeStTriggerBands(CANONICAL);
       assert.equal(r.longBreakout[6], true);
       assert.equal(r.shortPullback[6], true);
     });

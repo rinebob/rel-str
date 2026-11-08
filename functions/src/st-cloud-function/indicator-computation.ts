@@ -361,7 +361,7 @@ function generateZoneSignals(
   });
 }
 
-function computeATR(bars: OhlcBar[], period = 14): number[] {
+export function computeATR(bars: OhlcBar[], period = 14): number[] {
   const atr: number[] = new Array(bars.length).fill(0);
   if (bars.length < 2) return atr;
 
@@ -451,15 +451,14 @@ function computeTriggerBandsSeries(bars: OhlcBar[]): TriggerBandsPoint[] {
   }));
 }
 
-// Closer to the bar than the zone dots (ATR_OFFSET_MULT) so a Trigger Bands dot and a
-// zone dot on the same bar do not overlap. A pullback and a breakout on the same side
-// never share a bar (a breakout needs a rising band), so one offset serves both.
+// Closer to the bar than the zone dots (ATR_OFFSET_MULT) so a Trigger Bands
+// breakout dot and a zone dot on the same bar do not overlap.
 const TRIGGER_DOT_ATR_MULT = 1.5;
 
-/** Pullback dot on every bar the pullback STATE is armed (the Pine plots
- *  `longPullbackState`/`shortPullbackState` as circles — the warning stays
- *  lit until the breakout fires and clears it), breakout dot on every
- *  breakout bar; long below the bar, short above. */
+/** Breakout dots only — the pullback flags already show as band colour, so
+ *  a dot per flagged/armed bar was noise. Long dots sit just below the
+ *  lower band, short dots just above the upper band — outside the
+ *  envelope, never inside the channel. */
 function generateTriggerBandsDotMarkers(points: TriggerBandsPoint[], bars: OhlcBar[]): DotMarker[] {
   if (points.length === 0 || bars.length === 0) return [];
   const atr = computeATR(bars);
@@ -468,20 +467,11 @@ function generateTriggerBandsDotMarkers(points: TriggerBandsPoint[], bars: OhlcB
     const bar = bars[i];
     if (!bar) return;
     const offset = atr[i] * TRIGGER_DOT_ATR_MULT;
-    const push = (direction: 'long' | 'short', signalType: TriggerBandsSignalType): void => {
-      markers.push({
-        d: p.d,
-        index: i,
-        direction,
-        y: direction === 'long' ? bar.l - offset : bar.h + offset,
-        version: 'TB',
-        signalType,
-      });
+    const push = (direction: 'long' | 'short', signalType: TriggerBandsSignalType, y: number): void => {
+      markers.push({ d: p.d, index: i, direction, y, version: 'TB', signalType });
     };
-    if (p.longPullbackState) push('long', TRIGGER_BANDS_SIGNAL_TYPES.LONG_PULLBACK);
-    if (p.shortPullbackState) push('short', TRIGGER_BANDS_SIGNAL_TYPES.SHORT_PULLBACK);
-    if (p.longBreakout) push('long', TRIGGER_BANDS_SIGNAL_TYPES.LONG_BREAKOUT);
-    if (p.shortBreakout) push('short', TRIGGER_BANDS_SIGNAL_TYPES.SHORT_BREAKOUT);
+    if (p.longBreakout && p.lower !== null) push('long', TRIGGER_BANDS_SIGNAL_TYPES.LONG_BREAKOUT, p.lower - offset);
+    if (p.shortBreakout && p.upper !== null) push('short', TRIGGER_BANDS_SIGNAL_TYPES.SHORT_BREAKOUT, p.upper + offset);
   });
   return markers;
 }
