@@ -181,6 +181,14 @@ export class PortfolioDashboardComponent implements OnInit {
     this.openThenRefresh(ClosePositionDialogComponent, data);
   }
 
+  /** Peak record + pending flag for dialog decision context (#1415) —
+   *  undefined peak + pending=true renders '…'; error/null → '—'. */
+  private peakContext(symbol: string): Pick<StopLossDialogData, 'peak' | 'peaksPending'> {
+    const section = this.selectedAccount()?.positionPeaks;
+    const peak = section?.data?.[symbol];
+    return { peak: peak ?? null, peaksPending: peak === undefined && section?.error == null };
+  }
+
   onAddStopLoss(position: EquityPositionWithPnL): void {
     const account = this.selectedAccount();
     if (!account) return;
@@ -188,6 +196,7 @@ export class PortfolioDashboardComponent implements OnInit {
       position,
       currentPrice: position.currentPrice ?? 0,
       accountNumber: account.accountNumber,
+      ...this.peakContext(position.symbol),
     };
     this.openThenRefresh(StopLossDialogComponent, data, 'orders');
   }
@@ -202,6 +211,7 @@ export class PortfolioDashboardComponent implements OnInit {
       position,
       currentPrice: position.currentPrice ?? 0,
       accountNumber: account.accountNumber,
+      ...this.peakContext(position.symbol),
       update: { candidates },
     };
     this.openThenRefresh(StopLossDialogComponent, data, 'orders');

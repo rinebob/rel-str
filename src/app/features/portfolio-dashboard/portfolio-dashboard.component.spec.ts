@@ -692,6 +692,44 @@ describe('PortfolioDashboardComponent', () => {
     expect(data.update!.candidates).toEqual([aaplStop]);
   });
 
+  it('passes the symbol peak record + pending flag to the stop dialog (#1415)', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    const aaplPeak = {
+      symbol: 'AAPL',
+      entryDate: '2026-01-15T00:00:00Z',
+      lastFillDate: '2026-03-01T00:00:00Z',
+      lifetime: { price: 190, date: '2026-11-02' },
+      sinceLastFill: { price: 185, date: '2026-11-10' },
+    };
+    store._setAccounts([makeAccountState('Account A', '123456', {
+      positionPeaks: { data: { AAPL: aaplPeak }, loading: false, error: null },
+    })]);
+    store._setEquityPositions([pos]);
+    store._setOpenOrders([
+      makeBrokerOrder({ orderId: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'stop_market', stopPrice: 160, state: 'queued' }),
+    ]);
+    fixture.detectChanges();
+
+    component.onUpdateStop(pos);
+
+    const data = dialog.open.calls.mostRecent().args[1]?.data as StopLossDialogData;
+    expect(data.peak).toBe(aaplPeak);
+    expect(data.peaksPending).toBe(false);
+  });
+
+  it('reports peaksPending to the dialog while the symbol peak is underived', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    fixture.detectChanges();
+
+    component.onAddStopLoss(pos);
+
+    const data = dialog.open.calls.mostRecent().args[1]?.data as StopLossDialogData;
+    expect(data.peak).toBeNull();
+    expect(data.peaksPending).toBe(true);
+  });
+
   it('reconciles orders silently after update-stop dialog dismisses with success — no full refresh', () => {
     const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
     store._setAccounts([makeAccountState('Account A', '123456')]);
