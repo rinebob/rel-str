@@ -13,7 +13,7 @@
  * place-phase re-places only (never re-cancels); PLACEMENT_DEAD mints a
  * fresh refId since the dead placement likely consumed the original.
  */
-import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
@@ -38,11 +38,18 @@ import {
   EquityTimeInForce,
 } from '../../../savant-trader/services/order-ticket.types';
 import { StopLossFormComponent, StopLossSubmit } from '../../../../shared/components/stop-loss-form/stop-loss-form.component';
+import { PeakPoint, PositionPeak } from '../../utils/position-peak.util';
+import { DEFAULT_STOP_PERCENT, stopPercentFromPrice } from '../../../../shared/utils/stop-loss-math.util';
 
 export interface StopLossDialogData {
   position: EquityPosition;
   currentPrice: number;
   accountNumber: string;
+  /** Decision context (#1415): the symbol's derived peak record. Undefined
+   *  while the derive hasn't landed — pair with `peaksPending`. */
+  peak?: PositionPeak | null;
+  /** True while the symbol's peak is still being derived — chain shows '…'. */
+  peaksPending?: boolean;
   /** Update mode (#888): replace an existing protective stop. `candidates`
    *  drives the picker when > 1 and no `target` is preselected. */
   update?: {
@@ -129,6 +136,166 @@ export class StopLossDialogComponent {
       this.result()?.phase === 'place' &&
       this.result()?.unprotected === true,
   );
+
+  // ========================================
+  // Decision context (#1415)
+  // ========================================
+
+  /** The embedded form — resolves only while state() is 'editing'. */
+  private readonly form = viewChild(StopLossFormComponent);
+
+  /** Exposed for the template's "8% below peak" suggestion copy. */
+  readonly DEFAULT_STOP_PERCENT = DEFAULT_STOP_PERCENT;
+
+  /** Live proposed stop — tracks the form's price field as the user types. */
+  readonly proposedStop = computed((): number | null => {
+    const raw = this.form()?.stopLossPrice();
+    if (!raw) return null;
+    const price = parseFloat(raw);
+    return Number.isFinite(price) && price > 0 ? price : null;
+  });
+
+  // --- Story chain anchors ---
+  readonly entryPrice = computed((): number | null => this.data.position.averageBuyPrice);
+  /** Holding-period entry date — annotates the Entry node so "Peak Since
+   *  Entry" carries its anchor. */
+  readonly entryDate = computed((): string | null => this.data.peak?.entryDate ?? null);
+  /** currentPrice of 0 = no quote — every metric must settle to '—',
+   *  never compute a fabricated 100% retracement or total loss. */
+  private get quotedPrice(): number | null {
+    return this.data.currentPrice > 0 ? this.data.currentPrice : null;
+  }
+  readonly peakPoint = computed((): PeakPoint | null => this.data.peak?.lifetime ?? null);
+  readonly sinceLastFillPeak = computed((): PeakPoint | null => this.data.peak?.sinceLastFill ?? null);
+  /** Both peaks surface when they differ — the add-on-ratchet case. */
+  readonly showBothPeaks = computed((): boolean => {
+    const life = this.peakPoint();
+    const last = this.sinceLastFillPeak();
+    return life !== null && last !== null && life.price !== last.price;
+  });
+  readonly currentStopPrice = computed((): number | null => this.targetOrder()?.stopPrice ?? null);
+  readonly peakPending = computed((): boolean => this.data.peaksPending === true);
+
+  // --- Metrics ---
+  /** % pulled back from the lifetime peak — table parity (positive = drawdown). */
+  readonly retracedPct = computed((): number | null => {
+    const peak = this.peakPoint()?.price;
+    const cur = this.quotedPrice;
+    if (peak == null || peak === 0 || cur === null) return null;
+    return ((peak - cur) / peak) * 100;
+  });
+  readonly proposedVsCurrent = computed((): { dollars: number; percent: number } | null => {
+    const p = this.proposedStop();
+    const cur = this.quotedPrice;
+    if (p === null || cur === null) return null;
+    return { dollars: p - cur, percent: ((p - cur) / cur) * 100 };
+  });
+  readonly proposedVsPeak = computed((): { dollars: number; percent: number } | null => {
+    const p = this.proposedStop();
+    const peak = this.peakPoint()?.price;
+    if (p === null || peak == null || peak === 0) return null;
+    return { dollars: p - peak, percent: ((p - peak) / peak) * 100 };
+  });
+  /** Gain/loss locked in if the proposed stop fills vs cost basis. Uses the
+   *  stop ORDER's qty in update mode (a partial stop locks only that many
+   *  shares); add mode uses the whole-share position qty. */
+  readonly lockedIn = computed((): { dollars: number; percent: number } | null => {
+    const p = this.proposedStop();
+    const avg = this.data.position.averageBuyPrice;
+    const qty = this.targetOrder()?.quantity ?? Math.trunc(this.data.position.quantity ?? 0);
+    if (p === null || avg == null || avg === 0 || qty === 0) return null;
+    return { dollars: (p - avg) * qty, percent: ((p - avg) / avg) * 100 };
+  });
+
+  // --- Position context ---
+  readonly positionQty = computed((): number | null => this.data.position.quantity);
+  readonly costBasis = computed((): number | null => {
+    const qty = this.data.position.quantity;
+    const avg = this.data.position.averageBuyPrice;
+    return qty != null && avg != null ? qty * avg : null;
+  });
+  readonly marketValue = computed((): number | null => {
+    const qty = this.data.position.quantity;
+    const cur = this.quotedPrice;
+    return qty != null && cur !== null ? qty * cur : null;
+  });
+  readonly unrealizedPnl = computed((): { dollars: number; percent: number } | null => {
+    const qty = this.data.position.quantity;
+    const avg = this.data.position.averageBuyPrice;
+    const cur = this.quotedPrice;
+    if (qty == null || avg == null || avg === 0 || cur === null) return null;
+    return { dollars: (cur - avg) * qty, percent: ((cur - avg) / avg) * 100 };
+  });
+
+  /** Strategy suggestion — DEFAULT_STOP_PERCENT below the lifetime peak
+   *  (the #890 ratchet candidate). Null when no peak is derivable. */
+  readonly suggestedStop = computed((): number | null => {
+    const peak = this.peakPoint()?.price;
+    if (peak == null) return null;
+    return peak * (1 - DEFAULT_STOP_PERCENT / 100);
+  });
+  /** Current price is already below the suggested level — a sell stop at
+   *  the suggestion would trigger immediately; the honest recommendation
+   *  is to close the position (the user's stated rule). */
+  readonly belowRatchetLevel = computed((): boolean => {
+    const s = this.suggestedStop();
+    const cur = this.quotedPrice;
+    return s !== null && cur !== null && cur < s;
+  });
+
+  /** Update-mode prefill (#1415, user's rule): the proposed stop defaults
+   *  to the ratchet candidate — max(current stop, 8%-below-peak) — so a
+   *  reflexive Update tightens to strategy level but can never loosen.
+   *  Below-ratchet (suggestion above market) keeps the current stop: the
+   *  honest proposal there is close-the-position, shown as the warning. */
+  readonly initialStopPrice = computed((): number | null => {
+    if (!this.isUpdate) return null;
+    const cur = this.targetOrder()?.stopPrice ?? null;
+    const s = this.suggestedStop();
+    if (s === null || this.belowRatchetLevel()) return cur;
+    return cur === null ? s : Math.max(cur, s);
+  });
+
+  /** Show the Use button only when the proposed value has drifted from the
+   *  suggestion — when they already agree the button does nothing, and the
+   *  row is just the anchor rationale. Half-cent tolerance: suggested is
+   *  unrounded float, proposed is the form's 2-decimal string. */
+  readonly showUseSuggested = computed((): boolean => {
+    const s = this.suggestedStop();
+    const p = this.proposedStop();
+    return s !== null && p !== null && Math.abs(p - s) >= 0.005;
+  });
+
+  /** Seed the form's price + percent to the suggestion. The percent stays
+   *  consistent with the form's bidirectional linking convention. */
+  useSuggested(): void {
+    const f = this.form();
+    const s = this.suggestedStop();
+    if (!f || s === null) return;
+    f.stopLossPrice.set(s.toFixed(2));
+    const ref = this.quotedPrice;
+    if (ref !== null) {
+      const pct = stopPercentFromPrice(ref, s);
+      if (Number.isFinite(pct) && pct >= 0) {
+        f.stopLossPercent.set(String(Math.round(pct * 10) / 10));
+      }
+    }
+  }
+
+  /** Live order params on the target stop — update mode only. */
+  readonly orderContext = computed((): {
+    quantity: number | null;
+    timeInForce: string | null;
+    createdAt: string | null;
+  } | null => {
+    const order = this.targetOrder();
+    if (!order) return null;
+    return {
+      quantity: order.quantity ?? null,
+      timeInForce: order.timeInForce ?? null,
+      createdAt: order.createdAt ?? null,
+    };
+  });
 
   selectCandidate(order: BrokerOrder): void {
     this.targetOrder.set(order);
@@ -245,6 +412,45 @@ export class StopLossDialogComponent {
       });
       this.state.set('error');
     }
+  }
+
+  // --- Formatting helpers (context section) ---
+  private readonly usd = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+  fmtUsd(v: number | null | undefined): string {
+    return v == null ? '—' : this.usd.format(v);
+  }
+  fmtSignedUsd(v: number | null | undefined): string {
+    if (v == null) return '—';
+    const s = this.usd.format(Math.abs(v));
+    return v < 0 ? `−${s}` : `+${s}`;
+  }
+  fmtPct(v: number | null | undefined): string {
+    return v == null ? '—' : `${v.toFixed(1)}%`;
+  }
+  fmtSignedDist(d: { dollars: number; percent: number } | null): string {
+    if (!d) return '—';
+    return `${this.fmtSignedUsd(d.dollars)} (${d.percent.toFixed(1)}%)`;
+  }
+  /** Directional distance — "$10.00 (5.7%) below" / "$4.00 (2.1%) above". */
+  fmtDistWord(d: { dollars: number; percent: number } | null): string {
+    if (!d) return '—';
+    const dir = d.dollars <= 0 ? 'below' : 'above';
+    return `${this.fmtUsd(Math.abs(d.dollars))} (${Math.abs(d.percent).toFixed(1)}%) ${dir}`;
+  }
+  fmtDay(iso: string | null | undefined): string {
+    return iso ? iso.slice(0, 10) : '—';
+  }
+  /** ISO date with weekday — "Mon, 2026-09-28". Parses at local noon so
+   *  bare YYYY-MM-DD strings don't shift a day behind in US timezones. */
+  fmtDayDow(iso: string | null | undefined): string {
+    if (!iso) return '—';
+    const d = new Date(iso.length === 10 ? `${iso}T12:00:00` : iso);
+    if (isNaN(d.getTime())) return this.fmtDay(iso);
+    const dow = d.toLocaleDateString('en-US', { weekday: 'short' });
+    return `${dow}, ${this.fmtDay(iso)}`;
   }
 
   onDone(): void {

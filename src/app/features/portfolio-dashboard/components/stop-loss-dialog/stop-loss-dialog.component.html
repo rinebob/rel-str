@@ -25,12 +25,94 @@
     }
 
     @case ('editing') {
+      <div class="decision-context">
+        <div class="story-chain">
+          <span class="chain-node">
+            <span class="chain-label">Entry</span>
+            <span class="chain-val">{{ fmtUsd(entryPrice()) }}</span>
+            @if (entryDate()) {
+              <span class="chain-sub">{{ fmtDayDow(entryDate()) }}</span>
+            }
+          </span>
+          <span class="chain-node">
+            <span class="chain-label">Peak</span>
+            @if (peakPending()) {
+              <span class="chain-val">…</span>
+            } @else if (peakPoint()) {
+              <span class="chain-val">{{ fmtUsd(peakPoint()!.price) }}</span>
+              <span class="chain-sub">{{ fmtDayDow(peakPoint()!.date) }}</span>
+            } @else {
+              <span class="chain-val">—</span>
+            }
+          </span>
+          <span class="chain-node">
+            <span class="chain-label">Cur. Price</span>
+            <span class="chain-val">{{ currentPrice > 0 ? fmtUsd(currentPrice) : '—' }}</span>
+          </span>
+          @if (isUpdate) {
+            <span class="chain-node">
+              <span class="chain-label">Cur. Stop</span>
+              <span class="chain-val">{{ fmtUsd(currentStopPrice()) }}</span>
+            </span>
+          }
+          <span class="chain-node proposed">
+            <span class="chain-label">Proposed Stop</span>
+            <span class="chain-val">{{ fmtUsd(proposedStop()) }}</span>
+          </span>
+        </div>
+
+        <div class="context-grid">
+          <span class="m-label">Cur. Price</span>
+          <span class="m-body">{{ fmtPct(retracedPct()) }} retraced from peak</span>
+
+          <span class="m-label">Proposed Stop</span>
+          <span class="m-body">
+            <strong>{{ fmtUsd(proposedStop()) }}</strong><span class="sep">·</span>{{ fmtDistWord(proposedVsCurrent()) }} now<span class="sep">·</span>{{ fmtDistWord(proposedVsPeak()) }} peak<span class="sep">·</span>locks in {{ fmtSignedDist(lockedIn()) }} vs basis
+          </span>
+
+          @if (showBothPeaks()) {
+            <span class="m-label">Since last fill</span>
+            <span class="m-body">{{ fmtUsd(sinceLastFillPeak()!.price) }} peak · {{ fmtDayDow(sinceLastFillPeak()!.date) }}</span>
+          }
+
+          @if (suggestedStop() !== null) {
+            <span class="m-label">Suggested</span>
+            <span class="m-body">
+              @if (belowRatchetLevel()) {
+                <span class="close-warning">
+                  Current price is already below the {{ DEFAULT_STOP_PERCENT }}%-below-peak
+                  level ({{ fmtUsd(suggestedStop()) }}) — a sell stop there would
+                  trigger immediately. Consider closing the position.
+                </span>
+              } @else {
+                {{ fmtUsd(suggestedStop()) }} ({{ DEFAULT_STOP_PERCENT }}% below peak)
+                @if (showUseSuggested()) {
+                  <button type="button" class="ds-btn outline use-suggested" (click)="useSuggested()">Use</button>
+                }
+              }
+            </span>
+          }
+
+          <span class="m-label m-muted">Position</span>
+          <span class="m-body m-muted">
+            {{ positionQty() ?? '—' }} sh @ {{ fmtUsd(entryPrice()) }}<span class="sep">·</span>basis {{ fmtUsd(costBasis()) }}<span class="sep">·</span>value {{ fmtUsd(marketValue()) }}<span class="sep">·</span>PnL {{ fmtSignedDist(unrealizedPnl()) }}
+          </span>
+
+          @if (orderContext(); as ctx) {
+            <span class="m-label m-muted">Stop order</span>
+            <span class="m-body m-muted">
+              qty {{ ctx.quantity ?? '—' }}<span class="sep">·</span>{{ ctx.timeInForce?.toUpperCase() ?? '—' }}<span class="sep">·</span>since {{ fmtDay(ctx.createdAt) }}
+            </span>
+          }
+        </div>
+      </div>
+
       <app-stop-loss-form
         [symbol]="symbol"
         [quantity]="quantity"
         [referencePrice]="currentPrice"
         [accountNumber]="accountNumber"
-        [initialStopPrice]="isUpdate ? (targetOrder()?.stopPrice ?? null) : null"
+        [initialStopPrice]="initialStopPrice()"
         [submitLabel]="isUpdate ? 'Update Stop' : 'Submit Stop Loss'"
         [(timeInForce)]="formTimeInForce"
         [(marketHours)]="formMarketHours"

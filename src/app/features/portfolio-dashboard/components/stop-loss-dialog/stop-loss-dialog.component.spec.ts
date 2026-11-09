@@ -544,6 +544,7 @@ describe('StopLossDialogComponent — update mode', () => {
   });
 
   it('cancel-phase retryable failure retries the whole primitive on the same ticket', async () => {
+
     const target = makeStop();
     const { component } = await setup({ ...baseData, update: { candidates: [target], target } });
     let calls = 0;
@@ -568,5 +569,325 @@ describe('StopLossDialogComponent — update mode', () => {
     expect(second).toBe(first);
     expect(orderExecution.submitEquityOrder).not.toHaveBeenCalled();
     expect(component.state()).toBe('success');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Decision context (#1415)
+// ---------------------------------------------------------------------------
+
+describe('StopLossDialogComponent — decision context', () => {
+  let orderExecution: { submitEquityOrder: jasmine.Spy; updateEquityStopOrder: jasmine.Spy };
+  let dialogRef: { close: jasmine.Spy; disableClose?: boolean };
+
+  const position: EquityPosition = {
+    symbol: 'AAPL',
+    quantity: 100,
+    averageBuyPrice: 150,
+    sharesHeldForSells: 0,
+  };
+
+  const peak = {
+    symbol: 'AAPL',
+    entryDate: '2026-01-15T00:00:00Z',
+    lastFillDate: '2026-03-01T00:00:00Z',
+    lifetime: { price: 190, date: '2026-11-02' },
+    sinceLastFill: { price: 185, date: '2026-11-10' },
+  };
+
+  function makeStop(overrides: Partial<BrokerOrder> = {}): BrokerOrder {
+    return {
+      orderId: 'order-old-1',
+      accountNumber: 'acc-1',
+      instrumentType: 'equity',
+      symbol: 'AAPL',
+      side: 'sell',
+      type: 'stop_market',
+      state: 'confirmed',
+      quantity: 100,
+      cumulativeQuantity: 0,
+      price: null,
+      stopPrice: 160,
+      averageFillPrice: null,
+      createdAt: '2026-10-01T10:00:00Z',
+      timeInForce: 'gfd',
+      marketHours: 'regular_hours',
+      ...overrides,
+    };
+  }
+
+  async function setup(data: Record<string, unknown>) {
+    orderExecution = {
+      submitEquityOrder: jasmine.createSpy('submitEquityOrder'),
+      updateEquityStopOrder: jasmine.createSpy('updateEquityStopOrder'),
+    };
+    dialogRef = { close: jasmine.createSpy('close') };
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        { provide: DS_DIALOG_DATA, useValue: data },
+        { provide: DsDialogRef, useValue: dialogRef },
+        { provide: OrderExecutionService, useValue: orderExecution },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(StopLossDialogComponent);
+    fixture.detectChanges();
+    return { fixture, component: fixture.componentInstance };
+  }
+
+  const updateData = { position, currentPrice: 175, accountNumber: 'acc-1', peak };
+
+  it('exposes the story-chain anchors — entry, peak, current, current stop, proposed', async () => {
+    const target = makeStop({ stopPrice: 160 });
+    const { component } = await setup({ ...updateData, update: { candidates: [target], target } });
+
+    expect(component.entryPrice()).toBe(150);
+    expect(component.entryDate()).toBe('2026-01-15T00:00:00Z');
+    expect(component.peakPoint()).toEqual({ price: 190, date: '2026-11-02' });
+    expect(component.currentPrice).toBe(175);
+    expect(component.currentStopPrice()).toBe(160);
+    // Update-mode prefill auto-ratchets to max(current stop, 8%-below-peak)
+    // = max(160, 174.8) — the proposed value starts at the suggestion.
+    expect(component.proposedStop()).toBeCloseTo(174.8, 5);
+  });
+
+  it('proposed stop tracks the form as the user types', async () => {
+    const target = makeStop({ stopPrice: 160 });
+    const { fixture, component } = await setup({ ...updateData, update: { candidates: [target], target } });
+
+    const form = fixture.debugElement.query(
+      (el) => el.componentInstance instanceof StopLossFormComponent,
+    ).componentInstance as StopLossFormComponent;
+    form.stopLossPrice.set('165.00');
+    fixture.detectChanges();
+
+    expect(component.proposedStop()).toBe(165);
+  });
+
+  it('computes retraced %, proposed distances, and locked-in gain vs basis', async () => {
+    const target = makeStop({ stopPrice: 160 });
+    const { fixture, component } = await setup({ ...updateData, update: { candidates: [target], target } });
+    const form = fixture.debugElement.query(
+      (el) => el.componentInstance instanceof StopLossFormComponent,
+    ).componentInstance as StopLossFormComponent;
+    form.stopLossPrice.set('165.00');
+    fixture.detectChanges();
+
+    // (190 - 175) / 190 = 7.89%
+    expect(component.retracedPct()).toBeCloseTo(7.895, 2);
+    // Proposed vs current: 165 - 175 = -10 → -5.71%
+    const vsCurrent = component.proposedVsCurrent()!;
+    expect(vsCurrent.dollars).toBe(-10);
+    expect(vsCurrent.percent).toBeCloseTo(-5.71, 2);
+    // Proposed vs peak: 165 - 190 = -25 → -13.16%
+    const vsPeak = component.proposedVsPeak()!;
+    expect(vsPeak.dollars).toBe(-25);
+    expect(vsPeak.percent).toBeCloseTo(-13.16, 2);
+    // Locked-in if filled at 165 vs $150 basis × 100 sh = +$1500 → +10%
+    const locked = component.lockedIn()!;
+    expect(locked.dollars).toBe(1500);
+    expect(locked.percent).toBeCloseTo(10, 5);
+  });
+
+  it('shows the since-last-fill peak when it differs from lifetime', async () => {
+    const target = makeStop();
+    const { component } = await setup({ ...updateData, update: { candidates: [target], target } });
+
+    expect(component.showBothPeaks()).toBe(true);
+    expect(component.sinceLastFillPeak()).toEqual({ price: 185, date: '2026-11-10' });
+  });
+
+  it('hides the second peak when since-last-fill equals lifetime', async () => {
+    const target = makeStop();
+    const same = { ...peak, sinceLastFill: { ...peak.lifetime } };
+    const { component } = await setup({ ...updateData, peak: same, update: { candidates: [target], target } });
+
+    expect(component.showBothPeaks()).toBe(false);
+  });
+
+  it('renders — placeholders when the peak is underivable', async () => {
+    const target = makeStop();
+    const { component } = await setup({
+      ...updateData,
+      peak: { ...peak, lifetime: null, sinceLastFill: null },
+      update: { candidates: [target], target },
+    });
+
+    expect(component.peakPoint()).toBeNull();
+    expect(component.retracedPct()).toBeNull();
+    expect(component.proposedVsPeak()).toBeNull();
+  });
+
+  it('reports pending while the derive is still running', async () => {
+    const target = makeStop();
+    const { component } = await setup({
+      ...updateData,
+      peak: undefined,
+      peaksPending: true,
+      update: { candidates: [target], target },
+    });
+
+    expect(component.peakPending()).toBe(true);
+    expect(component.retracedPct()).toBeNull();
+  });
+
+  it('exposes position context — qty, basis, value, unrealized PnL', async () => {
+    const target = makeStop();
+    const { component } = await setup({ ...updateData, update: { candidates: [target], target } });
+
+    // 100 sh @ $150 → basis $15,000; value $17,500; PnL +$2,500 (+16.67%)
+    expect(component.positionQty()).toBe(100);
+    expect(component.costBasis()).toBe(15000);
+    expect(component.marketValue()).toBe(17500);
+    const pnl = component.unrealizedPnl()!;
+    expect(pnl.dollars).toBe(2500);
+    expect(pnl.percent).toBeCloseTo(16.67, 2);
+  });
+
+  it('missing quote (currentPrice 0) settles every quote-derived metric to —, never fabricates', async () => {
+    const target = makeStop();
+    const { component } = await setup({
+      ...updateData,
+      currentPrice: 0,
+      update: { candidates: [target], target },
+    });
+
+    expect(component.retracedPct()).toBeNull();
+    expect(component.proposedVsCurrent()).toBeNull();
+    expect(component.marketValue()).toBeNull();
+    expect(component.unrealizedPnl()).toBeNull();
+    // Quote-independent metrics still compute.
+    expect(component.proposedVsPeak()).not.toBeNull();
+    expect(component.lockedIn()).not.toBeNull();
+  });
+
+  it('exposes order context in update mode — live qty, TIF, age', async () => {
+    const target = makeStop({ quantity: 75, timeInForce: 'gtc', createdAt: '2026-10-01T10:00:00Z' });
+    const { component } = await setup({ ...updateData, update: { candidates: [target], target } });
+
+    const ctx = component.orderContext();
+    expect(ctx).toEqual({ quantity: 75, timeInForce: 'gtc', createdAt: '2026-10-01T10:00:00Z' });
+  });
+
+  it('has no current stop in add mode — chain renders without it', async () => {
+    const { component } = await setup({ position, currentPrice: 175, accountNumber: 'acc-1', peak });
+
+    expect(component.isUpdate).toBe(false);
+    expect(component.currentStopPrice()).toBeNull();
+    expect(component.orderContext()).toBeNull();
+  });
+
+  it('suggests the ratchet candidate — DEFAULT_STOP_PERCENT below the peak', async () => {
+    const target = makeStop();
+    const { component } = await setup({ ...updateData, update: { candidates: [target], target } });
+
+    // 190 × 0.92 = 174.8 — above now (175)? No: 174.8 < 175 → not below
+    // ratchet level.
+    expect(component.suggestedStop()).toBeCloseTo(174.8, 5);
+    expect(component.belowRatchetLevel()).toBe(false);
+  });
+
+  it('flags close-the-position when current price is already below the suggested level', async () => {
+    const target = makeStop();
+    const { component } = await setup({
+      ...updateData,
+      currentPrice: 170,
+      update: { candidates: [target], target },
+    });
+
+    // 170 < 174.8 — the suggested stop would trigger immediately.
+    expect(component.belowRatchetLevel()).toBe(true);
+  });
+
+  it('Use seeds the form price + linked percent from the suggestion', async () => {
+    const target = makeStop({ stopPrice: 160 });
+    const { fixture, component } = await setup({ ...updateData, update: { candidates: [target], target } });
+    const form = fixture.debugElement.query(
+      (el) => el.componentInstance instanceof StopLossFormComponent,
+    ).componentInstance as StopLossFormComponent;
+
+    component.useSuggested();
+    fixture.detectChanges();
+
+    expect(form.stopLossPrice()).toBe('174.80');
+    // (175 − 174.8)/175 = 0.11% → rounds to 0.1
+    expect(form.stopLossPercent()).toBe('0.1');
+    expect(component.proposedStop()).toBeCloseTo(174.8, 5);
+  });
+
+  it('update-mode prefill auto-ratchets to the suggestion — max(current, 8%-below-peak)', async () => {
+    const target = makeStop({ stopPrice: 160 });
+    const { fixture, component } = await setup({ ...updateData, update: { candidates: [target], target } });
+
+    expect(component.initialStopPrice()).toBeCloseTo(174.8, 5);
+    const form = fixture.debugElement.query(
+      (el) => el.componentInstance instanceof StopLossFormComponent,
+    ).componentInstance as StopLossFormComponent;
+    expect(form.stopLossPrice()).toBe('174.80');
+  });
+
+  it('never loosens — a current stop above the suggestion stays prefilled', async () => {
+    const target = makeStop({ stopPrice: 180 });
+    const { component } = await setup({ ...updateData, update: { candidates: [target], target } });
+
+    expect(component.initialStopPrice()).toBe(180);
+  });
+
+  it('below-ratchet keeps the current stop — the close warning is the honest proposal', async () => {
+    const target = makeStop({ stopPrice: 160 });
+    const { component } = await setup({
+      ...updateData,
+      currentPrice: 170,
+      update: { candidates: [target], target },
+    });
+
+    expect(component.belowRatchetLevel()).toBe(true);
+    expect(component.initialStopPrice()).toBe(160);
+  });
+
+  it('hides the suggestion when no peak is derivable', async () => {
+    const target = makeStop();
+    const { component } = await setup({
+      ...updateData,
+      peak: { ...peak, lifetime: null, sinceLastFill: null },
+      update: { candidates: [target], target },
+    });
+
+    expect(component.suggestedStop()).toBeNull();
+    expect(component.belowRatchetLevel()).toBe(false);
+  });
+
+  it('renders the story chain + metrics in the editing view', async () => {
+    const target = makeStop({ stopPrice: 160 });
+    const { fixture } = await setup({ ...updateData, update: { candidates: [target], target } });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const chain = el.querySelector('.story-chain');
+    expect(chain).toBeTruthy();
+    expect(chain!.textContent).toContain('150.00');
+    expect(chain!.textContent).toContain('190.00');
+    expect(chain!.textContent).toContain('175.00');
+    expect(chain!.textContent).toContain('160.00');
+    const metrics = el.querySelector('.context-grid');
+    expect(metrics).toBeTruthy();
+    expect(metrics!.textContent).toContain('7.9%');
+  });
+
+  it('hides Use while proposed equals the suggestion, shows it after typing away', async () => {
+    const target = makeStop({ stopPrice: 160 });
+    const { fixture, component } = await setup({ ...updateData, update: { candidates: [target], target } });
+    const form = fixture.debugElement.query(
+      (el) => el.componentInstance instanceof StopLossFormComponent,
+    ).componentInstance as StopLossFormComponent;
+
+    // Prefill = suggestion (174.8) → the button is a no-op, hidden.
+    expect(component.proposedStop()).toBeCloseTo(174.8, 5);
+    expect(component.showUseSuggested()).toBe(false);
+
+    form.stopLossPrice.set('165.00');
+    expect(component.showUseSuggested()).toBe(true);
   });
 });
