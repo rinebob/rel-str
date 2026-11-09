@@ -4,16 +4,20 @@
  * Options contract viewer dashboard. Input an OCC contract ID, fetch the
  * historical time-series, and plot it on a dedicated chart with underlying
  * price overlay, Greeks, and volume/OI panes.
+ *
+ * Composition root only — coordination lives in the page-scoped services
+ * (`option-chart-*.service.ts`); the members below are view state
+ * (plotted/chips projection, panel toggles) plus thin aliases that keep
+ * the template and spec surface unchanged. The facade deliberately
+ * mirrors the full pre-refactor public surface — a few aliases (e.g.
+ * builtOccId, the builder dropdown signals) are currently unbound
+ * because the slimmed template doesn't reference them; they're kept so
+ * the surface is verbatim, not because they carry load today.
  */
-import { Component, inject, computed, signal, viewChild, OnInit, OnDestroy, DestroyRef, Injector, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, computed, viewChild, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom, distinctUntilChanged, map, take } from 'rxjs';
-import { DsDialogRef, DsDialogService } from '../../../../shared/ds/ds-dialog';
-
-
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
 import {
@@ -21,48 +25,25 @@ import {
   type PlottedChartContract,
 } from '../../components/options-contract-chart/options-contract-chart.component';
 import { plottedSeriesColor, UNDERLYING_COLOR } from '../../components/options-contract-chart/options-contract-chart-series.builder';
-import {
-  parsePlottedEntries,
-  type RejectedEntry,
-  type RejectedReason,
-} from '../../utils/plotted-pairs.util';
+import type { RejectedReason } from '../../utils/plotted-pairs.util';
 import type { PlottedContract } from '../../stores/plotted-contracts-feature';
-import { ConfirmDialogComponent } from '../../../../shared/ds/confirm-dialog.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { formatUtcDate } from '../../utils/utils';
 import { padDateLabels, unionLabels } from '../../utils/chart-series.utils';
-import {
-  groupLengthBuckets,
-  getLengthLabel,
-  toCatalogRow,
-  type CatalogRow,
-  type LengthGroup,
-} from '../../utils/contract-length.utils';
-import type { ContractCatalogEntry, LengthBucket } from '@options-contract/contracts';
 import { OptionType, parseOccContractId, type ParsedOccContractId } from '@options-contract/contracts';
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import { OptionGroupGeneratorComponent } from '../../components/option-group-generator/option-group-generator.component';
 import type { StudyRange } from '../../utils/option-group-generator.utils';
-import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
-import type {
-  OptionsContractListUi,
-  OptionsReplayRunUi,
-} from '../../backtest/common/options-replay.types';
-import type { ContractListPickRow } from '@options-replay/contracts';
-import {
-  ContractListSessionStore,
-  contractListDocError,
-} from '../../stores/contract-list-session.store';
-import { ContractListService } from '../../services/contract-list.service';
-import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
-import { ContractListPickerComponent, type ContractListPickerData } from '../../components/contract-list-picker/contract-list-picker.component';
-
-/** Pasting more than this many contracts asks for confirmation first — the
- *  chart stays usable but the fetch batch and line count get unwieldy. */
-const LARGE_LIST_WARN_THRESHOLD = 50;
-
-type SortField = 'type' | 'strike' | 'expiration' | 'contractLengthDays' | 'observationCount' | 'delta';
-interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
+import type { ContractCatalogEntry } from '@options-contract/contracts';
+import { ContractListSessionStore } from '../../stores/contract-list-session.store';
+import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
+import type { OptionsReplayRunUi } from '../../backtest/common/options-replay.types';
+import { OptionChartPageService } from './option-chart-page.service';
+import { OptionChartCatalogService, type SortField } from './option-chart-catalog.service';
+import { OptionChartLoadService } from './option-chart-load.service';
+import { OptionChartListService } from './option-chart-list.service';
+import { OptionChartReplayService } from './option-chart-replay.service';
+import { OptionChartGeneratorService } from './option-chart-generator.service';
+import { OPTION_CHART_PAGE_PROVIDERS } from './option-chart-page.providers';
 
 @Component({
   selector: 'app-option-chart',
@@ -72,10 +53,10 @@ interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
     FormsModule,
     OptionsContractChartComponent,
     OptionGroupGeneratorComponent],
-  // Page-scoped — one generator instance + one list session shared by
-  // this page, its drawer, and dialogs it opens; dies with the page,
-  // never root-provided.
-  providers: [OptionGroupGeneratorStore, ContractListSessionStore],
+  // Page-scoped — one generator instance + one list session + one set of
+  // coordination units shared by this page, its drawer, and dialogs it
+  // opens; dies with the page, never root-provided.
+  providers: OPTION_CHART_PAGE_PROVIDERS,
   templateUrl: './option-chart.component.html',
   styleUrl: './option-chart.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -84,251 +65,155 @@ interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
 export class OptionChartComponent implements OnInit, OnDestroy {
   readonly store = inject(OptionsContractViewerStore);
   readonly genStore = inject(OptionGroupGeneratorStore);
+  readonly listStore = inject(ContractListSessionStore);
   readonly uiStateService = inject(UiStateService);
   private readonly dialog = inject(DsDialogService);
-  private readonly replayService = inject(OptionsReplayRunsService);
-  readonly listStore = inject(ContractListSessionStore);
-  private readonly listService = inject(ContractListService);
-  private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
-  private readonly destroyRef = inject(DestroyRef);
-  /** Dialogs resolving page-scoped stores (the list session) must open on
-   *  this element injector — without it DsDialogService uses the root injector. */
-  private readonly injector = inject(Injector);
+  private readonly page = inject(OptionChartPageService);
+  private readonly catalog = inject(OptionChartCatalogService);
+  private readonly load = inject(OptionChartLoadService);
+  private readonly list = inject(OptionChartListService);
+  private readonly replay = inject(OptionChartReplayService);
+  private readonly gen = inject(OptionChartGeneratorService);
   readonly chartRef = viewChild(OptionsContractChartComponent);
 
-  occIdInput = '';
-
-  /** Tokens rejected by the last pair-list parse, shown as a notice. */
-  readonly rejectedEntries = signal<RejectedEntry[]>([]);
+  constructor() {
+    // The catalog's filter-to-chart reads the chart's visible window —
+    // the viewChild lives here, the query lives there.
+    this.page.chartExtents = () => this.chartRef()?.visibleExtents() ?? null;
+  }
 
   /** Whether the left control panel is open. */
   controlPanelOpen = true;
 
-  /** Whether the right group-generator drawer is open. */
-  generatorOpen = false;
+  // ── Page context (option-chart-page.service.ts) ─────────────────────
 
-  /** Arms the study-range brush on the contract chart; Esc disarms. */
-  readonly brushArmed = signal(false);
+  readonly symbol = this.page.symbol;
+  readonly type = this.page.type;
+  readonly catalogType = this.page.catalogType;
+  get occIdInput(): string { return this.page.occIdInput; }
+  set occIdInput(v: string) { this.page.occIdInput = v; }
+  readonly listError = this.page.listError;
+  readonly onSymbolChange = (value: string): void => this.page.onSymbolChange(value);
 
-  /** Selection-replay dropdown state — pick a run, plot its default slice. */
-  readonly replayRuns = signal<OptionsReplayRunUi[]>([]);
-  selectedReplayRunId: string | null = null;
-  readonly replayLoading = signal(false);
-  readonly replayError = signal<string | null>(null);
+  // ── Catalog table (option-chart-catalog.service.ts) ─────────────────
 
-  /** Contract-list session errors (?list= / chooser) — named, never silent. */
-  readonly listError = signal<string | null>(null);
+  readonly expiration = this.catalog.expiration;
+  readonly strike = this.catalog.strike;
+  readonly contractLength = this.catalog.contractLength;
+  readonly displayType = this.catalog.displayType;
+  readonly selectedExpirations = this.catalog.selectedExpirations;
+  readonly selectedLengthBuckets = this.catalog.selectedLengthBuckets;
+  readonly selectedQueryLengthBuckets = this.catalog.selectedQueryLengthBuckets;
+  readonly openMenu = this.catalog.openMenu;
+  readonly queryExpGte = this.catalog.queryExpGte;
+  readonly queryExpLte = this.catalog.queryExpLte;
+  readonly builtOccId = this.catalog.builtOccId;
+  readonly canSearch = this.catalog.canSearch;
+  readonly catalogRows = this.catalog.catalogRows;
+  readonly sortLevels = this.catalog.sortLevels;
+  readonly sortedCatalogRows = this.catalog.sortedCatalogRows;
+  readonly strikeMin = this.catalog.strikeMin;
+  readonly strikeMax = this.catalog.strikeMax;
+  readonly expMin = this.catalog.expMin;
+  readonly expMax = this.catalog.expMax;
+  readonly displayedRows = this.catalog.displayedRows;
+  readonly displayedRowsWithShade = this.catalog.displayedRowsWithShade;
+  readonly expirationOptions = this.catalog.expirationOptions;
+  readonly chartExpirationOptions = this.catalog.chartExpirationOptions;
+  readonly lengthLabel = this.catalog.lengthLabel;
+  readonly lengthGroups = this.catalog.lengthGroups;
+  readonly availableLengthBuckets = this.catalog.availableLengthBuckets;
+  readonly availableLengthGroups = this.catalog.availableLengthGroups;
+  readonly expFilterLabel = this.catalog.expFilterLabel;
+  readonly lenFilterLabel = this.catalog.lenFilterLabel;
+  readonly queryLenLabel = this.catalog.queryLenLabel;
+  readonly catalogTotal = this.catalog.catalogTotal;
+  readonly hasMorePages = this.catalog.hasMorePages;
+  readonly chartFilterActive = this.catalog.chartFilterActive;
+  readonly displayFilterActive = this.catalog.displayFilterActive;
+  readonly canGoPrev = this.catalog.canGoPrev;
+  readonly canGoNext = this.catalog.canGoNext;
 
-  /** Rendered list error — the page-level error wins; a store-level
-   *  failure (e.g. a stale persisted docId failing restore) still
-   *  surfaces instead of leaving a silent empty session. */
-  readonly listErrorText = computed(
-    () => this.listError() ?? this.listStore.error(),
-  );
+  readonly onExpGteChange = (v: string): void => this.catalog.onExpGteChange(v);
+  readonly onExpLteChange = (v: string): void => this.catalog.onExpLteChange(v);
+  readonly onBuildChange = (): void => this.catalog.onBuildChange();
+  readonly getSortInfo = (field: SortField) => this.catalog.getSortInfo(field);
+  readonly onColumnSort = (field: SortField): void => this.catalog.onColumnSort(field);
+  readonly onQueryCatalog = (): void => this.catalog.onQueryCatalog();
+  readonly onSelectCatalogContract = (e: ContractCatalogEntry): void => this.catalog.onSelectCatalogContract(e);
+  readonly onLengthChange = (v: string | null): void => this.catalog.onLengthChange(v);
+  readonly toggleMenu = (key: 'queryLen' | 'exp' | 'len', event: Event): void => this.catalog.toggleMenu(key, event);
+  readonly closeMenus = (): void => this.catalog.closeMenus();
+  readonly toggleQueryLengthBucket = (v: string): void => this.catalog.toggleQueryLengthBucket(v);
+  readonly toggleQueryLengthGroup = (name: string): void => this.catalog.toggleQueryLengthGroup(name);
+  readonly clearQueryLengthBuckets = (): void => this.catalog.clearQueryLengthBuckets();
+  readonly onFilterToChart = (): void => this.catalog.onFilterToChart();
+  readonly onClearChartFilter = (): void => this.catalog.onClearChartFilter();
+  readonly onLoadMore = (): void => this.catalog.onLoadMore();
+  readonly onLoadAll = (): void => this.catalog.onLoadAll();
+  readonly toggleExpiration = (v: string): void => this.catalog.toggleExpiration(v);
+  readonly toggleLengthBucket = (v: string): void => this.catalog.toggleLengthBucket(v);
+  readonly toggleLengthGroup = (name: string): void => this.catalog.toggleLengthGroup(name);
+  readonly onClearAllDisplayFilters = (): void => this.catalog.onClearAllDisplayFilters();
+  readonly clearSelectedExpirations = (): void => this.catalog.clearSelectedExpirations();
+  readonly clearSelectedLengthBuckets = (): void => this.catalog.clearSelectedLengthBuckets();
+  readonly onPrevContract = (): void => this.catalog.onPrevContract();
+  readonly onNextContract = (): void => this.catalog.onNextContract();
 
-  /** Picker emit → chart handoff — injected into the dialog via
-   *  DS_DIALOG_DATA so Send can plot through the page's load path. A
-   *  root `effect` on `lastEmitted` was the planned seam but deadlocks
-   *  the zoneless scheduler while Zone.js is still loaded (NG0914
-   *  state), so the callback is explicit: emitters call store.send*
-   *  then this. */
-  readonly emitSessionLines = (lines: string[]): void => {
-    if (lines.length) this.onListSend(lines);
-  };
+  // ── Chart emit plumbing (option-chart-load.service.ts) ──────────────
 
-  /** Ordering guard for `onContractListDocId` — two sequential `?list=`
-   *  links resolve their fetches out of order; only the latest applies
-   *  (the store's loadSeq can't help — every loadListDoc is a legit
-   *  fresh apply). */
-  private listDocReqSeq = 0;
+  readonly rejectedEntries = this.load.rejectedEntries;
+  readonly onLoad = (sentLines?: string): Promise<void> => this.load.onLoad(sentLines);
+  readonly rejectionReasonLabel = (reason: RejectedReason): string => this.load.rejectionReasonLabel(reason);
 
-  // Builder fields (signals so computed/derived state reacts)
-  symbol = signal('QQQ');
-  readonly expiration = this.store.selectedExpiration;
-  type = signal<'call' | 'put' | 'both'>('both');
+  // ── Contract-list wiring (option-chart-list.service.ts) ─────────────
 
-  /** Maps the type signal to the SA catalog type param: 'C' | 'P' | null (null = both). */
-  readonly catalogType = computed<'C' | 'P' | null>(() => {
-    const t = this.type();
-    return t === 'call' ? 'C' : t === 'put' ? 'P' : null;
-  });
+  readonly listErrorText = this.list.listErrorText;
+  readonly emitSessionLines = this.list.emitSessionLines;
+  readonly onContractListDocId = (docId: string): Promise<void> => this.list.onContractListDocId(docId);
+  readonly onContractListDoc = (doc: OptionsContractListUi): void => this.list.onContractListDoc(doc);
+  readonly openListChooser = (): void => this.list.openListChooser();
+  readonly openListPicker = (): void => this.list.openListPicker();
+  /** Picker handoff — same emit path as the generator send. */
+  readonly onListSend = (lines: string[]): void => this.load.emitLinesToChart(lines);
 
-  /** Client-side display type filter (separate from backend query). */
-  displayType = signal<'all' | 'call' | 'put'>('all');
+  // ── Replay selector (option-chart-replay.service.ts) ────────────────
 
-  /** Client-side multi-select expiration filter. */
-  selectedExpirations = signal<Set<string>>(new Set());
+  readonly replayRuns = this.replay.replayRuns;
+  get selectedReplayRunId(): string | null { return this.replay.selectedReplayRunId; }
+  set selectedReplayRunId(v: string | null) { this.replay.selectedReplayRunId = v; }
+  readonly replayLoading = this.replay.replayLoading;
+  readonly replayError = this.replay.replayError;
+  readonly replayLabel = (run: OptionsReplayRunUi): string => this.replay.replayLabel(run);
+  readonly onReplaySelected = (runId: string): Promise<void> => this.replay.onReplaySelected(runId);
 
-  /** Client-side multi-select length bucket filter. */
-  selectedLengthBuckets = signal<Set<string>>(new Set());
+  // ── Generator drawer (option-chart-generator.service.ts) ────────────
 
-  /** Backend query multi-select length buckets (comma-separated in request). */
-  selectedQueryLengthBuckets = signal<Set<string>>(new Set());
+  get generatorOpen(): boolean { return this.gen.generatorOpen; }
+  set generatorOpen(v: boolean) { this.gen.generatorOpen = v; }
+  readonly brushArmed = this.gen.brushArmed;
+  readonly onStudyRange = (range: StudyRange | null): void => this.gen.onStudyRange(range);
+  readonly clearStudyRange = (): void => this.gen.clearStudyRange();
+  readonly onGeneratorSend = (lines: string[]): void => this.gen.onGeneratorSend(lines);
 
-  /** ds-menu dropdowns — one open at a time, closed by document click. */
-  readonly openMenu = signal<'queryLen' | 'exp' | 'len' | null>(null);
+  // ── Lifecycle ───────────────────────────────────────────────────────
 
-  /** Backend query expiration range (from/to). */
-  queryExpGte = signal<string | null>(null);
-  queryExpLte = signal<string | null>(null);
-
-  onExpGteChange(value: string): void {
-    this.queryExpGte.set(value || null);
-  }
-  onExpLteChange(value: string): void {
-    this.queryExpLte.set(value || null);
-  }
-
-  readonly strike = this.store.selectedStrike;
-  readonly contractLength = this.store.contractLength;
-
-
-  /** Build OCC ID from builder fields. */
-  readonly builtOccId = computed(() => {
-    const sym = (this.symbol() || '').trim().toUpperCase();
-    const exp = this.expiration();
-    const stk = this.strike();
-    if (!sym || !exp || stk == null) return '';
-    const { yy, mm, dd } = this.parseExpirationParts(exp);
-    if (this.type() === 'both') return '';
-    const cp = this.type() === 'call' ? 'C' : 'P';
-    const strikeStr = String(Math.round(stk * 1000)).padStart(8, '0');
-    return `${sym}${yy.slice(2)}${mm}${dd}${cp}${strikeStr}`;
-  });
-
-  /** Whether the search button should be enabled. */
-  readonly canSearch = computed(() => {
-    return !this.store.catalogLoading()
-      && this.symbol().trim().length > 0;
-  });
-
-  /** Parsed catalog results with numeric latest values for display. */
-  readonly catalogRows = computed<CatalogRow[]>(() =>
-    this.store.catalogResults().map(toCatalogRow),
-  );
-
-  /** Multi-column sort state — order of array = sort priority. */
-  sortLevels = signal<SortLevel[]>([]);
-
-  /** Catalog rows after applying client-side multi-column sort. */
-  readonly sortedCatalogRows = computed<CatalogRow[]>(() => {
-    const rows = this.catalogRows();
-    const levels = this.sortLevels();
-    if (levels.length === 0) return rows;
-    return [...rows].sort((a, b) => {
-      for (const { field, direction } of levels) {
-        const cmp = compareByField(a, b, field);
-        if (cmp !== 0) return direction === 'asc' ? cmp : -cmp;
-      }
-      return 0;
-    });
-  });
-
-  /** Sort indicator for a column: { priority, direction } or null. */
-  getSortInfo(field: SortField): { priority: number; direction: 'asc' | 'desc' } | null {
-    const idx = this.sortLevels().findIndex((l) => l.field === field);
-    if (idx === -1) return null;
-    return { priority: idx + 1, direction: this.sortLevels()[idx].direction };
+  ngOnInit(): void {
+    this.page.initSession();
+    this.replay.bindRuns();
+    this.list.bindDeepLink();
   }
 
-  /** Click-to-add, cycle-to-remove sort. */
-  onColumnSort(field: SortField): void {
-    const levels = [...this.sortLevels()];
-    const idx = levels.findIndex((l) => l.field === field);
-    if (idx === -1) {
-      levels.push({ field, direction: 'asc' });
-    } else if (levels[idx].direction === 'asc') {
-      levels[idx] = { field, direction: 'desc' };
-    } else {
-      levels.splice(idx, 1);
-    }
-    this.sortLevels.set(levels);
+  ngOnDestroy(): void {
+    this.uiStateService.setFullscreen(false);
+    // DsDialogService is root-scoped — overlays outlive the route. A
+    // picker left open over the next page would keep its `onSend`
+    // callback alive against this destroyed component (and the root
+    // viewer store); every dialog open at destroy is page-owned.
+    this.dialog.closeAll();
   }
 
-  /** Client-side strike range filter. */
-  strikeMin = signal<number | null>(null);
-  strikeMax = signal<number | null>(null);
-
-  /** Client-side expiration date range filter (from chart extents). */
-  expMin = signal<string | null>(null);
-  expMax = signal<string | null>(null);
-
-  /** Sorted rows filtered by all client-side display filters. */
-  readonly displayedRows = computed<CatalogRow[]>(() => {
-    const rows = this.sortedCatalogRows();
-    const min = this.strikeMin();
-    const max = this.strikeMax();
-    const expMin = this.expMin();
-    const expMax = this.expMax();
-    const dType = this.displayType();
-    const expSet = this.selectedExpirations();
-    const lenSet = this.selectedLengthBuckets();
-    if (min == null && max == null && !expMin && !expMax && dType === 'all' && expSet.size === 0 && lenSet.size === 0) return rows;
-    return rows.filter((r) => {
-      if (dType !== 'all' && r.type !== dType) return false;
-      if (expSet.size > 0 && !expSet.has(r.expiration)) return false;
-      if (lenSet.size > 0 && !lenSet.has(r.contractLengthBucket)) return false;
-      if (min != null && r.strike < min) return false;
-      if (max != null && r.strike > max) return false;
-      if (expMin && r.expiration < expMin) return false;
-      if (expMax && r.expiration > expMax) return false;
-      return true;
-    });
-  });
-
-  /** Rows with alternating shade index based on the primary sort column's group value. */
-  readonly displayedRowsWithShade = computed<{ row: CatalogRow; shade: 0 | 1 }[]>(() => {
-    const rows = this.displayedRows();
-    const primaryField = this.sortLevels()[0]?.field ?? 'expiration';
-    let lastKey: string | null = null;
-    let shade: 0 | 1 = 0;
-    return rows.map((row) => {
-      const key = String(
-        primaryField === 'delta' ? row.latestDelta
-        : primaryField === 'contractLengthDays' ? row.contractLengthDays
-        : primaryField === 'type' ? row.type
-        : primaryField === 'strike' ? row.strike
-        : primaryField === 'expiration' ? row.expiration
-        : primaryField === 'observationCount' ? row.observationCount
-        : ''
-      );
-      if (key !== lastKey) {
-        shade = shade === 0 ? 1 : 0;
-        lastKey = key;
-      }
-      return { row, shade };
-    });
-  });
-
-  /** Expiration options with day-of-week labels and contract counts, e.g. "2026-01-15 (Thu) · 42". */
-  readonly expirationOptions = computed(() =>
-    this.store.filteredExpirations().map((exp) => {
-      const strikes = this.store.expirationToStrikes()[exp];
-      const count = strikes ? strikes.length * 2 : 0;
-      return {
-        value: exp,
-        label: this.formatExpWithDow(exp),
-        count,
-      };
-    }),
-  );
-
-  /** Expiration options derived from loaded catalog results, sorted with counts. */
-  readonly chartExpirationOptions = computed(() => {
-    const rows = this.catalogRows();
-    const expMap = new Map<string, number>();
-    for (const row of rows) {
-      expMap.set(row.expiration, (expMap.get(row.expiration) ?? 0) + 1);
-    }
-    return Array.from(expMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([exp, count]) => ({
-        value: exp,
-        label: this.formatExpWithDow(exp),
-        count,
-      }));
-  });
+  // ── View state: plotted/chips projection ────────────────────────────
 
   /** Short legend/chip label like "600C 2026-01-16". */
   private plottedLabel(parsed: ParsedOccContractId | null, fallback = 'Mark'): string {
@@ -415,177 +300,6 @@ export class OptionChartComponent implements OnInit, OnDestroy {
       : unionLabels(this.store.xLabels(), this.store.underlyingWindowDates()),
   );
 
-  /** Parse a YYYY-MM-DD expiration string into year/month/day parts. */
-  private parseExpirationParts(exp: string): { yy: string; mm: string; dd: string } {
-    const [yy, mm, dd] = exp.split('-');
-    return { yy, mm: mm.padStart(2, '0'), dd: dd.padStart(2, '0') };
-  }
-
-  /** Format an expiration date string with day of week, e.g. "2026-01-15 (Thu)". */
-  private formatExpWithDow(exp: string): string {
-    return `${exp} (${formatUtcDate(exp, { weekday: 'short' })})`;
-  }
-
-  /** Sync built OCC ID to the input field. */
-  onBuildChange(): void {
-    const id = this.builtOccId();
-    if (id) this.occIdInput = id;
-  }
-
-  /** Handle symbol change — clear dependent fields and fetch expirations/strikes + catalog summary. */
-  onSymbolChange(value: string): void {
-    this.symbol.set(value);
-    this.occIdInput = '';
-    this.store.clearCatalog();
-    this.store.clearCatalogFilters();
-    this.store.setCatalogBuilder({ symbol: value, type: this.catalogType() });
-    // The generator + list session keep per-symbol state — swap both blobs.
-    this.genStore.setSymbol(value);
-    this.listStore.setSymbol(value);
-    // A symbol swap starts a new session — a stale page-level error must
-    // not follow it (it would also mask a fresh restore failure via
-    // listErrorText's precedence).
-    this.listError.set(null);
-    const sym = value.trim().toUpperCase();
-    if (sym) {
-      this.store.loadContractIndex(sym);
-      this.store.loadCatalogSummary(sym);
-      this.store.loadUnderlyingBars(sym);
-    }
-  }
-
-  /** Label for the selected contract length. */
-  readonly lengthLabel = computed(() => {
-    const length = this.contractLength();
-    return length ? getLengthLabel(length) : '';
-  });
-
-  /** Length options grouped for the dropdown with contract counts from summary. */
-  readonly lengthGroups = computed<LengthGroup[]>(() => {
-    const summary = this.store.catalogSummary();
-    if (summary?.lengthBuckets) {
-      const buckets = (summary.lengthBuckets as LengthBucket[])
-        .filter((b) => b.count > 0)
-        .sort((a, b) => a.sortOrder - b.sortOrder);
-      if (buckets.length > 0) {
-        const bucketCounts = new Map(buckets.map((b) => [b.label, b.count]));
-        const labels = buckets.map((b) => b.label);
-        return groupLengthBuckets(labels).map((group) => ({
-          ...group,
-          options: group.options.map((opt) => {
-            const count = bucketCounts.get(opt.value);
-            return {
-              ...opt,
-              label: count != null ? `${opt.label} (${count})` : opt.label,
-            };
-          }),
-        }));
-      }
-    }
-    return [];
-  });
-
-  /** Flat list of available length buckets for the display filter dropdown. */
-  readonly availableLengthBuckets = computed(() => {
-    const summary = this.store.catalogSummary();
-    if (!summary?.lengthBuckets) return [];
-    return (summary.lengthBuckets as LengthBucket[])
-      .filter((b) => b.count > 0)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((b) => ({ value: b.label, label: getLengthLabel(b.label), count: b.count }));
-  });
-
-  /** Available length buckets grouped into Short/Medium/Long for quick toggle. */
-  readonly availableLengthGroups = computed(() => {
-    const buckets = this.availableLengthBuckets();
-    if (buckets.length === 0) return [];
-    return groupLengthBuckets(buckets.map((b) => b.value)).map((group) => ({
-      name: group.name,
-      options: group.options.map((opt) => {
-        const bucket = buckets.find((b) => b.value === opt.value);
-        return { ...opt, count: bucket?.count ?? 0 };
-      }),
-    }));
-  });
-
-  /** Label for the expiration display filter button. */
-  readonly expFilterLabel = computed(() => {
-    const count = this.selectedExpirations().size;
-    return count === 0 ? 'Exp' : `Exp (${count})`;
-  });
-
-  /** Label for the length display filter button. */
-  readonly lenFilterLabel = computed(() => {
-    const count = this.selectedLengthBuckets().size;
-    return count === 0 ? 'Len' : `Len (${count})`;
-  });
-
-  /** Label for the backend query length multi-select button. */
-  readonly queryLenLabel = computed(() => {
-    const count = this.selectedQueryLengthBuckets().size;
-    return count === 0 ? 'Length' : `Length (${count})`;
-  });
-
-  /** Total contract count for the current query. When all pages are loaded, this
-   *  is the exact total. When more pages remain, it's the count from the first page
-   *  (which may be page-level, not true total). */
-  readonly catalogTotal = computed(() => {
-    if (!this.store.catalogPageToken()) {
-      return this.catalogRows().length;
-    }
-    return Math.max(this.catalogRows().length, this.store.catalogCount());
-  });
-
-  /** Whether more pages are available to load. */
-  readonly hasMorePages = computed(() => !!this.store.catalogPageToken());
-
-  ngOnInit(): void {
-    const sym = this.symbol().trim().toUpperCase();
-    this.store.setCatalogBuilder({ symbol: sym, type: this.catalogType() });
-    this.genStore.setSymbol(sym);
-    this.listStore.setSymbol(sym);
-    if (sym) {
-      this.store.loadContractIndex(sym);
-      this.store.loadCatalogSummary(sym);
-      this.store.loadUnderlyingBars(sym);
-    }
-    this.replayService.watchRuns(20).pipe(take(1)).subscribe({
-      next: (runs) => this.replayRuns.set(runs.filter((r) => r.status === 'completed')),
-      error: () => this.replayError.set('Could not load replay runs'),
-    });
-    // `?list={docId}` deep-link — distinctUntilChanged on the param so
-    // unrelated query emissions can't retrigger a load (option-chain
-    // pattern); an absent param never fires. The param is consumed once
-    // and cleared — left in the URL it would re-fire the load (and
-    // reopen the picker) on every refresh. replaceUrl keeps the
-    // consumed link out of history; the cleared emission is a no-op.
-    this.route.queryParamMap
-      .pipe(
-        map((params) => params.get('list')),
-        distinctUntilChanged(),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((raw) => {
-        if (raw == null) return;
-        void this.router.navigate([], {
-          queryParams: { list: null },
-          queryParamsHandling: 'merge',
-          replaceUrl: true,
-        });
-        const docId = raw.trim();
-        if (docId) void this.onContractListDocId(docId);
-      });
-  }
-
-  ngOnDestroy(): void {
-    this.uiStateService.setFullscreen(false);
-    // DsDialogService is root-scoped — overlays outlive the route. A
-    // picker left open over the next page would keep its `onSend`
-    // callback alive against this destroyed component (and the root
-    // viewer store); every dialog open at destroy is page-owned.
-    this.dialog.closeAll();
-  }
-
   /** Chips strip — mirrors the chart: every plotted contract in set view, or
    *  just the focused contract while it owns the pane. A focused contract
    *  outside the set (catalog row / single-id load) synthesizes a chip from
@@ -644,465 +358,5 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   onChipRemove(contract: PlottedContract): void {
     this.store.removePlotted(contract.entry.contractId);
-  }
-
-  rejectionReasonLabel(reason: RejectedReason): string {
-    switch (reason) {
-      case 'invalid-contract':
-        return 'not a valid contract ID';
-      case 'invalid-date':
-        return 'invalid date (use YYYY-MM-DD)';
-      case 'wrong-underlying':
-        return `not a ${(this.symbol() || '').trim().toUpperCase()} contract`;
-    }
-  }
-
-  /** Re-entrancy flag for the >50 confirm — the only dialog that must
-   *  block a second load. Scoped narrower than `openDialogs.length`:
-   *  sends legitimately arrive while another dialog (chooser, a picker
-   *  mid-close) is still registered open — an any-dialog check would
-   *  dead-end them. */
-  private loadConfirmOpen = false;
-
-  /** Load dispatch: a single bare OCC ID keeps the existing single-contract
-   *  view; anything else — dated pairs or a multi-line list — goes through
-   *  the plotted-set path. Rejected tokens are surfaced, valid entries still
-   *  load. `sentLines` is the programmatic-send variant (picker/generator):
-   *  the textarea write is deferred past the >50 confirm so a cancelled
-   *  send can't leave the field disagreeing with the plotted set. */
-  async onLoad(sentLines?: string): Promise<void> {
-    const text = sentLines ?? this.occIdInput;
-    // Re-entrancy guard: a second click while the >50 confirm is open would
-    // stack another dialog and spawn a concurrent batch.
-    if (!text.trim() || this.loadConfirmOpen) return;
-
-    const { entries, rejected } = parsePlottedEntries(text, this.symbol());
-    this.rejectedEntries.set(rejected);
-    if (entries.length === 0) return;
-
-    if (entries.length === 1 && entries[0].openDate === null && rejected.length === 0) {
-      if (sentLines !== undefined) this.occIdInput = text;
-      this.store.loadContract(entries[0].contractId, this.store.contractLength());
-      return;
-    }
-
-    if (entries.length > LARGE_LIST_WARN_THRESHOLD) {
-      this.loadConfirmOpen = true;
-      try {
-        const ok = await firstValueFrom(
-          this.dialog
-            .open(ConfirmDialogComponent, {
-              data: {
-                message: `This will load ${entries.length} option contracts — the chart may be slow and hard to read. Load all ${entries.length}?`,
-                confirmLabel: 'Load',
-                cancelLabel: 'Cancel',
-              },
-            })
-            .afterClosed(),
-        );
-        if (!ok) return;
-      } finally {
-        this.loadConfirmOpen = false;
-      }
-    }
-
-    if (sentLines !== undefined) this.occIdInput = text;
-    await this.store.loadPlotted(entries);
-  }
-
-  /** Drawer handoff — emitted pair lines go through the same textarea +
-   *  loadPlotted path as a paste, so replace semantics stay identical. */
-  onGeneratorSend(lines: string[]): void {
-    this.emitLinesToChart(lines);
-  }
-
-  /** Picker handoff — same emit path as the generator send. */
-  onListSend(lines: string[]): void {
-    this.emitLinesToChart(lines);
-  }
-
-  private emitLinesToChart(lines: string[]): void {
-    // Bail before dispatch — a pending >50 confirm drops the send
-    // rather than queueing a load the user hasn't approved.
-    if (this.loadConfirmOpen) return;
-    void this.onLoad(lines.join('\n'));
-  }
-
-  /** `?list=` entry — one read for the symbol check, then the shared
-   *  doc tail. Missing/failed docs name their error; the chart is
-   *  never touched. A superseded request applies nothing — two quick
-   *  `?list=` links resolve out of order, latest wins. */
-  async onContractListDocId(docId: string): Promise<void> {
-    const seq = ++this.listDocReqSeq;
-    this.listError.set(null);
-    let doc;
-    try {
-      doc = await firstValueFrom(this.listService.getList$(docId));
-    } catch (err) {
-      if (seq === this.listDocReqSeq) {
-        this.listError.set(
-          `Contract list "${docId}" failed to load: ${(err as Error)?.message ?? 'unknown error'}`,
-        );
-      }
-      return;
-    }
-    if (seq !== this.listDocReqSeq) return;
-    const docErr = contractListDocError(doc, docId);
-    if (docErr || !doc) {
-      this.listError.set(docErr ?? `Contract list "${docId}" not found`);
-      return;
-    }
-    this.onContractListDoc(doc);
-  }
-
-  /** Shared tail — a doc that fails shape validation names its error
-   *  without a cross-symbol switch (a failed SPY list must not yank a
-   *  QQQ page through a catalog/underlying reload). Then cross-symbol
-   *  lists switch the page first, and `loadListDoc` applies the doc
-   *  that's already in hand (no second read: `?list=` read once above;
-   *  the chooser's row IS the doc). A ready session opens the picker;
-   *  a rejected doc names its error. */
-  onContractListDoc(doc: OptionsContractListUi): void {
-    // Any doc handoff (chooser row, resolved deep link) is the user's
-    // latest intent — invalidate a still-in-flight ?list= fetch and
-    // clear any stale page error a previous attempt left behind.
-    this.listDocReqSeq++;
-    this.listError.set(null);
-    const docErr = contractListDocError(doc, doc.listId);
-    if (docErr) {
-      this.listError.set(docErr);
-      return;
-    }
-    const sym = doc.symbol.trim().toUpperCase();
-    if (sym && sym !== this.symbol().trim().toUpperCase()) {
-      this.onSymbolChange(sym);
-    }
-    this.listStore.loadListDoc(doc);
-    if (this.listStore.status() === 'ready') {
-      this.openListPicker();
-    } else if (this.listStore.status() === 'error') {
-      this.listError.set(this.listStore.error());
-    }
-  }
-
-  /** "Lists…" button — recent-doc chooser; the selected row's doc is
-   *  already converted, so the same tail loads it with no refetch. */
-  openListChooser(): void {
-    this.dialog
-      .open(ContractListChooserComponent, {
-        width: '560px',
-        injector: this.injector,
-        data: { symbol: this.symbol() },
-      })
-      .afterClosed()
-      .subscribe((list?: OptionsContractListUi) => {
-        if (list) this.onContractListDoc(list);
-      });
-  }
-
-  /** Live picker ref — a `?list=` doc applying while the picker is
-   *  open must not stack a second dialog; the open one already tracks
-   *  the store, so the new selection/chunk state shows through. */
-  private pickerRef: DsDialogRef<ContractListPickerComponent> | null = null;
-
-  /** Session → picker dialog. Send emits through the `onSend` data
-   *  callback then closes (#1419); reopening uses the same session
-   *  store, so selection/cursor are preserved. */
-  openListPicker(): void {
-    if (this.pickerRef) return;
-    const ref = this.dialog.open(ContractListPickerComponent, {
-      width: '85vw',
-      maxWidth: '85vw',
-      height: '85vh',
-      injector: this.injector,
-      data: { onSend: this.emitSessionLines } satisfies ContractListPickerData,
-    });
-    this.pickerRef = ref;
-    ref.afterClosed().subscribe(() => (this.pickerRef = null));
-  }
-
-  /** Chart brush (#1340) → generator alive-range bound. Declared now so the
-   *  page route exists when the brush emission lands. */
-  onStudyRange(range: StudyRange | null): void {
-    this.genStore.applyRange(range);
-  }
-
-  /** Header-button × — clears the alive-range bound (chart band + drawer
-   *  row go away, persisted blob updates) and disarms the brush. */
-  clearStudyRange(): void {
-    this.brushArmed.set(false);
-    this.genStore.applyRange(null);
-  }
-
-  /** Dropdown label — template + window + the run's symbol. */
-  replayLabel(run: OptionsReplayRunUi): string {
-    return `${run.templateId} · ${run.startDate} · ${run.symbol}`;
-  }
-
-  /** Replay pick → default slice = first 10 Wednesday pick rows of the
-   *  current symbol's list, emitted as `date,id` lines through the same
-   *  loadPlotted path as a paste. The filter/paging dialog is a later
-   *  step — this just plots. */
-  async onReplaySelected(runId: string): Promise<void> {
-    this.replayLoading.set(true);
-    this.replayError.set(null);
-    try {
-      const list = await firstValueFrom(
-        this.replayService.watchContractList(runId).pipe(take(1)),
-      );
-      if (list?.status !== 'success') {
-        this.replayError.set('No successful contract list in this run');
-        return;
-      }
-      const picks = list.rows
-        .filter((r): r is ContractListPickRow => r.kind === 'pick')
-        .filter((r) => new Date(`${r.entryDate}T00:00:00Z`).getUTCDay() === 3)
-        .slice(0, 10);
-      if (picks.length === 0) {
-        this.replayError.set('No Wednesday picks in this list');
-        return;
-      }
-      // Single-symbol runs (#1430): a run is exactly one list, often NOT
-      // the page symbol — selecting it is intent to view that symbol, so
-      // switch pages like onContractListDoc does. Only after every bail
-      // path — an errored selection must not yank the page underneath
-      // the user (the error names the run, not a symbol switch).
-      const sym = list.symbol.trim().toUpperCase();
-      if (sym && sym !== this.symbol().trim().toUpperCase()) {
-        this.onSymbolChange(sym);
-      }
-      this.occIdInput = picks.map((r) => `${r.entryDate},${r.contractId}`).join('\n');
-      await this.onLoad();
-    } catch (e: unknown) {
-      // A dead stream (rules/offline) must not fail silently — the
-      // loading flag clears in finally either way.
-      this.replayError.set(e instanceof Error ? e.message : 'Failed to load this run');
-    } finally {
-      this.replayLoading.set(false);
-    }
-  }
-
-  /** Search for available contracts using the catalog endpoint with builder + catalog filters. */
-  onQueryCatalog(): void {
-    const lenBuckets = this.selectedQueryLengthBuckets();
-    this.store.setCatalogFilter('contractLengthBucket', lenBuckets.size > 0 ? Array.from(lenBuckets).join(',') : null);
-    this.store.setCatalogFilters({
-      expirationGte: this.queryExpGte(),
-      expirationLte: this.queryExpLte(),
-    });
-    this.store.setCatalogBuilder({
-      symbol: this.symbol(),
-      type: this.catalogType(),
-    });
-    this.store.queryCatalog();
-  }
-
-  /** Select a contract from catalog results and load it. */
-  onSelectCatalogContract(entry: ContractCatalogEntry): void {
-    const id = entry.contractId.trim().toUpperCase();
-    if (!id) return;
-    this.occIdInput = id;
-    void this.onLoad();
-  }
-
-  /** Set contract length + bucket filter and re-query catalog. */
-  onLengthChange(value: string | null): void {
-    this.store.setContractLength(value);
-    this.store.setCatalogFilter('contractLengthBucket', value);
-    this.onQueryCatalog();
-  }
-
-  /** ds-menu dropdown — toggle open state (one menu at a time). */
-  toggleMenu(key: 'queryLen' | 'exp' | 'len', event: Event): void {
-    event.stopPropagation();
-    this.openMenu.update((k) => (k === key ? null : key));
-  }
-
-  /** Close any open ds-menu — wired to document click on the host. */
-  closeMenus(): void {
-    this.openMenu.set(null);
-  }
-
-  /** Toggle a length bucket in the backend query multi-select. */
-  toggleQueryLengthBucket(value: string): void {
-    const set = new Set(this.selectedQueryLengthBuckets());
-    if (set.has(value)) set.delete(value);
-    else set.add(value);
-    this.selectedQueryLengthBuckets.set(set);
-  }
-
-  /** Toggle all buckets in a length group for the backend query. */
-  toggleQueryLengthGroup(groupName: string): void {
-    const group = this.availableLengthGroups().find((g) => g.name === groupName);
-    if (!group) return;
-    const set = new Set(this.selectedQueryLengthBuckets());
-    const allSelected = group.options.every((opt) => set.has(opt.value));
-    if (allSelected) {
-      group.options.forEach((opt) => set.delete(opt.value));
-    } else {
-      group.options.forEach((opt) => set.add(opt.value));
-    }
-    this.selectedQueryLengthBuckets.set(set);
-  }
-
-  /** Clear the backend query length bucket selection. */
-  clearQueryLengthBuckets(): void {
-    this.selectedQueryLengthBuckets.set(new Set());
-  }
-
-  /** Whether the chart-based filter is currently active. */
-  readonly chartFilterActive = computed(() =>
-    this.expMin() != null || this.expMax() != null ||
-    this.strikeMin() != null || this.strikeMax() != null,
-  );
-
-  /** Filter contract list to contracts within the chart's visible extents. */
-  onFilterToChart(): void {
-    const ext = this.chartRef()?.visibleExtents();
-    if (!ext) return;
-    this.expMin.set(ext.startDate);
-    this.expMax.set(ext.endDate);
-
-    // SA allows one range dimension per request. Expiration range is used as
-    // the server-side filter because it narrows the result set more effectively
-    // than strike range (expiration dates are sparse, strikes are dense).
-    // Strike filtering stays client-side on returned results.
-    this.strikeMin.set(Math.floor(ext.priceLow));
-    this.strikeMax.set(Math.ceil(ext.priceHigh));
-    this.store.setCatalogFilters({
-      strikeGte: null,
-      strikeLte: null,
-      expirationGte: ext.startDate,
-      expirationLte: ext.endDate,
-    });
-    this.store.setCatalogBuilder({ symbol: this.symbol(), type: this.catalogType() });
-    this.store.queryCatalog(true);
-  }
-
-  /** Clear chart-based filter. */
-  onClearChartFilter(): void {
-    this.expMin.set(null);
-    this.expMax.set(null);
-    this.strikeMin.set(null);
-    this.strikeMax.set(null);
-    this.store.setCatalogFilters({
-      strikeGte: null,
-      strikeLte: null,
-      expirationGte: null,
-      expirationLte: null,
-    });
-  }
-
-  /** Load more catalog results (pagination). */
-  onLoadMore(): void {
-    this.store.loadMoreCatalog();
-  }
-
-  /** Auto-paginate through all remaining catalog results. */
-  onLoadAll(): void {
-    this.store.loadAllCatalog();
-  }
-
-  /** Toggle an expiration in the client-side multi-select set. */
-  toggleExpiration(value: string): void {
-    const set = new Set(this.selectedExpirations());
-    if (set.has(value)) set.delete(value);
-    else set.add(value);
-    this.selectedExpirations.set(set);
-  }
-
-  /** Toggle a length bucket in the client-side multi-select set. */
-  toggleLengthBucket(value: string): void {
-    const set = new Set(this.selectedLengthBuckets());
-    if (set.has(value)) set.delete(value);
-    else set.add(value);
-    this.selectedLengthBuckets.set(set);
-  }
-
-  /** Toggle all buckets in a length group (Short/Medium/Long) at once. */
-  toggleLengthGroup(groupName: string): void {
-    const group = this.availableLengthGroups().find((g) => g.name === groupName);
-    if (!group) return;
-    const set = new Set(this.selectedLengthBuckets());
-    const allSelected = group.options.every((opt) => set.has(opt.value));
-    if (allSelected) {
-      group.options.forEach((opt) => set.delete(opt.value));
-    } else {
-      group.options.forEach((opt) => set.add(opt.value));
-    }
-    this.selectedLengthBuckets.set(set);
-  }
-
-  /** Clear all client-side display filters. */
-  onClearAllDisplayFilters(): void {
-    this.displayType.set('all');
-    this.clearSelectedExpirations();
-    this.clearSelectedLengthBuckets();
-    this.strikeMin.set(null);
-    this.strikeMax.set(null);
-  }
-
-  /** Clear the expiration multi-select set. */
-  clearSelectedExpirations(): void {
-    this.selectedExpirations.set(new Set());
-  }
-
-  /** Clear the length bucket multi-select set. */
-  clearSelectedLengthBuckets(): void {
-    this.selectedLengthBuckets.set(new Set());
-  }
-
-  /** Whether any display filter is active. */
-  readonly displayFilterActive = computed(() =>
-    this.displayType() !== 'all' ||
-    this.selectedExpirations().size > 0 ||
-    this.selectedLengthBuckets().size > 0 ||
-    this.strikeMin() != null ||
-    this.strikeMax() != null,
-  );
-
-  /** Whether the prev/next nav buttons can be used. */
-  readonly canGoPrev = computed(() => {
-    const idx = this.store.currentSearchIndex();
-    return idx > 0 && !this.store.loading();
-  });
-
-  readonly canGoNext = computed(() => {
-    const idx = this.store.currentSearchIndex();
-    const count = this.store.catalogResults().length;
-    return idx >= 0 && idx < count - 1 && !this.store.loading();
-  });
-
-  onPrevContract(): void {
-    this.store.navigateCatalogContract(-1);
-  }
-
-  onNextContract(): void {
-    this.store.navigateCatalogContract(1);
-  }
-}
-
-function compareByField(a: CatalogRow, b: CatalogRow, field: SortField): number {
-  switch (field) {
-    case 'type':
-      return a.type.localeCompare(b.type);
-    case 'strike':
-      return a.strike - b.strike;
-    case 'expiration':
-      return a.expiration.localeCompare(b.expiration);
-    case 'contractLengthDays': {
-      const aVal = a.contractLengthDays ?? Infinity;
-      const bVal = b.contractLengthDays ?? Infinity;
-      return aVal - bVal;
-    }
-    case 'observationCount':
-      return a.observationCount - b.observationCount;
-    case 'delta': {
-      const aVal = a.latestDelta ?? -Infinity;
-      const bVal = b.latestDelta ?? -Infinity;
-      return aVal - bVal;
-    }
-    default:
-      return 0;
   }
 }

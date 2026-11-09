@@ -13,9 +13,8 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 
 import { OptionChartComponent } from './option-chart.component';
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
-import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
-import { ContractListSessionStore } from '../../stores/contract-list-session.store';
 import { ContractListService } from '../../services/contract-list.service';
+import { OPTION_CHART_PAGE_PROVIDERS } from './option-chart-page.providers';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
@@ -74,10 +73,10 @@ function setup(getHistorical?: jest.Mock, dialogResult = true, bars: OhlcBar[] =
   TestBed.configureTestingModule({
     providers: [
       provideZonelessChangeDetection(),
-      // Page-scoped in the real component — provided here so the manually
-      // instantiated class resolves its store injects.
-      OptionGroupGeneratorStore,
-      ContractListSessionStore,
+      // Page-scoped in the real component — the same provider list the
+      // component registers, spread so the manual instantiation resolves
+      // its store + unit injects.
+      ...OPTION_CHART_PAGE_PROVIDERS,
       { provide: ContractListService, useValue: { getList$: jest.fn(() => of(null)), recentLists$: jest.fn(() => of([])) } },
       { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
       { provide: Router, useValue: { navigate: jest.fn() } },

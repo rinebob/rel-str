@@ -19,9 +19,9 @@ import type { ContractListPickRow, ContractListRow } from '@options-replay/contr
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
 import { OptionChartComponent } from './option-chart.component';
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
-import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import { ContractListSessionStore } from '../../stores/contract-list-session.store';
 import { ContractListService } from '../../services/contract-list.service';
+import { OPTION_CHART_PAGE_PROVIDERS } from './option-chart-page.providers';
 import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
 import { ContractListPickerComponent } from '../../components/contract-list-picker/contract-list-picker.component';
 import { ConfirmDialogComponent } from '../../../../shared/ds/confirm-dialog.component';
@@ -54,7 +54,7 @@ const pickRow = (entryDate: string, contractId: string): ContractListPickRow => 
 });
 
 const listDoc = (over: Partial<OptionsContractListUi> = {}): OptionsContractListUi => ({
-  listId: 'run-1_QQQ',
+  listId: 'run-1',
   runId: 'run-1',
   symbol: 'QQQ',
   templateId: 'csp-45-20',
@@ -132,8 +132,10 @@ function setup(): Setup {
   TestBed.configureTestingModule({
     providers: [
       provideZonelessChangeDetection(),
-      OptionGroupGeneratorStore,
-      ContractListSessionStore,
+      // Page-scoped in the real component — the same provider list the
+      // component registers, spread so the manual instantiation resolves
+      // its store + unit injects.
+      ...OPTION_CHART_PAGE_PROVIDERS,
       {
         provide: OptionsContractService,
         useValue: {
@@ -146,7 +148,7 @@ function setup(): Setup {
       { provide: ContractListService, useValue: { getList$, recentLists$: jest.fn(() => of([])) } },
       {
         provide: OptionsReplayRunsService,
-        useValue: { watchRuns: jest.fn(() => of([])), watchContractLists: jest.fn(() => of([])) },
+        useValue: { watchRuns: jest.fn(() => of([])), watchContractList: jest.fn(() => of(null)) },
       },
       { provide: LocalBarReadService, useValue: { getDailyBarsForRange$: jest.fn(() => of([])) } },
       { provide: DsDialogService, useValue: dialog },
@@ -177,14 +179,14 @@ describe('OptionChartComponent — contract-list session wiring', () => {
     getList$.mockReturnValue(of(listDoc()));
     component.ngOnInit();
 
-    params$.next(convertToParamMap({ list: 'run-1_QQQ' }));
+    params$.next(convertToParamMap({ list: 'run-1' }));
     await flush();
     await flush();
 
     // One read total — the page hands the doc to loadListDoc; the store
     // must not refetch it.
     expect(getList$).toHaveBeenCalledTimes(1);
-    expect(getList$).toHaveBeenCalledWith('run-1_QQQ');
+    expect(getList$).toHaveBeenCalledWith('run-1');
     expect(listStore.status()).toBe('ready');
     // The picker resolves the page-scoped session store — the dialog must
     // open on the page's element injector or inject() hits NG0201.
@@ -200,7 +202,7 @@ describe('OptionChartComponent — contract-list session wiring', () => {
     getList$.mockReturnValue(of(listDoc()));
     component.ngOnInit();
 
-    params$.next(convertToParamMap({ list: 'run-1_QQQ' }));
+    params$.next(convertToParamMap({ list: 'run-1' }));
     await flush();
 
     // Consumed deep links must not linger — a stale param would re-fire
@@ -222,10 +224,10 @@ describe('OptionChartComponent — contract-list session wiring', () => {
 
   it('a cross-symbol doc switches the page symbol before loading', async () => {
     const { component, listStore, getList$, params$ } = setup();
-    getList$.mockReturnValue(of(listDoc({ symbol: 'SPY', listId: 'run-1_SPY' })));
+    getList$.mockReturnValue(of(listDoc({ symbol: 'SPY', listId: 'run-2' })));
     component.ngOnInit();
 
-    params$.next(convertToParamMap({ list: 'run-1_SPY' }));
+    params$.next(convertToParamMap({ list: 'run-2' }));
     await flush();
     await flush();
 
@@ -417,7 +419,7 @@ describe('OptionChartComponent — contract-list session wiring', () => {
     await flush();
 
     expect(getList$).not.toHaveBeenCalled();
-    expect(listStore.activeList()?.listId).toBe('run-1_QQQ');
+    expect(listStore.activeList()?.listId).toBe('run-1');
     expect(dialog.open).toHaveBeenCalledWith(
       ContractListPickerComponent,
       expect.objectContaining({ injector: expect.anything() }),
@@ -479,7 +481,7 @@ describe('OptionChartComponent — contract-list session wiring', () => {
     const { component, listStore, getList$, dialog, params$ } = setup();
     getList$.mockReturnValue(of(listDoc()));
     component.ngOnInit();
-    params$.next(convertToParamMap({ list: 'run-1_QQQ' }));
+    params$.next(convertToParamMap({ list: 'run-1' }));
     await flush();
     await flush();
     // Close the ?list=-opened picker first — reopening is a close→open
@@ -494,7 +496,7 @@ describe('OptionChartComponent — contract-list session wiring', () => {
       expect.objectContaining({ injector: expect.anything() }),
     );
     // Same session — no reload, selection intact.
-    expect(listStore.activeList()?.listId).toBe('run-1_QQQ');
+    expect(listStore.activeList()?.listId).toBe('run-1');
     expect(getList$).toHaveBeenCalledTimes(1);
   });
 
