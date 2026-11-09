@@ -5,7 +5,8 @@
  * fans out one Cloud Task per symbol, and returns the run ID for polling.
  */
 
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import type { CallableRequest } from 'firebase-functions/v2/https';
 import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
 
@@ -34,95 +35,122 @@ interface StartBacktestResponse {
   total: number;
 }
 
-export const stBacktestStart = onCall<StartBacktestRequest, Promise<StartBacktestResponse>>(
-  { cors: true, memory: '256MiB', invoker: 'public' },
-  async (request) => {
-    const symbols = (request.data.symbols || [])
-      .map((s) => String(s).trim().toUpperCase())
-      .filter(Boolean);
-    const strategyId = request.data.strategyId;
-    const config = request.data.config ?? {};
-    const runType = request.data.runType ?? 'allData';
-    const initialCash = Math.max(0, Number(request.data.initialCash ?? DEFAULT_INITIAL_CASH));
-    const reportTier = request.data.reportTier ?? 'summary';
+export interface BacktestStartDeps {
+  createRun: (runId: string, doc: BacktestRunDoc) => Promise<void>;
+  enqueue: (payload: BacktestPermutationPayload, delaySeconds: number) => Promise<void>;
+}
 
-    if (symbols.length === 0) {
-      throw new Error('At least one symbol is required');
-    }
-    if (!strategyId) {
-      throw new Error('strategyId is required');
-    }
-    if (!strategyRegistry.has(strategyId)) {
-      throw new Error(`Unknown strategy '${strategyId}'. Available: ${strategyRegistry.listIds().join(', ')}`);
-    }
+type BacktestRunDoc = Omit<BacktestRun, 'createdAt' | 'updatedAt' | 'startedAt'> & {
+  createdAt: FirebaseFirestore.FieldValue;
+  updatedAt: FirebaseFirestore.FieldValue;
+  startedAt: FirebaseFirestore.FieldValue;
+};
 
-    const runDate = getRunDatePT();
-    const runId = `${getRunIdPT(runDate, 'manual')}_${Math.random().toString(36).slice(2, 8)}`;
-    const runRef = db.collection(BACKTEST_RUNS_COLLECTION).doc(runId);
+const prodDeps: BacktestStartDeps = {
+  createRun: (runId, doc) =>
+    db.collection(BACKTEST_RUNS_COLLECTION).doc(runId).set(doc).then(() => undefined),
+  enqueue: (payload, delaySeconds) =>
+    getFunctions()
+      .taskQueue(BACKTEST_TASK_QUEUE)
+      .enqueue(payload, { scheduleDelaySeconds: delaySeconds })
+      .then(() => undefined),
+};
 
-    const runDoc: Omit<BacktestRun, 'createdAt' | 'updatedAt' | 'startedAt'> & {
-      createdAt: FirebaseFirestore.FieldValue;
-      updatedAt: FirebaseFirestore.FieldValue;
-      startedAt: FirebaseFirestore.FieldValue;
-    } = {
+/** Testable core (#1444) — auth guard inside, before validation or effects. */
+export async function handleStBacktestStart(
+  request: CallableRequest<StartBacktestRequest>,
+  deps: BacktestStartDeps = prodDeps,
+): Promise<StartBacktestResponse> {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const input = request.data;
+  if (input?.symbols !== undefined && !Array.isArray(input.symbols)) {
+    throw new HttpsError('invalid-argument', 'symbols must be an array');
+  }
+  const symbols = (input?.symbols ?? [])
+    .map((s) => String(s).trim().toUpperCase())
+    .filter(Boolean);
+  const strategyId = input?.strategyId;
+  const config = input?.config ?? {};
+  const runType = input?.runType ?? 'allData';
+  const initialCash = Math.max(0, Number(input?.initialCash ?? DEFAULT_INITIAL_CASH));
+  const reportTier = input?.reportTier ?? 'summary';
+
+  if (symbols.length === 0) {
+    throw new HttpsError('invalid-argument', 'At least one symbol is required');
+  }
+  if (!strategyId) {
+    throw new HttpsError('invalid-argument', 'strategyId is required');
+  }
+  if (!strategyRegistry.has(strategyId)) {
+    throw new HttpsError(
+      'invalid-argument',
+      `Unknown strategy '${strategyId}'. Available: ${strategyRegistry.listIds().join(', ')}`,
+    );
+  }
+
+  const runDate = getRunDatePT();
+  const runId = `${getRunIdPT(runDate, 'manual')}_${Math.random().toString(36).slice(2, 8)}`;
+
+  const runDoc: BacktestRunDoc = {
+    runId,
+    status: BacktestRunStatus.RUNNING,
+    symbols,
+    strategyId,
+    runType,
+    initialCash,
+    reportTier,
+    totalPermutations: symbols.length,
+    completedPermutations: 0,
+    failedPermutations: 0,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    startedAt: FieldValue.serverTimestamp(),
+  };
+
+  await deps.createRun(runId, runDoc);
+
+  let enqueued = 0;
+  let failed = 0;
+
+  for (let i = 0; i < symbols.length; i++) {
+    const symbol = symbols[i];
+    const permutationId = `${runId}_${symbol}_${i}`;
+
+    const payload: BacktestPermutationPayload = {
       runId,
-      status: BacktestRunStatus.RUNNING,
-      symbols,
+      permutationId,
+      symbol,
       strategyId,
+      config,
       runType,
       initialCash,
       reportTier,
-      totalPermutations: symbols.length,
-      completedPermutations: 0,
-      failedPermutations: 0,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-      startedAt: FieldValue.serverTimestamp(),
     };
 
-    await runRef.set(runDoc);
-
-    const queue = getFunctions().taskQueue(BACKTEST_TASK_QUEUE);
-    let enqueued = 0;
-    let failed = 0;
-
-    for (let i = 0; i < symbols.length; i++) {
-      const symbol = symbols[i];
-      const permutationId = `${runId}_${symbol}_${i}`;
-
-      const payload: BacktestPermutationPayload = {
+    try {
+      await deps.enqueue(payload, Math.floor(i * 0.5));
+      enqueued++;
+    } catch (error: unknown) {
+      failed++;
+      logger.error('backtest_orchestrator_enqueue_error', {
         runId,
-        permutationId,
         symbol,
-        strategyId,
-        config,
-        runType,
-        initialCash,
-        reportTier,
-      };
-
-      try {
-        await queue.enqueue(payload, {
-          scheduleDelaySeconds: Math.floor(i * 0.5),
-        });
-        enqueued++;
-      } catch (error: unknown) {
-        failed++;
-        logger.error('backtest_orchestrator_enqueue_error', {
-          runId,
-          symbol,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-
-    logger.info('backtest_orchestrator_complete', {
-      runId,
-      symbols: symbols.length,
-      enqueued,
-      failed,
-    });
-
-    return { runId, enqueued, failed, total: symbols.length };
   }
+
+  logger.info('backtest_orchestrator_complete', {
+    runId,
+    symbols: symbols.length,
+    enqueued,
+    failed,
+  });
+
+  return { runId, enqueued, failed, total: symbols.length };
+}
+
+export const stBacktestStart = onCall<StartBacktestRequest, Promise<StartBacktestResponse>>(
+  { cors: true, memory: '256MiB', invoker: 'public' },
+  (request) => handleStBacktestStart(request),
 );

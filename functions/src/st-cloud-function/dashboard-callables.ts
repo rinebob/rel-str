@@ -4,7 +4,8 @@
  * Simplified callable functions for the frontend dashboard.
  * No MCP/Robinhood dependencies - just Firestore queries.
  */
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import type { CallableRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
 
@@ -44,6 +45,112 @@ interface SymbolSignalHistoryResponse {
   signals: SignalItem[];
 }
 
+/** Injectable seam for the two dashboard callables (#1444) — one deps
+ *  object serves both cores; prod default hits Firestore. */
+export interface StDashboardDeps {
+  /** st-signals occurrence docs whose runIds[] contains runId. */
+  signalsByRunId: (runId: string) => Promise<StSignal[]>;
+  /** Enabled st-symbols profile docs matching the symbol list (batched 'in'). */
+  enabledSymbolProfiles: (
+    symbols: string[],
+  ) => Promise<Array<{ id: string; data: () => FirebaseFirestore.DocumentData }>>;
+  /** st-signals occurrence docs for one symbol. */
+  signalsBySymbol: (symbol: string) => Promise<Array<{ id: string; signal: StSignal }>>;
+}
+
+const prodDashboardDeps: StDashboardDeps = {
+  signalsByRunId: async (runId) => {
+    const snap = await db
+      .collection(ST_SIGNALS_ROOT)
+      .where('runIds', 'array-contains', runId)
+      .get();
+    return snap.docs.map((doc) => doc.data() as StSignal);
+  },
+  enabledSymbolProfiles: async (symbols) => {
+    const batches: Promise<FirebaseFirestore.QuerySnapshot>[] = [];
+    for (let i = 0; i < symbols.length; i += 30) {
+      batches.push(
+        db
+          .collection(ST_SYMBOLS_ROOT)
+          .where('enabled', '==', true)
+          .where('symbol', 'in', symbols.slice(i, i + 30))
+          .get(),
+      );
+    }
+    return (await Promise.all(batches)).flatMap((snap) => snap.docs);
+  },
+  signalsBySymbol: async (symbol) => {
+    const snap = await db
+      .collection(ST_SIGNALS_ROOT)
+      .where('symbol', '==', symbol)
+      .get();
+    return snap.docs.map((doc) => ({ id: doc.id, signal: doc.data() as StSignal }));
+  },
+};
+
+/** Testable core (#1444) — auth guard first, before the try/catch that
+ *  would flatten it to `internal`. */
+export async function handleStGetSymbolsWithSignals(
+  request: CallableRequest<{ runId: string; timeframe: 'W' | 'D' }>,
+  deps: StDashboardDeps = prodDashboardDeps,
+): Promise<SymbolsWithSignalsResponse> {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const { runId, timeframe } = request.data ?? {};
+  if (!runId || !timeframe) {
+    throw new HttpsError('invalid-argument', 'runId and timeframe are required');
+  }
+  try {
+    // Canonical run-centric lookup (#1019): every st-signals occurrence the
+    // run (re)detected carries runId in runIds[] — the distinct symbols are
+    // the set the legacy run-ids collection-group query produced.
+    const runSignals = await deps.signalsByRunId(runId);
+    const symbolsWithSignals = new Set(runSignals.map((s) => s.symbol).filter(Boolean));
+
+    if (symbolsWithSignals.size === 0) {
+      logger.info('st_get_symbols_with_signals', { runId, timeframe, count: 0 });
+      return { symbols: [] };
+    }
+
+    // Profile fetch is batched inside the dep (Firestore 'in' limit = 30).
+    const allDocs = await deps.enabledSymbolProfiles(Array.from(symbolsWithSignals));
+
+    const symbols: StSymbolProfile[] = allDocs.map((doc) => {
+      const d = doc.data();
+      return {
+        symbol: d.symbol || doc.id,
+        enabled: d.enabled ?? true,
+        createdAt: d.createdAt?.toDate?.()?.toISOString() ?? d.createdAt ?? '',
+        lastAnalyzedAt: d.lastAnalyzedAt?.toDate?.()?.toISOString(),
+        lastDailySignalDate: d.lastDailySignalDate,
+        lastWeeklySignalDate: d.lastWeeklySignalDate,
+        lastDailySignalDirection: d.lastDailySignalDirection,
+        lastWeeklySignalDirection: d.lastWeeklySignalDirection,
+        name: d.name,
+        sector: d.sector,
+        industry: d.industry,
+        exchange: d.exchange,
+        marketCap: d.marketCap,
+        marketCapTier: d.marketCapTier,
+        beta: d.beta,
+        peRatio: d.peRatio,
+        week52High: d.week52High,
+        week52Low: d.week52Low,
+        ma200: d.ma200,
+        ma50: d.ma50,
+        dividendYield: d.dividendYield,
+      };
+    });
+
+    logger.info('st_get_symbols_with_signals', { runId, timeframe, count: symbols.length });
+
+    return { symbols };
+  } catch (error: any) {
+    if (error instanceof HttpsError) throw error;
+    logger.error('st_get_symbols_with_signals_error', { error: error?.message });
+    throw new Error(`Failed to get symbols with signals: ${error?.message}`);
+  }
+}
+
 /**
  * Primary review page query — run-centric path.
  * Returns enabled symbol docs that have an st-signals occurrence carrying
@@ -60,82 +167,60 @@ export const stGetSymbolsWithSignals = onCall<
     memory: '256MiB',
     invoker: 'public',
   },
-  async (request) => {
-    try {
-      const { runId, timeframe } = request.data;
-      if (!runId || !timeframe) {
-        throw new Error('runId and timeframe are required');
-      }
-
-      // Canonical run-centric lookup (#1019): every st-signals occurrence the
-      // run (re)detected carries runId in runIds[] — the distinct symbols are
-      // the set the legacy run-ids collection-group query produced.
-      const runIdSnapshot = await db
-        .collection(ST_SIGNALS_ROOT)
-        .where('runIds', 'array-contains', runId)
-        .get();
-
-      const symbolsWithSignals = new Set(
-        runIdSnapshot.docs
-          .map((doc) => (doc.data() as StSignal).symbol)
-          .filter(Boolean)
-      );
-
-      if (symbolsWithSignals.size === 0) {
-        logger.info('st_get_symbols_with_signals', { runId, timeframe, count: 0 });
-        return { symbols: [] };
-      }
-
-      // Fetch symbol profile docs for the matched symbols (in batches of 30 for Firestore 'in' limit)
-      const symbolArray = Array.from(symbolsWithSignals);
-      const batches: Promise<FirebaseFirestore.QuerySnapshot>[] = [];
-      for (let i = 0; i < symbolArray.length; i += 30) {
-        batches.push(
-          db.collection(ST_SYMBOLS_ROOT)
-            .where('enabled', '==', true)
-            .where('symbol', 'in', symbolArray.slice(i, i + 30))
-            .get()
-        );
-      }
-      const batchResults = await Promise.all(batches);
-      const allDocs = batchResults.flatMap((snap) => snap.docs);
-
-      const symbols: StSymbolProfile[] = allDocs.map((doc) => {
-        const d = doc.data();
-        return {
-          symbol: d.symbol || doc.id,
-          enabled: d.enabled ?? true,
-          createdAt: d.createdAt?.toDate?.()?.toISOString() ?? d.createdAt ?? '',
-          lastAnalyzedAt: d.lastAnalyzedAt?.toDate?.()?.toISOString(),
-          lastDailySignalDate: d.lastDailySignalDate,
-          lastWeeklySignalDate: d.lastWeeklySignalDate,
-          lastDailySignalDirection: d.lastDailySignalDirection,
-          lastWeeklySignalDirection: d.lastWeeklySignalDirection,
-          name: d.name,
-          sector: d.sector,
-          industry: d.industry,
-          exchange: d.exchange,
-          marketCap: d.marketCap,
-          marketCapTier: d.marketCapTier,
-          beta: d.beta,
-          peRatio: d.peRatio,
-          week52High: d.week52High,
-          week52Low: d.week52Low,
-          ma200: d.ma200,
-          ma50: d.ma50,
-          dividendYield: d.dividendYield,
-        };
-      });
-
-      logger.info('st_get_symbols_with_signals', { runId, timeframe, count: symbols.length });
-
-      return { symbols };
-    } catch (error: any) {
-      logger.error('st_get_symbols_with_signals_error', { error: error?.message });
-      throw new Error(`Failed to get symbols with signals: ${error?.message}`);
-    }
-  }
+  (request) => handleStGetSymbolsWithSignals(request),
 );
+
+/** Testable core (#1444) — auth guard first, before the try/catch that
+ *  would flatten it to `internal`. */
+export async function handleStGetSymbolSignalHistory(
+  request: CallableRequest<{ symbol: string; timeframe: 'W' | 'D'; days?: number }>,
+  deps: StDashboardDeps = prodDashboardDeps,
+): Promise<SymbolSignalHistoryResponse> {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const { symbol, timeframe, days = 14 } = request.data ?? {};
+  if (!symbol || !timeframe) {
+    throw new HttpsError('invalid-argument', 'symbol and timeframe are required');
+  }
+  try {
+    // Canonical flat occurrences (#1019) — supersedes the nightly-only
+    // signal-history subcollection read and adds INTERIM coverage.
+    const docs = await deps.signalsBySymbol(symbol);
+
+    const signals: SignalItem[] = [];
+    for (const { id, signal: d } of docs) {
+      signals.push({
+        id,
+        symbol: d.symbol,
+        barDate: d.barDate,
+        marketDate: d.marketDate,
+        runId: d.sourceRunId,
+        timeframe: d.timeframe,
+        direction: String(d.direction ?? '').toUpperCase(),
+        signalType: d.signalType,
+        status: d.status,
+        indicators: d.indicators || {},
+      });
+    }
+    signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
+
+    // Limit to the most recent `days` bar dates
+    const distinctBarDates = Array.from(new Set(signals.map((s) => s.barDate))).sort(
+      (a, b) => b.localeCompare(a)
+    );
+    const keepDates = new Set(distinctBarDates.slice(0, days));
+    const filteredSignals = signals.filter((s) => keepDates.has(s.barDate));
+
+    logger.info('st_get_symbol_signal_history', {
+      symbol, timeframe, days, count: filteredSignals.length,
+    });
+
+    return { symbol, timeframe, signals: filteredSignals };
+  } catch (error: any) {
+    if (error instanceof HttpsError) throw error;
+    logger.error('st_get_symbol_signal_history_error', { error: error?.message });
+    throw new Error(`Failed to get signal history: ${error?.message}`);
+  }
+}
 
 /**
  * Returns signal history for a single symbol from st-signals (#1019 —
@@ -152,53 +237,5 @@ export const stGetSymbolSignalHistory = onCall<
     memory: '256MiB',
     invoker: 'public',
   },
-  async (request) => {
-    try {
-      const { symbol, timeframe, days = 14 } = request.data;
-      if (!symbol || !timeframe) {
-        throw new Error('symbol and timeframe are required');
-      }
-
-      // Canonical flat occurrences (#1019) — supersedes the nightly-only
-      // signal-history subcollection read and adds INTERIM coverage.
-      const snapshot = await db
-        .collection(ST_SIGNALS_ROOT)
-        .where('symbol', '==', symbol)
-        .get();
-
-      const signals: SignalItem[] = [];
-      for (const doc of snapshot.docs) {
-        const d = doc.data() as StSignal;
-        signals.push({
-          id: doc.id,
-          symbol: d.symbol,
-          barDate: d.barDate,
-          marketDate: d.marketDate,
-          runId: d.sourceRunId,
-          timeframe: d.timeframe,
-          direction: String(d.direction ?? '').toUpperCase(),
-          signalType: d.signalType,
-          status: d.status,
-          indicators: d.indicators || {},
-        });
-      }
-      signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
-
-      // Limit to the most recent `days` bar dates
-      const distinctBarDates = Array.from(new Set(signals.map((s) => s.barDate))).sort(
-        (a, b) => b.localeCompare(a)
-      );
-      const keepDates = new Set(distinctBarDates.slice(0, days));
-      const filteredSignals = signals.filter((s) => keepDates.has(s.barDate));
-
-      logger.info('st_get_symbol_signal_history', {
-        symbol, timeframe, days, count: filteredSignals.length,
-      });
-
-      return { symbol, timeframe, signals: filteredSignals };
-    } catch (error: any) {
-      logger.error('st_get_symbol_signal_history_error', { error: error?.message });
-      throw new Error(`Failed to get signal history: ${error?.message}`);
-    }
-  }
+  (request) => handleStGetSymbolSignalHistory(request),
 );

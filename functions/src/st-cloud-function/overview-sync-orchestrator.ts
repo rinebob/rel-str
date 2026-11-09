@@ -5,7 +5,8 @@
  * Cloud Task per symbol for overview fetching.
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import type { CallableRequest } from 'firebase-functions/v2/https';
 import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
 
@@ -75,21 +76,46 @@ export const stOverviewSyncWeekly = onSchedule(
 // Admin callable — manual full backfill trigger
 // ============================================================================
 
+export interface OverviewSyncDeps {
+  loadEnabledSymbolIds: () => Promise<string[]>;
+  enqueueOverviewTasks: (
+    symbols: string[],
+    forceRefresh: boolean,
+  ) => Promise<{ enqueued: number; skipped: number }>;
+}
+
+const prodOverviewDeps: OverviewSyncDeps = {
+  loadEnabledSymbolIds,
+  enqueueOverviewTasks,
+};
+
+/** Testable core (#1444) — auth guard inside, before any symbol load or
+ *  enqueue; an anonymous call used to kick off a full backfill. */
+export async function handleStOverviewSyncAdmin(
+  request: CallableRequest<{ symbols?: string[]; forceRefresh?: boolean }>,
+  deps: OverviewSyncDeps = prodOverviewDeps,
+): Promise<{ enqueued: number; skipped: number; total: number }> {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const forceRefresh = request.data?.forceRefresh ?? true;
+  const inputSymbols = request.data?.symbols;
+  if (inputSymbols !== undefined && !Array.isArray(inputSymbols)) {
+    throw new HttpsError('invalid-argument', 'symbols must be an array');
+  }
+  const symbols = inputSymbols?.length
+    ? inputSymbols
+    : await deps.loadEnabledSymbolIds();
+
+  logger.info('st_overview_sync_admin_start', { total: symbols.length, forceRefresh });
+  const result = await deps.enqueueOverviewTasks(symbols, forceRefresh);
+  logger.info('st_overview_sync_admin_complete', { total: symbols.length, ...result });
+
+  return { total: symbols.length, ...result };
+}
+
 export const stOverviewSyncAdmin = onCall<
   { symbols?: string[]; forceRefresh?: boolean },
   Promise<{ enqueued: number; skipped: number; total: number }>
 >(
   { cors: true, memory: '256MiB', invoker: 'public' },
-  async (request) => {
-    const forceRefresh = request.data.forceRefresh ?? true;
-    const symbols = request.data.symbols?.length
-      ? request.data.symbols
-      : await loadEnabledSymbolIds();
-
-    logger.info('st_overview_sync_admin_start', { total: symbols.length, forceRefresh });
-    const result = await enqueueOverviewTasks(symbols, forceRefresh);
-    logger.info('st_overview_sync_admin_complete', { total: symbols.length, ...result });
-
-    return { total: symbols.length, ...result };
-  }
+  (request) => handleStOverviewSyncAdmin(request),
 );
