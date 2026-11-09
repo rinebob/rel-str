@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-11-09]
+
+### Fixed
+- [Options Backtest] 1238-1444_BE-BUG-SAVANT-TRADER: five st-cloud-function callables now reject unauthenticated calls — request.auth?.uid guard as the first statement of each extracted (request, deps) core (public-invoker callables were accepting anonymous billed work); dashboard catches rethrow HttpsError, validation errors → invalid-argument, symbols input hardening
+- [Options Backtest] 1238-1444_BE-CHORE-SAVANT-TRADER: st-auth-guard-1444 live auth-boundary probe (15 checks) + README/run-all registration
+- [Options Backtest] 1238-1444_DOCS-SAVANT-TRADER: #1444 code-review (PASS, 2 rounds) + UAT (Complete, #1455) + changelog
+
 ## [2026-11-08]
 
 ### Added
