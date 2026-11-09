@@ -35,6 +35,18 @@
     display: flex;
     align-items: center;
     gap: 4px;
+
+    /* Stacked content (pills + hint) — keep the label centered on the
+       button row, not the whole column. */
+    &.sl-field--stacked {
+      align-items: flex-start;
+
+      .sl-label {
+        display: inline-flex;
+        align-items: center;
+        height: 24px;
+      }
+    }
   }
 
   .sl-label {
@@ -45,11 +57,24 @@
     min-width: 20px;
   }
 
-  /* Pill toggles — same pattern as the order ticket's TIF/hours pills. */
+  /* Pill toggles — same pattern as the order ticket's TIF/hours pills.
+     The global ds.pill-toggle adds a rounded container; the form wants
+     bare buttons, so strip the chrome here. */
   .pill-group {
     display: flex;
-    gap: 2px;
+    gap: 8px;
     flex-wrap: wrap;
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .sl-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
   }
 
   .sl-hint {
@@ -60,7 +85,7 @@
 
   .pill {
     height: 24px;
-    padding: 0 8px;
+    padding: 0 10px;
     border: 1px solid var(--mat-sys-outline-variant);
     background: var(--mat-sys-surface);
     color: var(--mat-sys-on-surface-variant);
