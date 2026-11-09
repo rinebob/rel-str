@@ -5,12 +5,15 @@
  * emission (IMPL FE-1, TEST-FE unit targets).
  */
 import {
+  cycleSortLevel,
   isInvertedRange,
   refineContracts,
+  sortContracts,
   toAvailabilityQuery,
   toPairLines,
   type GeneratorQueryState,
   type GeneratorRefineState,
+  type GeneratorSortLevel,
 } from './option-group-generator.utils';
 import type { ContractAvailabilityEntry } from '../../../../../shared/options-contract-contracts';
 
@@ -198,5 +201,62 @@ describe('toPairLines', () => {
 
   it('empty input → empty array (never null)', () => {
     expect(toPairLines([])).toEqual([]);
+  });
+});
+
+describe('sortContracts', () => {
+  const rows = [
+    record({ contractId: 'B', strike: 550, type: 'put', expiration: '2026-06-19', firstObserved: '2026-02-01', lastObserved: '2026-06-01' }),
+    record({ contractId: 'A', strike: 500, type: 'call', expiration: '2026-05-15', firstObserved: '2026-01-05', lastObserved: '2026-05-15' }),
+    record({ contractId: 'C', strike: 500, type: 'call', expiration: '2026-05-15', firstObserved: '2026-03-01', lastObserved: '2026-05-20' }),
+  ];
+  const ids = (out: ContractAvailabilityEntry[]) => out.map((c) => c.contractId);
+  const lvl = (field: GeneratorSortLevel['field'], direction: 'asc' | 'desc' = 'asc'): GeneratorSortLevel => ({ field, direction });
+
+  it('no levels → input order preserved (copy, not the same array)', () => {
+    const out = sortContracts(rows, []);
+    expect(ids(out)).toEqual(['B', 'A', 'C']);
+    expect(out).not.toBe(rows);
+  });
+
+  it('single-level asc/desc flips the order', () => {
+    expect(ids(sortContracts(rows, [lvl('strike')]))).toEqual(['A', 'C', 'B']);
+    expect(ids(sortContracts(rows, [lvl('strike', 'desc')]))).toEqual(['B', 'A', 'C']);
+  });
+
+  it('ties fall through to the next level, then contractId — total order', () => {
+    const out = sortContracts(rows, [lvl('expiration'), lvl('firstObserved')]);
+    // A and C share exp+strike — C's later firstObserved loses on asc.
+    expect(ids(out)).toEqual(['A', 'C', 'B']);
+    const tied = [record({ contractId: 'Z' }), record({ contractId: 'Y' })];
+    expect(ids(sortContracts(tied, [lvl('expiration')]))).toEqual(['Y', 'Z']);
+  });
+
+  it('direction applies per level — mixed asc/desc chain', () => {
+    const out = sortContracts(rows, [lvl('type'), lvl('strike', 'desc')]);
+    // calls first (alpha), strike desc within → C(500)=A(500) → id tiebreak.
+    expect(ids(out)).toEqual(['A', 'C', 'B']);
+  });
+});
+
+describe('cycleSortLevel', () => {
+  it('unsorted → asc → desc → removed (three clicks cycle off)', () => {
+    let levels: GeneratorSortLevel[] = [];
+    levels = cycleSortLevel(levels, 'strike');
+    expect(levels).toEqual([{ field: 'strike', direction: 'asc' }]);
+    levels = cycleSortLevel(levels, 'strike');
+    expect(levels).toEqual([{ field: 'strike', direction: 'desc' }]);
+    levels = cycleSortLevel(levels, 'strike');
+    expect(levels).toEqual([]);
+  });
+
+  it('a second field joins the chain — removing the first renumbers priorities', () => {
+    let levels: GeneratorSortLevel[] = [];
+    levels = cycleSortLevel(levels, 'strike');
+    levels = cycleSortLevel(levels, 'expiration');
+    expect(levels.map((l) => l.field)).toEqual(['strike', 'expiration']);
+    levels = cycleSortLevel(levels, 'strike'); // → desc
+    levels = cycleSortLevel(levels, 'strike'); // → removed
+    expect(levels).toEqual([{ field: 'expiration', direction: 'asc' }]);
   });
 });

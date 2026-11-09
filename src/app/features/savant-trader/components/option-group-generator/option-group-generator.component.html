@@ -105,15 +105,40 @@
         <thead>
           <tr>
             <th>Contract</th>
-            <th>Exp</th>
-            <th class="num">Strike</th>
-            <th>T</th>
-            <th>First</th>
-            <th>Last</th>
+            <th class="clickable" (click)="store.toggleSort('expiration')">
+              Exp
+              @if (store.sortInfo('expiration'); as s) {
+              <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}</span>
+              }
+            </th>
+            <th class="num clickable" (click)="store.toggleSort('strike')">
+              Strike
+              @if (store.sortInfo('strike'); as s) {
+              <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}</span>
+              }
+            </th>
+            <th class="clickable" (click)="store.toggleSort('type')">
+              T
+              @if (store.sortInfo('type'); as s) {
+              <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}</span>
+              }
+            </th>
+            <th class="clickable" (click)="store.toggleSort('firstObserved')">
+              First
+              @if (store.sortInfo('firstObserved'); as s) {
+              <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}</span>
+              }
+            </th>
+            <th class="clickable" (click)="store.toggleSort('lastObserved')">
+              Last
+              @if (store.sortInfo('lastObserved'); as s) {
+              <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '↑' : '↓' }}</span>
+              }
+            </th>
           </tr>
         </thead>
         <tbody>
-          @for (c of store.filtered(); track c.contractId) {
+          @for (c of store.sorted(); track c.contractId) {
           <tr>
             <td class="mono">{{ c.contractId }}</td>
             <td class="mono">{{ c.expiration }}</td>

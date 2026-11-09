@@ -17,12 +17,16 @@ import { firstValueFrom } from 'rxjs';
 import type { ContractAvailabilityEntry } from '@options-contract/contracts';
 import { ContractAvailabilityService } from '../services/contract-availability.service';
 import {
+  cycleSortLevel,
   isInvertedRange,
   refineContracts,
+  sortContracts,
   toAvailabilityQuery,
   toPairLines,
   type GeneratorQueryState,
   type GeneratorRefineState,
+  type GeneratorSortField,
+  type GeneratorSortLevel,
   type StudyRange,
 } from '../utils/option-group-generator.utils';
 import {
@@ -55,6 +59,9 @@ export interface OptionGroupGeneratorState {
   useRangeAsOpenDate: boolean;
   /** Last emitted `date,id` lines (Send-to-chart handoff). */
   lastEmitted: string[];
+  /** Multi-level display sort for the results table — session-only,
+   *  never persisted (same policy as the catalog table's sort). */
+  sortLevels: GeneratorSortLevel[];
   /** A run has completed — lets the UI distinguish "never ran" from
    *  "ran and got zero contracts" (both are status 'idle' + records []). */
   hasRun: boolean;
@@ -72,16 +79,19 @@ const initialState: OptionGroupGeneratorState = {
   openDate: null,
   useRangeAsOpenDate: false,
   lastEmitted: [],
+  sortLevels: [],
   hasRun: false,
 };
 
 export const OptionGroupGeneratorStore = signalStore(
   withState(initialState),
 
-  withComputed(({ records, refine }) => ({
+  withComputed(({ records, refine, sortLevels }) => ({
     /** Records surviving the refine axes — recomputed on either change,
      *  no fetch involved. */
     filtered: computed(() => refineContracts(records(), refine())),
+    /** `filtered` after the display-sort chain — what the table renders. */
+    sorted: computed(() => sortContracts(refineContracts(records(), refine()), sortLevels())),
   })),
 
   withMethods((store, svc = inject(ContractAvailabilityService)) => {
@@ -141,6 +151,19 @@ export const OptionGroupGeneratorStore = signalStore(
       setRefine(patch: Partial<GeneratorRefineState>): void {
         patchState(store, { refine: { ...store.refine(), ...patch } });
         persist();
+      },
+
+      /** Click-to-add, cycle-to-remove sort on the results table —
+       *  unsorted → asc → desc → off (mirrors the catalog table). */
+      toggleSort(field: GeneratorSortField): void {
+        patchState(store, { sortLevels: cycleSortLevel(store.sortLevels(), field) });
+      },
+
+      /** Sort indicator for a column: { priority, direction } or null. */
+      sortInfo(field: GeneratorSortField): { priority: number; direction: 'asc' | 'desc' } | null {
+        const idx = store.sortLevels().findIndex((l) => l.field === field);
+        if (idx === -1) return null;
+        return { priority: idx + 1, direction: store.sortLevels()[idx].direction };
       },
 
       /** Write/clear the alive-across-range bound. `null` clears; an

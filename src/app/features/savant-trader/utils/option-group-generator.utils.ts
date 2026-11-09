@@ -116,6 +116,76 @@ export function isInvertedRange(gte: string | undefined, lte: string | undefined
   return gte !== undefined && lte !== undefined && gte > lte;
 }
 
+/** Sortable columns on the generator results table — the fields the
+ *  table actually renders (contractId excluded: it's the identity col,
+ *  clicking it gives nothing a user wants). */
+export type GeneratorSortField =
+  | 'expiration'
+  | 'strike'
+  | 'type'
+  | 'firstObserved'
+  | 'lastObserved';
+
+export interface GeneratorSortLevel {
+  field: GeneratorSortField;
+  direction: 'asc' | 'desc';
+}
+
+function compareEntry(
+  a: ContractAvailabilityEntry,
+  b: ContractAvailabilityEntry,
+  field: GeneratorSortField,
+): number {
+  switch (field) {
+    case 'strike':
+      return a.strike - b.strike;
+    case 'type':
+      return a.type.localeCompare(b.type);
+    case 'expiration':
+      return a.expiration.localeCompare(b.expiration);
+    case 'firstObserved':
+      return a.firstObserved.localeCompare(b.firstObserved);
+    case 'lastObserved':
+      return a.lastObserved.localeCompare(b.lastObserved);
+    default:
+      return 0;
+  }
+}
+
+/** Multi-level display sort for the results table — same cycle as the
+ *  catalog table (click adds asc → desc → removes). Ties fall through to
+ *  contractId so the order is always total and stable. */
+export function sortContracts(
+  records: readonly ContractAvailabilityEntry[],
+  levels: readonly GeneratorSortLevel[],
+): ContractAvailabilityEntry[] {
+  if (levels.length === 0) return [...records];
+  return [...records].sort((a, b) => {
+    for (const { field, direction } of levels) {
+      const cmp = compareEntry(a, b, field);
+      if (cmp !== 0) return direction === 'asc' ? cmp : -cmp;
+    }
+    return a.contractId.localeCompare(b.contractId);
+  });
+}
+
+/** Click-cycle for a column header — add asc → flip to desc → remove. */
+export function cycleSortLevel(
+  levels: readonly GeneratorSortLevel[],
+  field: GeneratorSortField,
+): GeneratorSortLevel[] {
+  const next = [...levels];
+  const idx = next.findIndex((l) => l.field === field);
+  if (idx === -1) {
+    next.push({ field, direction: 'asc' });
+  } else if (next[idx].direction === 'asc') {
+    next[idx] = { field, direction: 'desc' };
+  } else {
+    next.splice(idx, 1);
+  }
+  return next;
+}
+
 /**
  * Emit the pasted-pair format for `loadPlotted`: `YYYY-MM-DD,ID` when an
  * open date is supplied, bare `ID` otherwise. Deterministic order matching

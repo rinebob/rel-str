@@ -225,6 +225,21 @@
       &.num {
         text-align: right;
       }
+
+      &.clickable {
+        cursor: pointer;
+
+        &:hover {
+          color: var(--mat-sys-primary);
+        }
+
+        .sort-indicator {
+          font-size: 8px;
+          font-weight: 700;
+          color: var(--mat-sys-primary);
+          margin-left: 2px;
+        }
+      }
     }
   }
 
