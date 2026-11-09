@@ -25,6 +25,8 @@
 - [Portfolio Dashboard] 219-1413_DOCS-PORTFOLIO: #1413 code-review (PASS, 2 rounds) + UAT (Complete, #1446) + changelog
 - [Portfolio Dashboard] 219-1414_FE-IMPL-PORTFOLIO: positions-table stop surfacing — Stop/Dist + Peak/Retr% two-line columns, UNPROTECTED marker, type·qty·TIF·age tooltip; protectiveStopsBySymbol derivation + computeProtectedSymbols long-only fix
 - [Portfolio Dashboard] 219-1414_DOCS-PORTFOLIO: #1414 code-review (PASS, 2 rounds) + UAT (Complete, #1450) + changelog
+- [Portfolio Dashboard] 219-1415_FE-IMPL-PORTFOLIO: Update Stop dialog decision context — story-chain grid (Entry/Peak w/ DOW dates, Cur. Price, Cur. Stop, Proposed Stop), label|body metrics grid (retraced, below-now/below-peak/locks-in), 8%-below-peak Suggested anchor + conditional Use, auto-ratchet prefill never loosening, below-ratchet close warning; form fill CTA + bare pill buttons
+- [Portfolio Dashboard] 219-1415_DOCS-PORTFOLIO: #1415 code-review (PASS, 2 rounds) + UAT (Complete, #1452) + changelog
 
 ### Changed
 - [Misc Fixes] 300-1448_FE-IMPL-SAVANT-TRADER: header avatar — initials circle replaces the name/email label in the same right-cluster slot, ds-menu dropdown (Account → /portfolio, Logout), accent text+border, standalone Logout removed, even 10px spacing across the cluster
