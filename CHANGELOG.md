@@ -2,6 +2,13 @@
 
 ## [2026-11-09]
 
+### Added
+- [Option Contract Time-Series Viewer] 1243-1392_FE-IMPL-OPTIONS: generator results-table multi-level column sort — clickable headers (Exp/Strike/T/First/Last), asc→desc→off cycle, priority indicators, contractId total-order tiebreak
+- [Option Contract Time-Series Viewer] 1243-1392_DOCS-OPTIONS: #1392 code-review (PASS, 1 round) + UAT (Complete, #1451) + IMPL extraction section + changelog
+
+### Changed
+- [Option Contract Time-Series Viewer] 1243-1392_FE-IMPL-OPTIONS: extract option-chart page wiring — 1,108-line component → 362-line composition root + six page-scoped injectables via OPTION_CHART_PAGE_PROVIDERS; behavior-preserving, spec-pinned
+
 ### Fixed
 - [Options Backtest] 1238-1444_BE-BUG-SAVANT-TRADER: five st-cloud-function callables now reject unauthenticated calls — request.auth?.uid guard as the first statement of each extracted (request, deps) core (public-invoker callables were accepting anonymous billed work); dashboard catches rethrow HttpsError, validation errors → invalid-argument, symbols input hardening
 - [Options Backtest] 1238-1444_BE-CHORE-SAVANT-TRADER: st-auth-guard-1444 live auth-boundary probe (15 checks) + README/run-all registration

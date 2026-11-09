@@ -272,6 +272,44 @@ per AC D2; `clear()` went with it). `docId` is state, not derived from
 `activeList`, so a pref write after a failed explicit load can't
 clobber the preserved blob pointer (#1402 review).
 
+## Page-wiring extraction (#1392)
+
+`option-chart.component.ts` crossed the repo's 1k hard rule (1,108
+lines after #1402). Split into a composition root + six page-scoped
+injectables, all registered via `OPTION_CHART_PAGE_PROVIDERS` on the
+component's `providers` — they resolve the same page-scoped stores
+(generator + list session) the picker dialog needs, and die with the
+page:
+
+- **`option-chart-page.service.ts`** — shared context: `symbol`,
+  `type`/`catalogType`, `occIdInput`, `listError`, the `chartExtents`
+  hook (component assigns it — it owns the chart viewChild), plus the
+  symbol-switch orchestration (`initSession`/`onSymbolChange`) every
+  unit shares.
+- **`option-chart-catalog.service.ts`** — builder fields, multi-column
+  sort, display + query filters, length groups, ds-menu dropdowns,
+  filter-to-chart, pagination, prev/next nav (~530 lines).
+- **`option-chart-load.service.ts`** — emit plumbing: `onLoad` parse →
+  >50 confirm → `loadPlotted`/`loadContract`, `emitLinesToChart`,
+  rejected tokens.
+- **`option-chart-list.service.ts`** — `?list=` deep link
+  (`bindDeepLink`), chooser → doc tail, picker dialog lifecycle,
+  `emitSessionLines`.
+- **`option-chart-replay.service.ts`** — runs dropdown + pick →
+  default-slice → load.
+- **`option-chart-generator.service.ts`** — drawer open, brush →
+  alive-range, generator send.
+
+Dependency direction is one-way: every unit may read the page context;
+list/replay/generator/catalog call the load flow for sends. `listError`
+lives on the page context so every switch path (component, deep link,
+replay) clears it identically. The component (362 lines) keeps the
+plotted/chips projection, lifecycle, and one-line delegate aliases —
+template and spec surface unchanged. Specs spread
+`OPTION_CHART_PAGE_PROVIDERS` in TestBed so manual
+`runInInjectionContext` instantiation resolves the same injects; a new
+`option-chart-services.spec.ts` pins the seams directly.
+
 ## Boundaries / risks
 
 - **Emit seam is the only textarea coupling** — lines write into the
