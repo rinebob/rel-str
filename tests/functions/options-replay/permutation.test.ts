@@ -16,7 +16,10 @@ import type {
   ReplayPermutationDeps,
   ContractListWrite,
 } from '../../../functions/src/options-replay/permutation';
-import { PartnerHttpError } from '../../../functions/src/partner-infrastructure';
+import {
+  PartnerHttpError,
+  PARTNER_CODE_NOT_FOUND,
+} from '../../../functions/src/partner-infrastructure';
 import type { PickDocument, OptionsContractListDoc } from '@options-replay/contracts';
 import { OptionType } from '@options/common';
 import { TradeSide } from '@common';
@@ -138,16 +141,41 @@ describe('runReplayPermutation', () => {
   it('missing pick doc (404) → failed doc + failed close-out, no retry', async () => {
     const env = makeDeps({
       fetchPickDoc: async () => {
-        throw new PartnerHttpError('pick doc fetch failed for SPY-put-20-45: no year shard', 404);
+        throw new PartnerHttpError('pick doc fetch failed for SPY-put-20-45: no year shard', 404, PARTNER_CODE_NOT_FOUND);
       },
     });
-    // Not final attempt — 404 must still resolve now (retrying can't help).
+    // Not final attempt — coded 404 must still resolve now (retrying can't help).
     await runReplayPermutation(PAYLOAD, env.deps, false);
 
     const failed = env.writes.find((w) => w.fields.status === 'failed');
     assert.ok(failed);
     assert.match(String(failed.fields.error), /SPY-put-20-45/);
     assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
+  });
+
+  it('404 with an unrecognized partner code → still permanent — a coded answer means the partner app responded deliberately (#1401)', async () => {
+    const env = makeDeps({
+      fetchPickDoc: async () => {
+        throw new PartnerHttpError('shard stale', 404, 'SHARD_STALE');
+      },
+    });
+    await runReplayPermutation(PAYLOAD, env.deps, false);
+    const failed = env.writes.find((w) => w.fields.status === 'failed');
+    assert.ok(failed);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
+  });
+
+  it('bare 404 (no partnerCode) → rethrows for task retry — infra miss is not a data gap (#1401)', async () => {
+    const env = makeDeps({
+      fetchPickDoc: async () => {
+        throw new PartnerHttpError('partnerPickDoc upstream 404: <html>Page not found</html>', 404);
+      },
+    });
+    // A bare 404 is a transport/config failure — the endpoint may appear
+    // within backoff, so it must take the retry path like any 502.
+    await assert.rejects(runReplayPermutation(PAYLOAD, env.deps, false), /404/);
+    assert.equal(env.writes.filter((w) => w.fields.status === 'failed').length, 0);
+    assert.equal(env.closeOuts.length, 0);
   });
 
   it('transient error before final attempt → rethrows for task retry, no failed write', async () => {

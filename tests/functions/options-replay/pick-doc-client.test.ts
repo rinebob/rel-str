@@ -12,7 +12,11 @@ import assert from 'node:assert/strict';
 import { describe, it, beforeEach, afterEach } from 'node:test';
 
 import { OptionType } from '../../../shared/options-common.ts';
-import { PartnerHttpError } from '../../../functions/src/partner-infrastructure.ts';
+import {
+  PartnerHttpError,
+  PARTNER_CODE_NOT_FOUND,
+  PARTNER_CODE_OPTIONS_NOT_ENABLED,
+} from '../../../functions/src/partner-infrastructure.ts';
 import {
   fetchPickDoc,
   partnerPickDocTransport,
@@ -70,7 +74,9 @@ function fakeTransport(
     calls.push(req);
     const shard = shards.get(req.year);
     if (shard instanceof PartnerHttpError) throw shard;
-    if (!shard) throw new PartnerHttpError(`no shard for ${req.year}`, 404);
+    // SA's shard-miss contract: 404 + {code:'NOT_FOUND'} — bare 404s with no
+    // code model infra misses and must NOT be produced here (#1401).
+    if (!shard) throw new PartnerHttpError(`no shard for ${req.year}`, 404, PARTNER_CODE_NOT_FOUND);
     return shard;
   };
   return { transport, calls };
@@ -137,7 +143,7 @@ describe('fetchPickDoc — request shape', () => {
 describe('fetchPickDoc — error semantics', () => {
   it('skips a missing year shard and merges the rest', async () => {
     const shards = new Map<number, PickDocument | PartnerHttpError>([
-      [2025, new PartnerHttpError('not found', 404)],
+      [2025, new PartnerHttpError('not found', 404, PARTNER_CODE_NOT_FOUND)],
       [2026, makeShard({ firstDate: '2026-01-02', lastDate: '2026-03-31', days: { '2026-01-05': makeDay('QQQ260515P00565000') } })],
     ]);
     const { transport } = fakeTransport(shards);
@@ -159,6 +165,9 @@ describe('fetchPickDoc — error semantics', () => {
       (e: unknown) => {
         assert.ok(e instanceof PartnerHttpError);
         assert.match(e.message, /QQQ-put-20-45/);
+        // Carries NOT_FOUND — the absence came from the partner's own code,
+        // so the worker classifies it permanent (no pointless retry).
+        assert.equal(e.partnerCode, PARTNER_CODE_NOT_FOUND);
         return true;
       },
     );
@@ -185,7 +194,7 @@ describe('fetchPickDoc — error semantics', () => {
     // A symbol outside the options-enabled universe must fail the fetch
     // honestly, not be skipped like a missing year shard.
     const { transport, calls } = fakeTransport(
-      new Map([[2026, new PartnerHttpError('symbol not enabled', 404, 'OPTIONS_NOT_ENABLED')]]),
+      new Map([[2026, new PartnerHttpError('symbol not enabled', 404, PARTNER_CODE_OPTIONS_NOT_ENABLED)]]),
     );
     await assert.rejects(
       () =>
@@ -195,7 +204,7 @@ describe('fetchPickDoc — error semantics', () => {
         ),
       (e: unknown) => {
         assert.ok(e instanceof PartnerHttpError);
-        assert.equal(e.partnerCode, 'OPTIONS_NOT_ENABLED');
+        assert.equal(e.partnerCode, PARTNER_CODE_OPTIONS_NOT_ENABLED);
         return true;
       },
     );
@@ -206,7 +215,7 @@ describe('fetchPickDoc — error semantics', () => {
     const { transport, calls } = fakeTransport(
       new Map<number, PickDocument | PartnerHttpError>([
         [2025, makeShard({ days: { '2025-06-03': makeDay('QQQ250718P00500000') } })],
-        [2026, new PartnerHttpError('symbol not enabled', 404, 'OPTIONS_NOT_ENABLED')],
+        [2026, new PartnerHttpError('symbol not enabled', 404, PARTNER_CODE_OPTIONS_NOT_ENABLED)],
       ]),
     );
     await assert.rejects(
@@ -217,11 +226,79 @@ describe('fetchPickDoc — error semantics', () => {
         ),
       (e: unknown) => {
         assert.ok(e instanceof PartnerHttpError);
-        assert.equal(e.partnerCode, 'OPTIONS_NOT_ENABLED');
+        assert.equal(e.partnerCode, PARTNER_CODE_OPTIONS_NOT_ENABLED);
         return true;
       },
     );
     assert.equal(calls.length, 2); // fetched 2025, aborted at 2026
+  });
+
+  it('propagates a bare 404 with no partnerCode — infra 404s are not coverage gaps (#1401)', async () => {
+    // A Google-infra 404 (endpoint missing, wrong URL, pre-deploy window)
+    // carries no partnerCode. Skipping it mislabels a transport/config
+    // failure as a data-availability failure — it must surface as the
+    // fetch failure it is.
+    const { transport, calls } = fakeTransport(
+      new Map([[2026, new PartnerHttpError('The requested URL was not found on this server', 404)]]),
+    );
+    await assert.rejects(
+      () =>
+        fetchPickDoc(
+          { symbol: 'QQQ', coordinate: PUT_45_20, startDate: '2026-01-05', endDate: '2026-03-31' },
+          transport,
+        ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.equal(e.status, 404);
+        // The upstream error itself, not the 'no year shard found' wrapper.
+        assert.match(e.message, /not found on this server/i);
+        return true;
+      },
+    );
+    assert.equal(calls.length, 1); // aborts on the first shard — no sweep
+  });
+
+  it('aborts mid-sweep on a bare 404 — earlier shard success cannot mask it (#1401)', async () => {
+    const { transport, calls } = fakeTransport(
+      new Map<number, PickDocument | PartnerHttpError>([
+        [2025, makeShard({ days: { '2025-06-03': makeDay('QQQ250718P00500000') } })],
+        [2026, new PartnerHttpError('infra 404 — endpoint missing', 404)],
+      ]),
+    );
+    await assert.rejects(
+      () =>
+        fetchPickDoc(
+          { symbol: 'QQQ', coordinate: PUT_45_20, startDate: '2025-01-05', endDate: '2026-03-31' },
+          transport,
+        ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.match(e.message, /infra 404/);
+        return true;
+      },
+    );
+    assert.equal(calls.length, 2); // fetched 2025, aborted at 2026
+  });
+
+  it('skips a NOT_FOUND gap then still propagates a later bare 404 (#1401)', async () => {
+    // 2025 is a genuine coverage gap (coded miss — skipped); 2026 is an
+    // infra miss — the skip must not latch: the bare 404 still propagates.
+    const { transport, calls } = fakeTransport(
+      new Map([[2026, new PartnerHttpError('infra 404 — endpoint missing', 404)]]),
+    );
+    await assert.rejects(
+      () =>
+        fetchPickDoc(
+          { symbol: 'QQQ', coordinate: PUT_45_20, startDate: '2025-01-05', endDate: '2026-03-31' },
+          transport,
+        ),
+      (e: unknown) => {
+        assert.ok(e instanceof PartnerHttpError);
+        assert.match(e.message, /infra 404/);
+        return true;
+      },
+    );
+    assert.equal(calls.length, 2); // 2025 skipped as a gap, 2026 propagated
   });
 
   it('propagates non-404 failures (off-grid 400 surfaces immediately)', async () => {
@@ -410,14 +487,14 @@ describe('partnerPickDocTransport — wire contract', () => {
 
   it('extracts the partner code from an upstream 404 error body', async () => {
     globalThis.fetch = mockFetch(
-      jsonResponse({ ok: false, error: 'symbol not enabled', code: 'OPTIONS_NOT_ENABLED' }, 404),
+      jsonResponse({ ok: false, error: 'symbol not enabled', code: PARTNER_CODE_OPTIONS_NOT_ENABLED }, 404),
     );
     await assert.rejects(
       () => partnerPickDocTransport(REQ),
       (e: unknown) => {
         assert.ok(e instanceof PartnerHttpError);
         assert.equal(e.status, 404);
-        assert.equal(e.partnerCode, 'OPTIONS_NOT_ENABLED');
+        assert.equal(e.partnerCode, PARTNER_CODE_OPTIONS_NOT_ENABLED);
         return true;
       },
     );

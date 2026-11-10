@@ -11,9 +11,11 @@
  * `partnerOptionsDeltaPicksV1?symbol=&type=&delta=&dte=&year=` — the
  * delta param is the magnitude ×100 (`delta=20` → the -0.20 put cell);
  * off-grid params → 400 BAD_REQUEST; a missing year shard → 404
- * NOT_FOUND (skipped as a coverage gap); a symbol outside the
- * options-enabled universe → 404 OPTIONS_NOT_ENABLED (propagates — a
- * symbol-level failure, not a gap). Success wraps the cell-year doc in
+ * NOT_FOUND (skipped as a coverage gap); a bare 404 with no partner
+ * code → propagates (a Google-infra miss is a transport/config
+ * failure, not a gap — #1401); a symbol outside the options-enabled
+ * universe → 404 OPTIONS_NOT_ENABLED (propagates — a symbol-level
+ * failure, not a gap). Success wraps the cell-year doc in
  * `{ok: true, …}`; a 200 lacking `ok:true` + a `days` map is a malformed
  * response → 502.
  * `startDate` is NOT a request param: it selects which year shards to
@@ -28,6 +30,7 @@ import {
   PARTNER_AUDIENCE,
   CALLER_SA,
   PartnerHttpError,
+  PARTNER_CODE_NOT_FOUND,
   extractPartnerCode,
   generateIdTokenWithEmail,
   fetchWithRetry,
@@ -96,11 +99,13 @@ export interface FetchPickDocInput {
 
 /**
  * Fetch and merge the pick doc for a coordinate over `[startDate, endDate?]`.
- * One shard request per calendar year in the span; a 404 shard is skipped
- * (the year simply has no materialized data) — except OPTIONS_NOT_ENABLED,
- * a symbol-level failure that propagates — and any non-404 failure
- * propagates. If no shard exists at all, throws a PartnerHttpError naming
- * the coordinate — the caller marks the list doc `failed`.
+ * One shard request per calendar year in the span; a missing year shard —
+ * 404 with `partnerCode` NOT_FOUND — is skipped (the year simply has no
+ * materialized data). Every other failure propagates, including bare 404s:
+ * a Google-infra miss (endpoint absent, wrong URL, pre-deploy window) is a
+ * transport/config failure, not a coverage gap (#1401). If every year is a
+ * NOT_FOUND gap, throws a PartnerHttpError naming the coordinate — the
+ * caller marks the list doc `failed`.
  */
 export async function fetchPickDoc(
   input: FetchPickDocInput,
@@ -136,12 +141,14 @@ export async function fetchPickDoc(
     } catch (e) {
       // A missing year shard is a coverage gap, not a fetch failure — a run
       // window may legitimately span a year the symbol wasn't materialized.
-      // OPTIONS_NOT_ENABLED is a symbol-level 404: the symbol isn't in the
-      // options-enabled universe — propagate so the list doc fails honestly.
+      // SA marks a shard miss as 404 + {code:'NOT_FOUND'}; a bare 404 with no
+      // partnerCode is a Google-infra miss (endpoint absent, wrong URL,
+      // pre-deploy window) — propagate so it reads as the transport/config
+      // failure it is, not a data gap (#1401).
       if (
         e instanceof PartnerHttpError &&
         e.status === 404 &&
-        e.partnerCode !== 'OPTIONS_NOT_ENABLED'
+        e.partnerCode === PARTNER_CODE_NOT_FOUND
       ) {
         logger.warn('partnerPickDoc_shard_skipped', {
           symbol,
@@ -155,9 +162,14 @@ export async function fetchPickDoc(
   }
 
   if (shards.length === 0) {
+    // Every year answered the partner's NOT_FOUND — the coordinate is absent
+    // over the whole window, not a transport miss. Carrying the code lets
+    // the worker classify this as permanent (retrying can't materialize a
+    // shard) vs a bare-404 infra failure, which is retryable (#1401).
     throw new PartnerHttpError(
       `pick doc fetch failed for ${cellId}: no year shard found in [${firstYear}, ${lastYear}]`,
       404,
+      PARTNER_CODE_NOT_FOUND,
     );
   }
 

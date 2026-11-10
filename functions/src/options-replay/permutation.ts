@@ -10,11 +10,13 @@
  * the run's terminal status ('success' → 'completed'); there are no
  * counters or sibling lists to aggregate.
  *
- * Error semantics (PRD / IMPL-BE §2): a missing pick doc (404) is a
- * deterministic miss — the list is marked `failed` naming the coordinate
- * and the task does NOT retry; transient errors rethrow for Cloud Tasks
- * retry until the final attempt. An already-`success`/`failed` list doc
- * short-circuits (idempotent retry).
+ * Error semantics (PRD / IMPL-BE §2): a missing pick doc (coded 404 —
+ * NOT_FOUND across the window, OPTIONS_NOT_ENABLED) is a deterministic
+ * miss — the list is marked `failed` naming the coordinate and the task
+ * does NOT retry; a bare 404 (infra/config miss, #1401) and other
+ * transient errors rethrow for Cloud Tasks retry until the final attempt.
+ * An already-`success`/`failed` list doc short-circuits (idempotent
+ * retry).
  *
  * All effects sit behind `ReplayPermutationDeps` (TEST-BE seam 3); the
  * `onTaskDispatched` wrapper injects production wiring. The queue name is
@@ -158,19 +160,23 @@ export async function runReplayPermutation(
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
-    // A 404 names a pick doc that doesn't exist — retrying can't
-    // materialize it within backoff. Resolve now, whatever the attempt.
-    const permanent = e instanceof PartnerHttpError && e.status === 404;
+    // A coded 404 names a pick doc that doesn't exist (NOT_FOUND across the
+    // window, OPTIONS_NOT_ENABLED) — retrying can't materialize it within
+    // backoff. A bare 404 has no partner code — an infra/config miss that a
+    // retry may legitimately heal (endpoint deploys mid-run), so it takes
+    // the transient path (#1401).
+    const permanent =
+      e instanceof PartnerHttpError && e.status === 404 && e.partnerCode !== undefined;
 
     if (permanent || isFinalAttempt) {
-      await deps.writeListDoc(docId, {
-        status: 'failed',
-        error: message,
-        generatedAt: FieldValue.serverTimestamp(),
-      });
-      await deps.closeOutRun(runId, 'failed');
+      await failPermanently(deps, docId, runId, message, { runId, symbol, templateId });
     }
-    if (permanent) return;
+    if (permanent) {
+      // The failed doc's error is the only record otherwise — mark the
+      // deterministic miss so a terminal no-retry is visible in the logs.
+      logger.warn('options_replay_worker_permanent', { runId, symbol, templateId, error: message });
+      return;
+    }
 
     logger.error('options_replay_worker_error', {
       runId, symbol, templateId,

@@ -9,6 +9,10 @@ export const PARTNER_AUDIENCE =
 // Service account email for rel-str prod
 export const CALLER_SA = process.env.PARTNER_CALLER_SA || DEFAULT_PARTNER_CALLER_SA;
 
+/** Partner `code` values with load-bearing semantics (see pick-doc-client). */
+export const PARTNER_CODE_NOT_FOUND = 'NOT_FOUND';
+export const PARTNER_CODE_OPTIONS_NOT_ENABLED = 'OPTIONS_NOT_ENABLED';
+
 /** Error thrown by partner API calls; carries the HTTP status code for typed handling. */
 export class PartnerHttpError extends Error {
   constructor(
@@ -40,7 +44,7 @@ export function extractPartnerCode(text: string): string | undefined {
 export function partnerHttpErrorToCallableCode(
   e: PartnerHttpError,
 ): 'failed-precondition' | 'resource-exhausted' | 'not-found' | 'unavailable' | 'invalid-argument' {
-  if (e.partnerCode === 'OPTIONS_NOT_ENABLED') return 'failed-precondition';
+  if (e.partnerCode === PARTNER_CODE_OPTIONS_NOT_ENABLED) return 'failed-precondition';
   return e.status === 429
     ? 'resource-exhausted'
     : e.status === 404
