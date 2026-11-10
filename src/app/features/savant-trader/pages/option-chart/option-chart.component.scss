@@ -22,75 +22,6 @@
   transition: margin-left 0.25s ease, margin-right 0.25s ease;
 }
 
-.control-panel {
-  width: 312px;
-  padding: 8px;
-  box-sizing: border-box;
-  background: var(--mat-sys-surface-container);
-  border-right: 1px solid var(--mat-sys-outline-variant);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  overflow-y: auto;
-  overflow-x: hidden;
-
-  &:not(.open) {
-    margin-left: -312px;
-  }
-
-  .panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .panel-title {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--mat-sys-on-surface-variant);
-  }
-
-  /* Dense DS fields */
-  .dse-field {
-    --ds-field-height: 36px;
-
-    .field-label {
-      font-size: 11px;
-    }
-  }
-
-  /* Dense select */
-  .dse-select {
-    font-size: 12px;
-  }
-
-  /* Dense button toggle */
-  .type-toggle {
-    height: 32px;
-
-    .pill {
-      font-size: 11px;
-      padding: 0 8px;
-      line-height: 26px;
-    }
-  }
-
-  /* Dense buttons */
-  .ds-btn.outline,
-  .ds-btn.fill {
-    min-height: 32px;
-    font-size: 11px;
-    padding: 0 10px;
-  }
-
-  /* Dense switches */
-  .dse-switch {
-    font-size: 11px;
-  }
-}
-
 .builder-section {
   display: flex;
   flex-direction: column;
@@ -179,7 +110,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px 0 44px;
+  padding: 0 12px;
   background: var(--mat-sys-surface-container);
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   font-size: 11px;
@@ -280,124 +211,6 @@
     }
   }
 
-  .header-sep {
-    color: var(--mat-sys-outline-variant);
-    font-size: 10px;
-    margin: 0 2px 0 4px;
-  }
-
-  .filter-pill-group {
-    display: inline-flex;
-    gap: 2px;
-    flex: 0 0 auto;
-  }
-
-  .filter-pill {
-    display: inline-flex;
-    align-items: center;
-    height: 22px;
-    padding: 0 8px;
-    border: 1px solid var(--mat-sys-outline-variant);
-    border-radius: 12px;
-    background: var(--mat-sys-surface);
-    color: var(--mat-sys-on-surface-variant);
-    font-size: 10px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
-
-    &:hover {
-      background: var(--mat-sys-surface-container-high);
-    }
-
-    &.active {
-      background: var(--mat-sys-primary-container);
-      color: var(--mat-sys-on-primary-container);
-      border-color: var(--mat-sys-primary);
-      font-weight: 600;
-    }
-  }
-
-  .filter-dropdown-btn {
-    height: 22px;
-    min-height: 22px;
-    font-size: 10px;
-    padding: 0 6px;
-    line-height: 22px;
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-
-    .dse-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      margin: 0;
-    }
-  }
-
-  .strike-range-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    flex: 0 0 auto;
-
-    .strike-input {
-      width: 48px;
-      height: 22px;
-      border: 1px solid var(--mat-sys-outline-variant);
-      border-radius: 4px;
-      font-size: 10px;
-      text-align: center;
-      background: var(--mat-sys-surface);
-      color: var(--mat-sys-on-surface);
-      outline: none;
-
-      &::placeholder {
-        color: var(--mat-sys-on-surface-variant);
-        font-size: 9px;
-      }
-
-      &:focus {
-        border-color: var(--mat-sys-primary);
-      }
-
-      &::-webkit-inner-spin-button,
-      &::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-      }
-      appearance: textfield;
-      -moz-appearance: textfield;
-    }
-
-    .strike-dash {
-      font-size: 10px;
-      color: var(--mat-sys-on-surface-variant);
-    }
-  }
-
-  .display-filter-clear {
-    width: 24px;
-    height: 24px;
-    line-height: 24px;
-    flex: 0 0 auto;
-
-    .dse-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-  }
-
-  .display-filter-count {
-    font-size: 10px;
-    color: var(--mat-sys-on-surface-variant);
-    margin-left: auto;
-    flex: 0 0 auto;
-  }
-
   .header-spacer {
     flex: 1 1 auto;
   }
@@ -431,15 +244,210 @@
   }
 }
 
-/* Right group-generator drawer — narrower than the left control panel,
-   same surface/border treatment, mirrored side. */
+/* Unified control drawer (#1423) — absorbed the retired left control-panel:
+   contract/catalog query, catalog filters + table, manual entry, metadata,
+   contract list, generator. One scroll column. */
 .generator-panel {
   width: 340px;
   background: var(--mat-sys-surface-container);
   border-left: 1px solid var(--mat-sys-outline-variant);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
 
   &:not(.open) {
     margin-right: -340px;
+  }
+
+  /* Dense DS fields */
+  .dse-field {
+    --ds-field-height: 36px;
+
+    .field-label {
+      font-size: 11px;
+    }
+  }
+
+  /* Dense select */
+  .dse-select {
+    font-size: 12px;
+  }
+
+  /* Dense buttons */
+  .ds-btn.outline,
+  .ds-btn.fill {
+    min-height: 32px;
+    font-size: 11px;
+    padding: 0 10px;
+  }
+
+  /* Dense switches */
+  .dse-switch {
+    font-size: 11px;
+  }
+
+  /* Symbol label row — the drawer's close button sits flush right (#1423). */
+  .symbol-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .panel-close {
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+
+  /* Expansion panels (#1423) — catalog-search + group-generator forms
+     collapse via the dse-acc contract, WITHOUT the boxed chrome: the
+     panel's border/bg/clip are stripped so the forms span the drawer's
+     inner width edge-to-edge. */
+  .panel-accordion {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+    .ds-panel {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      overflow: visible;
+    }
+
+    .acc-body {
+      padding: 0;
+      border-top: none;
+    }
+  }
+
+  /* Every absorbed section: padded, separated, stacked. */
+  .panel-section {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  /* Catalog display filters — re-homed from contract-header-bar; wraps
+     inside the 340px column instead of a single nowrap strip. */
+  .catalog-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+
+    .filter-pill-group {
+      display: inline-flex;
+      gap: 2px;
+      flex: 0 0 auto;
+    }
+
+    .filter-pill {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 12px;
+      background: var(--mat-sys-surface);
+      color: var(--mat-sys-on-surface-variant);
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: var(--mat-sys-surface-container-high);
+      }
+
+      &.active {
+        background: var(--mat-sys-primary-container);
+        color: var(--mat-sys-on-primary-container);
+        border-color: var(--mat-sys-primary);
+        font-weight: 600;
+      }
+    }
+
+    .filter-dropdown-btn {
+      height: 22px;
+      min-height: 22px;
+      font-size: 10px;
+      padding: 0 6px;
+      line-height: 22px;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+
+      .dse-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        margin: 0;
+      }
+    }
+
+    .strike-range-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      flex: 0 0 auto;
+
+      .strike-input {
+        width: 48px;
+        height: 22px;
+        border: 1px solid var(--mat-sys-outline-variant);
+        border-radius: 4px;
+        font-size: 10px;
+        text-align: center;
+        background: var(--mat-sys-surface);
+        color: var(--mat-sys-on-surface);
+        outline: none;
+
+        &::placeholder {
+          color: var(--mat-sys-on-surface-variant);
+          font-size: 9px;
+        }
+
+        &:focus {
+          border-color: var(--mat-sys-primary);
+        }
+
+        &::-webkit-inner-spin-button,
+        &::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        appearance: textfield;
+        -moz-appearance: textfield;
+      }
+
+      .strike-dash {
+        font-size: 10px;
+        color: var(--mat-sys-on-surface-variant);
+      }
+    }
+
+    .display-filter-clear {
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      flex: 0 0 auto;
+
+      .dse-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+    }
+
+    .display-filter-count {
+      font-size: 10px;
+      color: var(--mat-sys-on-surface-variant);
+      margin-left: auto;
+      flex: 0 0 auto;
+    }
   }
 
   .list-section {
@@ -496,15 +504,6 @@
   }
 }
 
-.panel-collapse {
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.panel-expand {
-  flex: 0 0 auto;
-  color: var(--mat-sys-on-surface-variant);
-}
-
 .loading-section {
   display: flex;
   align-items: center;
@@ -525,13 +524,6 @@
   gap: 8px;
   font-size: 11px;
   color: var(--mat-sys-on-surface-variant);
-}
-
-.search-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
 }
 
 .strike-range-row {
@@ -801,16 +793,10 @@
   }
 }
 
-/* Multi-select ds-menu panels — positioned under their trigger host. */
-.ms-menu-host {
-  position: relative;
-}
-
+/* Multi-select ds-menu panels — cdkConnectedOverlay children (#1423):
+   * the overlay pane owns position/z-index and renders at body level, so
+   * nothing inside the drawer's scroll/clip bounds can cut them off. */
 .multi-select-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 100;
   max-width: 320px;
 
   .multi-select-header {

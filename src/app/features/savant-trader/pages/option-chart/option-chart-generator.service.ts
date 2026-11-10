@@ -17,6 +17,12 @@ export class OptionChartGeneratorService {
   /** Whether the right group-generator drawer is open. */
   generatorOpen = false;
 
+  /** Drawer accordion panels (#1423) — catalog-search + group-generator
+   *  sections collapse to declutter; state persists (display:none, not
+   *  destroyed). Session-only like generatorOpen — not persisted. */
+  catalogExpanded = false;
+  generatorExpanded = false;
+
   /** Arms the study-range brush on the contract chart; Esc disarms. */
   readonly brushArmed = signal(false);
 

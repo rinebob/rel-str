@@ -17,6 +17,7 @@
 import { Component, inject, computed, viewChild, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Overlay, OverlayModule, type ConnectedPosition } from '@angular/cdk/overlay';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
@@ -51,6 +52,7 @@ import { OPTION_CHART_PAGE_PROVIDERS } from './option-chart-page.providers';
   imports: [
     CommonModule,
     FormsModule,
+    OverlayModule,
     OptionsContractChartComponent,
     OptionGroupGeneratorComponent],
   // Page-scoped — one generator instance + one list session + one set of
@@ -74,16 +76,24 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   private readonly list = inject(OptionChartListService);
   private readonly replay = inject(OptionChartReplayService);
   private readonly gen = inject(OptionChartGeneratorService);
+  private readonly overlay = inject(Overlay);
   readonly chartRef = viewChild(OptionsContractChartComponent);
+
+  /** ds-menu popovers render in a CDK overlay — body-level, so nothing
+   *  inside the drawer's `overflow-y:auto` / `overflow-x:hidden` can
+   *  clip them (#1423). openMenu state is unchanged: the signal still
+   *  picks which menu is open; the overlay owns position + scroll
+   *  follow, document:click still closes. */
+  readonly menuScrollStrategy = this.overlay.scrollStrategies.reposition();
+  readonly menuPositions: ConnectedPosition[] = [
+    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 4 },
+  ];
 
   constructor() {
     // The catalog's filter-to-chart reads the chart's visible window —
     // the viewChild lives here, the query lives there.
     this.page.chartExtents = () => this.chartRef()?.visibleExtents() ?? null;
   }
-
-  /** Whether the left control panel is open. */
-  controlPanelOpen = true;
 
   // ── Page context (option-chart-page.service.ts) ─────────────────────
 
@@ -191,6 +201,10 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   get generatorOpen(): boolean { return this.gen.generatorOpen; }
   set generatorOpen(v: boolean) { this.gen.generatorOpen = v; }
+  get catalogExpanded(): boolean { return this.gen.catalogExpanded; }
+  set catalogExpanded(v: boolean) { this.gen.catalogExpanded = v; }
+  get generatorExpanded(): boolean { return this.gen.generatorExpanded; }
+  set generatorExpanded(v: boolean) { this.gen.generatorExpanded = v; }
   readonly brushArmed = this.gen.brushArmed;
   readonly onStudyRange = (range: StudyRange | null): void => this.gen.onStudyRange(range);
   readonly clearStudyRange = (): void => this.gen.clearStudyRange();

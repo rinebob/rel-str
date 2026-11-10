@@ -1,315 +1,7 @@
 <div class="option-chart-page" [class.fullscreen]="uiStateService.fullscreen()">
   <div class="sidenav-container side-layout">
-    <aside
-      class="control-panel side-panel"
-      [class.open]="controlPanelOpen"
-      [attr.aria-hidden]="!controlPanelOpen"
-    >
-      <div class="panel-header">
-        <span class="panel-title">Contract</span>
-        <button
- 
- class="panel-collapse icon-btn"
- (click)="controlPanelOpen = false" title="Hide panel"
- >
-          <span class="dse-icon">chevron_left</span>
-        </button>
-      </div>
-
-      <!-- Builder Controls -->
-      <div class="builder-section">
-        <label class="dse-field panel-field">
-          <span class="field-label">Symbol</span>
-          <input class="field-input"
-            [ngModel]="symbol()"
-            (ngModelChange)="onSymbolChange($event)"
-            placeholder="QQQ"
-          />
-        </label>
-
-        <div class="query-length-row ms-menu-host">
-          <button class="query-len-btn ds-btn outline"
-                  aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'queryLen'"
-                  (click)="toggleMenu('queryLen', $event)">
-            {{ queryLenLabel() }} <span class="dse-icon">arrow_drop_down</span>
-          </button>
-          @if (openMenu() === 'queryLen') {
-          <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
-            <div class="multi-select-header">
-              <button class="multi-select-clear" (click)="clearQueryLengthBuckets()">Clear</button>
-            </div>
-            <div class="multi-select-scroll">
-              @for (group of availableLengthGroups(); track group.name) {
-              <div class="multi-select-group-header">
-                <button class="multi-select-group-toggle" (click)="toggleQueryLengthGroup(group.name)">
-                  {{ group.name }}
-                </button>
-              </div>
-              @for (opt of group.options; track opt.value) {
-              <label class="dse-check multi-select-item">
-                <input type="checkbox"
-                  [checked]="selectedQueryLengthBuckets().has(opt.value)"
-                  (change)="toggleQueryLengthBucket(opt.value)" />
-                {{ opt.label }} ({{ opt.count }})
-              </label>
-              }
-              }
-            </div>
-          </div>
-          }
-        </div>
-
-        <div class="exp-range-row">
-          <label class="dse-field panel-field exp-range-field">
-            <span class="field-label">Exp From</span>
-            <input type="date" class="dse-date" [ngModel]="queryExpGte()" (change)="onExpGteChange($any($event.target).value)" />
-          </label>
-          <label class="dse-field panel-field exp-range-field">
-            <span class="field-label">Exp To</span>
-            <input type="date" class="dse-date" [ngModel]="queryExpLte()" (change)="onExpLteChange($any($event.target).value)" />
-          </label>
-        </div>
-      </div>
-
-      <!-- Contract Search + Catalog -->
-      <div class="search-section">
-        <button
- 
- class="panel-full ds-btn outline"
- (click)="onQueryCatalog()"
- [disabled]="!canSearch()"
- >
-          <span class="dse-icon">search</span>
-          Search Catalog
-        </button>
-
-        @if (store.catalogLoading() && catalogRows().length === 0) {
-        <div class="search-loading">
-          <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
-          <span>Searching...</span>
-        </div>
-        }
-
-        @if (store.catalogError()) {
-        <div class="search-error">
-          <span class="flag-chip err">{{ store.catalogError() }}</span>
-        </div>
-        }
-
-        <!-- Catalog results table -->
-        @if (catalogRows().length > 0) {
-        <div class="catalog-table-wrapper">
-          <table class="catalog-table">
-            <thead>
-              <tr>
-                <th class="col-type clickable" (click)="onColumnSort('type')">
-                  T
-                  @if (getSortInfo('type'); as s) {
-                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
-                  }
-                </th>
-                <th class="col-strike clickable" (click)="onColumnSort('strike')">
-                  Strike
-                  @if (getSortInfo('strike'); as s) {
-                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
-                  }
-                </th>
-                <th class="col-exp clickable" (click)="onColumnSort('expiration')">
-                  Exp
-                  @if (getSortInfo('expiration'); as s) {
-                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
-                  }
-                </th>
-                <th class="col-length clickable" (click)="onColumnSort('contractLengthDays')">
-                  Len
-                  @if (getSortInfo('contractLengthDays'); as s) {
-                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
-                  }
-                </th>
-                <th class="col-obs clickable" (click)="onColumnSort('observationCount')">
-                  Obs
-                  @if (getSortInfo('observationCount'); as s) {
-                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
-                  }
-                </th>
-                <th class="col-cov">Cov</th>
-                <th class="col-delta clickable" (click)="onColumnSort('delta')">
-                  Δ
-                  @if (getSortInfo('delta'); as s) {
-                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
-                  }
-                </th>
-                <th class="col-iv">IV</th>
-                <th class="col-vol">Vol</th>
-                <th class="col-oi">OI</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of displayedRowsWithShade(); track item.row.contractId) {
-              <tr (click)="onSelectCatalogContract(item.row)" [class.selected]="item.row.contractId === occIdInput.trim().toUpperCase()" [class.group-shade]="item.shade === 1">
-                <td>
-                  <span class="contract-type-badge" [class.call]="item.row.type === 'call'" [class.put]="item.row.type === 'put'">
-                    {{ item.row.type === 'call' ? 'C' : 'P' }}
-                  </span>
-                </td>
-                <td class="num">${{ item.row.strike }}</td>
-                <td class="exp">{{ item.row.expiration }}</td>
-                <td class="length">{{ item.row.contractLengthBucket }}</td>
-                <td class="num">{{ item.row.observationCount }}</td>
-                <td class="num">{{ item.row.coverage != null ? (item.row.coverage * 100 | number:'1.0-0') + '%' : '—' }}</td>
-                <td class="num">{{ item.row.latestDelta != null ? (item.row.latestDelta | number:'1.2-2') : '—' }}</td>
-                <td class="num">{{ item.row.latestIV != null ? (item.row.latestIV | number:'1.3-3') : '—' }}</td>
-                <td class="num">{{ item.row.latestVolume != null ? item.row.latestVolume : '—' }}</td>
-                <td class="num">{{ item.row.latestOI != null ? item.row.latestOI : '—' }}</td>
-              </tr>
-              }
-            </tbody>
-          </table>
-        <div class="catalog-pagination">
-          <span class="page-info">{{ displayedRows().length }} shown / {{ catalogTotal() }} total{{ hasMorePages() ? ' (loading…)' : '' }}</span>
-          @if (store.catalogPageToken()) {
-          <button class="ds-btn outline" (click)="onLoadMore()" [disabled]="store.catalogLoading()">
-            @if (store.catalogLoading() && !store.catalogLoadAllProgress()) {
-            <span class="dse-spinner small load-more-spinner" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
-            } @else {
-            Load More
-            }
-          </button>
-          <button class="ds-btn outline" (click)="onLoadAll()" [disabled]="store.catalogLoading()">
-            @if (store.catalogLoadAllProgress(); as progress) {
-            <span class="dse-spinner small load-more-spinner" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
-            <span>{{ progress }}</span>
-            } @else {
-            Load All
-            }
-          </button>
-          }
-        </div>
-        </div>
-        }
-
-        <label class="dse-field panel-field">
-          <span class="field-label">Selection replay</span>
-          <select class="dse-select"
-            [(ngModel)]="selectedReplayRunId"
-            (change)="onReplaySelected($any($event.target).value)"
-            [disabled]="replayLoading() || store.loading() || !!store.plottedLoadProgress()"
-          >
-            @for (r of replayRuns(); track r.runId) {
-            <option [value]="r.runId">{{ replayLabel(r) }}</option>
-            }
-          </select>
-          <span class="field-hint">Plots first 10 Wednesday picks — switches to the run's symbol</span>
-        </label>
-        @if (replayLoading()) {
-        <div class="search-loading">
-          <span class="dse-spinner small" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
-          <span>Loading replay…</span>
-        </div>
-        }
-        @if (replayError()) {
-        <div class="search-error">
-          <span class="flag-chip err">{{ replayError() }}</span>
-        </div>
-        }
-
-        <label class="dse-field panel-field">
-          <span class="field-label">OCC Contract ID(s)</span>
-          <textarea class="field-input"
-            rows="4"
-            [(ngModel)]="occIdInput"
-            placeholder="e.g. QQQ240719C00450000&#10;or one per line: 2026-06-10,QQQ260619P00470000"
-            [disabled]="store.loading() || !!store.plottedLoadProgress()"
-          ></textarea>
-          <span class="field-hint">One per line — bare ID or YYYY-MM-DD,ID</span>
-        </label>
-
-        <button
- class="panel-full ds-btn fill"
- (click)="onLoad()"
- [disabled]="store.loading() || !!store.plottedLoadProgress() || !occIdInput.trim()"
- >
-          Load {{ contractLength() ? '(' + lengthLabel() + ')' : '' }}
-        </button>
-
-        @if (rejectedEntries().length > 0) {
-        <div class="rejection-notice" role="alert">
-          <div class="rejection-title">{{ rejectedEntries().length }} entr{{ rejectedEntries().length === 1 ? 'y' : 'ies' }} skipped:</div>
-          @for (r of rejectedEntries(); track $index) {
-          <div class="rejection-item">
-            <span class="rejection-raw">{{ r.raw }}</span>
-            <span class="rejection-reason">{{ rejectionReasonLabel(r.reason) }}</span>
-          </div>
-          }
-        </div>
-        }
-      </div>
-
-      @if (store.contractData() || showPlottedSet()) {
-      <div class="metadata-section">
-        <!-- Data Quality Flags — single-contract only -->
-        @if (store.contractData(); as data) {
-        <div class="quality-flags">
-          <span class="quality-label">Quality</span>
-          <div class="flag-row">
-            <span class="flag-chip" [class.err]="store.dataQuality().gaps > 0">
-              Gaps: {{ store.dataQuality().gaps }}
-            </span>
-            <span class="flag-chip" [class.err]="store.dataQuality().nanIV > 0">
-              NaN IV: {{ store.dataQuality().nanIV }}
-            </span>
-            <span class="flag-chip" [class.accent]="store.dataQuality().zeroVolume > 0">
-              Zero Vol: {{ store.dataQuality().zeroVolume }}
-            </span>
-          </div>
-        </div>
-        }
-
-        <!-- Toggle Controls — Greeks/Volume-OI panes are single-contract only -->
-        <div class="toggle-row">
-          <label class="dse-switch"><input type="checkbox" class="switch-input" [checked]="store.showUnderlying()" (change)="store.toggleUnderlying()">
-            Underlying
-          </label>
-          @if (store.contractData()) {
-          <label class="dse-switch"><input type="checkbox" class="switch-input" [checked]="store.showGreeks()" (change)="store.toggleGreeks()">
-            Greeks
-          </label>
-          <label class="dse-switch"><input type="checkbox" class="switch-input" [checked]="store.showVolumeOI()" (change)="store.toggleVolumeOI()">
-            Volume / OI
-          </label>
-          }
-        </div>
-
-        <!-- Chart padding controls -->
-        <div class="pad-row">
-          <button class="ds-btn outline" (click)="store.addPadDays(20)" [disabled]="!store.contractData() && !showPlottedSet()">+20d</button>
-          <button class="ds-btn outline" (click)="store.addPadDays(50)" [disabled]="!store.contractData() && !showPlottedSet()">+50d</button>
-          @if (store.chartPadDays() > 0) {
-          <button class="ds-btn outline" (click)="store.resetPadDays()">Reset</button>
-          }
-        </div>
-      </div>
-      }
-
-      @if (store.underlyingLoading()) {
-      <div class="underlying-loading">
-        <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
-        <span>Loading underlying...</span>
-      </div>
-      }
-    </aside>
-
     <div class="chart-content">
       <div class="contract-header-bar">
-        @if (!controlPanelOpen) {
-        <button
- 
- class="panel-expand icon-btn"
- (click)="controlPanelOpen = true" title="Show panel"
- >
-          <span class="dse-icon">chevron_right</span>
-        </button>
-        }
         @if (store.contractData(); as data) {
         <span class="ch-id">{{ data.contractID }}</span>
         <span class="ch-sep">|</span>
@@ -383,98 +75,6 @@
         >
           Picker — {{ listStore.selectedRows().length }}/{{ listStore.pickRows().length }} selected
         </button>
-        }
-
-        @if (catalogRows().length > 0) {
-        <span class="header-sep">|</span>
-        <div class="filter-pill-group">
-          <button class="filter-pill" [class.active]="displayType() === 'all'" (click)="displayType.set('all')">All</button>
-          <button class="filter-pill" [class.active]="displayType() === 'call'" (click)="displayType.set('call')">Call</button>
-          <button class="filter-pill" [class.active]="displayType() === 'put'" (click)="displayType.set('put')">Put</button>
-        </div>
-
-        <span class="ms-menu-host">
-        <button class="filter-dropdown-btn ds-btn outline"
-                aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'exp'"
-                (click)="toggleMenu('exp', $event)">
-          {{ expFilterLabel() }} <span class="dse-icon">arrow_drop_down</span>
-        </button>
-        @if (openMenu() === 'exp') {
-        <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
-          <div class="multi-select-header">
-            <button class="multi-select-clear" (click)="clearSelectedExpirations()">Clear</button>
-          </div>
-          <div class="multi-select-scroll">
-            @for (opt of chartExpirationOptions(); track opt.value) {
-            <label class="dse-check multi-select-item">
-              <input type="checkbox"
-                [checked]="selectedExpirations().has(opt.value)"
-                (change)="toggleExpiration(opt.value)" />
-              {{ opt.label }} <span class="opt-count">{{ opt.count }}</span>
-            </label>
-            }
-          </div>
-        </div>
-        }
-        </span>
-
-        <span class="ms-menu-host">
-        <button class="filter-dropdown-btn ds-btn outline"
-                aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'len'"
-                (click)="toggleMenu('len', $event)">
-          {{ lenFilterLabel() }} <span class="dse-icon">arrow_drop_down</span>
-        </button>
-        @if (openMenu() === 'len') {
-        <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
-          <div class="multi-select-header">
-            <button class="multi-select-clear" (click)="clearSelectedLengthBuckets()">Clear</button>
-          </div>
-          <div class="multi-select-scroll">
-            @for (group of availableLengthGroups(); track group.name) {
-            <div class="multi-select-group-header">
-              <button class="multi-select-group-toggle" (click)="toggleLengthGroup(group.name)">
-                {{ group.name }}
-              </button>
-            </div>
-            @for (opt of group.options; track opt.value) {
-            <label class="dse-check multi-select-item">
-              <input type="checkbox"
-                [checked]="selectedLengthBuckets().has(opt.value)"
-                (change)="toggleLengthBucket(opt.value)" />
-              {{ opt.label }} ({{ opt.count }})
-            </label>
-            }
-            }
-          </div>
-        </div>
-        }
-        </span>
-
-        <div class="strike-range-row">
-          <input
-            type="number"
-            class="strike-input"
-            placeholder="Min"
-            [value]="strikeMin() ?? ''"
-            (input)="strikeMin.set($any($event.target).value ? +$any($event.target).value : null)"
-          />
-          <span class="strike-dash">–</span>
-          <input
-            type="number"
-            class="strike-input"
-            placeholder="Max"
-            [value]="strikeMax() ?? ''"
-            (input)="strikeMax.set($any($event.target).value ? +$any($event.target).value : null)"
-          />
-        </div>
-
-        @if (displayFilterActive()) {
-        <button class="display-filter-clear icon-btn" (click)="onClearAllDisplayFilters()" title="Clear all display filters">
-          <span class="dse-icon">close</span>
-        </button>
-        }
-
-        <span class="display-filter-count">{{ displayedRows().length }} shown / {{ catalogTotal() }} total{{ hasMorePages() ? ' …' : '' }}</span>
         }
 
         <span class="header-spacer"></span>
@@ -609,12 +209,32 @@
       </div>
       }
     </div>
-
     <aside
       class="generator-panel side-panel"
       [class.open]="generatorOpen"
       [attr.aria-hidden]="!generatorOpen"
     >
+      <!-- Symbol — page context; stays visible above the collapsible forms.
+           The drawer's close button rides this label row flush right (#1423). -->
+      <div class="builder-section panel-section">
+        <div class="dse-field panel-field">
+          <div class="field-label symbol-label-row">
+            <span>Symbol</span>
+            <button type="button" class="panel-close icon-btn"
+                    (click)="generatorOpen = false"
+                    title="Close panel" aria-label="Close panel">
+              <span class="dse-icon">close</span>
+            </button>
+          </div>
+          <input class="field-input"
+            [ngModel]="symbol()"
+            (ngModelChange)="onSymbolChange($event)"
+            placeholder="QQQ"
+          />
+        </div>
+      </div>
+
+      <!-- Contract list — directly under symbol (#1423 drawer order) -->
       <div class="list-section">
         <div class="list-section-head">
           <span class="list-section-label">Contract list</span>
@@ -634,10 +254,417 @@
         </div>
         }
       </div>
+
+      <!-- Catalog-search + group-generator forms collapse into expansion
+           panels (#1423) — inner state persists (display:none, not destroyed). -->
+      <div class="dse-acc panel-accordion">
+      <div class="ds-panel" [class.open]="catalogExpanded">
+        <button type="button" class="acc-head" id="acc-head-catalog"
+                [attr.aria-expanded]="catalogExpanded" aria-controls="acc-body-catalog"
+                (click)="catalogExpanded = !catalogExpanded">
+          <span>Catalog search</span>
+          <span class="dse-icon chev">expand_more</span>
+        </button>
+        <div class="acc-body" role="region" id="acc-body-catalog" aria-labelledby="acc-head-catalog">
+      <!-- Contract + catalog query (absorbed from the retired control-panel) -->
+      <div class="builder-section panel-section">
+
+        <div class="query-length-row ms-menu-host">
+          <button class="query-len-btn ds-btn outline"
+                  cdkOverlayOrigin #queryLenOrigin="cdkOverlayOrigin"
+                  aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'queryLen'"
+                  (click)="toggleMenu('queryLen', $event)">
+            {{ queryLenLabel() }} <span class="dse-icon">arrow_drop_down</span>
+          </button>
+          <ng-template cdkConnectedOverlay
+                       [cdkConnectedOverlayOrigin]="queryLenOrigin"
+                       [cdkConnectedOverlayOpen]="openMenu() === 'queryLen'"
+                       [cdkConnectedOverlayPositions]="menuPositions"
+                       [cdkConnectedOverlayScrollStrategy]="menuScrollStrategy"
+                       [cdkConnectedOverlayViewportMargin]="8">
+          <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
+            <div class="multi-select-header">
+              <button class="multi-select-clear" (click)="clearQueryLengthBuckets()">Clear</button>
+            </div>
+            <div class="multi-select-scroll">
+              @for (group of availableLengthGroups(); track group.name) {
+              <div class="multi-select-group-header">
+                <button class="multi-select-group-toggle" (click)="toggleQueryLengthGroup(group.name)">
+                  {{ group.name }}
+                </button>
+              </div>
+              @for (opt of group.options; track opt.value) {
+              <label class="dse-check multi-select-item">
+                <input type="checkbox"
+                  [checked]="selectedQueryLengthBuckets().has(opt.value)"
+                  (change)="toggleQueryLengthBucket(opt.value)" />
+                {{ opt.label }} ({{ opt.count }})
+              </label>
+              }
+              }
+            </div>
+          </div>
+          </ng-template>
+        </div>
+
+        <div class="exp-range-row">
+          <label class="dse-field panel-field exp-range-field">
+            <span class="field-label">Exp From</span>
+            <input type="date" class="dse-date" [ngModel]="queryExpGte()" (change)="onExpGteChange($any($event.target).value)" />
+          </label>
+          <label class="dse-field panel-field exp-range-field">
+            <span class="field-label">Exp To</span>
+            <input type="date" class="dse-date" [ngModel]="queryExpLte()" (change)="onExpLteChange($any($event.target).value)" />
+          </label>
+        </div>
+
+        <button
+ 
+ class="panel-full ds-btn outline"
+ (click)="onQueryCatalog()"
+ [disabled]="!canSearch()"
+ >
+          <span class="dse-icon">search</span>
+          Search Catalog
+        </button>
+
+        @if (store.catalogLoading() && catalogRows().length === 0) {
+        <div class="search-loading">
+          <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
+          <span>Searching...</span>
+        </div>
+        }
+
+        @if (store.catalogError()) {
+        <div class="search-error">
+          <span class="flag-chip err">{{ store.catalogError() }}</span>
+        </div>
+        }
+      </div>
+
+      @if (catalogRows().length > 0) {
+      <div class="catalog-section panel-section">
+        <div class="catalog-filters">
+        <div class="filter-pill-group">
+          <button class="filter-pill" [class.active]="displayType() === 'all'" (click)="displayType.set('all')">All</button>
+          <button class="filter-pill" [class.active]="displayType() === 'call'" (click)="displayType.set('call')">Call</button>
+          <button class="filter-pill" [class.active]="displayType() === 'put'" (click)="displayType.set('put')">Put</button>
+        </div>
+
+        <span class="ms-menu-host">
+        <button class="filter-dropdown-btn ds-btn outline"
+                cdkOverlayOrigin #expOrigin="cdkOverlayOrigin"
+                aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'exp'"
+                (click)="toggleMenu('exp', $event)">
+          {{ expFilterLabel() }} <span class="dse-icon">arrow_drop_down</span>
+        </button>
+        <ng-template cdkConnectedOverlay
+                     [cdkConnectedOverlayOrigin]="expOrigin"
+                     [cdkConnectedOverlayOpen]="openMenu() === 'exp'"
+                     [cdkConnectedOverlayPositions]="menuPositions"
+                     [cdkConnectedOverlayScrollStrategy]="menuScrollStrategy"
+                     [cdkConnectedOverlayViewportMargin]="8">
+        <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
+          <div class="multi-select-header">
+            <button class="multi-select-clear" (click)="clearSelectedExpirations()">Clear</button>
+          </div>
+          <div class="multi-select-scroll">
+            @for (opt of chartExpirationOptions(); track opt.value) {
+            <label class="dse-check multi-select-item">
+              <input type="checkbox"
+                [checked]="selectedExpirations().has(opt.value)"
+                (change)="toggleExpiration(opt.value)" />
+              {{ opt.label }} <span class="opt-count">{{ opt.count }}</span>
+            </label>
+            }
+          </div>
+        </div>
+        </ng-template>
+        </span>
+
+        <span class="ms-menu-host">
+        <button class="filter-dropdown-btn ds-btn outline"
+                cdkOverlayOrigin #lenOrigin="cdkOverlayOrigin"
+                aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'len'"
+                (click)="toggleMenu('len', $event)">
+          {{ lenFilterLabel() }} <span class="dse-icon">arrow_drop_down</span>
+        </button>
+        <ng-template cdkConnectedOverlay
+                     [cdkConnectedOverlayOrigin]="lenOrigin"
+                     [cdkConnectedOverlayOpen]="openMenu() === 'len'"
+                     [cdkConnectedOverlayPositions]="menuPositions"
+                     [cdkConnectedOverlayScrollStrategy]="menuScrollStrategy"
+                     [cdkConnectedOverlayViewportMargin]="8">
+        <div class="dse-menu multi-select-menu" (click)="$event.stopPropagation()">
+          <div class="multi-select-header">
+            <button class="multi-select-clear" (click)="clearSelectedLengthBuckets()">Clear</button>
+          </div>
+          <div class="multi-select-scroll">
+            @for (group of availableLengthGroups(); track group.name) {
+            <div class="multi-select-group-header">
+              <button class="multi-select-group-toggle" (click)="toggleLengthGroup(group.name)">
+                {{ group.name }}
+              </button>
+            </div>
+            @for (opt of group.options; track opt.value) {
+            <label class="dse-check multi-select-item">
+              <input type="checkbox"
+                [checked]="selectedLengthBuckets().has(opt.value)"
+                (change)="toggleLengthBucket(opt.value)" />
+              {{ opt.label }} ({{ opt.count }})
+            </label>
+            }
+            }
+          </div>
+        </div>
+        </ng-template>
+        </span>
+
+        <div class="strike-range-row">
+          <input
+            type="number"
+            class="strike-input"
+            placeholder="Min"
+            [value]="strikeMin() ?? ''"
+            (input)="strikeMin.set($any($event.target).value ? +$any($event.target).value : null)"
+          />
+          <span class="strike-dash">–</span>
+          <input
+            type="number"
+            class="strike-input"
+            placeholder="Max"
+            [value]="strikeMax() ?? ''"
+            (input)="strikeMax.set($any($event.target).value ? +$any($event.target).value : null)"
+          />
+        </div>
+
+        @if (displayFilterActive()) {
+        <button class="display-filter-clear icon-btn" (click)="onClearAllDisplayFilters()" title="Clear all display filters">
+          <span class="dse-icon">close</span>
+        </button>
+        }
+
+        <span class="display-filter-count">{{ displayedRows().length }} shown / {{ catalogTotal() }} total{{ hasMorePages() ? ' …' : '' }}</span>
+        </div>
+        <div class="catalog-table-wrapper">
+          <table class="catalog-table">
+            <thead>
+              <tr>
+                <th class="col-type clickable" (click)="onColumnSort('type')">
+                  T
+                  @if (getSortInfo('type'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-strike clickable" (click)="onColumnSort('strike')">
+                  Strike
+                  @if (getSortInfo('strike'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-exp clickable" (click)="onColumnSort('expiration')">
+                  Exp
+                  @if (getSortInfo('expiration'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-length clickable" (click)="onColumnSort('contractLengthDays')">
+                  Len
+                  @if (getSortInfo('contractLengthDays'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-obs clickable" (click)="onColumnSort('observationCount')">
+                  Obs
+                  @if (getSortInfo('observationCount'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-cov">Cov</th>
+                <th class="col-delta clickable" (click)="onColumnSort('delta')">
+                  Δ
+                  @if (getSortInfo('delta'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-iv">IV</th>
+                <th class="col-vol">Vol</th>
+                <th class="col-oi">OI</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of displayedRowsWithShade(); track item.row.contractId) {
+              <tr (click)="onSelectCatalogContract(item.row)" [class.selected]="item.row.contractId === occIdInput.trim().toUpperCase()" [class.group-shade]="item.shade === 1">
+                <td>
+                  <span class="contract-type-badge" [class.call]="item.row.type === 'call'" [class.put]="item.row.type === 'put'">
+                    {{ item.row.type === 'call' ? 'C' : 'P' }}
+                  </span>
+                </td>
+                <td class="num">${{ item.row.strike }}</td>
+                <td class="exp">{{ item.row.expiration }}</td>
+                <td class="length">{{ item.row.contractLengthBucket }}</td>
+                <td class="num">{{ item.row.observationCount }}</td>
+                <td class="num">{{ item.row.coverage != null ? (item.row.coverage * 100 | number:'1.0-0') + '%' : '—' }}</td>
+                <td class="num">{{ item.row.latestDelta != null ? (item.row.latestDelta | number:'1.2-2') : '—' }}</td>
+                <td class="num">{{ item.row.latestIV != null ? (item.row.latestIV | number:'1.3-3') : '—' }}</td>
+                <td class="num">{{ item.row.latestVolume != null ? item.row.latestVolume : '—' }}</td>
+                <td class="num">{{ item.row.latestOI != null ? item.row.latestOI : '—' }}</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        <div class="catalog-pagination">
+          <span class="page-info">{{ displayedRows().length }} shown / {{ catalogTotal() }} total{{ hasMorePages() ? ' (loading…)' : '' }}</span>
+          @if (store.catalogPageToken()) {
+          <button class="ds-btn outline" (click)="onLoadMore()" [disabled]="store.catalogLoading()">
+            @if (store.catalogLoading() && !store.catalogLoadAllProgress()) {
+            <span class="dse-spinner small load-more-spinner" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
+            } @else {
+            Load More
+            }
+          </button>
+          <button class="ds-btn outline" (click)="onLoadAll()" [disabled]="store.catalogLoading()">
+            @if (store.catalogLoadAllProgress(); as progress) {
+            <span class="dse-spinner small load-more-spinner" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
+            <span>{{ progress }}</span>
+            } @else {
+            Load All
+            }
+          </button>
+          }
+        </div>
+        </div>
+      </div>
+      }
+        </div>
+      </div>
+      <div class="ds-panel" [class.open]="generatorExpanded">
+        <button type="button" class="acc-head" id="acc-head-gen"
+                [attr.aria-expanded]="generatorExpanded" aria-controls="acc-body-gen"
+                (click)="generatorExpanded = !generatorExpanded">
+          <span>Group generator</span>
+          <span class="dse-icon chev">expand_more</span>
+        </button>
+        <div class="acc-body" role="region" id="acc-body-gen" aria-labelledby="acc-head-gen">
       <app-option-group-generator
         (send)="onGeneratorSend($event)"
-        (close)="generatorOpen = false"
       ></app-option-group-generator>
+        </div>
+      </div>
+      </div>
+
+      <!-- Manual entry: replay / OCC ids / Load -->
+      <div class="entry-section panel-section">
+        <label class="dse-field panel-field">
+          <span class="field-label">Selection replay</span>
+          <select class="dse-select"
+            [(ngModel)]="selectedReplayRunId"
+            (change)="onReplaySelected($any($event.target).value)"
+            [disabled]="replayLoading() || store.loading() || !!store.plottedLoadProgress()"
+          >
+            @for (r of replayRuns(); track r.runId) {
+            <option [value]="r.runId">{{ replayLabel(r) }}</option>
+            }
+          </select>
+          <span class="field-hint">Plots first 10 Wednesday picks — switches to the run's symbol</span>
+        </label>
+        @if (replayLoading()) {
+        <div class="search-loading">
+          <span class="dse-spinner small" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span>
+          <span>Loading replay…</span>
+        </div>
+        }
+        @if (replayError()) {
+        <div class="search-error">
+          <span class="flag-chip err">{{ replayError() }}</span>
+        </div>
+        }
+
+        <label class="dse-field panel-field">
+          <span class="field-label">OCC Contract ID(s)</span>
+          <textarea class="field-input"
+            rows="4"
+            [(ngModel)]="occIdInput"
+            placeholder="e.g. QQQ240719C00450000&#10;or one per line: 2026-06-10,QQQ260619P00470000"
+            [disabled]="store.loading() || !!store.plottedLoadProgress()"
+          ></textarea>
+          <span class="field-hint">One per line — bare ID or YYYY-MM-DD,ID</span>
+        </label>
+
+        <button
+ class="panel-full ds-btn fill"
+ (click)="onLoad()"
+ [disabled]="store.loading() || !!store.plottedLoadProgress() || !occIdInput.trim()"
+ >
+          Load {{ contractLength() ? '(' + lengthLabel() + ')' : '' }}
+        </button>
+
+        @if (rejectedEntries().length > 0) {
+        <div class="rejection-notice" role="alert">
+          <div class="rejection-title">{{ rejectedEntries().length }} entr{{ rejectedEntries().length === 1 ? 'y' : 'ies' }} skipped:</div>
+          @for (r of rejectedEntries(); track $index) {
+          <div class="rejection-item">
+            <span class="rejection-raw">{{ r.raw }}</span>
+            <span class="rejection-reason">{{ rejectionReasonLabel(r.reason) }}</span>
+          </div>
+          }
+        </div>
+        }
+      </div>
+
+      @if (store.contractData() || showPlottedSet()) {
+      <div class="metadata-section">
+        <!-- Data Quality Flags — single-contract only -->
+        @if (store.contractData(); as data) {
+        <div class="quality-flags">
+          <span class="quality-label">Quality</span>
+          <div class="flag-row">
+            <span class="flag-chip" [class.err]="store.dataQuality().gaps > 0">
+              Gaps: {{ store.dataQuality().gaps }}
+            </span>
+            <span class="flag-chip" [class.err]="store.dataQuality().nanIV > 0">
+              NaN IV: {{ store.dataQuality().nanIV }}
+            </span>
+            <span class="flag-chip" [class.accent]="store.dataQuality().zeroVolume > 0">
+              Zero Vol: {{ store.dataQuality().zeroVolume }}
+            </span>
+          </div>
+        </div>
+        }
+
+        <!-- Toggle Controls — Greeks/Volume-OI panes are single-contract only -->
+        <div class="toggle-row">
+          <label class="dse-switch"><input type="checkbox" class="switch-input" [checked]="store.showUnderlying()" (change)="store.toggleUnderlying()">
+            Underlying
+          </label>
+          @if (store.contractData()) {
+          <label class="dse-switch"><input type="checkbox" class="switch-input" [checked]="store.showGreeks()" (change)="store.toggleGreeks()">
+            Greeks
+          </label>
+          <label class="dse-switch"><input type="checkbox" class="switch-input" [checked]="store.showVolumeOI()" (change)="store.toggleVolumeOI()">
+            Volume / OI
+          </label>
+          }
+        </div>
+
+        <!-- Chart padding controls -->
+        <div class="pad-row">
+          <button class="ds-btn outline" (click)="store.addPadDays(20)" [disabled]="!store.contractData() && !showPlottedSet()">+20d</button>
+          <button class="ds-btn outline" (click)="store.addPadDays(50)" [disabled]="!store.contractData() && !showPlottedSet()">+50d</button>
+          @if (store.chartPadDays() > 0) {
+          <button class="ds-btn outline" (click)="store.resetPadDays()">Reset</button>
+          }
+        </div>
+      </div>
+      }
+
+      @if (store.underlyingLoading()) {
+      <div class="underlying-loading">
+        <span class="dse-spinner" role="progressbar" aria-label="Loading"></span>
+        <span>Loading underlying...</span>
+      </div>
+      }
+
     </aside>
   </div>
 </div>

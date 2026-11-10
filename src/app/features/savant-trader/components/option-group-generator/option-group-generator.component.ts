@@ -58,8 +58,6 @@ export class OptionGroupGeneratorComponent {
   /** Emitted pair lines — the page writes them into the pairs input and
    *  routes through the existing loadPlotted path. */
   readonly send = output<string[]>();
-  /** Asks the page to close the drawer. */
-  readonly close = output<void>();
 
   /** Free-text expiry lists live in local signals (typing commas must not
    *  reformat mid-keystroke); the blur commit writes the parsed list to the
