@@ -70,6 +70,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #1430 | `options-replay-single-symbol-1430.ts` | single-symbol run model audit — runs (scalar symbol, no counters), list keyed at docId == runId, results keyed `{runId}_{exitId}`; legacy multi-symbol docs WARN as migration candidates (read-only, needs ADC) | [options-backtest-selection-replay-1430-single-symbol.md](../../../scripts/verify/options-backtest-selection-replay-1430-single-symbol.md) |
 | #1437 | `options-auth-guard-1437.ts` | auth-boundary probe — anonymous/garbage-token → 401 UNAUTHENTICATED, minted token → INVALID_ARGUMENT; all four options callables (post-#1437 deploy) | [options-auth-guard-1437.md](options-auth-guard-1437.md) |
 | #1444 | `st-auth-guard-1444.ts` | auth-boundary probe — anonymous/garbage-token → 401 UNAUTHENTICATED, minted token → per-callable expectation; all five st-cloud-function callables (post-#1444 deploy) | [st-auth-guard-1444.md](st-auth-guard-1444.md) |
+| #1401 | `pick-doc-404-semantics-1401.ts` | pick-doc 404 semantics vs live SA — happy path, shard-gap `NOT_FOUND` skip, bogus-endpoint infra-404 propagation (read-only, needs impersonation/ADC) | [pick-doc-404-semantics-1401.md](pick-doc-404-semantics-1401.md) |
 
 ## Order across tasks
 
@@ -109,6 +110,7 @@ npx tsx scripts/verify/{script-name}.ts
 41. **#1430** — `options-replay-single-symbol-1430.ts` (single-symbol run model audit across the three st-options collections; meaningful after a post-deploy submission — empty runs report EMPTY and pass; legacy multi-symbol docs WARN until the migration deletes them)
 42. **#1437** — `options-auth-guard-1437.ts` (live auth-boundary probe on the four options callables; FAILs until the #1437 deploy lands — run post-deploy, needs service-account impersonation for token mint)
 43. **#1444** — `st-auth-guard-1444.ts` (live auth-boundary probe on the five st-cloud-function callables; FAILs until the #1444 deploy lands — authed leg enqueues one harmless bogus-symbol overview task)
+44. **#1401** — `pick-doc-404-semantics-1401.ts` (pick-doc 404 semantics vs live SA endpoint: `NOT_FOUND` shard skip + infra-404 propagation; ~1 min, read-only GETs, needs impersonation)
 
 <!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their
 target scripts (migrate-*, sweep-unlisted-to-new, qa-probe-1008) — the legacy roots they

@@ -58,6 +58,7 @@ const scripts = [
   'options-replay-single-symbol-1430.ts',
   'options-auth-guard-1437.ts',
   'st-auth-guard-1444.ts',
+  'pick-doc-404-semantics-1401.ts',
 ];
 
 let passed = 0;
