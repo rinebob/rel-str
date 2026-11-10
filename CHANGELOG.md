@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-11-10]
+
+### Fixed
+- [Options Backtest] 1238-1401_BE-BUG-BACKTEST: pick-doc client distinguishes infra 404 from shard-gap 404 — shard-gap skip now requires partnerCode NOT_FOUND (bare Google-infra 404s propagate instead of masquerading as 'no year shard found'); worker permanence keyed on the code (coded → fail-fast, bare → Cloud Tasks retry); all-miss wrapper carries NOT_FOUND; options_replay_worker_permanent log marker
+
+### Changed
+- [Options Backtest] 1238-1401_BE-CHORE-BACKTEST: pick-doc-404-semantics-1401 live probe (3 legs vs real SA endpoint) + README/run-all registration
+- [Options Backtest] 1238-1401_DOCS-BACKTEST: #1401 code-review (PASS, 2 rounds) + UAT (Complete, #1460) + changelog
+
 ## [2026-11-09]
 
 ### Added
