@@ -9,6 +9,7 @@ import { firstValueFrom, take } from 'rxjs';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
 import type { OptionsReplayRunUi } from '../../backtest/common/options-replay.types';
 import type { ContractListPickRow } from '@options-replay/contracts';
+import { ContractListSessionStore } from '../../stores/contract-list-session.store';
 import { OptionChartPageService } from './option-chart-page.service';
 import { OptionChartLoadService } from './option-chart-load.service';
 
@@ -17,6 +18,7 @@ export class OptionChartReplayService {
   private readonly page = inject(OptionChartPageService);
   private readonly load = inject(OptionChartLoadService);
   private readonly replayService = inject(OptionsReplayRunsService);
+  private readonly listStore = inject(ContractListSessionStore);
 
   /** Selection-replay dropdown state — pick a run, plot its default slice. */
   readonly replayRuns = signal<OptionsReplayRunUi[]>([]);
@@ -68,6 +70,14 @@ export class OptionChartReplayService {
         this.page.onSymbolChange(sym);
       }
       this.page.occIdInput = picks.map((r) => `${r.entryDate},${r.contractId}`).join('\n');
+      // Picker sync (#1423): the plotted slice becomes the session — the
+      // list section lights up and the picker opens with those rows
+      // already checked. loadListDoc bumps loadSeq, so a still-in-flight
+      // setSymbol restore from the switch above cannot clobber it.
+      this.listStore.loadListDoc(list);
+      if (this.listStore.status() === 'ready') {
+        this.listStore.selectDates(picks.map((r) => r.entryDate));
+      }
       await this.load.onLoad();
     } catch (e: unknown) {
       // A dead stream (rules/offline) must not fail silently — the

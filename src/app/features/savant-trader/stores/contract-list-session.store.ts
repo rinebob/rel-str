@@ -429,6 +429,14 @@ export const ContractListSessionStore = signalStore(
         );
       },
 
+      /** Select an explicit set of pick days — replay-pick sync (#1423):
+       *  the dropdown's default slice becomes the picker selection.
+       *  Non-pick dates are dropped, one patch + persist. */
+      selectDates(dates: Iterable<string>): void {
+        const valid = pickDates();
+        setSelection([...dates].filter((d) => valid.has(d)));
+      },
+
       /** N unique pick days sampled without replacement — injectable rng
        *  keeps the seam deterministic in specs. */
       randomPick(n: number, rng: () => number = Math.random): void {

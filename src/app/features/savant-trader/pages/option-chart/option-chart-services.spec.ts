@@ -230,6 +230,42 @@ describe('OptionChartReplayService — runs dropdown', () => {
     expect(replay.replayError()).toBe('Could not load replay runs');
     expect(replay.replayRuns()).toEqual([]);
   });
+
+  it('a picked run syncs the list session — the picker opens with the plotted rows checked (#1423)', async () => {
+    const { replay, listStore, load, page } = setup();
+    // Session precondition — initSession would setSymbol; mirror it so a
+    // doc for the same symbol isn't rejected as foreign.
+    listStore.setSymbol('QQQ');
+    jest.spyOn(load, 'onLoad').mockResolvedValue();
+
+    // 12 Wednesday picks (06-10 is a Wednesday, +7 days stays on it —
+    // Date arithmetic so month boundaries can't produce 06-31) + a
+    // Monday pick — the slice is the first 10 Wednesdays only.
+    const wed = (i: number) =>
+      new Date(Date.UTC(2026, 5, 10 + i * 7)).toISOString().slice(0, 10);
+    const rows: ContractListRow[] = [
+      pickRow('2026-06-08', 'QQQ260619P00400000'),
+      ...Array.from({ length: 12 }, (_, i) =>
+        pickRow(wed(i), `QQQ260619P004${String(70 + i)}000`),
+      ),
+    ];
+    (TestBed.inject(OptionsReplayRunsService).watchContractList as jest.Mock)
+      .mockReturnValue(of(listDoc({ rows })));
+
+    await replay.onReplaySelected('run-1');
+
+    expect(listStore.status()).toBe('ready');
+    expect(listStore.activeList()?.listId).toBe('svc-doc');
+    expect(listStore.selectedRows().length).toBe(10);
+    // Only Wednesday dates — the Monday pick and the 2 over-cap rows are out.
+    for (const r of listStore.selectedRows()) {
+      expect(new Date(`${r.entryDate}T00:00:00Z`).getUTCDay()).toBe(3);
+    }
+    expect(listStore.selectedRows().map((r) => r.contractId)).toContain('QQQ260619P00470000');
+    expect(listStore.selectedRows().map((r) => r.contractId)).not.toContain('QQQ260619P00400000');
+    // The textarea still carries the same 10 plotted lines.
+    expect(page.occIdInput.trim().split('\n')).toHaveLength(10);
+  });
 });
 
 describe('OptionChartListService / OptionChartGeneratorService — page scoping', () => {
