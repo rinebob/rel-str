@@ -261,8 +261,8 @@
 }
 
 /// Toast / snackbar — `.ds-toast` bar with text + optional `.action`
-/// slot (#1163 phase G). Surface-raised on shadow; action reads accent.
-/// ARIA contract: role="status" (polite announcements).
+/// slot (#1163 phase G). Raised surface + accent border; action reads
+/// as an accent text button. ARIA contract: role="status" (polite).
 @mixin ds-toast() {
   display: inline-flex;
   align-items: center;
@@ -270,8 +270,8 @@
   padding: var(--ds-space-2) var(--ds-space-3);
   border: 1px solid var(--ds-accent-border);
   border-radius: var(--ds-radius-sm);
-  background: var(--ds-on-surface);
-  color: var(--ds-surface);
+  background: var(--ds-surface-overlay);
+  color: var(--ds-on-surface);
   font-size: var(--ds-font-size-sm);
   box-shadow: var(--ds-shadow-2);
 
@@ -279,8 +279,8 @@
     padding: 2px var(--ds-space-2);
     border: none;
     border-radius: var(--ds-radius-sm);
-    background: var(--ds-accent-container);
-    color: var(--ds-on-accent-container);
+    background: transparent;
+    color: var(--ds-accent-text);
     font-family: inherit;
     font-size: var(--ds-font-size-sm);
     font-weight: var(--ds-font-weight-bold);

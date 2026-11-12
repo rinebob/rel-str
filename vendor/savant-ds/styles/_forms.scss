@@ -29,10 +29,10 @@
   font-size: var(--ds-font-size-sm);
   transition: border-color 0.15s, box-shadow 0.15s;
 
-  // Placeholder carries identity (accent-tinted, invites input);
-  // typed values stay --ds-on-surface — content, not chrome.
+  // Placeholder reads muted, not accent — an accent-tinted placeholder
+  // is visually indistinguishable from a typed value at a glance.
   &::placeholder {
-    color: color-mix(in srgb, var(--ds-accent) 60%, var(--ds-on-surface-variant));
+    color: var(--ds-on-surface-variant);
   }
 
   &::selection {
