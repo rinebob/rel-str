@@ -59,6 +59,7 @@ const scripts = [
   'options-auth-guard-1437.ts',
   'st-auth-guard-1444.ts',
   'pick-doc-404-semantics-1401.ts',
+  'options-analysis-all-otm-1431.ts',
 ];
 
 let passed = 0;
