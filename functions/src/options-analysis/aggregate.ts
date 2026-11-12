@@ -10,8 +10,10 @@
  *   never branch on sentinels. hitRatePct absent when every record
  *   errored; avgDaysToExit/avgPremiumCapturedPct absent when nothing
  *   exited; worstMae/maeP50/maeP90 absent when all errored.
- * - hitRatePct denominator EXCLUDES error records (a fetch failure is no
- *   evidence about the exit rule).
+ * - hitRatePct denominator EXCLUDES error AND open records (a fetch
+ *   failure is no evidence about the rule; a live position hasn't
+ *   resolved yet). The numerator is per-strategy: exitedCount for firing
+ *   rules, expiredCount for hold-to-expiry (reaching expiry IS the hit).
  * - Premium captured = (entryMark − exitPrice)/entryMark ×100 — the
  *   short-premium convention; records with entryMark <= 0 are excluded
  *   from that mean (division degenerates) — if none qualify, absent.
@@ -22,6 +24,7 @@ import type {
   AnalysisTradeRecord,
   ExitTypeAggregate,
 } from '@options-analysis/contracts';
+import { getExitStrategy } from '@options-analysis/registry';
 
 /** Nearest-rank percentile over an ascending-sorted array — index
  *  ceil(p/100 · n) − 1; n=1 → the single element. */
@@ -44,6 +47,7 @@ export function aggregateExitType(
     (r): r is Extract<AnalysisTradeRecord, { outcome: 'exit' }> => r.outcome === 'exit',
   );
   const expiredCount = records.filter((r) => r.outcome === 'expired').length;
+  const openCount = records.filter((r) => r.outcome === 'open').length;
   const errorCount = records.filter((r) => r.outcome === 'error').length;
 
   const agg: ExitTypeAggregate = {
@@ -51,11 +55,21 @@ export function aggregateExitType(
     contractCount,
     exitedCount: exited.length,
     expiredCount,
+    openCount,
     errorCount,
   };
 
-  const hitDenom = contractCount - errorCount;
-  if (hitDenom > 0) agg.hitRatePct = (exited.length / hitDenom) * 100;
+  // #1431: hold-to-expiry's "hit" is REACHING expiry (it can never exit);
+  // every other rule's hit is its own exit firing. Open and error records
+  // carry no evidence about the rule — both leave the denominator.
+  // Known tautology (review R2): for a hold-to-expiry rule the resolved
+  // records ARE the expired ones, so hitRatePct is always 100% —
+  // semantically honest but information-free; the expired-vs-total
+  // split in the row is the informative signal.
+  const hitCount =
+    getExitStrategy(exitId)?.kind === 'hold-to-expiry' ? expiredCount : exited.length;
+  const hitDenom = contractCount - errorCount - openCount;
+  if (hitDenom > 0) agg.hitRatePct = (hitCount / hitDenom) * 100;
 
   if (exited.length > 0) {
     agg.avgDaysToExit = mean(exited.map((r) => r.daysHeld));

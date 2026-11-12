@@ -62,6 +62,20 @@ function expiredRec(over: Partial<{ mae: number; mfe: number; daysHeld: number }
   };
 }
 
+function openRec(over: Partial<{ mae: number; mfe: number; daysHeld: number }> = {}): AnalysisTradeRecord {
+  return {
+    ...BASE,
+    pickDate: '2026-01-05',
+    contractId: 'C1',
+    entryMark: 2.0,
+    daysHeld: over.daysHeld ?? 3,
+    mae: { value: over.mae ?? 2.6, date: '2026-01-07' },
+    mfe: { value: over.mfe ?? 1.4, date: '2026-01-06' },
+    outcome: 'open',
+    lastBarDate: '2026-01-08',
+  };
+}
+
 function errorRec(contractId = 'C1'): AnalysisTradeRecord {
   return {
     ...BASE,
@@ -92,6 +106,46 @@ describe('aggregateExitType — counts + hitRatePct', () => {
     assert.equal(a.hitRatePct, 50);
   });
 
+  it('counts open positions; hitRate denominator excludes open AND error', () => {
+    // 5 records: 1 exit, 1 expired, 2 open, 1 error → denom 5−2−1 = 2.
+    const records = [
+      exitRec(),
+      expiredRec(),
+      openRec(),
+      { ...openRec(), contractId: 'C2' },
+      errorRec('C3'),
+    ];
+    const a = aggregateExitType('target-90', 5, records);
+    assert.equal(a.openCount, 2);
+    assert.equal(a.errorCount, 1);
+    // 1 exit / (5 − 2 open − 1 error) = 50%
+    assert.equal(a.hitRatePct, 50);
+  });
+
+  it("hold-to-expiry's hit is REACHING expiry — numerator is expiredCount, not exitedCount (#1431)", () => {
+    // expiry rule: 8 expired (3 ITM), 1 open, 1 error → denom 8, hits 8.
+    const records = [
+      ...Array.from({ length: 8 }, (_, i) => ({ ...expiredRec(), contractId: `E${i}` })),
+      openRec(),
+      errorRec('C9'),
+    ];
+    const a = aggregateExitType('expiry', 10, records);
+    assert.equal(a.exitedCount, 0);
+    assert.equal(a.expiredCount, 8);
+    assert.equal(a.openCount, 1);
+    assert.equal(a.hitRatePct, 100);
+    // A firing rule over the same set still counts exits.
+    const b = aggregateExitType('target-90', 10, records);
+    assert.equal(b.hitRatePct, 0);
+  });
+
+  it('open excursions count toward MAE stats (live data, not placeholders)', () => {
+    const records = [exitRec({ mae: 2.5 }), openRec({ mae: 4.1 }), errorRec('C9')];
+    const a = aggregateExitType('stop-200', 3, records);
+    assert.equal(a.worstMae, 4.1);
+    assert.equal(a.maeP90, 4.1);
+  });
+
   it('empty set → zero counts, all optional stats absent', () => {
     const a = aggregateExitType('expiry', 0, []);
     assert.deepEqual(a, {
@@ -99,6 +153,7 @@ describe('aggregateExitType — counts + hitRatePct', () => {
       contractCount: 0,
       exitedCount: 0,
       expiredCount: 0,
+      openCount: 0,
       errorCount: 0,
     });
   });
