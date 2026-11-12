@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026-11-12]
+
+### Fixed
+- [Option Contract Time-Series Viewer] 1243-1440_FE-BUG-OPTIONS: Symbol swap resets the session and drops stale async writes; foreign-underlying input auto-swaps
+
+### Added
+- [Option Contract Time-Series Viewer] 1243-1440_FE-BUG-OPTIONS: Data window gains cursor/pinned/off modes, contract-label row keys, and a top-edge cursor date tag
+
+### Changed
+- [Option Contract Time-Series Viewer] 1243-1440_DOCS-OPTIONS: #1440 code review (PASS, 2 rounds + auto-swap addendum) + UAT (Complete, #1468)
+
 ## [2026-11-11]
 
 ### Added
