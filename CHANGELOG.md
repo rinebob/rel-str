@@ -11,12 +11,15 @@
 ### Added
 - [Options Backtest] 1238-1431_FE-FEAT-BACKTEST: analysis-results data layer + results page — headline (symbol·template·count·start), Mark change/Exit mark/Entry+Exit Δ/IV columns, MAE % subtext, outcome chips, side-aware W/L, capital/ROC, back nav
 - [Options Backtest] 1238-1431_FE-FEAT-BACKTEST: ?results= chart deep link — per-rule send plots the doc's contracts with pick-day + terminal markers, consume-once + stale-registry refusal
+- [Options Backtest] 1238-1471_FE-FEAT-BACKTEST: selection-replay row actions — Contracts/Analyze/Results/rerun/delete per row, contract-list dialog, detail panel + ReplaySelection excised, collection-wide list/result streams with error revival
+- [Options Backtest] 1238-1471_FE-FEAT-BACKTEST: ?results= narrowing — large result sets open the picker with pick days pre-checked, Send maps lines back to entries so markers survive; picker-send collision guarded
 - [Option Contract Time-Series Viewer] 1243-1440_FE-BUG-OPTIONS: Data window gains cursor/pinned/off modes, contract-label row keys, and a top-edge cursor date tag
 - [Savant Design System] 1024-1470_FE-IMPL-DESIGN-SYSTEM: Sidenav visual hierarchy — accent section headers + separators, muted routes with hover pills, accent active-route pills + aria-current, hover-open viewport-clamped Dev flyout
 
 ### Changed
 - [Options Backtest] 1238-1431_BE-TEST-BACKTEST: all-OTM expired-fields verify probe — intrinsic↔ITM invariant census + nearest-the-money spot recompute (read-only, ADC)
 - [Options Backtest] 1238-1431_DOCS-BACKTEST: #1431 impl/test docs + code review (PASS, 2 rounds) + UAT (Complete, #1463 — deploy-gated legs verified post-deploy)
+- [Options Backtest] 1238-1471_DOCS-BACKTEST: #1471 code review (PASS, 2 rounds — aux-stream revival, results error path, picker collision) + UAT (Complete, #1478)
 - [Option Contract Time-Series Viewer] 1243-1440_DOCS-OPTIONS: #1440 code review (PASS, 2 rounds + auto-swap addendum) + UAT (Complete, #1468)
 - [Savant Design System] 1024-1470_FE-IMPL-DESIGN-SYSTEM: residual native controls → dse-check/dse-radio/dse-select compact (24px); DS toast + placeholder token restyle
 - [Savant Design System] 1024-1470_DOCS-DESIGN-SYSTEM: #1470 code review (PASS, 2 rounds) + UAT (Complete, #1473) + changelog
