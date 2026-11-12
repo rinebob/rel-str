@@ -4,12 +4,15 @@
 
 ### Fixed
 - [Option Contract Time-Series Viewer] 1243-1440_FE-BUG-OPTIONS: Symbol swap resets the session and drops stale async writes; foreign-underlying input auto-swaps
+- [Portfolio Dashboard] 219-1462_FE-BUG-PORTFOLIO: Signal-order workspace walks equity orders past page 1 — deep resting orders/stops visible to the ticket; duplicate-stop risk closed
 
 ### Added
 - [Option Contract Time-Series Viewer] 1243-1440_FE-BUG-OPTIONS: Data window gains cursor/pinned/off modes, contract-label row keys, and a top-edge cursor date tag
 
 ### Changed
 - [Option Contract Time-Series Viewer] 1243-1440_DOCS-OPTIONS: #1440 code review (PASS, 2 rounds + auto-swap addendum) + UAT (Complete, #1468)
+- [Portfolio Dashboard] 219-1462_FE-REFACTOR-PORTFOLIO: parseBrokerOrder deduped onto normalizeToBrokerOrderSnapshot
+- [Portfolio Dashboard] 219-1462_DOCS-PORTFOLIO: #1462 code review (PASS, 2 rounds) + UAT (Complete, #1477) + audit residual annotations
 
 ## [2026-11-11]
 

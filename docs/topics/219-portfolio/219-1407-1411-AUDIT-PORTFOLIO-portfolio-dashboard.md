@@ -10,7 +10,7 @@
 **Type:** AUDIT  
 **Status:** Complete  
 **Created:** 2026-11-10  
-**Last Updated:** 2026-11-10  
+**Last Updated:** 2026-11-12  
 
 # Audit — Open Orders completeness / order-data forensics (#1411)
 
@@ -157,7 +157,16 @@ entryDate or `next` exhaustion, warns on cap).
   `get_equity_orders` (no cursor walk) feeding `rhStopRows`,
   `restingLimitBuyNotional`, `reconcileTerminalStatuses`, and
   `findActiveStopLoss` (a stop pushed past page 1 could allow a duplicate
-  stop). Out of this task's dashboard scope — file as a follow-up task.
+  stop). Out of this task's dashboard scope — filed as #1462; **resolved
+  there** via `getEquityOrdersRaw` (verbatim wire records — the typed
+  `BrokerOrder` drops `trigger`, which `isActiveStopLoss` keys on).
+- **Position feeds accept `cursor` too — the same latent class** —
+  `get_equity_positions`/`get_option_positions` paginate per the tool
+  discovery doc, and both `portfolio.service.ts` (signal-order
+  `brokerPositions`) and `equityPositionsSpec` (dashboard) fetch
+  single-page. Deep positions would be invisible. Found during the #1462
+  re-audit — filed as #1474 (verify-first: whether these endpoints emit
+  `next` is unproven).
 - **Crypto + advanced (OCO) orders are never fetched** — the wire doc
   instructs calling all four order tools in parallel "so OCO groups are
   not omitted." The dashboard is scoped to equity+option today; if the
