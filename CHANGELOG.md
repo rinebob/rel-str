@@ -6,6 +6,9 @@
 - [Option Contract Time-Series Viewer] 1243-1423_FE-IMPL-OPTIONS: plotted-contract emphasis — contract-id-anchored series specs (reorder-safe hover), chip hover/pin state, focus gate, stranded hover/pin release on load failures
 
 ### Changed
+- [Trading Indicator Library] 261-1459_SHARED-IMPL-INDICATOR-LIB: anchored VWAP trigger-bar lines — surviving-pivot anchoring, pivot-indexed trigger pairing, gap-through dots on the bar open, per-set persist with unbounded null-separated fan; 18→26 fixed series
+- [Trading Indicator Library] 261-1459_FE-IMPL-INDICATOR-LIB: AVWAP settings dialog + always-visible toolbar button — Line 1/2/General groups, Upper/Lower/Legs/Confirms/Persist toggles, weight radios, history window; inline param strip removed
+- [Trading Indicator Library] 261-1459_DOCS-INDICATOR-LIB: #1459 code-review (PASS, 3 rounds) + UAT (Complete, #1467) + changelog
 - [Option Contract Time-Series Viewer] 1243-1423_FE-IMPL-OPTIONS: option-chart shell — selector drawer left, chips column right, chart full-height; rejected-token notice relocated to chips column; <960px drawer overlay; onSymbolSwitched hook clears notice on every swap path
 - [Option Contract Time-Series Viewer] 1243-1423_DOCS-OPTIONS: #1423 code-review (PASS, 3 rounds) + UAT (Complete, #1464) + changelog
 
