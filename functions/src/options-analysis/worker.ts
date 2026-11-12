@@ -22,7 +22,9 @@
  * - `!fired` + last LIVE bar is the expiry bar → 'expired' + expiry
  *   fields (needs the symbol's underlying close at expiry — missing →
  *   'error', never fabricated)
- * - `!fired` + series ends before expiry / empty / fetch failed →
+ * - `!fired` + series ends before expiry + expiry still FUTURE → 'open'
+ *   (live position — real excursion, days-held-so-far, lastBarDate)
+ * - `!fired` + series ends before a PAST expiry / empty / fetch failed →
  *   'error' with the entry-day placeholder excursion (`daysHeld: 0`)
  *
  * All effects sit behind `AnalysisWorkerDeps` (TEST-BE seams); the
@@ -80,6 +82,10 @@ export interface AnalysisWorkerDeps {
   }) => Promise<PartnerHistoricalOptionsContractV2Response>;
   /** Underlying close by date for the symbol (one fetch per task). */
   loadUnderlyingClose: (symbol: string) => Promise<ReadonlyMap<string, number>>;
+  /** Analysis run date (YYYY-MM-DD, PT) — drives the open/error split for
+   *  series that end before a still-future expiry. Injectable for tests;
+   *  production defaults to getMarketDatePT. */
+  getToday?: () => string;
   /** Full-document writes (no merge) — the docs are fully owned here;
    *  production writes them in one batch commit. */
   writeResultDocs: (entries: { docId: string; doc: AnalysisResultDoc }[]) => Promise<void>;
@@ -146,6 +152,7 @@ export async function runReplayAnalysis(
       (r): r is ContractListPickRow => r.kind === 'pick' && Boolean(r.contractId),
     );
     const base = { runId, symbol, templateId, contractListDocId };
+    const today = deps.getToday?.() ?? getMarketDatePT();
 
     // Series fetch at bounded concurrency — per-contract failure degrades
     // to error records, never aborts the analysis.
@@ -172,7 +179,7 @@ export async function runReplayAnalysis(
     // exitId, in registry order.
     const recordsByExit = EXIT_STRATEGIES.map(() => [] as AnalysisTradeRecord[]);
     for (let i = 0; i < picks.length; i++) {
-      buildPickRecords(picks[i], fetched[i], { underlyingClose, base }).forEach(
+      buildPickRecords(picks[i], fetched[i], { underlyingClose, base, today }).forEach(
         (rec, j) => recordsByExit[j].push(rec),
       );
     }

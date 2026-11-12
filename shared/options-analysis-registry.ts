@@ -70,7 +70,7 @@ export type ExitStrategyKind = ExitStrategyDef['kind'];
 
 /** Bumped whenever a rule is added/removed/re-parameterized — result docs
  *  are stamped with it so stale results are detectable. */
-export const EXIT_REGISTRY_VERSION = 1;
+export const EXIT_REGISTRY_VERSION = 2;
 
 export const EXIT_STRATEGIES: readonly ExitStrategyDef[] = [
   {

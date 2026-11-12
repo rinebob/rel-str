@@ -58,6 +58,11 @@ export interface ExitScanBar {
   /** Contract mark (mid) for the day — finite; the worker parses wire
    *  strings and drops/handles non-numeric observations. */
   mark: number;
+  /** Optional greeks carried through for the record's terminal fields —
+   *  absent when the observation's `delta`/`implied_volatility` strings
+   *  are missing or non-numeric (never gates the bar). */
+  delta?: number;
+  iv?: number;
 }
 
 /** Rule fired on the series — `dayIndex` is the firing bar's index. */

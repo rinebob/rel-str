@@ -31,19 +31,37 @@ import { evaluateExit, type ExitScanBar, type ExitScanResult } from './exit-eval
 
 /** Wire observations → scan bars: dates trimmed to YYYY-MM-DD, marks
  *  parsed (absent/blank/non-numeric dropped — see evaluator contract),
- *  bounded to [entryDate, expiration], sorted ascending. */
+ *  bounded to [entryDate, expiration], sorted ascending. `delta`/`iv`
+ *  ride along for the record's terminal greeks — absent/blank/
+ *  non-numeric parse to `undefined` (a bar without greeks still scans). */
 export function toScanBars(
   observations: HistoricalOptionsContractV2Observation[],
   entryDate: string,
   expiration: string,
 ): ExitScanBar[] {
   return observations
-    .map((o) => ({ date: o.date.slice(0, 10), mark: o.mark?.trim() ? Number(o.mark) : NaN }))
+    .map((o) => {
+      const delta = numOrUndef(o.delta);
+      const iv = numOrUndef(o.implied_volatility);
+      return {
+        date: o.date.slice(0, 10),
+        mark: o.mark?.trim() ? Number(o.mark) : NaN,
+        ...(delta !== undefined && { delta }),
+        ...(iv !== undefined && { iv }),
+      };
+    })
     .filter(
       (b) =>
         Number.isFinite(b.mark) && b.date >= entryDate && b.date <= expiration,
     )
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+/** Wire-string → finite number or `undefined` (greeks are optional —
+ *  missing strings never gate the bar). */
+function numOrUndef(s: string | undefined): number | undefined {
+  const n = s?.trim() ? Number(s) : NaN;
+  return Number.isFinite(n) ? n : undefined;
 }
 
 // ==========================
@@ -66,6 +84,10 @@ interface RecordSeed {
   pickDate: string;
   contractId: string;
   entryMark: number;
+  /** Pick-day greeks from the SA pick row — written on every outcome,
+   *  'error' included. */
+  entryDelta: number;
+  entryIv: number;
 }
 
 /** Run-level slice keys shared by every record in a task. */
@@ -120,9 +142,36 @@ function noFireOutcome(
     close: number | undefined;
     expiration: string;
     lastBarDate: string;
+    /** The final scan bar — terminal greeks + the open row's mark. */
+    lastBar: ExitScanBar;
+    /** Analysis run date (YYYY-MM-DD, PT) — "is expiry still ahead?". */
+    today: string;
   },
 ): AnalysisTradeRecord {
   if (!ctx.reachedExpiry) {
+    // #1431: a series ending short of a FUTURE expiry is a live position,
+    // not a data problem — 'open' carries the rule's real excursion and
+    // days-held-so-far. Truncated past-expiry series stays 'error'.
+    // Boundary notes (review R2): 'open' trusts the series tail — a
+    // contract that stopped reporting weeks ago (delist/gap) with a
+    // future expiry also reads 'open', but `lastBarDate` surfaces that
+    // staleness in the table. `expiration === today` still resolves
+    // 'error': the position is live intraday but the record can't know
+    // whether the missing expiry bar is pending or absent — the next
+    // day's run self-heals it.
+    if (ctx.expiration > ctx.today) {
+      return {
+        ...seed,
+        outcome: 'open',
+        daysHeld: calendarDaysBetween(seed.pickDate, ctx.lastBarDate),
+        mae: scan.mae,
+        mfe: scan.mfe,
+        lastBarDate: ctx.lastBarDate,
+        terminalMark: ctx.lastBar.mark,
+        terminalDelta: ctx.lastBar.delta,
+        terminalIv: ctx.lastBar.iv,
+      };
+    }
     return errorRecord(
       seed,
       `series ends ${ctx.lastBarDate} before expiry ${ctx.expiration}`,
@@ -134,13 +183,19 @@ function noFireOutcome(
   if (ctx.close === undefined) {
     return errorRecord(seed, `no underlying close at expiry ${ctx.expiration}`);
   }
+  const expiry = expiredFields(ctx.optionType, ctx.strike, ctx.close);
   return {
     ...seed,
     outcome: 'expired',
     daysHeld: calendarDaysBetween(seed.pickDate, ctx.expiration),
     mae: scan.mae,
     mfe: scan.mfe,
-    ...expiredFields(ctx.optionType, ctx.strike, ctx.close),
+    ...expiry,
+    // The settled mark is the terminal economics — matches the mark
+    // change the FE derives; greeks come off the expiry bar itself.
+    terminalMark: expiry.intrinsicAtExpiry,
+    terminalDelta: ctx.lastBar.delta,
+    terminalIv: ctx.lastBar.iv,
   };
 }
 
@@ -150,13 +205,15 @@ function noFireOutcome(
 export function buildPickRecords(
   row: ContractListPickRow,
   fetched: { resp?: PartnerHistoricalOptionsContractV2Response; error?: string },
-  ctx: { underlyingClose: ReadonlyMap<string, number>; base: RecordBase },
+  ctx: { underlyingClose: ReadonlyMap<string, number>; base: RecordBase; today: string },
 ): AnalysisTradeRecord[] {
   const base: Omit<RecordSeed, 'exitId'> = {
     ...ctx.base,
     pickDate: row.entryDate,
     contractId: row.contractId,
     entryMark: row.mark,
+    entryDelta: row.delta,
+    entryIv: row.iv,
   };
   const allErrors = (error: string) =>
     EXIT_STRATEGIES.map((rule) => errorRecord({ ...base, exitId: rule.exitId }, error));
@@ -179,11 +236,14 @@ export function buildPickRecords(
     close: ctx.underlyingClose.get(row.expiration),
     expiration: row.expiration,
     lastBarDate: bars[bars.length - 1].date,
+    lastBar: bars[bars.length - 1],
+    today: ctx.today,
   };
   let sharedNoFire: AnalysisTradeRecord | undefined;
   return EXIT_STRATEGIES.map((rule) => {
     const scan = evaluateExit(bars, row.mark, rule, row.expiration);
     if (scan.fired) {
+      const exitBar = bars[scan.dayIndex];
       return {
         ...base,
         exitId: rule.exitId,
@@ -193,6 +253,9 @@ export function buildPickRecords(
         exitPrice: scan.exitPrice,
         mae: scan.mae,
         mfe: scan.mfe,
+        terminalMark: scan.exitPrice,
+        terminalDelta: exitBar.delta,
+        terminalIv: exitBar.iv,
       };
     }
     sharedNoFire ??= noFireOutcome({ ...base, exitId: '' }, scan, noFireCtx);

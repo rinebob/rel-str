@@ -10,7 +10,8 @@
  *   doc still 'success', aggregates exclude it
  * - status re-check: non-success / missing rows → retryable throw;
  *   final attempt → no writes (never clobber good docs)
- * - truncated series / missing underlying close → 'error' records
+ * - truncated series → 'open' (future expiry, real excursions) or
+ *   'error' (past expiry); missing underlying close → 'error' records
  * - expired outcome fields (expiredItm / intrinsic / assignmentDistancePct)
  * - calendar-days daysHeld (Fri→Mon = 3, not dayIndex 1); same-day = 0
  * - idempotent rerun → same doc ids overwritten
@@ -37,7 +38,7 @@ import type {
 } from '@options-contract/contracts';
 import { OptionType } from '@options/common';
 import { TradeSide } from '@common';
-import { EXIT_STRATEGIES } from '@options-analysis/registry';
+import { EXIT_REGISTRY_VERSION, EXIT_STRATEGIES } from '@options-analysis/registry';
 
 // ==========================
 // Fixtures
@@ -48,7 +49,7 @@ const PAYLOAD = {
   runId: 'run-1',
   symbol: 'QQQ',
   templateId: 'csp-45-20',
-  registryVersion: 1,
+  registryVersion: EXIT_REGISTRY_VERSION,
 };
 
 const EXPIRY = '2026-02-20';
@@ -79,8 +80,12 @@ function markerRow(entryDate: string): ContractListNoSelectionRow {
   return { kind: 'no-selection', entryDate, reason: 'miss' };
 }
 
-function obs(date: string, mark: string): HistoricalOptionsContractV2Observation {
-  return { date, mark };
+function obs(
+  date: string,
+  mark: string,
+  greeks: { delta?: string; implied_volatility?: string } = {},
+): HistoricalOptionsContractV2Observation {
+  return { date, mark, ...greeks };
 }
 
 function seriesResp(
@@ -112,6 +117,9 @@ interface DepsInit {
   closes?: Record<string, number>;
   /** Throw on 'success' doc writes — 'failed' writes still capture. */
   writeError?: Error;
+  /** Analysis "today" — pinned so the open/error split never depends on
+   *  the wall clock; default sits past EXPIRY (truncated series → error). */
+  today?: string;
 }
 
 type FetchInput = Parameters<AnalysisWorkerDeps['fetchSeries']>[0];
@@ -136,6 +144,7 @@ function makeDeps(init: DepsInit): {
         return r;
       },
       loadUnderlyingClose: async () => new Map(Object.entries(init.closes ?? {})),
+      getToday: () => init.today ?? '2026-02-25',
       writeResultDocs: async (entries) => {
         if (init.writeError && entries.some((e) => e.doc.status === 'success')) {
           throw init.writeError;
@@ -271,6 +280,7 @@ describe('record generation', () => {
       contractCount: 0,
       exitedCount: 0,
       expiredCount: 0,
+      openCount: 0,
       errorCount: 0,
     });
   });
@@ -370,6 +380,70 @@ describe('outcome mapping', () => {
     assert.equal(rec.daysHeld, 1); // 02-19 → 02-20
   });
 
+  it('entry greeks ride every record; terminal mark/delta/iv resolve per outcome', async () => {
+    // price-100 fires on the mid bar (mark 0.5 ≤ 1.0); expiry bar carries
+    // distinct greeks so the two terminal sources can't alias.
+    const row = pickRow({ entryDate: '2026-01-05', contractId: 'C1', delta: -0.21, iv: 0.213 });
+    const { deps, written } = makeDeps({
+      doc: listDoc([row]),
+      seriesById: {
+        C1: seriesResp([
+          obs('2026-01-05', '2.0', { delta: '-0.21', implied_volatility: '0.213' }),
+          obs('2026-01-08', '0.5', { delta: '-0.05', implied_volatility: '0.19' }),
+          obs(EXPIRY, '0.1', { delta: '-0.02', implied_volatility: '0.15' }),
+        ]),
+      },
+      closes: { [EXPIRY]: 520 }, // OTM put → intrinsic 0
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+
+    const exitRec = recordsFor(written, 'price-100')[0];
+    assert.equal(exitRec.entryDelta, -0.21);
+    assert.equal(exitRec.entryIv, 0.213);
+    assert.equal(exitRec.terminalMark, 0.5); // exit bar mark = exitPrice
+    assert.equal(exitRec.terminalDelta, -0.05);
+    assert.equal(exitRec.terminalIv, 0.19);
+
+    const expRec = recordsFor(written, 'expiry')[0];
+    assert.equal(expRec.terminalMark, 0); // settled intrinsic, not the bar's 0.1
+    assert.equal(expRec.terminalDelta, -0.02); // greeks off the expiry bar
+    assert.equal(expRec.terminalIv, 0.15);
+  });
+
+  it('open record terminal fields come off the last bar; error records still carry entry greeks', async () => {
+    const row = pickRow({ entryDate: '2026-01-05', contractId: 'C1', delta: -0.21, iv: 0.213 });
+    const { deps, written } = makeDeps({
+      doc: listDoc([row]),
+      seriesById: {
+        C1: seriesResp([
+          obs('2026-01-05', '2.0', { delta: '-0.21', implied_volatility: '0.213' }),
+          obs('2026-01-08', '1.5', { delta: '-0.18', implied_volatility: '0.22' }),
+        ]),
+      },
+      today: '2026-01-10', // expiry still ahead → open
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+
+    const openRec = recordsFor(written, 'expiry')[0];
+    assert.equal(openRec.outcome, 'open');
+    assert.equal(openRec.terminalMark, 1.5);
+    assert.equal(openRec.terminalDelta, -0.18);
+    assert.equal(openRec.terminalIv, 0.22);
+
+    // A fetch-failed pick: no terminal fields, but the pick-row greeks
+    // are still known — write them on the error record too.
+    const { deps: deps2, written: written2 } = makeDeps({
+      doc: listDoc([pickRow({ entryDate: '2026-01-05', contractId: 'BROKEN', delta: -0.3, iv: 0.4 })]),
+      seriesById: { BROKEN: new Error('fetch failed') },
+    });
+    await runReplayAnalysis(PAYLOAD, deps2, false);
+    const errRec = recordsFor(written2, 'expiry')[0];
+    assert.equal(errRec.outcome, 'error');
+    assert.equal(errRec.entryDelta, -0.3);
+    assert.equal(errRec.entryIv, 0.4);
+    assert.equal(errRec.terminalMark, undefined);
+  });
+
   it('no-fire + series ends before expiry → error record (truncated, never fabricated)', async () => {
     // Series ends 45 days out — no rule can fire (dte-21 included), so
     // every exitId gets an 'error' record, not an invented outcome.
@@ -437,6 +511,78 @@ describe('outcome mapping', () => {
     await runReplayAnalysis(PAYLOAD, deps, false);
     const rec = recordsFor(written, 'expiry')[0];
     assert.equal(rec.outcome, 'error');
+  });
+
+  // #1431 — 'open' outcome: a series ending short of a FUTURE expiry is a
+  // live position, not a truncated corpus.
+  it('no-fire + series ends before a FUTURE expiry → open record (real excursion, lastBarDate)', async () => {
+    const row = pickRow({ entryDate: '2026-01-05', contractId: 'C1', mark: 2.0 });
+    const { deps, written } = makeDeps({
+      doc: listDoc([row]),
+      // 3 bars then the series stops at 01-07 — expiry 02-20 still ahead.
+      // Marks 2.0→2.5→1.8 fire no rule but put both excursions off the
+      // entry placeholder (mae 2.5, mfe 1.8).
+      seriesById: {
+        C1: seriesResp([
+          obs('2026-01-05', '2.0'),
+          obs('2026-01-06', '2.5'),
+          obs('2026-01-07', '1.8'),
+        ]),
+      },
+      today: '2026-01-10',
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    for (const r of EXIT_STRATEGIES) {
+      const rec = recordsFor(written, r.exitId)[0];
+      assert.equal(rec.outcome, 'open', `exitId ${r.exitId}`);
+      if (rec.outcome === 'open') {
+        assert.equal(rec.lastBarDate, '2026-01-07');
+        assert.equal(rec.daysHeld, 2); // pickDate → lastBar, days held so far
+      }
+    }
+    // The open record carries the rule's real excursion — mae = worst
+    // mark (adverse for short premium = UP), mfe = best mark.
+    const rec = recordsFor(written, 'expiry')[0];
+    if (rec.outcome === 'open') {
+      assert.equal(rec.mae.value, 2.5);
+      assert.equal(rec.mfe.value, 1.8);
+    }
+    // Aggregates count open positions separately and exclude them from
+    // the hit-rate denominator.
+    const agg = resultFor(written, 'expiry')!.aggregate;
+    assert.equal(agg.openCount, 1);
+    assert.equal(agg.errorCount, 0);
+    assert.equal(agg.hitRatePct, undefined); // denominator 0 — every record open
+  });
+
+  it('open records carry each rule\'s own scan excursion (per-rule variance)', async () => {
+    const row = pickRow({ entryDate: '2026-01-05', contractId: 'C1', mark: 2.0 });
+    const { deps, written } = makeDeps({
+      doc: listDoc([row]),
+      // Mark dips to 0.5 on 01-07 (fires price-100's exit) — expiry's
+      // open record scans the same full window, so the excursion is
+      // real per-rule data, not a placeholder.
+      seriesById: {
+        C1: seriesResp([
+          obs('2026-01-05', '2.0'),
+          obs('2026-01-06', '3.0'),
+          obs('2026-01-07', '0.5'),
+        ]),
+      },
+      today: '2026-01-10',
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    // price-100 fired on 01-07 → 'exit'; expiry's open record scanned the
+    // same full window — MAE 3.0 (worst adverse mark for a SHORT position
+    // is the high mark) whichever direction the evaluator tracks.
+    const exitRec = recordsFor(written, 'price-100')[0];
+    assert.equal(exitRec.outcome, 'exit');
+    const openRec = recordsFor(written, 'expiry')[0];
+    assert.equal(openRec.outcome, 'open');
+    if (openRec.outcome === 'open') {
+      assert.equal(openRec.mae.value, 3.0);
+      assert.equal(openRec.mfe.value, 0.5);
+    }
   });
 });
 

@@ -8,8 +8,9 @@
  *
  * `AnalysisTradeRecord` is a discriminated union on `outcome` (same pattern
  * as `ContractListRow`) — exit fields exist only on 'exit', expiry fields
- * only on 'expired', `error` only on 'error' — so invalid combos don't
- * compile and consumers narrow on `outcome`.
+ * only on 'expired', `lastBarDate` only on 'open' (#1431 — a live position
+ * whose series ends before its future expiry), `error` only on 'error' —
+ * so invalid combos don't compile and consumers narrow on `outcome`.
  *
  * Replay-callable payloads (optionsReplayRetry*) live in
  * `options-replay-contracts.ts` — replay-domain boundary contracts stay with
@@ -45,6 +46,24 @@ interface AnalysisTradeBase {
   pickDate: string; // YYYY-MM-DD
   contractId: string;
   entryMark: number;
+
+  /** Greeks at entry — SA's pick-day delta + IV fraction (verbatim from
+   *  the pick doc; SA IV is a fraction — render `* 100` for percent).
+   *  Present even on 'error' records (the pick row is known when the
+   *  series isn't). Absent on pre-v2 docs. */
+  entryDelta?: number;
+  entryIv?: number;
+
+  /** Terminal-side values resolved per outcome — the exit bar for
+   *  'exit', the expiry bar for 'expired', the last series bar for
+   *  'open'. `terminalMark` is the mark the outcome's economics resolved
+   *  at (exitPrice / intrinsicAtExpiry / last-bar mark) so a row's
+   *  terminalMark − entryMark always equals its displayed mark change.
+   *  Delta/IV absent when the terminal observation carries no greeks;
+   *  all three absent on 'error' records and pre-v2 docs. */
+  terminalMark?: number;
+  terminalDelta?: number;
+  terminalIv?: number;
 
   /** Calendar days pickDate → exit/expiry; `0` on error records. */
   daysHeld: number;
@@ -89,11 +108,27 @@ export interface AnalysisExpiredTrade extends AnalysisTradeBase {
 }
 
 /** The contract's series could not be fetched OR ends before the expiry
- *  bar (truncated corpus) — carries no exit/expiry semantics;
- *  `daysHeld: 0` and mae/mfe = entry-day placeholder. */
+ *  bar while expiry has already passed (truncated corpus) — carries no
+ *  exit/expiry semantics; `daysHeld: 0` and mae/mfe = entry-day
+ *  placeholder. A series ending early while expiry is still in the
+ *  FUTURE is a live position — 'open', not 'error'. */
 export interface AnalysisErrorTrade extends AnalysisTradeBase {
   outcome: 'error';
   error: string;
+}
+
+/** No rule fired AND the position is still live — the series' last bar
+ *  predates expiry only because expiry hasn't happened yet (#1431: a
+ *  future-expiry contract can never reach its expiry bar; recording it
+ *  as 'error' inflated errorCount and lied in the event table). Carries
+ *  the rule's real excursion + days-held-so-far — live data, not
+ *  placeholders. Aggregates exclude open records from hit-rate
+ *  denominators (an open position is no evidence about the exit rule). */
+export interface AnalysisOpenTrade extends AnalysisTradeBase {
+  outcome: 'open';
+  /** Last observed series bar — the "as of" stamp for the open
+   *  position (YYYY-MM-DD). */
+  lastBarDate: string;
 }
 
 /**
@@ -103,6 +138,7 @@ export interface AnalysisErrorTrade extends AnalysisTradeBase {
 export type AnalysisTradeRecord =
   | AnalysisExitTrade
   | AnalysisExpiredTrade
+  | AnalysisOpenTrade
   | AnalysisErrorTrade;
 
 /** Outcome vocabulary — derived so it can't drift from the union. */
@@ -120,9 +156,13 @@ export interface ExitTypeAggregate {
   contractCount: number;
   exitedCount: number;
   expiredCount: number;
+  /** Positions still live (expiry in the future at analysis time). */
+  openCount: number;
   errorCount: number;
-  /** exitedCount / (contractCount − errorCount) × 100 — PERCENT convention;
-   *  absent when every record errored (denominator 0). */
+  /** hitCount / (contractCount − errorCount − openCount) × 100 — PERCENT
+   *  convention; absent when the denominator is 0. The numerator is
+   *  per-strategy: exitedCount for firing rules, expiredCount for
+   *  hold-to-expiry (reaching expiry IS its "hit" — #1431). */
   hitRatePct?: number;
   /** Mean daysHeld over exited records; absent when nothing exited. */
   avgDaysToExit?: number;
