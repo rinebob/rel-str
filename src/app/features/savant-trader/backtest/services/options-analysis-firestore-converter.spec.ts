@@ -9,7 +9,7 @@ describe('options-analysis-firestore-converter', () => {
       symbol: 'SPY',
       templateId: 'csp-45-20',
       exitId: 'target-90',
-      registryVersion: 1,
+      registryVersion: EXIT_REGISTRY_VERSION,
       status: 'success',
       trades: [{ outcome: 'exit', pickDate: '2026-06-10' }],
       aggregate: { exitId: 'target-90', contractCount: 10, exitedCount: 7, expiredCount: 2, errorCount: 1 },
@@ -39,7 +39,7 @@ describe('options-analysis-firestore-converter', () => {
     expect(doc.exitId).toBe('');
     expect(doc.registryVersion).toBe(0);
     expect(doc.aggregate).toEqual({
-      exitId: '', contractCount: 0, exitedCount: 0, expiredCount: 0, errorCount: 0,
+      exitId: '', contractCount: 0, exitedCount: 0, expiredCount: 0, openCount: 0, errorCount: 0,
     });
     expect(doc.generatedAt).toBe('');
     expect(doc.error).toBeUndefined();
@@ -63,10 +63,18 @@ describe('options-analysis-firestore-converter', () => {
     expect(convertAnalysisResultDoc({ status: 'success' }).status).toBe('success');
   });
 
+  it('a v1 aggregate missing openCount backfills 0 — required field, sparse snapshot', () => {
+    const doc = convertAnalysisResultDoc({
+      aggregate: { exitId: 'x', contractCount: 3, exitedCount: 1, expiredCount: 1, errorCount: 1 },
+    });
+    expect(doc.aggregate.openCount).toBe(0);
+    expect(doc.aggregate.contractCount).toBe(3);
+  });
+
   it('a truthy non-object aggregate falls back to the zeroed default', () => {
     const doc = convertAnalysisResultDoc({ exitId: 'x', aggregate: 'junk' });
     expect(doc.aggregate).toEqual({
-      exitId: 'x', contractCount: 0, exitedCount: 0, expiredCount: 0, errorCount: 0,
+      exitId: 'x', contractCount: 0, exitedCount: 0, expiredCount: 0, openCount: 0, errorCount: 0,
     });
   });
 });

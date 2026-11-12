@@ -8,8 +8,8 @@
 
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Firestore, collection, collectionData, query, where } from '@angular/fire/firestore';
-import { Observable, from, map } from 'rxjs';
+import { Firestore, collection, collectionData, doc, docData, query, where } from '@angular/fire/firestore';
+import { Observable, from, map, take } from 'rxjs';
 
 import type {
   AnalysisResultDoc,
@@ -72,6 +72,20 @@ export class OptionsAnalysisRunsService {
       return collectionData(resultsQuery) as Observable<Record<string, unknown>[]>;
     })).pipe(
       map((docs) => docs.map((d) => convertAnalysisResultDoc(d)))
+    );
+  }
+
+  /**
+   * One-shot read of a single result doc — `{listDocId}_{exitId}`. The
+   * option-chart `?results=` deep link needs exactly one emission, not
+   * a stream; null when the doc doesn't exist.
+   */
+  getResultDoc$(docId: string): Observable<AnalysisResultDoc | null> {
+    return from(runInInjectionContext(this.injector, () => {
+      const docRef = doc(this.firestore, this.resultsCollection, docId);
+      return (docData(docRef) as Observable<Record<string, unknown> | undefined>).pipe(take(1));
+    })).pipe(
+      map((d) => (d ? convertAnalysisResultDoc(d) : null))
     );
   }
 }

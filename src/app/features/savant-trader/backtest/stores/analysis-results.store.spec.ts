@@ -3,13 +3,20 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { Subject } from 'rxjs';
 
 import { AnalysisResultsStore } from './analysis-results.store';
+import { winLossOf } from '../utils/analysis-results-metrics.util';
 import { OptionsAnalysisRunsService } from '../services/options-analysis-runs.service';
+import { OptionsReplayRunsService } from '../services/options-replay-runs.service';
 import { EXIT_REGISTRY_VERSION, EXIT_STRATEGIES } from '@options-analysis/registry';
+import { TradeSide } from '@common';
 import type {
+  AnalysisErrorTrade,
   AnalysisExitTrade,
+  AnalysisExpiredTrade,
+  AnalysisOpenTrade,
   AnalysisResultDoc,
   ExitTypeAggregate,
 } from '@options-analysis/contracts';
+import type { OptionsReplayRunUi } from '../common/options-replay.types';
 
 function makeAggregate(overrides: Partial<ExitTypeAggregate> = {}): ExitTypeAggregate {
   return {
@@ -17,6 +24,7 @@ function makeAggregate(overrides: Partial<ExitTypeAggregate> = {}): ExitTypeAggr
     contractCount: 10,
     exitedCount: 7,
     expiredCount: 2,
+    openCount: 1,
     errorCount: 1,
     hitRatePct: 77.8,
     avgDaysToExit: 12.4,
@@ -47,6 +55,31 @@ function makeExitRecord(overrides: Partial<AnalysisExitTrade> = {}): AnalysisExi
   return { ...tradeBase(), outcome: 'exit', exitDate: '2026-06-19', exitPrice: 0.25, ...overrides };
 }
 
+function makeExpiredRecord(overrides: Partial<AnalysisExpiredTrade> = {}): AnalysisExpiredTrade {
+  return {
+    ...tradeBase(),
+    outcome: 'expired',
+    expiredItm: false,
+    intrinsicAtExpiry: 0,
+    assignmentDistancePct: 3.2,
+    ...overrides,
+  };
+}
+
+function makeOpenRecord(overrides: Partial<AnalysisOpenTrade> = {}): AnalysisOpenTrade {
+  return { ...tradeBase(), outcome: 'open', lastBarDate: '2026-06-18', ...overrides };
+}
+
+function makeErrorRecord(overrides: Partial<AnalysisErrorTrade> = {}): AnalysisErrorTrade {
+  return {
+    ...tradeBase(),
+    outcome: 'error',
+    error: 'no series',
+    daysHeld: 0,
+    ...overrides,
+  };
+}
+
 function makeDoc(overrides: Partial<AnalysisResultDoc> = {}): AnalysisResultDoc {
   return {
     contractListDocId: 'run-1_SPY',
@@ -66,11 +99,14 @@ function makeDoc(overrides: Partial<AnalysisResultDoc> = {}): AnalysisResultDoc 
 describe('AnalysisResultsStore', () => {
   let docsSubject: Subject<AnalysisResultDoc[]>;
   let subjectsByCall: Subject<AnalysisResultDoc[]>[];
+  let runSubject: Subject<OptionsReplayRunUi | null>;
   let serviceStub: { watchListResultDocs: jest.Mock };
+  let runsStub: { watchRunDoc: jest.Mock };
 
   async function setup() {
     docsSubject = new Subject();
     subjectsByCall = [docsSubject];
+    runSubject = new Subject();
     serviceStub = {
       watchListResultDocs: jest.fn(() => {
         // One subject per call — mirrors distinct Firestore listeners so a
@@ -79,12 +115,14 @@ describe('AnalysisResultsStore', () => {
         return s.asObservable();
       }),
     };
+    runsStub = { watchRunDoc: jest.fn(() => runSubject.asObservable()) };
 
     await TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         AnalysisResultsStore,
         { provide: OptionsAnalysisRunsService, useValue: serviceStub },
+        { provide: OptionsReplayRunsService, useValue: runsStub },
       ],
     }).compileComponents();
 
@@ -287,6 +325,148 @@ describe('AnalysisResultsStore', () => {
       const events = store.eventRows();
       expect(events.find((r) => r.exitId === 'target-90')!.stale).toBe(true);
       expect(events.find((r) => r.exitId === 'dte-21')!.stale).toBe(false);
+    });
+  });
+
+  // #1431 — outcome chips, wins/losses, header context.
+  describe('1431 follow-ups', () => {
+    it('outcomeFilter narrows rows to one outcome, ANDed with exitFilter; reset on watchList', async () => {
+      const store = await setup();
+      store.watchList('run-1_SPY');
+      docsSubject.next([
+        makeDoc({
+          exitId: 'target-90',
+          trades: [
+            makeExitRecord({ contractId: 'EXIT' }),
+            makeOpenRecord({ contractId: 'OPEN' }),
+            makeErrorRecord({ contractId: 'ERR' }),
+          ],
+        }),
+        makeDoc({
+          exitId: 'dte-21',
+          trades: [makeOpenRecord({ exitId: 'dte-21', contractId: 'OPEN2' })],
+        }),
+      ]);
+      expect(store.eventRows().length).toBe(4);
+
+      store.setOutcomeFilter('open');
+      expect(store.eventRows().map((r) => r.record.contractId)).toEqual(['OPEN', 'OPEN2']);
+
+      store.setExitFilter('dte-21');
+      expect(store.eventRows().map((r) => r.record.contractId)).toEqual(['OPEN2']);
+
+      // Re-binding the route resets both filters.
+      const second = new Subject<AnalysisResultDoc[]>();
+      subjectsByCall.push(second);
+      store.watchList('run-2_QQQ');
+      expect(store.outcomeFilter()).toBe('all');
+      expect(store.exitFilter()).toBe('all');
+    });
+
+    it('winLossOf — SHORT: exit below entry / expired-OTM wins; exit above / full-ITM losses; open/error/breakeven neither', () => {
+      const wl = winLossOf(
+        [
+          makeExitRecord({ exitPrice: 0.25 }), // win (2.5 → 0.25)
+          makeExitRecord({ exitPrice: 5.0, contractId: 'L' }), // loss
+          makeExitRecord({ exitPrice: 2.5, contractId: 'BE' }), // breakeven
+          makeExpiredRecord({ expiredItm: false, contractId: 'OTM' }), // win
+          // Full ITM — intrinsic exceeds the premium collected → loss.
+          makeExpiredRecord({ expiredItm: true, contractId: 'ITM', intrinsicAtExpiry: 5.0 }),
+          // Partial ITM — assigned $0.50 against $2.50 collected → win
+          // (binary-ITM would misprice this as a loss; review R1).
+          makeExpiredRecord({ expiredItm: true, contractId: 'PART', intrinsicAtExpiry: 0.5 }),
+          makeOpenRecord({ contractId: 'OPEN' }),
+          makeErrorRecord({ contractId: 'ERR' }),
+        ],
+        TradeSide.SHORT,
+      );
+      expect(wl).toEqual({ wins: 3, losses: 2 });
+    });
+
+    it('winLossOf — LONG inverts; undefined side → null', () => {
+      const wl = winLossOf(
+        [
+          makeExitRecord({ exitPrice: 5.0 }), // LONG win
+          // ITM intrinsic above the premium paid → LONG win.
+          makeExpiredRecord({ expiredItm: true, contractId: 'ITM', intrinsicAtExpiry: 5.0 }),
+        ],
+        TradeSide.LONG,
+      );
+      expect(wl).toEqual({ wins: 2, losses: 0 });
+      expect(winLossOf([makeExitRecord()], undefined)).toBeNull();
+    });
+
+    it('aggregateRows expose winsLosses for success docs (csp-45-20 is SHORT)', async () => {
+      const store = await setup();
+      store.watchList('run-1_SPY');
+      docsSubject.next([
+        makeDoc({
+          exitId: 'target-90',
+          trades: [
+            makeExitRecord({ exitPrice: 0.25 }), // win
+            makeExitRecord({ exitPrice: 5.0, contractId: 'L' }), // loss
+          ],
+        }),
+      ]);
+
+      const row = store.aggregateRows().find((r) => r.exitId === 'target-90')!;
+      expect(row.winsLosses).toEqual({ wins: 1, losses: 1 });
+      // Failed/missing docs carry null.
+      const missing = store.aggregateRows().find((r) => r.status === 'missing')!;
+      expect(missing.winsLosses).toBeNull();
+    });
+
+    it('positionCount/templateName/startDate drive the header', async () => {
+      const store = await setup();
+      store.watchList('run-1_SPY');
+      docsSubject.next([makeDoc()]);
+      runSubject.next({
+        runId: 'run-1_SPY',
+        templateId: 'csp-45-20',
+        symbol: 'SPY',
+        startDate: '2026-01-05',
+        status: 'completed',
+        createdAtIso: '2026-01-05T00:00:00Z',
+      });
+
+      expect(runsStub.watchRunDoc).toHaveBeenCalledWith('run-1_SPY');
+      expect(store.positionCount()).toBe(10);
+      expect(store.templateName()).toBe('45DTE 20Δ put (CSP)');
+      expect(store.startDate()).toBe('2026-01-05');
+    });
+
+    it('eventRows carry derived metrics — expired priceChange, capitalRoc under SHORT side', async () => {
+      const store = await setup();
+      store.watchList('run-1_SPY');
+      docsSubject.next([
+        makeDoc({
+          trades: [
+            makeExpiredRecord({ expiredItm: true, intrinsicAtExpiry: 0.5 }), // 0.5 − 2.5 = −2.0
+            makeOpenRecord({ contractId: 'QQQ260619P00400000' }),
+          ],
+        }),
+      ]);
+
+      const rows = store.eventRows();
+      const expired = rows.find((r) => r.record.outcome === 'expired')!;
+      expect(expired.priceChange).toEqual({ delta: -2.0, pct: -80 });
+      expect(expired.outcomeText).toContain('expired ITM');
+      // SPY260619P00500000 → strike 500 → capital $50,000, ROC 0.5%.
+      expect(expired.capitalRoc).toEqual({ capital: 50000, rocPct: 0.5 });
+      expect(expired.maePct).toBeCloseTo(48); // 1.2 / 2.5
+
+      const open = rows.find((r) => r.record.outcome === 'open')!;
+      expect(open.priceChange).toBeNull();
+      expect(open.outcomeText).toContain('still open');
+    });
+
+    it('eventRows capitalRoc renders null for an unregistered template (side unknown)', async () => {
+      const store = await setup();
+      store.watchList('run-1_SPY');
+      docsSubject.next([makeDoc({ templateId: 'not-registered', trades: [makeExitRecord()] })]);
+
+      const row = store.eventRows()[0];
+      expect(row.capitalRoc).toBeNull();
     });
   });
 });

@@ -27,10 +27,20 @@ export function convertAnalysisResultDoc(d: Record<string, unknown>): AnalysisRe
       ? (d['status'] as AnalysisResultStatus)
       : 'failed',
     trades: Array.isArray(d['trades']) ? (d['trades'] as AnalysisResultDoc['trades']) : [],
+    // openCount defaults 0 — v1 docs predate the field (they're flagged
+    // stale by the version check, but a sparse read still type-checks).
     aggregate: d['aggregate'] && typeof d['aggregate'] === 'object'
-      ? (d['aggregate'] as AnalysisResultDoc['aggregate'])
+      ? {
+          exitId,
+          contractCount: 0,
+          exitedCount: 0,
+          expiredCount: 0,
+          openCount: 0,
+          errorCount: 0,
+          ...(d['aggregate'] as Partial<AnalysisResultDoc['aggregate']>),
+        }
       : {
-      exitId, contractCount: 0, exitedCount: 0, expiredCount: 0, errorCount: 0,
+      exitId, contractCount: 0, exitedCount: 0, expiredCount: 0, openCount: 0, errorCount: 0,
     },
     generatedAt: String(d['generatedAt'] ?? ''),
     error: typeof d['error'] === 'string' ? d['error'] : undefined,
