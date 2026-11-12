@@ -32,7 +32,7 @@ describe('CoreComponent', () => {
       providers: [
         // PageIdentityService stub — HeaderComponent + the reveal chip read
         // the resolved identity from it (#853/#854).
-        { provide: PageIdentityService, useValue: { pageInfo: pageInfoStub } },
+        { provide: PageIdentityService, useValue: { pageInfo: pageInfoStub, url: signal('/') } },
         {
           provide: Router,
           useValue: {

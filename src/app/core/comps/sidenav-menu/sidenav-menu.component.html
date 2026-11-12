@@ -25,12 +25,16 @@
 
                 @if (item.children?.length) {
 
-                    <div class="nav-submenu-host">
+                    <div class="nav-submenu-host"
+                         (mouseenter)="openSubmenuAt(item, $event)"
+                         (mouseleave)="scheduleSubmenuClose()"
+                    >
 
                     <button type="button" class="nav-menu-item nav-submenu-trigger"
                                    aria-haspopup="menu"
+                                   [class.active]="isActive(item)"
                                    [attr.aria-expanded]="openSubmenu() === item.name"
-                                   (click)="toggleSubmenu(item.name, $event)"
+                                   (click)="toggleSubmenu(item, $event)"
                     >
 
                         {{item.text}}
@@ -39,11 +43,20 @@
 
                     @if (openSubmenu() === item.name) {
 
-                    <div class="dse-menu nav-submenu" role="menu" (click)="$event.stopPropagation()">
+                    <div class="dse-menu nav-submenu" role="menu"
+                         [style.top.px]="submenuPos()?.top"
+                         [style.left.px]="submenuPos()?.left"
+                         (mouseenter)="cancelSubmenuClose()"
+                         (mouseleave)="openSubmenu.set(null)"
+                         (click)="$event.stopPropagation()">
 
                         @for (child of item.children; track child.name) {
 
+                            @let childActive = isActive(child);
+
                             <button type="button" class="menu-item" role="menuitem"
+                                           [class.active]="childActive"
+                                           [attr.aria-current]="childActive ? 'page' : null"
                                            (click)="handleNavigation(child); openSubmenu.set(null)"
                             >
 
@@ -61,7 +74,11 @@
 
                 } @else {
 
+                    @let active = isActive(item);
+
                     <button type="button" class="nav-menu-item"
+                                   [class.active]="active"
+                                   [attr.aria-current]="active ? 'page' : null"
                                    (click)="handleNavigation(item)"
                     >
 

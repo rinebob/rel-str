@@ -20,6 +20,15 @@ export class PageIdentityService {
         this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)),
     );
 
+    /** Current path, normalized — no query string or fragment.
+     *  Re-evaluates per NavigationEnd (router.url isn't reactive). The
+     *  `?? ''` guard covers bare Router stubs in specs that stub `events`
+     *  but not `url`. */
+    readonly url = computed(() => {
+        this.navigationEnd();
+        return (this.router.url ?? '').split(/[?#]/)[0];
+    });
+
     /** Current page identity — the leaf route's routeConfig.path segments
      *  joined from root, longest-prefix matched against PAGE_INFO
      *  (resolvePageInfo normalizes the root '' segments). Undefined on

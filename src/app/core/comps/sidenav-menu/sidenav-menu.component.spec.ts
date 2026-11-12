@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { computed, signal, WritableSignal } from '@angular/core';
+import { NavigationEnd, Router } from '@angular/router';
+import { Subject } from 'rxjs';
 import { User } from '@angular/fire/auth';
 
 import { SidenavMenuComponent } from './sidenav-menu.component';
@@ -11,6 +13,8 @@ describe('SidenavMenuComponent', () => {
   let component: SidenavMenuComponent;
   let fixture: ComponentFixture<SidenavMenuComponent>;
   let user: WritableSignal<User | null>;
+  let routerEvents: Subject<NavigationEnd>;
+  let routerStub: { url: string; events: Subject<NavigationEnd> };
 
   const el = () => fixture.nativeElement as HTMLElement;
   const itemTexts = () =>
@@ -28,6 +32,7 @@ describe('SidenavMenuComponent', () => {
     await TestBed.configureTestingModule({
       imports: [SidenavMenuComponent],
       providers: [
+        { provide: Router, useValue: (routerStub = { url: '/', events: (routerEvents = new Subject()) }) },
         {
           provide: AuthStore,
           useValue: {
@@ -111,6 +116,64 @@ describe('SidenavMenuComponent', () => {
       expect(labelTexts()).toEqual(
         NAV_SECTIONS.filter((s) => s.label).map((s) => s.label),
       );
+    });
+
+    it('marks the current route item active (exact href match)', async () => {
+      routerStub.url = '/portfolio/allocation';
+      routerEvents.next(new NavigationEnd(0, '/portfolio/allocation', '/portfolio/allocation'));
+      fixture.detectChanges();
+
+      const items = Array.from(
+        el().querySelectorAll<HTMLButtonElement>('.nav-menu-item'),
+      );
+      const active = items.find((n) =>
+        n.textContent?.trim() === 'Portfolio Allocation',
+      );
+      const dashboard = items.find((n) =>
+        n.textContent?.trim() === 'Portfolio Dashboard',
+      );
+      expect(active?.classList.contains('active')).toBe(true);
+      // 'portfolio' must not light up on a /portfolio/* child route.
+      expect(dashboard?.classList.contains('active')).toBe(false);
+      expect(active?.getAttribute('aria-current')).toBe('page');
+    });
+
+    it('opens the submenu on hover and closes it when the cursor leaves', async () => {
+      const host = el().querySelector<HTMLElement>('.nav-submenu-host')!;
+      expect(el().querySelector('.dse-menu')).toBeNull();
+
+      host.dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(document.querySelectorAll('.dse-menu .menu-item').length).toBeGreaterThan(0);
+
+      jest.useFakeTimers();
+      host.dispatchEvent(new MouseEvent('mouseleave'));
+      jest.advanceTimersByTime(300);
+      fixture.detectChanges();
+      expect(el().querySelector('.dse-menu')).toBeNull();
+      jest.useRealTimers();
+    });
+
+    it('marks a submenu child active + aria-current and tints its parent trigger', async () => {
+      routerStub.url = '/dev/flex-chart';
+      routerEvents.next(new NavigationEnd(0, '/dev/flex-chart', '/dev/flex-chart'));
+      fixture.detectChanges();
+
+      const trigger = Array.from(
+        el().querySelectorAll<HTMLButtonElement>('.nav-menu-item'),
+      ).find((n) => n.textContent?.trim() === 'Dev')!;
+      expect(trigger.classList.contains('active')).toBe(true);
+
+      trigger.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const child = document.querySelector<HTMLButtonElement>(
+        '.dse-menu .menu-item.active',
+      );
+      expect(child?.textContent?.trim()).toBe('Flex Chart Sandbox');
+      expect(child?.getAttribute('aria-current')).toBe('page');
     });
 
     it('emits navigate with the clicked item', () => {
