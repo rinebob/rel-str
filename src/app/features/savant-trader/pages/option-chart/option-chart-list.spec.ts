@@ -28,6 +28,8 @@ import { ConfirmDialogComponent } from '../../../../shared/ds/confirm-dialog.com
 import { OptionsContractService } from '../../services/options-contract.service';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
+import { OptionsAnalysisRunsService } from '../../backtest/services/options-analysis-runs.service';
+import { EXIT_REGISTRY_VERSION } from '@options-analysis/registry';
 import { LIST_SESSION_VERSION, saveListSession } from '../../utils/contract-list-session-settings';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import type { PartnerHistoricalOptionsContractV2Response } from '../../../../core/models/partner.types';
@@ -150,6 +152,7 @@ function setup(): Setup {
         provide: OptionsReplayRunsService,
         useValue: { watchRuns: jest.fn(() => of([])), watchContractList: jest.fn(() => of(null)) },
       },
+      { provide: OptionsAnalysisRunsService, useValue: { getResultDoc$: jest.fn(() => of(null)) } },
       { provide: LocalBarReadService, useValue: { getDailyBarsForRange$: jest.fn(() => of([])) } },
       { provide: DsDialogService, useValue: dialog },
       { provide: ActivatedRoute, useValue: { queryParamMap: params$.asObservable(), snapshot: { queryParamMap: params$.value } } },
@@ -267,6 +270,110 @@ describe('OptionChartComponent — contract-list session wiring', () => {
       expect.objectContaining({ queryParams: { list: null }, replaceUrl: true }),
     );
     expect(getList$).not.toHaveBeenCalled();
+  });
+
+  // #1431 item 12 — ?results= deep link: a result doc's contracts plot
+  // straight through (no picker) with pick-day + terminal markers.
+  const resultDoc = (over: Record<string, unknown> = {}) => ({
+    contractListDocId: 'run-1_SPY',
+    runId: 'run-1',
+    symbol: 'QQQ',
+    templateId: 'csp-45-20',
+    exitId: 'target-90',
+    registryVersion: EXIT_REGISTRY_VERSION,
+    status: 'success',
+    trades: [
+      {
+        runId: 'run-1',
+        symbol: 'QQQ',
+        templateId: 'csp-45-20',
+        contractListDocId: 'run-1_SPY',
+        exitId: 'target-90',
+        pickDate: '2026-06-10',
+        contractId: QQQ_PUT,
+        entryMark: 2.5,
+        daysHeld: 9,
+        mae: { value: 1.2, date: '2026-06-12' },
+        mfe: { value: 3.1, date: '2026-06-18' },
+        outcome: 'exit',
+        exitDate: '2026-06-19',
+        exitPrice: 0.25,
+      },
+    ],
+    aggregate: {
+      exitId: 'target-90',
+      contractCount: 1,
+      exitedCount: 1,
+      expiredCount: 0,
+      openCount: 0,
+      errorCount: 0,
+    },
+    generatedAt: '2026-11-10T00:00:00Z',
+    ...over,
+  });
+
+  it('?results= plots the doc’s contracts with pick + exit markers — no picker', async () => {
+    const { component, store, dialog, params$ } = setup();
+    const analysis = TestBed.inject(OptionsAnalysisRunsService) as unknown as {
+      getResultDoc$: jest.Mock;
+    };
+    analysis.getResultDoc$.mockReturnValue(of(resultDoc()));
+    component.ngOnInit();
+
+    params$.next(convertToParamMap({ results: 'run-1_SPY_target-90' }));
+    await flush();
+    await flush();
+
+    expect(analysis.getResultDoc$).toHaveBeenCalledWith('run-1_SPY_target-90');
+    const plotted = store.plottedContracts()[QQQ_PUT];
+    expect(plotted?.entry.markerDates).toEqual(['2026-06-10', '2026-06-19']);
+    // The results send bypasses the list-picker flow entirely.
+    expect(
+      dialog.open.mock.calls.filter(([c]) => c === ContractListPickerComponent),
+    ).toHaveLength(0);
+  });
+
+  it('?results= is consumed once and cleared from the URL', async () => {
+    const { component, params$ } = setup();
+    const router = TestBed.inject(Router) as unknown as { navigate: jest.Mock };
+    const analysis = TestBed.inject(OptionsAnalysisRunsService) as unknown as {
+      getResultDoc$: jest.Mock;
+    };
+    analysis.getResultDoc$.mockReturnValue(of(resultDoc()));
+    component.ngOnInit();
+
+    params$.next(convertToParamMap({ results: 'run-1_SPY_target-90' }));
+    await flush();
+    await flush();
+
+    expect(router.navigate).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({
+        queryParams: { results: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      }),
+    );
+    params$.next(convertToParamMap({}));
+    await flush();
+    expect(analysis.getResultDoc$).toHaveBeenCalledTimes(1);
+  });
+
+  it('?results= refuses a stale-registry doc — re-run Analyze before charting', async () => {
+    const { component, store, params$ } = setup();
+    const analysis = TestBed.inject(OptionsAnalysisRunsService) as unknown as {
+      getResultDoc$: jest.Mock;
+    };
+    analysis.getResultDoc$.mockReturnValue(
+      of(resultDoc({ registryVersion: EXIT_REGISTRY_VERSION - 1 })),
+    );
+    component.ngOnInit();
+
+    params$.next(convertToParamMap({ results: 'run-1_SPY_target-90' }));
+    await flush();
+    await flush();
+
+    expect(store.plottedContracts()[QQQ_PUT]).toBeUndefined();
   });
 
   it('a superseded ?list= resolves late but does not apply — latest link wins', async () => {

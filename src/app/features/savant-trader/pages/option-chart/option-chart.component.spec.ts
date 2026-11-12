@@ -21,6 +21,7 @@ import { LocalBarReadService } from '../../../../core/services/local-bar-read.se
 import { plottedSeriesColor } from '../../components/options-contract-chart/options-contract-chart-series.builder';
 import type { PartnerHistoricalOptionsContractV2Response } from '../../../../core/models/partner.types';
 import type { OhlcBar } from '../../../../core/models/market-data.types';
+import { OptionsAnalysisRunsService } from '../../backtest/services/options-analysis-runs.service';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
 import type { ContractListRow } from '@options-replay/contracts';
@@ -85,6 +86,7 @@ function setup(getHistorical?: jest.Mock, dialogResult = true, bars: OhlcBar[] =
       { provide: LocalBarReadService, useValue: barService },
       { provide: DsDialogService, useValue: dialog },
       { provide: OptionsReplayRunsService, useValue: replayService },
+      { provide: OptionsAnalysisRunsService, useValue: { getResultDoc$: jest.fn(() => of(null)) } },
     ],
   });
 

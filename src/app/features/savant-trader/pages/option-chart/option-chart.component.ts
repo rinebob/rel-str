@@ -230,6 +230,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.page.initSession();
     this.replay.bindRuns();
     this.list.bindDeepLink();
+    this.list.bindResultsDeepLink();
   }
 
   ngOnDestroy(): void {

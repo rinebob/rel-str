@@ -17,6 +17,8 @@ import { OptionsContractViewerStore } from '../../stores/options-contract-viewer
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import { ContractListSessionStore } from '../../stores/contract-list-session.store';
 import { ContractListService } from '../../services/contract-list.service';
+import { OptionsAnalysisRunsService } from '../../backtest/services/options-analysis-runs.service';
+import { EXIT_REGISTRY_VERSION } from '@options-analysis/registry';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
@@ -32,6 +34,7 @@ import { OptionChartLoadService } from './option-chart-load.service';
 import { OptionChartListService } from './option-chart-list.service';
 import { OptionChartReplayService } from './option-chart-replay.service';
 import { OptionChartGeneratorService } from './option-chart-generator.service';
+import { ContractListPickerComponent } from '../../components/contract-list-picker/contract-list-picker.component';
 
 const pickRow = (entryDate: string, contractId: string): ContractListPickRow => ({
   kind: 'pick',
@@ -87,6 +90,7 @@ function setup() {
       },
       { provide: ContractAvailabilityService, useValue: { queryContractAvailability$: jest.fn() } },
       { provide: ContractListService, useValue: { getList$: jest.fn(() => of(null)), recentLists$: jest.fn(() => of([])) } },
+      { provide: OptionsAnalysisRunsService, useValue: { getResultDoc$: jest.fn(() => of(null)) } },
       { provide: OptionsReplayRunsService, useValue: { watchRuns: jest.fn(() => of([])), watchContractList: jest.fn(() => of(null)) } },
       { provide: LocalBarReadService, useValue: { getDailyBarsForRange$: jest.fn(() => of([])) } },
       { provide: DsDialogService, useValue: { open: jest.fn(() => ({ afterClosed: () => of(undefined) })), openDialogs: [] } },
@@ -582,3 +586,112 @@ describe('OptionChartListService / OptionChartGeneratorService — page scoping'
   });
 });
 
+// #1431 item 12 — ?results= deep link: result doc → plotted entries.
+describe('OptionChartListService — analysis-results deep link', () => {
+  beforeEach(() => localStorage.clear());
+
+  const resultDoc = (over: Record<string, unknown> = {}) => ({
+    contractListDocId: 'run-1_SPY',
+    runId: 'run-1',
+    symbol: 'QQQ',
+    templateId: 'csp-45-20',
+    exitId: 'target-90',
+    registryVersion: EXIT_REGISTRY_VERSION,
+    status: 'success',
+    trades: [
+      {
+        runId: 'run-1',
+        symbol: 'QQQ',
+        templateId: 'csp-45-20',
+        contractListDocId: 'run-1_SPY',
+        exitId: 'target-90',
+        pickDate: '2026-06-10',
+        contractId: 'QQQ260619P00470000',
+        entryMark: 2.5,
+        daysHeld: 9,
+        mae: { value: 1.2, date: '2026-06-12' },
+        mfe: { value: 3.1, date: '2026-06-18' },
+        outcome: 'exit',
+        exitDate: '2026-06-19',
+        exitPrice: 0.25,
+      },
+    ],
+    aggregate: {
+      exitId: 'target-90',
+      contractCount: 1,
+      exitedCount: 1,
+      expiredCount: 0,
+      openCount: 0,
+      errorCount: 0,
+    },
+    generatedAt: '2026-11-10T00:00:00Z',
+    ...over,
+  });
+
+  it('a success doc emits its contracts with pick + exit markers', async () => {
+    const { list, load } = setup();
+    (TestBed.inject(OptionsAnalysisRunsService).getResultDoc$ as jest.Mock)
+      .mockReturnValue(of(resultDoc()));
+    const emit = jest.spyOn(load, 'emitEntriesToChart').mockImplementation(() => {});
+
+    await list.onResultsDocId('run-1_SPY_target-90');
+
+    expect(emit).toHaveBeenCalledWith([
+      {
+        contractId: 'QQQ260619P00470000',
+        openDate: '2026-06-10',
+        markerDates: ['2026-06-10', '2026-06-19'],
+      },
+    ]);
+    expect(list.listErrorText()).toBeNull();
+  });
+
+  it('a missing doc names its error and emits nothing', async () => {
+    const { list, load } = setup();
+    (TestBed.inject(OptionsAnalysisRunsService).getResultDoc$ as jest.Mock)
+      .mockReturnValue(of(null));
+    const emit = jest.spyOn(load, 'emitEntriesToChart').mockImplementation(() => {});
+
+    await list.onResultsDocId('run-1_SPY_target-90');
+
+    expect(list.listErrorText()).toContain('not found');
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('a failed doc names its status and emits nothing', async () => {
+    const { list, load } = setup();
+    (TestBed.inject(OptionsAnalysisRunsService).getResultDoc$ as jest.Mock)
+      .mockReturnValue(of(resultDoc({ status: 'failed' })));
+    const emit = jest.spyOn(load, 'emitEntriesToChart').mockImplementation(() => {});
+
+    await list.onResultsDocId('run-1_SPY_target-90');
+
+    expect(list.listErrorText()).toContain("status 'failed'");
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('a fetch error names the failure and emits nothing', async () => {
+    const { list, load } = setup();
+    (TestBed.inject(OptionsAnalysisRunsService).getResultDoc$ as jest.Mock)
+      .mockReturnValue(throwError(() => new Error('permission-denied')));
+    const emit = jest.spyOn(load, 'emitEntriesToChart').mockImplementation(() => {});
+
+    await list.onResultsDocId('run-1_SPY_target-90');
+
+    expect(list.listErrorText()).toContain('failed to load');
+    expect(list.listErrorText()).toContain('permission-denied');
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('a doc with no contract records names it instead of emitting an empty set', async () => {
+    const { list, load } = setup();
+    (TestBed.inject(OptionsAnalysisRunsService).getResultDoc$ as jest.Mock)
+      .mockReturnValue(of(resultDoc({ trades: [] })));
+    const emit = jest.spyOn(load, 'emitEntriesToChart').mockImplementation(() => {});
+
+    await list.onResultsDocId('run-1_SPY_target-90');
+
+    expect(list.listErrorText()).toContain('no contract records');
+    expect(emit).not.toHaveBeenCalled();
+  });
+});

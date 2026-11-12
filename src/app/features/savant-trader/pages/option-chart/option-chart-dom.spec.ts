@@ -17,6 +17,7 @@ import { OptionsContractService } from '../../services/options-contract.service'
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { ContractListService } from '../../services/contract-list.service';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
+import { OptionsAnalysisRunsService } from '../../backtest/services/options-analysis-runs.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 
@@ -72,6 +73,7 @@ describe('OptionChartComponent — panel toggle (DOM, #1423)', () => {
         { provide: ContractAvailabilityService, useValue: { queryContractAvailability$: jest.fn() } },
         { provide: ContractListService, useValue: { getList$: jest.fn(() => of(null)), recentLists$: jest.fn(() => of([])) } },
         { provide: OptionsReplayRunsService, useValue: { watchRuns: jest.fn(() => of([])), watchContractList: jest.fn(() => of(null)) } },
+        { provide: OptionsAnalysisRunsService, useValue: { getResultDoc$: jest.fn(() => of(null)) } },
         { provide: LocalBarReadService, useValue: { getDailyBarsForRange$: jest.fn(() => of([])) } },
         { provide: DsDialogService, useValue: { open: jest.fn(), openDialogs: [], closeAll: jest.fn() } },
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },

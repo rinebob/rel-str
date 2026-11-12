@@ -20,6 +20,7 @@ import { OPTION_CHART_PAGE_PROVIDERS } from './option-chart-page.providers';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
+import { OptionsAnalysisRunsService } from '../../backtest/services/options-analysis-runs.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import type { PartnerHistoricalOptionsContractV2Response } from '../../../../core/models/partner.types';
 
@@ -58,6 +59,7 @@ function setup(): Setup {
       // its store + unit injects.
       ...OPTION_CHART_PAGE_PROVIDERS,
       { provide: ContractListService, useValue: { getList$: jest.fn(() => of(null)), recentLists$: jest.fn(() => of([])) } },
+      { provide: OptionsAnalysisRunsService, useValue: { getResultDoc$: jest.fn(() => of(null)) } },
       { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
       { provide: Router, useValue: { navigate: jest.fn() } },
       {

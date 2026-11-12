@@ -77,33 +77,10 @@ export class OptionChartLoadService {
       return;
     }
 
-    // The entries were parsed (and the symbol retargeted) before this
-    // await — a swap landing while the confirm is open must drop the
-    // stale parsed set instead of plotting it under the new symbol.
-    const symAtSend = this.page.symbol();
-    if (keep.length > LARGE_LIST_WARN_THRESHOLD) {
-      this.loadConfirmOpen = true;
-      try {
-        const ok = await firstValueFrom(
-          this.dialog
-            .open(ConfirmDialogComponent, {
-              data: {
-                message: `This will load ${keep.length} option contracts — the chart may be slow and hard to read. Load all ${keep.length}?`,
-                confirmLabel: 'Load',
-                cancelLabel: 'Cancel',
-              },
-            })
-            .afterClosed(),
-        );
-        if (!ok) return;
-      } finally {
-        this.loadConfirmOpen = false;
-      }
-      if (this.page.symbol() !== symAtSend) return;
-    }
-
-    if (sentLines !== undefined) this.page.occIdInput = text;
-    await this.store.loadPlotted(keep);
+    // The textarea write stays past the confirm — a cancelled send can't
+    // leave the field disagreeing with the plotted set.
+    const loaded = await this.confirmAndLoad(keep);
+    if (loaded && sentLines !== undefined) this.page.occIdInput = text;
   }
 
   /** Derive the load's target underlying from the entries and swap the
@@ -125,6 +102,38 @@ export class OptionChartLoadService {
     return keep;
   }
 
+  /** The >50 confirm + loadPlotted tail — shared by the textarea path
+   *  and programmatic entry sends (analysis results, #1431). Returns
+   *  false when the user cancels the large-list confirm — or when the
+   *  symbol swapped mid-confirm: the entries were parsed against the old
+   *  session, and loading them now would re-plot foreign contracts under
+   *  the new symbol (the same overlay defect the swap reset closes). */
+  private async confirmAndLoad(entries: PlottedEntry[]): Promise<boolean> {
+    const symAtSend = this.page.symbol();
+    if (entries.length > LARGE_LIST_WARN_THRESHOLD) {
+      this.loadConfirmOpen = true;
+      try {
+        const ok = await firstValueFrom(
+          this.dialog
+            .open(ConfirmDialogComponent, {
+              data: {
+                message: `This will load ${entries.length} option contracts — the chart may be slow and hard to read. Load all ${entries.length}?`,
+                confirmLabel: 'Load',
+                cancelLabel: 'Cancel',
+              },
+            })
+            .afterClosed(),
+        );
+        if (!ok) return false;
+      } finally {
+        this.loadConfirmOpen = false;
+      }
+      if (this.page.symbol() !== symAtSend) return false;
+    }
+    await this.store.loadPlotted(entries);
+    return true;
+  }
+
   /** Send handoff — drawer/picker emits pair lines through the same
    *  textarea + loadPlotted path as a paste, so replace semantics stay
    *  identical. A pending >50 confirm drops the send rather than
@@ -132,6 +141,37 @@ export class OptionChartLoadService {
   emitLinesToChart(lines: string[]): void {
     if (this.loadConfirmOpen) return;
     void this.onLoad(lines.join('\n'));
+  }
+
+  /** Pre-built entry send (#1431) — analysis results arrive as
+   *  PlottedEntry[] (markers already folded per contract) and skip
+   *  parsing straight into the shared confirm+load tail. On a
+   *  successful load the textarea is rewritten to one `date,id` line
+   *  per marker date — `parsePlottedEntries` unions repeated lines
+   *  back into `markerDates`, so a re-paste/re-load of the field
+   *  round-trips the full plotted set, dots included (the same
+   *  field/plotted-set invariant `onLoad` maintains). */
+  emitEntriesToChart(entries: PlottedEntry[]): void {
+    if (this.loadConfirmOpen || entries.length === 0) return;
+    // The send's own underlying picks the page symbol too — a
+    // foreign-symbol results set auto-swaps rather than plotting under
+    // the wrong underlying.
+    const rejected: RejectedEntry[] = [];
+    const keep = this.retargetUnderlying(entries, rejected);
+    // Sends never parse tokens — a stale notice from a previous paste
+    // shouldn't ride above the fresh send's chips.
+    this.rejectedEntries.set(rejected);
+    if (keep.length === 0) return;
+    void this.confirmAndLoad(keep).then((loaded) => {
+      if (!loaded) return;
+      this.page.occIdInput = keep
+        .flatMap((e) =>
+          e.markerDates?.length
+            ? e.markerDates.map((d) => `${d},${e.contractId}`)
+            : [e.openDate ? `${e.openDate},${e.contractId}` : e.contractId],
+        )
+        .join('\n');
+    });
   }
 
   rejectionReasonLabel(reason: RejectedReason): string {

@@ -16,6 +16,10 @@ import {
   contractListDocError,
 } from '../../stores/contract-list-session.store';
 import { ContractListService } from '../../services/contract-list.service';
+import { OptionsAnalysisRunsService } from '../../backtest/services/options-analysis-runs.service';
+import { EXIT_REGISTRY_VERSION } from '@options-analysis/registry';
+import type { AnalysisResultDoc } from '@options-analysis/contracts';
+import { resultDocToPlottedEntries } from '../../utils/analysis-results-emit.util';
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
 import { ContractListChooserComponent } from '../../components/contract-list-chooser/contract-list-chooser.component';
 import {
@@ -31,6 +35,7 @@ export class OptionChartListService {
   private readonly load = inject(OptionChartLoadService);
   private readonly listStore = inject(ContractListSessionStore);
   private readonly listService = inject(ContractListService);
+  private readonly analysisService = inject(OptionsAnalysisRunsService);
   private readonly dialog = inject(DsDialogService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -71,30 +76,93 @@ export class OptionChartListService {
    *  the store, so the new selection/chunk state shows through. */
   private pickerRef: DsDialogRef<ContractListPickerComponent> | null = null;
 
-  /** `?list={docId}` deep-link — distinctUntilChanged on the param so
-   *  unrelated query emissions can't retrigger a load (option-chain
-   *  pattern); an absent param never fires. The param is consumed once
-   *  and cleared — left in the URL it would re-fire the load (and
-   *  reopen the picker) on every refresh. replaceUrl keeps the
-   *  consumed link out of history; the cleared emission is a no-op.
-   *  Called once from the page's ngOnInit. */
+  /** `?list={docId}` deep-link — contract-list picker send. Called once
+   *  from the page's ngOnInit. */
   bindDeepLink(): void {
+    this.bindQueryParamLink('list', (docId) => void this.onContractListDocId(docId));
+  }
+
+  /** `?results={listDocId}_{exitId}` deep link (#1431) — the analysis
+   *  page's per-rule send. Contracts emit to the chart with pick-day +
+   *  terminal markers per record. Called once from ngOnInit. */
+  bindResultsDeepLink(): void {
+    this.bindQueryParamLink('results', (docId) => void this.onResultsDocId(docId));
+  }
+
+  /** Shared consume-once deep-link pipe — distinctUntilChanged on the
+   *  param so unrelated query emissions can't retrigger a load; an
+   *  absent param never fires. The param is cleared via replaceUrl —
+   *  left in the URL it would re-fire on every refresh; the cleared
+   *  emission is a no-op. */
+  private bindQueryParamLink(param: string, handler: (id: string) => void): void {
     this.route.queryParamMap
       .pipe(
-        map((params) => params.get('list')),
+        map((params) => params.get(param)),
         distinctUntilChanged(),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((raw) => {
         if (raw == null) return;
         void this.router.navigate([], {
-          queryParams: { list: null },
+          queryParams: { [param]: null },
           queryParamsHandling: 'merge',
           replaceUrl: true,
         });
-        const docId = raw.trim();
-        if (docId) void this.onContractListDocId(docId);
+        const id = raw.trim();
+        if (id) handler(id);
       });
+  }
+
+  /** Result doc → plotted entries → chart. Missing/failed docs name
+   *  their error via the page list-error channel; a cross-symbol result
+   *  switches the page first (same rule as contract lists). */
+  async onResultsDocId(docId: string): Promise<void> {
+    const seq = ++this.listDocReqSeq;
+    this.listError.set(null);
+    let doc: AnalysisResultDoc | null;
+    try {
+      doc = await firstValueFrom(this.analysisService.getResultDoc$(docId));
+    } catch (err) {
+      if (seq === this.listDocReqSeq) {
+        this.listError.set(
+          `Analysis results "${docId}" failed to load: ${(err as Error)?.message ?? 'unknown error'}`,
+        );
+      }
+      return;
+    }
+    if (seq !== this.listDocReqSeq) return;
+    if (!doc) {
+      this.listError.set(`Analysis results "${docId}" not found`);
+      return;
+    }
+    if (doc.status !== 'success') {
+      this.listError.set(`Analysis results "${docId}" did not complete (status '${doc.status}')`);
+      return;
+    }
+    // Stale registry → refuse to plot silently: record/aggregate shape
+    // and hit-rate semantics changed since the doc was written (same
+    // gate the results page's 'stale' chip signals).
+    if (doc.registryVersion !== EXIT_REGISTRY_VERSION) {
+      this.listError.set(
+        `Analysis results "${docId}" are stale (registry v${doc.registryVersion} vs current v${EXIT_REGISTRY_VERSION}) — re-run Analyze before charting`,
+      );
+      return;
+    }
+    const entries = resultDocToPlottedEntries(doc);
+    if (entries.length === 0) {
+      this.listError.set(`Analysis results "${docId}" contain no contract records`);
+      return;
+    }
+    this.switchSymbolForDoc(doc.symbol.trim().toUpperCase());
+    this.load.emitEntriesToChart(entries);
+  }
+
+  /** Cross-symbol docs switch the page first (the swap hook inside
+   *  onSymbolChange drops the stale rejection notice). */
+  private switchSymbolForDoc(sym: string): void {
+    if (sym && sym !== this.page.symbol().trim().toUpperCase()) {
+      this.page.onSymbolChange(sym);
+    }
   }
 
   /** `?list=` entry — one read for the symbol check, then the shared
@@ -142,10 +210,7 @@ export class OptionChartListService {
       this.listError.set(docErr);
       return;
     }
-    const sym = doc.symbol.trim().toUpperCase();
-    if (sym && sym !== this.page.symbol().trim().toUpperCase()) {
-      this.page.onSymbolChange(sym);
-    }
+    this.switchSymbolForDoc(doc.symbol.trim().toUpperCase());
     this.listStore.loadListDoc(doc);
     if (this.listStore.status() === 'ready') {
       this.openListPicker();
@@ -171,7 +236,8 @@ export class OptionChartListService {
 
   /** Session → picker dialog. Send emits through the `onSend` data
    *  callback then closes (#1419); reopening uses the same session
-   *  store, so selection/cursor are preserved. */
+   *  store, so selection/cursor are preserved. An open picker already
+   *  tracks the store — a second open would stack a duplicate dialog. */
   openListPicker(): void {
     if (this.pickerRef) return;
     const ref = this.dialog.open(ContractListPickerComponent, {
