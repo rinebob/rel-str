@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-11-11]
+
+### Added
+- [Option Contract Time-Series Viewer] 1243-1423_FE-IMPL-OPTIONS: plotted-contract emphasis — contract-id-anchored series specs (reorder-safe hover), chip hover/pin state, focus gate, stranded hover/pin release on load failures
+
+### Changed
+- [Option Contract Time-Series Viewer] 1243-1423_FE-IMPL-OPTIONS: option-chart shell — selector drawer left, chips column right, chart full-height; rejected-token notice relocated to chips column; <960px drawer overlay; onSymbolSwitched hook clears notice on every swap path
+- [Option Contract Time-Series Viewer] 1243-1423_DOCS-OPTIONS: #1423 code-review (PASS, 3 rounds) + UAT (Complete, #1464) + changelog
+
 ## [2026-11-10]
 
 ### Fixed
