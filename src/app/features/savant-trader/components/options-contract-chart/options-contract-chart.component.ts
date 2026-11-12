@@ -376,20 +376,13 @@ export class OptionsContractChartComponent implements OnDestroy {
     }),
   );
 
-  /** Series-collection index → contractId. Marks map by ordinal — the
-   *  builder pushes them in plottedSeries order, so the k-th mark spec is
-   *  the k-th contract (label-keyed lookup would collide on duplicate
-   *  labels). Marker names carry the id via MARKER_NAME_PREFIX;
-   *  underlying/pane entries are not contracts. */
-  private readonly seriesContractIds = computed<(string | null)[]>(() => {
-    const contracts = this.plottedSeries();
-    let markIdx = 0;
-    return this.seriesCollection().map((s) => {
-      if (s.role === 'mark') return contracts[markIdx++]?.contractId ?? null;
-      if (s.role === 'marker') return s.name.slice(MARKER_NAME_PREFIX.length);
-      return null;
-    });
-  });
+  /** Series-collection index → contractId. Mark/marker specs carry their
+   *  contractId on the spec — the map survives the builder's z-order
+   *  reorder, which an ordinal/index map would not. Underlying/pane
+   *  entries are not contracts. */
+  private readonly seriesContractIds = computed<(string | null)[]>(() =>
+    this.seriesCollection().map((s) => s.contractId ?? null),
+  );
 
   private lastHoverEmitted: string | null = null;
 

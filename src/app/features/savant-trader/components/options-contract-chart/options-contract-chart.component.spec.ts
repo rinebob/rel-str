@@ -159,13 +159,28 @@ describe('OptionsContractChartComponent', () => {
       fixture.detectChanges();
 
       const marks = markSeries();
-      expect(marks[0].opacity).toBe(1);
-      expect(marks[0].width).toBe(3);
-      expect(marks[1].opacity).toBe(0.25);
+      const markA = marks.find((s) => s.name === '600C 2026-01-16')!;
+      const markB = marks.find((s) => s.name === 'B')!;
+      expect(markA.opacity).toBe(1);
+      expect(markA.width).toBe(3);
+      expect(markB.opacity).toBe(0.25);
+      // Z-order: the lit series reorders last — Syncfusion paints in
+      // array order, so the bold line draws over the dimmed set.
+      expect(marks.at(-1)!.name).toBe('600C 2026-01-16');
 
       const markers = markerSeries();
-      expect(markers.find((s) => s.name.endsWith(a.contractId))!.opacity).toBe(1);
-      expect(markers.find((s) => s.name.endsWith(b.contractId))!.opacity).toBe(0.25);
+      const spanA = markers.find((s) => s.name.endsWith(a.contractId))!;
+      const spanB = markers.find((s) => s.name.endsWith(b.contractId))!;
+      expect(spanA.opacity).toBe(1);
+      expect(spanB.opacity).toBe(0.25);
+      // The hovered span bolds like the mark line; the dimmed span's dots
+      // fade via marker-level opacity as well as the series line.
+      expect(spanA.width).toBe(3);
+      expect(spanA.marker!.width).toBe(11);
+      expect(spanA.marker!.opacity).toBe(1);
+      expect(spanB.width).toBe(1.5);
+      expect(spanB.marker!.opacity).toBe(0.25);
+      expect(markers.at(-1)!.name.endsWith(a.contractId)).toBe(true);
     });
 
     it('no highlight — every series at full weight', () => {
@@ -457,6 +472,28 @@ describe('OptionsContractChartComponent', () => {
       // marks[0,1], then markers[2,3], then underlying — b's marker is index 3
       mouseOver('chart_Series_3');
       expect(emitted).toEqual([b.contractId]);
+    });
+
+    it('highlighted z-order reorder — hover resolves by spec contractId, not position', () => {
+      const { a, b } = twoContracts();
+      fixture.componentRef.setInput('highlightedContractId', a.contractId);
+      fixture.detectChanges();
+
+      // a's mark+span reorder to the end: collection =
+      // [mark_b, span_b, underlying, mark_a, span_a]. An ordinal
+      // index→contract map would call Series_0 "a" — the spec-tagged map
+      // resolves the real id at every index.
+      const emitted: (string | null)[] = [];
+      component.seriesHovered.subscribe((id) => emitted.push(id));
+
+      mouseOver('chart_Series_0'); // mark_b — NOT a, despite a's reorder
+      expect(emitted).toEqual([b.contractId]);
+
+      mouseOver('chart_Series_2'); // underlying — still not a contract
+      expect(emitted).toEqual([b.contractId, null]);
+
+      mouseOver('chart_Series_3'); // mark_a landed at the hot end
+      expect(emitted).toEqual([b.contractId, null, a.contractId]);
     });
 
     it('hovering a legend item emits the mark contract id; non-contract legend items emit null', () => {

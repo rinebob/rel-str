@@ -50,6 +50,10 @@ export type ChartSeriesRole = 'mark' | 'marker' | 'underlying' | 'pane';
  *  fields this chart actually sets (Syncfusion accepts the superset). */
 export interface ChartSeriesSpec {
   role: ChartSeriesRole;
+  /** Owning contract for mark/marker roles — the hover map resolves the
+   *  hovered series straight off this field, so spec order is free to
+   *  reorder for z-ordering. Absent on underlying/pane roles. */
+  contractId?: string;
   type: 'Line' | 'Column';
   name: string;
   dataSource: unknown[];
@@ -60,7 +64,7 @@ export interface ChartSeriesSpec {
   dashArray?: string;
   fill?: string;
   opacity?: number;
-  marker?: { visible: boolean; shape?: string; width?: number; height?: number; fill?: string };
+  marker?: { visible: boolean; shape?: string; width?: number; height?: number; fill?: string; opacity?: number };
   animation?: { enable: boolean };
   enableTooltip?: boolean;
   emptyPointSettings?: { mode: string };
@@ -91,6 +95,8 @@ export const plottedSeriesColor = (index: number): string =>
 const NO_MARKER = { visible: false };
 const NO_ANIMATION = { enable: false };
 const GAPS = { mode: 'Gap' };
+/** Fade applied to every mark line / span / dot that isn't highlighted. */
+const DIM_OPACITY = 0.25;
 
 /** Strike-span markers: earliest pick day → expiration at the contract's
  *  strike, with a vertex (dot) at every pick day. The left edge marks the
@@ -147,10 +153,11 @@ export function buildSeriesCollection(input: SeriesBuildInput): ChartSeriesSpec[
 
   const hi = input.highlightedContractId ?? null;
 
-  input.contracts.forEach((c, i) => {
+  const marks: ChartSeriesSpec[] = input.contracts.map((c, i) => {
     const dimmed = hi != null && c.contractId !== hi;
-    series.push({
+    return {
       role: 'mark',
+      contractId: c.contractId,
       type: 'Line',
       name: c.label,
       dataSource: input.alignedMarks[i],
@@ -158,17 +165,21 @@ export function buildSeriesCollection(input: SeriesBuildInput): ChartSeriesSpec[
       yName: 'value',
       width: c.contractId === hi ? 3 : 2,
       fill: plottedSeriesColor(i),
-      opacity: dimmed ? 0.25 : 1,
+      opacity: dimmed ? DIM_OPACITY : 1,
       marker: NO_MARKER,
       animation: NO_ANIMATION,
       emptyPointSettings: GAPS,
-    });
+    };
   });
 
+  const markerSpecs: ChartSeriesSpec[] = [];
   for (const span of input.markers) {
     const color = plottedSeriesColor(span.index);
-    series.push({
+    const dimmed = hi != null && span.contractId !== hi;
+    const hot = span.contractId === hi;
+    markerSpecs.push({
       role: 'marker',
+      contractId: span.contractId,
       type: 'Line',
       name: `${MARKER_NAME_PREFIX}${span.contractId}`,
       // One vertex per pick day plus expiration — all at strike, so the
@@ -179,15 +190,35 @@ export function buildSeriesCollection(input: SeriesBuildInput): ChartSeriesSpec[
       xName: 'date',
       yName: 'value',
       yAxisName: 'underlyingAxis',
-      width: 1.5,
+      // Highlight mirrors the mark line's treatment: the hovered span goes
+      // bold, every other span fades. The dots get an explicit opacity too —
+      // a dimmed span's markers have to fade, not just its line.
+      width: hot ? 3 : 1.5,
       dashArray: '3,3',
       fill: color,
-      opacity: hi != null && span.contractId !== hi ? 0.25 : 1,
-      marker: { visible: true, shape: 'Circle', width: 8, height: 8, fill: color },
+      opacity: dimmed ? DIM_OPACITY : 1,
+      marker: {
+        visible: true,
+        shape: 'Circle',
+        width: hot ? 11 : 8,
+        height: hot ? 11 : 8,
+        fill: color,
+        opacity: dimmed ? DIM_OPACITY : 1,
+      },
       animation: NO_ANIMATION,
       enableTooltip: false,
     });
   }
+
+  // Syncfusion paints series in array order — the highlighted contract's
+  // mark+span land at the END of the visual layer, above every dimmed
+  // series and the underlying context line.
+  const rest: ChartSeriesSpec[] = [];
+  const hot: ChartSeriesSpec[] = [];
+  for (const s of [...marks, ...markerSpecs]) {
+    (s.contractId === hi ? hot : rest).push(s);
+  }
+  series.push(...rest);
 
   if (input.showUnderlying && input.underlying.length > 0) {
     series.push({
@@ -209,6 +240,7 @@ export function buildSeriesCollection(input: SeriesBuildInput): ChartSeriesSpec[
       emptyPointSettings: { mode: 'Drop' },
     });
   }
+  series.push(...hot);
 
   // Lower panes only exist for the single-contract view.
   const single = input.contracts.length === 1 ? input.contracts[0].points : [];

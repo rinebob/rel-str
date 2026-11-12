@@ -34,6 +34,10 @@ export interface PlottedContractsState {
   plottedLoadProgress: { done: number; total: number } | null;
   displayWindow: DisplayWindow;
   hoveredContractId: string | null;
+  /** Chip-click pin — keeps one contract highlighted while the pointer is
+   *  elsewhere (e.g. scrolled down the chips column to check entries).
+   *  Session-only tracking aid; never persisted. */
+  pinnedContractId: string | null;
   /** Chart view intent: the contract ID the chart should show instead of
    *  the whole plotted set. Set by any contract load (chip drill-down and
    *  the plain single-contract input take the same path); cleared by
@@ -46,6 +50,7 @@ export const initialPlottedState: PlottedContractsState = {
   plottedLoadProgress: null,
   displayWindow: 'lifetime',
   hoveredContractId: null,
+  pinnedContractId: null,
   chartFocusContractId: null,
 };
 
@@ -58,6 +63,7 @@ interface PlottedSignals {
   plottedLoadProgress: Signal<{ done: number; total: number } | null>;
   displayWindow: Signal<DisplayWindow>;
   hoveredContractId: Signal<string | null>;
+  pinnedContractId: Signal<string | null>;
   chartFocusContractId: Signal<string | null>;
   renderedSeries: Signal<Record<string, ParsedObservation[]>>;
   contractLength: Signal<string | null>;
@@ -76,6 +82,16 @@ export function withPlottedComputed() {
     return {
       /** Plotted contracts in insertion order (chips strip). */
       plottedList: computed((): PlottedContract[] => Object.values(s.plottedContracts())),
+
+      /** The id the chart should emphasize — live hover wins; otherwise the
+       *  click-pinned contract stays lit so it isn't lost while scrolling.
+       *  Suppressed under a focused drill-down: a stale pin/hover would dim
+       *  the single contract in its own view (it survives for the return
+       *  to the set). */
+      highlightedContractId: computed(
+        (): string | null =>
+          s.chartFocusContractId() == null ? s.hoveredContractId() ?? s.pinnedContractId() : null,
+      ),
 
       /** Multi mode = two or more plottable contracts (loading counts — the
        *  mode shouldn't flicker while fetches are in flight). */
@@ -225,6 +241,9 @@ export function withPlottedContracts() {
           chartFocusContractId: null,
           plottedContracts: next,
           hoveredContractId: hovered && !next[hovered] ? null : hovered,
+          // A fresh set load resets tracking — a pin pointing at a contract
+          // the new list doesn't carry would dim everything with no lit line.
+          pinnedContractId: null,
         });
 
         // Dated loads prepend ~50 sessions of underlying context (see
@@ -272,6 +291,14 @@ export function withPlottedContracts() {
                       error: (err as Error)?.message ?? 'Failed to load contract',
                     },
                   },
+                  // A hover/pin on the now-errored contract has no series
+                  // to light — and error chips can't be clicked to unpin,
+                  // so the state must release it here (mirror of
+                  // loadContractInternal's error release).
+                  hoveredContractId:
+                    s.hoveredContractId() === parsed.contractID ? null : s.hoveredContractId(),
+                  pinnedContractId:
+                    s.pinnedContractId() === parsed.contractID ? null : s.pinnedContractId(),
                 });
               }
             }
@@ -294,10 +321,12 @@ export function withPlottedContracts() {
         const next = { ...s.plottedContracts() };
         delete next[contractId];
         const hovered = s.hoveredContractId();
+        const pinned = s.pinnedContractId();
         const focused = s.chartFocusContractId();
         patchState(store, {
           plottedContracts: next,
           hoveredContractId: hovered === contractId ? null : hovered,
+          pinnedContractId: pinned === contractId ? null : pinned,
           chartFocusContractId: focused === contractId ? null : focused,
         });
         // Removing the focused chip returns to the set — restore the window
@@ -317,6 +346,14 @@ export function withPlottedContracts() {
         patchState(store, { hoveredContractId: contractId });
       },
 
+      /** Chip click — pin/unpin tracking. Pinning keeps the contract lit
+       *  once the pointer leaves (hover still takes precedence live). */
+      togglePinnedContract(contractId: string): void {
+        patchState(store, {
+          pinnedContractId: s.pinnedContractId() === contractId ? null : contractId,
+        });
+      },
+
       /** Single-contract drill-down — pushes the contract through the existing
        *  loadContract path so the lower panes get full data. The focus flag
        *  (set inside loadContract) tells the page to render the focused
@@ -325,7 +362,8 @@ export function withPlottedContracts() {
         s.loadContract(contractId, s.contractLength());
       },
 
-      /** Return to the plotted-set view (chips "back" affordance). */
+      /** Clear the focused-contract flag, returning the page to the
+       *  plotted-set view and restoring its context window. */
       clearChartFocus(): void {
         patchState(store, { chartFocusContractId: null });
         // Returning to the set restores the wide context window when a

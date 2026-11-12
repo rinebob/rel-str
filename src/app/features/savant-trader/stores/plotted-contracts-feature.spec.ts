@@ -193,6 +193,67 @@ describe('plotted contracts feature', () => {
     expect(store.hoveredContractId()).toBeNull();
   });
 
+  it('a fresh set load resets the pin', async () => {
+    const { store } = setup();
+    store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+    await flush();
+    store.togglePinnedContract(QQQ_CALL);
+
+    store.loadPlotted([entry(QQQ_PUT)]);
+    await flush();
+
+    expect(store.pinnedContractId()).toBeNull();
+    expect(store.highlightedContractId()).toBeNull();
+  });
+
+  it('removePlotted clears a pin on the removed contract', async () => {
+    const { store } = setup();
+    store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+    await flush();
+    store.togglePinnedContract(QQQ_PUT);
+
+    store.removePlotted(QQQ_PUT);
+
+    expect(store.pinnedContractId()).toBeNull();
+    expect(store.highlightedContractId()).toBeNull();
+  });
+
+  it('a focused drill-down suppresses hover/pin dimming — pin survives for the return', async () => {
+    const { store } = setup();
+    store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+    await flush();
+    store.togglePinnedContract(QQQ_PUT);
+    store.setHoveredContract(QQQ_CALL);
+
+    store.focusPlotted(QQQ_CALL);
+    await flush();
+
+    // The focus gate overrides both — a stale pin/hover must not dim the
+    // contract in its own single view. The pin stays for the set's return.
+    expect(store.highlightedContractId()).toBeNull();
+    expect(store.pinnedContractId()).toBe(QQQ_PUT);
+  });
+
+  it('a contract that fails mid-load releases its pin — error chips cannot be unpinned by click', async () => {
+    const getHistorical = jest.fn((_s: string, cid: string) =>
+      cid === QQQ_PUT
+        ? throwError(() => new Error('nope'))
+        : of(contractResponse(cid, ['2026-06-01'])),
+    );
+    const { store } = setup(getHistorical);
+    void store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+    // Mid-flight pin on the loading chip — legitimate (its span marker
+    // already renders) but the failure must release it.
+    store.togglePinnedContract(QQQ_PUT);
+    store.setHoveredContract(QQQ_PUT);
+    await flush();
+
+    expect(store.plottedContracts()[QQQ_PUT].status).toBe('error');
+    expect(store.pinnedContractId()).toBeNull();
+    expect(store.hoveredContractId()).toBeNull();
+    expect(store.highlightedContractId()).toBeNull();
+  });
+
   it('keeps successfully loaded contracts when others fail', async () => {
     const getHistorical = jest.fn((_s: string, cid: string) =>
       cid === QQQ_CALL
