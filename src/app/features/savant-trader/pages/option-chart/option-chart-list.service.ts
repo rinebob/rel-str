@@ -8,7 +8,7 @@
 import { Injectable, inject, computed, Injector, DestroyRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom, distinctUntilChanged, map } from 'rxjs';
+import { firstValueFrom, distinctUntilChanged, map, take } from 'rxjs';
 
 import { DsDialogRef, DsDialogService } from '../../../../shared/ds/ds-dialog';
 import {
@@ -27,7 +27,8 @@ import {
   type ContractListPickerData,
 } from '../../components/contract-list-picker/contract-list-picker.component';
 import { OptionChartPageService } from './option-chart-page.service';
-import { OptionChartLoadService } from './option-chart-load.service';
+import { LARGE_LIST_WARN_THRESHOLD, OptionChartLoadService } from './option-chart-load.service';
+import type { PlottedEntry } from '@options-contract/contracts';
 
 @Injectable()
 export class OptionChartListService {
@@ -76,6 +77,13 @@ export class OptionChartListService {
    *  the store, so the new selection/chunk state shows through. */
   private pickerRef: DsDialogRef<ContractListPickerComponent> | null = null;
 
+  /** The Send installed on the open picker — the results-narrow flow
+   *  substitutes a mapping callback for the default lines path, so an
+   *  open picker whose Send doesn't match the request can't serve it:
+   *  reusing it would emit through the wrong mapping (plain lines lose
+   *  markers; the results map over a list session emits nothing). */
+  private pickerOnSend: ((lines: string[]) => void) | null = null;
+
   /** `?list={docId}` deep-link — contract-list picker send. Called once
    *  from the page's ngOnInit. */
   bindDeepLink(): void {
@@ -83,8 +91,11 @@ export class OptionChartListService {
   }
 
   /** `?results={listDocId}_{exitId}` deep link (#1431) — the analysis
-   *  page's per-rule send. Contracts emit to the chart with pick-day +
-   *  terminal markers per record. Called once from ngOnInit. */
+   *  page's per-rule send. Under the threshold the result doc IS the
+   *  selection; over it the picker opens over the backing list doc so
+   *  the user can narrow first (#1471). Either way contracts emit to the
+   *  chart with pick-day + terminal markers per record. Called once
+   *  from ngOnInit. */
   bindResultsDeepLink(): void {
     this.bindQueryParamLink('results', (docId) => void this.onResultsDocId(docId));
   }
@@ -154,7 +165,77 @@ export class OptionChartListService {
       return;
     }
     this.switchSymbolForDoc(doc.symbol.trim().toUpperCase());
+    // Over the large-list threshold the yes/no confirm is a dead end —
+    // load the backing list doc into the session and open the picker so
+    // the user can narrow with its selection controls before anything
+    // plots (#1471).
+    if (entries.length > LARGE_LIST_WARN_THRESHOLD) {
+      this.openResultsNarrow(seq, doc, entries);
+      return;
+    }
     this.load.emitEntriesToChart(entries);
+  }
+
+  /** Result send over the threshold → the picker over the backing list
+   *  doc. The doc loads into the session with the result trades' pick
+   *  days pre-checked, then the picker opens with a results-aware Send:
+   *  its `entryDate,contractId` lines map back to the original entries,
+   *  so every marker date survives the narrowing and the large-list
+   *  confirm is skipped — the user already made the call inside the
+   *  picker (#1471). The mapping is contract-granular: a contract picked
+   *  on multiple days is one entry, and selecting any of its rows plots
+   *  the full marker set. A missing/invalid list doc degrades to the
+   *  plain emit (generic confirm) — the result doc stands alone. */
+  private openResultsNarrow(seq: number, doc: AnalysisResultDoc, entries: PlottedEntry[]): void {
+    const fallback = () => this.load.emitEntriesToChart(entries);
+    this.listService
+      .getList$(doc.contractListDocId)
+      .pipe(take(1))
+      .subscribe({
+        next: (list) => {
+          // A newer ?list=/?results= request supersedes this fetch —
+          // don't clobber its session with a stale list doc.
+          if (seq !== this.listDocReqSeq) return;
+          if (!list || contractListDocError(list, doc.contractListDocId)) {
+            fallback();
+            return;
+          }
+          // A picker already open (a prior ?list= send in this tab)
+          // owns the default Send — close it so the results-aware
+          // onSend installs on a fresh dialog rather than silently
+          // plotting plain lines without markers.
+          this.pickerRef?.close();
+          this.pickerRef = null;
+          this.listStore.loadListDoc(list);
+          if (this.listStore.status() !== 'ready') {
+            fallback();
+            return;
+          }
+          this.listStore.selectDates(new Set(doc.trades.map((t) => t.pickDate)));
+          const byContract = new Map(entries.map((e) => [e.contractId, e]));
+          const seen = new Set<string>();
+          this.openListPicker((lines) => {
+            const subset = lines
+              .map((line) => byContract.get(line.split(',')[1]?.trim() ?? ''))
+              .filter((e): e is PlottedEntry => {
+                if (!e || seen.has(e.contractId)) return false;
+                seen.add(e.contractId);
+                return true;
+              });
+            this.load.emitEntriesToChart(subset, { skipLargeConfirm: true });
+          });
+        },
+        error: (err: unknown) => {
+          if (seq !== this.listDocReqSeq) return;
+          // The narrowing picker is a nicety — the result doc stands
+          // alone, so name the failure and still send the full set
+          // through the generic confirm path.
+          this.listError.set(
+            `Contract list "${doc.contractListDocId}" failed to load (${(err as Error)?.message ?? 'unknown error'}) — loading the full result set`,
+          );
+          fallback();
+        },
+      });
   }
 
   /** Cross-symbol docs switch the page first (the swap hook inside
@@ -236,18 +317,32 @@ export class OptionChartListService {
 
   /** Session → picker dialog. Send emits through the `onSend` data
    *  callback then closes (#1419); reopening uses the same session
-   *  store, so selection/cursor are preserved. An open picker already
-   *  tracks the store — a second open would stack a duplicate dialog. */
-  openListPicker(): void {
-    if (this.pickerRef) return;
+   *  store, so selection/cursor are preserved. `onSend` defaults to the
+   *  plain lines path; the results narrow flow (#1471) substitutes a
+   *  callback that maps emitted lines back to result entries so exit
+   *  markers survive. */
+  openListPicker(onSend: (lines: string[]) => void = this.emitSessionLines): void {
+    // Same-send: the open picker already tracks the store — the fresh
+    // session state shows through, no second dialog. Different-send:
+    // close and reopen so the right Send installs instead of silently
+    // emitting through the stale mapping.
+    if (this.pickerRef) {
+      if (this.pickerOnSend === onSend) return;
+      this.pickerRef.close();
+      this.pickerRef = null;
+    }
     const ref = this.dialog.open(ContractListPickerComponent, {
       width: '85vw',
       maxWidth: '85vw',
       height: '85vh',
       injector: this.injector,
-      data: { onSend: this.emitSessionLines } satisfies ContractListPickerData,
+      data: { onSend } satisfies ContractListPickerData,
     });
     this.pickerRef = ref;
-    ref.afterClosed().subscribe(() => (this.pickerRef = null));
+    this.pickerOnSend = onSend;
+    ref.afterClosed().subscribe(() => {
+      this.pickerRef = null;
+      this.pickerOnSend = null;
+    });
   }
 }

@@ -694,4 +694,104 @@ describe('OptionChartListService — analysis-results deep link', () => {
     expect(list.listErrorText()).toContain('no contract records');
     expect(emit).not.toHaveBeenCalled();
   });
+
+  /** 51 distinct pick records — crosses LARGE_LIST_WARN_THRESHOLD. */
+  const bigTrades = Array.from({ length: 51 }, (_, i) => ({
+    runId: 'run-1',
+    symbol: 'QQQ',
+    templateId: 'csp-45-20',
+    contractListDocId: 'run-1_SPY',
+    exitId: 'target-90',
+    pickDate: '2026-06-10',
+    contractId: `QQQ260619P004${String(i).padStart(3, '0')}0`,
+    entryMark: 2.5,
+    daysHeld: 9,
+    mae: { value: 1.2, date: '2026-06-12' },
+    mfe: { value: 3.1, date: '2026-06-18' },
+    outcome: 'exit',
+    exitDate: '2026-06-19',
+    exitPrice: 0.25,
+  }));
+
+  it('over the large-list threshold the send opens the picker over the backing list doc — nothing emits until Send (#1471)', async () => {
+    const { list, load, listStore } = setup();
+    // initSession sets the session symbol in production — prime it so the
+    // list doc isn't rejected as a foreign symbol.
+    listStore.setSymbol('QQQ');
+    (TestBed.inject(OptionsAnalysisRunsService).getResultDoc$ as jest.Mock)
+      .mockReturnValue(of(resultDoc({ trades: bigTrades })));
+    (TestBed.inject(ContractListService).getList$ as jest.Mock)
+      .mockReturnValue(of(listDoc({ listId: 'run-1_SPY' })));
+    const emit = jest.spyOn(load, 'emitEntriesToChart').mockImplementation(() => {});
+    const dialog = TestBed.inject(DsDialogService) as unknown as { open: jest.Mock };
+
+    await list.onResultsDocId('run-1_SPY_target-90');
+
+    expect(dialog.open).toHaveBeenCalledWith(
+      ContractListPickerComponent,
+      expect.objectContaining({
+        data: expect.objectContaining({ onSend: expect.any(Function) }),
+      }),
+    );
+    // The result trades' pick days arrive pre-checked in the session.
+    expect(listStore.status()).toBe('ready');
+    expect([...listStore.selection()]).toEqual(['2026-06-10']);
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('the picker send maps lines back to result entries — markerDates survive verbatim and the confirm is skipped', async () => {
+    const { list, load, listStore } = setup();
+    listStore.setSymbol('QQQ');
+    (TestBed.inject(OptionsAnalysisRunsService).getResultDoc$ as jest.Mock)
+      .mockReturnValue(of(resultDoc({ trades: bigTrades })));
+    (TestBed.inject(ContractListService).getList$ as jest.Mock)
+      .mockReturnValue(of(listDoc({ listId: 'run-1_SPY' })));
+    const dialog = TestBed.inject(DsDialogService) as unknown as { open: jest.Mock };
+    const emit = jest.spyOn(load, 'emitEntriesToChart').mockImplementation(() => {});
+
+    await list.onResultsDocId('run-1_SPY_target-90');
+
+    const onSend = dialog.open.mock.calls[0][1].data.onSend as (lines: string[]) => void;
+    onSend(['2026-06-10,QQQ260619P0040000', '2026-06-10,QQQ260619P0040010']);
+
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0][0]).toEqual([
+      { contractId: 'QQQ260619P0040000', openDate: '2026-06-10', markerDates: ['2026-06-10', '2026-06-19'] },
+      { contractId: 'QQQ260619P0040010', openDate: '2026-06-10', markerDates: ['2026-06-10', '2026-06-19'] },
+    ]);
+    expect(emit).toHaveBeenCalledWith(expect.anything(), { skipLargeConfirm: true });
+  });
+
+  it('a missing backing list doc degrades to the plain emit — the result doc stands alone', async () => {
+    const { list, load } = setup();
+    (TestBed.inject(OptionsAnalysisRunsService).getResultDoc$ as jest.Mock)
+      .mockReturnValue(of(resultDoc({ trades: bigTrades })));
+    // ContractListService.getList$ stub defaults to of(null).
+    const emit = jest.spyOn(load, 'emitEntriesToChart').mockImplementation(() => {});
+    const dialog = TestBed.inject(DsDialogService) as unknown as { open: jest.Mock };
+
+    await list.onResultsDocId('run-1_SPY_target-90');
+
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0][0]).toHaveLength(51);
+    expect(dialog.open).not.toHaveBeenCalled();
+  });
+
+  it('an errored backing-list fetch names the failure and still emits the full set', async () => {
+    const { list, load } = setup();
+    (TestBed.inject(OptionsAnalysisRunsService).getResultDoc$ as jest.Mock)
+      .mockReturnValue(of(resultDoc({ trades: bigTrades })));
+    (TestBed.inject(ContractListService).getList$ as jest.Mock)
+      .mockReturnValue(throwError(() => new Error('permission-denied')));
+    const emit = jest.spyOn(load, 'emitEntriesToChart').mockImplementation(() => {});
+    const dialog = TestBed.inject(DsDialogService) as unknown as { open: jest.Mock };
+
+    await list.onResultsDocId('run-1_SPY_target-90');
+
+    expect(list.listErrorText()).toContain('failed to load');
+    expect(list.listErrorText()).toContain('permission-denied');
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0][0]).toHaveLength(51);
+    expect(dialog.open).not.toHaveBeenCalled();
+  });
 });

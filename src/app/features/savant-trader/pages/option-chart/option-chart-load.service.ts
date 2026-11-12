@@ -21,7 +21,7 @@ import { OptionChartPageService } from './option-chart-page.service';
 
 /** Pasting more than this many contracts asks for confirmation first — the
  *  chart stays usable but the fetch batch and line count get unwieldy. */
-const LARGE_LIST_WARN_THRESHOLD = 50;
+export const LARGE_LIST_WARN_THRESHOLD = 50;
 
 @Injectable()
 export class OptionChartLoadService {
@@ -108,9 +108,9 @@ export class OptionChartLoadService {
    *  symbol swapped mid-confirm: the entries were parsed against the old
    *  session, and loading them now would re-plot foreign contracts under
    *  the new symbol (the same overlay defect the swap reset closes). */
-  private async confirmAndLoad(entries: PlottedEntry[]): Promise<boolean> {
+  private async confirmAndLoad(entries: PlottedEntry[], skipLargeConfirm = false): Promise<boolean> {
     const symAtSend = this.page.symbol();
-    if (entries.length > LARGE_LIST_WARN_THRESHOLD) {
+    if (!skipLargeConfirm && entries.length > LARGE_LIST_WARN_THRESHOLD) {
       this.loadConfirmOpen = true;
       try {
         const ok = await firstValueFrom(
@@ -150,8 +150,13 @@ export class OptionChartLoadService {
    *  per marker date — `parsePlottedEntries` unions repeated lines
    *  back into `markerDates`, so a re-paste/re-load of the field
    *  round-trips the full plotted set, dots included (the same
-   *  field/plotted-set invariant `onLoad` maintains). */
-  emitEntriesToChart(entries: PlottedEntry[]): void {
+   *  field/plotted-set invariant `onLoad` maintains).
+   *
+   *  `skipLargeConfirm`: set when the entries already survived a
+   *  narrowing choice (the `?results=` pick dialog, #1471) — asking
+   *  "load all N?" again after the user just chose them is a
+   *  dead-end second dialog. */
+  emitEntriesToChart(entries: PlottedEntry[], opts?: { skipLargeConfirm?: boolean }): void {
     if (this.loadConfirmOpen || entries.length === 0) return;
     // The send's own underlying picks the page symbol too — a
     // foreign-symbol results set auto-swaps rather than plotting under
@@ -162,7 +167,7 @@ export class OptionChartLoadService {
     // shouldn't ride above the fresh send's chips.
     this.rejectedEntries.set(rejected);
     if (keep.length === 0) return;
-    void this.confirmAndLoad(keep).then((loaded) => {
+    void this.confirmAndLoad(keep, opts?.skipLargeConfirm === true).then((loaded) => {
       if (!loaded) return;
       this.page.occIdInput = keep
         .flatMap((e) =>
