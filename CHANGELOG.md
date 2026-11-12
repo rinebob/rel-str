@@ -3,9 +3,14 @@
 ## [2026-11-11]
 
 ### Added
+- [Portfolio Dashboard] 219-1411_FE-IMPL-PORTFOLIO: instrument-grouped orders tables — collapsible EQUITY/OPTION ORDERS groups, option contract labels (chain/strike/C-P/expiry), declared opening-only scope note
 - [Option Contract Time-Series Viewer] 1243-1423_FE-IMPL-OPTIONS: plotted-contract emphasis — contract-id-anchored series specs (reorder-safe hover), chip hover/pin state, focus gate, stranded hover/pin release on load failures
 
+### Fixed
+- [Portfolio Dashboard] 219-1411_FE-BUG-PORTFOLIO: order pagination walks (shared walkPages + round-batched store path) and option-order normalization — direction/leg side + leg executions; silent drops now warn
+
 ### Changed
+- [Portfolio Dashboard] 219-1411_DOCS-PORTFOLIO: #1411 audit + code review (PASS, 3 passes) + UAT (Complete, #1461) + refreshed order wire captures + changelog
 - [Trading Indicator Library] 261-1459_SHARED-IMPL-INDICATOR-LIB: anchored VWAP trigger-bar lines — surviving-pivot anchoring, pivot-indexed trigger pairing, gap-through dots on the bar open, per-set persist with unbounded null-separated fan; 18→26 fixed series
 - [Trading Indicator Library] 261-1459_FE-IMPL-INDICATOR-LIB: AVWAP settings dialog + always-visible toolbar button — Line 1/2/General groups, Upper/Lower/Legs/Confirms/Persist toggles, weight radios, history window; inline param strip removed
 - [Trading Indicator Library] 261-1459_DOCS-INDICATOR-LIB: #1459 code-review (PASS, 3 rounds) + UAT (Complete, #1467) + changelog

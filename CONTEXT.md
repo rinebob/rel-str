@@ -92,6 +92,11 @@ Permission to perform predefined risk-reducing actions when an exit policy condi
 
 A broker instruction identified and state-managed by Robinhood. Submission does not imply a fill or an open position.
 
+## Order List Window
+
+The bounded page an orders call returns. `get_equity_orders`/`get_option_orders` list newest-first and paginate: when the response carries `data.next` there is more history — pass it back verbatim as `cursor`; when `next` is absent the list is complete. Consumers must walk pages to exhaustion (the client does, with a bounded cap + warn) or a resting order pushed past page 1 silently disappears from every downstream surface. Resting-state semantics differ by asset class: live equity orders report `confirmed`, live option orders report `unconfirmed` — filtering on `confirmed` alone would hide resting option orders. Option order records also differ in shape: no top-level `side` or `executions` — the order's direction is `direction` (`debit`→buy, `credit`→sell) and fills live under `legs[].executions`.
+_Avoid_: full order history (implies unbounded — the API is windowed)
+
 ## Fill
 
 Broker confirmation that some or all of a broker order traded, including confirmed quantity and price.
