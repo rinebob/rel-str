@@ -150,8 +150,52 @@ h2 {
   color: var(--mat-sys-on-surface-variant);
 }
 
+.outcome-open {
+  color: var(--mat-sys-tertiary);
+}
+
 .outcome-error {
   color: var(--mat-sys-error);
+}
+
+.wl-w {
+  color: var(--mat-sys-primary);
+}
+
+.wl-l {
+  color: var(--mat-sys-error);
+}
+
+.delta .exc-date,
+.caproc .exc-date {
+  display: block;
+  font-size: 10px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.chart-link {
+  font-size: 10px;
+  color: var(--mat-sys-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.back-link {
+  font-size: 12px;
+  color: var(--mat-sys-primary);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.outcome-filter {
+  margin-bottom: 6px;
 }
 
 .exit-filter {

@@ -5,14 +5,17 @@ import { Subject } from 'rxjs';
 
 import { BacktestAnalysisResultsComponent } from './backtest-analysis-results.component';
 import { OptionsAnalysisRunsService } from '../../services/options-analysis-runs.service';
+import { OptionsReplayRunsService } from '../../services/options-replay-runs.service';
 import { EXIT_REGISTRY_VERSION } from '@options-analysis/registry';
 import type {
   AnalysisErrorTrade,
   AnalysisExitTrade,
   AnalysisExpiredTrade,
+  AnalysisOpenTrade,
   AnalysisResultDoc,
   ExitTypeAggregate,
 } from '@options-analysis/contracts';
+import type { OptionsReplayRunUi } from '../../common/options-replay.types';
 
 function makeAggregate(overrides: Partial<ExitTypeAggregate> = {}): ExitTypeAggregate {
   return {
@@ -20,6 +23,7 @@ function makeAggregate(overrides: Partial<ExitTypeAggregate> = {}): ExitTypeAggr
     contractCount: 10,
     exitedCount: 7,
     expiredCount: 2,
+    openCount: 1,
     errorCount: 1,
     hitRatePct: 77.8,
     avgDaysToExit: 12.4,
@@ -61,6 +65,15 @@ function makeExpiredRecord(overrides: Partial<AnalysisExpiredTrade> = {}): Analy
   };
 }
 
+function makeOpenRecord(overrides: Partial<AnalysisOpenTrade> = {}): AnalysisOpenTrade {
+  return {
+    ...tradeBase(),
+    outcome: 'open',
+    lastBarDate: '2026-06-18',
+    ...overrides,
+  };
+}
+
 function makeErrorRecord(overrides: Partial<AnalysisErrorTrade> = {}): AnalysisErrorTrade {
   // Contract: error records carry the entry-day excursion placeholder.
   return {
@@ -93,10 +106,12 @@ function makeDoc(overrides: Partial<AnalysisResultDoc> = {}): AnalysisResultDoc 
 describe('BacktestAnalysisResultsComponent', () => {
   let docsSubject: Subject<AnalysisResultDoc[]>;
   let paramSubject: Subject<ParamMap>;
+  let runSubject: Subject<OptionsReplayRunUi | null>;
 
   async function setup(listDocId: string | null = 'run-1_SPY') {
     docsSubject = new Subject();
     paramSubject = new Subject();
+    runSubject = new Subject();
     await TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -104,6 +119,10 @@ describe('BacktestAnalysisResultsComponent', () => {
         {
           provide: OptionsAnalysisRunsService,
           useValue: { watchListResultDocs: jest.fn(() => docsSubject.asObservable()) },
+        },
+        {
+          provide: OptionsReplayRunsService,
+          useValue: { watchRunDoc: jest.fn(() => runSubject.asObservable()) },
         },
       ],
     }).compileComponents();
@@ -289,5 +308,202 @@ describe('BacktestAnalysisResultsComponent', () => {
     const filtered = rows(el, '.event-table tbody tr');
     expect(filtered.length).toBe(1);
     expect(filtered[0].textContent).toContain('DTE');
+  });
+
+  // #1431 — open outcome, outcome chips, mark change, capital/ROC, W/L,
+  // header context, back nav, per-rule chart send.
+  describe('1431 follow-ups', () => {
+    it('bug 1 — open records render "still open" with real days/excursions, not error dashes', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([makeDoc({ trades: [makeOpenRecord()] })]);
+      fixture.detectChanges();
+
+      const cells = rows(el, '.event-table tbody tr td');
+      expect(cells[6].textContent).toContain('still open');
+      expect(cells[6].textContent).toContain('2026-06-18');
+      expect(cells[6].classList.contains('outcome-open')).toBe(true);
+      // Mark change is '—' for open; days/MAE/MFE carry real values.
+      expect(cells[10].textContent).toContain('—');
+      expect(cells[12].textContent).toContain('9');
+      expect(cells[13].textContent).toContain('1.20');
+      expect(cells[14].textContent).toContain('3.10');
+      expect(el.querySelector('.outcome-open')).not.toBeNull();
+    });
+
+    it('item 4+5 — headline carries template name, position count, and start date', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([makeDoc()]);
+      runSubject.next({
+        runId: 'run-1_SPY',
+        templateId: 'csp-45-20',
+        symbol: 'SPY',
+        startDate: '2026-01-05',
+        status: 'completed',
+        createdAtIso: '2026-01-05T00:00:00Z',
+      });
+      fixture.detectChanges();
+
+      const headline = el.querySelector('.subject')!.textContent!;
+      expect(headline).toContain('45DTE 20Δ put (CSP)');
+      expect(headline).toContain('10 positions');
+      expect(headline).toContain('from 2026-01-05');
+    });
+
+    it('item 6 — mark change column renders price change + % for exit rows; — for open', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([
+        makeDoc({
+          trades: [
+            makeExitRecord({ contractId: 'A', entryMark: 2.5, exitPrice: 0.25 }),
+            makeOpenRecord({ contractId: 'B' }),
+          ],
+        }),
+      ]);
+      fixture.detectChanges();
+
+      const trs = rows(el, '.event-table tbody tr');
+      const exitRow = trs.find((r) => r.textContent!.includes('A ')) ??
+        trs.find((r) => r.querySelectorAll('td')[1].textContent!.trim() === 'A')!;
+      const deltaCell = exitRow.querySelectorAll('td')[10];
+      expect(deltaCell.textContent).toContain('-2.25');
+      expect(deltaCell.textContent).toContain('-90%');
+    });
+
+    it('QA — exit mark + entry/exit greeks columns render; absent fields → —', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([
+        makeDoc({
+          trades: [
+            makeExitRecord({
+              contractId: 'G',
+              entryDelta: -0.21,
+              entryIv: 0.213,
+              terminalMark: 0.25,
+              terminalDelta: -0.05,
+              terminalIv: 0.19,
+            }),
+            makeOpenRecord({ contractId: 'P' }), // pre-v2 shape — no greeks
+          ],
+        }),
+      ]);
+      fixture.detectChanges();
+
+      const trs = rows(el, '.event-table tbody tr');
+      const greekRow = trs.find((r) => r.querySelectorAll('td')[1].textContent!.trim() === 'G')!;
+      const cells = greekRow.querySelectorAll('td');
+      expect(cells[4].textContent).toContain('-0.210');
+      expect(cells[5].textContent).toContain('21.3%');
+      expect(cells[7].textContent).toContain('0.25');
+      expect(cells[8].textContent).toContain('-0.050');
+      expect(cells[9].textContent).toContain('19%');
+
+      const sparseRow = trs.find((r) => r.querySelectorAll('td')[1].textContent!.trim() === 'P')!;
+      const sparse = sparseRow.querySelectorAll('td');
+      expect(sparse[4].textContent!.trim()).toBe('—');
+      expect(sparse[5].textContent!.trim()).toBe('—');
+      expect(sparse[7].textContent!.trim()).toBe('—');
+      expect(sparse[8].textContent!.trim()).toBe('—');
+      expect(sparse[9].textContent!.trim()).toBe('—');
+    });
+
+    it('item 7 — MAE cell carries % of premium subtext', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([
+        makeDoc({
+          trades: [makeExitRecord({ entryMark: 2.0, mae: { value: 1.0, date: '2026-06-12' } })],
+        }),
+      ]);
+      fixture.detectChanges();
+
+      const maeCell = rows(el, '.event-table tbody tr td')[13];
+      expect(maeCell.textContent).toContain('1.00');
+      expect(maeCell.textContent).toContain('50%');
+    });
+
+    it('item 8 — W/L column renders wins/losses for a success doc', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([
+        makeDoc({
+          exitId: 'target-90',
+          trades: [
+            makeExitRecord({ exitPrice: 0.25 }), // SHORT win (2.5 → 0.25)
+            makeExitRecord({ exitPrice: 5.0, contractId: 'L' }), // SHORT loss
+          ],
+        }),
+      ]);
+      fixture.detectChanges();
+
+      const wlCell = rows(el, '.agg-table tbody tr')[0].querySelectorAll('td')[4];
+      expect(wlCell.textContent).toContain('1');
+      expect(wlCell.querySelector('.wl-w')?.textContent).toContain('1');
+      expect(wlCell.querySelector('.wl-l')?.textContent).toContain('1');
+    });
+
+    it('item 9 — outcome chips narrow the event table', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([
+        makeDoc({
+          exitId: 'target-90',
+          trades: [
+            makeExitRecord({ contractId: 'A' }),
+            makeOpenRecord({ contractId: 'B' }),
+            makeErrorRecord({ contractId: 'C' }),
+          ],
+        }),
+      ]);
+      fixture.detectChanges();
+
+      const chips = rows(el, '.outcome-filter .chip');
+      const openChip = chips.find((c) => c.textContent?.trim() === 'Open')!;
+      openChip.dispatchEvent(new Event('click'));
+      fixture.detectChanges();
+
+      const filtered = rows(el, '.event-table tbody tr');
+      expect(filtered.length).toBe(1);
+      expect(filtered[0].textContent).toContain('still open');
+    });
+
+    it('item 10 — capital/ROC column renders strike×100 + premium/strike', async () => {
+      const { el, fixture } = await setup();
+      // SPY260619P00500000 → strike 500 → capital 50,000; entry 2.5 → 0.50% ROC.
+      docsSubject.next([makeDoc({ trades: [makeExitRecord()] })]);
+      fixture.detectChanges();
+
+      const capCell = rows(el, '.event-table tbody tr td')[11];
+      expect(capCell.textContent).toContain('$50,000');
+      expect(capCell.textContent).toContain('0.5% ROC');
+    });
+
+    it('item 11 — back link points at /options/strategy/backtest', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([makeDoc()]);
+      fixture.detectChanges();
+
+      const back = el.querySelector('a.back-link')!;
+      expect(back.getAttribute('href')).toBe('/options/strategy/backtest');
+    });
+
+    it('item 12 — success aggregate rows carry a chart link with the result-doc query param', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([makeDoc({ exitId: 'target-90' })]);
+      fixture.detectChanges();
+
+      const link = el.querySelector('.agg-table tbody tr a.chart-link')!;
+      const href = link.getAttribute('href')!;
+      expect(href).toContain('/options/chart');
+      expect(href).toContain('results=run-1_SPY_target-90');
+      // Missing/failed rows don't get a chart link.
+      const links = el.querySelectorAll('.agg-table tbody tr a.chart-link');
+      expect(links.length).toBe(1);
+    });
+
+    it('open count renders in the aggregate table', async () => {
+      const { el, fixture } = await setup();
+      docsSubject.next([makeDoc({ aggregate: makeAggregate({ openCount: 3 }) })]);
+      fixture.detectChanges();
+
+      const tds = rows(el, '.agg-table tbody tr')[0].querySelectorAll('td');
+      expect(tds[7].textContent!.trim()).toBe('3'); // Open column
+    });
   });
 });
