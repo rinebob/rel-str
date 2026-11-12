@@ -23,6 +23,7 @@ import { RobinhoodMcpClient } from '../../../core/robinhood-mcp/robinhood-mcp-cl
 import { ScreenshotService } from '../../dev-screenshot/screenshot.service';
 import { CaptureEvent, PositionType } from '@screenshot-capture/contracts';
 import { buildOptionOrderWireArgs } from '../utils/option-order-wire.util';
+import { normalizeToBrokerOrderSnapshot } from '../utils/broker-order.util';
 import {
   BrokerOrderSnapshot,
   EquityOrderTicket,
@@ -879,32 +880,15 @@ export class OrderExecutionService {
     return order && typeof order === 'object' ? order as Record<string, unknown> : null;
   }
 
-  /** Normalize the nested or direct broker order response into the persisted shape. */
+  /** Normalize the nested or direct broker order response into the persisted
+   *  shape. Field mapping delegates to the canonical wire→snapshot normalizer
+   *  (#1462); this parse gates harder — a single-order response missing
+   *  `symbol`/`state` isn't an order, so it returns null rather than a
+   *  half-empty snapshot. */
   private parseBrokerOrder(parsed: unknown): BrokerOrderSnapshot | null {
     const value = this.unwrapOrderRecord(parsed);
-    if (!value) return null;
-    if (typeof value['id'] !== 'string' || typeof value['symbol'] !== 'string' || typeof value['state'] !== 'string') return null;
-    return {
-      id: value['id'],
-      instrumentId: value['instrument_id'] as string | undefined,
-      symbol: value['symbol'],
-      side: String(value['side'] ?? ''),
-      type: String(value['type'] ?? ''),
-      state: value['state'],
-      quantity: value['quantity'] as string | undefined,
-      cumulativeQuantity: value['cumulative_quantity'] as string | undefined,
-      price: value['price'] as string | null | undefined,
-      stopPrice: value['stop_price'] as string | null | undefined,
-      fees: value['fees'] as string | undefined,
-      dollarBasedAmount: value['dollar_based_amount'] as string | null | undefined,
-      timeInForce: value['time_in_force'] as string | undefined,
-      marketHours: value['market_hours'] as string | undefined,
-      trigger: value['trigger'] as string | undefined,
-      placedAgent: value['placed_agent'] as string | undefined,
-      createdAt: value['created_at'] as string | undefined,
-      lastTransactionAt: value['last_transaction_at'] as string | undefined,
-      executions: Array.isArray(value['executions']) ? value['executions'] : undefined,
-    };
+    if (!value || typeof value['symbol'] !== 'string' || typeof value['state'] !== 'string') return null;
+    return normalizeToBrokerOrderSnapshot(value);
   }
 
   /**
