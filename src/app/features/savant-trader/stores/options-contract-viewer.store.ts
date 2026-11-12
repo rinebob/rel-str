@@ -166,6 +166,15 @@ export const OptionsContractViewerStore = signalStore(
   withUnderlyingBars(),
 
   withMethods((store, optionsContractService = inject(OptionsContractService)) => {
+    /** Monotonic load token — every loadContractInternal intent and every
+     *  session reset (resetSession, called by the symbol swap) bumps it, so
+     *  a late-arriving response or error can tell it's been superseded or
+     *  orphaned. The contract id can't serve as the token: two overlapping
+     *  loads of the SAME id would alias and the loser's handlers would
+     *  still own shared state (release focus, kill the spinner) while the
+     *  winner is in flight. */
+    let contractLoadSeq = 0;
+
     /** Shared contract-loading pipeline used by loadContract and navigateContract. */
     function loadContractInternal(occId: string, length: string | null | undefined, index: number): void {
       const parsed = OptionsContractService.parseOccId(occId);
@@ -182,9 +191,19 @@ export const OptionsContractViewerStore = signalStore(
       // the display on an empty focused pane with the set stranded behind.
       // contractData clears for the same reason: during the fetch the pane
       // shows the loading spinner, not the prior contract's stale line.
+      const seq = ++contractLoadSeq;
       patchState(store, { loading: true, error: null, contractData: null, currentSearchIndex: index, chartFocusContractId: parsed.contractID });
       optionsContractService.getHistoricalOptionsContract$(parsed.symbol, parsed.contractID, length).subscribe({
         next: (data) => {
+          // Re-read after the await: a newer load's intent or a symbol
+          // swap's session reset bumped the seq — drop the stale response.
+          // A response arriving after its own focus was released mid-flight
+          // (chip remove / back-to-set) still completes the load — the
+          // release is a view change, not a cancellation. Unguarded, a
+          // stale patch would repaint the old contract and
+          // loadUnderlyingBarsForRange(data.symbol) would yank the
+          // underlying back to the previous symbol.
+          if (seq !== contractLoadSeq) return;
           patchState(store, { loading: false, contractData: data, occIdInput: occId });
           const range = paddedDateRange(data.startDate, data.endDate, store.chartPadDays());
           // A dated plotted set's pick days widen the fetch to the context
@@ -193,10 +212,14 @@ export const OptionsContractViewerStore = signalStore(
           store.loadUnderlyingBarsForRange(data.symbol, range.from, range.to);
         },
         error: (err: Error) => {
-          // Release focus only while it still points at THIS contract — a
-          // newer load may have claimed it in the meantime. Releasing lands
-          // the view back on the plotted set (or the empty single view);
-          // the set itself is untouched so the error can't strand it.
+          // Same seq guard: a superseded or swap-orphaned failure must not
+          // clobber a newer in-flight load's spinner or surface the old
+          // session's error under the new symbol.
+          if (seq !== contractLoadSeq) return;
+          // Focus is still ours or was released mid-flight (chip remove /
+          // back-to-set) — release only while it points at THIS contract so
+          // the view lands back on the plotted set (or the empty single
+          // view); the set itself is untouched so the error can't strand it.
           const focus = store.chartFocusContractId();
           const hovered = store.hoveredContractId();
           const pinned = store.pinnedContractId();
@@ -218,6 +241,29 @@ export const OptionsContractViewerStore = signalStore(
     }
 
     return {
+    /** Session reset — a symbol swap starts a new session: the plotted
+     *  set AND the single-contract viewer slice reset together in one
+     *  atomic patch (the series projection draws contractData whenever
+     *  the set is empty, focus flag or not, so clearing only the set
+     *  would still repaint the old contract). The old underlying's bars
+     *  + range clear too — a foreign price line must not linger while
+     *  the new symbol's fetch lands. The seq bump orphans any in-flight
+     *  contract load so its late response/error is dropped instead of
+     *  repainting the old session under the new symbol. */
+    resetSession(): void {
+      contractLoadSeq++;
+      patchState(store, {
+        ...initialPlottedState,
+        underlyingBars: [],
+        underlyingBarsRange: null,
+        occIdInput: '',
+        loading: false,
+        error: null,
+        contractData: null,
+        currentSearchIndex: -1,
+      });
+    },
+
     setOccIdInput(value: string): void {
       patchState(store, { occIdInput: value });
     },

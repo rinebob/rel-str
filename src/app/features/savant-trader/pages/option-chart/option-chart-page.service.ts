@@ -57,9 +57,12 @@ export class OptionChartPageService {
    *  The page component assigns the rejection-notice clear. */
   onSymbolSwitched: () => void = () => {};
 
-  /** First-load session setup — same tail as the symbol switch minus
-   *  the clears (nothing exists to clear yet). */
+  /** First-load session setup — same tail as the symbol switch. The
+   *  viewer store is root-provided and survives page teardown, so a
+   *  previous visit's plotted set can still be mounted — reset it the
+   *  same way a swap does. */
   initSession(): void {
+    this.store.resetSession();
     const sym = this.symbol().trim().toUpperCase();
     this.store.setCatalogBuilder({ symbol: sym, type: this.catalogType() });
     this.genStore.setSymbol(sym);
@@ -81,6 +84,13 @@ export class OptionChartPageService {
     this.genStore.setSymbol(value);
     this.listStore.setSymbol(value);
     this.listError.set(null);
+    // A swap starts a new session — the prior symbol's plotted series,
+    // chips, focus, hover/pin, and loaded contract data must not render
+    // over the new underlying. In-flight loads are safe: loadPlotted
+    // workers only patch a record still in 'loading' (the clear removes
+    // it), and loadContractInternal drops responses orphaned by the
+    // reset's seq bump.
+    this.store.resetSession();
     this.onSymbolSwitched();
     this.loadSymbolData(value.trim().toUpperCase());
   }

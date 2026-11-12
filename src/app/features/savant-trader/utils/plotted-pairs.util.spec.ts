@@ -4,7 +4,8 @@
  * Seam: pure function — pasted text + page symbol in, entries + rejects out.
  */
 
-import { parsePlottedEntries } from './plotted-pairs.util';
+import { dominantUnderlying, parsePlottedEntries } from './plotted-pairs.util';
+import type { PlottedEntry } from '@options-contract/contracts';
 
 const QQQ_PUT = 'QQQ260619P00470000';
 const QQQ_CALL = 'QQQ260619C00475000';
@@ -74,6 +75,14 @@ describe('parsePlottedEntries', () => {
     ]);
   });
 
+  it('parses any underlying when no symbol is given — the auto-swap path decides the target itself', () => {
+    const { entries, rejected } = parsePlottedEntries(`2026-06-15,${SPY_PUT}`);
+    expect(entries).toEqual([
+      { contractId: SPY_PUT, openDate: '2026-06-15', markerDates: ['2026-06-15'] },
+    ]);
+    expect(rejected).toEqual([]);
+  });
+
   it('rejects a valid contract on the wrong underlying', () => {
     const { entries, rejected } = parsePlottedEntries(`2026-06-15,${SPY_PUT}`, 'QQQ');
     expect(entries).toEqual([]);
@@ -133,5 +142,24 @@ describe('parsePlottedEntries', () => {
     const { entries, rejected } = parsePlottedEntries('   \n  ', 'QQQ');
     expect(entries).toEqual([]);
     expect(rejected).toEqual([]);
+  });
+});
+
+describe('dominantUnderlying', () => {
+  const entry = (contractId: string): PlottedEntry => ({ contractId, openDate: null, markerDates: [] });
+
+  it('returns the majority symbol across entries', () => {
+    expect(
+      dominantUnderlying([entry(SPY_PUT), entry(SPY_PUT), entry(QQQ_PUT)]),
+    ).toBe('SPY');
+  });
+
+  it('resolves a tie to the first-seen symbol', () => {
+    expect(dominantUnderlying([entry(QQQ_PUT), entry(SPY_PUT)])).toBe('QQQ');
+    expect(dominantUnderlying([entry(SPY_PUT), entry(QQQ_PUT)])).toBe('SPY');
+  });
+
+  it('returns null for an empty list', () => {
+    expect(dominantUnderlying([])).toBeNull();
   });
 });

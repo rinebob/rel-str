@@ -43,20 +43,32 @@ export function withUnderlyingBars() {
   return withMethods((store, localBarReadService = inject(LocalBarReadService)) => {
     const s = asUnderlying(store);
 
+    /** Latest-request token — every fetch stamps a new identity, so a
+     *  slow response from a superseded request (e.g. the old symbol's
+     *  fetch resolving after a swap issued the new symbol's) is dropped:
+     *  foreign bars can never overwrite the current window, and a stale
+     *  error can't kill a newer request's spinner. */
+    let lastBarsRequest: { symbol: string; from: string; to: string } | null = null;
+
     /** Fetch underlying bars and record the requested range alongside them.
      *  Failed fetches keep the previous bars — stale context beats an
      *  empty chart, and a transient error must not destroy a plotted set's
      *  underlying window. */
     function fetchUnderlyingBars(symbol: string, from: string, to: string): void {
+      const req = { symbol, from, to };
+      lastBarsRequest = req;
       patchState(store, { underlyingLoading: true });
       localBarReadService.getDailyBarsForRange$(symbol, from, to).subscribe({
-        next: (bars) =>
+        next: (bars) => {
+          if (lastBarsRequest !== req) return;
           patchState(store, {
             underlyingBars: toOHLCDatum(bars),
-            underlyingBarsRange: { symbol, from, to },
+            underlyingBarsRange: req,
             underlyingLoading: false,
-          }),
+          });
+        },
         error: (err: Error) => {
+          if (lastBarsRequest !== req) return;
           console.error('[fetchUnderlyingBars] error:', err);
           patchState(store, { underlyingLoading: false });
         },

@@ -27,10 +27,13 @@ function isValidIsoDate(s: string): boolean {
  * (comma, space, or tab separated — a spreadsheet's two columns paste in
  * directly), or a bare OCC ID. Dedupes on contractId: `openDate` keeps the
  * earliest supplied date and `markerDates` unions every supplied date (each
- * pick day draws its own dot on the span marker). `symbol` is the page's
- * underlying — contracts on a different underlying are rejected.
+ * pick day draws its own dot on the span marker). When `symbol` is given,
+ * contracts on a different underlying are rejected — omit it to parse
+ * unconstrained and let the caller pick the underlying from the input
+ * (the auto-swap path uses `dominantUnderlying` then re-rejects minority
+ * underlyings itself).
  */
-export function parsePlottedEntries(text: string, symbol: string): ParsedPlottedInput {
+export function parsePlottedEntries(text: string, symbol = ''): ParsedPlottedInput {
   const expected = String(symbol || '').trim().toUpperCase();
   const entries = new Map<string, PlottedEntry>();
   const rejected: RejectedEntry[] = [];
@@ -82,4 +85,29 @@ export function parsePlottedEntries(text: string, symbol: string): ParsedPlotted
 
   for (const e of entries.values()) e.markerDates!.sort();
   return { entries: [...entries.values()], rejected };
+}
+
+/**
+ * The underlying the input belongs to: the majority symbol across parsed
+ * entries — ties resolve to the first-seen symbol (Map insertion order).
+ * Drives the auto-swap: paste SPY contracts while on QQQ and the page
+ * swaps to SPY instead of rejecting the input. Returns null when no
+ * entry's contract id parses (defensive — parsePlottedEntries already
+ * filtered those out).
+ */
+export function dominantUnderlying(entries: PlottedEntry[]): string | null {
+  const counts = new Map<string, number>();
+  for (const e of entries) {
+    const sym = parseOccContractId(e.contractId)?.symbol;
+    if (sym) counts.set(sym, (counts.get(sym) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let n = 0;
+  for (const [sym, c] of counts) {
+    if (c > n) {
+      n = c;
+      best = sym;
+    }
+  }
+  return best;
 }

@@ -140,6 +140,209 @@ describe('OptionChartPageService — symbol switch orchestration', () => {
     expect(switched).toHaveBeenCalledTimes(1);
   });
 
+  it('drops the plotted set — contracts, hover, and pin — on symbol swap (#1440)', async () => {
+    const { page, store } = setup();
+    (TestBed.inject(OptionsContractService).getHistoricalOptionsContract$ as jest.Mock)
+      .mockReturnValue(of({ daily: [] }));
+    await store.loadPlotted([
+      {
+        contractId: 'QQQ260619P00470000',
+        openDate: '2026-06-10',
+        markerDates: ['2026-06-10'],
+      },
+    ]);
+    store.setHoveredContract('QQQ260619P00470000');
+    store.togglePinnedContract('QQQ260619P00470000');
+    expect(Object.keys(store.plottedContracts())).toHaveLength(1);
+
+    page.onSymbolChange('SPY');
+
+    expect(store.plottedContracts()).toEqual({});
+    expect(store.hoveredContractId()).toBeNull();
+    expect(store.pinnedContractId()).toBeNull();
+    expect(store.chartFocusContractId()).toBeNull();
+  });
+
+  it('drops a focused single contract on symbol swap (#1440)', async () => {
+    const { page, store, load } = setup();
+    (TestBed.inject(OptionsContractService).getHistoricalOptionsContract$ as jest.Mock)
+      .mockReturnValue(of({ daily: [] }));
+    page.occIdInput = 'QQQ261218P00645000';
+
+    await load.onLoad();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(store.chartFocusContractId()).toBe('QQQ261218P00645000');
+
+    page.onSymbolChange('SPY');
+
+    // Focus null alone isn't enough — the series projection renders
+    // contractData whenever the set is empty, so the data itself must go.
+    expect(store.chartFocusContractId()).toBeNull();
+    expect(store.contractData()).toBeNull();
+    expect(store.loading()).toBe(false);
+    expect(store.error()).toBeNull();
+    expect(store.occIdInput()).toBe('');
+  });
+
+  it('a contract load resolving after a swap is dropped — no stale contract, no underlying yank-back (#1440)', async () => {
+    const { page, store } = setup();
+    const svc = TestBed.inject(OptionsContractService);
+    const pending = new Subject<unknown>();
+    (svc.getHistoricalOptionsContract$ as jest.Mock).mockReturnValue(pending.asObservable());
+    const rangeBars = jest.spyOn(store, 'loadUnderlyingBarsForRange');
+
+    store.loadContract('QQQ261218P00645000', null);
+    expect(store.chartFocusContractId()).toBe('QQQ261218P00645000');
+
+    page.onSymbolChange('SPY'); // swap mid-flight — releases focus + plotted state
+    pending.next({ daily: [], symbol: 'QQQ', startDate: '2026-01-01', endDate: '2026-02-01' });
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    expect(store.contractData()).toBeNull();
+    expect(store.chartFocusContractId()).toBeNull();
+    // The dropped response must not strand the loading spinner either.
+    expect(store.loading()).toBe(false);
+    // The stale response must not refetch the OLD symbol's underlying —
+    // and no swap-path code calls the ForRange seam, so "never called" is
+    // the real pin (a per-arg matcher would pass vacuously on arity).
+    expect(rangeBars).not.toHaveBeenCalled();
+  });
+
+  it('a contract load erroring after a swap is dropped — no stale error under the new symbol (#1440)', async () => {
+    const { page, store } = setup();
+    const svc = TestBed.inject(OptionsContractService);
+    const pending = new Subject<unknown>();
+    (svc.getHistoricalOptionsContract$ as jest.Mock).mockReturnValue(pending.asObservable());
+
+    store.loadContract('QQQ261218P00645000', null);
+    page.onSymbolChange('SPY');
+    pending.error(new Error('upstream 500'));
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    expect(store.error()).toBeNull();
+    expect(store.loading()).toBe(false);
+  });
+
+  it('a superseded same-contract load cannot kill the newer one — stale error then fresh success (#1440)', async () => {
+    const { store } = setup();
+    const svc = TestBed.inject(OptionsContractService);
+    const first = new Subject<unknown>();
+    const second = new Subject<unknown>();
+    (svc.getHistoricalOptionsContract$ as jest.Mock)
+      .mockReturnValueOnce(first.asObservable())
+      .mockReturnValueOnce(second.asObservable());
+
+    // Same-id double-load — the contract id can't discriminate the two
+    // requests, the load seq does: the FIRST load's error must not
+    // release focus or the spinner the second load owns.
+    store.loadContract('QQQ261218P00645000', null);
+    store.loadContract('QQQ261218P00645000', null);
+    first.error(new Error('transient'));
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    expect(store.error()).toBeNull();
+    expect(store.loading()).toBe(true);
+    expect(store.chartFocusContractId()).toBe('QQQ261218P00645000');
+
+    second.next({ daily: [], symbol: 'QQQ', startDate: '2026-01-01', endDate: '2026-02-01' });
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(store.contractData()).not.toBeNull();
+    expect(store.loading()).toBe(false);
+  });
+
+  it('a focus-released mid-flight load still completes — back-to-set during fetch (#1440)', async () => {
+    const { store } = setup();
+    const svc = TestBed.inject(OptionsContractService);
+    const pending = new Subject<unknown>();
+    (svc.getHistoricalOptionsContract$ as jest.Mock).mockReturnValue(pending.asObservable());
+
+    store.loadContract('QQQ261218P00645000', null);
+    store.clearChartFocus(); // back to the set while the fetch is in flight
+    pending.next({ daily: [], symbol: 'QQQ', startDate: '2026-01-01', endDate: '2026-02-01' });
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    // The release is a view change, not a cancellation — the load lands
+    // and the spinner can't strand.
+    expect(store.contractData()).not.toBeNull();
+    expect(store.loading()).toBe(false);
+  });
+
+  it('an underlying fetch resolving after a swap is dropped — no foreign bars (#1440)', async () => {
+    const { page, store } = setup();
+    const lbr = TestBed.inject(LocalBarReadService);
+    const qqq = new Subject<unknown[]>();
+    const spyBars = new Subject<unknown[]>();
+    (lbr.getDailyBarsForRange$ as jest.Mock)
+      .mockImplementation((sym: string) => (sym === 'QQQ' ? qqq : spyBars).asObservable());
+
+    store.loadUnderlyingBars('QQQ'); // old session's fetch in flight
+    page.onSymbolChange('SPY');      // swap issues the SPY fetch
+
+    spyBars.next([]);
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(store.underlyingBarsRange()?.symbol).toBe('SPY');
+
+    // The slow QQQ response lands last — latest-request-wins drops it.
+    qqq.next([]);
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(store.underlyingBarsRange()?.symbol).toBe('SPY');
+  });
+
+  it('initSession clears a previous session — the root store survives page teardown (#1440)', async () => {
+    const { page, store } = setup();
+    (TestBed.inject(OptionsContractService).getHistoricalOptionsContract$ as jest.Mock)
+      .mockReturnValue(of({ daily: [] }));
+    await store.loadPlotted([
+      { contractId: 'QQQ260619P00470000', openDate: '2026-06-10', markerDates: ['2026-06-10'] },
+    ]);
+    expect(Object.keys(store.plottedContracts())).toHaveLength(1);
+
+    page.initSession();
+
+    expect(store.plottedContracts()).toEqual({});
+    expect(store.contractData()).toBeNull();
+    // initSession refetches for the session symbol — the range describes
+    // the fresh request, not the stale session's.
+    expect(store.underlyingBarsRange()?.symbol).toBe('QQQ');
+  });
+
+  it('a loadPlotted worker resolving after a swap cannot resurrect the contract (#1440)', async () => {
+    const { page, store } = setup();
+    const svc = TestBed.inject(OptionsContractService);
+    const pending = new Subject<unknown>();
+    (svc.getHistoricalOptionsContract$ as jest.Mock).mockReturnValue(pending.asObservable());
+
+    void store.loadPlotted([
+      { contractId: 'QQQ260619P00470000', openDate: '2026-06-10' },
+    ]);
+    page.onSymbolChange('SPY');
+    pending.next({ daily: [] });
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    expect(store.plottedContracts()).toEqual({});
+  });
+
+  it('a >50 confirm pending across a swap drops the stale parsed set (#1440)', async () => {
+    const { page, load, store } = setup();
+    const dialog = TestBed.inject(DsDialogService) as unknown as { open: jest.Mock };
+    const pending = new Subject<boolean>();
+    dialog.open.mockReturnValue({ afterClosed: () => pending.asObservable() });
+    const loadPlotted = jest.spyOn(store, 'loadPlotted').mockResolvedValue(undefined);
+    const lines = Array.from(
+      { length: 51 },
+      (_, i) => `2026-06-10,QQQ260619P0047${String(i).padStart(3, '0')}0`,
+    );
+
+    void load.onLoad(lines.join('\n')); // >50 — confirm opens, await pending
+    page.onSymbolChange('SPY');         // swap while the confirm is open
+    pending.next(true);
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    // The entries were parsed as QQQ — loading them under SPY would be
+    // the foreign-symbol overlay this bug fixes.
+    expect(loadPlotted).not.toHaveBeenCalled();
+  });
+
   it('initSession seeds the catalog builder and swaps store symbols', () => {
     const { page, store, genStore, listStore } = setup();
     page.type.set('call');
@@ -226,6 +429,75 @@ describe('OptionChartLoadService — emit seam', () => {
   });
 });
 
+describe('OptionChartLoadService — auto-swap on foreign underlying', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('a foreign-symbol paste swaps the page to that underlying and loads under it', async () => {
+    const { page, load, store } = setup();
+    const loadPlotted = jest.spyOn(store, 'loadPlotted').mockResolvedValue(undefined);
+
+    await load.onLoad('2026-06-10,SPY260619P00470000');
+
+    expect(page.symbol()).toBe('SPY');
+    expect(loadPlotted).toHaveBeenCalledWith([
+      expect.objectContaining({ contractId: 'SPY260619P00470000', openDate: '2026-06-10' }),
+    ]);
+    // The swap clears the field — the pasted text is restored so the
+    // field keeps matching the plotted set.
+    expect(page.occIdInput).toBe('2026-06-10,SPY260619P00470000');
+    expect(load.rejectedEntries()).toEqual([]);
+  });
+
+  it('a bare foreign-symbol id swaps then focused-loads', async () => {
+    const { page, load, store } = setup();
+    (TestBed.inject(OptionsContractService).getHistoricalOptionsContract$ as jest.Mock)
+      .mockReturnValue(of({ daily: [] }));
+    const loadContract = jest.spyOn(store, 'loadContract');
+
+    await load.onLoad('SPY261218P00645000');
+
+    expect(page.symbol()).toBe('SPY');
+    expect(loadContract).toHaveBeenCalledWith('SPY261218P00645000', null);
+  });
+
+  it('mixed underlyings swap to the majority and wrong-underlying-reject the rest', async () => {
+    const { page, load, store } = setup();
+    const loadPlotted = jest.spyOn(store, 'loadPlotted').mockResolvedValue(undefined);
+
+    await load.onLoad(
+      [
+        '2026-06-10,SPY260619P00470000',
+        '2026-06-10,SPY260619P00480000',
+        '2026-06-10,QQQ260619P00470000',
+      ].join('\n'),
+    );
+
+    expect(page.symbol()).toBe('SPY');
+    expect(loadPlotted).toHaveBeenCalledWith([
+      expect.objectContaining({ contractId: 'SPY260619P00470000' }),
+      expect.objectContaining({ contractId: 'SPY260619P00480000' }),
+    ]);
+    expect(load.rejectedEntries()).toEqual([
+      { raw: 'QQQ260619P00470000', reason: 'wrong-underlying' },
+    ]);
+    // The label resolves against the post-swap symbol.
+    expect(load.rejectionReasonLabel('wrong-underlying')).toBe('not a SPY contract');
+  });
+
+  it('a same-symbol load never fires the swap path', async () => {
+    const { page, load, store } = setup();
+    const loadPlotted = jest.spyOn(store, 'loadPlotted').mockResolvedValue(undefined);
+    const switched = jest.fn();
+    page.onSymbolSwitched = switched;
+
+    await load.onLoad('2026-06-10,QQQ260619P00470000');
+
+    expect(page.symbol()).toBe('QQQ');
+    expect(switched).not.toHaveBeenCalled();
+    expect(loadPlotted).toHaveBeenCalled();
+  });
+});
+
 describe('OptionChartReplayService — runs dropdown', () => {
   beforeEach(() => localStorage.clear());
 
@@ -309,3 +581,4 @@ describe('OptionChartListService / OptionChartGeneratorService — page scoping'
     expect(gen.brushArmed()).toBe(false);
   });
 });
+
