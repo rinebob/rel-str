@@ -14,31 +14,6 @@ import {
 } from '../services/order-ticket.types';
 
 /**
- * Extract the orders array from an MCP `get_equity_orders` response.
- *
- * Handles the common nesting patterns:
- * - `{ results: [...] }`
- * - `{ data: { results: [...] } }`
- * - `{ data: { orders: [...] } }`
- *
- * Returns an empty array if no list container is found.
- */
-export function extractOrdersFromResponse(parsed: unknown): Array<Record<string, unknown>> {
-  if (!parsed || typeof parsed !== 'object') return [];
-  const root = parsed as Record<string, unknown>;
-  const data = root['data'];
-  const dataRecord = data && typeof data === 'object' ? data as Record<string, unknown> : undefined;
-
-  if (Array.isArray(root['results'])) return root['results'] as Array<Record<string, unknown>>;
-  if (Array.isArray(root['orders'])) return root['orders'] as Array<Record<string, unknown>>;
-  if (dataRecord) {
-    if (Array.isArray(dataRecord['results'])) return dataRecord['results'] as Array<Record<string, unknown>>;
-    if (Array.isArray(dataRecord['orders'])) return dataRecord['orders'] as Array<Record<string, unknown>>;
-  }
-  return [];
-}
-
-/**
  * Normalize a raw Robinhood order object into a `BrokerOrderSnapshot`.
  * Returns null if the object is missing a string `id`.
  */
@@ -68,15 +43,27 @@ export function normalizeToBrokerOrderSnapshot(raw: Record<string, unknown>): Br
 }
 
 /**
- * Parse an MCP `get_equity_orders` response into a map of broker order
- * snapshots keyed by order ID.
+ * Parse a raw wire order list into a map of broker order snapshots keyed by
+ * order ID — the entry point for pre-walked page lists (#1462).
+ *
+ * An order without a string `id` can't be keyed or reconciled — it used to
+ * vanish silently. Warn like the client-side normalizer (#1411) so a
+ * malformed order is loud, not invisible.
  */
-export function parseEquityOrdersResponse(parsed: unknown): Record<string, BrokerOrderSnapshot> {
-  const orders = extractOrdersFromResponse(parsed);
+export function parseEquityOrdersList(
+  orders: Array<Record<string, unknown>>,
+): Record<string, BrokerOrderSnapshot> {
   const map: Record<string, BrokerOrderSnapshot> = {};
   for (const o of orders) {
     const snapshot = normalizeToBrokerOrderSnapshot(o);
-    if (snapshot) map[snapshot.id] = snapshot;
+    if (snapshot) {
+      map[snapshot.id] = snapshot;
+    } else {
+      console.warn(
+        `Skipped equity order with no string id ` +
+          `(symbol=${String(o['symbol'] ?? '?')}, state=${String(o['state'] ?? '?')})`,
+      );
+    }
   }
   return map;
 }

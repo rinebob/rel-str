@@ -474,6 +474,35 @@ export class RobinhoodMcpClient {
     return args;
   }
 
+  /**
+   * Verbatim wire equity orders walked to exhaustion (#1462) — for callers
+   * that need fields the typed `BrokerOrder` drops (`trigger`, `fees`,
+   * `dollar_based_amount`, `last_transaction_at`, `placed_agent`) or
+   * verbatim `side`/`type`/`state` strings. The signal-order workspace's
+   * `BrokerOrderSnapshot` normalizer keys stop detection on `trigger` —
+   * routing it through `getEquityOrders` would make every stop invisible.
+   */
+  async getEquityOrdersRaw(accountNumber: string): Promise<Record<string, unknown>[]> {
+    return this.walkPages(
+      this.equityOrdersRawSpec(accountNumber),
+      MAX_ORDER_LIST_PAGES,
+      `account=${accountNumber}`,
+    );
+  }
+
+  private equityOrdersRawSpec(accountNumber: string): ToolSpec<Record<string, unknown>[]> {
+    return {
+      tool: 'get_equity_orders',
+      args: this.equityOrdersArgs(accountNumber),
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_equity_orders', result.category);
+        }
+        return this.extractList(result.parsed, 'orders');
+      },
+    };
+  }
+
   async getOptionOrders(accountNumber: string, opts?: OptionOrderQuery): Promise<BrokerOrder[]> {
     // Same page-1 truncation as equity orders — the option endpoint also
     // paginates on data.next (#1411).

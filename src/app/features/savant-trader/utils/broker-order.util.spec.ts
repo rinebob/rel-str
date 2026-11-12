@@ -1,8 +1,7 @@
 import { BrokerOrderSnapshot, OrderTicketStatus } from '../services/order-ticket.types';
 import {
-  extractOrdersFromResponse,
   normalizeToBrokerOrderSnapshot,
-  parseEquityOrdersResponse,
+  parseEquityOrdersList,
   isActiveStopLoss,
   findActiveStopLoss,
   rhStateToTerminalStatus,
@@ -47,38 +46,6 @@ describe('broker-order.util', () => {
     stop_price: '140.00',
   };
 
-  describe('extractOrdersFromResponse', () => {
-    it('extracts from root results array', () => {
-      const parsed = { results: [orderRaw] };
-      expect(extractOrdersFromResponse(parsed).length).toBe(1);
-    });
-
-    it('extracts from root orders array', () => {
-      const parsed = { orders: [orderRaw] };
-      expect(extractOrdersFromResponse(parsed).length).toBe(1);
-    });
-
-    it('extracts from nested data.results', () => {
-      const parsed = { data: { results: [orderRaw] } };
-      expect(extractOrdersFromResponse(parsed).length).toBe(1);
-    });
-
-    it('extracts from nested data.orders', () => {
-      const parsed = { data: { orders: [orderRaw] } };
-      expect(extractOrdersFromResponse(parsed).length).toBe(1);
-    });
-
-    it('returns empty array for unrecognized shape', () => {
-      expect(extractOrdersFromResponse({ foo: 'bar' }).length).toBe(0);
-    });
-
-    it('returns empty array for non-object input', () => {
-      expect(extractOrdersFromResponse(null).length).toBe(0);
-      expect(extractOrdersFromResponse(undefined).length).toBe(0);
-      expect(extractOrdersFromResponse('string').length).toBe(0);
-    });
-  });
-
   describe('normalizeToBrokerOrderSnapshot', () => {
     it('normalizes a raw order into a BrokerOrderSnapshot', () => {
       const snapshot = normalizeToBrokerOrderSnapshot(orderRaw);
@@ -94,13 +61,22 @@ describe('broker-order.util', () => {
     });
   });
 
-  describe('parseEquityOrdersResponse', () => {
-    it('parses a list response into a map keyed by order ID', () => {
-      const parsed = { results: [orderRaw, stopOrderRaw] };
-      const map = parseEquityOrdersResponse(parsed);
-      expect(Object.keys(map).length).toBe(2);
-      expect(map['order-1'].symbol).toBe('AAPL');
-      expect(map['stop-1'].type).toBe('market');
+  describe('parseEquityOrdersList', () => {
+    it('maps a raw order list into a snapshot map keyed by order ID (#1462)', () => {
+      const map = parseEquityOrdersList([orderRaw, stopOrderRaw]);
+      expect(Object.keys(map)).toEqual(['order-1', 'stop-1']);
+      expect(map['stop-1'].trigger).toBe('stop');
+      expect(map['stop-1'].lastTransactionAt).toBe('2026-09-07T12:00:00Z');
+    });
+
+    it('warns and skips an order with a missing/non-string id — an unkeyed order is invisible otherwise (#1462)', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const map = parseEquityOrdersList([
+        { ...orderRaw, id: undefined },
+        { ...orderRaw, id: 'order-2' },
+      ]);
+      expect(Object.keys(map)).toEqual(['order-2']);
+      expect(warn).toHaveBeenCalled();
     });
   });
 

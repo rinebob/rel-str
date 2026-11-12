@@ -38,10 +38,11 @@ import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { AccountSnapshot, BrokerPosition, PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
+import { RobinhoodMcpClient } from '../../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import { OrderTicket, OrderTicketStatus, OrderSource, TradingConfig, InstrumentType, REQUEUEABLE_TICKET_STATUSES } from '../../services/order-ticket.types';
 import { BrokerOrderSnapshot } from '../../services/order-ticket.types';
 import { formatError } from '../../utils/format-error.util';
-import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, rhStateToDisplayStatus, restingLimitBuyNotional } from '../../utils/broker-order.util';
+import { parseEquityOrdersList, isActiveStopLoss, rhStateToTerminalStatus, rhStateToDisplayStatus, restingLimitBuyNotional } from '../../utils/broker-order.util';
 import { isPaperEligibleTicket, paperQuantityFor } from '../../utils/paper-ticket.util';
 import { requeueTicketPatch } from '../../utils/signal-order-staging.util';
 
@@ -62,6 +63,7 @@ export class OrderComponent implements OnInit, OnDestroy {
   private readonly priceService = inject(EquityPriceService);
   private readonly portfolioService = inject(PortfolioService);
   private readonly mcpService = inject(RobinhoodMcpObservationService);
+  private readonly rhClient = inject(RobinhoodMcpClient);
   private readonly dialog = inject(DsDialogService);
   private readonly snackBar = inject(DsToastService);
   private readonly manualOrders = inject(ManualOrderService);
@@ -336,16 +338,20 @@ export class OrderComponent implements OnInit, OnDestroy {
   }
 
   /** Fetch RH orders and update the rhOrders signal. Called on page load
-   *  and after any submit/cancel/stop action to refresh order state. */
+   *  and after any submit/cancel/stop action to refresh order state.
+   *
+   *  Walks `data.next` to exhaustion (#1462) — a page-1-only fetch silently
+   *  dropped older resting orders: rhStopRows missed the stop, the
+   *  resting-buy notional undercounted, and `findActiveStopLoss` could
+   *  bless a duplicate stop. `getEquityOrdersRaw` returns the verbatim
+   *  wire records — the typed `BrokerOrder` drops `trigger`, which
+   *  `isActiveStopLoss` keys on. */
   async refreshRhOrders(accountNumber?: string): Promise<void> {
     const acct = accountNumber ?? this.accountNumber();
     if (!acct) return;
     try {
-      const result = await this.mcpService.executeTool('get_equity_orders', {
-        args: { account_number: acct },
-      });
-      if (!result.success) return;
-      this.rhOrders.set(parseEquityOrdersResponse(result.parsed));
+      const orders = await this.rhClient.getEquityOrdersRaw(acct);
+      this.rhOrders.set(parseEquityOrdersList(orders));
       this.rhOrdersLoaded.set(true);
     } catch (err) {
       console.error('[OrderComponent] Failed to fetch RH orders:', err);

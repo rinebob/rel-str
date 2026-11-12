@@ -1133,6 +1133,96 @@ describe('RobinhoodMcpClient', () => {
   });
 
   // ===========================================================================
+  // getEquityOrdersRaw (#1462 — verbatim wire records for the signal-order
+  // workspace; BrokerOrder drops trigger/fees/dollar_based_amount/
+  // last_transaction_at/placed_agent, which BrokerOrderSnapshot needs)
+  // ===========================================================================
+
+  describe('getEquityOrdersRaw', () => {
+    it('walks data.next to exhaustion — a stop pushed past page 1 still surfaces (#1462)', async () => {
+      mcp.executeTool.and.callFake((_tool: string, req: { args: Record<string, unknown> }) => {
+        const cursor = req.args['cursor'];
+        return Promise.resolve({
+          success: true,
+          parsed: {
+            data: {
+              orders: [
+                cursor
+                  ? {
+                      id: 'o-deep', side: 'sell', type: 'market', state: 'confirmed',
+                      symbol: 'NVDA', trigger: 'stop', stop_price: '140.00',
+                      last_transaction_at: '2026-10-02T00:00:00Z', placed_agent: 'agentic',
+                    }
+                  : { id: 'o-page1', side: 'buy', type: 'limit', state: 'confirmed', symbol: 'QQQ', quantity: '1' },
+              ],
+              next: cursor ? null : 'CURSOR2',
+            },
+          },
+          redacted: {},
+          tool: 'get_equity_orders',
+        } as ToolExecutionResult);
+      });
+
+      const orders = await client.getEquityOrdersRaw('123456789');
+
+      expect(orders.map((o) => o['id'])).toEqual(['o-page1', 'o-deep']);
+      expect(mcp.executeTool).toHaveBeenCalledTimes(2);
+      expect(mcp.executeTool.calls.mostRecent().args[1]).toEqual({
+        args: { account_number: '123456789', cursor: 'CURSOR2' },
+      });
+    });
+
+    it('returns verbatim wire records — trigger/last_transaction_at survive (#1462)', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            orders: [
+              {
+                id: 'o-1', side: 'sell', type: 'market', state: 'confirmed',
+                symbol: 'AAPL', trigger: 'stop', stop_price: '140.00',
+                fees: '0.01', dollar_based_amount: '500', placed_agent: 'agentic',
+                last_transaction_at: '2026-10-01T00:00:00Z',
+              },
+            ],
+            next: null,
+          },
+        },
+        redacted: {},
+        tool: 'get_equity_orders',
+      });
+
+      const orders = await client.getEquityOrdersRaw('123456789');
+
+      expect(orders[0]).toEqual({
+        id: 'o-1', side: 'sell', type: 'market', state: 'confirmed',
+        symbol: 'AAPL', trigger: 'stop', stop_price: '140.00',
+        fees: '0.01', dollar_based_amount: '500', placed_agent: 'agentic',
+        last_transaction_at: '2026-10-01T00:00:00Z',
+      });
+    });
+
+    it('rejects when a mid-walk page fails — no silent partial list (#1462)', async () => {
+      let call = 0;
+      mcp.executeTool.and.callFake(() => {
+        call++;
+        return Promise.resolve(
+          call === 1
+            ? {
+                success: true,
+                parsed: { data: { orders: [{ id: 'o-p1' }], next: 'CURSOR2' } },
+                redacted: {},
+                tool: 'get_equity_orders',
+              } as ToolExecutionResult
+            : ({ success: false, error: 'page 2 failed', category: ToolExecutionErrorCategory.MCP } as ToolExecutionResult),
+        );
+      });
+
+      await expect(client.getEquityOrdersRaw('123456789')).rejects.toThrow('page 2 failed');
+    });
+  });
+
+  // ===========================================================================
   // getOptionOrders
   // ===========================================================================
 

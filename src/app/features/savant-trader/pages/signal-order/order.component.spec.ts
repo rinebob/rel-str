@@ -14,6 +14,7 @@ import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
+import { RobinhoodMcpClient } from '../../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import { OrderTicketService } from '../../services/order-ticket.service';
 import { OrderExecutionService } from '../../services/order-execution.service';
 import { PaperTradingService } from '../../services/paper-trading.service';
@@ -119,6 +120,7 @@ describe('OrderComponent', () => {
         { provide: EquityPriceService, useValue: { prices: signal({}), loading: signal(false), fetchPrices: jasmine.createSpy('fetchPrices') } },
         { provide: PortfolioService, useValue: { getSnapshot: jasmine.createSpy('getSnapshot').and.returnValue(Promise.resolve(null)) } },
         { provide: RobinhoodMcpObservationService, useValue: { reauthenticate: jasmine.createSpy('reauthenticate') } },
+        { provide: RobinhoodMcpClient, useValue: { getEquityOrdersRaw: jest.fn().mockResolvedValue([]) } },
         { provide: OrderTicketService, useValue: {} },
         { provide: PaperTradingService, useValue: { paperSignalOrder$: jest.fn() } },
         // OrderTicketComponent injects AllocationStore for the bucket
@@ -911,6 +913,52 @@ describe('OrderComponent', () => {
         'Dismiss',
         expect.anything(),
       );
+    });
+  });
+
+  describe('refreshRhOrders (#1462)', () => {
+    /** Wire-shape stop order — trigger/last_transaction_at are the fields
+     *  the typed BrokerOrder drops; the snapshot normalizer needs them. */
+    const stopWire = {
+      id: 'stop-1', side: 'sell', type: 'market', state: 'confirmed',
+      symbol: 'AAPL', quantity: '10', trigger: 'stop', stop_price: '140.00',
+      placed_agent: 'agentic', last_transaction_at: '2026-10-01T00:00:00Z',
+    };
+
+    const rhClientMock = () =>
+      TestBed.inject(RobinhoodMcpClient) as unknown as { getEquityOrdersRaw: jest.Mock };
+
+    it('routes through the page-walking client and populates rhOrders + rhOrdersLoaded', async () => {
+      rhClientMock().getEquityOrdersRaw.mockResolvedValue([stopWire]);
+
+      await component.refreshRhOrders('123456789');
+
+      expect(rhClientMock().getEquityOrdersRaw).toHaveBeenCalledWith('123456789');
+      expect(component.rhOrders()['stop-1'].trigger).toBe('stop');
+      expect(component.rhOrdersLoaded()).toBe(true);
+    });
+
+    it('a stop past page 1 still protects the position — isActiveStopLoss sees it', async () => {
+      // The #1462 bug shape: the resting stop lives on a later page, so a
+      // page-1-only fetch missed it and let a duplicate stop be placed.
+      rhClientMock().getEquityOrdersRaw.mockResolvedValue([stopWire]);
+
+      await component.refreshRhOrders('123456789');
+
+      expect(component.protectedSymbols().has('AAPL')).toBe(true);
+    });
+
+    it('leaves rhOrdersLoaded false when the fetch rejects', async () => {
+      const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+      rhClientMock().getEquityOrdersRaw.mockRejectedValue(new Error('down'));
+      try {
+        await component.refreshRhOrders('123456789');
+
+        expect(component.rhOrdersLoaded()).toBe(false);
+        expect(err).toHaveBeenCalled();
+      } finally {
+        err.mockRestore();
+      }
     });
   });
 });
