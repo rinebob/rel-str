@@ -112,31 +112,21 @@ app-flex-chart {
     padding: 2px 6px;
     text-transform: none;
   }
+}
 
-  .avwap-history {
-    position: relative;
+// AVWAP settings button — same chrome as the interval buttons; `.active`
+// mirrors their enabled state when the indicator is on.
+.avwap-settings-btn {
+  padding: 2px 10px;
+  border: 1px solid var(--ds-border-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 
-    button {
-      padding: 0 6px;
-      border: 1px solid var(--ds-border-strong);
-      border-radius: 4px;
-      background: transparent;
-      cursor: pointer;
-    }
-  }
-
-  // Rendered-but-invisible matDatepicker anchor — the picker overlay
-  // positions from this element's rect (display:none would anchor at 0,0).
-  .date-anchor {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 0;
-    height: 0;
-    padding: 0;
-    border: 0;
-    opacity: 0;
-    pointer-events: none;
+  &.active {
+    background: var(--ds-on-surface-variant);
+    color: var(--ds-surface);
   }
 }
 

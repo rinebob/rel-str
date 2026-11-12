@@ -51,7 +51,6 @@ import type {
   IndicatorParamDef,
   PriceBar,
 } from '../../../shared/components/flex-chart/flex-chart.types';
-import { parseIsoDateLocal } from '../../../shared/utils/date.util';
 import { ChartIntervalKey, StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
 import { BarsInterval } from '../../../../core/models/partner.types';
@@ -87,6 +86,11 @@ import {
   type SandboxSettings,
 } from './sandbox-settings';
 import { computeTriggerBandsIntervalData } from './trigger-bands-local';
+import { DsDialogRef, DsDialogService } from '../../../../shared/ds/ds-dialog';
+import {
+  AvwapSettingsDialogComponent,
+  type AvwapSettingsDialogData,
+} from './avwap-settings-dialog.component';
 
 /** Sentinel — clamped to the loaded bar count, so "all of history". */
 const SHOW_ALL_BARS = 1_000_000;
@@ -121,6 +125,7 @@ export class FlexChartSandboxComponent implements OnDestroy {
   readonly chartStore = inject(ChartStore);
   private readonly indicatorStore = inject(IndicatorSeriesStore);
   private readonly ui = inject(UiStateService);
+  private readonly dialog = inject(DsDialogService);
 
   readonly presets = SYNTHETIC_PRESETS;
   /** Picker list: the prod ST options (Trigger Bands joined in #932) plus any
@@ -172,12 +177,6 @@ export class FlexChartSandboxComponent implements OnDestroy {
     ...Object.fromEntries(this.avwapParams.map((p) => [p.key, p.default])),
     ...this.paramOverrides()[this.avwapIndicatorId],
   }));
-  /** The picker's selected date — follows both the calendar and the ISO text
-   *  input, so clearing un-highlights and typing syncs the calendar. */
-  readonly avwapHistoryDate = computed(() => {
-    const v = this.avwapValues()['historyStart'];
-    return typeof v === 'string' ? parseIsoDateLocal(v) : null;
-  });
 
   // ── ST ZigZag params (#935) ──────────────────────────────────────────────
   // Same strip as AVWAP minus the appearance concerns — `input: 'color'`
@@ -445,6 +444,7 @@ export class FlexChartSandboxComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.ui.setFullscreen(false);
+    this.avwapDialogRef?.close();
   }
 
   constructor() {
@@ -570,6 +570,30 @@ export class FlexChartSandboxComponent implements OnDestroy {
 
   clearAvwapHistory(): void {
     this.setParamOverride(this.avwapIndicatorId, 'historyStart', undefined);
+  }
+
+  /** AVWAP settings dialog (#1459) — the params strip moved here so the
+   *  toolbar stays clean while visibility controls grow. One instance at a
+   *  time; edits commit through the same paramOverrides path the strip used. */
+  private avwapDialogRef?: DsDialogRef<AvwapSettingsDialogComponent>;
+
+  openAvwapSettings(): void {
+    if (this.avwapDialogRef) return;
+    const ref = this.dialog.open<AvwapSettingsDialogComponent, AvwapSettingsDialogData>(
+      AvwapSettingsDialogComponent,
+      {
+        data: {
+          params: this.avwapParams,
+          historyParam: this.avwapHistoryParam,
+          values: () => this.avwapValues(),
+          onParam: (p, event) => this.onParam(this.avwapIndicatorId, p, event),
+          onClearHistory: () => this.clearAvwapHistory(),
+        },
+        width: '480px',
+      },
+    );
+    this.avwapDialogRef = ref;
+    ref.afterClosed().subscribe(() => (this.avwapDialogRef = undefined));
   }
 
   onDebugStateChange(snapshot: ChartDebugSnapshot): void {

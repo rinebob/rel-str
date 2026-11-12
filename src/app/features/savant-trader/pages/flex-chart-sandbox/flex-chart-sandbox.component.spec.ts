@@ -55,6 +55,11 @@ import {
   TRIGGER_BANDS_CHART_STRATEGIES,
 } from '../../stores/chart.store';
 import { ST_TRIGGER_BANDS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-trigger-bands.indicator';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+import {
+  AvwapSettingsDialogComponent,
+  type AvwapSettingsDialogData,
+} from './avwap-settings-dialog.component';
 import { SANDBOX_SETTINGS_KEY, SANDBOX_SETTINGS_VERSION } from './sandbox-settings';
 import { SYNTHETIC_BAR_COUNT } from './synthetic-data';
 import CORE_ROUTES from '../../../../core/core-routes';
@@ -160,6 +165,15 @@ interface Setup {
   chart: MockFlexChartComponent;
 }
 
+/** Shared DsDialogService stub — records every open; the ref it returns never
+ *  closes (afterClosed never emits), matching "still open" for the
+ *  single-instance guard. Cleared per-test via jest.restoreAllMocks-free
+ *  mockClear() in the suites that use it. */
+const dsDialogOpen = jest.fn((_component: unknown, _config?: unknown) => ({
+  afterClosed: () => of(),
+  close: jest.fn(),
+}));
+
 async function setup(bars: PriceBar[] = makeBars()): Promise<Setup> {
   const chartService = mockChartService(bars);
   TestBed.configureTestingModule({
@@ -170,6 +184,7 @@ async function setup(bars: PriceBar[] = makeBars()): Promise<Setup> {
       // sandbox on the symbol-data path (suite symbols tracked, RH never consulted).
       { provide: RhChartService, useValue: { loadBars$: jest.fn() } },
       { provide: SymbolListStore, useValue: { trackedSymbols: () => ['QQQ', 'MSFT'], trackedStatus: () => 'ready' } },
+      { provide: DsDialogService, useValue: { open: dsDialogOpen } },
       ChartStore,
     ],
   });
@@ -191,6 +206,24 @@ async function setup(bars: PriceBar[] = makeBars()): Promise<Setup> {
 // The auto-save effect writes settings on every component — clear between
 // tests so persisted state can't leak across specs.
 afterEach(() => localStorage.clear());
+
+/** A real 'change' Event with `target` populated — dispatching on a
+ *  detached input sets it, so `onParam` reads value/checked as usual. */
+const fakeInput = (value: string) => {
+  const input = document.createElement('input');
+  input.value = value;
+  const event = new Event('change');
+  input.dispatchEvent(event);
+  return event;
+};
+const fakeCheck = (checked: boolean) => {
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.checked = checked;
+  const event = new Event('change');
+  input.dispatchEvent(event);
+  return event;
+};
 
 describe('FlexChartSandboxComponent', () => {
   afterEach(() => TestBed.resetTestingModule());
@@ -524,24 +557,25 @@ describe('Trigger Bands sandbox wiring (#880/#932)', () => {
     expect(box.disabled).toBe(true);
 
     // Even a programmatic enable cannot fire the request — the effect guards on dataMode.
-    fixture.componentInstance.toggleIndicator(TB_ID, { target: { checked: true } } as unknown as Event);
+    fixture.componentInstance.toggleIndicator(TB_ID, fakeCheck(true));
     fixture.detectChanges();
     expect(mockIndicatorStore.loadIfNeeded).not.toHaveBeenCalled();
   });
 });
 
 // =============================================================================
-// Anchored VWAP params — Topic #261 / Task #872
+// Anchored VWAP settings dialog — Topic #261 / Task #1459 (was the #872 strip)
 //
-// Sandbox-only params editor: rendered only while ST Anchored VWAP is enabled;
-// overrides merge onto the indicator's declared defaults in the config handed
-// to the mock chart. `historyStart` is an ISO 'YYYY-MM-DD' string fed by a
-// mat-datepicker whose adapter produces local-midnight Dates — the handler
-// formats local Y/M/D, not toISOString (same off-by-one trap as option-chain).
+// The params moved out of the inline strip into a DsDialogService dialog
+// opened from the toolbar. The dialog receives live values + commit callbacks
+// through DS_DIALOG_DATA; invoking data.onParam exercises the exact same
+// override → config path the strip drove — these tests keep the #872
+// behavioural coverage against that seam.
 // =============================================================================
 
-describe('Anchored VWAP param controls (#872)', () => {
+describe('Anchored VWAP settings dialog (#1459)', () => {
   afterEach(() => TestBed.resetTestingModule());
+  beforeEach(() => dsDialogOpen.mockClear());
 
   const AVWAP_ID = 'st-anchored-vwap';
 
@@ -553,113 +587,142 @@ describe('Anchored VWAP param controls (#872)', () => {
   const avwapConfig = (chart: MockFlexChartComponent) =>
     chart.config!.indicators.find((i) => i.type === StIndicator.ST_ANCHORED_VWAP);
 
-  function setInput(fixture: ComponentFixture<FlexChartSandboxComponent>, testid: string, value: string): void {
-    const input = fixture.nativeElement.querySelector(`[data-testid="${testid}"]`) as HTMLInputElement;
-    input.value = value;
-    input.dispatchEvent(new Event('change'));
+  /** Click the toolbar button and return the data handed to the dialog. */
+  function openSettings(fixture: ComponentFixture<FlexChartSandboxComponent>): AvwapSettingsDialogData {
+    fixture.nativeElement.querySelector('[data-testid="avwap-settings-button"]').click();
     fixture.detectChanges();
+    const [, cfg] = dsDialogOpen.mock.calls.at(-1)!;
+    return (cfg as { data: AvwapSettingsDialogData }).data;
   }
 
-  it('shows the params panel only while the indicator is enabled', async () => {
-    const { fixture, chart } = await setup();
-    expect(fixture.nativeElement.querySelector('[data-testid="avwap-params"]')).toBeNull();
-    expect(avwapConfig(chart)).toBeUndefined();
+  const param = (data: AvwapSettingsDialogData, key: string) => data.params.find((p) => p.key === key)!;
 
-    enableAvwap(fixture);
-    expect(fixture.nativeElement.querySelector('[data-testid="avwap-params"]')).toBeTruthy();
-    expect(avwapConfig(chart)).toBeTruthy();
-
-    enableAvwap(fixture); // uncheck
+  it('the toolbar button is always present and opens the settings dialog once', async () => {
+    const { fixture } = await setup();
+    // No inline strip — the controls live in the dialog now.
     expect(fixture.nativeElement.querySelector('[data-testid="avwap-params"]')).toBeNull();
-    expect(avwapConfig(chart)).toBeUndefined();
+    const btn = fixture.nativeElement.querySelector('[data-testid="avwap-settings-button"]') as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+
+    btn.click();
+    fixture.detectChanges();
+    expect(dsDialogOpen).toHaveBeenCalledTimes(1);
+    const [component] = dsDialogOpen.mock.calls.at(-1)!;
+    expect(component).toBe(AvwapSettingsDialogComponent);
+
+    // Second click while open is a no-op — one settings instance at a time.
+    btn.click();
+    fixture.detectChanges();
+    expect(dsDialogOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('exposes a control per editable param', async () => {
-    const { fixture } = await setup();
+  it('enabling the indicator does not resurrect the strip', async () => {
+    const { fixture, chart } = await setup();
     enableAvwap(fixture);
+    expect(fixture.nativeElement.querySelector('[data-testid="avwap-params"]')).toBeNull();
+    expect(avwapConfig(chart)).toBeTruthy();
+  });
+
+  it('dialog data exposes every editable param, the history param, and live merged values', async () => {
+    const { fixture } = await setup();
+    const data = openSettings(fixture);
+    const keys = data.params.map((p) => p.key);
     for (const key of [
       'line1RetracementPct', 'line2RetracementPct',
       'line1LeftDepth', 'line1RightDepth', 'line2LeftDepth', 'line2RightDepth',
       'line1HighColor', 'line1LowColor', 'line2HighColor', 'line2LowColor',
-      'showLine1', 'showLine2', 'showZigZag', 'maxHistory', 'historyStart',
+      'line1Weight', 'line2Weight', 'line1ZigZagColor', 'line2ZigZagColor',
+      'showLine1High', 'showLine1Low', 'showLine2High', 'showLine2Low',
+      'showLine1ZigZag', 'showLine2ZigZag', 'maxHistory', 'historyStart',
     ]) {
-      expect(fixture.nativeElement.querySelector(`[data-testid="avwap-${key}"]`)).toBeTruthy();
+      expect(keys).toContain(key);
     }
+    expect(data.historyParam.key).toBe('historyStart');
+    expect(data.values()['line1RetracementPct']).toBe(2);
+    expect(data.values()['showLine1ZigZag']).toBe(true);
   });
 
-  it('merges numeric overrides onto the defaults; untouched params stay at theirs', async () => {
+  it('numeric commits merge onto the defaults; untouched params stay at theirs', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
+    const data = openSettings(fixture);
     expect(avwapConfig(chart)!.params['line1RetracementPct']).toBe(2);
 
-    setInput(fixture, 'avwap-line1RetracementPct', '3.5');
+    data.onParam(param(data, 'line1RetracementPct'), fakeInput('3.5'));
+    fixture.detectChanges();
     const params = avwapConfig(chart)!.params;
     expect(params['line1RetracementPct']).toBe(3.5);
     expect(params['line2RetracementPct']).toBe(5);
     expect(params['maxHistory']).toBe(100);
   });
 
-  it('the showZigZag checkbox writes a boolean override and re-checking clears it', async () => {
+  it('a boolean toggle writes an override and re-checking clears it', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
-    const box = fixture.nativeElement.querySelector('[data-testid="avwap-showZigZag"]') as HTMLInputElement;
-    expect(box.type).toBe('checkbox');
-    expect(box.checked).toBe(true); // declared default
-    expect(avwapConfig(chart)!.params['showZigZag']).toBe(true);
+    const data = openSettings(fixture);
+    expect(avwapConfig(chart)!.params['showLine1ZigZag']).toBe(true);
 
-    box.click();
+    data.onParam(param(data, 'showLine1ZigZag'), fakeCheck(false));
     fixture.detectChanges();
-    expect(avwapConfig(chart)!.params['showZigZag']).toBe(false);
+    expect(avwapConfig(chart)!.params['showLine1ZigZag']).toBe(false);
 
-    box.click();
+    data.onParam(param(data, 'showLine1ZigZag'), fakeCheck(true));
     fixture.detectChanges();
-    expect(avwapConfig(chart)!.params['showZigZag']).toBe(true);
+    expect(avwapConfig(chart)!.params['showLine1ZigZag']).toBe(true);
   });
 
   it('emptying a control reverts that param to its default', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
-    setInput(fixture, 'avwap-maxHistory', '20');
+    const data = openSettings(fixture);
+    data.onParam(param(data, 'maxHistory'), fakeInput('20'));
+    fixture.detectChanges();
     expect(avwapConfig(chart)!.params['maxHistory']).toBe(20);
 
-    setInput(fixture, 'avwap-maxHistory', '');
+    data.onParam(param(data, 'maxHistory'), fakeInput(''));
+    fixture.detectChanges();
     expect(avwapConfig(chart)!.params['maxHistory']).toBe(100);
   });
 
   it('a colour override lands as its hex string', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
-    setInput(fixture, 'avwap-line1HighColor', '#123456');
+    const data = openSettings(fixture);
+    data.onParam(param(data, 'line1HighColor'), fakeInput('#123456'));
+    fixture.detectChanges();
     expect(avwapConfig(chart)!.params['line1HighColor']).toBe('#123456');
   });
 
   it('each control change produces a fresh config so the chart recomputes', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
+    const data = openSettings(fixture);
     const before = chart.config;
-    setInput(fixture, 'avwap-line1RetracementPct', '4');
+    data.onParam(param(data, 'line1RetracementPct'), fakeInput('4'));
+    fixture.detectChanges();
     expect(chart.config).not.toBe(before);
   });
 
-  it('typing an ISO date into the date input sets historyStart; the clear button unsets it', async () => {
+  it('historyStart commits through onParam; onClearHistory unsets it', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
-    setInput(fixture, 'avwap-historyStart', '2025-06-15');
-    expect(avwapConfig(chart)!.params['historyStart']).toBe('2025-06-15');
-    // The input reflects the stored override — reopening shows it, not a stale day.
-    const anchorInput = fixture.nativeElement.querySelector('[data-testid="avwap-historyStart"]') as HTMLInputElement;
-    expect(anchorInput.value).toBe('2025-06-15');
+    const data = openSettings(fixture);
 
-    fixture.nativeElement.querySelector('[data-testid="avwap-history-clear"]').click();
+    data.onParam(data.historyParam, fakeInput('2025-06-15'));
+    fixture.detectChanges();
+    expect(avwapConfig(chart)!.params['historyStart']).toBe('2025-06-15');
+
+    data.onClearHistory();
     fixture.detectChanges();
     expect(avwapConfig(chart)!.params['historyStart']).toBe('');
-    expect(anchorInput.value).toBe('');
   });
 
   it('overrides survive an enable→disable→enable round-trip and never leak into other indicators', async () => {
     const { fixture, chart } = await setup();
     enableAvwap(fixture);
-    setInput(fixture, 'avwap-maxHistory', '7');
+    const data = openSettings(fixture);
+    data.onParam(param(data, 'maxHistory'), fakeInput('7'));
+    fixture.detectChanges();
 
     enableAvwap(fixture); // off
     expect(avwapConfig(chart)).toBeUndefined();
@@ -870,13 +933,13 @@ describe('Sandbox settings persistence (#934)', () => {
     expect(stored().enabledIndicators).toContain('st-zigzag');
   });
 
-  it('persists param overrides committed through the AVWAP form', async () => {
+  it('persists param overrides committed through the AVWAP settings dialog', async () => {
     const { fixture } = await setup();
-    (fixture.nativeElement.querySelector('[data-testid="ind-st-anchored-vwap"]') as HTMLInputElement).click();
+    fixture.nativeElement.querySelector('[data-testid="avwap-settings-button"]').click();
     fixture.detectChanges();
-    const input = fixture.nativeElement.querySelector('[data-testid="avwap-maxHistory"]') as HTMLInputElement;
-    input.value = '42';
-    input.dispatchEvent(new Event('change'));
+    const data = (dsDialogOpen.mock.calls.at(-1)![1] as { data: AvwapSettingsDialogData }).data;
+    const maxHistory = data.params.find((p) => p.key === 'maxHistory')!;
+    data.onParam(maxHistory, fakeInput('42'));
     fixture.detectChanges();
     await flush();
     expect(stored().paramOverrides['st-anchored-vwap'].maxHistory).toBe(42);

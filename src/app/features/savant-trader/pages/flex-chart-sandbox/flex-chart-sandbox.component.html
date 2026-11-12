@@ -121,55 +121,15 @@
         }
       </div>
     </details>
+    <button
+      type="button"
+      class="avwap-settings-btn"
+      data-testid="avwap-settings-button"
+      title="ST Anchored VWAP settings"
+      [class.active]="avwapEnabled()"
+      (click)="openAvwapSettings()"
+    >AVWAP…</button>
   </header>
-
-  @if (avwapEnabled()) {
-    <div class="params-strip" data-testid="avwap-params">
-      <span class="params-strip-title">AVWAP</span>
-      @for (p of avwapParams; track p.key) {
-        @if (p.input !== 'date') {
-          @if (typeof p.default === 'boolean') {
-            <label class="field">
-              <input
-                type="checkbox"
-                [attr.data-testid]="'avwap-' + p.key"
-                [checked]="avwapValues()[p.key]"
-                (change)="onParam(avwapIndicatorId, p, $event)"
-              />
-              {{ p.label }}
-            </label>
-          } @else {
-            <label class="field">
-              {{ p.label }}
-              <input
-                [type]="p.input ?? 'text'"
-                [attr.data-testid]="'avwap-' + p.key"
-                [attr.min]="p.min ?? null"
-                [attr.max]="p.max ?? null"
-                [value]="avwapValues()[p.key]"
-                (change)="onParam(avwapIndicatorId, p, $event)"
-              />
-            </label>
-          }
-        }
-      }
-      <label class="field avwap-history">
-        {{ avwapHistoryParam.label }}
-        <input
-          type="date" class="dse-date"
-          data-testid="avwap-historyStart"
-          [value]="avwapValues()['historyStart']"
-          (change)="onParam(avwapIndicatorId, avwapHistoryParam, $event)"
-        />
-        <button
-          type="button"
-          data-testid="avwap-history-clear"
-          aria-label="Clear history start"
-          (click)="clearAvwapHistory()"
-        >×</button>
-      </label>
-    </div>
-  }
 
   @if (zigzagEnabled()) {
     <div class="params-strip" data-testid="zigzag-params">
