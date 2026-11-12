@@ -1,0 +1,32 @@
+<h2 class="title">
+  <span class="title-symbol">{{ data.list.symbol }}</span>
+  <span class="title-meta">
+    <span
+      class="dse-icon status-icon" aria-hidden="true"
+      [style.color]="statusColorName()" [title]="data.list.status">
+      {{ statusIconName() }}
+    </span>
+    {{ data.list.status }} · {{ data.list.rows.length }} row{{ data.list.rows.length === 1 ? '' : 's' }}
+  </span>
+</h2>
+
+<div class="content list-content">
+  @if (data.list.error) {
+    <div class="list-error">{{ data.list.error }}</div>
+  }
+  @if (data.list.rows.length > 0) {
+    <app-options-replay-contract-list-table
+      [rows]="data.list.rows"
+      [pickDocMeta]="data.list.pickDocMeta"
+      (inspect)="openSeriesDialog($event)" />
+  } @else {
+    <div class="state-block">
+      <span class="dse-icon">inbox</span>
+      <span>No contract rows in this list</span>
+    </div>
+  }
+</div>
+
+<div class="actions" align="end">
+  <button class="ds-btn" (click)="ref.close()">Close</button>
+</div>

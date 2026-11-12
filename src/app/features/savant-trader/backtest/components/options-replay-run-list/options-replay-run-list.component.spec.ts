@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
 
 import { OptionsReplayRunListComponent } from './options-replay-run-list.component';
-import type { ReplayListRow, ReplaySelection } from '../../common/options-replay.types';
+import type { OptionsContractListUi, ReplayListRow } from '../../common/options-replay.types';
 
 function makeRow(overrides: Partial<ReplayListRow> = {}): ReplayListRow {
   return {
@@ -17,10 +18,23 @@ function makeRow(overrides: Partial<ReplayListRow> = {}): ReplayListRow {
   };
 }
 
+/** listId IS the runId under single-symbol runs (#1430). */
+function makeList(overrides: Partial<OptionsContractListUi> = {}): OptionsContractListUi {
+  return {
+    listId: '2026-10-28_wed_150000_manual_ab1c_SPY',
+    runId: '2026-10-28_wed_150000_manual_ab1c_SPY',
+    symbol: 'SPY',
+    templateId: 'csp-45-20',
+    status: 'success',
+    rows: [],
+    ...overrides,
+  };
+}
+
 describe('OptionsReplayRunListComponent', () => {
   async function setup(rows: ReplayListRow[] = [makeRow()]) {
     await TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), provideNoopAnimations()],
+      providers: [provideZonelessChangeDetection(), provideNoopAnimations(), provideRouter([])],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(OptionsReplayRunListComponent);
@@ -85,39 +99,78 @@ describe('OptionsReplayRunListComponent', () => {
     expect(badges[0].textContent.trim()).toBe('failed');
   });
 
-  it('emits the runId on row click', async () => {
-    const { component, fixture } = await setup([
-      makeRow({ symbol: 'SPY' }),
-      makeRow({ runId: '2026-10-28_wed_150000_manual_zx9q_QQQ', symbol: 'QQQ' }),
-    ]);
-    const emitted: ReplaySelection[] = [];
-    component.selectRow.subscribe((sel) => emitted.push(sel));
+  describe('row actions (#1471 — no detail panel, actions live on the row)', () => {
+    it('renders no feature actions while the list doc does not exist', async () => {
+      const { fixture } = await setup();
 
-    const rows = fixture.nativeElement.querySelectorAll('tr.run-row');
-    (rows[1] as HTMLElement).click();
-    expect(emitted).toEqual(['2026-10-28_wed_150000_manual_zx9q_QQQ']);
-  });
+      const cell = fixture.nativeElement.querySelector('tr.run-row .col-actions') as HTMLElement;
+      expect(cell.querySelectorAll('.row-action-btn').length).toBe(0);
+    });
 
-  it('marks the selected row by runId — the symbol is implied (#1430)', async () => {
-    const { component, fixture } = await setup([
-      makeRow({ symbol: 'SPY' }),
-      makeRow({ runId: '2026-10-28_wed_150000_manual_zx9q_QQQ', symbol: 'QQQ' }),
-    ]);
-    fixture.componentRef.setInput('selectedRunId', '2026-10-28_wed_150000_manual_zx9q_QQQ');
-    fixture.detectChanges();
+    it('Contracts button renders once the list doc exists and emits the runId', async () => {
+      const { component, fixture } = await setup();
+      fixture.componentRef.setInput('contractLists', new Map([['2026-10-28_wed_150000_manual_ab1c_SPY', makeList()]]));
+      fixture.detectChanges();
 
-    const rows = fixture.nativeElement.querySelectorAll('tr.run-row');
-    expect(rows[0].classList.contains('selected')).toBe(false);
-    expect(rows[1].classList.contains('selected')).toBe(true);
-  });
+      const emitted: string[] = [];
+      component.viewContracts.subscribe((id) => emitted.push(id));
 
-  it('marks no row selected when the selectedRunId matches none', async () => {
-    const { fixture } = await setup([makeRow({ symbol: 'SPY' })]);
-    fixture.componentRef.setInput('selectedRunId', 'run-other_QQQ');
-    fixture.detectChanges();
+      const btn = fixture.nativeElement.querySelector('.col-actions .row-action-btn') as HTMLButtonElement;
+      expect(btn.textContent.trim()).toBe('Contracts');
+      btn.click();
+      expect(emitted).toEqual(['2026-10-28_wed_150000_manual_ab1c_SPY']);
+    });
 
-    const row = fixture.nativeElement.querySelector('tr.run-row');
-    expect(row.classList.contains('selected')).toBe(false);
+    it('Analyze renders enabled on a success list and emits the list docId (== runId)', async () => {
+      const { component, fixture } = await setup();
+      fixture.componentRef.setInput('contractLists', new Map([['2026-10-28_wed_150000_manual_ab1c_SPY', makeList()]]));
+      fixture.detectChanges();
+
+      const emitted: string[] = [];
+      component.analyze.subscribe((id) => emitted.push(id));
+
+      const buttons = fixture.nativeElement.querySelectorAll('.col-actions .row-action-btn') as NodeListOf<HTMLButtonElement>;
+      const analyzeBtn = Array.from(buttons).find((b) => b.textContent.trim() === 'Analyze')!;
+      expect(analyzeBtn.disabled).toBe(false);
+      analyzeBtn.click();
+      expect(emitted).toEqual(['2026-10-28_wed_150000_manual_ab1c_SPY']);
+    });
+
+    it('Analyze is disabled on a non-success list', async () => {
+      const { fixture } = await setup();
+      fixture.componentRef.setInput('contractLists', new Map([['2026-10-28_wed_150000_manual_ab1c_SPY', makeList({ status: 'failed' })]]));
+      fixture.detectChanges();
+
+      const buttons = fixture.nativeElement.querySelectorAll('.col-actions .row-action-btn') as NodeListOf<HTMLButtonElement>;
+      const analyzeBtn = Array.from(buttons).find((b) => b.textContent.trim() === 'Analyze')!;
+      expect(analyzeBtn.disabled).toBe(true);
+    });
+
+    it('Re-analyze + Results render when result docs exist for the row', async () => {
+      const { fixture } = await setup();
+      fixture.componentRef.setInput('contractLists', new Map([['2026-10-28_wed_150000_manual_ab1c_SPY', makeList()]]));
+      fixture.componentRef.setInput('analysisReadyListIds', new Set(['2026-10-28_wed_150000_manual_ab1c_SPY']));
+      fixture.detectChanges();
+
+      const cell = fixture.nativeElement.querySelector('tr.run-row .col-actions') as HTMLElement;
+      const texts = Array.from(cell.querySelectorAll('.row-action-btn')).map((b) => b.textContent.trim());
+      expect(texts).toContain('Re-analyze');
+      expect(texts).toContain('Results');
+
+      const link = Array.from(cell.querySelectorAll('a.row-action-btn'))[0] as HTMLAnchorElement;
+      expect(link.getAttribute('href')).toContain('/options/strategy/backtest/analysis/2026-10-28_wed_150000_manual_ab1c_SPY');
+    });
+
+    it('Analyzing… renders disabled while the analysis call is in flight', async () => {
+      const { fixture } = await setup();
+      fixture.componentRef.setInput('contractLists', new Map([['2026-10-28_wed_150000_manual_ab1c_SPY', makeList()]]));
+      fixture.componentRef.setInput('analyzingListIds', new Set(['2026-10-28_wed_150000_manual_ab1c_SPY']));
+      fixture.detectChanges();
+
+      const buttons = fixture.nativeElement.querySelectorAll('.col-actions .row-action-btn') as NodeListOf<HTMLButtonElement>;
+      const analyzeBtn = Array.from(buttons).find((b) => b.textContent.trim() === 'Analyzing…')!;
+      expect(analyzeBtn.disabled).toBe(true);
+    });
   });
 
   it('renders the empty state when there are no rows', async () => {
@@ -147,19 +200,16 @@ describe('OptionsReplayRunListComponent', () => {
       expect(rows[2].querySelector('.rerun-btn')).toBeNull();
     });
 
-    it('emits the runId on rerun click without triggering row selection', async () => {
+    it('emits the runId on rerun click', async () => {
       const { component, fixture } = await setup([
         makeRow({ runId: 'run-failed', status: 'failed' }),
       ]);
       const reruns: string[] = [];
-      const selections: ReplaySelection[] = [];
       component.rerun.subscribe((id) => reruns.push(id));
-      component.selectRow.subscribe((sel) => selections.push(sel));
 
       (fixture.nativeElement.querySelector('.rerun-btn') as HTMLButtonElement).click();
 
       expect(reruns).toEqual(['run-failed']);
-      expect(selections).toEqual([]);
     });
 
     it('a failed row\'s action is enabled unless its retry is in flight', async () => {
@@ -210,19 +260,16 @@ describe('OptionsReplayRunListComponent', () => {
       expect(buttons.length).toBe(3);
     });
 
-    it('emits the runId on delete click without triggering row selection', async () => {
+    it('emits the runId on delete click', async () => {
       const { component, fixture } = await setup([
         makeRow({ runId: 'run-del', status: 'failed' }),
       ]);
       const deletes: string[] = [];
-      const selections: ReplaySelection[] = [];
       component.deleteRun.subscribe((id) => deletes.push(id));
-      component.selectRow.subscribe((sel) => selections.push(sel));
 
       (fixture.nativeElement.querySelector('.delete-btn') as HTMLButtonElement).click();
 
       expect(deletes).toEqual(['run-del']);
-      expect(selections).toEqual([]);
     });
 
     it('disables the row\'s delete while its delete is in flight', async () => {

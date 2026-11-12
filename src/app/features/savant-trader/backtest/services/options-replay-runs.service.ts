@@ -96,6 +96,36 @@ export class OptionsReplayRunsService {
   }
 
   /**
+   * Watch a single run doc in realtime — docId IS the runId (#1430).
+   * Emits null while the doc doesn't exist.
+   */
+  watchRunDoc(runId: string): Observable<OptionsReplayRunUi | null> {
+    return from(runInInjectionContext(this.injector, () => {
+      const runRef = doc(this.firestore, this.runsCollection, runId);
+      return docData(runRef, { idField: 'runId' }) as Observable<Record<string, unknown> | undefined>;
+    })).pipe(
+      map((d) => (d ? convertOptionsReplayRunDoc(String(d['runId'] ?? runId), d) : null))
+    );
+  }
+
+  /**
+   * Watch every contract-list doc in realtime — the row-actions table
+   * needs per-run list state for all rows, not just a selected run
+   * (#1471 detail-panel removal). One doc per run; bounded by the run
+   * count.
+   */
+  watchContractLists(): Observable<OptionsContractListUi[]> {
+    return from(runInInjectionContext(this.injector, () => {
+      const listsRef = collection(this.firestore, this.listsCollection);
+      return collectionData(listsRef, { idField: 'listId' }) as Observable<Record<string, unknown>[]>;
+    })).pipe(
+      map((docs) =>
+        docs.map((d) => convertOptionsContractListDoc(String(d['listId']), d))
+      )
+    );
+  }
+
+  /**
    * Watch the run's contract-list doc in realtime. Runs are single-symbol
    * (#1430) so docId IS the runId — a direct doc read, no query/index.
    * Emits null while the doc doesn't exist (worker hasn't written yet).

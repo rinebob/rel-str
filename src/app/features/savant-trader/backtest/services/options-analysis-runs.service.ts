@@ -45,6 +45,20 @@ export class OptionsAnalysisRunsService {
   }
 
   /**
+   * Watch every analysis result doc — the row-actions table needs
+   * readiness across all runs, not one selected run (#1471 detail-panel
+   * removal). Doc count is ~6 per analyzed run.
+   */
+  watchAllResultDocs(): Observable<AnalysisResultDoc[]> {
+    return from(runInInjectionContext(this.injector, () => {
+      const resultsRef = collection(this.firestore, this.resultsCollection);
+      return collectionData(resultsRef) as Observable<Record<string, unknown>[]>;
+    })).pipe(
+      map((docs) => docs.map((d) => convertAnalysisResultDoc(d)))
+    );
+  }
+
+  /**
    * Watch all analysis result docs for a run — one query feeds every
    * per-symbol card since docs carry `runId`.
    */

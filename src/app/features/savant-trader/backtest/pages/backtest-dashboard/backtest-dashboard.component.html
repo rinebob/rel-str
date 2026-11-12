@@ -76,27 +76,18 @@
       <div class="run-list-wrapper">
         <app-options-replay-run-list
           [rows]="replayStore.filteredRows()"
-          [selectedRunId]="replayStore.selectedRunId()"
+          [contractLists]="replayStore.contractListById()"
+          [analysisReadyListIds]="replayStore.analysisReadyListIds()"
+          [analyzingListIds]="replayStore.analyzingListIds()"
           [isLoading]="replayStore.isLoading()"
           [hasActiveFilters]="replayStore.hasActiveFilters()"
           [retryingRunIds]="replayStore.retryingRunIds()"
           [deletingRunIds]="replayStore.deletingRunIds()"
-          (selectRow)="replayStore.selectRow($event)"
+          (viewContracts)="openContractListDialog($event)"
+          (analyze)="replayStore.startAnalysis($event)"
           (rerun)="replayStore.retryRun($event)"
           (deleteRun)="confirmDeleteReplayRun($event)" />
       </div>
-
-      @if (replayStore.selectedRun()) {
-        <div class="detail-panel">
-          <app-options-replay-run-detail
-            [run]="replayStore.selectedRun()!"
-            [contractList]="replayStore.contractList()"
-            [isLoadingLists]="replayStore.listsStreaming()"
-            [analysisReadyListIds]="replayStore.analysisReadyListIds()"
-            [analyzingListIds]="replayStore.analyzingListIds()"
-            (analyze)="replayStore.startAnalysis($event)" />
-        </div>
-      }
     </div>
   </section>
 </div>

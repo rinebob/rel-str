@@ -19,7 +19,10 @@ import { BacktestPermutationDetailComponent } from '../../components/backtest-pe
 import { BacktestNewRunDialogComponent } from '../../components/backtest-new-run-dialog/backtest-new-run-dialog.component';
 import { OptionsReplayRunListComponent } from '../../components/options-replay-run-list/options-replay-run-list.component';
 import { OptionsReplayRunControlsComponent } from '../../components/options-replay-run-controls/options-replay-run-controls.component';
-import { OptionsReplayRunDetailComponent } from '../../components/options-replay-run-detail/options-replay-run-detail.component';
+import {
+  OptionsReplayContractListDialogComponent,
+  ContractListDialogData,
+} from '../../components/options-replay-contract-list-dialog/options-replay-contract-list-dialog.component';
 import { OptionsReplayNewRunDialogComponent } from '../../components/options-replay-new-run-dialog/options-replay-new-run-dialog.component';
 import { ConfirmDialogComponent } from '../../../../../shared/ds/confirm-dialog.component';
 import { UiStateService } from '../../../../../core/services/ui-state.service';
@@ -37,8 +40,7 @@ import { formatBacktestRunId } from '../../utils/backtest.utils';
     BacktestRunSummaryComponent,
     BacktestPermutationDetailComponent,
     OptionsReplayRunListComponent,
-    OptionsReplayRunControlsComponent,
-    OptionsReplayRunDetailComponent],
+    OptionsReplayRunControlsComponent],
   templateUrl: './backtest-dashboard.component.html',
   styleUrl: './backtest-dashboard.component.scss',
 })
@@ -101,6 +103,21 @@ export class BacktestDashboardComponent implements OnDestroy {
         this.replayStore.startReplay(request);
       }
     });
+  }
+
+  /** Row Contracts action — pops the run's contract-list doc in a
+   *  dialog (the list doc is keyed by runId, #1430). */
+  openContractListDialog(runId: string): void {
+    const list = this.replayStore.contractListById().get(runId);
+    if (!list) return;
+    this.dialog.open<OptionsReplayContractListDialogComponent, ContractListDialogData>(
+      OptionsReplayContractListDialogComponent,
+      {
+        width: '960px',
+        maxWidth: '95vw',
+        data: { list },
+      }
+    );
   }
 
   /** Row delete action — confirm first; the cascade (run + contract

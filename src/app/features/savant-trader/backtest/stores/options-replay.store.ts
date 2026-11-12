@@ -2,7 +2,9 @@
  * Options Replay Store
  *
  * NgRx SignalStore for the Selection Replay surface — replay runs,
- * the selected run, and its contract list (1:1 per run, #1430), all realtime.
+ * their contract lists (1:1 per run, #1430), and analysis results, all
+ * realtime and collection-scoped (row actions replace the selected-run
+ * detail panel, #1471).
  * Deliberately separate from BacktestRunStore: the replay namespace is
  * a different data model (pick-doc selections, not sim trades).
  */
@@ -18,7 +20,6 @@ import type {
   OptionsContractListUi,
   OptionsReplayRunUi,
   ReplayListRow,
-  ReplaySelection,
   ReplaySortBy,
   ReplaySortDirection,
   ReplayStatusFilter,
@@ -28,13 +29,12 @@ import { OptionsAnalysisRunsService } from '../services/options-analysis-runs.se
 
 export interface OptionsReplayState {
   runs: OptionsReplayRunUi[];
-  /** Selected runId — a row IS a run (#1430); the symbol is always
-   *  derivable from the run doc, so selection carries no symbol join. */
-  selection: ReplaySelection | null;
-  contractList: OptionsContractListUi | null;
+  /** Every contract-list doc (1:1 with runs, #1430) — row actions
+   *  (Analyze, View Contracts) read per-run state from the collection
+   *  watch, no selection required (#1471 detail-panel removal). */
+  contractLists: OptionsContractListUi[];
   isLoading: boolean;
   runsStreaming: boolean;
-  listsStreaming: boolean;
   statusFilter: ReplayStatusFilter;
   templateFilter: string;
   symbolSearch: string;
@@ -51,8 +51,8 @@ export interface OptionsReplayState {
    *  until the runs snapshot drops the doc (same snapshot-lag posture
    *  as retryingRuns) — a run still in the snapshot can be re-clicked. */
   deletingRunIds: ReadonlySet<string>;
-  /** Analysis result docs for the selected run — drives the
-   *  Analyze → View Results flip on each contract-list card. */
+  /** Analysis result docs across ALL runs — drives each row's
+   *  Analyze → View Results flip (#1471 detail-panel removal). */
   analysisResults: AnalysisResultDoc[];
   /** Contract lists with an in-flight optionsAnalysisStart call — the
    *  results listener prunes the flag once a doc for that list exists. */
@@ -82,11 +82,9 @@ const DEFAULT_REPLAY_FILTERS = {
 
 const initialState: OptionsReplayState = {
   runs: [],
-  selection: null,
-  contractList: null,
+  contractLists: [],
   isLoading: false,
   runsStreaming: false,
-  listsStreaming: false,
   ...DEFAULT_REPLAY_FILTERS,
   sortBy: 'createdAt',
   sortDirection: 'desc',
@@ -117,17 +115,14 @@ export const OptionsReplayStore = signalStore(
     });
 
     return {
-      /** Selected run id — the selection value itself. */
-      selectedRunId: computed(() => state.selection()),
-
-      /** The currently selected run, if any. */
-      selectedRun: computed(() => {
-        const id = state.selection();
-        return id ? state.runs().find((r) => r.runId === id) ?? null : null;
-      }),
-
       /** The most recent run (Firestore query is ordered createdAt desc). */
       latestRun: computed(() => state.runs()[0] ?? null),
+
+      /** listId → list doc — rows resolve their Analyze/View Contracts
+       *  state through this (listId IS the runId, #1430). */
+      contractListById: computed(
+        () => new Map(state.contractLists().map((l) => [l.listId, l] as const)),
+      ),
 
       runRows,
 
@@ -228,65 +223,59 @@ export const OptionsReplayStore = signalStore(
       });
     }
 
-    function loadRunStreams(runId: string | null): void {
-      listsSubscription?.unsubscribe();
-      listsSubscription = null;
-      resultsSubscription?.unsubscribe();
-      resultsSubscription = null;
-      if (!runId) {
-        patchState(state, {
-          contractList: null,
-          listsStreaming: false,
-          analysisResults: [],
-          analyzingListIds: new Set<string>(),
-        });
-        return;
+    /** One-shot start of the collection-wide list + results streams —
+     *  row actions read per-run state for EVERY row, so the watches are
+     *  collection-scoped, not selection-scoped (#1471 detail-panel
+     *  removal). Idempotent for live streams; a dead subscription
+     *  (a stream error completes it via watchStream's catchError) is
+     *  replaced, so the next loadRuns() revives row-action state after
+     *  a transient listener failure. */
+    function loadAuxStreams(): void {
+      if (!listsSubscription || listsSubscription.closed) {
+        listsSubscription = watchStream(
+          'contract lists',
+          runsService.watchContractLists(),
+          (contractLists) => patchState(state, { contractLists }),
+          [],
+          {},
+          {}
+        );
       }
 
-      listsSubscription = watchStream(
-        'contract list',
-        runsService.watchContractList(runId),
-        (contractList) => patchState(state, { contractList }),
-        null,
-        // Clear up front — otherwise the new run's card briefly reads
-        // the previous run's list until the first snapshot.
-        { contractList: null, listsStreaming: true },
-        { listsStreaming: false }
-      );
-
-      resultsSubscription = watchStream(
-        'analysis results',
-        analysisService.watchResultDocs(runId),
-        (analysisResults) => {
-          // A delivered doc proves the analysis call landed — prune its
-          // in-flight flag so the card's action can flip to View Results.
-          const analyzing = state.analyzingListIds();
-          if (analyzing.size === 0) {
-            patchState(state, { analysisResults });
-            return;
-          }
-          const docIds = new Set(analysisResults.map((d) => d.contractListDocId));
-          const next = new Set([...analyzing].filter((id) => !docIds.has(id)));
-          patchState(state, next.size === analyzing.size ? { analysisResults } : { analysisResults, analyzingListIds: next });
-        },
-        // Same run-scoped reset — stale docs from the previous run must
-        // not mark its cards ready; in-flight flags belong to the old
-        // run's stream and never resolve from the new one.
-        [],
-        { analysisResults: [], analyzingListIds: new Set<string>() },
-        {}
-      );
-    }
-
-    function applyRunSelection(runId: string | null): void {
-      patchState(state, { selection: runId });
-      loadRunStreams(runId);
+      if (!resultsSubscription || resultsSubscription.closed) {
+        resultsSubscription = watchStream(
+          'analysis results',
+          analysisService.watchAllResultDocs(),
+          (analysisResults) => {
+            // A delivered doc proves the analysis call landed — prune
+            // its in-flight flag so the row's action can flip to
+            // View Results.
+            const analyzing = state.analyzingListIds();
+            if (analyzing.size === 0) {
+              patchState(state, { analysisResults });
+              return;
+            }
+            const docIds = new Set(analysisResults.map((d) => d.contractListDocId));
+            const next = new Set([...analyzing].filter((id) => !docIds.has(id)));
+            patchState(state, next.size === analyzing.size ? { analysisResults } : { analysisResults, analyzingListIds: next });
+          },
+          [],
+          {},
+          {}
+        );
+      }
     }
 
     return {
-      /** Start a realtime listener for replay runs. Idempotent. */
+      /** Start a realtime listener for replay runs. Idempotent — but
+       *  NOT a no-op when a stream died: aux streams run first so a
+       *  closed lists/results subscription revives on re-entry (the
+       *  runs guard below would otherwise skip the restart forever,
+       *  leaving row actions frozen at the [] fallback), and a dead
+       *  runs stream re-subscribes the same way. */
       loadRuns(): void {
-        if (runsSubscription) return;
+        loadAuxStreams();
+        if (runsSubscription && !runsSubscription.closed) return;
 
         runsSubscription = watchStream(
           'replay runs',
@@ -330,27 +319,6 @@ export const OptionsReplayStore = signalStore(
         );
       },
 
-      /** Select a run for the detail panel and start streaming its
-       *  contract lists + analysis result docs. */
-      selectRun(runId: string | null): void {
-        applyRunSelection(runId);
-      },
-
-      /** Select a run row — the detail panel shows its contract-list
-       *  card. A re-click on the same run keeps the existing streams
-       *  unless they died on an earlier error. */
-      selectRow(runId: string): void {
-        // Both run-scoped streams restart together — a dead results stream
-        // with a live lists stream must still trigger the restart or the
-        // card silently loses View Results updates for the session.
-        const streamDead =
-          !listsSubscription || listsSubscription.closed ||
-          !resultsSubscription || resultsSubscription.closed;
-        const isNewRun = state.selection() !== runId;
-        patchState(state, { selection: runId });
-        if (isNewRun || streamDead) loadRunStreams(runId);
-      },
-
       setStatusFilter(filter: ReplayStatusFilter): void {
         patchState(state, { statusFilter: filter });
       },
@@ -370,7 +338,8 @@ export const OptionsReplayStore = signalStore(
         patchState(state, { ...DEFAULT_REPLAY_FILTERS });
       },
 
-      /** Start a new replay run; on success select it so the detail panel shows progress. */
+      /** Start a new replay run — its row surfaces progress via the
+       *  collection streams (no selection surface remains, #1471). */
       startReplay(request: OptionsReplayStartRequest): void {
         patchState(state, { isLoading: true });
 
@@ -395,7 +364,6 @@ export const OptionsReplayStore = signalStore(
                 `Replay started: ${count} run${count === 1 ? '' : 's'}`,
                 'Dismiss', { duration: 30000 }
               );
-              if (count > 0) applyRunSelection(response.runIds[0]);
             }
           });
       },
@@ -449,9 +417,7 @@ export const OptionsReplayStore = signalStore(
       /** Cascade-delete a run + its contract list + analysis results.
        *  The callable is idempotent (missing docs count as deleted), so
        *  the flag only covers the call → snapshot window: it clears on
-       *  error here, or when the runs listener sees the doc gone. When
-       *  the response confirms deletion, a selected run's selection
-       *  clears so the detail card never renders a deleted run. */
+       *  error here, or when the runs listener sees the doc gone. */
       deleteRun(runId: string): void {
         if (state.deletingRunIds().has(runId)) return;
         const symbol = state.runs().find((r) => r.runId === runId)?.symbol;
@@ -476,7 +442,6 @@ export const OptionsReplayStore = signalStore(
           )
           .subscribe((response) => {
             if (!response) return;
-            if (state.selection() === runId) applyRunSelection(null);
             const cleaned = response.deletedLists + response.deletedResults;
             toast.open(
               response.deletedRun

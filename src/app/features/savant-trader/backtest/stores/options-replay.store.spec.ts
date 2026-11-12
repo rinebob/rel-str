@@ -45,7 +45,7 @@ function makeResultDoc(overrides: Partial<AnalysisResultDoc> = {}): AnalysisResu
     registryVersion: 1,
     status: 'success',
     trades: [],
-    aggregate: { exitId: 'exit-1', contractCount: 0, exitedCount: 0, expiredCount: 0, errorCount: 0 },
+    aggregate: { exitId: 'exit-1', contractCount: 0, exitedCount: 0, expiredCount: 0, openCount: 0, errorCount: 0 },
     generatedAt: '2026-11-05T00:00:00Z',
     ...overrides,
   };
@@ -53,7 +53,7 @@ function makeResultDoc(overrides: Partial<AnalysisResultDoc> = {}): AnalysisResu
 
 describe('OptionsReplayStore', () => {
   let runsSubject: Subject<OptionsReplayRunUi[]>;
-  let listsSubject: Subject<OptionsContractListUi | null>;
+  let listsSubject: Subject<OptionsContractListUi[]>;
   let resultsSubject: Subject<AnalysisResultDoc[]>;
   let toast: { open: jest.Mock };
 
@@ -65,14 +65,14 @@ describe('OptionsReplayStore', () => {
 
     const serviceStub = {
       watchRuns: jest.fn(() => runsSubject.asObservable()),
-      watchContractList: jest.fn(() => listsSubject.asObservable()),
+      watchContractLists: jest.fn(() => listsSubject.asObservable()),
       startReplay: jest.fn(() => of({ runIds: ['new-run-1_SPY'] })),
       retryRun: jest.fn(() => of({ retriedSymbol: 'SPY' })),
       deleteRun: jest.fn(() => of({ deletedRun: true, deletedLists: 1, deletedResults: 6 })),
     };
 
     const analysisStub = {
-      watchResultDocs: jest.fn(() => resultsSubject.asObservable()),
+      watchAllResultDocs: jest.fn(() => resultsSubject.asObservable()),
       startAnalysis: jest.fn(() => of({ analysisId: 'run-1_SPY' })),
     };
 
@@ -115,33 +115,29 @@ describe('OptionsReplayStore', () => {
     expect(TestBed.inject(OptionsReplayRunsService).watchRuns).toHaveBeenCalledTimes(1);
   });
 
-  it('selectRun streams the run\'s contract lists', async () => {
+  it('loadRuns also starts the collection-wide list + results streams', async () => {
+    const store = await setup();
+
+    store.loadRuns();
+
+    const service = TestBed.inject(OptionsReplayRunsService);
+    const analysisService = TestBed.inject(OptionsAnalysisRunsService);
+    expect(service.watchContractLists).toHaveBeenCalledTimes(1);
+    expect(analysisService.watchAllResultDocs).toHaveBeenCalledTimes(1);
+  });
+
+  it('streams contract-list docs into contractLists / contractListById', async () => {
     const store = await setup();
     store.loadRuns();
-    runsSubject.next([makeRun()]);
 
-    store.selectRun('run-1_SPY');
-    const service = TestBed.inject(OptionsReplayRunsService);
-    expect(service.watchContractList).toHaveBeenCalledWith('run-1_SPY');
+    listsSubject.next([makeList()]);
 
-    listsSubject.next(makeList());
-    expect(store.contractList()).toBeTruthy();
-    expect(store.contractList()?.symbol).toBe('SPY');
-    expect(store.listsStreaming()).toBe(false);
-    expect(store.selectedRun()?.runId).toBe('run-1_SPY');
+    expect(store.contractLists().length).toBe(1);
+    expect(store.contractLists()[0].symbol).toBe('SPY');
+    expect(store.contractListById().get('run-1_SPY')?.symbol).toBe('SPY');
   });
 
-  it('selectRun(null) clears lists and stops streaming', async () => {
-    const store = await setup();
-    store.selectRun('run-1_SPY');
-    listsSubject.next(makeList());
-
-    store.selectRun(null);
-    expect(store.contractList()).toBeNull();
-    expect(store.selectedRun()).toBeNull();
-  });
-
-  it('startReplay calls the service, selects the first new run, and streams its lists', async () => {
+  it('startReplay calls the service and toasts the started count', async () => {
     const store = await setup();
     store.loadRuns();
     runsSubject.next([makeRun()]);
@@ -150,20 +146,16 @@ describe('OptionsReplayStore', () => {
 
     const service = TestBed.inject(OptionsReplayRunsService);
     expect(service.startReplay).toHaveBeenCalledWith({ templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-02' });
-    expect(store.selectedRunId()).toBe('new-run-1_SPY');
-    expect(service.watchContractList).toHaveBeenCalledWith('new-run-1_SPY');
     expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('1 run'), 'Dismiss', { duration: 30000 });
   });
 
-  it('startReplay failure snack-bars and leaves selection untouched', async () => {
+  it('startReplay failure snack-bars', async () => {
     const store = await setup();
     const service = TestBed.inject(OptionsReplayRunsService);
     (service.startReplay as jest.Mock).mockReturnValue(throwError(() => new Error('unavailable')));
 
-    store.selectRun('existing-run');
     store.startReplay({ templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-02' });
 
-    expect(store.selectedRunId()).toBe('existing-run');
     expect(toast.open).toHaveBeenCalledWith(expect.stringContaining('Failed to start replay'), 'Dismiss', { duration: 30000 });
   });
 
@@ -361,66 +353,89 @@ describe('OptionsReplayStore', () => {
     });
   });
 
-  describe('selectRow', () => {
-    it('sets selectedRunId and streams the run\'s contract list', async () => {
+  describe('collection streams', () => {
+    it('loadRuns is idempotent — aux streams subscribe once', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      const analysisService = TestBed.inject(OptionsAnalysisRunsService);
+
+      store.loadRuns();
+      store.loadRuns();
+
+      expect(service.watchContractLists).toHaveBeenCalledTimes(1);
+      expect(analysisService.watchAllResultDocs).toHaveBeenCalledTimes(1);
+    });
+
+    it('contract lists stream live for every run, not a selection', async () => {
       const store = await setup();
       store.loadRuns();
-      runsSubject.next([makeRun()]);
 
-      store.selectRow('run-1_SPY');
-      expect(store.selectedRunId()).toBe('run-1_SPY');
-      expect(TestBed.inject(OptionsReplayRunsService).watchContractList).toHaveBeenCalledWith('run-1_SPY');
+      listsSubject.next([makeList(), makeList({ listId: 'run-2_QQQ', runId: 'run-2_QQQ', symbol: 'QQQ' })]);
 
-      listsSubject.next(makeList());
-      expect(store.contractList()?.symbol).toBe('SPY');
+      expect(store.contractListById().size).toBe(2);
+      expect(store.contractListById().get('run-2_QQQ')?.symbol).toBe('QQQ');
     });
 
-    it('a same-run reselect keeps the existing list stream', async () => {
+    it('result docs mark their list ready — for any run in the window', async () => {
       const store = await setup();
-      const service = TestBed.inject(OptionsReplayRunsService);
+      store.loadRuns();
 
-      store.selectRow('run-1_SPY');
-      store.selectRow('run-1_SPY');
+      resultsSubject.next([
+        makeResultDoc(),
+        makeResultDoc({ contractListDocId: 'run-2_QQQ', runId: 'run-2_QQQ', symbol: 'QQQ' }),
+      ]);
 
-      expect(service.watchContractList).toHaveBeenCalledTimes(1);
-      expect(store.selectedRunId()).toBe('run-1_SPY');
+      expect(store.analysisReadyListIds().has('run-1_SPY')).toBe(true);
+      expect(store.analysisReadyListIds().has('run-2_QQQ')).toBe(true);
     });
 
-    it('cross-run selection restreams that run\'s contract list', async () => {
+    it('a dead lists stream revives on the next loadRuns — a stream error completes the subscription', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
+      store.loadRuns();
 
-      store.selectRow('run-1_SPY');
-      store.selectRow('run-2_QQQ');
-
-      expect(service.watchContractList).toHaveBeenCalledTimes(2);
-      expect(service.watchContractList).toHaveBeenLastCalledWith('run-2_QQQ');
-      expect(store.selectedRunId()).toBe('run-2_QQQ');
-    });
-
-    it('a same-run reselect restreams when the list stream died on an error', async () => {
-      const store = await setup();
-      const service = TestBed.inject(OptionsReplayRunsService);
-
-      store.selectRow('run-1_SPY');
-      expect(service.watchContractList).toHaveBeenCalledTimes(1);
-
-      // watchStream's catchError swallows the error into of([]) → the
-      // subscription completes → .closed — a same-run reselect must restream.
       listsSubject.error(new Error('denied'));
+      expect(store.contractLists()).toEqual([]);
 
-      store.selectRow('run-1_SPY');
-      expect(service.watchContractList).toHaveBeenCalledTimes(2);
-      expect(service.watchContractList).toHaveBeenLastCalledWith('run-1_SPY');
+      const revived = new Subject<OptionsContractListUi[]>();
+      (service.watchContractLists as jest.Mock).mockReturnValue(revived.asObservable());
+      store.loadRuns();
+
+      expect(service.watchContractLists).toHaveBeenCalledTimes(2);
+      revived.next([makeList()]);
+      expect(store.contractListById().get('run-1_SPY')?.symbol).toBe('SPY');
     });
 
-    it('selectRun sets the selection to the runId', async () => {
+    it('a dead results stream revives on the next loadRuns', async () => {
       const store = await setup();
-      store.selectRow('run-1_SPY');
-      expect(store.selectedRunId()).toBe('run-1_SPY');
+      const analysisService = TestBed.inject(OptionsAnalysisRunsService);
+      store.loadRuns();
 
-      store.selectRun('run-2_QQQ');
-      expect(store.selectedRunId()).toBe('run-2_QQQ');
+      resultsSubject.error(new Error('denied'));
+
+      const revived = new Subject<AnalysisResultDoc[]>();
+      (analysisService.watchAllResultDocs as jest.Mock).mockReturnValue(revived.asObservable());
+      store.loadRuns();
+
+      expect(analysisService.watchAllResultDocs).toHaveBeenCalledTimes(2);
+      revived.next([makeResultDoc()]);
+      expect(store.analysisReadyListIds().has('run-1_SPY')).toBe(true);
+    });
+
+    it('a dead runs stream re-subscribes on the next loadRuns', async () => {
+      const store = await setup();
+      const service = TestBed.inject(OptionsReplayRunsService);
+      store.loadRuns();
+
+      runsSubject.error(new Error('denied'));
+
+      const revived = new Subject<OptionsReplayRunUi[]>();
+      (service.watchRuns as jest.Mock).mockReturnValue(revived.asObservable());
+      store.loadRuns();
+
+      expect(service.watchRuns).toHaveBeenCalledTimes(2);
+      revived.next([makeRun()]);
+      expect(store.runs()[0].runId).toBe('run-1_SPY');
     });
   });
 
@@ -593,27 +608,6 @@ describe('OptionsReplayStore', () => {
       expect(store.deletingRunIds().has('run-1_SPY')).toBe(false);
     });
 
-    it('clears the selection when the selected run is deleted', async () => {
-      const store = await setup();
-      store.selectRow('run-1_SPY');
-      listsSubject.next(makeList());
-      expect(store.selectedRunId()).toBe('run-1_SPY');
-
-      store.deleteRun('run-1_SPY');
-
-      expect(store.selectedRunId()).toBeNull();
-      expect(store.contractList()).toBeNull();
-    });
-
-    it('keeps the selection when a different run is deleted', async () => {
-      const store = await setup();
-      store.selectRow('run-1_SPY');
-
-      store.deleteRun('run-2_QQQ');
-
-      expect(store.selectedRunId()).toBe('run-1_SPY');
-    });
-
     it('reports nothing-to-delete when the callable found no docs', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsReplayRunsService);
@@ -637,12 +631,9 @@ describe('OptionsReplayStore', () => {
   });
 
   describe('analysis results stream', () => {
-    it('streams result docs for the selected run', async () => {
+    it('streams all result docs into analysisResults', async () => {
       const store = await setup();
-      store.selectRun('run-1_SPY');
-
-      const service = TestBed.inject(OptionsAnalysisRunsService);
-      expect(service.watchResultDocs).toHaveBeenCalledWith('run-1_SPY');
+      store.loadRuns();
 
       resultsSubject.next([makeResultDoc()]);
       expect(store.analysisResults().length).toBe(1);
@@ -651,7 +642,7 @@ describe('OptionsReplayStore', () => {
 
     it('marks ready only on SUCCESS docs — a failed doc keeps Analyze enabled', async () => {
       const store = await setup();
-      store.selectRun('run-1_SPY');
+      store.loadRuns();
 
       resultsSubject.next([makeResultDoc({ status: 'failed', error: 'series fetch failed' })]);
       expect(store.analysisResults().length).toBe(1);
@@ -660,34 +651,12 @@ describe('OptionsReplayStore', () => {
       resultsSubject.next([makeResultDoc({ status: 'success' })]);
       expect(store.analysisReadyListIds().has('run-1_SPY')).toBe(true);
     });
-
-    it('clears result docs when the selection is cleared', async () => {
-      const store = await setup();
-      store.selectRun('run-1_SPY');
-      resultsSubject.next([makeResultDoc()]);
-
-      store.selectRun(null);
-      expect(store.analysisResults()).toEqual([]);
-      expect(store.analysisReadyListIds().size).toBe(0);
-    });
-
-    it('restarts the stream on a run switch and clears stale docs up front', async () => {
-      const store = await setup();
-      store.selectRun('run-1_SPY');
-      resultsSubject.next([makeResultDoc()]);
-      expect(store.analysisResults().length).toBe(1);
-
-      store.selectRun('run-2_QQQ');
-      const service = TestBed.inject(OptionsAnalysisRunsService);
-      expect(service.watchResultDocs).toHaveBeenCalledWith('run-2_QQQ');
-      expect(store.analysisResults()).toEqual([]);
-    });
   });
 
   describe('startAnalysis', () => {
     it('calls the callable and toasts success', async () => {
       const store = await setup();
-      store.selectRun('run-1_SPY');
+      store.loadRuns();
 
       store.startAnalysis('run-1_SPY');
 
@@ -701,7 +670,7 @@ describe('OptionsReplayStore', () => {
       const service = TestBed.inject(OptionsAnalysisRunsService);
       const pending = new Subject<{ analysisId: string }>();
       (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
-      store.selectRun('run-1_SPY');
+      store.loadRuns();
 
       store.startAnalysis('run-1_SPY');
       pending.next({ analysisId: 'run-1_SPY' });
@@ -718,7 +687,7 @@ describe('OptionsReplayStore', () => {
       const service = TestBed.inject(OptionsAnalysisRunsService);
       const pending = new Subject<{ analysisId: string }>();
       (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
-      store.selectRun('run-1_SPY');
+      store.loadRuns();
 
       store.startAnalysis('run-1_SPY');
       store.startAnalysis('run-1_SPY');
@@ -731,7 +700,7 @@ describe('OptionsReplayStore', () => {
       const service = TestBed.inject(OptionsAnalysisRunsService);
       const pending = new Subject<{ analysisId: string }>();
       (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
-      store.selectRun('run-1_SPY');
+      store.loadRuns();
 
       store.startAnalysis('run-1_SPY');
       pending.next({ analysisId: 'run-1_SPY' });
@@ -745,27 +714,11 @@ describe('OptionsReplayStore', () => {
       expect(store.analyzingListIds().has('run-1_SPY')).toBe(false);
     });
 
-    it('prunes the flag when the list docs for that list all vanish', async () => {
-      const store = await setup();
-      const service = TestBed.inject(OptionsAnalysisRunsService);
-      const pending = new Subject<{ analysisId: string }>();
-      (service.startAnalysis as jest.Mock).mockReturnValue(pending.asObservable());
-      store.selectRun('run-1_SPY');
-
-      store.startAnalysis('run-1_SPY');
-      pending.next({ analysisId: 'run-1_SPY' });
-      expect(store.analyzingListIds().has('run-1_SPY')).toBe(true);
-
-      // Selection cleared → stream torn down → nothing left to protect.
-      store.selectRun(null);
-      expect(store.analyzingListIds().has('run-1_SPY')).toBe(false);
-    });
-
     it('toasts the failure and clears the flag on error', async () => {
       const store = await setup();
       const service = TestBed.inject(OptionsAnalysisRunsService);
       (service.startAnalysis as jest.Mock).mockReturnValue(throwError(() => new Error('failed-precondition')));
-      store.selectRun('run-1_SPY');
+      store.loadRuns();
 
       store.startAnalysis('run-1_SPY');
 

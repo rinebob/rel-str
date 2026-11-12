@@ -65,10 +65,6 @@ export interface ReplayListRow {
   status: ReplayRowStatus;
 }
 
-/** Selection state — a row IS a run (#1430), so selection is just its
- *  runId; the symbol is always derivable from the run doc. */
-export type ReplaySelection = string;
-
 /** Status filter composes on the row's mapped status. */
 export type ReplayStatusFilter = 'all' | ReplayRowStatus;
 export type ReplaySortBy = 'createdAt' | 'startDate' | 'symbol';
