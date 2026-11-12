@@ -51,6 +51,12 @@ export class OptionChartPageService {
    *  (the chart viewChild lives there). */
   chartExtents: () => ChartExtents | null = () => null;
 
+  /** Post-swap hook — fires after every symbol switch so listeners can
+   *  drop swap-scoped state the page service can't reach (the load
+   *  service injects THIS service — DI can't run the other direction).
+   *  The page component assigns the rejection-notice clear. */
+  onSymbolSwitched: () => void = () => {};
+
   /** First-load session setup — same tail as the symbol switch minus
    *  the clears (nothing exists to clear yet). */
   initSession(): void {
@@ -75,6 +81,7 @@ export class OptionChartPageService {
     this.genStore.setSymbol(value);
     this.listStore.setSymbol(value);
     this.listError.set(null);
+    this.onSymbolSwitched();
     this.loadSymbolData(value.trim().toUpperCase());
   }
 

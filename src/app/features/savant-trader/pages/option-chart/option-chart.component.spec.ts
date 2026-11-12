@@ -332,6 +332,17 @@ describe('OptionChartComponent — chart projection', () => {
       expect(component.rejectedEntries()).toEqual([]);
     });
 
+    it('a symbol swap drops the stale notice via the swap hook — every switch path clears it (#1423)', async () => {
+      const { component } = setup();
+      component.occIdInput = 'bogus';
+      component.onLoad();
+      await flush();
+      expect(component.rejectedEntries()).toHaveLength(1);
+
+      component.onSymbolChange('SPY');
+      expect(component.rejectedEntries()).toEqual([]);
+    });
+
     it('more than 50 entries confirms before loading', async () => {
       const { store, component, dialog } = setup(undefined, true);
       // Distinct strikes — dedupe would otherwise collapse the list to one.
@@ -406,8 +417,90 @@ describe('OptionChartComponent — chart projection', () => {
       // Emphasis is visual only — every plotted contract stays rendered.
       expect(component.plottedChartSeries()).toHaveLength(2);
 
-      component.onChipLeave();
+      // Clear fires on the column's mouseleave — the gap between stacked
+      // chips is inside .plotted-chips, so only a true exit clears.
+      component.onChipsMouseLeave();
       expect(store.hoveredContractId()).toBeNull();
+    });
+
+    it('sliding chip-to-chip keeps the highlight — no leave fires between chips', async () => {
+      const { store, component } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: null },
+        { contractId: QQQ_CALL, openDate: null },
+      ]);
+
+      // Container-leave semantics: the pointer never exits .plotted-chips
+      // while sliding, so the highlight moves straight to the next chip
+      // with no repaint-to-full-set gap.
+      component.onChipEnter(component.chipContracts()[0]);
+      component.onChipEnter(component.chipContracts()[1]);
+      expect(store.hoveredContractId()).toBe(QQQ_CALL);
+    });
+
+    it('focus leaving the chip column clears the hover; focus between chips does not', async () => {
+      const { store, component } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: null },
+        { contractId: QQQ_CALL, openDate: null },
+      ]);
+
+      const host = document.createElement('div');
+      const inner = document.createElement('button');
+      host.appendChild(inner);
+
+      component.onChipEnter(component.chipContracts()[0]);
+      // Tab to the next chip — relatedTarget stays inside the column.
+      component.onChipsFocusOut({ currentTarget: host, relatedTarget: inner } as unknown as FocusEvent);
+      expect(store.hoveredContractId()).toBe(QQQ_PUT);
+
+      // Focus lands outside the column — hover clears.
+      component.onChipsFocusOut({ currentTarget: host, relatedTarget: document.body } as unknown as FocusEvent);
+      expect(store.hoveredContractId()).toBeNull();
+    });
+
+    it('chip click pins the highlight — it survives pointer leave', async () => {
+      const { store, component } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: null },
+        { contractId: QQQ_CALL, openDate: null },
+      ]);
+
+      const put = component.chipContracts()[0];
+      const call = component.chipContracts()[1];
+
+      component.onChipClick(put);
+      expect(store.pinnedContractId()).toBe(QQQ_PUT);
+      expect(store.highlightedContractId()).toBe(QQQ_PUT);
+
+      // Pointer off the panel — the pin keeps the contract lit for tracking.
+      component.onChipsMouseLeave();
+      expect(store.hoveredContractId()).toBeNull();
+      expect(store.highlightedContractId()).toBe(QQQ_PUT);
+
+      // Clicking a different chip re-pins; clicking the pinned chip unpins.
+      component.onChipClick(call);
+      expect(store.pinnedContractId()).toBe(QQQ_CALL);
+      component.onChipClick(call);
+      expect(store.pinnedContractId()).toBeNull();
+      expect(store.highlightedContractId()).toBeNull();
+    });
+
+    it('an error chip cannot be pinned — it has no line to light', async () => {
+      const getHistorical = jest.fn((_s: string, cid: string) =>
+        cid === QQQ_PUT
+          ? throwError(() => new Error('no data'))
+          : of(contractResponse(cid, ['2026-06-01', '2026-06-10'])),
+      );
+      const { store, component } = setup(getHistorical);
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: null },
+        { contractId: QQQ_CALL, openDate: null },
+      ]);
+
+      const errChip = component.chipContracts().find((c) => c.status === 'error')!;
+      component.onChipClick(errChip);
+      expect(store.pinnedContractId()).toBeNull();
     });
 
     it('an error chip has no line to highlight', async () => {

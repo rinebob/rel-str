@@ -93,6 +93,10 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     // The catalog's filter-to-chart reads the chart's visible window —
     // the viewChild lives here, the query lives there.
     this.page.chartExtents = () => this.chartRef()?.visibleExtents() ?? null;
+    // Every symbol swap — textarea, ?list=, chooser, replay, results —
+    // drops the stale rejection notice: its wrong-underlying label would
+    // otherwise re-render under the NEW symbol's name.
+    this.page.onSymbolSwitched = () => this.load.rejectedEntries.set([]);
   }
 
   // ── Page context (option-chart-page.service.ts) ─────────────────────
@@ -358,16 +362,40 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   }
 
   /** Chip hover/click emphasizes its line in the set view — visual only,
-   *  no refetch, every plotted series stays on the chart. Pointer leave or
-   *  focus loss clears the emphasis. Error chips have no line to light. */
+   *  no refetch, every plotted series stays on the chart. The highlight
+   *  clears on container-level leave/focus-out — the gap between stacked
+   *  chips is inside .plotted-chips, so sliding down the column never
+   *  flashes the full set. Error chips have no line: entering one clears
+   *  the hover (falling back to the pin, if any). */
   onChipEnter(contract: PlottedContract): void {
-    if (contract.status !== 'error') {
-      this.store.setHoveredContract(contract.entry.contractId);
+    this.store.setHoveredContract(
+      contract.status === 'error' ? null : contract.entry.contractId,
+    );
+  }
+
+  /** Pointer left the chip column entirely — gaps between chips never
+   *  fire this, only a true exit. */
+  onChipsMouseLeave(): void {
+    this.store.setHoveredContract(null);
+  }
+
+  /** Focus moved — clear only when it lands outside the chip column
+   *  (Tab between chips reports the next chip as relatedTarget). */
+  onChipsFocusOut(event: FocusEvent): void {
+    const host = event.currentTarget as HTMLElement;
+    if (!host.contains(event.relatedTarget as Node | null)) {
+      this.store.setHoveredContract(null);
     }
   }
 
-  onChipLeave(): void {
-    this.store.setHoveredContract(null);
+  /** Chip click pins the highlight — the contract stays lit after the
+   *  pointer leaves the panel (e.g. scrolling the column), until the chip
+   *  is clicked again or another chip is pinned. Error chips can't pin:
+   *  pinning a series that doesn't exist would dim the whole chart. */
+  onChipClick(contract: PlottedContract): void {
+    if (contract.status !== 'error') {
+      this.store.togglePinnedContract(contract.entry.contractId);
+    }
   }
 
   onChipRemove(contract: PlottedContract): void {

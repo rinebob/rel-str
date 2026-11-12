@@ -250,14 +250,14 @@
 .generator-panel {
   width: 340px;
   background: var(--mat-sys-surface-container);
-  border-left: 1px solid var(--mat-sys-outline-variant);
+  border-right: 1px solid var(--mat-sys-outline-variant);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
 
   &:not(.open) {
-    margin-right: -340px;
+    margin-left: -340px;
   }
 
   /* Dense DS fields */
@@ -871,9 +871,9 @@
   }
 }
 
-/* Rejected-token notice under the pair-list input */
+/* Rejected-token notice — top of the chips panel so a rejected emit is
+   visible even while the drawer is closed (#1423 review M3) */
 .rejection-notice {
-  margin-top: 8px;
   padding: 8px 10px;
   border: 1px solid var(--mat-sys-error);
   border-radius: 4px;
@@ -910,21 +910,37 @@
   }
 }
 
-/* Plotted-set chips strip above the chart */
-.plotted-chips-row {
+/* Plotted-set chips column on the right — always visible while a set is plotted */
+.chips-panel {
+  width: 200px;
+  background: var(--mat-sys-surface);
+  border-left: 1px solid var(--mat-sys-outline-variant);
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 12px;
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .plotted-chips {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
-  flex-wrap: wrap;
+
+  .plotted-chip {
+    .chip-main {
+      flex: 1 1 auto;
+      min-width: 0;
+      text-align: left;
+    }
+
+    .chip-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
 }
 
 .plotted-chip {
@@ -991,6 +1007,14 @@
     color: var(--mat-sys-error);
   }
 
+  .chip-pin-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    color: var(--mat-sys-primary);
+  }
+
   .chip-open-date {
     font-size: 10px;
     opacity: 0.65;
@@ -1019,4 +1043,33 @@
   color: var(--mat-sys-on-surface-variant);
   white-space: nowrap;
   margin-left: auto;
+}
+
+/* Pin vs hover: a pinned chip keeps a persistent left accent even when
+   another chip is hovered and owns .highlighted — that's the tracking
+   cue the pin exists for (#1423). */
+.plotted-chip.pinned {
+  box-shadow: inset 3px 0 0 var(--mat-sys-primary);
+}
+
+/* Narrow widths — the drawer overlays the chart instead of compressing
+   it (chart keeps its width underneath), and the chips column tightens.
+   Defined collapse/overflow behavior (#1423 AC4). */
+@media (max-width: 960px) {
+  .side-layout {
+    position: relative;
+  }
+
+  .generator-panel {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 20;
+    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .chips-panel {
+    width: 150px;
+  }
 }

@@ -131,6 +131,15 @@ describe('OptionChartPageService — symbol switch orchestration', () => {
     expect(listStore.symbol()).toBe('SPY');
   });
 
+  it('fires onSymbolSwitched — the hook every swap path clears swap-scoped state through (#1423)', () => {
+    const { page } = setup();
+    const switched = jest.fn();
+    page.onSymbolSwitched = switched;
+
+    page.onSymbolChange('SPY');
+    expect(switched).toHaveBeenCalledTimes(1);
+  });
+
   it('initSession seeds the catalog builder and swaps store symbols', () => {
     const { page, store, genStore, listStore } = setup();
     page.type.set('call');

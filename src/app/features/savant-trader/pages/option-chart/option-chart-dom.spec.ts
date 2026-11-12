@@ -50,7 +50,21 @@ describe('OptionChartComponent — panel toggle (DOM, #1423)', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: OptionsContractService, useValue: {
-          getHistoricalOptionsContract$: jest.fn(),
+          // Minimal resolved response — chips reach 'loaded' status so
+          // hover/pin bindings exercise the real non-error path.
+          getHistoricalOptionsContract$: jest.fn((sym: string, cid: string) =>
+            of({
+              ok: true,
+              symbol: sym,
+              contractID: cid,
+              expiration: '2026-06-19',
+              type: 'put',
+              strike: '470.00',
+              startDate: '2026-06-01',
+              endDate: '2026-06-10',
+              series: [{ date: '2026-06-01', mark: '1.23' }],
+            }),
+          ),
           getContractIndex$: jest.fn(() => of({ expirations: [], strikes: [] })),
           getContractCatalogSummary$: jest.fn(() => of(null)),
         } },
@@ -104,6 +118,66 @@ describe('OptionChartComponent — panel toggle (DOM, #1423)', () => {
     expect(idx('list-section')).toBeLessThan(idx('acc-head-catalog'));
     expect(idx('acc-head-catalog')).toBeLessThan(idx('acc-head-gen'));
     expect(idx('acc-head-gen')).toBeLessThan(idx('entry-section'));
+  });
+
+  it('page order: drawer LEFT, chart middle, chips column RIGHT (#1423)', async () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const drawer = el.querySelector('aside.generator-panel')!;
+    const chart = el.querySelector('.chart-content')!;
+    const headerBar = el.querySelector('.contract-header-bar')!;
+
+    // The controls drawer sits left of the chart and its toggle is the
+    // leftmost element of the header bar.
+    expect(headerBar.firstElementChild!.classList.contains('generator-toggle')).toBe(true);
+    expect(drawer.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // The chips column renders only while a set is plotted or a load
+    // rejected tokens — load one.
+    expect(el.querySelector('aside.chips-panel')).toBeNull();
+    await fixture.componentInstance.store.loadPlotted([
+      { contractId: 'QQQ260619P00470000', openDate: null },
+    ]);
+    await fixture.whenStable();
+
+    const chips = el.querySelector('aside.chips-panel')!;
+    expect(chips).toBeTruthy();
+    expect(chart.compareDocumentPosition(chips) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('rejected tokens surface in the chips panel even with nothing plotted (#1423 review)', async () => {
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('aside.chips-panel')).toBeNull();
+
+    // A load that rejects every token still mounts the panel so the
+    // notice is visible while the drawer is closed.
+    fixture.componentInstance.rejectedEntries.set([
+      { raw: 'not-a-contract', reason: 'invalid-contract' },
+    ]);
+    await fixture.whenStable();
+
+    const chips = el.querySelector('aside.chips-panel')!;
+    expect(chips).toBeTruthy();
+    expect(chips.querySelector('.rejection-notice')!.textContent).toContain('1 entry skipped');
+  });
+
+  it('chip column bindings: mouseenter lights the line, container mouseleave clears', async () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const store = fixture.componentInstance.store;
+    await store.loadPlotted([
+      { contractId: 'QQQ260619P00470000', openDate: null },
+      { contractId: 'QQQ260619C00480000', openDate: null },
+    ]);
+    await fixture.whenStable();
+
+    // Real template bindings — the enter lives on the chip, the clear
+    // lives on the column (no per-chip leave, so slides can't flash).
+    el.querySelector('.plotted-chip .chip-main')!.dispatchEvent(new MouseEvent('mouseenter'));
+    await fixture.whenStable();
+    expect(store.hoveredContractId()).toBe('QQQ260619P00470000');
+
+    el.querySelector('.plotted-chips')!.dispatchEvent(new MouseEvent('mouseleave'));
+    await fixture.whenStable();
+    expect(store.hoveredContractId()).toBeNull();
   });
 
   it('accordion heads collapse and re-expand their panels', async () => {

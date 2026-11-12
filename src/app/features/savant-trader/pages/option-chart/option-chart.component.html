@@ -1,218 +1,10 @@
 <div class="option-chart-page" [class.fullscreen]="uiStateService.fullscreen()">
   <div class="sidenav-container side-layout">
-    <div class="chart-content">
-      <div class="contract-header-bar">
-        @if (store.contractData(); as data) {
-        <span class="ch-id">{{ data.contractID }}</span>
-        <span class="ch-sep">|</span>
-        <span class="ch-type" [class.call]="data.type === 'call'" [class.put]="data.type === 'put'">
-          {{ data.type === 'call' ? 'CALL' : 'PUT' }}
-        </span>
-        <span class="ch-strike">${{ data.strike }}</span>
-        <span class="ch-sep">|</span>
-        <span class="ch-exp">{{ data.expiration }}</span>
-        <span class="ch-sep">|</span>
-        <span class="ch-length">{{ contractLength() ? lengthLabel() : '—' }}</span>
-        <span class="ch-sep">|</span>
-        <span class="ch-obs">{{ store.observationCount() }} obs</span>
-        } @else {
-        <span class="ch-id">{{ symbol() }}</span>
-        <span class="ch-sep">|</span>
-        <span class="ch-type">UNDERLYING</span>
-        }
-        <button
- 
- class="header-btn ds-btn outline"
- (click)="chartFilterActive() ? onClearChartFilter() : onFilterToChart()"
- >
-          {{ chartFilterActive() ? 'Clear Filter' : 'Filter to Chart' }}
-        </button>
-        <button
- 
- class="header-btn ds-btn outline"
- (click)="store.loadUnderlyingBarsFullHistory(symbol())"
- [disabled]="store.underlyingLoading()"
- >
-          Full History
-        </button>
-        @if (hasEntryDates()) {
-        <button
- 
- class="header-btn ds-btn outline"
- (click)="store.setDisplayWindow(store.displayWindow() === 'position' ? 'lifetime' : 'position')" title="Drop observations before each contract's entry date"
- >
-          {{ store.displayWindow() === 'position' ? 'Full series' : 'Clip to entry' }}
-        </button>
-        }
-        <div class="range-btn-wrap">
-          <button
-
- class="header-btn ds-btn outline"
- [class.active-toggle]="brushArmed()"
- (click)="brushArmed.set(!brushArmed())" title="Drag across the chart to bound the generator alive range (Esc to cancel)"
- aria-label="Select study range"
- [attr.aria-pressed]="brushArmed()"
- >
-            Select range
-          </button>
-          @if (brushArmed() || genStore.refine().aliveRange) {
-          <button
-            class="range-clear icon-btn"
-            (click)="clearStudyRange(); $event.stopPropagation()"
-            title="Clear the study-range bound"
-            aria-label="Clear study range"
-          >
-            <span class="dse-icon">close</span>
-          </button>
-          }
-        </div>
-
-        @if (listStore.activeList()) {
-        <button
-          type="button"
-          class="ds-btn outline header-btn picker-reopen"
-          (click)="openListPicker()"
-        >
-          Picker — {{ listStore.selectedRows().length }}/{{ listStore.pickRows().length }} selected
-        </button>
-        }
-
-        <span class="header-spacer"></span>
-        <button
- 
- class="generator-toggle icon-btn"
- [class.active-toggle]="generatorOpen"
- (click)="generatorOpen = !generatorOpen" title="Contract group generator"
- aria-label="Contract group generator"
- [attr.aria-pressed]="generatorOpen"
- >
-          <span class="dse-icon">tune</span>
-        </button>
-      </div>
-
-      @if (chipContracts().length > 0) {
-      <div class="plotted-chips-row">
-        <div class="plotted-chips">
-          @for (c of chipContracts(); track c.entry.contractId) {
-          <span
-            class="plotted-chip"
-            [class.highlighted]="store.hoveredContractId() === c.entry.contractId"
-            [class.error]="c.status === 'error'"
-          >
-            <button
-              type="button"
-              class="chip-main"
-              (mouseenter)="onChipEnter(c)"
-              (mouseleave)="onChipLeave()"
-              (focus)="onChipEnter(c)"
-              (blur)="onChipLeave()"
-              (click)="onChipEnter(c)" [title]="c.status === 'error' ? (c.error ?? 'Load failed') : 'Highlights this line'"
-            >
-              @if (c.status !== 'error') {
-              <span class="chip-swatch" [style.background-color]="chipColor(c)"></span>
-              }
-              <span class="chip-label">{{ chipLabel(c) }}</span>
-              @if (c.status === 'loading') {
-              <span class="dse-spinner small chip-spinner" style="--spinner-size: 12px" role="progressbar" aria-label="Loading"></span>
-              }
-              @if (c.status === 'error') {
-              <span class="dse-icon chip-error-icon">error_outline</span>
-              }
-              @if (c.entry.openDate) {
-              <span class="chip-open-date">{{ c.entry.openDate }}</span>
-              }
-            </button>
-            <button
-              type="button"
-              class="chip-remove"
-              [attr.aria-label]="'Remove ' + c.entry.contractId"
-              (click)="onChipRemove(c)"
-            >×</button>
-          </span>
-          }
-          @if (store.underlyingBars().length > 0) {
-          <span class="plotted-chip underlying-chip" [class.off]="!store.showUnderlying()">
-            <button
-              type="button"
-              class="chip-main"
-              (click)="store.toggleUnderlying()" [title]="store.showUnderlying() ? 'Hide underlying' : 'Show underlying'"
-            >
-              <span class="chip-swatch" [style.background-color]="underlyingColor"></span>
-              <span class="chip-label">{{ symbol() }}</span>
-            </button>
-          </span>
-          }
-        </div>
-        @if (store.plottedLoadProgress(); as progress) {
-        <span class="plotted-progress">Loaded {{ progress.done }} / {{ progress.total }}</span>
-        }
-      </div>
-      }
-
-      @if (store.loading()) {
-      <div class="loading-section">
-        <span class="dse-spinner" style="--spinner-size: 40px" role="progressbar" aria-label="Loading"></span>
-        <span>Loading contract data...</span>
-      </div>
-      }
-
-      @if (store.error()) {
-      <div class="error-section">
-        <span class="flag-chip err">{{ store.error() }}</span>
-      </div>
-      }
-
-      <!-- List-session errors live here, not in the drawer — a failed
-           ?list= deep link must name its error even with the panel shut. -->
-      @if (listErrorText()) {
-      <div class="error-section">
-        <span class="flag-chip err">{{ listErrorText() }}</span>
-      </div>
-      }
-
-      @if (store.contractData() || store.underlyingBars().length > 0 || showPlottedSet()) {
-      <app-options-contract-chart
-        [plottedSeries]="plottedChartSeries()"
-        [xLabels]="chartAxisLabels()"
-        [underlyingBars]="store.underlyingBars()"
-        [showUnderlying]="store.showUnderlying()"
-        [showGreeks]="store.showGreeks()"
-        [showVolumeOI]="store.showVolumeOI()"
-        [highlightedContractId]="store.hoveredContractId()"
-        [(brushArmed)]="brushArmed"
-        [brushCorpus]="genStore.corpusDates()"
-        [activeStudyRange]="genStore.refine().aliveRange ?? null"
-        (seriesHovered)="store.setHoveredContract($event)"
-        (studyRange)="onStudyRange($event)"
-      ></app-options-contract-chart>
-      }
-
-      @if (store.catalogResults().length > 0) {
-      <div class="contract-nav">
-        <button class="icon-btn"
- 
- (click)="onPrevContract()"
- [disabled]="!canGoPrev()" title="Previous contract"
- >
-          <span class="dse-icon">chevron_left</span>
-        </button>
-        <span class="nav-position">
-          {{ store.currentSearchIndex() + 1 }} / {{ store.catalogResults().length }}
-        </span>
-        <button class="icon-btn"
- 
- (click)="onNextContract()"
- [disabled]="!canGoNext()" title="Next contract"
- >
-          <span class="dse-icon">chevron_right</span>
-        </button>
-      </div>
-      }
-    </div>
     <aside
       class="generator-panel side-panel"
       [class.open]="generatorOpen"
       [attr.aria-hidden]="!generatorOpen"
+      [attr.inert]="!generatorOpen ? '' : null"
     >
       <!-- Symbol — page context; stays visible above the collapsible forms.
            The drawer's close button rides this label row flush right (#1423). -->
@@ -269,7 +61,7 @@
       <!-- Contract + catalog query (absorbed from the retired control-panel) -->
       <div class="builder-section panel-section">
 
-        <div class="query-length-row ms-menu-host">
+        <div class="query-length-row">
           <button class="query-len-btn ds-btn outline"
                   cdkOverlayOrigin #queryLenOrigin="cdkOverlayOrigin"
                   aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'queryLen'"
@@ -351,7 +143,7 @@
           <button class="filter-pill" [class.active]="displayType() === 'put'" (click)="displayType.set('put')">Put</button>
         </div>
 
-        <span class="ms-menu-host">
+        <span>
         <button class="filter-dropdown-btn ds-btn outline"
                 cdkOverlayOrigin #expOrigin="cdkOverlayOrigin"
                 aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'exp'"
@@ -382,7 +174,7 @@
         </ng-template>
         </span>
 
-        <span class="ms-menu-host">
+        <span>
         <button class="filter-dropdown-btn ds-btn outline"
                 cdkOverlayOrigin #lenOrigin="cdkOverlayOrigin"
                 aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'len'"
@@ -598,18 +390,6 @@
  >
           Load {{ contractLength() ? '(' + lengthLabel() + ')' : '' }}
         </button>
-
-        @if (rejectedEntries().length > 0) {
-        <div class="rejection-notice" role="alert">
-          <div class="rejection-title">{{ rejectedEntries().length }} entr{{ rejectedEntries().length === 1 ? 'y' : 'ies' }} skipped:</div>
-          @for (r of rejectedEntries(); track $index) {
-          <div class="rejection-item">
-            <span class="rejection-raw">{{ r.raw }}</span>
-            <span class="rejection-reason">{{ rejectionReasonLabel(r.reason) }}</span>
-          </div>
-          }
-        </div>
-        }
       </div>
 
       @if (store.contractData() || showPlottedSet()) {
@@ -666,5 +446,231 @@
       }
 
     </aside>
+    <div class="chart-content">
+      <div class="contract-header-bar">
+        <button
+ 
+ class="generator-toggle icon-btn"
+ [class.active-toggle]="generatorOpen"
+ (click)="generatorOpen = !generatorOpen" title="Controls panel"
+ aria-label="Controls panel"
+ [attr.aria-pressed]="generatorOpen"
+ >
+          <span class="dse-icon">tune</span>
+        </button>
+        @if (store.contractData(); as data) {
+        <span class="ch-id">{{ data.contractID }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-type" [class.call]="data.type === 'call'" [class.put]="data.type === 'put'">
+          {{ data.type === 'call' ? 'CALL' : 'PUT' }}
+        </span>
+        <span class="ch-strike">${{ data.strike }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-exp">{{ data.expiration }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-length">{{ contractLength() ? lengthLabel() : '—' }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-obs">{{ store.observationCount() }} obs</span>
+        } @else {
+        <span class="ch-id">{{ symbol() }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-type">UNDERLYING</span>
+        }
+        <button
+ 
+ class="header-btn ds-btn outline"
+ (click)="chartFilterActive() ? onClearChartFilter() : onFilterToChart()"
+ >
+          {{ chartFilterActive() ? 'Clear Filter' : 'Filter to Chart' }}
+        </button>
+        <button
+ 
+ class="header-btn ds-btn outline"
+ (click)="store.loadUnderlyingBarsFullHistory(symbol())"
+ [disabled]="store.underlyingLoading()"
+ >
+          Full History
+        </button>
+        @if (hasEntryDates()) {
+        <button
+ 
+ class="header-btn ds-btn outline"
+ (click)="store.setDisplayWindow(store.displayWindow() === 'position' ? 'lifetime' : 'position')" title="Drop observations before each contract's entry date"
+ >
+          {{ store.displayWindow() === 'position' ? 'Full series' : 'Clip to entry' }}
+        </button>
+        }
+        <div class="range-btn-wrap">
+          <button
+
+ class="header-btn ds-btn outline"
+ [class.active-toggle]="brushArmed()"
+ (click)="brushArmed.set(!brushArmed())" title="Drag across the chart to bound the generator alive range (Esc to cancel)"
+ aria-label="Select study range"
+ [attr.aria-pressed]="brushArmed()"
+ >
+            Select range
+          </button>
+          @if (brushArmed() || genStore.refine().aliveRange) {
+          <button
+            class="range-clear icon-btn"
+            (click)="clearStudyRange(); $event.stopPropagation()"
+            title="Clear the study-range bound"
+            aria-label="Clear study range"
+          >
+            <span class="dse-icon">close</span>
+          </button>
+          }
+        </div>
+
+        @if (listStore.activeList()) {
+        <button
+          type="button"
+          class="ds-btn outline header-btn picker-reopen"
+          (click)="openListPicker()"
+        >
+          Picker — {{ listStore.selectedRows().length }}/{{ listStore.pickRows().length }} selected
+        </button>
+        }
+
+        <span class="header-spacer"></span>
+      </div>
+
+
+      @if (store.loading()) {
+      <div class="loading-section">
+        <span class="dse-spinner" style="--spinner-size: 40px" role="progressbar" aria-label="Loading"></span>
+        <span>Loading contract data...</span>
+      </div>
+      }
+
+      @if (store.error()) {
+      <div class="error-section">
+        <span class="flag-chip err">{{ store.error() }}</span>
+      </div>
+      }
+
+      <!-- List-session errors live here, not in the drawer — a failed
+           ?list= deep link must name its error even with the panel shut. -->
+      @if (listErrorText()) {
+      <div class="error-section">
+        <span class="flag-chip err">{{ listErrorText() }}</span>
+      </div>
+      }
+
+      @if (store.contractData() || store.underlyingBars().length > 0 || showPlottedSet()) {
+      <app-options-contract-chart
+        [plottedSeries]="plottedChartSeries()"
+        [xLabels]="chartAxisLabels()"
+        [underlyingBars]="store.underlyingBars()"
+        [showUnderlying]="store.showUnderlying()"
+        [showGreeks]="store.showGreeks()"
+        [showVolumeOI]="store.showVolumeOI()"
+        [highlightedContractId]="store.highlightedContractId()"
+        [(brushArmed)]="brushArmed"
+        [brushCorpus]="genStore.corpusDates()"
+        [activeStudyRange]="genStore.refine().aliveRange ?? null"
+        (seriesHovered)="store.setHoveredContract($event)"
+        (studyRange)="onStudyRange($event)"
+      ></app-options-contract-chart>
+      }
+
+      @if (store.catalogResults().length > 0) {
+      <div class="contract-nav">
+        <button class="icon-btn"
+ 
+ (click)="onPrevContract()"
+ [disabled]="!canGoPrev()" title="Previous contract"
+ >
+          <span class="dse-icon">chevron_left</span>
+        </button>
+        <span class="nav-position">
+          {{ store.currentSearchIndex() + 1 }} / {{ store.catalogResults().length }}
+        </span>
+        <button class="icon-btn"
+ 
+ (click)="onNextContract()"
+ [disabled]="!canGoNext()" title="Next contract"
+ >
+          <span class="dse-icon">chevron_right</span>
+        </button>
+      </div>
+      }
+    </div>
+    @if (chipContracts().length > 0 || rejectedEntries().length > 0) {
+    <aside class="chips-panel side-panel">
+      @if (rejectedEntries().length > 0) {
+      <div class="rejection-notice" role="alert">
+        <div class="rejection-title">{{ rejectedEntries().length }} entr{{ rejectedEntries().length === 1 ? 'y' : 'ies' }} skipped:</div>
+        @for (r of rejectedEntries(); track $index) {
+        <div class="rejection-item">
+          <span class="rejection-raw">{{ r.raw }}</span>
+          <span class="rejection-reason">{{ rejectionReasonLabel(r.reason) }}</span>
+        </div>
+        }
+      </div>
+      }
+      <div class="plotted-chips"
+           (mouseleave)="onChipsMouseLeave()"
+           (focusout)="onChipsFocusOut($event)">
+        @for (c of chipContracts(); track c.entry.contractId) {
+        <span
+          class="plotted-chip"
+          [class.highlighted]="store.highlightedContractId() === c.entry.contractId"
+          [class.pinned]="store.pinnedContractId() === c.entry.contractId"
+          [class.error]="c.status === 'error'"
+        >
+          <button
+            type="button"
+            class="chip-main"
+            (mouseenter)="onChipEnter(c)"
+            (focus)="onChipEnter(c)"
+            (click)="onChipClick(c)" [title]="c.status === 'error' ? (c.error ?? 'Load failed') : 'Click to pin highlight'"
+          >
+            @if (c.status !== 'error') {
+            <span class="chip-swatch" [style.background-color]="chipColor(c)"></span>
+            }
+            <span class="chip-label">{{ chipLabel(c) }}</span>
+            @if (store.pinnedContractId() === c.entry.contractId) {
+            <span class="dse-icon chip-pin-icon">push_pin</span>
+            }
+            @if (c.status === 'loading') {
+            <span class="dse-spinner small chip-spinner" style="--spinner-size: 12px" role="progressbar" aria-label="Loading"></span>
+            }
+            @if (c.status === 'error') {
+            <span class="dse-icon chip-error-icon">error_outline</span>
+            }
+            @if (c.entry.openDate) {
+            <span class="chip-open-date">{{ c.entry.openDate }}</span>
+            }
+          </button>
+          <button
+            type="button"
+            class="chip-remove"
+            [attr.aria-label]="'Remove ' + c.entry.contractId"
+            (click)="onChipRemove(c)"
+          >×</button>
+        </span>
+        }
+        @if (store.underlyingBars().length > 0 && chipContracts().length > 0) {
+        <span class="plotted-chip underlying-chip" [class.off]="!store.showUnderlying()">
+          <button
+            type="button"
+            class="chip-main"
+            (mouseenter)="store.setHoveredContract(null)"
+            (focus)="store.setHoveredContract(null)"
+            (click)="store.toggleUnderlying()" [title]="store.showUnderlying() ? 'Hide underlying' : 'Show underlying'"
+          >
+            <span class="chip-swatch" [style.background-color]="underlyingColor"></span>
+            <span class="chip-label">{{ symbol() }}</span>
+          </button>
+        </span>
+        }
+      </div>
+      @if (store.plottedLoadProgress(); as progress) {
+      <span class="plotted-progress">Loaded {{ progress.done }} / {{ progress.total }}</span>
+      }
+    </aside>
+    }
   </div>
 </div>
