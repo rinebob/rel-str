@@ -153,6 +153,11 @@ export interface BrokerOrderLeg {
   quantity: number | null;
   /** RH position_effect: open or close — may be absent on some payloads. */
   positionEffect: 'open' | 'close' | null;
+  /** Contract terms — carried on the wire leg; needed to render a real
+   *  option label instead of the bare chain symbol (#1411 QA). */
+  strikePrice: number | null;
+  expirationDate: string | null;
+  optionType: 'call' | 'put' | null;
 }
 
 /** One execution (partial fill) on an order. */
@@ -187,7 +192,8 @@ export interface BrokerOrder {
    *  Per-leg identity is required for per-instrument attribution — a spread
    *  is one order touching several instruments. */
   legs?: BrokerOrderLeg[];
-  /** Present only when the raw order carried an `executions` array —
+  /** Present when the raw order carried fills — top-level `executions` for
+   *  equities, `legs[].executions` flattened for options (#1411) —
    *  per-fill price/quantity/timestamp for FIFO matching. */
   executions?: BrokerOrderExecution[];
 }
@@ -201,7 +207,15 @@ export interface EquityOrderQuery {
   cursor?: string;
 }
 
-/** One page of equity orders + the pagination cursor (null = last page). */
+/** Query filters for get_option_orders — all optional; `cursor` pages
+ *  deeper than the first window (#1411). */
+export interface OptionOrderQuery {
+  state?: OrderState;
+  cursor?: string;
+}
+
+/** One page of orders + the pagination cursor (null = last page) — shared
+ *  by the equity and option page specs. */
 export interface EquityOrdersPage {
   orders: BrokerOrder[];
   next: string | null;

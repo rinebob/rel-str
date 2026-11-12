@@ -27,7 +27,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 
-import { RobinhoodMcpClient } from '../../core/robinhood-mcp/robinhood-mcp-client.service';
+import { RobinhoodMcpClient, ToolSpec } from '../../core/robinhood-mcp/robinhood-mcp-client.service';
 import {
   PortfolioSnapshot,
   EquityPosition,
@@ -35,6 +35,7 @@ import {
   EquityQuote,
   OptionQuote,
   BrokerOrder,
+  EquityOrdersPage,
 } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { computePnL, computeProtectedSymbols, computeEntryDates, updatableStopsBySymbol, protectiveStopsBySymbol } from './utils/portfolio-pnl.util';
 import { PositionPeakService } from './services/position-peak.service';
@@ -59,6 +60,12 @@ import {
   sortAccountsPrimaryFirst,
   updateAccount,
 } from './portfolio-dashboard.helpers';
+
+/** Depth bound for the orders batch page-walk — matches the client's
+ *  MAX_ORDER_LIST_PAGES (a live capture showed 148 orders on one page,
+ *  so 25 rounds ≈ 3.7k orders). A warn fires rather than looping on a
+ *  stuck cursor (#1411). */
+const MAX_ORDERS_PAGE_ROUNDS = 25;
 
 const initialState: DashboardState = {
   accounts: [],
@@ -257,21 +264,69 @@ export const PortfolioDashboardStore = signalStore(
       patchState(store, { accounts: updateAccount(accounts, index, updater) });
     }
 
-    /** Equity + option orders for one account in a single /batch request;
-     *  a transport failure rejects both slots. */
+    /** Equity + option orders for one account — the lists paginate on
+     *  `data.next`, so both tools walk their cursors, one /batch per depth
+     *  round (a deep history costs rounds ≈ its page depth, not a serial
+     *  crawl — #1411: page 1 alone silently drops older resting orders).
+     *  A transport failure rejects the still-pending slots. */
     async function runOrdersBatch(accountNumber: string): Promise<[
       PromiseSettledResult<BrokerOrder[]>,
       PromiseSettledResult<BrokerOrder[]>,
     ]> {
-      try {
-        return await client.executeBatch([
-          client.equityOrdersSpec(accountNumber),
-          client.optionOrdersSpec(accountNumber),
-        ]);
-      } catch (err) {
-        const failed: PromiseSettledResult<never> = { status: 'rejected', reason: err };
-        return [failed, failed];
+      interface OrdersWalk {
+        build: (cursor?: string) => ToolSpec<EquityOrdersPage>;
+        orders: BrokerOrder[];
+        cursor?: string;
+        done: boolean;
+        failure?: unknown;
       }
+      const walks: OrdersWalk[] = [
+        {
+          build: (cursor) => client.equityOrdersPageSpec(accountNumber, { cursor }),
+          orders: [], done: false,
+        },
+        {
+          build: (cursor) => client.optionOrdersPageSpec(accountNumber, { cursor }),
+          orders: [], done: false,
+        },
+      ];
+      for (let round = 0; round < MAX_ORDERS_PAGE_ROUNDS; round++) {
+        const pending = walks.filter((w) => !w.done);
+        if (pending.length === 0) break;
+        let results: PromiseSettledResult<EquityOrdersPage>[];
+        try {
+          results = await client.executeBatch(pending.map((w) => w.build(w.cursor)));
+        } catch (err) {
+          for (const w of pending) { w.done = true; w.failure = err; }
+          break;
+        }
+        pending.forEach((w, i) => {
+          const r = results[i];
+          if (r.status === 'rejected') { w.done = true; w.failure = r.reason; return; }
+          w.orders.push(...r.value.orders);
+          w.cursor = r.value.next ?? undefined;
+          if (!w.cursor) w.done = true;
+        });
+      }
+      for (const w of walks) {
+        if (!w.done) {
+          // Still holding a cursor at the cap — keep the accumulated pages
+          // (partial > none) but make the truncation loud, matching the
+          // client's own page-walk warn semantics.
+          console.warn(
+            `orders fetch hit the ${MAX_ORDERS_PAGE_ROUNDS}-page cap (account=${accountNumber}) — history may be truncated`,
+          );
+          w.done = true;
+        }
+      }
+      return walks.map((w): PromiseSettledResult<BrokerOrder[]> =>
+        w.failure !== undefined
+          ? { status: 'rejected', reason: w.failure }
+          : { status: 'fulfilled', value: w.orders },
+      ) as [
+        PromiseSettledResult<BrokerOrder[]>,
+        PromiseSettledResult<BrokerOrder[]>,
+      ];
     }
 
     function applyOrdersResults(

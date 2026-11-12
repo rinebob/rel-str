@@ -30,6 +30,7 @@ import {
   BrokerOrderLeg,
   EquityOrderQuery,
   EquityOrdersPage,
+  OptionOrderQuery,
   OrderState,
   OrderType,
   PnlTrade,
@@ -59,6 +60,11 @@ const UNIVERSE_SCOPE_CHUNK = 150;
 
 /** Maximum tool calls per /batch request — mirrors the API's own cap. */
 const BATCH_CALLS_LIMIT = 20;
+
+/** Order-list page bound (#1411) — a live capture showed 148 orders on one
+ *  page, so 25 pages ≈ 3.7k orders, deep past realistic account history.
+ *  A warn fires instead of looping forever on a stuck cursor. */
+const MAX_ORDER_LIST_PAGES = 25;
 
 /** get_option_instruments pagination bound (~100 rows/page — 10 pages is
  *  ~1k contracts, deep past any single-expiration strike board). */
@@ -292,22 +298,11 @@ export class RobinhoodMcpClient {
     // One expiration + no type filter exceeds the ~100-instrument page
     // (SPXW capture, dep-opt-instr-10) — page on `data.next` until
     // exhausted so the strike board isn't silently truncated.
-    const spec = this.optionInstrumentsSpec(filters);
-    const instruments: OptionInstrument[] = [];
-    let cursor: string | undefined;
-    for (let page = 0; page < MAX_OPTION_INSTRUMENT_PAGES; page++) {
-      const result = await this.mcp.executeTool('get_option_instruments', {
-        args: { ...spec.args, ...(cursor ? { cursor } : {}) },
-      });
-      instruments.push(...this.parseSpecResult(spec, result));
-      const next = this.extractNested(result.success ? result.parsed : null, 'data')['next'];
-      cursor = typeof next === 'string' && next ? next : undefined;
-      if (!cursor) return instruments;
-    }
-    console.warn(
-      `get_option_instruments hit the ${MAX_OPTION_INSTRUMENT_PAGES}-page cap (chain_symbol=${filters.chainSymbol}) — results may be truncated`,
+    return this.walkPages(
+      this.optionInstrumentsSpec(filters),
+      MAX_OPTION_INSTRUMENT_PAGES,
+      `chain_symbol=${filters.chainSymbol}`,
     );
-    return instruments;
   }
 
   optionInstrumentsSpec(filters: OptionInstrumentFilters): ToolSpec<OptionInstrument[]> {
@@ -424,41 +419,28 @@ export class RobinhoodMcpClient {
     accountNumber: string,
     opts?: EquityOrderQuery,
   ): Promise<BrokerOrder[]> {
-    return this.run(this.equityOrdersSpec(accountNumber, opts));
+    // Orders paginate (data.next — newest first). Page 1 alone silently
+    // drops older resting orders: the NVDA case — a limit buy that rested
+    // for weeks was pushed past the page cap by newer activity (#1411).
+    return this.walkPages(
+      this.equityOrdersSpec(accountNumber, opts),
+      MAX_ORDER_LIST_PAGES,
+      `account=${accountNumber}`,
+    );
   }
 
   equityOrdersSpec(
     accountNumber: string,
     opts?: EquityOrderQuery,
   ): ToolSpec<BrokerOrder[]> {
-    const args = this.equityOrdersArgs(accountNumber, opts);
-
-    return {
-      tool: 'get_equity_orders',
-      args,
-      parse: (result) => {
-        if (!result.success) {
-          throw new RobinhoodMcpError(result.error, 'get_equity_orders', result.category);
-        }
-
-        const raw = this.extractList(result.parsed, 'orders');
-        return this.normalizeOrders(raw, accountNumber, 'equity');
-      },
-    };
+    const page = this.equityOrdersPageSpec(accountNumber, opts);
+    return { ...page, parse: (result) => page.parse(result).orders };
   }
 
-  /**
-   * One page of equity orders plus the `next` cursor — for callers that
-   * need to walk deeper than the first page (peak-since-entry fills,
-   * #1413). `symbol` filters server-side so a per-symbol walk stays small.
-   */
-  async getEquityOrdersPage(
-    accountNumber: string,
-    opts?: EquityOrderQuery,
-  ): Promise<EquityOrdersPage> {
-    return this.run(this.equityOrdersPageSpec(accountNumber, opts));
-  }
-
+  /** One page of equity orders plus the `next` cursor — consumed by the
+   *  store's round-batched orders walk (#1411) and the peak-since-entry
+   *  fills walk (#1413). `symbol` filters server-side so a per-symbol
+   *  walk stays small. */
   equityOrdersPageSpec(
     accountNumber: string,
     opts?: EquityOrderQuery,
@@ -492,13 +474,23 @@ export class RobinhoodMcpClient {
     return args;
   }
 
-  async getOptionOrders(accountNumber: string, opts?: { state?: OrderState }): Promise<BrokerOrder[]> {
-    return this.run(this.optionOrdersSpec(accountNumber, opts));
+  async getOptionOrders(accountNumber: string, opts?: OptionOrderQuery): Promise<BrokerOrder[]> {
+    // Same page-1 truncation as equity orders — the option endpoint also
+    // paginates on data.next (#1411).
+    return this.walkPages(
+      this.optionOrdersSpec(accountNumber, opts),
+      MAX_ORDER_LIST_PAGES,
+      `account=${accountNumber}`,
+    );
   }
 
-  optionOrdersSpec(accountNumber: string, opts?: { state?: OrderState }): ToolSpec<BrokerOrder[]> {
-    const args: Record<string, unknown> = { account_number: accountNumber };
-    if (opts?.state) args['state'] = opts.state;
+  /** One page of option orders plus the `next` cursor — the option twin of
+   *  `equityOrdersPageSpec`, for batch-driven walks (#1411 orders group). */
+  optionOrdersPageSpec(
+    accountNumber: string,
+    opts?: OptionOrderQuery,
+  ): ToolSpec<EquityOrdersPage> {
+    const args = this.optionOrdersArgs(accountNumber, opts);
 
     return {
       tool: 'get_option_orders',
@@ -509,9 +501,25 @@ export class RobinhoodMcpClient {
         }
 
         const raw = this.extractList(result.parsed, 'orders');
-        return this.normalizeOrders(raw, accountNumber, 'option');
+        const next = this.extractNested(result.parsed, 'data')['next'];
+        return {
+          orders: this.normalizeOrders(raw, accountNumber, 'option'),
+          next: typeof next === 'string' && next ? next : null,
+        };
       },
     };
+  }
+
+  optionOrdersSpec(accountNumber: string, opts?: OptionOrderQuery): ToolSpec<BrokerOrder[]> {
+    const page = this.optionOrdersPageSpec(accountNumber, opts);
+    return { ...page, parse: (result) => page.parse(result).orders };
+  }
+
+  private optionOrdersArgs(accountNumber: string, opts?: OptionOrderQuery): Record<string, unknown> {
+    const args: Record<string, unknown> = { account_number: accountNumber };
+    if (opts?.state) args['state'] = opts.state;
+    if (opts?.cursor) args['cursor'] = opts.cursor;
+    return args;
   }
 
   // ---------------------------------------------------------------------------
@@ -786,6 +794,37 @@ export class RobinhoodMcpClient {
   }
 
   /**
+   * Walk a paginated tool to `data.next` exhaustion — page 1 alone silently
+   * drops everything past the bound (strike boards; the #1411 NVDA order
+   * case). The bound + warn makes a stuck cursor loud instead of looping.
+   */
+  private async walkPages<T>(spec: ToolSpec<T[]>, maxPages: number, context: string): Promise<T[]> {
+    const items: T[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < maxPages; page++) {
+      const result = await this.mcp.executeTool(spec.tool, {
+        args: { ...spec.args, ...(cursor ? { cursor } : {}) },
+      });
+      // Guard here, not just inside specs: a spec that forgot its own
+      // success check would otherwise turn a failed page into a silent
+      // end-of-list (no `next` → truncated items returned).
+      if (!result.success) {
+        throw new RobinhoodMcpError(result.error, spec.tool, result.category);
+      }
+      items.push(...this.parseSpecResult(spec, result));
+      // parseSpecResult throws on failure, so `parsed` is present here —
+      // the success check narrows the ToolExecutionResult union for TS.
+      const next = this.extractNested(result.success ? result.parsed : null, 'data')['next'];
+      cursor = typeof next === 'string' && next ? next : undefined;
+      if (!cursor) return items;
+    }
+    console.warn(
+      `${spec.tool} hit the ${maxPages}-page cap (${context}) — results may be truncated`,
+    );
+    return items;
+  }
+
+  /**
    * Execute several specs in ONE `/batch` request (one MCP session
    * server-side). Returns one PromiseSettledResult per spec, in order:
    * a failed call rejects only its own slot — the same semantics the
@@ -833,18 +872,24 @@ export class RobinhoodMcpClient {
     for (const item of raw) {
       try {
         orders.push(this.normalizeOrder(item, accountNumber, instrumentType));
-      } catch {
-        // Skip malformed orders rather than failing the entire list.
+      } catch (err) {
+        // Skip malformed orders rather than failing the entire list — but
+        // never silently (#1411): an unlogged skip is an invisible order.
+        console.warn(
+          `Skipped malformed ${instrumentType} order '${String(item['id'] ?? '?')}': ` +
+            `${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
     return orders;
   }
 
   private normalizeOrder(raw: Record<string, unknown>, accountNumber: string, instrumentType: 'equity' | 'option'): BrokerOrder {
-    const rawSide = raw['side'];
-    if (rawSide !== 'buy' && rawSide !== 'sell') {
+    const side = this.orderSide(raw);
+    if (side === null) {
       throw new RobinhoodMcpError(
-        `Unrecognized order side: ${String(rawSide)}`,
+        `Unrecognized order side: ${String(raw['side'])} ` +
+          `(direction=${String(raw['direction'])}, legs=${Array.isArray(raw['legs']) ? (raw['legs'] as unknown[]).length : 0})`,
         'normalizeOrder',
         ToolExecutionErrorCategory.MCP,
       );
@@ -863,7 +908,7 @@ export class RobinhoodMcpClient {
       accountNumber,
       instrumentType,
       symbol,
-      side: rawSide,
+      side,
       type: this.parseOrderType(raw['type']),
       state: this.parseOrderState(raw['state']),
       quantity: this.toNumber(raw['quantity']),
@@ -874,9 +919,42 @@ export class RobinhoodMcpClient {
       createdAt: typeof raw['created_at'] === 'string' ? raw['created_at'] : null,
       timeInForce: typeof raw['time_in_force'] === 'string' ? raw['time_in_force'] : undefined,
       marketHours: typeof raw['market_hours'] === 'string' ? raw['market_hours'] : undefined,
-      legs: this.parseLegs(raw['legs'], rawSide),
-      executions: this.parseExecutions(raw['executions']),
+      legs: this.parseLegs(raw['legs'], side),
+      executions: this.orderExecutions(raw),
     };
+  }
+
+  /** Order-level buy/sell — equity orders carry `side` verbatim; option
+   *  orders have NO top-level side on the wire — they carry `direction`
+   *  (debit→buy, credit→sell) plus per-leg `side` (#1411: requiring top-
+   *  level side dropped 100% of the option feed). Leg side is the last
+   *  resort when direction is absent. */
+  private orderSide(raw: Record<string, unknown>): 'buy' | 'sell' | null {
+    if (raw['side'] === 'buy' || raw['side'] === 'sell') return raw['side'];
+    if (raw['direction'] === 'debit') return 'buy';
+    if (raw['direction'] === 'credit') return 'sell';
+    const legs = raw['legs'];
+    if (Array.isArray(legs)) {
+      for (const leg of legs) {
+        const s = (leg as Record<string, unknown>)?.['side'];
+        if (s === 'buy' || s === 'sell') return s;
+      }
+    }
+    return null;
+  }
+
+  /** Top-level executions when present; option orders carry fills under
+   *  `legs[].executions` instead — flatten those so per-fill data isn't
+   *  silently absent (#1411). */
+  private orderExecutions(raw: Record<string, unknown>): BrokerOrderExecution[] | undefined {
+    const top = this.parseExecutions(raw['executions']);
+    if (top) return top;
+    const legs = raw['legs'];
+    if (!Array.isArray(legs)) return undefined;
+    const fromLegs = legs.flatMap(
+      (l) => this.parseExecutions((l as Record<string, unknown>)?.['executions']) ?? [],
+    );
+    return fromLegs.length > 0 ? fromLegs : undefined;
   }
 
   /** Option-order legs — per-instrument contract ids (option_id or the
@@ -895,11 +973,17 @@ export class RobinhoodMcpClient {
       const effect = leg['position_effect'] === 'open' || leg['position_effect'] === 'close'
         ? leg['position_effect']
         : null;
+      const optType = leg['option_type'] === 'call' || leg['option_type'] === 'put'
+        ? leg['option_type']
+        : null;
       return {
         side,
         optionId,
         quantity: this.toNumber(leg['quantity'] ?? leg['ratio_quantity']),
         positionEffect: effect,
+        strikePrice: this.toNumber(leg['strike_price']),
+        expirationDate: typeof leg['expiration_date'] === 'string' ? leg['expiration_date'] : null,
+        optionType: optType,
       };
     });
   }
@@ -928,6 +1012,11 @@ export class RobinhoodMcpClient {
       case 'stop_limit':
         return s;
       default:
+        // Same drift surface as parseOrderState (#1411) — an unrecognized
+        // type still renders, but silently; log so new broker types surface.
+        if (s !== 'unknown') {
+          console.warn(`Unrecognized order type '${s}' — normalized to 'unknown'.`);
+        }
         return 'unknown';
     }
   }
@@ -941,7 +1030,15 @@ export class RobinhoodMcpClient {
 
   private parseOrderState(value: unknown): OrderState {
     if (typeof value !== 'string') return 'unknown';
-    return RobinhoodMcpClient.VALID_STATES.has(value) ? (value as OrderState) : 'unknown';
+    if (RobinhoodMcpClient.VALID_STATES.has(value)) return value as OrderState;
+    // #1411 — an unrecognized live state would otherwise masquerade as a
+    // terminal 'unknown' and vanish from Open Orders with no trace. Log the
+    // raw string so a new broker state surfaces instead of hiding.
+    console.warn(
+      `Unrecognized order state '${value}' — normalized to 'unknown' (terminal). ` +
+        'If it is a live/resting state, add it to the state maps.',
+    );
+    return 'unknown';
   }
 
   /**

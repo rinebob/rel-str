@@ -33,6 +33,9 @@ const STOP_ORDER_TYPES: ReadonlySet<OrderType> = new Set<OrderType>(['stop_marke
  * stops in addition to the explicit `stop_market`/`stop_limit` types.
  */
 function isProtectiveStopOrder(order: BrokerOrder): boolean {
+  // Option orders resolve symbol to the underlying chain — a stop-priced
+  // option sell is not protection for the equity position (#1411 review).
+  if (order.instrumentType !== 'equity') return false;
   if (order.side !== 'sell') return false;
   if (order.symbol === null) return false;
   if (TERMINAL_ORDER_STATES.has(order.state)) return false;

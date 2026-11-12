@@ -45,8 +45,8 @@ const optionOrder: BrokerOrder = {
   side: 'buy', type: 'limit', state: 'filled', quantity: 1, cumulativeQuantity: 1,
   price: 1.0, stopPrice: null, averageFillPrice: 0.95, createdAt: '2026-09-21T15:00:00Z',
   legs: [
-    { side: 'buy', optionId: 'uuid-long', quantity: 1, positionEffect: 'open' },
-    { side: 'sell', optionId: 'uuid-short', quantity: 1, positionEffect: 'open' },
+    { side: 'buy', optionId: 'uuid-long', quantity: 1, positionEffect: 'open', strikePrice: null, expirationDate: null, optionType: null },
+    { side: 'sell', optionId: 'uuid-short', quantity: 1, positionEffect: 'open', strikePrice: null, expirationDate: null, optionType: null },
   ],
 };
 

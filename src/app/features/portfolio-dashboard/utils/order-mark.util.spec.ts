@@ -42,7 +42,7 @@ describe('orderMark', () => {
     const order = makeOrder({
       instrumentType: 'option',
       symbol: null,
-      legs: [{ side: 'buy', optionId: 'opt-1', quantity: 1, positionEffect: 'open' }],
+      legs: [{ side: 'buy', optionId: 'opt-1', quantity: 1, positionEffect: 'open', strikePrice: null, expirationDate: null, optionType: null }],
     });
     expect(orderMark(order, null, optQuotes(3.4))).toBe(3.4);
   });
@@ -52,8 +52,8 @@ describe('orderMark', () => {
       instrumentType: 'option',
       symbol: null,
       legs: [
-        { side: 'buy', optionId: 'opt-1', quantity: 1, positionEffect: 'open' },
-        { side: 'sell', optionId: 'opt-2', quantity: 1, positionEffect: 'open' },
+        { side: 'buy', optionId: 'opt-1', quantity: 1, positionEffect: 'open', strikePrice: null, expirationDate: null, optionType: null },
+        { side: 'sell', optionId: 'opt-2', quantity: 1, positionEffect: 'open', strikePrice: null, expirationDate: null, optionType: null },
       ],
     });
     expect(orderMark(order, null, optQuotes(3.4))).toBeNull();
@@ -63,7 +63,7 @@ describe('orderMark', () => {
     const order = makeOrder({
       instrumentType: 'option',
       symbol: null,
-      legs: [{ side: 'buy', optionId: null, quantity: 1, positionEffect: 'open' }],
+      legs: [{ side: 'buy', optionId: null, quantity: 1, positionEffect: 'open', strikePrice: null, expirationDate: null, optionType: null }],
     });
     expect(orderMark(order, null, optQuotes(3.4))).toBeNull();
   });

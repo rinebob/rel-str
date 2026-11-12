@@ -144,8 +144,8 @@ describe('toFillInputs', () => {
   it('expands a two-leg spread into per-instrument fills sharing the order id', () => {
     const order = optionOrder({
       legs: [
-        { side: 'buy', optionId: 'uuid-long', quantity: 2, positionEffect: 'open' },
-        { side: 'sell', optionId: 'uuid-short', quantity: 2, positionEffect: 'open' },
+        { side: 'buy', optionId: 'uuid-long', quantity: 2, positionEffect: 'open', strikePrice: null, expirationDate: null, optionType: null },
+        { side: 'sell', optionId: 'uuid-short', quantity: 2, positionEffect: 'open', strikePrice: null, expirationDate: null, optionType: null },
       ],
     });
     const fills = toFillInputs([order], new Map());
@@ -161,7 +161,7 @@ describe('toFillInputs', () => {
 
   it('skips legs with no optionId', () => {
     const order = optionOrder({
-      legs: [{ side: 'buy', optionId: null, quantity: 1, positionEffect: 'open' }],
+      legs: [{ side: 'buy', optionId: null, quantity: 1, positionEffect: 'open', strikePrice: null, expirationDate: null, optionType: null }],
     });
     expect(toFillInputs([order], new Map())).toEqual([]);
   });

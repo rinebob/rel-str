@@ -8,6 +8,7 @@ import {
   batchAnswers,
   createMockClient,
   createMockPeakService,
+  emptySpecAnswer,
   fulfilled,
   makeAccount,
   makeEquityPosition,
@@ -218,6 +219,43 @@ describe('PortfolioDashboardStore', () => {
       expect(store.accounts()[0].optionOrders.data?.length).toBe(1);
     });
 
+    it('walks order-list pages in batched rounds — page 2+ orders land in the sections', async () => {
+      batchAnswers(client, {
+        get_equity_orders: (spec) =>
+          spec.args?.['cursor'] === 'EQ2'
+            ? fulfilled({ orders: [makeOrder({ orderId: 'eq-p2' })], next: null })
+            : fulfilled({ orders: [makeOrder({ orderId: 'eq-p1' })], next: 'EQ2' }),
+        get_option_orders: (spec) =>
+          spec.args?.['cursor'] === 'OPT2'
+            ? fulfilled({ orders: [makeOptionOrder({ orderId: 'opt-p2' })], next: null })
+            : fulfilled({ orders: [makeOptionOrder({ orderId: 'opt-p1' })], next: 'OPT2' }),
+      });
+      await store.retrySection(0, 'orders');
+
+      // Round 1: both first-page specs; round 2: both continuations — the
+      // prior response's `next` goes back verbatim as `cursor`.
+      expect(client.executeBatch).toHaveBeenCalledTimes(2);
+      const round2 = client.executeBatch.calls.mostRecent().args[0] as MockToolSpec[];
+      expect(round2.map((s) => s.args?.['cursor'])).toEqual(['EQ2', 'OPT2']);
+      expect(store.accounts()[0].equityOrders.data?.map((o) => o.orderId)).toEqual(['eq-p1', 'eq-p2']);
+      expect(store.accounts()[0].optionOrders.data?.map((o) => o.orderId)).toEqual(['opt-p1', 'opt-p2']);
+    });
+
+    it('a mid-walk page failure rejects only that section — the other keeps its data', async () => {
+      batchAnswers(client, {
+        get_equity_orders: (spec) =>
+          spec.args?.['cursor']
+            ? rejected('page 2 blew up')
+            : fulfilled({ orders: [makeOrder({ orderId: 'eq-p1' })], next: 'EQ2' }),
+        get_option_orders: fulfilled([makeOptionOrder({ orderId: 'opt-ok' })]),
+      });
+      await store.retrySection(0, 'orders');
+
+      const acct = store.accounts()[0];
+      expect(acct.equityOrders.error).toBe('page 2 blew up');
+      expect(acct.optionOrders.data?.map((o) => o.orderId)).toEqual(['opt-ok']);
+    });
+
     it('sets error on failure', async () => {
       client.getPortfolio.and.returnValue(reject('Retry failed'));
       await store.retrySection(0, 'portfolio');
@@ -268,23 +306,21 @@ describe('PortfolioDashboardStore', () => {
 
     it('collapses overlapping calls into the in-flight run plus one trailing refetch', async () => {
       const resolves: Array<(v: unknown) => void> = [];
-      client.executeBatch.and.callFake(() => new Promise((r) => resolves.push(r)));
-      const empty = [
-        { status: 'fulfilled', value: [] },
-        { status: 'fulfilled', value: [] },
-      ];
+      const captured: MockToolSpec[][] = [];
+      client.executeBatch.and.callFake((specs: MockToolSpec[]) =>
+        new Promise((r) => { captured.push(specs); resolves.push(r); }));
 
       const p1 = store.reconcileOrders(0);
       store.reconcileOrders(0);
       store.reconcileOrders(0);
       expect(client.executeBatch).toHaveBeenCalledTimes(1);
 
-      resolves[0](empty);
+      resolves[0](captured[0].map(emptySpecAnswer));
       await new Promise<void>((r) => setTimeout(r, 0));
       // Both overlapping calls collapsed into ONE trailing rerun.
       expect(client.executeBatch).toHaveBeenCalledTimes(2);
 
-      resolves[1](empty);
+      resolves[1](captured[1].map(emptySpecAnswer));
       await p1;
       expect(client.executeBatch).toHaveBeenCalledTimes(2);
     });
@@ -328,7 +364,7 @@ describe('PortfolioDashboardStore', () => {
       client.getAccounts.and.returnValue(resolve(twoAccounts()));
       const gates: Array<() => void> = [];
       client.executeBatch.and.callFake((specs: MockToolSpec[]) =>
-        new Promise((r) => gates.push(() => r(specs.map(() => fulfilled([]))))));
+        new Promise((r) => gates.push(() => r(specs.map(emptySpecAnswer)))));
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
 
@@ -470,7 +506,7 @@ describe('PortfolioDashboardStore', () => {
       client.getAccounts.and.returnValue(resolve(twoAccounts()));
       const gates: Array<() => void> = [];
       client.executeBatch.and.callFake((specs: MockToolSpec[]) =>
-        new Promise((r) => gates.push(() => r(specs.map(() => fulfilled([]))))));
+        new Promise((r) => gates.push(() => r(specs.map(emptySpecAnswer)))));
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
 
@@ -500,7 +536,7 @@ describe('PortfolioDashboardStore', () => {
       client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
       const gates: Array<() => void> = [];
       client.executeBatch.and.callFake((specs: MockToolSpec[]) =>
-        new Promise((r) => gates.push(() => r(specs.map(() => fulfilled([]))))));
+        new Promise((r) => gates.push(() => r(specs.map(emptySpecAnswer)))));
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
 
@@ -530,7 +566,7 @@ describe('PortfolioDashboardStore', () => {
       client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
       const gates: Array<() => void> = [];
       client.executeBatch.and.callFake((specs: MockToolSpec[]) =>
-        new Promise((r) => gates.push(() => r(specs.map(() => fulfilled([]))))));
+        new Promise((r) => gates.push(() => r(specs.map(emptySpecAnswer)))));
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
 
@@ -576,7 +612,7 @@ describe('PortfolioDashboardStore', () => {
       await store.loadAccounts();
       const gates: Array<() => void> = [];
       client.executeBatch.and.callFake((specs: MockToolSpec[]) =>
-        new Promise((r) => gates.push(() => r(specs.map(() => fulfilled([]))))));
+        new Promise((r) => gates.push(() => r(specs.map(emptySpecAnswer)))));
       client.getEquityQuotes.and.returnValue(resolve(new Map()));
       client.getOptionQuotes.and.returnValue(resolve(new Map()));
 

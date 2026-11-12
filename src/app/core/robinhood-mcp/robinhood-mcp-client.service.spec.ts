@@ -39,6 +39,10 @@ describe('RobinhoodMcpClient', () => {
     client = TestBed.inject(RobinhoodMcpClient);
   });
 
+  // jest.spyOn mocks (console.warn & co.) restore between specs so a
+  // failure can't leak a stubbed console into later tests.
+  afterEach(() => jest.restoreAllMocks());
+
   /** Helper: make executeTool return a resolved ToolExecutionResult. */
   function mockResolve(result: ToolExecutionResult): void {
     mcp.executeTool.and.callFake(() => Promise.resolve(result));
@@ -865,27 +869,27 @@ describe('RobinhoodMcpClient', () => {
       expect(mcp.executeTool).toHaveBeenCalledWith('get_equity_orders', { args: { account_number: '123456789', order_id: 'order-abc' } });
     });
 
-    it('passes symbol and cursor filters when provided (#1413 fills walk)', async () => {
-      mockResolve({
-        success: true,
-        parsed: { data: { orders: [], next: 'CURSOR2' } },
-        redacted: {},
-        tool: 'get_equity_orders',
-      });
-
-      const page = await client.getEquityOrdersPage('123456789', {
+    it('equityOrdersPageSpec passes symbol and cursor filters + surfaces next (#1413 fills walk)', () => {
+      const spec = client.equityOrdersPageSpec('123456789', {
         symbol: 'QQQ',
         cursor: 'CURSOR1',
       });
 
-      expect(mcp.executeTool).toHaveBeenCalledWith('get_equity_orders', {
-        args: { account_number: '123456789', symbol: 'QQQ', cursor: 'CURSOR1' },
-      });
+      expect(spec.tool).toBe('get_equity_orders');
+      expect(spec.args).toEqual({ account_number: '123456789', symbol: 'QQQ', cursor: 'CURSOR1' });
+      const page = spec.parse({
+        success: true,
+        parsed: { data: { orders: [], next: 'CURSOR2' } },
+        redacted: {},
+        tool: 'get_equity_orders',
+      } as ToolExecutionResult);
       expect(page.next).toBe('CURSOR2');
     });
 
-    it('getEquityOrdersPage surfaces orders + null next when the page is last', async () => {
-      mockResolve({
+    it('equityOrdersPageSpec surfaces orders + null next when the page is last', () => {
+      const spec = client.equityOrdersPageSpec('123456789', { symbol: 'QQQ' });
+
+      const page = spec.parse({
         success: true,
         parsed: {
           data: {
@@ -905,13 +909,132 @@ describe('RobinhoodMcpClient', () => {
         },
         redacted: {},
         tool: 'get_equity_orders',
-      });
-
-      const page = await client.getEquityOrdersPage('123456789', { symbol: 'QQQ' });
+      } as ToolExecutionResult);
 
       expect(page.orders).toHaveLength(1);
       expect(page.orders[0].orderId).toBe('o-1');
       expect(page.next).toBeNull();
+    });
+
+    it('getEquityOrders walks next to completion — resting orders past page 1 are not dropped (#1411)', async () => {
+      mcp.executeTool.and.callFake((_tool: string, req: { args: Record<string, unknown> }) => {
+        const cursor = req.args['cursor'];
+        return Promise.resolve({
+          success: true,
+          parsed: {
+            data: {
+              orders: [
+                {
+                  id: cursor ? 'o-deep' : 'o-page1',
+                  side: 'buy', type: 'limit', state: 'confirmed',
+                  symbol: 'NVDA', quantity: '10', price: '150',
+                  created_at: '2026-10-01T10:00:00Z',
+                },
+              ],
+              next: cursor ? null : 'CURSOR2',
+            },
+          },
+          redacted: {},
+          tool: 'get_equity_orders',
+        } as ToolExecutionResult);
+      });
+
+      const orders = await client.getEquityOrders('123456789');
+
+      expect(orders.map((o) => o.orderId)).toEqual(['o-page1', 'o-deep']);
+      expect(mcp.executeTool).toHaveBeenCalledTimes(2);
+      expect(mcp.executeTool.calls.mostRecent().args[1]).toEqual({
+        args: { account_number: '123456789', cursor: 'CURSOR2' },
+      });
+    });
+
+    it('getEquityOrders rejects when a mid-walk page fails — no silent partial list (#1411)', async () => {
+      let call = 0;
+      mcp.executeTool.and.callFake(() => {
+        call++;
+        return Promise.resolve(
+          call === 1
+            ? {
+                success: true,
+                parsed: {
+                  data: {
+                    orders: [
+                      { id: 'o-p1', side: 'buy', type: 'limit', state: 'confirmed', symbol: 'QQQ', quantity: '1' },
+                    ],
+                    next: 'CURSOR2',
+                  },
+                },
+                redacted: {},
+                tool: 'get_equity_orders',
+              } as ToolExecutionResult
+            : ({ success: false, error: 'page 2 failed', category: ToolExecutionErrorCategory.MCP } as ToolExecutionResult),
+        );
+      });
+
+      await expect(client.getEquityOrders('123456789')).rejects.toThrow('page 2 failed');
+    });
+
+    it('getEquityOrders stops at the page cap and warns rather than looping forever (#1411)', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockResolve({
+        success: true,
+        parsed: { data: { orders: [], next: 'MORE' } },
+        redacted: {},
+        tool: 'get_equity_orders',
+      });
+
+      const orders = await client.getEquityOrders('123456789');
+
+      expect(mcp.executeTool.calls.count()).toBe(25);
+      expect(warn).toHaveBeenCalled();
+      expect(orders).toEqual([]);
+    });
+
+    it('normalizeOrders logs and skips a malformed order instead of silently dropping it (#1411)', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            orders: [
+              { id: 'o-bad', side: 'frobnicate', state: 'filled', symbol: 'X' },
+              { id: 'o-good', side: 'buy', type: 'market', state: 'filled', symbol: 'QQQ', quantity: '1' },
+            ],
+            next: null,
+          },
+        },
+        redacted: {},
+        tool: 'get_equity_orders',
+      });
+
+      const orders = await client.getEquityOrders('123456789');
+
+      expect(orders.map((o) => o.orderId)).toEqual(['o-good']);
+      expect(warn).toHaveBeenCalled();
+      expect(warn.mock.calls.at(-1)!.join(' ')).toContain('o-bad');
+    });
+
+    it('parseOrderState logs the raw string when an unrecognized state arrives (#1411)', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            orders: [
+              { id: 'o-weird', side: 'buy', type: 'limit', state: 'brand_new_state', symbol: 'QQQ', quantity: '1' },
+            ],
+            next: null,
+          },
+        },
+        redacted: {},
+        tool: 'get_equity_orders',
+      });
+
+      const orders = await client.getEquityOrders('123456789');
+
+      expect(orders[0].state).toBe('unknown');
+      expect(warn).toHaveBeenCalled();
+      expect(warn.mock.calls.at(-1)!.join(' ')).toContain('brand_new_state');
     });
 
     it('normalizes partially_filled_rest_cancelled instead of collapsing to unknown', async () => {
@@ -1014,25 +1137,38 @@ describe('RobinhoodMcpClient', () => {
   // ===========================================================================
 
   describe('getOptionOrders', () => {
-    it('returns normalized option orders', async () => {
+    it('returns normalized option orders from the real wire shape — direction → side, leg executions (#1411)', async () => {
+      // Wire reality (ro-opt-orders-01): NO top-level `side` — `direction`
+      // (debit→buy, credit→sell) + per-leg side/position_effect; executions
+      // live under legs, not top-level.
       mockResolve({
         success: true,
         parsed: {
-          results: [
-            {
-              id: 'opt-order-1',
-              side: 'sell',
-              type: 'limit',
-              state: 'confirmed',
-              quantity: '1',
-              cumulative_quantity: '0',
-              price: '3.50',
-              created_at: '2026-01-15T11:00:00Z',
-              chain_symbol: 'AAPL',
-              legs: [{ side: 'sell', option_id: 'opt-uuid-1', quantity: '1', position_effect: 'close' }],
-              executions: [{ price: '3.40', quantity: '1', timestamp: '2026-01-15T11:00:01Z' }],
-            },
-          ],
+          data: {
+            orders: [
+              {
+                id: 'opt-order-1',
+                direction: 'credit',
+                type: 'limit',
+                state: 'confirmed',
+                quantity: '1',
+                processed_quantity: '0',
+                price: '3.50',
+                created_at: '2026-01-15T11:00:00Z',
+                chain_symbol: 'AAPL',
+                legs: [
+                  {
+                    side: 'sell',
+                    option_id: 'opt-uuid-1',
+                    ratio_quantity: 1,
+                    position_effect: 'close',
+                    executions: [{ price: '3.40', quantity: '1', timestamp: '2026-01-15T11:00:01Z' }],
+                  },
+                ],
+              },
+            ],
+            next: null,
+          },
         },
         redacted: {},
         tool: 'get_option_orders',
@@ -1055,7 +1191,7 @@ describe('RobinhoodMcpClient', () => {
         stopPrice: null,
         averageFillPrice: null,
         createdAt: '2026-01-15T11:00:00Z',
-        legs: [{ side: 'sell', optionId: 'opt-uuid-1', quantity: 1, positionEffect: 'close' }],
+        legs: [{ side: 'sell', optionId: 'opt-uuid-1', quantity: 1, positionEffect: 'close', strikePrice: null, expirationDate: null, optionType: null }],
         executions: [{ price: 3.4, quantity: 1, timestamp: '2026-01-15T11:00:01Z' }],
       } satisfies BrokerOrder);
     });
@@ -1064,20 +1200,22 @@ describe('RobinhoodMcpClient', () => {
       mockResolve({
         success: true,
         parsed: {
-          results: [
-            {
-              id: 'opt-order-2',
-              side: 'buy',
-              type: 'limit',
-              state: 'filled',
-              quantity: '2',
-              chain_symbol: 'SPY',
-              legs: [
-                { side: 'buy', option: 'https://api.robinhood.com/options/instruments/leg-uuid-2/', quantity: '1' },
-                { side: 'sell', option: 'https://api.robinhood.com/options/instruments/leg-uuid-3/', quantity: '1' },
-              ],
-            },
-          ],
+          data: {
+            orders: [
+              {
+                id: 'opt-order-2',
+                direction: 'debit',
+                type: 'limit',
+                state: 'filled',
+                quantity: '2',
+                chain_symbol: 'SPY',
+                legs: [
+                  { side: 'buy', option: 'https://api.robinhood.com/options/instruments/leg-uuid-2/', ratio_quantity: 1 },
+                  { side: 'sell', option: 'https://api.robinhood.com/options/instruments/leg-uuid-3/', ratio_quantity: 1 },
+                ],
+              },
+            ],
+          },
         },
         redacted: {},
         tool: 'get_option_orders',
@@ -1085,8 +1223,8 @@ describe('RobinhoodMcpClient', () => {
 
       const orders = await client.getOptionOrders('123456789');
       expect(orders[0].legs).toEqual([
-        { side: 'buy', optionId: 'leg-uuid-2', quantity: 1, positionEffect: null },
-        { side: 'sell', optionId: 'leg-uuid-3', quantity: 1, positionEffect: null },
+        { side: 'buy', optionId: 'leg-uuid-2', quantity: 1, positionEffect: null, strikePrice: null, expirationDate: null, optionType: null },
+        { side: 'sell', optionId: 'leg-uuid-3', quantity: 1, positionEffect: null, strikePrice: null, expirationDate: null, optionType: null },
       ]);
     });
 
@@ -1106,10 +1244,13 @@ describe('RobinhoodMcpClient', () => {
       mockResolve({
         success: true,
         parsed: {
-          results: [
-            { id: 'good-opt', side: 'buy', type: 'market', state: 'filled', chain_symbol: 'AAPL', quantity: '1' },
-            { id: 'bad-opt', side: 'invalid', type: 'market', state: 'filled', chain_symbol: 'GOOG' },
-          ],
+          data: {
+            orders: [
+              { id: 'good-opt', direction: 'debit', type: 'market', state: 'filled', chain_symbol: 'AAPL', quantity: '1' },
+              // No side, no direction, no legs — nothing to derive from.
+              { id: 'bad-opt', side: 'invalid', type: 'market', state: 'filled', chain_symbol: 'GOOG' },
+            ],
+          },
         },
         redacted: {},
         tool: 'get_option_orders',
@@ -1120,6 +1261,37 @@ describe('RobinhoodMcpClient', () => {
       expect(orders.length).toBe(1);
       expect(orders[0].orderId).toBe('good-opt');
       expect(orders[0].symbol).toBe('AAPL');
+    });
+
+    it('getOptionOrders walks next to completion — option orders past page 1 are not dropped (#1411)', async () => {
+      mcp.executeTool.and.callFake((_tool: string, req: { args: Record<string, unknown> }) => {
+        const cursor = req.args['cursor'];
+        return Promise.resolve({
+          success: true,
+          parsed: {
+            data: {
+              orders: [
+                {
+                  id: cursor ? 'opt-deep' : 'opt-page1',
+                  direction: 'debit', type: 'limit', state: 'confirmed',
+                  chain_symbol: 'SPY', quantity: '1', price: '2.00',
+                },
+              ],
+              next: cursor ? null : 'CURSOR2',
+            },
+          },
+          redacted: {},
+          tool: 'get_option_orders',
+        } as ToolExecutionResult);
+      });
+
+      const orders = await client.getOptionOrders('123456789');
+
+      expect(orders.map((o) => o.orderId)).toEqual(['opt-page1', 'opt-deep']);
+      expect(mcp.executeTool).toHaveBeenCalledTimes(2);
+      expect(mcp.executeTool.calls.mostRecent().args[1]).toEqual({
+        args: { account_number: '123456789', cursor: 'CURSOR2' },
+      });
     });
   });
 
