@@ -32,6 +32,7 @@ class MockChart {
   @Input() brushArmed: unknown;
   @Input() brushCorpus: unknown;
   @Input() activeStudyRange: unknown;
+  @Input() tooltipMode: unknown;
   @Output() seriesHovered = new EventEmitter<unknown>();
   @Output() studyRange = new EventEmitter<unknown>();
   @Output() brushArmedChange = new EventEmitter<boolean>();

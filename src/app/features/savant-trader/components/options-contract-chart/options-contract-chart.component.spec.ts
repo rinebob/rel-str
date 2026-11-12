@@ -800,4 +800,111 @@ describe('OptionsContractChartComponent', () => {
       expect(emitted).toEqual([a.contractId, null]);
     });
   });
+
+  describe('data window', () => {
+    const LABELS10 = Array.from({ length: 10 }, (_, i) => `2026-06-${String(i + 1).padStart(2, '0')}`);
+
+    /** Axis geometry stub + a mousemove at chart px `x` (rect x=100, w=800, delta 10). */
+    const hoverAt = (x: number) => {
+      const stub = fixture.debugElement
+        .query((d) => d.componentInstance instanceof EjsChartStub)
+        .componentInstance as EjsChartStub;
+      stub.axisCollections = [{ rect: { x: 100, y: 320, width: 800, height: 0 }, visibleRange: { min: 0, max: 10, delta: 10 } }];
+      stub.chartAxisLayoutPanel = { seriesClipRect: { x: 100, y: 20, width: 800, height: 300 } };
+      component.onChartMouseMove({ x, target: '' } as Parameters<typeof component.onChartMouseMove>[0]);
+    };
+
+    it('float (default) — shared tooltip keyed by series name', () => {
+      const t = component.tooltip() as Record<string, unknown>;
+      expect(t['enable']).toBe(true);
+      expect(t['shared']).toBe(true);
+      expect(t['format']).toBe('${series.name}: ${point.y}');
+    });
+
+    it('anchor — same Syncfusion config (the layer carries crosshair + axis labels); .dw-pinned hides only the box group', () => {
+      setInputs([contract()], LABELS10);
+      fixture.componentRef.setInput('tooltipMode', 'anchor');
+      fixture.detectChanges();
+      const t = component.tooltip() as Record<string, unknown>;
+      expect(t['enable']).toBe(true);
+      expect(t['shared']).toBe(true);
+      expect(fixture.nativeElement.querySelector('.chart-wrap').classList.contains('dw-pinned')).toBe(true);
+      expect(component.pinnedWindow()).toBeNull(); // no hover yet
+    });
+
+    it('anchor — panel rows mirror the shared tooltip: nearest point per series keyed by label', () => {
+      const a = contract({ points: [obs('2026-06-07', 42)] });
+      setInputs([a], LABELS10, { underlyingBars: [bar('2026-06-08', 123.45)], showGreeks: false, showVolumeOI: false });
+      fixture.componentRef.setInput('tooltipMode', 'anchor');
+      fixture.detectChanges();
+      // axisLabels unions the marker-span endpoints (2025-11-03 + 2026-01-16)
+      // → '2026-06-06' is category 7 → px = 100 + (7/10)·800.
+      hoverAt(660);
+      fixture.detectChanges();
+
+      const win = component.pinnedWindow()!;
+      expect(win.date).toBe('2026-06-06');
+      expect(win.rows.map((r) => [r.key, r.value])).toEqual([
+        ['600C 2026-01-16', '$42.00'],
+        ['Underlying', '$123.45'],
+      ]);
+      const panel = fixture.nativeElement.querySelector('.dw-panel') as HTMLElement;
+      expect(panel).not.toBeNull();
+      expect(panel.textContent).toContain('600C 2026-01-16');
+      expect(panel.textContent).toContain('$42.00');
+
+      // Top-edge date tag tracks the same hovered category.
+      const tag = fixture.nativeElement.querySelector('.dw-date') as HTMLElement;
+      expect(tag).not.toBeNull();
+      expect(tag.textContent).toBe('2026-06-06');
+      expect(tag.style.left).toBe('660px');
+    });
+
+    it('hidden — tooltip disabled and no panel even after a hover; the top date tag still shows on hover and hides on leave', () => {
+      setInputs([contract({ points: [obs('2026-06-07', 42)] })], LABELS10, { showGreeks: false, showVolumeOI: false });
+      fixture.componentRef.setInput('tooltipMode', 'hidden');
+      fixture.detectChanges();
+      hoverAt(500);
+      fixture.detectChanges();
+      expect(component.tooltip()).toEqual({ enable: false });
+      expect(component.pinnedWindow()).toBeNull();
+      expect(fixture.nativeElement.querySelector('.dw-panel')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.dw-date')).not.toBeNull();
+
+      component.onChartMouseLeave();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.dw-date')).toBeNull();
+    });
+
+    it('float — no custom panel; Syncfusion owns the window; the top date tag shows on hover and hides on leave', () => {
+      setInputs([contract({ points: [obs('2026-06-07', 42)] })], LABELS10, { showGreeks: false, showVolumeOI: false });
+      fixture.detectChanges();
+      hoverAt(500);
+      fixture.detectChanges();
+      expect(component.pinnedWindow()).toBeNull();
+      expect(fixture.nativeElement.querySelector('.dw-date')).not.toBeNull();
+
+      component.onChartMouseLeave();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.dw-date')).toBeNull();
+    });
+
+    it('span-marker rows relabel to "{label} strike" — internal __span__ names never leak', () => {
+      const a = contract({ points: [obs('2025-11-03', 10)] });
+      setInputs([a], ['2025-11-03']);
+      const args = {
+        series: [
+          { name: '600C 2026-01-16' },
+          { name: `${MARKER_NAME_PREFIX}${a.contractId}` },
+        ],
+        text: [
+          '600C 2026-01-16: $10.00',
+          `${MARKER_NAME_PREFIX}${a.contractId}: $600.00`,
+        ],
+      };
+      component.onSharedTooltipRender(args as Parameters<typeof component.onSharedTooltipRender>[0]);
+      expect(args.text[0]).toBe('600C 2026-01-16: $10.00');
+      expect(args.text[1]).toBe('600C 2026-01-16 strike: $600.00');
+    });
+  });
 });

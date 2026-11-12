@@ -14,7 +14,7 @@
  * because the slimmed template doesn't reference them; they're kept so
  * the surface is verbatim, not because they carry load today.
  */
-import { Component, inject, computed, viewChild, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, computed, viewChild, signal, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Overlay, OverlayModule, type ConnectedPosition } from '@angular/cdk/overlay';
@@ -210,6 +210,16 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   get generatorExpanded(): boolean { return this.gen.generatorExpanded; }
   set generatorExpanded(v: boolean) { this.gen.generatorExpanded = v; }
   readonly brushArmed = this.gen.brushArmed;
+  /** Data-window placement — cycles cursor-float → pinned corner → off.
+   *  View pref only: survives a symbol swap, resets on page remount. */
+  readonly dataWindowMode = signal<'float' | 'anchor' | 'hidden'>('float');
+  readonly dataWindowLabel = computed(
+    () => ({ float: 'cursor', anchor: 'pinned', hidden: 'off' })[this.dataWindowMode()],
+  );
+  cycleDataWindow(): void {
+    const order = ['float', 'anchor', 'hidden'] as const;
+    this.dataWindowMode.set(order[(order.indexOf(this.dataWindowMode()) + 1) % order.length]);
+  }
   readonly onStudyRange = (range: StudyRange | null): void => this.gen.onStudyRange(range);
   readonly clearStudyRange = (): void => this.gen.clearStudyRange();
   readonly onGeneratorSend = (lines: string[]): void => this.gen.onGeneratorSend(lines);

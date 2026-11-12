@@ -1,4 +1,4 @@
-<div class="chart-wrap">
+<div class="chart-wrap" [class.dw-pinned]="tooltipMode() === 'anchor'">
   <ejs-chart
     #chart
     width="100%"
@@ -10,7 +10,7 @@
     [series]="seriesCollection()"
     [zoomSettings]="zoomSettings"
     [crosshair]="crosshair"
-    [tooltip]="tooltip"
+    [tooltip]="tooltip()"
     [legendSettings]="legend"
     background="transparent"
     [border]="chartBorder"
@@ -21,8 +21,26 @@
     (zoomComplete)="onZoomComplete($event)"
     (scrollEnd)="onScrollEnd()"
     (legendRender)="onLegendRender($event)"
+    (sharedTooltipRender)="onSharedTooltipRender($event)"
   >
   </ejs-chart>
+
+  @if (cursorDateTag(); as tag) {
+    <div class="dw-date" [style.left.px]="tag.left">{{ tag.date }}</div>
+  }
+
+  @if (pinnedWindow(); as win) {
+    <div class="dw-panel">
+      <div class="dw-header">{{ win.date }}</div>
+      @for (row of win.rows; track row.key) {
+        <div class="dw-row">
+          <span class="dw-swatch" [style.background]="row.color"></span>
+          <span class="dw-key">{{ row.key }}</span>
+          <span class="dw-val">{{ row.value }}</span>
+        </div>
+      }
+    </div>
+  }
 
   @if (brushBand(); as band) {
     <div

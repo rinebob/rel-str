@@ -18,6 +18,87 @@ ejs-chart {
   display: block;
 }
 
+/* Anchored mode hides ONLY the tooltip box group — the shared svg's
+   other groups (crosshair lines, axis date/price tags, trackball dots)
+   stay live. The Syncfusion box is unscrollable SVG text, so rows move
+   to the HTML panel below, which also holds the last hovered category
+   while the cursor is inside it. */
+.chart-wrap.dw-pinned {
+  ::ng-deep g[id$="_tooltip_group"],
+  ::ng-deep [id$="_tooltip_path"] {
+    display: none;
+  }
+}
+/* Cursor-following date tag — anchor mode's replacement for the hidden
+   shared-tooltip header. Sits at the top edge over the crosshair's x. */
+.dw-date {
+  position: absolute;
+  top: 4px;
+  z-index: 6;
+  transform: translateX(-50%);
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: var(--mat-sys-surface-container-high);
+  border: 1px solid var(--mat-sys-outline-variant);
+  font: 600 11px/1.5 Roboto, Arial, sans-serif;
+  color: var(--mat-sys-on-surface);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.dw-panel {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 5;
+  max-height: calc(100% - 12px);
+  min-width: 180px;
+  max-width: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--mat-sys-surface-container-high);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 6px;
+  padding: 6px 10px 6px 8px;
+  font: 12px/1.5 Roboto, Arial, sans-serif;
+  color: var(--mat-sys-on-surface);
+  pointer-events: auto;
+
+  .dw-header {
+    font-weight: 600;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    margin-bottom: 4px;
+    white-space: nowrap;
+  }
+
+  .dw-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .dw-swatch {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    align-self: center;
+  }
+
+  .dw-key {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dw-val {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 /* Study-range brush (FE-4) — overlays are decorative; the axis is never
    mutated. The capture layer only exists while armed, so unarmed hover
    reaches the chart untouched. */

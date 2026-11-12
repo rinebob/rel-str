@@ -523,6 +523,15 @@
           }
         </div>
 
+        <button
+          type="button"
+          class="header-btn ds-btn outline"
+          (click)="cycleDataWindow()"
+          title="Data window — click to cycle: follows cursor / pinned to corner / hidden"
+        >
+          Data: {{ dataWindowLabel() }}
+        </button>
+
         @if (listStore.activeList()) {
         <button
           type="button"
@@ -567,6 +576,7 @@
         [showGreeks]="store.showGreeks()"
         [showVolumeOI]="store.showVolumeOI()"
         [highlightedContractId]="store.highlightedContractId()"
+        [tooltipMode]="dataWindowMode()"
         [(brushArmed)]="brushArmed"
         [brushCorpus]="genStore.corpusDates()"
         [activeStudyRange]="genStore.refine().aliveRange ?? null"

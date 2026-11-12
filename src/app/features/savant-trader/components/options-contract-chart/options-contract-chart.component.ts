@@ -21,6 +21,7 @@ import {
   IZoomCompleteEventArgs,
   IAxisLabelRenderEventArgs,
   IMouseEventArgs,
+  ISharedTooltipRenderEventArgs,
   LineSeriesService,
   ColumnSeriesService,
   CategoryService,
@@ -41,12 +42,15 @@ import type { SfChartInstance, SfChartAxisRect } from '../../../shared/component
 import {
   categoryIndexToPx,
   nearestIndexByDate,
+  pxToCategoryIndex,
   resolveBrushRange,
   type AxisSpace,
 } from './options-contract-chart-brush.utils';
 import {
   MARKER_NAME_PREFIX,
   LOWER_PANE_AXES,
+  UNDERLYING_COLOR,
+  plottedSeriesColor,
   computeMarkerSpans,
   unionAxisLabels,
   buildSeriesCollection,
@@ -89,6 +93,9 @@ export class OptionsContractChartComponent implements OnDestroy {
   showVolumeOI = input(false);
   /** Contract id to emphasize — dims every other mark/marker series. */
   highlightedContractId = input<string | null>(null);
+  /** Data-window (shared tooltip) placement — floats with the cursor,
+   *  pinned to the chart's upper-left corner, or off entirely. */
+  tooltipMode = input<'float' | 'anchor' | 'hidden'>('float');
 
   /** Arm/disarm the study-range brush — two-way bound by the page; Esc
    *  disarms through the model. */
@@ -352,7 +359,17 @@ export class OptionsContractChartComponent implements OnDestroy {
   };
 
   readonly crosshair = { enable: true, lineType: 'Both' as const, lineColor: '#ccc', snapToData: false };
-  readonly tooltip = { enable: true, shared: true, format: '${point.x}: ${point.y}' };
+  /** Shared data window — row keys are the series label (contract / pane
+   *  name), not the point's date. 'anchor' keeps the layer enabled (it's
+   *  the same svg the crosshair + axis labels live in — disabling it
+   *  killed the date/price tags) and hides just the box group via the
+   *  .dw-pinned CSS while the custom .dw-panel carries the rows; that
+   *  panel exists because the Syncfusion box is unscrollable SVG text.
+   *  'hidden' disables the window; the crosshair stays on in every mode. */
+  readonly tooltip = computed(() => {
+    if (this.tooltipMode() === 'hidden') return { enable: false };
+    return { enable: true, shared: true, format: '${series.name}: ${point.y}' };
+  });
   /** Legend off — the chips row is the series roster (marks + underlying
    *  chip); a second one at the bottom duplicated it. The legendRender
    *  marker-cancel + legend-id hover parsing stay so re-enabling is a flag. */
@@ -407,7 +424,57 @@ export class OptionsContractChartComponent implements OnDestroy {
    *  indices are visibleSeries positions — the same domain as the series
    *  collection — so cancelled markers still consume their slots (marks
    *  are always 0..n-1 either way). */
+  /** The cursor's category — feeds the anchored data window. Kept after
+   *  mouse-leave so the pinned panel stays populated while the user
+   *  moves into it to scroll. */
+  private readonly hoveredAxisIndex = signal<number | null>(null);
+
+  /** 'anchor' data window — an HTML panel because Syncfusion's tooltip is
+   *  SVG-rendered (unscrollable, and every positioning seam drags the
+   *  shared crosshair svg). Rows mirror the shared tooltip's semantics:
+   *  each series' nearest point to the hovered date, keyed by label.
+   *  Span-marker rows are folded into the contract row — the strike is
+   *  already in the label. */
+  readonly pinnedWindow = computed(() => {
+    if (this.tooltipMode() !== 'anchor') return null;
+    const idx = this.hoveredAxisIndex();
+    const labels = this.axisLabels();
+    if (idx == null || !labels.length) return null;
+    const date = labels[Math.min(idx, labels.length - 1)];
+    const rows: { key: string; value: string; color: string }[] = [];
+    this.plottedSeries().forEach((c, i) => {
+      if (!c.points.length) return;
+      const at = Math.max(0, nearestIndexByDate(date, c.points.map((p) => p.date)));
+      const mark = c.points[at]?.mark;
+      rows.push({ key: c.label, value: mark == null ? '—' : `$${mark.toFixed(2)}`, color: plottedSeriesColor(i) });
+    });
+    const bars = this.underlyingBars();
+    const dated = bars.filter((b): b is OHLCDatum & { date: string } => !!b.date);
+    if (this.showUnderlying() && dated.length) {
+      const at = Math.max(0, nearestIndexByDate(date, dated.map((b) => b.date)));
+      rows.push({ key: 'Underlying', value: `$${dated[at].close.toFixed(2)}`, color: UNDERLYING_COLOR });
+    }
+    return rows.length ? { date, rows } : null;
+  });
+
+  /** Cursor-following date tag at the chart's top edge, visible in all
+   *  data-window modes (it's chart furniture like the crosshair's price
+   *  tag, not part of the data window). In float/hidden it hides on
+   *  mouse-leave; in anchor it keeps the last hovered category like the
+   *  panel. Snaps to the category center. */
+  readonly cursorDateTag = computed(() => {
+    const idx = this.hoveredAxisIndex();
+    const labels = this.axisLabels();
+    const space = this.axisSpace();
+    if (idx == null || !labels.length || !space) return null;
+    return { date: labels[Math.min(idx, labels.length - 1)], left: categoryIndexToPx(idx, space) };
+  });
+
   onChartMouseMove(event: IMouseEventArgs): void {
+    const space = this.axisSpace();
+    if (space) {
+      this.hoveredAxisIndex.set(pxToCategoryIndex(event.x, space, this.axisLabels().length));
+    }
     // Armed brush: mouse semantics are drag, not hover.
     if (this.brushArmed()) return;
     const target = event.target ?? '';
@@ -426,6 +493,9 @@ export class OptionsContractChartComponent implements OnDestroy {
 
   onChartMouseLeave(): void {
     this.emitHover(null);
+    // Anchor keeps the last category (the panel must stay populated for
+    // scrolling); float/hidden clear so the tag vanishes with the cursor.
+    if (this.tooltipMode() !== 'anchor') this.hoveredAxisIndex.set(null);
   }
 
   // ── Study-range brush (FE-4) ───────────────────────────────────────
@@ -627,6 +697,21 @@ export class OptionsContractChartComponent implements OnDestroy {
     if (args.text?.startsWith(MARKER_NAME_PREFIX)) {
       args.cancel = true;
     }
+  }
+
+  /** Span-marker rows relabel to "{label} strike" — the series keys carry
+   *  the contract label, but marker series names are internal
+   *  (`__span__{contractId}`) and would leak as tooltip keys. */
+  onSharedTooltipRender(args: ISharedTooltipRenderEventArgs): void {
+    const labels = new Map(this.plottedSeries().map((c) => [c.contractId, c.label]));
+    args.series?.forEach((s, i) => {
+      const name = (s as { name?: string }).name ?? '';
+      if (!name.startsWith(MARKER_NAME_PREFIX)) return;
+      const label = labels.get(name.slice(MARKER_NAME_PREFIX.length));
+      if (label && args.text?.[i] != null) {
+        args.text[i] = args.text[i].replace(name, `${label} strike`);
+      }
+    });
   }
 
   onZoomComplete(event: IZoomCompleteEventArgs): void {
