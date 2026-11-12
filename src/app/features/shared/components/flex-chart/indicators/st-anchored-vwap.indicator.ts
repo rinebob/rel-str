@@ -3,16 +3,22 @@
  *
  * Wraps the pure computation (`st-anchored-vwap.engine.ts`) into the
  * `IndicatorOption` shape used by flex-chart and maps its segments onto a
- * FIXED set of 16 line series: 4 VWAP slots (set x side), each with one
- * active series and two history series that the slot's terminated segments
- * alternate between, plus per set a confirmed ZigZag-leg chain series and a
- * dashed developing-leg series. The series count never depends on the data,
+ * FIXED set of 26 series: 4 VWAP slots (set x side), each with one
+ * active series and four history series holding the slot's terminated
+ * segments, plus per set a confirmed ZigZag-leg chain series, a
+ * dashed developing-leg series, and a Scatter series of confirmation-point
+ * markers. The series count never depends on the data,
  * because a Syncfusion chart reinitialises when its series structure changes.
  *
- * Alternation is required because neighbouring segments share their handoff
- * bar and one series holds only one `y` per bar. Inside a history series,
- * consecutive segments are separated by a `y: null` break point (rendered as
- * a gap via `emptyPointSettings: { mode: 'Gap' }`).
+ * One series should hold only one `y` per bar, so terminated segments are
+ * first-fit into history slots: a segment joins the first slot whose
+ * contents all end before it starts. Neighbouring non-persist lines share
+ * their handoff bar, so a normal alternating pair occupies two slots; in
+ * persist mode every line runs to the last bar, so each takes its own
+ * slot — and beyond the slot count, overflow packs into the slot holding
+ * the oldest anchor (the fan is unbounded; packed overlapping runs stay
+ * disjoint via the `y: null` break points, rendered as gaps by
+ * `emptyPointSettings: { mode: 'Gap' }`).
  *
  * There is no `IndicatorCalculator`: rendering is entirely through the bespoke
  * series (consumed by `ChartDataAdapter.anchoredVwapSeries`), and
@@ -22,7 +28,7 @@
 import type { IndicatorOption, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
 import { computeAnchoredVwapResult } from './st-anchored-vwap.engine';
-import type { AnchoredVwapConfig, AnchoredVwapSegment } from './st-anchored-vwap.types';
+import type { AnchoredVwapConfig, AnchoredVwapSegment, AnchoredVwapSet } from './st-anchored-vwap.types';
 import { boolParam, colorParam, numParam } from './indicator-params';
 
 // =============================================================================
@@ -39,14 +45,33 @@ const DEFAULTS = {
   // literal-sweep exception #1216: line-1/line-2 identity hues —
   // deliberate categorical pairs (see #955), consumed as literals.
   line1HighColor: '#FF8CFF',
-  line1LowColor: '#8CF5FF',
-  // Orange/green — deliberately outside line 1's magenta/cyan family so the
-  // two sets cannot be confused (#955).
-  line2HighColor: '#FFA500',
-  line2LowColor: '#00C853',
-  showLine1: true,
-  showLine2: true,
-  showZigZag: true,
+  line1LowColor: '#FFFF00',
+  // Green/red — deliberately outside line 1's magenta/yellow family so the
+  // two sets cannot be confused (#955, recolored #1459).
+  line2HighColor: '#00C853',
+  line2LowColor: '#FF0000',
+  // Radio 1–3, 3 heaviest — line 1 defaults heaviest (was hardcoded 1 / 2.5
+  // before #1459).
+  line1Weight: 3,
+  line2Weight: 1,
+  // Legs draw in a uniform teal (#1459) — they lost the per-leg high/low hue
+  // encoding so each set's whole chain reads as one stroke.
+  line1ZigZagColor: '#2DD4BF',
+  line2ZigZagColor: '#2DD4BF',
+  showLine1High: true,
+  showLine1Low: true,
+  showLine2High: true,
+  showLine2Low: true,
+  // Per-set leg visibility (#1459) — line 1's legs can be inspected alone.
+  showLine1ZigZag: true,
+  showLine2ZigZag: true,
+  // Per-set confirmation-point markers — a debug overlay, off by default.
+  showLine1Confirms: false,
+  showLine2Confirms: false,
+  // Per-set persist mode — keep every triggered vertex's line to the last
+  // bar (a VWAP fan) instead of ending each at the next vertex's trigger.
+  line1Persist: false,
+  line2Persist: false,
   maxHistory: 100,
 } as const;
 
@@ -69,10 +94,32 @@ export const ST_ANCHORED_VWAP_INDICATOR: IndicatorOption = {
     { key: 'line1LowColor', label: 'Line 1 Low Color', default: DEFAULTS.line1LowColor, input: 'color' },
     { key: 'line2HighColor', label: 'Line 2 High Color', default: DEFAULTS.line2HighColor, input: 'color' },
     { key: 'line2LowColor', label: 'Line 2 Low Color', default: DEFAULTS.line2LowColor, input: 'color' },
-    // No `input` — boolean defaults fall back to a checkbox control.
-    { key: 'showLine1', label: 'Show Line 1', default: DEFAULTS.showLine1 },
-    { key: 'showLine2', label: 'Show Line 2', default: DEFAULTS.showLine2 },
-    { key: 'showZigZag', label: 'Show ZigZag Legs', default: DEFAULTS.showZigZag },
+    // Per-set stroke weight — radio 1–3 (#1459); min/max bound the values.
+    { key: 'line1Weight', label: 'Line 1 Weight', default: DEFAULTS.line1Weight, min: 1, max: 3, input: 'radio' },
+    { key: 'line2Weight', label: 'Line 2 Weight', default: DEFAULTS.line2Weight, min: 1, max: 3, input: 'radio' },
+    { key: 'line1ZigZagColor', label: 'Line 1 ZigZag Color', default: DEFAULTS.line1ZigZagColor, input: 'color' },
+    { key: 'line2ZigZagColor', label: 'Line 2 ZigZag Color', default: DEFAULTS.line2ZigZagColor, input: 'color' },
+    // Per-side visibility toggles (#1459) — each empties only its side's
+    // VWAP slots. No `input` — boolean defaults fall back to a checkbox.
+    { key: 'showLine1High', label: 'Show Line 1 Upper', default: DEFAULTS.showLine1High },
+    { key: 'showLine1Low', label: 'Show Line 1 Lower', default: DEFAULTS.showLine1Low },
+    { key: 'showLine2High', label: 'Show Line 2 Upper', default: DEFAULTS.showLine2High },
+    { key: 'showLine2Low', label: 'Show Line 2 Lower', default: DEFAULTS.showLine2Low },
+    // Per-set leg toggles (#1459) — each empties only its own set's chain +
+    // developing leg.
+    { key: 'showLine1ZigZag', label: 'Show Line 1 ZigZag Legs', default: DEFAULTS.showLine1ZigZag },
+    { key: 'showLine2ZigZag', label: 'Show Line 2 ZigZag Legs', default: DEFAULTS.showLine2ZigZag },
+    // Per-set confirmation markers (#1459) — the same reversal-trigger dots
+    // the standalone ZigZag draws: a dot at the threshold level (or the
+    // open on a gap-through) on the bar that first crossed it, in the source
+    // pivot's side color. Debug overlay for "where was a line allowed to
+    // start".
+    { key: 'showLine1Confirms', label: 'Show Line 1 Confirmation Points', default: DEFAULTS.showLine1Confirms },
+    { key: 'showLine2Confirms', label: 'Show Line 2 Confirmation Points', default: DEFAULTS.showLine2Confirms },
+    // Persist mode — no `show` prefix: a behavior toggle, not visibility.
+    // The dialog still lifts it to the group header as 'Persist'.
+    { key: 'line1Persist', label: 'Line 1 Persist Lines', default: DEFAULTS.line1Persist },
+    { key: 'line2Persist', label: 'Line 2 Persist Lines', default: DEFAULTS.line2Persist },
     { key: 'maxHistory', label: 'Max History', default: DEFAULTS.maxHistory, min: 0, max: 1000, input: 'number' },
     // ISO 'YYYY-MM-DD' — only a string survives the params panel. The engine
     // compares it against the pivot bar's session `date` (calendar strings,
@@ -85,23 +132,25 @@ export const ST_ANCHORED_VWAP_INDICATOR: IndicatorOption = {
 // 2. TYPES
 // =============================================================================
 
-/** One of the 16 fixed line series. `y: null` entries are gap-producing break points. */
+/** One of the 26 fixed series. `y: null` entries are gap-producing break points. */
 export interface AnchoredVwapLineSeries {
-  /** `${set}-${side}-active` | `-history-a` | `-history-b` | `${set}-zigzag` | `${set}-developing`. */
+  /** `${set}-${side}-active` | `-history-a..d` | `${set}-zigzag` | `${set}-developing` | `${set}-confirmations`. */
   key: string;
   /** Display name for tooltips: `AVWAP-1H {pct}%` / `AVWAP-1L {pct}%` / `AVWAP-2H {pct}%` / `AVWAP-2L {pct}%` / `ZZ {pct}%`. */
   name: string;
-  /** Series color — for the ZigZag chain this is the fallback fill; per-leg hues live on the points. */
+  /** Series color — for the ZigZag chain this is the fallback fill; the set's uniform leg color lives on the points. */
   color: string;
-  /** Line 2 thicker than line 1; legs are thin context. */
+  /** Set's stroke weight (radio 1–3); legs share the set's weight (#1459). */
   width: number;
-  /** 'Line' for VWAP + developing leg, 'MultiColoredLine' for the confirmed chain (per-leg hues). */
-  type: 'Line' | 'MultiColoredLine';
+  /** 'Line' for VWAP + developing leg, 'MultiColoredLine' for the confirmed chain, 'Scatter' for the confirmation markers. */
+  type: 'Line' | 'MultiColoredLine' | 'Scatter';
   /** Dash array for the developing leg; '' for solid. */
   dashArray: string;
-  /** 'color' on the MultiColoredLine chain (per-leg hues on the points); '' elsewhere. */
+  /** 'color' on the MultiColoredLine chain + Scatter markers (per-point hues); '' elsewhere. */
   pointColorMapping: string;
-  /** Points by bar index; `color` drives per-leg hue on the MultiColoredLine chain. */
+  /** Marker config — only the Scatter confirmations series sets it; undefined elsewhere. */
+  marker?: { visible: boolean; shape: string; width: number; height: number };
+  /** Points by bar index; `color` drives per-point hue on the chain + markers. */
   data: { index: number; y: number | null; color?: string }[];
 }
 
@@ -119,6 +168,8 @@ function extractConfig(params: Params): AnchoredVwapConfig {
     line1RightDepth: Math.max(2, Math.floor(numParam(params['line1RightDepth'], DEFAULTS.line1RightDepth))),
     line2LeftDepth: Math.max(2, Math.floor(numParam(params['line2LeftDepth'], DEFAULTS.line2LeftDepth))),
     line2RightDepth: Math.max(2, Math.floor(numParam(params['line2RightDepth'], DEFAULTS.line2RightDepth))),
+    line1Persist: boolParam(params['line1Persist'], DEFAULTS.line1Persist),
+    line2Persist: boolParam(params['line2Persist'], DEFAULTS.line2Persist),
     maxHistory: Math.max(0, Math.floor(numParam(params['maxHistory'], DEFAULTS.maxHistory))),
     // ISO date string through to the engine, which validates it and compares
     // against each pivot's session `date` — no epoch conversion here.
@@ -132,10 +183,13 @@ function extractConfig(params: Params): AnchoredVwapConfig {
 // 4. FIXED-SLOT SERIES
 // =============================================================================
 
-const LINE1_WIDTH = 1;
-const LINE2_WIDTH = 2.5;
-const LEG_WIDTH = 1;
 const DEVELOPING_DASH = '5,3';
+
+/** Stroke weight from the 1–3 radio — integer-clamped so a persisted
+ *  out-of-range value can't explode the stroke. */
+function weightParam(value: Params[string] | undefined, fallback: number): number {
+  return Math.min(3, Math.max(1, Math.round(numParam(value, fallback))));
+}
 
 /** Concatenate segments into one series, separated by a break point after each segment's last bar. */
 function pack(segments: AnchoredVwapSegment[]): AnchoredVwapLineSeries['data'] {
@@ -145,43 +199,70 @@ function pack(segments: AnchoredVwapSegment[]): AnchoredVwapLineSeries['data'] {
   });
 }
 
+/** History slot keys per side. */
+const HIST_KEYS = ['history-a', 'history-b', 'history-c', 'history-d'] as const;
+
+/** First-fit terminated segments into fixed slots: a segment joins the first
+ *  slot whose contents all end before it starts, so packed series hold one
+ *  `y` per bar and stay x-ordered. Non-persist lines tile contiguously, so
+ *  two slots suffice. Persist lines all run to the last bar and always
+ *  overlap — once every slot is taken, overflow packs into the slot holding
+ *  the oldest anchor: the fan is unbounded rather than capped at the slot
+ *  count. Packed overlaps rely on the category axis plotting each point at
+ *  its own x position while connecting in data order — the `y: null` break
+ *  points keep the overlapping runs from joining. */
+function historySlots(terminated: AnchoredVwapSegment[]): AnchoredVwapSegment[][] {
+  const slots: AnchoredVwapSegment[][] = [];
+  for (const seg of terminated) {
+    const free = slots.findIndex((slot) => slot.every((s) => s.endBar < seg.startBar));
+    if (free >= 0) {
+      slots[free].push(seg);
+    } else if (slots.length < HIST_KEYS.length) {
+      slots.push([seg]);
+    } else {
+      let oldest = 0;
+      for (let i = 1; i < slots.length; i++) {
+        if (slots[i][0].startBar < slots[oldest][0].startBar) oldest = i;
+      }
+      slots[oldest].push(seg);
+    }
+  }
+  return slots;
+}
+
 /**
- * Compute the 16 fixed Anchored VWAP line series.
+ * Compute the 26 fixed Anchored VWAP series.
  *
- * Per set: six VWAP slots (high/low × history-a/history-b/active) then the
- * ZigZag leg series — a confirmed chain (MultiColoredLine, each leg taking
- * its destination pivot's side hue) and a dashed developing leg to the
- * running extreme. `showZigZag: false` leaves the leg series empty.
+ * Per set: ten VWAP slots (high/low × history-a..d/active), then the
+ * ZigZag leg series — a confirmed chain (MultiColoredLine in the set's
+ * uniform leg color), a dashed developing leg to the running extreme, and a
+ * Scatter series of confirmation markers (each reversal trigger in its
+ * source pivot's side color).
+ * `showLineNZigZag: false` leaves that set's leg series empty;
+ * `showLineNConfirms: false` — the default — leaves its marker series empty.
  *
- * Order: line 1's slots + legs, then line 2's (line 2 draws on top); within
- * a slot, high before low, and `history-a`, `history-b`, then `active` last.
- * Always returns exactly 16 series, including for empty data.
+ * Order: line 1's slots + legs + markers, then line 2's (line 2 draws on
+ * top); within a slot, high before low, and `history-a..d`, then
+ * `active` last. Always returns exactly 26 series, including for empty data.
  */
 export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): AnchoredVwapLineSeries[] {
   const config = extractConfig(params);
   const { segments, legs } = computeAnchoredVwapResult(bars, config);
-  const showZigZag = boolParam(params['showZigZag'], DEFAULTS.showZigZag);
 
-  const sets = [
-    {
-      set: 'line1' as const,
-      pct: config.line1RetracementPct,
-      width: LINE1_WIDTH,
-      highColor: colorParam(params['line1HighColor'], DEFAULTS.line1HighColor),
-      lowColor: colorParam(params['line1LowColor'], DEFAULTS.line1LowColor),
-      show: boolParam(params['showLine1'], DEFAULTS.showLine1),
-    },
-    {
-      set: 'line2' as const,
-      pct: config.line2RetracementPct,
-      width: LINE2_WIDTH,
-      highColor: colorParam(params['line2HighColor'], DEFAULTS.line2HighColor),
-      lowColor: colorParam(params['line2LowColor'], DEFAULTS.line2LowColor),
-      show: boolParam(params['showLine2'], DEFAULTS.showLine2),
-    },
-  ];
+  const sets = ([1, 2] as const).map((n) => ({
+    set: `line${n}` as AnchoredVwapSet,
+    pct: config[`line${n}RetracementPct`],
+    width: weightParam(params[`line${n}Weight`], DEFAULTS[`line${n}Weight`]),
+    highColor: colorParam(params[`line${n}HighColor`], DEFAULTS[`line${n}HighColor`]),
+    lowColor: colorParam(params[`line${n}LowColor`], DEFAULTS[`line${n}LowColor`]),
+    showHigh: boolParam(params[`showLine${n}High`], DEFAULTS[`showLine${n}High`]),
+    showLow: boolParam(params[`showLine${n}Low`], DEFAULTS[`showLine${n}Low`]),
+    showLegs: boolParam(params[`showLine${n}ZigZag`], DEFAULTS[`showLine${n}ZigZag`]),
+    showConfirms: boolParam(params[`showLine${n}Confirms`], DEFAULTS[`showLine${n}Confirms`]),
+    legColor: colorParam(params[`line${n}ZigZagColor`], DEFAULTS[`line${n}ZigZagColor`]),
+  }));
 
-  return sets.flatMap(({ set, pct, width, highColor, lowColor, show }) => {
+  return sets.flatMap(({ set, pct, width, highColor, lowColor, showHigh, showLow, showLegs, showConfirms, legColor }) => {
     const sideColor = (isHigh: boolean) => (isHigh ? highColor : lowColor);
     const vwapSeries = (['high', 'low'] as const).flatMap((side) => {
       const slot = segments
@@ -197,30 +278,28 @@ export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): Anc
         dashArray: '',
         pointColorMapping: '',
       };
+      // A hidden side empties only its own VWAP slots — the other side, the
+      // leg series, and the 26-key structure are unaffected (#1459).
+      const showSide = side === 'high' ? showHigh : showLow;
+      const hist = historySlots(terminated);
       return [
-        { ...base, key: `${set}-${side}-history-a`, data: pack(terminated.filter((_, k) => k % 2 === 0)) },
-        { ...base, key: `${set}-${side}-history-b`, data: pack(terminated.filter((_, k) => k % 2 === 1)) },
+        ...HIST_KEYS.map((kind, i) => ({ ...base, key: `${set}-${side}-${kind}`, data: pack(hist[i] ?? []) })),
         { ...base, key: `${set}-${side}-active`, data: pack(live) },
-      ];
+      ].map((s) => (showSide ? s : { ...s, data: [] }));
     });
 
     const legSet = legs.find((l) => l.set === set);
-    // MultiColoredLine paints each segment with the color at its START
-    // vertex, so vertex i carries the hue of the leg starting there (its
-    // destination pivot's side). The terminal vertex has no outgoing leg —
-    // its own side's hue. A lone anchor is still one marked vertex.
-    const chainData: AnchoredVwapLineSeries['data'] = !showZigZag || !legSet
+    // The whole chain draws in the set's uniform leg color (#1459) — the
+    // MultiColoredLine contract still carries a color per vertex. A lone
+    // anchor is still one marked vertex. Legs share the set's weight.
+    const chainData: AnchoredVwapLineSeries['data'] = !showLegs || !legSet
       ? []
-      : legSet.vertices.map((v, i) => ({
-          index: v.index,
-          y: v.y,
-          color: sideColor(legSet.vertices[i + 1]?.isHigh ?? v.isHigh),
-        }));
+      : legSet.vertices.map((v) => ({ index: v.index, y: v.y, color: legColor }));
     const chain: AnchoredVwapLineSeries = {
       key: `${set}-zigzag`,
       name: `ZZ ${pct}%`,
-      color: sideColor(true),
-      width: LEG_WIDTH,
+      color: legColor,
+      width,
       type: 'MultiColoredLine',
       dashArray: '',
       pointColorMapping: 'color',
@@ -230,17 +309,39 @@ export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): Anc
     const developing: AnchoredVwapLineSeries = {
       key: `${set}-developing`,
       name: `ZZ ${pct}% (developing)`,
-      color: dev ? sideColor(dev.isHigh) : sideColor(true),
-      width: LEG_WIDTH,
+      color: legColor,
+      width,
       type: 'Line',
       dashArray: DEVELOPING_DASH,
       pointColorMapping: '',
-      data: showZigZag && dev ? [{ index: dev.from.index, y: dev.from.y }, { index: dev.to.index, y: dev.to.y }] : [],
+      data: showLegs && dev ? [{ index: dev.from.index, y: dev.from.y }, { index: dev.to.index, y: dev.to.y }] : [],
     };
 
-    // A hidden set empties only its VWAP slots — the leg series answer to
-    // showZigZag alone, so legs can be inspected without the VWAP lines.
-    // The 16-key structure is preserved either way (#955).
-    return [...vwapSeries.map((s) => (show ? s : { ...s, data: [] })), chain, developing];
+    // Confirmation markers — the same reversal-trigger dots the standalone
+    // ZigZag draws: a dot at the threshold level on the bar that first
+    // crossed it, in the source pivot's side color. Off unless
+    // showLineNConfirms is set.
+    const confirmations: AnchoredVwapLineSeries = {
+      key: `${set}-confirmations`,
+      name: `ZZ ${pct}% confirms`,
+      color: legColor,
+      width,
+      type: 'Scatter',
+      dashArray: '',
+      pointColorMapping: 'color',
+      marker: { visible: true, shape: 'Circle', width: 8, height: 8 },
+      data: !showConfirms || !legSet
+        ? []
+        : legSet.confirmations.map((c) => ({
+            index: c.index,
+            y: c.y,
+            color: sideColor(c.isHigh),
+          })),
+    };
+
+    // The leg series answer to their own set's showLineNZigZag toggle, the
+    // markers to showLineNConfirms. The 26-key structure is preserved either
+    // way (#955); side visibility was applied inside the per-side slots (#1459).
+    return [...vwapSeries, chain, developing, confirmations];
   });
 }

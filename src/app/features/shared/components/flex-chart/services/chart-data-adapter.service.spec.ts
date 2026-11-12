@@ -585,16 +585,17 @@ describe('ChartDataAdapter.triggerBandSeries', () => {
 });
 
 // =============================================================================
-// ChartDataAdapter.anchoredVwapSeries — fixed 16 series (Topic #261 / Task #871/#945)
+// ChartDataAdapter.anchoredVwapSeries — fixed 26 series (Topic #261 / Task #871/#945)
 // =============================================================================
 
 describe('ChartDataAdapter.anchoredVwapSeries', () => {
   const FIXED_KEYS = (['line1', 'line2'] as const).flatMap((scale) => [
     ...(['high', 'low'] as const).flatMap((side) =>
-      ['history-a', 'history-b', 'active'].map((kind) => `${scale}-${side}-${kind}`),
+      ['history-a', 'history-b', 'history-c', 'history-d', 'active'].map((kind) => `${scale}-${side}-${kind}`),
     ),
     `${scale}-zigzag`,
     `${scale}-developing`,
+    `${scale}-confirmations`,
   ]);
 
   function makeAvwapConfig(params: Record<string, number | string | boolean> = {}, extra: Partial<FlexChartConfig> = {}): FlexChartConfig {
@@ -611,15 +612,15 @@ describe('ChartDataAdapter.anchoredVwapSeries', () => {
   it('works with no ZigZag indicator on the chart', () => {
     const config = makeAvwapConfig();
     expect(config.indicators.some((i) => i.type === StIndicator.ST_ZIGZAG)).toBe(false);
-    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries().length).toBe(16);
+    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries().length).toBe(26);
   });
 
-  it('emits the same 16 keys whatever the data or params — the series count never changes', () => {
+  it('emits the same 26 keys whatever the data or params — the series count never changes', () => {
     const shapes = [
       setupAdapter(makeBars(120), makeAvwapConfig()),
       setupAdapter(makeBars(40), makeAvwapConfig({ line1RetracementPct: 1, line2RetracementPct: 9, maxHistory: 3 })),
       setupAdapter(makeBars(5), makeAvwapConfig()),
-      setupAdapter(makeBars(120), makeAvwapConfig({ showZigZag: false })),
+      setupAdapter(makeBars(120), makeAvwapConfig({ showLine1ZigZag: false, showLine2ZigZag: false })),
     ];
     for (const adapter of shapes) {
       expect(adapter.anchoredVwapSeries().map((s) => s.key)).toEqual(FIXED_KEYS);
@@ -629,7 +630,7 @@ describe('ChartDataAdapter.anchoredVwapSeries', () => {
   it('uses only the first AVWAP config, so a second instance cannot grow the series count', () => {
     const one = makeAvwapConfig().indicators[0];
     const config: FlexChartConfig = { indicators: [one, { ...one, id: 'avwap-2' }] };
-    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries()).toHaveLength(16);
+    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries()).toHaveLength(26);
   });
 
   it('puts prices in log space under logScale and preserves the null break points', () => {
@@ -654,9 +655,9 @@ describe('ChartDataAdapter.anchoredVwapSeries', () => {
     const color = (s: typeof dark, key: string) => s.find((x) => x.key === key)!.color;
     expect(color(dark, 'line1-high-active')).toBe('#33d17a');
     expect(color(light, 'line1-high-active')).toBe('#4caf50');
-    // The default orange/green are not in the remap vocabulary and pass through in both themes.
-    expect(color(dark, 'line2-high-active')).toBe('#FFA500');
-    expect(color(light, 'line2-low-active')).toBe('#00C853');
+    // The default green/red are not in the remap vocabulary and pass through in both themes.
+    expect(color(dark, 'line2-high-active')).toBe('#00C853');
+    expect(color(light, 'line2-low-active')).toBe('#FF0000');
   });
 
   it('carries the ZigZag-leg series through with their type, dash, and themed per-point colors', () => {
@@ -671,13 +672,14 @@ describe('ChartDataAdapter.anchoredVwapSeries', () => {
     expect(chain.data.every((p) => typeof p.color === 'string')).toBe(true);
   });
 
-  it('showZigZag: false empties the leg series without touching the VWAP slots', () => {
+  it('leg toggles: false empties that set\'s leg series without touching the VWAP slots or the other set', () => {
     const on = setupAdapter(makeBars(120), makeAvwapConfig()).anchoredVwapSeries();
-    const off = setupAdapter(makeBars(120), makeAvwapConfig({ showZigZag: false })).anchoredVwapSeries();
-    for (const s of off.filter((x) => x.key.endsWith('-zigzag') || x.key.endsWith('-developing'))) {
+    const off = setupAdapter(makeBars(120), makeAvwapConfig({ showLine1ZigZag: false })).anchoredVwapSeries();
+    for (const s of off.filter((x) => x.key === 'line1-zigzag' || x.key === 'line1-developing')) {
       expect(s.data).toEqual([]);
     }
-    const active = (s: typeof on) => s.find((x) => x.key === 'line1-high-active')!.data;
-    expect(off.find((x) => x.key === 'line1-high-active')!.data).toEqual(active(on));
+    const data = (s: typeof on, key: string) => s.find((x) => x.key === key)!.data;
+    expect(data(off, 'line1-high-active')).toEqual(data(on, 'line1-high-active'));
+    expect(data(off, 'line2-zigzag')).toEqual(data(on, 'line2-zigzag'));
   });
 });

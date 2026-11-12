@@ -427,12 +427,13 @@ export class ChartDataAdapter {
     }));
   });
 
-  /** Anchored VWAP series — the fixed 16 line series (4 VWAP slots x active +
-   *  two alternating history series, plus the ZigZag chain and developing leg
-   *  per set) of the first ST_ANCHORED_VWAP indicator, so a second instance
+  /** Anchored VWAP series — the fixed 26 series (4 VWAP slots x active +
+   *  four history series, plus per set the ZigZag chain,
+   *  developing leg, and confirmation-marker Scatter) of the first
+   *  ST_ANCHORED_VWAP indicator, so a second instance
    *  cannot change the series count. Prices go through the scale transform;
    *  `null` break points are kept so the chart draws gaps. Point colors are
-   *  themed too — the chain is a MultiColoredLine whose per-leg hues live on
+   *  themed too — the chain is a MultiColoredLine whose leg color lives on
    *  the points. Empty array when no ST_ANCHORED_VWAP indicator is configured.
    */
   anchoredVwapSeries = computed<AnchoredVwapLineSeries[]>(() => {

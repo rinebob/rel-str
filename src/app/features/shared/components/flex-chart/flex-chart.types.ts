@@ -247,7 +247,7 @@ export interface IndicatorParamDef {
    * key name. Unset ⇒ callers fall back to the plain control for the value's
    * JS type.
    */
-  input?: 'number' | 'color' | 'date' | 'text';
+  input?: 'number' | 'color' | 'date' | 'text' | 'radio';
 }
 
 /** Available indicator definition — each indicator type exports one of these */

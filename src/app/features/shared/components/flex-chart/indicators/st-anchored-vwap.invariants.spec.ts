@@ -81,33 +81,56 @@ describe('computeAnchoredVwap — invariants on varied series', () => {
         }
       });
 
-      it('starts every line on its anchor’s confirmation bar and nowhere earlier', () => {
+      it('starts every line on its anchor’s trigger bar — the first bar crossing the deviation threshold', () => {
         for (const scale of ['line1', 'line2'] as const) {
+          const dev = scale === 'line1' ? sc.config.line1RetracementPct : sc.config.line2RetracementPct;
           const ev = events(bars, sc.config, scale);
           for (const s of segs.filter((x) => x.set === scale)) {
             const anchor = ev.find((e) => e.pivotBar === s.pivotBar && e.isHigh === (s.side === 'high'))!;
             expect(anchor).toBeDefined();
-            expect(s.startBar).toBe(anchor.confirmBar);
-            expect(s.points[0].index).toBe(anchor.confirmBar);
-            expect(s.points.every((p) => p.index >= anchor.confirmBar)).toBe(true);
+            // Independent trigger: first bar whose far side crossed the level.
+            const level = s.side === 'high' ? anchor.price * (1 - dev / 100) : anchor.price * (1 + dev / 100);
+            let trigger = s.pivotBar;
+            while (trigger < bars.length && !(s.side === 'high' ? bars[trigger].low <= level : bars[trigger].high >= level)) {
+              trigger++;
+            }
+            expect(s.startBar).toBe(trigger);
+            expect(s.points[0].index).toBe(trigger);
+            expect(s.points.every((p) => p.index >= s.pivotBar)).toBe(true);
           }
         }
       });
 
-      it('hands each line to the next same-side anchor on its confirmation bar, with the last line active to the final bar', () => {
+      it('draws one line per vertex whose reversal has triggered — every vertex but possibly the last', () => {
+        // The scenario must exercise new extremes, or "supersession adds no line" is vacuous.
+        expect((['line1', 'line2'] as const).some((scale) => events(bars, sc.config, scale).some((a) => a.replaced))).toBe(true);
+        const { legs } = computeAnchoredVwapResult(bars, sc.config);
         for (const scale of ['line1', 'line2'] as const) {
-          for (const side of ['high', 'low'] as const) {
-            const line = segs.filter((s) => s.set === scale && s.side === side).sort((a, b) => a.startBar - b.startBar);
-            const anchors = events(bars, sc.config, scale).filter((e) => e.isHigh === (side === 'high'));
-            expect(line.map((s) => s.pivotBar)).toEqual(anchors.map((a) => a.pivotBar));
-            line.forEach((s, k) => {
-              const last = k === line.length - 1;
-              expect(s.active).toBe(last);
-              expect(s.endBar).toBe(last ? bars.length - 1 : line[k + 1].startBar);
-              expect(s.points.map((p) => p.index)).toEqual(
-                Array.from({ length: s.endBar - s.startBar + 1 }, (_, i) => s.startBar + i),
-              );
-            });
+          // Two reversals can fire on one bar (allowZigZagOnOneBar) — the
+          // earlier line is then a single point; break the tie by pivot.
+          const line = segs.filter((s) => s.set === scale).sort((a, b) => a.startBar - b.startBar || a.pivotBar - b.pivotBar);
+          const vertices = legs.find((l) => l.set === scale)!.vertices;
+          // Lines anchor at surviving vertices, and a mid-chain vertex's
+          // trigger is guaranteed (the next vertex deviates ≥ the threshold)
+          // — only the last vertex can be untriggered, so lines are a prefix.
+          expect([vertices.length, vertices.length - 1]).toContain(line.length);
+          expect(line.map((s) => `${s.side}@${s.pivotBar}`)).toEqual(
+            vertices.slice(0, line.length).map((v) => `${v.isHigh ? 'high' : 'low'}@${v.index}`),
+          );
+          // allowZigZagOnOneBar can leave consecutive same-side vertices in
+          // the chain (a same-bar high+low pair collapses to the later one),
+          // so sides need not strictly alternate.
+          line.forEach((s, k) => {
+            const last = k === line.length - 1;
+            expect(s.active).toBe(last);
+            expect(s.endBar).toBe(last ? bars.length - 1 : line[k + 1].startBar);
+            expect(s.points.map((p) => p.index)).toEqual(
+              Array.from({ length: s.endBar - s.startBar + 1 }, (_, i) => s.startBar + i),
+            );
+          });
+          // Consecutive segments tile without gaps: each ends where the next begins.
+          for (let k = 1; k < line.length; k++) {
+            expect(line[k].startBar).toBe(line[k - 1].endBar);
           }
         }
       });
@@ -144,15 +167,47 @@ describe('computeAnchoredVwap — invariants on varied series', () => {
         }
       });
 
-      it('never looks ahead: output at bar t from bars[0..t] equals the full output restricted to bars ≤ t', () => {
+      it('never looks ahead: every truncated line’s anchor is a real event knowable by t, and values agree where both runs draw the line', () => {
         const byKey = new Map<string, AnchoredVwapSegment>(segs.map((s) => [s.key, s]));
         for (let t = 40; t < bars.length; t += 11) {
           const truncated = computeAnchoredVwap(bars.slice(0, t + 1), sc.config);
-          const fullUpToT = segs.filter((s) => s.startBar <= t);
-          expect(truncated.map((s) => s.key).sort()).toEqual(fullUpToT.map((s) => s.key).sort());
+          const truncatedKeys = new Set(truncated.map((s) => s.key));
+          // The other direction: a full line whose vertex registered and
+          // whose trigger fired by t must be drawn in the truncated run.
+          for (const full of segs) {
+            const anchor = events(bars, sc.config, full.set).find(
+              (e) => e.pivotBar === full.pivotBar && e.isHigh === (full.side === 'high'),
+            )!;
+            if (full.startBar <= t && anchor.confirmBar <= t) {
+              expect(truncatedKeys.has(full.key)).toBe(true);
+            }
+          }
           for (const s of truncated) {
-            const full = byKey.get(s.key)!;
-            expect(s.points).toEqual(full.points.filter((p) => p.index <= t));
+            const anchor = events(bars, sc.config, s.set).find(
+              (e) => e.pivotBar === s.pivotBar && e.isHigh === (s.side === 'high'),
+            );
+            // The anchor must be a real pivot of the full stream — and the
+            // vertex can only be in the truncated chain if it registered by t.
+            expect(anchor).toBeDefined();
+            expect(anchor!.confirmBar).toBeLessThanOrEqual(t);
+            const full = byKey.get(s.key);
+            if (full) {
+              // Values agree over the shared drawn range. Either run can
+              // legitimately end earlier: the truncated line may continue
+              // past the full endBar (the ending reversal isn't knowable at
+              // t) or stop short (an extra vertex superseded only later in
+              // the full stream ended it here).
+              const truncatedY = new Map(s.points.map((p) => [p.index, p.y]));
+              for (const p of full.points) {
+                if (p.index <= s.endBar) expect(truncatedY.get(p.index)).toBe(p.y);
+              }
+              const fullY = new Map(full.points.map((p) => [p.index, p.y]));
+              for (const p of s.points) {
+                if (p.index <= full.endBar) expect(fullY.get(p.index)).toBe(p.y);
+              }
+            }
+            // else the vertex was superseded in the full stream — the line is
+            // legitimately absent there.
           }
         }
       });
@@ -171,26 +226,12 @@ describe('computeAnchoredVwap — invariants on varied series', () => {
             .filter((a, i, all) => i === all.length - 1 || all[i + 1].pivotBar !== a.pivotBar);
           expect(legSet.vertices.map((v) => v.index)).toEqual(expected.map((a) => a.pivotBar));
           expect(legSet.vertices.map((v) => v.y)).toEqual(expected.map((a) => a.price));
-          // Legs connect consecutive vertices, each painted its destination's side.
-          expect(legSet.confirmed.map((l) => [l.from, l.to])).toEqual(
-            legSet.vertices.slice(1).map((to, i) => [legSet.vertices[i], to]),
-          );
-          expect(legSet.confirmed.map((l) => l.isHigh)).toEqual(legSet.vertices.slice(1).map((v) => v.isHigh));
-          // A surviving anchor's segment has a coincident vertex; a superseded
-          // anchor keeps its segment but loses the mark — unless a surviving
-          // opposite-side event coincidentally shares its bar.
+          expect(legSet.vertices.map((v) => v.isHigh)).toEqual(expected.map((a) => a.isHigh));
+          // Every segment anchors at a drawn vertex — superseded anchors
+          // never carry a line under vertex-anchored legs.
+          const vertexKeys = new Set(legSet.vertices.map((v) => `${v.index}@${v.isHigh}`));
           for (const s of segs.filter((x) => x.set === scale)) {
-            const anchor = anchors.find((a) => a.pivotBar === s.pivotBar && a.isHigh === (s.side === 'high'))!;
-            const vertex = legSet.vertices.find((v) => v.index === s.pivotBar && v.isHigh === anchor.isHigh);
-            if (!surviving.includes(anchor)) {
-              expect(vertex).toBeUndefined();
-            } else if (expected.includes(anchor)) {
-              expect(vertex?.y).toBe(anchor.price);
-            } else {
-              // Survived but lost a same-bar collapse — the kept opposite-side
-              // event still marks the bar.
-              expect(legSet.vertices.some((v) => v.index === s.pivotBar)).toBe(true);
-            }
+            expect(vertexKeys.has(`${s.pivotBar}@${s.side === 'high'}`)).toBe(true);
           }
         }
       });

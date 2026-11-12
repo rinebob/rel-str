@@ -36,6 +36,16 @@ export interface AnchoredVwapConfig {
   historyStart?: string;
   /** Max terminated segments per set, both sides combined. Active lines are never counted. */
   maxHistory: number;
+  /**
+   * Line-1 persist mode — every triggered vertex keeps its line to the last
+   * bar instead of ending at the next vertex's trigger, so the set draws a
+   * fan of anchored VWAPs rather than one alternating line. The newest line
+   * stays `active`; older ones count toward `maxHistory`, which becomes the
+   * fan-size bound. Default off (alternating).
+   */
+  line1Persist?: boolean;
+  /** Line-2 persist mode — see `line1Persist`. */
+  line2Persist?: boolean;
 }
 
 // =============================================================================
@@ -54,8 +64,7 @@ export interface AnchoredVwapVertex {
 
 /**
  * One leg between two pivots. `isHigh` is the *destination* vertex's side —
- * it selects the leg's hue so a leg into a pivot high draws the set's high
- * color.
+ * metadata only; legs draw in the set's uniform leg color.
  */
 export interface AnchoredVwapLeg {
   from: AnchoredVwapVertex;
@@ -64,20 +73,38 @@ export interface AnchoredVwapLeg {
 }
 
 /**
- * The ZigZag legs of one set. `vertices` is the deduplicated surviving-anchor
- * chain — superseded (`replaced`) anchors drop out so legs alternate like the
- * standalone ST ZigZag — with same-bar high+low pairs collapsed to the later
- * event (one index can carry only one vertex). `confirmed` chains consecutive
- * vertices; a lone anchor is still a vertex even with no legs. `developing`
- * runs from the last anchor to the running extreme (the engine's projection
- * pivot); it is render-only, never an anchor, and null when no anchor exists
- * yet or the post-pivot move hasn't met the deviation threshold.
+ * The ZigZag legs of one set. `vertices` is the surviving-pivot chain the
+ * walk maintains (superseded anchors are overwritten in place, so legs
+ * alternate like the standalone ST ZigZag) with same-bar high+low pairs
+ * collapsed to the later pivot — one index can carry only one vertex.
+ * `developing` runs from the last anchor to the running extreme (the
+ * engine's projection pivot); it is render-only, never an anchor, and null
+ * when no anchor exists yet or the post-pivot move hasn't met the
+ * deviation threshold.
+ *
+ * A reversal trigger marker — identical to the standalone ST ZigZag's
+ * trigger dots: the first bar after a pivot whose price crossed the
+ * deviation threshold, drawn at the threshold level so the dot sits inside
+ * the trigger bar's range — or at the bar's open when a gap carried price
+ * through the level. The anchored line for that vertex begins on this
+ * same bar.
  */
+export interface AnchoredVwapConfirmation {
+  /** The trigger bar's index. */
+  index: number;
+  /** The deviation-threshold price level — or the trigger bar's open on a
+   *  gap-through (the level lies outside the bar's range). */
+  y: number;
+  /** True = the source pivot was a high (down-reversal trigger). */
+  isHigh: boolean;
+}
+
 export interface AnchoredVwapLegSet {
   set: AnchoredVwapSet;
   vertices: AnchoredVwapVertex[];
-  confirmed: AnchoredVwapLeg[];
   developing: AnchoredVwapLeg | null;
+  /** Every surviving pivot's reversal trigger — debug overlay, not a leg. */
+  confirmations: AnchoredVwapConfirmation[];
 }
 
 /** Segments plus the legs that produced their anchors. */
@@ -95,9 +122,11 @@ export interface AnchoredVwapPoint {
 }
 
 /**
- * One anchored VWAP line segment: drawn from its anchor's confirmation bar
- * (`startBar`) to the next same-side anchor's confirmation bar (`endBar`), or
- * to the last bar while active. The VWAP itself accumulates from `pivotBar`.
+ * One anchored VWAP line segment — one per triggered vertex. It is drawn
+ * from the vertex's trigger bar (`startBar`: the bar that first crossed the
+ * deviation threshold) to the next vertex's trigger bar (`endBar`), or to
+ * the last bar while active — or, in persist mode, always to the last bar.
+ * The VWAP itself accumulates from `pivotBar`.
  */
 export interface AnchoredVwapSegment {
   /** Stable unique key: `${set}-${side}-${pivotBar}-${startBar}`. */
@@ -106,11 +135,11 @@ export interface AnchoredVwapSegment {
   side: AnchoredVwapSide;
   /** Bar index of the pivot the VWAP accumulates from. */
   pivotBar: number;
-  /** Bar index on which the pivot became knowable — the first drawn bar. */
+  /** The anchor vertex's trigger bar — the first drawn bar. */
   startBar: number;
-  /** Last drawn bar: the next same-side anchor's confirmation bar, or the last bar while active. */
+  /** Last drawn bar: the next vertex's trigger bar, or the last bar while active. */
   endBar: number;
-  /** True for the live line of its side (no later same-side anchor). */
+  /** True for the set's live line (no later reversal). */
   active: boolean;
   /** Drawn points, one per bar from `startBar` to `endBar` inclusive. */
   points: AnchoredVwapPoint[];

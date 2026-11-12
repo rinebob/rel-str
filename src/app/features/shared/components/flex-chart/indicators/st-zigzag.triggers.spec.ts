@@ -66,6 +66,32 @@ describe('computeTriggerPoints', () => {
     expect(triggers[0].isHigh).toBe(false);
   });
 
+  it('marks the open, not the level, when a gap carries price through the threshold', () => {
+    // High pivot at 100 on bar 0; level = 95. Bar 2 opens at 90 — the whole
+    // bar prints below the level, so the open is the price that broke it.
+    const bars = makeBars([
+      { o: 99, h: 100, l: 97, c: 98 },  // bar 0: low 97 > 95 — no cross
+      { o: 97, h: 98, l: 96, c: 97 },   // bar 1: low 96 > 95 — no cross
+      { o: 90, h: 91, l: 88, c: 89 },   // bar 2: gap through 95 — TRIGGER at open
+    ]);
+    const triggers = computeTriggerPoints(bars, [highPivot(0, 100)], DEV);
+    expect(triggers.length).toBe(1);
+    expect(triggers[0].barIndex).toBe(2);
+    expect(triggers[0].price).toBe(90);
+  });
+
+  it('marks the open on an upward gap through a low pivot’s threshold', () => {
+    // Low pivot at 100 on bar 0; level = 105. Bar 1 opens at 108.
+    const bars = makeBars([
+      { o: 100, h: 101, l: 99, c: 100 },  // bar 0: high 101 < 105 — no cross
+      { o: 108, h: 110, l: 107, c: 109 }, // bar 1: gap through 105 — TRIGGER at open
+    ]);
+    const triggers = computeTriggerPoints(bars, [lowPivot(0, 100)], DEV);
+    expect(triggers.length).toBe(1);
+    expect(triggers[0].barIndex).toBe(1);
+    expect(triggers[0].price).toBe(108);
+  });
+
   it('emits no point when the threshold never crosses (last pivot)', () => {
     const bars = makeBars([
       { o: 99, h: 100, l: 98, c: 99 },

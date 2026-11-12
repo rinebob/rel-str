@@ -1,4 +1,10 @@
 import { computeAnchoredVwap, computeAnchoredVwapResult } from './st-anchored-vwap.engine';
+import {
+  computeTriggerPoints,
+  computeZigZagPivots,
+  DEFAULT_CONFIG,
+  type ZigZagConfig,
+} from './st-zigzag.engine';
 import type { AnchoredVwapConfig, AnchoredVwapSegment } from './st-anchored-vwap.types';
 import type { PriceBar } from '../flex-chart.types';
 
@@ -48,9 +54,14 @@ const CLOSES = [
   136, 132, 128, 124, 120,
 ];
 
+/**
+ * Line 1 (5%) sees every swing: H5 L10 H15 L20 H25, all reversals. Line 2
+ * (17%) sees H5 L10 H15, then H25 REPLACES H15 — the 110→141 rally extends
+ * the up leg instead of reversing (the 131→109 dip is only ~16.8%).
+ */
 const CONFIG: AnchoredVwapConfig = {
   line1RetracementPct: 5,
-  line2RetracementPct: 25,
+  line2RetracementPct: 17,
   line1LeftDepth: 2,
   line1RightDepth: 2,
   line2LeftDepth: 2,
@@ -78,9 +89,11 @@ describe('computeAnchoredVwap — lines and handoffs', () => {
     expect(computeAnchoredVwap(barsFromCloses(Array.from({ length: 30 }, () => 100)), CONFIG)).toEqual([]);
   });
 
-  it('draws each anchor from its confirmation bar, never back to the pivot bar', () => {
-    const line1 = pick(segs, 'line1', 'high');
-    expect(line1.map((s) => [s.pivotBar, s.startBar])).toEqual([[5, 7], [15, 17], [25, 27]]);
+  it('draws each anchor’s line from its own trigger bar — the bar that first crossed the deviation threshold', () => {
+    // Trigger bars here coincide with depth-confirmation bars except for the
+    // lows: low@10 triggers on bar 11 (high 107 ≥ 99×1.05), low@20 on 21.
+    const line1 = pick(segs, 'line1', 'low');
+    expect(line1.map((s) => [s.pivotBar, s.startBar])).toEqual([[10, 11], [20, 21]]);
     for (const s of segs) expect(s.points[0].index).toBe(s.startBar);
   });
 
@@ -92,18 +105,34 @@ describe('computeAnchoredVwap — lines and handoffs', () => {
     }
   });
 
-  it('runs a terminated line through the next same-side anchor’s confirmation bar, where the new line starts', () => {
-    const high = pick(segs, 'line1', 'high');
-    expect(high.map((s) => [s.startBar, s.endBar, s.active])).toEqual([
-      [7, 17, false],
-      [17, 27, false],
-      [27, 30, true],
+  it('one line per leg, alternating: each runs from its own trigger bar to the next vertex’s trigger', () => {
+    const line1 = pick(segs, 'line1', 'high').concat(pick(segs, 'line1', 'low')).sort((a, b) => a.startBar - b.startBar);
+    expect(line1.map((s) => [s.side, s.pivotBar, s.startBar, s.endBar, s.active])).toEqual([
+      ['high', 5, 7, 11, false],
+      ['low', 10, 11, 17, false],
+      ['high', 15, 17, 21, false],
+      ['low', 20, 21, 27, false],
+      ['high', 25, 27, 30, true],
     ]);
-    const low = pick(segs, 'line1', 'low');
-    expect(low.map((s) => [s.pivotBar, s.startBar, s.endBar, s.active])).toEqual([
-      [10, 12, 22, false],
-      [20, 22, 30, true],
+  });
+
+  it('persist mode keeps every triggered vertex’s line to the last bar, bounded by maxHistory', () => {
+    const persisted = computeAnchoredVwap(bars, { ...CONFIG, line1Persist: true });
+    const line1 = persisted.filter((s) => s.set === 'line1').sort((a, b) => a.startBar - b.startBar);
+    expect(line1.map((s) => [s.side, s.pivotBar, s.startBar, s.endBar, s.active])).toEqual([
+      ['high', 5, 7, 30, false],
+      ['low', 10, 11, 30, false],
+      ['high', 15, 17, 30, false],
+      ['low', 20, 21, 30, false],
+      ['high', 25, 27, 30, true],
     ]);
+    // The flag is per set — line 2 still terminates each line at the next trigger.
+    const line2 = persisted.filter((s) => s.set === 'line2').sort((a, b) => a.startBar - b.startBar);
+    expect(line2.map((s) => s.endBar)).toEqual([13, 30]);
+    // Older persisting lines count toward maxHistory — the cap bounds the fan.
+    const capped = computeAnchoredVwap(bars, { ...CONFIG, line1Persist: true, maxHistory: 2 });
+    const kept = capped.filter((s) => s.set === 'line1').sort((a, b) => a.startBar - b.startBar);
+    expect(kept.map((s) => s.pivotBar)).toEqual([15, 20, 25]);
   });
 
   it('first drawn value is the VWAP of the pivot bar through the confirmation bar', () => {
@@ -111,21 +140,21 @@ describe('computeAnchoredVwap — lines and handoffs', () => {
     expect(pick(segs, 'line1', 'high')[0].points[0].y).toBeCloseTo(116, 10);
   });
 
-  it('keeps a replaced same-side anchor as a drawn line ending at its replacement’s confirmation bar', () => {
-    // At 25% neither dip qualifies as a reversal, so each higher high REPLACES
-    // the previous high anchor — the replaced anchors were still the live line.
-    const line2 = computeAnchoredVwap(bars, CONFIG).filter((s) => s.set === 'line2');
-    expect(pick(line2, 'line2', 'low')).toEqual([]);
-    expect(pick(line2, 'line2', 'high').map((s) => [s.pivotBar, s.startBar, s.endBar, s.active])).toEqual([
-      [5, 7, 17, false],
-      [15, 17, 27, false],
-      [25, 27, 30, true],
+  it('anchors at the surviving vertex — a new extreme never starts or ends a line, and an untriggered vertex anchors none', () => {
+    // At 17% H25 replaces H15 in the vertex chain [5,10,25]. H5's line runs
+    // from its trigger (bar 10, low 98 ≤ 121×0.83) to L10's trigger (bar 13,
+    // high 119 ≥ 99×1.17); L10's line stays live — H25's reversal never
+    // triggers (no low ≤ 141×0.83 = 117.03), so it anchors nothing yet.
+    const line2 = segs.filter((s) => s.set === 'line2').sort((a, b) => a.startBar - b.startBar);
+    expect(line2.map((s) => [s.side, s.pivotBar, s.startBar, s.endBar, s.active])).toEqual([
+      ['high', 5, 10, 13, false],
+      ['low', 10, 13, 30, true],
     ]);
   });
 
   it('a pivot that qualifies only at the line-1 retracement appears only in the line-1 set', () => {
-    expect(pick(segs, 'line1', 'low').length).toBeGreaterThan(0);
-    expect(pick(segs, 'line2', 'low')).toEqual([]);
+    expect(pick(segs, 'line1', 'low').map((s) => s.pivotBar)).toEqual([10, 20]);
+    expect(pick(segs, 'line2', 'low').map((s) => s.pivotBar)).toEqual([10]);
   });
 
   it('a pivot confirmed on the final bar draws an active line of exactly one point', () => {
@@ -151,11 +180,11 @@ describe('computeAnchoredVwap — typical price and volume', () => {
   const line1High = (bars: PriceBar[]) => pick(computeAnchoredVwap(bars, CONFIG), 'line1', 'high');
 
   it('keeps accumulating from the pivot bar across the whole line', () => {
-    // Uniform volume, typical = close: at bar 17 the first line has averaged
-    // closes of bars 5..17 — 120,116,112,108,104,100,106,112,118,124,130,126,122
-    // (sum 1498 over 13 bars).
+    // Uniform volume, typical = close: the first high line runs to bar 11
+    // (the low@10 trigger) and has averaged closes of bars 5..11 —
+    // 120,116,112,108,104,100,106 (sum 766 over 7 bars).
     const line = line1High(barsFromCloses(CLOSES))[0];
-    expect(line.points.find((p) => p.index === 17)!.y).toBeCloseTo(1498 / 13, 10);
+    expect(line.points.at(-1)!.y).toBeCloseTo(766 / 7, 10);
   });
 
   it('weights by volume', () => {
@@ -217,15 +246,16 @@ describe('computeAnchoredVwap — history window', () => {
   const pivots = (segs: AnchoredVwapSegment[]) =>
     [...segs].sort((a, b) => a.startBar - b.startBar).map((s) => s.pivotBar);
 
-  // Line 1 has three terminated segments (high@5, low@10, high@15) and two
-  // active (high@25, low@20); line 2 has two terminated (high@5, high@15) and one active (high@25).
-  const ALL_ACTIVE = ['line1-high-25', 'line1-low-20', 'line2-high-25'];
+  // One line per triggered vertex. Line 1: four terminated (high@5, low@10,
+  // high@15, low@20) and one active (high@25). Line 2: one terminated
+  // (high@5) and one active (low@10 — H25's reversal hasn't triggered).
+  const ALL_ACTIVE = ['line1-high-25', 'line2-low-10'];
 
   it('unset: keeps the most recent maxHistory terminated segments, pruning the oldest', () => {
     const segs = run({ maxHistory: 2 });
-    expect(pivots(terminated(segs, 'line1'))).toEqual([10, 15]);
-    expect(pivots(terminated(segs, 'line2'))).toEqual([5, 15]);
-    expect(pivots(terminated(run({ maxHistory: 1 }), 'line1'))).toEqual([15]);
+    expect(pivots(terminated(segs, 'line1'))).toEqual([15, 20]);
+    expect(pivots(terminated(segs, 'line2'))).toEqual([5]);
+    expect(pivots(terminated(run({ maxHistory: 1 }), 'line1'))).toEqual([20]);
   });
 
   it('set: starts at the date and fills chronologically forward until maxHistory, never pruning the start', () => {
@@ -236,8 +266,8 @@ describe('computeAnchoredVwap — history window', () => {
 
   it('set: only segments whose pivot is on or after the date are eligible', () => {
     const segs = run({ historyStart: dateOf(10), maxHistory: 100 });
-    expect(pivots(terminated(segs, 'line1'))).toEqual([10, 15]);
-    expect(pivots(terminated(segs, 'line2'))).toEqual([15]);
+    expect(pivots(terminated(segs, 'line1'))).toEqual([10, 15, 20]);
+    expect(pivots(terminated(segs, 'line2'))).toEqual([]);
   });
 
   it('applies the cap per set across both sides combined, not per side', () => {
@@ -247,31 +277,31 @@ describe('computeAnchoredVwap — history window', () => {
   });
 
   it('windows each set independently', () => {
-    // Line 2 has only two terminated segments, so a cap of 2 keeps both even
+    // Line 2 has only one terminated segment, so a cap of 2 keeps it even
     // though line 1 had to prune.
     const segs = run({ maxHistory: 2 });
     expect(terminated(segs, 'line1')).toHaveLength(2);
-    expect(terminated(segs, 'line2')).toHaveLength(2);
+    expect(terminated(segs, 'line2')).toHaveLength(1);
   });
 
   it('keeps everything when maxHistory exceeds the available history', () => {
     const segs = run({ maxHistory: 1000 });
-    expect(terminated(segs, 'line1')).toHaveLength(3);
-    expect(terminated(segs, 'line2')).toHaveLength(2);
+    expect(terminated(segs, 'line1')).toHaveLength(4);
+    expect(terminated(segs, 'line2')).toHaveLength(1);
   });
 
   it('never windows or prunes active lines, in either mode', () => {
     expect(actives(run({ maxHistory: 0 }))).toEqual(ALL_ACTIVE);
     expect(terminated(run({ maxHistory: 0 }), 'line1')).toEqual([]);
     expect(actives(run({ maxHistory: 1 }))).toEqual(ALL_ACTIVE);
-    // A start date after every pivot leaves no history but all three active lines.
+    // A start date after every pivot leaves no history but both active lines.
     const late = run({ historyStart: '2026-02-01', maxHistory: 100 });
     expect(terminated(late, 'line1')).toEqual([]);
     expect(actives(late)).toEqual(ALL_ACTIVE);
   });
 
   it.each(['not-a-date', '2026-13-40', ''])('treats a non-ISO historyStart as unset — %s', (v) => {
-    expect(pivots(terminated(run({ historyStart: v, maxHistory: 2 }), 'line1'))).toEqual([10, 15]);
+    expect(pivots(terminated(run({ historyStart: v, maxHistory: 2 }), 'line1'))).toEqual([15, 20]);
   });
 
   it('filters on the pivot\'s session date, never the epoch of x', () => {
@@ -280,7 +310,7 @@ describe('computeAnchoredVwap — history window', () => {
     // `date` participates — push every epoch into 2030 and nothing changes.
     const shifted = bars.map((b) => ({ ...b, x: new Date(Date.UTC(2030, 5, 15)) }));
     const segs = computeAnchoredVwap(shifted, { ...CONFIG, historyStart: '2026-01-16', maxHistory: 100 });
-    expect(pivots(terminated(segs, 'line1'))).toEqual([15]);
+    expect(pivots(terminated(segs, 'line1'))).toEqual([15, 20]);
   });
 });
 
@@ -305,24 +335,21 @@ describe('computeAnchoredVwapResult — legs', () => {
     // Line 1 anchors: high@5, low@10, high@15, low@20, high@25 (each confirmed
     // two bars on, depth 2/2) — the chain is the zigzag between them.
     const line1 = computeAnchoredVwapResult(bars, CONFIG).legs.find((l) => l.set === 'line1')!;
-    expect(line1.confirmed.map((l) => [l.from.index, l.to.index])).toEqual([[5, 10], [10, 15], [15, 20], [20, 25]]);
-    expect(line1.confirmed.map((l) => l.isHigh)).toEqual([false, true, false, true]);
-    // Leg prices come off the pivots: high@5 = 121, low@10 = 99, high@15 = 131, low@20 = 109, high@25 = 141.
-    expect(line1.confirmed[0].from.y).toBe(121);
-    expect(line1.confirmed[0].to.y).toBe(99);
-    expect(line1.confirmed[3].to.y).toBe(141);
+    expect(line1.vertices.map((v) => v.index)).toEqual([5, 10, 15, 20, 25]);
+    expect(line1.vertices.map((v) => v.isHigh)).toEqual([true, false, true, false, true]);
+    // Vertex prices come off the pivots: high@5 = 121, low@10 = 99, high@15 = 131, low@20 = 109, high@25 = 141.
+    expect(line1.vertices.map((v) => v.y)).toEqual([121, 99, 131, 109, 141]);
   });
 
-  it('drops superseded anchors from the chain — line 2 keeps only the surviving high', () => {
-    // At 25% the dips never qualify as reversals: the highs at 5, 15, 25 are
-    // three anchor events (two replacements). Only the survivor is a vertex,
-    // so no same-side legs are drawn.
+  it('drops superseded anchors from the chain — line 2’s up leg from low@10 ends at the surviving high@25', () => {
+    // At 17% H25 replaces H15: the chain is H5 → L10 → H25.
     const { segments, legs } = computeAnchoredVwapResult(bars, CONFIG);
     const line2 = legs.find((l) => l.set === 'line2')!;
-    expect(line2.vertices).toEqual([{ index: 25, y: 141, isHigh: true }]);
-    expect(line2.confirmed).toEqual([]);
-    // The superseded anchors still anchored real, now-terminated lines.
-    expect(segments.filter((s) => s.set === 'line2' && s.side === 'high').map((s) => s.pivotBar)).toEqual([5, 15, 25]);
+    expect(line2.vertices.map((v) => v.index)).toEqual([5, 10, 25]);
+    // H25 is the surviving vertex of the developing leg — but its reversal
+    // hasn't triggered, so it anchors no line yet.
+    const line2Segs = segments.filter((s) => s.set === 'line2').sort((a, b) => a.startBar - b.startBar);
+    expect(line2Segs.map((s) => s.pivotBar)).toEqual([5, 10]);
   });
 
   it('develops a provisional leg from the last anchor to the running extreme', () => {
@@ -336,7 +363,7 @@ describe('computeAnchoredVwapResult — legs', () => {
   });
 
   it('has no developing leg when the post-anchor move never meets the threshold', () => {
-    // Line 2 at 25%: the drop from 141 to ~119 is ~15.6% — short of the bar.
+    // Line 2 at 17%: the drop from 141 to ~119 is ~15.6% — short of the bar.
     const line2 = computeAnchoredVwapResult(bars, CONFIG).legs.find((l) => l.set === 'line2')!;
     expect(line2.developing).toBeNull();
   });
@@ -346,7 +373,6 @@ describe('computeAnchoredVwapResult — legs', () => {
     const solo = barsFromCloses([100, 105, 110, 115, 120, 115, 110, 105, 100, 95, 90, 85, 80, 75, 70]);
     const line1 = computeAnchoredVwapResult(solo, CONFIG).legs.find((l) => l.set === 'line1')!;
     expect(line1.vertices).toEqual([{ index: 4, y: 121, isHigh: true }]);
-    expect(line1.confirmed).toEqual([]);
     // The developing leg still chains off the lone anchor to the running extreme.
     expect(line1.developing).toEqual({
       from: { index: 4, y: 121, isHigh: true },
@@ -355,8 +381,41 @@ describe('computeAnchoredVwapResult — legs', () => {
     });
   });
 
+  it('emits a trigger point per triggered vertex — identical to the standalone ZigZag’s trigger dots', () => {
+    const legs = computeAnchoredVwapResult(bars, CONFIG).legs;
+    const line1 = legs.find((l) => l.set === 'line1')!;
+    // y is the threshold level when it lies inside the trigger bar's range,
+    // or the bar's open on a gap-through. These five triggers all gapped:
+    // e.g. H5's level 114.95 is above bar 7's high (113) → open 112.
+    expect(line1.confirmations.map((c) => c.index)).toEqual([7, 11, 17, 21, 27]);
+    expect(line1.confirmations.map((c) => c.isHigh)).toEqual([true, false, true, false, true]);
+    expect(line1.confirmations.map((c) => c.y)).toEqual([112, 106, 122, 116, 132]);
+    // Line 2 (17%): only two of the three vertices have triggered reversals
+    // — H5 on bar 10 (level 100.43 inside its 99–101 range → the level
+    // itself), L10 on bar 13 (level 115.83 below its low → open 118). H25's
+    // drop never reached 17%, so it emits no dot and no line.
+    const line2 = legs.find((l) => l.set === 'line2')!;
+    expect(line2.confirmations.map((c) => c.index)).toEqual([10, 13]);
+    expect(line2.confirmations.map((c) => c.y)).toEqual([121 * 0.83, 118]);
+  });
+
+  it('matches the standalone ST ZigZag’s trigger points bar for bar, level for level', () => {
+    const legs = computeAnchoredVwapResult(bars, CONFIG).legs;
+    for (const [set, devThreshold, leftDepth, rightDepth] of [
+      ['line1', 5, 2, 2],
+      ['line2', 17, 2, 2],
+    ] as const) {
+      const zigCfg: ZigZagConfig = { ...DEFAULT_CONFIG, devThreshold, leftDepth, rightDepth, allowZigZagOnOneBar: true, projectionPivots: true };
+      const expected = computeTriggerPoints(bars, computeZigZagPivots(bars, zigCfg).pivots, devThreshold);
+      const actual = legs.find((l) => l.set === set)!.confirmations;
+      expect(actual.map((c) => [c.index, c.y, c.isHigh])).toEqual(
+        expected.map((t) => [t.barIndex, t.price, t.isHigh]),
+      );
+    }
+  });
+
   it('never anchors a segment to a projection — a developing tip creates no line', () => {
-    // Only confirmed anchor bars appear as segment pivots.
+    // Only real anchor events become segment pivots — never the projection tip.
     const pivotBars = computeAnchoredVwap(bars, CONFIG).filter((s) => s.set === 'line1').map((s) => s.pivotBar);
     expect(pivotBars.sort((a, b) => a - b)).toEqual([5, 10, 15, 20, 25]);
   });

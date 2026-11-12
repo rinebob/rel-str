@@ -9,9 +9,11 @@
  * low reaches P × (1 - devThreshold/100). Mirror for a LOW pivot:
  * a later bar's high reaching P × (1 + devThreshold/100).
  *
- * The marker y-value is the exact threshold level, which by construction
- * lies inside the trigger bar's high-low range — so the dot renders on
- * the price bar that caused the reversal, not on the ZigZag line.
+ * The marker y-value is the exact threshold level, which lies inside the
+ * trigger bar's high-low range — so the dot renders on the price bar that
+ * caused the reversal, not on the ZigZag line. On a gap-through the level
+ * falls outside the bar's range; the threshold was then broken by the
+ * first print of the bar, so the open is used instead.
  *
  * Pure functions — no Angular dependencies, no side effects.
  */
@@ -24,9 +26,14 @@ import { isFiniteNum } from './st-zigzag.utils';
 export interface TriggerPoint {
   /** Index in the bar array. */
   barIndex: number;
+  /** Bar index of the source pivot — pairs a trigger back to its vertex. */
+  pivotIndex: number;
   /** Timestamp in milliseconds. */
   time: number;
-  /** The threshold price level that was crossed. */
+  /** The threshold price level that was crossed — or the trigger bar's open
+   *  when a gap carried price through the level (it lies outside the bar's
+   *  range, so the first print is what "broke" it). With no finite open,
+   *  the bar extreme nearest the level keeps the dot on the bar. */
   price: number;
   /** True = source pivot was a high (down-reversal trigger). */
   isHigh: boolean;
@@ -68,10 +75,21 @@ export function computeTriggerPoints(
 
       const crossed = pivot.isHigh ? extreme <= level : extreme >= level;
       if (crossed) {
+        // A gap can carry price through the level before the bar's first
+        // print — then the open, not the level, is the price that broke it.
+        const price =
+          level >= bar.low && level <= bar.high
+            ? level
+            : isFiniteNum(bar.open)
+              ? bar.open
+              : pivot.isHigh
+                ? bar.high
+                : bar.low;
         triggers.push({
           barIndex: j,
+          pivotIndex: pivot.barIndex,
           time: bar.x.getTime(),
-          price: level,
+          price,
           isHigh: pivot.isHigh,
         });
         break; // first crossing wins

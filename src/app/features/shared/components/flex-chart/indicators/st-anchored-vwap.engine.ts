@@ -1,16 +1,29 @@
 /**
  * ST Anchored VWAP — pure computation.
  *
- * Turns two sets of ZigZag anchor events into Anchored VWAP line segments.
- * Each line is drawn from its anchor's confirmation bar (the bar on which the
- * pivot became knowable) and never back to the pivot bar, so the output at
- * bar `t` depends only on bars `0..t`. The VWAP itself accumulates from the
- * pivot bar: `Σ(typical × volume) / Σ(volume)` over `[pivotBar, bar]`, where
- * `typical = (high + low + close) / 3`.
+ * Turns two sets of ZigZag pivots into Anchored VWAP line segments.
+ * The VWAP accumulates from the pivot bar: `Σ(typical × volume) / Σ(volume)`
+ * over `[pivotBar, bar]`, where `typical = (high + low + close) / 3`.
  *
- * A line ends on the next same-side anchor's confirmation bar, where that
- * anchor's line begins. A same-side pivot that replaces the current anchor is
- * itself an anchor — the replaced one was the live line until then.
+ * One line per ZigZag leg, anchored at the leg's start vertex. A line
+ * begins on the vertex's trigger bar — the first bar that crossed the
+ * deviation threshold, the same bar the standalone ZigZag marks with a
+ * trigger dot — and ends on the next vertex's trigger bar, where the next
+ * leg's line begins: exactly one live line per set, alternating sides. A
+ * vertex whose reversal hasn't triggered yet anchors no line; the previous
+ * leg's line stays live until it does.
+ *
+ * Causality is not strict: a vertex only exists once depth-confirmed, so
+ * its trigger (which can fire *before* confirmation on a violent reversal)
+ * is attributed retroactively — a truncated run at bar `t` may omit a line
+ * the full run back-fills, and a drawn segment vanishes when its vertex is
+ * superseded by a later extreme. Lines never draw before the trigger bar,
+ * though — no hindsight attachment to the pivot bar itself.
+ *
+ * Persist mode (`lineNPersist`) drops the termination: every triggered
+ * vertex's line runs to the last bar — a fan of anchored VWAPs. The newest
+ * is still the set's `active` line; the rest count as history, so
+ * `maxHistory` bounds how far back the fan reaches.
  *
  * `computeAnchoredVwapResult` additionally returns each set's ZigZag legs —
  * a vertex per surviving anchor plus a render-only developing leg — so the
@@ -26,21 +39,22 @@
 import type { PriceBar } from '../flex-chart.types';
 import { parseIsoDateLocal } from '../../../utils/date.util';
 import {
-  computeZigZagAnchorResult,
+  computeTriggerPoints,
+  computeZigZagPivots,
   DEFAULT_CONFIG,
-  type AnchorEvent,
   type Pivot,
+  type TriggerPoint,
   type ZigZagConfig,
 } from './st-zigzag.engine';
 import type {
   AnchoredVwapConfig,
+  AnchoredVwapConfirmation,
   AnchoredVwapLeg,
   AnchoredVwapLegSet,
   AnchoredVwapPoint,
   AnchoredVwapResult,
   AnchoredVwapSegment,
   AnchoredVwapSet,
-  AnchoredVwapSide,
   AnchoredVwapVertex,
 } from './st-anchored-vwap.types';
 
@@ -96,7 +110,7 @@ function cumulativeSums(bars: PriceBar[]): CumulativeSums {
  */
 function segmentPoints(
   sums: CumulativeSums,
-  anchor: AnchorEvent,
+  anchor: { pivotBar: number; price: number },
   startBar: number,
   endBar: number,
 ): AnchoredVwapPoint[] {
@@ -113,23 +127,41 @@ function segmentPoints(
   return points;
 }
 
-/** The segments of one side of one set: one per anchor, in confirmation order. */
-function sideSegments(
+/** The set's segments: one per triggered vertex — every surviving vertex
+ *  anchors a line at its own pivot, drawn from its own trigger bar (the bar
+ *  that first crossed the deviation threshold — the same trigger points the
+ *  standalone ZigZag dots) and ended by the next vertex's trigger. A vertex
+ *  with no trigger yet — only possible for the last, whose reversal hasn't
+ *  fired — anchors no line, so exactly one line per set is ever live. In
+ *  `persist` mode the termination is dropped — every line runs to `lastBar`
+ *  and `active` marks only the newest; the rest are windowed by maxHistory
+ *  like any other history. */
+function setSegments(
   sums: CumulativeSums,
-  anchors: AnchorEvent[],
+  vertices: AnchoredVwapVertex[],
+  triggers: TriggerPoint[],
   set: AnchoredVwapSet,
-  side: AnchoredVwapSide,
   lastBar: number,
+  persist: boolean,
 ): AnchoredVwapSegment[] {
-  return anchors.map((anchor, k) => {
-    const next = anchors[k + 1];
-    const startBar = anchor.confirmBar;
-    const endBar = next ? next.confirmBar : lastBar;
+  // Pair each vertex to the trigger computed from its own pivot — by pivot
+  // bar, not list position: a vertex whose reversal hasn't fired has no
+  // trigger, and side-matched scanning would silently steal the next
+  // same-side vertex's.
+  const byPivot = new Map(triggers.map((t) => [`${t.isHigh}:${t.pivotIndex}`, t]));
+  const triggered = vertices
+    .map((vertex) => ({ vertex, trigger: byPivot.get(`${vertex.isHigh}:${vertex.index}`) }))
+    .filter((p): p is { vertex: AnchoredVwapVertex; trigger: TriggerPoint } => p.trigger !== undefined);
+  return triggered.map(({ vertex, trigger }, k) => {
+    const next = triggered[k + 1];
+    const startBar = trigger.barIndex;
+    const endBar = next && !persist ? next.trigger.barIndex : lastBar;
+    const anchor = { pivotBar: vertex.index, price: vertex.y };
     return {
-      key: `${set}-${side}-${anchor.pivotBar}-${startBar}`,
+      key: `${set}-${vertex.isHigh ? 'high' : 'low'}-${vertex.index}-${startBar}`,
       set,
-      side,
-      pivotBar: anchor.pivotBar,
+      side: vertex.isHigh ? 'high' : 'low',
+      pivotBar: vertex.index,
       startBar,
       endBar,
       active: !next,
@@ -183,36 +215,32 @@ function applyHistoryWindow(
 // =============================================================================
 
 /**
- * The set's legs from one walk: `vertices` is every *surviving* anchor —
- * an event immediately followed by a `replaced` event was superseded by it
- * and drops out, so legs alternate sides like the standalone ST ZigZag
- * (a superseded anchor still anchored its now-terminated VWAP segment; only
- * the mark is dropped. Unlike the segments, the chain is retroactive here:
- * a drawn vertex can vanish once its replacer registers). Same-bar high+low
- * pairs still collapse to the later event — a line series can't draw two
- * vertices at one index. Legs join consecutive vertices; `developing` runs
- * from the last vertex to the walk's projection pivot. Render-only; it never
- * anchors a VWAP line.
+ * The set's legs from one walk: `vertices` is the surviving-pivot chain —
+ * the same `pivots` `computeZigZagPivots` returns, which the walk already
+ * maintains by overwriting each superseded anchor in place (a superseded
+ * vertex anchors nothing — unlike the segments, the chain is retroactive
+ * here: a drawn vertex can vanish once its replacer registers). Same-bar
+ * high+low pairs still collapse to the later pivot — a line series can't
+ * draw two vertices at one index. `developing` runs from the last vertex to
+ * the walk's projection pivot. Render-only; it never anchors a VWAP line.
  */
-function legsForSet(events: AnchorEvent[], projection: Pivot | undefined, set: AnchoredVwapSet): AnchoredVwapLegSet {
+function legsForSet(
+  pivots: Pivot[],
+  projection: Pivot | undefined,
+  confirmations: AnchoredVwapConfirmation[],
+  set: AnchoredVwapSet,
+): AnchoredVwapLegSet {
   const vertices: AnchoredVwapVertex[] = [];
-  for (let i = 0; i < events.length; i++) {
-    const e = events[i];
-    if (events[i + 1]?.replaced) continue;
+  for (const p of pivots) {
     // `allowZigZagOnOneBar` can register a high and a low on the same bar —
     // two vertices at one index can't both draw, so collapse them to the
-    // later event (its side colors the outgoing leg).
-    const vertex: AnchoredVwapVertex = { index: e.pivotBar, y: e.price, isHigh: e.isHigh };
+    // later pivot.
+    const vertex: AnchoredVwapVertex = { index: p.barIndex, y: p.price, isHigh: p.isHigh };
     if (vertices.length && vertices[vertices.length - 1].index === vertex.index) {
       vertices[vertices.length - 1] = vertex;
     } else {
       vertices.push(vertex);
     }
-  }
-
-  const confirmed: AnchoredVwapLeg[] = [];
-  for (let i = 0; i < vertices.length - 1; i++) {
-    confirmed.push({ from: vertices[i], to: vertices[i + 1], isHigh: vertices[i + 1].isHigh });
   }
 
   const last = vertices[vertices.length - 1];
@@ -224,7 +252,7 @@ function legsForSet(events: AnchorEvent[], projection: Pivot | undefined, set: A
       }
     : null;
 
-  return { set, vertices, confirmed, developing };
+  return { set, vertices, developing, confirmations };
 }
 
 // =============================================================================
@@ -245,14 +273,14 @@ export function computeAnchoredVwapResult(bars: PriceBar[], config: AnchoredVwap
   if (bars.length === 0) return empty;
 
   const sums = cumulativeSums(bars);
-  const sets: [AnchoredVwapSet, number, number, number][] = [
-    ['line1', config.line1RetracementPct, config.line1LeftDepth, config.line1RightDepth],
-    ['line2', config.line2RetracementPct, config.line2LeftDepth, config.line2RightDepth],
+  const sets: [AnchoredVwapSet, number, number, number, boolean][] = [
+    ['line1', config.line1RetracementPct, config.line1LeftDepth, config.line1RightDepth, config.line1Persist ?? false],
+    ['line2', config.line2RetracementPct, config.line2LeftDepth, config.line2RightDepth, config.line2Persist ?? false],
   ];
   const segments: AnchoredVwapSegment[] = [];
   const legs: AnchoredVwapLegSet[] = [];
 
-  for (const [set, devThreshold, leftDepth, rightDepth] of sets) {
+  for (const [set, devThreshold, leftDepth, rightDepth, persist] of sets) {
     const zigzagConfig: ZigZagConfig = {
       ...DEFAULT_CONFIG,
       devThreshold,
@@ -261,14 +289,21 @@ export function computeAnchoredVwapResult(bars: PriceBar[], config: AnchoredVwap
       allowZigZagOnOneBar: true,
       projectionPivots: true,
     };
-    // One walk per set: events drive both the VWAP anchors and the leg
-    // chain; the same pass also yields the developing-leg projection.
-    const { events, projection } = computeZigZagAnchorResult(bars, zigzagConfig);
-    const sideSegs = (['high', 'low'] as const).flatMap((side) =>
-      sideSegments(sums, events.filter((e) => e.isHigh === (side === 'high')), set, side, bars.length - 1),
-    );
-    segments.push(...applyHistoryWindow(bars, sideSegs, config.historyStart, config.maxHistory));
-    legs.push(legsForSet(events, projection, set));
+    // One walk per set — `computeZigZagPivots` yields the surviving-vertex
+    // chain and the developing-leg projection. Triggers — the same
+    // computeTriggerPoints the standalone ZigZag dots — then drive both
+    // the VWAP line starts/ends and the confirmation markers.
+    const { pivots, projection } = computeZigZagPivots(bars, zigzagConfig);
+    const triggers = computeTriggerPoints(bars, pivots, devThreshold);
+    const confirmations: AnchoredVwapConfirmation[] = triggers.map((t) => ({
+      index: t.barIndex,
+      y: t.price,
+      isHigh: t.isHigh,
+    }));
+    const legSet = legsForSet(pivots, projection, confirmations, set);
+    const segs = setSegments(sums, legSet.vertices, triggers, set, bars.length - 1, persist);
+    segments.push(...applyHistoryWindow(bars, segs, config.historyStart, config.maxHistory));
+    legs.push(legSet);
   }
 
   return { segments, legs };
