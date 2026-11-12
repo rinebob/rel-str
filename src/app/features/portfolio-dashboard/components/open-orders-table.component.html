@@ -31,13 +31,12 @@
           <tr>
             @if (agenticAllowed()) {
               <th scope="col" class="pd-sel-col">
-                <input
+                <label class="dse-check"><input
                   type="checkbox"
-                  class="pd-check"
                   aria-label="Select all orders"
                   [checked]="allSelected()"
                   (change)="toggleAll()"
-                />
+                /></label>
               </th>
             }
             <th scope="col" [attr.aria-sort]="ariaSort('symbol')">
@@ -116,13 +115,12 @@
             <tr>
               @if (agenticAllowed()) {
                 <td class="pd-sel-col">
-                  <input
+                  <label class="dse-check"><input
                     type="checkbox"
-                    class="pd-check"
                     [attr.aria-label]="'Select order ' + (order.symbol ?? order.orderId)"
                     [checked]="selected().has(order.orderId)"
                     (change)="toggleSelected(order)"
-                  />
+                  /></label>
                 </td>
               }
               <td class="pd-symbol">{{ symbolLabel(order) }}</td>

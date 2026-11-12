@@ -60,7 +60,7 @@
             <button type="button" class="step-btn retry-btn" (click)="retryChains()" title="Retry">↻</button>
           </span>
         } @else {
-          <select class="cf-input exp-select" data-testid="expiration-select"
+          <select class="dse-select compact exp-select" data-testid="expiration-select"
             [value]="selectedExpiration()" (change)="onExpirationChange($event)">
             <option value="" [selected]="!selectedExpiration()">Select…</option>
             @for (exp of expirations(); track exp) {
@@ -81,7 +81,7 @@
             <button type="button" class="step-btn retry-btn" (click)="retryInstruments()" title="Retry">↻</button>
           </span>
         } @else {
-          <select class="cf-input strike-select" data-testid="strike-select"
+          <select class="dse-select compact strike-select" data-testid="strike-select"
             [disabled]="!selectedExpiration()"
             [value]="selectedStrike()" (change)="onStrikeChange($event)">
             <option value="" [selected]="selectedStrike() === null">Select…</option>
@@ -196,7 +196,7 @@
       <!-- Bucket (optional — seeds position attribution at fill) -->
       <div class="form-row">
         <span class="field-label" title="Optional — seeds the position's allocation bucket on fill">Bucket</span>
-        <select class="cf-input bucket-select" data-testid="bucket-select"
+        <select class="dse-select compact bucket-select" data-testid="bucket-select"
           (change)="onBucketChange($event)">
           <option value="" [selected]="!selectedBucketId()">Unassigned</option>
           @for (b of bucketOptions(); track b.id) {

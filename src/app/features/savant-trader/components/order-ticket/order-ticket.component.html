@@ -283,7 +283,7 @@
           <!-- 9. Bucket (optional — seeds position attribution at fill) -->
           <div class="form-row">
             <span class="field-label" title="Optional — seeds the position's allocation bucket on fill">Bucket</span>
-            <select class="cf-input bucket-select" data-testid="bucket-select"
+            <select class="dse-select compact bucket-select" data-testid="bucket-select"
               (change)="onBucketChange($event)">
               <option value="" [selected]="!selectedBucketId()">Unassigned</option>
               @for (b of bucketOptions(); track b.id) {

@@ -33,7 +33,7 @@
 
     <div class="filter-group">
       <span class="filter-label">Template</span>
-      <select #templateSelect class="filter-select template-select" aria-label="Filter by template" [value]="templateFilter()" (change)="onTemplate(templateSelect.value)">
+      <select #templateSelect class="filter-select template-select dse-select compact" aria-label="Filter by template" [value]="templateFilter()" (change)="onTemplate(templateSelect.value)">
         <option value="all">All</option>
         @for (template of templateOptions; track template.id) {
           <option [value]="template.id">{{ template.name }}</option>
@@ -56,7 +56,7 @@
     <div class="filter-group">
       <span class="filter-label">Sort</span>
       <div class="sort-control">
-        <select #sortSelect class="filter-select sort-select" aria-label="Sort field" [value]="sortBy()" (change)="onSortBy(sortSelect.value)">
+        <select #sortSelect class="filter-select sort-select dse-select compact" aria-label="Sort field" [value]="sortBy()" (change)="onSortBy(sortSelect.value)">
           @for (option of sortOptions; track option.value) {
             <option [value]="option.value">{{ option.label }}</option>
           }

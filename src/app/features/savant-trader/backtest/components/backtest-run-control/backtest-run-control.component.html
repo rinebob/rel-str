@@ -54,7 +54,7 @@
 
     <div class="filter-group">
       <span class="filter-label">Strategy</span>
-      <select #strategySelect class="filter-select" [value]="strategyFilter()" (change)="onStrategy(strategySelect.value)">
+      <select #strategySelect class="filter-select dse-select compact" [value]="strategyFilter()" (change)="onStrategy(strategySelect.value)">
         <option value="all">All</option>
         @for (strategy of strategyOptions(); track strategy.id) {
           <option [value]="strategy.id">{{ strategy.name }}</option>
@@ -87,7 +87,7 @@
     <div class="filter-group">
       <span class="filter-label">Sort</span>
       <div class="sort-control">
-        <select #sortSelect class="filter-select" [value]="sortBy()" (change)="onSortBy(sortSelect.value)">
+        <select #sortSelect class="filter-select dse-select compact" [value]="sortBy()" (change)="onSortBy(sortSelect.value)">
           @for (option of sortOptions; track option.value) {
             <option [value]="option.value">{{ option.label }}</option>
           }
