@@ -23,6 +23,25 @@ function makeOrder(overrides: Partial<BrokerOrder> = {}): BrokerOrder {
   };
 }
 
+function makeOptionOrder(overrides: Partial<BrokerOrder> = {}): BrokerOrder {
+  return makeOrder({
+    instrumentType: 'option',
+    symbol: 'NFLX',
+    legs: [
+      {
+        side: 'buy',
+        optionId: 'opt-inst-1',
+        quantity: 1,
+        positionEffect: 'open',
+        strikePrice: 15,
+        expirationDate: '2026-11-20',
+        optionType: 'call',
+      },
+    ],
+    ...overrides,
+  });
+}
+
 describe('OrderHistoryTableComponent', () => {
   let fixture: ComponentFixture<OrderHistoryTableComponent>;
   let component: OrderHistoryTableComponent;
@@ -51,12 +70,94 @@ describe('OrderHistoryTableComponent', () => {
     ]);
     fixture.detectChanges();
 
-    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row)');
     expect(rows.length).toBe(2);
     expect(rows[0].textContent).toContain('AAPL');
     expect(rows[0].textContent).toContain('filled');
     expect(rows[1].textContent).toContain('MSFT');
     expect(rows[1].textContent).toContain('cancelled');
+  });
+
+  it('separates equity and option orders into labelled groups', () => {
+    fixture.componentRef.setInput('orders', [
+      makeOrder({ orderId: 'ord-1', symbol: 'NFLX', state: 'filled' }),
+      makeOptionOrder({ orderId: 'ord-2' }),
+    ]);
+    fixture.detectChanges();
+
+    const labels = [...fixture.nativeElement.querySelectorAll('.pd-group-label')]
+      .map((el) => (el as HTMLElement).textContent?.trim());
+    expect(labels[0]).toContain('Equity Orders');
+    expect(labels[1]).toContain('Option Orders');
+
+    // Same underlying symbol stays unambiguous: equity shows the bare
+    // ticker, the option row shows its contract label.
+    const symbols = [...fixture.nativeElement.querySelectorAll('.pd-symbol')]
+      .map((el) => (el as HTMLElement).textContent?.trim());
+    expect(symbols[0]).toBe('NFLX');
+    expect(symbols[1]).toBe('NFLX $15.00 C 2026-11-20');
+  });
+
+  it('labels a multi-leg option order by leg count', () => {
+    fixture.componentRef.setInput('orders', [
+      makeOptionOrder({
+        orderId: 'ord-2',
+        legs: [
+          {
+            side: 'buy', optionId: 'a', quantity: 1, positionEffect: 'open',
+            strikePrice: 15, expirationDate: '2026-11-20', optionType: 'call',
+          },
+          {
+            side: 'sell', optionId: 'b', quantity: 1, positionEffect: 'open',
+            strikePrice: 20, expirationDate: '2026-11-20', optionType: 'call',
+          },
+        ],
+      }),
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.pd-symbol')?.textContent?.trim())
+      .toBe('NFLX 2-leg');
+  });
+
+  it('omits an instrument group that has no orders', () => {
+    fixture.componentRef.setInput('orders', [makeOptionOrder()]);
+    fixture.detectChanges();
+
+    const labels = fixture.nativeElement.querySelectorAll('.pd-group-label');
+    expect(labels.length).toBe(1);
+    expect(labels[0].textContent).toContain('Option Orders');
+  });
+
+  it('collapses and re-expands a group from its header', () => {
+    fixture.componentRef.setInput('orders', [
+      makeOrder({ orderId: 'ord-1', symbol: 'AAPL' }),
+      makeOrder({ orderId: 'ord-2', symbol: 'MSFT' }),
+    ]);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.pd-group-toggle') as HTMLElement;
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row)').length,
+    ).toBe(2);
+
+    toggle.click();
+    fixture.detectChanges();
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(
+      fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row)').length,
+    ).toBe(0);
+    // Header + count stay visible while collapsed.
+    expect(toggle.textContent).toContain('Equity Orders');
+    expect(toggle.textContent).toContain('2');
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row)').length,
+    ).toBe(2);
   });
 
   it('shows loading indicator when loading', () => {
@@ -127,7 +228,7 @@ describe('OrderHistoryTableComponent', () => {
     // Qty, Fill Qty, Avg Fill
     expect(fixture.nativeElement.querySelectorAll('thead th.num').length).toBe(3);
     expect(
-      fixture.nativeElement.querySelectorAll('tbody tr:first-child td.num').length,
+      fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row) td.num').length,
     ).toBe(3);
   });
 });

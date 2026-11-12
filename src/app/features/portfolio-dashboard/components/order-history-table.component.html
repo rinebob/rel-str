@@ -57,10 +57,26 @@
             </th>
           </tr>
         </thead>
+        @for (group of orderGroups(); track group.key) {
         <tbody>
-          @for (order of sortedOrders(); track $index) {
+          <tr class="pd-group-row">
+            <td class="pd-group-label" colspan="8">
+              <button
+ type="button"
+ 
+ class="pd-group-toggle"
+ [attr.aria-expanded]="!isGroupCollapsed(group.key)"
+ (click)="toggleGroup(group.key)"
+ >
+                <span class="dse-icon pd-group-chevron" aria-hidden="true">{{ isGroupCollapsed(group.key) ? 'chevron_right' : 'expand_more' }}</span>
+                {{ group.label }} <span class="pd-group-count">{{ group.orders.length }}</span>
+              </button>
+            </td>
+          </tr>
+          @if (!isGroupCollapsed(group.key)) {
+            @for (order of group.orders; track $index) {
             <tr>
-              <td class="pd-symbol">{{ order.symbol ?? '—' }}</td>
+              <td class="pd-symbol">{{ symbolLabel(order) }}</td>
               <td>{{ order.side }}</td>
               <td>{{ order.type }}</td>
               <td>{{ order.state }}</td>
@@ -69,8 +85,10 @@
               <td class="num">{{ formatCurrency(order.averageFillPrice) }}</td>
               <td>{{ formatDate(order.createdAt) }}</td>
             </tr>
+            }
           }
         </tbody>
+        }
       </table>
     </div>
   } @else {

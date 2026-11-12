@@ -20,6 +20,7 @@ import {
 } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { compareSortable, SortDirection } from '../utils/table-sort.util';
 import { orderMark } from '../utils/order-mark.util';
+import { orderSymbolLabel } from '../utils/order-display.util';
 
 /** Sortable column keys — selection and Actions are intentionally excluded. */
 type SortKey =
@@ -59,7 +60,12 @@ export class OpenOrdersTableComponent {
   /** Emits the selected orders when the bulk Cancel button is clicked. */
   readonly cancelSelected = output<BrokerOrder[]>();
 
-  /** Opening orders only — position-closing rows are out of scope here. */
+  /** Opening orders only — position-closing rows (incl. protective stops)
+   *  are intentionally out of scope here; they live with their positions
+   *  (equity stops on the Equities tab) — option closing orders have no
+   *  list surface yet (#1411 audit: the exclusion is by design — the scope
+   *  note above the table makes it visible rather than silently
+   *  dropping). */
   readonly visibleOrders = computed(() => this.orders().filter((o) => this.isOpeningOrder(o)));
 
   readonly sortKey = signal<SortKey>('createdAt');
@@ -75,6 +81,43 @@ export class OpenOrdersTableComponent {
   });
 
   readonly hasOrders = computed(() => this.visibleOrders().length > 0);
+
+  /** Instrument-grouped rows — option and equity orders share the column
+   *  set but get their own <tbody> + group header so a 'NFLX' option row
+   *  can't masquerade as the equity (#1411 QA). Sort applies within each
+   *  group; equity first. */
+  readonly orderGroups = computed(() => {
+    const sorted = this.sortedOrders();
+    const equity = sorted.filter((o) => o.instrumentType === 'equity');
+    const option = sorted.filter((o) => o.instrumentType === 'option');
+    const groups: { key: string; label: string; orders: BrokerOrder[] }[] = [];
+    if (equity.length) groups.push({ key: 'equity', label: 'Equity Orders', orders: equity });
+    if (option.length) groups.push({ key: 'option', label: 'Option Orders', orders: option });
+    return groups;
+  });
+
+  /** Full column count for the group-header row's colspan. */
+  readonly groupColspan = computed(() => (this.agenticAllowed() ? 12 : 10));
+
+  /** Symbol-cell label — contract terms for option rows. */
+  readonly symbolLabel = orderSymbolLabel;
+
+  /** Collapsed instrument groups — keyed by group.key. Transient view
+   *  state (reset on remount), not a persisted preference. */
+  readonly collapsedGroups = signal<ReadonlySet<string>>(new Set());
+
+  isGroupCollapsed(key: string): boolean {
+    return this.collapsedGroups().has(key);
+  }
+
+  toggleGroup(key: string): void {
+    this.collapsedGroups.update((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   /** Selected order ids — pruned to orders still present in the list. */
   readonly selected = signal<ReadonlySet<string>>(new Set());

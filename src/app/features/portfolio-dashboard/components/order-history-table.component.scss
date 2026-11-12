@@ -56,6 +56,43 @@ th[aria-sort='descending'] .pd-sort-icon {
   font-weight: 600;
 }
 
+.pd-group-row .pd-group-label {
+  padding: 0;
+  background: var(--mat-sys-surface-container-low);
+}
+
+.pd-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pd-group-toggle:hover {
+  color: var(--mat-sys-on-surface);
+}
+
+.pd-group-chevron {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.pd-group-count {
+  margin-left: 6px;
+  font-weight: 400;
+}
+
 .pd-section-loading,
 .pd-section-error,
 .pd-section-empty {

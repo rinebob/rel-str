@@ -8,6 +8,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 
 import { BrokerOrder } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { compareSortable, SortDirection } from '../utils/table-sort.util';
+import { orderSymbolLabel } from '../utils/order-display.util';
 
 /** Sortable column keys. */
 type SortKey =
@@ -49,6 +50,39 @@ export class OrderHistoryTableComponent {
   });
 
   readonly hasOrders = computed(() => this.visibleOrders().length > 0);
+
+  /** Instrument-grouped rows — option and equity orders get their own
+   *  <tbody> + group header so a 'NFLX' option row can't masquerade as the
+   *  equity (#1411 QA). Sort applies within each group; equity first. */
+  readonly orderGroups = computed(() => {
+    const sorted = this.sortedOrders();
+    const equity = sorted.filter((o) => o.instrumentType === 'equity');
+    const option = sorted.filter((o) => o.instrumentType === 'option');
+    const groups: { key: string; label: string; orders: BrokerOrder[] }[] = [];
+    if (equity.length) groups.push({ key: 'equity', label: 'Equity Orders', orders: equity });
+    if (option.length) groups.push({ key: 'option', label: 'Option Orders', orders: option });
+    return groups;
+  });
+
+  /** Symbol-cell label — contract terms for option rows. */
+  readonly symbolLabel = orderSymbolLabel;
+
+  /** Collapsed instrument groups — keyed by group.key. Transient view
+   *  state (reset on remount), not a persisted preference. */
+  readonly collapsedGroups = signal<ReadonlySet<string>>(new Set());
+
+  isGroupCollapsed(key: string): boolean {
+    return this.collapsedGroups().has(key);
+  }
+
+  toggleGroup(key: string): void {
+    this.collapsedGroups.update((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   /** Click a header: first click sorts ascending, repeat toggles direction. */
   setSort(key: SortKey): void {

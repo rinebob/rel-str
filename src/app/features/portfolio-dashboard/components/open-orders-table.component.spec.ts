@@ -2,7 +2,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
 import { OpenOrdersTableComponent } from './open-orders-table.component';
-import { BrokerOrder } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
+import {
+  BrokerOrder,
+  BrokerOrderLeg,
+} from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 
 function makeOrder(overrides: Partial<BrokerOrder> = {}): BrokerOrder {
   return {
@@ -19,6 +22,19 @@ function makeOrder(overrides: Partial<BrokerOrder> = {}): BrokerOrder {
     stopPrice: null,
     averageFillPrice: null,
     createdAt: '2026-09-12T10:00:00Z',
+    ...overrides,
+  };
+}
+
+function makeLeg(overrides: Partial<BrokerOrderLeg> = {}): BrokerOrderLeg {
+  return {
+    side: 'buy',
+    optionId: 'x',
+    quantity: 1,
+    positionEffect: 'open',
+    strikePrice: null,
+    expirationDate: null,
+    optionType: null,
     ...overrides,
   };
 }
@@ -51,7 +67,7 @@ describe('OpenOrdersTableComponent', () => {
     ]);
     fixture.detectChanges();
 
-    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row)');
     expect(rows.length).toBe(2);
   });
 
@@ -63,7 +79,7 @@ describe('OpenOrdersTableComponent', () => {
     ]);
     fixture.detectChanges();
 
-    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row)');
     expect(rows.length).toBe(1);
     expect(rows[0].textContent).toContain('AAPL');
   });
@@ -74,21 +90,84 @@ describe('OpenOrdersTableComponent', () => {
         orderId: 'ord-open',
         instrumentType: 'option',
         symbol: 'AAPL',
-        legs: [{ side: 'buy', optionId: 'x', quantity: 1, positionEffect: 'open' }],
+        legs: [makeLeg({ optionId: 'x' })],
       }),
       makeOrder({
         orderId: 'ord-close',
         instrumentType: 'option',
         symbol: 'MSFT',
         side: 'sell',
-        legs: [{ side: 'sell', optionId: 'y', quantity: 1, positionEffect: 'close' }],
+        legs: [makeLeg({ side: 'sell', optionId: 'y', positionEffect: 'close' })],
       }),
     ]);
     fixture.detectChanges();
 
-    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row)');
     expect(rows.length).toBe(1);
     expect(rows[0].textContent).toContain('AAPL');
+  });
+
+  it('separates equity and option orders into labelled groups (#1411)', () => {
+    fixture.componentRef.setInput('orders', [
+      makeOrder({ orderId: 'ord-eq', symbol: 'NFLX' }),
+      makeOrder({
+        orderId: 'ord-opt',
+        instrumentType: 'option',
+        symbol: 'NFLX',
+        legs: [
+          makeLeg({
+            strikePrice: 15,
+            expirationDate: '2026-11-20',
+            optionType: 'call',
+          }),
+        ],
+      }),
+    ]);
+    fixture.detectChanges();
+
+    const labels = [...fixture.nativeElement.querySelectorAll('.pd-group-label')]
+      .map((el) => (el as HTMLElement).textContent?.trim());
+    expect(labels[0]).toContain('Equity Orders');
+    expect(labels[1]).toContain('Option Orders');
+
+    // Same underlying stays unambiguous: bare ticker vs contract label.
+    const symbols = [...fixture.nativeElement.querySelectorAll('.pd-symbol')]
+      .map((el) => (el as HTMLElement).textContent?.trim());
+    expect(symbols[0]).toBe('NFLX');
+    expect(symbols[1]).toBe('NFLX $15.00 C 2026-11-20');
+  });
+
+  it('collapses and re-expands a group from its header', () => {
+    fixture.componentRef.setInput('orders', [
+      makeOrder({ orderId: 'ord-eq', symbol: 'AAPL' }),
+      makeOrder({
+        orderId: 'ord-opt',
+        instrumentType: 'option',
+        symbol: 'MSFT',
+        legs: [makeLeg()],
+      }),
+    ]);
+    fixture.detectChanges();
+
+    const toggles = fixture.nativeElement.querySelectorAll('.pd-group-toggle');
+    const equityToggle = toggles[0] as HTMLElement;
+    const optionToggle = toggles[1] as HTMLElement;
+
+    equityToggle.click();
+    fixture.detectChanges();
+
+    // Only the option row remains; the collapsed header + count persist.
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row)');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('MSFT');
+    expect(equityToggle.textContent).toContain('Equity Orders');
+    expect(optionToggle.textContent).toContain('Option Orders');
+
+    equityToggle.click();
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row)').length,
+    ).toBe(2);
   });
 
   it('shows loading indicator when loading', () => {
@@ -129,6 +208,14 @@ describe('OpenOrdersTableComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('No open orders');
+  });
+
+  it('declares the opening-only scope so excluded closing orders are explainable (#1411)', () => {
+    fixture.componentRef.setInput('orders', [makeOrder({ side: 'buy' })]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.pd-scope-note')?.textContent)
+      .toContain('Opening orders only');
   });
 
   it('renders the scrollable table wrapper', () => {
@@ -199,7 +286,7 @@ describe('OpenOrdersTableComponent', () => {
     // Qty, Price, Stop, Mark, Dist
     expect(fixture.nativeElement.querySelectorAll('thead th.num').length).toBe(5);
     expect(
-      fixture.nativeElement.querySelectorAll('tbody tr:first-child td.num').length,
+      fixture.nativeElement.querySelectorAll('tbody tr:not(.pd-group-row) td.num').length,
     ).toBe(5);
   });
 
@@ -245,7 +332,7 @@ describe('OpenOrdersTableComponent', () => {
         symbol: 'AAPL 260102C00150000',
         type: 'limit',
         price: 5.0,
-        legs: [{ side: 'buy', optionId: 'opt-uuid-1', quantity: 1, positionEffect: 'open' }],
+        legs: [makeLeg({ optionId: 'opt-uuid-1' })],
       }),
     ]);
     fixture.componentRef.setInput(
@@ -264,8 +351,8 @@ describe('OpenOrdersTableComponent', () => {
         type: 'limit',
         price: 1.0,
         legs: [
-          { side: 'buy', optionId: 'opt-1', quantity: 1, positionEffect: 'open' },
-          { side: 'sell', optionId: 'opt-2', quantity: 1, positionEffect: 'open' },
+          makeLeg({ optionId: 'opt-1' }),
+          makeLeg({ side: 'sell', optionId: 'opt-2' }),
         ],
       }),
     ]);
@@ -295,7 +382,7 @@ describe('OpenOrdersTableComponent', () => {
         instrumentType: 'option',
         type: 'limit',
         price: 5,
-        legs: [{ side: 'buy', optionId: 'x', quantity: 1, positionEffect: 'open' }],
+        legs: [makeLeg()],
       }),
     ]);
     fixture.detectChanges();
