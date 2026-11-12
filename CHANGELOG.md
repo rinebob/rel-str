@@ -8,11 +8,16 @@
 
 ### Added
 - [Option Contract Time-Series Viewer] 1243-1440_FE-BUG-OPTIONS: Data window gains cursor/pinned/off modes, contract-label row keys, and a top-edge cursor date tag
+- [Savant Design System] 1024-1470_FE-IMPL-DESIGN-SYSTEM: Sidenav visual hierarchy — accent section headers + separators, muted routes with hover pills, accent active-route pills + aria-current, hover-open viewport-clamped Dev flyout
 
 ### Changed
 - [Option Contract Time-Series Viewer] 1243-1440_DOCS-OPTIONS: #1440 code review (PASS, 2 rounds + auto-swap addendum) + UAT (Complete, #1468)
+- [Savant Design System] 1024-1470_FE-IMPL-DESIGN-SYSTEM: residual native controls → dse-check/dse-radio/dse-select compact (24px); DS toast + placeholder token restyle
+- [Savant Design System] 1024-1470_DOCS-DESIGN-SYSTEM: #1470 code review (PASS, 2 rounds) + UAT (Complete, #1473) + changelog
 - [Portfolio Dashboard] 219-1462_FE-REFACTOR-PORTFOLIO: parseBrokerOrder deduped onto normalizeToBrokerOrderSnapshot
 - [Portfolio Dashboard] 219-1462_DOCS-PORTFOLIO: #1462 code review (PASS, 2 rounds) + UAT (Complete, #1477) + audit residual annotations
+- [Trading Indicator Library] 261-1466_SHARED-REFACTOR-INDICATOR-LIB: AVWAP terminated lines pack into one null-separated history series per side — 26→14 fixed keys; break index clamped to lastBar; declared param maxima clamped; dead trigger/leg fields removed
+- [Trading Indicator Library] 261-1466_DOCS-INDICATOR-LIB: #1466 code review (PASS, 2 rounds) + UAT (Complete, #1472) + changelog
 
 ## [2026-11-11]
 
