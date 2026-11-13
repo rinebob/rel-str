@@ -10,7 +10,7 @@
 **Area:** FE  
 **Status:** Draft  
 **Created:** 2026-10-07  
-**Last Updated:** 2026-10-09  
+**Last Updated:** 2026-11-12  
 
 # FE Test Plan: ST Anchored VWAP
 
@@ -28,8 +28,8 @@
 
 - Engine + AVWAP computation: `computeZigZagPivots` + `computeTriggerPoints` output feeds `computeAnchoredVwap` end to end on synthetic bar sets with known pivots.
 - Indicator + registry: `ST_ANCHORED_VWAP` appears in `ST_INDICATOR_OPTIONS`, `buildDefaultConfig` yields valid defaults, and `BASE_CONFIGS` module load does not throw.
-- Adapter + indicator: `anchoredVwapSeries` returns exactly 18 series for any data (12 VWAP + 2 confirmed-chain + 2 developing-leg + 2 confirmation-marker Scatter), themes colors and maps `y`, and returns `[]` when no AVWAP config is present.
-- Adapter + template: the main-pane generic-line loop skips `ST_ANCHORED_VWAP` (no double render); the bespoke `@for` renders the 18 series with Gap handling.
+- Adapter + indicator: `anchoredVwapSeries` returns exactly 14 series for any data (8 VWAP — history + active per set-side — + 2 confirmed-chain + 2 developing-leg + 2 confirmation-marker Scatter), themes colors and maps `y`, and returns `[]` when no AVWAP config is present.
+- Adapter + template: the main-pane generic-line loop skips `ST_ANCHORED_VWAP` (no double render); the bespoke `@for` renders the 14 series with Gap handling.
 - Sandbox + chart: control changes merge onto the default config and reach the adapter; enabling/disabling the indicator toggles the series.
 
 ## Unit Tests
@@ -78,12 +78,12 @@
 
 - `extractConfig` clamps retracement %, depths and `maxHistory`; falls back to defaults on missing/garbage params.
 - `historyStart` param (ISO `'YYYY-MM-DD'` string): a boundary date keeps that date's anchor (inclusive, compared on `bar.date`); after the last anchor empties history while actives remain; before the first anchor ≡ unset; empty/garbage ≡ unset. Regression: a bar whose `x` carries a non-midnight timestamp must still filter on `date` alone.
-- `computeAnchoredVwapSeries` always returns 18 series with the documented keys, regardless of data (including empty data).
-- Adjacent segments of a slot land in alternating history series; no history series contains two points at the same `index`.
+- `computeAnchoredVwapSeries` always returns 14 series with the documented keys, regardless of data (including empty data).
+- All terminated segments of a side pack into its single history series, `y:null`-separated (overlap-packed for persist); no history series contains two real points at the same `index`.
 - Break points (`y: null`) separate segments within a history series.
-- History series match the active series' colour and width (no fading); set 2 wider than set 1; side → hue.
+- History series match the active series' colour and width (no fading); line 1 heaviest (weight 3), line 2 thin (weight 1); side → hue.
 - Series names follow `AVWAP-1H {pct}%` / `AVWAP-1L {pct}%` / `AVWAP-2H {pct}%` / `AVWAP-2L {pct}%`.
-- `showLineNZigZag` false → that set's two leg series carry no points (series still exist — count stays 18); VWAP series unaffected. `showLineNConfirms` gates that set's Scatter markers.
+- `showLineNZigZag` false → that set's two leg series carry no points (series still exist — count stays 14); VWAP series unaffected. `showLineNConfirms` gates that set's Scatter markers.
 
 ### ZigZag leg geometry (`st-anchored-vwap.engine.spec.ts`, added 2026-10-09)
 
@@ -102,7 +102,7 @@
 ### Adapter (`chart-data-adapter.service.spec.ts`)
 
 - `anchoredVwapSeries` is `[]` with no AVWAP config and with empty bars.
-- With an AVWAP config, returns 18 series with themed colors and mapped `y`; `null` break points are preserved.
+- With an AVWAP config, returns 14 series with themed colors and mapped `y`; `null` break points are preserved.
 - Multiple AVWAP configs (if present) do not collide on keys.
 
 ### Sandbox (`flex-chart-sandbox.component.spec.ts`)

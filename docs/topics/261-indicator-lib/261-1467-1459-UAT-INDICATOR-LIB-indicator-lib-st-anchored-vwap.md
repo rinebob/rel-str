@@ -35,10 +35,10 @@ In scope:
 - **Legs / Confirms toggles** — per-set leg chain + developing leg, and the
   shared trigger-dot Scatter (same dots as the standalone ZigZag).
 - **Persist mode** — per set; keeps every triggered vertex's line to the last
-  bar instead of ending it at the next trigger. The fan is unbounded: the
-  first 4 terminated lines per side each take a history slot (26-key fixed
-  series contract — slots grew 2 → 4 this task), and further lines pack into
-  shared slots null-separated rather than being dropped.
+  bar instead of ending it at the next trigger. The fan is unbounded: every
+  terminated line packs into its side's single shared history series
+  (14-key fixed series contract — collapsed under #1466's review),
+  null-separated rather than dropped.
 - **Removed inline strip** — the `avwap-params` block in the sandbox toolbar
   is gone; the ZigZag strip is untouched.
 - Engine semantics the dialog controls expose (built under #1466, QA'd
@@ -71,7 +71,7 @@ indicator beyond sharing `computeTriggerPoints`.
 |---|---|---|---|---|
 | A1 | Dialog opens once, closes on destroy | `flex-chart-sandbox.component.spec.ts` | `DsDialogService.open` called once; `afterClosed` resets guard; `ngOnDestroy` closes ref | **PASS** |
 | A2 | Every param reaches `onParam` | dialog + sandbox specs | each control → `data.onParam(param, event)`; `historyParam.key` used, not hardcoded | **PASS** |
-| A3 | Fixed series contract | indicator + adapter + registry specs | exactly 26 keys (`history-a..d` + `active` per set-side, chain, developing, confirmations) whatever the data | **PASS** |
+| A3 | Fixed series contract | indicator + adapter + registry specs | fixed key set whatever the data — was 26 keys at QA time (`history-a..d` + `active` per set-side); collapsed to 14 keys (`history` + `active`) under #1466's review | **PASS** |
 | A4 | Trigger-dot parity | `st-anchored-vwap.engine.spec.ts` › parity test | `confirmations` ≡ `computeTriggerPoints(computeZigZagPivots(bars))` bar-for-bar, level-for-level | **PASS** |
 | A5 | Gap-through dots | `st-zigzag.triggers.spec.ts` | level outside bar range → dot at open; inside → dot at level | **PASS** |
 | A6 | Persist packing invariant | indicator spec › persist describe | every terminated segment draws — overflow packs null-separated; non-persist keeps one real `y` per index | **PASS** |
@@ -108,7 +108,7 @@ State: `/dev/flex-chart` signed in, real symbol loaded (NFLX recommended).
 | Trigger-bar line starts, shared trigger dots, gap-open dots | A4, A5, M4, M5, M6 |
 | Per-side/per-set visibility granularity | A3, M7, M8 |
 | Persist mode + unbounded fan (packed overlaps) | A6, M9, M10 |
-| Fixed 26-series contract (no chart reinit) | A3 |
+| Fixed 14-series contract (no chart reinit) | A3 |
 | ZigZag strip + indicator untouched | A8, M5 |
 
 ## Regression checklist
