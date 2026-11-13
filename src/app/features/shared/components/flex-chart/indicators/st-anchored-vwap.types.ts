@@ -62,14 +62,10 @@ export interface AnchoredVwapVertex {
   isHigh: boolean;
 }
 
-/**
- * One leg between two pivots. `isHigh` is the *destination* vertex's side —
- * metadata only; legs draw in the set's uniform leg color.
- */
+/** One leg between two pivots — legs draw in the set's uniform leg color. */
 export interface AnchoredVwapLeg {
   from: AnchoredVwapVertex;
   to: AnchoredVwapVertex;
-  isHigh: boolean;
 }
 
 /**
@@ -129,7 +125,7 @@ export interface AnchoredVwapPoint {
  * The VWAP itself accumulates from `pivotBar`.
  */
 export interface AnchoredVwapSegment {
-  /** Stable unique key: `${set}-${side}-${pivotBar}-${startBar}`. */
+  /** Stable unique key: `${set}-${side}-${pivotBar}` (one segment per vertex). */
   key: string;
   set: AnchoredVwapSet;
   side: AnchoredVwapSide;

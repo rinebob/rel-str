@@ -585,13 +585,13 @@ describe('ChartDataAdapter.triggerBandSeries', () => {
 });
 
 // =============================================================================
-// ChartDataAdapter.anchoredVwapSeries — fixed 26 series (Topic #261 / Task #871/#945)
+// ChartDataAdapter.anchoredVwapSeries — fixed 14 series (Topic #261 / Task #871/#945)
 // =============================================================================
 
 describe('ChartDataAdapter.anchoredVwapSeries', () => {
   const FIXED_KEYS = (['line1', 'line2'] as const).flatMap((scale) => [
     ...(['high', 'low'] as const).flatMap((side) =>
-      ['history-a', 'history-b', 'history-c', 'history-d', 'active'].map((kind) => `${scale}-${side}-${kind}`),
+      ['history', 'active'].map((kind) => `${scale}-${side}-${kind}`),
     ),
     `${scale}-zigzag`,
     `${scale}-developing`,
@@ -612,10 +612,10 @@ describe('ChartDataAdapter.anchoredVwapSeries', () => {
   it('works with no ZigZag indicator on the chart', () => {
     const config = makeAvwapConfig();
     expect(config.indicators.some((i) => i.type === StIndicator.ST_ZIGZAG)).toBe(false);
-    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries().length).toBe(26);
+    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries().length).toBe(14);
   });
 
-  it('emits the same 26 keys whatever the data or params — the series count never changes', () => {
+  it('emits the same 14 keys whatever the data or params — the series count never changes', () => {
     const shapes = [
       setupAdapter(makeBars(120), makeAvwapConfig()),
       setupAdapter(makeBars(40), makeAvwapConfig({ line1RetracementPct: 1, line2RetracementPct: 9, maxHistory: 3 })),
@@ -630,7 +630,7 @@ describe('ChartDataAdapter.anchoredVwapSeries', () => {
   it('uses only the first AVWAP config, so a second instance cannot grow the series count', () => {
     const one = makeAvwapConfig().indicators[0];
     const config: FlexChartConfig = { indicators: [one, { ...one, id: 'avwap-2' }] };
-    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries()).toHaveLength(26);
+    expect(setupAdapter(makeBars(120), config).anchoredVwapSeries()).toHaveLength(14);
   });
 
   it('puts prices in log space under logScale and preserves the null break points', () => {

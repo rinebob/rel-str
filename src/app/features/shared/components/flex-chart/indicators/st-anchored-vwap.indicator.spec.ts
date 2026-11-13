@@ -70,11 +70,11 @@ const PARAMS = {
 
 const SCALES = ['line1', 'line2'] as const;
 
-const HIST_KINDS = ['history-a', 'history-b', 'history-c', 'history-d'] as const;
+const KINDS = ['history', 'active'] as const;
 
 const EXPECTED_KEYS = SCALES.flatMap((scale) => [
   ...(['high', 'low'] as const).flatMap((side) =>
-    [...HIST_KINDS, 'active'].map((kind) => `${scale}-${side}-${kind}`),
+    KINDS.map((kind) => `${scale}-${side}-${kind}`),
   ),
   `${scale}-zigzag`,
   `${scale}-developing`,
@@ -162,25 +162,22 @@ describe('computeAnchoredVwapSeries — fixed slots', () => {
     ['a flat series with no pivots', barsFromCloses(Array.from({ length: 30 }, () => 100))],
     ['the hand-built fixture', barsFromCloses(CLOSES)],
     ['a random walk', makeWalk(7, 300)],
-  ])('always returns the same 26 keys in the same order — %s', (_label, bars) => {
+  ])('always returns the same 14 keys in the same order — %s', (_label, bars) => {
     expect(computeAnchoredVwapSeries(bars, PARAMS).map((s) => s.key)).toEqual(EXPECTED_KEYS);
   });
 
   it('orders each slot history first and active last, legs after the VWAP slots, and line 2 after line 1, so the live and line-2 lines draw on top', () => {
-    expect(EXPECTED_KEYS.slice(0, 5)).toEqual([
-      'line1-high-history-a', 'line1-high-history-b', 'line1-high-history-c', 'line1-high-history-d', 'line1-high-active',
-    ]);
-    expect(EXPECTED_KEYS.indexOf('line2-high-history-a')).toBeGreaterThan(EXPECTED_KEYS.indexOf('line1-developing'));
+    expect(EXPECTED_KEYS.slice(0, 2)).toEqual(['line1-high-history', 'line1-high-active']);
+    expect(EXPECTED_KEYS.indexOf('line2-high-history')).toBeGreaterThan(EXPECTED_KEYS.indexOf('line1-developing'));
   });
 
   it('draws the live line in the active series and packs the older disjoint segments into history', () => {
     const series = computeAnchoredVwapSeries(barsFromCloses(CLOSES), PARAMS);
-    // line1-high: terminated [7..11] and [17..21] are x-disjoint, so
-    // first-fit packs both into history-a with a null break at index 12.
-    expect(byKey(series, 'line1-high-history-a').data.map((p) => p.index)).toEqual(
+    // line1-high: terminated [7..11] and [17..21] pack into one history
+    // series with a null break at index 12.
+    expect(byKey(series, 'line1-high-history').data.map((p) => p.index)).toEqual(
       [...Array.from({ length: 5 }, (_, i) => 7 + i), 12, ...Array.from({ length: 5 }, (_, i) => 17 + i)],
     );
-    expect(byKey(series, 'line1-high-history-b').data).toEqual([]);
     expect(byKey(series, 'line1-high-active').data.map((p) => p.index)).toEqual([27, 28, 29, 30]);
   });
 
@@ -189,7 +186,7 @@ describe('computeAnchoredVwapSeries — fixed slots', () => {
     // triggers — so line 2 draws no lines at all.
     const series = computeAnchoredVwapSeries(barsFromCloses(CLOSES), { ...PARAMS, line2RetracementPct: 50 });
     for (const side of ['high', 'low']) {
-      for (const kind of [...HIST_KINDS, 'active']) {
+      for (const kind of KINDS) {
         expect(byKey(series, `line2-${side}-${kind}`).data).toEqual([]);
       }
     }
@@ -201,8 +198,7 @@ describe('computeAnchoredVwapSeries — fixed slots', () => {
     const series = computeAnchoredVwapSeries(bars, PARAMS);
     const seg = (scale: string, side: string, pivotBar: number): AnchoredVwapSegment =>
       segments.find((s) => s.set === scale && s.side === side && s.pivotBar === pivotBar)!;
-    expect(chunks(byKey(series, 'line1-high-history-a'))).toEqual([seg('line1', 'high', 5).points, seg('line1', 'high', 15).points]);
-    expect(byKey(series, 'line1-high-history-b').data).toEqual([]);
+    expect(chunks(byKey(series, 'line1-high-history'))).toEqual([seg('line1', 'high', 5).points, seg('line1', 'high', 15).points]);
     expect(byKey(series, 'line1-high-active').data).toEqual(seg('line1', 'high', 25).points);
   });
 });
@@ -276,7 +272,7 @@ describe('computeAnchoredVwapSeries — zigzag legs', () => {
     }
   });
 
-  it.each(['line1', 'line2'] as const)('%s leg toggle empties only that set\'s chain + developing — the other set\'s legs and all 26 keys stay', (set) => {
+  it.each(['line1', 'line2'] as const)('%s leg toggle empties only that set\'s chain + developing — the other set\'s legs and all 14 keys stay', (set) => {
     const off = computeAnchoredVwapSeries(bars, { ...PARAMS, [`show${set === 'line1' ? 'Line1' : 'Line2'}ZigZag`]: false });
     expect(off.map((s) => s.key)).toEqual(EXPECTED_KEYS);
     for (const s of off) {
@@ -317,8 +313,8 @@ describe('computeAnchoredVwapSeries — confirmation markers', () => {
       { index: 21, y: 116, color: '#FFFF00' },
       { index: 27, y: 132, color: '#FF8CFF' },
     ]);
-    // Causal contract: the high line starts on the blue dot's bar.
-    expect(byKey(marked, 'line1-high-history-a').data[0].index).toBe(7);
+    // Causal contract: the high line starts on its trigger dot's bar.
+    expect(byKey(marked, 'line1-high-history').data[0].index).toBe(7);
     expect(byKey(marked, 'line1-high-active').data[0].index).toBe(27);
   });
 
@@ -353,7 +349,7 @@ describe('computeAnchoredVwapSeries — set visibility', () => {
   it.each([
     ['line1', 'high'], ['line1', 'low'],
     ['line2', 'high'], ['line2', 'low'],
-  ] as const)('%s %s hidden empties only that side\'s 3 VWAP slots — the other side, the legs, and all 26 keys stay', (set, side) => {
+  ] as const)('%s %s hidden empties only that side\'s 2 VWAP slots — the other side, the legs, and all 14 keys stay', (set, side) => {
     const key = `show${set === 'line1' ? 'Line1' : 'Line2'}${side === 'high' ? 'High' : 'Low'}`;
     const off = computeAnchoredVwapSeries(bars, { ...PARAMS, [key]: false });
     expect(off.map((s) => s.key)).toEqual(EXPECTED_KEYS);
@@ -391,43 +387,36 @@ describe('computeAnchoredVwapSeries — persist mode', () => {
   const series = computeAnchoredVwapSeries(bars, { ...PARAMS, line1Persist: true });
   const spans = (key: string) => chunks(byKey(series, key)).map((c) => [c[0].index, c.at(-1)!.index]);
 
-  it('keeps every triggered vertex’s line to the last bar — newest in the active slot, older ones each taking a history slot', () => {
-    // Line 1 (5%): five triggered vertices. Highs take history-a/b (one
-    // overlapping line per series), the newest goes active; every line
-    // reaches bar 30.
-    expect(spans('line1-high-history-a')).toEqual([[7, 30]]);
-    expect(spans('line1-high-history-b')).toEqual([[17, 30]]);
+  it('keeps every triggered vertex’s line to the last bar — newest in the active slot, older ones packed into the shared history series', () => {
+    // Line 1 (5%): five triggered vertices — each side's terminated lines
+    // pack null-separated into its one history series; every line reaches
+    // bar 30.
+    expect(spans('line1-high-history')).toEqual([[7, 30], [17, 30]]);
     expect(spans('line1-high-active')).toEqual([[27, 30]]);
-    expect(spans('line1-low-history-a')).toEqual([[11, 30]]);
-    expect(spans('line1-low-history-b')).toEqual([[21, 30]]);
+    expect(spans('line1-low-history')).toEqual([[11, 30], [21, 30]]);
     expect(byKey(series, 'line1-low-active').data).toEqual([]);
-    // The 26-key structure is unchanged.
+    // The 14-key structure is unchanged.
     expect(series.map((s) => s.key)).toEqual(EXPECTED_KEYS);
   });
 
   it('the flag is per set — line 2 still alternates', () => {
-    expect(spans('line2-high-history-a')).toEqual([[10, 13]]);
+    expect(spans('line2-high-history')).toEqual([[10, 13]]);
     expect(spans('line2-low-active')).toEqual([[13, 30]]);
   });
 
-  it('never drops a persist segment — overflow packs overlapping runs into shared slots, null-separated', () => {
-    // A long walk at a tight retracement generates far more same-side
-    // persist segments than the four history slots — every one must still
-    // draw (the fan is unbounded), packed with null break points.
+  it('never drops a persist segment — every terminated line packs into the shared history series, null-separated', () => {
+    // A long walk at a tight retracement generates many same-side persist
+    // segments — every one must still draw (the fan is unbounded).
     const dense = computeAnchoredVwapSeries(makeWalk(7, 300), { ...PARAMS, line1RetracementPct: 1, line1Persist: true });
     const terminatedCount = computeAnchoredVwap(makeWalk(7, 300), { ...PARAMS, line1RetracementPct: 1, line1Persist: true })
       .filter((s) => s.set === 'line1' && s.side === 'high' && !s.active).length;
-    expect(terminatedCount).toBeGreaterThan(HIST_KINDS.length);
-    const packed = HIST_KINDS.reduce((n, key) => n + chunks(byKey(dense, `line1-high-${key}`)).length, 0);
-    expect(packed).toBe(terminatedCount);
+    expect(chunks(byKey(dense, 'line1-high-history'))).toHaveLength(terminatedCount);
   });
 
-  it('non-persist packing still keeps one real point per index per series', () => {
+  it('non-persist packing keeps one real point per index per series', () => {
     const dense = computeAnchoredVwapSeries(makeWalk(7, 300), { ...PARAMS, line1RetracementPct: 1 });
-    for (const key of HIST_KINDS) {
-      const idx = byKey(dense, `line1-high-${key}`).data.filter((p) => p.y !== null).map((p) => p.index);
-      expect(new Set(idx).size).toBe(idx.length);
-    }
+    const idx = byKey(dense, 'line1-high-history').data.filter((p) => p.y !== null).map((p) => p.index);
+    expect(new Set(idx).size).toBe(idx.length);
   });
 });
 
@@ -471,17 +460,15 @@ describe('computeAnchoredVwapSeries — historyStart', () => {
   it('windows history to anchors on or after the ISO date — the boundary date is inclusive', () => {
     const series = computeAnchoredVwapSeries(bars, { ...PARAMS, historyStart: '2026-01-16' });
     const oracle = computeAnchoredVwap(bars, { ...PARAMS, historyStart: '2026-01-16' });
-    // line1-high: pivot@5 dropped, pivot@15 kept (now first → history-a).
-    expect(chunks(byKey(series, 'line1-high-history-a'))[0]).toEqual(
+    // line1-high: pivot@5 dropped, pivot@15 kept (now first → history).
+    expect(chunks(byKey(series, 'line1-high-history'))[0]).toEqual(
       oracle.find((s) => s.set === 'line1' && s.side === 'high' && s.pivotBar === 15)!.points,
     );
-    expect(byKey(series, 'line1-high-history-b').data).toEqual([]);
     // line1-low: pivot@10 (Jan 11) is dropped; pivot@20 (Jan 21) is kept —
     // its line is terminated (the live line is the newest anchor, high@25).
-    expect(chunks(byKey(series, 'line1-low-history-a'))[0]).toEqual(
+    expect(chunks(byKey(series, 'line1-low-history'))[0]).toEqual(
       oracle.find((s) => s.set === 'line1' && s.side === 'low' && s.pivotBar === 20)!.points,
     );
-    expect(byKey(series, 'line1-low-history-b').data).toEqual([]);
     expect(byKey(series, 'line1-low-active').data).toEqual([]);
     // The window filters history lines only — the legs are structural and stay.
     expect(byKey(series, 'line1-zigzag').data.length).toBeGreaterThan(0);
@@ -518,12 +505,14 @@ describe('computeAnchoredVwapSeries — packing on varied series', () => {
       const series = computeAnchoredVwapSeries(bars, PARAMS);
       const segments = computeAnchoredVwap(bars, config);
 
-      it('never puts two real points at one index, and indices never decrease within a series', () => {
+      it('keeps one real point per index within a series', () => {
         for (const s of series) {
-          const idx = s.data.map((p) => p.index);
-          expect(idx).toEqual([...idx].sort((a, b) => a - b));
-          // A `y: null` break may share an index with the next segment's
-          // start bar — the real (drawn) points are what must stay unique.
+          // Packed order is not monotonic by design — a break sits between
+          // runs in data order wherever it lands (persist breaks at lastBar
+          // precede later runs starting earlier; a collapse edge can put a
+          // break one past the next run's start). The drawn contract: a
+          // `y: null` break may share an index with a run's boundary, but
+          // no two real points may share one.
           const real = s.data.filter((p) => p.y !== null).map((p) => p.index);
           expect(new Set(real).size).toBe(real.length);
         }
@@ -540,13 +529,13 @@ describe('computeAnchoredVwapSeries — packing on varied series', () => {
         }
       });
 
-      it('first-fits the terminated segments into the history slots and puts the live one into active', () => {
+      it('packs every terminated segment into the history series and puts the live one into active', () => {
         for (const scale of SCALES) {
           for (const side of ['high', 'low'] as const) {
             const slot = segments.filter((s) => s.set === scale && s.side === side).sort((a, b) => a.startBar - b.startBar);
             const terminated = slot.filter((s) => !s.active);
-            // Every terminated segment's points survive, in some slot.
-            const packed = HIST_KINDS.flatMap((kind) => chunks(byKey(series, `${scale}-${side}-${kind}`)));
+            // Every terminated segment's points survive in the history series.
+            const packed = chunks(byKey(series, `${scale}-${side}-history`));
             expect([...packed].sort((x, y) => x[0].index - y[0].index)).toEqual(terminated.map((s) => s.points));
             const live = slot.find((s) => s.active);
             expect(byKey(series, `${scale}-${side}-active`).data).toEqual(live ? live.points : []);
@@ -598,10 +587,10 @@ describe('computeAnchoredVwapSeries — styling', () => {
 
   it.each([
     ['line1', 'line1Weight'], ['line2', 'line2Weight'],
-  ] as const)('%sWeight sets the stroke width on all 6 VWAP slots, integer-clamped to 1–3', (set, key) => {
+  ] as const)('%sWeight sets the stroke width on all 4 VWAP slots, integer-clamped to 1–3', (set, key) => {
     const heavy = computeAnchoredVwapSeries(barsFromCloses(CLOSES), { ...PARAMS, [key]: 2 });
     for (const side of ['high', 'low']) {
-      for (const kind of [...HIST_KINDS, 'active']) {
+      for (const kind of KINDS) {
         expect(byKey(heavy, `${set}-${side}-${kind}`).width).toBe(2);
       }
     }
@@ -615,12 +604,10 @@ describe('computeAnchoredVwapSeries — styling', () => {
   it('keeps the width and colour of history identical to the active line — no fading', () => {
     for (const slot of ['line1-high', 'line1-low', 'line2-high', 'line2-low']) {
       const active = byKey(series, `${slot}-active`);
-      for (const kind of HIST_KINDS) {
-        const h = byKey(series, `${slot}-${kind}`);
-        expect(h.color).toBe(active.color);
-        expect(h.width).toBe(active.width);
-        expect(h.name).toBe(active.name);
-      }
+      const h = byKey(series, `${slot}-history`);
+      expect(h.color).toBe(active.color);
+      expect(h.width).toBe(active.width);
+      expect(h.name).toBe(active.name);
     }
   });
 

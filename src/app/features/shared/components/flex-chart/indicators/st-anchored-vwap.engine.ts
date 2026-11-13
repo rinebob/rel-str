@@ -9,7 +9,9 @@
  * begins on the vertex's trigger bar — the first bar that crossed the
  * deviation threshold, the same bar the standalone ZigZag marks with a
  * trigger dot — and ends on the next vertex's trigger bar, where the next
- * leg's line begins: exactly one live line per set, alternating sides. A
+ * leg's line begins. Exactly one live line per set — sides normally
+ * alternate, though a same-bar high+low collapse can leave consecutive
+ * same-side vertices. A
  * vertex whose reversal hasn't triggered yet anchors no line; the previous
  * leg's line stays live until it does.
  *
@@ -158,7 +160,7 @@ function setSegments(
     const endBar = next && !persist ? next.trigger.barIndex : lastBar;
     const anchor = { pivotBar: vertex.index, price: vertex.y };
     return {
-      key: `${set}-${vertex.isHigh ? 'high' : 'low'}-${vertex.index}-${startBar}`,
+      key: `${set}-${vertex.isHigh ? 'high' : 'low'}-${vertex.index}`,
       set,
       side: vertex.isHigh ? 'high' : 'low',
       pivotBar: vertex.index,
@@ -195,7 +197,7 @@ function applyHistoryWindow(
   historyStart: string | undefined,
   maxHistory: number,
 ): AnchoredVwapSegment[] {
-  const cap = Math.max(0, Math.floor(maxHistory)) || 0;
+  const cap = Math.max(0, Math.floor(maxHistory));
   const terminated = segments
     .filter((s) => !s.active)
     .sort((a, b) => a.startBar - b.startBar || (a.side < b.side ? -1 : 1));
@@ -248,7 +250,6 @@ function legsForSet(
     ? {
         from: last,
         to: { index: projection.barIndex, y: projection.price, isHigh: projection.isHigh },
-        isHigh: projection.isHigh,
       }
     : null;
 

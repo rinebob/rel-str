@@ -3,22 +3,19 @@
  *
  * Wraps the pure computation (`st-anchored-vwap.engine.ts`) into the
  * `IndicatorOption` shape used by flex-chart and maps its segments onto a
- * FIXED set of 26 series: 4 VWAP slots (set x side), each with one
- * active series and four history series holding the slot's terminated
- * segments, plus per set a confirmed ZigZag-leg chain series, a
- * dashed developing-leg series, and a Scatter series of confirmation-point
+ * FIXED set of 14 series: per set, four VWAP slots (high/low x history/active —
+ * one active series and one history series per side holding the side's
+ * terminated segments), plus a confirmed ZigZag-leg chain series, a dashed
+ * developing-leg series, and a Scatter series of confirmation-point
  * markers. The series count never depends on the data,
  * because a Syncfusion chart reinitialises when its series structure changes.
  *
- * One series should hold only one `y` per bar, so terminated segments are
- * first-fit into history slots: a segment joins the first slot whose
- * contents all end before it starts. Neighbouring non-persist lines share
- * their handoff bar, so a normal alternating pair occupies two slots; in
- * persist mode every line runs to the last bar, so each takes its own
- * slot — and beyond the slot count, overflow packs into the slot holding
- * the oldest anchor (the fan is unbounded; packed overlapping runs stay
- * disjoint via the `y: null` break points, rendered as gaps by
- * `emptyPointSettings: { mode: 'Gap' }`).
+ * Every terminated segment packs into its side's single history series,
+ * separated by a `y: null` break point (rendered as a gap by
+ * `emptyPointSettings: { mode: 'Gap' }`). Packed runs rely on the
+ * category axis plotting each point at its own x position while
+ * connecting in data order — verified in UAT with overlapping persist
+ * fans (#1466); the persist fan is therefore unbounded.
  *
  * There is no `IndicatorCalculator`: rendering is entirely through the bespoke
  * series (consumed by `ChartDataAdapter.anchoredVwapSeries`), and
@@ -132,9 +129,9 @@ export const ST_ANCHORED_VWAP_INDICATOR: IndicatorOption = {
 // 2. TYPES
 // =============================================================================
 
-/** One of the 26 fixed series. `y: null` entries are gap-producing break points. */
+/** One of the 14 fixed series. `y: null` entries are gap-producing break points. */
 export interface AnchoredVwapLineSeries {
-  /** `${set}-${side}-active` | `-history-a..d` | `${set}-zigzag` | `${set}-developing` | `${set}-confirmations`. */
+  /** `${set}-${side}-active` | `-history` | `${set}-zigzag` | `${set}-developing` | `${set}-confirmations`. */
   key: string;
   /** Display name for tooltips: `AVWAP-1H {pct}%` / `AVWAP-1L {pct}%` / `AVWAP-2H {pct}%` / `AVWAP-2L {pct}%` / `ZZ {pct}%`. */
   name: string;
@@ -162,15 +159,15 @@ type Params = Record<string, number | string | boolean>;
 
 function extractConfig(params: Params): AnchoredVwapConfig {
   return {
-    line1RetracementPct: Math.max(0.1, numParam(params['line1RetracementPct'], DEFAULTS.line1RetracementPct)),
-    line2RetracementPct: Math.max(0.1, numParam(params['line2RetracementPct'], DEFAULTS.line2RetracementPct)),
-    line1LeftDepth: Math.max(2, Math.floor(numParam(params['line1LeftDepth'], DEFAULTS.line1LeftDepth))),
-    line1RightDepth: Math.max(2, Math.floor(numParam(params['line1RightDepth'], DEFAULTS.line1RightDepth))),
-    line2LeftDepth: Math.max(2, Math.floor(numParam(params['line2LeftDepth'], DEFAULTS.line2LeftDepth))),
-    line2RightDepth: Math.max(2, Math.floor(numParam(params['line2RightDepth'], DEFAULTS.line2RightDepth))),
+    line1RetracementPct: Math.min(50, Math.max(0.1, numParam(params['line1RetracementPct'], DEFAULTS.line1RetracementPct))),
+    line2RetracementPct: Math.min(50, Math.max(0.1, numParam(params['line2RetracementPct'], DEFAULTS.line2RetracementPct))),
+    line1LeftDepth: Math.min(100, Math.max(2, Math.floor(numParam(params['line1LeftDepth'], DEFAULTS.line1LeftDepth)))),
+    line1RightDepth: Math.min(100, Math.max(2, Math.floor(numParam(params['line1RightDepth'], DEFAULTS.line1RightDepth)))),
+    line2LeftDepth: Math.min(100, Math.max(2, Math.floor(numParam(params['line2LeftDepth'], DEFAULTS.line2LeftDepth)))),
+    line2RightDepth: Math.min(100, Math.max(2, Math.floor(numParam(params['line2RightDepth'], DEFAULTS.line2RightDepth)))),
     line1Persist: boolParam(params['line1Persist'], DEFAULTS.line1Persist),
     line2Persist: boolParam(params['line2Persist'], DEFAULTS.line2Persist),
-    maxHistory: Math.max(0, Math.floor(numParam(params['maxHistory'], DEFAULTS.maxHistory))),
+    maxHistory: Math.min(1000, Math.max(0, Math.floor(numParam(params['maxHistory'], DEFAULTS.maxHistory)))),
     // ISO date string through to the engine, which validates it and compares
     // against each pivot's session `date` — no epoch conversion here.
     ...(typeof params['historyStart'] === 'string' && params['historyStart'].trim() !== ''
@@ -191,49 +188,20 @@ function weightParam(value: Params[string] | undefined, fallback: number): numbe
   return Math.min(3, Math.max(1, Math.round(numParam(value, fallback))));
 }
 
-/** Concatenate segments into one series, separated by a break point after each segment's last bar. */
-function pack(segments: AnchoredVwapSegment[]): AnchoredVwapLineSeries['data'] {
+/** Concatenate segments into one series, separated by a break point between
+ *  runs. The break index is clamped to the last bar — persist runs all end
+ *  there, so `endBar + 1` would index a phantom category past the edge. */
+function pack(segments: AnchoredVwapSegment[], lastBar: number): AnchoredVwapLineSeries['data'] {
   return segments.flatMap((segment, i) => {
     const points: AnchoredVwapLineSeries['data'] = segment.points.map((p) => ({ index: p.index, y: p.y }));
-    return i < segments.length - 1 ? [...points, { index: segment.endBar + 1, y: null }] : points;
+    return i < segments.length - 1 ? [...points, { index: Math.min(segment.endBar + 1, lastBar), y: null }] : points;
   });
 }
 
-/** History slot keys per side. */
-const HIST_KEYS = ['history-a', 'history-b', 'history-c', 'history-d'] as const;
-
-/** First-fit terminated segments into fixed slots: a segment joins the first
- *  slot whose contents all end before it starts, so packed series hold one
- *  `y` per bar and stay x-ordered. Non-persist lines tile contiguously, so
- *  two slots suffice. Persist lines all run to the last bar and always
- *  overlap — once every slot is taken, overflow packs into the slot holding
- *  the oldest anchor: the fan is unbounded rather than capped at the slot
- *  count. Packed overlaps rely on the category axis plotting each point at
- *  its own x position while connecting in data order — the `y: null` break
- *  points keep the overlapping runs from joining. */
-function historySlots(terminated: AnchoredVwapSegment[]): AnchoredVwapSegment[][] {
-  const slots: AnchoredVwapSegment[][] = [];
-  for (const seg of terminated) {
-    const free = slots.findIndex((slot) => slot.every((s) => s.endBar < seg.startBar));
-    if (free >= 0) {
-      slots[free].push(seg);
-    } else if (slots.length < HIST_KEYS.length) {
-      slots.push([seg]);
-    } else {
-      let oldest = 0;
-      for (let i = 1; i < slots.length; i++) {
-        if (slots[i][0].startBar < slots[oldest][0].startBar) oldest = i;
-      }
-      slots[oldest].push(seg);
-    }
-  }
-  return slots;
-}
-
 /**
- * Compute the 26 fixed Anchored VWAP series.
+ * Compute the 14 fixed Anchored VWAP series.
  *
- * Per set: ten VWAP slots (high/low × history-a..d/active), then the
+ * Per set: four VWAP slots (high/low × history/active), then the
  * ZigZag leg series — a confirmed chain (MultiColoredLine in the set's
  * uniform leg color), a dashed developing leg to the running extreme, and a
  * Scatter series of confirmation markers (each reversal trigger in its
@@ -242,12 +210,13 @@ function historySlots(terminated: AnchoredVwapSegment[]): AnchoredVwapSegment[][
  * `showLineNConfirms: false` — the default — leaves its marker series empty.
  *
  * Order: line 1's slots + legs + markers, then line 2's (line 2 draws on
- * top); within a slot, high before low, and `history-a..d`, then
- * `active` last. Always returns exactly 26 series, including for empty data.
+ * top); within a slot, high before low, `history` then `active` last.
+ * Always returns exactly 14 series, including for empty data.
  */
 export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): AnchoredVwapLineSeries[] {
   const config = extractConfig(params);
   const { segments, legs } = computeAnchoredVwapResult(bars, config);
+  const lastBar = bars.length - 1;
 
   const sets = ([1, 2] as const).map((n) => ({
     set: `line${n}` as AnchoredVwapSet,
@@ -265,11 +234,9 @@ export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): Anc
   return sets.flatMap(({ set, pct, width, highColor, lowColor, showHigh, showLow, showLegs, showConfirms, legColor }) => {
     const sideColor = (isHigh: boolean) => (isHigh ? highColor : lowColor);
     const vwapSeries = (['high', 'low'] as const).flatMap((side) => {
-      const slot = segments
+      const sideSegs = segments
         .filter((s) => s.set === set && s.side === side)
         .sort((a, b) => a.startBar - b.startBar);
-      const terminated = slot.filter((s) => !s.active);
-      const live = slot.filter((s) => s.active);
       const base = {
         name: `AVWAP-${set === 'line1' ? '1' : '2'}${side === 'high' ? 'H' : 'L'} ${pct}%`,
         color: sideColor(side === 'high'),
@@ -279,12 +246,11 @@ export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): Anc
         pointColorMapping: '',
       };
       // A hidden side empties only its own VWAP slots — the other side, the
-      // leg series, and the 26-key structure are unaffected (#1459).
+      // leg series, and the fixed 14-key structure are unaffected (#1459).
       const showSide = side === 'high' ? showHigh : showLow;
-      const hist = historySlots(terminated);
       return [
-        ...HIST_KEYS.map((kind, i) => ({ ...base, key: `${set}-${side}-${kind}`, data: pack(hist[i] ?? []) })),
-        { ...base, key: `${set}-${side}-active`, data: pack(live) },
+        { ...base, key: `${set}-${side}-history`, data: pack(sideSegs.filter((s) => !s.active), lastBar) },
+        { ...base, key: `${set}-${side}-active`, data: pack(sideSegs.filter((s) => s.active), lastBar) },
       ].map((s) => (showSide ? s : { ...s, data: [] }));
     });
 
@@ -340,7 +306,7 @@ export function computeAnchoredVwapSeries(bars: PriceBar[], params: Params): Anc
     };
 
     // The leg series answer to their own set's showLineNZigZag toggle, the
-    // markers to showLineNConfirms. The 26-key structure is preserved either
+    // markers to showLineNConfirms. The 14-key structure is preserved either
     // way (#955); side visibility was applied inside the per-side slots (#1459).
     return [...vwapSeries, chain, developing, confirmations];
   });

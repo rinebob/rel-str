@@ -427,8 +427,8 @@ export class ChartDataAdapter {
     }));
   });
 
-  /** Anchored VWAP series — the fixed 26 series (4 VWAP slots x active +
-   *  four history series, plus per set the ZigZag chain,
+  /** Anchored VWAP series — the fixed 14 series (4 VWAP slots per set x history +
+   *  active, plus per set the ZigZag chain,
    *  developing leg, and confirmation-marker Scatter) of the first
    *  ST_ANCHORED_VWAP indicator, so a second instance
    *  cannot change the series count. Prices go through the scale transform;

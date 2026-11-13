@@ -105,7 +105,7 @@ describe('computeAnchoredVwap — lines and handoffs', () => {
     }
   });
 
-  it('one line per leg, alternating: each runs from its own trigger bar to the next vertex’s trigger', () => {
+  it('one line per leg: each runs from its own trigger bar to the next vertex’s trigger', () => {
     const line1 = pick(segs, 'line1', 'high').concat(pick(segs, 'line1', 'low')).sort((a, b) => a.startBar - b.startBar);
     expect(line1.map((s) => [s.side, s.pivotBar, s.startBar, s.endBar, s.active])).toEqual([
       ['high', 5, 7, 11, false],
@@ -359,7 +359,7 @@ describe('computeAnchoredVwapResult — legs', () => {
     expect(line1.developing).not.toBeNull();
     expect(line1.developing!.from.index).toBe(25);
     expect(line1.developing!.to.index).toBe(30);
-    expect(line1.developing!.isHigh).toBe(false);
+    expect(line1.developing!.to.isHigh).toBe(false);
   });
 
   it('has no developing leg when the post-anchor move never meets the threshold', () => {
@@ -377,7 +377,6 @@ describe('computeAnchoredVwapResult — legs', () => {
     expect(line1.developing).toEqual({
       from: { index: 4, y: 121, isHigh: true },
       to: { index: 14, y: 69, isHigh: false },
-      isHigh: false,
     });
   });
 

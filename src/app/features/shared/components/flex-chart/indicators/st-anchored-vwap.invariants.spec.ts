@@ -212,7 +212,7 @@ describe('computeAnchoredVwap — invariants on varied series', () => {
         }
       });
 
-      it('chains legs over surviving anchors only — superseded anchors anchor segments but not vertices', () => {
+      it('chains legs over surviving anchors only — superseded anchors draw neither vertices nor lines', () => {
         const { legs } = computeAnchoredVwapResult(bars, sc.config);
         for (const scale of ['line1', 'line2'] as const) {
           const legSet = legs.find((l) => l.set === scale)!;

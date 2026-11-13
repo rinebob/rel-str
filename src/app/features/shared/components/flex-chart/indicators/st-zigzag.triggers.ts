@@ -28,8 +28,6 @@ export interface TriggerPoint {
   barIndex: number;
   /** Bar index of the source pivot — pairs a trigger back to its vertex. */
   pivotIndex: number;
-  /** Timestamp in milliseconds. */
-  time: number;
   /** The threshold price level that was crossed — or the trigger bar's open
    *  when a gap carried price through the level (it lies outside the bar's
    *  range, so the first print is what "broke" it). With no finite open,
@@ -88,7 +86,6 @@ export function computeTriggerPoints(
         triggers.push({
           barIndex: j,
           pivotIndex: pivot.barIndex,
-          time: bar.x.getTime(),
           price,
           isHigh: pivot.isHigh,
         });
