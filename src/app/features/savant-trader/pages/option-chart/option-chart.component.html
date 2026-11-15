@@ -575,7 +575,7 @@
         [showUnderlying]="store.showUnderlying()"
         [showGreeks]="store.showGreeks()"
         [showVolumeOI]="store.showVolumeOI()"
-        [highlightedContractId]="store.highlightedContractId()"
+        [highlightedContractId]="chartHighlight()"
         [tooltipMode]="dataWindowMode()"
         [(brushArmed)]="brushArmed"
         [brushCorpus]="genStore.corpusDates()"
@@ -629,6 +629,7 @@
           [class.highlighted]="store.highlightedContractId() === c.entry.contractId"
           [class.pinned]="store.pinnedContractId() === c.entry.contractId"
           [class.error]="c.status === 'error'"
+          [class.bound-hidden]="boundHiddenIds().has(c.entry.contractId)"
         >
           <button
             type="button"
@@ -650,8 +651,8 @@
             @if (c.status === 'error') {
             <span class="dse-icon chip-error-icon">error_outline</span>
             }
-            @if (c.entry.openDate) {
-            <span class="chip-open-date">{{ c.entry.openDate }}</span>
+            @if (chipOpenDate(c); as od) {
+            <span class="chip-open-date">{{ od }}</span>
             }
           </button>
           <button

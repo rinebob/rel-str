@@ -186,6 +186,24 @@ export function cycleSortLevel(
   return next;
 }
 
+/** #1389 — the study-range bound applied to the PLOTTED set (opened-within,
+ *  NOT the drawer's alive-across refine predicate): a series stays visible
+ *  when its entry/open date falls inside [start,end], inclusive. Bare-id
+ *  contracts (no open date) proxy to their first rendered observation; a
+ *  contract with no date evidence yet — bare-id still loading — stays
+ *  visible rather than popping in when its first point lands. No bound =
+ *  passthrough. */
+export function openDateWithinBound(
+  openDate: string | null,
+  firstObsDate: string | null | undefined,
+  bound: StudyRange | null | undefined,
+): boolean {
+  if (!bound) return true;
+  const opened = openDate ?? firstObsDate ?? null;
+  if (opened == null) return true;
+  return opened >= bound.start && opened <= bound.end;
+}
+
 /**
  * Emit the pasted-pair format for `loadPlotted`: `YYYY-MM-DD,ID` when an
  * open date is supplied, bare `ID` otherwise. Deterministic order matching

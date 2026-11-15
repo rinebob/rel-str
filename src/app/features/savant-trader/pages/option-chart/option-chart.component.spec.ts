@@ -13,15 +13,16 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 
 import { OptionChartComponent } from './option-chart.component';
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
+import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import { ContractListService } from '../../services/contract-list.service';
 import { OPTION_CHART_PAGE_PROVIDERS } from './option-chart-page.providers';
+import { OptionsAnalysisRunsService } from '../../backtest/services/options-analysis-runs.service';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import { plottedSeriesColor } from '../../components/options-contract-chart/options-contract-chart-series.builder';
 import type { PartnerHistoricalOptionsContractV2Response } from '../../../../core/models/partner.types';
 import type { OhlcBar } from '../../../../core/models/market-data.types';
-import { OptionsAnalysisRunsService } from '../../backtest/services/options-analysis-runs.service';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
 import type { ContractListRow } from '@options-replay/contracts';
@@ -91,9 +92,10 @@ function setup(getHistorical?: jest.Mock, dialogResult = true, bars: OhlcBar[] =
   });
 
   const store = TestBed.inject(OptionsContractViewerStore);
+  const genStore = TestBed.inject(OptionGroupGeneratorStore);
   // Instantiated outside a view — ngOnInit never runs; specs only read computeds.
   const component = TestBed.runInInjectionContext(() => new OptionChartComponent());
-  return { store, component, dialog, barService };
+  return { store, component, dialog, barService, genStore };
 }
 
 interface Setup {
@@ -101,6 +103,7 @@ interface Setup {
   component: OptionChartComponent;
   dialog: { open: jest.Mock };
   barService: { getDailyBarsForRange$: jest.Mock };
+  genStore: InstanceType<typeof OptionGroupGeneratorStore>;
 }
 
 async function flush(): Promise<void> {
@@ -598,6 +601,247 @@ describe('OptionChartComponent — chart projection', () => {
       component.onChipRemove(component.chipContracts()[0]);
       expect(store.plottedContracts()[QQQ_PUT]).toBeUndefined();
       expect(store.plottedContracts()[QQQ_CALL]).toBeTruthy();
+    });
+  });
+
+  describe('study-range bound (#1389)', () => {
+    const bound = { start: '2026-06-01', end: '2026-06-30' };
+
+    it('hides a dated contract whose openDate falls outside the bound; keeps the in-bound one', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01' }, // before bound
+        { contractId: QQQ_CALL, openDate: '2026-06-10' }, // inside
+      ]);
+      genStore.applyRange(bound);
+
+      expect(component.plottedChartSeries().map((s) => s.contractId)).toEqual([QQQ_CALL]);
+      // The plotted set itself is untouched — hide, not unload.
+      expect(store.plottedContracts()[QQQ_PUT]).toBeTruthy();
+      expect(component.chipContracts()).toHaveLength(2);
+    });
+
+    it('boundary openDates are inclusive', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-06-01' },
+        { contractId: QQQ_CALL, openDate: '2026-06-30' },
+      ]);
+      genStore.applyRange(bound);
+      expect(component.plottedChartSeries()).toHaveLength(2);
+    });
+
+    it('a bare-id contract filters by its first rendered observation date', async () => {
+      const getHistorical = jest.fn((_s: string, cid: string) =>
+        of(
+          contractResponse(
+            cid,
+            cid === QQQ_PUT ? ['2026-06-05', '2026-06-10'] : ['2026-07-05', '2026-07-10'],
+          ),
+        ),
+      );
+      const { store, component, genStore } = setup(getHistorical);
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: null },
+        { contractId: QQQ_CALL, openDate: null },
+      ]);
+      genStore.applyRange(bound);
+
+      // PUT's first obs 06-05 is in-bound; CALL's first obs 07-05 is out.
+      expect(component.plottedChartSeries().map((s) => s.contractId)).toEqual([QQQ_PUT]);
+    });
+
+    it('a bare-id contract with no observations yet stays visible', async () => {
+      const { store, component, genStore } = setup(jest.fn(() => of(contractResponse('x', []))));
+      store.loadPlotted([{ contractId: QQQ_PUT, openDate: null }]); // still loading
+      genStore.applyRange(bound);
+      expect(component.plottedChartSeries()).toHaveLength(1);
+      await flush();
+    });
+
+    it('clearing the bound restores the hidden series unchanged', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01' },
+        { contractId: QQQ_CALL, openDate: '2026-06-10' },
+      ]);
+      genStore.applyRange(bound);
+      expect(component.plottedChartSeries()).toHaveLength(1);
+
+      genStore.applyRange(null);
+      expect(component.plottedChartSeries().map((s) => s.contractId)).toEqual([QQQ_PUT, QQQ_CALL]);
+      // Data carried through — no refetch happened.
+      expect(component.plottedChartSeries()[0].points.length).toBeGreaterThan(0);
+    });
+
+    it('composes with clip-to-entry — the visible series still clips at openDate', async () => {
+      const getHistorical = jest.fn((_s: string, cid: string) =>
+        of(contractResponse(cid, ['2026-06-01', '2026-06-10', '2026-06-15'])),
+      );
+      const { store, component, genStore } = setup(getHistorical);
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-06-10' },
+        { contractId: QQQ_CALL, openDate: '2026-05-01' }, // filtered out by the bound
+      ]);
+      store.setDisplayWindow('position');
+      genStore.applyRange(bound);
+
+      const series = component.plottedChartSeries();
+      expect(series.map((s) => s.contractId)).toEqual([QQQ_PUT]);
+      expect(series[0].points.map((p) => p.date)).toEqual(['2026-06-10', '2026-06-15']);
+    });
+
+    it('does not apply to the focused drill-down view', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01' },
+        { contractId: QQQ_CALL, openDate: '2026-06-10' },
+      ]);
+      genStore.applyRange(bound);
+
+      store.focusPlotted(QQQ_PUT);
+      await flush();
+      // Drilling into an out-of-bound contract still shows it.
+      expect(component.plottedChartSeries().map((s) => s.contractId)).toEqual([QQQ_PUT]);
+    });
+
+    it('a bound-hidden contract cannot shift later chips off their line colors', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01' }, // hidden by the bound
+        { contractId: QQQ_CALL, openDate: '2026-06-10' }, // series index 0 on the chart
+      ]);
+      genStore.applyRange(bound);
+
+      // CALL is the chart's first (only) series → palette 0; its chip must
+      // match, not palette 1 from its position in the unfiltered set.
+      const callChip = component.chipContracts().find((c) => c.entry.contractId === QQQ_CALL)!;
+      expect(component.chipColor(callChip)).toBe(plottedSeriesColor(0));
+    });
+
+    it('hover/pin on a bound-hidden chip never reaches the chart — a stranded id would dim every line', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01' }, // will be bound-hidden
+        { contractId: QQQ_CALL, openDate: '2026-06-10' },
+      ]);
+      genStore.applyRange(bound);
+
+      // Hover a hidden chip — the chart must see no highlight (the id
+      // matches no series; passing it would dim every visible line).
+      store.setHoveredContract(QQQ_PUT);
+      expect(component.chartHighlight()).toBeNull();
+
+      // A visible chip's hover still passes through.
+      store.setHoveredContract(QQQ_CALL);
+      expect(component.chartHighlight()).toBe(QQQ_CALL);
+    });
+
+    it('a pin set before the bound applied is suppressed while its contract is hidden, re-engages on clear', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01' },
+        { contractId: QQQ_CALL, openDate: '2026-06-10' },
+      ]);
+      store.togglePinnedContract(QQQ_PUT);
+      expect(component.chartHighlight()).toBe(QQQ_PUT);
+
+      genStore.applyRange(bound);
+      expect(component.chartHighlight()).toBeNull(); // pinned id is hidden — no all-dim
+
+      genStore.applyRange(null);
+      expect(component.chartHighlight()).toBe(QQQ_PUT); // pin survives in the store, re-engages
+    });
+
+    it('boundHiddenIds marks only the hidden contracts and empties on clear', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01' },
+        { contractId: QQQ_CALL, openDate: '2026-06-10' },
+      ]);
+
+      expect(component.boundHiddenIds().size).toBe(0);
+      genStore.applyRange(bound);
+      expect([...component.boundHiddenIds()]).toEqual([QQQ_PUT]);
+      genStore.applyRange(null);
+      expect(component.boundHiddenIds().size).toBe(0);
+    });
+
+    it('a bound that hides every contract leaves an empty series input — the set itself is intact', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01' },
+        { contractId: QQQ_CALL, openDate: '2026-05-10' },
+      ]);
+      genStore.applyRange(bound);
+
+      expect(component.plottedChartSeries()).toEqual([]);
+      expect(store.plottedList()).toHaveLength(2);
+      expect(component.boundHiddenIds().size).toBe(2);
+    });
+
+    it('any pick inside the bound keeps the contract — picks are positions sharing a contract; only the in-bound one shows', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        // Opened 05-01 AND 06-10 — two positions on one contract.
+        { contractId: QQQ_PUT, openDate: '2026-05-01', markerDates: ['2026-05-01', '2026-06-10'] },
+      ]);
+      genStore.applyRange(bound);
+
+      const series = component.plottedChartSeries();
+      expect(series.map((s) => s.contractId)).toEqual([QQQ_PUT]);
+      // Only the in-bound position shows: the projected open date is its
+      // pick and only its pick renders a marker — the 05-01 position is
+      // not drawn.
+      expect(series[0].openDate).toBe('2026-06-10');
+      expect(series[0].markerDates).toEqual(['2026-06-10']);
+
+      // The chip shows the SHOWN position's open, not the entry's
+      // earliest pick — a 05-01 chip date would contradict the rendered
+      // 06-10 marker.
+      const chip = component.chipContracts().find((c) => c.entry.contractId === QQQ_PUT)!;
+      expect(component.chipOpenDate(chip)).toBe('2026-06-10');
+    });
+
+    it('a contract whose picks all opened outside the bound hides', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01', markerDates: ['2026-05-01', '2026-05-10'] },
+      ]);
+      genStore.applyRange(bound);
+
+      expect(component.plottedChartSeries()).toEqual([]);
+      expect([...component.boundHiddenIds()]).toEqual([QQQ_PUT]);
+    });
+
+    it('position mode clips at the in-bound pick — the out-of-bound position does not render', async () => {
+      const getHistorical = jest.fn((_s: string, cid: string) =>
+        of(contractResponse(cid, ['2026-05-01', '2026-06-05', '2026-06-10', '2026-06-20'])),
+      );
+      const { store, component, genStore } = setup(getHistorical);
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01', markerDates: ['2026-05-01', '2026-06-10'] },
+      ]);
+      store.setDisplayWindow('position');
+      genStore.applyRange(bound);
+
+      // The upstream clip already cut at the earliest pick (05-01); the
+      // bound moves the shown position's entry to 06-10 — its clip starts
+      // there, so the 05-01 position's span does not render.
+      expect(component.plottedChartSeries()[0].points.map((p) => p.date)).toEqual(['2026-06-10', '2026-06-20']);
+    });
+
+    it('the axis keeps the full plotted-set domain under a bound — bar trimming is follow-up work', async () => {
+      const { store, component, genStore } = setup();
+      await store.loadPlotted([
+        { contractId: QQQ_PUT, openDate: '2026-05-01' },
+        { contractId: QQQ_CALL, openDate: '2026-06-10' },
+      ]);
+      const before = component.chartAxisLabels();
+      genStore.applyRange(bound);
+      // Deliberate (review Q1): hidden contracts keep their axis dates —
+      // the underlying-bar add/remove work lands next.
+      expect(component.chartAxisLabels()).toEqual(before);
     });
   });
 });

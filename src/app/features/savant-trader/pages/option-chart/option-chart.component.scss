@@ -972,6 +972,12 @@
     opacity: 0.55;
   }
 
+  /* Study-range-bound-hidden: still in the set (clear restores it), just
+   *  not on the chart — dim so the strip doesn't claim it's drawn (#1389). */
+  &.bound-hidden {
+    opacity: 0.45;
+  }
+
   .chip-main {
     display: inline-flex;
     align-items: center;

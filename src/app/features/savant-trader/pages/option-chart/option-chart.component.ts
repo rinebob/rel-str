@@ -27,13 +27,13 @@ import {
 } from '../../components/options-contract-chart/options-contract-chart.component';
 import { plottedSeriesColor, UNDERLYING_COLOR } from '../../components/options-contract-chart/options-contract-chart-series.builder';
 import type { RejectedReason } from '../../utils/plotted-pairs.util';
-import type { PlottedContract } from '../../stores/plotted-contracts-feature';
+import type { DisplayWindow, PlottedContract } from '../../stores/plotted-contracts-feature';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { padDateLabels, unionLabels } from '../../utils/chart-series.utils';
 import { OptionType, parseOccContractId, type ParsedOccContractId } from '@options-contract/contracts';
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import { OptionGroupGeneratorComponent } from '../../components/option-group-generator/option-group-generator.component';
-import type { StudyRange } from '../../utils/option-group-generator.utils';
+import { openDateWithinBound, type StudyRange } from '../../utils/option-group-generator.utils';
 import type { ContractCatalogEntry } from '@options-contract/contracts';
 import { ContractListSessionStore } from '../../stores/contract-list-session.store';
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
@@ -251,6 +251,34 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     return `${parsed.strike}${t} ${parsed.expiration}`;
   }
 
+  /** #1389 study-range bound, per contract — every pick is a separate
+   *  position sharing the contract, and the brush is about start dates:
+   *  the contract stays visible when ANY pick opened within the bound,
+   *  and only the in-bound positions render (their markers, and the
+   *  earliest in-bound pick becomes the shown open date — in position
+   *  mode the clip starts there, so an out-of-bound position's span does
+   *  not draw). Bare-id contracts (no picks) proxy to their first
+   *  rendered observation, and no date evidence yet stays visible.
+   *  Returns null when the bound hides the contract. */
+  private boundVisible(
+    s: PlottedChartContract,
+    bound: StudyRange | null,
+    win: DisplayWindow,
+  ): PlottedChartContract | null {
+    if (!bound) return s;
+    const picks = s.markerDates ?? [];
+    if (!picks.length) {
+      return openDateWithinBound(s.openDate, s.points[0]?.date, bound) ? s : null;
+    }
+    const inBound = picks.filter((d) => d >= bound.start && d <= bound.end);
+    if (!inBound.length) return null;
+    const openDate = inBound[0];
+    const points = win === 'position'
+      ? s.points.filter((p) => p.date >= openDate)
+      : s.points;
+    return { ...s, openDate, markerDates: inBound, points };
+  }
+
   /** The chart shows the whole plotted set only when nothing is focused and
    *  at least one non-error contract remains — the one predicate behind both
    *  the series projection and the axis-label pick below. Loading contracts
@@ -266,6 +294,14 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   readonly plottedChartSeries = computed<PlottedChartContract[]>(() => {
     if (this.showPlottedSet()) {
       const rendered = this.store.renderedSeries();
+      // #1389 — the study-range bound hides out-of-bound series here, in
+      // the display projection: the plotted set, chips, and loaded data
+      // are untouched, so clearing the bound restores them unchanged.
+      // Every pick is a separate position sharing the contract — see
+      // boundVisible for the position-granular semantics. The bound does
+      // not apply to the focused drill-down below.
+      const bound = this.genStore.refine().aliveRange ?? null;
+      const win = this.store.displayWindow();
       return this.store.plottedList()
         .filter((c) => c.status !== 'error')
         .map((c) => ({
@@ -276,7 +312,9 @@ export class OptionChartComponent implements OnInit, OnDestroy {
           openDate: c.entry.openDate,
           markerDates: c.entry.markerDates ?? [],
           points: rendered[c.entry.contractId] ?? [],
-        }));
+        }))
+        .map((s) => this.boundVisible(s, bound, win))
+        .filter((s): s is PlottedChartContract => s != null);
     }
 
     const data = this.store.contractData();
@@ -347,14 +385,14 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     return [{ entry: { contractId: focused, openDate: null }, parsed, status: data ? 'loaded' : 'loading', data, error: null }];
   });
 
-  /** Chip swatch index — position among non-error DISPLAYED contracts, which
-   *  is what the chart's series palette indexes over (a focused contract is
-   *  always series 0 of its single-series render). */
+  /** Chip swatch index — position in the DISPLAYED series input, which is
+   *  what the chart's series palette indexes over. Indexes
+   *  plottedChartSeries (not plottedList) so a study-range-bound-hidden
+   *  contract can't shift every later chip's swatch off its line's color
+   *  (#1389); a focused contract is always series 0 of its render. */
   readonly chipColorIndex = computed(() => {
     const map = new Map<string, number>();
-    this.chipContracts()
-      .filter((c) => c.status !== 'error')
-      .forEach((c, i) => map.set(c.entry.contractId, i));
+    this.plottedChartSeries().forEach((s, i) => map.set(s.contractId, i));
     return map;
   });
 
@@ -363,6 +401,43 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   chipColor(contract: PlottedContract): string {
     return plottedSeriesColor(this.chipColorIndex().get(contract.entry.contractId) ?? 0);
   }
+
+  /** The open date a chip displays — the shown position's open under a
+   *  bound (earliest in-bound pick), falling back to the entry's earliest
+   *  pick when the contract isn't displayed (#1389). */
+  readonly displayedOpenDate = computed(() => {
+    const map = new Map<string, string | null>();
+    for (const s of this.plottedChartSeries()) map.set(s.contractId, s.openDate);
+    return map;
+  });
+
+  chipOpenDate(contract: PlottedContract): string | null {
+    return this.displayedOpenDate().get(contract.entry.contractId) ?? contract.entry.openDate;
+  }
+
+  /** Highlight forwarded to the chart — null when the hovered/pinned id
+   *  isn't in the displayed set. A bound-hidden (or otherwise unplotted)
+   *  id would dim every visible line with nothing lit — the same failure
+   *  the error-chip release guards against (#1389). The store keeps the
+   *  hover/pin: clearing the bound re-engages it on the returning line. */
+  readonly chartHighlight = computed(() => {
+    const id = this.store.highlightedContractId();
+    return id != null && this.chipColorIndex().has(id) ? id : null;
+  });
+
+  /** Non-error contracts hidden by the study-range bound — they keep a
+   *  chip (still in the plotted set) but render dimmed so the strip
+   *  doesn't advertise them as on-screen lines (#1389). */
+  readonly boundHiddenIds = computed<Set<string>>(() => {
+    const shown = new Set(this.plottedChartSeries().map((s) => s.contractId));
+    const hidden = new Set<string>();
+    for (const c of this.store.plottedList()) {
+      if (c.status !== 'error' && !shown.has(c.entry.contractId)) {
+        hidden.add(c.entry.contractId);
+      }
+    }
+    return hidden;
+  });
 
   /** Underlying chip swatch — same literal the builder paints the overlay. */
   readonly underlyingColor = UNDERLYING_COLOR;

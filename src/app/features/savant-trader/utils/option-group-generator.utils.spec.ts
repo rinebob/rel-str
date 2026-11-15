@@ -5,6 +5,7 @@
  * emission (IMPL FE-1, TEST-FE unit targets).
  */
 import {
+  openDateWithinBound,
   cycleSortLevel,
   isInvertedRange,
   refineContracts,
@@ -258,5 +259,39 @@ describe('cycleSortLevel', () => {
     levels = cycleSortLevel(levels, 'strike'); // → desc
     levels = cycleSortLevel(levels, 'strike'); // → removed
     expect(levels).toEqual([{ field: 'expiration', direction: 'asc' }]);
+  });
+});
+
+describe('openDateWithinBound (#1389)', () => {
+  const bound = { start: '2026-06-01', end: '2026-06-30' };
+
+  it('no bound → every contract passes through', () => {
+    expect(openDateWithinBound('2026-01-01', null, null)).toBe(true);
+    expect(openDateWithinBound('2099-12-31', null, undefined)).toBe(true);
+    expect(openDateWithinBound(null, null, null)).toBe(true);
+  });
+
+  it('open date inside [start,end] passes; outside fails — boundaries inclusive', () => {
+    expect(openDateWithinBound('2026-06-15', null, bound)).toBe(true);
+    expect(openDateWithinBound('2026-06-01', null, bound)).toBe(true);
+    expect(openDateWithinBound('2026-06-30', null, bound)).toBe(true);
+    expect(openDateWithinBound('2026-05-31', null, bound)).toBe(false);
+    expect(openDateWithinBound('2026-07-01', null, bound)).toBe(false);
+  });
+
+  it('a bare-id contract filters by the first-rendered-observation proxy', () => {
+    expect(openDateWithinBound(null, '2026-06-10', bound)).toBe(true);
+    expect(openDateWithinBound(null, '2026-05-01', bound)).toBe(false);
+    expect(openDateWithinBound(null, '2026-07-15', bound)).toBe(false);
+  });
+
+  it('no date evidence yet (bare-id still loading) stays visible', () => {
+    expect(openDateWithinBound(null, null, bound)).toBe(true);
+    expect(openDateWithinBound(null, undefined, bound)).toBe(true);
+  });
+
+  it('a present openDate wins over the observation proxy', () => {
+    // Proxy inside, openDate outside → the real open date is authoritative.
+    expect(openDateWithinBound('2026-05-01', '2026-06-10', bound)).toBe(false);
   });
 });
