@@ -187,6 +187,30 @@ describe('OptionGroupGeneratorStore', () => {
       store.setSymbol('QQQ');
       expect(store.emit()).toEqual([]);
     });
+
+    it('auto-fills the bound start as the open date while a bound is active (#1389)', async () => {
+      queryContractAvailability$.mockReturnValue(of(response([B, A])));
+      store.setSymbol('QQQ');
+      await store.run();
+      store.applyRange({ start: '2026-02-01', end: '2026-03-01' });
+
+      // Without this a brushed bare send hides nearly the whole set —
+      // first-observation lands at-or-before bound.start.
+      expect(store.emit()).toEqual([
+        `2026-02-01,${A.contractId}`,
+        `2026-02-01,${B.contractId}`,
+      ]);
+    });
+
+    it('an explicit open date wins over the bound start', async () => {
+      queryContractAvailability$.mockReturnValue(of(response([A])));
+      store.setSymbol('QQQ');
+      await store.run();
+      store.applyRange({ start: '2026-02-01', end: '2026-03-01' });
+      store.setOpenDate('2026-04-01');
+
+      expect(store.emit()).toEqual([`2026-04-01,${A.contractId}`]);
+    });
   });
 
   describe('persistence', () => {

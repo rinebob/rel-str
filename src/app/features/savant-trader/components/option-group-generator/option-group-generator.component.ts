@@ -145,7 +145,7 @@ export class OptionGroupGeneratorComponent {
   /** Exact lines Send will emit — same derivation as `store.emit()` minus
    *  the `lastEmitted` side effect; memoized so the preview stays stable. */
   readonly sendLines = computed(() =>
-    toPairLines(this.store.filtered(), this.store.openDate() ?? undefined),
+    toPairLines(this.store.filtered(), this.store.openDate() || this.store.refine().aliveRange?.start),
   );
   readonly showLines = signal(false);
 

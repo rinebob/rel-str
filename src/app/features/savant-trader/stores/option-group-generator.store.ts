@@ -256,9 +256,15 @@ export const OptionGroupGeneratorStore = signalStore(
       },
 
       /** Sorted `date,id`/bare-id lines over the filtered set — the page
-       *  writes these into the pairs textarea and calls `loadPlotted`. */
+       *  writes these into the pairs textarea and calls `loadPlotted`.
+       *  An active brush fills openDate from its start (#1389): a bare
+       *  send would filter to nothing, since first-observation lands
+       *  at-or-before bound.start. An explicit openDate wins. */
       emit(): string[] {
-        const lines = toPairLines(store.filtered(), store.openDate() ?? undefined);
+        const lines = toPairLines(
+          store.filtered(),
+          store.openDate() || store.refine().aliveRange?.start,
+        );
         patchState(store, { lastEmitted: lines });
         return lines;
       },
