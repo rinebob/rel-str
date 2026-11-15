@@ -5,9 +5,12 @@
 ### Added
 - [Options Backtest] 1238-1270_SHARED-IMPL-MULTI-LEG-SPREAD: Long-call replay templates — lc-30-20 (30DTE 20Δ call) + lc-45-15 (45DTE 15Δ call); seed entries that migrate into the named-variant registry under Thread #1270
 - [Options Backtest] 1238-1485_DOCS-MULTI-LEG-SPREAD: Multi-leg Templates docs — PRD (Approved) + template catalog + SHARED/BE/FE IMPL & TEST blueprints; position-row v2 schema, two-form run request + variantSnapshot, shared selection contract, domain-model terms (Replay Position vs Position Group)
+- [Option Contract Time-Series Viewer] 1243-1389_FE-IMPL-OPTIONS: Study-range bound filters the plotted contract set — any-pick-within position semantics, bare-id first-observation proxy, hide-not-unload projection, bound-hidden chips + stranded-highlight gating, position-mode clip at in-bound pick
+- [Option Contract Time-Series Viewer] 1243-1389_FE-IMPL-OPTIONS: Generator send auto-fills openDate = bound.start while a bound is active — brushed sends land visible; explicit date wins
 
 ### Changed
 - [Options Backtest] 1238-1496_DOCS-MULTI-LEG-SPREAD: SA pick-semantics spike (#1496) — confirmed two-stage algorithm (nearest listed expiry, tie → longer DTE; then argmin |delta − signedTarget|, deterministic tie-breaks), identity-only eligibility, no liquidity filter; CODE-REVIEW PASS + UAT Complete (#1518) + IMPL-BE §0 spec pinned
+- [Option Contract Time-Series Viewer] 1243-1389_DOCS-OPTIONS: #1389 code review (PASS, 4 rounds) + UAT (Complete, #1479 — findings routed: #1514/#1515 bugs, #1516/#1517 feature asks) + AGENTS.md UAT real-example-data rule
 
 ## [2026-11-12]
 

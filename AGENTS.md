@@ -174,6 +174,16 @@ point / navigation path** (which nav link or button reaches it), and the
 tester must be able to open the app and reach the feature without knowing
 it exists.
 
+### UAT docs — real example data, never placeholders
+
+UAT scenarios must contain **concrete, verified example data**: real OCC
+contract ids, literal `date,id` paste blocks, exact bound/filter values,
+and named UI controls. Never write `{contractId}`, `{id}`, `any liquid
+symbol`, or "pick a contract" — a tester must be able to copy-paste
+verbatim. Prefer corpus-verified ids from prior UAT docs (e.g.,
+`QQQ261016C00710000` — $710 call, exp 2026-10-16, observed
+2026-03-24 → 2026-10-16).
+
 ### Doc header convention (non-negotiable)
 
 Every proj-workflow document header (PRD/IMPL/TEST/CODE-REVIEW/UAT/etc.) is
