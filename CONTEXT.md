@@ -49,8 +49,8 @@ _Avoid_: Trading Case, Order Intent, Order Ticket
 
 ## Position Group
 
-The lineage anchor that links a signal's spawned activity — one Firestore doc per accepted signal order (`st-position-groups/{SYM}-{YYMMDD}-grp-{NN}`) carrying `memberTicketIds`, `memberTradeIds`, `brokerOrderIds`, and open/closed rollups. Every spawned Order Ticket carries it via `origin.positionGroupId`; every member paper trade via `positionGroupId`. Distinct manual accepts mint separate groups; live Robinhood positions join via tax-lot `order_id` (equity) or `option_id`/`chain_id` (options). Replaces the legacy `cohortId` as the canonical grouping. Topic #984 / Task #1004.
-_Avoid_: cohort (the legacy pre-#1004 name), strategy instance, ticket batch
+The lineage anchor that links a signal's spawned activity — one Firestore doc per accepted signal order (`st-position-groups/{SYM}-{YYMMDD}-grp-{NN}`) carrying `memberTicketIds`, `memberTradeIds`, `brokerOrderIds`, and open/closed rollups. Every spawned Order Ticket carries it via `origin.positionGroupId`; every member paper trade via `positionGroupId`. Distinct manual accepts mint separate groups; live Robinhood positions join via tax-lot `order_id` (equity) or `option_id`/`chain_id` (options). Replaces the legacy `cohortId` as the canonical grouping. Topic #984 / Task #1004. Members are artifact ids, not embedded position objects — when a multi-leg strategy executes, the group is the de-facto position spanning legs (one member trade per leg). Distinct from a Replay Position (the backtest-domain selection record).
+_Avoid_: cohort (the legacy pre-#1004 name), strategy instance, ticket batch, positions array (members are id references)
 
 ## Symbol Position
 
@@ -504,7 +504,7 @@ _Avoid_: pick list, selection file, chain snapshot
 
 ## Contract List
 
-The persisted output of a Selection Replay: one row per entry date carrying the pick (contractId, strike, expiration, delta, IV, entry mark) or a `no-selection` marker for a day the Pick Document reports as a miss. Reviewable as a table; each row links to the contract's Contract Series. Distinct from Selected Positions (the Spread Time Series Viewer's session-working list).
+The persisted output of a Selection Replay: one row per entry date carrying either a Replay Position (`legs[]` of resolved contracts — a single-leg template produces exactly one) or a `no-selection` marker for a day any leg's Pick Document reports a miss, with per-leg miss detail (which coordinate failed + its SA miss status). Reviewable as a table; each row links to the contract's Contract Series. Distinct from Selected Positions (the Spread Time Series Viewer's session-working list).
 _Avoid_: trade list (no simulated trades exist yet), picks
 
 ## Symbol IV Series
@@ -521,3 +521,23 @@ _Avoid_: report (that's the rendered artifact), experiment
 
 The code-curated catalog of exit strategies (`shared/options-analysis-registry.ts`) — each entry is an `exitId` + evaluator `kind` + params (e.g., target-90, stop-200, dte-21, expiry). Every registered strategy is evaluated independently over each contract's full series through expiry; one strategy firing never truncates another's scan. Versioned via `EXIT_REGISTRY_VERSION` so result docs record which rule set produced them.
 _Avoid_: rules engine (implies a runtime DSL — entries are code, not data)
+
+## Replay Template
+
+A named selection-recipe **shape** in the code-curated template registry (`shared/options-replay-templates.ts`): an id, display name/description, leg roles with delta/DTE **bands**, and a credit/debit structure — e.g., "put credit spread: short leg 15–35Δ, long leg 5–15Δ, legs share expiry." A run consumes a Template Variant (the concrete point inside the bands), never the bare shape. Templates are immutable, generated data — no user-editing surface, no Firestore store; the registry library is extended by code, and one-off custom variants travel inline on the run request. Distinct from a Backtest Template (the strategy-registry id) and a Parametric Spread Template (the spread-builder dialog's form configuration) — three different objects sharing the word.
+_Avoid_: template doc, Firestore template, strategy preset
+
+## Template Variant
+
+One concrete instantiation of a Replay Template — every leg's coordinate pinned to a specific grid value inside the template's bands (e.g., "20Δ/5Δ @ 45DTE" from the put-credit-spread template). The unit a run actually resolves: `optionsReplayStart` accepts a variant id or an inline variant definition and stamps the resolved variant onto the run doc so the record stays self-describing. Enumerated from a template's bands at run/sweep time and discretized by the pick-doc grid (19 delta cells × 10 DTEs × 2 types).
+_Avoid_: template (that's the shape), permutation (that's a backtest-simulator concept)
+
+## Template Leg
+
+One element of a Replay Template or Template Variant. Two kinds: an **option leg** is an independent pick-doc coordinate ({option type, delta or delta-band, expiry rule}) plus an order side (BTO/STO) stamped at selection time; a **stock leg** is long/short the underlying itself, marked at the underlying price — no Pick Document, always resolves. Each option leg resolves against its own Pick Document cell and need not share type or expiry with siblings, so verticals, condors, calendars, diagonals, and covered-call hybrids (stock + option) are all expressible. Long option legs span the full grid (all deltas, all DTEs — LEAPs are a variant value, not a separate template); short legs carry low-delta bands by convention. Naked short templates exist for backtest completeness — blocking them from live/paper execution is a separate mechanism, not a registry omission. Credit/debit character for same-type same-expiry option legs derives from delta ordering (the higher-|Δ| leg is the pricier one); for calendars/diagonals the family recipe fixes it by expiry structure. Legs are atomic on option legs: a Replay Position exists only when every option leg picks on the entry date.
+_Avoid_: pick (that's one day's resolved contract), leg row
+
+## Replay Position
+
+One Contract List row — `{entryDate, legs[]}` — recording the position the Template Variant's recipe would have opened that day. The row IS the position: the unit that Result Set evaluation (exits, MAE/MFE) and review surfaces consume — never leg-granular. Exists only when every Template Leg picked that day (atomicity), otherwise the row is a `no-selection` marker carrying per-leg miss detail (which coordinate failed + its SA miss status). Its daily mark is `Σ long leg marks − Σ short leg marks`, with a leg's contribution frozen at intrinsic settlement after its own expiry — the single series fed to the Exit Registry. Distinct from a Position Group — the execution-side lineage anchor over live/paper artifacts; a Replay Position is a would-be selection record.
+_Avoid_: spread row, leg group, position group (that's the st- ledger entity)
