@@ -1,354 +1,95 @@
-// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
-// © rinebob
+// ST Trigger Bands — Thread #862 (Topic 261, indicator-lib), task #878
+// Body-based 3-bar Donchian bands with expansion-gated pullback arming and
+// breakout-event dots. Pine v6 — all sibling rb-st-* scripts are v6; the
+// migration also drops v5's bool-na semantics this port no longer needs.
+//
+// Contract (parity with functions/src/indicators/st-trigger-bands.ts +
+// functions/src/st-cloud-function/indicator-computation.ts):
+//   Bands — highest/lowest of the bar BODY (max/min of open,close) over
+//           `length` bars; na until the 3-bar window fills (engine emits
+//           null for the first length-1 bars; wicks never widen the bands).
+//   Pullback flag — long: upper <= upper[1]; short: lower >= lower[1].
+//           Flags drive band colour only — they are a warning, not a dot.
+//   Arming — a pullback may only become armed STATE after the band has
+//           expanded since the last same-side breakout (the flat bar right
+//           after a breakout is not a fresh setup). Reset-before-expansion
+//           ordering: the breakout bar's own expansion doesn't count.
+//   Breakout — armed state + band precondition (two bars ago already past
+//           the one-bar-ago band) + body crosses the band. Dots are
+//           breakout bars ONLY, anchored to the envelope ∓ 1.5*ATR — never
+//           inside the channel (backend emits the same anchor, not wicks).
+//   Both sides run independent state machines; a long breakout does not
+//   reset short expansion state.
+//
+// Warm-up: bands are na until the window fills. In Pine v6 bools cannot be
+// na — comparisons and ta.crossover/crossunder on na history already yield
+// false, which is EXACTLY the engine's null-comparison semantics, so no
+// nz() needed (v6 removed the bool overload anyway — it won't compile).
 
-//@version=5
+//@version=6
+indicator(title="ST Trigger Bands", shorttitle="ST-TB", overlay=true, timeframe="", timeframe_gaps=true)
 
-indicator(title="rb Donchian Channels", shorttitle="rbDC", overlay=true, timeframe="", timeframe_gaps=true)
+//////////////////////// INPUTS //////////////////////////
 
-import rinebob/rb_TA_lib/14 as rbLib
+// Parity with the engine holds at the default length=3 — the input exists
+// for experimentation; changing it silently diverges from the backend.
+length       = input.int(3, minval = 1)
+longColor    = input.color(color.blue,   "Long color")
+shortColor   = input.color(color.yellow, "Short color")
+neutralColor = input.color(color.white,  "Neutral band color")
 
-//#region------------------------ Donchian Channels -------------------------------
+//////////////////////// BANDS + STATE //////////////////////////
 
-//////////////////////// DONCHIAN CHANNELS ////////////////////////////////////////
-
-//////// INPUTS ////////////
-
-length = input.int(3, minval = 1)
-horzOffset = input.int(0)
-vertOffset = input.float(0.05)
-longColor = input.color(color.blue, "Long color")
-shortColor = input.color(color.yellow, "Short color")
-midpointColor = input.color(color.black, "Midpoint color")
-
-//////////// INTERNAL METHOD ///////////////////
-
-// method rbDonchianChannels(simple int length) =>
-method rbDonchianChannels(series float src_open, series float src_high, series float src_low, series float src_close, simple int length, simple bool use_body) =>
-    bodyHigh = src_open < src_close ? src_close : src_open
-    bodyLow = src_open > src_close ? src_close : src_open
-
-    highToUse = use_body ? bodyHigh : src_high
-    lowToUse = use_body ? bodyLow : src_low
-
-    // upper = ta.highest(high, length)
-    // lower = ta.lowest(low, length)
-    // Bands are na until the window fills (engine parity: TS emits nulls
-    // for the first length-1 bars, so no flags/expansions can fire early).
-    upper = bar_index >= length - 1 ? ta.highest(highToUse, length) : float(na)
-    lower = bar_index >= length - 1 ? ta.lowest(lowToUse, length) : float(na)
-    midpoint = math.avg(upper, lower)
-
-    // // Pullbacks and breakouts
-    // Arming is expansion-gated (engine parity): a pause may only ARM once
-    // the band has expanded since the last breakout — the flat bar right
-    // after a breakout is not a fresh setup. The flag still fires either
-    // way; the gate only decides which episodes can resolve into a breakout.
-    // Warm-up: bands are na until the window fills, and on the FIRST
-    // completed window the [1] band is still na — so every band
-    // comparison is wrapped in nz() to keep flags/states bool-false
-    // during warm-up exactly like the engine's null comparisons.
-    series bool longPullback = false
-    series bool longPullbackState = false
-    series bool longExpanded = false
-    longPullback := nz(upper <= upper[1], false)
-    longBreakout = nz(upper[2] >= upper[1], false) and ta.crossover(bodyHigh, upper[1]) and nz(longPullbackState[1], false)
-    longExpanded := longBreakout ? false : nz(upper > upper[1], false) ? true : nz(longExpanded[1], false)
-    longPullbackState := longBreakout ? false : longPullback and longExpanded ? true : nz(longPullbackState[1], false)
-
-
-
-    // series bool longRetrace = false
-    // series bool longRetraceState = false
-    // longRetrace := lower < lower[1] and lower[1] >= lower[2]
-    // longRetraceState := longRetrace ? true : longBreakout ? false : longRetraceState[1]
-
-
-
-    series bool shortPullback = false
-    series bool shortPullbackState = false
-    series bool shortExpanded = false
-    shortPullback := nz(lower >= lower[1], false)
-    shortBreakout = nz(lower[2] <= lower[1], false) and ta.crossunder(bodyLow, lower[1]) and nz(shortPullbackState[1], false)
-    shortExpanded := shortBreakout ? false : nz(lower < lower[1], false) ? true : nz(shortExpanded[1], false)
-    shortPullbackState := shortBreakout ? false : shortPullback and shortExpanded ? true : nz(shortPullbackState[1], false)
-
-    // series bool shortRetrace = false
-    // series bool shortRetraceState = false
-    // shortRetrace := upper > upper[1] and upper[1] <= upper[2]
-    // shortRetraceState := shortRetrace ? true : shortBreakout ? false : shortRetraceState[1]
-
-    [lower, upper, midpoint, longPullback, longPullbackState, longBreakout, shortPullback, shortPullbackState, shortBreakout]
-
-
-// [
-//  lower,
-//  upper,
-//  midpoint,
-//  longPullback,
-//  longPullbackState,
-//  longRetrace,
-//  longRetraceState,
-//  longBreakout,
-//  shortPullback,
-//  shortPullbackState,
-//  shortRetrace,
-//  shortRetraceState,
-//  shortBreakout
-//  ] = rbDonchianChannels(length)
-
-/////////////////////////////////////
-
-/////// v10 FUNCTION CALL //////////////
-
-// [
-//  lower,
-//  upper,
-//  midpoint,
-//  longPullback,
-//  longPullbackState,
-//  longRetrace,
-//  longRetraceState,
-//  longBreakout,
-//  shortPullback,
-//  shortPullbackState,
-//  shortRetrace,
-//  shortRetraceState,
-//  shortBreakout
-//  ] = rbLib.rb_donchian_channels(length)
-
-
-////////// NEW CALCULATIONS //////////////////////////
-
-// TODO: add to lib function
-// bodyHigh = open < close ? close : open
-// bodyLow = open < close ? open : close
-
-// [
-//  lower,
-//  upper,
-//  midpoint,
-//  longPullback,
-//  longPullbackState,
-//  longRetrace,
-//  longRetraceState,
-//  longBreakout,
-//  shortPullback,
-//  shortPullbackState,
-//  shortRetrace,
-//  shortRetraceState,
-//  shortBreakout
-//  ] = rbDonchianChannels(bodyHigh, bodyLow, length)
-
-[
- lower,
- upper,
- midpoint,
- longPullback,
- longPullbackState,
- longBreakout,
- shortPullback,
- shortPullbackState,
- shortBreakout
- ] = rbDonchianChannels(open, high, low, close, length, true)
-
-/////// NEW DIAGNOSTIC PLOTS //////////////
-
-// use_body = false
-use_body = true
 bodyHigh = open < close ? close : open
-bodyLow = open > close ? close : open
+bodyLow  = open > close ? close : open
 
-highToUse = use_body ? bodyHigh : high
-lowToUse = use_body ? bodyLow : low
-// upper = ta.highest(high, length)
-// lower = ta.lowest(low, length)
-// upper = ta.highest(highToUse, length)
-// lower = ta.lowest(lowToUse, length)
-// midpoint = math.avg(upper, lower)
+// Bands computed unconditionally (ta.* behind a ternary gets a history-
+// consistency warning); na until the 3-bar window fills — engine parity.
+upperRaw = ta.highest(bodyHigh, length)
+lowerRaw = ta.lowest(bodyLow,  length)
+upper = bar_index >= length - 1 ? upperRaw : float(na)
+lower = bar_index >= length - 1 ? lowerRaw : float(na)
 
-// lower =  ta.lowest(length)
-// upper =  ta.highest(length)
-// midpoint =  math.avg(upper, lower)
-// plot(midpoint, "midpoint", color = #FF6D00, offset = horzOffset, style = plot.style_stepline)
-// u = plot(upper, "Upper", color = color.red, linewidth = 3, offset = horzOffset, style = plot.style_stepline)
-// l = plot(lower, "Lower", color = color.red, linewidth = 3, offset = horzOffset, style = plot.style_stepline)
-// plot(bodyHigh, "bodyHigh", color = color.white, linewidth = 3, offset = horzOffset, style = plot.style_stepline)
-// plot(bodyLow, "bodyLow", color = color.yellow, linewidth = 3, offset = horzOffset, style = plot.style_stepline)
+// Crosses hoisted to global scope — `and` short-circuits in Pine, so a
+// ta.* call behind a condition wouldn't execute every bar (inconsistent
+// history). v6 bools can't be na: these are false while bands warm up.
+crossUp = ta.crossover(bodyHigh, upper[1])
+crossDn = ta.crossunder(bodyLow, lower[1])
 
-// // Pullbacks and breakouts
-// series bool longPullback = false
-// series bool longPullbackState = false
-// longPullback := upper <= upper[1]
-// longBreakout = upper[2] > upper[1] and ta.crossover(high, upper[1]) and longPullbackState[1] == true
-// longPullbackState := longPullback ? true : longBreakout ? false : longPullbackState[1]
+// Long side: pullback flag, breakout event, expansion latch, armed state.
+longPullback = upper <= upper[1]
+var bool longExpanded = false
+var bool longPullbackState = false
+longBreakout = upper[2] >= upper[1] and crossUp and longPullbackState[1]
+longExpanded := longBreakout ? false : upper > upper[1] ? true : longExpanded[1]
+longPullbackState := longBreakout ? false : longPullback and longExpanded ? true : longPullbackState[1]
 
+// Short side — mirrored.
+shortPullback = lower >= lower[1]
+var bool shortExpanded = false
+var bool shortPullbackState = false
+shortBreakout = lower[2] <= lower[1] and crossDn and shortPullbackState[1]
+shortExpanded := shortBreakout ? false : lower < lower[1] ? true : shortExpanded[1]
+shortPullbackState := shortBreakout ? false : shortPullback and shortExpanded ? true : shortPullbackState[1]
 
+//////////////////////// PLOTS //////////////////////////
 
-// series bool longRetrace = false
-// series bool longRetraceState = false
-// longRetrace := lower < lower[1] and lower[1] >= lower[2]
-// longRetraceState := longRetrace ? true : longBreakout ? false : longRetraceState[1]
+// Band colour: pullback flag paints the band in the OPPOSITE side's colour
+// (upper→shortColor, lower→longColor, as the original); a breakout bar paints
+// its own side's colour; neutral otherwise.
+upperColor = longPullback  ? shortColor : longBreakout  ? longColor  : neutralColor
+lowerColor = shortPullback ? longColor  : shortBreakout ? shortColor : neutralColor
 
+plot(upper, "Upper", color = upperColor, style = plot.style_stepline, linewidth = 3, force_overlay = true)
+plot(lower, "Lower", color = lowerColor, style = plot.style_stepline, linewidth = 3, force_overlay = true)
 
-
-// series bool shortPullback = false
-// series bool shortPullbackState = false
-// shortPullback := lower >= lower[1]
-// shortBreakout = lower[2] < lower[1] and ta.crossunder(low, lower[1]) and shortPullbackState[1] == true
-// shortPullbackState := shortPullback ? true : shortBreakout ? false : shortPullbackState[1]
-
-// plot(longPullback ? lower - vertOffset : na, "long pullback", color = color.blue, style = plot.style_cross, linewidth = 4)
-// plot(shortPullback ? upper + vertOffset : na, "short pullback", color = color.yellow, style = plot.style_cross, linewidth = 4)
-longRetraceColor = shortColor
-shortRetraceColor = longColor
-// retraceColor = longRetrace ? longRetraceColor : shortRetrace ? shortRetraceColor : na
-// plot(ta.sma(close, 14) - .1, "retrace", color=retraceColor, style = plot.style_stepline, linewidth = 3)
-
-// retraceStateColor = longRetraceState ? longRetraceColor : shortRetraceState ? shortRetraceColor : na
-// plot(ta.sma(close, 14) - .15, "retraceState", color=retraceStateColor, style = plot.style_stepline, linewidth = 3)
-
-
-// TODO: add to lib function and export keeping all existing exports
-// bodyLower =  lower
-// bodyUpper =  upper
-// bodyMidpoint =  math.avg(bodyLower, bodyUpper)
-
-/////// PLOTS /////////////
-// Plot colors
-upperBandColor = color.white
-lowerBandColor = color.white
-midpointBaseColor = color.black
-longPullbackColor = shortColor
-shortPullbackColor = longColor
-longBreakoutColor = longColor
-shortBreakoutColor = shortColor
-
-upperColor = longPullback ? longPullbackColor : longBreakout ? longBreakoutColor : upperBandColor
-lowerColor = shortPullback ? shortPullbackColor : shortBreakout ? shortBreakoutColor : lowerBandColor
-// upperColor = longPullback ? longPullbackColor : longBreakout ? longBreakoutColor : na
-// lowerColor = shortPullback ? shortPullbackColor : shortBreakout ? shortBreakoutColor : na
-
-// midpoint
-// plot(midpoint, "Midpoint", color = midpointColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset)
-
-// upper
-u2 = plot(upper, "Upper", color = upperColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset, force_overlay = true)
-
-// lower
-l2 = plot(lower, "Lower", color = lowerColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset, force_overlay = true)
-
-// fill
-// fill(u, l, color = color.rgb(33, 150, 243, 95), title = "Background")
-
-// plot(longBreakout ? lower - vertOffset : na, "long breakout", color = color.blue, style = plot.style_cross, linewidth = 4, force_overlay = true)
-// plot(longRetrace ? lower - vertOffset * 1.5 : na, "long retrace", color = color.purple, style = plot.style_cross, linewidth = 4)
-// plot(longRetraceState ? lower - vertOffset * 2 : na, "long retrace state", color = color.red, style = plot.style_cross, linewidth = 4)
-
-// plot(shortBreakout ? upper + vertOffset : na, "short breakout", color = color.yellow, style = plot.style_cross, linewidth = 4, force_overlay = true)
-// plot(shortRetrace ? upper + vertOffset * 1.5 : na, "short retrace", color = color.orange, style = plot.style_cross, linewidth = 4)
-// plot(shortRetraceState ? upper + vertOffset * 2 : na, "short retrace state", color = color.fuchsia, style = plot.style_cross, linewidth = 4)
-
-plot(longPullbackState ? 5 : na, "longPullbackState", color=color.yellow, style = plot.style_circles, linewidth = 3)
-plot(longBreakout ? 10 : na, "longBreakout", color=color.blue, style = plot.style_cross, linewidth = 3)
-plot(shortPullbackState ? -5 : na, "shortPullbackState", color=color.blue, style = plot.style_circles, linewidth = 3)
-plot(shortBreakout ? -10 : na, "shortBreakout", color=color.yellow, style = plot.style_cross, linewidth = 3)
-
-
-//////////////// NEW PLOTS - remove when new vars exported from lib function //////////////////////
-
-// bodyMidpoint
-// plot(bodyMidpoint, "bodyMidpoint", color = midpointColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset)
-
-// bodyUpper
-// plot(bodyUpper, "bodyUpper", color = upperColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset)
-
-// bodyLower
-// plot(bodyLower, "bodyLower", color = lowerColor, style = plot.style_stepline, linewidth = 3, offset = horzOffset)
-
-////////////  DIAGNOSTIC PLOTS //////////////////////////
-
-plot(bar_index, "Bar index", display = display.data_window, precision = 0)
-
-// new
-
-
-///////// LOGGING //////////////////
-
-formattedTime = str.format_time(time, "yyyy-MM-dd HH:mm", syminfo.timezone)
-
-log.info(
-     "\n====== rb DonChans START {0} {1} ======== \n",
-
-     formattedTime, bar_index
-  )
-
-log.info(
-     "\nprice \n
-      open: {0}\n
-      high: {1}\n
-      low: {2}\n
-      close: {3}\n
-      end price\n
-     ",
-
-     open, high, low, close
-  )
-
-// log.info(
-//      "\nchannels \n
-//       upper: {0}\n
-//       midpoint: {1}\n
-//       lower: {2}\n
-//       upper[1]: {3}\n
-//       closeCrossesAboveUpper[1]
-//       lower[1]: {4}\n
-//       closeCrossesBelowLower[1]
-//       end channels\n
-//      ",
-
-//      upper, midpoint, lower, upper[1], ta.crossover(close, upper[1]), lower[1], ta.crossunder(close, lower[1])
-//   )
-
-// log.info(
-//      "\nretrace breakouts \n
-//       longRetrace: {0}\n
-//       longRetraceState: {1}\n
-//       longPullback: {2}\n
-//       longBreakout: {3}\n
-//       shortRetrace: {4}\n
-//       shortRetraceState: {5}\n
-//       shortPullback: {6}\n
-//       shortBreakout: {7}\n
-//       end zones\n
-//      ",
-
-//      longRetrace, longRetraceState, longPullback, longBreakout, shortRetrace, shortRetraceState, shortPullback, shortBreakout
-//   )
-
-if bar_index >= last_bar_index - 10
-    log.info(
-         "\n{0} {1} idx {2}\nupper: {3,number,#.##}\nlower: {4,number,#.##}\nlongPullback: {5}\nlongPullbackState: {6}\nlongBreakout: {7}\nshortPullback: {8}\nshortPullbackState: {9}\nshortBreakout: {10}\n",
-         syminfo.ticker, formattedTime, bar_index,
-         upper,
-         lower,
-         longPullback,
-         longPullbackState,
-         longBreakout,
-         shortPullback,
-         shortPullbackState,
-         shortBreakout
-      )
-
-log.info(
-     "\n====== rb DonChans END {0} {1} ======== \n",
-
-     formattedTime, bar_index
-  )
-
-  
-
-////////////////////////////////////////////////////////////////////
-
-//#endregion------------------------ Donchian Channels -------------------------------
-
-
+// Breakout dots — breakout bars only, anchored to the envelope ∓ 1.5*ATR.
+// KNOWN DIVERGENCE: computeATR() seeds atr[0..13] with the hindsight
+// mean(tr[0..13]) — the engine emits dots for breakouts as early as bar 3;
+// ta.atr(14) is na through index 12 (first valid ATR at index 13, the 14th
+// bar) and Pine cannot replicate the lookahead — a breakout on bars 3-12
+// draws no dot here (rare; <14-bar charts get none).
+// Realtime bar: values repaint intrabar — the engine only sees closed bars.
+dotOffset = ta.atr(14) * 1.5
+plot(longBreakout  ? lower - dotOffset : na, "long breakout",  color = longColor,  style = plot.style_cross, linewidth = 4, force_overlay = true)
+plot(shortBreakout ? upper + dotOffset : na, "short breakout", color = shortColor, style = plot.style_cross, linewidth = 4, force_overlay = true)
