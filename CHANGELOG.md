@@ -12,6 +12,15 @@
 - [Options Backtest] 1238-1496_DOCS-MULTI-LEG-SPREAD: SA pick-semantics spike (#1496) — confirmed two-stage algorithm (nearest listed expiry, tie → longer DTE; then argmin |delta − signedTarget|, deterministic tie-breaks), identity-only eligibility, no liquidity filter; CODE-REVIEW PASS + UAT Complete (#1518) + IMPL-BE §0 spec pinned
 - [Option Contract Time-Series Viewer] 1243-1389_DOCS-OPTIONS: #1389 code review (PASS, 4 rounds) + UAT (Complete, #1479 — findings routed: #1514/#1515 bugs, #1516/#1517 feature asks) + AGENTS.md UAT real-example-data rule
 
+## [2026-11-13]
+
+### Changed
+- [Trading Indicator Library] 261-878_BE-IMPL-INDICATOR-LIB: Move and clean rb-st-trigger-bands.pine — Pine v6 rewrite aligned to the engine (body-based bands, expansion-gated arming, breakout-only ATR-anchored dots); removed midpoint/retrace/wick/offset/import/marker/logging cruft
+
+### Added
+- [Trading Indicator Library] 261-878_BE-TEST-INDICATOR-LIB: Pine parity audit — 28-check static contract for the cleaned export + verify registration
+- [Trading Indicator Library] 261-878_DOCS-INDICATOR-LIB: Code review (PASS, 2 rounds) + UAT (Complete, #1465)
+
 ## [2026-11-12]
 
 ### Fixed
