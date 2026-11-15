@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-11-14]
+
+### Added
+- [Options Backtest] 1238-1270_SHARED-IMPL-MULTI-LEG-SPREAD: Long-call replay templates — lc-30-20 (30DTE 20Δ call) + lc-45-15 (45DTE 15Δ call); seed entries that migrate into the named-variant registry under Thread #1270
+- [Options Backtest] 1238-1485_DOCS-MULTI-LEG-SPREAD: Multi-leg Templates docs — PRD (Approved) + template catalog + SHARED/BE/FE IMPL & TEST blueprints; position-row v2 schema, two-form run request + variantSnapshot, shared selection contract, domain-model terms (Replay Position vs Position Group)
+
+### Changed
+- [Options Backtest] 1238-1496_DOCS-MULTI-LEG-SPREAD: SA pick-semantics spike (#1496) — confirmed two-stage algorithm (nearest listed expiry, tie → longer DTE; then argmin |delta − signedTarget|, deterministic tie-breaks), identity-only eligibility, no liquidity filter; CODE-REVIEW PASS + UAT Complete (#1518) + IMPL-BE §0 spec pinned
+
 ## [2026-11-12]
 
 ### Fixed
