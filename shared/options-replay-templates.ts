@@ -37,6 +37,28 @@ export const REPLAY_TEMPLATES: readonly ReplayTemplate[] = [
       expiry: { mode: 'nearestDte', dte: 30 },
     },
   },
+  {
+    id: 'lc-30-20',
+    name: '30DTE 20Δ call (LC)',
+    description: 'Buy one 30DTE 20-delta call each trading day — long-call ladder.',
+    side: TradeSide.LONG,
+    coordinate: {
+      type: OptionType.CALL,
+      targetDelta: 0.2,
+      expiry: { mode: 'nearestDte', dte: 30 },
+    },
+  },
+  {
+    id: 'lc-45-15',
+    name: '45DTE 15Δ call (LC)',
+    description: 'Buy one 45DTE 15-delta call each trading day — long-call ladder.',
+    side: TradeSide.LONG,
+    coordinate: {
+      type: OptionType.CALL,
+      targetDelta: 0.15,
+      expiry: { mode: 'nearestDte', dte: 45 },
+    },
+  },
 ];
 
 /** Look up a template by id; undefined on miss. */
