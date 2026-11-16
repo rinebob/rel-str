@@ -417,6 +417,11 @@ const scripts: VerifyScript[] = [
     file: 'strat-manage-contracts-1538.ts',
     needsAccount: false,
   },
+  {
+    name: 'manage variant catalog',
+    file: 'strat-manage-variant-catalog-1541.ts',
+    needsAccount: false,
+  },
 ];
 
 function hasGhAuth(): boolean {

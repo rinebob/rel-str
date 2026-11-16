@@ -85,6 +85,7 @@ deliberately, on-demand.
 | #1304 — SHARED get_equity_historicals contract | [savant-trader-scanner-row-actions-1304.md](savant-trader-scanner-row-actions-1304.md) | `@robinhood-mcp/contracts` bidirectional field parity vs live captures (offline) + live tool call through the RH MCP executor | `savant-trader-scanner-row-actions-1304-contracts.ts` (offline; in run-all) + `savant-trader-scanner-row-actions-1304-live.ts` (needs local RH MCP executor at 127.0.0.1:3456; deliberately not in run-all — run directly) |
 | #1336 — BE contract availability proxy | [options-contract-availability-1336.md](options-contract-availability-1336.md) | proxy → OIDC → live SA `partnerContractAvailabilityV1` → verbatim response; local BAD_REQUEST validation; error propagation | `npx tsx scripts/verify/options-contract-availability-1336.ts` (needs ADC) |
 | #1538 — SHARED Manage instance + variant contracts | [strat-manage-contracts-1538.md](strat-manage-contracts-1538.md) | `@manage/*` alias resolution + run-state/mode/trigger vocabularies + mode⇒stop-type invariant + template band-shape + instance doc round-trip | `strat-manage-contracts-1538.ts` (no credentials) |
+| #1541 — SHARED Manage variant catalog | [strat-manage-variant-catalog-1541.md](strat-manage-variant-catalog-1541.md) | `@manage/variant-catalog` alias resolution + seed counts/uniqueness + band-shape vs concrete legs + referential integrity/band conformance + JSON round-trip + lookups | `strat-manage-variant-catalog-1541.ts` (no credentials) |
 
 ## Run All
 
