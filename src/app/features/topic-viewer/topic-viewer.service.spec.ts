@@ -41,9 +41,9 @@ describe('TopicViewerService', () => {
 
   it('calls getLifecycleTree callable and unwraps .data', async () => {
     const payload: LifecycleTreeResponse = {
-      sections: [{ name: 'Ungrouped', topics: [] }],
+      topics: [],
+      groupOrder: [],
       fetchedAt: '2026-09-28T00:00:00Z',
-      truncatedNodes: 0,
     };
     callable.mockResolvedValue({ data: payload });
 

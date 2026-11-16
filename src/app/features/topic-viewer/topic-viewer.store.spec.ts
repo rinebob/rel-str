@@ -31,8 +31,12 @@ const node = (
   ...overrides,
 });
 
-const resp = (sections: { name: string; topics: LifecycleNode[] }[]): LifecycleTreeResponse => ({
-  sections, fetchedAt: '2026-09-28T12:00:00Z', truncatedNodes: 0,
+/** Declarative section fixtures → the flat v2 response shape. */
+const resp = (groups: { name: string; topics: LifecycleNode[] }[]): LifecycleTreeResponse => ({
+  topics: groups.flatMap(s =>
+    s.topics.map(t => ({ ...t, group: s.name }))),
+  groupOrder: groups.map(s => s.name),
+  fetchedAt: '2026-09-28T12:00:00Z',
 });
 
 const FIXTURE = resp([
@@ -73,6 +77,28 @@ describe('TopicViewerStore', () => {
     sections = store.topicSections();
     expect(sections[1].topics.map(t => t.number)).toEqual([2, 3]);
     expect(sections[1].topics[1].closed).toBe(true);
+  });
+
+  it('sorts topics within a group by issue number ascending', async () => {
+    const f = resp([{
+      name: 'A', topics: [node(3), node(1), node(2)],
+    }]);
+    const store = storeWith({ getLifecycleTree$: jest.fn(() => of(f)) });
+    await store.refresh();
+    expect(store.topicSections()[0].topics.map(t => t.number)).toEqual([1, 2, 3]);
+  });
+
+  it('empty groupOrder falls back to stamped group names (degrade path)', async () => {
+    const f: LifecycleTreeResponse = {
+      topics: [{ ...node(1), group: 'Ungrouped' }],
+      groupOrder: [], fetchedAt: '2026-09-28T12:00:00Z',
+      groupingWarning: 'grouping unavailable: GitHub 500',
+    };
+    const store = storeWith({ getLifecycleTree$: jest.fn(() => of(f)) });
+    await store.refresh();
+    const sections = store.topicSections();
+    expect(sections.map(s => s.name)).toEqual(['Ungrouped']);
+    expect(sections[0].topics.map(t => t.number)).toEqual([1]);
   });
 
   it('emptied sections drop out of the list', async () => {

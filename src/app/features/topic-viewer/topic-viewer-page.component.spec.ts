@@ -18,19 +18,25 @@ import { TopicViewerStore } from './topic-viewer.store';
 import { NAV_MENU_ITEMS } from '../../core/common/constants';
 import { AppRoutes } from '../../core/common/interfaces';
 import CORE_ROUTES from '../../core/core-routes';
-import type { LifecycleNode, LifecycleTreeResponse } from '@lifecycle/contracts';
+import type { LifecycleNode, LifecycleTopic, LifecycleTreeResponse } from '@lifecycle/contracts';
 import type { TopicSectionVm, TreeRow } from './topic-viewer.store';
 
+// Children never carry `group` — the factory returns a plain LifecycleNode;
+// `topic` wraps it with the stamped group for the flat response surface.
 const node = (n: number, children: LifecycleNode[] = []): LifecycleNode => ({
   number: n, title: `Topic ${n}`, state: 'open',
   url: `https://github.com/rinebob/rel-str/issues/${n}`,
   nodeType: 'topic', stageLabel: '5_IMPLEMENT', status: 'IN PROGRESS',
   labels: [], updatedAt: '2026-09-28T00:00:00Z', children,
 });
+const topic = (n: number, children: LifecycleNode[] = []): LifecycleTopic => ({
+  ...node(n, children), group: 'A. Group',
+});
 
 const RESPONSE: LifecycleTreeResponse = {
-  sections: [{ name: 'A. Group', topics: [node(1, [node(10, [], )])] }],
-  fetchedAt: '2026-09-28T12:00:00Z', truncatedNodes: 0,
+  topics: [topic(1, [node(10)])],
+  groupOrder: ['A. Group'],
+  fetchedAt: '2026-09-28T12:00:00Z',
 };
 
 describe('TopicViewerPageComponent', () => {
@@ -67,14 +73,17 @@ describe('TopicViewerPageComponent', () => {
   });
 
   async function setup() {
+    const res = response();
     topicSections.set(
-      (response()?.sections ?? []).map(s => ({
-        name: s.name,
-        topics: s.topics.map(t => ({
-          number: t.number, title: t.title,
-          stageLabel: t.stageLabel, status: t.status, closed: false,
-        })),
-      })).filter(s => s.topics.length > 0), // matches the store's drop
+      res
+        ? res.groupOrder.map(name => ({
+            name,
+            topics: res.topics.filter(t => t.group === name).map(t => ({
+              number: t.number, title: t.title,
+              stageLabel: t.stageLabel, status: t.status, closed: false,
+            })),
+          })).filter(s => s.topics.length > 0) // matches the store's drop
+        : [],
     );
     await TestBed.configureTestingModule({
       imports: [TopicViewerPageComponent],
@@ -231,7 +240,7 @@ describe('TopicViewerPageComponent', () => {
   });
 
   function resp2Empty(): LifecycleTreeResponse {
-    return { sections: [{ name: 'Ungrouped', topics: [] }], fetchedAt: 'x', truncatedNodes: 0 };
+    return { topics: [], groupOrder: [], fetchedAt: 'x' };
   }
 });
 

@@ -19,6 +19,7 @@ import { firstValueFrom } from 'rxjs';
 
 import type {
   LifecycleNode,
+  LifecycleTopic,
   LifecycleTreeResponse,
 } from '@lifecycle/contracts';
 import {
@@ -94,17 +95,32 @@ export const TopicViewerStore = signalStore(
   withState(initialState),
 
   withComputed((store) => ({
-    /** Grouped topic list — response order preserved (BE already applied
-     *  TOPICS-INVENTORY grouping); closed topics hidden unless showClosed;
-     *  emptied sections dropped. */
+    /** Grouped topic list — flat `topics` folded into `groupOrder`
+     *  sections (contract v2, #1522); closed topics hidden unless
+     *  showClosed; emptied sections dropped. Intra-group order is the
+     *  consumer's call — issue-number ascending (v1's doc order was
+     *  effectively numeric; deterministic and stable across refreshes). */
     topicSections: computed<TopicSectionVm[]>(() => {
       const res = store.response();
       if (!res) return [];
       const showClosed = store.showClosed();
-      return res.sections
-        .map(s => ({
-          name: s.name,
-          topics: s.topics.filter(t => showClosed || t.state === 'open').map(toRow),
+      const byGroup = new Map<string, LifecycleTopic[]>();
+      for (const t of res.topics) {
+        if (!showClosed && t.state === 'closed') continue;
+        const list = byGroup.get(t.group) ?? [];
+        list.push(t);
+        byGroup.set(t.group, list);
+      }
+      const byNumber = (a: LifecycleTopic, b: LifecycleTopic) => a.number - b.number;
+      const names = [
+        ...res.groupOrder,
+        // Safety net: a stamped group absent from groupOrder still renders.
+        ...[...byGroup.keys()].filter(n => !res.groupOrder.includes(n)),
+      ];
+      return names
+        .map(name => ({
+          name,
+          topics: (byGroup.get(name) ?? []).sort(byNumber).map(toRow),
         }))
         .filter(s => s.topics.length > 0);
     }),
@@ -120,11 +136,7 @@ export const TopicViewerStore = signalStore(
       const num = store.selectedTopicNumber();
       const res = store.response();
       if (num === null || !res) return null;
-      for (const s of res.sections) {
-        const hit = s.topics.find(t => t.number === num);
-        if (hit) return hit;
-      }
-      return null;
+      return res.topics.find(t => t.number === num) ?? null;
     }),
   })),
 
@@ -186,13 +198,14 @@ export const TopicViewerStore = signalStore(
         const response = await firstValueFrom(
           service.getLifecycleTree$({ owner: repo.owner, repo: repo.repo }));
         if (store.fetchSeq() !== seq) return; // stale — a newer fetch owns the slot
+        const selected = store.selectedTopicNumber();
         patchState(store, {
           response,
           loading: false,
           fetchedAt: response.fetchedAt,
           // keep selection + expansion only if the node still exists
-          ...(store.selectedTopicNumber() !== null
-            && response.sections.every(s => !s.topics.some(t => t.number === store.selectedTopicNumber()))
+          ...(selected !== null
+            && response.topics.every(t => t.number !== selected)
             ? { selectedTopicNumber: null, expandedIds: [] }
             : {}),
         });
