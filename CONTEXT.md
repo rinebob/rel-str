@@ -541,3 +541,18 @@ _Avoid_: pick (that's one day's resolved contract), leg row
 
 One Contract List row — `{entryDate, legs[]}` — recording the position the Template Variant's recipe would have opened that day. The row IS the position: the unit that Result Set evaluation (exits, MAE/MFE) and review surfaces consume — never leg-granular. Exists only when every Template Leg picked that day (atomicity), otherwise the row is a `no-selection` marker carrying per-leg miss detail (which coordinate failed + its SA miss status). Its daily mark is `Σ long leg marks − Σ short leg marks`, with a leg's contribution frozen at intrinsic settlement after its own expiry — the single series fed to the Exit Registry. Distinct from a Position Group — the execution-side lineage anchor over live/paper artifacts; a Replay Position is a would-be selection record.
 _Avoid_: spread row, leg group, position group (that's the st- ledger entity)
+
+## Manage Template
+
+A spread **shape** for the Strategy Manage domain (`shared/manage-variant-contracts.ts`, Topic #137 Thread #1510): an id, display name, an ALL-CAPS `code` used as the instance-ID SPREAD segment, and `ManageTemplateLeg[]` slots in template-defined order — each slot a `role` + `side` (+ option type and delta/DTE **bands** for option slots), with no concrete coordinate pinned — e.g., "call debit spread: long 35–55Δ, short 25–45Δ, 25–35 DTE." Same shape-vs-concrete split as Replay Template / Template Variant, but manage templates drive live/paper instance IDs rather than pick-doc enumeration. Most templates arrive via the external catalog artifact; ad hoc variants compose in-app.
+_Avoid_: template (overloaded — Backtest Template, Replay Template, Parametric Spread Template are different objects)
+
+## Manage Variant
+
+A Manage Template bound to concrete per-leg Δ/DTE — the named recipe a Manage Instance runs: `{id, name, templateId, dte, legs: VariantLeg[]}` where legs reuse the canonical `VariantLeg` union (`OptionLeg`/`StockLeg`) from `options-replay-contracts.ts` in template-defined order — e.g., "call debit spread 50-40 30" (long 50Δ, short 40Δ, 30 DTE). Stop type is NOT part of a variant — it binds at instantiation, so one variant can run under different stops. Registry variants arrive via the external catalog artifact; ad hoc variants are ephemeral (exported to JSON, never persisted) and are embedded whole on the instance doc.
+_Avoid_: strategy (that's the loose UI noun), template variant (that's the replay-domain instantiation)
+
+## Manage Instance
+
+`variant × symbol × stopType` — a doc on `st-strategy-instances/{id}` (`shared/manage-instance-contracts.ts`) that gates whether the engine's noon-PT routine opens positions: `{id, variantRef, variant (embedded snapshot), symbol, mode, trigger, stopType, runState, userId, ...}`. The ID is `{SYM}-{SPREAD}-{DTE}-{ΔLEGS}-{STOP}` ALL CAPS — unique by construction (no duplicates; re-running toggles `runState`, never a new doc). `runState` is `UNSTARTED→ACTIVE⇄STOPPED` — deliberately NOT `lifecycleState` (new wire field, no enum reinterpretation; STOPPED inherits the legacy "no new opens, positions still managed" semantics and is restartable). `mode` is `paper|real` (v1 paper-only); `trigger` is `daily|signal` (daily = opens every noon-PT routine; signal = opens when an ST signal fires for the symbol at that routine). `stopType` is `ALL` for paper (every registered exit tracked observationally) and exactly one concrete code for real (`ALL` on real is an invariant violation — `isValidModeStopType`). Distinct from `StrategyInstanceConfig`/`StStrategyInstance` — the legacy scheduled-trader schema the manage model replaces on the same root.
+_Avoid_: strategy instance config (the legacy schema), run (that's a backtest/replay doc)

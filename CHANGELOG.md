@@ -6,6 +6,11 @@
 - [GitHub read-only issue UI] 619-1524_SHARED-IMPL-DEV-TOOLS: GitHub native sub-issue retrofit — body-section parser → live-parentage diff → `addSubIssue` apply with closed-parent reopen/`stateReason` restore; repaired 39 edges repo-wide incl. Topic #137's missing stage issues
 - [GitHub read-only issue UI] 619-1524_SHARED-TEST-DEV-TOOLS: Retrofit spec suite (32 cases: parse/diff/cycles/closed-parent ordering/lazy-ancestor) + prod verification script + run-all registry entry
 - [GitHub read-only issue UI] 619-1524_DOCS-DEV-TOOLS: Thread #697 PRD + SHARED/BE/FE IMPL/TEST blueprint docs + #1524 code review (PASS, 2 rounds) + UAT (Complete, #1553)
+- [Strategy Builder UI] 137-1538_SHARED-IMPL-STRAT-MANAGE: Manage instance + variant contracts — run-state/mode/trigger vocabularies, paper⇒ALL / real⇒concrete stop invariant w/ normalization, embedded variant snapshot, band-shape template legs
+- [Strategy Builder UI] 137-1538_CONFIG-CHORE-STRAT-MANAGE: @manage/* aliases in app + functions tsconfigs and jest moduleNameMapper
+- [Strategy Builder UI] 137-1538_SHARED-IMPL-STRAT-MANAGE: Standalone verify script (24 checks) + run-all/README registry entries
+- [Strategy Builder UI] 137-1512_DOCS-STRAT-MANAGE: Thread #1510 PRD + SHARED/BE/FE IMPL/TEST blueprint docs
+- [Strategy Builder UI] 137-1538_DOCS-STRAT-MANAGE: Code review (PASS, 2 passes) + UAT (Complete, #1555) + CONTEXT.md manage glossary
 
 ## [2026-11-14]
 
