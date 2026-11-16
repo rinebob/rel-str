@@ -19,6 +19,10 @@
 - [Strategy Builder UI] 137-1541_CONFIG-CHORE-STRAT-MANAGE: @manage/variant-catalog alias in app + functions tsconfigs and jest moduleNameMapper
 - [Strategy Builder UI] 137-1541_SHARED-IMPL-STRAT-MANAGE: Variant-catalog verify script (31 checks) + run-all/README registry entries
 - [Strategy Builder UI] 137-1541_DOCS-STRAT-MANAGE: Code review (PASS, 2 passes) + UAT (Complete, #1558) + CONTEXT.md DTE correction + changelog
+- [GitHub read-only issue UI] 619-1522_SHARED-IMPL-DEV-TOOLS: Lifecycle contract v2 — flat `LifecycleTopic[]` + `groupOrder` response shape; `assignGroups` stamps topic groups (first-section-wins, deduped `groupOrder`, `Ungrouped` sentinel); `isTopicRoot` matches `topic:` titles
+- [GitHub read-only issue UI] 619-1522_BE-IMPL-DEV-TOOLS: `getLifecycleTree` emits v2 — group-stamped flat topics + `groupOrder` + `groupingWarning` on inventory parse/stale degrade paths; truncation still throws pre-response
+- [GitHub read-only issue UI] 619-1522_FE-IMPL-DEV-TOOLS: Topic Viewer consumes v2 — groups by stamped `group`, preserves `groupOrder`, issue-number ascending within groups, selection survives in-app refresh
+- [GitHub read-only issue UI] 619-1522_SHARED-CHORE-DEV-TOOLS: 637/639/640 verify scripts re-pinned to v2 (group-stamp assertions, degrade-path gating) + README row updates
 
 ### Fixed
 - [Option Contract Time-Series Viewer] 1243-1514_FE-BUG-OPTIONS: Armed study-range brush draws its own cursor feedback — capture-layer px feeds the hovered category (cursor line + top-edge date tag), live resolved {start} – {end} label on the drag rect previews exactly what the gesture emits (corpus-snapped), anchor panel stays populated; MIN_DRAG_PX single-sourced
@@ -31,6 +35,7 @@
 - [Savant Design System] 1024-1476_FE-IMPL-DESIGN-SYSTEM: run-controls toolbar dedup — .pill-btn → dse-chip, .filter-input → new input.dse-input compact element-form; duplicated chrome deleted from both stylesheets
 - [Savant Design System] 1024-1476_DOCS-DESIGN-SYSTEM: #1476 code review (PASS) + UAT (Complete, #1480) + changelog
 - [Portfolio Dashboard] 219-1474_DOCS-PORTFOLIO: #1474 code review (PASS, 3 axes) + UAT (Complete, #1482) + changelog
+- [GitHub read-only issue UI] 619-1522_DOCS-DEV-TOOLS: #1522 code review (PASS, 2 rounds) + UAT (Complete, #1556) + PRD/IMPL/TEST re-sync (issue-number ordering, Ungrouped sentinel, degrade warnings)
 
 ## [2026-11-14]
 

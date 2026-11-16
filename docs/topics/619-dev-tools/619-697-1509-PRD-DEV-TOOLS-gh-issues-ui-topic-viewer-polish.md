@@ -244,7 +244,8 @@ Group membership is data; grouping and sorting are view concerns owned
 by the store's computeds. The flat shape is what makes sort-by-number
 possible without re-flattening sections, and it simplifies search
 predicates. Sort modes: `grouped` (default — `groupOrder`, then
-updatedAt-desc within group) and `number` (ascending). Ungrouped topics
+issue-number ascending within group — QA-correction on #1522; v1's doc
+order was effectively numeric) and `number` (ascending). Ungrouped topics
 carry the existing `UNGROUPED_SECTION` sentinel as their `group`.
 
 The change is breaking but internal — the callable's only consumer is
@@ -280,8 +281,10 @@ this page and they deploy together; no versioning needed.
   50 and pages subIssues to completion; the 120s timeout is the hard
   bound. Caching/pagination stays out of scope unless the timeout trips.
 - **Group source.** `group`/`groupOrder` come from
-  `docs/dev-notes/TOPICS-INVENTORY.md` (already fetched); absent/degraded
-  doc → `groupingWarning` + Ungrouped, unchanged semantics.
+  `docs/dev-notes/TOPICS-INVENTORY.md` (already fetched); absent doc →
+  flat Ungrouped, no warning; degraded doc (non-404 fetch failure,
+  parse-null, or listing none of the fetched topics) → `groupingWarning`
+  + Ungrouped — the 404 semantics of v1, extended for drift.
 - **av-proxy-api** has no GitHub Project (Status absent) — unaffected;
   it *does* need the retrofit (its Topics predate native sub-issues).
 - **Post-write freshness** — the store patches the written node's labels

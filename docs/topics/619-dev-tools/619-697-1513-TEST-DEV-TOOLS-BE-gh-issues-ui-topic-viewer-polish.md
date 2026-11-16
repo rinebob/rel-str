@@ -24,7 +24,8 @@
 ## Integration Tests
 - `handleGetLifecycleTree` with injected `fetchData`: roots lacking
   `Topic:` titles are filtered pre-BFS; response shape matches the
-  SHARED contract; `groupingWarning` paths unchanged.
+  SHARED contract; `groupingWarning` paths extended — stale-doc case
+  (parses but lists no fetched topics) warns; 404 still silent.
 - Write callables with injected `githubRest`: add-existing → POST
   labels only; add-missing → create + attach order; remove → DELETE per
   name; `manageRepoLabel` ops map to POST/PATCH/DELETE correctly;

@@ -37,8 +37,8 @@
   labels; failed writes leave the response untouched and set `error`.
 
 ## Unit Tests
-- Sort modes: grouped (groupOrder + updatedAt-desc within) vs number
-  (asc flat); closed filtering in both.
+- Sort modes: grouped (groupOrder + issue-number asc within — #1522 QA
+  correction) vs number (asc flat); closed filtering in both.
 - Search predicates: title substring (case-insensitive), `154`/`#154`
   number match, label substring; empty query → no filtering/matching.
 - MatchSet/ancestors: match at depth 3 expands its ancestors only;

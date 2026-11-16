@@ -50,7 +50,8 @@ the callable (internal API, no versioning). `LifecycleNode` is unchanged
 - **`assignGroups(roots, groups)`** replaces `orderTopics`. Input: the
   built topic trees + parsed inventory groups. Output: each root stamped
   with its `group` (first inventory section containing its number, else
-  `UNGROUPED_SECTION`) + `groupOrder` (section names in doc order). No
+  `UNGROUPED_SECTION`) + `groupOrder` (deduped section names in doc order;
+  `UNGROUPED_SECTION` appended when ungrouped roots exist). No
   sorting — order is decided by the consumer.
 - **`isTopicRoot(title)`** — `^topic:` case-insensitive on the trimmed
   title. Shared so the BE root filter and the retrofit script apply the

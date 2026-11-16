@@ -25,8 +25,10 @@ three label callables.
 
 - **Flat response**: `response.topics: LifecycleTopic[]` replaces
   `sections`. `topicSections` recomputed = group by `group`, order groups
-  by `groupOrder` (+ Ungrouped last), topics sorted updatedAt-desc within
-  group, `showClosed` filter — preserves today's default view exactly.
+  by `groupOrder` (+ Ungrouped last), topics sorted issue-number
+  ascending within group (QA course-correction on #1522 — v1's doc order
+  was effectively numeric; user wants number order, not updatedAt),
+  `showClosed` filter — preserves today's default view exactly.
 - **Sort**: `sortMode: 'grouped' | 'number'` signal + `visibleTopics`
   computed — `grouped` renders `topicSections`; `number` renders one flat
   ascending-by-`number` list (no section headers).

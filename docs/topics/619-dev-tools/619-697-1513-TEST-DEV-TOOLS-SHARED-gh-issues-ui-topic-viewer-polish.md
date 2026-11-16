@@ -31,7 +31,8 @@
 - `isTopicRoot`: "Topic: x"/"TOPIC: x" pass; "Thread: Topic Viewer…",
   "INVENTORY: Topic Viewer…", "Idea: Topic Viewer…", plain titles fail.
 - `assignGroups`: roots get doc-order groups; unlisted →
-  `UNGROUPED_SECTION`; `groupOrder` mirrors doc order; absent doc → all
+  `UNGROUPED_SECTION`; `groupOrder` mirrors doc order (deduped; Ungrouped
+  sentinel appended when ungrouped roots exist); absent doc → all
   Ungrouped + empty `groupOrder`.
 - `isSystemLabel`: stage labels (`1_IDEA`…`8_LIVE`), structural, DOMAIN,
   Category names excluded; arbitrary names pass.
