@@ -16,10 +16,12 @@
 
 ### Fixed
 - [Option Contract Time-Series Viewer] 1243-1514_FE-BUG-OPTIONS: Armed study-range brush draws its own cursor feedback — capture-layer px feeds the hovered category (cursor line + top-edge date tag), live resolved {start} – {end} label on the drag rect previews exactly what the gesture emits (corpus-snapped), anchor panel stays populated; MIN_DRAG_PX single-sourced
+- [Portfolio Dashboard] 219-1474_FE-BUG-PORTFOLIO: Position feeds walk pages to exhaustion — equity+option positions cursor-walk via shared walkPages; dashboard lockstep rounds w/ get_portfolio ride-along; snapshot raw walk; deep positions can no longer silently vanish
 
 ### Changed
 - [Options Backtest] 1238-1491_DOCS-MULTI-LEG-SPREAD: #1491 code review (PASS, 2 rounds) + UAT (Complete, #1552)
 - [Option Contract Time-Series Viewer] 1243-1514_DOCS-OPTIONS: #1514 code review (PASS, 2 rounds) + UAT (Complete, #1551)
+- [Portfolio Dashboard] 219-1474_DOCS-PORTFOLIO: #1474 code review (PASS, 3 axes) + UAT (Complete, #1482) + changelog
 
 ## [2026-11-14]
 
