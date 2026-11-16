@@ -28,6 +28,14 @@ const THREAD_TITLE_PATTERN = /^thread:/i;
 
 export const UNGROUPED_SECTION = 'Ungrouped';
 
+/** Topic roots are issues whose title starts with `Topic:` (case-insensitive).
+ *  One rule for both consumers: the BE root filter (#1527) and the retrofit
+ *  script's anchor enumeration — `Thread:`/`INVENTORY:`/`Idea:` titles that
+ *  merely contain "Topic" must not pass. */
+export function isTopicRoot(title: string): boolean {
+  return /^topic:/i.test(title.trim());
+}
+
 /** Raw issue row shape the fetch shell produces (GitHub casing). */
 export interface LifecycleRawIssue {
   number: number;
