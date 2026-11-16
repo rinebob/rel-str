@@ -29,12 +29,11 @@ ejs-chart {
     display: none;
   }
 }
-/* Cursor-following date tag — anchor mode's replacement for the hidden
-   shared-tooltip header. Sits at the top edge over the crosshair's x. */
-.dw-date {
+/* Shared floating-tag chip — the cursor date tag at the top edge and the
+   drag rect's resolved-range label use the same visual language. */
+.dw-date,
+.brush-rect-label {
   position: absolute;
-  top: 4px;
-  z-index: 6;
   transform: translateX(-50%);
   padding: 1px 8px;
   border-radius: 4px;
@@ -44,6 +43,13 @@ ejs-chart {
   color: var(--mat-sys-on-surface);
   pointer-events: none;
   white-space: nowrap;
+}
+
+/* Cursor-following date tag — anchor mode's replacement for the hidden
+   shared-tooltip header. Sits at the top edge over the crosshair's x. */
+.dw-date {
+  top: 4px;
+  z-index: 6;
 }
 
 .dw-panel {
@@ -110,12 +116,30 @@ ejs-chart {
   user-select: none;
 }
 
+/* Armed cursor line — replaces Syncfusion's crosshair while the capture
+   layer owns the mouse. Sits on the hovered category's slot-center px. */
+.brush-cursor {
+  position: absolute;
+  z-index: 4;
+  width: 1px;
+  pointer-events: none;
+  background: var(--mat-sys-outline);
+  opacity: 0.6;
+}
+
 .brush-rect {
   position: absolute;
   z-index: 4;
   pointer-events: none;
   background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
   border: 1px dashed var(--mat-sys-primary);
+}
+
+/* Live resolved edge dates over the drag rect — previews exactly the
+   {start, end} the gesture will emit, corpus-snapped like the band.
+   Position comes from the template's inline styles. */
+.brush-rect-label {
+  z-index: 5;
 }
 
 .brush-band {

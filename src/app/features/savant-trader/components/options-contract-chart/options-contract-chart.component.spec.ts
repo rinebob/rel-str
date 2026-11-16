@@ -799,6 +799,123 @@ describe('OptionsContractChartComponent', () => {
       fixture.detectChanges();
       expect(emitted).toEqual([a.contractId, null]);
     });
+
+    // #1514 — the capture layer swallows Syncfusion's mousemove, so hover
+    // date feedback must come from the brush's own move path.
+    describe('cursor date feedback while armed', () => {
+      it('shows the top-edge date tag and a vertical cursor line on hover', () => {
+        setupBrush();
+        component.brushMoveTo(340); // idx 3 → 2026-06-04 → px 340
+        fixture.detectChanges();
+
+        const tag = fixture.nativeElement.querySelector('.dw-date') as HTMLElement;
+        expect(tag).not.toBeNull();
+        expect(tag.textContent).toContain('2026-06-04');
+        expect(tag.style.left).toBe('340px');
+
+        const line = fixture.nativeElement.querySelector('.brush-cursor') as HTMLElement;
+        expect(line).not.toBeNull();
+        expect(line.style.left).toBe('340px');
+        expect(line.style.top).toBe('20px');
+        expect(line.style.height).toBe('300px');
+      });
+
+      it('tracks the moving edge during a drag', () => {
+        setupBrush();
+        component.brushDownAt(150);
+        component.brushMoveTo(420); // idx 4 → 2026-06-05 → tag at px 420
+        fixture.detectChanges();
+
+        const tag = fixture.nativeElement.querySelector('.dw-date') as HTMLElement;
+        expect(tag.textContent).toContain('2026-06-05');
+        const line = fixture.nativeElement.querySelector('.brush-cursor') as HTMLElement;
+        expect(line.style.left).toBe('420px');
+      });
+
+      it('leaving the capture layer hides the cursor feedback (float mode)', () => {
+        setupBrush();
+        component.brushMoveTo(340);
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.brush-cursor')).not.toBeNull();
+
+        component.brushCancel();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.brush-cursor')).toBeNull();
+        expect(fixture.nativeElement.querySelector('.dw-date')).toBeNull();
+      });
+
+      it('disarming hides the cursor line', () => {
+        setupBrush();
+        component.brushMoveTo(340);
+        fixture.detectChanges();
+        fixture.componentRef.setInput('brushArmed', false);
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.brush-cursor')).toBeNull();
+      });
+
+      it('a mid-drag rect labels the live resolved edge dates', () => {
+        setupBrush();
+        component.brushDownAt(150);
+        component.brushMoveTo(330);
+        fixture.detectChanges();
+
+        const label = fixture.nativeElement.querySelector('.brush-rect-label') as HTMLElement;
+        expect(label).not.toBeNull();
+        expect(label.textContent).toContain('2026-06-02');
+        expect(label.textContent).toContain('2026-06-04');
+      });
+
+      it('the drag label snaps through the corpus when the drawer has fetched', () => {
+        setupBrush(['2026-06-02', '2026-06-04']);
+        component.brushDownAt(180);
+        component.brushMoveTo(500); // → 06-05 axis label → corpus clamps to 06-04
+        fixture.detectChanges();
+
+        const label = fixture.nativeElement.querySelector('.brush-rect-label') as HTMLElement;
+        expect(label.textContent).toContain('2026-06-02');
+        expect(label.textContent).toContain('2026-06-04');
+      });
+
+      it('a sub-2px click shows no edge labels', () => {
+        setupBrush();
+        component.brushDownAt(200);
+        component.brushMoveTo(201);
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.brush-rect-label')).toBeNull();
+      });
+
+      // Anchor mode keeps the last category on every cursor-release path —
+      // the pinned panel must stay populated so the user can scroll into it.
+      it('anchor mode keeps the category on leave and on disarm', () => {
+        fixture.componentRef.setInput('tooltipMode', 'anchor');
+        setupBrush();
+        component.brushMoveTo(340);
+        fixture.detectChanges();
+
+        component.brushCancel();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.dw-date')).not.toBeNull();
+
+        fixture.componentRef.setInput('brushArmed', false);
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.dw-date')).not.toBeNull();
+      });
+
+      it('anchor mode populates the pinned panel while armed', () => {
+        fixture.componentRef.setInput('tooltipMode', 'anchor');
+        setupBrush();
+        fixture.componentRef.setInput('plottedSeries', [contract({ points: [obs('2026-06-01', 10)] })]);
+        fixture.detectChanges();
+
+        component.brushMoveTo(340);
+        fixture.detectChanges();
+        const panel = fixture.nativeElement.querySelector('.dw-panel') as HTMLElement;
+        expect(panel).not.toBeNull();
+        // The contract's marker endpoints union into axisLabels and shift
+        // the index mapping — assert the row value landed, not a date.
+        expect(panel.textContent).toContain('$10.00');
+      });
+    });
   });
 
   describe('data window', () => {

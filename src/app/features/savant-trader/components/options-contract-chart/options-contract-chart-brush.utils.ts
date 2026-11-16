@@ -24,6 +24,11 @@ export interface AxisSpace {
   delta: number;
 }
 
+/** Sub-threshold gestures are clicks, not selections — shared by the
+ *  live-snap gate, the drag label, and the emit gate so all three agree
+ *  on what counts as a drag. */
+export const MIN_DRAG_PX = 2;
+
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
 /** Chart-space px → nearest category index, clamped to [0, count-1]. */

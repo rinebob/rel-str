@@ -44,6 +44,7 @@ import {
   nearestIndexByDate,
   pxToCategoryIndex,
   resolveBrushRange,
+  MIN_DRAG_PX,
   type AxisSpace,
 } from './options-contract-chart-brush.utils';
 import {
@@ -424,10 +425,29 @@ export class OptionsContractChartComponent implements OnDestroy {
    *  indices are visibleSeries positions — the same domain as the series
    *  collection — so cancelled markers still consume their slots (marks
    *  are always 0..n-1 either way). */
-  /** The cursor's category — feeds the anchored data window. Kept after
+  /** The cursor's category — feeds the anchored data window, the
+   *  top-edge date tag, and the armed brush cursor line. Kept after
    *  mouse-leave so the pinned panel stays populated while the user
    *  moves into it to scroll. */
   private readonly hoveredAxisIndex = signal<number | null>(null);
+
+  /** px → hoveredAxisIndex. The only writer — Syncfusion's mousemove
+   *  (onChartMouseMove) and the armed capture layer (brushMoveTo) feed
+   *  the cursor's category through here. */
+  private trackHoveredIndex(px: number): void {
+    const space = this.axisSpace();
+    if (space) {
+      this.hoveredAxisIndex.set(pxToCategoryIndex(px, space, this.axisLabels().length));
+    }
+  }
+
+  /** Release the cursor's category unless anchor mode must keep it —
+   *  the pinned panel/date tag stay populated at the last category so
+   *  the user can scroll into the panel. One guard for every path that
+   *  drops cursor state (leave, cancel, disarm). */
+  private releaseHoveredIndex(): void {
+    if (this.tooltipMode() !== 'anchor') this.hoveredAxisIndex.set(null);
+  }
 
   /** 'anchor' data window — an HTML panel because Syncfusion's tooltip is
    *  SVG-rendered (unscrollable, and every positioning seam drags the
@@ -471,10 +491,7 @@ export class OptionsContractChartComponent implements OnDestroy {
   });
 
   onChartMouseMove(event: IMouseEventArgs): void {
-    const space = this.axisSpace();
-    if (space) {
-      this.hoveredAxisIndex.set(pxToCategoryIndex(event.x, space, this.axisLabels().length));
-    }
+    this.trackHoveredIndex(event.x);
     // Armed brush: mouse semantics are drag, not hover.
     if (this.brushArmed()) return;
     const target = event.target ?? '';
@@ -495,7 +512,7 @@ export class OptionsContractChartComponent implements OnDestroy {
     this.emitHover(null);
     // Anchor keeps the last category (the panel must stay populated for
     // scrolling); float/hidden clear so the tag vanishes with the cursor.
-    if (this.tooltipMode() !== 'anchor') this.hoveredAxisIndex.set(null);
+    this.releaseHoveredIndex();
   }
 
   // ── Study-range brush (FE-4) ───────────────────────────────────────
@@ -557,7 +574,7 @@ export class OptionsContractChartComponent implements OnDestroy {
     let right = clamp(Math.max(d.startPx, d.currentPx));
     // Live snap — resolve() + nearestIndexByDate mirror brushUpAt's emit
     // and brushBand's positioning, so the band lands where the rect is.
-    if (right - left >= 2) {
+    if (right - left >= MIN_DRAG_PX) {
       const labels = this.axisLabels();
       const range = resolveBrushRange(d.startPx, d.currentPx, space, labels, this.brushCorpus());
       if (range) {
@@ -570,6 +587,29 @@ export class OptionsContractChartComponent implements OnDestroy {
       }
     }
     return { left, width: Math.max(0, right - left), top: space.y, height: space.height };
+  });
+
+  /** Armed cursor line — the capture layer blocks Syncfusion's own
+   *  crosshair, so the brush draws its own at the hovered category
+   *  (same slot-center px as the top-edge date tag). */
+  readonly brushCursor = computed(() => {
+    if (!this.brushArmed()) return null;
+    const idx = this.hoveredAxisIndex();
+    const space = this.axisSpace();
+    if (idx == null || !space) return null;
+    return { left: categoryIndexToPx(idx, space), top: space.y, height: space.height };
+  });
+
+  /** Live resolved edge dates for the in-flight drag — the same
+   *  resolveBrushRange brushUpAt emits, so the label previews exactly
+   *  what the gesture will apply. Null for clicks (<2px) and before
+   *  the axis reports geometry. */
+  readonly dragRange = computed(() => {
+    if (!this.brushArmed()) return null;
+    const d = this.brushDrag();
+    const space = this.axisSpace();
+    if (!d || !space || Math.abs(d.currentPx - d.startPx) < MIN_DRAG_PX) return null;
+    return resolveBrushRange(d.startPx, d.currentPx, space, this.axisLabels(), this.brushCorpus());
   });
 
   /** The active refine bound as a faint band, positioned at the bound
@@ -614,8 +654,12 @@ export class OptionsContractChartComponent implements OnDestroy {
     this.brushDrag.set({ startPx: px, currentPx: px });
   }
 
-  /** Track the drag edge — no-op outside a gesture. */
+  /** Track the drag edge — and the armed cursor itself. The capture
+   *  layer swallows Syncfusion's mousemove, so hover-date feedback
+   *  (date tag, cursor line, anchor panel) is fed from this path
+   *  instead of onChartMouseMove. */
   brushMoveTo(px: number): void {
+    this.trackHoveredIndex(px);
     const d = this.brushDrag();
     if (d) this.brushDrag.set({ ...d, currentPx: px });
   }
@@ -630,22 +674,32 @@ export class OptionsContractChartComponent implements OnDestroy {
     this.brushDrag.set(null);
     // Sub-2px gestures are clicks, not selections — don't silently apply
     // an accidental same-day bound.
-    if (!d || !space || Math.abs(px - d.startPx) < 2) return;
+    if (!d || !space || Math.abs(px - d.startPx) < MIN_DRAG_PX) return;
     const range = resolveBrushRange(d.startPx, px, space, this.axisLabels(), this.brushCorpus());
     if (range) this.studyRange.emit(range);
   }
 
   /** Disarm mid-drag drops the gesture so a re-arm starts fresh —
    *  prevents a stray mouseup emitting from a stale start px. Arming
-   *  also clears any frozen hover highlight (mouse = drag, not hover). */
+   *  also clears any frozen hover highlight (mouse = drag, not hover),
+   *  and disarming releases the armed cursor's category (non-anchor
+   *  modes hand hover back to Syncfusion's own mousemove). */
   readonly clearDragOnDisarm = effect(() => {
-    if (this.brushArmed()) this.emitHover(null);
-    else this.brushDrag.set(null);
+    if (this.brushArmed()) {
+      this.emitHover(null);
+    } else {
+      this.brushDrag.set(null);
+      this.releaseHoveredIndex();
+    }
   });
 
-  /** Pointer left the chart mid-drag — drop the gesture, keep armed. */
+  /** Pointer left the chart mid-drag — drop the gesture, keep armed.
+   *  Also drops the armed cursor feedback; anchor keeps the last
+   *  category (same rule as onChartMouseLeave — the panel must stay
+   *  populated for scrolling). */
   brushCancel(): void {
     this.brushDrag.set(null);
+    this.releaseHoveredIndex();
   }
 
   /** Esc cancels an in-flight drag and disarms. */

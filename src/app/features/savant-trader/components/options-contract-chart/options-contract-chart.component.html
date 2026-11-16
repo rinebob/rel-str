@@ -62,6 +62,15 @@
     ></div>
   }
 
+  @if (brushCursor(); as cur) {
+    <div
+      class="brush-cursor"
+      [style.left.px]="cur.left"
+      [style.top.px]="cur.top"
+      [style.height.px]="cur.height"
+    ></div>
+  }
+
   @if (dragRect(); as r) {
     <div
       class="brush-rect"
@@ -70,5 +79,12 @@
       [style.width.px]="r.width"
       [style.height.px]="r.height"
     ></div>
+    @if (dragRange(); as range) {
+      <div
+        class="brush-rect-label"
+        [style.left.px]="r.left + r.width / 2"
+        [style.top.px]="r.top + 8"
+      >{{ range.start }} – {{ range.end }}</div>
+    }
   }
 </div>
