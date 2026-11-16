@@ -208,9 +208,17 @@ select.dse-select {
   background-repeat: no-repeat;
   background-position: right var(--ds-space-3) center;
 }
+// Element form for text inputs — canonical usage <input class="dse-input">,
+// mirrors select.dse-select (emits the same ds-input-chrome). Text-like
+// inputs only — checkbox/radio/number get their own primitives.
+input.dse-input {
+  @include savant-ds.ds-input-chrome;
+}
+
 // Compact toolbar variant — dense filter/toolbar rows (was the local
 // 24px select pattern in backtest/order-ticket/picker toolbars).
-select.dse-select.compact {
+select.dse-select.compact,
+input.dse-input.compact {
   height: 24px;
   font-size: 11px;
 }

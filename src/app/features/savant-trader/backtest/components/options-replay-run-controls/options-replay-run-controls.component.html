@@ -21,7 +21,7 @@
         @for (option of statusOptions; track option.value) {
           <button
             type="button"
-            class="pill-btn"
+            class="dse-chip"
             [class.active]="statusFilter() === option.value"
             [attr.aria-pressed]="statusFilter() === option.value"
             (click)="onStatus(option.value)">
@@ -46,7 +46,7 @@
       <input
         #symbolInput
         type="text"
-        class="filter-input symbol-input"
+        class="filter-input symbol-input dse-input compact"
         aria-label="Filter by symbol"
         placeholder="e.g. SPY"
         [value]="symbolSearch()"
@@ -74,7 +74,7 @@
       <div class="filter-group">
         <button
           type="button"
-          class="pill-btn clear-filters-btn"
+          class="dse-chip clear-filters-btn"
           (click)="resetFilters.emit()">
           Clear filters
         </button>

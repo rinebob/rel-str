@@ -56,37 +56,9 @@
   gap: 3px;
 }
 
-.pill-btn {
-  border: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface-container-highest);
-  color: var(--mat-sys-on-surface-variant);
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s, border-color 0.1s;
-  white-space: nowrap;
-  line-height: 1.4;
-
-  &:hover { border-color: var(--mat-sys-outline); }
-
-  &.active {
-    background: var(--mat-sys-primary-container);
-    color: var(--mat-sys-on-primary-container);
-    border-color: var(--mat-sys-primary-container);
-  }
-}
-
-.filter-input {
-  height: 24px;
+// Sizing hooks only — chrome comes from .dse-chip / .dse-input.compact.
+.filter-group .filter-input {
   width: 90px;
-  padding: 2px 6px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 6px;
-  background: var(--mat-sys-surface-container-highest);
-  color: var(--mat-sys-on-surface);
-  font-size: 11px;
 }
 
 .filter-select {

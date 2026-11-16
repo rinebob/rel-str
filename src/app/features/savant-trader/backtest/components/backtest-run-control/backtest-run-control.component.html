@@ -28,7 +28,7 @@
         @for (option of statusOptions; track option.value) {
           <button
             type="button"
-            class="pill-btn"
+            class="dse-chip"
             [class.active]="statusFilter() === option.value"
             (click)="onStatus(option.value)">
             {{ option.label }}
@@ -43,7 +43,7 @@
         @for (option of dateOptions; track option.value) {
           <button
             type="button"
-            class="pill-btn"
+            class="dse-chip"
             [class.active]="dateFilter() === option.value"
             (click)="onDate(option.value)">
             {{ option.label }}
@@ -67,7 +67,7 @@
       <input
         #symbolInput
         type="text"
-        class="filter-input"
+        class="filter-input dse-input compact"
         placeholder="e.g. SPY"
         [value]="symbolSearch()"
         (input)="onSymbolSearch(symbolInput.value)" />
@@ -78,7 +78,7 @@
       <input
         #configInput
         type="text"
-        class="filter-input"
+        class="filter-input dse-input compact"
         placeholder="e.g. dropPct"
         [value]="configSearch()"
         (input)="onConfigSearch(configInput.value)" />
@@ -104,7 +104,7 @@
     <div class="filter-group">
       <button
         type="button"
-        class="pill-btn"
+        class="dse-chip"
         [class.active]="includeArchived()"
         (click)="toggleIncludeArchived()">
         Include archived

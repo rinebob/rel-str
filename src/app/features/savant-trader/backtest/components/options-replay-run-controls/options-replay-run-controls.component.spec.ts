@@ -44,7 +44,7 @@ describe('OptionsReplayRunControlsComponent', () => {
     const spy = jest.fn();
     component.statusFilterChange.subscribe(spy);
 
-    const pills = el.querySelectorAll<HTMLButtonElement>('.status-pills .pill-btn');
+    const pills = el.querySelectorAll<HTMLButtonElement>('.status-pills .dse-chip');
     // All / Pending / Running / Success / Failed / Cancelled — click 'Failed'
     pills[4].click();
     expect(spy).toHaveBeenCalledWith('failed');
@@ -55,7 +55,7 @@ describe('OptionsReplayRunControlsComponent', () => {
     fixture.componentRef.setInput('statusFilter', 'success');
     fixture.detectChanges();
 
-    const active = el.querySelector('.status-pills .pill-btn.active')!;
+    const active = el.querySelector('.status-pills .dse-chip.active')!;
     expect(active.textContent!.trim()).toBe('Success');
   });
 
@@ -95,6 +95,13 @@ describe('OptionsReplayRunControlsComponent', () => {
     input.value = 'spy';
     input.dispatchEvent(new Event('input'));
     expect(spy).toHaveBeenCalledWith('spy');
+  });
+
+  it('renders the symbol input as a dse-input compact (#1476)', async () => {
+    const { el } = await setup();
+    const input = el.querySelector<HTMLInputElement>('.symbol-input')!;
+    expect(input.classList.contains('dse-input')).toBe(true);
+    expect(input.classList.contains('compact')).toBe(true);
   });
 
   it('emits sortByChange on sort select change', async () => {
