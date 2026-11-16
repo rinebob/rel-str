@@ -62,6 +62,7 @@ const scripts = [
   'indicator-lib-878-pine-parity.ts',
   'options-analysis-all-otm-1431.ts',
   'options-replay-leg-contracts-1491.ts',
+  'options-replay-template-registries-1492.ts',
 ];
 
 let passed = 0;

@@ -73,8 +73,8 @@ npx tsx scripts/verify/{script-name}.ts
 | #1401 | `pick-doc-404-semantics-1401.ts` | pick-doc 404 semantics vs live SA — happy path, shard-gap `NOT_FOUND` skip, bogus-endpoint infra-404 propagation (read-only, needs impersonation/ADC) | [pick-doc-404-semantics-1401.md](pick-doc-404-semantics-1401.md) |
 | #878 | `indicator-lib-878-pine-parity.ts` | static audit — rb-st-trigger-bands.pine cleanup (no cruft) + engine-parity contract (gated arming, breakout-only envelope dots); read-only, no env | [indicator-lib-878-pine-parity.md](indicator-lib-878-pine-parity.md) |
 | #1431 | `options-analysis-all-otm-1431.ts` | expired-fields probe — intrinsic↔ITM invariant per record, ITM/OTM census per doc, nearest-the-money recompute vs the worker's underlying-close source (read-only, needs ADC) | inline usage in script header |
-
 | #1491 | `options-replay-leg-contracts-1491.ts` | run-doc `getRun` inputs (templateId/startDate on every run) + `legToPickDocCoordinate` registry parity + persisted `pickDocMeta.coordinate` chain (read-only, needs ADC) | [options-replay-leg-contracts-1491.md](options-replay-leg-contracts-1491.md) |
+| #1492 | `options-replay-template-registries-1492.ts` | two-registry audit — shape structure/bands on-grid + unique ids + migration parity (4 legacy verbatim) + every prod run's templateId resolves via `getReplayTemplate` and `getReplayVariant` (read-only, needs ADC) | [options-replay-template-registries-1492.md](options-replay-template-registries-1492.md) |
 
 ## Order across tasks
 
@@ -118,6 +118,7 @@ npx tsx scripts/verify/{script-name}.ts
 45. **#878** — `indicator-lib-878-pine-parity.ts` (static audit of the Trigger Bands Pine export — cleanup + engine-parity contract; instant, read-only, no env)
 46. **#1431** — `options-analysis-all-otm-1431.ts` (expired-fields correctness vs live result docs: record-level intrinsic↔ITM invariant, per-doc ITM/OTM census, nearest-the-money spot recompute against `getCachedBarsFromSymbolData`; read-only, needs ADC)
 47. **#1491** — `options-replay-leg-contracts-1491.ts` (post-payload-shrink audit: every run doc carries the worker's `getRun` fields; `legToPickDocCoordinate` reproduces each registry coordinate and the persisted `pickDocMeta.coordinate`; read-only, needs ADC)
+48. **#1492** — `options-replay-template-registries-1492.ts` (post-two-registry audit: every shape's bands land on the pick-doc grid and ids are unique; the four legacy templates migrate verbatim — name/side/coordinate; every prod run's `templateId` resolves via both the legacy and variant surfaces; read-only, needs ADC)
 
 <!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their
 target scripts (migrate-*, sweep-unlisted-to-new, qa-probe-1008) — the legacy roots they

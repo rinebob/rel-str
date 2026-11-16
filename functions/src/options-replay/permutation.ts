@@ -261,6 +261,10 @@ async function failPermanently(
 // ==========================
 
 const prodReplayPermutationDeps: ReplayPermutationDeps = {
+  // #1498: resolves via the legacy single-coordinate surface — a run whose
+  // templateId names a multi-leg variant has no ReplayTemplate form and will
+  // fail "Unknown templateId" here; legs-form runs must resolve off
+  // variantSnapshot instead.
   resolveTemplate: getReplayTemplate,
 
   async getRun(runId) {

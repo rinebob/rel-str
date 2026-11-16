@@ -43,7 +43,7 @@ function check(name: string, actual: unknown, expected: unknown): void {
 // Alias smoke — if any import above resolved to the wrong module or a stale
 // build, these representative values fail.
 
-check('registry seeds', REPLAY_TEMPLATES.map((t) => t.id), ['csp-45-20', 'csp-30-30']);
+check('registry seeds', REPLAY_TEMPLATES.map((t) => t.id), ['csp-45-20', 'csp-30-30', 'lc-30-20', 'lc-45-15']);
 check('getReplayTemplate hit coordinate', getReplayTemplate('csp-45-20')?.coordinate, {
   type: OptionType.PUT,
   targetDelta: -0.2,
