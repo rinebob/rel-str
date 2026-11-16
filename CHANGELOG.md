@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-11-16]
+
+### Added
+- [ST Firestore Reorg] 984-1562_SHARED-IMPL-DATA-PIPELINE: `statsScopeSource` — `src-{SOURCE}` stats scope id builder (uppercases lowercase enum values; type-only `PaperTradeSource` import avoids a runtime module cycle) + spec pins for all three source families
+- [ST Firestore Reorg] 984-1562_BE-IMPL-DATA-PIPELINE: `tradeScopes` fans every non-cancelled paper trade into exactly one `src-*` scope — nightly pass now writes `stats-src-STRATEGY`/`stats-src-SIGNAL`/`stats-src-MANUAL`; src-* open+closed counts partition `stats-all`; `dir-*` stays signal-only; header enumerations updated
+- [ST Firestore Reorg] 984-1562_BE-CHORE-DATA-PIPELINE: `paper-trading-stats-src-scopes-1562` prod verify (15 checks — real pass + real `getStats`/`handleGetPaperStats` reads, canonical shape, SCOPE_RE acceptance, enumeration, src-* ⇄ `stats-all` partition invariant) + run-all/README registry entries
+- [ST Firestore Reorg] 984-1562_DOCS-DOCS-DATA-PIPELINE: Thread #987 planning set — #1475 PRD + #1554 BE/FE IMPL + BE/FE TEST blueprint docs
+- [ST Firestore Reorg] 984-1562_DOCS-DOCS-DATA-PIPELINE: `src-*` scope family in DATA-MAP + #1562 CODE-REVIEW (PASS, 2 rounds) + #1569 UAT (Complete) + changelog
+
 ## [2026-11-15]
 
 ### Added

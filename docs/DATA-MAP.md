@@ -73,7 +73,7 @@ Anchor layout `paper-trading/{kind}/items/{id}` — `shared/paper-trading-ids.ts
 | `paper-trading/trades/items` | Trade lifecycle aggregate: order, fills, legs, `marks` map, `variantRuns`, PnL | `paperSignalOrder`, auto-paper ingest, mark/exit/settle passes | `listPaperTrades`, UI | ~138 | live; **all `source=signal`, all OPEN/PENDING** |
 | `…/cohorts/items` | One accepted signal fanned out (EQ + expression trades) | `paperSignalOrder` | read callables | ~9 | live |
 | `…/accounts/items` | Paper cash/equity per user + `acct-auto-paper` | ledger | UI | 2 | live |
-| `…/stats/items` | Rollup docs by scope (`all`, `sym-`, `sig-`, `sigtype-`, `dir-`, `sector-`, `ind-`, `captier-`, `sigstatus-`, `cohort-`, `inst-`, `var-`) | `paper-stats-pass` | `getPaperStats`, dashboards | ~323 | live; contains legacy `ALL`/`SPY` stragglers |
+| `…/stats/items` | Rollup docs by scope (`all`, `sym-`, `sig-`, `src-`, `sigtype-`, `dir-`, `sector-`, `ind-`, `captier-`, `sigstatus-`, `cohort-`, `inst-`, `var-`) | `paper-stats-pass` | `getPaperStats`, dashboards | ~323 | live; contains legacy `ALL`/`SPY` stragglers |
 | `…/raw-quotes/items` | Verbatim quote payload per fill/mark | ingest + mark passes | audit | ~323 | live |
 | `options-strategy-instances` | Gen-2.5 options engine instances | options-strategy-engine | engine callables | 4 | **superseded** by `paper-trading/instances` (currently 0 docs there) |
 | `options-strategy-positions` | Gen-2.5 engine positions | same | same | 12 | **superseded**; Aug-2026 positions, migration (`migrate-options-strategy-to-paper.ts`) completeness unverified |
@@ -199,7 +199,7 @@ From AGENTS.md + observed implementation:
   nested trees for enumerable data.
 - No catch-all collections mixing unrelated doc types.
 - Trade ids: `YYMMDD-{st|sig|man}-{SYMBOL}-{desc}[-HHMM]`.
-- Stats scopes: `all`, `inst-`, `var-`, `cohort-`, `sig-`, `sym-`,
+- Stats scopes: `all`, `inst-`, `var-`, `cohort-`, `sig-`, `sym-`, `src-`,
   `sigtype-`, `dir-`, `sector-`, `ind-`, `captier-`, `sigstatus-`.
 
 ## Open questions
