@@ -31,6 +31,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #563 | `paper-trading-exit-eval-563.ts` | nightly variant eval → governing fill / mark-gap tolerance | [paper-trading-exit-eval-563.md](../../../scripts/verify/paper-trading-exit-eval-563.md) |
 | #564 | `paper-trading-signal-order-564.ts` | signal-order → paperSignalOrder → noon fill pass (needs RH MCP OAuth) | [paper-trading-signal-order-564.md](../../../scripts/verify/paper-trading-signal-order-564.md) |
 | #565 | `paper-trading-read-apis-565.ts` | generalized stats pass + read callables | [paper-trading-read-apis-565.md](../../../scripts/verify/paper-trading-read-apis-565.md) |
+| #1562 | `paper-trading-stats-src-scopes-1562.ts` | stats pass `src-{source}` scope family — doc ids, canonical shape, src-* ⇄ all partition invariant (real pass, needs ADC) | inline usage in script header |
 | #666 | `paper-trading-cancel-666.ts` | PENDING→CANCELLED txn seam + cancel guards | [paper-trading-cancel-666.md](../../../scripts/verify/paper-trading-cancel-666.md) |
 | #667 | `paper-trading-close-667.ts` | OPEN→CLOSED at live RH quote (needs RH MCP OAuth) | [paper-trading-close-667.md](../../../scripts/verify/paper-trading-close-667.md) |
 | #676 | `paper-trading-signal-marks-676.ts` | nightly marks on signal-source trades → governing stops evaluable | [paper-trading-signal-marks-676.md](../../../scripts/verify/paper-trading-signal-marks-676.md) |
@@ -86,6 +87,7 @@ npx tsx scripts/verify/{script-name}.ts
 6. **#563** — `paper-trading-exit-eval-563.ts` (variant eval)
 7. **#564** — `paper-trading-signal-order-564.ts` (signal→paper entry)
 8. **#565** — `paper-trading-read-apis-565.ts` (stats + read APIs)
+8b. **#1562** — `paper-trading-stats-src-scopes-1562.ts` (stats `src-*` scope family)
 9. **#666** — `paper-trading-cancel-666.ts` (cancel seam)
 10. **#667** — `paper-trading-close-667.ts` (live-quote close)
 11. **#676** — `paper-trading-signal-marks-676.ts` (signal-trade marks)
