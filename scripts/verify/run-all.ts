@@ -412,6 +412,11 @@ const scripts: VerifyScript[] = [
   // Live stage intentionally unregistered — needs the RH MCP executor at
   // 127.0.0.1:3456; run scripts/verify/savant-trader-scanner-row-actions-1304-live.ts
   // directly (same convention as run-drift-check.ts for #682).
+  {
+    name: 'manage instance + variant contracts',
+    file: 'strat-manage-contracts-1538.ts',
+    needsAccount: false,
+  },
 ];
 
 function hasGhAuth(): boolean {
