@@ -163,11 +163,11 @@ describe('options-replay-contracts', () => {
         id: 'pcs-45-20-10',
         name: '45DTE 20/10Δ put credit spread',
         description: 'Sell 20Δ put, buy 10Δ put at 45DTE.',
-        structure: 'vertical-credit',
+        structure: 'put-credit-spread',
         legs: vertical,
       };
       expect(variant.legs).toHaveLength(2);
-      expect(variant.structure).toBe('vertical-credit');
+      expect(variant.structure).toBe('put-credit-spread');
     });
 
     it('snapshot is self-describing — legs + name + optional variantId', () => {

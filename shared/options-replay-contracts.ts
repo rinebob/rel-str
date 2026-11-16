@@ -33,6 +33,25 @@ export interface PickDocCoordinate {
   expiry: PickDocExpiry;
 }
 
+// ==========================
+// Pick-doc grid
+// ==========================
+
+/**
+ * The fixed pick-doc grid menu (Thread #1270 catalog): |Δ| 5–95 in steps
+ * of `PICK_GRID_DELTA_STEP`, DTEs from `PICK_GRID_DTES`. Leg coordinates,
+ * template-shape bands, and the registry validator (#1494) all resolve
+ * against this menu — a leg is "on-grid" when |targetDelta| is a step
+ * multiple inside [5, 95] and `dte` is a member of the menu.
+ */
+export const PICK_GRID_DTES: readonly number[] = [7, 14, 21, 30, 45, 60, 90, 120, 180, 365];
+
+/** |Δ|% step between adjacent grid cells (5 → magnitudes 5,10,…,95). */
+export const PICK_GRID_DELTA_STEP = 5;
+
+/** |Δ|% bounds of the grid — magnitudes only; sign comes from option type. */
+export const PICK_GRID_DELTA_BAND: readonly [number, number] = [5, 95];
+
 /**
  * A curated time-based selection template. `side` stamps direction onto rows
  * at write time — pick docs are direction-neutral, so the same coordinate can
@@ -63,7 +82,7 @@ export interface OptionLeg {
   type: OptionType;
   /** Signed delta target matching SA's convention (e.g. -0.20 for puts).
    *  Sign-vs-`type` parity and on-grid `dte` are NOT enforced here —
-   *  they're data-carried conventions; the registry validator (#1492)
+   *  they're data-carried conventions; the registry validator (#1494)
    *  and the #1498 request boundary enforce them. */
   targetDelta: number;
   /** Calendar days — one of the pick-doc grid's DTE cells. */
@@ -117,8 +136,9 @@ export interface ReplayVariant {
   description: string;
   /** Which template shape it was composed from, or 'custom'. */
   structure?: string;
-  /** Concrete legs — every option leg has Δ/DTE pinned. */
-  legs: VariantLeg[];
+  /** Concrete legs — every option leg has Δ/DTE pinned. Registry data —
+   *  readonly so an importer can't mutate the shared curated array. */
+  legs: readonly VariantLeg[];
 }
 
 /**
@@ -130,7 +150,9 @@ export interface VariantSnapshot {
    *  inline `legs` submissions. */
   variantId?: string;
   name: string;
-  legs: VariantLeg[];
+  /** Stamped to the run doc — never mutated after write. readonly also
+   *  keeps `variant.legs` assignable here without a copy (#1498). */
+  legs: readonly VariantLeg[];
 }
 
 // ==========================
@@ -335,7 +357,7 @@ export interface OptionsReplayStartVariantRequest extends OptionsReplayStartBase
  *  until #1498); the non-empty/stock-only policy lands with #1498's
  *  boundary validation. */
 export interface OptionsReplayStartLegsRequest extends OptionsReplayStartBase {
-  legs: VariantLeg[];
+  legs: readonly VariantLeg[];
   /** Display-only label carried onto the run's snapshot — an inline
    *  submission has no registry name to borrow. */
   variantName?: string;
