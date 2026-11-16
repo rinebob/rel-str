@@ -13,6 +13,10 @@
 - [Strategy Builder UI] 137-1538_DOCS-STRAT-MANAGE: Code review (PASS, 2 passes) + UAT (Complete, #1555) + CONTEXT.md manage glossary
 - [Options Backtest] 1238-1491_SHARED-IMPL-MULTI-LEG-SPREAD: Leg + variant + request/snapshot contracts + run-doc source-of-truth — OptionLeg/StockLeg/VariantLeg, legToPickDocCoordinate canonical derivation, ReplayVariant/VariantSnapshot, three-form exclusive start request; worker reads symbol/templateId/startDate off the run doc ({runId, symbol} payload), malformed inputs fail permanently with warn, closeOutRun stamps error, retry requires selection inputs
 - [Options Backtest] 1238-1491_BE-CHORE-MULTI-LEG-SPREAD: options-replay-leg-contracts-1491 prod audit (registry parity + getRun fields + persisted-coordinate chain; absent meta = FAIL) + 1275 payload probe re-pinned to {runId, symbol}
+- [Strategy Builder UI] 137-1541_SHARED-IMPL-STRAT-MANAGE: Manage variant catalog — seeded MANAGE_TEMPLATES/MANAGE_VARIANTS (CDS + 2 PRD variants), getManageTemplate/ByCode/Variant lookups, MANAGE_CUSTOM_TEMPLATE_ID sentinel, variantMatchesTemplate, deep-frozen registries
+- [Strategy Builder UI] 137-1541_CONFIG-CHORE-STRAT-MANAGE: @manage/variant-catalog alias in app + functions tsconfigs and jest moduleNameMapper
+- [Strategy Builder UI] 137-1541_SHARED-IMPL-STRAT-MANAGE: Variant-catalog verify script (31 checks) + run-all/README registry entries
+- [Strategy Builder UI] 137-1541_DOCS-STRAT-MANAGE: Code review (PASS, 2 passes) + UAT (Complete, #1558) + CONTEXT.md DTE correction + changelog
 
 ### Fixed
 - [Option Contract Time-Series Viewer] 1243-1514_FE-BUG-OPTIONS: Armed study-range brush draws its own cursor feedback — capture-layer px feeds the hovered category (cursor line + top-edge date tag), live resolved {start} – {end} label on the drag rect previews exactly what the gesture emits (corpus-snapped), anchor panel stays populated; MIN_DRAG_PX single-sourced

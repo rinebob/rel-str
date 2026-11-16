@@ -544,7 +544,7 @@ _Avoid_: spread row, leg group, position group (that's the st- ledger entity)
 
 ## Manage Template
 
-A spread **shape** for the Strategy Manage domain (`shared/manage-variant-contracts.ts`, Topic #137 Thread #1510): an id, display name, an ALL-CAPS `code` used as the instance-ID SPREAD segment, and `ManageTemplateLeg[]` slots in template-defined order — each slot a `role` + `side` (+ option type and delta/DTE **bands** for option slots), with no concrete coordinate pinned — e.g., "call debit spread: long 35–55Δ, short 25–45Δ, 25–35 DTE." Same shape-vs-concrete split as Replay Template / Template Variant, but manage templates drive live/paper instance IDs rather than pick-doc enumeration. Most templates arrive via the external catalog artifact; ad hoc variants compose in-app.
+A spread **shape** for the Strategy Manage domain (`shared/manage-variant-contracts.ts`, Topic #137 Thread #1510): an id, display name, an ALL-CAPS `code` used as the instance-ID SPREAD segment, and `ManageTemplateLeg[]` slots in template-defined order — each slot a `role` + `side` (+ option type and delta/DTE **bands** for option slots), with no concrete coordinate pinned — e.g., "call debit spread: long 35–55Δ, short 25–45Δ, 25–45 DTE." Same shape-vs-concrete split as Replay Template / Template Variant, but manage templates drive live/paper instance IDs rather than pick-doc enumeration. Most templates arrive via the external catalog artifact; ad hoc variants compose in-app.
 _Avoid_: template (overloaded — Backtest Template, Replay Template, Parametric Spread Template are different objects)
 
 ## Manage Variant
