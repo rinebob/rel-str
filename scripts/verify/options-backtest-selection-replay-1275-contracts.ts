@@ -142,9 +142,9 @@ check('list doc meta carries coordinate', listDoc.pickDocMeta.coordinate.expiry.
 // ── Payloads ───────────────────────────────────────────────────────────────
 
 const startReq: OptionsReplayStartRequest = { templateId: template.id, symbols: ['QQQ'], startDate: '2026-01-05' };
-const perm: OptionsReplayPermutationPayload = { runId: run.runId, symbol: 'QQQ', templateId: template.id, startDate: '2026-01-05' };
+const perm: OptionsReplayPermutationPayload = { runId: run.runId, symbol: 'QQQ' };
 check('start request shape', Object.keys(startReq).sort(), ['startDate', 'symbols', 'templateId']);
-check('task payload shape', Object.keys(perm).sort(), ['runId', 'startDate', 'symbol', 'templateId']);
+check('task payload shape', Object.keys(perm).sort(), ['runId', 'symbol']);
 
 if (failures === 0) {
   console.log('=== ALL CHECKS PASSED ===');
