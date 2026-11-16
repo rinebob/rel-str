@@ -517,6 +517,182 @@ describe('RobinhoodMcpClient', () => {
   });
 
   // ===========================================================================
+  // Positions pagination (#1474 — same latent truncation class as #1411/#1462
+  // orders; the position endpoints accept cursor per the tool-discovery doc,
+  // and a 100s-of-positions account is the stated use case)
+  // ===========================================================================
+
+  describe('positions pagination (#1474)', () => {
+    it('getEquityPositions walks data.next to exhaustion — a position past page 1 still surfaces', async () => {
+      mcp.executeTool.and.callFake((_tool: string, req: { args: Record<string, unknown> }) => {
+        const cursor = req.args['cursor'];
+        return Promise.resolve({
+          success: true,
+          parsed: {
+            data: {
+              positions: [
+                cursor
+                  ? { symbol: 'NVDA', quantity: '50', average_buy_price: '800.00', shares_held_for_sells: '0' }
+                  : { symbol: 'AAPL', quantity: '100', average_buy_price: '150.00', shares_held_for_sells: '0' },
+              ],
+              next: cursor ? null : 'CURSOR2',
+            },
+          },
+          redacted: {},
+          tool: 'get_equity_positions',
+        } as ToolExecutionResult);
+      });
+
+      const positions = await client.getEquityPositions('123456789');
+
+      expect(positions.map((p) => p.symbol)).toEqual(['AAPL', 'NVDA']);
+      expect(mcp.executeTool).toHaveBeenCalledTimes(2);
+      // The prior page's `next` goes back verbatim as `cursor`.
+      expect(mcp.executeTool.calls.mostRecent().args[1]).toEqual({
+        args: { account_number: '123456789', cursor: 'CURSOR2' },
+      });
+    });
+
+    it('getOptionPositions walks data.next to exhaustion', async () => {
+      mcp.executeTool.and.callFake((_tool: string, req: { args: Record<string, unknown> }) => {
+        const cursor = req.args['cursor'];
+        return Promise.resolve({
+          success: true,
+          parsed: {
+            data: {
+              option_positions: [
+                {
+                  instrument_id: cursor ? 'opt-p2' : 'opt-p1',
+                  chain_symbol: 'AAPL', type: 'call', strike_price: '180.00',
+                  expiration_date: '2026-01-15', quantity: '2', average_cost: '320.00',
+                },
+              ],
+              next: cursor ? null : 'CURSOR2',
+            },
+          },
+          redacted: {},
+          tool: 'get_option_positions',
+        } as ToolExecutionResult);
+      });
+
+      const positions = await client.getOptionPositions('123456789');
+
+      expect(positions.map((p) => p.instrumentId)).toEqual(['opt-p1', 'opt-p2']);
+      expect(mcp.executeTool).toHaveBeenCalledTimes(2);
+    });
+
+    it('a mid-walk page failure rejects — no silent partial list', async () => {
+      let call = 0;
+      mcp.executeTool.and.callFake(() => {
+        call++;
+        return Promise.resolve(
+          call === 1
+            ? {
+                success: true,
+                parsed: { data: { positions: [{ symbol: 'AAPL', quantity: '1', average_buy_price: '1' }], next: 'CURSOR2' } },
+                redacted: {},
+                tool: 'get_equity_positions',
+              } as ToolExecutionResult
+            : ({ success: false, error: 'page 2 failed', category: ToolExecutionErrorCategory.MCP } as ToolExecutionResult),
+        );
+      });
+
+      await expect(client.getEquityPositions('123456789')).rejects.toThrow('page 2 failed');
+    });
+
+    it('getEquityPositionsRaw returns verbatim wire records walked to exhaustion', async () => {
+      mcp.executeTool.and.callFake((_tool: string, req: { args: Record<string, unknown> }) => {
+        const cursor = req.args['cursor'];
+        return Promise.resolve({
+          success: true,
+          parsed: {
+            data: {
+              positions: [
+                cursor
+                  ? { symbol: 'NVDA', quantity: '50', average_buy_price: '800.00', shares_held_for_sells: '10' }
+                  : { symbol: 'AAPL', quantity: '0.049734', average_buy_price: '2010.700000', type: 'long' },
+              ],
+              next: cursor ? null : 'CURSOR2',
+            },
+          },
+          redacted: {},
+          tool: 'get_equity_positions',
+        } as ToolExecutionResult);
+      });
+
+      const positions = await client.getEquityPositionsRaw('123456789');
+
+      // Verbatim — quantity stays a wire string (the typed model numbers it).
+      expect(positions[0]).toEqual({
+        symbol: 'AAPL', quantity: '0.049734', average_buy_price: '2010.700000', type: 'long',
+      });
+      expect(positions[1]['symbol']).toBe('NVDA');
+      expect(mcp.executeTool).toHaveBeenCalledTimes(2);
+    });
+
+    it('getEquityPositionsRaw rejects when a mid-walk page fails', async () => {
+      let call = 0;
+      mcp.executeTool.and.callFake(() => {
+        call++;
+        return Promise.resolve(
+          call === 1
+            ? {
+                success: true,
+                parsed: { data: { positions: [{ symbol: 'AAPL' }], next: 'CURSOR2' } },
+                redacted: {},
+                tool: 'get_equity_positions',
+              } as ToolExecutionResult
+            : ({ success: false, error: 'page 2 failed', category: ToolExecutionErrorCategory.MCP } as ToolExecutionResult),
+        );
+      });
+
+      await expect(client.getEquityPositionsRaw('123456789')).rejects.toThrow('page 2 failed');
+    });
+
+    it('equityPositionsPageSpec surfaces positions + next and passes cursor through', async () => {
+      const spec = client.equityPositionsPageSpec('123456789', { cursor: 'CURSOR1' });
+      expect(spec.args).toEqual({ account_number: '123456789', cursor: 'CURSOR1' });
+
+      const page = spec.parse({
+        success: true,
+        parsed: {
+          data: {
+            positions: [{ symbol: 'AAPL', quantity: '100', average_buy_price: '150.00', shares_held_for_sells: '0' }],
+            next: 'CURSOR2',
+          },
+        },
+        redacted: {},
+        tool: 'get_equity_positions',
+      } as ToolExecutionResult);
+
+      expect(page.positions[0].symbol).toBe('AAPL');
+      expect(page.next).toBe('CURSOR2');
+    });
+
+    it('optionPositionsPageSpec passes nonzero + cursor and surfaces next', async () => {
+      const spec = client.optionPositionsPageSpec('123456789', { nonzero: true, cursor: 'CURSOR1' });
+      expect(spec.args).toEqual({ account_number: '123456789', nonzero: true, cursor: 'CURSOR1' });
+
+      const page = spec.parse({
+        success: true,
+        parsed: {
+          data: {
+            option_positions: [
+              { instrument_id: 'opt-1', chain_symbol: 'AAPL', type: 'put', strike_price: '170.00', expiration_date: '2026-01-15', quantity: '1', average_cost: '200.00' },
+            ],
+            next: null,
+          },
+        },
+        redacted: {},
+        tool: 'get_option_positions',
+      } as ToolExecutionResult);
+
+      expect(page.positions[0].instrumentId).toBe('opt-1');
+      expect(page.next).toBeNull();
+    });
+  });
+
+  // ===========================================================================
   // getOptionChains / getOptionInstruments (contract discovery, #960)
   // ===========================================================================
 

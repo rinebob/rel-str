@@ -31,6 +31,7 @@ import {
   EquityOrderQuery,
   EquityOrdersPage,
   OptionOrderQuery,
+  PositionsPage,
   OrderState,
   OrderType,
   PnlTrade,
@@ -61,10 +62,11 @@ const UNIVERSE_SCOPE_CHUNK = 150;
 /** Maximum tool calls per /batch request — mirrors the API's own cap. */
 const BATCH_CALLS_LIMIT = 20;
 
-/** Order-list page bound (#1411) — a live capture showed 148 orders on one
- *  page, so 25 pages ≈ 3.7k orders, deep past realistic account history.
- *  A warn fires instead of looping forever on a stuck cursor. */
-const MAX_ORDER_LIST_PAGES = 25;
+/** List page bound for orders (#1411) and positions (#1474) — a live
+ *  capture showed 148 orders on one page, so 25 pages ≈ 3.7k rows, deep
+ *  past realistic account sizes. A warn fires instead of looping forever
+ *  on a stuck cursor. */
+const MAX_LIST_PAGES = 25;
 
 /** get_option_instruments pagination bound (~100 rows/page — 10 pages is
  *  ~1k contracts, deep past any single-expiration strike board). */
@@ -203,58 +205,129 @@ export class RobinhoodMcpClient {
   // Positions
   // ---------------------------------------------------------------------------
 
+  /** Walked to `data.next` exhaustion (#1474) — position lists paginate on
+   *  the same contract as orders; a page-1-only fetch silently drops
+   *  positions on a large account. */
   async getEquityPositions(accountNumber: string): Promise<EquityPosition[]> {
-    return this.run(this.equityPositionsSpec(accountNumber));
+    return this.walkPages(
+      this.equityPositionsSpec(accountNumber),
+      MAX_LIST_PAGES,
+      `account=${accountNumber}`,
+    );
   }
 
   equityPositionsSpec(accountNumber: string): ToolSpec<EquityPosition[]> {
+    const page = this.equityPositionsPageSpec(accountNumber);
+    return { ...page, parse: (result) => page.parse(result).positions };
+  }
+
+  /** One page of equity positions plus the `next` cursor — consumed by the
+   *  store's round-batched positions walk (#1474). */
+  equityPositionsPageSpec(
+    accountNumber: string,
+    opts?: { cursor?: string },
+  ): ToolSpec<PositionsPage<EquityPosition>> {
     return {
       tool: 'get_equity_positions',
-      args: { account_number: accountNumber },
+      args: this.positionsArgs(accountNumber, opts),
       parse: (result) => {
         if (!result.success) {
           throw new RobinhoodMcpError(result.error, 'get_equity_positions', result.category);
         }
 
         const raw = this.extractList(result.parsed, 'positions');
-        return raw.map((p) => ({
-          symbol: String(p['symbol'] ?? ''),
-          quantity: this.toNumber(p['quantity']),
-          averageBuyPrice: this.toNumber(p['average_buy_price']),
-          sharesHeldForSells: this.toNumber(p['shares_held_for_sells']),
-        }));
+        const next = this.extractNested(result.parsed, 'data')['next'];
+        return {
+          positions: raw.map((p) => ({
+            symbol: String(p['symbol'] ?? ''),
+            quantity: this.toNumber(p['quantity']),
+            averageBuyPrice: this.toNumber(p['average_buy_price']),
+            sharesHeldForSells: this.toNumber(p['shares_held_for_sells']),
+          })),
+          next: typeof next === 'string' && next ? next : null,
+        };
       },
     };
   }
 
+  /** Verbatim wire equity positions walked to exhaustion (#1474) — for
+   *  callers that normalize their own snapshot (the signal-order
+   *  workspace's `BrokerPosition` keeps wire-string quantity/price). */
+  async getEquityPositionsRaw(accountNumber: string): Promise<Record<string, unknown>[]> {
+    return this.walkPages(
+      this.equityPositionsRawSpec(accountNumber),
+      MAX_LIST_PAGES,
+      `account=${accountNumber}`,
+    );
+  }
+
+  private equityPositionsRawSpec(accountNumber: string): ToolSpec<Record<string, unknown>[]> {
+    return {
+      tool: 'get_equity_positions',
+      args: this.positionsArgs(accountNumber),
+      parse: (result) => {
+        if (!result.success) {
+          throw new RobinhoodMcpError(result.error, 'get_equity_positions', result.category);
+        }
+        return this.extractList(result.parsed, 'positions');
+      },
+    };
+  }
+
+  /** Walked to `data.next` exhaustion (#1474). */
   async getOptionPositions(accountNumber: string, nonzero?: boolean): Promise<OptionPosition[]> {
-    return this.run(this.optionPositionsSpec(accountNumber, nonzero));
+    return this.walkPages(
+      this.optionPositionsSpec(accountNumber, nonzero),
+      MAX_LIST_PAGES,
+      `account=${accountNumber}`,
+    );
   }
 
   optionPositionsSpec(accountNumber: string, nonzero?: boolean): ToolSpec<OptionPosition[]> {
-    const args: Record<string, unknown> = { account_number: accountNumber };
-    if (nonzero) args['nonzero'] = true;
+    const page = this.optionPositionsPageSpec(accountNumber, { nonzero });
+    return { ...page, parse: (result) => page.parse(result).positions };
+  }
 
+  /** One page of option positions plus the `next` cursor — consumed by the
+   *  store's round-batched positions walk (#1474). */
+  optionPositionsPageSpec(
+    accountNumber: string,
+    opts?: { cursor?: string; nonzero?: boolean },
+  ): ToolSpec<PositionsPage<OptionPosition>> {
     return {
       tool: 'get_option_positions',
-      args,
+      args: this.positionsArgs(accountNumber, opts),
       parse: (result) => {
         if (!result.success) {
           throw new RobinhoodMcpError(result.error, 'get_option_positions', result.category);
         }
 
         const raw = this.extractList(result.parsed, 'results', 'option_positions');
-        return raw.map((p) => ({
-          instrumentId: String(p['instrument_id'] ?? ''),
-          chainSymbol: String(p['chain_symbol'] ?? ''),
-          optionType: String(p['type'] ?? p['option_type'] ?? ''),
-          strikePrice: this.toNumber(p['strike_price']),
-          expirationDate: String(p['expiration_date'] ?? ''),
-          quantity: this.toNumber(p['quantity']),
-          averageCost: this.toNumber(p['average_cost']),
-        }));
+        const next = this.extractNested(result.parsed, 'data')['next'];
+        return {
+          positions: raw.map((p) => ({
+            instrumentId: String(p['instrument_id'] ?? ''),
+            chainSymbol: String(p['chain_symbol'] ?? ''),
+            optionType: String(p['type'] ?? p['option_type'] ?? ''),
+            strikePrice: this.toNumber(p['strike_price']),
+            expirationDate: String(p['expiration_date'] ?? ''),
+            quantity: this.toNumber(p['quantity']),
+            averageCost: this.toNumber(p['average_cost']),
+          })),
+          next: typeof next === 'string' && next ? next : null,
+        };
       },
     };
+  }
+
+  private positionsArgs(
+    accountNumber: string,
+    opts?: { cursor?: string; nonzero?: boolean },
+  ): Record<string, unknown> {
+    const args: Record<string, unknown> = { account_number: accountNumber };
+    if (opts?.nonzero) args['nonzero'] = true;
+    if (opts?.cursor) args['cursor'] = opts.cursor;
+    return args;
   }
 
   // ---------------------------------------------------------------------------
@@ -424,7 +497,7 @@ export class RobinhoodMcpClient {
     // for weeks was pushed past the page cap by newer activity (#1411).
     return this.walkPages(
       this.equityOrdersSpec(accountNumber, opts),
-      MAX_ORDER_LIST_PAGES,
+      MAX_LIST_PAGES,
       `account=${accountNumber}`,
     );
   }
@@ -485,7 +558,7 @@ export class RobinhoodMcpClient {
   async getEquityOrdersRaw(accountNumber: string): Promise<Record<string, unknown>[]> {
     return this.walkPages(
       this.equityOrdersRawSpec(accountNumber),
-      MAX_ORDER_LIST_PAGES,
+      MAX_LIST_PAGES,
       `account=${accountNumber}`,
     );
   }
@@ -508,7 +581,7 @@ export class RobinhoodMcpClient {
     // paginates on data.next (#1411).
     return this.walkPages(
       this.optionOrdersSpec(accountNumber, opts),
-      MAX_ORDER_LIST_PAGES,
+      MAX_LIST_PAGES,
       `account=${accountNumber}`,
     );
   }

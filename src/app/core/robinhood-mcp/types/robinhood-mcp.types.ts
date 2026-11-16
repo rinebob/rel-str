@@ -221,6 +221,13 @@ export interface EquityOrdersPage {
   next: string | null;
 }
 
+/** One page of positions + the pagination cursor (null = last page) —
+ *  shared by the equity and option position page specs (#1474). */
+export interface PositionsPage<T> {
+  positions: T[];
+  next: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // PnL Trade History
 // ---------------------------------------------------------------------------
