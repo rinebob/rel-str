@@ -7,7 +7,7 @@
  *
  * - **Manage Template** — the spread *shape*: named leg roles carrying
  *   delta/DTE bands plus order side, with no concrete coordinate pinned
- *   (e.g., "call debit spread: long leg 35–55Δ, short leg 25–45Δ, 25–35 DTE").
+ *   (e.g., "call debit spread: long leg 35–55Δ, short leg 25–45Δ, 25–45 DTE").
  * - **Manage Variant** — the concrete instantiation: a template plus a
  *   pinned Δ/DTE per leg, given a descriptive name (e.g., "call debit
  *   spread 50-40 30" = long 50Δ, short 40Δ, 30 DTE).
@@ -124,8 +124,11 @@ export interface ManageVariant {
   /**
    * Back-reference to `ManageTemplate.id` the variant was composed from.
    * Ad hoc variants still pick a template in the Create New Strategy
-   * dialog — this holds that template's id ('custom' if ever composed
-   * freeform without one).
+   * dialog — this holds that template's id, or the
+   * `MANAGE_CUSTOM_TEMPLATE_ID` sentinel ('custom', in
+   * manage-variant-catalog.ts) if ever composed freeform without one.
+   * The sentinel never resolves via `getManageTemplate` — callers must
+   * check for it before dereferencing.
    */
   templateId: string;
   /**
