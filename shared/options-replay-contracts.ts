@@ -49,6 +49,38 @@ export interface ReplayTemplate {
 }
 
 // ==========================
+// Variant legs (Thread #1270 — Multi-leg Templates)
+// ==========================
+
+/**
+ * Concrete option leg — a resolved pick-doc coordinate plus direction.
+ * The same shape is the engine's concrete leg coordinate: `dte` replaces
+ * the `dteMin`/`dteMax` window on pick-doc-driven configs. A bare template
+ * leg carries bands instead; see `TemplateShapeLeg` (#1492).
+ */
+export interface OptionLeg {
+  kind: 'option';
+  type: OptionType;
+  /** Signed delta target matching SA's convention (e.g. -0.20 for puts).
+   *  Sign-vs-`type` parity and on-grid `dte` are NOT enforced here —
+   *  they're data-carried conventions; the registry validator (#1492)
+   *  and the #1498 request boundary enforce them. */
+  targetDelta: number;
+  /** Calendar days — one of the pick-doc grid's DTE cells. */
+  dte: number;
+  side: TradeSide;
+}
+
+/** Stock leg — no pick doc; marks at the underlying close. */
+export interface StockLeg {
+  kind: 'stock';
+  side: TradeSide;
+}
+
+/** One leg of a variant — an option pick or a share of the underlying. */
+export type VariantLeg = OptionLeg | StockLeg;
+
+// ==========================
 // SA Pick Document (wire shape)
 // ==========================
 
