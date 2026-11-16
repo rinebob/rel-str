@@ -34,9 +34,10 @@ export interface PlottedContractsState {
   plottedLoadProgress: { done: number; total: number } | null;
   displayWindow: DisplayWindow;
   hoveredContractId: string | null;
-  /** Chip-click pin — keeps one contract highlighted while the pointer is
-   *  elsewhere (e.g. scrolled down the chips column to check entries).
-   *  Session-only tracking aid; never persisted. */
+  /** Chip-click pin — a chip-strip bookmark that marks the user's
+   *  position while scrolling the column. Never reaches the chart:
+   *  `highlightedContractId` forwards hover only (#1515). Session-only;
+   *  never persisted. */
   pinnedContractId: string | null;
   /** Chart view intent: the contract ID the chart should show instead of
    *  the whole plotted set. Set by any contract load (chip drill-down and
@@ -83,14 +84,14 @@ export function withPlottedComputed() {
       /** Plotted contracts in insertion order (chips strip). */
       plottedList: computed((): PlottedContract[] => Object.values(s.plottedContracts())),
 
-      /** The id the chart should emphasize — live hover wins; otherwise the
-       *  click-pinned contract stays lit so it isn't lost while scrolling.
-       *  Suppressed under a focused drill-down: a stale pin/hover would dim
-       *  the single contract in its own view (it survives for the return
-       *  to the set). */
+      /** The id the chart should emphasize — live hover only. A pinned
+       *  chip is a strip bookmark (position marker while scrolling), not a
+       *  chart highlight (#1515). Suppressed under a focused drill-down: a
+       *  stale hover would dim the single contract in its own view (it
+       *  survives for the return to the set). */
       highlightedContractId: computed(
         (): string | null =>
-          s.chartFocusContractId() == null ? s.hoveredContractId() ?? s.pinnedContractId() : null,
+          s.chartFocusContractId() == null ? s.hoveredContractId() : null,
       ),
 
       /** Multi mode = two or more plottable contracts (loading counts — the
@@ -237,13 +238,15 @@ export function withPlottedContracts() {
         // "show this set", even when every entry was already plotted. A
         // hovered contract that's no longer in the set clears too.
         const hovered = s.hoveredContractId();
+        const pinned = s.pinnedContractId();
         patchState(store, {
           chartFocusContractId: null,
           plottedContracts: next,
           hoveredContractId: hovered && !next[hovered] ? null : hovered,
-          // A fresh set load resets tracking — a pin pointing at a contract
-          // the new list doesn't carry would dim everything with no lit line.
-          pinnedContractId: null,
+          // A pin survives the reload when its contract does — the
+          // bookmark marks the chip, not the line (#1515). Same guard
+          // as hover.
+          pinnedContractId: pinned && !next[pinned] ? null : pinned,
         });
 
         // Dated loads prepend ~50 sessions of underlying context (see
@@ -291,10 +294,9 @@ export function withPlottedContracts() {
                       error: (err as Error)?.message ?? 'Failed to load contract',
                     },
                   },
-                  // A hover/pin on the now-errored contract has no series
-                  // to light — and error chips can't be clicked to unpin,
-                  // so the state must release it here (mirror of
-                  // loadContractInternal's error release).
+                  // A hover/pin on the now-errored contract releases
+                  // here — error chips can't be clicked to unpin, so
+                  // either state would strand on a dead chip.
                   hoveredContractId:
                     s.hoveredContractId() === parsed.contractID ? null : s.hoveredContractId(),
                   pinnedContractId:
@@ -346,8 +348,8 @@ export function withPlottedContracts() {
         patchState(store, { hoveredContractId: contractId });
       },
 
-      /** Chip click — pin/unpin tracking. Pinning keeps the contract lit
-       *  once the pointer leaves (hover still takes precedence live). */
+      /** Chip click — pin/unpin the chip-strip bookmark (position
+       *  marker while scrolling; never a chart highlight — #1515). */
       togglePinnedContract(contractId: string): void {
         patchState(store, {
           pinnedContractId: s.pinnedContractId() === contractId ? null : contractId,

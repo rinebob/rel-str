@@ -464,7 +464,7 @@ describe('OptionChartComponent — chart projection', () => {
       expect(store.hoveredContractId()).toBeNull();
     });
 
-    it('chip click pins the highlight — it survives pointer leave', async () => {
+    it('chip click pins a bookmark — the chart stays unlit', async () => {
       const { store, component } = setup();
       await store.loadPlotted([
         { contractId: QQQ_PUT, openDate: null },
@@ -476,12 +476,14 @@ describe('OptionChartComponent — chart projection', () => {
 
       component.onChipClick(put);
       expect(store.pinnedContractId()).toBe(QQQ_PUT);
-      expect(store.highlightedContractId()).toBe(QQQ_PUT);
+      // Pin is chip-local (bookmark for scrolling) — it must NOT light
+      // the series or dim the others (#1515).
+      expect(store.highlightedContractId()).toBeNull();
+      expect(component.chartHighlight()).toBeNull();
 
-      // Pointer off the panel — the pin keeps the contract lit for tracking.
       component.onChipsMouseLeave();
       expect(store.hoveredContractId()).toBeNull();
-      expect(store.highlightedContractId()).toBe(QQQ_PUT);
+      expect(store.highlightedContractId()).toBeNull();
 
       // Clicking a different chip re-pins; clicking the pinned chip unpins.
       component.onChipClick(call);
@@ -491,7 +493,7 @@ describe('OptionChartComponent — chart projection', () => {
       expect(store.highlightedContractId()).toBeNull();
     });
 
-    it('an error chip cannot be pinned — it has no line to light', async () => {
+    it('an error chip cannot be pinned — the bookmark could never be unpinned', async () => {
       const getHistorical = jest.fn((_s: string, cid: string) =>
         cid === QQQ_PUT
           ? throwError(() => new Error('no data'))
@@ -719,7 +721,7 @@ describe('OptionChartComponent — chart projection', () => {
       expect(component.chipColor(callChip)).toBe(plottedSeriesColor(0));
     });
 
-    it('hover/pin on a bound-hidden chip never reaches the chart — a stranded id would dim every line', async () => {
+    it('hover on a bound-hidden chip never reaches the chart — a stranded id would dim every line', async () => {
       const { store, component, genStore } = setup();
       await store.loadPlotted([
         { contractId: QQQ_PUT, openDate: '2026-05-01' }, // will be bound-hidden
@@ -737,20 +739,24 @@ describe('OptionChartComponent — chart projection', () => {
       expect(component.chartHighlight()).toBe(QQQ_CALL);
     });
 
-    it('a pin set before the bound applied is suppressed while its contract is hidden, re-engages on clear', async () => {
+    it('a pin survives bound cycles as a chip bookmark — the chart is never lit', async () => {
       const { store, component, genStore } = setup();
       await store.loadPlotted([
         { contractId: QQQ_PUT, openDate: '2026-05-01' },
         { contractId: QQQ_CALL, openDate: '2026-06-10' },
       ]);
       store.togglePinnedContract(QQQ_PUT);
-      expect(component.chartHighlight()).toBe(QQQ_PUT);
+      // Pins never reach the chart — bound-hidden or not (#1515).
+      expect(component.chartHighlight()).toBeNull();
 
       genStore.applyRange(bound);
-      expect(component.chartHighlight()).toBeNull(); // pinned id is hidden — no all-dim
+      expect(component.chartHighlight()).toBeNull();
 
       genStore.applyRange(null);
-      expect(component.chartHighlight()).toBe(QQQ_PUT); // pin survives in the store, re-engages
+      expect(component.chartHighlight()).toBeNull();
+      // The bookmark itself is unaffected by the bound — it marks the
+      // chip, not the line.
+      expect(store.pinnedContractId()).toBe(QQQ_PUT);
     });
 
     it('boundHiddenIds marks only the hidden contracts and empties on clear', async () => {

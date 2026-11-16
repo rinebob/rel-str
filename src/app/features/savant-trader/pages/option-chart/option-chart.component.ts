@@ -415,11 +415,12 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     return this.displayedOpenDate().get(contract.entry.contractId) ?? contract.entry.openDate;
   }
 
-  /** Highlight forwarded to the chart — null when the hovered/pinned id
-   *  isn't in the displayed set. A bound-hidden (or otherwise unplotted)
-   *  id would dim every visible line with nothing lit — the same failure
+  /** Highlight forwarded to the chart — null when the hovered id isn't
+   *  in the displayed set. A bound-hidden (or otherwise unplotted) id
+   *  would dim every visible line with nothing lit — the same failure
    *  the error-chip release guards against (#1389). The store keeps the
-   *  hover/pin: clearing the bound re-engages it on the returning line. */
+   *  hover: clearing the bound re-engages it on the returning line. Pins
+   *  never reach this — they're chip-strip bookmarks (#1515). */
   readonly chartHighlight = computed(() => {
     const id = this.store.highlightedContractId();
     return id != null && this.chipColorIndex().has(id) ? id : null;
@@ -447,12 +448,12 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     return this.plottedLabel(contract.parsed, contract.entry.contractId);
   }
 
-  /** Chip hover/click emphasizes its line in the set view — visual only,
+  /** Chip hover emphasizes its line in the set view — visual only,
    *  no refetch, every plotted series stays on the chart. The highlight
    *  clears on container-level leave/focus-out — the gap between stacked
    *  chips is inside .plotted-chips, so sliding down the column never
    *  flashes the full set. Error chips have no line: entering one clears
-   *  the hover (falling back to the pin, if any). */
+   *  the hover. */
   onChipEnter(contract: PlottedContract): void {
     this.store.setHoveredContract(
       contract.status === 'error' ? null : contract.entry.contractId,
@@ -474,10 +475,10 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Chip click pins the highlight — the contract stays lit after the
-   *  pointer leaves the panel (e.g. scrolling the column), until the chip
-   *  is clicked again or another chip is pinned. Error chips can't pin:
-   *  pinning a series that doesn't exist would dim the whole chart. */
+  /** Chip click pins the chip as a bookmark — the push_pin icon marks
+   *  the user's position while scrolling the column (never a chart
+   *  highlight — #1515). Error chips can't pin: a bookmark on a dead
+   *  chip could never be unpinned. */
   onChipClick(contract: PlottedContract): void {
     if (contract.status !== 'error') {
       this.store.togglePinnedContract(contract.entry.contractId);

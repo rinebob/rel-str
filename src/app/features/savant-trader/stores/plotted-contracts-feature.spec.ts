@@ -206,6 +206,21 @@ describe('plotted contracts feature', () => {
     expect(store.highlightedContractId()).toBeNull();
   });
 
+  it('a pin survives a set reload when its contract does — the bookmark marks the chip (#1515)', async () => {
+    const { store } = setup();
+    store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+    await flush();
+    store.togglePinnedContract(QQQ_CALL);
+
+    // Re-emitting the set (generator send, list reload) keeps a bookmark
+    // on a surviving contract — same guard as hover.
+    store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+    await flush();
+
+    expect(store.pinnedContractId()).toBe(QQQ_CALL);
+    expect(store.highlightedContractId()).toBeNull();
+  });
+
   it('removePlotted clears a pin on the removed contract', async () => {
     const { store } = setup();
     store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
@@ -218,7 +233,24 @@ describe('plotted contracts feature', () => {
     expect(store.highlightedContractId()).toBeNull();
   });
 
-  it('a focused drill-down suppresses hover/pin dimming — pin survives for the return', async () => {
+  it('a pin is a chip bookmark — it never feeds the chart highlight', async () => {
+    const { store } = setup();
+    store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+    await flush();
+
+    store.togglePinnedContract(QQQ_PUT);
+    expect(store.pinnedContractId()).toBe(QQQ_PUT);
+    // The pin marks the chip for scrolling — it must not dim other lines.
+    expect(store.highlightedContractId()).toBeNull();
+
+    // Hover still lights the chart; leaving drops it even while pinned.
+    store.setHoveredContract(QQQ_CALL);
+    expect(store.highlightedContractId()).toBe(QQQ_CALL);
+    store.setHoveredContract(null);
+    expect(store.highlightedContractId()).toBeNull();
+  });
+
+  it('a focused drill-down suppresses hover dimming — pin survives for the return', async () => {
     const { store } = setup();
     store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
     await flush();
@@ -228,8 +260,9 @@ describe('plotted contracts feature', () => {
     store.focusPlotted(QQQ_CALL);
     await flush();
 
-    // The focus gate overrides both — a stale pin/hover must not dim the
-    // contract in its own single view. The pin stays for the set's return.
+    // The focus gate suppresses the hover — a stale hover must not dim
+    // the contract in its own single view. The pin stays for the
+    // set's return (it's a bookmark, not a highlight).
     expect(store.highlightedContractId()).toBeNull();
     expect(store.pinnedContractId()).toBe(QQQ_PUT);
   });

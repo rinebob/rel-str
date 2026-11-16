@@ -636,7 +636,7 @@
             class="chip-main"
             (mouseenter)="onChipEnter(c)"
             (focus)="onChipEnter(c)"
-            (click)="onChipClick(c)" [title]="c.status === 'error' ? (c.error ?? 'Load failed') : 'Click to pin highlight'"
+            (click)="onChipClick(c)" [title]="c.status === 'error' ? (c.error ?? 'Load failed') : 'Click to pin'"
           >
             @if (c.status !== 'error') {
             <span class="chip-swatch" [style.background-color]="chipColor(c)"></span>

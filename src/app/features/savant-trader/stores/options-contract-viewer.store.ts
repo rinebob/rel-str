@@ -222,15 +222,14 @@ export const OptionsContractViewerStore = signalStore(
           // view); the set itself is untouched so the error can't strand it.
           const focus = store.chartFocusContractId();
           const hovered = store.hoveredContractId();
-          const pinned = store.pinnedContractId();
           patchState(store, {
             loading: false,
             error: err?.message ?? 'Failed to load contract',
             chartFocusContractId: focus === parsed.contractID ? null : focus,
-            // A hover/pin on the failed contract has no series to light —
-            // stranding it would dim every plotted contract indefinitely.
+            // A stranded hover would dim the plotted set — release it.
+            // The pin stays: it's a chip bookmark whose plotted record
+            // this failed focused load never touched (#1515).
             hoveredContractId: hovered === parsed.contractID ? null : hovered,
-            pinnedContractId: pinned === parsed.contractID ? null : pinned,
           });
           // The contract load failed — pre-existing bars stay. Refetch the
           // set's own context only when the last range no longer covers it

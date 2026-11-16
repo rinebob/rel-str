@@ -183,6 +183,39 @@ describe('OptionChartComponent — panel toggle (DOM, #1423)', () => {
     expect(store.hoveredContractId()).toBeNull();
   });
 
+  it('chip click renders the bookmark — .pinned + push_pin, never .highlighted (#1515)', async () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const store = fixture.componentInstance.store;
+    await store.loadPlotted([
+      { contractId: 'QQQ260619P00470000', openDate: null },
+      { contractId: 'QQQ260619C00480000', openDate: null },
+    ]);
+    await fixture.whenStable();
+
+    const chip = () => el.querySelector('.plotted-chip')!;
+    const main = () => el.querySelector('.plotted-chip .chip-main') as HTMLButtonElement;
+
+    // Click → the bookmark bindings light up; the highlight class stays
+    // off (pin is chip-local, never a chart highlight).
+    main().click();
+    await fixture.whenStable();
+    expect(chip().classList.contains('pinned')).toBe(true);
+    expect(chip().querySelector('.chip-pin-icon')).toBeTruthy();
+    expect(chip().classList.contains('highlighted')).toBe(false);
+
+    // Hovering the pinned chip DOES highlight it — hover is the only
+    // path that lights a chip/line now.
+    main().dispatchEvent(new MouseEvent('mouseenter'));
+    await fixture.whenStable();
+    expect(chip().classList.contains('highlighted')).toBe(true);
+
+    // Click again → bookmark off.
+    main().click();
+    await fixture.whenStable();
+    expect(chip().classList.contains('pinned')).toBe(false);
+    expect(chip().querySelector('.chip-pin-icon')).toBeNull();
+  });
+
   it('accordion heads collapse and re-expand their panels', async () => {
     const el: HTMLElement = fixture.nativeElement;
     const catalogPanel = el.querySelector('.ds-panel:has(#acc-head-catalog)')!;

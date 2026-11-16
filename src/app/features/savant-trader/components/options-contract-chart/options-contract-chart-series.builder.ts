@@ -141,7 +141,7 @@ export interface SeriesBuildInput {
   showUnderlying: boolean;
   showGreeks: boolean;
   showVolumeOI: boolean;
-  /** Chip-pinned highlight — the highlighted contract keeps full weight
+  /** Chip-hover highlight — the highlighted contract keeps full weight
    *  while every other mark/marker dims. Null = no emphasis. */
   highlightedContractId?: string | null;
 }
