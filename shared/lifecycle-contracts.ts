@@ -1,7 +1,7 @@
 /**
  * Lifecycle-viewer shared contracts — the shapes produced by the
- * getLifecycleTree callable and consumed by the dev-lifecycle page
- * (Blueprint #633 / task #637).
+ * getLifecycleTree callable and consumed by the topic-viewer page
+ * (Blueprint #633 / task #637, contract v2 in #1522).
  */
 
 export interface LifecycleRepoRequest {
@@ -22,18 +22,20 @@ export interface LifecycleNode {
   children: LifecycleNode[];
 }
 
-export interface LifecycleTopicSection {
-  name: string;
-  topics: LifecycleNode[];
+/** A topic root stamped with its TOPICS-INVENTORY group (or
+ *  UNGROUPED_SECTION). Children never carry `group`. */
+export interface LifecycleTopic extends LifecycleNode {
+  group: string;
 }
 
 export interface LifecycleTreeResponse {
-  sections: LifecycleTopicSection[];
+  /** Flat root list — grouping/sorting is a view concern. */
+  topics: LifecycleTopic[];
+  /** TOPICS-INVENTORY section names in doc order (Ungrouped appended when
+   *  ungrouped roots exist); empty when the inventory doc is absent. */
+  groupOrder: string[];
   fetchedAt: string;
-  /** Count of nodes whose subIssues pagination was truncated. The callable
-   *  throws before returning when this would be nonzero, so a successful
-   *  response always carries 0 — the field exists so the verify script can
-   *  assert the invariant explicitly. */
-  truncatedNodes: number;
+  /** Present only when the inventory doc degraded: non-404 fetch
+   *  failure, parse-null, or listing none of the fetched topics. */
   groupingWarning?: string;
 }

@@ -1,17 +1,18 @@
 /**
  * Tests for the lifecycle-viewer shared contracts — assert the shape of
- * real buildTree/orderTopics output rather than hand-written fixtures, so
+ * real buildTree/assignGroups output rather than hand-written fixtures, so
  * a contract change fails loudly
- * (Blueprint #633 / task #637).
+ * (Blueprint #633 / task #637, contract v2 in #1522).
  */
 
 import {
+  assignGroups,
   buildTree,
-  orderTopics,
+  UNGROUPED_SECTION,
   type LifecycleRawIssue,
 } from './lifecycle-tree';
 import type {
-  LifecycleTopicSection,
+  LifecycleTopic,
   LifecycleTreeResponse,
 } from './lifecycle-contracts';
 
@@ -50,26 +51,30 @@ describe('LifecycleNode shape (via buildTree)', () => {
   });
 });
 
-describe('LifecycleTopicSection shape (via orderTopics)', () => {
-  it('is name + topics only', () => {
+describe('LifecycleTopic shape (via assignGroups)', () => {
+  it('is a LifecycleNode plus group', () => {
     const [node] = buildTree([raw], new Map(), new Map());
-    const [section] = orderTopics([node], null);
-    const s: LifecycleTopicSection = section;
-    expect(Object.keys(s).sort()).toEqual(['name', 'topics']);
-    expect(s.topics[0]).toBe(node);
+    const { topics } = assignGroups([node], null);
+    const t: LifecycleTopic = topics[0];
+    expect(t.group).toBe(UNGROUPED_SECTION);
+    expect(Object.keys(t).sort()).toEqual([
+      'children', 'group', 'labels', 'nodeType', 'number', 'state', 'title',
+      'updatedAt', 'url',
+    ]);
   });
 });
 
 describe('LifecycleTreeResponse', () => {
-  it('truncatedNodes is required; groupingWarning is optional', () => {
+  it('flat topics + groupOrder + fetchedAt; groupingWarning optional', () => {
     const [node] = buildTree([raw], new Map(), new Map());
     const res: LifecycleTreeResponse = {
-      sections: orderTopics([node], null),
+      ...assignGroups([node], null),
       fetchedAt: '2026-09-28T00:00:00Z',
-      truncatedNodes: 0,
     };
-    expect(res.truncatedNodes).toBe(0);
+    expect(res.topics).toHaveLength(1);
+    expect(res.topics[0].group).toBe(UNGROUPED_SECTION);
+    expect(res.groupOrder).toEqual([]);
     expect(res.groupingWarning).toBeUndefined();
-    expect(Object.keys(res).sort()).toEqual(['fetchedAt', 'sections', 'truncatedNodes']);
+    expect(Object.keys(res).sort()).toEqual(['fetchedAt', 'groupOrder', 'topics']);
   });
 });

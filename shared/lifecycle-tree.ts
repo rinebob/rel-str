@@ -1,13 +1,13 @@
 /**
  * Lifecycle-tree transforms — pure functions that turn fetched issue rows
- * into a topic-rooted lifecycle tree and order topics into inventory
- * sections. No I/O; shared by the getLifecycleTree callable and the
- * dev-lifecycle page (Blueprint #633 / task #637).
+ * into a topic-rooted lifecycle tree and stamp topics with their
+ * inventory group. No I/O; shared by the getLifecycleTree callable and
+ * the topic-viewer page (Blueprint #633 / task #637, contract v2 #1522).
  */
 
 import type {
   LifecycleNode,
-  LifecycleTopicSection,
+  LifecycleTopic,
 } from './lifecycle-contracts';
 
 /** Closed stage-label vocabulary — repo-local copy because shared/ must not
@@ -95,7 +95,7 @@ export function buildTree(
   childrenOf: Map<number, LifecycleRawIssue[]>,
   statusOf: Map<number, string>,
 ): LifecycleNode[] {
-    const expanded = new Set<number>();
+  const expanded = new Set<number>();
   /** Emitted subtree-max updatedAt per node — lets a deduped child still
    *  propagate its full subtree's max (not just its own timestamp). */
   const emittedUpdatedAt = new Map<number, string>();
@@ -188,43 +188,41 @@ export function parseInventoryGroups(
 }
 
 /**
- * Order topic trees into named sections. With groups: doc order, then an
- * Ungrouped section for leftovers; stale refs (grouped numbers with no
- * matching topic) are dropped. Without groups: one section sorted by
- * updatedAt desc.
+ * Stamp each topic root with its TOPICS-INVENTORY group — the first
+ * section listing its number, else UNGROUPED_SECTION — and emit
+ * `groupOrder` (section names in doc order; UNGROUPED_SECTION appended
+ * when ungrouped roots exist so every stamped group appears in the order;
+ * empty when the doc is absent). Stale grouped refs with no matching
+ * topic are ignored. Input order is preserved — ordering is a consumer
+ * concern.
  */
-export function orderTopics(
+export function assignGroups(
   topics: LifecycleNode[],
   groups: LifecycleInventoryGroup[] | null,
-): LifecycleTopicSection[] {
-  const byNumber = new Map(topics.map(t => [t.number, t]));
-  // Same code-unit ordering as buildTree's max propagation — never diverges.
-  const byUpdatedDesc = (a: LifecycleNode, b: LifecycleNode) =>
-    b.updatedAt > a.updatedAt ? 1 : b.updatedAt < a.updatedAt ? -1 : 0;
-
+): { topics: LifecycleTopic[]; groupOrder: string[] } {
   if (!groups || groups.length === 0) {
-    return [{ name: UNGROUPED_SECTION, topics: [...topics].sort(byUpdatedDesc) }];
+    return {
+      topics: topics.map(t => ({ ...t, group: UNGROUPED_SECTION })),
+      groupOrder: [],
+    };
   }
 
-  const grouped = new Set<number>();
-  const sections: LifecycleTopicSection[] = groups
-    .map(g => ({
-      name: g.name,
-      topics: g.topicNumbers
-        .filter(n => byNumber.has(n) && !grouped.has(n))
-        .map(n => {
-          grouped.add(n);
-          return byNumber.get(n)!;
-        }),
-    }))
-    .filter(s => s.topics.length > 0);
-
-  const ungrouped = topics.filter(t => !grouped.has(t.number));
-  if (ungrouped.length > 0) {
-    sections.push({ name: UNGROUPED_SECTION, topics: ungrouped.sort(byUpdatedDesc) });
+  const groupOf = new Map<number, string>();
+  for (const g of groups) {
+    for (const n of g.topicNumbers) {
+      if (!groupOf.has(n)) groupOf.set(n, g.name);
+    }
   }
-  // Empty repo (zero topic roots): keep the single-section guarantee the
-  // null-groups branch provides — callers treat sections[] as the render set.
-  if (sections.length === 0) return [{ name: UNGROUPED_SECTION, topics: [] }];
-  return sections;
+  const topics2 = topics.map(t => ({
+    ...t,
+    group: groupOf.get(t.number) ?? UNGROUPED_SECTION,
+  }));
+  // Deduped — the doc can repeat a section name (or name one 'Ungrouped')
+  // and duplicated names would collide on `@for track sec.name` downstream.
+  const groupOrder = [...new Set(groups.map(g => g.name))];
+  if (!groupOrder.includes(UNGROUPED_SECTION)
+      && topics2.some(t => t.group === UNGROUPED_SECTION)) {
+    groupOrder.push(UNGROUPED_SECTION);
+  }
+  return { topics: topics2, groupOrder };
 }

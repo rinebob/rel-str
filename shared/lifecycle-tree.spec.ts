@@ -1,14 +1,15 @@
 /**
  * Tests for lifecycle-tree transforms — label decode, node typing, tree
- * assembly, inventory-group parsing, and topic ordering
- * (Blueprint #633 / task #637).
+ * assembly, inventory-group parsing, and group assignment
+ * (Blueprint #633 / task #637, contract v2 in #1522).
  */
 
 import {
+  assignGroups,
   buildTree,
   decodeLabels,
+  isTopicRoot,
   nodeTypeFor,
-  orderTopics,
   parseInventoryGroups,
   UNGROUPED_SECTION,
   type LifecycleRawIssue,
@@ -215,41 +216,79 @@ describe('parseInventoryGroups', () => {
   });
 });
 
-describe('orderTopics', () => {
+describe('isTopicRoot', () => {
+  it.each(['Topic: x', 'TOPIC: x', 'topic: x', '  Topic: padded'])(
+    'accepts %p', (title) => {
+      expect(isTopicRoot(title)).toBe(true);
+    });
+
+  it.each([
+    'Thread: Topic Viewer polish',
+    'INVENTORY: Topic Viewer',
+    'Idea: Topic Viewer',
+    'Not a topic at all',
+    '',
+  ])('rejects %p', (title) => {
+    expect(isTopicRoot(title)).toBe(false);
+  });
+});
+
+describe('assignGroups', () => {
   const t = (n: number, updatedAt: string) => ({
     number: n, title: `Topic ${n}`, state: 'open' as const, url: `u${n}`,
     nodeType: 'topic' as const, labels: [], updatedAt, children: [],
   });
 
-  it('orders groups by doc order, topics by doc order, ungrouped by updatedAt desc', () => {
+  it('stamps group per root and emits doc-order groupOrder; no sorting', () => {
     const topics = [t(10, '2026-09-01T00:00:00Z'), t(1, '2026-09-01T00:00:00Z'),
       t(2, '2026-09-20T00:00:00Z'), t(9, '2026-09-25T00:00:00Z')];
     const groups = [
       { name: 'A', topicNumbers: [2, 1] },
       { name: 'B', topicNumbers: [9] },
     ];
-    const sections = orderTopics(topics, groups);
-    expect(sections.map(s => s.name)).toEqual(['A', 'B', UNGROUPED_SECTION]);
-    expect(sections[0].topics.map(x => x.number)).toEqual([2, 1]);
-    expect(sections[2].topics.map(x => x.number)).toEqual([10]); // only ungrouped, desc
+    const { topics: out, groupOrder } = assignGroups(topics, groups);
+    expect(groupOrder).toEqual(['A', 'B', UNGROUPED_SECTION]);
+    const byNum = new Map(out.map(x => [x.number, x.group]));
+    expect(byNum.get(1)).toBe('A');
+    expect(byNum.get(2)).toBe('A');
+    expect(byNum.get(9)).toBe('B');
+    expect(byNum.get(10)).toBe(UNGROUPED_SECTION);
+    // Input order preserved — ordering is a consumer concern.
+    expect(out.map(x => x.number)).toEqual([10, 1, 2, 9]);
   });
 
-  it('groups:null produces a single section sorted by updatedAt desc', () => {
-    const topics = [t(1, '2026-09-01T00:00:00Z'), t(2, '2026-09-20T00:00:00Z')];
-    const sections = orderTopics(topics, null);
-    expect(sections).toEqual([{ name: UNGROUPED_SECTION, topics: [topics[1], topics[0]] }]);
+  it('groups:null → every root Ungrouped, empty groupOrder', () => {
+    const { topics: out, groupOrder } = assignGroups(
+      [t(1, '2026-09-01T00:00:00Z'), t(2, '2026-09-20T00:00:00Z')], null);
+    expect(out.every(x => x.group === UNGROUPED_SECTION)).toBe(true);
+    expect(groupOrder).toEqual([]);
   });
 
-  it('drops stale group refs whose topic is absent', () => {
-    const sections = orderTopics([t(9, '2026-09-01T00:00:00Z')], [
-      { name: 'A', topicNumbers: [999, 9] },
+  it('no Ungrouped entry appended when every root is grouped', () => {
+    const { groupOrder } = assignGroups([t(9, '2026-09-01T00:00:00Z')], [
+      { name: 'A', topicNumbers: [999, 9] }, // stale 999 ref — harmless
     ]);
-    expect(sections[0].topics.map(x => x.number)).toEqual([9]);
+    expect(groupOrder).toEqual(['A']);
   });
 
-  it('empty topic list still returns one Ungrouped section (sections never [])', () => {
-    const sections = orderTopics([], [{ name: 'A', topicNumbers: [999] }]);
-    expect(sections).toEqual([{ name: UNGROUPED_SECTION, topics: [] }]);
-    expect(orderTopics([], null)).toEqual([{ name: UNGROUPED_SECTION, topics: [] }]);
+  it('dedupes groupOrder — repeated doc section names and a doc section named "Ungrouped"', () => {
+    const { groupOrder } = assignGroups([
+      t(1, '2026-09-01T00:00:00Z'), t(9, '2026-09-20T00:00:00Z'),
+      t(5, '2026-09-10T00:00:00Z'), // unlisted — exercises the append guard
+    ], [
+      { name: 'A', topicNumbers: [1] },
+      { name: 'A', topicNumbers: [9] },
+      { name: 'Ungrouped', topicNumbers: [9] },
+    ]);
+    expect(groupOrder).toEqual(['A', 'Ungrouped']);
+  });
+
+  it('empty roots → empty topics; groupOrder still mirrors the doc', () => {
+    const { topics: out, groupOrder } = assignGroups([], [
+      { name: 'A', topicNumbers: [999] },
+    ]);
+    expect(out).toEqual([]);
+    expect(groupOrder).toEqual(['A']);
+    expect(assignGroups([], null)).toEqual({ topics: [], groupOrder: [] });
   });
 });
