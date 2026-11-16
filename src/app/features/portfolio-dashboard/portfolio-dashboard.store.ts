@@ -35,7 +35,6 @@ import {
   EquityQuote,
   OptionQuote,
   BrokerOrder,
-  EquityOrdersPage,
 } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { computePnL, computeProtectedSymbols, computeEntryDates, updatableStopsBySymbol, protectiveStopsBySymbol } from './utils/portfolio-pnl.util';
 import { PositionPeakService } from './services/position-peak.service';
@@ -61,11 +60,11 @@ import {
   updateAccount,
 } from './portfolio-dashboard.helpers';
 
-/** Depth bound for the orders batch page-walk — matches the client's
- *  MAX_ORDER_LIST_PAGES (a live capture showed 148 orders on one page,
- *  so 25 rounds ≈ 3.7k orders). A warn fires rather than looping on a
- *  stuck cursor (#1411). */
-const MAX_ORDERS_PAGE_ROUNDS = 25;
+/** Depth bound for the lockstep list walks — matches the client's
+ *  MAX_LIST_PAGES (a live capture showed 148 orders on one page, so 25
+ *  rounds ≈ 3.7k rows). A warn fires rather than looping on a stuck
+ *  cursor (#1411 orders, #1474 positions). */
+const MAX_PAGE_ROUNDS = 25;
 
 const initialState: DashboardState = {
   accounts: [],
@@ -264,48 +263,76 @@ export const PortfolioDashboardStore = signalStore(
       patchState(store, { accounts: updateAccount(accounts, index, updater) });
     }
 
-    /** Equity + option orders for one account — the lists paginate on
-     *  `data.next`, so both tools walk their cursors, one /batch per depth
-     *  round (a deep history costs rounds ≈ its page depth, not a serial
-     *  crawl — #1411: page 1 alone silently drops older resting orders).
-     *  A transport failure rejects the still-pending slots. */
-    async function runOrdersBatch(accountNumber: string): Promise<[
-      PromiseSettledResult<BrokerOrder[]>,
-      PromiseSettledResult<BrokerOrder[]>,
-    ]> {
-      interface OrdersWalk {
-        build: (cursor?: string) => ToolSpec<EquityOrdersPage>;
-        orders: BrokerOrder[];
-        cursor?: string;
-        done: boolean;
-        failure?: unknown;
-      }
-      const walks: OrdersWalk[] = [
-        {
-          build: (cursor) => client.equityOrdersPageSpec(accountNumber, { cursor }),
-          orders: [], done: false,
-        },
-        {
-          build: (cursor) => client.optionOrdersPageSpec(accountNumber, { cursor }),
-          orders: [], done: false,
-        },
-      ];
-      for (let round = 0; round < MAX_ORDERS_PAGE_ROUNDS; round++) {
+    /** One paginated tool in a lockstep walk: `build` produces the page
+     *  spec for the current cursor, `pick` lifts the item list off a
+     *  settled page. */
+    interface WalkDef<P, T> {
+      build: (cursor?: string) => ToolSpec<P>;
+      pick: (page: P) => T[];
+    }
+
+    /** A pair of `data.next` lists walked in lockstep — one /batch per
+     *  depth round (a deep list costs rounds ≈ its page depth, not a
+     *  serial crawl). `rideAlong` specs join the round-0 batch only
+     *  (single-page tools that share the session, e.g. get_portfolio).
+     *  A transport failure rejects the still-pending slots and any
+     *  ride-along. (#1411 orders, #1474 positions — page 1 alone silently
+     *  drops everything past the bound.) */
+    async function runPagedBatch<AP extends { next: string | null }, AT, BP extends { next: string | null }, BT, R>(
+      a: WalkDef<AP, AT>,
+      b: WalkDef<BP, BT>,
+      context: string,
+      rideAlong: ToolSpec<R>[] = [],
+    ): Promise<{
+      results: [PromiseSettledResult<AT[]>, PromiseSettledResult<BT[]>];
+      extra: PromiseSettledResult<R>[];
+    }> {
+      // Per-walk closure keeps the page type inside the boundary — one
+      // honest `as P` where a settled value re-enters, instead of `as
+      // never` parameter tricks at every call site.
+      const toWalk = <P extends { next: string | null }, T>(def: WalkDef<P, T>) => {
+        const w = {
+          items: [] as T[],
+          cursor: undefined as string | undefined,
+          done: false,
+          failure: undefined as unknown,
+          build: (cursor?: string): ToolSpec<unknown> => def.build(cursor),
+          absorb: (value: unknown): void => {
+            const page = value as P;
+            w.items.push(...def.pick(page));
+            w.cursor = typeof page.next === 'string' && page.next ? page.next : undefined;
+            if (!w.cursor) w.done = true;
+          },
+        };
+        return w;
+      };
+      const wa = toWalk(a);
+      const wb = toWalk(b);
+      const walks = [wa, wb];
+      let extra: PromiseSettledResult<R>[] = [];
+      for (let round = 0; round < MAX_PAGE_ROUNDS; round++) {
         const pending = walks.filter((w) => !w.done);
         if (pending.length === 0) break;
-        let results: PromiseSettledResult<EquityOrdersPage>[];
+        const extras = round === 0 ? rideAlong : [];
+        let results: PromiseSettledResult<unknown>[];
         try {
-          results = await client.executeBatch(pending.map((w) => w.build(w.cursor)));
+          results = await client.executeBatch([
+            ...extras,
+            ...pending.map((w) => w.build(w.cursor)),
+          ]);
         } catch (err) {
           for (const w of pending) { w.done = true; w.failure = err; }
+          if (extras.length > 0) {
+            extra = extras.map((): PromiseSettledResult<R> => ({ status: 'rejected', reason: err }));
+          }
           break;
         }
+        if (extras.length > 0) extra = results.slice(0, extras.length) as PromiseSettledResult<R>[];
+        const settled = results.slice(extras.length);
         pending.forEach((w, i) => {
-          const r = results[i];
+          const r = settled[i];
           if (r.status === 'rejected') { w.done = true; w.failure = r.reason; return; }
-          w.orders.push(...r.value.orders);
-          w.cursor = r.value.next ?? undefined;
-          if (!w.cursor) w.done = true;
+          w.absorb(r.value);
         });
       }
       for (const w of walks) {
@@ -314,19 +341,60 @@ export const PortfolioDashboardStore = signalStore(
           // (partial > none) but make the truncation loud, matching the
           // client's own page-walk warn semantics.
           console.warn(
-            `orders fetch hit the ${MAX_ORDERS_PAGE_ROUNDS}-page cap (account=${accountNumber}) — history may be truncated`,
+            `${context} hit the ${MAX_PAGE_ROUNDS}-page cap — results may be truncated`,
           );
           w.done = true;
         }
       }
-      return walks.map((w): PromiseSettledResult<BrokerOrder[]> =>
+      const toResult = <T>(w: { items: T[]; failure?: unknown }): PromiseSettledResult<T[]> =>
         w.failure !== undefined
           ? { status: 'rejected', reason: w.failure }
-          : { status: 'fulfilled', value: w.orders },
-      ) as [
-        PromiseSettledResult<BrokerOrder[]>,
-        PromiseSettledResult<BrokerOrder[]>,
+          : { status: 'fulfilled', value: w.items };
+      return { results: [toResult(wa), toResult(wb)], extra };
+    }
+
+    /** Equity + option orders for one account (#1411). */
+    async function runOrdersBatch(accountNumber: string): Promise<[
+      PromiseSettledResult<BrokerOrder[]>,
+      PromiseSettledResult<BrokerOrder[]>,
+    ]> {
+      const { results } = await runPagedBatch(
+        {
+          build: (cursor) => client.equityOrdersPageSpec(accountNumber, { cursor }),
+          pick: (page) => page.orders,
+        },
+        {
+          build: (cursor) => client.optionOrdersPageSpec(accountNumber, { cursor }),
+          pick: (page) => page.orders,
+        },
+        `orders fetch (account=${accountNumber})`,
+      );
+      return results;
+    }
+
+    /** Equity + option positions for one account, with get_portfolio
+     *  riding the round-0 batch — the same 3-spec session the pre-walk
+     *  core fetch used (#1474). */
+    async function runPositionsBatch(accountNumber: string): Promise<{
+      results: [
+        PromiseSettledResult<EquityPosition[]>,
+        PromiseSettledResult<OptionPosition[]>,
       ];
+      portfolio: PromiseSettledResult<PortfolioSnapshot>;
+    }> {
+      const { results, extra } = await runPagedBatch(
+        {
+          build: (cursor) => client.equityPositionsPageSpec(accountNumber, { cursor }),
+          pick: (page) => page.positions,
+        },
+        {
+          build: (cursor) => client.optionPositionsPageSpec(accountNumber, { nonzero: false, cursor }),
+          pick: (page) => page.positions,
+        },
+        `positions fetch (account=${accountNumber})`,
+        [client.portfolioSpec(accountNumber)],
+      );
+      return { results, portfolio: extra[0] };
     }
 
     function applyOrdersResults(
@@ -389,17 +457,18 @@ export const PortfolioDashboardStore = signalStore(
         optionPositions: loadingSection(a.optionPositions),
       }));
 
-      let results: [
-        PromiseSettledResult<PortfolioSnapshot>,
-        PromiseSettledResult<EquityPosition[]>,
-        PromiseSettledResult<OptionPosition[]>,
-      ];
+      // runPositionsBatch keeps the original 3-spec round-0 session —
+      // get_portfolio rides the first batch while both position lists
+      // walk their `data.next` cursors to exhaustion in lockstep (#1474:
+      // a page-1-only fetch silently drops deep positions). A transport
+      // failure lands as rejected results, handled per section below.
+      let portfolioR: PromiseSettledResult<PortfolioSnapshot>;
+      let equityR: PromiseSettledResult<EquityPosition[]>;
+      let optionR: PromiseSettledResult<OptionPosition[]>;
       try {
-        results = await client.executeBatch([
-          client.portfolioSpec(accountNumber),
-          client.equityPositionsSpec(accountNumber),
-          client.optionPositionsSpec(accountNumber, false),
-        ]);
+        const batch = await runPositionsBatch(accountNumber);
+        portfolioR = batch.portfolio;
+        [equityR, optionR] = batch.results;
       } catch (err) {
         patchAccount(accountNumber, (a) => ({
           ...a,
@@ -409,7 +478,6 @@ export const PortfolioDashboardStore = signalStore(
         }));
         return false;
       }
-      const [portfolioR, equityR, optionR] = results;
       patchAccount(accountNumber, (a) => ({
         ...a,
         portfolio: portfolioR.status === 'fulfilled'
@@ -422,6 +490,17 @@ export const PortfolioDashboardStore = signalStore(
           ? dataSection(optionR.value)
           : errorSection(a.optionPositions, errMessage(optionR.reason)),
       }));
+
+      // A transport-level failure rejects every result — treat it like the
+      // old thrown batch: no group mark (a later ensure retries), and no
+      // quotes/peaks work on an account whose session just failed.
+      if (
+        portfolioR.status === 'rejected' &&
+        equityR.status === 'rejected' &&
+        optionR.status === 'rejected'
+      ) {
+        return false;
+      }
 
       const acct = store.accounts().find((a) => a.accountNumber === accountNumber);
       if (!acct) return false;

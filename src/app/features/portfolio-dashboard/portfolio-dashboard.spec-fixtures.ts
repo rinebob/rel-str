@@ -118,6 +118,13 @@ export interface MockToolSpec {
   args?: Record<string, unknown>;
 }
 
+/** Parsed page shape the positions page-specs resolve to (#1474 — the
+ *  store's positions walk reads `positions`/`next` off each settled page,
+ *  same as the orders walk reads `orders`/`next`). */
+export function positionsPage<T>(positions: T[], next: string | null = null): { positions: T[]; next: string | null } {
+  return { positions, next };
+}
+
 export type MockClient = {
   getAccounts: jasmine.Spy;
   getPortfolio: jasmine.Spy;
@@ -129,12 +136,10 @@ export type MockClient = {
   getOptionOrders: jasmine.Spy;
   executeBatch: jasmine.Spy;
   portfolioSpec: (accountNumber: string) => MockToolSpec;
-  equityPositionsSpec: (accountNumber: string) => MockToolSpec;
-  optionPositionsSpec: (accountNumber: string, nonzero?: boolean) => MockToolSpec;
-  equityOrdersSpec: (accountNumber: string) => MockToolSpec;
-  optionOrdersSpec: (accountNumber: string) => MockToolSpec;
   equityOrdersPageSpec: (accountNumber: string, opts?: { cursor?: string }) => MockToolSpec;
   optionOrdersPageSpec: (accountNumber: string, opts?: { cursor?: string }) => MockToolSpec;
+  equityPositionsPageSpec: (accountNumber: string, opts?: { cursor?: string }) => MockToolSpec;
+  optionPositionsPageSpec: (accountNumber: string, opts?: { cursor?: string; nonzero?: boolean }) => MockToolSpec;
 };
 
 export function createMockClient(): MockClient {
@@ -149,12 +154,10 @@ export function createMockClient(): MockClient {
     getOptionOrders: jasmine.createSpy('getOptionOrders'),
     executeBatch: jasmine.createSpy('executeBatch'),
     portfolioSpec: (accountNumber) => ({ tool: 'get_portfolio', args: { account_number: accountNumber } }),
-    equityPositionsSpec: (accountNumber) => ({ tool: 'get_equity_positions', args: { account_number: accountNumber } }),
-    optionPositionsSpec: (accountNumber, nonzero) => ({ tool: 'get_option_positions', args: { account_number: accountNumber, ...(nonzero ? { nonzero: true } : {}) } }),
-    equityOrdersSpec: (accountNumber) => ({ tool: 'get_equity_orders', args: { account_number: accountNumber } }),
-    optionOrdersSpec: (accountNumber) => ({ tool: 'get_option_orders', args: { account_number: accountNumber } }),
     equityOrdersPageSpec: (accountNumber, opts) => ({ tool: 'get_equity_orders', args: { account_number: accountNumber, ...(opts?.cursor ? { cursor: opts.cursor } : {}) } }),
     optionOrdersPageSpec: (accountNumber, opts) => ({ tool: 'get_option_orders', args: { account_number: accountNumber, ...(opts?.cursor ? { cursor: opts.cursor } : {}) } }),
+    equityPositionsPageSpec: (accountNumber, opts) => ({ tool: 'get_equity_positions', args: { account_number: accountNumber, ...(opts?.cursor ? { cursor: opts.cursor } : {}) } }),
+    optionPositionsPageSpec: (accountNumber, opts) => ({ tool: 'get_option_positions', args: { account_number: accountNumber, ...(opts?.nonzero ? { nonzero: true } : {}), ...(opts?.cursor ? { cursor: opts.cursor } : {}) } }),
   };
 }
 
@@ -202,22 +205,30 @@ export function rejected(error: string): PromiseSettledResult<never> {
   return { status: 'rejected', reason: new Error(error) };
 }
 
-/** Order-list tools answer executeBatch with page envelopes ({orders, next})
- *  since #1411 — the store walks cursors per depth round. */
-const ORDERS_PAGE_TOOLS = new Set(['get_equity_orders', 'get_option_orders']);
+/** Paginated list tools answer executeBatch with page envelopes —
+ *  orders {orders, next} since #1411, positions {positions, next} since
+ *  #1474 — the store walks cursors per depth round. */
+const PAGE_TOOLS: Record<string, 'orders' | 'positions'> = {
+  get_equity_orders: 'orders',
+  get_option_orders: 'orders',
+  get_equity_positions: 'positions',
+  get_option_positions: 'positions',
+};
 
-/** Empty settled answer for one spec — orders tools get a page envelope,
+/** Empty settled answer for one spec — page tools get an empty envelope,
  *  everything else an empty array. For gating callFakes that resolve every
  *  spec with a blank result (`specs.map(emptySpecAnswer)`). */
 export function emptySpecAnswer(spec: MockToolSpec): PromiseSettledResult<unknown> {
-  return fulfilled(ORDERS_PAGE_TOOLS.has(spec.tool) ? { orders: [], next: null } : []);
+  const key = PAGE_TOOLS[spec.tool];
+  return fulfilled(key ? { [key]: [], next: null } : []);
 }
 
 /** Stub executeBatch to answer each spec from a tool→settled-result table.
  *  A table entry may be a function of the spec for account-specific answers.
- *  Orders-tool entries may stay plain BrokerOrder[] — they're wrapped into
- *  single-page envelopes ({orders, next: null}) automatically; to answer a
- *  multi-page walk, return fulfilled({orders, next}) from a function. */
+ *  Page-tool entries may stay plain arrays — they're wrapped into
+ *  single-page envelopes ({items, next: null}) automatically; to answer a
+ *  multi-page walk, return fulfilled({orders|positions, next}) from a
+ *  function. */
 export function batchAnswers(
   client: MockClient,
   table: Record<string, PromiseSettledResult<unknown> | ((spec: MockToolSpec) => PromiseSettledResult<unknown>)>,
@@ -226,8 +237,9 @@ export function batchAnswers(
     Promise.resolve(specs.map((s) => {
       const entry = table[s.tool];
       const result = typeof entry === 'function' ? entry(s) : entry ?? rejected(`unstubbed tool ${s.tool}`);
-      if (ORDERS_PAGE_TOOLS.has(s.tool) && result.status === 'fulfilled' && Array.isArray(result.value)) {
-        return fulfilled({ orders: result.value, next: null });
+      const key = PAGE_TOOLS[s.tool];
+      if (key && result.status === 'fulfilled' && Array.isArray(result.value)) {
+        return fulfilled({ [key]: result.value, next: null });
       }
       return result;
     })));

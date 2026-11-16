@@ -5,6 +5,7 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
+import { RobinhoodMcpClient } from '../../../core/robinhood-mcp/robinhood-mcp-client.service';
 import { getNestedNumber } from '../utils/mcp-response.util';
 
 export interface BrokerPosition {
@@ -26,27 +27,39 @@ export interface AccountSnapshot {
 @Injectable({ providedIn: 'root' })
 export class PortfolioService {
   private readonly mcpService = inject(RobinhoodMcpObservationService);
+  private readonly mcpClient = inject(RobinhoodMcpClient);
 
   async getSnapshot(accountNumber: string, defaultDollarAmount: number): Promise<AccountSnapshot | null> {
     const request = { args: { account_number: accountNumber } };
-    const [portfolioResult, positionsResult] = await Promise.all([
+    // Positions walk their `data.next` cursor through the canonical client
+    // (#1474 — a page-1-only fetch silently drops deep positions). The
+    // walk rejects on failure, so it's shaped back into the outcome union
+    // to preserve the null-on-failure contract.
+    const [portfolioResult, positionsOutcome] = await Promise.all([
       this.mcpService.executeTool('get_portfolio', request),
-      this.mcpService.executeTool('get_equity_positions', request),
+      this.mcpClient.getEquityPositionsRaw(accountNumber).then(
+        (positions) => ({ ok: true as const, positions }),
+        (err: unknown) => ({ ok: false as const, err }),
+      ),
     ]);
     if (!portfolioResult.success) {
       console.error('[PortfolioService] Account snapshot failed:', portfolioResult.error);
       return null;
     }
-    if (!positionsResult.success) {
-      console.error('[PortfolioService] Account snapshot failed:', positionsResult.error);
+    if (!positionsOutcome.ok) {
+      const err = positionsOutcome.err;
+      console.error(
+        '[PortfolioService] Account snapshot failed:',
+        err instanceof Error ? err.message : String(err),
+      );
       return null;
     }
 
     const accountValue = getNestedNumber(portfolioResult.parsed, 'data', 'total_value');
     const exposure = getNestedNumber(portfolioResult.parsed, 'data', 'equity_value');
     const cash = getNestedNumber(portfolioResult.parsed, 'data', 'cash');
-    const rawPositions = this.getPositions(positionsResult.parsed);
-    if (accountValue === null || exposure === null || cash === null || rawPositions === null) {
+    const rawPositions = positionsOutcome.positions;
+    if (accountValue === null || exposure === null || cash === null) {
       console.warn('[PortfolioService] Incomplete account snapshot response');
       return null;
     }
@@ -62,19 +75,9 @@ export class PortfolioService {
     };
   }
 
-  private getPositions(parsed: unknown): Record<string, unknown>[] | null {
-    if (!parsed || typeof parsed !== 'object') return null;
-    const data = (parsed as Record<string, unknown>)['data'];
-    if (!data || typeof data !== 'object') return null;
-    const positions = (data as Record<string, unknown>)['positions'];
-    return Array.isArray(positions)
-      ? positions.filter((position): position is Record<string, unknown> =>
-          typeof position === 'object' && position !== null)
-      : null;
-  }
-
   private toBrokerPositions(rawPositions: Record<string, unknown>[]): BrokerPosition[] {
     return rawPositions.flatMap((position) => {
+      if (!position || typeof position !== 'object') return [];
       const symbol = typeof position['symbol'] === 'string' ? position['symbol'] : '';
       const quantity = String(position['quantity'] ?? '');
       const averageBuyPrice = String(position['average_buy_price'] ?? '');

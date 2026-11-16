@@ -16,6 +16,7 @@ import {
   makeOrder,
   makeOptionOrder,
   makePortfolio,
+  positionsPage,
   rejected,
   resolve,
   reject,
@@ -635,6 +636,104 @@ describe('PortfolioDashboardStore', () => {
         .flatMap(([specs]) => specs as MockToolSpec[])
         .filter((s) => s.tool === 'get_portfolio' && s.args?.['account_number'] === '222');
       expect(coreFor222).toHaveLength(2);
+    });
+  });
+
+  // ── positions page-walk (#1474) ───────────────────────────────────────────
+
+  describe('positions page-walk (#1474)', () => {
+    it('walks position pages in batched rounds — page 2+ positions land in the sections', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: (spec) =>
+          spec.args?.['cursor'] === 'EQP2'
+            ? fulfilled(positionsPage([makeEquityPosition({ symbol: 'NVDA' })]))
+            : fulfilled(positionsPage([makeEquityPosition({ symbol: 'AAPL' })], 'EQP2')),
+        get_option_positions: (spec) =>
+          spec.args?.['cursor'] === 'OPP2'
+            ? fulfilled(positionsPage([makeOptionPosition()]))
+            : fulfilled(positionsPage([], 'OPP2')),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
+      });
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+
+      await store.initialLoad();
+
+      // Round 1: portfolio rides along with both first pages in ONE batch
+      // (same tool list as the pre-walk core batch); round 2: both
+      // continuations — the prior page's `next` goes back verbatim.
+      const batches = client.executeBatch.calls
+        .allArgs()
+        .map(([specs]) => specs as MockToolSpec[]);
+      expect(batches[0].map((s) => s.tool)).toEqual([
+        'get_portfolio', 'get_equity_positions', 'get_option_positions',
+      ]);
+      expect(batches[1].map((s) => s.args?.['cursor'])).toEqual(['EQP2', 'OPP2']);
+      const acct = store.accounts()[0];
+      expect(acct.equityPositions.data?.map((p) => p.symbol)).toEqual(['AAPL', 'NVDA']);
+      expect(acct.optionPositions.data?.length).toBe(1);
+    });
+
+    it('a mid-walk page failure rejects only that section — the other keeps its data', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: (spec) =>
+          spec.args?.['cursor']
+            ? rejected('positions page 2 blew up')
+            : fulfilled(positionsPage([makeEquityPosition({ symbol: 'AAPL' })], 'EQP2')),
+        get_option_positions: fulfilled(positionsPage([makeOptionPosition()])),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
+      });
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+
+      await store.initialLoad();
+
+      const acct = store.accounts()[0];
+      expect(acct.equityPositions.error).toBe('positions page 2 blew up');
+      expect(acct.optionPositions.data?.length).toBe(1);
+      expect(acct.portfolio.data).not.toBeNull();
+    });
+
+    it('a transport failure on a continuation round keeps the round-0 portfolio and errors both position sections', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      // A batch where every spec carries a cursor is a continuation round —
+      // reject it; round-0 specs (no cursor) answer per tool.
+      client.executeBatch.and.callFake((specs: MockToolSpec[]) =>
+        specs.every((s) => s.args?.['cursor'])
+          ? reject('transport died mid-walk')
+          : Promise.resolve(
+              specs.map((s) => {
+                switch (s.tool) {
+                  case 'get_portfolio':
+                    return fulfilled(makePortfolio());
+                  case 'get_equity_positions':
+                    return fulfilled(positionsPage([makeEquityPosition()], 'EQP2'));
+                  case 'get_option_positions':
+                    return fulfilled(positionsPage([makeOptionPosition()], 'OPP2'));
+                  default:
+                    return fulfilled({ orders: [], next: null });
+                }
+              }),
+            ),
+      );
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+
+      await store.initialLoad();
+
+      const acct = store.accounts()[0];
+      // The ride-along's round-0 result survives the mid-walk transport
+      // failure; both walks reject and land per-section errors.
+      expect(acct.portfolio.data).toEqual(makePortfolio());
+      expect(acct.equityPositions.error).toBe('transport died mid-walk');
+      expect(acct.optionPositions.error).toBe('transport died mid-walk');
+      expect(acct.equityPositions.loading).toBe(false);
     });
   });
 
