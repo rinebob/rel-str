@@ -28,6 +28,7 @@ import {
   statsScopeVariant,
   statsScopeCohort,
   statsScopeSignal,
+  statsScopeSource,
   statsScopeSymbol,
   statsScopeSignalType,
   statsScopeDirection,
@@ -40,6 +41,7 @@ import {
   type TradeOrigin,
 } from './paper-trading-ids';
 import { TradeSide } from './common';
+import { PaperTradeSource } from './paper-trading-contracts';
 
 const DAY = new Date('2026-09-24T18:30:00Z');
 
@@ -135,6 +137,12 @@ describe('buildStatsId and scopes', () => {
 
   it('per-symbol scope', () => {
     expect(buildStatsId(statsScopeSymbol('qqq'))).toBe('stats-sym-QQQ');
+  });
+
+  it('per-source scope uppercases the source value', () => {
+    expect(buildStatsId(statsScopeSource(PaperTradeSource.STRATEGY))).toBe('stats-src-STRATEGY');
+    expect(statsScopeSource(PaperTradeSource.SIGNAL)).toBe('src-SIGNAL');
+    expect(statsScopeSource(PaperTradeSource.MANUAL)).toBe('src-MANUAL');
   });
 });
 

@@ -27,6 +27,9 @@
 import { formatDelta, formatDte, formatYYMMDD } from './id-format';
 import { TradeSide } from './common';
 import { stPaperTradingItemsPath, StPaperTradingKind } from './st-collections';
+// Type-only — paper-trading-contracts imports PaperTradingKind from this
+// module as a value, so a runtime import here would create a cycle.
+import type { PaperTradeSource } from './paper-trading-contracts';
 
 /** Root collection for all paper-trading records. */
 export const PAPER_TRADING_ROOT = 'paper-trading';
@@ -167,6 +170,14 @@ export function statsScopeCohort(cohortId: string): string {
 }
 export function statsScopeSignal(signalId: string): string { return `sig-${signalId}`; }
 export function statsScopeSymbol(symbol: string): string { return `sym-${symbol.toUpperCase()}`; }
+/**
+ * Per-source scope — `src-STRATEGY` / `src-SIGNAL` / `src-MANUAL`. The enum
+ * values are lowercase; uppercased here like `statsScopeSymbol` so the doc
+ * ids read `stats-src-STRATEGY` (population selector scopes, Thread #987).
+ */
+export function statsScopeSource(source: PaperTradeSource): string {
+  return `src-${source.toUpperCase()}`;
+}
 
 // ── Auto-paper slice dimensions (Thread #904) ────────────────────────────────
 
