@@ -28,7 +28,7 @@ import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import * as logger from 'firebase-functions/logger';
 
 import { db, FieldValue } from '../firebase-admin-init';
-import { getMarketDatePT } from '../common/pt-date-utils';
+import { getMarketDatePT, isValidMarketDate } from '../common/pt-date-utils';
 import { getCachedBarsFromSymbolData } from '../st-cloud-function/data-loader';
 import { PartnerHttpError } from '../partner-infrastructure';
 import { fetchPickDoc } from './pick-doc-client';
@@ -43,6 +43,7 @@ import {
 import type {
   OptionsContractListDoc,
   OptionsReplayPermutationPayload,
+  OptionsReplayRun,
   OptionsReplayRunStatus,
   PickDocument,
   ReplayTemplate,
@@ -55,10 +56,22 @@ export type ContractListWrite = Partial<Omit<OptionsContractListDoc, 'generatedA
   generatedAt?: FirebaseFirestore.FieldValue | string;
 };
 
+/** Slice of the run doc the worker needs — the permutation payload is
+ *  only `{runId, symbol}`; selection inputs (symbol included) come off
+ *  the run doc so a stale payload can't disagree with it (#1491).
+ *  `payload.symbol` is used ONLY to label the failed stub when the run
+ *  doc itself is missing — every data-path read uses `run.symbol`.
+ *  Partial because Firestore docs aren't schema-enforced — the caller
+ *  guards. */
+export type ReplayPermutationRunView = Partial<
+  Pick<OptionsReplayRun, 'symbol' | 'templateId' | 'startDate'>
+>;
+
 /** Injectable effects — tests substitute fakes (TEST-BE seam 3). */
 export interface ReplayPermutationDeps {
   resolveTemplate: (templateId: string) => ReplayTemplate | undefined;
-  getListDoc: (docId: string) => Promise<Pick<OptionsContractListDoc, 'status'> | undefined>;
+  getRun: (runId: string) => Promise<ReplayPermutationRunView | undefined>;
+  getListDoc: (docId: string) => Promise<Pick<OptionsContractListDoc, 'status' | 'error'> | undefined>;
   writeListDoc: (docId: string, fields: ContractListWrite) => Promise<void>;
   /** Sorted trading days `>= startDate`, up to the latest cached bar. */
   loadTradingDays: (symbol: string, startDate: string) => Promise<string[]>;
@@ -66,8 +79,10 @@ export interface ReplayPermutationDeps {
   /** Record the run's terminal outcome — under single-symbol runs the
    *  list's outcome IS the run's status ('success' → 'completed'). The
    *  production write skips already-terminal runs, so it's safe to invoke
-   *  on every terminal status sighting (convergent, not just on first). */
-  closeOutRun: (runId: string, outcome: 'success' | 'failed') => Promise<void>;
+   *  on every terminal status sighting (convergent, not just on first).
+   *  `error` stamps the run's failure reason — the FE reads `run.error`;
+   *  without it a worker-failed run shows 'failed' with no cause. */
+  closeOutRun: (runId: string, outcome: 'success' | 'failed', error?: string) => Promise<void>;
 }
 
 /** Pure close-out decision — the run's next status for a terminal list
@@ -97,7 +112,7 @@ export async function runReplayPermutation(
   deps: ReplayPermutationDeps,
   isFinalAttempt: boolean,
 ): Promise<void> {
-  const { runId, symbol, templateId, startDate } = payload;
+  const { runId, symbol: payloadSymbol } = payload;
   const docId = stOptionsContractListDocId(runId);
   const startTime = Date.now();
 
@@ -106,8 +121,35 @@ export async function runReplayPermutation(
     // Terminal doc — ensure the run recorded this outcome. A previous
     // attempt may have written the doc but died before/during close-out
     // (or the transaction's ack was lost); closeOutRun skips terminal runs.
-    logger.info('options_replay_worker_skip_terminal', { runId, symbol, status: existing.status });
-    await deps.closeOutRun(runId, existing.status);
+    logger.info('options_replay_worker_skip_terminal', {
+      runId, symbol: payloadSymbol, status: existing.status,
+    });
+    await deps.closeOutRun(runId, existing.status, existing.error);
+    return;
+  }
+
+  // Selection inputs live on the run doc — the payload is just identity
+  // (#1491). A missing run doc is unrecoverable: nothing to select on.
+  const run = await deps.getRun(runId);
+  if (!run) {
+    await failPermanently(deps, docId, runId, `Missing run doc '${runId}'`, {
+      runId, symbol: payloadSymbol,
+    });
+    return;
+  }
+  const { symbol, templateId, startDate } = run;
+  if (
+    typeof symbol !== 'string' || !symbol ||
+    typeof templateId !== 'string' || !templateId ||
+    typeof startDate !== 'string' || !isValidMarketDate(startDate)
+  ) {
+    // Unrecoverable without well-formed selection inputs — a retriable
+    // throw would just burn the task's retry budget to land in the same
+    // place. Shape-checked, not just presence: a corrupt-but-truthy
+    // startDate (hand-edited doc) is equally unfillable.
+    await failPermanently(deps, docId, runId, `Run doc '${runId}' has missing/malformed selection inputs (symbol/templateId/startDate)`, {
+      runId, symbol: symbol ?? payloadSymbol, templateId,
+    });
     return;
   }
 
@@ -119,6 +161,11 @@ export async function runReplayPermutation(
     return;
   }
 
+  // List-doc writes are merge last-writer-wins — a duplicate in-flight
+  // delivery could regress `status`/rows until its own terminal write
+  // lands (at-least-once posture; the RUN's close-out is tx-guarded and
+  // never regresses, and a later delivery terminal-skips). Bounded and
+  // self-consistent; a status-conditional list-doc tx is the deeper fix.
   await deps.writeListDoc(docId, { runId, symbol, templateId, status: 'running', rows: [] });
 
   try {
@@ -140,6 +187,8 @@ export async function runReplayPermutation(
       status: 'success',
       rows,
       pickDocMeta: {
+        // The SA-served coordinate — what actually matched, echoed back
+        // for provenance (may differ from the request on tie-breaks).
         coordinate: { type: doc.type, targetDelta: doc.targetDelta, expiry: doc.expiry },
         gridVersion: doc.gridVersion,
         pickCount: doc.pickCount,
@@ -172,9 +221,8 @@ export async function runReplayPermutation(
       await failPermanently(deps, docId, runId, message, { runId, symbol, templateId });
     }
     if (permanent) {
-      // The failed doc's error is the only record otherwise — mark the
-      // deterministic miss so a terminal no-retry is visible in the logs.
-      logger.warn('options_replay_worker_permanent', { runId, symbol, templateId, error: message });
+      // Recorded + logged by failPermanently — no retry can materialize
+      // a coded-404 pick doc, so return instead of rethrowing.
       return;
     }
 
@@ -187,21 +235,25 @@ export async function runReplayPermutation(
   }
 }
 
-/** Deterministic failure — failed list doc + failed close-out, no throw. */
+/** Deterministic failure — failed list doc + failed close-out, no throw.
+ *  Always logs: a run that dies here leaves a failed doc, and the only
+ *  other record of WHY would be a grep for this error string. */
 async function failPermanently(
   deps: ReplayPermutationDeps,
   docId: string,
   runId: string,
   error: string,
-  fields: Pick<OptionsContractListDoc, 'runId' | 'symbol' | 'templateId'>,
+  fields: Pick<OptionsContractListDoc, 'runId' | 'symbol'> &
+    Partial<Pick<OptionsContractListDoc, 'templateId'>>,
 ): Promise<void> {
+  logger.warn('options_replay_worker_permanent', { ...fields, error });
   await deps.writeListDoc(docId, {
     ...fields,
     status: 'failed',
     error,
     generatedAt: FieldValue.serverTimestamp(),
   });
-  await deps.closeOutRun(runId, 'failed');
+  await deps.closeOutRun(runId, 'failed', error);
 }
 
 // ==========================
@@ -210,6 +262,11 @@ async function failPermanently(
 
 const prodReplayPermutationDeps: ReplayPermutationDeps = {
   resolveTemplate: getReplayTemplate,
+
+  async getRun(runId) {
+    const snap = await db.collection(ST_OPTIONS_REPLAY_RUNS_ROOT).doc(runId).get();
+    return snap.exists ? (snap.data() as ReplayPermutationRunView) : undefined;
+  },
 
   async getListDoc(docId) {
     const snap = await db.collection(ST_OPTIONS_CONTRACT_LISTS_ROOT).doc(docId).get();
@@ -229,7 +286,7 @@ const prodReplayPermutationDeps: ReplayPermutationDeps = {
     return fetchPickDoc(input);
   },
 
-  async closeOutRun(runId, outcome) {
+  async closeOutRun(runId, outcome, error) {
     const runRef = db.collection(ST_OPTIONS_REPLAY_RUNS_ROOT).doc(runId);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(runRef);
@@ -240,6 +297,7 @@ const prodReplayPermutationDeps: ReplayPermutationDeps = {
       if (!next) return;
       tx.update(runRef, {
         status: next,
+        error,
         completedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });

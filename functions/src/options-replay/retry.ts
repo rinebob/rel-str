@@ -60,9 +60,8 @@ import type {
 import { OPTIONS_REPLAY_TASK_QUEUE } from './start';
 
 /** Slice of the run doc the retry decision needs. */
-export type ReplayRetryRunView = Pick<
-  OptionsReplayRun,
-  'status' | 'templateId' | 'startDate' | 'symbol'
+export type ReplayRetryRunView = Partial<
+  Pick<OptionsReplayRun, 'status' | 'templateId' | 'symbol' | 'startDate'>
 >;
 
 /** Injectable effects — tests substitute fakes; the callable uses the
@@ -113,10 +112,16 @@ export async function runReplayRetry(
   if (run.status !== 'failed') {
     return { retriedSymbol: null };
   }
-  // A pre-migration legacy run (symbols[], no scalar `symbol`) can't
-  // carry a single-symbol payload — no-op rather than enqueue
-  // `symbol: undefined`. Migration deletes those docs.
-  if (typeof run.symbol !== 'string' || run.symbol.length === 0) {
+  // A run without well-formed selection inputs can never produce a
+  // fillable task — the worker fails it permanently, but only AFTER the
+  // claim has already reset (destroyed) the prior list doc. No-op on
+  // the read side instead: covers pre-migration legacy runs (symbols[],
+  // no scalar `symbol`) and corrupt failed runs alike (#1491 review).
+  if (
+    typeof run.symbol !== 'string' || !run.symbol ||
+    typeof run.templateId !== 'string' || !run.templateId ||
+    typeof run.startDate !== 'string' || !run.startDate
+  ) {
     return { retriedSymbol: null };
   }
 
@@ -131,7 +136,7 @@ export async function runReplayRetry(
   }
 
   try {
-    await deps.enqueue({ runId, symbol: run.symbol, templateId: run.templateId, startDate: run.startDate });
+    await deps.enqueue({ runId, symbol: run.symbol });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     await deps.failRun(runId, message);

@@ -122,16 +122,61 @@ describe('startReplay', () => {
     const docSymbols = [...runs.values()].map((d) => d.symbol).sort();
     assert.deepEqual(docSymbols, ['QQQ', 'SPY']);
 
-    // One permutation task per run — each payload carries its own runId.
+    // One permutation task per run — the payload is just the run's
+    // identity; selection inputs come off the run doc (#1491).
     assert.equal(enqueued.length, 2);
     for (const p of enqueued) {
+      assert.deepEqual(Object.keys(p).sort(), ['runId', 'symbol']);
       assert.ok(runs.has(p.runId), `payload runId ${p.runId} must match a created run`);
-      assert.equal(p.templateId, 'csp-45-20');
-      assert.equal(p.startDate, '2026-01-05');
       assert.ok(runIdEndsWithSymbol(p.runId, p.symbol));
     }
     assert.deepEqual(enqueued.map((p) => p.symbol).sort(), ['QQQ', 'SPY']);
   });
+
+  it('rejects the variantId form explicitly until variant resolution lands (#1498)', async () => {
+    const { deps, runs, enqueued } = makeDeps();
+    const err = await startReplay(
+      request({ variantId: 'pcs-45-20-10', symbols: ['SPY'], startDate: '2026-01-05' }),
+      deps,
+    ).catch((e) => e);
+    assert.equal(code(err), 'invalid-argument');
+    assert.match(String(err.message), /not yet supported/);
+    assert.equal(runs.size, 0);
+    assert.equal(enqueued.length, 0);
+  });
+
+  it('rejects the legs form explicitly until the multi-leg worker lands (#1498)', async () => {
+    const { deps, runs, enqueued } = makeDeps();
+    const err = await startReplay(
+      request({
+        legs: [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' }],
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      }),
+      deps,
+    ).catch((e) => e);
+    assert.equal(code(err), 'invalid-argument');
+    assert.equal(runs.size, 0);
+    assert.equal(enqueued.length, 0);
+  });
+
+  for (const [name, data] of [
+    ['empty legs array', { legs: [], symbols: ['SPY'], startDate: '2026-01-05' }],
+    ['null legs', { legs: null, symbols: ['SPY'], startDate: '2026-01-05' }],
+    ['null variantId', { variantId: null, symbols: ['SPY'], startDate: '2026-01-05' }],
+    ['mixed variantId + templateId', { variantId: 'pcs-45-20-10', templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-05' }],
+  ] as const) {
+    it(`rejects a runtime ${name} form — presence checks, not truthiness (#1491)`, async () => {
+      // The callable sees untyped JSON — legs:null/[] still signals the
+      // caller intended a non-legacy form and must get the explicit
+      // rejection, not fall through to the templateId lookup.
+      const { deps, runs, enqueued } = makeDeps();
+      const err = await startReplay(request(data), deps).catch((e) => e);
+      assert.equal(code(err), 'invalid-argument');
+      assert.equal(runs.size, 0);
+      assert.equal(enqueued.length, 0);
+    });
+  }
 
   it('creates each run running BEFORE its own enqueue — a fast worker cannot regress it', async () => {
     const { deps, order } = makeDeps();

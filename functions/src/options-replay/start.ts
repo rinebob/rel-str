@@ -77,6 +77,15 @@ export async function startReplay(
   const input = request.data;
   // Runtime types aren't guaranteed at the callable boundary — a malformed
   // payload must surface invalid-argument, not a TypeError-as-internal.
+  // The variant/legs forms typecheck (Thread #1270 contracts, #1491) but
+  // resolution isn't wired until the multi-leg worker lands (#1498) —
+  // reject them explicitly instead of falling into the templateId lookup.
+  if (input?.variantId !== undefined || input?.legs !== undefined) {
+    throw new HttpsError(
+      'invalid-argument',
+      'variantId/legs request forms are not yet supported — submit templateId (variant resolution lands in #1498)',
+    );
+  }
   const templateId = String(input?.templateId ?? '').trim();
   const template = templateId ? getReplayTemplate(templateId) : undefined;
   if (!template) {
@@ -87,7 +96,10 @@ export async function startReplay(
   const symbols = [
     ...new Set(
       rawSymbols
-        .map((s) => String(s).trim().toUpperCase())
+        // Only real strings — `String(null)`→'NULL', `String(123)`→'123'
+        // would otherwise pass the charset check as invented tickers.
+        .filter((s): s is string => typeof s === 'string')
+        .map((s) => s.trim().toUpperCase())
         .filter(Boolean),
     ),
   ];
@@ -129,7 +141,7 @@ export async function startReplay(
       await deps.createRun(runId, runDoc);
 
       try {
-        await deps.enqueue({ runId, symbol, templateId, startDate });
+        await deps.enqueue({ runId, symbol });
       } catch (e: unknown) {
         // A failed enqueue fails THIS run only — the doc lands 'failed'
         // with the error, visible in the run list and recoverable via

@@ -80,6 +80,59 @@ export interface StockLeg {
 /** One leg of a variant — an option pick or a share of the underlying. */
 export type VariantLeg = OptionLeg | StockLeg;
 
+/** Map an option leg to its pick-doc coordinate — the single place the
+ *  leg → coordinate derivation lives, so historical replay and live
+ *  selection can't diverge. */
+export function legToPickDocCoordinate(leg: OptionLeg): PickDocCoordinate {
+  return {
+    type: leg.type,
+    targetDelta: leg.targetDelta,
+    expiry: { mode: 'nearestDte', dte: leg.dte },
+  };
+}
+
+/** Inverse of `legToPickDocCoordinate` — a legacy `ReplayTemplate` viewed
+ *  as a 1-leg option leg. The migration shim resolving `templateId` runs
+ *  to 1-leg variants goes through this (#1498). */
+export function templateToOptionLeg(template: ReplayTemplate): OptionLeg {
+  return {
+    kind: 'option',
+    type: template.coordinate.type,
+    targetDelta: template.coordinate.targetDelta,
+    dte: template.coordinate.expiry.dte,
+    side: template.side,
+  };
+}
+
+/**
+ * A concrete, named, reusable configuration — `legs` are the recipe;
+ * id/name are labels. Registry entries live in
+ * `shared/options-replay-templates.ts` (#1492).
+ */
+export interface ReplayVariant {
+  /** Stable id, e.g. 'pcs-45-20-10'. */
+  id: string;
+  /** Display name, e.g. '45DTE 20/10Δ put credit spread'. */
+  name: string;
+  description: string;
+  /** Which template shape it was composed from, or 'custom'. */
+  structure?: string;
+  /** Concrete legs — every option leg has Δ/DTE pinned. */
+  legs: VariantLeg[];
+}
+
+/**
+ * Variant as stamped on the run doc — self-describing, so later registry
+ * edits can't rewrite history. The worker reads this, never the registry.
+ */
+export interface VariantSnapshot {
+  /** Registry id when the run came from a named variant; absent for
+   *  inline `legs` submissions. */
+  variantId?: string;
+  name: string;
+  legs: VariantLeg[];
+}
+
 // ==========================
 // SA Pick Document (wire shape)
 // ==========================
@@ -225,10 +278,17 @@ export const OPTIONS_CONTRACT_LIST_STATUSES: readonly OptionsContractListStatus[
  */
 export interface OptionsReplayRun {
   runId: string;
+  /** Resolved registry id. #1498 decides how legs-form runs (no registry
+   *  entry) carry identity — likely `variantSnapshot`, not an absent
+   *  templateId. */
   templateId: string;
   symbol: string;
   startDate: string;
   status: OptionsReplayRunStatus;
+  /** Self-describing variant the run resolved to — stamped at start so
+   *  later registry edits can't rewrite history. Absent on runs created
+   *  before the variant model (#1498 wires stamping). */
+  variantSnapshot?: VariantSnapshot;
   /** ISO timestamps — BE writes FieldValue server-side. */
   createdAt: string;
   updatedAt: string;
@@ -241,6 +301,8 @@ export interface OptionsReplayRun {
 export interface OptionsContractListDoc {
   runId: string;
   symbol: string;
+  /** Registry id the run resolved to. A failed stub written when the
+   *  run doc itself is missing may omit it — merge-writes are Partial. */
   templateId: string;
   status: OptionsContractListStatus;
   rows: ContractListRow[];
@@ -254,24 +316,66 @@ export interface OptionsContractListDoc {
 // Callable + task payloads
 // ==========================
 
-/** Request shape for the optionsReplayStart callable. */
-export interface OptionsReplayStartRequest {
-  templateId: string;
+/** Fields shared by every optionsReplayStart request form. */
+interface OptionsReplayStartBase {
   symbols: string[];
   startDate: string; // YYYY-MM-DD
 }
+
+/** Form 1 — a named variant from the code-curated registry. */
+export interface OptionsReplayStartVariantRequest extends OptionsReplayStartBase {
+  variantId: string;
+  legs?: never;
+  templateId?: never;
+  variantName?: never;
+}
+
+/** Form 2 — inline concrete legs composed by the spread builder.
+ *  `legs: []` typechecks today (the runtime rejects every legs form
+ *  until #1498); the non-empty/stock-only policy lands with #1498's
+ *  boundary validation. */
+export interface OptionsReplayStartLegsRequest extends OptionsReplayStartBase {
+  legs: VariantLeg[];
+  /** Display-only label carried onto the run's snapshot — an inline
+   *  submission has no registry name to borrow. */
+  variantName?: string;
+  variantId?: never;
+  templateId?: never;
+}
+
+/** Legacy form — the v1 single-template picker, resolved to its 1-leg
+ *  variant server-side. Retired once the builder dialog ships (#1507). */
+export interface OptionsReplayStartTemplateRequest extends OptionsReplayStartBase {
+  templateId: string;
+  variantId?: never;
+  legs?: never;
+  variantName?: never;
+}
+
+/**
+ * Request shape for the optionsReplayStart callable — exactly one of
+ * `variantId` / `legs` / `templateId` identifies the variant. The three
+ * forms are mutually exclusive in the type.
+ */
+export type OptionsReplayStartRequest =
+  | OptionsReplayStartVariantRequest
+  | OptionsReplayStartLegsRequest
+  | OptionsReplayStartTemplateRequest;
 
 /** One runId per submitted symbol — each is an independent run doc. */
 export interface OptionsReplayStartResponse {
   runIds: string[];
 }
 
-/** Cloud Task payload — one per run (each run is a single symbol, #1430). */
+/** Cloud Task payload — one per run (each run is a single symbol, #1430).
+ *  Just the identity: every selection input (symbol included) is read
+ *  off the run doc, so a stale payload can't disagree with it.
+ *  `symbol` rides along solely so the worker can still label a
+ *  meaningful failed list doc when the run doc itself is gone —
+ *  the data path uses `run.symbol`. */
 export interface OptionsReplayPermutationPayload {
   runId: string;
   symbol: string;
-  templateId: string;
-  startDate: string;
 }
 
 /** optionsReplayRetry — re-runs a failed single-symbol run in place

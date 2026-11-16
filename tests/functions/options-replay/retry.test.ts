@@ -65,8 +65,8 @@ function runView(overrides: Partial<ReplayRetryRunView> = {}): ReplayRetryRunVie
   return {
     status: 'failed',
     templateId: 'csp-45-20',
-    startDate: '2026-01-05',
     symbol: 'SPY',
+    startDate: '2026-01-05',
     ...overrides,
   };
 }
@@ -143,8 +143,6 @@ describe('runReplayRetry — failed run', () => {
     assert.deepEqual(enqueued[0], {
       runId: RUN_ID,
       symbol: 'SPY',
-      templateId: 'csp-45-20',
-      startDate: '2026-01-05',
     });
     // Ordering: the claim commits before enqueue — a worker that
     // dispatches early must never see a still-'failed' doc (terminal skip).
@@ -180,6 +178,21 @@ describe('runReplayRetry — no-op paths', () => {
     assert.equal(claims.length, 0);
     assert.equal(enqueued.length, 0);
   });
+
+  for (const [name, missing] of [
+    ['templateId', 'templateId'],
+    ['startDate', 'startDate'],
+  ] as const) {
+    it(`no-ops a corrupt failed run missing ${name} — the worker would fail it anyway, after the claim destroyed the list doc`, async () => {
+      const corrupt = { ...runView() } as Partial<ReplayRetryRunView>;
+      delete corrupt[missing];
+      const { deps, claims, enqueued } = makeDeps(corrupt as ReplayRetryRunView);
+      const res = await runReplayRetry(request({ runId: RUN_ID }), deps);
+      assert.equal(res.retriedSymbol, null);
+      assert.equal(claims.length, 0);
+      assert.equal(enqueued.length, 0);
+    });
+  }
 
   it('no-ops when the transaction does not claim the run (concurrent retry won)', async () => {
     const { deps, enqueued } = makeDeps(runView(), { claimed: false });

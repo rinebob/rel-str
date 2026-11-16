@@ -12,8 +12,11 @@ import { TradeSide } from './common';
 import {
   ContractListRow,
   isPickDocPick,
+  legToPickDocCoordinate,
+  templateToOptionLeg,
   OPTIONS_CONTRACT_LIST_STATUSES,
   OPTIONS_REPLAY_RUN_STATUSES,
+  OptionLeg,
   OptionsContractListDoc,
   OptionsReplayPermutationPayload,
   OptionsReplayRun,
@@ -26,6 +29,10 @@ import {
   PickDocMeta,
   PickDocMiss,
   ReplayTemplate,
+  ReplayVariant,
+  StockLeg,
+  VariantLeg,
+  VariantSnapshot,
 } from './options-replay-contracts';
 
 describe('options-replay-contracts', () => {
@@ -55,6 +62,123 @@ describe('options-replay-contracts', () => {
       };
       expect(template.side).toBe(TradeSide.SHORT);
       expect(template.coordinate.targetDelta).toBe(-0.2);
+    });
+  });
+
+  describe('VariantLeg (Thread #1270)', () => {
+    it('option leg carries type + signed targetDelta + dte + side', () => {
+      const leg: OptionLeg = {
+        kind: 'option',
+        type: OptionType.PUT,
+        targetDelta: -0.2,
+        dte: 45,
+        side: TradeSide.SHORT,
+      };
+      expect(leg.kind).toBe('option');
+      expect(leg.targetDelta).toBe(-0.2);
+    });
+
+    it('stock leg carries side only — no pick-doc fields', () => {
+      const leg: StockLeg = { kind: 'stock', side: TradeSide.LONG };
+      expect(leg.kind).toBe('stock');
+      // @ts-expect-error — stock legs have no option coordinate fields
+      expect(leg.targetDelta).toBeUndefined();
+    });
+
+    it('narrows on kind across the VariantLeg union', () => {
+      const legs: VariantLeg[] = [
+        { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 30, side: TradeSide.LONG },
+        { kind: 'stock', side: TradeSide.LONG },
+      ];
+      const optionLegs = legs.filter((l): l is OptionLeg => l.kind === 'option');
+      expect(optionLegs).toHaveLength(1);
+      expect(optionLegs[0].type).toBe(OptionType.CALL);
+    });
+  });
+
+  describe('legToPickDocCoordinate (Thread #1270)', () => {
+    it('maps a put leg to the signed SA coordinate + nearestDte expiry', () => {
+      const leg: OptionLeg = {
+        kind: 'option',
+        type: OptionType.PUT,
+        targetDelta: -0.2,
+        dte: 45,
+        side: TradeSide.SHORT,
+      };
+      expect(legToPickDocCoordinate(leg)).toEqual({
+        type: OptionType.PUT,
+        targetDelta: -0.2,
+        expiry: { mode: 'nearestDte', dte: 45 },
+      });
+    });
+
+    it('keeps call deltas positive — side never enters the coordinate', () => {
+      const leg: OptionLeg = {
+        kind: 'option',
+        type: OptionType.CALL,
+        targetDelta: 0.15,
+        dte: 30,
+        side: TradeSide.LONG,
+      };
+      const coord = legToPickDocCoordinate(leg);
+      expect(coord.targetDelta).toBe(0.15);
+      expect(coord.expiry.mode).toBe('nearestDte');
+      expect('side' in coord).toBe(false);
+    });
+  });
+
+  describe('templateToOptionLeg (Thread #1270)', () => {
+    it('round-trips: legToPickDocCoordinate(templateToOptionLeg(t)) == t.coordinate', () => {
+      const template: ReplayTemplate = {
+        id: 'csp-45-20',
+        name: '45DTE 20Δ put (CSP)',
+        description: 'Sell one 45DTE 20-delta put daily',
+        side: TradeSide.SHORT,
+        coordinate: {
+          type: OptionType.PUT,
+          targetDelta: -0.2,
+          expiry: { mode: 'nearestDte', dte: 45 },
+        },
+      };
+      const leg = templateToOptionLeg(template);
+      expect(leg).toEqual({
+        kind: 'option',
+        type: OptionType.PUT,
+        targetDelta: -0.2,
+        dte: 45,
+        side: TradeSide.SHORT,
+      });
+      expect(legToPickDocCoordinate(leg)).toEqual(template.coordinate);
+    });
+  });
+
+  describe('ReplayVariant / VariantSnapshot (Thread #1270)', () => {
+    const vertical: VariantLeg[] = [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.1, dte: 45, side: TradeSide.LONG },
+    ];
+
+    it('variant carries concrete legs + optional structure label', () => {
+      const variant: ReplayVariant = {
+        id: 'pcs-45-20-10',
+        name: '45DTE 20/10Δ put credit spread',
+        description: 'Sell 20Δ put, buy 10Δ put at 45DTE.',
+        structure: 'vertical-credit',
+        legs: vertical,
+      };
+      expect(variant.legs).toHaveLength(2);
+      expect(variant.structure).toBe('vertical-credit');
+    });
+
+    it('snapshot is self-describing — legs + name + optional variantId', () => {
+      const snapshot: VariantSnapshot = {
+        variantId: 'pcs-45-20-10',
+        name: '45DTE 20/10Δ put credit spread',
+        legs: vertical,
+      };
+      expect(snapshot.legs[1].side).toBe(TradeSide.LONG);
+      const inline: VariantSnapshot = { name: 'ad-hoc', legs: vertical };
+      expect(inline.variantId).toBeUndefined();
     });
   });
 
@@ -272,7 +396,11 @@ describe('options-replay-contracts', () => {
   });
 
   describe('callable + task payloads', () => {
-    it('OptionsReplayStartRequest carries templateId, symbols, startDate', () => {
+    const legs: VariantLeg[] = [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT },
+    ];
+
+    it('legacy templateId form still compiles (migration window)', () => {
       const req: OptionsReplayStartRequest = {
         templateId: 'csp-45-20',
         symbols: ['SPY'],
@@ -283,14 +411,101 @@ describe('options-replay-contracts', () => {
       expect(res.runIds).toHaveLength(1);
     });
 
-    it('OptionsReplayPermutationPayload carries runId, symbol, templateId, startDate', () => {
+    it('variantId form — registry lookup request', () => {
+      const req: OptionsReplayStartRequest = {
+        variantId: 'pcs-45-20-10',
+        symbols: ['SPY', 'QQQ'],
+        startDate: '2026-01-05',
+      };
+      expect(req.variantId).toBe('pcs-45-20-10');
+    });
+
+    it('legs form — inline concrete legs + optional display name', () => {
+      const req: OptionsReplayStartRequest = {
+        legs,
+        variantName: 'ad-hoc spread',
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      };
+      expect(req.legs).toHaveLength(1);
+      if ('variantName' in req) expect(req.variantName).toBe('ad-hoc spread');
+    });
+
+    it('variantName exists only on the legs form', () => {
+      // @ts-expect-error — named variants supply their own name
+      const onVariant: OptionsReplayStartRequest = {
+        variantId: 'pcs-45-20-10',
+        variantName: 'x',
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      };
+      // @ts-expect-error — the legacy form never carried a label
+      const onLegacy: OptionsReplayStartRequest = {
+        templateId: 'csp-45-20',
+        variantName: 'x',
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      };
+      expect([onVariant, onLegacy]).toHaveLength(2);
+    });
+
+    it('forms are mutually exclusive in the type', () => {
+      // @ts-expect-error — variantId + legs together is not a valid form
+      const both: OptionsReplayStartRequest = {
+        variantId: 'pcs-45-20-10',
+        legs,
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      };
+      // @ts-expect-error — neither form key present is not a valid request
+      const neither: OptionsReplayStartRequest = {
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      };
+      // @ts-expect-error — templateId cannot combine with variantId
+      const mixed: OptionsReplayStartRequest = {
+        templateId: 'csp-45-20',
+        variantId: 'pcs-45-20-10',
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      };
+      // @ts-expect-error — templateId cannot combine with legs either
+      const mixedLegs: OptionsReplayStartRequest = {
+        templateId: 'csp-45-20',
+        legs,
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      };
+      expect([both, neither, mixed, mixedLegs]).toHaveLength(4);
+    });
+
+    it('OptionsReplayPermutationPayload is just the run identity — run doc carries the rest', () => {
       const payload: OptionsReplayPermutationPayload = {
         runId: 'or-abc123',
         symbol: 'QQQ',
-        templateId: 'csp-45-20',
-        startDate: '2026-01-05',
       };
       expect(payload.symbol).toBe('QQQ');
+      // @ts-expect-error — templateId/startDate left the payload in #1491;
+      // the worker reads them off the run doc
+      expect(payload.templateId).toBeUndefined();
+    });
+
+    it('run doc may carry a stamped variantSnapshot', () => {
+      const run: OptionsReplayRun = {
+        runId: 'or-abc123_SPY',
+        templateId: 'csp-45-20',
+        symbol: 'SPY',
+        startDate: '2026-01-05',
+        status: 'running',
+        createdAt: '2026-10-25T00:00:00Z',
+        updatedAt: '2026-10-25T00:05:00Z',
+        variantSnapshot: {
+          variantId: 'csp-45-20',
+          name: '45DTE 20Δ put (CSP)',
+          legs: [{ kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT }],
+        },
+      };
+      expect(run.variantSnapshot?.legs).toHaveLength(1);
     });
   });
 });

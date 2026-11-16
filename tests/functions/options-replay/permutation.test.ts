@@ -31,6 +31,10 @@ import { TradeSide } from '@common';
 const PAYLOAD = {
   runId: 'run-1',
   symbol: 'SPY',
+};
+
+const RUN = {
+  symbol: 'SPY',
   templateId: 'csp-45-20',
   startDate: '2026-01-05',
 };
@@ -63,20 +67,22 @@ function makeDeps(overrides: Partial<ReplayPermutationDeps> = {}): {
   closeOuts: { runId: string; outcome: string }[];
 } {
   const writes: { docId: string; fields: ContractListWrite }[] = [];
-  const closeOuts: { runId: string; outcome: string }[] = [];
+  const closeOuts: { runId: string; outcome: string; error?: string }[] = [];
   const deps: ReplayPermutationDeps = {
     resolveTemplate: (id) =>
       id === 'csp-45-20'
         ? { id, name: 'n', description: 'd', side: TradeSide.SHORT, coordinate: { type: OptionType.PUT, targetDelta: -0.2, expiry: { mode: 'nearestDte', dte: 45 } } }
         : undefined,
+    getRun: async () => RUN,
     getListDoc: async () => undefined,
     writeListDoc: async (docId, fields) => {
       writes.push({ docId, fields });
     },
     loadTradingDays: async () => ['2026-01-05', '2026-01-06', '2026-01-07'],
     fetchPickDoc: async () => pickDoc(),
-    closeOutRun: async (runId, outcome) => {
-      closeOuts.push({ runId, outcome });
+    closeOutRun: async (runId, outcome, error) => {
+      // Mirror prod — ignoreUndefinedProperties drops an absent error.
+      closeOuts.push(error === undefined ? { runId, outcome } : { runId, outcome, error });
     },
     ...overrides,
   };
@@ -131,11 +137,11 @@ describe('runReplayPermutation', () => {
     assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'success' }]);
   });
 
-  it('short-circuits a failed doc — ensures close-out with the failed outcome', async () => {
-    const env = makeDeps({ getListDoc: async () => ({ status: 'failed' }) });
+  it('short-circuits a failed doc — ensures close-out with the failed outcome and its error', async () => {
+    const env = makeDeps({ getListDoc: async () => ({ status: 'failed', error: 'upstream 502' }) });
     await runReplayPermutation(PAYLOAD, env.deps, true);
     assert.equal(env.writes.length, 0);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed', error: 'upstream 502' }]);
   });
 
   it('missing pick doc (404) → failed doc + failed close-out, no retry', async () => {
@@ -150,7 +156,9 @@ describe('runReplayPermutation', () => {
     const failed = env.writes.find((w) => w.fields.status === 'failed');
     assert.ok(failed);
     assert.match(String(failed.fields.error), /SPY-put-20-45/);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
+    assert.deepEqual(env.closeOuts, [
+      { runId: 'run-1', outcome: 'failed', error: 'pick doc fetch failed for SPY-put-20-45: no year shard' },
+    ]);
   });
 
   it('404 with an unrecognized partner code → still permanent — a coded answer means the partner app responded deliberately (#1401)', async () => {
@@ -162,7 +170,9 @@ describe('runReplayPermutation', () => {
     await runReplayPermutation(PAYLOAD, env.deps, false);
     const failed = env.writes.find((w) => w.fields.status === 'failed');
     assert.ok(failed);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
+    assert.deepEqual(env.closeOuts, [
+      { runId: 'run-1', outcome: 'failed', error: 'shard stale' },
+    ]);
   });
 
   it('bare 404 (no partnerCode) → rethrows for task retry — infra miss is not a data gap (#1401)', async () => {
@@ -197,7 +207,7 @@ describe('runReplayPermutation', () => {
     });
     await assert.rejects(runReplayPermutation(PAYLOAD, env.deps, true), /502/);
     assert.equal(env.writes.filter((w) => w.fields.status === 'failed').length, 1);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed', error: 'upstream 502' }]);
   });
 
   it('no trading days → retriable error (bars may lag)', async () => {
@@ -206,12 +216,86 @@ describe('runReplayPermutation', () => {
   });
 
   it('unknown template → failed doc + failed close-out, no retry', async () => {
-    const env = makeDeps();
-    await runReplayPermutation({ ...PAYLOAD, templateId: 'nope' }, env.deps, false);
+    const env = makeDeps({ getRun: async () => ({ ...RUN, templateId: 'nope' }) });
+    await runReplayPermutation(PAYLOAD, env.deps, false);
     const failed = env.writes.find((w) => w.fields.status === 'failed');
     assert.ok(failed);
     assert.match(String(failed.fields.error), /templateId/);
-    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed' }]);
+    assert.deepEqual(env.closeOuts, [
+      { runId: 'run-1', outcome: 'failed', error: "Unknown templateId 'nope'" },
+    ]);
+  });
+
+  it('missing run doc → permanent failure — payload carries only identity (#1491)', async () => {
+    const env = makeDeps({ getRun: async () => undefined });
+    await runReplayPermutation(PAYLOAD, env.deps, false);
+    const failed = env.writes.find((w) => w.fields.status === 'failed');
+    assert.ok(failed);
+    assert.match(String(failed.fields.error), /Missing run doc/);
+    assert.deepEqual(env.closeOuts, [
+      { runId: 'run-1', outcome: 'failed', error: "Missing run doc 'run-1'" },
+    ]);
+  });
+
+  it('run doc missing selection inputs → permanent failure, no retries burned', async () => {
+    // A run doc without startDate must fail fast — letting it reach
+    // loadTradingDays produces a retriable 'no bars' error that spends
+    // all MAX_ATTEMPTS rethrows to land in the same place.
+    const env = makeDeps({ getRun: async () => ({ ...RUN, startDate: undefined }) });
+    await runReplayPermutation(PAYLOAD, env.deps, false);
+    // Exactly one write — the failed stub; a 'running' write leaking
+    // before the guard would leave the doc stuck.
+    assert.equal(env.writes.length, 1);
+    const failed = env.writes.find((w) => w.fields.status === 'failed');
+    assert.ok(failed);
+    assert.match(String(failed.fields.error), /selection inputs/);
+    assert.deepEqual(env.closeOuts, [{ runId: 'run-1', outcome: 'failed', error: failed.fields.error as string }]);
+  });
+
+  for (const [name, run] of [
+    ['missing templateId', { ...RUN, templateId: undefined }],
+    ['missing symbol', { ...RUN, symbol: undefined }],
+    ['malformed startDate (truthy non-date)', { ...RUN, startDate: 'garbage' }],
+    ['malformed startDate (whitespace)', { ...RUN, startDate: '   ' }],
+  ] as const) {
+    it(`malformed run doc (${name}) → permanent failure before any fetch`, async () => {
+      // Shape, not just presence — a corrupt-but-truthy startDate is
+      // equally unfillable and must not spend the retry budget (#1491).
+      const seen = { fetchCalls: 0 };
+      const env = makeDeps({
+        getRun: async () => run,
+        fetchPickDoc: async () => {
+          seen.fetchCalls++;
+          return pickDoc();
+        },
+      });
+      await runReplayPermutation(PAYLOAD, env.deps, false);
+      assert.equal(seen.fetchCalls, 0);
+      assert.equal(env.writes.length, 1);
+      assert.equal(env.writes[0].fields.status, 'failed');
+    });
+  }
+
+  it('the data path uses run.symbol, not payload.symbol — the run doc is the selection source of truth', async () => {
+    // payload {runId:'run-1', symbol:'SPY'} but the run doc says QQQ —
+    // bars/picks/writes must all carry QQQ (or a forged payload could
+    // fetch and persist under the wrong symbol, silently).
+    const seen: { barsSymbol?: string; pickDocSymbol?: string } = {};
+    const env = makeDeps({
+      getRun: async () => ({ ...RUN, symbol: 'QQQ' }),
+      loadTradingDays: async (symbol) => {
+        seen.barsSymbol = symbol;
+        return ['2026-01-05'];
+      },
+      fetchPickDoc: async (input) => {
+        seen.pickDocSymbol = input.symbol;
+        return pickDoc();
+      },
+    });
+    await runReplayPermutation(PAYLOAD, env.deps, true);
+    assert.equal(seen.barsSymbol, 'QQQ');
+    assert.equal(seen.pickDocSymbol, 'QQQ');
+    assert.equal(env.writes[0].fields.symbol, 'QQQ');
   });
 });
 
