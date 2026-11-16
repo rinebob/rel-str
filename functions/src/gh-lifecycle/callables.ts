@@ -10,7 +10,12 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import type { CallableRequest } from 'firebase-functions/v2/https';
 import type { LifecycleRepoRequest, LifecycleTreeResponse } from '@lifecycle/contracts';
-import { buildTree, orderTopics, parseInventoryGroups } from '@lifecycle/tree';
+import {
+  assignGroups,
+  buildTree,
+  parseInventoryGroups,
+  type LifecycleInventoryGroup,
+} from '@lifecycle/tree';
 import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from '../paper-trading/engine/options-strategy-cors';
 import { SUPPORTED_REPOS, type SupportedRepo } from './config';
 import {
@@ -119,7 +124,7 @@ async function handle(
   const fetchedAt = new Date().toISOString(); // stamp at data-ready time (post-walk)
 
   let groupingWarning: string | undefined;
-  let groups = null;
+  let groups: LifecycleInventoryGroup[] | null = null;
   try {
     const md = await deps.fetchInventoryDoc(entry);
     if (md !== null) {
@@ -142,10 +147,18 @@ async function handle(
   }
 
   const trees = buildTree(data.roots, data.childrenOf, data.statusOf);
+  const { topics, groupOrder } = assignGroups(trees, groups);
+  // Drift the parser can't catch: the doc parsed but lists none of the
+  // fetched roots — every topic silently lands Ungrouped. Surface it
+  // through the same degrade banner as the other doc failures.
+  if (groups !== null && groups.length > 0 && topics.length > 0
+      && !topics.some(t => groups.some(g => g.topicNumbers.includes(t.number)))) {
+    groupingWarning = 'TOPICS-INVENTORY.md listed none of the fetched topics — doc may be stale';
+  }
   return {
-    sections: orderTopics(trees, groups),
+    topics,
+    groupOrder,
     fetchedAt,
-    truncatedNodes: 0,
     ...(groupingWarning ? { groupingWarning } : {}),
   };
 }
