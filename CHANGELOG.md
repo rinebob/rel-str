@@ -11,6 +11,11 @@
 - [Strategy Builder UI] 137-1538_SHARED-IMPL-STRAT-MANAGE: Standalone verify script (24 checks) + run-all/README registry entries
 - [Strategy Builder UI] 137-1512_DOCS-STRAT-MANAGE: Thread #1510 PRD + SHARED/BE/FE IMPL/TEST blueprint docs
 - [Strategy Builder UI] 137-1538_DOCS-STRAT-MANAGE: Code review (PASS, 2 passes) + UAT (Complete, #1555) + CONTEXT.md manage glossary
+- [Options Backtest] 1238-1491_SHARED-IMPL-MULTI-LEG-SPREAD: Leg + variant + request/snapshot contracts + run-doc source-of-truth — OptionLeg/StockLeg/VariantLeg, legToPickDocCoordinate canonical derivation, ReplayVariant/VariantSnapshot, three-form exclusive start request; worker reads symbol/templateId/startDate off the run doc ({runId, symbol} payload), malformed inputs fail permanently with warn, closeOutRun stamps error, retry requires selection inputs
+- [Options Backtest] 1238-1491_BE-CHORE-MULTI-LEG-SPREAD: options-replay-leg-contracts-1491 prod audit (registry parity + getRun fields + persisted-coordinate chain; absent meta = FAIL) + 1275 payload probe re-pinned to {runId, symbol}
+
+### Changed
+- [Options Backtest] 1238-1491_DOCS-MULTI-LEG-SPREAD: #1491 code review (PASS, 2 rounds) + UAT (Complete, #1552)
 
 ## [2026-11-14]
 
