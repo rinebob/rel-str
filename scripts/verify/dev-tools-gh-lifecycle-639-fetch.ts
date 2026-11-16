@@ -4,8 +4,8 @@
  *   2. fetchLifecycleData walks the real topic tree end-to-end
  *      (search → batched nodes → subIssues pagination → status decode)
  *   3. fetchFileText reads the real TOPICS-INVENTORY.md
- *   4. Shared transforms (buildTree → parseInventoryGroups → orderTopics)
- *      assemble the fetched payload into sections
+ *   4. Shared transforms (buildTree → parseInventoryGroups → assignGroups)
+ *      stamp the fetched payload with inventory groups
  *
  * Token: GITHUB_READ_TOKEN env, else `gh auth token` fallback.
  * Read-only — no mutations, no Firestore.
@@ -21,8 +21,8 @@ import {
 } from '../../functions/src/gh-lifecycle/github-client';
 import { SUPPORTED_REPOS } from '../../functions/src/gh-lifecycle/config';
 import {
+  assignGroups,
   buildTree,
-  orderTopics,
   parseInventoryGroups,
 } from '../../shared/lifecycle-tree';
 
@@ -72,10 +72,11 @@ async function main(): Promise<void> {
   console.log('\n--- shared transforms over real payload ---');
   const trees = buildTree(res.roots, res.childrenOf, res.statusOf);
   const groups = md ? parseInventoryGroups(md) : null;
-  const sections = orderTopics(trees, groups);
+  const { topics, groupOrder } = assignGroups(trees, groups);
   check('buildTree emits topic nodes', trees.every(t => t.nodeType === 'topic'));
-  check('sections non-empty', sections.length > 0, `${sections.length} sections`);
-  check('#619 lands in a section', sections.some(s => s.topics.some(t => t.number === 619)));
+  check('topics non-empty', topics.length > 0, `${topics.length} topics`);
+  check('#619 emitted as a topic', topics.some(t => t.number === 619));
+  check('every topic carries a group', topics.every(t => !!t.group));
 
   console.log('\n=== ' + (failures === 0 ? 'ALL CHECKS PASSED' : `${failures} FAILURES`) + ' ===');
   process.exit(failures === 0 ? 0 : 1);

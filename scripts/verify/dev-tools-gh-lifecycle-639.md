@@ -21,7 +21,8 @@ npx tsx scripts/verify/dev-tools-gh-lifecycle-639-fetch.ts
 **Pass:** `ALL CHECKS PASSED`, exit 0. Confirms: rel-str repo entry exists;
 roots found with `truncatedNodes === 0`; topic #619 has thread #621 under
 it; all roots carry number/title/state/url; `statusOf` decodes project
-statuses; inventory doc fetched; transforms emit non-empty sections.
+statuses; inventory doc fetched; transforms emit flat `group`-stamped
+topics (contract v2, #1522).
 
 **Fail:** any `FAIL` line names the broken stage. `truncatedNodes > 0`
 means the pagination guard tripped — investigate the walk, do not ignore.

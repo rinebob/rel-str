@@ -4,7 +4,8 @@
 
 Covers the pure-transform pipeline for the GitHub lifecycle viewer:
 `parseInventoryGroups` against the real `docs/dev-notes/TOPICS-INVENTORY.md`,
-then `buildTree` + `orderTopics` + `decodeLabels` on a GitHub-shaped payload.
+then `buildTree` + `assignGroups` + `decodeLabels` on a GitHub-shaped
+payload (contract v2, #1522 — flat topics stamped with `group`).
 Read-only — no credentials, no network beyond a local file read.
 
 ## Scripts

@@ -1,7 +1,8 @@
 /**
- * Verifies the lifecycle-viewer SHARED contract pipeline (task #637):
+ * Verifies the lifecycle-viewer SHARED contract pipeline (task #637,
+ * contract v2 in #1522):
  *   1. parseInventoryGroups against the real docs/dev-notes/TOPICS-INVENTORY.md
- *   2. buildTree + orderTopics on a GitHub-shaped payload end-to-end
+ *   2. buildTree + assignGroups on a GitHub-shaped payload end-to-end
  *
  * Read-only, no credentials needed.
  *
@@ -10,8 +11,8 @@
 
 import { readFileSync } from 'node:fs';
 import {
+  assignGroups,
   buildTree,
-  orderTopics,
   parseInventoryGroups,
   UNGROUPED_SECTION,
   type LifecycleRawIssue,
@@ -38,7 +39,7 @@ if (groups) {
 }
 
 // --- 2. Full transform path on a GitHub-shaped payload -----------------------
-console.log('\n--- buildTree + orderTopics (fixture payload) ---');
+console.log('\n--- buildTree + assignGroups (fixture payload) ---');
 const raw = (
   number: number, labels: string[], updatedAt: string,
   state: LifecycleRawIssue['state'] = 'OPEN', title = `Issue ${number}`,
@@ -72,17 +73,19 @@ check('closed state normalized', trees[1].state === 'closed');
 check('stage label decoded on the emitted node', trees[0].stageLabel === '3_BLUEPRINT');
 check('non-stage labels retained as tags', trees[0].labels.includes('DEV-TOOLS'));
 
-const sections = orderTopics(trees, groups);
-check('sections non-empty', sections.length > 0);
-check('every fixture topic appears exactly once across sections',
-  sections.flatMap(s => s.topics).length === trees.length);
-const s594 = sections.find(s => s.topics.some(t => t.number === 594));
-check('inventory-listed topic (#594) lands in a named group, not Ungrouped',
-  !!s594 && s594.name !== UNGROUPED_SECTION,
-  s594 ? `landed in "${s594.name}"` : 'missing entirely');
-const flat = orderTopics(trees, null);
-check('groups:null → single Ungrouped section',
-  flat.length === 1 && flat[0].name === UNGROUPED_SECTION && flat[0].topics.length === 3);
+const { topics, groupOrder } = assignGroups(trees, groups);
+check('topics non-empty', topics.length > 0);
+check('every fixture topic emitted exactly once', topics.length === trees.length);
+const t594 = topics.find(t => t.number === 594);
+check('inventory-listed topic (#594) stamped with a named group, not Ungrouped',
+  !!t594 && t594.group !== UNGROUPED_SECTION,
+  t594 ? `stamped "${t594.group}"` : 'missing entirely');
+check('groupOrder covers every stamped group',
+  groupOrder.length === 0 || topics.every(t => groupOrder.includes(t.group)));
+const flat = assignGroups(trees, null);
+check('groups:null → all Ungrouped + empty groupOrder',
+  flat.topics.every(t => t.group === UNGROUPED_SECTION) &&
+  flat.groupOrder.length === 0);
 
 console.log('\n=== ' + (failures === 0 ? 'ALL CHECKS PASSED' : `${failures} FAILURES`) + ' ===');
 process.exit(failures === 0 ? 0 : 1);
