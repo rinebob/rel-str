@@ -53,7 +53,8 @@
       "@flex-chart/scale-math": ["./shared/flex-chart-scale-math.ts"],
       "@flex-chart/indicator-visuals": ["./shared/flex-chart-indicator-visuals.ts"],
       "@manage/variant-contracts": ["./shared/manage-variant-contracts.ts"],
-      "@manage/instance-contracts": ["./shared/manage-instance-contracts.ts"]
+      "@manage/instance-contracts": ["./shared/manage-instance-contracts.ts"],
+      "@manage/variant-catalog": ["./shared/manage-variant-catalog.ts"]
     },
     "importHelpers": true,
     "target": "ES2022",
