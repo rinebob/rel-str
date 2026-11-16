@@ -177,6 +177,13 @@ describe('handleGetPaperStats', () => {
     assert.equal(res.stats[0].equityCurve.length, 1);
   });
 
+  it('accepts the src-* scope family (#1562)', async () => {
+    const deps = makeDeps({ getStats: async () => statsDoc('src-STRATEGY') });
+    const res = await handleGetPaperStats(request({ scope: 'src-STRATEGY' }), deps);
+    assert.equal(res.stats.length, 1);
+    assert.equal(res.stats[0].scope, 'src-STRATEGY');
+  });
+
   it('returns every stats doc when scope is omitted (dashboard enumeration)', async () => {
     let listed = false;
     const deps = makeDeps({

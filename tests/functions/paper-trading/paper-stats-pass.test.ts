@@ -3,7 +3,8 @@
  *
  * Generalized paper-wide stats pass: one trade listing fans out to rollup
  * scopes across every dimension field — all, inst-*, var-*, cohort-*,
- * sig-*, sym-*, plus the #919 auto-paper stamp slices sigtype-*, dir-*,
+ * sig-*, sym-*, src-* (#1562), plus the #919 auto-paper stamp slices
+ * sigtype-*, dir-*,
  * sector-*, ind-*, captier-*, sigstatus-* — each written as a
  * `st-paper-trading/stats/items/stats-{scope}` doc via the shared recompute
  * seam (equity curve + drawdown included).
@@ -75,17 +76,31 @@ describe('tradeScopes', () => {
       'cohort-1',
       'inst-inst-1',
       'sig-sig-1',
+      'src-STRATEGY',
       'sym-QQQM',
       'var-initial-stop-10',
       'var-trailing-20',
     ]);
   });
 
-  it('emits only all + sym when optional dims are absent', () => {
+  it('emits only all + src + sym when optional dims are absent', () => {
     assert.deepEqual(tradeScopes(trade({ symbol: 'spy' })).sort(), [
       'all',
+      'src-STRATEGY',
       'sym-SPY',
     ]);
+  });
+
+  it('emits the source scope for every source family (#1562)', () => {
+    assert.equal(tradeScopes(trade()).includes('src-STRATEGY'), true);
+    assert.equal(
+      tradeScopes(trade({ source: PaperTradeSource.SIGNAL })).includes('src-SIGNAL'),
+      true,
+    );
+    assert.equal(
+      tradeScopes(trade({ source: PaperTradeSource.MANUAL })).includes('src-MANUAL'),
+      true,
+    );
   });
 
   it('a fully-stamped auto-paper trade rolls into all six new scopes + existing', () => {
@@ -108,6 +123,7 @@ describe('tradeScopes', () => {
       'sig-AAPL_D_ST_TREND_RIDER_V1_LONG_2026-10-09',
       'sigstatus-confirmed',
       'sigtype-d-st-trend-rider-v1-long',
+      'src-STRATEGY',
       'sym-QQQM',
       'var-trailing-8',
     ]);
@@ -162,12 +178,14 @@ describe('runPaperStatsPass', () => {
       'cohort-9',
       'inst-inst-1',
       'sig-sig-9',
+      'src-SIGNAL',
+      'src-STRATEGY',
       'sym-AAPL',
       'sym-QQQM',
       'var-time-9d',
       'var-trailing-20',
     ]);
-    // 'all' sees both trades; cohort sees only t2.
+    // 'all' sees both trades; cohort + src-SIGNAL see only t2.
     const all = d.written.find((w) => w.scope === 'all')!;
     assert.equal(all.positions.length, 2);
     assert.equal(all.date, DATE);
@@ -176,6 +194,9 @@ describe('runPaperStatsPass', () => {
     assert.equal(cohort.positions[0].id, 't-2');
     const variant = d.written.find((w) => w.scope === 'var-trailing-20')!;
     assert.equal(variant.positions.length, 2);
+    const srcStrategy = d.written.find((w) => w.scope === 'src-STRATEGY')!;
+    assert.equal(srcStrategy.positions.length, 1);
+    assert.equal(srcStrategy.positions[0].id, 't-1');
   });
 
   it('excludes CANCELLED trades from every scope (#652)', async () => {
@@ -191,7 +212,7 @@ describe('runPaperStatsPass', () => {
     const res = await runPaperStatsPass(DATE, d);
 
     // The cancelled trade contributes no scope buckets at all.
-    assert.deepEqual(res.scopesWritten.sort(), ['all', 'sym-QQQM']);
+    assert.deepEqual(res.scopesWritten.sort(), ['all', 'src-STRATEGY', 'sym-QQQM']);
     const all = d.written.find((w) => w.scope === 'all')!;
     assert.equal(all.positions.length, 1);
     assert.equal(all.positions[0].id, 't-live');
@@ -212,7 +233,7 @@ describe('runPaperStatsPass', () => {
       return orig(scope, date, positions);
     };
     const res = await runPaperStatsPass(DATE, d);
-    assert.deepEqual(res.scopesWritten, ['all', 'sym-QQQM']);
+    assert.deepEqual(res.scopesWritten, ['all', 'sym-QQQM', 'src-STRATEGY']);
     assert.equal(res.errors.length, 1);
     assert.match(res.errors[0], /inst-inst-1.*boom/);
   });

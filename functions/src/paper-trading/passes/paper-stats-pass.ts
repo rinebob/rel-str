@@ -10,6 +10,7 @@
  *   cohort-{cohortId}      — signal cohort group
  *   sig-{signalId}         — originating signal
  *   sym-{SYMBOL}           — underlying symbol
+ *   src-{SOURCE}           — trade source family: STRATEGY|SIGNAL|MANUAL (#1562)
  *   sigtype-{signalType}   — auto-paper signal-type slice (#919)
  *   dir-{side}             — signal direction slice (signal trades only)
  *   sector-*, ind-*, captier-*, sigstatus-* — auto-paper stamp slices
@@ -21,7 +22,7 @@
  * This complements the engine's per-instance stats pass, which keeps
  * writing its LEGACY doc ids — `stats-{instanceId}` and `stats-ALL` —
  * because the existing strategy UI reads them. This pass owns the new
- * `stats-{all|inst-*|var-*|cohort-*|sig-*|sym-*}` namespace the paper
+ * `stats-{all|inst-*|var-*|cohort-*|sig-*|sym-*|src-*}` namespace the paper
  * dashboard enumerates via `listStats`; `stats-ALL` vs `stats-all` and
  * `stats-{id}` vs `stats-inst-{id}` are deliberately distinct docs (same
  * underlying trades, both sides of the migration boundary).
@@ -38,6 +39,7 @@ import {
   statsScopeSignal,
   statsScopeSignalStatus,
   statsScopeSignalType,
+  statsScopeSource,
   statsScopeSymbol,
   statsScopeVariant,
 } from '@paper-trading/ids';
@@ -56,7 +58,11 @@ const logger = createLogger('PaperStatsPass');
 
 /** Every stats scope a trade rolls up into, keyed off its dimension fields. */
 export function tradeScopes(trade: PaperTrade): string[] {
-  const scopes = [statsScopeAll(), statsScopeSymbol(trade.symbol)];
+  const scopes = [
+    statsScopeAll(),
+    statsScopeSymbol(trade.symbol),
+    statsScopeSource(trade.source),
+  ];
   if (trade.strategyInstanceId) scopes.push(statsScopeInstance(trade.strategyInstanceId));
   if (trade.cohortId) scopes.push(statsScopeCohort(trade.cohortId));
   if (trade.signalId) scopes.push(statsScopeSignal(trade.signalId));
