@@ -13,6 +13,8 @@
 - [Strategy Builder UI] 137-1538_DOCS-STRAT-MANAGE: Code review (PASS, 2 passes) + UAT (Complete, #1555) + CONTEXT.md manage glossary
 - [Options Backtest] 1238-1491_SHARED-IMPL-MULTI-LEG-SPREAD: Leg + variant + request/snapshot contracts + run-doc source-of-truth — OptionLeg/StockLeg/VariantLeg, legToPickDocCoordinate canonical derivation, ReplayVariant/VariantSnapshot, three-form exclusive start request; worker reads symbol/templateId/startDate off the run doc ({runId, symbol} payload), malformed inputs fail permanently with warn, closeOutRun stamps error, retry requires selection inputs
 - [Options Backtest] 1238-1491_BE-CHORE-MULTI-LEG-SPREAD: options-replay-leg-contracts-1491 prod audit (registry parity + getRun fields + persisted-coordinate chain; absent meta = FAIL) + 1275 payload probe re-pinned to {runId, symbol}
+- [Options Backtest] 1238-1492_SHARED-IMPL-MULTI-LEG-SPREAD: Two-registry template-shape + named-variant model — REPLAY_TEMPLATE_SHAPES (18 shapes, Δ/DTE bands across all six catalog families) + REPLAY_VARIANTS (4 legacy templates migrated verbatim as 1-leg variants); TemplateShapeLeg kind-discriminated union, PICK_GRID_* grid constants, getReplayVariant/getTemplateShape accessors, REPLAY_TEMPLATES derived from single-option-leg variants (legacy surface unchanged), Object.frozen curated registries
+- [Options Backtest] 1238-1492_BE-CHORE-MULTI-LEG-SPREAD: options-replay-template-registries-1492 prod audit (shape structure on-grid + migration parity incl. description + every prod run's templateId dual-resolves) + run-all/README registration + 1276 seed probe re-pinned to 4 ids + #1498 resolveTemplate marker in permutation.ts
 - [Strategy Builder UI] 137-1541_SHARED-IMPL-STRAT-MANAGE: Manage variant catalog — seeded MANAGE_TEMPLATES/MANAGE_VARIANTS (CDS + 2 PRD variants), getManageTemplate/ByCode/Variant lookups, MANAGE_CUSTOM_TEMPLATE_ID sentinel, variantMatchesTemplate, deep-frozen registries
 - [Strategy Builder UI] 137-1541_CONFIG-CHORE-STRAT-MANAGE: @manage/variant-catalog alias in app + functions tsconfigs and jest moduleNameMapper
 - [Strategy Builder UI] 137-1541_SHARED-IMPL-STRAT-MANAGE: Variant-catalog verify script (31 checks) + run-all/README registry entries
@@ -24,6 +26,7 @@
 
 ### Changed
 - [Options Backtest] 1238-1491_DOCS-MULTI-LEG-SPREAD: #1491 code review (PASS, 2 rounds) + UAT (Complete, #1552)
+- [Options Backtest] 1238-1492_DOCS-MULTI-LEG-SPREAD: #1492 code review (PASS, 2 passes) + UAT (Complete, #1557) + IMPL-SHARED re-sync to the shipped union
 - [Option Contract Time-Series Viewer] 1243-1514_DOCS-OPTIONS: #1514 code review (PASS, 2 rounds) + UAT (Complete, #1551)
 - [Savant Design System] 1024-1476_FE-IMPL-DESIGN-SYSTEM: run-controls toolbar dedup — .pill-btn → dse-chip, .filter-input → new input.dse-input compact element-form; duplicated chrome deleted from both stylesheets
 - [Savant Design System] 1024-1476_DOCS-DESIGN-SYSTEM: #1476 code review (PASS) + UAT (Complete, #1480) + changelog

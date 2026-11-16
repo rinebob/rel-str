@@ -60,15 +60,24 @@ export type VariantLeg = OptionLeg | StockLeg;
 ### 2. Base templates (shapes) — `shared/options-replay-templates.ts`, extend
 
 ```typescript
-/** A leg slot inside a base template — structure + bounds, no values. */
-export interface TemplateShapeLeg {
-  role: string;                           // 'short' | 'long' | 'stock' — display + semantics
-  kind: 'option' | 'stock';
-  type?: OptionType;                      // option legs only
+/** A leg slot inside a base template — structure + bounds, no values.
+    Shipped as a kind-discriminated union (mirrors VariantLeg /
+    ManageTemplateLeg): bands are required on option legs and
+    unrepresentable on stock legs. */
+export interface TemplateShapeOptionLeg {
+  kind: 'option';
+  role: string;                           // 'short' | 'long' — display + semantics
+  type: OptionType;
   side: TradeSide;
-  deltaBand?: [number, number];           // |delta|% bounds over the 5-step grid
-  dteBand?: number[];                     // allowed subset of PICK_GRID dtes
+  deltaBand: [number, number];            // |delta|% bounds over the 5-step grid
+  dteBand: number[];                      // allowed subset of PICK_GRID dtes
 }
+export interface TemplateShapeStockLeg {
+  kind: 'stock';
+  role: string;                           // 'stock'
+  side: TradeSide;
+}
+export type TemplateShapeLeg = TemplateShapeOptionLeg | TemplateShapeStockLeg;
 
 export interface TemplateShape {
   id: string;                             // 'put-credit-spread'
@@ -77,7 +86,7 @@ export interface TemplateShape {
   structure: string;                      // 'single' | 'vertical-credit' | 'vertical-debit' |
                                           // 'iron-condor' | 'iron-butterfly' | 'calendar' |
                                           // 'diagonal' | 'straddle' | 'strangle' | 'covered-call' | 'custom'
-  legs: TemplateShapeLeg[];
+  legs: readonly TemplateShapeLeg[];
 }
 ```
 
@@ -94,7 +103,7 @@ export interface ReplayVariant {
   name: string;                           // '45DTE 20Δ put (CSP)'
   description: string;
   structure?: string;                     // which shape it was composed from (or 'custom')
-  legs: VariantLeg[];                     // concrete — every option leg has Δ/DTE
+  legs: readonly VariantLeg[];            // concrete — every option leg has Δ/DTE
 }
 ```
 
