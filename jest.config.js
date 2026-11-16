@@ -56,5 +56,7 @@ module.exports = {
     '^@flex-chart/theme$': '<rootDir>/shared/flex-chart-theme.ts',
     '^@flex-chart/scale-math$': '<rootDir>/shared/flex-chart-scale-math.ts',
     '^@flex-chart/indicator-visuals$': '<rootDir>/shared/flex-chart-indicator-visuals.ts',
+    '^@manage/variant-contracts$': '<rootDir>/shared/manage-variant-contracts.ts',
+    '^@manage/instance-contracts$': '<rootDir>/shared/manage-instance-contracts.ts',
   },
 };

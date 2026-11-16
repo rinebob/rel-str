@@ -51,7 +51,9 @@
       "@screenshot-capture/utils": ["./shared/screenshot-capture-utils.ts"],
       "@flex-chart/theme": ["./shared/flex-chart-theme.ts"],
       "@flex-chart/scale-math": ["./shared/flex-chart-scale-math.ts"],
-      "@flex-chart/indicator-visuals": ["./shared/flex-chart-indicator-visuals.ts"]
+      "@flex-chart/indicator-visuals": ["./shared/flex-chart-indicator-visuals.ts"],
+      "@manage/variant-contracts": ["./shared/manage-variant-contracts.ts"],
+      "@manage/instance-contracts": ["./shared/manage-instance-contracts.ts"]
     },
     "importHelpers": true,
     "target": "ES2022",
