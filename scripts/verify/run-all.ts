@@ -196,6 +196,12 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
   },
   {
+    name: 'gh sub-issue retrofit',
+    file: 'dev-tools-retrofit-subissues-1524.ts',
+    needsAccount: false,
+    needsGh: true,
+  },
+  {
     name: 'gh-lifecycle fetch shell',
     file: 'dev-tools-gh-lifecycle-639-fetch.ts',
     needsAccount: false,
