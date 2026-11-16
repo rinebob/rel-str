@@ -21,6 +21,8 @@
 ### Changed
 - [Options Backtest] 1238-1491_DOCS-MULTI-LEG-SPREAD: #1491 code review (PASS, 2 rounds) + UAT (Complete, #1552)
 - [Option Contract Time-Series Viewer] 1243-1514_DOCS-OPTIONS: #1514 code review (PASS, 2 rounds) + UAT (Complete, #1551)
+- [Savant Design System] 1024-1476_FE-IMPL-DESIGN-SYSTEM: run-controls toolbar dedup — .pill-btn → dse-chip, .filter-input → new input.dse-input compact element-form; duplicated chrome deleted from both stylesheets
+- [Savant Design System] 1024-1476_DOCS-DESIGN-SYSTEM: #1476 code review (PASS) + UAT (Complete, #1480) + changelog
 - [Portfolio Dashboard] 219-1474_DOCS-PORTFOLIO: #1474 code review (PASS, 3 axes) + UAT (Complete, #1482) + changelog
 
 ## [2026-11-14]
