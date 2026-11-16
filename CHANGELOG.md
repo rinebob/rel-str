@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-11-15]
+
+### Added
+- [GitHub read-only issue UI] 619-1524_SHARED-IMPL-DEV-TOOLS: GitHub native sub-issue retrofit — body-section parser → live-parentage diff → `addSubIssue` apply with closed-parent reopen/`stateReason` restore; repaired 39 edges repo-wide incl. Topic #137's missing stage issues
+- [GitHub read-only issue UI] 619-1524_SHARED-TEST-DEV-TOOLS: Retrofit spec suite (32 cases: parse/diff/cycles/closed-parent ordering/lazy-ancestor) + prod verification script + run-all registry entry
+- [GitHub read-only issue UI] 619-1524_DOCS-DEV-TOOLS: Thread #697 PRD + SHARED/BE/FE IMPL/TEST blueprint docs + #1524 code review (PASS, 2 rounds) + UAT (Complete, #1553)
+
 ## [2026-11-14]
 
 ### Added
