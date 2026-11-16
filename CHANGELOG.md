@@ -25,6 +25,7 @@
 - [GitHub read-only issue UI] 619-1522_SHARED-CHORE-DEV-TOOLS: 637/639/640 verify scripts re-pinned to v2 (group-stamp assertions, degrade-path gating) + README row updates
 
 ### Fixed
+- [Option Contract Time-Series Viewer] 1243-1515_FE-BUG-OPTIONS: Pin is a chip-strip bookmark, not a chart highlight — highlightedContractId forwards hover only; bookmark survives set reloads when its contract does and clears when it leaves; a failed focused load no longer destroys unrelated pins; "Click to pin" tooltip copy
 - [Option Contract Time-Series Viewer] 1243-1514_FE-BUG-OPTIONS: Armed study-range brush draws its own cursor feedback — capture-layer px feeds the hovered category (cursor line + top-edge date tag), live resolved {start} – {end} label on the drag rect previews exactly what the gesture emits (corpus-snapped), anchor panel stays populated; MIN_DRAG_PX single-sourced
 - [Portfolio Dashboard] 219-1474_FE-BUG-PORTFOLIO: Position feeds walk pages to exhaustion — equity+option positions cursor-walk via shared walkPages; dashboard lockstep rounds w/ get_portfolio ride-along; snapshot raw walk; deep positions can no longer silently vanish
 
@@ -32,6 +33,7 @@
 - [Options Backtest] 1238-1491_DOCS-MULTI-LEG-SPREAD: #1491 code review (PASS, 2 rounds) + UAT (Complete, #1552)
 - [Options Backtest] 1238-1492_DOCS-MULTI-LEG-SPREAD: #1492 code review (PASS, 2 passes) + UAT (Complete, #1557) + IMPL-SHARED re-sync to the shipped union
 - [Option Contract Time-Series Viewer] 1243-1514_DOCS-OPTIONS: #1514 code review (PASS, 2 rounds) + UAT (Complete, #1551)
+- [Option Contract Time-Series Viewer] 1243-1515_DOCS-OPTIONS: #1515 code review (PASS, 2 passes) + UAT (Complete, #1559)
 - [Savant Design System] 1024-1476_FE-IMPL-DESIGN-SYSTEM: run-controls toolbar dedup — .pill-btn → dse-chip, .filter-input → new input.dse-input compact element-form; duplicated chrome deleted from both stylesheets
 - [Savant Design System] 1024-1476_DOCS-DESIGN-SYSTEM: #1476 code review (PASS) + UAT (Complete, #1480) + changelog
 - [Portfolio Dashboard] 219-1474_DOCS-PORTFOLIO: #1474 code review (PASS, 3 axes) + UAT (Complete, #1482) + changelog
