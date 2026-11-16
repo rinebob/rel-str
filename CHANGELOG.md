@@ -14,8 +14,12 @@
 - [Options Backtest] 1238-1491_SHARED-IMPL-MULTI-LEG-SPREAD: Leg + variant + request/snapshot contracts + run-doc source-of-truth — OptionLeg/StockLeg/VariantLeg, legToPickDocCoordinate canonical derivation, ReplayVariant/VariantSnapshot, three-form exclusive start request; worker reads symbol/templateId/startDate off the run doc ({runId, symbol} payload), malformed inputs fail permanently with warn, closeOutRun stamps error, retry requires selection inputs
 - [Options Backtest] 1238-1491_BE-CHORE-MULTI-LEG-SPREAD: options-replay-leg-contracts-1491 prod audit (registry parity + getRun fields + persisted-coordinate chain; absent meta = FAIL) + 1275 payload probe re-pinned to {runId, symbol}
 
+### Fixed
+- [Option Contract Time-Series Viewer] 1243-1514_FE-BUG-OPTIONS: Armed study-range brush draws its own cursor feedback — capture-layer px feeds the hovered category (cursor line + top-edge date tag), live resolved {start} – {end} label on the drag rect previews exactly what the gesture emits (corpus-snapped), anchor panel stays populated; MIN_DRAG_PX single-sourced
+
 ### Changed
 - [Options Backtest] 1238-1491_DOCS-MULTI-LEG-SPREAD: #1491 code review (PASS, 2 rounds) + UAT (Complete, #1552)
+- [Option Contract Time-Series Viewer] 1243-1514_DOCS-OPTIONS: #1514 code review (PASS, 2 rounds) + UAT (Complete, #1551)
 
 ## [2026-11-14]
 
