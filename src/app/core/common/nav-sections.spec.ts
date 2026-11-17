@@ -42,7 +42,7 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
     ['Trading', ['Gallery', 'Live', 'Paper', 'Analysis', 'Scanner']],
     [
       'Options',
-      ['Chain', '% Change', 'Chart', 'Spread Chart', 'Strategy Dashboard', 'Build', 'Backtest'],
+      ['Chain', '% Change', 'Chart', 'Spread Chart', 'Strategy Dashboard', 'Manage', 'Backtest'],
     ],
     ['Analysis', ['Swing Analysis']],
     ['Tools', ['Account Inquiry', 'Topic Viewer', 'Dev']],
@@ -83,7 +83,7 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
     'options/chart',
     'options/spread-chart',
     'options/strategy-dashboard',
-    'options/strategy/build',
+    'options/strategy/manage',
     'options/strategy/backtest',
     'analysis/swings',
     'tools/account',

@@ -250,10 +250,10 @@ describe('OptionsStrategyDashboardComponent', () => {
     expect(mockStore.selectInstance).toHaveBeenCalledWith('QQQM-WHEEL');
   });
 
-  it('renders "Manage Strategies" link to the strategy builder', async () => {
+  it('renders "Manage Strategies" link to the strategy manage page', async () => {
     await configureWithStore({ isEmpty: false });
     const link = fixture.nativeElement.querySelector('.manage-strategies-btn');
     expect(link?.textContent).toContain('Manage Strategies');
-    expect(link?.getAttribute('href')).toContain('/options/strategy/build');
+    expect(link?.getAttribute('href')).toContain('/options/strategy/manage');
   });
 });
