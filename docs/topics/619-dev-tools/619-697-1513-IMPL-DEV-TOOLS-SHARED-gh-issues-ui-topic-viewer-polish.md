@@ -66,7 +66,7 @@ the callable (internal API, no versioning). `LifecycleNode` is unchanged
 export interface RepoLabel {
   name: string;
   color: string;        // 6-hex, no '#'
-  description?: string;
+  description: string | null;  // GitHub returns null, never omits
 }
 
 export interface ListRepoLabelsRequest { owner: string; repo: string }

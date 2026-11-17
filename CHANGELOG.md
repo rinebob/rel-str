@@ -9,12 +9,16 @@
 - [ST Firestore Reorg] 984-1562_DOCS-DOCS-DATA-PIPELINE: Thread #987 planning set — #1475 PRD + #1554 BE/FE IMPL + BE/FE TEST blueprint docs
 - [ST Firestore Reorg] 984-1562_DOCS-DOCS-DATA-PIPELINE: `src-*` scope family in DATA-MAP + #1562 CODE-REVIEW (PASS, 2 rounds) + #1569 UAT (Complete) + changelog
 
+- [GitHub read-only issue UI] 619-1523_SHARED-IMPL-DEV-TOOLS: Label write contracts + system-label guard — RepoLabel + 3 callable request/response pairs, isSystemLabel/SYSTEM_LABEL_PATTERNS (case-insensitive; stage pattern rejects any [1-8]_ mint/erase), mirrored vocabularies pinned by 90 spec assertions
+- [GitHub read-only issue UI] 619-1523_CONFIG-CHORE-DEV-TOOLS: @lifecycle/labels path alias in app + functions tsconfigs and jest moduleNameMapper
+
 ### Fixed
 - [Portfolio Dashboard] 219-1481_FE-BUG-PORTFOLIO: `get_option_positions` parses `data.positions` — option positions render (were always `[]`); instrument join fills strike/call-put; per-share × multiplier money math; signed-qty shorts; retry cascade + `—` degradation (checkpoint)
 - [Portfolio Dashboard] 219-1481_FE-BUG-PORTFOLIO: consumer layer — `optionInstruments` section + join-aware selector/PnL, allocation multiplier, table `—` fallbacks (checkpoint)
 
 ### Changed
 - [Portfolio Dashboard] 219-1481_DOCS-PORTFOLIO: #1481 code review (PASS, 2 rounds) + UAT (Draft — deferred pending live option positions, #1567) + changelog (checkpoint)
+- [GitHub read-only issue UI] 619-1523_DOCS-DEV-TOOLS: #1523 code review (PASS, 2 rounds) + UAT (Complete, #1582 — live 61/7 vocabulary audit) + IMPL-SHARED §3 sync + changelog
 
 ## [2026-11-15]
 
