@@ -214,6 +214,12 @@ const scripts: VerifyScript[] = [
     needsGh: true,
   },
   {
+    name: 'gh-lifecycle labels read',
+    file: 'dev-tools-gh-lifecycle-1528-labels-read.ts',
+    needsAccount: false,
+    needsGh: true,
+  },
+  {
     name: 'workflow template conventions',
     file: 'workflows-template-647.ts',
     needsAccount: false,

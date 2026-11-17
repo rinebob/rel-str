@@ -11,11 +11,11 @@ import {
 } from '../../../functions/src/gh-lifecycle/callables';
 import { GitHubApiError, type LifecycleFetchResult } from '../../../functions/src/gh-lifecycle/github-client';
 import type { LifecycleRawIssue } from '../../../shared/lifecycle-tree';
-import type { CallableRequest } from 'firebase-functions/v2/https';
-import type { LifecycleRepoRequest } from '../../../shared/lifecycle-contracts';
 
-const USER_REQ = (data: unknown) =>
-  ({ data, auth: { uid: 'u1' } }) as unknown as CallableRequest<LifecycleRepoRequest>;
+// `firebase-functions` isn't resolvable from tests/ — the generic
+// infers the handler's CallableRequest type at the call site.
+const USER_REQ = <T>(data: unknown): T =>
+  ({ data, auth: { uid: 'u1' } }) as unknown as T;
 
 const raw = (n: number, title = `Issue ${n}`): LifecycleRawIssue => ({
   number: n, title, state: 'OPEN',
