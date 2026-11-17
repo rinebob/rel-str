@@ -3,6 +3,9 @@
 ## [2026-11-17]
 
 ### Added
+- [Options Backtest] 1238-1494_SHARED-IMPL-MULTI-LEG-SPREAD: Registry validator — validateVariantRegistry returns named+indexed violations: dup ids across shapes+variants, display fields, ≥1 leg, per-kind required/forbidden fields, grid Δ/DTE + band checks, sign-vs-type parity, structure referential integrity (TEMPLATE_STRUCTURES-derived type), dup legs naming prior index; injected-registry seam, unknown-input tolerance, spec dedup collapse to single drift tripwire
+- [Options Backtest] 1238-1494_BE-CHORE-MULTI-LEG-SPREAD: #1492 verify script delegates Leg-1 field/grid/id checks to validateVariantRegistry (~120 hand-rolled lines removed); structure resolution upgrades WARN→FAIL per spec semantics
+- [Options Backtest] 1238-1494_DOCS-MULTI-LEG-SPREAD: CODE-REVIEW (PASS, 2 passes — 3 majors remediated in-cycle) + UAT (Complete, #1587) + IMPL §4 as-built + changelog
 - [Paper Trading Infra] 553-1573_SHARED-IMPL-PAPER-TRADING: Curated signal-trade contract surface — mint/delete request-response contracts, 7-key curated variant set + 'deepest-stop-else-trailing-8' governing-policy marker, OptionQuoteSource.SDS_BARS, 50-item batch bounds, pinned governing/mirror/dedupe semantics
 - [Paper Trading Infra] 553-1573_BE-CHORE-PAPER-TRADING: paper-trading-curated-contracts-1573 verify script (14 checks) + run-all/README registry entries
 - [Paper Trading Infra] 553-1573_DOCS-DOCS-PAPER-TRADING: Thread #906 planning set — PRD + BE/SHARED IMPL + BE/SHARED TEST blueprint docs

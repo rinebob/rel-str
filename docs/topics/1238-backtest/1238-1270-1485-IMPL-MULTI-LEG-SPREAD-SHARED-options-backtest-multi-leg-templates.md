@@ -122,6 +122,19 @@ export interface ReplayVariant {
 
 Runs in a shared spec so registry drift fails the test suite, not a live run.
 
+**As-built (#1494):** shipped with the four planned classes plus sign-vs-
+type parity (assigned by the `OptionLeg` contract), display-field presence,
+`structure` referential integrity (a variant's `structure` must resolve to
+a shape id or be 'custom'/absent — the #1492 audit's WARN became FAIL, as
+the spec already treated it), symmetric stray-field guards in both
+directions, and locator indices in every message. `TemplateStructure`
+derives from a runtime `TEMPLATE_STRUCTURES` member list so the union and
+the check can't drift. Leg params are `unknown` — malformed data is the
+contract. Round-then-check is deliberate (matches `pickDocDeltaPct`'s wire
+derivation; `-0.249` resolves to the 25Δ cell). The #1492 verify script
+delegates Leg-1 to the validator and the spec's hand-rolled data checks
+collapsed to the `toEqual([])` tripwire — one canonical guard.
+
 ### 5. Position-row schema — v2 (`options-replay-contracts.ts`, breaking)
 
 ```typescript
