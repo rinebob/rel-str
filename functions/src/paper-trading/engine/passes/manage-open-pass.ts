@@ -34,7 +34,14 @@ import {
   fetchOptionExpirations,
   fetchOptionQuotes,
   parseNum,
+  type RhMcpToolCaller,
+  type RhResolvedQuote,
 } from '../rh-mcp-shapes';
+import {
+  appendManageContractListRows,
+  prodContractListWriterDeps,
+  type ContractListLegInput,
+} from './contract-list-writer';
 import { selectOptionContract } from '../../../common/option-contract-selection';
 import { calendarDaysBetween } from '../../../common/pt-date-utils';
 import { db } from '../../../firebase-admin-init';
@@ -43,6 +50,7 @@ import { evaluateOpenGates } from './open-pass-gates';
 import type { OpenGateSkipReason } from './open-pass-gates';
 import {
   buildLegId,
+  getLegs,
   getPosition,
   listPositionsByInstance,
   createManagePosition,
@@ -83,10 +91,7 @@ export interface ManageOpenPassResult {
 
 // ── Dependencies ────────────────────────────────────────────────────────────
 
-export type RhMcpToolCaller = (
-  name: string,
-  args: Record<string, unknown>,
-) => Promise<unknown>;
+export type { RhMcpToolCaller };
 
 export interface ManageOpenPassDependencies {
   /** RH MCP read-only caller (`get_option_chains`/`instruments`/`quotes`). */
@@ -106,6 +111,20 @@ export interface ManageOpenPassDependencies {
   /** Post-create bookkeeping — default merges `lastFiredAt`/`updatedAt`
    *  onto the instance doc. */
   stampLastFiredAt?: (instanceId: string, at: string) => Promise<void>;
+  /** Contract-list emission (#1543) — appends one pick row per resolved
+   *  leg to `st-options-contract-lists/{instanceId}` so the analysis
+   *  route resolves. Default wires `appendManageContractListRows` on the
+   *  pass's `callTool`; failures warn + continue (derived artifact —
+   *  rebuildable, never worth failing a minted position). */
+  appendContractListRows?: (
+    instance: RunnableManageInstance,
+    legs: readonly ContractListLegInput[],
+    marketDate: string,
+  ) => Promise<void>;
+  /** Persisted legs of an existing position — used by the
+   *  `already_opened_today` reconcile to re-append a contract-list leg
+   *  group whose first append failed after the position minted. */
+  getLegs?: (positionId: string) => Promise<PositionLeg[]>;
   now?: () => Date;
 }
 
@@ -143,6 +162,30 @@ async function defaultStampLastFiredAt(
   );
 }
 
+function defaultAppendContractListRows(callTool: RhMcpToolCaller) {
+  const deps = prodContractListWriterDeps(callTool);
+  return (
+    inst: RunnableManageInstance,
+    legs: readonly ContractListLegInput[],
+    marketDate: string,
+  ) => appendManageContractListRows(inst, legs, marketDate, deps);
+}
+
+/** Bound on the contract-list append — the seam runs AFTER the position
+ *  mints; an unbounded hang (wedged MCP quote call, stalled transaction)
+ *  would skip result-write/lastFiredAt and starve every later instance
+ *  in the timer's serial loop. */
+const CONTRACT_LIST_APPEND_TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
 // ── Leg resolution ──────────────────────────────────────────────────────────
 
 /** Instrument-page fetch bounds — nearest-DTE expirations only, same bound
@@ -151,19 +194,34 @@ const MAX_EXPIRATIONS = 4;
 /** DTE window around the leg's target for the instrument fan-out. */
 const DTE_FETCH_WINDOW = 15;
 
+/** A leg's resolved contract + its RH quote fields — the superset the
+ *  position writer and the contract-list writer (#1543) both consume. */
+export interface ResolvedLegContract {
+  contractID: string;
+  strike: number;
+  expiration: string;
+  mark: number;
+  delta?: number;
+  iv?: number;
+  bid?: number;
+  ask?: number;
+  volume?: number;
+  openInterest?: number;
+}
+
 /** Resolve one option leg to a contract via the RH chain — same
  *  chains → instruments → quotes → selectOptionContract flow as the
  *  noon-PT expression-fill pass, scoped to the leg's type/Δ/DTE.
  *  `excludeIds` holds contractIDs already picked for earlier legs —
  *  adjacent Δ targets must never mint the same contract twice. */
-async function resolveOptionLeg(
+export async function resolveOptionLeg(
   leg: OptionLeg,
   symbol: string,
   marketDate: string,
   expirations: string[],
   excludeIds: ReadonlySet<string>,
   callTool: RhMcpToolCaller,
-): Promise<{ contractID: string; strike: number; expiration: string; mark: number } | null> {
+): Promise<ResolvedLegContract | null> {
   const rhType = leg.type === OptionType.CALL ? 'call' : 'put';
   const inBand = expirations
     .map((expiration) => ({
@@ -201,12 +259,14 @@ async function resolveOptionLeg(
   );
 
   const candidates: HistoricalOptionContract[] = [];
+  const quoteByOccId = new Map<string, RhResolvedQuote>();
   for (const inst of instruments) {
     const strike = parseNum(inst.strike_price);
     const q = inst.id ? quotes.get(inst.id) : undefined;
     if (!inst.expiration_date || strike === undefined || !q) continue;
     const occId = buildOccContractId(symbol, inst.expiration_date, leg.type, strike);
-    if (excludeIds.has(occId)) continue;
+    if (excludeIds.has(occId) || quoteByOccId.has(occId)) continue;
+    quoteByOccId.set(occId, q);
     candidates.push({
       contractID: occId,
       symbol,
@@ -242,7 +302,19 @@ async function resolveOptionLeg(
       `resolveOptionLeg ${symbol}: selected contract ${contractID ?? 'n/a'} lacks id/strike/expiration`,
     );
   }
-  return { contractID, strike, expiration: contract.expiration, mark: selected.mark };
+  const q = quoteByOccId.get(contractID);
+  return {
+    contractID,
+    strike,
+    expiration: contract.expiration,
+    mark: selected.mark,
+    delta: q?.delta,
+    iv: q?.iv,
+    bid: q?.bid,
+    ask: q?.ask,
+    volume: q?.volume,
+    openInterest: q?.openInterest,
+  };
 }
 
 // ── Position math ───────────────────────────────────────────────────────────
@@ -337,6 +409,9 @@ export async function runManageOpenPass(
   const createPosition = deps.createPosition ?? createManagePosition;
   const writeResult = deps.writeResult ?? defaultWriteResult;
   const stampLastFiredAt = deps.stampLastFiredAt ?? defaultStampLastFiredAt;
+  const appendContractListRows =
+    deps.appendContractListRows ??
+    defaultAppendContractListRows(deps.callTool);
   const now = deps.now ?? (() => new Date());
 
   const base = { instanceId: instance.id, symbol: instance.symbol };
@@ -394,7 +469,7 @@ export async function runManageOpenPass(
     // Sequential resolution — each leg's pick joins the exclusion set so
     // adjacent Δ targets can never mint the same contract twice.
     const expirations = await fetchOptionExpirations(deps.callTool, instance.symbol);
-    const resolved: ({ contractID: string; strike: number; expiration: string; mark: number } | null)[] = [];
+    const resolved: (ResolvedLegContract | null)[] = [];
     const picked = new Set<string>();
     for (const leg of optionLegs) {
       const r = await resolveOptionLeg(
@@ -463,6 +538,36 @@ export async function runManageOpenPass(
     //    window without a round-trip per retry attempt.
     if (await getPositionById(positionId)) {
       logger.info(`Skipped ${instance.id}/${marketDate}: already_opened_today`);
+      // Reconcile — a prior open whose contract-list append failed left
+      // the position minted but unrowed. Re-append from the persisted
+      // legs (greeks are gone → NaN rows); the writer's
+      // entryDate+contractId dedup makes this a no-op when rows landed.
+      try {
+        const posLegs = await (deps.getLegs ?? getLegs)(positionId);
+        if (posLegs.length === optionLegs.length && posLegs.every((l) => l.contractID)) {
+          await withTimeout(
+            appendContractListRows(
+              instance,
+              posLegs.map((pl, i) => ({
+                leg: optionLegs[i],
+                contract: {
+                  contractID: pl.contractID as string,
+                  strike: pl.strike,
+                  expiration: pl.expiration,
+                  mark: pl.premium,
+                },
+              })),
+              marketDate,
+            ),
+            CONTRACT_LIST_APPEND_TIMEOUT_MS,
+            'contract-list reconcile',
+          );
+        }
+      } catch (clErr) {
+        logger.warn(
+          `contract-list reconcile failed for ${instance.id}/${marketDate}: ${clErr instanceof Error ? clErr.message : String(clErr)}`,
+        );
+      }
       return finish(positionId, true, 'already_opened_today');
     }
 
@@ -503,8 +608,28 @@ export async function runManageOpenPass(
       );
     }
 
-    // 7. Stamp lastFiredAt — the routine pass that opened this position.
-    // 7. Stamp lastFiredAt — bookkeeping only; a stamp failure must not
+    // 7. Contract-list append — derived artifact (the position/ledger
+    //    already minted); a write failure must not fail the pass. The
+    //    `already_opened_today` path re-attempts a lost group on the
+    //    next fire (reconcile above); the timeout keeps a wedged MCP
+    //    call from stalling the serial instance loop.
+    try {
+      await withTimeout(
+        appendContractListRows(
+          instance,
+          contracts.map((c, i) => ({ leg: optionLegs[i], contract: c })),
+          marketDate,
+        ),
+        CONTRACT_LIST_APPEND_TIMEOUT_MS,
+        'contract-list append',
+      );
+    } catch (clErr) {
+      logger.warn(
+        `contract-list append failed for ${instance.id}/${marketDate}: ${clErr instanceof Error ? clErr.message : String(clErr)}`,
+      );
+    }
+
+    // 8. Stamp lastFiredAt — bookkeeping only; a stamp failure must not
     //    fail the pass after the position already minted.
     try {
       await stampLastFiredAt(instance.id, now().toISOString());

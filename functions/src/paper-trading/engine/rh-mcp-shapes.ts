@@ -11,6 +11,12 @@
 import { isPlainObject } from '@robinhood-mcp/utils';
 
 export const MCP_PREFIX = 'mcp__robinhood-trading__';
+
+/** Session-scoped RH MCP tool caller — read-only `get_*` surfaces. */
+export type RhMcpToolCaller = (
+  name: string,
+  args: Record<string, unknown>,
+) => Promise<unknown>;
 /** `get_option_quotes` instrument-id batch bound. */
 export const QUOTE_BATCH = 20;
 
@@ -133,6 +139,11 @@ export const QUOTE_CONCURRENCY = 3;
 export interface RhResolvedQuote {
   mark?: number;
   delta?: number;
+  bid?: number;
+  ask?: number;
+  iv?: number;
+  volume?: number;
+  openInterest?: number;
 }
 
 /** Sorted expiration dates for an underlying via `get_option_chains`
@@ -176,6 +187,11 @@ export async function fetchOptionQuotes(
         byId.set(id, {
           mark: quoteMark(item),
           delta: parseNum(item.quote?.delta),
+          bid: parseNum(item.quote?.bid_price),
+          ask: parseNum(item.quote?.ask_price),
+          iv: parseNum(item.quote?.implied_volatility),
+          volume: parseNum(item.quote?.volume),
+          openInterest: parseNum(item.quote?.open_interest),
         });
       }
     }
