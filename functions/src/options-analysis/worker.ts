@@ -50,8 +50,8 @@ import {
   stOptionsAnalysisResultDocId,
 } from '@st/collections';
 import type {
-  ContractListPickRow,
-  OptionsContractListDoc,
+  ContractListPickRowV1,
+  OptionsContractListDocV1,
 } from '@options-replay/contracts';
 import type {
   AnalysisResultDoc,
@@ -71,7 +71,7 @@ const FETCH_CONCURRENCY = 10;
 // ==========================
 
 export interface AnalysisWorkerDeps {
-  getListDoc: (docId: string) => Promise<OptionsContractListDoc | undefined>;
+  getListDoc: (docId: string) => Promise<OptionsContractListDocV1 | undefined>;
   /** One contract's daily series — the worker passes pickDate→expiration
    *  bounds; the evaluator also clips the tail internally. */
   fetchSeries: (input: {
@@ -149,7 +149,7 @@ export async function runReplayAnalysis(
 
   try {
     const picks = doc.rows.filter(
-      (r): r is ContractListPickRow => r.kind === 'pick' && Boolean(r.contractId),
+      (r): r is ContractListPickRowV1 => r.kind === 'pick' && Boolean(r.contractId),
     );
     const base = { runId, symbol, templateId, contractListDocId };
     const today = deps.getToday?.() ?? getMarketDatePT();
@@ -257,7 +257,7 @@ export async function runReplayAnalysis(
 const prodAnalysisDeps: AnalysisWorkerDeps = {
   async getListDoc(docId) {
     const snap = await db.collection(ST_OPTIONS_CONTRACT_LISTS_ROOT).doc(docId).get();
-    return snap.exists ? (snap.data() as OptionsContractListDoc) : undefined;
+    return snap.exists ? (snap.data() as OptionsContractListDocV1) : undefined;
   },
   fetchSeries: (input) => callPartnerHistoricalOptionsContractV2(input),
   async loadUnderlyingClose(symbol) {

@@ -1,7 +1,7 @@
 /**
  * Pick-doc → contract-list row mapper (Topic #1238, task #1280).
  *
- * Pure function — one `ContractListRow` per trading day. A `days` entry that
+ * Pure function — one `ContractListRowV1` per trading day. A `days` entry that
  * narrows to a pick becomes a `pick` row (all day fields verbatim + `side`
  * stamped from the template); an explicit miss entry becomes a
  * `no-selection` row with the SA status mapped (`no_match`→'miss',
@@ -16,7 +16,7 @@
 
 import { isPickDocPick } from '@options-replay/contracts';
 import type {
-  ContractListRow,
+  ContractListRowV1,
   NoSelectionReason,
   PickDocument,
 } from '@options-replay/contracts';
@@ -26,8 +26,8 @@ export function mapPickDocToRows(
   doc: PickDocument,
   tradingDays: string[],
   side: TradeSide,
-): ContractListRow[] {
-  const rows: ContractListRow[] = [];
+): ContractListRowV1[] {
+  const rows: ContractListRowV1[] = [];
   let prevContractId: string | null = null;
 
   for (const date of tradingDays) {

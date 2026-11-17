@@ -41,7 +41,7 @@ import {
   stOptionsContractListDocId,
 } from '@st/collections';
 import type {
-  OptionsContractListDoc,
+  OptionsContractListDocV1,
   OptionsReplayPermutationPayload,
   OptionsReplayRun,
   OptionsReplayRunStatus,
@@ -52,7 +52,7 @@ import type {
 const MAX_ATTEMPTS = 3;
 
 /** Merge-write payload for a list doc — server timestamps allowed. */
-export type ContractListWrite = Partial<Omit<OptionsContractListDoc, 'generatedAt'>> & {
+export type ContractListWrite = Partial<Omit<OptionsContractListDocV1, 'generatedAt'>> & {
   generatedAt?: FirebaseFirestore.FieldValue | string;
 };
 
@@ -71,7 +71,7 @@ export type ReplayPermutationRunView = Partial<
 export interface ReplayPermutationDeps {
   resolveTemplate: (templateId: string) => ReplayTemplate | undefined;
   getRun: (runId: string) => Promise<ReplayPermutationRunView | undefined>;
-  getListDoc: (docId: string) => Promise<Pick<OptionsContractListDoc, 'status' | 'error'> | undefined>;
+  getListDoc: (docId: string) => Promise<Pick<OptionsContractListDocV1, 'status' | 'error'> | undefined>;
   writeListDoc: (docId: string, fields: ContractListWrite) => Promise<void>;
   /** Sorted trading days `>= startDate`, up to the latest cached bar. */
   loadTradingDays: (symbol: string, startDate: string) => Promise<string[]>;
@@ -243,8 +243,8 @@ async function failPermanently(
   docId: string,
   runId: string,
   error: string,
-  fields: Pick<OptionsContractListDoc, 'runId' | 'symbol'> &
-    Partial<Pick<OptionsContractListDoc, 'templateId'>>,
+  fields: Pick<OptionsContractListDocV1, 'runId' | 'symbol'> &
+    Partial<Pick<OptionsContractListDocV1, 'templateId'>>,
 ): Promise<void> {
   logger.warn('options_replay_worker_permanent', { ...fields, error });
   await deps.writeListDoc(docId, {
@@ -274,7 +274,7 @@ const prodReplayPermutationDeps: ReplayPermutationDeps = {
 
   async getListDoc(docId) {
     const snap = await db.collection(ST_OPTIONS_CONTRACT_LISTS_ROOT).doc(docId).get();
-    return snap.exists ? (snap.data() as OptionsContractListDoc) : undefined;
+    return snap.exists ? (snap.data() as OptionsContractListDocV1) : undefined;
   },
 
   async writeListDoc(docId, fields) {

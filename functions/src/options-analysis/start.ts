@@ -38,7 +38,7 @@ import type {
   OptionsAnalysisStartResponse,
   OptionsAnalysisTaskPayload,
 } from '@options-analysis/contracts';
-import type { OptionsContractListDoc } from '@options-replay/contracts';
+import type { OptionsContractListDocV1 } from '@options-replay/contracts';
 
 /** Dedicated analysis queue — separate from the replay queue so a heavy
  *  analysis can't starve run fanout; independent retry config (IMPL-BE
@@ -48,7 +48,7 @@ export const OPTIONS_ANALYSIS_TASK_QUEUE = 'optionsReplayAnalysis';
 /** Slice of the contract list doc the enqueue decision needs — payload
  *  fields come from the doc, never parsed back out of the docId. */
 export type AnalysisStartListView = Pick<
-  OptionsContractListDoc,
+  OptionsContractListDocV1,
   'status' | 'runId' | 'symbol' | 'templateId'
 >;
 

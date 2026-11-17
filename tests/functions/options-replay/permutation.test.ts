@@ -20,7 +20,7 @@ import {
   PartnerHttpError,
   PARTNER_CODE_NOT_FOUND,
 } from '../../../functions/src/partner-infrastructure';
-import type { PickDocument, OptionsContractListDoc } from '@options-replay/contracts';
+import type { PickDocument, OptionsContractListDocV1 } from '@options-replay/contracts';
 import { OptionType } from '@options/common';
 import { TradeSide } from '@common';
 
@@ -89,7 +89,7 @@ function makeDeps(overrides: Partial<ReplayPermutationDeps> = {}): {
   return { deps, writes, closeOuts };
 }
 
-const SUCCESS_DOC: Pick<OptionsContractListDoc, 'status'> = { status: 'success' };
+const SUCCESS_DOC: Pick<OptionsContractListDocV1, 'status'> = { status: 'success' };
 
 describe('runReplayPermutation', () => {
   it('happy path — running write, mapped rows, pickDocMeta, success close-out', async () => {

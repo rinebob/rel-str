@@ -11,8 +11,8 @@ import { mapPickDocToRows } from '../../../functions/src/options-replay/pick-doc
 import type {
   PickDocDay,
   PickDocument,
-  ContractListPickRow,
-  ContractListNoSelectionRow,
+  ContractListPickRowV1,
+  ContractListNoSelectionRowV1,
 } from '@options-replay/contracts';
 import { OptionType } from '@options/common';
 import { TradeSide } from '@common';
@@ -63,7 +63,7 @@ describe('mapPickDocToRows', () => {
     const rows = mapPickDocToRows(d, ['2026-01-05', '2026-01-06'], SHORT);
 
     assert.equal(rows.length, 2);
-    const row = rows[0] as ContractListPickRow;
+    const row = rows[0] as ContractListPickRowV1;
     assert.equal(row.kind, 'pick');
     assert.equal(row.entryDate, '2026-01-05');
     assert.equal(row.side, SHORT);
@@ -88,7 +88,7 @@ describe('mapPickDocToRows', () => {
   it('emits a no-selection row for a trading day absent from doc.days', () => {
     const d = doc({ '2026-01-05': pick() });
     const rows = mapPickDocToRows(d, ['2026-01-05', '2026-01-06'], SHORT);
-    const row = rows[1] as ContractListNoSelectionRow;
+    const row = rows[1] as ContractListNoSelectionRowV1;
     assert.equal(row.kind, 'no-selection');
     assert.equal(row.entryDate, '2026-01-06');
     assert.equal(row.reason, undefined);
@@ -97,8 +97,8 @@ describe('mapPickDocToRows', () => {
   it('marks days outside [firstDate, lastDate] as out-of-range', () => {
     const d = doc({ '2026-01-05': pick() });
     const rows = mapPickDocToRows(d, ['2026-01-02', '2026-01-05', '2026-01-12'], SHORT);
-    assert.equal((rows[0] as ContractListNoSelectionRow).reason, 'out-of-range');
-    assert.equal((rows[2] as ContractListNoSelectionRow).reason, 'out-of-range');
+    assert.equal((rows[0] as ContractListNoSelectionRowV1).reason, 'out-of-range');
+    assert.equal((rows[2] as ContractListNoSelectionRowV1).reason, 'out-of-range');
   });
 
   it('sets repeatsPrevious on consecutive same-contractId picks', () => {
@@ -112,7 +112,7 @@ describe('mapPickDocToRows', () => {
       d,
       ['2026-01-05', '2026-01-06', '2026-01-07', '2026-01-08'],
       SHORT,
-    ) as ContractListPickRow[];
+    ) as ContractListPickRowV1[];
     assert.deepEqual(rows.map((r) => r.repeatsPrevious), [false, true, false, true]);
   });
 
@@ -123,7 +123,7 @@ describe('mapPickDocToRows', () => {
       '2026-01-07': pick(),  // same contractId but prior row was a marker
     });
     const rows = mapPickDocToRows(d, ['2026-01-05', '2026-01-06', '2026-01-07'], SHORT);
-    assert.equal((rows[2] as ContractListPickRow).repeatsPrevious, false);
+    assert.equal((rows[2] as ContractListPickRowV1).repeatsPrevious, false);
   });
 
   it('handles a window starting before doc.firstDate — markers, not crashes', () => {

@@ -13,7 +13,7 @@
 
 import { calendarDaysBetween } from '../common/pt-date-utils';
 import { EXIT_STRATEGIES } from '@options-analysis/registry';
-import type { ContractListPickRow } from '@options-replay/contracts';
+import type { ContractListPickRowV1 } from '@options-replay/contracts';
 import type {
   AnalysisErrorTrade,
   AnalysisExpiredTrade,
@@ -203,7 +203,7 @@ function noFireOutcome(
  *  `fetched` is the pick's SA response or its fetch error; records are
  *  distributed by the caller into per-exit buckets by array position. */
 export function buildPickRecords(
-  row: ContractListPickRow,
+  row: ContractListPickRowV1,
   fetched: { resp?: PartnerHistoricalOptionsContractV2Response; error?: string },
   ctx: { underlyingClose: ReadonlyMap<string, number>; base: RecordBase; today: string },
 ): AnalysisTradeRecord[] {

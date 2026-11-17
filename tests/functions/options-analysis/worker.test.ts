@@ -27,9 +27,9 @@ import {
   type AnalysisWorkerDeps,
 } from '../../../functions/src/options-analysis/worker';
 import type {
-  ContractListNoSelectionRow,
-  ContractListPickRow,
-  OptionsContractListDoc,
+  ContractListNoSelectionRowV1,
+  ContractListPickRowV1,
+  OptionsContractListDocV1,
 } from '@options-replay/contracts';
 import type { AnalysisResultDoc, AnalysisTradeRecord } from '@options-analysis/contracts';
 import type {
@@ -54,7 +54,7 @@ const PAYLOAD = {
 
 const EXPIRY = '2026-02-20';
 
-function pickRow(over: Partial<ContractListPickRow> = {}): ContractListPickRow {
+function pickRow(over: Partial<ContractListPickRowV1> = {}): ContractListPickRowV1 {
   return {
     kind: 'pick',
     entryDate: '2026-01-05',
@@ -76,7 +76,7 @@ function pickRow(over: Partial<ContractListPickRow> = {}): ContractListPickRow {
   };
 }
 
-function markerRow(entryDate: string): ContractListNoSelectionRow {
+function markerRow(entryDate: string): ContractListNoSelectionRowV1 {
   return { kind: 'no-selection', entryDate, reason: 'miss' };
 }
 
@@ -112,7 +112,7 @@ interface Written {
 }
 
 interface DepsInit {
-  doc?: OptionsContractListDoc;
+  doc?: OptionsContractListDocV1;
   seriesById?: Record<string, PartnerHistoricalOptionsContractV2Response | Error>;
   closes?: Record<string, number>;
   /** Throw on 'success' doc writes — 'failed' writes still capture. */
@@ -155,11 +155,11 @@ function makeDeps(init: DepsInit): {
   };
 }
 
-const listDoc = (rows: OptionsContractListDoc['rows'], status = 'success'): OptionsContractListDoc => ({
+const listDoc = (rows: OptionsContractListDocV1['rows'], status = 'success'): OptionsContractListDocV1 => ({
   runId: 'run-1',
   symbol: 'QQQ',
   templateId: 'csp-45-20',
-  status: status as OptionsContractListDoc['status'],
+  status: status as OptionsContractListDocV1['status'],
   rows,
   pickDocMeta: {
     coordinate: { type: OptionType.PUT, targetDelta: -0.2, expiry: { mode: 'nearestDte', dte: 45 } },
