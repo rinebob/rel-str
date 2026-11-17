@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-11-17]
+
+### Added
+- [Strategy Builder UI] 137-1539_BE-IMPL-STRAT-MANAGE: Manage instance reader + open-gate decoupling — normalizeManageInstance (runState/mode/trigger/stopType invariants, embedded-variant leg validation, stopType normalize, optional maxOpenPositions), ACTIVE-query + trigger partition + paper-mode gate, evaluateOpenGates decoupled from StrategyInstanceConfig, legacy listInstances pre-filters runState docs (shared root — no warn-spam)
+- [Strategy Builder UI] 137-1539_BE-IMPL-STRAT-MANAGE: Shared option-chain fetchers (fetchOptionExpirations/fetchOptionQuotes in rh-mcp-shapes, consumed by expression-fill + manage open pass) + ledger observational-'none' seeding — governingVariant 'none' seeds empty variantKeys/variantRuns with transactional account booking intact
+- [Strategy Builder UI] 137-1539_BE-IMPL-STRAT-MANAGE: Manage open pass + noon-PT manageOpenPassTimer (0 12 * * 1-5, RH_CREDENTIAL_BUNDLE) + createManagePosition — per-leg RH chain resolution with sequential contract exclusion, net-premium fill, deterministic {instanceId}-{marketDate} dedup, signal-freshness gate on detection marketDate, error-path result writes, stock legs fail closed
+- [Strategy Builder UI] 137-1539_BE-IMPL-STRAT-MANAGE: Manage open pass specs (21) + strat-manage-open-pass-1539 verify script (28 checks) + run-all/README registry entries
+- [Strategy Builder UI] 137-1539_DOCS-STRAT-MANAGE: BE IMPL §2 as-built + code review (PASS, 3 axes — 8 majors fixed) + UAT (Complete, #1586) + changelog
+
 ## [2026-11-16]
 
 ### Added

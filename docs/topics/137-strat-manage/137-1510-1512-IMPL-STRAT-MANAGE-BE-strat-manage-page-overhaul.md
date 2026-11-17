@@ -48,6 +48,54 @@ callables in v1). BE consumes them in passes.
   existing quote-provider/selection machinery; multi-leg positions write
   one position doc with `legs[]`.
 
+**As-built (#1539):**
+
+- The manage flow is a **new pass**, `passes/manage-open-pass.ts`, plus a
+  new reader module — `open-pass.ts` itself only shed its
+  `StrategyInstanceConfig` coupling (`evaluateOpenGates` now takes
+  `(positions, { cadenceDays, maxOpenPositions }, marketDate)`; the
+  legacy call site derives cadence from frequency).
+- Scheduling is a **separate noon cron**, `manageOpenPassTimer`
+  (`0 12 * * 1-5` PT, `RH_CREDENTIAL_BUNDLE` secret), exported from
+  `functions/src/index.ts` — not folded into the legacy 5-minute slot
+  timer, since manage instances carry no `openTimePT`.
+- Signal source confirmed: `st-signals` — "fresh" = a doc whose
+  `marketDate` (first-detection run date) equals the pass date. Signals
+  detected by the morning intraday runs fire at noon; nightly-detection
+  signals written post-close carry yesterday's `marketDate` and do not
+  re-trigger (documented boundary).
+- Dedup is two-layered and idempotent: cadence scan (any position opened
+  on `marketDate` skips) + deterministic position id
+  `{instanceId}-{marketDate}` with a pre-create `getPosition` check —
+  concurrent ticks converge on the same doc id.
+- Per-leg resolution: shared `fetchOptionExpirations` → expiry in the
+  leg's DTE ±15d band → `fetchAllOptionInstruments` → `fetchOptionQuotes`
+  → `selectOptionContract` on |Δ|; OCC ids via `buildOccContractId`.
+  Legs resolve **sequentially with an exclusion set** — same-Δ targets
+  can never mint one contract twice. The chain/quote fetchers moved into
+  `rh-mcp-shapes.ts` and `expression-fill-pass` consumes them too.
+- `createManagePosition` (position-repository) writes through
+  `applyEntryFill` with `fill.price = |netPremium|` and order side =
+  cash direction (SHORT credit / LONG debit) — single-leg fill semantics
+  would book only leg-0's cash on spreads. `governingVariant` is `NONE` —
+  `seedVariantRuns` was extended to admit `none` as the observational
+  case (empty `variantKeys`/`variantRuns`, same doc shape
+  `positionToTrade` writes); manage positions never auto-exit (B3's
+  exit-scan evaluates exits). `expression` stamps the template code.
+- Stock legs **throw** — `PositionLeg` has no share branch and the v1
+  catalog has no stock-leg templates; share plumbing is a later task.
+- `maxOpenPositions` honored as an optional console-edited field
+  (non-negative int; malformed values warn + drop, `0` = uncapped).
+- v1 paper-only gate: `listActiveManageInstances` warn-skips non-`paper`
+  modes (mirrors legacy `isRunnablePaperInstance`); the legacy reader
+  pre-filters `runState` docs so manage instances don't warn-spam
+  legacy ticks.
+- Error path: a thrown pass writes `{skipped:true, skipReason:'error'}`
+  to `daily-analysis/latest` before rethrowing; `lastFiredAt` stamps via
+  an injectable dep after mint (stamp failure warns, never fails).
+- `st-order-tickets` parity: opens stage a `program`/`auto` ticket and
+  mark it filled/failed — `averagePrice` is |netPremium|.
+
 ### 3. Exit-tracking pass — `passes/exit-scan-pass.ts` (new)
 
 - Runs daily after mark-pass. For each open position of each manage
