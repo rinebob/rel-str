@@ -1,30 +1,63 @@
-// ST Anchored VWAP — Thread #835 (Topic 261, indicator-lib)
-// VWAP lines anchored to ZigZag-detected pivot highs/lows at two retracement
-// scales. Detection reuses the same ZigZag engine as rb-st-zigzag.pine
-// (TradingView ZigZag Library v9 port), stripped to confirmed pivots only —
-// no drawings, labels, or projected pivots.
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TradingView
+// Detection core ported from TradingView ZigZag Library v9 — see rb-st-zigzag.pine.
+
+// ST Anchored VWAP — Thread #835 (Topic 261, indicator-lib), task #873.
+// Refined to match the web build (st-anchored-vwap.engine.ts):
 //
-// Line lifecycle (per scale, per side): a confirmed pivot seeds a VWAP line at
-// its bar, accumulating hlc3*volume forward. When a new same-side pivot
-// confirms, the old line terminates AT the new anchor's bar (the confirmation
-// tail is trimmed — the anchor sits ~rightDepth bars in the past) and a new
-// line starts there. Terminated segments persist faded, bounded by the
-// history window: `historyStart` set → render forward from that date up to
-// `maxHistory`; unset → most recent `maxHistory` (oldest pruned first).
+// Line lifecycle (per scale): the ZigZag engine yields the surviving-vertex
+// chain — same-side refinements overwrite the last pivot's `end`, so a new
+// extreme mid-leg never starts a line. Each vertex has a TRIGGER: the first
+// bar whose price crossed the deviation threshold from the vertex's price
+// (high vertex: low <= price*(1-dev%); low vertex: high >= price*(1+dev%)).
+// A triggered vertex anchors a VWAP line drawn from its own trigger bar to
+// the next vertex's trigger bar — one live line per scale, sides normally
+// alternating (a same-bar high+low collapse can leave consecutive
+// same-side vertices). The VWAP accumulates from the pivot bar (typical*volume sums), so
+// the first drawn value is the VWAP of pivot bar through trigger bar.
+// Nothing is drawn before the trigger bar and nothing back-attaches to the
+// pivot bar. A vertex whose reversal hasn't triggered anchors no line; the
+// previous line stays live. Persist mode keeps every triggered vertex's
+// line running to the last bar — a VWAP fan bounded by `maxHist`.
 //
-// Rendering: every segment is one polyline (VWAP is a curve — `line` can't
-// express it). TradingView caps polylines at 100 total, so per-scale history
-// clamps to 48 (4 active lines + 2×48 = 100). Values are retrocomputed via
-// cumulative PV/V sums, so the anchor..detection backfill draws correctly.
+// Causality note: a vertex registers `rightDepth` bars after its pivot bar;
+// its trigger may have fired before registration (a sharp move inside the
+// depth window) — that case is scanned back so the line still starts on the
+// true trigger bar, as in the web. A new opposite pivot can only register
+// after the pending vertex's trigger fired (registration itself requires
+// the deviation), so at most one untriggered vertex is ever outstanding.
+//
+// Rendering: every segment is a polyline (VWAP is a curve; `line` can't
+// express it, and `plot()` can't draw over past bars — decision recorded
+// per the blueprint: active lines are polylines precisely because their
+// start bar is in the past). TradingView caps polylines at 100: per-scale
+// history clamps to 46 so 2 scales x (46 history/fan + 1 live) = 94. The
+// optional trigger dots are `label.style_circle`s (a series plot can't
+// stamp a retro trigger bar), capped at 50 per scale.
+//
+// Scale limits: all drawings use xloc.bar_time so anchors can be
+// arbitrarily old (xloc.bar_index is limited to ~10k bars back). A
+// polyline still truncates at 10,000 chart.points — a segment spanning
+// more bars silently drops its tail (accepted: requires >10k bars in one
+// segment AND a chart that long). The per-bar arrays grow unbounded
+// toward Pine's ~100k-element ceiling — same exposure as rb-st-zigzag.
+// Live/fan polylines rebuild each realtime tick (drawSeg) — cheap per
+// segment but bounded by fan size; watch timeouts with Persist on very
+// long intraday charts.
 
 //@version=6
-indicator("ST Anchored VWAP", overlay = true, max_polylines_count = 100)
+indicator("ST Anchored VWAP", overlay = true, max_polylines_count = 100, max_labels_count = 100)
+
+// Trigger-dot budget: 50 per scale = the full 100-label platform cap.
+int DOT_CAP = 50
 
 //#region ———————————————————— ZigZag engine (confirmed pivots only)
 
 // Stripped from rb-st-zigzag.pine: drawing/label/projection code removed.
 // Pivot = {start, end, isHigh}; ZigZag.pivots accumulates confirmed pivots in
-// chronological order. `update()` must run on every bar.
+// chronological order — the surviving-vertex chain (same-side refinements
+// overwrite `end`, replaced extremes never appear). `update()` must run on
+// every bar.
 
 type Settings
     float devThreshold        = 5.0
@@ -117,20 +150,33 @@ method update(ZigZag this) =>
 // bar_index. Reading history via arrays (not `series[offset]`) avoids Pine's
 // history-buffer limits entirely — anchors can be arbitrarily old and the
 // readers may run conditionally. Cumulative sums make any anchored VWAP over
-// [a, j] = (cumPV[j] - cumPV[a-1]) / (cumV[j] - cumV[a-1]), computable
-// retroactively for the anchor→detection backfill. nz(volume) gives the
-// flat-carry rule: zero/missing volume contributes to neither sum.
+// [a, j] = (cumPV[j] - cumPV[a-1]) / (cumV[j] - cumV[a-1]). `hi`/`lo`/`opn`
+// feed the trigger scans and the gap-through dot (the open is the first
+// printed price beyond a gapped level).
 type Buf
     array<float> cumPV
     array<float> cumV
     array<float> tp
     array<int>   ts
+    array<float> hi
+    array<float> lo
+    array<float> opn
 
-var Buf buf = Buf.new(array.new<float>(), array.new<float>(), array.new<float>(), array.new<int>())
-buf.cumPV.push((bar_index > 0 ? buf.cumPV.last() : 0.0) + nz(volume) * hlc3)
-buf.cumV.push((bar_index > 0 ? buf.cumV.last() : 0.0) + nz(volume))
+var Buf buf = Buf.new(array.new<float>(), array.new<float>(), array.new<float>(), array.new<int>(),
+     array.new<float>(), array.new<float>(), array.new<float>())
+// Web-parity accumulation: only a bar with a finite typical price AND
+// positive volume feeds the sums — an `na` hlc3 would poison the running
+// total forever and negative volume would corrupt the denominator
+// (web cumulativeSums skips both).
+float tpBar = hlc3
+bool okVol = not na(tpBar) and nz(volume) > 0
+buf.cumPV.push((bar_index > 0 ? buf.cumPV.last() : 0.0) + (okVol ? volume * tpBar : 0.0))
+buf.cumV.push((bar_index > 0 ? buf.cumV.last() : 0.0) + (okVol ? volume : 0.0))
 buf.tp.push(hlc3)
 buf.ts.push(time)
+buf.hi.push(high)
+buf.lo.push(low)
+buf.opn.push(open)
 
 // Anchored VWAP at bar j for an anchor at bar a (a <= j); na while no volume
 // has accumulated since the anchor.
@@ -140,181 +186,394 @@ vwapAt(Buf b, int a, int j) =>
     float dv = b.cumV.get(j) - baseV
     dv > 0 ? (b.cumPV.get(j) - basePV) / dv : na
 
-// Point list for one VWAP segment over bar indexes [aIdx, endIdx].
-// Zero-volume stretches reuse the previous value (flat carry, no gaps);
-// before any volume, fall back to typical price.
-buildPoints(Buf b, int aIdx, int endIdx) =>
+// Point list for one VWAP segment drawn over [startIdx, endIdx], anchored at
+// `aIdx`. Zero-volume stretches reuse the previous value (flat carry);
+// before any volume accumulates the seed is the anchor bar's typical price —
+// the same rule as the web's segmentPoints.
+buildPoints(Buf b, int aIdx, float aPrice, int startIdx, int endIdx) =>
     array<chart.point> pts = array.new<chart.point>()
-    float last = na
-    for j = aIdx to endIdx
-        float v = nz(vwapAt(b, aIdx, j), na(last) ? b.tp.get(j) : last)
-        last := v
-        pts.push(chart.point.new(b.ts.get(j), j, v))
+    float last = nz(b.tp.get(aIdx), aPrice)
+    if endIdx >= startIdx
+        for j = startIdx to endIdx
+            float v = nz(vwapAt(b, aIdx, j), last)
+            last := v
+            pts.push(chart.point.from_time(b.ts.get(j), v))
     pts
 
-// Latest pivot of a given side (scan back — array is chronological).
-latestFor(ZigZag zz, bool isHigh) =>
-    Pivot result = na
-    int n = zz.pivots.size()
-    if n > 0
-        for i = n - 1 to 0
-            Pivot p = zz.pivots.get(i)
-            if p.isHigh == isHigh
-                result := p
-                break
-    result
+// First bar in [fromBar, toBar] whose traded range crossed `level`, else na.
+// Scans include the vertex's own bar — a one-bar reversal can trigger on it.
+scanTrigger(Buf b, int fromBar, int toBar, bool isHigh, float level) =>
+    int t = na
+    for j = fromBar to toBar
+        float extreme = isHigh ? b.lo.get(j) : b.hi.get(j)
+        if not na(extreme) and (isHigh ? extreme <= level : extreme >= level)
+            t := j
+            break
+    t
 
-// One active VWAP line + its terminated-segment history, for one side of one
-// scale. `anchorIndex` is the bar_index of the current anchor pivot's end.
-type AnchorLine
-    bool    isHigh
-    color   colr
-    int     width
-    int         anchorIndex = na
-    polyline    pl          = na
-    float       lastValue   = na
-    bool        fresh       = false
-    array<polyline> hist
+// Dot price on trigger bar j: the level when it lies inside the bar's range;
+// on a gap-through the level sits outside the range — then the open is the
+// first printed price that broke it. Mirrors the web's computeTriggerPoints.
+triggerY(Buf b, int j, float level) =>
+    level >= b.lo.get(j) and level <= b.hi.get(j) ? level : b.opn.get(j)
 
-// The current active segment was superseded by a new same-side anchor at
-// `newAnchorIdx`: archive the old segment as a faded polyline spanning
-// [anchorIndex, newAnchorIdx] (window+cap permitting), then re-anchor.
-method terminateAt(AnchorLine this, Buf b, int newAnchorIdx, int cap, int histStart, bool histOn) =>
-    if not na(this.anchorIndex) and newAnchorIdx > this.anchorIndex
-        int  aT       = b.ts.get(this.anchorIndex)
-        bool inWindow = not histOn or aT >= histStart
+// One anchored VWAP line. `triggerBar` is the first drawn bar; the VWAP
+// accumulates from `pivotBar` (the vertex's pivot bar). `price` seeds the
+// flat-carry and the trigger level.
+type Seg
+    int      pivotBar
+    int      triggerBar
+    bool     isHigh
+    float    price
+    int      endBar = na
+    polyline pl = na
+    label    dot = na
+
+// One retracement scale: its ZigZag instance, the live line (`cur`), the
+// newest vertex awaiting its reversal trigger (`pend*`), the persist-mode
+// fan of still-open older lines, terminated-history polylines, and the
+// optional trigger-dot labels.
+type Scale
+    ZigZag          zz
+    int             prevSize = 0
+    Seg             cur = na
+    bool            hasPend = false
+    int             pendBar = na
+    float           pendPrice = na
+    bool            pendIsHigh = true
+    array<Seg>      fan
+    array<Seg>      hist
+    array<label>    dots
+    Seg             lastFired = na
+    color           hiCol
+    color           loCol
+    int             width
+    bool            persist
+    bool            showHi
+    bool            showLo
+    bool            dotsOn
+
+method sideCol(Scale this, bool isHigh) =>
+    isHigh ? this.hiCol : this.loCol
+
+method levelOf(Scale this, bool isHigh, float price) =>
+    float dev = this.zz.settings.devThreshold
+    isHigh ? price * (1 - dev / 100) : price * (1 + dev / 100)
+
+// Remove a seg's trigger dot entirely — the label AND its slot in `dots`
+// (a dead handle left in the array would count against the cap forever).
+method dropDot(Scale this, Seg s) =>
+    if not na(s.dot)
+        int di = this.dots.indexof(s.dot)
+        if di >= 0
+            this.dots.remove(di)
+        label.delete(s.dot)
+        s.dot := na
+
+// The true predecessor of the vertex that ended at `endT` is the last-fired
+// segment — restore it as the live line and detach it from whichever
+// container admitted it. hist/fan hold only window-admitted segs, but an
+// era-dropped or hidden predecessor still resumes under the web's rules:
+// a live line is never windowed. Returns na when nothing ended at `endT`.
+method popPred(Scale this, int endT) =>
+    Seg pred = this.lastFired
+    if not na(pred) and pred.endBar == endT
+        array<Seg> cont = this.persist ? this.fan : this.hist
+        if cont.size() > 0
+            Seg tail = cont.last()
+            if tail.endBar == endT and tail.pivotBar == pred.pivotBar
+                cont.pop()
+        this.lastFired := cont.size() > 0 ? cont.last() : na
+        if not na(pred.pl)
+            polyline.delete(pred.pl)
+            pred.pl := na
+        pred
+    else
+        na
+
+// Push one finished segment into `hist` under the history-window rules:
+// era mode keeps the first `cap` segments whose pivot timestamp is on or
+// after `histStart` (the cap eats the recent end); otherwise the most
+// recent `cap` (oldest pruned). Both sides share the cap, as in the web —
+// and like the web's applyHistoryWindow, every terminated segment counts
+// against it: hidden-side and degenerate segs occupy slots even though
+// they carry no polyline (the side toggles are render-only, not
+// bookkeeping). The timestamp compare is epoch-ms against the
+// `input.time` instant — the web compares session date strings, so the
+// boundary bar can differ by the exchange timezone (input.time has no
+// date-only mode).
+method archive(Scale this, Buf b, Seg s, int endIdx, int cap, int histStart, bool histOn) =>
+    s.endBar := endIdx
+    this.lastFired := s
+    bool inWindow = not histOn or b.ts.get(s.pivotBar) >= histStart
+    if inWindow
+        if this.hist.size() >= cap
+            if histOn
+                inWindow := false
+            else
+                Seg old = this.hist.shift()
+                if not na(old.pl)
+                    polyline.delete(old.pl)
+                    old.pl := na
         if inWindow
-            if this.hist.size() >= cap
-                if histOn
-                    inWindow := false   // date mode: stop at cap, keep earliest
-                else
-                    polyline old = this.hist.shift()
-                    old.delete()        // default mode: prune oldest, keep recent
-            if inWindow
-                array<chart.point> pts = buildPoints(b, this.anchorIndex, newAnchorIdx)
-                if pts.size() > 0
-                    this.hist.push(polyline.new(pts, curved = false, closed = false, xloc = xloc.bar_index, line_color = color.new(this.colr, 45), line_style = line.style_solid, line_width = this.width))
-    this.anchorIndex := newAnchorIdx
-    this.fresh := true
+            if s.isHigh ? this.showHi : this.showLo
+                array<chart.point> pts = buildPoints(b, s.pivotBar, s.price, s.triggerBar, s.endBar)
+                if pts.size() > 1
+                    s.pl := polyline.new(pts, curved = false, closed = false, xloc = xloc.bar_time,
+                         line_color = this.sideCol(s.isHigh), line_style = line.style_solid,
+                         line_width = this.width)
+            this.hist.push(s)
 
-// Active polyline over [anchorIndex .. bar_index], drawn once on the last
-// bar only (earlier bars' drawings would be discarded anyway) — backfills the
-// anchor..detection bars and extends to the latest bar. lastValue is O(1)
-// and tracked every bar for the data-window readout.
-method refresh(AnchorLine this, Buf b) =>
-    if not na(this.anchorIndex)
-        this.lastValue := vwapAt(b, this.anchorIndex, bar_index)
-        if barstate.islast
-            array<chart.point> pts = buildPoints(b, this.anchorIndex, bar_index)
-            if not na(this.pl)
-                this.pl.delete()
-            if pts.size() > 1
-                this.pl := polyline.new(pts, curved = false, closed = false, xloc = xloc.bar_index, line_color = this.colr, line_style = line.style_solid, line_width = this.width)
+// pend's reversal triggered on bar T: the previous live line ends there
+// (archived, or kept running in the fan under persist) and pend anchors the
+// new live line from T forward.
+method fire(Scale this, Buf b, int T, int cap, int histStart, bool histOn) =>
+    if not na(this.cur)
+        if this.persist
+            // The outgoing seg joins the fan still open to lastBar — but
+            // only while it is in-window AND the window has room. Era mode
+            // keeps the FIRST cap in-window segments (cap eats the recent
+            // end, like archive); unset keeps the most recent cap. Either
+            // way a dropped seg's committed polyline is deleted first —
+            // skipping that would leak a drawing the bookkeeping lost.
+            // endBar records which trigger it yielded to so popPred can
+            // identify it; lastFired tracks the most recent ended seg even
+            // when the window refuses it.
+            this.cur.endBar := T
+            this.lastFired := this.cur
+            bool inWindow = not histOn or b.ts.get(this.cur.pivotBar) >= histStart
+            bool room = not histOn or this.fan.size() < cap
+            if inWindow and room
+                this.fan.push(this.cur)
+                if not histOn and this.fan.size() > cap
+                    Seg old = this.fan.shift()
+                    if not na(old.pl)
+                        polyline.delete(old.pl)
+                        old.pl := na
+            else
+                if not na(this.cur.pl)
+                    polyline.delete(this.cur.pl)
+                    this.cur.pl := na
+        else
+            if not na(this.cur.pl)
+                polyline.delete(this.cur.pl)
+                this.cur.pl := na
+            this.archive(b, this.cur, T, cap, histStart, histOn)
+    this.cur := Seg.new(this.pendBar, T, this.pendIsHigh, this.pendPrice)
+    // Dots mark triggered vertices — like the web's confirmation markers
+    // they are NOT side-gated: a hidden side still shows its dot.
+    if this.dotsOn
+        float y = triggerY(b, T, this.levelOf(this.pendIsHigh, this.pendPrice))
+        this.cur.dot := label.new(b.ts.get(T), y, "", xloc = xloc.bar_time, yloc = yloc.price,
+             color = this.sideCol(this.pendIsHigh), style = label.style_circle, size = size.tiny)
+        this.dots.push(this.cur.dot)
+        if this.dots.size() > DOT_CAP
+            label old = this.dots.shift()
+            old.delete()
+    this.hasPend := false
 
-// One retracement scale: its own ZigZag instance plus a high and a low line.
-type AnchorScale
-    ZigZag     zz
-    AnchorLine hi
-    AnchorLine lo
-    int        prevSize = 0
+// Scan-back trigger check for pend over [pendBar, bar_index] — its reversal
+// may have fired inside the depth window before the vertex even registered.
+// Also used to flush pend before a new push: the push's registration
+// required >= threshold deviation off pend, so the trigger provably exists.
+method settleScan(Scale this, Buf b, int cap, int histStart, bool histOn) =>
+    if this.hasPend
+        float level = this.levelOf(this.pendIsHigh, this.pendPrice)
+        int t = scanTrigger(b, this.pendBar, bar_index, this.pendIsHigh, level)
+        if not na(t)
+            this.fire(b, t, cap, histStart, histOn)
 
-method update(AnchorScale this, Buf b, int cap, int histStart, bool histOn) =>
-    this.hi.fresh := false
-    this.lo.fresh := false
+// Adopt the newest registered vertex as `pend` and immediately check whether
+// its reversal already triggered (it can fire before registration).
+method adopt(Scale this, Buf b, Pivot p, int cap, int histStart, bool histOn) =>
+    this.pendBar := p.end.index
+    this.pendPrice := p.end.price
+    this.pendIsHigh := p.isHigh
+    this.hasPend := true
+    this.settleScan(b, cap, histStart, histOn)
+
+// Draw a live/fan segment polyline over [triggerBar, bar_index] — called on
+// the last bar only; earlier bars' drawings would be discarded anyway.
+method drawSeg(Scale this, Buf b, Seg s) =>
+    if (s.isHigh ? this.showHi : this.showLo)
+        array<chart.point> pts = buildPoints(b, s.pivotBar, s.price, s.triggerBar, bar_index)
+        if not na(s.pl)
+            polyline.delete(s.pl)
+            s.pl := na
+        if pts.size() > 1
+            s.pl := polyline.new(pts, curved = false, closed = false, xloc = xloc.bar_time,
+                 line_color = this.sideCol(s.isHigh), line_style = line.style_solid, line_width = this.width)
+
+method update(Scale this, Buf b, int cap, int histStart, bool histOn) =>
+    // Snapshot the pre-update last vertex's index: a pushed vertex sharing
+    // its pivot-bar index with the vertex just before it in the chain
+    // replaces that vertex in the web's surviving chain (same-bar collapse).
+    // Trackers may hold the pre-refinement index when the replaced vertex
+    // refined in the same update, so both index forms compare below.
+    int preLastIdx = this.zz.pivots.size() > 0 ? this.zz.pivots.last().end.index : -1
     this.zz.update()
-    // Newly appended pivots → the matching side terminates + re-anchors.
     int size = this.zz.pivots.size()
+    // Newly registered vertices — always opposite-side to the previous last.
     if size > this.prevSize
         for k = this.prevSize to size - 1
             Pivot p = this.zz.pivots.get(k)
-            if p.isHigh
-                this.hi.terminateAt(b, p.end.index, cap, histStart, histOn)
-            else
-                this.lo.terminateAt(b, p.end.index, cap, histStart, histOn)
+            bool sameIdx = k > 0 and this.zz.pivots.get(k - 1).end.index == p.end.index
+            if sameIdx
+                if this.hasPend and (this.pendBar == p.end.index or this.pendBar == preLastIdx)
+                    this.hasPend := false
+                if not na(this.cur) and (this.cur.pivotBar == p.end.index or this.cur.pivotBar == preLastIdx)
+                    int deadT = this.cur.triggerBar
+                    if not na(this.cur.pl)
+                        polyline.delete(this.cur.pl)
+                        this.cur.pl := na
+                    this.dropDot(this.cur)
+                    this.cur := na
+                    // The collapsed vertex's predecessor resumes under the
+                    // web's recompute — it ends at the replacement's
+                    // eventual trigger instead of the ghost one.
+                    Seg pred = this.popPred(deadT)
+                    if not na(pred)
+                        this.cur := pred
+            // An outstanding pend fires first — this push's registration
+            // required >= threshold deviation off it, so its trigger exists.
+            if this.hasPend
+                this.settleScan(b, cap, histStart, histOn)
+            this.adopt(b, p, cap, histStart, histOn)
     this.prevSize := size
-    // Same-pivot end refinement (the pivot slid forward) → silent re-anchor.
-    Pivot hiP = latestFor(this.zz, true)
-    if not na(hiP) and (na(this.hi.anchorIndex) or this.hi.anchorIndex != hiP.end.index)
-        this.hi.anchorIndex := hiP.end.index
-        this.hi.fresh := true
-    Pivot loP = latestFor(this.zz, false)
-    if not na(loP) and (na(this.lo.anchorIndex) or this.lo.anchorIndex != loP.end.index)
-        this.lo.anchorIndex := loP.end.index
-        this.lo.fresh := true
-    this.hi.refresh(b)
-    this.lo.refresh(b)
+    // Same-side refinement: the newest vertex's end slid to a new extreme.
+    if size > 0
+        Pivot last = this.zz.pivots.last()
+        if this.hasPend and last.isHigh == this.pendIsHigh and last.end.index != this.pendBar
+            this.pendBar := last.end.index
+            this.pendPrice := last.end.price
+            this.settleScan(b, cap, histStart, histOn)
+        else if not this.hasPend and not na(this.cur) and last.isHigh == this.cur.isHigh and last.end.index != this.cur.pivotBar
+            // The live vertex itself was superseded — under the web's
+            // surviving-vertex chain the old anchor is gone entirely: rescan
+            // the trigger under the new extreme. Still crossed → re-anchor
+            // (the dot moves to the refined trigger and the predecessor
+            // re-ends there — the web derives every endpoint from the
+            // post-refinement vertex). No longer crossed → the vertex is
+            // untriggered: demote it to pend and hand the line back to the
+            // previous triggered vertex, which the web recomputes as still
+            // running to the last bar.
+            this.cur.pivotBar := last.end.index
+            this.cur.price := last.end.price
+            int oldT = this.cur.triggerBar
+            float level = this.levelOf(this.cur.isHigh, this.cur.price)
+            int t = scanTrigger(b, this.cur.pivotBar, bar_index, this.cur.isHigh, level)
+            this.dropDot(this.cur)
+            if not na(t)
+                this.cur.triggerBar := t
+                if this.dotsOn
+                    this.cur.dot := label.new(b.ts.get(t), triggerY(b, t, level), "", xloc = xloc.bar_time,
+                         yloc = yloc.price, color = this.sideCol(this.cur.isHigh), style = label.style_circle,
+                         size = size.tiny)
+                    this.dots.push(this.cur.dot)
+                    if this.dots.size() > DOT_CAP
+                        label old = this.dots.shift()
+                        old.delete()
+                // The predecessor was archived ending at the ghost trigger —
+                // re-end it at the refined one. Only terminated hist lines
+                // freeze their span; persist fan segs already run to lastBar.
+                // The endBar == oldT guard skips the update when the true
+                // predecessor was out-of-window and hist.last() is older.
+                if t != oldT and not this.persist and this.hist.size() > 0
+                    Seg pred = this.hist.last()
+                    if pred.endBar == oldT
+                        pred.endBar := t
+                        if not na(pred.pl)
+                            polyline.delete(pred.pl)
+                            pred.pl := na
+                        array<chart.point> ppts = buildPoints(b, pred.pivotBar, pred.price, pred.triggerBar, t)
+                        if ppts.size() > 1 and (pred.isHigh ? this.showHi : this.showLo)
+                            pred.pl := polyline.new(ppts, curved = false, closed = false, xloc = xloc.bar_time,
+                                 line_color = this.sideCol(pred.isHigh), line_style = line.style_solid,
+                                 line_width = this.width)
+                // Bookkeeping moves with the trigger even when the true
+                // predecessor was window-dropped — popPred keys on endBar,
+                // so a missed sync would lose the resurrect identity.
+                if t != oldT and not na(this.lastFired) and this.lastFired.endBar == oldT
+                    this.lastFired.endBar := t
+            else
+                if not na(this.cur.pl)
+                    polyline.delete(this.cur.pl)
+                this.pendBar := this.cur.pivotBar
+                this.pendPrice := this.cur.price
+                this.pendIsHigh := this.cur.isHigh
+                this.hasPend := true
+                this.cur := na
+                // Resurrect the previous triggered vertex as the live line —
+                // under the web's batch recompute it never stopped running.
+                Seg pred = this.popPred(oldT)
+                if not na(pred)
+                    this.cur := pred
+    // Live check — pend's reversal may trigger on this bar.
+    if this.hasPend
+        float level = this.levelOf(this.pendIsHigh, this.pendPrice)
+        float extreme = this.pendIsHigh ? b.lo.get(bar_index) : b.hi.get(bar_index)
+        if not na(extreme) and (this.pendIsHigh ? extreme <= level : extreme >= level)
+            this.fire(b, bar_index, cap, histStart, histOn)
+    // Live + persist-fan polylines span [triggerBar, bar_index] — drawn on
+    // the last bar only (earlier bars' drawings would be discarded anyway).
+    if barstate.islast
+        for s in this.fan
+            this.drawSeg(b, s)
+        if not na(this.cur)
+            this.drawSeg(b, this.cur)
 
 //#endregion
 
 //#region ———————————————————— Inputs and execution
 
-float smallRetr = input.float(2.0, "Small Retracement %", minval = 0.1, maxval = 50.0)
-float largeRetr = input.float(5.0, "Large Retracement %", minval = 0.1, maxval = 50.0)
-int   leftDepthInput  = input.int(5, "Left Depth",  minval = 2, tooltip = "Bars left of a pivot candidate for confirmation")
-int   rightDepthInput = input.int(5, "Right Depth", minval = 2, tooltip = "Bars right of a pivot for confirmation — also the anchor backfill lag")
-color smallHighCol = input.color(#FF8CFF, "Small High line")
-color smallLowCol  = input.color(#8CF5FF, "Small Low line")
-color largeHighCol = input.color(#FF00E6, "Large High line")
-color largeLowCol  = input.color(#00E5FF, "Large Low line")
-bool histOn    = input.bool(false, "Limit history to a start date")
-int  histStart = input.time(timestamp("1 Jan 2020"), "History start date")
-int  maxHist   = input.int(100, "Max history segments / scale", minval = 1, maxval = 100,
-     tooltip = "TradingView caps polylines at 100 total; effective per-scale cap is min(this, 48) — 4 active lines + history share the budget")
+string g1 = "Line 1 — small retracement"
+string g2 = "Line 2 — large retracement"
+string gh = "History window"
 
-int cap = math.min(maxHist, 48)
+float retr1 = input.float(2.0, "Retracement %", 0.1, 50, group = g1)
+int   ld1   = input.int(5, "Left Depth", 2, 100, group = g1)
+int   rd1   = input.int(2, "Right Depth", 2, 100, group = g1, tooltip = "Confirmation lag — a vertex registers this many bars after its pivot bar")
+color c1h   = input.color(#FF8CFF, "High line", group = g1)
+color c1l   = input.color(#FFFF00, "Low line", group = g1)
+int   w1    = input.int(3, "Weight", 1, 3, group = g1)
+bool  show1h = input.bool(true, "Show highs", group = g1)
+bool  show1l = input.bool(true, "Show lows", group = g1)
+bool  persist1 = input.bool(false, "Persist lines", group = g1,
+     tooltip = "Keep every triggered vertex's line to the last bar — a VWAP fan bounded by Max history")
+bool  dots1 = input.bool(false, "Show trigger dots", group = g1,
+     tooltip = "Mark each vertex's trigger bar — the level, or the open when a gap carried price through it")
 
-var AnchorScale smallScale = AnchorScale.new(
-     ZigZag.new(Settings.new(smallRetr, leftDepthInput, rightDepthInput, true), array.new<Pivot>()),
-     AnchorLine.new(true,  smallHighCol, 2, hist = array.new<polyline>()),
-     AnchorLine.new(false, smallLowCol,  2, hist = array.new<polyline>()))
+float retr2 = input.float(5.0, "Retracement %", 0.1, 50, group = g2)
+int   ld2   = input.int(5, "Left Depth", 2, 100, group = g2)
+int   rd2   = input.int(2, "Right Depth", 2, 100, group = g2, tooltip = "Confirmation lag — a vertex registers this many bars after its pivot bar")
+color c2h   = input.color(#00C853, "High line", group = g2)
+color c2l   = input.color(#FF0000, "Low line", group = g2)
+int   w2    = input.int(1, "Weight", 1, 3, group = g2)
+bool  show2h = input.bool(true, "Show highs", group = g2)
+bool  show2l = input.bool(true, "Show lows", group = g2)
+bool  persist2 = input.bool(false, "Persist lines", group = g2,
+     tooltip = "Keep every triggered vertex's line to the last bar — a VWAP fan bounded by Max history")
+bool  dots2 = input.bool(false, "Show trigger dots", group = g2,
+     tooltip = "Mark each vertex's trigger bar — the level, or the open when a gap carried price through it")
 
-var AnchorScale largeScale = AnchorScale.new(
-     ZigZag.new(Settings.new(largeRetr, leftDepthInput, rightDepthInput, true), array.new<Pivot>()),
-     AnchorLine.new(true,  largeHighCol, 4, hist = array.new<polyline>()),
-     AnchorLine.new(false, largeLowCol,  4, hist = array.new<polyline>()))
+bool histOn    = input.bool(false, "Limit history to a start date", group = gh)
+int  histStart = input.time(timestamp("1 Jan 2020"), "History start date", group = gh)
+int  maxHist   = input.int(100, "Max history segments / scale", 1, 100, group = gh,
+     tooltip = "TradingView caps polylines at 100 total; effective per-scale cap is min(this, 46) — live lines share the budget")
+
+int cap = math.min(maxHist, 46)
+
+var Scale smallScale = Scale.new(
+     ZigZag.new(Settings.new(retr1, ld1, rd1, true), array.new<Pivot>()),
+     fan = array.new<Seg>(), hist = array.new<Seg>(), dots = array.new<label>(),
+     hiCol = c1h, loCol = c1l, width = w1, persist = persist1, showHi = show1h, showLo = show1l, dotsOn = dots1)
+
+var Scale largeScale = Scale.new(
+     ZigZag.new(Settings.new(retr2, ld2, rd2, true), array.new<Pivot>()),
+     fan = array.new<Seg>(), hist = array.new<Seg>(), dots = array.new<label>(),
+     hiCol = c2h, loCol = c2l, width = w2, persist = persist2, showHi = show2h, showLo = show2l, dotsOn = dots2)
 
 smallScale.update(buf, cap, histStart, histOn)
 largeScale.update(buf, cap, histStart, histOn)
-
-// CAUSAL lines — the tradable version. Each bar's value uses only the anchor
-// known on that bar: na before the first confirmed pivot, and it switches to
-// a new anchor ON the confirmation bar (no backfill, no hindsight). Strategies
-// and alerts should read these plots, never the polylines. Live use should
-// also gate on barstate.isconfirmed — ZigZag pivots can repaint on the
-// forming bar.
-plot(smallScale.hi.lastValue, "AVWAP-H small (causal)", smallHighCol, 1, plot.style_linebr)
-plot(smallScale.lo.lastValue, "AVWAP-L small (causal)", smallLowCol,  1, plot.style_linebr)
-plot(largeScale.hi.lastValue, "AVWAP-H large (causal)", largeHighCol, 1, plot.style_linebr)
-plot(largeScale.lo.lastValue, "AVWAP-L large (causal)", largeLowCol,  1, plot.style_linebr)
-
-// Confirmation-bar markers: drawn on the bar where the new anchor became
-// knowable (not the pivot bar, which is ~rightDepth bars earlier).
-plotshape(smallScale.hi.fresh, "Small high anchor confirmed", shape.triangledown, location.abovebar, smallHighCol, size = size.tiny)
-plotshape(smallScale.lo.fresh, "Small low anchor confirmed",  shape.triangleup,   location.belowbar, smallLowCol,  size = size.tiny)
-plotshape(largeScale.hi.fresh, "Large high anchor confirmed", shape.diamond,      location.abovebar, largeHighCol, size = size.normal)
-plotshape(largeScale.lo.fresh, "Large low anchor confirmed",  shape.diamond,      location.belowbar, largeLowCol,  size = size.normal)
-
-// Temporary diagnostics (last bar): pivots found / anchor bar / terminated
-// segments drawn / active-line values, per scale.
-bool debugOn = input.bool(true, "Show debug table")
-if debugOn and barstate.islast
-    var table dbg = table.new(position.top_right, 5, 4, bgcolor = color.new(color.black, 20), border_width = 1)
-    table.cell(dbg, 0, 0, "scale", text_color = color.white)
-    table.cell(dbg, 1, 0, "pivots", text_color = color.white)
-    table.cell(dbg, 2, 0, "H anchor/hist", text_color = color.white)
-    table.cell(dbg, 3, 0, "L anchor/hist", text_color = color.white)
-    table.cell(dbg, 4, 0, "bars", text_color = color.white)
-    table.cell(dbg, 0, 1, "small", text_color = color.white)
-    table.cell(dbg, 1, 1, str.tostring(smallScale.zz.pivots.size()), text_color = color.white)
-    table.cell(dbg, 2, 1, str.tostring(smallScale.hi.anchorIndex) + " / " + str.tostring(smallScale.hi.hist.size()), text_color = color.white)
-    table.cell(dbg, 3, 1, str.tostring(smallScale.lo.anchorIndex) + " / " + str.tostring(smallScale.lo.hist.size()), text_color = color.white)
-    table.cell(dbg, 4, 1, str.tostring(bar_index + 1), text_color = color.white)
-    table.cell(dbg, 0, 2, "large", text_color = color.white)
-    table.cell(dbg, 1, 2, str.tostring(largeScale.zz.pivots.size()), text_color = color.white)
-    table.cell(dbg, 2, 2, str.tostring(largeScale.hi.anchorIndex) + " / " + str.tostring(largeScale.hi.hist.size()), text_color = color.white)
-    table.cell(dbg, 3, 2, str.tostring(largeScale.lo.anchorIndex) + " / " + str.tostring(largeScale.lo.hist.size()), text_color = color.white)
-    table.cell(dbg, 0, 3, "active", text_color = color.white)
-    table.cell(dbg, 1, 3, str.tostring(smallScale.hi.lastValue, "#.##") + " | " + str.tostring(smallScale.lo.lastValue, "#.##"), text_color = color.white)
-    table.cell(dbg, 2, 3, str.tostring(largeScale.hi.lastValue, "#.##") + " | " + str.tostring(largeScale.lo.lastValue, "#.##"), text_color = color.white)
 
 //#endregion
