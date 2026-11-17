@@ -65,6 +65,7 @@ const scripts = [
   'options-replay-leg-contracts-1491.ts',
   'options-replay-template-registries-1492.ts',
   'options-replay-position-rows-1493.ts',
+  'paper-trading-curated-contracts-1573.ts',
 ];
 
 let passed = 0;
