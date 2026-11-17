@@ -9,13 +9,15 @@
  * as the legacy read surface. This script verifies both registries against
  * the live grid contract and every prod run doc:
  *
- *   1. REGISTRY STRUCTURE — every `REPLAY_TEMPLATE_SHAPES` entry resolves
- *      via `getTemplateShape`, has ≥1 leg, option legs carry type + bands,
- *      stock legs carry neither, no shape leg carries concrete
- *      `targetDelta`/`dte`, and every band value falls on the pick-doc
- *      grid (`PICK_GRID_DTES`, Δ step 5 within [5,95]). Every
- *      `REPLAY_VARIANTS` option leg is on-grid with sign matching its
- *      type. Ids are unique across shapes and variants.
+ *   1. REGISTRY STRUCTURE — every field/grid/id/duplicate-leg check
+ *      delegates to the shared `validateVariantRegistry()` (#1494): unique
+ *      ids across shapes+variants, display fields, ≥1 leg, per-kind
+ *      required/forbidden fields, bands on the pick-doc grid
+ *      (`PICK_GRID_DTES`, Δ step 5 within [5,95]), variant legs on-grid
+ *      with sign matching type, `structure` referential integrity (FAIL —
+ *      a typo'd shape id is a data bug, not a warn-level hint). The
+ *      script-local extras are the zero-evidence guards and the
+ *      `getTemplateShape` round-trip.
  *   2. MIGRATION PARITY — the derived `REPLAY_TEMPLATES` reproduce the
  *      four legacy entries verbatim (id/name/description/side/coordinate),
  *      each resolvable via `getReplayTemplate`, `getReplayVariant`, and
@@ -26,8 +28,6 @@
  *      can't serve.
  *
  *   WARN (reported, does not fail):
- *   - variant `structure` set but not resolving via `getTemplateShape` —
- *     provenance hint only (variants may say 'custom')
  *   - zero run docs — nothing to audit for Leg 3
  *   - `--run <id>` matching no run doc — operator error, not an empty set
  *   - legacy multi-symbol run docs (`symbols[]`) — migration candidates
@@ -41,9 +41,6 @@ import { db } from '../../src/firebase-admin-init';
 import { ST_OPTIONS_REPLAY_RUNS_ROOT } from '@st/collections';
 import {
   legToPickDocCoordinate,
-  PICK_GRID_DELTA_BAND,
-  PICK_GRID_DELTA_STEP,
-  PICK_GRID_DTES,
   type PickDocCoordinate,
 } from '@options-replay/contracts';
 import {
@@ -53,6 +50,7 @@ import {
   REPLAY_TEMPLATE_SHAPES,
   REPLAY_TEMPLATES,
   REPLAY_VARIANTS,
+  validateVariantRegistry,
 } from '@options-replay/templates';
 import { OptionType } from '@options/common';
 import { TradeSide } from '@common';
@@ -100,75 +98,15 @@ async function main(): Promise<void> {
     fail('registry', 'REPLAY_VARIANTS is empty — zero-evidence pass');
   }
 
-  const allIds = [
-    ...REPLAY_TEMPLATE_SHAPES.map((s) => s.id),
-    ...REPLAY_VARIANTS.map((v) => v.id),
-  ];
-  if (new Set(allIds).size !== allIds.length) {
-    const dupes = allIds.filter((id, i) => allIds.indexOf(id) !== i);
-    fail('registry', `duplicate id(s) across shapes/variants: ${[...new Set(dupes)].join(', ')}`);
+  // Field/grid/id/duplicate-leg checks delegate to the shared canonical
+  // validator (#1494) — this script previously hand-rolled the same rules
+  // and the two copies had already begun to diverge.
+  for (const violation of validateVariantRegistry()) {
+    fail('registry', violation);
   }
-
   for (const shape of REPLAY_TEMPLATE_SHAPES) {
     if (getTemplateShape(shape.id) !== shape) {
       fail(shape.id, 'getTemplateShape does not round-trip its own entry');
-    }
-    if (shape.legs.length === 0) {
-      fail(shape.id, 'shape has zero legs');
-      continue;
-    }
-    for (const [i, leg] of shape.legs.entries()) {
-      const tag = `${shape.id}.legs[${i}]`;
-      // A shape leg is bounds for the FE dials — never concrete values.
-      // Applies to both kinds before the discriminant branch.
-      if ('targetDelta' in leg || 'dte' in leg) {
-        fail(tag, 'shape leg carries concrete targetDelta/dte — shapes hold bands only');
-      }
-      if (!(leg.side === TradeSide.LONG || leg.side === TradeSide.SHORT)) {
-        fail(tag, `leg side '${leg.side}' is not a TradeSide`);
-      }
-      if (leg.kind === 'option') {
-        if (!(leg.type === OptionType.PUT || leg.type === OptionType.CALL)) {
-          fail(tag, `option leg type '${leg.type}' is not an OptionType`);
-        }
-        if (!leg.deltaBand) {
-          fail(tag, 'option leg missing deltaBand');
-        } else {
-          if (leg.deltaBand.length !== 2) {
-            fail(tag, `deltaBand has ${leg.deltaBand.length} bound(s), expected 2`);
-          }
-          for (const b of leg.deltaBand) {
-            if (b % PICK_GRID_DELTA_STEP !== 0 || b < PICK_GRID_DELTA_BAND[0] || b > PICK_GRID_DELTA_BAND[1]) {
-              fail(tag, `deltaBand bound ${b} off-grid (step ${PICK_GRID_DELTA_STEP} in [${PICK_GRID_DELTA_BAND}])`);
-            }
-          }
-          if (leg.deltaBand[0] > leg.deltaBand[1]) {
-            fail(tag, `deltaBand inverted [${leg.deltaBand}]`);
-          }
-        }
-        if (!leg.dteBand) {
-          fail(tag, 'option leg missing dteBand');
-        } else {
-          if (leg.dteBand.length === 0) fail(tag, 'dteBand is empty');
-          if (new Set(leg.dteBand).size !== leg.dteBand.length) {
-            fail(tag, 'dteBand carries duplicate value(s)');
-          }
-          for (const d of leg.dteBand) {
-            if (!PICK_GRID_DTES.includes(d)) fail(tag, `dteBand value ${d} not in PICK_GRID_DTES`);
-          }
-        }
-      } else if (leg.kind === 'stock') {
-        // The union makes these unrepresentable at type level — the `in`
-        // check is the runtime guard for literals that bypass authoring.
-        if ('type' in leg || 'deltaBand' in leg || 'dteBand' in leg) {
-          fail(tag, 'stock leg carries option-only fields');
-        }
-      } else {
-        // A mistyped discriminant ('optin') otherwise falls into the stock
-        // branch and satisfies the absence checks vacuously. `leg` narrows
-        // to `never` at type level — the cast surfaces the runtime literal.
-        fail(tag, `unknown leg kind '${(leg as { kind: unknown }).kind}'`);
-      }
     }
   }
   // Only claim the leg-1 pass when no structure finding was recorded —
@@ -243,43 +181,10 @@ async function main(): Promise<void> {
       console.log(`PASS ${id} → ${JSON.stringify(t.coordinate)}`);
     }
   }
-  for (const v of REPLAY_VARIANTS) {
-    if (v.structure !== undefined && v.structure !== 'custom' && !getTemplateShape(v.structure)) {
-      warn(v.id, `structure '${v.structure}' has no matching shape — provenance hint only`);
-    }
-    // Grid check applies to EVERY variant leg, not just the pinned legacy
-    // four — the first non-legacy variant #1495 adds still must resolve
-    // to a real pick-doc cell.
-    for (const [i, leg] of v.legs.entries()) {
-      const tag = `${v.id}.legs[${i}]`;
-      if (!(leg.side === TradeSide.LONG || leg.side === TradeSide.SHORT)) {
-        fail(tag, `leg side '${leg.side}' is not a TradeSide`);
-      }
-      if (leg.kind === 'option') {
-        const mag = Math.round(Math.abs(leg.targetDelta) * 100);
-        if (mag % PICK_GRID_DELTA_STEP !== 0 || mag < PICK_GRID_DELTA_BAND[0] || mag > PICK_GRID_DELTA_BAND[1]) {
-          fail(tag, `targetDelta ${leg.targetDelta} off-grid (rounds to ${mag}, step ${PICK_GRID_DELTA_STEP} in [${PICK_GRID_DELTA_BAND}])`);
-        }
-        if (!PICK_GRID_DTES.includes(leg.dte)) {
-          fail(tag, `dte ${leg.dte} not in PICK_GRID_DTES`);
-        }
-        if (leg.type === OptionType.PUT && leg.targetDelta >= 0) {
-          fail(tag, `put leg targetDelta ${leg.targetDelta} is not negative`);
-        }
-        if (leg.type === OptionType.CALL && leg.targetDelta <= 0) {
-          fail(tag, `call leg targetDelta ${leg.targetDelta} is not positive`);
-        }
-      } else if (leg.kind === 'stock') {
-        if ('type' in leg || 'targetDelta' in leg || 'dte' in leg) {
-          fail(tag, 'stock leg carries option-only fields');
-        }
-      } else {
-        // `leg` narrows to `never` at type level — the cast surfaces the
-        // runtime literal for the diagnostic.
-        fail(tag, `unknown leg kind '${(leg as { kind: unknown }).kind}'`);
-      }
-    }
-  }
+  // The variant-leg field/grid checks and the structure-resolution check
+  // that used to live here now run inside validateVariantRegistry() above —
+  // one canonical copy. (The structure check upgrades WARN → FAIL: a typo'd
+  // shape id is a data bug per the spec, not an ignorable hint.)
 
   // ── Leg 3: prod run-doc templateId resolution ───────────────────────────
   const runsCol = db.collection(ST_OPTIONS_REPLAY_RUNS_ROOT);
