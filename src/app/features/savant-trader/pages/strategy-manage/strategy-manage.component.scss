@@ -1,0 +1,37 @@
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
+.strategy-manage {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.manage-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.error-banner {
+  @include vl.error-banner;
+  margin-bottom: var(--ds-space-4);
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.empty-state {
+  @include vl.state-block;
+}
+
+.instances-table {
+  @include vl.dense-table;
+  line-height: 1.2;
+
+  thead th {
+    white-space: nowrap;
+  }
+}

@@ -212,10 +212,10 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.OptionsStrategyDashboardComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.STRATEGY_BUILDER,
-                title: PAGE_INFO[AppRoutes.STRATEGY_BUILDER].title,
-                loadComponent: () => import('../features/savant-trader/pages/strategy-builder/strategy-builder.component')
-                .then(mod => mod.StrategyBuilderComponent),
+            {path: AppRoutes.STRATEGY_MANAGE,
+                title: PAGE_INFO[AppRoutes.STRATEGY_MANAGE].title,
+                loadComponent: () => import('../features/savant-trader/pages/strategy-manage/strategy-manage.component')
+                .then(mod => mod.StrategyManageComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.PAPER_TRADING,

@@ -27,7 +27,7 @@ const VERIFY_INDEX = join(ROOT, 'scripts', 'verify', 'README.md');
 
 const FILES = {
   paperTrading: join(ST, 'pages', 'paper-trading', 'paper-trading.component.scss'),
-  strategyBuilder: join(ST, 'pages', 'strategy-builder', 'strategy-builder.component.scss'),
+  strategyManage: join(ST, 'pages', 'strategy-manage', 'strategy-manage.component.scss'),
   optionsDash: join(ST, 'pages', 'options-strategy-dashboard', 'options-strategy-dashboard.component.scss'),
   analysis: join(ST, 'pages', 'analysis', 'analysis.component.scss'),
   scatter: join(ST, 'components', 'analysis-views', 'analysis-scatter.component.scss'),
@@ -75,16 +75,16 @@ const exec: Record<keyof typeof FILES, string> = Object.fromEntries(
 ) as Record<keyof typeof FILES, string>;
 
 // ── Mixin consumption ────────────────────────────────────────────────────────
-const errorBannerFiles = ['paperTrading', 'strategyBuilder', 'optionsDash'] as const;
+const errorBannerFiles = ['paperTrading', 'strategyManage', 'optionsDash'] as const;
 const stateBlockFiles = [
-  'paperTrading', 'strategyBuilder', 'optionsDash', 'analysis', 'scatter', 'histogram',
+  'paperTrading', 'strategyManage', 'optionsDash', 'analysis', 'scatter', 'histogram',
   'flexChart', 'orderQueue', 'chainGrid', 'runList',
   'runSummary', 'permDetail', 'signalReview', 'runHistory', 'heatmap',
 ] as const;
 const statStripFiles = ['order', 'allocDetailScss', 'bucketsScss'] as const;
 // Plain <table> consumers only — mat-table holdouts are #1163 (MDC classes
 // outrank the mixin's element selectors).
-const denseTableFiles = ['paperTrading', 'strategyBuilder', 'optionsDash'] as const;
+const denseTableFiles = ['paperTrading', 'strategyManage', 'optionsDash'] as const;
 
 for (const key of errorBannerFiles) {
   check(`${key} uses error-banner`, hasInclude(src[key], 'error-banner'));
@@ -105,13 +105,13 @@ for (const key of [...errorBannerFiles, ...stateBlockFiles, ...statStripFiles, .
 // ── Canonical error-banner markup (icon + .error-text child) ────────────────
 const BANNER_HTML = {
   paperTrading: join(ST, 'pages', 'paper-trading', 'paper-trading.component.html'),
-  strategyBuilder: join(ST, 'pages', 'strategy-builder', 'strategy-builder.component.html'),
+  strategyManage: join(ST, 'pages', 'strategy-manage', 'strategy-manage.component.html'),
   optionsDash: join(ST, 'pages', 'options-strategy-dashboard', 'options-strategy-dashboard.component.html'),
 };
 for (const key of errorBannerFiles) {
   const html = text(BANNER_HTML[key]);
   check(`${key} banner uses canonical .error-text markup`, /class="error-text"/.test(html));
-  check(`${key} banner carries the error mat-icon`, /<mat-icon[^>]*>error<\/mat-icon>/.test(html));
+  check(`${key} banner carries the error mat-icon`, /(mat-icon|dse-icon)[^>]*>error<\/(mat-icon|span)>/.test(html));
 }
 
 // ── Canonical stat-strip markup (inline templates) ──────────────────────────
@@ -127,16 +127,15 @@ for (const key of errorBannerFiles) {
   check(`${key} drops the #ffebee literal`, !/#ffebee/i.test(exec[key]));
   check(`${key} drops the #c62828 literal`, !/#c62828/i.test(exec[key]));
 }
-for (const key of ['paperTrading', 'strategyBuilder', 'optionsDash'] as const) {
+for (const key of ['paperTrading', 'strategyManage', 'optionsDash'] as const) {
   check(`${key} drops the rgba(0,0,0,0.54) literal`, !/rgba\(0,\s*0,\s*0,\s*0\.54\)/.test(exec[key]));
 }
-check('strategy-builder retokenizes the stopped badge', /var\(--mat-sys-error-container\)/.test(exec.strategyBuilder));
 check('run-metrics-strip drops local @keyframes spin', !/@keyframes\s+spin\b/.test(exec.metrics));
 check('order keeps the local sb-sub rule', /\.sb-sub\b/.test(exec.order));
 check('flex-chart keeps the --fc-no-data-text override', /--fc-no-data-text/.test(exec.flexChart));
 check('analysis splits empty-state from loading-container', !/\.loading-container\s*,[\s\S]*?\.empty-state\s*\{/.test(exec.analysis));
 check('trades-table keeps border-collapse: separate for sticky th', /border-collapse:\s*separate/.test(exec.paperTrading));
-check('instances-table keeps its 24px dense-row override', /tbody td\s*\{[^}]*height:\s*24px/.test(exec.strategyBuilder));
+check('strategy-manage instances-table keeps nowrap headers', /thead th\s*\{[^}]*white-space:\s*nowrap/.test(exec.strategyManage));
 
 // ── Compiled-state assertions ────────────────────────────────────────────────
 try {

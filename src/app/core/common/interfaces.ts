@@ -41,7 +41,7 @@ export enum AppRoutes {
 	GALLERY = 'trading/gallery',
 	/** RH Scanner — curated preview_scan recipes + tracked-universe compare (#1098/#1140). */
 	SCANNER = 'trading/scanner',
-	STRATEGY_BUILDER = 'options/strategy/build',
+	STRATEGY_MANAGE = 'options/strategy/manage',
 	PORTFOLIO_DASHBOARD = 'portfolio',
 	PORTFOLIO_ALLOCATION = 'portfolio/allocation',
 	/** Position gallery — live equity positions as cards (#926). */

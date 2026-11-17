@@ -1,0 +1,49 @@
+<div class="strategy-manage">
+  <div class="manage-header">
+    <div class="dse-tabs">
+      <div class="tab-bar" role="tablist" aria-label="Instance mode">
+        @for (t of tabs; track t.mode) {
+          <button type="button" class="tab" role="tab"
+                  [class.active]="activeTab() === t.mode"
+                  [attr.aria-selected]="activeTab() === t.mode"
+                  (click)="activeTab.set(t.mode)">{{ t.label }}</button>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (store.error()) {
+    <div class="error-banner" role="alert"><span class="dse-icon" aria-hidden="true">error</span><span class="error-text">{{ store.error() }}</span></div>
+  }
+
+  @if (store.isLoading()) {
+    <div class="loading-container">
+      <span class="dse-spinner" style="--spinner-size: 40px" role="progressbar" aria-label="Loading"></span>
+    </div>
+  } @else if (!store.error() && visibleInstances().length === 0) {
+    <div class="empty-state">
+      <p>No {{ activeTab() }} instances yet.</p>
+    </div>
+  } @else {
+    <table class="instances-table">
+      <thead>
+        <tr>
+          <th scope="col">Instance ID</th>
+          <th scope="col">Symbol</th>
+          <th scope="col">Variant</th>
+          <th scope="col">Run State</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (instance of visibleInstances(); track instance.id) {
+          <tr>
+            <td>{{ instance.id }}</td>
+            <td>{{ instance.symbol }}</td>
+            <td>{{ instance.variant?.name }}</td>
+            <td>{{ instance.runState }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

@@ -74,8 +74,8 @@
  class="analysis-link ds-btn outline">
         Trade Analysis
       </a>
-      <a class="ds-btn outline" [routerLink]="'/' + appRoutes.STRATEGY_BUILDER">
-        Strategy Builder
+      <a class="ds-btn outline" [routerLink]="'/' + appRoutes.STRATEGY_MANAGE">
+        Strategy Manage
       </a>
     </div>
   </div>
@@ -101,7 +101,7 @@
     </div>
   } @else if (store.isEmpty()) {
     <div class="empty-state">
-      <p>No paper trades yet. Accept a signal as paper from the signal-order page, or launch a strategy from the strategy builder.</p>
+      <p>No paper trades yet. Accept a signal as paper from the signal-order page, or launch a strategy from the Strategy Manage page.</p>
     </div>
   } @else {
       <div class="trades-panel">
