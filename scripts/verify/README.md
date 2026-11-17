@@ -88,6 +88,7 @@ deliberately, on-demand.
 | #1541 — SHARED Manage variant catalog | [strat-manage-variant-catalog-1541.md](strat-manage-variant-catalog-1541.md) | `@manage/variant-catalog` alias resolution + seed counts/uniqueness + band-shape vs concrete legs + referential integrity/band conformance + JSON round-trip + lookups | `strat-manage-variant-catalog-1541.ts` (no credentials) |
 | #1542 — SHARED Manage instance id generator | [strat-manage-instance-id-1542.md](strat-manage-instance-id-1542.md) | `@manage/instance-id` alias + grammar shape/normalization + seeded uniqueness + mode⇒stop + fail-closed rejects (diagonal, mismatched, hyphen) | `strat-manage-instance-id-1542.ts` (no credentials) |
 | #1539 — BE Manage instance reader + open-pass rework | [strat-manage-open-pass-1539.md](strat-manage-open-pass-1539.md) | reader validate/normalize + legacy skip + invariant rejects + `runManageOpenPass` e2e with injected fakes (2-leg chain resolution, dedup, cap, signal gate, stock-leg throw) | `strat-manage-open-pass-1539.ts` (no credentials) |
+| #1543 — BE Manage contract-list writer | [strat-manage-contract-list-1543.md](strat-manage-contract-list-1543.md) | `st-options-contract-lists/{instanceId}` create/append — v1 pick rows per leg (analysis-gate fields), same-index repeatsPrevious, synthetic pickDocMeta, NaN-not-0 missingness, pass seam tolerates append failure | `strat-manage-contract-list-1543.ts` (no credentials) |
 
 ## Run All
 

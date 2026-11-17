@@ -432,6 +432,11 @@ const scripts: VerifyScript[] = [
     file: 'strat-manage-open-pass-1539.ts',
     needsAccount: false,
   },
+  {
+    name: 'manage contract list',
+    file: 'strat-manage-contract-list-1543.ts',
+    needsAccount: false,
+  },
 ];
 
 function hasGhAuth(): boolean {

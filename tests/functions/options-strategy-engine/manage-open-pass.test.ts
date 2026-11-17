@@ -530,3 +530,125 @@ describe('normalizeManageInstance — reader adapter', () => {
     assert.equal(normalizeManageInstance('x', { ...validDoc, maxOpenPositions: 0 })?.maxOpenPositions, 0);
   });
 });
+
+// ── Contract-list seam (#1543) ──────────────────────────────────────────────
+
+describe('runManageOpenPass — contract-list seam', () => {
+  it('invokes appendContractListRows with leg+contract pairs on a successful open', async () => {
+    const { handler } = mcpCallTool();
+    const { create } = fakeCreate();
+    const { writeResult } = capturedWrites();
+    const appended: { legs: { leg: unknown; contract: { contractID: string } }[]; md: string }[] = [];
+
+    await runManageOpenPass(makeInstance(), MARKET_DATE, {
+      callTool: handler,
+      listInstancePositions: async () => [],
+      getPosition: async () => null,
+      createPosition: create as never,
+      writeResult,
+      appendContractListRows: async (_inst, legs, md) => {
+        appended.push({ legs: legs as never, md });
+      },
+    });
+
+    assert.equal(appended.length, 1);
+    assert.equal(appended[0].md, MARKET_DATE);
+    assert.equal(appended[0].legs.length, 2);
+    assert.equal(appended[0].legs[0].contract.contractID, 'QQQ260306C00450000');
+    assert.equal(appended[0].legs[1].contract.contractID, 'QQQ260306C00455000');
+  });
+
+  it('does not invoke appendContractListRows on a gated skip', async () => {
+    const { handler } = mcpCallTool();
+    const { writeResult } = capturedWrites();
+    let appended = 0;
+    await runManageOpenPass(
+      makeInstance({ trigger: 'signal' }),
+      MARKET_DATE,
+      {
+        callTool: handler,
+        hasFreshSignal: async () => false,
+        listInstancePositions: async () => [],
+        getPosition: async () => null,
+        writeResult,
+        appendContractListRows: async () => {
+          appended++;
+        },
+      },
+    );
+    assert.equal(appended, 0);
+  });
+
+  it('an append failure warns but the open still succeeds', async () => {
+    const { handler } = mcpCallTool();
+    const { create, created } = fakeCreate();
+    const { results, writeResult } = capturedWrites();
+
+    const result = await runManageOpenPass(makeInstance(), MARKET_DATE, {
+      callTool: handler,
+      listInstancePositions: async () => [],
+      getPosition: async () => null,
+      createPosition: create as never,
+      writeResult,
+      appendContractListRows: async () => {
+        throw new Error('firestore write failed');
+      },
+    });
+
+    assert.equal(result.skipped, false);
+    assert.equal(result.positionId, 'QQQ-CDS-30-50-40-ALL-2026-02-02');
+    assert.equal(created.length, 1);
+    assert.equal(results.at(-1)?.skipReason, null);
+  });
+});
+
+describe('runManageOpenPass — contract-list reconcile', () => {
+  it('re-appends from persisted legs when the position exists but rows may be missing', async () => {
+    const { handler } = mcpCallTool();
+    const { writeResult } = capturedWrites();
+    const appended: { contractID: string; mark: number }[][] = [];
+    const persistedLegs = [
+      { id: 'l1', type: OptionType.CALL, side: TradeSide.LONG, strike: 450, expiration: EXPIRY_TARGET, openDate: MARKET_DATE, contractID: 'QQQ260306C00450000', premium: 5.0 },
+      { id: 'l2', type: OptionType.CALL, side: TradeSide.SHORT, strike: 455, expiration: EXPIRY_TARGET, openDate: MARKET_DATE, contractID: 'QQQ260306C00455000', premium: 3.0 },
+    ];
+
+    const result = await runManageOpenPass(makeInstance(), MARKET_DATE, {
+      callTool: handler,
+      listInstancePositions: async () => [],
+      getPosition: async (id) =>
+        ({ id, instanceId: 'QQQ-CDS-30-50-40-ALL', symbol: 'QQQ', status: PositionStatus.OPEN, premiumCollected: 0, capitalRequired: 0, openDate: MARKET_DATE, currentValue: 0, currentValueAsOf: '', unrealizedPnl: 0 }),
+      createPosition: fakeCreate().create as never,
+      getLegs: async () => persistedLegs as never,
+      writeResult,
+      appendContractListRows: async (_inst, legs, _md) => {
+        appended.push(legs.map((l) => ({ contractID: l.contract.contractID, mark: l.contract.mark })));
+      },
+    });
+
+    assert.equal(result.skipReason, 'already_opened_today');
+    assert.equal(appended.length, 1);
+    assert.deepEqual(appended[0], [
+      { contractID: 'QQQ260306C00450000', mark: 5.0 },
+      { contractID: 'QQQ260306C00455000', mark: 3.0 },
+    ]);
+  });
+
+  it('skips reconcile when persisted leg count mismatches the variant', async () => {
+    const { handler } = mcpCallTool();
+    const { writeResult } = capturedWrites();
+    let appended = 0;
+    await runManageOpenPass(makeInstance(), MARKET_DATE, {
+      callTool: handler,
+      listInstancePositions: async () => [],
+      getPosition: async (id) =>
+        ({ id, instanceId: 'x', symbol: 'QQQ', status: PositionStatus.OPEN, premiumCollected: 0, capitalRequired: 0, openDate: MARKET_DATE, currentValue: 0, currentValueAsOf: '', unrealizedPnl: 0 }),
+      createPosition: fakeCreate().create as never,
+      getLegs: async () => [{ contractID: 'x' }] as never, // 1 leg vs variant's 2
+      writeResult,
+      appendContractListRows: async () => {
+        appended++;
+      },
+    });
+    assert.equal(appended, 0);
+  });
+});
