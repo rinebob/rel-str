@@ -13,6 +13,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { OptionGroupGeneratorComponent } from './option-group-generator.component';
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
 import { ContractAvailabilityService } from '../../services/contract-availability.service';
+import { OptionChartGeneratorService } from '../../pages/option-chart/option-chart-generator.service';
 import type {
   ContractAvailabilityEntry,
   ContractAvailabilityResponse,
@@ -55,6 +56,7 @@ interface Setup {
   store: InstanceType<typeof OptionGroupGeneratorStore>;
   query$: jest.Mock;
   el: HTMLElement;
+  genSvc: { brushArmed: { set: (v: boolean) => void }; clearStudyRange: jest.Mock };
 }
 
 /** NgModel's control setup is microtask-deferred — without a flush, the
@@ -74,12 +76,18 @@ async function setup(queryResult?: jest.Mock): Promise<Setup> {
       ),
     );
 
+  const genSvc = {
+    brushArmed: { set: jest.fn() },
+    clearStudyRange: jest.fn(),
+  };
+
   TestBed.configureTestingModule({
     imports: [OptionGroupGeneratorComponent],
     providers: [
       provideZonelessChangeDetection(),
       OptionGroupGeneratorStore,
       { provide: ContractAvailabilityService, useValue: { queryContractAvailability$: query$ } },
+      { provide: OptionChartGeneratorService, useValue: genSvc },
     ],
   });
 
@@ -95,6 +103,7 @@ async function setup(queryResult?: jest.Mock): Promise<Setup> {
     store,
     query$,
     el: fixture.nativeElement as HTMLElement,
+    genSvc: genSvc as Setup['genSvc'],
   };
 }
 
@@ -393,5 +402,37 @@ describe('OptionGroupGeneratorComponent', () => {
     store.setSymbol('QQQ');
     fixture.detectChanges();
     expect(component.queryExpiryText()).toBe('2026-06-19, 2026-07-17');
+  });
+
+  it('header Reset returns every field to defaults — axes, expiry text, sort, lines preview (#1517)', async () => {
+    const { fixture, store, component, el, genSvc } = await setup();
+    await store.run();
+    await flush(fixture);
+
+    // Dirty every field the reset must cover.
+    component.onAxisExpiries('query', '2026-06-19');
+    component.onAxisExpiries('refine', '2026-06-19');
+    store.setRefine({ strikeGte: 450 });
+    store.setOpenDate('2026-02-02');
+    store.toggleSort('strike');
+    component.showLines.set(true);
+    fixture.detectChanges();
+    expect(el.querySelector('.gen-lines')).not.toBeNull();
+
+    el.querySelector<HTMLElement>('.gen-reset')!.click();
+    fixture.detectChanges();
+
+    expect(store.query()).toEqual({ type: 'BOTH' });
+    expect(store.refine()).toEqual({});
+    expect(store.records()).toEqual([]);
+    expect(store.openDate()).toBeNull();
+    expect(store.sortLevels()).toEqual([]);
+    expect(component.queryExpiryText()).toBe('');
+    expect(component.refineExpiryText()).toBe('');
+    expect(component.showLines()).toBe(false);
+    // Armed brush disarms through the page service — a stray post-reset
+    // drag must not resurrect the bound + persisted blob.
+    expect(genSvc.clearStudyRange).toHaveBeenCalled();
+    expect(text(el, '.gen-empty')).toContain('press Run');
   });
 });

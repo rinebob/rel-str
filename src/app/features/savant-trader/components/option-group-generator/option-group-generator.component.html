@@ -2,6 +2,12 @@
   <div class="gen-header">
     <span class="gen-title">Group Generator</span>
     <span class="gen-symbol">{{ store.symbol() || '—' }}</span>
+    <button
+      type="button"
+      class="gen-reset"
+      (click)="onReset()"
+      title="Reset axes, refine, results, and saved settings"
+    >Reset</button>
   </div>
 
   <!-- Query axes — what gets fetched -->
@@ -55,9 +61,6 @@
  [disabled]="store.status() === 'loading' || !store.symbol()"
  >
         Run
-      </button>
-      <button class="ds-btn outline" (click)="onClear()" title="Reset axes, results, and saved settings">
-        Clear
       </button>
     </div>
   </div>

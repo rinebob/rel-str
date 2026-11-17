@@ -257,6 +257,24 @@ describe('OptionGroupGeneratorStore', () => {
       expect(readGeneratorSettings('QQQ').query).toEqual({ type: 'BOTH' });
     });
 
+    it('clear resets every drawer field — refine, open date, sort — not just query+results', async () => {
+      queryContractAvailability$.mockReturnValue(of(response([A])));
+      store.setSymbol('QQQ');
+      await store.run();
+      store.setRefine({ strikeGte: 450, type: 'call' });
+      store.applyRange({ start: '2026-02-01', end: '2026-03-01' });
+      store.setUseRangeAsOpenDate(true);
+      store.toggleSort('strike');
+      store.toggleSort('expiration');
+      store.clear();
+      expect(store.refine()).toEqual({});
+      expect(store.openDate()).toBeNull();
+      expect(store.useRangeAsOpenDate()).toBe(false);
+      expect(store.sortLevels()).toEqual([]);
+      expect(store.lastEmitted()).toEqual([]);
+      expect(store.hasRun()).toBe(false);
+    });
+
     it('restores openDate from a persisted toggle+range', () => {
       localStorage.setItem(`${GENERATOR_SETTINGS_PREFIX}QQQ`, JSON.stringify({
         version: GENERATOR_SETTINGS_VERSION,

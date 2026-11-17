@@ -16,6 +16,7 @@ import { FormsModule } from '@angular/forms';
 
 
 import { OptionGroupGeneratorStore } from '../../stores/option-group-generator.store';
+import { OptionChartGeneratorService } from '../../pages/option-chart/option-chart-generator.service';
 import {
   toPairLines,
   type GeneratorOptionType,
@@ -48,6 +49,7 @@ function parseExpiryList(text: string): string[] {
 })
 export class OptionGroupGeneratorComponent {
   readonly store = inject(OptionGroupGeneratorStore);
+  private readonly gen = inject(OptionChartGeneratorService);
 
   /** One shared options instance — fields commit on blur so a mid-keystroke
    *  parse (e.g. '472.') can't rebind a truncated value into the input, and
@@ -135,11 +137,17 @@ export class OptionGroupGeneratorComponent {
     void this.store.run();
   }
 
-  /** Clear resets the stored expirations — the local text mirrors it
-   *  (setSymbol covers the other external reset path via the effect). */
-  onClear(): void {
+  /** Reset returns the whole drawer to defaults — the local text fields
+   *  mirror the cleared store (setSymbol covers the other external reset
+   *  path via the effect), and the lines preview collapses with them.
+   *  An armed study-range brush also disarms: the bound is gone, so a
+   *  stray post-reset drag would otherwise silently re-create the bound
+   *  and re-persist the settings blob the user just cleared. */
+  onReset(): void {
     this.store.clear();
     this.reseedExpiryText();
+    this.showLines.set(false);
+    this.gen.clearStudyRange();
   }
 
   /** Exact lines Send will emit — same derivation as `store.emit()` minus

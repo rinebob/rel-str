@@ -240,9 +240,9 @@ export const OptionGroupGeneratorStore = signalStore(
         }
       },
 
-      /** Reset the drawer to defaults — params, results, open date — and
-       *  remove the symbol's persisted blob. Invalidates in-flight runs so
-       *  a late response can't resurrect cleared results. */
+      /** Reset the drawer to defaults — params, results, open date, sort —
+       *  and remove the symbol's persisted blob. Invalidates in-flight runs
+       *  so a late response can't resurrect cleared results. */
       clear(): void {
         runSeq++;
         clearGeneratorSettings(store.symbol());
@@ -251,6 +251,7 @@ export const OptionGroupGeneratorStore = signalStore(
           refine: {},
           openDate: null,
           useRangeAsOpenDate: false,
+          sortLevels: [],
           ...clearResults(),
         });
       },
