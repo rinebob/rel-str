@@ -20,10 +20,16 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import { getMarketDatePT, computeOpenPassSlot } from '../../../common/pt-date-utils';
 import { listActiveInstances } from '../strategy-instance-repository';
+import { listActiveManageInstances } from '../manage-instance-reader';
 import { getUnderlyingClose } from '../options-strategy-market-data';
 import { runOpenPass } from './open-pass';
+import { runManageOpenPass } from './manage-open-pass';
 import { createLogger } from '../logging';
 import { StOrderTicketWriter } from '../../../order-tickets/st-order-ticket-writer';
+import {
+  createRobinhoodMcpSessionManagerFromEnv,
+  type RobinhoodMcpSessionManager,
+} from '../../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 
 const log = createLogger('OpenPassTimer');
 
@@ -90,6 +96,75 @@ export const openPassTimer = onSchedule(
       logger.info('open_pass_timer_complete', { slot, processed: matching.length });
     } catch (err: any) {
       logger.error('open_pass_timer_error', { slot, error: err?.message });
+    }
+  },
+);
+
+// ── Manage-domain open pass (#1539) ─────────────────────────────────────────
+
+/**
+ * Noon-PT manage open pass — iterates ACTIVE `ManageInstance` docs and
+ * opens positions per trigger (`daily` every trading day, `signal` on a
+ * fresh ST signal for the symbol). Manage instances carry no
+ * `openTimePT` — the noon routine is engine-owned, so this runs once a
+ * day rather than on the legacy 5-minute slot grid.
+ *
+ * Same cadence as `expressionFillPassTimer` (signal paper fills) — the
+ * two passes are independent: expression fills come from signal tickets,
+ * manage opens from strategy instances.
+ */
+export const manageOpenPassTimer = onSchedule(
+  {
+    schedule: '0 12 * * 1-5', // Noon PT, Mon–Fri
+    timeZone: 'America/Los_Angeles',
+    memory: '512MiB',
+    timeoutSeconds: 300,
+    region: 'us-central1',
+    secrets: ['RH_CREDENTIAL_BUNDLE'],
+  },
+  async () => {
+    const marketDate = getMarketDatePT();
+    logger.info('manage_open_pass_start', { marketDate });
+
+    const { daily, signal } = await listActiveManageInstances();
+    const instances = [...daily, ...signal];
+    if (instances.length === 0) {
+      logger.info('manage_open_pass_no_instances', { marketDate });
+      return;
+    }
+    logger.info('manage_open_pass_instances', {
+      marketDate,
+      daily: daily.length,
+      signal: signal.length,
+    });
+
+    let manager: RobinhoodMcpSessionManager | undefined;
+    try {
+      const m = (manager = await createRobinhoodMcpSessionManagerFromEnv());
+      const tickets = new StOrderTicketWriter();
+      for (const instance of instances) {
+        try {
+          const result = await runManageOpenPass(instance, marketDate, {
+            callTool: (name, args) => m.callTool(name, args),
+            tickets,
+          });
+          log.info(
+            `Manage open pass ${instance.id}/${marketDate}: skipped=${result.skipped}` +
+              `${result.skipReason ? ` reason=${result.skipReason}` : ''}` +
+              ` positionId=${result.positionId}`,
+          );
+        } catch (err) {
+          log.error(
+            `Manage open pass failed for ${instance.id}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+      logger.info('manage_open_pass_complete', {
+        marketDate,
+        processed: instances.length,
+      });
+    } finally {
+      await manager?.close();
     }
   },
 );

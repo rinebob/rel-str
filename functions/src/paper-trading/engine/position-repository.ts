@@ -31,6 +31,7 @@ import {
 import { createLogger } from './logging';
 import {
   governingVariantForInstance,
+  LEGACY_GOVERNING_VARIANT,
   expressionForLeg,
   legacyToPaperStatus,
   paperLegToPositionLeg,
@@ -39,6 +40,7 @@ import {
   tradeToPosition,
 } from './trade-adapter';
 import { getInstance, strategyInstanceRef } from './strategy-instance-repository';
+import type { ManageInstance } from '@manage/instance-contracts';
 import type {
   DailyUpdate,
   Position,
@@ -190,6 +192,75 @@ export async function createPosition(
         symbol: position.symbol,
         expression: paperLegs.length ? expressionForLeg(paperLegs[0]) : 'UNK',
         governingVariant: governingVariantForInstance(instance),
+        strategyInstanceId: position.instanceId,
+      },
+      tradeOverrides: {
+        capitalRequired: position.capitalRequired,
+        lastMarkedAt: position.currentValueAsOf,
+      },
+      now,
+    },
+    ledgerDepsWithCapture(db),
+  );
+
+  await writeRawQuote(id, rawQuote);
+  return tradeToPosition(trade);
+}
+
+/**
+ * Manage-domain variant of `createPosition` (#1539) — takes the resolved
+ * `ManageInstance` directly instead of re-reading it through the legacy
+ * `getInstance` validator (which rejects the manage doc shape outright).
+ *
+ * `governingVariant` seeds `NONE`: paper manage runs are observational —
+ * positions track every exit to expiry via the #1544 exit-scan pass, so no
+ * seeded variant run may fire a real exit on them.
+ *
+ * The order-level fill books the position's NET premium — per-contract
+ * absolute value with the order side carrying the cash direction (credit
+ * structures SHORT/cash-in, debit structures LONG/cash-out). Booking a
+ * single leg's mark would settle the wrong cash on multi-leg spreads.
+ */
+export async function createManagePosition(
+  position: Omit<Position, 'id'>,
+  legs: PositionLeg[],
+  rawQuote: RawQuote,
+  instance: Pick<ManageInstance, 'id' | 'userId' | 'variant'>,
+  positionId?: string,
+): Promise<Position> {
+  const id = positionId ?? `${position.instanceId}-${position.openDate}`;
+  const now = new Date().toISOString();
+  const paperLegs = legs.map(positionLegToPaper);
+  const netPremium = paperLegs.reduce(
+    (acc, l) => acc + (l.side === TradeSide.SHORT ? l.entryMark : -l.entryMark),
+    0,
+  );
+
+  const { trade } = await applyEntryFill(
+    {
+      userId: instance.userId,
+      tradeId: id,
+      order: {
+        side: netPremium >= 0 ? TradeSide.SHORT : TradeSide.LONG,
+        type: 'MARKET',
+        quantity: 1,
+      },
+      legs: paperLegs,
+      fill: {
+        fillId: `entry-${id}`,
+        role: 'entry',
+        date: position.openDate,
+        price: Math.abs(netPremium),
+        quantity: 1,
+        quoteSource: OptionQuoteSource.RH_MCP,
+      },
+      dims: {
+        source: PaperTradeSource.STRATEGY,
+        symbol: position.symbol,
+        // Multi-leg spreads have no single-leg expression — stamp the
+        // template code (same SPREAD segment the instance id carries).
+        expression: instance.variant.templateId.toUpperCase(),
+        governingVariant: LEGACY_GOVERNING_VARIANT,
         strategyInstanceId: position.instanceId,
       },
       tradeOverrides: {

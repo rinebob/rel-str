@@ -154,6 +154,7 @@ export {
   optionsSettlementPassManual,
 } from './options-strategy-engine/options-strategy-passes';
 export { openPassTimer } from './options-strategy-engine/passes/open-pass-timer';
+export { manageOpenPassTimer } from './options-strategy-engine/passes/open-pass-timer';
 
 // Paper trading — signal accept + noon-PT expression fill (#564)
 export {
