@@ -61,6 +61,7 @@ const scripts = [
   'st-auth-guard-1444.ts',
   'pick-doc-404-semantics-1401.ts',
   'indicator-lib-878-pine-parity.ts',
+  'indicator-lib-873-pine-parity.ts',
   'options-analysis-all-otm-1431.ts',
   'options-replay-leg-contracts-1491.ts',
   'options-replay-template-registries-1492.ts',
