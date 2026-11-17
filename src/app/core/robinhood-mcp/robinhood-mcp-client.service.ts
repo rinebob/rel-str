@@ -302,18 +302,40 @@ export class RobinhoodMcpClient {
           throw new RobinhoodMcpError(result.error, 'get_option_positions', result.category);
         }
 
-        const raw = this.extractList(result.parsed, 'results', 'option_positions');
+        // Wire shape (captures/opt-pos-open.json): data.positions[] with
+        // option_id / chain_symbol / average_price / type(long|short).
+        // Strike + call/put live on the instrument, not the position —
+        // they join in via get_option_instruments downstream (#1481).
+        const raw = this.extractList(result.parsed, 'positions');
         const next = this.extractNested(result.parsed, 'data')['next'];
         return {
-          positions: raw.map((p) => ({
-            instrumentId: String(p['instrument_id'] ?? ''),
-            chainSymbol: String(p['chain_symbol'] ?? ''),
-            optionType: String(p['type'] ?? p['option_type'] ?? ''),
-            strikePrice: this.toNumber(p['strike_price']),
-            expirationDate: String(p['expiration_date'] ?? ''),
-            quantity: this.toNumber(p['quantity']),
-            averageCost: this.toNumber(p['average_cost']),
-          })),
+          positions: raw.map((p) => {
+            const side = String(p['type'] ?? '');
+            const qty = this.toNumber(p['quantity']);
+            // Wire quantity is unsigned — side carries direction. Normalize
+            // to the codebase's signed convention (qty < 0 = short) so
+            // PnL, allocation, and the table read it without knowing `side`.
+            const quantity =
+              qty === null ? null : side === 'short' ? -Math.abs(qty) : qty;
+            // average_price is contract dollars ($1.90/share → 190.0000);
+            // quote mark_price is per-share. Divide by the multiplier so
+            // cost joins mark at one unit — dollar math multiplies back by
+            // qty × multiplier downstream (verified opt-pos-open +
+            // opt-quote-fill captures, same instrument …da44).
+            const mult = this.toNumber(p['trade_value_multiplier']) || 100;
+            const avg = this.toNumber(p['average_price']);
+            return {
+              instrumentId: String(p['option_id'] ?? ''),
+              chainSymbol: String(p['chain_symbol'] ?? ''),
+              optionType: '',
+              strikePrice: null,
+              side,
+              expirationDate: String(p['expiration_date'] ?? ''),
+              quantity,
+              averageCost: avg === null ? null : avg / mult,
+              multiplier: mult,
+            };
+          }),
           next: typeof next === 'string' && next ? next : null,
         };
       },
@@ -368,23 +390,29 @@ export class RobinhoodMcpClient {
   }
 
   async getOptionInstruments(filters: OptionInstrumentFilters): Promise<OptionInstrument[]> {
+    // The tool requires one of chain_symbol/chain_id/ids — fail fast
+    // rather than burn a round trip on a guaranteed rejection.
+    if (!filters.chainSymbol && !filters.ids?.length) {
+      throw new Error('getOptionInstruments requires chainSymbol or ids');
+    }
     // One expiration + no type filter exceeds the ~100-instrument page
     // (SPXW capture, dep-opt-instr-10) — page on `data.next` until
     // exhausted so the strike board isn't silently truncated.
     return this.walkPages(
       this.optionInstrumentsSpec(filters),
       MAX_OPTION_INSTRUMENT_PAGES,
-      `chain_symbol=${filters.chainSymbol}`,
+      `chain_symbol=${filters.chainSymbol ?? ''} ids=${filters.ids?.length ?? 0}`,
     );
   }
 
   optionInstrumentsSpec(filters: OptionInstrumentFilters): ToolSpec<OptionInstrument[]> {
     const args: Record<string, unknown> = {
-      chain_symbol: filters.chainSymbol,
       // Do NOT pin state/tradability: the tool defaults to
       // active+tradable, but passing the same values explicitly makes
       // upstream return ZERO instruments — verified live (#964).
     };
+    if (filters.chainSymbol) args['chain_symbol'] = filters.chainSymbol;
+    if (filters.ids?.length) args['ids'] = filters.ids.join(',');
     if (filters.expirationDates?.length) {
       args['expiration_dates'] = filters.expirationDates.join(',');
     }
@@ -406,13 +434,17 @@ export class RobinhoodMcpClient {
 
         const raw = this.extractList(result.parsed, 'instruments');
         const instruments: OptionInstrument[] = [];
+        // The state/tradability filter exists for ORDERABLE-contract
+        // discovery — an ids lookup is position enrichment, where a
+        // delisted/expired contract is exactly what must resolve.
+        const isIdLookup = !!filters.ids?.length;
         for (const i of raw) {
           // An instrument without an id is unorderable — skip it. The
           // state/tradability args can't go on the wire (they zero the
           // response — see getOptionInstruments), so filter here instead.
           const id = i['id'];
           if (typeof id !== 'string' || !id) continue;
-          if (i['tradability'] === 'untradable' || i['state'] === 'inactive' || i['state'] === 'expired') continue;
+          if (!isIdLookup && (i['tradability'] === 'untradable' || i['state'] === 'inactive' || i['state'] === 'expired')) continue;
           instruments.push({
             instrumentId: id,
             chainId: String(i['chain_id'] ?? ''),

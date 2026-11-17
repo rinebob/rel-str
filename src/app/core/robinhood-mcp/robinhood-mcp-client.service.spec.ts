@@ -443,21 +443,29 @@ describe('RobinhoodMcpClient', () => {
   // ===========================================================================
 
   describe('getOptionPositions', () => {
-    it('returns option positions with contract details', async () => {
+    // Wire shape per docs/topics/657-rh-mcp/captures/opt-pos-open.json:
+    // data.positions[] carrying option_id / chain_symbol / average_price /
+    // type(long|short position side). Strike + call/put live on the
+    // instrument — they join via get_option_instruments downstream (#1481).
+    it('parses data.positions — wire option_id/average_price/type(side)', async () => {
       mockResolve({
         success: true,
         parsed: {
-          results: [
-            {
-              instrument_id: 'opt-uuid-1',
-              chain_symbol: 'AAPL',
-              type: 'call',
-              strike_price: '180.00',
-              expiration_date: '2026-01-15',
-              quantity: '2',
-              average_cost: '320.00',
-            },
-          ],
+          data: {
+            positions: [
+              {
+                option_id: 'opt-uuid-1',
+                chain_id: 'chain-1',
+                chain_symbol: 'AAPL',
+                type: 'long',
+                quantity: '2',
+                average_price: '320.00',
+                expiration_date: '2026-01-15',
+                trade_value_multiplier: '100',
+              },
+            ],
+            next: null,
+          },
         },
         redacted: {},
         tool: 'get_option_positions',
@@ -469,18 +477,51 @@ describe('RobinhoodMcpClient', () => {
       expect(positions[0]).toEqual({
         instrumentId: 'opt-uuid-1',
         chainSymbol: 'AAPL',
-        optionType: 'call',
-        strikePrice: 180,
+        optionType: '',
+        strikePrice: null,
+        side: 'long',
         expirationDate: '2026-01-15',
         quantity: 2,
-        averageCost: 320,
+        // Wire average_price is contract dollars — per-share after /mult.
+        averageCost: 3.2,
+        multiplier: 100,
       } satisfies OptionPosition);
+    });
+
+    it('maps wire type=short to side — never into optionType', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            positions: [
+              {
+                option_id: 'opt-uuid-2',
+                chain_symbol: 'NVDA',
+                type: 'short',
+                quantity: '1',
+                average_price: '150.00',
+                expiration_date: '2026-03-20',
+              },
+            ],
+          },
+        },
+        redacted: {},
+        tool: 'get_option_positions',
+      });
+
+      const positions = await client.getOptionPositions('123456789');
+
+      expect(positions[0].side).toBe('short');
+      expect(positions[0].optionType).toBe('');
+      // Wire quantity is unsigned; parse normalizes short → negative so
+      // the codebase's qty<0=short convention holds downstream.
+      expect(positions[0].quantity).toBe(-1);
     });
 
     it('passes nonzero=true when requested', async () => {
       mockResolve({
         success: true,
-        parsed: { results: [] },
+        parsed: { data: { positions: [] } },
         redacted: {},
         tool: 'get_option_positions',
       });
@@ -493,7 +534,7 @@ describe('RobinhoodMcpClient', () => {
     it('omits nonzero when not specified', async () => {
       mockResolve({
         success: true,
-        parsed: { results: [] },
+        parsed: { data: { positions: [] } },
         redacted: {},
         tool: 'get_option_positions',
       });
@@ -560,11 +601,11 @@ describe('RobinhoodMcpClient', () => {
           success: true,
           parsed: {
             data: {
-              option_positions: [
+              positions: [
                 {
-                  instrument_id: cursor ? 'opt-p2' : 'opt-p1',
-                  chain_symbol: 'AAPL', type: 'call', strike_price: '180.00',
-                  expiration_date: '2026-01-15', quantity: '2', average_cost: '320.00',
+                  option_id: cursor ? 'opt-p2' : 'opt-p1',
+                  chain_symbol: 'AAPL', type: 'long',
+                  expiration_date: '2026-01-15', quantity: '2', average_price: '320.00',
                 },
               ],
               next: cursor ? null : 'CURSOR2',
@@ -677,8 +718,8 @@ describe('RobinhoodMcpClient', () => {
         success: true,
         parsed: {
           data: {
-            option_positions: [
-              { instrument_id: 'opt-1', chain_symbol: 'AAPL', type: 'put', strike_price: '170.00', expiration_date: '2026-01-15', quantity: '1', average_cost: '200.00' },
+            positions: [
+              { option_id: 'opt-1', chain_symbol: 'AAPL', type: 'short', expiration_date: '2026-01-15', quantity: '1', average_price: '200.00' },
             ],
             next: null,
           },
@@ -866,6 +907,58 @@ describe('RobinhoodMcpClient', () => {
       expect(mcp.executeTool).toHaveBeenCalledWith('get_option_instruments', {
         args: { chain_symbol: 'AAPL' },
       });
+    });
+
+    // Positions join path (#1481): option positions carry option_id, so
+    // strike + call/put resolve via an ids lookup — no chain_symbol.
+    it('sends ids CSV for instrument-id lookups — no chain_symbol', async () => {
+      mockResolve({
+        success: true,
+        parsed: { data: { instruments: [] } },
+        redacted: {},
+        tool: 'get_option_instruments',
+      });
+
+      await client.getOptionInstruments({ ids: ['opt-uuid-1', 'opt-uuid-2'] });
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('get_option_instruments', {
+        args: { ids: 'opt-uuid-1,opt-uuid-2' },
+      });
+    });
+
+    it('rejects a filterless call locally — the tool requires one of three filters', async () => {
+      await expect(client.getOptionInstruments({})).rejects.toThrow();
+      expect(mcp.executeTool).not.toHaveBeenCalled();
+    });
+
+    // A held position's contract may be untradable/expired — an ids lookup
+    // must keep it; the orderable-discovery filter applies only to
+    // chain-symbol lookups.
+    it('keeps expired/untradable instruments on ids lookups, drops them on discovery lookups', async () => {
+      const instrument = (id: string, state: string, tradability: string) => ({
+        id, chain_id: 'c', chain_symbol: 'SPY',
+        expiration_date: '2026-10-16', strike_price: '500.0000', type: 'call',
+        state, tradability,
+      });
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            instruments: [
+              instrument('opt-live', 'active', 'tradable'),
+              instrument('opt-dead', 'expired', 'untradable'),
+            ],
+          },
+        },
+        redacted: {},
+        tool: 'get_option_instruments',
+      });
+
+      const byId = await client.getOptionInstruments({ ids: ['opt-live', 'opt-dead'] });
+      expect(byId.map((i) => i.instrumentId)).toEqual(['opt-live', 'opt-dead']);
+
+      const byDiscovery = await client.getOptionInstruments({ chainSymbol: 'SPY' });
+      expect(byDiscovery.map((i) => i.instrumentId)).toEqual(['opt-live']);
     });
 
     it('omits a non-finite strike instead of sending NaN/Infinity verbatim', async () => {

@@ -48,11 +48,24 @@ export interface EquityPosition {
 export interface OptionPosition {
   instrumentId: string;
   chainSymbol: string;
+  /** Call/put — NOT on the positions wire; populated by a
+   *  get_option_instruments join downstream (the wire's `type` field is
+   *  position side, not contract type). Empty until joined (#1481). */
   optionType: string;
+  /** Call/put strike — same instrument-join provenance as optionType. */
   strikePrice: number | null;
+  /** Position side from the wire `type` field: 'long' | 'short'. */
+  side: string;
   expirationDate: string;
+  /** Signed — negative when side==='short' (the wire's quantity is
+   *  unsigned with direction in `type`; sign is normalized at parse). */
   quantity: number | null;
+  /** Per-share premium — the wire's average_price is contract dollars;
+   *  divided by multiplier at parse so it joins per-share quote prices. */
   averageCost: number | null;
+  /** Shares per contract from `trade_value_multiplier` (100 standard;
+   *  differs on adjusted contracts). Dollar math: price × qty × mult. */
+  multiplier: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,10 +106,13 @@ export interface OptionInstrument {
 }
 
 /** Filters for get_option_instruments — the tool requires one of
- *  chain_symbol/chain_id/ids; the v1 discovery flow always resolves by
- *  chain_symbol. */
+ *  chain_symbol/chain_id/ids; the v1 discovery flow resolves by
+ *  chain_symbol, position enrichment joins by instrument `ids` (#1481). */
 export interface OptionInstrumentFilters {
-  chainSymbol: string;
+  chainSymbol?: string;
+  /** Instrument UUIDs — sent as a comma-separated list (positions →
+   *  option_id lookup for strike/option-type). */
+  ids?: string[];
   /** YYYY-MM-DD dates — sent as a comma-separated list. */
   expirationDates?: string[];
   strikePrice?: number;
