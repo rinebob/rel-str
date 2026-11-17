@@ -193,6 +193,30 @@ strat-manage-contract-list-1543` covers the surface.
 - `listStrategyPositions` / `getStrategyEquityCurve` callables already
   filter by `instanceId` — no change needed for US-6.
 
+### 6. Manual open callable — `passes/manage-open-callable.ts` (new)
+
+**§6 as-built (#1545):** `manageOpenPassManual` — `onCall`,
+`secrets: ['RH_CREDENTIAL_BUNDLE']`, 512 MiB/120 s, us-central1.
+`runManageOpenPassManual(request, deps)` is the deps-injected core
+(`getInstance`/`openSession`/`runPass`/`ticketsFactory`/`marketDate`);
+the `onCall` export is a thin wrapper, matching the
+`runAnalysisStart` convention. Auth guard → `instanceId` trim +
+required → `getManageInstance` (`not-found` on missing/malformed) →
+`runState !== 'ACTIVE'` and `mode !== 'paper'` return no-op
+`skipped` results (`not_active`/`non_paper` — new
+`ManageManualSkipReason` extends the pass's union) rather than
+erroring, so the FE start flow can drive transitions through one
+surface. "Due" is the pass's own gating — cadence dedup →
+`already_opened_today`, signal freshness → `no_fresh_signal`, and the
+deterministic `{instanceId}-{marketDate}` position id makes a
+double-click harmless (idempotent by construction). One RH MCP
+session per invocation, closed in `finally`; session-open and pass
+failures map to `internal` with the cause preserved; a lost
+same-instance race (`ALREADY_EXISTS` on the deterministic position
+id) reports `already_opened_today` rather than a spurious `internal`.
+`verify strat-manage-open-callable-1545` covers the surface
+(15 checks).
+
 ## Task breakdown (BE)
 
 1. **B1 — Manage instance reader + open-pass rework** — ACTIVE query by
