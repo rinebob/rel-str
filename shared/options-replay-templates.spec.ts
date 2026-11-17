@@ -9,6 +9,8 @@
  * `REPLAY_TEMPLATE_SHAPES` (generic legs + bands) and `REPLAY_VARIANTS`
  * (concrete named legs) — with `REPLAY_TEMPLATES`/`getReplayTemplate` as
  * the legacy read surface derived from the 1-leg variants.
+ * @task #1494 — `validateVariantRegistry` runs over the real registries so
+ * data drift fails this suite, not a live run.
  */
 
 import { OptionType } from './options-common';
@@ -26,7 +28,10 @@ import {
   REPLAY_TEMPLATE_SHAPES,
   REPLAY_TEMPLATES,
   REPLAY_VARIANTS,
+  validateVariantRegistry,
+  type TemplateShape,
 } from './options-replay-templates';
+import type { OptionLeg, ReplayVariant, StockLeg, VariantLeg } from './options-replay-contracts';
 
 describe('options-replay-templates', () => {
   describe('REPLAY_TEMPLATES', () => {
@@ -109,78 +114,11 @@ describe('options-replay-templates', () => {
       );
     });
 
-    it('has no duplicate ids across shapes and variants', () => {
-      const ids = [
-        ...REPLAY_TEMPLATE_SHAPES.map((s) => s.id),
-        ...REPLAY_VARIANTS.map((v) => v.id),
-      ];
-      expect(new Set(ids).size).toBe(ids.length);
-    });
-
-    it('every shape carries display fields and ≥1 non-empty-role leg', () => {
-      for (const shape of REPLAY_TEMPLATE_SHAPES) {
-        expect(shape.name.length).toBeGreaterThan(0);
-        expect(shape.description.length).toBeGreaterThan(0);
-        expect(shape.legs.length).toBeGreaterThan(0);
-        for (const leg of shape.legs) {
-          expect(leg.role.length).toBeGreaterThan(0);
-        }
-      }
-    });
-
-    it('option legs carry type + bands; stock legs carry neither', () => {
-      for (const shape of REPLAY_TEMPLATE_SHAPES) {
-        for (const leg of shape.legs) {
-          // The kind discriminant itself must be a real value — a mistyped
-          // literal ('optin') would otherwise fall into the stock branch
-          // and satisfy the absence checks vacuously.
-          expect(['option', 'stock']).toContain(leg.kind);
-          expect(Object.values(TradeSide)).toContain(leg.side);
-          if (leg.kind === 'option') {
-            expect(Object.values(OptionType)).toContain(leg.type);
-            expect(leg.deltaBand).toHaveLength(2);
-            expect(leg.dteBand).toBeDefined();
-            // Band sanity beyond membership: non-empty, no duplicates.
-            expect(leg.dteBand.length).toBeGreaterThan(0);
-            expect(new Set(leg.dteBand).size).toBe(leg.dteBand.length);
-          } else {
-            // The union makes these unrepresentable at type level — the
-            // runtime `in` checks are the surviving guard for literals
-            // that bypass authoring (JSON paste-back, `as` casts).
-            expect('type' in leg).toBe(false);
-            expect('deltaBand' in leg).toBe(false);
-            expect('dteBand' in leg).toBe(false);
-          }
-        }
-      }
-    });
-
-    it('shape legs carry bands — never concrete targetDelta/dte', () => {
-      // The defining semantic of a shape: bounds for the FE dials, no values.
-      for (const shape of REPLAY_TEMPLATE_SHAPES) {
-        for (const leg of shape.legs) {
-          expect('targetDelta' in leg).toBe(false);
-          expect('dte' in leg).toBe(false);
-        }
-      }
-    });
-
-    it('every band falls on the pick-doc grid', () => {
-      for (const shape of REPLAY_TEMPLATE_SHAPES) {
-        for (const leg of shape.legs) {
-          if (leg.kind !== 'option') continue;
-          for (const bound of leg.deltaBand) {
-            expect(bound % PICK_GRID_DELTA_STEP).toBe(0);
-            expect(bound).toBeGreaterThanOrEqual(PICK_GRID_DELTA_BAND[0]);
-            expect(bound).toBeLessThanOrEqual(PICK_GRID_DELTA_BAND[1]);
-          }
-          expect(leg.deltaBand[0]).toBeLessThanOrEqual(leg.deltaBand[1]);
-          for (const dte of leg.dteBand) {
-            expect(PICK_GRID_DTES).toContain(dte);
-          }
-        }
-      }
-    });
+    // Data-validation coverage (dup ids, per-kind fields, bands-on-grid,
+    // no concrete values on shape legs) lives in ONE place — the
+    // `validateVariantRegistry()` drift-guard test at the bottom of this
+    // file. Hand-rolled copies were deleted so a rule change can't drift
+    // between this spec and the validator.
   });
 
   describe('REPLAY_VARIANTS (#1492)', () => {
@@ -190,56 +128,6 @@ describe('options-replay-templates', () => {
       for (const v of REPLAY_VARIANTS) {
         expect(v.legs).toHaveLength(1);
         expect(v.legs[0].kind).toBe('option');
-      }
-    });
-
-    it('every variant carries display fields', () => {
-      for (const v of REPLAY_VARIANTS) {
-        expect(v.name.length).toBeGreaterThan(0);
-        expect(v.description.length).toBeGreaterThan(0);
-      }
-    });
-
-    it('every variant leg is well-formed for its kind', () => {
-      for (const v of REPLAY_VARIANTS) {
-        expect(v.legs.length).toBeGreaterThan(0);
-        for (const leg of v.legs) {
-          expect(['option', 'stock']).toContain(leg.kind);
-          expect(Object.values(TradeSide)).toContain(leg.side);
-          if (leg.kind === 'option') {
-            expect(Object.values(OptionType)).toContain(leg.type);
-            expect(Number.isFinite(leg.targetDelta)).toBe(true);
-            expect(Number.isInteger(leg.dte)).toBe(true);
-            expect(leg.dte).toBeGreaterThan(0);
-          } else {
-            expect('type' in leg).toBe(false);
-            expect('targetDelta' in leg).toBe(false);
-            expect('dte' in leg).toBe(false);
-          }
-        }
-      }
-    });
-
-    it('every variant option leg is on-grid with sign matching its type', () => {
-      // Registry-data validation (distinct from #1494's validator function):
-      // a malformed entry — dte: 32, put with +0.2 — must fail here, not at
-      // a live run. `pickDocDeltaPct` convention: round(|\Delta|×100).
-      for (const v of REPLAY_VARIANTS) {
-        for (const leg of v.legs) {
-          if (leg.kind !== 'option') continue;
-          const mag = Math.round(Math.abs(leg.targetDelta) * 100);
-          expect(mag % PICK_GRID_DELTA_STEP).toBe(0);
-          expect(mag).toBeGreaterThanOrEqual(PICK_GRID_DELTA_BAND[0]);
-          expect(mag).toBeLessThanOrEqual(PICK_GRID_DELTA_BAND[1]);
-          expect(PICK_GRID_DTES).toContain(leg.dte);
-          if (leg.type === OptionType.PUT) {
-            expect(leg.targetDelta).toBeLessThan(0);
-          } else if (leg.type === OptionType.CALL) {
-            expect(leg.targetDelta).toBeGreaterThan(0);
-          } else {
-            throw new Error(`variant ${v.id} leg type is neither PUT nor CALL`);
-          }
-        }
       }
     });
 
@@ -289,14 +177,6 @@ describe('options-replay-templates', () => {
       }
     });
 
-    it('every variant structure resolves to a known shape (or is custom/absent)', () => {
-      // Curated data — a typo'd shape id is a data bug, not a provenance
-      // hint: FAIL here even though the audit keeps this WARN-level.
-      for (const v of REPLAY_VARIANTS) {
-        if (v.structure === undefined || v.structure === 'custom') continue;
-        expect(getTemplateShape(v.structure)?.id).toBe(v.structure);
-      }
-    });
   });
 
   describe('getReplayVariant / getTemplateShape', () => {
@@ -314,6 +194,225 @@ describe('options-replay-templates', () => {
       }
       expect(getTemplateShape('nope')).toBeUndefined();
       expect(getTemplateShape('')).toBeUndefined();
+    });
+  });
+
+  describe('validateVariantRegistry (#1494)', () => {
+    // Fixture helpers — malformed entries need `as` casts precisely because
+    // the type system prevents them; the validator guards the runtime data
+    // (JSON paste-back, hand-edited literals), not the compile-time shapes.
+    const optLeg = (over: Partial<OptionLeg> = {}): OptionLeg =>
+      ({ kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT, ...over }) as OptionLeg;
+    const stkLeg = (over: Partial<StockLeg> = {}): StockLeg =>
+      ({ kind: 'stock', side: TradeSide.LONG, ...over }) as StockLeg;
+    const variant = (id: string, legs: readonly VariantLeg[]): ReplayVariant =>
+      ({ id, name: id, description: id, legs });
+
+    it('returns empty for the shipped registries', () => {
+      // THE drift guard — any malformed edit to REPLAY_TEMPLATE_SHAPES or
+      // REPLAY_VARIANTS fails here.
+      expect(validateVariantRegistry()).toEqual([]);
+    });
+
+    it('flags a duplicate id across shapes and variants', () => {
+      const dup = variant('short-put', [optLeg()]);
+      const errs = validateVariantRegistry(undefined, [dup]);
+      expect(errs.some((e) => e.includes('duplicate') && e.includes('short-put'))).toBe(true);
+    });
+
+    it('flags a duplicate id within one registry', () => {
+      const errs = validateVariantRegistry(undefined, [
+        variant('v', [optLeg()]),
+        variant('v', [optLeg({ type: OptionType.CALL, targetDelta: 0.2 })]),
+      ]);
+      expect(errs.some((e) => e.includes('duplicate') && e.includes('v'))).toBe(true);
+    });
+
+    it('flags an off-grid targetDelta', () => {
+      const errs = validateVariantRegistry([], [variant('bad', [optLeg({ targetDelta: -0.22 })])]);
+      expect(errs.some((e) => e.includes('bad') && e.includes('-0.22') && e.includes('grid'))).toBe(true);
+    });
+
+    it('flags an out-of-band |Δ| even when it is a step multiple', () => {
+      // CALL + positive Δ isolates the band check — a put would also trip
+      // sign parity and conflate the two classes.
+      const errs = validateVariantRegistry([], [
+        variant('bad', [optLeg({ type: OptionType.CALL, targetDelta: 1.0 })]),
+      ]);
+      expect(errs.some((e) => e.includes('bad') && e.includes('grid'))).toBe(true);
+    });
+
+    it('round-then-check is deliberate: -0.249 resolves to the 25Δ cell', () => {
+      // pickDocDeltaPct derives the wire key the same way — |Δ|×100 rounded.
+      // A leg at -0.249 lands on the 25 cell; flagging it would diverge
+      // from the grid the pick docs actually key on.
+      const errs = validateVariantRegistry([], [variant('ok', [optLeg({ targetDelta: -0.249 })])]);
+      expect(errs).toEqual([]);
+    });
+
+    it('flags an off-grid dte', () => {
+      const errs = validateVariantRegistry([], [variant('bad', [optLeg({ dte: 40 })])]);
+      expect(errs.some((e) => e.includes('bad') && e.includes('40') && /dte/i.test(e))).toBe(true);
+    });
+
+    it('flags a sign/type mismatch (put with positive Δ)', () => {
+      const errs = validateVariantRegistry([], [variant('bad', [optLeg({ targetDelta: 0.2 })])]);
+      expect(errs.some((e) => e.includes('bad') && /sign|put|negative/i.test(e))).toBe(true);
+    });
+
+    it('flags option legs missing required fields — pinned per class', () => {
+      const cases: [OptionLeg, RegExp][] = [
+        [{ kind: 'option', targetDelta: -0.2, dte: 45, side: TradeSide.SHORT } as OptionLeg, /type/],
+        [{ kind: 'option', type: OptionType.PUT, dte: 45, side: TradeSide.SHORT } as OptionLeg, /targetDelta/],
+        [{ kind: 'option', type: OptionType.PUT, targetDelta: -0.2, side: TradeSide.SHORT } as OptionLeg, /dte/i],
+        [{ kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45 } as OptionLeg, /side/],
+      ];
+      for (const [leg, re] of cases) {
+        const errs = validateVariantRegistry([], [variant('bad', [leg])]);
+        expect(errs.some((e) => e.includes('bad') && re.test(e))).toBe(true);
+      }
+    });
+
+    it('flags non-finite targetDelta (NaN/Infinity) as missing/invalid', () => {
+      for (const d of [NaN, Infinity]) {
+        const errs = validateVariantRegistry([], [variant('bad', [optLeg({ targetDelta: d })])]);
+        expect(errs.some((e) => e.includes('bad') && /missing\/invalid targetDelta/.test(e))).toBe(true);
+      }
+    });
+
+    it('flags sign parity in both directions', () => {
+      const putPositive = validateVariantRegistry([], [
+        variant('p', [optLeg({ type: OptionType.PUT, targetDelta: 0.2 })]),
+      ]);
+      expect(putPositive.some((e) => e.includes('p') && /non-negative/.test(e))).toBe(true);
+      const callNegative = validateVariantRegistry([], [
+        variant('c', [optLeg({ type: OptionType.CALL, targetDelta: -0.2 })]),
+      ]);
+      expect(callNegative.some((e) => e.includes('c') && /non-positive/.test(e))).toBe(true);
+    });
+
+    it('flags a stock leg carrying option fields', () => {
+      const dirty = { kind: 'stock', side: TradeSide.LONG, targetDelta: 1, dte: 45, type: OptionType.CALL } as unknown as StockLeg;
+      const errs = validateVariantRegistry([], [variant('bad', [dirty])]);
+      expect(errs.some((e) => e.includes('bad') && /stock/.test(e))).toBe(true);
+    });
+
+    it('flags an unknown leg kind', () => {
+      const weird = { kind: 'future', side: TradeSide.LONG } as unknown as VariantLeg;
+      const errs = validateVariantRegistry([], [variant('bad', [weird])]);
+      expect(errs.some((e) => e.includes('bad') && e.includes('future'))).toBe(true);
+    });
+
+    it('does not crash on a null leg — reports a violation instead', () => {
+      // The dup-leg pass runs over every leg, including ones the field
+      // checks already flagged; a null must not TypeError mid-collection.
+      const errs = validateVariantRegistry([], [
+        variant('bad', [null as unknown as VariantLeg, optLeg()]),
+      ]);
+      expect(errs.some((e) => e.includes('bad') && /not an object/.test(e))).toBe(true);
+    });
+
+    it('flags a variant with no legs', () => {
+      const errs = validateVariantRegistry([], [variant('bad', [])]);
+      expect(errs.some((e) => e.includes('bad') && /leg/i.test(e))).toBe(true);
+    });
+
+    it('flags duplicate legs within a variant (same type+Δ+DTE+side)', () => {
+      const leg = optLeg();
+      const errs = validateVariantRegistry([], [variant('bad', [leg, { ...leg }])]);
+      expect(errs.some((e) => e.includes('bad') && /duplicate/i.test(e))).toBe(true);
+    });
+
+    it('does NOT flag same-coordinate legs with different sides', () => {
+      // A long 20Δ put and a short 20Δ put are distinct legs.
+      const errs = validateVariantRegistry([], [
+        variant('ok', [optLeg({ side: TradeSide.LONG }), optLeg({ side: TradeSide.SHORT })]),
+      ]);
+      expect(errs).toEqual([]);
+    });
+
+    it('accepts a stock-only variant — structural validity, not spread realism', () => {
+      const errs = validateVariantRegistry([], [variant('shares', [stkLeg()])]);
+      expect(errs).toEqual([]);
+    });
+
+    it('flags a shape option leg with an off-grid band or empty dteBand', () => {
+      const badShape: TemplateShape = {
+        id: 's1', name: 's1', description: 's1', structure: 'single',
+        legs: [{ role: 'short', kind: 'option', type: OptionType.PUT, side: TradeSide.SHORT, deltaBand: [12, 30], dteBand: [30, 45] }],
+      };
+      const emptyBand: TemplateShape = {
+        id: 's2', name: 's2', description: 's2', structure: 'single',
+        legs: [{ role: 'short', kind: 'option', type: OptionType.PUT, side: TradeSide.SHORT, deltaBand: [15, 30], dteBand: [] }],
+      };
+      const inverted: TemplateShape = {
+        id: 's3', name: 's3', description: 's3', structure: 'single',
+        legs: [{ role: 'short', kind: 'option', type: OptionType.PUT, side: TradeSide.SHORT, deltaBand: [35, 15], dteBand: [30] }],
+      };
+      expect(validateVariantRegistry([badShape], []).some((e) => e.includes('s1'))).toBe(true);
+      expect(validateVariantRegistry([emptyBand], []).some((e) => e.includes('s2'))).toBe(true);
+      expect(validateVariantRegistry([inverted], []).some((e) => e.includes('s3'))).toBe(true);
+    });
+
+    it('flags a shape with no legs', () => {
+      const s: TemplateShape = { id: 's', name: 's', description: 's', structure: 'custom', legs: [] };
+      expect(validateVariantRegistry([s], []).some((e) => e.includes('s') && /leg/i.test(e))).toBe(true);
+    });
+
+    it('flags a shape leg carrying concrete targetDelta/dte', () => {
+      const s: TemplateShape = {
+        id: 's', name: 's', description: 's', structure: 'single',
+        legs: [{ role: 'short', kind: 'option', type: OptionType.PUT, side: TradeSide.SHORT, deltaBand: [15, 30], dteBand: [30], targetDelta: -0.2 } as never],
+      };
+      expect(validateVariantRegistry([s], []).some((e) => e.includes('s') && /concrete/.test(e))).toBe(true);
+    });
+
+    it('flags a missing/empty id with its registry index', () => {
+      const errs = validateVariantRegistry([], [variant('', [optLeg()])]);
+      expect(errs.some((e) => e.includes('variant[0]') && /missing\/empty id/.test(e))).toBe(true);
+    });
+
+    it('flags non-array legs', () => {
+      const v = { id: 'bad', name: 'b', description: 'b', legs: {} } as unknown as ReplayVariant;
+      expect(validateVariantRegistry([], [v]).some((e) => e.includes('bad') && /≥1 leg/.test(e))).toBe(true);
+    });
+
+    it('flags a variant structure that resolves to no shape', () => {
+      const v = { ...variant('bad', [optLeg()]), structure: 'short-putt' };
+      const errs = validateVariantRegistry(REPLAY_TEMPLATE_SHAPES, [v]);
+      expect(errs.some((e) => e.includes('bad') && /resolves to no shape/.test(e))).toBe(true);
+      // …but 'custom' and a real shape id are legal
+      expect(validateVariantRegistry(REPLAY_TEMPLATE_SHAPES, [{ ...v, structure: 'custom' }])).toEqual([]);
+      expect(validateVariantRegistry(REPLAY_TEMPLATE_SHAPES, [{ ...v, structure: 'short-put' }])).toEqual([]);
+    });
+
+    it('flags a shape structure that is not a TemplateStructure member', () => {
+      const s: TemplateShape = {
+        id: 's', name: 's', description: 's', structure: 'vertikal' as never,
+        legs: [{ role: 'x', kind: 'stock', side: TradeSide.LONG }],
+      };
+      expect(validateVariantRegistry([s], []).some((e) => e.includes('s') && /TemplateStructure/.test(e))).toBe(true);
+    });
+
+    it('flags missing/empty name and description', () => {
+      const errs = validateVariantRegistry([], [
+        { id: 'bad', name: '', description: 'x', legs: [optLeg()] },
+      ]);
+      expect(errs.some((e) => e.includes('bad') && /name/.test(e))).toBe(true);
+    });
+
+    it('flags shape-domain fields pasted onto variant legs', () => {
+      const withRole = { ...optLeg(), role: 'short' } as OptionLeg;
+      const withBand = { ...stkLeg(), deltaBand: [15, 30] } as unknown as StockLeg;
+      const errs = validateVariantRegistry([], [variant('bad', [withRole, withBand])]);
+      expect(errs.some((e) => e.includes('bad') && /shape field 'role'/.test(e))).toBe(true);
+      expect(errs.some((e) => e.includes('bad') && /deltaBand/.test(e))).toBe(true);
+    });
+
+    it('survives non-array registry arguments — collects, never throws', () => {
+      const errs = validateVariantRegistry(null as never, 'x' as never);
+      expect(errs.length).toBeGreaterThan(0);
+      expect(errs.some((e) => /not an array/.test(e))).toBe(true);
     });
   });
 });
