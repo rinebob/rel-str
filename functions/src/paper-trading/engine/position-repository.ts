@@ -30,6 +30,11 @@ import {
 } from '../screenshot-lifecycle';
 import { createLogger } from './logging';
 import {
+  incrementStatsOnTransition,
+  statsDeltasOnSettle,
+  statsInputFor,
+} from './stats-increments';
+import {
   governingVariantForInstance,
   LEGACY_GOVERNING_VARIANT,
   expressionForLeg,
@@ -348,6 +353,9 @@ export async function markPositionSettled(
 ): Promise<void> {
   const now = new Date().toISOString();
   let settledTrade: PaperTrade | undefined;
+  // Hoisted for the post-commit stats increment — the same signed premium
+  // the txn banks into realizedPnl (#1563).
+  let settledPremium = 0;
   await db.runTransaction(async (txn) => {
     // All reads before all writes: trade → instance → account.
     const ref = tradeRef(positionId);
@@ -403,6 +411,7 @@ export async function markPositionSettled(
     const premium = entryFill
       ? signedCashDelta(entryFill, trade.order.side, trade.legs)
       : 0;
+    settledPremium = premium;
     // Liquidation value carried before the close (short legs negative).
     const markedValue = positionValue(trade.legs);
     // Assignment: shares delivered at strike → cash debit + share value added.
@@ -495,6 +504,20 @@ export async function markPositionSettled(
   // the leg shape on the pre-update snapshot is unchanged by settlement.
   if (settledTrade && settlementCapturesPositionClosed(settlement.status)) {
     await lifecycleHook(settledTrade, CaptureEvent.POSITION_CLOSED);
+  }
+
+  // Stats rollup (#1563): the same transition the recompute counts —
+  // EXPIRED closes + realizes premium; ASSIGNED bumps assignedCount only.
+  // Post-commit, self-swallowing — a stats failure can't fail a settle.
+  // Called directly (not through LedgerDeps) — consistent with this
+  // file's module-`db` architecture; the impl swallows internally.
+  if (settledTrade) {
+    const settleStatus = settlement.status;
+    const premium = settledPremium;
+    const trade = settledTrade;
+    await incrementStatsOnTransition(() =>
+      statsInputFor(trade, statsDeltasOnSettle(settleStatus, premium)),
+    );
   }
 }
 

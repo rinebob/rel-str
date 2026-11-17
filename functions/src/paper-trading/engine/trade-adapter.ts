@@ -241,6 +241,23 @@ export function positionToTrade(
 
 // ── PaperTrade → Position (read adapter) ────────────────────────────────────
 
+/**
+ * The `premiumCollected` quantity the stats recompute sums — SHORT entry
+ * premium only (a LONG debit is a cost, not collected premium). Shared by
+ * the position adapter and the stats-increment deltas (#1563) so the two
+ * can't drift apart.
+ */
+export function premiumCollectedFor(trade: PaperTrade): number {
+  if (trade.order.side !== TradeSide.SHORT) return 0;
+  const entryFill = trade.fills.find((f) => f.role === 'entry');
+  if (!entryFill) return 0;
+  return (
+    entryFill.price *
+    (trade.legs[0]?.multiplier ?? SHARES_PER_CONTRACT) *
+    (entryFill.quantity || trade.order.quantity)
+  );
+}
+
 export function tradeToPosition(trade: PaperTrade): Position {
   const legs = trade.legs.map(paperLegToPositionLeg);
   const primary = legs.find((l) => l.contractID) ?? legs[0];
@@ -262,11 +279,7 @@ export function tradeToPosition(trade: PaperTrade): Position {
       (Object.values(PositionStatus) as string[]).includes(trade.legacyStatus)
         ? (trade.legacyStatus as PositionStatus)
         : paperToLegacyStatus(trade.status),
-    premiumCollected: isShort && entryFill
-      ? entryFill.price *
-          (trade.legs[0]?.multiplier ?? SHARES_PER_CONTRACT) *
-          (entryFill.quantity || trade.order.quantity)
-      : 0,
+    premiumCollected: premiumCollectedFor(trade),
     capitalRequired:
       trade.capitalRequired ??
       (isShort && primary

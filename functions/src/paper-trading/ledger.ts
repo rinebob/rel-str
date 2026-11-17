@@ -50,6 +50,13 @@ import {
 import { buildAccountId } from '@paper-trading/ids';
 import { isTerminalVariantKey, parseVariantKey } from './exits/registry';
 import { createLogger } from './engine/logging';
+import {
+  statsDeltasOnClose,
+  statsDeltasOnOpen,
+  statsInputFor,
+  type StatsIncrementFn,
+  type StatsIncrementInput,
+} from './engine/stats-increments';
 
 const logger = createLogger('Ledger');
 
@@ -194,6 +201,14 @@ export interface LedgerDeps {
    * tests.
    */
   onTradeLifecycle?: (trade: PaperTrade, event: CaptureEvent) => Promise<unknown>;
+  /**
+   * Stats rollup hook (#1563) — fired AFTER the fill transaction commits
+   * with the scopes/deltas for the transition that just landed. Same
+   * contract as `onTradeLifecycle`: post-commit only, a throwing impl is
+   * swallowed — a stats failure can never fail a fill. Wired by
+   * `repository.ledgerDeps`; absent in tests.
+   */
+  onStatsTransition?: StatsIncrementFn;
 }
 
 export interface ApplyFillResult {
@@ -291,14 +306,42 @@ async function fireLifecycleHook(
   trade: PaperTrade,
   event: CaptureEvent,
 ): Promise<void> {
+  await swallowPostCommit(`onTradeLifecycle(${trade.id} ${event})`, () =>
+    deps.onTradeLifecycle?.(trade, event),
+  );
+}
+
+/** Shared never-throw boundary for both post-commit hooks — the dep call
+ *  AND the thunk that builds its argument run inside the try, so a throw
+ *  anywhere in the hook path can't propagate post-commit. */
+async function swallowPostCommit(
+  label: string,
+  run: () => Promise<unknown> | undefined,
+): Promise<void> {
   try {
-    await deps.onTradeLifecycle?.(trade, event);
+    await run();
   } catch (err) {
     logger.error(
-      `onTradeLifecycle threw for trade ${trade.id} ${event}: ` +
+      `${label} threw post-commit: ` +
         (err instanceof Error ? err.message : String(err)),
     );
   }
+}
+
+/**
+ * Fire the stats-rollup hook post-commit — same never-throw boundary as
+ * `fireLifecycleHook`. `input` is a thunk so delta computation lands
+ * inside the swallow too. Intraday freshness only; the nightly recompute
+ * is authoritative over any drift.
+ */
+async function fireStatsHook(
+  deps: LedgerDeps,
+  trade: PaperTrade,
+  input: () => StatsIncrementInput,
+): Promise<void> {
+  await swallowPostCommit(`onStatsTransition(${trade.id})`, () =>
+    deps.onStatsTransition?.(input()),
+  );
 }
 
 // ── Entry ──────────────────────────────────────────────────────────────────
@@ -380,6 +423,9 @@ export async function applyEntryFill(
   // `order-filled` — engine open-pass and signal orders both come through
   // here. The hook is awaited (intake caps at 10s) and never throws.
   await fireLifecycleHook(deps, result.trade, CaptureEvent.ORDER_FILLED);
+  await fireStatsHook(deps, result.trade, () =>
+    statsInputFor(result.trade, statsDeltasOnOpen(result.trade)),
+  );
   return result;
 }
 
@@ -559,6 +605,9 @@ export async function applyPendingFill(
   });
   // PENDING→OPEN fill IS `order-filled` for staged signal cohorts.
   await fireLifecycleHook(deps, result.trade, CaptureEvent.ORDER_FILLED);
+  await fireStatsHook(deps, result.trade, () =>
+    statsInputFor(result.trade, statsDeltasOnOpen(result.trade)),
+  );
   return result;
 }
 
@@ -627,6 +676,9 @@ export async function applyExitFill(
   if (input.fill.role !== 'exit') {
     throw new Error(`fill role must be 'exit', got '${input.fill.role}'`);
   }
+  // Pre-transition status — the stats delta hands `assignedCount` back when
+  // an ASSIGNED trade closes (#1563).
+  let preCloseStatus: PaperTradeStatus | undefined;
   const result = await deps.transact(async (txn) => {
     const trade = await txn.getTrade(input.tradeId);
     if (!trade) {
@@ -635,6 +687,7 @@ export async function applyExitFill(
     if (trade.status !== PaperTradeStatus.OPEN && trade.status !== PaperTradeStatus.ASSIGNED) {
       throw new Error(`paper trade ${input.tradeId} is not open (status ${trade.status})`);
     }
+    preCloseStatus = trade.status;
     if (input.fill.quantity !== trade.order.quantity) {
       throw new Error(
         `partial exits not supported: fill quantity ${input.fill.quantity} != order quantity ${trade.order.quantity}`,
@@ -696,5 +749,12 @@ export async function applyExitFill(
   // Committed order-level exit → `position-closed` (single close seam —
   // eval triggers, signal ITM settlement, and manual closes all land here).
   await fireLifecycleHook(deps, result.trade, CaptureEvent.POSITION_CLOSED);
+  // → terminal CLOSED only — a partial exit would leave status OPEN and
+  // fires nothing (the ledger currently rejects partial exits outright).
+  if (result.trade.status === PaperTradeStatus.CLOSED) {
+    await fireStatsHook(deps, result.trade, () =>
+      statsInputFor(result.trade, statsDeltasOnClose(result.trade, preCloseStatus)),
+    );
+  }
   return result;
 }

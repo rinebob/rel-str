@@ -218,6 +218,27 @@ describe('runPaperStatsPass', () => {
     assert.equal(all.positions[0].id, 't-live');
   });
 
+  it('excludes PENDING trades — a pending ticket never held a position (#1563)', async () => {
+    // The adapter maps PENDING→OPEN, so without the skip a legacy pending
+    // doc would count as open AND then the fill-time increment counts it
+    // again — a guaranteed +1 drift. Contract keeps pendings on tickets.
+    const live = trade({ id: 't-live', symbol: 'QQQM' });
+    const pending = trade({
+      id: 't-pending',
+      status: PaperTradeStatus.PENDING,
+      symbol: 'AAPL',
+      cohortId: 'cohort-9',
+      variantKeys: ['trailing-8'],
+    });
+    const d = deps([live, pending]);
+    const res = await runPaperStatsPass(DATE, d);
+
+    assert.deepEqual(res.scopesWritten.sort(), ['all', 'src-STRATEGY', 'sym-QQQM']);
+    const all = d.written.find((w) => w.scope === 'all')!;
+    assert.equal(all.positions.length, 1);
+    assert.equal(all.positions[0].id, 't-live');
+  });
+
   it('still writes an all-scope doc when no trades exist', async () => {
     const d = deps([]);
     const res = await runPaperStatsPass(DATE, d);

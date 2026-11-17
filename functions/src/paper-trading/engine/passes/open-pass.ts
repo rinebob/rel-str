@@ -35,7 +35,6 @@ import {
   listPositionsByInstance,
   createPosition,
 } from '../position-repository';
-import { incrementStatsOnOpen } from '../stats-repository';
 import type { Position, PositionLeg, RawQuote } from '../types';
 import { PositionStatus } from '../types';
 import { createLogger } from '../logging';
@@ -375,8 +374,8 @@ export async function runOpenPass(
     );
   }
 
-  // 9. Incrementally update stats (premium + open count) for per-instance + ALL
-  await incrementStatsOnOpen(instanceId, premiumCollected);
+  // 9. Stats freshness comes through the ledger seam (#1563) —
+  //    createPosition→applyEntryFill fires the src-*/all/inst-* increment.
 
   // 10. Write result and return
   const result = buildOpenPassResult(

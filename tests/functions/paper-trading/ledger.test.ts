@@ -28,6 +28,7 @@ import {
   type LedgerDeps,
   type LedgerWritePlan,
 } from '../../../functions/src/paper-trading/ledger';
+import type { StatsIncrementInput } from '../../../functions/src/paper-trading/engine/stats-increments';
 
 const NOW = '2026-09-24T19:00:00.000Z';
 const FILL_DATE = '2026-09-24';
@@ -119,6 +120,7 @@ function makeDeps(
   overrides: {
     getAccount?: LedgerTxn['getAccount'];
     getTrade?: LedgerTxn['getTrade'];
+    onStatsTransition?: LedgerDeps['onStatsTransition'];
   } = {},
 ) {
   const plans: LedgerWritePlan[] = [];
@@ -129,6 +131,9 @@ function makeDeps(
         getTrade: overrides.getTrade ?? (async () => null),
         write: (plan) => plans.push(plan),
       }),
+    ...(overrides.onStatsTransition
+      ? { onStatsTransition: overrides.onStatsTransition }
+      : {}),
   };
   return { deps, plans };
 }
@@ -950,5 +955,230 @@ describe('cancelPendingTrade (#652/#666)', () => {
       /not found/i,
     );
     assert.equal(plans.length, 0);
+  });
+});
+
+describe('stats increments (#1563)', () => {
+  it('applyEntryFill fires open deltas post-commit — strategy scopes incl. inst', async () => {
+    const calls: StatsIncrementInput[] = [];
+    let committedWhenFired = false;
+    const { deps, plans } = makeDeps({
+      onStatsTransition: async (input) => {
+        committedWhenFired = plans.length === 1;
+        calls.push(input);
+      },
+    });
+
+    await applyEntryFill(
+      {
+        userId: 'user1',
+        tradeId: '260924-st-QQQM-CSP-020-30',
+        order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+        legs: [cspLeg()],
+        fill: {
+          fillId: 'f1',
+          role: 'entry',
+          date: FILL_DATE,
+          price: 2.1,
+          quantity: 1,
+          quoteSource: OptionQuoteSource.RH_MCP,
+        },
+        dims: {
+          source: PaperTradeSource.STRATEGY,
+          symbol: 'QQQM',
+          expression: 'CSP',
+          governingVariant: 'trailing-20',
+          strategyInstanceId: 'QQQM-CSP-020-30-D-1200',
+        },
+        now: NOW,
+      },
+      deps,
+    );
+
+    assert.equal(committedWhenFired, true);
+    assert.deepEqual(calls, [
+      {
+        source: PaperTradeSource.STRATEGY,
+        strategyInstanceId: 'QQQM-CSP-020-30-D-1200',
+        deltas: { openTradeCount: 1, totalPremiumCollected: 210 },
+      },
+    ]);
+  });
+
+  it('applyPendingFill fires open deltas — signal source, no inst scope', async () => {
+    const calls: StatsIncrementInput[] = [];
+    const { deps } = makeDeps({
+      getTrade: async () => pendingTrade(),
+      onStatsTransition: async (input) => {
+        calls.push(input);
+      },
+    });
+
+    await applyPendingFill(
+      {
+        userId: 'user1',
+        tradeId: '260924-sig-QQQM-CSP-030-45',
+        legs: [cspLeg()],
+        fill: {
+          fillId: 'entry-1',
+          role: 'entry',
+          date: FILL_DATE,
+          price: 2.1,
+          quantity: 1,
+          quoteSource: OptionQuoteSource.RH_MCP,
+        },
+        now: NOW,
+      },
+      deps,
+    );
+
+    assert.deepEqual(calls, [
+      {
+        source: PaperTradeSource.SIGNAL,
+        deltas: { openTradeCount: 1, totalPremiumCollected: 210 },
+      },
+    ]);
+  });
+
+  it('applyExitFill fires close deltas — realized carries the doc value', async () => {
+    const calls: StatsIncrementInput[] = [];
+    const { deps } = makeDeps({
+      getTrade: async () => openTrade(),
+      onStatsTransition: async (input) => {
+        calls.push(input);
+      },
+    });
+
+    await applyExitFill(
+      {
+        userId: 'user1',
+        tradeId: '260924-st-QQQM-CSP-020-30',
+        fill: {
+          fillId: 'f2',
+          role: 'exit',
+          date: '2026-10-01',
+          price: 0.5,
+          quantity: 1,
+          quoteSource: OptionQuoteSource.RH_MCP,
+        },
+        now: '2026-10-01T20:00:00.000Z',
+      },
+      deps,
+    );
+
+    assert.deepEqual(calls, [
+      {
+        source: PaperTradeSource.STRATEGY,
+        deltas: { openTradeCount: -1, closedTradeCount: 1, totalRealizedPnl: 160 },
+      },
+    ]);
+  });
+
+  it('applyExitFill on a previously-ASSIGNED trade decrements assignedCount', async () => {
+    // Recompute parity: assignedCount counts trades CURRENTLY in ASSIGNED —
+    // closing one must hand the count back, or increments drift until the
+    // nightly recompute corrects it.
+    const calls: StatsIncrementInput[] = [];
+    const { deps } = makeDeps({
+      getTrade: async () => openTrade({ status: PaperTradeStatus.ASSIGNED }),
+      onStatsTransition: async (input) => {
+        calls.push(input);
+      },
+    });
+
+    await applyExitFill(
+      {
+        userId: 'user1',
+        tradeId: '260924-st-QQQM-CSP-020-30',
+        fill: {
+          fillId: 'f2',
+          role: 'exit',
+          date: '2026-10-01',
+          price: 0.5,
+          quantity: 1,
+          quoteSource: OptionQuoteSource.RH_MCP,
+        },
+        now: '2026-10-01T20:00:00.000Z',
+      },
+      deps,
+    );
+
+    assert.deepEqual(calls, [
+      {
+        source: PaperTradeSource.STRATEGY,
+        deltas: {
+          openTradeCount: -1,
+          closedTradeCount: 1,
+          assignedCount: -1,
+          totalRealizedPnl: 160,
+        },
+      },
+    ]);
+  });
+
+  it('createPendingTrade and cancelPendingTrade fire nothing', async () => {
+    const calls: StatsIncrementInput[] = [];
+    const onStatsTransition = async (input: StatsIncrementInput) => {
+      calls.push(input);
+    };
+    const create = makeDeps({ onStatsTransition });
+    await createPendingTrade(
+      {
+        userId: 'user1',
+        tradeId: '260924-sig-QQQM-CSP-030-45',
+        order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+        dims: {
+          source: PaperTradeSource.SIGNAL,
+          symbol: 'QQQM',
+          expression: 'CSP',
+          governingVariant: 'trailing-8',
+          variantKeys: ['trailing-8'],
+        },
+        now: NOW,
+      },
+      create.deps,
+    );
+    const cancel = makeDeps({
+      getTrade: async () => pendingTrade(),
+      onStatsTransition,
+    });
+    await cancelPendingTrade(
+      { userId: 'user1', tradeId: '260924-sig-QQQM-CSP-030-45', now: NOW },
+      cancel.deps,
+    );
+    assert.equal(calls.length, 0);
+  });
+
+  it('a throwing stats hook cannot fail the fill', async () => {
+    const { deps } = makeDeps({
+      onStatsTransition: async () => {
+        throw new Error('stats write exploded');
+      },
+    });
+    const result = await applyEntryFill(
+      {
+        userId: 'user1',
+        tradeId: '260924-st-QQQM-CSP-020-30',
+        order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+        legs: [cspLeg()],
+        fill: {
+          fillId: 'f1',
+          role: 'entry',
+          date: FILL_DATE,
+          price: 2.1,
+          quantity: 1,
+          quoteSource: OptionQuoteSource.RH_MCP,
+        },
+        dims: {
+          source: PaperTradeSource.STRATEGY,
+          symbol: 'QQQM',
+          expression: 'CSP',
+          governingVariant: 'trailing-20',
+        },
+        now: NOW,
+      },
+      deps,
+    );
+    assert.equal(result.trade.status, PaperTradeStatus.OPEN);
   });
 });

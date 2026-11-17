@@ -34,6 +34,7 @@ import {
 } from '@paper-trading/contracts';
 import { paperDocRef, paperItemsRef } from './collections';
 import type { LedgerDeps, LedgerTxn } from './ledger';
+import { incrementStatsOnTransition } from './engine/stats-increments';
 import { rawQuoteToDoc } from './engine/trade-adapter';
 import {
   getInstance as getStrategyInstance,
@@ -403,6 +404,9 @@ export function ledgerDeps(db: Firestore): LedgerDeps {
         };
         return work(ctx);
       }),
+    // Stats rollup hook (#1563) — post-commit blind increments into the
+    // canonical scopes; self-swallowing, so a stats outage can't fail a fill.
+    onStatsTransition: (input) => incrementStatsOnTransition(input),
   };
 }
 

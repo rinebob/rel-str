@@ -121,8 +121,14 @@ export async function runPaperStatsPass(
   const byScope = new Map<string, PaperTrade[]>([[statsScopeAll(), []]]);
   for (const trade of trades) {
     // A cancelled trade never held a position — it must not appear in
-    // rollups (counts or P&L) under any scope.
-    if (trade.status === PaperTradeStatus.CANCELLED) continue;
+    // rollups (counts or P&L) under any scope. PENDING is excluded too:
+    // the contract keeps pending expressions on order tickets, the
+    // account convention doesn't count them, and counting them open here
+    // would double-count against the fill-time increment (#1563).
+    if (
+      trade.status === PaperTradeStatus.CANCELLED ||
+      trade.status === PaperTradeStatus.PENDING
+    ) continue;
     for (const scope of tradeScopes(trade)) {
       const bucket = byScope.get(scope);
       if (bucket) bucket.push(trade);

@@ -169,47 +169,6 @@ export async function defaultReadStatsDoc(scope: string): Promise<StrategyStats 
   return stats ? paperStatsToLegacy(stats) : null;
 }
 
-// ── Incremental update (open pass) ───────────────────────────────────────────
-
-/**
- * Incrementally update stats when a new position is opened — increments
- * `totalPremiumCollected` and `openPositionCount` for both the per-instance
- * and ALL scopes. Uses a Firestore transaction so the increment is atomic
- * and consistent across concurrent opens.
- */
-export async function incrementStatsOnOpen(
-  instanceId: string,
-  premiumCollected: number,
-): Promise<void> {
-  const now = new Date().toISOString();
-  // One transaction for both scopes — a partial failure can't leave the
-  // per-instance and ALL scopes diverged. (Reads must precede writes.)
-  await db.runTransaction(async (tx) => {
-    const refs = [instanceId, 'ALL'].map((scope) => statsDocRef(scope));
-    const snaps = await Promise.all(refs.map((ref) => tx.get(ref)));
-    for (const [i, scope] of [instanceId, 'ALL'].entries()) {
-      const existing = snaps[i].exists
-        ? (snaps[i].data() as Partial<PaperStats>)
-        : undefined;
-      tx.set(refs[i],
-        {
-          kind: PaperTradingKind.STATS,
-          scope,
-          totalPremiumCollected:
-            (existing?.totalPremiumCollected ?? 0) + premiumCollected,
-          openTradeCount: (existing?.openTradeCount ?? 0) + 1,
-          totalRealizedPnl: existing?.totalRealizedPnl ?? 0,
-          totalUnrealizedPnl: existing?.totalUnrealizedPnl ?? 0,
-          closedTradeCount: existing?.closedTradeCount ?? 0,
-          assignedCount: existing?.assignedCount ?? 0,
-          expiredWorthlessCount: existing?.expiredWorthlessCount ?? 0,
-          maxDrawdown: existing?.maxDrawdown ?? 0,
-          equityCurve: existing?.equityCurve ?? [],
-          createdAt: existing?.createdAt ?? now,
-          updatedAt: now,
-        },
-        { merge: true },
-      );
-    }
-  });
-}
+// Incremental stats updates live in `./stats-increments.ts` (#1563) —
+// the ledger seam fires blind FieldValue.increment merge-sets post-commit;
+// this module owns only the read path and the nightly recompute.
