@@ -83,6 +83,34 @@ sortable/filterable instance table, start/stop actions, two create dialogs
 
 1. **F1 — Route/nav migration + store + table shell** — route rename,
    callers migrated, tabs skeleton, instances streaming.
+
+   **As-built (#1540):** `AppRoutes.STRATEGY_BUILDER` → `STRATEGY_MANAGE`
+   (`'options/strategy/manage'`); PAGE_INFO title "Strategy Manage" (icon
+   `build` retained — no icon was specified); nav item
+   `strategy-manage`/"Manage". Route loads
+   `pages/strategy-manage/strategy-manage.component` (`StrategyManageComponent`)
+   — new dir, not a `git mv` rename, because the page is a fresh skeleton
+   rather than a renamed legacy component. Old path 404s: no shim,
+   `core-routes.spec` retired-list entry pins it. Callers migrated:
+   options-strategy-dashboard "Manage Strategies" link, paper-trading
+   "Strategy Manage" link + empty-state copy, `nav-sections.spec`,
+   `core-routes.spec` (registered + retired + AppRoutes map).
+   `strategy-manage.service.ts` streams `collectionData` on the shared
+   `st-strategy-instances` root with the single `userId` `where` —
+   manage-shape (`runState` ∈ vocabulary) and soft-delete filters run
+   client-side so no composite index is needed, mirroring the BE reader's
+   `runState` discriminator. `strategy-manage.store.ts` is the signal
+   store: `instances`/`isLoading`/`error` + `paperInstances`/`realInstances`
+   computeds. Page skeleton: `.dse-tabs` tab bar (the analysis-page
+   pattern) over a dense-table shell — id/symbol/variant/runState
+   columns; the full column set + sort/filter + badges is F2.
+   **Deviation:** the legacy `strategy-builder-form.component.*`,
+   `strategy-builder.store.*`, and `strategy-builder.service.*` were NOT
+   deleted — the form carries a foreign session's uncommitted
+   curated-variant edits (`PickerVariantFamily`), and its spec depends on
+   the legacy store. Only the routed page component was removed; the
+   remaining legacy files' cleanup defers to that session/follow-up.
+   Specs: service 7, store 6, component 8.
 2. **F2 — Table complete** — columns, sort/filter, runState badges,
    position-status join, start/stop actions.
 3. **F3 — Create New Instance dialog** — variant picker, mode/stop/trigger
