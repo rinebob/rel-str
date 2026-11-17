@@ -263,6 +263,17 @@ export const OptionsContractViewerStore = signalStore(
       });
     },
 
+    /** Orphan whatever contract load is in flight — the seq bump makes
+     *  its late response/error drop instead of repainting a contract the
+     *  user just removed. Unconditional: any loadContractInternal call in
+     *  flight is superseded, not just a focused one (an emptied set has
+     *  no view for a late response to land in anyway). Called by
+     *  clearPlotted / an emptied removePlotted (#1516); resetSession
+     *  inlines the same bump for symbol swaps. */
+    orphanContractLoad(): void {
+      contractLoadSeq++;
+    },
+
     setOccIdInput(value: string): void {
       patchState(store, { occIdInput: value });
     },

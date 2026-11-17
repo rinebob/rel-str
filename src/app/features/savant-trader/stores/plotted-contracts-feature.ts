@@ -73,7 +73,23 @@ interface PlottedSignals {
   /** Underlying-bars feature: refetches the set's context window when the
    *  last requested range no longer covers it (no-op otherwise). */
   ensureContextCoverage(): void;
+  /** Viewer slice: orphans any in-flight contract load so a late
+   *  response can't resurrect a contract the user just cleared (#1516). */
+  orphanContractLoad(): void;
 }
+
+/** The single-contract viewer slice to reset when the plotted set
+ *  empties — left populated, the series projection repaints the last
+ *  contract whenever the set is empty (the resetSession comment
+ *  documents this hole). Underlying bars and pad days stay: they're
+ *  chart context, not contract surface. */
+const EMPTY_CONTRACT_VIEW = {
+  contractData: null,
+  occIdInput: '',
+  loading: false,
+  error: null,
+  currentSearchIndex: -1,
+};
 
 const asPlotted = (s: unknown): PlottedSignals => s as PlottedSignals;
 
@@ -331,13 +347,30 @@ export function withPlottedContracts() {
           pinnedContractId: pinned === contractId ? null : pinned,
           chartFocusContractId: focused === contractId ? null : focused,
         });
+        // An emptied set must not leave contractData painted — the series
+        // projection draws it whenever the set is empty, so the just-
+        // removed contract would ghost on the chart (#1516). The seq bump
+        // orphans an in-flight focused load for the same reason.
+        if (!Object.keys(next).length) {
+          s.orphanContractLoad();
+          patchState(store, EMPTY_CONTRACT_VIEW);
+        }
         // Removing the focused chip returns to the set — restore the window
         // the drill-down narrowed (harmless no-op when nothing narrowed).
         s.ensureContextCoverage();
       },
 
       clearPlotted(): void {
-        patchState(store, { ...initialPlottedState });
+        // Same empty-set hole as removePlotted, plus the seq bump so an
+        // in-flight focused load can't resurrect a cleared contract
+        // (#1516). displayWindow is a view preference, not set
+        // membership — it survives the reset.
+        s.orphanContractLoad();
+        patchState(store, {
+          ...initialPlottedState,
+          displayWindow: s.displayWindow(),
+          ...EMPTY_CONTRACT_VIEW,
+        });
       },
 
       setDisplayWindow(win: DisplayWindow): void {

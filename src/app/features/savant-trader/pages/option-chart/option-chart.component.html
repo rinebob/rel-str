@@ -546,13 +546,6 @@
       </div>
 
 
-      @if (store.loading()) {
-      <div class="loading-section">
-        <span class="dse-spinner" style="--spinner-size: 40px" role="progressbar" aria-label="Loading"></span>
-        <span>Loading contract data...</span>
-      </div>
-      }
-
       @if (store.error()) {
       <div class="error-section">
         <span class="flag-chip err">{{ store.error() }}</span>
@@ -618,6 +611,17 @@
           <span class="rejection-reason">{{ rejectionReasonLabel(r.reason) }}</span>
         </div>
         }
+      </div>
+      }
+      @if (chipContracts().length > 0) {
+      <div class="chips-panel-head">
+        <span class="plotted-count">{{ store.plottedList().length }} plotted</span>
+        <button
+          type="button"
+          class="plotted-clear-all"
+          (click)="onClearPlotted()"
+          title="Remove every plotted contract"
+        >Clear all</button>
       </div>
       }
       <div class="plotted-chips"

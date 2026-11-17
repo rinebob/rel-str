@@ -488,4 +488,15 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   onChipRemove(contract: PlottedContract): void {
     this.store.removePlotted(contract.entry.contractId);
   }
+
+  /** Clear all clears the whole set surface — chips, pin/hover/focus,
+   *  loaded contract data, the send-skip notice, and the textarea. The
+   *  store's own occIdInput is a shadow field: the visible textarea
+   *  binds page.occIdInput and the notice lives on the load service, so
+   *  only this handler can reach all three (#1579 UAT). */
+  onClearPlotted(): void {
+    this.store.clearPlotted();
+    this.page.occIdInput = '';
+    this.load.rejectedEntries.set([]);
+  }
 }

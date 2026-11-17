@@ -324,6 +324,16 @@ describe('plotted contracts feature', () => {
     expect(store.hoveredContractId()).toBeNull();
   });
 
+  it('clearPlotted keeps the display-window preference — a view setting, not set membership (#1516)', async () => {
+    const { store } = setup();
+    store.loadPlotted([entry(QQQ_PUT)]);
+    await flush();
+    store.setDisplayWindow('position');
+
+    store.clearPlotted();
+    expect(store.displayWindow()).toBe('position');
+  });
+
   it('toggles the display window and hover state', () => {
     const { store } = setup();
     store.setDisplayWindow('lifetime');
@@ -895,6 +905,84 @@ describe('plotted contracts feature', () => {
 
       store.clearPlotted();
       expect(store.chartFocusContractId()).toBeNull();
+    });
+
+    it('clearPlotted clears the focused contract\'s data — an empty set must not repaint it (#1516)', async () => {
+      const { store } = setup();
+      store.loadPlotted([entry(QQQ_PUT)]);
+      await flush();
+      store.focusPlotted(QQQ_PUT);
+      await flush();
+
+      store.clearPlotted();
+      // The series projection draws contractData whenever the set is
+      // empty — leaving it would ghost the just-cleared contract on the
+      // chart (the resetSession comment documents this hole).
+      expect(store.contractData()).toBeNull();
+      expect(store.occIdInput()).toBe('');
+      expect(store.currentSearchIndex()).toBe(-1);
+    });
+
+    it('clearPlotted orphans an in-flight focused load — its late response is dropped (#1516)', async () => {
+      const subject = new Subject<PartnerHistoricalOptionsContractV2Response>();
+      const getHistorical = jest
+        .fn()
+        .mockImplementationOnce((_s: string, cid: string) =>
+          of(contractResponse(cid, ['2026-06-01'])),
+        )
+        .mockImplementation(() => subject.asObservable());
+      const { store } = setup(getHistorical);
+      store.loadPlotted([entry(QQQ_PUT)]);
+      await flush();
+
+      store.focusPlotted(QQQ_PUT); // focused fetch in flight
+      expect(store.loading()).toBe(true);
+
+      store.clearPlotted();
+      subject.next(contractResponse(QQQ_PUT, ['2026-06-01']));
+      await flush();
+
+      // No seq bump = the cleared contract resurrects on the chart.
+      expect(store.contractData()).toBeNull();
+      expect(store.loading()).toBe(false);
+    });
+
+    it('removePlotted emptying the set clears the painted contract too (#1516)', async () => {
+      const { store } = setup();
+      store.loadPlotted([entry(QQQ_PUT)]);
+      await flush();
+      store.focusPlotted(QQQ_PUT);
+      await flush();
+
+      store.removePlotted(QQQ_PUT);
+      expect(store.plottedContracts()).toEqual({});
+      expect(store.contractData()).toBeNull();
+    });
+
+    it('removePlotted with contracts still plotted does NOT orphan an in-flight foreign load (#1516)', async () => {
+      const FOREIGN = 'SPY250718C00550000';
+      const subject = new Subject<PartnerHistoricalOptionsContractV2Response>();
+      const getHistorical = jest
+        .fn()
+        .mockImplementation((_s: string, cid: string) =>
+          cid === FOREIGN ? subject.asObservable() : of(contractResponse(cid, ['2026-06-01'])),
+        );
+      const { store } = setup(getHistorical);
+      store.loadPlotted([entry(QQQ_PUT), entry(QQQ_CALL)]);
+      await flush();
+
+      // A foreign single-contract load in flight — the user may still
+      // want it; only an emptied set orphans loads.
+      store.loadContract(FOREIGN);
+      store.clearChartFocus(); // back to the set view
+      store.removePlotted(QQQ_PUT); // set shrinks but stays non-empty
+
+      subject.next(contractResponse(FOREIGN, ['2026-06-01']));
+      await flush();
+
+      expect(store.plottedContracts()[QQQ_PUT]).toBeUndefined();
+      expect(store.plottedContracts()[QQQ_CALL]).toBeDefined();
+      expect(store.contractData()?.contractID).toBe(FOREIGN);
     });
   });
 });

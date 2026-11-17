@@ -504,15 +504,6 @@
   }
 }
 
-.loading-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  color: var(--mat-sys-primary);
-  flex: 0 0 auto;
-}
-
 .error-section {
   padding: 8px 12px;
   flex: 0 0 auto;
@@ -921,6 +912,34 @@
   padding: 8px;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.chips-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .plotted-count {
+    font-size: 10px;
+    color: var(--mat-sys-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .plotted-clear-all {
+    border: none;
+    background: none;
+    padding: 2px 4px;
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--mat-sys-primary);
+    cursor: pointer;
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--mat-sys-surface-container-high);
+    }
+  }
 }
 
 .plotted-chips {

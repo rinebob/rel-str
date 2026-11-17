@@ -216,6 +216,96 @@ describe('OptionChartComponent — panel toggle (DOM, #1423)', () => {
     expect(chip().querySelector('.chip-pin-icon')).toBeNull();
   });
 
+  it('Clear all empties the whole set in one click — chips, bookmark, panel (#1516)', async () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const store = fixture.componentInstance.store;
+
+    // Nothing plotted → no control.
+    expect(el.querySelector('.plotted-clear-all')).toBeNull();
+
+    await store.loadPlotted([
+      { contractId: 'QQQ260619P00470000', openDate: null },
+      { contractId: 'QQQ260619C00480000', openDate: null },
+    ]);
+    await fixture.whenStable();
+
+    // Pin one chip — the bookmark must die with the set.
+    (el.querySelector('.plotted-chip .chip-main') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(store.pinnedContractId()).toBe('QQQ260619P00470000');
+    expect(el.querySelectorAll('.plotted-chip').length).toBeGreaterThan(0);
+
+    const clear = el.querySelector('.plotted-clear-all') as HTMLButtonElement;
+    expect(clear).toBeTruthy();
+    expect(el.querySelector('.chips-panel-head')!.textContent).toContain('2 plotted');
+
+    clear.click();
+    await fixture.whenStable();
+
+    // Set + bookmark + focus gone; the whole panel unmounts (no
+    // rejections in this fixture to hold it open).
+    expect(store.plottedList().length).toBe(0);
+    expect(store.pinnedContractId()).toBeNull();
+    expect(el.querySelector('aside.chips-panel')).toBeNull();
+  });
+
+  it('Clear all renders while drilled and clears the focused contract too (#1579 UAT)', async () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const store = fixture.componentInstance.store;
+    await store.loadPlotted([
+      { contractId: 'QQQ261016C00710000', openDate: null },
+      { contractId: 'QQQ261016P00710000', openDate: null },
+    ]);
+    await fixture.whenStable();
+
+    // Drill in — the panel narrows to the focused chip but the set's
+    // head row (count + Clear all) must stay.
+    store.loadContract('QQQ261016C00710000', store.contractLength());
+    await fixture.whenStable();
+    expect(store.chartFocusContractId()).toBe('QQQ261016C00710000');
+    expect(fixture.componentInstance.chipContracts().length).toBe(1);
+    expect(el.querySelector('.chips-panel-head')!.textContent).toContain('2 plotted');
+    expect(el.querySelector('.plotted-clear-all')).toBeTruthy();
+
+    // A focused-only chip (no plotted set) still gets the clear
+    // affordance — before this fix the head row was absent.
+    store.clearPlotted();
+    await fixture.whenStable();
+    store.loadContract('QQQ261016C00710000', store.contractLength());
+    await fixture.whenStable();
+    expect(store.plottedList().length).toBe(0);
+    expect(el.querySelector('.plotted-clear-all')).toBeTruthy();
+
+    (el.querySelector('.plotted-clear-all') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(store.chartFocusContractId()).toBeNull();
+    expect(el.querySelector('aside.chips-panel')).toBeNull();
+  });
+
+  it('Clear all clears the textarea and the skip notice along with the set (#1579 UAT)', async () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const store = fixture.componentInstance.store;
+    await store.loadPlotted([
+      { contractId: 'QQQ261016C00710000', openDate: null },
+    ]);
+    fixture.componentInstance.occIdInput = 'QQQ261016C00710000';
+    fixture.componentInstance.rejectedEntries.set([
+      { raw: 'GARBAGE-ID', reason: 'invalid-contract' },
+    ]);
+    await fixture.whenStable();
+    expect(el.querySelector('.rejection-notice')).toBeTruthy();
+
+    (el.querySelector('.plotted-clear-all') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    // The notice is panel content, not a persistent banner — it goes
+    // with the set, and the input field resets so a cleared send can't
+    // look still-pending.
+    expect(fixture.componentInstance.rejectedEntries().length).toBe(0);
+    expect(fixture.componentInstance.occIdInput).toBe('');
+    expect(el.querySelector('aside.chips-panel')).toBeNull();
+  });
+
   it('accordion heads collapse and re-expand their panels', async () => {
     const el: HTMLElement = fixture.nativeElement;
     const catalogPanel = el.querySelector('.ds-panel:has(#acc-head-catalog)')!;
