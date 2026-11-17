@@ -118,6 +118,38 @@ callables in v1). BE consumes them in passes.
   follows `ContractListRow` conventions (one row per leg contract;
   backtest side adopts the id format — separate thread).
 
+**§4 as-built (#1543):** `passes/contract-list-writer.ts` emits
+**v1 pick rows** (`ContractListPickRowV1`, `kind:'pick'`), one per
+resolved option leg — the analysis worker still filters
+`kind === 'pick'` rows (the BE v2 consumer migration is a separate
+task), so v2 `position` rows would resolve-but-yield-zero-trades.
+`runId` = instanceId; `status: 'success'` from first write (the doc is
+analyzable at any point — rows accrue, nothing to wait on);
+`pickDocMeta` synthesized with leg 0's coordinate + `gridVersion: 0`
+(no SA grid behind a live open — lossy for multi-leg by design, and
+the worker never reads it). `repeatsPrevious` uses **same-index**
+comparison against the previous open's leg group — the meaningful
+"same contract rolled forward" signal for multi-leg; literal
+v1-previous-row semantics would compare leg i to leg i−1 (always
+false). Missing quote numerics write `NaN` (never a fabricated `0`);
+`underlyingClose` carries the live equity quote at entry. The pass
+invokes it via a new `appendContractListRows` dep AFTER the position
+mints — a write failure warns + continues.
+
+**Post-review hardening:** the doc update is a single `upsertDoc` seam
+— prod runs read-modify-write inside `runTransaction` (concurrent
+appends can't drop leg groups; complete `set` clears stale `error`).
+The append is idempotent per `(entryDate, contractId)` and the pass's
+`already_opened_today` path re-attempts a lost group from persisted
+position legs (greeks → NaN) — the repair story for a post-mint
+append failure. The pass bounds every append at 30 s so a wedged MCP
+call can't starve the serial instance loop or skip the result write.
+`resolveOptionLeg` dedupes same-OCC instruments so a candidate's mark
+and greeks always come from the same quote. `RhResolvedQuote` was
+extended with `bid`/`ask`/`iv`/`volume`/`openInterest` to feed the
+rows; `RhMcpToolCaller` hoisted into `rh-mcp-shapes`. `verify
+strat-manage-contract-list-1543` covers the surface.
+
 ### 5. Existing passes, unchanged behavior
 
 - mark/settlement/stats passes keep running against `st-paper-trading`
