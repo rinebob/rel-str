@@ -16,7 +16,7 @@ import type {
   OvernightDeltaGridPoint,
   StrategyInstanceConfig,
 } from '@options-strategy-engine/contracts';
-import { parseOccContractId } from '@options/common';
+import { parseOccContractId, StrategyFrequency } from '@options/common';
 import { TradeSide } from '@common';
 import { db } from '../../../firebase-admin-init';
 import { strategyInstanceDailyAnalysisRef } from '../strategy-instance-repository';
@@ -220,7 +220,10 @@ export async function runOpenPass(
   //    instance's positions; prior open positions do NOT block the
   //    ladder. Gate semantics live in open-pass-gates.ts.
   const positions = await listPositions(instanceId);
-  const gate = evaluateOpenGates(positions, config, date);
+  const gate = evaluateOpenGates(positions, {
+    cadenceDays: config.frequency === StrategyFrequency.WEEKLY ? 7 : 1,
+    maxOpenPositions: config.maxOpenPositions,
+  }, date);
   if (gate) {
     const result = buildOpenPassResult(
       simulation,

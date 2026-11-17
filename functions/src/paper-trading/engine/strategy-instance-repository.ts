@@ -265,6 +265,9 @@ async function listInstances(
 ): Promise<StStrategyInstance[]> {
   const snap = await instancesCollection(firestoreDb).get();
   return snap.docs
+    // Manage-domain docs (#1539) share this root — `runState` marks them;
+    // they'd fail legacy shape checks and warn-spam every tick.
+    .filter((doc) => doc.data().runState === undefined)
     .map((doc) => normalizeInstance(doc.id, doc.data()))
     .filter(
       (i): i is StStrategyInstance =>

@@ -9,11 +9,20 @@
  * `createPosition`. Only OPEN positions count toward `maxOpenPositions`.
  */
 
-import type { StrategyInstanceConfig } from '@options-strategy-engine/contracts';
-import { StrategyFrequency } from '@options/common';
 import { calendarDaysBetween } from '../../../common/pt-date-utils';
 import type { Position } from '../types';
 import { PositionStatus } from '../types';
+
+/** Cadence + cap inputs — decoupled from the legacy instance shape (#1539)
+ *  so the manage open pass reuses the same pure evaluation with its
+ *  fixed daily cadence. */
+export interface OpenGateConfig {
+  /** Calendar days between opens — 7 for WEEKLY legacy configs, 1 for
+   *  DAILY and for every manage trigger (the noon routine is the only
+   *  cadence; signal gating happens upstream of this check). */
+  cadenceDays: number;
+  maxOpenPositions?: number;
+}
 
 export type OpenGateSkipReason =
   | 'already_opened_today'
@@ -34,10 +43,10 @@ export interface OpenGateDecision {
 /** Returns the blocking gate, or null when the pass may proceed. */
 export function evaluateOpenGates(
   positions: Position[],
-  config: StrategyInstanceConfig,
+  config: OpenGateConfig,
   date: string,
 ): OpenGateDecision | null {
-  const cadenceDays = config.frequency === StrategyFrequency.WEEKLY ? 7 : 1;
+  const { cadenceDays } = config;
   // Newest openDate at-or-before `date` (the list is not relied on for
   // sort order — reduce to the max matching openDate).
   const lastOpened = positions.reduce<Position | null>(
