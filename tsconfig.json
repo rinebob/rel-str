@@ -54,7 +54,8 @@
       "@flex-chart/indicator-visuals": ["./shared/flex-chart-indicator-visuals.ts"],
       "@manage/variant-contracts": ["./shared/manage-variant-contracts.ts"],
       "@manage/instance-contracts": ["./shared/manage-instance-contracts.ts"],
-      "@manage/variant-catalog": ["./shared/manage-variant-catalog.ts"]
+      "@manage/variant-catalog": ["./shared/manage-variant-catalog.ts"],
+      "@manage/instance-id": ["./shared/manage-instance-id.ts"]
     },
     "importHelpers": true,
     "target": "ES2022",
