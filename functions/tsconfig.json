@@ -30,6 +30,7 @@
       "@paper-trading/analysis-csv": ["../shared/analysis-csv.ts"],
       "@lifecycle/contracts": ["../shared/lifecycle-contracts.ts"],
       "@lifecycle/tree": ["../shared/lifecycle-tree.ts"],
+      "@lifecycle/labels": ["../shared/lifecycle-labels.ts"],
       "@st/collections": ["../shared/st-collections.ts"],
       "@st/ids": ["../shared/st-ids.ts"],
       "@st/types": ["../shared/st-types.ts"],

@@ -43,6 +43,7 @@ module.exports = {
     '^@portfolio-allocation/utils$': '<rootDir>/shared/portfolio-allocation-utils.ts',
     '^@lifecycle/contracts$': '<rootDir>/shared/lifecycle-contracts.ts',
     '^@lifecycle/tree$': '<rootDir>/shared/lifecycle-tree.ts',
+    '^@lifecycle/labels$': '<rootDir>/shared/lifecycle-labels.ts',
     '^@st/collections$': '<rootDir>/shared/st-collections.ts',
     '^@st/ids$': '<rootDir>/shared/st-ids.ts',
     '^@st/types$': '<rootDir>/shared/st-types.ts',
