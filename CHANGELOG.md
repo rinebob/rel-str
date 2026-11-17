@@ -27,6 +27,8 @@
 
 - [GitHub read-only issue UI] 619-1527_BE-IMPL-DEV-TOOLS: Root filter ^Topic: + hits-seen truncation — search hits filtered through isTopicRoot pre-BFS (fakes can't steal via dedup), unclassifiable hits count as missed, 4 new specs
 - [GitHub read-only issue UI] 619-1527_BE-IMPL-DEV-TOOLS: Live verify root-filter coverage — 639 gains ^Topic:-root + inside-tree checks (#697/#713/#1509), 640 gains sections-absence check
+- [GitHub read-only issue UI] 619-1528_BE-IMPL-DEV-TOOLS: listRepoLabels — injectable githubRest transport (shared GitHubApiError/rate-limit envelope, 2022-11-28 header) + paged repo-label read (per_page=100, PAGE_CAP=50, non-array guard) → {labels: RepoLabel[], fetchedAt} contract projection; resolveSupportedRepo shared gate; listRepoLabels-only deploy slice (write callables land with #1529+#1526)
+- [GitHub read-only issue UI] 619-1528_BE-IMPL-DEV-TOOLS: 10 read specs (validation/paging/malformed/error-map/fetchedAt) + test:gh-lifecycle registration + 1528-labels-read verify (live both repos, independent gh label list count) + CallableRequest sibling fix
 - [Strategy Builder UI] 137-1545_BE-IMPL-STRAT-MANAGE: Manual open-pass callable manageOpenPassManual — auth-first runAnalysisStart-convention core + onCall wrapper (OPTIONS_STRATEGY_ALLOWED_ORIGINS, 512MiB/120s/us-central1, RH_CREDENTIAL_BUNDLE); not-found/not_active/non_paper gates before any RH session; due-ness delegated to runManageOpenPass (deterministic {instanceId}-{marketDate} id); already-exists race → already_opened_today no-op; session close in finally; failures → internal
 - [Strategy Builder UI] 137-1545_BE-IMPL-STRAT-MANAGE: Manual open callable specs (13) + strat-manage-open-callable-1545 verify script (15 checks) + run-all/README registry entries
 - [Strategy Builder UI] 137-1545_DOCS-STRAT-MANAGE: IMPL §6 as-built + code review (PASS, 2 axes — 3 minors fixed in-cycle) + UAT (Complete, #1591) + changelog
@@ -39,6 +41,7 @@
 - [Trading Indicator Library] 261-873_SHARED-IMPL-INDICATOR-LIB: Pine Anchored VWAP refined to web causal semantics — draw-from-trigger rendering over prefix-sums, supersession dot reconciliation + predecessor re-ending/resurrection (lastFired/popPred), same-index collapse, xloc.bar_time anchors, era first-cap history, admit-all window accounting
 
 - [GitHub read-only issue UI] 619-1527_DOCS-DEV-TOOLS: #1527 code review (PASS, 2 passes) + UAT (Complete, #1585) + changelog
+- [GitHub read-only issue UI] 619-1528_DOCS-DEV-TOOLS: #1528 code review (PASS, 3 axes + second pass — spec registration/TS2307/deploy-slice remediated) + UAT (Complete, #1592) + changelog
 
 ## [2026-11-16]
 
