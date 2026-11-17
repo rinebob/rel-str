@@ -13,6 +13,7 @@ import {
   PortfolioSnapshot,
   EquityPosition,
   OptionPosition,
+  OptionInstrument,
   EquityQuote,
   OptionQuote,
   BrokerOrder,
@@ -54,14 +55,19 @@ export function makeEquityPosition(overrides: Partial<EquityPosition> = {}): Equ
 }
 
 export function makeOptionPosition(overrides: Partial<OptionPosition> = {}): OptionPosition {
+  // Post-PARSE defaults (optionType/strikePrice empty — the join fills
+  // them), per-share averageCost — a spec that wants joined fields must
+  // say so, or a broken join could pass silently.
   return {
     instrumentId: 'inst-1',
     chainSymbol: 'AAPL',
-    optionType: 'call',
-    strikePrice: 150,
+    optionType: '',
+    strikePrice: null,
+    side: 'long',
     expirationDate: '2026-12-15',
     quantity: 1,
-    averageCost: 500,
+    averageCost: 5,
+    multiplier: 100,
     ...overrides,
   };
 }
@@ -71,6 +77,18 @@ export function makeEquityQuote(overrides: Partial<EquityQuote> = {}): EquityQuo
     symbol: 'AAPL',
     lastTradePrice: 155,
     previousClose: 152,
+    ...overrides,
+  };
+}
+
+export function makeOptionInstrument(overrides: Partial<OptionInstrument> = {}): OptionInstrument {
+  return {
+    instrumentId: 'inst-1',
+    chainId: 'chain-1',
+    chainSymbol: 'AAPL',
+    expirationDate: '2026-12-15',
+    strikePrice: 150,
+    type: 'call',
     ...overrides,
   };
 }
@@ -132,6 +150,7 @@ export type MockClient = {
   getOptionPositions: jasmine.Spy;
   getEquityQuotes: jasmine.Spy;
   getOptionQuotes: jasmine.Spy;
+  getOptionInstruments: jasmine.Spy;
   getEquityOrders: jasmine.Spy;
   getOptionOrders: jasmine.Spy;
   executeBatch: jasmine.Spy;
@@ -150,6 +169,10 @@ export function createMockClient(): MockClient {
     getOptionPositions: jasmine.createSpy('getOptionPositions'),
     getEquityQuotes: jasmine.createSpy('getEquityQuotes'),
     getOptionQuotes: jasmine.createSpy('getOptionQuotes'),
+    // Defaulted: the quote wave always calls this when option positions
+    // exist — unstubbed it'd resolve `undefined` and the instruments Map
+    // build would throw. Tests override where the join matters (#1481).
+    getOptionInstruments: jasmine.createSpy('getOptionInstruments').and.returnValue(Promise.resolve([])),
     getEquityOrders: jasmine.createSpy('getEquityOrders'),
     getOptionOrders: jasmine.createSpy('getOptionOrders'),
     executeBatch: jasmine.createSpy('executeBatch'),

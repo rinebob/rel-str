@@ -8,6 +8,7 @@ import {
   PortfolioSnapshot,
   EquityPosition,
   OptionPosition,
+  OptionInstrument,
   EquityQuote,
   OptionQuote,
   BrokerOrder,
@@ -33,6 +34,11 @@ export interface AccountState {
   optionPositions: SectionData<OptionPosition[]>;
   equityQuotes: SectionData<Map<string, EquityQuote>>;
   optionQuotes: SectionData<Map<string, OptionQuote>>;
+  /** Instrument records joined onto option positions for strike +
+   *  call/put — the positions wire carries neither (#1481). Enrichment
+   *  data: a failure degrades Type/Strike cells to '—', never blocks
+   *  the positions table. */
+  optionInstruments: SectionData<Map<string, OptionInstrument>>;
   equityOrders: SectionData<BrokerOrder[]>;
   optionOrders: SectionData<BrokerOrder[]>;
   /** Peak Since Entry per symbol (#1413) — derived from paginated fills +

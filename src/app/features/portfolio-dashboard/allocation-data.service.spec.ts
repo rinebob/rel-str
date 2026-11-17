@@ -33,7 +33,8 @@ const equity: EquityPosition = {
 };
 const option: OptionPosition = {
   instrumentId: 'uuid-put', chainSymbol: 'AAPL', optionType: 'put',
-  strikePrice: 140, expirationDate: '2026-10-16', quantity: -1, averageCost: 3.0,
+  strikePrice: 140, side: 'short', expirationDate: '2026-10-16', quantity: -1, averageCost: 3.0,
+  multiplier: 100,
 };
 const equityOrder: BrokerOrder = {
   orderId: 'eq-1', accountNumber: ACCT, instrumentType: 'equity', symbol: 'AAPL',

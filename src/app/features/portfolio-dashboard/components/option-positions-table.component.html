@@ -76,7 +76,7 @@
           @for (pos of sortedPositions(); track $index) {
             <tr>
               <td class="pd-symbol">{{ pos.chainSymbol }}</td>
-              <td>{{ pos.optionType }}</td>
+              <td>{{ pos.optionType || '—' }}</td>
               <td class="num">{{ formatCurrency(pos.strikePrice) }}</td>
               <td>{{ pos.expirationDate }}</td>
               <td class="num">{{ formatNumber(pos.quantity) }}</td>

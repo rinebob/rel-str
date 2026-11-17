@@ -122,16 +122,16 @@ export class OptionPositionsTableComponent {
     return sign + value.toFixed(2) + '%';
   }
 
-  /** Cost basis = average cost × |quantity|. */
+  /** Cost basis = per-share average cost × |quantity| × shares/contract. */
   costBasis(pos: OptionPositionWithPnL): number | null {
     if (pos.averageCost == null || pos.quantity == null) return null;
-    return pos.averageCost * Math.abs(pos.quantity);
+    return pos.averageCost * Math.abs(pos.quantity) * pos.multiplier;
   }
 
-  /** Current value = current price × |quantity|. */
+  /** Current value = per-share mark × |quantity| × shares/contract. */
   currentValue(pos: OptionPositionWithPnL): number | null {
     if (pos.currentPrice == null || pos.quantity == null) return null;
-    return pos.currentPrice * Math.abs(pos.quantity);
+    return pos.currentPrice * Math.abs(pos.quantity) * pos.multiplier;
   }
 
   /** Sum of cost basis across visible positions. */

@@ -33,9 +33,11 @@ function optionPos(over: Partial<OptionPosition> = {}): OptionPosition {
     chainSymbol: 'AAPL',
     optionType: 'put',
     strikePrice: 140,
+    side: 'short',
     expirationDate: '2026-10-16',
     quantity: -2,
     averageCost: 3.5,
+    multiplier: 100,
     ...over,
   };
 }

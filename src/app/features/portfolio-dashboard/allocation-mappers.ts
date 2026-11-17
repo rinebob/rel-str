@@ -64,8 +64,10 @@ export function toPositionInputs(
     out.push({
       instrumentId: o.instrumentId,
       quantity: qty,
-      marketValue: qty * (mark ?? Number.NaN) * OPTION_MULTIPLIER,
-      costBasis: qty * (o.averageCost ?? Number.NaN) * OPTION_MULTIPLIER,
+      // averageCost is per-share premium (normalized at parse); the
+      // position's own multiplier handles adjusted contracts.
+      marketValue: qty * (mark ?? Number.NaN) * o.multiplier,
+      costBasis: qty * (o.averageCost ?? Number.NaN) * o.multiplier,
     });
   }
 

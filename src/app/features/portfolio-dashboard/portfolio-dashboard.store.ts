@@ -32,6 +32,7 @@ import {
   PortfolioSnapshot,
   EquityPosition,
   OptionPosition,
+  OptionInstrument,
   EquityQuote,
   OptionQuote,
   BrokerOrder,
@@ -54,6 +55,7 @@ import {
 import {
   collectEquitySymbols,
   collectOptionInstrumentIds,
+  isShortOptionPosition,
   computeAccountPnL,
   createAccountState,
   sortAccountsPrimaryFirst,
@@ -178,17 +180,31 @@ export const PortfolioDashboardStore = signalStore(
       const positions = acct.optionPositions.data;
       if (!positions) return [];
       const quotes = acct.optionQuotes.data;
+      // Strike + call/put are instrument data, not position data — the
+      // join landed in the quote wave (#1481). Missing instrument → the
+      // row renders its Type/Strike fallbacks rather than hiding.
+      const instruments = acct.optionInstruments.data;
 
       return positions.map((p) => {
+        const inst = instruments?.get(p.instrumentId);
+        // || not ??: a joined instrument with type:'' must NOT clobber a
+        // populated parse value — '' is falsy, not nullish.
+        const optionType = inst?.type || p.optionType;
+        const strikePrice = inst?.strikePrice ?? p.strikePrice;
         const currentPrice = quotes?.get(p.instrumentId)?.lastTradePrice ?? null;
         const qty = p.quantity;
         const closed = qty === null || qty === 0;
         if (closed || currentPrice === null) {
-          return { ...p, currentPrice, pnl: null, pnlPercent: null, closed };
+          return { ...p, optionType, strikePrice, currentPrice, pnl: null, pnlPercent: null, closed };
         }
-        const isShort = qty < 0;
-        const result = computePnL(p.averageCost, currentPrice, Math.abs(qty), isShort);
-        return { ...p, currentPrice, pnl: result.pnl, pnlPercent: result.pnlPercent, closed };
+        // Contracts → shares: per-share prices × shares = dollar PnL.
+        const result = computePnL(
+          p.averageCost,
+          currentPrice,
+          Math.abs(qty) * p.multiplier,
+          isShortOptionPosition(p),
+        );
+        return { ...p, optionType, strikePrice, currentPrice, pnl: result.pnl, pnlPercent: result.pnlPercent, closed };
       });
     }),
 
@@ -514,21 +530,50 @@ export const PortfolioDashboardStore = signalStore(
         ...a,
         equityQuotes: loadingSection(a.equityQuotes),
         optionQuotes: loadingSection(a.optionQuotes),
+        optionInstruments: loadingSection(a.optionInstruments),
       }));
-      const [equityQ, optionQ] = await Promise.allSettled([
+      const [equityQ] = await Promise.allSettled([
         client.getEquityQuotes(collectEquitySymbols(acct)),
-        client.getOptionQuotes(collectOptionInstrumentIds(acct)),
+        loadOptionMeta(accountNumber),
       ]);
       patchAccount(accountNumber, (a) => ({
         ...a,
         equityQuotes: equityQ.status === 'fulfilled'
           ? dataSection(equityQ.value)
           : errorSection(a.equityQuotes, errMessage(equityQ.reason)),
+      }));
+      return true;
+    }
+
+    /** Option-dependent wave — quotes + the instrument join (#1481) keyed
+     *  off the CURRENT positions: re-reads account state so a positions
+     *  retry cascades here with the fresh ids. Lands per-section like the
+     *  core wave; a malformed instruments payload degrades to errorSection
+     *  rather than throwing out of the settled contract. */
+    async function loadOptionMeta(accountNumber: string): Promise<void> {
+      const acct = store.accounts().find((a) => a.accountNumber === accountNumber);
+      if (!acct) return;
+      // Same id list feeds quotes AND the instrument join — no positions
+      // → no instrument call (the tool rejects a filterless request),
+      // resolved-empty keeps the section settled.
+      const instrumentIds = collectOptionInstrumentIds(acct);
+      const [optionQ, optionInst] = await Promise.allSettled([
+        client.getOptionQuotes(instrumentIds),
+        instrumentIds.length
+          ? client.getOptionInstruments({ ids: instrumentIds })
+          : Promise.resolve<OptionInstrument[]>([]),
+      ]);
+      patchAccount(accountNumber, (a) => ({
+        ...a,
         optionQuotes: optionQ.status === 'fulfilled'
           ? dataSection(optionQ.value)
           : errorSection(a.optionQuotes, errMessage(optionQ.reason)),
+        optionInstruments: optionInst.status === 'fulfilled'
+          ? (Array.isArray(optionInst.value)
+              ? dataSection(new Map(optionInst.value.map((i) => [i.instrumentId, i])))
+              : errorSection(a.optionInstruments, 'Malformed instruments payload'))
+          : errorSection(a.optionInstruments, errMessage(optionInst.reason)),
       }));
-      return true;
     }
 
     /** Load an account's core sections if not already loaded/in-flight —
@@ -762,6 +807,11 @@ export const PortfolioDashboardStore = signalStore(
           ...a,
           [section]: dataSection(data),
         }));
+        // A successful positions retry re-keys the dependent wave —
+        // option quotes + the instrument join must follow the NEW ids,
+        // not whatever the first load settled (#1481). Voided: results
+        // land on their own sections like the core wave.
+        if (section === 'optionPositions') void loadOptionMeta(acct.accountNumber);
       } catch (err) {
         patchAccount(acct.accountNumber, (a) => ({
           ...a,

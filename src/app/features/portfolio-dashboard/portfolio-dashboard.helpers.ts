@@ -49,6 +49,7 @@ export function createAccountState(account: AccountInfo): AccountState {
     optionPositions: { ...empty } as SectionData<never>,
     equityQuotes: { ...empty } as SectionData<never>,
     optionQuotes: { ...empty } as SectionData<never>,
+    optionInstruments: { ...empty } as SectionData<never>,
     equityOrders: { ...empty } as SectionData<never>,
     optionOrders: { ...empty } as SectionData<never>,
     positionPeaks: { ...empty } as SectionData<never>,
@@ -76,11 +77,19 @@ export function collectEquitySymbols(acct: AccountState): string[] {
 }
 
 /** Collect unique option instrument IDs from an account's loaded positions. */
+/** Single source for option shortness — `side` is authoritative from the
+ *  wire, signed quantity the normalized fallback. */
+export function isShortOptionPosition(p: Pick<OptionPosition, 'side' | 'quantity'>): boolean {
+  return p.side === 'short' || (p.quantity ?? 0) < 0;
+}
+
 export function collectOptionInstrumentIds(acct: AccountState): string[] {
   const ids = new Set<string>();
   if (acct.optionPositions.data) {
     for (const p of acct.optionPositions.data) {
-      if (p.instrumentId) ids.add(p.instrumentId);
+      // Closed rows (qty 0) can't render and don't need quotes or the
+      // instrument join — keep them off the ids payload.
+      if (p.instrumentId && p.quantity !== 0) ids.add(p.instrumentId);
     }
   }
   return Array.from(ids);
@@ -108,8 +117,13 @@ export function computeAccountPnL(acct: AccountState): number {
       if (pos.quantity === null || pos.quantity === 0) continue;
       const quote = optQuotes.get(pos.instrumentId);
       if (!quote || quote.lastTradePrice === null) continue;
-      const isShort = pos.quantity < 0;
-      const result = computePnL(pos.averageCost, quote.lastTradePrice, Math.abs(pos.quantity), isShort);
+      // Contracts → shares: per-share prices × shares = dollar PnL.
+      const result = computePnL(
+        pos.averageCost,
+        quote.lastTradePrice,
+        Math.abs(pos.quantity) * pos.multiplier,
+        isShortOptionPosition(pos),
+      );
       if (result.pnl !== null) total += result.pnl;
     }
   }

@@ -12,6 +12,7 @@ import {
   fulfilled,
   makeAccount,
   makeEquityPosition,
+  makeOptionInstrument,
   makeOptionPosition,
   makeOrder,
   makeOptionOrder,
@@ -267,6 +268,25 @@ describe('PortfolioDashboardStore', () => {
     it('does nothing for invalid account index', async () => {
       await store.retrySection(99, 'portfolio');
       expect(client.getPortfolio).not.toHaveBeenCalled();
+    });
+
+    // #1481 — a positions retry re-keys the dependent wave: quotes + the
+    // instrument join must follow the NEW ids, not the first load's.
+    it('an optionPositions retry cascades quotes + the instrument join', async () => {
+      client.getOptionPositions.and.returnValue(resolve([makeOptionPosition({ instrumentId: 'inst-9' })]));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionInstruments.and.returnValue(resolve([
+        makeOptionInstrument({ instrumentId: 'inst-9', type: 'put', strikePrice: 140 }),
+      ]));
+
+      await store.retrySection(0, 'optionPositions');
+      // The cascade is voided — drain the microtask queue for it to land.
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      expect(client.getOptionInstruments).toHaveBeenCalledWith({ ids: ['inst-9'] });
+      expect(store.accounts()[0].optionInstruments.data?.get('inst-9')?.type).toBe('put');
+      expect(store.optionPositionsWithPnL()[0].optionType).toBe('put');
+      expect(store.optionPositionsWithPnL()[0].strikePrice).toBe(140);
     });
   });
 
@@ -830,6 +850,91 @@ describe('PortfolioDashboardStore', () => {
       expect(acct.equityQuotes.data).toBeNull();
       expect(acct.optionQuotes.data).toEqual(new Map());
       expect(acct.optionQuotes.error).toBeNull();
+    });
+
+    // #1481 — the instrument join is enrichment: its failure lands on its
+    // own section and the positions table still renders every row.
+    it('an instruments fetch failure lands on optionInstruments — positions unaffected', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: fulfilled([]),
+        get_option_positions: fulfilled([makeOptionPosition({ instrumentId: 'inst-1' })]),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
+      });
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionInstruments.and.returnValue(reject('Instruments failed'));
+
+      await store.initialLoad();
+
+      const acct = store.accounts()[0];
+      expect(acct.optionInstruments.error).toBe('Instruments failed');
+      expect(acct.optionInstruments.loading).toBe(false);
+      expect(acct.optionInstruments.data).toBeNull();
+      expect(acct.optionPositions.data?.length).toBe(1);
+      // Selector still emits the row — Type/Strike fall back to parse values.
+      expect(store.optionPositionsWithPnL().length).toBe(1);
+    });
+
+    it('no option positions → no instruments call (the tool rejects filterless requests)', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: fulfilled([]),
+        get_option_positions: fulfilled([]),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
+      });
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+
+      await store.initialLoad();
+
+      expect(client.getOptionInstruments).not.toHaveBeenCalled();
+      expect(store.accounts()[0].optionInstruments.data).toEqual(new Map());
+    });
+
+    it('closed positions (qty 0) do not trigger an instrument lookup for a dead contract', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: fulfilled([]),
+        get_option_positions: fulfilled([makeOptionPosition({ instrumentId: 'inst-dead', quantity: 0 })]),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
+      });
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+
+      await store.initialLoad();
+
+      expect(client.getOptionInstruments).not.toHaveBeenCalled();
+      expect(store.accounts()[0].optionInstruments.data).toEqual(new Map());
+    });
+
+    // #1481 — a fulfilled-but-malformed instruments payload must land on the
+    // section's error channel, not bypass patchAccount's per-section policy.
+    it('a non-array instruments payload degrades to the section error', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      batchAnswers(client, {
+        get_portfolio: fulfilled(makePortfolio()),
+        get_equity_positions: fulfilled([]),
+        get_option_positions: fulfilled([makeOptionPosition({ instrumentId: 'inst-1' })]),
+        get_equity_orders: fulfilled([]),
+        get_option_orders: fulfilled([]),
+      });
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionInstruments.and.returnValue(resolve({ not: 'an array' } as never));
+
+      await store.initialLoad();
+
+      const acct = store.accounts()[0];
+      expect(acct.optionInstruments.error).not.toBeNull();
+      expect(acct.optionInstruments.data).toBeNull();
+      expect(acct.optionPositions.data?.length).toBe(1);
     });
 
     it('fetches equity quotes scoped to each account’s own symbols', async () => {

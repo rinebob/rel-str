@@ -10,9 +10,11 @@ function makeOption(overrides: Partial<OptionPositionWithPnL> = {}): OptionPosit
     chainSymbol: 'AAPL',
     optionType: 'call',
     strikePrice: 150,
+    side: 'long',
     expirationDate: '2026-12-18',
     quantity: 1,
     averageCost: 5.00,
+    multiplier: 100,
     currentPrice: 7.50,
     pnl: 250.00,
     pnlPercent: 50.00,
@@ -57,6 +59,17 @@ describe('OptionPositionsTableComponent', () => {
     expect(rows[1].textContent).toContain('SPY');
     expect(rows[1].textContent).toContain('put');
     expect(rows[1].textContent).toContain('500');
+  });
+
+  // #1481 — a join miss keeps the row; Type/Strike degrade to '—'.
+  it('renders — fallbacks when the instrument join missed', () => {
+    fixture.componentRef.setInput('positions', [
+      makeOption({ optionType: '', strikePrice: null }),
+    ]);
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('tbody tr');
+    expect(row.textContent).toContain('—');
   });
 
   it('shows loading indicator when loading', () => {

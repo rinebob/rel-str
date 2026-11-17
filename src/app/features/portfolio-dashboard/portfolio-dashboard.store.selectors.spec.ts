@@ -9,6 +9,7 @@ import {
   makeAccount,
   makeEquityPosition,
   makeEquityQuote,
+  makeOptionInstrument,
   makeOptionPosition,
   makeOptionQuote,
   makeOrder,
@@ -17,7 +18,7 @@ import {
   resolve,
   setupStore,
 } from './portfolio-dashboard.spec-fixtures';
-import { BrokerOrder, EquityQuote, OptionQuote } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
+import { BrokerOrder, EquityQuote, OptionInstrument, OptionQuote } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 
 describe('PortfolioDashboardStore selectors', () => {
   let store: InstanceType<typeof PortfolioDashboardStore>;
@@ -35,6 +36,7 @@ describe('PortfolioDashboardStore selectors', () => {
     optionPositions?: ReturnType<typeof makeOptionPosition>[];
     equityQuotes?: Map<string, EquityQuote>;
     optionQuotes?: Map<string, OptionQuote>;
+    optionInstruments?: OptionInstrument[];
     equityOrders?: BrokerOrder[];
     optionOrders?: BrokerOrder[];
     portfolio?: ReturnType<typeof makePortfolio>;
@@ -49,6 +51,7 @@ describe('PortfolioDashboardStore selectors', () => {
     });
     client.getEquityQuotes.and.returnValue(resolve(opts.equityQuotes ?? new Map()));
     client.getOptionQuotes.and.returnValue(resolve(opts.optionQuotes ?? new Map()));
+    client.getOptionInstruments.and.returnValue(resolve(opts.optionInstruments ?? []));
     await store.initialLoad();
   }
 
@@ -116,18 +119,18 @@ describe('PortfolioDashboardStore selectors', () => {
     it('sums PnL across equity and option positions', async () => {
       await loadSingleAccount({
         equityPositions: [makeEquityPosition({ symbol: 'AAPL', quantity: 100, averageBuyPrice: 150 })],
-        optionPositions: [makeOptionPosition({ instrumentId: 'inst-1', quantity: 1, averageCost: 500 })],
+        optionPositions: [makeOptionPosition({ instrumentId: 'inst-1', quantity: 1, averageCost: 5 })],
         equityQuotes: new Map([
           ['AAPL', makeEquityQuote({ symbol: 'AAPL', lastTradePrice: 155 })],
         ]),
         optionQuotes: new Map([
-          ['inst-1', makeOptionQuote({ instrumentId: 'inst-1', lastTradePrice: 550 })],
+          ['inst-1', makeOptionQuote({ instrumentId: 'inst-1', lastTradePrice: 5.5 })],
         ]),
       });
 
       const summary = store.aggregateSummary();
       // Equity PnL: (155-150)*100 = 500
-      // Option PnL: (550-500)*1 = 50
+      // Option PnL: (5.5-5)*1 contract*100 shares = 50
       expect(summary.totalPnL).toBe(550);
     });
   });
@@ -166,14 +169,15 @@ describe('PortfolioDashboardStore selectors', () => {
   describe('optionPositionsWithPnL', () => {
     it('joins option positions with option quotes and computes PnL', async () => {
       await loadSingleAccount({
-        optionPositions: [makeOptionPosition({ instrumentId: 'inst-1', quantity: 1, averageCost: 500 })],
-        optionQuotes: new Map([['inst-1', makeOptionQuote({ instrumentId: 'inst-1', lastTradePrice: 550 })]]),
+        optionPositions: [makeOptionPosition({ instrumentId: 'inst-1', quantity: 1, averageCost: 5 })],
+        optionQuotes: new Map([['inst-1', makeOptionQuote({ instrumentId: 'inst-1', lastTradePrice: 5.5 })]]),
       });
 
       const positions = store.optionPositionsWithPnL();
       expect(positions.length).toBe(1);
       expect(positions[0].instrumentId).toBe('inst-1');
-      expect(positions[0].currentPrice).toBe(550);
+      expect(positions[0].currentPrice).toBe(5.5);
+      // (5.5 - 5) per-share × 1 contract × 100 shares = $50.
       expect(positions[0].pnl).toBe(50);
     });
 
@@ -197,6 +201,48 @@ describe('PortfolioDashboardStore selectors', () => {
       const positions = store.optionPositionsWithPnL();
       expect(positions[0].pnl).toBeNull();
       expect(positions[0].currentPrice).toBeNull();
+    });
+
+    // ── instrument join (#1481) ──────────────────────────────────────────────
+    // The positions wire carries neither strike nor call/put — they join
+    // from get_option_instruments keyed on option_id. A join miss degrades
+    // Type/Strike to the parsed fallbacks, never hides the row.
+
+    it('fetches instruments by collected option_ids and joins strike + call/put', async () => {
+      await loadSingleAccount({
+        optionPositions: [makeOptionPosition({ instrumentId: 'inst-1', optionType: '', strikePrice: null })],
+        optionInstruments: [makeOptionInstrument({ instrumentId: 'inst-1', type: 'put', strikePrice: 140 })],
+      });
+
+      expect(client.getOptionInstruments).toHaveBeenCalledWith({ ids: ['inst-1'] });
+
+      const positions = store.optionPositionsWithPnL();
+      expect(positions[0].optionType).toBe('put');
+      expect(positions[0].strikePrice).toBe(140);
+    });
+
+    it('a join miss keeps the row — Type/Strike stay at the parsed fallbacks', async () => {
+      await loadSingleAccount({
+        optionPositions: [makeOptionPosition({ instrumentId: 'inst-1', optionType: '', strikePrice: null })],
+        optionInstruments: [],
+      });
+
+      const positions = store.optionPositionsWithPnL();
+      expect(positions.length).toBe(1);
+      expect(positions[0].optionType).toBe('');
+      expect(positions[0].strikePrice).toBeNull();
+    });
+
+    it('short positions read side off the wire — PnL falls as price rises', async () => {
+      await loadSingleAccount({
+        // Post-parse shape: side:'short' + sign-normalized quantity.
+        optionPositions: [makeOptionPosition({ instrumentId: 'inst-1', side: 'short', quantity: -1, averageCost: 5 })],
+        optionQuotes: new Map([['inst-1', makeOptionQuote({ instrumentId: 'inst-1', lastTradePrice: 5.5 })]]),
+      });
+
+      const positions = store.optionPositionsWithPnL();
+      // Sold at 5, now costs 5.5/share to close → -0.5 × 100 = -$50.
+      expect(positions[0].pnl).toBe(-50);
     });
   });
 
