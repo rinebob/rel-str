@@ -18,6 +18,9 @@
 - [Strategy Builder UI] 137-1539_DOCS-STRAT-MANAGE: BE IMPL §2 as-built + code review (PASS, 3 axes — 8 majors fixed) + UAT (Complete, #1586) + changelog
 - [Trading Indicator Library] 261-873_SHARED-CHORE-INDICATOR-LIB: indicator-lib-873-pine-parity verify script (60 checks) + run-all/README registry entries
 - [Trading Indicator Library] 261-873_DOCS-INDICATOR-LIB: #873 CODE-REVIEW (PASS, 3 rounds) + UAT (Complete, #1568) + SHARED test-plan palette re-sync + changelog
+- [Strategy Builder UI] 137-1544_BE-IMPL-STRAT-MANAGE: Manage exit-scan pass — daily 2 PM PT timer over OPEN manage positions → one AnalysisResultDoc per (instanceId, exitId) at st-options-analysis-results; position mark = signed net cost-to-close over inner-joined per-leg SA series; exit/expired/open/error outcomes; same-day-open + missing-marks skips; mixed-expiry and non-finite guards; per-instance isolation; optionsAnalysisStart rejects synthetic manage lists (gridVersion 0) — pass is sole writer of the result space
+- [Strategy Builder UI] 137-1544_BE-IMPL-STRAT-MANAGE: Exit-scan specs (22) + start-gate spec + strat-manage-exit-scan-1544 verify script (34 checks) + run-all/README registry entries
+- [Strategy Builder UI] 137-1544_DOCS-STRAT-MANAGE: IMPL §3 as-built + post-review hardening + code review (PASS, 3 axes — 3 majors fixed in-cycle) + UAT (Complete, #1589) + changelog
 
 ### Changed
 - [Trading Indicator Library] 261-873_SHARED-IMPL-INDICATOR-LIB: Pine Anchored VWAP refined to web causal semantics — draw-from-trigger rendering over prefix-sums, supersession dot reconciliation + predecessor re-ending/resurrection (lastFired/popPred), same-index collapse, xloc.bar_time anchors, era first-cap history, admit-all window accounting

@@ -109,6 +109,42 @@ callables in v1). BE consumes them in passes.
   docs, reusing the existing result-doc shape wherever fields line up
   (open question #5 — prefer reuse).
 
+**§3 as-built (#1544):** shipped as `passes/manage-exit-scan-pass.ts`
++ `manageExitScanTimer` (1:30 PM PT cron, after the mark-pass grid ends
+~1 PM PT — SA corpus fetch, no RH session/secrets). **Multi-leg
+resolution:** a position's daily "mark" is its signed cost-to-close —
+`mark(d) = Σ (short ? +mark_i : −mark_i)` over the inner join of the
+legs' SA contract series (a date missing from any leg can't price the
+package); `entryMark` = signed net premium at open. Identical to a
+single contract's price for one-leg positions; keeps `evaluateExit`
+untouched. `contractId` carries the deterministic position id
+(multi-leg traceability — no single OCC id exists). `expired` uses net
+intrinsic at the underlying close + max per-leg `assignmentDistancePct`
+(per-leg ITM flags generalized). Fetch failure → `error` records per
+rule; missing `contractID`/unpriceable → warn + skip. `mode:'real'`
+evaluates nothing — the `stopType`→rule mapping waits on the real-mode
+STOP_CODES vocabulary (placeholder `T8` today); paper's `ALL` → every
+`EXIT_STRATEGIES` entry, so new registry rules auto-apply.
+`manageExitScanResult` observability stamped on `daily-analysis/latest`.
+`verify strat-manage-exit-scan-1544` covers the surface (34 checks).
+
+**Post-review hardening:** `optionsAnalysisStart` now rejects
+contract-list docs with synthetic `pickDocMeta` (`gridVersion === 0`)
+— a manual replay run on a manage list would overwrite the pass's
+position-grain result docs at the same `{instanceId}_{exitId}` ids with
+per-leg contract records (last-writer-wins collision). Per-instance
+try/catch isolation (one Firestore failure can't kill the day's matrix);
+`parseMark` rejects blank strings; bar dates normalized `slice(0,10)` +
+clipped to `[openDate, min(expiry, today)]`; `resp.ok === false` →
+error records; `expired.terminalMark` = intrinsic (worker convention,
+not the possibly-stale expiry-bar mark); positions opened today skip
+(the EOD corpus can't carry an entry-day bar at 2 PM); mixed-expiry
+legs → error (the terminal-value model can't price a still-open far
+leg); non-finite intrinsic/distance → error (Firestore rejects
+`Infinity`); `underlyingClose` hoisted per instance with an empty-map
+warn; one `generatedAt` per instance run; timer moved to 2 PM PT so it
+clears the mark-pass grid year-round (PDT included).
+
 ### 4. Contract-list emission — `passes/contract-list-writer.ts` (new)
 
 - When a position opens, append its leg contracts as rows to
