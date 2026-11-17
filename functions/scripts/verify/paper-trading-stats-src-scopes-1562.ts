@@ -102,7 +102,9 @@ async function main() {
         doc.scope === scope &&
         typeof doc.openTradeCount === 'number' &&
         typeof doc.closedTradeCount === 'number' &&
-        Array.isArray(doc.equityCurve) &&
+        // Increment-minted docs (#1563) legitimately lack equityCurve
+        // until the first nightly recompute owns them.
+        (doc.equityCurve === undefined || Array.isArray(doc.equityCurve)) &&
         typeof doc.updatedAt === 'string');
   }
   check('stats-src-STRATEGY + stats-src-SIGNAL both exist',
