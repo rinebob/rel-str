@@ -120,11 +120,37 @@ because `variant` is embedded.
 
 `{SYMBOL}-{SPREADCODE}-{DTE}-{ΔLEGS}-{STOP}`, ALL CAPS:
 
-- `SPREADCODE` from the template's `code` field.
+- `SPREADCODE` from the template's `code` field — `CUSTOM` for ad hoc
+  variants (`templateId === 'custom'`).
 - `ΔLEGS` = leg deltas in template-defined order joined with `-`
-  (e.g., `50-40`); iron condor style = both short deltas (`30-10`).
-- `STOP` = `ALL` or the human-readable stop code (vocabulary TBD — stub a
-  `STOP_CODES` map seeded with `ALL` + placeholder real codes).
+  (e.g., `50-40`). Encoded as `round(|Δ|*100)` **per option leg**,
+  `STK` per stock leg — so a 4-leg iron condor emits four deltas, not
+  the shorts-only `30-10` reading the PRD example (`SPY-IC-45-30-10-ALL`)
+  implies. Per-leg encoding is collision-safer for a dedup key: two ICs
+  differing only in wing width share their short deltas and would mint
+  identical ids under the shorts-only reading.
+- `STOP` = `ALL` or the human-readable stop code (vocabulary TBD — the
+  `STOP_CODES` map is seeded with `ALL` + `T8` placeholder).
+- As-built guards (#1542): `mode` must be a known `InstanceMode`
+  (`isValidModeStopType` treats any non-'paper' string as real);
+  every segment is hyphen-free and charset-checked (symbol
+  `[A-Z0-9.]+`, codes `[A-Z0-9]+`); mode⇒stop is validated via
+  `isValidModeStopType`; stop codes must be own-keys of the frozen
+  `STOP_CODES` (hasOwnProperty — `in` leaks Object.prototype keys);
+  option-leg deltas must be finite |Δ| ∈ (0,1] ('NaN'/'1e+23'
+  segments otherwise); legs must positionally match the passed
+  template's **shape** via `variantMatchesTemplateShape` — kind,
+  option `type`/`side`, count (a put spread under `cds` would mint a
+  byte-identical id to the call spread). Delta/DTE **bands are
+  authoring policy, not identity**: ad hoc variants keep their
+  template's `templateId` and may exceed bands — they mint normally
+  (the Create dialog + BE create path own band validation);
+  multi-expiry
+  (diagonal) variants **throw** — the grammar's single DTE segment
+  can't distinguish them from their same-expiry siblings, so a
+  diagonal needs a grammar extension before it can instantiate;
+  `variant.dte` must agree with the legs; the passed template must
+  match `variant.templateId`.
 - Replaces `generateInstanceId` for manage instances; keep the old function
   for any remaining legacy readers.
 

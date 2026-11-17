@@ -39,6 +39,11 @@
 - [GitHub read-only issue UI] 619-1522_BE-IMPL-DEV-TOOLS: `getLifecycleTree` emits v2 — group-stamped flat topics + `groupOrder` + `groupingWarning` on inventory parse/stale degrade paths; truncation still throws pre-response
 - [GitHub read-only issue UI] 619-1522_FE-IMPL-DEV-TOOLS: Topic Viewer consumes v2 — groups by stamped `group`, preserves `groupOrder`, issue-number ascending within groups, selection survives in-app refresh
 - [GitHub read-only issue UI] 619-1522_SHARED-CHORE-DEV-TOOLS: 637/639/640 verify scripts re-pinned to v2 (group-stamp assertions, degrade-path gating) + README row updates
+- [Strategy Builder UI] 137-1542_SHARED-IMPL-STRAT-MANAGE: Manage vocabularies frozen (INSTANCE_MODES/TRIGGERS/RUN_STATES, catalog parent objects) + variantMatchesTemplateShape split (shape=identity, bands=policy)
+- [Strategy Builder UI] 137-1542_SHARED-IMPL-STRAT-MANAGE: generateManageInstanceId — {SYM}-{SPREAD}-{DTE}-{ΔLEGS}-{STOP} dedup-key generator + frozen STOP_CODES (ALL/T8) + fail-closed guards (mode, Δ, shape, diagonal, smuggling)
+- [Strategy Builder UI] 137-1542_CONFIG-CHORE-STRAT-MANAGE: @manage/instance-id alias in app + functions tsconfigs and jest moduleNameMapper
+- [Strategy Builder UI] 137-1542_SHARED-IMPL-STRAT-MANAGE: Instance-id verify script (26 checks) + run-all/README registry entries
+- [Strategy Builder UI] 137-1542_DOCS-STRAT-MANAGE: IMPL §5 as-built + code review (PASS, 2 passes) + UAT (Complete, #1570) + changelog
 
 ### Fixed
 - [Option Contract Time-Series Viewer] 1243-1515_FE-BUG-OPTIONS: Pin is a chip-strip bookmark, not a chart highlight — highlightedContractId forwards hover only; bookmark survives set reloads when its contract does and clears when it leaves; a failed focused load no longer destroys unrelated pins; "Click to pin" tooltip copy
