@@ -111,6 +111,22 @@ export interface ReplayVariant {
 - Registry stays code-curated: the FE builder emits paste-ready JSON; persistence = paste + deploy. No Firestore collection.
 - `getReplayVariant(id)` + `getTemplateShape(id)` accessors; `getReplayTemplate` retained as a delegating shim during migration.
 
+**§3 as-built (#1495):** `REPLAY_VARIANTS` seeded to 21 entries — the 4
+legacy migrations first (order pinned) plus 17 curated common cases, one
+per uncovered base template: `lc-365-75` (LEAP), `lp-45-30`, `sc-45-20`,
+`pcs-45-20-5`, `ccs-45-20-5`, `pds-45-40-15`, `cds-45-40-15`,
+`ic-45-20-10`, `ib-45-50-20`, `ccal-30-60-20`, `pcal-30-60-20`,
+`cdiag-180-21-70-20`, `pdiag-180-21-70-20`, `lst-45-50`, `lng-45-20`,
+`sng-45-20`, `cov-45-20` — including all four catalog example points.
+Id grammar `{abbr}-{dte}-{deltas}` (calendars/diagonals carry both DTEs);
+names follow '45DTE 20/5Δ put credit spread'. Three single-leg seeds
+(`lp-45-30`, `sc-45-20`, `lc-365-75`) legitimately extend the derived
+`REPLAY_TEMPLATES` surface to 7. Specs pin: legacy-first ordering,
+one-variant-per-shape coverage, inside-bands containment
+(position-matched — stricter than the validator's on-grid floor), and
+the catalog examples' coordinates verbatim. Live audit: 21 variants,
+0 FAIL/0 WARN.
+
 ### 4. Registry validator (`shared/options-replay-templates.ts`, pure)
 
 `validateVariantRegistry(): string[]` — returns violations, empty when clean:
