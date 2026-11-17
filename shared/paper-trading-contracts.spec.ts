@@ -7,6 +7,18 @@ import {
   PaperTradingKind,
   PaperTradeStatus,
   PaperTradeSource,
+  CURATED_VARIANT_KEYS,
+  CURATED_GOVERNING_POLICY,
+  GENERATE_PAPER_SIGNAL_TRADES_MAX_ITEMS,
+  DELETE_PAPER_TRADES_MAX_ITEMS,
+  type GoverningPolicy,
+  type SignalPick,
+  type GeneratePaperSignalTradesRequest,
+  type GeneratePaperSignalTradesResponse,
+  type MintResult,
+  type DeletePaperTradesRequest,
+  type DeletePaperTradesResponse,
+  type PaperFill,
   isPaperAccount,
   isPaperTrade,
   isPaperCohort,
@@ -36,7 +48,7 @@ import {
 } from './paper-trading-contracts';
 import { OptionType, OptionQuoteSource, StrategyFrequency } from './options-common';
 import { TradeSide } from './common';
-import { buildAccountId } from './paper-trading-ids';
+import { buildAccountId, buildTradeId, signalDedupeKey, signalTradeDesc } from './paper-trading-ids';
 import { LifecycleState } from './options-strategy-engine-contracts';
 import type { PaperStrategyInstance } from './paper-trading-contracts';
 
@@ -359,5 +371,127 @@ describe('PaperTrade st- lineage extensions (#984)', () => {
     ]);
     // PENDING stays in the enum — legacy docs + reads still honor it.
     expect(Object.values(PaperTradeStatus)).toContain('PENDING');
+  });
+});
+
+describe('curated signal-trade contracts (Thread #906)', () => {
+  it('pins the curated variant set — trailing-8 always present (policy fallback)', () => {
+    expect([...CURATED_VARIANT_KEYS].sort()).toEqual([
+      'ma-close-100',
+      'ma-close-20',
+      'ma-close-50',
+      'target-100',
+      'target-50',
+      'trailing-5',
+      'trailing-8',
+    ]);
+    expect(new Set(CURATED_VARIANT_KEYS).size).toBe(CURATED_VARIANT_KEYS.length);
+    expect(CURATED_VARIANT_KEYS).toContain('trailing-8');
+  });
+
+  it('pins the governing-policy marker and the PaperTrade field shape', () => {
+    expect(CURATED_GOVERNING_POLICY).toBe('deepest-stop-else-trailing-8');
+    const policy: GoverningPolicy = CURATED_GOVERNING_POLICY;
+    const trade: PaperTrade = {
+      kind: PaperTradingKind.TRADE,
+      id: '261008-sig-AAPL-EQV1L',
+      createdAt: NOW, updatedAt: NOW,
+      status: PaperTradeStatus.OPEN,
+      userId: AUTO_PAPER_USER_ID,
+      source: PaperTradeSource.SIGNAL,
+      signalId: 'AAPL_D_ST_TREND_RIDER_V1_LONG_2026-10-08',
+      symbol: 'AAPL',
+      expression: 'EQ',
+      governingVariant: 'trailing-8',
+      governingPolicy: policy,
+      order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 },
+      fills: [],
+      legs: [],
+      marks: {},
+      variantRuns: CURATED_VARIANT_KEYS.map((key) => ({
+        variantKey: key,
+        governing: key === 'trailing-8',
+        state: 'ACTIVE' as const,
+        workingState: {},
+      })),
+      variantKeys: [...CURATED_VARIANT_KEYS],
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+    };
+    expect(isPaperTrade(trade)).toBe(true);
+    expect(trade.governingPolicy).toBe('deepest-stop-else-trailing-8');
+  });
+
+  it('OptionQuoteSource gains SDS_BARS for bars-priced fills; existing members unchanged', () => {
+    expect(OptionQuoteSource.SDS_BARS).toBe('SDS_BARS');
+    expect(OptionQuoteSource.RH_MCP).toBe('RH_MCP');
+    expect(OptionQuoteSource.AV_EOD).toBe('AV_EOD');
+    expect(OptionQuoteSource.AV_REALTIME).toBe('AV_REALTIME');
+    const backfilledFill: PaperFill = {
+      fillId: 'f1', role: 'entry', date: '2024-03-11', price: 172.4,
+      quantity: 1, quoteSource: OptionQuoteSource.SDS_BARS,
+    };
+    expect(backfilledFill.quoteSource).toBe('SDS_BARS');
+  });
+
+  it('generatePaperSignalTrades request/response carry the documented shapes', () => {
+    const pick: SignalPick = {
+      symbol: 'AAPL',
+      signalBarDate: '2024-03-11',
+      signalType: 'D_ST_TREND_RIDER_V1_LONG',
+    };
+    const req: GeneratePaperSignalTradesRequest = { items: [pick] };
+    const created: MintResult = {
+      signalId: 'AAPL_D_ST_TREND_RIDER_V1_LONG_2024-03-11',
+      tradeId: '240311-sig-AAPL-EQV1L',
+      status: 'created',
+    };
+    const deduped: MintResult = { ...created, status: 'deduped' };
+    const errored: MintResult = {
+      signalId: created.signalId, status: 'error', error: 'no bars for symbol',
+    };
+    const res: GeneratePaperSignalTradesResponse = {
+      results: [created, deduped, errored],
+    };
+    expect(req.items).toHaveLength(1);
+    expect(res.results.map((r) => r.status)).toEqual(['created', 'deduped', 'error']);
+    expect(res.results[2].tradeId).toBeUndefined();
+  });
+
+  it('deletePaperTrades request/response carry the documented shapes', () => {
+    const req: DeletePaperTradesRequest = {
+      tradeIds: ['240311-sig-AAPL-EQV1L', '240312-sig-MSFT-EQV2S', '240312-man-TSLA-EQ'],
+    };
+    const res: DeletePaperTradesResponse = {
+      deleted: ['240311-sig-AAPL-EQV1L'],
+      notFound: ['240312-sig-MSFT-EQV2S'],
+      failed: [{ tradeId: '240312-man-TSLA-EQ', error: 'not a signal-source trade' }],
+    };
+    expect(req.tradeIds).toHaveLength(3);
+    expect(res.deleted).toHaveLength(1);
+    expect(res.notFound).toEqual(['240312-sig-MSFT-EQV2S']);
+    expect(res.failed[0].tradeId).toBe('240312-man-TSLA-EQ');
+  });
+
+  it('batch bounds are pinned constants shared by callers and the callable', () => {
+    expect(GENERATE_PAPER_SIGNAL_TRADES_MAX_ITEMS).toBe(50);
+    expect(DELETE_PAPER_TRADES_MAX_ITEMS).toBe(50);
+  });
+
+  it('a SignalPick reproduces the live ingest ids — live capture and mint can never double-mint', () => {
+    const pick: SignalPick = {
+      symbol: 'aapl',
+      signalBarDate: '2024-03-11',
+      signalType: 'D_ST_TREND_RIDER_V1_LONG',
+    };
+    // The live ingest's inputs (symbol, signalType, barDate) and the pick's
+    // fields produce identical signalId + tradeId — one dedupe contract.
+    const liveSignalId = signalDedupeKey('AAPL', pick.signalType, pick.signalBarDate);
+    const mintSignalId = signalDedupeKey(pick.symbol, pick.signalType, pick.signalBarDate);
+    const barDate = new Date(`${pick.signalBarDate}T12:00:00Z`);
+    const liveTradeId = buildTradeId(barDate, 'sig', 'AAPL', signalTradeDesc(pick.signalType));
+    const mintTradeId = buildTradeId(barDate, 'sig', pick.symbol, signalTradeDesc(pick.signalType));
+    expect(mintSignalId).toBe(liveSignalId);
+    expect(mintTradeId).toBe(liveTradeId);
   });
 });

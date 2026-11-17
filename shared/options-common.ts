@@ -25,6 +25,8 @@ export enum OptionQuoteSource {
   AV_EOD = 'AV_EOD',
   RH_MCP = 'RH_MCP',
   AV_REALTIME = 'AV_REALTIME',
+  /** Priced from stored SDS daily bars — backfilled/historical fills. */
+  SDS_BARS = 'SDS_BARS',
 }
 
 export enum PositionSpreadType {

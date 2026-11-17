@@ -39,7 +39,7 @@ export interface OptionQuote extends OptionContractRef {
   theta?: number;
   vega?: number;
   rho?: number;                // Optional; included when upstream provides it
-  source: OptionQuoteSource;   // AV_EOD | RH_MCP | AV_REALTIME
+  source: OptionQuoteSource;   // AV_EOD | RH_MCP | AV_REALTIME (SDS_BARS = equity bars — never an option quote)
   asOf: string;                // ISO timestamp the quote represents
   interpolatedClose?: boolean; // True when close.price was interpolated by upstream
 }

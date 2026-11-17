@@ -100,7 +100,14 @@ export interface PaperFill {
   date: string;                     // market date or ISO timestamp
   price: number;
   quantity: number;
-  quoteSource: OptionQuoteSource.RH_MCP | OptionQuoteSource.AV_EOD;
+  /** Fill provenance: RH_MCP = live quote, AV_EOD = EOD option bars,
+   *  SDS_BARS = stored daily bars (historical backfill). Bars-sourced
+   *  fills carry no `rawQuoteRef` — the bar is reproducible from
+   *  symbol-data. */
+  quoteSource:
+    | OptionQuoteSource.RH_MCP
+    | OptionQuoteSource.AV_EOD
+    | OptionQuoteSource.SDS_BARS;
   rawQuoteRef?: string;             // rq- doc id
 }
 
@@ -222,7 +229,19 @@ export interface PaperTrade extends PaperTradingDocBase {
   strike?: number;
   expiration?: string;              // ISO date
   optionType?: OptionType;
-  governingVariant: string;         // variantKey governing the real lifecycle
+  /** variantKey governing the real lifecycle. On trades carrying
+   *  `governingPolicy`, this MIRRORS what actually governs: seeded as
+   *  `'trailing-8'` at mint (the policy fallback — `seedVariantRuns`
+   *  requires a terminal-family key, so a policy pick like `ma-close-*`
+   *  can't be seeded), rewritten to the policy's selection on each eval
+   *  day, and rewritten to an independent closer's key when one fires the
+   *  real exit. Read surfaces (exitReason, trade detail) always see what
+   *  actually governed. On non-policy trades it is the static seed. */
+  governingVariant: string;
+  /** Present on curated signal trades — the eval path recomputes the
+   *  governing run each day via the named policy instead of honoring a
+   *  static `governingVariant`. Absent on trades using static governing. */
+  governingPolicy?: GoverningPolicy;
   // lifecycle payloads
   ticket?: PaperTicket;
   order: PaperOrderTerms;
@@ -379,6 +398,39 @@ export const DEFAULT_TRAILING_STOP_KEY = 'trailing-8';
 export const NONE_VARIANT_KEY = 'none';
 export const SIGNAL_GOVERNING_VARIANT = DEFAULT_TRAILING_STOP_KEY;
 export const SIGNAL_SHADOW_VARIANT_KEYS: string[] = [];
+
+// ── Curated signal trades (Thread #906) ────────────────────────────────────
+
+/**
+ * The tracked exit set seeded on every curated signal trade — minted
+ * historical picks AND live signal captures. Each key evaluates daily;
+ * only the policy-selected governing run (or an independent closer)
+ * closes the position. `trailing-8` must always be present — it is the
+ * governing-policy fallback when the deepest stop sits below entry.
+ */
+export const CURATED_VARIANT_KEYS: readonly string[] = [
+  'trailing-5',
+  DEFAULT_TRAILING_STOP_KEY, // 'trailing-8' — the policy fallback
+  'ma-close-20',
+  'ma-close-50',
+  'ma-close-100',
+  'target-50',
+  'target-100',
+];
+
+/**
+ * Marker carried on `PaperTrade.governingPolicy` — the eval path runs the
+ * governing-selection policy each day instead of honoring a static
+ * `governingVariant`: among the below-price stop rules (`trailing-*`,
+ * `ma-close-*`), the ACTIVE run whose current stop level is deepest below
+ * the trade's high watermark governs — unless that stop sits below the
+ * entry fill price, in which case `trailing-8` governs. Shorts mirror.
+ * Only ACTIVE runs are candidates; if `trailing-8`'s own run is already
+ * EXITED the fallback can't apply and the deepest ACTIVE candidate
+ * governs instead.
+ */
+export const CURATED_GOVERNING_POLICY = 'deepest-stop-else-trailing-8' as const;
+export type GoverningPolicy = typeof CURATED_GOVERNING_POLICY;
 
 // ── Cohort ─────────────────────────────────────────────────────────────────
 
@@ -556,6 +608,78 @@ export interface CancelPaperTradeRequest {
 }
 export interface CancelPaperTradeResponse {
   tradeId: string;
+}
+
+// ── Curated signal mint + groom-delete (Thread #906) ────────────────────────
+
+/** Hard bound per call — the caller batches larger selections. */
+export const GENERATE_PAPER_SIGNAL_TRADES_MAX_ITEMS = 50;
+export const DELETE_PAPER_TRADES_MAX_ITEMS = 50;
+
+/** One picked signal occurrence — the minimal identity the mint needs. */
+export interface SignalPick {
+  symbol: string;
+  /** YYYY-MM-DD — the signal's bar date. */
+  signalBarDate: string;
+  /** e.g. D_ST_TREND_RIDER_V2_LONG — must be a supported signal type. */
+  signalType: string;
+}
+
+/**
+ * `generatePaperSignalTrades` — mint real PaperTrades from picked signal
+ * occurrences. Historical picks mint backdated trades (entry at the
+ * signal-bar close, marks backfilled from stored bars); the request shape
+ * is identical either way. Deterministic trade ids make re-mints no-ops.
+ * Dedupe covers the `sig`-origin lineage only — a signal already papered
+ * through `paperSignalOrder` (cohort/decisionId lineage) is a separate
+ * trade by design.
+ */
+export interface GeneratePaperSignalTradesRequest {
+  items: SignalPick[]; // max GENERATE_PAPER_SIGNAL_TRADES_MAX_ITEMS per call
+}
+
+export interface MintResult {
+  /** The signal dedupe key (`signalDedupeKey` —
+   *  `{SYM}_{signalType}_{barDate}`) — the value written to
+   *  `trade.signalId`. NOT `stSignalOccurrenceId`
+   *  (`{SYM}_{barDate}_{signalType}`) — a different, non-interchangeable
+   *  layout by design (see shared/st-ids.ts). */
+  signalId: string;
+  /** Set on created/deduped — the deterministic trade id. */
+  tradeId?: string;
+  status: 'created' | 'deduped' | 'error';
+  /** Per-item failure — never fails the whole call. */
+  error?: string;
+}
+
+export interface GeneratePaperSignalTradesResponse {
+  /** One result per request item, in request order. */
+  results: MintResult[];
+}
+
+/**
+ * `deletePaperTrades` — hard-delete unwanted signal-source trades and
+ * every artifact referencing them: the trade doc (embedded marks/fills/
+ * runs die with it), `rq-*` raw-quote audit docs, and `pap_*` order
+ * tickets. No tombstones. Derived aggregates — account counters, stats
+ * docs, position groups — are not enumerated here; the stats/rollup
+ * passes recompute them, so a deleted trade simply stops appearing.
+ * Scoped to `source=SIGNAL` trades: ids resolving to strategy/manual
+ * trades report `failed`, never deleted. Idempotent: a missing id
+ * reports in `notFound`, never an error.
+ */
+export interface DeletePaperTradesRequest {
+  tradeIds: string[]; // max DELETE_PAPER_TRADES_MAX_ITEMS per call
+}
+
+export interface DeletePaperTradesResponse {
+  /** Docs fully removed. */
+  deleted: string[];
+  /** Ids with no matching trade — idempotent, not an error. */
+  notFound: string[];
+  /** Per-item failures (e.g. non-signal trade, cascade write error) —
+   *  partial batch failure is always reported, never thrown. */
+  failed: { tradeId: string; error: string }[];
 }
 
 // ── Union + guards ─────────────────────────────────────────────────────────
