@@ -11,7 +11,7 @@
  * no Octokit for a handful of query shapes.
  */
 
-import type { LifecycleRawIssue } from '@lifecycle/tree';
+import { isTopicRoot, type LifecycleRawIssue } from '@lifecycle/tree';
 import type { SupportedRepo } from './config';
 
 export type Gql = (
@@ -86,7 +86,7 @@ export interface LifecycleFetchResult {
 const SEARCH_PAGE = `query($q: String!, $after: String) {
   search(query: $q, type: ISSUE, first: 100, after: $after) {
     issueCount
-    nodes { ... on Issue { number id } }
+    nodes { ... on Issue { number id title } }
     pageInfo { hasNextPage endCursor }
   }
 }`;
@@ -150,6 +150,10 @@ async function searchTopicRoots(
   const refs: SubRef[] = [];
   let after: string | null = null;
   let issueCount = 0;
+  // Raw search hits seen — fake roots ("Thread: Topic X") match the
+  // substring search but are filtered below, so truncation must count
+  // hits seen, not refs kept.
+  let seen = 0;
   let hasNext = true;
   do {
     const data = await gql(SEARCH_PAGE, { q, after });
@@ -157,14 +161,21 @@ async function searchTopicRoots(
     if (!page) throw new GitHubApiError(200, false, 'GitHub GraphQL: missing search payload');
     issueCount = page.issueCount ?? issueCount;
     for (const n of page.nodes ?? []) {
-      if (n?.id && typeof n.number === 'number') refs.push({ number: n.number, id: n.id });
+      // A hit we can't classify (no id/number/title) is a MISSED hit —
+      // it stays under issueCount and trips the truncation guard rather
+      // than being silently dropped.
+      if (!n?.id || typeof n.number !== 'number' || typeof n.title !== 'string') continue;
+      seen++;
+      // Fake roots are dropped pre-BFS — they can never steal real
+      // nodes via buildTree dedup or render as topics.
+      if (isTopicRoot(n.title)) refs.push({ number: n.number, id: n.id });
     }
     hasNext = !!page.pageInfo?.hasNextPage;
     after = hasNext ? page.pageInfo.endCursor : null;
     // hasNextPage without a cursor means we cannot page further — truncated.
     if (hasNext && after === null) break;
   } while (after !== null);
-  const truncated = hasNext && after === null ? true : refs.length < issueCount;
+  const truncated = (hasNext && after === null) || seen < issueCount;
   return { refs, truncated };
 }
 
