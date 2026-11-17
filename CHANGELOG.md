@@ -14,6 +14,7 @@
 - [Options Backtest] 1238-1493_SHARED-IMPL-MULTI-LEG-SPREAD: Position-row schema v2 + v1 narrowing shim — ContractListPositionRow (single-leg IS legs.length===1, pick kind retired), PositionOptionLeg/PositionStockLeg union, non-empty legMisses per-leg miss diagnostics, schemaVersion:2 + legMetas[] on the doc; v1PickToPosition/v1RowsToPositionRows/v1ListDocToV2 + positionRepeatsPrevious (all-legs-match: kind+side+contractId); repeatsPrevious normalized — gaps/first rows/corrupt flags can't repeat; v1 shapes preserved under *V1 names; stub docs throw a clear error
 - [Options Backtest] 1238-1493_BE-CHORE-MULTI-LEG-SPREAD: options-replay-position-rows-1493 prod audit (every real v1 list doc narrows field-for-field — 6 docs, 1,267 rows, 19 markers; --run scoping; vacuous-evidence warn) + run-all/README registration + 1275 probe re-pinned to ContractListRowV1
 - [Options Backtest] 1238-1493_DOCS-MULTI-LEG-SPREAD: #1493 code review (PASS, 2 passes) + UAT (Complete, #1583 — real-prod narrowing probe evidence) + IMPL-SHARED re-sync + changelog
+- [Option Contract Time-Series Viewer] 1243-1516_FE-IMPL-OPTIONS: Clear-all control — chips-panel head row ({N} plotted + Clear all) empties the plotted set in one click; clearPlotted/emptied-removePlotted also reset the contract viewer slice + orphan in-flight loads (no ghost repaint, no late resurrection — the resetSession hole closed on both clear paths); displayWindow pref preserved; head row shows during drill/focused-only (0 plotted); onClearPlotted also clears the visible textarea + skip-notice; redundant chart spinner removed
 
 ### Changed
 - [Options Backtest] 1238-1493_BE-CHORE-MULTI-LEG-SPREAD: BE consumer V1 rename sweep — pick-doc-mapper/permutation/worker/records/start + tests read ContractListRowV1/OptionsContractListDocV1/ContractListPickRowV1; v1 writer unchanged until the BE migration task emits v2
@@ -26,6 +27,7 @@
 ### Changed
 - [Portfolio Dashboard] 219-1481_DOCS-PORTFOLIO: #1481 code review (PASS, 2 rounds) + UAT (Draft — deferred pending live option positions, #1567) + changelog (checkpoint)
 - [GitHub read-only issue UI] 619-1523_DOCS-DEV-TOOLS: #1523 code review (PASS, 2 rounds) + UAT (Complete, #1582 — live 61/7 vocabulary audit) + IMPL-SHARED §3 sync + changelog
+- [Option Contract Time-Series Viewer] 1243-1516_DOCS-OPTIONS: #1516 code review (PASS, 3 rounds) + UAT (Complete, #1579 — 2 findings remediated in-cycle) + changelog
 
 ## [2026-11-15]
 
