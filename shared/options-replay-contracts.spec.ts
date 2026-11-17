@@ -1,6 +1,7 @@
 /**
  * @topic #1238 — Options Backtest, Thread #1240 (Selection Replay)
  * @task #1275 — SHARED: Replay contracts
+ * @task #1493 — SHARED: Position-row v2 schema + v1 narrowing shim
  *
  * Fixture-shape tests for the selection-replay shared contracts: pick-doc
  * wire types (SA-served shape), contract-list row union, run/list doc
@@ -10,14 +11,24 @@
 import { OptionType } from './options-common';
 import { TradeSide } from './common';
 import {
+  ContractListNoSelectionRow,
+  ContractListNoSelectionRowV1,
+  ContractListPickRowV1,
+  ContractListPositionRow,
   ContractListRow,
+  ContractListRowV1,
   isPickDocPick,
   legToPickDocCoordinate,
+  positionRepeatsPrevious,
   templateToOptionLeg,
+  v1ListDocToV2,
+  v1PickToPosition,
+  v1RowsToPositionRows,
   OPTIONS_CONTRACT_LIST_STATUSES,
   OPTIONS_REPLAY_RUN_STATUSES,
   OptionLeg,
   OptionsContractListDoc,
+  OptionsContractListDocV1,
   OptionsReplayPermutationPayload,
   OptionsReplayRun,
   OptionsReplayStartRequest,
@@ -28,6 +39,8 @@ import {
   PickDocument,
   PickDocMeta,
   PickDocMiss,
+  PositionOptionLeg,
+  PositionStockLeg,
   ReplayTemplate,
   ReplayVariant,
   StockLeg,
@@ -267,9 +280,9 @@ describe('options-replay-contracts', () => {
     });
   });
 
-  describe('ContractListRow', () => {
+  describe('ContractListRowV1 — legacy pick rows', () => {
     it('pick row carries all pick-day fields plus stamped side and repeat flag', () => {
-      const row: ContractListRow = {
+      const row: ContractListRowV1 = {
         kind: 'pick',
         entryDate: '2025-12-15',
         side: TradeSide.SHORT,
@@ -292,7 +305,7 @@ describe('options-replay-contracts', () => {
     });
 
     it('no-selection marker row carries only the entry date', () => {
-      const row: ContractListRow = { kind: 'no-selection', entryDate: '2025-12-16' };
+      const row: ContractListRowV1 = { kind: 'no-selection', entryDate: '2025-12-16' };
       expect(row.kind).toBe('no-selection');
     });
 
@@ -311,7 +324,7 @@ describe('options-replay-contracts', () => {
         volume: 412,
         openInterest: 5331,
       };
-      const row: ContractListRow = {
+      const row: ContractListRowV1 = {
         kind: 'pick',
         entryDate: '2025-12-15',
         side: TradeSide.SHORT,
@@ -322,7 +335,7 @@ describe('options-replay-contracts', () => {
     });
 
     it('narrows on kind — marker rows carry no pick fields', () => {
-      const rows: ContractListRow[] = [
+      const rows: ContractListRowV1[] = [
         { kind: 'no-selection', entryDate: '2025-12-16' },
       ];
       const row = rows[0];
@@ -336,7 +349,7 @@ describe('options-replay-contracts', () => {
     });
 
     it('marker rows may carry a reason', () => {
-      const row: ContractListRow = { kind: 'no-selection', entryDate: '2026-03-21', reason: 'out-of-range' };
+      const row: ContractListRowV1 = { kind: 'no-selection', entryDate: '2026-03-21', reason: 'out-of-range' };
       expect(row.reason).toBe('out-of-range');
     });
   });
@@ -368,7 +381,7 @@ describe('options-replay-contracts', () => {
   });
 
   describe('OptionsContractListDoc', () => {
-    it('accepts a per-symbol list doc with rows and pick-doc provenance', () => {
+    it('accepts a per-symbol v1 list doc with rows and pick-doc provenance', () => {
       const meta: PickDocMeta = {
         coordinate: { type: OptionType.PUT, targetDelta: -0.2, expiry: { mode: 'nearestDte', dte: 45 } },
         gridVersion: 3,
@@ -377,7 +390,7 @@ describe('options-replay-contracts', () => {
         firstDate: '2025-12-15',
         lastDate: '2026-03-20',
       };
-      const doc: OptionsContractListDoc = {
+      const doc: OptionsContractListDocV1 = {
         runId: 'or-abc123',
         symbol: 'QQQ',
         templateId: 'csp-45-20',
@@ -506,6 +519,339 @@ describe('options-replay-contracts', () => {
         },
       };
       expect(run.variantSnapshot?.legs).toHaveLength(1);
+    });
+  });
+
+  describe('position-row schema v2 (task #1493)', () => {
+    const coordinate: PickDocCoordinate = {
+      type: OptionType.PUT,
+      targetDelta: -0.3,
+      expiry: { mode: 'nearestDte', dte: 30 },
+    };
+    const day: PickDocDay = {
+      underlyingClose: 603.21,
+      contractId: 'QQQ260130P00578000',
+      expiration: '2026-01-30',
+      dte: 30,
+      strike: 578,
+      delta: -0.148,
+      iv: 0.213,
+      mark: 3.01,
+      bid: 2.98,
+      ask: 3.05,
+      volume: 412,
+      openInterest: 5331,
+    };
+    const optionLeg: PositionOptionLeg = {
+      kind: 'option',
+      side: TradeSide.SHORT,
+      coordinate,
+      ...day,
+    };
+    const stockLeg: PositionStockLeg = {
+      kind: 'stock',
+      side: TradeSide.LONG,
+      underlyingClose: 603.21,
+    };
+
+    it('option leg extends PickDocDay — day fields + coordinate + side', () => {
+      expect(optionLeg).toMatchObject(day);
+      expect(optionLeg.coordinate).toBe(coordinate);
+      expect(optionLeg.side).toBe(TradeSide.SHORT);
+    });
+
+    it('stock leg carries side + underlyingClose — no pick-day fields', () => {
+      expect(stockLeg).toEqual({
+        kind: 'stock',
+        side: TradeSide.LONG,
+        underlyingClose: 603.21,
+      });
+      // @ts-expect-error — stock legs have no contract resolution
+      void stockLeg.contractId;
+      // @ts-expect-error — stock legs have no pick-doc coordinate
+      void stockLeg.coordinate;
+    });
+
+    it('position row carries legs + entry date + repeat flag; single-leg IS legs.length 1', () => {
+      const single: ContractListPositionRow = {
+        kind: 'position',
+        entryDate: '2025-12-15',
+        legs: [optionLeg],
+        repeatsPrevious: false,
+      };
+      const mixed: ContractListPositionRow = {
+        kind: 'position',
+        entryDate: '2025-12-15',
+        legs: [optionLeg, stockLeg],
+        repeatsPrevious: true,
+      };
+      expect(single.legs).toHaveLength(1);
+      expect(mixed.legs.map((l) => l.kind)).toEqual(['option', 'stock']);
+    });
+
+    it('pick kind is retired — ContractListRow is position | no-selection', () => {
+      const position: ContractListRow = {
+        kind: 'position',
+        entryDate: '2025-12-15',
+        legs: [optionLeg],
+        repeatsPrevious: false,
+      };
+      const marker: ContractListRow = {
+        kind: 'no-selection',
+        entryDate: '2025-12-16',
+        legMisses: [{ legIndex: 0, coordinate }],
+      };
+      expect(position.kind).toBe('position');
+      expect(marker.kind).toBe('no-selection');
+      // @ts-expect-error — 'pick' is the v1 row kind; v2 emits position rows
+      const retired: ContractListRow = { kind: 'pick', entryDate: '2025-12-15' };
+      void retired;
+    });
+
+    it('no-selection rows name each failing leg — legIndex + coordinate + reason', () => {
+      const row: ContractListNoSelectionRow = {
+        kind: 'no-selection',
+        entryDate: '2025-12-16',
+        reason: 'miss',
+        legMisses: [
+          { legIndex: 0, coordinate, reason: 'miss' },
+          {
+            legIndex: 1,
+            coordinate: { type: OptionType.PUT, targetDelta: -0.1, expiry: { mode: 'nearestDte', dte: 30 } },
+            reason: 'gap',
+          },
+        ],
+      };
+      expect(row.legMisses).toHaveLength(2);
+      expect(row.legMisses[1].coordinate.targetDelta).toBe(-0.1);
+      expect(row.legMisses[1].reason).toBe('gap');
+    });
+
+    it('legMisses is required — a v2 no-selection row always names its misses', () => {
+      // @ts-expect-error — v1-shaped marker without legMisses is not a v2 row
+      const row: ContractListNoSelectionRow = { kind: 'no-selection', entryDate: '2025-12-16' };
+      void row;
+      // @ts-expect-error — an empty miss list is unrepresentable: a failed day names ≥1 leg
+      const empty: ContractListNoSelectionRow = { kind: 'no-selection', entryDate: '2025-12-16', legMisses: [] };
+      void empty;
+    });
+
+    it('v2 list doc carries schemaVersion 2 + legMetas (one per option leg)', () => {
+      const meta: PickDocMeta = {
+        coordinate,
+        gridVersion: 3,
+        pickCount: 64,
+        missCount: 3,
+        firstDate: '2025-12-15',
+        lastDate: '2026-03-20',
+      };
+      const doc: OptionsContractListDoc = {
+        runId: 'or-abc123',
+        symbol: 'QQQ',
+        templateId: 'csp-30-30',
+        status: 'success',
+        schemaVersion: 2,
+        rows: [
+          {
+            kind: 'position',
+            entryDate: '2025-12-15',
+            legs: [optionLeg],
+            repeatsPrevious: false,
+          },
+        ],
+        legMetas: [meta, meta],
+        generatedAt: '2026-10-25T00:05:00Z',
+      };
+      expect(doc.schemaVersion).toBe(2);
+      expect(doc.legMetas).toHaveLength(2);
+      // @ts-expect-error — pickDocMeta is the v1 provenance field
+      void doc.pickDocMeta;
+    });
+  });
+
+  describe('v1 narrowing shim (task #1493)', () => {
+    const coordinate: PickDocCoordinate = {
+      type: OptionType.PUT,
+      targetDelta: -0.2,
+      expiry: { mode: 'nearestDte', dte: 45 },
+    };
+    const day: PickDocDay = {
+      underlyingClose: 603.21,
+      contractId: 'QQQ260130P00578000',
+      expiration: '2026-01-30',
+      dte: 45,
+      strike: 578,
+      delta: -0.148,
+      iv: 0.213,
+      mark: 3.01,
+      bid: 2.98,
+      ask: 3.05,
+      volume: 412,
+      openInterest: 5331,
+    };
+    const pick: ContractListPickRowV1 = {
+      kind: 'pick',
+      entryDate: '2025-12-15',
+      side: TradeSide.SHORT,
+      repeatsPrevious: false,
+      ...day,
+    };
+
+    it('v1PickToPosition narrows field-for-field — every day field + side + stamped coordinate', () => {
+      const pos = v1PickToPosition(pick, coordinate);
+      expect(pos.kind).toBe('position');
+      expect(pos.entryDate).toBe('2025-12-15');
+      expect(pos.repeatsPrevious).toBe(false);
+      expect(pos.legs).toHaveLength(1);
+      const leg = pos.legs[0];
+      expect(leg.kind).toBe('option');
+      expect(leg).toMatchObject(day);
+      expect(leg).toMatchObject({ side: TradeSide.SHORT, coordinate });
+    });
+
+    it('v1RowsToPositionRows converts a sequence — marker gains leg-0 miss detail', () => {
+      const gap: ContractListNoSelectionRowV1 = {
+        kind: 'no-selection',
+        entryDate: '2025-12-16',
+        reason: 'miss',
+      };
+      const rows = v1RowsToPositionRows([pick, gap], coordinate);
+      expect(rows.map((r) => r.kind)).toEqual(['position', 'no-selection']);
+      const marker = rows[1];
+      if (marker.kind !== 'no-selection') throw new Error('expected no-selection');
+      expect(marker.reason).toBe('miss');
+      expect(marker.legMisses).toEqual([{ legIndex: 0, coordinate, reason: 'miss' }]);
+    });
+
+    it('marker without a reason still fills legMisses — reason left unset', () => {
+      const gap: ContractListNoSelectionRowV1 = { kind: 'no-selection', entryDate: '2025-12-16' };
+      const rows = v1RowsToPositionRows([gap], coordinate);
+      const marker = rows[0];
+      if (marker.kind !== 'no-selection') throw new Error('expected no-selection');
+      expect(marker.legMisses).toEqual([{ legIndex: 0, coordinate }]);
+    });
+
+    it('repeatsPrevious resets across no-selection gaps even when v1 data claims a repeat', () => {
+      const gap: ContractListNoSelectionRowV1 = { kind: 'no-selection', entryDate: '2025-12-16' };
+      const staleRepeat: ContractListPickRowV1 = { ...pick, entryDate: '2025-12-17', repeatsPrevious: true };
+      const rows = v1RowsToPositionRows([pick, gap, staleRepeat], coordinate);
+      const after = rows[2];
+      if (after.kind !== 'position') throw new Error('expected position');
+      expect(after.repeatsPrevious).toBe(false);
+    });
+
+    it('a first row can never repeat — flag normalized to false', () => {
+      const staleRepeat: ContractListPickRowV1 = { ...pick, repeatsPrevious: true };
+      const rows = v1RowsToPositionRows([staleRepeat], coordinate);
+      const first = rows[0];
+      if (first.kind !== 'position') throw new Error('expected position');
+      expect(first.repeatsPrevious).toBe(false);
+    });
+
+    it('consecutive picks carry repeatsPrevious verbatim', () => {
+      const again: ContractListPickRowV1 = { ...pick, entryDate: '2025-12-16', repeatsPrevious: true };
+      const rows = v1RowsToPositionRows([pick, again], coordinate);
+      const second = rows[1];
+      if (second.kind !== 'position') throw new Error('expected position');
+      expect(second.repeatsPrevious).toBe(true);
+    });
+
+    it('a corrupt flag survives nothing — repeat claim with a different contractId normalizes false', () => {
+      const different: ContractListPickRowV1 = {
+        ...pick,
+        entryDate: '2025-12-16',
+        contractId: 'QQQ260130P00565000',
+        repeatsPrevious: true,
+      };
+      const rows = v1RowsToPositionRows([pick, different], coordinate);
+      const second = rows[1];
+      if (second.kind !== 'position') throw new Error('expected position');
+      expect(second.repeatsPrevious).toBe(false);
+    });
+
+    it('v1ListDocToV2 narrows a whole doc — meta becomes legMetas[0], schemaVersion stamped', () => {
+      const meta: PickDocMeta = {
+        coordinate,
+        gridVersion: 3,
+        pickCount: 64,
+        missCount: 3,
+        firstDate: '2025-12-15',
+        lastDate: '2026-03-20',
+      };
+      const v1: OptionsContractListDocV1 = {
+        runId: 'or-abc123',
+        symbol: 'QQQ',
+        templateId: 'csp-45-20',
+        status: 'success',
+        rows: [pick, { kind: 'no-selection', entryDate: '2025-12-16', reason: 'gap' }],
+        pickDocMeta: meta,
+        generatedAt: '2026-10-25T00:05:00Z',
+      };
+      const doc = v1ListDocToV2(v1);
+      expect(doc.schemaVersion).toBe(2);
+      expect(doc.legMetas).toEqual([meta]);
+      expect(doc.rows.map((r) => r.kind)).toEqual(['position', 'no-selection']);
+      expect(doc.runId).toBe('or-abc123');
+      expect(doc.generatedAt).toBe(v1.generatedAt);
+    });
+
+    it('throws a clear error on a v1 stub doc — stubs merge-write Partial fields', () => {
+      // JSON.parse is what Firestore actually hands back — a Partial-shaped
+      // stub behind the full type, not a type-erasing cast.
+      const stub = JSON.parse('{"runId":"or-dead","status":"failed"}') as OptionsContractListDocV1;
+      expect(() => v1ListDocToV2(stub)).toThrow(/incomplete v1 list doc/);
+    });
+  });
+
+  describe('positionRepeatsPrevious — all-legs-match semantics (task #1493)', () => {
+    const legA: PositionOptionLeg = {
+      kind: 'option',
+      side: TradeSide.SHORT,
+      coordinate: { type: OptionType.PUT, targetDelta: -0.2, expiry: { mode: 'nearestDte', dte: 45 } },
+      underlyingClose: 603.21,
+      contractId: 'QQQ260130P00578000',
+      expiration: '2026-01-30',
+      dte: 45,
+      strike: 578,
+      delta: -0.148,
+      iv: 0.213,
+      mark: 3.01,
+      bid: 2.98,
+      ask: 3.05,
+      volume: 412,
+      openInterest: 5331,
+    };
+    const legB: PositionOptionLeg = {
+      ...legA,
+      side: TradeSide.LONG,
+      coordinate: { type: OptionType.PUT, targetDelta: -0.1, expiry: { mode: 'nearestDte', dte: 45 } },
+      contractId: 'QQQ260130P00565000',
+    };
+    const stock: PositionStockLeg = { kind: 'stock', side: TradeSide.LONG, underlyingClose: 603.21 };
+
+    it('false when there is no previous position', () => {
+      expect(positionRepeatsPrevious(undefined, [legA])).toBe(false);
+    });
+
+    it('true when every leg matches — marks may drift, identity cannot', () => {
+      const later: PositionOptionLeg = { ...legA, mark: 3.4, delta: -0.16 };
+      expect(positionRepeatsPrevious([legA], [later])).toBe(true);
+    });
+
+    it('false when any single option leg picks a different contract', () => {
+      const other: PositionOptionLeg = { ...legB, contractId: 'QQQ260130P00560000' };
+      expect(positionRepeatsPrevious([legA, legB], [legA, other])).toBe(false);
+    });
+
+    it('false when leg count or leg kind changes', () => {
+      expect(positionRepeatsPrevious([legA, legB], [legA])).toBe(false);
+      expect(positionRepeatsPrevious([legA, stock], [legA, legB])).toBe(false);
+    });
+
+    it('stock legs match on kind + side — a stock leg has no contractId', () => {
+      const flipped: PositionStockLeg = { ...stock, side: TradeSide.SHORT };
+      expect(positionRepeatsPrevious([stock], [{ ...stock, underlyingClose: 610.0 }])).toBe(true);
+      expect(positionRepeatsPrevious([stock], [flipped])).toBe(false);
     });
   });
 });

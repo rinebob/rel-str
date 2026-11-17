@@ -7,7 +7,7 @@
  * (list × exit type) so doc size stays bounded and per-exit queries are cheap.
  *
  * `AnalysisTradeRecord` is a discriminated union on `outcome` (same pattern
- * as `ContractListRow`) — exit fields exist only on 'exit', expiry fields
+ * as `ContractListRowV1`) — exit fields exist only on 'exit', expiry fields
  * only on 'expired', `lastBarDate` only on 'open' (#1431 — a live position
  * whose series ends before its future expiry), `error` only on 'error' —
  * so invalid combos don't compile and consumers narrow on `outcome`.

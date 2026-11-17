@@ -54,7 +54,7 @@ export interface HoldToExpiryExit extends ExitStrategyBase {
 
 /**
  * A registered exit strategy — discriminated union on `kind` (same pattern
- * as `ContractListRow`): each kind's required params are structural, so
+ * as `ContractListRowV1`): each kind's required params are structural, so
  * `{ kind: 'absolute-price', params: {} }` can't compile.
  */
 export type ExitStrategyDef =

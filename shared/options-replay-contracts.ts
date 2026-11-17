@@ -4,9 +4,11 @@
  * A selection replay run is ONE (template, symbol, startDate) selection —
  * submitting N symbols creates N independent runs (#1430). A run fetches
  * the SA Pick Document for the template's coordinate and persists a
- * Contract List — one row per trading day, either a pick or an explicit
- * no-selection marker. Pure types; importable by both the Angular
- * frontend and Firebase functions.
+ * Contract List — one row per trading day, either a resolved position
+ * (schemaVersion 2) or an explicit no-selection marker. Legacy v1 docs
+ * (`pick` rows + `pickDocMeta`) narrow to v2 via `v1ListDocToV2` — readers
+ * see one schema. Types plus the pure helpers that stamp/narrow them;
+ * importable by both the Angular frontend and Firebase functions.
  *
  * Timestamps are ISO strings at the shared layer (BE writers stamp
  * FieldValue server-side; the read shape here is what FE/BE consumers see).
@@ -233,30 +235,86 @@ export interface PickDocument extends PickDocCoordinate {
 export type NoSelectionReason = 'miss' | 'gap' | 'out-of-range';
 
 /**
- * A day's pick. Extends the PickDocDay wire shape verbatim so SA field
- * changes propagate instead of silently drifting; `entryDate` is the map key
- * promoted to a field, `side` is stamped from the template, and
- * `repeatsPrevious` flags that the immediately preceding row picked the same
- * contractId (each repeated pick is still a distinct position entry).
+ * A day's pick — the **v1** row shape, kept for legacy list docs
+ * (schemaVersion absent). Extends the PickDocDay wire shape verbatim so SA
+ * field changes propagate instead of silently drifting; `entryDate` is the
+ * map key promoted to a field, `side` is stamped from the template, and
+ * `repeatsPrevious` flags that the immediately preceding row picked the
+ * same contractId (each repeated pick is still a distinct position entry).
+ * Readers narrow to the v2 position row via `v1PickToPosition`.
  */
-export interface ContractListPickRow extends PickDocDay {
+export interface ContractListPickRowV1 extends PickDocDay {
   kind: 'pick';
   entryDate: string;
   side: TradeSide;
   repeatsPrevious: boolean;
 }
 
-/** Explicit marker for a trading day with no pick — never omitted. */
-export interface ContractListNoSelectionRow {
+/** v1 no-selection marker — predates per-leg miss detail (#1493). */
+export interface ContractListNoSelectionRowV1 {
   kind: 'no-selection';
   entryDate: string;
   reason?: NoSelectionReason;
 }
 
-/** One contract-list row — the day's pick or an explicit no-selection marker. */
-export type ContractListRow = ContractListPickRow | ContractListNoSelectionRow;
+/** v1 row union — legacy list docs only; readers see v2 via the shim. */
+export type ContractListRowV1 = ContractListPickRowV1 | ContractListNoSelectionRowV1;
 
-/** Pick-doc provenance recorded on each list doc. */
+/** Resolved option leg on a position row — the entry-day pick fields
+ *  verbatim plus the coordinate the leg resolved under and its side. */
+export interface PositionOptionLeg extends PickDocDay {
+  kind: 'option';
+  side: TradeSide;
+  coordinate: PickDocCoordinate;
+}
+
+/** Stock legs need no contract resolution — the entry-day underlying
+ *  close is all they carry. */
+export interface PositionStockLeg {
+  kind: 'stock';
+  side: TradeSide;
+  underlyingClose: number;
+}
+
+export type PositionLeg = PositionOptionLeg | PositionStockLeg;
+
+/** Which leg failed to resolve for a no-selection day, and why. */
+export interface PositionLegMiss {
+  legIndex: number;
+  coordinate: PickDocCoordinate;
+  reason?: NoSelectionReason;
+}
+
+/**
+ * A day's resolved position — exists iff EVERY option leg resolved for
+ * that date (atomicity: partial positions are never written). `legs` is
+ * ≥1 — a single-leg position is `legs.length === 1`, not a separate kind.
+ * `repeatsPrevious` flags that every leg matches the immediately
+ * preceding position row — the UI's "same trade rolled forward" hint.
+ */
+export interface ContractListPositionRow {
+  kind: 'position';
+  entryDate: string;
+  legs: readonly [PositionLeg, ...PositionLeg[]];
+  repeatsPrevious: boolean;
+}
+
+/** Explicit marker for a trading day with no position — never omitted.
+ *  `legMisses` names each failing option leg's coordinate (plus a reason
+ *  when known); `reason` is the roll-up worst miss across legs. */
+export interface ContractListNoSelectionRow {
+  kind: 'no-selection';
+  entryDate: string;
+  reason?: NoSelectionReason;
+  legMisses: readonly [PositionLegMiss, ...PositionLegMiss[]];
+}
+
+/** One contract-list row — a resolved position or an explicit
+ *  no-selection marker. The v1 `pick` kind is retired. */
+export type ContractListRow = ContractListPositionRow | ContractListNoSelectionRow;
+
+/** Pick-doc provenance recorded on each list doc — v1 carries one; v2
+ *  carries `legMetas[i]` per option leg in `legs[i]` order. */
 export interface PickDocMeta {
   coordinate: PickDocCoordinate;
   gridVersion: number;
@@ -264,6 +322,105 @@ export interface PickDocMeta {
   missCount: number;
   firstDate: string;
   lastDate: string;
+}
+
+/**
+ * Narrow a v1 pick row to a 1-leg position row — every day field plus
+ * `side` lands verbatim on the leg, with `coordinate` stamped by the
+ * caller (it lives on the doc's `pickDocMeta`, not the row). For row
+ * sequences use `v1RowsToPositionRows` — `repeatsPrevious` needs the
+ * previous row to normalize correctly.
+ */
+export function v1PickToPosition(
+  row: ContractListPickRowV1,
+  coordinate: PickDocCoordinate,
+): ContractListPositionRow {
+  const { kind: _pickKind, entryDate, side, repeatsPrevious, ...dayFields } = row;
+  return {
+    kind: 'position',
+    entryDate,
+    legs: [{ ...dayFields, kind: 'option', side, coordinate }],
+    repeatsPrevious,
+  };
+}
+
+/**
+ * Narrow a whole v1 row sequence to v2. Picks become 1-leg positions;
+ * markers gain `legMisses` naming leg 0's coordinate — v1 was single-leg,
+ * so every miss was that leg's. `repeatsPrevious` is normalized, not
+ * trusted: the flag means "the previous row was a position", so a row
+ * after a no-selection gap (or the first row) can never repeat.
+ */
+export function v1RowsToPositionRows(
+  rows: readonly ContractListRowV1[],
+  coordinate: PickDocCoordinate,
+): ContractListRow[] {
+  const out: ContractListRow[] = [];
+  for (const row of rows) {
+    if (row.kind === 'no-selection') {
+      const reason = row.reason ? { reason: row.reason } : {};
+      out.push({
+        kind: 'no-selection',
+        entryDate: row.entryDate,
+        ...reason,
+        legMisses: [{ legIndex: 0, coordinate, ...reason }],
+      });
+      continue;
+    }
+    const pos = v1PickToPosition(row, coordinate);
+    const prev = out[out.length - 1];
+    out.push({
+      ...pos,
+      // Normalized, not trusted: the flag means "the previous row was a
+      // position with identical legs" — a gap or first row can never
+      // repeat, and a corrupt flag can't survive a contractId change.
+      repeatsPrevious:
+        pos.repeatsPrevious &&
+        prev?.kind === 'position' &&
+        positionRepeatsPrevious(prev.legs, pos.legs),
+    });
+  }
+  return out;
+}
+
+/**
+ * All-legs-match for `repeatsPrevious` on v2 rows: a position repeats only
+ * when every leg is identical to the previous position's — option legs on
+ * kind + side + `contractId`, stock legs on kind + side (they have no
+ * contract). Marks and
+ * Greeks drift day to day; identity fields may not. The v2 writer calls
+ * this when stamping rows; a per-leg repeat flag is noise.
+ */
+export function positionRepeatsPrevious(
+  prevLegs: readonly PositionLeg[] | undefined,
+  legs: readonly PositionLeg[],
+): boolean {
+  if (!prevLegs || !legs.length || prevLegs.length !== legs.length) return false;
+  return legs.every((leg, i) => {
+    const prev = prevLegs[i];
+    if (leg.kind !== prev.kind || leg.side !== prev.side) return false;
+    return leg.kind === 'option' && prev.kind === 'option'
+      ? leg.contractId === prev.contractId
+      : true;
+  });
+}
+
+/** Narrow a v1 list doc to the v2 shape — `pickDocMeta` becomes
+ *  `legMetas[0]`, rows narrow per the sequence rules, `schemaVersion`
+ *  stamped. Readers see one schema. */
+export function v1ListDocToV2(doc: OptionsContractListDocV1): OptionsContractListDoc {
+  // Failed/stub docs are merge-written as Partial — a missing payload is a
+  // caller bug (gate on status first), not a TypeError.
+  if (!doc.pickDocMeta || !Array.isArray(doc.rows)) {
+    throw new Error('v1ListDocToV2: incomplete v1 list doc — gate on status before narrowing');
+  }
+  const { pickDocMeta, rows, ...rest } = doc;
+  return {
+    ...rest,
+    schemaVersion: 2,
+    rows: v1RowsToPositionRows(rows, pickDocMeta.coordinate),
+    legMetas: [pickDocMeta],
+  };
 }
 
 // ==========================
@@ -318,6 +475,25 @@ export interface OptionsReplayRun {
   error?: string;
 }
 
+/** v1 contract list — legacy docs (schemaVersion absent). `pickDocMeta`
+ *  is the single-leg provenance; `rows` carry the retired `pick` kind.
+ *  Readers narrow via `v1ListDocToV2`. */
+export interface OptionsContractListDocV1 {
+  runId: string;
+  symbol: string;
+  /** Registry id the run resolved to. A failed stub written when the
+   *  run doc itself is missing may omit it — merge-writes are Partial. */
+  templateId: string;
+  status: OptionsContractListStatus;
+  /** v1 is defined by absence — never present on a v1 doc. */
+  schemaVersion?: never;
+  rows: ContractListRowV1[];
+  pickDocMeta: PickDocMeta;
+  /** ISO timestamp. */
+  generatedAt: string;
+  error?: string;
+}
+
 /** Contract list — st-options-contract-lists/{runId} (docId IS the runId;
  *  run and list are 1:1 by construction). */
 export interface OptionsContractListDoc {
@@ -327,8 +503,11 @@ export interface OptionsContractListDoc {
    *  run doc itself is missing may omit it — merge-writes are Partial. */
   templateId: string;
   status: OptionsContractListStatus;
+  /** Position-row schema version — `2`; absent on legacy v1 docs. */
+  schemaVersion: 2;
   rows: ContractListRow[];
-  pickDocMeta: PickDocMeta;
+  /** Pick-doc provenance per option leg, in `legs[i]` order. */
+  legMetas: readonly PickDocMeta[];
   /** ISO timestamp. */
   generatedAt: string;
   error?: string;
