@@ -341,9 +341,14 @@ export const REPLAY_TEMPLATE_SHAPES: readonly TemplateShape[] = [
 
 /**
  * Concrete named-variant registry — paste-ready JSON is the persistence
- * story; registry stays code-curated (no Firestore collection). Seeded
- * with the four legacy templates migrated verbatim as 1-leg variants;
- * the thread catalog's multi-leg variants land with #1495.
+ * story; registry stays code-curated (no Firestore collection). The first
+ * four entries are the legacy templates migrated verbatim as 1-leg
+ * variants; the remainder are the curated common-case seeds (#1495) —
+ * every base template has ≥1 seeded variant (legacy entries count), each
+ * inside its shape's bands (the validator only requires on-grid; staying
+ * on-band is the curated-set invariant the spec pins). Id grammar is
+ * positional `{abbr}-{dte(s)}-{delta(s)}` in leg order — calendars emit
+ * near,far; diagonals far,near.
  */
 export const REPLAY_VARIANTS: readonly ReplayVariant[] = [
   {
@@ -382,6 +387,177 @@ export const REPLAY_VARIANTS: readonly ReplayVariant[] = [
       { kind: 'option', type: OptionType.CALL, targetDelta: 0.15, dte: 45, side: TradeSide.LONG },
     ],
   },
+  {
+    id: 'lc-365-75',
+    name: '365DTE 75Δ call (LEAP)',
+    description: 'Buy one 365DTE 75-delta call — the catalog LEAP case; deep-ITM stock substitute.',
+    structure: 'long-call',
+    legs: [
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.75, dte: 365, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'lp-45-30',
+    name: '45DTE 30Δ put (LP)',
+    description: 'Buy one 45DTE 30-delta put each trading day — long-put ladder.',
+    structure: 'long-put',
+    legs: [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.3, dte: 45, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'sc-45-20',
+    name: '45DTE 20Δ call (SC)',
+    description: 'Sell one 45DTE 20-delta call each trading day — naked; same blocking caveat as the shape.',
+    structure: 'short-call',
+    legs: [
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 45, side: TradeSide.SHORT },
+    ],
+  },
+  {
+    id: 'pcs-45-20-5',
+    name: '45DTE 20/5Δ put credit spread',
+    description: 'Sell 20Δ put + buy 5Δ put at 45 DTE — the catalog bull-put example.',
+    structure: 'put-credit-spread',
+    legs: [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.05, dte: 45, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'ccs-45-20-5',
+    name: '45DTE 20/5Δ call credit spread',
+    description: 'Sell 20Δ call + buy 5Δ call at 45 DTE — the mirrored bear-call.',
+    structure: 'call-credit-spread',
+    legs: [
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 45, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.05, dte: 45, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'pds-45-40-15',
+    name: '45DTE 40/15Δ put debit spread',
+    description: 'Buy 40Δ put + sell 15Δ put at 45 DTE — directional bearish vertical.',
+    structure: 'put-debit-spread',
+    legs: [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.4, dte: 45, side: TradeSide.LONG },
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.15, dte: 45, side: TradeSide.SHORT },
+    ],
+  },
+  {
+    id: 'cds-45-40-15',
+    name: '45DTE 40/15Δ call debit spread',
+    description: 'Buy 40Δ call + sell 15Δ call at 45 DTE — directional bullish vertical.',
+    structure: 'call-debit-spread',
+    legs: [
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.4, dte: 45, side: TradeSide.LONG },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.15, dte: 45, side: TradeSide.SHORT },
+    ],
+  },
+  {
+    id: 'ic-45-20-10',
+    name: '45DTE 20/10Δ iron condor',
+    description: 'Sell 20Δ put + call with 10Δ long wings at 45 DTE — range-bound all-credit.',
+    structure: 'iron-condor',
+    legs: [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.1, dte: 45, side: TradeSide.LONG },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 45, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.1, dte: 45, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'ib-45-50-20',
+    name: '45DTE 50/20Δ iron butterfly',
+    description: 'Sell ATM call + put at 50Δ with 20Δ long wings at 45 DTE — centered all-credit.',
+    structure: 'iron-butterfly',
+    legs: [
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.5, dte: 45, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.5, dte: 45, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 45, side: TradeSide.LONG },
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'ccal-30-60-20',
+    name: '30→60DTE 20Δ call calendar',
+    description: 'Sell 30DTE + buy 60DTE at the same 20Δ call — the catalog calendar example.',
+    structure: 'call-calendar',
+    legs: [
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 30, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 60, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'pcal-30-60-20',
+    name: '30→60DTE 20Δ put calendar',
+    description: 'Sell 30DTE + buy 60DTE at the same 20Δ put — the mirrored put calendar.',
+    structure: 'put-calendar',
+    legs: [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 30, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 60, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'cdiag-180-21-70-20',
+    name: '180→21DTE 70/20Δ call diagonal',
+    description: 'Buy 180DTE 70Δ call + sell 21DTE 20Δ call — "poor man\'s covered call".',
+    structure: 'call-diagonal',
+    legs: [
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.7, dte: 180, side: TradeSide.LONG },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 21, side: TradeSide.SHORT },
+    ],
+  },
+  {
+    id: 'pdiag-180-21-70-20',
+    name: '180→21DTE 70/20Δ put diagonal',
+    description: 'Buy 180DTE 70Δ put + sell 21DTE 20Δ put — the mirrored diagonal.',
+    structure: 'put-diagonal',
+    legs: [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.7, dte: 180, side: TradeSide.LONG },
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 21, side: TradeSide.SHORT },
+    ],
+  },
+  {
+    id: 'lst-45-50',
+    name: '45DTE 50Δ long straddle',
+    description: 'Buy ATM call + put at 50Δ, 45 DTE — pure-volatility position.',
+    structure: 'long-straddle',
+    legs: [
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.5, dte: 45, side: TradeSide.LONG },
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.5, dte: 45, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'lng-45-20',
+    name: '45DTE 20Δ long strangle',
+    description: 'Buy OTM 20Δ put + call at 45 DTE — wide, cheaper volatility position.',
+    structure: 'long-strangle',
+    legs: [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.LONG },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 45, side: TradeSide.LONG },
+    ],
+  },
+  {
+    id: 'sng-45-20',
+    name: '45DTE 20Δ short strangle',
+    description: 'Sell OTM 20Δ put + call at 45 DTE — naked; same blocking caveat as the shape.',
+    structure: 'short-strangle',
+    legs: [
+      { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 45, side: TradeSide.SHORT },
+    ],
+  },
+  {
+    id: 'cov-45-20',
+    name: '45DTE 20Δ covered call',
+    description: 'Long stock + sell 45DTE 20Δ call — the catalog covered-call example; stock leg always resolves.',
+    structure: 'covered-call',
+    legs: [
+      { kind: 'stock', side: TradeSide.LONG },
+      { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 45, side: TradeSide.SHORT },
+    ],
+  },
 ];
 
 // Freeze the curated registries — type-level `readonly` stops compile-time
@@ -397,11 +573,15 @@ for (const s of REPLAY_TEMPLATE_SHAPES) {
     }
     Object.freeze(l);
   });
+  Object.freeze(s);
 }
 for (const v of REPLAY_VARIANTS) {
   Object.freeze(v.legs);
   v.legs.forEach((l) => Object.freeze(l));
+  Object.freeze(v);
 }
+Object.freeze(REPLAY_TEMPLATE_SHAPES);
+Object.freeze(REPLAY_VARIANTS);
 
 /** Look up a named variant by id; undefined on miss. */
 export function getReplayVariant(id: string): ReplayVariant | undefined {
@@ -693,7 +873,9 @@ function variantToReplayTemplate(variant: ReplayVariant): ReplayTemplate | undef
 /**
  * Legacy registry surface — derived from `REPLAY_VARIANTS`, not a
  * hand-curated list, so the v1 picker and `optionsReplayStart` templateId
- * validation keep working verbatim until the builder dialog lands (#1507).
+ * validation keep working until the builder dialog lands (#1507). Any
+ * single-option-leg variant joins this surface automatically (#1495's
+ * `lp-45-30`/`sc-45-20`/`lc-365-75` did); multi-leg variants never do.
  */
 export const REPLAY_TEMPLATES: readonly ReplayTemplate[] = REPLAY_VARIANTS.map(
   variantToReplayTemplate,

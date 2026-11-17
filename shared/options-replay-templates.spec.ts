@@ -11,6 +11,8 @@
  * the legacy read surface derived from the 1-leg variants.
  * @task #1494 — `validateVariantRegistry` runs over the real registries so
  * data drift fails this suite, not a live run.
+ * @task #1495 — SHARED: Seed named variants from catalog (curated-set
+ * coverage/band/example pins).
  */
 
 import { OptionType } from './options-common';
@@ -121,19 +123,19 @@ describe('options-replay-templates', () => {
     // between this spec and the validator.
   });
 
-  describe('REPLAY_VARIANTS (#1492)', () => {
-    it('migrates all four legacy templates verbatim as 1-leg variants', () => {
-      const ids = REPLAY_VARIANTS.map((v) => v.id);
-      expect(ids).toEqual(['csp-45-20', 'csp-30-30', 'lc-30-20', 'lc-45-15']);
-      for (const v of REPLAY_VARIANTS) {
+  describe('REPLAY_VARIANTS (#1492/#1495)', () => {
+    it('keeps the four legacy templates first, verbatim as 1-leg variants', () => {
+      const legacy = REPLAY_VARIANTS.slice(0, 4);
+      expect(legacy.map((v) => v.id)).toEqual(['csp-45-20', 'csp-30-30', 'lc-30-20', 'lc-45-15']);
+      for (const v of legacy) {
         expect(v.legs).toHaveLength(1);
         expect(v.legs[0].kind).toBe('option');
       }
     });
 
     it('REPLAY_TEMPLATES derives exactly the single-option-leg variants', () => {
-      // Once #1495 lands multi-leg variants, they must NOT leak onto the
-      // legacy surface — a ReplayTemplate is a single coordinate + side.
+      // Multi-leg variants (#1495) must NOT leak onto the legacy surface —
+      // a ReplayTemplate is a single coordinate + side.
       const derivable = REPLAY_VARIANTS.filter(
         (v) => v.legs.length === 1 && v.legs[0].kind === 'option',
       );
@@ -159,7 +161,7 @@ describe('options-replay-templates', () => {
       };
       // Iterate the EXPECTED ids, not the registry — the audit does the
       // same. The other direction would crash opaquely (undefined.name) on
-      // the first non-legacy variant #1495 adds.
+      // a multi-leg variant (#1495 added stock + multi-leg legs).
       for (const [id, exp] of Object.entries(expected)) {
         const v = getReplayVariant(id);
         if (!v) throw new Error(`variant ${id} missing`);
@@ -177,6 +179,69 @@ describe('options-replay-templates', () => {
       }
     });
 
+    it('seeds the curated common-case set — one variant per base template', () => {
+      // #1495 acceptance: every base template is pickable. `structure`
+      // back-references the shape; a shape with no variant is a gap in the
+      // curated set, not a validator violation.
+      for (const shape of REPLAY_TEMPLATE_SHAPES) {
+        const seeded = REPLAY_VARIANTS.filter((v) => v.structure === shape.id);
+        expect(seeded.length).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it('every seeded option leg sits INSIDE its shape\'s bands', () => {
+      // Curated-set invariant — stricter than the validator (which allows
+      // on-grid/off-band as a legal custom point). Position-matched: leg i
+      // of the variant sits in leg i of the shape (roles repeat, so index
+      // is the identity).
+      for (const v of REPLAY_VARIANTS) {
+        const shape = REPLAY_TEMPLATE_SHAPES.find((s) => s.id === v.structure);
+        if (!shape) throw new Error(`variant ${v.id} has no shape — curated set requires a resolvable structure`);
+        if (v.legs.length !== shape.legs.length) {
+          throw new Error(`variant ${v.id} has ${v.legs.length} legs, shape ${shape.id} has ${shape.legs.length}`);
+        }
+        for (const [i, leg] of v.legs.entries()) {
+          const slot = shape.legs[i];
+          expect(leg.kind).toBe(slot.kind);
+          expect(leg.side).toBe(slot.side);
+          if (leg.kind === 'option' && slot.kind === 'option') {
+            expect(leg.type).toBe(slot.type);
+            const mag = Math.round(Math.abs(leg.targetDelta) * 100);
+            expect(mag).toBeGreaterThanOrEqual(slot.deltaBand[0]);
+            expect(mag).toBeLessThanOrEqual(slot.deltaBand[1]);
+            expect(slot.dteBand).toContain(leg.dte);
+          }
+        }
+      }
+    });
+
+    it('pins the catalog example variants verbatim', () => {
+      // The CATALOG doc's four concrete points — drift here means the
+      // seeded menu stopped matching the agreed examples.
+      const pcs = getReplayVariant('pcs-45-20-5');
+      expect(pcs?.name).toBe('45DTE 20/5Δ put credit spread');
+      expect(pcs?.legs).toEqual([
+        { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT },
+        { kind: 'option', type: OptionType.PUT, targetDelta: -0.05, dte: 45, side: TradeSide.LONG },
+      ]);
+      const leap = getReplayVariant('lc-365-75');
+      expect(leap?.name).toBe('365DTE 75Δ call (LEAP)');
+      expect(leap?.legs).toEqual([
+        { kind: 'option', type: OptionType.CALL, targetDelta: 0.75, dte: 365, side: TradeSide.LONG },
+      ]);
+      const cal = getReplayVariant('ccal-30-60-20');
+      expect(cal?.name).toBe('30→60DTE 20Δ call calendar');
+      expect(cal?.legs).toEqual([
+        { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 30, side: TradeSide.SHORT },
+        { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 60, side: TradeSide.LONG },
+      ]);
+      const cov = getReplayVariant('cov-45-20');
+      expect(cov?.name).toBe('45DTE 20Δ covered call');
+      expect(cov?.legs).toEqual([
+        { kind: 'stock', side: TradeSide.LONG },
+        { kind: 'option', type: OptionType.CALL, targetDelta: 0.2, dte: 45, side: TradeSide.SHORT },
+      ]);
+    });
   });
 
   describe('getReplayVariant / getTemplateShape', () => {
