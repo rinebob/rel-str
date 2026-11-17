@@ -22,8 +22,12 @@
 - [Strategy Builder UI] 137-1544_BE-IMPL-STRAT-MANAGE: Exit-scan specs (22) + start-gate spec + strat-manage-exit-scan-1544 verify script (34 checks) + run-all/README registry entries
 - [Strategy Builder UI] 137-1544_DOCS-STRAT-MANAGE: IMPL §3 as-built + post-review hardening + code review (PASS, 3 axes — 3 majors fixed in-cycle) + UAT (Complete, #1589) + changelog
 
+- [GitHub read-only issue UI] 619-1527_BE-IMPL-DEV-TOOLS: Root filter ^Topic: + hits-seen truncation — search hits filtered through isTopicRoot pre-BFS (fakes can't steal via dedup), unclassifiable hits count as missed, 4 new specs
+- [GitHub read-only issue UI] 619-1527_BE-IMPL-DEV-TOOLS: Live verify root-filter coverage — 639 gains ^Topic:-root + inside-tree checks (#697/#713/#1509), 640 gains sections-absence check
 ### Changed
 - [Trading Indicator Library] 261-873_SHARED-IMPL-INDICATOR-LIB: Pine Anchored VWAP refined to web causal semantics — draw-from-trigger rendering over prefix-sums, supersession dot reconciliation + predecessor re-ending/resurrection (lastFired/popPred), same-index collapse, xloc.bar_time anchors, era first-cap history, admit-all window accounting
+
+- [GitHub read-only issue UI] 619-1527_DOCS-DEV-TOOLS: #1527 code review (PASS, 2 passes) + UAT (Complete, #1585) + changelog
 
 ## [2026-11-16]
 
