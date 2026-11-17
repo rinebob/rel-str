@@ -19,7 +19,10 @@ npx tsx scripts/verify/dev-tools-gh-lifecycle-639-fetch.ts
 `gh auth token` (works when `gh` is authenticated). Read-only.
 
 **Pass:** `ALL CHECKS PASSED`, exit 0. Confirms: rel-str repo entry exists;
-roots found with `truncatedNodes === 0`; topic #619 has thread #621 under
+roots found with `truncatedNodes === 0`; every root passes the `^Topic:`
+root filter (#1527 — fake roots from the substring search never reach
+BFS) **and** the acceptance fakes still render inside the real tree
+(#697 under #619, #713/#1509 under #697); topic #619 has thread #621 under
 it; all roots carry number/title/state/url; `statusOf` decodes project
 statuses; inventory doc fetched; transforms emit flat `group`-stamped
 topics (contract v2, #1522).

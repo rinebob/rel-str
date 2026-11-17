@@ -23,6 +23,7 @@ import { SUPPORTED_REPOS } from '../../functions/src/gh-lifecycle/config';
 import {
   assignGroups,
   buildTree,
+  isTopicRoot,
   parseInventoryGroups,
 } from '../../shared/lifecycle-tree';
 
@@ -62,6 +63,19 @@ async function main(): Promise<void> {
     (res.childrenOf.get(619) ?? []).some(c => c.number === 621));
   check('every root has number/title/state/url',
     res.roots.every(r => r.number > 0 && !!r.title && !!r.state && !!r.url));
+  // #1527 — fake roots ("Thread: Topic X" substring search hits) are
+  // filtered pre-BFS; every returned root must satisfy isTopicRoot.
+  check('every root passes the ^Topic: filter',
+    res.roots.every(r => isTopicRoot(r.title)),
+    res.roots.filter(r => !isTopicRoot(r.title)).map(r => `#${r.number} "${r.title}"`).join('; '));
+  // ...and the filtered hits still render inside the real tree, not
+  // just absent from roots (#1527 acceptance).
+  check('#697 thread renders inside #619, not as a root',
+    (res.childrenOf.get(619) ?? []).some(c => c.number === 697));
+  check('#713/#1509 render inside #697, not as roots',
+    ['713', '1509'].every(n =>
+      (res.childrenOf.get(697) ?? []).some(c => String(c.number) === n)),
+    (res.childrenOf.get(697) ?? []).map(c => `#${c.number}`).join(','));
   check('statusOf populated for rel-str', res.statusOf.size > 0, `${res.statusOf.size}`);
   console.log(`  roots: ${res.roots.length}, nodes with children: ${res.childrenOf.size}, statuses: ${res.statusOf.size}`);
 

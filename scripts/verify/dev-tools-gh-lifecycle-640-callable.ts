@@ -50,6 +50,8 @@ async function main(): Promise<void> {
   check('response parses to LifecycleTreeResponse v2 shape',
     Array.isArray(res.topics) && Array.isArray(res.groupOrder) &&
     typeof res.fetchedAt === 'string');
+  check('no legacy sections key on the response',
+    !('sections' in (res as object)));
   check('fetchedAt is fresh ISO', Date.now() - Date.parse(res.fetchedAt) < 60_000);
   check('topics non-empty', res.topics.length > 0, `${res.topics.length} topics`);
   check('every topic carries a group', res.topics.every(t => !!t.group));
