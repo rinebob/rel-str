@@ -143,8 +143,8 @@ export type PositionLeg = PositionOptionLeg | PositionStockLeg;
 export interface ContractListPositionRow {
   kind: 'position';
   entryDate: string;
-  legs: PositionLeg[];                    // ≥1; single-leg = legs.length === 1
-  /** Every option leg's contractId matches the prior position row's — UI label hint. */
+  legs: readonly PositionLeg[];           // ≥1; single-leg = legs.length === 1
+  /** Every leg matches the prior position row's — UI label hint. */
   repeatsPrevious: boolean;
 }
 
@@ -158,14 +158,15 @@ export interface ContractListNoSelectionRow {
   kind: 'no-selection';
   entryDate: string;
   reason?: NoSelectionReason;             // roll-up: worst miss across legs
-  legMisses: PositionLegMiss[];           // per-leg detail — which coordinate failed
+  legMisses: readonly PositionLegMiss[];  // per-leg detail — which coordinate failed
 }
 ```
 
 - **Atomicity:** a position row exists iff every option leg resolved for that day; any leg miss → no-selection row with `legMisses` naming each failing coordinate. Partial positions never exist.
 - `ContractListRow = ContractListPositionRow | ContractListNoSelectionRow` — the `pick` kind is retired.
 - `PickDocMeta` → `legMetas: PickDocMeta[]` on the list doc (one per option leg, legs[i] ordering).
-- `OptionsContractListDoc` gains `schemaVersion: 2`. Legacy docs (absent field = v1) keep `pick`/`no-selection` rows; **one read-time narrowing shim** (`v1PickToPosition`) maps a v1 pick row to a 1-leg position — analyzer + FE read through it so consumers see only v2 shape.
+- `OptionsContractListDoc` gains `schemaVersion: 2`. The v1 shapes keep their own names — `ContractListPickRowV1`, `ContractListNoSelectionRowV1`, `ContractListRowV1`, `OptionsContractListDocV1` (v1 doc's `schemaVersion?: never` pins absence = v1) — so existing readers/writers compile untouched against the legacy row contract until their migration tasks land.
+- **Narrowing shim (three surfaces):** `v1PickToPosition(row, coordinate)` per row; `v1RowsToPositionRows(rows, coordinate)` normalizes a sequence — `repeatsPrevious` means "the previous row was a position", so gaps/first rows force `false` even when v1 data claims a repeat, and markers gain `legMisses` naming leg 0's coordinate; `v1ListDocToV2(doc)` does the whole doc (`pickDocMeta` → `legMetas[0]`, `schemaVersion: 2` stamped; throws on a merge-Partial stub — callers gate on status). `positionRepeatsPrevious(prevLegs, legs)` pins the all-legs-match semantic for the v2 writer — option legs on kind + side + `contractId`, stock legs on kind + side; marks/Greeks drift, identity can't. `legMisses` is a non-empty tuple — a failed day always names ≥1 leg.
 
 ### 6. Request + run-doc contracts
 

@@ -11,6 +11,13 @@
 
 - [GitHub read-only issue UI] 619-1523_SHARED-IMPL-DEV-TOOLS: Label write contracts + system-label guard — RepoLabel + 3 callable request/response pairs, isSystemLabel/SYSTEM_LABEL_PATTERNS (case-insensitive; stage pattern rejects any [1-8]_ mint/erase), mirrored vocabularies pinned by 90 spec assertions
 - [GitHub read-only issue UI] 619-1523_CONFIG-CHORE-DEV-TOOLS: @lifecycle/labels path alias in app + functions tsconfigs and jest moduleNameMapper
+- [Options Backtest] 1238-1493_SHARED-IMPL-MULTI-LEG-SPREAD: Position-row schema v2 + v1 narrowing shim — ContractListPositionRow (single-leg IS legs.length===1, pick kind retired), PositionOptionLeg/PositionStockLeg union, non-empty legMisses per-leg miss diagnostics, schemaVersion:2 + legMetas[] on the doc; v1PickToPosition/v1RowsToPositionRows/v1ListDocToV2 + positionRepeatsPrevious (all-legs-match: kind+side+contractId); repeatsPrevious normalized — gaps/first rows/corrupt flags can't repeat; v1 shapes preserved under *V1 names; stub docs throw a clear error
+- [Options Backtest] 1238-1493_BE-CHORE-MULTI-LEG-SPREAD: options-replay-position-rows-1493 prod audit (every real v1 list doc narrows field-for-field — 6 docs, 1,267 rows, 19 markers; --run scoping; vacuous-evidence warn) + run-all/README registration + 1275 probe re-pinned to ContractListRowV1
+- [Options Backtest] 1238-1493_DOCS-MULTI-LEG-SPREAD: #1493 code review (PASS, 2 passes) + UAT (Complete, #1583 — real-prod narrowing probe evidence) + IMPL-SHARED re-sync + changelog
+
+### Changed
+- [Options Backtest] 1238-1493_BE-CHORE-MULTI-LEG-SPREAD: BE consumer V1 rename sweep — pick-doc-mapper/permutation/worker/records/start + tests read ContractListRowV1/OptionsContractListDocV1/ContractListPickRowV1; v1 writer unchanged until the BE migration task emits v2
+- [Options Backtest] 1238-1493_FE-CHORE-MULTI-LEG-SPREAD: FE consumer V1 rename sweep — table/dialog/picker/chart-replay/emit-util/store/service surfaces + specs read *V1 types; behavior identical (type-only)
 
 ### Fixed
 - [Portfolio Dashboard] 219-1481_FE-BUG-PORTFOLIO: `get_option_positions` parses `data.positions` — option positions render (were always `[]`); instrument join fills strike/call-put; per-share × multiplier money math; signed-qty shorts; retry cascade + `—` degradation (checkpoint)
