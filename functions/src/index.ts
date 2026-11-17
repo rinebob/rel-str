@@ -179,6 +179,7 @@ export { generateTradeDataset } from './paper-trading/analysis/analysis-callable
 export { fetchDatasetCsv } from './paper-trading/analysis/analysis-callables';
 export { analysisDatasetTask } from './paper-trading/analysis/analysis-dataset-task';
 export { getLifecycleTree } from './gh-lifecycle/callables';
+export { listRepoLabels } from './gh-lifecycle/label-callables';
 
 // Options strategy engine — dashboard callables
 export {

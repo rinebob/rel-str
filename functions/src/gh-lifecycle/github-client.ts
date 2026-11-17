@@ -73,6 +73,48 @@ export function githubGql(token: string): Gql {
   };
 }
 
+/** Injectable REST transport for the label read/write callables —
+ *  same error envelope as `Gql` so `mapGitHubError` covers both. */
+export type Rest = (
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  /** Repo-absolute API path, e.g. `/repos/{o}/{r}/labels`. */
+  path: string,
+  body?: Record<string, unknown>,
+) => Promise<unknown>;
+
+/** Production transport: REST calls against api.github.com. */
+export function githubRest(token: string): Rest {
+  return async (method, path, body) => {
+    const res = await fetch(`https://api.github.com${path}`, {
+      method,
+      headers: {
+        authorization: `bearer ${token}`,
+        accept: 'application/vnd.github+json',
+        'x-github-api-version': '2022-11-28',
+        ...(body ? { 'content-type': 'application/json' } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    const rateLimited =
+      res.status === 429 ||
+      (res.status === 403 &&
+        (res.headers.get('x-ratelimit-remaining') === '0' ||
+          res.headers.get('retry-after') !== null));
+    if (!res.ok) {
+      const errBody = (await res.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      throw new GitHubApiError(
+        res.status,
+        rateLimited,
+        `GitHub ${res.status}: ${errBody?.message ?? res.statusText}`,
+      );
+    }
+    // 204 (delete success) has no body — callers get null.
+    return res.status === 204 ? null : res.json();
+  };
+}
+
 export interface LifecycleFetchResult {
   roots: LifecycleRawIssue[];
   /** Issue number → its children (records), in sub-issue order. */

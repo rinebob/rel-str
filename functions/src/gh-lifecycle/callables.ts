@@ -54,7 +54,7 @@ export function ghLifecycleDeps(): GhLifecycleDeps {
 
 // ── Handler ───────────────────────────────────────────────────────────────
 
-function mapGitHubError(err: GitHubApiError): HttpsError {
+export function mapGitHubError(err: GitHubApiError): HttpsError {
   if (err.rateLimited) {
     return new HttpsError('resource-exhausted', `GitHub rate-limited: ${err.message}`);
   }
@@ -75,7 +75,7 @@ function mapGitHubError(err: GitHubApiError): HttpsError {
 }
 
 /** Wrap non-HttpsError failures — raw backend errors never leak to clients. */
-async function internalGuard<T>(label: string, fn: () => Promise<T>): Promise<T> {
+export async function internalGuard<T>(label: string, fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
@@ -94,12 +94,9 @@ export async function handleGetLifecycleTree(
   return internalGuard('getLifecycleTree', () => handle(request, deps));
 }
 
-async function handle(
-  request: CallableRequest<LifecycleRepoRequest>,
-  deps: GhLifecycleDeps,
-): Promise<LifecycleTreeResponse> {
-  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
-  const { owner, repo } = request.data ?? {};
+/** Shared validation for all gh-lifecycle callables — auth + repo pair. */
+export function resolveSupportedRepo(data: unknown): SupportedRepo {
+  const { owner, repo } = (data ?? {}) as { owner?: unknown; repo?: unknown };
   if (typeof owner !== 'string' || typeof repo !== 'string' || !owner || !repo) {
     throw new HttpsError('invalid-argument', 'expected { owner, repo }');
   }
@@ -107,6 +104,15 @@ async function handle(
   if (!entry) {
     throw new HttpsError('invalid-argument', `unsupported repo ${owner}/${repo}`);
   }
+  return entry;
+}
+
+async function handle(
+  request: CallableRequest<LifecycleRepoRequest>,
+  deps: GhLifecycleDeps,
+): Promise<LifecycleTreeResponse> {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const entry = resolveSupportedRepo(request.data);
 
   let data: LifecycleFetchResult;
   try {
