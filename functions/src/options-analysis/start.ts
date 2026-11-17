@@ -49,7 +49,7 @@ export const OPTIONS_ANALYSIS_TASK_QUEUE = 'optionsReplayAnalysis';
  *  fields come from the doc, never parsed back out of the docId. */
 export type AnalysisStartListView = Pick<
   OptionsContractListDocV1,
-  'status' | 'runId' | 'symbol' | 'templateId'
+  'status' | 'runId' | 'symbol' | 'templateId' | 'pickDocMeta'
 >;
 
 /** Injectable effects — tests substitute fakes; the callable uses the
@@ -81,6 +81,18 @@ export async function runAnalysisStart(
     throw new HttpsError(
       'failed-precondition',
       `Contract list '${contractListDocId}' is not analyzable (status: ${doc?.status ?? 'missing'})`,
+    );
+  }
+
+  // Manage-instance contract lists (#1543) carry synthetic pickDocMeta
+  // (gridVersion 0) and are analyzed by the daily exit-scan pass (#1544)
+  // at position grain — a manual replay run would write per-leg
+  // contract records over the pass's docs at the same
+  // {instanceId}_{exitId} ids.
+  if (doc.pickDocMeta?.gridVersion === 0) {
+    throw new HttpsError(
+      'failed-precondition',
+      `Contract list '${contractListDocId}' is analyzed by the daily exit-scan pass — manual rerun is not supported`,
     );
   }
 

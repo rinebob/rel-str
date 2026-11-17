@@ -24,6 +24,7 @@ import { listActiveManageInstances } from '../manage-instance-reader';
 import { getUnderlyingClose } from '../options-strategy-market-data';
 import { runOpenPass } from './open-pass';
 import { runManageOpenPass } from './manage-open-pass';
+import { runManageExitScan } from './manage-exit-scan-pass';
 import { createLogger } from '../logging';
 import { StOrderTicketWriter } from '../../../order-tickets/st-order-ticket-writer';
 import {
@@ -165,6 +166,43 @@ export const manageOpenPassTimer = onSchedule(
       });
     } finally {
       await manager?.close();
+    }
+  },
+);
+
+// ── Manage-domain exit scan (#1544) ─────────────────────────────────────────
+
+/**
+ * Daily manage exit scan — runs after the last mark tick (mark pass's
+ * half-hourly 13-20 UTC grid ends 20:30 UTC = 12:30 PST / 13:30 PDT, so
+ * 2 PM PT clears it year-round) and evaluates every OPEN manage position
+ * through the shared EXIT_STRATEGIES registry, writing one
+ * AnalysisResultDoc per (instanceId, exitId) to
+ * st-options-analysis-results — the exit matrix the manage page's
+ * analysis view consumes.
+ *
+ * Paper-only for v1 (the reader gates to mode:'paper'); no RH session —
+ * series come from the SA partner corpus.
+ */
+export const manageExitScanTimer = onSchedule(
+  {
+    schedule: '0 14 * * 1-5', // 2 PM PT, Mon–Fri (post mark-pass)
+    timeZone: 'America/Los_Angeles',
+    memory: '512MiB',
+    timeoutSeconds: 540,
+    region: 'us-central1',
+  },
+  async () => {
+    const marketDate = getMarketDatePT();
+    logger.info('manage_exit_scan_start', { marketDate });
+    try {
+      await runManageExitScan(marketDate);
+      logger.info('manage_exit_scan_complete', { marketDate });
+    } catch (err: any) {
+      logger.error('manage_exit_scan_error', {
+        marketDate,
+        error: err?.message,
+      });
     }
   },
 );
