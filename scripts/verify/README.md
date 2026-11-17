@@ -106,3 +106,4 @@ Runs every verification script in documented order and reports a pass/fail summa
 - Never wired into `npm test` or CI — these hit prod directly.
 
 | #1544 — BE Manage exit-scan pass | [strat-manage-exit-scan-1544.md](strat-manage-exit-scan-1544.md) | `st-options-analysis-results/{instanceId}_{exitId}` — one doc per registry exit; signed net cost-to-close series (inner-join legs), exit/expired/open/error outcomes, missing-marks skip, SA series fetch (no RH session) | `strat-manage-exit-scan-1544.ts` (no credentials) |
+| #1545 — BE Manage manual open callable | [strat-manage-open-callable-1545.md](strat-manage-open-callable-1545.md) | `manageOpenPassManual` — auth + arg gates, not-found/not_active/non_paper skips, session-bound pass invoke, close-on-throw, `internal` error mapping | `strat-manage-open-callable-1545.ts` (no credentials) |

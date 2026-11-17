@@ -442,6 +442,11 @@ const scripts: VerifyScript[] = [
     file: 'strat-manage-exit-scan-1544.ts',
     needsAccount: false,
   },
+  {
+    name: 'manage open callable',
+    file: 'strat-manage-open-callable-1545.ts',
+    needsAccount: false,
+  },
 ];
 
 function hasGhAuth(): boolean {
