@@ -3,6 +3,10 @@
 ## [2026-11-17]
 
 ### Added
+- [Paper Trading Infra] 553-1573_SHARED-IMPL-PAPER-TRADING: Curated signal-trade contract surface — mint/delete request-response contracts, 7-key curated variant set + 'deepest-stop-else-trailing-8' governing-policy marker, OptionQuoteSource.SDS_BARS, 50-item batch bounds, pinned governing/mirror/dedupe semantics
+- [Paper Trading Infra] 553-1573_BE-CHORE-PAPER-TRADING: paper-trading-curated-contracts-1573 verify script (14 checks) + run-all/README registry entries
+- [Paper Trading Infra] 553-1573_DOCS-DOCS-PAPER-TRADING: Thread #906 planning set — PRD + BE/SHARED IMPL + BE/SHARED TEST blueprint docs
+- [Paper Trading Infra] 553-1573_DOCS-DOCS-PAPER-TRADING: #1573 CODE-REVIEW (PASS, 2 rounds) + UAT (Complete, #1581) + changelog
 - [Strategy Builder UI] 137-1543_BE-IMPL-STRAT-MANAGE: Manage contract-list writer — appendManageContractListRows emits one v1 pick row per resolved leg to st-options-contract-lists/{instanceId} (analysis-route gate fields), transactional upsertDoc seam, idempotent (entryDate,contractId) dedupe, same-index repeatsPrevious, synthetic pickDocMeta, NaN missingness, live underlyingClose
 - [Strategy Builder UI] 137-1543_BE-IMPL-STRAT-MANAGE: Open-pass seam — ResolvedLegContract + quoteByOccId (same-OCC dedupe), appendContractListRows/getLegs deps, post-mint append bounded at 30s, already_opened_today reconcile re-appends from persisted legs; RhResolvedQuote + bid/ask/iv/volume/openInterest; RhMcpToolCaller hoisted to rh-mcp-shapes
 - [Strategy Builder UI] 137-1543_BE-IMPL-STRAT-MANAGE: Contract-list writer specs (9) + seam/reconcile specs (5) + strat-manage-contract-list-1543 verify script (37 checks) + run-all/README registry entries
