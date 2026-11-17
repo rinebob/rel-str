@@ -422,6 +422,11 @@ const scripts: VerifyScript[] = [
     file: 'strat-manage-variant-catalog-1541.ts',
     needsAccount: false,
   },
+  {
+    name: 'manage instance id',
+    file: 'strat-manage-instance-id-1542.ts',
+    needsAccount: false,
+  },
 ];
 
 function hasGhAuth(): boolean {
