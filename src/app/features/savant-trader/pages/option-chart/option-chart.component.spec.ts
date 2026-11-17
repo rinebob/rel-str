@@ -25,7 +25,7 @@ import type { PartnerHistoricalOptionsContractV2Response } from '../../../../cor
 import type { OhlcBar } from '../../../../core/models/market-data.types';
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
-import type { ContractListRow } from '@options-replay/contracts';
+import type { ContractListRowV1 } from '@options-replay/contracts';
 import { TradeSide } from '@common';
 
 const QQQ_PUT = 'QQQ260619P00470000';
@@ -853,7 +853,7 @@ describe('OptionChartComponent — chart projection', () => {
 });
 
 describe('OptionChartComponent — selection replay dropdown', () => {
-  const pickRow = (entryDate: string, contractId: string): ContractListRow => ({
+  const pickRow = (entryDate: string, contractId: string): ContractListRowV1 => ({
     kind: 'pick',
     entryDate,
     contractId,
@@ -874,7 +874,7 @@ describe('OptionChartComponent — selection replay dropdown', () => {
 
   // Under single-symbol runs (#1430) listId IS the runId and the id ends
   // with `_{SYMBOL}` — fixtures model the real keying.
-  const listFor = (symbol: string, rows: ContractListRow[]): OptionsContractListUi => ({
+  const listFor = (symbol: string, rows: ContractListRowV1[]): OptionsContractListUi => ({
     listId: `run1_${symbol}`,
     runId: `run1_${symbol}`,
     symbol,
@@ -890,7 +890,7 @@ describe('OptionChartComponent — selection replay dropdown', () => {
   ];
 
   it('plots the first 10 Wednesday pick rows on replay selection', async () => {
-    const rows: ContractListRow[] = [
+    const rows: ContractListRowV1[] = [
       pickRow('2026-06-01', 'QQQ260619P00470000'), // Monday — excluded
       pickRow('2026-06-02', 'QQQ260619P00470000'), // Tuesday — excluded
       ...WEDNESDAYS.map((d, i) => pickRow(d, `QQQ260619P00${470 + i}000`)),

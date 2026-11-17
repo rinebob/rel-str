@@ -5,10 +5,10 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { OptionsReplayContractListTableComponent } from './options-replay-contract-list-table.component';
 import { TradeSide } from '@common';
 import { OptionType } from '@options/common';
-import type { ContractListPickRow } from '@options-replay/contracts';
-import type { ContractListRow, PickDocMeta } from '../../common/options-replay.types';
+import type { ContractListPickRowV1 } from '@options-replay/contracts';
+import type { ContractListRowV1, PickDocMeta } from '../../common/options-replay.types';
 
-function makePick(overrides: Partial<ContractListPickRow> = {}): ContractListPickRow {
+function makePick(overrides: Partial<ContractListPickRowV1> = {}): ContractListPickRowV1 {
   return {
     kind: 'pick',
     entryDate: '2026-01-05',
@@ -47,7 +47,7 @@ function makeMeta(overrides: Partial<PickDocMeta> = {}): PickDocMeta {
 }
 
 describe('OptionsReplayContractListTableComponent', () => {
-  async function setup(rows: ContractListRow[] = [makePick()], meta: PickDocMeta | undefined = undefined) {
+  async function setup(rows: ContractListRowV1[] = [makePick()], meta: PickDocMeta | undefined = undefined) {
     await TestBed.configureTestingModule({
       providers: [provideZonelessChangeDetection(), provideNoopAnimations()],
     }).compileComponents();
@@ -124,8 +124,8 @@ describe('OptionsReplayContractListTableComponent', () => {
       makePick({ entryDate: '2026-01-02' }),
       { kind: 'no-selection', entryDate: '2026-01-03', reason: 'miss' },
     ]);
-    const emitted: ContractListPickRow[] = [];
-    fixture.componentInstance.inspect.subscribe((r: ContractListPickRow) => emitted.push(r));
+    const emitted: ContractListPickRowV1[] = [];
+    fixture.componentInstance.inspect.subscribe((r: ContractListPickRowV1) => emitted.push(r));
 
     const buttons = fixture.nativeElement.querySelectorAll('.inspect-button');
     expect(buttons.length).toBe(1);

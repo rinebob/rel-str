@@ -6,7 +6,7 @@
  * same approach as `backtest-firestore-converter.ts`.
  */
 
-import type { ContractListRow, PickDocMeta } from '@options-replay/contracts';
+import type { ContractListRowV1, PickDocMeta } from '@options-replay/contracts';
 import type { OptionsContractListUi, OptionsReplayRunUi } from '../common/options-replay.types';
 
 type TimestampLike = { toDate: () => Date } | Date | string | number | undefined;
@@ -43,7 +43,7 @@ export function convertOptionsContractListDoc(id: string, data: Record<string, u
     symbol: String(data['symbol'] ?? ''),
     templateId: String(data['templateId'] ?? ''),
     status: String(data['status'] ?? 'pending') as OptionsContractListUi['status'],
-    rows: Array.isArray(data['rows']) ? (data['rows'] as ContractListRow[]) : [],
+    rows: Array.isArray(data['rows']) ? (data['rows'] as ContractListRowV1[]) : [],
     pickDocMeta: (data['pickDocMeta'] as PickDocMeta) ?? undefined,
     generatedAtIso: toIso(data['generatedAt'] as TimestampLike),
     error: data['error'] ? String(data['error']) : undefined,

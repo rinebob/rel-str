@@ -8,14 +8,14 @@
  */
 
 import type {
-  ContractListRow,
+  ContractListRowV1,
   OptionsContractListStatus,
   OptionsReplayRunStatus,
   PickDocMeta,
 } from '@options-replay/contracts';
 import type { BacktestSortDirection } from './backtest.types';
 
-export type { ContractListRow, OptionsContractListStatus, OptionsReplayRunStatus, PickDocMeta };
+export type { ContractListRowV1, OptionsContractListStatus, OptionsReplayRunStatus, PickDocMeta };
 
 /** Run header — UI view of `st-options-replay-runs/{runId}`. A run is ONE
  *  (template, symbol, startDate) selection (#1430) — its status IS its
@@ -40,7 +40,7 @@ export interface OptionsContractListUi {
   symbol: string;
   templateId: string;
   status: OptionsContractListStatus;
-  rows: ContractListRow[];
+  rows: ContractListRowV1[];
   /** Present on `success` docs only — the worker stamps it with the rows. */
   pickDocMeta?: PickDocMeta;
   generatedAtIso?: string;

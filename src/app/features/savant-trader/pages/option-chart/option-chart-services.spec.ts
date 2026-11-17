@@ -25,7 +25,7 @@ import { OptionsReplayRunsService } from '../../backtest/services/options-replay
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import { TradeSide } from '@common';
 import { OptionType } from '@options/common';
-import type { ContractListPickRow, ContractListRow } from '@options-replay/contracts';
+import type { ContractListPickRowV1, ContractListRowV1 } from '@options-replay/contracts';
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
 import { OPTION_CHART_PAGE_PROVIDERS } from './option-chart-page.providers';
 import { OptionChartPageService } from './option-chart-page.service';
@@ -36,7 +36,7 @@ import { OptionChartReplayService } from './option-chart-replay.service';
 import { OptionChartGeneratorService } from './option-chart-generator.service';
 import { ContractListPickerComponent } from '../../components/contract-list-picker/contract-list-picker.component';
 
-const pickRow = (entryDate: string, contractId: string): ContractListPickRow => ({
+const pickRow = (entryDate: string, contractId: string): ContractListPickRowV1 => ({
   kind: 'pick',
   entryDate,
   contractId,
@@ -61,7 +61,7 @@ const listDoc = (over: Partial<OptionsContractListUi> = {}): OptionsContractList
   symbol: 'QQQ',
   templateId: 'csp-45-20',
   status: 'success',
-  rows: [pickRow('2026-06-10', 'QQQ260619P00470000')] as ContractListRow[],
+  rows: [pickRow('2026-06-10', 'QQQ260619P00470000')] as ContractListRowV1[],
   pickDocMeta: {
     coordinate: { type: OptionType.PUT, targetDelta: -0.2, expiry: { mode: 'nearestDte', dte: 45 } },
     gridVersion: 1,
@@ -528,7 +528,7 @@ describe('OptionChartReplayService — runs dropdown', () => {
     // Monday pick — the slice is the first 10 Wednesdays only.
     const wed = (i: number) =>
       new Date(Date.UTC(2026, 5, 10 + i * 7)).toISOString().slice(0, 10);
-    const rows: ContractListRow[] = [
+    const rows: ContractListRowV1[] = [
       pickRow('2026-06-08', 'QQQ260619P00400000'),
       ...Array.from({ length: 12 }, (_, i) =>
         pickRow(wed(i), `QQQ260619P004${String(70 + i)}000`),

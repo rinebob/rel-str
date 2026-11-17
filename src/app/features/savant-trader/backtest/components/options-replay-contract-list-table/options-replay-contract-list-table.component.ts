@@ -13,14 +13,14 @@ import { Component, input, output, computed, ChangeDetectionStrategy } from '@an
 import { CommonModule } from '@angular/common';
 
 import { TradeSide } from '@common';
-import type { ContractListPickRow, NoSelectionReason } from '@options-replay/contracts';
-import type { ContractListRow, PickDocMeta } from '../../common/options-replay.types';
+import type { ContractListPickRowV1, NoSelectionReason } from '@options-replay/contracts';
+import type { ContractListRowV1, PickDocMeta } from '../../common/options-replay.types';
 
 /** View row — a pick row verbatim, or a marker row with a resolved label. */
 interface TableRow {
   kind: 'pick' | 'no-selection';
   entryDate: string;
-  pick?: ContractListPickRow;
+  pick?: ContractListPickRowV1;
   markerLabel?: string;
 }
 
@@ -42,11 +42,11 @@ function sideLabel(side: TradeSide): string {
   styleUrl: './options-replay-contract-list-table.component.scss',
 })
 export class OptionsReplayContractListTableComponent {
-  readonly rows = input.required<ContractListRow[]>();
+  readonly rows = input.required<ContractListRowV1[]>();
   readonly pickDocMeta = input<PickDocMeta | undefined>(undefined);
 
   /** Row inspect action — the parent opens the contract-series dialog. */
-  readonly inspect = output<ContractListPickRow>();
+  readonly inspect = output<ContractListPickRowV1>();
 
   readonly sideLabel = sideLabel;
 

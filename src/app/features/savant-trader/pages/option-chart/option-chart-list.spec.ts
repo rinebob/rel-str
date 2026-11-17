@@ -15,7 +15,7 @@ import { BehaviorSubject, from, of, Subject, type Observable } from 'rxjs';
 
 import { TradeSide } from '@common';
 import { OptionType } from '@options/common';
-import type { ContractListPickRow, ContractListRow } from '@options-replay/contracts';
+import type { ContractListPickRowV1, ContractListRowV1 } from '@options-replay/contracts';
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
 import { OptionChartComponent } from './option-chart.component';
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
@@ -36,7 +36,7 @@ import type { PartnerHistoricalOptionsContractV2Response } from '../../../../cor
 
 const QQQ_PUT = 'QQQ260619P00470000';
 
-const pickRow = (entryDate: string, contractId: string): ContractListPickRow => ({
+const pickRow = (entryDate: string, contractId: string): ContractListPickRowV1 => ({
   kind: 'pick',
   entryDate,
   contractId,
@@ -61,7 +61,7 @@ const listDoc = (over: Partial<OptionsContractListUi> = {}): OptionsContractList
   symbol: 'QQQ',
   templateId: 'csp-45-20',
   status: 'success',
-  rows: [pickRow('2026-06-10', QQQ_PUT)] as ContractListRow[],
+  rows: [pickRow('2026-06-10', QQQ_PUT)] as ContractListRowV1[],
   pickDocMeta: {
     coordinate: { type: OptionType.PUT, targetDelta: -0.2, expiry: { mode: 'nearestDte', dte: 45 } },
     gridVersion: 1,
@@ -659,7 +659,7 @@ describe('OptionChartComponent — session emit seam', () => {
   beforeEach(() => localStorage.clear());
 
   /** 25 picks → 3 chunks at the default size 10 (10/10/5). */
-  const manyRows = (): ContractListRow[] =>
+  const manyRows = (): ContractListRowV1[] =>
     Array.from({ length: 25 }, (_, i) =>
       pickRow(
         `2026-06-${String(i + 1).padStart(2, '0')}`,
@@ -667,7 +667,7 @@ describe('OptionChartComponent — session emit seam', () => {
       ),
     );
 
-  const loadMany = (listStore: InstanceType<typeof ContractListSessionStore>): ContractListRow[] => {
+  const loadMany = (listStore: InstanceType<typeof ContractListSessionStore>): ContractListRowV1[] => {
     const rows = manyRows();
     listStore.setSymbol('QQQ');
     listStore.loadListDoc(listDoc({ rows }));

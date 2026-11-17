@@ -10,9 +10,9 @@ import {
 import { OptionsReplayContractSeriesDialogComponent } from '../options-replay-contract-series-dialog/options-replay-contract-series-dialog.component';
 import { TradeSide } from '@common';
 import type { OptionsContractListUi } from '../../common/options-replay.types';
-import type { ContractListPickRow } from '@options-replay/contracts';
+import type { ContractListPickRowV1 } from '@options-replay/contracts';
 
-function makePick(overrides: Partial<ContractListPickRow> = {}): ContractListPickRow {
+function makePick(overrides: Partial<ContractListPickRowV1> = {}): ContractListPickRowV1 {
   return {
     kind: 'pick',
     entryDate: '2026-01-05',

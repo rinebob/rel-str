@@ -9,17 +9,17 @@
  * matching what `parsePlottedEntries` yields from those same lines).
  * `no-selection` rows are never emittable.
  */
-import type { ContractListPickRow, ContractListRow } from '@options-replay/contracts';
+import type { ContractListPickRowV1, ContractListRowV1 } from '@options-replay/contracts';
 import type { PlottedEntry } from '@options-contract/contracts';
 
 /** Rows the emit path can carry — picks only, no-selections dropped.
  *  Shared with the session store (its docs may carry `rows` unset). */
-export const pickRowsOf = (rows: ContractListRow[] | undefined): ContractListPickRow[] =>
-  (rows ?? []).filter((r): r is ContractListPickRow => r.kind === 'pick');
+export const pickRowsOf = (rows: ContractListRowV1[] | undefined): ContractListPickRowV1[] =>
+  (rows ?? []).filter((r): r is ContractListPickRowV1 => r.kind === 'pick');
 
 /** `entryDate,contractId` lines in deterministic order — entryDate asc,
  *  then contractId. Duplicates preserved: every pick row emits a line. */
-export function toPairLines(rows: ContractListRow[]): string[] {
+export function toPairLines(rows: ContractListRowV1[]): string[] {
   return pickRowsOf(rows)
     .slice()
     .sort(
@@ -33,7 +33,7 @@ export function toPairLines(rows: ContractListRow[]): string[] {
 /** One `PlottedEntry` per unique contract — `openDate` = earliest pick,
  *  `markerDates` = sorted union of its pick days (one dot per day on the
  *  span marker). Ordered by earliest date then contractId. */
-export function rowsToPlottedEntries(rows: ContractListRow[]): PlottedEntry[] {
+export function rowsToPlottedEntries(rows: ContractListRowV1[]): PlottedEntry[] {
   const byContract = new Map<string, Set<string>>();
   for (const r of pickRowsOf(rows)) {
     const dates = byContract.get(r.contractId) ?? new Set<string>();

@@ -1,19 +1,19 @@
 /**
  * Contract-list emit util specs (#1361).
  *
- * Pure seam: ContractListRow[] → `entryDate,id` lines / PlottedEntry[].
+ * Pure seam: ContractListRowV1[] → `entryDate,id` lines / PlottedEntry[].
  * The lines land in the pairs textarea (duplicates preserved — each pick
  * day is a marker); the entries feed loadPlotted (per-contract marker
  * union, same result the pair parser would produce).
  */
 import { TradeSide } from '@common';
 import type {
-  ContractListNoSelectionRow,
-  ContractListPickRow,
+  ContractListNoSelectionRowV1,
+  ContractListPickRowV1,
 } from '@options-replay/contracts';
 import { rowsToPlottedEntries, toPairLines } from './contract-list-emit.util';
 
-const pick = (over: Partial<ContractListPickRow> = {}): ContractListPickRow => ({
+const pick = (over: Partial<ContractListPickRowV1> = {}): ContractListPickRowV1 => ({
   kind: 'pick',
   entryDate: '2026-06-10',
   contractId: 'QQQ260619C00500000',
@@ -33,7 +33,7 @@ const pick = (over: Partial<ContractListPickRow> = {}): ContractListPickRow => (
   ...over,
 });
 
-const miss = (entryDate: string): ContractListNoSelectionRow => ({
+const miss = (entryDate: string): ContractListNoSelectionRowV1 => ({
   kind: 'no-selection',
   entryDate,
   reason: 'miss',

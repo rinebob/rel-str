@@ -11,7 +11,7 @@ import { from, of, throwError } from 'rxjs';
 
 import { TradeSide } from '@common';
 import { OptionType } from '@options/common';
-import type { ContractListPickRow, ContractListRow } from '@options-replay/contracts';
+import type { ContractListPickRowV1, ContractListRowV1 } from '@options-replay/contracts';
 import type { OptionsContractListUi } from '../backtest/common/options-replay.types';
 import { ContractListService } from '../services/contract-list.service';
 import { ContractListSessionStore } from './contract-list-session.store';
@@ -22,7 +22,7 @@ import {
   saveListSession,
 } from '../utils/contract-list-session-settings';
 
-const pick = (entryDate: string, contractId = 'QQQ260619C00500000'): ContractListPickRow => ({
+const pick = (entryDate: string, contractId = 'QQQ260619C00500000'): ContractListPickRowV1 => ({
   kind: 'pick',
   entryDate,
   contractId,
@@ -41,13 +41,13 @@ const pick = (entryDate: string, contractId = 'QQQ260619C00500000'): ContractLis
   openInterest: 1000,
 });
 
-const miss = (entryDate: string): ContractListRow => ({
+const miss = (entryDate: string): ContractListRowV1 => ({
   kind: 'no-selection',
   entryDate,
   reason: 'miss',
 });
 
-const listDoc = (rows: ContractListRow[], over: Partial<OptionsContractListUi> = {}): OptionsContractListUi => ({
+const listDoc = (rows: ContractListRowV1[], over: Partial<OptionsContractListUi> = {}): OptionsContractListUi => ({
   listId: 'run-1_QQQ',
   runId: 'run-1',
   symbol: 'QQQ',
@@ -68,9 +68,9 @@ const listDoc = (rows: ContractListRow[], over: Partial<OptionsContractListUi> =
 
 /** 15 pick days d01..d15 plus misses on distinct dates (d16..d18);
  *  contract ids cycle so unique-count differs from row-count. */
-const fifteenRows = (): ContractListRow[] => {
+const fifteenRows = (): ContractListRowV1[] => {
   const ids = ['AAA', 'AAA', 'AAA', 'BBB', 'BBB', 'CCC', 'DDD', 'DDD', 'EEE', 'FFF', 'FFF', 'GGG', 'HHH', 'III', 'JJJ'];
-  const rows: ContractListRow[] = [];
+  const rows: ContractListRowV1[] = [];
   for (let i = 1; i <= 15; i++) {
     const d = `2026-06-${String(i).padStart(2, '0')}`;
     rows.push(pick(d, `${ids[i - 1]}260619C00500000`));
@@ -479,7 +479,7 @@ describe('ContractListSessionStore', () => {
     // Two-month pick fixture — 2026-06-01 is a Monday; July Mondays are
     // 07-06/07-13. Weeks-of-month are ceil(day/7) blocks anchored on the
     // first pick row.
-    const twoMonthRows = (): ContractListRow[] =>
+    const twoMonthRows = (): ContractListRowV1[] =>
       ['2026-06-01', '2026-06-03', '2026-06-08', '2026-06-15', '2026-07-01', '2026-07-06', '2026-07-13']
         .map((d) => pick(d, `AAA${d.replace(/-/g, '')}C00500000`));
 

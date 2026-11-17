@@ -31,9 +31,9 @@ import {
 } from '@angular/fire/firestore';
 import { ContractListService } from './contract-list.service';
 import { TradeSide } from '@common';
-import type { ContractListPickRow } from '@options-replay/contracts';
+import type { ContractListPickRowV1 } from '@options-replay/contracts';
 
-const pickRow: ContractListPickRow = {
+const pickRow: ContractListPickRowV1 = {
   kind: 'pick',
   entryDate: '2026-06-10',
   contractId: 'QQQ260619C00500000',

@@ -8,7 +8,7 @@ import { firstValueFrom, take } from 'rxjs';
 
 import { OptionsReplayRunsService } from '../../backtest/services/options-replay-runs.service';
 import type { OptionsReplayRunUi } from '../../backtest/common/options-replay.types';
-import type { ContractListPickRow } from '@options-replay/contracts';
+import type { ContractListPickRowV1 } from '@options-replay/contracts';
 import { ContractListSessionStore } from '../../stores/contract-list-session.store';
 import { OptionChartPageService } from './option-chart-page.service';
 import { OptionChartLoadService } from './option-chart-load.service';
@@ -53,7 +53,7 @@ export class OptionChartReplayService {
         return;
       }
       const picks = list.rows
-        .filter((r): r is ContractListPickRow => r.kind === 'pick')
+        .filter((r): r is ContractListPickRowV1 => r.kind === 'pick')
         .filter((r) => new Date(`${r.entryDate}T00:00:00Z`).getUTCDay() === 3)
         .slice(0, 10);
       if (picks.length === 0) {

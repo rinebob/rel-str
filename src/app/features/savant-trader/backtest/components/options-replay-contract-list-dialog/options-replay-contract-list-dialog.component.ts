@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
 
 import { DS_DIALOG_DATA, DsDialogRef, DsDialogService } from '../../../../../shared/ds/ds-dialog';
 
-import type { ContractListPickRow } from '@options-replay/contracts';
+import type { ContractListPickRowV1 } from '@options-replay/contracts';
 import type { OptionsContractListUi } from '../../common/options-replay.types';
 import { getBacktestStatusVisuals } from '../../utils/backtest.utils';
 import { OptionsReplayContractListTableComponent } from '../options-replay-contract-list-table/options-replay-contract-list-table.component';
@@ -41,7 +41,7 @@ export class OptionsReplayContractListDialogComponent {
   readonly statusIconName = computed(() => getBacktestStatusVisuals(this.data.list.status).icon);
 
   /** Row inspect action → lazily-fetched contract-series dialog. */
-  openSeriesDialog(row: ContractListPickRow): void {
+  openSeriesDialog(row: ContractListPickRowV1): void {
     this.dialog.open<OptionsReplayContractSeriesDialogComponent, ContractSeriesDialogData>(
       OptionsReplayContractSeriesDialogComponent,
       {

@@ -17,7 +17,7 @@ import { DS_DIALOG_DATA, DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { NEVER, of } from 'rxjs';
 
 import { TradeSide } from '@common';
-import type { ContractListNoSelectionRow, ContractListPickRow, ContractListRow } from '@options-replay/contracts';
+import type { ContractListNoSelectionRowV1, ContractListPickRowV1, ContractListRowV1 } from '@options-replay/contracts';
 import { OptionType } from '@options/common';
 import type { OptionsContractListUi } from '../../backtest/common/options-replay.types';
 import { ContractListService } from '../../services/contract-list.service';
@@ -29,8 +29,8 @@ import { ContractListPickerComponent, type ContractListPickerData } from './cont
 const pick = (
   entryDate: string,
   contractId: string,
-  over: Partial<ContractListPickRow> = {},
-): ContractListPickRow => ({
+  over: Partial<ContractListPickRowV1> = {},
+): ContractListPickRowV1 => ({
   kind: 'pick',
   entryDate,
   contractId,
@@ -50,7 +50,7 @@ const pick = (
   ...over,
 });
 
-const noSel = (entryDate: string, reason: ContractListNoSelectionRow['reason'] = 'miss'): ContractListNoSelectionRow => ({
+const noSel = (entryDate: string, reason: ContractListNoSelectionRowV1['reason'] = 'miss'): ContractListNoSelectionRowV1 => ({
   kind: 'no-selection',
   entryDate,
   reason,
@@ -58,7 +58,7 @@ const noSel = (entryDate: string, reason: ContractListNoSelectionRow['reason'] =
 
 /** 13 rows / 12 picks: one no-selection marker mid-list, one repeatsPrevious
  *  flag on the second BBB pick (still a distinct dated position entry). */
-const mkRows = (): ContractListRow[] => [
+const mkRows = (): ContractListRowV1[] => [
   pick('2026-06-01', 'AAA'),
   pick('2026-06-02', 'BBB'),
   noSel('2026-06-03'),
