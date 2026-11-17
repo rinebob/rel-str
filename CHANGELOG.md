@@ -16,6 +16,11 @@
 - [Strategy Builder UI] 137-1539_BE-IMPL-STRAT-MANAGE: Manage open pass + noon-PT manageOpenPassTimer (0 12 * * 1-5, RH_CREDENTIAL_BUNDLE) + createManagePosition — per-leg RH chain resolution with sequential contract exclusion, net-premium fill, deterministic {instanceId}-{marketDate} dedup, signal-freshness gate on detection marketDate, error-path result writes, stock legs fail closed
 - [Strategy Builder UI] 137-1539_BE-IMPL-STRAT-MANAGE: Manage open pass specs (21) + strat-manage-open-pass-1539 verify script (28 checks) + run-all/README registry entries
 - [Strategy Builder UI] 137-1539_DOCS-STRAT-MANAGE: BE IMPL §2 as-built + code review (PASS, 3 axes — 8 majors fixed) + UAT (Complete, #1586) + changelog
+- [Trading Indicator Library] 261-873_SHARED-CHORE-INDICATOR-LIB: indicator-lib-873-pine-parity verify script (60 checks) + run-all/README registry entries
+- [Trading Indicator Library] 261-873_DOCS-INDICATOR-LIB: #873 CODE-REVIEW (PASS, 3 rounds) + UAT (Complete, #1568) + SHARED test-plan palette re-sync + changelog
+
+### Changed
+- [Trading Indicator Library] 261-873_SHARED-IMPL-INDICATOR-LIB: Pine Anchored VWAP refined to web causal semantics — draw-from-trigger rendering over prefix-sums, supersession dot reconciliation + predecessor re-ending/resurrection (lastFired/popPred), same-index collapse, xloc.bar_time anchors, era first-cap history, admit-all window accounting
 
 ## [2026-11-16]
 

@@ -18,7 +18,7 @@ Pine has no automated test harness and no local compiler, so this plan is a **ma
 
 ## E2E User Journeys
 
-- Journey 1: User pastes the refined script into TradingView and adds it to a chart → it compiles without errors or warnings that affect output, and four lines (magenta high / cyan low, thick large / thin small) render.
+- Journey 1: User pastes the refined script into TradingView and adds it to a chart → it compiles without errors or warnings that affect output, and four lines render in the live web palette (line 1: magenta high `#FF8CFF` / yellow low `#FFFF00`, weight 3; line 2: green `#00C853` / red `#FF0000`, weight 1 — recolored by #955/#1459 after this plan was written).
 - Journey 2: User opens the web sandbox and TradingView on the same symbol, interval and params → anchor bars, confirmation bars, handoff bars and first drawn values match.
 - Journey 3: User sets `historyStart` and then clears it → history behaves as in the web sandbox (era mode keeps the first `maxHistory`; unset keeps the most recent).
 
@@ -40,13 +40,13 @@ Not applicable — no Pine unit-test framework. The checklist below stands in.
 - [ ] The first drawn value of a line equals the VWAP of the pivot bar through the confirmation bar (spot-check against the web sandbox).
 - [ ] Both scales render independently; a pivot that qualifies only at the small percentage appears only on the small lines.
 - [ ] Only confirmed pivots anchor; no line jumps or vanishes as the live bar forms.
-- [ ] Active lines extend to the latest bar; terminated segments are faded.
+- [ ] Active lines extend to the latest bar; terminated segments render at full color/weight (the web draws history identical to active — no fading).
 - [ ] `historyStart` set: history renders from that date forward, up to `maxHistory`; nothing earlier than the date; the cap eats the recent end.
 - [ ] `historyStart` unset: the most recent `maxHistory` terminated segments render; the oldest are dropped.
 - [ ] Total polyline count never exceeds TradingView's limit at the default and maximum `maxHistory` (per-scale cap, both sides combined).
 - [ ] Zero or missing volume: the line carries flat and never breaks.
 - [ ] Confirmation-bar markers, thin step duplicate lines, hindsight polylines and the debug table are gone.
-- [ ] The four colors and the retracement percentages are inputs; defaults are magenta/cyan, 2% and 5%.
+- [ ] The four colors and the retracement percentages are inputs; defaults are the live web palette (`#FF8CFF`/`#FFFF00` at 2%, `#00C853`/`#FF0000` at 5% — post-#955/#1459).
 - [ ] Plot-vs-polyline decision for active lines recorded (and, if `plot()`, the handoff step judged acceptable).
 - [ ] Runs without a timeout or "takes too long" error on a long daily history and on an intraday chart.
 
