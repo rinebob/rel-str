@@ -104,3 +104,5 @@ Runs every verification script in documented order and reports a pass/fail summa
 - Per-task guides: `scripts/verify/{domain}-{task-slug}.md`.
 - Runner: `scripts/verify/run-all.ts` — single invocation for all scripts.
 - Never wired into `npm test` or CI — these hit prod directly.
+
+| #1544 — BE Manage exit-scan pass | [strat-manage-exit-scan-1544.md](strat-manage-exit-scan-1544.md) | `st-options-analysis-results/{instanceId}_{exitId}` — one doc per registry exit; signed net cost-to-close series (inner-join legs), exit/expired/open/error outcomes, missing-marks skip, SA series fetch (no RH session) | `strat-manage-exit-scan-1544.ts` (no credentials) |

@@ -23,6 +23,7 @@ import type {
 } from '../../../functions/src/options-analysis/start';
 import type { OptionsAnalysisTaskPayload } from '@options-analysis/contracts';
 import { EXIT_REGISTRY_VERSION } from '@options-analysis/registry';
+import { OptionType } from '@options/common';
 
 /** HttpsError.code is the FunctionsErrorCode string — read the property
  *  instead of importing firebase-functions (resolution walks up from this
@@ -64,6 +65,14 @@ function listView(overrides: Partial<AnalysisStartListView> = {}): AnalysisStart
     symbol: 'QQQ',
     templateId: 'csp-45-20',
     status: 'success',
+    pickDocMeta: {
+      coordinate: { type: OptionType.PUT, targetDelta: -0.2, expiry: { mode: 'nearestDte', dte: 20 } },
+      gridVersion: 1,
+      pickCount: 10,
+      missCount: 0,
+      firstDate: '2026-01-01',
+      lastDate: '2026-12-31',
+    },
     ...overrides,
   };
 }
@@ -148,6 +157,28 @@ describe('runAnalysisStart — failed-precondition', () => {
       assert.equal(enqueued.length, 0);
     });
   }
+
+  it('synthetic manage doc (gridVersion 0) → failed-precondition, zero enqueues', async () => {
+    const { deps, enqueued } = makeDeps(
+      listView({
+        pickDocMeta: {
+          coordinate: { type: OptionType.PUT, targetDelta: -0.3, expiry: { mode: 'nearestDte', dte: 28 } },
+          gridVersion: 0,
+          pickCount: 1,
+          missCount: 0,
+          firstDate: '2026-02-02',
+          lastDate: '2026-02-02',
+        },
+      }),
+    );
+    await assert.rejects(
+      runAnalysisStart(request({ contractListDocId: 'QQQ-PCS-28-30-15-ALL' }), deps),
+      (e) =>
+        code(e) === 'failed-precondition' &&
+        (e as Error).message.includes('exit-scan'),
+    );
+    assert.equal(enqueued.length, 0);
+  });
 });
 
 describe('runAnalysisStart — validation', () => {

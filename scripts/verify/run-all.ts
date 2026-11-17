@@ -437,6 +437,11 @@ const scripts: VerifyScript[] = [
     file: 'strat-manage-contract-list-1543.ts',
     needsAccount: false,
   },
+  {
+    name: 'manage exit scan',
+    file: 'strat-manage-exit-scan-1544.ts',
+    needsAccount: false,
+  },
 ];
 
 function hasGhAuth(): boolean {
