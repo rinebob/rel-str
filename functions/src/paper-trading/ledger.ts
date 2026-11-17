@@ -45,6 +45,7 @@ import {
   type PaperTradeLeg,
   type SignalExpressionTemplate,
   type VariantRun,
+  NONE_VARIANT_KEY,
 } from '@paper-trading/contracts';
 import { buildAccountId } from '@paper-trading/ids';
 import { isTerminalVariantKey, parseVariantKey } from './exits/registry';
@@ -391,11 +392,15 @@ function seedVariantRuns(
   dims: FillDimensions,
   tradeId: string,
 ): { variantKeys: string[]; variantRuns: VariantRun[] } {
+  // Observational trades — manage-domain paper positions (#1539) evaluate
+  // every exit externally via the exit-scan pass, so no variant run is
+  // seeded and none may auto-fire. Same doc shape positionToTrade writes.
+  if (dims.governingVariant === NONE_VARIANT_KEY) {
+    return { variantKeys: [], variantRuns: [] };
+  }
   // Governing runs must be able to actually close the trade — a key that
-  // parses to a non-terminal family (or nothing at all, 'none' included)
-  // would leave an OPEN trade permanently unprotected. Legacy 'none' docs
-  // are written by positionToTrade directly — they never traverse seeding,
-  // so there is no legit 'none' caller here.
+  // parses to a non-terminal family (or nothing at all) would leave an
+  // OPEN trade permanently unprotected.
   if (!isTerminalVariantKey(dims.governingVariant)) {
     throw new Error(
       `governing variant '${dims.governingVariant}' is not a terminal ` +

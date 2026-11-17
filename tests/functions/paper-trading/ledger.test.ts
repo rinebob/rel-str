@@ -265,9 +265,9 @@ describe('applyEntryFill', () => {
     assert.equal(plans.length, 0);
   });
 
-  it('rejects unparseable and inert governing variants — none included', async () => {
+  it('rejects unparseable and inert governing variants', async () => {
     const { deps, plans } = makeDeps();
-    for (const key of ['limit-sd1', 'none', 'bogus', 'trailing-0', 'trailing-150']) {
+    for (const key of ['limit-sd1', 'bogus', 'trailing-0', 'trailing-150']) {
       await assert.rejects(
         applyEntryFill(
           {
@@ -297,6 +297,40 @@ describe('applyEntryFill', () => {
       );
     }
     assert.equal(plans.length, 0);
+  });
+
+  it("'none' seeds an empty variant set — observational trades (#1539)", async () => {
+    const { deps, plans, writes } = makeDeps();
+    const { trade } = await applyEntryFill(
+      {
+        userId: 'user1',
+        tradeId: '260924-mg-QQQ-CDS-30-50-40-ALL-2026-02-02',
+        order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 },
+        legs: [cspLeg()],
+        fill: {
+          fillId: 'f1',
+          role: 'entry',
+          date: FILL_DATE,
+          price: 2.0,
+          quantity: 1,
+          quoteSource: OptionQuoteSource.RH_MCP,
+        },
+        dims: {
+          source: PaperTradeSource.STRATEGY,
+          symbol: 'QQQ',
+          expression: 'CDS',
+          governingVariant: 'none',
+        },
+        now: NOW,
+      },
+      deps,
+    );
+    assert.equal(trade.governingVariant, 'none');
+    assert.deepEqual(trade.variantKeys, []);
+    assert.deepEqual(trade.variantRuns, []);
+    // The ledger still books the account — LONG side books a debit.
+    assert.equal(plans.length, 1);
+    void writes;
   });
 
   it('fails loudly when the trade id is already taken', async () => {

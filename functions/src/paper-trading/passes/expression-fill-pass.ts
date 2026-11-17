@@ -25,14 +25,10 @@ import { calendarDaysBetween } from '../../common/pt-date-utils';
 import { selectOptionContract } from '../../common/option-contract-selection';
 import type { HistoricalOptionContract } from '../../types/partner';
 import {
-  MCP_PREFIX,
-  QUOTE_BATCH,
-  extractChains,
-  extractQuoteItems,
   fetchAllOptionInstruments,
+  fetchOptionExpirations,
+  fetchOptionQuotes,
   parseNum,
-  quoteItemId,
-  quoteMark,
   type RhInstrument,
 } from '../engine/rh-mcp-shapes';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -61,8 +57,6 @@ const logger = createLogger('ExpressionFillPass');
 const MAX_EXPIRATIONS = 4;
 /** Concurrent fill paths per pass — bounds RH MCP burst + acct-doc contention. */
 const FILL_CONCURRENCY = 4;
-/** Concurrent quote batches per trade — bounds intra-trade MCP bursts. */
-const QUOTE_CONCURRENCY = 3;
 /** Lost seq race retry — a second pass re-scans; beyond that it's a real error. */
 const MINT_ATTEMPTS = 2;
 
@@ -121,20 +115,6 @@ export interface ExpressionFillPassSummary {
 
 // ── MCP fetch helpers ──────────────────────────────────────────────────────
 
-/** Fetch expiration dates for the trade's underlying via `get_option_chains`. */
-async function fetchExpirations(
-  callTool: ExpressionFillPassDeps['callTool'],
-  symbol: string,
-): Promise<string[]> {
-  const raw = await callTool(`${MCP_PREFIX}get_option_chains`, { underlying_symbol: symbol });
-  const dates = new Set<string>();
-  for (const chain of extractChains(raw)) {
-    if (chain.symbol && chain.symbol.toUpperCase() !== symbol.toUpperCase()) continue;
-    for (const d of chain.expiration_dates ?? []) dates.add(d);
-  }
-  return [...dates];
-}
-
 /** Fetch instruments for one expiration via `get_option_instruments` (paginated). */
 const fetchInstruments = (
   callTool: ExpressionFillPassDeps['callTool'],
@@ -147,39 +127,6 @@ const fetchInstruments = (
     expiration_dates: expiration,
     type: rhType,
   });
-
-/** Quote a batch of instrument ids via `get_option_quotes` (parallel batches). */
-async function fetchQuotes(
-  callTool: ExpressionFillPassDeps['callTool'],
-  instrumentIds: string[],
-): Promise<Map<string, { mark?: number; delta?: number }>> {
-  const batches: string[][] = [];
-  for (let i = 0; i < instrumentIds.length; i += QUOTE_BATCH) {
-    batches.push(instrumentIds.slice(i, i + QUOTE_BATCH));
-  }
-  const raws: unknown[] = [];
-  for (let i = 0; i < batches.length; i += QUOTE_CONCURRENCY) {
-    raws.push(
-      ...(await Promise.all(
-        batches
-          .slice(i, i + QUOTE_CONCURRENCY)
-          .map((ids) => callTool(`${MCP_PREFIX}get_option_quotes`, { instrument_ids: ids })),
-      )),
-    );
-  }
-  const byId = new Map<string, { mark?: number; delta?: number }>();
-  for (const raw of raws) {
-    for (const item of extractQuoteItems(raw)) {
-      const id = quoteItemId(item);
-      if (!id) continue;
-      byId.set(id, {
-        mark: quoteMark(item),
-        delta: parseNum(item.quote?.delta),
-      });
-    }
-  }
-  return byId;
-}
 
 // ── Pass ───────────────────────────────────────────────────────────────────
 
@@ -276,7 +223,7 @@ async function selectContract(
   const rhType = template.optionType === 'call' ? 'call' : 'put';
 
   // expirations inside the template DTE band, nearest target first
-  const inBand = (await fetchExpirations(deps.callTool, symbol))
+  const inBand = (await fetchOptionExpirations(deps.callTool, symbol))
     .map((expiration) => ({ expiration, dte: calendarDaysBetween(marketDate, expiration) }))
     .filter((e) => e.dte >= template.minDte && e.dte <= template.maxDte)
     .sort((a, b) => Math.abs(a.dte - template.targetDte) - Math.abs(b.dte - template.targetDte))
@@ -292,7 +239,7 @@ async function selectContract(
     inBand.map(({ expiration }) => fetchInstruments(deps.callTool, symbol, expiration, rhType)),
   );
   const instruments = instrumentPages.flat();
-  const quotes = await fetchQuotes(
+  const quotes = await fetchOptionQuotes(
     deps.callTool,
     instruments.map((i) => i.id).filter((id): id is string => !!id),
   );

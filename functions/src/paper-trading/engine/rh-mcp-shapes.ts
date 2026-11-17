@@ -127,6 +127,62 @@ export async function fetchAllOptionInstruments(
   return all;
 }
 
+/** `get_option_quotes` parallel batch bound. */
+export const QUOTE_CONCURRENCY = 3;
+
+export interface RhResolvedQuote {
+  mark?: number;
+  delta?: number;
+}
+
+/** Sorted expiration dates for an underlying via `get_option_chains`
+ *  (chains filtered to the requested symbol when they carry one). */
+export async function fetchOptionExpirations(
+  callTool: (name: string, args: Record<string, unknown>) => Promise<unknown>,
+  symbol: string,
+): Promise<string[]> {
+  const raw = await callTool(`${MCP_PREFIX}get_option_chains`, {
+    underlying_symbol: symbol,
+  });
+  const dates = new Set<string>();
+  for (const chain of extractChains(raw)) {
+    if (chain.symbol && chain.symbol.toUpperCase() !== symbol.toUpperCase()) continue;
+    for (const d of chain.expiration_dates ?? []) dates.add(d);
+  }
+  return [...dates].sort();
+}
+
+/** Quote a batch of instrument ids via `get_option_quotes` —
+ *  QUOTE_BATCH ids per call, QUOTE_CONCURRENCY calls in flight. */
+export async function fetchOptionQuotes(
+  callTool: (name: string, args: Record<string, unknown>) => Promise<unknown>,
+  instrumentIds: string[],
+): Promise<Map<string, RhResolvedQuote>> {
+  const batches: string[][] = [];
+  for (let i = 0; i < instrumentIds.length; i += QUOTE_BATCH) {
+    batches.push(instrumentIds.slice(i, i + QUOTE_BATCH));
+  }
+  const byId = new Map<string, RhResolvedQuote>();
+  for (let i = 0; i < batches.length; i += QUOTE_CONCURRENCY) {
+    const raws = await Promise.all(
+      batches
+        .slice(i, i + QUOTE_CONCURRENCY)
+        .map((ids) => callTool(`${MCP_PREFIX}get_option_quotes`, { instrument_ids: ids })),
+    );
+    for (const raw of raws) {
+      for (const item of extractQuoteItems(raw)) {
+        const id = quoteItemId(item);
+        if (!id) continue;
+        byId.set(id, {
+          mark: quoteMark(item),
+          delta: parseNum(item.quote?.delta),
+        });
+      }
+    }
+  }
+  return byId;
+}
+
 /** Instrument id for a quote item — item-level, or nested in quote/close. */
 export function quoteItemId(item: RhQuoteItem): string | undefined {
   return (
