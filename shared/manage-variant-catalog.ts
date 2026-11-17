@@ -137,10 +137,12 @@ export const MANAGE_VARIANTS: readonly ManageVariant[] = [
 for (const t of MANAGE_TEMPLATES) {
   Object.freeze(t.legs);
   t.legs.forEach((l) => Object.freeze(l));
+  Object.freeze(t);
 }
 for (const v of MANAGE_VARIANTS) {
   Object.freeze(v.legs);
   v.legs.forEach((l) => Object.freeze(l));
+  Object.freeze(v);
 }
 // The outer arrays too — otherwise an importer can still push()
 // unvetted entries that every consumer then reads as curated seeds.
@@ -183,7 +185,13 @@ export function getManageVariant(id: string): ManageVariant | undefined {
  * bands. The single implementation the spec, verify script, and BE
  * instance-create path share — do not reimplement.
  *
- * Checks band membership only — two documented gaps by design:
+ * `= variantMatchesTemplateShape + band membership`. The two layers are
+ * deliberately separable: shape is identity (the ID generator gates on
+ * it so a `CDS` SPREAD code can't mislabel a put spread), while bands
+ * are authoring policy — seed curation here, Create-dialog/BE validation
+ * upstream — that ad hoc variants composed from a template may exceed.
+ *
+ * Two documented gaps by design:
  *  - Does NOT validate the denormalized `variant.dte` against the legs
  *    (the ID's {DTE} segment could disagree with every leg). #1542
  *    derives/validates it — see ManageVariant.dte.
@@ -199,20 +207,41 @@ export function variantMatchesTemplate(
   variant: ManageVariant,
   template: ManageTemplate,
 ): boolean {
+  if (!variantMatchesTemplateShape(variant, template)) return false;
+  return variant.legs.every((leg, i) => {
+    const slot = template.legs[i];
+    if (slot.kind === 'option' && leg.kind === 'option') {
+      return (
+        leg.targetDelta >= slot.deltaMin &&
+        leg.targetDelta <= slot.deltaMax &&
+        leg.dte >= slot.dteMin &&
+        leg.dte <= slot.dteMax
+      );
+    }
+    return true;
+  });
+}
+
+/**
+ * Positional STRUCTURE conformance — leg count, `kind`, option-leg
+ * `type`/`side` — with NO band checks. This is what the instance-ID
+ * generator gates on: the `SPREAD` code names the shape, so legs must
+ * match it positionally, but delta/DTE bands are authoring policy (seed
+ * curation + the Create-dialog/BE validation), not identity — an
+ * out-of-band ad hoc variant under a named template still mints a
+ * unique, truthful id.
+ */
+export function variantMatchesTemplateShape(
+  variant: ManageVariant,
+  template: ManageTemplate,
+): boolean {
   if (!Array.isArray(variant.legs)) return false;
   if (variant.legs.length !== template.legs.length) return false;
   return variant.legs.every((leg, i) => {
     const slot = template.legs[i];
     if (leg.kind !== slot.kind) return false;
     if (slot.kind === 'option' && leg.kind === 'option') {
-      return (
-        leg.type === slot.type &&
-        leg.side === slot.side &&
-        leg.targetDelta >= slot.deltaMin &&
-        leg.targetDelta <= slot.deltaMax &&
-        leg.dte >= slot.dteMin &&
-        leg.dte <= slot.dteMax
-      );
+      return leg.type === slot.type && leg.side === slot.side;
     }
     return leg.side === slot.side;
   });

@@ -37,7 +37,10 @@ import type { ManageVariant } from './manage-variant-contracts';
 /** Execution mode. v1 is paper-only; 'real' arrives in v2 — the field
  *  exists now so real support lands as enablement, not a schema change. */
 export type InstanceMode = 'paper' | 'real';
-export const INSTANCE_MODES: readonly InstanceMode[] = ['paper', 'real'];
+export const INSTANCE_MODES: readonly InstanceMode[] = Object.freeze([
+  'paper',
+  'real',
+]);
 
 /**
  * How the instance opens new positions during the engine's noon-PT routine:
@@ -46,7 +49,10 @@ export const INSTANCE_MODES: readonly InstanceMode[] = ['paper', 'real'];
  *              instance's symbol that day.
  */
 export type InstanceTrigger = 'daily' | 'signal';
-export const INSTANCE_TRIGGERS: readonly InstanceTrigger[] = ['daily', 'signal'];
+export const INSTANCE_TRIGGERS: readonly InstanceTrigger[] = Object.freeze([
+  'daily',
+  'signal',
+]);
 
 /**
  * Run state — the manual start/stop gate on opening new positions.
@@ -60,11 +66,11 @@ export const INSTANCE_TRIGGERS: readonly InstanceTrigger[] = ['daily', 'signal']
  *              restartable, never terminal).
  */
 export type InstanceRunState = 'UNSTARTED' | 'ACTIVE' | 'STOPPED';
-export const INSTANCE_RUN_STATES: readonly InstanceRunState[] = [
+export const INSTANCE_RUN_STATES: readonly InstanceRunState[] = Object.freeze([
   'UNSTARTED',
   'ACTIVE',
   'STOPPED',
-];
+]);
 
 // ==========================
 // Stop type

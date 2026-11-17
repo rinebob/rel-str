@@ -136,6 +136,8 @@ export interface ManageVariant {
    * every option leg carries this value; for calendars/diagonals it is the
    * near leg's DTE. Denormalized: the ID builder (#1542) must derive or
    * validate it against the legs rather than trust both independently.
+   * Multi-expiry variants currently cannot instantiate — #1542 throws
+   * pending a grammar extension for the single-DTE segment.
    */
   dte: number;
   /** Concrete legs — every option leg has Δ/DTE pinned. */
