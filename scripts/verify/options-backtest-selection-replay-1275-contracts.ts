@@ -21,8 +21,8 @@ import {
   OPTIONS_REPLAY_RUN_STATUSES,
 } from '@options-replay/contracts';
 import type {
-  ContractListRow,
-  OptionsContractListDoc,
+  ContractListRowV1,
+  OptionsContractListDocV1,
   OptionsReplayPermutationPayload,
   OptionsReplayRun,
   OptionsReplayStartRequest,
@@ -92,14 +92,14 @@ check('pick-doc meta fields', [doc.gridVersion, doc.pickCount, doc.missCount], [
 
 // ── Contract list rows ─────────────────────────────────────────────────────
 
-const pickRow: ContractListRow = {
+const pickRow: ContractListRowV1 = {
   kind: 'pick',
   entryDate: '2025-12-15',
   side: TradeSide.SHORT,
   ...day,
   repeatsPrevious: false,
 };
-const markerRow: ContractListRow = { kind: 'no-selection', entryDate: '2025-12-16' };
+const markerRow: ContractListRowV1 = { kind: 'no-selection', entryDate: '2025-12-16' };
 check('pick row kind', pickRow.kind, 'pick');
 check('pick row spreads all day fields', pickRow.kind === 'pick' && pickRow.mark === day.mark, true);
 check('marker row kind', markerRow.kind, 'no-selection');
@@ -119,7 +119,7 @@ const run: OptionsReplayRun = {
 check('run is single-symbol (#1430)', run.symbol, 'QQQ');
 check('run status vocabulary', OPTIONS_REPLAY_RUN_STATUSES.includes(run.status), true);
 
-const listDoc: OptionsContractListDoc = {
+const listDoc: OptionsContractListDocV1 = {
   runId: run.runId,
   symbol: 'QQQ',
   templateId: template.id,

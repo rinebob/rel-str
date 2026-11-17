@@ -41,7 +41,7 @@ import {
 import {
   legToPickDocCoordinate,
   templateToOptionLeg,
-  type OptionsContractListDoc,
+  type OptionsContractListDocV1,
   type PickDocCoordinate,
 } from '@options-replay/contracts';
 import { REPLAY_TEMPLATES, getReplayTemplate } from '@options-replay/templates';
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
     }
     const listSnap = await db.collection(ST_OPTIONS_CONTRACT_LISTS_ROOT).doc(snap.id).get();
     if (!listSnap.exists) continue; // covered by the 1430 audit
-    const meta = (listSnap.data() as OptionsContractListDoc).pickDocMeta;
+    const meta = (listSnap.data() as OptionsContractListDocV1).pickDocMeta;
     if (!meta?.coordinate) {
       // A completed run whose list doc lacks pickDocMeta.coordinate is a
       // contract violation, not a skip — the success write always sets it.

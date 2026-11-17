@@ -43,7 +43,7 @@ import {
 } from '@st/collections';
 import {
   OPTIONS_REPLAY_RUN_STATUSES,
-  type OptionsContractListDoc,
+  type OptionsContractListDocV1,
   type OptionsReplayRunStatus,
 } from '@options-replay/contracts';
 import { EXIT_STRATEGIES } from '@options-analysis/registry';
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const list = listSnap.data() as OptionsContractListDoc;
+    const list = listSnap.data() as OptionsContractListDocV1;
     if (list.runId !== snap.id) {
       fail(snap.id, `list doc runId '${list.runId}' != docId '${snap.id}'`);
     }

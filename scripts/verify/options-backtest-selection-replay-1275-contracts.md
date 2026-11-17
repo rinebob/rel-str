@@ -8,8 +8,9 @@ Pipeline stage: shared contracts → `@options-replay/contracts` alias resolutio
 `options-backtest-selection-replay-1275-contracts.ts` — no credentials, no
 Firestore, no network. Imports the contracts through the real tsconfig alias
 and validates every fixture shape the BE mapper and FE table consume:
-template/coordinate, SA pick-doc wire shape, `ContractListRow` union (pick +
-no-selection marker), run/list doc vocabularies, callable + task payloads.
+template/coordinate, SA pick-doc wire shape, `ContractListRowV1` union (pick +
+no-selection marker — the persisted v1 shape), run/list doc vocabularies,
+callable + task payloads.
 
 ## Usage
 
