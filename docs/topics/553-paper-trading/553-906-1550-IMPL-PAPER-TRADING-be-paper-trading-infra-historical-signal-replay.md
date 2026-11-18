@@ -124,6 +124,29 @@ existing live trades are unchanged.
 
 `selectGoverningRun` is pure — fully unit-testable on fixture levels.
 
+**§3 as-built (#1574):** shipped as
+`exits/governing-policy.ts` —
+`selectGoverningRun(runs, ctx)` + `smaAt(bars, date, period)` (sorted
+defensively; undefined on short windows) + `smaIndicatorsFor` (collects
+the `indicators.sma` map per distinct period). Candidacy is
+**family-scoped** (`trailing-stop`/`ma-close` only) AND
+**watermark-scoped** — the side test is vs the trade's high watermark
+(peak, from run `workingState` + entry + mark), NOT today's mark: a
+stop breached today still sits below the peak → stays a candidate →
+its trigger fires the real close (the mark-side reading stranded every
+loser OPEN — review-caught impl bug, not a spec gap). `undefined` when
+nothing qualifies — the mirror then keeps its last value until a closer
+rewrites it. Eval-pass hook: `policyActive = governingPolicy ===
+CURATED_GOVERNING_POLICY && status === OPEN` — pick → ONE atomic
+`applyGoverningPick` write carrying flag-corrected `variantRuns` +
+`governingVariant` (repo seam; no observable mid-state), under the
+file's per-trade error isolation. Same-day `closedThisPass` latch:
+post-close triggers shadow-record instead of re-attempting the ledger.
+`getBars` is per-symbol pass-cached and mark-gated.
+ASSIGNED/CLOSED policy trades use the static path (the ASSIGNED
+share-exit seam is unchanged). Production wiring split to
+`eval-pass-deps.ts` (eval-pass.ts 383 lines).
+
 ## 4. New exit evaluators + `variantLevel`
 
 Registry additions (SHARED §4 table):
@@ -145,6 +168,26 @@ unparsed keys) is never a governing candidate.
 **Closing classes:** `evalOne` closes on `run.governing ||`
 `isIndependentCloser(run.variantKey)` (target/time families) — shadow
 recording unchanged for everything else.
+
+**§4 as-built (#1574):** grammar in `exits/registry.ts` —
+`ma-close-{N}` (close-cross of the N-day SMA; `indicators.sma` on
+`VariantEvalCtx`; absent data → no fire) and `target-{pct}` (entry ×
+(1±pct)). `variantLevel(run, ctx)` returns the rule's current price
+level — trailing rides the watermark including today's mark, `ma-close`
+= today's SMA, `target` = the fixed price, `initial-stop` = the entry
+band; `undefined` for time/limit/unparseable. `isIndependentCloser` =
+`target` + `time-stop` families, honored **only on policy trades**
+(`policyClose` flag in `evalOne`) — unmarked trades keep the
+governing-only close rule. Independent-closer fire → `applyExit` +
+`setGoverningVariant` rewrite to the closer key (attribution pin).
+`defaultEvalDeps` gains `getBars` (`getCachedBarsFromSymbolData`
+dailyBars) + `setGoverningVariant`; ma-close runs without SMA data
+skip with a summary error. `ExitVariantParams` (shared) gained
+`ma-close`/`target` members — the strategy-builder picker narrowed to
+`PickerVariantFamily` so non-terminal families stay unselectable.
+Coverage: 64 focused specs (registry + governing-policy + eval-pass),
+344/344 paper-trading batch, `verify
+paper-trading-curated-exit-engine-1574` (33 checks).
 
 ## 5. `deletePaperTrades` callable + cascade
 
