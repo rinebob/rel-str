@@ -34,7 +34,12 @@ import { generateInstanceId } from '@options-strategy-engine/id';
  *  patterns (functions/src/paper-trading/exits/registry.ts). The key is
  *  param-encoded: initial-stop-{pct}, trailing-{pct}, time-{days}d,
  *  limit-sd{sigma}. */
-const VARIANT_FAMILY_LABELS: Record<VariantFamily, string> = {
+/** The picker subset — governing-eligible families only. `ma-close`/`target`
+ *  exist in the shared union (curated signal trades) but can never govern
+ *  (`isTerminalVariantKey` rejects them), so they stay off this form. */
+type PickerVariantFamily = Exclude<VariantFamily, 'ma-close' | 'target'>;
+
+const VARIANT_FAMILY_LABELS: Record<PickerVariantFamily, string> = {
   'initial-stop': 'Initial stop',
   'trailing-stop': 'Trailing stop',
   'time-stop': 'Time stop',
@@ -46,7 +51,7 @@ const VARIANT_FAMILY_LABELS: Record<VariantFamily, string> = {
 // must be contract-expressive (0,100), or the input silently rejects
 // values the BE would govern. Degenerate pcts get the visible group
 // 'range' error from variantParamValid, not an invisible control error.
-const VARIANT_PARAM_META: Record<VariantFamily, { label: string; min: number; max: number; step: number }> = {
+const VARIANT_PARAM_META: Record<PickerVariantFamily, { label: string; min: number; max: number; step: number }> = {
   'initial-stop': { label: 'Stop %', min: 0, max: 100, step: 1 },
   'trailing-stop': { label: 'Trailing %', min: 0, max: 100, step: 1 },
   'time-stop': { label: 'Days', min: 0, max: 365, step: 1 },
@@ -54,7 +59,7 @@ const VARIANT_PARAM_META: Record<VariantFamily, { label: string; min: number; ma
 };
 
 /** family+param → variantKey — the inverse of the BE's parseVariantKey. */
-export function variantKeyFor(family: VariantFamily, param: number): string {
+export function variantKeyFor(family: PickerVariantFamily, param: number): string {
   switch (family) {
     case 'initial-stop': return `initial-stop-${param}`;
     case 'trailing-stop': return `trailing-${param}`;
@@ -65,7 +70,7 @@ export function variantKeyFor(family: VariantFamily, param: number): string {
 
 /** variantKey → family+param — null when the key isn't parseable
  *  (BE treats unparseable keys as no-op variants). */
-export function parseVariantKey(key: string): { family: VariantFamily; param: number } | null {
+export function parseVariantKey(key: string): { family: PickerVariantFamily; param: number } | null {
   // Firestore is schema-free — a stored governingVariant may not be a string.
   if (typeof key !== 'string') return null;
   let m = key.match(/^initial-stop-(\d+(?:\.\d+)?)$/);
@@ -166,7 +171,7 @@ export class StrategyBuilderFormComponent {
      *  governingVariant key on save. US4 — only terminal (trailing-stop)
      *  families are offered; 'none' is not selectable. Defaults derive
      *  from the shared DEFAULT_TRAILING_STOP_KEY. */
-    variantFamily: [DEFAULT_GOV.family as 'none' | VariantFamily, [Validators.required]],
+    variantFamily: [DEFAULT_GOV.family as 'none' | PickerVariantFamily, [Validators.required]],
     variantParam: [DEFAULT_GOV.param as number | null],
   }, { validators: [dteMaxGreaterThanMin, variantParamValid] });
 
@@ -342,15 +347,15 @@ export class StrategyBuilderFormComponent {
    *  have param metadata for (US4). Not sourced from the loaded registry:
    *  an unloaded or empty registry must not blank the select while the
    *  trailing-8 default still saves. */
-  readonly variantFamilies: VariantFamily[] = (
-    Object.keys(VARIANT_PARAM_META) as VariantFamily[]
+  readonly variantFamilies: PickerVariantFamily[] = (
+    Object.keys(VARIANT_PARAM_META) as PickerVariantFamily[]
   ).filter((f) => TERMINAL_VARIANT_FAMILIES.includes(f));
 
   readonly familyLabels = VARIANT_FAMILY_LABELS;
 
   /** Param input metadata for the selected family (null when 'none'). */
   variantParamMeta() {
-    const family = this.form.value.variantFamily as 'none' | VariantFamily | null;
+    const family = this.form.value.variantFamily as 'none' | PickerVariantFamily | null;
     return family && family !== NONE_VARIANT_KEY && Object.hasOwn(VARIANT_PARAM_META, family)
       ? VARIANT_PARAM_META[family]
       : null;
