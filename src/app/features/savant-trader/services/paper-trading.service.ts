@@ -14,6 +14,8 @@ import type {
   ClosePaperTradeRequest,
   ClosePaperTradeResponse,
   GetPaperAccountResponse,
+  GetPaperStatsRequest,
+  GetPaperStatsResponse,
   ListPaperTradesRequest,
   ListPaperTradesResponse,
   PaperSignalOrderRequest,
@@ -56,6 +58,15 @@ export class PaperTradingService {
   /** Fetch the caller's paper account (null when none exists yet). */
   getPaperAccount$(): Observable<GetPaperAccountResponse> {
     return this.call(CallableName.GET_PAPER_ACCOUNT, {});
+  }
+
+  /**
+   * Fetch canonical stats rollup docs. `scope` selects one scope
+   * ('all', 'src-*', 'inst-*'); a scope with no doc yields `stats: []`.
+   * Omit `scope` to enumerate every stats doc.
+   */
+  getPaperStats$(request: GetPaperStatsRequest = {}): Observable<GetPaperStatsResponse> {
+    return this.call(CallableName.GET_PAPER_STATS, request);
   }
 
   /**

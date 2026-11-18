@@ -66,24 +66,6 @@ export interface Position {
   legs?: PositionLeg[];
 }
 
-export interface StrategyStats {
-  scope: string;
-  totalPremiumCollected: number;
-  totalRealizedPnl: number;
-  totalUnrealizedPnl: number;
-  openPositionCount: number;
-  closedPositionCount: number;
-  assignedCount: number;
-  expiredWorthlessCount: number;
-  maxDrawdown: number;
-  lastUpdated: string;
-}
-
-export interface EquityCurvePoint {
-  date: string;
-  cumulativePnl: number;
-}
-
 // ── Callable request/response shapes ─────────────────────────────────────────
 
 export interface ListStrategyPositionsRequest {
@@ -94,13 +76,4 @@ export interface ListStrategyPositionsRequest {
 export interface StrategyPositionsResponse {
   openPositions: Position[];
   closedPositions: Position[];
-}
-
-export interface GetStrategyEquityCurveRequest {
-  instanceId?: string;
-}
-
-export interface StrategyEquityCurveResponse {
-  points: EquityCurvePoint[];
-  stats: StrategyStats | null;
 }

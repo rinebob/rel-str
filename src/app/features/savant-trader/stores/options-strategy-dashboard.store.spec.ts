@@ -1,6 +1,7 @@
 /**
  * Unit tests for OptionsStrategyDashboardStore — state transitions,
- * loading/error states, filter changes triggering refetches.
+ * loading/error states, population/instance scope derivation, and
+ * filter changes triggering refetches.
  * Service dependencies are mocked via TestBed providers.
  */
 
@@ -17,16 +18,16 @@ jest.mock('@angular/fire/auth', () => ({
 
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
+import type { GetPaperStatsResponse } from '@paper-trading/contracts';
 
 import { OptionsStrategyDashboardStore } from './options-strategy-dashboard.store';
 import { OptionsStrategyService } from '../services/options-strategy.service';
-import type {
-  Position,
-  StrategyStats,
-  EquityCurvePoint,
-} from '../services/options-strategy.types';
+import { PaperTradingService } from '../services/paper-trading.service';
+import type { Position } from '../services/options-strategy.types';
 import { OptionsPositionStatus } from '../services/options-strategy.types';
+import type { PaperStats } from '@paper-trading/contracts';
+import { PaperTradingKind } from '@paper-trading/contracts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -56,45 +57,52 @@ const closedPosition: Position = {
   unrealizedPnl: 0,
 };
 
-const samplePoints: EquityCurvePoint[] = [
-  { date: '2026-01-01', cumulativePnl: 0 },
-  { date: '2026-01-02', cumulativePnl: 50 },
-  { date: '2026-01-03', cumulativePnl: 120 },
-];
-
-const sampleStats: StrategyStats = {
-  scope: 'ALL',
-  totalPremiumCollected: 150,
+const sampleStats: PaperStats = {
+  kind: PaperTradingKind.STATS,
+  id: 'stats-src-STRATEGY',
+  createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-03T00:00:00Z',
+  scope: 'src-STRATEGY',
   totalRealizedPnl: 75,
   totalUnrealizedPnl: 45,
-  openPositionCount: 1,
-  closedPositionCount: 1,
+  openTradeCount: 1,
+  closedTradeCount: 1,
+  maxDrawdown: 30,
+  totalPremiumCollected: 150,
   assignedCount: 0,
   expiredWorthlessCount: 1,
-  maxDrawdown: 30,
-  lastUpdated: '2026-01-03',
+  equityCurve: [
+    { date: '2026-01-01', cumulativePnl: 0 },
+    { date: '2026-01-02', cumulativePnl: 50 },
+    { date: '2026-01-03', cumulativePnl: 120 },
+  ],
 };
 
 // ── Test setup ───────────────────────────────────────────────────────────────
 
 describe('OptionsStrategyDashboardStore', () => {
   let store: InstanceType<typeof OptionsStrategyDashboardStore>;
-  let mockService: {
+  let mockStrategyService: {
     listStrategyPositions$: jest.Mock;
-    getStrategyEquityCurve$: jest.Mock;
+  };
+  let mockPaperService: {
+    getPaperStats$: jest.Mock;
   };
 
   beforeEach(() => {
-    mockService = {
+    mockStrategyService = {
       listStrategyPositions$: jest.fn(),
-      getStrategyEquityCurve$: jest.fn(),
+    };
+    mockPaperService = {
+      getPaperStats$: jest.fn(),
     };
 
     TestBed.configureTestingModule({
       providers: [
         provideNoopAnimations(),
         OptionsStrategyDashboardStore,
-        { provide: OptionsStrategyService, useValue: mockService },
+        { provide: OptionsStrategyService, useValue: mockStrategyService },
+        { provide: PaperTradingService, useValue: mockPaperService },
       ],
     });
 
@@ -111,8 +119,9 @@ describe('OptionsStrategyDashboardStore', () => {
       expect(store.stats()).toBeNull();
     });
 
-    it('starts with no selected instance (ALL scope)', () => {
+    it('starts with no selected instance and STRATEGY population', () => {
       expect(store.selectedInstanceId()).toBeNull();
+      expect(store.selectedPopulation()).toBe('STRATEGY');
     });
 
     it('starts not loading', () => {
@@ -128,7 +137,7 @@ describe('OptionsStrategyDashboardStore', () => {
 
   describe('loadPositions', () => {
     it('splits response into open and closed positions', () => {
-      mockService.listStrategyPositions$.mockReturnValue(
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
         of({ openPositions: [openPosition], closedPositions: [closedPosition] }),
       );
 
@@ -139,31 +148,29 @@ describe('OptionsStrategyDashboardStore', () => {
       expect(store.isLoadingPositions()).toBe(false);
     });
 
-    it('passes undefined instanceId when no filter is selected (ALL scope)', () => {
-      mockService.listStrategyPositions$.mockReturnValue(
+    it('passes undefined instanceId when no filter is selected', () => {
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
         of({ openPositions: [], closedPositions: [] }),
       );
 
       store.loadPositions();
 
-      expect(mockService.listStrategyPositions$).toHaveBeenCalledWith({ instanceId: undefined });
+      expect(mockStrategyService.listStrategyPositions$).toHaveBeenCalledWith({ instanceId: undefined });
     });
 
     it('passes selected instanceId when filter is set', () => {
-      mockService.listStrategyPositions$.mockReturnValue(
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
         of({ openPositions: [], closedPositions: [] }),
       );
-      mockService.getStrategyEquityCurve$.mockReturnValue(
-        of({ points: [], stats: null }),
-      );
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [] }));
 
       store.selectInstance('QQQM-WHEEL');
 
-      expect(mockService.listStrategyPositions$).toHaveBeenCalledWith({ instanceId: 'QQQM-WHEEL' });
+      expect(mockStrategyService.listStrategyPositions$).toHaveBeenCalledWith({ instanceId: 'QQQM-WHEEL' });
     });
 
     it('sets error and shows empty positions on failure', () => {
-      mockService.listStrategyPositions$.mockReturnValue(
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
         throwError(() => new Error('network error')),
       );
 
@@ -175,39 +182,115 @@ describe('OptionsStrategyDashboardStore', () => {
     });
   });
 
-  // ── loadEquityCurve ────────────────────────────────────────────────────────
+  // ── loadStats (canonical getPaperStats) ──────────────────────────────
 
-  describe('loadEquityCurve', () => {
-    it('stores equity curve points and stats', () => {
-      mockService.getStrategyEquityCurve$.mockReturnValue(
-        of({ points: samplePoints, stats: sampleStats }),
-      );
+  describe('loadStats', () => {
+    it('stores stats[0] fields and its equityCurve', () => {
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [sampleStats] }));
 
-      store.loadEquityCurve();
+      store.loadStats();
 
-      expect(store.equityCurve()).toEqual(samplePoints);
       expect(store.stats()).toEqual(sampleStats);
+      expect(store.equityCurve()).toEqual(sampleStats.equityCurve);
       expect(store.maxDrawdown()).toBe(30);
     });
 
-    it('passes undefined instanceId for ALL scope', () => {
-      mockService.getStrategyEquityCurve$.mockReturnValue(
-        of({ points: [], stats: null }),
+    it('requests src-STRATEGY scope by default (STRATEGY population, no instance)', () => {
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [] }));
+
+      store.loadStats();
+
+      expect(mockPaperService.getPaperStats$).toHaveBeenCalledWith({ scope: 'src-STRATEGY' });
+    });
+
+    it('requests inst-{id} scope when an instance is selected under STRATEGY', () => {
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
+        of({ openPositions: [], closedPositions: [] }),
       );
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [] }));
 
-      store.loadEquityCurve();
+      store.selectInstance('QQQM-WHEEL');
 
-      expect(mockService.getStrategyEquityCurve$).toHaveBeenCalledWith({ instanceId: undefined });
+      expect(mockPaperService.getPaperStats$).toHaveBeenCalledWith({ scope: 'inst-QQQM-WHEEL' });
+    });
+
+    it('requests src-SIGNAL scope under SIGNALS population', () => {
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
+        of({ openPositions: [], closedPositions: [] }),
+      );
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [] }));
+
+      store.selectPopulation('SIGNAL');
+
+      expect(mockPaperService.getPaperStats$).toHaveBeenCalledWith({ scope: 'src-SIGNAL' });
+    });
+
+    it('requests all scope under ALL population', () => {
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
+        of({ openPositions: [], closedPositions: [] }),
+      );
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [] }));
+
+      store.selectPopulation('ALL');
+
+      expect(mockPaperService.getPaperStats$).toHaveBeenCalledWith({ scope: 'all' });
+    });
+
+    it('ignores retained instanceId under non-STRATEGY populations', () => {
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
+        of({ openPositions: [], closedPositions: [] }),
+      );
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [] }));
+
+      store.selectInstance('QQQM-WHEEL');
+      mockPaperService.getPaperStats$.mockClear();
+      store.selectPopulation('SIGNAL');
+
+      expect(store.selectedInstanceId()).toBe('QQQM-WHEEL');
+      expect(mockPaperService.getPaperStats$).toHaveBeenCalledWith({ scope: 'src-SIGNAL' });
+    });
+
+    it('a superseded in-flight request cannot overwrite newer state', () => {
+      const stale = new Subject<GetPaperStatsResponse>();
+      const fresh = new Subject<GetPaperStatsResponse>();
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
+        of({ openPositions: [], closedPositions: [] }),
+      );
+      mockPaperService.getPaperStats$
+        .mockReturnValueOnce(stale.asObservable())
+        .mockReturnValueOnce(fresh.asObservable());
+
+      store.loadStats();
+      store.selectPopulation('SIGNAL'); // supersedes the in-flight src-STRATEGY request
+
+      stale.next({ stats: [sampleStats] });
+      stale.complete();
+      fresh.next({ stats: [] });
+      fresh.complete();
+
+      expect(store.stats()).toBeNull();
+      expect(store.equityCurve()).toEqual([]);
+    });
+
+    it('treats an empty stats array as empty state without error', () => {
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [] }));
+
+      store.loadStats();
+
+      expect(store.stats()).toBeNull();
+      expect(store.equityCurve()).toEqual([]);
+      expect(store.error()).toBeNull();
+      expect(store.isLoadingStats()).toBe(false);
     });
 
     it('sets error and clears data on failure', () => {
-      mockService.getStrategyEquityCurve$.mockReturnValue(
+      mockPaperService.getPaperStats$.mockReturnValue(
         throwError(() => new Error('network error')),
       );
 
-      store.loadEquityCurve();
+      store.loadStats();
 
-      expect(store.error()).toBe('Failed to load equity curve');
+      expect(store.error()).toBe('Failed to load stats');
       expect(store.equityCurve()).toEqual([]);
       expect(store.stats()).toBeNull();
     });
@@ -217,53 +300,71 @@ describe('OptionsStrategyDashboardStore', () => {
 
   describe('selectInstance', () => {
     it('updates selectedInstanceId and triggers both loads', () => {
-      mockService.listStrategyPositions$.mockReturnValue(
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
         of({ openPositions: [openPosition], closedPositions: [] }),
       );
-      mockService.getStrategyEquityCurve$.mockReturnValue(
-        of({ points: samplePoints, stats: sampleStats }),
-      );
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [sampleStats] }));
 
       store.selectInstance('QQQM-WHEEL');
 
       expect(store.selectedInstanceId()).toBe('QQQM-WHEEL');
-      expect(mockService.listStrategyPositions$).toHaveBeenCalledWith({ instanceId: 'QQQM-WHEEL' });
-      expect(mockService.getStrategyEquityCurve$).toHaveBeenCalledWith({ instanceId: 'QQQM-WHEEL' });
+      expect(mockStrategyService.listStrategyPositions$).toHaveBeenCalledWith({ instanceId: 'QQQM-WHEEL' });
+      expect(mockPaperService.getPaperStats$).toHaveBeenCalledWith({ scope: 'inst-QQQM-WHEEL' });
     });
 
-    it('switching back to ALL scope passes undefined', () => {
-      mockService.listStrategyPositions$.mockReturnValue(
+    it('switching back to combined scope requests src-STRATEGY', () => {
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
         of({ openPositions: [], closedPositions: [] }),
       );
-      mockService.getStrategyEquityCurve$.mockReturnValue(
-        of({ points: [], stats: null }),
-      );
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [] }));
 
       store.selectInstance('QQQM-WHEEL');
       store.selectInstance(null);
 
       expect(store.selectedInstanceId()).toBeNull();
-      expect(mockService.listStrategyPositions$).toHaveBeenLastCalledWith({ instanceId: undefined });
-      expect(mockService.getStrategyEquityCurve$).toHaveBeenLastCalledWith({ instanceId: undefined });
+      expect(mockStrategyService.listStrategyPositions$).toHaveBeenLastCalledWith({ instanceId: undefined });
+      expect(mockPaperService.getPaperStats$).toHaveBeenLastCalledWith({ scope: 'src-STRATEGY' });
+    });
+  });
+
+  // ── selectPopulation ───────────────────────────────────────────────────────
+
+  describe('selectPopulation', () => {
+    it('patches selectedPopulation and reloads', () => {
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
+        of({ openPositions: [], closedPositions: [] }),
+      );
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [] }));
+
+      store.selectPopulation('SIGNAL');
+
+      expect(store.selectedPopulation()).toBe('SIGNAL');
+      expect(mockPaperService.getPaperStats$).toHaveBeenCalledWith({ scope: 'src-SIGNAL' });
     });
   });
 
   // ── Computed signals ───────────────────────────────────────────────────────
 
   describe('computed signals', () => {
-    it('openCount and closedCount reflect loaded data', () => {
-      mockService.listStrategyPositions$.mockReturnValue(
-        of({ openPositions: [openPosition, openPosition], closedPositions: [closedPosition] }),
+    it('openCount and closedCount read the stats doc counters', () => {
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
+        of({ openPositions: [], closedPositions: [] }),
       );
+      mockPaperService.getPaperStats$.mockReturnValue(of({ stats: [sampleStats] }));
 
-      store.loadPositions();
+      store.loadAll();
 
-      expect(store.openCount()).toBe(2);
+      expect(store.openCount()).toBe(1);
       expect(store.closedCount()).toBe(1);
     });
 
+    it('openCount and closedCount are 0 when stats is absent', () => {
+      expect(store.openCount()).toBe(0);
+      expect(store.closedCount()).toBe(0);
+    });
+
     it('isEmpty becomes false after data is loaded', () => {
-      mockService.listStrategyPositions$.mockReturnValue(
+      mockStrategyService.listStrategyPositions$.mockReturnValue(
         of({ openPositions: [openPosition], closedPositions: [] }),
       );
 

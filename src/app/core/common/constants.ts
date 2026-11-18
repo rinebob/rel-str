@@ -209,8 +209,6 @@ export enum CallableName {
   SUBMIT_SPREAD_RUN = 'submitSpreadRun',
   /** Options strategy dashboard: list open/closed positions */
   LIST_STRATEGY_POSITIONS = 'listStrategyPositions',
-  /** Options strategy dashboard: equity curve + stats for a scope */
-  GET_STRATEGY_EQUITY_CURVE = 'getStrategyEquityCurve',
   /** Paper trading: accept a signal/order ticket as paper trades */
   PAPER_SIGNAL_ORDER = 'paperSignalOrder',
   /** Paper trading: list trades with AND-combined filters */

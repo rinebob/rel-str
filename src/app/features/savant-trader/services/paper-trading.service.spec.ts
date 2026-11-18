@@ -65,6 +65,15 @@ describe('PaperTradingService', () => {
     expect(mockCallable).toHaveBeenCalledWith({});
   });
 
+  it('getPaperStats$ passes scope and defaults to {}', async () => {
+    await lastValueFrom(service.getPaperStats$({ scope: 'src-SIGNAL' }));
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.GET_PAPER_STATS);
+    expect(mockCallable).toHaveBeenCalledWith({ scope: 'src-SIGNAL' });
+
+    await lastValueFrom(service.getPaperStats$());
+    expect(mockCallable).toHaveBeenCalledWith({});
+  });
+
   it('closePaperTrade$/cancelPaperTrade$ send {tradeId} to the right callables', async () => {
     await lastValueFrom(service.closePaperTrade$('t-1'));
     expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.CLOSE_PAPER_TRADE);

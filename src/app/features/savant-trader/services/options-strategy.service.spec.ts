@@ -15,7 +15,6 @@ import { OptionsStrategyService } from './options-strategy.service';
 import {
   OptionsPositionStatus,
   type StrategyPositionsResponse,
-  type StrategyEquityCurveResponse,
 } from './options-strategy.types';
 
 describe('OptionsStrategyService', () => {
@@ -68,32 +67,7 @@ describe('OptionsStrategyService', () => {
     });
   });
 
-  describe('getStrategyEquityCurve$', () => {
-    it('calls the getStrategyEquityCurve callable with empty request by default (ALL scope)', (done) => {
-      const response: StrategyEquityCurveResponse = { points: [], stats: null };
-      mockCallable.mockResolvedValue({ data: response });
-
-      service.getStrategyEquityCurve$().subscribe({
-        next: (result) => {
-          expect(result).toEqual(response);
-          expect(mockCallable).toHaveBeenCalledWith({});
-          done();
-        },
-        error: done.fail,
-      });
-    });
-
-    it('passes instanceId through to the callable for per-symbol scope', (done) => {
-      const response: StrategyEquityCurveResponse = { points: [], stats: null };
-      mockCallable.mockResolvedValue({ data: response });
-
-      service.getStrategyEquityCurve$({ instanceId: 'QQQM-WHEEL' }).subscribe({
-        next: () => {
-          expect(mockCallable).toHaveBeenCalledWith({ instanceId: 'QQQM-WHEEL' });
-          done();
-        },
-        error: done.fail,
-      });
-    });
+  it('does not expose getStrategyEquityCurve$ — stats moved to PaperTradingService (#1564)', () => {
+    expect('getStrategyEquityCurve$' in service).toBe(false);
   });
 });

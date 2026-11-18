@@ -19,8 +19,16 @@
     </div>
     <div class="header-actions">
       <label class="dse-field scope-select">
+        <span class="field-label">Population</span>
+        <select class="dse-select" [value]="store.selectedPopulation()" (change)="store.selectPopulation($any($event.target).value)">
+          <option value="ALL">All</option>
+          <option value="STRATEGY">Strategies</option>
+          <option value="SIGNAL">Signals</option>
+        </select>
+      </label>
+      <label class="dse-field scope-select">
         <span class="field-label">Strategy</span>
-        <select class="dse-select" [value]="store.selectedInstanceId()" (change)="store.selectInstance($any($event.target).value)">
+        <select class="dse-select" [value]="store.selectedInstanceId()" [disabled]="store.selectedPopulation() !== 'STRATEGY'" (change)="store.selectInstance($any($event.target).value)">
           <option [value]="null">All Strategies (Combined)</option>
           @for (instance of store.availableInstances(); track instance) {
             <option [value]="instance">{{ instance }}</option>

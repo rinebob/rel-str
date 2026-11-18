@@ -9,9 +9,7 @@ import { Functions, httpsCallable } from '@angular/fire/functions';
 import { from, map, Observable } from 'rxjs';
 import { CallableName } from '../../../core/common/constants';
 import type {
-  GetStrategyEquityCurveRequest,
   ListStrategyPositionsRequest,
-  StrategyEquityCurveResponse,
   StrategyPositionsResponse,
 } from './options-strategy.types';
 
@@ -33,20 +31,6 @@ export class OptionsStrategyService {
       const callable = httpsCallable<ListStrategyPositionsRequest, StrategyPositionsResponse>(
         this.functions,
         CallableName.LIST_STRATEGY_POSITIONS,
-      );
-      return callable(request);
-    })).pipe(map((res) => res.data));
-  }
-
-  /**
-   * Fetch equity curve points + stats for a scope.
-   * Omit instanceId for the combined ALL-scope view.
-   */
-  getStrategyEquityCurve$(request: GetStrategyEquityCurveRequest = {}): Observable<StrategyEquityCurveResponse> {
-    return from(this.inCtx(() => {
-      const callable = httpsCallable<GetStrategyEquityCurveRequest, StrategyEquityCurveResponse>(
-        this.functions,
-        CallableName.GET_STRATEGY_EQUITY_CURVE,
       );
       return callable(request);
     })).pipe(map((res) => res.data));

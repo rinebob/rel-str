@@ -27,12 +27,10 @@ import { resolve, dirname } from 'path';
 
 import { OptionsStrategyDashboardComponent } from './options-strategy-dashboard.component';
 import { OptionsStrategyDashboardStore } from '../../stores/options-strategy-dashboard.store';
-import type {
-  Position,
-  StrategyStats,
-  EquityCurvePoint,
-} from '../../services/options-strategy.types';
+import type { Position } from '../../services/options-strategy.types';
 import { OptionsPositionStatus } from '../../services/options-strategy.types';
+import type { EquityCurvePoint, PaperStats } from '@paper-trading/contracts';
+import { PaperTradingKind } from '@paper-trading/contracts';
 
 // ── Resolve external templateUrl/styleUrl from disk ──────────────────────────
 
@@ -51,11 +49,12 @@ function createMockStore(overrides: Record<string, any> = {}) {
   const openPositions = signal<Position[]>(overrides.openPositions ?? []);
   const closedPositions = signal<Position[]>(overrides.closedPositions ?? []);
   const equityCurve = signal<EquityCurvePoint[]>(overrides.equityCurve ?? []);
-  const stats = signal<StrategyStats | null>(overrides.stats ?? null);
+  const stats = signal<PaperStats | null>(overrides.stats ?? null);
   const selectedInstanceId = signal<string | null>(overrides.selectedInstanceId ?? null);
+  const selectedPopulation = signal<'ALL' | 'STRATEGY' | 'SIGNAL'>(overrides.selectedPopulation ?? 'STRATEGY');
   const isLoading = signal(overrides.isLoading ?? false);
   const isLoadingPositions = signal(overrides.isLoadingPositions ?? false);
-  const isLoadingEquityCurve = signal(overrides.isLoadingEquityCurve ?? false);
+  const isLoadingStats = signal(overrides.isLoadingStats ?? false);
   const error = signal<string | null>(overrides.error ?? null);
   const isEmpty = signal(overrides.isEmpty ?? true);
   const openCount = signal(overrides.openCount ?? 0);
@@ -69,9 +68,10 @@ function createMockStore(overrides: Record<string, any> = {}) {
     equityCurve,
     stats,
     selectedInstanceId,
+    selectedPopulation,
     isLoading,
     isLoadingPositions,
-    isLoadingEquityCurve,
+    isLoadingStats,
     error,
     isEmpty,
     openCount,
@@ -80,8 +80,9 @@ function createMockStore(overrides: Record<string, any> = {}) {
     availableInstances,
     loadAll: jest.fn(),
     loadPositions: jest.fn(),
-    loadEquityCurve: jest.fn(),
+    loadStats: jest.fn(),
     selectInstance: jest.fn(),
+    selectPopulation: jest.fn(),
   };
 }
 
@@ -118,17 +119,21 @@ const points: EquityCurvePoint[] = [
   { date: '2026-01-02', cumulativePnl: 50 },
 ];
 
-const stats: StrategyStats = {
-  scope: 'ALL',
-  totalPremiumCollected: 150,
+const stats: PaperStats = {
+  kind: PaperTradingKind.STATS,
+  id: 'stats-src-STRATEGY',
+  createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-03T00:00:00Z',
+  scope: 'src-STRATEGY',
   totalRealizedPnl: 75,
   totalUnrealizedPnl: 45,
-  openPositionCount: 1,
-  closedPositionCount: 1,
+  openTradeCount: 1,
+  closedTradeCount: 1,
+  maxDrawdown: 30,
+  totalPremiumCollected: 150,
   assignedCount: 0,
   expiredWorthlessCount: 1,
-  maxDrawdown: 30,
-  lastUpdated: '2026-01-03',
+  equityCurve: points,
 };
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -238,16 +243,40 @@ describe('OptionsStrategyDashboardComponent', () => {
     expect(messages[0]?.textContent).toContain('No open positions');
   });
 
+  it('calls store.selectPopulation when a population option is selected', async () => {
+    await configureWithStore({ isEmpty: false });
+    const selects = fixture.nativeElement.querySelectorAll('select.dse-select');
+    const populationSelect = selects[0] as HTMLSelectElement;
+    populationSelect.value = 'SIGNAL';
+    populationSelect.dispatchEvent(new Event('change'));
+    expect(mockStore.selectPopulation).toHaveBeenCalledWith('SIGNAL');
+  });
+
   it('calls store.selectInstance when a scope option is selected', async () => {
     await configureWithStore({
       isEmpty: false,
       selectedInstanceId: null,
       availableInstances: ['QQQM-WHEEL'],
     });
-    const select = fixture.nativeElement.querySelector('select.dse-select') as HTMLSelectElement;
-    select.value = 'QQQM-WHEEL';
-    select.dispatchEvent(new Event('change'));
+    const selects = fixture.nativeElement.querySelectorAll('select.dse-select');
+    const instanceSelect = selects[1] as HTMLSelectElement;
+    instanceSelect.value = 'QQQM-WHEEL';
+    instanceSelect.dispatchEvent(new Event('change'));
     expect(mockStore.selectInstance).toHaveBeenCalledWith('QQQM-WHEEL');
+  });
+
+  it('disables the instance select when population is not STRATEGY', async () => {
+    await configureWithStore({ isEmpty: false, selectedPopulation: 'SIGNAL' });
+    const selects = fixture.nativeElement.querySelectorAll('select.dse-select');
+    const instanceSelect = selects[1] as HTMLSelectElement;
+    expect(instanceSelect.disabled).toBe(true);
+  });
+
+  it('enables the instance select under STRATEGY population', async () => {
+    await configureWithStore({ isEmpty: false, selectedPopulation: 'STRATEGY' });
+    const selects = fixture.nativeElement.querySelectorAll('select.dse-select');
+    const instanceSelect = selects[1] as HTMLSelectElement;
+    expect(instanceSelect.disabled).toBe(false);
   });
 
   it('renders "Manage Strategies" link to the strategy manage page', async () => {
