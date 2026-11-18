@@ -16,22 +16,22 @@ A wheel-style options position strategy engine that runs nightly on Firebase, tr
 
 - **types.ts** — Core domain types: `Position`, `PositionStatus` (OPEN, EXPIRED_WORTHLESS, ASSIGNED_HOLDING_SHARES, COVERED_CALL_OPEN, CLOSED), `PositionLeg`, `PositionAssignment`, `PositionShares`, `StrategyStats`, `EquityCurvePoint`.
 - **position-repository.ts** — Firestore repository for position documents. `listAllPositions` queries across instances with optional instance/status filters.
-- **stats-repository.ts** — Firestore repository for stats documents. `readStatsDoc` + `writeStatsDoc` with atomic recompute support. `defaultReadStatsDoc` for safe defaults.
+- **stats-repository.ts** — *(moved to `paper-trading/engine/`)* Write-side only since #1565: `statsDocRef`, `recomputeStats`, `defaultStatsDeps`, `legacyToPaperStats`. The legacy read surface (`defaultReadStatsDoc`, `getStats`, `getEquityCurve`) is retired — reads go through `paper-trading/repository.ts getStats(db, statsId)` / the `getPaperStats` callable.
 - **stats-utils.ts** — Pure functions for max drawdown computation and stats aggregation from position lists.
-- **strategy-query-service.ts** — Query service orchestrating repository calls. `listPositions` splits into open/closed arrays. `getEquityCurve` returns points + stats.
-- **options-strategy-callables.ts** — Two HTTPS callables: `listStrategyPositions` and `getStrategyEquityCurve`. CORS via dedicated `OPTIONS_STRATEGY_ALLOWED_ORIGINS` (decoupled from RH Agent origins).
+- **strategy-query-service.ts** — *(moved to `paper-trading/engine/`)* `buildPositionsResponse` splits into open/closed arrays for `listStrategyPositions`. The stats/equity read surface moved to `getPaperStats` (#984).
+- **options-strategy-callables.ts** — One HTTPS callable: `listStrategyPositions`. `getStrategyEquityCurve` retired in #1565 (replaced by `getPaperStats`, #984). CORS via dedicated `OPTIONS_STRATEGY_ALLOWED_ORIGINS` (decoupled from RH Agent origins).
 - **options-strategy-cors.ts** — Dedicated CORS config for options strategy callables.
 - **options-strategy-passes.ts** — Nightly pass orchestrator. Runs passes in order: open → mark → settlement → stats.
 - **passes/open-pass.ts** — Detects new short-put opens from trade history, creates Position docs.
 - **passes/mark-pass.ts** — Updates current value of open positions from live marks.
 - **passes/settlement-pass.ts** — Handles expiration: worthless → EXPIRED_WORTHLESS, in-the-money → ASSIGNED_HOLDING_SHARES with share position.
 - **passes/held-shares-pass.ts** — Daily mark for assigned share positions.
-- **passes/stats-pass.ts** — Recomputes stats from all positions, writes stats docs per scope.
+- **passes/stats-pass.ts** — *(deleted in #1565)* Replaced by the canonical `paper-trading/passes/paper-stats-pass.ts` — the sole stats writer, recomputing canonical `stats-{scope}` docs nightly.
 
 ### Frontend (src/app/features/rh-agent/)
 
 - **services/options-strategy.types.ts** — FE-side types mirroring BE. `OptionsPositionStatus` (renamed to avoid collision with RS-trading `PositionStatus`). `OPTIONS_POSITION_STATUS_LABELS` for display.
-- **services/options-strategy.service.ts** — Angular callable wrapper using `httpsCallable + runInInjectionContext`. Wraps `listStrategyPositions` and `getStrategyEquityCurve`.
+- **services/options-strategy.service.ts** — Angular callable wrapper using `httpsCallable + runInInjectionContext`. Wraps `listStrategyPositions`; stats come from `paper-trading.service.ts getPaperStats$` (#1564).
 - **stores/options-strategy-dashboard.store.ts** — NgRx SignalStore with `withState/withComputed/withMethods`. Race-condition-safe `selectInstance` (tracks and cancels in-flight subscriptions). Computed signals: `isLoading`, `isEmpty`, `openCount`, `closedCount`, `maxDrawdown`, `availableInstances`.
 - **pages/options-strategy-dashboard/** — Standalone OnPush component with external template/styles. Open positions table (instance, symbol, strike, expiration, DTE, premium, current value, unrealized P&L). Closed positions table (instance, symbol, outcome, realized P&L, share position, unrealized P&L). Equity curve chart (Syncfusion EJ2). Dynamic scope toggle from `availableInstances`. Stats strip (open count, closed count, max drawdown). Accessibility: `aria-pressed`, `scope="col"`, `role="alert"`.
 
