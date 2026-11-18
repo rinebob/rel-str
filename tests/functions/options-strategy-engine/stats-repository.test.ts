@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { recomputeStats, getStats, getEquityCurve } from '../../../functions/src/options-strategy-engine/stats-repository';
+import { recomputeStats } from '../../../functions/src/options-strategy-engine/stats-repository';
 import type { StatsRepositoryDependencies } from '../../../functions/src/options-strategy-engine/stats-repository';
 import type { Position, StrategyStats, EquityCurvePoint } from '../../../functions/src/options-strategy-engine/types';
 import { PositionStatus } from '../../../functions/src/options-strategy-engine/types';
@@ -70,7 +70,10 @@ describe('recomputeStats', () => {
 
   it('writes stats with cumulative P&L = realized + unrealized and appends equity-curve point', async () => {
     const positions = [
-      makePosition({ id: 'p1', status: PositionStatus.EXPIRED_WORTHLESS, premiumCollected: 75, unrealizedPnl: 0 }),
+      // EXPIRED rides its realized P&L in unrealizedPnl (adapter contract:
+      // +premium retained for shorts, −cost for longs) — premiumCollected
+      // alone is not the realized number.
+      makePosition({ id: 'p1', status: PositionStatus.EXPIRED_WORTHLESS, premiumCollected: 75, unrealizedPnl: 75 }),
       makePosition({ id: 'p2', status: PositionStatus.OPEN, premiumCollected: 50, unrealizedPnl: 20 }),
     ];
     const deps = makeDeps();
@@ -92,10 +95,11 @@ describe('recomputeStats', () => {
       { date: '2026-01-02', cumulativePnl: 200 },
       { date: '2026-01-03', cumulativePnl: 80 },
     ];
-    // Two positions: EXPIRED_WORTHLESS (realized 75) + OPEN (unrealized 20)
+    // Two positions: EXPIRED_WORTHLESS (realized 75 — adapter puts it in
+    // unrealizedPnl) + OPEN (unrealized 20)
     // cumulative = 75 + 20 = 95 (above trough 80, so drawdown stays 120)
     const positions = [
-      makePosition({ id: 'p1', status: PositionStatus.EXPIRED_WORTHLESS, premiumCollected: 75, unrealizedPnl: 0 }),
+      makePosition({ id: 'p1', status: PositionStatus.EXPIRED_WORTHLESS, premiumCollected: 75, unrealizedPnl: 75 }),
       makePosition({ id: 'p2', status: PositionStatus.OPEN, premiumCollected: 50, unrealizedPnl: 20 }),
     ];
     const deps = makeDeps({
@@ -165,61 +169,5 @@ describe('recomputeStats', () => {
     // Single point: no drawdown possible
     assert.equal(stats.maxDrawdown, 0);
     assert.equal(point.cumulativePnl, 20);
-  });
-});
-
-describe('getStats', () => {
-  it('returns null when no stats doc exists', async () => {
-    const deps = makeDeps();
-    // getStats uses the real Firestore helper by default; test with injected read
-    const result = await getStats('inst-1', {
-      ...deps,
-      readStatsDoc: async () => null,
-    });
-    assert.equal(result, null);
-  });
-
-  it('returns the stats doc when it exists', async () => {
-    const stats: StrategyStats = {
-      scope: 'inst-1',
-      totalPremiumCollected: 100,
-      totalRealizedPnl: 50,
-      totalUnrealizedPnl: 20,
-      openPositionCount: 1,
-      closedPositionCount: 1,
-      assignedCount: 0,
-      expiredWorthlessCount: 1,
-      maxDrawdown: 30,
-      lastUpdated: '2026-01-09',
-    };
-    const result = await getStats('inst-1', {
-      readStatsDoc: async () => stats,
-    });
-    assert.deepEqual(result, stats);
-  });
-});
-
-describe('getEquityCurve', () => {
-  it('returns empty array when no points exist', async () => {
-    const result = await getEquityCurve('inst-1', {
-      readEquityCurve: async () => [],
-    });
-    assert.deepEqual(result, []);
-  });
-
-  it('returns points sorted by date', async () => {
-    const points: EquityCurvePoint[] = [
-      { date: '2026-01-02', cumulativePnl: 50 },
-      { date: '2026-01-01', cumulativePnl: 0 },
-      { date: '2026-01-03', cumulativePnl: 100 },
-    ];
-    const result = await getEquityCurve('inst-1', {
-      readEquityCurve: async () => points,
-    });
-    assert.deepEqual(result, [
-      { date: '2026-01-01', cumulativePnl: 0 },
-      { date: '2026-01-02', cumulativePnl: 50 },
-      { date: '2026-01-03', cumulativePnl: 100 },
-    ]);
   });
 });

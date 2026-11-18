@@ -1,11 +1,14 @@
 /**
  * @topic #553 — Paper Trading Infra (task #562)
+ * @task #1565 — legacy read path retired; this module owns the nightly
+ * recompute write path only.
  *
- * Stats rollup repository — same API the engine passes/callables have always
- * used, backed by `st-paper-trading/stats/items/stats-{scope}` docs
- * (`paper-trading/stats/items` pre-#1007) with an
- * embedded `equityCurve` array instead of the legacy
- * `options-strategy-stats/{scope}` + `equity-curve/` subcollection.
+ * Stats rollup repository — backed by
+ * `st-paper-trading/stats/items/stats-{scope}` docs with an embedded
+ * `equityCurve` array. Reads happen through `paper-trading/repository.ts`
+ * (`getStats(db, statsId)`) — the legacy `StrategyStats` shape here is only
+ * the intermediate form `computeStatsFromPositions` produces for the
+ * write path.
  */
 
 import { PaperTradingKind } from '@paper-trading/contracts';
@@ -39,22 +42,7 @@ export function statsDocRef(scope: string) {
   return paperDocRef(db, PaperTradingKind.STATS, buildStatsId(scope));
 }
 
-// ── Shape adapter ─────────────────────────────────────────────────────────────
-
-function paperStatsToLegacy(stats: PaperStats): StrategyStats {
-  return {
-    scope: stats.scope,
-    totalPremiumCollected: stats.totalPremiumCollected ?? 0,
-    totalRealizedPnl: stats.totalRealizedPnl,
-    totalUnrealizedPnl: stats.totalUnrealizedPnl,
-    openPositionCount: stats.openTradeCount,
-    closedPositionCount: stats.closedTradeCount,
-    assignedCount: stats.assignedCount ?? 0,
-    expiredWorthlessCount: stats.expiredWorthlessCount ?? 0,
-    maxDrawdown: stats.maxDrawdown,
-    lastUpdated: stats.updatedAt,
-  };
-}
+// ── Shape adapter (write side) ────────────────────────────────────────────────
 
 function legacyToPaperStats(stats: StrategyStats, now: string): Omit<PaperStats, 'id' | 'equityCurve'> {
   return {
@@ -77,23 +65,6 @@ async function readStatsDoc(scope: string): Promise<PaperStats | null> {
   const snap = await statsDocRef(scope).get();
   if (!snap.exists) return null;
   return { id: snap.id, ...(snap.data() as object) } as PaperStats;
-}
-
-// ── Read ──────────────────────────────────────────────────────────────────────
-
-export async function getStats(
-  scope: string,
-  deps: { readStatsDoc: (scope: string) => Promise<StrategyStats | null> },
-): Promise<StrategyStats | null> {
-  return deps.readStatsDoc(scope);
-}
-
-export async function getEquityCurve(
-  scope: string,
-  deps: { readEquityCurve: (scope: string) => Promise<EquityCurvePoint[]> },
-): Promise<EquityCurvePoint[]> {
-  const points = await deps.readEquityCurve(scope);
-  return points.sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // ── Recompute ─────────────────────────────────────────────────────────────────
@@ -160,15 +131,6 @@ export const defaultStatsDeps: StatsRepositoryDependencies = {
   },
 };
 
-/**
- * Default Firestore reader for the stats doc. Used by callables that need
- * to read stats without the full recompute deps.
- */
-export async function defaultReadStatsDoc(scope: string): Promise<StrategyStats | null> {
-  const stats = await readStatsDoc(scope);
-  return stats ? paperStatsToLegacy(stats) : null;
-}
-
 // Incremental stats updates live in `./stats-increments.ts` (#1563) —
 // the ledger seam fires blind FieldValue.increment merge-sets post-commit;
-// this module owns only the read path and the nightly recompute.
+// this module owns only the nightly recompute.

@@ -190,7 +190,6 @@ export {
 // Options strategy engine — dashboard callables
 export {
   listStrategyPositions,
-  getStrategyEquityCurve,
 } from './options-strategy-engine/options-strategy-callables';
 
 // Screenshot capture — on-demand chart snapshot callable (#746 / #768)

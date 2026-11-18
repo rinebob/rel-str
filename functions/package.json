@@ -50,6 +50,7 @@
     "replay:missing-symbols": "npx tsx scripts/replay-missing-symbols.ts",
     "replay:missing-symbols:run": "npx tsx scripts/replay-missing-symbols.ts --replay",
     "test:legacy-roots-1013": "tsx --test ../tests/functions/legacy-roots-cleanup-1013.test.ts",
+    "test:legacy-stats-1565": "tsx --test ../tests/functions/legacy-stats-retirement-1565.test.ts",
     "test:st-cutover-1159": "tsx --test ../tests/functions/st-runs-symbols-cutover-1159.test.ts"
   },
   "type": "module",

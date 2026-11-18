@@ -46,7 +46,7 @@ export function computeMaxDrawdown(points: EquityCurvePoint[]): number {
  * - maxDrawdown is left at 0 here; it is computed from the equity-curve series
  *   by the caller (stats-repository) which has access to historical points.
  *
- * @param scope  The stats scope (instanceId or "ALL").
+ * @param scope  The canonical stats scope (e.g. 'all', 'inst-{id}').
  * @param date   The market date this computation is for (used as lastUpdated).
  */
 export function computeStatsFromPositions(

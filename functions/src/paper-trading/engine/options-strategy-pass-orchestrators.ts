@@ -15,7 +15,6 @@ import { runOpenPass } from './passes/open-pass';
 import { runMarkPass } from './passes/mark-pass';
 import { runSettlementPass } from './passes/settlement-pass';
 import { runHeldSharesMarkPass } from './passes/held-shares-pass';
-import { runStatsPass, createDefaultStatsPassDeps } from './passes/stats-pass';
 import { runExitEvalPass, type ExitEvalSummary } from '../exits/eval-pass';
 import { defaultEvalDeps } from '../exits/eval-pass-deps';
 import {
@@ -255,12 +254,6 @@ export async function runSettlementForAllInstances(
     config: StrategyInstanceConfig,
     deps: { getUnderlyingClose: typeof getUnderlyingCloseForDate },
   ) => ReturnType<typeof runHeldSharesMarkPass> = runHeldSharesMarkPass,
-  statsPass: (
-    instanceId: string,
-    date: string,
-    deps: ReturnType<typeof createDefaultStatsPassDeps>,
-  ) => ReturnType<typeof runStatsPass> = runStatsPass,
-  statsDepsFactory: () => ReturnType<typeof createDefaultStatsPassDeps> = createDefaultStatsPassDeps,
   evalPass: (date: string) => Promise<ExitEvalSummary> =
     (date) => runExitEvalPass(date, defaultEvalDeps()),
   paperStatsPass: (date: string) => Promise<PaperStatsPassResult> =
@@ -335,19 +328,6 @@ export async function runSettlementForAllInstances(
         held: held.marked.length,
         errors: settlement.errors.length + held.errors.length,
       };
-
-      // Recompute stats (per-instance + ALL scope) after settlement + held-shares.
-      try {
-        const statsDeps = statsDepsFactory();
-        const statsResult = await statsPass(instance.id, marketDate, statsDeps);
-        log.info(
-          `Stats pass for ${instance.id}/${marketDate}: wrote ${statsResult.scopesWritten.join(', ')}`,
-        );
-      } catch (err) {
-        log.error(
-          `Stats pass failed for ${instance.id}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
 
       return summary;
     },

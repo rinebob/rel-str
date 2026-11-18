@@ -209,8 +209,6 @@ describe('runSettlementForAllInstances — eod-close ordering', () => {
       async () => [], // no instances
       undefined,      // settlementPass — never called with zero instances
       undefined,      // heldSharesPass
-      undefined,      // statsPass
-      undefined,      // statsDepsFactory
       async () => {
         order.push('eval');
         return {

@@ -248,16 +248,30 @@ describe('runSettlementForAllInstances', () => {
       return { instanceId, date: marketDate, marked: [], deferred: [], errors: [] };
     };
 
-    const fakeStatsPass = async () => ({ scopesWritten: ['instance'] });
-    const fakeStatsDepsFactory = () => ({} as never);
+    // The global passes run real Firestore deps by default — inject
+    // trivial fakes to keep the test hermetic (same shapes as the
+    // eod-close ordering spec).
+    const fakeEvalPass = async () => ({
+      evaluated: 0, skipsNoMark: 0, governingCloses: 0, shadowExits: 0,
+      stateUpdates: 0, errors: [],
+    });
+    const fakePaperStats = async () => ({ scopesWritten: [], errors: [] });
+    const fakeSignalSettlement = async () => ({
+      marketDate, settled: 0, skipped: 0, errors: [],
+    });
+    const fakeEodClose = async () => ({
+      marketDate, stamped: 0, skipped: 0, skippedNoClose: 0, errors: [],
+    });
 
     await runSettlementForAllInstances(
       marketDate,
       async () => [instance],
       fakeSettlementPass as unknown as Parameters<typeof runSettlementForAllInstances>[2],
       fakeHeldSharesPass as unknown as Parameters<typeof runSettlementForAllInstances>[3],
-      fakeStatsPass as unknown as Parameters<typeof runSettlementForAllInstances>[4],
-      fakeStatsDepsFactory as unknown as Parameters<typeof runSettlementForAllInstances>[5],
+      fakeEvalPass as unknown as Parameters<typeof runSettlementForAllInstances>[4],
+      fakePaperStats as unknown as Parameters<typeof runSettlementForAllInstances>[5],
+      fakeSignalSettlement as unknown as Parameters<typeof runSettlementForAllInstances>[6],
+      fakeEodClose as unknown as Parameters<typeof runSettlementForAllInstances>[7],
     );
 
     assert.equal(settlementCalls.length, 1);

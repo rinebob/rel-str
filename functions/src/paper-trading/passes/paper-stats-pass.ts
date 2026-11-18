@@ -19,13 +19,10 @@
  * `recomputeStats` seam (equity-curve point + max drawdown + counts + P&L),
  * and per-scope failures are isolated — a bad scope doesn't lose the rest.
  *
- * This complements the engine's per-instance stats pass, which keeps
- * writing its LEGACY doc ids — `stats-{instanceId}` and `stats-ALL` —
- * because the existing strategy UI reads them. This pass owns the new
- * `stats-{all|inst-*|var-*|cohort-*|sig-*|sym-*|src-*}` namespace the paper
- * dashboard enumerates via `listStats`; `stats-ALL` vs `stats-all` and
- * `stats-{id}` vs `stats-inst-{id}` are deliberately distinct docs (same
- * underlying trades, both sides of the migration boundary).
+ * This is THE stats writer (#1565): the legacy per-instance stats pass and
+ * its `stats-{instanceId}`/`stats-ALL` doc ids are retired, so this pass
+ * owns the whole `stats-{all|inst-*|var-*|cohort-*|sig-*|sym-*|src-*}`
+ * namespace the paper dashboard enumerates via `listStats`.
  */
 
 import {
