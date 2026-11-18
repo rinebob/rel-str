@@ -30,7 +30,8 @@ import {
 } from '../../../shared/paper-trading-contracts';
 import { buildAccountId } from '../../../shared/paper-trading-ids';
 import { SHARES_PER_CONTRACT } from '../../src/paper-trading/engine/types';
-import { runExitEvalPass, defaultEvalDeps } from '../../src/paper-trading/exits/eval-pass';
+import { runExitEvalPass } from '../../src/paper-trading/exits/eval-pass';
+import { defaultEvalDeps } from '../../src/paper-trading/exits/eval-pass-deps';
 
 const PREFIX = 'verify-563';
 const INSTANCE_ID = `${PREFIX}-inst`;
