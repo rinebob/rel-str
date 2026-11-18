@@ -27,11 +27,63 @@
   @include vl.state-block;
 }
 
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-4);
+  flex-wrap: wrap;
+
+  .filter-input {
+    min-width: 240px;
+    flex: 0 1 320px;
+  }
+
+  .filter-label {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-space-2);
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-text-secondary);
+    white-space: nowrap;
+  }
+}
+
 .instances-table {
   @include vl.dense-table;
   line-height: 1.2;
 
   thead th {
     white-space: nowrap;
+
+    &.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .sort-icon {
+      font-size: 14px;
+      vertical-align: -2px;
+      margin-left: 2px;
+    }
+
+    .sort-rank {
+      font-size: 10px;
+      vertical-align: super;
+      margin-left: 2px;
+      color: var(--ds-text-secondary);
+    }
+  }
+
+  .position-cell {
+    white-space: nowrap;
+  }
+
+  .actions-cell {
+    white-space: nowrap;
+  }
+
+  tr.real-row {
+    opacity: 0.6;
   }
 }

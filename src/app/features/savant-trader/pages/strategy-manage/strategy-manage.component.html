@@ -12,8 +12,35 @@
     </div>
   </div>
 
+  <div class="filter-bar">
+    <input type="search" class="filter-input" placeholder="Filter by ID, symbol, or variant…"
+           aria-label="Filter instances"
+           [value]="filterText()"
+           (input)="filterText.set($any($event.target).value)" />
+    <label class="filter-label">Run state
+      <select class="runstate-filter" aria-label="Filter by run state"
+              [value]="runStateFilter()"
+              (change)="runStateFilter.set($any($event.target).value)">
+        @for (o of runStateOptions; track o) {
+          <option [value]="o">{{ o === 'ALL' ? 'All run states' : o }}</option>
+        }
+      </select>
+    </label>
+    <label class="filter-label">Position
+      <select class="position-filter" aria-label="Filter by open position"
+              [value]="positionFilter()"
+              (change)="positionFilter.set($any($event.target).value)">
+        @for (o of positionOptions; track o.value) {
+          <option [value]="o.value">{{ o.label }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
   @if (store.error()) {
-    <div class="error-banner" role="alert"><span class="dse-icon" aria-hidden="true">error</span><span class="error-text">{{ store.error() }}</span></div>
+    <div class="error-banner" role="alert"><span class="dse-icon" aria-hidden="true">error</span><span class="error-text">{{ store.error() }}</span>
+      <button class="icon-btn" aria-label="Dismiss error" (click)="store.clearError()">✕</button>
+    </div>
   }
 
   @if (store.isLoading()) {
@@ -22,25 +49,48 @@
     </div>
   } @else if (!store.error() && visibleInstances().length === 0) {
     <div class="empty-state">
-      <p>No {{ activeTab() }} instances yet.</p>
+      <p>{{ hasActiveFilters()
+        ? 'No instances match the active filters.'
+        : 'No ' + activeTab() + ' instances yet.' }}</p>
     </div>
   } @else {
     <table class="instances-table">
       <thead>
         <tr>
-          <th scope="col">Instance ID</th>
-          <th scope="col">Symbol</th>
-          <th scope="col">Variant</th>
-          <th scope="col">Run State</th>
+          @for (col of columns; track col.key) {
+            <th scope="col" class="sortable" tabindex="0" role="button"
+                title="Click to sort · shift+click to add a secondary sort"
+                (click)="toggleSort(col.key, $event)"
+                (keydown.enter)="toggleSort(col.key, $event)"
+                (keydown.space)="toggleSort(col.key, $event); $event.preventDefault()"
+                [attr.aria-sort]="sortAria(col.key)">
+              {{ col.label }}
+              @let icon = sortIcon(col.key);
+              @if (icon) { <span class="dse-icon sort-icon" aria-hidden="true">{{ icon }}</span> }
+              @let rank = sortRank(col.key);
+              @if (rank !== null) { <span class="sort-rank">{{ rank }}</span> }
+            </th>
+          }
+          <th scope="col" class="actions-col">Actions</th>
         </tr>
       </thead>
       <tbody>
         @for (instance of visibleInstances(); track instance.id) {
-          <tr>
+          <tr [class.real-row]="instance.mode === 'real'">
             <td>{{ instance.id }}</td>
             <td>{{ instance.symbol }}</td>
-            <td>{{ instance.variant?.name }}</td>
+            <td>{{ instance.variant.name }}</td>
+            <td>{{ instance.stopType }}</td>
+            <td>{{ instance.trigger }}</td>
             <td>{{ instance.runState }}</td>
+            <td class="position-cell">{{ positionLabel(instance) }}</td>
+            <td>{{ createdLabel(instance) }}</td>
+            <td class="actions-cell">
+              <button type="button" class="ds-btn outline small runstate-btn"
+                      [disabled]="instance.mode === 'real'"
+                      [attr.aria-label]="runActionLabel(instance) + ' instance ' + instance.id"
+                      (click)="toggleRunState(instance)">{{ runActionLabel(instance) }}</button>
+            </td>
           </tr>
         }
       </tbody>

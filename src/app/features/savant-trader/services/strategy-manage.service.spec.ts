@@ -27,6 +27,8 @@ import {
   Firestore,
   collection,
   collectionData,
+  doc,
+  updateDoc,
   query,
   where,
 } from '@angular/fire/firestore';
@@ -115,6 +117,15 @@ describe('StrategyManageService', () => {
     expect(instances.map((i) => i.id)).toEqual(['QQQ-CDS-30-50-40-ALL']);
   });
 
+  it('drops manage-shaped docs missing the embedded variant', async () => {
+    const { variant: _variant, ...malformed } = makeInstance({ id: 'broken' });
+    (collectionData as any).mockData = of([malformed, makeInstance()]);
+
+    const instances = await firstValueFrom(service.loadInstances$());
+
+    expect(instances.map((i) => i.id)).toEqual(['QQQ-CDS-30-50-40-ALL']);
+  });
+
   it('drops soft-deleted docs', async () => {
     const deleted = makeInstance({ id: 'gone', deletedAt: '2026-11-10T00:00:00Z' });
     (collectionData as any).mockData = of([deleted, makeInstance()]);
@@ -148,5 +159,40 @@ describe('StrategyManageService', () => {
     await expect(firstValueFrom(service.loadInstances$())).rejects.toThrow(
       'Authentication required',
     );
+  });
+
+  describe('setRunState', () => {
+    it('writes runState + updatedAt to the instance doc', async () => {
+      const mockDoc = {};
+      (doc as jest.Mock).mockReturnValue(mockDoc);
+      (updateDoc as jest.Mock).mockResolvedValue(undefined);
+
+      await service.setRunState('QQQ-CDS-30-50-40-ALL', 'ACTIVE');
+
+      expect(doc).toHaveBeenCalledWith(
+        expect.anything(),
+        `${ST_STRATEGY_INSTANCES_ROOT}/QQQ-CDS-30-50-40-ALL`,
+      );
+      const payload = (updateDoc as jest.Mock).mock.calls[0][1];
+      expect(payload.runState).toBe('ACTIVE');
+      expect(typeof payload.updatedAt).toBe('string');
+    });
+
+    it('throws when there is no authenticated user', async () => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          StrategyManageService,
+          { provide: Firestore, useValue: {} },
+          { provide: Auth, useValue: { currentUser: null } },
+        ],
+      });
+      service = TestBed.inject(StrategyManageService);
+
+      await expect(service.setRunState('id', 'ACTIVE')).rejects.toThrow(
+        'Authentication required',
+      );
+      expect(updateDoc).not.toHaveBeenCalled();
+    });
   });
 });

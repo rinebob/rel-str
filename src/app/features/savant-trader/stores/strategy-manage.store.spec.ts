@@ -25,8 +25,10 @@ import { of, Subject, throwError } from 'rxjs';
 
 import { StrategyManageStore } from './strategy-manage.store';
 import { StrategyManageService } from '../services/strategy-manage.service';
+import { OptionsStrategyService } from '../services/options-strategy.service';
 import { MANAGE_VARIANTS } from '@manage/variant-catalog';
 import type { ManageInstance } from '@manage/instance-contracts';
+import { OptionsPositionStatus, type Position } from '../services/options-strategy.types';
 
 function makeInstance(overrides: Partial<ManageInstance> = {}): ManageInstance {
   return {
@@ -45,17 +47,43 @@ function makeInstance(overrides: Partial<ManageInstance> = {}): ManageInstance {
   };
 }
 
+function makePosition(overrides: Partial<Position> = {}): Position {
+  return {
+    id: 'QQQ-CDS-30-50-40-ALL-2026-11-15',
+    instanceId: 'QQQ-CDS-30-50-40-ALL',
+    symbol: 'QQQ',
+    status: OptionsPositionStatus.OPEN,
+    premiumCollected: 120,
+    capitalRequired: 5000,
+    openDate: '2026-11-15',
+    currentValue: 110,
+    currentValueAsOf: '2026-11-17',
+    unrealizedPnl: 10,
+    ...overrides,
+  };
+}
+
 describe('StrategyManageStore', () => {
   let store: InstanceType<typeof StrategyManageStore>;
-  let mockService: { loadInstances$: jest.Mock };
+  let mockService: { loadInstances$: jest.Mock; setRunState: jest.Mock };
+  let mockOptionsService: { listStrategyPositions$: jest.Mock };
 
   beforeEach(() => {
-    mockService = { loadInstances$: jest.fn() };
+    mockService = {
+      loadInstances$: jest.fn().mockReturnValue(of([])),
+      setRunState: jest.fn().mockResolvedValue(undefined),
+    };
+    mockOptionsService = {
+      listStrategyPositions$: jest
+        .fn()
+        .mockReturnValue(of({ openPositions: [], closedPositions: [] })),
+    };
 
     TestBed.configureTestingModule({
       providers: [
         StrategyManageStore,
         { provide: StrategyManageService, useValue: mockService },
+        { provide: OptionsStrategyService, useValue: mockOptionsService },
       ],
     });
     store = TestBed.inject(StrategyManageStore);
@@ -113,6 +141,16 @@ describe('StrategyManageStore', () => {
 
       expect(store.error()).toBe('Authentication required');
     });
+
+    it('maps the service requireUserId error (message, no code) to auth required', () => {
+      mockService.loadInstances$.mockReturnValue(
+        throwError(() => new Error('Authentication required')),
+      );
+
+      store.load();
+
+      expect(store.error()).toBe('Authentication required');
+    });
   });
 
   describe('mode computeds', () => {
@@ -129,6 +167,91 @@ describe('StrategyManageStore', () => {
 
       expect(store.paperInstances().map((i) => i.id)).toEqual(['p1', 'p2']);
       expect(store.realInstances().map((i) => i.id)).toEqual(['r1']);
+    });
+  });
+
+  describe('open-position join', () => {
+    it('indexes open positions by instanceId', () => {
+      mockOptionsService.listStrategyPositions$.mockReturnValue(
+        of({
+          openPositions: [makePosition(), makePosition({ id: 'other', instanceId: 'OTHER-INST' })],
+          closedPositions: [makePosition({ id: 'closed' })],
+        }),
+      );
+
+      store.load();
+
+      expect(store.openPositionsByInstance()['QQQ-CDS-30-50-40-ALL'].map((p) => p.id))
+        .toEqual(['QQQ-CDS-30-50-40-ALL-2026-11-15']);
+      expect(store.openPositionsByInstance()['OTHER-INST'].map((p) => p.id))
+        .toEqual(['other']);
+      expect(store.openPositionsByInstance()['closed-instance']).toBeUndefined();
+    });
+
+    it('leaves the join empty when the positions call fails', () => {
+      mockOptionsService.listStrategyPositions$.mockReturnValue(
+        throwError(() => new Error('callable down')),
+      );
+
+      store.load();
+
+      expect(store.openPositionsByInstance()).toEqual({});
+      expect(store.instances()).toEqual([]);
+    });
+  });
+
+  describe('toggleRunState', () => {
+    it('starts an UNSTARTED instance', async () => {
+      await store.toggleRunState(makeInstance({ runState: 'UNSTARTED' }));
+      expect(mockService.setRunState).toHaveBeenCalledWith(
+        'QQQ-CDS-30-50-40-ALL',
+        'ACTIVE',
+      );
+    });
+
+    it('stops an ACTIVE instance', async () => {
+      await store.toggleRunState(makeInstance({ runState: 'ACTIVE' }));
+      expect(mockService.setRunState).toHaveBeenCalledWith(
+        'QQQ-CDS-30-50-40-ALL',
+        'STOPPED',
+      );
+    });
+
+    it('restarts a STOPPED instance back to ACTIVE (never UNSTARTED)', async () => {
+      await store.toggleRunState(makeInstance({ runState: 'STOPPED' }));
+      expect(mockService.setRunState).toHaveBeenCalledWith(
+        'QQQ-CDS-30-50-40-ALL',
+        'ACTIVE',
+      );
+    });
+
+    it('does not write for a real-mode instance (v1)', async () => {
+      await store.toggleRunState(makeInstance({ mode: 'real', stopType: 'T8' }));
+      expect(mockService.setRunState).not.toHaveBeenCalled();
+    });
+
+    it('sets error when the write fails', async () => {
+      mockService.setRunState.mockRejectedValue(new Error('permission-denied'));
+      await store.toggleRunState(makeInstance());
+      expect(store.error()).toContain('Failed to update run state');
+    });
+
+    it('clears a prior error when the next toggle starts', async () => {
+      mockService.setRunState.mockRejectedValueOnce(new Error('x'));
+      await store.toggleRunState(makeInstance());
+      expect(store.error()).not.toBeNull();
+
+      await store.toggleRunState(makeInstance());
+      expect(store.error()).toBeNull();
+    });
+
+    it('clearError dismisses the banner', async () => {
+      mockService.setRunState.mockRejectedValue(new Error('x'));
+      await store.toggleRunState(makeInstance());
+      expect(store.error()).not.toBeNull();
+
+      store.clearError();
+      expect(store.error()).toBeNull();
     });
   });
 });
