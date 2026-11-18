@@ -463,7 +463,9 @@ export type ExitVariantParams =
   | { type: 'initial-stop'; pct: number }
   | { type: 'trailing-stop'; pct: number }
   | { type: 'time-stop'; days: number }
-  | { type: 'limit-stddev'; sdMultiplier: number };
+  | { type: 'limit-stddev'; sdMultiplier: number }
+  | { type: 'ma-close'; period: number }
+  | { type: 'target'; pct: number };
 
 export interface ExitVariantConfig {
   key: string;      // e.g. 'initial-stop-10', 'trailing-20', 'time-30d', 'limit-sd1'
