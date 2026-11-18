@@ -16,11 +16,14 @@
 
 Jest + jest-preset-angular suite conventions (zoneless
 `provideZonelessChangeDetection`, stub Firebase tokens, `jest.fn()`).
-Suites: `scanner.component.spec.ts`, `scanner-recipe-table.component.spec.ts`,
+Suites: `scanner.component.filter.spec.ts` (as-built — split from the
+main spec), `scanner.component.spec.ts`,
+`scanner-recipe-table.component.spec.ts`, `scanner-rows.util.spec.ts`,
+`symbol-list.store.spec.ts` (trackedStatus transitions),
 `scanner-chart.store.spec.ts` (new), `scanner-historicals.util.spec.ts`
 (new), `scanner-chart-popup.component.spec.ts` (new).
 
-## §1 Page filter (`scanner.component.spec.ts`)
+## §1 Page filter (`scanner.component.filter.spec.ts`)
 
 - Header renders a tri-state control; default = `all`; `aria-pressed`
   on the active segment.
@@ -31,6 +34,10 @@ Suites: `scanner.component.spec.ts`, `scanner-recipe-table.component.spec.ts`,
   hides tracked rows in the rendered table.
 - Filter survives switching rail selection; a `new` mode with zero
   untracked hits renders the empty state, not a crash.
+- (As-built) New/Tracked pills stay disabled while `trackedStatus` is
+  `loading`/`error`; filtered rail counts carry a `countTitle`
+  qualifier. Store-side `trackedStatus` transitions — incl. observable
+  failure → `error` + retry — are pinned in `symbol-list.store.spec.ts`.
 
 ## §2 List menu + chip (`scanner-recipe-table.component.spec.ts` + page spec)
 

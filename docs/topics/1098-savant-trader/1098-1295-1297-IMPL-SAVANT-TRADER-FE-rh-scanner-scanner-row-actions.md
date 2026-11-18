@@ -43,14 +43,30 @@ PRD: `1098-1295-1296-PRD-SAVANT-TRADER-rh-scanner-scanner-row-actions.md`.
 - Segmented control in `.scanner-header` (three pill buttons,
   `aria-pressed` on the active — same idiom as the interval chips
   elsewhere in the app).
-- `railEntries` applies the filter **inside** its computed: rows are
-  filtered before `baselineSortedRows` slicing and before the count
-  renders — `count` shows the filtered total against `total_items`
-  (`first N of M` stays when capped). Under `new`, a recipe with zero
-  untracked hits shows `0 / M`.
-- The selected recipe's table gets the filter as an input; the table
-  filters `scanRunRows` output before seeding sort — the sort-level seed
-  (`seedSortLevels`/`baselineSortedRows`) is unchanged.
+- `railEntries` passes the filter into `baselineSortedRows(recipe,
+  result, trackedNorm, filter)`, which forwards it to `scanRunRows`: the
+  pipeline order is parse → dedupe → mergeLookup (**over the unfiltered
+  rows** — presence verification needs the full wire set) → filter →
+  seed-sort. `count` shows the filtered total against `total_items`
+  (`first N of M` stays when capped); `countTitle` qualifies it
+  ("N of M scan hits match the filter"). Under `new`, a recipe with
+  zero untracked hits shows `0 / M`.
+- The selected recipe's table gets `{symbolFilter, trackedNorm}` as
+  inputs and passes them INTO `scanRunRows` — one canonical filter
+  pipeline for rail and table, not two call-site `.filter`s.
+- **Readiness gate (as-built, review remediation):** `SymbolListStore`
+  carries `trackedStatus: 'idle'|'loading'|'ready'|'error'` — the New/
+  Tracked pills stay disabled until `'ready'` (a filtered count against
+  an absent set is silently wrong; the rail count masks to `…` and
+  tickers suppress in that window). `getTrackedSymbols$` propagates
+  errors (no upstream `catchError → of([])` — that would make failure
+  indistinguishable from an empty universe); the store's error arm
+  patches `'error'`, snackbars, and clears `trackedInFlight` so a later
+  call retries.
+- Specs live in `scanner.component.filter.spec.ts` (split from the main
+  component spec) plus `rowPassesSymbolFilter`/`normSymbolSet`/
+  `scanRunRows` coverage in `scanner-rows.util.spec.ts` and producer-
+  side `trackedStatus` transitions in `symbol-list.store.spec.ts`.
 
 ## §2 Row actions + list menu (task T2)
 
@@ -150,8 +166,8 @@ minimal `GalleryCard`:
 
 | Surface | Reads | Writes |
 |---|---|---|
-| Header filter | `symbolFilter` | sets `symbolFilter` |
-| Rail entries | `runs`, `tracked`, `symbolFilter` | — |
+| Header filter | `symbolFilter`, `trackedStatus` (gate) | sets `symbolFilter` |
+| Rail entries | `runs`, `tracked`, `symbolFilter`, `trackedStatus` | — |
 | Recipe table | `run.result`, `tracked`, `symbolFilter`, membership map | emits chart-open / list-pick |
 | List menu | `byRole().exclusive`, membership | `toggleSymbolInList` |
 | Chart popup | `tracked` → mode; `GalleryCardChartStore` or `ScannerChartStore` | `ensureBars` / historicals fetch |
