@@ -9,7 +9,7 @@
 **Type:** IMPL  
 **Status:** Draft  
 **Created:** 2026-11-15  
-**Last Updated:** 2026-11-17  
+**Last Updated:** 2026-11-18  
 
 # BE IMPL — Historical Signal Replay
 
@@ -254,6 +254,34 @@ missing trade id lands in `notFound` — deletes are idempotent for
 re-grooming. Stats docs are recomputed by the nightly stats pass —
 deleted trades simply drop out of the next snapshot; no eager recompute.
 
+**§5 as-built (#1576, post-review):** shipped as
+`repository.deleteTradeCascade(db, tradeId)` → `'deleted' | 'notFound' |
+'non-signal' | 'accept-flow'` + the `deletePaperTrades` onCall in
+`signal-trade-callables.ts` (registered in `index.ts`). Ticket linkage
+is a **direct-id delete, not a query** — `st-order-tickets` docs carry
+no `tradeId` field; the cascade deletes `stTicketId('paper', tradeId)`
+(the `pap_{tradeId}` lifecycle/pick ticket — the only ticket a curated
+or auto-ingest trade ever emits) in one post-txn batch with the `rq-*`
+docs. **Review remediation (2 majors):** (1) the refuse gate is narrower
+than `source=SIGNAL` — a trade carrying `cohortId`/`positionGroupId`/
+`ticket` is *accept-flow* lineage whose staged member tickets live on
+the cohort/group docs and would keep minting zombie trades into a
+dangling cohort, so the txn returns `'accept-flow'` → per-item `failed`
+(curated picks and auto-ingest captures carry none of the markers);
+(2) the account doc is ledger-incremental and *never* recomputed — the
+txn now rewinds `openTradeCount` for lifecycle-open deletes
+(`LIFECYCLE_OPEN_TRADE_STATUSES`), while cash/equity/realizedPnl stay
+unwound as documented groom drift (reversing them needs the
+fill-accounting model). Auth is `auth.uid`-only, same as the mint
+sibling — a deliberate groom-tool asymmetry vs `closePaperTrade`'s
+ownership gate, noted not gated. Post-txn cleanup is best-effort —
+failures log `paper_delete_cascade_cleanup` and still report `deleted`;
+absent-doc deletes are no-ops, so re-grooming is always safe. Residual
+(nits, documented not fixed): ~ms window where a same-id re-mint could
+lose its fresh ticket/audit doc to a trailing cleanup batch; `pap_*`
+deletes are id-unverified; >500 rq docs would overflow one batch
+(~2yr daily marks — unrealistic for groomed trades).
+
 ## 6. Live ingest — curated set + config widening
 
 - `runAutoPaperIngestFill` dims change: `variantKeys: CURATED_VARIANT_KEYS`
@@ -269,6 +297,22 @@ deleted trades simply drop out of the next snapshot; no eager recompute.
   signaled symbol — no candidate-gate change.
 - Live-date gate unchanged: historical runs still never auto-ingest —
   the only path from history to the ledger is an explicit pick.
+
+**§6 as-built (#1576):** ingest dims swapped in
+`runAutoPaperIngestFill` — `governingVariant:
+DEFAULT_TRAILING_STOP_KEY` (the policy's 'trailing-8' fallback seed),
+`governingPolicy: CURATED_GOVERNING_POLICY`, `variantKeys:
+[...CURATED_VARIANT_KEYS]`; `SIGNAL_*` retained in `callables.ts` +
+`expression-fill-pass.ts` for non-signal trades. **Config probe found a
+stray widening** — `st-config/autoPaper` read
+`lists: ["PRIMARY","SECONDARY","MONITOR","NEW"]` (ownerUid
+`wAFg…NI3`); user confirmed MONITOR+NEW (490 symbols) were unintended —
+**doc corrected to `["PRIMARY","SECONDARY"]`** on 2026-11-18. No
+candidate-gate or signalTypes change; live-date gate unchanged.
+Coverage: 20 delete specs (incl. accept-flow refuse + account-rewind
+pins) + 1 SECONDARY/dims ingest pin (398/398 paper-trading batch),
+`verify paper-trading-ledger-ops-1576` (36 checks), prod config read
+confirmed.
 
 ## Operational notes
 
