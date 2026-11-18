@@ -98,6 +98,9 @@ describe('TopicViewerPageComponent', () => {
             response, loading, error, showClosed, groupingWarning,
             selectedTopicNumber, selectedTopic, fetchedAt, topicSections,
             expandedIds: signal<number[]>([]),
+            // The tree child binds effectiveExpandedIds — stub it so a
+            // non-empty treeRows can't hit an undefined signal (#1532).
+            effectiveExpandedIds: signal<ReadonlySet<number>>(new Set()),
             treeRows: signal<TreeRow[]>([]),
             expandableIds: signal<number[]>([]),
             refresh, selectRepo, selectTopic, setShowClosed,

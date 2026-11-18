@@ -229,6 +229,12 @@ export enum CallableName {
   FETCH_DATASET_CSV = 'fetchDatasetCsv',
   /** Dev lifecycle viewer: GitHub issue-hierarchy tree for supported repos */
   GET_LIFECYCLE_TREE = 'getLifecycleTree',
+  /** Dev lifecycle viewer: paged repo-label read (#1528) */
+  LIST_REPO_LABELS = 'listRepoLabels',
+  /** Dev lifecycle viewer: issue label attach/detach (#1529) */
+  UPDATE_ISSUE_LABELS = 'updateIssueLabels',
+  /** Dev lifecycle viewer: repo label create/update/delete (#1529) */
+  MANAGE_REPO_LABEL = 'manageRepoLabel',
   /** Screenshot capture: spec → SVG+PNG artifacts in the default bucket (#746) */
   CAPTURE_CHART_SNAPSHOT = 'captureChartSnapshot',
 }

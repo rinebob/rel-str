@@ -12,6 +12,14 @@ import type {
   LifecycleRepoRequest,
   LifecycleTreeResponse,
 } from '@lifecycle/contracts';
+import type {
+  ListRepoLabelsRequest,
+  ListRepoLabelsResponse,
+  ManageRepoLabelRequest,
+  ManageRepoLabelResponse,
+  UpdateIssueLabelsRequest,
+  UpdateIssueLabelsResponse,
+} from '@lifecycle/labels';
 
 /** Repos the BE will accept (SUPPORTED_REPOS in functions gh-lifecycle
  *  config is authoritative — keep this mirror in sync). */
@@ -37,6 +45,42 @@ export class TopicViewerService {
     return from(runInInjectionContext(this.env, () => {
       const callable = httpsCallable<LifecycleRepoRequest, LifecycleTreeResponse>(
         this.functions, CallableName.GET_LIFECYCLE_TREE,
+      );
+      return callable(request);
+    })).pipe(map((res) => res.data));
+  }
+
+  /** Paged repo-label read (#1528) — picker/datalist source for the label surfaces. */
+  listRepoLabels$(
+    request: ListRepoLabelsRequest,
+  ): Observable<ListRepoLabelsResponse> {
+    return from(runInInjectionContext(this.env, () => {
+      const callable = httpsCallable<ListRepoLabelsRequest, ListRepoLabelsResponse>(
+        this.functions, CallableName.LIST_REPO_LABELS,
+      );
+      return callable(request);
+    })).pipe(map((res) => res.data));
+  }
+
+  /** Issue label attach/detach (#1529) — mint-on-add handled server-side. */
+  updateIssueLabels$(
+    request: UpdateIssueLabelsRequest,
+  ): Observable<UpdateIssueLabelsResponse> {
+    return from(runInInjectionContext(this.env, () => {
+      const callable = httpsCallable<UpdateIssueLabelsRequest, UpdateIssueLabelsResponse>(
+        this.functions, CallableName.UPDATE_ISSUE_LABELS,
+      );
+      return callable(request);
+    })).pipe(map((res) => res.data));
+  }
+
+  /** Repo label create/update/delete (#1529) — delete returns a usage count. */
+  manageRepoLabel$(
+    request: ManageRepoLabelRequest,
+  ): Observable<ManageRepoLabelResponse> {
+    return from(runInInjectionContext(this.env, () => {
+      const callable = httpsCallable<ManageRepoLabelRequest, ManageRepoLabelResponse>(
+        this.functions, CallableName.MANAGE_REPO_LABEL,
       );
       return callable(request);
     })).pipe(map((res) => res.data));

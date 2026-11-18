@@ -129,7 +129,9 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
 export class TopicViewerTreeComponent {
   protected readonly store = inject(TopicViewerStore);
 
-  private readonly expandedSet = computed(() => new Set(this.store.expandedIds()));
+  /** Effective expansion (manual ∪ match ancestors) — must match the
+   *  rows treeRows emits or carets/aria lie during an active query. */
+  private readonly expandedSet = computed(() => new Set(this.store.effectiveExpandedIds()));
 
   isExpanded(n: number): boolean {
     return this.expandedSet().has(n);

@@ -54,4 +54,43 @@ describe('TopicViewerService', () => {
     expect(callable).toHaveBeenCalledWith({ owner: 'rinebob', repo: 'rel-str' });
     expect(res).toEqual(payload);
   });
+
+  // ── label callables (task #1531) ─────────────────────────────────────────
+
+  it('calls listRepoLabels and unwraps .data', async () => {
+    callable.mockResolvedValue({ data: { labels: [], fetchedAt: 'x' } });
+    const res = await firstValueFrom(
+      service.listRepoLabels$({ owner: 'rinebob', repo: 'rel-str' }));
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.LIST_REPO_LABELS);
+    expect(callable).toHaveBeenCalledWith({ owner: 'rinebob', repo: 'rel-str' });
+    expect(res.labels).toEqual([]);
+  });
+
+  it('calls updateIssueLabels with the add/remove payload', async () => {
+    callable.mockResolvedValue({ data: { labels: ['IMPL'], created: [] } });
+    const res = await firstValueFrom(service.updateIssueLabels$({
+      owner: 'rinebob', repo: 'rel-str',
+      issueNumber: 20, add: ['IMPL'], remove: ['STALE'],
+    }));
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.UPDATE_ISSUE_LABELS);
+    expect(callable).toHaveBeenCalledWith({
+      owner: 'rinebob', repo: 'rel-str',
+      issueNumber: 20, add: ['IMPL'], remove: ['STALE'],
+    });
+    expect(res.labels).toEqual(['IMPL']);
+  });
+
+  it('calls manageRepoLabel with the op payload', async () => {
+    callable.mockResolvedValue({ data: { op: 'delete', usageCount: 3 } });
+    const res = await firstValueFrom(service.manageRepoLabel$({
+      owner: 'rinebob', repo: 'rel-str',
+      op: 'delete', name: 'old-label',
+    }));
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.MANAGE_REPO_LABEL);
+    expect(callable).toHaveBeenCalledWith({
+      owner: 'rinebob', repo: 'rel-str',
+      op: 'delete', name: 'old-label',
+    });
+    expect(res.usageCount).toBe(3);
+  });
 });

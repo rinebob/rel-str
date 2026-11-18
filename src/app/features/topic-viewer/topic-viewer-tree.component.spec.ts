@@ -51,7 +51,10 @@ describe('TopicViewerTreeComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         { provide: TopicViewerStore, useValue: {
-          treeRows, expandedIds, expandableIds, toggleExpanded,
+          treeRows, expandableIds, toggleExpanded,
+          // The component reads effectiveExpandedIds (manual ∪ match
+          // ancestors) — spec drives it with the same signal.
+          effectiveExpandedIds: expandedIds,
           showClosed, // specs control visibility via treeRows
         } },
       ],
@@ -92,7 +95,7 @@ describe('TopicViewerTreeComponent', () => {
     expect(toggleExpanded).toHaveBeenCalledWith(20);
   });
 
-  it('aria-expanded reflects membership in expandedIds', async () => {
+  it('aria-expanded reflects membership in the effective expansion', async () => {
     const parent = node(20);
     parent.children = [node(30)];
     treeRows.set([{ node: parent, depth: 0 }]);
