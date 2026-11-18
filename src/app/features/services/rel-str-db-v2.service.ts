@@ -400,8 +400,10 @@ export class RelStrDbV2Service {
   }
 
   // New: Fetch tracked symbols via RS backend callable (SavantAPI behind it)
+  // Errors propagate — an empty emission means a legitimately empty universe,
+  // and callers that need to distinguish failure from empty must see rejections.
   getTrackedSymbols$(ttlSeconds = 600): Observable<Company[]> {
-    return from(
+    return defer(() =>
       this.inCtx(() => {
         const callable = httpsCallable<
           { ttlSeconds?: number },
@@ -412,10 +414,7 @@ export class RelStrDbV2Service {
     ).pipe(
       map(res => Array.isArray(res?.data?.items) ? res.data.items : []),
       map(items => items.map(it => ({ symbol: String(it.symbol || '').toUpperCase(), company: String(it.name || it.symbol || '').trim() }) as Company)),
-      catchError(err => {
-        console.error('[RelStrDbService] getTrackedSymbols$ error', err);
-        return of([] as Company[]);
-      })
+      tap({ error: err => console.error('[RelStrDbService] getTrackedSymbols$ error', err) }),
     );
   }
 

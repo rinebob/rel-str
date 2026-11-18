@@ -49,7 +49,7 @@ export function withStockListV2Feature() {
             },
 
             async getSupportedSymbolsListV2() {
-                const companies = await firstValueFrom(relStrDbV2Service.getTrackedSymbols$());
+                const companies = await firstValueFrom(relStrDbV2Service.getTrackedSymbols$()).catch(() => []);
                 const supportedSymbolsListV2 = companies.map(c => c.symbol);
                 // console.log('[StockListV2] supportedSymbolsListV2', supportedSymbolsListV2);
                 patchState(store, {supportedSymbolsListV2});
