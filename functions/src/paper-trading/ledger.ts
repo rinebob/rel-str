@@ -45,6 +45,7 @@ import {
   type PaperTradeLeg,
   type SignalExpressionTemplate,
   type VariantRun,
+  type GoverningPolicy,
   NONE_VARIANT_KEY,
 } from '@paper-trading/contracts';
 import { buildAccountId } from '@paper-trading/ids';
@@ -67,6 +68,9 @@ export interface FillDimensions {
   symbol: string;
   expression: string;
   governingVariant: string;
+  /** Curated-policy marker — trades carrying it run the dynamic governing
+   *  selection each eval instead of honoring the static governingVariant. */
+  governingPolicy?: GoverningPolicy;
   /** All variant keys to seed; defaults to [governingVariant]. */
   variantKeys?: string[];
   strategyInstanceId?: string;
@@ -383,6 +387,7 @@ export async function applyEntryFill(
       symbol: input.dims.symbol,
       expression: input.dims.expression,
       governingVariant: input.dims.governingVariant,
+      ...(input.dims.governingPolicy ? { governingPolicy: input.dims.governingPolicy } : {}),
       ...(input.dims.strategyInstanceId ? { strategyInstanceId: input.dims.strategyInstanceId } : {}),
       ...(input.dims.cohortId ? { cohortId: input.dims.cohortId } : {}),
       ...(input.dims.positionGroupId ? { positionGroupId: input.dims.positionGroupId } : {}),

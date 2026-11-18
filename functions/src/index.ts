@@ -164,6 +164,8 @@ export {
   cancelPaperTrade,
   closePaperTrade,
 } from './paper-trading/callables';
+// Curated signal mint (#1575)
+export { generatePaperSignalTrades } from './paper-trading/signal-trade-callables';
 export { expressionFillPassTimer } from './paper-trading/passes/expression-fill-pass';
 
 // Paper trading — dashboard read APIs (#565)

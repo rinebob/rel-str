@@ -28,6 +28,7 @@ import {
   type PaperMark,
   type PaperStats,
   type PaperTrade,
+  type PaperTradeLeg,
   type PaperTradingDoc,
   type RawQuoteDoc,
   type VariantRun,
@@ -264,6 +265,41 @@ export async function applyGoverningPick(
   await paperDocRef(db, PaperTradingKind.TRADE, tradeId).update({
     variantRuns,
     governingVariant,
+    updatedAt: now,
+  });
+}
+
+/**
+ * The backfilled-mint commit payload (task #1575): accumulated day-by-day
+ * marks, leg last-mark walked to the final close, final variant-run array
+ * + governing mirror, `lastMarkedAt` (the last walked bar's date — the
+ * resume seam's walked/unwalked discriminator), and the open-position
+ * `unrealizedPnl` (absent on a closed mint — the exit fill already
+ * zeroed it).
+ */
+export interface CommitBackfilledTradeUpdate {
+  marks: Record<string, PaperMark>;
+  legs: PaperTradeLeg[];
+  variantRuns: VariantRun[];
+  governingVariant: string;
+  lastMarkedAt: string;
+  unrealizedPnl?: number;
+}
+
+/**
+ * One-shot backfill commit: the whole walked state lands in a single
+ * update after the (optional) ledger close — the doc never shows a
+ * partially-walked history. `undefined` `unrealizedPnl` leaves the
+ * stored value (a closed trade's stays 0).
+ */
+export async function commitBackfilledTrade(
+  db: Firestore,
+  tradeId: string,
+  update: CommitBackfilledTradeUpdate,
+  now: string,
+): Promise<void> {
+  await paperDocRef(db, PaperTradingKind.TRADE, tradeId).update({
+    ...update,
     updatedAt: now,
   });
 }
