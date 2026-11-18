@@ -80,6 +80,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #1492 | `options-replay-template-registries-1492.ts` | two-registry audit — shape structure/bands on-grid + unique ids + migration parity (4 legacy verbatim) + every prod run's templateId resolves via `getReplayTemplate` and `getReplayVariant` (read-only, needs ADC) | [options-replay-template-registries-1492.md](options-replay-template-registries-1492.md) |
 | #1493 | `options-replay-position-rows-1493.ts` | v1→v2 narrowing audit — every prod list doc's pick rows narrow field-for-field to position legs via `v1ListDocToV2`; markers gain `legMisses`; `repeatsPrevious` normalized across gaps (read-only, needs ADC) | [options-replay-position-rows-1493.md](options-replay-position-rows-1493.md) |
 | #1573 | `paper-trading-curated-contracts-1573.ts` | curated-trade contract surface — variant set + policy marker + SDS_BARS + batch bounds + live⇄mint id determinism + dedupe⇄occurrence layout trap (read-only, no env) | [paper-trading-curated-contracts-1573.md](paper-trading-curated-contracts-1573.md) |
+| #1574 | `paper-trading-curated-exit-engine-1574.ts` | curated exit engine — ma-close/target grammar + evaluators + variantLevel + independent closers + selectGoverningRun policy + smaAt (read-only, no env) | [paper-trading-curated-exit-engine-1574.md](paper-trading-curated-exit-engine-1574.md) |
 
 ## Order across tasks
 
@@ -129,6 +130,7 @@ npx tsx scripts/verify/{script-name}.ts
 49. **#1492** — `options-replay-template-registries-1492.ts` (post-two-registry audit: every shape's bands land on the pick-doc grid and ids are unique; the four legacy templates migrate verbatim — name/side/coordinate; every prod run's `templateId` resolves via both the legacy and variant surfaces; read-only, needs ADC)
 50. **#1493** — `options-replay-position-rows-1493.ts` (post-v2-schema audit: every prod list doc narrows through `v1ListDocToV2` — pick rows → position legs field-for-field with the recorded coordinate stamped, markers gain `legMisses`, `repeatsPrevious` normalized so gaps/first rows can't repeat; read-only, needs ADC)
 51. **#1573** — `paper-trading-curated-contracts-1573.ts` (curated-trade contract surface: variant set + policy marker + SDS_BARS + batch bounds + live⇄mint id determinism; instant, read-only, no env)
+52. **#1574** — `paper-trading-curated-exit-engine-1574.ts` (curated exit engine: ma-close/target grammar + evaluators + variantLevel + closer classification + deepest-stop policy + smaAt; instant, read-only, no env)
 
 <!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their
 target scripts (migrate-*, sweep-unlisted-to-new, qa-probe-1008) — the legacy roots they

@@ -68,6 +68,7 @@ const scripts = [
   'options-replay-template-registries-1492.ts',
   'options-replay-position-rows-1493.ts',
   'paper-trading-curated-contracts-1573.ts',
+  'paper-trading-curated-exit-engine-1574.ts',
 ];
 
 let passed = 0;
