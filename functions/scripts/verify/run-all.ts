@@ -69,6 +69,7 @@ const scripts = [
   'options-replay-position-rows-1493.ts',
   'paper-trading-curated-contracts-1573.ts',
   'paper-trading-curated-exit-engine-1574.ts',
+  'paper-trading-backfill-signal-trade-1575.ts',
   'options-replay-start-forms-1498.ts',
 ];
 
