@@ -28,7 +28,10 @@ import type {
   EmitStOrderTicketInput,
   StTicketTransitionResult,
 } from '../../../functions/src/order-tickets/st-order-ticket-writer';
-import { AUTO_PAPER_USER_ID } from '../../../shared/paper-trading-contracts';
+import {
+  AUTO_PAPER_USER_ID,
+  CURATED_VARIANT_KEYS,
+} from '../../../shared/paper-trading-contracts';
 
 const TODAY = '2026-10-08';
 
@@ -260,7 +263,12 @@ describe('runAutoPaperIngestFill', () => {
     assert.equal(f.fill.rawQuoteRef.startsWith('rq-'), true);
     assert.equal(f.underlyingClose, 250.5); // seeds marks[fill.date]
     assert.equal(f.dims.source, 'signal');
+    // #1576 — live captures carry the same tracked set as minted picks:
+    // the curated variant array + the dynamic governing-policy marker
+    // (governingVariant seeds the policy's 'trailing-8' fallback).
     assert.equal(f.dims.governingVariant, 'trailing-8');
+    assert.equal(f.dims.governingPolicy, 'deepest-stop-else-trailing-8');
+    assert.deepEqual(f.dims.variantKeys, [...CURATED_VARIANT_KEYS]);
     assert.equal(f.dims.expression, 'EQ');
     assert.equal(f.dims.signalId, `AAPL_${V1L}_${BARDATE}`);
     // stamp fields
@@ -314,6 +322,31 @@ describe('runAutoPaperIngestFill', () => {
     });
     const s2 = await runAutoPaperIngestFill({ runId: 'r1', marketDate: TODAY }, GLOBAL, d2);
     assert.equal(s2.created, 2);
+  });
+
+  // #1576 — PRIMARY+SECONDARY scope: a SECONDARY-only member is admitted
+  // and stamped with its list; a candidate on neither list is filtered.
+  it('a PRIMARY+SECONDARY scope admits SECONDARY members, skips the unlisted', async () => {
+    const scope: AutoPaperScope = {
+      global: false,
+      lists: ['PRIMARY', 'SECONDARY'],
+      signalTypes: [V1L, V2S],
+    };
+    const { deps, fills } = fillDeps({
+      listCandidates: async () => ['AAPL', 'TSLA', 'NOPE'],
+      listMembers: async (key) => (key === 'PRIMARY' ? ['AAPL'] : key === 'SECONDARY' ? ['TSLA'] : []),
+      getSignals: async () => ({ [V1L]: entry() }),
+      getEquityQuotes: async () => quotesFor({ AAPL: 1, TSLA: 1, NOPE: 1 }),
+    });
+
+    const s = await runAutoPaperIngestFill({ runId: 'r1', marketDate: TODAY }, scope, deps);
+
+    assert.equal(s.created, 2);
+    assert.equal(s.filtered, 1);
+    const bySymbol = new Map(fills.map((f) => [f.dims.symbol, f]));
+    assert.equal(bySymbol.get('AAPL')!.tradeOverrides.captureList, 'PRIMARY');
+    assert.equal(bySymbol.get('TSLA')!.tradeOverrides.captureList, 'SECONDARY');
+    assert.equal(bySymbol.has('NOPE'), false);
   });
 
   it('dedupes on existing tradeId — rerun creates nothing and burns no quote call', async () => {

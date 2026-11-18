@@ -660,14 +660,17 @@ export interface GeneratePaperSignalTradesResponse {
 }
 
 /**
- * `deletePaperTrades` — hard-delete unwanted signal-source trades and
- * every artifact referencing them: the trade doc (embedded marks/fills/
- * runs die with it), `rq-*` raw-quote audit docs, and `pap_*` order
- * tickets. No tombstones. Derived aggregates — account counters, stats
- * docs, position groups — are not enumerated here; the stats/rollup
- * passes recompute them, so a deleted trade simply stops appearing.
- * Scoped to `source=SIGNAL` trades: ids resolving to strategy/manual
- * trades report `failed`, never deleted. Idempotent: a missing id
+ * `deletePaperTrades` — hard-delete unwanted curated signal trades and
+ * the artifacts they own: the trade doc (embedded marks/fills/runs die
+ * with it), `rq-*` raw-quote audit docs, and the `pap_{tradeId}` order
+ * ticket. No tombstones. The groom scope is narrower than
+ * `source=SIGNAL`: strategy/manual ids report `failed`, and accept-flow
+ * trades (any `cohortId`/`positionGroupId`/`ticket` marker) refuse too —
+ * their staged member tickets and cohort/group membership live on other
+ * docs this call does not unwind. A lifecycle-open delete rewinds
+ * `acct-{userId}.openTradeCount`; cash/equity/realizedPnl are NOT
+ * unwound (documented groom drift), and stats docs simply drop the
+ * trade from their next recomputed snapshot. Idempotent: a missing id
  * reports in `notFound`, never an error.
  */
 export interface DeletePaperTradesRequest {

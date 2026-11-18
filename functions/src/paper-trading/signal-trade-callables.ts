@@ -8,13 +8,20 @@
  * data failures land in that item's MintResult — the call doesn't fail.
  * Bars are cached per symbol for the call's duration — a curated batch
  * clusters on a handful of symbols.
+ *
+ * `deletePaperTrades` (#1576) — the same boundary's removal path: bulk
+ * tradeIds → `deleteTradeCascade` per id, reporting `deleted` /
+ * `notFound` / `failed` so re-grooming re-runs stay idempotent.
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { db as adminDb } from '../firebase-admin-init';
 import { ST_SIGNALS_ROOT } from '@st/collections';
 import {
+  DELETE_PAPER_TRADES_MAX_ITEMS,
   GENERATE_PAPER_SIGNAL_TRADES_MAX_ITEMS,
+  type DeletePaperTradesRequest,
+  type DeletePaperTradesResponse,
   type GeneratePaperSignalTradesRequest,
   type GeneratePaperSignalTradesResponse,
   type MintResult,
@@ -26,7 +33,13 @@ import type { OhlcBar } from '../common/market-data-types';
 import { getMarketDatePT, isValidMarketDate } from '../common/pt-date-utils';
 import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from './engine/options-strategy-cors';
 import { applyEntryFill, applyExitFill } from './ledger';
-import { commitBackfilledTrade, getTrade, ledgerDeps } from './repository';
+import {
+  commitBackfilledTrade,
+  deleteTradeCascade,
+  getTrade,
+  ledgerDeps,
+  type DeleteTradeCascadeOutcome,
+} from './repository';
 import { getCachedBarsFromSymbolData } from '../st-cloud-function/data-loader';
 import { StOrderTicketWriter } from '../order-tickets/st-order-ticket-writer';
 import { backfillSignalTrade } from './passes/backfill-signal-trade';
@@ -157,6 +170,104 @@ export const generatePaperSignalTrades = onCall<
   },
   (request) =>
     handleGeneratePaperSignalTrades(request, generatePaperSignalTradesProdDeps()).catch(
+      (err) => {
+        // Sibling convention: non-HttpsError escapes re-mapped to internal.
+        if (err instanceof HttpsError) throw err;
+        throw new HttpsError(
+          'internal',
+          err instanceof Error ? err.message : String(err),
+        );
+      },
+    ),
+);
+
+// ── deletePaperTrades (task #1576) ─────────────────────────────────────────
+
+export interface DeletePaperTradesDeps {
+  /** One cascade — prod wiring delegates to `deleteTradeCascade`. */
+  deleteTrade(tradeId: string): Promise<DeleteTradeCascadeOutcome>;
+}
+
+interface DeleteRequestLike {
+  data: DeletePaperTradesRequest;
+  auth?: { uid: string } | null;
+}
+
+/**
+ * `deletePaperTrades` — the curation boundary's removal path. Validation
+ * is up-front (malformed input → invalid-argument); per-item outcomes
+ * bucket into `deleted` / `notFound` / `failed` — re-grooming the same
+ * ids is safe and never an error.
+ */
+export async function handleDeletePaperTrades(
+  request: DeleteRequestLike,
+  deps: DeletePaperTradesDeps,
+): Promise<DeletePaperTradesResponse> {
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Must be signed in to delete paper trades');
+  }
+  const ids = request.data?.tradeIds;
+  if (
+    !Array.isArray(ids) ||
+    ids.length === 0 ||
+    ids.length > DELETE_PAPER_TRADES_MAX_ITEMS
+  ) {
+    throw new HttpsError(
+      'invalid-argument',
+      `tradeIds must be a non-empty array of at most ${DELETE_PAPER_TRADES_MAX_ITEMS} ids`,
+    );
+  }
+  for (const id of ids) {
+    if (typeof id !== 'string' || id.trim() === '') {
+      throw new HttpsError('invalid-argument', 'every tradeId must be a non-empty string');
+    }
+  }
+  const unique = [...new Set(ids.map((id) => id.trim()))];
+
+  const deleted: string[] = [];
+  const notFound: string[] = [];
+  const failed: { tradeId: string; error: string }[] = [];
+  for (const tradeId of unique) {
+    try {
+      const outcome = await deps.deleteTrade(tradeId);
+      if (outcome === 'deleted') deleted.push(tradeId);
+      else if (outcome === 'notFound') notFound.push(tradeId);
+      else if (outcome === 'non-signal') {
+        failed.push({ tradeId, error: 'not a signal-source trade' });
+      } else {
+        failed.push({
+          tradeId,
+          error: 'accept-flow trade — cohort/group/member-ticket lineage is not deletable via the groom tool',
+        });
+      }
+    } catch (err) {
+      failed.push({
+        tradeId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return { deleted, notFound, failed };
+}
+
+/** Production deps — the repository cascade seam. */
+export function deletePaperTradesProdDeps(): DeletePaperTradesDeps {
+  return {
+    deleteTrade: (tradeId) => deleteTradeCascade(adminDb, tradeId),
+  };
+}
+
+export const deletePaperTrades = onCall<
+  DeletePaperTradesRequest,
+  Promise<DeletePaperTradesResponse>
+>(
+  {
+    cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS,
+    memory: '512MiB',
+    timeoutSeconds: 300,
+  },
+  (request) =>
+    handleDeletePaperTrades(request, deletePaperTradesProdDeps()).catch(
       (err) => {
         // Sibling convention: non-HttpsError escapes re-mapped to internal.
         if (err instanceof HttpsError) throw err;

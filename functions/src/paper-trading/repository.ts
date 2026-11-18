@@ -19,6 +19,8 @@ import {
   isPaperStats,
   isPaperTrade,
   isRawQuoteDoc,
+  LIFECYCLE_OPEN_TRADE_STATUSES,
+  PaperTradeSource,
   PaperTradingKind,
   PaperTradeStatus,
   type ListPaperTradesRequest,
@@ -42,7 +44,12 @@ import {
   strategyInstanceRef,
 } from './engine/strategy-instance-repository';
 import type { StStrategyInstance } from '@st/strategy-instances';
+import { stTicketId } from '@st/ids';
+import { ST_ORDER_TICKETS_ROOT } from '../common/st-collections';
+import { createLogger } from './engine/logging';
 import type { RawQuote } from './engine/types';
+
+const logger = createLogger('PaperTradingRepository');
 
 // ── Generic get/set per kind ────────────────────────────────────────────────
 
@@ -393,6 +400,91 @@ export async function listTradeDocIdsByPrefix(
     .where(FieldPath.documentId(), '<=', `${prefix}\uffff`)
     .get();
   return snap.docs.map((d) => d.id);
+}
+
+// ── Delete cascade (task #1576) ────────────────────────────────────────────
+
+export type DeleteTradeCascadeOutcome =
+  | 'deleted'
+  | 'notFound'
+  | 'non-signal'
+  | 'accept-flow';
+
+/**
+ * Hard-delete one curated signal trade and the artifacts it owns: the
+ * trade doc inside a transaction (embedded marks/fills/runs die with
+ * it), then post-txn best-effort removal of `rq-*` raw-quote docs
+ * (`tradeId` query) and the `pap_{tradeId}` lifecycle ticket.
+ *
+ * Scope is narrower than `source=SIGNAL`:
+ * - a strategy/manual id refuses inside the txn ('non-signal');
+ * - an accept-flow trade refuses too ('accept-flow') — `cohortId`,
+ *   `positionGroupId`, or `ticket` means staged member tickets and
+ *   cohort/group membership live on other docs; deleting here would
+ *   leave staged tickets minting zombie trades into a dangling cohort.
+ *   Curated picks and auto-ingest captures carry none of those markers.
+ *
+ * A lifecycle-open delete also rewinds `acct-{userId}.openTradeCount`
+ * in the same txn (entry incremented it — a groomed position must not
+ * count open). Cash/equity/realizedPnl are NOT unwound — reversing them
+ * needs the fill-accounting model; the book keeps the entry notional as
+ * documented groom drift. Stats docs need no eager recompute — the
+ * nightly stats pass drops the trade from its next snapshot.
+ *
+ * Idempotent: a missing id reports 'notFound' and ticket/quote deletes
+ * on absent docs are no-ops. Post-txn cleanup failures are logged,
+ * never rethrown — the trade delete is already committed.
+ */
+export async function deleteTradeCascade(
+  db: Firestore,
+  tradeId: string,
+): Promise<DeleteTradeCascadeOutcome> {
+  const ref = paperDocRef(db, PaperTradingKind.TRADE, tradeId);
+  const outcome = await db.runTransaction(async (txn) => {
+    const snap = await txn.get(ref);
+    if (!snap.exists) return 'notFound';
+    const trade = { id: snap.id, ...(snap.data() as object) } as PaperTrade;
+    if (trade.source !== PaperTradeSource.SIGNAL) return 'non-signal';
+    if (trade.cohortId || trade.positionGroupId || trade.ticket) {
+      return 'accept-flow';
+    }
+    if (LIFECYCLE_OPEN_TRADE_STATUSES.has(trade.status) && trade.userId) {
+      const accountRef = paperDocRef(
+        db,
+        PaperTradingKind.ACCOUNT,
+        buildAccountId(trade.userId),
+      );
+      const acct = await txn.get(accountRef);
+      if (acct.exists) {
+        const count =
+          (acct.data() as { openTradeCount?: number }).openTradeCount ?? 0;
+        txn.update(accountRef, {
+          openTradeCount: Math.max(0, count - 1),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+    txn.delete(ref);
+    return 'deleted';
+  });
+  if (outcome !== 'deleted') return outcome;
+
+  try {
+    const rqSnap = await paperItemsRef(db, PaperTradingKind.RAW_QUOTE)
+      .where('tradeId', '==', tradeId)
+      .get();
+    const batch = db.batch();
+    for (const d of rqSnap.docs) batch.delete(d.ref);
+    batch.delete(
+      db.collection(ST_ORDER_TICKETS_ROOT).doc(stTicketId('paper', tradeId)),
+    );
+    await batch.commit();
+  } catch (err) {
+    logger.warn(
+      `paper_delete_cascade_cleanup ${JSON.stringify({ tradeId, error: err instanceof Error ? err.message : String(err) })}`,
+    );
+  }
+  return 'deleted';
 }
 
 // ── Trade-id collision ──────────────────────────────────────────────────────

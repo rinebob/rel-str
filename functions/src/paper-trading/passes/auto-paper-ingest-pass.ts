@@ -57,9 +57,10 @@ import { TradeSide } from '@common';
 import { OptionQuoteSource } from '@options/common';
 import {
   AUTO_PAPER_USER_ID,
+  CURATED_GOVERNING_POLICY,
+  CURATED_VARIANT_KEYS,
+  DEFAULT_TRAILING_STOP_KEY,
   PaperTradeSource,
-  SIGNAL_GOVERNING_VARIANT,
-  SIGNAL_SHADOW_VARIANT_KEYS,
   type PaperTrade,
   type RawQuoteDoc,
 } from '@paper-trading/contracts';
@@ -476,8 +477,12 @@ export async function runAutoPaperIngestFill(
           source: PaperTradeSource.SIGNAL,
           symbol: w.symbol,
           expression: EQUITY_TRADE_DESC,
-          governingVariant: SIGNAL_GOVERNING_VARIANT,
-          variantKeys: [SIGNAL_GOVERNING_VARIANT, ...SIGNAL_SHADOW_VARIANT_KEYS],
+          // #1576 — live captures carry the same tracked set as minted
+          // picks: the curated variant array + the dynamic governing
+          // policy (governingVariant seeds its 'trailing-8' fallback).
+          governingVariant: DEFAULT_TRAILING_STOP_KEY,
+          governingPolicy: CURATED_GOVERNING_POLICY,
+          variantKeys: [...CURATED_VARIANT_KEYS],
           signalId: w.signalId,
         },
         tradeOverrides: {
