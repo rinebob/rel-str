@@ -29,6 +29,7 @@ import {
 import type {
   ContractListNoSelectionRowV1,
   ContractListPickRowV1,
+  OptionsContractListDoc,
   OptionsContractListDocV1,
 } from '@options-replay/contracts';
 import type { AnalysisResultDoc, AnalysisTradeRecord } from '@options-analysis/contracts';
@@ -112,7 +113,7 @@ interface Written {
 }
 
 interface DepsInit {
-  doc?: OptionsContractListDocV1;
+  doc?: OptionsContractListDocV1 | OptionsContractListDoc;
   seriesById?: Record<string, PartnerHistoricalOptionsContractV2Response | Error>;
   closes?: Record<string, number>;
   /** Throw on 'success' doc writes — 'failed' writes still capture. */
@@ -235,6 +236,28 @@ describe('status re-check', () => {
     const { deps, written } = makeDeps({ doc });
     await assert.rejects(runReplayAnalysis(PAYLOAD, deps, false));
     assert.equal(written.length, 0);
+  });
+
+  it('v2 schema doc → failed result docs, zero fetches, no throw — permanent, not retryable (#1499)', async () => {
+    const v2Doc: OptionsContractListDoc = {
+      runId: 'run-1',
+      symbol: 'QQQ',
+      templateId: 'pcs-45-20-5',
+      status: 'success',
+      schemaVersion: 2,
+      rows: [],
+      legMetas: [],
+      generatedAt: '2026-01-05T00:00:00Z',
+    };
+    const { deps, written, fetchCalls } = makeDeps({ doc: v2Doc });
+    await runReplayAnalysis(PAYLOAD, deps, false); // not final — still no throw
+    assert.equal(fetchCalls.length, 0);
+    assert.ok(written.length > 0);
+    assert.ok(written.every((w) => w.doc.status === 'failed'));
+    assert.ok(
+      (written[0].doc as { error?: string }).error?.includes('v2 position schema'),
+      `error was ${(written[0].doc as { error?: string }).error}`,
+    );
   });
 });
 

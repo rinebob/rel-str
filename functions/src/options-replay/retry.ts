@@ -3,7 +3,7 @@
  * single-symbol runs #1430).
  *
  * Re-runs a failed run in place: the contract-list doc (docId = runId)
- * resets to `pending` (rows/pickDocMeta/error/generatedAt deleted), the
+ * resets to `pending` (rows/pickDocMeta/legMetas/schemaVersion/error/generatedAt deleted), the
  * run flips back to `running` (stale `error`/`completedAt` cleared), and
  * one `OptionsReplayPermutationPayload` re-enqueues on the replay queue.
  *
@@ -61,7 +61,7 @@ import { OPTIONS_REPLAY_TASK_QUEUE } from './start';
 
 /** Slice of the run doc the retry decision needs. */
 export type ReplayRetryRunView = Partial<
-  Pick<OptionsReplayRun, 'status' | 'templateId' | 'symbol' | 'startDate'>
+  Pick<OptionsReplayRun, 'status' | 'templateId' | 'symbol' | 'startDate' | 'variantSnapshot'>
 >;
 
 /** Injectable effects — tests substitute fakes; the callable uses the
@@ -120,7 +120,13 @@ export async function runReplayRetry(
   if (
     typeof run.symbol !== 'string' || !run.symbol ||
     typeof run.templateId !== 'string' || !run.templateId ||
-    typeof run.startDate !== 'string' || !run.startDate
+    typeof run.startDate !== 'string' || !run.startDate ||
+    // Same can't-ever-succeed class: a run without a usable leg
+    // snapshot (pre-#1498 templateId-only, stock-only, or corrupt)
+    // permanently fails in the v2 worker — don't destroy its list
+    // doc just to re-fail it.
+    !Array.isArray(run.variantSnapshot?.legs) ||
+    !run.variantSnapshot.legs.some((l) => l?.kind === 'option')
   ) {
     return { retriedSymbol: null };
   }
@@ -192,6 +198,8 @@ const prodReplayRetryDeps: ReplayRetryDeps = {
             status: 'pending' satisfies OptionsContractListStatus,
             rows: FieldValue.delete(),
             pickDocMeta: FieldValue.delete(),
+            legMetas: FieldValue.delete(),
+            schemaVersion: FieldValue.delete(),
             error: FieldValue.delete(),
             generatedAt: FieldValue.delete(),
           },

@@ -146,10 +146,9 @@ export async function startReplay(
         symbol,
         startDate,
         status: 'running',
-        // Stamped once at create — the worker reads this, never the
-        // registry, so post-run registry edits can't rewrite history.
-        // (The worker switch lands in #1499 — until then variant/legs
-        // runs fail 'Unknown templateId' in the legacy worker.)
+        // Stamped once at create — the v2 worker (#1499) reads this,
+        // never the registry, so post-run registry edits can't rewrite
+        // history.
         variantSnapshot,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),

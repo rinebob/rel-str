@@ -51,6 +51,7 @@ import {
 } from '@st/collections';
 import type {
   ContractListPickRowV1,
+  OptionsContractListDoc,
   OptionsContractListDocV1,
 } from '@options-replay/contracts';
 import type {
@@ -71,7 +72,10 @@ const FETCH_CONCURRENCY = 10;
 // ==========================
 
 export interface AnalysisWorkerDeps {
-  getListDoc: (docId: string) => Promise<OptionsContractListDocV1 | undefined>;
+  /** v1 or v2 list doc — v2 docs are detected and failed loudly (the
+   *  pick-row filter below can't read `position` rows; #1500 lands the
+   *  leg-aware analyzer). */
+  getListDoc: (docId: string) => Promise<OptionsContractListDocV1 | OptionsContractListDoc | undefined>;
   /** One contract's daily series — the worker passes pickDate→expiration
    *  bounds; the evaluator also clips the tail internally. */
   fetchSeries: (input: {
@@ -140,6 +144,17 @@ export async function runReplayAnalysis(
       return;
     }
     throw new Error(`Analysis task raced a list reset — ${reason} (retryable)`);
+  }
+  // v2 position docs (#1499) — this analyzer reads v1 `pick` rows; a v2
+  // doc would silently produce empty 'success' results. Fail loudly:
+  // the doc can never become v1, so this is permanent, not retryable
+  // (the enqueue-side guard in optionsAnalysisStart covers new calls).
+  if (doc.schemaVersion === 2) {
+    const error =
+      `Contract list '${contractListDocId}' uses the v2 position schema — leg-aware analysis ships with #1500`;
+    logger.warn('options_analysis_v2_doc', { contractListDocId });
+    await writeFailedResultDocs(deps, { contractListDocId, runId, symbol, templateId }, error);
+    return;
   }
   // The production loader swallows failures into empty bars — an empty map
   // means every would-be-'expired' record degrades to 'error'; log it.
@@ -223,23 +238,10 @@ export async function runReplayAnalysis(
       error: String(e),
     });
     try {
-      await deps.writeResultDocs(
-        EXIT_STRATEGIES.map((rule) => ({
-          docId: stOptionsAnalysisResultDocId(contractListDocId, rule.exitId),
-          doc: {
-            contractListDocId,
-            runId,
-            symbol,
-            templateId,
-            exitId: rule.exitId,
-            registryVersion: EXIT_REGISTRY_VERSION,
-            status: 'failed',
-            trades: [],
-            aggregate: aggregateExitType(rule.exitId, 0, []),
-            generatedAt: new Date().toISOString(),
-            error: String(e),
-          } as AnalysisResultDoc,
-        })),
+      await writeFailedResultDocs(
+        deps,
+        { contractListDocId, runId, symbol, templateId },
+        String(e),
       );
     } catch (writeErr) {
       logger.error('options_analysis_failed_doc_write_failed', {
@@ -248,6 +250,31 @@ export async function runReplayAnalysis(
       });
     }
   }
+}
+
+/** One failed result doc per registered exit strategy — written when a
+ *  doc is permanently unanalyzable (v2 schema) and on the final attempt
+ *  of a retried failure, so the run is never silently result-less. */
+async function writeFailedResultDocs(
+  deps: AnalysisWorkerDeps,
+  base: { contractListDocId: string; runId: string; symbol: string; templateId: string },
+  error: string,
+): Promise<void> {
+  await deps.writeResultDocs(
+    EXIT_STRATEGIES.map((rule) => ({
+      docId: stOptionsAnalysisResultDocId(base.contractListDocId, rule.exitId),
+      doc: {
+        ...base,
+        exitId: rule.exitId,
+        registryVersion: EXIT_REGISTRY_VERSION,
+        status: 'failed',
+        trades: [],
+        aggregate: aggregateExitType(rule.exitId, 0, []),
+        generatedAt: new Date().toISOString(),
+        error,
+      } as AnalysisResultDoc,
+    })),
+  );
 }
 
 // ==========================

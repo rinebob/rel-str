@@ -1,59 +1,156 @@
 /**
- * Pick-doc → contract-list row mapper (Topic #1238, task #1280).
+ * Pick-docs → position-row mapper (Topic #1238, task #1499).
  *
- * Pure function — one `ContractListRowV1` per trading day. A `days` entry that
- * narrows to a pick becomes a `pick` row (all day fields verbatim + `side`
- * stamped from the template); an explicit miss entry becomes a
- * `no-selection` row with the SA status mapped (`no_match`→'miss',
- * `no_chain`→'gap'); a trading day with no entry gets a marker too —
- * 'out-of-range' when outside the doc's [firstDate, lastDate], no reason
- * when absent inside it (SA's contract is every trading day carries an
- * entry, so an absent in-range key has no honest explanation).
+ * Pure N-leg date join — the v2 replacement for `mapPickDocToRows`.
+ * Each option leg resolves its own day's entry inside its pick doc; a
+ * day where EVERY option leg picked becomes a `position` row (legs in
+ * declared order — option legs carry the day fields verbatim plus their
+ * coordinate and side; stock legs need no doc and carry the day's
+ * `underlyingClose` from the option picks). Any option leg miss makes
+ * the day `no-selection` with a `legMisses` entry per failing leg —
+ * partial positions are never written (atomicity is the v2 contract).
  *
- * `repeatsPrevious` compares each pick to the immediately preceding pick —
- * a no-selection day resets the run.
+ * `repeatsPrevious` is all-legs-match via `positionRepeatsPrevious` —
+ * option legs compare on contractId, stock legs on kind + side. A
+ * no-selection day resets the run.
+ *
+ * At least one option leg is required: stock legs' `underlyingClose`
+ * comes off the option picks, so a stock-only leg set is unresolvable
+ * here (the worker fails permanently upstream instead).
  */
 
-import { isPickDocPick } from '@options-replay/contracts';
+import {
+  isPickDocPick,
+  positionRepeatsPrevious,
+} from '@options-replay/contracts';
 import type {
-  ContractListRowV1,
+  ContractListRow,
   NoSelectionReason,
+  PickDocCoordinate,
   PickDocument,
+  PositionLeg,
+  PositionLegMiss,
 } from '@options-replay/contracts';
 import type { TradeSide } from '@common';
 
-export function mapPickDocToRows(
-  doc: PickDocument,
+/** An option leg with the pick doc its coordinate fetched — one per
+ *  option leg in the run's declared `legs[]` order. */
+export interface MapperOptionLegInput {
+  kind: 'option';
+  side: TradeSide;
+  /** The request coordinate — echoed into legs and legMisses. */
+  coordinate: PickDocCoordinate;
+  doc: PickDocument;
+}
+
+/** Stock legs need no doc — they always resolve via the day's
+ *  underlying close taken from the option picks. */
+export interface MapperStockLegInput {
+  kind: 'stock';
+  side: TradeSide;
+}
+
+export type MapperLegInput = MapperOptionLegInput | MapperStockLegInput;
+
+/** Roll-up severity for a no-selection day: a real `miss` (chain
+ *  existed, nothing matched) outranks a `gap` (data hole), which
+ *  outranks `out-of-range`; reasonless misses leave reason absent. */
+const REASON_SEVERITY: Record<NoSelectionReason, number> = {
+  miss: 3,
+  gap: 2,
+  'out-of-range': 1,
+};
+
+export function mapLegsToPositionRows(
+  legs: readonly MapperLegInput[],
   tradingDays: string[],
-  side: TradeSide,
-): ContractListRowV1[] {
-  const rows: ContractListRowV1[] = [];
-  let prevContractId: string | null = null;
+): ContractListRow[] {
+  const optionLegs = legs.filter((l) => l.kind === 'option').length;
+  if (optionLegs === 0) {
+    throw new Error('mapLegsToPositionRows: at least one option leg is required');
+  }
+
+  const rows: ContractListRow[] = [];
+  let prevLegs: PositionLeg[] | undefined;
 
   for (const date of tradingDays) {
-    const entry = doc.days[date];
+    const dayLegs: PositionLeg[] = new Array(legs.length);
+    const misses: PositionLegMiss[] = [];
+    let underlyingClose: number | undefined;
+    let allResolved = true;
 
-    if (entry && isPickDocPick(entry)) {
-      rows.push({
-        ...entry,
-        kind: 'pick',
-        entryDate: date,
-        side,
-        repeatsPrevious: prevContractId === entry.contractId,
+    legs.forEach((leg, i) => {
+      if (leg.kind === 'stock') return; // resolved after the option pass
+      const entry = leg.doc.days[date];
+      if (entry && isPickDocPick(entry)) {
+        dayLegs[i] = { ...entry, kind: 'option', side: leg.side, coordinate: leg.coordinate };
+        underlyingClose ??= entry.underlyingClose;
+      } else {
+        allResolved = false;
+        const reason = missReason(leg.doc, date, entry);
+        misses.push({
+          legIndex: i,
+          coordinate: leg.coordinate,
+          ...(reason ? { reason } : {}),
+        });
+      }
+    });
+
+    if (allResolved) {
+      legs.forEach((leg, i) => {
+        if (leg.kind === 'stock') {
+          dayLegs[i] = { kind: 'stock', side: leg.side, underlyingClose: underlyingClose! };
+        }
       });
-      prevContractId = entry.contractId;
+      rows.push({
+        kind: 'position',
+        entryDate: date,
+        legs: [dayLegs[0], ...dayLegs.slice(1)],
+        repeatsPrevious: positionRepeatsPrevious(prevLegs, dayLegs),
+      });
+      prevLegs = dayLegs;
       continue;
     }
 
-    let reason: NoSelectionReason | undefined;
-    if (entry && 'status' in entry) {
-      reason = entry.status === 'no_match' ? 'miss' : 'gap';
-    } else if (!entry && (date < doc.firstDate || date > doc.lastDate)) {
-      reason = 'out-of-range';
-    }
-    rows.push({ kind: 'no-selection', entryDate: date, ...(reason ? { reason } : {}) });
-    prevContractId = null;
+    const reason = rollUpReason(misses);
+    rows.push({
+      kind: 'no-selection',
+      entryDate: date,
+      ...(reason ? { reason } : {}),
+      legMisses: [misses[0], ...misses.slice(1)],
+    });
+    prevLegs = undefined;
   }
 
   return rows;
+}
+
+/** One leg's reason for an un-picked day — the v1 mapping carried
+ *  forward per leg: no_match→'miss', no_chain→'gap', absent beyond the
+ *  doc's [firstDate, lastDate]→'out-of-range', absent in-range→none. */
+function missReason(
+  doc: PickDocument,
+  date: string,
+  entry: PickDocument['days'][string] | undefined,
+): NoSelectionReason | undefined {
+  if (entry && 'status' in entry) {
+    return entry.status === 'no_match' ? 'miss' : 'gap';
+  }
+  if (!entry && (date < doc.firstDate || date > doc.lastDate)) {
+    return 'out-of-range';
+  }
+  return undefined;
+}
+
+/** Worst leg reason wins — the row's roll-up matches the worst
+ *  per-leg miss rather than the first. Undefined when no leg reported
+ *  a reason (all absent in-range). */
+function rollUpReason(misses: readonly PositionLegMiss[]): NoSelectionReason | undefined {
+  let worst: NoSelectionReason | undefined;
+  for (const m of misses) {
+    if (m.reason && (!worst || REASON_SEVERITY[m.reason] > REASON_SEVERITY[worst])) {
+      worst = m.reason;
+    }
+  }
+  return worst;
 }

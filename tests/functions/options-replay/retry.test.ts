@@ -26,6 +26,8 @@ import type {
   ReplayRetryRunView,
 } from '../../../functions/src/options-replay/retry';
 import type { OptionsReplayPermutationPayload } from '@options-replay/contracts';
+import { OptionType } from '@options/common';
+import { TradeSide } from '@common';
 
 /** HttpsError.code is the FunctionsErrorCode string — read the property
  *  instead of importing firebase-functions (resolution walks up from this
@@ -67,6 +69,14 @@ function runView(overrides: Partial<ReplayRetryRunView> = {}): ReplayRetryRunVie
     templateId: 'csp-45-20',
     symbol: 'SPY',
     startDate: '2026-01-05',
+    // The v2 worker resolves legs off the snapshot — the no-op guard
+    // mirrors it, so a retryable run must carry one (#1499).
+    variantSnapshot: {
+      name: 'test variant',
+      legs: [
+        { kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT },
+      ],
+    },
     ...overrides,
   };
 }
@@ -193,6 +203,30 @@ describe('runReplayRetry — no-op paths', () => {
       assert.equal(enqueued.length, 0);
     });
   }
+
+  it('no-ops a pre-model failed run with no variantSnapshot — the v2 worker would re-fail it permanently (#1499)', async () => {
+    const premodel = { ...runView() } as Partial<ReplayRetryRunView>;
+    delete premodel.variantSnapshot;
+    const { deps, claims, enqueued } = makeDeps(premodel as ReplayRetryRunView);
+    const res = await runReplayRetry(request({ runId: RUN_ID }), deps);
+    assert.equal(res.retriedSymbol, null);
+    assert.equal(claims.length, 0);
+    assert.equal(enqueued.length, 0);
+  });
+
+  it('no-ops a stock-only failed run — nothing to select, same can-never-succeed class', async () => {
+    const stockOnly = runView({
+      variantSnapshot: {
+        name: 'stock only',
+        legs: [{ kind: 'stock', side: TradeSide.LONG }],
+      },
+    });
+    const { deps, claims, enqueued } = makeDeps(stockOnly);
+    const res = await runReplayRetry(request({ runId: RUN_ID }), deps);
+    assert.equal(res.retriedSymbol, null);
+    assert.equal(claims.length, 0);
+    assert.equal(enqueued.length, 0);
+  });
 
   it('no-ops when the transaction does not claim the run (concurrent retry won)', async () => {
     const { deps, enqueued } = makeDeps(runView(), { claimed: false });

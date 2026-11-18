@@ -50,7 +50,11 @@ export const OPTIONS_ANALYSIS_TASK_QUEUE = 'optionsReplayAnalysis';
 export type AnalysisStartListView = Pick<
   OptionsContractListDocV1,
   'status' | 'runId' | 'symbol' | 'templateId' | 'pickDocMeta'
->;
+> & {
+  /** Present only on v2 position docs (#1499) — the v1 pick-row
+   *  analyzer can't read them (leg-aware analysis lands with #1500). */
+  schemaVersion?: number;
+};
 
 /** Injectable effects — tests substitute fakes; the callable uses the
  *  production wiring below. */
@@ -81,6 +85,16 @@ export async function runAnalysisStart(
     throw new HttpsError(
       'failed-precondition',
       `Contract list '${contractListDocId}' is not analyzable (status: ${doc?.status ?? 'missing'})`,
+    );
+  }
+
+  // v2 position docs (#1499) — this analyzer reads v1 `pick` rows and
+  // would silently write empty 'success' results; the leg-aware
+  // analyzer lands with #1500.
+  if (doc.schemaVersion === 2) {
+    throw new HttpsError(
+      'failed-precondition',
+      `Contract list '${contractListDocId}' uses the v2 position schema — leg-aware analysis ships with #1500`,
     );
   }
 
