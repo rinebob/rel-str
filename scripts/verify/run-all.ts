@@ -28,6 +28,10 @@ interface VerifyScript {
   needsAccount?: boolean;
   needsAdc?: boolean;
   needsGh?: boolean;
+  /** Requires a WRITE-capable GitHub credential: GITHUB_WRITE_TOKEN env or
+   *  an authenticated gh CLI (its token has repo write scope). A read-only
+   *  GITHUB_READ_TOKEN alone must skip, not fail mid-write. */
+  needsGhWrite?: boolean;
   needsEnv?: string;
   /** Repo-relative path that must exist for the script to run (sibling checkout). */
   needsPath?: string;
@@ -218,6 +222,12 @@ const scripts: VerifyScript[] = [
     file: 'dev-tools-gh-lifecycle-1528-labels-read.ts',
     needsAccount: false,
     needsGh: true,
+  },
+  {
+    name: 'gh-lifecycle labels write',
+    file: 'dev-tools-gh-lifecycle-1529-labels-write.ts',
+    needsAccount: false,
+    needsGhWrite: true,
   },
   {
     name: 'workflow template conventions',
@@ -455,10 +465,17 @@ const scripts: VerifyScript[] = [
   },
 ];
 
-function hasGhAuth(): boolean {
-  if (process.env.GITHUB_READ_TOKEN) return true;
+function ghCliHasAuth(): boolean {
   const r = spawnSync('gh', ['auth', 'token'], { stdio: 'pipe', shell: true });
   return r.status === 0 && (r.stdout ?? '').toString().trim().length > 0;
+}
+
+function hasGhAuth(): boolean {
+  return !!process.env.GITHUB_READ_TOKEN || ghCliHasAuth();
+}
+
+function hasGhWriteAuth(): boolean {
+  return !!process.env.GITHUB_WRITE_TOKEN || ghCliHasAuth();
 }
 
 function hasAdc(): boolean {
@@ -483,6 +500,11 @@ for (const script of scripts) {
   }
   if (script.needsGh && !hasGhAuth()) {
     console.log(`\n--- ${script.name} --- SKIPPED (needs GITHUB_READ_TOKEN or authenticated gh CLI)`);
+    skipped++;
+    continue;
+  }
+  if (script.needsGhWrite && !hasGhWriteAuth()) {
+    console.log(`\n--- ${script.name} --- SKIPPED (needs GITHUB_WRITE_TOKEN or authenticated gh CLI)`);
     skipped++;
     continue;
   }
