@@ -52,6 +52,9 @@
 
 - [GitHub read-only issue UI] 619-1527_DOCS-DEV-TOOLS: #1527 code review (PASS, 2 passes) + UAT (Complete, #1585) + changelog
 - [GitHub read-only issue UI] 619-1528_DOCS-DEV-TOOLS: #1528 code review (PASS, 3 axes + second pass — spec registration/TS2307/deploy-slice remediated) + UAT (Complete, #1592) + changelog
+- [GitHub read-only issue UI] 619-1529_BE-IMPL-DEV-TOOLS: updateIssueLabels + manageRepoLabel write callables — remove-first detach (404 no-op), missing-name mint at ededed + 422-race tolerance, stage/system-label + blank-name + malformed-field guards, delete returns paged issues?labels= usageCount (PR-inclusive, eventually-consistent index), conflictOn422 scoped to create paths; GITHUB_WRITE_TOKEN exports — deploy gated on #1526
+- [GitHub read-only issue UI] 619-1529_BE-IMPL-DEV-TOOLS: +16 write specs (65/65 suite) + self-cleaning live verify on scratch issues (bounded labels-index poll) + run-all needsGhWrite credential gate
+- [GitHub read-only issue UI] 619-1529_DOCS-DEV-TOOLS: #1529 code review (PASS, 3 axes + second pass — 6 minors remediated) + UAT (Complete, #1597 — labels-index lag documented for #1521) + IMPL as-built + changelog
 
 ## [2026-11-16]
 

@@ -55,8 +55,18 @@ All three follow the `getLifecycleTree` pattern: `onCall` + CORS +
     `new_name`/`color`/`description`.
   - `delete` → `DELETE /repos/{o}/{r}/labels/{name}` — returns the label's
     issue-usage count in the response so the FE can confirm deletes on
-    in-use labels (`GET .../labels/{name}/issues` for the count; GitHub
-    detaches on delete).
+    in-use labels (counted via `GET /repos/{o}/{r}/issues?labels={name}
+    &state=all` paged — the `labels/{name}/issues` endpoint this plan
+    referenced does not exist; the filter is eventually consistent,
+    ~seconds behind a fresh attach; GitHub detaches on delete; the count
+    includes PRs — GitHub's issue model — matching what a delete
+    detaches).
+  - **Server-side guards (as built):** `updateIssueLabels` rejects
+    stage-label names (`/^[1-8]_/`) in both `add` and `remove` plus
+    empty/whitespace names; `manageRepoLabel` rejects `isSystemLabel`
+    targets entirely plus `newName` minting a system/taxonomy name, and
+    validates `newName`/`color`/`description` types when present — the
+    guard shared with the FE picker is enforced here per #1523.
 - REST over GraphQL for the write surface — simple CRUD, no batching
   need, matches `fetchFileText`'s existing REST precedent. A small
   `githubRest(token)` transport sits next to `githubGql` with the same
