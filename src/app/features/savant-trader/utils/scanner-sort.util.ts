@@ -17,6 +17,7 @@ import {
   scanRunRows,
   scanSortCell,
   type ScanRow,
+  type ScannerSymbolFilter,
 } from './scanner-rows.util';
 
 export interface SortLevel {
@@ -43,8 +44,12 @@ export function baselineSortedRows(
   recipe: Parameters<typeof scanRunRows>[0] & { sort?: ScanSort },
   result: PreviewScanResult | null,
   trackedNorm: ReadonlySet<string>,
+  symbolFilter: ScannerSymbolFilter = 'all',
 ): ScanRow[] {
-  const { rows, lookup } = scanRunRows(recipe, result);
+  const { rows, lookup } = scanRunRows(recipe, result, {
+    symbolFilter,
+    trackedNorm,
+  });
   return sortRows(rows, seedSortLevels(recipe), (row, key) =>
     scanSortCell(row, key, lookup, trackedNorm.has(normScanSymbol(row.symbol))),
   );

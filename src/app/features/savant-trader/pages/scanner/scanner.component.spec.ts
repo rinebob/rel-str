@@ -54,6 +54,9 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
   };
   let symbolListsMock: {
     trackedSymbols: ReturnType<typeof signal<string[]>>;
+    trackedStatus: ReturnType<
+      typeof signal<'idle' | 'loading' | 'ready' | 'error'>
+    >;
     loadTrackedSymbols: jest.Mock;
   };
   let mcpMock: { reauthenticate: jest.Mock };
@@ -86,6 +89,7 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
     };
     symbolListsMock = {
       trackedSymbols: signal<string[]>([]),
+      trackedStatus: signal<'idle' | 'loading' | 'ready' | 'error'>('ready'),
       loadTrackedSymbols: jest.fn().mockResolvedValue(['AAPL']),
     };
     mcpMock = { reauthenticate: jest.fn() };

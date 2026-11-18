@@ -36,7 +36,7 @@ import {
 } from '../scanner/scanner-recipes';
 import {
   mergeLookup,
-  normScanSymbol,
+  normSymbolSet,
   parseScanRows,
   type ScanRow,
 } from '../utils/scanner-rows.util';
@@ -424,8 +424,8 @@ export const ScannerStore = signalStore(
             // Count unique matched symbols, not raw wire rows — a
             // case-variant dup ('aapl'/'AAPL') would otherwise print
             // 'N evaluated · M matched' with M > N.
-            const matchedCount = new Set(
-              matchedRows.map((r) => normScanSymbol(r.symbol)),
+            const matchedCount = normSymbolSet(
+              matchedRows.map((r) => r.symbol),
             ).size;
             patch({
               rows: compare.rows,

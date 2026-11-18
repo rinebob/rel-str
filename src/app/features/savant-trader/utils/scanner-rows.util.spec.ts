@@ -14,10 +14,13 @@ import {
   buildColumnLookup,
   canonicalColumnName,
   mergeLookup,
+  normSymbolSet,
   numericColumn,
   parseScanRows,
   percentColumn,
+  rowPassesSymbolFilter,
   scanPaneMeta,
+  scanRunRows,
   wireRowToScanRow,
   type ScanRow,
 } from './scanner-rows.util';
@@ -369,5 +372,85 @@ describe('scanPaneMeta (#1313)', () => {
       recipe,
     );
     expect(meta.get('ACME')?.detail).toBe('Range pos: 97.5%');
+  });
+});
+
+describe('normSymbolSet / rowPassesSymbolFilter (#1305)', () => {
+  const tracked = normSymbolSet(['aapl ', 'MSFT']);
+
+  it('normSymbolSet applies the normScanSymbol key policy — trim + case-fold', () => {
+    expect(tracked).toEqual(new Set(['AAPL', 'MSFT']));
+  });
+
+  it('all passes every row regardless of membership', () => {
+    expect(rowPassesSymbolFilter(row('ZZZ'), 'all', tracked)).toBe(true);
+    expect(rowPassesSymbolFilter(row('AAPL'), 'all', tracked)).toBe(true);
+  });
+
+  it('new passes only symbols absent from the tracked set', () => {
+    expect(rowPassesSymbolFilter(row('ZZZ'), 'new', tracked)).toBe(true);
+    expect(rowPassesSymbolFilter(row('AAPL'), 'new', tracked)).toBe(false);
+  });
+
+  it('tracked passes only members — case-fold on the ROW side too', () => {
+    // The predicate normalizes the row symbol against the pre-normalized
+    // set: a lowercase wire ticker still matches an uppercase member.
+    expect(rowPassesSymbolFilter(row('msft'), 'tracked', tracked)).toBe(true);
+    expect(rowPassesSymbolFilter(row('ZZZ'), 'tracked', tracked)).toBe(false);
+  });
+
+  it('an empty tracked set makes every row new', () => {
+    const none = normSymbolSet([]);
+    expect(rowPassesSymbolFilter(row('AAPL'), 'new', none)).toBe(true);
+    expect(rowPassesSymbolFilter(row('AAPL'), 'tracked', none)).toBe(false);
+  });
+});
+
+describe('scanRunRows symbolFilter param (#1305)', () => {
+  // 'Price' resolves only via the dynamic echo (no static recipe map),
+  // and the only row carrying 'close_price' is the TRACKED one — if the
+  // lookup merged over the filtered set, verification would miss the key
+  // and fall back to the raw name.
+  const recipe = {
+    columns: [{ display_name: 'Price', expression: 'closePrice()' }],
+  };
+  const result: PreviewScanResult = {
+    total_items: 2,
+    results: [
+      {
+        ticker: 'AAA',
+        instrument_id: 'i1',
+        instrument_type: 'EQUITY',
+        columns: { close_price: '10' },
+      },
+      {
+        ticker: 'NEWX',
+        instrument_id: 'i2',
+        instrument_type: 'EQUITY',
+        columns: { other: '1' },
+      },
+    ],
+    filters_applied: [
+      {
+        filter_type: 'close_price',
+        filter_type_enum: 'FILTER_TYPE_CUSTOM',
+        predicate: '',
+        values: [],
+        expression: 'closePrice()',
+      },
+    ],
+  };
+
+  it('filters the returned rows; the lookup still verifies against the unfiltered set', () => {
+    const filtered = scanRunRows(recipe, result, {
+      symbolFilter: 'new',
+      trackedNorm: normSymbolSet(['AAA']),
+    });
+    expect(filtered.rows.map((r) => r.symbol)).toEqual(['NEWX']);
+    expect(filtered.lookup.get('Price')).toBe('close_price');
+  });
+
+  it('omitting the filter returns every parsed row', () => {
+    expect(scanRunRows(recipe, result).rows).toHaveLength(2);
   });
 });

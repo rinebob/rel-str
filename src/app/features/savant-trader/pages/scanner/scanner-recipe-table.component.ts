@@ -1,5 +1,5 @@
 /**
- * @topic #1098 — RH Scanner | @task #1197, #1199
+ * @topic #1098 — RH Scanner | @task #1197, #1199, #1305
  *
  * Scanner recipe table — one dumb per-recipe table for the auto-run
  * overview (#1183). Renders the raw PreviewScanResult: header line
@@ -32,9 +32,11 @@ import {
   appliedFilterSummary,
   displayCell,
   normScanSymbol,
+  normSymbolSet,
   scanRunRows,
   scanSortCell,
   type ScanRow,
+  type ScannerSymbolFilter,
 } from '../../utils/scanner-rows.util';
 import {
   nextSortLevels,
@@ -75,6 +77,9 @@ export class ScannerRecipeTableComponent {
   readonly run = input.required<RecipeRunState>();
   /** Tracked-symbol universe — membership drives the row badge. */
   readonly tracked = input<ReadonlySet<string>>(new Set());
+  /** Page-level All/New/Tracked filter (#1305) — filters rows before
+   *  sort; the seed (recipe sort) is unchanged. */
+  readonly symbolFilter = input<ScannerSymbolFilter>('all');
   readonly refresh = output<void>();
 
   protected readonly fixedColumns = FIXED_COLUMNS;
@@ -87,12 +92,16 @@ export class ScannerRecipeTableComponent {
     seedSortLevels(this.recipe()),
   );
 
-  /** Parsed + first-wins-deduped rows + the presence-verified
-   *  display_name → wire-key map — one pass via the shared pipeline
-   *  (scanner-rows.util scanRunRows) so the page rail's baseline sort
-   *  resolves identically. */
+  /** Parsed + first-wins-deduped + symbol-filtered rows and the
+   *  presence-verified display_name → wire-key map — one pass via the
+   *  shared pipeline (scanner-rows.util scanRunRows) so the page rail's
+   *  baseline sort resolves identically. The lookup merges over the
+   *  unfiltered wire set; rows carry the page filter (#1305). */
   private readonly prepared = computed(() =>
-    scanRunRows(this.recipe(), this.run().result),
+    scanRunRows(this.recipe(), this.run().result, {
+      symbolFilter: this.symbolFilter(),
+      trackedNorm: this.trackedNorm(),
+    }),
   );
 
   protected readonly rows = computed<ScanRow[]>(() => this.prepared().rows);
@@ -153,6 +162,22 @@ export class ScannerRecipeTableComponent {
     appliedFilterSummary(this.run().result?.filters_applied),
   );
 
+  /** Header count tooltip — qualifies 'first N of M' the same way the
+   *  rail count does: under a page filter, N is the hits matching the
+   *  filter ON THE RETURNED PAGE, so 'first 45 of 900' never reads as
+   *  "45 new hits exist among 900". */
+  protected readonly headCountTitle = computed<string | null>(() => {
+    const r = this.run().result;
+    if (!r) return null;
+    const capped = r.results.length < r.total_items;
+    const capNote =
+      'preview_scan returns a capped page — these are the first rows under the scan sort';
+    const filter = this.symbolFilter();
+    if (filter === 'all') return capped ? capNote : null;
+    const filtered = `${this.rows().length} of ${r.total_items} scan hits match the ${filter} filter on the returned page`;
+    return capped ? `${filtered} — ${capNote}` : filtered;
+  });
+
   protected readonly sortedRows = computed<ScanRow[]>(() =>
     sortRows(this.rows(), this.sortLevels(), (r, k) => this.cellFor(r, k)),
   );
@@ -167,8 +192,8 @@ export class ScannerRecipeTableComponent {
 
   /** Tracked set normalized to the shared key policy — membership must
    *  not depend on the caller pre-normalizing. */
-  private readonly trackedNorm = computed<ReadonlySet<string>>(
-    () => new Set(Array.from(this.tracked()).map(normScanSymbol)),
+  private readonly trackedNorm = computed<ReadonlySet<string>>(() =>
+    normSymbolSet(this.tracked()),
   );
 
   protected isTracked(row: ScanRow): boolean {

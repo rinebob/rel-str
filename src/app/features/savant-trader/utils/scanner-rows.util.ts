@@ -1,5 +1,7 @@
 /**
- * Scan-row model + value coercion — RH Scanner page (#1098/#1136).
+ * Scan-row model + value coercion — RH Scanner page (#1098/#1136);
+ * also hosts the page-level symbol filter (#1305) since membership
+ * keys on the same `normScanSymbol` policy.
  *
  * Pure mapping from the preview_scan wire row (`ScanResultRow` — every
  * column value stringified) into the page's `ScanRow`, plus column-value
@@ -57,18 +59,37 @@ export function parseScanRows(result: PreviewScanResult): ScanRow[] {
   return rows;
 }
 
-/** Parse + first-wins-dedupe + lookup-merge for one run — the shared
- *  row-pipeline prefix the recipe table and the page rail both consume,
- *  so the two surfaces can't drift on dedupe or column resolution. */
+/** Optional page-level symbol filter for `scanRunRows` — the All/New/
+ *  Tracked tri-state (#1305) plus the normalized tracked set it checks
+ *  membership against (build via `normSymbolSet`). */
+export interface SymbolRowFilter {
+  symbolFilter: ScannerSymbolFilter;
+  trackedNorm: ReadonlySet<string>;
+}
+
+/** Parse + first-wins-dedupe + lookup-merge + optional symbol filter for
+ *  one run — the shared row-pipeline the recipe table and the page rail
+ *  both consume, so the two surfaces can't drift on dedupe, column
+ *  resolution, or filter semantics. The lookup merges over the
+ *  UNFILTERED rows (presence verification needs the full wire set); the
+ *  filter applies to the returned rows only. */
 export function scanRunRows(
   recipe: {
     columns: readonly ScanColumn[];
     columnLookup?: ReadonlyMap<string, string>;
   },
   result: PreviewScanResult | null,
+  filter?: SymbolRowFilter,
 ): { rows: ScanRow[]; lookup: ReadonlyMap<string, string> } {
   const rows = result ? dedupeScanRows(parseScanRows(result)) : [];
-  return { rows, lookup: mergeLookup(recipe, result?.filters_applied, rows) };
+  const lookup = mergeLookup(recipe, result?.filters_applied, rows);
+  if (!filter || filter.symbolFilter === 'all') return { rows, lookup };
+  return {
+    rows: rows.filter((r) =>
+      rowPassesSymbolFilter(r, filter.symbolFilter, filter.trackedNorm),
+    ),
+    lookup,
+  };
 }
 
 /** Canonical scan-symbol key — trim + case-fold. THE shared membership
@@ -76,6 +97,15 @@ export function scanRunRows(
  *  must all key identically or a case-variant drifts them apart. */
 export function normScanSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();
+}
+
+/** Normalized tracked-membership set — every `trackedNorm` construction
+ *  must spell `normScanSymbol` identically or a hand-rolled `.map` drifts
+ *  the membership policy (page rail, recipe table, compare engine). */
+export function normSymbolSet(
+  symbols: Iterable<string>,
+): ReadonlySet<string> {
+  return new Set(Array.from(symbols, normScanSymbol));
 }
 
 /** Page-level All/New/Tracked filter (#1305) — 'new' = symbol absent

@@ -16,11 +16,7 @@
                explicitly ('first N of M') — never imply completeness. -->
           <span
             class="count"
-            [title]="
-              r.results.length < r.total_items
-                ? 'preview_scan returns a capped page — these are the first rows under the scan sort'
-                : null
-            "
+            [title]="headCountTitle()"
             >{{
               r.results.length < r.total_items ? 'first ' : ''
             }}{{ rows().length }} of {{ r.total_items }}</span
