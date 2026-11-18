@@ -24,9 +24,10 @@ optional `maxOpenPositions` cap.
   position.
 - **AC3** — capped instance skips `max_open_positions` (distinct reason).
 - **AC4** — `cap=1` preserves the old single-position behavior.
-- Stats honesty: instance-A stats scope gets +1/+premium and the global
-  `stats/ALL` doc increments — then `ALL` is restored to its pre-run
-  snapshot (the scratch open must not leak into prod aggregates).
+- Stats honesty: instance-A's canonical `inst-{id}` scope gets
+  +1/+premium and the canonical `stats-all` doc increments — then
+  `stats-all` is restored to its pre-run value via atomic decrement
+  (the scratch open must not leak into prod aggregates).
 
 **Coverage note:** the script exercises the **daily** cadence end-to-end.
 Weekly cadence (`already_opened_in_period`, closed-leg mid-period blocking)
@@ -34,7 +35,7 @@ is covered by unit specs only — `open-pass.test.ts`
 (`weekly instance skips …`, `weekly instance skips when the in-period leg
 already closed`).
 - All scratch docs deleted and verified gone: instances, `daily-analysis`
-  docs, trades, raw quotes, accounts, per-instance stats.
+  docs, trades, raw quotes, accounts, per-instance canonical stats docs.
 
 ## Run
 

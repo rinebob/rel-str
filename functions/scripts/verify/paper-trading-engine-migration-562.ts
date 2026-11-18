@@ -14,7 +14,7 @@
 import { db } from '../../src/firebase-admin-init';
 import { runMigration } from '../migrate-options-strategy-to-paper';
 import { PaperTradingKind } from '../../../shared/paper-trading-contracts';
-import type { PaperAccount, PaperTrade } from '../../../shared/paper-trading-contracts';
+import type { PaperAccount, PaperStats, PaperTrade } from '../../../shared/paper-trading-contracts';
 import {
   getPosition,
   getLegs,
@@ -22,7 +22,7 @@ import {
   markPositionSettled,
 } from '../../src/paper-trading/engine/position-repository';
 import { getInstance } from '../../src/paper-trading/engine/strategy-instance-repository';
-import { defaultReadStatsDoc, getEquityCurve, defaultStatsDeps } from '../../src/paper-trading/engine/stats-repository';
+import { statsDocRef } from '../../src/paper-trading/engine/stats-repository';
 import { LegOutcome, PositionStatus } from '../../src/paper-trading/engine/types';
 import { OptionType } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
@@ -196,9 +196,10 @@ async function main(): Promise<void> {
   check('raw quote migrated to raw-quotes anchor', rqSnap.size === 1);
 
   // ── Stats ──
-  const stats = await defaultReadStatsDoc(INSTANCE_ID);
-  check('stats doc migrated (premium + open count)', stats?.totalPremiumCollected === 210 && stats?.openPositionCount === 1);
-  const curve = await getEquityCurve(INSTANCE_ID, { readEquityCurve: defaultStatsDeps.getExistingEquityCurve });
+  const statsSnap = await statsDocRef(INSTANCE_ID).get();
+  const stats = statsSnap.exists ? (statsSnap.data() as PaperStats) : null;
+  check('stats doc migrated (premium + open count)', stats?.totalPremiumCollected === 210 && stats?.openTradeCount === 1);
+  const curve = [...(stats?.equityCurve ?? [])].sort((a, b) => a.date.localeCompare(b.date));
   check('equity curve embedded — identical points pre/post migration',
     curve.length === 2 &&
     curve[0].date === '2026-01-01' && curve[0].cumulativePnl === 42.5 &&

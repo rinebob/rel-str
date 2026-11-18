@@ -52,7 +52,11 @@ import {
   PaperTradeStatus,
 } from '../../../shared/paper-trading-contracts';
 import type { PaperTrade } from '../../../shared/paper-trading-contracts';
-import { buildAccountId } from '../../../shared/paper-trading-ids';
+import {
+  buildAccountId,
+  statsScopeAll,
+  statsScopeInstance,
+} from '../../../shared/paper-trading-ids';
 import { paperDocRef, paperItemsRef } from '../../src/paper-trading/collections';
 import { ST_STRATEGY_INSTANCES_ROOT } from '../../src/common/st-collections';
 import { getMarketDatePT } from '../../src/common/pt-date-utils';
@@ -230,8 +234,8 @@ async function cleanup(posIdA: string | null): Promise<void> {
     paperDocRef(db, PaperTradingKind.TRADE, SEEDED_TRADE_B).delete(),
     paperDocRef(db, PaperTradingKind.ACCOUNT, buildAccountId(USER_A)).delete(),
     paperDocRef(db, PaperTradingKind.ACCOUNT, buildAccountId(USER_B)).delete(),
-    statsDocRef(INST_A).delete(),
-    statsDocRef(INST_B).delete(),
+    statsDocRef(statsScopeInstance(INST_A)).delete(),
+    statsDocRef(statsScopeInstance(INST_B)).delete(),
   ];
   if (posIdA) {
     dels.push(
@@ -254,9 +258,9 @@ async function main(): Promise<void> {
   const configB = makeConfig(INST_B, USER_B, 'VTSZ', { maxOpenPositions: 1 });
   const expectedPosId = buildPositionId(configA, marketDate);
 
-  // Snapshot the global stats doc — the pass increments it on open and the
-  // scratch open must not leak into prod aggregates.
-  const statsAllSnap = await statsDocRef('ALL').get();
+  // Snapshot the canonical stats-all doc — the open increments it via
+  // stats-increments and the scratch open must not leak into prod aggregates.
+  const statsAllSnap = await statsDocRef(statsScopeAll()).get();
   const statsAllBefore = statsAllSnap.exists ? statsAllSnap.data() : null;
 
   await cleanup(expectedPosId); // clear leftovers from a prior run
@@ -321,21 +325,21 @@ async function main(): Promise<void> {
   check('AC4: cap=1 preserves single-position behavior (still 1 open)',
     (await openTradeCount(INST_B)) === 1);
   check('AC3/AC4: capped instance accrued no stats doc',
-    !(await statsDocRef(INST_B).get()).exists);
+    !(await statsDocRef(statsScopeInstance(INST_B)).get()).exists);
 
-  // ── Stats honesty: A's open incremented its scope AND the global ALL ──
-  const statsA = (await statsDocRef(INST_A).get()).data() as
+  // ── Stats honesty: A's open incremented its inst- scope AND the canonical all ──
+  const statsA = (await statsDocRef(statsScopeInstance(INST_A)).get()).data() as
     | { openTradeCount?: number; totalPremiumCollected?: number }
     | undefined;
   check('instance-A stats scope shows the open',
     statsA !== undefined && statsA.openTradeCount === 1, statsA);
-  const statsAllAfter = (await statsDocRef('ALL').get()).data() as
+  const statsAllAfter = (await statsDocRef(statsScopeAll()).get()).data() as
     | { openTradeCount?: number; totalPremiumCollected?: number }
     | undefined;
   const expectedPremium = 0.5 * 100; // nearest grid point mark 0.50 × 100
   // >= semantics: the deployed engine opens REAL legs during market
   // hours, so ALL can gain concurrent increments on top of ours.
-  check('global ALL stats picked up the scratch open (+1, +premium)',
+  check('canonical stats-all picked up the scratch open (+1, +premium)',
     statsAllAfter !== undefined &&
       (statsAllAfter.openTradeCount ?? 0) >=
         (((statsAllBefore as { openTradeCount?: number } | null)?.openTradeCount) ?? 0) + 1 &&
@@ -348,7 +352,7 @@ async function main(): Promise<void> {
   // Atomic decrement, not a snapshot restore — writing `before` back
   // would clobber concurrent prod opens that landed during the run.
   if (statsAllBefore) {
-    await statsDocRef('ALL').set(
+    await statsDocRef(statsScopeAll()).set(
       {
         openTradeCount: FieldValue.increment(-1),
         totalPremiumCollected: FieldValue.increment(-expectedPremium),
@@ -357,16 +361,16 @@ async function main(): Promise<void> {
       { merge: true },
     );
   } else if (statsAllSnap.exists) {
-    await statsDocRef('ALL').delete();
+    await statsDocRef(statsScopeAll()).delete();
   }
   await cleanup(expectedPosId);
 
-  const statsAllRestored = (await statsDocRef('ALL').get()).data() as
+  const statsAllRestored = (await statsDocRef(statsScopeAll()).get()).data() as
     | { openTradeCount?: number; totalPremiumCollected?: number }
     | undefined;
   // >= before: the scratch's +1 is undone while concurrent prod opens
   // (if any) survive — a failed undo would leave it BELOW before.
-  check('global ALL stats: scratch contribution undone, concurrent opens preserved',
+  check('canonical stats-all: scratch contribution undone, concurrent opens preserved',
     statsAllRestored !== undefined &&
       (statsAllRestored.openTradeCount ?? 0) >=
         ((statsAllBefore as { openTradeCount?: number } | null)?.openTradeCount ?? 0),
@@ -379,7 +383,7 @@ async function main(): Promise<void> {
     (await db.collection(ST_STRATEGY_INSTANCES_ROOT).doc(INST_A).get()).exists,
     (await db.collection(ST_STRATEGY_INSTANCES_ROOT).doc(INST_B).get()).exists,
     (await paperDocRef(db, PaperTradingKind.ACCOUNT, buildAccountId(USER_A)).get()).exists,
-    (await statsDocRef(INST_A).get()).exists,
+    (await statsDocRef(statsScopeInstance(INST_A)).get()).exists,
   ];
   check('cleanup removed all scratch docs', survivors.every((s) => !s));
 }
