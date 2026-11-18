@@ -16,11 +16,14 @@ jest.mock('@angular/fire/firestore', () => ({
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { signal, ɵresolveComponentResources } from '@angular/core';
+import { of } from 'rxjs';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 import { StrategyManageComponent } from './strategy-manage.component';
+import { ManageCreateInstanceComponent } from './manage-create-instance.component';
 import { StrategyManageStore } from '../../stores/strategy-manage.store';
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { MANAGE_VARIANTS } from '@manage/variant-catalog';
 import type { ManageInstance } from '@manage/instance-contracts';
 import { OptionsPositionStatus, type Position } from '../../services/options-strategy.types';
@@ -95,14 +98,17 @@ describe('StrategyManageComponent', () => {
   let fixture: ComponentFixture<StrategyManageComponent>;
   let component: StrategyManageComponent;
   let mockStore: ReturnType<typeof createMockStore>;
+  let mockDialog: { open: jest.Mock };
 
   async function setup(overrides: Record<string, any> = {}) {
     mockStore = createMockStore(overrides);
+    mockDialog = { open: jest.fn().mockReturnValue({ afterClosed: () => of() }) };
     await TestBed.configureTestingModule({
       imports: [StrategyManageComponent],
       providers: [
         provideNoopAnimations(),
         { provide: StrategyManageStore, useValue: mockStore },
+        { provide: DsDialogService, useValue: mockDialog },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(StrategyManageComponent);
@@ -119,6 +125,19 @@ describe('StrategyManageComponent', () => {
     await setup();
     fixture.detectChanges();
     expect(mockStore.load).toHaveBeenCalled();
+  });
+
+  it('opens the Create New Instance dialog from the header button', async () => {
+    await setup();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const btn = el.querySelector<HTMLButtonElement>(
+      '[data-testid="create-instance-btn"]',
+    );
+    expect(btn).toBeTruthy();
+
+    btn!.click();
+    expect(mockDialog.open).toHaveBeenCalledWith(ManageCreateInstanceComponent);
   });
 
   it('shows loading spinner when isLoading is true', async () => {

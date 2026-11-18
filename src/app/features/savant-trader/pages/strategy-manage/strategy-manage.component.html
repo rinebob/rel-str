@@ -10,15 +10,17 @@
         }
       </div>
     </div>
+    <button type="button" class="ds-btn outline small" data-testid="create-instance-btn"
+            (click)="openCreateInstance()">Create New Instance</button>
   </div>
 
   <div class="filter-bar">
-    <input type="search" class="filter-input" placeholder="Filter by ID, symbol, or variant…"
+    <input type="search" class="dse-input compact filter-input" placeholder="Filter by ID, symbol, or variant…"
            aria-label="Filter instances"
            [value]="filterText()"
            (input)="filterText.set($any($event.target).value)" />
     <label class="filter-label">Run state
-      <select class="runstate-filter" aria-label="Filter by run state"
+      <select class="dse-select compact runstate-filter" aria-label="Filter by run state"
               [value]="runStateFilter()"
               (change)="runStateFilter.set($any($event.target).value)">
         @for (o of runStateOptions; track o) {
@@ -27,7 +29,7 @@
       </select>
     </label>
     <label class="filter-label">Position
-      <select class="position-filter" aria-label="Filter by open position"
+      <select class="dse-select compact position-filter" aria-label="Filter by open position"
               [value]="positionFilter()"
               (change)="positionFilter.set($any($event.target).value)">
         @for (o of positionOptions; track o.value) {

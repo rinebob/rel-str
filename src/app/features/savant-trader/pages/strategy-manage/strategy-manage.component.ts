@@ -2,6 +2,7 @@
  * @topic #137 — STRAT-MANAGE, Thread #1510 (OpsStrat Manage Page Overhaul)
  * @task #1540 — FE: Route/nav migration to options/strategy/manage + store + table shell
  * @task #1546 — FE: Instance table — columns, sort/filter, position join, start/stop
+ * @task #1547 — FE: Create New Instance dialog — header button opens the dialog
  *
  * Strategy Manage page (`options/strategy/manage`). F2: Paper | Real tabs
  * bound to the store's mode partition, the full instance table (sortable
@@ -12,6 +13,8 @@
 import { Component, ChangeDetectionStrategy, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
+import { DsDialogService } from '../../../../shared/ds/ds-dialog';
+import { ManageCreateInstanceComponent } from './manage-create-instance.component';
 import { StrategyManageStore } from '../../stores/strategy-manage.store';
 import {
   INSTANCE_RUN_STATES,
@@ -43,6 +46,7 @@ type PositionFilter = 'ALL' | 'open' | 'waiting' | 'flat';
 })
 export class StrategyManageComponent implements OnInit {
   readonly store = inject(StrategyManageStore);
+  private readonly dialog = inject(DsDialogService);
 
   /** Active Paper | Real tab. */
   protected readonly activeTab = signal<InstanceMode>('paper');
@@ -119,6 +123,11 @@ export class StrategyManageComponent implements OnInit {
 
   ngOnInit(): void {
     this.store.load();
+  }
+
+  /** F3 — variant × symbols × mode/trigger/stop create flow. */
+  protected openCreateInstance(): void {
+    this.dialog.open(ManageCreateInstanceComponent);
   }
 
   /** The row's position bucket — open if any position is joined, waiting

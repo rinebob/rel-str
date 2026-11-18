@@ -15,7 +15,7 @@ jest.mock('@angular/fire/firestore', () => ({
   collection: jest.fn(),
   collectionData: jest.fn(),
   doc: jest.fn(),
-  setDoc: jest.fn(),
+  runTransaction: jest.fn(),
   updateDoc: jest.fn(),
   query: jest.fn(),
   where: jest.fn(),
@@ -28,6 +28,7 @@ import {
   collection,
   collectionData,
   doc,
+  runTransaction,
   updateDoc,
   query,
   where,
@@ -193,6 +194,168 @@ describe('StrategyManageService', () => {
         'Authentication required',
       );
       expect(updateDoc).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createInstances', () => {
+    const txn = { get: jest.fn(), set: jest.fn() };
+    const mockRef = {};
+
+    beforeEach(() => {
+      (doc as jest.Mock).mockReturnValue(mockRef);
+      txn.get.mockReset().mockResolvedValue({ exists: () => false, data: () => ({}) });
+      txn.set.mockReset();
+      (runTransaction as jest.Mock).mockReset().mockImplementation(
+        (_fs: unknown, fn: (t: unknown) => Promise<unknown>) => fn(txn),
+      );
+    });
+
+    const input = (overrides = {}) => ({
+      id: 'QQQ-CDS-30-50-40-ALL',
+      variant: MANAGE_VARIANTS[0],
+      variantRef: MANAGE_VARIANTS[0].id,
+      symbol: 'QQQ',
+      mode: 'paper' as const,
+      trigger: 'daily' as const,
+      stopType: 'ALL',
+      ...overrides,
+    });
+
+    it('reads every doc inside one transaction, writes one doc per input, returns the created ids', async () => {
+      const result = await service.createInstances([
+        input(),
+        input({ id: 'SPY-CDS-30-50-40-ALL', symbol: 'SPY' }),
+      ]);
+
+      expect(runTransaction).toHaveBeenCalledTimes(1);
+      expect(txn.get).toHaveBeenCalledTimes(2);
+      expect(txn.set).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({
+        created: ['QQQ-CDS-30-50-40-ALL', 'SPY-CDS-30-50-40-ALL'],
+        skipped: [],
+      });
+      const [ref, payload] = txn.set.mock.calls[0];
+      expect(ref).toBe(mockRef);
+      expect(payload).toMatchObject({
+        variantRef: 'cds-30-50-40',
+        variant: MANAGE_VARIANTS[0],
+        symbol: 'QQQ',
+        mode: 'paper',
+        trigger: 'daily',
+        stopType: 'ALL',
+        runState: 'UNSTARTED',
+        userId: 'test-user',
+      });
+      expect(typeof payload.paperAccountId).toBe('string');
+      expect(payload.paperAccountId.length).toBeGreaterThan(0);
+      expect(payload.createdAt).toBe(payload.updatedAt);
+    });
+
+    it('targets st-strategy-instances/{id}', async () => {
+      await service.createInstances([input()]);
+      expect(doc).toHaveBeenCalledWith(
+        expect.anything(),
+        `${ST_STRATEGY_INSTANCES_ROOT}/QQQ-CDS-30-50-40-ALL`,
+      );
+    });
+
+    it('omits paperAccountId on a real-mode doc (paper account is paper-only)', async () => {
+      await service.createInstances([
+        input({ id: 'QQQ-CDS-30-50-40-T8', mode: 'real', stopType: 'T8' }),
+      ]);
+
+      const [, payload] = txn.set.mock.calls[0];
+      expect(payload.mode).toBe('real');
+      expect('paperAccountId' in payload).toBe(false);
+    });
+
+    it('skips an id that already exists — the existing doc is never overwritten', async () => {
+      txn.get.mockResolvedValue({ exists: () => true, data: () => ({}) });
+
+      const result = await service.createInstances([input()]);
+
+      expect(result).toEqual({
+        created: [],
+        skipped: ['QQQ-CDS-30-50-40-ALL'],
+      });
+      expect(txn.set).not.toHaveBeenCalled();
+    });
+
+    it('skips a soft-deleted same-id doc — the tombstone blocks overwrite too', async () => {
+      txn.get.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ deletedAt: '2026-11-10T00:00:00Z' }),
+      });
+
+      const result = await service.createInstances([input()]);
+
+      expect(result.skipped).toEqual(['QQQ-CDS-30-50-40-ALL']);
+      expect(txn.set).not.toHaveBeenCalled();
+    });
+
+    it('creates the clean inputs and skips the existing ones — a race-dup does not abort the set', async () => {
+      txn.get
+        .mockResolvedValueOnce({ exists: () => false, data: () => ({}) })
+        .mockResolvedValueOnce({ exists: () => true, data: () => ({}) });
+
+      const result = await service.createInstances([
+        input(),
+        input({ id: 'SPY-CDS-30-50-40-ALL', symbol: 'SPY' }),
+      ]);
+
+      expect(result).toEqual({
+        created: ['QQQ-CDS-30-50-40-ALL'],
+        skipped: ['SPY-CDS-30-50-40-ALL'],
+      });
+      expect(txn.set).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips a duplicate id inside the create set — first occurrence wins, no read for the repeat', async () => {
+      const result = await service.createInstances([input(), input()]);
+
+      expect(result).toEqual({
+        created: ['QQQ-CDS-30-50-40-ALL'],
+        skipped: ['QQQ-CDS-30-50-40-ALL'],
+      });
+      expect(txn.get).toHaveBeenCalledTimes(1);
+      expect(txn.set).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects a mode/stopType invariant violation before any write', async () => {
+      await expect(
+        service.createInstances([input({ mode: 'real', stopType: 'ALL' })]),
+      ).rejects.toThrow('mode/stop invariant');
+      expect(runTransaction).not.toHaveBeenCalled();
+    });
+
+    it('returns an empty result immediately on an empty input set', async () => {
+      const result = await service.createInstances([]);
+      expect(result).toEqual({ created: [], skipped: [] });
+      expect(runTransaction).not.toHaveBeenCalled();
+    });
+
+    it('propagates a transaction failure', async () => {
+      (runTransaction as jest.Mock).mockRejectedValue(new Error('aborted'));
+
+      await expect(service.createInstances([input()])).rejects.toThrow('aborted');
+      expect(txn.set).not.toHaveBeenCalled();
+    });
+
+    it('throws when there is no authenticated user', async () => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          StrategyManageService,
+          { provide: Firestore, useValue: {} },
+          { provide: Auth, useValue: { currentUser: null } },
+        ],
+      });
+      service = TestBed.inject(StrategyManageService);
+
+      await expect(service.createInstances([input()])).rejects.toThrow(
+        'Authentication required',
+      );
+      expect(runTransaction).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,0 +1,58 @@
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
+:host {
+  @include vl.dialog-chrome;
+
+  .content {
+    min-width: 380px;
+    max-width: 480px;
+  }
+
+  .field-row {
+    display: flex;
+    gap: 12px;
+
+    .dse-field {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  .id-preview {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    font-size: 12px;
+    // ~14 rows — a long symbol paste scrolls the list, not the dialog
+    // (the pane has no viewport constraint of its own).
+    max-height: 240px;
+    overflow-y: auto;
+
+    li {
+      padding: 3px 0;
+      color: var(--ds-text-secondary, #aaa);
+
+      code {
+        color: var(--ds-text-primary, #eee);
+      }
+
+      &.dup code {
+        color: var(--ds-down, #f44336);
+      }
+
+      &.bad {
+        color: var(--ds-down, #f44336);
+      }
+
+      .preview-error {
+        color: var(--ds-down, #f44336);
+      }
+    }
+  }
+
+  .dialog-notice {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--ds-text-secondary, #aaa);
+  }
+}

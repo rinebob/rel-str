@@ -14,7 +14,7 @@ jest.mock('@angular/fire/firestore', () => ({
   collection: jest.fn(),
   collectionData: jest.fn(),
   doc: jest.fn(),
-  setDoc: jest.fn(),
+  runTransaction: jest.fn(),
   updateDoc: jest.fn(),
   query: jest.fn(),
   where: jest.fn(),
@@ -65,13 +65,18 @@ function makePosition(overrides: Partial<Position> = {}): Position {
 
 describe('StrategyManageStore', () => {
   let store: InstanceType<typeof StrategyManageStore>;
-  let mockService: { loadInstances$: jest.Mock; setRunState: jest.Mock };
+  let mockService: {
+    loadInstances$: jest.Mock;
+    setRunState: jest.Mock;
+    createInstances: jest.Mock;
+  };
   let mockOptionsService: { listStrategyPositions$: jest.Mock };
 
   beforeEach(() => {
     mockService = {
       loadInstances$: jest.fn().mockReturnValue(of([])),
       setRunState: jest.fn().mockResolvedValue(undefined),
+      createInstances: jest.fn().mockResolvedValue({ created: [], skipped: [] }),
     };
     mockOptionsService = {
       listStrategyPositions$: jest
@@ -251,6 +256,97 @@ describe('StrategyManageStore', () => {
       expect(store.error()).not.toBeNull();
 
       store.clearError();
+      expect(store.error()).toBeNull();
+    });
+  });
+
+  describe('variants', () => {
+    it('exposes the catalog variants with no session variants', () => {
+      expect(store.variants()).toEqual([...MANAGE_VARIANTS]);
+      expect(store.sessionVariants()).toEqual([]);
+    });
+
+    it('appends session variants after the catalog (Create New Instance picker merge)', () => {
+      const adHoc = {
+        ...MANAGE_VARIANTS[0],
+        id: 'session-cds-30-50-35',
+        name: 'call debit spread 50-35 30',
+        legs: MANAGE_VARIANTS[0].legs.map((l, i) =>
+          l.kind === 'option' && i === 1 ? { ...l, targetDelta: 0.35 } : l),
+      };
+
+      store.addSessionVariant(adHoc);
+
+      expect(store.sessionVariants()).toEqual([adHoc]);
+      expect(store.variants()).toEqual([...MANAGE_VARIANTS, adHoc]);
+    });
+
+    it('replaces a session variant re-pushed under the same id', () => {
+      const adHoc = { ...MANAGE_VARIANTS[0], id: 'session-cds', name: 'v1' };
+      const revised = { ...adHoc, name: 'v2' };
+
+      store.addSessionVariant(adHoc);
+      store.addSessionVariant(revised);
+
+      expect(store.sessionVariants()).toEqual([revised]);
+      expect(store.variants().filter((v) => v.id === 'session-cds')).toEqual([revised]);
+    });
+
+    it('drops a session variant whose id collides with the catalog (catalog wins)', () => {
+      const collision = { ...MANAGE_VARIANTS[0], name: 'impostor' };
+
+      store.addSessionVariant(collision);
+
+      expect(store.variants().filter((v) => v.id === collision.id)).toEqual([
+        MANAGE_VARIANTS[0],
+      ]);
+      // No duplicate ids in the merged list — the picker's @for track key
+      // would crash the dialog.
+      const ids = store.variants().map((v) => v.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+  });
+
+  describe('createInstances', () => {
+    const input = {
+      id: 'QQQ-CDS-30-50-40-ALL',
+      variant: MANAGE_VARIANTS[0],
+      variantRef: MANAGE_VARIANTS[0].id,
+      symbol: 'QQQ',
+      mode: 'paper' as const,
+      trigger: 'daily' as const,
+      stopType: 'ALL',
+    };
+
+    it('delegates to the service and passes through the {created, skipped} result', async () => {
+      const outcome = { created: ['QQQ-CDS-30-50-40-ALL'], skipped: [] };
+      mockService.createInstances.mockResolvedValue(outcome);
+
+      const result = await store.createInstances([input]);
+
+      expect(mockService.createInstances).toHaveBeenCalledWith([input]);
+      expect(result).toBe(outcome);
+      expect(store.error()).toBeNull();
+    });
+
+    it('returns the service failure message — dialog-scoped, not the page banner', async () => {
+      mockService.createInstances.mockRejectedValue(
+        new Error("Instance 'QQQ-CDS-30-50-40-ALL' already exists"),
+      );
+
+      const result = await store.createInstances([input]);
+
+      expect(result).toContain('already exists');
+      expect(store.error()).toBeNull();
+    });
+
+    it('refuses real-mode inputs without writing — real create is disabled in v1', async () => {
+      const result = await store.createInstances([
+        { ...input, mode: 'real', stopType: 'T8' },
+      ]);
+
+      expect(mockService.createInstances).not.toHaveBeenCalled();
+      expect(result).toContain('disabled in v1');
       expect(store.error()).toBeNull();
     });
   });

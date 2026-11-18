@@ -10,6 +10,10 @@
   display: flex;
   align-items: center;
   margin-bottom: 24px;
+
+  [data-testid='create-instance-btn'] {
+    margin-left: auto;
+  }
 }
 
 .error-banner {
