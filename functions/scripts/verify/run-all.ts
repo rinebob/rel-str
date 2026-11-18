@@ -70,6 +70,7 @@ const scripts = [
   'paper-trading-curated-contracts-1573.ts',
   'paper-trading-curated-exit-engine-1574.ts',
   'paper-trading-backfill-signal-trade-1575.ts',
+  'paper-trading-ledger-ops-1576.ts',
   'options-replay-start-forms-1498.ts',
   'options-replay-worker-1499.ts',
 ];

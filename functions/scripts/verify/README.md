@@ -84,6 +84,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #1573 | `paper-trading-curated-contracts-1573.ts` | curated-trade contract surface — variant set + policy marker + SDS_BARS + batch bounds + live⇄mint id determinism + dedupe⇄occurrence layout trap (read-only, no env) | [paper-trading-curated-contracts-1573.md](paper-trading-curated-contracts-1573.md) |
 | #1574 | `paper-trading-curated-exit-engine-1574.ts` | curated exit engine — ma-close/target grammar + evaluators + variantLevel + independent closers + selectGoverningRun policy + smaAt (read-only, no env) | [paper-trading-curated-exit-engine-1574.md](paper-trading-curated-exit-engine-1574.md) |
 | #1575 | `paper-trading-backfill-signal-trade-1575.ts` | curated signal mint — deterministic sig-origin ids + SDS_BARS entry + one-commit backfill + ledger close + dedupe + callable auth/cap (fixture mint through the real ledger, no env) | [paper-trading-backfill-signal-trade-1575.md](paper-trading-backfill-signal-trade-1575.md) |
+| #1576 | `paper-trading-ledger-ops-1576.ts` | ledger ops — deleteTradeCascade (trade+rq+pap_* gone, signal-scoped, idempotent) + deletePaperTrades buckets + ingest curated dims + SECONDARY admit (fixture through real seam/pass, no env) | [paper-trading-ledger-ops-1576.md](paper-trading-ledger-ops-1576.md) |
 
 ## Order across tasks
 
@@ -135,8 +136,9 @@ npx tsx scripts/verify/{script-name}.ts
 51. **#1573** — `paper-trading-curated-contracts-1573.ts` (curated-trade contract surface: variant set + policy marker + SDS_BARS + batch bounds + live⇄mint id determinism; instant, read-only, no env)
 52. **#1574** — `paper-trading-curated-exit-engine-1574.ts` (curated exit engine: ma-close/target grammar + evaluators + variantLevel + closer classification + deepest-stop policy + smaAt; instant, read-only, no env)
 53. **#1575** — `paper-trading-backfill-signal-trade-1575.ts` (curated signal mint: deterministic ids + SDS_BARS provenance + in-memory variant walk + one-commit marks/runs + ledger close + dedupe; fixture mint through the real ledger, no env)
-54. **#1498** — `options-replay-start-forms-1498.ts` (startReplay three-form resolution + snapshot stamping + rejection matrix; DRY default is fake-deps/no-credentials; `--live` submits real runs — needs ADC + GOOGLE_CLOUD_PROJECT)
-55. **#1499** — `options-replay-worker-1499.ts` (multi-leg worker: snapshot legs → per-leg bounded fetch → atomic position-row join → v2 doc + legMetas + close-out; DRY default is fake-deps/no-credentials; `--live` writes real run docs and runs the worker data path — needs ADC + GOOGLE_CLOUD_PROJECT)
+54. **#1576** — `paper-trading-ledger-ops-1576.ts` (ledger ops: signal-scoped delete cascade — trade + rq-* + pap_* gone, idempotent notFound — + deletePaperTrades per-item buckets + ingest curated dims + SECONDARY admit; fixture through real seam/pass, no env)
+55. **#1498** — `options-replay-start-forms-1498.ts` (startReplay three-form resolution + snapshot stamping + rejection matrix; DRY default is fake-deps/no-credentials; `--live` submits real runs — needs ADC + GOOGLE_CLOUD_PROJECT)
+56. **#1499** — `options-replay-worker-1499.ts` (multi-leg worker: snapshot legs → per-leg bounded fetch → atomic position-row join → v2 doc + legMetas + close-out; DRY default is fake-deps/no-credentials; `--live` writes real run docs and runs the worker data path — needs ADC + GOOGLE_CLOUD_PROJECT)
 
 <!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their
 target scripts (migrate-*, sweep-unlisted-to-new, qa-probe-1008) — the legacy roots they
