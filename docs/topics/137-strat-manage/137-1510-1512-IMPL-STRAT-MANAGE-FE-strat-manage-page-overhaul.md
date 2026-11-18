@@ -143,6 +143,58 @@ sortable/filterable instance table, start/stop actions, two create dialogs
    non-nullable field, NG8107) was resolved to `.name`.
 3. **F3 — Create New Instance dialog** — variant picker, mode/stop/trigger
    selects, multi-symbol, ID gen + dedup, writes.
+
+   **As-built (#1547):** `manage-create-instance.component.*` is a
+   `DsDialogService` dialog (inline template, `dse-field`/`dse-select`
+   controls, `dialog-error` + `ds-btn` actions — the
+   allocation-bucket-dialog convention) opened from a `Create New
+   Instance` button in the page header. The variant picker reads the
+   store's new `variants` computed (`MANAGE_VARIANTS` +
+   `sessionVariants` — the ephemeral list F4 pushes via
+   `addSessionVariant`); `variantRef` stamps the registry id or
+   `MANAGE_ADHOC_VARIANT_REF` for session variants. Mode select offers
+   paper (default) + a disabled real option (v1); stop type renders as
+   a fixed `ALL` under paper and, under real, `STOP_CODES` minus `ALL`.
+   Symbols parse from a free-text field (comma/space-separated,
+   normalized to ALL-CAPS, deduped, charset-validated) — one instance
+   per symbol. Each parsed symbol previews its minted ID via
+   `generateManageInstanceId` (template resolved from
+   `variant.templateId`; the 'custom' sentinel omits it per the
+   generator's contract); duplicate ids against `store.instances()`
+   mark the row, and generator throws surface inline instead of
+   minting. A `symbolsError` computed caps the parsed list at 50 (the
+   write runs in one transaction; a pasted list of hundreds would
+   stall preview and commit), and `.id-preview` is viewport-capped
+   (`max-height: 240px; overflow-y: auto`) so a long paste scrolls
+   the list, not the dialog. **Filter-submit (#1605, adopted during
+   #1547 QA — supersedes the original all-or-nothing AC):** Create is
+   enabled whenever ≥1 preview row is clean and writes exactly the
+   clean subset; flagged rows (duplicates, invalid symbols) stay in
+   the field with a `Created N — M left` notice, and the dialog
+   closes only when nothing remains. The store gained
+   `createInstances(inputs): Promise<CreateInstancesResult | string>`
+   — real-mode inputs are refused (same v1 guard as `toggleRunState`)
+   and failures return to the dialog (its own error channel — service
+   errors don't land in the page banner behind the overlay) —
+   delegating to a service `createInstances` that re-validates
+   `isValidModeStopType`, then runs one `runTransaction`: all
+   `txn.get`s first, then `txn.set` only for absent ids — existing
+   ids (live AND soft-deleted docs, incl. race-dups minted between
+   preview and commit) land in `skipped`, never throw and never get
+   overwritten; intra-set duplicate ids skip without a read. Reads
+   and writes inside the transaction are atomic, and the
+   created/skipped split is recomputed inside the callback so a
+   contention retry stays idempotent (the check-then-`writeBatch`
+   version this replaced had a TOCTOU full-overwrite gap). Each doc
+   stamps `runState:'UNSTARTED'`, `userId`, ISO created/updated, and —
+   paper only — `paperAccountId: buildAccountId(uid)` (the contract
+   requires it only when mode='paper'). `variants` dedupes session
+   ids against the catalog (a collision would crash the picker's
+   `@for` track key and silently substitute the catalog variant);
+   `addSessionVariant` replaces a same-id push. The dialog resets
+   `stopType` on mode flip and sets `ref.disableClose` while the
+   write is in flight (try/finally restores both). Specs: service 21,
+   store 23, dialog 20, page 26 (90 total).
 4. **F4 — Create New Strategy dialog + Export JSON** — template-driven leg
    form, ephemeral variant save, JSON export dialog.
 5. **F5 — Results popup + analysis link** — stats/positions/sparkline

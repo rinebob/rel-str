@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-11-18]
+
+### Added
+- [Strategy Builder UI] 137-1547_FE-IMPL-STRAT-MANAGE: Create New Instance dialog — variant picker (catalog + session-variant merge, adhoc sentinel), mode (paper / real disabled v1) + trigger + stop-type controls, free-text symbols parse (ALL-CAPS dedupe + charset validation + 50 cap) with per-row generateManageInstanceId preview, scroll-capped preview list, filter-submit create (#1605 — clean subset writes, flagged rows stay in field with 'Created N — M left' notice), service createInstances → {created,skipped} inside one runTransaction (existing ids skip, never overwrite; intra-set repeats skip; paperAccountId paper-only), store dialog-scoped error channel + session-variant collision guard, header Create New Instance button, filter-bar dse-input/dse-select compact styling (#1598 finding); 90 specs green
+- [Strategy Builder UI] 137-1547_DOCS-STRAT-MANAGE: CODE-REVIEW (PASS — 3 axes, pass-2 findings fixed in-cycle) + UAT (Complete, #1603 — S1–S7 live PASS) + IMPL-FE F3 as-built + changelog
+
 ## [2026-11-17]
 
 ### Added
