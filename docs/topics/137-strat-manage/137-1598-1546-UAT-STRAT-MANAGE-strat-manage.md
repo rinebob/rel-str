@@ -8,9 +8,9 @@
 **Task:** #1546  
 **Domain:** STRAT-MANAGE  
 **Type:** UAT  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-11-17  
-**Last Updated:** 2026-11-17  
+**Last Updated:** 2026-11-18  
 
 # UAT — #1546 FE: Instance table — columns, sort/filter, position join, start/stop
 
@@ -218,11 +218,20 @@ create/delete).
 - Real-row dimming + disabled button read as intentionally inactive.
 - Keyboard: tab reaches sort headers + action buttons; Enter/Space
   sort; selects are native.  
-  **Result: pending — user visual pass required** (no dev server was
-  running during this QA; spec evidence covers behavior, not look/feel).
+  **Result: PASS — 2026-11-18 (live, user-run).** Filter bar renders
+  styled compact DS controls (the unstyled-controls finding below was
+  fixed during #1547 QA and verified here); sort badges, text/run-state
+  /position filters, Start→Waiting toggle, keyboard sort, and the
+  filtered empty-state copy all confirmed on live data (four real
+  instances minted by #1547).
 
 ## Findings
 
+- **F-1 (fixed during #1547 QA, verified live here):** filter-bar
+  controls shipped unstyled (`.filter-input` layout-only;
+  `.runstate-filter`/`.position-filter` unstyled) — the
+  `dse-input compact`/`dse-select compact` classes were applied
+  and rode the #1547 ship commit.
 - None blocking. Waived items from the review doc: position join is
   fetch-once (a noon-pass mint won't appear until revisit — improve in
   F5 via `lastFiredAt`-triggered refetch); failed positions fetch shows
@@ -254,12 +263,11 @@ create/delete).
 
 ## Verdict
 
-**Deferred to F3** — behavior is spec-verified end-to-end (51
-strategy-manage specs pin every scenario's rendered outcome), but no
-prod instances exist and no create UI ships until #1547 ("Create New
-Instance" dialog). The live visual walkthrough + refinement pass runs
-once F3 can mint real instances — seeded-console fixtures above remain
-as the fallback path.
+**PASS — 2026-11-18.** Behavior was spec-verified end-to-end (51
+strategy-manage specs pin every scenario's rendered outcome); the
+deferred live visual pass ran once #1547 minted real instances —
+filter bar, sort badges, filters, Start/Waiting toggle, keyboard,
+and empty state all confirmed by the user on prod data.
 
 ## Results log
 
@@ -276,4 +284,4 @@ as the fallback path.
 | S9 | Error/empty UX | PASS (spec) | clearError call, retry-clear, filtered copy pinned |
 | S10 | Malformed doc | PASS (spec) | variant-required discriminator pinned |
 | S11 | Positions failure | PASS (spec) | join-empty + instances-intact pinned |
-| UI/UX | Visual pass | PENDING | needs running dev server + seeded docs |
+| UI/UX | Visual pass | PASS (live) | user-run 2026-11-18 on real instances |
