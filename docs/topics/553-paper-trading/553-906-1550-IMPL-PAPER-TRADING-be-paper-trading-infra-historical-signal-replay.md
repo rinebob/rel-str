@@ -23,9 +23,10 @@ same curated variant set. Grooming is a bulk hard-delete callable.
 ## Files
 
 - `functions/src/paper-trading/passes/backfill-signal-trade.ts` — new:
-  the in-memory walk + commit.
-- `functions/src/paper-trading/callables.ts` (or sibling) — new
-  `generatePaperSignalTrades` + `deletePaperTrades` handlers.
+  the in-memory walk + commit. *(#1575)*
+- `functions/src/paper-trading/signal-trade-callables.ts` — new:
+  `generatePaperSignalTrades` handler + prod deps + `onCall` export.
+  `deletePaperTrades` lands in `callables.ts` (or sibling) under #1576.
 - `functions/src/paper-trading/exits/registry.ts` — `ma-close-*`,
   `target-*` evaluators + `variantLevel` accessor.
 - `functions/src/paper-trading/exits/governing-policy.ts` — new:
@@ -87,6 +88,45 @@ per pick:
 Three txns max per pick (entry, marks+runs commit, optional exit) —
 fast inside a callable; no Cloud Task needed at pick volume (~dozens).
 
+**§1 as-built (#1575, post-review):** shipped as
+`paper-trading/passes/backfill-signal-trade.ts` —
+`backfillSignalTrade(item, deps)`. Order: terminal-status dedupe →
+bars + d-ascending + usable-entry checks → **marks audit** (an OPEN
+doc is walked only when every usable stored bar after entry already
+carries a mark — the discriminator is mark-derived, NOT
+`lastMarkedAt`, because the nightly mark-pass stamps that field on
+every OPEN signal trade; a missing mark ⇒ crashed mint → resume) →
+`st-signals` doc + identity/direction checks → pick ticket
+(`auto:false`, `idSeed:tradeId`, fail-soft) → `applyEntryFill`
+(signal-bar close, `SDS_BARS`, curated set + `governingPolicy` marker
+via the `FillDimensions.governingPolicy` seam) → ticket `markFilled`
+at the stored entry price → in-memory walk (resumes **re-seed** runs —
+nightly eval may have advanced watermarks, and replaying old bars
+against advanced state can false-trigger exits) → real `applyExitFill`
+when a run fires (close→annotate order: the ledger close lands BEFORE
+the state commit) → ONE `commitBackfill` (marks + full run array +
+mirror + `legs[].lastMark` + `lastMarkedAt` + `unrealizedPnl` for open
+trades). The walk mirrors the nightly pass exactly: per-day
+`smaIndicatorsFor` enrichment, `selectGoverningRun` pick with
+flag-corrected full run array, array-order `evaluateVariant`, same-day
+latch (first governing/independent fire closes at that bar's mark,
+later same-day fires shadow-record), blind-fire guard on missing SMAs
+(warns once per run), unusable bars skipped (non-finite close or
+defined non-final `barStatus`; an unusable SIGNAL bar errors), per-run
+error isolation. Every partial state is self-healing: entry-only docs
+resume on re-mint even after nightly marks; a close-then-commit-miss
+leaves a CLOSED trade the nightly repair path annotates. Tickets:
+staged-then-failed only when no ledger entry landed (`entryCommitted`
+gate — once the trade exists the ticket's "filled" is the truth); an
+`already exists` ledger race reads `deduped` with no ticket transition
+(the winner owns `markFilled`). A corrupt `direction` errors;
+`signalTradeDesc` throws unsupported types; all failures return
+`MintResult.error`. Tests: `backfill-signal-trade.test.ts` (28 specs)
+runs the REAL ledger over an in-memory txn store, incl. a consistency
+pin that the minted outcome equals `replaySignalToRow` for the closing
+variant and resume pins for the crash/nightly-marked/exit-failure
+shapes.
+
 ## 2. `generatePaperSignalTrades` callable
 
 `(request, deps)` convention — auth first, `items` validated
@@ -94,6 +134,20 @@ fast inside a callable; no Cloud Task needed at pick volume (~dozens).
 `backfillSignalTrade` collecting `MintResult`s. A bad item errors in
 its result; the call doesn't fail. Bars are cached per symbol within
 the call (picks cluster by symbol).
+
+**§2 as-built (#1575):** shipped as
+`paper-trading/signal-trade-callables.ts` —
+`handleGeneratePaperSignalTrades(request, deps)` +
+`generatePaperSignalTradesProdDeps()` + the `onCall` export
+(512 MiB / 300 s, `OPTIONS_STRATEGY_ALLOWED_ORIGINS`, registered in
+`index.ts`). Auth first (unauthenticated → `HttpsError`), then
+up-front shape validation (`invalid-argument` — malformed picks are
+caller bugs, not data errors); per-item failures land in that item's
+`MintResult` only. Bars are memoized per symbol for the call's
+duration and passed into each mint (`deps.mint(item, {getBars})`) —
+prod wiring delegates to `backfillSignalTrade` with
+`st-signals`/`getCachedBarsFromSymbolData`/`getTrade`/ledger/`tickets`
+deps.
 
 ## 3. Dynamic governing — `selectGoverningRun`
 
