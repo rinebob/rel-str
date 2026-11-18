@@ -1,16 +1,18 @@
 /**
  * TopicViewerTreeComponent — flat-row tree renderer for the topic-viewer
  * page (Topic #619 / task #643). Renders the store's expandedIds-gated
- * `treeRows` with depth indentation; caret toggles expansion; titles link
- * out to github.com. Read-only — no write affordances.
+ * `treeRows` (or an explicit `rows` input — the all-topics pane, #1532)
+ * with depth indentation; caret toggles expansion; query hits tint via
+ * `.match`; titles link out to github.com. Read-only — no write
+ * affordances.
  */
 
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 
 
 import type { LifecycleNode } from '@lifecycle/contracts';
 import { stageOrdinal } from '@lifecycle/tree';
-import { TopicViewerStore } from './topic-viewer.store';
+import { TopicViewerStore, type TreeRow } from './topic-viewer.store';
 
 /** Labels that decorate every issue — they carry no signal in the tree's
  *  tag chips, so they're filtered out. */
@@ -21,8 +23,9 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
   imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @for (row of store.treeRows(); track row.node.number) {
+    @for (row of visibleRows(); track row.node.number) {
       <div class="tree-row" [class.closed]="row.node.state === 'closed'"
+        [class.match]="isMatch(row.node.number)"
         [style.padding-left.px]="row.depth * 20"
         [style.--guides]="row.depth * 20"
         [attr.data-testid]="'tree-node-' + row.node.number"
@@ -60,6 +63,7 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
     }
   `,
   styles: [`
+    @use './stage-chips' as sc;
     .tree-row {
       position: relative;
       display: flex; align-items: center; gap: 6px;
@@ -80,6 +84,13 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
       pointer-events: none;
     }
     .tree-row.closed { opacity: 0.55; font-style: italic; }
+    /* Query match (#1532) — subtle primary tint so hits read at a glance. */
+    .tree-row.match {
+      background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+    }
+    .tree-row.match:hover {
+      background: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
+    }
     /* Force the 24px box to truly center its icon on the guide line. */
     .caret {
       width: 24px; height: 24px; flex: none; padding: 0;
@@ -110,14 +121,7 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
     /* Stage chips color-coded by lifecycle position (data-stage = ordinal).
        literal-sweep exception #1217: stage-identity hues are a
        categorical palette by contract, not theme tokens. */
-    .chip.stage[data-stage="1"] { background: #ede7f6; color: #5e35b1; }
-    .chip.stage[data-stage="2"] { background: #e8eaf6; color: #3949ab; }
-    .chip.stage[data-stage="3"] { background: #e1f5fe; color: #0277bd; }
-    .chip.stage[data-stage="4"] { background: #eceff1; color: #455a64; }
-    .chip.stage[data-stage="5"] { background: #e3f2fd; color: #1565c0; }
-    .chip.stage[data-stage="6"] { background: #fff8e1; color: #ef6c00; }
-    .chip.stage[data-stage="7"] { background: #fff3e0; color: #e65100; }
-    .chip.stage[data-stage="8"] { background: #e8f5e9; color: #2e7d32; }
+    .chip.stage { @include sc.stage-chip-palette; }
     .chip.status { background: var(--ds-warning-container); color: var(--ds-on-warning-container); }
     .chip.tag {
       background: transparent;
@@ -128,6 +132,18 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
 })
 export class TopicViewerTreeComponent {
   protected readonly store = inject(TopicViewerStore);
+
+  /** Row override for the all-topics pane (#1532) — the page hands each
+   *  section's flattened rows; absent → the selected topic's treeRows. */
+  readonly rows = input<TreeRow[] | null>(null);
+
+  protected readonly visibleRows = computed(
+    () => this.rows() ?? this.store.treeRows());
+
+  /** Query-hit highlight — nodes in the store's matchSet render tinted. */
+  protected isMatch(n: number): boolean {
+    return this.store.matchSet().has(n);
+  }
 
   /** Effective expansion (manual ∪ match ancestors) — must match the
    *  rows treeRows emits or carets/aria lie during an active query. */

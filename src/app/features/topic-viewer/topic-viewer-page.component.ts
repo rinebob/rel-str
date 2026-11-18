@@ -3,12 +3,16 @@
  * viewer (Topic #619 / Blueprint #635 / task #643).
  *
  * Header: repo picker, Refresh (spinner while loading), as-of timestamp,
- * Show-closed toggle. Left pane: grouped topic list. Right pane: the
- * selected topic's tree (expand-all / collapse-all). Error banner over a
+ * Show-closed toggle, search + match count, sort toggle (Grouped|Issue #),
+ * All-topics toggle, Labels button (disabled until #1533's dialog).
+ * Left pane: `visibleTopics` — grouped sections or one flat number list.
+ * Right pane: the selected topic's tree, or every section's trees in
+ * all-topics mode (expand-all / collapse-all). Error banner over a
  * preserved tree; grouping-warning banner when the inventory doc degraded.
  */
 
 import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 
 
 import { stageOrdinal } from '@lifecycle/tree';
@@ -18,6 +22,7 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
 @Component({
   selector: 'app-topic-viewer-page',
   imports: [
+    NgTemplateOutlet,
     TopicViewerTreeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -38,8 +43,28 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
         @if (store.fetchedAt(); as at) {
           <span class="dim" data-testid="fetched-at">as of {{ at }}</span>
         }
+        <label class="dse-field search">
+          <input class="dse-input" type="search" placeholder="Search title, #, label"
+            aria-label="Search topics" data-testid="search"
+            [value]="store.query()" (input)="store.setQuery($any($event.target).value)">
+        </label>
+        @if (store.query() && (store.selectedTopic() || store.showAllTopics())) {
+          <span class="dim" data-testid="match-count">{{ store.matchCount() }} match{{ store.matchCount() === 1 ? '' : 'es' }}</span>
+        }
+        <div class="pill-group" role="group" aria-label="Sort topics">
+          <button type="button" class="pill" [class.active]="store.sortMode() === 'grouped'"
+            [attr.aria-pressed]="store.sortMode() === 'grouped'" data-testid="sort-grouped"
+            (click)="store.setSortMode('grouped')">Grouped</button>
+          <button type="button" class="pill" [class.active]="store.sortMode() === 'number'"
+            [attr.aria-pressed]="store.sortMode() === 'number'" data-testid="sort-number"
+            (click)="store.setSortMode('number')">Issue #</button>
+        </div>
+        <button class="ds-btn outline" type="button" data-testid="labels-btn" disabled
+          title="Label manager — lands with #1533">Labels</button>
+        <label class="dse-check"><input type="checkbox" [checked]="store.showAllTopics()" data-testid="all-topics"
+          (change)="store.setShowAllTopics($any($event.target).checked)">All topics</label>
         <label class="dse-check"><input type="checkbox" [checked]="store.showClosed()" data-testid="show-closed"
-          (change)="store.setShowClosed($event.target.checked)">Show closed</label>
+          (change)="store.setShowClosed($any($event.target).checked)">Show closed</label>
       </header>
 
       @if (store.error(); as err) {
@@ -55,42 +80,75 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
 
       <div class="panes">
         <nav class="topics" aria-label="Topics">
-          @for (sec of store.topicSections(); track sec.name) {
-            <div class="section-name" data-testid="section-name">{{ sec.name }}</div>
-            @for (t of sec.topics; track t.number) {
-              <button type="button" class="topic-row"
-                [class.selected]="store.selectedTopicNumber() === t.number"
-                [class.closed]="t.closed"
-                [attr.aria-current]="store.selectedTopicNumber() === t.number ? 'true' : null"
-                [attr.data-testid]="'topic-' + t.number"
-                (click)="store.selectTopic(t.number)"
-              >
-                <span class="num">#{{ t.number }}</span>
-                <span class="t-title">{{ stripTopicPrefix(t.title) }}</span>
-                @if (t.stageLabel) {
-                  <span class="sr-only">{{ t.stageLabel }}</span>
-                  <span class="stage-dot" [attr.data-stage]="ordinal(t.stageLabel)"
-                    [attr.title]="t.stageLabel" aria-hidden="true"></span>
+          @if (store.visibleTopics(); as vm) {
+            @if (vm.mode === 'grouped') {
+              @for (sec of vm.sections; track sec.name) {
+                <div class="section-name" data-testid="section-name">{{ sec.name }}</div>
+                @for (t of sec.topics; track t.number) {
+                  <ng-container *ngTemplateOutlet="topicRow; context: { $implicit: t }" />
                 }
-              </button>
-            }
-          } @empty {
-            @if (!store.loading() && !store.error()) {
-              <div class="empty" data-testid="empty-state">No Topics found in this repo</div>
+              } @empty {
+                @if (!store.loading() && !store.error()) {
+                  <div class="empty" data-testid="empty-state">{{ emptyCopy() }}</div>
+                }
+              }
+            } @else {
+              @for (t of vm.topics; track t.number) {
+                <ng-container *ngTemplateOutlet="topicRow; context: { $implicit: t }" />
+              } @empty {
+                @if (!store.loading() && !store.error()) {
+                  <div class="empty" data-testid="empty-state">{{ emptyCopy() }}</div>
+                }
+              }
             }
           }
+          <ng-template #topicRow let-t>
+            <button type="button" class="topic-row"
+              [class.selected]="store.selectedTopicNumber() === t.number"
+              [class.closed]="t.closed"
+              [attr.aria-current]="store.selectedTopicNumber() === t.number ? 'true' : null"
+              [attr.data-testid]="'topic-' + t.number"
+              (click)="store.selectTopic(t.number)"
+            >
+              <span class="num">#{{ t.number }}</span>
+              <span class="t-title">{{ stripTopicPrefix(t.title) }}</span>
+              @if (t.stageLabel) {
+                <span class="chip stage" [attr.data-stage]="ordinal(t.stageLabel)"
+                  data-testid="topic-stage-chip">{{ t.stageLabel }}</span>
+              }
+            </button>
+          </ng-template>
+          <ng-template #treeActions>
+            <div class="tree-actions">
+              <button class="ds-btn" type="button" data-testid="expand-all" (click)="store.expandAll()">Expand all</button>
+              <button class="ds-btn" type="button" data-testid="collapse-all" (click)="store.collapseAll()">Collapse all</button>
+            </div>
+          </ng-template>
         </nav>
 
         <section class="tree-pane" aria-label="Topic tree">
-          @if (store.selectedTopic(); as sel) {
+          @if (store.showAllTopics()) {
+            <div class="tree-head">
+              <span class="tree-topic">All topics</span>
+              <ng-container *ngTemplateOutlet="treeActions" />
+            </div>
+            @for (sec of store.allSectionsRows(); track sec.name) {
+              <div class="section-name" [attr.data-testid]="'allsec-' + sec.name">{{ sec.name }}</div>
+              <app-topic-viewer-tree [rows]="sec.rows" />
+            } @empty {
+              @if (!store.loading() && !store.error()) {
+                <div class="empty" data-testid="all-topics-empty">
+                  <span class="dse-icon">account_tree</span>
+                  <span>{{ emptyCopy() }}</span>
+                </div>
+              }
+            }
+          } @else if (store.selectedTopic(); as sel) {
             <div class="tree-head">
               <a class="tree-topic" [href]="sel.url" target="_blank" rel="noopener noreferrer"
                 data-testid="tree-topic-link"
               >#{{ sel.number }} {{ sel.title }}</a>
-              <div class="tree-actions">
-                <button class="ds-btn" type="button" data-testid="expand-all" (click)="store.expandAll()">Expand all</button>
-                <button class="ds-btn" type="button" data-testid="collapse-all" (click)="store.collapseAll()">Collapse all</button>
-              </div>
+              <ng-container *ngTemplateOutlet="treeActions" />
             </div>
             <app-topic-viewer-tree />
           } @else {
@@ -104,9 +162,11 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
     </div>
   `,
   styles: [`
+    @use './stage-chips' as sc;
     .page { display: flex; flex-direction: column; gap: 8px; padding: 12px; height: 100%; box-sizing: border-box; }
     .header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .repo-picker { width: 180px; }
+    .search { width: 220px; }
     .dim { color: var(--mat-sys-on-surface-variant); font-size: 0.8rem; }
     .banner {
       display: flex; align-items: center; gap: 8px;
@@ -141,23 +201,12 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
     .topic-row.closed { opacity: 0.55; font-style: italic; }
     .num { color: var(--mat-sys-on-surface-variant); font-variant-numeric: tabular-nums; flex: none; }
     .t-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-    /* Stage indicator — a dot, not a chip: keeps the title unblocked while
-       preserving the lifecycle signal (same stage-ordinal key, mid-tone
-       solid palette vs the tree's pale-bg/dark-text chips). */
-    .stage-dot {
-      width: 9px; height: 9px; border-radius: 50%; flex: none;
-      background: var(--mat-sys-outline);
+    /* Stage chip (#1532) — the tree's pale-bg/dark-text chip idiom,
+       full label text; palette shared via _stage-chips.scss. */
+    .chip.stage {
+      font-size: 0.65rem; padding: 1px 6px; border-radius: 8px; flex: none;
+      @include sc.stage-chip-palette;
     }
-    /* literal-sweep exception #1217: stage-identity dot hues —
-       categorical palette by contract, not theme tokens. */
-    .stage-dot[data-stage="1"] { background: #7e57c2; }
-    .stage-dot[data-stage="2"] { background: #5c6bc0; }
-    .stage-dot[data-stage="3"] { background: #039be5; }
-    .stage-dot[data-stage="4"] { background: #90a4ae; }
-    .stage-dot[data-stage="5"] { background: #1e88e5; }
-    .stage-dot[data-stage="6"] { background: #fb8c00; }
-    .stage-dot[data-stage="7"] { background: #f4511e; }
-    .stage-dot[data-stage="8"] { background: #43a047; }
     .tree-pane { flex: 1; overflow: auto; min-width: 0; }
     .tree-head {
       display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
@@ -175,16 +224,19 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
       color: var(--mat-sys-on-surface-variant); font-size: 0.9rem; padding: 32px 8px;
     }
     .empty .dse-icon { font-size: 22px; width: 22px; height: 22px; opacity: 0.6; }
-    .sr-only {
-      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-    }
   `],
 })
 export class TopicViewerPageComponent implements OnInit {
   protected readonly store = inject(TopicViewerStore);
 
   protected readonly ordinal = stageOrdinal;
+
+  /** Empty-state copy — a filter-empty pane should say so, not claim
+   *  the repo has no Topics (review M2). */
+  protected emptyCopy(): string {
+    const q = this.store.query().trim();
+    return q ? `No topics match "${q}"` : 'No Topics found in this repo';
+  }
 
   /** Issue titles carry a "Topic:" prefix — every row here is one, so the
    *  prefix is pure noise in the side list. */

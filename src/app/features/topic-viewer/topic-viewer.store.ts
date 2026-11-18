@@ -252,21 +252,26 @@ export const TopicViewerStore = signalStore(
         .map(s => ({ name: s.name, topics: s.topics.map(toRow) }));
     }),
 
-    /** In-tree search derivation — one walk yields the match set AND
-     *  the ancestors that must auto-expand to surface them. The match
+    /** In-tree search derivation — one walk per rendered root yields
+     *  the match set AND the ancestors that must auto-expand to surface
+     *  them. Scope = the trees the page renders: every filtered topic in
+     *  all-topics mode, the selected topic otherwise (#1532). The match
      *  itself is NOT an ancestor (its children stay hidden). Empty sets
      *  without a query; closed nodes only count under showClosed. */
     matchInfo: computed<{
       set: ReadonlySet<number>;
       ancestors: ReadonlySet<number>;
     }>(() => {
-      const topic = store.selectedTopic();
       const q = store.query();
       const set = new Set<number>();
       const ancestors = new Set<number>();
-      if (!topic || !hasQuery(q)) return { set, ancestors };
+      if (!hasQuery(q)) return { set, ancestors };
       const needle = q.trim().toLowerCase();
       const showClosed = store.showClosed();
+      const sel = store.selectedTopic();
+      const roots: LifecycleNode[] = store.showAllTopics()
+        ? store.filteredTopics()
+        : (sel ? [sel] : []);
       const walk = (n: LifecycleNode, chain: number[]) => {
         for (const c of n.children) {
           if (!showClosed && c.state === 'closed') continue;
@@ -277,8 +282,10 @@ export const TopicViewerStore = signalStore(
           walk(c, [...chain, c.number]);
         }
       };
-      if (matchesQuery(topic, needle)) set.add(topic.number);
-      walk(topic, [topic.number]);
+      for (const topic of roots) {
+        if (matchesQuery(topic, needle)) set.add(topic.number);
+        walk(topic, [topic.number]);
+      }
       return { set, ancestors };
     }),
   })),
@@ -422,10 +429,14 @@ export const TopicViewerStore = signalStore(
       },
 
       selectTopic(number: number): void {
-        // Seed the root expanded — depth-1 rows (threads) visible by default.
+        // Seed the root expanded — depth-1 rows (threads) visible by
+        // default. In all-topics mode the seed is additive: reseeding
+        // would collapse every other rendered tree (#1532 review).
         patchState(store, {
           selectedTopicNumber: number,
-          expandedIds: [number],
+          expandedIds: store.showAllTopics()
+            ? [...new Set([...store.expandedIds(), number])]
+            : [number],
           suppressedIds: [], // suppressions are scoped to the old tree's query
         });
       },

@@ -29,6 +29,7 @@ describe('TopicViewerTreeComponent', () => {
   const treeRows = signal<TreeRow[]>([]);
   const expandedIds = signal<number[]>([]);
   const showClosed = signal(true);
+  const matchSet = signal<ReadonlySet<number>>(new Set());
   // Mirrors the store's expandableIds: a node is expandable when it has at
   // least one *visible* child (all children pass when showClosed is on).
   const expandableIds = computed(() =>
@@ -41,6 +42,7 @@ describe('TopicViewerTreeComponent', () => {
     treeRows.set([]);
     expandedIds.set([]);
     showClosed.set(true);
+    matchSet.set(new Set());
     jest.clearAllMocks();
   });
 
@@ -56,6 +58,7 @@ describe('TopicViewerTreeComponent', () => {
           // ancestors) — spec drives it with the same signal.
           effectiveExpandedIds: expandedIds,
           showClosed, // specs control visibility via treeRows
+          matchSet, // #1532 — query-hit highlight
         } },
       ],
     }).compileComponents();
@@ -158,5 +161,35 @@ describe('TopicViewerTreeComponent', () => {
     await setup();
     expect(fixture.nativeElement.querySelector('[data-testid="tree-node-7"]').classList)
       .toContain('closed');
+  });
+
+  // ── #1532: rows input + match highlight ───────────────────────────────
+
+  it('the rows input overrides store.treeRows (all-topics sections)', async () => {
+    treeRows.set([{ node: node(1), depth: 0 }]);
+    await setup();
+    expect(fixture.nativeElement.querySelectorAll('.tree-row').length).toBe(1);
+    fixture.componentRef.setInput('rows', [
+      { node: node(8), depth: 0 },
+      { node: node(9), depth: 1 },
+    ]);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('.tree-row').length).toBe(2);
+    expect(el.querySelector('[data-testid="tree-node-8"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="tree-node-9"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="tree-node-1"]')).toBeNull();
+  });
+
+  it('rows in matchSet render the match class; non-matches do not', async () => {
+    treeRows.set([
+      { node: node(2), depth: 0 },
+      { node: node(3), depth: 1 },
+    ]);
+    matchSet.set(new Set([3]));
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="tree-node-3"]')!.classList).toContain('match');
+    expect(el.querySelector('[data-testid="tree-node-2"]')!.classList).not.toContain('match');
   });
 });

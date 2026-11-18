@@ -1,0 +1,14 @@
+// Stage-identity chip palette — keyed by lifecycle ordinal
+// (data-stage="1"…"8"). Single source for the page's topic-row chips and
+// the tree's stage chips; literal-sweep exception #1217: stage-identity
+// hues are a categorical palette by contract, not theme tokens.
+@mixin stage-chip-palette {
+  &[data-stage="1"] { background: #ede7f6; color: #5e35b1; }
+  &[data-stage="2"] { background: #e8eaf6; color: #3949ab; }
+  &[data-stage="3"] { background: #e1f5fe; color: #0277bd; }
+  &[data-stage="4"] { background: #eceff1; color: #455a64; }
+  &[data-stage="5"] { background: #e3f2fd; color: #1565c0; }
+  &[data-stage="6"] { background: #fff8e1; color: #ef6c00; }
+  &[data-stage="7"] { background: #fff3e0; color: #e65100; }
+  &[data-stage="8"] { background: #e8f5e9; color: #2e7d32; }
+}

@@ -432,6 +432,56 @@ describe('TopicViewerStore', () => {
       const all = store.allSectionsRows();
       expect(all.map(s => s.name)).toEqual(['B']);
     });
+
+    it('match scope spans every rendered tree in all-topics mode (#1532)', async () => {
+      const ALL2 = resp([
+        { name: 'A', topics: [node(1, {}, [node(10)])] },
+        {
+          name: 'B',
+          topics: [node(5, { title: 'Deep hit root' }, [
+            node(50, {}, [node(51, { title: 'Deep hit leaf' })]),
+          ])],
+        },
+      ]);
+      const store = storeWith({ getLifecycleTree$: jest.fn(() => of(ALL2)) });
+      await store.refresh();
+      store.setShowAllTopics(true);
+      store.setQuery('deep hit');
+      // Hits = root 5 (title) + leaf 51; ancestors 5+50 auto-expand
+      // inside section B's rows — no selection, no manual expansion.
+      expect([...store.matchSet()].sort()).toEqual([5, 51]);
+      expect(store.matchCount()).toBe(2);
+      expect([...store.matchAncestorIds()].sort()).toEqual([5, 50]);
+      const all = store.allSectionsRows();
+      expect(all.map(s => s.name)).toEqual(['B']); // A filtered out
+      expect(all[0].rows.map(r => r.node.number)).toEqual([5, 50, 51]);
+    });
+
+    it('descendant-only query in all-topics: topic filtered out → 0 matches, never a phantom count', async () => {
+      // The hit lives inside topic 5 but 5's own fields don't match —
+      // filteredTopics drops it, nothing renders, count is honestly 0.
+      const DEEP = resp([
+        { name: 'B', topics: [node(5, {}, [node(50, {}, [node(51, { title: 'Deep hit' })])])] },
+      ]);
+      const store = storeWith({ getLifecycleTree$: jest.fn(() => of(DEEP)) });
+      await store.refresh();
+      store.setShowAllTopics(true);
+      store.setQuery('deep hit');
+      expect(store.filteredTopics().length).toBe(0);
+      expect(store.matchCount()).toBe(0);
+      expect(store.allSectionsRows()).toEqual([]);
+    });
+
+    it('selectTopic seeds expansion additively in all-topics mode (#1532)', async () => {
+      const store = storeWith({ getLifecycleTree$: jest.fn(() => of(ALL)) });
+      await store.refresh();
+      store.setShowAllTopics(true);
+      store.toggleExpanded(1); // manual expansion of section A's root
+      store.selectTopic(5);
+      expect(store.selectedTopicNumber()).toBe(5);
+      expect(store.expandedIds()).toContain(1); // prior expansion kept
+      expect(store.expandedIds()).toContain(5);
+    });
   });
 
   describe('label patch + write', () => {
