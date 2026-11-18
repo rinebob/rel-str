@@ -406,6 +406,12 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
   },
   {
+    name: 'selection-replay coordinate-selection parity (live SA)',
+    file: 'options-backtest-selection-replay-1497-selection-parity.ts',
+    needsAccount: false,
+    needsAdc: true,
+  },
+  {
     name: 'backtest-analytics registry + contracts',
     file: 'options-backtest-analytics-1367-registry-contracts.ts',
     needsAccount: false,
