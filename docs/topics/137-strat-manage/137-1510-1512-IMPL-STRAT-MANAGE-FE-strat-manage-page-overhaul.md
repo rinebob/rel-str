@@ -113,6 +113,34 @@ sortable/filterable instance table, start/stop actions, two create dialogs
    Specs: service 7, store 6, component 8.
 2. **F2 — Table complete** — columns, sort/filter, runState badges,
    position-status join, start/stop actions.
+
+   **As-built (#1546):** `strategy-manage.service` gained
+   `setRunState(id, runState)` — `updateDoc` + `updatedAt` stamp, same
+   `requireUserId` gate as the reader. `strategy-manage.store` gained
+   `openPositions` state (one-shot `listStrategyPositions$` fetch inside
+   `load()` — position writes are engine-owned so a poll/stream is
+   unnecessary), the
+   `openPositionsByInstance` computed (Record<instanceId, Position[]>),
+   and `toggleRunState(instance)` mapping UNSTARTED→ACTIVE,
+   ACTIVE→STOPPED, STOPPED→ACTIVE — restart never returns to UNSTARTED,
+   and real-mode rows are a no-op at the store seam (the UI also disables
+   the button). The Firestore stream delivers the optimistic update; no
+   local patch needed. The component now renders the full 9-column table
+   (Instance ID, Symbol, Variant, Stop Type, Trigger, Run State, Open
+   Position, Created, Actions) with paper-trading's multi-sort convention
+   (click asc→desc→unsorted, shift+click secondary keys, `aria-sort` +
+   sort icon). Filter bar: text input over `id + symbol + variant.name`,
+   run-state select (ALL/UNSTARTED/ACTIVE/STOPPED), position-status
+   select (all/open/waiting/flat — the same three buckets the cell
+   renders, so the filter matches what the user sees). Position cell:
+   `Yes · {status}` from the join; `Waiting` for ACTIVE-flat (the
+   noon-gate state — spec-pinned so it can never render blank); `No` for
+   non-ACTIVE flat. Action button is
+   `ds-btn outline small` — Start/Stop/Restart label per run state,
+   `[disabled]` on real rows (row also dimmed via `.real-row` opacity).
+   Specs: service +1 (9), store +7 (13), component +11 (19). Build clean;
+   the only new warning introduced during dev (`variant?.name` on a
+   non-nullable field, NG8107) was resolved to `.name`.
 3. **F3 — Create New Instance dialog** — variant picker, mode/stop/trigger
    selects, multi-symbol, ID gen + dedup, writes.
 4. **F4 — Create New Strategy dialog + Export JSON** — template-driven leg
