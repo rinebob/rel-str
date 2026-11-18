@@ -1,6 +1,6 @@
 /**
  * `optionsReplayStart` callable (Topic #1238, Thread #1240, task #1281;
- * single-symbol runs #1430).
+ * single-symbol runs #1430; two-form request + variant snapshot #1498).
  *
  * A submission of N symbols creates N INDEPENDENT run docs — the multi-
  * symbol input is convenience fanout, not a batch. Per symbol: create
@@ -35,22 +35,29 @@ import * as logger from 'firebase-functions/logger';
 
 import { db, FieldValue } from '../firebase-admin-init';
 import { getRunDatePT, getRunIdPT, isValidMarketDate } from '../common/pt-date-utils';
-import { getReplayTemplate } from '@options-replay/templates';
+import { getReplayTemplate, getReplayVariant, validateVariantLegs } from '@options-replay/templates';
 import { ST_OPTIONS_REPLAY_RUNS_ROOT } from '@st/collections';
+import { templateToOptionLeg } from '@options-replay/contracts';
 import type {
   OptionsReplayPermutationPayload,
   OptionsReplayRun,
   OptionsReplayStartRequest,
   OptionsReplayStartResponse,
+  VariantLeg,
+  VariantSnapshot,
 } from '@options-replay/contracts';
 
 /** Task-queue name — must match the `onTaskDispatched` function #1280 exports. */
 export const OPTIONS_REPLAY_TASK_QUEUE = 'optionsReplayPermutation';
 
-/** Run doc as written — server timestamps in place of the wire ISO strings. */
+/** Run doc as written — server timestamps in place of the wire ISO
+ *  strings. `variantSnapshot` is required on WRITE (every post-#1498 run
+ *  stamps it) while staying optional on the read model — pre-#1498 docs
+ *  legitimately lack it. */
 export type OptionsReplayRunWrite = Omit<OptionsReplayRun, 'createdAt' | 'updatedAt' | 'completedAt'> & {
   createdAt: FirebaseFirestore.FieldValue;
   updatedAt: FirebaseFirestore.FieldValue;
+  variantSnapshot: VariantSnapshot;
 };
 
 /** Injectable effects — tests substitute fakes; the callable uses the
@@ -77,20 +84,24 @@ export async function startReplay(
   const input = request.data;
   // Runtime types aren't guaranteed at the callable boundary — a malformed
   // payload must surface invalid-argument, not a TypeError-as-internal.
-  // The variant/legs forms typecheck (Thread #1270 contracts, #1491) but
-  // resolution isn't wired until the multi-leg worker lands (#1498) —
-  // reject them explicitly instead of falling into the templateId lookup.
-  if (input?.variantId !== undefined || input?.legs !== undefined) {
+  // Exactly one identity form per request (#1498): `variantId` resolves
+  // through the registry, inline `legs[]` validate against the SHARED
+  // validator, and legacy `templateId` resolves to its 1-leg variant.
+  // Presence (`!== undefined`), not truthiness — legs:null still signals
+  // the caller intended the legs form.
+  const forms =
+    (input?.variantId !== undefined ? 1 : 0) +
+    (input?.legs !== undefined ? 1 : 0) +
+    (input?.templateId !== undefined ? 1 : 0);
+  if (forms !== 1) {
     throw new HttpsError(
       'invalid-argument',
-      'variantId/legs request forms are not yet supported — submit templateId (variant resolution lands in #1498)',
+      'Exactly one of variantId, legs, or templateId is required',
     );
   }
-  const templateId = String(input?.templateId ?? '').trim();
-  const template = templateId ? getReplayTemplate(templateId) : undefined;
-  if (!template) {
-    throw new HttpsError('invalid-argument', `Unknown templateId '${input?.templateId}'`);
-  }
+  const resolved = resolveRequestVariant(input);
+  const templateId = resolved.templateId;
+  const variantSnapshot = resolved.variantSnapshot;
 
   const rawSymbols = Array.isArray(input?.symbols) ? input.symbols : [];
   const symbols = [
@@ -135,6 +146,11 @@ export async function startReplay(
         symbol,
         startDate,
         status: 'running',
+        // Stamped once at create — the worker reads this, never the
+        // registry, so post-run registry edits can't rewrite history.
+        // (The worker switch lands in #1499 — until then variant/legs
+        // runs fail 'Unknown templateId' in the legacy worker.)
+        variantSnapshot,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       };
@@ -158,8 +174,97 @@ export async function startReplay(
   return { runIds };
 }
 
-/** Production wiring — Firestore run doc + Cloud Tasks queue. */
-const prodReplayStartDeps: ReplayStartDeps = {
+/**
+ * Resolve the request's single identity form to the run's registry id +
+ * self-describing variant snapshot (IMPL-BE §1, #1498). The caller has
+ * already counted forms — each branch keys off its `!== undefined`
+ * discriminator, mirroring the count's presence semantics.
+ */
+function resolveRequestVariant(input: OptionsReplayStartRequest | undefined): {
+  templateId: string;
+  variantSnapshot: VariantSnapshot;
+} {
+  if (input?.variantId !== undefined) {
+    const variantId = String(input.variantId ?? '').trim();
+    const variant = variantId ? getReplayVariant(variantId) : undefined;
+    if (!variant) {
+      throw new HttpsError('invalid-argument', `Unknown variantId '${String(input.variantId)}'`);
+    }
+    return {
+      templateId: variant.id,
+      variantSnapshot: { variantId: variant.id, name: variant.name, legs: variant.legs },
+    };
+  }
+  if (input?.legs !== undefined) {
+    if (!Array.isArray(input.legs) || input.legs.length === 0) {
+      throw new HttpsError('invalid-argument', 'legs must be a non-empty array');
+    }
+    // An unbounded leg array can exceed the 1MiB doc limit — a createRun
+    // rejection mid-fanout surfaces `internal` with a partial run set.
+    // 8 is 2× the largest registry shape (4-leg condors/butterflies).
+    if (input.legs.length > 8) {
+      throw new HttpsError('invalid-argument', 'legs exceeds the maximum of 8');
+    }
+    const errs = validateVariantLegs(input.legs);
+    if (errs.length > 0) {
+      throw new HttpsError('invalid-argument', errs.join('; '));
+    }
+    const requestedName = input.variantName;
+    if (
+      requestedName !== undefined &&
+      (typeof requestedName !== 'string' || requestedName.trim().length > 200)
+    ) {
+      throw new HttpsError(
+        'invalid-argument',
+        'variantName must be a string of at most 200 characters',
+      );
+    }
+    // Stamp only contract fields — a wire leg carrying extra keys must
+    // not leak them into the immutable snapshot. targetDelta is stamped
+    // in canonical grid form: the validator's round-then-check admits
+    // e.g. -0.19999 as 20Δ, and consumers read the stamped value as the
+    // canonical cell.
+    const legs: VariantLeg[] = input.legs.map((l) =>
+      l.kind === 'stock'
+        ? { kind: 'stock', side: l.side }
+        : {
+            kind: 'option',
+            type: l.type,
+            targetDelta:
+              Math.sign(l.targetDelta) * (Math.round(Math.abs(l.targetDelta) * 100) / 100),
+            dte: l.dte,
+            side: l.side,
+          },
+    );
+    const name = typeof requestedName === 'string' ? requestedName.trim() : '';
+    return {
+      // Inline legs resolve to no registry entry — 'custom' mirrors the
+      // variant `structure` convention for a non-registry composition.
+      templateId: 'custom',
+      variantSnapshot: { name: name || `custom ${legs.length}-leg`, legs },
+    };
+  }
+  const templateId = String(input?.templateId ?? '').trim();
+  const template = templateId ? getReplayTemplate(templateId) : undefined;
+  if (!template) {
+    throw new HttpsError('invalid-argument', `Unknown templateId '${input?.templateId}'`);
+  }
+  // A ReplayTemplate is a 1-leg variant projection (#1495) — template.id
+  // IS the variant's registry id, so the snapshot stamps it for
+  // provenance. `templateToOptionLeg` is the documented migration shim.
+  return {
+    templateId: template.id,
+    variantSnapshot: {
+      variantId: template.id,
+      name: template.name,
+      legs: [templateToOptionLeg(template)],
+    },
+  };
+}
+
+/** Production wiring — Firestore run doc + Cloud Tasks queue. Exported
+ *  so verify scripts exercise the real deps rather than a drifted copy. */
+export const prodReplayStartDeps: ReplayStartDeps = {
   async createRun(runId, doc) {
     await db.collection(ST_OPTIONS_REPLAY_RUNS_ROOT).doc(runId).set(doc);
   },

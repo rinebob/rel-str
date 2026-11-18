@@ -30,6 +30,7 @@ import {
   REPLAY_TEMPLATE_SHAPES,
   REPLAY_TEMPLATES,
   REPLAY_VARIANTS,
+  validateVariantLegs,
   validateVariantRegistry,
   type TemplateShape,
 } from './options-replay-templates';
@@ -478,6 +479,31 @@ describe('options-replay-templates', () => {
       const errs = validateVariantRegistry(null as never, 'x' as never);
       expect(errs.length).toBeGreaterThan(0);
       expect(errs.some((e) => /not an array/.test(e))).toBe(true);
+    });
+
+    it("rejects a 'custom' registry id — the legs-form run-doc sentinel (#1498)", () => {
+      const errs = validateVariantRegistry([], [variant('custom', [optLeg()])]);
+      expect(errs.some((e) => e.includes('custom') && e.includes('reserved'))).toBe(true);
+    });
+  });
+
+  describe('validateVariantLegs (#1498)', () => {
+    const optLeg = (over: Partial<OptionLeg> = {}): OptionLeg =>
+      ({ kind: 'option', type: OptionType.PUT, targetDelta: -0.2, dte: 45, side: TradeSide.SHORT, ...over }) as OptionLeg;
+
+    it("labels violations 'leg {i}' with no owner prefix — the request-boundary form", () => {
+      const errs = validateVariantLegs([optLeg({ targetDelta: 0.2 })]);
+      expect(errs).toEqual(['leg 0: put leg has non-negative targetDelta 0.2']);
+    });
+
+    it("labels violations '{where} leg {i}' under an owner — registry-identical", () => {
+      const errs = validateVariantLegs([optLeg({ dte: 32 })], "variant 'v'");
+      expect(errs).toEqual(["variant 'v' leg 0: dte 32 is not on the pick-grid menu"]);
+    });
+
+    it('detects a duplicate leg naming the prior index', () => {
+      const errs = validateVariantLegs([optLeg(), optLeg({ dte: 30 }), optLeg()]);
+      expect(errs).toEqual(['leg 2: duplicate of leg 0']);
     });
   });
 });

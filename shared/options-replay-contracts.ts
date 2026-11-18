@@ -457,9 +457,10 @@ export const OPTIONS_CONTRACT_LIST_STATUSES: readonly OptionsContractListStatus[
  */
 export interface OptionsReplayRun {
   runId: string;
-  /** Resolved registry id. #1498 decides how legs-form runs (no registry
-   *  entry) carry identity — likely `variantSnapshot`, not an absent
-   *  templateId. */
+  /** Resolved registry id — the variant id for variantId/templateId-form
+   *  runs (one shared namespace), `'custom'` for inline `legs` runs which
+   *  have no registry entry. Legs-form runs carry their identity in
+   *  `variantSnapshot`, not an absent templateId (#1498). */
   templateId: string;
   symbol: string;
   startDate: string;
@@ -531,10 +532,10 @@ export interface OptionsReplayStartVariantRequest extends OptionsReplayStartBase
   variantName?: never;
 }
 
-/** Form 2 — inline concrete legs composed by the spread builder.
- *  `legs: []` typechecks today (the runtime rejects every legs form
- *  until #1498); the non-empty/stock-only policy lands with #1498's
- *  boundary validation. */
+/** Form 2 — inline concrete legs composed by the spread builder. The
+ *  runtime boundary (#1498) requires a non-empty array passing
+ *  `validateVariantLegs` (on-grid Δ/DTE, sign parity, no dupes) — the type
+ *  alone can't express that, so `legs: []` still typechecks. */
 export interface OptionsReplayStartLegsRequest extends OptionsReplayStartBase {
   legs: readonly VariantLeg[];
   /** Display-only label carried onto the run's snapshot — an inline

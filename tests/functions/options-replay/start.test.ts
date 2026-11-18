@@ -1,6 +1,7 @@
 /**
  * Unit tests for `startReplay` — the `optionsReplayStart` callable core
- * (Topic #1238, task #1281; single-symbol runs #1430). The onCall wrapper
+ * (Topic #1238, task #1281; single-symbol runs #1430; two-form request +
+ * variant snapshot #1498). The onCall wrapper
  * stays a thin adapter; all Firestore + task-queue effects go through the
  * injectable `ReplayStartDeps` seam so these tests run with fakes
  * (TEST-BE: validation + per-symbol fanout shape).
@@ -133,42 +134,239 @@ describe('startReplay', () => {
     assert.deepEqual(enqueued.map((p) => p.symbol).sort(), ['QQQ', 'SPY']);
   });
 
-  it('rejects the variantId form explicitly until variant resolution lands (#1498)', async () => {
+  it('resolves a variantId run — registry legs + name stamped as the snapshot (#1498)', async () => {
     const { deps, runs, enqueued } = makeDeps();
-    const err = await startReplay(
-      request({ variantId: 'pcs-45-20-10', symbols: ['SPY'], startDate: '2026-01-05' }),
+    const resp = await startReplay(
+      request({ variantId: 'pcs-45-20-5', symbols: ['SPY'], startDate: '2026-01-05' }),
       deps,
-    ).catch((e) => e);
-    assert.equal(code(err), 'invalid-argument');
-    assert.match(String(err.message), /not yet supported/);
-    assert.equal(runs.size, 0);
-    assert.equal(enqueued.length, 0);
+    );
+    assert.equal(resp.runIds.length, 1);
+    const doc = runs.get(resp.runIds[0]);
+    assert.ok(doc);
+    // The run's registry identity is the resolved variant id — the same
+    // shared namespace getReplayTemplate reads (#1495).
+    assert.equal(doc.templateId, 'pcs-45-20-5');
+    assert.deepEqual(doc.variantSnapshot, {
+      variantId: 'pcs-45-20-5',
+      name: '45DTE 20/5Δ put credit spread',
+      legs: [
+        { kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' },
+        { kind: 'option', type: 'put', targetDelta: -0.05, dte: 45, side: 'long' },
+      ],
+    });
+    assert.equal(enqueued.length, 1);
+    assert.deepEqual(Object.keys(enqueued[0]).sort(), ['runId', 'symbol']);
   });
 
-  it('rejects the legs form explicitly until the multi-leg worker lands (#1498)', async () => {
+  it('accepts inline legs — stamps a self-describing snapshot, no registry id (#1498)', async () => {
     const { deps, runs, enqueued } = makeDeps();
+    const resp = await startReplay(
+      request({
+        legs: [
+          { kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' },
+          { kind: 'stock', side: 'long' },
+        ],
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      }),
+      deps,
+    );
+    const doc = runs.get(resp.runIds[0]);
+    assert.ok(doc);
+    assert.equal(doc.status, 'running');
+    assert.equal(doc.templateId, 'custom');
+    assert.deepEqual(doc.variantSnapshot, {
+      name: 'custom 2-leg',
+      legs: [
+        { kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' },
+        { kind: 'stock', side: 'long' },
+      ],
+    });
+    assert.equal(enqueued.length, 1);
+    assert.deepEqual(Object.keys(enqueued[0]).sort(), ['runId', 'symbol']);
+  });
+
+  it('stamps targetDelta in canonical grid form — -0.19999 rounds into the 20Δ cell', async () => {
+    const { deps, runs } = makeDeps();
+    const resp = await startReplay(
+      request({
+        legs: [{ kind: 'option', type: 'put', targetDelta: -0.19999, dte: 45, side: 'short' }],
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      }),
+      deps,
+    );
+    // Consumers read the stamped value as the canonical cell — raw
+    // -0.19999 would diverge from the registry-canonical -0.2.
+    assert.deepEqual(runs.get(resp.runIds[0])?.variantSnapshot?.legs, [
+      { kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' },
+    ]);
+  });
+
+  it('carries the caller-supplied variantName onto an inline-legs snapshot', async () => {
+    const { deps, runs } = makeDeps();
+    const resp = await startReplay(
+      request({
+        legs: [{ kind: 'option', type: 'call', targetDelta: 0.2, dte: 45, side: 'short' }],
+        variantName: '  my earnings fade  ',
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      }),
+      deps,
+    );
+    const doc = runs.get(resp.runIds[0]);
+    assert.equal(doc?.variantSnapshot?.name, 'my earnings fade');
+    assert.equal(doc?.variantSnapshot?.variantId, undefined);
+  });
+
+  it('stamps a snapshot on legacy templateId runs — resolved to the 1-leg variant (#1498)', async () => {
+    const { deps, runs } = makeDeps();
+    const resp = await startReplay(request({ ...VALID, symbols: ['SPY'] }), deps);
+    const doc = runs.get(resp.runIds[0]);
+    assert.equal(doc?.templateId, 'csp-45-20');
+    assert.deepEqual(doc?.variantSnapshot, {
+      variantId: 'csp-45-20',
+      name: '45DTE 20Δ put (CSP)',
+      legs: [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' }],
+    });
+  });
+
+  it('stamps only contract fields on an inline-legs snapshot — unknown keys dropped', async () => {
+    const { deps, runs } = makeDeps();
+    const resp = await startReplay(
+      request({
+        legs: [
+          { kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short', note: 'hi' },
+        ],
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      }),
+      deps,
+    );
+    const doc = runs.get(resp.runIds[0]);
+    assert.deepEqual(doc?.variantSnapshot?.legs, [
+      { kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' },
+    ]);
+  });
+
+  it('rejects a request naming none or more than one of variantId / legs / templateId', async () => {
+    for (const data of [
+      { symbols: ['SPY'], startDate: '2026-01-05' },
+      {
+        variantId: 'csp-45-20',
+        legs: [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' }],
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      },
+      { variantId: 'csp-45-20', templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-05' },
+      {
+        legs: [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' }],
+        templateId: 'csp-45-20',
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      },
+      {
+        variantId: 'csp-45-20',
+        legs: [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' }],
+        templateId: 'csp-45-20',
+        symbols: ['SPY'],
+        startDate: '2026-01-05',
+      },
+    ]) {
+      const { deps, runs, enqueued } = makeDeps();
+      const err = await startReplay(request(data), deps).catch((e) => e);
+      assert.equal(code(err), 'invalid-argument', `expected invalid-argument for ${JSON.stringify(data)}`);
+      assert.equal(runs.size, 0);
+      assert.equal(enqueued.length, 0);
+    }
+  });
+
+  it('surfaces SHARED-validator leg labels in the rejection message', async () => {
+    const { deps } = makeDeps();
     const err = await startReplay(
       request({
-        legs: [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' }],
+        legs: [{ kind: 'option', type: 'put', targetDelta: 0.2, dte: 45, side: 'short' }],
         symbols: ['SPY'],
         startDate: '2026-01-05',
       }),
       deps,
     ).catch((e) => e);
     assert.equal(code(err), 'invalid-argument');
+    assert.match(String(err.message), /leg 0: put leg has non-negative targetDelta/);
+  });
+
+  it('rejects an unknown variantId with invalid-argument and no side effects', async () => {
+    const { deps, runs, enqueued } = makeDeps();
+    const err = await startReplay(
+      request({ variantId: 'nope', symbols: ['SPY'], startDate: '2026-01-05' }),
+      deps,
+    ).catch((e) => e);
+    assert.equal(code(err), 'invalid-argument');
     assert.equal(runs.size, 0);
     assert.equal(enqueued.length, 0);
   });
 
+  for (const [name, legs, extra] of [
+    ['empty legs array', []],
+    ['non-array legs', 'not-legs'],
+    ['null leg entry', [null]],
+    ['off-grid delta', [{ kind: 'option', type: 'put', targetDelta: -0.22, dte: 45, side: 'short' }]],
+    ['off-menu dte', [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 32, side: 'short' }]],
+    ['put with non-negative delta', [{ kind: 'option', type: 'put', targetDelta: 0.2, dte: 45, side: 'short' }]],
+    ['call with non-positive delta', [{ kind: 'option', type: 'call', targetDelta: -0.2, dte: 45, side: 'short' }]],
+    ['invalid side', [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'both' }]],
+    [
+      'duplicate legs',
+      [
+        { kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' },
+        { kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' },
+      ],
+    ],
+    [
+      'duplicate stock legs — same side keys identical',
+      [
+        { kind: 'stock', side: 'long' },
+        { kind: 'stock', side: 'long' },
+      ],
+    ],
+    [
+      'more than 8 legs — the doc-size guard',
+      Array.from({ length: 9 }, (_, i) => ({
+        kind: 'option',
+        type: 'put',
+        targetDelta: -0.05 - i * 0.05,
+        dte: 45,
+        side: 'long',
+      })),
+    ],
+    ['non-string variantName', [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' }], { variantName: 42 }],
+    ['overlong variantName', [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short' }], { variantName: 'x'.repeat(201) }],
+    ['stock leg carrying option field', [{ kind: 'stock', side: 'long', type: 'put' }]],
+    [
+      'option leg carrying shape field',
+      [{ kind: 'option', type: 'put', targetDelta: -0.2, dte: 45, side: 'short', deltaBand: [-25, -15] }],
+    ],
+  ] as const) {
+    it(`rejects inline legs — ${name} (SHARED validator, #1498)`, async () => {
+      const { deps, runs, enqueued } = makeDeps();
+      const err = await startReplay(
+        request({ legs, ...extra, symbols: ['SPY'], startDate: '2026-01-05' }),
+        deps,
+      ).catch((e) => e);
+      assert.equal(code(err), 'invalid-argument', `expected invalid-argument for ${name}`);
+      assert.equal(runs.size, 0);
+      assert.equal(enqueued.length, 0);
+    });
+  }
+
   for (const [name, data] of [
-    ['empty legs array', { legs: [], symbols: ['SPY'], startDate: '2026-01-05' }],
     ['null legs', { legs: null, symbols: ['SPY'], startDate: '2026-01-05' }],
     ['null variantId', { variantId: null, symbols: ['SPY'], startDate: '2026-01-05' }],
-    ['mixed variantId + templateId', { variantId: 'pcs-45-20-10', templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-05' }],
+    ['mixed variantId + templateId', { variantId: 'pcs-45-20-5', templateId: 'csp-45-20', symbols: ['SPY'], startDate: '2026-01-05' }],
   ] as const) {
     it(`rejects a runtime ${name} form — presence checks, not truthiness (#1491)`, async () => {
-      // The callable sees untyped JSON — legs:null/[] still signals the
-      // caller intended a non-legacy form and must get the explicit
+      // The callable sees untyped JSON — legs:null still signals the
+      // caller intended the legs form and must get the explicit
       // rejection, not fall through to the templateId lookup.
       const { deps, runs, enqueued } = makeDeps();
       const err = await startReplay(request(data), deps).catch((e) => e);

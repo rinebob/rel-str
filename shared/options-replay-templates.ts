@@ -747,6 +747,35 @@ function variantLegKey(leg: unknown): string | undefined {
 }
 
 /**
+ * Structural validation for one concrete leg array — the single
+ * implementation behind both the registry drift guard and the #1498
+ * `optionsReplayStart` inline-`legs` boundary (IMPL-BE §1: the request
+ * boundary enforces the SHARED validator, so an inline submission faces
+ * exactly the checks a registry entry would). `where` prefixes each leg's
+ * label — `leg {i}` standalone, `{where} leg {i}` under an owner.
+ * Field/grid/parity checks per leg, then duplicate-leg detection. The
+ * caller owns the non-array/empty check — each call site phrases that
+ * failure in its own vocabulary.
+ */
+export function validateVariantLegs(legs: readonly unknown[], where = ''): string[] {
+  const errs: string[] = [];
+  const label = (i: number): string => (where ? `${where} leg ${i}` : `leg ${i}`);
+  legs.forEach((leg, i) => validateVariantLeg(leg, label(i), errs));
+  const seen = new Map<string, number>();
+  legs.forEach((leg, i) => {
+    const key = variantLegKey(leg);
+    if (key === undefined) return;
+    const prior = seen.get(key);
+    if (prior !== undefined) {
+      errs.push(`${label(i)}: duplicate of leg ${prior}`);
+    } else {
+      seen.set(key, i);
+    }
+  });
+  return errs;
+}
+
+/**
  * Registry drift guard (IMPL-SHARED §4). Validates the shipped registries
  * — or injected ones for tests — and returns one actionable message per
  * violation; empty when clean. The shared spec calls this against the real
@@ -784,6 +813,12 @@ export function validateVariantRegistry(
     if (!nonEmpty(id)) {
       errs.push(`${kind}[${index}] has a missing/empty id`);
       return;
+    }
+    // 'custom' is the legs-form run-doc sentinel (#1498) — a registry id
+    // colliding with it would shadow the sentinel AND let the pre-#1499
+    // worker resolve stamped-'custom' runs as that variant's recipe.
+    if (id === 'custom') {
+      errs.push(`${kind}[${index}] id 'custom' is reserved (legs-form sentinel)`);
     }
     const prior = idOwners.get(id);
     if (prior !== undefined) {
@@ -829,18 +864,7 @@ export function validateVariantRegistry(
       errs.push(`${owner}: must declare ≥1 leg`);
       continue;
     }
-    v.legs.forEach((leg, i) => validateVariantLeg(leg, legWhere(owner, i), errs));
-    const seen = new Map<string, number>();
-    v.legs.forEach((leg, i) => {
-      const key = variantLegKey(leg);
-      if (key === undefined) return;
-      const prior = seen.get(key);
-      if (prior !== undefined) {
-        errs.push(`${legWhere(owner, i)}: duplicate of leg ${prior}`);
-      } else {
-        seen.set(key, i);
-      }
-    });
+    errs.push(...validateVariantLegs(v.legs, owner));
   }
 
   return errs;
