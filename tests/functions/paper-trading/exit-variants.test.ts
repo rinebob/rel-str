@@ -21,8 +21,10 @@ import {
 import {
   evaluateVariant,
   EXIT_VARIANT_CONFIGS,
+  isIndependentCloser,
   isTerminalVariantKey,
   parseVariantKey,
+  variantLevel,
   type VariantEvalCtx,
 } from '../../../functions/src/paper-trading/exits/registry';
 
@@ -247,5 +249,175 @@ describe('EXIT_VARIANT_CONFIGS', () => {
           break;
       }
     }
+  });
+});
+
+// ── Curated grammar (#1574): ma-close-{N}, target-{pct} ─────────────────────
+
+describe('parseVariantKey — curated grammar (#1574)', () => {
+  it('parses ma-close-{N} into a period', () => {
+    const v = parseVariantKey('ma-close-20');
+    assert.ok(v);
+    assert.equal(v.family, 'ma-close');
+    assert.deepEqual(v.params, { period: 20 });
+    assert.deepEqual(parseVariantKey('ma-close-100')!.params, { period: 100 });
+  });
+
+  it('parses target-{pct} into a fraction', () => {
+    const v = parseVariantKey('target-50');
+    assert.ok(v);
+    assert.equal(v.family, 'target');
+    assert.deepEqual(v.params, { pct: 0.5 });
+    assert.deepEqual(parseVariantKey('target-100')!.params, { pct: 1.0 });
+  });
+
+  it('rejects malformed curated keys', () => {
+    assert.equal(parseVariantKey('ma-close-x'), null);
+    assert.equal(parseVariantKey('ma-close-'), null);
+    assert.equal(parseVariantKey('ma-20'), null);
+    assert.equal(parseVariantKey('target-x'), null);
+    assert.equal(parseVariantKey('target-'), null);
+    assert.equal(parseVariantKey('target'), null);
+  });
+
+  it('ma-close/target are not governing-eligible (seed gate)', () => {
+    assert.equal(isTerminalVariantKey('ma-close-20'), false);
+    assert.equal(isTerminalVariantKey('target-50'), false);
+  });
+});
+
+describe('evaluateVariant — ma-close-{N} (#1574)', () => {
+  const LONG = { order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 } };
+
+  it('long fires when the mark closes below the SMA', () => {
+    const r = evaluateVariant(
+      ctx({
+        trade: makeTrade({ ...LONG }),
+        mark: 94,
+        run: makeRun('ma-close-20', false),
+        indicators: { sma: { 20: 95 } },
+      }),
+    );
+    assert.equal(r.trigger, true);
+  });
+
+  it('long does not fire at or above the SMA', () => {
+    for (const mark of [95, 96]) {
+      const r = evaluateVariant(
+        ctx({
+          trade: makeTrade({ ...LONG }),
+          mark,
+          run: makeRun('ma-close-20', false),
+          indicators: { sma: { 20: 95 } },
+        }),
+      );
+      assert.equal(r.trigger, false, `mark ${mark} should not fire`);
+    }
+  });
+
+  it('short fires when the mark closes above the SMA', () => {
+    const r = evaluateVariant(
+      ctx({ mark: 96, run: makeRun('ma-close-50', false), indicators: { sma: { 50: 95 } } }),
+    );
+    assert.equal(r.trigger, true); // fixture trade is SHORT
+  });
+
+  it('absent SMA data never fires blind', () => {
+    for (const indicators of [undefined, {}, { sma: {} }, { sma: { 50: 95 } }]) {
+      const r = evaluateVariant(
+        ctx({ mark: 1, run: makeRun('ma-close-20', false), indicators }),
+      );
+      assert.equal(r.trigger, false, `indicators ${JSON.stringify(indicators)}`);
+    }
+  });
+});
+
+describe('evaluateVariant — target-{pct} (#1574)', () => {
+  it('long fires at entry × (1 + pct)', () => {
+    // entry 2.0, target-50 → 3.0
+    const fire = evaluateVariant(
+      ctx({
+        trade: makeTrade({ order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 } }),
+        mark: 3.0,
+        run: makeRun('target-50', false),
+      }),
+    );
+    assert.equal(fire.trigger, true);
+    const below = evaluateVariant(
+      ctx({
+        trade: makeTrade({ order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 } }),
+        mark: 2.99,
+        run: makeRun('target-50', false),
+      }),
+    );
+    assert.equal(below.trigger, false);
+  });
+
+  it('short fires at entry × (1 − pct)', () => {
+    // SHORT entry 2.0, target-50 → 1.0
+    const fire = evaluateVariant(
+      ctx({ mark: 1.0, run: makeRun('target-50', false) }),
+    );
+    assert.equal(fire.trigger, true);
+    const above = evaluateVariant(
+      ctx({ mark: 1.01, run: makeRun('target-50', false) }),
+    );
+    assert.equal(above.trigger, false);
+  });
+});
+
+describe('variantLevel (#1574)', () => {
+  it('trailing level rides the watermark including today\'s mark', () => {
+    // LONG entry 2.0, high water at 3.0 → trailing-10 level 2.7; a fresh
+    // mark of 3.2 ratchets the watermark first → 2.88.
+    const long = makeTrade({ order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 } });
+    const run: VariantRun = {
+      variantKey: 'trailing-10',
+      governing: false,
+      state: 'ACTIVE',
+      workingState: { highWaterMark: 3.0 },
+    };
+    assert.equal(
+      variantLevel(run, { trade: long, mark: 3.2 }),
+      3.2 * 0.9,
+    );
+  });
+
+  it('ma-close level is today\'s SMA for its period; undefined without data', () => {
+    const run = makeRun('ma-close-50', false);
+    assert.equal(
+      variantLevel(run, { trade: makeTrade(), mark: 2, indicators: { sma: { 50: 1.5 } } }),
+      1.5,
+    );
+    assert.equal(variantLevel(run, { trade: makeTrade(), mark: 2 }), undefined);
+  });
+
+  it('target level is the fixed target price', () => {
+    const long = makeTrade({ order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 } });
+    assert.equal(
+      variantLevel(makeRun('target-50'), { trade: long, mark: 2.5 }),
+      3.0, // entry 2.0 × 1.5
+    );
+  });
+
+  it('non-price rules and unparseable keys have no level', () => {
+    assert.equal(variantLevel(makeRun('time-30d'), { trade: makeTrade(), mark: 2 }), undefined);
+    assert.equal(variantLevel(makeRun('limit-sd1'), { trade: makeTrade(), mark: 2 }), undefined);
+    assert.equal(variantLevel(makeRun('none'), { trade: makeTrade(), mark: 2 }), undefined);
+  });
+});
+
+describe('isIndependentCloser (#1574)', () => {
+  it('target and time families close independently', () => {
+    assert.equal(isIndependentCloser('target-50'), true);
+    assert.equal(isIndependentCloser('target-100'), true);
+    assert.equal(isIndependentCloser('time-30d'), true);
+  });
+
+  it('stop families and unknown keys do not', () => {
+    assert.equal(isIndependentCloser('trailing-8'), false);
+    assert.equal(isIndependentCloser('ma-close-20'), false);
+    assert.equal(isIndependentCloser('initial-stop-10'), false);
+    assert.equal(isIndependentCloser('none'), false);
   });
 });

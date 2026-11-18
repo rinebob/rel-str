@@ -16,7 +16,8 @@ import { runMarkPass } from './passes/mark-pass';
 import { runSettlementPass } from './passes/settlement-pass';
 import { runHeldSharesMarkPass } from './passes/held-shares-pass';
 import { runStatsPass, createDefaultStatsPassDeps } from './passes/stats-pass';
-import { runExitEvalPass, defaultEvalDeps, type ExitEvalSummary } from '../exits/eval-pass';
+import { runExitEvalPass, type ExitEvalSummary } from '../exits/eval-pass';
+import { defaultEvalDeps } from '../exits/eval-pass-deps';
 import {
   createPaperStatsPassDeps,
   runPaperStatsPass,

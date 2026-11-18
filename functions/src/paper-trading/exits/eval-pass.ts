@@ -24,30 +24,29 @@
  * a dedicated seam, deferred to the exit-policy config task).
  */
 
-import type { Firestore } from 'firebase-admin/firestore';
 import { OptionQuoteSource } from '@options/common';
 import {
+  CURATED_GOVERNING_POLICY,
   PaperTradeStatus,
   type PaperFill,
   type PaperTrade,
   type VariantExitEvent,
   type VariantRun,
 } from '@paper-trading/contracts';
-import { db as adminDb } from '../../firebase-admin-init';
 import {
-  applyExitFill,
   computeExitPnl,
   type ApplyFillResult,
   type ExitFillInput,
 } from '../ledger';
-import {
-  getInstance,
-  listTrades,
-  updateVariantRun,
-} from '../repository';
-import { ledgerDepsWithCapture } from '../screenshot-lifecycle';
 import { calendarDaysBetween } from '../../common/pt-date-utils';
-import { evaluateVariant, parseVariantKey, type VariantEvalCtx } from './registry';
+import type { OhlcBar } from '../../common/market-data-types';
+import {
+  evaluateVariant,
+  isIndependentCloser,
+  parseVariantKey,
+  type VariantEvalCtx,
+} from './registry';
+import { selectGoverningRun, smaIndicatorsFor } from './governing-policy';
 import { createLogger } from '../engine/logging';
 
 const logger = createLogger('ExitEvalPass');
@@ -63,6 +62,18 @@ export interface ExitEvalDeps {
   updateRun(tradeId: string, run: VariantRun): Promise<void>;
   /** Resolve the owning user for the account leg of a closing fill. */
   resolveUserId(trade: PaperTrade): Promise<string | undefined>;
+  /** Daily bars through `date` — needed to enrich `indicators.sma` when a
+   *  trade carries ACTIVE `ma-close-*` runs (#1574). Absent → those runs
+   *  skip loudly (never fire blind). */
+  getBars?(symbol: string, date: string): Promise<OhlcBar[]>;
+  /** Atomic governing write — flag-corrected `variantRuns` + the
+   *  `governingVariant` mirror in one update, used for the daily pick
+   *  AND the close-time attribution write (repository.applyGoverningPick). */
+  applyGoverningPick?(
+    tradeId: string,
+    runs: VariantRun[],
+    governingVariant: string,
+  ): Promise<void>;
 }
 
 export interface ExitEvalSummary {
@@ -111,6 +122,18 @@ export async function runExitEvalPass(
     errors: [],
   };
 
+  // Per-symbol bars cache — curated cohorts cluster on a handful of
+  // symbols; the loader reads every year-shard so per-trade fetches
+  // would multiply the nightly read count.
+  const barsCache = new Map<string, OhlcBar[]>();
+  const barsFor = async (symbol: string): Promise<OhlcBar[]> => {
+    const cached = barsCache.get(symbol);
+    if (cached) return cached;
+    const bars = deps.getBars ? await deps.getBars(symbol, date) : [];
+    barsCache.set(symbol, bars);
+    return bars;
+  };
+
   for (const trade of await deps.listTrades()) {
     const activeRuns = trade.variantRuns.filter((r) => r.state === 'ACTIVE');
     if (activeRuns.length === 0) continue;
@@ -129,13 +152,90 @@ export async function runExitEvalPass(
     }
     const daysHeld = entry ? calendarDaysBetween(entry.date, date) : 0;
 
+    // ── Curated policy (#1574): SMA enrichment + daily governing pick ──
+    const policyActive =
+      trade.governingPolicy === CURATED_GOVERNING_POLICY &&
+      trade.status === PaperTradeStatus.OPEN;
+    const hasMark = mark !== undefined && Number.isFinite(mark);
+
+    // SMA enrichment for ACTIVE ma-close runs (evaluator + policy
+    // candidacy read the same map) — fetched only when a mark exists,
+    // cached per symbol for the pass. Missing dep/data → the runs hold
+    // no level and skip loudly in evalOne — never fire blind.
+    let indicators: VariantEvalCtx['indicators'];
+    if (
+      hasMark &&
+      activeRuns.some((r) => parseVariantKey(r.variantKey)?.family === 'ma-close')
+    ) {
+      try {
+        indicators = smaIndicatorsFor(
+          activeRuns,
+          await barsFor(trade.symbol),
+          date,
+        );
+      } catch (err) {
+        summary.errors.push(
+          `${trade.id}: bars load failed for ${trade.symbol} — ma-close runs skipped (${err instanceof Error ? err.message : String(err)})`,
+        );
+      }
+    }
+
+    // Policy-marked trades recompute governing before iterating runs: one
+    // atomic write carries the flag-corrected runs + the mirror (no
+    // observable flags-vs-mirror mid-state). Unmarked trades skip this
+    // entirely — their static governingVariant behavior is the
+    // regression pin. pick === undefined keeps the last mirror value —
+    // any later closer fire rewrites it via attribution.
+    // Flag-corrected FULL array (the stored doc carries EXITED runs too
+    // — writing an actives-only array would erase their history) + the
+    // ACTIVE view the eval loop walks.
+    let fullRuns = trade.variantRuns;
+    let evalRuns = activeRuns;
+    if (policyActive && hasMark) {
+      const pick = selectGoverningRun(activeRuns, { trade, mark, indicators });
+      fullRuns = trade.variantRuns.map((r) => ({
+        ...r,
+        governing: r.state === 'ACTIVE' && r.variantKey === pick?.variantKey,
+      }));
+      evalRuns = fullRuns.filter((r) => r.state === 'ACTIVE');
+      const flagChanges = fullRuns.filter(
+        (r, i) => r.governing !== trade.variantRuns[i].governing,
+      ).length;
+      const mirror = pick?.variantKey ?? trade.governingVariant;
+      if (flagChanges > 0 || mirror !== trade.governingVariant) {
+        try {
+          if (!deps.applyGoverningPick) {
+            throw new Error('applyGoverningPick dep missing');
+          }
+          await deps.applyGoverningPick(trade.id, fullRuns, mirror);
+          summary.stateUpdates += flagChanges;
+        } catch (err) {
+          // Isolated to this trade — in-memory evalRuns still evaluate
+          // correctly and the mirror heals on tomorrow's pass.
+          summary.errors.push(
+            `${trade.id}: governing pick write failed — ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+    }
+
+    // Same-day latch: once a real close lands the in-memory trade still
+    // reads OPEN — later triggers must shadow-record, not re-attempt the
+    // ledger (applyExitFill would throw 'not open' on the re-read).
+    let closedThisPass = false;
     /**
      * One run's eval: trigger → governing closes (when allowed) and every
      * run records its exitEvent; otherwise persist working-state updates.
      * `allowGoverningClose` is true only for OPEN trades — ASSIGNED trades
      * hold delivered shares whose exit is a different price basis.
+     * `policyActive` additionally lets `target-*`/`time-*` independent
+     * closers fire the real close.
      */
-    const evalOne = async (run: VariantRun, allowGoverningClose: boolean): Promise<void> => {
+    const evalOne = async (
+      run: VariantRun,
+      allowGoverningClose: boolean,
+      policyClose: boolean,
+    ): Promise<void> => {
       if (mark === undefined || !Number.isFinite(mark)) {
         // Gap tolerance — never fire on a stale mark. Counted per run.
         // A non-finite mark is corrupt upstream data — count + report.
@@ -154,11 +254,27 @@ export async function runExitEvalPass(
         ...(markEntry?.underlyingClose !== undefined
           ? { underlyingClose: markEntry.underlyingClose }
           : {}),
+        ...(indicators ? { indicators } : {}),
       };
       try {
+        // Never fire blind — an ma-close run without its SMA skips loudly.
+        const def = parseVariantKey(run.variantKey);
+        if (
+          def?.family === 'ma-close' &&
+          ctx.indicators?.sma?.[def.params.period] === undefined
+        ) {
+          const msg = `${trade.id}/${run.variantKey}: SMA data unavailable for ${date} — skipped`;
+          summary.errors.push(msg);
+          logger.warn(msg);
+          return;
+        }
         const result = evaluateVariant(ctx);
         if (result.trigger) {
-          if (run.governing) {
+          const evt = exitEventFor(trade, mark, date, daysHeld);
+          const closeWanted =
+            !closedThisPass &&
+            (run.governing || (policyClose && isIndependentCloser(run.variantKey)));
+          if (closeWanted) {
             if (!allowGoverningClose) {
               const msg = `${trade.id}: governing ${run.variantKey} fired on ${trade.status} trade — ` +
                 `share-holding exits need a dedicated seam (skipped)`;
@@ -186,15 +302,37 @@ export async function runExitEvalPass(
               quoteSource: OptionQuoteSource.RH_MCP,
             };
             await deps.applyExit({ userId, tradeId: trade.id, fill, now: new Date().toISOString() });
+            closedThisPass = true;
+            // Atomic close write (policy trades): the fired run's
+            // EXITED + exitEvent AND the mirror land in one update — the
+            // mirror names what actually closed (the pick for governing
+            // fires, the closer key for independent fires).
+            if (policyClose) {
+              const closedRuns = fullRuns.map((r) =>
+                r.variantKey === run.variantKey
+                  ? { ...r, state: 'EXITED' as const, exitEvent: evt }
+                  : r,
+              );
+              if (deps.applyGoverningPick) {
+                await deps.applyGoverningPick(trade.id, closedRuns, run.variantKey);
+                summary.stateUpdates++;
+              } else {
+                summary.errors.push(
+                  `${trade.id}: ${run.variantKey} closed but no applyGoverningPick dep — run state + attribution missed`,
+                );
+              }
+            }
             summary.governingCloses++;
           }
-          await deps.updateRun(trade.id, {
-            ...run,
-            state: 'EXITED',
-            exitEvent: exitEventFor(trade, mark, date, daysHeld),
-          });
-          if (!run.governing) summary.shadowExits++;
-          summary.stateUpdates++;
+          if (!(policyClose && closeWanted)) {
+            await deps.updateRun(trade.id, {
+              ...run,
+              state: 'EXITED',
+              exitEvent: evt,
+            });
+            if (!closeWanted) summary.shadowExits++;
+            summary.stateUpdates++;
+          }
         } else if (
           result.workingState !== undefined &&
           // Skip the write when the water mark didn't move — trailing runs
@@ -237,64 +375,14 @@ export async function runExitEvalPass(
       // Shadow counterfactuals keep evaluating on closed trades while
       // marks land (mark-pass coverage for closed trades is deferred).
       for (const run of activeRuns.filter((r) => !r.governing)) {
-        await evalOne(run, false);
+        await evalOne(run, false, false);
       }
       continue;
     }
 
-    for (const run of activeRuns) {
-      await evalOne(run, trade.status === PaperTradeStatus.OPEN);
+    for (const run of evalRuns) {
+      await evalOne(run, trade.status === PaperTradeStatus.OPEN, policyActive);
     }
   }
   return summary;
-}
-
-// ── Production wiring ───────────────────────────────────────────────────────
-
-/**
- * Candidate trades for eval: every trade with ≥1 ACTIVE variant run —
- * OPEN/ASSIGNED evaluate live; CLOSED backfills a governing run left ACTIVE
- * by a partial failure and keeps shadow runs measuring. PENDING trades are
- * intentionally excluded: they carry no entry fill yet, so no variant can
- * honestly fire (expression-fill-pass flips them to OPEN before marks land).
- */
-async function listCandidateTrades(db: Firestore): Promise<PaperTrade[]> {
-  const statuses = [PaperTradeStatus.OPEN, PaperTradeStatus.ASSIGNED, PaperTradeStatus.CLOSED];
-  const results = await Promise.all(statuses.map((s) => listTrades(db, { status: s })));
-  return results
-    .flat()
-    // ≥1 ACTIVE run with a real variant — 'none' runs stay ACTIVE forever
-    // (inert by parse fallthrough) and would keep every engine trade a
-    // nightly candidate forever; the parse check retires them.
-    .filter((t) =>
-      t.variantRuns.some((r) => r.state === 'ACTIVE' && parseVariantKey(r.variantKey) !== null),
-    );
-}
-
-/**
- * Owner resolution: the trade's own `userId` first — signal trades carry
- * it precisely for server-side fills (#652) and have no strategyInstanceId
- * to look through. The instance lookup is the legacy fallback for strategy
- * trades that predate the field.
- */
-export async function resolveAccountOwner(
-  db: Firestore,
-  trade: PaperTrade,
-): Promise<string | undefined> {
-  if (trade.userId) return trade.userId;
-  if (!trade.strategyInstanceId) return undefined;
-  const inst = await getInstance(db, trade.strategyInstanceId);
-  return inst?.userId;
-}
-
-/** Production dep wiring (Firestore + ledger). */
-export function defaultEvalDeps(db: Firestore = adminDb): ExitEvalDeps {
-  return {
-    listTrades: () => listCandidateTrades(db),
-    applyExit: (input: ExitFillInput): Promise<ApplyFillResult> =>
-      applyExitFill(input, ledgerDepsWithCapture(db)),
-    updateRun: (tradeId, run) =>
-      updateVariantRun(db, tradeId, run, new Date().toISOString()),
-    resolveUserId: (trade) => resolveAccountOwner(db, trade),
-  };
 }

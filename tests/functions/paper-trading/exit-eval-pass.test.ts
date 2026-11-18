@@ -21,10 +21,10 @@ import {
   type VariantRun,
 } from '../../../shared/paper-trading-contracts';
 import {
-  resolveAccountOwner,
   runExitEvalPass,
   type ExitEvalDeps,
 } from '../../../functions/src/paper-trading/exits/eval-pass';
+import { resolveAccountOwner } from '../../../functions/src/paper-trading/exits/eval-pass-deps';
 import type { ExitFillInput } from '../../../functions/src/paper-trading/ledger';
 
 const DATE = '2026-09-10';
@@ -75,9 +75,14 @@ function makeTrade(overrides: Partial<PaperTrade> = {}): PaperTrade {
 interface SpyDeps {
   exits: ExitFillInput[];
   runUpdates: { tradeId: string; run: VariantRun }[];
+  picks: { tradeId: string; runs: VariantRun[]; governingVariant: string }[];
 }
 
-function makeDeps(trades: PaperTrade[], spy: SpyDeps): ExitEvalDeps {
+function makeDeps(
+  trades: PaperTrade[],
+  spy: SpyDeps,
+  overrides: Partial<ExitEvalDeps> = {},
+): ExitEvalDeps {
   return {
     listTrades: async () => trades,
     applyExit: async (input) => {
@@ -102,13 +107,17 @@ function makeDeps(trades: PaperTrade[], spy: SpyDeps): ExitEvalDeps {
     updateRun: async (tradeId, r) => {
       spy.runUpdates.push({ tradeId, run: r });
     },
+    applyGoverningPick: async (tradeId, runs, governingVariant) => {
+      spy.picks.push({ tradeId, runs, governingVariant });
+    },
     resolveUserId: async () => 'user-1',
+    ...overrides,
   };
 }
 
 describe('runExitEvalPass', () => {
   it('governing breach → closing fill at the mark + run EXITED with exitEvent', async () => {
-    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
     // SHORT entry 2.0; mark 2.2 = +10% adverse → initial-stop-10 fires.
     await runExitEvalPass(DATE, makeDeps([makeTrade()], spy));
 
@@ -130,7 +139,7 @@ describe('runExitEvalPass', () => {
   });
 
   it('governing trailing-8 on a SIGNAL trade fires — source is not a gate (#676)', async () => {
-    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
     // SHORT entry 2.0; the mark pass writes 2.5 on DATE. trailing-8 peak
     // tracking starts at entry: 2.5 is +25% adverse → fires.
     const trade = makeTrade({
@@ -150,7 +159,7 @@ describe('runExitEvalPass', () => {
   });
 
   it('shadow breach → exitEvent recorded, no closing fill', async () => {
-    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
     const trade = makeTrade({
       governingVariant: 'time-30d',
       variantRuns: [run('time-30d', true), run('initial-stop-10', false)],
@@ -169,7 +178,7 @@ describe('runExitEvalPass', () => {
   });
 
   it('updates working state on non-triggering runs', async () => {
-    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
     const trade = makeTrade({
       governingVariant: 'trailing-20',
       // mark 1.0 is favorable for SHORT — new low water, no breach
@@ -188,7 +197,7 @@ describe('runExitEvalPass', () => {
   });
 
   it('skips the day entirely when the mark is missing (chain gap)', async () => {
-    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
     const trade = makeTrade({ marks: {} });
     await runExitEvalPass(DATE, makeDeps([trade], spy));
     assert.equal(spy.exits.length, 0);
@@ -196,7 +205,7 @@ describe('runExitEvalPass', () => {
   });
 
   it('never re-closes a CLOSED trade; backfills governing exitEvent from the exit fill', async () => {
-    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
     const trade = makeTrade({
       status: PaperTradeStatus.CLOSED,
       fills: [
@@ -215,7 +224,7 @@ describe('runExitEvalPass', () => {
   });
 
   it('shadow runs evaluate on a CLOSED trade when a mark exists', async () => {
-    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
     const trade = makeTrade({
       status: PaperTradeStatus.CLOSED,
       governingVariant: 'time-30d',
@@ -237,7 +246,7 @@ describe('runExitEvalPass', () => {
   });
 
   it('governing trigger on an ASSIGNED trade is an error, never a close', async () => {
-    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
     const trade = makeTrade({ status: PaperTradeStatus.ASSIGNED });
     const summary = await runExitEvalPass(DATE, makeDeps([trade], spy));
 
@@ -249,7 +258,7 @@ describe('runExitEvalPass', () => {
   });
 
   it('unknown variant keys (incl. none sentinel) are inert', async () => {
-    const spy: SpyDeps = { exits: [], runUpdates: [] };
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
     const trade = makeTrade({
       governingVariant: 'none',
       variantRuns: [run('none', true)],
@@ -322,5 +331,226 @@ describe('resolveAccountOwner (#652)', () => {
     } as never;
     const trade = makeTrade({ userId: undefined, strategyInstanceId: undefined });
     assert.equal(await resolveAccountOwner(fakeDb, trade), undefined);
+  });
+});
+
+// ── Curated governing policy (#1574) ────────────────────────────────────────
+
+function policyTrade(overrides: Partial<PaperTrade> = {}): PaperTrade {
+  return makeTrade({
+    order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 },
+    source: PaperTradeSource.SIGNAL,
+    governingPolicy: 'deepest-stop-else-trailing-8',
+    governingVariant: 'trailing-8',
+    fills: [
+      { fillId: 'entry-t-1', role: 'entry', date: '2026-09-01', price: 80, quantity: 1, quoteSource: OptionQuoteSource.SDS_BARS },
+    ],
+    marks: { [DATE]: { mark: 100, underlyingClose: 100 } },
+    ...overrides,
+  });
+}
+
+const sma20Bars = (close: number): { d: string; o: number; h: number; l: number; c: number }[] =>
+  Array.from({ length: 20 }, (_, i) => ({
+    d: `2026-08-${String(14 + i).padStart(2, '0')}`,
+    o: 0, h: 0, l: 0, c: close,
+  }));
+
+describe('runExitEvalPass — governing policy (#1574)', () => {
+  it('policy-marked trade rewrites governing flags + governingVariant each day', async () => {
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
+    const trade = policyTrade({
+      variantRuns: [
+        run('trailing-5', false, { highWaterMark: 100 }),
+        run('trailing-8', true, { highWaterMark: 100 }),
+        run('ma-close-20', false),
+      ],
+      variantKeys: ['trailing-5', 'trailing-8', 'ma-close-20'],
+    });
+    await runExitEvalPass(DATE, makeDeps([trade], spy, {
+      getBars: async () => sma20Bars(90),
+    }));
+
+    // sma20 = 90 → deepest below the watermark (95/92/90) → ma-close-20
+    // governs. Flags + mirror land in ONE atomic pick write.
+    assert.equal(spy.picks.length, 1);
+    const pick = spy.picks[0];
+    assert.equal(pick.governingVariant, 'ma-close-20');
+    assert.equal(
+      pick.runs.find((r) => r.variantKey === 'ma-close-20')?.governing,
+      true,
+    );
+    assert.equal(
+      pick.runs.find((r) => r.variantKey === 'trailing-8')?.governing,
+      false,
+    );
+    assert.equal(spy.exits.length, 0); // mark above sma → no fire
+  });
+
+  it('unmarked trades keep static governing — no recompute, no closer semantics', async () => {
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
+    const trade = policyTrade({
+      governingPolicy: undefined, // static governing trade
+      marks: { [DATE]: { mark: 130, underlyingClose: 130 } },
+      variantRuns: [
+        run('trailing-8', true, { highWaterMark: 100 }),
+        run('target-50', false), // fires at 120 — but not a policy trade
+      ],
+      variantKeys: ['trailing-8', 'target-50'],
+    });
+    await runExitEvalPass(DATE, makeDeps([trade], spy, {
+      getBars: async () => sma20Bars(90),
+    }));
+
+    assert.equal(spy.picks.length, 0);
+    assert.equal(spy.exits.length, 0); // target-50 can't close an unmarked trade
+    const tgt = spy.runUpdates.find((u) => u.run.variantKey === 'target-50');
+    assert.equal(tgt?.run.state, 'EXITED'); // shadow exit recorded
+  });
+
+  it('independent closer fires the real close + rewrites governingVariant to the closer key', async () => {
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
+    const trade = policyTrade({
+      fills: [
+        { fillId: 'entry-t-1', role: 'entry', date: '2026-09-01', price: 60, quantity: 1, quoteSource: OptionQuoteSource.SDS_BARS },
+      ],
+      variantRuns: [
+        run('trailing-8', true, { highWaterMark: 100 }),
+        run('target-50', false), // entry 60 × 1.5 = 90 ≤ mark 100 → fires
+      ],
+      variantKeys: ['trailing-8', 'target-50'],
+    });
+    await runExitEvalPass(DATE, makeDeps([trade], spy));
+
+    assert.equal(spy.exits.length, 1);
+    assert.equal(spy.exits[0].fill.price, 100);
+    assert.equal(spy.exits[0].fill.fillId, `exit-t-1-target-50-${DATE}`);
+    // Closer attribution + run state land in ONE atomic write.
+    const closeWrite = spy.picks.find((pk) => pk.governingVariant === 'target-50');
+    assert.ok(closeWrite);
+    assert.equal(
+      closeWrite.runs.find((r) => r.variantKey === 'target-50')?.state,
+      'EXITED',
+    );
+  });
+
+  it('ma-close above the watermark shadows — a level past the peak is consumed, never the pick', async () => {
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
+    const trade = policyTrade({
+      variantRuns: [
+        run('trailing-8', true, { highWaterMark: 100 }),
+        run('ma-close-20', false),
+      ],
+      variantKeys: ['trailing-8', 'ma-close-20'],
+    });
+    await runExitEvalPass(DATE, makeDeps([trade], spy, {
+      getBars: async () => sma20Bars(110), // sma 110 > watermark 100 → consumed
+    }));
+
+    assert.equal(spy.exits.length, 0); // close comes only from the governing pick
+    const ma = spy.runUpdates.find((u) => u.run.variantKey === 'ma-close-20');
+    assert.equal(ma?.run.state, 'EXITED'); // shadow exitEvent recorded
+    assert.ok(ma?.run.exitEvent);
+    assert.equal(spy.picks.length, 0); // trailing-8 was already governing
+  });
+
+  it('missing bars dep — ma-close runs skip loudly, never fire blind', async () => {
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
+    const trade = policyTrade({
+      variantRuns: [
+        run('trailing-8', true, { highWaterMark: 100 }),
+        run('ma-close-20', false),
+      ],
+      variantKeys: ['trailing-8', 'ma-close-20'],
+    });
+    const summary = await runExitEvalPass(DATE, makeDeps([trade], spy)); // no getBars
+
+    assert.equal(spy.exits.length, 0);
+    assert.ok(summary.errors.some((e) => e.includes('ma-close-20') && /sma/i.test(e)));
+    const ma = spy.runUpdates.find((u) => u.run.variantKey === 'ma-close-20');
+    assert.notEqual(ma?.run.state, 'EXITED'); // skipped, not shadow-exited
+  });
+
+  it('breach day — the deepest stop below the watermark fires the real close', async () => {
+    // hwm 100 → trailing-5 95, trailing-8 92, sma20 90. Mark 85 breached all
+    // three; deepest below the watermark = ma-close-20 → it closes at 85,
+    // the tighter stops shadow-exit. Without watermark-side candidacy the
+    // trade would sit OPEN forever (all stops shadowed, no pick).
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
+    const trade = policyTrade({
+      marks: { [DATE]: { mark: 85, underlyingClose: 85 } },
+      variantRuns: [
+        run('trailing-5', false, { highWaterMark: 100 }),
+        run('trailing-8', true, { highWaterMark: 100 }),
+        run('ma-close-20', false),
+      ],
+      variantKeys: ['trailing-5', 'trailing-8', 'ma-close-20'],
+    });
+    const summary = await runExitEvalPass(DATE, makeDeps([trade], spy, {
+      getBars: async () => sma20Bars(90),
+    }));
+
+    assert.equal(spy.exits.length, 1);
+    assert.equal(spy.exits[0].fill.price, 85);
+    assert.equal(spy.exits[0].fill.fillId, `exit-t-1-ma-close-20-${DATE}`);
+    assert.equal(spy.picks[0]?.governingVariant, 'ma-close-20');
+    assert.equal(summary.errors.length, 0);
+    assert.equal(
+      spy.runUpdates.find((u) => u.run.variantKey === 'trailing-8')?.run.state,
+      'EXITED',
+    );
+  });
+
+  it('same-day multi-close latch — second closer shadows, no ledger throw', async () => {
+    // entry 60, mark 130: target-50 (90) and target-100 (120) both fire.
+    // First in run order closes; the second records a shadow exitEvent —
+    // it must NOT attempt applyExit on the already-CLOSED trade.
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
+    const trade = policyTrade({
+      fills: [
+        { fillId: 'entry-t-1', role: 'entry', date: '2026-09-01', price: 60, quantity: 1, quoteSource: OptionQuoteSource.SDS_BARS },
+      ],
+      marks: { [DATE]: { mark: 130, underlyingClose: 130 } },
+      variantRuns: [
+        run('trailing-8', true, { highWaterMark: 130 }), // level 119.6 — unbreached
+        run('target-50', false),
+        run('target-100', false),
+      ],
+      variantKeys: ['trailing-8', 'target-50', 'target-100'],
+    });
+    const summary = await runExitEvalPass(DATE, makeDeps([trade], spy));
+
+    assert.equal(spy.exits.length, 1);
+    assert.equal(spy.exits[0].fill.fillId, `exit-t-1-target-50-${DATE}`);
+    assert.equal(spy.picks[0]?.governingVariant, 'target-50');
+    assert.equal(summary.errors.length, 0); // no 'not open' ledger throw
+    assert.equal(
+      spy.runUpdates.find((u) => u.run.variantKey === 'target-100')?.run.state,
+      'EXITED', // shadow exitEvent, not a second close
+    );
+    assert.equal(summary.shadowExits, 1);
+  });
+
+  it('pick === undefined — no pick write, mirror keeps the last selection', async () => {
+    // Only an independent closer remains ACTIVE (trailing-8 already EXITED)
+    // → no stop candidates → no pick; a later closer still attributes.
+    const spy: SpyDeps = { exits: [], runUpdates: [], picks: [] };
+    const trade = policyTrade({
+      fills: [
+        { fillId: 'entry-t-1', role: 'entry', date: '2026-09-01', price: 60, quantity: 1, quoteSource: OptionQuoteSource.SDS_BARS },
+      ],
+      marks: { [DATE]: { mark: 130, underlyingClose: 130 } },
+      variantRuns: [
+        { ...run('trailing-8', false), state: 'EXITED' },
+        run('target-50', false),
+      ],
+      variantKeys: ['trailing-8', 'target-50'],
+    });
+    await runExitEvalPass(DATE, makeDeps([trade], spy));
+
+    // Only ONE write all pass — the atomic close write (no selection write).
+    assert.equal(spy.picks.length, 1);
+    assert.equal(spy.picks[0].governingVariant, 'target-50');
+    assert.equal(spy.exits.length, 1); // target-50 closes + attributes
   });
 });

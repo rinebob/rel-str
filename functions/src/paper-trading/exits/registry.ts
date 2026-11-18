@@ -32,7 +32,9 @@ export type VariantDef =
   | { family: 'initial-stop'; params: { stopPct: number } }
   | { family: 'trailing-stop'; params: { stopPct: number } }
   | { family: 'time-stop'; params: { days: number } }
-  | { family: 'limit-stddev'; params: { sigma: number } };
+  | { family: 'limit-stddev'; params: { sigma: number } }
+  | { family: 'ma-close'; params: { period: number } }
+  | { family: 'target'; params: { pct: number } };
 
 const PATTERNS: [RegExp, (m: RegExpMatchArray) => VariantDef][] = [
   [
@@ -50,6 +52,14 @@ const PATTERNS: [RegExp, (m: RegExpMatchArray) => VariantDef][] = [
   [
     /^limit-sd(\d+(?:\.\d+)?)$/,
     (m) => ({ family: 'limit-stddev', params: { sigma: Number(m[1]) } }),
+  ],
+  [
+    /^ma-close-(\d+)$/,
+    (m) => ({ family: 'ma-close', params: { period: Number(m[1]) } }),
+  ],
+  [
+    /^target-(\d+(?:\.\d+)?)$/,
+    (m) => ({ family: 'target', params: { pct: Number(m[1]) / 100 } }),
   ],
 ];
 
@@ -129,6 +139,11 @@ export interface VariantEvalCtx {
   /** Calendar days since the entry fill. */
   daysHeld: number;
   run: VariantRun;
+  /** Indicator snapshot for `ma-close-*` runs — `sma[N]` = the N-day
+   *  simple moving average on the eval date. Supplied by the eval pass
+   *  (bars dep) or the backfill walk (precomputed). Absent → the
+   *  evaluator skips rather than firing blind. */
+  indicators?: { sma?: Record<number, number> };
 }
 
 export interface VariantEvalResult {
@@ -138,12 +153,13 @@ export interface VariantEvalResult {
   workingState?: Record<string, number>;
 }
 
-/** Entry fill price for the trade (0 when absent). */
-function entryPrice(trade: PaperTrade): number {
+/** Entry fill price for the trade (0 when absent). Exported for the
+ *  governing policy's below-entry fallback check. */
+export function entryPrice(trade: PaperTrade): number {
   return trade.fills.find((f) => f.role === 'entry')?.price ?? 0;
 }
 
-function isShort(trade: PaperTrade): boolean {
+export function isShort(trade: PaperTrade): boolean {
   return trade.order.side === TradeSide.SHORT;
 }
 
@@ -185,5 +201,86 @@ export function evaluateVariant(ctx: VariantEvalCtx): VariantEvalResult {
     case 'limit-stddev':
       // Stubbed until StdDevLines lands: no level source → never fires.
       return { trigger: false };
+    case 'ma-close': {
+      const sma = ctx.indicators?.sma?.[def.params.period];
+      // Never fire blind — absent indicator data skips the run.
+      if (sma === undefined) return { trigger: false };
+      return { trigger: isShort(ctx.trade) ? ctx.mark > sma : ctx.mark < sma };
+    }
+    case 'target': {
+      const entry = entryPrice(ctx.trade);
+      return {
+        trigger: isShort(ctx.trade)
+          ? ctx.mark <= entry * (1 - def.params.pct)
+          : ctx.mark >= entry * (1 + def.params.pct),
+      };
+    }
   }
+}
+
+// ── Levels + closer classification (#1574) ──────────────────────────────────
+
+/** Context shared by `variantLevel` and the governing selector — the
+ *  subset of `VariantEvalCtx` a level computation needs. */
+export interface VariantLevelCtx {
+  trade: PaperTrade;
+  mark: number;
+  indicators?: { sma?: Record<number, number> };
+}
+
+/**
+ * The rule's current stop/target price level — what the governing
+ * selector compares across runs. Trailing levels ride the watermark
+ * INCLUDING today's mark (same ratchet math as `evaluateVariant`).
+ * `undefined` for non-price rules (time, stub, unparseable keys) — those
+ * can never be governing candidates.
+ */
+export function variantLevel(
+  run: VariantRun,
+  ctx: VariantLevelCtx,
+): number | undefined {
+  const def = parseVariantKey(run.variantKey);
+  if (!def) return undefined;
+  const short = isShort(ctx.trade);
+  const entry = entryPrice(ctx.trade);
+  switch (def.family) {
+    case 'initial-stop':
+      return short
+        ? entry * (1 + def.params.stopPct)
+        : entry * (1 - def.params.stopPct);
+    case 'trailing-stop': {
+      if (short) {
+        const low = Math.min(
+          run.workingState.lowWaterMark ?? entry,
+          ctx.mark,
+        );
+        return low * (1 + def.params.stopPct);
+      }
+      const high = Math.max(
+        run.workingState.highWaterMark ?? entry,
+        ctx.mark,
+      );
+      return high * (1 - def.params.stopPct);
+    }
+    case 'ma-close':
+      return ctx.indicators?.sma?.[def.params.period];
+    case 'target':
+      return short
+        ? entry * (1 - def.params.pct)
+        : entry * (1 + def.params.pct);
+    case 'time-stop':
+    case 'limit-stddev':
+      return undefined;
+  }
+}
+
+/**
+ * Families that close the trade independently of governing — `target-*`
+ * (profit target) and `time-*` (days-held cap). Honored only on trades
+ * carrying `governingPolicy`; unmarked trades keep the static
+ * governing-only close rule (existing-trade regression pin).
+ */
+export function isIndependentCloser(variantKey: string): boolean {
+  const def = parseVariantKey(variantKey);
+  return def !== null && (def.family === 'target' || def.family === 'time-stop');
 }

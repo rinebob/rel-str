@@ -247,6 +247,28 @@ export async function updateVariantRun(
 }
 
 /**
+ * Atomic governing write (#1574) — one `.update` carrying a corrected
+ * `variantRuns` array AND the `governingVariant` mirror, so readers
+ * never observe run state naming one variant while the mirror names
+ * another. Two call sites: the daily pick (flag-corrected runs + pick
+ * key) and a closing fire on policy trades (fired run → EXITED +
+ * exitEvent + the closer/pick key for `exitReason` attribution).
+ */
+export async function applyGoverningPick(
+  db: Firestore,
+  tradeId: string,
+  variantRuns: VariantRun[],
+  governingVariant: string,
+  now: string,
+): Promise<void> {
+  await paperDocRef(db, PaperTradingKind.TRADE, tradeId).update({
+    variantRuns,
+    governingVariant,
+    updatedAt: now,
+  });
+}
+
+/**
  * Mark a signal-source trade (task #676): `marks[date].mark`, per-leg
  * `lastMark`, `unrealizedPnl`, `lastMarkedAt`, and the raw-quote audit doc in
  * one txn. Unlike `markPosition` in the position-repository this takes the
