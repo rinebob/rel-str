@@ -68,6 +68,9 @@
         (click)="toolbarState.setInterval(BarsInterval.MONTHLY)">M</button>
     </span>
     <span class="pill-group flat">
+      <button type="button" class="pill" [class.active]="toolbarState.activeRange() === '25'" (click)="toolbarState.setRange('25')">25</button>
+      <button type="button" class="pill" [class.active]="toolbarState.activeRange() === '50'" (click)="toolbarState.setRange('50')">50</button>
+      <button type="button" class="pill" [class.active]="toolbarState.activeRange() === '100'" (click)="toolbarState.setRange('100')">100</button>
       <button type="button" class="pill" [class.active]="toolbarState.activeRange() === '6m'" (click)="toolbarState.setRange('6m')">6M</button>
       <button type="button" class="pill" [class.active]="toolbarState.activeRange() === '1y'" (click)="toolbarState.setRange('1y')">1Y</button>
       <button type="button" class="pill" [class.active]="toolbarState.activeRange() === '5y'" (click)="toolbarState.setRange('5y')">5Y</button>

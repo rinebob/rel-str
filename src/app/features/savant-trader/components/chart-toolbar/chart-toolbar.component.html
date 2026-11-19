@@ -43,6 +43,9 @@
       (click)="intervalChange.emit(BarsInterval.MONTHLY)">M</button>
   </span>
   <span class="pill-group flat">
+    <button type="button" class="pill" [class.active]="selectedRange() === '25'" (click)="rangeChange.emit('25')">25</button>
+    <button type="button" class="pill" [class.active]="selectedRange() === '50'" (click)="rangeChange.emit('50')">50</button>
+    <button type="button" class="pill" [class.active]="selectedRange() === '100'" (click)="rangeChange.emit('100')">100</button>
     <button type="button" class="pill" [class.active]="selectedRange() === '6m'" (click)="rangeChange.emit('6m')">6M</button>
     <button type="button" class="pill" [class.active]="selectedRange() === '1y'" (click)="rangeChange.emit('1y')">1Y</button>
     <button type="button" class="pill" [class.active]="selectedRange() === '5y'" (click)="rangeChange.emit('5y')">5Y</button>

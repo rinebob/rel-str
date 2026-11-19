@@ -98,14 +98,15 @@ export class ChartToolbarStateService {
   readonly selectedInterval = signal<BarsInterval>(BarsInterval.DAILY);
   /** Selected time-range preset PER CHART — keyed by ChartIntervalKey,
    *  same pattern as `selectedIdsByInterval`. Each chart owns its range;
-   *  `setRange` writes the active chart only. Defaults per #1622: D/W 100, M 50. */
+   *  `setRange` writes the active chart only. Defaults: '50' on every
+   *  interval (revised from D100/W100/M50 during #1623 UI verification). */
   readonly rangesByInterval = signal<Record<ChartIntervalKey, ChartRange>>({
-    [ChartIntervalKey.DAILY]:   '100',
-    [ChartIntervalKey.WEEKLY]:  '100',
+    [ChartIntervalKey.DAILY]:   '50',
+    [ChartIntervalKey.WEEKLY]:  '50',
     [ChartIntervalKey.MONTHLY]: '50',
     // Never selected by the interval switch (sandbox-only interval) — present
     // to keep the Record exhaustive.
-    [ChartIntervalKey.TWO_DAY]: '100',
+    [ChartIntervalKey.TWO_DAY]: '50',
   });
   /** The interval key the range pills display/affect. Single mode renders
    *  `selectedInterval`; triple mode renders all three, and the active chart

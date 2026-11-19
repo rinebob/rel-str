@@ -239,6 +239,47 @@ describe('ChartViewToolbarComponent', () => {
     expect(spy).toHaveBeenCalledWith(['some-id']);
   });
 
+  it('range pill group renders exactly 25 50 100 6M 1Y 5Y All — Recent is gone', () => {
+    const group = el().querySelectorAll('.chart-controls .pill-group.flat')[1];
+    const labels = Array.from(group.querySelectorAll<HTMLButtonElement>('.pill'))
+      .map((b) => b.textContent?.trim());
+    expect(labels).toEqual(['25', '50', '100', '6M', '1Y', '5Y', 'All']);
+    expect(pill('Recent')).toBeNull();
+  });
+
+  it('range pill highlight follows the active chart\'s own selection', () => {
+    // Every chart defaults to '50' — its pill is lit on the default daily chart.
+    expect(pill('50')?.classList.contains('active')).toBe(true);
+
+    // Non-default markers on both charts — with every slot at '50', a
+    // mis-keyed read can't pass on coincidence.
+    toolbarState.setActiveChart(BarsInterval.MONTHLY);
+    toolbarState.setRange('1y');
+    toolbarState.setActiveChart(BarsInterval.DAILY);
+    toolbarState.setRange('25');
+    fixture.detectChanges();
+    expect(pill('25')?.classList.contains('active')).toBe(true);
+
+    // Activating monthly's cell flips the highlight to monthly's own '1y'.
+    toolbarState.setActiveChart(BarsInterval.MONTHLY);
+    fixture.detectChanges();
+    expect(pill('1Y')?.classList.contains('active')).toBe(true);
+    expect(pill('25')?.classList.contains('active')).toBe(false);
+    expect(toolbarState.activeRange()).toBe('1y');
+  });
+
+  it('every range pill writes its token to the active chart via setRange', () => {
+    const spy = jest.spyOn(toolbarState, 'setRange');
+    for (const [label, token] of [
+      ['25', '25'], ['50', '50'], ['100', '100'],
+      ['6M', '6m'], ['1Y', '1y'], ['5Y', '5y'], ['All', 'all'],
+    ] as const) {
+      spy.mockClear();
+      pill(label)?.click();
+      expect(spy).toHaveBeenCalledWith(token);
+    }
+  });
+
   it('chart controls write through: range pills, zoom, log scale, layout, fullscreen', () => {
     pill('1Y')?.click();
     expect(toolbarState.activeRange()).toBe('1y');
