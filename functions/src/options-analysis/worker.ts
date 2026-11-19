@@ -2,12 +2,15 @@
  * `worker.ts` — `optionsReplayAnalysis` Cloud Task worker (Topic #1238,
  * Thread #1266, task #1372; IMPL-BE §3).
  *
- * One task per contract list: re-validate the list doc, batch-fetch each
- * pick row's contract series, evaluate EVERY registry exit independently
- * (`evaluateExit` — #1371), derive expired/error outcomes, aggregate per
- * exit type, and write `st-options-analysis-results/{listDocId}_{exitId}`
- * with a full `set()` — overwrite semantics make every rerun idempotent
- * and kill the merge stale-`error`-field trap.
+ * One task per contract list: re-validate the list doc, narrow v1→v2
+ * (#1500 — `pick` rows become 1-leg positions), batch-fetch each
+ * OPTION leg's contract series (stock legs resolve off the
+ * underlying-close map), join legs into a signed net cost-to-close
+ * series, evaluate EVERY registry exit independently (`evaluateExit`
+ * — #1371), derive expired/open/error outcomes, aggregate per exit
+ * type, and write `st-options-analysis-results/{listDocId}_{exitId}`
+ * with a full `set()` — overwrite semantics make every rerun
+ * idempotent and kill the merge stale-`error`-field trap.
  *
  * Status re-check (required by #1370 review + IMPL-BE §3): the doc's
  * `success` was checked at enqueue time, not atomically with execution —
@@ -17,7 +20,7 @@
  * log + return WITHOUT writes (never clobber good result docs with
  * zero-count failures).
  *
- * Outcome mapping per (pick row × rule):
+ * Outcome mapping per (position row × rule):
  * - `fired` → 'exit' (daysHeld = calendar days pickDate→exitDate)
  * - `!fired` + last LIVE bar is the expiry bar → 'expired' + expiry
  *   fields (needs the symbol's underlying close at expiry — missing →
@@ -50,10 +53,11 @@ import {
   stOptionsAnalysisResultDocId,
 } from '@st/collections';
 import type {
-  ContractListPickRowV1,
+  ContractListPositionRow,
   OptionsContractListDoc,
   OptionsContractListDocV1,
 } from '@options-replay/contracts';
+import { v1ListDocToV2 } from '@options-replay/contracts';
 import type {
   AnalysisResultDoc,
   AnalysisTradeRecord,
@@ -62,7 +66,7 @@ import type {
 import type { PartnerHistoricalOptionsContractV2Response } from '@options-contract/contracts';
 import { EXIT_REGISTRY_VERSION, EXIT_STRATEGIES } from '@options-analysis/registry';
 import { aggregateExitType } from './aggregate';
-import { buildPickRecords } from './records';
+import { buildPositionRecords, type LegFetchResult } from './records';
 
 const MAX_ATTEMPTS = 3;
 const FETCH_CONCURRENCY = 10;
@@ -72,12 +76,11 @@ const FETCH_CONCURRENCY = 10;
 // ==========================
 
 export interface AnalysisWorkerDeps {
-  /** v1 or v2 list doc — v2 docs are detected and failed loudly (the
-   *  pick-row filter below can't read `position` rows; #1500 lands the
-   *  leg-aware analyzer). */
+  /** v1 or v2 list doc — v1 docs narrow to 1-leg position rows via
+   *  `v1ListDocToV2` so the analyzer has one row shape. */
   getListDoc: (docId: string) => Promise<OptionsContractListDocV1 | OptionsContractListDoc | undefined>;
   /** One contract's daily series — the worker passes pickDate→expiration
-   *  bounds; the evaluator also clips the tail internally. */
+   *  bounds PER OPTION LEG; the evaluator also clips the tail internally. */
   fetchSeries: (input: {
     symbol: string;
     contractID: string;
@@ -145,17 +148,6 @@ export async function runReplayAnalysis(
     }
     throw new Error(`Analysis task raced a list reset — ${reason} (retryable)`);
   }
-  // v2 position docs (#1499) — this analyzer reads v1 `pick` rows; a v2
-  // doc would silently produce empty 'success' results. Fail loudly:
-  // the doc can never become v1, so this is permanent, not retryable
-  // (the enqueue-side guard in optionsAnalysisStart covers new calls).
-  if (doc.schemaVersion === 2) {
-    const error =
-      `Contract list '${contractListDocId}' uses the v2 position schema — leg-aware analysis ships with #1500`;
-    logger.warn('options_analysis_v2_doc', { contractListDocId });
-    await writeFailedResultDocs(deps, { contractListDocId, runId, symbol, templateId }, error);
-    return;
-  }
   // The production loader swallows failures into empty bars — an empty map
   // means every would-be-'expired' record degrades to 'error'; log it.
   if (underlyingClose.size === 0) {
@@ -163,40 +155,78 @@ export async function runReplayAnalysis(
   }
 
   try {
-    const picks = doc.rows.filter(
-      (r): r is ContractListPickRowV1 => r.kind === 'pick' && Boolean(r.contractId),
+    // v1→v2 narrowing boundary (#1500) — every list doc reads as v2
+    // position rows: legacy `pick` rows become 1-leg positions, which
+    // reproduce the v1 records verbatim under the sign math.
+    const v2doc = doc.schemaVersion === 2 ? doc : v1ListDocToV2(doc);
+    const positions = v2doc.rows.filter(
+      (r): r is ContractListPositionRow => r.kind === 'position',
     );
     const base = { runId, symbol, templateId, contractListDocId };
     const today = deps.getToday?.() ?? getMarketDatePT();
 
-    // Series fetch at bounded concurrency — per-contract failure degrades
-    // to error records, never aborts the analysis.
-    const fetched = new Array<{
-      resp?: PartnerHistoricalOptionsContractV2Response;
-      error?: string;
-    }>(picks.length);
-    await forEachWithConcurrency(picks, FETCH_CONCURRENCY, async (row, i) => {
-      try {
-        fetched[i] = {
-          resp: await deps.fetchSeries({
-            symbol,
-            contractID: row.contractId,
+    // One fetch per UNIQUE option contract — `repeatsPrevious` rows
+    // hold the same contract day after day, so fetch its widest needed
+    // window (earliest holding position's entry → contract expiry) once
+    // and let each row slice its own [entry, expiry] out of the shared
+    // series via toScanBars. Stock legs resolve off the underlying-close
+    // map. A per-contract failure degrades every position holding it to
+    // 'error' records, never aborts the analysis.
+    interface ContractJob {
+      contractId: string;
+      startDate: string;
+      endDate: string;
+    }
+    const jobByContract = new Map<string, ContractJob>();
+    positions.forEach((row) =>
+      row.legs.forEach((leg) => {
+        if (leg.kind !== 'option') return;
+        const ex = jobByContract.get(leg.contractId);
+        if (ex) {
+          if (row.entryDate < ex.startDate) ex.startDate = row.entryDate;
+        } else {
+          jobByContract.set(leg.contractId, {
+            contractId: leg.contractId,
             startDate: row.entryDate,
-            endDate: row.expiration,
-          }),
-        };
-      } catch (e) {
-        fetched[i] = { error: String(e) };
-      }
-    });
+            endDate: leg.expiration,
+          });
+        }
+      }),
+    );
+    const byContract = new Map<string, Exclude<LegFetchResult, undefined>>();
+    await forEachWithConcurrency(
+      [...jobByContract.values()],
+      FETCH_CONCURRENCY,
+      async (job) => {
+        try {
+          byContract.set(job.contractId, {
+            resp: await deps.fetchSeries({
+              symbol,
+              contractID: job.contractId,
+              startDate: job.startDate,
+              endDate: job.endDate,
+            }),
+          });
+        } catch (e) {
+          byContract.set(job.contractId, { error: String(e) });
+        }
+      },
+    );
+    const legFetched = positions.map((row) =>
+      row.legs.map((leg) =>
+        leg.kind === 'option' ? byContract.get(leg.contractId) : undefined,
+      ),
+    );
 
-    // Record buckets — every pick contributes exactly one record per
-    // exitId, in registry order.
+    // Record buckets — every position contributes exactly one record
+    // per exitId, in registry order.
     const recordsByExit = EXIT_STRATEGIES.map(() => [] as AnalysisTradeRecord[]);
-    for (let i = 0; i < picks.length; i++) {
-      buildPickRecords(picks[i], fetched[i], { underlyingClose, base, today }).forEach(
-        (rec, j) => recordsByExit[j].push(rec),
-      );
+    for (let i = 0; i < positions.length; i++) {
+      buildPositionRecords(positions[i], legFetched[i], {
+        underlyingClose,
+        base,
+        today,
+      }).forEach((rec, j) => recordsByExit[j].push(rec));
     }
 
     // Aggregate + write — one batch commit; full-document sets make
@@ -214,7 +244,7 @@ export async function runReplayAnalysis(
           registryVersion: EXIT_REGISTRY_VERSION,
           status: 'success',
           trades: recordsByExit[i],
-          aggregate: aggregateExitType(rule.exitId, picks.length, recordsByExit[i]),
+          aggregate: aggregateExitType(rule.exitId, positions.length, recordsByExit[i]),
           generatedAt,
         } as AnalysisResultDoc,
       })),
@@ -224,7 +254,7 @@ export async function runReplayAnalysis(
       runId,
       symbol,
       templateId,
-      picks: picks.length,
+      positions: positions.length,
       exitTypes: EXIT_STRATEGIES.length,
       durationMs: Date.now() - startTime,
     });
@@ -252,9 +282,9 @@ export async function runReplayAnalysis(
   }
 }
 
-/** One failed result doc per registered exit strategy — written when a
- *  doc is permanently unanalyzable (v2 schema) and on the final attempt
- *  of a retried failure, so the run is never silently result-less. */
+/** One failed result doc per registered exit strategy — written on the
+ *  final attempt of a retried failure, so the run is never silently
+ *  result-less. */
 async function writeFailedResultDocs(
   deps: AnalysisWorkerDeps,
   base: { contractListDocId: string; runId: string; symbol: string; templateId: string },
@@ -281,7 +311,7 @@ async function writeFailedResultDocs(
 // Production wiring + task function
 // ==========================
 
-const prodAnalysisDeps: AnalysisWorkerDeps = {
+export const prodAnalysisDeps: AnalysisWorkerDeps = {
   async getListDoc(docId) {
     const snap = await db.collection(ST_OPTIONS_CONTRACT_LISTS_ROOT).doc(docId).get();
     return snap.exists ? (snap.data() as OptionsContractListDocV1) : undefined;
@@ -313,8 +343,9 @@ export const optionsReplayAnalysis = onTaskDispatched<OptionsAnalysisTaskPayload
       maxDispatchesPerSecond: 5,
     },
     memory: '512MiB',
-    // 540s: ~250 contracts at concurrency-10 of SA series fetches needs
-    // headroom past the sibling replay worker's 300s.
+    // 540s: unique-contract dedup keeps SA fetches ≈ position rows, but
+    // multi-leg docs still fan out — headroom past the sibling replay
+    // worker's 300s.
     timeoutSeconds: 540,
   },
   async (req) => {

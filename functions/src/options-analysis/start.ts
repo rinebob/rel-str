@@ -46,13 +46,17 @@ import type { OptionsContractListDocV1 } from '@options-replay/contracts';
 export const OPTIONS_ANALYSIS_TASK_QUEUE = 'optionsReplayAnalysis';
 
 /** Slice of the contract list doc the enqueue decision needs — payload
- *  fields come from the doc, never parsed back out of the docId. */
+ *  fields come from the doc, never parsed back out of the docId.
+ *  `schemaVersion` rides along so callers/tests can pass v2 docs —
+ *  the analyzer narrows v1→v2 itself (#1500), so schema is no longer
+ *  an enqueue criterion. */
 export type AnalysisStartListView = Pick<
   OptionsContractListDocV1,
-  'status' | 'runId' | 'symbol' | 'templateId' | 'pickDocMeta'
+  'status' | 'runId' | 'symbol' | 'templateId'
 > & {
-  /** Present only on v2 position docs (#1499) — the v1 pick-row
-   *  analyzer can't read them (leg-aware analysis lands with #1500). */
+  /** v1-only field — v2 position docs carry leg metas instead. Optional
+   *  because the type spans both schema versions (#1500). */
+  pickDocMeta?: OptionsContractListDocV1['pickDocMeta'];
   schemaVersion?: number;
 };
 
@@ -85,16 +89,6 @@ export async function runAnalysisStart(
     throw new HttpsError(
       'failed-precondition',
       `Contract list '${contractListDocId}' is not analyzable (status: ${doc?.status ?? 'missing'})`,
-    );
-  }
-
-  // v2 position docs (#1499) — this analyzer reads v1 `pick` rows and
-  // would silently write empty 'success' results; the leg-aware
-  // analyzer lands with #1500.
-  if (doc.schemaVersion === 2) {
-    throw new HttpsError(
-      'failed-precondition',
-      `Contract list '${contractListDocId}' uses the v2 position schema — leg-aware analysis ships with #1500`,
     );
   }
 

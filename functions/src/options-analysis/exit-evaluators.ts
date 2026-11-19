@@ -63,6 +63,11 @@ export interface ExitScanBar {
    *  are missing or non-numeric (never gates the bar). */
   delta?: number;
   iv?: number;
+  /** Position rows (#1500): the nearest LIVING leg's expiry at this
+   *  date — a `dte-time` rule compares remaining days against the next
+   *  leg to die, not the position's last expiry. Absent on single-
+   *  contract bars → the call-site `expiration` applies (v1 behavior). */
+  expiry?: string;
 }
 
 /** Rule fired on the series — `dayIndex` is the firing bar's index. */
@@ -112,7 +117,8 @@ function firingDayIndex(
   }
   case 'dte-time':
     return series.findIndex(
-      (b) => calendarDaysBetween(b.date, expiration) <= rule.params.dte,
+      (b) =>
+        calendarDaysBetween(b.date, b.expiry ?? expiration) <= rule.params.dte,
     );
   case 'hold-to-expiry':
     return -1;

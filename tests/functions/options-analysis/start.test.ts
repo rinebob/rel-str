@@ -180,15 +180,11 @@ describe('runAnalysisStart — failed-precondition', () => {
     assert.equal(enqueued.length, 0);
   });
 
-  it('v2 schema doc → failed-precondition, zero enqueues — the v1 analyzer cannot read position rows (#1499)', async () => {
+  it('v2 schema doc → enqueues — the leg-aware analyzer reads position rows (#1500)', async () => {
     const { deps, enqueued } = makeDeps(listView({ schemaVersion: 2 }));
-    await assert.rejects(
-      runAnalysisStart(request({ contractListDocId: DOC_ID }), deps),
-      (e) =>
-        code(e) === 'failed-precondition' &&
-        (e as Error).message.includes('v2 position schema'),
-    );
-    assert.equal(enqueued.length, 0);
+    const res = await runAnalysisStart(request({ contractListDocId: DOC_ID }), deps);
+    assert.equal(res.analysisId, DOC_ID);
+    assert.equal(enqueued.length, 1);
   });
 });
 

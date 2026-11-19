@@ -29,8 +29,13 @@ import {
 import type {
   ContractListNoSelectionRowV1,
   ContractListPickRowV1,
+  ContractListPositionRow,
   OptionsContractListDoc,
   OptionsContractListDocV1,
+  PickDocCoordinate,
+  PickDocMeta,
+  PositionLeg,
+  PositionOptionLeg,
 } from '@options-replay/contracts';
 import type { AnalysisResultDoc, AnalysisTradeRecord } from '@options-analysis/contracts';
 import type {
@@ -180,6 +185,69 @@ const recordsFor = (w: Written[], exitId: string): AnalysisTradeRecord[] =>
   resultFor(w, exitId)?.trades ?? [];
 
 // ==========================
+// v2 position-row fixtures (#1500)
+// ==========================
+
+const PUT_COORD: PickDocCoordinate = {
+  type: OptionType.PUT,
+  targetDelta: -0.2,
+  expiry: { mode: 'nearestDte', dte: 45 },
+};
+
+/** Resolved option leg — mirrors pickRow's entry-day fields + the
+ *  coordinate/side the replay worker stamps. */
+function optLeg(over: Partial<PositionOptionLeg> = {}): PositionOptionLeg {
+  return {
+    kind: 'option',
+    side: TradeSide.SHORT,
+    coordinate: PUT_COORD,
+    contractId: 'QQQ260220P00500000',
+    expiration: EXPIRY,
+    dte: 46,
+    strike: 500,
+    delta: -0.2,
+    iv: 0.2,
+    mark: 2.0,
+    bid: 1.9,
+    ask: 2.1,
+    volume: 100,
+    openInterest: 500,
+    underlyingClose: 520,
+    ...over,
+  };
+}
+
+function positionRow(
+  legs: readonly [PositionLeg, ...PositionLeg[]],
+  over: Partial<ContractListPositionRow> = {},
+): ContractListPositionRow {
+  return { kind: 'position', entryDate: '2026-01-05', legs, repeatsPrevious: false, ...over };
+}
+
+function legMeta(over: Partial<PickDocMeta> = {}): PickDocMeta {
+  return {
+    coordinate: PUT_COORD,
+    gridVersion: 1,
+    pickCount: 1,
+    missCount: 0,
+    firstDate: '2026-01-05',
+    lastDate: EXPIRY,
+    ...over,
+  };
+}
+
+const v2ListDoc = (rows: OptionsContractListDoc['rows'], legMetas = [legMeta()]): OptionsContractListDoc => ({
+  runId: 'run-1',
+  symbol: 'QQQ',
+  templateId: 'pcs-45-20-5',
+  status: 'success',
+  schemaVersion: 2,
+  rows,
+  legMetas,
+  generatedAt: '2026-01-05T00:00:00Z',
+});
+
+// ==========================
 // toScanBars normalization
 // ==========================
 
@@ -238,26 +306,508 @@ describe('status re-check', () => {
     assert.equal(written.length, 0);
   });
 
-  it('v2 schema doc → failed result docs, zero fetches, no throw — permanent, not retryable (#1499)', async () => {
-    const v2Doc: OptionsContractListDoc = {
-      runId: 'run-1',
-      symbol: 'QQQ',
-      templateId: 'pcs-45-20-5',
-      status: 'success',
-      schemaVersion: 2,
-      rows: [],
-      legMetas: [],
-      generatedAt: '2026-01-05T00:00:00Z',
-    };
-    const { deps, written, fetchCalls } = makeDeps({ doc: v2Doc });
-    await runReplayAnalysis(PAYLOAD, deps, false); // not final — still no throw
-    assert.equal(fetchCalls.length, 0);
-    assert.ok(written.length > 0);
-    assert.ok(written.every((w) => w.doc.status === 'failed'));
-    assert.ok(
-      (written[0].doc as { error?: string }).error?.includes('v2 position schema'),
-      `error was ${(written[0].doc as { error?: string }).error}`,
+});
+
+// ==========================
+// v2 position rows (#1500)
+// ==========================
+
+describe('v2 position rows', () => {
+  const SHORT_ID = 'QQQ260220P00500000';
+  const LONG_ID = 'QQQ260220P00490000';
+
+  /** Two-leg put credit spread — short 500P @2.0 + long 490P @0.5, both
+   *  expiring EXPIRY. Net entry cost-to-close = 2.0 − 0.5 = 1.5. */
+  function pcsRow(): ContractListPositionRow {
+    return positionRow([
+      optLeg({ side: TradeSide.SHORT, contractId: SHORT_ID, strike: 500, mark: 2.0, delta: -0.2, iv: 0.2 }),
+      optLeg({
+        side: TradeSide.LONG,
+        contractId: LONG_ID,
+        strike: 490,
+        mark: 0.5,
+        delta: -0.05,
+        iv: 0.22,
+      }),
+    ]);
+  }
+
+  const seriesFor = (contractID: string, mark: string, extra: { type?: 'call' | 'put' } = {}) =>
+    seriesResp(
+      [
+        obs('2026-01-05', mark),
+        obs('2026-01-06', mark),
+        obs(EXPIRY, '0'),
+      ],
+      { contractID, ...extra },
     );
+
+  it('two-leg position → per-leg fetches, net entryMark, joined contractId', async () => {
+    const { deps, written, fetchCalls } = makeDeps({
+      doc: v2ListDoc([pcsRow()], [legMeta(), legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesFor(SHORT_ID, '2.0'),
+        [LONG_ID]: seriesFor(LONG_ID, '0.5'),
+      },
+      closes: { [EXPIRY]: 520 }, // both puts OTM → intrinsic 0
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    assert.deepEqual(
+      fetchCalls.map((c) => c.contractID).sort(),
+      [LONG_ID, SHORT_ID],
+    );
+    const rec = recordsFor(written, 'expiry')[0];
+    assert.equal(rec.outcome, 'expired');
+    assert.equal(rec.entryMark, 1.5); // short 2.0 − long 0.5
+    assert.equal(rec.contractId, `${SHORT_ID}+${LONG_ID}`);
+    assert.ok(Math.abs((rec.entryDelta ?? NaN) - -0.15) < 1e-9);
+    assert.ok(Math.abs((rec.entryIv ?? NaN) - -0.02) < 1e-9);
+    if (rec.outcome === 'expired') {
+      assert.equal(rec.expiredItm, false);
+      assert.equal(rec.intrinsicAtExpiry, 0);
+      assert.equal(rec.terminalMark, 0);
+    }
+    assert.equal(resultFor(written, 'expiry')?.status, 'success');
+  });
+
+  it('1-leg v2 position reproduces the v1 record for the same pick (narrowing parity)', async () => {
+    const sharedSeries = seriesResp([obs('2026-01-05', '2.0'), obs(EXPIRY, '0')]);
+    const closes = { [EXPIRY]: 495 }; // ITM put → intrinsic 5
+    const v1 = makeDeps({
+      doc: listDoc([pickRow()]),
+      seriesById: { [SHORT_ID]: sharedSeries },
+      closes,
+    });
+    const v2 = makeDeps({
+      doc: v2ListDoc([positionRow([optLeg()])]),
+      seriesById: { [SHORT_ID]: sharedSeries },
+      closes,
+    });
+    await runReplayAnalysis(PAYLOAD, v1.deps, false);
+    await runReplayAnalysis(PAYLOAD, v2.deps, false);
+    for (const rule of EXIT_STRATEGIES) {
+      assert.deepEqual(
+        recordsFor(v2.written, rule.exitId),
+        recordsFor(v1.written, rule.exitId),
+        `${rule.exitId} records diverged between v1 and narrowed-v2`,
+      );
+    }
+  });
+
+  it('leg-series fetch failure → error record under every exitId (whole position)', async () => {
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([pcsRow()], [legMeta(), legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesFor(SHORT_ID, '2.0'),
+        [LONG_ID]: new Error('SA timeout'),
+      },
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    for (const rule of EXIT_STRATEGIES) {
+      const recs = recordsFor(written, rule.exitId);
+      assert.equal(recs.length, 1);
+      assert.equal(recs[0].outcome, 'error');
+      assert.match((recs[0] as { error: string }).error, /leg 1.*SA timeout/i);
+      assert.equal(recs[0].entryMark, 1.5); // entry fields still real
+    }
+    assert.equal(resultFor(written, 'expiry')?.status, 'success');
+  });
+
+  it('no-selection rows carry zero records — success docs still write', async () => {
+    const { deps, written, fetchCalls } = makeDeps({
+      doc: v2ListDoc([
+        {
+          kind: 'no-selection',
+          entryDate: '2026-01-05',
+          reason: 'miss',
+          legMisses: [{ legIndex: 0, coordinate: PUT_COORD, reason: 'miss' }],
+        },
+      ]),
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    assert.equal(fetchCalls.length, 0);
+    for (const rule of EXIT_STRATEGIES) {
+      assert.equal(recordsFor(written, rule.exitId).length, 0);
+      assert.equal(resultFor(written, rule.exitId)?.status, 'success');
+    }
+  });
+
+  it('stock leg: no option fetch for it; marks come from underlyingClose', async () => {
+    // Covered call — short call + long stock.
+    const covered = positionRow([
+      optLeg({
+        side: TradeSide.SHORT,
+        contractId: SHORT_ID,
+        coordinate: { ...PUT_COORD, type: OptionType.CALL },
+      }),
+      { kind: 'stock', side: TradeSide.LONG, underlyingClose: 520 },
+    ]);
+    const { deps, written, fetchCalls } = makeDeps({
+      doc: v2ListDoc([covered], [legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesResp(
+          [obs('2026-01-05', '2.0'), obs(EXPIRY, '0.1')],
+          { contractID: SHORT_ID, type: 'call' },
+        ),
+      },
+      closes: { '2026-01-05': 520, [EXPIRY]: 521 },
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    assert.equal(fetchCalls.length, 1);
+    const rec = recordsFor(written, 'expiry')[0];
+    // Cost-to-close entry = +2.0 (short call) − 520 (long stock) = −518
+    // → debit posture flips the record onto liquidation value (+518).
+    assert.equal(rec.entryMark, 518);
+    assert.equal(rec.entryIv, undefined); // stock carries no iv
+    // Settlement CTC = call intrinsic 21 − stock 521 = −500 → flipped
+    // +500: the package settled with value → expiredItm true.
+    if (rec.outcome === 'expired') {
+      assert.ok(Math.abs(rec.intrinsicAtExpiry - 500) < 1e-9);
+      assert.equal(rec.expiredItm, true);
+    }
+  });
+
+  it('net-debit position flips onto liquidation value — premium-decay rule reads as the loss exit', async () => {
+    // Debit call spread — long 500C @3.0 + short 510C @1.0 (net debit 2.0).
+    // Value decays to 0.15 → target-90 (mark ≤ 10% of entry) fires as a
+    // ~93%-lost stop — day-0 garbage-fires if the series isn't flipped.
+    const LONGC = 'QQQ260220C00500000';
+    const SHORTC = 'QQQ260220C00510000';
+    const debitRow = positionRow([
+      optLeg({
+        side: TradeSide.LONG,
+        contractId: LONGC,
+        coordinate: { ...PUT_COORD, type: OptionType.CALL },
+        strike: 500,
+        mark: 3.0,
+        delta: 0.5,
+        iv: 0.3,
+      }),
+      optLeg({
+        side: TradeSide.SHORT,
+        contractId: SHORTC,
+        coordinate: { ...PUT_COORD, type: OptionType.CALL },
+        strike: 510,
+        mark: 1.0,
+        delta: 0.2,
+        iv: 0.28,
+      }),
+    ]);
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([debitRow], [legMeta(), legMeta()]),
+      seriesById: {
+        [LONGC]: seriesResp(
+          [obs('2026-01-05', '3.0'), obs('2026-01-08', '0.8'), obs(EXPIRY, '0')],
+          { contractID: LONGC, type: 'call' },
+        ),
+        [SHORTC]: seriesResp(
+          [obs('2026-01-05', '1.0'), obs('2026-01-08', '0.65'), obs(EXPIRY, '0')],
+          { contractID: SHORTC, type: 'call' },
+        ),
+      },
+      closes: { [EXPIRY]: 505 },
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    // Posture-normalized fields: entry value +2.0, position delta +0.3.
+    const exitRec = recordsFor(written, 'target-90')[0];
+    assert.equal(exitRec.outcome, 'exit');
+    assert.equal(exitRec.entryMark, 2.0);
+    assert.equal(exitRec.contractId, `${LONGC}+${SHORTC}`);
+    assert.ok(Math.abs((exitRec.entryDelta ?? NaN) - 0.3) < 1e-9);
+    if (exitRec.outcome === 'exit') {
+      assert.equal(exitRec.exitDate, '2026-01-08'); // value 0.8 − 0.65 = 0.15 ≤ 0.2
+      assert.ok(Math.abs(exitRec.exitPrice - 0.15) < 1e-9);
+    }
+  });
+
+  it('long put expiring ITM → expiredItm true, intrinsic in posture space', async () => {
+    // 1-leg LONG — v1 never produced one, but the seeded long variants
+    // (lc/lp) do: the record must read like an ITM long expiry, not a
+    // silently negated short.
+    const lpRow = positionRow([
+      optLeg({
+        side: TradeSide.LONG,
+        contractId: SHORT_ID,
+        strike: 500,
+        mark: 3.0,
+        delta: -0.5,
+        iv: 0.3,
+      }),
+    ]);
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([lpRow], [legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesResp(
+          [obs('2026-01-05', '3.0'), obs(EXPIRY, '5.0')],
+          { contractID: SHORT_ID },
+        ),
+      },
+      closes: { [EXPIRY]: 495 }, // ITM put → intrinsic 5
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    const rec = recordsFor(written, 'expiry')[0];
+    assert.equal(rec.entryMark, 3.0); // flipped from −3 CTC
+    assert.ok(Math.abs((rec.entryDelta ?? NaN) - -0.5) < 1e-9); // long put delta
+    assert.equal(rec.outcome, 'expired');
+    if (rec.outcome === 'expired') {
+      assert.equal(rec.expiredItm, true);
+      assert.equal(rec.intrinsicAtExpiry, 5);
+      assert.equal(rec.terminalMark, 5);
+    }
+  });
+
+  it('stock-only position → error under every exitId (no option leg to price)', async () => {
+    const stockRow = positionRow([
+      { kind: 'stock', side: TradeSide.LONG, underlyingClose: 520 },
+    ]);
+    const { deps, written, fetchCalls } = makeDeps({
+      doc: v2ListDoc([stockRow]),
+      closes: { '2026-01-05': 520, [EXPIRY]: 521 },
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    assert.equal(fetchCalls.length, 0);
+    for (const rule of EXIT_STRATEGIES) {
+      const recs = recordsFor(written, rule.exitId);
+      assert.equal(recs.length, 1);
+      assert.equal(recs[0].outcome, 'error');
+      assert.match((recs[0] as { error: string }).error, /no option leg/i);
+    }
+  });
+
+  it('unusable upstream type on a multi-leg position → error under every exitId', async () => {
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([pcsRow()], [legMeta(), legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesResp(
+          [obs('2026-01-05', '2.0'), obs(EXPIRY, '0')],
+          { contractID: SHORT_ID, type: 'stock' as 'put' }, // corrupt wire type
+        ),
+        [LONG_ID]: seriesFor(LONG_ID, '0.5'),
+      },
+      closes: { [EXPIRY]: 520 },
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    const rec = recordsFor(written, 'expiry')[0];
+    assert.equal(rec.outcome, 'error');
+    assert.match((rec as { error: string }).error, /leg 0.*type.*unusable/i);
+  });
+
+  it('stock leg with no entry-day close → position head-truncation error', async () => {
+    const covered = positionRow([
+      optLeg({ side: TradeSide.SHORT, contractId: SHORT_ID }),
+      { kind: 'stock', side: TradeSide.LONG, underlyingClose: 520 },
+    ]);
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([covered], [legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesFor(SHORT_ID, '2.0'),
+      },
+      closes: { '2026-01-06': 520, [EXPIRY]: 521 }, // 01-05 close missing
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    const rec = recordsFor(written, 'expiry')[0];
+    assert.equal(rec.outcome, 'error');
+    assert.match((rec as { error: string }).error, /pick-day bar .* missing/i);
+  });
+
+  it('a failed position emits errors while a healthy sibling produces real records', async () => {
+    const BAD_ID = 'QQQ260220P00480000';
+    const badRow = positionRow([
+      optLeg({ side: TradeSide.SHORT, contractId: BAD_ID, strike: 480, mark: 1.0 }),
+    ]);
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([pcsRow(), badRow], [legMeta(), legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesFor(SHORT_ID, '2.0'),
+        [LONG_ID]: seriesFor(LONG_ID, '0.5'),
+        [BAD_ID]: new Error('SA 500'),
+      },
+      closes: { [EXPIRY]: 520 },
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    for (const rule of EXIT_STRATEGIES) {
+      const recs = recordsFor(written, rule.exitId);
+      assert.equal(recs.length, 2, rule.exitId);
+      assert.notEqual(recs[0].outcome, 'error', `${rule.exitId} healthy row`);
+      assert.equal(recs[1].outcome, 'error', `${rule.exitId} failed row`);
+      assert.match((recs[1] as { error: string }).error, /SA 500/);
+    }
+  });
+
+  it('two positions sharing a contractId fetch the contract series once', async () => {
+    const { deps, written, fetchCalls } = makeDeps({
+      doc: v2ListDoc(
+        [
+          positionRow([optLeg({ side: TradeSide.SHORT, contractId: SHORT_ID })]),
+          positionRow([optLeg({ side: TradeSide.SHORT, contractId: SHORT_ID })], {
+            entryDate: '2026-01-06',
+          }),
+        ],
+        [legMeta()],
+      ),
+      seriesById: {
+        [SHORT_ID]: seriesResp(
+          [obs('2026-01-05', '2.0'), obs('2026-01-06', '1.9'), obs(EXPIRY, '0')],
+          { contractID: SHORT_ID },
+        ),
+      },
+      closes: { [EXPIRY]: 520 },
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    // One fetch at the earliest entry window; each row slices its own
+    // [entryDate, expiry] out of the shared series.
+    assert.deepEqual(fetchCalls, [
+      { symbol: 'QQQ', contractID: SHORT_ID, startDate: '2026-01-05', endDate: EXPIRY },
+    ]);
+    const recs = recordsFor(written, 'expiry');
+    assert.equal(recs.length, 2); // one record per position row
+  });
+
+  it('expired leg freezes at settlement while a living leg carries the position to last expiry', async () => {
+    // Short 500P expires 2026-01-30 ITM (close 495 → intrinsic 5, frozen).
+    // Long 490P lives to EXPIRY (2026-02-20), OTM at close 495 → intrinsic 0.
+    const SHORT_EXP = '2026-01-30';
+    const calRow = positionRow([
+      optLeg({ side: TradeSide.SHORT, contractId: SHORT_ID, expiration: SHORT_EXP, strike: 500, mark: 2.0 }),
+      optLeg({ side: TradeSide.LONG, contractId: LONG_ID, expiration: EXPIRY, strike: 490, mark: 0.5 }),
+    ]);
+    const { deps, written, fetchCalls } = makeDeps({
+      doc: v2ListDoc([calRow], [legMeta(), legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesResp(
+          [obs('2026-01-05', '2.0'), obs('2026-01-28', '3.2'), obs(SHORT_EXP, '4.9')],
+          { contractID: SHORT_ID, expiration: SHORT_EXP, endDate: SHORT_EXP },
+        ),
+        [LONG_ID]: seriesResp(
+          [obs('2026-01-05', '0.5'), obs('2026-01-28', '0.9'), obs('2026-02-04', '0.4'), obs(EXPIRY, '0')],
+          { contractID: LONG_ID, expiration: EXPIRY, endDate: EXPIRY },
+        ),
+      },
+      closes: { [SHORT_EXP]: 495, [EXPIRY]: 495 },
+      today: '2026-03-01',
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    assert.equal(fetchCalls.length, 2);
+    const rec = recordsFor(written, 'expiry')[0];
+    assert.equal(rec.outcome, 'expired');
+    if (rec.outcome === 'expired') {
+      // Net intrinsic = (+1)(5) + (−1)(0) = 5 → settled with liability.
+      assert.equal(rec.intrinsicAtExpiry, 5);
+      assert.equal(rec.expiredItm, true);
+      assert.equal(rec.terminalMark, 5);
+      assert.equal(rec.daysHeld, 46); // 01-05 → 02-20
+    }
+    // Excursion spans the frozen window: net mark on 02-04 = 5 − 0.4 = 4.6
+    assert.ok(rec.mae.value >= 4.6, `mae ${rec.mae.value}`);
+  });
+
+  it('dte-time exit compares remaining days against the NEAREST living leg', async () => {
+    // Short leg expires 01-30 (25 DTE at entry); long leg expires 02-20.
+    // dte-21 fires at 01-09 (21 days before 01-30) — vs the max-expiry
+    // reading it would fire at 01-30 (21 before 02-20).
+    const SHORT_EXP = '2026-01-30';
+    const calRow = positionRow([
+      optLeg({ side: TradeSide.SHORT, contractId: SHORT_ID, expiration: SHORT_EXP, mark: 2.0 }),
+      optLeg({ side: TradeSide.LONG, contractId: LONG_ID, expiration: EXPIRY, mark: 0.5 }),
+    ]);
+    const flat = (id: string, mark: string, exp: string) =>
+      seriesResp(
+        [
+          obs('2026-01-05', mark),
+          obs('2026-01-06', mark),
+          obs('2026-01-07', mark),
+          obs('2026-01-08', mark),
+          obs('2026-01-09', mark),
+          obs(exp, mark),
+        ],
+        { contractID: id, expiration: exp, endDate: exp },
+      );
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([calRow], [legMeta(), legMeta()]),
+      seriesById: {
+        [SHORT_ID]: flat(SHORT_ID, '2.0', SHORT_EXP),
+        [LONG_ID]: flat(LONG_ID, '0.5', EXPIRY),
+      },
+      closes: { [SHORT_EXP]: 520, [EXPIRY]: 520 },
+      today: '2026-03-01',
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    const rec = recordsFor(written, 'dte-21')[0];
+    assert.equal(rec.outcome, 'exit');
+    if (rec.outcome === 'exit') {
+      assert.equal(rec.exitDate, '2026-01-09'); // 21 days before the SHORT leg's 01-30 expiry
+    }
+  });
+
+  it('net series ending short of a FUTURE max expiry → open (live position, real excursion)', async () => {
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([pcsRow()], [legMeta(), legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesResp([obs('2026-01-05', '2.0'), obs('2026-01-12', '1.6')], {
+          contractID: SHORT_ID,
+        }),
+        [LONG_ID]: seriesResp([obs('2026-01-05', '0.5'), obs('2026-01-12', '0.45')], {
+          contractID: LONG_ID,
+        }),
+      },
+      today: '2026-01-20', // expiry (02-20) still in the future
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    const rec = recordsFor(written, 'expiry')[0];
+    assert.equal(rec.outcome, 'open');
+    if (rec.outcome === 'open') {
+      assert.equal(rec.lastBarDate, '2026-01-12');
+      assert.ok(Math.abs((rec.terminalMark ?? NaN) - 1.15) < 1e-9); // 1.6 − 0.45
+      assert.equal(rec.daysHeld, 7);
+    }
+  });
+
+  it('head-truncated leg series → error (pick-day bar missing on that leg)', async () => {
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([pcsRow()], [legMeta(), legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesResp([obs('2026-01-05', '2.0'), obs(EXPIRY, '0')], {
+          contractID: SHORT_ID,
+        }),
+        // Long leg's corpus starts a week late — no entry-day bar.
+        [LONG_ID]: seriesResp([obs('2026-01-12', '0.4'), obs(EXPIRY, '0')], {
+          contractID: LONG_ID,
+        }),
+      },
+      closes: { [EXPIRY]: 520 },
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    const rec = recordsFor(written, 'expiry')[0];
+    assert.equal(rec.outcome, 'error');
+    assert.match((rec as { error: string }).error, /leg 1.*pick-day bar/i);
+  });
+
+  it('missing underlying close at an early leg expiry → error (settlement cannot be fabricated)', async () => {
+    const SHORT_EXP = '2026-01-30';
+    const calRow = positionRow([
+      optLeg({ side: TradeSide.SHORT, contractId: SHORT_ID, expiration: SHORT_EXP }),
+      optLeg({ side: TradeSide.LONG, contractId: LONG_ID, expiration: EXPIRY }),
+    ]);
+    const { deps, written } = makeDeps({
+      doc: v2ListDoc([calRow], [legMeta(), legMeta()]),
+      seriesById: {
+        [SHORT_ID]: seriesResp([obs('2026-01-05', '2.0'), obs(SHORT_EXP, '1.0')], {
+          contractID: SHORT_ID,
+          expiration: SHORT_EXP,
+          endDate: SHORT_EXP,
+        }),
+        [LONG_ID]: seriesResp([obs('2026-01-05', '0.5'), obs(EXPIRY, '0')], {
+          contractID: LONG_ID,
+          expiration: EXPIRY,
+          endDate: EXPIRY,
+        }),
+      },
+      closes: { [EXPIRY]: 520 }, // 01-30 close missing
+    });
+    await runReplayAnalysis(PAYLOAD, deps, false);
+    const rec = recordsFor(written, 'expiry')[0];
+    assert.equal(rec.outcome, 'error');
+    assert.match((rec as { error: string }).error, /underlying close/i);
   });
 });
 
@@ -273,12 +823,14 @@ describe('record generation', () => {
       markerRow('2026-02-20'),
       pickRow({ entryDate: '2026-02-19', contractId: 'C1', repeatsPrevious: true }),
     ];
-    const { deps, written } = makeDeps({
+    const { deps, written, fetchCalls } = makeDeps({
       doc: listDoc(rows),
       seriesById: { C1: seriesResp([obs('2026-02-19', '2.0'), obs(EXPIRY, '1.0')]) },
       closes: { [EXPIRY]: 520 },
     });
     await runReplayAnalysis(PAYLOAD, deps, false);
+    // Shared contract → ONE fetch; each row still gets its own record.
+    assert.equal(fetchCalls.length, 1);
     // 6 exit docs, each with 2 records (one per pick row)
     assert.equal(written.length, EXIT_STRATEGIES.length);
     for (const r of EXIT_STRATEGIES) {
