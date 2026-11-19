@@ -487,6 +487,16 @@ _Avoid_: scan history (one layer deep, not a history), cached scan (ambiguous), 
 The generic symbol-list chart viewer page at `trading/chart-view`, repurposed from the former chart-review page (`signals/charts`). Presents a list-source selector and symbol list in the left pane with three D/W/M Flex Charts in the detail pane. Decoupled from ST signal runs — any list source can feed the pane, and non-tracked symbols render via ephemeral RH OHLCV data.
 _Avoid_: chart review (the retired name), signal charts
 
+
+## Active Chart
+
+The chart a toolbar action targets on a multi-chart surface (Chart View's D/W/M panes). In single-chart mode the active chart is the selected interval; in the triple layout it is the last-clicked cell (`activeChartInterval` + `setActiveChart`, marked by `.active-chart` styling). Range pills and the indicator badge both act on the active chart.
+_Avoid_: focused chart, selected chart (the interval pill selects a mode, the active chart is the action target)
+
+## Bar-Count Range
+
+A chart range preset expressed as a literal number of bars (`25`, `50`, `100`) rather than a calendar window (`6M`, `1Y`, `5Y`) — the pill sets the visible window to the last N bars of whatever interval the chart renders. Per-chart state (#1616): each D/W/M chart owns its selection, applied to the Active Chart.
+_Avoid_: recent (the retired preset), window (a zone/indicator concept)
 ## Backtest Template
 
 A named, developer-curated strategy configuration registered as its own strategyId in the backtest strategy registry — e.g., "sell one 45DTE 20Δ put daily, hold to expiration" (`csp-45-20`). Several templates share one adapter implementation, differing only in default parameters (DTE band, target delta, validation tolerance). Distinct from a Parametric Spread Template (a spread-builder form configuration) — same word, different domain object.
