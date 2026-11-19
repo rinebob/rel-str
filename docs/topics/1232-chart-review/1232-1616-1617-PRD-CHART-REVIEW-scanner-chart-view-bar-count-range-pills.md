@@ -25,7 +25,7 @@ The Chart View page's range pills (`Recent | 6M | 1Y | 5Y | All`) are calendar-b
 - **Bar-count pills** — `25`, `50`, `100` join the range group ahead of the calendar presets: `25 | 50 | 100 | 6M | 1Y | 5Y | All`. Selecting one sets the chart's visible window to that many bars of the chart's own interval.
 - **`Recent` retires** — its per-interval well-known counts (365d / 104w / 60m) are covered by the new bar pills and the remaining presets.
 - **Per-chart selection** — a range choice applies only to the *active* chart: the selected D/W/M interval in single-chart mode, the last-clicked cell in the triple layout (the existing `.active-chart` mechanism). Each chart remembers its own selection; the pill group's highlight follows the active chart — click a cell on 5Y and `5Y` highlights.
-- **New defaults** — daily 100, weekly 100, monthly 50 bars on every page visit.
+- **New defaults** — 50 bars on every chart on every page visit. *(Owner revised D/W 100 → 50 during #1623 UI verification.)*
 
 ## System Context
 
@@ -74,12 +74,12 @@ As a trader, I want the pills to act on the chart I've marked active, so that th
 
 ### US-4 — Tighter defaults
 
-As a trader, I want the charts to open on compact windows — 100 daily, 100 weekly, 50 monthly bars — so that a review starts zoomed-in instead of a year wide.
+As a trader, I want the charts to open on compact windows — 50 bars on every chart — so that a review starts zoomed-in instead of a year wide.
 
 *Acceptance criteria:*
 
-- On every page visit the charts open at their defaults (D 100 / W 100 / M 50); no chart opens on 'recent' — the value no longer exists.
-- The `100` pill is highlighted for daily/weekly, `50` for monthly, matching each chart's rendered window.
+- On every page visit the charts open at their defaults (50 bars on every chart); no chart opens on 'recent' — the value no longer exists.
+- The `50` pill is highlighted for whichever chart is active, matching each chart's rendered window.
 
 ### US-5 — Selection lifecycle
 
@@ -118,7 +118,7 @@ As a maintainer, I want the hidden inner toolbar (`chart-toolbar` inside `signal
 
 - Both pill groups — `chart-view-toolbar` (live) and `chart-toolbar` (hidden inside `signal-detail` when `showToolbar`) — render the identical set `25 | 50 | 100 | 6M | 1Y | 5Y | All`.
 - Pill highlight reads the *active chart's* range, so the group always reflects whichever chart a click would affect.
-- Defaults are the initial per-chart map: `{ daily: '100', weekly: '100', monthly: '50' }`.
+- Defaults are the initial per-chart map: `{ daily: '50', weekly: '50', monthly: '50' }`.
 
 ## Testing Decisions
 

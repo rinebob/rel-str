@@ -21,7 +21,7 @@ Per-chart range selection on the Chart View page: the `ChartRange` union (`'25'|
 
 Covered by specs + manual UAT (no Cypress/Playwright harness in this repo — journeys are verified manually per UAT conventions):
 
-1. **Defaults on load** — open `/trading/chart-view`; daily shows last ~100 bars (≈5 months), weekly ~100 (≈2yr), monthly ~50 (≈4yr); `100` pill lit for daily/weekly, `50` for monthly.
+1. **Defaults on load** — open `/trading/chart-view`; every chart shows its last ~50 bars (daily ≈2.5mo, weekly ≈1yr, monthly ≈4yr); the `50` pill is lit whichever cell is active.
 2. **Per-chart independence (triple)** — set daily `25`; click the weekly cell (active marker moves); pill highlight shows weekly's own range; set `5Y`; daily stays 25 bars.
 3. **Highlight follows active chart** — click between triple cells; the group's `.active` pill always reflects the clicked chart's selection.
 4. **Single-mode targeting** — switch D→W via interval pills; the range pills show weekly's selection; a click writes weekly only.
@@ -37,7 +37,7 @@ Covered by specs + manual UAT (no Cypress/Playwright harness in this repo — jo
 
 ### `chart-toolbar-state.service.spec.ts`
 
-- Default map is `{ daily:'100', weekly:'100', monthly:'50', 'two-day':'100' }`.
+- Default map is `{ daily:'50', weekly:'50', monthly:'50', 'two-day':'50' }`.
 - `setRange('50')` writes only `rangesByInterval[activeChartInterval]` — other keys unchanged.
 - Single mode: `setInterval(W)` moves `activeChartInterval`; `setRange` then writes the weekly slot.
 - Triple mode: `setActiveChart(M)`; `setRange` writes monthly; `activeRange` returns monthly's value.

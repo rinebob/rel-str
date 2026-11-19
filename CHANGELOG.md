@@ -7,6 +7,9 @@
 - [Robinhood MCP] 657-1628_BE-IMPL-RH-MCP: Scheduled RH credential canary — weekday 7 AM PT probe of the noon pass's identical credential path (RH_CREDENTIAL_BUNDLE → session manager → 45s-bounded get_option_chains SPY); classifyProbeError alarms on state names + verbatim missing-credential/missing-secret messages; st-config/rhCredentialCanary status doc {state, checkedAt, latencyMs, error?, userId}; rh_credential_canary_fail marker on alarm only; owner uid sourced from a runState-bearing instance doc; 7/7 node:test wired into test:paper-trading
 - [Robinhood MCP] 657-1628_DOCS-RH-MCP: CODE-REVIEW (PASS — 3 axes + second pass; 3 majors remediated in-gate: missing-secret/no-tokens classification gap, shared-constant literals, orphaned test) + UAT (Complete, #1631 — forced scheduler runs vs prod verified st-config doc + fail marker + uid stamp; live REAUTHORIZATION_REQUIRED exercised the alarm path during QA) + st-config rules comment + changelog
 
+- [Scanner Chart View] 1232-1623_FE-IMPL-CHART-REVIEW: Bar-count range pill UI — 25|50|100 pills ahead of the calendar presets in both range groups (chart-view-toolbar live + chart-toolbar hidden parity); .active binds activeRange (the active chart's own selection); rangesByInterval defaults revised to '50' on every interval (owner decision during UI verification — supersedes #1622's D100/W100/M50); review-remediated non-default markers pin the desync/highlight/independence assertions under uniform defaults; 67 targeted + 6116 suite green
+- [Scanner Chart View] 1232-1623_DOCS-CHART-REVIEW: CODE-REVIEW (PASS — 3 axes + second pass; vacuous-assertion major remediated in-cycle under uniform '50' defaults) + UAT (Complete, #1632 — S1–S6 + refinement green; supersedes #1622 UAT's 100/100/50 expectations) + PRD/IMPL/TEST defaults revision + changelog
+
 ## [2026-11-18]
 
 ### Added

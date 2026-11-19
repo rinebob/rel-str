@@ -67,12 +67,12 @@ export type ChartRange = '25' | '50' | '100' | '6m' | '1y' | '5y' | 'all';
 
   ```ts
   /** Selected time-range preset PER CHART — keyed by ChartIntervalKey,
-   *  same pattern as selectedIdsByInterval. Defaults per PRD: D100/W100/M50. */
+   *  same pattern as selectedIdsByInterval. Defaults: '50' on every interval. */
   readonly rangesByInterval = signal<Record<ChartIntervalKey, ChartRange>>({
-    [ChartIntervalKey.DAILY]:   '100',
-    [ChartIntervalKey.WEEKLY]:  '100',
+    [ChartIntervalKey.DAILY]:   '50',
+    [ChartIntervalKey.WEEKLY]:  '50',
     [ChartIntervalKey.MONTHLY]: '50',
-    [ChartIntervalKey.TWO_DAY]: '100',   // Record exhaustiveness only — sandbox interval
+    [ChartIntervalKey.TWO_DAY]: '50',   // Record exhaustiveness only — sandbox interval
   });
 
   /** The range the pills display/affect — the active chart's selection.
@@ -122,7 +122,7 @@ None — self-contained FE state; `chart-toolbar`'s `selectedRange: ChartRange` 
 ## Decisions
 
 - **Bare numeric tokens `'25'|'50'|'100'`** over `'b25'`/`'bars25'` — terse-union convention; `rangeBarsFor` parses with `Number()` so new counts need zero switch cases. Rejected: discriminated `{kind:'bars'}` object — every consumer binding gets noisier for no payoff.
-- **`rangesByInterval` Record keyed by `ChartIntervalKey`** over a three-field object — exact precedent of `selectedIdsByInterval`; `TWO_DAY` key required for exhaustiveness (sandbox-only interval, defaults `'100'`).
+- **`rangesByInterval` Record keyed by `ChartIntervalKey`** over a three-field object — exact precedent of `selectedIdsByInterval`; `TWO_DAY` key required for exhaustiveness (sandbox-only interval, defaults `'50'`).
 - **`setRange` targets `activeChartInterval`** — reuses the existing active-chart mechanism (`setInterval` syncs it in single mode, `setActiveChart` in triple) rather than adding a new target concept.
 - **Mirror the hidden `chart-toolbar`** — a stale pill group fed `'25'` with no matching button would highlight nothing if ever re-enabled; three lines of markup buys the consistency.
 - **Drop `'recent'` entirely** (not alias) — no persisted state exists to migrate (service is page-scoped), and its role is covered by bar counts + calendar presets.
