@@ -3,7 +3,7 @@
     @if (showToolbar()) {
     <app-chart-toolbar
       [selectedInterval]="selectedInterval()"
-      [selectedRange]="selectedRange()"
+      [selectedRange]="activeRange()"
       [showZoomToolbar]="showZoomToolbar()"
       [activeChartInterval]="activeChartInterval()"
       [layout]="uiStateService.chartLayout()"

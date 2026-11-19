@@ -241,7 +241,7 @@ describe('ChartViewToolbarComponent', () => {
 
   it('chart controls write through: range pills, zoom, log scale, layout, fullscreen', () => {
     pill('1Y')?.click();
-    expect(toolbarState.selectedRange()).toBe('1y');
+    expect(toolbarState.activeRange()).toBe('1y');
 
     // Direct icon-button children of .chart-controls: zoom, layout, fullscreen.
     const [zoom, layout, fullscreen] = Array.from(

@@ -96,8 +96,32 @@ export class ChartToolbarStateService {
 
   /** The interval currently rendered in single-chart mode. */
   readonly selectedInterval = signal<BarsInterval>(BarsInterval.DAILY);
-  /** Selected time-range preset controlling `visibleBars` on all charts. */
-  readonly selectedRange = signal<ChartRange>('recent');
+  /** Selected time-range preset PER CHART — keyed by ChartIntervalKey,
+   *  same pattern as `selectedIdsByInterval`. Each chart owns its range;
+   *  `setRange` writes the active chart only. Defaults per #1622: D/W 100, M 50. */
+  readonly rangesByInterval = signal<Record<ChartIntervalKey, ChartRange>>({
+    [ChartIntervalKey.DAILY]:   '100',
+    [ChartIntervalKey.WEEKLY]:  '100',
+    [ChartIntervalKey.MONTHLY]: '50',
+    // Never selected by the interval switch (sandbox-only interval) — present
+    // to keep the Record exhaustive.
+    [ChartIntervalKey.TWO_DAY]: '100',
+  });
+  /** The interval key the range pills display/affect. Single mode renders
+   *  `selectedInterval`; triple mode renders all three, and the active chart
+   *  is the last-clicked cell — `activeChartInterval`. `activeChartInterval`
+   *  alone can't key both layouts: a triple-mode cell click moves it without
+   *  touching `selectedInterval`, so after a triple→single toggle the pills
+   *  would write a chart that isn't on screen. */
+  private readonly activeRangeKey = computed(() =>
+    chartIntervalKey(
+      this.uiStateService.chartLayout() === ChartLayout.SINGLE
+        ? this.selectedInterval()
+        : this.activeChartInterval(),
+    ),
+  );
+  /** The range the pills display/affect — the active chart's selection. */
+  readonly activeRange = computed(() => this.rangesByInterval()[this.activeRangeKey()]);
   /** Whether the Syncfusion zoom/pan toolbar is visible on all charts. */
   readonly showZoomToolbar = signal(false);
   /** The chart interval whose indicator-menu badge reads 'active' — tracks
@@ -158,8 +182,11 @@ export class ChartToolbarStateService {
     this.activeChartInterval.set(interval);
   }
 
+  /** Writes the range to the ACTIVE chart's slot — `selectedInterval` in
+   *  single mode, the clicked cell's `activeChartInterval` in triple. */
   setRange(range: ChartRange): void {
-    this.selectedRange.set(range);
+    const key = this.activeRangeKey();
+    this.rangesByInterval.update((current) => ({ ...current, [key]: range }));
   }
 
   toggleZoomToolbar(): void {

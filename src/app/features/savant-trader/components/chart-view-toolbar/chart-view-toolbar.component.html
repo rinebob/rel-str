@@ -68,11 +68,10 @@
         (click)="toolbarState.setInterval(BarsInterval.MONTHLY)">M</button>
     </span>
     <span class="pill-group flat">
-      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === 'recent'" (click)="toolbarState.setRange('recent')">Recent</button>
-      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === '6m'" (click)="toolbarState.setRange('6m')">6M</button>
-      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === '1y'" (click)="toolbarState.setRange('1y')">1Y</button>
-      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === '5y'" (click)="toolbarState.setRange('5y')">5Y</button>
-      <button type="button" class="pill" [class.active]="toolbarState.selectedRange() === 'all'" (click)="toolbarState.setRange('all')">All</button>
+      <button type="button" class="pill" [class.active]="toolbarState.activeRange() === '6m'" (click)="toolbarState.setRange('6m')">6M</button>
+      <button type="button" class="pill" [class.active]="toolbarState.activeRange() === '1y'" (click)="toolbarState.setRange('1y')">1Y</button>
+      <button type="button" class="pill" [class.active]="toolbarState.activeRange() === '5y'" (click)="toolbarState.setRange('5y')">5Y</button>
+      <button type="button" class="pill" [class.active]="toolbarState.activeRange() === 'all'" (click)="toolbarState.setRange('all')">All</button>
     </span>
 
     <button type="button" class="icon-btn" (click)="uiStateService.toggleChartLayout()" [title]="uiStateService.chartLayout() === ChartLayout.SINGLE ? 'Three-chart layout' : 'Single-chart layout'">

@@ -54,7 +54,7 @@ class MockFlexChartComponent {
 })
 class MockChartToolbarComponent {
   selectedInterval = input<BarsInterval>(BarsInterval.DAILY);
-  selectedRange = input<string>('recent');
+  selectedRange = input<string>('100');
   showZoomToolbar = input<boolean>(false);
   activeChartInterval = input<BarsInterval>(BarsInterval.DAILY);
   layout = input<ChartLayout>(ChartLayout.TRIPLE);
@@ -184,6 +184,64 @@ describe('SignalDetailComponent — log scale toggle', () => {
     toolbar().logScaleToggle.emit();
     fixture.detectChanges();
     expect(chartConfigs().map((c) => c.logScale)).toEqual([false]);
+  });
+
+  // Per-chart range state (#1622): each chart owns its ChartRange; setRange
+  // writes the active chart only. Triple DOM order is weekly, monthly, daily.
+  describe('per-chart range bars', () => {
+    const visibleBars = () => chartConfigs().map((c) => c.visibleBars);
+    const state = () => TestBed.inject(ChartToolbarStateService);
+
+    it('defaults to 100 daily / 100 weekly / 50 monthly bars', () => {
+      expect(visibleBars()).toEqual([100, 50, 100]);
+    });
+
+    it('setRange writes only the active chart — the others keep their range', () => {
+      state().setRange('25'); // daily is the default active chart
+      fixture.detectChanges();
+      expect(visibleBars()).toEqual([100, 50, 25]);
+    });
+
+    it('a triple-cell click retargets the pills to that chart', () => {
+      state().setActiveChart(BarsInterval.MONTHLY);
+      state().setRange('all');
+      fixture.detectChanges();
+      expect(visibleBars()).toEqual([100, 99999, 100]);
+
+      state().setActiveChart(BarsInterval.WEEKLY);
+      expect(state().activeRange()).toBe('100');
+    });
+
+    it('single mode binds the active interval’s own range', () => {
+      mockUiState.chartLayout.set(ChartLayout.SINGLE);
+      state().setInterval(BarsInterval.WEEKLY);
+      state().setRange('50');
+      fixture.detectChanges();
+      expect(chartConfigs()).toHaveLength(1);
+      expect(chartConfigs()[0].visibleBars).toBe(50);
+
+      // Daily keeps its own selection when the active interval moves back.
+      state().setInterval(BarsInterval.DAILY);
+      fixture.detectChanges();
+      expect(chartConfigs()[0].visibleBars).toBe(100);
+    });
+
+    it('calendar presets still resolve per interval', () => {
+      state().setActiveChart(BarsInterval.DAILY);
+      state().setRange('6m');   // ~126 trading days
+      state().setActiveChart(BarsInterval.WEEKLY);
+      state().setRange('1y');   // 52 weekly bars
+      state().setActiveChart(BarsInterval.MONTHLY);
+      state().setRange('5y');   // 60 monthly bars
+      fixture.detectChanges();
+      expect(visibleBars()).toEqual([52, 60, 126]);
+    });
+
+    it('passes the active chart’s range into the toolbar [selectedRange] input', () => {
+      state().setActiveChart(BarsInterval.MONTHLY);
+      fixture.detectChanges();
+      expect(toolbar().selectedRange()).toBe('50');
+    });
   });
 });
 

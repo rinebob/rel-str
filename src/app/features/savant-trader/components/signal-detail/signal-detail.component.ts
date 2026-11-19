@@ -61,9 +61,6 @@ const WEEKS_PER_YEAR = 52;           /** Calendar weeks per year. */
 const MONTHS_PER_YEAR = 12;          /** Calendar months per year. */
 const TRADING_DAYS_PER_MONTH = 21;   /** ~21 trading sessions per calendar month. */
 const WEEKS_PER_MONTH = 4.33;        /** Average calendar weeks per month (52/12). */
-const RECENT_DAILY_BARS = 365;       /** 'recent' daily view: ~365 calendar days of bars (not trading days). */
-const RECENT_WEEKLY_BARS = 104;      /** 'recent' weekly view: ~2 years of weekly bars. */
-const RECENT_MONTHLY_BARS = 60;      /** 'recent' monthly view: 5 years of monthly bars. */
 const ALL_BARS_MAX = 99999;          /** Sentinel passed to visibleBars to show all available bars. */
 
 @Component({
@@ -80,10 +77,13 @@ export class SignalDetailComponent {
   // ==========================================================================
 
   /** Pure function: converts a range preset to an approximate bar count for the given interval.
-   *  'recent' returns fixed well-known bar counts; other presets multiply calendar units
-   *  by the average bars-per-period for that interval.
+   *  Numeric members ('25'|'50'|'100') are literal bar counts on every interval;
+   *  calendar presets multiply calendar units by the average bars-per-period.
    */
   private static rangeBarsFor(interval: BarsInterval, range: ChartRange): number {
+    const literalBars = Number(range);
+    if (!Number.isNaN(literalBars)) return literalBars;
+
     const barsPerYear = interval === BarsInterval.WEEKLY ? WEEKS_PER_YEAR
       : interval === BarsInterval.MONTHLY ? MONTHS_PER_YEAR
       : TRADING_DAYS_PER_YEAR;
@@ -92,9 +92,6 @@ export class SignalDetailComponent {
       : TRADING_DAYS_PER_MONTH;
 
     switch (range) {
-      case 'recent': return interval === BarsInterval.WEEKLY ? RECENT_WEEKLY_BARS
-        : interval === BarsInterval.MONTHLY ? RECENT_MONTHLY_BARS
-        : RECENT_DAILY_BARS;
       case '6m': return Math.round(6 * barsPerMonth);
       case '1y': return barsPerYear;
       case '5y': return Math.round(5 * barsPerYear);
@@ -214,7 +211,7 @@ export class SignalDetailComponent {
   // Toolbar view state lives in the page-scoped ChartToolbarStateService —
   // aliased here so template bindings and local computeds stay unchanged.
   readonly selectedInterval = this.toolbarState.selectedInterval;
-  readonly selectedRange = this.toolbarState.selectedRange;
+  readonly activeRange = this.toolbarState.activeRange;
   readonly showZoomToolbar = this.toolbarState.showZoomToolbar;
   readonly activeChartInterval = this.toolbarState.activeChartInterval;
   readonly logScale = this.toolbarState.logScale;
@@ -240,14 +237,20 @@ export class SignalDetailComponent {
   // Range bars
   // ==========================================================================
 
-  /** Bar count for the active single-mode interval + selected range. Passed to `chartConfig`. */
-  rangeBars        = computed(() => SignalDetailComponent.rangeBarsFor(this.selectedInterval(), this.selectedRange()));
+  /** The given chart's own range selection — per-chart state lives in the
+   *  toolbar service keyed by `ChartIntervalKey`. */
+  private rangeFor(key: ChartIntervalKey): ChartRange {
+    return this.toolbarState.rangesByInterval()[key];
+  }
+
+  /** Bar count for the active single-mode interval + that chart's range. Passed to `chartConfig`. */
+  rangeBars        = computed(() => SignalDetailComponent.rangeBarsFor(this.selectedInterval(), this.rangeFor(chartIntervalKey(this.selectedInterval()))));
   /** Bar count for the daily chart in triple mode. */
-  private rangeBarsDaily   = computed(() => SignalDetailComponent.rangeBarsFor(BarsInterval.DAILY,   this.selectedRange()));
+  private rangeBarsDaily   = computed(() => SignalDetailComponent.rangeBarsFor(BarsInterval.DAILY,   this.rangeFor(ChartIntervalKey.DAILY)));
   /** Bar count for the weekly chart in triple mode. */
-  private rangeBarsWeekly  = computed(() => SignalDetailComponent.rangeBarsFor(BarsInterval.WEEKLY,  this.selectedRange()));
+  private rangeBarsWeekly  = computed(() => SignalDetailComponent.rangeBarsFor(BarsInterval.WEEKLY,  this.rangeFor(ChartIntervalKey.WEEKLY)));
   /** Bar count for the monthly chart in triple mode. */
-  private rangeBarsMonthly = computed(() => SignalDetailComponent.rangeBarsFor(BarsInterval.MONTHLY, this.selectedRange()));
+  private rangeBarsMonthly = computed(() => SignalDetailComponent.rangeBarsFor(BarsInterval.MONTHLY, this.rangeFor(ChartIntervalKey.MONTHLY)));
 
   // ==========================================================================
   // Active chart data and single-mode config

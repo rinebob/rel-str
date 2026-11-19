@@ -20,7 +20,7 @@ describe('ChartToolbarComponent', () => {
     component = fixture.componentRef.instance;
 
     fixture.componentRef.setInput('selectedInterval', BarsInterval.DAILY);
-    fixture.componentRef.setInput('selectedRange', 'recent');
+    fixture.componentRef.setInput('selectedRange', '100');
     fixture.componentRef.setInput('showZoomToolbar', false);
     fixture.componentRef.setInput('activeChartInterval', BarsInterval.DAILY);
     fixture.componentRef.setInput('layout', ChartLayout.SINGLE);

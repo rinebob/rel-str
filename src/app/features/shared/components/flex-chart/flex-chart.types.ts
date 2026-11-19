@@ -45,9 +45,9 @@ export enum StIndicator {
   ST_ANCHORED_VWAP = 'st-anchored-vwap',
 }
 
-/** Time-range presets offered by chart range pill groups — 'recent' resolves
- *  to per-interval well-known bar counts; the rest multiply calendar units. */
-export type ChartRange = 'recent' | '6m' | '1y' | '5y' | 'all';
+/** Time-range presets offered by chart range pill groups. Numeric members
+ *  are literal bar counts ('25'|'50'|'100'); the rest are calendar presets. */
+export type ChartRange = '25' | '50' | '100' | '6m' | '1y' | '5y' | 'all';
 
 /** Chart data interval enum — replaces 'daily' | 'weekly' | 'monthly' magic strings */
 export enum ChartIntervalKey {
