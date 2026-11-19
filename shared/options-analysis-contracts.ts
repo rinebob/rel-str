@@ -42,15 +42,23 @@ interface AnalysisTradeBase {
    *  not from the list doc) — matches the result-doc key suffix. */
   exitId: string;
 
-  /** From the pick row. */
-  pickDate: string; // YYYY-MM-DD
+  /** From the pick/position row. */
+  pickDate: string; // YYYY-MM-DD — the position's entryDate
+  /** One leg's contract id; multi-leg positions join leg ids with '+'
+   *  (e.g. 'A+B' — OCC parsers return null on joined ids). */
   contractId: string;
+  /** Net position mark at entry in posture-normalized space (#1500):
+   *  cost-to-close for credit structures, liquidation value for debit —
+   *  always ≥ 0, always decays as premium is lost. 1-leg rows carry the
+   *  contract's own mark verbatim (v1 parity). */
   entryMark: number;
 
-  /** Greeks at entry — SA's pick-day delta + IV fraction (verbatim from
-   *  the pick doc; SA IV is a fraction — render `* 100` for percent).
+  /** Greeks at entry — the position's signed net delta + IV in the same
+   *  posture space as entryMark (1-leg rows = SA's pick-day values
+   *  verbatim; SA IV is a fraction — render `* 100` for percent).
    *  Present even on 'error' records (the pick row is known when the
-   *  series isn't). Absent on pre-v2 docs. */
+   *  series isn't); absent when any leg can't contribute the field
+   *  (a stock leg has no iv → the position's entryIv is absent). */
   entryDelta?: number;
   entryIv?: number;
 
@@ -94,16 +102,23 @@ export interface AnalysisExitTrade extends AnalysisTradeBase {
  *  are we forced to buy". */
 export interface AnalysisExpiredTrade extends AnalysisTradeBase {
   outcome: 'expired';
-  /** True when the contract expired in-the-money — put: close < strike;
-   *  call: close > strike (option type from the SA response `type` field —
-   *  the worker writes an 'error' record when it's missing/unusable). For a
-   *  short template this means assignment (a loss); for BTO, a gain —
-   *  interpretation depends on the template's side. */
+  /** True when the position expired with net intrinsic value —
+   *  `intrinsicAtExpiry > 0` in posture-normalized space (#1500). For a
+   *  1-leg pick this is exactly the per-contract ITM test on the
+   *  position's own side (short put ITM → loss; long put ITM → gain);
+   *  for multi-leg positions it reads "the package settled worth
+   *  something". Per-leg ITM flags don't generalize. */
   expiredItm: boolean;
-  /** Intrinsic value at expiry — put: max(strike − close, 0);
-   *  call: max(close − strike, 0). */
+  /** Signed net settlement at the position's last expiry, in the
+   *  record's posture space — option legs at intrinsic, stock legs at
+   *  their underlying close. 1-leg = the contract's intrinsic verbatim
+   *  (v1 parity). */
   intrinsicAtExpiry: number;
-  /** |strike − underlyingClose| / underlyingClose × 100 at expiry. */
+  /** The CLOSEST option leg's distance-to-money at its own expiry —
+   *  |strike − underlyingClose| / underlyingClose × 100 (the leg
+   *  nearest the money drives assignment risk). 1-leg = v1 value. NB:
+   *  the manage-exit-scan pass (#1544) takes the FARTHEST leg — the
+   *  divergence is tracked in the #1500 code review. */
   assignmentDistancePct: number;
 }
 
