@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-11-19]
+
+### Added
+- [Robinhood MCP] 657-1628_SHARED-IMPL-RH-MCP: ST_CONFIG_RH_CREDENTIAL_CANARY_DOC st-config doc id — single source for the canary status path (BE writer + FE reader via stConfigDocPath)
+- [Robinhood MCP] 657-1628_BE-IMPL-RH-MCP: Scheduled RH credential canary — weekday 7 AM PT probe of the noon pass's identical credential path (RH_CREDENTIAL_BUNDLE → session manager → 45s-bounded get_option_chains SPY); classifyProbeError alarms on state names + verbatim missing-credential/missing-secret messages; st-config/rhCredentialCanary status doc {state, checkedAt, latencyMs, error?, userId}; rh_credential_canary_fail marker on alarm only; owner uid sourced from a runState-bearing instance doc; 7/7 node:test wired into test:paper-trading
+- [Robinhood MCP] 657-1628_DOCS-RH-MCP: CODE-REVIEW (PASS — 3 axes + second pass; 3 majors remediated in-gate: missing-secret/no-tokens classification gap, shared-constant literals, orphaned test) + UAT (Complete, #1631 — forced scheduler runs vs prod verified st-config doc + fail marker + uid stamp; live REAUTHORIZATION_REQUIRED exercised the alarm path during QA) + st-config rules comment + changelog
+
 ## [2026-11-18]
 
 ### Added
