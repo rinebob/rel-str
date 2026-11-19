@@ -158,6 +158,10 @@ export { manageOpenPassTimer } from './options-strategy-engine/passes/open-pass-
 export { manageExitScanTimer } from './options-strategy-engine/passes/open-pass-timer';
 export { manageOpenPassManual } from './options-strategy-engine/passes/manage-open-callable';
 
+// RH credential canary — weekday-morning probe of the noon pass's
+// credential path; writes st-config/rhCredentialCanary (#1628)
+export { rhCredentialCanary } from './paper-trading/engine/passes/rh-credential-canary';
+
 // Paper trading — signal accept + noon-PT expression fill (#564)
 export {
   paperSignalOrder,
