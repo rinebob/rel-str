@@ -65,6 +65,10 @@ export const ST_CONFIG_ROOT = 'st-config';
 /** Doc id for the run-status singleton under st-config (was savant-trader/data/status/current). */
 export const ST_CONFIG_STATUS_DOC = 'status';
 
+/** Doc id for the RH credential canary's daily status under st-config — written by
+ *  the scheduled `rhCredentialCanary` pass, read per-owner (userId field). */
+export const ST_CONFIG_RH_CREDENTIAL_CANARY_DOC = 'rhCredentialCanary';
+
 /** `st-config/{docId}` — hosts heterogeneous singletons/user docs (status, autoPaper, {uid} trading config). */
 export function stConfigDocPath(docId: string): string {
   return `${ST_CONFIG_ROOT}/${docId}`;
