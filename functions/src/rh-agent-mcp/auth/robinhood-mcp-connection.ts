@@ -63,28 +63,29 @@ export async function connectLocalRobinhoodMcpSession(
     try {
       await refreshStoredCredential(provider, { now, fetchFn: options.fetchFn });
     } catch (error) {
-      // A concurrent request/instance may have rotated the credential first.
-      // Adopt the winner's stored bundle rather than minting a competing
-      // rotation (which could strand the shared credential).
-      if (error instanceof CredentialRevisionConflictError) {
-        let latest;
-        try {
-          latest = await provider.reloadBundle();
-        } catch (reloadError) {
-          const { state } = classifyAuthenticationError(reloadError);
-          throw new RobinhoodMcpConnectionError(
-            `Failed to reload the concurrently-rotated Robinhood credential: ${state}. Re-run the local OAuth bootstrap, then upload-rh-credential.`,
-          );
-        }
-        if (!latest?.tokens || refreshPolicy.shouldRefresh(latest, now, false)) {
-          throw new RobinhoodMcpConnectionError(
-            'Stored Robinhood credential was concurrently rotated and still requires refresh. Re-run the local OAuth bootstrap, then upload-rh-credential.',
-          );
-        }
-      } else {
-        const { state } = classifyAuthenticationError(error);
+      // Any refresh failure can mean a concurrent instance rotated first:
+      // a CAS conflict means the loser's POST succeeded and lost the write;
+      // a raw invalid_grant means Robinhood honored the winner's rotation and
+      // rejected the shared (now-stale) grant. Either way the repository may
+      // already hold a healthy bundle — reload and adopt rather than minting
+      // a competing rotation or dying while the winner's credential is fine.
+      let latest;
+      try {
+        latest = await provider.reloadBundle();
+      } catch (reloadError) {
+        const { state } = classifyAuthenticationError(reloadError);
         throw new RobinhoodMcpConnectionError(
-          `Failed to refresh stored Robinhood credential: ${state}. Re-run the local OAuth bootstrap, then upload-rh-credential.`,
+          `Failed to reload the concurrently-rotated Robinhood credential: ${state}. Re-run the local OAuth bootstrap, then upload-rh-credential.`,
+        );
+      }
+      if (!latest?.tokens || refreshPolicy.shouldRefresh(latest, now, false)) {
+        const { state } = classifyAuthenticationError(error);
+        const detail =
+          error instanceof CredentialRevisionConflictError
+            ? 'Stored Robinhood credential was concurrently rotated and still requires refresh'
+            : `Failed to refresh stored Robinhood credential: ${state}`;
+        throw new RobinhoodMcpConnectionError(
+          `${detail}. Re-run the local OAuth bootstrap, then upload-rh-credential.`,
         );
       }
     }

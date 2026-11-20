@@ -80,7 +80,7 @@ import { ledgerDepsWithCapture } from './screenshot-lifecycle';
 import { buildCohortDoc, makeTicketEmitter, runSignalOrderRetry } from './signal-order-retry';
 import { RobinhoodMcpOptionQuoteProvider } from './engine/quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
-import { createRobinhoodMcpSessionManagerFromEnv } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
+import { createRobinhoodMcpSessionManagerFromKms } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from './engine/options-strategy-cors';
 import { createLogger } from './engine/logging';
 
@@ -548,12 +548,11 @@ export const paperSignalOrder = onCall<PaperSignalOrderRequest, Promise<PaperSig
     cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS,
     memory: '512MiB',
     timeoutSeconds: 120,
-    secrets: ['RH_CREDENTIAL_BUNDLE'],
   },
   async (request) => {
     let manager: RobinhoodMcpSessionManager | undefined;
     try {
-      const m = (manager = await createRobinhoodMcpSessionManagerFromEnv());
+      const m = (manager = await createRobinhoodMcpSessionManagerFromKms());
       return await handlePaperSignalOrder(
         request,
         paperSignalOrderProdDeps((name, args) => m.callTool(name, args)),
@@ -949,12 +948,11 @@ export const closePaperTrade = onCall<ClosePaperTradeRequest, Promise<ClosePaper
     cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS,
     memory: '512MiB',
     timeoutSeconds: 120,
-    secrets: ['RH_CREDENTIAL_BUNDLE'],
   },
   async (request) => {
     let manager: RobinhoodMcpSessionManager | undefined;
     try {
-      const m = (manager = await createRobinhoodMcpSessionManagerFromEnv());
+      const m = (manager = await createRobinhoodMcpSessionManagerFromKms());
       const callTool = (name: string, args: Record<string, unknown>) =>
         m.callTool(name, args);
       const optionQuotes = new RobinhoodMcpOptionQuoteProvider({ callTool });

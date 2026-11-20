@@ -20,7 +20,7 @@ import {
   runAutoPaperIngestFill,
   runAutoPaperIngestPass,
 } from './passes/auto-paper-ingest-pass';
-import { createRobinhoodMcpSessionManagerFromEnv } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
+import { createRobinhoodMcpSessionManagerFromKms } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import type { RobinhoodMcpSessionManager } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 
 export const stAutoPaperIngest = onTaskDispatched<AutoPaperIngestPayload>(
@@ -40,7 +40,6 @@ export const stAutoPaperIngest = onTaskDispatched<AutoPaperIngestPayload>(
     // ledger txn + lifecycle capture per signal.
     memory: '512MiB',
     timeoutSeconds: 540,
-    secrets: ['RH_CREDENTIAL_BUNDLE'],
   },
   async (req) => {
     const { runId, marketDate, triggeredBy } = req.data;
@@ -55,7 +54,7 @@ export const stAutoPaperIngest = onTaskDispatched<AutoPaperIngestPayload>(
 
     let manager: RobinhoodMcpSessionManager | undefined;
     try {
-      manager = await createRobinhoodMcpSessionManagerFromEnv();
+      manager = await createRobinhoodMcpSessionManagerFromKms();
       const summary = await runAutoPaperIngestFill(
         req.data,
         gate.scope,

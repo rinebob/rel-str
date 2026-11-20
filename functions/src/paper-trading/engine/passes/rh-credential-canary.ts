@@ -2,8 +2,9 @@
  * @topic #657 — RH-MCP, Task #1628: RH credential canary
  *
  * Daily 7 AM PT weekday probe of the exact credential path the noon
- * manage open pass uses (RH_CREDENTIAL_BUNDLE → token refresh → MCP
- * tool call). A dead refresh token surfaces here as `reauth_required`
+ * manage open pass uses (rh-agent-credentials/bundle via the KMS repo
+ * → token refresh → MCP tool call — #1639). A dead refresh token
+ * surfaces here as `reauth_required`
  * ~5 hours before the open pass discovers it — enough time to re-run
  * the local OAuth bootstrap + upload-rh-credential the same day.
  *
@@ -21,7 +22,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import { db } from '../../../firebase-admin-init';
-import { createRobinhoodMcpSessionManagerFromEnv } from '../../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
+import { createRobinhoodMcpSessionManagerFromKms } from '../../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import { NO_STORED_CREDENTIAL_MESSAGE } from '../../../rh-agent-mcp/auth/robinhood-mcp-connection';
 import { withTimeout } from '../../../rh-agent-mcp/tools/session-acquisition';
 import { MCP_CALL_TIMEOUT_MS } from '../../../rh-agent-mcp/tools/robinhood-tool-executor';
@@ -52,15 +53,23 @@ export const CANARY_STATUS_PATH = stConfigDocPath(
  *  code; the state name is embedded in the message instead
  *  (robinhood-mcp-connection.ts). User-action failures carry either a
  *  classifier state name (REAUTHORIZATION_REQUIRED/MISCONFIGURED) or a
- *  verbatim bootstrap/remedy message (no stored credential, missing
- *  secret binding) — all require the OAuth bootstrap + re-upload, so all
- *  alarm. Note the remedy phrase alone is NOT a discriminator: a
- *  TEMPORARILY_UNAVAILABLE refresh failure embeds it too. */
+ *  verbatim bootstrap/remedy message (no stored credential) — all require
+ *  the OAuth bootstrap + re-upload, so all alarm. Note the remedy phrase
+ *  alone is NOT a discriminator: a TEMPORARILY_UNAVAILABLE refresh failure
+ *  embeds it too. */
+const PERSISTENT_FAILURE_ERROR_NAMES = new Set([
+  // KMS-path misconfig (#1639): missing key name, corrupted/undecryptable
+  // doc — deterministic failures that need a human, not a retry.
+  'KmsUnavailableError',
+  'MalformedCredentialDocError',
+  'InvalidCredentialBundleError',
+]);
 function classifyProbeError(error: unknown): CanaryState {
   const msg = error instanceof Error ? error.message : String(error);
-  return /REAUTHORIZATION_REQUIRED|MISCONFIGURED/.test(msg) ||
-    msg === NO_STORED_CREDENTIAL_MESSAGE ||
-    msg === 'RH_CREDENTIAL_BUNDLE is not set'
+  const name = error instanceof Error ? error.name : '';
+  return /REAUTHORIZATION_REQUIRED|MISCONFIGURED|PERMISSION_DENIED|FAILED_PRECONDITION/.test(msg) ||
+    PERSISTENT_FAILURE_ERROR_NAMES.has(name) ||
+    msg === NO_STORED_CREDENTIAL_MESSAGE
     ? 'reauth_required'
     : 'transient';
 }
@@ -109,13 +118,13 @@ export async function runCredentialCanary(deps: {
 }
 
 /** Production probe — identical to the noon open pass's credential path:
- *  env secret → repository → connect (which triggers the refresh) → one
+ *  KMS+Firestore repository → connect (which triggers the refresh) → one
  *  cheap read-only call (the same tool+args the pass uses first). The
  *  withTimeout race keeps a hung MCP call from burning the whole
  *  function window without a status write — a timeout lands as
  *  'transient'. */
 async function prodProbe(): Promise<void> {
-  const manager = await createRobinhoodMcpSessionManagerFromEnv();
+  const manager = await createRobinhoodMcpSessionManagerFromKms();
   try {
     await withTimeout(
       manager.callTool('get_option_chains', {
@@ -152,7 +161,6 @@ export const rhCredentialCanary = onSchedule(
     memory: '256MiB',
     timeoutSeconds: 60,
     region: 'us-central1',
-    secrets: ['RH_CREDENTIAL_BUNDLE'],
   },
   async () => {
     await runCredentialCanary({

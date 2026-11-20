@@ -3,8 +3,10 @@ import { describe, it } from 'node:test';
 import type { ConnectedRobinhoodMcpSession } from '../../../functions/src/rh-agent-mcp/auth/robinhood-mcp-connection';
 import {
   RobinhoodMcpSessionManager,
-  createRobinhoodMcpSessionManagerFromEnv,
+  createRobinhoodMcpSessionManagerFromKms,
 } from '../../../functions/src/options-strategy-engine/mcp/robinhood-mcp-session-manager';
+import { KmsUnavailableError } from '../../../functions/src/rh-agent-mcp/auth/kms-cipher';
+import type { RobinhoodCredentialRepository } from '../../../functions/src/rh-agent-mcp/auth/credential-repository';
 
 function makeFakeConnection(
   responses: unknown[] = [],
@@ -149,5 +151,49 @@ describe('RobinhoodMcpSessionManager', () => {
       () => manager.callTool('test', {}),
       /connection refused/,
     );
+  });
+});
+
+describe('createRobinhoodMcpSessionManagerFromKms (#1639)', () => {
+  function readOnlyRepository(): RobinhoodCredentialRepository {
+    return {
+      load: async () => null,
+      store: async () => {
+        throw new Error('read-only');
+      },
+      delete: async () => {},
+    };
+  }
+
+  it('hands the injected repository to the session connect', async () => {
+    const repository = readOnlyRepository();
+    const { connection } = makeFakeConnection();
+    let seenRepository: unknown;
+    const manager = await createRobinhoodMcpSessionManagerFromKms({
+      repository,
+      connect: async (options) => {
+        seenRepository = options.repository;
+        return connection;
+      },
+    });
+
+    await manager.callTool('test', {});
+
+    assert.equal(seenRepository, repository);
+  });
+
+  it('fails closed without a repository or KMS key name — no env-bundle fallback', async () => {
+    const keyName = process.env.RH_CREDENTIAL_KEY_NAME;
+    delete process.env.RH_CREDENTIAL_KEY_NAME;
+    try {
+      await assert.rejects(
+        () => createRobinhoodMcpSessionManagerFromKms(),
+        KmsUnavailableError,
+      );
+    } finally {
+      if (keyName !== undefined) {
+        process.env.RH_CREDENTIAL_KEY_NAME = keyName;
+      }
+    }
   });
 });

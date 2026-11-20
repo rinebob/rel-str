@@ -26,13 +26,7 @@ import type { RobinhoodCredentialRepository } from '../auth/credential-repositor
 import type { RobinhoodMcpTransportFactory } from '../client/robinhood-mcp-session';
 import type { ObservationSessionCache } from '../tools/session-acquisition';
 import { RobinhoodMcpSessionCache } from './rh-session-cache';
-import {
-  FirestoreDocStore,
-  KmsFirestoreCredentialRepository,
-  TransactionalCredentialDocumentBackend,
-} from '../auth/kms-firestore-credential-repository';
-import { createKmsCipherFromEnv } from '../auth/kms-cipher';
-import { db } from '../../firebase-admin-init';
+import { createKmsCredentialRepository } from '../auth/production-credential-repository';
 
 /** Auth-rejection audit record — structural only, never token material. */
 export interface RhApiAuthRejectEntry {
@@ -119,12 +113,7 @@ export function createRhApiHandler(deps: RhApiDeps): RequestHandler {
   };
 }
 
-function createProductionRepository(): RobinhoodCredentialRepository {
-  return new KmsFirestoreCredentialRepository(
-    new TransactionalCredentialDocumentBackend(new FirestoreDocStore(db)),
-    createKmsCipherFromEnv(),
-  );
-}
+
 
 /**
  * Shared CORS allowlist (savanttrader.com + web.app + hosted.app + localhost
@@ -164,7 +153,7 @@ async function productionHandler(
   if (response.writableEnded) return;
 
   if (!cachedHandler) {
-    const repository = createProductionRepository();
+    const repository = createKmsCredentialRepository();
     cachedHandler = createRhApiHandler({
       verifyIdToken: async (token) => {
         const decoded = await getAuth().verifyIdToken(token);

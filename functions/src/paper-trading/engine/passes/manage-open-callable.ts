@@ -32,7 +32,7 @@ import { createLogger } from '../logging';
 import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from '../options-strategy-cors';
 import { StOrderTicketWriter } from '../../../order-tickets/st-order-ticket-writer';
 import {
-  createRobinhoodMcpSessionManagerFromEnv,
+  createRobinhoodMcpSessionManagerFromKms,
   type RobinhoodMcpSessionManager,
 } from '../../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 
@@ -107,7 +107,7 @@ export async function runManageOpenPassManual(
   }
 
   const getInstance = deps.getInstance ?? ((id: string) => getManageInstance(id));
-  const openSession = deps.openSession ?? createRobinhoodMcpSessionManagerFromEnv;
+  const openSession = deps.openSession ?? createRobinhoodMcpSessionManagerFromKms;
   const runPass = deps.runPass ?? runManageOpenPass;
   const tickets = (deps.ticketsFactory ?? (() => new StOrderTicketWriter()))();
   const marketDate = (deps.marketDate ?? getMarketDatePT)();
@@ -165,7 +165,6 @@ export const manageOpenPassManual = onCall(
     memory: '512MiB',
     timeoutSeconds: 120,
     region: 'us-central1',
-    secrets: ['RH_CREDENTIAL_BUNDLE'],
   },
   async (request) => runManageOpenPassManual(request),
 );

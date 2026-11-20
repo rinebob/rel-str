@@ -21,7 +21,7 @@ import {
 } from './options-strategy-pass-orchestrators';
 import { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from '../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
-import { createRobinhoodMcpSessionManagerFromEnv } from '../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
+import { createRobinhoodMcpSessionManagerFromKms } from '../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import {
   runSignalMarkPass,
   defaultSignalMarkDeps,
@@ -78,14 +78,13 @@ export const optionsMarkPass = onSchedule(
     timeZone: 'Etc/UTC',
     memory: '1GiB',
     timeoutSeconds: 180,
-    secrets: ['RH_CREDENTIAL_BUNDLE'],
   },
   async () => {
     log.info('Mark pass starting');
 
     let manager: RobinhoodMcpSessionManager | undefined;
     try {
-      manager = await createRobinhoodMcpSessionManagerFromEnv();
+      manager = await createRobinhoodMcpSessionManagerFromKms();
     } catch (err) {
       log.error(
         `Failed to create RH MCP session: ${err instanceof Error ? err.message : String(err)}`,
@@ -148,7 +147,7 @@ export const optionsMarkPass = onSchedule(
  * waiting for the schedule.
  */
 export const optionsMarkPassManual = onCall(
-  { cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS, memory: '1GiB', timeoutSeconds: 180, secrets: ['RH_CREDENTIAL_BUNDLE'] },
+  { cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS, memory: '1GiB', timeoutSeconds: 180 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Must be signed in to trigger a manual mark pass');
@@ -158,7 +157,7 @@ export const optionsMarkPassManual = onCall(
 
     let manager: RobinhoodMcpSessionManager | undefined;
     try {
-      manager = await createRobinhoodMcpSessionManagerFromEnv();
+      manager = await createRobinhoodMcpSessionManagerFromKms();
     } catch (err) {
       throw new HttpsError(
         'internal',

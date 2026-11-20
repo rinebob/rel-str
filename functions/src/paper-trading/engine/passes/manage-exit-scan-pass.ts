@@ -38,7 +38,7 @@
  *
  * Series source: `callPartnerHistoricalOptionsContractV2` per leg —
  * Google-SA fetch, no RH MCP session, so the timer needs no
- * RH_CREDENTIAL_BUNDLE.
+ * RH credential at all.
  */
 
 import { TradeSide } from '@common';

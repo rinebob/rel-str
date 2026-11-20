@@ -172,6 +172,61 @@ describe("local OAuth token refresh failures", () => {
     }
   });
 
+  it("connect-path refresh adopts a winner persisted during the loser's rejected refresh (#1639)", async () => {
+    // Two warm instances load the same stale bundle and race the refresh
+    // POST. Robinhood honors the winner's rotation and rejects the loser's
+    // shared grant with invalid_grant — but the doc already holds the
+    // rotated bundle, so the loser must adopt it, not die.
+    const original = storedCredential({
+      accessToken: "synthetic-expired-access",
+      refreshToken: "synthetic-old-refresh",
+      lastTokenResponseAt: "2026-07-18T17:00:00.000Z",
+    });
+    const winner: RobinhoodCredentialBundle = {
+      ...original,
+      revision: 8,
+      tokens: {
+        ...original.tokens,
+        access_token: "synthetic-winner-access",
+        refresh_token: "synthetic-winner-refresh",
+      },
+      lastTokenResponseAt: CURRENT_TIME.toISOString(),
+    };
+    let durable = original;
+    const repository: RobinhoodCredentialRepository = {
+      load: async () => durable,
+      store: async () => {
+        throw new Error("loser's store must never run — the POST was rejected");
+      },
+      delete: async () => undefined,
+    };
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = new McpServer({ name: "synthetic-server", version: "1.0.0" });
+    server.registerTool("read_only_probe", {}, async () => ({ content: [] }));
+    await server.connect(serverTransport);
+    let bearerToken = "";
+
+    const session = await connectLocalRobinhoodMcpSession({
+      repository,
+      now: CURRENT_TIME,
+      fetchFn: async () => {
+        // The winner's refresh + CAS store landed while our POST was in flight.
+        durable = winner;
+        return oauthResponse({ error: "invalid_grant" }, 400);
+      },
+      transportFactory: (_serverUrl, accessToken) => {
+        bearerToken = accessToken;
+        return clientTransport;
+      },
+    });
+
+    try {
+      assert.equal(bearerToken, "synthetic-winner-access");
+    } finally {
+      await session.close();
+    }
+  });
+
   it("requires reauthorization when the refresh grant is rejected", async () => {
     const repository = new InMemoryCredentialRepository(storedCredential({
       accessToken: "synthetic-expired-access",

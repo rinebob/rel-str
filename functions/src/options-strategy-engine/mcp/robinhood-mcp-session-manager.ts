@@ -3,8 +3,9 @@
  * Robinhood MCP session manager for a single Cloud Function invocation.
  *
  * Opens one MCP session lazily, reuses it across tool calls, and closes it
- * when the function returns. In production it reads the `RH_CREDENTIAL_BUNDLE`
- * secret from the function environment.
+ * when the function returns. Production consumers use the KMS+Firestore
+ * credential repository (`rh-agent-credentials/bundle`) so a rotated
+ * refresh grant persists across instances.
  */
 
 import { type RobinhoodMcpTransportFactory } from '../../rh-agent-mcp/client/robinhood-mcp-session';
@@ -14,8 +15,7 @@ import {
   type ConnectLocalRobinhoodMcpSessionOptions,
 } from '../../rh-agent-mcp/auth/robinhood-mcp-connection';
 import type { RobinhoodCredentialRepository } from '../../rh-agent-mcp/auth/credential-repository';
-import { EnvCredentialRepository } from '../../rh-agent-mcp/auth/env-credential-repository';
-import type { RobinhoodCredentialBundle } from '../../rh-agent-mcp/contracts/authentication';
+import { createKmsCredentialRepository } from '../../rh-agent-mcp/auth/production-credential-repository';
 import { stripServerPrefix } from '../../rh-agent-mcp/tools/robinhood-tools';
 import { isPlainObject } from '@robinhood-mcp/utils';
 
@@ -97,13 +97,20 @@ export class RobinhoodMcpSessionManager {
   }
 }
 
-export async function createRobinhoodMcpSessionManagerFromEnv(): Promise<RobinhoodMcpSessionManager> {
-  const bundleJson = process.env.RH_CREDENTIAL_BUNDLE;
-  if (!bundleJson) {
-    throw new Error('RH_CREDENTIAL_BUNDLE is not set');
-  }
-  const bundle = JSON.parse(bundleJson) as RobinhoodCredentialBundle;
+/**
+ * Production factory (#1639): the KMS+Firestore repository every deployed
+ * pass shares. A refresh that rotates the grant stores the new bundle
+ * transactionally — the next instance to cold-start loads it instead of a
+ * stale secret copy. Overrides exist for tests only — when overriding
+ * `connect`, pass `repository` too or the real KMS repo is still
+ * constructed (and throws without RH_CREDENTIAL_KEY_NAME).
+ */
+export async function createRobinhoodMcpSessionManagerFromKms(
+  options: Partial<RobinhoodMcpSessionManagerOptions> = {},
+): Promise<RobinhoodMcpSessionManager> {
   return new RobinhoodMcpSessionManager({
-    repository: new EnvCredentialRepository(bundle),
+    transportFactory: options.transportFactory,
+    connect: options.connect,
+    repository: options.repository ?? createKmsCredentialRepository(),
   });
 }

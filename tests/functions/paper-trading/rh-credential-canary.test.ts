@@ -63,17 +63,40 @@ describe("runCredentialCanary", () => {
     assert.equal(doc.state, "reauth_required");
   });
 
-  it("missing credential / missing secret → reauth_required — user-action failures must alarm", async () => {
-    // The wrapped-error path loses its code, but these messages are thrown
-    // verbatim (robinhood-mcp-connection.ts / session-manager) — a bad
-    // upload or broken secret binding must alarm, not write 'transient'.
-    for (const msg of [
-      "No stored Robinhood credential. Run the local OAuth bootstrap, then upload-rh-credential.",
-      "RH_CREDENTIAL_BUNDLE is not set",
+  it("missing credential → reauth_required — user-action failures must alarm", async () => {
+    const { deps } = makeDeps({
+      probeError: new Error(
+        "No stored Robinhood credential. Run the local OAuth bootstrap, then upload-rh-credential.",
+      ),
+    });
+    const doc = await runCredentialCanary(deps);
+    assert.equal(doc.state, "reauth_required");
+  });
+
+  it("KMS-path persistent failures alarm by error name — misconfig is not transient (#1639)", async () => {
+    // The KMS repo's deterministic misconfig surface: missing key name,
+    // malformed doc, undecryptable payload. All need a human — a 'transient'
+    // write would retry daily forever with no fail marker and no banner.
+    for (const name of [
+      "KmsUnavailableError",
+      "MalformedCredentialDocError",
+      "InvalidCredentialBundleError",
     ]) {
-      const { deps } = makeDeps({ probeError: new Error(msg) });
+      const err = new Error("simulated persistent failure");
+      err.name = name;
+      const { deps } = makeDeps({ probeError: err });
       const doc = await runCredentialCanary(deps);
-      assert.equal(doc.state, "reauth_required", msg);
+      assert.equal(doc.state, "reauth_required", name);
+    }
+  });
+
+  it("gRPC config failures (revoked IAM / disabled key) alarm — not transient", async () => {
+    for (const code of ["PERMISSION_DENIED", "FAILED_PRECONDITION"]) {
+      const { deps } = makeDeps({
+        probeError: new Error(`7 ${code}: caller lacks permission`),
+      });
+      const doc = await runCredentialCanary(deps);
+      assert.equal(doc.state, "reauth_required", code);
     }
   });
 

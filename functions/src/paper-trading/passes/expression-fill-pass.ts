@@ -42,7 +42,7 @@ import { StOrderTicketWriter } from '../../order-tickets/st-order-ticket-writer'
 import { db } from '../../firebase-admin-init';
 import { getMarketDatePT } from '../../common/pt-date-utils';
 import {
-  createRobinhoodMcpSessionManagerFromEnv,
+  createRobinhoodMcpSessionManagerFromKms,
   type RobinhoodMcpSessionManager,
 } from '../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import type { EntryFillInput, PendingFillInput } from '../ledger';
@@ -640,13 +640,12 @@ export const expressionFillPassTimer = onSchedule(
     timeZone: 'America/Los_Angeles',
     memory: '512MiB',
     timeoutSeconds: 300,
-    secrets: ['RH_CREDENTIAL_BUNDLE'],
   },
   async () => {
     logger.info('Expression fill pass starting');
     let manager: RobinhoodMcpSessionManager | undefined;
     try {
-      const m = (manager = await createRobinhoodMcpSessionManagerFromEnv());
+      const m = (manager = await createRobinhoodMcpSessionManagerFromKms());
       const tickets = new StOrderTicketWriter();
       const summary = await runExpressionFillPass(getMarketDatePT(), {
         listStagedExpressionTickets: () => tickets.listStagedExpressionTickets(),

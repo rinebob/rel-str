@@ -40,6 +40,8 @@ export type {
   CredentialDocumentBackend,
   StoredCredentialDoc,
 } from './auth/kms-firestore-credential-repository';
+export { createKmsCredentialRepository } from './auth/production-credential-repository';
+export type { ProductionCredentialRepositoryDeps } from './auth/production-credential-repository';
 export type {
   AuthenticationState,
   OAuthClientInformationMixed,

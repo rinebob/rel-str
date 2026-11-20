@@ -362,6 +362,14 @@ const scripts: VerifyScript[] = [
     needsAdc: false,
   },
   {
+    name: 'rh-mcp KMS repo rewire (passes)',
+    file: 'verify/rh-mcp-kms-repo-1639.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+    needsEnv: 'RH_CREDENTIAL_KEY_NAME',
+  },
+  {
     name: 'rh-mcp tool inventory (canonical doc)',
     file: 'verify/rh-mcp-tool-inventory-690.ts',
     cwd: 'functions',

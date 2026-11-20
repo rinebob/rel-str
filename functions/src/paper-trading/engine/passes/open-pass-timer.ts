@@ -28,7 +28,7 @@ import { runManageExitScan } from './manage-exit-scan-pass';
 import { createLogger } from '../logging';
 import { StOrderTicketWriter } from '../../../order-tickets/st-order-ticket-writer';
 import {
-  createRobinhoodMcpSessionManagerFromEnv,
+  createRobinhoodMcpSessionManagerFromKms,
   type RobinhoodMcpSessionManager,
 } from '../../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 
@@ -121,7 +121,6 @@ export const manageOpenPassTimer = onSchedule(
     memory: '512MiB',
     timeoutSeconds: 300,
     region: 'us-central1',
-    secrets: ['RH_CREDENTIAL_BUNDLE'],
   },
   async () => {
     const marketDate = getMarketDatePT();
@@ -141,7 +140,7 @@ export const manageOpenPassTimer = onSchedule(
 
     let manager: RobinhoodMcpSessionManager | undefined;
     try {
-      const m = (manager = await createRobinhoodMcpSessionManagerFromEnv());
+      const m = (manager = await createRobinhoodMcpSessionManagerFromKms());
       const tickets = new StOrderTicketWriter();
       for (const instance of instances) {
         try {

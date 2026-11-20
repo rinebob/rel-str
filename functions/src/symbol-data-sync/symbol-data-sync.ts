@@ -33,7 +33,7 @@ import {
 import { syncSymbolToSymbolData, todayIso } from './symbol-data-backfill';
 import { runSettlementForAllInstances } from '../options-strategy-engine/options-strategy-pass-orchestrators';
 import { getMarketDatePT } from '../common/pt-date-utils';
-import { createRobinhoodMcpSessionManagerFromEnv } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
+
 
 // ============================================================================
 // Constants
@@ -211,15 +211,12 @@ async function checkSyncRunCompletion(
     }
 
     // Run the options settlement pass now that all closing bars are available.
+    // (Firestore-only chain — no RH credential needed; #1639 removed a dead
+    // session manager that had silently skipped this pass on every run.)
     try {
       const settlementDate = getMarketDatePT();
-      const manager = await createRobinhoodMcpSessionManagerFromEnv();
-      try {
-        await runSettlementForAllInstances(settlementDate);
-        logger.info('symbol_data_sync_settlement_pass_complete', { syncRunId, settlementDate });
-      } finally {
-        await manager.close();
-      }
+      await runSettlementForAllInstances(settlementDate);
+      logger.info('symbol_data_sync_settlement_pass_complete', { syncRunId, settlementDate });
     } catch (err: any) {
       logger.error('symbol_data_sync_settlement_pass_failed', { syncRunId, error: err?.message });
     }
