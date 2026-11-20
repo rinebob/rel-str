@@ -272,3 +272,14 @@ select.dse-select[multiple] {
   user-select: none;
   flex-shrink: 0;
 }
+
+// The CDK's scroll-block strategy (ds-dialog modals) applies
+// `html.cdk-global-scrollblock { overflow-y: scroll }` — a forced,
+// dead scrollbar track on the window edge for the dialog's lifetime.
+// `position: fixed` on the same class already prevents scrolling, so
+// hiding the overflow keeps the block without the phantom track.
+// !important: the CDK rule carries equal specificity from a vendor
+// sheet whose load order isn't ours to control.
+html.cdk-global-scrollblock {
+  overflow-y: hidden !important;
+}

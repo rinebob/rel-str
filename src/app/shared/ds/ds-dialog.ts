@@ -103,10 +103,14 @@ export class DsDialogService {
           .global()
           .centerHorizontally()
           .centerVertically(),
+        // block() prevents scroll-behind on every ds-dialog. Its forced
+        // `overflow-y: scroll` on <html> leaves a dead scrollbar track —
+        // overridden globally in styles.scss (html.cdk-global-scrollblock).
         scrollStrategy: this.overlay.scrollStrategies.block(),
         hasBackdrop: true,
         backdropClass: 'cdk-overlay-dark-backdrop',
-        panelClass: ['dse-dialog', ...(config.panelClass ?? [])].flat(),
+        // panelClass may be a string — spreading it would emit chars.
+        panelClass: ['dse-dialog', config.panelClass ?? []].flat(),
         width: config.width,
         height: config.height,
         maxWidth: config.maxWidth ?? '90vw',
