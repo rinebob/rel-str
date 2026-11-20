@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-11-20]
+
+### Added
+- [GitHub read-only issue UI] 619-1635_BE-IMPL-DEV-TOOLS: getLifecycleTopicIndex — slim roots-only index callable (lazy-loading Thread #1609) — ISSUE_FIELDS_CORE split (labels/projectItems/updatedAt shared, subIssues dropped) + INDEX_NODES_BATCH + fetchTopicIndexData (missingRoots recount — never silently miss roots), handleGetLifecycleTopicIndex via shared fetchAndAssemble → assembleTreeResponse (truncation/grouping parity), LifecycleTopicTreeRequest contract, index.ts export (60s/512MiB); 83/83 gh-lifecycle specs; live verify 3.5s/43 roots
+- [GitHub read-only issue UI] 619-1635_DOCS-DEV-TOOLS: CODE-REVIEW (PASS — 3 axes + second pass; 1 major remediated in-gate: missingRoots recount covered mismatched-number/short-array silent drops; fetchAndAssemble extraction; updatedAt index semantics documented) + UAT (Complete, #1640 — S1–S6 green; BE-only, deploy at ship) + lazy-loading thread docs (PRD #1624, IMPL/TEST BE+FE #1630) + changelog
+
 ## [2026-11-19]
 
 ### Added
