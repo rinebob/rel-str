@@ -36,6 +36,7 @@ import {
   statsScopeIndustry,
   statsScopeCapTier,
   statsScopeSignalStatus,
+  isCanonicalStatsScope,
   buildRawQuoteId,
   parseTradeId,
   type TradeOrigin,
@@ -143,6 +144,28 @@ describe('buildStatsId and scopes', () => {
     expect(buildStatsId(statsScopeSource(PaperTradeSource.STRATEGY))).toBe('stats-src-STRATEGY');
     expect(statsScopeSource(PaperTradeSource.SIGNAL)).toBe('src-SIGNAL');
     expect(statsScopeSource(PaperTradeSource.MANUAL)).toBe('src-MANUAL');
+  });
+
+  it('isCanonicalStatsScope accepts every scope the builders emit (#1566)', () => {
+    expect(isCanonicalStatsScope(statsScopeAll())).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeInstance('260924-QQQM-CSP-020-30-D-1200'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeVariant('trailing-20'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeCohort('cohort-260924-QQQ-01'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeSignal('sig-123'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeSource(PaperTradeSource.SIGNAL))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeSymbol('QQQ'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeSignalType('TREND_RIDER_V1'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeDirection(TradeSide.LONG))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeSector('Technology'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeIndustry('Semiconductors'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeCapTier('mega'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeSignalStatus('active'))).toBe(true);
+  });
+
+  it('isCanonicalStatsScope rejects legacy + foreign scopes (#1566)', () => {
+    expect(isCanonicalStatsScope('ALL')).toBe(false);                    // legacy combined scope
+    expect(isCanonicalStatsScope('260924-QQQM-CSP-020-30-D-1200')).toBe(false); // unprefixed instance id
+    expect(isCanonicalStatsScope('')).toBe(false);
   });
 });
 

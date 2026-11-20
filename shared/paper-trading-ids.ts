@@ -212,6 +212,24 @@ export function statsScopeSignalStatus(status: string): string {
   return `sigstatus-${scopeSlug(status)}`;
 }
 
+/** Every scope-family prefix the builders above can emit — a stats doc
+ *  id is `stats-{scope}` and its scope is canonical iff it is `all` or
+ *  carries one of these prefixes. The legacy combined doc and
+ *  `stats-{unprefixed-instanceId}` docs fail this check — the #1566
+ *  cleanup enumerates `st-paper-trading/stats/items` on exactly this
+ *  predicate. */
+export const CANONICAL_STATS_SCOPE_PREFIXES = [
+  'inst-', 'var-', 'cohort-', 'sig-', 'sym-', 'src-', 'sigtype-', 'dir-',
+  'sector-', 'ind-', 'captier-', 'sigstatus-',
+] as const;
+
+export function isCanonicalStatsScope(scope: string): boolean {
+  return (
+    scope === 'all' ||
+    CANONICAL_STATS_SCOPE_PREFIXES.some((p) => scope.startsWith(p))
+  );
+}
+
 // ── Analysis datasets (Thread #1059) ─────────────────────────────────────────
 
 /** `st-paper-trading/analysis-datasets/items` — dataset index collection. */

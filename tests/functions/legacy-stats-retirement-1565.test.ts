@@ -110,4 +110,18 @@ describe('legacy stats writers + read-path retirement (#1565)', () => {
     }
     assert.deepEqual(offenders, [], `'ALL' scope literals remain`);
   });
+
+  // `stats-ALL` — the legacy doc-id literal. Nothing in deployed code
+  // may name the doc — functions/src AND shared/ (which compiles into
+  // the deployed bundle); the #1566 cleanup script lives under
+  // functions/scripts, outside this scan's radius.
+  it("zero 'stats-ALL' doc-id literals", () => {
+    const sharedHits = hits('stats-ALL', join(REPO_ROOT, 'shared'))
+      .filter((f) => !f.endsWith('.spec.ts'));
+    assert.deepEqual(
+      [...hits('stats-ALL'), ...sharedHits],
+      [],
+      `'stats-ALL' literals remain`,
+    );
+  });
 });

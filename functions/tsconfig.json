@@ -59,6 +59,7 @@
     "src",
     "scripts/backtest-qqq-underlying.ts",
     "scripts/purge-st-run-jobs-1010.ts",
+    "scripts/purge-legacy-stats-docs-1566.ts",
     "scripts/migrate-order-intents-1003.ts",
     "scripts/backfill-st-paper-trading-1013.ts",
     "scripts/archive-legacy-roots-1013.ts",

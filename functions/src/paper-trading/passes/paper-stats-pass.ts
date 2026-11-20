@@ -20,9 +20,10 @@
  * and per-scope failures are isolated — a bad scope doesn't lose the rest.
  *
  * This is THE stats writer (#1565): the legacy per-instance stats pass and
- * its `stats-{instanceId}`/`stats-ALL` doc ids are retired, so this pass
- * owns the whole `stats-{all|inst-*|var-*|cohort-*|sig-*|sym-*|src-*}`
- * namespace the paper dashboard enumerates via `listStats`.
+ * its `stats-{instanceId}`/legacy-combined doc ids are retired, so this
+ * pass owns the whole `stats-{all|inst-*|var-*|cohort-*|sig-*|sym-*|src-*|
+ * sigtype-*|dir-*|sector-*|ind-*|captier-*|sigstatus-*}` namespace the
+ * paper dashboard enumerates via `listStats`.
  */
 
 import {
