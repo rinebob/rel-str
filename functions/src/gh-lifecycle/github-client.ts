@@ -134,7 +134,7 @@ const SEARCH_PAGE = `query($q: String!, $after: String) {
 }`;
 
 // labels(first:50) soft-degrades — >50 labels misses the tail.
-const ISSUE_FIELDS = `number id title state url updatedAt
+const ISSUE_FIELDS_CORE = `number id title state url updatedAt
   labels(first: 50) { nodes { name } }
   projectItems(first: 10) { nodes {
     project { number }
@@ -144,7 +144,9 @@ const ISSUE_FIELDS = `number id title state url updatedAt
         field { ... on ProjectV2SingleSelectField { name } }
       }
     } }
-  } }
+  } }`;
+
+const ISSUE_FIELDS = `${ISSUE_FIELDS_CORE}
   subIssues(first: 100) {
     nodes { number id }
     totalCount
@@ -153,6 +155,12 @@ const ISSUE_FIELDS = `number id title state url updatedAt
 
 const NODES_BATCH = `query($ids: [ID!]!) {
   nodes(ids: $ids) { ... on Issue { ${ISSUE_FIELDS} } }
+}`;
+
+/** Slim per-root expansion for the topic index — identical metadata to
+ *  NODES_BATCH minus the subIssues connection the index never reads. */
+const INDEX_NODES_BATCH = `query($ids: [ID!]!) {
+  nodes(ids: $ids) { ... on Issue { ${ISSUE_FIELDS_CORE} } }
 }`;
 
 const SUBISSUES_PAGE = `query($owner: String!, $repo: String!, $issueNumber: Int!, $after: String) {
@@ -365,6 +373,59 @@ export async function fetchLifecycleData(
   return {
     roots: rootNumbers.filter(n => records.has(n)).map(n => records.get(n)!),
     childrenOf,
+    statusOf,
+    truncatedNodes: truncatedNodes + missingRoots,
+  };
+}
+
+/**
+ * Topic-root index for the lazy viewer (#1635): same search + metadata
+ * decode as `fetchLifecycleData` but a slim nodes() batch with no
+ * subIssues expansion — `childrenOf` comes back empty so `buildTree`
+ * yields every root with `children: []`. Truncation guarantees are
+ * identical: search-leg truncation and vanished roots (null slots)
+ * both count.
+ */
+export async function fetchTopicIndexData(
+  entry: SupportedRepo,
+  gql: Gql,
+): Promise<LifecycleFetchResult> {
+  const { refs: rootRefs, truncated: rootsTruncated } = await searchTopicRoots(entry, gql);
+  if (rootRefs.length === 0) {
+    return {
+      roots: [],
+      childrenOf: new Map(),
+      statusOf: new Map(),
+      truncatedNodes: rootsTruncated ? 1 : 0,
+    };
+  }
+
+  const records = new Map<number, LifecycleRawIssue>();
+  const statusOf = new Map<number, string>();
+  let truncatedNodes = rootsTruncated ? 1 : 0;
+  for (const batch of chunks(rootRefs.map(r => r.id), BATCH_SIZE)) {
+    const data = await gql(INDEX_NODES_BATCH, { ids: batch });
+    if (!Array.isArray(data.nodes)) {
+      throw new GitHubApiError(200, false, 'GitHub GraphQL: missing nodes payload');
+    }
+    for (const node of data.nodes) {
+      if (!node) continue; // counted as missingRoots below, like the monolith
+      const raw = toRaw(node);
+      records.set(raw.number, raw);
+      const status = decodeStatus(node, entry.projectNumber);
+      if (status !== undefined) statusOf.set(raw.number, status);
+    }
+  }
+  // Never trust nodes() positionally — same rule as the monolith's
+  // missingRoots: any ref with no record (null slot, short array, or a
+  // node that came back under a different number) is a MISSED root and
+  // counts as truncated rather than dropping silently.
+  const missingRoots = rootRefs.filter(r => !records.has(r.number)).length;
+  return {
+    roots: rootRefs
+      .map(r => records.get(r.number))
+      .filter((r): r is LifecycleRawIssue => r !== undefined),
+    childrenOf: new Map(),
     statusOf,
     truncatedNodes: truncatedNodes + missingRoots,
   };

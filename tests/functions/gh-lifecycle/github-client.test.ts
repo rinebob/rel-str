@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   fetchLifecycleData,
+  fetchTopicIndexData,
   type Gql,
 } from '../../../functions/src/gh-lifecycle/github-client';
 import type { SupportedRepo } from '../../../functions/src/gh-lifecycle/config';
@@ -340,5 +341,118 @@ describe('fetchLifecycleData — status decode', () => {
     f.issues.set(1, withStatus(1, 'IN PROGRESS'));
     const res = await fetchLifecycleData({ owner: 'o', repo: 'r' }, fakeGql(f));
     assert.equal(res.statusOf.size, 0);
+  });
+});
+
+describe('fetchTopicIndexData — lazy index (#1635)', () => {
+  /** Capture the query text alongside the fixture dispatch. */
+  function recording(f: Fx): { gql: Gql; queries: string[] } {
+    const queries: string[] = [];
+    const inner = fakeGql(f);
+    return {
+      queries,
+      gql: (q, v) => { queries.push(q); return inner(q, v); },
+    };
+  }
+
+  it('returns every root with metadata and an empty childrenOf — no subtree walk', async () => {
+    const f = fx({ roots: [1, 2] });
+    f.issues.set(1, fxIssue(1, [10])); // has children — must NOT be walked
+    f.issues.set(2, fxIssue(2));
+    f.issues.set(10, fxIssue(10));
+    const res = await fetchTopicIndexData(REPO, fakeGql(f));
+    assert.deepEqual(res.roots.map(r => r.number), [1, 2]);
+    assert.equal(res.childrenOf.size, 0);
+    assert.equal(res.truncatedNodes, 0);
+    // The root's declared children never triggered a fetch: no subpage
+    // calls, and #10 never entered a nodes() batch.
+    assert.ok(!f.calls.some(c => c.startsWith('subpage:')));
+    assert.deepEqual(f.calls.filter(c => c.startsWith('nodes:')), ['nodes:2']);
+  });
+
+  it('the index nodes() query carries no subIssues expansion', async () => {
+    const f = fx({ roots: [1] });
+    f.issues.set(1, fxIssue(1));
+    const { gql, queries } = recording(f);
+    await fetchTopicIndexData(REPO, gql);
+    const batch = queries.find(q => q.includes('nodes(ids'));
+    assert.ok(batch, 'expected a nodes(ids) batch query');
+    assert.ok(!batch!.includes('subIssues'), 'index query must not expand subIssues');
+    // Metadata still present — the left pane needs labels + Status.
+    assert.ok(batch!.includes('labels'), 'index keeps labels');
+    assert.ok(batch!.includes('projectItems'), 'index keeps project Status');
+    assert.ok(batch!.includes('updatedAt'), 'index keeps updatedAt');
+  });
+
+  it('decodes root Status + labels identically to the monolith path', async () => {
+    const f = fx({ roots: [1] });
+    f.issues.set(1, fxIssue(1, [], {
+      labels: { nodes: [{ name: '3_BLUEPRINT' }, { name: 'DEV-TOOLS' }] },
+      projectItems: {
+        nodes: [{
+          project: { number: 1 },
+          fieldValues: { nodes: [{ name: 'IN PROGRESS', field: { name: 'Status' } }] },
+        }],
+      },
+    }));
+    const res = await fetchTopicIndexData(REPO, fakeGql(f));
+    assert.equal(res.statusOf.get(1), 'IN PROGRESS');
+    assert.deepEqual(res.roots[0].labels, ['3_BLUEPRINT', 'DEV-TOOLS']);
+  });
+
+  it('search-leg truncation still counts', async () => {
+    const f = fx({ roots: [1], searchStuck: true });
+    f.issues.set(1, fxIssue(1));
+    const res = await fetchTopicIndexData(REPO, fakeGql(f));
+    assert.equal(res.truncatedNodes, 1);
+  });
+
+  it('null nodes() slots (deleted/transferred root) count as truncated', async () => {
+    const f = fx({ roots: [1, 2] });
+    f.issues.set(1, fxIssue(1)); // #2 referenced by search, never fixture-fetched
+    const res = await fetchTopicIndexData(REPO, fakeGql(f));
+    assert.deepEqual(res.roots.map(r => r.number), [1]);
+    assert.equal(res.truncatedNodes, 1);
+  });
+
+  it('empty repo → empty result, no batch calls', async () => {
+    const f = fx();
+    const res = await fetchTopicIndexData(REPO, fakeGql(f));
+    assert.deepEqual(res.roots, []);
+    assert.equal(res.truncatedNodes, 0);
+    assert.ok(!f.calls.some(c => c.startsWith('nodes:')));
+  });
+
+  it('a malformed batch payload (no nodes array) throws — never silently drops roots', async () => {
+    const f = fx({ roots: [1] });
+    f.issues.set(1, fxIssue(1));
+    const inner = fakeGql(f);
+    const gql: Gql = (q, v) =>
+      Array.isArray((v ?? {}).ids)
+        ? Promise.resolve({ nodes: undefined })
+        : inner(q, v);
+    const err = await fetchTopicIndexData(REPO, gql).catch(e => e);
+    assert.match(err.message, /missing nodes payload/);
+  });
+
+  it('a node returned under a mismatched number counts as a missed root', async () => {
+    // The nodes() contract is id-keyed, but never trust positionally:
+    // a node reporting a different number than its ref must count as
+    // truncated (monolith missingRoots parity), not vanish.
+    const f = fx({ roots: [1, 2] });
+    f.issues.set(1, fxIssue(1));
+    f.issues.set(2, fxIssue(2, [], { number: 9999 })); // lies about its number
+    const res = await fetchTopicIndexData(REPO, fakeGql(f));
+    assert.deepEqual(res.roots.map(r => r.number), [1]);
+    assert.equal(res.truncatedNodes, 1);
+  });
+
+  it('batches more than BATCH_SIZE roots into multiple nodes() queries', async () => {
+    const roots = Array.from({ length: 51 }, (_, i) => i + 1);
+    const f = fx({ roots });
+    for (const n of roots) f.issues.set(n, fxIssue(n));
+    const res = await fetchTopicIndexData(REPO, fakeGql(f));
+    assert.equal(res.roots.length, 51);
+    assert.deepEqual(f.calls.filter(c => c.startsWith('nodes:')), ['nodes:50', 'nodes:1']);
   });
 });

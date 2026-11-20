@@ -9,6 +9,11 @@ export interface LifecycleRepoRequest {
   repo: string;
 }
 
+/** getLifecycleTopicTree input — one topic root's subtree by number. */
+export interface LifecycleTopicTreeRequest extends LifecycleRepoRequest {
+  topicNumber: number;
+}
+
 export interface LifecycleNode {
   number: number;
   title: string;
@@ -18,6 +23,10 @@ export interface LifecycleNode {
   stageLabel?: string;
   status?: string;
   labels: string[];
+  /** Max updatedAt over the node's subtree when children were fetched;
+   *  on the roots-only index response (getLifecycleTopicIndex — every
+   *  `children` is []), it's just the issue's own updatedAt — subtree
+   *  activity is invisible at index granularity by design. */
   updatedAt: string;
   children: LifecycleNode[];
 }

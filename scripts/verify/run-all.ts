@@ -230,6 +230,12 @@ const scripts: VerifyScript[] = [
     needsGhWrite: true,
   },
   {
+    name: 'gh-lifecycle topic index',
+    file: 'dev-tools-gh-lifecycle-1635-index.ts',
+    needsAccount: false,
+    needsGh: true,
+  },
+  {
     name: 'workflow template conventions',
     file: 'workflows-template-647.ts',
     needsAccount: false,

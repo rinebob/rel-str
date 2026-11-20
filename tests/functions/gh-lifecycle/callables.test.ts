@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   handleGetLifecycleTree,
+  handleGetLifecycleTopicIndex,
   type GhLifecycleDeps,
 } from '../../../functions/src/gh-lifecycle/callables';
 import { GitHubApiError, type LifecycleFetchResult } from '../../../functions/src/gh-lifecycle/github-client';
@@ -32,6 +33,12 @@ function deps(overrides: Partial<GhLifecycleDeps> = {}): GhLifecycleDeps {
   };
   return {
     fetchData: async () => tree,
+    fetchIndexData: async () => ({
+      roots: tree.roots,
+      childrenOf: new Map(),
+      statusOf: tree.statusOf,
+      truncatedNodes: 0,
+    }),
     fetchInventoryDoc: async () => null,
     ...overrides,
   };
@@ -192,5 +199,91 @@ describe('handleGetLifecycleTree — error mapping', () => {
     } finally {
       if (saved !== undefined) process.env.GITHUB_READ_TOKEN = saved;
     }
+  });
+});
+
+describe('handleGetLifecycleTopicIndex — validation (#1635)', () => {
+  it('unauthenticated → unauthenticated', async () => {
+    const err = await handleGetLifecycleTopicIndex({ data: { owner: 'a', repo: 'b' }, auth: undefined } as any, deps()).catch(e => e);
+    assert.equal(code(err), 'unauthenticated');
+  });
+
+  it('missing/malformed fields → invalid-argument', async () => {
+    for (const data of [
+      { owner: 'rinebob' },
+      { repo: 'rel-str' },
+      { owner: 1, repo: 'rel-str' },
+      null, undefined,
+    ]) {
+      const err = await handleGetLifecycleTopicIndex(USER_REQ(data), deps()).catch(e => e);
+      assert.equal(code(err), 'invalid-argument', `data=${JSON.stringify(data)}`);
+    }
+  });
+
+  it('unsupported repo → invalid-argument naming the pair', async () => {
+    const err = await handleGetLifecycleTopicIndex(USER_REQ({ owner: 'x', repo: 'y' }), deps()).catch(e => e);
+    assert.equal(code(err), 'invalid-argument');
+    assert.match(err.message, /x\/y/);
+  });
+});
+
+describe('handleGetLifecycleTopicIndex — index semantics (#1635)', () => {
+  it('returns topic roots with children: [] — no subtree expansion', async () => {
+    // The dep's index result has an empty childrenOf even though the
+    // underlying issue has sub-issues — buildTree must yield [].
+    const res = await handleGetLifecycleTopicIndex(
+      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }), deps());
+    assert.equal(res.topics.length, 1);
+    assert.equal(res.topics[0].number, 619);
+    assert.equal(res.topics[0].nodeType, 'topic');
+    assert.deepEqual(res.topics[0].children, []);
+    assert.equal(res.topics[0].status, 'IN PROGRESS');
+    assert.match(res.fetchedAt, /^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('calls fetchIndexData, never fetchData', async () => {
+    const res = await handleGetLifecycleTopicIndex(
+      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
+      deps({ fetchData: async () => { throw new Error('must not be called'); } }));
+    assert.equal(res.topics.length, 1);
+  });
+
+  it('grouping parity: inventory doc stamps group + groupOrder', async () => {
+    const md = `## Open Topics\n\n### A. Named Group\n\n- **[#619 - x](https://github.com/rinebob/rel-str/issues/619)** — note\n\n## Closed Topics\n`;
+    const res = await handleGetLifecycleTopicIndex(
+      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
+      deps({ fetchInventoryDoc: async () => md }));
+    assert.equal(res.topics[0].group, 'A. Named Group');
+    assert.deepEqual(res.groupOrder, ['A. Named Group']);
+    assert.equal(res.groupingWarning, undefined);
+  });
+
+  it('grouping parity: inventory doc groups + stale-doc warning apply', async () => {
+    const md = `## Open Topics\n\n### A. Named Group\n\n- **[#9999 - x](https://github.com/rinebob/rel-str/issues/9999)** — note\n\n## Closed Topics\n`;
+    const res = await handleGetLifecycleTopicIndex(
+      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
+      deps({ fetchInventoryDoc: async () => md }));
+    assert.equal(res.topics[0].group, 'Ungrouped');
+    assert.match(res.groupingWarning!, /stale/);
+  });
+
+  it('truncatedNodes > 0 → internal with the count', async () => {
+    const err = await handleGetLifecycleTopicIndex(
+      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
+      deps({
+        fetchIndexData: async () => ({
+          roots: [raw(619, 'Topic: x')], childrenOf: new Map(),
+          statusOf: new Map(), truncatedNodes: 2,
+        }),
+      })).catch(e => e);
+    assert.equal(code(err), 'internal');
+    assert.match(err.message, /2/);
+  });
+
+  it('rate-limited fetch → resource-exhausted', async () => {
+    const err = await handleGetLifecycleTopicIndex(
+      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
+      deps({ fetchIndexData: async () => { throw new GitHubApiError(429, true, 'rate limit'); } })).catch(e => e);
+    assert.equal(code(err), 'resource-exhausted');
   });
 });

@@ -21,6 +21,7 @@ import { SUPPORTED_REPOS, type SupportedRepo } from './config';
 import {
   fetchFileText,
   fetchLifecycleData,
+  fetchTopicIndexData,
   githubGql,
   GitHubApiError,
   type LifecycleFetchResult,
@@ -32,6 +33,8 @@ const INVENTORY_PATH = 'docs/dev-notes/TOPICS-INVENTORY.md';
 
 export interface GhLifecycleDeps {
   fetchData: (entry: SupportedRepo) => Promise<LifecycleFetchResult>;
+  /** Slim roots-only fetch for the topic index — no subIssues expansion. */
+  fetchIndexData: (entry: SupportedRepo) => Promise<LifecycleFetchResult>;
   /** Raw TOPICS-INVENTORY.md; null on 404. Throws for other failures. */
   fetchInventoryDoc: (entry: SupportedRepo) => Promise<string | null>;
 }
@@ -48,6 +51,7 @@ export function ghLifecycleDeps(): GhLifecycleDeps {
   const gql = githubGql(token);
   return {
     fetchData: entry => fetchLifecycleData(entry, gql),
+    fetchIndexData: entry => fetchTopicIndexData(entry, gql),
     fetchInventoryDoc: entry => fetchFileText(token, entry, INVENTORY_PATH),
   };
 }
@@ -94,6 +98,13 @@ export async function handleGetLifecycleTree(
   return internalGuard('getLifecycleTree', () => handle(request, deps));
 }
 
+export async function handleGetLifecycleTopicIndex(
+  request: CallableRequest<LifecycleRepoRequest>,
+  deps: GhLifecycleDeps,
+): Promise<LifecycleTreeResponse> {
+  return internalGuard('getLifecycleTopicIndex', () => handleIndex(request, deps));
+}
+
 /** Shared validation for all gh-lifecycle callables — auth + repo pair. */
 export function resolveSupportedRepo(data: unknown): SupportedRepo {
   const { owner, repo } = (data ?? {}) as { owner?: unknown; repo?: unknown };
@@ -113,13 +124,46 @@ async function handle(
 ): Promise<LifecycleTreeResponse> {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
   const entry = resolveSupportedRepo(request.data);
+  return fetchAndAssemble(entry, deps, deps.fetchData);
+}
 
+/** Index variant — identical pipeline over the slim roots-only fetch.
+ *  `childrenOf` is empty by construction, so every topic lands with
+ *  `children: []`. */
+async function handleIndex(
+  request: CallableRequest<LifecycleRepoRequest>,
+  deps: GhLifecycleDeps,
+): Promise<LifecycleTreeResponse> {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const entry = resolveSupportedRepo(request.data);
+  return fetchAndAssemble(entry, deps, deps.fetchIndexData);
+}
+
+/** fetch → error-map → assemble — the post-validation body shared by
+ *  every tree-producing handler (monolith, index; the per-topic handler
+ *  resolves the same seam after its own request validation). */
+async function fetchAndAssemble(
+  entry: SupportedRepo,
+  deps: GhLifecycleDeps,
+  fetchData: (entry: SupportedRepo) => Promise<LifecycleFetchResult>,
+): Promise<LifecycleTreeResponse> {
   let data: LifecycleFetchResult;
   try {
-    data = await deps.fetchData(entry);
+    data = await fetchData(entry);
   } catch (err) {
     throw err instanceof GitHubApiError ? mapGitHubError(err) : err;
   }
+  return assembleTreeResponse(data, entry, deps);
+}
+
+/** Truncation guard → inventory grouping → tree assembly — shared by the
+ *  monolith, index, and per-topic handlers so all three degrade and warn
+ *  identically. */
+async function assembleTreeResponse(
+  data: LifecycleFetchResult,
+  entry: SupportedRepo,
+  deps: GhLifecycleDeps,
+): Promise<LifecycleTreeResponse> {
   if (data.truncatedNodes > 0) {
     throw new HttpsError(
       'internal',
@@ -179,4 +223,16 @@ export const getLifecycleTree = onCall<LifecycleRepoRequest, Promise<LifecycleTr
     memory: '512MiB',
   },
   (request) => handleGetLifecycleTree(request, ghLifecycleDeps()),
+);
+
+/** Slim topic index — one search + one nodes() batch, seconds not
+ *  30-60s; the left pane's default fetch under lazy loading (#1635). */
+export const getLifecycleTopicIndex = onCall<LifecycleRepoRequest, Promise<LifecycleTreeResponse>>(
+  {
+    cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS,
+    secrets: ['GITHUB_READ_TOKEN'],
+    timeoutSeconds: 60,
+    memory: '512MiB',
+  },
+  (request) => handleGetLifecycleTopicIndex(request, ghLifecycleDeps()),
 );
