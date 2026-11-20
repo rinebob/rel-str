@@ -3,8 +3,12 @@
 ## [2026-11-20]
 
 ### Added
+- [Robinhood MCP] 657-1639_DOCS-RH-MCP: CODE-REVIEW (PASS — 3 axes + second pass; 2 majors remediated in-gate: adopt-winner generalized to any refresh failure + canary KMS-path classifier gap) + UAT (Complete, #1641 — deployed-verify S1–S8 green: canary ok under prod SA, forced refresh ×2 rev 5→7 durable rotation proven live) + changelog
 - [GitHub read-only issue UI] 619-1635_BE-IMPL-DEV-TOOLS: getLifecycleTopicIndex — slim roots-only index callable (lazy-loading Thread #1609) — ISSUE_FIELDS_CORE split (labels/projectItems/updatedAt shared, subIssues dropped) + INDEX_NODES_BATCH + fetchTopicIndexData (missingRoots recount — never silently miss roots), handleGetLifecycleTopicIndex via shared fetchAndAssemble → assembleTreeResponse (truncation/grouping parity), LifecycleTopicTreeRequest contract, index.ts export (60s/512MiB); 83/83 gh-lifecycle specs; live verify 3.5s/43 roots
 - [GitHub read-only issue UI] 619-1635_DOCS-DEV-TOOLS: CODE-REVIEW (PASS — 3 axes + second pass; 1 major remediated in-gate: missingRoots recount covered mismatched-number/short-array silent drops; fetchAndAssemble extraction; updatedAt index semantics documented) + UAT (Complete, #1640 — S1–S6 green; BE-only, deploy at ship) + lazy-loading thread docs (PRD #1624, IMPL/TEST BE+FE #1630) + changelog
+
+### Fixed
+- [Robinhood MCP] 657-1639_BE-IMPL-RH-MCP: Prod RH passes rewired to KmsFirestoreCredentialRepository — the recurring REAUTHORIZATION_REQUIRED kill (rotated refresh grant survived only in the rotating process's memory; every cold start re-read the stale secret) — shared createKmsCredentialRepository factory (lazy Firestore, fail-closed cipher, one KMS client per warm instance); FromKms session manager across all pass/callable/rhApi/canary consumers + rhApi deduped; adopt-winner on ANY refresh failure (CAS conflict + OAuth invalid_grant losers adopt a concurrently-rotated healthy bundle); canary probes the identical path + KMS persistent-failure classes now alarm (KmsUnavailable/MalformedDoc/InvalidBundle/PERMISSION_DENIED→reauth_required); dead env repo + dead SDS settlement manager deleted; secrets:['RH_CREDENTIAL_BUNDLE'] bindings dropped; live-verify: rev 5→7 rotated twice, cold-start SPY probe green
 
 ## [2026-11-19]
 
